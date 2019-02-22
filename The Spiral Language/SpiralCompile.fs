@@ -48,46 +48,55 @@ let inline timeit (d: Stopwatch) f x =
 type ModulePrepassEnv = {
     settings : SpiralCompilerSettings
     seq : ResizeArray<TypedBind>
-    context : ResizeArray<TypedData>
-    map : Map<string, int>
+    map : Map<string, TypedData>
     timing : Watches
     }
 
 let raise_compile_error x = raise (CompileError x)
+let raise_compile_error' pos x = raise (CompileErrorWithPos(pos, x))
 let module_let (env: ModulePrepassEnv) (m: SpiralModule) = 
-    let count = env.context.Count
-    let context = env.context.ToArray()
-    let expr, size = 
+    let expr, free_vars, stack_size = 
         match timeit env.timing.parse (Parsing.parse env.settings) m with
         | Ok x -> x
         | Fail x -> raise_compile_error x
         //|> fun x -> printfn "%A" x; x
-        |> timeit env.timing.prepass (Prepass.prepass {prepass_context=context; prepass_map=env.map; prepass_map_length=count})
+        |> timeit env.timing.prepass Prepass.prepass
     let module_ = 
-        let d = {rbeh=AnnotationDive; seq=env.seq; env_global=context; env_stack_ptr=0; env_stack=Array.zeroCreate size; trace=[]; cse=ref Map.empty}
+        let unbound_variables =
+            Array.choose (fun (name,pos) ->
+                match Map.tryFind name env.map with
+                | Some x -> None
+                | None -> Some(name,pos)
+                ) free_vars
+        match unbound_variables with
+        | [||] -> ()
+        | [|var,pos|] -> raise_compile_error' [pos] <| sprintf "The variable %s is unbound." var
+        | _ -> 
+            let var, pos = Array.unzip unbound_variables
+            let var = String.concat ", " var
+            raise_compile_error' (Array.toList pos) <| sprintf "The variables %s are unbound." var
+        let context =
+            Array.map (fun (name,pos) ->
+                match Map.tryFind name env.map with
+                | Some x -> x
+                | None -> failwith "impossible"
+                ) free_vars
+        let d = {rbeh=AnnotationDive; seq=env.seq; env_global=context; env_stack_ptr=0; env_stack=Array.zeroCreate stack_size; trace=[]; cse=ref Map.empty}
         //printfn "%A" expr
         timeit env.timing.peval (PartEval.partial_eval d) expr
-    env.context.Add module_
-    {env with map=env.map.Add (m.name, count)}
+    {env with map=env.map.Add (m.name, module_)}
 
 let module_open (env: ModulePrepassEnv) x =
     match env.map.TryFind x with
     | Some x ->
-        match env.context.[x] with
-        | TyMap x ->
-            let map, _ =
-                Map.fold (fun (s, count) k v ->
-                    env.context.Add v
-                    Map.add (keyword_to_string k) count s, count+1
-                    ) (env.map, env.context.Count) x
-            {env with map=map}
+        match x with
+        | TyMap x -> {env with map=Map.foldBack (keyword_to_string >> Map.add) x env.map}
         | x -> raise_compile_error <| sprintf "Expected as module in `module_open`.\nGot: %s" (show_typed_data x)
     | _ -> raise_compile_error <| sprintf "In module_open, `open` did not find a module named %s in the environment." x
 
 let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
     let env = {
         settings = settings
-        context = ResizeArray()
         seq = ResizeArray()
         map = Map.empty
         timing =
@@ -126,4 +135,5 @@ let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
         | :? CodegenError as x -> env.timing.Elapsed, x.Data0
         | :? CodegenErrorWithPos as x -> env.timing.Elapsed, show_trace {settings with filter_list=[]} x.Data0 x.Data1
         | :? CompileError as x -> env.timing.Elapsed, x.Data0
+        | :? CompileErrorWithPos as x -> env.timing.Elapsed, show_trace {settings with filter_list=[]} x.Data0 x.Data1
 

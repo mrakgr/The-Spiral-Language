@@ -258,7 +258,8 @@ and RawRecordWithPattern =
     | RawRecordWithoutInjectVar of VarString
 
 and RawExpr =
-    | RawV of string
+    // Note: The VarStrings are annotated with positional information using `var_position_dict` global in tokenizer.
+    | RawV of VarString 
     | RawLit of Value
     | RawFunction of RawExpr * VarString
     | RawRecFunction of RawExpr * VarString * rec_name: VarString
@@ -504,6 +505,7 @@ exception TypeRaised of ConsedTy
 exception CodegenError of string
 exception CodegenErrorWithPos of Trace * string
 exception CompileError of string
+exception CompileErrorWithPos of Trace * string
 
 let v x = RawV x
 let lit x = RawLit x

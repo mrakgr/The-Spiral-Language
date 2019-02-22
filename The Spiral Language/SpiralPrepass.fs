@@ -90,103 +90,97 @@ let prepass x =
                             (l range (op TermFunctionRange arg) on_succ))
                         on_fail
 
-            Array.foldBack (fun (pat, exp) on_fail -> cp arg pat exp on_fail) clauses (op ErrorPatMiss [|v arg|])
+            let inline g f = Array.foldBack (fun (pat, exp) on_fail -> cp arg pat (f exp) on_fail) clauses (op ErrorPatMiss [|v arg|])
+            if clauses.Length > 1 then g (fun x -> ap (func "" x) B) else g id
             ) x
-
-    /// Adds the elements of b to a.
-    let map_union a b = Map.foldBack Map.add a b
 
     let rec free_vars_and_stack_size x =
         memoize free_vars_and_stack_size_dict (fun x ->
-            let rec f' (pos: PosKey option) x = 
-                let inline f x = f' pos x
-                let inline map_add x m = Map.add x pos m
+            let rec f x = 
                 match x with
-                | RawV x -> Map.empty.Add(x, pos), 0
-                | RawLit _ -> Map.empty, 0
+                | RawV x -> Set.singleton x, 0
+                | RawLit _ -> Set.empty, 0
                 | RawFunction(expr, name) ->
                     let _ = memoize function_args_dict (fun _ -> [name]) expr
                     let free_vars, _ = free_vars_and_stack_size expr
-                    Map.remove name free_vars, 0
+                    Set.remove name free_vars, 0
                 | RawRecFunction(expr, name, rec_name) ->
                     let _ = memoize function_args_dict (fun _ -> [name;rec_name]) expr
                     let free_vars, _ = free_vars_and_stack_size expr
-                    Map.remove name free_vars |> Map.remove rec_name, 0
+                    Set.remove name free_vars |> Set.remove rec_name, 0
                 | RawObjectCreate(ar) ->
                     let free_vars =
                         Array.fold (fun free_vars (keyword_string, expr) ->
                             let _ = memoize function_args_dict (fun _ -> object_arg) expr
                             let free_vars', _ = free_vars_and_stack_size expr
-                            Map.remove "self" free_vars' 
-                            |> Map.remove Types.pat_main
-                            |> map_union free_vars
-                            ) Map.empty ar
+                            Set.remove "self" free_vars' 
+                            |> Set.remove Types.pat_main
+                            |> Set.union free_vars
+                            ) Set.empty ar
                     let _ = memoize free_vars_dict (fun _ -> free_vars) x
                     free_vars, 0
                 | RawOp(_, args) | RawKeywordCreate(_,args) ->
                     Array.fold (fun (free_vars, stack_size) arg ->
                         let free_vars', stack_size' = f arg
-                        map_union free_vars free_vars', max stack_size stack_size'
-                        ) (Map.empty, 0) args
+                        Set.union free_vars free_vars', max stack_size stack_size'
+                        ) (Set.empty, 0) args
                 | RawLet(var,bind,on_succ) | RawCase(var,bind,on_succ) -> 
                     let bind_free_vars, bind_stack_size = f bind
                     let on_succ_free_vars, on_succ_stack_size = f on_succ
-                    map_union bind_free_vars (Map.remove var on_succ_free_vars), 1 + max bind_stack_size on_succ_stack_size
+                    Set.union bind_free_vars (Set.remove var on_succ_free_vars), 1 + max bind_stack_size on_succ_stack_size
                 | RawListTakeAllTest(vars,bind,on_succ,on_fail)
                 | RawListTakeNTest(vars,bind,on_succ,on_fail) 
                 | RawKeywordTest(_,vars,bind,on_succ,on_fail) -> 
                     let on_succ_free_vars, on_succ_stack_size = f on_succ
-                    let on_succ_free_vars = Array.foldBack Map.remove vars on_succ_free_vars
+                    let on_succ_free_vars = Array.foldBack Set.remove vars on_succ_free_vars
                     let on_fail_free_vars, on_fail_stack_size = f on_fail 
                     let free_vars =
-                        map_union on_succ_free_vars on_fail_free_vars
-                        |> map_add bind
+                        Set.union on_succ_free_vars on_fail_free_vars
+                        |> Set.add bind
                     free_vars, vars.Length + max on_succ_stack_size on_fail_stack_size
                 | RawRecordTest(vars,bind,on_succ,on_fail) ->
                     let on_succ_free_vars, on_succ_stack_size = f on_succ
                     let on_succ_free_vars = 
                         let f (RawRecordTestKeyword(_,name) | RawRecordTestInjectVar(_,name)) = name
-                        Array.foldBack (f >> Map.remove) vars on_succ_free_vars
+                        Array.foldBack (f >> Set.remove) vars on_succ_free_vars
                     let on_fail_free_vars, on_fail_stack_size = f on_fail 
                     let free_vars =
-                        let f x s = match x with RawRecordTestInjectVar(x,_) -> map_add x s | RawRecordTestKeyword(x,_) -> s
-                        map_union on_succ_free_vars on_fail_free_vars
-                        |> map_add bind
+                        let f x s = match x with RawRecordTestInjectVar(x,_) -> Set.add x s | RawRecordTestKeyword(x,_) -> s
+                        Set.union on_succ_free_vars on_fail_free_vars
+                        |> Set.add bind
                         |> Array.foldBack f vars
                     free_vars, vars.Length + max on_succ_stack_size on_fail_stack_size                
                 | RawRecordWith(binds,patterns) ->
                     let binds_free_vars, binds_stack_size =
                         Array.foldBack (fun x (free_vars, stack_size) ->
                             let free_vars', stack_size' = f x
-                            map_union free_vars free_vars', max stack_size stack_size'
-                            ) binds (Map.empty, 0)
+                            Set.union free_vars free_vars', max stack_size stack_size'
+                            ) binds (Set.empty, 0)
 
                     let patterns_free_vars, patterns_stack_size =
                         Array.foldBack (fun x (free_vars, stack_size) ->
                             match x with
                             | RawRecordWithKeyword(keyword,expr) ->
                                 let free_vars', stack_size' = f expr
-                                let free_vars' = Map.remove "this" free_vars'
-                                map_union free_vars free_vars',max stack_size (stack_size'+1)
+                                let free_vars' = Set.remove "this" free_vars'
+                                Set.union free_vars free_vars',max stack_size (stack_size'+1)
                             | RawRecordWithInjectVar(var,expr) ->
                                 let free_vars', stack_size' = f expr
-                                let free_vars' = Map.remove "this" free_vars'
-                                map_union free_vars free_vars' |> map_add var,max stack_size (stack_size'+1)
+                                let free_vars' = Set.remove "this" free_vars'
+                                Set.union free_vars free_vars' |> Set.add var,max stack_size (stack_size'+1)
                             | RawRecordWithoutKeyword keyword -> free_vars,stack_size
-                            | RawRecordWithoutInjectVar var -> map_add var free_vars,stack_size
-                            ) patterns (Map.empty, 0)
-                    map_union binds_free_vars patterns_free_vars, binds_stack_size+patterns_stack_size
-                | RawExprPos(pos) ->
-                    let pos, expr = pos.Pos, pos.Expression
-                    f' (Some pos) expr
+                            | RawRecordWithoutInjectVar var -> Set.add var free_vars,stack_size
+                            ) patterns (Set.empty, 0)
+                    Set.union binds_free_vars patterns_free_vars, binds_stack_size+patterns_stack_size
+                | RawExprPos(pos) -> f pos.Expression
                 | RawPattern x -> pattern x |> f
-            f' None x
+            f x
             ) x
 
     let env_add k (map,count) = Map.add k count map, count+1
     let env_init x args = 
-        List.foldBack Map.remove args x 
-        |> fun env -> Map.fold (fun env k _ -> env_add k env) (Map.empty, 0) env
+        List.foldBack Set.remove args x 
+        |> fun env -> Set.fold (fun env k -> env_add k env) (Map.empty, 0) env
         |> fun env -> List.fold (fun env k -> env_add k env) env args
 
     let rec renaming x =
@@ -194,7 +188,7 @@ let prepass x =
             let rec f' ((map, count) as env) x =
                 let inline f x = f' env x
                 let inline v x = Map.find x map
-                let inline array_free_vars_from x = Map.map (fun k _ -> Map.find k map) x |> Map.toArray |> Array.map snd
+                let inline array_free_vars_from x = Set.map (fun k -> Map.find k map) x |> Set.toArray
 
                 let inline op_helper (x,args) = tag(),x,Array.map f args
                 let inline let_helper (var,bind,on_succ) =
@@ -209,12 +203,12 @@ let prepass x =
                 | RawLit x -> Lit(tag(), x)
                 | RawFunction(expr, name) -> 
                     let free_vars, stack_size = free_vars_and_stack_size expr
-                    let free_vars = Map.remove name free_vars
+                    let free_vars = Set.remove name free_vars
                     let array_free_vars = array_free_vars_from free_vars
                     Function(tag(),renaming expr,array_free_vars,stack_size + 1)
                 | RawRecFunction(expr, name, rec_name) -> 
                     let free_vars, stack_size = free_vars_and_stack_size expr
-                    let free_vars = Map.remove name free_vars |> Map.remove rec_name
+                    let free_vars = Set.remove name free_vars |> Set.remove rec_name
                     let array_free_vars = array_free_vars_from free_vars
                     RecFunction(tag(),renaming expr,array_free_vars,stack_size + 2)
                 | RawObjectCreate(ar) ->
@@ -269,4 +263,9 @@ let prepass x =
             f' (env_init free_vars args) x
             ) x
 
-    renaming x, free_vars_and_stack_size x
+    let free_vars, stack_size = free_vars_and_stack_size x
+    let free_vars = 
+        let er x = failwithf "Compiler error: The variable `%s` must be annotated with its position in the tokenizer." x
+        Set.toArray free_vars
+        |> Array.map (fun x -> x, memoize' Tokenize.var_position_dict er x)
+    renaming x, free_vars, stack_size

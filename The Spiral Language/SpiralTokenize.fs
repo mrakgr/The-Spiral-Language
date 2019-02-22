@@ -3,9 +3,11 @@ open System
 open Spiral.Types
 open FParsec
 open System.Collections.Generic
+open System.Runtime.CompilerServices
 
 // Globals
 let private inbuilt_operators = Dictionary(HashIdentity.Structural)
+let var_position_dict = ConditionalWeakTable<string,PosKey>()
 
 exception TokenizationError of string
 
@@ -101,7 +103,7 @@ let is_separator_char c =
 let var (s:CharStream<_>) = 
     let start = pos s
 
-    let f x (s: CharStream<_>) =
+    let f x (s: CharStream<SpiralModule>) =
         if s.Skip(':') then
             let end_ = pos s
             TokKeyword(tok start end_,x)
@@ -120,7 +122,9 @@ let var (s:CharStream<_>) =
             | "type" -> TokSpecial(pos,SpecType) | "type_catch" -> TokSpecial(pos,SpecTypeCatch)
             | "true" -> TokValue(pos,LitBool true) | "false" -> TokValue(pos,LitBool false)
             | "_" -> TokSpecial(pos,SpecWildcard)
-            | x -> TokVar(pos,x)
+            | x -> 
+                let _ = memoize' var_position_dict (fun _ -> s.UserState,start.line,start.column) x
+                TokVar(pos,x)
         |> Reply
 
     (many1Satisfy2L is_identifier_starting_char is_identifier_char "identifier" >>= f .>> spaces) s
@@ -214,7 +218,7 @@ let op x =
 
 let operator s = 
     let start = pos s
-    let f name s = 
+    let f name (s: CharStream<SpiralModule>) = 
         let pos = tok start (pos s)
         match name with
         | "!" -> Reply(TokSpecial(pos,SpecUnaryOne))
@@ -228,7 +232,10 @@ let operator s =
         | "." -> Reply(TokSpecial(pos,SpecDot))
         | ":" -> Reply(TokSpecial(pos,SpecColon))
         | _ ->
-            try Reply(TokOperator(pos,op name))
+            try 
+                let op = op name
+                let _ = memoize' var_position_dict (fun _ -> s.UserState,start.line,start.column) name
+                Reply(TokOperator(pos,op))
             with :? TokenizationError as x -> Reply(Error, messageError x.Data0)
     (many1SatisfyL is_operator_char "operator"  >>= f .>> spaces) s
 
