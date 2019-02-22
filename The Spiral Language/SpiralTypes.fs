@@ -278,7 +278,7 @@ and RawExpr =
 and RecordTestPattern = RecordTestKeyword of keyword: KeywordTag | RecordTestInjectVar of var: VarTag
 and RecordWithPattern = 
     | RecordWithKeyword of keyword: KeywordTag * Expr 
-    | RecordWithInjectVar of VarString * var: VarTag * Expr
+    | RecordWithInjectVar of VarString * var: VarTag * Expr // VarString here is for error messages in the partial evaluator.
     | RecordWithoutKeyword of keyword: KeywordTag
     | RecordWithoutInjectVar of VarString * var: VarTag
 

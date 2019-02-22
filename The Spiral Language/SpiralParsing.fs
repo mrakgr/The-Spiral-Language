@@ -5,10 +5,7 @@ open Spiral.ParserCombinators
 open Spiral.Show
 open System
 open System.Text
-open System.Runtime.CompilerServices
 
-// Globals
-let var_position_dict = ConditionalWeakTable()
 
 type Associativity = FParsec.Associativity
 
@@ -259,9 +256,7 @@ let parser (settings: SpiralCompilerSettings) d =
                         |> List.foldBack (fun (cond,tr) fl -> Types.if_ cond tr fl) elifs
                     Types.if_ cond tr fl)
             <| d
-        let case_var d =
-            let pos = pos' d
-            (var |>> fun x -> let _ = memoize' var_position_dict (fun x -> x, pos) x in v x) d
+        let case_var = var |>> v
         let case_rounds = rounds ((op_as_var |>> v) <|> (reset_semicolon_level expr <|>% B))
 
         let case_typex match_type (d: ParserEnv) =
