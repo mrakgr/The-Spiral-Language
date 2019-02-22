@@ -188,14 +188,14 @@ let prepass x =
             let rec f' ((map, count) as env) x =
                 let inline f x = f' env x
                 let inline v x = Map.find x map
-                let inline array_free_vars_from x = Set.map (fun k -> Map.find k map) x |> Set.toArray
+                let inline array_free_vars_from x = Set.toArray x |> Array.map (fun k -> Map.find k map)
 
                 let inline op_helper (x,args) = tag(),x,Array.map f args
                 let inline let_helper (var,bind,on_succ) =
                     let env = env_add var env
                     tag(), f' env bind, f' env on_succ
                 let inline list_helper (vars,bind,on_succ,on_fail) =
-                    let env = Array.foldBack env_add vars env
+                    let env = Array.fold (fun s x -> env_add x s) env vars
                     tag(),vars.Length,v bind,f' env on_succ,f on_fail
 
                 match x with
@@ -233,11 +233,11 @@ let prepass x =
                     KeywordTest(tag,string_to_keyword keyword,bind,on_succ,on_fail)
                 | RawRecordTest(vars,bind,on_succ,on_fail) ->
                     let vars, env =
-                        Array.mapFoldBack (fun x env ->   
+                        Array.mapFold (fun env x ->   
                             match x with
                             | RawRecordTestKeyword(keyword,name) -> RecordTestKeyword(string_to_keyword keyword), env_add name env
                             | RawRecordTestInjectVar(var,name) -> RecordTestInjectVar(v var), env_add name env
-                            ) vars env
+                            ) env vars
                     RecordTest(tag(),vars,v bind,f' env on_succ,f on_fail)      
                 | RawRecordWith(binds,patterns) ->
                     let binds = Array.map f binds

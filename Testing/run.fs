@@ -107,7 +107,7 @@ let test1: SpiralModule =
     """
 inl a = 5
 inl b = 10
-a + b
+dyn (a + b)
     """
     }
 
@@ -193,27 +193,9 @@ let test7: SpiralModule =
     description="Do active patterns work?"
     code=
     """
-inl f op1 op2 op3 = function
-    | !op1 (.Some, x) -> x
-    | !op2 (.Some, x) -> x
-    | !op3 (.Some, x) -> x
-
-inl add = function
-    | .Add -> .Some, inl x y -> x + y
-    | _ -> .None
-inl sub = function
-    | .Sub -> .Some, inl x y -> x - y
-    | _ -> .None
-inl mult = function
-    | .Mult -> .Some, inl x y -> x * y
-    | _ -> .None
-
-inl f = f add sub mult
-
-inl a = f .Add 1 2
-inl b = f .Sub 1 2
-inl c = f .Mult 1 2
-dyn (a, b, c)
+inl f x = x
+inl f = f ()
+()
     """
     }
 
@@ -2729,6 +2711,6 @@ run_with_unit_ret (readall()) parser
 
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test7
 |> printfn "%s"
 |> ignore

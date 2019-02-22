@@ -6,6 +6,8 @@ open System.Collections.Generic
 open System.Runtime.CompilerServices
 
 // Globals
+// Note: The tokens should not be memoized along with the string since that would conflict with extending them with 
+// implicit positional information using the `var_position_dict`.
 let private inbuilt_operators = Dictionary(HashIdentity.Structural)
 let var_position_dict = ConditionalWeakTable<string,PosKey>()
 
@@ -67,7 +69,7 @@ type SpiralToken =
     member d.End = d.Pos.end_
 
 let _ =
-    let add_infix_operator assoc str prec = inbuilt_operators.Add(str, {name=str; precedence=prec; associativity=assoc})
+    let add_infix_operator assoc str prec = inbuilt_operators.Add(str, (prec, assoc))
 
     let left_assoc_ops = 
         let f = add_infix_operator Associativity.Left
@@ -210,7 +212,7 @@ let op x =
                 let name = name.[0..l-1]
                 match inbuilt_operators.TryGetValue name with
                 | false, _ -> loop (l - 1)
-                | true, v -> {v with name=name'}
+                | true, v -> v
             else
                 raise (TokenizationError(sprintf "The `%s` operator is not supported." name'))
         loop name.Length
@@ -233,9 +235,9 @@ let operator s =
         | ":" -> Reply(TokSpecial(pos,SpecColon))
         | _ ->
             try 
-                let op = op name
+                let prec,asoc = op name
                 let _ = memoize' var_position_dict (fun _ -> s.UserState,start.line,start.column) name
-                Reply(TokOperator(pos,op))
+                Reply(TokOperator(pos,{name=name; precedence=prec; associativity=asoc}))
             with :? TokenizationError as x -> Reply(Error, messageError x.Data0)
     (many1SatisfyL is_operator_char "operator"  >>= f .>> spaces) s
 

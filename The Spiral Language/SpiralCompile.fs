@@ -74,7 +74,7 @@ let module_let (env: ModulePrepassEnv) (m: SpiralModule) =
         | _ -> 
             let var, pos = Array.unzip unbound_variables
             let var = String.concat ", " var
-            raise_compile_error' (Array.toList pos) <| sprintf "The variables %s are unbound." var
+            raise_compile_error' (Array.rev pos |> Array.toList) <| sprintf "The variables %s are unbound." var
         let context =
             Array.map (fun (name,pos) ->
                 match Map.tryFind name env.map with

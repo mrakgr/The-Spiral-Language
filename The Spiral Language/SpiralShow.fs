@@ -181,7 +181,6 @@ let show_parser_error = function
         | SpecThen -> "then"
         | SpecElif -> "elif"
         | SpecElse -> "else"
-        | SpecOpen -> "open"
         | SpecJoin -> "join"
         | SpecType -> "type"
         | SpecTypeCatch -> "type_catch"
