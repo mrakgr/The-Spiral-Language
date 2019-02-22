@@ -57,6 +57,7 @@
   <ItemGroup>
     <None Include="Spiral.fs%27" />
     <None Include="SpiralParsing.fs%27" />
+    <None Include="SpiralPrepass.fs%27" />
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
@@ -66,7 +67,6 @@
     <Compile Include="SpiralParserCombinators.fs" />
     <Compile Include="SpiralShow.fs" />
     <Compile Include="SpiralParsing.fs" />
-    <None Include="SpiralPrepass.fs%27" />
     <Compile Include="SpiralPrepass.fs" />
     <Compile Include="SpiralPartEval.fs" />
     <Compile Include="SpiralCodegenFsharp.fs" />

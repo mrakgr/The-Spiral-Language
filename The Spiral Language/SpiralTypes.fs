@@ -219,11 +219,6 @@ type ArrayType =
     | ArtCudaShared
     | ArtCudaLocal
 
-and PatternArg = {
-    pat_on_succ : RawExpr
-    pat_on_fail : RawExpr
-    }
-
 and PatRecordMembersItem =
     | PatRecordMembersKeyword of keyword: KeywordString * name: Pattern
     | PatRecordMembersInjectVar of var: VarString * name: Pattern
@@ -408,11 +403,6 @@ and Trace = PosKey list
 type RecursiveBehavior =
     | AnnotationDive
     | AnnotationReturn
-
-type PrepassEnv = {
-    prepass_map : Map<string, int>
-    prepass_map_length : int
-    }
 
 type LangEnv = {
     trace : Trace

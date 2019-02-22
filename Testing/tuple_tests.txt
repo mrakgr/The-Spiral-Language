@@ -51,3 +51,31 @@ inl x = 1,2,3,4
 Tuple.scanl (+) 0 x, Tuple.scanr (+) x 0
     """
     }
+
+let test104: SpiralModule =
+    {
+    name="test104"
+    prerequisites=[tuple]
+    description="Does the map2 work?"
+    code=
+    """
+// TODO
+inl a = 1,2,3
+inl b = 4,5,6
+Tuple.map2 (inl a b -> a + b) a b
+    """
+    }
+
+let test105: SpiralModule =
+    {
+    name="test105"
+    prerequisites=[tuple]
+    description="Does the foldl2 work?"
+    code=
+    """
+// TODO
+inl a = 1,2,3
+inl b = 4,5,6
+Tuple.foldl2 (inl s a b -> s + a + b) 0 a b
+    """
+    }

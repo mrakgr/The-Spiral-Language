@@ -109,3 +109,78 @@ init (2,3,4) (inl a b c -> a*b*c) (1,{from=1},{from=1; by=2})
 |> show |> Console.writeline
     """
     }
+
+let test113: SpiralModule =
+    {
+    name="test113"
+    prerequisites=[host_tensor_range_view; console]
+    description="Do the tensor range views work?"
+    code=
+    """
+inl tns =
+    Tensor.init (2,3,4) (inl a b c -> a*b*c)  
+    |> ViewR.wrap ({from=2; near_to=4},{from=2; near_to=5},{from=2; near_to=6})
+
+inl tns = tns ((), {from=3; by=2}, {from=3})
+tns .basic |> Tensor.print
+    """
+    }
+
+let test114: SpiralModule =
+    {
+    name="test114"
+    prerequisites=[host_tensor_tree_view; console]
+    description="Do the tensor tree views work?"
+    code=
+    """
+inl tns =
+    Tensor.init (2,3,4) (inl a b c -> a*b*c)  
+    |> View.wrap ({a=1; b=1},{a=1; b=2},{a=1; b={q=3}})
+
+inl tns = tns ({b=()}, {b=()}, {b={q=()}})
+tns .basic |> Tensor.print
+    """
+    }
+
+let test115: SpiralModule =
+    {
+    name="test115"
+    prerequisites=[host_tensor_tree_view; console]
+    description="Does the tensor view's create function work?"
+    code=
+    """
+inl tns = View.create {dim={a=1; b=1}, {a=1; b=2}, {a=1; b={q=3}}; elem_type=float32}
+
+inl tns = tns ({b=()}, {b=()}, {b={q=()}})
+tns .basic |> Tensor.print
+    """
+    }
+
+let test116: SpiralModule =
+    {
+    name="test116"
+    prerequisites=[host_tensor_tree_view; console]
+    description="Do the tensor tree partial views work?"
+    code=
+    """
+inl tns =
+    Tensor.init (4,16) (inl a b -> a,b)
+    |> View.wrap ((), {a={b=4; c=4}; d={e=4; f=4}})
+
+tns ((),{d=()}) .basic |> Tensor.print
+    """
+    }
+
+let test117: SpiralModule =
+    {
+    name="test117"
+    prerequisites=[host_tensor; console]
+    description="Do the tensor expand_singular work?"
+    code=
+    """
+open Tensor
+init (1,5) (inl a b -> a, b)
+|> Tensor.expand_singular (5,5) 
+|> Tensor.print
+    """
+    }

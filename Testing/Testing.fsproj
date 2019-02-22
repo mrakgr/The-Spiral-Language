@@ -65,6 +65,10 @@
     <Content Include="list_tests.txt" />
     <Content Include="tensor_tests.txt" />
     <Content Include="aux_tests.txt" />
+    <Content Include="loop_tests.txt" />
+    <Content Include="parsing_tests.txt" />
+    <Content Include="euler_tests.txt" />
+    <Content Include="hacker_rank_tests.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core">
