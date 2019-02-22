@@ -633,7 +633,7 @@ inl add c d =
     inl {a b} = indiv m
     a + b + c + d
 inl f g c d = join g c d
-f (heap: add) (dyn 3) (dyn 4)
+f (heap add) (dyn 3) (dyn 4)
     """
     }
 
@@ -936,9 +936,9 @@ inl f = function
     | .Hello as x -> .Bye
 
 inl g = function
-    | .Bye -> ()
+    | .Bye -> "Bye"
 
-g f.Hello
+dyn (g f.Hello)
     """
     }
 
@@ -2160,6 +2160,6 @@ run_with_unit_ret (readall()) parser
 
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test25
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test100
 |> printfn "%s"
 |> ignore
