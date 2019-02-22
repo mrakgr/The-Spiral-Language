@@ -20,6 +20,8 @@ let prepass x =
     let free_vars_dict = Dictionary(HashIdentity.Reference)
     let object_arg = ["self"; Types.pat_main]
 
+    let error x = raise (PrepassError x)
+
     let pattern x = 
         memoize pattern_dict (fun (arg: VarString, clauses: (Pattern * RawExpr) []) ->
             let mutable tag = 0
@@ -147,7 +149,7 @@ let prepass x =
                         Array.foldBack (f >> Map.remove) vars on_succ_free_vars
                     let on_fail_free_vars, on_fail_stack_size = f on_fail 
                     let free_vars =
-                        let f x s = match x with RawRecordTestInjectVar(x,_) -> Map.add x pos s | RawRecordTestKeyword(x,_) -> s
+                        let f x s = match x with RawRecordTestInjectVar(x,_) -> map_add x s | RawRecordTestKeyword(x,_) -> s
                         map_union on_succ_free_vars on_fail_free_vars
                         |> map_add bind
                         |> Array.foldBack f vars
@@ -186,7 +188,6 @@ let prepass x =
         List.foldBack Map.remove args x 
         |> fun env -> Map.fold (fun env k _ -> env_add k env) (Map.empty, 0) env
         |> fun env -> List.fold (fun env k -> env_add k env) env args
-    let env_to_array (map,count) = Map.toArray map |> Array.map snd
 
     let rec renaming x =
         memoize renaming_dict (fun x ->
@@ -194,6 +195,15 @@ let prepass x =
                 let inline f x = f' env x
                 let inline v x = Map.find x map
                 let inline array_free_vars_from x = Map.map (fun k _ -> Map.find k map) x |> Map.toArray |> Array.map snd
+
+                let inline op_helper (x,args) = tag(),x,Array.map f args
+                let inline let_helper (var,bind,on_succ) =
+                    let env = env_add var env
+                    tag(), f' env bind, f' env on_succ
+                let inline list_helper (vars,bind,on_succ,on_fail) =
+                    let env = Array.foldBack env_add vars env
+                    tag(),vars.Length,v bind,f' env on_succ,f on_fail
+
                 match x with
                 | RawV x -> V(tag(), v x)
                 | RawLit x -> Lit(tag(), x)
@@ -218,62 +228,40 @@ let prepass x =
                         with :? ArgumentException -> error <| sprintf "The same receiver %s already exists in the object." keyword_string
                         ) ar
                     ObjectCreate(tagged_dict, array_free_vars)
-                | RawOp(_, args) | RawKeywordCreate(_,args) ->
-                    Array.fold (fun (free_vars, stack_size) arg ->
-                        let free_vars', stack_size' = f arg
-                        map_union free_vars free_vars', max stack_size stack_size'
-                        ) (Map.empty, 0) args
-                | RawLet(var,bind,on_succ) | RawCase(var,bind,on_succ) -> 
-                    let bind_free_vars, bind_stack_size = f bind
-                    let on_succ_free_vars, on_succ_stack_size = f on_succ
-                    map_union bind_free_vars (Map.remove var on_succ_free_vars), 1 + max bind_stack_size on_succ_stack_size
-                | RawListTakeAllTest(vars,bind,on_succ,on_fail)
-                | RawListTakeNTest(vars,bind,on_succ,on_fail) 
-                | RawKeywordTest(_,vars,bind,on_succ,on_fail) -> 
-                    let on_succ_free_vars, on_succ_stack_size = f on_succ
-                    let on_succ_free_vars = Array.foldBack Map.remove vars on_succ_free_vars
-                    let on_fail_free_vars, on_fail_stack_size = f on_fail 
-                    let free_vars =
-                        map_union on_succ_free_vars on_fail_free_vars
-                        |> map_add bind
-                    free_vars, vars.Length + max on_succ_stack_size on_fail_stack_size
+                | RawOp(x,args) -> op_helper (x,args) |> Op
+                | RawKeywordCreate(x,args) -> op_helper (string_to_keyword x,args) |> KeywordCreate
+                | RawLet(var,bind,on_succ) -> let_helper (var,bind,on_succ) |> Let
+                | RawCase(var,bind,on_succ) -> let_helper (var,bind,on_succ) |> Case
+                | RawListTakeAllTest(vars,bind,on_succ,on_fail) -> list_helper (vars,bind,on_succ,on_fail) |> ListTakeAllTest
+                | RawListTakeNTest(vars,bind,on_succ,on_fail) -> list_helper (vars,bind,on_succ,on_fail) |> ListTakeNTest
+                | RawKeywordTest(keyword,vars,bind,on_succ,on_fail) -> 
+                    let tag, stack_size, bind, on_succ, on_fail = list_helper (vars,bind,on_succ,on_fail)
+                    KeywordTest(tag,string_to_keyword keyword,bind,on_succ,on_fail)
                 | RawRecordTest(vars,bind,on_succ,on_fail) ->
-                    let on_succ_free_vars, on_succ_stack_size = f on_succ
-                    let on_succ_free_vars = 
-                        let f (RawRecordTestKeyword(_,name) | RawRecordTestInjectVar(_,name)) = name
-                        Array.foldBack (f >> Map.remove) vars on_succ_free_vars
-                    let on_fail_free_vars, on_fail_stack_size = f on_fail 
-                    let free_vars =
-                        let f x s = match x with RawRecordTestInjectVar(x,_) -> Map.add x pos s | RawRecordTestKeyword(x,_) -> s
-                        map_union on_succ_free_vars on_fail_free_vars
-                        |> map_add bind
-                        |> Array.foldBack f vars
-                    free_vars, vars.Length + max on_succ_stack_size on_fail_stack_size                
-                | RawRecordWith(binds,patterns) ->
-                    let binds_free_vars, binds_stack_size =
-                        Array.foldBack (fun x (free_vars, stack_size) ->
-                            let free_vars', stack_size' = f x
-                            map_union free_vars free_vars', max stack_size stack_size'
-                            ) binds (Map.empty, 0)
-
-                    let patterns_free_vars, patterns_stack_size =
-                        Array.foldBack (fun x (free_vars, stack_size) ->
+                    let vars, env =
+                        Array.mapFoldBack (fun x env ->   
                             match x with
-                            | RawRecordWithKeyword(keyword,expr) ->
-                                let free_vars', stack_size' = f expr
-                                let free_vars' = Map.remove "this" free_vars'
-                                map_union free_vars free_vars',max stack_size (stack_size'+1)
-                            | RawRecordWithInjectVar(var,expr) ->
-                                let free_vars', stack_size' = f expr
-                                let free_vars' = Map.remove "this" free_vars'
-                                map_union free_vars free_vars' |> map_add var,max stack_size (stack_size'+1)
-                            | RawRecordWithoutKeyword keyword -> free_vars,stack_size
-                            | RawRecordWithoutInjectVar var -> map_add var free_vars,stack_size
-                            ) patterns (Map.empty, 0)
-                    map_union binds_free_vars patterns_free_vars, binds_stack_size+patterns_stack_size
+                            | RawRecordTestKeyword(keyword,name) -> RecordTestKeyword(string_to_keyword keyword), env_add name env
+                            | RawRecordTestInjectVar(var,name) -> RecordTestInjectVar(v var), env_add name env
+                            ) vars env
+                    RecordTest(tag(),vars,v bind,f' env on_succ,f on_fail)      
+                | RawRecordWith(binds,patterns) ->
+                    let binds = Array.map f binds
+                    let patterns =
+                        Array.map (function
+                            | RawRecordWithKeyword(keyword,expr) -> RecordWithKeyword(string_to_keyword keyword, f' (env_add "this" env) expr)
+                            | RawRecordWithInjectVar(var,expr) -> RecordWithInjectVar(var,v var, f' (env_add "this" env) expr)
+                            | RawRecordWithoutKeyword(keyword) -> RecordWithoutKeyword(string_to_keyword keyword)
+                            | RawRecordWithoutInjectVar(var) -> RecordWithoutInjectVar(var,v var)
+                            ) patterns
+                    RecordWith(tag(),binds,patterns)
                 | RawExprPos(pos) ->
                     let pos, expr = pos.Pos, pos.Expression
-                    f' (Some pos) expr
+                    try f expr |> fun x -> ExprPos(tag(),Position(pos,x))
+                    with
+                    | :? PrepassError as er ->
+                        let mes = er.Data0
+                        raise (PrepassErrorWithPos(pos,mes))
                 | RawPattern x -> pattern x |> f
 
             let args = memoize function_args_dict (fun _ -> []) x
@@ -281,4 +269,4 @@ let prepass x =
             f' (env_init free_vars args) x
             ) x
 
-    ()
+    renaming x, free_vars_and_stack_size x
