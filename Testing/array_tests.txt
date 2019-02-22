@@ -1,0 +1,150 @@
+﻿let test18: SpiralModule =
+    {
+    name="test18"
+    prerequisites=[]
+    description="Do arrays and references work?"
+    code=
+    """
+inl a = ref 0
+a := 5
+a() |> ignore
+
+inl a = ref () // Is not supposed to be printed due to being ().
+a := ()
+a()
+
+inl a = ref <| term_cast (inl a, b -> a + b) (int64,int64)
+a := term_cast (inl a, b -> a * b) (int64,int64)
+a() |> ignore
+
+inl a = array_create int64 10
+a 3 <- 2
+a 3 |> ignore
+
+inl a = array_create id 3 // Is supposed to be unit and not printed.
+a 1 <- id
+a 1 |> ignore
+    """
+    }
+
+let test43: SpiralModule =
+    {
+    name="test43"
+    prerequisites=[array]
+    description="Do the Array constructors work?"
+    code=
+    """
+open Array
+
+empty int64, singleton 2.2
+    """
+    }
+
+let test50: SpiralModule =
+    {
+    name="test50"
+    prerequisites=[array]
+    description="Do the Array init and fold work?"
+    code=
+    """
+open Array
+
+inl ar = init 6 (inl x -> x+1)
+foldl (+) (dyn 0) ar, foldr (*) ar (dyn 1)
+    """
+    }
+
+let test51: SpiralModule =
+    {
+    name="test51"
+    prerequisites=[array]
+    description="Do the Array map and filter work?"
+    code=
+    """
+open Array
+
+inl ar = init 16 id
+map ((*) 2) ar
+|> filter ((<) 15)
+    """
+    }
+
+let test52: SpiralModule =
+    {
+    name="test52"
+    prerequisites=[array]
+    description="Does the Array concat work?"
+    code=
+    """
+open Array
+
+inl ar = init 4 (inl _ -> init 8 id)
+concat ar
+    """
+    }
+
+let test53: SpiralModule =
+    {
+    name="test53"
+    prerequisites=[array]
+    description="Does the Array append work?"
+    code=
+    """
+open Array
+
+inl ar = inl _ -> init 4 id
+append (ar (), ar (), ar())
+    """
+    }
+
+let test54: SpiralModule =
+    {
+    name="test54"
+    prerequisites=[tuple]
+    description="Does the monadic bind `inm` work?"
+    code=
+    """
+inl on_succ a = (a,())
+inl on_log x = ((),Tuple.singleton x)
+inl (>>=) (a,w) f = // The writer monad.
+    inl a',w' = f a
+    (a',Tuple.append w w')
+
+inl add x y = x + y |> on_succ
+
+inm x = add 1 1
+inm _ = on_log x
+inm y = add 3 4
+inm _ = on_log y
+inm z = add 5 6
+inm _ = on_log z
+on_succ (x+y+z) // Tuple2(20L, Tuple1(2L, 7L, 11L))
+    """
+    }
+
+let test58: SpiralModule =
+    {
+    name="test58"
+    prerequisites=[array]
+    description="Does the fold function get duplicated?"
+    code=
+    """
+inl ar = array_create (int64,int64) 128
+Array.foldl (inl a,b c,d -> a+c,b+d) (dyn (1,2)) ar
+|> inl a,b -> a*b
+    """
+    }
+
+let test94: SpiralModule =
+    {
+    name="test94"
+    prerequisites=[array]
+    description="Does the string concat work as expected?"
+    code=
+    """
+inl string_format a b = String (format: a args: b)
+inl string_concat a b = String (concat: a args: b)
+Array.init 8 (string_format "{0}") |> string_concat "; " |> string_format "[|{0}|]" |> dyn |> ignore
+(2,2.3,"qwe") |> Tuple.map (string_format "{0}") |> string_concat "; " |> string_format "[{0}]" |> dyn |> ignore
+    """
+    }

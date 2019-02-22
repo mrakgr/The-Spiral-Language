@@ -1,0 +1,96 @@
+﻿let test63: SpiralModule =
+    {
+    name="test63"
+    prerequisites=[list]
+    description="Do the list constructors work?"
+    code=
+    """
+open List
+cons 1 (cons 2 (singleton 3))
+    """
+    }
+
+let test65: SpiralModule =
+    {
+    name="test65"
+    prerequisites=[tuple; list]
+    description="Do the list module folds work?"
+    code=
+    """
+open List
+
+foldl (+) (dyn 0.0) (dyn (empty float64)),
+foldr (+) (dyn (empty float64)) (dyn 0.0f64)
+    """
+    }
+
+let test66: SpiralModule =
+    {
+    name="test66"
+    prerequisites=[tuple; list]
+    description="Does the list module concat (and by extension append) work?"
+    code=
+    """
+open List
+
+inl a = cons 3 () |> cons 2 |> cons 1 |> dyn
+inl b = cons 6 () |> cons 5 |> cons 4 |> dyn
+inl c = dyn (cons a (singleton b))
+concat c
+    """
+    }
+
+let test67: SpiralModule =
+    {
+    name="test67"
+    prerequisites=[tuple; list]
+    description="Does the list module map work?"
+    code=
+    """
+open List
+
+inl a = cons 3 () |> cons 2 |> cons 1 |> dyn
+
+map ((*) 2) a
+    """
+    }
+
+let test68: SpiralModule =
+    {
+    name="test68"
+    prerequisites=[tuple; list]
+    description="Is it possible to make a list of lists?"
+    code=
+    """
+open List
+
+inl a = empty int64 |> dyn
+empty a
+    """
+    }
+
+let test69: SpiralModule =
+    {
+    name="test69"
+    prerequisites=[tuple; list]
+    description="Does the list module init work?"
+    code=
+    """
+open List
+
+init 10 (inl x -> 2.2)
+    """
+    }
+
+let test82: SpiralModule =
+    {
+    name="test82"
+    prerequisites=[list]
+    description="Does structural polymorphic equality work on recursive datatypes?"
+    code=
+    """
+inl a = List.empty int64 |> dyn
+inl b = List.empty int64 |> dyn
+a = b
+    """
+    }

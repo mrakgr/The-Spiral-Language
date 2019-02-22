@@ -193,9 +193,27 @@ let test7: SpiralModule =
     description="Do active patterns work?"
     code=
     """
-inl f x = x
-inl f = f ()
-()
+inl f op1 op2 op3 = function
+    | !op1 (.Some, x) -> x
+    | !op2 (.Some, x) -> x
+    | !op3 (.Some, x) -> x
+
+inl add = function
+    | .Add -> .Some, inl x y -> x + y
+    | _ -> .None
+inl sub = function
+    | .Sub -> .Some, inl x y -> x - y
+    | _ -> .None
+inl mult = function
+    | .Mult -> .Some, inl x y -> x * y
+    | _ -> .None
+
+inl f = f add sub mult
+
+inl a = f .Add 1 2
+inl b = f .Sub 1 2
+inl c = f .Mult 1 2
+dyn (a, b, c)
     """
     }
 
@@ -265,6 +283,7 @@ match x with
 | _, (x, _), (_, y) -> x + y
 | _, _, _ -> 0
 | _ :: () -> 0
+|> dyn
     """
     }
 
@@ -279,6 +298,7 @@ inl rec p = function
     | .Some, x -> p x
     | .None -> 0
 p (.Some, .None)
+|> dyn
     """
     }
 
@@ -350,38 +370,6 @@ inter c
     """
     }
 
-let test15: SpiralModule =
-    {
-    name="test15"
-    prerequisites=[extern_]
-    description="Does basic .NET interop work?"
-    code=
-    """
-() // TODO
-//open Extern
-//inl builder_type = fs [text: "System.Text.StringBuilder"]
-//inl b = FS.Constructor builder_type ("Qwe", 128i32)
-//inl a x =
-//    FS.Method b .Append x builder_type |> ignore
-//    FS.Method b .AppendLine () builder_type |> ignore
-//a 123
-//a 123i16
-//a "qwe"
-//inl str = FS.Method b .ToString () string
-
-//inl console = fs [text: "System.Console"]
-//FS.StaticMethod console .Write str ()
-
-//inl key = 1, 1
-//inl value = {a=1;b=2;c=3}
-//inl dictionary_type = fs [text: "System.Collections.Generic.Dictionary"; types: type (key,value)]
-//inl dict = FS.Constructor dictionary_type 128i32
-//FS.Method dict .Add (key,value) ()
-//FS.Method dict .Item (key :: ()) value |> dyn |> ignore
-//0
-    """
-    }
-
 let test16: SpiralModule =
     {
     name="test16"
@@ -411,35 +399,6 @@ dyn (m.x, m.y, m.z)
     """
     }
 
-let test18: SpiralModule =
-    {
-    name="test18"
-    prerequisites=[]
-    description="Do arrays and references work?"
-    code=
-    """
-() // TODO
-//inl a = ref 0
-//a := 5
-//a() |> ignore
-
-//inl a = ref () // Is not supposed to be printed due to being ().
-//a := ()
-//a()
-
-//inl a = ref <| term_cast (inl a, b -> a + b) (int64,int64)
-//a := term_cast (inl a, b -> a * b) (int64,int64)
-//a() |> ignore
-
-//inl a = array_create int64 10
-//a 3 <- 2
-//a 3 |> ignore
-
-//inl a = array_create id 3 // Is supposed to be unit and not printed.
-//a 1 <- id
-//a 1 |> ignore
-    """
-    }
 
 let test19: SpiralModule =
     {
@@ -482,20 +441,7 @@ inl x = 2 * 22 .+ 33
 
 inl f op a b = op a b
 f (*) 2 x
-    """
-    }
-
-let test22: SpiralModule =
-    {
-    name="test22"
-    prerequisites=[]
-    description="Do unary operators work?"
-    code=
-    """
-() // TODO: Slated for removal.
-//inl t1 x = dyn <| -x
-//inl t3 x = .(x)
-//t1 2.2, t3 "asd"
+|> dyn
     """
     }
 
@@ -545,51 +491,6 @@ let test25: SpiralModule =
 inl f = function x1 :: x2 :: x3 :: xs -> 3 | x1 :: x2 :: xs -> 2 | x1 :: xs -> 1 | () -> 0
 
 dyn (f (), f (1 :: ()), f (1,2))
-    """
-    }
-
-let test26: SpiralModule =
-    {
-    name="test26"
-    prerequisites=[tuple]
-    description="Does tuple map work? This also tests rev and foldl."
-    code=
-    """
-// TODO
-//Tuple.map (inl x -> x * 2) (1,2,3)
-    """
-    }
-
-let test27: SpiralModule =
-    {
-    name="test27"
-    prerequisites=[tuple]
-    description="Do tuple zip and unzip work?"
-    code=
-    """
-// TODO
-//inl j = 2,3.3
-//inl k = 4.4,55
-//inl l = 66,77
-//inl m = 88,99
-//inl n = 123,456
-//Tuple.zip ((j,k),(l,m),n) |> Tuple.unzip
-    """
-    }
-
-let test28: SpiralModule =
-    {
-    name="test28"
-    prerequisites=[extern_]
-    description="Does string indexing work?"
-    code=
-    """
-// TODO
-//open Extern
-//inl console_type = fs [text: "System.Console"]
-//inl a = "qwe"
-//inl b = FS.StaticMethod console_type .ReadLine() string
-//a(0),b(0)
     """
     }
 
@@ -648,22 +549,6 @@ inl a = .A, (0, 0) \/ .B, ""
 inl b = a \/ .Hello
 inl box a #b = Type (box: b to: a)
 (.A, (2,3)) |> box a |> dyn |> box b
-    """
-    }
-
-let test32: SpiralModule =
-    {
-    name="test32"
-    prerequisites=[extern_]
-    description="Do the .NET methods work inside methods?"
-    code=
-    """
-() TODO
-//open Extern
-//inl convert_type = fs [text: "System.Convert"]
-//inl to_int64 x = FS.StaticMethod convert_type .ToInt64 x int64
-//met f = to_int64 (dyn 'a')
-//f
     """
     }
 
@@ -816,20 +701,6 @@ Type (box: heap r to: ty)
     """
     }
 
-let test43: SpiralModule =
-    {
-    name="test43"
-    prerequisites=[array]
-    description="Do the Array constructors work?"
-    code=
-    """
-// TODO
-//open Array
-
-//empty int64, singleton 2.2
-    """
-    }
-
 let test46: SpiralModule =
     {
     name="test46"
@@ -897,93 +768,6 @@ f {x.a.b with q = 4; c = this + 3; d = {q = 12; w = 23}}
     """
     }
 
-let test50: SpiralModule =
-    {
-    name="test50"
-    prerequisites=[array]
-    description="Do the Array init and fold work?"
-    code=
-    """
-// TODO
-open Array
-
-inl ar = init 6 (inl x -> x+1)
-foldl (+) (dyn 0) ar, foldr (*) ar (dyn 1)
-    """
-    }
-
-let test51: SpiralModule =
-    {
-    name="test51"
-    prerequisites=[array]
-    description="Do the Array map and filter work?"
-    code=
-    """
-// TODO
-open Array
-
-inl ar = init 16 id
-map ((*) 2) ar
-|> filter ((<) 15)
-    """
-    }
-
-let test52: SpiralModule =
-    {
-    name="test52"
-    prerequisites=[array]
-    description="Does the Array concat work?"
-    code=
-    """
-// TODO
-open Array
-
-inl ar = init 4 (inl _ -> init 8 id)
-concat ar
-    """
-    }
-
-let test53: SpiralModule =
-    {
-    name="test53"
-    prerequisites=[array]
-    description="Does the Array append work?"
-    code=
-    """
-// TODO
-open Array
-
-inl ar = inl _ -> init 4 id
-append (ar (), ar (), ar())
-    """
-    }
-
-let test54: SpiralModule =
-    {
-    name="test54"
-    prerequisites=[tuple]
-    description="Does the monadic bind `inm` work?"
-    code=
-    """
-// TODO
-inl on_succ a = (a,())
-inl on_log x = ((),Tuple.singleton x)
-inl (>>=) (a,w) f = // The writer monad.
-    inl a',w' = f a
-    (a',Tuple.append w w')
-
-inl add x y = x + y |> on_succ
-
-inm x = add 1 1
-inm _ = on_log x
-inm y = add 3 4
-inm _ = on_log y
-inm z = add 5 6
-inm _ = on_log z
-on_succ (x+y+z) // Tuple2(20L, Tuple1(2L, 7L, 11L))
-    """
-    }
-
 let test56: SpiralModule =
     {
     name="test56"
@@ -1008,20 +792,6 @@ inl a = 1
 inl b = 2
 inl d = 4
 dyn {a b c = 3; d; e = 5}
-    """
-    }
-
-let test58: SpiralModule =
-    {
-    name="test58"
-    prerequisites=[array]
-    description="Does the fold function get duplicated?"
-    code=
-    """
-// TODO
-inl ar = array_create (int64,int64) 128
-Array.foldl (inl a,b c,d -> a+c,b+d) (dyn (1,2)) ar
-|> inl a,b -> a*b
     """
     }
 
@@ -1071,112 +841,6 @@ a && b || c && d || e
     """
     }
 
-let test63: SpiralModule =
-    {
-    name="test63"
-    prerequisites=[list]
-    description="Do the list constructors work?"
-    code=
-    """
-// TODO
-open List
-cons 1 (cons 2 (singleton 3))
-    """
-    }
-
-let test64: SpiralModule =
-    {
-    name="test64"
-    prerequisites=[tuple]
-    description="Do the tuple foldl_map and foldr_map work?"
-    code=
-    """
-// TODO
-inl l = 2,3,4
-{
-a = Tuple.foldl_map (inl s x -> x*x, s + x*x) 0 l
-b = Tuple.foldr_map (inl x s -> x*x, s + x*x) l 0
-}
-    """
-    }
-
-let test65: SpiralModule =
-    {
-    name="test65"
-    prerequisites=[tuple; list]
-    description="Do the list module folds work?"
-    code=
-    """
-// TODO
-open List
-
-foldl (+) (dyn 0.0) (dyn (empty float64)),
-foldr (+) (dyn (empty float64)) (dyn 0.0f64)
-    """
-    }
-
-let test66: SpiralModule =
-    {
-    name="test66"
-    prerequisites=[tuple; list]
-    description="Does the list module concat (and by extension append) work?"
-    code=
-    """
-// TODO
-open List
-
-inl a = cons 3 () |> cons 2 |> cons 1 |> dyn
-inl b = cons 6 () |> cons 5 |> cons 4 |> dyn
-inl c = dyn (cons a (singleton b))
-concat c
-    """
-    }
-
-let test67: SpiralModule =
-    {
-    name="test67"
-    prerequisites=[tuple; list]
-    description="Does the list module map work?"
-    code=
-    """
-// TODO
-open List
-
-inl a = cons 3 () |> cons 2 |> cons 1 |> dyn
-
-map ((*) 2) a
-    """
-    }
-
-let test68: SpiralModule =
-    {
-    name="test68"
-    prerequisites=[tuple; list]
-    description="Is it possible to make a list of lists?"
-    code=
-    """
-// TODO
-open List
-
-inl a = empty int64 |> dyn
-empty a
-    """
-    }
-
-let test69: SpiralModule =
-    {
-    name="test69"
-    prerequisites=[tuple; list]
-    description="Does the list module init work?"
-    code=
-    """
-// TODO
-open List
-
-init 10 (inl x -> 2.2)
-    """
-    }
-
 let test70: SpiralModule =
     {
     name="test70"
@@ -1200,58 +864,6 @@ let test71: SpiralModule =
     """
     }
 
-let test78: SpiralModule =
-    {
-    name="test78"
-    prerequisites=[tuple]
-    description="Do the tuple scan functions work?"
-    code=
-    """
-// TODO
-inl x = 1,2,3,4
-Tuple.scanl (+) 0 x, Tuple.scanr (+) x 0
-    """
-    }
-
-let test79: SpiralModule =
-    {
-    name="test79"
-    prerequisites=[host_tensor]
-    description="Does the Tensor init work? Do set and index for the new array module work?"
-    code=
-    """
-// TODO
-inl tns = Tensor.init (10,10) (inl a b -> a*b)
-inl x = tns 2 2 .get
-tns 2 2 .set (x+100)
-tns 2 2 .get
-    """
-    }
-
-let test80: SpiralModule =
-    {
-    name="test80"
-    prerequisites=[queue; console]
-    description="Does the Queue module work?"
-    code=
-    """
-// TODO
-open Console
-open Queue
-inl queue = create int64 1
-inl rec dequeue' n =
-    if n > 0 then dequeue queue |> writeline; dequeue' (n-1)
-    else ()
-Tuple.iter (enqueue queue) (Tuple.range (1,4))
-dequeue' 2
-Tuple.iter (enqueue queue) (Tuple.range (1,4))
-Tuple.iter (enqueue queue) (Tuple.range (1,4))
-dequeue' 2
-dequeue' 4
-dequeue' 4
-    """
-    }
-
 let test81: SpiralModule =
     {
     name="test81"
@@ -1260,20 +872,6 @@ let test81: SpiralModule =
     code=
     """
 {a=1;b=dyn 2;c=dyn 3} = {a=1;b=2;c=3}
-    """
-    }
-
-let test82: SpiralModule =
-    {
-    name="test82"
-    prerequisites=[list]
-    description="Does structural polymorphic equality work on recursive datatypes?"
-    code=
-    """
-// TODO
-inl a = List.empty int64 |> dyn
-inl b = List.empty int64 |> dyn
-a = b
     """
     }
 
@@ -1289,65 +887,6 @@ inl q = true && dyn true
     """
     }
 
-let test84: SpiralModule =
-    {
-    name="test84"
-    prerequisites=[host_tensor]
-    description="Does the scalar tensor work?"
-    code=
-    """
-// TODO
-open Tensor
-inl ar = init () 5
-ar .get
-    """
-    }
-
-let test85: SpiralModule =
-    {
-    name="test85"
-    prerequisites=[host_tensor]
-    description="Does the split work?"
-    code=
-    """
-// TODO
-open Tensor
-inl ar = init (32*32) id |> split (const (16,64))
-(ar 0 0, ar 0 1, ar 0 2, ar 1 0, ar 1 1, ar 1 2) |> Tuple.map (inl x -> x.get)
-    """
-    }
-
-let test86: SpiralModule =
-    {
-    name="test86"
-    prerequisites=[host_tensor]
-    description="Is the type of host tensor for the TOA layout correct? Does it work on the singleton dimensions?"
-    code=
-    """
-// TODO
-open Tensor
-inl ar = init 10 id
-ar 5 .get
-    """
-    }
-
-let test88: SpiralModule =
-    {
-    name="test88"
-    prerequisites=[extern_]
-    description="Does the => related stuff work?"
-    code=
-    """
-// TODO
-open Extern
-inl closure_type = (int64 => int64 => int64)
-inl add a b = a + b
-inl clo_add = closure_of add closure_type
-match clo_add with
-| (a: int64) => (b: (int64 => int64)) -> clo_add 1 2
-    """
-    }
-
 let test89: SpiralModule =
     {
     name="test89"
@@ -1356,39 +895,6 @@ let test89: SpiralModule =
     code=
     """
 {a=1; b=2} |> dyn |> stack |> heap |> indiv
-    """
-    }
-
-let test90: SpiralModule =
-    {
-    name="test90"
-    prerequisites=[host_tensor]
-    description="Does the tensor map work?"
-    code=
-    """
-// TODO
-open Tensor
-init (2,2) (inl a b -> a*2+b)
-|> map ((*) 2)
-    """
-    }
-
-let test91: SpiralModule =
-    {
-    name="test91"
-    prerequisites=[array; host_tensor]
-    description="Does assert_size work? Does converting from array to tensor work?"
-    code=
-    """
-// TODO
-open Tensor
-inl tns =
-    Array.init 6 id
-    |> array_to_tensor
-    |> split (dyn (2,3) |> const)
-    |> assert_size (2,3)
-    
-tns 1 0 .get |> ignore
     """
     }
 
@@ -1416,63 +922,6 @@ inl q = 1,2
 String (format: "{0,-5}{1,-5}{2,-5}" args: l) |> dyn |> ignore
 String (format: "{0,-5}{1,-5}{2,-5}" args: dyn l) |> ignore
 String (format: (dyn "{0} = {1}") args: dyn q) |> ignore
-    """
-    }
-
-let test94: SpiralModule =
-    {
-    name="test94"
-    prerequisites=[array]
-    description="Does the string concat work as expected?"
-    code=
-    """
-// TODO
-inl string_format a b = String (format: a args: b)
-inl string_concat a b = String (concat: a args: b)
-Array.init 8 (string_format "{0}") |> string_concat "; " |> string_format "[|{0}|]" |> dyn |> ignore
-(2,2.3,"qwe") |> Tuple.map (string_format "{0}") |> string_concat "; " |> string_format "[{0}]" |> dyn |> ignore
-    """
-    }
-
-let test95: SpiralModule =
-    {
-    name="test95"
-    prerequisites=[extern_; array]
-    description="Does the show work?"
-    code=
-    """
-// TODO
-open Extern
-Array.init 8 (inl i -> {x = to float64 i; y = to float64 i-30.0} |> dyn |> stack) |> show
-    """
-    }
-
-let test96: SpiralModule =
-    {
-    name="test96"
-    prerequisites=[host_tensor; console]
-    description="Does the show from Tensor work?"
-    code=
-    """
-// TODO
-open Tensor
-init (2,3,4) (inl a b c -> a*b*c)  
-|> show |> Console.writeline
-    """
-    }
-
-let test97: SpiralModule =
-    {
-    name="test97"
-    prerequisites=[host_tensor; console]
-    description="Does the view indexing work?"
-    code=
-    """
-// TODO
-open Tensor
-inl w = 2,3,4
-init (2,3,4) (inl a b c -> a*b*c) (1,{from=1},{from=1; by=2})
-|> show |> Console.writeline
     """
     }
 
@@ -2711,6 +2160,6 @@ run_with_unit_ret (readall()) parser
 
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test7
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test25
 |> printfn "%s"
 |> ignore

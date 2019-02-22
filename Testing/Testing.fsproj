@@ -59,6 +59,12 @@
     <Content Include="packages.config" />
     <Compile Include="run.fs" />
     <Content Include="tensor.txt" />
+    <Content Include="extern_tests.txt" />
+    <Content Include="array_tests.txt" />
+    <Content Include="tuple_tests.txt" />
+    <Content Include="list_tests.txt" />
+    <Content Include="tensor_tests.txt" />
+    <Content Include="aux_tests.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core">

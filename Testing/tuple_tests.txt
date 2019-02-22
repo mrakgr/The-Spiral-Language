@@ -1,0 +1,53 @@
+﻿let test26: SpiralModule =
+    {
+    name="test26"
+    prerequisites=[tuple]
+    description="Does tuple map work? This also tests rev and foldl."
+    code=
+    """
+Tuple.map (inl x -> x * 2) (1,2,3)
+    """
+    }
+
+let test27: SpiralModule =
+    {
+    name="test27"
+    prerequisites=[tuple]
+    description="Do tuple zip and unzip work?"
+    code=
+    """
+inl j = 2,3.3
+inl k = 4.4,55
+inl l = 66,77
+inl m = 88,99
+inl n = 123,456
+Tuple.zip ((j,k),(l,m),n) |> Tuple.unzip
+    """
+    }
+
+let test64: SpiralModule =
+    {
+    name="test64"
+    prerequisites=[tuple]
+    description="Do the tuple foldl_map and foldr_map work?"
+    code=
+    """
+inl l = 2,3,4
+{
+a = Tuple.foldl_map (inl s x -> x*x, s + x*x) 0 l
+b = Tuple.foldr_map (inl x s -> x*x, s + x*x) l 0
+}
+    """
+    }
+
+let test78: SpiralModule =
+    {
+    name="test78"
+    prerequisites=[tuple]
+    description="Do the tuple scan functions work?"
+    code=
+    """
+inl x = 1,2,3,4
+Tuple.scanl (+) 0 x, Tuple.scanr (+) x 0
+    """
+    }

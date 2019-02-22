@@ -193,7 +193,7 @@ let prepass x =
                 let inline op_helper (x,args) = tag(),x,Array.map f args
                 let inline let_helper (var,bind,on_succ) =
                     let env = env_add var env
-                    tag(), f' env bind, f' env on_succ
+                    tag(), f bind, f' env on_succ
                 let inline list_helper (vars,bind,on_succ,on_fail) =
                     let env = Array.fold (fun s x -> env_add x s) env vars
                     tag(),vars.Length,v bind,f' env on_succ,f on_fail

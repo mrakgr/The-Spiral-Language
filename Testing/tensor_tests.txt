@@ -1,0 +1,111 @@
+﻿let test79: SpiralModule =
+    {
+    name="test79"
+    prerequisites=[host_tensor]
+    description="Does the Tensor init work? Do set and index for the new array module work?"
+    code=
+    """
+inl tns = Tensor.init (10,10) (inl a b -> a*b)
+inl x = tns 2 2 .get
+tns 2 2 .set (x+100)
+tns 2 2 .get
+    """
+    }
+
+let test84: SpiralModule =
+    {
+    name="test84"
+    prerequisites=[host_tensor]
+    description="Does the scalar tensor work?"
+    code=
+    """
+open Tensor
+inl ar = init () 5
+ar .get
+    """
+    }
+
+let test85: SpiralModule =
+    {
+    name="test85"
+    prerequisites=[host_tensor]
+    description="Does the split work?"
+    code=
+    """
+open Tensor
+inl ar = init (32*32) id |> split (const (16,64))
+(ar 0 0, ar 0 1, ar 0 2, ar 1 0, ar 1 1, ar 1 2) |> Tuple.map (inl x -> x.get)
+    """
+    }
+
+let test86: SpiralModule =
+    {
+    name="test86"
+    prerequisites=[host_tensor]
+    description="Is the type of host tensor for the TOA layout correct? Does it work on the singleton dimensions?"
+    code=
+    """
+open Tensor
+inl ar = init 10 id
+ar 5 .get
+    """
+    }
+
+let test90: SpiralModule =
+    {
+    name="test90"
+    prerequisites=[host_tensor]
+    description="Does the tensor map work?"
+    code=
+    """
+// TODO
+open Tensor
+init (2,2) (inl a b -> a*2+b)
+|> map ((*) 2)
+    """
+    }
+
+let test91: SpiralModule =
+    {
+    name="test91"
+    prerequisites=[array; host_tensor]
+    description="Does assert_size work? Does converting from array to tensor work?"
+    code=
+    """
+open Tensor
+inl tns =
+    Array.init 6 id
+    |> array_to_tensor
+    |> split (dyn (2,3) |> const)
+    |> assert_size (2,3)
+    
+tns 1 0 .get |> ignore
+    """
+    }
+
+let test96: SpiralModule =
+    {
+    name="test96"
+    prerequisites=[host_tensor; console]
+    description="Does the show from Tensor work?"
+    code=
+    """
+open Tensor
+init (2,3,4) (inl a b c -> a*b*c)  
+|> show |> Console.writeline
+    """
+    }
+
+let test97: SpiralModule =
+    {
+    name="test97"
+    prerequisites=[host_tensor; console]
+    description="Does the view indexing work?"
+    code=
+    """
+open Tensor
+inl w = 2,3,4
+init (2,3,4) (inl a b c -> a*b*c) (1,{from=1},{from=1; by=2})
+|> show |> Console.writeline
+    """
+    }
