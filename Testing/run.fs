@@ -73,12 +73,13 @@ let example3: SpiralModule =
     description="Module description."
     code=
     """
-inl x = .blocke
-// Combination of not `!` and injection `$` patterns.
-// Since the module does not have the member `blocke`, the case returns "asd" at compile time.
-match {block=()} with 
-| {!($x)} -> "asd"
-| _ -> "qwe"
+inl f = 
+    [
+    add = inl a b -> a + b
+    mult = inl a b -> a * b
+    ]
+    
+f .add 1 2
     """
     }
 
@@ -367,6 +368,24 @@ inl rec inter x = join
     : 0
 
 inter c
+    """
+    }
+
+let test15: SpiralModule =
+    {
+    name="test15"
+    prerequisites=[]
+    description="Does the object with unary patterns?"
+    code=
+    """
+inl id x = x
+inl f = 
+    [
+    add = 1
+    mult = id
+    ]
+    
+f .add
     """
     }
 
@@ -1097,8 +1116,6 @@ print_static
     }
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test118
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test15
 |> printfn "%s"
 |> ignore
-
-95+640+305+390+240+410+270+1195+380+140
