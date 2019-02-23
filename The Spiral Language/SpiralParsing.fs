@@ -68,11 +68,12 @@ let rec pattern_template expr s =
 
 let inline pattern expr s = patpos (pattern_template expr) s
     
-let set_semicolon_level_to_line line p (d: ParserEnv) = p {d with semicolon_line = line}
-let reset_semicolon_level expr d = set_semicolon_level_to_line -1 expr d
+let set_semicolon_level line p (d: ParserEnv) = p {d with semicolon_line = line}
+let set_keyword_level line p (d: ParserEnv) = p {d with keyword_line = line}
+let reset_level expr d = expr {d with semicolon_line= -1; keyword_line= -1}
 
-let inline statement_body expr = eq >>. reset_semicolon_level expr
-let inline expression_body expr = lambda >>. reset_semicolon_level expr
+let inline statement_body expr = eq >>. reset_level expr
+let inline expression_body expr = lambda >>. reset_level expr
 
 let compile_pattern pat body =
     let inline f expr_pos = function
@@ -162,17 +163,12 @@ let statements expr (d: ParserEnv) =
 let inline tuple_template fin sep expr (d: ParserEnv) =
     let i = col d
     let inline expr_indent expr (d: ParserEnv) = expr_indent i (<=) expr d
-    sepBy1 (expr_indent expr) sep
+    sepBy1 (expr_indent expr) (expr_indent sep)
     |>> function [x] -> x | x -> fin (List.toArray x)
     <| d
 
 let type_union expr s = tuple_template (Types.op TypeUnion) type_union' expr s
 let tuple expr s = tuple_template vv comma expr s
-
-let keyword_message expr s =
-    let i = col s
-    let pat s = (expr_indent i (<=) keyword .>>. expr_indent i (<) (reset_semicolon_level expr)) s
-    (many1 pat |>> (concat_keyword' >> RawKeywordCreate) <|> expr) s
 
 let operators expr d =
     let op d =
@@ -188,6 +184,7 @@ let operators expr d =
         | Fail x -> Fail x
 
     let i = col d
+    let inline op s = expr_indent i (<=) op s
     let inline term s = expr_indent i (<=) expr s
 
     /// Pratt parser
@@ -238,7 +235,7 @@ let rec expressions expr d =
         let receiver s =
             let i = col s
             let line = line s
-            (pattern expr .>>. (eq >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) >>= f) s
+            (pattern expr .>>. (eq >>. expr_indent i (<) (set_semicolon_level line expr)) >>= f) s
         squares (many (receiver .>> optional semicolon')) |>> (List.toArray >> Types.objc)
     let case_inl_pat_list_expr = pipe2 (inl >>. many1 (pattern expr)) (expression_body expr) compile_patterns
 
@@ -256,7 +253,7 @@ let rec expressions expr d =
                 Types.if_ cond tr fl)
         <| d
     let case_var = var |>> v
-    let case_rounds = rounds ((op_as_var |>> v) <|> (reset_semicolon_level expr <|>% B))
+    let case_rounds = rounds ((op_as_var |>> v) <|> (reset_level expr <|>% B))
 
     let case_typex match_type (d: ParserEnv) =
         let clause = 
@@ -293,7 +290,7 @@ let rec expressions expr d =
         let parse_binding_with s =
             let i = col s
             let line = s.Line
-            let inline body s = (eq >>. expr_indent i (<) (set_semicolon_level_to_line line expr)) s
+            let inline body s = (eq >>. expr_indent i (<) (set_semicolon_level line expr)) s
             let a s =
                 pipe2 var_op (opt body)
                     (fun a -> function
@@ -361,9 +358,14 @@ let rec expressions expr d =
             | a -> d.FailWith(ParserMacroNotFound a)
 
     let case_keyword_unary = keyword_unary |>> Types.keyword_unary
+    let case_keyword_message s =
+        let i = col s
+        let line = line s
+        let pat s = (expr_indent i (<=) keyword .>>. expr_indent i (<) (set_keyword_level line expr)) s
+        (many1 pat |>> (concat_keyword' >> RawKeywordCreate)) s
 
     [|
-    case_lit; case_var; case_join_point; case_type; case_keyword_unary; 
+    case_lit; case_var; case_join_point; case_type; case_keyword_unary; case_keyword_message
     case_typecase; case_typeinl; case_rounds; case_record; case_object
     case_if_then_else; case_inl_pat_list_expr
     case_inbuilt_op; case_parser_macro
@@ -372,7 +374,7 @@ let rec expressions expr d =
 
 let parser d = 
     let rec raw_expr s =
-        let expressions s = type_union ^<| keyword_message ^<| tuple ^<| operators ^<| application ^<| application_tight ^<| expressions raw_expr <| s
+        let expressions s = type_union ^<| tuple ^<| operators ^<| application ^<| application_tight ^<| expressions raw_expr <| s
         let statements s = statements raw_expr <| s
         annotations ^<| indentations (statements <|> (exprpos expressions |>> ParserExpr)) <| s
 
@@ -391,6 +393,7 @@ let parse settings (m: SpiralModule) =
             i=ref 0
             module_=m
             semicolon_line= -1
+            keyword_line= -1
             settings=settings
             }
         let fail (x: (SpiralToken * ParserErrors) list) = 

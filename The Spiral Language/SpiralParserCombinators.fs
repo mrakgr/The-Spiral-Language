@@ -27,6 +27,7 @@ type ParserEnv =
     i: int ref
     module_: SpiralModule
     semicolon_line: int
+    keyword_line: int
     settings: SpiralCompilerSettings
     }
 
