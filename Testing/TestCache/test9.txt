@@ -3,33 +3,33 @@ type SpiralType0 =
     | SpiralType0_2
 let rec method_0 () : SpiralType0 * SpiralType0 * SpiralType0 =
     (SpiralType0_1, SpiralType0_1, SpiralType0_1)
-let ((var_40 : SpiralType0), (var_41 : SpiralType0), (var_42 : SpiralType0)) = method_0 ()
-let ((var_49 : int64)) =
-    match var_40 with
+let ((var_1 : SpiralType0), (var_2 : SpiralType0), (var_3 : SpiralType0)) = method_0 ()
+let ((var_10 : int64)) =
+    match var_1 with
     | SpiralType0_1 ->
-        match var_41 with
+        match var_2 with
         | SpiralType0_1 ->
-            match var_42 with
+            match var_3 with
             | SpiralType0_1 ->
                 1L
             | SpiralType0_2 ->
                 1L
         | SpiralType0_2 ->
-            match var_42 with
+            match var_3 with
             | SpiralType0_1 ->
                 1L
             | SpiralType0_2 ->
                 1L
     | SpiralType0_2 ->
-        match var_41 with
+        match var_2 with
         | SpiralType0_1 ->
-            match var_42 with
+            match var_3 with
             | SpiralType0_1 ->
                 2L
             | SpiralType0_2 ->
                 2L
         | SpiralType0_2 ->
-            match var_42 with
+            match var_3 with
             | SpiralType0_1 ->
                 3L
             | SpiralType0_2 ->

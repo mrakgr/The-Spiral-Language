@@ -1,16 +1,16 @@
 let rec closure_method_0 () () : int64 =
     0L
-and method_1 ((var_318 : (unit -> int64)), (var_319 : int64)) : int64 =
-    let ((var_320 : bool)) = var_319 < 10L
-    if var_320 then
-        let ((var_321 : int64)) = var_319 + 1L
-        let ((var_324 : (unit -> int64))) = closure_method_2 (var_318)
-        method_1 (var_324, var_321)
+and method_1 ((var_1 : (unit -> int64)), (var_2 : int64)) : int64 =
+    let ((var_3 : bool)) = var_2 < 10L
+    if var_3 then
+        let ((var_4 : int64)) = var_2 + 1L
+        let ((var_7 : (unit -> int64))) = closure_method_2 (var_1)
+        method_1 (var_7, var_4)
     else
-        var_318()
-and closure_method_2 ((var_318 : (unit -> int64))) () : int64 =
-    let ((var_322 : int64)) = var_318()
-    var_322 + 1L
-let ((var_318 : (unit -> int64))) = closure_method_0 ()
-let ((var_319 : int64)) = 0L
-let ((var_328 : int64)) = method_1 (var_318, var_319)
+        var_1()
+and closure_method_2 ((var_1 : (unit -> int64))) () : int64 =
+    let ((var_5 : int64)) = var_1()
+    var_5 + 1L
+let ((var_1 : (unit -> int64))) = closure_method_0 ()
+let ((var_2 : int64)) = 0L
+let ((var_11 : int64)) = method_1 (var_1, var_2)

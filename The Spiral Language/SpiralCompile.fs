@@ -109,6 +109,7 @@ let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
         }
 
     try
+        PartEval.part_eval_tag <- 0
         let ms =
             let dict = Dictionary(HashIdentity.Reference)
             let ms = ResizeArray()

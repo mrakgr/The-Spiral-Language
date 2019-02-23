@@ -5,10 +5,10 @@ and SpiralType2 =
     | SpiralType2_1 of int64 * int64
     | SpiralType2_3 of string
     | SpiralType2_4
-let ((var_157 : SpiralType0)) = SpiralType0_1 (2L, 3L)
-let ((var_161 : SpiralType2)) =
-    match var_157 with
-    | SpiralType0_1 (var_158, var_159) ->
-        SpiralType2_1 (var_158, var_159)
-    | SpiralType0_3 var_160 ->
-        SpiralType2_3 var_160
+let ((var_1 : SpiralType0)) = SpiralType0_1 (2L, 3L)
+let ((var_5 : SpiralType2)) =
+    match var_1 with
+    | SpiralType0_1 (var_2, var_3) ->
+        SpiralType2_1 (var_2, var_3)
+    | SpiralType0_3 var_4 ->
+        SpiralType2_3 var_4

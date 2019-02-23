@@ -19,21 +19,21 @@ and SpiralType3 =
     subvar_1 : int64
     subvar_2 : int64
     }
-let ((var_219 : int64)) = 1L
-let ((var_220 : int64)) = 2L
-let ((var_221 : int64)) = 3L
-let ((var_222 : SpiralType0)) = {subvar_0 = var_219; subvar_1 = var_220; subvar_2 = var_221}
-let ((var_223 : SpiralType1)) = SpiralType1_0 var_222
-let ((var_240 : int64)) =
-    match var_223 with
-    | SpiralType1_0 var_224 ->
-        let ((var_225 : int64), (var_226 : int64), (var_227 : int64)) = var_224.subvar_0, var_224.subvar_1, var_224.subvar_2
-        let ((var_228 : int64)) = var_225 + var_226
-        var_228 + var_227
-    | SpiralType1_2 var_230 ->
-        let ((var_231 : int64), (var_232 : int64)) = var_230.subvar_0, var_230.subvar_1
-        var_231 + var_232
-    | SpiralType1_3 var_234 ->
-        let ((var_235 : int64), (var_236 : int64), (var_237 : int64)) = var_234.subvar_0, var_234.subvar_1, var_234.subvar_2
-        let ((var_238 : int64)) = var_235 * var_236
-        var_238 * var_237
+let ((var_12 : int64)) = 1L
+let ((var_13 : int64)) = 2L
+let ((var_14 : int64)) = 3L
+let ((var_15 : SpiralType0)) = {subvar_0 = var_12; subvar_1 = var_13; subvar_2 = var_14}
+let ((var_16 : SpiralType1)) = SpiralType1_0 var_15
+let ((var_33 : int64)) =
+    match var_16 with
+    | SpiralType1_0 var_17 ->
+        let ((var_18 : int64), (var_19 : int64), (var_20 : int64)) = var_17.subvar_0, var_17.subvar_1, var_17.subvar_2
+        let ((var_21 : int64)) = var_18 + var_19
+        var_21 + var_20
+    | SpiralType1_2 var_23 ->
+        let ((var_24 : int64), (var_25 : int64)) = var_23.subvar_0, var_23.subvar_1
+        var_24 + var_25
+    | SpiralType1_3 var_27 ->
+        let ((var_28 : int64), (var_29 : int64), (var_30 : int64)) = var_27.subvar_0, var_27.subvar_1, var_27.subvar_2
+        let ((var_31 : int64)) = var_28 * var_29
+        var_31 * var_30

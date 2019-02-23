@@ -16,7 +16,7 @@ let private layout_to_none_dict = ConditionalWeakTable()
 let private layout_to_none_dict' = ConditionalWeakTable()
 let private hash_cons_table = HashConsing.HashConsTable()
 
-let mutable private part_eval_tag = 0
+let mutable part_eval_tag = 0
 let private tag () = part_eval_tag <- part_eval_tag+1; part_eval_tag
 
 let keyword_env = string_to_keyword "env:" // For join points keys. It is assumed that they will never be printed.

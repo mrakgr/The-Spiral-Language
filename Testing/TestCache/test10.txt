@@ -11,66 +11,30 @@ and method_3 () : int64 =
     3L
 and method_4 () : int64 =
     4L
-let ((var_50 : SpiralType0), (var_51 : SpiralType0), (var_52 : SpiralType0), (var_53 : SpiralType0)) = method_0 ()
-let ((var_84 : int64)) =
-    match var_50 with
+let ((var_1 : SpiralType0), (var_2 : SpiralType0), (var_3 : SpiralType0), (var_4 : SpiralType0)) = method_0 ()
+let ((var_17 : int64)) =
+    match var_1 with
     | SpiralType0_1 ->
-        match var_51 with
+        match var_2 with
         | SpiralType0_1 ->
-            match var_52 with
-            | SpiralType0_1 ->
-                match var_53 with
-                | SpiralType0_1 ->
-                    method_1 ()
-                | SpiralType0_2 ->
-                    method_1 ()
-            | SpiralType0_2 ->
-                match var_53 with
-                | SpiralType0_1 ->
-                    method_1 ()
-                | SpiralType0_2 ->
-                    method_1 ()
+            method_1 ()
         | SpiralType0_2 ->
-            match var_52 with
+            match var_3 with
             | SpiralType0_1 ->
-                match var_53 with
+                match var_4 with
                 | SpiralType0_1 ->
                     method_2 ()
                 | SpiralType0_2 ->
                     method_3 ()
             | SpiralType0_2 ->
-                match var_53 with
-                | SpiralType0_1 ->
-                    method_4 ()
-                | SpiralType0_2 ->
-                    method_4 ()
+                method_4 ()
     | SpiralType0_2 ->
-        match var_51 with
+        match var_3 with
         | SpiralType0_1 ->
-            match var_52 with
+            match var_4 with
             | SpiralType0_1 ->
-                match var_53 with
-                | SpiralType0_1 ->
-                    method_2 ()
-                | SpiralType0_2 ->
-                    method_4 ()
+                method_2 ()
             | SpiralType0_2 ->
-                match var_53 with
-                | SpiralType0_1 ->
-                    method_4 ()
-                | SpiralType0_2 ->
-                    method_4 ()
+                method_4 ()
         | SpiralType0_2 ->
-            match var_52 with
-            | SpiralType0_1 ->
-                match var_53 with
-                | SpiralType0_1 ->
-                    method_2 ()
-                | SpiralType0_2 ->
-                    method_4 ()
-            | SpiralType0_2 ->
-                match var_53 with
-                | SpiralType0_1 ->
-                    method_4 ()
-                | SpiralType0_2 ->
-                    method_4 ()
+            method_4 ()

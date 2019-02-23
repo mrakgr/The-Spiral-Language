@@ -1,3 +1,3 @@
-let ((var_262 : string)) = "Coord"
-let ((var_263 : int64)) = 1L
-let ((var_264 : int64)) = 2L
+let ((var_1 : string)) = "Coord"
+let ((var_2 : int64)) = 1L
+let ((var_3 : int64)) = 2L

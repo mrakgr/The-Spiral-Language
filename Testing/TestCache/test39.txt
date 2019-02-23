@@ -1,2 +1,2 @@
-let ((var_265 : int64)) = 6L
-let ((var_266 : int64)) = 4L
+let ((var_1 : int64)) = 6L
+let ((var_2 : int64)) = 4L

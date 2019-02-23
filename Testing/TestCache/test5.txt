@@ -4,6 +4,6 @@ and method_1 () : int64 =
     -1L
 and method_2 () : int64 =
     2L
-let ((var_14 : int64)) = method_0 ()
-let ((var_15 : int64)) = method_1 ()
-let ((var_16 : int64)) = method_2 ()
+let ((var_1 : int64)) = method_0 ()
+let ((var_2 : int64)) = method_1 ()
+let ((var_3 : int64)) = method_2 ()

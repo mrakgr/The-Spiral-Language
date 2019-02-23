@@ -6,12 +6,12 @@ type SpiralType0 =
 and SpiralType3 =
     | SpiralType3_4
     | SpiralType3_5 of int64 * SpiralType3
-let ((var_177 : SpiralType0)) = SpiralType0_1 1L
-let ((var_182 : int64)) =
-    match var_177 with
-    | SpiralType0_2 (var_178, var_179) ->
+let ((var_1 : SpiralType0)) = SpiralType0_1 1L
+let ((var_6 : int64)) =
+    match var_1 with
+    | SpiralType0_2 (var_2, var_3) ->
         2L
-    | SpiralType0_3 var_180 ->
+    | SpiralType0_3 var_4 ->
         3L
-    | SpiralType0_1 var_181 ->
+    | SpiralType0_1 var_5 ->
         1L

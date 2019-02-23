@@ -1,4 +1,4 @@
-let rec closure_method_0 () ((var_267 : int64), (var_268 : int64)) : unit =
+let rec closure_method_0 () ((var_1 : int64), (var_2 : int64)) : unit =
     ()
-let ((var_269 : (int64 * int64 -> unit))) = closure_method_0 ()
-let () = var_269(1L, 2L)
+let ((var_3 : (int64 * int64 -> unit))) = closure_method_0 ()
+let () = var_3(1L, 2L)

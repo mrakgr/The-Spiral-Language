@@ -1,12 +1,12 @@
-let ((var_283 : bool)) = true
-let ((var_284 : bool)) = false
-let ((var_285 : bool)) = true
-let ((var_286 : bool)) = false
-let ((var_287 : bool)) = true
-let ((var_288 : bool)) = var_283 && var_284
-let ((var_291 : bool)) =
-    if var_288 then
+let ((var_1 : bool)) = true
+let ((var_2 : bool)) = false
+let ((var_3 : bool)) = true
+let ((var_4 : bool)) = false
+let ((var_5 : bool)) = true
+let ((var_6 : bool)) = var_1 && var_2
+let ((var_9 : bool)) =
+    if var_6 then
         true
     else
-        let ((var_289 : bool)) = var_285 && var_286
-        var_289 || var_287
+        let ((var_7 : bool)) = var_3 && var_4
+        var_7 || var_5

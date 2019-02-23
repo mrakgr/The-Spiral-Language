@@ -186,11 +186,10 @@ let test10: SpiralModule =
     code=
     """
 inl ab x = Type (box: x to: (.A \/ .B))
-inl #a,#b,#c,#d = join (ab .A, ab .A, ab .A, ab .A)
-match a,b,c,d with
-| .A, .A, _, _ -> join 1
-| _, _, .A, .A -> join 2
-| .A, .B, .A, .B -> join 3
+match join (ab .A, ab .A, ab .A, ab .A) with
+| #(.A), #(.A), _, _ -> join 1
+| _, _, #(.A), #(.A) -> join 2
+| #(.A), #(.B), #(.A), #(.B) -> join 3
 | _ -> join 4
     """
     }
@@ -1101,8 +1100,8 @@ let tests =
     |]
 
 
-rewrite_test_cache tests cfg None //(Some(0,40))
-//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test62
-//|> printfn "%s"
-//|> ignore
+//rewrite_test_cache tests cfg None //(Some(0,40))
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test10
+|> printfn "%s"
+|> ignore
 
