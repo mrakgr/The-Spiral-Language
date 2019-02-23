@@ -601,6 +601,19 @@ let is_numeric = function
         | Float32T | Float64T) -> true
     | _ -> false
 
+let is_signed_numeric = function
+    | PrimT (Int8T | Int16T | Int32T | Int64T | Float32T | Float64T) -> true
+    | _ -> false
+
+let is_non_float = function
+    | PrimT (Float32T | Float64T) -> false
+    | PrimT _ -> true
+    | _ -> false
+
+let is_primitive = function
+    | PrimT _ -> true
+    | _ -> false
+
 let is_string = function
     | PrimT StringT -> true
     | _ -> false
@@ -633,3 +646,42 @@ let is_any_int = function
 let is_int64 = function
     | PrimT Int64T -> true
     | _ -> false
+
+let is_int32 = function
+    | PrimT Int32T -> true
+    | _ -> false
+
+let is_lit_zero = function
+    | TyLit a ->
+        match a with
+        | LitInt8 0y | LitInt16 0s | LitInt32 0 | LitInt64 0L
+        | LitUInt8 0uy | LitUInt16 0us | LitUInt32 0u | LitUInt64 0UL
+        | LitFloat32 0.0f | LitFloat64 0.0 -> true
+        | _ -> false
+    | _ -> false
+
+let is_lit_one = function
+    | TyLit a ->
+        match a with
+        | LitInt8 1y | LitInt16 1s | LitInt32 1 | LitInt64 1L
+        | LitUInt8 1uy | LitUInt16 1us | LitUInt32 1u | LitUInt64 1UL
+        | LitFloat32 1.0f | LitFloat64 1.0 -> true
+        | _ -> false
+    | _ -> false
+
+let is_int_lit_zero = function
+    | TyLit a ->
+        match a with
+        | LitInt8 0y | LitInt16 0s | LitInt32 0 | LitInt64 0L
+        | LitUInt8 0uy | LitUInt16 0us | LitUInt32 0u | LitUInt64 0UL -> true
+        | _ -> false
+    | _ -> false
+
+let is_int_lit_one = function
+    | TyLit a ->
+        match a with
+        | LitInt8 1y | LitInt16 1s | LitInt32 1 | LitInt64 1L
+        | LitUInt8 1uy | LitUInt16 1us | LitUInt32 1u | LitUInt64 1UL -> true
+        | _ -> false
+    | _ -> false
+

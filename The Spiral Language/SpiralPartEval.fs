@@ -23,6 +23,7 @@ let keyword_env = string_to_keyword "env:" // For join points keys. It is assume
 let keyword_apply = string_to_keyword "apply:"
 let keyword_key_value = string_to_keyword "key:value:"
 let keyword_key_state_value = string_to_keyword "key:state:value:"
+
 let typed_data_to_consed' call_data =
     let dict = Dictionary(HashIdentity.Reference)
     let call_args = ResizeArray(64)
@@ -145,6 +146,20 @@ let consed_typed_free_vars consed_data =
     consed_args.ToArray()
 
 let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
+
+let value_zero d = function
+    | PrimT Int8T -> LitInt8 0y
+    | PrimT Int16T -> LitInt16 0s
+    | PrimT Int32T -> LitInt32 0
+    | PrimT Int64T -> LitInt64 0L
+    | PrimT UInt8T -> LitUInt8 0uy
+    | PrimT UInt16T -> LitUInt16 0us
+    | PrimT UInt32T -> LitUInt32 0u
+    | PrimT UInt64T -> LitUInt64 0UL
+    | PrimT Float32T -> LitFloat32 0.0f
+    | PrimT Float64T -> LitFloat64 0.0
+    | ty -> raise_type_error d <| sprintf "Compiler error: Expected a numeric value in value_zero.\nGot: %s" (show_ty ty)
+
 let rect_unbox d key = 
     match join_point_dict_type.[key] with
     | JoinPointInEvaluation _ -> raise_type_error d "Types that are being constructed cannot be used for boxing."
@@ -279,6 +294,9 @@ let rec partial_eval (d: LangEnv) x =
     let inline push_var_ptr ptr x = d.env_stack.[ptr] <- x; ptr+1
     let inline v x = let l = d.env_global.Length in if x < l then d.env_global.[x] else d.env_stack.[x - l]
 
+    let inline nan_guardf32 x = if Single.IsNaN x then raise_type_error d "A 32-bit floating point operation resulting in a nan detected at compile time. Spiral cannot propagate nan literal without diverging." else x
+    let inline nan_guardf64 x = if Double.IsNaN x then raise_type_error d "A 64-bit floating point operation resulting in a nan detected at compile time. Spiral cannot propagate nan literal without diverging." else x
+
     let inline list_test all_or_n (stack_size,bind,on_succ,on_fail) =
         let inline on_fail() = ev d on_fail
         match v bind with
@@ -327,246 +345,6 @@ let rec partial_eval (d: LangEnv) x =
             if clo_arg_ty <> b_ty then raise_type_error d <| sprintf "Cannot apply an argument of type %s to closure (%s => %s)." (show_ty b_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
             else push_op_no_rewrite d Apply (TyList [a;b]) clo_ret_ty
         | a, _ -> raise_type_error d <| sprintf "The first argument provided cannot be applied.\nGot: %s" (show_typed_data a)
-
-    let inline prim_bin_op_template d check_error is_check k a b t =
-        let a, b = ev2 d a b
-        if is_check a b then k t a b
-        else raise_type_error d (check_error a b)
-
-    let inline prim_bin_op_helper d t a b = push_binop d t (a,b) (type_get a)
-    let inline prim_un_op_helper d t a = push_op d t a (type_get a)
-    let inline bool_helper d t a b = push_binop d t (a,b) (PrimT BoolT)
-
-    let prim_arith_op d a b t = 
-        let er a b = sprintf "`is_numeric a && type_get a = type_get b` is false.\na=%s, b=%s" (show_typed_data a) (show_typed_data b)
-        let check a b = let a,b = type_get a, type_get b in is_numeric a && a = b
-        prim_bin_op_template d er check (fun t a b ->
-            let inline op_arith a b =
-                match t with
-                | Add -> a + b
-                | Sub -> a - b
-                | Mult -> a * b
-                | Div -> 
-                    if Unchecked.defaultof<_> = b then raise_type_error d "Division by zero caught at compile time."
-                    a / b
-                | Mod -> 
-                    if Unchecked.defaultof<_> = b then raise_type_error d "Modulus by zero caught at compile time."
-                    a % b
-                | _ -> failwith "Expected an arithmetic operation."
-            let inline op_arith_num_zero a b =
-                match t with
-                | Add | Sub -> a
-                | Mult -> b
-                | Div -> raise_type_error d "Division by zero caught at compile time."
-                | Mod -> raise_type_error d "Modulus by zero caught at compile time."
-                | _ -> failwith "Expected an arithmetic operation."
-            let inline op_arith_zero_num a b =
-                match t with
-                | Add -> b
-                | Sub -> push_op d Neg b (type_get b)
-                | Mult | Div | Mod -> a
-                | _ -> failwith "Expected an arithmetic operation."
-            let inline op_arith_num_one a b =
-                match t with
-                | Mult | Div -> a
-                | Mod ->
-                    match type_get a with
-                    | PrimT x ->
-                        match x with
-                        | Int8T -> TyLit (LitInt8 0y)
-                        | Int16T -> TyLit (LitInt16 0s)
-                        | Int32T -> TyLit (LitInt32 0)
-                        | Int64T -> TyLit (LitInt64 0L)
-                        | UInt8T -> TyLit (LitUInt8 0uy)
-                        | UInt16T -> TyLit (LitUInt16 0us)
-                        | UInt32T -> TyLit (LitUInt32 0u)
-                        | UInt64T -> TyLit (LitUInt64 0UL)
-                        | Float32T -> TyLit (LitFloat32 0.0f)
-                        | Float64T -> TyLit (LitFloat64 0.0)
-                        | BoolT | CharT | StringT -> failwith "Compiler error: Invalid type."
-                    | _ -> failwith "Compiler error: Invalid type."
-                | Add | Sub -> prim_bin_op_helper d t a b
-                | _ -> failwith "Expected an arithmetic operation."
-            let inline op_arith_one_num a b =
-                match t with
-                | Mult -> b
-                | Div | Mod | Add | Sub -> prim_bin_op_helper d t a b
-                | _ -> failwith "Expected an arithmetic operation."
-            match a, b with
-            | TyLit a', TyLit b' ->
-                match a', b' with
-                | LitInt8 a, LitInt8 b -> op_arith a b |> LitInt8 |> TyLit
-                | LitInt16 a, LitInt16 b -> op_arith a b |> LitInt16 |> TyLit
-                | LitInt32 a, LitInt32 b -> op_arith a b |> LitInt32 |> TyLit
-                | LitInt64 a, LitInt64 b -> op_arith a b |> LitInt64 |> TyLit
-                | LitUInt8 a, LitUInt8 b -> op_arith a b |> LitUInt8 |> TyLit
-                | LitUInt16 a, LitUInt16 b -> op_arith a b |> LitUInt16 |> TyLit
-                | LitUInt32 a, LitUInt32 b -> op_arith a b |> LitUInt32 |> TyLit
-                | LitUInt64 a, LitUInt64 b -> op_arith a b |> LitUInt64 |> TyLit
-                | LitFloat32 a, LitFloat32 b -> op_arith a b |> LitFloat32 |> TyLit
-                | LitFloat64 a, LitFloat64 b -> op_arith a b |> LitFloat64 |> TyLit
-                | _ -> prim_bin_op_helper d t a b
-
-            | TyLit a', _ ->
-                match a' with
-                | LitInt8 0y | LitInt16 0s | LitInt32 0 | LitInt64 0L
-                | LitUInt8 0uy | LitUInt16 0us | LitUInt32 0u | LitUInt64 0UL
-                | LitFloat32 0.0f | LitFloat64 0.0 -> op_arith_zero_num a b
-                | LitInt8 1y | LitInt16 1s | LitInt32 1 | LitInt64 1L
-                | LitUInt8 1uy | LitUInt16 1us | LitUInt32 1u | LitUInt64 1UL
-                | LitFloat32 1.0f | LitFloat64 1.0 -> op_arith_one_num a b
-                | _ -> prim_bin_op_helper d t a b
-
-            | _, TyLit b' ->
-                match b' with
-                | LitInt8 0y | LitInt16 0s | LitInt32 0 | LitInt64 0L
-                | LitUInt8 0uy | LitUInt16 0us | LitUInt32 0u | LitUInt64 0UL
-                | LitFloat32 0.0f | LitFloat64 0.0 -> op_arith_num_zero a b
-                | LitInt8 1y | LitInt16 1s | LitInt32 1 | LitInt64 1L
-                | LitUInt8 1uy | LitUInt16 1us | LitUInt32 1u | LitUInt64 1UL
-                | LitFloat32 1.0f | LitFloat64 1.0 -> op_arith_num_one a b
-                | _ -> prim_bin_op_helper d t a b
-            | TyV(T(a',typ)), TyV(T(b',_)) when a' = b' && t = Sub -> 
-                match typ with
-                | PrimT Int8T -> LitInt8 0y |> TyLit
-                | PrimT Int16T -> LitInt16 0s |> TyLit
-                | PrimT Int32T -> LitInt32 0 |> TyLit
-                | PrimT Int64T -> LitInt64 0L |> TyLit
-                | PrimT UInt8T -> LitUInt8 0uy |> TyLit
-                | PrimT UInt16T -> LitUInt16 0us |> TyLit
-                | PrimT UInt32T -> LitUInt32 0u |> TyLit
-                | PrimT UInt64T -> LitUInt64 0UL |> TyLit
-                | PrimT Float32T -> LitFloat32 0.0f |> TyLit
-                | PrimT Float64T -> LitFloat64 0.0 |> TyLit
-                | _ -> prim_bin_op_helper d t a b
-            | _ -> prim_bin_op_helper d t a b
-            ) a b t
-
-    let power d a b =
-        match ev2 d a b with
-        | TyLit (LitFloat64 a), TyLit (LitFloat64 b) -> a ** b |> LitFloat64 |> TyLit
-        | TyLit (LitFloat32 a), TyLit (LitFloat32 b) -> float32 (float a ** float b) |> LitFloat32 |> TyLit
-        | a, b ->
-            match type_get a, type_get b with
-            | PrimT Float64T, PrimT Float64T -> push_binop d Pow (a,b) (PrimT Float64T)
-            | PrimT Float32T, PrimT Float32T -> push_binop d Pow (a,b) (PrimT Float32T)
-            | a, b -> raise_type_error d <| sprintf "The arguments to Pow must both be either float32 or float64. Got: %s and %s" (show_ty a) (show_ty b)
-
-    let prim_comp_op d a b t = 
-        let er a b = sprintf "(is_char a || is_string a || is_numeric a || is_bool a) && type_get a = type_get b` is false.\na=%s, b=%s" (show_typed_data a) (show_typed_data b)
-        let check a b = let a,b = type_get a, type_get b in (is_char a || is_string a || is_numeric a || is_bool a) && a = b
-        prim_bin_op_template d er check (fun t a b ->
-            let inline eq_op a b = LitBool (a = b) |> TyLit
-            let inline neq_op a b = LitBool (a <> b) |> TyLit
-            match t, a, b with
-            | EQ, TyV(T(a,_)), TyV(T(b,_)) when a = b -> LitBool true |> TyLit
-            | EQ, TyLit (LitBool a), TyLit (LitBool b) -> eq_op a b
-            | EQ, TyLit (LitString a), TyLit (LitString b) -> eq_op a b
-            | NEQ, TyV(T(a,_)), TyV(T(b,_)) when a = b -> LitBool false |> TyLit
-            | NEQ, TyLit (LitBool a), TyLit (LitBool b) -> neq_op a b
-            | NEQ, TyLit (LitString a), TyLit (LitString b) -> neq_op a b
-            | _ ->
-                let inline op a b =
-                    match t with
-                    | LT -> a < b
-                    | LTE -> a <= b
-                    | EQ -> a = b
-                    | NEQ -> a <> b
-                    | GT -> a > b
-                    | GTE -> a >= b 
-                    | _ -> failwith "Expected a comparison operation."
-                match a, b with
-                | TyLit a', TyLit b' ->
-                    match a', b' with
-                    | LitInt8 a, LitInt8 b -> op a b |> LitBool |> TyLit
-                    | LitInt16 a, LitInt16 b -> op a b |> LitBool |> TyLit
-                    | LitInt32 a, LitInt32 b -> op a b |> LitBool |> TyLit
-                    | LitInt64 a, LitInt64 b -> op a b |> LitBool |> TyLit
-                    | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> TyLit
-                    | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> TyLit
-                    | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> TyLit
-                    | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> TyLit
-                    | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> TyLit
-                    | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> TyLit
-                    | LitString a, LitString b -> op a b |> LitBool |> TyLit
-                    | LitChar a, LitChar b -> op a b |> LitBool |> TyLit
-                    | _ -> bool_helper d t a b
-                | _ -> bool_helper d t a b
-                ) a b t
-
-    let prim_shift_op d a b t =
-        let er a b = sprintf "`is_int a && is_int b` is false.\na=%s, b=%s" (show_typed_data a) (show_typed_data b)
-        let check a b = let a,b = type_get a, type_get b in is_int a && is_int b
-        prim_bin_op_template d er check (prim_bin_op_helper d) a b t
-
-    let prim_bitwise_op d a b t =
-        let er a b = sprintf "`type_get a = type_get b && is_any_int a && is_any_int b` is false.\na=%s, b=%s" (show_typed_data a) (show_typed_data b)
-        let check a b = let a,b = type_get a, type_get b in a = b && is_any_int a && is_any_int b
-        prim_bin_op_template d er check (fun t a b ->
-            let inline op_bitwise a b = 
-                match t with
-                | BitwiseAnd -> a &&& b
-                | BitwiseOr -> a ||| b
-                | BitwiseXor -> a ^^^ b
-                | _ -> raise_type_error d "Compiler error: Expected a bitwise operation."
-            match a,b with
-            | TyLit a', TyLit b' ->
-                match a', b' with
-                | LitInt8 a, LitInt8 b -> op_bitwise a b |> LitInt8 |> TyLit
-                | LitInt16 a, LitInt16 b -> op_bitwise a b |> LitInt16 |> TyLit
-                | LitInt32 a, LitInt32 b -> op_bitwise a b |> LitInt32 |> TyLit
-                | LitInt64 a, LitInt64 b -> op_bitwise a b |> LitInt64 |> TyLit
-                | LitUInt8 a, LitUInt8 b -> op_bitwise a b |> LitUInt8 |> TyLit
-                | LitUInt16 a, LitUInt16 b -> op_bitwise a b |> LitUInt16 |> TyLit
-                | LitUInt32 a, LitUInt32 b -> op_bitwise a b |> LitUInt32 |> TyLit
-                | LitUInt64 a, LitUInt64 b -> op_bitwise a b |> LitUInt64 |> TyLit
-                | _ -> prim_bin_op_helper d t a b
-            | _ -> prim_bin_op_helper d t a b
-            ) a b t
-
-    let prim_un_op_template d check_error is_check k a t =
-        let a = ev d a
-        if is_check a then k t a
-        else raise_type_error d (check_error a)
-
-    let prim_un_floating d a t =
-        let er a = sprintf "`is_float a` is false.\na=%s" (show_typed_data a)
-        let check a = is_float (type_get a)
-        prim_un_op_template d er check (fun t a ->
-            let inline op x =
-                match t with
-                | Tanh -> tanh x
-                | Log -> log x
-                | Exp -> exp x
-                | Sqrt -> sqrt x
-                | _ -> raise_type_error d "Compiler error: Unknown op."
-            match a with
-            | TyLit (LitFloat32 x) -> op x |> LitFloat32 |> TyLit
-            | TyLit (LitFloat64 x) -> op x |> LitFloat64 |> TyLit
-            | x -> prim_un_op_helper d t x
-            ) a t
-
-    let prim_un_numeric d a t =
-        let er a = sprintf "`is_numeric a` is false.\na=%s" (show_typed_data a)
-        let check a = is_numeric (type_get a)
-        prim_un_op_template d er check (fun t a -> 
-            let inline op a = 
-                match t with
-                | Neg -> -a
-                | _ -> failwithf "Compiler error: Unexpected operation %A." t
-
-            match a with
-            | TyLit a' ->
-                match a' with
-                | LitInt8 a -> op a |> LitInt8 |> TyLit
-                | LitInt16 a -> op a |> LitInt16 |> TyLit
-                | LitInt32 a -> op a |> LitInt32 |> TyLit
-                | LitInt64 a -> op a |> LitInt64 |> TyLit
-                | LitFloat32 a -> op a |> LitFloat32 |> TyLit
-                | LitFloat64 a -> op a |> LitFloat64 |> TyLit
-                | _ -> prim_un_op_helper d t a
-            | _ -> prim_un_op_helper d t a
-            ) a t
 
     match x with
     | V(_, x) -> v x
@@ -1126,7 +904,6 @@ let rec partial_eval (d: LangEnv) x =
                     | None -> raise_type_error d <| sprintf "The record does not have the %s field." (keyword_to_string keyword)
                 | b -> raise_type_error d <| sprintf "Expected an unary keyword as the field argument to SetMutableRecord.\nGot: %s" (show_typed_data b)
             | a -> raise_type_error d <| sprintf "Expected a mutable record in SetMutableRecord.\nGot: %s" (show_typed_data a)
-
         | NanIs,[|a|] ->
             match ev d a with
             | TyLit (LitFloat32 x) -> System.Single.IsNaN x |> LitBool |> TyLit
@@ -1135,33 +912,463 @@ let rec partial_eval (d: LangEnv) x =
             | x -> raise_type_error d <| sprintf "Expected a float in NanIs. Got: %s" (show_typed_data x)
 
         // Primitive operations on expressions.
-        | Add,[|a;b|] -> prim_arith_op d a b Add
-        | Sub,[|a;b|] -> prim_arith_op d a b Sub 
-        | Mult,[|a;b|] -> prim_arith_op d a b Mult
-        | Div,[|a;b|] -> prim_arith_op d a b Div
-        | Mod,[|a;b|] -> prim_arith_op d a b Mod
-        | Pow,[|a;b|] -> power d a b
-
-        | LT,[|a;b|] -> prim_comp_op d a b LT
-        | LTE,[|a;b|] -> prim_comp_op d a b LTE
-        | EQ,[|a;b|] -> prim_comp_op d a b EQ
-        | NEQ,[|a;b|] -> prim_comp_op d a b NEQ 
-        | GT,[|a;b|] -> prim_comp_op d a b GT
-        | GTE,[|a;b|] -> prim_comp_op d a b GTE
-    
-        | BitwiseAnd,[|a;b|] -> prim_bitwise_op d a b BitwiseAnd
-        | BitwiseOr,[|a;b|] -> prim_bitwise_op d a b BitwiseOr
-        | BitwiseXor,[|a;b|] -> prim_bitwise_op d a b BitwiseXor
-
-        | ShiftLeft,[|a;b|] -> prim_shift_op d a b ShiftLeft
-        | ShiftRight,[|a;b|] -> prim_shift_op d a b ShiftRight
-
-        | Log,[|a|] -> prim_un_floating d a Log
-        | Exp,[|a|] -> prim_un_floating d a Exp
-        | Tanh,[|a|] -> prim_un_floating d a Tanh
-        | Sqrt,[|a|] -> prim_un_floating d a Sqrt
-        | Neg,[|a|] -> prim_un_numeric d a Neg
-
+        | Add,[|a;b|] -> 
+            let inline op a b = a + b
+            match ev2 d a b with
+            | TyLit a, TyLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> TyLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> TyLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> TyLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> TyLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> TyLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> TyLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> TyLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> TyLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> TyLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> TyLit
+                | a, b -> raise_type_error d <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_value a) (show_value b)
+            | a, b ->
+                let a_ty, b_ty = type_get a, type_get b 
+                if a_ty = b_ty then
+                    if is_lit_zero a then b
+                    elif is_lit_zero b then a
+                    elif is_numeric a_ty then push_binop d Add (a,b) a_ty
+                    else raise_type_error d <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error d <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | Sub,[|a;b|] ->
+            let inline op a b = a - b
+            match ev2 d a b with
+            | TyLit a, TyLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> TyLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> TyLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> TyLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> TyLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> TyLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> TyLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> TyLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> TyLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> TyLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> TyLit
+                | a, b -> raise_type_error d <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_value a) (show_value b)
+            | a, b ->
+                let a_ty, b_ty = type_get a, type_get b 
+                if a_ty = b_ty then
+                    if is_lit_zero a then push_op d Neg b b_ty
+                    elif is_lit_zero b then a
+                    elif is_numeric a_ty then push_binop d Sub (a,b) a_ty
+                    else raise_type_error d <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error d <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | Mult,[|a;b|] ->
+            let inline op a b = a * b
+            match ev2 d a b with
+            | TyLit a, TyLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> TyLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> TyLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> TyLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> TyLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> TyLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> TyLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> TyLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> TyLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> TyLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> TyLit
+                | a, b -> raise_type_error d <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_value a) (show_value b)
+            | a, b ->
+                let a_ty, b_ty = type_get a, type_get b 
+                if a_ty = b_ty then
+                    if is_int_lit_zero a || is_int_lit_zero b then value_zero d a_ty |> TyLit
+                    elif is_lit_one a then b
+                    elif is_lit_one b then a
+                    elif is_numeric a_ty then push_binop d Mult (a,b) a_ty
+                    else raise_type_error d <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error d <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | Pow,[|a;b|] -> 
+            let inline op a b = a ** b
+            match ev2 d a b with
+            | TyLit a, TyLit b ->
+                match a, b with
+                | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32 |> LitFloat32 |> TyLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> TyLit
+                | a, b -> raise_type_error d <| sprintf "The two literals must be both float and equal in type.\nGot: %s and %s" (show_value a) (show_value b)
+            | a, b ->
+                let a_ty, b_ty = type_get a, type_get b 
+                if a_ty = b_ty then push_binop d Pow (a,b) a_ty
+                else 
+                    raise_type_error d <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | Div,[|a;b|] -> 
+            let inline op a b = a / b
+            try
+                match ev2 d a b with
+                | TyLit a, TyLit b ->
+                    match a, b with
+                    | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> TyLit
+                    | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> TyLit
+                    | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> TyLit
+                    | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> TyLit
+                    | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> TyLit
+                    | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> TyLit
+                    | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> TyLit
+                    | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> TyLit
+                    | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> TyLit
+                    | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> TyLit
+                    | a, b -> raise_type_error d <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_value a) (show_value b)
+                | a, b ->
+                    let a_ty, b_ty = type_get a, type_get b 
+                    if a_ty = b_ty then
+                        if is_lit_zero b then raise (DivideByZeroException())
+                        elif is_lit_one b then a
+                        elif is_numeric a_ty then push_binop d Div (a,b) a_ty
+                        else raise_type_error d <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
+                    else
+                        raise_type_error d <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+            with :? DivideByZeroException ->
+                raise_type_error d <| sprintf "An attempt to divide by zero has been detected at compile time."
+        | Mod,[|a;b|] -> 
+            let inline op a b = a % b
+            try
+                match ev2 d a b with
+                | TyLit a, TyLit b ->
+                    match a, b with
+                    | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> TyLit
+                    | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> TyLit
+                    | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> TyLit
+                    | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> TyLit
+                    | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> TyLit
+                    | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> TyLit
+                    | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> TyLit
+                    | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> TyLit
+                    | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> TyLit
+                    | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> TyLit
+                    | a, b -> raise_type_error d <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_value a) (show_value b)
+                | a, b ->
+                    let a_ty, b_ty = type_get a, type_get b 
+                    if a_ty = b_ty then
+                        if is_lit_zero b then raise (DivideByZeroException())
+                        elif is_numeric a_ty then push_binop d Mod (a,b) a_ty
+                        else raise_type_error d <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
+                    else
+                        raise_type_error d <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+            with :? DivideByZeroException ->
+                raise_type_error d <| sprintf "An attempt to divide by zero has been detected at compile time."
+        | LT,[|a;b|] ->
+            let inline op a b = a < b
+            match ev2 d a b with
+            | TyLit a, TyLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitBool |> TyLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitBool |> TyLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitBool |> TyLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitBool |> TyLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> TyLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> TyLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> TyLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> TyLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> TyLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> TyLit
+                | LitString a, LitString b -> op a b |> LitBool |> TyLit
+                | LitChar a, LitChar b -> op a b |> LitBool |> TyLit
+                | LitBool a, LitBool b -> op a b |> LitBool |> TyLit
+                | a, b -> raise_type_error d <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_value a) (show_value b)
+            | a, b ->
+                let a_ty, b_ty = type_get a, type_get b 
+                if a_ty = b_ty then
+                    if is_primitive a_ty then push_binop d LT (a,b) (PrimT BoolT)
+                    else raise_type_error d <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error d <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | LTE,[|a;b|] ->
+            let inline op a b = a <= b
+            match ev2 d a b with
+            | TyLit a, TyLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitBool |> TyLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitBool |> TyLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitBool |> TyLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitBool |> TyLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> TyLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> TyLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> TyLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> TyLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> TyLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> TyLit
+                | LitString a, LitString b -> op a b |> LitBool |> TyLit
+                | LitChar a, LitChar b -> op a b |> LitBool |> TyLit
+                | LitBool a, LitBool b -> op a b |> LitBool |> TyLit
+                | a, b -> raise_type_error d <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_value a) (show_value b)
+            | a, b ->
+                let a_ty, b_ty = type_get a, type_get b 
+                if a_ty = b_ty then
+                    if is_primitive a_ty then push_binop d LTE (a,b) (PrimT BoolT)
+                    else raise_type_error d <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error d <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | GT,[|a;b|] -> 
+            let inline op a b = a > b
+            match ev2 d a b with
+            | TyLit a, TyLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitBool |> TyLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitBool |> TyLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitBool |> TyLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitBool |> TyLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> TyLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> TyLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> TyLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> TyLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> TyLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> TyLit
+                | LitString a, LitString b -> op a b |> LitBool |> TyLit
+                | LitChar a, LitChar b -> op a b |> LitBool |> TyLit
+                | LitBool a, LitBool b -> op a b |> LitBool |> TyLit
+                | a, b -> raise_type_error d <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_value a) (show_value b)
+            | a, b ->
+                let a_ty, b_ty = type_get a, type_get b 
+                if a_ty = b_ty then
+                    if is_primitive a_ty then push_binop d GT (a,b) (PrimT BoolT)
+                    else raise_type_error d <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error d <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | GTE,[|a;b|] -> 
+            let inline op a b = a >= b
+            match ev2 d a b with
+            | TyLit a, TyLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitBool |> TyLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitBool |> TyLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitBool |> TyLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitBool |> TyLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> TyLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> TyLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> TyLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> TyLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> TyLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> TyLit
+                | LitString a, LitString b -> op a b |> LitBool |> TyLit
+                | LitChar a, LitChar b -> op a b |> LitBool |> TyLit
+                | LitBool a, LitBool b -> op a b |> LitBool |> TyLit
+                | a, b -> raise_type_error d <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_value a) (show_value b)
+            | a, b ->
+                let a_ty, b_ty = type_get a, type_get b 
+                if a_ty = b_ty then
+                    if is_primitive a_ty then push_binop d GTE (a,b) (PrimT BoolT)
+                    else raise_type_error d <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error d <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | EQ,[|a;b|] -> 
+            let inline op a b = a = b
+            match ev2 d a b with
+            | TyLit a, TyLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitBool |> TyLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitBool |> TyLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitBool |> TyLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitBool |> TyLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> TyLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> TyLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> TyLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> TyLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> TyLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> TyLit
+                | LitString a, LitString b -> op a b |> LitBool |> TyLit
+                | LitChar a, LitChar b -> op a b |> LitBool |> TyLit
+                | LitBool a, LitBool b -> op a b |> LitBool |> TyLit
+                | a, b -> raise_type_error d <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_value a) (show_value b)
+            | TyV(T(a,a_ty)), TyV(T(b,_)) when a = b && is_non_float a_ty -> LitBool true |> TyLit
+            | a, b ->
+                let a_ty, b_ty = type_get a, type_get b 
+                if a_ty = b_ty then
+                    if is_primitive a_ty then push_binop d EQ (a,b) (PrimT BoolT)
+                    else raise_type_error d <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error d <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | NEQ,[|a;b|] ->
+            let inline op a b = a <> b
+            match ev2 d a b with
+            | TyLit a, TyLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitBool |> TyLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitBool |> TyLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitBool |> TyLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitBool |> TyLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> TyLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> TyLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> TyLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> TyLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> TyLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> TyLit
+                | LitString a, LitString b -> op a b |> LitBool |> TyLit
+                | LitChar a, LitChar b -> op a b |> LitBool |> TyLit
+                | LitBool a, LitBool b -> op a b |> LitBool |> TyLit
+                | a, b -> raise_type_error d <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_value a) (show_value b)
+            | TyV(T(a,a_ty)), TyV(T(b,_)) when a = b && is_non_float a_ty -> LitBool false |> TyLit
+            | a, b ->
+                let a_ty, b_ty = type_get a, type_get b 
+                if a_ty = b_ty then
+                    if is_primitive a_ty then push_binop d NEQ (a,b) (PrimT BoolT)
+                    else raise_type_error d <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error d <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | BitwiseAnd,[|a;b|] -> 
+            let inline op a b = a &&& b
+            match ev2 d a b with
+            | TyLit a, TyLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> TyLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> TyLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> TyLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> TyLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> TyLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> TyLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> TyLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> TyLit
+                | a, b -> raise_type_error d <| sprintf "The two literals must be both ints and equal in type.\nGot: %s and %s" (show_value a) (show_value b)
+            | a, b ->
+                let a_ty, b_ty = type_get a, type_get b 
+                if a_ty = b_ty then
+                    if is_any_int a_ty then push_binop d BitwiseAnd (a,b) a_ty
+                    else raise_type_error d <| sprintf "The type of the two arguments needs to be a int type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error d <| sprintf "The two sides need to have the same int types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | BitwiseOr,[|a;b|] ->
+            let inline op a b = a ||| b
+            match ev2 d a b with
+            | TyLit a, TyLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> TyLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> TyLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> TyLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> TyLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> TyLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> TyLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> TyLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> TyLit
+                | a, b -> raise_type_error d <| sprintf "The two literals must be both ints and equal in type.\nGot: %s and %s" (show_value a) (show_value b)
+            | a, b ->
+                let a_ty, b_ty = type_get a, type_get b 
+                if a_ty = b_ty then
+                    if is_any_int a_ty then push_binop d BitwiseOr (a,b) a_ty
+                    else raise_type_error d <| sprintf "The type of the two arguments needs to be a int type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error d <| sprintf "The two sides need to have the same int types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | BitwiseXor,[|a;b|] ->
+            let inline op a b = a ^^^ b
+            match ev2 d a b with
+            | TyLit a, TyLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> TyLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> TyLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> TyLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> TyLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> TyLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> TyLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> TyLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> TyLit
+                | a, b -> raise_type_error d <| sprintf "The two literals must be both ints and equal in type.\nGot: %s and %s" (show_value a) (show_value b)
+            | a, b ->
+                let a_ty, b_ty = type_get a, type_get b 
+                if a_ty = b_ty then
+                    if is_any_int a_ty then push_binop d BitwiseXor (a,b) a_ty
+                    else raise_type_error d <| sprintf "The type of the two arguments needs to be a int type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error d <| sprintf "The two sides need to have the same int types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | ShiftLeft,[|a;b|] -> 
+            let inline op a b = a <<< b
+            match ev2 d a b with
+            | TyLit a, TyLit b ->
+                match a, b with
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> TyLit
+                | LitInt64 a, LitInt32 b -> op a b |> LitInt64 |> TyLit
+                | LitUInt32 a, LitInt32 b -> op a b |> LitUInt32 |> TyLit
+                | LitUInt64 a, LitInt32 b -> op a b |> LitUInt64 |> TyLit
+                | a, b -> raise_type_error d <| sprintf "The first literal must be a 32 or 64 bit int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_value a) (show_value b)
+            | a, b ->
+                let a_ty, b_ty = type_get a, type_get b 
+                if is_int a_ty && is_int32 b_ty then push_binop d ShiftLeft (a,b) a_ty
+                else raise_type_error d <| sprintf "The type of the first argument must be a 32 or 64 bit int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_ty a_ty) (show_ty b_ty)
+        | ShiftRight,[|a;b|] ->
+            let inline op a b = a >>> b
+            match ev2 d a b with
+            | TyLit a, TyLit b ->
+                match a, b with
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> TyLit
+                | LitInt64 a, LitInt32 b -> op a b |> LitInt64 |> TyLit
+                | LitUInt32 a, LitInt32 b -> op a b |> LitUInt32 |> TyLit
+                | LitUInt64 a, LitInt32 b -> op a b |> LitUInt64 |> TyLit
+                | a, b -> raise_type_error d <| sprintf "The first literal must be a 32 or 64 bit int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_value a) (show_value b)
+            | a, b ->
+                let a_ty, b_ty = type_get a, type_get b 
+                if is_int a_ty && is_int32 b_ty then push_binop d ShiftRight (a,b) a_ty
+                else raise_type_error d <| sprintf "The type of the first argument must be a 32 or 64 bit int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_ty a_ty) (show_ty b_ty)
+        | Log,[|a|] ->
+            let inline op a = log a
+            match ev d a with
+            | TyLit a ->
+                match a with
+                | LitFloat32 a -> op a |> nan_guardf32 |> LitFloat32 |> TyLit
+                | LitFloat64 a -> op a |> nan_guardf64 |> LitFloat64 |> TyLit
+                | _ -> raise_type_error d <| sprintf "The literal must be a float type.\nGot: %s" (show_value a)
+            | a ->
+                let a_ty = type_get a
+                if is_float a_ty then push_op d Log a a_ty
+                else raise_type_error d <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
+        | Exp,[|a|] ->
+            let inline op a = exp a
+            match ev d a with
+            | TyLit a ->
+                match a with
+                | LitFloat32 a -> op a |> nan_guardf32 |> LitFloat32 |> TyLit
+                | LitFloat64 a -> op a |> nan_guardf64 |> LitFloat64 |> TyLit
+                | _ -> raise_type_error d <| sprintf "The literal must be a float type.\nGot: %s" (show_value a)
+            | a ->
+                let a_ty = type_get a
+                if is_float a_ty then push_op d Exp a a_ty
+                else raise_type_error d <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
+        | Tanh,[|a|] -> 
+            let inline op a = tanh a
+            match ev d a with
+            | TyLit a ->
+                match a with
+                | LitFloat32 a -> op a |> nan_guardf32 |> LitFloat32 |> TyLit
+                | LitFloat64 a -> op a |> nan_guardf64 |> LitFloat64 |> TyLit
+                | _ -> raise_type_error d <| sprintf "The literal must be a float type.\nGot: %s" (show_value a)
+            | a ->
+                let a_ty = type_get a
+                if is_float a_ty then push_op d Tanh a a_ty
+                else raise_type_error d <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
+        | Sqrt,[|a|] ->
+            let inline op a = sqrt a
+            match ev d a with
+            | TyLit a ->
+                match a with
+                | LitFloat32 a -> op a |> nan_guardf32 |> LitFloat32 |> TyLit
+                | LitFloat64 a -> op a |> nan_guardf64 |> LitFloat64 |> TyLit
+                | _ -> raise_type_error d <| sprintf "The literal must be a float type.\nGot: %s" (show_value a)
+            | a ->
+                let a_ty = type_get a
+                if is_float a_ty then push_op d Sqrt a a_ty
+                else raise_type_error d <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
+        | Neg,[|a|] ->
+            let inline op a = -a
+            match ev d a with
+            | TyLit a ->
+                match a with
+                | LitInt8 a -> op a |> LitInt8 |> TyLit
+                | LitInt16 a -> op a |> LitInt16 |> TyLit
+                | LitInt32 a -> op a |> LitInt32 |> TyLit
+                | LitInt64 a -> op a |> LitInt64 |> TyLit
+                | LitFloat32 a -> op a |> LitFloat32 |> TyLit
+                | LitFloat64 a -> op a |> LitFloat64 |> TyLit
+                | _ -> raise_type_error d <| sprintf "The literal must be a signed numeric type.\nGot: %s" (show_value a)
+            | a ->
+                let a_ty = type_get a
+                if is_signed_numeric a_ty then push_op d Neg a a_ty
+                else raise_type_error d <| sprintf "The argument must be a signed numeric type.\nGot: %s" (show_ty a_ty)
         | ListCons,[|a;b|] ->
             match ev2 d a b with
             | a, TyList b -> TyList(a::b)
