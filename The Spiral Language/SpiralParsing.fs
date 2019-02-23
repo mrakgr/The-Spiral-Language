@@ -359,10 +359,13 @@ let rec expressions expr d =
 
     let case_keyword_unary = keyword_unary |>> Types.keyword_unary
     let case_keyword_message s =
-        let i = col s
         let line = line s
-        let pat s = (expr_indent i (<=) keyword .>>. expr_indent i (<) (set_keyword_level line expr)) s
-        (many1 pat |>> (concat_keyword' >> RawKeywordCreate)) s
+        if s.keyword_line <> line then
+            let i = col s
+            let pat s = (expr_indent i (<=) keyword .>>. expr_indent i (<) (set_keyword_level line expr)) s
+            (many1 pat |>> (concat_keyword' >> RawKeywordCreate)) s
+        else
+            Fail []
 
     [|
     case_lit; case_var; case_join_point; case_type; case_keyword_unary; case_keyword_message
