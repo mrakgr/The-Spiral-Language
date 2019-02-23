@@ -147,6 +147,19 @@ let consed_typed_free_vars consed_data =
 
 let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
 
+let value_zero d = function
+    | PrimT Int8T -> LitInt8 0y
+    | PrimT Int16T -> LitInt16 0s
+    | PrimT Int32T -> LitInt32 0
+    | PrimT Int64T -> LitInt64 0L
+    | PrimT UInt8T -> LitUInt8 0uy
+    | PrimT UInt16T -> LitUInt16 0us
+    | PrimT UInt32T -> LitUInt32 0u
+    | PrimT UInt64T -> LitUInt64 0UL
+    | PrimT Float32T -> LitFloat32 0.0f
+    | PrimT Float64T -> LitFloat64 0.0
+    | ty -> raise_type_error d <| sprintf "Compiler error: Expected a numeric value in value_zero.\nGot: %s" (show_ty ty)
+
 let rect_unbox d key = 
     match join_point_dict_type.[key] with
     | JoinPointInEvaluation _ -> raise_type_error d "Types that are being constructed cannot be used for boxing."
@@ -904,12 +917,6 @@ let rec partial_eval (d: LangEnv) x =
             match ev2 d a b with
             | TyLit a, TyLit b ->
                 match a, b with
-                | (LitInt8 0y | LitInt16 0s | LitInt32 0 | LitInt64 0L
-                    | LitUInt8 0uy | LitUInt16 0us | LitUInt32 0u | LitUInt64 0UL
-                    | LitFloat32 0.0f | LitFloat64 0.0), b -> TyLit b
-                | a, (LitInt8 0y | LitInt16 0s | LitInt32 0 | LitInt64 0L
-                    | LitUInt8 0uy | LitUInt16 0us | LitUInt32 0u | LitUInt64 0UL
-                    | LitFloat32 0.0f | LitFloat64 0.0) -> TyLit a
                 | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> TyLit
                 | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> TyLit
                 | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> TyLit
@@ -924,21 +931,17 @@ let rec partial_eval (d: LangEnv) x =
             | a, b ->
                 let a_ty, b_ty = type_get a, type_get b 
                 if a_ty = b_ty then
-                    if is_numeric a_ty then push_binop d Add (a,b) a_ty
+                    if is_lit_zero a then b
+                    elif is_lit_zero b then a
+                    elif is_numeric a_ty then push_binop d Add (a,b) a_ty
                     else raise_type_error d <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
                 else
                     raise_type_error d <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
         | Sub,[|a;b|] ->
             let inline op a b = a - b
             match ev2 d a b with
-            | TyLit a, TyLit b & b' ->
+            | TyLit a, TyLit b ->
                 match a, b with
-                | (LitInt8 0y | LitInt16 0s | LitInt32 0 | LitInt64 0L
-                    | LitUInt8 0uy | LitUInt16 0us | LitUInt32 0u | LitUInt64 0UL
-                    | LitFloat32 0.0f | LitFloat64 0.0), b -> push_op d Neg b' (type_value_get b)
-                | a, (LitInt8 0y | LitInt16 0s | LitInt32 0 | LitInt64 0L
-                    | LitUInt8 0uy | LitUInt16 0us | LitUInt32 0u | LitUInt64 0UL
-                    | LitFloat32 0.0f | LitFloat64 0.0) -> TyLit a
                 | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> TyLit
                 | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> TyLit
                 | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> TyLit
@@ -953,7 +956,9 @@ let rec partial_eval (d: LangEnv) x =
             | a, b ->
                 let a_ty, b_ty = type_get a, type_get b 
                 if a_ty = b_ty then
-                    if is_numeric a_ty then push_binop d Sub (a,b) a_ty
+                    if is_lit_zero a then push_op d Neg b b_ty
+                    elif is_lit_zero b then a
+                    elif is_numeric a_ty then push_binop d Sub (a,b) a_ty
                     else raise_type_error d <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
                 else
                     raise_type_error d <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
@@ -962,12 +967,6 @@ let rec partial_eval (d: LangEnv) x =
             match ev2 d a b with
             | TyLit a, TyLit b ->
                 match a, b with
-                | (LitInt8 1y | LitInt16 1s | LitInt32 1 | LitInt64 1L
-                    | LitUInt8 1uy | LitUInt16 1us | LitUInt32 1u | LitUInt64 1UL
-                    | LitFloat32 1.0f | LitFloat64 1.0), b -> TyLit b
-                | a, (LitInt8 1y | LitInt16 1s | LitInt32 1 | LitInt64 1L
-                    | LitUInt8 1uy | LitUInt16 1us | LitUInt32 1u | LitUInt64 1UL
-                    | LitFloat32 1.0f | LitFloat64 1.0) -> TyLit a
                 | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> TyLit
                 | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> TyLit
                 | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> TyLit
@@ -982,7 +981,10 @@ let rec partial_eval (d: LangEnv) x =
             | a, b ->
                 let a_ty, b_ty = type_get a, type_get b 
                 if a_ty = b_ty then
-                    if is_numeric a_ty then push_binop d Mult (a,b) a_ty
+                    if is_int_lit_zero a || is_int_lit_zero b then value_zero d a_ty |> TyLit
+                    elif is_lit_one a then b
+                    elif is_lit_one b then a
+                    elif is_numeric a_ty then push_binop d Mult (a,b) a_ty
                     else raise_type_error d <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
                 else
                     raise_type_error d <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
@@ -1001,42 +1003,10 @@ let rec partial_eval (d: LangEnv) x =
                     raise_type_error d <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
         | Div,[|a;b|] -> 
             let inline op a b = a / b
-            match ev2 d a b with
-            | TyLit a, TyLit b ->
-                match a, b with
-                | a, (LitInt8 0y | LitInt16 0s | LitInt32 0 | LitInt64 0L
-                    | LitUInt8 0uy | LitUInt16 0us | LitUInt32 0u | LitUInt64 0UL
-                    | LitFloat32 0.0f | LitFloat64 0.0) -> raise_type_error d <| sprintf "An attempt to divide by zero has been detected at compile time."
-                | a, (LitInt8 1y | LitInt16 1s | LitInt32 1 | LitInt64 1L
-                    | LitUInt8 1uy | LitUInt16 1us | LitUInt32 1u | LitUInt64 1UL
-                    | LitFloat32 1.0f | LitFloat64 1.0) -> TyLit a
-                | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> TyLit
-                | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> TyLit
-                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> TyLit
-                | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> TyLit
-                | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> TyLit
-                | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> TyLit
-                | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> TyLit
-                | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> TyLit
-                | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> TyLit
-                | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> TyLit
-                | a, b -> raise_type_error d <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_value a) (show_value b)
-            | a, b ->
-                let a_ty, b_ty = type_get a, type_get b 
-                if a_ty = b_ty then
-                    if is_numeric a_ty then push_binop d Div (a,b) a_ty
-                    else raise_type_error d <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
-                else
-                    raise_type_error d <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
-        | Mod,[|a;b|] -> 
-            let inline op a b = a % b
             try
                 match ev2 d a b with
                 | TyLit a, TyLit b ->
                     match a, b with
-                    | a, (LitInt8 0y | LitInt16 0s | LitInt32 0 | LitInt64 0L
-                        | LitUInt8 0uy | LitUInt16 0us | LitUInt32 0u | LitUInt64 0UL
-                        | LitFloat32 0.0f | LitFloat64 0.0) -> raise_type_error d <| sprintf "An attempt to divide by zero has been detected at compile time."
                     | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> TyLit
                     | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> TyLit
                     | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> TyLit
@@ -1051,7 +1021,36 @@ let rec partial_eval (d: LangEnv) x =
                 | a, b ->
                     let a_ty, b_ty = type_get a, type_get b 
                     if a_ty = b_ty then
-                        if is_numeric a_ty then push_binop d Mod (a,b) a_ty
+                        if is_lit_zero b then raise (DivideByZeroException())
+                        elif is_lit_one b then a
+                        elif is_numeric a_ty then push_binop d Div (a,b) a_ty
+                        else raise_type_error d <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
+                    else
+                        raise_type_error d <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+            with :? DivideByZeroException ->
+                raise_type_error d <| sprintf "An attempt to divide by zero has been detected at compile time."
+        | Mod,[|a;b|] -> 
+            let inline op a b = a % b
+            try
+                match ev2 d a b with
+                | TyLit a, TyLit b ->
+                    match a, b with
+                    | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> TyLit
+                    | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> TyLit
+                    | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> TyLit
+                    | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> TyLit
+                    | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> TyLit
+                    | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> TyLit
+                    | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> TyLit
+                    | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> TyLit
+                    | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> TyLit
+                    | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> TyLit
+                    | a, b -> raise_type_error d <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_value a) (show_value b)
+                | a, b ->
+                    let a_ty, b_ty = type_get a, type_get b 
+                    if a_ty = b_ty then
+                        if is_lit_zero b then raise (DivideByZeroException())
+                        elif is_numeric a_ty then push_binop d Mod (a,b) a_ty
                         else raise_type_error d <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
                     else
                         raise_type_error d <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
