@@ -8,13 +8,13 @@ open Spiral.Compile
 
 let run_test_and_store_it_to_stream cfg stream (m: SpiralModule) =
     sprintf "%s - %s:\n%s\n\n" m.name m.description (m.code.Trim()) |> stream
-    let a,b = compile cfg m
+    let Ok(a,b) | Fail(a,b) = compile cfg m
     stream b
     a
 
 let output_test_to_temp cfg path test =
     if Directory.Exists <| Path.GetDirectoryName path then 
-        let a,b = compile cfg test
+        let Ok(a,b) | Fail(a,b) = compile cfg test
         File.WriteAllText(path,b)
         b
     else failwithf "File %s not found.\nNote to new users: In order to prevent files being made in the middle of nowhere this check was inserted.\nWhat you should do is create a new F# project and point the compiler to a file in that directory instead." path
@@ -26,7 +26,11 @@ let make_test_path_from_name name =
     Path.Combine(path,name+".txt")
 
 let cache_test cfg (time: Timings) (m: SpiralModule) = 
-    let time', b = compile cfg m
+    let pass, time', b = 
+        match compile cfg m with
+        | Ok(time',b) -> "has passed", time', b
+        | Fail(time',b) -> "has failed", time', b
+    printfn "Test %s %s. Timmings:\n%A" m.name pass time'
     File.WriteAllText(make_test_path_from_name m.name, b)
     time.Add time'
     

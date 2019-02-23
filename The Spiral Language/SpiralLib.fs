@@ -6,6 +6,7 @@ let option: SpiralModule =
     {
     name="Option"
     prerequisites=[]
+    opens=[]
     description="The Option module."
     code=
     """
@@ -23,6 +24,7 @@ let lazy_: SpiralModule =
     {
     name="Lazy"
     prerequisites=[option]
+    opens=[]
     description="The Lazy module."
     code=
     """
@@ -50,6 +52,7 @@ let tuple: SpiralModule =
     {
     name="Tuple"
     prerequisites=[]
+    opens=[]
     description="Operations on tuples."
     code=
     """
@@ -317,6 +320,7 @@ let liple: SpiralModule =
     {
     name="Liple"
     prerequisites=[]
+    opens=[]
     description="Operations on tuples and singletons."
     code=
     """
@@ -418,6 +422,7 @@ let loops: SpiralModule =
     {
     name="Loops"
     prerequisites=[tuple]
+    opens=[]
     description="The Loop module."
     code=
     """
@@ -506,6 +511,7 @@ let extern_: SpiralModule =
     {
     name="Extern"
     prerequisites=[tuple; loops]
+    opens=[]
     description="The Extern module."
     code=
     """
@@ -637,6 +643,7 @@ let array: SpiralModule =
     {
     name="Array"
     prerequisites=[tuple; loops]
+    opens=[]
     description="The array module"
     code=
     """
@@ -755,6 +762,7 @@ let list: SpiralModule =
     {
     name="List"
     prerequisites=[loops; option; tuple]
+    opens=[]
     description="The List module."
     code=
     """
@@ -886,6 +894,7 @@ let parsing: SpiralModule =
     {
     name="Parsing"
     prerequisites=[extern_]
+    opens=[]
     description="Parser combinators."
     code=
     """
@@ -1143,6 +1152,7 @@ let console: SpiralModule =
     {
     name="Console"
     prerequisites=[extern_]
+    opens=[]
     description="IO printing functions."
     code=
     """
@@ -1175,6 +1185,7 @@ let queue: SpiralModule =
     {
     name="Queue"
     prerequisites=[tuple; loops; console]
+    opens=[]
     description="The queue module."
     code=
     """
@@ -1229,6 +1240,7 @@ let struct': SpiralModule =
     {
     name="Struct"
     prerequisites=[]
+    opens=[]
     description="The Struct module."
     code=
     """
@@ -1741,6 +1753,7 @@ let host_tensor: SpiralModule =
     {
     name="Tensor"
     prerequisites=[tuple; struct'; loops; extern_; console; liple]
+    opens=[]
     description="The Tensor module."
     code=
     """
@@ -2130,6 +2143,7 @@ let host_tensor_tree_view: SpiralModule =
     {
     name="View"
     prerequisites=[tuple; host_tensor]
+    opens=[]
     description="Tree views for the tensor."
     code=
     """
@@ -2340,6 +2354,7 @@ let host_tensor_range_view: SpiralModule =
     {
     name="ViewR"
     prerequisites=[tuple; host_tensor]
+    opens=[]
     description="Range views for the tensor."
     code=
     """
@@ -2442,6 +2457,7 @@ let object: SpiralModule =
     {
     name="Object"
     prerequisites=[]
+    opens=[]
     description="The Object module."
     code=
     """
@@ -2461,6 +2477,7 @@ let cuda: SpiralModule =
     {
     name="Cuda"
     prerequisites=[loops; console; array; host_tensor; extern_; object]
+    opens=[]
     description="The Cuda module."
     code=
     """
@@ -2641,6 +2658,7 @@ let random: SpiralModule =
     {
     name="Random"
     prerequisites=[]
+    opens=[]
     description="The Random module."
     code=
     """
@@ -2664,6 +2682,7 @@ let math: SpiralModule =
     {
     name="Math"
     prerequisites=[]
+    opens=[]
     description="The Math module."
     code=
     """
@@ -2702,6 +2721,7 @@ let dictionary: SpiralModule =
     {
     name="Dictionary"
     prerequisites=[]
+    opens=[]
     description="The Dictionary module."
     code=
     """

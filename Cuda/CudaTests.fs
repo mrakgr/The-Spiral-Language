@@ -11,6 +11,7 @@ let allocator1: SpiralModule =
     {
     name="allocator1"
     prerequisites=[allocator; cuda]
+    opens=[]
     description="Does the allocator work?"
     code=
     """
@@ -41,6 +42,7 @@ let allocator2: SpiralModule =
     {
     name="allocator2"
     prerequisites=[allocator; region; cuda]
+    opens=[]
     description="Does the allocator + regions work?"
     code=
     """
@@ -59,6 +61,7 @@ let allocator3: SpiralModule =
     {
     name="allocator3"
     prerequisites=[allocator; region; cuda_stream; cuda]
+    opens=[]
     description="Does the stream region work?"
     code=
     """
@@ -78,6 +81,7 @@ let tensor1: SpiralModule =
     {
     name="tensor1"
     prerequisites=[allocator; cuda; host_tensor; region; cuda_stream; cuda_tensor]
+    opens=[]
     description="Does the Cuda tensor work?"
     code=
     """
@@ -99,6 +103,7 @@ let tensor2: SpiralModule =
     {
     name="tensor2"
     prerequisites=[allocator; cuda; host_tensor; cuda_tensor; region; cuda_stream]
+    opens=[]
     description="Does the Cuda tensor work?"
     code=
     """
@@ -120,6 +125,7 @@ let tensor3: SpiralModule =
     {
     name="tensor3"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the Cuda tensor copy work?"
     code=
     """
@@ -138,6 +144,7 @@ let random1: SpiralModule =
     {
     name="random1"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the CudaRandom.fill work?"
     code=
     """
@@ -162,6 +169,7 @@ let blas1: SpiralModule =
     {
     name="blas1"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the gemm work?"
     code=
     """
@@ -180,6 +188,7 @@ let blas2: SpiralModule =
     {
     name="blas2"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Do the matinv_batched and gemm_strided_batched work?"
     code=
     """
@@ -198,6 +207,7 @@ let blas3: SpiralModule =
     {
     name="blas3"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the trmm work?"
     code=
     """
@@ -219,6 +229,7 @@ let blas4: SpiralModule =
     {
     name="blas4"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the trsm work?"
     code=
     """
@@ -241,6 +252,7 @@ let blas5: SpiralModule =
     {
     name="blas5"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the symm work?"
     code=
     """
@@ -268,6 +280,7 @@ let blas6: SpiralModule =
     {
     name="blas6"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the geam work?"
     code=
     """
@@ -287,6 +300,7 @@ let blas7: SpiralModule =
     {
     name="blas7"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the syrk work?"
     code=
     """
@@ -304,6 +318,7 @@ let blas8: SpiralModule =
     {
     name="blas8"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the gemv work?"
     code=
     """
@@ -322,6 +337,7 @@ let blas9: SpiralModule =
     {
     name="blas9"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the symv work?"
     code=
     """
@@ -340,6 +356,7 @@ let blas10: SpiralModule =
     {
     name="blas10"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the syr work?"
     code=
     """
@@ -357,6 +374,7 @@ let blas11: SpiralModule =
     {
     name="blas11"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the symv work?"
     code=
     """
@@ -375,6 +393,7 @@ let cusolver1: SpiralModule =
     {
     name="cusolver1"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the Cholesky decomposition (potrf) work?"
     code=
     """
@@ -397,6 +416,7 @@ let inverse1: SpiralModule =
     {
     name="inverse1"
     prerequisites=[cuda_modules; mnist]
+    opens=[]
     description="Does the matrix inverse using the Cholesky decomposition work?"
     code=
     """
@@ -442,6 +462,7 @@ let cusolver2: SpiralModule =
     {
     name="cusolver2"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the LU decomposition (getrf) work?"
     code=
     """
@@ -520,6 +541,7 @@ let inverse2: SpiralModule =
     {
     name="inverse2"
     prerequisites=[cuda_modules; mnist]
+    opens=[]
     description="Does the matrix inverse using the LU decomposition work?"
     code=
     """
@@ -560,6 +582,7 @@ let kernel1: SpiralModule =
     {
     name="kernel1"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the iter kernel work?"
     code=
     """
@@ -576,6 +599,7 @@ let kernel2: SpiralModule =
     {
     name="kernel2"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the segmented_iter kernel work?"
     code=
     """
@@ -603,6 +627,7 @@ let kernel4: SpiralModule =
     {
     name="kernel4"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the iter_exscan kernel work?"
     code=
     """
@@ -631,6 +656,7 @@ let kernel5: SpiralModule =
     {
     name="kernel5"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the inscan kernel work?"
     code=
     """
@@ -659,6 +685,7 @@ let kernel6: SpiralModule =
     {
     name="kernel6"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the redo kernel work?"
     code=
     """
@@ -684,6 +711,7 @@ let kernel7: SpiralModule =
     {
     name="kernel7"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the iter2 kernel work?"
     code=
     """
@@ -713,6 +741,7 @@ let kernel8: SpiralModule =
     {
     name="kernel8"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the iter_inscan kernel work?"
     code=
     """
@@ -741,6 +770,7 @@ let kernel9: SpiralModule =
     {
     name="kernel9"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the iter_redo kernel work?"
     code=
     """
@@ -789,6 +819,7 @@ let kernel10: SpiralModule =
     {
     name="kernel10"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the iter_redo_redo kernel work?"
     code=
     """
@@ -828,6 +859,7 @@ let kernel11: SpiralModule =
     {
     name="kernel11"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the iter_seq kernel work?"
     code=
     """
@@ -966,6 +998,7 @@ let kernel12: SpiralModule =
     {
     name="kernel12"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the inscan_iter kernel work?"
     code=
     """
@@ -994,6 +1027,7 @@ let kernel13: SpiralModule =
     {
     name="kernel13"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the redo_iter kernel work?"
     code=
     """
@@ -1023,6 +1057,7 @@ let fun1: SpiralModule =
     {
     name="fun1"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the init function work?"
     code=
     """
@@ -1037,6 +1072,7 @@ let fun2: SpiralModule =
     {
     name="fun2"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the map function work?"
     code=
     """
@@ -1063,6 +1099,7 @@ let fun3: SpiralModule =
     {
     name="fun3"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the map_map function work?"
     code=
     """
@@ -1080,6 +1117,7 @@ let fun4: SpiralModule =
     {
     name="fun4"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the redo_map function work?"
     code=
     """
@@ -1100,6 +1138,7 @@ let fun5: SpiralModule =
     {
     name="fun5"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the redo function work?"
     code=
     """
@@ -1116,6 +1155,7 @@ let fun6: SpiralModule =
     {
     name="fun6"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the map_redo function work?"
     code=
     """
@@ -1136,6 +1176,7 @@ let fun7: SpiralModule =
     {
     name="fun7"
     prerequisites=[cuda_modules]
+    opens=[]
     description="Does the segmented_init function work?"
     code=
     """

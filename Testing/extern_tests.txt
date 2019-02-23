@@ -1,7 +1,8 @@
-﻿let test15: SpiralModule =
+﻿let extern1: SpiralModule =
     {
-    name="test15"
+    name="extern1"
     prerequisites=[extern_]
+    opens=[]
     description="Does basic .NET interop work?"
     code=
     """
@@ -29,10 +30,11 @@ FS.Method dict .Item (key :: ()) value |> dyn |> ignore
     """
     }
 
-let test28: SpiralModule =
+let extern2: SpiralModule =
     {
-    name="test28"
+    name="extern2"
     prerequisites=[extern_]
+    opens=[]
     description="Does string indexing work?"
     code=
     """
@@ -44,10 +46,11 @@ a(0),b(0)
     """
     }
 
-let test32: SpiralModule =
+let extern3: SpiralModule =
     {
-    name="test32"
+    name="extern3"
     prerequisites=[extern_]
+    opens=[]
     description="Do the .NET methods work inside methods?"
     code=
     """
@@ -59,10 +62,11 @@ f
     """
     }
 
-let test88: SpiralModule =
+let extern4: SpiralModule =
     {
-    name="test88"
+    name="extern4"
     prerequisites=[extern_]
+    opens=[]
     description="Does the => related stuff work?"
     code=
     """
@@ -76,10 +80,11 @@ match clo_add with
     """
     }
 
-let test95: SpiralModule =
+let extern5: SpiralModule =
     {
-    name="test95"
+    name="extern5"
     prerequisites=[extern_; array]
+    opens=[]
     description="Does the show work?"
     code=
     """

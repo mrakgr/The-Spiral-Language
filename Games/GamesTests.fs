@@ -14,6 +14,7 @@ let union1: SpiralModule =
     {
     name="union1"
     prerequisites=[union; option; extern_; console]
+    opens=[]
     description="Does the to_sparse work?"
     code=
     """
@@ -30,6 +31,7 @@ let union2: SpiralModule =
     {
     name="union2"
     prerequisites=[union; option; extern_; console]
+    opens=[]
     description="Does the from_sparse work?"
     code=
     """
@@ -68,6 +70,7 @@ let union3: SpiralModule =
     {
     name="union3"
     prerequisites=[union; option; extern_; console]
+    opens=[]
     description="Does the to_dense work?"
     code=
     """
@@ -84,6 +87,7 @@ let union4: SpiralModule =
     {
     name="union4"
     prerequisites=[union; option; extern_; console]
+    opens=[]
     description="Does the from_dense work?"
     code=
     """
@@ -122,6 +126,7 @@ let grid1: SpiralModule =
     {
     name="grid1"
     prerequisites=[console; loops; union; struct'; player_tabular]
+    opens=[]
     description="The Gridworld (Sea) test."
     code=
     """
@@ -193,6 +198,7 @@ let poker1: SpiralModule =
     {
     name="poker1"
     prerequisites=[poker; poker_players]
+    opens=[]
     description="Does the poker game work?"
     code=
     """
@@ -214,6 +220,7 @@ let poker2: SpiralModule =
     {
     name="poker2"
     prerequisites=[cuda_modules; loops; poker; poker_players; timer]
+    opens=[]
     description="The iterative test."
     code=
     """
@@ -253,6 +260,7 @@ let poker3: SpiralModule =
     {
     name="poker3"
     prerequisites=[cuda_modules; loops; poker; poker_players; timer]
+    opens=[]
     description="The iterative test for NN MC based players."
     code=
     """

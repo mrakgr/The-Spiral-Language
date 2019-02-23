@@ -4,10 +4,11 @@ open Spiral.Types
 
 let core: SpiralModule =
     {
-    name = "Core"
-    prerequisites = []
-    description = "The Core module."
-    code =
+    name="Core"
+    prerequisites=[]
+    opens=[]
+    description="The Core module."
+    code=
     """
 inl Type = [
     /// Splits the union or recursive type into a tuple.

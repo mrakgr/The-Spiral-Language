@@ -1,0 +1,25 @@
+type SpiralType0 =
+    | SpiralType0_1 of int64 * int64
+    | SpiralType0_2 of int64
+let rec method_0 () : SpiralType0 =
+    SpiralType0_2 1L
+let ((var_361 : SpiralType0)) = method_0 ()
+let ((var_362 : SpiralType0)) = method_0 ()
+let ((var_378 : bool)) =
+    match var_361 with
+    | SpiralType0_1 (var_363, var_364) ->
+        match var_362 with
+        | SpiralType0_1 (var_365, var_366) ->
+            let ((var_367 : bool)) = var_363 = var_365
+            if var_367 then
+                var_364 = var_366
+            else
+                false
+        | SpiralType0_2 var_370 ->
+            false
+    | SpiralType0_2 var_372 ->
+        match var_362 with
+        | SpiralType0_1 (var_373, var_374) ->
+            false
+        | SpiralType0_2 var_375 ->
+            var_372 = var_375

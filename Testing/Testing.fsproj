@@ -58,7 +58,6 @@
     <None Include="App.config" />
     <Content Include="packages.config" />
     <Compile Include="run.fs" />
-    <Content Include="tensor.txt" />
     <Content Include="extern_tests.txt" />
     <Content Include="array_tests.txt" />
     <Content Include="tuple_tests.txt" />

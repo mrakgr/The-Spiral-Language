@@ -59,22 +59,6 @@
     <None Include="App.config" />
     <Content Include="packages.config" />
     <Compile Include="GamesModule.fs" />
-    <None Include="old modules\GamesTests.fs%27%27%27" />
-    <None Include="old modules\Module.fs%27%27" />
-    <None Include="old modules\Tests.fs%27%27" />
-    <None Include="old modules\Module.fs%27" />
-    <None Include="old modules\Tests.fs%27" />
-    <None Include="old modules\GamesModule.fs%27" />
-    <None Include="old modules\GamesTests.fs%27" />
-    <None Include="old modules\GamesModule.fs%27%27" />
-    <None Include="old modules\GamesTests.fs%27%27" />
-    <None Include="old modules\Script1.fsx" />
-    <None Include="old modules\GamesModule.fs%27%27%27" />
-    <None Include="old modules\GamesModule.fs%27%27%27%27" />
-    <None Include="old modules\GamesTests.fs%27%27%27%27" />
-    <None Include="old modules\GamesModule.fs%27%27%27%27%27" />
-    <None Include="old modules\GamesTests.fs%27%27%27%27%27" />
-    <Content Include="poker.txt" />
     <Compile Include="GamesTests.fs" />
   </ItemGroup>
   <ItemGroup>

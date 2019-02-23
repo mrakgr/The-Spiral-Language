@@ -9,6 +9,7 @@ let cuda_ad: SpiralModule =
     {
     name="CudaAD"
     prerequisites=[struct'; liple]
+    opens=[]
     description="The CudaAD module"
     code=
     """
@@ -614,6 +615,7 @@ let union: SpiralModule =
     {
     name="Union"
     prerequisites=[tuple; console; option; list]
+    opens=[]
     description="The Union module."
     code=
     """
@@ -865,6 +867,7 @@ let learning: SpiralModule =
     {
     name="Learning"
     prerequisites=[struct'; extern_; cuda_aux; math; union; list; liple; cuda_ad]
+    opens=[]
     description="The deep learning module."
     code=
     """

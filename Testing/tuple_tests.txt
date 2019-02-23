@@ -1,7 +1,8 @@
-﻿let test26: SpiralModule =
+﻿let tuple1: SpiralModule =
     {
-    name="test26"
+    name="tuple1"
     prerequisites=[tuple]
+    opens=[]
     description="Does tuple map work? This also tests rev and foldl."
     code=
     """
@@ -9,10 +10,11 @@ Tuple.map (inl x -> x * 2) (1,2,3)
     """
     }
 
-let test27: SpiralModule =
+let tuple2: SpiralModule =
     {
-    name="test27"
+    name="tuple2"
     prerequisites=[tuple]
+    opens=[]
     description="Do tuple zip and unzip work?"
     code=
     """
@@ -25,10 +27,11 @@ Tuple.zip ((j,k),(l,m),n) |> Tuple.unzip
     """
     }
 
-let test64: SpiralModule =
+let tuple3: SpiralModule =
     {
-    name="test64"
+    name="tuple3"
     prerequisites=[tuple]
+    opens=[]
     description="Do the tuple foldl_map and foldr_map work?"
     code=
     """
@@ -40,10 +43,11 @@ b = Tuple.foldr_map (inl x s -> x*x, s + x*x) l 0
     """
     }
 
-let test78: SpiralModule =
+let tuple4: SpiralModule =
     {
-    name="test78"
+    name="tuple4"
     prerequisites=[tuple]
+    opens=[]
     description="Do the tuple scan functions work?"
     code=
     """
@@ -52,10 +56,11 @@ Tuple.scanl (+) 0 x, Tuple.scanr (+) x 0
     """
     }
 
-let test104: SpiralModule =
+let tuple5: SpiralModule =
     {
-    name="test104"
+    name="tuple5"
     prerequisites=[tuple]
+    opens=[]
     description="Does the map2 work?"
     code=
     """
@@ -66,10 +71,11 @@ Tuple.map2 (inl a b -> a + b) a b
     """
     }
 
-let test105: SpiralModule =
+let tuple6: SpiralModule =
     {
-    name="test105"
+    name="tuple6"
     prerequisites=[tuple]
+    opens=[]
     description="Does the foldl2 work?"
     code=
     """

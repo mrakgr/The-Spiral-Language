@@ -1,7 +1,8 @@
-﻿let test79: SpiralModule =
+﻿let tensor1: SpiralModule =
     {
-    name="test79"
+    name="tensor1"
     prerequisites=[host_tensor]
+    opens=[]
     description="Does the Tensor init work? Do set and index for the new array module work?"
     code=
     """
@@ -12,10 +13,11 @@ tns 2 2 .get
     """
     }
 
-let test84: SpiralModule =
+let tensor2: SpiralModule =
     {
-    name="test84"
+    name="tensor2"
     prerequisites=[host_tensor]
+    opens=[]
     description="Does the scalar tensor work?"
     code=
     """
@@ -25,10 +27,11 @@ ar .get
     """
     }
 
-let test85: SpiralModule =
+let tensor3: SpiralModule =
     {
-    name="test85"
+    name="tensor3"
     prerequisites=[host_tensor]
+    opens=[]
     description="Does the split work?"
     code=
     """
@@ -38,10 +41,11 @@ inl ar = init (32*32) id |> split (const (16,64))
     """
     }
 
-let test86: SpiralModule =
+let tensor4: SpiralModule =
     {
-    name="test86"
+    name="tensor4"
     prerequisites=[host_tensor]
+    opens=[]
     description="Is the type of host tensor for the TOA layout correct? Does it work on the singleton dimensions?"
     code=
     """
@@ -51,10 +55,11 @@ ar 5 .get
     """
     }
 
-let test90: SpiralModule =
+let tensor5: SpiralModule =
     {
-    name="test90"
+    name="tensor5"
     prerequisites=[host_tensor]
+    opens=[]
     description="Does the tensor map work?"
     code=
     """
@@ -65,10 +70,11 @@ init (2,2) (inl a b -> a*2+b)
     """
     }
 
-let test91: SpiralModule =
+let tensor6: SpiralModule =
     {
-    name="test91"
+    name="tensor6"
     prerequisites=[array; host_tensor]
+    opens=[]
     description="Does assert_size work? Does converting from array to tensor work?"
     code=
     """
@@ -83,10 +89,11 @@ tns 1 0 .get |> ignore
     """
     }
 
-let test96: SpiralModule =
+let tensor7: SpiralModule =
     {
-    name="test96"
+    name="tensor7"
     prerequisites=[host_tensor; console]
+    opens=[]
     description="Does the show from Tensor work?"
     code=
     """
@@ -96,10 +103,11 @@ init (2,3,4) (inl a b c -> a*b*c)
     """
     }
 
-let test97: SpiralModule =
+let tensor8: SpiralModule =
     {
-    name="test97"
+    name="tensor8"
     prerequisites=[host_tensor; console]
+    opens=[]
     description="Does the view indexing work?"
     code=
     """
@@ -110,10 +118,11 @@ init (2,3,4) (inl a b c -> a*b*c) (1,{from=1},{from=1; by=2})
     """
     }
 
-let test113: SpiralModule =
+let tensor9: SpiralModule =
     {
-    name="test113"
+    name="tensor9"
     prerequisites=[host_tensor_range_view; console]
+    opens=[]
     description="Do the tensor range views work?"
     code=
     """
@@ -126,10 +135,11 @@ tns .basic |> Tensor.print
     """
     }
 
-let test114: SpiralModule =
+let tensor10: SpiralModule =
     {
-    name="test114"
+    name="tensor10"
     prerequisites=[host_tensor_tree_view; console]
+    opens=[]
     description="Do the tensor tree views work?"
     code=
     """
@@ -142,10 +152,11 @@ tns .basic |> Tensor.print
     """
     }
 
-let test115: SpiralModule =
+let tensor11: SpiralModule =
     {
-    name="test115"
+    name="tensor11"
     prerequisites=[host_tensor_tree_view; console]
+    opens=[]
     description="Does the tensor view's create function work?"
     code=
     """
@@ -156,10 +167,11 @@ tns .basic |> Tensor.print
     """
     }
 
-let test116: SpiralModule =
+let tensor12: SpiralModule =
     {
-    name="test116"
+    name="tensor12"
     prerequisites=[host_tensor_tree_view; console]
+    opens=[]
     description="Do the tensor tree partial views work?"
     code=
     """
@@ -171,11 +183,12 @@ tns ((),{d=()}) .basic |> Tensor.print
     """
     }
 
-let test117: SpiralModule =
+let tensor13: SpiralModule =
     {
-    name="test117"
+    name="tensor13"
     prerequisites=[host_tensor; console]
-    description="Do the tensor expand_singular work?"
+    opens=[]
+    description="Does the tensor expand_singular work?"
     code=
     """
 open Tensor

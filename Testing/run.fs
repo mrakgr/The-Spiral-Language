@@ -15,94 +15,11 @@ open Spiral.Types
 
 let cfg = Spiral.Types.cfg_testing
 
-let example: SpiralModule =
-    {
-    name="example"
-    prerequisites=[]
-    description="Module description."
-    code=
-    """
-// https://gist.github.com/SimonDanisch/812e01d7183681ed414932c8f7b533d0#file-unroll-jl
-// This is not quite the same as the above example, but Spiral's staging optimizations
-// only work when code is written in a functionally pure manner. 
-
-// `sin` currently is not a part of the core library so I use a macro to interop with it.
-// If it were then this whole program would be evaluated at compile time.
-// To see that, replace sin with tanh or sqrt for example.
-// Spiral's semantics allow for any functionally pure computation at compile time.
-inl sin x = macro.fs float64 [text:"sin"; args: x]
-
-inl rec unroll f i s =
-    assert (lit_is i) "i must be a literal."
-    if i > 0 then unroll f (i-1) (f s) else s
-
-inl test () =
-    inl box = 1.0
-    unroll sin 3 box
-
-test ()
-
-//let (var_0: float) = sin(1.000000)
-//let (var_1: float) = sin(var_0)
-//sin(var_1)
-    """
-    }
-
-let example2: SpiralModule =
-    {
-    name="example2"
-    prerequisites=[tuple; console]
-    description="Module description."
-    code=
-    """
-inl rec foo n = 
-    assert (lit_is n) "n must be known at compile time."
-    assert (n >= 0) "n must greater or equal to zero."
-    if n = 0 then ()
-    else (if n % 2 = 0 then int32 else string) :: foo (n - 1)
-
-inl stringify = function _: int32 -> "int" | _ : string -> "string"
-foo 10 |> Tuple.map stringify |> Console.writeline
-    """
-    }
-
-let example3: SpiralModule =
-    {
-    name="example3"
-    prerequisites=[]
-    description="Module description."
-    code=
-    """
-inl f = 
-    [
-    add = inl a b -> a + b
-    mult = inl a b -> a * b
-    ]
-    
-f .add 1 2
-    """
-    }
-
-let example4: SpiralModule =
-    {
-    name="parser_test"
-    prerequisites=[loops; parsing]
-    description="Parser test for compilation speed."
-    code=
-    """
-Loops.for {static_from=0; near_to=40; body=inl {i} ->
-    Parsing.sprintf "%i, %i, %i" 1 2 3 |> ignore
-    Parsing.sprintf "%i, %i, %i, %i" 1 2 3 4 |> ignore
-    Parsing.sprintf "%i, %i, %i, %i, %i" 1 2 3 5 6 |> ignore
-    Parsing.sprintf "(%s, %i, %f)" "asd" 11 3.3 |> ignore
-    }
-    """
-    }
-
 let test1: SpiralModule =
     {
     name="test1"
     prerequisites=[]
+    opens=[]
     description="Does it run?"
     code=
     """
@@ -116,6 +33,7 @@ let test2: SpiralModule =
     {
     name="test2"
     prerequisites=[]
+    opens=[]
     description="Do the join points work?"
     code=
     """
@@ -129,6 +47,7 @@ let test3: SpiralModule =
     {
     name="test3"
     prerequisites=[]
+    opens=[]
     description="Does `dyn` work?"
     code=
     """
@@ -142,6 +61,7 @@ let test4: SpiralModule =
     {
     name="test4"
     prerequisites=[]
+    opens=[]
     description="Does the and pattern work correctly?"
     code=
     """
@@ -156,6 +76,7 @@ let test5: SpiralModule =
     {
     name="test5"
     prerequisites=[]
+    opens=[]
     description="Does basic pattern matching work?"
     code=
     """
@@ -174,6 +95,7 @@ let test6: SpiralModule =
     {
     name="test6"
     prerequisites=[]
+    opens=[]
     description="Does returning type level methods from methods work?"
     code=
     """
@@ -191,6 +113,7 @@ let test7: SpiralModule =
     {
     name="test7"
     prerequisites=[]
+    opens=[]
     description="Do active patterns work?"
     code=
     """
@@ -222,6 +145,7 @@ let test8: SpiralModule =
     {
     name="test8"
     prerequisites=[]
+    opens=[]
     description="Does the basic union type work?"
     code=
     """
@@ -238,6 +162,7 @@ let test9: SpiralModule =
     {
     name="test9"
     prerequisites=[]
+    opens=[]
     description="Does the partial evaluator optimize unused match cases?"
     code=
     """
@@ -256,6 +181,7 @@ let test10: SpiralModule =
     {
     name="test10"
     prerequisites=[]
+    opens=[]
     description="Do the join points get filtered?"
     code=
     """
@@ -273,6 +199,7 @@ let test11: SpiralModule =
     {
     name="test11"
     prerequisites=[]
+    opens=[]
     description="Do the nested patterns work?"
     code=
     """
@@ -292,6 +219,7 @@ let test12: SpiralModule =
     {
     name="test12"
     prerequisites=[]
+    opens=[]
     description="Does recursive pattern matching work on static data?"
     code=
     """
@@ -307,6 +235,7 @@ let test13: SpiralModule =
     {
     name="test13"
     prerequisites=[]
+    opens=[]
     description="A more complex interpreter example on static data."
     code=
     """
@@ -340,6 +269,7 @@ let test14: SpiralModule =
     {
     name="test14"
     prerequisites=[]
+    opens=[]
     description="Does recursive pattern matching work on partially static data?"
     code=
     """
@@ -375,6 +305,7 @@ let test15: SpiralModule =
     {
     name="test15"
     prerequisites=[]
+    opens=[]
     description="Does the object with unary patterns?"
     code=
     """
@@ -392,6 +323,7 @@ let test16: SpiralModule =
     {
     name="test16"
     prerequisites=[]
+    opens=[]
     description="Do var union types work?"
     code=
     """
@@ -405,6 +337,7 @@ let test17: SpiralModule =
     {
     name="test17"
     prerequisites=[]
+    opens=[]
     description="Do modules work?"
     code=
     """
@@ -417,11 +350,11 @@ dyn (m.x, m.y, m.z)
     """
     }
 
-
-let test19: SpiralModule =
+let test18: SpiralModule =
     {
-    name="test19"
+    name="test18"
     prerequisites=[]
+    opens=[]
     description="Does the term casting of functions work?"
     code=
     """
@@ -431,10 +364,11 @@ f (1,(2,5),3)
     """
     }
 
-let test20: SpiralModule =
+let test19: SpiralModule =
     {
-    name="test20"
+    name="test19"
     prerequisites=[]
+    opens=[]
     description="Does pattern matching on union non-tuple types work? Do type annotation patterns work?"
     code=
     """
@@ -447,10 +381,11 @@ match x with
     """
     }
 
-let test21: SpiralModule =
+let test20: SpiralModule =
     {
-    name="test21"
+    name="test20"
     prerequisites=[]
+    opens=[]
     description="Does defining user operators work?"
     code=
     """
@@ -463,10 +398,11 @@ f (*) 2 x
     """
     }
 
-let test23: SpiralModule =
+let test21: SpiralModule =
     {
-    name="test23"
+    name="test21"
     prerequisites=[]
+    opens=[]
     description="Do when and as patterns work?"
     code=
     """
@@ -477,10 +413,11 @@ dyn (f (1,2,3))
     """
     }
 
-let test24: SpiralModule =
+let test22: SpiralModule =
     {
-    name="test24"
+    name="test22"
     prerequisites=[]
+    opens=[]
     description="Do literal pattern matchers work? Does partial evaluation of equality work?"
     code=
     """
@@ -499,10 +436,11 @@ dyn (f 0, f 1, f false, f true, f "asd", f 1i8, f 5.5, f 5f64)
     """
     }
 
-let test25: SpiralModule =
+let test23: SpiralModule =
     {
-    name="test25"
+    name="test23"
     prerequisites=[]
+    opens=[]
     description="Does the tuple cons pattern work?"
     code=
     """
@@ -512,10 +450,11 @@ dyn (f (), f (1 :: ()), f (1,2))
     """
     }
 
-let test29: SpiralModule =
+let test24: SpiralModule =
     {
-    name="test29"
+    name="test24"
     prerequisites=[]
+    opens=[]
     description="Does pattern matching work redux?"
     code=
     """
@@ -528,10 +467,11 @@ match x with
     """
     }
 
-let test30: SpiralModule =
+let test25: SpiralModule =
     {
-    name="test30"
+    name="test25"
     prerequisites=[]
+    opens=[]
     description="Do recursive algebraic datatypes work?"
     code=
     """
@@ -556,10 +496,11 @@ nil |> cons 3 |> cons 2 |> cons 1 |> dyn |> sum 0
         """
     }
 
-let test31: SpiralModule =
+let test26: SpiralModule =
     {
-    name="test31"
+    name="test26"
     prerequisites=[]
+    opens=[]
     description="Does passing types into types work?"
     code=
     """
@@ -570,10 +511,11 @@ inl box a #b = Type (box: b to: a)
     """
     }
 
-let test33: SpiralModule =
+let test27: SpiralModule =
     {
-    name="test33"
+    name="test27"
     prerequisites=[]
+    opens=[]
     description="Do the module map and fold functions work?"
     code=
     """
@@ -583,10 +525,11 @@ dyn (m', Record (foldl: inl (key:state:value:) -> state + value) 0 m')
     """
     }
 
-let test34: SpiralModule =
+let test28: SpiralModule =
     {
-    name="test34"
+    name="test28"
     prerequisites=[]
+    opens=[]
     description="Does a simple stackified function work?"
     code=
     """
@@ -598,10 +541,11 @@ f (stack add) (dyn 3) (dyn 4)
     """
     }
 
-let test35: SpiralModule =
+let test29: SpiralModule =
     {
-    name="test35"
+    name="test29"
     prerequisites=[]
+    opens=[]
     description="Does case on union types with recursive types work properly?"
     code=
     """
@@ -624,10 +568,11 @@ match x with
     """
     }
 
-let test36: SpiralModule =
+let test30: SpiralModule =
     {
-    name="test36"
+    name="test30"
     prerequisites=[]
+    opens=[]
     description="Does a simple heapified function work?"
     code=
     """
@@ -639,10 +584,11 @@ f (heap add) (dyn 3) (dyn 4)
     """
     }
 
-let test37: SpiralModule =
+let test31: SpiralModule =
     {
-    name="test37"
+    name="test31"
     prerequisites=[]
+    opens=[]
     description="Does a simple heapified module work?"
     code=
     """
@@ -655,10 +601,11 @@ f (heap add) (dyn 3) (dyn 4)
     """
     }
 
-let test38: SpiralModule =
+let test32: SpiralModule =
     {
-    name="test38"
+    name="test32"
     prerequisites=[]
+    opens=[]
     description="Is type constructor of an int64 an int64?"
     code=
     """
@@ -666,10 +613,11 @@ Type (box: dyn 1 to: 0)
     """
     }
 
-let test39: SpiralModule =
+let test33: SpiralModule =
     {
-    name="test39"
+    name="test33"
     prerequisites=[]
+    opens=[]
     description="Does the mutable layout type get unpacked multiple times?"
     code=
     """
@@ -686,10 +634,11 @@ match indiv x with
     """
     }
 
-let test40: SpiralModule =
+let test34: SpiralModule =
     {
-    name="test40"
+    name="test34"
     prerequisites=[]
+    opens=[]
     description="Does this compile into just one method? Are the arguments reversed in the method call?"
     code=
     """
@@ -701,10 +650,11 @@ f (dyn 1) (dyn 2)
     """
     }
 
-let test41: SpiralModule =
+let test35: SpiralModule =
     {
-    name="test41"
+    name="test35"
     prerequisites=[]
+    opens=[]
     description="Does result in a `type ()`?"
     code=
     """
@@ -719,10 +669,11 @@ Type (box: heap r to: ty)
     """
     }
 
-let test46: SpiralModule =
+let test36: SpiralModule =
     {
-    name="test46"
+    name="test36"
     prerequisites=[]
+    opens=[]
     description="Does the module pattern work?"
     code=
     """
@@ -738,10 +689,11 @@ dyn (f {x with a = 4})
     """
     }
 
-let test47: SpiralModule =
+let test37: SpiralModule =
     {
-    name="test47"
+    name="test37"
     prerequisites=[]
+    opens=[]
     description="Does the nested module pattern work?"
     code=
     """
@@ -755,10 +707,11 @@ f {x with
     """
     }
 
-let test48: SpiralModule =
+let test38: SpiralModule =
     {
-    name="test48"
+    name="test38"
     prerequisites=[]
+    opens=[]
     description="Does the nested module pattern with rebinding work?"
     code=
     """
@@ -771,10 +724,11 @@ f {x with
     """
     }
 
-let test49: SpiralModule =
+let test39: SpiralModule =
     {
-    name="test49"
+    name="test39"
     prerequisites=[]
+    opens=[]
     description="Does the lens pattern work? Does self work? Does the semicolon get parsed properly?"
     code=
     """
@@ -786,10 +740,11 @@ f {x.a.b with q = 4; c = this + 3; d = {q = 12; w = 23}}
     """
     }
 
-let test56: SpiralModule =
+let test40: SpiralModule =
     {
-    name="test56"
+    name="test40"
     prerequisites=[]
+    opens=[]
     description="Does term casting with an unit return get printed properly?"
     code=
     """
@@ -799,10 +754,11 @@ k (1, 2)
     """
     }
 
-let test57: SpiralModule =
+let test41: SpiralModule =
     {
-    name="test57"
+    name="test41"
     prerequisites=[]
+    opens=[]
     description="Does the new module creation syntax work?"
     code=
     """
@@ -813,10 +769,11 @@ dyn {a b c = 3; d; e = 5}
     """
     }
 
-let test60: SpiralModule =
+let test42: SpiralModule =
     {
-    name="test60"
+    name="test42"
     prerequisites=[]
+    opens=[]
     description="Is the trace being correctly propagated for TyTs?"
     code=
     """
@@ -827,10 +784,11 @@ inl c = dyn 3
     """
     }
 
-let test61: SpiralModule =
+let test43: SpiralModule =
     {
-    name="test61"
+    name="test43"
     prerequisites=[]
+    opens=[]
     description="Does the partial evaluation of if statements work?"
     code=
     """
@@ -847,10 +805,11 @@ dyn (if x then false else true)
     """
     }
 
-let test62: SpiralModule =
+let test44: SpiralModule =
     {
-    name="test62"
+    name="test44"
     prerequisites=[]
+    opens=[]
     description="Do && and || work correctly?"
     code=
     """
@@ -859,10 +818,11 @@ a && b || c && d || e
     """
     }
 
-let test70: SpiralModule =
+let test45: SpiralModule =
     {
-    name="test70"
+    name="test45"
     prerequisites=[]
+    opens=[]
     description="Does the argument get printed on a type error?"
     code=
     """
@@ -871,10 +831,11 @@ inl a : 0f64 = 5
     """
     }
 
-let test71: SpiralModule =
+let test46: SpiralModule =
     {
-    name="test71"
+    name="test46"
     prerequisites=[]
+    opens=[]
     description="Does the recent change to error printing work? This one should give an error."
     code=
     """
@@ -882,10 +843,11 @@ let test71: SpiralModule =
     """
     }
 
-let test81: SpiralModule =
+let test47: SpiralModule =
     {
-    name="test81"
+    name="test47"
     prerequisites=[]
+    opens=[]
     description="Does structural polymorphic equality work?"
     code=
     """
@@ -893,10 +855,11 @@ let test81: SpiralModule =
     """
     }
 
-let test83: SpiralModule =
+let test48: SpiralModule =
     {
-    name="test83"
+    name="test48"
     prerequisites=[]
+    opens=[]
     description="Does this destructure trigger an error?"
     code=
     """
@@ -905,10 +868,11 @@ inl q = true && dyn true
     """
     }
 
-let test89: SpiralModule =
+let test49: SpiralModule =
     {
-    name="test89"
+    name="test49"
     prerequisites=[]
+    opens=[]
     description="Does changing layout type work?"
     code=
     """
@@ -916,10 +880,11 @@ let test89: SpiralModule =
     """
     }
 
-let test92: SpiralModule =
+let test50: SpiralModule =
     {
-    name="test92"
+    name="test50"
     prerequisites=[]
+    opens=[]
     description="Does the CSE work as expected?"
     code=
     """
@@ -928,10 +893,11 @@ inl !dyn a,b = 2,3
     """
     }
 
-let test93: SpiralModule =
+let test51: SpiralModule =
     {
-    name="test93"
+    name="test51"
     prerequisites=[]
+    opens=[]
     description="Does the string format work as expected?"
     code=
     """
@@ -943,10 +909,11 @@ String (format: (dyn "{0} = {1}") args: dyn q) |> ignore
     """
     }
 
-let test99: SpiralModule =
+let test52: SpiralModule =
     {
-    name="test99"
+    name="test52"
     prerequisites=[]
+    opens=[]
     description="Does the binary . operator apply if it is directly next to an expression?"
     code=
     """
@@ -960,10 +927,11 @@ dyn (g f.Hello)
     """
     }
 
-let test100: SpiralModule =
+let test53: SpiralModule =
     {
-    name="test100"
+    name="test53"
     prerequisites=[]
+    opens=[]
     description="Does the unit closure get printed correctly."
     code=
     """
@@ -976,10 +944,11 @@ loop (inl _ -> 0) 0
     """
     }
 
-let test105: SpiralModule =
+let test54: SpiralModule =
     {
-    name="test105"
+    name="test54"
     prerequisites=[]
+    opens=[]
     description="Does the prepass memoization work? Intended to be looked directly without the Core library."
     code=
     """
@@ -994,10 +963,11 @@ inl f x =
     """
     }
 
-let test106: SpiralModule =
+let test55: SpiralModule =
     {
-    name="test106"
+    name="test55"
     prerequisites=[]
+    opens=[]
     description="Does the injection pattern work?"
     code=
     """
@@ -1010,10 +980,11 @@ dyn (f .a m, f .b m)
     """
     }
 
-let test107: SpiralModule =
+let test56: SpiralModule =
     {
-    name="test107"
+    name="test56"
     prerequisites=[]
+    opens=[]
     description="Does the injection constructor work?"
     code=
     """
@@ -1026,10 +997,11 @@ inl f i v m = {m with $i=v}
     """
     }
 
-let test108: SpiralModule =
+let test57: SpiralModule =
     {
-    name="test108"
+    name="test57"
     prerequisites=[]
+    opens=[]
     description="Does the parser give an error on an indented expression after a statement? It should."
     code=
     """
@@ -1038,10 +1010,11 @@ let test108: SpiralModule =
     """
     }
 
-let test109: SpiralModule =
+let test58: SpiralModule =
     {
-    name="test109"
+    name="test58"
     prerequisites=[]
+    opens=[]
     description="Does the newline after a semicolon work correctly?"
     code=
     """
@@ -1051,10 +1024,11 @@ dyn
     """
     }
 
-let test110: SpiralModule =
+let test59: SpiralModule =
     {
-    name="test110"
+    name="test59"
     prerequisites=[]
+    opens=[]
     description="Does returning from join points work on nested structures?"
     code=
     """
@@ -1067,10 +1041,11 @@ inl e = join e
     """
     }
 
-let test111: SpiralModule =
+let test60: SpiralModule =
     {
-    name="test111"
+    name="test60"
     prerequisites=[]
+    opens=[]
     description="Does structural equality work correctly on union types?"
     code=
     """
@@ -1081,10 +1056,11 @@ a = b
     """
     }
 
-let test112: SpiralModule =
+let test61: SpiralModule =
     {
-    name="test112"
+    name="test61"
     prerequisites=[]
+    opens=[]
     description="Does the () module-with pattern work?"
     code=
     """
@@ -1096,25 +1072,37 @@ inl m = { $k = { b = 2 }}
     """
     }
 
-let test118: SpiralModule =
+let test62: SpiralModule =
     {
-    name="test118"
+    name="test62"
     prerequisites=[]
+    opens=[]
     description="Do type_catch and type_raise work?"
     code=
     """
-print_static
-    (
-    type_catch
-        dyn "a" |> ignore
-        dyn "b" |> ignore
-        dyn "c" |> ignore
-        Type (raise: 3)
-    )
+type_catch
+    dyn "a" |> ignore
+    dyn "b" |> ignore
+    dyn "c" |> ignore
+    Type (raise: stack 3)
+|> indiv |> dyn
     """
     }
 
-//rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example3
-|> printfn "%s"
-|> ignore
+let tests =
+    [|
+    test1; test2; test3; test4; test5; test6; test7; test8; test9; 
+    test10; test11; test12; test13; test14; test15; test16; test17; test18; test19; 
+    test20; test21; test22; test23; test24; test25; test26; test27; test28; test29; 
+    test30; test31; test32; test33; test34; test35; test36; test37; test38; test39; 
+    test40; test41; test42; test43; test44; test45; test46; test47; test48; test49; 
+    test50; test51; test52; test53; test54; test55; test56; test57; test58; test59; 
+    test60; test61; test62
+    |]
+
+
+rewrite_test_cache tests cfg None //(Some(0,40))
+//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test62
+//|> printfn "%s"
+//|> ignore
+

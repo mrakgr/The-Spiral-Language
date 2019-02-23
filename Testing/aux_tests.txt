@@ -1,7 +1,8 @@
-﻿let test80: SpiralModule =
+﻿let aux1: SpiralModule =
     {
-    name="test80"
+    name="aux1"
     prerequisites=[queue; console]
+    opens=[]
     description="Does the Queue module work?"
     code=
     """

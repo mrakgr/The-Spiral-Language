@@ -1,7 +1,8 @@
-﻿let test102: SpiralModule =
+﻿let loop1: SpiralModule =
     {
-    name="test102"
+    name="loop1"
     prerequisites=[loop]
+    opens=[]
     description="Does the unroll work?"
     code=
     """
@@ -20,10 +21,11 @@ Loops.unroll f x
     """
     }
 
-let test103: SpiralModule =
+let loop2: SpiralModule =
     {
-    name="test103"
+    name="loop2"
     prerequisites=[loop]
+    opens=[]
     description="Does the foru work?"
     code=
     """
@@ -42,10 +44,11 @@ Loops.foru {from=0; near_to=30; state = x; body = inl {state i} -> state ()}
     """
     }
 
-let loop1: SpiralModule =
+let loop3: SpiralModule =
     {
-    name="loop1"
+    name="loop3"
     prerequisites=[loops; console]
+    opens=[]
     description="Does the Loop module work?"
     code=
     """
@@ -62,10 +65,11 @@ for {from=dyn 999; down_to=dyn 3; by=dyn -1; state=dyn 0; body = inl {state i} -
     """
     }
 
-let loop2: SpiralModule =
+let loop4: SpiralModule =
     {
-    name="loop2"
+    name="loop4"
     prerequisites=[loops; console]
+    opens=[]
     description="Does the Loop module work?"
     code=
     """
@@ -80,10 +84,11 @@ for {from=dyn 3; to=dyn 999; state=dyn 0; body = inl {state i} ->
     """
     }
 
-let loop3: SpiralModule =
+let loop5: SpiralModule =
     {
-    name="loop3"
+    name="loop5"
     prerequisites=[loops; console]
+    opens=[]
     description="Does the Loop module work?"
     code=
     """
@@ -98,10 +103,11 @@ for {static_from=6; down_to=3; by= -1; state=0; body = inl {state i} ->
     """
     }
 
-let loop5: SpiralModule =
+let loop6: SpiralModule =
     {
-    name="loop5"
+    name="loop6"
     prerequisites=[loops]
+    opens=[]
     description="Does the Loop module work?"
     code=
     """
@@ -111,10 +117,11 @@ for {static_from=2; to=2; body = inl {i} -> ()}
     """
     }
 
-let loop6: SpiralModule =
+let loop7: SpiralModule =
     {
-    name="loop6"
+    name="loop7"
     prerequisites=[loops; console]
+    opens=[]
     description="Do state changing nested loops work?"
     code=
     """
@@ -147,10 +154,11 @@ for' {from=dyn 0; near_to=n; state={};
     """
     }
 
-let loop7: SpiralModule =
+let loop8: SpiralModule =
     {
-    name="loop7"
+    name="loop8"
     prerequisites=[console]
+    opens=[]
     description="Do state changing nested loops work?"
     code=
     """
@@ -187,10 +195,11 @@ row {from=dyn 0; near_to=dyn n; state={}}
     """
     }
 
-let loop8: SpiralModule =
+let loop9: SpiralModule =
     {
-    name="loop8"
+    name="loop9"
     prerequisites=[loops; console]
+    opens=[]
     description="Do state changing nested loops work?"
     code=
     """

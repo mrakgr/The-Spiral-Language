@@ -37,6 +37,7 @@ type SpiralModule =
     {
     name: string
     prerequisites : SpiralModule list 
+    opens: string list list
     description : string 
     code : string
     }

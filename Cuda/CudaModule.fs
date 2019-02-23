@@ -8,6 +8,7 @@ let timer: SpiralModule =
     {
     name="Timer"
     prerequisites=[console]
+    opens=[]
     description="The Timer module"
     code=
     """
@@ -30,6 +31,7 @@ let mnist: SpiralModule =
     {
     name="Mnist"
     prerequisites=[extern_; host_tensor]
+    opens=[]
     description="The Mnist loader module."
     code=
     """
@@ -103,6 +105,7 @@ let resize_array: SpiralModule =
     {
     name="ResizeArray"
     prerequisites=[extern_; loops]
+    opens=[]
     description="The resizable array module."
     code=
     """
@@ -161,6 +164,7 @@ let cuda_aux: SpiralModule =
     {
     name="CudaAux"
     prerequisites=[struct']
+    opens=[]
     description="The Cuda auxiliaries module."
     code=
     """
@@ -207,6 +211,7 @@ let allocator: SpiralModule =
     {
     name="Allocator"
     prerequisites=[resize_array; loops; option; extern_; console; cuda_aux]
+    opens=[]
     description="The section based GPU memory allocator module."
     code=
     """
@@ -397,6 +402,7 @@ let region: SpiralModule =
     {
     name="Region"
     prerequisites=[resize_array]
+    opens=[]
     description="The region based resource tracker."
     code=
     """
@@ -482,6 +488,7 @@ let cuda_stream: SpiralModule =
     {
     name="CudaStream"
     prerequisites=[extern_]
+    opens=[]
     description="The Cuda stream module."
     code=
     """
@@ -520,6 +527,7 @@ let cuda_tensor: SpiralModule =
     {
     name="CudaTensor"
     prerequisites=[extern_; host_tensor_tree_view; host_tensor_range_view; cuda_aux]
+    opens=[]
     description="The Cuda tensor module."
     code=
     """
@@ -687,6 +695,7 @@ let cuda_random: SpiralModule =
     {
     name="CudaRandom"
     prerequisites=[extern_; cuda_tensor]
+    opens=[]
     description="The CudaRandom module."
     code=
     """
@@ -763,6 +772,7 @@ let cuda_blas: SpiralModule =
     {
     name="CudaBlas"
     prerequisites=[cuda_tensor; extern_]
+    opens=[]
     description="The CudaBlas module."
     code=
     """
@@ -1308,6 +1318,7 @@ let cuda_kernel: SpiralModule =
     {
     name="CudaKernel"
     prerequisites=[cuda_tensor]
+    opens=[]
     description="The Cuda kernels module."
     code=
     """
@@ -1964,6 +1975,7 @@ let cuda_fun: SpiralModule =
     {
     name="CudaFun"
     prerequisites=[host_tensor; cuda_tensor]
+    opens=[]
     description="The CudaFun module."
     code=
     """
@@ -2282,6 +2294,7 @@ let cuda_solve: SpiralModule =
     {
     name="CudaSolve"
     prerequisites=[extern_]
+    opens=[]
     description="The CudaSolve module."
     code=
     """
@@ -2518,6 +2531,7 @@ let cuda_modules: SpiralModule =
     {
     name="CudaModules"
     prerequisites=[cuda; allocator; region; cuda_stream; cuda_tensor; cuda_kernel; cuda_fun; cuda_random; cuda_blas; cuda_solve; console]
+    opens=[]
     description="All the cuda modules in one."
     code=
     """

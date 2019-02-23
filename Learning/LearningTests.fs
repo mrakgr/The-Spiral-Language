@@ -12,6 +12,7 @@ let learning1: SpiralModule =
     {
     name="learning1"
     prerequisites=[cuda_modules; learning; mnist; timer]
+    opens=[]
     description="Does the training work with Mnist?"
     code=
     """
@@ -108,6 +109,7 @@ let learning2: SpiralModule =
     {
     name="learning2"
     prerequisites=[cuda_modules; timer; learning]
+    opens=[]
     description="Does the full training work with the char-RNN?"
     code=
     """

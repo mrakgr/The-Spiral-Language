@@ -10,6 +10,7 @@ let poker: SpiralModule =
     {
     name="Poker"
     prerequisites=[array; learning; random; console; option; dictionary; resize_array; object]
+    opens=[]
     description="The Poker module."
     code=
     """
@@ -330,6 +331,7 @@ let player_random: SpiralModule =
     {
     name="PlayerRandom"
     prerequisites=[random]
+    opens=[]
     description="The player which selects actions at random."
     code=
     """
@@ -345,6 +347,7 @@ let player_tabular: SpiralModule =
     {
     name="PlayerTabular"
     prerequisites=[dictionary; resize_array; array]
+    opens=[]
     description="The tabular player."
     code=
     """
@@ -438,6 +441,7 @@ let poker_players: SpiralModule =
     {
     name="PokerPlayers"
     prerequisites=[player_random; player_tabular; list]
+    opens=[]
     description="The poker players module."
     code=
     """

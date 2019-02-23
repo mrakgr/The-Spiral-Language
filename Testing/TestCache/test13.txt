@@ -1,10 +1,1 @@
-module SpiralExample.Main
-let cuda_kernels = """
-#include <assert.h>
-
-extern "C" {
-    
-}
-"""
-
-21L
+let ((var_87 : int64)) = 21L

@@ -2,6 +2,7 @@
     {
     name="parsing1"
     prerequisites=[parsing; console]
+    opens=[]
     description="Does the Parsing module work?"
     code=
     """
@@ -20,6 +21,7 @@ let parsing2: SpiralModule =
     {
     name="parsing2"
     prerequisites=[parsing; console]
+    opens=[]
     description="Does the Parsing module work?"
     code=
     """
@@ -38,6 +40,7 @@ let parsing3: SpiralModule =
     {
     name="parsing3"
     prerequisites=[parsing; console]
+    opens=[]
     description="Does the Parsing module work?"
     code=
     """
@@ -56,6 +59,7 @@ let parsing4: SpiralModule =
     {
     name="parsing4"
     prerequisites=[parsing; console]
+    opens=[]
     description="Does the Parsing module work?"
     code=
     """
@@ -74,6 +78,7 @@ let parsing5: SpiralModule =
     {
     name="parsing5"
     prerequisites=[parsing; console]
+    opens=[]
     description="Does the Parsing module work?"
     code=
     """
@@ -92,6 +97,7 @@ let parsing6: SpiralModule =
     {
     name="parsing6"
     prerequisites=[parsing; console]
+    opens=[]
     description="Do the printf's work?"
     code=
     """
@@ -106,6 +112,7 @@ let parsing7: SpiralModule =
     {
     name="parsing7"
     prerequisites=[array; console; parsing; extern_]
+    opens=[]
     description="Does the parsing library work? Birthday Cake Candles problem."
     code=
     """
@@ -137,6 +144,7 @@ let parsing8: SpiralModule =
     {
     name="parsing8"
     prerequisites=[array; console; parsing]
+    opens=[]
     description="Does the parsing library work? Diagonal Sum Difference problem."
     code=
     """

@@ -1,7 +1,8 @@
-﻿let test18: SpiralModule =
+﻿let array1: SpiralModule =
     {
-    name="test18"
+    name="array1"
     prerequisites=[]
+    opens=[]
     description="Do arrays and references work?"
     code=
     """
@@ -27,10 +28,11 @@ a 1 |> ignore
     """
     }
 
-let test43: SpiralModule =
+let array2: SpiralModule =
     {
-    name="test43"
+    name="array2"
     prerequisites=[array]
+    opens=[]
     description="Do the Array constructors work?"
     code=
     """
@@ -40,10 +42,11 @@ empty int64, singleton 2.2
     """
     }
 
-let test50: SpiralModule =
+let array3: SpiralModule =
     {
-    name="test50"
+    name="array3"
     prerequisites=[array]
+    opens=[]
     description="Do the Array init and fold work?"
     code=
     """
@@ -54,10 +57,11 @@ foldl (+) (dyn 0) ar, foldr (*) ar (dyn 1)
     """
     }
 
-let test51: SpiralModule =
+let array4: SpiralModule =
     {
-    name="test51"
+    name="array4"
     prerequisites=[array]
+    opens=[]
     description="Do the Array map and filter work?"
     code=
     """
@@ -69,10 +73,11 @@ map ((*) 2) ar
     """
     }
 
-let test52: SpiralModule =
+let array5: SpiralModule =
     {
-    name="test52"
+    name="array5"
     prerequisites=[array]
+    opens=[]
     description="Does the Array concat work?"
     code=
     """
@@ -83,10 +88,11 @@ concat ar
     """
     }
 
-let test53: SpiralModule =
+let array6: SpiralModule =
     {
-    name="test53"
+    name="array6"
     prerequisites=[array]
+    opens=[]
     description="Does the Array append work?"
     code=
     """
@@ -97,10 +103,11 @@ append (ar (), ar (), ar())
     """
     }
 
-let test54: SpiralModule =
+let array7: SpiralModule =
     {
-    name="test54"
+    name="array7"
     prerequisites=[tuple]
+    opens=[]
     description="Does the monadic bind `inm` work?"
     code=
     """
@@ -122,10 +129,11 @@ on_succ (x+y+z) // Tuple2(20L, Tuple1(2L, 7L, 11L))
     """
     }
 
-let test58: SpiralModule =
+let array8: SpiralModule =
     {
-    name="test58"
+    name="array8"
     prerequisites=[array]
+    opens=[]
     description="Does the fold function get duplicated?"
     code=
     """
@@ -135,10 +143,11 @@ Array.foldl (inl a,b c,d -> a+c,b+d) (dyn (1,2)) ar
     """
     }
 
-let test94: SpiralModule =
+let array9: SpiralModule =
     {
-    name="test94"
+    name="array9"
     prerequisites=[array]
+    opens=[]
     description="Does the string concat work as expected?"
     code=
     """

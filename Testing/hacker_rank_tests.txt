@@ -1,7 +1,8 @@
-﻿let hacker_rank_1: SpiralModule =
+﻿let hacker_rank1: SpiralModule =
     {
-    name="hacker_rank_1"
+    name="hacker_rank1"
     prerequisites=[extern_]
+    opens=[]
     description="The very first warmup exercise : https://www.hackerrank.com/challenges/solve-me-first"
     code=
     """
@@ -17,10 +18,11 @@ write (a + b)
     """
     }
 
-let hacker_rank_2: SpiralModule =
+let hacker_rank2: SpiralModule =
     {
-    name="hacker_rank_2"
+    name="hacker_rank2"
     prerequisites=[tuple; array; host_tensor; loops; list; option; parsing; console]
+    opens=[]
     description="Save The Princess"
     code=
     """
@@ -131,10 +133,11 @@ run_with_unit_ret (readall()) parser
     """
     }
 
-let hacker_rank_3: SpiralModule =
+let hacker_rank3: SpiralModule =
     {
-    name="hacker_rank_3"
+    name="hacker_rank3"
     prerequisites=[tuple; array; host_tensor; loops; list; parsing; console; queue]
+    opens=[]
     description="Save The Princess 2"
     code=
     """
@@ -230,10 +233,11 @@ run_with_unit_ret (readall()) (parser main)
     """
     }
 
-let hacker_rank_4: SpiralModule =
+let hacker_rank4: SpiralModule =
     {
-    name="hacker_rank_4"
+    name="hacker_rank4"
     prerequisites=[tuple; array; parsing; console; option]
+    opens=[]
     description="Game of Stones"
     code=
     """
@@ -278,10 +282,11 @@ run_with_unit_ret (readall()) parser
     """
     }
 
-let hacker_rank_5: SpiralModule =
+let hacker_rank5: SpiralModule =
     {
-    name="hacker_rank_5"
+    name="hacker_rank5"
     prerequisites=[parsing; console]
+    opens=[]
     description="Game of Stones"
     code=
     """
@@ -300,10 +305,11 @@ run_with_unit_ret (readall()) parser
     """
     }
 
-let hacker_rank_6: SpiralModule =
+let hacker_rank6: SpiralModule =
     {
-    name="hacker_rank_6"
+    name="hacker_rank6"
     prerequisites=[tuple; array; host_tensor; parsing; console; option]
+    opens=[]
     description="A Chessboard Game"
     code=
     """
@@ -345,10 +351,11 @@ run_with_unit_ret (readall()) parser
     """
     }
 
-let hacker_rank_7: SpiralModule =
+let hacker_rank7: SpiralModule =
     {
-    name="hacker_rank_7"
+    name="hacker_rank7"
     prerequisites=[tuple; array; parsing; console; option]
+    opens=[]
     description="Introduction to Nim Game"
     code=
     """
@@ -374,10 +381,11 @@ run_with_unit_ret (readall()) parser
     """
     }
 
-let hacker_rank_8: SpiralModule =
+let hacker_rank8: SpiralModule =
     {
-    name="hacker_rank_8"
+    name="hacker_rank8"
     prerequisites=[tuple; array; parsing; console; option]
+    opens=[]
     description="Misere Nim"
     code=
     """
@@ -408,10 +416,11 @@ run_with_unit_ret (readall()) parser
     """
     }
 
-let hacker_rank_9: SpiralModule =
+let hacker_rank9: SpiralModule =
     {
-    name="hacker_rank_9"
+    name="hacker_rank9"
     prerequisites=[tuple; array; host_tensor_range_view; parsing; console; option]
+    opens=[]
     description="The Power Sum"
     code=
     """

@@ -1,7 +1,8 @@
-﻿let euler2: SpiralModule =
+﻿let euler1: SpiralModule =
     {
-    name="euler2"
+    name="euler1"
     prerequisites=[loops; console]
+    opens=[]
     description="Even Fibonacci Numbers."
     code=
     """
@@ -17,10 +18,11 @@ while {
     """
     }
 
-let euler3: SpiralModule =
+let euler2: SpiralModule =
     {
-    name="euler3"
+    name="euler2"
     prerequisites=[array; loops; console; option; extern_]
+    opens=[]
     description="Largest prime factor"
     code=
     """
@@ -59,10 +61,11 @@ for' {from=sieve_length; to=2; by= -1; state=none int64; body = inl {next state 
     """
     }
 
-let euler4: SpiralModule =
+let euler3: SpiralModule =
     {
-    name="euler4"
+    name="euler3"
     prerequisites=[array; loops; console]
+    opens=[]
     description="Largest palindrome product"
     code=
     """
@@ -90,10 +93,11 @@ for {from=dyn 100; to=dyn 999; state={highest_palindrome=dyn 0}; body=inl {state
     """
     }
 
-let euler5: SpiralModule =
+let euler4: SpiralModule =
     {
-    name="euler5"
+    name="euler4"
     prerequisites=[tuple; loops; console; extern_]
+    opens=[]
     description="Smallest multiple"
     code=
     """
@@ -115,4 +119,3 @@ for' {from=step; to=int64_maxvalue; by=step; state= -1; body=inl {next state i} 
 |> writeline
     """
     }
-

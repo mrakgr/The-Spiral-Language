@@ -124,16 +124,18 @@ let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
         let env = module_let env CoreLib.core
         let env = module_open env "Core"
         let env = Array.fold module_let env ms
-        env.timing.Elapsed, env.seq.ToArray() 
+        env.seq.ToArray() 
         //|> fun x -> printfn "%A" x; x
         |> timeit env.timing.codegen Fsharp.codegen
+        |> fun x -> Ok (env.timing.Elapsed,x)
     with
-        | :? PrepassError as x -> env.timing.Elapsed, x.Data0
-        | :? PrepassErrorWithPos as x -> env.timing.Elapsed, show_trace {settings with filter_list=[]} [x.Data0] x.Data1
-        | :? TypeError as x -> env.timing.Elapsed, show_trace settings x.Data0 x.Data1
-        | :? TypeRaised as x -> env.timing.Elapsed, sprintf "Uncaught type raise.\nGot: %s" (Show.show_ty x.Data0)
-        | :? CodegenError as x -> env.timing.Elapsed, x.Data0
-        | :? CodegenErrorWithPos as x -> env.timing.Elapsed, show_trace {settings with filter_list=[]} x.Data0 x.Data1
-        | :? CompileError as x -> env.timing.Elapsed, x.Data0
-        | :? CompileErrorWithPos as x -> env.timing.Elapsed, show_trace {settings with filter_list=[]} x.Data0 x.Data1
+        | :? PrepassError as x -> Fail(env.timing.Elapsed, x.Data0)
+        | :? PrepassErrorWithPos as x -> Fail(env.timing.Elapsed, show_trace {settings with filter_list=[]} [x.Data0] x.Data1)
+        | :? TypeError as x -> Fail(env.timing.Elapsed, show_trace settings x.Data0 x.Data1)
+        | :? TypeRaised as x -> Fail(env.timing.Elapsed, sprintf "Uncaught type raise.\nGot: %s" (Show.show_ty x.Data0))
+        | :? CodegenError as x -> Fail(env.timing.Elapsed, x.Data0)
+        | :? CodegenErrorWithPos as x -> Fail(env.timing.Elapsed, show_trace {settings with filter_list=[]} x.Data0 x.Data1)
+        | :? CompileError as x -> Fail(env.timing.Elapsed, x.Data0)
+        | :? CompileErrorWithPos as x -> Fail(env.timing.Elapsed, show_trace {settings with filter_list=[]} x.Data0 x.Data1)
+        
 
