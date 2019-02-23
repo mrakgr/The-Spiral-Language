@@ -12,7 +12,7 @@ This and various other issues were something that was well known to me for a lon
 
 Perhaps due to the accumulation of experience the attempt this time was a success.
 
-Not only is the environment handled sanely in the partial evaluator thanks to the new prepass, but added to the language are the Smalltalk inspired keyword arguments and inbuilt objects. In addition to that the language internals have been greatly simplified. v0.09 of Spiral is a good example of how a static language with partial evaluation should look. v0.1 of Spiral is a good example of how such a language should be implemented. Standing at 4.1k LOC without the libraries, it is a little package filled with power.
+Not only is the environment handled sanely in the partial evaluator thanks to the new prepass, but added to the language are the Smalltalk inspired keyword arguments and inbuilt objects. In addition to that the language internals have been greatly simplified. v0.09 of Spiral is a good example of how a static language with partial evaluation should look. v0.1 of Spiral is a good example of how such a language should be implemented. Standing at 4.35k LOC without the libraries, it is a neat little package filled with power.
 
 # Additions to the language
 
@@ -20,7 +20,7 @@ Not only is the environment handled sanely in the partial evaluator thanks to th
 
 ```
 inl add (left: a right: b) = a + b
-add (left: 1 right: 2)
+add left: 1 right: 2
 ```
 
 While studying [Pharo](https://pharo.org/), I've been struck with just how readable the code is even to a complete beginner to the language and had the idea that having them as a language construct would be good just for that. Under the hood, they keyword is represented by an integer so comparing them for equality is performant at compile time, unlike with type literals.
@@ -35,18 +35,13 @@ inl x =
 add x
 ```
 
-Like tuples and records (previously called modules), the keywords can be used on a first class basis. Their precedence is higher than type union `\/`, but lower than tuples. 
-
-```
-inl add (left: a right: b) = a + b
-add left: 1 right: 2 // syntax error
-```
-
-They need to be in the first place of a expression, so code like the above is not valid.
+Like tuples and records (previously called modules), the keywords can be used on a first class basis.
 
 ```
 inl add left:right: = left + right
-add (left: 1 right: 2)
+add 
+    left: 1 
+    right: 2
 ```
 
 Similarly to records, the pattern's right sides can be omitted in which case they will default to the keyword's argument names.

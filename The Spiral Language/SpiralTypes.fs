@@ -550,7 +550,7 @@ let type_is_unit e =
             ) e
     f e
 
-let get_type_of_value = function
+let type_value_get = function
     | LitUInt8 _ -> PrimT UInt8T
     | LitUInt16 _ -> PrimT UInt16T
     | LitUInt32 _ -> PrimT UInt32T
@@ -573,7 +573,7 @@ let rec type_get = function
     | TyObject(a,l) -> (a,Array.map type_get l) |> hash_cons_table.Add |> ObjectT
     | TyMap l -> Map.map (fun _ -> type_get) l |> hash_cons_table.Add |> MapT
     | TyT x | TyV(T(_,x)) | TyBox(_,x) -> x
-    | TyLit x -> get_type_of_value x
+    | TyLit x -> type_value_get x
 
 let (|TyType|) x = type_get x
 let (|TyTuple|) = function
@@ -650,38 +650,3 @@ let is_int64 = function
 let is_int32 = function
     | PrimT Int32T -> true
     | _ -> false
-
-let is_lit_zero = function
-    | TyLit a ->
-        match a with
-        | LitInt8 0y | LitInt16 0s | LitInt32 0 | LitInt64 0L
-        | LitUInt8 0uy | LitUInt16 0us | LitUInt32 0u | LitUInt64 0UL
-        | LitFloat32 0.0f | LitFloat64 0.0 -> true
-        | _ -> false
-    | _ -> false
-
-let is_lit_one = function
-    | TyLit a ->
-        match a with
-        | LitInt8 1y | LitInt16 1s | LitInt32 1 | LitInt64 1L
-        | LitUInt8 1uy | LitUInt16 1us | LitUInt32 1u | LitUInt64 1UL
-        | LitFloat32 1.0f | LitFloat64 1.0 -> true
-        | _ -> false
-    | _ -> false
-
-let is_int_lit_zero = function
-    | TyLit a ->
-        match a with
-        | LitInt8 0y | LitInt16 0s | LitInt32 0 | LitInt64 0L
-        | LitUInt8 0uy | LitUInt16 0us | LitUInt32 0u | LitUInt64 0UL -> true
-        | _ -> false
-    | _ -> false
-
-let is_int_lit_one = function
-    | TyLit a ->
-        match a with
-        | LitInt8 1y | LitInt16 1s | LitInt32 1 | LitInt64 1L
-        | LitUInt8 1uy | LitUInt16 1us | LitUInt32 1u | LitUInt64 1UL -> true
-        | _ -> false
-    | _ -> false
-
