@@ -19,7 +19,7 @@ let semicolon (d: ParserEnv) = if d.Line <> d.semicolon_line then semicolon' d e
 
 let exprpos expr d =
     let pos = pos' d
-    (expr |>> function RawObjectCreate _ | RawRecFunction _ | RawFunction _ as x -> x | x -> expr_pos pos x) d
+    (expr |>> function RawInline _ | RawObjectCreate _ | RawRecFunction _ | RawFunction _ as x -> x | x -> expr_pos pos x) d
 let patpos expr d = (expr |>> pat_pos (pos' d)) d
 //let exprpos expr d = expr d
 //let patpos expr d = expr d
