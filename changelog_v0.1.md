@@ -361,3 +361,47 @@ inl ty =
         stack {elem_type=type 1,2,3} // Is treated as a unit type and erased at compile time as the layout type has no term variables.
 ```
 
+This will be a convention throughout the language starting from here. Connected to all of this, the type equality pattern `a : int32` can now parse literals.
+
+## Most of the module patterns
+
+In v0.09 the module pattern had a rich panoply of available patterns, most of which were used once or twice.
+
+```
+    inl to =
+        match d with
+        | {(to ^ near_to ^ down_to ^ near_down_to)=to} -> to
+        | _ -> error_type "Only one of `to`,`near_to`,`down_to`,`near_down_to` is allowed."
+```
+
+Here is an example of the Xor pattern that is now out. Additionally there were also `|` and `&` patterns directly in modules. These are also out. Another pattern that is out is...
+
+```
+inl f {name {p with x y}} = name,(x,y)
+```
+
+This one can be rewritten as...
+
+```
+inl f {name p={x y}} = name,(x,y)
+```
+
+I want to remove meaningless duplicate functionality from the language.
+
+In general, I went too wild with the module pattern in the previous version of the language.
+
+```
+inl f {a b c} = a+b+c
+```
+
+The way this was compiled in the previous version of the language, the evaluator would test `a` then `b` then `c` independently from one another. This lead to one of the documented scoping bugs that is sitting in the v0.09. This has now been fixed, and all the members of a record now are tested as a single case.
+
+# Library changes
+
+(Work in progress)
+
+All the changes to the language will necessitate a full rewrite of all the libraries.
+
+# Future plans
+
+(Work in progress)

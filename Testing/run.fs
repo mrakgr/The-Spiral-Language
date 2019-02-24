@@ -337,7 +337,7 @@ let test17: SpiralModule =
     name="test17"
     prerequisites=[]
     opens=[]
-    description="Do modules work?"
+    description="Do records work?"
     code=
     """
 inl m =
@@ -515,7 +515,7 @@ let test27: SpiralModule =
     name="test27"
     prerequisites=[]
     opens=[]
-    description="Do the module map and fold functions work?"
+    description="Do the record map and fold functions work?"
     code=
     """
 inl m = {a=1;b=2;c=3}
@@ -588,7 +588,7 @@ let test31: SpiralModule =
     name="test31"
     prerequisites=[]
     opens=[]
-    description="Does a simple heapified module work?"
+    description="Does a simple heapified record work?"
     code=
     """
 inl m = heap { a=dyn 1; b=dyn 2 }
@@ -673,7 +673,7 @@ let test36: SpiralModule =
     name="test36"
     prerequisites=[]
     opens=[]
-    description="Does the module pattern work?"
+    description="Does the record pattern work?"
     code=
     """
 inl f {a b c} = a + b + c
@@ -693,7 +693,7 @@ let test37: SpiralModule =
     name="test37"
     prerequisites=[]
     opens=[]
-    description="Does the nested module pattern work?"
+    description="Does the nested record pattern work?"
     code=
     """
 inl f {name p={x y}} = name,(x,y)
@@ -711,7 +711,7 @@ let test38: SpiralModule =
     name="test38"
     prerequisites=[]
     opens=[]
-    description="Does the nested module pattern with rebinding work?"
+    description="Does the nested record pattern with rebinding work?"
     code=
     """
 inl f {name p={y=y' x=x'}} = name,(x',y')
@@ -758,7 +758,7 @@ let test41: SpiralModule =
     name="test41"
     prerequisites=[]
     opens=[]
-    description="Does the new module creation syntax work?"
+    description="Does the new record creation syntax work?"
     code=
     """
 inl a = 1
@@ -1060,7 +1060,7 @@ let test61: SpiralModule =
     name="test61"
     prerequisites=[]
     opens=[]
-    description="Does the () module-with pattern work?"
+    description="Does the () record-with pattern work?"
     code=
     """
 inl k = .q
