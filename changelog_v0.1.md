@@ -87,12 +87,27 @@ Objects support arbitrary patterns. That having said, they are not as flexible i
 inl f = [
     add = inl a b -> a+b
     mult = inl a b -> a*b
-    pass: message args:a,b = self message a b
+    pass: message args: (left:right:) = self message left right
     ]
-f .add 1 2
+inl _ =
+    f pass: .add args: (left: 1 right: 2)
+inl _ =
+    // Alternatively
+    f   
+        pass: .add 
+        args: 
+            left: 1 right: 2
+// Alternatively
+f   
+    pass: .add 
+    args: 
+        inl a = 1
+        inl b = 2
+        left: a
+        right: b
 ```
 
-Inside the method body, the `self` variable holds the object's instance. This makes it easy to use objects for a role that would have needed a mutually recursive block of functions.
+Inside the method body, the `self` variable holds the object's instance. This makes it easy to use objects for a role that would have needed a mutually recursive block of functions. There is a syntax rule that combines keywords on the same line into a single one. That is why `add: 1 to: 2` is not parsed as `add: (1 to: 2)` for example.
 
 ```
 inl f = [
@@ -143,6 +158,10 @@ But on other hand, Spiral's compile time features are so powerful that I've come
 
 # Removals from the language
 
+## The third person language in the manual
+
+It takes too much effort to write in a disembodied fashion. Let the 'I' rule from here on out.
+
 ## The direct `open`
 
 ```
@@ -161,7 +180,7 @@ let example: SpiralModule =
     name="example"
     prerequisites=[module1; module2]
     opens=[["Module1"]; ["Module2"; "Submodule1"]]
-    description="Do the keyword arguments get parsed correctly."
+    description=""
     code=
     """
 ()
@@ -260,9 +279,85 @@ let ((var_14 : int64)) = method_0 (var_1)
 
 The generated code is quite concise and compared to last time has no needless intermediate structs allocated. In terms of code generation things have really come together. Compiling it like the above would always have been the most sensible thing to do, but various architectural constraints prevented such a thing.
 
+```
+type Rec0 =
+    | Rec0Case0 of Tuple2
+    | Rec0Case1 of Tuple3
+    | Rec0Case2 of Tuple1
+and Tuple1 =
+    struct
+    val mem_0: int64
+    new(arg_mem_0) = {mem_0 = arg_mem_0}
+    end
+and Tuple2 =
+    struct
+    val mem_0: Rec0
+    val mem_1: Rec0
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+and Tuple3 =
+    struct
+    val mem_0: Rec0
+    val mem_1: Rec0
+    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
+    end
+let rec method_1((var_0: Rec0)): int64 =
+    match var_0 with
+    | Rec0Case0(var_1) ->
+        let (var_4: Rec0) = var_1.mem_0
+        let (var_5: Rec0) = var_1.mem_1
+        let (var_6: int64) = method_1((var_4: Rec0))
+        let (var_7: int64) = method_1((var_5: Rec0))
+        (var_6 + var_7)
+    | Rec0Case1(var_2) ->
+        let (var_9: Rec0) = var_2.mem_0
+        let (var_10: Rec0) = var_2.mem_1
+        let (var_11: int64) = method_1((var_9: Rec0))
+        let (var_12: int64) = method_1((var_10: Rec0))
+        (var_11 * var_12)
+    | Rec0Case2(var_3) ->
+        var_3.mem_0
+let (var_0: Rec0) = (Rec0Case1(Tuple3((Rec0Case0(Tuple2((Rec0Case2(Tuple1(1L))), (Rec0Case2(Tuple1(2L)))))), (Rec0Case0(Tuple2((Rec0Case2(Tuple1(3L))), (Rec0Case2(Tuple1(4L)))))))))
+method_1((var_0: Rec0))
+```
 
+As a showcase of the new Spiral's capabilities, here is how it would have been compiled in v0.09. I messed up last time and did too much destructuring work in the partial evaluator that is now being done in the code generator. The end result is much cleaner, readable generated code.
+
+On the F# side, the tuples are no longer structs, but F#'s inbuilt tuples. Though value types would be more efficient overall for tuples, I am prioritizing the readability of the code in this iteration of Spiral. Should the need arise, modifying the codegen so the tuples get generated as structs would be trivial anyway so I did not lose sleep over this decision.
 
 ## The User Guide
 
 It covers the internals of 0.09 and is completely obsolete now. I was really proud of Spiral when I wrote the user guide, but I feel that despite the language size growing in terms of lines of code, the actual implementation itself has been significantly simplified compared to back then. There is significantly less useless recursion (like in `destructure`) and I feel that my grip on memoization has significantly improved compared to a year ago. This should be reflected throughout the implementation.
+
+## Unary operators
+
+Unlike F#, Spiral had only one. The unary `-` was a pain to deal with. It required hard to reason about lookback and I finally decided to just kick it out. Unary operators are something that I've never used in my programming life anyway. The `neg` function from `Core` is now tagged to the unary negation.
+
+There is an exception to not having unary operators and that would be the parsing of literals.
+
+The signed 8-bit for example has a range `from: -128i8 to: 127i8`. If the parsing of unary negation was separate and the parser was restricted to only positive integers it would not be possible to parse `128i8` here. Hence negative literals are a special syntax case in the language that does lookback to see if it is preceded by a separator such as whitespace.
+
+## Raw types in the `Core` library
+
+```
+inl int8 = type 0i8
+inl int16 = type 0i16
+...
+inl float32 = type 0f32
+```
+
+The `Core` library has gone through significant changes apart from this, but in type annotations the literals are expected to be used now. The issue that cropped up now and then is that `int32` would get captured in lexical scope leading to it being manifested when returned from a join point. Having these raw types in the `Core` library just leads to their careless use and reduces the integrity of the language as a result.
+
+```
+inl f () = join
+    dictionary (key: int32 value: string) () // Suddenly an error because the author forgot to box the raw types in the dictionary.
+```
+
+When the need to pass types directly arises it is best to box them using layout types.
+
+```
+inl ty = 
+    join
+        stack {elem_type=type 1,2,3} // Is treated as a unit type and erased at compile time as the layout type has no term variables.
+```
 

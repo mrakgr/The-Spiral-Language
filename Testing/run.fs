@@ -1119,17 +1119,38 @@ let tests =
 let example: SpiralModule =
     {
     name="example"
-    prerequisites=[array]
-    opens=[["Array"]]
-    description="Do the keyword arguments get parsed correctly."
+    prerequisites=[]
+    opens=[]
+    description=""
     code=
     """
-()
+inl f = [
+    add = inl a b -> a+b
+    mult = inl a b -> a*b
+    pass: message args: (left:right:) = self message left right
+    ]
+inl _ =
+    f pass: .add args: (left: 1 right: 2)
+inl _ =
+    // Alternatively
+    f   
+        pass: .add 
+        args: 
+            left: 1 right: 2
+// Alternatively
+f   
+    pass: .add 
+    args: 
+        inl a = 1
+        inl b = 2
+        left: a
+        right: b
+|> dyn
     """
     }
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test14
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example
 |> printfn "%s"
 |> ignore
 

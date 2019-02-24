@@ -332,7 +332,7 @@ let rec partial_eval (d: LangEnv) x =
             | true, (body, stack_size) ->
                 let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
                 ev (push_var a d |> push_var b) body
-            | false, _ -> raise_type_error d <| sprintf "The object does not have the receiver for %s." (keyword_to_string keyword)
+            | false, _ -> raise_type_error d <| sprintf "The object does not have the receiver for `%s`." (keyword_to_string keyword)
         | TyObject(dict,env) & a, b ->
             match dict.TryGetValue keyword_apply with
             | true, (body, stack_size) ->
@@ -600,8 +600,8 @@ let rec partial_eval (d: LangEnv) x =
                 | TyRecFunction(a,b,c) -> (a,b,Array.map f c) |> TyRecFunction
                 | TyObject(a,b) -> (a,Array.map f b) |> TyObject
                 | TyMap l -> Map.map (fun _ -> f) l |> TyMap
-                | TyBox _ | TyLit _ as x -> push_op_no_rewrite d Dynamize x (type_get x)
-                | TyV _ | TyT _ as x -> x
+                | TyT _ | TyBox _ | TyLit _ as x -> push_op_no_rewrite d Dynamize x (type_get x)
+                | TyV _ as x -> x
             
             f (ev d a)
         | Macro, [|body;ty|] ->
@@ -615,10 +615,6 @@ let rec partial_eval (d: LangEnv) x =
                 | TyLit(LitString ty) -> push_op_no_rewrite d Macro body (MacroT ty)
                 | ty -> raise_type_error d "The type of the extern macro must be a compile time string literal.\nGot: %s" (show_typed_data ty)
             | body -> raise_type_error d "The body of the extern macro must be a compile time string literal.\nGot: %s" (show_typed_data body)
-        | VarToString, [|x|] ->
-            match ev d x with
-            | TyV(T(tag,_)) -> TyLit(LitString(sprintf "var_%i" tag))
-            | x -> raise_type_error d "The body of the macro must be a runtime variable.\nGot: %s" (show_typed_data x)
         | TypeAnnot, [|a;b|] ->
             match d.rbeh with
             | AnnotationReturn -> ev_annot {d with rbeh=AnnotationDive} b |> TyT
@@ -836,15 +832,15 @@ let rec partial_eval (d: LangEnv) x =
             | _ -> TyLit (LitBool false)
         | ArrayCreateDotNet,[|a;b|] ->
             match ev_annot d a, ev d b with
-            | a, TyType(PrimT Int64T) & b -> push_op_no_rewrite d ArrayCreateDotNet b (ArrayT(ArtDotNetHeap, a))
+            | a, TyType(PrimT Int64T) & b -> push_binop_no_rewrite d ArrayCreateDotNet (TyT a, b) (ArrayT(ArtDotNetHeap, a))
             | _, b -> raise_type_error d <| sprintf "Expected an int64 as the size of the array.\nGot: %s" (show_typed_data b)
         | ArrayCreateCudaLocal,[|a;b|] ->
             match ev_annot d a, ev d b with
-            | a, TyType(PrimT Int64T) & b -> push_op_no_rewrite d ArrayCreateCudaLocal b (ArrayT(ArtCudaLocal, a))
+            | a, TyType(PrimT Int64T) & b -> push_binop_no_rewrite d ArrayCreateCudaLocal (TyT a, b) (ArrayT(ArtCudaLocal, a))
             | _, b -> raise_type_error d <| sprintf "Expected an int64 as the size of the array.\nGot: %s" (show_typed_data b)
         | ArrayCreateCudaShared,[|a;b|] ->
             match ev_annot d a, ev d b with
-            | a, TyLit(LitInt64 _) & b -> push_op_no_rewrite d ArrayCreateCudaShared b (ArrayT(ArtCudaShared, a))
+            | a, TyLit(LitInt64 _) & b -> push_binop_no_rewrite d ArrayCreateCudaShared (TyT a, b) (ArrayT(ArtCudaShared, a))
             | _, b -> raise_type_error d <| sprintf "Expected an int64 literal as the size of the array.\nGot: %s" (show_typed_data b)
         | ReferenceCreate,[|a|] ->
             let a = ev d a

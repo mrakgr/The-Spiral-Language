@@ -83,7 +83,6 @@ type Op =
     // Macros
     | Macro
     | MacroExtern
-    | VarToString
 
     // Term function
     | TermFunctionTypeCreate
@@ -549,6 +548,8 @@ let type_is_unit e =
             | ListT t -> List.forall f t.node
             ) e
     f e
+
+let typed_data_is_unit a = type_get a |> type_is_unit
 
 let get_type_of_value = function
     | LitUInt8 _ -> PrimT UInt8T
