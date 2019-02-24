@@ -92,8 +92,6 @@ type Op =
 
     // Unsafe casts
     | UnsafeConvert
-    | UnsafeUpcastTo
-    | UnsafeDowncastTo
     | UnsafeCoerceToArrayCudaGlobal
 
     // StringOps

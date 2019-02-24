@@ -183,9 +183,9 @@ inl (<<<) a b = !ShiftLeft(a,b)
 inl (>>>) a b = !ShiftRight(a,b)
 
 /// Unsafe upcast. Unlike the F# compiler, Spiral won't check its correctness.
-inl (:>) a b = !UnsafeUpcastTo(b,a)
+inl (:>) a b = () // TODO: Replace with a macro.
 /// Unsafe downcast. Unlike the F# compiler, Spiral won't check its correctness.
-inl (:?>) a b = !UnsafeDowncastTo(b,a)
+inl (:?>) a b = () // TODO: Replace with a macro.
 
 /// Gets the first elements of a tuple.
 inl fst x :: _ = x

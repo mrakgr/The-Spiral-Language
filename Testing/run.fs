@@ -1117,6 +1117,18 @@ let test64: SpiralModule =
     """
     }
 
+let test65: SpiralModule =
+    {
+    name="test65"
+    prerequisites=[]
+    opens=[]
+    description="Do the unit layout type get codegened correctly?"
+    code=
+    """
+dyn (stack {elem_type=type 1})
+    """
+    }
+
 let tests =
     [|
     test1; test2; test3; test4; test5; test6; test7; test8; test9; 
@@ -1125,7 +1137,7 @@ let tests =
     test30; test31; test32; test33; test34; test35; test36; test37; test38; test39; 
     test40; test41; test42; test43; test44; test45; test46; test47; test48; test49; 
     test50; test51; test52; test53; test54; test55; test56; test57; test58; test59; 
-    test60; test61; test62; test63; test64
+    test60; test61; test62; test63; test64; test65
     |]
 
 let example: SpiralModule =
@@ -1136,33 +1148,12 @@ let example: SpiralModule =
     description=""
     code=
     """
-inl f = [
-    add = inl a b -> a+b
-    mult = inl a b -> a*b
-    pass: message args: (left:right:) = self message left right
-    ]
-inl _ =
-    f pass: .add args: (left: 1 right: 2)
-inl _ =
-    // Alternatively
-    f   
-        pass: .add 
-        args: 
-            left: 1 right: 2
-// Alternatively
-f   
-    pass: .add 
-    args: 
-        inl a = 1
-        inl b = 2
-        left: a
-        right: b
-|> dyn
+dyn (stack {elem_type=type 1})
     """
     }
 
-rewrite_test_cache tests cfg None //(Some(63,64))
-//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test64
-//|> printfn "%s"
-//|> ignore
+//rewrite_test_cache tests cfg None //(Some(63,64))
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example
+|> printfn "%s"
+|> ignore
 

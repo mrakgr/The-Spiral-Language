@@ -145,6 +145,13 @@ let join_point (d: CodegenEnv) (key, typ, args) =
     | JoinPointClosure -> sprintf "closure_method_%i %s" tag (tytags_comma' d args)
     | JoinPointCuda -> sprintf "\"cuda_method_%i\", ([|%s|] : System.Object)" tag (tytags_semicolon d args)
     | JoinPointType -> failwith "impossible"
+
+let heap_layout d free_vars =
+    let b = 
+        free_vars
+        |> Array.mapi (fun i x -> sprintf "subvar_%i = %s" i (tytag' d x))
+        |> String.concat "; "
+    sprintf "{%s}" b
    
 let rec op (d: CodegenEnv) x =
     match x with
@@ -152,8 +159,6 @@ let rec op (d: CodegenEnv) x =
         let inline t x = typed_data d x
         match op, x' with
         | (MacroExtern | Macro), TyLit(LitString a) -> a
-        | UnsafeUpcastTo, TyList [a;b] -> sprintf "%s :> %s" (t b) (type_ d (type_get a))
-        | UnsafeDowncastTo, TyList [a;b] -> sprintf "%s :?> %s" (t b) (type_ d (type_get a))
         | UnsafeConvert, TyList [a;b] -> sprintf "%s %s" (type_ d (type_get a)) (t b)
         | StringLength, a -> sprintf "int64 %s.Length" (t a)
         | StringIndex, TyList [a;b] -> sprintf "%s.[int32 %s]" (t a) (t b)
@@ -172,15 +177,20 @@ let rec op (d: CodegenEnv) x =
             sprintf "String.concat %s [|%s|]" (t sep) l 
         | Apply, TyList [a;b] -> sprintf "%s%s" (t a) (t b)
         | LayoutToStack, TyList [a;b] ->
-            let tag = d.types.Tag (type_get a)
-            let b = typed_data_free_vars b |> tytags_comma' d
-            sprintf "SpiralType%i %s" tag b
-        | (LayoutToHeap | LayoutToHeapMutable), TyList [a;b] ->
-            let b = 
-                typed_data_free_vars b
-                |> Array.mapi (fun i x -> sprintf "subvar_%i = %s" i (tytag' d x))
-                |> String.concat "; "
-            sprintf "{%s}" b
+            match typed_data_free_vars b with
+            | [||] -> "() // unit stack layout type"
+            | free_vars -> 
+                let tag = d.types.Tag (type_get a)
+                let b = tytags_comma' d free_vars
+                sprintf "SpiralType%i %s" tag b
+        | LayoutToHeap, TyList [a;b] -> 
+            match typed_data_free_vars b with
+            | [||] -> "() // unit heap layout type"
+            | free_vars -> heap_layout d free_vars
+        | LayoutToHeapMutable, TyList [a;b] -> 
+            match typed_data_free_vars b with
+            | [||] -> "() // unit mutable heap layout type"
+            | free_vars -> heap_layout d free_vars
         | SizeOf, a -> sprintf "sizeof<%s>" (type_ d (type_get a))
         | (ArrayCreateCudaLocal | ArrayCreateCudaShared), _ -> raise_codegen_error "Cuda arrays are not allowed on the F# side."
         | ArrayCreateDotNet, TyList [a;b] -> if typed_data_is_unit a then "() // unit array create" else sprintf "Array.zeroCreate (System.Convert.ToInt32 %s)" (t b)

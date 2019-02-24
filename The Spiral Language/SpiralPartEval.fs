@@ -600,7 +600,8 @@ let rec partial_eval (d: LangEnv) x =
                 | TyRecFunction(a,b,c) -> (a,b,Array.map f c) |> TyRecFunction
                 | TyObject(a,b) -> (a,Array.map f b) |> TyObject
                 | TyMap l -> Map.map (fun _ -> f) l |> TyMap
-                | TyT _ | TyBox _ | TyLit _ as x -> push_op_no_rewrite d Dynamize x (type_get x)
+                | TyBox _ | TyLit _ as x -> push_op_no_rewrite d Dynamize x (type_get x)
+                | TyT t as x -> if type_is_unit t then x else push_op_no_rewrite d Dynamize x (type_get x)
                 | TyV _ as x -> x
             
             f (ev d a)
@@ -1384,12 +1385,6 @@ let rec partial_eval (d: LangEnv) x =
             match ev2 d typ a with
             | typ, TyType (PrimT StringT) & a -> push_op_no_rewrite d FailWith a (type_get typ)
             | _,a -> raise_type_error d "Expected a string as input to failwith.\nGot: %s" (show_typed_data a)
-        | UnsafeUpcastTo,[|a;b|] -> 
-            let a, b = ev2 d a b
-            push_binop d UnsafeUpcastTo (a,b) (type_get a)
-        | UnsafeDowncastTo,[|a;b|] ->
-            let a, b = ev2 d a b
-            push_binop d UnsafeDowncastTo (a,b) (type_get a)
         | UnsafeCoerceToArrayCudaGlobal,[|a;b|] ->
             match ev2 d a b with
             | TyV(T(x,t')), t -> TyV(T(x,ArrayT(ArtCudaGlobal t',type_get t)))
