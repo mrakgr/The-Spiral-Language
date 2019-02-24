@@ -549,8 +549,6 @@ let type_is_unit e =
             ) e
     f e
 
-let typed_data_is_unit a = type_get a |> type_is_unit
-
 let get_type_of_value = function
     | LitUInt8 _ -> PrimT UInt8T
     | LitUInt16 _ -> PrimT UInt16T
@@ -575,6 +573,8 @@ let rec type_get = function
     | TyMap l -> Map.map (fun _ -> type_get) l |> hash_cons_table.Add |> MapT
     | TyT x | TyV(T(_,x)) | TyBox(_,x) -> x
     | TyLit x -> get_type_of_value x
+
+let typed_data_is_unit a = type_get a |> type_is_unit
 
 let (|TyType|) x = type_get x
 let (|TyTuple|) = function

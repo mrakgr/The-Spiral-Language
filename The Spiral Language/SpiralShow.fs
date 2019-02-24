@@ -29,6 +29,8 @@ let string_to_keyword (x: string) =
         tag_keyword
 let keyword_to_string x = keyword_to_string_dict.[x] // Should never fail.
 
+let keyword_name = string_to_keyword "name"
+
 let show_primt = function
     | UInt8T -> "uint8"
     | UInt16T -> "uint16"
@@ -89,12 +91,18 @@ let inline show_map show v =
 
 let inline show_list show l = sprintf "(%s)" (List.map show l |> String.concat ", ")
 
+let (|P|) = function ExprPos(_,x) -> x.Expression | x -> x
+let inline object_name (x: ObjectDict) = 
+    match x.TryGetValue keyword_name with
+    | true, (P(KeywordTest(_,_,_,P(KeywordCreate(_,x,[||])),_)),_) -> keyword_to_string x
+    | _ -> "<object>"
+
 let rec show_ty = function
     | PrimT x -> show_primt x
     | KeywordT(C(keyword,l)) -> show_keyword show_ty (keyword,l)
     | ListT l -> show_list show_ty l.node
     | MapT v -> show_map show_ty v.node
-    | ObjectT _ -> "<object>"
+    | ObjectT(C(a,_)) -> object_name a
     | FunctionT _ | RecFunctionT _ -> "<function>"
     | LayoutT (C(layout_type,body,_)) ->
         sprintf "%s (%s)" (show_layout_type layout_type) (show_consed_typed_data body)
@@ -116,7 +124,7 @@ and show_typed_data = function
     | TyKeyword(keyword,l) -> show_keyword show_typed_data (keyword,l)
     | TyList l -> show_list show_typed_data l
     | TyMap a -> show_map show_typed_data a
-    | TyObject _ -> "<object>"
+    | TyObject(a,_) -> object_name a
     | TyFunction _ | TyRecFunction _ -> "<function>"
     | TyBox(a,b) -> sprintf "(%s : %s)" (show_typed_data a) (show_ty b)
     | TyLit v -> sprintf "lit %s" (show_value v)
@@ -127,7 +135,7 @@ and show_consed_typed_data = function
     | CTyKeyword(C(keyword,l)) -> show_keyword show_consed_typed_data (keyword,l)
     | CTyList l -> show_list show_consed_typed_data l.node
     | CTyMap a -> show_map show_consed_typed_data a.node
-    | CTyObject _ -> "<object>"
+    | CTyObject(C(a,_)) -> object_name a
     | CTyFunction _ | CTyRecFunction _ -> "<function>"
     | CTyBox(a,b) -> sprintf "(%s : %s)" (show_consed_typed_data a) (show_ty b)
     | CTyLit v -> sprintf "lit %s" (show_value v)
@@ -135,7 +143,7 @@ and show_consed_typed_data = function
 let show_position' (strb: StringBuilder) ({name=name; code=code},line,col) =
     let er_code =
         code
-        |> memoize' code_dict (fun file_code -> file_code.Split [|'\n'|])
+        |> memoize' code_dict (fun file_code -> file_code.Split([|Environment.NewLine|],StringSplitOptions.None))
         |> fun x -> x.[int line - 1]
 
     strb

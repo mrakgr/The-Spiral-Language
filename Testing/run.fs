@@ -1093,7 +1093,7 @@ let test63: SpiralModule =
     name="test63"
     prerequisites=[]
     opens=[]
-    description="Do the keyword arguments get parsed correctly."
+    description="Do the keyword arguments get parsed correctly?"
     code=
     """
 inl add left:right: = left + right
@@ -1105,6 +1105,18 @@ add left:1 right: 2
     """
     }
 
+let test64: SpiralModule =
+    {
+    name="test64"
+    prerequisites=[]
+    opens=[]
+    description="Do the object names get printed on type errors?"
+    code=
+    """
+1 + [name= .Tensor]
+    """
+    }
+
 let tests =
     [|
     test1; test2; test3; test4; test5; test6; test7; test8; test9; 
@@ -1113,7 +1125,7 @@ let tests =
     test30; test31; test32; test33; test34; test35; test36; test37; test38; test39; 
     test40; test41; test42; test43; test44; test45; test46; test47; test48; test49; 
     test50; test51; test52; test53; test54; test55; test56; test57; test58; test59; 
-    test60; test61; test62; test63
+    test60; test61; test62; test63; test64
     |]
 
 let example: SpiralModule =
@@ -1149,8 +1161,8 @@ f
     """
     }
 
-//rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example
-|> printfn "%s"
-|> ignore
+rewrite_test_cache tests cfg None //(Some(63,64))
+//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test64
+//|> printfn "%s"
+//|> ignore
 
