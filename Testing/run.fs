@@ -273,13 +273,13 @@ let test14: SpiralModule =
     code=
     """
 inl rec expr x = 
-    Type (
+    Type 
         name: "Arith"
         join:inl _ ->
             v: x
             \/ add: expr x, expr x
             \/ mult: expr x, expr x
-        )
+        
 inl int_expr x = Type (box: x to: expr 0)
 inl v x = int_expr (v: x)
 inl add a b = int_expr (add: a, b)
@@ -1129,7 +1129,7 @@ let example: SpiralModule =
     }
 
 //rewrite_test_cache tests cfg None //(Some(0,40))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test8
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test14
 |> printfn "%s"
 |> ignore
 

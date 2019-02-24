@@ -153,7 +153,7 @@ map sqrt ar // Identical to `Array.map sqrt ar`
 
 Previously `open` was used to export the contents of a module into the environment.
 
-No longer is that possible. After some deliberation, I decided that the benefits of simplifying the prepass outweight having such a complex feature in the language. The issue is that opening a variable requires knowledge of what is in it and in Spiral that is impossible without doing partial evaluation to that point. A lesser version of `open` that only accepts modules in the global namespace is possible, but would make it impossible to parallelize the parsing and the prepass in some future version of the Spiral language. 
+No longer is that possible. After some deliberation, I decided that the benefits of simplifying the prepass outweights having such a complex feature in the language. The issue is that opening a variable requires knowledge of what is in it and in Spiral that is impossible without doing partial evaluation up to that point. A lesser version of `open` that only accepts modules in the global namespace is possible, but would make it impossible to parallelize the parsing and the prepass in some future version of the Spiral language. 
 
 ```
 let example: SpiralModule =
@@ -173,6 +173,8 @@ As an alternative to that, the opens are done at the module level now. The above
 
 Even in v0.09 I've always been hesitant about `open` since it lead to ambiguity as to the correct scope of variable.
 
+Since in v0.1 what used to be modules can no longer be `open`ed, they have been renamed to records.
+
 ## `use`
 
 ```
@@ -189,6 +191,76 @@ Come to think of it, I allowed using language keywords as variables by wrapping 
 ## `met`
 
 `inl f x = join body` is equivalent to `met f x = body`. I wanted to make join points more explicit in the new version so I removed `met`. Now it should be easy to find join points by simply typing `join` into the search box.
+
+## `type_join`
+
+Only as a language keyword. Recursive union types can now have names so in fact their functionality has been extended. `print_static` on the following type will give its name.
+
+```
+let test14: SpiralModule =
+    {
+    name="test14"
+    prerequisites=[]
+    opens=[]
+    description="Does recursive pattern matching work on partially static data?"
+    code=
+    """
+inl rec expr x = 
+    Type 
+        name: "Arith"
+        join:inl _ ->
+            v: x
+            \/ add: expr x, expr x
+            \/ mult: expr x, expr x
+        
+inl int_expr x = Type (box: x to: expr 0)
+inl v x = int_expr (v: x)
+inl add a b = int_expr (add: a, b)
+inl mult a b = int_expr (mult: a, b)
+inl a = add (v 1) (v 2)
+inl b = add (v 3) (v 4)
+inl c = dyn (mult a b)
+
+inl rec inter x = join
+    inl #x = x
+    match x with
+    | v: x -> x
+    | add: a, b -> inter a + inter b
+    | mult: a, b -> inter a * inter b
+    : 0
+
+inter c
+    """
+    }
+```
+
+Here is an example of how construct recursive union types. `Type` is an object in the `Core` library that passes the arguments to the inbuilt op. Here is the F# code this compiles to.
+
+```
+// Arith
+type SpiralType0 =
+    | SpiralType0_3 of int64
+    | SpiralType0_2 of SpiralType0 * SpiralType0
+    | SpiralType0_1 of SpiralType0 * SpiralType0
+let rec method_0 ((var_1 : SpiralType0)) : int64 =
+    match var_1 with
+    | SpiralType0_3 var_2 ->
+        var_2
+    | SpiralType0_2 (var_3, var_4) ->
+        let ((var_5 : int64)) = method_0 (var_3)
+        let ((var_6 : int64)) = method_0 (var_4)
+        var_5 + var_6
+    | SpiralType0_1 (var_8, var_9) ->
+        let ((var_10 : int64)) = method_0 (var_8)
+        let ((var_11 : int64)) = method_0 (var_9)
+        var_10 * var_11
+let ((var_1 : SpiralType0)) = SpiralType0_1 (SpiralType0_2 (SpiralType0_3 1L, SpiralType0_3 2L), SpiralType0_2 (SpiralType0_3 3L, SpiralType0_3 4L))
+let ((var_14 : int64)) = method_0 (var_1)
+```
+
+The generated code is quite concise and compared to last time has no needless intermediate structs allocated. In terms of code generation things have really come together. Compiling it like the above would always have been the most sensible thing to do, but various architectural constraints prevented such a thing.
+
+
 
 ## The User Guide
 
