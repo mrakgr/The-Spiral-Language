@@ -1143,7 +1143,7 @@ inl Macro = [
     /// Creates a macro as a type.
     extern: t args: = !MacroExtern(args,t)
     /// Creates a line of text. Good for accessing global constants.
-    type: t text: x = self type: t args: (text: x)
+    type:text: = self type: args: (text:)
     /// Creates a line of text with the unit type. Good for comments.
     comment: x = self type: () args: (text: x)
     /// Surrounds a sequence of macro instructions with brackets. Applies `map` to each element in the sequence.
@@ -1168,26 +1168,26 @@ inl Macro = [
     jaggeds': args = self brackets: "<",">" sep: ", " args: args map:id
 
     /// Macro for the global methods.
-    type: t method: args: =
+    type: method: args: =
         self
-            type: t
+            type:
             args:
                 text: method
                 :: self rounds: args
 
     /// Macro for operators.
-    type: t separate: a and: b by: sep =
+    type: separate: a and: b by: sep =
         self 
-            type: t
+            type:
             args:
                 variable: a
                 ,text: sep
                 ,variable: b
 
     /// Class method call.
-    type: t class: method: args: =
+    type: class: method: args: =
         self
-            type: t
+            type:
             args:
                 variable: class
                 :: text: "."
@@ -1214,10 +1214,10 @@ inl Macro = [
                 :: self rounds: args
 
     class: types: args: methods: =
-        inl x = self class: class types: types args: args
+        inl x = self class:types:args:
         inl a ->
             match methods a with
-            | type: t method: args: -> self type: t class: x method: method args: args
+            | type:method:args: -> self type:class: x method:args:
     ]
 
 /// Unsafe upcast. Unlike the F# compiler, Spiral won't check its correctness.
@@ -1360,9 +1360,9 @@ let tests =
     macro_dotnet1;macro_dotnet2;macro_dotnet3
     |]
 
-rewrite_test_cache tests cfg None //(Some(63,64))
-//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) macro_dotnet3
-//|> printfn "%s"
-//|> ignore
+//rewrite_test_cache tests cfg None //(Some(63,64))
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) macro_dotnet3
+|> printfn "%s"
+|> ignore
 
 

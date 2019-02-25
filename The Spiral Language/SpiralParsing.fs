@@ -34,7 +34,7 @@ let inline concat_keyword f x =
     strb.ToString(), pattern
 
 let concat_keyword'' x = concat_keyword (function _, Some pat -> pat | str, None -> PatVar str) x
-let concat_keyword' x = let a,b = concat_keyword snd x in a, List.toArray b
+let concat_keyword' x = let a,b = concat_keyword (function _,Some b -> b | a,None -> v a) x in a, List.toArray b
 
 let (^<|) a b = a b // High precedence, right associative <| operator
 
@@ -360,10 +360,11 @@ let rec expressions expr d =
     let case_keyword_unary = keyword_unary |>> Types.keyword_unary
     let case_keyword_message s =
         if s.keyword_line <> line s then
-            let i = col s
+            let i' = col s
             let pat s = 
+                let i = col s
                 let line = line s
-                (expr_indent i (<=) keyword .>>. expr_indent i (<) (set_keyword_level line expr)) s
+                (expr_indent i' (<=) keyword .>>. opt (expr_indent i (<) (set_keyword_level line expr))) s
             (many1 pat |>> (concat_keyword' >> RawKeywordCreate)) s
         else
             Fail []
