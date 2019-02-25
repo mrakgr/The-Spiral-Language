@@ -31,15 +31,6 @@ inl Type = [
     name: join: body = !JoinPointEntryType(body(),name)
     ]
 
-inl Macro = [
-    /// Creates a macro using the inbuilt type.
-    /// type: a text: string lit -> a
-    type: t text: = !Macro(text,t)
-    /// Creates a macro using the extern type.
-    /// text: a text: string lit -> a macro
-    string: t text: = !MacroExtern(text,t)
-    ]
-
 inl String = [
     /// Returns the length of a string.
     length: x = !StringLength(x)

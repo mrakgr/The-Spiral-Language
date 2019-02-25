@@ -1231,15 +1231,46 @@ let tests =
     test60; test61; test62; test63; test64; test65
     |]
 
-let example: SpiralModule =
+let macro: SpiralModule =
     {
-    name="example"
+    name="Macro"
     prerequisites=[]
     opens=[]
     description=""
     code=
     """
-dyn (stack {elem_type=type 1})
+inl Macro = [
+    /// Creates a macro using the type.
+    type: t args: = !Macro(text,t)
+    /// Creates a macro as a type.
+    extern: t args: = !MacroExtern(text,t)
+
+    brackets: open, close sep: args: map: f =
+        inl close = (text: close) :: ()
+        inl rec loop = function
+            | () -> close
+            | x :: x' -> (text: sep) :: f x :: loop x'
+        
+        text: open
+        ::
+        match args with
+        | x :: x' -> f x :: loop x'
+        | () -> close
+        | x -> f x :: close
+
+    rounds: args = self brackets: "(",")" sep: ", " args: args map:(inl x -> variable: x)
+    jaggeds: args = self brackets: "<",">" sep: ", " args: args map:(inl x -> type: x)
+    jaggeds': args = self brackets: "<",">" sep: ", " args: args map:id
+
+    type: t method: args: =
+        self
+            type: t
+            args:
+                text: method
+                :: self rounds: args
+    ]
+
+
     """
     }
 
