@@ -54,14 +54,26 @@ type ModulePrepassEnv = {
 
 let raise_compile_error x = raise (CompileError x)
 let raise_compile_error' pos x = raise (CompileErrorWithPos(pos, x))
-let module_let (env: ModulePrepassEnv) (m: SpiralModule) = 
-    let expr, free_vars, stack_size = 
+
+let module_open (env: ModulePrepassEnv) x =
+    (List.fold << List.fold) (fun env x ->
+        match env.map.TryFind x with
+        | Some x ->
+            match x with
+            | TyMap x -> {env with map=Map.foldBack (keyword_to_string >> Map.add) x env.map}
+            | x -> raise_compile_error <| sprintf "Expected as module in `module_open`.\nGot: %s" (show_typed_data x)
+        | _ -> raise_compile_error <| sprintf "In module_open, `open` did not find a module named %s in the environment." x
+        ) env x
+
+let module_let (env: ModulePrepassEnv) (m: SpiralModule) =
+    let expr, free_vars, stack_size =
         match timeit env.timing.parse (Parsing.parse env.settings) m with
         | Ok x -> x
         | Fail x -> raise_compile_error x
         //|> fun x -> printfn "%A" x; x
         |> timeit env.timing.prepass Prepass.prepass
-    let module_ = 
+    let module_ =
+        let env = module_open env m.opens
         let unbound_variables =
             Array.choose (fun (name,pos) ->
                 match Map.tryFind name env.map with
@@ -85,14 +97,6 @@ let module_let (env: ModulePrepassEnv) (m: SpiralModule) =
         //printfn "%A" expr
         timeit env.timing.peval (PartEval.partial_eval d) expr
     {env with map=env.map.Add (m.name, module_)}
-
-let module_open (env: ModulePrepassEnv) x =
-    match env.map.TryFind x with
-    | Some x ->
-        match x with
-        | TyMap x -> {env with map=Map.foldBack (keyword_to_string >> Map.add) x env.map}
-        | x -> raise_compile_error <| sprintf "Expected as module in `module_open`.\nGot: %s" (show_typed_data x)
-    | _ -> raise_compile_error <| sprintf "In module_open, `open` did not find a module named %s in the environment." x
 
 let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
     let env = {
@@ -123,7 +127,7 @@ let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
             ms.ToArray()
 
         let env = module_let env CoreLib.core
-        let env = module_open env "Core"
+        let env = module_open env [["Core"]]
         let env = Array.fold module_let env ms
         env.seq.ToArray() 
         //|> fun x -> printfn "%A" x; x

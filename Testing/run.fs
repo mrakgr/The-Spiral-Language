@@ -1129,108 +1129,6 @@ dyn (stack {elem_type=type 1})
     """
     }
 
-let macro_dotnet1: SpiralModule =
-    {
-    name="macro_dotnet1"
-    prerequisites=[]
-    opens=[]
-    description="Do the macros work?"
-    code=
-    """
-Macro 
-    type: ()
-    method: "System.Console.Writeline"
-    args: "Hello, world!"
-    """
-    }
-
-let macro_dotnet2: SpiralModule =
-    {
-    name="macro_dotnet2"
-    prerequisites=[]
-    opens=[]
-    description="Does the StringBuilder work?"
-    code=
-    """
-inl StringBuilder x = 
-    inl x =
-        Macro
-            class: "System.Text.StringBuilder"
-            args: x
-    [
-    Append: a = 
-        Macro
-            type: x
-            class: x
-            method: "Append"
-            args: a
-    AppendLine: a = 
-        Macro
-            type: x
-            class: x
-            method: "AppendLine"
-            args: a
-    ToString =
-        Macro
-            type: ""
-            class x
-            method: "ToString"
-            args: ()
-    ]
-
-inl b = StringBuilder("Qwe", 128i32)
-inl _ = b Append: 123
-inl _ = b AppendLine: ()
-inl _ = b Append: 123i16
-inl _ = b AppendLine: "qwe"
-()
-    """
-    }
-
-let macro_dotnet3: SpiralModule =
-    {
-    name="macro_dotnet3"
-    prerequisites=[]
-    opens=[]
-    description="Does the Dictionary work?"
-    code=
-    """
-inl Dictionary (key:value:) x = 
-    Macro
-        class: "System.Collections.Generic"
-        types: key,value
-        args: x
-        methods:
-            inl key = Type wrap: key
-            [
-            Add: a : (key.elem_type), b =
-                type: ()
-                method: "Add"
-                args: a, b
-            Item: a =
-                type: key.elem_type
-                method: "Item"
-                args: a
-            ]
-
-inl b = Dictionary (key: "" value: 0) ()
-b Add: "a", 5
-b Item: "a"
-|> dyn
-    """
-    }
-
-let tests =
-    [|
-    test1; test2; test3; test4; test5; test6; test7; test8; test9; 
-    test10; test11; test12; test13; test14; test15; test16; test17; test18; test19; 
-    test20; test21; test22; test23; test24; test25; test26; test27; test28; test29; 
-    test30; test31; test32; test33; test34; test35; test36; test37; test38; test39; 
-    test40; test41; test42; test43; test44; test45; test46; test47; test48; test49; 
-    test50; test51; test52; test53; test54; test55; test56; test57; test58; test59; 
-    test60; test61; test62; test63; test64; test65
-    |]
-
 let macro: SpiralModule =
     {
     name="Macro"
@@ -1285,6 +1183,20 @@ inl Macro = [
                 variable: a
                 ,text: sep
                 ,variable: b
+
+    class: args: =
+        self 
+            extern: 
+                text: class
+            args:
+                rounds args: args
+
+    type: t class: method: args: =
+        self
+            type: t
+            args:
+                text: method
+                :: self rounds: args
     ]
 
 /// Unsafe upcast. Unlike the F# compiler, Spiral won't check its correctness.
@@ -1300,7 +1212,7 @@ inl (:?>) a b =
         type: b
         separate: a 
         and: b
-        by: " :> "
+        by: " :?> "
 
 /// Cuda constants.
 inl threadIdx = [
@@ -1314,16 +1226,117 @@ inl blockIdx = [
     z = Macro (type: 0i64 text: "blockIdx.z")
     ]
 
+{
+Macro
+(:>) (:?>) threadIdx blockIdx
+}
+    """
+    }
+
+let macro_dotnet1: SpiralModule =
+    {
+    name="macro_dotnet1"
+    prerequisites=[macro]
+    opens=[["Macro"]]
+    description="Do the macros work?"
+    code=
+    """
 Macro 
     type: ()
     method: "System.Console.WriteLine"
     args: "Hello, world!"
-
     """
     }
 
+let macro_dotnet2: SpiralModule =
+    {
+    name="macro_dotnet2"
+    prerequisites=[macro]
+    opens=[["Macro"]]
+    description="Does the StringBuilder work?"
+    code=
+    """
+inl StringBuilder x = 
+    inl x =
+        Macro
+            class: "System.Text.StringBuilder"
+            args: x
+    [
+    Append: a = 
+        Macro
+            type: x
+            class: x
+            method: "Append"
+            args: a
+    AppendLine: a = 
+        Macro
+            type: x
+            class: x
+            method: "AppendLine"
+            args: a
+    ToString =
+        Macro
+            type: ""
+            class x
+            method: "ToString"
+            args: ()
+    ]
+
+inl b = StringBuilder("Qwe", 128i32)
+inl _ = b Append: 123
+inl _ = b AppendLine: ()
+inl _ = b Append: 123i16
+inl _ = b AppendLine: "qwe"
+()
+    """
+    }
+
+let macro_dotnet3: SpiralModule =
+    {
+    name="macro_dotnet3"
+    prerequisites=[macro]
+    opens=[["Macro"]]
+    description="Does the Dictionary work?"
+    code=
+    """
+inl Dictionary (key:value:) x = 
+    Macro
+        class: "System.Collections.Generic"
+        types: key,value
+        args: x
+        methods:
+            inl key = Type wrap: key
+            [
+            Add: a : (key.elem_type), b =
+                type: ()
+                method: "Add"
+                args: a, b
+            Item: a =
+                type: key.elem_type
+                method: "Item"
+                args: a
+            ]
+
+inl b = Dictionary (key: "" value: 0) ()
+b Add: "a", 5
+b Item: "a"
+|> dyn
+    """
+    }
+
+let tests =
+    [|
+    test1; test2; test3; test4; test5; test6; test7; test8; test9; 
+    test10; test11; test12; test13; test14; test15; test16; test17; test18; test19; 
+    test20; test21; test22; test23; test24; test25; test26; test27; test28; test29; 
+    test30; test31; test32; test33; test34; test35; test36; test37; test38; test39; 
+    test40; test41; test42; test43; test44; test45; test46; test47; test48; test49; 
+    test50; test51; test52; test53; test54; test55; test56; test57; test58; test59; 
+    test60; test61; test62; test63; test64; test65
+    |]
+
 //rewrite_test_cache tests cfg None //(Some(63,64))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) macro
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) macro_dotnet2
 |> printfn "%s"
 |> ignore
 
