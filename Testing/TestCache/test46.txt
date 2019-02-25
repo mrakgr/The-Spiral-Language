@@ -4,10 +4,10 @@ Error trace on line: 2, column: 1 in module test46.
 Error trace on line: 2, column: 4 in module test46.
 55 + id
    ^
-Error trace on line: 126, column: 11 in module Core.
+Error trace on line: 117, column: 11 in module Core.
 inl (+) a b = !Add(a,b)
           ^
-Error trace on line: 126, column: 15 in module Core.
+Error trace on line: 117, column: 15 in module Core.
 inl (+) a b = !Add(a,b)
               ^
 The two sides need to have the same numeric types.

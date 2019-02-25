@@ -1184,19 +1184,40 @@ inl Macro = [
                 ,text: sep
                 ,variable: b
 
+    /// Class method call.
+    type: t class: method: args: =
+        self
+            type: t
+            args:
+                variable: class
+                :: text: "."
+                :: text: method
+                :: self rounds: args
+
+    /// Class create.
     class: args: =
         self 
             extern: 
                 text: class
             args:
-                rounds args: args
-
-    type: t class: method: args: =
-        self
-            type: t
-            args:
-                text: method
+                text: class
                 :: self rounds: args
+
+    class: types: args: =
+        self 
+            extern: 
+                text: class
+                :: self jaggeds: types
+            args:
+                text: class
+                :: self jaggeds: types
+                :: self rounds: args
+
+    class: types: args: methods: =
+        inl x = self class: class types: types args: args
+        inl a ->
+            match methods a with
+            | type: t method: args: -> self type: t class: x method: method args: args
     ]
 
 /// Unsafe upcast. Unlike the F# compiler, Spiral won't check its correctness.
@@ -1277,7 +1298,7 @@ inl StringBuilder x =
     ToString =
         Macro
             type: ""
-            class x
+            class: x
             method: "ToString"
             args: ()
     ]
@@ -1287,6 +1308,7 @@ inl _ = b Append: 123
 inl _ = b AppendLine: ()
 inl _ = b Append: 123i16
 inl _ = b AppendLine: "qwe"
+inl _ = b.ToString
 ()
     """
     }
@@ -1301,26 +1323,27 @@ let macro_dotnet3: SpiralModule =
     """
 inl Dictionary (key:value:) x = 
     Macro
-        class: "System.Collections.Generic"
+        class: "System.Collections.Generic.Dictionary"
         types: key,value
         args: x
         methods:
-            inl key = Type wrap: key
+            inl key = stack {elem_type=type key}
+            inl value = stack {elem_type=type value}
             [
             Add: a : (key.elem_type), b =
                 type: ()
                 method: "Add"
                 args: a, b
             Item: a =
-                type: key.elem_type
+                type: value.elem_type
                 method: "Item"
                 args: a
             ]
 
 inl b = Dictionary (key: "" value: 0) ()
 b Add: "a", 5
-b Item: "a"
-|> dyn
+inl _ = b Item: "a"
+()
     """
     }
 
@@ -1333,11 +1356,13 @@ let tests =
     test40; test41; test42; test43; test44; test45; test46; test47; test48; test49; 
     test50; test51; test52; test53; test54; test55; test56; test57; test58; test59; 
     test60; test61; test62; test63; test64; test65
+
+    macro_dotnet1;macro_dotnet2;macro_dotnet3
     |]
 
-//rewrite_test_cache tests cfg None //(Some(63,64))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) macro_dotnet2
-|> printfn "%s"
-|> ignore
+rewrite_test_cache tests cfg None //(Some(63,64))
+//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) macro_dotnet3
+//|> printfn "%s"
+//|> ignore
 
 

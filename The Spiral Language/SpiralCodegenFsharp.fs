@@ -110,26 +110,25 @@ let rec type_ (d: CodegenEnv) x =
         | StringT -> "string"
         | CharT -> "char"
     | MacroT x -> 
-        let f = function
-            | CTyKeyword(C(keyword,[|l|])) ->
-                if keyword = keyword_text then
-                    match l with
-                    | CTyLit (LitString x) -> x
-                    | x -> raise_codegen_error <| sprintf "Expected a string literal in type macro's keyword `text:`.\nGot: %s" (show_consed_typed_data x)
-                elif keyword = keyword_literal then
-                    match l with
-                    | CTyLit x -> lit d x
-                    | x -> raise_codegen_error <| sprintf "Expected a literal in type macro's keyword `literal:`.\nGot: %s" (show_consed_typed_data x)
-                elif keyword = keyword_type then f (type_consed_data_get l)
-                else raise_codegen_error <| sprintf "Invalid keyword in type macro. Got: `%s`" (keyword_to_string keyword)
-            | x -> raise_codegen_error <| sprintf "Expected a keyword in type macro. Got: `%s`" (show_consed_typed_data x)
-        
-        match x with
-        | CTyList(C l) ->
-            let strb = StringBuilder()
-            List.iter (fun x -> strb.Append(f x) |> ignore) l
-            strb.ToString()
-        | l -> f l
+        let f keyword l = 
+            if keyword = keyword_text then
+                match l with
+                | CTyLit (LitString x) -> x
+                | x -> raise_codegen_error <| sprintf "Expected a string literal in type macro's keyword `text:`.\nGot: %s" (show_consed_typed_data x)
+            elif keyword = keyword_literal then
+                match l with
+                | CTyLit x -> lit d x
+                | x -> raise_codegen_error <| sprintf "Expected a literal in type macro's keyword `literal:`.\nGot: %s" (show_consed_typed_data x)
+            elif keyword = keyword_type then f (type_consed_data_get l)
+            else raise_codegen_error <| sprintf "Invalid keyword in type macro. Got: `%s`" (keyword_to_string keyword)
+
+        let strb = StringBuilder()
+        let rec loop = function
+            | CTyKeyword(C(keyword,[|l|])) -> f keyword l |> strb.Append |> ignore
+            | CTyList(C l) -> List.iter loop l
+            | x -> raise_codegen_error <| sprintf "Expected a tuple, or a `text:`, `literal:` or `type:` keyword argument in type macro. Got: `%s`" (show_consed_typed_data x)
+        loop x
+        strb.ToString()
     | ty -> d.types.Tag ty |> sprintf "SpiralType%i"
 
 let tytag d (T(tag,ty)) = sprintf "(var_%i : %s)" (uint32 tag) (type_ d ty)
@@ -179,27 +178,26 @@ let rec op (d: CodegenEnv) x =
         let inline t x = typed_data d x
         match op, x' with
         | Macro, a ->
-            let f = function
-                | TyKeyword(keyword,[|l|]) ->
-                    if keyword = keyword_text then
-                        match l with
-                        | TyLit (LitString x) -> x
-                        | x -> raise_codegen_error <| sprintf "Expected a string literal in term macro's keyword `text:`.\nGot: %s" (show_typed_data x)
-                    elif keyword = keyword_literal then
-                        match l with
-                        | TyLit x -> lit d x
-                        | x -> raise_codegen_error <| sprintf "Expected a literal in term macro's keyword `literal:`.\nGot: %s" (show_typed_data x)
-                    elif keyword = keyword_type then type_ d (type_get l)
-                    elif keyword = keyword_variable then t l
-                    else raise_codegen_error <| sprintf "Invalid keyword in term macro. Got: `%s`" (keyword_to_string keyword)
-                | x -> raise_codegen_error <| sprintf "Expected a keyword in term macro. Got: `%s`" (show_typed_data x)
-
-            match a with
-            | TyList l ->
-                let strb = StringBuilder()
-                List.iter (fun x -> strb.Append(f x) |> ignore) l
-                strb.ToString()
-            | l -> f l
+            let f keyword l = 
+                if keyword = keyword_text then
+                    match l with
+                    | TyLit (LitString x) -> x
+                    | x -> raise_codegen_error <| sprintf "Expected a string literal in term macro's keyword `text:`.\nGot: %s" (show_typed_data x)
+                elif keyword = keyword_literal then
+                    match l with
+                    | TyLit x -> lit d x
+                    | x -> raise_codegen_error <| sprintf "Expected a literal in term macro's keyword `literal:`.\nGot: %s" (show_typed_data x)
+                elif keyword = keyword_type then type_ d (type_get l)
+                elif keyword = keyword_variable then t l
+                else raise_codegen_error <| sprintf "Invalid keyword in term macro. Got: `%s`" (keyword_to_string keyword)
+            
+            let strb = StringBuilder()
+            let rec loop = function
+                | TyKeyword(keyword,[|l|]) -> f keyword l |> strb.Append |> ignore
+                | TyList l -> List.iter loop l
+                | x -> raise_codegen_error <| sprintf "Expected a tuple, or a `text:`, `literal:`, `type:` or `variable:` keyword argument in term macro. Got: `%s`" (show_typed_data x)
+            loop a
+            strb.ToString()
         | UnsafeConvert, TyList [a;b] -> sprintf "%s %s" (type_ d (type_get a)) (t b)
         | StringLength, a -> sprintf "int64 %s.Length" (t a)
         | StringIndex, TyList [a;b] -> sprintf "%s.[int32 %s]" (t a) (t b)

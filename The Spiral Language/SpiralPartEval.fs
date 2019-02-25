@@ -1382,8 +1382,8 @@ let rec partial_eval (d: LangEnv) x =
             match ev d a' with
             | TyList [] & a -> a
             | a ->
-                //let d = match a' with ExprPos(_,x) -> {d with trace = x.Pos :: d.trace} | _ -> d
-                raise_type_error d "Only the last expression of a block is allowed to be unit. Use `ignore` if it intended to be such.\nGot: %s" (show_typed_data a)
+                let d = match a' with ExprPos(_,x) -> {d with trace = x.Pos :: d.trace} | _ -> d
+                raise_type_error d <| sprintf "Only the last expression of a block is allowed to be unit. Use `ignore` if it intended to be such.\nGot: %s" (show_typed_data a)
         | ErrorPatMiss,[|a|] -> ev d a |> show_typed_data |> sprintf "Pattern miss error. The argument is %s" |> raise_type_error d
         | FailWith,[|typ;a|] ->
             match ev2 d typ a with
