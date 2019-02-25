@@ -619,7 +619,7 @@ let rec partial_eval (d: LangEnv) x =
             
             f (ev d a)
         | Macro, [|body;ty|] -> push_op_no_rewrite d Macro (ev d body) (ev d ty |> type_get)
-        | MacroExtern, [|body;ty|] -> push_op_no_rewrite d MacroExtern (ev d body) (MacroT (typed_data_to_consed (ev d ty)))
+        | MacroExtern, [|body;ty|] -> push_op_no_rewrite d Macro (ev d body) (MacroT (typed_data_to_consed (ev d ty)))
         | TypeAnnot, [|a;b|] ->
             match d.rbeh with
             | AnnotationReturn -> ev_annot {d with rbeh=AnnotationDive} b |> TyT

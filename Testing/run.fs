@@ -1241,10 +1241,14 @@ let macro: SpiralModule =
     """
 inl Macro = [
     /// Creates a macro using the type.
-    type: t args: = !Macro(text,t)
+    type: t args: = !Macro(args,t)
     /// Creates a macro as a type.
-    extern: t args: = !MacroExtern(text,t)
-
+    extern: t args: = !MacroExtern(args,t)
+    /// Creates a line of text. Good for accessing global constants.
+    type: t text: x = self type: t args: (text: x)
+    /// Creates a line of text with the unit type. Good for comments.
+    comment: x = self type: () args: (text: x)
+    /// Surrounds a sequence of macro instructions with brackets. Applies `map` to each element in the sequence.
     brackets: open, close sep: args: map: f =
         inl close = (text: close) :: ()
         inl rec loop = function
@@ -1258,24 +1262,68 @@ inl Macro = [
         | () -> close
         | x -> f x :: close
 
+    /// Surrounds a sequence of macro instructions with parentheses. Assumes that each element in the sequence is a variable.
     rounds: args = self brackets: "(",")" sep: ", " args: args map:(inl x -> variable: x)
+    /// Surrounds a sequence of macro instructions with jagged brackets. Assumes that each element in the sequence is a type.
     jaggeds: args = self brackets: "<",">" sep: ", " args: args map:(inl x -> type: x)
+    /// Surrounds a sequence of macro instructions with jagged brackets. For C++ templates.
     jaggeds': args = self brackets: "<",">" sep: ", " args: args map:id
 
+    /// Macro for the global methods.
     type: t method: args: =
         self
             type: t
             args:
                 text: method
                 :: self rounds: args
+
+    /// Macro for operators.
+    type: t separate: a and: b by: sep =
+        self 
+            type: t
+            args:
+                variable: a
+                ,text: sep
+                ,variable: b
     ]
 
+/// Unsafe upcast. Unlike the F# compiler, Spiral won't check its correctness.
+inl (:>) a b = 
+    Macro
+        type: b
+        separate: a 
+        and: b
+        by: " :> "
+/// Unsafe downcast. Unlike the F# compiler, Spiral won't check its correctness.
+inl (:?>) a b = 
+    Macro
+        type: b
+        separate: a 
+        and: b
+        by: " :> "
+
+/// Cuda constants.
+inl threadIdx = [
+    x = Macro (type: 0i64 text: "threadIdx.x")
+    y = Macro (type: 0i64 text: "threadIdx.y")
+    z = Macro (type: 0i64 text: "threadIdx.z")
+    ]
+inl blockIdx = [
+    x = Macro (type: 0i64 text: "blockIdx.x")
+    y = Macro (type: 0i64 text: "blockIdx.y")
+    z = Macro (type: 0i64 text: "blockIdx.z")
+    ]
+
+Macro 
+    type: ()
+    method: "System.Console.WriteLine"
+    args: "Hello, world!"
 
     """
     }
 
 //rewrite_test_cache tests cfg None //(Some(63,64))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) macro
 |> printfn "%s"
 |> ignore
 

@@ -40,42 +40,7 @@ type CodegenEnv =
 
 let raise_codegen_error x = raise (CodegenError x)
 
-let rec type_ (d: CodegenEnv) x = 
-    let inline f x = type_ d x
-    match x with
-    | ListT _  | KeywordT _ | FunctionT _ | RecFunctionT _ | ObjectT _ | MapT _ as x -> 
-        match type_non_units x with
-        | [||] -> "unit"
-        | x -> Array.map f x |> String.concat " * "
-    | ArrayT(ArtDotNetReference,t) -> sprintf "(%s ref)" (f t)
-    | ArrayT(ArtDotNetHeap,t) -> sprintf "(%s [])" (f t)
-    | ArrayT(ArtCudaGlobal t,_) -> f t
-    | ArrayT((ArtCudaShared | ArtCudaLocal),_) -> raise_codegen_error "Cuda local and shared arrays cannot be used on the F# side."
-    | TermCastedFunctionT(a,b) -> sprintf "(%s -> %s)" (f a) (f b)
-    | PrimT x ->
-        match x with
-        | Int8T -> "int8"
-        | Int16T -> "int16"
-        | Int32T -> "int32"
-        | Int64T -> "int64"
-        | UInt8T -> "uint8"
-        | UInt16T -> "uint16"
-        | UInt32T -> "uint32"
-        | UInt64T -> "uint64"
-        | Float32T -> "float32"
-        | Float64T -> "float"
-        | BoolT -> "bool"
-        | StringT -> "string"
-        | CharT -> "char"
-    | MacroT x -> x
-    | ty -> d.types.Tag ty |> sprintf "SpiralType%i"
-
-let tytag' d (T(tag,ty)) = sprintf "var_%i" (uint32 tag)
-let tytag d (T(tag,ty)) = sprintf "(var_%i : %s)" (uint32 tag) (type_ d ty)
-let tytags_semicolon d x = Array.map (tytag' d) x |> String.concat "; "
-let tytags_comma' d x = Array.map (tytag' d) x |> String.concat ", " |> sprintf "(%s)"
-let tytags_comma d x = Array.map (tytag d) x |> String.concat ", " |> sprintf "(%s)"
-let tylit d = function
+let lit d = function
     | LitInt8 x -> sprintf "%iy" x
     | LitInt16 x -> sprintf "%is" x
     | LitInt32 x -> sprintf "%i" x
@@ -117,6 +82,61 @@ let tylit d = function
         |> sprintf "'%s'"
     | LitBool x -> if x then "true" else "false"
 
+let rec type_ (d: CodegenEnv) x = 
+    let inline f x = type_ d x
+    match x with
+    | ListT _  | KeywordT _ | FunctionT _ | RecFunctionT _ | ObjectT _ | MapT _ as x -> 
+        match type_non_units x with
+        | [||] -> "unit"
+        | x -> Array.map f x |> String.concat " * "
+    | ArrayT(ArtDotNetReference,t) -> sprintf "(%s ref)" (f t)
+    | ArrayT(ArtDotNetHeap,t) -> sprintf "(%s [])" (f t)
+    | ArrayT(ArtCudaGlobal t,_) -> f t
+    | ArrayT((ArtCudaShared | ArtCudaLocal),_) -> raise_codegen_error "Cuda local and shared arrays cannot be used on the F# side."
+    | TermCastedFunctionT(a,b) -> sprintf "(%s -> %s)" (f a) (f b)
+    | PrimT x ->
+        match x with
+        | Int8T -> "int8"
+        | Int16T -> "int16"
+        | Int32T -> "int32"
+        | Int64T -> "int64"
+        | UInt8T -> "uint8"
+        | UInt16T -> "uint16"
+        | UInt32T -> "uint32"
+        | UInt64T -> "uint64"
+        | Float32T -> "float32"
+        | Float64T -> "float"
+        | BoolT -> "bool"
+        | StringT -> "string"
+        | CharT -> "char"
+    | MacroT x -> 
+        let f = function
+            | CTyKeyword(C(keyword,[|l|])) ->
+                if keyword = keyword_text then
+                    match l with
+                    | CTyLit (LitString x) -> x
+                    | x -> raise_codegen_error <| sprintf "Expected a string literal in type macro's keyword `text:`.\nGot: %s" (show_consed_typed_data x)
+                elif keyword = keyword_literal then
+                    match l with
+                    | CTyLit x -> lit d x
+                    | x -> raise_codegen_error <| sprintf "Expected a literal in type macro's keyword `literal:`.\nGot: %s" (show_consed_typed_data x)
+                elif keyword = keyword_type then f (type_consed_data_get l)
+                else raise_codegen_error <| sprintf "Invalid keyword in type macro. Got: `%s`" (keyword_to_string keyword)
+            | x -> raise_codegen_error <| sprintf "Expected a keyword in type macro. Got: `%s`" (show_consed_typed_data x)
+        
+        match x with
+        | CTyList(C l) ->
+            let strb = StringBuilder()
+            List.iter (fun x -> strb.Append(f x) |> ignore) l
+            strb.ToString()
+        | l -> f l
+    | ty -> d.types.Tag ty |> sprintf "SpiralType%i"
+
+let tytag d (T(tag,ty)) = sprintf "(var_%i : %s)" (uint32 tag) (type_ d ty)
+let tytag' d (T(tag,ty)) = sprintf "var_%i" (uint32 tag)
+let tytags_semicolon d x = Array.map (tytag' d) x |> String.concat "; "
+let tytags_comma' d x = Array.map (tytag' d) x |> String.concat ", " |> sprintf "(%s)"
+let tytags_comma d x = Array.map (tytag d) x |> String.concat ", " |> sprintf "(%s)"
 let error_raw_type x = raise_codegen_error <| sprintf "An attempt to manifest a raw type has been made.\nGot: %s" (show_typed_data x)
 
 let rec typed_data (d: CodegenEnv) x = 
@@ -125,7 +145,7 @@ let rec typed_data (d: CodegenEnv) x =
     | false, vars -> 
         Array.map (function
             | TyV t -> tytag' d t
-            | TyLit x -> tylit d x
+            | TyLit x -> lit d x
             | TyBox(a,ty) -> 
                 let tag' = d.types.Tag ty
                 let tag = d.types.Tag (type_get a)
@@ -158,7 +178,28 @@ let rec op (d: CodegenEnv) x =
     | TyOp(op, x') ->
         let inline t x = typed_data d x
         match op, x' with
-        | (MacroExtern | Macro), TyLit(LitString a) -> a
+        | Macro, a ->
+            let f = function
+                | TyKeyword(keyword,[|l|]) ->
+                    if keyword = keyword_text then
+                        match l with
+                        | TyLit (LitString x) -> x
+                        | x -> raise_codegen_error <| sprintf "Expected a string literal in term macro's keyword `text:`.\nGot: %s" (show_typed_data x)
+                    elif keyword = keyword_literal then
+                        match l with
+                        | TyLit x -> lit d x
+                        | x -> raise_codegen_error <| sprintf "Expected a literal in term macro's keyword `literal:`.\nGot: %s" (show_typed_data x)
+                    elif keyword = keyword_type then type_ d (type_get l)
+                    elif keyword = keyword_variable then t l
+                    else raise_codegen_error <| sprintf "Invalid keyword in term macro. Got: `%s`" (keyword_to_string keyword)
+                | x -> raise_codegen_error <| sprintf "Expected a keyword in term macro. Got: `%s`" (show_typed_data x)
+
+            match a with
+            | TyList l ->
+                let strb = StringBuilder()
+                List.iter (fun x -> strb.Append(f x) |> ignore) l
+                strb.ToString()
+            | l -> f l
         | UnsafeConvert, TyList [a;b] -> sprintf "%s %s" (type_ d (type_get a)) (t b)
         | StringLength, a -> sprintf "int64 %s.Length" (t a)
         | StringIndex, TyList [a;b] -> sprintf "%s.[int32 %s]" (t a) (t b)

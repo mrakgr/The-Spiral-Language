@@ -104,10 +104,8 @@ let rec show_ty = function
     | MapT v -> show_map show_ty v.node
     | ObjectT(C(a,_)) -> object_name a
     | FunctionT _ | RecFunctionT _ -> "<function>"
-    | LayoutT (C(layout_type,body,_)) ->
-        sprintf "%s (%s)" (show_layout_type layout_type) (show_consed_typed_data body)
-    | TermCastedFunctionT (a,b) ->
-        sprintf "(%s => %s)" (show_ty a) (show_ty b)
+    | LayoutT (C(layout_type,body,_)) -> sprintf "%s (%s)" (show_layout_type layout_type) (show_consed_typed_data body)
+    | TermCastedFunctionT (a,b) -> sprintf "(%s => %s)" (show_ty a) (show_ty b)
     | UnionT l ->
         let body =
             Set.toArray l.node
@@ -116,7 +114,7 @@ let rec show_ty = function
         sprintf "union (%s)" body
     | RecUnionT (name, _) -> name
     | ArrayT (a,b) -> sprintf "%s (%s)" (show_art a) (show_ty b)
-    | MacroT x -> x
+    | MacroT x -> show_consed_typed_data x |> sprintf "macro (%s)"
 
 and show_typed_data = function
     | TyT x -> sprintf "type (%s)" (show_ty x)

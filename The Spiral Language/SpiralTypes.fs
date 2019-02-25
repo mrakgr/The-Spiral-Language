@@ -581,6 +581,16 @@ let rec type_get = function
     | TyT x | TyV(T(_,x)) | TyBox(_,x) -> x
     | TyLit x -> get_type_of_value x
 
+let rec type_consed_data_get = function
+    | CTyKeyword(C(t,l)) -> (t, Array.map type_consed_data_get l) |> keywordt
+    | CTyList(C l) -> List.map type_consed_data_get l |> listt
+    | CTyFunction(C(a,b,l)) -> (a,b,Array.map type_consed_data_get l) |> functiont
+    | CTyRecFunction(C(a,b,l)) -> (a,b,Array.map type_consed_data_get l) |> recfunctiont
+    | CTyObject(C(a,l)) -> (a,Array.map type_consed_data_get l) |> objectt
+    | CTyMap l -> Map.map (fun _ -> type_consed_data_get) l.node |> mapt
+    | CTyT x | CTyV(_,x) | CTyBox(_,x) -> x
+    | CTyLit x -> get_type_of_value x
+
 let typed_data_is_unit a = type_get a |> type_is_unit
 
 let (|TyType|) x = type_get x

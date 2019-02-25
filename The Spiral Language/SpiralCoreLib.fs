@@ -173,21 +173,6 @@ inl (<<<) a b = !ShiftLeft(a,b)
 /// Shift right.
 inl (>>>) a b = !ShiftRight(a,b)
 
-/// Unsafe upcast. Unlike the F# compiler, Spiral won't check its correctness.
-inl (:>) a b = 
-    Macro
-        type: b
-        separate: a 
-        and: b
-        by: " :> "
-/// Unsafe downcast. Unlike the F# compiler, Spiral won't check its correctness.
-inl (:?>) a b = 
-    Macro
-        type: b
-        separate: a 
-        and: b
-        by: " :> "
-
 /// Gets the first elements of a tuple.
 inl fst x :: _ = x
 /// Gets the second element of a tuple.
@@ -212,7 +197,6 @@ inl lit_comp op a b =
     elif Is (lit: a) then a
     elif Is (lit: b) then b
     else Type (error: "a or b needs to be a literal")
-        
 
 /// Returns the compile time expressible maximum of the two expressions.
 inl lit_max = lit_comp max
@@ -239,18 +223,6 @@ inl infinity = [
 // Since join points use structural equality and nan = nan returns false, nans will cause the compiler to diverge.
 // Note for future language designers - make nan = nan return true!
 
-/// Cuda constants.
-inl threadIdx = [
-    x = Macro (type: 0i64 text: "threadIdx.x")
-    y = Macro (type: 0i64 text: "threadIdx.y")
-    z = Macro (type: 0i64 text: "threadIdx.z")
-    ]
-inl blockIdx = [
-    x = Macro (type: 0i64 text: "blockIdx.x")
-    y = Macro (type: 0i64 text: "blockIdx.y")
-    z = Macro (type: 0i64 text: "blockIdx.z")
-    ]
-
 /// Structural polymorphic equality for every type in the language (apart from functions, objects and keywords.)
 inl (=) a b =
     inl rec (=) a b =
@@ -274,9 +246,9 @@ inl (=) a b =
 inl (<>) a b = (a = b) <> true
 
 {
-Type Macro String Is Record 
-ref infinity threadIdx blockIdx
-(=>) (+) (-) (*) (**) (/) (%) (:>) (:?>) (=) (|>) (<|) 
+Type String Is Record 
+ref infinity
+(=>) (+) (-) (*) (**) (/) (%) (=) (|>) (<|) 
 (>>) (<<) (<=) (<) (=) (<>) (>) (>=) (&&&) (|||) (^^^) (::) (<<<) (>>>)
 stack heap heapm indiv
 max min lit_min lit_max abs log exp tanh sqrt neg print_static dyn
