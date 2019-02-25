@@ -414,6 +414,10 @@ The way this was compiled in the previous version of the language, the evaluator
 
 The pattern matching issue where the CSE rewriting was too aggressive at taking variables and unboxing them has also been fixed. CSE rewriting is now `Op * TypedData -> Typedata` function rather than the `TypedData -> Typedata` that it had been previously. It no longer rewrites one variable to another, but rewrites an operation to a variable instead. That one simple idea is all it took to attain a finer level of control over the rewriting. As a side benefit, that also means that it no longer needs to do recursive rewriting to converge. It is a win-win all around.
 
+## `packed_stack` layout
+
+This particular layout was intended for passing tuples in arrays across language boundaries. In the past two years, I've never used it apart from implementing it. The tuple of arrays tensors are just so easy to use in Spiral that there is no point to packed stack. Hence it is out.
+
 # Changes
 
 ## `dyn`

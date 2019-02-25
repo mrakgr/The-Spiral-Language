@@ -32,11 +32,11 @@ inl Type = [
     ]
 
 inl Macro = [
-    /// Creates a macro.
+    /// Creates a macro using the inbuilt type.
     /// type: a text: string lit -> a
     type: t text: = !Macro(text,t)
-    /// Creates a macro using the string literal as its type.
-    /// text: (string lit & a) text: string lit -> a macro
+    /// Creates a macro using the extern type.
+    /// text: a text: string lit -> a macro
     string: t text: = !MacroExtern(text,t)
     ]
 
@@ -183,9 +183,19 @@ inl (<<<) a b = !ShiftLeft(a,b)
 inl (>>>) a b = !ShiftRight(a,b)
 
 /// Unsafe upcast. Unlike the F# compiler, Spiral won't check its correctness.
-inl (:>) a b = () // TODO: Replace with a macro.
+inl (:>) a b = 
+    Macro
+        type: b
+        separate: a 
+        and: b
+        by: " :> "
 /// Unsafe downcast. Unlike the F# compiler, Spiral won't check its correctness.
-inl (:?>) a b = () // TODO: Replace with a macro.
+inl (:?>) a b = 
+    Macro
+        type: b
+        separate: a 
+        and: b
+        by: " :> "
 
 /// Gets the first elements of a tuple.
 inl fst x :: _ = x

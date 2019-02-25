@@ -1129,6 +1129,97 @@ dyn (stack {elem_type=type 1})
     """
     }
 
+let macro_dotnet1: SpiralModule =
+    {
+    name="macro_dotnet1"
+    prerequisites=[]
+    opens=[]
+    description="Do the macros work?"
+    code=
+    """
+Macro 
+    type: ()
+    method: "System.Console.Writeline"
+    args: "Hello, world!"
+    """
+    }
+
+let macro_dotnet2: SpiralModule =
+    {
+    name="macro_dotnet2"
+    prerequisites=[]
+    opens=[]
+    description="Does the StringBuilder work?"
+    code=
+    """
+inl StringBuilder x = 
+    inl x =
+        Macro
+            class: "System.Text.StringBuilder"
+            args: x
+    [
+    Append: a = 
+        Macro
+            type: x
+            class: x
+            method: "Append"
+            args: a
+    AppendLine: a = 
+        Macro
+            type: x
+            class: x
+            method: "AppendLine"
+            args: a
+    ToString =
+        Macro
+            type: ""
+            class x
+            method: "ToString"
+            args: ()
+    ]
+
+inl b = StringBuilder("Qwe", 128i32)
+inl _ = b Append: 123
+inl _ = b AppendLine: ()
+inl _ = b Append: 123i16
+inl _ = b AppendLine: "qwe"
+()
+    """
+    }
+
+let macro_dotnet3: SpiralModule =
+    {
+    name="macro_dotnet3"
+    prerequisites=[]
+    opens=[]
+    description="Does the Dictionary work?"
+    code=
+    """
+inl Dictionary (key:value:) x = 
+    Macro
+        class: "System.Collections.Generic"
+        types: key,value
+        args: x
+        methods:
+            inl key = Type wrap: key
+            [
+            Add: a : (key.elem_type), b =
+                type: ()
+                method: "Add"
+                args: a, b
+            Item: a =
+                type: key.elem_type
+                method: "Item"
+                args: a
+            ]
+
+inl b = Dictionary (key: "" value: 0) ()
+b Add: "a", 5
+b Item: "a"
+|> dyn
+    """
+    }
+
 let tests =
     [|
     test1; test2; test3; test4; test5; test6; test7; test8; test9; 
