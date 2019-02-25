@@ -7,7 +7,7 @@ open HashConsing
 open System.Runtime.CompilerServices
 
 // Globals
-let private hash_cons_table = HashConsing.HashConsTable()
+let hash_cons_table = HashConsing.HashConsTable()
 
 // Language types
 type LayoutType =
@@ -311,7 +311,7 @@ and ConsedTy =
     | PrimT of PrimitiveType
     | TermCastedFunctionT of ConsedTy * ConsedTy
     | ArrayT of ArrayType * ConsedTy
-    | MacroT of string
+    | MacroT of ConsedTypedData
 
 and ConsedTypedData = // for join points and layout types
     | CTyList of ConsedNode<ConsedTypedData list>
@@ -562,13 +562,22 @@ let get_type_of_value = function
     | LitString _ -> PrimT StringT
     | LitChar _ -> PrimT CharT
 
+let keywordt x = x |> hash_cons_table.Add |> KeywordT
+let listt x = x |> hash_cons_table.Add |> ListT
+let functiont x = x |> hash_cons_table.Add |> FunctionT
+let recfunctiont x = x |> hash_cons_table.Add |> RecFunctionT
+let objectt x = x |> hash_cons_table.Add |> ObjectT
+let mapt x = x |> hash_cons_table.Add |> MapT
+let layoutt x = x |> hash_cons_table.Add |> LayoutT
+let uniont x = x |> hash_cons_table.Add |> UnionT
+
 let rec type_get = function
-    | TyKeyword(t,l) -> (t, Array.map type_get l) |> hash_cons_table.Add |> KeywordT
-    | TyList l -> List.map type_get l |> hash_cons_table.Add |> ListT
-    | TyFunction (a,b,l) -> (a,b,Array.map type_get l) |> hash_cons_table.Add |> FunctionT
-    | TyRecFunction (a,b,l) -> (a,b,Array.map type_get l) |> hash_cons_table.Add |> RecFunctionT
-    | TyObject(a,l) -> (a,Array.map type_get l) |> hash_cons_table.Add |> ObjectT
-    | TyMap l -> Map.map (fun _ -> type_get) l |> hash_cons_table.Add |> MapT
+    | TyKeyword(t,l) -> (t, Array.map type_get l) |> keywordt
+    | TyList l -> List.map type_get l |> listt
+    | TyFunction (a,b,l) -> (a,b,Array.map type_get l) |> functiont
+    | TyRecFunction (a,b,l) -> (a,b,Array.map type_get l) |> recfunctiont
+    | TyObject(a,l) -> (a,Array.map type_get l) |> objectt
+    | TyMap l -> Map.map (fun _ -> type_get) l |> mapt
     | TyT x | TyV(T(_,x)) | TyBox(_,x) -> x
     | TyLit x -> get_type_of_value x
 

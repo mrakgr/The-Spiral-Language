@@ -14,7 +14,6 @@ let join_point_dict_type = Dictionary(HashIdentity.Structural)
 let join_point_dict_cuda = Dictionary(HashIdentity.Structural)
 let private layout_to_none_dict = ConditionalWeakTable()
 let private layout_to_none_dict' = ConditionalWeakTable()
-let private hash_cons_table = HashConsing.HashConsTable()
 
 let mutable part_eval_tag = 0
 let private tag () = part_eval_tag <- part_eval_tag+1; part_eval_tag
@@ -23,18 +22,29 @@ let keyword_env = string_to_keyword "env:" // For join points keys. It is assume
 let keyword_apply = string_to_keyword "apply:"
 let keyword_key_value = string_to_keyword "key:value:"
 let keyword_key_state_value = string_to_keyword "key:state:value:"
+let keyword_text = string_to_keyword "text:"
+let keyword_variable = string_to_keyword "variable:"
+let keyword_literal = string_to_keyword "literal:"
+let keyword_type = string_to_keyword "type:"
+
+let ctylist x = x |> hash_cons_table.Add |> CTyList
+let ctykeyword x = x |> hash_cons_table.Add |> CTyKeyword
+let ctyfunction x = x |> hash_cons_table.Add |> CTyFunction
+let ctyrecfunction x = x |> hash_cons_table.Add |> CTyRecFunction
+let ctyobject x = x |> hash_cons_table.Add |> CTyObject
+let ctymap x = x |> hash_cons_table.Add |> CTyMap
 
 let typed_data_to_consed' call_data =
     let dict = Dictionary(HashIdentity.Reference)
     let call_args = ResizeArray(64)
     let rec f x =
         memoize dict (function
-            | TyList l -> List.map f l |> hash_cons_table.Add |> CTyList
-            | TyKeyword(a,b) -> (a,Array.map f b) |> hash_cons_table.Add |> CTyKeyword
-            | TyFunction(a,b,c) -> (a,b,Array.map f c) |> hash_cons_table.Add |> CTyFunction
-            | TyRecFunction(a,b,c) -> (a,b,Array.map f c) |> hash_cons_table.Add |> CTyRecFunction
-            | TyObject(a,b) -> (a,Array.map f b) |> hash_cons_table.Add |> CTyObject
-            | TyMap l -> Map.map (fun _ -> f) l |> hash_cons_table.Add |> CTyMap
+            | TyList l -> List.map f l |> ctylist
+            | TyKeyword(a,b) -> (a,Array.map f b) |> ctykeyword
+            | TyFunction(a,b,c) -> (a,b,Array.map f c) |> ctyfunction
+            | TyRecFunction(a,b,c) -> (a,b,Array.map f c) |> ctyrecfunction
+            | TyObject(a,b) -> (a,Array.map f b) |> ctyobject
+            | TyMap l -> Map.map (fun _ -> f) l |> ctymap
             | TyV(T(_,ty) as t) -> call_args.Add t; CTyV (call_args.Count-1, ty)
             | TyBox(a,b) -> (f a, b) |> CTyBox
             | TyLit x -> CTyLit x
@@ -81,12 +91,12 @@ let typed_data_to_consed call_data =
     let mutable count = 0
     let rec f x =
         memoize dict (function
-            | TyList l -> List.map f l |> hash_cons_table.Add |> CTyList
-            | TyKeyword(a,b) -> (a,Array.map f b) |> hash_cons_table.Add |> CTyKeyword
-            | TyFunction(a,b,c) -> (a,b,Array.map f c) |> hash_cons_table.Add |> CTyFunction
-            | TyRecFunction(a,b,c) -> (a,b,Array.map f c) |> hash_cons_table.Add |> CTyRecFunction
-            | TyObject(a,b) -> (a,Array.map f b) |> hash_cons_table.Add |> CTyObject
-            | TyMap l -> Map.map (fun _ -> f) l |> hash_cons_table.Add |> CTyMap
+            | TyList l -> List.map f l |> ctylist
+            | TyKeyword(a,b) -> (a,Array.map f b) |> ctykeyword
+            | TyFunction(a,b,c) -> (a,b,Array.map f c) |> ctyfunction
+            | TyRecFunction(a,b,c) -> (a,b,Array.map f c) |> ctyrecfunction
+            | TyObject(a,b) -> (a,Array.map f b) |> ctyobject
+            | TyMap l -> Map.map (fun _ -> f) l |> ctymap
             | TyV(T(_,ty) as t) -> count <- count+1; CTyV (count-1, ty)
             | TyBox(a,b) -> (f a, b) |> CTyBox
             | TyLit x -> CTyLit x
@@ -248,7 +258,7 @@ let layout_to_some layout (d: LangEnv) = function
     | x ->
         let x = layout_to_none d x
         let call_args, consed_data = typed_data_to_consed' x
-        let ret_ty = (layout,consed_data,call_args.Length > 0) |> hash_cons_table.Add |> LayoutT
+        let ret_ty = (layout,consed_data,call_args.Length > 0) |> layoutt
         let ret = type_to_tyv ret_ty
         let layout =
             match layout with
@@ -450,7 +460,7 @@ let rec partial_eval (d: LangEnv) x =
                     let x = d.env_stack.[0]
                     let call, env = typed_data_to_consed' x
                     call, env, type_get x
-                let join_point_key = body, CTyList (hash_cons_table.Add [consed_env; consed_env2])
+                let join_point_key = body, ctylist [consed_env; consed_env2]
            
                 let _, range_ty =
                     let dict = join_point_dict_closure
@@ -511,8 +521,11 @@ let rec partial_eval (d: LangEnv) x =
                 | true, JoinPointInEvaluation _ -> ev_seq {d with cse=ref Map.empty; rbeh=AnnotationReturn} body
                 | true, JoinPointDone (_,x) -> x
 
+            
             match ret_ty with
-            | ListT(C []) -> push_typedop d (TyJoinPoint(join_point_key,JoinPointCuda,call_args)) ([PrimT StringT; ArrayT(ArtDotNetHeap,MacroT "System.Object")] |> hash_cons_table.Add |> ListT)
+            | ListT(C []) -> 
+                let macro = MacroT (ctykeyword (keyword_text,[|CTyLit(LitString "System.Object")|]))
+                push_typedop d (TyJoinPoint(join_point_key,JoinPointCuda,call_args)) ([PrimT StringT; ArrayT(ArtDotNetHeap,macro)] |> hash_cons_table.Add |> ListT)
             | _ -> raise_type_error d "The return type of Cuda join point must be unit tuple.\nGot: %s" (show_ty ret_ty)
 
         | JoinPointEntryType,[|body;name|] -> 
@@ -605,17 +618,8 @@ let rec partial_eval (d: LangEnv) x =
                 | TyV _ as x -> x
             
             f (ev d a)
-        | Macro, [|body;ty|] ->
-            match ev d body with
-            | TyLit(LitString _) as body -> push_op_no_rewrite d Macro body (ev d ty |> type_get)
-            | body -> raise_type_error d "The body of the macro must be a compile time string literal.\nGot: %s" (show_typed_data body)
-        | MacroExtern, [|body;ty|] ->
-            match ev d body with
-            | TyLit(LitString _) as body ->
-                match ev d ty with
-                | TyLit(LitString ty) -> push_op_no_rewrite d Macro body (MacroT ty)
-                | ty -> raise_type_error d "The type of the extern macro must be a compile time string literal.\nGot: %s" (show_typed_data ty)
-            | body -> raise_type_error d "The body of the extern macro must be a compile time string literal.\nGot: %s" (show_typed_data body)
+        | Macro, [|body;ty|] -> push_op_no_rewrite d Macro (ev d body) (ev d ty |> type_get)
+        | MacroExtern, [|body;ty|] -> push_op_no_rewrite d MacroExtern (ev d body) (MacroT (typed_data_to_consed (ev d ty)))
         | TypeAnnot, [|a;b|] ->
             match d.rbeh with
             | AnnotationReturn -> ev_annot {d with rbeh=AnnotationDive} b |> TyT
@@ -626,7 +630,7 @@ let rec partial_eval (d: LangEnv) x =
         | TypeGet, [|a|] -> ev_annot d a |> TyT
         | TypeUnion, l -> 
             let set_field = function UnionT t -> t.node | t -> Set.singleton t
-            Array.fold (fun s x -> Set.union s (ev_annot d x |> set_field)) Set.empty l |> hash_cons_table.Add |> UnionT |> TyT
+            Array.fold (fun s x -> Set.union s (ev_annot d x |> set_field)) Set.empty l |> uniont |> TyT
         | TypeSplit, [|a|] -> ev_annot d a |> case_type d |> List.map TyT |> TyList
         | TypeRaise, [|a|] -> ev_annot d a |> TypeRaised |> raise
         | TypeCatch, [|a|] -> 
