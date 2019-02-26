@@ -856,10 +856,6 @@ let rec partial_eval (d: LangEnv) x =
             | ArrayT(ArtDotNetHeap,t) -> push_op d ArrayLength a (PrimT Int64T)
             | ArrayT(ArtDotNetReference,t) -> TyLit (LitInt64 1L)
             | _ -> raise_type_error d <| sprintf "ArrayLength is only supported for .NET arrays. Got: %s" (show_typed_data a)
-        | ArrayIs,[|a|] ->
-            match ev d a |> type_get with
-            | ArrayT _ -> TyLit(LitBool true)
-            | _ -> TyLit(LitBool false)
         | GetArray,[|a;b|] ->
             match ev d a with
             | TyType (ArrayT((ArtDotNetHeap | ArtCudaGlobal _ | ArtCudaLocal | ArtCudaShared),ty)) & a ->
@@ -878,7 +874,7 @@ let rec partial_eval (d: LangEnv) x =
                 | TyType (PrimT Int64T) & b -> 
                     match ev d c with
                     | TyType ty' & c -> 
-                        if ty' = ty then push_triop_no_rewrite d SetArray (a,b,c) ty
+                        if ty' = ty then push_triop_no_rewrite d SetArray (a,b,c) Types.tyb
                         else raise_type_error d <| sprintf "The array and the value being set do not have the same type.\nGot: %s\nAnd: %s" (show_ty ty) (show_ty ty')
                 | b -> raise_type_error d <| sprintf "Expected a int64 as the index argumet in GetArray.\nGot: %s" (show_typed_data b)
             | a -> raise_type_error d <| sprintf "Expected an array in SetArray.\nGot: %s" (show_typed_data a)
@@ -887,7 +883,7 @@ let rec partial_eval (d: LangEnv) x =
             | TyType (ArrayT(ArtDotNetReference,ty)) & a -> 
                     match ev d c with
                     | TyType ty' & c -> 
-                        if ty' = ty then push_binop_no_rewrite d SetReference (a,c) ty
+                        if ty' = ty then push_binop_no_rewrite d SetReference (a,c) Types.tyb
                         else raise_type_error d <| sprintf "The reference and the value being set do not have the same type.\nGot: %s\nAnd: %s" (show_ty ty) (show_ty ty')
             | a -> raise_type_error d <| sprintf "Expected an array in SetReference.\nGot: %s" (show_typed_data a)
         | SetMutableRecord,[|a;b;c|] ->

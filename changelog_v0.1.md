@@ -46,6 +46,24 @@ add
 
 Similarly to records, the pattern's right sides can be omitted in which case they will default to the keyword's argument names.
 
+```
+inl add left:right: = left + right
+inl left:right: = left:1 right:2
+add 
+    left:
+    right:
+```
+
+Like for patterns, the keyword bodies can be left alone too. The above is equivalent to...
+
+```
+inl add left:right: = left + right
+inl left:right: = left:1 right:2
+add 
+    left: left
+    right: right
+```
+
 ## Objects
 
 Though all the functionality of objects at compile time can be gotten through functions + pattern matching in Spiral, there are some definite issues with that sort of arrangement.
@@ -120,6 +138,19 @@ One last thing worth noting is the special `apply:` keyword. If the argument pas
 
 Spiral's objects are there for performance at compile time. Hence Spiral's objects cannot be updated like records, nor do they support inheritance.
 
+```
+[a=1; b=2; c=;3]
+```
+
+```
+[
+    a=1
+    b=2; c=;3
+]
+```
+
+Like for records, the object's fields can be separated by semicolons.
+
 One last thing.
 
 ```
@@ -168,15 +199,46 @@ let ((var_5 : int64), (var_6 : int64), (var_7 : int64)) =
 
 Previously Spiral did its unboxing automatically on any non-trivial pattern. I did this with the aim of matching F# in appearance, but unfortunately that did not work too well. I've come to a realization that there are notable semantic differences between matching at compile time and runtime and that the two are not interchangeable. F# does all its matching at runtime so it is capable of optimizing for user experience, but if in Spiral one is using union types, then definitely the code will have to be written in a way that takes account of that.
 
-I have a dichotomy in my mind about union types - on one hand I see statically typed languages that do not support them as simply not getting **it** where **it** means **abstraction**. There is simply not a reason for a statically typed language to not have pattern matching + union types apart from either stupidity or laziness.
+I have a dichotomy in my mind about union types - on one hand I see statically typed languages that do not support them as simply not getting **it** where **it** means **abstraction**. There is simply not a reason for a statically typed language to not have pattern matching + union types.
 
 But on other hand, Spiral's compile time features are so powerful that I've come to think of actually using union types as defeat. I had to use them in places in Spiral though. A thought growing in me is that if the task is so complex that their use is actually needed, then rather than writing an interpreter for the task maybe using an actual dynamic language would be a better choice.
 
+## Record's `this`
+
+```
+inl f x = {x with 
+    y = 
+        match this with
+        | () -> 0
+        | y -> y+1
+    }
+dyn (f {}, f {y=5})
+```
+
+```
+let ((var_1 : int64)) = 0L
+let ((var_2 : int64)) = 6L
+```
+
+Record's `self` has been renamed to `this` and now can be matched on regardless of whether the field previously existed. In `v0.09` record's `self` would only be in the environment if the field previously was in the record.
+
+Also to make the indentation rules more uniform between objects, keywords and records the indentation for parsing record expressions must be higher than the field.
+
+```
+{ 
+    y = 
+    1 // Syntax error
+}
+```
+
+```
+{ 
+    y = 
+     1 // Ok
+}
+```
+
 # Removals from the language
-
-## The third person language in the manual
-
-It takes too much effort to write in a disembodied fashion. Let the 'I' rule from here on out.
 
 ## The direct `open`
 
@@ -418,6 +480,30 @@ The pattern matching issue where the CSE rewriting was too aggressive at taking 
 
 This particular layout was intended for passing tuples in arrays across language boundaries. In the past two years, I've never used it apart from implementing it. The tuple of arrays tensors are just so easy to use in Spiral that there is no point to packed stack. Hence it is out.
 
+## `:=`, `<-`
+
+These two operators were used for reference and array assignment respectively. They were not particularly useful so they are out in this version of the language. References and arrays in v0.1 are wrapped in objects. 
+
+```
+/// Creates a reference.
+inl ref x = 
+    inl x = !ReferenceCreate(x)
+    [
+    get = !GetReference(x)
+    set: v = !SetReference(x,v)
+    ]
+```
+
+Here is how the reference is implemented in v0.1. The array is similar to this. 
+
+```
+inl x = ref 0
+x set: 5
+x.get
+```
+
+For references, they can be used like so.
+
 # Changes
 
 ## `dyn`
@@ -438,10 +524,36 @@ Got: type (int64)
 In v0.09 `var` was used for this purpose, but in this version I want to discourage passage of raw types. Preferably...
 
 ```
-dyn (stack {elem_type=type 1})
+stack {elem_type=type 1}
 ```
 
 Should be used for the task of passing around types.
+
+```
+stack type 1
+```
+
+It might be tempting to save on keystrokes as shown above by using `stack` directly on the raw type, but I'd discourage against it. It might be fine for a simple type such as the above, but when packing arbitrary types (such as for keys and values of a dictionary) those types themselves might be layout types. In which case, if those layout types are not `stack` then they will be changed so they are. This will lead to type errors.
+
+## Tight application
+
+```
+f g.h
+```
+
+In v0.09 of Spiral this would have gotten parsed as...
+
+```
+f (g.h)
+```
+
+On the other hand...
+
+```
+f (g)(.h)
+```
+
+...would not. This is no longer the case. Now all expressions that are next to each other will get parsed with higher precedence than for ordinary application. I am not sure how useful this will be, but it should be something to keep in mind from here on out.
 
 ## Macros
 

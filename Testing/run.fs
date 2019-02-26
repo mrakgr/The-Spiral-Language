@@ -1347,6 +1347,22 @@ inl _ = b Item: "a"
     """
     }
 
+let example: SpiralModule =
+    {
+    name="example"
+    prerequisites=[]
+    opens=[]
+    description=""
+    code=
+    """
+inl add left:right: = left + right
+inl left:right: = left:1 right:2
+add 
+    left:
+    right:
+    """
+    }
+
 let tests =
     [|
     test1; test2; test3; test4; test5; test6; test7; test8; test9; 
@@ -1361,7 +1377,7 @@ let tests =
     |]
 
 //rewrite_test_cache tests cfg None //(Some(63,64))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) macro_dotnet3
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example
 |> printfn "%s"
 |> ignore
 

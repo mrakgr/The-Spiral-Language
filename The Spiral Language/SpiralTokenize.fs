@@ -108,6 +108,7 @@ let var (s:CharStream<_>) =
     let f x (s: CharStream<SpiralModule>) =
         if s.Skip(':') then
             let end_ = pos s
+            let _ = memoize' var_position_dict (fun _ -> s.UserState,start.line,start.column) x
             TokKeyword(tok start end_,x)
         else
             let end_ = pos s

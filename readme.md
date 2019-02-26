@@ -1,94 +1,12 @@
 # Table of Contents
 
-<!-- TOC -->
+<!-- TOC -->autoauto- [Table of Contents](#table-of-contents)auto- [News](#news)auto- [The Spiral Language](#the-spiral-language)auto    - [Overview](#overview)auto        - [Intro](#intro)auto        - [Design Philosophy](#design-philosophy)auto    - [Dependencies](#dependencies)auto                - [For the compiler:](#for-the-compiler)auto                - [For the Cuda using Spiral libraries:](#for-the-cuda-using-spiral-libraries)auto    - [Tutorials: Introduction to Spiral](#tutorials-introduction-to-spiral)auto        - [0: The way to use the language](#0-the-way-to-use-the-language)auto        - [1: Inlineables, Methods and Join Points](#1-inlineables-methods-and-join-points)auto            - [Recursion, Destructuring and Pattern Matching](#recursion-destructuring-and-pattern-matching)auto                - [Intensional Recursion](#intensional-recursion)auto                - [Term Casting of Functions](#term-casting-of-functions)auto                - [`<function>` error message](#function-error-message)auto        - [2: Modules, Macros and Interop](#2-modules-macros-and-interop)auto            - [Modules](#modules)auto            - [Macros](#macros)auto                - [Solve Me](#solve-me)auto                - [Simple Array Sum (macro version)](#simple-array-sum-macro-version)auto            - [Spiral libraries](#spiral-libraries)auto        - [3: Loops and Arrays](#3-loops-and-arrays)auto            - [Loops](#loops)auto            - [Arrays](#arrays)auto        - [3: Union Types and Lists](#3-union-types-and-lists)auto            - [Type Splitting and Generic Parameters](#type-splitting-and-generic-parameters)auto            - [Warning on combining union types, partial active patterns and join points](#warning-on-combining-union-types-partial-active-patterns-and-join-points)auto        - [4: Continuation Passing Style, Monadic Computation and Parsing](#4-continuation-passing-style-monadic-computation-and-parsing)auto            - [Parsing Benchmark](#parsing-benchmark)auto        - [5: Tensors and Structural Instrospection](#5-tensors-and-structural-instrospection)auto            - [Under the Hood](#under-the-hood)auto                - [Layout Polymorphism](#layout-polymorphism)auto                - [Dimensionality Polymorphism](#dimensionality-polymorphism)auto                    - [Design of the Tensor](#design-of-the-tensor)auto                    - [The Tensor Facade](#the-tensor-facade)auto            - [Closing Comments](#closing-comments)auto        - [6: The Cuda Backend](#6-the-cuda-backend)auto            - [Intro](#intro-1)auto            - [How Cuda Kernels Are Compiled](#how-cuda-kernels-are-compiled)auto            - [Tour Of The Standard Library Cuda Module](#tour-of-the-standard-library-cuda-module)auto            - [Why Spiral Was Created](#why-spiral-was-created)auto                - [How It Used To Be Done](#how-it-used-to-be-done)auto        - [7: Object Orientation](#7-object-orientation)auto            - [Motivation](#motivation)auto            - [The Object](#the-object)auto        - [8: GPU Programming Basics](#8-gpu-programming-basics)auto            - [map](#map)auto            - [map_redo_map](#map_redo_map)auto                - [flatten](#flatten)auto                - [Cuda Loops](#cuda-loops)auto            - [d2_replicate_map](#d2_replicate_map)auto                - [Example](#example)auto            - [mapi_d2_redo_map](#mapi_d2_redo_map)auto                - [Example](#example-1)auto            - [mapi_d1_seq_broadcast](#mapi_d1_seq_broadcast)auto                - [The Softmax Activation](#the-softmax-activation)auto        - [9: Deep Learning Basics](#9-deep-learning-basics)auto            - [Primitives](#primitives)auto                - [map](#map-1)auto                - [map_redo_map](#map_redo_map-1)auto                - [d2_replicate_map](#d2_replicate_map-1)auto            - [Optimizers](#optimizers)auto            - [Operations](#operations)auto            - [Layers](#layers)auto                - [Multiplicative Integration RNN](#multiplicative-integration-rnn)auto                - [Map + Layer Norm + Relu](#map--layer-norm--relu)auto            - [Layer Combinators](#layer-combinators)auto                - [A Note On Compilation Times](#a-note-on-compilation-times)auto            - [Loops](#loops-1)auto            - [Example - Feedforward Net On Mnist](#example---feedforward-net-on-mnist)auto            - [Example - Recurrent Net on tiny_shakespeare](#example---recurrent-net-on-tiny_shakespeare)auto        - [Known Bugs](#known-bugs)autoauto<!-- /TOC -->
 
-- [Table of Contents](#table-of-contents)
-- [The Spiral Language](#the-spiral-language)
-    - [Overview](#overview)
-        - [Intro](#intro)
-        - [Design Philosophy](#design-philosophy)
-    - [Dependencies](#dependencies)
-                - [For the compiler:](#for-the-compiler)
-                - [For the Cuda using Spiral libraries:](#for-the-cuda-using-spiral-libraries)
-    - [Tutorials: Introduction to Spiral](#tutorials-introduction-to-spiral)
-        - [0: The way to use the language](#0-the-way-to-use-the-language)
-        - [1: Inlineables, Methods and Join Points](#1-inlineables-methods-and-join-points)
-            - [Recursion, Destructuring and Pattern Matching](#recursion-destructuring-and-pattern-matching)
-                - [Intensional Recursion](#intensional-recursion)
-                - [Term Casting of Functions](#term-casting-of-functions)
-                - [`<function>` error message](#function-error-message)
-        - [2: Modules, Macros and Interop](#2-modules-macros-and-interop)
-            - [Modules](#modules)
-            - [Macros](#macros)
-                - [Solve Me](#solve-me)
-                - [Simple Array Sum (macro version)](#simple-array-sum-macro-version)
-            - [Spiral libraries](#spiral-libraries)
-        - [3: Loops and Arrays](#3-loops-and-arrays)
-            - [Loops](#loops)
-            - [Arrays](#arrays)
-        - [3: Union Types and Lists](#3-union-types-and-lists)
-            - [Type Splitting and Generic Parameters](#type-splitting-and-generic-parameters)
-            - [Warning on combining union types, partial active patterns and join points](#warning-on-combining-union-types-partial-active-patterns-and-join-points)
-        - [4: Continuation Passing Style, Monadic Computation and Parsing](#4-continuation-passing-style-monadic-computation-and-parsing)
-            - [Parsing Benchmark](#parsing-benchmark)
-        - [5: Tensors and Structural Reflection](#5-tensors-and-structural-reflection)
-            - [Under the Hood](#under-the-hood)
-                - [Layout Polymorphism](#layout-polymorphism)
-                - [Dimensionality Polymorphism](#dimensionality-polymorphism)
-                    - [Design of the Tensor](#design-of-the-tensor)
-                    - [The Tensor Facade](#the-tensor-facade)
-            - [Closing Comments](#closing-comments)
-        - [6: The Cuda Backend](#6-the-cuda-backend)
-            - [Intro](#intro-1)
-            - [How Cuda Kernels Are Compiled](#how-cuda-kernels-are-compiled)
-            - [Tour Of The Standard Library Cuda Module](#tour-of-the-standard-library-cuda-module)
-            - [Why Spiral Was Created](#why-spiral-was-created)
-                - [How It Used To Be Done](#how-it-used-to-be-done)
-        - [7: Object Orientation](#7-object-orientation)
-            - [Motivation](#motivation)
-            - [The Object](#the-object)
-        - [8: GPU Programming Basics](#8-gpu-programming-basics)
-            - [map](#map)
-            - [map_redo_map](#map_redo_map)
-                - [flatten](#flatten)
-                - [Cuda Loops](#cuda-loops)
-            - [d2_replicate_map](#d2_replicate_map)
-                - [Example](#example)
-            - [mapi_d2_redo_map](#mapi_d2_redo_map)
-                - [Example](#example-1)
-            - [mapi_d1_seq_broadcast](#mapi_d1_seq_broadcast)
-                - [The Softmax Activation](#the-softmax-activation)
-        - [9: Deep Learning Basics](#9-deep-learning-basics)
-            - [Primitives](#primitives)
-                - [map](#map-1)
-                - [map_redo_map](#map_redo_map-1)
-                - [d2_replicate_map](#d2_replicate_map-1)
-            - [Optimizers](#optimizers)
-            - [Operations](#operations)
-            - [Layers](#layers)
-                - [Multiplicative Integration RNN](#multiplicative-integration-rnn)
-                - [Map + Layer Norm + Relu](#map--layer-norm--relu)
-            - [Layer Combinators](#layer-combinators)
-                - [A Note On Compilation Times](#a-note-on-compilation-times)
-            - [Loops](#loops-1)
-            - [Example - Feedforward Net On Mnist](#example---feedforward-net-on-mnist)
-            - [Example - Recurrent Net on tiny_shakespeare](#example---recurrent-net-on-tiny_shakespeare)
-            - [Future Work](#future-work)
-                - [Generic Matrix Multiplication](#generic-matrix-multiplication)
-                - [Fuse The Weight Updates](#fuse-the-weight-updates)
-                - [Metalearning Via Optimization](#metalearning-via-optimization)
-                - [Dilated RNNs](#dilated-rnns)
-                - [Dense Connections](#dense-connections)
-                - [Deep Layer Compilation Optimizations](#deep-layer-compilation-optimizations)
-                - [Generic Convolutions](#generic-convolutions)
-                - [1D Block Scan and Reduce](#1d-block-scan-and-reduce)
-                - [Softmax Cost](#softmax-cost)
-                - [Checkpointing](#checkpointing)
-                - [Improve The Allocator](#improve-the-allocator)
-                - [Plastic Neurons](#plastic-neurons)
-        - [Known Bugs](#known-bugs)
+# News
 
-<!-- /TOC -->
+v0.1 is currently in development. Here is the changelog.
+
+Going from 0.09 to 0.1 there have been significant changes to the language, so some of the things in the tutorial will be obsolete. Nonetheless, the language philosophy is the same as it was before so for the time being, the tutorial should still be useful.
 
 # The Spiral Language
 
@@ -111,12 +29,13 @@ Inlining is a trade-off that expresses the exchange of memory for computation. I
 A language good enough at propagating information so as to be capable of expressing inlining guarantees is also powerful enough for expressing a lot of other things well - without any abstraction overhead.
 
 1) First class types.
-2) Structural reflection through pattern matching.
+2) Structural introspection through pattern matching.
 3) Interoperability between different languages (such as F# and Cuda.)
 4) First class functions.
 5) Tuples as heterogeneous lists.
-6) First class modules.
+6) First class records.
 7) First class layouts of data structures.
+8) First class keyword arguments.
 
 Spiral is such a language.
 
@@ -3791,7 +3710,7 @@ ML styled languages still have some advantages over Spiral due to having type in
 
 The 4 parsers benchmarked in this section can be found in [this folder](https://github.com/mrakgr/The-Spiral-Language/tree/master/Benchmarking) of the repo.
 
-### 5: Tensors and Structural Reflection
+### 5: Tensors and Structural Instrospection
 
 The development of Spiral was driven by the need for a language with great capability for abstraction whose semantics would allow for it to be compiled to very fast code suitable for GPUs and the architectures coming down the line. During the early days of its development when it was intended as a Cuda backend for the ML library Spiral actually had built in arrays that would track variables at on the type level, but that tensors could be designed like the way they currently could be was beyond the imagination of its author and makes him glad that he decided to complete the language instead of leaving Spiral in a half finished state as a crappy ML library backend.
 

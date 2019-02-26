@@ -55,15 +55,26 @@ type ModulePrepassEnv = {
 let raise_compile_error x = raise (CompileError x)
 let raise_compile_error' pos x = raise (CompileErrorWithPos(pos, x))
 
-let module_open (env: ModulePrepassEnv) x =
-    (List.fold << List.fold) (fun env x ->
-        match env.map.TryFind x with
-        | Some x ->
-            match x with
-            | TyMap x -> {env with map=Map.foldBack (keyword_to_string >> Map.add) x env.map}
-            | x -> raise_compile_error <| sprintf "Expected as module in `module_open`.\nGot: %s" (show_typed_data x)
-        | _ -> raise_compile_error <| sprintf "In module_open, `open` did not find a module named %s in the environment." x
-        ) env x
+let module_open (env: ModulePrepassEnv) opens =
+    List.fold (fun (env: ModulePrepassEnv) -> function
+        | [] -> env
+        | open_ :: open_' as opens ->
+            match Map.tryFind open_ env.map with
+            | Some s ->
+                List.fold (fun (s: TypedData, open_) x ->
+                    let opens () = List.rev open_ |> String.concat "."
+                    match s with
+                    | TyMap s ->
+                        match Map.tryFind (string_to_keyword x) s with
+                        | Some s -> s, x :: open_
+                        | None -> raise_compile_error <| sprintf "Module `%s` does not a have a submodule %s." (opens()) x
+                    | s -> raise_compile_error <| sprintf "Expected a module during the opening of %s.\nGot: %s" (opens()) (show_typed_data s)
+                    ) (s, [open_]) open_'
+            | _ -> raise_compile_error <| sprintf "Module named %s does not exist in the global environment." open_
+            |> function
+                | TyMap s, _ -> {env with map=Map.foldBack (keyword_to_string >> Map.add) s env.map}
+                | s, _ -> raise_compile_error <| sprintf "Expected a module during the opening of %s.\nGot: %s" (String.concat "." opens) (show_typed_data s)
+        ) env opens
 
 let module_let (env: ModulePrepassEnv) (m: SpiralModule) =
     let expr, free_vars, stack_size =

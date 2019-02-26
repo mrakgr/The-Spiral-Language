@@ -170,7 +170,6 @@ type Op =
     | ArrayCreateCudaShared
     | ReferenceCreate
     | ArrayLength
-    | ArrayIs
 
     // Getters
     | GetArray

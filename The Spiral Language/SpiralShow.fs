@@ -92,7 +92,7 @@ let inline show_map show v =
 let inline show_list show l = sprintf "(%s)" (List.map show l |> String.concat ", ")
 
 let (|P|) = function ExprPos(_,x) -> x.Expression | x -> x
-let inline object_name (x: ObjectDict) = 
+let object_name (x: ObjectDict) = 
     match x.TryGetValue keyword_name with
     | true, (P(KeywordTest(_,_,_,P(KeywordCreate(_,x,[||])),_)),_) -> keyword_to_string x
     | _ -> "<object>"
@@ -208,7 +208,7 @@ let show_parser_error = function
         | SpecBracketSquareOpen -> "["
         | SpecBracketRoundClose -> ")"
         | SpecBracketCurlyClose -> "}"
-        | SpecBracketSquareClose -> "}"
+        | SpecBracketSquareClose -> "]"
         | SpecCuda -> "cuda"
     | ExpectedOperator' -> "operator"
     | ExpectedOperator x -> x
