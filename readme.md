@@ -80,7 +80,7 @@
 
 # News
 
-v0.1 is currently in development. Here is the changelog.
+v0.1 is currently in development. Here is [the changelog](https://github.com/mrakgr/The-Spiral-Language/blob/v0.1/changelog_v0.1.md).
 
 Going from 0.09 to 0.1 there have been significant changes to the language, so some of the things in the tutorial will be obsolete. Nonetheless, the language philosophy is the same as it was before so for the time being, the tutorial should still be useful.
 

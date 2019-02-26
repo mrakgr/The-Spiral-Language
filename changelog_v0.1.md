@@ -585,7 +585,173 @@ f (g)(.h)
 
 ## Macros
 
-(Work in progress)
+I am pleased to announce that thanks to objects and keyword arguments the macros have been significantly streamline in the new version.
+
+```
+Macro 
+    type: ()
+    method: "System.Console.WriteLine"
+    args: "Hello, world!"
+```
+
+```
+let () = System.Console.WriteLine("Hello, world!")
+```
+
+The above is the basic hello world using macros.
+
+Here is a more elaborate example that uses the `StringBuilder`.
+
+```
+inl StringBuilder x = 
+    inl x =
+        Macro
+            class: "System.Text.StringBuilder"
+            args: x
+    [
+    Append: a = 
+        Macro
+            type: x
+            class: x
+            method: "Append"
+            args: a
+    AppendLine: a = 
+        Macro
+            type: x
+            class: x
+            method: "AppendLine"
+            args: a
+    ToString =
+        Macro
+            type: ""
+            class: x
+            method: "ToString"
+            args: ()
+    ]
+
+inl b = StringBuilder("Qwe", 128i32)
+inl _ = b Append: 123
+inl _ = b AppendLine: ()
+inl _ = b Append: 123i16
+inl _ = b AppendLine: "qwe"
+inl _ = b.ToString
+()
+```
+
+```
+let ((var_1 : System.Text.StringBuilder)) = System.Text.StringBuilder("Qwe", 128)
+let ((var_2 : System.Text.StringBuilder)) = var_1.Append(123L)
+let ((var_3 : System.Text.StringBuilder)) = var_1.AppendLine()
+let ((var_4 : System.Text.StringBuilder)) = var_1.Append(123s)
+let ((var_5 : System.Text.StringBuilder)) = var_1.AppendLine("qwe")
+let ((var_6 : string)) = var_1.ToString()
+```
+
+`Macro class: args:` instantiates a class, and `Macro type: class: method: args:` is used here to call a method.
+
+I feel that the intention of the above code is self explanatory enough. Here is how a class with generic could be used.
+
+```
+inl Dictionary (key:value:) x = 
+    Macro
+        class: "System.Collections.Generic.Dictionary"
+        types: key,value
+        args: x
+        methods:
+            inl key = stack {elem_type=type key}
+            inl value = stack {elem_type=type value}
+            [
+            Add: a : (key.elem_type), b =
+                type: ()
+                method: "Add"
+                args: a, b
+            Item: a =
+                type: value.elem_type
+                method: "Item"
+                args: a
+            ]
+
+inl b = Dictionary (key: "" value: 0) ()
+b Add: "a", 5
+inl _ = b Item: "a"
+()
+```
+
+```
+let () = () // unit stack layout type
+let () = () // unit stack layout type
+let ((var_1 : System.Collections.Generic.Dictionary<string, int64>)) = System.Collections.Generic.Dictionary<string, int64>()
+let () = var_1.Add("a", 5L)
+let ((var_2 : int64)) = var_1.Item("a")
+```
+
+In the development of this, I've found that keyword arguments are a significant aid. Unlike in F#, Spiral does not have global inference to guide development and missing an argument in functions with curried arguments, or with tuples mistaking the order is a much more time consuming kind of bug to track down. Records are not quite the right abstraction for this sort of thing either.
+
+The two basic ops from which all the helper methods show in the examples above are built from are these two:
+
+```
+    /// Creates a macro using the type.
+    type: t args: = !Macro(args,t)
+    /// Creates a macro as a type.
+    extern: t args: = !MacroExtern(args,t)
+```
+
+Here is an example of the first one.
+
+```
+Macro
+    type:
+        text: "Qwe"
+    args:
+        literal: 1
+        ,text: ", "
+        ,literal: "2"
+```
+
+```
+let ((var_1 : string)) = 1L, "2"
+```
+
+Note that the keywords get erased during code generation so the type ends up being `string` since `"Qwe"` is a `string`.
+
+```
+Macro
+    extern:
+        text: "Qwe"
+    args:
+        literal: 1
+        ,text: ", "
+        ,literal: "2"
+```
+
+```
+let ((var_1 : Qwe)) = 1L, "2"
+```
+
+`extern` stands for external type. During codegen, the macro gets printed as a sequence of instructions comprising of either a tuple of keyword arguments, or one of `text:`, `literal:`, `type:` or `variable:` keyword arguments on the term side. On the type side, it is similar, but `variable:` is not allowed.
+
+```
+Macro
+    extern:
+        text: "Qwe"
+        ,text: "<"
+        ,literal: 1
+        ,text: ", "
+        ,type: "2"
+        ,text: ">"
+    args:
+        literal: 1
+        ,text: ", "
+        ,literal: "2"
+```
+
+```
+let ((var_1 : Qwe<1L, string>)) = 1L, "2"
+```
+
+Spiral will happily print the type of a macro no matter how nonsensical it might be.
+
+In Spiral, macros are used for interop and not abstraction. They are awkward, but they have a powerful facility for language interop.
 
 # Library changes
 

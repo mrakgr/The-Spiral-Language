@@ -1350,16 +1350,24 @@ inl _ = b Item: "a"
 let example: SpiralModule =
     {
     name="example"
-    prerequisites=[]
-    opens=[]
+    prerequisites=[macro]
+    opens=[["Macro"]]
     description=""
     code=
     """
-inl add left:right: = left + right
-inl left:right: = left:1 right:2
-add 
-    left:
-    right:
+Macro
+    extern:
+        text: "Qwe"
+        ,text: "<"
+        ,literal: 1
+        ,text: ", "
+        ,type: "2"
+        ,text: ">"
+    args:
+        literal: 1
+        ,text: ", "
+        ,literal: "2"
+
     """
     }
 

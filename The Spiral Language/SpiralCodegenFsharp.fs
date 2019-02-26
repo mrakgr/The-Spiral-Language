@@ -120,7 +120,7 @@ let rec type_ (d: CodegenEnv) x =
                 | CTyLit x -> lit d x
                 | x -> raise_codegen_error <| sprintf "Expected a literal in type macro's keyword `literal:`.\nGot: %s" (show_consed_typed_data x)
             elif keyword = keyword_type then f (type_consed_data_get l)
-            else raise_codegen_error <| sprintf "Invalid keyword in type macro. Got: `%s`" (keyword_to_string keyword)
+            else raise_codegen_error <| sprintf "Invalid keyword in type macro. Expected `text:`, `literal:` or `type:`.\nGot: `%s`" (keyword_to_string keyword)
 
         let strb = StringBuilder()
         let rec loop = function
@@ -189,7 +189,7 @@ let rec op (d: CodegenEnv) x =
                     | x -> raise_codegen_error <| sprintf "Expected a literal in term macro's keyword `literal:`.\nGot: %s" (show_typed_data x)
                 elif keyword = keyword_type then type_ d (type_get l)
                 elif keyword = keyword_variable then t l
-                else raise_codegen_error <| sprintf "Invalid keyword in term macro. Got: `%s`" (keyword_to_string keyword)
+                else raise_codegen_error <| sprintf "Invalid keyword in term macro. Expected `text:`, `literal:`, `type:` or `variable:`.\nGot: `%s`" (keyword_to_string keyword)
             
             let strb = StringBuilder()
             let rec loop = function
