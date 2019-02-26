@@ -1,5 +1,33 @@
 (Work in progress)
 
+<!-- TOC -->
+
+- [Motivation](#motivation)
+- [Additions to the language](#additions-to-the-language)
+    - [Keyword pattern and arguments](#keyword-pattern-and-arguments)
+    - [Objects](#objects)
+    - [Explicit unboxing via the `#` pattern](#explicit-unboxing-via-the--pattern)
+    - [Record's `this`](#records-this)
+- [Removals from the language](#removals-from-the-language)
+    - [The direct `open`](#the-direct-open)
+    - [`use`](#use)
+    - [`met`](#met)
+    - [`type_join`](#type_join)
+    - [The User Guide](#the-user-guide)
+    - [Unary operators](#unary-operators)
+    - [Raw types in the `Core` library](#raw-types-in-the-core-library)
+    - [Most of the module patterns](#most-of-the-module-patterns)
+    - [`packed_stack` layout](#packed_stack-layout)
+    - [`:=`, `<-`](#--)
+- [Changes](#changes)
+    - [`dyn`](#dyn)
+    - [Tight application](#tight-application)
+    - [Macros](#macros)
+- [Library changes](#library-changes)
+- [Future plans](#future-plans)
+
+<!-- /TOC -->
+
 # Motivation
 
 Date: 2/22/2019
@@ -12,7 +40,7 @@ This and various other issues were something that was well known to me for a lon
 
 Perhaps due to the accumulation of experience the attempt this time was a success.
 
-Not only is the environment handled sanely in the partial evaluator thanks to the new prepass, but added to the language are the Smalltalk inspired keyword arguments and inbuilt objects. In addition to that the language internals have been greatly simplified. v0.09 of Spiral is a good example of how a static language with partial evaluation should look. v0.1 of Spiral is a good example of how such a language should be implemented. Standing at 4.35k LOC without the libraries, it is a neat little package filled with power.
+Not only is the environment handled sanely in the partial evaluator thanks to the new prepass, but added to the language are the Smalltalk inspired keyword arguments and inbuilt objects. In addition to that the language internals have been greatly simplified. v0.09 of Spiral is a good example of how a static language with partial evaluation should look. v0.1 of Spiral is a good example of how such a language should be implemented. Standing at 4.35k LOC without the libraries, it is a neat and powerful little package.
 
 # Additions to the language
 
