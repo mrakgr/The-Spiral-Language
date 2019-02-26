@@ -1,6 +1,5 @@
 ﻿module Spiral.Tests
 open Spiral.Types
-open Spiral.Lib
 
 open System.IO
 open System

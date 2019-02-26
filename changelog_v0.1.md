@@ -23,6 +23,7 @@
     - [`dyn`](#dyn)
     - [Tight application](#tight-application)
     - [Macros](#macros)
+- [Bug fixes](#bug-fixes)
 - [Library changes](#library-changes)
 - [Future plans](#future-plans)
 
@@ -752,6 +753,10 @@ let ((var_1 : Qwe<1L, string>)) = 1L, "2"
 Spiral will happily print the type of a macro no matter how nonsensical it might be.
 
 In Spiral, macros are used for interop and not abstraction. They are awkward, but they have a powerful facility for language interop.
+
+# Bug fixes
+
+Generally, all the primitive arithmetic operations in v0.09 do unsound optimizations in the presence of floats. That has been fixed. Furthermore the patterns have been fixed.
 
 # Library changes
 

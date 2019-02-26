@@ -70,7 +70,6 @@
     <Compile Include="SpiralCodegenFsharp.fs" />
     <Compile Include="SpiralCoreLib.fs" />
     <Compile Include="SpiralCompile.fs" />
-    <Compile Include="SpiralLib.fs" />
     <Compile Include="SpiralTests.fs" />
     <None Include="Script1.fsx" />
     <Content Include="TextFile1.txt" />

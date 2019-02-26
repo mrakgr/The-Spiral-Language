@@ -1223,27 +1223,63 @@ inl _ = b Item: "a"
     """
     }
 
-let example: SpiralModule =
+let array1: SpiralModule =
     {
-    name="example"
-    prerequisites=[macro]
+    name="array1"
+    prerequisites=[array]
     opens=[]
-    description=""
+    description="Does the Array work?"
     code=
     """
-Macro
-    extern:
-        text: "Qwe"
-        ,text: "<"
-        ,literal: 1
-        ,text: ", "
-        ,type: "2"
-        ,text: ">"
-    args:
-        literal: 1
-        ,text: ", "
-        ,literal: "2"
+inl x = Array type: 1 size: 3
+x set: 0 to: 0
+x set: 1 to: 1
+x set: 2 to: 2
+dyn (x 0, x 1, x 2)
+    """
+    }
 
+let array2: SpiralModule =
+    {
+    name="array2"
+    prerequisites=[array]
+    opens=[]
+    description="Does the Array work?"
+    code=
+    """
+inl a = ref 0
+a set: 5
+a.get |> ignore
+
+inl a = ref () // Is not supposed to be printed due to being ().
+a set: ()
+a.get
+
+inl a = ref <| Type term_cast: (inl a, b -> a + b) with: 0,0
+a set: 
+    Type term_cast: (inl a, b -> a * b) with: 0,0
+a.get |> ignore
+
+inl a = Array type: 0 size: 10
+a set: 3 to: 2
+a 3 |> ignore
+
+inl a = Array type: id size: 3 // Is supposed to be unit and not printed.
+a set: 1 to: id
+a 1 |> ignore
+    """
+    }
+
+let array3: SpiralModule =
+    {
+    name="array3"
+    prerequisites=[array]
+    opens=[]
+    description="Does the Array work?"
+    code=
+    """
+inl ar = Array.init 6 (inl x -> x+1)
+dyn (ar 0, ar 1, ar 2)
     """
     }
 
@@ -1258,10 +1294,12 @@ let tests =
     test60; test61; test62; test63; test64; test65
 
     macro_dotnet1;macro_dotnet2;macro_dotnet3
+
+    array1; array2
     |]
 
-rewrite_test_cache tests cfg None //(Some(63,64))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example
+//rewrite_test_cache tests cfg None //(Some(63,64))
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) array2
 |> printfn "%s"
 |> ignore
 

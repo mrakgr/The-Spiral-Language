@@ -235,9 +235,9 @@ let rec op (d: CodegenEnv) x =
         | ArrayCreateDotNet, TyList [a;b] -> if typed_data_is_unit a then "() // unit array create" else sprintf "Array.zeroCreate (System.Convert.ToInt32 %s)" (t b)
         | ReferenceCreate, a -> if typed_data_is_unit a then "() // unit ref create" else sprintf "ref %s" (t a)
         | GetArray, TyList [a;b] -> if typed_data_is_unit a then "() // get from unit array" else sprintf "%s.[int32 %s]" (t a) (t b)
-        | GetReference, a -> if typed_data_is_unit a then "() // get from unit reference" else sprintf " !%s" (t a) 
-        | SetArray, TyList [a;b;c] -> if typed_data_is_unit a then "() // set to unit array" else sprintf "%s.[%s] <- %s" (t a) (t b) (t c) 
-        | SetReference, TyList [a;b] -> if typed_data_is_unit a then "() // set to from unit reference" else sprintf "%s := %s" (t a) (t b) 
+        | GetReference, a -> if typed_data_is_unit a then "() // get from unit reference" else sprintf "!%s" (t a) 
+        | SetArray, TyList [a;b;c] -> if typed_data_is_unit a then "() // set to unit array" else sprintf "%s.[int32 %s] <- %s" (t a) (t b) (t c) 
+        | SetReference, TyList [a;b] -> if typed_data_is_unit a then "() // set to unit reference" else sprintf "%s := %s" (t a) (t b) 
         | ArrayLength, a -> sprintf "%s.LongLength" (t a)
         | Dynamize, a -> t a
         | FailWith, a -> sprintf "failwith %s" (t a)

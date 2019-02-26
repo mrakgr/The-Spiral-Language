@@ -57,6 +57,7 @@
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
+    <Compile Include="SpiralLib.fs" />
     <Compile Include="run.fs" />
     <Content Include="extern_tests.txt" />
     <Content Include="array_tests.txt" />
