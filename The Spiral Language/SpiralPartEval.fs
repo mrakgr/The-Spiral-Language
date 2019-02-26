@@ -1180,7 +1180,7 @@ let rec partial_eval (d: LangEnv) x =
                 | LitChar a, LitChar b -> op a b |> LitBool |> TyLit
                 | LitBool a, LitBool b -> op a b |> LitBool |> TyLit
                 | a, b -> raise_type_error d <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_value a) (show_value b)
-            | TyV(T(a,a_ty)), TyV(T(b,_)) when a = b && is_non_float a_ty -> LitBool true |> TyLit
+            | TyV(T(a,a_ty)), TyV(T(b,_)) when a = b && is_non_float_primitive a_ty -> LitBool true |> TyLit
             | a, b ->
                 let a_ty, b_ty = type_get a, type_get b 
                 if a_ty = b_ty then
@@ -1207,7 +1207,7 @@ let rec partial_eval (d: LangEnv) x =
                 | LitChar a, LitChar b -> op a b |> LitBool |> TyLit
                 | LitBool a, LitBool b -> op a b |> LitBool |> TyLit
                 | a, b -> raise_type_error d <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_value a) (show_value b)
-            | TyV(T(a,a_ty)), TyV(T(b,_)) when a = b && is_non_float a_ty -> LitBool false |> TyLit
+            | TyV(T(a,a_ty)), TyV(T(b,_)) when a = b && is_non_float_primitive a_ty -> LitBool false |> TyLit
             | a, b ->
                 let a_ty, b_ty = type_get a, type_get b 
                 if a_ty = b_ty then

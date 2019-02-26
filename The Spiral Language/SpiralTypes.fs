@@ -623,7 +623,7 @@ let is_signed_numeric = function
     | PrimT (Int8T | Int16T | Int32T | Int64T | Float32T | Float64T) -> true
     | _ -> false
 
-let is_non_float = function
+let is_non_float_primitive = function
     | PrimT (Float32T | Float64T) -> false
     | PrimT _ -> true
     | _ -> false
