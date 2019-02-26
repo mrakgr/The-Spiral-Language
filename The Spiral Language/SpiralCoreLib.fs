@@ -65,27 +65,27 @@ inl Is = [
 
 inl Record = [
     /// Maps over a record.
-    map:f =inl a -> !RecordMap(f,a)
+    map=inl f a -> !RecordMap(f,a)
     /// Iterates over a record.
-    iter:f =inl a -> 
+    iter=inl f a -> 
         inl x = self (map:inl x -> f x; ()) a
         ()
     /// Filters a record at compile time.
-    filter:f =inl a -> !RecordFilter(f,a)
+    filter=inl f a -> !RecordFilter(f,a)
     /// Folds over a record left to right.
-    foldl:f = inl state a -> !RecordFoldL(f,state,a)
+    foldl=inl f state a -> !RecordFoldL(f,state,a)
     /// Folds over a record right to left.
-    foldr:f = inl a state -> !RecordFoldR(f,state,a)
+    foldr=inl f a state -> !RecordFoldR(f,state,a)
     /// Returns the record length.
     /// record -> int64
-    length: x = !RecordLength(x)
+    length=inl x -> !RecordLength(x)
     map_fold_helper=inl f (key: state:(record:state:) value:) ->
-        inl value, state = f (key:key state:state value:value)
+        inl value, state = f key:state:value:
         {record with $key = value}, state
     /// Does a map operation over a record while threading state.
-    map_foldl:f = inl state -> self (foldl: self.map_fold_helper f) (record:{} state:state)
+    map_foldl=inl f state -> self .foldl (self.map_fold_helper f) (record:{} state:)
     /// Does a map operation (starting from the back) over a record while threading state.
-    map_foldr:f = inl x state -> self (foldr: self.map_fold_helper f) x (record:{} state:state)
+    map_foldr=inl f x state -> self .foldr (self.map_fold_helper f) x (record:{} state:)
     /// Sets a mutable record.
     set:field:to: = !SetMutableRecord(set,field,to)
     ]
@@ -183,10 +183,11 @@ inl failwith type: t msg: = !FailWith(t,msg)
 /// Asserts an expression. If the conditional is a literal it raises a type error instead.
 inl assert cond:msg: = 
     inl raise msg = 
-        if Is (lit: cond) then Type (error: msg)
-        else failwith (type:() msg: msg)
+        if Is lit: cond then Type error: msg
+        else failwith type:() msg: msg
     
     if cond = false then raise msg
+
 /// Returns the maximum of the two expressions.
 inl max a b = if a > b then a else b
 /// Returns the minimum of the two expressions.
@@ -219,9 +220,9 @@ inl infinity = [
     f64 = !InfinityF64()
     f32 = !InfinityF32()
     ]
-// Note: Nan is not allowed as a literal because it cannot be memoized. Just use zero or something else.
+// Note: Nan is not allowed as a literal because it cannot be memoized.
 // Since join points use structural equality and nan = nan returns false, nans will cause the compiler to diverge.
-// Note for future language designers - make nan = nan return true!
+// Note for future runtime designers - make `nan = nan` return true!
 
 /// Structural polymorphic equality for every type in the language (apart from functions, objects and keywords.)
 inl (=) a b =
@@ -231,7 +232,7 @@ inl (=) a b =
         | a, b when Is (layout: a) -> indiv a = indiv b
         | a :: as', b :: bs -> a = b && as' = bs
         | (), () -> true
-        | {} & a, {} & b -> Record (foldr: inl (key:k state:next value:x) res -> res && match b with {$k=x'} -> next (x = x')) a id true
+        | {} & a, {} & b -> Record.foldr (inl (key:state:next value:) res -> res && match b with {$key=value'} -> next (value = value')) a id true
         | a, b when Is (union: a) || Is (rec_union: a) ->
             inl f a b =
                 inl #a, #b = a, b

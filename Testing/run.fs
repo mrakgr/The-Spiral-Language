@@ -12,6 +12,7 @@ open Spiral.Tests
 open System.IO
 open System.Diagnostics
 open Spiral.Types
+open Spiral.Lib
 
 let cfg = Spiral.Types.cfg_testing
 
@@ -519,8 +520,8 @@ let test27: SpiralModule =
     code=
     """
 inl m = {a=1;b=2;c=3}
-inl m' = Record (map:inl (key:value:) -> value * 2) m
-dyn (m', Record (foldl: inl (key:state:value:) -> state + value) 0 m')
+inl m' = Record.map (inl (key:value:) -> value * 2) m
+dyn (m', Record.foldl (inl (key:state:value:) -> state + value) 0 m')
     """
     }
 
@@ -1129,136 +1130,11 @@ dyn (stack {elem_type=type 1})
     """
     }
 
-let macro: SpiralModule =
-    {
-    name="Macro"
-    prerequisites=[]
-    opens=[]
-    description=""
-    code=
-    """
-inl Macro = [
-    /// Creates a macro using the type.
-    type: t args: = !Macro(args,t)
-    /// Creates a macro as a type.
-    extern: t args: = !MacroExtern(args,t)
-    /// Creates a line of text. Good for accessing global constants.
-    type:text: = self type: args: (text:)
-    /// Creates a line of text with the unit type. Good for comments.
-    comment: x = self type: () args: (text: x)
-    /// Surrounds a sequence of macro instructions with brackets. Applies `map` to each element in the sequence.
-    brackets: open, close sep: args: map: f =
-        inl close = (text: close) :: ()
-        inl rec loop = function
-            | () -> close
-            | x :: x' -> (text: sep) :: f x :: loop x'
-        
-        text: open
-        ::
-        match args with
-        | x :: x' -> f x :: loop x'
-        | () -> close
-        | x -> f x :: close
-
-    /// Surrounds a sequence of macro instructions with parentheses. Assumes that each element in the sequence is a variable.
-    rounds: args = self brackets: "(",")" sep: ", " args: args map:(inl x -> variable: x)
-    /// Surrounds a sequence of macro instructions with jagged brackets. Assumes that each element in the sequence is a type.
-    jaggeds: args = self brackets: "<",">" sep: ", " args: args map:(inl x -> type: x)
-    /// Surrounds a sequence of macro instructions with jagged brackets. For C++ templates.
-    jaggeds': args = self brackets: "<",">" sep: ", " args: args map:id
-
-    /// Macro for the global methods.
-    type: method: args: =
-        self
-            type:
-            args:
-                text: method
-                :: self rounds: args
-
-    /// Macro for operators.
-    type: separate: a and: b by: sep =
-        self 
-            type:
-            args:
-                variable: a
-                ,text: sep
-                ,variable: b
-
-    /// Class method call.
-    type: class: method: args: =
-        self
-            type:
-            args:
-                variable: class
-                :: text: "."
-                :: text: method
-                :: self rounds: args
-
-    /// Class create.
-    class: args: =
-        self 
-            extern: 
-                text: class
-            args:
-                text: class
-                :: self rounds: args
-
-    class: types: args: =
-        self 
-            extern: 
-                text: class
-                :: self jaggeds: types
-            args:
-                text: class
-                :: self jaggeds: types
-                :: self rounds: args
-
-    class: types: args: methods: =
-        inl x = self class:types:args:
-        inl a ->
-            match methods a with
-            | type:method:args: -> self type:class: x method:args:
-    ]
-
-/// Unsafe upcast. Unlike the F# compiler, Spiral won't check its correctness.
-inl (:>) a b = 
-    Macro
-        type: b
-        separate: a 
-        and: b
-        by: " :> "
-/// Unsafe downcast. Unlike the F# compiler, Spiral won't check its correctness.
-inl (:?>) a b = 
-    Macro
-        type: b
-        separate: a 
-        and: b
-        by: " :?> "
-
-/// Cuda constants.
-inl threadIdx = [
-    x = Macro (type: 0i64 text: "threadIdx.x")
-    y = Macro (type: 0i64 text: "threadIdx.y")
-    z = Macro (type: 0i64 text: "threadIdx.z")
-    ]
-inl blockIdx = [
-    x = Macro (type: 0i64 text: "blockIdx.x")
-    y = Macro (type: 0i64 text: "blockIdx.y")
-    z = Macro (type: 0i64 text: "blockIdx.z")
-    ]
-
-{
-Macro
-(:>) (:?>) threadIdx blockIdx
-}
-    """
-    }
-
 let macro_dotnet1: SpiralModule =
     {
     name="macro_dotnet1"
     prerequisites=[macro]
-    opens=[["Macro"]]
+    opens=[]
     description="Do the macros work?"
     code=
     """
@@ -1273,7 +1149,7 @@ let macro_dotnet2: SpiralModule =
     {
     name="macro_dotnet2"
     prerequisites=[macro]
-    opens=[["Macro"]]
+    opens=[]
     description="Does the StringBuilder work?"
     code=
     """
@@ -1317,7 +1193,7 @@ let macro_dotnet3: SpiralModule =
     {
     name="macro_dotnet3"
     prerequisites=[macro]
-    opens=[["Macro"]]
+    opens=[]
     description="Does the Dictionary work?"
     code=
     """
@@ -1351,7 +1227,7 @@ let example: SpiralModule =
     {
     name="example"
     prerequisites=[macro]
-    opens=[["Macro"]]
+    opens=[]
     description=""
     code=
     """
@@ -1384,7 +1260,7 @@ let tests =
     macro_dotnet1;macro_dotnet2;macro_dotnet3
     |]
 
-//rewrite_test_cache tests cfg None //(Some(63,64))
+rewrite_test_cache tests cfg None //(Some(63,64))
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) example
 |> printfn "%s"
 |> ignore
