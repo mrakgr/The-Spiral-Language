@@ -69,7 +69,7 @@ let rec pattern_template expr s =
 let inline pattern expr s = patpos (pattern_template expr) s
     
 let set_semicolon_level line p (d: ParserEnv) = p {d with semicolon_line = line}
-let set_keyword_level line p (d: ParserEnv) = p {d with keyword_line = line}
+let set_keyword_level line p (d: ParserEnv) = p {d with semicolon_line = line; keyword_line = line}
 let reset_level expr d = expr {d with semicolon_line= -1; keyword_line= -1}
 
 let inline statement_body expr = eq >>. reset_level expr

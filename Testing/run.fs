@@ -1310,11 +1310,37 @@ let array3: SpiralModule =
     name="array3"
     prerequisites=[array]
     opens=[]
-    description="Does the Array work?"
+    description="Does the Array init work?"
+    code=
+    """
+Array.init 6 (inl x -> x+1)
+    """
+    }
+
+let array4: SpiralModule =
+    {
+    name="array4"
+    prerequisites=[array]
+    opens=[]
+    description="Do the Array foldl and foldr work?"
     code=
     """
 inl ar = Array.init 6 (inl x -> x+1)
-dyn (ar 0, ar 1, ar 2)
+Array.foldl (+) (dyn 0) ar, Array.foldr (*) ar (dyn 1)
+    """
+    }
+
+let array5: SpiralModule =
+    {
+    name="array5"
+    prerequisites=[array]
+    opens=[]
+    description="Do the Array map and filter work?"
+    code=
+    """
+inl ar = Array.init 16 id
+Array.map ((*) 2) ar
+|> Array.filter ((<) 15)
     """
     }
 
@@ -1334,7 +1360,7 @@ let tests =
     |]
 
 //rewrite_test_cache tests cfg None //(Some(63,64))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test66
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) array5
 |> printfn "%s"
 |> ignore
 
