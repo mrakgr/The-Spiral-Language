@@ -214,8 +214,25 @@ let rec destructure tyv_or_tyt x =
     | MapT l -> TyMap(Map.map (fun _ -> f) l.node)
     | x -> tyv_or_tyt x
    
-let tyv ty = destructure (fun ty -> if type_is_unit ty then TyT ty else TyV(T(tag(), ty))) ty
-let tyt ty = destructure TyT ty
+let rec tyv = function
+    | ListT x -> TyList(List.map tyv x.node)
+    | KeywordT(C(a,l)) -> TyKeyword(a,Array.map tyv l)
+    | FunctionT(C(a,b,l)) -> TyFunction(a,b,Array.map tyv l)
+    | RecFunctionT(C(a,b,l)) -> TyRecFunction(a,b,Array.map tyv l)
+    | ObjectT(C(a,l)) -> TyObject(a,Array.map tyv l)
+    | MapT l -> TyMap(Map.map (fun _ -> tyv) l.node)
+    | LayoutT(C (_,_,true)) | UnionT _ | RecUnionT _ | MacroT _ | TermCastedFunctionT _ | PrimT _ as ty -> TyV(T(tag(), ty))
+    | ArrayT(_,l) as ty -> if type_is_unit l then TyT ty else TyV(T(tag(), ty))
+    | LayoutT _ as ty -> TyT ty
+    
+let rec tyt = function
+    | ListT x -> TyList(List.map tyt x.node)
+    | KeywordT(C(a,l)) -> TyKeyword(a,Array.map tyt l)
+    | FunctionT(C(a,b,l)) -> TyFunction(a,b,Array.map tyt l)
+    | RecFunctionT(C(a,b,l)) -> TyRecFunction(a,b,Array.map tyt l)
+    | ObjectT(C(a,l)) -> TyObject(a,Array.map tyt l)
+    | MapT l -> TyMap(Map.map (fun _ -> tyt) l.node)
+    | ArrayT _ | LayoutT _ | UnionT _ | RecUnionT _ | MacroT _ | TermCastedFunctionT _ | PrimT _ as ty -> TyT ty
 
 let push_var x (d: LangEnv) =
     d.env_stack.[d.env_stack_ptr] <- x
