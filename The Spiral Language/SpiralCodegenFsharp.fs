@@ -367,7 +367,7 @@ let codegen x =
                     let vars = consed_typed_free_vars ty
                     Array.iter (fun (t,ty) -> d.Text(sprintf "mutable subvar_%i : %s" t (type_ d ty))) vars
                     d.Text "}"
-            | RecUnionT(n,key) -> 
+            | RecUnionT(n,_,key) -> 
                 d.Text(sprintf "// %s" n)
                 match join_point_dict_type.[key] with
                 | JoinPointDone(_,l) -> f l

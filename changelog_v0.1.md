@@ -432,6 +432,94 @@ As a showcase of the new Spiral's capabilities, here is how it would have been c
 
 On the F# side, the tuples are no longer structs, but F#'s inbuilt tuples. Though value types would be more efficient overall for tuples, I am prioritizing the readability of the code in this iteration of Spiral. Should the need arise, modifying the codegen so the tuples get generated as structs would be trivial anyway so I did not lose sleep over this decision.
 
+Another new feature of type join points is the ability to embed metadata in the types directly. By metadata, most commonly that would be the generic type parameters.
+
+```
+inl rec List x = 
+    Type 
+        name: "List"
+        meta: x
+        join: inl _ -> .nil \/ cons: x, List x
+```
+
+Then the metadata can be retrieved using `Type meta:`. Here is an example of a map function.
+
+```
+inl rec map f l = 
+    inl elem_type = type (Type meta: l) |> dyn |> f
+    inl List = List elem_type
+    join
+        inl t x = Type box: x to: List
+        inl nil = t .nil
+        inl cons x xs = t (cons: x, xs)
+        match l with
+        | #(cons: x, xs) -> cons (f x) (map f xs)
+        | #(.nil) -> nil
+        : List
+
+inl t x = Type box: x to: List 0.0
+inl nil = t .nil
+inl cons x xs = t (cons: x, xs)
+
+nil |> cons 3.0 |> cons 2.0 |> cons 1.0 |> dyn |> map (inl x -> Type convert:x to: 0i32)
+```
+
+Dealing with types in Spiral is definitely harder than in F# where there it is all done automatically. Spiral cannot even compare to the elegance of using inbuilt lists in ML styled languages. Here is a alternative way of doing the same thing as the above
+
+```
+inl List elem_type =
+    [
+    raw =
+        Type 
+            name: "List"
+            meta: elem_type
+            join: inl _ -> .nil \/ cons: elem_type, self .raw
+    box: = Type box: to: self.raw
+    nil = self box: .nil
+    cons: x, x' = self box: (cons: x, x')
+    cons = inl x x' -> self cons: x, x'
+    ]
+
+inl rec map f l = 
+    inl elem_type = type (Type meta: l) |> dyn |> f
+    inl List = List elem_type
+    join
+        match l with
+        | #(cons: x, xs) -> List cons: f x, map f xs
+        | #(.nil) -> List.nil
+        : List.raw
+
+inl List = List 0.0
+List.nil |> List.cons 3.0 |> List.cons 2.0 |> List.cons 1.0 |> dyn |> map (inl x -> Type convert:x to: 0i32)
+```
+
+There is some convenience to doing the helpers directly as such. 
+
+Spiral can do runtime union types, but unlike with the MLs, they are not the main purpose of the language. Pattern matching on arbitrary types with no cost at compile time is. This also comes at the cost of having to write custom type inference code such as `type (Type meta: l) |> dyn |> f`.
+
+For the sake of completeness, here is what the above two programs compile to.
+
+```
+// List
+type SpiralType0 =
+    | SpiralType0_2
+    | SpiralType0_1 of float * SpiralType0
+// List
+and SpiralType3 =
+    | SpiralType3_2
+    | SpiralType3_4 of int32 * SpiralType3
+let rec method_0 ((var_1 : SpiralType0)) : SpiralType3 =
+    match var_1 with
+    | SpiralType0_2 ->
+        SpiralType3_2
+    | SpiralType0_1 (var_4, var_5) ->
+        let ((var_6 : int32)) = int32 var_4
+        let ((var_9 : SpiralType3)) = method_0 (var_5)
+        SpiralType3_4 (var_6, var_9)
+let ((var_1 : SpiralType0)) = SpiralType0_1 (1.000000, SpiralType0_1 (2.000000, SpiralType0_1 (3.000000, SpiralType0_2)))
+let ((var_11 : SpiralType3)) = method_0 (var_1)
+```
+
 ## The User Guide
 
 It covers the internals of 0.09 and is completely obsolete now. I was really proud of Spiral when I wrote the user guide, but I feel that despite the language size growing in terms of lines of code, the actual implementation itself has been significantly simplified compared to back then. There is significantly less useless recursion (like in `destructure`) and I feel that my grip on memoization has significantly improved compared to a year ago. This should be reflected throughout the implementation.

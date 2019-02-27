@@ -1223,6 +1223,41 @@ inl _ = b Item: "a"
     """
     }
 
+let test66: SpiralModule =
+    {
+    name="test66"
+    prerequisites=[]
+    opens=[]
+    description="Does the metadata for recursive algebraic datatypes work?"
+    code=
+    """
+inl List elem_type =
+    [
+    raw =
+        Type 
+            name: "List"
+            meta: elem_type
+            join: inl _ -> .nil \/ cons: elem_type, self .raw
+    box: = Type box: to: self.raw
+    nil = self box: .nil
+    cons: x, x' = self box: (cons: x, x')
+    cons = inl x x' -> self cons: x, x'
+    ]
+
+inl rec map f l = 
+    inl elem_type = type (Type meta: l) |> dyn |> f
+    inl List = List elem_type
+    join
+        match l with
+        | #(cons: x, xs) -> List cons: f x, map f xs
+        | #(.nil) -> List.nil
+        : List.raw
+
+inl List = List 0.0
+List.nil |> List.cons 3.0 |> List.cons 2.0 |> List.cons 1.0 |> dyn |> map (inl x -> Type convert:x to: 0i32)
+        """
+    }
+
 let array1: SpiralModule =
     {
     name="array1"
@@ -1291,7 +1326,7 @@ let tests =
     test30; test31; test32; test33; test34; test35; test36; test37; test38; test39; 
     test40; test41; test42; test43; test44; test45; test46; test47; test48; test49; 
     test50; test51; test52; test53; test54; test55; test56; test57; test58; test59; 
-    test60; test61; test62; test63; test64; test65
+    test60; test61; test62; test63; test64; test65; test66
 
     macro_dotnet1;macro_dotnet2;macro_dotnet3
 
@@ -1299,7 +1334,7 @@ let tests =
     |]
 
 //rewrite_test_cache tests cfg None //(Some(63,64))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) array2
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test66
 |> printfn "%s"
 |> ignore
 

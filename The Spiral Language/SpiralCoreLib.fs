@@ -28,7 +28,10 @@ inl Type = [
     /// Does unchecked conversion for primitives.
     convert:from to: = !UnsafeConvert(to,from) 
     /// The type join point
-    name: join: body = !JoinPointEntryType(body(),name)
+    name: meta: join: body = !JoinPointEntryType(body(), name, meta)
+    name: join: body = !JoinPointEntryType(body(), name, ())
+    name: = !RecUnionGetName(name)
+    meta: = !RecUnionGetMeta(meta)
     ]
 
 inl String = [

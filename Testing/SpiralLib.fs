@@ -95,52 +95,6 @@ class: types: args: methods: =
     """
     }
 
-let array: SpiralModule =
-    {
-    name="Array"
-    prerequisites=[]
-    opens=[]
-    description=""
-    code=
-    """
-[
-facade: ar =
-    [
-    /// Returns the length of an array. Not applicable to Cuda arrays.
-    length = !ArrayLength(ar)
-    /// Gets the value from the array at index `get`.
-    get: = !GetArray(ar, get)
-    /// Sets the value `to` the array at index `set`
-    set:to: = !SetArray(ar, set, to)
-    /// Gets the value from the array at index `apply`.
-    apply: = !GetArray(ar, apply)
-    ]
-
-/// Creates an .NET array with the given type and the size.
-type: t size: = self facade: !ArrayCreateDotNet(t,size)
-type: t = self facade: type !ArrayCreateDotNet(t,1)
-
-.cuda = 
-    inl super = self
-    [
-    /// Creates a Cuda local memory array with the given type and the size.
-    local = 
-        [
-        type: t size: = super facade: !ArrayCreateCudaLocal(t,size)
-        type: t = super facade: type !ArrayCreateCudaLocal(t,1)
-        ]
-
-    /// Creates a Cuda shared memory array with the given type and the size.
-    shared = 
-        [
-        type: t size: = super facade: !ArrayCreateCudaShared(t,size)
-        type: t = super facade: type !ArrayCreateCudaShared(t,1)
-        ]
-    ]
-]
-    """
-    }
-
 let loops: SpiralModule =
     {
     name="loops"
@@ -196,6 +150,69 @@ settings: =
 
 for = self settings: {cps=false}
 for' = self settings: {cps=true}
+]
+    """
+    }
+
+let array: SpiralModule =
+    {
+    name="Array"
+    prerequisites=[loops]
+    opens=[]
+    description=""
+    code=
+    """
+[
+facade: ar =
+    [
+    /// Returns the length of an array. Not applicable to Cuda arrays.
+    length = !ArrayLength(ar)
+    /// Gets the value from the array at index `get`.
+    get: = !GetArray(ar, get)
+    /// Sets the value `to` the array at index `set`
+    set:to: = !SetArray(ar, set, to)
+    /// Gets the value from the array at index `apply`.
+    apply: = !GetArray(ar, apply)
+    ]
+
+/// Creates an .NET array with the given type and the size.
+type: t size: = self facade: !ArrayCreateDotNet(t,size)
+type: t = self facade: type !ArrayCreateDotNet(t,1)
+
+.cuda = 
+    inl super = self
+    [
+    /// Creates a Cuda local memory array with the given type and the size.
+    local = 
+        [
+        type: t size: = super facade: !ArrayCreateCudaLocal(t,size)
+        type: t = super facade: type !ArrayCreateCudaLocal(t,1)
+        ]
+
+    /// Creates a Cuda shared memory array with the given type and the size.
+    shared = 
+        [
+        type: t size: = super facade: !ArrayCreateCudaShared(t,size)
+        type: t = super facade: type !ArrayCreateCudaShared(t,1)
+        ]
+    ]
+
+// Creates an array given a dimension and a generator function to compute the elements.
+init: size: =
+    inl ar = 
+        self
+            type: type 
+                inl i = dyn 0 
+                join init i
+            size:
+
+    Loops.for
+        (from:0 near_to: size)
+        (body:inl i: -> ar set: i to: join init i)
+
+    ar
+
+init=inl size init -> self init: size:
 ]
     """
     }

@@ -164,6 +164,10 @@ type Op =
     | EqType
     | SizeOf
 
+    // Recursive types
+    | RecUnionGetName
+    | RecUnionGetMeta
+
     // Array
     | ArrayCreateDotNet
     | ArrayCreateCudaLocal
@@ -305,7 +309,7 @@ and ConsedTy =
     | MapT of ConsedNode<MapTy>
     | LayoutT of ConsedNode<LayoutType * ConsedTypedData * HasFreeVars>
     | UnionT of ConsedNode<Set<ConsedTy>>
-    | RecUnionT of string * JoinPointKey
+    | RecUnionT of string * ConsedTy * JoinPointKey
 
     | PrimT of PrimitiveType
     | TermCastedFunctionT of ConsedTy * ConsedTy

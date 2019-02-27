@@ -112,7 +112,7 @@ let rec show_ty = function
             |> Array.map show_ty
             |> String.concat " | "
         sprintf "union (%s)" body
-    | RecUnionT (name, _) -> name
+    | RecUnionT (name, _, _) -> name
     | ArrayT (a,b) -> sprintf "%s (%s)" (show_art a) (show_ty b)
     | MacroT x -> show_consed_typed_data x |> sprintf "macro (%s)"
 

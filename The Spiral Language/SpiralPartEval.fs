@@ -180,7 +180,7 @@ let case_type_union = function
     | x -> [x]
 
 let case_type d = function
-    | RecUnionT(_,key) -> case_type_union (rect_unbox d key)
+    | RecUnionT(_,_,key) -> case_type_union (rect_unbox d key)
     | x -> case_type_union x
 
 let case_type_union' = function
@@ -188,7 +188,7 @@ let case_type_union' = function
     | x -> Set.singleton x
 
 let case_type' d = function
-    | RecUnionT(_,key) -> case_type_union' (rect_unbox d key)
+    | RecUnionT(_,_,key) -> case_type_union' (rect_unbox d key)
     | x -> case_type_union' x
 
 let tyv ty = TyV(T(tag(), ty))
@@ -528,27 +528,26 @@ let rec partial_eval (d: LangEnv) x =
                 push_typedop d (TyJoinPoint(join_point_key,JoinPointCuda,call_args)) ([PrimT StringT; ArrayT(ArtDotNetHeap,macro)] |> hash_cons_table.Add |> ListT)
             | _ -> raise_type_error d "The return type of Cuda join point must be unit tuple.\nGot: %s" (show_ty ret_ty)
 
-        | JoinPointEntryType,[|body;name|] -> 
-            let name =
+        | JoinPointEntryType,[|body;name;meta|] -> 
+            let meta = ev_annot d meta
+            let name', name =
                 match ev d name with
-                | TyLit (LitString name) -> name
+                | TyLit (LitString name) as name' -> name', name
                 | _ -> raise_type_error d "The name of the recursive type must be a string literal."
-            let call_args, consed_env = typed_data_to_consed' (TyKeyword(keyword_env, d.env_global))
+            let call_args, consed_env = typed_data_to_consed' (TyKeyword(keyword_env, Array.append [|name'; TyT meta|] d.env_global))
             let join_point_key = body, consed_env
             
-            let inline y _ = RecUnionT (name, join_point_key)
+            let inline y _ = RecUnionT (name, meta, join_point_key)
             let dict = join_point_dict_type
             match dict.TryGetValue join_point_key with
             | false, _ ->
                 dict.[join_point_key] <- JoinPointInEvaluation false
                 let x = ev_seq {d with cse=ref Map.empty} body |> snd
                 match dict.[join_point_key] with
-                | JoinPointInEvaluation false -> dict.[join_point_key] <- JoinPointDone (false,x); x
-                | JoinPointInEvaluation true -> dict.[join_point_key] <- JoinPointDone (true,x); y()
+                | JoinPointInEvaluation is_recursive -> dict.[join_point_key] <- JoinPointDone (is_recursive,x); y()
                 | _ -> failwith "impossible"
             | true, JoinPointInEvaluation _ -> dict.[join_point_key] <- JoinPointInEvaluation true; y()
-            | true, JoinPointDone (false,x) -> x
-            | true, JoinPointDone (true,_) -> y()
+            | true, JoinPointDone _ -> y()
             |> TyT
         | LayoutToStack,[|a|] -> layout_to_some LayoutStack d (ev d a)
         | LayoutToHeap,[|a|] -> layout_to_some LayoutHeap d (ev d a)
@@ -645,6 +644,14 @@ let rec partial_eval (d: LangEnv) x =
             if a_ty = b_ty then b
             elif case_type' d a_ty |> Set.contains b_ty then TyBox(b,a_ty)
             else raise_type_error d <| sprintf "Type constructor application failed. %s is not a subset of %s." (show_ty b_ty) (show_ty a_ty)
+        | RecUnionGetName, [|a|] ->
+            match ev d a |> type_get with
+            | RecUnionT(name,meta,key) -> TyLit (LitString name)
+            | x -> raise_type_error d <| sprintf "Expected a recursive union type.\nGot: %s" (show_ty x)
+        | RecUnionGetMeta, [|a|] ->
+            match ev d a |> type_get with
+            | RecUnionT(name,meta,key) -> TyT meta
+            | x -> raise_type_error d <| sprintf "Expected a recursive union type.\nGot: %s" (show_ty x)
         | SizeOf,[|a|] -> 
             match ev_annot d a with
             | PrimT x ->
