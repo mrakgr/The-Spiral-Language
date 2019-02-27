@@ -280,7 +280,7 @@ and RecordWithPattern =
     | RecordWithoutKeyword of keyword: KeywordTag
     | RecordWithoutInjectVar of VarString * var: VarTag
 
-and Expr =
+and [<CustomEquality; CustomComparison>] Expr =
     | V of Tag * VarTag
     | Lit of Tag * Value
     | Inline of Tag * Expr * FreeVars * StackSize
@@ -297,6 +297,24 @@ and Expr =
     | RecordWith of Tag * Expr [] * RecordWithPattern []
     | ExprPos of Tag * Pos<Expr>
     | Op of Tag * Op * Expr []
+
+    member t.Tag' =
+        match t with
+        | ObjectCreate(x,_) -> x.Tag
+        | V(x,_) | Lit(x,_) | Inline(x,_,_,_) | Function(x,_,_,_)
+        | RecFunction(x,_,_,_) | KeywordCreate(x,_,_) | Let(x,_,_)
+        | Case(x,_,_) | ListTakeAllTest(x,_,_,_,_) | ListTakeNTest(x,_,_,_,_)
+        | KeywordTest(x,_,_,_,_) | RecordTest(x,_,_,_,_) | RecordWith(x,_,_)
+        | ExprPos(x,_) | Op(x,_,_) -> x
+
+    override a.Equals(b) = Object.ReferenceEquals(a,b)
+    override a.GetHashCode() = a.Tag'
+
+    interface IComparable with
+        member a.CompareTo(b) = 
+            match b with
+            | :? Expr as b -> compare a.Tag' b.Tag'
+            | _ -> raise <| ArgumentException "Invalid comparison for Expr."
 
 and HasFreeVars = bool
 
