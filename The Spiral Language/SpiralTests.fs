@@ -29,7 +29,7 @@ let cache_test cfg (time: Timings) (m: SpiralModule) =
         match compile cfg m with
         | Ok(time',b) -> "has passed", time', b
         | Fail(time',b) -> "has failed", time', b
-    printfn "Test %s %s. Timmings:\n%A" m.name pass time'
+    printfn "Test %s %s. Timings:\n%A" m.name pass time'
     File.WriteAllText(make_test_path_from_name m.name, b)
     time.Add time'
     

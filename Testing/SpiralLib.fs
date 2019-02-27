@@ -16,36 +16,27 @@ type: t args: = !Macro(args,t)
 /// Creates a macro as a type.
 extern: t args: = !MacroExtern(args,t)
 /// Creates a line of text. Good for accessing global constants.
-type:text: = self type: args: (text:)
+type: text: = self type: args: (text:)
+extern: text: = self extern: args: (text:)
+
 /// Creates a line of text with the unit type. Good for comments.
 comment: x = self type: () args: (text: x)
-/// Surrounds a sequence of macro instructions with brackets. Applies `map` to each element in the sequence.
-brackets: open, close sep: args: map: f =
-    inl close = (text: close) :: ()
-    inl rec loop = function
-        | () -> close
-        | x :: x' -> (text: sep) :: f x :: loop x'
-        
-    text: open
-    ::
-    match args with
-    | x :: x' -> f x :: loop x'
-    | () -> close
-    | x -> f x :: close
-
-/// Surrounds a sequence of macro instructions with parentheses. Assumes that each element in the sequence is a variable.
-rounds: args = self brackets: "(",")" sep: ", " args: args map:(inl x -> variable: x)
-/// Surrounds a sequence of macro instructions with jagged brackets. Assumes that each element in the sequence is a type.
-jaggeds: args = self brackets: "<",">" sep: ", " args: args map:(inl x -> type: x)
-/// Surrounds a sequence of macro instructions with jagged brackets. For C++ templates.
-jaggeds': args = self brackets: "<",">" sep: ", " args: args map:id
 
 /// Macro for the global methods.
-type: method: args: =
+type: global_method: args: =
     self
         type:
         args:
-            text: method
+            text: global_method
+            :: self rounds: args
+
+/// Class creation using the global method.
+class: global_method: args: = 
+    self 
+        extern: 
+            text: class
+        args:
+            text: global_method
             :: self rounds: args
 
 /// Macro for operators.
@@ -91,6 +82,27 @@ class: types: args: methods: =
     inl a ->
         match methods a with
         | type:method:args: -> self type:class: x method:args:
+
+/// Surrounds a sequence of macro instructions with brackets. Applies `map` to each element in the sequence.
+brackets: open, close sep: args: map: f =
+    inl close = (text: close) :: ()
+    inl rec loop = function
+        | () -> close
+        | x :: x' -> (text: sep) :: f x :: loop x'
+        
+    text: open
+    ::
+    match args with
+    | x :: x' -> f x :: loop x'
+    | () -> close
+    | x -> f x :: close
+
+/// Surrounds a sequence of macro instructions with parentheses. Assumes that each element in the sequence is a variable.
+rounds: args = self brackets: "(",")" sep: ", " args: args map:(inl x -> variable: x)
+/// Surrounds a sequence of macro instructions with jagged brackets. Assumes that each element in the sequence is a type.
+jaggeds: args = self brackets: "<",">" sep: ", " args: args map:(inl x -> type: x)
+/// Surrounds a sequence of macro instructions with jagged brackets. For C++ templates.
+jaggeds': args = self brackets: "<",">" sep: ", " args: args map:id
 ]
     """
     }
@@ -473,6 +485,58 @@ exists=inl f ar -> Loop.for' (from:0 near_to: ar.length) (state:true body:inl ne
 
 sort=inl ar -> Type macro: ar method: "Array.sort " args: ar
 sort_descending=inl ar -> Type macro: ar method: "Array.sortDescending " args: ar
+]
+    """
+    }
+
+let console: SpiralModule =
+    {
+    name="Console"
+    prerequisites=[macro]
+    opens=[]
+    description="IO printing functions."
+    code=
+    """
+[
+readall =
+    Macro
+        class: "System.IO.Stream"
+        global_method: "System.Console.OpenStandardInput"
+        args: ()
+    |> inl args -> 
+        Macro 
+            class: "System.IO.StreamReader"
+            args:
+    |> inl class ->
+        Macro
+            type: ""
+            class:
+            method: "ReadToEnd"
+            args: ()
+
+readline = 
+    Macro
+        type: ""
+        global_method: "System.Console.ReadLine"
+        args: ()
+
+write: args = 
+    match args with
+    | () -> ()
+    | _ -> 
+        Macro
+            type: ()
+            global_method: "System.Console.Write"
+            args:
+
+writeline: args = 
+    Macro
+        type: ()
+        global_method: "System.Console.WriteLine"
+        args:
+
+printf=inl a b -> self write: String (format: a args: b)
+printfn=inl a b -> self writeline: String (format: a args: b)
 ]
     """
     }

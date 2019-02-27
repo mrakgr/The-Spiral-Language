@@ -1140,7 +1140,7 @@ let macro_dotnet1: SpiralModule =
     """
 Macro 
     type: ()
-    method: "System.Console.WriteLine"
+    global_method: "System.Console.WriteLine"
     args: "Hello, world!"
     """
     }
@@ -1370,7 +1370,7 @@ inl ar = Array.init 16 id
 Array.iter (inl x ->
     Macro
         type: ()
-        method: "System.Console.WriteLine"
+        global_method: "System.Console.WriteLine"
         args: x
     ) ar
     """
@@ -1527,6 +1527,151 @@ dyn x |> ignore
     """
     }
 
+let loop1: SpiralModule =
+    {
+    name="loop1"
+    prerequisites=[loop; console]
+    opens=[]
+    description="Does the Loop module work?"
+    code=
+    """
+//If we list all the natural numbers below 10 that are multiples of 3 or 5, we get 3, 5, 6 and 9. The sum of these multiples is 23.
+//Find the sum of all the multiples of 3 or 5 below 1000.
+
+Console 
+    writeline:
+        Loop.for (from_down: dyn 999 to: dyn 3 by:dyn -1)
+            (state:dyn 0 body: inl state: i: ->
+                if i % 3 = 0 || i % 5 = 0 then state+i
+                else state
+                )
+    """
+    }
+
+let loop2: SpiralModule =
+    {
+    name="loop2"
+    prerequisites=[loop; console]
+    opens=[]
+    description="Do state changing nested loops work?"
+    code=
+    """
+inl compare_pos (a_row,a_col) (b_row,b_col) = a_row = b_row && a_col = b_col
+inl ret = {
+    some = inl state -> Console.printfn "Success." ()
+    none = inl state -> failwith type:() msg: "Failure."
+    }
+inl princess_pos = dyn (0,0)
+inl mario_pos = dyn (1,1)
+inl n = 5
+Loop.for' (from: dyn 0 near_to:n)
+    (
+    state:{} 
+    body:inl next:row state: i:r ->
+        Loop.for' (from:dyn 0 near_to:n)
+            (
+            state:
+            body:inl next:col state: i:c ->
+                Console.printfn "I am at ({0},{1})" (r, c)
+                inl ret state = 
+                    match state with
+                    | {mario princess} -> ret .some state
+                    | _ -> col state
+                if compare_pos (r,c) mario_pos then ret {state with mario=mario_pos}
+                elif compare_pos (r,c) princess_pos then ret {state with princess=princess_pos}
+                else ret state
+            finally: row
+            )
+    finally: ret.none
+    )
+    """
+    }
+
+let loop3: SpiralModule =
+    {
+    name="loop3"
+    prerequisites=[console]
+    opens=[]
+    description="Do state changing nested loops work?"
+    code=
+    """
+inl compare_pos (a_row,a_col) (b_row,b_col) = a_row = b_row && a_col = b_col
+inl ret = {
+    some = inl state -> Console.printfn "Success." ()
+    none = inl state -> failwith type: () msg: "Failure."
+    }
+inl princess_pos = dyn (0,0)
+inl mario_pos = dyn (1,1)
+inl n = dyn 5
+inl rec row {from=r near_to state} as d = join
+    inl rec col {from=c near_to state} as d = join
+        if c < near_to then
+            Console.printfn "I am at ({0},{1})" (r, c)
+            inl ret = function
+                | {mario princess} as state -> ret .some state
+                | state -> col {d with state from=c+1}
+            if compare_pos (r,c) mario_pos then 
+                Console.printfn "I've found Mario." ()
+                ret {state with mario=mario_pos}
+            elif compare_pos (r,c) princess_pos then 
+                Console.printfn "I've found Princess." ()
+                ret {state with princess=princess_pos}
+            else ret state
+        else 
+            row {d with from=r+1}
+        : ()
+    if r < near_to then col {from=dyn 0; near_to state}
+    else ret .none () 
+    : ()
+row {from=dyn 0; near_to=dyn n; state={}}
+    """
+    }
+
+let loop4: SpiralModule =
+    {
+    name="loop4"
+    prerequisites=[console]
+    opens=[]
+    description="Do state changing nested loops work?"
+    code=
+    """
+inl rec for {from=(!dyn from) near_to state body finally} = join
+    if from < near_to then 
+        inl next state = for {from=from+1; near_to state body finally} 
+        body {next state i=from}
+    else finally state
+    : finally state
+
+inl compare_pos (a_row,a_col) (b_row,b_col) = a_row = b_row && a_col = b_col
+inl ret = {
+    some = inl state -> Console.printfn "Success." ()
+    none = inl state -> failwith type: () msg: "Failure."
+    }
+inl princess_pos = dyn (0,0)
+inl mario_pos = dyn (1,1)
+inl n = dyn 5
+for {from=0; near_to=n; state={};
+    body = inl {next=row i=r state} ->
+        for {from=0; near_to=n; state;
+            body = inl {next=col i=c state} ->
+                Console.printfn "I am at ({0},{1})" (r, c)
+                inl ret = function
+                    | {mario princess} as state -> ret .some state
+                    | state -> col state
+                if compare_pos (r,c) mario_pos then 
+                    Console.printfn "I've found Mario." ()
+                    ret {state with mario=mario_pos}
+                elif compare_pos (r,c) princess_pos then 
+                    Console.printfn "I've found Princess." ()
+                    ret {state with princess=princess_pos}
+                else ret state
+            finally = row
+            }
+    finally = ret .none
+    }
+    """
+    }
+
 let tests =
     [|
     test1; test2; test3; test4; test5; test6; test7; test8; test9; 
@@ -1541,11 +1686,12 @@ let tests =
 
     array1; array2; array3; array4; array5; array6; array7; array8
     tuple1;         tuple3; tuple4; tuple5; tuple6; tuple7
+    loop1; loop2; loop3; loop4
     |]
 
 rewrite_test_cache tests cfg None //(Some(63,64))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) tuple7
-|> printfn "%s"
-|> ignore
+//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) loop4
+//|> printfn "%s"
+//|> ignore
 
 

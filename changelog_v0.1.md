@@ -679,7 +679,7 @@ I am pleased to announce that thanks to objects and keyword arguments the macros
 ```
 Macro 
     type: ()
-    method: "System.Console.WriteLine"
+    global_method: "System.Console.WriteLine"
     args: "Hello, world!"
 ```
 
