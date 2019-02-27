@@ -183,7 +183,7 @@ Like for records, the object's fields can be separated by semicolons.
 One last thing.
 
 ```
-1 + [name= .Tensor]
+1 + [name="Tensor"]
 ```
 
 Objects that are named have their names printed on type errors. The names have to be unary keywords with nothing else in the body for this to work.

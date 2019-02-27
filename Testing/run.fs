@@ -1114,7 +1114,7 @@ let test64: SpiralModule =
     description="Do the object names get printed on type errors?"
     code=
     """
-1 + [name= .Tensor]
+1 + [name="Tensor"]
     """
     }
 
@@ -1258,6 +1258,20 @@ List.nil |> List.cons 3.0 |> List.cons 2.0 |> List.cons 1.0 |> dyn |> map (inl x
         """
     }
 
+let test67: SpiralModule =
+    {
+    name="test67"
+    prerequisites=[]
+    opens=[]
+    description="Does the String `concat:args:` work?"
+    code=
+    """
+String concat: ", " args: "1", "2", "3" 
+|> dyn |> ignore
+String concat: ", " args: "1", "2", dyn "3"
+    """
+    }
+
 let array1: SpiralModule =
     {
     name="array1"
@@ -1344,6 +1358,175 @@ Array.map ((*) 2) ar
     """
     }
 
+let array6: SpiralModule =
+    {
+    name="array6"
+    prerequisites=[array]
+    opens=[]
+    description="Does the Array iter work?"
+    code=
+    """
+inl ar = Array.init 16 id
+Array.iter (inl x ->
+    Macro
+        type: ()
+        method: "System.Console.WriteLine"
+        args: x
+    ) ar
+    """
+    }
+
+let array7: SpiralModule =
+    {
+    name="array7"
+    prerequisites=[array]
+    opens=[]
+    description="Does the Array concat work?"
+    code=
+    """
+Array.init 4 (inl _ -> Array.init 8 id)
+|> Array.concat
+    """
+    }
+
+let array8: SpiralModule =
+    {
+    name="array8"
+    prerequisites=[array]
+    opens=[]
+    description="Does the Array append work?"
+    code=
+    """
+inl ar = inl _ -> Array.init 4 id
+Array.append (ar (), ar (), ar())
+    """
+    }
+
+let tuple1: SpiralModule =
+    {
+    name="tuple1"
+    prerequisites=[tuple]
+    opens=[]
+    description="Does tuple map work? This also tests rev and foldl."
+    code=
+    """
+Tuple.map (inl x -> x * 2) (1,2,3) |> dyn
+    """
+    }
+
+let tuple3: SpiralModule =
+    {
+    name="tuple3"
+    prerequisites=[tuple]
+    opens=[]
+    description="Do the tuple foldl_map and foldr_map work?"
+    code=
+    """
+inl l = 2,3,4
+{
+a = Tuple.map_foldl (inl s x -> x*x, s + x*x) 0 l
+b = Tuple.map_foldr (inl x s -> x*x, s + x*x) l 0
+}
+|> dyn
+    """
+    }
+
+let tuple4: SpiralModule =
+    {
+    name="tuple4"
+    prerequisites=[tuple]
+    opens=[]
+    description="Do the tuple scan functions work?"
+    code=
+    """
+inl x = 1,2,3,4
+(Tuple.scanl (+) 0 x, Tuple.scanr (+) x 0)
+|> dyn
+    """
+    }
+
+let tuple5: SpiralModule =
+    {
+    name="tuple5"
+    prerequisites=[tuple]
+    opens=[]
+    description="Does the map2 work?"
+    code=
+    """
+inl a = 1,2,3
+inl b = 4,5,6
+Tuple.map2 (inl a b -> a + b) a b |> dyn
+    """
+    }
+
+let tuple6: SpiralModule =
+    {
+    name="tuple6"
+    prerequisites=[tuple]
+    opens=[]
+    description="Does the foldl2 work?"
+    code=
+    """
+inl a = 1,2,3
+inl b = 4,5,6
+Tuple.foldl2 (inl s a b -> s + a + b) 0 a b |> dyn
+    """
+    }
+
+let tuple7: SpiralModule =
+    {
+    name="tuple7"
+    prerequisites=[tuple]
+    opens=[]
+    description="Does the append work?"
+    code=
+    """
+inl a = 1,2,3
+inl b = 4,5,6
+Tuple.append a b |> dyn
+    """
+    }
+
+let test68: SpiralModule =
+    {
+    name="test68"
+    prerequisites=[]
+    opens=[]
+    description="Does the monadic bind `inm` work?"
+    code=
+    """
+inl add x y s = x + y |> inl x -> x, x+s
+inl (>>=) a b s =
+    inl a, s = a s
+    inl b, s = b a s
+    b,s
+inl on_succ x s = x,s
+inl f =
+    inm x = add 1 2
+    inm y = add 3 4
+    on_succ 0
+f 0 |> dyn
+    """
+    }
+
+let test69: SpiralModule =
+    {
+    name="test69"
+    prerequisites=[]
+    opens=[]
+    description="Does the `inb` statement work?"
+    code=
+    """
+inl f g ret = 
+    dyn 0 |> ignore
+    ret g
+    dyn 2
+
+inb x = f 1
+dyn x |> ignore
+    """
+    }
+
 let tests =
     [|
     test1; test2; test3; test4; test5; test6; test7; test8; test9; 
@@ -1352,15 +1535,16 @@ let tests =
     test30; test31; test32; test33; test34; test35; test36; test37; test38; test39; 
     test40; test41; test42; test43; test44; test45; test46; test47; test48; test49; 
     test50; test51; test52; test53; test54; test55; test56; test57; test58; test59; 
-    test60; test61; test62; test63; test64; test65; test66
+    test60; test61; test62; test63; test64; test65; test66; test67; test68; test69
 
     macro_dotnet1;macro_dotnet2;macro_dotnet3
 
-    array1; array2
+    array1; array2; array3; array4; array5; array6; array7; array8
+    tuple1;         tuple3; tuple4; tuple5; tuple6; tuple7
     |]
 
 //rewrite_test_cache tests cfg None //(Some(63,64))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) array5
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) tuple7
 |> printfn "%s"
 |> ignore
 

@@ -103,32 +103,6 @@ append (ar (), ar (), ar())
     """
     }
 
-let array7: SpiralModule =
-    {
-    name="array7"
-    prerequisites=[tuple]
-    opens=[]
-    description="Does the monadic bind `inm` work?"
-    code=
-    """
-inl on_succ a = (a,())
-inl on_log x = ((),Tuple.singleton x)
-inl (>>=) (a,w) f = // The writer monad.
-    inl a',w' = f a
-    (a',Tuple.append w w')
-
-inl add x y = x + y |> on_succ
-
-inm x = add 1 1
-inm _ = on_log x
-inm y = add 3 4
-inm _ = on_log y
-inm z = add 5 6
-inm _ = on_log z
-on_succ (x+y+z) // Tuple2(20L, Tuple1(2L, 7L, 11L))
-    """
-    }
-
 let array8: SpiralModule =
     {
     name="array8"

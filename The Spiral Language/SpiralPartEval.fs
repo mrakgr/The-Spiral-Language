@@ -215,7 +215,8 @@ let rec destructure tyv_or_tyt x =
     | MapT l -> TyMap(Map.map (fun _ -> f) l.node)
     | x -> tyv_or_tyt x
    
-let type_to_tyv ty = if type_is_unit ty then destructure TyT ty else destructure tyv ty
+let tyt ty = destructure TyT ty
+let type_to_tyv ty = if type_is_unit ty then tyt ty else destructure tyv ty
 
 let push_var x (d: LangEnv) =
     d.env_stack.[d.env_stack_ptr] <- x
@@ -265,7 +266,7 @@ let layout_to_some layout (d: LangEnv) = function
             | LayoutStack -> LayoutToStack
             | LayoutHeap -> LayoutToHeap
             | LayoutHeapMutable -> LayoutToHeapMutable
-        d.seq.Add(TyLet(ret,d.trace,TyOp(layout,TyList[TyT ret_ty;x])))
+        d.seq.Add(TyLet(ret,d.trace,TyOp(layout,TyList[tyt ret_ty;x])))
         ret
 
 let push_typedop d op ret_ty =
@@ -534,7 +535,7 @@ let rec partial_eval (d: LangEnv) x =
                 match ev d name with
                 | TyLit (LitString name) as name' -> name', name
                 | _ -> raise_type_error d "The name of the recursive type must be a string literal."
-            let call_args, consed_env = typed_data_to_consed' (TyKeyword(keyword_env, Array.append [|name'; TyT meta|] d.env_global))
+            let call_args, consed_env = typed_data_to_consed' (TyKeyword(keyword_env, Array.append [|name'; tyt meta|] d.env_global))
             let join_point_key = body, consed_env
             
             let inline y _ = RecUnionT (name, meta, join_point_key)
@@ -548,7 +549,7 @@ let rec partial_eval (d: LangEnv) x =
                 | _ -> failwith "impossible"
             | true, JoinPointInEvaluation _ -> dict.[join_point_key] <- JoinPointInEvaluation true; y()
             | true, JoinPointDone _ -> y()
-            |> TyT
+            |> tyt
         | LayoutToStack,[|a|] -> layout_to_some LayoutStack d (ev d a)
         | LayoutToHeap,[|a|] -> layout_to_some LayoutHeap d (ev d a)
         | LayoutToHeapMutable,[|a|] -> layout_to_some LayoutHeapMutable d (ev d a)
@@ -621,21 +622,21 @@ let rec partial_eval (d: LangEnv) x =
         | MacroExtern, [|body;ty|] -> push_op_no_rewrite d Macro (ev d body) (MacroT (typed_data_to_consed (ev d ty)))
         | TypeAnnot, [|a;b|] ->
             match d.rbeh with
-            | AnnotationReturn -> ev_annot {d with rbeh=AnnotationDive} b |> TyT
+            | AnnotationReturn -> ev_annot {d with rbeh=AnnotationDive} b |> tyt
             | AnnotationDive ->
                 let a, tb = ev d a, ev_annot d b
                 let ta = type_get a
                 if ta = tb then a else raise_type_error d <| sprintf "Type annotation mismatch.\n%s <> %s" (show_ty ta) (show_ty tb)
-        | TypeGet, [|a|] -> ev_annot d a |> TyT
+        | TypeGet, [|a|] -> ev_annot d a |> tyt
         | TypeUnion, l -> 
             let set_field = function UnionT t -> t.node | t -> Set.singleton t
-            Array.fold (fun s x -> Set.union s (ev_annot d x |> set_field)) Set.empty l |> uniont |> TyT
-        | TypeSplit, [|a|] -> ev_annot d a |> case_type d |> List.map TyT |> TyList
+            Array.fold (fun s x -> Set.union s (ev_annot d x |> set_field)) Set.empty l |> uniont |> tyt
+        | TypeSplit, [|a|] -> ev_annot d a |> case_type d |> List.map tyt |> TyList
         | TypeRaise, [|a|] -> ev_annot d a |> TypeRaised |> raise
         | TypeCatch, [|a|] -> 
-            try ev_annot d a |> TyT
+            try ev_annot d a |> tyt
             with
-            | :? TypeRaised as x -> TyT x.Data0
+            | :? TypeRaised as x -> tyt x.Data0
             | _ -> reraise()
         | TypeBox, [|a;b|] -> 
             let a_ty = ev_annot d a
@@ -650,7 +651,7 @@ let rec partial_eval (d: LangEnv) x =
             | x -> raise_type_error d <| sprintf "Expected a recursive union type.\nGot: %s" (show_ty x)
         | RecUnionGetMeta, [|a|] ->
             match ev d a |> type_get with
-            | RecUnionT(name,meta,key) -> TyT meta
+            | RecUnionT(name,meta,key) -> tyt meta
             | x -> raise_type_error d <| sprintf "Expected a recursive union type.\nGot: %s" (show_ty x)
         | SizeOf,[|a|] -> 
             match ev_annot d a with
@@ -671,19 +672,19 @@ let rec partial_eval (d: LangEnv) x =
                     | StringT -> sizeof<string>
                     | BoolT -> sizeof<bool>
                 TyLit (LitInt64 (int64 size))
-            | a -> push_op d SizeOf (TyT a) (PrimT Int64T)
-        | TermFunctionTypeCreate, [|a;b|] -> TermCastedFunctionT(ev_annot d a, ev_annot d b) |> TyT
+            | a -> push_op d SizeOf (tyt a) (PrimT Int64T)
+        | TermFunctionTypeCreate, [|a;b|] -> TermCastedFunctionT(ev_annot d a, ev_annot d b) |> tyt
         | TermFunctionIs, [|a|] -> 
             match ev d a with
             | TyT(TermCastedFunctionT(dom,range)) | TyV(T(_,TermCastedFunctionT(dom,range))) -> TyLit(LitBool true)
             | _ -> TyLit(LitBool false)
         | TermFunctionDomain, [|a|] -> 
             match ev d a with
-            | TyT(TermCastedFunctionT(dom,range)) | TyV(T(_,TermCastedFunctionT(dom,range))) -> TyT dom
+            | TyT(TermCastedFunctionT(dom,range)) | TyV(T(_,TermCastedFunctionT(dom,range))) -> tyt dom
             | x -> raise_type_error d <| sprintf "Not a term casted function.\nGot: %s" (show_typed_data x)
         | TermFunctionRange, [|a|] -> 
             match ev d a with
-            | TyT(TermCastedFunctionT(dom,range)) | TyV(T(_,TermCastedFunctionT(dom,range))) -> TyT range
+            | TyT(TermCastedFunctionT(dom,range)) | TyV(T(_,TermCastedFunctionT(dom,range))) -> tyt range
             | x -> raise_type_error d <| sprintf "Not a term casted function.\nGot: %s" (show_typed_data x)            
         | StringSlice, [|a;b;c|] ->
             match ev3 d a b c with
@@ -844,15 +845,15 @@ let rec partial_eval (d: LangEnv) x =
             | _ -> TyLit (LitBool false)
         | ArrayCreateDotNet,[|a;b|] ->
             match ev_annot d a, ev d b with
-            | a, TyType(PrimT Int64T) & b -> push_binop_no_rewrite d ArrayCreateDotNet (TyT a, b) (ArrayT(ArtDotNetHeap, a))
+            | a, TyType(PrimT Int64T) & b -> push_binop_no_rewrite d ArrayCreateDotNet (tyt a, b) (ArrayT(ArtDotNetHeap, a))
             | _, b -> raise_type_error d <| sprintf "Expected an int64 as the size of the array.\nGot: %s" (show_typed_data b)
         | ArrayCreateCudaLocal,[|a;b|] ->
             match ev_annot d a, ev d b with
-            | a, TyType(PrimT Int64T) & b -> push_binop_no_rewrite d ArrayCreateCudaLocal (TyT a, b) (ArrayT(ArtCudaLocal, a))
+            | a, TyType(PrimT Int64T) & b -> push_binop_no_rewrite d ArrayCreateCudaLocal (tyt a, b) (ArrayT(ArtCudaLocal, a))
             | _, b -> raise_type_error d <| sprintf "Expected an int64 as the size of the array.\nGot: %s" (show_typed_data b)
         | ArrayCreateCudaShared,[|a;b|] ->
             match ev_annot d a, ev d b with
-            | a, TyLit(LitInt64 _) & b -> push_binop_no_rewrite d ArrayCreateCudaShared (TyT a, b) (ArrayT(ArtCudaShared, a))
+            | a, TyLit(LitInt64 _) & b -> push_binop_no_rewrite d ArrayCreateCudaShared (tyt a, b) (ArrayT(ArtCudaShared, a))
             | _, b -> raise_type_error d <| sprintf "Expected an int64 literal as the size of the array.\nGot: %s" (show_typed_data b)
         | ReferenceCreate,[|a|] ->
             let a = ev d a
@@ -1395,7 +1396,7 @@ let rec partial_eval (d: LangEnv) x =
         | UnsafeCoerceToArrayCudaGlobal,[|a;b|] ->
             match ev2 d a b with
             | TyV(T(x,t')), t -> TyV(T(x,ArrayT(ArtCudaGlobal t',type_get t)))
-            | TyT t', t -> TyT(ArrayT(ArtCudaGlobal t',type_get t))
+            | TyT t', t -> tyt(ArrayT(ArtCudaGlobal t',type_get t))
             | _ -> raise_type_error d "Only variables or runtime types can be converted to the Cuda global array type."
         | InfinityF64,[||] -> TyLit (LitFloat64 infinity)
         | InfinityF32,[||] -> TyLit (LitFloat32 infinityf)

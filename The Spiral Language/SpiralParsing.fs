@@ -140,8 +140,8 @@ let statements expr (d: ParserEnv) =
                 | RawFunction(on_succ,arg) -> l arg body on_succ
                 | _ -> failwith "impossible"
         |> ParserStatement
-    let handle_inm pat body = inb_templ (fun arg body on_succ -> ap body (func arg on_succ)) pat body
-    let handle_inb pat body = inb_templ (fun arg body on_succ -> ap (ap (v ">>=") body) (func arg on_succ)) pat body
+    let handle_inb pat body = inb_templ (fun arg body on_succ -> ap body (func arg on_succ)) pat body
+    let handle_inm pat body = inb_templ (fun arg body on_succ -> ap (ap (v ">>=") body) (func arg on_succ)) pat body
 
     match d.PeekSpecial with
     | Ok x ->

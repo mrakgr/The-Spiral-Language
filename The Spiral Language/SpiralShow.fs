@@ -94,7 +94,7 @@ let inline show_list show l = sprintf "(%s)" (List.map show l |> String.concat "
 let (|P|) = function ExprPos(_,x) -> x.Expression | x -> x
 let object_name (x: ObjectDict) = 
     match x.TryGetValue keyword_name with
-    | true, (P(KeywordTest(_,_,_,P(KeywordCreate(_,x,[||])),_)),_) -> keyword_to_string x
+    | true, (P(KeywordTest(_,_,_,P(Lit(_,LitString x)),_)),_) -> x
     | _ -> "<object>"
 
 let rec show_ty = function

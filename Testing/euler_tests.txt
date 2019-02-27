@@ -109,7 +109,7 @@ open Loops
 open Console
 
 inl primes = 2,3,5,11,13,17,19
-inl non_primes = Tuple.range (2,20) |> Tuple.filter (Tuple.contains primes >> not)
+inl non_primes = Tuple (min: 2 max: 20) |> Tuple.filter (Tuple.contains primes >> not)
 inl step = Tuple.foldl (*) 1 primes
 inl int64_maxvalue = FS.Constant "System.Int64.MaxValue" int64
 for' {from=step; to=int64_maxvalue; by=step; state= -1; body=inl {next state i} ->

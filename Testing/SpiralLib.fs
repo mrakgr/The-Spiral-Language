@@ -191,12 +191,12 @@ scanl=inl f s -> function
 scanr=inl f l s ->
     match l with
     | x :: xs -> 
-        inl r = self.scanr f xs s
-        f x (head r) :: r
+        inl r :: _ as r' = self.scanr f xs s
+        f x r :: r'
     | () -> s :: ()
 
-append=foldr (::)
-concat=inl x -> foldr append x ()
+append=self.foldr (::)
+concat=inl x -> self.foldr self.append x ()
 
 rev=self.foldl (inl s x -> x :: s) ()
 map=inl f -> function
@@ -285,7 +285,7 @@ init_template=inl k n f ->
         | _ -> Type error: "The input to this function cannot be static or less than 0 or not an int."
     loop n |> k
 
-init = self.init_template rev
+init = self.init_template self.rev
 repeat = inl n x -> self.init_template id n (inl _ -> x)
 min: max: = 
     inl l = max-min+1
@@ -315,7 +315,7 @@ split_at=inl n l ->
             | x :: x' -> loop (n-1) (x :: a) x'
             | _ -> Type error: "Index out of bounds."
         else
-            (rev a, b)
+            (self.rev a, b)
     loop n () l
 
 take=inl n l -> self.split_at n l |> fst
@@ -344,7 +344,7 @@ find=inl f -> function
     | x :: x' -> if f x then x else self.find f x'
     | _ -> Type error: "Expected a non-empty tuple as input to this."
 
-map_foldl2 f s a b = 
+map_foldl2=inl f s a b ->
     match a,b with
     | a :: a', b :: b' ->
         inl l, s = f s a b
@@ -352,7 +352,7 @@ map_foldl2 f s a b =
         l :: l', s
     | (), () -> (), s
 
-length = foldl (inl s _ -> s+1) 0
+length=self.foldl (inl s _ -> s+1) 0
 ]
     """
     }
@@ -360,7 +360,7 @@ length = foldl (inl s _ -> s+1) 0
 let array: SpiralModule =
     {
     name="Array"
-    prerequisites=[loop;tuple]
+    prerequisites=[macro;loop;tuple]
     opens=[]
     description=""
     code=
@@ -368,6 +368,7 @@ let array: SpiralModule =
 [
 facade: ar =
     [
+    name="Array"
     /// Returns the length of an array. Not applicable to Cuda arrays.
     length = !ArrayLength(ar)
     /// Gets the value from the array at index `get`.
@@ -446,33 +447,32 @@ filter=inl f ar ->
     inl init = self type: ar.elem_type size: ar.length
     self init: size: self .foldl (inl s x -> if f x then init set: s to: x; s+1 else s) (dyn 0) ar
 
-///// Merges all the arrays in a tuple into a single one.
-///// a array tuple -> a array
-//append=inl l ->
-//    inl ar' = self type: (fst l).elem_type size: Tuple.foldl (inl s l -> s + l.length) 0 l
-//    inl ap s ar = self.foldl (inl i x -> ar' set: i to: x; i+1) s ar
-//    Tuple.foldl ap (dyn 0) l |> ignore
-//    ar'
+/// Merges all the arrays in a tuple into a single one.
+/// a array tuple -> a array
+append=inl l ->
+    inl ar' = self type: (fst l).elem_type size: Tuple.foldl (inl s l -> s + l.length) 0 l
+    inl ap = self.foldl (inl i x -> ar' set: i to: x; i+1)
+    Tuple.foldl ap (dyn 0) l |> ignore
+    ar'
 
-///// Flattens an array of arrays into a single one.
-///// a array array -> a array
-//inl concat ar =
-//    inl count = foldl (inl s ar -> s + array_length ar) (dyn 0) ar
-//    inl ar' = array_create ar.elem_type.elem_type count
-//    (foldl << foldl) (inl i x -> ar' i <- x; i+1) (dyn 0) ar |> ignore
-//    ar'
+/// Flattens an array of arrays into a single one.
+/// a array array -> a array
+concat=inl ar ->
+    inl count = self.foldl (inl s ar -> s + ar.length) (dyn 0) ar
+    inl ar' = self type: ar.elem_type.elem_type size: count
+    (self.foldl << self.foldl) (inl i x -> ar' set: i to: x; i+1) (dyn 0) ar |> ignore
+    ar'
 
-///// Tests if all the elements of the array satisfy the given predicate.
-///// (a -> bool) -> a array -> bool
-//inl forall f ar = for' {from=0; near_to=array_length ar; state=true; body = inl {next state i} -> f (ar i) && next state}
+/// Tests if all the elements of the array satisfy the given predicate.
+/// (a -> bool) -> a array -> bool
+forall=inl f ar -> Loop.for' (from:0 near_to: ar.length) (state:true body:inl next: i: -> f (ar i) && next true)
 
-///// Tests if any the element of the array satisfies the given predicate.
-///// (a -> bool) -> a array -> bool
-//inl exists f ar = for' {from=0; near_to=array_length ar; state=false; body = inl {next state i} -> f (ar i) || next state}
+/// Tests if any the element of the array satisfies the given predicate.
+/// (a -> bool) -> a array -> bool
+exists=inl f ar -> Loop.for' (from:0 near_to: ar.length) (state:true body:inl next: i: -> f (ar i) || next false)
 
-//inl sort ar = macro.fs ar [text: "Array.sort "; arg: ar]
-//inl sort_descending ar = macro.fs ar [text: "Array.sortDescending "; arg: ar]
-
+sort=inl ar -> Type macro: ar method: "Array.sort " args: ar
+sort_descending=inl ar -> Type macro: ar method: "Array.sortDescending " args: ar
 ]
     """
     }
