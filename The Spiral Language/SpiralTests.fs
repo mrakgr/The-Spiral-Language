@@ -14,6 +14,7 @@ let run_test_and_store_it_to_stream cfg stream (m: SpiralModule) =
 let output_test_to_temp cfg path test =
     if Directory.Exists <| Path.GetDirectoryName path then 
         let Ok(a,b) | Fail(a,b) = compile cfg test
+        printfn "%A" a
         File.WriteAllText(path,b)
         b
     else failwithf "File %s not found.\nNote to new users: In order to prevent files being made in the middle of nowhere this check was inserted.\nWhat you should do is create a new F# project and point the compiler to a file in that directory instead." path

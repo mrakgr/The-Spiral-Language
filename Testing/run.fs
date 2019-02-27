@@ -1667,7 +1667,7 @@ for {from=0; near_to=n; state={};
                 else ret state
             finally = row
             }
-    finally = ret .none
+    finally = ret.none
     }
     """
     }
@@ -1689,9 +1689,9 @@ let tests =
     loop1; loop2; loop3; loop4
     |]
 
-rewrite_test_cache tests cfg None //(Some(63,64))
-//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) loop4
+//rewrite_test_cache tests cfg None //(Some(63,64))
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) loop4
 //|> printfn "%s"
-//|> ignore
+|> ignore
 
 
