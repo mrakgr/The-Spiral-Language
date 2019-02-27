@@ -1543,7 +1543,7 @@ let tests =
     tuple1;         tuple3; tuple4; tuple5; tuple6; tuple7
     |]
 
-//rewrite_test_cache tests cfg None //(Some(63,64))
+rewrite_test_cache tests cfg None //(Some(63,64))
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) tuple7
 |> printfn "%s"
 |> ignore

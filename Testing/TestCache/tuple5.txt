@@ -1,0 +1,3 @@
+let ((var_1 : int64)) = 5L
+let ((var_2 : int64)) = 7L
+let ((var_3 : int64)) = 9L

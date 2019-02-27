@@ -191,7 +191,6 @@ let case_type' d = function
     | RecUnionT(_,_,key) -> case_type_union' (rect_unbox d key)
     | x -> case_type_union' x
 
-let tyv ty = TyV(T(tag(), ty))
 let tyb = TyList []
 
 let type_non_units x =
@@ -215,8 +214,8 @@ let rec destructure tyv_or_tyt x =
     | MapT l -> TyMap(Map.map (fun _ -> f) l.node)
     | x -> tyv_or_tyt x
    
+let tyv ty = destructure (fun ty -> if type_is_unit ty then TyT ty else TyV(T(tag(), ty))) ty
 let tyt ty = destructure TyT ty
-let type_to_tyv ty = if type_is_unit ty then tyt ty else destructure tyv ty
 
 let push_var x (d: LangEnv) =
     d.env_stack.[d.env_stack_ptr] <- x
@@ -260,7 +259,7 @@ let layout_to_some layout (d: LangEnv) = function
         let x = layout_to_none d x
         let call_args, consed_data = typed_data_to_consed' x
         let ret_ty = (layout,consed_data,call_args.Length > 0) |> layoutt
-        let ret = type_to_tyv ret_ty
+        let ret = tyv ret_ty
         let layout =
             match layout with
             | LayoutStack -> LayoutToStack
@@ -270,7 +269,7 @@ let layout_to_some layout (d: LangEnv) = function
         ret
 
 let push_typedop d op ret_ty =
-    let ret = type_to_tyv ret_ty
+    let ret = tyv ret_ty
     d.seq.Add(TyLet(ret,d.trace,op))
     ret
 
@@ -283,7 +282,7 @@ let push_op (d: LangEnv) op l ret_ty =
     match Map.tryFind key !d.cse with
     | Some x -> x
     | None ->
-        let ret = type_to_tyv ret_ty
+        let ret = tyv ret_ty
         d.seq.Add(TyLet(ret,d.trace,TyOp(op,l)))
         d.cse := Map.add key ret !d.cse
         ret
@@ -377,7 +376,7 @@ let rec partial_eval (d: LangEnv) x =
             | Some v -> ev (push_var v d) on_succ
             | None ->
                 let inline ev_case end_ty' x =
-                    let x = type_to_tyv x
+                    let x = tyv x
                     let d = {d with cse=ref (Map.add rewrite_key x !d.cse)}
                     let seq, end_ty = ev_seq (push_var x d) on_succ
                     match end_ty' with
@@ -480,10 +479,10 @@ let rec partial_eval (d: LangEnv) x =
             match ev d a, ev d b with
             | TyFunction(body,stack_size,env), b ->
                 let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
-                join_point_closure (push_var (type_get b |> type_to_tyv) d) body
+                join_point_closure (push_var (type_get b |> tyv) d) body
             | TyRecFunction(body,stack_size,env) & a, b ->
                 let d = {d with env_global=env; env_stack=Array.zeroCreate stack_size; env_stack_ptr=0}
-                join_point_closure (push_var (type_get b |> type_to_tyv) d |> push_var a) body
+                join_point_closure (push_var (type_get b |> tyv) d |> push_var a) body
             | x,_ -> raise_type_error d <| sprintf "Expected a function in term casting.\nGot: %s" (show_typed_data x)
         // Note: All of the following join points must be wrapped in a function so that their local environment is fresh and all used free vars are in the `env_global`.
         | JoinPointEntryMethod,[|body|] -> 
