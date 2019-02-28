@@ -193,6 +193,8 @@ type Op =
     | IsLit
     | IsPrim
     | IsLayout
+    | IsKeyword
+    | StripKeyword
     | IsBox
     | IsUnion
     | IsRecUnion

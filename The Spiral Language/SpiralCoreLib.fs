@@ -32,6 +32,7 @@ inl Type = [
     name: join: body = !JoinPointEntryType(body(), name, ())
     name: = !RecUnionGetName(name)
     meta: = !RecUnionGetMeta(meta)
+    strip_keyword: x = !StripKeyword(x)
     ]
 
 inl String = [
@@ -54,6 +55,8 @@ inl Is = [
     prim: x = !IsPrim(x)
     /// Returns boolean whether the expression is a layout type.
     layout: x = !IsLayout(x)
+    /// Returns boolean whether the expression is a keyword argument.
+    keyword: x = !IsKeyword(x)
     /// Returns boolean whether the expression is a box.
     box: x = !IsBox(x)
     /// Returns boolean whether the expression is an union type.
@@ -244,9 +247,10 @@ inl (=) a b =
                 Type (eq: a to: b) && a = b
             if Is (runtime_rec_union: a) && Is (runtime_rec_union: b) then join f a b : true
             else f a b
+        | a, b when Is keyword: a -> (Type strip_keyword: a) = (Type strip_keyword: b)
         | _ -> false
-    if Type (eq: a to: b) then a = b
-    else Type (error: "Trying to compare variables of two different types. Got:",a,b)
+    if Type eq: a to: b then a = b
+    else Type error: (msg: "Trying to compare variables of two different types." arg1: a arg2: b)
 
 /// Structural polymorphic inequality.
 inl (<>) a b = (a = b) <> true

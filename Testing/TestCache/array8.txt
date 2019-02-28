@@ -17,8 +17,8 @@ and method_1 ((var_3 : (int64 [])), (var_22 : (int64 [])), (var_17 : int64), (va
         method_1 (var_3, var_22, var_17, var_26, var_28)
     else
         var_23
-and method_2 ((var_4 : int64)) : int64 =
-    var_4
+and method_2 ((var_1 : int64)) : int64 =
+    var_1
 let ((var_3 : (int64 []))) = Array.zeroCreate (System.Convert.ToInt32 4L)
 let ((var_4 : int64)) = 0L
 let () = method_0 (var_3, var_4)

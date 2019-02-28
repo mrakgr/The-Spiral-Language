@@ -1,0 +1,11 @@
+// List
+type SpiralType0 =
+    | SpiralType0_2
+    | SpiralType0_1 of float * SpiralType0
+// List
+and SpiralType3 =
+    | SpiralType3_2
+    | SpiralType3_4 of SpiralType0 * SpiralType3
+let ((var_1 : SpiralType0)) = SpiralType0_1 (1.000000, SpiralType0_1 (2.000000, SpiralType0_1 (3.000000, SpiralType0_1 (4.000000, SpiralType0_2))))
+let ((var_2 : SpiralType0)) = SpiralType0_1 (5.000000, SpiralType0_1 (6.000000, SpiralType0_1 (7.000000, SpiralType0_1 (8.000000, SpiralType0_2))))
+let ((var_3 : SpiralType3)) = SpiralType3_4 (var_1, SpiralType3_4 (var_2, SpiralType3_2))

@@ -843,6 +843,14 @@ let rec partial_eval (d: LangEnv) x =
             match ev d a |> type_get with
             | LayoutT _ -> TyLit (LitBool true)
             | _ -> TyLit (LitBool false)
+        | IsKeyword,[|a|] -> 
+            match ev d a with
+            | TyKeyword _ -> TyLit (LitBool true)
+            | _ -> TyLit (LitBool false)
+        | StripKeyword,[|a|] -> 
+            match ev d a with
+            | TyKeyword(_,l) -> TyList(Array.toList l)
+            | a -> raise_type_error d <| sprintf "Expected a keyword.\nGot: %s" (show_typed_data a)
         | IsBox,[|a|] -> 
             match ev d a with
             | TyBox _ -> TyLit (LitBool true)
