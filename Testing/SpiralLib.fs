@@ -117,7 +117,7 @@ let loop: SpiralModule =
     """
 [
 while: state: body: = join
-    if while state then self while: state: body state: body
+    if while state then self while: state: body state body:
     else state
     : state
 
@@ -547,7 +547,7 @@ let option: SpiralModule =
     code=
     """
 [
-raw: x = some: x \/ .none
+raw: x = (some: x) \/ .none
 some=inl x -> Type box: (some: x) to: (self raw: x)
 none=inl x -> Type box: .none to: (self raw: x)
 ]

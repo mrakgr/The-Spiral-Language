@@ -1254,7 +1254,7 @@ inl rec map f l =
         : List.raw
 
 inl List = List 0.0
-List.nil |> List.cons 3.0 |> List.cons 2.0 |> List.cons 1.0 |> dyn |> map (inl x -> Type convert:x to: 0i32)
+List.nil |> List.cons 3.0 |> List.cons 2.0 |> List.cons 1.0 |> dyn |> map (inl x -> Type type: 0i32 convert: x)
         """
     }
 
@@ -1784,7 +1784,6 @@ Loop
     while: inl {b} -> if b <= 4*1000*1000 then true else false
     state: {sum=dyn 0; a=dyn 1; b=dyn 2}
     body: inl {sum a b} -> {sum=if b % 2 = 0 then sum+b else sum; a=b; b=a+b}
-    }
 |> inl {sum} -> Console writeline: sum
     """
     }
@@ -1800,7 +1799,13 @@ let euler2: SpiralModule =
 // The prime factors of 13195 are 5, 7, 13 and 29.
 // What is the largest prime factor of the number 600851475143 ?
 
-inl sieve_length = Type convert: sqrt 600851475143.0 to: 0
+inl target = 600851475143
+inl sieve_length =
+    Type 
+        type: 0
+        convert:
+            Type type: 0.0 convert: target
+            |> sqrt
 
 inl sieve = Array.init (sieve_length+1) (inl _ -> true)
 Loop.for from:2 to:sieve_length
@@ -1810,14 +1815,14 @@ Loop.for from:2 to:sieve_length
                 body: inl i: -> 
                     sieve set: i to: false
 
-Loop.for' from:sieve_length to:2 by: -1
-    state: Option.none int64
+Loop.for' from_down:sieve_length to:2
+    state: Option.none 0
     body: inl next: state: i: ->
         if sieve i = true && target % i = 0 then Option.some i
         else next state
 |>  function
-    | some: result -> Console writeline: result // 6857
-    | .none -> failwith () "No prime factor found!"
+    | #(some: result) -> Console writeline: result // 6857
+    | #(.none) -> failwith type:() msg:"No prime factor found!"
     """
     }
 
@@ -1838,16 +1843,19 @@ inl reverse_number x =
         state: {x x' = dyn 0}
         body:inl {x x'} -> {x=x/10; x'= x'*10+x%10}
     |> inl {x'} -> x'
+
 inl is_palindrome x = x = reverse_number x
+
 Loop.for from:dyn 100 to:dyn 999 
-    state:{highest_palindrome=dyn 0}
+    state:dyn 0
     body:inl state: i: ->
         Loop.for from:i to:dyn 999
             state:
-            body:inl state:{highest_palindrome} i:j ->
+            body:inl state: i:j ->
                 inl x = i*j
-                if is_palindrome x && highest_palindrome < x then {highest_palindrome=x} else state
-|> inl {highest_palindrome} -> Console writeline: highest_palindrome
+                if is_palindrome x then max x state
+                else state
+|> Console.writeline
     """
     }
 
@@ -1865,10 +1873,10 @@ let euler4: SpiralModule =
 inl primes = 2,3,5,11,13,17,19
 inl non_primes = Tuple (min: 2 max: 20) |> Tuple.filter (Tuple.contains primes >> not)
 inl step = Tuple.foldl (*) 1 primes
-inl int64_maxvalue = Macro type: 0i64 text: "System.Int64.MaxValue"
-Loop.for' from:step to:int64_maxvalue by:step
-    state= -1 
-    body=inl next: state: i: ->
+inl to = Macro type: 0i64 text: "System.Int64.MaxValue"
+Loop.for' from:step to: by:step
+    state: -1 
+    body: inl next: state: i: ->
         if Tuple.forall (inl x -> i % x = 0) non_primes then i
         else next state
 |> Console.writeline
@@ -1893,10 +1901,11 @@ let tests =
     tuple1;         tuple3; tuple4; tuple5; tuple6; tuple7
     loop1; loop2; loop3; loop4
     list1; list2; list3; list4; list5; list6; list7 
+    euler1; euler2; euler3; euler4
     |]
 
 //rewrite_test_cache tests cfg None //(Some(63,64))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) array1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) euler4
 |> printfn "%s"
 |> ignore
 

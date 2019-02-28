@@ -26,7 +26,7 @@ inl Type = [
     /// Raises an exception at the type level. `type_catch` should be used to contain and extract the type within it.
     raise: x = !TypeRaise(x)
     /// Does unchecked conversion for primitives.
-    convert:from to: = !UnsafeConvert(to,from) 
+    type: to convert: from = !UnsafeConvert(to,from) 
     /// The type join point
     name: meta: join: body = !JoinPointEntryType(body(), name, meta)
     name: join: body = !JoinPointEntryType(body(), name, ())
