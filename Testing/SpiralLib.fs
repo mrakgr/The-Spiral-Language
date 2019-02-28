@@ -515,6 +515,7 @@ readline =
         global_method: "System.Console.ReadLine"
         args: ()
 
+write=inl x -> self write: x
 write: args = 
     match args with
     | () -> ()
@@ -524,6 +525,7 @@ write: args =
             global_method: "System.Console.Write"
             args:
 
+writeline=inl x -> self writeline: x
 writeline: args = 
     Macro
         type: ()

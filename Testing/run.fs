@@ -1772,6 +1772,110 @@ a = b
     """
     }
 
+let euler1: SpiralModule =
+    {
+    name="euler1"
+    prerequisites=[loop; console]
+    opens=[]
+    description="Even Fibonacci Numbers."
+    code=
+    """
+Loop 
+    while: inl {b} -> if b <= 4*1000*1000 then true else false
+    state: {sum=dyn 0; a=dyn 1; b=dyn 2}
+    body: inl {sum a b} -> {sum=if b % 2 = 0 then sum+b else sum; a=b; b=a+b}
+    }
+|> inl {sum} -> Console writeline: sum
+    """
+    }
+
+let euler2: SpiralModule =
+    {
+    name="euler2"
+    prerequisites=[array; loop; console; option]
+    opens=[]
+    description="Largest prime factor"
+    code=
+    """
+// The prime factors of 13195 are 5, 7, 13 and 29.
+// What is the largest prime factor of the number 600851475143 ?
+
+inl sieve_length = Type convert: sqrt 600851475143.0 to: 0
+
+inl sieve = Array.init (sieve_length+1) (inl _ -> true)
+Loop.for from:2 to:sieve_length
+    body: inl i: ->
+        if sieve i = true then
+            Loop.for from:i+i to:sieve_length by:i
+                body: inl i: -> 
+                    sieve set: i to: false
+
+Loop.for' from:sieve_length to:2 by: -1
+    state: Option.none int64
+    body: inl next: state: i: ->
+        if sieve i = true && target % i = 0 then Option.some i
+        else next state
+|>  function
+    | some: result -> Console writeline: result // 6857
+    | .none -> failwith () "No prime factor found!"
+    """
+    }
+
+let euler3: SpiralModule =
+    {
+    name="euler3"
+    prerequisites=[array; loop; console]
+    opens=[]
+    description="Largest palindrome product"
+    code=
+    """
+//A palindromic number reads the same both ways. The largest palindrome made from the product of two 2-digit numbers is 9009 = 91 × 99.
+//Find the largest palindrome made from the product of two 3-digit numbers.
+
+inl reverse_number x =
+    Loop 
+        while: inl {x} -> x > 0 
+        state: {x x' = dyn 0}
+        body:inl {x x'} -> {x=x/10; x'= x'*10+x%10}
+    |> inl {x'} -> x'
+inl is_palindrome x = x = reverse_number x
+Loop.for from:dyn 100 to:dyn 999 
+    state:{highest_palindrome=dyn 0}
+    body:inl state: i: ->
+        Loop.for from:i to:dyn 999
+            state:
+            body:inl state:{highest_palindrome} i:j ->
+                inl x = i*j
+                if is_palindrome x && highest_palindrome < x then {highest_palindrome=x} else state
+|> inl {highest_palindrome} -> Console writeline: highest_palindrome
+    """
+    }
+
+let euler4: SpiralModule =
+    {
+    name="euler4"
+    prerequisites=[tuple; loop; console]
+    opens=[]
+    description="Smallest multiple"
+    code=
+    """
+//2520 is the smallest number that can be divided by each of the numbers from 1 to 10 without any remainder.
+//What is the smallest positive number that is evenly divisible by all of the numbers from 1 to 20?
+
+inl primes = 2,3,5,11,13,17,19
+inl non_primes = Tuple (min: 2 max: 20) |> Tuple.filter (Tuple.contains primes >> not)
+inl step = Tuple.foldl (*) 1 primes
+inl int64_maxvalue = Macro type: 0i64 text: "System.Int64.MaxValue"
+Loop.for' from:step to:int64_maxvalue by:step
+    state= -1 
+    body=inl next: state: i: ->
+        if Tuple.forall (inl x -> i % x = 0) non_primes then i
+        else next state
+|> Console.writeline
+    """
+    }
+
+
 
 let tests =
     [|
