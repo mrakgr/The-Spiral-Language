@@ -1672,6 +1672,111 @@ for {from=0; near_to=n; state={};
     """
     }
 
+let list1: SpiralModule =
+    {
+    name="list1"
+    prerequisites=[list]
+    opens=[]
+    description="Do the list constructors work?"
+    code=
+    """
+open List
+cons 1 (cons 2 (singleton 3))
+    """
+    }
+
+let list2: SpiralModule =
+    {
+    name="list2"
+    prerequisites=[tuple; list]
+    opens=[]
+    description="Do the list module folds work?"
+    code=
+    """
+open List
+
+foldl (+) (dyn 0.0) (dyn (empty float64)),
+foldr (+) (dyn (empty float64)) (dyn 0.0f64)
+    """
+    }
+
+let list3: SpiralModule =
+    {
+    name="list3"
+    prerequisites=[tuple; list]
+    opens=[]
+    description="Does the list module concat (and by extension append) work?"
+    code=
+    """
+open List
+
+inl a = cons 3 () |> cons 2 |> cons 1 |> dyn
+inl b = cons 6 () |> cons 5 |> cons 4 |> dyn
+inl c = dyn (cons a (singleton b))
+concat c
+    """
+    }
+
+let list4: SpiralModule =
+    {
+    name="list4"
+    prerequisites=[tuple; list]
+    opens=[]
+    description="Does the list module map work?"
+    code=
+    """
+open List
+
+inl a = cons 3 () |> cons 2 |> cons 1 |> dyn
+
+map ((*) 2) a
+    """
+    }
+
+let list5: SpiralModule =
+    {
+    name="list5"
+    prerequisites=[tuple; list]
+    opens=[]
+    description="Is it possible to make a list of lists?"
+    code=
+    """
+open List
+
+inl a = empty int64 |> dyn
+empty a
+    """
+    }
+
+let list6: SpiralModule =
+    {
+    name="list6"
+    prerequisites=[tuple; list]
+    opens=[]
+    description="Does the list module init work?"
+    code=
+    """
+open List
+
+init 10 (inl x -> 2.2)
+    """
+    }
+
+let list7: SpiralModule =
+    {
+    name="list7"
+    prerequisites=[list]
+    opens=[]
+    description="Does structural polymorphic equality work on recursive datatypes?"
+    code=
+    """
+inl a = List.empty int64 |> dyn
+inl b = List.empty int64 |> dyn
+a = b
+    """
+    }
+
+
 let tests =
     [|
     test1; test2; test3; test4; test5; test6; test7; test8; test9; 
@@ -1682,11 +1787,12 @@ let tests =
     test50; test51; test52; test53; test54; test55; test56; test57; test58; test59; 
     test60; test61; test62; test63; test64; test65; test66; test67; test68; test69
 
-    macro_dotnet1;macro_dotnet2;macro_dotnet3
+    macro_dotnet1; macro_dotnet2; macro_dotnet3
 
     array1; array2; array3; array4; array5; array6; array7; array8
     tuple1;         tuple3; tuple4; tuple5; tuple6; tuple7
     loop1; loop2; loop3; loop4
+    list1; list2; list3; list4; list5; list6; list7 
     |]
 
 //rewrite_test_cache tests cfg None //(Some(63,64))

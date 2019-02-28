@@ -190,13 +190,14 @@ type Op =
     | ErrorType
     | ErrorPatMiss
     | Dynamize
-    | LitIs
-    | PrimIs
-    | LayoutIs
-    | UnionIs
-    | RecUnionIs
-    | RuntimeUnionIs
-    | RuntimeRecUnionIs
+    | IsLit
+    | IsPrim
+    | IsLayout
+    | IsBox
+    | IsUnion
+    | IsRecUnion
+    | IsRuntimeUnion
+    | IsRuntimeRecUnion
 
     // UnOps
     | Neg
@@ -207,7 +208,7 @@ type Op =
     | Log
     | Exp
     | Sqrt
-    | NanIs
+    | IsNan
 
     // Infinity
     | InfinityF64

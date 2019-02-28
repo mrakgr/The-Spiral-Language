@@ -49,21 +49,23 @@ inl String = [
 
 inl Is = [
     /// Returns boolean whether the expression is a literal.
-    lit: x = !LitIs(x)
+    lit: x = !IsLit(x)
     /// Returns boolean whether the expression is a primitive type.
-    prim: x = !PrimIs(x)
+    prim: x = !IsPrim(x)
     /// Returns boolean whether the expression is a layout type.
-    layout: x = !LayoutIs(x)
+    layout: x = !IsLayout(x)
+    /// Returns boolean whether the expression is a box.
+    box: x = !IsBox(x)
     /// Returns boolean whether the expression is an union type.
-    union: x = !UnionIs(x)
+    union: x = !IsUnion(x)
     /// Returns boolean whether the expression is a recursive union type.
-    rec_union: x = !RecUnionIs(x)
+    rec_union: x = !IsRecUnion(x)
     /// Returns boolean whether the expression is a runtime union type.
-    runtime_union: x = !RuntimeUnionIs(x)
+    runtime_union: x = !IsRuntimeUnion(x)
     /// Returns boolean whether the expression is a runtime recursive union type.
-    runtime_rec_union: x = !RuntimeRecUnionIs(x)
+    runtime_rec_union: x = !IsRuntimeRecUnion(x)
     /// Checks whether the float is a nan.
-    nan: x = !NanIs(x)
+    nan: x = !IsNan(x)
     ]
 
 inl Record = [

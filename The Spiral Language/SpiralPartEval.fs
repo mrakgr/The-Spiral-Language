@@ -831,31 +831,35 @@ let rec partial_eval (d: LangEnv) x =
             match ev d a with
             | TyMap l -> Map.count l |> int64 |> LitInt64 |> TyLit
             | r -> raise_type_error d <| sprintf "Expected a record.\nGot: %s" (show_typed_data r)
-        | LitIs,[|a|] -> 
+        | IsLit,[|a|] -> 
             match ev d a with
             | TyLit _ -> TyLit (LitBool true)
             | _ -> TyLit (LitBool false)
-        | PrimIs,[|a|] -> 
+        | IsPrim,[|a|] -> 
             match ev d a |> type_get with
             | PrimT _ -> TyLit (LitBool true)
             | _ -> TyLit (LitBool false)
-        | LayoutIs,[|a|] -> 
+        | IsLayout,[|a|] -> 
             match ev d a |> type_get with
             | LayoutT _ -> TyLit (LitBool true)
             | _ -> TyLit (LitBool false)
-        | UnionIs,[|a|] -> 
+        | IsBox,[|a|] -> 
+            match ev d a with
+            | TyBox _ -> TyLit (LitBool true)
+            | _ -> TyLit (LitBool false)
+        | IsUnion,[|a|] -> 
             match ev d a |> type_get with
             | UnionT _ -> TyLit (LitBool true)
             | _ -> TyLit (LitBool false)
-        | RecUnionIs,[|a|] -> 
+        | IsRecUnion,[|a|] -> 
             match ev d a |> type_get with
             | RecUnionT _ -> TyLit (LitBool true)
             | _ -> TyLit (LitBool false)
-        | RuntimeUnionIs,[|a|] -> 
+        | IsRuntimeUnion,[|a|] -> 
             match ev d a with
             | TyT (UnionT _) | TyV(T(_,UnionT _)) -> TyLit (LitBool true)
             | _ -> TyLit (LitBool false)
-        | RuntimeRecUnionIs,[|a|] -> 
+        | IsRuntimeRecUnion,[|a|] -> 
             match ev d a with
             | TyT (RecUnionT _) | TyV(T(_,RecUnionT _)) -> TyLit (LitBool true)
             | _ -> TyLit (LitBool false)
@@ -925,11 +929,11 @@ let rec partial_eval (d: LangEnv) x =
                     | None -> raise_type_error d <| sprintf "The record does not have the %s field." (keyword_to_string keyword)
                 | b -> raise_type_error d <| sprintf "Expected an unary keyword as the field argument to SetMutableRecord.\nGot: %s" (show_typed_data b)
             | a -> raise_type_error d <| sprintf "Expected a mutable record in SetMutableRecord.\nGot: %s" (show_typed_data a)
-        | NanIs,[|a|] ->
+        | IsNan,[|a|] ->
             match ev d a with
             | TyLit (LitFloat32 x) -> System.Single.IsNaN x |> LitBool |> TyLit
             | TyLit (LitFloat64 x) -> System.Double.IsNaN x |> LitBool |> TyLit
-            | a & TyType (PrimT (Float32T | Float64T)) -> push_op d NanIs a (PrimT BoolT)
+            | a & TyType (PrimT (Float32T | Float64T)) -> push_op d IsNan a (PrimT BoolT)
             | x -> raise_type_error d <| sprintf "Expected a float in NanIs. Got: %s" (show_typed_data x)
 
         // Primitive operations on expressions.

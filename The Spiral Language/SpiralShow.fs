@@ -76,7 +76,7 @@ let show_layout_type = function
 let inline show_keyword show (keyword,l: _[]) =
     if l.Length > 0 then
         let a = (keyword_to_string keyword).Split([|':'|], StringSplitOptions.RemoveEmptyEntries)
-        Array.map2 (fun a l -> String.concat "" [|a;": ";show l|]) a l
+        Array.map2 (fun a l -> String.concat "" [|a;":(";show l;")"|]) a l
         |> String.concat " "
     else
         keyword_to_string keyword

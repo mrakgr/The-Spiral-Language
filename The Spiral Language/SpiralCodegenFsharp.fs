@@ -269,7 +269,7 @@ let rec op (d: CodegenEnv) x =
         | Exp,x -> sprintf "exp%s" (t x)
         | Tanh,x -> sprintf "tanh%s" (t x)
         | Sqrt,x -> sprintf "sqrt%s" (t x)
-        | NanIs,x -> sprintf "isnan%s" (t x)
+        | IsNan,x -> sprintf "isnan%s" (t x)
         | a, b -> raise_codegen_error <| sprintf "Compiler error: Case %A with data %s not implemented." a (show_typed_data b)
 
     | TyIf(cond,on_succ,on_fail) ->

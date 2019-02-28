@@ -418,16 +418,11 @@ type: t = self facade: type !ArrayCreateDotNet(t,1)
 // int -> (int -> a) -> a array
 init=inl size init -> self init: size:
 init: size: =
-    inl ar = 
-        self
-            type: type 
-                inl i = dyn 0 
-                join init i
-            size:
+    inl !dyn i = join init i
+    inl ar = self type: type init 0 size:
 
-    Loop.for
-        (from:0 near_to: size)
-        (body:inl i: -> ar set: i to: join init i)
+    Loop.for from:0 near_to: size
+        body:inl i: -> ar set: i to: init i
 
     ar
 
@@ -537,6 +532,168 @@ writeline: args =
 
 printf=inl a b -> self write: String (format: a args: b)
 printfn=inl a b -> self writeline: String (format: a args: b)
+]
+    """
+    }
+
+let option: SpiralModule =
+    {
+    name="Option"
+    prerequisites=[]
+    opens=[]
+    description="The Option module."
+    code=
+    """
+[
+raw: x = some: x \/ .none
+some=inl x -> Type box: (some: x) to: (self raw: x)
+none=inl x -> Type box: .none to: (self raw: x)
+]
+    """
+    }
+
+let list: SpiralModule =
+    {
+    name="List"
+    prerequisites=[loop; option; tuple]
+    opens=[]
+    description="The List module."
+    code=
+    """
+[
+raw: elem_type =
+    Type 
+        name: "List"
+        meta: elem_type
+        join: inl _ -> .nil \/ cons: elem_type, self (raw: elem_type)
+
+/// Creates an empty list with the given type.
+/// t -> t List
+nil=inl a -> Type box: .nil to: (raw: a)
+
+/// Immutable appends an element to the head of the list.
+/// x -> x List -> x List
+cons=inl a b -> Type box: (cons: a, b) to: (raw: a)
+
+/// Creates a single element list with the given type.
+/// x -> x List
+singleton=inl x -> self.cons x (self.nil x)
+
+/// Creates a list by calling the given generator on each index.
+/// int -> (int -> a) -> a List
+init=inl init size -> self init: size:
+init: size: =
+    inl init !dyn i = join init i
+    inl elem_type = type init 0
+    Loop.for' from:0 to:size
+        state: self.nil elem_type
+        body: inl next: state: i: -> self.cons (init i) (next state)
+
+/// Returns the element type of the list.
+/// a List -> a type
+elem_type l = Type meta: l
+
+/// Builds a new list whose elements are the results of applying the given function to each of the elements of the list.
+/// (a List -> b List) -> a List -> b List
+map=inl f l -> self map: f value: l
+map: f value: l ->
+    inl recurse value = self map: f value:
+    inl body type: t map: f = 
+        match l with 
+        | #(cons: x,xs) -> self.cons (f x) (recurse xs)
+        | _ -> self.nil t
+
+    if Is box: l then
+        inl t = type self.elem_type l |> f
+        body type: t map: f
+    else
+        inl f (!dyn x) = join f x
+        inl t = type self.elem_type l |> f
+        join (body type: t map: f) : t
+        
+default_finally: finally ->
+    inl f x = Type eq: finally to: x
+    if f id || f ignore then finally else (inl state -> join finally state)
+
+/// The CPS'd version of foldl.
+foldl: f state: value: l finally: ->
+    inl recurse state: value: = self foldl: f state: value: finally:
+    inl body finally: =
+        match value with
+        | #(cons: x, xs) -> f next: (inl state -> recurse state: value: xs) state: value: x
+        | _ -> finally state
+
+    if Is box: l then
+        body finally:
+    else
+        inl finally = self default_finally: finally
+        join (body finally:) : finally state
+
+/// Applies a function f to each element of the collection, threading an accumulator argument through the computation. 
+/// The fold function takes the second argument, and applies the function f to it and the first element of the list. 
+/// Then, it feeds this result into the function f along with the second element, and so on. It returns the final result. 
+/// If the input function is f and the elements are i0...iN, then this function computes f (... (f s i0) i1 ...) iN.
+/// (s -> a -> s) -> s -> a List -> s
+foldl=inl fold state value -> self fold: (inl next: state: value: -> next (fold state value)) state: value: finally: id
+
+/// Applies a function to each element of the collection, threading an accumulator argument through the computation. 
+/// If the input function is f and the elements are i0...iN, then this function computes f i0 (...(f iN s)).
+/// (a -> s -> s) -> a List -> s -> s
+foldr=inl f value state -> self foldr: f state: value:
+foldr: f state: value: =
+    inl body _ =
+        match value with
+        | #(cons: x, xs) -> f x (self foldr: f state: value: xs)
+        | _ -> state
+
+    if Is box: value then body()
+    else join body() : state
+
+/// Returns the first element of the list.
+/// a List -> some:(a -> a) none:(a type -> a) -> a
+head'=inl l some: none: ->
+    inl t = self.elem_type l
+    match l with
+    | #(cons: x, xs) -> some x
+    | _ -> none t
+
+/// Returns the list without the first element.
+/// a List -> some:(a List -> a List) none:(a List type -> a List) -> a List
+tail'=inl l some: none: ->
+    inl t = self.elem_type l
+    match l with
+    | #(cons: x, xs) -> some xs
+    | _ -> none (self raw: t)
+
+/// Returns the last element of the list.
+/// a List -> some:(a -> a) none:(a type -> a) -> a
+last'=inl l some: none: ->
+    inl t = self.elem_type l
+    inl loop = function
+        | #(cons: x, xs) -> self.last' xs some: none: some x
+        | _ -> none t
+    if Is box: l then loop l
+    else join loop l : none t
+
+/// Returns the first element of the list.
+/// a List -> a Option
+head=inl l -> head' l some: Option.some none: Option.none
+
+/// Returns the list without the first element.
+/// a List -> a List Option
+tail=inl l -> tail' l some: Option.some none: Option.none
+
+/// Returns the last element of the list.
+/// a List -> a Option
+last=inl l -> last' l some:const << Option.some none: Option.none
+
+/// Returns a new list that contains the elements of the first list followed by elements of the second.
+/// a List -> a List -> a List
+append = self.foldr self.cons
+
+/// Returns a new list that contains the elements of each list in order.
+/// a List List -> a List
+concat=inl l -> foldr append l (self.nil (self.elem_type t |> self.elem_type)
 ]
     """
     }
