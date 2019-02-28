@@ -25,7 +25,6 @@
     - [Macros](#macros)
 - [Bug fixes](#bug-fixes)
 - [Library changes](#library-changes)
-- [Future plans](#future-plans)
 
 <!-- /TOC -->
 
@@ -853,59 +852,3 @@ Generally, all the primitive arithmetic operations in v0.09 do unsound optimizat
 Date: 2/24/2019
 
 All the changes to the language will necessitate a full rewrite of all the libraries. I'll try to at least go through the standard library tests in the next week or so.
-
-# Future plans
-
-(Work in progress)
-
-Date: 2/24/2019
-
-Since April 2018 I've had a good whack at deep reinforcement learning. Despite all the highly publicized successes by DeepMind and OpenAI, I've found that to be mostly hype. It is a curious thing. Deep learning does seem to be capable of conquering enormously complicated games like Starcraft, but in terms of robustness I have found it to be far inferior to simple tabular methods on toy tasks. And literally nothing of the recent Deepmind research is of any use to me. Those victories have been made by tacking on complexity, not by resolving the fundamental issues with the current crop of RL algorithms.
-
-At this point I've started looking for alternatives to backpropagation.
-
-I've also had quite a bit of time to get familiar with actually programming in Spiral. In short, the language itself is great, but the type errors are so damn nasty. They just take so long to get through, about 10x more than they would in F#. Due to its high level nature, I've found that Spiral programs do work after they compile, but the effort to get to that point needs to be brought lower.
-
-When I made the design for Spiral I praised it to high heaven. I was right that Spiral is more expressive than any extensionally typed language out there, and that its inlining capabilities give it unparalleled potential for performance and integration. But coming to an understanding of the limits of static typing made me realize the hubris of thinking that it might reach the expressiveness dynamically typed languages with enough programming cleverness.
-
-And I could not even imagine how tedious dealing with type errors could get - now that I see that there is a definite benefit to extensional typing. During the current rewrite of Spiral I must have written code for over 3 weeks and gone through thousands of lines of code without running the program even once. No way would that style of programming be viable in a language like Spiral. Extensional typing might be both less expressive and performant than intensional one, but it has scaling advantages that I've under appreciated.
-
-Putting all of this together, I think that Spiral after all is not the best thing to program with in isolation. It is small, fast and powerful, but needs to be used with care. It is a power tool.
-
-The 9 months or so which I've tried to make deep RL work are not something I want to repeat - the effort needs to be a lot better next time. Every single attempt was the same - I'd study, implement, debug and always - always without fail I'd just watch the cost go down from the command line.
-
-Looking forward into my future I've come to the conclusion that I do not want every single of my creations to be a command line application. I actually deeply appreciate graphical interfaces and the command line is hell for me. I wish Spiral had an IDE.
-
-This is an old story by now. In 2016 I tried making a poker game. On the command line it was roughly 300-400 lines of code in total. Adding a GUI onto that made it 1500 which I thought was insane for a single window application. I remember one day thinking exactly that and poring through the code looking for what to cut and I could not find anything.
-
-Nonetheless, interactivity should not have such a high price. Back then I was satisfied to make that my core value and leave it for the future me to deal with when all the pieces are in place. That time has nearly come.
-
-I really regret that I did all my deep learning experiments from the command line. Watching the cost go down is like watching stock prices move - in some ways it is mesmerizing, but on the other hand it is foolish. Especially so with machine learning.
-
-ML algorithms are not something that is understood at the moment. They cannot be reasoned through beyond the most superficial. They are essentially alien systems. Yet, for nine months I was trying to study them without ever really attempting to open them up. If that is not stupid then what is? Should I continue like this, then chance of victory will literally be 0%. They might be alien, but unlike stocks, they are right there in my computer!
-
-In my hurry, I've made the mistake of rushing into a dark room and stumbling all over the furniture. I am just about ready to start looking for the light switch.
-
-In January, I've seriously considered Python + PyTorch for the sake of breaking the command line dependency, but after looking into it I've realized that Python is not particularly interactive as a language. All the PyTorch examples that I've seen had their plotting windows frozen, and the Tkinter GUI example would hang the interpreter. Workarounds for that would require messing with callbacks, the most poisonous thing possible for development experience.
-
-The single language that most meets the graphical interactivity criteria at this point would be [Pharo](https://pharo.org/) which is a Smalltalk dialect. In it is trivial to create and play around with windows and widgets in it. Its [interactive development](https://youtu.be/baxtyeFVn3w) experience is definitely in a league of its own.
-
-Spiral is a pretty small language. I am thinking that it would be easier to make Pharo fast by connecting it with Spiral than it would be to make Python interactive. Spiral's compact design actually makes it an ideal fit for a library language. So this attempt should be made.
-
-Since it took me 3.5 weeks to essentially redo the language starting from a base, I'd say that the full version in a different language would be 2-3 months of work. It would be quite doable to do this, though I have not yet decided that I want to do it in Pharo just yet. I think that writing an IDE for Spiral would be much easier in Pharo than in any other language, but I am anxious about trying to tackle the task of rewriting Spiral in a dynamic language without pattern matching.
-
-Not that I have any have any experience in that language either. I just decided I want to do it.
-
-After I finish the tests for the standard library which should take me another week or two, I just want to forget about Spiral for a bit. I've labored hard over the last month to make the new design operational and I want to take a break from the grind of it. I want to finish v0.1 of Spiral so that it serves as a reference to me and the others on this path, but I do not want to program in it for the reasons that I did previously. At the moment I just want my vision of Spiral to be brought to completion.
-
-Since I might restart Spiral from scratch yet again, I won't bother redoing the `Learning`, `Cuda` nor the `Games` modules during this testing run.
-
-Once I am done with v0.1, I am going to make a different attempt. I once made fun of the authors of Libratus for having to use a supercomputer to beat those poker pros, but last year they [delivered](https://arxiv.org/abs/1805.08195) and improved their [counterfactual regret](http://modelai.gettysburg.edu/2013/cfr/cfr.pdf) minization based algorithm to the point where it can be used on desktop machines. I respect this and will honor them by studying CFR and implementing it.
-
-I have an image in my mind of how I want things to go. I will implement CFR in Pharo and have it work well. Then I will implement it in Spiral and speed it up by 30x. Then I will implement both it and the poker game on the GPU in Spiral and speed it up another 30x. At every point in this process, the game, Spiral, and other tools will be graphical and nothing will be done from the command line.
-
-Then after that I will get back to machine learning and this time make the ML library not just fast, but the closest it can get to being a direct jack into the user's brain. Eventually, ML is going to get good and I will have my battle station from which to wage war from. I hope that in a few years I can elevate my programming skill up to a completely new level. 
-
-Programmers improve by mastering new concepts, but that goes hand in hand with mastering new tools.
-
-Improvement cannot happen without one or the other.
