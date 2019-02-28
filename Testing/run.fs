@@ -1148,37 +1148,11 @@ Macro
 let macro_dotnet2: SpiralModule =
     {
     name="macro_dotnet2"
-    prerequisites=[macro]
+    prerequisites=[string_builder]
     opens=[]
     description="Does the StringBuilder work?"
     code=
     """
-inl StringBuilder x = 
-    inl x =
-        Macro
-            class: "System.Text.StringBuilder"
-            args: x
-    [
-    Append: a = 
-        Macro
-            type: x
-            class: x
-            method: "Append"
-            args: a
-    AppendLine: a = 
-        Macro
-            type: x
-            class: x
-            method: "AppendLine"
-            args: a
-    ToString =
-        Macro
-            type: ""
-            class: x
-            method: "ToString"
-            args: ()
-    ]
-
 inl b = StringBuilder("Qwe", 128i32)
 inl _ = b Append: 123
 inl _ = b AppendLine: ()

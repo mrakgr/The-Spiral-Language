@@ -15,6 +15,7 @@ inl Type = [
     split: x = !TypeSplit(x)
     /// Boxes a type.
     box: a to: = !TypeBox(to,a)
+    type: to box: a = !TypeBox(to,a) // For symmetry with the Macro and the convert functions
     /// Cast a function to the term level.
     term_cast: a with: b = !TermCast(a,b)
     /// Returns boolean whether the two expressions are equal in their types.
