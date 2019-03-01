@@ -1,5 +1,3 @@
-(Work in progress)
-
 <!-- TOC -->
 
 - [Motivation](#motivation)
@@ -25,6 +23,7 @@
     - [Macros](#macros)
 - [Bug fixes](#bug-fixes)
 - [Library changes](#library-changes)
+- [Current Status](#current-status)
 
 <!-- /TOC -->
 
@@ -91,6 +90,12 @@ add
     left: left
     right: right
 ```
+
+Keyword arguments are not just for speed. Unifying the argument with the method name in objects is a significant improvement over the C calling style anti-pattern. It makes the code much more readable elsewhere where they are used, and mentally it reduces the amount of book keeping needed by the brain.
+
+After using them for only a week now, I've come to the conclusion that the style of using partially applied functions that I've imported into Spiral from F# is an anti-pattern here. Partial application is just fine in F# as one can just hover the mouse of the variable and get instant feedback at all times, but in Spiral such a style quickly become untenable. It is just too easy to miss an argument and get unreadable gibberish in the output. Even worse, refactoring becomes much harder.
+
+This latest addition to the language is simple, and yet it is a wonderful thing. It should have been here from the start.
 
 ## Objects
 
@@ -843,12 +848,28 @@ In Spiral, macros are used for interop and not abstraction. They are awkward, bu
 
 # Bug fixes
 
-Generally, all the primitive arithmetic operations in v0.09 do unsound optimizations in the presence of floats. That has been fixed. Furthermore the patterns have been fixed.
+Generally, all the primitive arithmetic operations in v0.09 do unsound optimizations in the presence of floats. That has been fixed. Furthermore the pattern issues as mention in the manual have been fixed.
 
 # Library changes
-
-(Work in progress)
 
 Date: 2/24/2019
 
 All the changes to the language will necessitate a full rewrite of all the libraries. I'll try to at least go through the standard library tests in the next week or so.
+
+# Current Status
+
+Date: 3/1/2019
+
+Basic testing - done.
+
+Having been put through a full week of testing the `v0.1` is far from battle ready, but it works well for the things I tried right now. Going by past experience I'd say that the language implementation should go through at least two months of intense use before I could proclaim it to be sound. Just one week is nowhere enough.
+
+I am fairly certain that any bugs that are still left in the implementation won't be hard to fix for myself, but I could not say the same for the users. Nonetheless, it should serve well as a reference and whatever errors are left should be minor. Given the sheer amount of redesign that Spiral has undergone in February, my sense is that the implementation this time is remarkably good. Compared to the hardship of 2017, this was like a swim in a pool.
+
+At this point rather than try to retrofit those old parser tests, it would be better to just kick them out and try Spiral on a real project.
+
+As per plan, I will cease development of Spiral for a while in order to study CFR and workings of VMs. I had the insight that if I really want great interactive tooling, it is not enough to have a language - actually having a VM to provide such services is needed and .NET is really far short of my needs. As it was the most impressive in this area I've picked Pharo as my study target.
+
+I am not sure when it will be, but `v0.11` of Spiral will have much more in the way of interactivity and will probably be fused to some larger language. `v0.1` is the preliminary step in breaking the command line addiction and I have a lot of conviction about the necessity of that.
+
+Though I will be leaving, I doubt I will be doing everything in Pharo. Most likely I will try making CFR agents in Spiral as well and play with the two languages in tandem. I'll take that as an opportunity to get more of the libraries back online and do more thorough testing.
