@@ -59,16 +59,17 @@
     <Content Include="packages.config" />
     <Compile Include="SpiralLib.fs" />
     <Compile Include="run.fs" />
-    <Content Include="extern_tests.txt" />
-    <Content Include="array_tests.txt" />
-    <Content Include="tuple_tests.txt" />
-    <Content Include="list_tests.txt" />
-    <Content Include="tensor_tests.txt" />
-    <Content Include="aux_tests.txt" />
-    <Content Include="loop_tests.txt" />
-    <Content Include="parsing_tests.txt" />
-    <Content Include="euler_tests.txt" />
-    <Content Include="hacker_rank_tests.txt" />
+    <Content Include="old tests\parsing.txt" />
+    <Content Include="old tests\extern_tests.txt" />
+    <Content Include="old tests\array_tests.txt" />
+    <Content Include="old tests\tuple_tests.txt" />
+    <Content Include="old tests\list_tests.txt" />
+    <Content Include="old tests\tensor_tests.txt" />
+    <Content Include="old tests\aux_tests.txt" />
+    <Content Include="old tests\loop_tests.txt" />
+    <Content Include="old tests\parsing_tests.txt" />
+    <Content Include="old tests\euler_tests.txt" />
+    <Content Include="old tests\hacker_rank_tests.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core">
