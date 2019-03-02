@@ -65,7 +65,8 @@ let train sum iterations =
         let regret = Array.map (fun a -> utility (a, otherAction) - utility(myAction, otherAction)) actions
         updateSum sum.regret regret
 
-let sum = { 
+let sum = 
+    { 
     regret = Array.replicate actions.Length 0.0
     strategy = Array.replicate actions.Length 0.0
     }
@@ -74,3 +75,4 @@ train sum 1000000
 
 let avgStrategy = getAverageStrategy sum.strategy
 Array.iter2 (printfn "%A = %f") actions avgStrategy
+
