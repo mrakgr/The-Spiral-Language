@@ -1,24 +1,23 @@
 ﻿// The RPS example from the `An Introduction to Counterfactual Regret Minimization` paper.
 type RPS =
-    | Rock=0
-    | Paper=1
-    | Scissors=2
+    | Rock
+    | Paper
+    | Scissors
 
 let rng = System.Random()
-let actions = [|RPS.Rock; RPS.Paper; RPS.Scissors|]
+let actions = [|Rock; Paper; Scissors|]
 let opp_strategy = [|0.4;0.3;0.3|]
 
 let utility = function
-    | RPS.Rock, RPS.Rock -> 0.0
-    | RPS.Paper, RPS.Paper -> 0.0
-    | RPS.Scissors, RPS.Scissors -> 0.0
-    | RPS.Paper, RPS.Rock -> 1.0
-    | RPS.Rock, RPS.Paper -> -1.0
-    | RPS.Rock, RPS.Scissors -> 1.0
-    | RPS.Scissors, RPS.Rock -> -1.0
-    | RPS.Scissors, RPS.Paper -> 1.0
-    | RPS.Paper, RPS.Scissors -> -1.0
-    | _ -> failwith "impossible"
+    | Rock, Rock -> 0.0
+    | Paper, Paper -> 0.0
+    | Scissors, Scissors -> 0.0
+    | Paper, Rock -> 1.0
+    | Rock, Paper -> -1.0
+    | Rock, Scissors -> 1.0
+    | Scissors, Rock -> -1.0
+    | Scissors, Paper -> 1.0
+    | Paper, Scissors -> -1.0
 
 type Regret = float[]
 
@@ -49,7 +48,7 @@ let getAction (strategy: Regret) =
             if r < cumulativeProbability then actions.[a]
             else loop (a+1) cumulativeProbability
         else 
-            actions.[a]
+            failwith "impossible"
     loop 0 0.0
 
 let getAverageStrategy (sum: Regret) =
