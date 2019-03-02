@@ -58,10 +58,10 @@
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
-    <None Include="Script1.fsx" />
     <None Include="Script2.fsx" />
     <Compile Include="LearningModule.fs" />
     <Compile Include="LearningTests.fs" />
+    <None Include="rps.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
@@ -82,6 +82,11 @@
     <ProjectReference Include="..\Cuda\Cuda.fsproj">
       <Name>Cuda</Name>
       <Project>{65203654-5ef9-4ce1-a56b-0eba11ff03a0}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\Testing\Testing.fsproj">
+      <Name>Testing</Name>
+      <Project>{f7cc4d88-0e20-4395-9ffc-dc349c92b00d}</Project>
       <Private>True</Private>
     </ProjectReference>
     <ProjectReference Include="..\The Spiral Language\The Spiral Language.fsproj">
