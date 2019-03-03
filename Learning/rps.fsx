@@ -74,3 +74,4 @@ train sum 1000000
 
 let avgStrategy = getAverageStrategy sum.strategy
 Array.iter2 (printfn "%A = %f") actions avgStrategy
+
