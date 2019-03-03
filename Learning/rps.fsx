@@ -29,12 +29,12 @@ type Sum =
     
 let normalize normalizingSum strategy = if normalizingSum > 0.0 then strategy / normalizingSum else 1.0 / float actions.Length
 
-let getStrategy sum =
+let strategy regret =
     let strategy, normalizingSum =
         Array.mapFold (fun s x ->
             let strategy = max x 0.0
             strategy, strategy + s
-            ) 0.0 sum.regret
+            ) 0.0 regret
 
     Array.map (normalize normalizingSum) strategy
 
@@ -57,7 +57,7 @@ let getAverageStrategy (sum: Regret) =
 
 let train sum iterations =
     for i=1 to iterations do
-        let strategy = getStrategy sum
+        let strategy = strategy sum.regret
         updateSum sum.strategy strategy
         let myAction = getAction strategy
         let otherAction = getAction opp_strategy
