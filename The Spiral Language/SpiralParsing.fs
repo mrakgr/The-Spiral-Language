@@ -342,21 +342,6 @@ let rec expressions expr d =
             | true, op' -> Ok(Types.op op' (loop b))
             | false, _ -> d.FailWith(InbuiltOpNotFound a)
 
-    let case_parser_macro = 
-        inbuilt_op_core unary_two >>= fun a d ->
-            let settings = d.settings
-            let f x = Ok(LitString x |> lit)
-            match a with
-            | "CubPath" -> f settings.cub_path
-            | "CudaPath" -> f settings.cuda_path
-            | "CudaNVCCOptions" -> f settings.cuda_nvcc_options
-            | "VSPath" -> f settings.vs_path
-            | "VSPathVcvars" -> f settings.vs_path_vcvars
-            | "VcvarsArgs" -> f settings.vcvars_args
-            | "VSPathCL" -> f settings.vs_path_cl
-            | "VSPathInclude" -> f settings.vs_path_include
-            | a -> d.FailWith(ParserMacroNotFound a)
-
     let case_keyword_unary = keyword_unary |>> Types.keyword_unary
     let case_keyword_message s =
         if s.keyword_line <> line s then
@@ -373,7 +358,7 @@ let rec expressions expr d =
     case_lit; case_var; case_join_point; case_type; case_keyword_unary; case_keyword_message
     case_typecase; case_typeinl; case_rounds; case_record; case_object
     case_if_then_else; case_inl_pat_list_expr
-    case_inbuilt_op; case_parser_macro
+    case_inbuilt_op
     case_cuda; case_type_catch
     |] |> choice <| d
 
@@ -387,7 +372,7 @@ let parser d =
 
 open FParsec
    
-let parse settings (m: SpiralModule) =
+let parse (m: SpiralModule) =
     match runParserOnString tokenize m "" m.code with
     | Failure(x,_,_) -> Fail x
     | Success(l,_,_) ->
@@ -399,7 +384,6 @@ let parse settings (m: SpiralModule) =
             module_=m
             semicolon_line= -1
             keyword_line= -1
-            settings=settings
             }
         let fail (x: (SpiralToken * ParserErrors) list) = 
             let strb = StringBuilder()

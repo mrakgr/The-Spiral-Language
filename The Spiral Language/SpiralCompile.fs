@@ -6,6 +6,10 @@ open Spiral.Codegen
 open System.Collections.Generic
 open System.Diagnostics
 open System
+open System.Runtime.CompilerServices
+
+// Globals
+let prepass_dict = ConditionalWeakTable()
 
 type Timings =
     {
@@ -78,11 +82,13 @@ let module_open (env: ModulePrepassEnv) opens =
 
 let module_let (env: ModulePrepassEnv) (m: SpiralModule) =
     let expr, free_vars, stack_size =
-        match timeit env.timing.parse (Parsing.parse env.settings) m with
-        | Ok x -> x
-        | Fail x -> raise_compile_error x
-        //|> fun x -> printfn "%A" x; x
-        |> timeit env.timing.prepass Prepass.prepass
+        memoize' prepass_dict (fun m -> 
+            match timeit env.timing.parse Parsing.parse m with
+            | Ok x -> x
+            | Fail x -> raise_compile_error x
+            //|> fun x -> printfn "%A" x; x
+            |> timeit env.timing.prepass Prepass.prepass
+            ) m
     let module_ =
         let env = module_open env m.opens
         let unbound_variables =

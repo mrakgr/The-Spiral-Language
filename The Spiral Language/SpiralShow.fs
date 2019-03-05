@@ -223,12 +223,11 @@ let show_parser_error = function
     | StatementLastInBlock -> "A block requires an expression in last position."
     | InvalidSemicolon -> "Invalid syntax."
     | InbuiltOpNotFound x -> sprintf "`%s` not found among the inbuilt ops." x
-    | ParserMacroNotFound x -> sprintf "`%s` not found among the available parser macros." x
     | UnexpectedEof -> "Unexpected end of file."
     
 let is_expected = function
     | StatementLastInBlock | InvalidSemicolon | UnexpectedEof
-    | InbuiltOpNotFound _ | ParserMacroNotFound _ -> false
+    | InbuiltOpNotFound _ -> false
     | _ -> true
 
 let show_parser_error_list x = 

@@ -52,8 +52,8 @@ and method_5 ((var_4 : (int64 [])), (var_5 : int64)) : unit =
         method_5 (var_4, var_7)
     else
         ()
-and method_6 ((var_2 : int64)) : int64 =
-    var_2
+and method_6 ((var_1 : int64)) : int64 =
+    var_1
 let ((var_10 : ((int64 []) []))) = Array.zeroCreate (System.Convert.ToInt32 4L)
 let ((var_11 : int64)) = 0L
 let () = method_0 (var_10, var_11)

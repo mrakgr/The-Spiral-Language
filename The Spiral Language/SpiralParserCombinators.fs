@@ -18,7 +18,6 @@ type ParserErrors =
     | StatementLastInBlock
     | InvalidSemicolon
     | InbuiltOpNotFound of string
-    | ParserMacroNotFound of string
     | UnexpectedEof
 
 type ParserEnv =
@@ -28,7 +27,6 @@ type ParserEnv =
     module_: SpiralModule
     semicolon_line: int
     keyword_line: int
-    settings: SpiralCompilerSettings
     }
 
     member d.Index = d.i.contents

@@ -14,7 +14,7 @@ open System.Diagnostics
 open Spiral.Types
 open Spiral.Lib
 
-let cfg = Spiral.Types.cfg_testing
+let cfg = Spiral.Types.cfg_default
 
 let test1: SpiralModule =
     {
@@ -1892,7 +1892,7 @@ let tests =
     euler1; euler2; euler3; euler4
     |]
 
-//rewrite_test_cache tests cfg None //(Some(63,64))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test70
-|> printfn "%s"
-|> ignore
+rewrite_test_cache tests cfg None //(Some(63,64))
+//output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) array6
+//|> printfn "%s"
+//|> ignore

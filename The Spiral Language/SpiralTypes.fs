@@ -455,41 +455,19 @@ let inline memoize (memo_dict: Dictionary<_,_>) f k =
 let cuda_kernels_name = "cuda_kernels"
 
 type SpiralCompilerSettings = {
-    cub_path : string
-    cuda_path : string
-    cuda_nvcc_options : string
-    vs_path : string
-    vs_path_vcvars : string
-    vcvars_args : string
-    vs_path_cl : string
-    vs_path_include : string
-    cuda_includes : string list
     trace_length : int // The length of the error messages.
-    cuda_assert_enabled : bool // Enables the bounds checking in Cuda kernels. Off by default.
     filter_list : string list // List of modules to be ignored in the trace.
     }
 
 /// Here are the paths on my machine.
 let cfg_default = {
-    cub_path = "C:/cub-1.7.4"
-    cuda_path = "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v9.0"
-    cuda_nvcc_options = "-gencode=arch=compute_52,code=\\\"sm_52,compute_52\\\""
-    vs_path = "C:/Program Files (x86)/Microsoft Visual Studio/2017/Community"
-    vs_path_vcvars = "VC/Auxiliary/Build/vcvarsall.bat"
-    vcvars_args = " x64 -vcvars_ver=14.11"
-    vs_path_cl = "VC/Tools/MSVC/14.11.25503/bin/Hostx64/x64"
-    vs_path_include = "VC/Tools/MSVC/14.11.25503/include"
-    cuda_includes = ["cub/cub.cuh"]
-    trace_length = 40
-    cuda_assert_enabled = false
+    trace_length = 20
     filter_list = 
         [
         //"Core"; "Option"; "Lazy"; "Tuple"; "Liple"; "Loops"; "Extern"; "Array"; "List"; "Parsing"; "Console"
         //"Queue"; "Struct"; "Tensor"; "View"; "ViewR"; "Object"; "Cuda"; "Random"; "Math"
         ]
     }
-
-let cfg_testing = {cfg_default with cuda_includes=[]; trace_length=20}
 
 type LC = {
     line : int
