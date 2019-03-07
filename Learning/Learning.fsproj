@@ -58,10 +58,10 @@
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
-    <None Include="Script2.fsx" />
     <Compile Include="LearningModule.fs" />
     <Compile Include="LearningTests.fs" />
-    <None Include="rps.fsx" />
+    <None Include="CFR\rps.fsx" />
+    <None Include="CFR\rps_v2.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
