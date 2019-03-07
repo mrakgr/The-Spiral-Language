@@ -1,0 +1,565 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Google.DataTable.Net.Wrapper</name>
+    </assembly>
+    <members>
+        <member name="T:Google.DataTable.Net.Wrapper.Cell">
+            <summary>
+            Each cell is an object containing an actual value of the column type, 
+            plus an optional string-formatted version of the value that you provide. 
+            
+            <example>For example: a numeric column might be assigned the value 7 
+            and the formatted value "seven". 
+            If a formatted value is supplied, a chart will use the actual value for 
+            calculations and rendering, but might show the formatted value where appropriate, 
+            for example if the user hovers over a point. Each cell also has an optional 
+            map of arbitrary name/value pairs.
+            </example>
+            </summary>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.IPropertyMap.AddProperty(Google.DataTable.Net.Wrapper.Property)">
+            <summary>
+            Adds a new property to the list of properties.
+            </summary>
+            <param name="p"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.IPropertyMap.RemoveProperty(Google.DataTable.Net.Wrapper.Property)">
+            <summary>
+            Removes a property from the Property Map
+            </summary>
+            <param name="p"></param>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.IPropertyMap.RemoveProperty(System.Int32)">
+            <summary>
+            Removes a property from the Property Map by an index.
+            </summary>
+            <param name="index"></param>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.IPropertyMap.PropertyMap">
+            <summary>
+            Returns a list of currently assigned properties to the Cell
+            </summary>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Cell.#ctor">
+            <summary>
+            Default constructor
+            </summary>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Cell.#ctor(System.Object)">
+            <summary>
+            Constructor that accepts a value
+            </summary>
+            <param name="value"></param>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Cell.#ctor(System.Object,System.String)">
+            <summary>
+            Constructor that accepts a value and formatted properties.
+            </summary>
+            <param name="value"></param>
+            <param name="formatted"></param>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Cell.AddProperty(Google.DataTable.Net.Wrapper.Property)">
+            <summary>
+            Adds a new property to the list of properties.
+            </summary>
+            <param name="p"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Cell.RemoveProperty(Google.DataTable.Net.Wrapper.Property)">
+            <summary>
+            Removes a property from the Property Map
+            </summary>
+            <param name="p"></param>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Cell.RemoveProperty(System.Int32)">
+            <summary>
+            Removes a property from the Property Map by an index.
+            </summary>
+            <param name="index"></param>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Cell.GetFormattedValue(Google.DataTable.Net.Wrapper.ColumnType,System.Object)">
+            <summary>
+            Returns the value formated depending on the object type.
+            </summary>
+            <param name="columnType"></param>
+            <param name="value"></param>
+            <returns></returns>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.Cell.ColumnType">
+            <summary>
+            Column type represents the type of value that the current cell holds.
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.Cell.Value">
+            <summary>
+             [Optional] The cell value. The data ColumnType should match the column data ColumnType.
+             If null, the whole object should be empty and have neither v nor f properties.
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.Cell.Formatted">
+            <summary>
+            [Optional] A string version of the v value, formatted for display. 
+             The values should match, so if you specify Date(2008, 0, 1) for v, 
+             you should specify "January 1, 2008" or some such string for this property. 
+             This value is not checked against the v value. The visualization will not use this value 
+             for calculation, only as a label for display. If omitted, a string version of v will be used.       
+             </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.Cell.PropertyMap">
+            <summary>
+            Returns a list of currently assigned properties to the Cell
+            </summary>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Column.GetJson(System.IO.StreamWriter)">
+            <summary>
+            Returns the Json string as expected by the Google Api
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Column.AddProperty(Google.DataTable.Net.Wrapper.Property)">
+            <summary>
+            Adds a new property to the list of properties.
+            </summary>
+            <param name="p"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Column.RemoveProperty(Google.DataTable.Net.Wrapper.Property)">
+            <summary>
+            Removes a property from the Property Map
+            </summary>
+            <param name="p"></param>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Column.RemoveProperty(System.Int32)">
+            <summary>
+            Removes a property from the Property Map by an index.
+            </summary>
+            <param name="index"></param>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.Column.Id">
+            <summary>
+            id [Optional] String ID of the column. Must be unique in the table. 
+            Use basic alphanumeric characters, so the host page does not require 
+            fancy escapes to access the column in JavaScript. Be careful not to 
+            choose a JavaScript keyword. Example: id:'col_1'
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.Column.Label">
+            <summary>
+            label [Optional] String value that some visualizations display for this column. 
+            <example>Example: label:'Height'</example>
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.Column.ColumnType">
+            <summary>
+            ColumnType [Required] Data ColumnType of the data in the column. 
+            Supports the following string values (examples include the v: property, described later):
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.Column.Role">
+            <summary>        
+            A column role describes the purpose of the data in that column: 
+            for example, a column might hold data describing tooltip text, 
+            data point annotations, or uncertainty indicators.
+            </summary>
+            <remarks>
+            More info about the role can be read here
+            https://developers.google.com/chart/interactive/docs/roles
+            </remarks>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.Column.Pattern">
+            <summary>
+            pattern [Optional] String pattern that was used by a data source 
+            to format numeric, date, or time column values. 
+            This is for reference only; you probably won't need to read 
+            the pattern, and it isn't required to exist. 
+            The Google Visualization client does not use this value 
+            (it reads the cell's formatted value). 
+            If the DataTable has come from a data source in response to a query 
+            with a format clause, the pattern you specified in that clause 
+            will probably be returned in this value. 
+            The recommended pattern standards are the ICU DecimalFormat and SimpleDateFormat.
+            <remarks>
+                <see cref="!:http://icu-project.org/apiref/icu4j/com/ibm/icu/text/SimpleDateFormat.html"/>
+                <see cref="!:http://icu-project.org/apiref/icu4j/com/ibm/icu/text/DecimalFormat.html"/>
+            </remarks>
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.Column.PropertyMap">
+            <summary>
+            p [Optional] An object that is a map of custom values applied to the cell. 
+            These values can be of any JavaScript ColumnType. 
+            If your visualization supports any cell-level properties, 
+            it will describe them; otherwise, this property will be ignored. 
+            <example>
+            Example: p:{style: 'border: 1px solid green;'}.
+            </example>
+            </summary>
+            <remarks>
+            Returns a list of currently assigned properties to the Cell
+            </remarks>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.ColumnRole.Annotation">
+            <summary>
+            Text to display on the chart near the associated data point. 
+            The text displays without any user interaction. 
+            Annotations and annotation text can be assigned to both 
+            data points and categories (axis labels).
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.ColumnRole.AnnotationText">
+            <summary>
+            Extended text to display when the user hovers 
+            over the associated annotation        
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.ColumnRole.Certainty">
+            <summary>
+            ndicates whether a data point is certain or not. 
+            How this is displayed depends on the chart type—for 
+            example, it might be indicated by dashed lines or a striped fill.
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.ColumnRole.Emphasis">
+            <summary>
+            Emphasizes specified chart data points. Displayed as a 
+            thick line and/or large point.
+            For line and area charts, the segment 
+            between two data points is emphasized if and only if
+            both data points are emphasized.
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.ColumnRole.Interval">
+            <summary>
+            ndicates potential data range for a specific point. 
+            Intervals are usually displayed as I-bar style range indicators. 
+            Interval columns are numeric columns; add interval columns in 
+            pairs, marking the low and high value of the bar. Interval 
+            values should be added in increasing value, from left to right.
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.ColumnRole.Scope">
+            <summary>
+            Indicates whether a point is in or out of scope. 
+            If a point is out of scope, it is visually de-emphasized.
+            For line and area charts, the segment between two data points 
+            is in scope if either endpoint is in scope.
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.ColumnRole.Tooltip">
+            <summary>
+            Text to display when the user hovers over the data point 
+            associated with this row.
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.ColumnRole.Domain">
+            <summary>
+            You should not need to assign this role explicitly unless designing 
+            a multi-domain chart (shown here); the basic 
+            format of the data table enables the charting engine to infer which
+            columns are domain columns. However, you should be aware of 
+            which columns are domain columns so that you know which other 
+            columns can modify it.
+            Domain columns specify labels along the major axis of the chart. 
+            Multiple domain columns can sometimes be used to support multiple 
+            scales within the same chart.
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.ColumnRole.Data">
+            <summary>
+            You should not need to assign this role explicitly; the basic 
+            format of the data table enables the charting engine to 
+            infer which columns are domain columns. However, you sould be 
+            aware of which columns are data columns so that you know which 
+            other columns can modify it.
+            
+            Data role columns specify series data to render in the chart. 
+            For most charts, one column = one series, but this can vary 
+            by chart type (for example, scatter charts require two data 
+            columns for the first series, and an additional one for each 
+            additional series; candlestick charts require four data columns 
+            for each series).
+            </summary>
+        </member>
+        <member name="T:Google.DataTable.Net.Wrapper.Extension.EnumerableExtension">
+            <summary>
+            Extension class for lists.
+            </summary>
+        </member>
+        <!-- Badly formed XML comment ignored for member "M:Google.DataTable.Net.Wrapper.Extension.EnumerableExtension.ToGoogleDataTable``1(System.Collections.Generic.IEnumerable{``0})" -->
+        <member name="M:Google.DataTable.Net.Wrapper.Extension.EnumerableExtension.NewColumn``1(Google.DataTable.Net.Wrapper.Extension.DataTableConfig{``0},Google.DataTable.Net.Wrapper.Column,System.Func{``0,System.Object},System.Func{``0,System.String})">
+            <summary>
+            Creates a new column
+            </summary>
+            <typeparam name="T"></typeparam>
+            <param name="source"></param>
+            <param name="col"></param>
+            <param name="rowValue"></param>
+            <param name="rowFormat"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Google.DataTable.Net.Wrapper.Extension.SystemDataTableExtension">
+            <summary>
+            Class that implements an extension for a System.Data.DataTable
+            </summary>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Extension.SystemDataTableExtension.ToGoogleDataTable(System.Data.DataTable)">
+            <summary>
+            Converts a System.Data.DataTable into a  Google.DataTable.Net.Wrapper.DataTable
+            </summary>
+            <param name="source"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Google.DataTable.Net.Wrapper.DataTable">
+            <summary>
+                A DataTable represents a basic two-dimensional table. 
+                All data (cells) in each column must have the same data type. 
+                Each cell in the table holds a value. 
+            <remarks>
+                For more information about the usage of the serialized DataTable please visit:
+                https://developers.google.com/chart/interactive/docs/reference#DataTable
+            </remarks>
+            </summary>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.DataTable.#ctor">
+            <summary>
+            Default constructor
+            </summary>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.DataTable.NewRow">
+            <summary>
+            Creates a new DataRow with the same schema as the table.
+            </summary>
+            <returns>A new row with the same schema as the table</returns>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.DataTable.AddRow(Google.DataTable.Net.Wrapper.Row)">
+            <summary>
+            Adds a row to the list of rows
+            attached to the current DataTable
+            </summary>
+            <param name="row">a row created with NewRow() method</param>
+            <returns></returns>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.DataTable.AddColumn(Google.DataTable.Net.Wrapper.Column)">
+            <summary>
+            Adds a new column to the current DataTable
+            </summary>
+            <param name="column"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.DataTable.GetJson">
+            <summary>
+            Returns a Json string compatible with the Google DataTable notation.
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.DataTable.JsonizeRows(System.IO.StreamWriter)">
+            <summary>
+            Serializes the Rows. 
+            <remarks>
+            The choice to have inline both the row and the cell 
+            serialization is purely for the performance reasons.
+            </remarks>
+            </summary>
+            <param name="sw"></param>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.DataTable.JsonizeColumns(System.IO.StreamWriter)">
+            <summary>
+            Serializes the Columns into the Json format
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.DataTable.Columns">
+            <summary>
+            Returns a list of already assigned columns to the current DataTable
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.DataTable.Rows">
+            <summary>
+            Returns a list of already assigned rows to the current DataTable       
+            </summary>
+        </member>
+        <member name="T:Google.DataTable.Net.Wrapper.ColumnType">
+             <summary>
+             ColumnType [Required] Data ColumnType of the data in the column. Supports the following string values (examples include the v: property, described later):
+            'boolean'    - JavaScript boolean value ('true' or 'false'). Example value: v:'true'
+            'number'     - JavaScript number value. Example values: v:7 , v:3.14, v:-55
+            'string'     - JavaScript string value. Example value: v:'hello'
+            'date'       - JavaScript Date object (zero-based month), with the time truncated. Example value: v:new Date(2008, 0, 15)
+            'datetime'   - JavaScript Date object including the time. Example value: v:new Date(2008, 0, 15, 14, 30, 45)
+            'timeofday'  - Array of three numbers and an optional fourth, representing hour (0 indicates midnight), minute, second, and optional millisecond. Example values: v:[8, 15, 0], v: [6, 12, 1, 144]
+             </summary>
+        </member>
+        <member name="F:Google.DataTable.Net.Wrapper.ColumnType.String">
+            <summary>
+            JavaScript string value. Example value: v:'hello'
+            </summary>
+        </member>
+        <member name="F:Google.DataTable.Net.Wrapper.ColumnType.Number">
+            <summary>
+            JavaScript number value. Example values: v:7 , v:3.14, v:-55
+            </summary>
+        </member>
+        <member name="F:Google.DataTable.Net.Wrapper.ColumnType.Boolean">
+            <summary>
+            JavaScript boolean value ('true' or 'false'). Example value: v:'true'
+            </summary>
+        </member>
+        <member name="F:Google.DataTable.Net.Wrapper.ColumnType.Date">
+            <summary>
+            JavaScript Date object (zero-based month), with the time truncated. Example value: v:new Date(2008, 0, 15)
+            </summary>
+        </member>
+        <member name="F:Google.DataTable.Net.Wrapper.ColumnType.Datetime">
+            <summary>
+            JavaScript Date object including the time. Example value: v:new Date(2008, 0, 15, 14, 30, 45)
+            </summary>
+        </member>
+        <member name="F:Google.DataTable.Net.Wrapper.ColumnType.Timeofday">
+            <summary>
+            Array of three numbers and an optional fourth, representing hour (0 indicates midnight), minute, second, and optional millisecond. Example values: v:[8, 15, 0], v: [6, 12, 1, 144]
+            </summary>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Common.Helper.DoubleQuoteString2(System.String)">
+            <summary>
+            Wraps the string around double quotes.
+            </summary>
+            <param name="value"></param>
+            <returns></returns>
+        </member>
+        <member name="T:Google.DataTable.Net.Wrapper.Extension.DataTableConfig`1">
+            <summary>
+            Helper class for the generic lists.
+            </summary>
+            <typeparam name="T"></typeparam>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Extension.DataTableConfig`1.AddColumn(Google.DataTable.Net.Wrapper.Column,System.Func{`0,Google.DataTable.Net.Wrapper.Cell})">
+            <summary>
+            Adds a new Column to a Google.DataTable.Net.Wrapper.DataTable
+            </summary>
+            <param name="col"></param>
+            <param name="cellFunction"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Extension.DataTableConfig`1.Build">
+            <summary>
+            Build a new Google.DataTable.Net.Wrapper.DataTable()
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Extension.DataTableConfig`1.ToDataTable``1(System.Collections.Generic.List{``0})">
+            <summary>
+            Convert a List{T} to a DataTable.
+            </summary>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Extension.DataTableConfig`1.IsNullable(System.Type)">
+            <summary>
+            Determine of specified type is nullable
+            </summary>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Extension.DataTableConfig`1.GetCoreType(System.Type)">
+            <summary>
+            Return underlying type if type is Nullable otherwise return the type
+            </summary>
+        </member>
+        <member name="T:Google.DataTable.Net.Wrapper.Property">
+            <summary>
+            Reserved for future usages.
+            P values in reality should be a name -> value map
+            </summary>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Property.#ctor">
+            <summary>
+            Default constructor
+            </summary>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Property.#ctor(System.String,System.String)">
+            <summary>
+            Constructor that has as input name and value
+            </summary>
+            <param name="name"></param>
+            <param name="value"></param>
+        </member>
+        <member name="T:Google.DataTable.Net.Wrapper.Row">
+             <summary>
+            A row is an array of cells, 
+            plus an optional map of arbitrary name/value pairs that you can assign.    
+             </summary>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Row.#ctor">
+            <summary>
+            Internal constructor as we don't allow the direct generation
+            of the row due to the fact that the table Attribute is set
+            internally
+            </summary>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Row.AddCellRange(Google.DataTable.Net.Wrapper.Cell[])">
+            <summary>
+            Adds a range of Cell objects
+            </summary>
+            <param name="cells"></param>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Row.AddCell(Google.DataTable.Net.Wrapper.Cell)">
+            <summary>
+            Adds a single cell to the Row
+            </summary>
+            <param name="cell"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Row.AddProperty(Google.DataTable.Net.Wrapper.Property)">
+            <summary>
+            Adds a new property to the list of properties.
+            </summary>
+            <param name="p"></param>
+            <returns></returns>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Row.RemoveProperty(Google.DataTable.Net.Wrapper.Property)">
+            <summary>
+            Removes a property from the Property Map
+            </summary>
+            <param name="p"></param>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.Row.RemoveProperty(System.Int32)">
+            <summary>
+            Removes a property from the Property Map by an index.
+            </summary>
+            <param name="index"></param>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.Row.ColumnTypes">
+            <summary>
+            A reference to the available column types of the table. 
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.Row.Cells">
+            <summary>
+            
+            </summary>
+        </member>
+        <member name="P:Google.DataTable.Net.Wrapper.Row.PropertyMap">
+            <summary>
+            Returns a list of currently assigned properties to the Row
+            </summary>
+        </member>
+        <member name="T:Google.DataTable.Net.Wrapper.SystemDataTableConverter">
+            <summary>
+            Responsible for converting the System.Data.DataTable into
+            Google.DataTable.Net.Wrapper.DataTable.
+            </summary>    
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.SystemDataTableConverter.Convert(System.Data.DataTable)">
+            <summary>
+            Responsible for converting the System.Data.DataTable into
+            Google.DataTable.Net.Wrapper.DataTable.        
+            </summary>
+        </member>
+        <member name="M:Google.DataTable.Net.Wrapper.SystemDataTableConverter.GetColumnTypeFromType(System.Type)">
+            <summary>
+            For more info about System.Data.DataColumn Types 
+            http://msdn.microsoft.com/en-us/library/system.data.datacolumn.datatype.aspx
+            </summary>
+            <param name="t"></param>
+            <returns></returns>
+        </member>
+    </members>
+</doc>
