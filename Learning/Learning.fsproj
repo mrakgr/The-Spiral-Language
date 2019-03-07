@@ -62,6 +62,7 @@
     <Compile Include="LearningTests.fs" />
     <None Include="CFR\rps.fsx" />
     <None Include="CFR\rps_v2.fsx" />
+    <None Include="CFR\blotto.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
