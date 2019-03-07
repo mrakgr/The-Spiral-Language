@@ -20,11 +20,11 @@ let utility = function
 
 type Regret = float[]
 
-type Sum = 
+type Agent = 
     {
     name: string
-    strategy: Regret
-    regret: Regret
+    strategy_sum: Regret
+    regret_sum: Regret
     }
    
 let normalize normalizingSum strategy = if normalizingSum > 0.0 then strategy / normalizingSum else 1.0 / float actions.Length
@@ -40,7 +40,7 @@ let strategy regret =
 
 let update_sum (sum: Regret) strategy = Array.iteri (fun i x -> sum.[i] <- sum.[i] + x) strategy
 
-let getAction (strategy: Regret) =
+let action (strategy: Regret) =
     let r = rng.NextDouble()
     let rec loop a cumulativeProbability =
         if a < actions.Length then 
@@ -56,13 +56,13 @@ let average_strategy (strategy: Regret) =
     Array.map (normalize normalizingSum) strategy
 
 let sample_and_update player = 
-    let strategy = strategy player.regret
-    update_sum player.strategy strategy
-    getAction strategy
+    let strategy = strategy player.regret_sum
+    update_sum player.strategy_sum strategy
+    action strategy
 
 let update_regret player (action_one, action_two) =
     let regret = Array.map (fun a -> utility (a, action_two) - utility(action_one, action_two)) actions
-    update_sum player.regret regret
+    update_sum player.regret_sum regret
 
 let train player iterations =
     for i=1 to iterations do
@@ -75,15 +75,15 @@ let players =
     let f name =
         { 
         name = name
-        regret = Array.replicate actions.Length 0.0
-        strategy = Array.replicate actions.Length 0.0
+        regret_sum = Array.replicate actions.Length 0.0
+        strategy_sum = Array.replicate actions.Length 0.0
         }
     f "One", f "Two"
 
 train players 100000
 
 let print sum =
-    {sum with strategy=average_strategy sum.strategy; regret=strategy sum.regret}
+    {sum with strategy_sum=average_strategy sum.strategy_sum; regret_sum=strategy sum.regret_sum}
     |> printfn "%A"
 
 print (fst players)
