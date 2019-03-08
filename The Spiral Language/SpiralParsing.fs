@@ -399,4 +399,3 @@ let parse (m: SpiralModule) =
             if d.Index = d.Length then fail [Array.last l, UnexpectedEof]
             else Fail "Unknown parse error."
         | Fail x -> fail x
-

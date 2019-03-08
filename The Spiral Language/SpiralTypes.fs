@@ -704,4 +704,3 @@ let is_int_lit_one = function
         | LitUInt8 1uy | LitUInt16 1us | LitUInt32 1u | LitUInt64 1UL -> true
         | _ -> false
     | _ -> false
-

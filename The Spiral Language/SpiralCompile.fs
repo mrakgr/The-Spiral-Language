@@ -160,4 +160,3 @@ let compile (settings: SpiralCompilerSettings) (m: SpiralModule) =
         | :? CompileError as x -> Fail(env.timing.Elapsed, x.Data0)
         | :? CompileErrorWithPos as x -> Fail(env.timing.Elapsed, show_trace {settings with filter_list=[]} x.Data0 x.Data1)
         
-
