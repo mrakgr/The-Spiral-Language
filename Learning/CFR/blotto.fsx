@@ -13,15 +13,14 @@ let utility (action_one, action_two) =
     Array.fold2 (fun s a b -> s + compare a b) 0 action_one action_two |> float
 
 let init (d: Setting) =
-    let ar = ResizeArray()
-    let temp = Array.zeroCreate d.num_fields
-    let rec loop field soldiers_left =
+    let rec loop (d: Setting) (ar: ResizeArray<_>) (temp: _[]) field soldiers_left =
         if field < d.num_fields then
             for soldier=0 to soldiers_left do
                 temp.[field] <- soldier
-                loop (field+1) (soldiers_left-soldier)
+                loop d ar temp (field+1) (soldiers_left-soldier)
         elif soldiers_left = 0 then ar.Add(Array.copy temp)
-    loop 0 d.num_soldiers
+    let ar = ResizeArray()
+    loop d ar (Array.replicate d.num_fields 0) 0 d.num_soldiers
     ar.ToArray()
 
 let actions = init {num_fields=3; num_soldiers=5}
@@ -89,4 +88,3 @@ let print player =
 
 print (fst players)
 print (snd players)
-
