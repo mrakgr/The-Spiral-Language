@@ -1,4 +1,8 @@
-﻿// The RPS example from the `An Introduction to Counterfactual Regret Minimization` paper.
+﻿#I @"..\..\packages"
+#r @"XPlot.Plotly.1.5.0\lib\net45\XPlot.Plotly.dll"
+#r @"XPlot.GoogleCharts.1.5.0\lib\net45\XPlot.GoogleCharts.dll"
+
+// The RPS example from the `An Introduction to Counterfactual Regret Minimization` paper.
 type RPS =
     | Rock
     | Paper
@@ -64,12 +68,11 @@ let update_regret player (action_one, action_two) =
     let regret = Array.map (fun a -> utility (a, action_two) - utility(action_one, action_two)) actions
     update_sum player.regret_sum regret
 
-let train player iterations =
-    for i=1 to iterations do
-        let action_one = sample_and_update (fst player)
-        let action_two = sample_and_update (snd player)
-        update_regret (fst player) (action_one, action_two)
-        update_regret (snd player) (action_two, action_one)
+let train player =
+    let action_one = sample_and_update (fst player)
+    let action_two = sample_and_update (snd player)
+    update_regret (fst player) (action_one, action_two)
+    update_regret (snd player) (action_two, action_one)
 
 let players = 
     let f name =
@@ -80,11 +83,30 @@ let players =
         }
     f "One", f "Two"
 
-train players 100000
+open XPlot.GoogleCharts
 
-let print sum =
-    {sum with strategy_sum=average_strategy sum.strategy_sum; regret_sum=strategy sum.regret_sum}
-    |> printfn "%A"
+let trace_strategies = Array.init actions.Length (fun _ -> ResizeArray())
+let trace_regret = Array.init actions.Length (fun _ -> ResizeArray())
+let labels = Array.map (sprintf "%A") actions
 
-print (fst players)
-print (snd players)
+for b' = 1 to 500 do
+    for a = 1 to 100 do train players
+
+    (fst players).strategy_sum 
+    |> average_strategy
+    |> Array.iter2 (fun (ar: ResizeArray<_>) b -> ar.Add(b',b)) trace_strategies
+
+    (fst players).regret_sum 
+    |> strategy
+    |> Array.iter2 (fun (ar: ResizeArray<_>) b -> ar.Add(b',b)) trace_regret
+
+let show (trace: ResizeArray<_> []) =
+    trace
+    |> Chart.Column
+    |> Chart.WithOptions (Options(isStacked=true))
+    |> Chart.WithLabels labels
+    |> Chart.Show
+
+show trace_strategies
+show trace_regret
+
