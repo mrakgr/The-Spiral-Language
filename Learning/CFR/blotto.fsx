@@ -79,7 +79,9 @@ let players =
         }
     f "One", f "Two"
 
-train players 1000000
+let timer = System.Diagnostics.Stopwatch.StartNew()
+train players 10000000
+printfn "%A" timer.Elapsed
 
 let print player =
     printfn "%s" player.name
