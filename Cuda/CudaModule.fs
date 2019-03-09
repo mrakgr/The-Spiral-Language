@@ -78,65 +78,6 @@ inl load_mnist_tensors mnist_path =
     """
     }
 
-let resize_array: SpiralModule =
-    {
-    name="ResizeArray"
-    prerequisites=[extern_; loops]
-    opens=[]
-    description="The resizable array module."
-    code=
-    """
-open Extern
-inl create {d with elem_type} =
-    inl x =
-        inl ty = fs [text: "ResizeArray"; types: elem_type]
-        match d with
-        | {size} -> FS.Constructor ty (to int32 size)
-        | _ -> FS.Constructor ty ()
-
-    inl filter f = FS.Method x ."RemoveAll <| System.Predicate" (closure_of f (elem_type => bool)) int32 |> ignore
-    inl sort f =
-        inl comparison_type = fs [text: "System.Comparison"; types: elem_type]
-        inl f = closure_of f (elem_type => elem_type => int32)
-        inl c = FS.Constructor comparison_type f
-        FS.Method x .Sort c ()
-
-    inl index i = macro.fs elem_type [arg: x; text: ".["; arg: to int32 i; text: "]"]
-    inl set i v = 
-        assert (eq_type elem_type v) ("The type set to the ResizeArray must match its element type.", elem_type, v)
-        macro.fs () [arg: x; text: ".["; arg: to int32 i; text: "] <- "; arg: v]
-    inl clear () = FS.Method x .Clear() ()
-    inl count () = FS.Method x .get_Count() int32
-    inl add !(box elem_type) y = FS.Method x .Add y ()
-    inl remove_at y = FS.Method x .RemoveAt y ()
-
-    inl iter f = Loops.for {from=0i32; near_to=count(); by=1i32; body=inl {i} -> f (index i)}
-    inl to_array () = FS.Method x .ToArray() (array elem_type)
-
-    function
-    | .sort -> sort 
-    | .filter -> filter 
-    | .set -> set
-    | .clear -> clear ()
-    | .count -> count ()
-    | .add -> add
-    | .remove_at -> remove_at
-    | .iter -> iter
-    | .foldl f state -> Loops.for {from=0i32; by=1i32; near_to=count(); state body=inl {state i} -> f state (index i)}
-    | .foldr f state -> Loops.for {from=count() - 1i32; by=-1i32; down_to=0i32; state body=inl {state i} -> f (index i) state}
-    | .foldl' finally f state -> Loops.for' {finally from=0i32; by=1i32; near_to=count(); state body=inl {next state i} -> f next state (index i)}
-    | .foldr' finally f state -> Loops.for' {finally from=count() - 1i32; by=-1i32; down_to=0i32; state body=inl {next state i} -> f next (index i) state}
-    | .elem_type -> elem_type
-    | .to_array -> to_array ()
-    | .last ->  index (count()-1i32)
-    | i -> index i
-    |> stack
-{ 
-create
-} |> stack
-    """
-    }
-
 let cuda_aux: SpiralModule =
     {
     name="CudaAux"

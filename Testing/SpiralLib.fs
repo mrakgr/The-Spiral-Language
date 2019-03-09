@@ -86,6 +86,12 @@ class: types: args: =
             :: self jaggeds: types
             :: self rounds: args
 
+class: args: methods: =
+    inl x = self class:args:
+    inl a ->
+        match methods a with
+        | type:method:args: -> self type:class: x method:args:
+
 class: types: args: methods: =
     inl x = self class:types:args:
     inl a ->
@@ -854,5 +860,106 @@ inl message: body: ->
     stopwatch.Stop
     Console.printfn "The time was {0} for: {1}" (stopwatch.Elapsed, message)
     r
+    """
+    }
+
+let seq: SpiralModule =
+    {
+    name="Seq"
+    prerequisites=[loop]
+    opens=[]
+    description="The Seq module."
+    code=
+    """
+/// Meant for the resizable array for now.
+[
+iter=inl f x ->
+    Loop.for from: 0i32 near_to: x.count by:1i32 
+        body: inl i: -> f (x i)
+foldl=inl f state x -> 
+    Loop.for from:0i32 near_to: x.count by:1i32
+        state: 
+        body: inl state: i: -> f state (x i)
+foldr=inl f x state -> 
+    Loop.for from_down: x.count - 1i32 to:0i32 by: -1i32 
+        state: 
+        body: inl state: i: -> f (x i) state
+foldl: f value: x state: finally: =
+    Loop.for' from:0i32 near_to: x.count by:1i32
+        state:
+        body:inl next: state: i: -> f next: state: value: (x i)
+        finally:
+foldr: f value: x state: finally: =
+    Loop.for' from_down: x.count - 1i32 to:0i32 by: -1i32
+        state:
+        body:inl next: state: i: -> f next: state: value: (x i)
+        finally:
+]
+    """
+    }
+
+let resize_array: SpiralModule =
+    {
+    name="ResizeArray"
+    prerequisites=[array]
+    opens=[]
+    description="The ResizeArray module."
+    code=
+    """
+[
+type: t size: =
+    Macro
+        class: "ResizeArray"
+        types: t :: ()
+        args: Type type: 0i32 convert: size
+        methods: self methods: stack {elem_type=type t}
+type: t = 
+    Macro
+        class: "ResizeArray"
+        types: t :: ()
+        args: ()
+        methods: self methods: stack {elem_type=type t}
+methods: t =
+    [
+    assert_is_elem_type: v =
+        assert (Type eq: t.elem_type to: v)
+            message: "The type passed to the ResizeArray must match its element type."
+            arg1: t.elem_type
+            arg2: type v
+    at: i set: v =
+        self assert_is_elem_type: v
+        type: ()
+        method: "set_Item"
+        args: (Type type: 0i32 convert: i), v
+    at: i =
+        type: t.elem_type
+        method: "Item"
+        args: (Type type: 0i32 convert: i)
+    clear =
+        type: ()
+        method: "Clear"
+        args: ()
+    count =
+        type: 0i32
+        method: "Count"
+        args: ()
+    add: v =
+        self assert_is_elem_type: v
+        type: t.elem_type
+        method: "Add"
+        args: v
+    remove_at: i =
+        type: ()
+        method: "RemoveAt"
+        args: (Type type: 0i32 convert: i)
+    to_array =
+        type: (Array type: t.elem_type)
+        method: "ToArray"
+        args: ()
+    elem_type = t.elem_type
+    last = self at: self.count - 1i32
+    apply: i = self at: i
+    ]
+]
     """
     }
