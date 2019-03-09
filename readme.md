@@ -3,6 +3,7 @@
 <!-- TOC -->
 
 - [Table of Contents](#table-of-contents)
+- [News](#news)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
         - [Intro](#intro)
@@ -114,6 +115,10 @@
         - [Known Bugs](#known-bugs)
 
 <!-- /TOC -->
+
+# News
+
+3/9/2019: [v0.1](https://github.com/mrakgr/The-Spiral-Language/tree/v0.1) is in prerelease mode. The libraries haven't been rewritten to accomodate the [new language features](https://github.com/mrakgr/The-Spiral-Language/blob/v0.1/changelog_v0.1.md), nor has it been through sufficient testing to make it `master`, but on the plus side the greatly streamlined source code might be of interest to some.
 
 # The Spiral Language
 
