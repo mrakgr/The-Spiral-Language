@@ -1166,30 +1166,11 @@ inl _ = b.ToString
 let macro_dotnet3: SpiralModule =
     {
     name="macro_dotnet3"
-    prerequisites=[macro]
+    prerequisites=[dictionary]
     opens=[]
     description="Does the Dictionary work?"
     code=
     """
-inl Dictionary (key:value:) x = 
-    Macro
-        class: "System.Collections.Generic.Dictionary"
-        types: key,value
-        args: x
-        methods:
-            inl key = stack {elem_type=type key}
-            inl value = stack {elem_type=type value}
-            [
-            Add: a : (key.elem_type), b =
-                type: ()
-                method: "Add"
-                args: a, b
-            Item: a =
-                type: value.elem_type
-                method: "Item"
-                args: a
-            ]
-
 inl b = Dictionary (key: "" value: 0) ()
 b Add: "a", 5
 inl _ = b Item: "a"
@@ -1870,6 +1851,106 @@ Loop.for' from:step to: by:step
     """
     }
 
+let cfr1: SpiralModule =
+    {
+    name="cfr1"
+    prerequisites=[tuple; loop; console; random; time_it]
+    opens=[]
+    description="Blotto Vs Fett CFR example"
+    code=
+    """
+// From the 'An Introduction to Counterfactual Regret Minimization' paper by TW Neller.
+inl rng = Random()
+
+inl utility (action_one, action_two) =
+    Array.fold2 (inl s a b -> s + compare a b) (dyn 0) action_one action_two |> inl convert -> Type type: 0.0 convert:
+
+inl init d =
+    inl ar = ResizeArray() // TODO: Deal with this.
+    inl temp = Array.replicade d.num_fields 0
+    inl rec loop field soldiers_left = join
+        if field < d.num_fields then
+            Loop.for from: 0 to: soldiers_left
+                body: inl i:soldier ->
+                    temp at: field set: soldier
+                    loop d ar temp (field+1) (soldiers_left-soldier)
+        elif soldiers_left = 0 then ar.Add(Array.copy temp)
+        : ()
+    
+    loop 0 d.num_soldiers
+    ar.ToArray
+
+inl actions = init {num_fields=3; num_soldiers=5}
+   
+inl normalize normalizingSum strategy = if normalizingSum > 0.0 then strategy / normalizingSum else 1.0 / (Type type: 0.0 convert: actions.length)
+
+inl strategy regret =
+    inl strategy, normalizingSum =
+        Array.mapFold (inl s x ->
+            inl strategy = max x 0.0
+            strategy, strategy + s
+            ) (dyn 0.0) regret
+
+    Array.map (normalize normalizingSum) strategy
+
+inl update_sum sum strategy = Array.iteri (inl i x -> sum at: i add: x) strategy
+
+inl action (strategy: Regret) =
+    inl r = rng.NextDouble
+    inl rec loop a cumulativeProbability = join
+        if a < actions.length then 
+            inl cumulativeProbability = cumulativeProbability + strategy at: a
+            if r < cumulativeProbability then actions at: a
+            else loop (a+1) cumulativeProbability
+        else 
+            failwith "impossible"
+        : actions.elem_type
+    loop (dyn 0) (dyn 0.0)
+
+inl average_strategy strategy =
+    inl normalizingSum = Array.sum strategy
+    Array.map (normalize normalizingSum) strategy
+
+inl sample_and_update player = 
+    inl strategy = strategy player.regret_sum
+    update_sum player.strategy_sum strategy
+    action strategy
+
+inl update_regret player (action_one, action_two) =
+    inl self_utility = utility(action_one, action_two)
+    inl regret = Array.map (inl a -> utility (a, action_two) - self_utility) actions
+    update_sum player.regret_sum regret
+
+inl train player to =
+    Loop.for from:1 to:
+        body: inl i: ->
+            inl action_one = sample_and_update (fst player)
+            inl action_two = sample_and_update (snd player)
+            update_regret (fst player) (action_one, action_two)
+            update_regret (snd player) (action_two, action_one)
+
+inl players = 
+    inl f name =
+        { 
+        name = name
+        regret_sum = Array.replicate actions.Length 0.0
+        strategy_sum = Array.replicate actions.Length 0.0
+        }
+    f "One", f "Two"
+
+TimeIt
+    message: "loop"
+    body: inl _ -> train players 10000000
+
+inl print player =
+    Console.writeline player.name
+    Array.iter2 (inl a b -> Console.printfn "{0} = {1}" (a,b)) actions (average_strategy player.strategy_sum)
+    Console.printfn "---"
+
+print (fst players)
+print (snd players)
+    """
+    }
 
 
 let tests =
@@ -1893,7 +1974,7 @@ let tests =
     |]
 
 //rewrite_test_cache tests cfg None //(Some(63,64))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) array6
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) cfr1
 |> printfn "%s"
 |> ignore
 

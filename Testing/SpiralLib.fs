@@ -58,6 +58,15 @@ type: class: method: args: =
             :: text: method
             :: self rounds: args
 
+extern: class: method: args: =
+    self
+        extern:
+        args:
+            variable: class
+            :: text: "."
+            :: text: method
+            :: self rounds: args
+
 /// Class create.
 class: args: =
     self 
@@ -733,5 +742,117 @@ inl x ->
             method: "ToString"
             args: ()
     ]
+    """
+    }
+
+let dictionary: SpiralModule =
+    {
+    name="Dictionary"
+    prerequisites=[macro]
+    opens=[]
+    description="The Dictionary module."
+    code=
+    """
+// A wrapped for the .NET Dictionary class.
+inl (key:value:) x ->
+    Macro
+        class: "System.Collections.Generic.Dictionary"
+        types: key,value
+        args: x
+        methods: // TODO: Add more methods.
+            inl key = stack {elem_type=type key}
+            inl value = stack {elem_type=type value}
+            [
+            Add: a : (key.elem_type), b =
+                type: ()
+                method: "Add"
+                args: a, b
+            Item: a =
+                type: value.elem_type
+                method: "Item"
+                args: a
+            ]
+    """
+    }
+
+let random: SpiralModule =
+    {
+    name="Random"
+    prerequisites=[macro;array]
+    opens=[]
+    description="The Random module."
+    code=
+    """
+/// Wrapper for the standard .NET Random class.
+inl _ : 0i32 | () as seed ->
+    Macro
+        class: "System.Random"
+        args: seed
+        methods:
+            [
+            Next=inl (min : 0i32, max : 0i32) | (max : 0i32) | () as args -> 
+                type: 0i32
+                method: "Next"
+                args:
+            NextDouble=
+                type: 0f64
+                method: "NextDouble"
+                args: ()
+            NextBytes=inl (ar : (Array type: 0u8)) -> 
+                type: ()
+                method: "NextBytes"
+                args: ar
+            ]
+    """
+    }
+
+let time_it: SpiralModule =
+    {
+    name="TimeIt"
+    prerequisites=[console]
+    opens=[]
+    description="The Timer module"
+    code=
+    """
+inl TimeSpan x =
+    Macro
+        class: "System.TimeSpan"
+        args: x
+
+inl StopWatch() =
+    Macro
+        class: "System.Diagnostics.Stopwatch"
+        args:()
+        methods:
+            [
+            Start=
+                type: ()
+                method: "Start"
+                args: ()
+            Restart=
+                type: ()
+                method: "Restart"
+                args: ()
+            Reset=
+                type: ()
+                method: "Reset"
+                args: ()
+            Stop=
+                type: ()
+                method: "Stop"
+                args: ()
+            Elapsed=
+                type: type TimeSpan()
+                method: "Elapsed"
+                args: ()
+            ]
+
+inl message: body: ->
+    Console.printfn "Starting timing for: {0}" message
+    inl stopwatch = StopWatch().Start
+    inl r = body ()
+    stopwatch.Stop
+    Console.printfn "The time was {0} for: {1}" (stopwatch.Elapsed, message)
+    r
     """
     }
