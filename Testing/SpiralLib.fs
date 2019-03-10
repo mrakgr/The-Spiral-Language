@@ -863,45 +863,10 @@ inl message: body: ->
     """
     }
 
-let seq: SpiralModule =
-    {
-    name="Seq"
-    prerequisites=[loop]
-    opens=[]
-    description="The Seq module."
-    code=
-    """
-/// Meant for the resizable array for now.
-[
-iter=inl f x ->
-    Loop.for from: 0i32 near_to: x.count by:1i32 
-        body: inl i: -> f (x i)
-foldl=inl f state x -> 
-    Loop.for from:0i32 near_to: x.count by:1i32
-        state: 
-        body: inl state: i: -> f state (x i)
-foldr=inl f x state -> 
-    Loop.for from_down: x.count - 1i32 to:0i32 by: -1i32 
-        state: 
-        body: inl state: i: -> f (x i) state
-foldl: f value: x state: finally: =
-    Loop.for' from:0i32 near_to: x.count by:1i32
-        state:
-        body:inl next: state: i: -> f next: state: value: (x i)
-        finally:
-foldr: f value: x state: finally: =
-    Loop.for' from_down: x.count - 1i32 to:0i32 by: -1i32
-        state:
-        body:inl next: state: i: -> f next: state: value: (x i)
-        finally:
-]
-    """
-    }
-
 let resize_array: SpiralModule =
     {
     name="ResizeArray"
-    prerequisites=[array]
+    prerequisites=[array;loop]
     opens=[]
     description="The ResizeArray module."
     code=
@@ -960,6 +925,27 @@ methods: t =
     last = self at: self.count - 1i32
     apply: i = self at: i
     ]
+iter=inl f x ->
+    Loop.for from: 0i32 near_to: x.count by:1i32 
+        body: inl i: -> f (x i)
+foldl=inl f state x -> 
+    Loop.for from:0i32 near_to: x.count by:1i32
+        state: 
+        body: inl state: i: -> f state (x i)
+foldr=inl f x state -> 
+    Loop.for from_down: x.count - 1i32 to:0i32 by: -1i32 
+        state: 
+        body: inl state: i: -> f (x i) state
+foldl: f value: x state: finally: =
+    Loop.for' from:0i32 near_to: x.count by:1i32
+        state:
+        body:inl next: state: i: -> f next: state: value: (x i)
+        finally:
+foldr: f value: x state: finally: =
+    Loop.for' from_down: x.count - 1i32 to:0i32 by: -1i32
+        state:
+        body:inl next: state: i: -> f next: state: value: (x i)
+        finally:
 ]
     """
     }
