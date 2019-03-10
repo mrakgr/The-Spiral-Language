@@ -19,7 +19,7 @@ I've been working on Spiral for over two years now, but I've never really manage
 
 In an ironic twist of fate I've never actually found a place where performance was important to me in my days of programming in Spiral. I needed the sheer expressiveness of its staging to do generic GPU kernels so I could make a ML library, but the actual performance of the glue code in the ML library was of no interest to me. The main goal was information propagation rather than code performance and Spiral was wonderful in that aspect. The advent of the GPU really blew a hole in most programming language models which is why Spiral had to come into being.
 
-At the moment, I am studying [counterfactual regret minimization](http://modelai.gettysburg.edu/2013/cfr/cfr.pdf) and have been pitting F# and Pharo in my mind as languages. Since the regret matching algorithm is non-trivial, but not to complex either, it occurred to me that I should throw Spiral into the mix as well and do a write up on this.
+At the moment, I am studying [counterfactual regret minimization](http://modelai.gettysburg.edu/2013/cfr/cfr.pdf) and have been pitting F# and Pharo in my mind as languages. Since the regret matching algorithm is non-trivial, but not too complex either, it occurred to me that I should throw Spiral into the mix as well and do a write up on this.
 
 # Regret Matching
 
@@ -445,7 +445,9 @@ Pharo - [00:02:46.007; 00:02:33.502; 00:02:40.679]
 
 So there is a roughly 3x difference in performance between each of the languages.
 
-Despite the 10x gap between Spiral and Pharo, I would not consider it a particularly slow language. It is certainly fast enough to be usable and is certainly much faster than intepreting over union types in F# and Spiral would be. I've read that Pharo thanks to its JIT could be expected to be 100x faster than Python or Ruby which are known as slow languages, and this test demonstrates that there might be something to that notion.
+Despite the 10x gap between Spiral and Pharo, I would not consider it a particularly slow language. It is certainly fast enough to be usable. It is certainly faster than intepreting over union types in F# and Spiral would be which is what it would take to get the same level of dynamism in there. I've read that Pharo thanks to its JIT could be expected to be 100x faster than Python or Ruby which are known as slow languages, and this test demonstrates that there might be something to that notion.
+
+The code written in Pharo while being slower does have the benefit of being the most generic of the 3 versions.
 
 # Code Analysis
 
@@ -551,9 +553,7 @@ let () = () // utility end
 
 There is a myth floating around in programming circles that types make things faster. This is true only up to a point - types only make things faster when they are primitive. Abstract types such as `a -> b` do not help the compiler that much. Minus the tail recursion, the above is similar to what one would write in C. A good compiler would transform it into an imperative loop under the hood.
 
-The reason why F# would be faster than Pharo then would be that even though it uses abstract types, they restrict the program and make it easier for the JIT to narrow it down further. And Spiral is different than F# in that as a part of its typing it directly traces the execution and uses various compiler hints to ward off divergence which allows it to do such deep specialization.
-
-The code written in Pharo while being slower does have the benefit of being the most generic of the 3 versions.
+The reason why F# would be faster than Pharo then would be that even though it uses abstract types, they restrict the program and make it easier for the JIT to narrow it down further. Ultimately dynamic language JITs have to take advantage of the same kinds of optimizations as static languages to get their performance. Spiral is different than F# and Pharo both in that as a part of its typing it directly traces the execution through the whole program ahead of time and uses various compiler hints to ward off divergence. This allows it to do such deep specialization.
 
 # Spiral Version (Compiled)
 
