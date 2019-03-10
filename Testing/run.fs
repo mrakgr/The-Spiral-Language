@@ -1910,17 +1910,17 @@ inl sample_and_update player =
     add_sum player.strategy_sum action_distribution
     sample action_distribution
 
-inl update_regret player (action_one, action_two) =
-    inl u = utility(action_one, action_two)
-    add_regret player.regret_sum (inl a -> utility (a, action_two) - u)
+inl update_regret one (action_one, action_two) =
+    inl self_utility = utility(action_one, action_two)
+    add_regret one.regret_sum (inl a -> utility (a, action_two) - self_utility)
 
-inl train player to =
-    Loop.for from:1 to:
-        body: inl i: ->
-            inl action_one = sample_and_update (fst player)
-            inl action_two = sample_and_update (snd player)
-            update_regret (fst player) (action_one, action_two)
-            update_regret (snd player) (action_two, action_one)
+inl vs (one, two as players) =
+    inl action_one = sample_and_update one
+    inl action_two = sample_and_update two
+    update_regret one (action_one, action_two)
+    update_regret two (action_two, action_one)
+
+inl train (one, two as players) to = Loop.for (from:1 to:) (body: inl i: -> vs players)
 
 inl player = 
     { 

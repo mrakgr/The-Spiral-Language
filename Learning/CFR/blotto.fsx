@@ -1,17 +1,17 @@
 ﻿let rng = System.Random()
 
 type Setting = {num_fields: int; num_soldiers: int}
-type Regret = float[]
 type Agent = 
     {
-    strategy_sum: Regret
-    regret_sum: Regret
+    strategy_sum: float[]
+    regret_sum: float[]
     }
 
 let utility (action_one, action_two) =
     Array.map2 compare action_one action_two
     |> Array.sum |> float
 
+/// Initializes the actions for the General Blotto Vs Boba Fett example from the paper.
 let init (d: Setting) =
     let ar = ResizeArray()
     let temp = Array.zeroCreate d.num_fields
@@ -24,7 +24,7 @@ let init (d: Setting) =
     loop 0 d.num_soldiers
     ar.ToArray()
 
-let actions = init {num_fields=3; num_soldiers=5}
+let actions = init {num_fields=3; num_soldiers=5} // `{num_fields=3; num_soldiers=5}` would be 21 different possible actions.
    
 let normalize array =
     let temp = Array.map (max 0.0) array
@@ -33,10 +33,10 @@ let normalize array =
     if normalizingSum > 0.0 then Array.map (fun x -> x / normalizingSum) temp
     else Array.replicate temp.Length (1.0 / float actions.Length)
 
-let add_sum (sum: Regret) x = Array.iteri (fun i x -> sum.[i] <- sum.[i] + x) x
-let add_regret (sum: Regret) f = Array.iteri (fun i x -> sum.[i] <- sum.[i] + f x) actions
+let add_sum (sum: float[]) x = Array.iteri (fun i x -> sum.[i] <- sum.[i] + x) x
+let add_regret (sum: float[]) f = Array.iteri (fun i x -> sum.[i] <- sum.[i] + f x) actions
 
-let sample (dist: Regret) =
+let sample (dist: float[]) =
     let r = rng.NextDouble()
     let rec loop a cumulativeProbability =
         if a < actions.Length then 
@@ -48,20 +48,31 @@ let sample (dist: Regret) =
     loop 0 0.0
 
 let sample_and_update player = 
+    /// Normalized sum of regret is the action/policy distribution.
+    /// Actions being in a distribution means that every possible action has a probability that weights it.
+    /// Sampling rather than being uniform is weighted by those probabilities.
     let action_distribution = normalize player.regret_sum
+    /// `strategy_sum` is the sum of action distributions and is not actually used during play.
+    /// `add_sum` is just a mutable vector addition function.
     add_sum player.strategy_sum action_distribution
+    /// Sampling from the action distribution selects an action.
     sample action_distribution
 
-let update_regret player (action_one, action_two) =
-    let u = utility(action_one, action_two)
-    add_regret player.regret_sum (fun a -> utility (a, action_two) - u)
+/// This is the function that updates the sum of regrets which is related to the policy.
+let update_regret one (action_one, action_two) =
+    /// Computes the utility for player `one` given the actions taken by player `one` and `two`.
+    let self_utility = utility(action_one, action_two)
+    /// Iterates over all the actions and mutably adds them to the sum.
+    add_regret one.regret_sum (fun a -> utility (a, action_two) - self_utility)
 
-let train player iterations =
-    for i=1 to iterations do
-        let action_one = sample_and_update (fst player)
-        let action_two = sample_and_update (snd player)
-        update_regret (fst player) (action_one, action_two)
-        update_regret (snd player) (action_two, action_one)
+/// When the players are the same, this does self-play.
+let vs (one : Agent, two : Agent as players) = 
+    let action_one = sample_and_update one
+    let action_two = sample_and_update two
+    update_regret one (action_one, action_two)
+    update_regret two (action_two, action_one)
+
+let train (one : Agent, two : Agent as players) iterations = for i=1 to iterations do vs players
 
 let player = 
     { 
@@ -70,7 +81,7 @@ let player =
     }
 
 let timer = System.Diagnostics.Stopwatch.StartNew()
-train (player,player) 100000
+train (player,player) 10000000
 printfn "%A" timer.Elapsed
 
 let print player =

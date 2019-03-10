@@ -33,6 +33,11 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Cuda", "Cuda\Cuda.fsproj", 
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Probabilistic", "Probabilistic\Probabilistic.fsproj", "{91AF34DA-9D8D-4EA8-B6E9-07283298BE8F}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{5E01042F-F649-494A-BA28-F19A0816F60F}"
+	ProjectSection(SolutionItems) = preProject
+		regret_matching_perf_comparison.md = regret_matching_perf_comparison.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

@@ -20,7 +20,7 @@ type: text: = self type: args: (text:)
 extern: text: = self extern: args: (text:)
 
 /// Creates a line of text with the unit type. Good for comments.
-comment: x = self type: () args: (text: x)
+comment: x = self type: () args: (text: "() // "), (text: x)
 
 /// Macro for the global methods.
 type: global_method: args: =
@@ -454,7 +454,7 @@ replicate: v size: = self init: const v size:
 /// If the input function is f and the elements are i0..iN then computes f..(f i0 s)..iN.
 /// (s -> a -> s) -> s -> a array -> s
 foldl=inl f state ar -> Loop.for (from:0 near_to:ar.length) (state: body:inl state: i: -> f state (ar i))
-sum=inl x -> self .foldl (+) (Type type: x.elem_type convert: 0) x
+sum=inl x -> self .foldl (+) (dyn <| Type type: x.elem_type convert: 0) x
 
 /// Applies a function to each element of the array, threading an accumulator argument through the computation. 
 /// If the input function is f and the elements are i0...iN then computes f i0 (...(f iN s)).
