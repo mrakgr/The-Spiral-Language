@@ -1854,7 +1854,7 @@ Loop.for' from:step to: by:step
 let cfr1: SpiralModule =
     {
     name="cfr1"
-    prerequisites=[tuple; loop; console; random; time_it]
+    prerequisites=[tuple; loop; console; random; time_it; resize_array]
     opens=[]
     description="Blotto Vs Fett CFR example"
     code=
@@ -1863,18 +1863,19 @@ let cfr1: SpiralModule =
 inl rng = Random()
 
 inl utility (action_one, action_two) =
-    Array.fold2 (inl s a b -> s + compare a b) (dyn 0) action_one action_two |> inl convert -> Type type: 0.0 convert:
+    Array.map2 (inl a b -> if a > b then 1 elif a < b then -1 else 0) action_one action_two
+    |> Array.sum |> inl convert -> Type type: 0.0 convert:
 
 inl init d =
-    inl ar = ResizeArray() // TODO: Deal with this.
-    inl temp = Array.replicade d.num_fields 0
+    inl temp = Array.replicate d.num_fields 0
+    inl ar = ResizeArray type: temp
     inl rec loop field soldiers_left = join
         if field < d.num_fields then
             Loop.for from: 0 to: soldiers_left
                 body: inl i:soldier ->
-                    temp at: field set: soldier
-                    loop d ar temp (field+1) (soldiers_left-soldier)
-        elif soldiers_left = 0 then ar.Add(Array.copy temp)
+                    temp at: field put: soldier
+                    loop (field+1) (soldiers_left-soldier)
+        elif soldiers_left = 0 then ar Add: Array.copy temp
         : ()
     
     loop 0 d.num_soldiers
@@ -1882,44 +1883,36 @@ inl init d =
 
 inl actions = init {num_fields=3; num_soldiers=5}
    
-inl normalize normalizingSum strategy = if normalizingSum > 0.0 then strategy / normalizingSum else 1.0 / (Type type: 0.0 convert: actions.length)
+inl normalize array = join
+    inl temp = Array.map (max (dyn 0.0)) array
+    inl normalizingSum = Array.sum temp
 
-inl strategy regret =
-    inl strategy, normalizingSum =
-        Array.mapFold (inl s x ->
-            inl strategy = max x 0.0
-            strategy, strategy + s
-            ) (dyn 0.0) regret
+    if normalizingSum > 0.0 then Array.map (inl x -> x / normalizingSum) temp
+    else Array.replicate temp.length (1.0 / Type type: 0.0 convert: actions.length)
 
-    Array.map (normalize normalizingSum) strategy
+inl add_sum sum x = Array.iteri (inl i x -> sum at: i add: x) x
+inl add_regret sum f = Array.iteri (inl i x -> sum at: i add: f x) actions
 
-inl update_sum sum strategy = Array.iteri (inl i x -> sum at: i add: x) strategy
-
-inl action (strategy: Regret) =
+inl sample dist =
     inl r = rng.NextDouble
     inl rec loop a cumulativeProbability = join
         if a < actions.length then 
-            inl cumulativeProbability = cumulativeProbability + strategy at: a
-            if r < cumulativeProbability then actions at: a
+            inl cumulativeProbability = cumulativeProbability + dist at: a
+            if r <= cumulativeProbability then actions at: a
             else loop (a+1) cumulativeProbability
         else 
-            failwith "impossible"
+            failwith type: actions.elem_type msg: "impossible"
         : actions.elem_type
     loop (dyn 0) (dyn 0.0)
 
-inl average_strategy strategy =
-    inl normalizingSum = Array.sum strategy
-    Array.map (normalize normalizingSum) strategy
-
 inl sample_and_update player = 
-    inl strategy = strategy player.regret_sum
-    update_sum player.strategy_sum strategy
-    action strategy
+    inl action_distribution = normalize player.regret_sum
+    add_sum player.strategy_sum action_distribution
+    sample action_distribution
 
 inl update_regret player (action_one, action_two) =
-    inl self_utility = utility(action_one, action_two)
-    inl regret = Array.map (inl a -> utility (a, action_two) - self_utility) actions
-    update_sum player.regret_sum regret
+    inl u = utility(action_one, action_two)
+    add_regret player.regret_sum (inl a -> utility (a, action_two) - u)
 
 inl train player to =
     Loop.for from:1 to:
@@ -1929,26 +1922,21 @@ inl train player to =
             update_regret (fst player) (action_one, action_two)
             update_regret (snd player) (action_two, action_one)
 
-inl players = 
-    inl f name =
-        { 
-        name = name
-        regret_sum = Array.replicate actions.Length 0.0
-        strategy_sum = Array.replicate actions.Length 0.0
-        }
-    f "One", f "Two"
+inl player = 
+    { 
+    regret_sum = Array.replicate actions.length 0.0
+    strategy_sum = Array.replicate actions.length 0.0
+    }
 
 TimeIt
     message: "loop"
-    body: inl _ -> train players 10000000
+    body: inl _ -> train (player,player) 10000000
 
 inl print player =
-    Console.writeline player.name
-    Array.iter2 (inl a b -> Console.printfn "{0} = {1}" (a,b)) actions (average_strategy player.strategy_sum)
-    Console.printfn "---"
+    Array.iter2 (inl a b -> Console.writeline b) actions (normalize player.strategy_sum)
+    Console.writeline "---"
 
-print (fst players)
-print (snd players)
+print player
     """
     }
 

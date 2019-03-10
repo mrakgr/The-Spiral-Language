@@ -400,8 +400,12 @@ facade: ar =
     length = !ArrayLength(ar)
     /// Gets the value from the array at index `get`.
     get: = !GetArray(ar, get)
+    at: i = self get: i
     /// Sets the value `to` the array at index `set`
     set:to: = !SetArray(ar, set, to)
+    at: i put: v = self set: i to: v
+    /// Adds to a particular field.
+    at: i add: v = self set: i to: (self get: i) + v
     /// Gets the value from the array at index `apply`.
     apply: = !GetArray(ar, apply)
     elem_type = type !GetArray(ar, 0)
@@ -441,10 +445,16 @@ init: size: =
 
     ar
 
+copy=inl x -> self init: x size: x.length
+
+replicate=inl size replicate -> self replicate: size:
+replicate: v size: = self init: const v size:
+
 /// Applies a function to each elements of the collection, threading an accumulator argument through the computation.
 /// If the input function is f and the elements are i0..iN then computes f..(f i0 s)..iN.
 /// (s -> a -> s) -> s -> a array -> s
 foldl=inl f state ar -> Loop.for (from:0 near_to:ar.length) (state: body:inl state: i: -> f state (ar i))
+sum=inl x -> self .foldl (+) (Type type: x.elem_type convert: 0) x
 
 /// Applies a function to each element of the array, threading an accumulator argument through the computation. 
 /// If the input function is f and the elements are i0...iN then computes f i0 (...(f iN s)).
@@ -458,10 +468,28 @@ copy: ar = self init: ar size: ar.length
 /// Builds a new array whose elements are the result of applying a given function to each of the elements of the array.
 /// (a -> b) -> a array -> a array
 map=inl f ar -> self init: ar >> f size: ar.length
+map2=inl f b a -> 
+    inl size = a.length
+    assert 
+        cond: b.length = size
+        msg: "The two arrays must have the same length."
+
+    self init: (inl i -> f (b i) (a i)) size:
 
 /// Applies the function to every element of the array.
 /// (a -> unit) -> a array -> unit
-iter=inl f x -> Loop.for (from:0 near_to: x.length) (body:inl i: -> f (x i))
+iter=inl f -> self.iteri (const f)
+/// Applies the function to every element of the array. Also passes it the index of the current element.
+/// (int -> a -> unit) -> a array -> unit
+iteri=inl f x -> Loop.for (from:0 near_to: x.length) (body:inl i: -> f i (x i)) 
+iter2=inl f -> self.iter2i (const f)
+iter2i=inl f b a -> 
+    inl near_to = a.length
+    assert
+        cond: b.length = near_to
+        msg: "The two arrays must have the same length."
+
+    Loop.for (from:0 near_to:) (body:inl i: -> f i (b i) (a i)) 
 
 /// Returns a new array containing only elements of the array for which the predicate function returns `true`.
 /// (a -> bool) -> a array -> a array
@@ -849,13 +877,14 @@ inl StopWatch() =
                 args: ()
             Elapsed=
                 type: type TimeSpan()
-                method: "Elapsed"
+                method: "get_Elapsed"
                 args: ()
             ]
 
 inl message: body: ->
     Console.printfn "Starting timing for: {0}" message
-    inl stopwatch = StopWatch().Start
+    inl stopwatch = StopWatch()
+    stopwatch.Start
     inl r = body ()
     stopwatch.Stop
     Console.printfn "The time was {0} for: {1}" (stopwatch.Elapsed, message)
@@ -877,20 +906,22 @@ type: t size: =
         class: "ResizeArray"
         types: t :: ()
         args: Type type: 0i32 convert: size
-        methods: self methods: stack {elem_type=type t}
+        methods: self (methods: stack {elem_type=type t})
 type: t = 
     Macro
         class: "ResizeArray"
         types: t :: ()
         args: ()
-        methods: self methods: stack {elem_type=type t}
+        methods: self (methods: stack {elem_type=type t})
 methods: t =
     [
     assert_is_elem_type: v =
-        assert (Type eq: t.elem_type to: v)
-            message: "The type passed to the ResizeArray must match its element type."
-            arg1: t.elem_type
-            arg2: type v
+        assert 
+            cond: (Type eq: t.elem_type to: v)
+            msg:
+                message: "The type passed to the ResizeArray must match its element type."
+                arg1: t.elem_type
+                arg2: type v
     at: i set: v =
         self assert_is_elem_type: v
         type: ()
@@ -900,51 +931,50 @@ methods: t =
         type: t.elem_type
         method: "Item"
         args: (Type type: 0i32 convert: i)
-    clear =
+    Clear =
         type: ()
         method: "Clear"
         args: ()
-    count =
+    Count =
         type: 0i32
         method: "Count"
         args: ()
-    add: v =
+    Add: v =
         self assert_is_elem_type: v
-        type: t.elem_type
+        type: ()
         method: "Add"
         args: v
-    remove_at: i =
+    RemoveAt: i =
         type: ()
         method: "RemoveAt"
         args: (Type type: 0i32 convert: i)
-    to_array =
+    ToArray =
         type: (Array type: t.elem_type)
         method: "ToArray"
         args: ()
     elem_type = t.elem_type
-    last = self at: self.count - 1i32
     apply: i = self at: i
     ]
 iter=inl f x ->
-    Loop.for from: 0i32 near_to: x.count by:1i32 
+    Loop.for from: 0i32 near_to: x.Count by:1i32 
         body: inl i: -> f (x i)
 foldl=inl f state x -> 
-    Loop.for from:0i32 near_to: x.count by:1i32
+    Loop.for from:0i32 near_to: x.Count by:1i32
         state: 
         body: inl state: i: -> f state (x i)
 foldr=inl f x state -> 
-    Loop.for from_down: x.count - 1i32 to:0i32 by: -1i32 
+    Loop.for from_down: x.Count - 1i32 to:0i32 by: -1i32 
         state: 
         body: inl state: i: -> f (x i) state
 foldl: f value: x state: finally: =
-    Loop.for' from:0i32 near_to: x.count by:1i32
+    Loop.for' from:0i32 near_to: x.Count by:1i32
         state:
-        body:inl next: state: i: -> f next: state: value: (x i)
+        body:inl next: state: i: -> f next: state: value: x i
         finally:
 foldr: f value: x state: finally: =
-    Loop.for' from_down: x.count - 1i32 to:0i32 by: -1i32
+    Loop.for' from_down: x.Count - 1i32 to:0i32 by: -1i32
         state:
-        body:inl next: state: i: -> f next: state: value: (x i)
+        body:inl next: state: i: -> f next: state: value: x i
         finally:
 ]
     """

@@ -4,7 +4,6 @@ type Setting = {num_fields: int; num_soldiers: int}
 type Regret = float[]
 type Agent = 
     {
-    name: string
     strategy_sum: Regret
     regret_sum: Regret
     }
@@ -37,12 +36,12 @@ let normalize array =
 let add_sum (sum: Regret) x = Array.iteri (fun i x -> sum.[i] <- sum.[i] + x) x
 let add_regret (sum: Regret) f = Array.iteri (fun i x -> sum.[i] <- sum.[i] + f x) actions
 
-let sample (strategy: Regret) =
+let sample (dist: Regret) =
     let r = rng.NextDouble()
     let rec loop a cumulativeProbability =
         if a < actions.Length then 
-            let cumulativeProbability = cumulativeProbability + strategy.[a]
-            if r < cumulativeProbability then actions.[a]
+            let cumulativeProbability = cumulativeProbability + dist.[a]
+            if r <= cumulativeProbability then actions.[a]
             else loop (a+1) cumulativeProbability
         else 
             failwith "impossible"
@@ -64,24 +63,18 @@ let train player iterations =
         update_regret (fst player) (action_one, action_two)
         update_regret (snd player) (action_two, action_one)
 
-let players = 
-    let f name =
-        { 
-        name = name
-        regret_sum = Array.replicate actions.Length 0.0
-        strategy_sum = Array.replicate actions.Length 0.0
-        }
-    f "One", f "Two"
+let player = 
+    { 
+    regret_sum = Array.replicate actions.Length 0.0
+    strategy_sum = Array.replicate actions.Length 0.0
+    }
 
 let timer = System.Diagnostics.Stopwatch.StartNew()
-train players 100000
+train (player,player) 100000
 printfn "%A" timer.Elapsed
 
 let print player =
-    printfn "%s" player.name
     Array.iter2 (printfn "%A = %f") actions (normalize player.strategy_sum)
     printfn "---"
 
-print (fst players)
-print (snd players)
-
+print player
