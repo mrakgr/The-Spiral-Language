@@ -62,7 +62,7 @@
     <None Include="CFR\rps.fsx" />
     <None Include="CFR\rps_v2.fsx" />
     <None Include="CFR\blotto.fsx" />
-    <None Include="CFR\Script1.fsx" />
+    <None Include="CFR\kuhn_poker.fsx" />
     <Content Include="packages.config" />
     <Content Include="Google.DataTable.Net.Wrapper.XML" />
   </ItemGroup>
