@@ -36,7 +36,7 @@ let normalize array =
 
     let inline mutate_temp f = for i=0 to temp.Length-1 do temp.[i] <- f temp.[i]
     if normalizing_sum > 0.0 then mutate_temp (fun x -> x / normalizing_sum)
-    else mutate_temp (fun _ -> 1.0 / float array.Length)
+    else let value = 1.0 / float array.Length in mutate_temp (fun _ -> value)
     temp
 
 type Action =
@@ -54,9 +54,7 @@ type Node =
     regret_sum: float[]
     }
 
-type Agent = Dictionary<Card * Action list, Node * float ref>
-
-let agent : Agent = Dictionary()
+let agent = Dictionary()
 let actions = [|Bet;Pass|]
 let show = Array.map2 (sprintf "%A=%f%%") actions >> String.concat "; " >> sprintf "[|%s|]"
 
@@ -72,43 +70,41 @@ let inline add_regret_sum node f =
 type Particle = {card: Card; probability: float}
 
 let rec cfr history (one : Particle) (two : Particle) =
-    match history with
-    | [Pass; Pass] -> if one.card > two.card then 1.0 else -1.0
-    | [Pass; Bet; Pass] -> -1.0
-    | [Bet; Bet; Pass] -> if one.card > two.card then 2.0 else -2.0
-    | [Pass; Bet] -> 1.0
-    | [Bet; Bet] -> if one.card > two.card then 2.0 else -2.0
-    | _ ->
-        let node, utils = 
-            memoize agent (fun _ -> 
-                {strategy_sum=Array.zeroCreate actions.Length; regret_sum=Array.zeroCreate actions.Length}, ref 0.0
-                ) (one.card, history)
+    let node = 
+        memoize agent (fun _ -> 
+            {strategy_sum=Array.zeroCreate actions.Length; regret_sum=Array.zeroCreate actions.Length}
+            ) (one.card, history)
 
-        let action_distribution = normalize node.regret_sum
-        add_strategy_sum node one.probability action_distribution
+    let action_distribution = normalize node.regret_sum
+    add_strategy_sum node one.probability action_distribution
 
-        let util, util_weighted_sum =
-            array_mapFold2 (fun s action action_probability ->
-                let util = -(cfr (action :: history) two {one with probability=one.probability*action_probability})
-                util, s + util * action_probability
-                ) 0.0 actions action_distribution
+    let util, util_weighted_sum =
+        array_mapFold2 (fun s action action_probability ->
+            let history = action :: history
+            let util =
+                match history with
+                | [Pass; Bet; Pass] -> -1.0
+                | [Pass; Bet] -> -1.0
+                | [Pass; Pass] -> if one.card > two.card then 1.0 else -1.0
+                | [Bet; Bet; Pass] -> if one.card > two.card then 2.0 else -2.0
+                | [Bet; Bet] -> if one.card > two.card then 2.0 else -2.0
+                | _ -> -1.0 * cfr history two {one with probability=one.probability*action_probability}
+            util, s + util * action_probability
+            ) 0.0 actions action_distribution
 
-        match history with
-        | [] when one.card = Two ->
-            if action_distribution.[0] > 0.0 then printfn "distr=%A" action_distribution
-            printfn "%f" util_weighted_sum
-        | _ -> ()
-
-        add_regret_sum node (fun i -> two.probability * (util.[i] - util_weighted_sum))
-
-        utils := !utils + two.probability * util_weighted_sum
-        util_weighted_sum
+    add_regret_sum node (fun i -> two.probability * (util.[i] - util_weighted_sum))
+    
+    util_weighted_sum
     
 let train num_iterations =
     let cards =
-        //[|Three, One|]
-        [| (One,Three); (Two, Three); (One,Two)|]
-        |> Array.collect (fun (a,b) -> [|a,b;b,a|])
+        let cards = [|One; Two; Three|]
+        [|
+        for i=0 to 2 do
+            for j=0 to 2 do
+                if i <> j then yield (cards.[i], cards.[j])
+        |]
+
     let mutable util = 0.0
     for i=1 to num_iterations do
         Array.iter (fun (a,b) ->
@@ -116,11 +112,10 @@ let train num_iterations =
             ) cards
         
     printfn "Average game value: %f" (util / float (num_iterations * cards.Length))
-    agent 
+    agent
     |> Seq.sortBy (fun x -> x.Key)
     |> Seq.iter (fun kv ->
-        printfn "%A - %s - %f" kv.Key (normalize (fst kv.Value).strategy_sum |> show) !(snd kv.Value)
+        printfn "%A - %s" (kv.Key |> fun (card,actions) -> card, List.rev actions) (normalize kv.Value.strategy_sum |> show)
         ) 
 
-train 10000
-
+train 100000
