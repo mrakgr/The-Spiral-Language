@@ -92,23 +92,29 @@ let rec cfr history (one : Particle) (two : Particle) =
                 let util = -(cfr (action :: history) two {one with probability=one.probability*action_probability})
                 util, s + util * action_probability
                 ) 0.0 actions action_distribution
-        utils := !utils + two.probability * util_weighted_sum
 
         add_regret_sum node (fun i -> two.probability * (util.[i] - util_weighted_sum))
+
+        utils := !utils + two.probability * util_weighted_sum
         util_weighted_sum
     
 let train num_iterations =
-    let cards = [|One; Two; Three|]
+    let cards =
+        //[|Three, One|]
+        [| (One,Three); (Two, Three); (One,Two)|]
+        |> Array.collect (fun (a,b) -> [|a,b;b,a|])
     let mutable util = 0.0
     for i=1 to num_iterations do
-        knuth_shuffle cards
-        util <- util + cfr [] {card=cards.[0]; probability=1.0} {card=cards.[1]; probability=1.0}
-    printfn "Average game value: %f" (util / float num_iterations)
+        Array.iter (fun (a,b) ->
+            util <- util + cfr [] {card=a; probability=1.0} {card=b; probability=1.0}
+            ) cards
+        
+    printfn "Average game value: %f" (util / float (num_iterations * cards.Length))
     agent 
     |> Seq.sortBy (fun x -> x.Key)
     |> Seq.iter (fun kv ->
         printfn "%A - %s - %f" kv.Key (normalize (fst kv.Value).strategy_sum |> show) !(snd kv.Value)
         ) 
 
-//train 1000000
+train 100000
 
