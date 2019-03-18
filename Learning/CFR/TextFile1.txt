@@ -1,0 +1,243 @@
+﻿  1import numpy as np
+  2
+  3# Number of actions a player can take at a decision node.
+  4_N_ACTIONS = 2
+  5_N_CARDS = 3
+  6
+  7
+  8def main():
+  9    """
+ 10    Run iterations of counterfactual regret minimization algorithm.
+ 11    """
+ 12    i_map = {}  # map of information sets
+ 13    n_iterations = 100000
+ 14    expected_game_value = 0
+ 15
+ 16    for _ in range(n_iterations):
+ 17        expected_game_value += cfr(i_map)
+ 18        for _, v in i_map.items():
+ 19            v.next_strategy()
+ 20
+ 21    expected_game_value /= n_iterations
+ 22
+ 23    display_results(expected_game_value, i_map)
+ 24
+ 25
+ 26def cfr(i_map, history="", card_1=-1, card_2=-1, pr_1=1, pr_2=1, pr_c=1):
+ 27    """
+ 28    Counterfactual regret minimization algorithm.
+ 29
+ 30    Parameters
+ 31    ----------
+ 32
+ 33    i_map: dict
+ 34        Dictionary of all information sets.
+ 35    history : [{'r', 'c', 'b'}], str
+ 36        A string representation of the game tree path we have taken.
+ 37        Each character of the string represents a single action:
+ 38
+ 39        'r': random chance action
+ 40        'c': check action
+ 41        'b': bet action
+ 42    card_1 : (0, 2), int
+ 43        player A's card
+ 44    card_2 : (0, 2), int
+ 45        player B's card
+ 46    pr_1 : (0, 1.0), float
+ 47        The probability that player A reaches `history`.
+ 48    pr_2 : (0, 1.0), float
+ 49        The probability that player B reaches `history`.
+ 50    pr_c: (0, 1.0), float
+ 51        The probability contribution of chance events to reach `history`.
+ 52    """
+ 53    if is_chance_node(history):
+ 54        return chance_util(i_map)
+ 55
+ 56    if is_terminal(history):
+ 57        return terminal_util(history, card_1, card_2)
+ 58
+ 59    n = len(history)
+ 60    is_player_1 = n % 2 == 0
+ 61    info_set = get_info_set(i_map, card_1 if is_player_1 else card_2, history)
+ 62
+ 63    strategy = info_set.strategy
+ 64    if is_player_1:
+ 65        info_set.reach_pr += pr_1
+ 66    else:
+ 67        info_set.reach_pr += pr_2
+ 68
+ 69    # Counterfactual utility per action.
+ 70    action_utils = np.zeros(_N_ACTIONS)
+ 71
+ 72    for i, action in enumerate(["c", "b"]):
+ 73        next_history = history + action
+ 74        if is_player_1:
+ 75            action_utils[i] = -1 * cfr(i_map, next_history,
+ 76                                       card_1, card_2,
+ 77                                       pr_1 * strategy[i], pr_2, pr_c)
+ 78        else:
+ 79            action_utils[i] = -1 * cfr(i_map, next_history,
+ 80                                       card_1, card_2,
+ 81                                       pr_1, pr_2 * strategy[i], pr_c)
+ 82
+ 83    # Utility of information set.
+ 84    util = sum(action_utils * strategy)
+ 85    regrets = action_utils - util
+ 86    if is_player_1:
+ 87        info_set.regret_sum += pr_2 * pr_c * regrets
+ 88    else:
+ 89        info_set.regret_sum += pr_1 * pr_c * regrets
+ 90
+ 91    return util
+ 92
+ 93
+ 94def is_chance_node(history):
+ 95    """
+ 96    Determine if we are at a chance node based on tree history.
+ 97    """
+ 98    return history == ""
+ 99
+100
+101def chance_util(i_map):
+102    expected_value = 0
+103    n_possibilities = 6
+104    for i in range(_N_CARDS):
+105        for j in range(_N_CARDS):
+106            if i != j:
+107                expected_value += cfr(i_map, "rr", i, j,
+108                                      1, 1, 1/n_possibilities)
+109    return expected_value/n_possibilities
+110
+111
+112def is_terminal(history):
+113    """
+114    Returns true if the history is a terminal history.
+115    """
+116    possibilities = {"rrcc": True, "rrcbc": True,
+117                     "rrcbb": True, "rrbc": True, "rrbb": True}
+118    return history in possibilities
+119
+120
+121def terminal_util(history, card_1, card_2):
+122    """
+123    Returns the utility of a terminal history.
+124    """
+125    n = len(history)
+126    card_player = card_1 if n % 2 == 0 else card_2
+127    card_opponent = card_2 if n % 2 == 0 else card_1
+128
+129    if history == "rrcbc" or history == "rrbc":
+130        # Last player folded. The current player wins.
+131        return 1
+132    elif history == "rrcc":
+133        # Showdown with no bets
+134        return 1 if card_player > card_opponent else -1
+135
+136    # Showdown with 1 bet
+137    assert(history == "rrcbb" or history == "rrbb")
+138    return 2 if card_player > card_opponent else -2
+139
+140
+141def card_str(card):
+142    if card == 0:
+143        return "J"
+144    elif card == 1:
+145        return "Q"
+146    return "K"
+147
+148
+149def get_info_set(i_map, card, history):
+150    """
+151    Retrieve information set from dictionary.
+152    """
+153    key = card_str(card) + " " + history
+154    info_set = None
+155
+156    if key not in i_map:
+157        info_set = InformationSet(key)
+158        i_map[key] = info_set
+159        return info_set
+160
+161    return i_map[key]
+162
+163
+164class InformationSet():
+165    def __init__(self, key):
+166        self.key = key
+167        self.regret_sum = np.zeros(_N_ACTIONS)
+168        self.strategy_sum = np.zeros(_N_ACTIONS)
+169        self.strategy = np.repeat(1/_N_ACTIONS, _N_ACTIONS)
+170        self.reach_pr = 0
+171
+172    def next_strategy(self):
+173        self.strategy_sum += self.reach_pr * self.strategy
+174        self.strategy = self.calc_strategy(self.reach_pr)
+175        self.reach_pr = 0
+176
+177    def calc_strategy(self, pr):
+178        """
+179        Calculate current strategy from the sum of regret.
+180
+181        ---
+182        Parameters
+183
+184        pr: (0.0, 1.0), float
+185            The probability that this information set has been reached.
+186        """
+187        strategy = self.make_positive(self.regret_sum)
+188        total = sum(strategy)
+189        if total > 0:
+190            strategy = strategy / total
+191        else:
+192            n = _N_ACTIONS
+193            strategy = np.repeat(1/n, n)
+194
+195        return strategy
+196
+197    def get_average_strategy(self):
+198        """
+199        Calculate average strategy over all iterations. This is the
+200        Nash equilibrium strategy.
+201        """
+202        total = sum(self.strategy_sum)
+203        if total > 0:
+204            strategy = self.strategy_sum / total
+205
+206            # Purify
+207            strategy = np.where(strategy < 0.001, 0, strategy)
+208
+209            # Re-normalize
+210            total = sum(strategy)
+211            strategy /= total
+212
+213            return strategy
+214
+215        n = _N_ACTIONS
+216        return np.repeat(1/n, n)
+217
+218    def make_positive(self, x):
+219        return np.where(x > 0, x, 0)
+220
+221    def __str__(self):
+222        strategies = ['{:03.2f}'.format(x)
+223                      for x in self.get_average_strategy()]
+224        return '{} {}'.format(self.key.ljust(6), strategies)
+225
+226
+227def display_results(ev, i_map):
+228    print('player 1 expected value: {}'.format(ev))
+229    print('player 2 expected value: {}'.format(-1 * ev))
+230
+231    print()
+232    print('player 1 strategies:')
+233    sorted_items = sorted(i_map.items(), key=lambda x: x[0])
+234    for _, v in filter(lambda x: len(x[0]) % 2 == 0, sorted_items):
+235        print(v)
+236    print()
+237    print('player 2 strategies:')
+238    for _, v in filter(lambda x: len(x[0]) % 2 == 1, sorted_items):
+239        print(v)
+240
+241
+242if __name__ == "__main__":
+243    main()
