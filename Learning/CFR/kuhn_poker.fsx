@@ -93,6 +93,12 @@ let rec cfr history (one : Particle) (two : Particle) =
                 util, s + util * action_probability
                 ) 0.0 actions action_distribution
 
+        match history with
+        | [] when one.card = Two ->
+            if action_distribution.[0] > 0.0 then printfn "distr=%A" action_distribution
+            printfn "%f" util_weighted_sum
+        | _ -> ()
+
         add_regret_sum node (fun i -> two.probability * (util.[i] - util_weighted_sum))
 
         utils := !utils + two.probability * util_weighted_sum
@@ -116,5 +122,5 @@ let train num_iterations =
         printfn "%A - %s - %f" kv.Key (normalize (fst kv.Value).strategy_sum |> show) !(snd kv.Value)
         ) 
 
-train 100000
+train 10000
 
