@@ -86,7 +86,6 @@ let rec cfr history (one : Particle) (two : Particle) =
                 | _ -> -1.0 * cfr history two {one with probability=one.probability*action_probability}
             util, s + util * action_probability
             ) 0.0 actions action_distribution
-
     add node.regret_sum (fun i -> two.probability * (util.[i] - util_weighted_sum))
     
     util_weighted_sum
