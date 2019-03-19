@@ -16,10 +16,10 @@ let inline memoize (memo_dict: Dictionary<_,_>) f k =
     | true, v -> v
     | false, _ -> let v = f k in memo_dict.Add(k,v); v
 
-let inline normalize f array = 
+let normalize array = 
     let temp, normalizing_sum =
         Array.mapFold (fun s x ->
-            let strategy = max (f x) 0.0
+            let strategy = max x 0.0
             strategy, strategy + s
             ) 0.0 array
 
@@ -32,44 +32,91 @@ let inline add sum f = for i=0 to Array.length sum-1 do sum.[i] <- sum.[i] + f i
 
 // ---
 
+type Number = int
+type Rank = int
+type Claim = Number * Rank
+
 type Action =
-    | Claim of int * int
+    | Claim of Claim
     | Dudo
 
 type Node = 
     {
-    mutable strategy: float
-    mutable regret: float
+    strategy_sum: float []
+    regret_sum: float []
     }
 
-//type Agent = Dictionary<Action, History * Node>
+let show (actions, node) =
+    let action_distribution = normalize node.strategy_sum
+    Array.map2 (sprintf "%A=%f%%") actions action_distribution
+    |> String.concat "; " |> sprintf "[|%s|]"
 
-let actions_initial = Array.map Claim [|1,2; 1,3; 1,4; 1,5; 1,6; 1,1; 2,2; 2,3; 2,4; 2,5; 2,6; 2,1|]
-let actions_tree = 
-    Array.mapFoldBack (fun a s -> (a,s), a :: s) actions_initial [Dudo]
-    |> fun (x,_) -> Dictionary(dict x, HashIdentity.Reference)
+type Particle = {dice: Rank; probability: float}
 
-let agent = Dictionary(HashIdentity.Reference)
+let dice: Rank[] = [|1..6|]
+let actions_initial: Claim[] = [|1,2; 1,3; 1,4; 1,5; 1,6; 1,1; 2,2; 2,3; 2,4; 2,5; 2,6; 2,1|]
 
-let cfr_initial one two =
-    let actions_allowed = actions_initial
-    let nodes =
-        actions_allowed 
-        |> Array.map (
-            memoize agent (fun _ -> Dictionary(HashIdentity.Reference), {strategy=0.0; regret=0.0})
-            >> snd
+let node_create actions = 
+    let l = Array.length actions
+    actions, {strategy_sum=Array.zeroCreate l; regret_sum=Array.zeroCreate l}
+
+let agent_some = 
+    let actions_tree, _ = Array.mapFoldBack (fun a s -> (a, List.toArray s), (Claim a :: s)) actions_initial [Dudo]
+    Array.collect (fun dice ->
+        actions_tree
+        |> Array.map (fun (key,actions) ->
+            (dice,key), node_create actions
             )
+        ) dice
+    |> fun x -> Dictionary(dict x, HashIdentity.Reference)
+let agent_none = Array.map (fun dice -> dice, node_create actions_initial) dice |> dict
+
+let inline cfr_template f (actions, node) one two =
+    let action_distribution = normalize node.regret_sum
+    add node.strategy_sum (fun i -> one.probability * action_distribution.[i])
+
+    let util, util_weighted_sum =
+        array_mapFold2 (fun s action action_probability ->
+            let util = f action action_probability
+            util, s + util * action_probability
+            ) 0.0 actions action_distribution
+    add node.regret_sum (fun i -> two.probability * (util.[i] - util_weighted_sum))
+
+    util_weighted_sum
+
+let rec cfr_some (number, rank as claim) one two =
+    cfr_template (fun action action_probability ->
+        match action with
+        | Dudo -> 
+            let f s x = if x = 1 || x = rank then s+1 else s
+            let dice_guessed = f (f 0 one.dice) two.dice
+            let hits = number - dice_guessed
+            if hits < 0 then 1.0 else -1.0
+        | Claim claim -> -1.0 * cfr_some claim two {one with probability=one.probability*action_probability}
+        ) agent_some.[one.dice,claim] one two
+
+let cfr_none one two = 
+    cfr_template (fun action action_probability -> 
+        -1.0 * cfr_some action two {one with probability=one.probability*action_probability}
+        ) agent_none.[one.dice] one two
+
+let train num_iterations =
+    let mutable util = 0.0
+    for i=1 to num_iterations do
+        Array.iter (fun b ->
+            Array.iter (fun a ->
+                util <- util + cfr_none {dice=a; probability=1.0} {dice=b; probability=1.0}
+                ) dice
+            ) dice
         
-    let action_distribution = nodes |> normalize (fun x -> x.regret)
-    add nodes
-    ()
+    printfn "Average game value: %f" (util / float (num_iterations * dice.Length * dice.Length))
 
+    let print_agent (agent: IDictionary<_,_>) =
+        agent
+        |> Seq.sortBy (fun x -> x.Key)
+        |> Seq.iter (fun kv -> printfn "%A - %s" kv.Key (show kv.Value))
 
-let dice_count target dice = Array.fold (fun s x -> if x = 1 || x = target then s+1 else s) 0 dice
+    print_agent agent_some
+    print_agent agent_none
 
-
-
-type Particle = {probability: float}
-
-let agent = Dictionary()
-
+train 1000
