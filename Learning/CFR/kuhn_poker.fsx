@@ -39,6 +39,8 @@ let normalize array =
     else let value = 1.0 / float array.Length in mutate_temp (fun _ -> value)
     temp
 
+let inline add sum f = for i=0 to Array.length sum-1 do sum.[i] <- sum.[i] + f i
+
 // ---
 
 type Action =
@@ -56,13 +58,11 @@ type Node =
     regret_sum: float[]
     }
 
+type Particle = {card: Card; probability: float}
+
 let agent = Dictionary()
 let actions = [|Bet;Pass|]
 let show = Array.map2 (sprintf "%A=%f%%") actions >> String.concat "; " >> sprintf "[|%s|]"
-
-let inline add sum f = for i=0 to Array.length sum-1 do sum.[i] <- sum.[i] + f i
-
-type Particle = {card: Card; probability: float}
 
 let rec cfr history (one : Particle) (two : Particle) =
     let node = 
