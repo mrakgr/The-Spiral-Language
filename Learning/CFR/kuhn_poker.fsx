@@ -39,6 +39,8 @@ let normalize array =
     else let value = 1.0 / float array.Length in mutate_temp (fun _ -> value)
     temp
 
+// ---
+
 type Action =
     | Pass
     | Bet
@@ -58,14 +60,7 @@ let agent = Dictionary()
 let actions = [|Bet;Pass|]
 let show = Array.map2 (sprintf "%A=%f%%") actions >> String.concat "; " >> sprintf "[|%s|]"
 
-let add_strategy_sum node particle_probability action_distribution = 
-    let sum = node.strategy_sum
-    Array.iteri (fun i prob -> sum.[i] <- sum.[i] + particle_probability * prob) action_distribution
-
-let inline add_regret_sum node f =
-    let sum = node.regret_sum
-    for i=0 to sum.Length-1 do
-        sum.[i] <- sum.[i] + f i
+let inline add sum f = for i=0 to Array.length sum-1 do sum.[i] <- sum.[i] + f i
 
 type Particle = {card: Card; probability: float}
 
@@ -76,7 +71,7 @@ let rec cfr history (one : Particle) (two : Particle) =
             ) (one.card, history)
 
     let action_distribution = normalize node.regret_sum
-    add_strategy_sum node one.probability action_distribution
+    add node.strategy_sum (fun i -> one.probability * action_distribution.[i])
 
     let util, util_weighted_sum =
         array_mapFold2 (fun s action action_probability ->
@@ -92,7 +87,7 @@ let rec cfr history (one : Particle) (two : Particle) =
             util, s + util * action_probability
             ) 0.0 actions action_distribution
 
-    add_regret_sum node (fun i -> two.probability * (util.[i] - util_weighted_sum))
+    add node.regret_sum (fun i -> two.probability * (util.[i] - util_weighted_sum))
     
     util_weighted_sum
     
