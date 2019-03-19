@@ -110,14 +110,20 @@ let train num_iterations =
         
     printfn "Average game value: %f" (util / float (num_iterations * dice.Length * dice.Length))
 
-    //let print_agent f (agent: IDictionary<_,_>) =
-    //    agent
-    //    |> Seq.sortBy (fun x -> x.Key)
-    //    |> Seq.iter (fun kv -> f kv.Key kv.Value)
+    let print_agent f (agent: IDictionary<_,_>) =
+        agent
+        |> Seq.sortBy (fun x -> x.Key)
+        |> Seq.iter (fun kv -> f kv.Key kv.Value)
 
-    //print_agent (fun card -> 
-    //    print_agent (fun claim v -> printfn "%i - %A - %s" card claim (show v))
-    //    ) agent_some
-    //print_agent (fun claim v -> printfn "%A - %s" claim (show v)) agent_none
+    print_agent (fun card -> 
+        print_agent (fun claim v -> printfn "%i - %A - %s" card claim (show v))
+        ) agent_some
+    print_agent (fun claim v -> printfn "%A - %s" claim (show v)) agent_none
 
-train 10000
+train 100
+
+// Note: The optimal value should be around -0.02 according to the paper, but I am getting 0.05 here.
+// Probably my interpretation of the game rules is different from the authors, but I am not sure where the difference is.
+
+// Despite this, I feel like the code here is pretty tight. It should be 99% right.
+// Might be worth replacing dictionaries with multidimensional arrays, but this is good enough to serve as a showcase.
