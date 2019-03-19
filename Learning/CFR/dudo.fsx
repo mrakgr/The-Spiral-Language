@@ -62,16 +62,16 @@ let node_create actions =
 
 let agent_some = 
     let actions_tree, _ = Array.mapFoldBack (fun a s -> (a, List.toArray s), (Claim a :: s)) actions_initial [Dudo]
-    Array.collect (fun dice ->
+    Array.map (fun dice ->
         actions_tree
-        |> Array.map (fun (key,actions) ->
-            (dice,key), node_create actions
-            )
+        |> Array.map (fun (key,actions) -> key, node_create actions)
+        |> fun x -> dice, dict x
         ) dice
-    |> fun x -> Dictionary(dict x, HashIdentity.Reference)
+    |> dict
+    
 let agent_none = Array.map (fun dice -> dice, node_create actions_initial) dice |> dict
 
-let inline cfr_template f (actions, node) one two =
+let cfr_template f (actions, node) one two =
     let action_distribution = normalize node.regret_sum
     add node.strategy_sum (fun i -> one.probability * action_distribution.[i])
 
@@ -90,10 +90,9 @@ let rec cfr_some (number, rank as claim) one two =
         | Dudo -> 
             let f s x = if x = 1 || x = rank then s+1 else s
             let dice_guessed = f (f 0 one.dice) two.dice
-            let hits = number - dice_guessed
-            if hits < 0 then 1.0 else -1.0
+            if dice_guessed < number then 1.0 else -1.0
         | Claim claim -> -1.0 * cfr_some claim two {one with probability=one.probability*action_probability}
-        ) agent_some.[one.dice,claim] one two
+        ) agent_some.[one.dice].[claim] one two
 
 let cfr_none one two = 
     cfr_template (fun action action_probability -> 
@@ -111,12 +110,14 @@ let train num_iterations =
         
     printfn "Average game value: %f" (util / float (num_iterations * dice.Length * dice.Length))
 
-    let print_agent (agent: IDictionary<_,_>) =
-        agent
-        |> Seq.sortBy (fun x -> x.Key)
-        |> Seq.iter (fun kv -> printfn "%A - %s" kv.Key (show kv.Value))
+    //let print_agent f (agent: IDictionary<_,_>) =
+    //    agent
+    //    |> Seq.sortBy (fun x -> x.Key)
+    //    |> Seq.iter (fun kv -> f kv.Key kv.Value)
 
-    print_agent agent_some
-    print_agent agent_none
+    //print_agent (fun card -> 
+    //    print_agent (fun claim v -> printfn "%i - %A - %s" card claim (show v))
+    //    ) agent_some
+    //print_agent (fun claim v -> printfn "%A - %s" claim (show v)) agent_none
 
-train 1000
+train 100
