@@ -71,7 +71,7 @@ let agent_some =
     
 let agent_none = Array.map (fun dice -> dice, node_create actions_initial) dice |> dict
 
-let cfr_template f (actions, node) one two =
+let inline cfr_template f (actions, node) one two =
     let action_distribution = normalize node.regret_sum
     add node.strategy_sum (fun i -> one.probability * action_distribution.[i])
 
@@ -120,4 +120,4 @@ let train num_iterations =
     //    ) agent_some
     //print_agent (fun claim v -> printfn "%A - %s" claim (show v)) agent_none
 
-train 100
+train 10000
