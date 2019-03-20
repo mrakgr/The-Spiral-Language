@@ -65,7 +65,7 @@
     <None Include="CFR\kuhn_poker.fsx" />
     <None Include="CFR\dudo_v1.fsx" />
     <None Include="CFR\dudo_v2.fsx" />
-    <Content Include="CFR\TextFile2.txt" />
+    <None Include="CFR\dudo_v3.fsx" />
     <Content Include="packages.config" />
     <Content Include="Google.DataTable.Net.Wrapper.XML" />
   </ItemGroup>
