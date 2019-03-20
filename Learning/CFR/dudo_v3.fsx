@@ -123,8 +123,8 @@ let train num_iterations =
 train 100
 #time
 
-// Functionally the same as v2, but 6x faster. I could not have written this before v2, but it was trivial to optimize
-// once I did it. This version is a lot more complicated than v2 while being identical functionally, so I recommend 
+// Functionally the same as v2, but 6x faster. I could not have written this before v2, but v2 was trivial to optimize
+// once it was done. This version is a lot more complicated than v2 while being identical functionally, so I recommend 
 // studying v2 instead if you are interested in what CFR does on Dudo.
 
 // This version seems to be getting the results from the paper. 
