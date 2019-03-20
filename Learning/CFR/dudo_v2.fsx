@@ -58,34 +58,50 @@ let claims: Claim[] = [|1,2; 1,3; 1,4; 1,5; 1,6; 1,1; 2,2; 2,3; 2,4; 2,5; 2,6; 2
 
 let node_create actions = 
     let l = Array.length actions
-    actions, {strategy_sum=Array.zeroCreate l; regret_sum=Array.zeroCreate l}
+    {strategy_sum=Array.zeroCreate l; regret_sum=Array.zeroCreate l}
 
-let agent_some = 
-    let actions_tree, _ = Array.mapFoldBack (fun a s -> List.toArray s, (Claim a :: s)) claims [Dudo]
-    Array.map (fun dice ->
-        actions_tree
-        // Extends the claims so they take account of their history.
-        |> Array.mapi (fun action_index actions -> 
-            /// From 2 ** (action_index - 1) .. (2 ** action_index - 1)
-            let num_claims = (1 <<< action_index) - 1
-            Array.init num_claims (fun _ -> node_create actions))
-        |> fun x -> dice, x
-        ) dice
-    |> dict
+let actions_tree = 
+    Array.mapFoldBack (fun a s -> (a, List.toArray s), (Claim a :: s)) claims [Dudo]
+    |> fst |> dict
+let agent = Dictionary(HashIdentity.Structural)
 
-let agent_none = Array.map (fun dice -> dice, node_create claims) dice |> dict
+let inline cfr_template f (actions, node) one two =
+    let action_distribution = normalize node.regret_sum
+    add node.strategy_sum (fun i -> one.probability * action_distribution.[i])
 
-let claim_range x = 
-    let x = x + 1 
-    let left = 1 <<< (x - 1)
-    let right = (1 <<< x) - 1
-    left, right
+    let util, util_weighted_sum =
+        array_mapFold2 (fun s action action_probability ->
+            let util = f action action_probability
+            util, s + util * action_probability
+            ) 0.0 actions action_distribution
+    add node.regret_sum (fun i -> two.probability * (util.[i] - util_weighted_sum))
 
-/// The formulas in the paper are wrong.
-let claim_index = function
-    | 1,2 -> 0 | 1,3 -> 1 | 1,4 -> 2 | 1,5 -> 3 | 1,6 -> 4 | 1,1 -> 5
-    | 2,2 -> 6 | 2,3 -> 7 | 2,4 -> 8 | 2,5 -> 9 | 2,6 -> 10 | 2,1 -> 11
-    | _ -> failwith "impossible"
+    util_weighted_sum
 
+let rec cfr history one two =
+    let inline recurse action action_probability = -1.0 * cfr (action :: history) two {one with probability=one.probability*action_probability}
+    let inline node actions = actions, memoize agent (fun _ -> node_create actions) (one.dice, history)
+    match history with
+    | [] -> cfr_template recurse (node claims) one two
+    | (number, rank as claim) :: _ ->
+        cfr_template (fun action action_probability ->
+            match action with
+            | Dudo -> 
+                let f s x = if x = 1 || x = rank then s+1 else s
+                let dice_guessed = f (f 0 one.dice) two.dice
+                if dice_guessed < number then 1.0 else -1.0
+            | Claim claim -> recurse claim action_probability
+            ) (node actions_tree.[claim]) one two
 
+let train num_iterations =
+    let mutable util = 0.0
+    for i=1 to num_iterations do
+        Array.iter (fun b ->
+            Array.iter (fun a ->
+                util <- util + cfr [] {dice=a; probability=1.0} {dice=b; probability=1.0}
+                ) dice
+            ) dice
+        
+    printfn "Average game value: %f" (util / float (num_iterations * dice.Length * dice.Length))
 
+train 100
