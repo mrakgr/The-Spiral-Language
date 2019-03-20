@@ -104,4 +104,9 @@ let train num_iterations =
         
     printfn "Average game value: %f" (util / float (num_iterations * dice.Length * dice.Length))
 
+#time
 train 100
+#time
+
+// Unlike v1, this one takes account of the history of actions. I removed the printing as there are now too many
+// branches for it to be useful. Somehow the code for this ended up being simpler than for the v1 version.

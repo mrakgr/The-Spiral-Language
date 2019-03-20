@@ -54,14 +54,14 @@ let show (actions, node) =
 type Particle = {dice: Rank; probability: float}
 
 let dice: Rank[] = [|1..6|]
-let actions_initial: Claim[] = [|1,2; 1,3; 1,4; 1,5; 1,6; 1,1; 2,2; 2,3; 2,4; 2,5; 2,6; 2,1|]
+let claims: Claim[] = [|1,2; 1,3; 1,4; 1,5; 1,6; 1,1; 2,2; 2,3; 2,4; 2,5; 2,6; 2,1|]
 
 let node_create actions = 
     let l = Array.length actions
     actions, {strategy_sum=Array.zeroCreate l; regret_sum=Array.zeroCreate l}
 
 let agent_some = 
-    let actions_tree, _ = Array.mapFoldBack (fun a s -> (a, List.toArray s), (Claim a :: s)) actions_initial [Dudo]
+    let actions_tree, _ = Array.mapFoldBack (fun a s -> (a, List.toArray s), (Claim a :: s)) claims [Dudo]
     Array.map (fun dice ->
         actions_tree
         |> Array.map (fun (key,actions) -> key, node_create actions)
@@ -69,7 +69,7 @@ let agent_some =
         ) dice
     |> dict
     
-let agent_none = Array.map (fun dice -> dice, node_create actions_initial) dice |> dict
+let agent_none = Array.map (fun dice -> dice, node_create claims) dice |> dict
 
 let inline cfr_template f (actions, node) one two =
     let action_distribution = normalize node.regret_sum
@@ -122,5 +122,5 @@ let train num_iterations =
 
 train 100
 
-// Note: The optimal value should be around -0.02 according to the paper, but I am getting 0.05 here.
-// The reson is that the agent here does not take previous claims into account.
+// Note: The optimal value should be around -0.027 according to the paper, but I am getting 0.05 here.
+// The reason is that the agent here does not take history of actions into account.

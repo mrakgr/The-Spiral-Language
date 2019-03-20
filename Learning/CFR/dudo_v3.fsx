@@ -74,7 +74,7 @@ let node_create actions =
 let actions_tree = 
     Array.mapFoldBack (fun a s -> List.toArray s, (Claim a :: s)) claims [Dudo]
     |> fst
-let agent' = Array.init dice.Length (fun _ -> Array.replicate ((1 <<< claims.Length) - 1) None)
+let agent' = Array.init dice.Length (fun _ -> Array.replicate (1 <<< claims.Length) None)
 let agent dice = agent'.[dice-1]
 
 let inline cfr_template f (actions, node) one two =
@@ -119,4 +119,13 @@ let train num_iterations =
             ) dice
     printfn "Average game value: %f" (util / float (num_iterations * dice.Length * dice.Length))
 
+#time
 train 100
+#time
+
+// Functionally the same as v2, but 6x faster. I could not have written this before v2, but it was trivial to optimize
+// once I did it. This version is a lot more complicated than v2 while being identical functionally, so I recommend 
+// studying v2 instead if you are interested in what CFR does on Dudo.
+
+// This version seems to be getting the results from the paper. 
+// It seems accounting for the history of actions does make a difference in Dudo.
