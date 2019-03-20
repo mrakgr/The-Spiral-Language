@@ -63,8 +63,8 @@
     <None Include="CFR\rps_v2.fsx" />
     <None Include="CFR\blotto.fsx" />
     <None Include="CFR\kuhn_poker.fsx" />
-    <None Include="CFR\dudo.fsx" />
-    <None Include="CFR\liar die.fsx" />
+    <None Include="CFR\dudo_v1.fsx" />
+    <None Include="CFR\dudo_v2.fsx" />
     <Content Include="CFR\TextFile2.txt" />
     <Content Include="packages.config" />
     <Content Include="Google.DataTable.Net.Wrapper.XML" />

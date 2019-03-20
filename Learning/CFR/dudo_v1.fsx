@@ -123,7 +123,4 @@ let train num_iterations =
 train 100
 
 // Note: The optimal value should be around -0.02 according to the paper, but I am getting 0.05 here.
-// Probably my interpretation of the game rules is different from the authors, but I am not sure where the difference is.
-
-// Despite this, I feel like the code here is pretty tight. It should be 99% right.
-// Might be worth replacing dictionaries with multidimensional arrays, but this is good enough to serve as a showcase.
+// The reson is that the agent here does not take previous claims into account.
