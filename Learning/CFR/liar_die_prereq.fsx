@@ -9,7 +9,7 @@ let nodes = [1;2;3;4]
 let nodes_outgoing, _ = List.mapFoldBack (fun a s -> (a,s), a :: s) nodes []
 
 /// Shuffled
-let nodes_outgoing' = [(1, [3; 4; 2]); (3, [4]); (4, []); (2, [4; 3])]
+let nodes_outgoing' = [(1, [4; 3; 2]); (3, [4]); (4, []); (2, [4; 3])]
 
 /// Returns the topological order of the graph. Converts outgoing to ingoing edges.
 /// Lacks checking for recursive cycles.
