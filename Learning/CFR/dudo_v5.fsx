@@ -1,4 +1,4 @@
-﻿#load "CFR.fsx"
+﻿#load "FSICFR.fsx"
 open System.Collections.Generic
 
 open Helpers
@@ -17,31 +17,33 @@ let actions = Array.append (Array.map Claim claims) [|Dudo|]
 
 let agent = Dictionary()
 
-open CFR
-let inline response (history,one,two) actions next = 
-    let node = memoize agent (fun _ -> node_create actions) (history, one.state)
-    response node one two actions next
+open FSICFR
+let inline response history one actions next = 
+    memoize agent (fun _ -> 
+        response actions next
+        ) (history, one)
 
-let rec dudo_main (history, one, two as key) =
+let rec dudo_main history one two =
     match history with
-    | [] -> response key claims (fun (claim, one) -> dudo_main (claim :: history, two, one))
+    | [] -> response history one claims (fun claim -> dudo_main (claim :: history) two one)
     | (number,rank as claim) :: _ ->
-        response key
+        response 
+            history one
             actions.[Array.findIndex ((=) claim) claims + 1 .. ]
-            (fun (action, one) ->
+            (fun action ->
                 match action with
                 | Dudo ->
                     let f s x = if x = 1 || x = rank then s+1 else s
                     let dice_guessed = f (f 0 (state one)) (state two)
                     if dice_guessed < number then 1.0 else -1.0                    
                     |> terminal
-                | Claim claim -> dudo_main (claim :: history, two, one)
+                | Claim claim -> dudo_main (claim :: history) two one
                 )
 
 let dudo_initial one two = 
-    chance one dice <| fun one ->
-        chance two dice <| fun two ->
-            dudo_main ([], one, two)
+    chance dice <| fun one ->
+        chance dice <| fun two ->
+            dudo_main [] one two
 
 let train num_iterations =
     let mutable util = 0.0
