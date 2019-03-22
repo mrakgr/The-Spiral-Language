@@ -67,7 +67,8 @@
     <None Include="CFR\dudo_v2.fsx" />
     <None Include="CFR\dudo_v3.fsx" />
     <None Include="CFR\liar_die_prereq.fsx" />
-    <None Include="CFR\dudo_v4.fsx" />
+    <None Include="CFR\helpers.fsx" />
+    <None Include="CFR\fsi.fsx" />
     <Content Include="packages.config" />
     <Content Include="Google.DataTable.Net.Wrapper.XML" />
   </ItemGroup>
