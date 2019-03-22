@@ -72,6 +72,3 @@ let cfr _ =
             for dice' in initial do
                 util <- util + response [action] {state=dice; probability=particle_prob} {state=dice'; probability=particle_prob}
     util
-
-
-
