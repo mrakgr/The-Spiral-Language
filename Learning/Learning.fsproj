@@ -74,6 +74,7 @@
     <None Include="CFR\Intro\helpers.fsx" />
     <None Include="CFR\Intro\CFR.fsx" />
     <None Include="CFR\Intro\dudo_v4.fsx" />
+    <None Include="CFR\Script1.fsx" />
     <Content Include="packages.config" />
     <Content Include="Google.DataTable.Net.Wrapper.XML" />
   </ItemGroup>
