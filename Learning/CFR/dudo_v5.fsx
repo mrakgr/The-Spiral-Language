@@ -48,15 +48,11 @@ let dudo_initial one two =
 let train num_iterations =
     let mutable util = 0.0
     for i=1 to num_iterations do
-        util <- util - dudo_initial (particle ()) (particle ())
+        util <- util - dudo_initial (particle 0) (particle 1)
         
     printfn "Average game value: %f" (util / float num_iterations)
 
 #time
 train 100
 #time
-
-// The refined design for the CFR agent. Here I've finally succeeded in factoring out the inference logic from the game logic.
-// This results in quite a generic implementation that could be used for other games. Having the correct design in mind will
-// also make implementing the more complicated FSI-CFR much easier.
 
