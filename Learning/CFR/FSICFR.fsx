@@ -2,20 +2,27 @@
 open Helpers
 open System.Collections.Generic
 
-type Node =
+type Node = 
+    {
+    strategy_sum: float []
+    regret_sum: float []
+    }
+
+let node_create actions = 
+    let l = Array.length actions
+    {strategy_sum=Array.zeroCreate l; regret_sum=Array.zeroCreate l}
+
+type Game =
     | Terminal of float
-    | Response of strategy: float[] * regret: float[] * Node []
-    | Chance of Node []
+    | Response of player: int * Game []
+    | Chance of player: int * Game []
 
-type Particle<'state> = {state: 'state; player: int}
+type Particle<'state> = {state: 'state; id: int}
 
-let particle player = {state=(); player=player}
+let particle id = {state=(); id=id}
 
-let state x = x
-let inline chance player dice next = Array.map (fun dice -> next {state=dice; player=player.player}) dice |> Chance
-let inline response actions next =
-    let regret = Array.zeroCreate (Array.length actions)
-    let strategy = Array.zeroCreate (Array.length actions)
-    let nodes = Array.map next actions
-    Response(strategy,regret,nodes)
+let state x = x.state
+let inline chance player dice next = Array.map (fun dice -> next {state=dice; id=player.id}) dice |> fun x -> Chance(player.id,x)
+let inline response player actions next = Response(player.id,Array.map next actions)
 let terminal = Terminal
+
