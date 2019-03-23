@@ -59,6 +59,8 @@
     <None Include="App.config" />
     <Compile Include="LearningModule.fs" />
     <Compile Include="LearningTests.fs" />
+    <None Include="CFR\FSICFR\FSICFR.fsx" />
+    <None Include="CFR\FSICFR\dudo_v5.fsx" />
     <None Include="CFR\rps.fsx" />
     <None Include="CFR\rps_v2.fsx" />
     <None Include="CFR\blotto.fsx" />
@@ -70,8 +72,6 @@
     <None Include="CFR\helpers.fsx" />
     <None Include="CFR\CFR.fsx" />
     <None Include="CFR\dudo_v4.fsx" />
-    <None Include="CFR\FSICFR.fsx" />
-    <None Include="CFR\dudo_v5.fsx" />
     <Content Include="packages.config" />
     <Content Include="Google.DataTable.Net.Wrapper.XML" />
   </ItemGroup>

@@ -1,4 +1,4 @@
-﻿#load "helpers.fsx"
+﻿#load "../helpers.fsx"
 open Helpers
 open System.Collections.Generic
 
