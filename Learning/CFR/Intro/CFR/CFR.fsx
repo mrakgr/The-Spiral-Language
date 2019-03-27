@@ -1,4 +1,6 @@
-﻿#load "helpers.fsx"
+﻿// Generic CFR implementation based on the `An Introduction to Counterfactual Regret Minimization` paper
+
+#load "helpers.fsx"
 open Helpers
 open System.Collections.Generic
 
