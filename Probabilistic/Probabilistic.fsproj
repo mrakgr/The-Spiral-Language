@@ -63,6 +63,7 @@
     <None Include="DIPPL\Script1.fsx" />
     <None Include="DIPPL\Script2.fsx" />
     <None Include="DIPPL\Script3.fsx" />
+    <None Include="PRML.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
