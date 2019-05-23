@@ -71,7 +71,7 @@ add
     right: 2
 ```
 
-Similarly to records, the right sides of patterns can be omitted, in which case they will default to the keywords's argument names.
+Similarly to records, the right sides of patterns can be omitted, in which case they will default to the keywords' argument names.
 
 ```fsharp
 inl add left:right: = left + right
@@ -499,7 +499,7 @@ List.nil |> List.cons 3.0 |> List.cons 2.0 |> List.cons 1.0 |> dyn |> map (inl x
 
 There is some convenience to doing the helpers directly as such. 
 
-Spiral can do runtime union types, but unlike with the MLs, they are not the main purpose of the language. Pattern matching on arbitrary types with no cost at run time is. This also comes at the cost of having to write custom type inference code such as `type (Type meta: l) |> dyn |> f`.
+Spiral can do runtime union types, but unlike with the MLs, they are not the main purpose of the language. Pattern matching on arbitrary types with no run time cost is. This also comes at the cost of having to write custom type inference code such as `type (Type meta: l) |> dyn |> f`.
 
 For the sake of completeness, here is what the above two programs compile to.
 
@@ -564,7 +564,7 @@ This will be a convention throughout the language starting from here. Connected 
 
 ## Most of the module patterns
 
-In v0.09 the module pattern had a rich panoply of available patterns, most of which were used once or twice.
+In v0.09 the module grammar had a rich panoply of available patterns, most of which were used once or twice.
 
 ```fsharp
     inl to =
