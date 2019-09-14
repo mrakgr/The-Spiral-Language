@@ -74,6 +74,7 @@
     <None Include="CFR\Intro\CFR\dudo_v4.fsx" />
     <None Include="CFR\Script1.fsx" />
     <Content Include="packages.config" />
+    <None Include="Papers\principle of reversibility.md" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="Deedle">
