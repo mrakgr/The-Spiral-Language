@@ -325,4 +325,32 @@ Right now, I personally am convinced of what I preach. So at this point I've alr
 
 # Date: 9/20/2019
 
-Note: I just remembered that the Cholesky factorization inserts random rotations into the whitening matrix. There are different matrix factorization schemes that can be used to do whitening, and [ZCA](https://arxiv.org/abs/1512.00809) preserves rotational ordering. I forgot which one it was, but this is something to be on the lookout for.
+Note: I just remembered that the Cholesky factorization inserts random rotations into the whitening matrix. That might make synchronization difficult. There are different matrix factorization schemes that can be used to do whitening, and [ZCA](https://arxiv.org/abs/1512.00809) preserves rotational ordering. That having said, Cholesky + updating the weights directly might work with some engineering. Just using KFAC is worth considering as well.
+
+If possible, I'd want to make use of Cholesky decomposition for doing whitening as it is faster than other procedures.
+
+Also, for a while I've known that there is a deep connection between KFAC and PRONG, but I've yet to see the proof that they are equivalent written out. Here it is.
+
+## Proof that KFAC is equivalent to PRONG
+
+Suppose `b` is a 1d whitening matrix, `a` is the weight matrix and `c` is the two combined. What is the update for different values of `b`? Considering that the update rule for `a` is `a + gradient * b` then...
+
+```
+c = a * b = 4, grad = 1
+a = 1, b = 1 -> a' = 2, b = 1, c' = 2
+a = 0.5, b = 2 -> a' = 2.5, b = 2, c' = 5
+a = 0.25, b = 4 -> a' = 4.25, b = 4, c' = 17
+```
+
+Now suppose `a` and `b` are not separate as in PRONG, but we have `a * b` and `b` like in KFAC. Then updating the weight matrix does not produce correct results using the `c + gradient * b` rule.
+
+```
+c = a * b = 4
+c = 1 -> b = 1 -> c' = 2
+c = 1 -> b = 2 -> c' = 3
+c = 1 -> b = 4 -> c' = 5
+```
+
+As shown above the right relationship implies that right quantity for multiplying the gradient is the square of `b`. `a * b` after the update would be `(a + gradient * b) * b = a * b + gradient * b * b`. Meaning `b * b` is what should be used here to add to the gradient just as the first example implies.
+
+The proof involving multidimensional matrices rather than scalars is similar.
