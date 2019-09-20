@@ -322,3 +322,7 @@ The above method of using the agreement between multiple networks as a measure o
 Even if all of this works exactly as planned, there is of course no way that this will be enough to create truly intelligent agents. But still, having the optimization processes working properly in RL is just a matter of good design. Before mastery can be attained, first deep RL needs to be upgraded to a working state on toy tasks. That would be the first major step towards having the neural networks live up to their promise.
 
 Right now, I personally am convinced of what I preach. So at this point I've already started planning of how I am going to implement all of this. When I am done with my current studies, that is what I am going to do. It is going to be great.
+
+# Date: 9/20/2019
+
+Note: I just remembered that the Cholesky factorization inserts random rotations into the whitening matrix. There are different matrix factorization schemes that can be used to do whitening, and [ZCA](https://arxiv.org/abs/1512.00809) preserves rotational ordering. I forgot which one it was, but this is something to be on the lookout for.
