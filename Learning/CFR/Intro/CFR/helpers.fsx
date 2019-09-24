@@ -16,7 +16,7 @@ let inline memoize (memo_dict: Dictionary<_,_>) f k =
     | true, v -> v
     | false, _ -> let v = f k in memo_dict.Add(k,v); v
 
-let normalize array = 
+let regret_match array = 
     let temp, normalizing_sum =
         Array.mapFold (fun s x ->
             let strategy = max x 0.0

@@ -24,7 +24,7 @@ let inline chance one dice next =
     prob * Array.fold (fun s dice -> s + next {state=dice; probability=one.probability * prob}) 0.0 dice
 
 let inline response node one two actions next =
-    let action_distribution = normalize node.regret_sum
+    let action_distribution = regret_match node.regret_sum
     add node.strategy_sum (fun i -> one.probability * action_distribution.[i])
 
     let util, util_weighted_sum =
