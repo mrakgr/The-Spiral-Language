@@ -59,8 +59,6 @@
     <None Include="App.config" />
     <Compile Include="LearningModule.fs" />
     <Compile Include="LearningTests.fs" />
-    <None Include="CFR\Intro\FSICFR\FSICFR.fsx" />
-    <None Include="CFR\Intro\FSICFR\dudo_v5.fsx" />
     <None Include="CFR\Intro\rps.fsx" />
     <None Include="CFR\Intro\rps_v2.fsx" />
     <None Include="CFR\Intro\blotto.fsx" />
@@ -68,11 +66,14 @@
     <None Include="CFR\Intro\dudo_v1.fsx" />
     <None Include="CFR\Intro\dudo_v2.fsx" />
     <None Include="CFR\Intro\dudo_v3.fsx" />
-    <None Include="CFR\Intro\liar_die_prereq.fsx" />
+    <None Include="CFR\Intro\topological_sort.fsx" />
     <None Include="CFR\Intro\CFR\helpers.fsx" />
     <None Include="CFR\Intro\CFR\CFR.fsx" />
     <None Include="CFR\Intro\CFR\dudo_v4.fsx" />
     <None Include="CFR\Script1.fsx" />
+    <None Include="CFR\Monte Carlo\Outcome sampling\helpers.fsx" />
+    <None Include="CFR\Monte Carlo\Outcome sampling\CFR.fsx" />
+    <None Include="CFR\Monte Carlo\Outcome sampling\dudo.fsx" />
     <Content Include="packages.config" />
     <None Include="Papers\principle of reversibility.md" />
   </ItemGroup>

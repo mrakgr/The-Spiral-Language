@@ -1,4 +1,6 @@
-﻿open System.Collections.Generic
+﻿/// Ignore this file. Was intended to be used for FSI-CFR.
+
+open System.Collections.Generic
 
 let inline memoize (memo_dict: Dictionary<_,_>) f k =
     match memo_dict.TryGetValue k with

@@ -33,9 +33,7 @@ let inline response node one two actions next =
 
     let util, util_weighted_sum =
         array_mapFold2 (fun s action action_probability ->
-            let util = 
-                if action_probability = 0.0 && two.probability = 0.0 then 0.0 // the pruning optimization
-                else next (action, {one with probability=one.probability*action_probability})
+            let util = next (action, {one with probability=one.probability*action_probability})
             util, s + util * action_probability
             ) 0.0 actions action_distribution
     add node.regret_sum (fun i -> two.probability * (util.[i] - util_weighted_sum))

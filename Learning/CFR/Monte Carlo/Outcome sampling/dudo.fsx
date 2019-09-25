@@ -54,11 +54,6 @@ let train num_iterations =
 train 100
 #time
 
-/// I've decided to skip FSI-CFR as compiling arbitrary games to graph form is too difficult.
-/// It is doable enough for a single game like the authors did in paper, but there
-/// is just no easy technique that I can think of to do it generically.
-
-/// And even if it were done, it is difficult to push through the reasoning of correctness.
-
-/// Turning CFR into a breadth first search like FSI demands is just too laborious.
-/// The vanilla CFR which does depth first search is a lot more flexible as an algorithm.
+// The refined design for the CFR agent. Here I've finally succeeded in factoring out the inference logic from the game logic.
+// This results in quite a generic implementation that could be used for other games. Having the correct design in mind will
+// also make implementing the more complicated FSI-CFR much easier.
