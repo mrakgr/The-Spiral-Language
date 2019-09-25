@@ -23,6 +23,10 @@ let inline chance one dice next =
     let prob = 1.0 / float (Array.length dice)
     prob * Array.fold (fun s dice -> s + next {state=dice; probability=one.probability * prob}) 0.0 dice
 
+/// Note: Here I swap player positions and update both of them in a single round, but in Marc Lanctot's thesis
+/// CFR is described as updating only one player per episode. I am not sure if I made mistake translating the 
+/// Java examples, or if the paper covered a different variant.
+/// I am also not doing the pruning optimization, but it would be easy to add.
 let inline response node one two actions next =
     let action_distribution = regret_match node.regret_sum
     add node.strategy_sum (fun i -> one.probability * action_distribution.[i])
