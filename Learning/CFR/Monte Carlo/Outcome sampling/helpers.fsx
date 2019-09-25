@@ -31,16 +31,32 @@ let regret_match array =
 let inline add sum f = for i=0 to Array.length sum-1 do sum.[i] <- sum.[i] + f i
 
 let rng = System.Random()
-let sample (actions : 'action []) (distribution : float []) =
-    if actions.Length <> distribution.Length then failwith "The two arrays must be equally sized."
+let sample' (distribution : float []) =
     let r = rng.NextDouble()
     let rec loop i cumulative_probability =
-        if i < actions.Length then 
+        if i < distribution.Length then 
             let cumulative_probability = cumulative_probability + distribution.[i]
-            if r < cumulative_probability then actions.[i], distribution.[i]
+            if r < cumulative_probability then i
             else loop (i+1) cumulative_probability
         else 
             failwith "impossible"
     loop 0 0.0
 
-let sample_uniform (actions : 'action []) = actions.[rng.Next(actions.Length)], 1.0 / float actions.Length
+type Probability = {sample : float; proposal : float} with
+    static member (*) (a, b) = {sample=a.sample*b.sample; proposal=a.proposal*b.proposal}
+
+/// Samples action using the sampling distribution and returns the probabilities of both.
+let sample (actions : 'action []) (sampling_distribution : float []) (proposal_distribution : float []) =
+    if actions.Length <> sampling_distribution.Length || actions.Length <> proposal_distribution.Length then failwith "The three arrays must be equally sized."
+    let i = sample' sampling_distribution
+    actions.[i], {sample = sampling_distribution.[i]; proposal = proposal_distribution.[i]}, i
+
+/// Samples action using the uniform distribution and returns the probabilities of both.
+let sample_uniform' (actions : 'action []) (proposal_distribution : float []) =
+    if actions.Length <> proposal_distribution.Length then failwith "The two arrays must be equally sized."
+    let i = rng.Next(actions.Length)
+    actions.[i], {sample = 1.0 / float actions.Length; proposal = proposal_distribution.[i]}, i
+
+let sample_uniform (actions : 'action []) = 
+    let i = rng.Next(actions.Length)
+    actions.[i]
