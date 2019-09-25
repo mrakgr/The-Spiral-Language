@@ -29,3 +29,18 @@ let regret_match array =
     temp
 
 let inline add sum f = for i=0 to Array.length sum-1 do sum.[i] <- sum.[i] + f i
+
+let rng = System.Random()
+let sample (actions : 'action []) (distribution : float []) =
+    if actions.Length <> distribution.Length then failwith "The two arrays must be equally sized."
+    let r = rng.NextDouble()
+    let rec loop i cumulative_probability =
+        if i < actions.Length then 
+            let cumulative_probability = cumulative_probability + distribution.[i]
+            if r < cumulative_probability then actions.[i], distribution.[i]
+            else loop (i+1) cumulative_probability
+        else 
+            failwith "impossible"
+    loop 0 0.0
+
+let sample_uniform (actions : 'action []) = actions.[rng.Next(actions.Length)], 1.0 / float actions.Length
