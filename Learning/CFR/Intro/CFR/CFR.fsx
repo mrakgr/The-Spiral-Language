@@ -14,22 +14,15 @@ let node_create actions =
     let l = Array.length actions
     {strategy_sum=Array.zeroCreate l; regret_sum=Array.zeroCreate l}
 
-type Particle<'state> = {state: 'state; probability: float}
+type Particle<'state, 'history> = {state: 'state; probability: float; infosets: Dictionary<'history, Node>; is_updateable: bool}
 
-let particle state = {state=state; probability=1.0}
-
-let state x = x.state
 let inline chance one dice next = 
     let prob = 1.0 / float (Array.length dice)
-    prob * Array.fold (fun s dice -> s + next {state=dice; probability=one.probability * prob}) 0.0 dice
+    prob * Array.fold (fun s dice -> s + next {state=dice; probability=one.probability * prob; infosets=one.infosets; is_updateable=one.is_updateable}) 0.0 dice
 
-/// Note: Here I swap player positions and update both of them in a single round, but in Marc Lanctot's thesis
-/// CFR is described as updating only one player per episode. I am not sure if I made mistake translating the 
-/// Java examples, or if the paper covered a different variant. Either way, it seems to be working correctly.
-let inline response node one two actions next =
+let inline response history one two actions next =
+    let node = memoize one.infosets (fun _ -> node_create actions) history
     let action_distribution = regret_match node.regret_sum
-    add node.strategy_sum (fun i -> one.probability * action_distribution.[i])
-
     let util, util_weighted_sum =
         array_mapFold2 (fun s action action_probability ->
             let util = 
@@ -37,7 +30,10 @@ let inline response node one two actions next =
                 else next (action, {one with probability=one.probability*action_probability})
             util, s + util * action_probability
             ) 0.0 actions action_distribution
-    add node.regret_sum (fun i -> two.probability * (util.[i] - util_weighted_sum))
+
+    if one.is_updateable then
+        add node.strategy_sum (fun i -> one.probability * action_distribution.[i])
+        add node.regret_sum (fun i -> two.probability * (util.[i] - util_weighted_sum))
 
     -util_weighted_sum
 
