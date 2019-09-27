@@ -1,7 +1,15 @@
 ﻿#load "CFR.fsx"
 open System.Collections.Generic
 
-open Helpers
+open CFR
+
+type Particle<'state, 'history> = 
+    {
+    state: 'state
+    probability: float
+    infosets: Dictionary<'history, Node>
+    is_updateable: bool
+    }
 
 type Number = int
 type Rank = int
@@ -18,29 +26,33 @@ let actions = Array.append (Array.map Claim claims) [|Dudo|]
 let player_one_infosets = Dictionary()
 let player_two_infosets = Dictionary()
 
-open CFR
+/// Wrappers for the nodes.
+let inline chance one next =
+    chance dice one.probability (fun dice prob -> next {state=dice; probability=prob; infosets=one.infosets; is_updateable=one.is_updateable})
+
 let inline response (history,one,two) actions next = 
-    response (history, one.state) one two actions next
+    response one.is_updateable one.infosets (history, one.state) actions one.probability two.probability 
+        (fun action probability -> next action {one with probability=probability})
 
 let rec dudo_main (history, one, two as key) =
     match history with
-    | [] -> response key claims (fun (claim, one) -> dudo_main (claim :: history, two, one))
+    | [] -> response key claims (fun claim one -> dudo_main (claim :: history, two, one))
     | (number,rank as claim) :: _ ->
         response key
             actions.[Array.findIndex ((=) claim) claims + 1 .. ]
-            (fun (action, one) ->
+            (fun action one ->
                 match action with
                 | Dudo ->
-                    let f s x = if x = 1 || x = rank then s+1 else s
-                    let dice_guessed = f (f 0 one.state) two.state
+                    let check_guess s x = if x = 1 || x = rank then s+1 else s
+                    let dice_guessed = check_guess (check_guess 0 one.state) two.state
                     if dice_guessed < number then 1.0 else -1.0                    
                     |> terminal
                 | Claim claim -> dudo_main (claim :: history, two, one)
                 )
 
 let dudo_initial one two = 
-    chance one dice <| fun one ->
-        chance two dice <| fun two ->
+    chance one <| fun one ->
+        chance two <| fun two ->
             dudo_main ([], one, two)
 
 let train num_iterations =
