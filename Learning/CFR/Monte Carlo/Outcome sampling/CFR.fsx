@@ -29,6 +29,9 @@ let inline response_regret infosets uniformity_coef history actions one_probabil
     for i=0 to actions.Length-1 do
         // The branches seem to be the other way around between the thesis pseudocode and Lanctot's C++ examples.
         // Also, what `pi(z[i]a,z)` means in the context is ambiguous.
+        // Note: this is very close to the softmax update which would be
+        // let r = if i = action_index then W * (1.0 - proposal_distribution.[i]) else -W * proposal_distribution.[i]
+        // This is another thing I need to make sure to check out.
         let r = if i = action_index then W * (1.0 - proposal_distribution.[i]) else -W
         node.regret_sum.[i] <- node.regret_sum.[i] + r
     -utility, tail_probability * node_probability.proposal
