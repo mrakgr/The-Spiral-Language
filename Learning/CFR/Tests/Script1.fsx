@@ -2,5 +2,3 @@
 
 open FsCheck
 
-let insertKeepsOrder (x:int) xs = ordered xs ==> ordered (insert x xs)
-Check.Quick insertKeepsOrder
