@@ -74,6 +74,7 @@
     <None Include="CFR\Monte Carlo\Outcome sampling\helpers.fsx" />
     <None Include="CFR\Monte Carlo\Outcome sampling\CFR.fsx" />
     <None Include="CFR\Monte Carlo\Outcome sampling\dudo.fsx" />
+    <None Include="CFR\Tests\Script1.fsx" />
     <Content Include="packages.config" />
     <None Include="Papers\principle of reversibility.md" />
   </ItemGroup>
@@ -81,8 +82,11 @@
     <Reference Include="Deedle">
       <HintPath>..\packages\Deedle.1.2.5\lib\net40\Deedle.dll</HintPath>
     </Reference>
+    <Reference Include="FsCheck">
+      <HintPath>..\packages\FsCheck.3.0.0-alpha4\lib\net452\FsCheck.dll</HintPath>
+    </Reference>
     <Reference Include="FSharp.Core">
-      <HintPath>..\packages\FSharp.Core.4.6.2\lib\net45\FSharp.Core.dll</HintPath>
+      <HintPath>..\packages\FSharp.Core.4.0.0.1\lib\net40\FSharp.Core.dll</HintPath>
     </Reference>
     <Reference Include="FSharp.Data">
       <HintPath>..\packages\FSharp.Data.2.4.6\lib\net45\FSharp.Data.dll</HintPath>
