@@ -87,8 +87,8 @@
       <Project>{8a44eec1-7e30-4b7c-a878-1f78a0c08e9a}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\The Spiral Language\The Spiral Language.fsproj">
-      <Name>The Spiral Language</Name>
+    <ProjectReference Include="..\The Spiral Language\The Spiral Language v0.1.fsproj">
+      <Name>The Spiral Language v0.1</Name>
       <Project>{91c9628b-20cf-46aa-ad73-56456a532819}</Project>
       <Private>True</Private>
     </ProjectReference>

@@ -84,12 +84,14 @@
     <Reference Include="System.ValueTuple">
       <HintPath>..\packages\System.ValueTuple.4.4.0\lib\net461\System.ValueTuple.dll</HintPath>
     </Reference>
-    <ProjectReference Include="..\The Spiral Language\The Spiral Language.fsproj">
-      <Name>The Spiral Language</Name>
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\The Spiral Language\The Spiral Language v0.1.fsproj">
+      <Name>The Spiral Language v0.1</Name>
       <Project>{91c9628b-20cf-46aa-ad73-56456a532819}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <Reference Include="System.Xml" />
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

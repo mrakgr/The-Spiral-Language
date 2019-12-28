@@ -79,6 +79,11 @@
     <None Include="Papers\principle of reversibility.md" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\The Spiral Language\The Spiral Language v0.1.fsproj">
+      <Name>The Spiral Language v0.1</Name>
+      <Project>{91c9628b-20cf-46aa-ad73-56456a532819}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <Reference Include="Deedle">
       <HintPath>..\packages\Deedle.1.2.5\lib\net40\Deedle.dll</HintPath>
     </Reference>
@@ -212,11 +217,6 @@
     <ProjectReference Include="..\Testing\Testing.fsproj">
       <Name>Testing</Name>
       <Project>{f7cc4d88-0e20-4395-9ffc-dc349c92b00d}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\The Spiral Language\The Spiral Language.fsproj">
-      <Name>The Spiral Language</Name>
-      <Project>{91c9628b-20cf-46aa-ad73-56456a532819}</Project>
       <Private>True</Private>
     </ProjectReference>
     <Reference Include="System.Xml" />
