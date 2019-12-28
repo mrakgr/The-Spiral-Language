@@ -10,4 +10,8 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="FParsec" Version="1.1.0-RC" />
+  </ItemGroup>
+
 </Project>
