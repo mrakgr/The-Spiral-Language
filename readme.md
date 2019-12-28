@@ -80,9 +80,17 @@
 
 # News
 
+03/2019
+
 v0.1 is currently in development. Here is [the changelog](https://github.com/mrakgr/The-Spiral-Language/blob/v0.1/changelog_v0.1.md).
 
 Going from 0.09 to 0.1 there have been significant changes to the language, so some of the things in the tutorial will be obsolete. Nonetheless, the language philosophy is the same as it was before so for the time being, the tutorial should still be useful.
+
+---
+
+01/2020
+
+Work on v0.2 is beginning. This will be a complete redesign so when it comes this entire documentation will be obsolete. Nevertheless, the essence of Spiral that is here will remain in the uniferred segment. The big idea will be to jack the partial evaluator into the constraint solver of a Haskell 98' tier type system. This will give the language top down-typing capabilities and ease of use almost on par with Haskell 98', but the efficiency, power and expressiveness of regular Spiral.
 
 # The Spiral Language
 
