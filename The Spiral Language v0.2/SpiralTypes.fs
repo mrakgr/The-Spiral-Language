@@ -22,3 +22,10 @@ let inline memoize (memo_dict: Dictionary<_,_>) f k =
     | true, v -> v
     | false, _ -> let v = f k in memo_dict.Add(k,v); v
 
+let inline memoize_rec (memo_dict: Dictionary<_,_>) on_init on_rec k =
+    match memo_dict.TryGetValue k with
+    | true, v -> v
+    | false, _ -> 
+        let v = on_init k
+        memo_dict.Add(k,v)
+        on_rec v
