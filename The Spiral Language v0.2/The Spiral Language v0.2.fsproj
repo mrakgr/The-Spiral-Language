@@ -7,10 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="Script1.fsx" />
-    <Compile Include="SpiralHashConsing.fs" />
+    <Compile Include="SpiralTypes.txt" />
+    <Compile Include="SpiralExperiments.txt" />
     <Compile Include="SpiralTypes.fs" />
-    <Compile Include="SpiralExperiments.fs" />
   </ItemGroup>
 
   <ItemGroup>
