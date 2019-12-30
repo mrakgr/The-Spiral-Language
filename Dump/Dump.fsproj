@@ -6,6 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="SpiralExperiments'.txt" />
+    <Compile Include="SpiralTypes'.txt" />
+    <Compile Include="SpiralTypes.txt" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

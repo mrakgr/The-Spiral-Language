@@ -7,9 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="SpiralTypes.txt" />
-    <Compile Include="SpiralExperiments.txt" />
-    <Compile Include="SpiralTypes.fs" />
+    <Compile Include="File1.fs" />
+    <Compile Include="SpiralTokenize.fs" />
   </ItemGroup>
 
   <ItemGroup>
