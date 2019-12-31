@@ -7,8 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="File1.fs" />
+    <Compile Include="Utils.fs" />
     <Compile Include="SpiralTokenize.fs" />
+    <Compile Include="SpiralParserCombinators.fs" />
+    <Compile Include="SpiralParsing.fs" />
   </ItemGroup>
 
   <ItemGroup>

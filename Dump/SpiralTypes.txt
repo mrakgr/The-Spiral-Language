@@ -58,6 +58,9 @@ type Value =
     | LitChar of char
 
 type Op =
+    // Type
+    | TypeExpr
+
     // Unsafe casts
     | UnsafeConvert
 
@@ -146,8 +149,7 @@ type Op =
     | IsNan
 
     // Infinity
-    | InfinityF64
-    | InfinityF32
+    | Infinity
 
 type ArrayType =
     | ArtDotNetHeap

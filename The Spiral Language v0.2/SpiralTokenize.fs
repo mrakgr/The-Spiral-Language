@@ -8,8 +8,10 @@ open Utils
 exception TokenizationError of string
 
 type TokenPosition = {
-    line : int
-    column : int
+    start_line : int
+    start_column : int
+    end_line : int
+    end_column : int
     }
 
 type TokenSpecial =
@@ -76,7 +78,8 @@ type SpiralToken =
         | TokOperator(x,_) | TokUnaryOperator(x,_) 
         | TokSpecial(x,_) -> x
 
-let pos (s: CharStream) = {column=int s.Column; line=int s.Line}
+let pos (s: CharStream) = int s.Line, int s.Column
+let pos' (start_line, start_column) (end_line, end_column) = {start_line=start_line; start_column=start_column; end_line=end_line; end_column=end_column}
 
 let rec spaces_template s = spaces >>. optional (followedByString "//" >>. skipRestOfLine true >>. spaces_template) <| s
 let spaces s = spaces_template s
@@ -103,9 +106,9 @@ let var (s:CharStream<_>) =
 
     let f x (s: CharStream<_>) =
         if s.Skip(':') then
-            TokKeyword(start,x)
+            TokKeyword(pos' start (pos s),x)
         else
-            let f x = TokSpecial(start,x)
+            let f x = TokSpecial(pos' start (pos s),x)
             match x with
             | "match" -> f SpecMatch | "typecase" -> f SpecTypecase
             | "function" -> f SpecFunction 
@@ -119,8 +122,8 @@ let var (s:CharStream<_>) =
             | "join" -> f SpecJoin | "type" -> f SpecType 
             | "nominal" -> f SpecNominal | "real" -> f SpecReal
             | "open" -> f SpecOpen | "_" -> f SpecWildcard
-            | "true" -> TokValue(start,LitBool true) | "false" -> TokValue(start,LitBool false)
-            | x -> TokVar(start,x)
+            | "true" -> TokValue(pos' start (pos s),LitBool true) | "false" -> TokValue(pos' start (pos s),LitBool false)
+            | x -> TokVar(pos' start (pos s),x)
         |> Reply
 
     (many1Satisfy2L is_identifier_starting_char is_identifier_char "identifier" >>= f .>> spaces) s
@@ -141,13 +144,13 @@ let number (s: CharStream<_>) =
         if s.Peek() = '-' && isDigit (s.Peek(1)) && is_separator_char (s.Peek(-1)) then parse_num_lit number_format_with_minus s
         else parse_num_lit default_number_format s
 
-    let inline safe_parse f on_succ er_msg (x : string) = 
+    let inline safe_parse s f on_succ er_msg (x : string) = 
         match f x with
-        | true, x -> Reply(TokValue(start,on_succ x))
+        | true, x -> Reply(TokValue(pos' start (pos s),on_succ x))
         | false, _ -> Reply(ReplyStatus.FatalError,messageError er_msg)
 
-    let inline default_int x = Reply(TokDefaultValue(start,x))
-    let inline default_float x = Reply(TokDefaultValue(start,x))
+    let inline default_int x = Reply(TokDefaultValue(pos' start (pos s),x))
+    let inline default_float x = Reply(TokDefaultValue(pos' start (pos s),x))
 
     let followedBySuffix x is_x_integer (s: CharStream<_>) =
         let guard f =
@@ -155,20 +158,20 @@ let number (s: CharStream<_>) =
             if is_identifier_starting_char a || isDigit a then Reply(Error, expected "non-identifier character or digit")
             else f x
         if s.Skip('i') then
-            if s.Skip('8') then guard (safe_parse SByte.TryParse LitInt8 "int8 parse failed")
-            elif s.Skip('1') && s.Skip('6') then guard (safe_parse Int16.TryParse LitInt16 "int16 parse failed")
-            elif s.Skip('3') && s.Skip('2') then guard (safe_parse Int32.TryParse LitInt32 "int32 parse failed")
-            elif s.Skip('6') && s.Skip('4') then guard (safe_parse Int64.TryParse LitInt64 "int64 parse failed")
+            if s.Skip('8') then guard (safe_parse s SByte.TryParse LitInt8 "int8 parse failed")
+            elif s.Skip('1') && s.Skip('6') then guard (safe_parse s Int16.TryParse LitInt16 "int16 parse failed")
+            elif s.Skip('3') && s.Skip('2') then guard (safe_parse s Int32.TryParse LitInt32 "int32 parse failed")
+            elif s.Skip('6') && s.Skip('4') then guard (safe_parse s Int64.TryParse LitInt64 "int64 parse failed")
             else Reply(Error, expected "8,16,32 or 64")
         elif s.Skip('u') then
-            if s.Skip('8') then guard (safe_parse Byte.TryParse LitUInt8 "uint8 parse failed")
-            elif s.Skip('1') && s.Skip('6') then guard (safe_parse UInt16.TryParse LitUInt16 "uint16 parse failed")
-            elif s.Skip('3') && s.Skip('2') then guard (safe_parse UInt32.TryParse LitUInt32 "uint32 parse failed")
-            elif s.Skip('6') && s.Skip('4') then guard (safe_parse UInt64.TryParse LitUInt64 "uint64 parse failed")
+            if s.Skip('8') then guard (safe_parse s Byte.TryParse LitUInt8 "uint8 parse failed")
+            elif s.Skip('1') && s.Skip('6') then guard (safe_parse s UInt16.TryParse LitUInt16 "uint16 parse failed")
+            elif s.Skip('3') && s.Skip('2') then guard (safe_parse s UInt32.TryParse LitUInt32 "uint32 parse failed")
+            elif s.Skip('6') && s.Skip('4') then guard (safe_parse s UInt64.TryParse LitUInt64 "uint64 parse failed")
             else Reply(Error, expected "8,16,32 or 64")
         elif s.Skip('f') then
-            if s.Skip('3') && s.Skip('2') then guard (safe_parse Single.TryParse LitFloat32 "float32 parse failed")
-            elif s.Skip('6') && s.Skip('4') then guard (safe_parse Double.TryParse LitFloat64 "float64 parse failed")
+            if s.Skip('3') && s.Skip('2') then guard (safe_parse s Single.TryParse LitFloat32 "float32 parse failed")
+            elif s.Skip('6') && s.Skip('4') then guard (safe_parse s Double.TryParse LitFloat64 "float64 parse failed")
             else Reply(Error, expected "32 or 64")
         elif is_x_integer then guard default_int
         else guard default_float
@@ -187,7 +190,7 @@ let number (s: CharStream<_>) =
 
 let keyword_unary s =
     let start = pos s
-    let f x s = Reply(TokKeywordUnary(start, x))
+    let f x s = Reply(TokKeywordUnary(pos' start (pos s), x))
 
     let x = s.Peek2()
     if x.Char0 = '.' && is_identifier_starting_char x.Char1 then
@@ -200,13 +203,13 @@ let operator (s : CharStream<_>) =
     let is_separator_prev = is_separator_char (s.Peek(-1))
     let start = pos s
     let f name (s: CharStream<_>) = 
-        if is_separator_prev && (let x = s.Peek() in is_identifier_char x || isDigit x || is_parenth_open x) then Reply(TokUnaryOperator(start,name))
-        else Reply(TokOperator(start,name))
+        if is_separator_prev && (let x = s.Peek() in is_identifier_char x || isDigit x || is_parenth_open x) then Reply(TokUnaryOperator(pos' start (pos s),name))
+        else Reply(TokOperator(pos' start (pos s),name))
     (many1SatisfyL is_operator_char "operator"  >>= f .>> spaces) s
 
 let inline string_raw_template begin_ end_ s =
     let start = pos s
-    let f x = TokValue(start, LitString x)
+    let f x = TokValue(pos' start (pos s), LitString x)
     (skipString begin_ >>. charsTillString end_ true Int32.MaxValue |>> f .>> spaces) s
 
 let string_raw s = string_raw_template "@\"" "\"" s
@@ -229,16 +232,16 @@ let inline char_quoted_read check (s: CharStream<_>) =
 
 let char_quoted s = 
     let start = pos s
-    let f x = TokValue(start, LitChar x)
+    let f x = TokValue(pos' start (pos s), LitChar x)
     (between (skipChar '\'') (skipChar '"') (char_quoted_read (fun _ -> true) |>> f) .>> spaces) s
 let string_quoted s = 
     let start = pos s
-    let f x = TokValue(start, LitString x)
+    let f x = TokValue(pos' start (pos s), LitString x)
     (between (skipChar '"') (skipChar '"') (manyChars (char_quoted_read ((<>) '"')) |>> f) .>> spaces) s
 
 let special s =
     let start = pos s
-    let f spec = s.Skip(); (spaces >>% (TokSpecial(start, spec))) s
+    let f spec = s.Skip(); (spaces >>% (TokSpecial(pos' start (pos s), spec))) s
     match s.Peek() with
     | '(' -> f SpecBracketRoundOpen | '[' -> f SpecBracketSquareOpen | '{' -> f SpecBracketCurlyOpen
     | ')' -> f SpecBracketRoundClose | ']' -> f SpecBracketSquareClose | '}' -> f SpecBracketCurlyClose
