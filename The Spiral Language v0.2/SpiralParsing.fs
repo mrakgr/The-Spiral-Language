@@ -122,8 +122,11 @@ and PatRecordMembersItem =
     | PatRecordMembersInjectVar of var: VarString * name: Pattern
 
 and Pattern =
-    | PatE
     | PatVar of VarString
+    | PatVarBox of VarString
+    | PatVarAnnot of VarString * RawExpr
+    | PatVarAnnotBox of VarString * RawExpr
+
     | PatPair of Pattern * Pattern
     | PatKeyword of string * Pattern list
     | PatRecordMembers of PatRecordMembersItem list
@@ -139,14 +142,15 @@ and Pattern =
 and RawExpr =
     | RawV of VarString 
     | RawLit of Value
-    | RawFunction of VarString * RawExpr
-    | RawForall of VarString * RawExpr
-    | RawRecBlock of (VarString * RawExpr) []
-    | RawKeywordCreate of KeywordString * RawExpr []
+    | RawInline of RawExpr // Acts as a join point for the prepass specifically.
+    | RawInl of VarString * RawExpr
+    | RawForall of VarString * domain: RawExpr * RawExpr
     | RawLet of var: VarString * bind: RawExpr * on_succ: RawExpr
+    | RawRecBlock of (VarString * RawExpr) []
     | RawPairTest of vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawKeywordTest of KeywordString * vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawRecordTest of RawRecordTestPattern [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
+    | RawKeywordCreate of KeywordString * RawExpr []
     | RawRecordWith of RawExpr [] * RawRecordWithPattern []
     | RawOp of Op * RawExpr []
     | RawPos of Pos<RawExpr>
@@ -156,13 +160,13 @@ type ParserExpr =
     | ParserStatement of (RawExpr -> RawExpr)
     | ParserExpr of RawExpr
 
-let inline expr_indent i op expr d = if op i (col d) then expr d else Fail []
+let inline expr_indent i op expr d = if op i (col d) then expr d else Error []
 
 let semicolon (d: ParserEnv) = if d.Line <> d.semicolon_line then semicolon' d else d.FailWith(InvalidSemicolon) 
 
 let exprpos expr d =
     let pos = pos' d
-    (expr |>> function RawInline _ | RawObjectCreate _ | RawRecFunction _ | RawFunction _ as x -> x | x -> expr_pos pos x) d
+    (expr |>> function RawInline _ | RawRecBlock _ | RawInl _ | RawForall _ as x -> x | x -> expr_pos pos x) d
 let patpos expr d = (expr |>> pat_pos (pos' d)) d
 //let exprpos expr d = expr d
 //let patpos expr d = expr d
