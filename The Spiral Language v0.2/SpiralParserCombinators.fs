@@ -1,6 +1,7 @@
 ﻿module Spiral.ParserCombinators
 
 open Spiral.Tokenize
+open System.Collections.Generic
 
 type ParserErrors =
     | ExpectedSpecial of TokenSpecial
@@ -36,6 +37,8 @@ type ParserEnv =
     module_: SpiralModule
     semicolon_line: int
     keyword_line: int
+    binops_value : Dictionary<string, FParsec.Associativity * int>
+    typeforall_allowed : bool
     }
 
     member d.Index = d.i.contents
@@ -367,14 +370,15 @@ let bracket_square_close d = special SpecBracketSquareClose d
 
 let semicolon' (d: ParserEnv) = d.SkipOperator ";"
 let cons (d: ParserEnv) = d.SkipOperator "::"
-let arr (d: ParserEnv) = d.SkipOperator "=>"
+let arr_cons (d: ParserEnv) = d.SkipOperator "=>"
 let eq (d: ParserEnv) = d.SkipOperator "="
-let lambda (d: ParserEnv) = d.SkipOperator "->"
+let arr_fun (d: ParserEnv) = d.SkipOperator "->"
 let or_ (d: ParserEnv) = d.SkipOperator "|"
 let and_ (d: ParserEnv) = d.SkipOperator "&"
 let dot (d: ParserEnv) = d.SkipOperator "."
 let colon (d: ParserEnv) = d.SkipOperator ":"
 let comma (d: ParserEnv) = d.SkipOperator ","
+let product (d: ParserEnv) = d.SkipOperator "*"
 
 let var (d: ParserEnv) = d.ReadVar
 let op (d: ParserEnv) = d.ReadOp
