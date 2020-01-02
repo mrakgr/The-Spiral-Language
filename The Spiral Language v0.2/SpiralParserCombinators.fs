@@ -27,6 +27,8 @@ type SpiralModule =
     code : string
     }
 
+type PosKey = {module_ : SpiralModule; line : int; column : int}
+
 type ParserEnv =
     {
     l: SpiralToken []
@@ -59,9 +61,11 @@ type ParserEnv =
     member inline d.Skip'(i) = d.i := d.i.contents+i
     member d.Skip = d.Skip'(1)
 
+    member d.Ok (pos : TokenPosition, t') = Ok(t', {module_=d.module_; column=pos.start_column; line=pos.start_line})
+
     member d.PeekSpecial =
         d.TryCurrent <| function
-            | TokSpecial(_,t') -> Ok t'
+            | TokSpecial(p,t') -> d.Ok(p,t')
             | _ -> Error []
 
     member d.SkipSpecial(t) =
@@ -71,12 +75,7 @@ type ParserEnv =
 
     member d.ReadOp =
         d.TryCurrent <| function
-            | TokOperator(_,t') -> d.Skip; Ok t'
-            | _ -> d.FailWith(ExpectedOperator')
-
-    member d.ReadOpAsVar =
-        d.TryCurrent <| function
-            | TokOperator(_,t') -> d.Skip; Ok t'
+            | TokOperator(p,t') -> d.Skip; d.Ok(p,t')
             | _ -> d.FailWith(ExpectedOperator')
 
     member d.SkipOperator(t) =
@@ -86,22 +85,27 @@ type ParserEnv =
 
     member d.ReadVar =
         d.TryCurrent <| function
-            | TokVar(_,t') -> d.Skip; Ok t'
+            | TokVar(p,t') -> d.Skip; d.Ok(p,t')
             | _ -> d.FailWith(ExpectedVar)
 
-    member d.ReadLit =
+    member d.ReadValue =
         d.TryCurrent <| function
-            | TokValue(_,t') -> d.Skip; Ok t'
+            | TokValue(p,t') -> d.Skip; d.Ok(p,t')
+            | _ -> d.FailWith(ExpectedLit)
+
+    member d.ReadDefaultValue =
+        d.TryCurrent <| function
+            | TokDefaultValue(p,t') -> d.Skip; d.Ok(p,t')
             | _ -> d.FailWith(ExpectedLit)
 
     member d.ReadKeyword =
         d.TryCurrent <| function
-            | TokKeyword(_,t') -> d.Skip; Ok t'
+            | TokKeyword(p,t') -> d.Skip; d.Ok(p,t')
             | _ -> d.FailWith(ExpectedKeyword)
 
     member d.ReadKeywordUnary =
         d.TryCurrent <| function
-            | TokKeywordUnary(_,t') -> d.Skip; Ok t'
+            | TokKeywordUnary(p,t') -> d.Skip; d.Ok(p,t')
             | _ -> d.FailWith(ExpectedKeywordUnary)
 
 let inline preturn a d = Ok a
@@ -361,14 +365,21 @@ let bracket_round_close d = special SpecBracketRoundClose d
 let bracket_curly_close d = special SpecBracketCurlyClose d
 let bracket_square_close d = special SpecBracketSquareClose d
 
+let semicolon' (d: ParserEnv) = d.SkipOperator ";"
 let cons (d: ParserEnv) = d.SkipOperator "::"
 let arr (d: ParserEnv) = d.SkipOperator "=>"
 let eq (d: ParserEnv) = d.SkipOperator "="
+let lambda (d: ParserEnv) = d.SkipOperator "->"
+let or_ (d: ParserEnv) = d.SkipOperator "|"
+let and_ (d: ParserEnv) = d.SkipOperator "&"
+let dot (d: ParserEnv) = d.SkipOperator "."
+let colon (d: ParserEnv) = d.SkipOperator ":"
+let comma (d: ParserEnv) = d.SkipOperator ","
 
 let var (d: ParserEnv) = d.ReadVar
 let op (d: ParserEnv) = d.ReadOp
-let op_as_var (d: ParserEnv) = d.ReadOpAsVar
-let lit_ (d: ParserEnv) = d.ReadLit
+let value_ (d: ParserEnv) = d.ReadValue
+let def_value_ (d: ParserEnv) = d.ReadDefaultValue
 let keyword (d: ParserEnv) = d.ReadKeyword
 let keyword_unary (d: ParserEnv) = d.ReadKeywordUnary
 
@@ -376,11 +387,11 @@ let rounds a (d: ParserEnv) = (bracket_round_open >>. a .>> bracket_round_close)
 let curlies a (d: ParserEnv) = (bracket_curly_open >>. a .>> bracket_curly_close) d
 let squares a (d: ParserEnv) = (bracket_square_open >>. a .>> bracket_square_close) d
 
-let var_op = var <|> rounds op_as_var
+let var_op = var <|> rounds op
 
 let col (d: ParserEnv) = d.Col
 let line (d: ParserEnv) = d.Line
 let module_ (d: ParserEnv) = d.Module
-let pos' s = module_ s, line s, col s
+let pos' s = {module_=module_ s; line=line s; column=col s}
 
 let eof (d: ParserEnv) = if d.Index = d.Length then Ok() else d.FailWith(ExpectedEof)

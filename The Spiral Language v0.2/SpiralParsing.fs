@@ -6,7 +6,6 @@ open System.Text
 
 type Associativity = FParsec.Associativity
 
-type PosKey = SpiralModule * int * int
 type VarString = string * PosKey
 type KeywordString = string
 
@@ -140,12 +139,15 @@ and Pattern =
     | PatPos of Pos<Pattern>
 
 and RawExpr =
+    | RawB
     | RawV of VarString 
     | RawLit of Value
     | RawInline of RawExpr // Acts as a join point for the prepass specifically.
     | RawInl of VarString * RawExpr
-    | RawForall of VarString * domain: RawExpr * RawExpr
+    | RawForall of VarString * RawExpr
+    | RawTypeInl of VarString * RawExpr
     | RawLet of var: VarString * bind: RawExpr * on_succ: RawExpr
+    | RawCase of var: VarString * bind: RawExpr * on_succ: RawExpr
     | RawRecBlock of (VarString * RawExpr) []
     | RawPairTest of vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawKeywordTest of KeywordString * vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
@@ -160,28 +162,70 @@ type ParserExpr =
     | ParserStatement of (RawExpr -> RawExpr)
     | ParserExpr of RawExpr
 
+let v x = RawV x
+let lit x = RawLit x
+let inline_ = function RawInline _ as x -> x | x -> RawInline x
+let inl x y = RawInl(y,x)
+let keyword_ k l = RawKeywordCreate(k,l)
+let keyword_unary_ k = RawKeywordCreate(k,[||])
+let l bind body on_succ = RawLet(bind,body,on_succ)
+let case bind body on_succ = RawCase(bind,body,on_succ)
+let if_ cond on_succ on_fail = RawOp(If,[|cond;on_succ;on_fail|])
+let pair_test x bind on_succ on_fail = RawPairTest(x,bind,on_succ,on_fail)
+let keyword_test keyword x bind on_succ on_fail = RawKeywordTest(keyword,x,bind,on_succ,on_fail)
+let module_test x bind on_succ on_fail = RawRecordTest(x,bind,on_succ,on_fail)
+let module_with binds patterns = RawRecordWith(binds,patterns)
+    
+let op x args = RawOp(x,args)
+//let vv x = op ListCreate x
+let B = RawB
+let pattern arg clauses = RawPattern(arg,clauses)
+
+let unop op' a = op op' [|a|]
+let binop op' a b = op op' [|a;b|]
+let eq x y = binop EQ x y
+let ap x y = binop Apply x y
+let rec ap' f l = Array.fold ap f l
+
+// The seemingly useless function application is there to filter unused arguments from the environment and move the rest to `env_global`.
+let join_point_entry_method y = inline_ (op JoinPointEntryMethod [|y|])
+
 let inline expr_indent i op expr d = if op i (col d) then expr d else Error []
 
 let semicolon (d: ParserEnv) = if d.Line <> d.semicolon_line then semicolon' d else d.FailWith(InvalidSemicolon) 
 
+let expr_pos pos x = RawPos(Pos(pos,x))
+let pat_pos pos x = PatPos(Pos(pos,x))
+
 let exprpos expr d =
     let pos = pos' d
-    (expr |>> function RawInline _ | RawRecBlock _ | RawInl _ | RawForall _ as x -> x | x -> expr_pos pos x) d
+    (expr |>> function RawInline _ | RawRecBlock _ | RawInl _ | RawForall _ | RawTypeInl _ as x -> x | x -> expr_pos pos x) d
 let patpos expr d = (expr |>> pat_pos (pos' d)) d
-//let exprpos expr d = expr d
-//let patpos expr d = expr d
 
-let inline concat_keyword f x =
+//let inline concat_keyword f x =
+//    let strb = StringBuilder()
+//    let pattern = 
+//        List.map (fun (str: string, pat) -> 
+//            strb.Append(str).Append(':') |> ignore
+//            f (str, pat)
+//            ) x
+//    strb.ToString(), pattern
+
+//let concat_keyword'' x = concat_keyword (function _, Some pat -> pat | str, None -> PatVar str) x
+//let concat_keyword' x = let a,b = concat_keyword (function _,Some b -> b | a,None -> v a) x in a, List.toArray b
+
+let inline concat_keyword'' x =
     let strb = StringBuilder()
     let pattern = 
-        List.map (fun (str: string, pat) -> 
+        List.map (fun ((str : string, pos : PosKey as strpos), pat) -> 
             strb.Append(str).Append(':') |> ignore
-            f (str, pat)
+            match pat with
+            | None -> PatVar strpos
+            | Some pat -> pat
             ) x
     strb.ToString(), pattern
 
-let concat_keyword'' x = concat_keyword (function _, Some pat -> pat | str, None -> PatVar str) x
-let concat_keyword' x = let a,b = concat_keyword (function _,Some b -> b | a,None -> v a) x in a, List.toArray b
+let rec pat_pair_delist = function [] -> failwith "impossible" | x :: xs -> PatPair(x,pat_pair_delist xs)
 
 let (^<|) a b = a b // High precedence, right associative <| operator
 
@@ -192,8 +236,7 @@ let rec pattern_template expr s =
     let pat_as pattern = pattern .>>. (opt (as_ >>. pattern )) |>> function a, Some b -> PatAnd [a;b] | a, None -> a
     let pat_or pattern = sepBy1 pattern or_ |>> function [x] -> x | x -> PatOr x
     let pat_keyword pattern = many1 (keyword .>>. opt pattern) |>> (concat_keyword'' >> PatKeyword) <|> pattern
-    let pat_tuple pattern = sepBy1 pattern comma |>> function [x] -> x | x -> PatTuple x
-    let pat_cons pattern = sepBy1 pattern cons |>> function [x] -> x | x -> PatCons x
+    let pat_pair pattern = sepBy1 pattern comma |>> function [x] -> x | x -> pat_pair_delist x
     let pat_and pattern = sepBy1 pattern and_ |>> function [x] -> x | x -> PatAnd x
     let pat_expr = (var |>> v) <|> rounds expr
     let pat_type pattern = pattern .>>. opt (colon >>. (pat_expr <|> (lit_ |>> lit))) |>> function a,Some b as x-> PatTypeEq(a,b) | a, None -> a
