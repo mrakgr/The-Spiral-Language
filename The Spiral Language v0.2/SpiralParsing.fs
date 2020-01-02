@@ -240,6 +240,7 @@ let rec pattern_template expr s =
     let pat_and pattern = sepBy1 pattern and_ |>> function [x] -> x | x -> PatAnd x
     let pat_expr = (var |>> v) <|> rounds expr
     let pat_type pattern = pattern .>>. opt (colon >>. (pat_expr <|> (lit_ |>> lit))) |>> function a,Some b as x-> PatTypeEq(a,b) | a, None -> a
+
     let pat_closure pattern = sepBy1 pattern arr |>> List.reduceBack (fun a b -> PatTypeTermFunction(a,b))
     let pat_wildcard = wildcard >>% PatE
     let pat_var = var |>> PatVar
