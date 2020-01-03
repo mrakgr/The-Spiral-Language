@@ -19,6 +19,7 @@ type ParserErrors =
     | InvalidSemicolon
     | InbuiltOpNotFound of string
     | UnexpectedEof
+    | ForallNotAllowed
 
 type SpiralModule =
     {
@@ -85,6 +86,11 @@ type ParserEnv =
         d.TryCurrent <| function
             | TokOperator(_,t') when t' = t -> d.Skip; Ok t'
             | _ -> d.FailWith(ExpectedOperator t)
+
+    member d.ReadVar' =
+        d.TryCurrent <| function
+            | TokVar(p,t') -> d.Skip; Ok t'
+            | _ -> d.FailWith(ExpectedVar)
 
     member d.ReadVar =
         d.TryCurrent <| function
@@ -371,8 +377,9 @@ let bracket_square_close d = special SpecBracketSquareClose d
 let semicolon' (d: ParserEnv) = d.SkipOperator ";"
 let cons (d: ParserEnv) = d.SkipOperator "::"
 let arr_cons (d: ParserEnv) = d.SkipOperator "=>"
-let eq (d: ParserEnv) = d.SkipOperator "="
 let arr_fun (d: ParserEnv) = d.SkipOperator "->"
+let arr_depcon (d: ParserEnv) = d.SkipOperator "~>"
+let eq (d: ParserEnv) = d.SkipOperator "="
 let or_ (d: ParserEnv) = d.SkipOperator "|"
 let and_ (d: ParserEnv) = d.SkipOperator "&"
 let dot (d: ParserEnv) = d.SkipOperator "."
@@ -380,6 +387,7 @@ let colon (d: ParserEnv) = d.SkipOperator ":"
 let comma (d: ParserEnv) = d.SkipOperator ","
 let product (d: ParserEnv) = d.SkipOperator "*"
 
+let var' (d: ParserEnv) = d.ReadVar'
 let var (d: ParserEnv) = d.ReadVar
 let op (d: ParserEnv) = d.ReadOp
 let value_ (d: ParserEnv) = d.ReadValue
