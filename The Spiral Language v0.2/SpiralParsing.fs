@@ -167,9 +167,12 @@ and RawTypeExpr =
     | RawTKeyword of string * RawTypeExpr []
     | RawTVar of string
     | RawTApply of RawTypeExpr * RawTypeExpr
-    | RawTForall of RawTypeExpr [] * RawTypeExpr
+    | RawTForall of (string * RawTypeTypeExpr) [] * RawTypeExpr
     | RawTUnit
     | RawTPos of Pos<RawTypeExpr>
+and RawTypeTypeExpr =
+    | RawTType
+    | RawTTFun of RawTypeTypeExpr * RawTypeTypeExpr
 
 type ParserExpr =
     | ParserStatement of (RawExpr -> RawExpr)
@@ -226,28 +229,46 @@ let inline concat_keyword'' f x =
 
 let concat_keyword' x = concat_keyword'' (fun strpos -> function None -> PatVar strpos | Some pat -> pat) x
 
-let rec pair_from_end f = function [] -> failwith "impossible" | [x] -> x | x :: xs -> f (x,pair_from_end f xs)
-
 type FunsOrCons = Funs | Cons
 
-let type_ (d : ParserEnv) =
-    let unit_ = bracket_round_open >>. bracket_round_close >>% RawTUnit
-    let pairs next = sepBy1 next product |>> function [x] -> x | x -> pair_from_end RawTPair x
+let rec type_ (d : ParserEnv) =
+    let recurse d = type_ d
+    let pairs next = sepBy1 next product |>> List.reduceBack (fun a b -> RawTPair(a,b))
     let arr_funs_cons next = 
-        pipe2 next (many (((arr_fun >>% Funs) <|> (arr_cons >>% Cons)) .>>. next))
-            (fun a l -> 
-                let rec loop a = function   
-                    | [] -> a
-                    | (Funs, b) :: l -> RawTFun(a,loop b l)
-                    | (Cons, b) :: l -> RawTConstraint(a,loop b l)
-                loop a l)
-    let arr_depcon next = pipe2 next (opt (arr_depcon >>. next)) (fun a -> function Some b -> RawTDepConstraint(a,b) | None -> a)
+        let body f d = 
+            pipe2 next (many f .>>. next)
+                (fun a l -> 
+                    let rec loop a = function   
+                        | [] -> a
+                        | (Funs, b) :: l -> RawTFun(a,loop b l)
+                        | (Cons, b) :: l -> RawTConstraint(a,loop b l)
+                    loop a l) d
+        body ((arr_fun >>% Funs) <|> (arr_cons >>% Cons))
+    let arr_depcon next d = 
+        if d.is_constraint_and_typeforall_allowed then 
+            pipe2 next (opt (arr_depcon >>. next)) (fun a -> function Some b -> RawTDepConstraint(a,b) | None -> a) d
+        else
+            d.FailWith DepConstraintNotAllowed
     let forall next (d : ParserEnv) = 
-        if d.typeforall_allowed then pipe2 (forall >>. many1 next .>> dot) next (fun l x -> RawTForall(List.toArray l,x)) d
-        else d.FailWith ForallNotAllowed
-    let record next = curlies (many ((var' .>> colon) >>. next)) |>> (Map.ofList >> RawTRecord)
+        if d.is_constraint_and_typeforall_allowed then 
+            let var = var' |>> fun x -> x, RawTType
+            let var_annot = 
+                let rec ttype' d = 
+                    let ttype = ttype >>% RawTType
+                    let ttfun next = many1 next |>> List.reduceBack (fun a b -> RawTTFun(a,b))
+                    ttfun (ttype <|> rounds ttype') d
+                rounds ((var' .>> colon) .>>. ttype') 
+            pipe2 (forall >>. many1 (var <|> var_annot) .>> dot) next (fun l x -> RawTForall(List.toArray l,x)) d
+        else d.FailWith TypeForallNotAllowed
+    let record next = curlies (many ((var' .>> colon) .>>. next)) |>> (Map.ofList >> RawTRecord)
     let keyword next = 
         (keyword_unary |>> fun x -> RawTKeyword(fst x,[||]))
         <|> (many (keyword .>>. next) |>> (concat_keyword'' (fun _ t -> t) >> fun (a, b) -> RawTKeyword(a, List.toArray b)))
+    let var = var' |>> RawTVar
+    let parenths next = rounds (next <|>% RawTUnit)
+    let tapply next = many1 next |>> List.reduce (fun a b -> RawTApply(a,b))
 
-    ()
+    (
+    choice [|var; parenths recurse; record recurse; keyword recurse|] 
+    |> tapply |> pairs |> arr_depcon |> arr_funs_cons |> forall
+    ) d

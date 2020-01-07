@@ -18,6 +18,7 @@ type TokenSpecial =
     | SpecMatch
     | SpecTypecase
     | SpecFunction
+    | SpecTType
     | SpecWith
     | SpecWithout
     | SpecAs
@@ -111,7 +112,7 @@ let var (s:CharStream<_>) =
             let f x = TokSpecial(pos' start (pos s),x)
             match x with
             | "match" -> f SpecMatch | "typecase" -> f SpecTypecase
-            | "function" -> f SpecFunction 
+            | "function" -> f SpecFunction | "Type" -> f SpecTType
             | "with" -> f SpecWith | "without" -> f SpecWithout
             | "as" -> f SpecAs | "when" -> f SpecWhen
             | "inl" -> f SpecInl | "forall" -> f SpecForall

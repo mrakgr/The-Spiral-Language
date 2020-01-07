@@ -19,7 +19,9 @@ type ParserErrors =
     | InvalidSemicolon
     | InbuiltOpNotFound of string
     | UnexpectedEof
-    | ForallNotAllowed
+    | TypeForallNotAllowed
+    | DepConstraintNotAllowed
+    | ConstraintNotAllowed
 
 type SpiralModule =
     {
@@ -39,7 +41,7 @@ type ParserEnv =
     semicolon_line: int
     keyword_line: int
     binops_value : Dictionary<string, FParsec.Associativity * int>
-    typeforall_allowed : bool
+    is_constraint_and_typeforall_allowed : bool
     }
 
     member d.Index = d.i.contents
@@ -346,6 +348,7 @@ let inline special x (d: ParserEnv) = d.SkipSpecial x
 let match_ d = special SpecMatch d
 let typecase_ d = special SpecTypecase d
 let function_ d = special SpecFunction d
+let ttype d = special SpecTType d
 let with_ d = special SpecWith d
 let without d = special SpecWithout d
 let as_ d = special SpecAs d
