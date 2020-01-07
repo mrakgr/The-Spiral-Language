@@ -233,33 +233,28 @@ type FunsOrCons = Funs | Cons
 
 let rec type_ (d : ParserEnv) =
     let recurse d = type_ d
+    let assert_allowed msg (d : ParserEnv) = if d.is_easy_phase then Ok() else d.Skip'(-1); d.FailWith msg
     let pairs next = sepBy1 next product |>> List.reduceBack (fun a b -> RawTPair(a,b))
     let arr_funs_cons next = 
-        let body f d = 
-            pipe2 next (many f .>>. next)
-                (fun a l -> 
-                    let rec loop a = function   
-                        | [] -> a
-                        | (Funs, b) :: l -> RawTFun(a,loop b l)
-                        | (Cons, b) :: l -> RawTConstraint(a,loop b l)
-                    loop a l) d
-        body ((arr_fun >>% Funs) <|> (arr_cons >>% Cons))
+        pipe2 next (many (((arr_fun >>% Funs) <|> (arr_cons >>. assert_allowed ConstraintNotAllowed >>% Cons)) .>>. next))
+            (fun a l -> 
+                let rec loop a = function   
+                    | [] -> a
+                    | (Funs, b) :: l -> RawTFun(a,loop b l)
+                    | (Cons, b) :: l -> RawTConstraint(a,loop b l)
+                loop a l)
     let arr_depcon next d = 
-        if d.is_constraint_and_typeforall_allowed then 
-            pipe2 next (opt (arr_depcon >>. next)) (fun a -> function Some b -> RawTDepConstraint(a,b) | None -> a) d
-        else
-            d.FailWith DepConstraintNotAllowed
+        pipe2 next (opt (arr_depcon >>. assert_allowed DepConstraintNotAllowed >>. next)) (fun a -> function Some b -> RawTDepConstraint(a,b) | None -> a) d
     let forall next (d : ParserEnv) = 
-        if d.is_constraint_and_typeforall_allowed then 
-            let var = var' |>> fun x -> x, RawTType
-            let var_annot = 
-                let rec ttype' d = 
-                    let ttype = ttype >>% RawTType
-                    let ttfun next = many1 next |>> List.reduceBack (fun a b -> RawTTFun(a,b))
-                    ttfun (ttype <|> rounds ttype') d
-                rounds ((var' .>> colon) .>>. ttype') 
-            pipe2 (forall >>. many1 (var <|> var_annot) .>> dot) next (fun l x -> RawTForall(List.toArray l,x)) d
-        else d.FailWith TypeForallNotAllowed
+        let var = var' |>> fun x -> x, RawTType
+        let var_annot = 
+            let rec ttype' d = 
+                let ttype = ttype >>% RawTType
+                let ttfun next = many1 next |>> List.reduceBack (fun a b -> RawTTFun(a,b))
+                ttfun (ttype <|> rounds ttype') d
+            rounds ((var' .>> colon) .>>. ttype') 
+        (pipe2 (forall >>. assert_allowed TypeForallNotAllowed >>. many1 (var <|> var_annot) .>> dot) next (fun l x -> RawTForall(List.toArray l,x))
+         <|> next) d
     let record next = curlies (many ((var' .>> colon) .>>. next)) |>> (Map.ofList >> RawTRecord)
     let keyword next = 
         (keyword_unary |>> fun x -> RawTKeyword(fst x,[||]))
@@ -272,3 +267,34 @@ let rec type_ (d : ParserEnv) =
     choice [|var; parenths recurse; record recurse; keyword recurse|] 
     |> tapply |> pairs |> arr_depcon |> arr_funs_cons |> forall
     ) d
+
+let (^<|) a b = a b // High precedence, right associative <| operator
+
+let rec pattern_template expr s =
+    let inline recurse s = pattern_template expr s
+
+    let pat_when pattern = pattern .>>. (opt (when_ >>. expr)) |>> function a, Some b -> PatWhen(a,b) | a, None -> a
+    let pat_as pattern = pattern .>>. (opt (as_ >>. pattern )) |>> function a, Some b -> PatAnd [a;b] | a, None -> a
+    let pat_or pattern = sepBy1 pattern or_ |>> function [x] -> x | x -> PatOr x
+    let pat_keyword_fun l = concat_keyword'' (fun strpos -> function Some pat -> pat | None -> PatVar strpos) l
+    let pat_keyword pattern = many1 (keyword .>>. opt pattern) |>> (pat_keyword_fun >> PatKeyword) <|> pattern
+    let pat_pair pattern = sepBy1 pattern comma |>> List.reduceBack (fun a b -> PatPair(a,b))
+    let pat_and pattern = sepBy1 pattern and_ |>> function [x] -> x | x -> PatAnd x
+    let pat_expr = (var |>> v) <|> rounds expr
+    let pat_type pattern = pattern .>>. opt (colon >>. type_) |>> function a,Some b as x-> PatTypeEq(a,b) | a, None -> a
+    let pat_wildcard = wildcard >>= fun _  d -> Ok(PatVar("", pos' d))
+    let pat_var = var |>> PatVar
+    let pat_active pattern = unary_one >>. pat_expr .>>. pattern |>> PatActive 
+    let pat_unbox pattern = unary_three >>. ((var |>> PatVar) <|> rounds pattern) |>> PatUnbox
+    let pat_lit = lit_ |>> PatLit
+    let pat_record_item pattern =
+        let inline templ var k = pipe2 var (opt (eq >>. pattern)) (fun a -> function Some b -> k(a,b) | None -> k(a,PatVar a))
+        templ (var <|> op_as_var) PatRecordMembersKeyword <|> templ (unary_four >>. var) PatRecordMembersInjectVar
+    let pat_record pattern = curlies (many (pat_record_item pattern)) |>> PatRecordMembers
+    let pat_keyword_unary = keyword_unary |>> fun keyword -> PatKeyword(keyword,[])
+    let pat_rounds pattern = rounds (pattern <|> (op_as_var |>> PatVar) <|>% PatTuple []) 
+        
+    pat_when ^<| pat_as ^<| pat_or ^<| pat_keyword ^<| pat_pair ^<| pat_and ^<| pat_type
+    ^<| choice [|pat_wildcard; pat_var; pat_active recurse; pat_unbox recurse; pat_lit; pat_record recurse; pat_keyword_unary; pat_rounds recurse|] <| s
+
+let inline pattern expr s = patpos (pattern_template expr) s

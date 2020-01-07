@@ -41,7 +41,7 @@ type ParserEnv =
     semicolon_line: int
     keyword_line: int
     binops_value : Dictionary<string, FParsec.Associativity * int>
-    is_constraint_and_typeforall_allowed : bool
+    is_easy_phase : bool
     }
 
     member d.Index = d.i.contents
