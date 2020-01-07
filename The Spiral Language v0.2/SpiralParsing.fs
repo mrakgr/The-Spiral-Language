@@ -121,11 +121,13 @@ and PatRecordMembersItem =
     | PatRecordMembersInjectVar of var: VarString * name: Pattern
 
 and Pattern =
+    | PatUnit
+    | PatE
     | PatVar of VarString
-    | PatVarBox of VarString
-    | PatVarAnnot of VarString * RawTypeExpr
-    | PatVarAnnotBox of VarString * RawTypeExpr
-    | PatForallAnnot of VarString * RawTypeExpr
+    | PatBox of Pattern
+    | PatBoxAnnot of Pattern * RawTypeExpr
+    | PatAnnot of Pattern * RawTypeExpr
+    //| PatForallAnnot of VarString * RawTypeExpr
 
     | PatPair of Pattern * Pattern
     | PatKeyword of string * Pattern list
@@ -134,8 +136,8 @@ and Pattern =
     | PatUnion of Pattern list
     | PatOr of Pattern list
     | PatAnd of Pattern list
-    | PatLit of Value
-    | PatDefaultLit of string
+    | PatValue of Value
+    | PatDefaultValue of VarString
     | PatWhen of Pattern * RawExpr
     | PatPos of Pos<Pattern>
 
@@ -178,34 +180,6 @@ type ParserExpr =
     | ParserStatement of (RawExpr -> RawExpr)
     | ParserExpr of RawExpr
 
-let v x = RawV x
-let lit x = RawLit x
-let inline_ = function RawInline _ as x -> x | x -> RawInline x
-let inl x y = RawInl(y,x)
-let keyword_ k l = RawKeywordCreate(k,l)
-let keyword_unary_ k = RawKeywordCreate(k,[||])
-let l bind body on_succ = RawLet(bind,body,on_succ)
-let case bind body on_succ = RawCase(bind,body,on_succ)
-let if_ cond on_succ on_fail = RawOp(If,[|cond;on_succ;on_fail|])
-let pair_test x bind on_succ on_fail = RawPairTest(x,bind,on_succ,on_fail)
-let keyword_test keyword x bind on_succ on_fail = RawKeywordTest(keyword,x,bind,on_succ,on_fail)
-let record_test x bind on_succ on_fail = RawRecordTest(x,bind,on_succ,on_fail)
-let record_with binds patterns = RawRecordWith(binds,patterns)
-    
-let op x args = RawOp(x,args)
-//let vv x = op ListCreate x
-let B = RawB
-//let pattern arg clauses = RawPattern(arg,clauses)
-
-let unop op' a = op op' [|a|]
-let binop op' a b = op op' [|a;b|]
-let eq x y = binop EQ x y
-let ap x y = binop Apply x y
-let rec ap' f l = Array.fold ap f l
-
-// The seemingly useless function application is there to filter unused arguments from the environment and move the rest to `env_global`.
-let join_point_entry_method y = inline_ (op JoinPointEntryMethod [|y|])
-
 let inline expr_indent i op expr d = if op i (col d) then expr d else Error []
 
 let semicolon (d: ParserEnv) = if d.Line <> d.semicolon_line then semicolon' d else d.FailWith(InvalidSemicolon) 
@@ -231,8 +205,12 @@ let concat_keyword' x = concat_keyword'' (fun strpos -> function None -> PatVar 
 
 type FunsOrCons = Funs | Cons
 
-let rec type_ (d : ParserEnv) =
-    let recurse d = type_ d
+let rec ttype' d = 
+    let ttfun next = many1 next |>> List.reduceBack (fun a b -> RawTTFun(a,b))
+    ttfun ((ttype >>% RawTType) <|> rounds ttype') d
+
+let rec type' (d : ParserEnv) =
+    let recurse d = type' d
     let assert_allowed msg (d : ParserEnv) = if d.is_easy_phase then Ok() else d.Skip'(-1); d.FailWith msg
     let pairs next = sepBy1 next product |>> List.reduceBack (fun a b -> RawTPair(a,b))
     let arr_funs_cons next = 
@@ -247,12 +225,7 @@ let rec type_ (d : ParserEnv) =
         pipe2 next (opt (arr_depcon >>. assert_allowed DepConstraintNotAllowed >>. next)) (fun a -> function Some b -> RawTDepConstraint(a,b) | None -> a) d
     let forall next (d : ParserEnv) = 
         let var = var' |>> fun x -> x, RawTType
-        let var_annot = 
-            let rec ttype' d = 
-                let ttype = ttype >>% RawTType
-                let ttfun next = many1 next |>> List.reduceBack (fun a b -> RawTTFun(a,b))
-                ttfun (ttype <|> rounds ttype') d
-            rounds ((var' .>> colon) .>>. ttype') 
+        let var_annot = rounds ((var' .>> colon) .>>. ttype') 
         (pipe2 (forall >>. assert_allowed TypeForallNotAllowed >>. many1 (var <|> var_annot) .>> dot) next (fun l x -> RawTForall(List.toArray l,x))
          <|> next) d
     let record next = curlies (many ((var' .>> colon) .>>. next)) |>> (Map.ofList >> RawTRecord)
@@ -269,9 +242,10 @@ let rec type_ (d : ParserEnv) =
     ) d
 
 let (^<|) a b = a b // High precedence, right associative <| operator
+let v x = RawV x
 
-let rec pattern_template expr s =
-    let inline recurse s = pattern_template expr s
+let rec pattern_template is_box expr s =
+    let inline recurse s = pattern_template is_box expr s
 
     let pat_when pattern = pattern .>>. (opt (when_ >>. expr)) |>> function a, Some b -> PatWhen(a,b) | a, None -> a
     let pat_as pattern = pattern .>>. (opt (as_ >>. pattern )) |>> function a, Some b -> PatAnd [a;b] | a, None -> a
@@ -281,20 +255,48 @@ let rec pattern_template expr s =
     let pat_pair pattern = sepBy1 pattern comma |>> List.reduceBack (fun a b -> PatPair(a,b))
     let pat_and pattern = sepBy1 pattern and_ |>> function [x] -> x | x -> PatAnd x
     let pat_expr = (var |>> v) <|> rounds expr
-    let pat_type pattern = pattern .>>. opt (colon >>. type_) |>> function a,Some b as x-> PatTypeEq(a,b) | a, None -> a
-    let pat_wildcard = wildcard >>= fun _  d -> Ok(PatVar("", pos' d))
+    let pat_type pattern = 
+        pattern .>>. opt (colon >>. type') 
+        |>> function a,Some b as x -> (if is_box then PatBoxAnnot(a,b) else PatAnnot(a,b)) | a, None -> a
+    let pat_wildcard = wildcard >>% PatE
     let pat_var = var |>> PatVar
-    let pat_active pattern = unary_one >>. pat_expr .>>. pattern |>> PatActive 
-    let pat_unbox pattern = unary_three >>. ((var |>> PatVar) <|> rounds pattern) |>> PatUnbox
-    let pat_lit = lit_ |>> PatLit
+    let pat_active pattern = exclamation >>. pat_expr .>>. pattern |>> PatActive
+    //let pat_unbox pattern = unary_three >>. ((var |>> PatVar) <|> rounds pattern) |>> PatUnbox
+    let pat_value = (value_ |>> PatValue) <|> (def_value_ |>> PatDefaultValue)
     let pat_record_item pattern =
         let inline templ var k = pipe2 var (opt (eq >>. pattern)) (fun a -> function Some b -> k(a,b) | None -> k(a,PatVar a))
-        templ (var <|> op_as_var) PatRecordMembersKeyword <|> templ (unary_four >>. var) PatRecordMembersInjectVar
+        templ var (fun ((str,_),name) -> PatRecordMembersKeyword(str,name)) <|> templ (dollar >>. var) PatRecordMembersInjectVar
     let pat_record pattern = curlies (many (pat_record_item pattern)) |>> PatRecordMembers
-    let pat_keyword_unary = keyword_unary |>> fun keyword -> PatKeyword(keyword,[])
-    let pat_rounds pattern = rounds (pattern <|> (op_as_var |>> PatVar) <|>% PatTuple []) 
+    let pat_keyword_unary = keyword_unary |>> fun (keyword,_) -> PatKeyword(keyword,[])
+    let pat_rounds pattern = rounds (pattern <|> (op |>> PatVar) <|>% PatUnit) 
         
-    pat_when ^<| pat_as ^<| pat_or ^<| pat_keyword ^<| pat_pair ^<| pat_and ^<| pat_type
-    ^<| choice [|pat_wildcard; pat_var; pat_active recurse; pat_unbox recurse; pat_lit; pat_record recurse; pat_keyword_unary; pat_rounds recurse|] <| s
+    choice [|pat_wildcard; pat_var; pat_active recurse; pat_union recurse; pat_value; pat_record recurse; pat_keyword_unary; pat_rounds recurse|] 
+    |> pat_type |> pat_and |> pat_pair |> pat_keyword |> pat_or |> pat_as |> pat_when
 
-let inline pattern expr s = patpos (pattern_template expr) s
+let inline pattern is_box expr s = patpos (pattern_template is_box expr) s
+
+let lit x = RawLit x
+let inline_ = function RawInline _ as x -> x | x -> RawInline x
+let inl x y = RawInl(y,x)
+let keyword_ k l = RawKeywordCreate(k,l)
+let keyword_unary_ k = RawKeywordCreate(k,[||])
+let l bind body on_succ = RawLet(bind,body,on_succ)
+let case bind body on_succ = RawCase(bind,body,on_succ)
+let if_ cond on_succ on_fail = RawOp(If,[|cond;on_succ;on_fail|])
+let pair_test x bind on_succ on_fail = RawPairTest(x,bind,on_succ,on_fail)
+let keyword_test keyword x bind on_succ on_fail = RawKeywordTest(keyword,x,bind,on_succ,on_fail)
+let record_test x bind on_succ on_fail = RawRecordTest(x,bind,on_succ,on_fail)
+let record_with binds patterns = RawRecordWith(binds,patterns)
+    
+let op x args = RawOp(x,args)
+let B = RawB
+let pattern arg clauses = RawPattern(arg,clauses)
+
+let unop op' a = op op' [|a|]
+let binop op' a b = op op' [|a;b|]
+let eq x y = binop EQ x y
+let ap x y = binop Apply x y
+let rec ap' f l = Array.fold ap f l
+
+// The seemingly useless function application is there to filter unused arguments from the environment and move the rest to `env_global`.
+let join_point_entry_method y = inline_ (op JoinPointEntryMethod [|y|])

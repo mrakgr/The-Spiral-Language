@@ -7,6 +7,7 @@ type ParserErrors =
     | ExpectedSpecial of TokenSpecial
     | ExpectedOperator'
     | ExpectedOperator of string
+    | ExpectedUnaryOperator of string
     | ExpectedVar
     | ExpectedLit
     | ExpectedKeyword
@@ -84,10 +85,20 @@ type ParserEnv =
             | TokOperator(p,t') -> d.Skip; d.Ok(p,t')
             | _ -> d.FailWith(ExpectedOperator')
 
+    member d.ReadOp' =
+        d.TryCurrent <| function
+            | TokOperator(p,t') -> d.Skip; Ok(t')
+            | _ -> d.FailWith(ExpectedOperator')
+
     member d.SkipOperator(t) =
         d.TryCurrent <| function
             | TokOperator(_,t') when t' = t -> d.Skip; Ok t'
             | _ -> d.FailWith(ExpectedOperator t)
+
+    member d.SkipUnaryOperator(t) =
+        d.TryCurrent <| function
+            | TokOperator(_,t') when t' = t -> d.Skip; Ok t'
+            | _ -> d.FailWith(ExpectedUnaryOperator t)
 
     member d.ReadVar' =
         d.TryCurrent <| function
@@ -101,7 +112,7 @@ type ParserEnv =
 
     member d.ReadValue =
         d.TryCurrent <| function
-            | TokValue(p,t') -> d.Skip; d.Ok(p,t')
+            | TokValue(p,t') -> d.Skip; Ok(t')
             | _ -> d.FailWith(ExpectedLit)
 
     member d.ReadDefaultValue =
@@ -389,9 +400,12 @@ let dot (d: ParserEnv) = d.SkipOperator "."
 let colon (d: ParserEnv) = d.SkipOperator ":"
 let comma (d: ParserEnv) = d.SkipOperator ","
 let product (d: ParserEnv) = d.SkipOperator "*"
+let exclamation (d: ParserEnv) = d.SkipUnaryOperator "!"
+let dollar (d: ParserEnv) = d.SkipUnaryOperator "$"
 
 let var' (d: ParserEnv) = d.ReadVar'
 let var (d: ParserEnv) = d.ReadVar
+let op' (d: ParserEnv) = d.ReadOp'
 let op (d: ParserEnv) = d.ReadOp
 let value_ (d: ParserEnv) = d.ReadValue
 let def_value_ (d: ParserEnv) = d.ReadDefaultValue
