@@ -133,7 +133,7 @@ and Pattern =
     | PatKeyword of string * Pattern list
     | PatRecordMembers of PatRecordMembersItem list
     | PatActive of RawExpr * Pattern
-    | PatUnion of Pattern list
+    | PatUnion of VarString * Pattern list
     | PatOr of Pattern list
     | PatAnd of Pattern list
     | PatValue of Value
@@ -161,13 +161,13 @@ and RawExpr =
     | RawPos of Pos<RawExpr>
     | RawPattern of (VarString * (Pattern * RawExpr) []) // These parenthesis are here so the pattern compilation can be memoized via reference identity.
 and RawTypeExpr =
+    | RawTVar of VarString
     | RawTPair of RawTypeExpr * RawTypeExpr
     | RawTFun of RawTypeExpr * RawTypeExpr
     | RawTConstraint of RawTypeExpr * RawTypeExpr
     | RawTDepConstraint of RawTypeExpr * RawTypeExpr
     | RawTRecord of Map<string,RawTypeExpr>
     | RawTKeyword of string * RawTypeExpr []
-    | RawTVar of string
     | RawTApply of RawTypeExpr * RawTypeExpr
     | RawTForall of (string * RawTypeTypeExpr) [] * RawTypeExpr
     | RawTUnit
@@ -224,15 +224,15 @@ let rec type' (d : ParserEnv) =
     let arr_depcon next d = 
         pipe2 next (opt (arr_depcon >>. assert_allowed DepConstraintNotAllowed >>. next)) (fun a -> function Some b -> RawTDepConstraint(a,b) | None -> a) d
     let forall next (d : ParserEnv) = 
-        let var = var' |>> fun x -> x, RawTType
-        let var_annot = rounds ((var' .>> colon) .>>. ttype') 
+        let var = small_var' |>> fun x -> x, RawTType
+        let var_annot = rounds ((small_var' .>> colon) .>>. ttype') 
         (pipe2 (forall >>. assert_allowed TypeForallNotAllowed >>. many1 (var <|> var_annot) .>> dot) next (fun l x -> RawTForall(List.toArray l,x))
          <|> next) d
-    let record next = curlies (many ((var' .>> colon) .>>. next)) |>> (Map.ofList >> RawTRecord)
+    let record next = curlies (many ((small_var' .>> colon) .>>. next)) |>> (Map.ofList >> RawTRecord)
     let keyword next = 
         (keyword_unary |>> fun x -> RawTKeyword(fst x,[||]))
         <|> (many (keyword .>>. next) |>> (concat_keyword'' (fun _ t -> t) >> fun (a, b) -> RawTKeyword(a, List.toArray b)))
-    let var = var' |>> RawTVar
+    let var = (small_var <|> big_var) |>> RawTVar
     let parenths next = rounds (next <|>% RawTUnit)
     let tapply next = many1 next |>> List.reduce (fun a b -> RawTApply(a,b))
 
@@ -254,24 +254,26 @@ let rec pattern_template is_box expr s =
     let pat_keyword pattern = many1 (keyword .>>. opt pattern) |>> (pat_keyword_fun >> PatKeyword) <|> pattern
     let pat_pair pattern = sepBy1 pattern comma |>> List.reduceBack (fun a b -> PatPair(a,b))
     let pat_and pattern = sepBy1 pattern and_ |>> function [x] -> x | x -> PatAnd x
-    let pat_expr = (var |>> v) <|> rounds expr
+    let pat_expr = (small_var |>> v) <|> rounds expr
     let pat_type pattern = 
         pattern .>>. opt (colon >>. type') 
         |>> function a,Some b as x -> (if is_box then PatBoxAnnot(a,b) else PatAnnot(a,b)) | a, None -> a
     let pat_wildcard = wildcard >>% PatE
-    let pat_var = var |>> PatVar
+    let pat_var = small_var |>> PatVar
     let pat_active pattern = exclamation >>. pat_expr .>>. pattern |>> PatActive
-    //let pat_unbox pattern = unary_three >>. ((var |>> PatVar) <|> rounds pattern) |>> PatUnbox
+    let pat_union pattern = pipe2 big_var (many ((small_var |>> PatVar) <|> rounds pattern)) (fun a b -> PatUnion(a,b))
     let pat_value = (value_ |>> PatValue) <|> (def_value_ |>> PatDefaultValue)
     let pat_record_item pattern =
         let inline templ var k = pipe2 var (opt (eq >>. pattern)) (fun a -> function Some b -> k(a,b) | None -> k(a,PatVar a))
-        templ var (fun ((str,_),name) -> PatRecordMembersKeyword(str,name)) <|> templ (dollar >>. var) PatRecordMembersInjectVar
+        templ small_var (fun ((str,_),name) -> PatRecordMembersKeyword(str,name)) <|> templ (dollar >>. small_var) PatRecordMembersInjectVar
     let pat_record pattern = curlies (many (pat_record_item pattern)) |>> PatRecordMembers
     let pat_keyword_unary = keyword_unary |>> fun (keyword,_) -> PatKeyword(keyword,[])
     let pat_rounds pattern = rounds (pattern <|> (op |>> PatVar) <|>% PatUnit) 
-        
-    choice [|pat_wildcard; pat_var; pat_active recurse; pat_union recurse; pat_value; pat_record recurse; pat_keyword_unary; pat_rounds recurse|] 
+
+    (
+    choice [|pat_wildcard; pat_var; pat_active recurse; pat_value; pat_union recurse; pat_record recurse; pat_keyword_unary; pat_rounds recurse|] 
     |> pat_type |> pat_and |> pat_pair |> pat_keyword |> pat_or |> pat_as |> pat_when
+    ) s
 
 let inline pattern is_box expr s = patpos (pattern_template is_box expr) s
 

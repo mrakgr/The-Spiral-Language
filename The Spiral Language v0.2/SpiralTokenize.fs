@@ -63,7 +63,8 @@ type Value =
     | LitChar of char
 
 type SpiralToken =
-    | TokVar of TokenPosition * string
+    | TokSmallVar of TokenPosition * string
+    | TokBigVar of TokenPosition * string
     | TokKeyword of TokenPosition * string
     | TokKeywordUnary of TokenPosition * string
     | TokValue of TokenPosition * Value
@@ -74,10 +75,9 @@ type SpiralToken =
 
     member d.Pos = 
         match d with 
-        | TokVar(x,_) | TokKeyword(x,_) | TokKeywordUnary(x,_)
-        | TokValue(x,_) | TokDefaultValue(x,_)
-        | TokOperator(x,_) | TokUnaryOperator(x,_) 
-        | TokSpecial(x,_) -> x
+        | TokSmallVar(x,_) | TokBigVar(x,_) | TokKeyword(x,_)
+        | TokKeywordUnary(x,_) | TokValue(x,_) | TokDefaultValue(x,_)
+        | TokOperator(x,_) | TokUnaryOperator(x,_) | TokSpecial(x,_) -> x
 
 let pos (s: CharStream) = int s.Line, int s.Column
 let pos' (start_line, start_column) (end_line, end_column) = {start_line=start_line; start_column=start_column; end_line=end_line; end_column=end_column}
@@ -124,7 +124,7 @@ let var (s:CharStream<_>) =
             | "nominal" -> f SpecNominal | "real" -> f SpecReal
             | "open" -> f SpecOpen | "_" -> f SpecWildcard
             | "true" -> TokValue(pos' start (pos s),LitBool true) | "false" -> TokValue(pos' start (pos s),LitBool false)
-            | x -> TokVar(pos' start (pos s),x)
+            | x -> if isAsciiLower x.[0] then TokSmallVar(pos' start (pos s),x) else TokBigVar(pos' start (pos s),x)
         |> Reply
 
     (many1Satisfy2L is_identifier_starting_char is_identifier_char "identifier" >>= f .>> spaces) s
