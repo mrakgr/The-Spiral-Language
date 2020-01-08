@@ -1961,8 +1961,21 @@ let tests =
     euler1; euler2; euler3; euler4
     |]
 
+let test_cur: SpiralModule =
+    {
+    name="test_cur"
+    prerequisites=[]
+    opens=[]
+    description=""
+    code=
+    """
+inl (f,g) q w = 2
+dyn 0
+    """
+    }
+
 //rewrite_test_cache tests cfg None //(Some(63,64))
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) cfr1
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test_cur
 |> printfn "%s"
 |> ignore
 

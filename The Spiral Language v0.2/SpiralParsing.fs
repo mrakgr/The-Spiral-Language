@@ -299,7 +299,7 @@ let inline expression_body expr = arr_fun >>. reset_level expr
 
 let lit x = RawLit x
 let inline_ = function RawInline _ as x -> x | x -> RawInline x
-let inl x y = RawInl(y,x)
+let inl x y = RawInl(x,y)
 let keyword_ k l = RawKeywordCreate(k,l)
 let keyword_unary_ k = RawKeywordCreate(k,[||])
 let l bind body on_succ = RawLet(bind,body,on_succ)
@@ -363,7 +363,7 @@ let compile_pattern pat body =
 let compile_patterns pats body = List.foldBack compile_pattern pats body
 
 let statements expr (d: ParserEnv) =
-    //let handle_inl_expression pats body = compile_patterns pats body |> ParserExpr
+    let handle_inl_expression pats body = compile_patterns pats body |> ParserExpr
     
     let handle_inl_rec_block (l, l') (d: ParserEnv) = 
         (l :: l') 
@@ -372,25 +372,23 @@ let statements expr (d: ParserEnv) =
         |> fun x on_succ -> RawRecBlock(x,on_succ)
         |> ParserStatement |> Ok
 
-    //let handle_inl_statement pats body = 
-    //    fun on_succ ->
-    //        match pats with
-    //        | x :: x' ->
-    //            compile_pattern x on_succ
-    //            |> function
-    //                | RawFunction(on_succ,arg) -> l arg (compile_patterns x' body) on_succ
-    //                | _ -> failwith "impossible"
-    //        |_ -> failwith "impossible"
-    //    |> ParserStatement
-    //let inline inb_templ l pat body =
-    //    fun on_succ ->
-    //        compile_pattern pat on_succ
-    //        |> function
-    //            | RawFunction(on_succ,arg) -> l arg body on_succ
-    //            | _ -> failwith "impossible"
-    //    |> ParserStatement
-    //let handle_inb pat body = inb_templ (fun arg body on_succ -> ap body (func arg on_succ)) pat body
-    //let handle_inm pat body = inb_templ (fun arg body on_succ -> ap (ap (v ">>=") body) (func arg on_succ)) pat body
+    let handle_inl_statement pats body = 
+        fun on_succ ->
+            match pats with
+            | x :: x' ->
+                match compile_pattern x on_succ with
+                | RawInl(arg,on_succ) -> l arg (compile_patterns x' body) on_succ
+                | _ -> failwith "impossible"
+            |_ -> failwith "impossible"
+        |> ParserStatement
+    let inline inb_templ l pat body =
+        fun on_succ ->
+            match compile_pattern pat on_succ with
+            | RawInl(arg,on_succ) -> l arg body on_succ
+            | _ -> failwith "impossible"
+        |> ParserStatement
+    let handle_inb pat body = inb_templ (fun arg body on_succ -> ap body (inl arg on_succ)) pat body
+    let handle_inm pat body = inb_templ (fun arg body on_succ -> ap (ap (v ">>=") body) (inl arg on_succ)) pat body
 
     let i = col d
     let inline if_ tr s = expr_indent i (=) tr s
@@ -411,12 +409,12 @@ let statements expr (d: ParserEnv) =
                         ) d
                 (name_pats_body .>>. (many (if_ (and' >>. name_pats_body))) >>= handle_inl_rec_block) d
             | Error _ ->
-                (many1 (pattern true false expr) >>= (fun pats -> 
+                (many1 (pattern true false expr) >>= fun pats -> 
                     (statement_body expr |>> handle_inl_statement pats) 
                     <|> (expression_body expr |>> handle_inl_expression pats)
-                    )) d
-        //| SpecInm -> d.Skip; pipe2 (pattern true false expr) (statement_body expr) handle_inm d
-        //| SpecInb -> d.Skip; pipe2 (pattern true false expr) (statement_body expr) handle_inb d
+                    ) d
+        | SpecInm -> d.Skip; pipe2 (pattern true false expr) (statement_body expr) handle_inm d
+        | SpecInb -> d.Skip; pipe2 (pattern true false expr) (statement_body expr) handle_inb d
         | _ -> d.FailWith ExpectedStatement
     | Error _ -> d.FailWith ExpectedStatement
         
