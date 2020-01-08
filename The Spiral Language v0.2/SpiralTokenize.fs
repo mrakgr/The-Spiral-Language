@@ -15,10 +15,11 @@ type TokenPosition = {
     }
 
 type TokenSpecial =
+    | SpecAnd
     | SpecMatch
     | SpecTypecase
     | SpecFunction
-    | SpecTType
+    | SpecBigType
     | SpecWith
     | SpecWithout
     | SpecAs
@@ -34,7 +35,7 @@ type TokenSpecial =
     | SpecElif
     | SpecElse
     | SpecJoin
-    | SpecType
+    | SpecSmallType
     | SpecNominal
     | SpecReal
     | SpecUnion
@@ -111,8 +112,9 @@ let var (s:CharStream<_>) =
         else
             let f x = TokSpecial(pos' start (pos s),x)
             match x with
+            | "and" -> f SpecAnd
             | "match" -> f SpecMatch | "typecase" -> f SpecTypecase
-            | "function" -> f SpecFunction | "Type" -> f SpecTType
+            | "function" -> f SpecFunction | "Type" -> f SpecBigType
             | "with" -> f SpecWith | "without" -> f SpecWithout
             | "as" -> f SpecAs | "when" -> f SpecWhen
             | "inl" -> f SpecInl | "forall" -> f SpecForall
@@ -120,7 +122,7 @@ let var (s:CharStream<_>) =
             | "inb" -> f SpecInb | "rec" -> f SpecRec
             | "if" -> f SpecIf | "then" -> f SpecThen
             | "elif" -> f SpecElif | "else" -> f SpecElse
-            | "join" -> f SpecJoin | "type" -> f SpecType 
+            | "join" -> f SpecJoin | "type" -> f SpecSmallType 
             | "nominal" -> f SpecNominal | "real" -> f SpecReal
             | "open" -> f SpecOpen | "_" -> f SpecWildcard
             | "true" -> TokValue(pos' start (pos s),LitBool true) | "false" -> TokValue(pos' start (pos s),LitBool false)
