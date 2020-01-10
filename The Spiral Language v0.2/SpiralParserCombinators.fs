@@ -7,6 +7,7 @@ type ParserErrors =
     | ExpectedSpecial of TokenSpecial
     | ExpectedOperator'
     | ExpectedOperator of string
+    | ExpectedUnaryOperator'
     | ExpectedUnaryOperator of string
     | ExpectedSmallVar
     | ExpectedBigVar
@@ -33,7 +34,7 @@ type SpiralModule =
     code : string
     }
 
-type PosKey = {line : int; column : int}
+type PosKey = {module_ : SpiralModule; line : int; column : int}
 
 type ParserEnv =
     {
@@ -42,7 +43,7 @@ type ParserEnv =
     module_: SpiralModule
     semicolon_line: int
     keyword_line: int
-    binops_value : Dictionary<string, FParsec.Associativity * int>
+    binops_value : Dictionary<string, int * FParsec.Associativity>
     is_easy_phase : bool
     var_positions : Dictionary<string, PosKey>
     }
@@ -70,7 +71,7 @@ type ParserEnv =
     member inline d.Skip'(i) = d.i := d.i.contents+i
     member d.Skip = d.Skip'(1)
 
-    member d.Ok (pos : TokenPosition, t') = Ok(t', {column=pos.start_column; line=pos.start_line})
+    member d.Ok (pos : TokenPosition, t') = Ok(t', {module_=d.module_; column=pos.start_column; line=pos.start_line})
 
     member d.PeekSpecial =
         d.TryCurrent <| function
@@ -81,6 +82,16 @@ type ParserEnv =
         d.TryCurrent <| function
             | TokSpecial(_,t') when t = t' -> d.Skip; Ok()
             | _ -> d.FailWith(ExpectedSpecial t)
+
+    member d.ReadUnaryOp =
+        d.TryCurrent <| function
+            | TokOperator(p,t') -> d.Skip; d.Ok(p,t')
+            | _ -> d.FailWith(ExpectedUnaryOperator')
+
+    member d.ReadUnaryOp' =
+        d.TryCurrent <| function
+            | TokOperator(p,t') -> d.Skip; Ok(t')
+            | _ -> d.FailWith(ExpectedUnaryOperator')
 
     member d.ReadOp =
         d.TryCurrent <| function
@@ -423,7 +434,6 @@ let arr_depcon (d: ParserEnv) = d.SkipOperator "~>"
 let eq (d: ParserEnv) = d.SkipOperator "="
 let or_ (d: ParserEnv) = d.SkipOperator "|"
 let and_ (d: ParserEnv) = d.SkipOperator "&"
-let and' (d: ParserEnv) = d.SkipSpecial SpecAnd
 let dot (d: ParserEnv) = d.SkipOperator "."
 let colon (d: ParserEnv) = d.SkipOperator ":"
 let comma (d: ParserEnv) = d.SkipOperator ","
@@ -431,6 +441,10 @@ let product (d: ParserEnv) = d.SkipOperator "*"
 let exclamation (d: ParserEnv) = d.SkipUnaryOperator "!"
 let dollar (d: ParserEnv) = d.SkipUnaryOperator "$"
 let grave (d: ParserEnv) = d.SkipUnaryOperator "`"
+let wave (d: ParserEnv) = d.SkipUnaryOperator "~"
+
+let and' (d: ParserEnv) = d.SkipSpecial SpecAnd
+let fun' (d: ParserEnv) = d.SkipSpecial SpecFun
 
 let small_var (d: ParserEnv) = d.ReadSmallVar
 let small_var' (d: ParserEnv) = d.ReadSmallVar'
@@ -456,6 +470,6 @@ let var_op' = small_var' <|> rounds op'
 let col (d: ParserEnv) = d.Col
 let line (d: ParserEnv) = d.Line
 let module_ (d: ParserEnv) = d.Module
-let pos' s = {line=line s; column=col s}
+let pos' d = {module_=module_ d; line=line d; column=col d}
 
 let eof (d: ParserEnv) = if d.Index = d.Length then Ok() else d.FailWith(ExpectedEof)

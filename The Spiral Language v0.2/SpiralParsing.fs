@@ -123,7 +123,7 @@ and Pattern =
     | PatUnit
     | PatE
     | PatVar of VarString
-    | PatBox of Pattern
+    | PatBoxVar of VarString
     | PatBoxAnnot of Pattern * RawTypeExpr
     | PatAnnot of Pattern * RawTypeExpr
     //| PatForallAnnot of VarString * RawTypeExpr
@@ -143,7 +143,7 @@ and Pattern =
 and RawExpr =
     | RawB
     | RawV of VarString 
-    | RawLit of Value
+    | RawValue of Value
     | RawInline of RawExpr // Acts as a join point for the prepass specifically.
     | RawType of RawTypeExpr
     | RawInl of VarString * RawExpr
@@ -161,6 +161,7 @@ and RawExpr =
     | RawKeywordCreate of KeywordString * RawExpr []
     | RawRecordWith of RawExpr [] * RawRecordWithPattern []
     | RawOp of Op * RawExpr []
+    | RawTypedOp of ret_type: RawTypeExpr * Op * RawExpr []
     | RawPos of Pos<RawExpr>
 and RawTypeExpr =
     | RawTVar of VarString
@@ -189,7 +190,7 @@ let semicolon (d: ParserEnv) = if d.Line <> d.semicolon_line then semicolon' d e
 let expr_pos pos x = RawPos(Pos(pos,x))
 let exprpos expr d =
     let pos = pos' d
-    (expr |>> function RawInline _ | RawRecBlock _ | RawInl _ | RawForall _ as x -> x | x -> expr_pos pos x) d
+    (expr |>> function RawPos _ | RawInline _ | RawRecBlock _ | RawInl _ | RawForall _ as x -> x | x -> expr_pos pos x) d
 let pat_pos pos x = PatPos(Pos(pos,x))
 let patpos expr d = (expr |>> pat_pos (pos' d)) d
 
@@ -262,13 +263,13 @@ let rec pattern_template is_outer is_box expr s =
     let pat_keyword pattern = many1 (keyword' .>>. opt pattern) |>> (pat_keyword_fun >> PatKeyword) <|> pattern
     let pat_pair pattern = sepBy1 pattern comma |>> List.reduceBack (fun a b -> PatPair(a,b))
     let pat_and pattern = sepBy1 pattern and_ |>> function [x] -> x | x -> PatAnd x
-    let pat_expr = (small_var' |>> v) <|> rounds expr
+    
     let pat_type pattern = 
-        pattern .>>. opt (colon >>. type_annot) 
+        pattern .>>. opt (colon >>. type_annot)
         |>> function a,Some b as x -> (if is_box then PatBoxAnnot(a,b) else PatAnnot(a,b)) | a, None -> a
     let pat_wildcard = wildcard >>% PatE
-    let pat_var = small_var' |>> PatVar
-    let pat_active pattern = exclamation >>. pat_expr .>>. pattern |>> PatActive
+    let pat_var = small_var' |>> fun x -> if is_box then PatBoxVar x else PatVar x
+    let pat_active pattern = exclamation >>. ((small_var' |>> v) <|> rounds expr) .>>. pattern |>> PatActive
     let pat_union pattern = pipe2 big_var' (many ((small_var' |>> PatVar) <|> rounds pattern)) (fun a b -> PatUnion(a,b))
     let pat_value = (value_ |>> PatValue) <|> (def_value_' |>> PatDefaultValue)
     let pat_record_item pattern =
@@ -298,39 +299,44 @@ let reset_level expr d = expr {d with semicolon_line= -1; keyword_line= -1}
 let inline statement_body expr = eq >>. reset_level expr
 let inline expression_body expr = arr_fun >>. reset_level expr
 
-let lit x = RawLit x
+let value' x = RawValue x
 let inline_ = function RawInline _ as x -> x | x -> RawInline x
 let inl x y = RawInl(x,y)
 //let keyword_ k l = RawKeywordCreate(k,l)
 //let keyword_unary_ k = RawKeywordCreate(k,[||])
 let l bind body on_succ = RawLet(bind,body,on_succ)
 //let case bind body on_succ = RawCase(bind,body,on_succ)
-let if_ cond on_succ on_fail = RawOp(If,[|cond;on_succ;on_fail|])
+let if' cond on_succ on_fail = RawOp(If,[|cond;on_succ;on_fail|])
 //let keyword_test keyword x bind on_succ on_fail = RawKeywordTest(keyword,x,bind,on_succ,on_fail)
 //let record_test x bind on_succ on_fail = RawRecordTest(x,bind,on_succ,on_fail)
 //let record_with binds patterns = RawRecordWith(binds,patterns)
 let ty x = RawType x
-
-let op x args = RawOp(x,args)
-let box x = op Box x
 let B = RawB
 
-let unop op' a = op op' [|a|]
-let binop op' a b = op op' [|a;b|]
+let unop op' a = RawOp(op',[|a|])
+let box x = unop Box x
+let binop op' a b = RawOp(op',[|a;b|])
 let eq x y = binop EQ x y
 let ap x y = binop Apply x y
 let rec ap' f l = Array.fold ap f l
 
-// The seemingly useless function application is there to filter unused arguments from the environment and move the rest to `env_global`.
-let join_point_entry_method y = inline_ (op JoinPointEntryMethod [|y|])
+// The seemingly useless inline_ is there to filter unused arguments from the environment.
+let join_point_entry_method ret_type y = 
+    let entry ret_type y = inline_ (RawTypedOp(ret_type,JoinPointEntryMethod, [|y|]))
+    let entry' y = inline_ (RawOp(JoinPointEntryMethod, [|y|]))
+    match ret_type with
+    | Some ret_type -> entry ret_type y
+    | None -> 
+        let y = match y with RawPos y -> y.Expression | y -> y
+        match y with RawTypedOp(ret_type, TypeAnnot, [|y|]) -> entry ret_type y | _ -> entry' y
 
+let type_annot' a = function
+    | Some b -> RawTypedOp(b,TypeAnnot,[|a|])
+    | None -> a
 let annotations expr d = 
     let i = col d
     let inline expr_indent expr d = expr_indent i (<=) expr d
-    pipe2 (expr_indent expr) (opt (expr_indent colon >>. expr_indent type_annot))
-        (fun a -> function
-            | Some b -> binop TypeAnnot a (ty b)
-            | None -> a) d
+    pipe2 (expr_indent expr) (opt (expr_indent colon >>. expr_indent type_annot)) type_annot' d
 
 let process_parser_exprs exprs = 
     let error_statement_in_last_pos = pfail StatementLastInBlock
@@ -370,9 +376,7 @@ let pattern_to_rawexpr (arg: VarString, clauses: (Pattern * RawExpr) []) =
         | PatUnit -> RawUnitTest(arg,on_succ,on_fail)
         | PatE -> on_succ
         | PatVar x -> l x (v arg) on_succ
-        | PatBox exp -> 
-            let on_succ = cp arg exp on_succ on_fail
-            l arg (unop Box (v arg)) on_succ
+        | PatBoxVar x -> l x (box (v arg)) on_succ
         | PatBoxAnnot(exp,typ) -> 
             let on_succ = cp arg exp on_succ on_fail
             RawAnnotTest(true,typ,arg,on_succ,on_fail)
@@ -391,7 +395,7 @@ let pattern_to_rawexpr (arg: VarString, clauses: (Pattern * RawExpr) []) =
         | PatAnd l -> List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
         | PatValue x -> RawValueTest(x,arg,on_succ,on_fail)
         | PatDefaultValue x -> RawDefaultValueTest(x,arg,on_succ,on_fail)
-        | PatWhen (p, e) -> cp arg p (if_ e on_succ on_fail) on_fail
+        | PatWhen (p, e) -> cp arg p (if' e on_succ on_fail) on_fail
         | PatPos p -> expr_pos p.Pos (cp arg p.Expression on_succ on_fail)
         | PatUnion(name, pats) -> test (fun (vars,on_succ) -> RawUnionTest(name,vars,arg,on_succ,on_fail)) pats
         | PatRecordMembers items ->
@@ -409,7 +413,7 @@ let pattern_to_rawexpr (arg: VarString, clauses: (Pattern * RawExpr) []) =
                     ) items on_succ
             RawRecordTest(List.toArray binds,arg,on_succ,on_fail)
 
-    let inline g f = Array.foldBack (fun (pat, exp) on_fail -> cp arg pat (f exp) on_fail) clauses (op ErrorPatMiss [|v arg|])
+    let inline g f = Array.foldBack (fun (pat, exp) on_fail -> cp arg pat (f exp) on_fail) clauses (RawOp(ErrorPatMiss, [|v arg|]))
     if clauses.Length > 1 then g inline_ else g id
 
 let pat_main = " pat_main"
@@ -423,68 +427,254 @@ let pattern_to_rawinl pat body =
     | x -> f id x
 let compile_patterns pats body = List.foldBack pattern_to_rawinl pats body
 
-type StatementType = StatementVarOp of string | StatementPattern of (RawExpr -> RawExpr)
+let forall d =
+    let var = small_var'
+    let var_annot d = rounds ((small_var' .>> colon) .>> ttype') d // TODO: Make use of the annotations in foralls.
+    (
+    forall >>. many1 (var <|> var_annot) .>> dot
+    |>> List.foldBack (fun x on_succ -> RawForall(x,on_succ))
+    ) d
 
 let statements expr (d: ParserEnv) =
     let handle_inl_rec_block (l, l') (d: ParserEnv) = 
         (l :: l') 
         |> List.toArray
         |> fun x on_succ -> RawRecBlock(x,on_succ)
-        |> ParserStatement |> Ok
+        |> Ok
 
-    let handle_inl_expression pats body = List.foldBack (<|) pats body |> ParserExpr
     let handle_inl_statement arg pats body = 
         fun on_succ -> l arg (List.foldBack (<|) pats body) on_succ
-        |> ParserStatement
     let inline inb_templ l pat body =
         fun on_succ ->
             match pattern_to_rawinl pat on_succ with
             | RawInl(arg,on_succ) -> l arg body on_succ
             | _ -> failwith "impossible"
-        |> ParserStatement
     let handle_inb pat body = inb_templ (fun arg body on_succ -> ap body (inl arg on_succ)) pat body
     let handle_inm pat body = inb_templ (fun arg body on_succ -> ap (ap (v ">>=") body) (inl arg on_succ)) pat body
 
     let i = col d
     let inline if_ tr s = expr_indent i (=) tr s
-
-    let forall d =
-        let var = small_var'
-        let var_annot d = rounds ((small_var' .>> colon) .>> ttype') d // TODO: Make use of the annotations in foralls.
-        (
-        forall >>. many1 (var <|> var_annot) .>> dot
-        |>> List.foldBack (fun x on_succ -> RawForall(x,on_succ))
-        ) d
-
-    let pattern' expr = forall <|> (pattern true false expr |>> pattern_to_rawinl)
-    let ret_type = opt (colon >>. type')
+   
+    let inline inl join_point_entry_method pattern' =
+        let ret_type = opt (colon >>. type')
+        match d.SkipSpecial SpecRec with
+        | Ok _ -> 
+            let name_pats_body d = 
+                (tuple4 var_op' (many pattern') (statement_body expr) ret_type >>= fun (name,pats,body,ret_type) d ->
+                    match List.foldBack (<|) pats (join_point_entry_method ret_type body) with
+                    | RawInl _ | RawForall _ as x -> Ok(name,x)
+                    | _ -> d.FailWith ExpectedFunction
+                    ) d
+            (name_pats_body .>>. (many (if_ (and' >>. name_pats_body))) >>= handle_inl_rec_block) d
+        | Error _ ->
+            (
+            tuple3 var_op' (many pattern') ret_type
+            >>= fun (name,pats,ret_type) d -> (statement_body expr |>> (join_point_entry_method ret_type >> handle_inl_statement name pats)) d
+            ) d
 
     match d.PeekSpecial with
     | Ok x ->
         match x with
-        | SpecInl ->
-            d.Skip
-            match d.SkipSpecial SpecRec with
-            | Ok _ -> 
-                let name_pats_body d = 
-                    (tuple3 var_op' (many (pattern' expr)) (statement_body expr) >>= fun (name,pats,body) d ->
-                        match List.foldBack (<|) pats body with
-                        | RawInl _ | RawForall _ as x -> Ok(name,x)
-                        | _ -> d.FailWith ExpectedFunction
-                        ) d
-                (name_pats_body .>>. (many (if_ (and' >>. name_pats_body))) >>= handle_inl_rec_block) d
-            | Error _ ->
-                (
-                tuple3 ((var_op' |>> StatementVarOp) <|> (pattern' expr |>> StatementPattern)) (many (pattern' expr)) ret_type
-                >>= fun (init,pats,ret_type) d -> // TODO: Make use of the return type.
-                    match init with
-                    | StatementVarOp name -> 
-                        ((statement_body expr |>> handle_inl_statement name pats) 
-                         <|> (expression_body expr |>> handle_inl_expression (inl name :: pats))) d
-                    | StatementPattern pat -> (expression_body expr |>> handle_inl_expression (pat :: pats)) d
-                ) d
+        | SpecLet -> d.Skip; inl join_point_entry_method (forall <|> (wave >>. pattern true false expr |>> pattern_to_rawinl) <|> (pattern true true expr |>> pattern_to_rawinl))
+        | SpecInl -> d.Skip; inl (fun a b -> type_annot' b a) (forall <|> (pattern true false expr |>> pattern_to_rawinl))
         | SpecInm -> d.Skip; pipe2 (pattern true false expr) (statement_body expr) handle_inm d
         | SpecInb -> d.Skip; pipe2 (pattern true false expr) (statement_body expr) handle_inb d
         | _ -> d.FailWith ExpectedStatement
     | Error _ -> d.FailWith ExpectedStatement
-        
+
+let operators expr d =
+    let i = col d
+    let inline term s = expr_indent i (<=) expr s
+
+    // Similarly to F#, Spiral filters out the '.' from the operator name and then tries to match to the nearest inbuilt operator
+    // for the sake of assigning associativity and precedence.
+    // TODO: This might change in v0.2 to explicit precedence and associativity like in Agda/Haskell.
+    let precedence_associativity inbuilt_operators x = 
+        Utils.memoize inbuilt_operators (fun name' ->
+            let name = String.filter ((<>) '.') name'
+            let rec loop l =
+                if l > 0 then
+                    let name = name.[0..l-1]
+                    match inbuilt_operators.TryGetValue name with
+                    | false, _ -> loop (l - 1)
+                    | true, v -> v
+                else
+                    raise (TokenizationError(sprintf "The `%s` operator is not supported." name'))
+            loop name.Length
+            ) x
+
+    let op (d : ParserEnv) =
+        match d.ReadOp with
+        | Ok (x, pos) ->
+            match x with
+            | "&&" -> fun a b -> expr_pos pos (if' a b (value' (LitBool false)))
+            | "||" -> fun a b -> expr_pos pos (if' a (value' (LitBool true)) b)
+            | x -> fun a b -> expr_pos pos (ap (ap (v x) a) b)
+            |> fun m -> precedence_associativity d.binops_value x, m
+            |> Ok
+        | Error x -> Error x
+
+    let inline op s = expr_indent i (<=) op s
+
+    /// Pratt parser
+    let rec led left ((prec,asoc),m) =
+        match asoc with
+        | Associativity.Left | Associativity.None -> tdop prec |>> m left
+        | Associativity.Right -> tdop (prec-1) |>> m left
+        | _ -> failwith "impossible"
+
+    and tdop rbp =
+        let rec loop left = 
+            (op >>=? fun ((prec,_),_ as v) d ->
+                if rbp < prec then (led left v >>= loop) d
+                else Error []) <|>% left
+        term >>= loop
+
+    tdop Int32.MinValue d
+
+let application expr (d: ParserEnv) =
+    let i = col d
+    let expr_up d = expr_indent i (<) expr d
+    pipe2 expr (many expr_up) (List.fold ap) d
+
+let application_tight expr d =
+    let is_previus_near (d: ParserEnv) = 
+        let a = d.Skip'(-1); let x = d.LineEnd, d.ColEnd in d.Skip; x
+        let b = d.Line, d.Col
+        if a = b then Ok () else Error []
+
+    pipe2 expr (many (is_previus_near >>. expr)) (List.fold ap) d
+
+let rec expressions expr d =
+    let case_fun = pipe2 (fun' >>. many1 (forall <|> (pattern true false expr |>> pattern_to_rawinl))) (expression_body expr) (List.foldBack (<|))
+
+    let case_value = value_ |>> value' // TODO: Don't forget the default value.
+    let case_if_then_else d = 
+        let i = col d
+        let expr_indent expr d = expr_indent i (<=) expr d
+        let inline f' str = str >>. expr
+        let inline f str = expr_indent (f' str)
+        pipe4 (f' if_) (f then_) (many (f elif_ .>>. f then_)) (opt (f else_))
+            (fun cond tr elifs fl -> 
+                let fl = 
+                    match fl with Some x -> x | None -> B
+                    |> List.foldBack (fun (cond,tr) fl -> if' cond tr fl) elifs
+                if' cond tr fl)
+        <| d
+    let case_var = small_var' |>> v // TODO: Don't forget to add the position.
+    let case_rounds = rounds ((op_as_var |>> v) <|> (reset_level expr <|>% B))
+
+    let case_typex match_type (d: ParserEnv) =
+        let clause = 
+            pipe2 (many1 (pattern expr) .>> lambda) expr <| fun pats body ->
+                match pats with
+                | x :: xs -> x, compile_patterns xs body
+                | _ -> failwith "impossible"
+
+        let pat_function l = func pat_main <| RawPattern(pat_main, List.toArray l)
+        let pat_match x l' = l pat_main x (RawPattern(pat_main, List.toArray l'))
+
+        let clauses d = 
+            let i = col d
+            let bar s = expr_indent i (<=) or_ s
+            (optional bar >>. sepBy1 (expr_indent i (<=) clause) bar) d
+
+        match match_type with
+        | true -> // function
+            (function_ >>. clauses |>> pat_function) d
+        | false -> // match
+            pipe2 (match_ >>. expr .>> with_) clauses pat_match d
+
+    let case_typeinl d = case_typex true d
+    let case_typecase d = case_typex false d
+
+    let case_record =
+        let mp_binding (n,e) = RawRecordWithKeyword(n, e)
+        let mp_binding_inject n e = RawRecordWithInjectVar(n, e)
+        let mp_without n = RawRecordWithoutKeyword n
+        let mp_without_inject n = RawRecordWithoutInjectVar n
+        let mp_create l = RawRecordWith([||],List.toArray l)
+        let mp_with init names l = RawRecordWith(List.toArray (init :: names), List.toArray l)
+
+        let parse_binding_with s =
+            let i = col s
+            let line = s.Line
+            let inline body s = (eq >>. expr_indent i (<) (set_semicolon_level line expr)) s
+            let a s =
+                pipe2 var_op (opt body)
+                    (fun a -> function
+                        | None -> mp_binding (a, v a)
+                        | Some b -> mp_binding (a, b)) s
+            let b s = pipe2 (inject >>. var_op) body mp_binding_inject s
+            (a <|> b) s
+
+        let parse_binding_without s = 
+            let a s = var_op |>> mp_without <| s
+            let b s = inject >>. var_op |>> mp_without_inject <| s
+            (a <|> b) s
+
+        let record_create_with s = (parse_binding_with .>> optional semicolon') s
+        let record_create_without s = (parse_binding_without .>> optional semicolon') s
+
+        let record_with = 
+            let withs' s = many1 record_create_with s
+            let withouts' s = many1 record_create_without s 
+            let withs s = (with_ >>. withs') s
+            let withouts s = (without >>. withouts') s 
+            attempt
+                (tuple3 
+                    ((var |>> v) <|> rounds expr)
+                    (many ((keyword_unary |>> Types.keyword_unary) <|> (dot >>. rounds expr)))
+                    ((with_ >>% withs') <|> (without >>% withouts')))
+            >>= (fun (init,names,next) s ->
+                pipe2 next (many (withs <|> withouts)) (fun a b -> mp_with init names (List.concat(a::b))) s
+                )
+
+        let record_create = many record_create_with |>> mp_create
+                
+        curlies (record_with <|> record_create)
+
+    let case_join_point = join >>. expr |>> join_point_entry_method
+    let case_type = type_ >>. expr |>> unop TypeGet
+    let case_type_catch = type_catch >>. expr |>> unop TypeCatch
+    let case_cuda = cuda >>. expr |>> (func "blockDim" << func "gridDim")
+
+    let inbuilt_op_core c = c >>. var
+    let case_inbuilt_op =
+        let rec loop = function
+            | RawExprPos x -> loop x.Expression
+            | RawOp(ListCreate, l) -> l 
+            | x -> [|x|]
+        let body c = inbuilt_op_core c .>>. rounds (expr <|>% B)
+        body unary_one >>= fun (a, b) d ->
+            match string_to_op a with
+            | true, op' -> Ok(Types.op op' (loop b))
+            | false, _ -> d.FailWith(InbuiltOpNotFound a)
+
+    let case_keyword_unary = keyword_unary |>> Types.keyword_unary
+    let case_keyword_message s =
+        if s.keyword_line <> line s then
+            let i' = col s
+            let pat s = 
+                let i = col s
+                let line = line s
+                (expr_indent i' (<=) keyword .>>. opt (expr_indent i (<) (set_keyword_level line expr))) s
+            (many1 pat |>> (concat_keyword' >> RawKeywordCreate)) s
+        else
+            Fail []
+
+    [|
+    case_lit; case_var; case_join_point; case_type; case_keyword_unary; case_keyword_message
+    case_typecase; case_typeinl; case_rounds; case_record; case_object
+    case_if_then_else; case_inl_pat_list_expr
+    case_inbuilt_op
+    case_cuda; case_type_catch
+    |] |> choice <| d
+
+let parser d = 
+    let rec raw_expr s =
+        let expressions s = type_union ^<| tuple ^<| operators ^<| application ^<| application_tight ^<| expressions raw_expr <| s
+        let statements s = statements raw_expr <| s
+        annotations ^<| indentations (statements <|> (exprpos expressions |>> ParserExpr)) <| s
+
+    (raw_expr .>> eof) d
