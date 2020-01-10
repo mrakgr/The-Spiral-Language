@@ -476,13 +476,12 @@ let statements expr (d: ParserEnv) =
             | Error _ ->
                 (
                 tuple3 ((var_op' |>> StatementVarOp) <|> (pattern' expr |>> StatementPattern)) (many (pattern' expr)) ret_type
-                >>= fun (init,pats,ret_type) -> // TODO: Make use of the return type.
+                >>= fun (init,pats,ret_type) d -> // TODO: Make use of the return type.
                     match init with
                     | StatementVarOp name -> 
-                        (statement_body expr |>> handle_inl_statement name pats) 
-                        <|> (expression_body expr |>> handle_inl_expression (inl name :: pats))
-                    | StatementPattern pat -> 
-                        expression_body expr |>> handle_inl_expression (pat :: pats)
+                        ((statement_body expr |>> handle_inl_statement name pats) 
+                         <|> (expression_body expr |>> handle_inl_expression (inl name :: pats))) d
+                    | StatementPattern pat -> (expression_body expr |>> handle_inl_expression (pat :: pats)) d
                 ) d
         | SpecInm -> d.Skip; pipe2 (pattern true false expr) (statement_body expr) handle_inm d
         | SpecInb -> d.Skip; pipe2 (pattern true false expr) (statement_body expr) handle_inb d
