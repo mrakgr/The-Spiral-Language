@@ -71,7 +71,9 @@ type ParserEnv =
     member inline d.Skip'(i) = d.i := d.i.contents+i
     member d.Skip = d.Skip'(1)
 
-    member d.Ok (pos : TokenPosition, t') = Ok(t', {module_=d.module_; column=pos.start_column; line=pos.start_line})
+    member d.Ok (pos : TokenPosition, t) = 
+        d.var_positions.Add(t,{module_=d.module_; column=pos.start_column; line=pos.start_line})
+        Ok(t)
 
     member d.PeekSpecial =
         d.TryCurrent <| function
@@ -85,12 +87,12 @@ type ParserEnv =
 
     member d.ReadUnaryOp =
         d.TryCurrent <| function
-            | TokOperator(p,t') -> d.Skip; d.Ok(p,t')
+            | TokUnaryOperator(p,t') -> d.Skip; d.Ok(p,"~"+t')
             | _ -> d.FailWith(ExpectedUnaryOperator')
 
     member d.ReadUnaryOp' =
         d.TryCurrent <| function
-            | TokOperator(p,t') -> d.Skip; Ok(t')
+            | TokUnaryOperator(p,t') -> d.Skip; Ok("~"+t')
             | _ -> d.FailWith(ExpectedUnaryOperator')
 
     member d.ReadOp =
@@ -138,30 +140,15 @@ type ParserEnv =
             | TokValue(p,t') -> d.Skip; Ok(t')
             | _ -> d.FailWith(ExpectedLit)
 
-    member d.ReadDefaultValue =
-        d.TryCurrent <| function
-            | TokDefaultValue(p,t') -> d.Skip; d.Ok(p,t')
-            | _ -> d.FailWith(ExpectedLit)
-
     member d.ReadDefaultValue' =
         d.TryCurrent <| function
             | TokDefaultValue(p,t') -> d.Skip; Ok(t')
             | _ -> d.FailWith(ExpectedLit)
 
-    member d.ReadKeyword =
-        d.TryCurrent <| function
-            | TokKeyword(p,t') -> d.Skip; d.Ok(p,t')
-            | _ -> d.FailWith(ExpectedKeyword)
-
     member d.ReadKeyword' =
         d.TryCurrent <| function
             | TokKeyword(p,t') -> d.Skip; Ok(t')
             | _ -> d.FailWith(ExpectedKeyword)
-
-    member d.ReadKeywordUnary =
-        d.TryCurrent <| function
-            | TokKeywordUnary(p,t') -> d.Skip; d.Ok(p,t')
-            | _ -> d.FailWith(ExpectedKeywordUnary)
 
     member d.ReadKeywordUnary' =
         d.TryCurrent <| function
@@ -399,6 +386,7 @@ let typecase_ d = special SpecTypecase d
 let function_ d = special SpecFunction d
 let ttype d = special SpecBigType d
 let with_ d = special SpecWith d
+let typecase d = special SpecTypecase d
 let without d = special SpecWithout d
 let as_ d = special SpecAs d
 let when_ d = special SpecWhen d
@@ -431,7 +419,7 @@ let cons (d: ParserEnv) = d.SkipOperator "::"
 let arr_cons (d: ParserEnv) = d.SkipOperator "=>"
 let arr_fun (d: ParserEnv) = d.SkipOperator "->"
 let arr_depcon (d: ParserEnv) = d.SkipOperator "~>"
-let eq (d: ParserEnv) = d.SkipOperator "="
+let eq' (d: ParserEnv) = d.SkipOperator "="
 let or_ (d: ParserEnv) = d.SkipOperator "|"
 let and_ (d: ParserEnv) = d.SkipOperator "&"
 let dot (d: ParserEnv) = d.SkipOperator "."
@@ -441,7 +429,7 @@ let product (d: ParserEnv) = d.SkipOperator "*"
 let exclamation (d: ParserEnv) = d.SkipUnaryOperator "!"
 let dollar (d: ParserEnv) = d.SkipUnaryOperator "$"
 let grave (d: ParserEnv) = d.SkipUnaryOperator "`"
-let wave (d: ParserEnv) = d.SkipUnaryOperator "~"
+let tilde (d: ParserEnv) = d.SkipUnaryOperator "~"
 
 let and' (d: ParserEnv) = d.SkipSpecial SpecAnd
 let fun' (d: ParserEnv) = d.SkipSpecial SpecFun
@@ -453,11 +441,8 @@ let big_var' (d: ParserEnv) = d.ReadBigVar'
 let op (d: ParserEnv) = d.ReadOp
 let op' (d: ParserEnv) = d.ReadOp'
 let value_ (d: ParserEnv) = d.ReadValue
-let def_value_ (d: ParserEnv) = d.ReadDefaultValue
 let def_value_' (d: ParserEnv) = d.ReadDefaultValue'
-let keyword (d: ParserEnv) = d.ReadKeyword
 let keyword' (d: ParserEnv) = d.ReadKeyword'
-let keyword_unary (d: ParserEnv) = d.ReadKeywordUnary
 let keyword_unary' (d: ParserEnv) = d.ReadKeywordUnary'
 
 let rounds a (d: ParserEnv) = (bracket_round_open >>. a .>> bracket_round_close) d
