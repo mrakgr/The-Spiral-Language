@@ -556,9 +556,7 @@ let rec expressions expr d =
         let inline f str = expr_indent (f' str)
         pipe4 (f' if_) (f then_) (many (f elif_ .>>. f then_)) (opt (f else_))
             (fun cond tr elifs fl -> 
-                let fl = 
-                    match fl with Some x -> x | None -> B
-                    |> List.foldBack (fun (cond,tr) fl -> if' cond tr fl) elifs
+                let fl = List.foldBack (fun (cond,tr) fl -> if' cond tr fl) elifs (Option.defaultValue B fl)
                 if' cond tr fl)
         <| d
     let case_var = small_var' |>> v // TODO: Don't forget to add the position.
