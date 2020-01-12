@@ -680,23 +680,23 @@ let rec expressions expr d =
         else
             Error []
 
-    let case_type = type' |>> RawType
-
     [|
     case_value; case_default_value; case_var; case_join_point; case_keyword_unary; case_keyword_message
     case_typecase; case_match; case_typecase; case_rounds; case_record
-    case_if_then_else; case_fun; case_type
+    case_if_then_else; case_fun
     case_inbuilt_op
     |] |> choice <| d
 
+let operators_unary expr =
+    (type' |>> RawType) 
+    <|> (pipe2 (opt unary_op) expr (fun op e -> match op with Some op -> ap (v op) e | None -> e))
+
 let parser d = 
     let rec raw_expr s =
-        let expressions s = (expressions raw_expr |> application_tight |> application |> operators) s
+        let expressions s = (expressions raw_expr |> operators_unary |> application_tight |> application |> operators) s
         (((statements raw_expr |>> ParserStatement) <|> (exprpos expressions |>> ParserExpr)) |> indentations |> annotations) s
 
     (raw_expr .>> eof) d
-
-open FParsec
 
 let inbuilt_operators () = 
     let inbuilt_operators = Dictionary(HashIdentity.Structural)
@@ -717,9 +717,10 @@ let inbuilt_operators () =
         f "," 5; f ":>" 35; f ":?>" 35; f "**" 80
     inbuilt_operators
    
+open FParsec
 let parse (m: SpiralModule) =
     match runParserOnString tokenize m "" m.code with
-    | Failure(x,_,_) -> Error x
+    | Failure(x,_,_) -> failwith ""//Error x
     | Success(l,_,_) ->
         //printfn "%A" l
         let d = 

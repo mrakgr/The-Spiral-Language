@@ -440,6 +440,7 @@ let big_var (d: ParserEnv) = d.ReadBigVar
 let big_var' (d: ParserEnv) = d.ReadBigVar'
 let op (d: ParserEnv) = d.ReadOp
 let op' (d: ParserEnv) = d.ReadOp'
+let unary_op (d: ParserEnv) = d.ReadUnaryOp
 let value_ (d: ParserEnv) = d.ReadValue
 let def_value_' (d: ParserEnv) = d.ReadDefaultValue'
 let keyword' (d: ParserEnv) = d.ReadKeyword'
