@@ -87,8 +87,10 @@ let pos' (start_line, start_column) (end_line, end_column) = {start_line=start_l
 let rec spaces_template s = spaces >>. optional (followedByString "//" >>. skipRestOfLine true >>. spaces_template) <| s
 let spaces s = spaces_template s
 
-let is_identifier_starting_char c = isAsciiLetter c || c = '_'
-let is_identifier_char c = is_identifier_starting_char c || c = ''' || isDigit c 
+let is_small_var_char_starting c = isAsciiLower c || c = '_'
+let is_var_char c = isAsciiLetter c || c = '_' || c = ''' || isDigit c 
+let is_big_var_char_starting c = isAsciiUpper c
+let is_big_var_char c = is_var_char c || c = '\\'
 let is_parenth_open c = 
     let inline f x = c = x
     f '(' || f '[' || f '{'
@@ -99,7 +101,7 @@ let is_parenth_close c =
 // http://www.asciitable.com/
 let is_operator_char c =
     let inline f x = c = x
-    '!' <= c && c <= '~' && (is_identifier_char c || f '"' || is_parenth_open c || is_parenth_close c) = false
+    '!' <= c && c <= '~' && (is_var_char c || f '"' || is_parenth_open c || is_parenth_close c) = false
 let is_separator_char c = 
     let inline f x = c = x
     f ' ' || f '\t' || f '\n' || f '\r' || is_parenth_open c || f CharStream.EndOfStreamChar
@@ -107,30 +109,43 @@ let is_separator_char c =
 let var (s:CharStream<_>) = 
     let start = pos s
 
-    let f x (s: CharStream<_>) =
-        if s.Skip(':') then
-            TokKeyword(pos' start (pos s),x)
-        else
-            let f x = TokSpecial(pos' start (pos s),x)
-            match x with
-            | "and" -> f SpecAnd | "fun" -> f SpecFun
-            | "match" -> f SpecMatch | "typecase" -> f SpecTypecase
-            | "function" -> f SpecFunction | "Type" -> f SpecBigType
-            | "with" -> f SpecWith | "without" -> f SpecWithout
-            | "as" -> f SpecAs | "when" -> f SpecWhen
-            | "inl" -> f SpecInl | "forall" -> f SpecForall
-            | "let" -> f SpecLet | "inm" -> f SpecInm
-            | "inb" -> f SpecInb | "rec" -> f SpecRec
-            | "if" -> f SpecIf | "then" -> f SpecThen
-            | "elif" -> f SpecElif | "else" -> f SpecElse
-            | "join" -> f SpecJoin | "type" -> f SpecSmallType 
-            | "nominal" -> f SpecNominal | "real" -> f SpecReal
-            | "open" -> f SpecOpen | "_" -> f SpecWildcard
-            | "true" -> TokValue(pos' start (pos s),LitBool true) | "false" -> TokValue(pos' start (pos s),LitBool false)
-            | x -> if isAsciiLower x.[0] then TokSmallVar(pos' start (pos s),x) else TokBigVar(pos' start (pos s),x)
-        |> Reply
+    let small_var s =
+        many1Satisfy2L is_small_var_char_starting is_var_char "small var"
+        >>= (fun x s ->
+            if s.Skip(':') then
+                TokKeyword(pos' start (pos s),x)
+            else
+                let f x = TokSpecial(pos' start (pos s),x)
+                match x with
+                | "and" -> f SpecAnd | "fun" -> f SpecFun
+                | "match" -> f SpecMatch | "typecase" -> f SpecTypecase
+                | "function" -> f SpecFunction | "Type" -> f SpecBigType
+                | "with" -> f SpecWith | "without" -> f SpecWithout
+                | "as" -> f SpecAs | "when" -> f SpecWhen
+                | "inl" -> f SpecInl | "forall" -> f SpecForall
+                | "let" -> f SpecLet | "inm" -> f SpecInm
+                | "inb" -> f SpecInb | "rec" -> f SpecRec
+                | "if" -> f SpecIf | "then" -> f SpecThen
+                | "elif" -> f SpecElif | "else" -> f SpecElse
+                | "join" -> f SpecJoin | "type" -> f SpecSmallType 
+                | "nominal" -> f SpecNominal | "real" -> f SpecReal
+                | "open" -> f SpecOpen | "_" -> f SpecWildcard
+                | "true" -> TokValue(pos' start (pos s),LitBool true) | "false" -> TokValue(pos' start (pos s),LitBool false)
+                | x -> TokSmallVar(pos' start (pos s),x)
+            |> Reply)
+        .>> spaces
+        <| s
 
-    (many1Satisfy2L is_identifier_starting_char is_identifier_char "identifier" >>= f .>> spaces) s
+    let big_var s =
+        many1Satisfy2L is_big_var_char_starting is_big_var_char "big var"
+        >>= (fun x s ->
+            if s.Skip(':') then TokKeyword(pos' start (pos s),x)
+            else TokBigVar(pos' start (pos s),x)
+            |> Reply)
+        .>> spaces
+        <| s
+
+    (small_var <|> big_var) s
 
 let default_number_format =  
     NumberLiteralOptions.AllowFraction
@@ -159,7 +174,7 @@ let number (s: CharStream<_>) =
     let followedBySuffix x is_x_integer (s: CharStream<_>) =
         let guard f =
             let a = s.Peek()
-            if is_identifier_starting_char a || isDigit a then Reply(Error, expected "non-identifier character or digit")
+            if is_small_var_char_starting a || isDigit a then Reply(Error, expected "non-identifier character or digit")
             else f x
         if s.Skip('i') then
             if s.Skip('8') then guard (safe_parse s SByte.TryParse LitInt8 "int8 parse failed")
@@ -197,9 +212,9 @@ let keyword_unary s =
     let f x s = Reply(TokKeywordUnary(pos' start (pos s), x))
 
     let x = s.Peek2()
-    if x.Char0 = '.' && is_identifier_starting_char x.Char1 then
+    if x.Char0 = '.' && is_small_var_char_starting x.Char1 then
         s.Skip()
-        ((manySatisfy is_identifier_char <?> "unary message") >>= f .>> spaces) s
+        ((manySatisfy is_var_char <?> "unary message") >>= f .>> spaces) s
     else
         Reply(Error, expected "unary message")
 
@@ -207,7 +222,7 @@ let operator (s : CharStream<_>) =
     let is_separator_prev = is_separator_char (s.Peek(-1))
     let start = pos s
     let f name (s: CharStream<_>) = 
-        if is_separator_prev && (let x = s.Peek() in is_identifier_char x || isDigit x || is_parenth_open x) then Reply(TokUnaryOperator(pos' start (pos s),name))
+        if is_separator_prev && (let x = s.Peek() in is_var_char x || isDigit x || is_parenth_open x) then Reply(TokUnaryOperator(pos' start (pos s),name))
         else Reply(TokOperator(pos' start (pos s),name))
     (many1SatisfyL is_operator_char "operator"  >>= f .>> spaces) s
 

@@ -147,6 +147,9 @@ and RawExpr =
     | RawInline of RawExpr // Acts as a join point for the prepass specifically.
     | RawType of RawTypeExpr
     | RawInl of VarString * RawExpr
+    | RawGlobalInl of VarString * RawExpr // has no free vars
+    | RawModule of Map<string,RawExpr>
+    | RawModuleOpen of Map<string,RawExpr>
     | RawForall of VarString * RawExpr
     | RawLet of var: VarString * bind: RawExpr * on_succ: RawExpr
     | RawRecBlock of (VarString * RawExpr) [] * on_succ: RawExpr 
@@ -174,6 +177,7 @@ and RawTypeExpr =
     | RawTKeyword of string * RawTypeExpr []
     | RawTApply of RawTypeExpr * RawTypeExpr
     | RawTForall of (string * RawTypeTypeExpr) [] * RawTypeExpr
+    | RawTInl of (string * RawTypeTypeExpr) [] * RawTypeExpr
     | RawTUnit
     | RawTPos of Pos<RawTypeExpr>
 and RawTypeTypeExpr =
@@ -184,14 +188,35 @@ type ParserExpr =
     | ParserStatement of (RawExpr -> RawExpr)
     | ParserExpr of RawExpr
 
+type Aux = {big_value : Map<string,RawExpr>; big_type : Map<string,RawTypeExpr>}
+
+let inbuilt_operators = 
+    let inbuilt_operators = Dictionary(HashIdentity.Structural)
+    let add_infix_operator assoc str prec = inbuilt_operators.Add(str, (prec, assoc))
+
+    let left_assoc_ops = 
+        let f = add_infix_operator Associativity.Left
+        f "+" 60; f "-" 60; f "*" 70; f "/" 70; f "%" 70
+        f "<|" 10; f "|>" 10; f "<<" 10; f ">>" 10
+
+        let f str = add_infix_operator Associativity.None str 40
+        f "<="; f "<"; f "="; f ">"; f ">="; f "<>"
+        f "<<<"; f ">>>"; f "&&&"; f "|||"
+
+    let right_associative_ops =
+        let f str prec = add_infix_operator Associativity.Right str prec
+        f "||" 20; f "&&" 30; f "::" 50; f "^^^" 45
+        f "," 5; f ":>" 35; f ":?>" 35; f "**" 80
+    inbuilt_operators
+
 let inline expr_indent i op expr d = if op i (col d) then expr d else Error []
 
-let semicolon (d: ParserEnv) = if d.Line <> d.semicolon_line then semicolon' d else d.FailWith(InvalidSemicolon) 
+let semicolon (d: ParserEnv<'t>) = if d.Line <> d.semicolon_line then semicolon' d else d.FailWith(InvalidSemicolon) 
 
 let expr_pos pos x = RawPos(Pos(pos,x))
 let exprpos expr d =
     let pos = pos' d
-    (expr |>> function RawPos _ | RawInline _ | RawRecBlock _ | RawInl _ | RawForall _ as x -> x | x -> expr_pos pos x) d
+    (expr |>> function RawType _ | RawPos _ | RawInline _ | RawRecBlock _ | RawInl _ | RawForall _ as x -> x | x -> expr_pos pos x) d
 let pat_pos pos x = PatPos(Pos(pos,x))
 let patpos expr d = (expr |>> pat_pos (pos' d)) d
 
@@ -212,9 +237,9 @@ let rec ttype' d =
     let ttfun next = many1 next |>> List.reduceBack (fun a b -> RawTTFun(a,b))
     ttfun ((ttype >>% RawTType) <|> rounds ttype') d
 
-let rec type_template is_outside (d : ParserEnv) =
+let rec type_template is_outside (d : ParserEnv<Aux>) =
     let recurse d = type_template false d
-    let assert_allowed msg (d : ParserEnv) = if d.is_easy_phase then Ok() else d.Skip'(-1); d.FailWith msg
+    let assert_allowed msg (d : ParserEnv<'t>) = if d.is_easy_phase then Ok() else d.Skip'(-1); d.FailWith msg
     let pairs next = sepBy1 next product |>> List.reduceBack (fun a b -> RawTPair(a,b))
     let arr_funs_cons next = 
         pipe2 next (many (((arr_fun >>% Funs) <|> (arr_cons >>. assert_allowed ConstraintNotAllowed >>% Cons)) .>>. next))
@@ -224,18 +249,23 @@ let rec type_template is_outside (d : ParserEnv) =
                     | (Funs, b) :: l -> RawTFun(a,loop b l)
                     | (Cons, b) :: l -> RawTConstraint(a,loop b l)
                 loop a l)
-    let arr_depcon next d = 
-        pipe2 next (opt (arr_depcon >>. assert_allowed DepConstraintNotAllowed >>. next)) (fun a -> function Some b -> RawTDepConstraint(a,b) | None -> a) d
-    let forall next (d : ParserEnv) = 
+    let arr_depcon next = 
+        pipe2 next (opt (arr_depcon >>. assert_allowed DepConstraintNotAllowed >>. next)) (fun a -> function Some b -> RawTDepConstraint(a,b) | None -> a)
+    let forall next = 
         let var d = (small_var' |>> fun x -> x, RawTType) d
         let var_annot d = rounds ((small_var' .>> colon) .>>. ttype') d
-        (pipe2 (forall >>. assert_allowed TypeForallNotAllowed >>. many1 (var <|> var_annot) .>> dot) next (fun l x -> RawTForall(List.toArray l,x))
-         <|> next) d
+        pipe2 (forall >>. assert_allowed TypeForallNotAllowed >>. many1 (var <|> var_annot) .>> dot) next (fun l x -> RawTForall(List.toArray l,x))
+        <|> next
     let record next = curlies (many ((small_var' .>> colon) .>>. next)) |>> (Map.ofList >> RawTRecord)
     let keyword next = 
         (keyword_unary' |>> fun x -> RawTKeyword(x,[||]))
         <|> (many (keyword' .>>. next) |>> (concat_keyword (fun _ t -> t) >> fun (a, b) -> RawTKeyword(a, List.toArray b)))
-    let var = (small_var <|> big_var) |>> RawTVar
+    let var = 
+        (big_var >>= fun x (d : ParserEnv<Aux>) -> 
+            match Map.tryFind x d.aux.big_type with
+            | Some x -> Ok x
+            | None -> d.Skip'(-1); d.FailWith (BigTypeNotFound x))
+        <|> (small_var |>> RawTVar)
     let parenths next = rounds (next <|>% RawTUnit)
     let tapply next = many1 next |>> List.reduce (fun a b -> RawTApply(a,b))
 
@@ -293,8 +323,8 @@ let rec pattern_template is_outer is_box expr s =
 
 let inline pattern is_outer is_box expr s = patpos (pattern_template is_outer is_box expr) s
 
-let set_semicolon_level line p (d: ParserEnv) = p {d with semicolon_line = line}
-let set_keyword_level line p (d: ParserEnv) = p {d with semicolon_line = line; keyword_line = line}
+let set_semicolon_level line p (d: ParserEnv<'t>) = p {d with semicolon_line = line}
+let set_keyword_level line p (d: ParserEnv<'t>) = p {d with semicolon_line = line; keyword_line = line}
 let reset_level expr d = expr {d with semicolon_line= -1; keyword_line= -1}
 
 let ret_type d = opt (colon >>. type') d
@@ -447,8 +477,8 @@ let forall d =
     |>> List.foldBack (fun x on_succ -> RawForall(x,on_succ))
     ) d
 
-let statements expr (d: ParserEnv) =
-    let handle_inl_rec_block (l, l') (d: ParserEnv) = 
+let statements expr (d: ParserEnv<_>) =
+    let handle_inl_rec_block (l, l') (d: ParserEnv<_>) = 
         (l :: l') 
         |> List.toArray
         |> fun x on_succ -> RawRecBlock(x,on_succ)
@@ -500,7 +530,7 @@ let operators expr d =
     // Similarly to F#, Spiral filters out the '.' from the operator name and then tries to match to the nearest inbuilt operator
     // for the sake of assigning associativity and precedence.
     // TODO: This might change in v0.2 to explicit precedence and associativity like in Agda/Haskell.
-    let precedence_associativity inbuilt_operators x = 
+    let precedence_associativity x = 
         Utils.memoize inbuilt_operators (fun name' ->
             let name = String.filter ((<>) '.') name'
             let rec loop l =
@@ -514,7 +544,7 @@ let operators expr d =
             loop name.Length
             ) x
 
-    let op (d : ParserEnv) =
+    let op (d : ParserEnv<'t>) =
         let pos = pos' d
         match d.ReadOp' with
         | Ok x ->
@@ -526,7 +556,7 @@ let operators expr d =
                 | "||" -> fun a b -> expr_pos pos (if' a (value' (LitBool true)) b)
                 | "," -> fun a b -> expr_pos pos (RawOp(PairCreate,[|a;b|]))
                 | x -> fun a b -> expr_pos pos (ap (ap (v x) a) b)
-                |> fun m -> precedence_associativity d.binops_value x, m
+                |> fun m -> precedence_associativity x, m
                 |> Ok
         | Error x -> Error x
 
@@ -548,13 +578,13 @@ let operators expr d =
 
     tdop Int32.MinValue d
 
-let application expr (d: ParserEnv) =
+let application expr (d: ParserEnv<'t>) =
     let i = col d
     let expr_up d = expr_indent i (<) expr d
     pipe2 expr (many expr_up) (List.fold ap) d
 
 let application_tight expr d =
-    let is_previus_near (d: ParserEnv) = 
+    let is_previus_near (d: ParserEnv<'t>) = 
         let a = d.Skip'(-1); let x = d.LineEnd, d.ColEnd in d.Skip; x
         let b = d.Line, d.Col
         if a = b then Ok () else Error []
@@ -584,10 +614,39 @@ let rec expressions expr d =
                 let fl = List.foldBack (fun (cond,tr) fl -> if' cond tr fl) elifs (Option.defaultValue B fl)
                 if' cond tr fl)
         <| d
-    let case_var = (small_var <|> big_var) |>> v
+    let case_var = 
+        (big_var >>= fun x (d : ParserEnv<Aux>) ->
+            match Map.tryFind x d.aux.big_value with
+            | Some x -> Ok x
+            | None -> d.Skip'(-1); d.FailWith (BigValueNotFound x)
+            )
+        <|> (small_var |>> v)
+    let case_open =
+        (open_ >>. big_var >>= fun name (d: ParserEnv<Aux>) ->
+            match Map.tryFind name d.aux.big_value with
+            | Some(x) -> Ok x
+            | None -> d.Skip'(-1); d.FailWith ModuleNotFound
+            ) 
+        .>>. (opt (curlies (many small_var)))
+        >>= fun (m, w) (d: ParserEnv<Aux>) ->
+            match m with
+            | RawModule m ->
+                match w with
+                | None -> Ok <| RawModuleOpen m
+                | Some w -> 
+                    let found, missing =
+                        List.fold (fun (found,missing) x ->
+                            match Map.tryFind x m with
+                            | Some v -> Map.add x v found, missing
+                            | None -> found, x :: missing
+                            ) (Map.empty, []) w
+                    if List.isEmpty missing then Ok <| RawModuleOpen found
+                    else d.FailWith (ModuleWithMissing missing)
+            | _ -> d.FailWith ExpectedModuleInOpen
+
     let case_rounds = rounds ((op |>> v) <|> (reset_level expr <|>% B))
 
-    let case_match_template is_function (d: ParserEnv) =
+    let case_match_template is_function (d: ParserEnv<_>) =
         let clause d = ((pattern true false expr) .>>. (expression_body expr)) d
 
         let pat_function l = inl pat_main <| pattern_to_rawexpr(pat_main, List.toArray l)
@@ -682,7 +741,7 @@ let rec expressions expr d =
 
     [|
     case_value; case_default_value; case_var; case_join_point; case_keyword_unary; case_keyword_message
-    case_typecase; case_match; case_typecase; case_rounds; case_record
+    case_typecase; case_match; case_typecase; case_rounds; case_record; case_open
     case_if_then_else; case_fun
     case_inbuilt_op
     |] |> choice <| d
@@ -697,32 +756,13 @@ let parser d =
         (((statements raw_expr |>> ParserStatement) <|> (exprpos expressions |>> ParserExpr)) |> indentations |> annotations) s
 
     (raw_expr .>> eof) d
-
-let inbuilt_operators () = 
-    let inbuilt_operators = Dictionary(HashIdentity.Structural)
-    let add_infix_operator assoc str prec = inbuilt_operators.Add(str, (prec, assoc))
-
-    let left_assoc_ops = 
-        let f = add_infix_operator Associativity.Left
-        f "+" 60; f "-" 60; f "*" 70; f "/" 70; f "%" 70
-        f "<|" 10; f "|>" 10; f "<<" 10; f ">>" 10
-
-        let f str = add_infix_operator Associativity.None str 40
-        f "<="; f "<"; f "="; f ">"; f ">="; f "<>"
-        f "<<<"; f ">>>"; f "&&&"; f "|||"
-
-    let right_associative_ops =
-        let f str prec = add_infix_operator Associativity.Right str prec
-        f "||" 20; f "&&" 30; f "::" 50; f "^^^" 45
-        f "," 5; f ":>" 35; f ":?>" 35; f "**" 80
-    inbuilt_operators
-   
-open FParsec
-let parse (m: SpiralModule) =
-    match runParserOnString tokenize m "" m.code with
-    | Failure(x,_,_) -> failwith ""//Error x
-    | Success(l,_,_) ->
+  
+let parse aux (m: SpiralModule) =
+    match FParsec.CharParsers.runParserOnString tokenize m "" m.code with
+    | FParsec.CharParsers.ParserResult.Failure(x,_,_) -> Error x
+    | FParsec.CharParsers.ParserResult.Success(l,_,_) ->
         //printfn "%A" l
+        let var_positions=Dictionary(HashIdentity.Reference)
         let d = 
             {
             l=l
@@ -730,6 +770,9 @@ let parse (m: SpiralModule) =
             module_=m
             semicolon_line= -1
             keyword_line= -1
+            is_easy_phase=false
+            var_positions=var_positions
+            aux=aux
             }
         let fail (x: (SpiralToken * ParserErrors) list) = 
             let strb = StringBuilder()
@@ -740,8 +783,8 @@ let parse (m: SpiralModule) =
                 )
             Error(strb.ToString())
         match parser d with
-        | Ok x ->  Types.Ok x
+        | Ok x ->  Ok x
         | Error [] -> 
             if d.Index = d.Length then fail [Array.last l, UnexpectedEof]
-            else Fail "Unknown parse error."
+            else Error "Unknown parse error."
         | Error x -> fail x
