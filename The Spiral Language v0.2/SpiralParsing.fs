@@ -176,8 +176,8 @@ and RawTypeExpr =
     | RawTRecord of Map<string,RawTypeExpr>
     | RawTKeyword of string * RawTypeExpr []
     | RawTApply of RawTypeExpr * RawTypeExpr
-    | RawTForall of (string * RawTypeTypeExpr) [] * RawTypeExpr
-    | RawTInl of (string * RawTypeTypeExpr) [] * RawTypeExpr
+    | RawTForall of (string * RawTypeTypeExpr) * RawTypeExpr
+    | RawTInl of (string * RawTypeTypeExpr) * RawTypeExpr
     | RawTUnit
     | RawTPos of Pos<RawTypeExpr>
 and RawTypeTypeExpr =
@@ -254,7 +254,7 @@ let rec type_template is_outside (d : ParserEnv<Aux>) =
     let forall next = 
         let var d = (small_var' |>> fun x -> x, RawTType) d
         let var_annot d = rounds ((small_var' .>> colon) .>>. ttype') d
-        pipe2 (forall >>. assert_allowed TypeForallNotAllowed >>. many1 (var <|> var_annot) .>> dot) next (fun l x -> RawTForall(List.toArray l,x))
+        pipe2 (forall >>. assert_allowed TypeForallNotAllowed >>. many1 (var <|> var_annot) .>> dot) next (List.foldBack (fun x s -> RawTForall(x,s)))
         <|> next
     let record next = curlies (many ((small_var' .>> colon) .>>. next)) |>> (Map.ofList >> RawTRecord)
     let keyword next = 
