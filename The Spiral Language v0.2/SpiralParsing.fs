@@ -178,6 +178,7 @@ and RawTypeExpr =
     | RawTApply of RawTypeExpr * RawTypeExpr
     | RawTForall of (string * RawTypeTypeExpr) * RawTypeExpr
     | RawTInl of (string * RawTypeTypeExpr) * RawTypeExpr
+    | RawExpr of RawExpr
     | RawTUnit
     | RawTPos of Pos<RawTypeExpr>
 and RawTypeTypeExpr =
