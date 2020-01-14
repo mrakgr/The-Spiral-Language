@@ -233,7 +233,7 @@ inl infinity = [
 // Since join points use structural equality and nan = nan returns false, nans will cause the compiler to diverge.
 // Note for future runtime designers - make `nan = nan` return true!
 
-/// Structural polymorphic equality for every type in the language (apart from functions, objects and keywords.)
+/// Structural polymorphic equality for every type in the language (apart from functions and objects.)
 inl (=) a b =
     inl rec (=) a b =
         match a,b with
