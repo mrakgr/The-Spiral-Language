@@ -207,12 +207,10 @@ let inbuilt_operators =
     let right_associative_ops =
         let f str prec = add_infix_operator Associativity.Right str prec
         f "||" 20; f "&&" 30; f "::" 50; f "^^^" 45
-        f "," 5; f ":>" 35; f ":?>" 35; f "**" 80
+        f ";" 4; f "," 5; f ":>" 35; f ":?>" 35; f "**" 80
     inbuilt_operators
 
 let inline expr_indent i op expr d = if op i (col d) then expr d else Error []
-
-let semicolon (d: ParserEnv<'t>) = if d.Line <> d.semicolon_line then semicolon' d else d.FailWith(InvalidSemicolon) 
 
 let expr_pos pos x = RawPos(Pos(pos,x))
 let exprpos expr d =
@@ -350,14 +348,8 @@ let inline statement_body expr = pipe2 (ret_type .>> eq') (reset_level expr) wit
 let inline expression_body expr = pipe2 (ret_type .>> arr_fun) (reset_level expr) with_ret_type
 
 let inl x y = RawInl(x,y)
-//let keyword_ k l = RawKeywordCreate(k,l)
-//let keyword_unary_ k = RawKeywordCreate(k,[||])
 let l bind body on_succ = RawLet(bind,body,on_succ)
-//let case bind body on_succ = RawCase(bind,body,on_succ)
 let if' cond on_succ on_fail = RawOp(If,[|cond;on_succ;on_fail|])
-//let keyword_test keyword x bind on_succ on_fail = RawKeywordTest(keyword,x,bind,on_succ,on_fail)
-//let record_test x bind on_succ on_fail = RawRecordTest(x,bind,on_succ,on_fail)
-//let record_with binds patterns = RawRecordWith(binds,patterns)
 let ty x = RawType x
 let B = RawB
 
@@ -381,24 +373,21 @@ let annotations expr d =
     let inline expr_indent expr d = expr_indent i (<=) expr d
     pipe2 (expr_indent expr) (opt (expr_indent colon >>. expr_indent type_annot)) type_annot' d
 
-let process_parser_exprs exprs = 
-    let error_statement_in_last_pos = pfail StatementLastInBlock
-    let rec process_parser_exprs on_succ = function
-        | [ParserExpr a] -> on_succ a
-        | [ParserStatement _] -> error_statement_in_last_pos
-        | ParserStatement a :: xs -> process_parser_exprs (a >> on_succ) xs
-        | ParserExpr a :: xs -> process_parser_exprs (l "" (unop ErrorNonUnit a) >> on_succ) xs
-        | [] -> on_succ B
-            
-    process_parser_exprs preturn (List.concat exprs)
+let process_parser_exprs (exprs, in') (d : ParserEnv<_>) =
+    let f x s = match x with ParserExpr a -> l "" (unop ErrorNonUnit a) s | ParserStatement a -> a s
+    match in' with
+    | Some in' -> Ok(List.foldBack f exprs in')
+    | None -> 
+        match List.rev exprs with
+        | ParserStatement _ :: _ -> d.FailWith StatementLastInBlock
+        | ParserExpr x :: xs -> Ok(List.fold (fun a b -> f b a) x xs)
+        | [] -> failwith "impossible"
 
-let indentations expr d =
+let rec indentations expr d =
     let i = col d
     let inline if_ op tr s = expr_indent i op tr s
 
-    let inline many_semis expr = many (if_ (<) semicolon >>. if_ (<) expr)
-    let inline many_indents expr = many1 (if_ (=) (pipe2 expr (many_semis expr) (fun a b -> a :: b)))
-    (many_indents expr >>= process_parser_exprs) d
+    (many1 (if_ (=) expr) .>>. opt (if_ (<=) in_ >>. if_ (<=) (indentations expr)) >>= process_parser_exprs) d
 
 let pattern_to_rawexpr (arg: VarString, clauses: (Pattern * RawExpr) []) = 
     let mutable tag = 0
@@ -434,8 +423,8 @@ let pattern_to_rawexpr (arg: VarString, clauses: (Pattern * RawExpr) []) =
         | PatActive (a,b) ->
             let pat_var = patvar()
             l pat_var (ap a (v arg)) (cp pat_var b on_succ on_fail)
-        | PatOr l -> List.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
-        | PatAnd l -> List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
+        | PatOr l -> let on_succ = inline_ on_succ in List.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
+        | PatAnd l -> let on_fail = inline_ on_fail in List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
         | PatValue x -> RawValueTest(x,arg,on_succ,on_fail)
         | PatDefaultValue x -> RawDefaultValueTest(x,arg,on_succ,on_fail)
         | PatWhen (p, e) -> cp arg p (if' e on_succ on_fail) on_fail
@@ -518,7 +507,7 @@ let statements expr (d: ParserEnv<_>) =
     | Ok x ->
         match x with
         | SpecLet -> d.Skip; inl join_point_entry_method (forall <|> (tilde >>. pattern true false expr |>> pattern_to_rawinl) <|> (pattern true true expr |>> pattern_to_rawinl))
-        | SpecInl -> d.Skip; inl id (forall <|> (pattern true false expr |>> pattern_to_rawinl))
+        | SpecInl -> d.Skip; inl id (forall <|> (tilde >>. pattern true true expr |>> pattern_to_rawinl) <|> (pattern true false expr |>> pattern_to_rawinl))
         | SpecInm -> d.Skip; pipe2 (pattern true false expr) (statement_body expr) handle_inm d
         | SpecInb -> d.Skip; pipe2 (pattern true false expr) (statement_body expr) handle_inb d
         | _ -> d.FailWith ExpectedStatement
@@ -550,7 +539,10 @@ let operators expr d =
         match d.ReadOp' with
         | Ok x ->
             match x with
-            | ":" -> Error []
+            | ";"  -> 
+                if pos.line = d.semicolon_line then d.FailWith(InvalidSemicolon)
+                else Ok (precedence_associativity x, fun a b -> l "" (unop ErrorNonUnit a) b)
+            | ":" -> Error [] // is handled in the annotation parser
             | _ ->
                 match x with
                 | "&&" -> fun a b -> expr_pos pos (if' a b (value' (LitBool false)))
@@ -627,8 +619,8 @@ let rec expressions expr d =
             match Map.tryFind name d.aux.big_value with
             | Some(x) -> Ok x
             | None -> d.Skip'(-1); d.FailWith ModuleNotFound
-            ) 
-        .>>. (opt (curlies (many small_var)))
+            )
+        .>>. (opt (curlies (with_ >>. many (let var = small_var <|> rounds op in var .>>. opt (arr_fun >>. var)))))
         >>= fun (m, w) (d: ParserEnv<Aux>) ->
             match m with
             | RawModule m ->
@@ -636,9 +628,9 @@ let rec expressions expr d =
                 | None -> Ok <| RawModuleOpen m
                 | Some w -> 
                     let found, missing =
-                        List.fold (fun (found,missing) x ->
+                        List.fold (fun (found,missing) (x,x') ->
                             match Map.tryFind x m with
-                            | Some v -> Map.add x v found, missing
+                            | Some v -> Map.add (Option.defaultValue x x') v found, missing
                             | None -> found, x :: missing
                             ) (Map.empty, []) w
                     if List.isEmpty missing then Ok <| RawModuleOpen found
@@ -647,7 +639,7 @@ let rec expressions expr d =
 
     let case_rounds = rounds ((op |>> v) <|> (reset_level expr <|>% B))
 
-    let case_match_template is_function (d: ParserEnv<_>) =
+    let case_pattern_match =
         let clause d = ((pattern true false expr) .>>. (expression_body expr)) d
 
         let pat_function l = inl pat_main <| pattern_to_rawexpr(pat_main, List.toArray l)
@@ -658,12 +650,9 @@ let rec expressions expr d =
             let bar s = expr_indent i (<=) or_ s
             (optional bar >>. sepBy1 (expr_indent i (<=) clause) bar) d
 
-        match is_function with
-        | true -> (function_ >>. clauses |>> pat_function) d
-        | false -> pipe2 (match_ >>. expr .>> with_) clauses pat_match d
+        (function_ >>. clauses |>> pat_function) 
+        <|> (pipe2 (match_ >>. expr .>> with_) clauses pat_match)
 
-    let case_function d = case_match_template true d
-    let case_match d = case_match_template false d
 
     let case_typecase =
         let clauses d = 
@@ -742,7 +731,7 @@ let rec expressions expr d =
 
     [|
     case_value; case_default_value; case_var; case_join_point; case_keyword_unary; case_keyword_message
-    case_typecase; case_match; case_typecase; case_rounds; case_record; case_open
+    case_typecase; case_pattern_match; case_typecase; case_rounds; case_record; case_open
     case_if_then_else; case_fun
     case_inbuilt_op
     |] |> choice <| d

@@ -15,6 +15,7 @@ type TokenPosition = {
     }
 
 type TokenSpecial =
+    | SpecIn
     | SpecAnd
     | SpecFun
     | SpecMatch
@@ -117,6 +118,7 @@ let var (s:CharStream<_>) =
             else
                 let f x = TokSpecial(pos' start (pos s),x)
                 match x with
+                | "in" -> f SpecIn
                 | "and" -> f SpecAnd | "fun" -> f SpecFun
                 | "match" -> f SpecMatch | "typecase" -> f SpecTypecase
                 | "function" -> f SpecFunction | "Type" -> f SpecBigType

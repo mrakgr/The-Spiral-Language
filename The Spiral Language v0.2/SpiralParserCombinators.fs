@@ -386,6 +386,7 @@ let inline choice ar (d: ParserEnv<'t>) =
     loop 0
 
 let inline special x (d: ParserEnv<'t>) = d.SkipSpecial x
+let in_ d = special SpecIn d
 let match_ d = special SpecMatch d
 let typecase_ d = special SpecTypecase d
 let function_ d = special SpecFunction d
