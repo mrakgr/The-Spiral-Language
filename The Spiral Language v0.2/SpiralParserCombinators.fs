@@ -15,7 +15,7 @@ type ParserErrors =
     | BigTypeNotFound of string
     | ModuleWithMissing of string list
     | ExpectedModuleInOpen
-    | ModuleNotFound
+    | ModuleNotFound of string
     | ExpectedLit
     | ExpectedKeyword
     | ExpectedKeywordUnary
@@ -37,6 +37,7 @@ type SpiralModule =
     prerequisites : SpiralModule list 
     description : string 
     code : string
+    code_lines : string []
     }
 
 type PosKey = {module_ : SpiralModule; line : int; column : int}
@@ -48,7 +49,7 @@ type ParserEnv<'t> =
     module_ : SpiralModule
     semicolon_line : int
     keyword_line : int
-    is_easy_phase : bool
+    is_top_down : bool
     var_positions : Dictionary<string, PosKey>
     aux : 't
     }

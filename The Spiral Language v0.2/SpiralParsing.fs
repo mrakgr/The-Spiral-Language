@@ -238,7 +238,7 @@ let rec ttype' d =
 
 let rec type_template is_outside (d : ParserEnv<Aux>) =
     let recurse d = type_template false d
-    let assert_allowed msg (d : ParserEnv<'t>) = if d.is_easy_phase then Ok() else d.Skip'(-1); d.FailWith msg
+    let assert_allowed msg (d : ParserEnv<'t>) = if d.is_top_down then Ok() else d.Skip'(-1); d.FailWith msg
     let pairs next = sepBy1 next product |>> List.reduceBack (fun a b -> RawTPair(a,b))
     let arr_funs_cons next = 
         pipe2 next (many (((arr_fun >>% Funs) <|> (arr_cons >>. assert_allowed ConstraintNotAllowed >>% Cons)) .>>. next))
@@ -362,7 +362,7 @@ let rec ap' f l = Array.fold ap f l
 
 let value' x = RawValue x
 let lit_string x = RawValue(LitString x)
-let def_value' x = ap (v "default_of") (lit_string x)
+let def_value' x = ap (v "default_value") (lit_string x)
 
 let type_annot' a = function
     | Some b -> RawTypedOp(b,TypeAnnot,[|a|])
@@ -593,7 +593,9 @@ let _ =
 let string_to_op x = string_to_op_dict.TryGetValue x
 
 let rec expressions expr d =
-    let case_fun = pipe2 (fun' >>. many1 (forall <|> (pattern true false expr |>> pattern_to_rawinl))) (expression_body expr) (List.foldBack (<|))
+    let case_fun =
+        let pattern x = pattern true x expr |>> pattern_to_rawinl
+        pipe2 (fun' >>. many1 (forall <|> (tilde >>. pattern true) <|> pattern false)) (expression_body expr) (List.foldBack (<|))
 
     let case_value = value_ |>> value'
     let case_default_value = def_value_' |>> def_value'
@@ -618,7 +620,7 @@ let rec expressions expr d =
         (open_ >>. big_var >>= fun name (d: ParserEnv<Aux>) ->
             match Map.tryFind name d.aux.big_value with
             | Some(x) -> Ok x
-            | None -> d.Skip'(-1); d.FailWith ModuleNotFound
+            | None -> d.Skip'(-1); d.FailWith <| ModuleNotFound name
             )
         .>>. (opt (curlies (with_ >>. many (let var = small_var <|> rounds op in var .>>. opt (arr_fun >>. var)))))
         >>= fun (m, w) (d: ParserEnv<Aux>) ->
@@ -746,6 +748,99 @@ let parser d =
         (((statements raw_expr |>> ParserStatement) <|> (exprpos expressions |>> ParserExpr)) |> indentations |> annotations) s
 
     (raw_expr .>> eof) d
+
+let show_parser_error = function
+    | ExpectedSpecial x ->
+        match x with
+        | SpecIn -> "in"
+        | SpecAnd -> "and"
+        | SpecFun -> "fun"
+        | SpecMatch -> "match"
+        | SpecTypecase -> "typecase"
+        | SpecFunction -> "function"
+        | SpecBigType -> "Type"
+        | SpecWith -> "with"
+        | SpecWithout -> "without"
+        | SpecAs -> "as"
+        | SpecWhen -> "when"
+        | SpecInl -> "inl"
+        | SpecLet -> "let"
+        | SpecForall -> "forall"
+        | SpecInm -> "inm"
+        | SpecInb -> "inb"
+        | SpecRec -> "rec"
+        | SpecIf -> "if"
+        | SpecThen -> "then"
+        | SpecElif -> "elif"
+        | SpecElse -> "else"
+        | SpecJoin -> "join"
+        | SpecSmallType -> "type"
+        | SpecNominal -> "nominal"
+        | SpecReal -> "real"
+        | SpecUnion -> "union"
+        | SpecOpen -> "open"
+        | SpecWildcard -> "_"
+        | SpecBracketRoundOpen -> "("
+        | SpecBracketCurlyOpen -> "{"
+        | SpecBracketSquareOpen -> "["
+        | SpecBracketRoundClose -> ")"
+        | SpecBracketCurlyClose -> "}"
+        | SpecBracketSquareClose -> "]"
+    | ExpectedOperator' -> "operator"
+    | ExpectedOperator x -> x
+    | ExpectedUnaryOperator' -> "unary operator"
+    | ExpectedUnaryOperator x -> x
+    | ExpectedSmallVar -> "small var"
+    | ExpectedBigVar -> "big var"
+    | BigValueNotFound x | BigTypeNotFound x -> sprintf "%s not found in the global environment" x
+    | ModuleWithMissing l -> String.concat ", " l |> sprintf "The variables %s cannot be found in the module."
+    | ExpectedModuleInOpen -> "The variable provided is not a module."
+    | ModuleNotFound x -> sprintf "Module %s cannot be found in the global enviroment" x
+    | ExpectedLit -> "literal"
+    | ExpectedKeyword -> "keyword"
+    | ExpectedKeywordUnary -> "unary keyword"
+    | ExpectedStatement -> "statement"
+    | ExpectedKeywordPatternInObject -> "keyword pattern"
+    | ExpectedEof -> "end of file"
+    | ExpectedFunction -> "function"
+    | StatementLastInBlock -> "A block requires an expression in last position."
+    | InvalidSemicolon -> "Invalid syntax."
+    | InbuiltOpNotFound x -> sprintf "`%s` not found among the inbuilt ops." x
+    | UnexpectedEof -> "Unexpected end of file."
+    | TypeForallNotAllowed -> sprintf "forall not allowed in the top-down phase."
+    | DepConstraintNotAllowed -> sprintf "~> not allowed in the top-down phase."
+    | ConstraintNotAllowed -> sprintf "=> not allowed in the top-down phase."
+    
+let is_expected = function
+    | StatementLastInBlock | InvalidSemicolon | UnexpectedEof
+    | InbuiltOpNotFound _ -> false
+    | _ -> true
+
+let show_parser_error_list x = 
+    let expected, errors = List.partition (snd >> is_expected) x
+    let expected = 
+        List.map (snd >> show_parser_error) expected
+        |> String.concat ", "
+        |> function
+            | "" as x -> x
+            | x -> sprintf "Expected one of: %s\n" x
+    let errors = 
+        List.map (snd >> show_parser_error) errors
+        |> String.concat "\n"
+        |> function
+            | "" as x -> x
+            | x -> sprintf "Parser errors:\n%s\n" x
+    expected + errors
+
+let show_position' (strb: StringBuilder) ({name=name; code_lines=code},line,col) =
+    let er_code = code.[int line - 1]
+
+    strb
+        .AppendLine(sprintf "Error trace on line: %i, column: %i in module %s." line col name)
+        .AppendLine(er_code)
+        .Append(' ', col - 1)
+        .AppendLine "^"
+    |> ignore
   
 let parse aux (m: SpiralModule) =
     match FParsec.CharParsers.runParserOnString tokenize m "" m.code with
@@ -760,7 +855,7 @@ let parse aux (m: SpiralModule) =
             module_=m
             semicolon_line= -1
             keyword_line= -1
-            is_easy_phase=false
+            is_top_down=false
             var_positions=var_positions
             aux=aux
             }
@@ -768,7 +863,7 @@ let parse aux (m: SpiralModule) =
             let strb = StringBuilder()
             List.groupBy fst x
             |> List.iter (fun (a,b) -> 
-                show_position' strb (m, a.Start.line, a.Start.column)
+                show_position' strb (m, a.Pos.start_line, a.Pos.start_column)
                 strb.Append(show_parser_error_list b) |> ignore
                 )
             Error(strb.ToString())
