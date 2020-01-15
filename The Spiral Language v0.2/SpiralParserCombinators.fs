@@ -11,11 +11,7 @@ type ParserErrors =
     | ExpectedUnaryOperator of string
     | ExpectedSmallVar
     | ExpectedBigVar
-    | BigValueNotFound of string
-    | BigTypeNotFound of string
-    | ModuleWithMissing of string list
     | ExpectedModuleInOpen
-    | ModuleNotFound of string
     | ExpectedLit
     | ExpectedKeyword
     | ExpectedKeywordUnary
@@ -23,6 +19,7 @@ type ParserErrors =
     | ExpectedKeywordPatternInObject
     | ExpectedEof
     | ExpectedFunction
+    | ExpectedGlobalFunction
     | StatementLastInBlock
     | InvalidSemicolon
     | InbuiltOpNotFound of string
@@ -30,6 +27,8 @@ type ParserErrors =
     | TypeForallNotAllowed
     | DepConstraintNotAllowed
     | ConstraintNotAllowed
+    | InmCannotBeGlobal
+    | InbCannotBeGlobal
 
 type SpiralModule =
     {
@@ -42,7 +41,7 @@ type SpiralModule =
 
 type PosKey = {module_ : SpiralModule; line : int; column : int}
 
-type ParserEnv<'t> =
+type ParserEnv =
     {
     l : SpiralToken []
     i : int ref
@@ -51,7 +50,6 @@ type ParserEnv<'t> =
     keyword_line : int
     is_top_down : bool
     var_positions : Dictionary<string, PosKey>
-    aux : 't
     }
 
     member d.Index = d.i.contents
@@ -162,7 +160,7 @@ type ParserEnv<'t> =
             | _ -> d.FailWith(ExpectedKeywordUnary)
 
 let inline preturn a d = Ok a
-let inline pfail a (d: ParserEnv<'t>) = d.FailWith a
+let inline pfail a (d: ParserEnv) = d.FailWith a
 
 let inline (.>>.) a b d =
     match a d with
@@ -280,7 +278,7 @@ let inline (>>.) a b d =
         | Error x -> Error x
     | Error x -> Error x   
 
-let inline opt a (d: ParserEnv<'t>) =
+let inline opt a (d: ParserEnv) =
     let s = d.Index
     match a d with
     | Ok a -> Ok(Some a)
@@ -288,7 +286,7 @@ let inline opt a (d: ParserEnv<'t>) =
         if s = d.Index then Ok(None)
         else Error x
 
-let inline optional a (d: ParserEnv<'t>) = 
+let inline optional a (d: ParserEnv) = 
     let s = d.Index
     match a d with
     | Ok a -> Ok()
@@ -311,7 +309,7 @@ let inline (>>=) a b d =
     | Ok a -> b a d
     | Error x -> Error x
 
-let inline (>>=?) a b (d: ParserEnv<'t>) =
+let inline (>>=?) a b (d: ParserEnv) =
     let i = d.Index
     match a d with
     | Ok a -> 
@@ -322,7 +320,7 @@ let inline (>>=?) a b (d: ParserEnv<'t>) =
         | x -> x
     | Error x -> Error x
 
-let rec many a (d: ParserEnv<'t>) =
+let rec many a (d: ParserEnv) =
     let s = d.Index
     match a d with
     | Ok x ->
@@ -333,23 +331,23 @@ let rec many a (d: ParserEnv<'t>) =
             | Error x -> Error x
     | Error x -> Ok []
 
-let inline sepBy1 a b (d: ParserEnv<'t>) =
+let inline sepBy1 a b (d: ParserEnv) =
     match a d with
     | Ok a' -> (many (b >>. a) |>> fun b -> a' :: b) d
     | Error x -> Error x
 
-let inline many1 a (d: ParserEnv<'t>) =
+let inline many1 a (d: ParserEnv) =
     match a d with
     | Ok a' -> (many a |>> fun b -> a' :: b) d
     | Error x -> Error x
 
-let inline attempt a (d: ParserEnv<'t>) =
+let inline attempt a (d: ParserEnv) =
     let s = d.Index
     match a d with
     | Ok x -> Ok x
     | Error a as a' -> d.IndexSet s; a'
 
-let inline (<|>) a b (d: ParserEnv<'t>) =
+let inline (<|>) a b (d: ParserEnv) =
     let s = d.Index
     match a d with
     | Ok x -> Ok x
@@ -361,7 +359,7 @@ let inline (<|>) a b (d: ParserEnv<'t>) =
         else
             a'
 
-let inline (<|>%) a b (d: ParserEnv<'t>) =
+let inline (<|>%) a b (d: ParserEnv) =
     let s = d.Index
     match a d with
     | Ok x -> Ok x
@@ -369,7 +367,7 @@ let inline (<|>%) a b (d: ParserEnv<'t>) =
         if s = d.Index then Ok b
         else a'
 
-let inline choice ar (d: ParserEnv<'t>) =
+let inline choice ar (d: ParserEnv) =
     let s = d.Index
     let rec loop i =
         if i < Array.length ar then
@@ -386,7 +384,7 @@ let inline choice ar (d: ParserEnv<'t>) =
             Error []
     loop 0
 
-let inline special x (d: ParserEnv<'t>) = d.SkipSpecial x
+let inline special x (d: ParserEnv) = d.SkipSpecial x
 let in_ d = special SpecIn d
 let match_ d = special SpecMatch d
 let typecase_ d = special SpecTypecase d
@@ -421,48 +419,48 @@ let bracket_round_close d = special SpecBracketRoundClose d
 let bracket_curly_close d = special SpecBracketCurlyClose d
 let bracket_square_close d = special SpecBracketSquareClose d
 
-let semicolon' (d: ParserEnv<'t>) = d.SkipOperator ";"
-let cons (d: ParserEnv<'t>) = d.SkipOperator "::"
-let arr_cons (d: ParserEnv<'t>) = d.SkipOperator "=>"
-let arr_fun (d: ParserEnv<'t>) = d.SkipOperator "->"
-let arr_depcon (d: ParserEnv<'t>) = d.SkipOperator "~>"
-let eq' (d: ParserEnv<'t>) = d.SkipOperator "="
-let or_ (d: ParserEnv<'t>) = d.SkipOperator "|"
-let and_ (d: ParserEnv<'t>) = d.SkipOperator "&"
-let dot (d: ParserEnv<'t>) = d.SkipOperator "."
-let colon (d: ParserEnv<'t>) = d.SkipOperator ":"
-let comma (d: ParserEnv<'t>) = d.SkipOperator ","
-let product (d: ParserEnv<'t>) = d.SkipOperator "*"
-let exclamation (d: ParserEnv<'t>) = d.SkipUnaryOperator "!"
-let dollar (d: ParserEnv<'t>) = d.SkipUnaryOperator "$"
-let grave (d: ParserEnv<'t>) = d.SkipUnaryOperator "`"
-let tilde (d: ParserEnv<'t>) = d.SkipUnaryOperator "~"
+let semicolon' (d: ParserEnv) = d.SkipOperator ";"
+let cons (d: ParserEnv) = d.SkipOperator "::"
+let arr_cons (d: ParserEnv) = d.SkipOperator "=>"
+let arr_fun (d: ParserEnv) = d.SkipOperator "->"
+let arr_depcon (d: ParserEnv) = d.SkipOperator "~>"
+let eq' (d: ParserEnv) = d.SkipOperator "="
+let or_ (d: ParserEnv) = d.SkipOperator "|"
+let and_ (d: ParserEnv) = d.SkipOperator "&"
+let dot (d: ParserEnv) = d.SkipOperator "."
+let colon (d: ParserEnv) = d.SkipOperator ":"
+let comma (d: ParserEnv) = d.SkipOperator ","
+let product (d: ParserEnv) = d.SkipOperator "*"
+let exclamation (d: ParserEnv) = d.SkipUnaryOperator "!"
+let dollar (d: ParserEnv) = d.SkipUnaryOperator "$"
+let grave (d: ParserEnv) = d.SkipUnaryOperator "`"
+let tilde (d: ParserEnv) = d.SkipUnaryOperator "~"
 
-let and' (d: ParserEnv<'t>) = d.SkipSpecial SpecAnd
-let fun' (d: ParserEnv<'t>) = d.SkipSpecial SpecFun
+let and' (d: ParserEnv) = d.SkipSpecial SpecAnd
+let fun' (d: ParserEnv) = d.SkipSpecial SpecFun
 
-let small_var (d: ParserEnv<'t>) = d.ReadSmallVar
-let small_var' (d: ParserEnv<'t>) = d.ReadSmallVar'
-let big_var (d: ParserEnv<'t>) = d.ReadBigVar
-let big_var' (d: ParserEnv<'t>) = d.ReadBigVar'
-let op (d: ParserEnv<'t>) = d.ReadOp
-let op' (d: ParserEnv<'t>) = d.ReadOp'
-let unary_op (d: ParserEnv<'t>) = d.ReadUnaryOp
-let value_ (d: ParserEnv<'t>) = d.ReadValue
-let def_value_' (d: ParserEnv<'t>) = d.ReadDefaultValue'
-let keyword' (d: ParserEnv<'t>) = d.ReadKeyword'
-let keyword_unary' (d: ParserEnv<'t>) = d.ReadKeywordUnary'
+let small_var (d: ParserEnv) = d.ReadSmallVar
+let small_var' (d: ParserEnv) = d.ReadSmallVar'
+let big_var (d: ParserEnv) = d.ReadBigVar
+let big_var' (d: ParserEnv) = d.ReadBigVar'
+let op (d: ParserEnv) = d.ReadOp
+let op' (d: ParserEnv) = d.ReadOp'
+let unary_op (d: ParserEnv) = d.ReadUnaryOp
+let value_ (d: ParserEnv) = d.ReadValue
+let def_value_' (d: ParserEnv) = d.ReadDefaultValue'
+let keyword' (d: ParserEnv) = d.ReadKeyword'
+let keyword_unary' (d: ParserEnv) = d.ReadKeywordUnary'
 
-let rounds a (d: ParserEnv<'t>) = (bracket_round_open >>. a .>> bracket_round_close) d
-let curlies a (d: ParserEnv<'t>) = (bracket_curly_open >>. a .>> bracket_curly_close) d
-let squares a (d: ParserEnv<'t>) = (bracket_square_open >>. a .>> bracket_square_close) d
+let rounds a (d: ParserEnv) = (bracket_round_open >>. a .>> bracket_round_close) d
+let curlies a (d: ParserEnv) = (bracket_curly_open >>. a .>> bracket_curly_close) d
+let squares a (d: ParserEnv) = (bracket_square_open >>. a .>> bracket_square_close) d
 
 let var_op d = (small_var <|> rounds op) d
 let var_op' d = (small_var' <|> rounds op') d
 
-let col (d: ParserEnv<'t>) = d.Col
-let line (d: ParserEnv<'t>) = d.Line
-let module_ (d: ParserEnv<'t>) = d.Module
+let col (d: ParserEnv) = d.Col
+let line (d: ParserEnv) = d.Line
+let module_ (d: ParserEnv) = d.Module
 let pos' d = {module_=module_ d; line=line d; column=col d}
 
-let eof (d: ParserEnv<'t>) = if d.Index = d.Length then Ok() else d.FailWith(ExpectedEof)
+let eof (d: ParserEnv) = if d.Index = d.Length then Ok() else d.FailWith(ExpectedEof)
