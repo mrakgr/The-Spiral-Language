@@ -142,17 +142,18 @@ and Pattern =
 
 and RawExpr =
     | RawB
-    | RawV of VarString 
+    | RawV of VarString
     | RawValue of Value
     | RawInline of RawExpr // Acts as a join point for the prepass specifically.
     | RawType of RawTypeExpr
     | RawInl of VarString * RawExpr
-    | RawGlobalInl of VarString * RawExpr // has no free vars
+    | RawGlobalInl of VarString * RawExpr // Has no free vars.
+    | RawGlobalInlRec of int // Uses global dictionaries during peval for inlining.
     | RawModule of Map<string,RawExpr>
     | RawModuleOpen of Map<string,RawExpr>
     | RawForall of VarString * RawExpr
     | RawLet of var: VarString * bind: RawExpr * on_succ: RawExpr
-    | RawRecBlock of (VarString * RawExpr) [] * on_succ: RawExpr 
+    | RawRecBlock of (VarString * RawExpr) [] * on_succ: RawExpr
     | RawPairTest of var0: VarString * var1: VarString * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawKeywordTest of KeywordString * vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawRecordTest of RawRecordTestPattern [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
@@ -615,7 +616,11 @@ let rec expressions expr d =
             | Some x -> Ok x
             | None -> d.Skip'(-1); d.FailWith (BigValueNotFound x)
             )
-        <|> (small_var |>> v)
+        <|> (small_var >>= fun x d -> 
+            match Map.tryFind x d.aux.big_value with
+            | Some x -> Ok x
+            | None -> Ok(v x)
+            )
     let case_open =
         (open_ >>. big_var >>= fun name (d: ParserEnv<Aux>) ->
             match Map.tryFind name d.aux.big_value with
