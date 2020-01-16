@@ -7,15 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="SpiralParsing%27.fsx" />
     <None Include="Script1.fsx" />
     <Compile Include="Utils.fs" />
-    <Compile Include="SpiralTokenize.fs" />
-    <Compile Include="SpiralParserCombinators.fs" />
-    <Compile Include="SpiralParsing.fs" />
+    <Compile Include="Tokenize.fs" />
+    <Compile Include="ParserCombinators.fs" />
+    <Compile Include="Parsing.fs" />
+    <Compile Include="PrepassGlobalInlining.fs" />
   </ItemGroup>
-
-  <ItemGroup />
 
   <ItemGroup>
     <PackageReference Include="FParsec" Version="1.1.0-RC" />
