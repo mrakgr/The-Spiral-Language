@@ -107,6 +107,21 @@ type Op =
     // Infinity
     | Infinity
 
+type PrimitiveType =
+    | UInt8T
+    | UInt16T
+    | UInt32T
+    | UInt64T
+    | Int8T
+    | Int16T
+    | Int32T
+    | Int64T
+    | Float32T
+    | Float64T
+    | BoolT
+    | StringT
+    | CharT
+
 type RawRecordTestPattern = 
     | RawRecordTestKeyword of keyword: KeywordString * name: VarString
     | RawRecordTestInjectVar of var: VarString * name: VarString
@@ -147,9 +162,6 @@ and RawExpr =
     | RawInline of RawExpr // Acts as a join point for the prepass specifically.
     | RawType of RawTypeExpr
     | RawInl of VarString * RawExpr
-    | RawGlobalInl of int // Has no free vars. Uses global dictionaries during peval for inlining of recursive occurrences.
-    | RawGlobalInlInlined of VarString * RawExpr // Has no free vars.
-    | RawModule of Map<string,RawExpr>
     | RawForall of VarString * RawExpr
     | RawKeywordCreate of KeywordString * RawExpr []
     | RawRecordWith of RawExpr [] * RawRecordWithPattern []
@@ -157,7 +169,6 @@ and RawExpr =
     | RawTypedOp of ret_type: RawTypeExpr * Op * RawExpr []
     | RawTypecase of RawTypeExpr * (RawTypeExpr * RawExpr) []
     | RawModuleOpen of string * (string * string option) list option * on_succ: RawExpr
-    | RawModuleOpenInlined of Map<string,RawExpr> * on_succ: RawExpr
     | RawLet of var: VarString * bind: RawExpr * on_succ: RawExpr
     | RawRecBlock of (VarString * RawExpr) [] * on_succ: RawExpr
     | RawPairTest of var0: VarString * var1: VarString * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
@@ -180,11 +191,12 @@ and RawTypeExpr =
     | RawTApply of RawTypeExpr * RawTypeExpr
     | RawTForall of (string * RawTypeTypeExpr) * RawTypeExpr
     | RawTInl of (string * RawTypeTypeExpr) * RawTypeExpr
-    | RawExpr of RawExpr
     | RawTUnit
+    | RawTPrim of PrimitiveType
+    | RawTArray of RawTypeExpr
     | RawTPos of Pos<RawTypeExpr>
 and RawTypeTypeExpr =
-    | RawTType
+    | RawTTType
     | RawTTFun of RawTypeTypeExpr * RawTypeTypeExpr
 
 type ParserExpr =
@@ -234,7 +246,7 @@ type FunsOrCons = Funs | Cons
 
 let rec ttype' d = 
     let ttfun next = many1 next |>> List.reduceBack (fun a b -> RawTTFun(a,b))
-    ttfun ((ttype >>% RawTType) <|> rounds ttype') d
+    ttfun ((ttype >>% RawTTType) <|> rounds ttype') d
 
 let rec type_template is_outside (d : ParserEnv) =
     let recurse d = type_template false d
@@ -251,7 +263,7 @@ let rec type_template is_outside (d : ParserEnv) =
     let arr_depcon next = 
         pipe2 next (opt (arr_depcon >>. assert_allowed DepConstraintNotAllowed >>. next)) (fun a -> function Some b -> RawTDepConstraint(a,b) | None -> a)
     let forall next = 
-        let var d = (small_var' |>> fun x -> x, RawTType) d
+        let var d = (small_var' |>> fun x -> x, RawTTType) d
         let var_annot d = rounds ((small_var' .>> colon) .>>. ttype') d
         pipe2 (forall >>. assert_allowed TypeForallNotAllowed >>. many1 (var <|> var_annot) .>> dot) next (List.foldBack (fun x s -> RawTForall(x,s)))
         <|> next
