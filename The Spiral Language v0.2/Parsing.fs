@@ -139,8 +139,8 @@ and Pattern =
     | PatE
     | PatVar of VarString
     | PatBoxVar of VarString
-    | PatBoxAnnot of Pattern * RawTypeExpr
-    | PatAnnot of Pattern * RawTypeExpr
+    | PatBoxAnnot of Pattern * RawTExpr
+    | PatAnnot of Pattern * RawTExpr
     //| PatForallAnnot of VarString * RawTypeExpr
 
     | PatPair of Pattern * Pattern
@@ -160,44 +160,44 @@ and RawExpr =
     | RawV of VarString
     | RawValue of Value
     | RawInline of RawExpr // Acts as a join point for the prepass specifically.
-    | RawType of RawTypeExpr
+    | RawType of RawTExpr
     | RawInl of VarString * RawExpr
     | RawForall of VarString * RawExpr
     | RawKeywordCreate of KeywordString * RawExpr []
     | RawRecordWith of RawExpr [] * RawRecordWithPattern []
     | RawOp of Op * RawExpr []
-    | RawTypedOp of ret_type: RawTypeExpr * Op * RawExpr []
-    | RawTypecase of RawTypeExpr * (RawTypeExpr * RawExpr) []
+    | RawTypedOp of ret_type: RawTExpr * Op * RawExpr []
+    | RawTypecase of RawTExpr * (RawTExpr * RawExpr) []
     | RawModuleOpen of string * (string * string option) list option * on_succ: RawExpr
     | RawLet of var: VarString * bind: RawExpr * on_succ: RawExpr
     | RawRecBlock of (VarString * RawExpr) [] * on_succ: RawExpr
     | RawPairTest of var0: VarString * var1: VarString * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawKeywordTest of KeywordString * vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawRecordTest of RawRecordTestPattern [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
-    | RawAnnotTest of do_boxing : bool * RawTypeExpr * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
+    | RawAnnotTest of do_boxing : bool * RawTExpr * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawValueTest of Value * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawDefaultValueTest of string * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawUnionTest of name: KeywordString * vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawUnitTest of bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawPos of Pos<RawExpr>
-and RawTypeExpr =
+and RawTExpr =
     | RawTVar of VarString
-    | RawTPair of RawTypeExpr * RawTypeExpr
-    | RawTFun of RawTypeExpr * RawTypeExpr
-    | RawTConstraint of RawTypeExpr * RawTypeExpr
-    | RawTDepConstraint of RawTypeExpr * RawTypeExpr
-    | RawTRecord of Map<string,RawTypeExpr>
-    | RawTKeyword of string * RawTypeExpr []
-    | RawTApply of RawTypeExpr * RawTypeExpr
-    | RawTForall of (string * RawTypeTypeExpr) * RawTypeExpr
-    | RawTInl of (string * RawTypeTypeExpr) * RawTypeExpr
+    | RawTPair of RawTExpr * RawTExpr
+    | RawTFun of RawTExpr * RawTExpr
+    | RawTConstraint of RawTExpr * RawTExpr
+    | RawTDepConstraint of RawTExpr * RawTExpr
+    | RawTRecord of Map<string,RawTExpr>
+    | RawTKeyword of KeywordString * RawTExpr []
+    | RawTApply of RawTExpr * RawTExpr
+    | RawTForall of (VarString * RawTTExpr) * RawTExpr
+    | RawTInl of (VarString * RawTTExpr) * RawTExpr
     | RawTUnit
     | RawTPrim of PrimitiveType
-    | RawTArray of RawTypeExpr
-    | RawTPos of Pos<RawTypeExpr>
-and RawTypeTypeExpr =
+    | RawTArray of RawTExpr
+    | RawTPos of Pos<RawTExpr>
+and RawTTExpr =
     | RawTTType
-    | RawTTFun of RawTypeTypeExpr * RawTypeTypeExpr
+    | RawTTFun of RawTTExpr * RawTTExpr
 
 type ParserExpr =
     | ParserStatement of (RawExpr -> RawExpr)

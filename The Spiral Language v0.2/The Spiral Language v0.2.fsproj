@@ -7,12 +7,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Prepass.fs" />
     <None Include="Script1.fsx" />
     <Compile Include="Utils.fs" />
     <Compile Include="Tokenize.fs" />
     <Compile Include="ParserCombinators.fs" />
     <Compile Include="Parsing.fs" />
+    <Compile Include="Prepass.fs" />
   </ItemGroup>
 
   <ItemGroup>
