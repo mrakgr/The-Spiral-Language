@@ -1,4 +1,4 @@
-﻿module Utils
+﻿module Spiral.Utils
 
 open System.Collections.Generic
 open System.Runtime.CompilerServices
