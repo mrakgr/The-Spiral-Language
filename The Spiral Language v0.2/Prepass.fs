@@ -58,12 +58,28 @@ and RecordWithPattern =
     | RecordWithoutKeyword of keyword: KeywordTag
     | RecordWithoutInjectVar of VarString * var: VarTag
 
-type Env<'a> = { exists : Set<string>; free_vars : Dictionary<string,'a>; local : Map<string,'a> }
+type Env<'a> = { exists : Set<string>; free_vars : Dictionary<string,'a>; local : Map<string,'a>; local_index : int; local_index_max : int ref }
 type LocEnv = { type' : Env<TExpr>; value : Env<Expr> }
+type KeywordEnv = 
+    {
+    to' : Dictionary<string,int>
+    from : Dictionary<int,string>
+    }
 
-let prepass_body (t_glob : Dictionary<string,TExpr>) (v_glob : Dictionary<string,Expr>) x = 
+    member d.To(x: string) =
+        match d.to'.TryGetValue x with
+        | true, v -> v
+        | false, _ ->
+            let tag_keyword = d.to'.Count
+            d.to'.[x] <- tag_keyword
+            d.from.[tag_keyword] <- x
+            tag_keyword
+
+    member d.From(x : int) = d.from.[x] // Should never fail.
+
+let prepass_body (keywords : KeywordEnv) (t_glob : Dictionary<string,TExpr>) (v_glob : Dictionary<string,Expr>) x = 
     let d() = Dictionary(HashIdentity.Structural)
-    let env() = { exists=Set.empty; free_vars=d(); local=Map.empty }
+    let env() = { exists=Set.empty; free_vars=d(); local=Map.empty; local_index = 0; local_index_max = ref 0}
     let fresh_env() = { type'=env(); value=env() }
     let dict_rawinline = Dictionary(HashIdentity.Reference)
     let v_missing_vars = ResizeArray()
@@ -88,9 +104,37 @@ let prepass_body (t_glob : Dictionary<string,TExpr>) (v_glob : Dictionary<string
             }
         }
 
+    let value_add_local a (env : LocEnv) =
+        {env with value = 
+                    {env.value with
+                        exists=Set.add a env.value.exists
+                        local_index=env.value.local_index+1
+                        local_index_max=max (env.value.local_index+1) !env.value.local_index_max
+                        local=Map.add a (V env.value.local_index) env.value.local
+                        }
+            }
+
+    let type_add_local a (env : LocEnv) =
+        {env with type' = 
+                    {env.type' with
+                        exists=Set.add a env.type'.exists
+                        local_index=env.type'.local_index+1
+                        local_index_max=max (env.type'.local_index+1) !env.type'.local_index_max
+                        local=Map.add a (TV env.type'.local_index) env.type'.local
+                        }
+            }
+
+    let max' (t,v) (t',v') = max t t', max v v'
+    let value_sz_add i (t,v) = t,v+i
+    let type_sz_add i (t,v) = t+i,v
+    let vlet env a b =
+        let e,sz = b (value_add_local a env)
+        e, value_sz_add 1 sz
+    let tlet env a b =
+        let e,sz = b (type_add_local a env)
+        e, type_sz_add 1 sz
+
     let rec value_prepass (env : LocEnv) x =
-        let v_stack x = 0, x
-        let t_stack x = x, 0
         let em = 0, 0
         match x with
         | RawB -> B, em
@@ -105,22 +149,48 @@ let prepass_body (t_glob : Dictionary<string,TExpr>) (v_glob : Dictionary<string
                 | false, _ -> v_missing_vars.Add(x); MissingVar
             , em
         | RawValue x -> Value x, em
-        | RawInline e -> 
+        | RawInline e ->
             memoize dict_rawinline (fun _ ->
                 let env' = fresh_env()
-                let e, stack = value_prepass env e
-                Inline(e,expr_data_of env env' stack)
+                let e, sz = value_prepass env e
+                Inline(e,expr_data_of env env' sz)
                 ) x, em
         | RawType x -> type_prepass env x
-        | RawInl (a,b) -> failwith ""
-        | RawForall (a,b) -> failwith ""
-        | RawKeywordCreate (a,b) -> failwith ""
-        | RawRecordWith (a,b) -> failwith ""
+        | RawInl (a,b) ->
+            let env' = fresh_env()
+            let e, sz = vlet env' a (fun env -> value_prepass env b)
+            Inl(e,expr_data_of env env' sz), em
+        | RawForall (a,b) ->
+            let env' = fresh_env()
+            let e, sz = tlet env' a (fun env -> value_prepass env b)
+            Forall(e,expr_data_of env env' sz), em
+        | RawKeywordCreate (a,b) ->
+            let b,sz =
+                Array.mapFold (fun sz x ->
+                    let x,sz' = value_prepass env x
+                    x,max' sz sz'
+                    ) em b
+            KeywordCreate(keywords.To a,b),sz
+        | RawLet (a,b,on_succ) ->
+            let b,sz = value_prepass env b
+            let on_succ,sz' = vlet env a (fun env -> value_prepass env on_succ)
+            Let(b,on_succ),max' sz sz'
+        | RawRecordWith (a,b) ->
+            let a,sz = Array.mapFold (fun sz x -> let x,sz' = value_prepass env a in x,max' sz sz') em a
+            let b,sz = 
+                Array.mapFold (fun sz -> function
+                    | RawRecordWithKeyword(keyword,expr) -> 
+                        let expr, sz' = vlet env "this" expr
+                        RecordWithKeyword(keywords.To keyword, )
+                    | RawRecordWithInjectVar(var,expr) -> RecordWithInjectVar(var,v var, f' (env_add "this" env) expr)
+                    | RawRecordWithoutKeyword(keyword) -> RecordWithoutKeyword(string_to_keyword keyword)
+                    | RawRecordWithoutInjectVar(var) -> RecordWithoutInjectVar(var,v var)
+                    ) sz b
         | RawOp (a,b) -> failwith ""
         | RawTypedOp (a,b,c) -> failwith ""
         | RawTypecase (a,b) -> failwith ""
         | RawModuleOpen (a,b,on_succ) -> failwith ""
-        | RawLet (a,b,on_succ) -> failwith ""
+        
         | RawRecBlock (a,on_succ) -> failwith ""
         | RawPairTest (a,b,c,on_succ,on_fail) -> failwith ""
         | RawKeywordTest (a,b,c,on_succ,on_fail) -> failwith ""
