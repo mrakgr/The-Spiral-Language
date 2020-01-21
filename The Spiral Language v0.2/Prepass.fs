@@ -9,7 +9,8 @@ type FreeVars = VarTag []
 type StackSize = int
 type KeywordTag = int
 
-type ExprData = {type_free_vars : int []; value_free_vars : int []; type_stack_size : StackSize; value_stack_size : StackSize}
+type Data = {free_vars : int []; stack_size : StackSize}
+type ExprData = {type' : Data; value : Data}
 
 type [<ReferenceEquality>] Expr =
     | MissingVar
@@ -57,40 +58,34 @@ and RecordWithPattern =
     | RecordWithoutKeyword of keyword: KeywordTag
     | RecordWithoutInjectVar of VarString * var: VarTag
 
-type LocEnv = {
-    t_ex : Set<string>
-    v_ex : Set<string>
-    t_free : Dictionary<string,TExpr>
-    v_free : Dictionary<string,Expr>
-    t_loc : Map<string,TExpr> 
-    v_loc : Map<string,Expr>
-    }
+type Env<'a> = { exists : Set<string>; free_vars : Dictionary<string,'a>; local : Map<string,'a> }
+type LocEnv = { type' : Env<TExpr>; value : Env<Expr> }
 
 let prepass_body (t_glob : Dictionary<string,TExpr>) (v_glob : Dictionary<string,Expr>) x = 
     let d() = Dictionary(HashIdentity.Structural)
-    let fresh_env() = {
-        t_ex=Set.empty; v_ex=Set.empty
-        t_free=d(); v_free=d()
-        t_loc=Map.empty; v_loc=Map.empty
-        }
+    let env() = { exists=Set.empty; free_vars=d(); local=Map.empty }
+    let fresh_env() = { type'=env(); value=env() }
     let dict_rawinline = Dictionary(HashIdentity.Reference)
     let v_missing_vars = ResizeArray()
     let t_missing_vars = ResizeArray()
 
-    let expr_data_of (env_outer : LocEnv) (env_inner : LocEnv) (type_stack_size,value_stack_size) =
-        let inline vars f (outer : Dictionary<string,'a>) (inner : Dictionary<string,_>) =
-            inner 
-            |> Seq.map (fun kv ->
-                match outer.TryGetValue kv.Key with
-                | _, t -> f t
-                )
-            |> Seq.toArray
+    let expr_data_of (env_outer : LocEnv) (env_inner : LocEnv) (type_stack_size,value_stack_size): ExprData =
+        let inline vars f (outer : Dictionary<string,'a>) (inner : Dictionary<string,'a>) =
+            let kvs = Array.zeroCreate inner.Count
+            let mutable i = 0
+            inner |> Seq.iter (fun kv -> kvs.[i] <- kv.Key, -(f kv.Value); i <- i+1)
+            Array.sortInPlaceBy snd kvs
+            kvs |> Array.map (fun (k,_) -> f outer.[k])
 
         {
-        type_free_vars = vars (function (TV(t)) -> t | _ -> failwith "imposisble TV") env_outer.t_free env_inner.t_free
-        value_free_vars = vars (function (V(t)) -> t | _ -> failwith "imposisble V") env_outer.v_free env_inner.v_free
-        type_stack_size = type_stack_size
-        value_stack_size = value_stack_size
+        type'= {
+            stack_size = type_stack_size
+            free_vars = vars (function TV(v) -> v | _ -> failwith "impossible TV") env_outer.type'.free_vars env_inner.type'.free_vars
+            }
+        value= {
+            stack_size = value_stack_size
+            free_vars = vars (function V(t) -> t | _ -> failwith "imposisble V") env_outer.value.free_vars env_inner.value.free_vars
+            }
         }
 
     let rec value_prepass (env : LocEnv) x =
@@ -100,10 +95,10 @@ let prepass_body (t_glob : Dictionary<string,TExpr>) (v_glob : Dictionary<string
         match x with
         | RawB -> B, em
         | RawV x -> 
-            if Set.contains x env.v_ex then
-                match Map.tryFind x env.v_loc with
+            if Set.contains x env.value.exists then
+                match Map.tryFind x env.value.local with
                 | Some v -> v
-                | None -> memoize env.v_free (fun _ -> V (-1-env.v_free.Count)) x
+                | None -> memoize env.value.free_vars (fun _ -> V (-1-env.value.free_vars.Count)) x
             else
                 match v_glob.TryGetValue x with
                 | true, v -> v
