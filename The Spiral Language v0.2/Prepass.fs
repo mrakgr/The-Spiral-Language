@@ -155,16 +155,12 @@ let prepass_body (keywords : KeywordEnv) (t_glob : Dictionary<string,TExpr>) (v_
         | RawV x -> v x
         | RawValue x -> Value x
         | RawInline e -> // TODO: Completely broken.
-            let e,tc,vc =
+            let e,env' =
                 memoize dict_rawinline (fun _ ->
-                    let t_max,v_max = !env.type'.local_index_max, !env.value.local_index_max
-                    let env' = fresh_env env
-                    let e = value_prepass env e
-                    let t_max',v_max' = !env.type'.local_index_max, !env.value.local_index_max
-                    Inline(e,expr_data_of env env'),t_max'-t_max,v_max'-v_max
-                    ) x
-            
-            e
+                    let env' = fresh_env'() // TODO: Don't forget this.
+                    value_prepass env e, env'
+                    ) e
+            Inline(e,expr_data_of env env')
         | RawType x -> Type(type_prepass env x)
         | RawInl (a,b) ->
             let env' = fresh_env env |> value_add_local a
