@@ -35,8 +35,7 @@ type SpiralModule =
     name: string
     prerequisites : SpiralModule list 
     description : string 
-    code : string
-    code_lines : string []
+    code : string []
     }
 
 type PosKey = {module_ : SpiralModule; line : int; column : int}

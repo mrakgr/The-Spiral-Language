@@ -141,7 +141,6 @@ and Pattern =
     | PatBoxVar of VarString
     | PatBoxAnnot of Pattern * RawTExpr
     | PatAnnot of Pattern * RawTExpr
-    //| PatForallAnnot of VarString * RawTypeExpr
 
     | PatPair of Pattern * Pattern
     | PatKeyword of string * Pattern list
@@ -527,19 +526,20 @@ let operators expr d =
     // Similarly to F#, Spiral filters out the '.' from the operator name and then tries to match to the nearest inbuilt operator
     // for the sake of assigning associativity and precedence.
     // TODO: This might change in v0.2 to explicit precedence and associativity like in Agda/Haskell.
-    let precedence_associativity x = 
-        Utils.memoize inbuilt_operators (fun name' ->
-            let name = String.filter ((<>) '.') name'
+    let precedence_associativity (d : ParserEnv) x on_succ = 
+        match inbuilt_operators.TryGetValue x with
+        | true, v -> Ok(v,on_succ)
+        | false, _ ->
+            let name = String.filter ((<>) '.') x
             let rec loop l =
                 if l > 0 then
                     let name = name.[0..l-1]
                     match inbuilt_operators.TryGetValue name with
                     | false, _ -> loop (l - 1)
-                    | true, v -> v
+                    | true, v -> Ok(v,on_succ)
                 else
-                    raise (TokenizationError(sprintf "The `%s` operator is not supported." name'))
+                    d.FailWith(InbuiltOpNotFound x)
             loop name.Length
-            ) x
 
     let op (d : ParserEnv) =
         let pos = pos' d
@@ -548,7 +548,7 @@ let operators expr d =
             match x with
             | ";"  -> 
                 if pos.line = d.semicolon_line then d.FailWith(InvalidSemicolon)
-                else Ok (precedence_associativity x, fun a b -> l "" (unop ErrorNonUnit a) b)
+                else precedence_associativity d x (fun a b -> l "" (unop ErrorNonUnit a) b)
             | ":" -> Error [] // is handled in the annotation parser
             | _ ->
                 match x with
@@ -556,8 +556,7 @@ let operators expr d =
                 | "||" -> fun a b -> expr_pos pos (if' a (value' (LitBool true)) b)
                 | "," -> fun a b -> expr_pos pos (RawOp(PairCreate,[|a;b|]))
                 | x -> fun a b -> expr_pos pos (ap (ap (v x) a) b)
-                |> fun m -> precedence_associativity x, m
-                |> Ok
+                |> precedence_associativity d x
         | Error x -> Error x
 
     let inline op s = expr_indent i (<=) op s
@@ -812,7 +811,7 @@ let show_parser_error_list x =
             | x -> sprintf "Parser errors:\n%s\n" x
     expected + errors
 
-let show_position' (strb: StringBuilder) ({name=name; code_lines=code},line,col) =
+let show_position' (strb: StringBuilder) {module_={name=name; code=code}; line=line; column=col} =
     let er_code = code.[int line - 1]
 
     strb
@@ -823,7 +822,7 @@ let show_position' (strb: StringBuilder) ({name=name; code_lines=code},line,col)
     |> ignore
   
 let parse (m: SpiralModule) =
-    match FParsec.CharParsers.runParserOnString tokenize m "" m.code with
+    match FParsec.CharParsers.runParserOnString tokenize m "" (String.concat "\n" m.code) with
     | FParsec.CharParsers.ParserResult.Failure(x,_,_) -> Error x
     | FParsec.CharParsers.ParserResult.Success(l,_,_) ->
         //printfn "%A" l
@@ -842,7 +841,7 @@ let parse (m: SpiralModule) =
             let strb = StringBuilder()
             List.groupBy fst x
             |> List.iter (fun (a,b) -> 
-                show_position' strb (m, a.Pos.start_line, a.Pos.start_column)
+                show_position' strb {module_=m; line=a.Pos.start_line; column=a.Pos.start_column}
                 strb.Append(show_parser_error_list b) |> ignore
                 )
             Error(strb.ToString())

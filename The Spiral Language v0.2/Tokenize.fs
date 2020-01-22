@@ -5,8 +5,6 @@ open System.Collections.Generic
 open Utils
 
 // Globals
-exception TokenizationError of string
-
 type TokenPosition = {
     start_line : int
     start_column : int
