@@ -59,7 +59,7 @@ and RecordWithPattern =
     | RecordWithoutKeyword of keyword: KeywordTag
     | RecordWithoutInjectVar of var: Expr
 
-type Env<'a> = { exists : Set<string>; free_vars : Dictionary<string,'a>; local : Map<string,'a>; local_index : int; local_index_max : int ref }
+type Env<'a> = { global' : Map<string,'a>; free_vars : Dictionary<string,VarTag>; local : Map<string,VarTag>; local_index : int; local_index_max : int ref }
 type LocEnv = { type' : Env<TExpr>; value : Env<Expr> }
 type KeywordEnv = 
     {
@@ -83,57 +83,26 @@ type PrepassError =
     | ErMissingModuleItem of string
     | ErMissingTypeVar of string
     | ErMissingModule of string
+    | ErLocalShadowsGlobal of string
 
-let prepass_body (keywords : KeywordEnv) (t_glob : Dictionary<string,TExpr>) (v_glob : Dictionary<string,Expr>) x = 
+let prepass_body (keywords : KeywordEnv) (t_glob : Map<string,TExpr>) (v_glob : Map<string,Expr>) x = 
     let d() = Dictionary(HashIdentity.Structural)
-    let env exists = { exists=exists; free_vars=d(); local=Map.empty; local_index = 0; local_index_max = ref 0}
-    let fresh_env env' = { type'=env env'.type'.exists; value=env env'.value.exists}
-    let fresh_env'() = { type'=env Set.empty; value=env Set.empty }
+    let env global' = { global'=global'; free_vars=d(); local=Map.empty; local_index = 0; local_index_max = ref 0}
+    let fresh_env env' = { type'=env env'.type'.global'; value=env env'.value.global' }
     let dict_rawinline = Dictionary(HashIdentity.Reference)
     let errors = ResizeArray()
 
-    let expr_data_of (env_outer : LocEnv) (env_inner : LocEnv): ExprData =
-        let inline vars f (outer : Dictionary<string,'a>) (inner : Dictionary<string,'a>) = // TODO: Not correct.
-            let kvs = Array.zeroCreate inner.Count
-            let mutable i = 0
-            inner |> Seq.iter (fun kv -> kvs.[i] <- kv.Key, -(f kv.Value); i <- i+1)
-            Array.sortInPlaceBy snd kvs
-            kvs |> Array.map (fun (k,_) -> f outer.[k])
-
-        {
-        type'= {
-            stack_size = !env_inner.type'.local_index_max
-            free_vars = vars (function TV(v) -> v | _ -> failwith "impossible TV") env_outer.type'.free_vars env_inner.type'.free_vars
-            }
-        value= {
-            stack_size = !env_inner.value.local_index_max
-            free_vars = vars (function V(t) -> t | _ -> failwith "imposisble V") env_outer.value.free_vars env_inner.value.free_vars
-            }
-        }
-
-    let value_add_local a (env : LocEnv) =
+    let add_local a (env : Env<_>) =
+        if Map.containsKey a env.global' then errors.Add(ErLocalShadowsGlobal a)
         let env = 
-            {env with value = 
-                        {env.value with
-                            exists=Set.add a env.value.exists
-                            local_index=env.value.local_index+1
-                            local=Map.add a (V env.value.local_index) env.value.local
-                            }
+            {env with
+                local_index=env.local_index+1
+                local=Map.add a env.local_index env.local
                 }
-        env.value.local_index_max := max !env.value.local_index_max env.value.local_index
+        env.local_index_max := max !env.local_index_max env.local_index
         env
-
-    let type_add_local a (env : LocEnv) =
-        let env = 
-            {env with type' = 
-                        {env.type' with
-                            exists=Set.add a env.type'.exists
-                            local_index=env.type'.local_index+1
-                            local=Map.add a (TV env.type'.local_index) env.type'.local
-                            }
-                }
-        env.type'.local_index_max := max !env.type'.local_index_max env.value.local_index
-        env
+    let value_add_local a (env : LocEnv) = {env with value = add_local a env.value}
+    let type_add_local a (env : LocEnv) = {env with type' = add_local a env.type'}
 
     let er_missing_value_var x = errors.Add(ErMissingValueVar x); Error (sprintf "missing value var %s" x)
     let er_missing_type_var x = errors.Add(ErMissingTypeVar x); Error (sprintf "missing type var %s" x)
@@ -141,23 +110,42 @@ let prepass_body (keywords : KeywordEnv) (t_glob : Dictionary<string,TExpr>) (v_
     let er_missing_module x = errors.Add(ErMissingModule x); Error (sprintf "missing module %s" x)
 
     let rec value_prepass (env : LocEnv) x =
+        let v_loc env x = 
+            match Map.tryFind x env.local with
+            | Some v -> v
+            | None -> memoize env.free_vars (fun _ -> -1-env.free_vars.Count) x
         let v x = 
-            if Set.contains x env.value.exists then
-                match Map.tryFind x env.value.local with
-                | Some v -> v
-                | None -> memoize env.value.free_vars (fun _ -> V (-1-env.value.free_vars.Count)) x
-            else
-                match v_glob.TryGetValue x with
-                | true, v -> v
-                | false, _ -> er_missing_value_var x
+            match env.value.global'.TryGetValue x with
+            | true, v -> v
+            | false, _ -> V (v_loc env.value x)
+
+        let expr_data_of (env_outer : LocEnv) (env_inner : LocEnv): ExprData =
+            let inline vars (outer : Env<'a>) (inner : Env<'a>) =
+                let kvs = Array.zeroCreate inner.free_vars.Count
+                let mutable i = 0
+                inner.free_vars |> Seq.iter (fun kv -> kvs.[i] <- kv.Key, -kv.Value; i <- i+1)
+                Array.sortInPlaceBy snd kvs
+                kvs |> Array.map (fun (k,_) -> v_loc outer k)
+
+            {
+            type'= {
+                stack_size = !env_inner.type'.local_index_max
+                free_vars = vars env_outer.type' env_inner.type'
+                }
+            value= {
+                stack_size = !env_inner.value.local_index_max
+                free_vars = vars env_outer.value env_inner.value
+                }
+            }
+
         match x with
         | RawB -> B
         | RawV x -> v x
         | RawValue x -> Value x
-        | RawInline e -> // TODO: Completely broken.
+        | RawInline e ->
             let e,env' =
                 memoize dict_rawinline (fun _ ->
-                    let env' = fresh_env'() // TODO: Don't forget this.
+                    let env' = fresh_env env
                     value_prepass env e, env'
                     ) e
             Inline(e,expr_data_of env env')
@@ -191,22 +179,22 @@ let prepass_body (keywords : KeywordEnv) (t_glob : Dictionary<string,TExpr>) (v_
         | RawTypedOp (a,b,c) -> TypedOp(type_prepass env a, b, Array.map (value_prepass env) c)
         | RawTypecase (a,b) -> Typecase(type_prepass env a, Array.map (fun (a,b) -> type_prepass env a, value_prepass env b) b)
         | RawModuleOpen (a,b,on_succ) -> 
-            match v_glob.TryGetValue a with
+            let env' = env.value.global'
+            match env'.TryGetValue a with
             | false, _ -> er_missing_value_var a
             | true, Module x ->
                 match b with
                 | None -> 
-                    let env = Map.fold (fun env k v -> value_add_local (keywords.From k) env) env x
-                    ModuleOpen(Map.toArray x |> Array.map snd, value_prepass env on_succ)
+                    let env' = Map.fold (fun env k v -> Map.add (keywords.From k) v env) env' x
+                    ModuleOpen(Map.toArray x |> Array.map snd, value_prepass {env with value = {env.value with global'=env'}} on_succ)
                 | Some l ->
-                    let l,env =
+                    let l,env' =
                         List.mapFold (fun env (a,b) ->
                             match Map.tryFind (keywords.To a) x with
-                            | Some e -> e
-                            | None -> er_missing_module_item a
-                            , value_add_local (Option.defaultValue a b) env
-                            ) env l
-                    ModuleOpen(List.toArray l, value_prepass env on_succ)
+                            | Some e -> e, Map.add (Option.defaultValue a b) e env
+                            | None -> er_missing_module_item a, env
+                            ) env' l
+                    ModuleOpen(List.toArray l, value_prepass {env with value = {env.value with global'=env'}} on_succ)
             | true, _ -> er_missing_module a
         | RawRecBlock (a,on_succ) ->
             let env = Array.fold (fun env (a,_) -> value_add_local a env) env a
@@ -249,4 +237,4 @@ let prepass_body (keywords : KeywordEnv) (t_glob : Dictionary<string,TExpr>) (v_
         | RawTArray x -> failwith ""
         | RawTPos x -> failwith ""
 
-    value_prepass (fresh_env'()) x
+    value_prepass {type'=env t_glob; value=env v_glob} x
