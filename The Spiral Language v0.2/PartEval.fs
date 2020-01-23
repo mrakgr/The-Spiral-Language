@@ -75,11 +75,11 @@ and TypedOp =
 
 /// Unlike v0.1 and previously, the functions can now have cycles so that needs to be taken care of during memoization.
 let typed_data_to_renamed' call_data =
-    let dict = Dictionary(HashIdentity.Reference)
+    let m = Dictionary(HashIdentity.Reference)
     let call_args = ResizeArray(64)
     let rec f x =
-        let memoize f = memoize dict f x
-        let memoize_rec e ret f = memoize_rec dict e ret f x
+        let memoize f = memoize m f x
+        let memoize_rec e ret f = memoize_rec m e ret f x
         match x with
         | TyPair(a,b) -> memoize (fun _ -> TyPair(f a, f b))
         | TyKeyword(a,b) -> memoize (fun _ -> TyKeyword(a, Array.map f b))
@@ -90,3 +90,55 @@ let typed_data_to_renamed' call_data =
         | TyRef _ -> failwith "Compiler error"
     let x = f call_data
     call_args.ToArray(),x
+
+let ty_to_data i x =
+    let m = Dictionary(HashIdentity.Reference)
+    let rec f x = 
+        match x with
+        | PairT(a,b) -> TyPair(f a, f b) 
+        | KeywordT(a,b) -> TyKeyword(a,Array.map f b)
+        | FunctionT(a,b,c,d,e) -> 
+            match m.TryGetValue x with
+            | true, v -> v
+            | _ ->
+                let e' = Array.zeroCreate e.Length
+                let r = TyFunction(a,b,c,d,e')
+                m.Add(x,r)
+                Array.iteri (fun i x -> e'.[i] <- f x) e
+                m.Remove(x) |> ignore // Non-nested mapping should not share vars
+                r
+        | RecordT l -> TyRecord(Map.map (fun k -> f) l)
+        | PrimT _ | LayoutT _ | ArrayT _ | RuntimeFunctionT _ | MacroT _ -> let r = TyV(T(!i,x)) in i := !i+1; r
+    f x
+
+open Spiral.Tokenize
+open Spiral.Parsing
+let value_to_ty = function
+    | LitUInt8 _ -> PrimT UInt8T
+    | LitUInt16 _ -> PrimT UInt16T
+    | LitUInt32 _ -> PrimT UInt32T
+    | LitUInt64 _ -> PrimT UInt64T
+    | LitInt8 _ -> PrimT Int8T
+    | LitInt16 _ -> PrimT Int16T
+    | LitInt32 _ -> PrimT Int32T
+    | LitInt64 _ -> PrimT Int64T
+    | LitFloat32 _ -> PrimT Float32T
+    | LitFloat64 _ -> PrimT Float64T   
+    | LitBool _ -> PrimT BoolT
+    | LitString _ -> PrimT StringT
+    | LitChar _ -> PrimT CharT
+
+let data_to_ty x =
+    let m = Dictionary(HashIdentity.Reference)
+    let rec f x =
+        let memoize f = memoize m f x
+        let memoize_rec e ret f = memoize_rec m e ret f x
+        match x with
+        | TyPair(a,b) -> memoize (fun _ -> PairT(f a, f b))
+        | TyKeyword(a,b) -> memoize (fun _ -> KeywordT(a, Array.map f b))
+        | TyFunction(a,b,c,d,e) -> memoize_rec e (fun e' -> FunctionT(a,b,c,d,e')) f
+        | TyRecord l -> memoize (fun _ -> RecordT(Map.map (fun _ -> f) l))
+        | TyV(T(_,ty) as t) -> ty
+        | TyLit x -> value_to_ty x
+        | TyRef _ -> failwith "Compiler error"
+    f x
