@@ -13,6 +13,7 @@
     <Compile Include="ParserCombinators.fs" />
     <Compile Include="Parsing.fs" />
     <Compile Include="Prepass.fs" />
+    <Compile Include="PartEval.fs" />
   </ItemGroup>
 
   <ItemGroup>
