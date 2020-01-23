@@ -1,5 +1,7 @@
 ﻿module Spiral.PartEval
 
+open Spiral.Tokenize
+open Spiral.Parsing
 open Spiral.Prepass
 open Spiral.Utils
 open System.Collections.Generic
@@ -32,7 +34,7 @@ type Ty =
     | KeywordT of KeywordTag * Ty []
     | FunctionT of Expr * StackSize * Ty [] * StackSize * Ty []
     | RecordT of Map<KeywordTag, Ty>
-    | PrimT of Parsing.PrimitiveType
+    | PrimT of PrimitiveType
     
     | LayoutT of LayoutType * RData
     | ArrayT of Ty
@@ -44,10 +46,10 @@ and Data =
     | TyKeyword of KeywordTag * Data []
     | TyFunction of Expr * StackSize * Ty [] * StackSize * Data []
     | TyRecord of Map<KeywordTag, Data>
-    | TyLit of Tokenize.Value
+    | TyLit of Value
 
     | TyV of TyV
-    | TyRef of int // For use in join points, layout types and macros
+    | TyR of int // For use in join points, layout types and macros
 and TyV = T<Tag,Ty>
 
 and RData = R of Data // has TyRef
@@ -74,22 +76,66 @@ and TypedOp =
     | TySetMutableRecord of Data * (Tag * Ty) [] * TyV []
 
 /// Unlike v0.1 and previously, the functions can now have cycles so that needs to be taken care of during memoization.
-let typed_data_to_renamed' call_data =
+let data_to_rdata' call_data =
     let m = Dictionary(HashIdentity.Reference)
-    let call_args = ResizeArray(64)
+    let call_args = ResizeArray()
     let rec f x =
-        let memoize f = memoize m f x
-        let memoize_rec e ret f = memoize_rec m e ret f x
-        match x with
-        | TyPair(a,b) -> memoize (fun _ -> TyPair(f a, f b))
-        | TyKeyword(a,b) -> memoize (fun _ -> TyKeyword(a, Array.map f b))
-        | TyFunction(a,b,c,d,e) -> memoize_rec e (fun e' -> TyFunction(a,b,c,d,e')) f
-        | TyRecord l -> memoize (fun _ -> TyRecord(Map.map (fun _ -> f) l))
-        | TyV(T(_,ty) as t) -> memoize (fun _ -> call_args.Add t; TyV(T(call_args.Count-1, ty)))
-        | TyLit x -> memoize (fun _ -> TyLit x)
-        | TyRef _ -> failwith "Compiler error"
+        match m.TryGetValue x with
+        | true, v -> v
+        | _ ->
+            let memo r = m.Add(x,TyR m.Count); r
+            match x with
+            | TyPair(a,b) -> memo <| TyPair(f a, f b)
+            | TyKeyword(a,b) -> memo <| TyKeyword(a, Array.map f b)
+            | TyFunction(a,b,c,d,e) -> m.Add(x,TyR m.Count); TyFunction(a,b,c,d,Array.map f e)
+            | TyRecord l -> memo <| TyRecord(Map.map (fun _ -> f) l)
+            | TyV(T(_,ty) as t) -> memo (call_args.Add t; TyV(T(call_args.Count-1, ty)))
+            | TyLit _ -> x
+            | TyR _ -> failwith "Compiler error"
     let x = f call_data
-    call_args.ToArray(),x
+    call_args.ToArray(),R x
+
+let data_to_rdata call_data = data_to_rdata' call_data |> snd // TODO: Specialize this.
+
+let rdata_to_data' i (R call_data) =
+    let m = Dictionary(HashIdentity.Structural)
+    let r_args = ResizeArray()
+    let rec f x =
+        let memo r = m.Add(m.Count,r); r
+        match x with
+        | TyPair(a,b) -> memo <| TyPair(f a, f b)
+        | TyKeyword(a,b) -> memo <| TyKeyword(a, Array.map f b)
+        | TyFunction(a,b,c,d,e) -> 
+            let e' = Array.zeroCreate<_> e.Length
+            let r = TyFunction(a,b,c,d,e')
+            m.Add(m.Count,r)
+            Array.iteri (fun i x -> e'.[i] <- f x) e
+            r
+        | TyRecord l -> memo <| TyRecord(Map.map (fun _ -> f) l)
+        | TyV(T(_,ty) as t) -> memo (r_args.Add t; let r = TyV(T(!i, ty)) in i := !i+1; r)
+        | TyLit _ -> x
+        | TyR x -> m.[x]
+    let x = f call_data
+    r_args.ToArray(),x
+
+let rdata_to_data i x = rdata_to_data' i x |> snd // TODO: Specialize this.
+
+let data_free_vars call_data =
+    let m = HashSet(HashIdentity.Reference)
+    let free_vars = ResizeArray()
+    let rec f x =
+        if m.Add x then
+            match x with
+            | TyPair(a,b) -> f a; f b
+            | TyKeyword(a,b) -> Array.iter f b
+            | TyFunction(a,b,c,d,e) -> Array.iter f e
+            | TyRecord l -> Map.iter (fun _ -> f) l
+            | TyV(T(_,ty) as t) -> free_vars.Add t
+            | TyLit _ | TyR _ -> ()
+    f call_data
+    free_vars.ToArray()
+
+let rdata_free_vars (R x) = data_free_vars x
 
 let ty_to_data i x =
     let m = Dictionary(HashIdentity.Reference)
@@ -111,8 +157,6 @@ let ty_to_data i x =
         | PrimT _ | LayoutT _ | ArrayT _ | RuntimeFunctionT _ | MacroT _ -> let r = TyV(T(!i,x)) in i := !i+1; r
     f x
 
-open Spiral.Tokenize
-open Spiral.Parsing
 let value_to_ty = function
     | LitUInt8 _ -> PrimT UInt8T
     | LitUInt16 _ -> PrimT UInt16T
@@ -140,5 +184,6 @@ let data_to_ty x =
         | TyRecord l -> memoize (fun _ -> RecordT(Map.map (fun _ -> f) l))
         | TyV(T(_,ty) as t) -> ty
         | TyLit x -> value_to_ty x
-        | TyRef _ -> failwith "Compiler error"
+        | TyR _ -> failwith "Compiler error"
     f x
+
