@@ -47,7 +47,7 @@ and Data =
     | TyKeyword of KeywordTag * Data []
     | TyFunction of Expr * StackSize * Ty [] * StackSize * Data [] * is_forall : bool
     | TyRecord of Map<KeywordTag, Data>
-    | TyLit of Value
+    | TyValue of Value
 
     | TyV of TyV
     | TyR of int // For use in join points, layout types and macros
@@ -91,7 +91,7 @@ let data_to_rdata' call_data =
             | TyFunction(a,b,c,d,e,z) -> m.Add(x,TyR m.Count); TyFunction(a,b,c,d,Array.map f e,z)
             | TyRecord l -> memo <| TyRecord(Map.map (fun _ -> f) l)
             | TyV(T(_,ty) as t) -> memo (call_args.Add t; TyV(T(call_args.Count-1, ty)))
-            | TyLit _ -> x
+            | TyValue _ -> x
             | TyR _ -> failwith "Compiler error"
     let x = f call_data
     call_args.ToArray(),R x
@@ -114,7 +114,7 @@ let rdata_to_data' i (R call_data) =
             r
         | TyRecord l -> memo <| TyRecord(Map.map (fun _ -> f) l)
         | TyV(T(_,ty) as t) -> memo (r_args.Add t; let r = TyV(T(!i, ty)) in i := !i+1; r)
-        | TyLit _ -> x
+        | TyValue _ -> x
         | TyR x -> m.[x]
     let x = f call_data
     r_args.ToArray(),x
@@ -132,7 +132,7 @@ let data_free_vars call_data =
             | TyFunction(a,b,c,d,e,z) -> Array.iter f e
             | TyRecord l -> Map.iter (fun _ -> f) l
             | TyV(T(_,ty) as t) -> free_vars.Add t
-            | TyLit _ | TyR _ -> ()
+            | TyValue _ | TyR _ -> ()
     f call_data
     free_vars.ToArray()
 
@@ -185,7 +185,7 @@ let data_to_ty x =
         | TyFunction(a,b,c,d,e,z) -> memoize_rec e (fun e' -> FunctionT(a,b,c,d,e',z)) f
         | TyRecord l -> memoize (fun _ -> RecordT(Map.map (fun _ -> f) l))
         | TyV(T(_,ty) as t) -> ty
-        | TyLit x -> value_to_ty x
+        | TyValue x -> value_to_ty x
         | TyR _ -> failwith "Compiler error"
     f x
 
@@ -272,6 +272,9 @@ let push_op (d: LangEnv) op l ret_ty =
 let push_binop d op (a,b) ret_ty = push_op d op ([|a;b|]) ret_ty
 let push_triop d op (a,b,c) ret_ty = push_op d op ([|a;b;c|]) ret_ty
 
+exception TypeError of Trace * string
+let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
+
 let rec partial_eval (d: LangEnv) x = 
     let inline ev d x = partial_eval d x
     let inline ev2 d a b = ev d a, ev d b
@@ -283,6 +286,57 @@ let rec partial_eval (d: LangEnv) x =
         seq_apply d x, x_ty
     let inline ev_annot d x = ev_seq {d with cse=Dictionary(HashIdentity.Structural) :: d.cse} x |> snd
     
+    let inline push_var_ptrt ptr x = d.env_stack_type.[ptr] <- x; ptr+1
     let inline push_var_ptr ptr x = d.env_stack_value.[ptr] <- x; ptr+1
+    let inline vt x = if x < 0 then d.env_global_type.[-x-1] else d.env_stack_type.[x]
     let inline v x = if x < 0 then d.env_global_value.[-x-1] else d.env_stack_value.[x]
-    failwith ""
+
+    let inline nan_guardf32 x = if Single.IsNaN x then raise_type_error d "A 32-bit floating point operation resulting in a nan detected at compile time. Spiral cannot propagate nan literal without diverging." else x
+    let inline nan_guardf64 x = if Double.IsNaN x then raise_type_error d "A 64-bit floating point operation resulting in a nan detected at compile time. Spiral cannot propagate nan literal without diverging." else x
+
+    let function' is_forall on_succ (data : ExprData) = 
+        TyFunction(on_succ,
+            data.type'.stack_size,Array.zeroCreate<_> data.type'.free_vars.Length,
+            data.value.stack_size,Array.map v data.value.free_vars,
+            is_forall)
+
+    match x with
+    | V x -> v x
+    | Value x -> TyValue x
+    | Inline(on_succ,data) ->
+        let d = 
+            {d with 
+                env_global_type=Array.map vt data.type'.free_vars
+                env_global_value=Array.map v data.value.free_vars
+                env_stack_type=Array.zeroCreate data.type'.stack_size
+                env_stack_type_ptr=0
+                env_stack_value=Array.zeroCreate data.value.stack_size
+                env_stack_value_ptr=0
+                }
+        ev d on_succ
+    | Inl(on_succ,data) -> function' false on_succ data
+    | Forall(on_succ,data) -> function' true on_succ data
+    | Glob(e) -> ev d !e
+    | Let(bind,on_succ) -> ev (push_value_var (ev d bind) d) on_succ
+    | RecBlock(l,on_succ) ->
+        let l,d =
+            let function' is_forall on_succ (data : ExprData) = 
+                TyFunction(on_succ,
+                    data.type'.stack_size,Array.zeroCreate<_> data.type'.free_vars.Length,
+                    data.value.stack_size,Array.zeroCreate<_> data.value.free_vars.Length,
+                    is_forall)
+            Array.mapFold (fun d x -> 
+                let data,x = 
+                    match x with
+                    | Inl(on_succ,data) -> data,function' false on_succ data
+                    | Forall(on_succ,data) -> data,function' true on_succ data
+                    | _ -> raise_type_error d "Compiler error: Expected a inl or a forall in the recursive block."
+                (data,x), push_value_var x d
+                ) d l
+        l |> Array.iter (function 
+            | data,TyFunction(_,_,c,_,e,_) ->
+                data.type'.free_vars |> Array.iteri (fun i x -> c.[i] <- vt x) // Don't mind the lack of d being passed to vt and v.
+                data.value.free_vars |> Array.iteri (fun i x -> e.[i] <- v x)
+            | _ -> failwith "impossible"
+            )
+        ev d on_succ
