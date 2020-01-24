@@ -16,6 +16,12 @@ type Pos<'a>(pos : PosKey, expr : 'a) =
     override _.ToString() = sprintf "%A" expr
 
 type Op =
+    // Layout
+    | LayoutToNone
+    | LayoutToStack
+    | LayoutToHeap
+    | LayoutToHeapMutable
+
     // Type
     | TypeAnnot
     | Box
@@ -722,7 +728,7 @@ let operators_unary expr =
 
 let parser d = 
     let rec raw_expr is_global s =
-        let expressions s = (expressions (raw_expr false) |> operators_unary |> application_tight |> application |> operators) s
+        let expressions s = (expressions (raw_expr false) |> application_tight |> operators_unary |> application |> operators) s
         (((statements is_global (raw_expr false) |>> ParserStatement) <|> (exprpos expressions |>> ParserExpr)) |> indentations |> annotations) s
 
     (raw_expr true .>> eof) d

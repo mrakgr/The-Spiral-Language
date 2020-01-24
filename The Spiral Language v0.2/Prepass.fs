@@ -46,7 +46,7 @@ and [<ReferenceEquality>] TExpr =
     | TRecord of Map<string,TExpr>
     | TKeyword of KeywordTag * TExpr []
     | TApply of TExpr * TExpr
-    | TInl of TExpr * ExprData
+    | TInl of TExpr * Data
     | TUnit
     | TPrim of PrimitiveType
     | TArray of TExpr
@@ -84,6 +84,8 @@ type PrepassError =
     | ErMissingTypeVar of string
     | ErMissingModule of string
     | ErLocalShadowsGlobal of string
+    | ErTypeFunctionHasFreeValueVar of string
+    | ErTypeFunctionHasNonZeroValueStackSize of string
 
 let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywords : KeywordEnv) (t_glob : Map<string,TExpr>) (v_glob : Map<string,Expr>) x = 
     let d() = Dictionary(HashIdentity.Structural)
@@ -235,7 +237,10 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
         | RawTInl ((a,_),b) ->
             let env' = fresh_env env |> type_add_local a
             let b = prepass_type env' b
-            TInl(b, expr_data_of env env')
+            let d = expr_data_of env env'
+            if d.value.free_vars.Length <> 0 then errors.Add(ErTypeFunctionHasFreeValueVar a)
+            if d.value.stack_size <> 0 then errors.Add(ErTypeFunctionHasNonZeroValueStackSize a)
+            TInl(b, d.type')
         | RawTUnit -> TUnit
         | RawTPrim x -> TPrim x
         | RawTArray x -> TArray(f x)

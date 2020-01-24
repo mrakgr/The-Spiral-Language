@@ -616,7 +616,7 @@ let rec partial_eval (d: LangEnv) x =
             | [|TyLocalReturnOp(_,TyJoinPoint cond)|], ty ->
                 match ty with
                 | PrimT BoolT -> 
-                    match ev_seq d on_succ with
+                    match ev_seq {d with cse=ref !d.cse} on_succ with
                     | on_succ, ListT(C []) & ty -> push_typedop d (TyWhile(cond,on_succ)) ty
                     | _, ty -> raise_type_error d <| sprintf "The body of the while loop must be of type unit.\nGot: %s" (show_ty ty)
                 | _ -> raise_type_error d <| sprintf "The conditional of the while loop must be of type bool.\nGot: %s" (show_ty ty)
