@@ -21,6 +21,7 @@ type Op =
     | LayoutToStack
     | LayoutToHeap
     | LayoutToHeapMutable
+    | LayoutRecordGet
 
     // Type
     | TypeAnnot

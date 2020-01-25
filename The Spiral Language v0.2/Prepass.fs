@@ -36,7 +36,7 @@ type [<ReferenceEquality>] Expr =
     | AnnotTest of do_boxing : bool * TExpr * bind: VarTag * on_succ: Expr * on_fail: Expr
     | ValueTest of Tokenize.Value * bind: VarTag * on_succ: Expr * on_fail: Expr
     | DefaultValueTest of string * bind: VarTag * on_succ: Expr * on_fail: Expr
-    | UnionTest of name: KeywordTag * vars: int * bind: VarTag * on_succ: Expr * on_fail: Expr
+    //| UnionTest of name: KeywordTag * vars: int * bind: VarTag * on_succ: Expr * on_fail: Expr
     | UnitTest of bind: VarTag * on_succ: Expr * on_fail: Expr
     | Pos of Pos<Expr>
 and [<ReferenceEquality>] TExpr =
@@ -55,9 +55,9 @@ and [<ReferenceEquality>] TExpr =
 and RecordTestPattern = RecordTestKeyword of keyword: KeywordTag | RecordTestInjectVar of var: Expr
 and RecordWithPattern = 
     | RecordWithKeyword of keyword: KeywordTag * Expr 
-    | RecordWithInjectVar of var: Expr * Expr
+    | RecordWithInjectVar of var_string: string * var: Expr * Expr // var_string is here for error reporting purposes.
     | RecordWithoutKeyword of keyword: KeywordTag
-    | RecordWithoutInjectVar of var: Expr
+    | RecordWithoutInjectVar of var_string: string * var: Expr
 
 type Env<'a> = { global' : Map<string,'a>; free_vars : Dictionary<string,VarTag>; local : Map<string,VarTag>; local_index : int; local_index_max : int ref }
 type LocEnv = { type' : Env<TExpr>; value : Env<Expr> }
@@ -184,9 +184,9 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
             let b = 
                 Array.map (function
                     | RawRecordWithKeyword(keyword,expr) -> RecordWithKeyword(keywords.To keyword, prepass_value (value_add_local "this" env) expr)
-                    | RawRecordWithInjectVar(var,expr) -> RecordWithInjectVar(v var, prepass_value (value_add_local "this" env) expr)
+                    | RawRecordWithInjectVar(var,expr) -> RecordWithInjectVar(var,v var, prepass_value (value_add_local "this" env) expr)
                     | RawRecordWithoutKeyword(keyword) -> RecordWithoutKeyword(keywords.To keyword)
-                    | RawRecordWithoutInjectVar(var) -> RecordWithoutInjectVar(v var)
+                    | RawRecordWithoutInjectVar(var) -> RecordWithoutInjectVar(var,v var)
                     ) b
             RecordWith(a,b)
         | RawOp (a,b) -> Op(a,Array.map (prepass_value env) b)
@@ -288,6 +288,12 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
             | ErLocalShadowsGlobal x ->
                 show_position' b var_positions.[x]
                 b.AppendFormat("Error: Local variable {0} shadows the global of the same name.", x) |> ignore
+            | ErTypeFunctionHasFreeValueVar x ->
+                show_position' b var_positions.[x]
+                b.AppendFormat("Error: Type function {0} has free variables on the value level.", x) |> ignore
+            | ErTypeFunctionHasNonZeroValueStackSize x ->
+                show_position' b var_positions.[x]
+                b.AppendFormat("Error: Type function {0} has open bindings on the value level.", x) |> ignore
             ) errors
         Error (b.ToString())
     else
