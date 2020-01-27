@@ -42,7 +42,7 @@ and [<ReferenceEquality>] TExpr =
     | TV of VarTag
     | TPair of TExpr * TExpr
     | TFun of TExpr * TExpr
-    | TRecord of Map<string,TExpr>
+    | TRecord of Map<KeywordTag,TExpr>
     | TKeyword of KeywordTag * TExpr []
     | TApply of TExpr * TExpr
     | TInl of TExpr * Data
@@ -209,7 +209,8 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
                     | RawRecordTestInjectVar (a,b) -> RecordTestInjectVar(v a), value_add_local b env
                     ) env a
             RecordTest(a,v' b,prepass_value env on_succ,prepass_value env on_fail)
-        | RawAnnotTest (a,b,c,on_succ,on_fail) -> AnnotTest(a,prepass_type env b,v' c,prepass_value env on_succ,prepass_value env on_fail)
+        | RawAnnotTest (true,b,c,on_succ,on_fail) -> AnnotTest(true,prepass_type (value_add_local c env) b,v' c,prepass_value env on_succ,prepass_value env on_fail)
+        | RawAnnotTest (false,b,c,on_succ,on_fail) -> AnnotTest(false,prepass_type env b,v' c,prepass_value env on_succ,prepass_value env on_fail)
         | RawValueTest (a,b,on_succ,on_fail) -> ValueTest(a,v' b,prepass_value env on_succ,prepass_value env on_fail)
         | RawDefaultValueTest (a,b,on_succ,on_fail) -> 
             let on_succ x = ValueTest(x,v' b,prepass_value env on_succ,prepass_value env on_fail)
@@ -237,7 +238,7 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
         | RawTFun (a,b) -> TFun(f a,f b)
         | RawTConstraint (a,b) -> failwith "Compiler error: Constraints not allowed in the prepass."
         | RawTDepConstraint (a,b) -> failwith "Compiler error: Dependent constraints not allowed in the prepass."
-        | RawTRecord x -> TRecord(Map.map (fun k v -> f v) x)
+        | RawTRecord x -> TRecord(Map.fold (fun m k v -> Map.add (keywords.To k) (f v) m) Map.empty x)
         | RawTKeyword (a,b) -> TKeyword(keywords.To a,Array.map f b)
         | RawTApply (a,b) -> TApply (f a, f b)
         | RawTForall (a,b) -> failwith "Compiler error: Foralls not allowed in the prepass."

@@ -34,7 +34,7 @@ type Ty =
     | PairT of Ty * Ty
     | KeywordT of KeywordTag * Ty []
     | FunctionT of Expr * StackSize * Ty [] * StackSize * Ty [] * is_forall : bool
-    | TypeFunctionT of Ty * StackSize * Ty []
+    | TypeFunctionT of TExpr * StackSize * Ty []
     | RecordT of Map<KeywordTag, Ty>
     | PrimT of PrimitiveType
     
@@ -162,20 +162,22 @@ let ty_to_data i x =
         | TypeFunctionT _ -> failwith "Compiler error: Cannot turn a type function to a runtime variable."
     f x
 
-let value_to_ty = function
-    | LitUInt8 _ -> PrimT UInt8T
-    | LitUInt16 _ -> PrimT UInt16T
-    | LitUInt32 _ -> PrimT UInt32T
-    | LitUInt64 _ -> PrimT UInt64T
-    | LitInt8 _ -> PrimT Int8T
-    | LitInt16 _ -> PrimT Int16T
-    | LitInt32 _ -> PrimT Int32T
-    | LitInt64 _ -> PrimT Int64T
-    | LitFloat32 _ -> PrimT Float32T
-    | LitFloat64 _ -> PrimT Float64T   
-    | LitBool _ -> PrimT BoolT
-    | LitString _ -> PrimT StringT
-    | LitChar _ -> PrimT CharT
+let value_to_primitive_type = function
+    | LitUInt8 _ -> UInt8T
+    | LitUInt16 _ -> UInt16T
+    | LitUInt32 _ -> UInt32T
+    | LitUInt64 _ -> UInt64T
+    | LitInt8 _ -> Int8T
+    | LitInt16 _ -> Int16T
+    | LitInt32 _ -> Int32T
+    | LitInt64 _ -> Int64T
+    | LitFloat32 _ -> Float32T
+    | LitFloat64 _ -> Float64T   
+    | LitBool _ -> BoolT
+    | LitString _ -> StringT
+    | LitChar _ -> CharT
+
+let value_to_ty x = value_to_primitive_type x |> PrimT
 
 let rdata_to_ty (R call_data) = // TODO: When R is hash-consed, do global memoization for this as a compile time optimization.
     let m = Dictionary(HashIdentity.Structural)
@@ -329,48 +331,54 @@ let show_layout_type = function
     | LayoutHeap -> "layout_heap"
     | LayoutHeapMutable -> "layout_heap_mutable"
 
+let inline show_keyword (keywords: KeywordEnv) show (keyword,l: _[]) =
+    if l.Length > 0 then
+        let a = (keywords.From keyword).Split([|':'|], StringSplitOptions.RemoveEmptyEntries)
+        Array.map2 (fun a l -> String.concat "" [|a;":(";show l;")"|]) a l
+        |> String.concat " "
+    else
+        keywords.From keyword
+
+let inline show_map (keywords: KeywordEnv) show v = 
+    let body = 
+        Map.toArray v
+        |> Array.map (fun (k,v) -> sprintf "%s=%s" (keywords.From k) (show v))
+        |> String.concat "; "
+
+    sprintf "{%s}" body
+
+let rec show_ty (keywords: KeywordEnv) x = 
+    let f x = show_ty keywords x
+    match x with
+    | BT -> "()"
+    | PrimT x -> show_primt x
+    | KeywordT(keyword,l) -> show_keyword keywords f (keyword,l)
+    | PairT(a, b) -> sprintf "(%s * %s)" (f a) (f b)
+    | RecordT v -> show_map keywords f v
+    | FunctionT(_,_,_,_,_,false) -> "<function>"
+    | FunctionT(_,_,_,_,_,true) -> "<forall>"
+    | TypeFunctionT(_,_,_) -> "<type function>" // TODO: Do proper printing for this case.
+    | LayoutT (layout_type,R body) -> sprintf "%s (%s)" (show_layout_type layout_type) (show_typed_data keywords body)
+    | RuntimeFunctionT (a,b) -> sprintf "(%s -> %s)" (f a) (f b)
+    | ArrayT x -> sprintf "array %s" (f x)
+    | MacroT (R x) -> show_typed_data keywords x |> sprintf "macro (%s)"
+
+and show_typed_data (keywords: KeywordEnv) x =
+    let f x = show_typed_data keywords x
+    match x with
+    | TyB -> "()"
+    | TyV(T(_,t)) -> sprintf "var (%s)" (show_ty keywords t)
+    | TyKeyword(keyword,l) -> show_keyword keywords f (keyword,l)
+    | TyPair(a,b) -> sprintf "(%s, %s)" (f a) (f b)
+    | TyRecord a -> show_map keywords f a
+    | TyFunction(_,_,_,_,_,false) -> "<function>"
+    | TyFunction(_,_,_,_,_,true) -> "<forall>"
+    | TyValue v -> sprintf "lit %s" (show_value v)
+    | TyR i -> sprintf "<%i>" i
+
 let rec partial_eval (keywords: KeywordEnv) (d: LangEnv) x = 
-    let inline show_keyword show (keyword,l: _[]) =
-        if l.Length > 0 then
-            let a = (keywords.From keyword).Split([|':'|], StringSplitOptions.RemoveEmptyEntries)
-            Array.map2 (fun a l -> String.concat "" [|a;":(";show l;")"|]) a l
-            |> String.concat " "
-        else
-            keywords.From keyword
-
-    let inline show_map show v = 
-        let body = 
-            Map.toArray v
-            |> Array.map (fun (k,v) -> sprintf "%s=%s" (keywords.From k) (show v))
-            |> String.concat "; "
-
-        sprintf "{%s}" body
-
-    let rec show_ty = function
-        | BT -> "()"
-        | PrimT x -> show_primt x
-        | KeywordT(keyword,l) -> show_keyword show_ty (keyword,l)
-        | PairT(a, b) -> sprintf "(%s * %s)" (show_ty a) (show_ty b)
-        | RecordT v -> show_map show_ty v
-        | FunctionT(_,_,_,_,_,false) -> "<function>"
-        | FunctionT(_,_,_,_,_,true) -> "<forall>"
-        | TypeFunctionT(_,_,_) -> "<type function>" // TODO: Do proper printing for this case.
-        | LayoutT (layout_type,R body) -> sprintf "%s (%s)" (show_layout_type layout_type) (show_typed_data body)
-        | RuntimeFunctionT (a,b) -> sprintf "(%s -> %s)" (show_ty a) (show_ty b)
-        | ArrayT x -> sprintf "array %s" (show_ty x)
-        | MacroT (R x) -> show_typed_data x |> sprintf "macro (%s)"
-
-    and show_typed_data = function
-        | TyB -> "()"
-        | TyV(T(_,t)) -> sprintf "var (%s)" (show_ty t)
-        | TyKeyword(keyword,l) -> show_keyword show_typed_data (keyword,l)
-        | TyPair(a,b) -> sprintf "(%s, %s)" (show_typed_data a) (show_typed_data b)
-        | TyRecord a -> show_map show_typed_data a
-        | TyFunction(_,_,_,_,_,false) -> "<function>"
-        | TyFunction(_,_,_,_,_,true) -> "<forall>"
-        | TyValue v -> sprintf "lit %s" (show_value v)
-        | TyR i -> sprintf "<%i>" i
-
+    let inline show_typed_data x = show_typed_data keywords x
+    let inline show_ty x = show_ty keywords x
     let inline ev d x = partial_eval keywords d x
     let inline ev2 d a b = ev d a, ev d b
     let inline ev3 d a b c = ev d a, ev d b, ev d c
@@ -436,6 +444,31 @@ let rec partial_eval (keywords: KeywordEnv) (d: LangEnv) x =
                     if clo_arg_ty <> b_ty then raise_type_error d <| sprintf "Cannot apply an argument of type %s to a function of type: %s -> %s" (show_ty b_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
                     else push_op_no_rewrite d Apply [|a; b|] clo_ret_ty
                 | a, _ -> raise_type_error d <| sprintf "The first argument provided cannot be applied.\nGot: %s" (show_typed_data a)
+
+    let function_to_runtime_function env (a : Expr, b : StackSize, c : Ty [], d : StackSize, e : Data []) (a' : Ty, b' : Ty) =
+        failwith "" // TODO
+
+    let rec box d (a,b) = 
+        let box (a,b) = box d (a,b)
+        let fail a b = raise_type_error d <| sprintf "Cannot box %s into %s" (show_typed_data a) (show_ty b)
+        match a, b with
+        | TyB, BT -> a
+        | TyPair(a,b), PairT(a',b') -> TyPair(box (a, a'), box (b, b'))
+        | TyKeyword(k,l), KeywordT(k',l') -> TyKeyword(k,Array.map2 (fun a b -> box (a,b)) l l')
+        | TyFunction(a,b,c,d,e,false), RuntimeFunctionT(a',b') -> function_to_runtime_function d (a,b,c,d,e) (a',b')
+        | TyFunction(_,_,_,_,_,true), _ -> raise_type_error d <| sprintf "Cannot box foralls.\nGot: %s" (show_typed_data a)
+        | TyRecord l & a, RecordT l' -> 
+            if Map.count l = Map.count l' then
+                TyRecord(Map.map (fun k v -> 
+                    match Map.tryFind k l' with
+                    | Some v' -> box (v, v')
+                    | None -> fail a b
+                    ) l)
+            else fail a b
+        | TyValue x & a, PrimT x' -> if value_to_primitive_type x = x' then a else fail a b
+        | TyV(T(_,x)) & a, x' -> if x = x' then a else fail a b
+        | TyR _, _ -> raise_type_error d "Compiler error: TyR should not be here."
+        | a,b -> fail a b
 
     let function' is_forall on_succ (data : ExprData) = 
         TyFunction(on_succ,
@@ -558,5 +591,38 @@ let rec partial_eval (keywords: KeywordEnv) (d: LangEnv) x =
         | Some x -> x
         | None -> raise_type_error d <| sprintf "Typecase miss for %s" (show_ty a)
     | Pos(pos) -> ev {d with trace=pos.Pos :: d.trace} pos.Expression
+    | AnnotTest(do_boxing,ty,expr,on_succ,on_fail) ->
+        let a = v expr
+        let b = partial_eval_type keywords d ty
+        if do_boxing then ev (push_value_var (box d (a,b)) d) on_succ
+        else if data_to_ty a = b then ev d on_succ else ev d on_fail
 
-and partial_eval_type keywords d x = failwith "TODO"
+and partial_eval_type keywords d x =
+    let ev' d x = partial_eval_type keywords d x
+    let ev d x =
+        match ev' d x with
+        | TypeFunctionT _ -> raise_type_error d "The type expression must not evaluate to a type function."
+        | x -> x
+            
+    let inline vt x = if x < 0 then d.env_global_type.[-x-1] else d.env_stack_type.[x]
+    match x with
+    | TV x -> vt x
+    | TPair (a,b) -> PairT(ev d a, ev d b)
+    | TFun (a,b) -> RuntimeFunctionT(ev d a, ev d b)
+    | TRecord l -> RecordT(Map.map (fun k -> ev d) l)
+    | TKeyword (k,l) -> KeywordT(k,Array.map (ev d) l)
+    | TApply(l,r) ->
+        match ev' d l with
+        | TypeFunctionT(a,b,c) ->
+            let d =
+                {d with
+                    env_global_type=c
+                    env_stack_type=Array.zeroCreate b
+                    env_stack_type_ptr=0}
+            ev' (push_type_var (ev' d r) d) a
+        | l -> raise_type_error d <| sprintf "Expected a type level function as the first argument in type application.Got: %s" (show_ty keywords l)
+    | TInl(a,b) -> TypeFunctionT(a,b.stack_size,Array.map vt b.free_vars)
+    | TUnit -> BT
+    | TPrim x -> PrimT x
+    | TArray x -> ArrayT (ev d x)
+    | TPos x -> ev {d with trace = x.Pos :: d.trace} x.Expression
