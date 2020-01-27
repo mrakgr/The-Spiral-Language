@@ -35,8 +35,7 @@ type [<ReferenceEquality>] Expr =
     | RecordTest of RecordTestPattern [] * bind: VarTag * on_succ: Expr * on_fail: Expr
     | AnnotTest of do_boxing : bool * TExpr * bind: VarTag * on_succ: Expr * on_fail: Expr
     | ValueTest of Tokenize.Value * bind: VarTag * on_succ: Expr * on_fail: Expr
-    | DefaultValueTest of string * bind: VarTag * on_succ: Expr * on_fail: Expr
-    //| UnionTest of name: KeywordTag * vars: int * bind: VarTag * on_succ: Expr * on_fail: Expr
+    | UnionTest of name: KeywordTag * vars: int * bind: VarTag * on_succ: Expr * on_fail: Expr
     | UnitTest of bind: VarTag * on_succ: Expr * on_fail: Expr
     | Pos of Pos<Expr>
 and [<ReferenceEquality>] TExpr =
@@ -86,6 +85,7 @@ type PrepassError =
     | ErLocalShadowsGlobal of string
     | ErTypeFunctionHasFreeValueVar of string
     | ErTypeFunctionHasNonZeroValueStackSize of string
+    | ErDefaultValueParse of string
 
 let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywords : KeywordEnv) (t_glob : Map<string,TExpr>) (v_glob : Map<string,Expr>) x = 
     let d() = Dictionary(HashIdentity.Structural)
@@ -211,7 +211,14 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
             RecordTest(a,v' b,prepass_value env on_succ,prepass_value env on_fail)
         | RawAnnotTest (a,b,c,on_succ,on_fail) -> AnnotTest(a,prepass_type env b,v' c,prepass_value env on_succ,prepass_value env on_fail)
         | RawValueTest (a,b,on_succ,on_fail) -> ValueTest(a,v' b,prepass_value env on_succ,prepass_value env on_fail)
-        | RawDefaultValueTest (a,b,on_succ,on_fail) -> DefaultValueTest(a,v' b,prepass_value env on_succ,prepass_value env on_fail)
+        | RawDefaultValueTest (a,b,on_succ,on_fail) -> 
+            let on_succ x = ValueTest(x,v' b,prepass_value env on_succ,prepass_value env on_fail)
+            match System.Int64.TryParse(a) with
+            | true,x -> on_succ (Tokenize.LitInt64 x)
+            | false,_ ->
+                match System.Double.TryParse(a) with
+                | true,x -> on_succ (Tokenize.LitFloat64 x)
+                | false,_ -> errors.Add(ErMissingValueVar a); B
         | RawUnionTest (a,b,c,on_succ,on_fail) -> 
             let env = Array.fold (fun env x -> value_add_local x env) env b
             UnionTest(keywords.To a,b.Length,v' c,prepass_value env on_succ,prepass_value env on_fail)
@@ -294,6 +301,9 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
             | ErTypeFunctionHasNonZeroValueStackSize x ->
                 show_position' b var_positions.[x]
                 b.AppendFormat("Error: Type function {0} has open bindings on the value level.", x) |> ignore
+            | ErDefaultValueParse x ->
+                show_position' b var_positions.[x]
+                b.AppendFormat("Error: {0} cannot be parsed to either the i64 or f64.", x) |> ignore
             ) errors
         Error (b.ToString())
     else

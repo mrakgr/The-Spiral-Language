@@ -143,9 +143,9 @@ type ParserEnv =
             | TokValue(p,t') -> d.Skip; Ok(t')
             | _ -> d.FailWith(ExpectedLit)
 
-    member d.ReadDefaultValue' =
+    member d.ReadDefaultValue =
         d.TryCurrent <| function
-            | TokDefaultValue(p,t') -> d.Skip; Ok(t')
+            | TokDefaultValue(p,t') -> d.Skip; d.Ok(p,t')
             | _ -> d.FailWith(ExpectedLit)
 
     member d.ReadKeyword' =
@@ -446,7 +446,7 @@ let op (d: ParserEnv) = d.ReadOp
 let op' (d: ParserEnv) = d.ReadOp'
 let unary_op (d: ParserEnv) = d.ReadUnaryOp
 let value_ (d: ParserEnv) = d.ReadValue
-let def_value_' (d: ParserEnv) = d.ReadDefaultValue'
+let def_value_ (d: ParserEnv) = d.ReadDefaultValue
 let keyword' (d: ParserEnv) = d.ReadKeyword'
 let keyword_unary' (d: ParserEnv) = d.ReadKeywordUnary'
 

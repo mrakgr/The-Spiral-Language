@@ -314,7 +314,7 @@ let rec pattern_template is_outer is_box expr s =
     let pat_var = small_var' |>> fun x -> if is_box then PatBoxVar x else PatVar x
     let pat_active pattern = exclamation >>. ((small_var' |>> v) <|> rounds expr) .>>. pattern |>> PatActive
     let pat_union pattern = pipe2 big_var' (many ((small_var' |>> PatVar) <|> rounds pattern)) (fun a b -> PatUnion(a,b))
-    let pat_value = (value_ |>> PatValue) <|> (def_value_' |>> PatDefaultValue)
+    let pat_value = (value_ |>> PatValue) <|> (def_value_ |>> PatDefaultValue)
     let pat_record_item pattern =
         let inline templ var k = pipe2 var (opt (eq' >>. pattern)) (fun a -> function Some b -> k(a,b) | None -> k(a,PatVar a))
         templ small_var' (fun (str,name) -> PatRecordMembersKeyword(str,name)) <|> templ (dollar >>. small_var') PatRecordMembersInjectVar
@@ -611,7 +611,7 @@ let rec expressions expr d =
         pipe2 (fun' >>. many1 (forall <|> (tilde >>. pattern true) <|> pattern false)) (expression_body expr) (List.foldBack (<|))
 
     let case_value = value_ |>> value'
-    let case_default_value = def_value_' |>> def_value'
+    let case_default_value = def_value_ |>> def_value'
     let case_if_then_else d = 
         let i = col d
         let expr_indent expr d = expr_indent i (<=) expr d
