@@ -52,7 +52,10 @@ and Data =
     | TyValue of Value
 
     | TyV of TyV
-    | TyR of int // For use in join points, layout types and macros
+
+    // For use in join points, layout types and macros
+    | TyRV of Ty
+    | TyRR of int 
 and TyV = T<Tag,Ty>
 
 and RData = R of Data // has TyRef // TODO: Hash cons this.
