@@ -16,6 +16,10 @@ type Pos<'a>(pos : PosKey, expr : 'a) =
     override _.ToString() = sprintf "%A" expr
 
 type Op =
+    // Macro
+    | Macro
+    | MacroExtern
+
     // Layout
     | LayoutToNone
     | LayoutToStack
@@ -34,8 +38,6 @@ type Op =
     | StringLength
     | StringIndex
     | StringSlice
-    | StringFormat
-    | StringConcat
 
     // Pair
     | PairCreate
@@ -72,9 +74,6 @@ type Op =
     | ShiftLeft
     | ShiftRight
 
-    // Join points
-    | JoinPointEntryMethod
-    
     // Application related
     | Apply
 
@@ -172,7 +171,9 @@ and RawExpr =
     | RawKeywordCreate of KeywordString * RawExpr []
     | RawRecordWith of RawExpr [] * RawRecordWithPattern []
     | RawOp of Op * RawExpr []
-    | RawTypedOp of ret_type: RawTExpr * Op * RawExpr []
+    //| RawTypedOp of ret_type: RawTExpr * Op * RawExpr []
+    | RawJoinPoint of RawTExpr option * RawExpr
+    | RawAnnot of RawTExpr * RawExpr
     | RawTypecase of RawTExpr * (RawTExpr * RawExpr) []
     | RawModuleOpen of string * (string * string option) list option * on_succ: RawExpr
     | RawLet of var: VarString * bind: RawExpr * on_succ: RawExpr
@@ -342,19 +343,19 @@ let reset_level expr d = expr {d with semicolon_line= -1; keyword_line= -1}
 let ret_type d = opt (colon >>. type') d
 let inline_ = function RawInline _ as x -> x | x -> RawInline x
 
-// The seemingly useless inline_ is there to filter unused arguments from the environment.
 let join_point_entry_method y = 
     let y' = match y with RawPos y -> y.Expression | y -> y
     match y' with 
-    | RawTypedOp(ret_type, TypeAnnot, [|y|]) -> inline_ (RawTypedOp(ret_type,JoinPointEntryMethod, [|y|]))
-    | _ -> inline_ (RawOp(JoinPointEntryMethod, [|y|]))
+    // The seemingly useless inline_ is there to filter unused arguments from the environment.
+    | RawAnnot(ret_type, y) -> inline_ (RawJoinPoint(Some ret_type, y))
+    | _ -> inline_ (RawJoinPoint(None, y))
 
 let with_ret_type ret_type e =
     match ret_type with
-    | Some ret_type ->
+    | Some t ->
         match e with
-        | RawInline(RawOp(JoinPointEntryMethod,[|x|])) -> RawInline(RawTypedOp(ret_type,JoinPointEntryMethod,[|x|]))
-        | _ -> RawTypedOp(ret_type,TypeAnnot,[|e|])
+        | RawInline(RawJoinPoint(None,x)) -> RawInline(RawJoinPoint(ret_type,x))
+        | _ -> RawAnnot(t,e)
     | None -> e
 
 let inline statement_body expr = pipe2 (ret_type .>> eq') (reset_level expr) with_ret_type
@@ -367,7 +368,7 @@ let ty x = RawType x
 let B = RawB
 
 let unop op' a = RawOp(op',[|a|])
-let box x = unop Box x
+let box' x = unop Box x
 let binop op' a b = RawOp(op',[|a;b|])
 let eq x y = binop EQ x y
 let ap x y = binop Apply x y
@@ -378,7 +379,7 @@ let lit_string x = RawValue(LitString x)
 let def_value' x = ap (v "default_value") (lit_string x)
 
 let type_annot' a = function
-    | Some b -> RawTypedOp(b,TypeAnnot,[|a|])
+    | Some b -> RawAnnot(b,a)
     | None -> a
 
 let annotations expr d = 
@@ -421,7 +422,7 @@ let pattern_to_rawexpr (arg: VarString, clauses: (Pattern * RawExpr) []) =
         | PatUnit -> RawUnitTest(arg,on_succ,on_fail)
         | PatE -> on_succ
         | PatVar x -> l x (v arg) on_succ
-        | PatBoxVar x -> l x (box (v arg)) on_succ
+        | PatBoxVar x -> l x (box' (v arg)) on_succ
         | PatBoxAnnot(exp,typ) -> 
             let on_succ = cp arg exp on_succ on_fail
             RawAnnotTest(true,typ,arg,on_succ,on_fail)

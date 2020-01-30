@@ -25,7 +25,8 @@ type [<ReferenceEquality>] Expr =
     | KeywordCreate of KeywordTag * Expr []
     | RecordWith of Expr [] * RecordWithPattern []
     | Op of Op * Expr []
-    | TypedOp of ret_type: TExpr * Op * Expr []
+    | JoinPoint of TExpr option * Expr
+    | Annot of TExpr * Expr
     | Typecase of TExpr * (TExpr * Expr) []
     | Module of Map<KeywordTag, Expr>
     | Let of bind: Expr * on_succ: Expr
@@ -190,7 +191,9 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
                     ) b
             RecordWith(a,b)
         | RawOp (a,b) -> Op(a,Array.map (prepass_value env) b)
-        | RawTypedOp (a,b,c) -> TypedOp(prepass_type env a, b, Array.map (prepass_value env) c)
+        | RawJoinPoint(a,b) -> JoinPoint(Option.map (prepass_type env) a, prepass_value env b)
+        | RawAnnot(a,b) -> Annot(prepass_type env a, prepass_value env b)
+        //| RawTypedOp (a,b,c) -> TypedOp(prepass_type env a, b, Array.map (prepass_value env) c)
         | RawTypecase (a,b) -> Typecase(prepass_type env a, Array.map (fun (a,b) -> prepass_type env a, prepass_value env b) b)
         | RawModuleOpen (a,b,on_succ) -> prepass_value {env with value = {env.value with global'=module_open env.value.global' a b}} on_succ
         | RawRecBlock (a,on_succ) ->
