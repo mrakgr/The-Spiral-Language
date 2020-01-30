@@ -772,6 +772,13 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
             else raise_type_error d <| sprintf "String slice out of bounds. length: %i from: %i to: %i" a.Length b c
         | TyType(PrimT StringT) & a, TyType(PrimT Int64T) & b, TyType(PrimT Int64T) & c -> push_op d StringSlice [|a;b;c|] (PrimT StringT)
         | a,b,c -> raise_type_error d <| sprintf "Expected a string and two int64s as arguments to StringSlice.\nstring: %s\nfrom: %s\nto: %s" (show_typed_data a) (show_typed_data b) (show_typed_data c)
+    | Op(StringIndex, [|a;b|]) ->
+        match ev2 d a b with
+        | TyValue(LitString a), TyValue(LitInt64 b) ->
+            if int b >= 0 && int b < a.Length then a.[int b] |> LitChar |> TyValue
+            else raise_type_error d <| sprintf "String index out of bounds. length: %i index: %i" a.Length b
+        | TyType(PrimT StringT) & a, TyType(PrimT Int64T) & b -> push_op d StringIndex [|a;b|] (PrimT CharT)
+        | a,b -> raise_type_error d <| sprintf "Expected a string and an int64 as arguments to StringIndex.\nstring: %s\ni: %s" (show_typed_data a) (show_typed_data b)
     | Op(StringLength, [|a|]) ->
         match ev d a with
         | TyValue (LitString str) -> TyValue (LitInt64 (int64 str.Length))
