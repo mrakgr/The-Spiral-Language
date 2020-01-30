@@ -84,20 +84,21 @@ and TypedOp =
 /// Unlike v0.1 and previously, the functions can now have cycles so that needs to be taken care of during memoization.
 let data_to_rdata' call_data =
     let m = Dictionary(HashIdentity.Reference)
+    let m' = Dictionary(HashIdentity.Reference)
     let call_args = ResizeArray()
     let rec f x =
         match m.TryGetValue x with
         | true, v -> v
         | _ ->
-            let memo r = m.Add(x,TyR m.Count); r
+            let memo r = m'.Add(x,r); r
             match x with
             | TyPair(a,b) -> memo <| TyPair(f a, f b)
             | TyKeyword(a,b) -> memo <| TyKeyword(a, Array.map f b)
-            | TyFunction(a,b,c,d,e,z) -> m.Add(x,TyR m.Count); TyFunction(a,b,c,d,Array.map f e,z)
+            | TyFunction(a,b,c,d,e,z) -> m.Add(x,TyRR m.Count); TyFunction(a,b,c,d,Array.map f e,z)
             | TyRecord l -> memo <| TyRecord(Map.map (fun _ -> f) l)
-            | TyV(T(_,ty) as t) -> memo (call_args.Add t; TyV(T(call_args.Count-1, ty)))
+            | TyV(T(_,ty) as t) -> m.Add(x,TyRR m.Count); call_args.Add t; TyRV ty
             | TyValue _ | TyB -> x
-            | TyR _ -> failwith "Compiler error"
+            | TyRV _ | TyRR _ -> failwith "Compiler error: TyRV and TyVV should not appear here."
     let x = f call_data
     call_args.ToArray(),R x
 
@@ -107,20 +108,22 @@ let rdata_to_data' i (R call_data) =
     let m = Dictionary(HashIdentity.Structural)
     let r_args = ResizeArray()
     let rec f x =
-        let memo r = m.Add(m.Count,r); r
         match x with
-        | TyPair(a,b) -> memo <| TyPair(f a, f b)
-        | TyKeyword(a,b) -> memo <| TyKeyword(a, Array.map f b)
+        | TyPair(a,b) -> TyPair(f a, f b)
+        | TyKeyword(a,b) -> TyKeyword(a, Array.map f b)
         | TyFunction(a,b,c,d,e,z) -> 
             let e' = Array.zeroCreate<_> e.Length
             let r = TyFunction(a,b,c,d,e',z)
             m.Add(m.Count,r)
             Array.iteri (fun i x -> e'.[i] <- f x) e
             r
-        | TyRecord l -> memo <| TyRecord(Map.map (fun _ -> f) l)
-        | TyV(T(_,ty) as t) -> memo (r_args.Add t; let r = TyV(T(!i, ty)) in i := !i+1; r)
+        | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
+        | TyV _ -> failwith "Compiler error: TyV should not appear here."
         | TyValue _ | TyB -> x
-        | TyR x -> m.[x]
+        | TyRV ty -> 
+            let t = T(!i,ty) in r_args.Add t; i := !i+1
+            let r = TyV t in m.Add(m.Count,r); r
+        | TyRR x -> m.[x]
     let x = f call_data
     r_args.ToArray(),x
 
@@ -137,11 +140,28 @@ let data_free_vars call_data =
             | TyFunction(a,b,c,d,e,z) -> Array.iter f e
             | TyRecord l -> Map.iter (fun _ -> f) l
             | TyV(T(_,ty) as t) -> free_vars.Add t
-            | TyValue _ | TyB | TyR _ -> ()
+            | TyValue _ | TyB -> ()
+            | TyRV _ | TyRR _ -> failwith "Compiler error: TyRV and TyRR should not appear here."
     f call_data
     free_vars.ToArray()
 
-let rdata_free_vars (R x) = data_free_vars x
+let rdata_free_vars (R x) = 
+    let m = HashSet(HashIdentity.Reference)
+    let free_vars = ResizeArray()
+    let mutable i = 0
+    let rec f x =
+        if m.Add x then
+            match x with
+            | TyPair(a,b) -> f a; f b
+            | TyKeyword(a,b) -> Array.iter f b
+            | TyFunction(a,b,c,d,e,z) -> Array.iter f e
+            | TyRecord l -> Map.iter (fun _ -> f) l
+            | TyV(T(_,ty) as t) -> failwith "Compiler error: TyV should not appear here."
+            | TyRV ty -> free_vars.Add(T(i,ty)); i <- i+1
+            | TyValue _ | TyB | TyRR _ -> ()
+            
+    f x
+    free_vars.ToArray()
 
 let ty_to_data i x =
     let m = Dictionary(HashIdentity.Reference)
@@ -182,24 +202,26 @@ let value_to_primitive_type = function
 
 let value_to_ty x = value_to_primitive_type x |> PrimT
 
-let rdata_to_ty (R call_data) = // TODO: When R is hash-consed, do global memoization for this as a compile time optimization.
+let rdata_to_ty (R call_data) =
     let m = Dictionary(HashIdentity.Structural)
+    let m' = Dictionary(HashIdentity.Reference)
     let rec f x =
-        let memo r = m.Add(m.Count,r); r
+        let memo f = memoize m' f x
         match x with
-        | TyPair(a,b) -> memo <| PairT(f a, f b)
-        | TyKeyword(a,b) -> memo <| KeywordT(a, Array.map f b)
+        | TyPair(a,b) -> memo (fun _ -> PairT(f a, f b))
+        | TyKeyword(a,b) -> memo (fun _ -> KeywordT(a, Array.map f b))
         | TyFunction(a,b,c,d,e,z) ->
             let e' = Array.zeroCreate<_> e.Length
             let r = FunctionT(a,b,c,d,e',z)
             m.Add(m.Count,r)
             Array.iteri (fun i x -> e'.[i] <- f x) e
             r
-        | TyRecord l -> memo <| RecordT(Map.map (fun _ -> f) l)
-        | TyV(T(_,ty) as t) -> memo ty
+        | TyRecord l -> memo (fun _ -> RecordT(Map.map (fun _ -> f) l))
+        | TyV(T(_,ty) as t) -> failwith "Compiler error: TyV should not appear here."
         | TyValue x -> value_to_ty x
         | TyB -> BT
-        | TyR x -> m.[x]
+        | TyRV ty -> m.Add(m.Count,ty); ty
+        | TyRR x -> m.[x]
     f call_data
 
 let data_to_ty x =
@@ -215,7 +237,7 @@ let data_to_ty x =
         | TyV(T(_,ty) as t) -> ty
         | TyValue x -> value_to_ty x
         | TyB -> BT
-        | TyR _ -> failwith "Compiler error"
+        | TyRV _ | TyRR _ -> failwith "Compiler error: TyRV and TyRR should not appear here."
     f x
 
 type LangEnv = {
