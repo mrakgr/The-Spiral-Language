@@ -20,12 +20,10 @@ type Op =
     | Macro
     | MacroExtern
 
-    // Layout
-    | LayoutToNone
-    | LayoutToStack
-    | LayoutToHeap
-    | LayoutToHeapMutable
-    | LayoutRecordGet
+    // Reified join points
+    | RJPToNone
+    | RJPToStack
+    | RJPToHeap
 
     // Type
     | TypeAnnot
@@ -79,16 +77,13 @@ type Op =
 
     // Array
     | ArrayCreateDotNet
-    | ReferenceCreate
     | ArrayLength
 
     // Getters
     | GetArray
-    | GetReference
 
     // Setters
     | SetArray
-    | SetReference
    
     // Static unary operations
     | PrintStatic
@@ -98,6 +93,9 @@ type Op =
     | Dynamize
     | IsLit
     | IsPrim
+    | IsRJP
+    | IsKeyword
+    | StripKeyword
 
     // UnOps
     | Neg
@@ -111,7 +109,8 @@ type Op =
     | IsNan
 
     // Infinity
-    | Infinity
+    | InfinityF64
+    | InfinityF32
 
 type PrimitiveType =
     | UInt8T
@@ -155,7 +154,7 @@ and Pattern =
     | PatUnion of KeywordString * Pattern list
     | PatOr of Pattern list
     | PatAnd of Pattern list
-    | PatValue of Value
+    | PatValue of Literal
     | PatDefaultValue of VarString
     | PatWhen of Pattern * RawExpr
     | PatPos of Pos<Pattern>
@@ -163,7 +162,7 @@ and Pattern =
 and RawExpr =
     | RawB
     | RawV of VarString
-    | RawValue of Value
+    | RawLit of Literal
     | RawInline of RawExpr // Acts as a join point for the prepass specifically.
     | RawType of RawTExpr
     | RawInl of VarString * RawExpr
@@ -182,7 +181,7 @@ and RawExpr =
     | RawKeywordTest of KeywordString * vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawRecordTest of RawRecordTestPattern [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawAnnotTest of do_boxing : bool * RawTExpr * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
-    | RawValueTest of Value * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
+    | RawValueTest of Literal * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawDefaultValueTest of string * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawUnionTest of name: KeywordString * vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawUnitTest of bind: VarString * on_succ: RawExpr * on_fail: RawExpr
@@ -374,8 +373,8 @@ let eq x y = binop EQ x y
 let ap x y = binop Apply x y
 let rec ap' f l = Array.fold ap f l
 
-let value' x = RawValue x
-let lit_string x = RawValue(LitString x)
+let value' x = RawLit x
+let lit_string x = RawLit(LitString x)
 let def_value' x = ap (v "default_value") (lit_string x)
 
 let type_annot' a = function

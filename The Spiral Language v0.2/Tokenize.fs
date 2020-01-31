@@ -48,7 +48,7 @@ type TokenSpecial =
     | SpecBracketCurlyClose
     | SpecBracketSquareClose
 
-type Value = 
+type Literal = 
     | LitUInt8 of uint8
     | LitUInt16 of uint16
     | LitUInt32 of uint32
@@ -68,7 +68,7 @@ type SpiralToken =
     | TokBigVar of TokenPosition * string
     | TokKeyword of TokenPosition * string
     | TokKeywordUnary of TokenPosition * string
-    | TokValue of TokenPosition * Value
+    | TokValue of TokenPosition * Literal
     | TokDefaultValue of TokenPosition * string
     | TokOperator of TokenPosition * string
     | TokUnaryOperator of TokenPosition * string

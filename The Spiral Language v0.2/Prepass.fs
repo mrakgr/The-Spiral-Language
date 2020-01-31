@@ -16,7 +16,7 @@ type ExprData = {type' : Data; value : Data}
 type [<ReferenceEquality>] Expr =
     | B
     | V of VarTag
-    | Value of Tokenize.Value
+    | Lit of Tokenize.Literal
     | Type of TExpr
     | Inline of Expr * ExprData // Acts as a join point for the prepass specifically.
     | Inl of Expr * ExprData
@@ -35,7 +35,7 @@ type [<ReferenceEquality>] Expr =
     | KeywordTest of KeywordTag * bind: VarTag * on_succ: Expr * on_fail: Expr
     | RecordTest of RecordTestPattern [] * bind: VarTag * on_succ: Expr * on_fail: Expr
     | AnnotTest of do_boxing : bool * TExpr * bind: VarTag * on_succ: Expr * on_fail: Expr
-    | ValueTest of Tokenize.Value * bind: VarTag * on_succ: Expr * on_fail: Expr
+    | LitTest of Tokenize.Literal * bind: VarTag * on_succ: Expr * on_fail: Expr
     | UnionTest of name: KeywordTag * vars: int * bind: VarTag * on_succ: Expr * on_fail: Expr
     | UnitTest of bind: VarTag * on_succ: Expr * on_fail: Expr
     | Pos of Pos<Expr>
@@ -156,7 +156,7 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
         match x with
         | RawB -> B
         | RawV x -> v x
-        | RawValue x -> Value x
+        | RawLit x -> Lit x
         | RawInline e ->
             let e,env' =
                 memoize dict_rawinline (fun _ ->
@@ -214,9 +214,9 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
             RecordTest(a,v' b,prepass_value env on_succ,prepass_value env on_fail)
         | RawAnnotTest (true,b,c,on_succ,on_fail) -> AnnotTest(true,prepass_type (value_add_local c env) b,v' c,prepass_value env on_succ,prepass_value env on_fail)
         | RawAnnotTest (false,b,c,on_succ,on_fail) -> AnnotTest(false,prepass_type env b,v' c,prepass_value env on_succ,prepass_value env on_fail)
-        | RawValueTest (a,b,on_succ,on_fail) -> ValueTest(a,v' b,prepass_value env on_succ,prepass_value env on_fail)
+        | RawValueTest (a,b,on_succ,on_fail) -> LitTest(a,v' b,prepass_value env on_succ,prepass_value env on_fail)
         | RawDefaultValueTest (a,b,on_succ,on_fail) -> 
-            let on_succ x = ValueTest(x,v' b,prepass_value env on_succ,prepass_value env on_fail)
+            let on_succ x = LitTest(x,v' b,prepass_value env on_succ,prepass_value env on_fail)
             match System.Int64.TryParse(a) with
             | true,x -> on_succ (Tokenize.LitInt64 x)
             | false,_ ->
