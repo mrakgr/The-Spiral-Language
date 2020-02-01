@@ -187,7 +187,7 @@ let ty_to_data i x =
         | TypeFunctionT _ -> failwith "Compiler error: Cannot turn a type function to a runtime variable."
     f x
 
-let value_to_primitive_type = function
+let lit_to_primitive_type = function
     | LitUInt8 _ -> UInt8T
     | LitUInt16 _ -> UInt16T
     | LitUInt32 _ -> UInt32T
@@ -202,7 +202,7 @@ let value_to_primitive_type = function
     | LitString _ -> StringT
     | LitChar _ -> CharT
 
-let value_to_ty x = value_to_primitive_type x |> PrimT
+let lit_to_ty x = lit_to_primitive_type x |> PrimT
 
 let rdata_to_ty (R call_data) =
     let m = Dictionary(HashIdentity.Structural)
@@ -220,7 +220,7 @@ let rdata_to_ty (R call_data) =
             r
         | TyRecord l -> memo (fun _ -> RecordT(Map.map (fun _ -> f) l))
         | TyV(T(_,ty) as t) -> failwith "Compiler error: TyV should not appear here."
-        | TyLit x -> value_to_ty x
+        | TyLit x -> lit_to_ty x
         | TyB -> BT
         | TyRV ty -> m.Add(m.Count,ty); ty
         | TyRR x -> m.[x]
@@ -237,7 +237,7 @@ let data_to_ty x =
         | TyFunction(a,b,c,d,e,z) -> memoize_rec e (fun e' -> FunctionT(a,b,c,d,e',z)) f
         | TyRecord l -> memoize (fun _ -> RecordT(Map.map (fun _ -> f) l))
         | TyV(T(_,ty) as t) -> ty
-        | TyLit x -> value_to_ty x
+        | TyLit x -> lit_to_ty x
         | TyB -> BT
         | TyRV _ | TyRR _ -> failwith "Compiler error: TyRV and TyRR should not appear here."
     f x
@@ -637,7 +637,7 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
                         | None -> fail a b
                         ) l)
             else fail a b
-        | TyLit x, PrimT x' -> if value_to_primitive_type x = x' then push_op_no_rewrite d Dynamize a b else fail a b
+        | TyLit x, PrimT x' -> if lit_to_primitive_type x = x' then push_op_no_rewrite d Dynamize a b else fail a b
         | TyV(T(_,x)), x' -> if x = x' then a else fail a b
         | (TyRV _ | TyRR _), _ -> raise_type_error d "Compiler error: TyRV and TyRR should not be here."
         | a,b -> fail a b
@@ -762,7 +762,10 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
             | _ -> failwith "impossible"
             )
         ev d on_succ
-    | LitTest(a,b,on_succ,on_fail) -> if_ (eq d (TyLit a) (v b)) on_succ on_fail
+    | LitTest(a,b,on_succ,on_fail) -> 
+        let b = v b
+        if lit_to_ty a = data_to_ty b then if_ (eq d (TyLit a) b) on_succ on_fail
+        else ev d on_fail
     | PairTest(x,on_succ,on_fail) ->
         match v x with
         | TyPair(a,b) -> ev (push_value_var a d |> push_value_var b) on_succ
@@ -895,7 +898,7 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
             | TyFunction(a,b,c,d,e,z) as x -> memoize_rec m e (fun e -> TyFunction(a,b,c,d,e,z)) f x
             | TyRecord l -> Map.map (fun _ -> f) l |> TyRecord
             | TyV _ as x -> x
-            | TyLit v as x -> push_op_no_rewrite d Dynamize x (value_to_ty v)
+            | TyLit v as x -> push_op_no_rewrite d Dynamize x (lit_to_ty v)
             | TyRV _ | TyRR _ -> raise_type_error d "Compiler error: TyRs should not appear here."
             
         f (ev d a)
