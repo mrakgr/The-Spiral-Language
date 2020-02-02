@@ -29,6 +29,7 @@ type ParserErrors =
     | ConstraintNotAllowed
     | InmCannotBeGlobal
     | InbCannotBeGlobal
+    | RecNotAllowedLocally
 
 type SpiralModule =
     {

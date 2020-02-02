@@ -509,8 +509,11 @@ let statements is_global expr (d: ParserEnv) =
                 
         match d.SkipSpecial SpecRec with
         | Ok _ -> 
-            let name_pats_body d = name_pats_body (fun _ d -> d.FailWith ExpectedFunction) d
-            (name_pats_body .>>. (many (if_ (and' >>. name_pats_body))) >>= handle_inl_rec_block) d
+            if is_global then
+                let name_pats_body d = name_pats_body (fun _ d -> d.FailWith ExpectedFunction) d
+                (name_pats_body .>>. (many (if_ (and' >>. name_pats_body))) >>= handle_inl_rec_block) d
+            else 
+                d.Skip'(-1); d.FailWith RecNotAllowedLocally
         | Error _ ->
             let name_pats_body d = name_pats_body (fun x _ -> Ok x) d
             (name_pats_body |>> handle_inl_statement) d
@@ -795,6 +798,7 @@ let show_parser_error = function
     | ConstraintNotAllowed -> sprintf "=> not allowed in the top-down phase."
     | InmCannotBeGlobal -> "inm statements cannot be global"
     | InbCannotBeGlobal -> "inb statements cannot be global"
+    | RecNotAllowedLocally -> "Recursive functions and blocks must be global."
     
 let is_expected = function
     | StatementLastInBlock | InvalidSemicolon | InbuiltOpNotFound _

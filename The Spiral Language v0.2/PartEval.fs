@@ -50,14 +50,18 @@ and Data =
     | TyFunction of Expr * StackSize * Ty [] * StackSize * Data [] * is_forall : bool
     | TyRecord of Map<KeywordTag, Data>
     | TyLit of Literal
-    
     | TyV of TyV
 
-    // For use in join points, layout types and macros
-    | TyRV of Ty
-    | TyRR of int 
+and RData = 
+    | RTyB
+    | RTyPair of ConsedNode<RData * RData>
+    | RTyKeyword of ConsedNode<KeywordTag * RData []>
+    | RTyFunction of ConsedNode<Expr * StackSize * Ty [] * StackSize * RData [] * bool>
+    | RTyRecord of ConsedNode<Map<KeywordTag, RData>>
+    | RTyLit of Literal
+    | RTyV of ConsedNode<Tag * Ty>
+
 and TyV = T<Tag,Ty>
-and RData = ConsedNode<Data>
 
 let lit_is = function
     | TyLit _ -> true
@@ -65,8 +69,8 @@ let lit_is = function
 
 type Trace = ParserCombinators.PosKey list
 type JoinPoint = 
-    | JPMethod of Expr * ConsedNode<Data [] * Ty []> * TyV []
-    | JPClosure of Expr * ConsedNode<Data [] * Ty [] * Ty [] list> * TyV [] list
+    | JPMethod of Expr * ConsedNode<RData [] * Ty []> * TyV []
+    | JPClosure of Expr * ConsedNode<RData [] * Ty [] * Ty [] list> * TyV [] list
 
 type TypedBind =
     | TyLet of Data * Trace * TypedOp
@@ -81,51 +85,40 @@ and TypedOp =
     | TyJoinPoint of JoinPoint
     | TySetMutableRecord of Data * TyV [] * TyV []
 
-/// Unlike v0.1 and previously, the functions can now have cycles so that needs to be taken care of during memoization.
-let data_to_rdata'' call_data =
+let data_to_rdata'' (hc : HashConsTable) call_data =
+    let hc x = hc.Add x
     let m = Dictionary(HashIdentity.Reference)
-    let m' = Dictionary(HashIdentity.Reference)
     let call_args = ResizeArray()
     let rec f x =
-        match m.TryGetValue x with
-        | true, v -> v
-        | _ ->
-            let memo r = m'.Add(x,r); r
-            match x with
-            | TyPair(a,b) -> memo <| TyPair(f a, f b)
-            | TyKeyword(a,b) -> memo <| TyKeyword(a, Array.map f b)
-            | TyFunction(a,b,c,d,e,z) -> m.Add(x,TyRR m.Count); TyFunction(a,b,c,d,Array.map f e,z)
-            | TyRecord l -> memo <| TyRecord(Map.map (fun _ -> f) l)
-            | TyV(T(_,ty) as t) -> m.Add(x,TyRR m.Count); call_args.Add t; TyRV ty
-            | TyLit _ | TyB -> x
-            | TyRV _ | TyRR _ -> failwith "Compiler error: TyRV and TyVV should not appear here."
+        memoize m (function
+            | TyPair(a,b) -> RTyPair(hc(f a, f b))
+            | TyKeyword(a,b) -> RTyKeyword(hc (a, Array.map f b))
+            | TyFunction(a,b,c,d,e,z) -> RTyFunction(hc(a,b,c,d,Array.map f e,z))
+            | TyRecord l -> RTyRecord(hc(Map.map (fun _ -> f) l))
+            | TyV(T(v,ty) as t) -> call_args.Add t; RTyV(hc (v,ty))
+            | TyLit v -> RTyLit v
+            | TyB -> RTyB
+        ) x
     let x = Array.map f call_data
     call_args.ToArray(),x
 
-let data_to_rdata' (dict : HashConsTable) call_data = let a,b = data_to_rdata'' [|call_data|] in a,dict.Add b.[0]
-let data_to_rdata dict call_data = data_to_rdata' dict call_data |> snd // TODO: Specialize this.
+let data_to_rdata' (hc : HashConsTable) call_data = let a,b = data_to_rdata'' hc [|call_data|] in a,b.[0]
+let data_to_rdata hc call_data = data_to_rdata' hc call_data |> snd // TODO: Specialize this.
 let (|R|) (x : ConsedNode<'a>) = x.node
 
-let rdata_to_data' i (R call_data) =
-    let m = Dictionary(HashIdentity.Structural)
+let rdata_to_data' i call_data =
+    let m = Dictionary(HashIdentity.Reference)
     let r_args = ResizeArray()
     let rec f x =
-        match x with
-        | TyPair(a,b) -> TyPair(f a, f b)
-        | TyKeyword(a,b) -> TyKeyword(a, Array.map f b)
-        | TyFunction(a,b,c,d,e,z) -> 
-            let e' = Array.zeroCreate<_> e.Length
-            let r = TyFunction(a,b,c,d,e',z)
-            m.Add(m.Count,r)
-            Array.iteri (fun i x -> e'.[i] <- f x) e
-            r
-        | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
-        | TyV _ -> failwith "Compiler error: TyV should not appear here."
-        | TyLit _ | TyB -> x
-        | TyRV ty -> 
-            let t = T(!i,ty) in r_args.Add t; i := !i+1
-            let r = TyV t in m.Add(m.Count,r); r
-        | TyRR x -> m.[x]
+        memoize m (function
+            | RTyPair(R(a,b)) -> TyPair(f a, f b)
+            | RTyKeyword(R(a,b)) -> TyKeyword(a, Array.map f b)
+            | RTyFunction(R(a,b,c,d,e,z)) -> TyFunction(a,b,c,d,Array.map f e,z)
+            | RTyRecord(R l) -> TyRecord(Map.map (fun _ -> f) l)
+            | RTyV(R(v,ty)) -> r_args.Add(v,ty); let r = TyV(T(!i,ty)) in i := !i+1; r
+            | RTyLit v -> TyLit v
+            | RTyB -> TyB
+            ) x
     let x = f call_data
     r_args.ToArray(),x
 
@@ -143,45 +136,31 @@ let data_free_vars call_data =
             | TyRecord l -> Map.iter (fun _ -> f) l
             | TyV(T(_,ty) as t) -> free_vars.Add t
             | TyLit _ | TyB -> ()
-            | TyRV _ | TyRR _ -> failwith "Compiler error: TyRV and TyRR should not appear here."
     f call_data
     free_vars.ToArray()
 
-let rdata_free_vars (R x) = 
+let rdata_free_vars x = 
     let m = HashSet(HashIdentity.Reference)
     let free_vars = ResizeArray()
-    let mutable i = 0
     let rec f x =
         if m.Add x then
             match x with
-            | TyPair(a,b) -> f a; f b
-            | TyKeyword(a,b) -> Array.iter f b
-            | TyFunction(a,b,c,d,e,z) -> Array.iter f e
-            | TyRecord l -> Map.iter (fun _ -> f) l
-            | TyV(T(_,ty) as t) -> failwith "Compiler error: TyV should not appear here."
-            | TyRV ty -> free_vars.Add(T(i,ty)); i <- i+1
-            | TyLit _ | TyB | TyRR _ -> ()
+            | RTyPair(R(a,b)) -> f a; f b
+            | RTyKeyword(R(a,b)) -> Array.iter f b
+            | RTyFunction(R(a,b,c,d,e,z)) -> Array.iter f e
+            | RTyRecord(R l) -> Map.iter (fun _ -> f) l
+            | RTyV(R(v,ty)) -> free_vars.Add(v,ty)
+            | RTyLit _ | RTyB -> ()
             
     f x
     free_vars.ToArray()
 
 let ty_to_data i x =
-    let m = Dictionary(HashIdentity.Reference)
-    let rec f x = 
-        match x with
+    let rec f = function
         | BT -> TyB
         | PairT(a,b) -> TyPair(f a, f b) 
         | KeywordT(a,b) -> TyKeyword(a,Array.map f b)
-        | FunctionT(a,b,c,d,e,z) -> 
-            match m.TryGetValue x with
-            | true, v -> v
-            | _ ->
-                let e' = Array.zeroCreate e.Length
-                let r = TyFunction(a,b,c,d,e',z)
-                m.Add(x,r)
-                Array.iteri (fun i x -> e'.[i] <- f x) e
-                m.Remove(x) |> ignore // Non-nested mapping should not share vars
-                r
+        | FunctionT(a,b,c,d,e,z) -> TyFunction(a,b,c,d,Array.map f e,z)
         | RecordT l -> TyRecord(Map.map (fun k -> f) l)
         | PrimT _ | RJPT _ | ArrayT _ | RuntimeFunctionT _ | MacroT _ -> let r = TyV(T(!i,x)) in i := !i+1; r
         | TypeFunctionT _ -> failwith "Compiler error: Cannot turn a type function to a runtime variable."
@@ -204,42 +183,32 @@ let lit_to_primitive_type = function
 
 let lit_to_ty x = lit_to_primitive_type x |> PrimT
 
-let rdata_to_ty (R call_data) =
-    let m = Dictionary(HashIdentity.Structural)
-    let m' = Dictionary(HashIdentity.Reference)
+let rdata_to_ty call_data =
+    let m = Dictionary(HashIdentity.Reference)
     let rec f x =
-        let memo f = memoize m' f x
-        match x with
-        | TyPair(a,b) -> memo (fun _ -> PairT(f a, f b))
-        | TyKeyword(a,b) -> memo (fun _ -> KeywordT(a, Array.map f b))
-        | TyFunction(a,b,c,d,e,z) ->
-            let e' = Array.zeroCreate<_> e.Length
-            let r = FunctionT(a,b,c,d,e',z)
-            m.Add(m.Count,r)
-            Array.iteri (fun i x -> e'.[i] <- f x) e
-            r
-        | TyRecord l -> memo (fun _ -> RecordT(Map.map (fun _ -> f) l))
-        | TyV(T(_,ty) as t) -> failwith "Compiler error: TyV should not appear here."
-        | TyLit x -> lit_to_ty x
-        | TyB -> BT
-        | TyRV ty -> m.Add(m.Count,ty); ty
-        | TyRR x -> m.[x]
+        memoize m (function
+            | RTyPair(R(a,b)) -> PairT(f a, f b)
+            | RTyKeyword(R(a,b)) -> KeywordT(a, Array.map f b)
+            | RTyFunction(R(a,b,c,d,e,z)) -> FunctionT(a,b,c,d,Array.map f e,z)
+            | RTyRecord(R l) -> RecordT(Map.map (fun _ -> f) l)
+            | RTyV(R(v,ty)) -> ty
+            | RTyLit x -> lit_to_ty x
+            | RTyB -> BT
+            ) x
     f call_data
 
 let data_to_ty x =
     let m = Dictionary(HashIdentity.Reference)
     let rec f x =
-        let memoize f = memoize m f x
-        let memoize_rec e ret f = memoize_rec m e ret f x
-        match x with
-        | TyPair(a,b) -> memoize (fun _ -> PairT(f a, f b))
-        | TyKeyword(a,b) -> memoize (fun _ -> KeywordT(a, Array.map f b))
-        | TyFunction(a,b,c,d,e,z) -> memoize_rec e (fun e' -> FunctionT(a,b,c,d,e',z)) f
-        | TyRecord l -> memoize (fun _ -> RecordT(Map.map (fun _ -> f) l))
-        | TyV(T(_,ty) as t) -> ty
-        | TyLit x -> lit_to_ty x
-        | TyB -> BT
-        | TyRV _ | TyRR _ -> failwith "Compiler error: TyRV and TyRR should not appear here."
+        memoize m (function
+            | TyPair(a,b) -> PairT(f a, f b)
+            | TyKeyword(a,b) -> KeywordT(a, Array.map f b)
+            | TyFunction(a,b,c,d,e,z) -> FunctionT(a,b,c,d,Array.map f e,z)
+            | TyRecord l -> RecordT(Map.map (fun _ -> f) l)
+            | TyV(T(_,ty) as t) -> ty
+            | TyLit x -> lit_to_ty x
+            | TyB -> BT
+            ) x
     f x
 
 let (|TyType|) x = data_to_ty x
@@ -247,7 +216,7 @@ let (|TyType|) x = data_to_ty x
 type ExternalLangEnv = {
     keywords : KeywordEnv
     hc_table : HashConsTable
-    join_point_method : Dictionary<Expr,Dictionary<ConsedNode<Data [] * Ty []>, (TyV [] * TypedBind [] * Ty) option>>
+    join_point_method : Dictionary<Expr,Dictionary<ConsedNode<RData [] * Ty []>, (TyV [] * TypedBind [] * Ty) option>>
     memoized_modules : Dictionary<Map<KeywordTag,Expr>,Data>
     }
 
@@ -404,23 +373,22 @@ let rec show_ty (keywords: KeywordEnv) x =
     | FunctionT(_,_,_,_,_,false) -> "<function>"
     | FunctionT(_,_,_,_,_,true) -> "<forall>"
     | TypeFunctionT(_,_,_) -> "<type function>" // TODO: Do proper printing for this case.
-    | RJPT (layout_type,R body) -> sprintf "%s (%s)" (show_layout_type layout_type) (show_typed_data keywords body)
+    | RJPT (layout_type,body) -> sprintf "%s (%s)" (show_layout_type layout_type) (show_typed_data keywords (rdata_to_data (ref 0) body))
     | RuntimeFunctionT (a,b) -> sprintf "(%s -> %s)" (f a) (f b)
     | ArrayT x -> sprintf "array %s" (f x)
-    | MacroT (R x) -> show_typed_data keywords x |> sprintf "macro (%s)"
+    | MacroT x -> show_typed_data keywords (rdata_to_data (ref 0) x) |> sprintf "macro (%s)"
 
-and show_typed_data (keywords: KeywordEnv) x =
+and show_typed_data (keywords: KeywordEnv) (x: Data) =
     let f x = show_typed_data keywords x
     match x with
     | TyB -> "()"
-    | TyRV t | TyV(T(_,t)) -> sprintf "var (%s)" (show_ty keywords t)
+    | TyV(T(_,t)) -> sprintf "var (%s)" (show_ty keywords t)
     | TyKeyword(keyword,l) -> show_keyword keywords f (keyword,l)
     | TyPair(a,b) -> sprintf "(%s, %s)" (f a) (f b)
     | TyRecord a -> show_map keywords f a
     | TyFunction(_,_,_,_,_,false) -> "<function>"
     | TyFunction(_,_,_,_,_,true) -> "<forall>"
     | TyLit v -> sprintf "lit %s" (show_value v)
-    | TyRR i -> sprintf "<%i>" i
 
 let is_numeric = function
     | PrimT (UInt8T | UInt16T | UInt32T | UInt64T 
@@ -639,7 +607,6 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
             else fail a b
         | TyLit x, PrimT x' -> if lit_to_primitive_type x = x' then push_op_no_rewrite d Dynamize a b else fail a b
         | TyV(T(_,x)), x' -> if x = x' then a else fail a b
-        | (TyRV _ | TyRR _), _ -> raise_type_error d "Compiler error: TyRV and TyRR should not be here."
         | a,b -> fail a b
 
     let function' is_forall on_succ (data : ExprData) = 
@@ -853,7 +820,7 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
         if ta = tb then a else raise_type_error d <| sprintf "Type annotation mismatch.\nReturn type: %s\nAnnotation : %s\n" (show_ty ta) (show_ty tb)
     | JoinPoint(ret_ty',body) ->
         // Note: All the join points must be wrapped in an Inline so that their local environments are empty and all used free vars are in the globals.
-        let call_args, env_global_value = data_to_rdata'' d.env_global_value
+        let call_args, env_global_value = data_to_rdata'' dex.hc_table d.env_global_value
         let join_point_key = dex.hc_table.Add(env_global_value, d.env_global_type)
            
         let ret_ty = 
@@ -890,16 +857,14 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
             | _ -> raise_type_error d <| sprintf "The conditional of the while loop must be of type bool.\nGot: %s" (show_ty ty)
         | _ -> raise_type_error d "Compiler error: The body of the conditional of the while loop must be a solitary join point."
     | Op(Dynamize,[|a|]) ->
-        let m = Dictionary(HashIdentity.Reference)
         let rec f = function
             | TyB as x -> x
             | TyPair(a,b) -> TyPair(f a, f b)
             | TyKeyword(a,b) -> (a,Array.map f b) |> TyKeyword
-            | TyFunction(a,b,c,d,e,z) as x -> memoize_rec m e (fun e -> TyFunction(a,b,c,d,e,z)) f x
+            | TyFunction(a,b,c,d,e,z) -> TyFunction(a,b,c,d,Array.map f e,z)
             | TyRecord l -> Map.map (fun _ -> f) l |> TyRecord
             | TyV _ as x -> x
             | TyLit v as x -> push_op_no_rewrite d Dynamize x (lit_to_ty v)
-            | TyRV _ | TyRR _ -> raise_type_error d "Compiler error: TyRs should not appear here."
             
         f (ev d a)
     | Op(StringSlice, [|a;b;c|]) ->

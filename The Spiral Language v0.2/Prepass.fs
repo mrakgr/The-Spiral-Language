@@ -196,7 +196,7 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
         //| RawTypedOp (a,b,c) -> TypedOp(prepass_type env a, b, Array.map (prepass_value env) c)
         | RawTypecase (a,b) -> Typecase(prepass_type env a, Array.map (fun (a,b) -> prepass_type env a, prepass_value env b) b)
         | RawModuleOpen (a,b,on_succ) -> prepass_value {env with value = {env.value with global'=module_open env.value.global' a b}} on_succ
-        | RawRecBlock (a,on_succ) -> failwith "Compiler error: Recursive functions and blocks are only allowed at the top level."
+        | RawRecBlock _ -> failwith "Compiler error: Recursive functions and blocks are only allowed at the top level."
         | RawPairTest (a,b,c,on_succ,on_fail) ->
             let env = env |> value_add_local a |> value_add_local b
             PairTest(v' c,prepass_value env on_succ,prepass_value env on_fail) // Note: For all the tests, it should be impossible to pass the globals into them.
