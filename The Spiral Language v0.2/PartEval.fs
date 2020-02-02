@@ -68,9 +68,11 @@ let lit_is = function
     | _ -> false
 
 type Trace = ParserCombinators.PosKey list
-type JoinPoint = 
-    | JPMethod of Expr * ConsedNode<RData [] * Ty []> * TyV []
-    | JPClosure of Expr * ConsedNode<RData [] * Ty [] * Ty [] list> * TyV [] list
+type JoinPointKey = 
+    | JPMethod of Expr * ConsedNode<RData [] * Ty []>
+    | JPClosure of Expr * ConsedNode<RData [] * Ty [] * Ty [] list>
+
+type JoinPointCall = JoinPointKey * TyV []
 
 type TypedBind =
     | TyLet of Data * Trace * TypedOp
@@ -80,10 +82,8 @@ type TypedBind =
 and TypedOp = 
     | TyOp of Op * Data []
     | TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
-    | TyWhile of cond: JoinPoint * TypedBind []
-    | TyCase of Data * (Data * TypedBind []) []
-    | TyJoinPoint of JoinPoint
-    | TySetMutableRecord of Data * TyV [] * TyV []
+    | TyWhile of cond: JoinPointCall * TypedBind []
+    | TyJoinPoint of JoinPointCall
 
 let data_to_rdata'' (hc : HashConsTable) call_data =
     let hc x = hc.Add x
@@ -216,6 +216,7 @@ let (|TyType|) x = data_to_ty x
 type ExternalLangEnv = {
     keywords : KeywordEnv
     hc_table : HashConsTable
+    // TODO: Replace these dicts with weak tables.
     join_point_method : Dictionary<Expr,Dictionary<ConsedNode<RData [] * Ty []>, (TyV [] * TypedBind [] * Ty) option>>
     memoized_modules : Dictionary<Map<KeywordTag,Expr>,Data>
     }
@@ -840,7 +841,7 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
                 | None -> raise_type_error d <| sprintf "The recursive join point requires an annotation."
             | true, Some (_,_,x) -> x
 
-        push_typedop d (TyJoinPoint(JPMethod(body,join_point_key,call_args))) ret_ty
+        push_typedop d (TyJoinPoint(JPMethod(body,join_point_key),call_args)) ret_ty
     | Op(Apply,[|a;b|]) -> apply d a b
     | Op(RJPToStack,[|a|]) -> rjp_to_some RJPStack dex.hc_table d (ev d a)
     | Op(RJPToHeap,[|a|]) -> rjp_to_some RJPHeap dex.hc_table d (ev d a)
@@ -1468,3 +1469,37 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
     | Op(InfinityF32,[||]) -> TyLit (LitFloat32 infinityf)
     | Op(op,_) -> raise_type_error d <| sprintf "Compiler error: %A not implemented" op
 
+let type_is_unit e =
+    let rec f = function
+        | MacroT _ | RuntimeFunctionT _ | PrimT _ -> false
+        | ArrayT t -> f t
+        | RecordT t -> Map.forall (fun _ -> f) t
+        | KeywordT(_,l) | FunctionT(_,_,_,_,l,_) -> Array.forall f l
+        | RJPT (_, x) -> (rdata_free_vars x).Length = 0 // TODO: Optimize this.
+        | PairT(a,b) -> f a && f b
+        | BT | TypeFunctionT _ -> true
+    f e
+
+let type_non_units x =
+    let args = ResizeArray(64)
+    let rec f = function
+        | PairT(a,b) -> f a; f b
+        | KeywordT(_,l) | FunctionT(_,_,_,_,l,_) -> Array.iter f l
+        | RecordT l -> Map.iter (fun _ -> f) l
+        | x -> if type_is_unit x = false then args.Add x
+    f x
+    args.ToArray()
+
+let data_term_vars call_data =
+    let call_args = ResizeArray(64)
+    let rec f = function
+        | TyPair(a,b) -> f a; f b
+        | TyKeyword(a,b) -> Array.iter f b
+        | TyFunction(a,b,c,d,e,z) -> Array.iter f e
+        | TyRecord l -> Map.iter (fun _ -> f) l
+        | TyLit _ | TyV _ as x -> call_args.Add x
+        | TyB -> ()
+    f call_data
+    call_args.ToArray()
+
+let typed_data_is_unit a = data_to_ty a |> type_is_unit

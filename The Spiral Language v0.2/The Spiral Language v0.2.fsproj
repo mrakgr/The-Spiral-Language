@@ -15,6 +15,7 @@
     <Compile Include="Parsing.fs" />
     <Compile Include="Prepass.fs" />
     <Compile Include="PartEval.fs" />
+    <Compile Include="CodegenFsharp.fs" />
   </ItemGroup>
 
   <ItemGroup>
