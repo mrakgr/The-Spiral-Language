@@ -9,7 +9,7 @@ open Spiral.Parsing
 open Spiral.Prepass
 open Spiral.PartEval
 
-type [<CustomEquality>] H<'a when 'a: equality>(x : 'a) = 
+type H<'a when 'a: equality>(x : 'a) = 
     let h = hash x
 
     member _.Item = x
@@ -91,47 +91,49 @@ let lit d = function
         |> sprintf "'%s'"
     | LitBool x -> if x then "true" else "false"
 
-let rec type_ (d: CodegenEnv) x = 
-    let inline f x = type_ d x
-    match x with
-    | PairT _ | KeywordT _ | FunctionT _ | RecordT _ as x -> 
-        match type_non_units x with
+let rec type' (d: CodegenEnv) x = 
+    let inline f x = type' d x
+    ty_vars x
+    |> Array.map (function
+        | ArrayT t -> sprintf "(%s [])" (f t)
+        | RuntimeFunctionT(a,b) -> sprintf "(%s -> %s)" (f a) (f b)
+        | PrimT x ->
+            match x with
+            | Int8T -> "int8"
+            | Int16T -> "int16"
+            | Int32T -> "int32"
+            | Int64T -> "int64"
+            | UInt8T -> "uint8"
+            | UInt16T -> "uint16"
+            | UInt32T -> "uint32"
+            | UInt64T -> "uint64"
+            | Float32T -> "float32"
+            | Float64T -> "float"
+            | BoolT -> "bool"
+            | StringT -> "string"
+            | CharT -> "char"
+        | MacroT x -> failwith "Compiler error: Macros not implemented yet." // TODO
+        | RJPT _ & ty -> d.types.Tag ty |> sprintf "SpiralType%i"
+        | ty -> raise_codegen_error <| sprintf "Compiler error: %s not supported in type_" (show_ty d.keywords ty)
+        )
+    |> function
         | [||] -> "unit"
-        | x -> Array.map f x |> String.concat " * "
-    | ArrayT t -> sprintf "(%s [])" (f t)
-    | RuntimeFunctionT(a,b) -> sprintf "(%s -> %s)" (f a) (f b)
-    | PrimT x ->
-        match x with
-        | Int8T -> "int8"
-        | Int16T -> "int16"
-        | Int32T -> "int32"
-        | Int64T -> "int64"
-        | UInt8T -> "uint8"
-        | UInt16T -> "uint16"
-        | UInt32T -> "uint32"
-        | UInt64T -> "uint64"
-        | Float32T -> "float32"
-        | Float64T -> "float"
-        | BoolT -> "bool"
-        | StringT -> "string"
-        | CharT -> "char"
-    | MacroT x -> failwith "Compiler error: Macros not implemented yet." // TODO
-    | ty -> d.types.Tag ty |> sprintf "SpiralType%i"
+        | x -> String.concat " * " x
 
-let tytag d (T(tag,ty)) = sprintf "(var_%i : %s)" (uint32 tag) (type_ d ty)
+let tytag d (T(tag,ty)) = sprintf "(var_%i : %s)" (uint32 tag) (type' d ty)
 let tytag' d (T(tag,ty)) = sprintf "var_%i" (uint32 tag)
 let tytags_semicolon d x = Array.map (tytag' d) x |> String.concat "; "
 let tytags_comma' d x = Array.map (tytag' d) x |> String.concat ", " |> sprintf "(%s)"
 let tytags_comma d x = Array.map (tytag d) x |> String.concat ", " |> sprintf "(%s)"
 let error_raw_type d x = raise_codegen_error <| sprintf "An attempt to manifest a raw type has been made.\nGot: %s" (show_typed_data d.keywords x)
 
-let rec typed_data (d: CodegenEnv) x = 
-    let vars = data_term_vars x 
-    Array.map (function
+let rec data (d: CodegenEnv) x = 
+    data_term_vars x 
+    |> Array.map (function
         | TyV t -> tytag' d t
         | TyLit x -> lit d x
         | _ -> failwith "impossible"
-        ) vars
+        )
     |> function
         | [|x|] -> x
         | x -> String.concat ", " x |> sprintf "(%s)"
@@ -140,28 +142,21 @@ let join_point (d: CodegenEnv) (key, args) =
     let tag = d.join_points.Tag key
     sprintf "method_%i %s" tag (tytags_comma' d args)
 
-let heap_layout d free_vars =
-    let b = 
-        free_vars
-        |> Array.mapi (fun i x -> sprintf "subvar_%i = %s" i (tytag' d x))
-        |> String.concat "; "
-    sprintf "{%s}" b
-   
 exception CodegenErrorWithPos of Trace * string
 
 let rec op (d: CodegenEnv) x =
     match x with
     | TyOp(op, x') ->
-        let inline t x = typed_data d x
+        let inline t x = data d x
         match op, x' with
-        | UnsafeConvert, [|a;b|] -> sprintf "%s %s" (type_ d (data_to_ty a)) (t b)
+        | UnsafeConvert, [|a;b|] -> sprintf "%s %s" (type' d (data_to_ty a)) (t b)
         | StringLength, [|a|] -> sprintf "int64 %s.Length" (t a)
         | StringIndex, [|a;b|] -> sprintf "%s.[int32 %s]" (t a) (t b)
         | StringSlice, [|a;b;c|] -> sprintf "%s.[int32 %s..int32 %s]" (t a) (t b) (t c)
         | Apply, [|a;b|] -> sprintf "%s%s" (t a) (t b)
-        | ArrayCreateDotNet, [|a;b|] -> if typed_data_is_unit a then "() // unit array create" else sprintf "Array.zeroCreate (System.Convert.ToInt32 %s)" (t b)
-        | GetArray, [|a;b|] -> if typed_data_is_unit a then "() // get from unit array" else sprintf "%s.[int32 %s]" (t a) (t b)
-        | SetArray, [|a;b;c|] -> if typed_data_is_unit a then "() // set to unit array" else sprintf "%s.[int32 %s] <- %s" (t a) (t b) (t c) 
+        | ArrayCreateDotNet, [|a;b|] -> sprintf "Array.zeroCreate (System.Convert.ToInt32 %s)" (t b)
+        | GetArray, [|a;b|] -> sprintf "%s.[int32 %s]" (t a) (t b)
+        | SetArray, [|a;b;c|] -> sprintf "%s.[int32 %s] <- %s" (t a) (t b) (t c) 
         | ArrayLength, [|a|] -> sprintf "%s.LongLength" (t a)
         | Dynamize, [|a|] -> t a
         | FailWith, [|a|] -> sprintf "failwith %s" (t a)
@@ -218,7 +213,7 @@ let rec op (d: CodegenEnv) x =
         | IsNan, [|x|] -> sprintf "isnan%s" (t x)
         | a, b -> raise_codegen_error <| sprintf "Compiler error: Case %A with data %A not implemented." a (Array.map (show_typed_data d.keywords) b)
     | TyIf(cond,on_succ,on_fail) ->
-        d.Text(sprintf "if %s then" (typed_data d cond))
+        d.Text(sprintf "if %s then" (data d cond))
         binds d.Indent on_succ
         d.Text("else")
         binds d.Indent on_fail
@@ -234,6 +229,7 @@ and binds (d: CodegenEnv) x =
         | TyLet(a,trace,x) ->
             try 
                 let vars = data_free_vars a |> tytags_comma d
+                match x with
                 | TyJoinPoint _ | TyOp _ -> d.Statement(sprintf "let %s = %s" vars (op d x))
                 | _ -> d.Statement(sprintf "let %s =" vars); op d.Indent x |> ignore
             with :? CodegenError as x -> raise (CodegenErrorWithPos(trace,x.Data0))
@@ -241,14 +237,14 @@ and binds (d: CodegenEnv) x =
             try match op d x with null -> () | x -> d.Statement(x)
             with :? CodegenError as x -> raise (CodegenErrorWithPos(trace,x.Data0))
         | TyLocalReturnData(x,trace) -> 
-            try d.Statement(typed_data d x)
+            try d.Statement(data d x)
             with :? CodegenError as x -> raise (CodegenErrorWithPos(trace,x.Data0))
         ) x
 
 
-let codegen keywords x =
+let codegen (dex : ExternalLangEnv) x =
     let def_main = {
-        keywords = keywords
+        keywords = dex.keywords
         stmts = StringBuilder()
         indent = 0
         join_points = Tagger()
@@ -273,7 +269,7 @@ let codegen keywords x =
                 | RJPStack ->
                     d.Text "struct"
                     let vars = rdata_free_vars ty
-                    Array.iter (fun (t,ty) -> d.Text(sprintf "val subvar_%i : %s" t (type_ d ty))) vars
+                    Array.iter (fun (t,ty) -> d.Text(sprintf "val subvar_%i : %s" t (type' d ty))) vars
                     d.Text "end"
                     let a = Array.map (fun (t,_) -> sprintf "v_%i" t) vars |> String.concat ", "
                     let b = Array.map (fun (t,_) -> sprintf "subvar_%i=v_%i" t t) vars |> String.concat "; "
@@ -281,39 +277,28 @@ let codegen keywords x =
                 | RJPHeap ->
                     d.Text "{"
                     let vars = rdata_free_vars ty
-                    Array.iter (fun (t,ty) -> d.Text(sprintf "subvar_%i : %s" t (type_ d ty))) vars
+                    Array.iter (fun (t,ty) -> d.Text(sprintf "subvar_%i : %s" t (type' d ty))) vars
                     d.Text "}"
             | _ -> ()
         f ty
             
     let inline print_join_points is_first =
         let d = def_join_points
-        let (key,ty), tag' = d.join_points.Dequeue
+        let key, tag' = d.join_points.Dequeue
 
-        match ty with
-        | JoinPointMethod ->
-            match join_point_dict_method.[key] with
-            | Some(args,(body,ret_ty)) ->
+        match key with
+        | JPMethod(expr,key) ->
+            match dex.join_point_method.[expr].[key] with
+            | Some(args,body,ret_ty) ->
                 let args = tytags_comma d args
-                let ret_ty = type_ d ret_ty
+                let ret_ty = type' d ret_ty
                 if is_first then d.Statement(sprintf "let rec method_%i %s : %s =" tag' args ret_ty)
                 else d.Statement(sprintf "and method_%i %s : %s =" tag' args ret_ty)
                 let d = d.Indent
                 binds d body
             | None -> raise_codegen_error "Compiler error: Cannot print an unfinished join point."
-        | JoinPointClosure ->
-            match join_point_dict_closure.[key] with
-            | JoinPointDone(args,args2,(body,ret_ty)) ->
-                let args = tytags_comma d args
-                let args2 = tytags_comma d args2
-                let ret_ty = type_ d ret_ty
-                if is_first then d.Statement(sprintf "let rec closure_method_%i %s %s : %s =" tag' args args2 ret_ty)
-                else d.Statement(sprintf "and closure_method_%i %s %s : %s =" tag' args args2 ret_ty)
-                let d = d.Indent
-                binds d body
-            | JoinPointInEvaluation _ -> raise_codegen_error "Compiler error: Cannot print an unfinished join point."
-        | JoinPointCuda -> raise_codegen_error "Compiler error: Not supported yet."
-        | JoinPointType -> raise_codegen_error "Compiler error: Not supposed to exist on the term level."
+        | JPClosure(expr,key) ->
+            raise_codegen_error "JPClosure not implemented yet." // TODO
 
     let rec loop is_first_method is_first_type =
         let d = def_main

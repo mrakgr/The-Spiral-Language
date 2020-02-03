@@ -139,6 +139,18 @@ let data_free_vars call_data =
     f call_data
     free_vars.ToArray()
 
+let data_term_vars call_data =
+    let term_vars = ResizeArray(64)
+    let rec f = function
+        | TyPair(a,b) -> f a; f b
+        | TyKeyword(a,b) -> Array.iter f b
+        | TyFunction(a,b,c,d,e,z) -> Array.iter f e
+        | TyRecord l -> Map.iter (fun _ -> f) l
+        | TyLit _ | TyV _ as x -> term_vars.Add x
+        | TyB -> ()
+    f call_data
+    term_vars.ToArray()
+
 let rdata_free_vars x = 
     let m = HashSet(HashIdentity.Reference)
     let free_vars = ResizeArray()
@@ -162,9 +174,22 @@ let ty_to_data i x =
         | KeywordT(a,b) -> TyKeyword(a,Array.map f b)
         | FunctionT(a,b,c,d,e,z) -> TyFunction(a,b,c,d,Array.map f e,z)
         | RecordT l -> TyRecord(Map.map (fun k -> f) l)
-        | PrimT _ | RJPT _ | ArrayT _ | RuntimeFunctionT _ | MacroT _ -> let r = TyV(T(!i,x)) in i := !i+1; r
+        | PrimT _ | RJPT _ | ArrayT _ | RuntimeFunctionT _ | MacroT _ as x -> let r = TyV(T(!i,x)) in i := !i+1; r
         | TypeFunctionT _ -> failwith "Compiler error: Cannot turn a type function to a runtime variable."
     f x
+
+let ty_vars x =
+    let vars = ResizeArray()
+    let rec f = function
+        | BT -> ()
+        | PairT(a,b) -> f a; f b
+        | KeywordT(a,b) -> Array.iter f b
+        | FunctionT(a,b,c,d,e,z) -> Array.iter f e
+        | RecordT l -> Map.iter (fun k -> f) l
+        | PrimT _ | RJPT _ | ArrayT _ | RuntimeFunctionT _ | MacroT _ as x -> vars.Add(x)
+        | TypeFunctionT _ -> failwith "Compiler error: Cannot turn a type function to a runtime variable."
+    f x
+    vars.ToArray()
 
 let lit_to_primitive_type = function
     | LitUInt8 _ -> UInt8T
@@ -1469,37 +1494,3 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
     | Op(InfinityF32,[||]) -> TyLit (LitFloat32 infinityf)
     | Op(op,_) -> raise_type_error d <| sprintf "Compiler error: %A not implemented" op
 
-let type_is_unit e =
-    let rec f = function
-        | MacroT _ | RuntimeFunctionT _ | PrimT _ -> false
-        | ArrayT t -> f t
-        | RecordT t -> Map.forall (fun _ -> f) t
-        | KeywordT(_,l) | FunctionT(_,_,_,_,l,_) -> Array.forall f l
-        | RJPT (_, x) -> (rdata_free_vars x).Length = 0 // TODO: Optimize this.
-        | PairT(a,b) -> f a && f b
-        | BT | TypeFunctionT _ -> true
-    f e
-
-let type_non_units x =
-    let args = ResizeArray(64)
-    let rec f = function
-        | PairT(a,b) -> f a; f b
-        | KeywordT(_,l) | FunctionT(_,_,_,_,l,_) -> Array.iter f l
-        | RecordT l -> Map.iter (fun _ -> f) l
-        | x -> if type_is_unit x = false then args.Add x
-    f x
-    args.ToArray()
-
-let data_term_vars call_data =
-    let call_args = ResizeArray(64)
-    let rec f = function
-        | TyPair(a,b) -> f a; f b
-        | TyKeyword(a,b) -> Array.iter f b
-        | TyFunction(a,b,c,d,e,z) -> Array.iter f e
-        | TyRecord l -> Map.iter (fun _ -> f) l
-        | TyLit _ | TyV _ as x -> call_args.Add x
-        | TyB -> ()
-    f call_data
-    call_args.ToArray()
-
-let typed_data_is_unit a = data_to_ty a |> type_is_unit
