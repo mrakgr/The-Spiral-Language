@@ -2,6 +2,7 @@
 
 open System.Collections.Generic
 open Spiral.Utils
+open Spiral.Tokenize
 open Spiral.Parsing
 open System.Text
 
@@ -16,7 +17,7 @@ type ExprData = {type' : Data; value : Data}
 type [<ReferenceEquality>] Expr =
     | B
     | V of VarTag
-    | Lit of Tokenize.Literal
+    | Lit of Literal
     | Type of TExpr
     | Inline of Expr * ExprData // Acts as a join point for the prepass specifically.
     | Inl of Expr * ExprData
@@ -35,7 +36,7 @@ type [<ReferenceEquality>] Expr =
     | KeywordTest of KeywordTag * bind: VarTag * on_succ: Expr * on_fail: Expr
     | RecordTest of RecordTestPattern [] * bind: VarTag * on_succ: Expr * on_fail: Expr
     | AnnotTest of do_boxing : bool * TExpr * bind: VarTag * on_succ: Expr * on_fail: Expr
-    | LitTest of Tokenize.Literal * bind: VarTag * on_succ: Expr * on_fail: Expr
+    | LitTest of Literal * bind: VarTag * on_succ: Expr * on_fail: Expr
     | UnionTest of name: KeywordTag * vars: int * bind: VarTag * on_succ: Expr * on_fail: Expr
     | UnitTest of bind: VarTag * on_succ: Expr * on_fail: Expr
     | Pos of Pos<Expr>
@@ -216,10 +217,10 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
         | RawDefaultValueTest (a,b,on_succ,on_fail) -> 
             let on_succ x = LitTest(x,v' b,prepass_value env on_succ,prepass_value env on_fail)
             match System.Int64.TryParse(a) with
-            | true,x -> on_succ (Tokenize.LitInt64 x)
+            | true,x -> on_succ (LitInt64 x)
             | false,_ ->
                 match System.Double.TryParse(a) with
-                | true,x -> on_succ (Tokenize.LitFloat64 x)
+                | true,x -> on_succ (LitFloat64 x)
                 | false,_ -> errors.Add(ErMissingValueVar a); B
         | RawUnionTest (a,b,c,on_succ,on_fail) -> 
             let env = Array.fold (fun env x -> value_add_local x env) env b

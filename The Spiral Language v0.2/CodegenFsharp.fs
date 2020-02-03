@@ -163,14 +163,14 @@ let rec op (d: CodegenEnv) x =
         | RJPToStack, [|b;a|] ->
             match data_free_vars b with
             | [||] -> "() // unit stack layout type"
-            | free_vars -> 
+            | free_vars ->
                 let tag = d.types.Tag (data_to_ty a)
                 let b = tytags_comma' d free_vars
                 sprintf "SpiralType%i %s" tag b
         | RJPToHeap,[|b;a|] ->
             match data_free_vars b with
             | [||] -> "() // unit heap layout type"
-            | free_vars -> 
+            | free_vars ->
                 free_vars
                 |> Array.mapi (fun i x -> sprintf "subvar_%i = %s" i (tytag' d x))
                 |> String.concat "; "
