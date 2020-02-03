@@ -310,4 +310,4 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
             ) errors
         Error (b.ToString())
     else
-        Ok (keywords, t_glob, v_glob)
+        Ok (t_glob, v_glob)

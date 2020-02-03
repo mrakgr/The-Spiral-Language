@@ -836,7 +836,6 @@ let parse (m: SpiralModule) =
     match FParsec.CharParsers.runParserOnString tokenize m "" (String.concat "\n" m.code) with
     | FParsec.CharParsers.ParserResult.Failure(x,_,_) -> Error x
     | FParsec.CharParsers.ParserResult.Success(l,_,_) ->
-        //printfn "%A" l
         let var_positions=Dictionary(HashIdentity.Reference)
         let d = 
             {
@@ -857,7 +856,7 @@ let parse (m: SpiralModule) =
                 )
             Error(strb.ToString())
         match parser d with
-        | Ok x ->  Ok x
+        | Ok x ->  Ok (var_positions, x)
         | Error [] -> 
             if d.Index = d.Length then fail [Array.last l, UnexpectedEof]
             else Error "Unknown parse error."
