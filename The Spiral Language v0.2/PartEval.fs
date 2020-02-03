@@ -305,10 +305,10 @@ let rjp_to_some layout dict (d: LangEnv) = function
         match cse_tryfind d key with
         | Some x -> x
         | None ->
-            let x = ty_to_data d.i (RJPT(layout,data_to_rdata dict x))
-            d.seq.Add(TyLet(x,d.trace,TyOp key))
-            cse_add d key x
-            x
+            let ret = ty_to_data d.i (RJPT(layout,data_to_rdata dict x))
+            d.seq.Add(TyLet(ret,d.trace,TyOp(op,[|x;ret|]))) // The codegen needs the return var to print it.
+            cse_add d key ret
+            ret
 
 exception TypeError of Trace * string
 let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))

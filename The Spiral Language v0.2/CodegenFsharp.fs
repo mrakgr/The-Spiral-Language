@@ -165,6 +165,28 @@ let rec op (d: CodegenEnv) x =
         | ArrayLength, [|a|] -> sprintf "%s.LongLength" (t a)
         | Dynamize, [|a|] -> t a
         | FailWith, [|a|] -> sprintf "failwith %s" (t a)
+        | RJPToStack, [|b;a|] ->
+            match data_free_vars b with
+            | [||] -> "() // unit stack layout type"
+            | free_vars -> 
+                let tag = d.types.Tag (data_to_ty a)
+                let b = tytags_comma' d free_vars
+                sprintf "SpiralType%i %s" tag b
+        | RJPToHeap,[|b;a|] ->
+            match data_free_vars b with
+            | [||] -> "() // unit heap layout type"
+            | free_vars -> 
+                free_vars
+                |> Array.mapi (fun i x -> sprintf "subvar_%i = %s" i (tytag' d x))
+                |> String.concat "; "
+                |> sprintf "{%s}"
+        | RJPToNone,[|b|] ->
+            match b with
+            | TyV(T(tag,RJPT(_,b))) ->
+                rdata_free_vars b
+                |> Array.map (fun (tag',_) -> sprintf "var_%i.subvar_%i" tag tag')
+                |> String.concat ", "
+            | _ -> failwith "impossible"
 
         // Primitive operations on expressions.
         | Add, [|a;b|] -> sprintf "%s + %s" (t a) (t b)
@@ -195,7 +217,6 @@ let rec op (d: CodegenEnv) x =
         | Sqrt, [|x|] -> sprintf "sqrt%s" (t x)
         | IsNan, [|x|] -> sprintf "isnan%s" (t x)
         | a, b -> raise_codegen_error <| sprintf "Compiler error: Case %A with data %A not implemented." a (Array.map (show_typed_data d.keywords) b)
-
     | TyIf(cond,on_succ,on_fail) ->
         d.Text(sprintf "if %s then" (typed_data d cond))
         binds d.Indent on_succ
@@ -210,10 +231,9 @@ let rec op (d: CodegenEnv) x =
 
 and binds (d: CodegenEnv) x =
     Array.iter (function
-        | TyLet(data,trace,x) ->
+        | TyLet(a,trace,x) ->
             try 
-                let vars = data_free_vars data |> tytags_comma d
-                match x with // TODO: Take care of RJPs
+                let vars = data_free_vars a |> tytags_comma d
                 | TyJoinPoint _ | TyOp _ -> d.Statement(sprintf "let %s = %s" vars (op d x))
                 | _ -> d.Statement(sprintf "let %s =" vars); op d.Indent x |> ignore
             with :? CodegenError as x -> raise (CodegenErrorWithPos(trace,x.Data0))
