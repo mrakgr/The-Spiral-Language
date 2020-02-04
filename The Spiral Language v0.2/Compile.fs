@@ -54,16 +54,19 @@ type CompilationEnv = {
     values : Map<string,Expr>
     }
 
+exception ModuleError of string
+exception CompilationError of string
+
 let module' (d : CompilationEnv) (x : SpiralModule) =
     match parse x with
     | Ok(var_positions,expr) ->
         match prepass var_positions d.keywords d.types d.values expr with
         | Ok(t,v) -> 
             let v = Module(Seq.fold (fun m (k,v) -> Map.add (d.keywords.To k) v m) Map.empty v)
-            let t = ModuleType(Seq.fold (fun m (k,v) -> Map.add (d.keywords.To k) v m) Map.empty t)
+            let t = TModule(Seq.fold (fun m (k,v) -> Map.add (d.keywords.To k) v m) Map.empty t)
             {d with types=Map.add x.name t d.types; values=Map.add x.name v d.values}
-        | Error er -> failwith er
-    | Error er -> failwith er
+        | Error er -> raise (ModuleError er)
+    | Error er -> raise (ModuleError er)
         
 let modules (d : CompilationEnv) (x : SpiralModule) =
     let m = Dictionary(HashIdentity.Reference)
@@ -72,7 +75,42 @@ let modules (d : CompilationEnv) (x : SpiralModule) =
 
     f d x
 
-let compile d x =
-    let d = modules d x
-    match d.values.[x.name].["main"] with
-    | Raw
+let compile x =
+    let env : CompilationEnv = {
+        keywords = KeywordEnv()
+        types = Map.empty
+        values = Map.empty
+        }
+    let env = modules env x
+    match env.values.[x.name] with
+    | Module l -> 
+        match Map.tryFind (env.keywords.To "main") l with
+        | Some (Inl(a,b)) -> 
+            let dex : ExternalLangEnv = {
+                keywords = env.keywords
+                hc_table = HashConsing.HashConsTable()
+                join_point_method = Dictionary(HashIdentity.Reference)
+                memoized_modules_type = Dictionary(HashIdentity.Reference)
+                memoized_modules_value = Dictionary(HashIdentity.Reference)
+                }
+
+            let seq = ResizeArray()
+            let d : LangEnv = {
+                trace = []
+                seq = seq
+                cse = [Dictionary(HashIdentity.Structural)]
+                i = ref 0
+                env_global_type = [||]
+                env_global_value = [||]
+                env_stack_type = Array.zeroCreate b.type'.stack_size
+                env_stack_type_ptr = 0
+                env_stack_value = Array.zeroCreate b.value.stack_size
+                env_stack_value_ptr = 0
+                }
+            
+            let _ : Data = partial_eval_value dex d a
+            codegen dex (seq.ToArray())
+        | Some(Forall _) -> raise <| CompilationError "main has to be a regular function, not a forall."
+        | Some _ -> raise <| CompilationError "main has to be a function."
+        | None -> raise <| CompilationError "main has to be present in the last module."
+    | _ -> failwith "Compiler error: Module that has been compiled should always be in the environment."

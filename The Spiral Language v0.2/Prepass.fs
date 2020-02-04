@@ -64,22 +64,20 @@ and RecordWithPattern =
 
 type Env<'a> = { global' : Map<string,'a>; free_vars : Dictionary<string,VarTag>; local : Map<string,VarTag>; local_index : int; local_index_max : int ref }
 type LocEnv = { type' : Env<TExpr>; value : Env<Expr> }
-type KeywordEnv = 
-    {
-    to' : Dictionary<string,int>
-    from : Dictionary<int,string>
-    }
+type KeywordEnv() = 
+    let to' = Dictionary(HashIdentity.Structural)
+    let from = Dictionary(HashIdentity.Structural)
 
     member d.To(x: string) =
-        match d.to'.TryGetValue x with
+        match to'.TryGetValue x with
         | true, v -> v
         | false, _ ->
-            let tag_keyword = d.to'.Count
-            d.to'.[x] <- tag_keyword
-            d.from.[tag_keyword] <- x
+            let tag_keyword = to'.Count
+            to'.[x] <- tag_keyword
+            from.[tag_keyword] <- x
             tag_keyword
 
-    member d.From(x : int) = d.from.[x] // Should never fail.
+    member d.From(x : int) = from.[x] // Should never fail.
 
 type PrepassError =
     | ErMissingValueVar of string
