@@ -56,9 +56,12 @@ type CompilationEnv = {
 
 let module' (d : CompilationEnv) (x : SpiralModule) =
     match parse x with
-    | Ok(var_positions,x) ->
-        match prepass var_positions d.keywords d.types d.values x with
-        | Ok(t,v) -> {d with types=t; values=v}
+    | Ok(var_positions,expr) ->
+        match prepass var_positions d.keywords d.types d.values expr with
+        | Ok(t,v) -> 
+            let v = Module(Seq.fold (fun m (k,v) -> Map.add (d.keywords.To k) v m) Map.empty v)
+            let t = ModuleType(Seq.fold (fun m (k,v) -> Map.add (d.keywords.To k) v m) Map.empty t)
+            {d with types=Map.add x.name t d.types; values=Map.add x.name v d.values}
         | Error er -> failwith er
     | Error er -> failwith er
         

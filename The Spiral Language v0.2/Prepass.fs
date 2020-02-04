@@ -51,7 +51,9 @@ and [<ReferenceEquality>] TExpr =
     | TUnit
     | TPrim of PrimitiveType
     | TArray of TExpr
+    | TModule of Map<KeywordTag, TExpr>
     | TPos of Pos<TExpr>
+    
 
 and RecordTestPattern = RecordTestKeyword of keyword: KeywordTag | RecordTestInjectVar of var: Expr
 and RecordWithPattern = 
@@ -84,6 +86,7 @@ type PrepassError =
     | ErMissingModuleItem of string
     | ErMissingTypeVar of string
     | ErMissingModule of string
+    | ErNotAModule of string
     | ErLocalShadowsGlobal of string
     | ErTypeFunctionHasFreeValueVar of string
     | ErTypeFunctionHasNonZeroValueStackSize of string
@@ -95,6 +98,8 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
     let fresh_env env' = { type'=env env'.type'.global'; value=env env'.value.global' }
     let dict_rawinline = Dictionary(HashIdentity.Reference)
     let errors = ResizeArray()
+    let t_new = ResizeArray()
+    let v_new = ResizeArray()
 
     let add_local a (env : Env<_>) =
         if Map.containsKey a env.global' then errors.Add(ErLocalShadowsGlobal a)
@@ -132,20 +137,31 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
             }
         }
 
-    let module_open env a b =
-        match Map.tryFind a env with
-        | None -> errors.Add(ErMissingValueVar a); env
-        | Some (Module x) ->
-            match b with
-            | None -> 
-                Map.fold (fun env k v -> Map.add (keywords.From k) v env) env x
-            | Some l ->
-                List.fold (fun env (a,b) ->
-                    match Map.tryFind (keywords.To a) x with
-                    | Some e ->  Map.add (Option.defaultValue a b) e env
-                    | None -> errors.Add(ErMissingModuleItem a); env
-                    ) env l
-        | Some _ -> errors.Add(ErMissingModule a); env
+    let module_open (t,v as env) a b =
+        match Map.tryFind a t with
+        | None -> errors.Add(ErMissingModule a); env
+        | Some (TModule t') ->
+            match Map.tryFind a v with
+            | None -> errors.Add(ErMissingModule a); env
+            | Some (Module v') ->
+                match b with
+                | None -> 
+                    let f x x' = Map.fold (fun env k v -> Map.add (keywords.From k) v env) x x'
+                    f t t', f v v'
+                | Some l ->
+                    List.fold (fun env (a,b) ->
+                        match a with
+                        | OpenValue a ->
+                            match Map.tryFind (keywords.To a) v' with
+                            | Some e ->  t, Map.add (Option.defaultValue a b) e v
+                            | None -> errors.Add(ErMissingModuleItem a); env
+                        | OpenType a ->
+                            match Map.tryFind (keywords.To a) t' with
+                            | Some e ->   Map.add (Option.defaultValue a b) e t, v
+                            | None -> errors.Add(ErMissingModuleItem a); env
+                        ) env l
+            | Some _ -> errors.Add(ErNotAModule a); env
+        | Some _ -> errors.Add(ErNotAModule a); env
 
     let rec prepass_value (env : LocEnv) x =
         let v' x = v_loc env.value x
@@ -196,7 +212,9 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
         | RawAnnot(a,b) -> Annot(prepass_type env a, prepass_value env b)
         //| RawTypedOp (a,b,c) -> TypedOp(prepass_type env a, b, Array.map (prepass_value env) c)
         | RawTypecase (a,b) -> Typecase(prepass_type env a, Array.map (fun (a,b) -> prepass_type env a, prepass_value env b) b)
-        | RawModuleOpen (a,b,on_succ) -> prepass_value {env with value = {env.value with global'=module_open env.value.global' a b}} on_succ
+        | RawModuleOpen (a,b,on_succ) -> 
+            let t,v = module_open (env.type'.global', env.value.global') a b
+            prepass_value {env with type'={env.type' with global'=t}; value = {env.value with global'=v}} on_succ
         | RawRecBlock _ -> failwith "Compiler error: Recursive functions and blocks are only allowed at the top level."
         | RawPairTest (a,b,c,on_succ,on_fail) ->
             let env = env |> value_add_local a |> value_add_local b
@@ -265,36 +283,42 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
             let env = {type'=env t_glob; value=env v_glob}
             let b = prepass_value env b
             assert_free_vars_empty env
+            v_new.Add(a,b)
             prepass_top t_glob (Map.add a b v_glob) on_succ
         | RawRecBlock(l,on_succ) ->
             let r,v_glob =
                 Array.mapFold (fun env (k,_) ->
                     let r = ref Unchecked.defaultof<_>
-                    r, Map.add k (Glob r) env
+                    let r' = Glob r
+                    v_new.Add(k,r')
+                    r, Map.add k r' env
                     ) v_glob l
             let env = {type'=env t_glob; value=env v_glob}
             Array.iter2 (fun r (_,e) -> r := prepass_value env e) r l
             assert_free_vars_empty env
             prepass_top t_glob v_glob on_succ
-        | RawModuleOpen(a,b,on_succ) -> prepass_top t_glob (module_open v_glob a b) on_succ
-        | RawB -> t_glob, v_glob
+        | RawModuleOpen(a,b,on_succ) -> 
+            let t,v = module_open (t_glob, v_glob) a b
+            prepass_top t v on_succ
+        | RawB -> ()
         | _ -> failwith "Compiler error in prepass_top."
     
-    let t_glob, v_glob = prepass_top t_glob v_glob x
-
     if errors.Count > 0 then
         let b = StringBuilder()
         Seq.iter (fun x ->
             match x with
             | ErMissingTypeVar x | ErMissingValueVar x ->
                 show_position' b var_positions.[x]
-                b.AppendFormat("Error: Missing variable {0}.", x) |> ignore
+                b.AppendFormat("Error: Variable {0} not found in the environment.", x) |> ignore
             | ErMissingModule x ->
                 show_position' b var_positions.[x]
-                b.AppendFormat("Error: Missing module {0}.", x) |> ignore
+                b.AppendFormat("Error: Module {0} not found in the environment.", x) |> ignore
+            | ErNotAModule x ->
+                show_position' b var_positions.[x]
+                b.AppendFormat("Error: {0} is not a module.", x) |> ignore
             | ErMissingModuleItem x ->
                 show_position' b var_positions.[x]
-                b.AppendFormat("Error: Missing module item {0}.", x) |> ignore
+                b.AppendFormat("Error: {0} cannot be found inside the module.", x) |> ignore
             | ErLocalShadowsGlobal x ->
                 show_position' b var_positions.[x]
                 b.AppendFormat("Error: Local variable {0} shadows the global of the same name.", x) |> ignore
@@ -310,4 +334,4 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
             ) errors
         Error (b.ToString())
     else
-        Ok (t_glob, v_glob)
+        Ok (t_new, v_new)

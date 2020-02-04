@@ -127,6 +127,10 @@ type PrimitiveType =
     | StringT
     | CharT
 
+type OpenKind =
+| OpenType of string
+| OpenValue of string
+
 type RawRecordTestPattern = 
     | RawRecordTestKeyword of keyword: KeywordString * name: VarString
     | RawRecordTestInjectVar of var: VarString * name: VarString
@@ -174,7 +178,7 @@ and RawExpr =
     | RawJoinPoint of RawTExpr option * RawExpr
     | RawAnnot of RawTExpr * RawExpr
     | RawTypecase of RawTExpr * (RawTExpr * RawExpr) []
-    | RawModuleOpen of string * (string * string option) list option * on_succ: RawExpr
+    | RawModuleOpen of string * (OpenKind * string option) list option * on_succ: RawExpr
     | RawLet of var: VarString * bind: RawExpr * on_succ: RawExpr
     | RawRecBlock of (VarString * RawExpr) [] * on_succ: RawExpr
     | RawPairTest of var0: VarString * var1: VarString * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
@@ -525,7 +529,7 @@ let statements is_global expr (d: ParserEnv) =
         | SpecInl -> d.Skip; inl id (forall <|> (tilde >>. pattern true true expr |>> pattern_to_rawinl) <|> (pattern true false expr |>> pattern_to_rawinl))
         | SpecInm -> if is_global then d.FailWith InmCannotBeGlobal else d.Skip; pipe2 (pattern true false expr) (statement_body expr) handle_inm d
         | SpecInb -> if is_global then d.FailWith InbCannotBeGlobal else d.Skip; pipe2 (pattern true false expr) (statement_body expr) handle_inb d
-        | SpecOpen -> d.Skip; pipe2 (open_ >>. big_var) (opt (curlies (with_ >>. many (let var = small_var <|> rounds op in var .>>. opt (arr_fun >>. var))))) handle_open d
+        | SpecOpen -> d.Skip; pipe2 (open_ >>. big_var) (opt (curlies (with_ >>. many (let var = small_var <|> rounds op in ((var |>> OpenValue) <|> (grave >>. var |>> OpenType) ) .>>. opt (arr_fun >>. var))))) handle_open d
         | _ -> d.FailWith ExpectedStatement
     | Error _ -> d.FailWith ExpectedStatement
 

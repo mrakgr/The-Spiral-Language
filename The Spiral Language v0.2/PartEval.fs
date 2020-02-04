@@ -243,7 +243,8 @@ type ExternalLangEnv = {
     hc_table : HashConsTable
     // TODO: Replace these dicts with weak tables.
     join_point_method : Dictionary<Expr,Dictionary<ConsedNode<RData [] * Ty []>, (TyV [] * TypedBind [] * Ty) option>>
-    memoized_modules : Dictionary<Map<KeywordTag,Expr>,Data>
+    memoized_modules_value : Dictionary<Map<KeywordTag,Expr>,Data>
+    memoized_modules_type : Dictionary<Map<KeywordTag,TExpr>,Ty>
     }
 
 type LangEnv = {
@@ -535,6 +536,13 @@ let rec partial_eval_type (dex: ExternalLangEnv) d x =
     | TKeyword (k,l) -> KeywordT(k,Array.map (ev d) l)
     | TApply(l,r) ->
         match ev' d l with
+        | RecordT x ->
+            match ev' d r with
+            | KeywordT(k,_) ->
+                match Map.tryFind k x with
+                | Some x -> x
+                | None -> raise_type_error d <| sprintf "Cannot find the member %s inside the type level record." (dex.keywords.From k)
+            | r -> raise_type_error d <| sprintf "Expected a keyword.\nGot: %s" (show_ty dex.keywords r)
         | TypeFunctionT(a,b,c) ->
             let d =
                 {d with
@@ -547,6 +555,7 @@ let rec partial_eval_type (dex: ExternalLangEnv) d x =
     | TUnit -> BT
     | TPrim x -> PrimT x
     | TArray x -> ArrayT (ev d x)
+    | TModule x -> memoize dex.memoized_modules_type (fun _ -> RecordT(Map.map (fun k -> ev d) x)) x
     | TPos x -> ev {d with trace = x.Pos :: d.trace} x.Expression
 
 and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x = 
@@ -821,7 +830,7 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
                     else withs l
                 loop l 1
             | _ -> raise_type_error d "The first variable must be a record."
-    | Module l -> memoize dex.memoized_modules (fun _ -> TyRecord(Map.map (fun k -> ev d) l)) l
+    | Module l -> memoize dex.memoized_modules_value (fun _ -> TyRecord(Map.map (fun k -> ev d) l)) l
     | Type _ -> raise_type_error d "Types should only appear as a part of the application to foralls."
     | UnitTest(a,on_succ,on_fail)-> 
         match v a with
