@@ -303,31 +303,33 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
     
     if errors.Count > 0 then
         let b = StringBuilder()
+        let dict = Dictionary(HashIdentity.Reference)
+        let show_position a b = show_position dict a b
         Seq.iter (fun x ->
             match x with
             | ErMissingTypeVar x | ErMissingValueVar x ->
-                show_position' b var_positions.[x]
+                show_position b var_positions.[x]
                 b.AppendFormat("Error: Variable {0} not found in the environment.", x) |> ignore
             | ErMissingModule x ->
-                show_position' b var_positions.[x]
+                show_position b var_positions.[x]
                 b.AppendFormat("Error: Module {0} not found in the environment.", x) |> ignore
             | ErNotAModule x ->
-                show_position' b var_positions.[x]
+                show_position b var_positions.[x]
                 b.AppendFormat("Error: {0} is not a module.", x) |> ignore
             | ErMissingModuleItem x ->
-                show_position' b var_positions.[x]
+                show_position b var_positions.[x]
                 b.AppendFormat("Error: {0} cannot be found inside the module.", x) |> ignore
             | ErLocalShadowsGlobal x ->
-                show_position' b var_positions.[x]
+                show_position b var_positions.[x]
                 b.AppendFormat("Error: Local variable {0} shadows the global of the same name.", x) |> ignore
             | ErTypeFunctionHasFreeValueVar x ->
-                show_position' b var_positions.[x]
+                show_position b var_positions.[x]
                 b.AppendFormat("Error: Type function {0} has free variables on the value level.", x) |> ignore
             | ErTypeFunctionHasNonZeroValueStackSize x ->
-                show_position' b var_positions.[x]
+                show_position b var_positions.[x]
                 b.AppendFormat("Error: Type function {0} has open bindings on the value level.", x) |> ignore
             | ErDefaultValueParse x ->
-                show_position' b var_positions.[x]
+                show_position b var_positions.[x]
                 b.AppendFormat("Error: {0} cannot be parsed to either the i64 or f64.", x) |> ignore
             ) errors
         Error (b.ToString())

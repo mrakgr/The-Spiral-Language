@@ -705,7 +705,7 @@ let rec expressions expr d =
     let case_join_point = join >>. expr |>> join_point_entry_method
 
     let case_inbuilt_op =
-        (exclamation >>. big_var') .>>. (rounds (sepBy1 ((small_var |>> v) <|> rounds expr) comma))
+        (exclamationx4 >>. big_var') .>>. (rounds (sepBy1 ((small_var |>> v) <|> rounds expr) comma))
         >>= fun (a, b) d ->
             match string_to_op a with
             | true, op' -> Ok(RawOp(op',List.toArray b))
@@ -826,8 +826,10 @@ let show_parser_error_list x =
             | x -> sprintf "Parser errors:\n%s\n" x
     expected + errors
 
-let show_position' (strb: StringBuilder) {module_={name=name; code=code}; line=line; column=col} =
-    let er_code = code.[int line - 1]
+let show_position m (strb: StringBuilder) {module_={name=name; code=code}; line=line; column=col} =
+    let er_code = 
+        Utils.memoize m (fun _ -> code.Split [|'\n'|]) code
+        |> fun x -> x.[int line - 1]
 
     strb
         .AppendLine(sprintf "Error trace on line: %i, column: %i in module %s." line col name)
@@ -837,7 +839,7 @@ let show_position' (strb: StringBuilder) {module_={name=name; code=code}; line=l
     |> ignore
   
 let parse (m: SpiralModule) =
-    match FParsec.CharParsers.runParserOnString tokenize m "" (String.concat "\n" m.code) with
+    match FParsec.CharParsers.runParserOnString tokenize m "" m.code with
     | FParsec.CharParsers.ParserResult.Failure(x,_,_) -> Error x
     | FParsec.CharParsers.ParserResult.Success(l,_,_) ->
         let var_positions=Dictionary(HashIdentity.Reference)
@@ -853,9 +855,10 @@ let parse (m: SpiralModule) =
             }
         let fail (x: (SpiralToken * ParserErrors) list) = 
             let strb = StringBuilder()
+            let dict = Dictionary(HashIdentity.Reference)
             List.groupBy fst x
             |> List.iter (fun (a,b) -> 
-                show_position' strb {module_=m; line=a.Pos.start_line; column=a.Pos.start_column}
+                show_position dict strb {module_=m; line=a.Pos.start_line; column=a.Pos.start_column}
                 strb.Append(show_parser_error_list b) |> ignore
                 )
             Error(strb.ToString())

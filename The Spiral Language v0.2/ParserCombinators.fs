@@ -36,7 +36,7 @@ type SpiralModule =
     name: string
     prerequisites : SpiralModule list 
     description : string 
-    code : string []
+    code : string
     }
 
 type PosKey = {module_ : SpiralModule; line : int; column : int}
@@ -432,6 +432,7 @@ let colon (d: ParserEnv) = d.SkipOperator ":"
 let comma (d: ParserEnv) = d.SkipOperator ","
 let product (d: ParserEnv) = d.SkipOperator "*"
 let exclamation (d: ParserEnv) = d.SkipUnaryOperator "!"
+let exclamationx4 (d: ParserEnv) = d.SkipUnaryOperator "!!!!"
 let dollar (d: ParserEnv) = d.SkipUnaryOperator "$"
 let grave (d: ParserEnv) = d.SkipUnaryOperator "`"
 let tilde (d: ParserEnv) = d.SkipUnaryOperator "~"
