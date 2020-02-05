@@ -124,19 +124,9 @@ type ParserEnv =
             | TokSmallVar(p,t') -> d.Skip; d.Ok(p,t')
             | _ -> d.FailWith(ExpectedSmallVar)
 
-    member d.ReadSmallVar' =
-        d.TryCurrent <| function
-            | TokSmallVar(p,t') -> d.Skip; Ok(t')
-            | _ -> d.FailWith(ExpectedSmallVar)
-
     member d.ReadBigVar =
         d.TryCurrent <| function
             | TokBigVar(p,t') -> d.Skip; d.Ok(p,t')
-            | _ -> d.FailWith(ExpectedBigVar)
-
-    member d.ReadBigVar' =
-        d.TryCurrent <| function
-            | TokBigVar(p,t') -> d.Skip; Ok(t')
             | _ -> d.FailWith(ExpectedBigVar)
 
     member d.ReadValue =
@@ -149,9 +139,9 @@ type ParserEnv =
             | TokDefaultValue(p,t') -> d.Skip; d.Ok(p,t')
             | _ -> d.FailWith(ExpectedLit)
 
-    member d.ReadKeyword' =
+    member d.ReadKeyword =
         d.TryCurrent <| function
-            | TokKeyword(p,t') -> d.Skip; Ok(t')
+            | TokKeyword(p,t') -> d.Skip; d.Ok(p,t')
             | _ -> d.FailWith(ExpectedKeyword)
 
     member d.ReadKeywordUnary' =
@@ -441,15 +431,12 @@ let and' (d: ParserEnv) = d.SkipSpecial SpecAnd
 let fun' (d: ParserEnv) = d.SkipSpecial SpecFun
 
 let small_var (d: ParserEnv) = d.ReadSmallVar
-let small_var' (d: ParserEnv) = d.ReadSmallVar'
 let big_var (d: ParserEnv) = d.ReadBigVar
-let big_var' (d: ParserEnv) = d.ReadBigVar'
 let op (d: ParserEnv) = d.ReadOp
-let op' (d: ParserEnv) = d.ReadOp'
 let unary_op (d: ParserEnv) = d.ReadUnaryOp
 let value_ (d: ParserEnv) = d.ReadValue
 let def_value_ (d: ParserEnv) = d.ReadDefaultValue
-let keyword' (d: ParserEnv) = d.ReadKeyword'
+let keyword (d: ParserEnv) = d.ReadKeyword
 let keyword_unary' (d: ParserEnv) = d.ReadKeywordUnary'
 
 let rounds a (d: ParserEnv) = (bracket_round_open >>. a .>> bracket_round_close) d
@@ -457,7 +444,6 @@ let curlies a (d: ParserEnv) = (bracket_curly_open >>. a .>> bracket_curly_close
 let squares a (d: ParserEnv) = (bracket_square_open >>. a .>> bracket_square_close) d
 
 let var_op d = (small_var <|> rounds op) d
-let var_op' d = (small_var' <|> rounds op') d
 
 let col (d: ParserEnv) = d.Col
 let line (d: ParserEnv) = d.Line

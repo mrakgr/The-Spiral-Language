@@ -16,9 +16,11 @@ let test1: SpiralModule =
     description="Does it run?"
     code=
     """
-inl a = 5
-inl b = 10
-dyn (a + b)
+inl main () =
+    inl a = 5
+    inl b = 10
+    dyn (a + b)
+()
     """
     }
 

@@ -161,6 +161,14 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
             | Some _ -> errors.Add(ErNotAModule a); env
         | Some _ -> errors.Add(ErNotAModule a); env
 
+    let parse_default_lit (a : string) on_succ =
+        match System.Int64.TryParse(a) with
+        | true,x -> on_succ (LitInt64 x)
+        | false,_ ->
+            match System.Double.TryParse(a) with
+            | true,x -> on_succ (LitFloat64 x)
+            | false,_ -> errors.Add(ErMissingValueVar a); B
+
     let rec prepass_value (env : LocEnv) x =
         let v' x = v_loc env.value x
         let v x = 
@@ -172,6 +180,7 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
         | RawB -> B
         | RawV x -> v x
         | RawLit x -> Lit x
+        | RawDefaultLit x -> parse_default_lit x Lit
         | RawInline e ->
             let e,env' =
                 memoize dict_rawinline (fun _ ->
@@ -230,14 +239,7 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
         | RawAnnotTest (true,b,c,on_succ,on_fail) -> AnnotTest(true,prepass_type (value_add_local c env) b,v' c,prepass_value env on_succ,prepass_value env on_fail)
         | RawAnnotTest (false,b,c,on_succ,on_fail) -> AnnotTest(false,prepass_type env b,v' c,prepass_value env on_succ,prepass_value env on_fail)
         | RawValueTest (a,b,on_succ,on_fail) -> LitTest(a,v' b,prepass_value env on_succ,prepass_value env on_fail)
-        | RawDefaultValueTest (a,b,on_succ,on_fail) -> 
-            let on_succ x = LitTest(x,v' b,prepass_value env on_succ,prepass_value env on_fail)
-            match System.Int64.TryParse(a) with
-            | true,x -> on_succ (LitInt64 x)
-            | false,_ ->
-                match System.Double.TryParse(a) with
-                | true,x -> on_succ (LitFloat64 x)
-                | false,_ -> errors.Add(ErMissingValueVar a); B
+        | RawDefaultLitTest (a,b,on_succ,on_fail) -> parse_default_lit a (fun x -> LitTest(x,v' b,prepass_value env on_succ,prepass_value env on_fail))
         | RawUnionTest (a,b,c,on_succ,on_fail) -> 
             let env = Array.fold (fun env x -> value_add_local x env) env b
             UnionTest(keywords.To a,b.Length,v' c,prepass_value env on_succ,prepass_value env on_fail)
@@ -299,7 +301,9 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
             let t,v = module_open (t_glob, v_glob) a b
             prepass_top t v on_succ
         | RawB -> ()
-        | _ -> failwith "Compiler error in prepass_top."
+        | x -> failwithf "Compiler error in prepass_top.\nGot: %A" x
+
+    prepass_top t_glob v_glob x
     
     if errors.Count > 0 then
         let b = StringBuilder()

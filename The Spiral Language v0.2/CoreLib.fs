@@ -22,7 +22,7 @@ inl rjp_heap x = !!!!RJPToHeap(x)
 inl rjp_none x = !!!!RJPToNone(x)
 
 /// Does unchecked conversion for primitives.
-inl to forall to. from = !!!!UnsafeConvert(`to,from) 
+inl unsafe_convert forall to. from = !!!!UnsafeConvert(`to,from) 
 /// Unary negation.
 inl (~-) x = !!!!Neg(x)
 /// Evaluates an expression and throws away the result.
@@ -88,7 +88,7 @@ inl (<) a b = !!!!LT(a,b)
 /// Binary equals.
 inl (=) a b = !!!!EQ(a,b)
 /// Returns boolean whether the two values are equal in their types.
-inl (`=) a b = !EqType(a,b)
+inl (`=) a b = !!!!EqType(a,b)
 /// Binary unequals.
 inl (<>) a b = !!!!NEQ(a,b)
 /// Binary greater-than.
@@ -140,7 +140,7 @@ inl failwith forall typ. msg = !!!!FailWith(`typ,msg)
 /// Asserts an expression. If the conditional is a literal it raises a type error instead.
 inl assert c msg = 
     inl raise = 
-        if lit_is c then error_type
+        if is_lit c then error_type
         else failwith ()
     
     if c = false then raise msg
@@ -152,9 +152,9 @@ inl min a b = if a < b then a else b
 inl abs x = max x -x
 /// The template for lit_min and lit_max.
 inl lit_comp op a b =
-    if lit_is a && lit_is b then op a b
-    elif lit_is a then a
-    elif lit_is b then b
+    if is_lit a && is_lit b then op a b
+    elif is_lit a then a
+    elif is_lit b then b
     else error_type "a or b needs to be a literal"
 
 /// Returns the compile time expressible maximum of the two expressions.
@@ -191,6 +191,6 @@ inl (=) a b = if a `= b then a = b else error_type ("Trying to compare variables
 /// Structural polymorphic inequality for every type in the language (apart from functions.)
 inl (<>) a b = (a = b) <> true
 
-inl qwe x = x
+()
     """
     }

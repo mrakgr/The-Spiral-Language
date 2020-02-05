@@ -123,11 +123,12 @@ let compile (settings: SpiralCompilerSettings) x =
                 }
             let t,v = module'' timings env CoreLib.core
             {env with types=Map t; values=Map v}
+        
         let env = modules timings env x
         match env.values.[x.name] with
         | Module l -> 
             match Map.tryFind (env.keywords.To "main") l with
-            | Some (Inl(a,b)) -> 
+            | Some (Inl _ as a) -> 
                 let dex : ExternalLangEnv = {
                     keywords = env.keywords
                     hc_table = HashConsing.HashConsTable()
@@ -144,13 +145,13 @@ let compile (settings: SpiralCompilerSettings) x =
                     i = ref 0
                     env_global_type = [||]
                     env_global_value = [||]
-                    env_stack_type = Array.zeroCreate b.type'.stack_size
+                    env_stack_type = [||]
                     env_stack_type_ptr = 0
-                    env_stack_value = Array.zeroCreate b.value.stack_size
+                    env_stack_value = [||]
                     env_stack_value_ptr = 0
                     }
             
-                let _ : Data = timeit timings.peval <| fun _ -> partial_eval_value dex d a
+                let _ : Data = timeit timings.peval <| fun _ -> partial_eval_value dex d (Op(Apply,[|a;B|]))
                 timeit timings.codegen <| fun _ -> codegen dex (seq.ToArray())
                 |> Ok
             | Some(Forall _) -> raise <| CompilationError "main has to be a regular function, not a forall."
