@@ -921,9 +921,10 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
         | TyLit (LitString str) -> TyLit (LitInt64 (int64 str.Length))
         | TyType(PrimT StringT) & str -> push_op d StringLength str (PrimT Int64T)
         | x -> raise_type_error d <| sprintf "Expected a string.\nGot: %s" (show_typed_data x)
-    | Op(UnsafeConvert,[|to_;from|]) ->
-        let to_,from = ev2 d to_ from
-        let tot,fromt = data_to_ty to_, data_to_ty from
+    | Op(UnsafeConvert,[|Type tot;from|]) ->
+        let tot = tev d tot
+        let from = ev d from
+        let fromt = data_to_ty from
         if tot = fromt then from
         else
             let inline conv_lit x =
@@ -962,7 +963,10 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
                     | PrimT BoolT | PrimT StringT -> false
                     | PrimT _ -> true
                     | _ -> false
-                if is_convertible_primt fromt && is_convertible_primt tot then push_binop d UnsafeConvert (to_,from) tot
+                if is_convertible_primt fromt && is_convertible_primt tot then 
+                    let ret = ty_to_data d.i tot
+                    d.seq.Add(TyLet(ret,d.trace,TyOp(UnsafeConvert,[|ret;from|])))
+                    ret
                 else raise_type_error d <| sprintf "Cannot convert %s to the following type: %s" (show_typed_data from) (show_ty tot)
     | Op(PrintStatic,[|a|]) -> printfn "%s" (ev d a |> show_typed_data); TyB
     | Op(RecordMap,[|a;b|]) ->
@@ -1015,13 +1019,18 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
         match ev d a with
         | TyKeyword _ -> TyLit (LitBool true)
         | _ -> TyLit (LitBool false)
+    | Op(IsNan,[|a|]) ->
+        match ev d a with
+        | a & TyType (PrimT (Float32T | Float64T)) -> push_op d IsNan a (PrimT BoolT)
+        | x -> raise_type_error d <| sprintf "Expected a float in NanIs. Got: %s" (show_typed_data x)
     | Op(StripKeyword,[|a|]) -> 
         match ev d a with
         | TyKeyword(_,l) -> Array.reduceBack (fun a b -> TyPair(a,b)) l
         | a -> raise_type_error d <| sprintf "Expected a keyword.\nGot: %s" (show_typed_data a)
-    | Op(ArrayCreateDotNet,[|Type a;b|]) ->
+    | Op(EqType,[|a;b|]) -> data_to_ty (ev d a) = data_to_ty (ev d b) |> LitBool |> TyLit
+    | Op(ArrayCreate,[|Type a;b|]) ->
         match tev d a, ev d b with
-        | a, TyType(PrimT Int64T) & b -> push_op_no_rewrite d ArrayCreateDotNet b (ArrayT a)
+        | a, TyType(PrimT Int64T) & b -> push_op_no_rewrite d ArrayCreate b (ArrayT a)
         | _, b -> raise_type_error d <| sprintf "Expected an int64 as the size of the array.\nGot: %s" (show_typed_data b)
     | Op(ArrayLength,[|a|]) ->
         let a = ev d a
@@ -1046,13 +1055,6 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
                     else raise_type_error d <| sprintf "The array and the value being set do not have the same type.\nGot: %s\nAnd: %s" (show_ty ty) (show_ty ty')
             | b -> raise_type_error d <| sprintf "Expected a int64 as the index argumet in GetArray.\nGot: %s" (show_typed_data b)
         | a -> raise_type_error d <| sprintf "Expected an array in SetArray.\nGot: %s" (show_typed_data a)
-    | Op(IsNan,[|a|]) ->
-        match ev d a with
-        | TyLit (LitFloat32 x) -> System.Single.IsNaN x |> LitBool |> TyLit
-        | TyLit (LitFloat64 x) -> System.Double.IsNaN x |> LitBool |> TyLit
-        | a & TyType (PrimT (Float32T | Float64T)) -> push_op d IsNan a (PrimT BoolT)
-        | x -> raise_type_error d <| sprintf "Expected a float in NanIs. Got: %s" (show_typed_data x)
-
     // Primitive operations on expressions.
     | Op(Add,[|a;b|]) -> 
         let inline op a b = a + b
@@ -1495,9 +1497,9 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
             let d = match a' with Pos(x) -> {d with trace = x.Pos :: d.trace} | _ -> d
             raise_type_error d <| sprintf "Only the last expression of a block is allowed to be unit. Use `ignore` if it intended to be such.\nGot: %s" (show_typed_data a)
     | Op(ErrorPatMiss,[|a|]) -> ev d a |> show_typed_data |> sprintf "Pattern miss error. The argument is %s" |> raise_type_error d
-    | Op(FailWith,[|typ;a|]) ->
-        match ev2 d typ a with
-        | typ, TyType (PrimT StringT) & a -> push_op_no_rewrite d FailWith a (data_to_ty typ)
+    | Op(FailWith,[|Type typ;a|]) ->
+        match tev d typ, ev d a with
+        | typ, TyType (PrimT StringT) & a -> push_op_no_rewrite d FailWith a typ
         | _,a -> raise_type_error d "Expected a string as input to failwith.\nGot: %s" (show_typed_data a)
     | Op(InfinityF64,[||]) -> TyLit (LitFloat64 infinity)
     | Op(InfinityF32,[||]) -> TyLit (LitFloat32 infinityf)

@@ -76,7 +76,7 @@ type Op =
     | Apply
 
     // Array
-    | ArrayCreateDotNet
+    | ArrayCreate
     | ArrayLength
 
     // Getters
@@ -96,6 +96,7 @@ type Op =
     | IsRJP
     | IsKeyword
     | StripKeyword
+    | EqType
 
     // UnOps
     | Neg
@@ -223,7 +224,7 @@ let inbuilt_operators =
         f "<|" 10; f "|>" 10; f "<<" 10; f ">>" 10
 
         let f str = add_infix_operator Associativity.None str 40
-        f "<="; f "<"; f "="; f ">"; f ">="; f "<>"
+        f "<="; f "<"; f "="; f "`="; f ">"; f ">="; f "<>"
         f "<<<"; f ">>>"; f "&&&"; f "|||"
 
     let right_associative_ops =
@@ -705,7 +706,7 @@ let rec expressions expr d =
     let case_join_point = join >>. expr |>> join_point_entry_method
 
     let case_inbuilt_op =
-        (exclamationx4 >>. big_var') .>>. (rounds (sepBy1 ((small_var |>> v) <|> rounds expr) comma))
+        (exclamationx4 >>. big_var') .>>. (rounds (sepBy1 (case_var <|> case_rounds <|> (type' |>> RawType)) comma))
         >>= fun (a, b) d ->
             match string_to_op a with
             | true, op' -> Ok(RawOp(op',List.toArray b))

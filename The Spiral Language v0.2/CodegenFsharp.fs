@@ -154,7 +154,7 @@ let rec op (d: CodegenEnv) x =
         | StringIndex, [|a;b|] -> sprintf "%s.[int32 %s]" (t a) (t b)
         | StringSlice, [|a;b;c|] -> sprintf "%s.[int32 %s..int32 %s]" (t a) (t b) (t c)
         | Apply, [|a;b|] -> sprintf "%s%s" (t a) (t b)
-        | ArrayCreateDotNet, [|a;b|] -> sprintf "Array.zeroCreate (System.Convert.ToInt32 %s)" (t b)
+        | ArrayCreate, [|a;b|] -> sprintf "Array.zeroCreate (System.Convert.ToInt32 %s)" (t b)
         | GetArray, [|a;b|] -> sprintf "%s.[int32 %s]" (t a) (t b)
         | SetArray, [|a;b;c|] -> sprintf "%s.[int32 %s] <- %s" (t a) (t b) (t c) 
         | ArrayLength, [|a|] -> sprintf "%s.LongLength" (t a)
