@@ -160,51 +160,33 @@ inl lit_max = lit_comp max
 /// Returns the compile time expressible minimum of the two expressions.
 inl lit_min = lit_comp min
 
+/// Maps over a record.
+inl record_map f a = !!!!RecordMap(f,a)
+/// Iterates over a record.
+inl record_iter f a = record_map (inl x -> f x; ()) a |> ignore
+/// Filters a record at compile time.
+inl record_filter f a = !!!!RecordFilter(f,a)
+/// Folds over a record left to right.
+inl record_foldl f s a = !!!!RecordFoldL(f,s,a)
+/// Folds over a record right to left.
+inl record_foldr f a s = !!!!RecordFoldR(f,s,a)
+/// Returns the record length.
+inl record_length m = !!!!RecordLength(m)
 
-/// Returns the values of a module in a tuple.
-inl module_values x = !ModuleValues(x)
-/// Maps over a module.
-/// (string type_lit -> a -> b) -> a module -> b module
-inl module_map f a = !ModuleMap(f,a)
-/// Iterates over a module.
-/// (string type_lit -> a -> ()) -> a module -> ()
-inl module_iter f a = module_map (inl k a -> f k a; ()) a |> ignore
-/// Filters a module at compile time.
-/// (string type_lit -> a -> bool) -> a module -> a module
-inl module_filter f a = !ModuleFilter(f,a)
-/// Folds over a module left to right.
-/// (string type_lit -> state -> a -> state) -> state -> a module -> state
-inl module_foldl f s a = !ModuleFoldL(f,s,a)
-/// Folds over a module right to left.
-/// (string type_lit -> a -> state -> state) -> a module -> state -> state
-inl module_foldr f a s = !ModuleFoldR(f,s,a)
-/// Returns boolean whether the module has a member.
-/// string type_lit -> a module -> bool
-inl module_has_member x m = !ModuleHasMember(x,m)
-/// Returns the module length.
-/// module -> int64
-inl module_length m = !ModuleLength(m)
+inl rec (=) a b =
+    match a, b with
+    | (a, a'), (b, b') -> a = b && a' = b'
+    | {} & a, {} & b -> record_foldr (fun (state:next key:value:) res -> res && match b with {$key=value'} -> next (value = value')) a id true
+    | (), () -> true
+    | a, b -> 
+        if is_keyword a then strip_keyword a = strip_keyword b
+        elif is_rjp a then rjp_none a = rjp_none b
+        else !!!!EQ(a,b)
 
 /// Structural polymorphic equality for every type in the language (apart from functions.)
-inl (=) a b =
-    inl rec (=) a b =
-        inl body a,b = 
-            match a,b with
-            | .(a), .(b) -> a = b
-            | a :: as', b :: bs -> a = b && as' = bs
-            | {} & a, {} & b -> module_values a = module_values b
-            | (), () -> true
-            | a, () -> false // Just in case `b` has not been `Case`d up to this point. This can happen for `(int64, int64) \/ int64` kind of types.
-            | a, b when eq_type a b -> !EQ(a, b) // This repeat eq_type check is because unboxed union types might lead to variables of different types to be compared.
-            | _ -> false
-        if caseable_is a && caseable_is b then join (body (a, b) : true)
-        else body (a, b)
-    if eq_type a b then a = b
-    else error_type ("Trying to compare variables of two different types. Got:",a,b)
+inl (=) a b = if a `= b then a = b else error_type ("Trying to compare variables of two different types. Got:",a,b)
 
-/// Structural polymorphic unequality for every type in the language (apart from functions.)
+/// Structural polymorphic inequality for every type in the language (apart from functions.)
 inl (<>) a b = (a = b) <> true
-
-
     """
     }

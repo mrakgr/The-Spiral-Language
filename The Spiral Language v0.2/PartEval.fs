@@ -990,14 +990,14 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
     | Op(RecordFoldL,[|a;b;c|]) ->
         match ev3 d a b c with
         | a, s, TyRecord l -> 
-            let kv = dex.keywords.To "key:state:value:"
-            Map.fold (fun s k v -> apply' d a (TyKeyword(kv,[|TyKeyword(k,[||]); s; v|]))) s l
+            let kv = dex.keywords.To "state:key:value:"
+            Map.fold (fun s k v -> apply' d a (TyKeyword(kv,[|s; TyKeyword(k,[||]); v|]))) s l
         | _, _, r -> raise_type_error d <| sprintf "Expected a record.\nGot: %s" (show_typed_data r)
     | Op(RecordFoldR,[|a;b;c|]) ->
         match ev3 d a b c with
         | a, s, TyRecord l -> 
-            let kv = dex.keywords.To "key:state:value:"
-            Map.foldBack (fun k x s -> apply' d a (TyKeyword(kv,[|TyKeyword(k,[||]); s; x|]))) l s
+            let kv = dex.keywords.To "state:key:value:"
+            Map.foldBack (fun k x s -> apply' d a (TyKeyword(kv,[|s; TyKeyword(k,[||]); x|]))) l s
         | _, r, _ -> raise_type_error d <| sprintf "Expected a record.\nGot: %s" (show_typed_data r)
     | Op(RecordLength,[|a|]) ->
         match ev d a with
@@ -1025,6 +1025,7 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
         | x -> raise_type_error d <| sprintf "Expected a float in NanIs. Got: %s" (show_typed_data x)
     | Op(StripKeyword,[|a|]) -> 
         match ev d a with
+        | TyKeyword(_,[||]) -> TyB
         | TyKeyword(_,l) -> Array.reduceBack (fun a b -> TyPair(a,b)) l
         | a -> raise_type_error d <| sprintf "Expected a keyword.\nGot: %s" (show_typed_data a)
     | Op(EqType,[|a;b|]) -> data_to_ty (ev d a) = data_to_ty (ev d b) |> LitBool |> TyLit
