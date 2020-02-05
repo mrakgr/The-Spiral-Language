@@ -53,18 +53,20 @@ inl (/) a b = !!!!Div(a,b)
 inl (%) a b = !!!!Mod(a,b)
 
 /// Natural Logarithm.
-inl log x = !Log(x)
+inl log x = !!!!Log(x)
 /// Exponent.
-inl exp x = !Exp(x)
+inl exp x = !!!!Exp(x)
 /// Hyperbolic tangent. 
-inl tanh x = !Tanh(x)
+inl tanh x = !!!!Tanh(x)
 /// Square root.
-inl sqrt x = !Sqrt(x)
+inl sqrt x = !!!!Sqrt(x)
 
 /// 64-bit float infinity
-inl infinityf64 = !InfinityF64()
+//inl infinityf64 = !!!!InfinityF64()
 /// 32-bit float infinity
-inl infinityf32 = !InfinityF32()
+//inl infinityf32 = !!!!InfinityF32()
+
+/// TODO: For the time being since only functions are allowed on the top level, I will put these two infinities directly into the environment.
 
 // Note: Nan is not allowed as a literal because it cannot be memoized.
 // Since join points use structural equality and nan = nan returns false, nans will cause the compiler to diverge.
@@ -156,14 +158,14 @@ inl lit_comp op a b =
     else error_type "a or b needs to be a literal"
 
 /// Returns the compile time expressible maximum of the two expressions.
-inl lit_max = lit_comp max
+inl lit_max x = lit_comp max x
 /// Returns the compile time expressible minimum of the two expressions.
-inl lit_min = lit_comp min
+inl lit_min x = lit_comp min x
 
 /// Maps over a record.
 inl record_map f a = !!!!RecordMap(f,a)
 /// Iterates over a record.
-inl record_iter f a = record_map (inl x -> f x; ()) a |> ignore
+inl record_iter f a = record_map (fun x -> f x; ()) a |> ignore
 /// Filters a record at compile time.
 inl record_filter f a = !!!!RecordFilter(f,a)
 /// Folds over a record left to right.
@@ -176,7 +178,7 @@ inl record_length m = !!!!RecordLength(m)
 inl rec (=) a b =
     match a, b with
     | (a, a'), (b, b') -> a = b && a' = b'
-    | {} & a, {} & b -> record_foldr (fun (state:next key:value:) res -> res && match b with {$key=value'} -> next (value = value')) a id true
+    | {} & a, {} & b -> record_foldr (fun (state:next key:value:) res -> res && match b with | { $key=value'} -> next (value = value')) a id true
     | (), () -> true
     | a, b -> 
         if is_keyword a then strip_keyword a = strip_keyword b
@@ -188,5 +190,7 @@ inl (=) a b = if a `= b then a = b else error_type ("Trying to compare variables
 
 /// Structural polymorphic inequality for every type in the language (apart from functions.)
 inl (<>) a b = (a = b) <> true
+
+inl qwe x = x
     """
     }

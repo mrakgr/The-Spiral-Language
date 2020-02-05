@@ -116,7 +116,7 @@ type ParserEnv =
 
     member d.SkipUnaryOperator(t) =
         d.TryCurrent <| function
-            | TokOperator(_,t') when t' = t -> d.Skip; Ok t'
+            | TokUnaryOperator(_,t') when t' = t -> d.Skip; Ok t'
             | _ -> d.FailWith(ExpectedUnaryOperator t)
 
     member d.ReadSmallVar =

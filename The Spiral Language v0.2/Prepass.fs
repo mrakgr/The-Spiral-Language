@@ -21,7 +21,7 @@ type [<ReferenceEquality>] Expr =
     | Type of TExpr
     | Inline of Expr * ExprData // Acts as a join point for the prepass specifically.
     | Inl of Expr * ExprData
-    | Glob of Expr ref // used for recursive functions and blocks
+    | Glob of Expr ref // Used for recursive functions and blocks.
     | Forall of Expr * ExprData
     | KeywordCreate of KeywordTag * Expr []
     | RecordWith of Expr [] * RecordWithPattern []

@@ -330,7 +330,7 @@ let rec pattern_template is_outer is_box expr s =
     if is_outer then
         (
         choice [|pat_wildcard; pat_var; pat_value; pat_record recurse; pat_keyword_unary; pat_rounds recurse|]
-        |> pat_pair |> pat_keyword
+        |> pat_and |> pat_pair |> pat_keyword
         ) s
     else
         (
