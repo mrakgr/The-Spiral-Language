@@ -353,11 +353,11 @@ let ret_type d = opt (colon >>. type') d
 let inline_ = function RawInline _ as x -> x | x -> RawInline x
 
 let join_point_entry_method y = 
-    let y' = match y with RawPos y -> y.Expression | y -> y
-    match y' with 
-    // The seemingly useless inline_ is there to filter unused arguments from the environment.
-    | RawAnnot(ret_type, y) -> inline_ (RawJoinPoint(Some ret_type, y))
-    | _ -> inline_ (RawJoinPoint(None, y))
+    match y with RawPos y -> y.Expression | y -> y
+    |> function
+        // The seemingly useless inline_ is there to filter unused arguments from the environment.
+        | RawAnnot(ret_type, y) -> inline_ (RawJoinPoint(Some ret_type, y))
+        | _ -> inline_ (RawJoinPoint(None, y))
 
 let with_ret_type ret_type e =
     match ret_type with
@@ -368,6 +368,7 @@ let with_ret_type ret_type e =
     | None -> e
 
 let inline statement_body expr = pipe2 (ret_type .>> eq') (reset_level expr) with_ret_type
+let inline expression_body' expr = arr_fun >>. reset_level expr
 let inline expression_body expr = pipe2 (ret_type .>> arr_fun) (reset_level expr) with_ret_type
 
 let inl x y = RawInl(x,y)
@@ -576,9 +577,11 @@ let operators expr d =
         | Ok x ->
             match x with
             | ";"  -> 
-                if pos.line = d.semicolon_line then d.FailWith(InvalidSemicolon)
+                if pos.line = d.semicolon_line then let r = d.FailWith(InvalidSemicolon) in d.Skip'(-1); r
                 else precedence_associativity d x (fun a b -> l "" (unop ErrorNonUnit a) b)
-            | ":" -> Error [] // is handled in the annotation parser
+            | ":" // Is handled in the annotation parser.
+            | "|" // Will be parsed as a regular operator otherwise.
+            | "->" -> d.Skip'(-1); Error [] // Can be mistakenly parsed in when patterns.
             | _ ->
                 match x with
                 | "&&" -> fun a b -> expr_pos pos (if' a b (lit' (LitBool false)))
@@ -651,7 +654,7 @@ let rec expressions expr d =
     
 
     let case_pattern_match =
-        let clause d = ((pattern true false expr) .>>. (expression_body expr)) d
+        let clause d = ((pattern false false expr) .>>. (expression_body' expr)) d
 
         let pat_function l = inl pat_main <| pattern_to_rawexpr(pat_main, List.toArray l)
         let pat_match x l' = l pat_main x <| pattern_to_rawexpr(pat_main, List.toArray l')
@@ -669,7 +672,7 @@ let rec expressions expr d =
         let clauses d = 
             let i = col d
             let bar s = expr_indent i (<=) or_ s
-            (optional bar >>. sepBy1 (expr_indent i (<=) (type_annot .>>. expression_body expr)) bar) d
+            (optional bar >>. sepBy1 (expr_indent i (<=) (type_annot .>>. expression_body' expr)) bar) d
 
         pipe2 (typecase >>. type_annot .>> with_) clauses (fun a b -> RawTypecase(a,List.toArray b))
 

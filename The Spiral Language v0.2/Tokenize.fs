@@ -89,6 +89,7 @@ let spaces s = spaces_template s
 let is_small_var_char_starting c = isAsciiLower c || c = '_'
 let is_var_char c = isAsciiLetter c || c = '_' || c = ''' || isDigit c 
 let is_big_var_char_starting c = isAsciiUpper c
+let is_var_starting c = isAsciiLetter c || c = '_'
 let is_big_var_char c = is_var_char c || c = '\\'
 let is_parenth_open c = 
     let inline f x = c = x
@@ -210,13 +211,18 @@ let number (s: CharStream<_>) =
 let keyword_unary s =
     let start = pos s
     let f x s = Reply(TokKeywordUnary(pos' start (pos s), x))
+    let er _ = Reply(Error, expected "unary keyword")
 
     let x = s.Peek2()
-    if x.Char0 = '.' && is_small_var_char_starting x.Char1 then
-        s.Skip()
-        ((manySatisfy is_var_char <?> "unary message") >>= f .>> spaces) s
-    else
-        Reply(Error, expected "unary message")
+    if x.Char0 = '.' then
+        if is_var_starting x.Char1 then
+            s.Skip()
+            ((manySatisfy is_big_var_char <?> "unary keyword") >>= f .>> spaces) s
+        elif x.Char1 = '(' then
+            s.Skip(2)
+            ((manySatisfy is_operator_char <?> "unary keyword") .>> skipChar ')' >>= f .>> spaces) s
+        else er()
+    else er()
 
 let operator (s : CharStream<_>) = 
     let is_separator_prev = is_separator_char (s.Peek(-1))

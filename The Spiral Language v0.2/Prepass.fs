@@ -224,25 +224,25 @@ let prepass (var_positions : Dictionary<string,ParserCombinators.PosKey>) (keywo
             prepass_value {env with type'={env.type' with global'=t}; value = {env.value with global'=v}} on_succ
         | RawRecBlock _ -> failwith "Compiler error: Recursive functions and blocks are only allowed at the top level."
         | RawPairTest (a,b,c,on_succ,on_fail) ->
-            let env = env |> value_add_local a |> value_add_local b
-            PairTest(v' c,prepass_value env on_succ,prepass_value env on_fail) // Note: For all the tests, it should be impossible to pass the globals into them.
+            let env' = env |> value_add_local a |> value_add_local b
+            PairTest(v' c,prepass_value env' on_succ,prepass_value env on_fail) // Note: For all the tests, it should be impossible to pass the globals into them.
         | RawKeywordTest (a,b,c,on_succ,on_fail) ->
-            let env = Array.fold (fun env x -> value_add_local x env) env b
-            KeywordTest(keywords.To a,v' c,prepass_value env on_succ,prepass_value env on_fail)
+            let env' = Array.fold (fun env x -> value_add_local x env) env b
+            KeywordTest(keywords.To a,v' c,prepass_value env' on_succ,prepass_value env on_fail)
         | RawRecordTest (a,b,on_succ,on_fail) ->
-            let a,env =
+            let a,env' =
                 Array.mapFold (fun env -> function
                     | RawRecordTestKeyword (a,b) -> RecordTestKeyword(keywords.To a), value_add_local b env
                     | RawRecordTestInjectVar (a,b) -> RecordTestInjectVar(v a), value_add_local b env
                     ) env a
-            RecordTest(a,v' b,prepass_value env on_succ,prepass_value env on_fail)
+            RecordTest(a,v' b,prepass_value env' on_succ,prepass_value env on_fail)
         | RawAnnotTest (true,b,c,on_succ,on_fail) -> AnnotTest(true,prepass_type (value_add_local c env) b,v' c,prepass_value env on_succ,prepass_value env on_fail)
         | RawAnnotTest (false,b,c,on_succ,on_fail) -> AnnotTest(false,prepass_type env b,v' c,prepass_value env on_succ,prepass_value env on_fail)
         | RawValueTest (a,b,on_succ,on_fail) -> LitTest(a,v' b,prepass_value env on_succ,prepass_value env on_fail)
         | RawDefaultLitTest (a,b,on_succ,on_fail) -> parse_default_lit a (fun x -> LitTest(x,v' b,prepass_value env on_succ,prepass_value env on_fail))
         | RawUnionTest (a,b,c,on_succ,on_fail) -> 
-            let env = Array.fold (fun env x -> value_add_local x env) env b
-            UnionTest(keywords.To a,b.Length,v' c,prepass_value env on_succ,prepass_value env on_fail)
+            let env' = Array.fold (fun env x -> value_add_local x env) env b
+            UnionTest(keywords.To a,b.Length,v' c,prepass_value env' on_succ,prepass_value env on_fail)
         | RawUnitTest (a,on_succ,on_fail) -> UnitTest(v' a,prepass_value env on_succ,prepass_value env on_fail)
         | RawPos x -> Pos(Parsing.Pos(x.Pos,prepass_value env x.Expression))
     and prepass_type (env : LocEnv) x =

@@ -151,6 +151,7 @@ let compile (settings: SpiralCompilerSettings) x =
                     env_stack_value_ptr = 0
                     }
             
+                //printfn "%A" a
                 let _ : Data = timeit timings.peval <| fun _ -> partial_eval_value dex d (Op(Apply,[|a;B|]))
                 timeit timings.codegen <| fun _ -> codegen dex (seq.ToArray())
                 |> Ok
