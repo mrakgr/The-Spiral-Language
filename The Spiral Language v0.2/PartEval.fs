@@ -95,7 +95,7 @@ let data_to_rdata'' (hc : HashConsTable) call_data =
             | TyKeyword(a,b) -> RTyKeyword(hc (a, Array.map f b))
             | TyFunction(a,b,c,d,e,z) -> RTyFunction(hc(a,b,c,d,Array.map f e,z))
             | TyRecord l -> RTyRecord(hc(Map.map (fun _ -> f) l))
-            | TyV(T(v,ty) as t) -> call_args.Add t; RTyV(hc (v,ty))
+            | TyV(T(v,ty) as t) -> call_args.Add t; RTyV(hc (call_args.Count-1,ty))
             | TyLit v -> RTyLit v
             | TyB -> RTyB
         ) x
