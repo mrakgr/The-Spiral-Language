@@ -51,6 +51,21 @@ inl main _ =
     """
     }
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test3
+let test4: SpiralModule =
+    {
+    name="test4"
+    prerequisites=[]
+    description="Does the and pattern work correctly?"
+    code=
+    """
+inl main _ =
+    inl f (a, b) (c, d) = dyn (a+c,b+d)
+    inl q & (a, b) = dyn (1,2)
+    inl w & (c, d) = dyn (3,4)
+    f q w
+    """
+    }
+
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test4
 |> printfn "%s"
 |> ignore

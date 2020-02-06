@@ -236,11 +236,15 @@ let inbuilt_operators =
 
 let inline expr_indent i op expr d = if op i (col d) then expr d else Error []
 
-let expr_pos pos x = RawPos(Pos(pos,x))
+let expr_pos pos = function
+    | RawPos _ as x -> x
+    | x -> RawPos(Pos(pos,x))
 let exprpos expr d =
     let pos = pos' d
-    (expr |>> function RawB | RawType _ | RawPos _ | RawInline _ | RawRecBlock _ | RawInl _ | RawForall _ as x -> x | x -> expr_pos pos x) d
-let pat_pos pos x = PatPos(Pos(pos,x))
+    (expr |>> function RawB | RawType _ | RawInline _ | RawRecBlock _ | RawInl _ | RawForall _ as x -> x | x -> expr_pos pos x) d
+let pat_pos pos = function
+    | PatPos _ as x -> x
+    | x -> PatPos(Pos(pos,x))
 let patpos expr d = (expr |>> pat_pos (pos' d)) d
 
 let inline concat_keyword f x =
@@ -512,17 +516,26 @@ let statements is_global expr (d: ParserEnv) =
                 match List.foldBack (<|) pats (join_point_entry_method body) with
                 | RawInl _ | RawForall _ as x -> Ok(name,x)
                 | x -> if is_global then d.FailWith ExpectedGlobalFunction else on_else (name,x) d
-                
+
+        let pat_body = pattern true false expr .>>. statement_body expr |>> fun (pat,body) -> 
+            fun on_succ -> 
+                match pat with PatPos x -> x.Expression | x -> x
+                |> function
+                    | PatE -> l "" body on_succ
+                    | PatVar name -> l name body on_succ
+                    | _ -> l pat_main body (pattern_to_rawexpr(pat_main, [|pat, on_succ|]))
+        
         match d.SkipSpecial SpecRec with
-        | Ok _ -> 
+        | Ok _ ->
             if is_global then
                 let name_pats_body d = name_pats_body (fun _ d -> d.FailWith ExpectedFunction) d
                 (name_pats_body .>>. (many (if_ (and' >>. name_pats_body))) >>= handle_inl_rec_block) d
-            else 
+            else
                 d.Skip'(-1); d.FailWith RecNotAllowedLocally
         | Error _ ->
             let name_pats_body d = name_pats_body (fun x _ -> Ok x) d
-            (name_pats_body |>> handle_inl_statement) d
+            if is_global then (name_pats_body |>> handle_inl_statement) d
+            else ((attempt pat_body) <|> (name_pats_body |>> handle_inl_statement)) d
 
     match d.PeekSpecial with
     | Ok x ->
@@ -559,7 +572,7 @@ let operators expr d =
 
     let op (d : ParserEnv) =
         let pos = pos' d
-        match d.ReadOp' with
+        match d.ReadOp with
         | Ok x ->
             match x with
             | ";"  -> 
@@ -744,7 +757,7 @@ let parser_expressions expr s = (expressions expr |> operators_unary |> applicat
 let rec parser_inner s = (((statements false parser_inner |>> ParserStatement) <|> (exprpos (parser_expressions parser_inner) |>> ParserExpr)) |> indentations |> annotations) s
 let parser_outer d =
     let i = col d
-    (many1 (expr_indent i (=) (statements true parser_inner |>> ParserStatement)) .>>. preturn (Some RawB) >>= process_parser_exprs) d
+    (many (expr_indent i (=) (statements true parser_inner |>> ParserStatement)) .>>. preturn (Some RawB) >>= process_parser_exprs) d
 
 let parser d = (parser_outer .>> eof) d
 
@@ -872,6 +885,9 @@ let parse (m: SpiralModule) =
         match parser d with
         | Ok x ->  Ok (var_positions, x)
         | Error [] -> 
-            if d.Index = d.Length then fail [Array.last l, UnexpectedEof]
+            if d.Index = d.Length then 
+                match Array.tryLast l with
+                | Some x -> fail [x, UnexpectedEof]
+                | None -> Error "Unknown parse error."
             else Error "Unknown parse error."
         | Error x -> fail x

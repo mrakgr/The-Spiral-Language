@@ -62,6 +62,8 @@ type ParserEnv =
         else on_fail()
 
     member inline d.TryCurrent f = d.TryCurrentTemplate f (fun () -> Error [])
+    member d.PrintCurrent() = d.TryCurrent (fun x -> printfn "%A" x; Ok()) // For parser debugging purposes.
+
     member d.FailWith er = d.TryCurrent (fun x -> Error [x,er])
 
     member inline d.LineTemplate f = d.TryCurrentTemplate f (fun _ -> -1)
@@ -76,7 +78,7 @@ type ParserEnv =
     member d.Skip = d.Skip'(1)
 
     member d.Ok (pos : TokenPosition, t) = 
-        d.var_positions.Add(t,{module_=d.module_; column=pos.start_column; line=pos.start_line})
+        d.var_positions.[t] <- {module_=d.module_; column=pos.start_column; line=pos.start_line}
         Ok(t)
 
     member d.PeekSpecial =
@@ -94,19 +96,9 @@ type ParserEnv =
             | TokUnaryOperator(p,t') -> d.Skip; d.Ok(p,"~"+t')
             | _ -> d.FailWith(ExpectedUnaryOperator')
 
-    member d.ReadUnaryOp' =
-        d.TryCurrent <| function
-            | TokUnaryOperator(p,t') -> d.Skip; Ok("~"+t')
-            | _ -> d.FailWith(ExpectedUnaryOperator')
-
     member d.ReadOp =
         d.TryCurrent <| function
             | TokOperator(p,t') -> d.Skip; d.Ok(p,t')
-            | _ -> d.FailWith(ExpectedOperator')
-
-    member d.ReadOp' =
-        d.TryCurrent <| function
-            | TokOperator(p,t') -> d.Skip; Ok(t')
             | _ -> d.FailWith(ExpectedOperator')
 
     member d.SkipOperator(t) =
