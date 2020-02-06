@@ -740,12 +740,13 @@ let operators_unary expr =
         pipe2 (opt unary_op) expr (fun op e -> match op with Some op -> ap (v op) e | None -> e)
         |]
 
-let parser d = 
-    let rec raw_expr is_global s =
-        let expressions s = (expressions (raw_expr false) |> operators_unary |> application_tight |> application |> operators) s
-        (((statements is_global (raw_expr false) |>> ParserStatement) <|> (exprpos expressions |>> ParserExpr)) |> indentations |> annotations) s
+let parser_expressions expr s = (expressions expr |> operators_unary |> application_tight |> application |> operators) s
+let rec parser_inner s = (((statements false parser_inner |>> ParserStatement) <|> (exprpos (parser_expressions parser_inner) |>> ParserExpr)) |> indentations |> annotations) s
+let parser_outer d =
+    let i = col d
+    (many1 (expr_indent i (=) (statements true parser_inner |>> ParserStatement)) .>>. preturn (Some RawB) >>= process_parser_exprs) d
 
-    (raw_expr true .>> eof) d
+let parser d = (parser_outer .>> eof) d
 
 let show_parser_error = function
     | ExpectedSpecial x ->

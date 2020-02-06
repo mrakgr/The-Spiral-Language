@@ -20,10 +20,10 @@ type H<'a when 'a: equality>(x : 'a) =
     override a.GetHashCode() = h
 
 type Tagger<'a when 'a : equality>() = 
-    let dict = Dictionary<H<'a>, int>()
+    let dict = Dictionary<H<'a>, int>(HashIdentity.Structural)
     let queue = Queue<'a * int>()
 
-    member t.Tag ty = memoize dict (fun ty' -> let x = dict.Count in queue.Enqueue(ty,x); dict.Add(ty',x); x) (H ty)
+    member t.Tag ty = memoize dict (fun _ -> let x = dict.Count in queue.Enqueue(ty,x); x) (H ty)
     member t.QueuedCount = queue.Count
     member t.Dequeue = queue.Dequeue()
 

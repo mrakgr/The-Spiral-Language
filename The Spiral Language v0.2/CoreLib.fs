@@ -190,7 +190,5 @@ inl (=) a b = if a `= b then a = b else error_type ("Trying to compare variables
 
 /// Structural polymorphic inequality for every type in the language (apart from functions.)
 inl (<>) a b = (a = b) <> true
-
-()
     """
     }
