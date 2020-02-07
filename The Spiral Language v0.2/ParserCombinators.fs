@@ -416,6 +416,7 @@ let product (d: ParserEnv) = d.SkipOperator "*"
 let exclamation (d: ParserEnv) = d.SkipUnaryOperator "!"
 let exclamationx4 (d: ParserEnv) = d.SkipUnaryOperator "!!!!"
 let dollar (d: ParserEnv) = d.SkipUnaryOperator "$"
+let dollar' (d: ParserEnv) = d.SkipOperator "$"
 let grave (d: ParserEnv) = d.SkipUnaryOperator "`"
 let tilde (d: ParserEnv) = d.SkipUnaryOperator "~"
 

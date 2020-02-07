@@ -556,7 +556,7 @@ let statements is_global expr (d: ParserEnv) =
         | SpecInl -> d.Skip; inl id (forall <|> (tilde >>. pattern true true expr |>> pattern_to_rawinl) <|> (pattern true false expr |>> pattern_to_rawinl))
         | SpecInm -> if is_global then d.FailWith InmCannotBeGlobal else d.Skip; pipe2 (pattern true false expr) (statement_body expr) handle_inm d
         | SpecInb -> if is_global then d.FailWith InbCannotBeGlobal else d.Skip; pipe2 (pattern true false expr) (statement_body expr) handle_inb d
-        | SpecOpen -> d.Skip; pipe2 (open_ >>. big_var) (opt (curlies (with_ >>. many (let var = small_var <|> rounds op in ((var |>> OpenValue) <|> (grave >>. var |>> OpenType) ) .>>. opt (arr_fun >>. var))))) handle_open d
+        | SpecOpen -> d.Skip; pipe2 (open_ >>. big_var) (opt (curlies (with_ >>. many (let var = small_var <|> big_var <|> rounds op in ((var |>> OpenValue) <|> (grave >>. var |>> OpenType) ) .>>. opt (arr_fun >>. var))))) handle_open d
         | _ -> d.FailWith ExpectedStatement
     | Error _ -> d.FailWith ExpectedStatement
 
@@ -643,6 +643,7 @@ let string_to_op x = string_to_op_dict.TryGetValue x
 
 let case_var = (big_var <|> small_var) |>> v
 let case_rounds expr = rounds ((op |>> v) <|> (reset_level expr <|>% B))
+let case_small_var_rounds expr = ((small_var |>> v) <|> case_rounds expr)
 
 let rec expressions expr d =
     let case_fun =
@@ -661,8 +662,6 @@ let rec expressions expr d =
                 let fl = List.foldBack (fun (cond,tr) fl -> if' cond tr fl) elifs (Option.defaultValue B fl)
                 if' cond tr fl)
         <| d
-
-    
 
     let case_pattern_match =
         let clause d = ((pattern false false expr) .>>. (expression_body' expr)) d
@@ -721,9 +720,9 @@ let rec expressions expr d =
             let withs s = (with_ >>. withs') s
             let withouts s = (without >>. withouts') s 
             attempt
-                (tuple3 
-                    ((small_var |>> v) <|> rounds expr)
-                    (many ((keyword_unary' |>> keyword_unary'') <|> (dot >>. rounds expr)))
+                (tuple3
+                    (case_small_var_rounds expr)
+                    (many ((keyword_unary' |>> keyword_unary'') <|> (dollar' >>. case_small_var_rounds expr)))
                     ((with_ >>% withs') <|> (without >>% withouts')))
             >>= (fun (init,names,next) s ->
                 pipe2 next (many (withs <|> withouts)) (fun a b -> mp_with init names (List.concat(a::b))) s
