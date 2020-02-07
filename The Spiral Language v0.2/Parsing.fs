@@ -287,7 +287,18 @@ let rec type_template is_outside (d : ParserEnv) =
     let keyword next = 
         (keyword_unary' |>> fun x -> RawTKeyword(x,[||]))
         <|> (many (keyword .>>. next) |>> (concat_keyword (fun _ t -> t) >> fun (a, b) -> RawTKeyword(a, List.toArray b)))
-    let var = (big_var <|> small_var) |>> RawTVar
+    let var = (big_var <|> small_var) |>> function
+        | "i8" -> RawTPrim Int8T
+        | "i16" -> RawTPrim Int16T
+        | "i32" -> RawTPrim Int32T
+        | "i64" -> RawTPrim Int64T
+        | "u8" -> RawTPrim UInt8T
+        | "u16" -> RawTPrim UInt16T
+        | "u32" -> RawTPrim UInt32T
+        | "u64" -> RawTPrim UInt64T
+        | "f32" -> RawTPrim Float32T
+        | "f64" -> RawTPrim Float64T
+        | x -> RawTVar x
     let parenths next = rounds (next <|>% RawTUnit)
     let tapply next = many1 next |>> List.reduce (fun a b -> RawTApply(a,b))
 
@@ -299,7 +310,7 @@ let rec type_template is_outside (d : ParserEnv) =
         (
         choice [|var; parenths recurse; record recurse; keyword recurse|] 
         |> tapply |> pairs |> arr_depcon |> arr_funs_cons |> forall
-        ) d        
+        ) d 
 
 let type' d = (grave >>. type_template true) d
 let type_annot d = type_template true d
@@ -349,7 +360,7 @@ let set_semicolon_level line p (d: ParserEnv) = p {d with semicolon_line = line}
 let set_keyword_level line p (d: ParserEnv) = p {d with semicolon_line = line; keyword_line = line}
 let reset_level expr d = expr {d with semicolon_line= -1; keyword_line= -1}
 
-let ret_type d = opt (colon >>. type') d
+let ret_type d = opt (colon >>. type_annot) d
 let inline_ = function RawInline _ as x -> x | x -> RawInline x
 
 let join_point_entry_method y = 

@@ -299,7 +299,212 @@ inl main _ =
     """
     }
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test31
+let test34: SpiralModule =
+    {
+    name="test34"
+    prerequisites=[]
+    description="Does this compile into just one method? Are the arguments reversed in the method call?"
+    code=
+    """
+inl rec f a b = join
+    if dyn true then f b a
+    else a + b
+    : i64
+inl main _ = f (dyn 1) (dyn 2)
+    """
+    }
+
+let test36: SpiralModule =
+    {
+    name="test36"
+    prerequisites=[]
+    description="Does the record pattern work?"
+    code=
+    """
+inl main _ =
+    inl f {a b c} = a + b + c
+    inl x =
+        {
+        a=1
+        b=2
+        c=3
+        }
+
+    dyn (f {x with a = 4})
+    """
+    }
+
+let test37: SpiralModule =
+    {
+    name="test37"
+    prerequisites=[]
+    description="Does the nested record pattern work?"
+    code=
+    """
+inl main _ =
+    inl f {name p={x y}} = name,(x,y)
+    inl x = { name = "Coord" }
+
+    f {x with 
+        p = { x = 1
+              y = 2 }}
+    |> dyn
+    """
+    }
+
+let test38: SpiralModule =
+    {
+    name="test38"
+    prerequisites=[]
+    description="Does the nested record pattern with rebinding work?"
+    code=
+    """
+inl main _ =
+    inl f {name p={y=y' x=x'}} = name,(x',y')
+    inl x = { name = "Coord" }
+    f {x with 
+        p = { x = 1
+              y = 2 }}
+    |> dyn
+    """
+    }
+
+let test39: SpiralModule =
+    {
+    name="test39"
+    prerequisites=[]
+    description="Does the record lens pattern work? Does 'this' work? Does the semicolon get parsed properly?"
+    code=
+    """
+inl main _ =
+    inl x = { a = { b = { c = 3 } } }
+
+    inl f {a={b={c q}}} = c,q
+    f {x.a.b with q = 4; c = this + 3; d = {q = 12; w = 23}}
+    |> dyn
+    """
+    }
+
+let test41: SpiralModule =
+    {
+    name="test41"
+    prerequisites=[]
+    description="Does the new record creation syntax work?"
+    code=
+    """
+inl main _ =
+    inl a = 1
+    inl b = 2
+    inl d = 4
+    dyn {a b c = 3; d; e = 5}
+    """
+    }
+
+let test43: SpiralModule =
+    {
+    name="test43"
+    prerequisites=[]
+    description="Does the partial evaluation of if statements work?"
+    code=
+    """
+inl main _ =
+    inl x = dyn false
+    inl _ = dyn (x && (x || x && (x || x)))
+    inl _ = dyn ((x && x || x) || (x || true))
+    inl _ = dyn (if x then false else x)
+    dyn (if x then false else true)
+
+//let ((var_0 : bool)) = false
+//let ((var_1 : bool)) = true
+//let ((var_2 : bool)) = false
+//let ((var_3 : bool)) = var_1 = false
+    """
+    }
+
+let test44: SpiralModule =
+    {
+    name="test44"
+    prerequisites=[]
+    description="Do && and || work correctly?"
+    code=
+    """
+inl main _ =
+    inl a,b,c,d,e = dyn (true, false, true, false, true)
+    a && b || c && d || e
+
+//let ((var_0 : bool)) = true
+//let ((var_1 : bool)) = false
+//let ((var_2 : bool)) = true
+//let ((var_3 : bool)) = false
+//let ((var_4 : bool)) = true
+//let ((var_5 : bool)) = var_0 && var_1
+//let ((var_6 : bool)) =
+//    if var_5 then
+//        true
+//    else
+//        let ((var_6 : bool)) = var_2 && var_3
+//        var_6 || var_4
+    """
+    }
+
+let test45: SpiralModule =
+    {
+    name="test45"
+    prerequisites=[]
+    description="Does the argument get printed on a type error?"
+    code=
+    """
+inl main _ =
+    inl a : f64 = 5
+    ()
+    """
+    }
+
+let test46: SpiralModule =
+    {
+    name="test46"
+    prerequisites=[]
+    description="Does the error printing work? This one should give an error."
+    code=
+    """
+inl main _ = 55 + id
+    """
+    }
+
+let test47: SpiralModule =
+    {
+    name="test47"
+    prerequisites=[]
+    description="Does structural polymorphic equality work?"
+    code=
+    """
+inl main _ = {a=1;b=dyn 2;c=dyn 3} = {a=1;b=2;c=3}
+
+//let ((var_1 : int64)) = 2L
+//let ((var_2 : int64)) = 3L
+//let ((var_3 : bool)) = var_1 = 2L
+//let ((var_5 : bool)) =
+//    if var_3 then
+//        var_2 = 3L
+//    else
+//        false
+    """
+    }
+
+let test48: SpiralModule =
+    {
+    name="test48"
+    prerequisites=[]
+    description="Does this destructure trigger an error?"
+    code=
+    """
+inl main _ =
+    inl q = true && dyn true
+    ()
+    """
+    }
+
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test48
 |> printfn "%s"
 |> ignore
 

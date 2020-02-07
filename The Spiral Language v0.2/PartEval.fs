@@ -848,11 +848,13 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
         let b = tev d ty
         if do_boxing then ev (push_value_var (box' d (a,b)) d) on_succ
         else if data_to_ty a = b then ev d on_succ else ev d on_fail
-    | Annot(tb,a) ->
-        let a = ev d a
+    | Annot(tb,a') ->
+        let a = ev d a'
         let tb = tev d tb
         let ta = data_to_ty a
-        if ta = tb then a else raise_type_error d <| sprintf "Type annotation mismatch.\nReturn type: %s\nAnnotation : %s\n" (show_ty ta) (show_ty tb)
+        if ta = tb then a else 
+            let d = match a' with Pos x -> {d with trace = x.Pos :: d.trace} | _ -> d
+            raise_type_error d <| sprintf "Type annotation mismatch.\nReturn type: %s\nAnnotation : %s\n" (show_ty ta) (show_ty tb)
     | JoinPoint(ret_ty',body) ->
         // Note: All the join points must be wrapped in an Inline so that their local environments are empty and all used free vars are in the globals.
         let call_args, env_global_value = data_to_rdata'' dex.hc_table d.env_global_value
