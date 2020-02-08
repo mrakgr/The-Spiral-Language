@@ -620,7 +620,7 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
         | a -> apply' d a (ev d b)
 
     let function_to_runtime_function env (a : Expr, b : StackSize, c : Ty [], d : StackSize, e : Data []) (a' : Ty, b' : Ty) =
-        failwith "" // TODO
+        raise_type_error env "function_to_runtime_function not implemented."
 
     let rec box' d (a,b) = 
         let box (a,b) = box' d (a,b)
@@ -629,7 +629,7 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
         | TyB, BT -> a
         | TyPair(a,b), PairT(a',b') -> TyPair(box (a, a'), box (b, b'))
         | TyKeyword(k,l), KeywordT(k',l') -> TyKeyword(k,Array.map2 (fun a b -> box (a,b)) l l')
-        | TyFunction(a,b,c,d,e,false), RuntimeFunctionT(a',b') -> function_to_runtime_function d (a,b,c,d,e) (a',b')
+        | TyFunction(a,b,c,d',e,false), RuntimeFunctionT(a',b') -> function_to_runtime_function d (a,b,c,d',e) (a',b')
         | TyFunction(_,_,_,_,_,true), _ -> raise_type_error d <| sprintf "Cannot box foralls.\nGot: %s" (show_typed_data a)
         | TyRecord l & a, RecordT l' -> 
             if Map.count l = Map.count l' then

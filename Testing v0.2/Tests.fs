@@ -676,7 +676,20 @@ inl main _ =
     """
     }
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test40
+let test41: SpiralModule =
+    {
+    name="test40"
+    prerequisites=[]
+    description="Does the let statement work?"
+    code=
+    """
+inl main _ =
+    let f (x : i64) = x
+    f 3
+    """
+    }
+
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test41
 |> printfn "%s"
 |> ignore
 
