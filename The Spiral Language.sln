@@ -42,10 +42,12 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "The Spiral Language v0.2", 
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Dump", "Dump\Dump.fsproj", "{F84F469E-C58D-4260-A121-60A5022B49AC}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Testing v0.2", "Testing v0.2\Testing v0.2.fsproj", "{CD33ACC2-0B6F-4293-A305-E89C7E35B590}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Testing v0.2", "Testing v0.2\Testing v0.2.fsproj", "{CD33ACC2-0B6F-4293-A305-E89C7E35B590}"
 	ProjectSection(ProjectDependencies) = postProject
 		{7494F1C3-0307-4CF3-86E6-50C74DF8349D} = {7494F1C3-0307-4CF3-86E6-50C74DF8349D}
 	EndProjectSection
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "The Spiral Language v0.2 (typechecking)", "The Spiral Language v0.2 (typechecking)\The Spiral Language v0.2 (typechecking).fsproj", "{4A1D2C31-1FAC-4B73-9EF8-43FAE518725D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -97,6 +99,10 @@ Global
 		{CD33ACC2-0B6F-4293-A305-E89C7E35B590}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CD33ACC2-0B6F-4293-A305-E89C7E35B590}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CD33ACC2-0B6F-4293-A305-E89C7E35B590}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4A1D2C31-1FAC-4B73-9EF8-43FAE518725D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4A1D2C31-1FAC-4B73-9EF8-43FAE518725D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4A1D2C31-1FAC-4B73-9EF8-43FAE518725D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4A1D2C31-1FAC-4B73-9EF8-43FAE518725D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
