@@ -894,14 +894,17 @@ and partial_eval_value (dex: ExternalLangEnv) (d: LangEnv) x =
             | _ -> raise_type_error d <| sprintf "The conditional of the while loop must be of type bool.\nGot: %s" (show_ty ty)
         | _ -> raise_type_error d "Compiler error: The body of the conditional of the while loop must be a solitary join point."
     | Op(Dynamize,[|a|]) ->
-        let rec f = function
-            | TyB as x -> x
-            | TyPair(a,b) -> TyPair(f a, f b)
-            | TyKeyword(a,b) -> (a,Array.map f b) |> TyKeyword
-            | TyFunction(a,b,c,d,e,z) -> TyFunction(a,b,c,d,Array.map f e,z)
-            | TyRecord l -> Map.map (fun _ -> f) l |> TyRecord
-            | TyV _ as x -> x
-            | TyLit v as x -> push_op_no_rewrite d Dynamize x (lit_to_ty v)
+        let m = Dictionary(HashIdentity.Reference)
+        let rec f x = 
+            memoize m (function
+                | TyB as x -> x
+                | TyPair(a,b) -> TyPair(f a, f b)
+                | TyKeyword(a,b) -> (a,Array.map f b) |> TyKeyword
+                | TyFunction(a,b,c,d,e,z) -> TyFunction(a,b,c,d,Array.map f e,z)
+                | TyRecord l -> Map.map (fun _ -> f) l |> TyRecord
+                | TyV _ as x -> x
+                | TyLit v as x -> push_op_no_rewrite d Dynamize x (lit_to_ty v)
+                ) x
             
         f (ev d a)
     | Op(StringSlice, [|a;b;c|]) ->
