@@ -33,7 +33,7 @@ type Ty =
     | BT
     | PairT of Ty * Ty
     | KeywordT of KeywordTag * Ty []
-    | FunctionT of Expr * StackSize * Ty [] * StackSize * Ty [] * is_forall : bool
+    | FunctionT of Expr * StackSize * Ty [] * StackSize * Ty [] * is_forall : bool // TODO: Remove this. Disallow raw functions being returned from JPs and if statements.
     | TypeFunctionT of TExpr * StackSize * Ty []
     | RecordT of Map<KeywordTag, Ty>
     | PrimT of PrimitiveType
