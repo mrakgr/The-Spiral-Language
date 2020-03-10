@@ -1,6 +1,7 @@
 ﻿module JsonRPC
 
 open System
+open System.Threading
 
 type Trace =
     | Off
@@ -36,5 +37,4 @@ type ConnectionState =
 
 
 let mutable c = 0
-let x = Handler<_>(fun sender k -> c <- c + 1; printfn "c is %i" c)
-x.Invoke(null,())
+let x = Observable.
