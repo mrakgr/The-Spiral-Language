@@ -5,11 +5,11 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
   </PropertyGroup>
 
+  <ItemGroup />
+
   <ItemGroup>
-    <Content Include="SpiralExperiments'.txt" />
-    <Content Include="SpiralTypes'.txt" />
-    <Content Include="SpiralTypes.txt" />
-    <Compile Include="Program.fs" />
+    <Compile Include="JsonRPC\Main.fs" />
+    <Content Include="readme.md" />
   </ItemGroup>
 
 </Project>
