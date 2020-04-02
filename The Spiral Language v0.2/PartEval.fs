@@ -1,6 +1,6 @@
 ﻿module Spiral.PartEval
 
-open Spiral.HashConsing
+//open Spiral.HashConsing // TODO: Hash consing might not be doing what I want due to a misunderstanding of how weak references work. Investigate this.
 open Spiral.Tokenize
 open Spiral.Parsing
 open Spiral.Prepass
