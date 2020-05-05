@@ -333,22 +333,22 @@ Also, for a while I've known that there is a deep connection between KFAC and PR
 
 ## Proof that KFAC is equivalent to PRONG
 
-Suppose `b` is a 1d whitening matrix, `a` is the weight matrix and `c` is the two combined. What is the update for different values of `b`? Considering that the update rule for `a` is `a + gradient * b` then...
+Suppose `b` is a 1d whitening matrix, `a` is the weight matrix and `c` is the two combined. What is the update for different values of `b`? Considering that the update rule for `a` is `a' = a + gradient * b` then...
 
 ```
-c = a * b = 4, grad = 1
-a = 1, b = 1 -> a' = 2, b = 1, c' = 2
-a = 0.5, b = 2 -> a' = 2.5, b = 2, c' = 5
-a = 0.25, b = 4 -> a' = 4.25, b = 4, c' = 17
+c = a * b, grad = 1, a' = a + grad * b
+a = 1, b = 1, c = 1 -> a' = 2, b = 1, c' = 2
+a = 0.5, b = 2, c = 1 -> a' = 2.5, b = 2, c' = 5
+a = 0.25, b = 4, c = 1 -> a' = 4.25, b = 4, c' = 17
 ```
 
-Now suppose `a` and `b` are not separate as in PRONG, but we have `a * b` and `b` like in KFAC. Then updating the weight matrix does not produce correct results using the `c + gradient * b` rule.
+Now suppose `a` and `b` are not separate as in PRONG, but we have `a * b` and `b` like in KFAC. Then updating the weight matrix does not produce correct results using the `c' = c + gradient * b` rule.
 
 ```
-c = a * b = 4
+c = a * b
 c = 1 -> b = 1 -> c' = 2
-c = 1 -> b = 2 -> c' = 3
-c = 1 -> b = 4 -> c' = 5
+c = 1 -> b = 2 -> c' = 3 // Should be 5.
+c = 1 -> b = 4 -> c' = 5 // Should be 17.
 ```
 
 As shown above the right relationship implies that right quantity for multiplying the gradient is the square of `b`. `a * b` after the update would be `(a + gradient * b) * b = a * b + gradient * b * b`. Meaning `b * b` is what should be used here to add to the gradient just as the first example implies.
