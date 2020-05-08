@@ -1,11 +1,11 @@
 {
-	"name": "spiral-plugin",
+	"name": "spiral-vscode-ide",
 	"version": "0.1.0",
-	"description": "Editor support for the Spiral language.",
+	"description": "VS Code editor support for the Spiral language.",
 	"engines": {
 		"vscode": "^1.44.0"
 	},
-	"main": "src/index.js",
+	"main": "out/index.js",
 	"activationEvents": [
 		"onLanguage:spiral"
 	],
