@@ -678,7 +678,7 @@ inl main _ =
 
 let test41: SpiralModule =
     {
-    name="test40"
+    name="test41"
     prerequisites=[]
     description="Does the let statement work?"
     code=
@@ -689,7 +689,7 @@ inl main _ =
     """
     }
 
-output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test41
+output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__ , @"..\Temporary\output.fs")) test40
 |> printfn "%s"
 |> ignore
 

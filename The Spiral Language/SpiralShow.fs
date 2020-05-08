@@ -141,7 +141,7 @@ and show_consed_typed_data = function
 let show_position' (strb: StringBuilder) ({name=name; code=code},line,col) =
     let er_code =
         code
-        |> memoize' code_dict (fun file_code -> file_code.Split([|Environment.NewLine|],StringSplitOptions.None))
+        |> memoize' code_dict (fun file_code -> file_code.Split([|"\r\n";"\r";"\n"|],System.StringSplitOptions.None))
         |> fun x -> x.[int line - 1]
 
     strb

@@ -26,6 +26,7 @@
     <Compile Include="CodegenFsharp.fs" />
     <Compile Include="CoreLib.fs" />
     <Compile Include="Compile.fs" />
+    <Compile Include="Config.fs" />
   </ItemGroup>
 
   <ItemGroup>

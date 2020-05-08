@@ -861,7 +861,7 @@ let show_parser_error_list x =
 
 let show_position m (strb: StringBuilder) {module_={name=name; code=code}; line=line; column=col} =
     let er_code = 
-        Utils.memoize m (fun _ -> code.Split [|'\n'|]) code
+        Utils.memoize m (fun _ -> code.Split([|"\r\n";"\r";"\n"|],System.StringSplitOptions.None)) code
         |> fun x -> x.[int line - 1]
 
     strb

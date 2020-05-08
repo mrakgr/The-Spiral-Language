@@ -87,10 +87,9 @@ let rec spaces_template s = spaces >>. optional (followedByString "//" >>. skipR
 let spaces s = spaces_template s
 
 let is_small_var_char_starting c = isAsciiLower c || c = '_'
-let is_var_char c = isAsciiLetter c || c = '_' || c = ''' || isDigit c 
+let is_var_char c = isAsciiLetter c || c = '_' || c = ''' || isDigit c
 let is_big_var_char_starting c = isAsciiUpper c
 let is_var_starting c = isAsciiLetter c || c = '_'
-let is_big_var_char c = is_var_char c || c = '\\'
 let is_parenth_open c = 
     let inline f x = c = x
     f '(' || f '[' || f '{'
@@ -138,7 +137,7 @@ let var (s:CharStream<_>) =
         <| s
 
     let big_var s =
-        many1Satisfy2L is_big_var_char_starting is_big_var_char "big var"
+        many1Satisfy2L is_big_var_char_starting is_var_char "big var"
         >>= (fun x s ->
             if s.Skip(':') then TokKeyword(pos' start (pos s),x)
             else TokBigVar(pos' start (pos s),x)
@@ -217,7 +216,7 @@ let keyword_unary s =
     if x.Char0 = '.' then
         if is_var_starting x.Char1 then
             s.Skip()
-            ((manySatisfy is_big_var_char <?> "unary keyword") >>= f .>> spaces) s
+            ((manySatisfy is_var_char <?> "unary keyword") >>= f .>> spaces) s
         elif x.Char1 = '(' then
             s.Skip(2)
             ((manySatisfy is_operator_char <?> "unary keyword") .>> skipChar ')' >>= f .>> spaces) s
