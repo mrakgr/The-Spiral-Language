@@ -1,0 +1,36 @@
+{
+	"name": "spiral-plugin",
+	"version": "0.1.0",
+	"description": "Editor support for the Spiral language.",
+	"engines": {
+		"vscode": "^1.44.0"
+	},
+	"main": "src/index.js",
+	"activationEvents": [
+		"onLanguage:spiral"
+	],
+	"contributes": {
+		"languages": [
+			{
+				"id": "spiral",
+				"extensions": [
+					".spi"
+				]
+			}
+		]
+	},
+	"scripts": {},
+	"keywords": [
+		"spiral"
+	],
+	"author": "Marko Grdinić",
+	"license": "ISC",
+	"devDependencies": {
+		"@types/node": "^13.13.5",
+		"@types/node-ipc": "^9.1.2",
+		"@types/vscode": "^1.44.0"
+	},
+	"dependencies": {
+		"node-ipc": "^9.1.1"
+	}
+}
