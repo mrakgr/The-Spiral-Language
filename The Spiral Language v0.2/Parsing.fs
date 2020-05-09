@@ -860,9 +860,7 @@ let show_parser_error_list x =
     expected + errors
 
 let show_position m (strb: StringBuilder) {module_={name=name; code=code}; line=line; column=col} =
-    let er_code = 
-        Utils.memoize m (fun _ -> code.Split([|"\r\n";"\r";"\n"|],System.StringSplitOptions.None)) code
-        |> fun x -> x.[int line - 1]
+    let er_code = Utils.memoize m Utils.lines code |> fun x -> x.[line - 1]
 
     strb
         .AppendLine(sprintf "Error trace on line: %i, column: %i in module %s." line col name)

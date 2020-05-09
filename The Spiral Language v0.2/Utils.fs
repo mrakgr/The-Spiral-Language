@@ -11,3 +11,4 @@ let inline memoize (memo_dict: Dictionary<_,_>) f k =
     match memo_dict.TryGetValue k with
     | true, v -> v
     | false, _ -> let v = f k in memo_dict.Add(k,v); v
+let lines (str : string) = str.Split([|"\r\n";"\r";"\n"|],System.StringSplitOptions.None)
