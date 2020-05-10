@@ -22,6 +22,8 @@ type ConfigFatalError =
 
 exception ConfigException of ConfigFatalError
 
+let spaces = Tokenize.spaces
+
 let raise' x = raise (ConfigException x)
 let raise_if_not_empty exn l = if Array.isEmpty l = false then raise' (exn l)
 let add_to_exception_list' (p: CharStream<ResizeArray<ConfigResumableError>>) = p.State.UserState.Add
