@@ -547,6 +547,7 @@ let statements is_global expr (d: ParserEnv) =
         | Error _ ->
             let name_pats_body d = name_pats_body (fun x _ -> Ok x) d
             if is_global then (name_pats_body |>> handle_inl_statement) d
+            // TODO: Put a label on `attempt`. Do for every `attempt`.
             else ((attempt pat_body) <|> (name_pats_body |>> handle_inl_statement)) d
 
     match d.PeekSpecial with

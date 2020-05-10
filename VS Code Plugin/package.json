@@ -14,7 +14,7 @@
 			{
 				"id": "spiral",
 				"extensions": [
-					".spi"
+					".spi", ".spiproj"
 				]
 			}
 		]

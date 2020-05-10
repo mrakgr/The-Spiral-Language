@@ -1,0 +1,12 @@
+dir_out: qwe
+dir_source: c:\qwe
+version: 1.2.3 (alpha)
+version: 1.2.3 (alpha)
+name: Test
+files: 
+    A
+    Submodule/
+        Q 
+        W
+        W
+        E
