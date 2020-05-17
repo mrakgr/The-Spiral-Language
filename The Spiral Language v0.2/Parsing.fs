@@ -222,7 +222,7 @@ let inbuilt_operators =
     let left_assoc_ops = 
         let f = add_infix_operator Associativity.Left
         f "+" 60; f "-" 60; f "*" 70; f "/" 70; f "%" 70
-        f "<|" 10; f "|>" 10; f "<<" 10; f ">>" 10
+        f "|>" 10; f ">>" 10
 
         let f str = add_infix_operator Associativity.None str 40
         f "<="; f "<"; f "="; f "`="; f ">"; f ">="; f "<>"
@@ -230,7 +230,7 @@ let inbuilt_operators =
 
     let right_associative_ops =
         let f str prec = add_infix_operator Associativity.Right str prec
-        f "||" 20; f "&&" 30; f "::" 50; f "^^^" 45
+        f "||" 20; f "&&" 30; f "::" 50; f "^" 45; f "<|" 10; f "<<" 10
         f ";" 4; f "," 5; f ":>" 35; f ":?>" 35; f "**" 80
     inbuilt_operators
 
