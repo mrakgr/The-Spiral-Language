@@ -567,7 +567,7 @@ let operators expr d =
 
     // Similarly to F#, Spiral filters out the '.' from the operator name and then tries to match to the nearest inbuilt operator
     // for the sake of assigning associativity and precedence.
-    // TODO: This might change in v0.2 to explicit precedence and associativity like in Agda/Haskell.
+    // TODO: Optimize this.
     let precedence_associativity (d : ParserEnv) x on_succ = 
         match inbuilt_operators.TryGetValue x with
         | true, v -> Ok(v,on_succ)
