@@ -14,7 +14,8 @@
 			{
 				"id": "spiral",
 				"extensions": [
-					".spi", ".spiproj"
+					".spi",
+					".spiproj"
 				]
 			}
 		]
@@ -27,10 +28,9 @@
 	"license": "ISC",
 	"devDependencies": {
 		"@types/node": "^13.13.5",
-		"@types/node-ipc": "^9.1.2",
 		"@types/vscode": "^1.44.0"
 	},
 	"dependencies": {
-		"node-ipc": "^9.1.1"
+		"zeromq": "^6.0.0-beta.6"
 	}
 }
