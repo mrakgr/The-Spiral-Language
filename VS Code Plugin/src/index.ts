@@ -1,29 +1,31 @@
 import * as path from "path";
-import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, RelativePattern } from "vscode";
+import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, RelativePattern, Position, Range } from "vscode";
+import * as zmq from "zeromq";
 
-function randomInt(max : number) {
-  return Math.floor(Math.random() * Math.floor(max));
-}
+const uri = "tcp://localhost:13805";
 
-const errorOnRandomLine = (d : DiagnosticCollection, doc : TextDocument) => {
-    const line = doc.lineAt(randomInt(doc.lineCount));
-    const diag = new Diagnostic(line.range,"random error",DiagnosticSeverity.Error);
-    d.set(doc.uri,[diag])
+const client = async (text : string) => {
+    const sock = new zmq.Request();
+    sock.connect(uri);
+    await sock.send(text);
+    const [msg] = await sock.receive();
+    const {line, lineStart, lineEnd} = JSON.parse(msg.toString());
+    return new Range(line,lineStart,line,lineEnd);
 };
 
 export const activate = async (ctx : ExtensionContext) => {
     window.showInformationMessage("Spiral plugin is active.");
-    const folders = workspace.workspaceFolders;
-    if (!folders) return;
-    const projFiles = await Promise.all(folders.map(x => workspace.findFiles(new RelativePattern(x,"*.spiproj"))));
-    const projFilesSet = new Set(projFiles.flat().map(x => x.toString()));
 
     const config_errors = languages.createDiagnosticCollection();
     ctx.subscriptions.push(
         config_errors,
-        workspace.onDidChangeTextDocument(x => {
-            if (path.extname(x.document.uri.path) === ".spiproj")
-                errorOnRandomLine(config_errors, x.document);
+        workspace.onDidChangeTextDocument(async x => {
+            if (path.extname(x.document.uri.path) === ".spiproj"){
+                const doc = x.document;
+                const range = await client(doc.getText());
+                const diag = new Diagnostic(range,"random error",DiagnosticSeverity.Error);
+                config_errors.set(doc.uri,[diag])
+                }
         })
     );
 };

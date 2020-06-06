@@ -6,7 +6,7 @@ name: Test
 files: 
     A
     Submodule/
-        Q 
+        Q
         W
         W
         E
