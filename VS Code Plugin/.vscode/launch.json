@@ -5,40 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "type": "node",
-            "request": "launch",
-            "name": "Launch Basic Server",
-            "program": "${workspaceFolder}/src/server.js",
-            "skipFiles": [
-                "<node_internals>/**"
-            ]
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Launch Node Server",
-            "program": "${workspaceFolder}/src/nodeServer.js",
-            "skipFiles": [
-                "<node_internals>/**"
-            ]
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Launch Basic Client",
-            "program": "${workspaceFolder}/src/client.js",
-            "skipFiles": [
-                "<node_internals>/**"
-            ]
-        },
-        {
             "type": "extensionHost",
             "request": "launch",
             "name": "Launch Extension",
             "runtimeExecutable": "${execPath}",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}",
-                "${workspaceFolder}/src"
+                "${workspaceFolder}/spiral/"
             ],
             "outFiles": [
                 "${workspaceFolder}/src/**/*.js"
