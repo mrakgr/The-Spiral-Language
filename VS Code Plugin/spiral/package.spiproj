@@ -1,10 +1,13 @@
-dir_out: qwe
-dir_source: c:\qwe
+dirOut: qwe
+dirSource: c:\qwe
 version: 1.2.3 (alpha)
 name: Test
 files: 
     A
     Submodule/
-        Q 
+        QQ 
+        Q
         W
         E 
+        Main
+    Main

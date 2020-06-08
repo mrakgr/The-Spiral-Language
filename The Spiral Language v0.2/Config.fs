@@ -117,16 +117,13 @@ type Schema = {
 type ConfigError = ResumableError of ConfigResumableError [] | FatalError of ConfigFatalError
 
 open System.IO
-let config project_directory =
+let config spiproj_dir spiproj_text =
     try 
         let project_directory =
-            try DirectoryInfo(project_directory).FullName
+            try DirectoryInfo(spiproj_dir).FullName
             with e -> raise' (ConfigProjectDirectoryPathInvalid e.Message)
 
-        let config = 
-            try File.ReadAllText(Path.Combine(project_directory,"package.spiproj"))
-            with e -> raise' (ConfigCannotReadProjectFile e.Message)
-        let _ = tab_positions config |> raise_if_not_empty Tabs
+        let _ = tab_positions spiproj_text |> raise_if_not_empty Tabs
 
         let directory p = 
             pipe2 pos' (restOfLine true .>> spaces) (fun pos b ->
@@ -151,7 +148,7 @@ let config project_directory =
             files=[||]
             }
 
-        match runParserOnString (spaces >>. record fields necessary schema .>> eof) (ResizeArray()) "spiral.config" config with
+        match runParserOnString (spaces >>. record fields necessary schema .>> eof) (ResizeArray()) "spiral.config" spiproj_text with
         | Success(a,userstate,_) -> 
             if userstate.Count > 0 then userstate.ToArray() |> ResumableError |> Result.Error else Result.Ok a
         | Failure(messages,error,_) ->
