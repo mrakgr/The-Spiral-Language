@@ -16,6 +16,7 @@ const uri = "tcp://localhost:13805";
 
 const client = async (spiprojDir: string, spiprojText: string) => {
     const sock = new zmq.Request();
+    sock.receiveTimeout = 30e3;
     sock.connect(uri);
     await sock.send(JSON.stringify({ ProjectFile: {spiprojDir, spiprojText} }));
     const [x] = await sock.receive();
