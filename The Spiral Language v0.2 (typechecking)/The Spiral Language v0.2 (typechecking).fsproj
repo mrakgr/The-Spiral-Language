@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <PackageReference Include="FSharp.Control.Reactive" Version="4.3.3" />
+    <PackageReference Include="FSharpx.Async" Version="1.14.1" />
   </ItemGroup>
 
   <ItemGroup>
