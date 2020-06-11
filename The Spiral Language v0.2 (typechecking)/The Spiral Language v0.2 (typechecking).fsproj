@@ -4,6 +4,7 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <RootNamespace>The_Spiral_Language_v0._2__typechecking_</RootNamespace>
     <OutputType>Exe</OutputType>
+    <ServerGarbageCollection>true</ServerGarbageCollection>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
@@ -16,15 +17,22 @@
 
   <ItemGroup>
     <Compile Include="Prototyping.fs" />
+    <Compile Include="HopacExample.fs" />
+    <Compile Include="HopacExample2.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="FSharp.Control.Reactive" Version="4.3.3" />
+    <PackageReference Include="FSharp.Control.Reactive" Version="4.4.0" />
     <PackageReference Include="FSharpx.Async" Version="1.14.1" />
+    <PackageReference Include="Hopac" Version="0.4.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\The Spiral Language v0.2\The Spiral Language v0.2.fsproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="4.7.2" />
   </ItemGroup>
 
 </Project>
