@@ -4,14 +4,16 @@ open System
 open Hopac
 open Hopac.Infixes
 
-let hello what = job {
-  for i=1 to 3 do
-    do! timeOut (TimeSpan.FromSeconds 1.0)
-    do printfn "%s" what
-}
+let get c = Ch.take c
+let put c (x: 'a) = Ch.give c x
 
-[
-timeOut (TimeSpan.FromSeconds 0.0) >>=. hello "Hello, from first job!"
-timeOut (TimeSpan.FromSeconds 0.3) >>=. hello "Hello, from second job!"
-timeOut (TimeSpan.FromSeconds 0.6) >>=. hello "Hello, from third job"
-] |> Job.conIgnore |> run
+run <| job {
+    let c = Ch ()
+    let print () = Job.start (get c >>- fun i -> printf "%i\n" i)
+    let put i = Job.start (put c i)
+    for i=1 to 6 do
+        do! print()
+        do! put i
+    }
+
+Console.ReadKey()
