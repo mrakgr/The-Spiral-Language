@@ -5,19 +5,17 @@ open System.Threading
 open Hopac
 open Hopac.Infixes
 
-let server = Job.delay <| fun () ->
-    let c = Ch ()
-    let rec loop i =
-        (timeOutMillis 1000 ^=> fun () -> printfn "%i..." i; loop (i+1))
-        <|> (Ch.take c ^=> fun x -> printfn "Got message: %s" x; loop i)
+let verbose alt = Alt.withNackJob <| fun nack ->
+    printf "Instantiated and "
+    Job.start (nack >>- fun () -> printfn "aborted.") 
+    >>-. (alt ^-> fun x -> printfn "committed to." ; x)
 
-    Job.server (loop 0) >>-. c
-
-job {
-    let! req = server
-    while true do
-        let! _ = Job.fromTask (fun () -> Tasks.Task.Run(fun () -> Console.ReadKey()))
-        do! Ch.give req "Hello"
-    }
+let rnd = Random()
+Alt.choose [
+    //Alt.always () ^=> (Alt.never >> Job.start)
+    verbose <| (Alt.prepareFun (fun () -> if rnd.Next(2) = 0 then Alt.never () else Alt.always()))
+    Alt.always ()
+    ]
 |> run
-    
+
+Console.ReadKey()
