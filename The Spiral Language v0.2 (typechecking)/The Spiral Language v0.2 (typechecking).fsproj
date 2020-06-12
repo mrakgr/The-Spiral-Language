@@ -16,9 +16,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Prototyping.fs" />
     <Compile Include="HopacExample.fs" />
     <Compile Include="HopacExample2.fs" />
+    <Compile Include="Prototyping.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,19 +1,23 @@
-﻿module HopacExample2
+﻿module HopacTimming
 
 open System
+open System.Threading
 open Hopac
 open Hopac.Infixes
 
-let get c = Ch.take c
-let put c (x: 'a) = Ch.give c x
-
-run <| job {
+let server = Job.delay <| fun () ->
     let c = Ch ()
-    let print () = Job.start (get c >>- fun i -> printf "%i\n" i)
-    let put i = Job.start (put c i)
-    for i=1 to 6 do
-        do! print()
-        do! put i
-    }
+    let rec loop i =
+        (timeOutMillis 1000 ^=> fun () -> printfn "%i..." i; loop (i+1))
+        <|> (Ch.take c ^=> fun x -> printfn "Got message: %s" x; loop i)
 
-Console.ReadKey()
+    Job.server (loop 0) >>-. c
+
+job {
+    let! req = server
+    while true do
+        let! _ = Job.fromTask (fun () -> Tasks.Task.Run(fun () -> Console.ReadKey()))
+        do! Ch.give req "Hello"
+    }
+|> run
+    
