@@ -29,7 +29,7 @@ type ServerIn =
 let parser = Job.delay <| fun () ->
     let req = Ch()
     let res = Ch()
-    let rec loop_empty () = (Ch.take req >>=* parse) |> loop_sending
+    let rec loop_empty () = (Ch.take req ^-> (parse >> memo)) ^=> loop_sending
     and loop_sending (file : _ Promise) = loop_empty () <|> (Ch.give res file ^=> fun () -> loop_sending file)
 
     Job.server (loop_empty ()) >>-. {|req=req; res=res|}

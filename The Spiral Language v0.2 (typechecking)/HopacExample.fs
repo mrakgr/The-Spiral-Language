@@ -6,6 +6,7 @@ open Hopac.Infixes
 
 Alt.choose [
     //Alt.always 1 ^=>. Alt.never () // blocks forever
+    //Alt.always 1 ^=>. memo (Alt.never ()) :> _ Alt // blocks forever
     memo (Alt.always 1 ^=>. Alt.never ()) :> _ Alt // does not block
     Alt.always 1 >>=*. Alt.never () :> _ Alt // same as above, does not block
     Alt.always 2
