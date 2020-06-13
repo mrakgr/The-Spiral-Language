@@ -5,17 +5,19 @@ open System.Threading
 open Hopac
 open Hopac.Infixes
 
-let verbose alt = Alt.withNackJob <| fun nack ->
-    printf "Instantiated and "
-    Job.start (nack >>- fun () -> printfn "aborted.") 
-    >>-. (alt ^-> fun x -> printfn "committed to." ; x)
+let hello what = job {
+  for i=1 to 3 do
+    do! timeOut (TimeSpan.FromSeconds 1.0)
+    do printfn "%s" what
+}
 
-let rnd = Random()
-Alt.choose [
-    //Alt.always () ^=> (Alt.never >> Job.start)
-    verbose <| (Alt.prepareFun (fun () -> if rnd.Next(2) = 0 then Alt.never () else Alt.always()))
-    Alt.always ()
-    ]
-|> run
+run <| job {
+  let! j1 = Promise.start (hello "Hello, from a job!")
+  do! timeOut (TimeSpan.FromSeconds 0.5)
+  let! j2 = Promise.start (hello "Hello, from another job!")
+  //do! Promise.read j1
+  //do! Promise.read j2
+  return ()
+}
 
 Console.ReadKey()

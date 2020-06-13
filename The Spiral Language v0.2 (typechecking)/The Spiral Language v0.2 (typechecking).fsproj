@@ -17,8 +17,8 @@
 
   <ItemGroup>
     <Compile Include="HopacExample.fs" />
-    <Compile Include="HopacExample2.fs" />
     <Compile Include="Prototyping.fs" />
+    <Compile Include="HopacExample2.fs" />
   </ItemGroup>
 
   <ItemGroup>
