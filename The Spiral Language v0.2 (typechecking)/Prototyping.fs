@@ -12,14 +12,17 @@ let tag = let i = ref 0 in fun () -> Interlocked.Increment(i) : Tag
 type ParsedFile = FileParsed of Tag
 type TypecheckedFile = FileTypechecked of Tag
 
-let parse text = Promise.start (timeOutMillis 50 ^->. FileParsed(tag()))
+let parse text = Promise.start (timeOutMillis 50 ^->. FileParsed(tag())) // TODO: This is intended to be lazy, but I am not sure how to implement it yet.
 let tc file_prev text = timeOutMillis 50 ^->. FileTypechecked(tag())
 
-let project add_project add_file id = failwith ""
+let editor = Job.delay <| fun () ->
+    let c = Ch ()
+    let loop = Ch.take c >>-. ()
+    Job.foreverServer loop >>-. c
 
 type ServerIn =
     | ServerAddProject of id: string * files: string []
-    | ServerAddFile of file: string * text: string
+    | ServerAddFile of id: string * file: string * text: string
 
 let parser = Job.delay <| fun () ->
     let req = Ch()
@@ -29,7 +32,7 @@ let parser = Job.delay <| fun () ->
 
     Job.server (loop_empty ()) >>-. {|req=req; res=res|}
 
-type TykerState = {|req: ParsedFile Promise Ch; res: TypecheckedFile Ch|} []
+type TykerState = {|req: ParsedFile Promise Ch; res: TypecheckedFile -> unit Alt|} []
 type TykerIn =
     | TykerGoto of int
     | TykerRestart of TykerState
@@ -57,7 +60,7 @@ let typechecker = Job.delay <| fun () ->
     and typecheck state i (file_prev_t : TypecheckedFile option) (file_cur_p : ParsedFile) =
         let body = 
             tc file_prev_t file_cur_p ^=> fun file_cur_t ->
-            Ch.give state.[t.Count].res file_cur_t ^=> fun () ->
+            state.[t.Count].res file_cur_t ^=> fun () ->
             t.Push(file_cur_t)
             start state i
         waiting state <|> body
@@ -69,7 +72,7 @@ let server = Job.delay <| fun () ->
     let parsers = Dictionary()
     let typecheckers = Dictionary()
 
-    let loop = Mailbox.take req >>= function
+    let loop out = Mailbox.take req >>= function
         | ServerAddProject(id,files) -> 
             files |> Array.mapJob (fun file ->
                 match parsers.TryGetValue(file) with
@@ -77,16 +80,24 @@ let server = Job.delay <| fun () ->
                 | _ -> parser >>- fun x -> parsers.Add(file,x); x
                 )
             >>= fun parsers ->
-                let f tc_req =
-                    parsers |> Array.map (fun p -> {|req=p.res; res=Ch()|})
-                    |> TykerRestart
-                    |> Ch.give tc_req
+                let body tc_req =
+                    let x = {|
+                        req = tc_req
+                        gotos = files |> Array.mapi (fun i x -> KeyValuePair(x, Ch.give tc_req (TykerGoto i))) |> Dictionary
+                        restart = (files, parsers) ||> Array.map2 (fun file p -> {|req=p.res; res=fun x -> Ch.give out (file,x)|}) |> TykerRestart |> Ch.give tc_req
+                        |}
+                    typecheckers.[id] <- x
+                    x.restart :> _ Job
                 match typecheckers.TryGetValue(id) with
-                | false, _ -> typechecker >>= fun x -> typecheckers.[id] <- x; f x
-                | true, x -> upcast f x
-        | ServerAddFile(file,text) ->
+                | false, _ -> typechecker >>= body
+                | true, x -> body x.req
+        | ServerAddFile(id',file,text) ->
             match parsers.TryGetValue(file) with
-            | true, p -> upcast Ch.give p.req text
+            | true, p -> 
+                let inline f (d : Dictionary<_,_>) x on_succ = match d.TryGetValue(x) with true, v -> on_succ v | _ -> Alt.unit ()
+                let goto = f typecheckers id' (fun v -> f v.gotos file id)
+                Ch.give p.req text >>=. goto
             | _ -> Job.unit ()
             
-    Job.foreverServer loop >>-. req
+    editor >>= fun x -> 
+    Job.foreverServer (loop x) >>-. req
