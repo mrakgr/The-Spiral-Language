@@ -12,8 +12,10 @@ let tag = let i = ref 0 in fun () -> Interlocked.Increment(i) : Tag
 type ParsedFile = FileParsed of Tag
 type TypecheckedFile = FileTypechecked of Tag
 
-let parse text = Promise.start (timeOutMillis 50 ^->. FileParsed(tag())) // TODO: This is intended to be lazy, but I am not sure how to implement it yet.
-let tc file_prev text = timeOutMillis 50 ^->. FileTypechecked(tag())
+let rnd_v = IVar(Random())
+let wait t = IVar.read rnd_v ^=> fun rnd -> timeOutMillis (rnd.Next(t)) >>=. IVar.fill rnd_v rnd
+let parse text = wait 100 ^->. FileParsed(tag())
+let tc file_prev text = wait 100 ^->. FileTypechecked(tag())
 
 let editor = Job.delay <| fun () ->
     let c = Ch ()
@@ -27,8 +29,8 @@ type ServerIn =
 let parser = Job.delay <| fun () ->
     let req = Ch()
     let res = Ch()
-    let rec loop_empty () = (Ch.take req ^=> parse) ^=> loop_sending
-    and loop_sending file = loop_empty () <|> (Ch.give res file ^=> fun () -> loop_sending file)
+    let rec loop_empty () = (Ch.take req >>=* parse) |> loop_sending
+    and loop_sending (file : _ Promise) = loop_empty () <|> (Ch.give res file ^=> fun () -> loop_sending file)
 
     Job.server (loop_empty ()) >>-. {|req=req; res=res|}
 

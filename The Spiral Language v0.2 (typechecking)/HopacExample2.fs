@@ -1,23 +1,21 @@
-﻿module HopacTimming
+﻿module HopacArith
 
 open System
-open System.Threading
 open Hopac
-open Hopac.Infixes
 
-let hello what = job {
-  for i=1 to 3 do
-    do! timeOut (TimeSpan.FromSeconds 1.0)
-    do printfn "%s" what
-}
+type S = S of int * Job<S>
 
-run <| job {
-  let! j1 = Promise.start (hello "Hello, from a job!")
-  do! timeOut (TimeSpan.FromSeconds 0.5)
-  let! j2 = Promise.start (hello "Hello, from another job!")
-  //do! Promise.read j1
-  //do! Promise.read j2
-  return ()
-}
+let rec arith i = Job.delay(fun () ->
+    printfn "Hello"
+    S(i,arith (i+1)) |> Job.result
+    )
+    
+let rec loop k = job {
+    let! (S(i,_)) = k
+    let! (S(i,k)) = k
+    printfn "%i" i
+    Console.ReadKey()
+    return! loop k
+    }
 
-Console.ReadKey()
+loop (arith 0) |> run
