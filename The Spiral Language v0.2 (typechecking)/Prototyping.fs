@@ -12,8 +12,8 @@ let tag = let i = ref 0 in fun () -> Interlocked.Increment(i) : Tag
 type ParsedFile = FileParsed of Tag
 type TypecheckedFile = FileTypechecked of Tag
 
-let rnd_v = IVar(Random())
-let wait t = IVar.read rnd_v ^=> fun rnd -> timeOutMillis (rnd.Next(t)) >>=. IVar.fill rnd_v rnd
+let rnd_v = MVar(Random())
+let wait t = MVar.take rnd_v ^=> fun rnd -> MVar.fill rnd_v rnd >>=. timeOutMillis (rnd.Next(t))
 let parse text = wait 100 ^->. FileParsed(tag())
 let tc file_prev text = wait 100 ^->. FileTypechecked(tag())
 
