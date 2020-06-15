@@ -89,6 +89,23 @@ module MergeSort =
         do! read_all "c" c
         }
 
+// This particular example is not transcribed directly from the book, but is instead implemented using
+// streams. The way it is done in the book is too much of a mess so I switched to this. I just could not
+// bear it and it was a good opportunity to get familiar with streams since I am going to be using them
+// to do editor support for Spiral.
+module PowerSeries =
+    open Hopac.Stream
+    let rec add F G = F >>=* function Nil -> G | Cons(f,F') -> G >>=* function Nil -> F | Cons(g,G') -> cons (f+g) (add F' G')
+    let mul_by_const c F = Stream.mapFun (fun x -> c * x) F
+    let mul_by_term F = Stream.cons 0.0 F
+    let rec mul (F : _ Stream) (G : _ Stream) : _ Stream =
+        let ht F on_head = F >>=* function Nil -> Stream.nil | Cons(h,t) -> on_head (h,t)
+        ht F <| fun (f,F) ->
+        ht G <| fun (g,G) ->
+        cons (f*g) (add (mul_by_term (mul F G)) (add (mul_by_const f G) (mul_by_const g F)))
 
-MergeSort.main |> run
-System.Console.ReadKey()
+    let main = 
+        let l = [1.0;2.0;3.0;4.0;5.0;6.0] |> Stream.ofSeq
+        ((mul l l |> Stream.toSeq) >>- (Seq.toArray >> printfn "%A"))
+        
+PowerSeries.main |> run

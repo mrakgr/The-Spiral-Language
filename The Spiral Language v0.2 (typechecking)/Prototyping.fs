@@ -13,7 +13,7 @@
 //type TypecheckedFile = FileTypechecked of Tag
 
 //let rnd_v = MVar(Random())
-//let wait t = MVar.take rnd_v ^=> fun rnd -> MVar.fill rnd_v rnd >>=. timeOutMillis (rnd.Next(t))
+//let wait t = MVar.take rnd_v ^=> fun rnd -> let t = rnd.Next(t) in MVar.fill rnd_v rnd >>=. timeOutMillis t
 //let parse text = wait 100 ^->. FileParsed(tag())
 //let tc file_prev text = wait 100 ^->. FileTypechecked(tag())
 
