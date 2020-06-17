@@ -108,13 +108,14 @@ module PowerSeries =
         let l = [1.0;2.0;3.0;4.0;5.0;6.0] |> Stream.ofSeq
         ((mul l l |> Stream.toSeq) >>- (Seq.toArray >> printfn "%A"))
         
-Alt.choose [
-    Alt.withNackFun (fun nack -> 
-        ((nack ^-> fun () -> printfn "Aborted.") ^=>. Alt.always 1) >>=*. Alt.never ())
-    Alt.always 1 >>=*. Alt.never () :> _ Alt
-    Alt.always 2
-    ]
+job {
+    let c1,c2 = Ch(), Ch()
+    let! r = Promise.start (Ch.take c1 <+> Ch.take c2 >>- fun (a,b) -> a+b)
+    do! Ch.give c2 2
+    do! Ch.give c1 1
+    return! r
+    }
 |> run
 |> printfn "%i"
 
-System.Console.ReadKey()
+//System.Console.ReadKey()
