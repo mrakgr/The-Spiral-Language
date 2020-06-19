@@ -25,7 +25,6 @@
 		"spiral"
 	],
 	"author": "Marko Grdinić",
-	"license": "ISC",
 	"devDependencies": {
 		"@types/node": "^13.13.5",
 		"@types/vscode": "^1.44.0"
