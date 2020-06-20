@@ -87,7 +87,7 @@ type SpiralCompilerSettings = {
     filter_list : string list // List of modules to be ignored in the trace.
     }
 
-let show_trace (settings: SpiralCompilerSettings) (trace: Trace) message = 
+let show_trace (settings: SpiralCompilerSettings) (trace: Trace, message) = 
     let m = Dictionary(HashIdentity.Reference)
     let filter_set = HashSet(settings.filter_list,HashIdentity.Structural)
     let error = System.Text.StringBuilder(1024)
@@ -101,7 +101,7 @@ let show_trace (settings: SpiralCompilerSettings) (trace: Trace) message =
     error.AppendLine message |> ignore
     error.ToString()
 
-let compile (settings: SpiralCompilerSettings) x =
+let compile' (settings: SpiralCompilerSettings) x =
     let timings = 
         {
         parse = Stopwatch()
@@ -160,11 +160,15 @@ let compile (settings: SpiralCompilerSettings) x =
             | None -> raise <| CompilationError "main has to be present in the last module."
         | _ -> failwith "Compiler error: Module that has been compiled should always be in the environment."
     with 
-        | :? CompilationError as x -> Error x.Data0
-        | :? TypeError as x -> Error(show_trace settings x.Data0 x.Data1)
-        | :? CodegenError as x -> Error(x.Data0)
-        | :? CodegenErrorWithPos as x -> Error(show_trace {settings with filter_list=[]} x.Data0 x.Data1)
+        | :? CompilationError as x -> Error([], x.Data0)
+        | :? TypeError as x -> Error(x.Data0, x.Data1)
+        | :? CodegenError as x -> Error([], x.Data0)
+        | :? CodegenErrorWithPos as x -> Error(x.Data0, x.Data1)
     |> fun x -> timings.Elapsed, x
+
+let compile settings x =
+    let tim, er = compile' settings x
+    tim, Result.mapError (show_trace settings) er
 
 let run_test_and_store_it_to_stream cfg stream (m: SpiralModule) =
     sprintf "%s - %s:\n%s\n\n" m.name m.description (m.code.Trim()) |> stream
