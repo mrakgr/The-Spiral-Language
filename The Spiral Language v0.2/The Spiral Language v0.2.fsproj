@@ -27,7 +27,6 @@
     <Compile Include="CoreLib.fs" />
     <Compile Include="Compile.fs" />
     <Compile Include="Config.fs" />
-    <Compile Include="ConfigServer.fs" />
   </ItemGroup>
 
   <ItemGroup>

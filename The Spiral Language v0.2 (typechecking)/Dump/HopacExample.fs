@@ -1,4 +1,5 @@
-﻿#nowarn "40"
+﻿module HopacExamples
+#nowarn "40"
 open Hopac
 open Hopac.Infixes
 open Hopac.Extensions

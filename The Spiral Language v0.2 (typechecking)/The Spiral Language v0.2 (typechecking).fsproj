@@ -16,8 +16,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="HopacExample.fs" />
-    <Compile Include="Prototyping.fs" />
+    <None Include="Dump\HopacExample.fs" />
+    <None Include="Dump\Prototyping.fs" />
+    <Compile Include="ConfigServer.fs" />
   </ItemGroup>
 
   <ItemGroup>

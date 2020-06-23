@@ -32,7 +32,7 @@ open NetMQ.Sockets
 
 type ClientMsgs =
     | ProjectFile of {|spiprojDir : string; spiprojText : string|}
-    | File of {|spiprojDir : string; text : string|}
+    | File of {|spiPath : string; spiText : string|}
 
 let uri = "tcp://*:13805"
 
@@ -55,6 +55,9 @@ let server () =
             msg.Push(address)
             sock.SendMultipartMessage(msg)
         | File x -> 
-            failwith "Not implemented yet."
+            msg.Push([|"Received", None|] |> Error |> Json.serialize)
+            msg.PushEmptyFrame()
+            msg.Push(address)
+            sock.SendMultipartMessage(msg)
 
 server()
