@@ -2,10 +2,11 @@
 
 open Spiral.Config
 
+type Changes = { range: Range; rangeOffset: int; rangeLength: int; text: string }
 let process_errors = Result.mapError <| fun x ->
-    let pos' len x : Range option = 
-        let x = {x with Line=x.Line-1; Column=x.Column-1}
-        Some {Start=x; End={Line=x.Line; Column=x.Column+len}}
+    let pos' len x : Range option =
+        let x = {line=x.line-1; character=x.character-1}
+        Some (x, {line=x.line; character=x.character+len})
     let pos x = pos' 1 x
     let fatal_error = function
         | Tabs l -> l |> Array.map (fun x -> "Tab not allowed.", pos x)
@@ -32,7 +33,7 @@ open NetMQ.Sockets
 
 type ClientMsgs =
     | ProjectFile of {|spiprojDir : string; spiprojText : string|}
-    | File of {|spiPath : string; spiText : string|}
+    | File of {|spiPath : string; spiText : string; spiChanges : Changes []|}
 
 let uri = "tcp://*:13805"
 

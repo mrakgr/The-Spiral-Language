@@ -7,8 +7,8 @@ type FileHierarchy =
     | File of string
     | Directory of string * FileHierarchy []
 
-type Pos = {Line : int; Column : int}
-type Range = {Start : Pos; End: Pos}
+type Pos = {line : int; character : int}
+type Range = Pos * Pos
 type ConfigResumableError =
     | DuplicateFiles of (string * Pos []) []
     | DuplicateRecordFields of (string * Pos []) []
@@ -31,7 +31,7 @@ let raise_if_not_empty exn l = if Array.isEmpty l = false then raise' (exn l)
 let add_to_exception_list' (p: CharStream<ResizeArray<ConfigResumableError>>) = p.State.UserState.Add
 let add_to_exception_list (p: CharStream<ResizeArray<ConfigResumableError>>) exn l = if Array.isEmpty l = false then p.State.UserState.Add (exn l)
 let column (p : CharStream<_>) = p.Column
-let pos (p : CharStream<_>) : Pos = {Line=int p.Line; Column=int p.Column}
+let pos (p : CharStream<_>) : Pos = {line=int p.Line; character=int p.Column}
 let pos' p = Reply(pos p)
 
 let is_big_var_char_starting c = isAsciiUpper c
@@ -75,15 +75,15 @@ let file_hierarchy p =
 
 let tab_positions (str : string): Pos [] =
     Utils.lines str
-    |> Array.mapi (fun line x -> {Line=line+1; Column=x.IndexOf("\t")+1})
-    |> Array.filter (fun x -> x.Column <> 0)
+    |> Array.mapi (fun line x -> {line=line+1; character=x.IndexOf("\t")+1})
+    |> Array.filter (fun x -> x.character <> 0)
 
 let record_reduce (field: Parser<'schema -> 'schema, _>) s =
     let record_body p =
         let i = column p
         let indent expr p = if i = column p then expr p else Reply(ReplyStatus.Error,expected "record field on the same indentation as the first one")
         many (indent field) p
-    pipe3 pos' record_body pos' (fun pos_start l pos_end -> {Start=pos_start; End=pos_end}, List.fold (|>) s l)
+    pipe3 pos' record_body pos' (fun pos_start l pos_end -> (pos_start, pos_end), List.fold (|>) s l)
 
 let record_field (name, p) = 
     pipe2 pos'
@@ -152,7 +152,7 @@ let config spiproj_dir spiproj_text =
         | Success(a,userstate,_) -> 
             if userstate.Count > 0 then userstate.ToArray() |> ResumableError |> Result.Error else Result.Ok a
         | Failure(messages,error,_) ->
-            ParserError(messages, {Line=int error.Position.Line; Column=int error.Position.Column}) |> FatalError |> Result.Error
+            ParserError(messages, {line=int error.Position.Line; character=int error.Position.Column}) |> FatalError |> Result.Error
     with 
         | :? ConfigException as e -> e.Data0 |> FatalError |> Result.Error
         | e -> e.Message |> UnexpectedException |> FatalError |> Result.Error
