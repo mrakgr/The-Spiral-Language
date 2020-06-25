@@ -19,6 +19,7 @@
     <None Include="Dump\HopacExample.fs" />
     <None Include="Dump\Prototyping.fs" />
     <Compile Include="ConfigServer.fs" />
+    <Compile Include="Blocks.fs" />
   </ItemGroup>
 
   <ItemGroup>
