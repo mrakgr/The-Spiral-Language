@@ -152,7 +152,7 @@ let inline (.>>.) a b d =
         | Error x -> Error x
     | Error x -> Error x   
 
-let tuple3 a b c d =
+let inline tuple3 a b c d =
     match a d with
     | Ok a ->
         match b d with

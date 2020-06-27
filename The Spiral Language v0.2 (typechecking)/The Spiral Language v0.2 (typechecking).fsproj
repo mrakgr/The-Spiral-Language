@@ -19,8 +19,11 @@
     <None Include="Dump\HopacExample.fs" />
     <None Include="Dump\Prototyping.fs" />
     <Compile Include="ConfigServer.fs" />
-    <Compile Include="Blocks.fs" />
-    <Compile Include="BlockPrototype.fs" />
+    <Compile Include="Dump\Blocks.fs" />
+    <Compile Include="Dump\BlockPrototype.fs" />
+    <Compile Include="ParserCombinators.fs" />
+    <Compile Include="LineParsers.fs" />
+    <Compile Include="Tokenize.fs" />
   </ItemGroup>
 
   <ItemGroup>
