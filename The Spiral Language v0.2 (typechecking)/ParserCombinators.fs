@@ -162,17 +162,26 @@ let inline (>>=?) a b d =
     | Error x -> Error x
 
 let inline many a d =
-    let s = index d
     let rec loop () =
+        let s = index d
         match a d with
         | Ok x ->
             if s = index d then failwith "The parser succeeded without changing the parser index in 'many'. Had an exception not been raised the parser would have diverged."
-            else 
-                match loop() with
-                | Ok x' -> Ok (x :: x')
-                | Error x -> Error x
-        | Error x -> Ok []
+            else x :: loop()
+        | Error _ -> []
+    loop () |> Ok
+
+let inline many_array a d =
+    let ar = ResizeArray()
+    let rec loop () =
+        let s = index d
+        match a d with
+        | Ok x ->
+            if s = index d then failwith "The parser succeeded without changing the parser index in 'many_array'. Had an exception not been raised the parser would have diverged."
+            else ar.Add x; loop()
+        | Error _ -> ()
     loop ()
+    Ok (ar.ToArray())
 
 let inline sepBy1 a b d =
     match a d with
