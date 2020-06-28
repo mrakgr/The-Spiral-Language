@@ -30,18 +30,15 @@ type TokenSpecial =
     | SpecElif
     | SpecElse
     | SpecJoin
-    | SpecSmallType
+    | SpecType
     | SpecNominal
     | SpecReal
     | SpecUnion
     | SpecOpen
     | SpecWildcard
-    | SpecBracketRoundOpen
-    | SpecBracketCurlyOpen
-    | SpecBracketSquareOpen
-    | SpecBracketRoundClose
-    | SpecBracketCurlyClose
-    | SpecBracketSquareClose
+
+type BracketState = Open | Close
+type Bracket = Round | Square | Curly
 
 type Literal = 
     | LitUInt8 of uint8
@@ -68,6 +65,18 @@ type SpiralToken =
     | TokUnaryOperator of string
     | TokComment of string
     | TokSpecial of TokenSpecial
+    | TokBracket of Bracket * BracketState
+
+let token_groups = function
+    | TokVar _ -> 0
+    | TokSymbol _ | TokSymbolPaired _ -> 1
+    | TokValue(LitString _) -> 2
+    | TokValue _ | TokDefaultValue -> 3
+    | TokOperator _ -> 4
+    | TokUnaryOperator _ -> 5
+    | TokComment _ -> 6
+    | TokSpecial _ -> 7
+    | TokBracket _ -> 8
 
 let is_small_var_char_starting c = Char.IsLower c || c = '_'
 let is_var_char c = Char.IsLetterOrDigit c || c = '_' || c = '''
@@ -108,7 +117,7 @@ let var (s: Tokenizer) =
                 | "inb" -> f SpecInb | "rec" -> f SpecRec
                 | "if" -> f SpecIf | "then" -> f SpecThen
                 | "elif" -> f SpecElif | "else" -> f SpecElse
-                | "join" -> f SpecJoin | "type" -> f SpecSmallType 
+                | "join" -> f SpecJoin | "type" -> f SpecType 
                 | "nominal" -> f SpecNominal | "real" -> f SpecReal
                 | "open" -> f SpecOpen | "_" -> f SpecWildcard
                 | "true" -> TokValue(LitBool true) | "false" -> TokValue(LitBool false)
@@ -246,10 +255,10 @@ let string_quoted s =
 
 let brackets s =
     let from = s.from
-    let f spec = inc s; (spaces >>% ({from=from; near_to=s.from}, TokSpecial(spec))) s
+    let f spec = inc s; (spaces >>% ({from=from; near_to=s.from}, TokBracket(spec))) s
     match peek s with
-    | '(' -> f SpecBracketRoundOpen | '[' -> f SpecBracketSquareOpen | '{' -> f SpecBracketCurlyOpen
-    | ')' -> f SpecBracketRoundClose | ']' -> f SpecBracketSquareClose | '}' -> f SpecBracketCurlyClose
+    | '(' -> f (Round,Open) | '[' -> f (Square,Open) | '{' -> f (Curly,Open)
+    | ')' -> f (Round,Close) | ']' -> f (Square,Close) | '}' -> f (Curly,Close)
     | _ -> error_char s.from (Expected "`(`,`[`,`{`,`}`,`]` or `)`")
 
 let token s = 
@@ -258,8 +267,11 @@ let token s =
     (var + symbol + number + string_raw + char_quoted + string_quoted + brackets + comment + operator) s
 
 let tokenize (text : string) =
-    (many_array token >>= fun x s ->
-        let c = peek s
-        if c = oob then Ok x
-        else error_char s.from (Message <| if c = '\t' then "Tabs are not allowed." else "Unknown error at this location during tokenization.")
+    (many_resize_array' token >>= fun (x,er) s ->
+        let er =
+            let c = peek s
+            if c = oob then []
+            elif c = '\t' then [range_char s.from, Message "Tabs are not allowed."]
+            else er
+        Ok(x.ToArray(), er)
         ) {from=0; text=text}
