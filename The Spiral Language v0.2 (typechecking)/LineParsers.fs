@@ -78,6 +78,7 @@ let chars_till_string close (s : Tokenizer) =
             else error_char s.from (Expected close)
     loop()
 
+/// Parses a number as a sequence of digits and optionally underscores. Filters out the underscores from the result.
 let number (s : Tokenizer) = 
     let x = peek s
     if Char.IsDigit x then

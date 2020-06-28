@@ -18,12 +18,12 @@
   <ItemGroup>
     <None Include="Dump\HopacExample.fs" />
     <None Include="Dump\Prototyping.fs" />
-    <Compile Include="ConfigServer.fs" />
     <Compile Include="Dump\Blocks.fs" />
     <Compile Include="Dump\BlockPrototype.fs" />
     <Compile Include="ParserCombinators.fs" />
     <Compile Include="LineParsers.fs" />
     <Compile Include="Tokenize.fs" />
+    <Compile Include="Server.fs" />
   </ItemGroup>
 
   <ItemGroup>

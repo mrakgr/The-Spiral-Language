@@ -1,4 +1,4 @@
-﻿module Spiral.ConfigServer
+﻿module Spiral.Server
 
 open Spiral.Config
 
@@ -30,15 +30,24 @@ open System
 open FSharp.Json
 open NetMQ
 open NetMQ.Sockets
+open System.Collections.Generic
+open Tokenize
+open LineParsers
 
-type ClientMsgs =
+type ClientReq =
     | ProjectFile of {|spiprojDir : string; spiprojText : string|}
-    | File of {|spiPath : string; spiText : string; spiChanges : Changes []|}
+    | File of {|spiPath : string; spiChangedLines : (int * string) []|}
+
+type Error = string * Config.Range option
+type ClientRes =
+    | ProjectFileRes of Result<Schema, Error []>
+    | FileRes of (int * Result<(Range * SpiralToken) [], (Range * TokenizerError) list>) []
 
 let uri = "tcp://*:13805"
 
 let server () =
     use sock = new RouterSocket()
+    sock.Options.ReceiveHighWatermark <- Int32.MaxValue
     sock.Bind(uri)
     printfn "Server bound to: %s" uri
 
@@ -47,18 +56,11 @@ let server () =
         let address = msg.Pop()
         msg.Pop() |> ignore
 
-        let x = msg.Pop()
-        
-        match Json.deserialize(Text.Encoding.Default.GetString(x.Buffer)) with
-        | ProjectFile x ->
-            msg.Push(config x.spiprojDir x.spiprojText |> process_errors |> Json.serialize)
-            msg.PushEmptyFrame()
-            msg.Push(address)
-            sock.SendMultipartMessage(msg)
-        | File x -> 
-            msg.Push([|"Received", None|] |> Error |> Json.serialize)
-            msg.PushEmptyFrame()
-            msg.Push(address)
-            sock.SendMultipartMessage(msg)
+        match Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer)) with
+        | ProjectFile x -> config x.spiprojDir x.spiprojText |> process_errors |> ProjectFileRes |> Json.serialize |> msg.Push
+        | File x -> x.spiChangedLines |> Array.map (fun (i,line) -> i, tokenize line) |> FileRes |> Json.serialize |> msg.Push
+        msg.PushEmptyFrame()
+        msg.Push(address)
+        sock.SendMultipartMessage(msg)
 
 server()
