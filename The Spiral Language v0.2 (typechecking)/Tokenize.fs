@@ -74,24 +74,25 @@ let is_var_char c = Char.IsLetterOrDigit c || c = '_' || c = '''
 let is_big_var_char_starting c = Char.IsUpper c
 let is_var_char_starting c = Char.IsLetter c || c = '_'
 let is_parenth_open c = 
-    let inline f x = c = x
+    let f x = c = x
     f '(' || f '[' || f '{'
 let is_parenth_close c = 
-    let inline f x = c = x
+    let f x = c = x
     f ')' || f ']' || f '}'
 
 // http://www.asciitable.com/
 let is_operator_char c =
-    let inline f x = c = x
+    let f x = c = x
     '!' <= c && c <= '~' && (is_var_char c || f '"' || is_parenth_open c || is_parenth_close c) = false
 let is_prefix_separator_char c = 
-    let inline f x = c = x
+    let f x = c = x
     f ' ' || f oob || is_parenth_open c
+let is_separator_char c = is_prefix_separator_char c || is_parenth_close c
 
 let var (s: Tokenizer) = 
     let from = s.from
-    let ok x = ({from=from; near_to=s.from}, x) |> Ok
-    let body x _ = 
+    let ok x = ({from=from; near_to=s.from}, x)
+    let body x = 
         skip ':' s (fun () -> TokSymbolPaired(x) |> ok)
             (fun () ->
                 let f x = TokSpecial(x)
@@ -115,49 +116,46 @@ let var (s: Tokenizer) =
                 |> ok
                 )
 
-    (many1Satisfy2L is_var_char_starting is_var_char "variable" >>= body .>> spaces) s
+    (many1Satisfy2L is_var_char_starting is_var_char "variable" |>> body .>> spaces) s
+
 
 let number (s: Tokenizer) = 
     let from = s.from
     let ok x = ({from=from; near_to=s.from}, x) |> Ok
 
-    let inline parser (s: Tokenizer) = 
-        let parse_num_lit = number .>>. (opt (skip_char '.' >>. number))
+    let parser (s: Tokenizer) = 
         if peek s = '-' && Char.IsDigit (peek' s 1) && is_prefix_separator_char (peek' s -1) then 
             inc s
-            parse_num_lit s |> Result.map (function 
+            number_fractional s |> Result.map (function 
                 | (a,Some b) -> sprintf "-%s.%s" a b
                 | (a,None) -> "-"+a)
-        else parse_num_lit s |> Result.map (function 
+        else number_fractional s |> Result.map (function 
                 | (a,Some b) -> sprintf "%s.%s" a b
                 | (a,None) -> a)
-
-    let inline safe_parse s f on_succ target_type (x : string) = 
-        match f x with
-        | true, x -> on_succ x |> TokValue |> ok
-        | false, _ -> Error [{from=from; near_to=s.from}, Message (sprintf "The string %s cannot be safely parsed as %s." x target_type)]
     
     let followedBySuffix x (s: Tokenizer) =
-        let guard f =
-            let a = peek s
-            if is_small_var_char_starting a || Char.IsDigit a then error_char s.from (Expected "separator")
-            else f x
-        let skip s c = skip c s (fun () -> true) (fun () -> false)
-        if skip s 'i' then
-            if skip s '8' then guard (safe_parse s SByte.TryParse LitInt8 "int8")
-            elif skip s '1' && skip s '6' then guard (safe_parse s Int16.TryParse LitInt16 "int16")
-            elif skip s '3' && skip s '2' then guard (safe_parse s Int32.TryParse LitInt32 "int32")
-            elif skip s '6' && skip s '4' then guard (safe_parse s Int64.TryParse LitInt64 "int64")
+        let inline safe_parse string_to_val val_to_lit val_dsc =
+            if is_separator_char (peek s) then 
+                match string_to_val x with
+                | true, x -> val_to_lit x |> TokValue |> ok
+                | false, _ -> Error [{from=from; near_to=s.from}, Message (sprintf "The string %s cannot be safely parsed as %s." x val_dsc)]
+            else error_char s.from (Expected "separator")
+        let skip c = skip c s (fun () -> true) (fun () -> false)
+        if skip 'i' then
+            if skip '8' then safe_parse SByte.TryParse LitInt8 "int8"
+            elif skip '1' && skip '6' then safe_parse Int16.TryParse LitInt16 "int16"
+            elif skip '3' && skip '2' then safe_parse Int32.TryParse LitInt32 "int32"
+            elif skip '6' && skip '4' then safe_parse Int64.TryParse LitInt64 "int64"
             else error_char s.from (Expected "8,16,32 or 64")
-        elif skip s 'u' then
-            if skip s '8' then guard (safe_parse s Byte.TryParse LitUInt8 "uint8")
-            elif skip s '1' && skip s '6' then guard (safe_parse s UInt16.TryParse LitUInt16 "uint16")
-            elif skip s '3' && skip s '2' then guard (safe_parse s UInt32.TryParse LitUInt32 "uint32")
-            elif skip s '6' && skip s '4' then guard (safe_parse s UInt64.TryParse LitUInt64 "uint64")
+        elif skip 'u' then
+            if skip '8' then safe_parse Byte.TryParse LitUInt8 "uint8"
+            elif skip '1' && skip '6' then safe_parse UInt16.TryParse LitUInt16 "uint16"
+            elif skip '3' && skip '2' then safe_parse UInt32.TryParse LitUInt32 "uint32"
+            elif skip '6' && skip '4' then safe_parse UInt64.TryParse LitUInt64 "uint64"
             else error_char s.from (Expected "8,16,32 or 64")
-        elif skip s 'f' then
-            if skip s '3' && skip s '2' then guard (safe_parse s Single.TryParse LitFloat32 "float32")
-            elif skip s '6' && skip s '4' then guard (safe_parse s Double.TryParse LitFloat64 "float64")
+        elif skip 'f' then
+            if skip '3' && skip '2' then safe_parse Single.TryParse LitFloat32 "float32"
+            elif skip '6' && skip '4' then safe_parse Double.TryParse LitFloat64 "float64"
             else error_char s.from (Expected "32 or 64")
         else TokDefaultValue x |> ok
 
@@ -254,7 +252,10 @@ let brackets s =
     | ')' -> f SpecBracketRoundClose | ']' -> f SpecBracketSquareClose | '}' -> f SpecBracketCurlyClose
     | _ -> error_char s.from (Expected "`(`,`[`,`{`,`}`,`]` or `)`")
 
-let token s = choice [|var; symbol; number; string_raw; char_quoted; string_quoted; brackets; comment; operator|] s
+let token s = 
+    let i = s.from
+    let inline (+) a b = alt i a b
+    (var + symbol + number + string_raw + char_quoted + string_quoted + brackets + comment + operator) s
 
 let tokenize (text : string) =
     (many_array token >>= fun x s ->

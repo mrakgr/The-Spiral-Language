@@ -1,6 +1,7 @@
 ﻿module Spiral.LineParsers
 open System
 open System.Text
+open ParserCombinators
 
 type Range = {from : int; near_to : int}
 
@@ -23,14 +24,14 @@ type TokenizerError =
 
 /// Out Of Bounds character
 let oob = Char.MaxValue
-let inline peek' (s : Tokenizer) i =
+let peek' (s : Tokenizer) i =
     let i = s.from + i
     if i < s.text.Length then s.text.[i]
     else oob
 
-let inline peek (s : Tokenizer) = peek' s 0
+let peek (s : Tokenizer) = peek' s 0
 
-let many1Satisfy2L init body label (s : Tokenizer) = 
+let inline many1Satisfy2L init body label (s : Tokenizer) = 
     let x = peek s
     if init x then
         inc s
@@ -45,7 +46,7 @@ let many1Satisfy2L init body label (s : Tokenizer) =
         let i = s.from
         error_char i (Expected label)
 
-let many1SatisfyL body label (s : Tokenizer) = many1Satisfy2L body body label s
+let inline many1SatisfyL body label (s : Tokenizer) = many1Satisfy2L body body label s
 
 let inline skip c (s : Tokenizer) on_succ on_fail =
     let x = peek s 
@@ -57,22 +58,6 @@ let spaces (s : Tokenizer) =
 
 let spaces1 (s : Tokenizer) =
     if peek s = ' ' then inc s; spaces s else Error [{from=s.from; near_to=s.from+1}, Expected "space"]
-
-let number (s : Tokenizer) = 
-    let x = peek s
-    if Char.IsDigit x then
-        inc s
-        let b = StringBuilder()
-        b.Append(x) |> ignore
-        let rec loop () = 
-            let x = peek s
-            if x = '_' then inc s; loop ()
-            elif Char.IsDigit x then inc s; b.Append(x) |> ignore; loop ()
-            else Ok(b.ToString())
-        loop ()
-    else
-        let i = s.from
-        error_char i (Expected "number")
 
 let skip_char c (s : Tokenizer) =
     let from = s.from
@@ -92,3 +77,21 @@ let chars_till_string close (s : Tokenizer) =
             if x <> oob then inc s; b.Append(x) |> ignore; loop()
             else error_char s.from (Expected close)
     loop()
+
+let number (s : Tokenizer) = 
+    let x = peek s
+    if Char.IsDigit x then
+        inc s
+        let b = StringBuilder()
+        b.Append(x) |> ignore
+        let rec loop () = 
+            let x = peek s
+            if x = '_' then inc s; loop ()
+            elif Char.IsDigit x then inc s; b.Append(x) |> ignore; loop ()
+            else Ok(b.ToString())
+        loop ()
+    else
+        let i = s.from
+        error_char i (Expected "number")
+
+let number_fractional s = (number .>>. (opt (skip_char '.' >>. number))) s

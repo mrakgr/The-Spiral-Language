@@ -156,32 +156,23 @@ let inline (>>=?) a b d =
     | Ok a -> 
         let i' = index d
         match b a d with
-        | Ok x -> Ok x
-        | x when i' = index d -> index_set i d; x
-        | x -> x
+        | Ok _ as x -> x
+        | Error _ as x -> (if i' = index d then index_set i d); x // Backtracks to the beginning if the parser state has not changed.
     | Error x -> Error x
 
-let inline many a d =
-    let rec loop () =
-        let s = index d
-        match a d with
-        | Ok x ->
-            if s = index d then failwith "The parser succeeded without changing the parser index in 'many'. Had an exception not been raised the parser would have diverged."
-            else x :: loop()
-        | Error _ -> []
-    loop () |> Ok
-
-let inline many_array a d =
+let inline many_resize_array a d =
     let ar = ResizeArray()
     let rec loop () =
         let s = index d
         match a d with
         | Ok x ->
-            if s = index d then failwith "The parser succeeded without changing the parser index in 'many_array'. Had an exception not been raised the parser would have diverged."
+            if s = index d then failwith "The parser succeeded without changing the parser index in `many`. Had an exception not been raised the parser would have diverged."
             else ar.Add x; loop()
-        | Error _ -> ()
+        | Error er -> if s = index d then Ok ar else Error er
     loop ()
-    Ok (ar.ToArray())
+
+let inline many_array a d = many_resize_array a d |> Result.map (fun x -> x.ToArray())
+let inline many a d = many_resize_array a d |> Result.map (fun x -> let rec loop i = if i < x.Count then x.[0] :: loop (i+1) else [] in loop 0)
 
 let inline sepBy1 a b d =
     match a d with
@@ -199,8 +190,7 @@ let inline attempt a d =
     | Ok x -> Ok x
     | Error a as a' -> index_set s d; a'
 
-let inline (<|>) a b d =
-    let s = index d
+let inline alt s a b d =
     match a d with
     | Ok x -> Ok x
     | Error a as a' -> 
@@ -210,6 +200,8 @@ let inline (<|>) a b d =
             | Error b -> Error(List.append a b)
         else
             a'
+
+let inline (<|>) a b d = let s = index d in alt s a b d
 
 let inline (<|>%) a b d =
     let s = index d
