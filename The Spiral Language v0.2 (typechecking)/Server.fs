@@ -13,10 +13,8 @@ type ClientReq =
     | FileOpen of {|spiPath : string; spiText : string|}
     | FileChanged of {|spiPath : string; spiChangedLines : (int * string) []|}
 
-type ClientRes =
-    | ProjectFileRes of Result<Schema, VSCErrorOpt []>
-    | FileOpenRes of VSCToken * VSCError []
-    | FileChangedRes of VSCToken * VSCError []
+type ProjectFileRes = Result<Schema, VSCErrorOpt []>
+type FileOpenRes = VSCToken * VSCError []
 
 let uri = "tcp://*:13805"
 
@@ -33,12 +31,12 @@ let server () =
 
         let file_rest x = 
             let a,b = x |> Array.unzip 
-            FileOpenRes(a |> Array.concat |> Array.concat, Array.concat b)
+            (a |> Array.concat |> Array.concat, Array.concat b : FileOpenRes) |> Json.serialize
         match Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer)) with
-        | ProjectFile x -> config x.spiprojDir x.spiprojText |> ProjectFileRes
+        | ProjectFile x -> (config x.spiprojDir x.spiprojText : ProjectFileRes) |> Json.serialize
         | FileOpen x -> x.spiText |> Utils.lines |> Array.mapi (fun i x -> tokenize (i,x)) |> file_rest
         | FileChanged x -> x.spiChangedLines |> Array.map tokenize |> file_rest
-        |> Json.serialize |> msg.Push
+        |> msg.Push
         msg.PushEmptyFrame()
         msg.Push(address)
         sock.SendMultipartMessage(msg)

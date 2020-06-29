@@ -25,7 +25,7 @@ let inc (s : Tokenizer) = inc' 1 s
 let oob = Char.MaxValue
 let peek' (s : Tokenizer) i =
     let i = s.from + i
-    if i < s.text.Length then s.text.[i]
+    if 0 <= i && i < s.text.Length then s.text.[i]
     else oob
 
 let peek (s : Tokenizer) = peek' s 0

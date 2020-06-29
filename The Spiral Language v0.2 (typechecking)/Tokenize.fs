@@ -60,19 +60,19 @@ type SpiralToken =
     | TokOperator of string
     | TokUnaryOperator of string
     | TokComment of string
-    | TokSpecial of TokenSpecial
+    | TokKeyword of TokenSpecial
     | TokBracket of Bracket * BracketState
 
 let token_groups = function
-    | TokVar _ -> 0
-    | TokSymbol _ | TokSymbolPaired _ -> 1
-    | TokValue(LitString _) -> 2
-    | TokValue _ | TokDefaultValue -> 3
-    | TokOperator _ -> 4
-    | TokUnaryOperator _ -> 5
-    | TokComment _ -> 6
-    | TokSpecial _ -> 7
-    | TokBracket _ -> 8
+    | TokVar _ -> 0 // variable
+    | TokSymbol _ | TokSymbolPaired _ -> 1 // symbol
+    | TokValue(LitString _) -> 2 // string
+    | TokValue _ | TokDefaultValue -> 3 // value
+    | TokOperator _ -> 4 // operator
+    | TokUnaryOperator _ -> 5 // unary operator
+    | TokComment _ -> 6 // comment
+    | TokKeyword _ -> 7 // keyword
+    | TokBracket _ -> 8 // bracket
 
 let is_small_var_char_starting c = Char.IsLower c || c = '_'
 let is_var_char c = Char.IsLetterOrDigit c || c = '_' || c = '''
@@ -100,7 +100,7 @@ let var (s: Tokenizer) =
     let body x = 
         skip ':' s (fun () -> TokSymbolPaired(x) |> ok)
             (fun () ->
-                let f x = TokSpecial(x)
+                let f x = TokKeyword(x)
                 match x with
                 | "in" -> f SpecIn
                 | "and" -> f SpecAnd | "fun" -> f SpecFun
@@ -285,7 +285,7 @@ let tokenize (line, text) : VSCToken [] * VSCError [] =
             else None
             )
         |> Array.choose id
-    (many_resize_array' token >>= fun (x,er) s ->
+    (LineParsers.spaces >>. many_resize_array' token >>= fun (x,er) s ->
         let er =
             let c = peek s
             if c = oob then []

@@ -5,8 +5,8 @@ name: Test
 files: 
     A
     Submodule/
-        QQ 
-        Q
+        QQ
+        QQ
         W
         E 
         Main
