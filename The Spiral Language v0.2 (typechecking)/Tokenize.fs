@@ -1,12 +1,8 @@
 ﻿module Spiral.Tokenize
 open System
-open System.Collections.Generic
-open Utils
-open ParserCombinators
-open LineParsers
 open System.Text
-
-type Range2D = {line : int; range : Range}
+open Spiral.LineParsers
+open Spiral.ParserCombinators
 
 type TokenSpecial =
     | SpecIn
@@ -127,7 +123,6 @@ let var (s: Tokenizer) =
 
     (many1Satisfy2L is_var_char_starting is_var_char "variable" |>> body .>> spaces) s
 
-
 let number (s: Tokenizer) = 
     let from = s.from
     let ok x = ({from=from; near_to=s.from}, x) |> Ok
@@ -207,51 +202,49 @@ let string_raw s =
     let f x = {from=from; near_to=s.from}, TokValue(LitString x)
     (skip_string "@\"" >>. chars_till_string "\"" |>> f .>> spaces) s
 
-let char_quoted_body (s: Tokenizer) =
-    let read on_succ =
-        let x = peek s
-        if x <> oob then inc s; on_succ x
-        else error_char s.from (Expected "character or '")
-    read (function
-        | '\\' -> 
-            read (Ok << function
-                | 'n' -> '\n'
-                | 'r' -> '\r'
-                | 't' -> '\t'
-                | x -> x
-                )
-        | x -> Ok x
-        )
-
 let char_quoted s = 
-    let from = s.from
-    let f _ x _ = {from=from; near_to=s.from}, TokValue(LitChar x)
-    (pipe3 (skip_char '\'') char_quoted_body (skip_char '\'') f .>> spaces) s
-
-let string_quoted_body (s: Tokenizer) =
-    let read on_succ =
-        let x = peek s
-        if x <> oob then inc s; on_succ x
-        else error_char s.from (Expected "character or \"")
-    let rec loop (b : StringBuilder) =
+    let char_quoted_body (s: Tokenizer) =
+        let inline read on_succ =
+            let x = peek s
+            if x <> oob then inc s; on_succ x
+            else error_char s.from (Expected "character or '")
         read (function
             | '\\' -> 
-                read (function
+                read (Ok << function
                     | 'n' -> '\n'
                     | 'r' -> '\r'
                     | 't' -> '\t'
                     | x -> x
-                    >> b.Append >> loop
                     )
-            | '"' -> inc' -1 s; Ok (b.ToString())
-            | x -> b.Append x |> loop
+            | x -> Ok x
             )
-    loop (StringBuilder())
+    let from = s.from
+    let f _ x _ = {from=from; near_to=s.from}, TokValue(LitChar x)
+    (pipe3 (skip_char '\'') char_quoted_body (skip_char '\'') f .>> spaces) s
 
 let string_quoted s = 
+    let string_quoted_body (s: Tokenizer) =
+        let inline read on_succ =
+            let x = peek s
+            if x <> oob then inc s; on_succ x
+            else error_char s.from (Expected "character or \"")
+        let rec loop (b : StringBuilder) =
+            read (function
+                | '\\' -> 
+                    read (function
+                        | 'n' -> '\n'
+                        | 'r' -> '\r'
+                        | 't' -> '\t'
+                        | x -> x
+                        >> b.Append >> loop
+                        )
+                | '"' -> Ok (b.ToString())
+                | x -> b.Append x |> loop
+                )
+        loop (StringBuilder())
     let from = s.from
-    let f _ x _ = {from=from; near_to=s.from}, TokValue(LitString x)
-    (pipe3 (skip_char '"') string_quoted_body (skip_char '"') f .>> spaces) s
+    let f _ x = {from=from; near_to=s.from}, TokValue(LitString x)
+    (pipe2 (skip_char '"') string_quoted_body f .>> spaces) s
 
 let brackets s =
     let from = s.from
@@ -261,12 +254,37 @@ let brackets s =
     | ')' -> f (Round,Close) | ']' -> f (Square,Close) | '}' -> f (Curly,Close)
     | _ -> error_char s.from (Expected "`(`,`[`,`{`,`}`,`]` or `)`")
 
-let token s = 
+let token s =
     let i = s.from
     let inline (+) a b = alt i a b
     (var + symbol + number + string_raw + char_quoted + string_quoted + brackets + comment + operator) s
 
-let tokenize (text : string) =
+// The array form is more suitable for serialization.
+/// {line: int; char: int; length: int; tokenType: int; tokenModifiers: int}
+type VSCToken = int []
+open Config
+let tokenize (line, text) : VSCToken [] * VSCError [] =
+    let process_error (ers : (Range * TokenizerError) list) =
+        List.toArray ers
+        |> Array.groupBy (fun (a,_) -> a.from)
+        |> Array.map (fun (from,ar) ->
+            if 0 < ar.Length then
+                let near_to, (expecteds, messages) = 
+                    ar |> Array.fold (fun (near_to, (expecteds, messages)) (a,b) -> 
+                        max near_to a.near_to,
+                        match b with
+                        | Expected x -> x :: expecteds, messages
+                        | Message x -> expecteds, x :: messages
+                        ) (Int32.MinValue,([],[]))
+                let ex () = match expecteds with [x] -> sprintf "Expected %s" x | x -> sprintf "Expected one of: %s" (String.concat ", " x)
+                let f l = String.concat "\n" l
+                if List.isEmpty expecteds then f messages
+                elif List.isEmpty messages then ex ()
+                else f (ex () :: "" :: "Other error messages:" :: messages)
+                |> fun x -> Some(x,({line=line; character=from}, {line=line; character=near_to}))
+            else None
+            )
+        |> Array.choose id
     (many_resize_array' token >>= fun (x,er) s ->
         let er =
             let c = peek s
@@ -275,3 +293,6 @@ let tokenize (text : string) =
             else er
         Ok(x.ToArray(), er)
         ) {from=0; text=text}
+    |> function
+    | Error ers -> [||], process_error ers
+    | Ok(toks,ers) -> toks |> Array.map (fun (r,x) -> [|line; r.from; r.near_to-r.from; token_groups x; 0|]), process_error ers

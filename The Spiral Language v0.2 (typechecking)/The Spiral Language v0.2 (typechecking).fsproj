@@ -20,6 +20,7 @@
     <None Include="Dump\Prototyping.fs" />
     <Compile Include="Dump\Blocks.fs" />
     <Compile Include="Dump\BlockPrototype.fs" />
+    <Compile Include="Config.fs" />
     <Compile Include="ParserCombinators.fs" />
     <Compile Include="LineParsers.fs" />
     <Compile Include="Tokenize.fs" />

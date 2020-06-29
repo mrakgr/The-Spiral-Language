@@ -4,6 +4,9 @@ open System.Text
 open ParserCombinators
 
 type Range = {from : int; near_to : int}
+type TokenizerError =
+    | Expected of string
+    | Message of string
 
 type Tokenizer = {
     text : string // A single line.
@@ -17,10 +20,6 @@ let error_char i er = Error [range_char i, er]
 
 let inc' i (s : Tokenizer) = s.from <- s.from+i
 let inc (s : Tokenizer) = inc' 1 s
-
-type TokenizerError =
-    | Expected of string
-    | Message of string
 
 /// Out Of Bounds character
 let oob = Char.MaxValue
@@ -57,7 +56,7 @@ let spaces (s : Tokenizer) =
     loop ()
 
 let spaces1 (s : Tokenizer) =
-    if peek s = ' ' then inc s; spaces s else Error [{from=s.from; near_to=s.from+1}, Expected "space"]
+    if peek s = ' ' then inc s; spaces s else error_char s.from (Expected "space")
 
 let skip_char c (s : Tokenizer) =
     let from = s.from

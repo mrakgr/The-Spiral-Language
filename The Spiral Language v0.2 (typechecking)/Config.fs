@@ -7,31 +7,34 @@ type FileHierarchy =
     | File of string
     | Directory of string * FileHierarchy []
 
-type Pos = {line : int; character : int}
-type Range = Pos * Pos
+type VSCPos = {line : int; character : int}
+type VSCRange = VSCPos * VSCPos
+type VSCErrorOpt = string * VSCRange option
+type VSCError = string * VSCRange
 type ConfigResumableError =
-    | DuplicateFiles of (string * Pos []) []
-    | DuplicateRecordFields of (string * Pos []) []
-    | MissingNecessaryRecordFields of string [] * Range
-    | DirectoryInvalid of string * Pos
-    | MainMustBeLast of Pos
-    | MainMustBeAFile of Pos
+    | DuplicateFiles of (string * VSCPos []) []
+    | DuplicateRecordFields of (string * VSCPos []) []
+    | MissingNecessaryRecordFields of string [] * VSCRange
+    | DirectoryInvalid of string * VSCPos
+    | MainMustBeLast of VSCPos
+    | MainMustBeAFile of VSCPos
 type ConfigFatalError =
-    | Tabs of Pos []
+    | Tabs of VSCPos []
     | ConfigCannotReadProjectFile of string
     | ConfigProjectDirectoryPathInvalid of string
-    | ParserError of string * Pos
+    | ParserError of string * VSCPos
     | UnexpectedException of string
 exception ConfigException of ConfigFatalError
 
-let spaces = Tokenize.spaces
+let rec spaces_template s = (spaces >>. optional (followedByString "//" >>. skipRestOfLine true >>. spaces_template)) s
+let spaces s = spaces_template s
 
 let raise' x = raise (ConfigException x)
 let raise_if_not_empty exn l = if Array.isEmpty l = false then raise' (exn l)
 let add_to_exception_list' (p: CharStream<ResizeArray<ConfigResumableError>>) = p.State.UserState.Add
 let add_to_exception_list (p: CharStream<ResizeArray<ConfigResumableError>>) exn l = if Array.isEmpty l = false then p.State.UserState.Add (exn l)
 let column (p : CharStream<_>) = p.Column
-let pos (p : CharStream<_>) : Pos = {line=int p.Line; character=int p.Column}
+let pos (p : CharStream<_>) : VSCPos = {line=int p.Line; character=int p.Column}
 let pos' p = Reply(pos p)
 
 let is_big_var_char_starting c = isAsciiUpper c
@@ -73,7 +76,7 @@ let file_hierarchy p =
 
     (file_hierarchy_list |>> Array.collect (flatten "")) p
 
-let tab_positions (str : string): Pos [] =
+let tab_positions (str : string): VSCPos [] =
     Utils.lines str
     |> Array.mapi (fun line x -> {line=line+1; character=x.IndexOf("\t")+1})
     |> Array.filter (fun x -> x.character <> 0)
@@ -156,3 +159,27 @@ let config spiproj_dir spiproj_text =
     with 
         | :? ConfigException as e -> e.Data0 |> FatalError |> Result.Error
         | e -> e.Message |> UnexpectedException |> FatalError |> Result.Error
+
+    |> Result.mapError (fun x ->
+        let pos' len x =
+            let x = {line=x.line-1; character=x.character-1}
+            Some (x, {line=x.line; character=x.character+len})
+        let pos x = pos' 1 x
+        let fatal_error = function
+            | Tabs l -> l |> Array.map (fun x -> "Tab not allowed.", pos x)
+            | ConfigCannotReadProjectFile x -> [|sprintf "Cannot read package.spiproj at path: %s" x, None|]
+            | ConfigProjectDirectoryPathInvalid x -> [|sprintf "Invalid project directory: %s" x, None|]
+            | ParserError(x,p) -> [|(Utils.lines x).[3..] |> String.concat "\n", pos p|]
+            | UnexpectedException x -> [|sprintf "Compiler error: %s" x, None|]
+        let duplicate er l = l |> Array.collect (fun (name : string, l) -> l |> Array.map (fun x -> er l.Length, pos' name.Length x))
+        let resumable_error = function
+            | DuplicateFiles l -> duplicate (sprintf "Duplicate name. Count: %i") l
+            | DuplicateRecordFields l -> duplicate (sprintf "Duplicate record field. Count: %i") l
+            | MissingNecessaryRecordFields (l,p) -> [|sprintf "Record is missing the fields: %s" (String.concat ", " l), Some p|]
+            | DirectoryInvalid (x,p) -> [|x, pos' x.Length p|]
+            | MainMustBeLast p -> [|"The module Main must be the last one in the directory.", pos' 4 p|]
+            | MainMustBeAFile p -> [|"The module Main must be a file.", pos' 4 p|]
+        match x with
+        | ResumableError x -> Array.collect resumable_error x
+        | FatalError x -> fatal_error x
+        )
