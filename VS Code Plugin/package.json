@@ -13,10 +13,23 @@
 		"languages": [
 			{
 				"id": "spiral",
+        		"configuration": "./language-configuration.json",
 				"extensions": [
 					".spi",
 					".spiproj"
 				]
+			}
+		],
+		"semanticTokenTypes": [
+			{
+				"id": "symbol",
+				"superType": "member",
+				"description": "A compile-time symbol."
+			},
+			{
+				"id": "unary_operator",
+				"superType": "class",
+				"description": "An unary operator."
 			}
 		]
 	},

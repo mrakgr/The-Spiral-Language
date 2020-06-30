@@ -67,7 +67,7 @@ let token_groups = function
     | TokVar _ -> 0 // variable
     | TokSymbol _ | TokSymbolPaired _ -> 1 // symbol
     | TokValue(LitString _) -> 2 // string
-    | TokValue _ | TokDefaultValue -> 3 // value
+    | TokValue _ | TokDefaultValue -> 3 // number
     | TokOperator _ -> 4 // operator
     | TokUnaryOperator _ -> 5 // unary operator
     | TokComment _ -> 6 // comment
@@ -92,6 +92,9 @@ let is_operator_char c =
 let is_prefix_separator_char c = 
     let f x = c = x
     f ' ' || f oob || is_parenth_open c
+let is_postfix_separator_char c = 
+    let f x = c = x
+    f ' ' || f oob || is_parenth_close c
 let is_separator_char c = is_prefix_separator_char c || is_parenth_close c
 
 let var (s: Tokenizer) = 
@@ -115,6 +118,7 @@ let var (s: Tokenizer) =
                 | "elif" -> f SpecElif | "else" -> f SpecElse
                 | "join" -> f SpecJoin | "type" -> f SpecType 
                 | "nominal" -> f SpecNominal | "real" -> f SpecReal
+                | "union" -> f SpecUnion
                 | "open" -> f SpecOpen | "_" -> f SpecWildcard
                 | "true" -> TokValue(LitBool true) | "false" -> TokValue(LitBool false)
                 | x -> TokVar(x)
@@ -180,7 +184,7 @@ let comment (s : Tokenizer) =
     let from = s.from
     let x = peek s
     let x' = peek' s 1
-    if x = '\\' && x' = '\\' then 
+    if x = '/' && x' = '/' then 
         inc' 2 s
         let com = s.text.[s.from..]
         s.from <- s.text.Length
@@ -193,7 +197,7 @@ let operator (s : Tokenizer) =
     let ok x = ({from=from; near_to=s.from}, x) |> Ok
     let is_separator_prev = is_prefix_separator_char (peek' s -1)
     let f name (s: Tokenizer) = 
-        if is_separator_prev && (let x = peek s in (x = ' ' || x = oob) = false) then TokUnaryOperator(name) |> ok
+        if is_separator_prev && (is_postfix_separator_char (peek s) = false) then TokUnaryOperator(name) |> ok
         else TokOperator(name) |> ok
     (many1SatisfyL is_operator_char "operator"  >>= f .>> spaces) s
 
@@ -275,7 +279,7 @@ let process_error line (ers : (Range * TokenizerError) list) : (string * VSCRang
                     | Expected x -> x :: expecteds, messages
                     | Message x -> expecteds, x :: messages
                     ) (Int32.MinValue,([],[]))
-            let ex () = match expecteds with [x] -> sprintf "Expected %s" x | x -> sprintf "Expected one of: %s" (String.concat ", " x)
+            let ex () = match expecteds with [x] -> sprintf "Expected: %s" x | x -> sprintf "Expected one of: %s" (String.concat ", " x)
             let f l = String.concat "\n" l
             if List.isEmpty expecteds then f messages
             elif List.isEmpty messages then ex ()
@@ -284,8 +288,8 @@ let process_error line (ers : (Range * TokenizerError) list) : (string * VSCRang
         else None
         )
 
-type TokenResult = int * (Range * SpiralToken) [] * (Range * TokenizerError) list
-let tokenize (line: int,text) : TokenResult =
+type TokenResult = (Range * SpiralToken) [] * (Range * TokenizerError) list
+let tokenize text : TokenResult =
     let s = {from=0; text=text}
     LineParsers.spaces' s
 
@@ -302,4 +306,27 @@ let tokenize (line: int,text) : TokenResult =
         if c = oob then []
         elif c = '\t' then [range_char (index s), Message "Tabs are not allowed."]
         else ers
-    line, ar.ToArray(), ers
+    ar.ToArray(), ers
+
+let tr_set (lines : TokenResult ResizeArray) (i,v) = (while lines.Count <= i do lines.Add([||],[])); lines.[i] <- v
+let tr_update (lines : TokenResult ResizeArray) (l : (int * TokenResult) []) = l |> Array.iter (tr_set lines)
+
+let tr_vscode_view (lines : TokenResult ResizeArray) =
+    let toks = ResizeArray()
+    let ers = ResizeArray()
+    let rec loop_outer line_prev line =
+        if line < lines.Count then
+            let tok,er = lines.[line]
+            ers.AddRange(process_error line er)
+            let rec loop_inner line_prev from_prev i =
+                if i < tok.Length then
+                    let r,x = tok.[i]
+                    toks.AddRange [|line-line_prev; r.from-from_prev; r.near_to-r.from; token_groups x; 0|]
+                    loop_inner line r.from (i+1)
+                else
+                    loop_outer line_prev (line+1)
+            loop_inner line_prev 0 0
+        else
+            ()
+    loop_outer 0 0
+    toks.ToArray(), ers.ToArray()

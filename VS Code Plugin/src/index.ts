@@ -1,5 +1,5 @@
 import * as path from "path"
-import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder } from "vscode"
+import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider } from "vscode"
 import * as zmq from "zeromq"
 
 const uri = "tcp://localhost:13805"
@@ -69,6 +69,9 @@ export const activate = async (ctx: ExtensionContext) => {
 
     ctx.subscriptions.push(
         errors,
+        workspace.onDidOpenTextDocument(x => {
+            window.showInformationMessage(`query: ${x.uri.query}`)
+        }),
         workspace.onDidChangeTextDocument(x => {
             const doc = x.document
             switch (path.extname(doc.uri.path)) {
@@ -80,7 +83,7 @@ export const activate = async (ctx: ExtensionContext) => {
         languages.registerDocumentSemanticTokensProvider(
             { language: 'spiral'}, 
             new SpiralTokens(),
-            new SemanticTokensLegend(['variable','symbol','string','value','operator','unary operator','comment','keyword','bracket'])
+            new SemanticTokensLegend(['variable','symbol','string','number','operator','unary_operator','comment','keyword','bracket'])
             )
     )
 }

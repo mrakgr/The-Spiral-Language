@@ -1,3 +1,10 @@
-inl inl inl inl inl
-inl f x = .qwe
-w + e + t + e 
+// q qwe qwe qwe qwe
+inl x = .qwe + .asd + --123_123_123_123_123_123_234f32 + true + **qwe in 2+3
+(-1)
+.qwe
+ qwe
+++++****
+
+let f =
+    let y = 1
+    2 + y

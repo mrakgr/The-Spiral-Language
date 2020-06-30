@@ -19,7 +19,7 @@ type FileOpenRes = VSCToken * VSCError []
 let uri = "tcp://*:13805"
 
 let server () =
-    let file_tokens = Dictionary()
+    let tokenizer_state = Utils.memoize (Dictionary()) (fun _ -> ResizeArray())
 
     use sock = new RouterSocket()
     sock.Options.ReceiveHighWatermark <- Int32.MaxValue
@@ -31,26 +31,16 @@ let server () =
         let address = msg.Pop()
         msg.Pop() |> ignore
 
-        let file_rest (l : TokenResult []) = 
-            let toks' = ResizeArray()
-            let ers' = ResizeArray()
-            let rec loop i =
-                if i < l.Length then
-                    let line, toks, ers = l.[i]
-                    ers'.AddRange(process_error line ers)
-                    let s =
-                        Array.mapFold (fun s x ->
-                            
-                            )
-                    match s with
-                    | Some(line',from') -> [|line-line'; r.from-from'; r.near_to-r.from; token_groups x; 0|]
-                    | None -> [|line; r.from; r.near_to-r.from; token_groups x; 0|]
-                else ()
-            (toks'.ToArray(), ers'.ToArray() : FileOpenRes) |> Json.serialize
         match Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer)) with
         | ProjectFile x -> (config x.spiprojDir x.spiprojText : ProjectFileRes) |> Json.serialize
-        | FileOpen x -> x.spiText |> Utils.lines |> Array.mapi (fun i x -> tokenize (i,x)) |> file_rest
-        | FileChanged x -> x.spiChangedLines |> Array.map tokenize |> file_rest
+        | FileOpen x -> 
+            let lines = tokenizer_state x.spiPath
+            x.spiText |> Utils.lines |> Array.iteri (fun i x -> tr_set lines (i, tokenize x))
+            tr_vscode_view lines |> Json.serialize
+        | FileChanged x -> 
+            let lines = tokenizer_state x.spiPath
+            x.spiChangedLines |> Array.iter (fun (i,x) -> tr_set lines (i, tokenize x))
+            tr_vscode_view lines |> Json.serialize
         |> msg.Push
         msg.PushEmptyFrame()
         msg.Push(address)
