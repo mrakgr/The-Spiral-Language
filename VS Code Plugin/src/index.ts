@@ -70,7 +70,7 @@ export const activate = async (ctx: ExtensionContext) => {
     ctx.subscriptions.push(
         errors,
         workspace.onDidOpenTextDocument(x => {
-            window.showInformationMessage(`query: ${x.uri.query}`)
+            window.showInformationMessage(`path: ${x.uri.fsPath}`)
         }),
         workspace.onDidChangeTextDocument(x => {
             const doc = x.document
