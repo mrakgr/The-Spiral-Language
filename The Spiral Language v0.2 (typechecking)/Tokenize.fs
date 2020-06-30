@@ -263,36 +263,43 @@ let token s =
 /// {line: int; char: int; length: int; tokenType: int; tokenModifiers: int}
 type VSCToken = int []
 open Config
-let tokenize (line, text) : VSCToken [] * VSCError [] =
-    let process_error (ers : (Range * TokenizerError) list) =
-        List.toArray ers
-        |> Array.groupBy (fun (a,_) -> a.from)
-        |> Array.map (fun (from,ar) ->
-            if 0 < ar.Length then
-                let near_to, (expecteds, messages) = 
-                    ar |> Array.fold (fun (near_to, (expecteds, messages)) (a,b) -> 
-                        max near_to a.near_to,
-                        match b with
-                        | Expected x -> x :: expecteds, messages
-                        | Message x -> expecteds, x :: messages
-                        ) (Int32.MinValue,([],[]))
-                let ex () = match expecteds with [x] -> sprintf "Expected %s" x | x -> sprintf "Expected one of: %s" (String.concat ", " x)
-                let f l = String.concat "\n" l
-                if List.isEmpty expecteds then f messages
-                elif List.isEmpty messages then ex ()
-                else f (ex () :: "" :: "Other error messages:" :: messages)
-                |> fun x -> Some(x,({line=line; character=from}, {line=line; character=near_to}))
-            else None
-            )
-        |> Array.choose id
-    (LineParsers.spaces >>. many_resize_array' token >>= fun (x,er) s ->
-        let er =
-            let c = peek s
-            if c = oob then []
-            elif c = '\t' then [range_char s.from, Message "Tabs are not allowed."]
-            else er
-        Ok(x.ToArray(), er)
-        ) {from=0; text=text}
-    |> function
-    | Error ers -> [||], process_error ers
-    | Ok(toks,ers) -> toks |> Array.map (fun (r,x) -> [|line; r.from; r.near_to-r.from; token_groups x; 0|]), process_error ers
+let process_error line (ers : (Range * TokenizerError) list) : (string * VSCRange) [] =
+    List.toArray ers
+    |> Array.groupBy (fun (a,_) -> a.from)
+    |> Array.choose (fun (from,ar) ->
+        if 0 < ar.Length then
+            let near_to, (expecteds, messages) = 
+                ar |> Array.fold (fun (near_to, (expecteds, messages)) (a,b) -> 
+                    max near_to a.near_to,
+                    match b with
+                    | Expected x -> x :: expecteds, messages
+                    | Message x -> expecteds, x :: messages
+                    ) (Int32.MinValue,([],[]))
+            let ex () = match expecteds with [x] -> sprintf "Expected %s" x | x -> sprintf "Expected one of: %s" (String.concat ", " x)
+            let f l = String.concat "\n" l
+            if List.isEmpty expecteds then f messages
+            elif List.isEmpty messages then ex ()
+            else f (ex () :: "" :: "Other error messages:" :: messages)
+            |> fun x -> Some(x,({line=line; character=from}, {line=line; character=near_to}))
+        else None
+        )
+
+type TokenResult = int * (Range * SpiralToken) [] * (Range * TokenizerError) list
+let tokenize (line: int,text) : TokenResult =
+    let s = {from=0; text=text}
+    LineParsers.spaces' s
+
+    let ar = ResizeArray()
+    let rec loop () =
+        let i = index s
+        match token s with
+        | Ok _ when i = index s -> failwith "The parser succeeded without changing the parser index in `tokenize`. Had an exception not been raised the parser would have diverged."
+        | Ok x -> ar.Add x; loop()
+        | Error er -> er
+    let ers =
+        let ers = loop ()
+        let c = peek s
+        if c = oob then []
+        elif c = '\t' then [range_char (index s), Message "Tabs are not allowed."]
+        else ers
+    line, ar.ToArray(), ers

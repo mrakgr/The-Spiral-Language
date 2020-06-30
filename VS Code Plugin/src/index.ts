@@ -1,5 +1,5 @@
 import * as path from "path"
-import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, RelativePattern, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, CancellationToken, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter } from "vscode"
+import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder } from "vscode"
 import * as zmq from "zeromq"
 
 const uri = "tcp://localhost:13805"
@@ -55,7 +55,6 @@ export const activate = async (ctx: ExtensionContext) => {
     const tokenChangeEvent = tokenChange.event
     const spiOpen = async (doc: TextDocument) => {
         const x : [number [], [string, RangeRec][]] = await spi(doc.uri.fsPath, doc.getText())
-        window.showInformationMessage(`Data: ${JSON.stringify(x)}`)
         tokens.set(doc.uri.fsPath,new SemanticTokens(new Uint32Array(x[0])))
         tokenChange.fire()
         errorsSet(doc)(x[1])

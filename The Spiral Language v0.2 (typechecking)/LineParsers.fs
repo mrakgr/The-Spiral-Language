@@ -51,9 +51,11 @@ let inline skip c (s : Tokenizer) on_succ on_fail =
     let x = peek s 
     if x = c then inc s; on_succ() else on_fail()
 
-let spaces (s : Tokenizer) =
-    let rec loop () = if peek s = ' ' then inc s; loop() else Ok()
+let spaces' (s : Tokenizer) =
+    let rec loop () = if peek s = ' ' then inc s; loop() else ()
     loop ()
+
+let spaces s = spaces' s |> Ok
 
 let spaces1 (s : Tokenizer) =
     if peek s = ' ' then inc s; spaces s else error_char s.from (Expected "space")
