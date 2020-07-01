@@ -91,10 +91,10 @@ let is_operator_char c =
     '!' <= c && c <= '~' && (is_var_char c || f '"' || is_parenth_open c || is_parenth_close c) = false
 let is_prefix_separator_char c = 
     let f x = c = x
-    f ' ' || f oob || is_parenth_open c
+    f ' ' || f eol || is_parenth_open c
 let is_postfix_separator_char c = 
     let f x = c = x
-    f ' ' || f oob || is_parenth_close c
+    f ' ' || f eol || is_parenth_close c
 let is_separator_char c = is_prefix_separator_char c || is_parenth_close c
 
 let var (s: Tokenizer) = 
@@ -210,7 +210,7 @@ let char_quoted s =
     let char_quoted_body (s: Tokenizer) =
         let inline read on_succ =
             let x = peek s
-            if x <> oob then inc s; on_succ x
+            if x <> eol then inc s; on_succ x
             else error_char s.from (Expected "character or '")
         read (function
             | '\\' -> 
@@ -230,7 +230,7 @@ let string_quoted s =
     let string_quoted_body (s: Tokenizer) =
         let inline read on_succ =
             let x = peek s
-            if x <> oob then inc s; on_succ x
+            if x <> eol then inc s; on_succ x
             else error_char s.from (Expected "character or \"")
         let rec loop (b : StringBuilder) =
             read (function
@@ -303,12 +303,13 @@ let tokenize text : TokenResult =
     let ers =
         let ers = loop ()
         let c = peek s
-        if c = oob then []
+        if c = eol then []
         elif c = '\t' then [range_char (index s), Message "Tabs are not allowed."]
         else ers
     ar.ToArray(), ers
 
-let tr_set (lines : TokenResult ResizeArray) (i,v) = (while lines.Count <= i do lines.Add([||],[])); lines.[i] <- v
+let tr_fill (lines : TokenResult ResizeArray) i = while lines.Count <= i do lines.Add([||],[])
+let tr_set (lines : TokenResult ResizeArray) (i,v) = tr_fill lines i; lines.[i] <- v
 let tr_update (lines : TokenResult ResizeArray) (l : (int * TokenResult) []) = l |> Array.iter (tr_set lines)
 
 let tr_vscode_view (lines : TokenResult ResizeArray) =
@@ -330,3 +331,46 @@ let tr_vscode_view (lines : TokenResult ResizeArray) =
             ()
     loop_outer 0 0
     toks.ToArray(), ers.ToArray()
+
+open Hopac
+open Hopac.Infixes
+open Hopac.Extensions
+let server = Job.delayWith <| fun text ->
+    let lines = ResizeArray(text |> Utils.lines |> Array.map tokenize)
+    let token_sum = ResizeArray([0]) // Scan add of token counts at the start of the ith line.
+    let tokenize_and_set (i,x) = 
+        let x = tokenize x
+        if fst x |> Array.length <> i then
+            while i < token_sum.Count-1 do token_sum.RemoveAt(token_sum.Count-1) // Forget the offsets after the ith line since they have to be recalced.
+        tr_set lines (i, x)
+        x
+    let token_count i = lines.[i] |> fst |> Array.length
+    let token_sum i =
+        while token_sum.Count <= i do token_sum.Add(Seq.last token_sum + token_count (token_sum.Count-1))
+        token_sum.[i]
+    let line_delta i =
+        let rec loop i s = if i = 0 || 0 < token_count i then s else loop (i-1) (s+1)
+        if i = 0 then 0 else loop (i-1) 1
+            
+    let req,res = Ch(), Ch()
+    let loop =
+        Ch.take req >>= fun (changes : (int * string) []) ->
+        assert (let x = Array.map fst changes in x |> Array.distinct |> Array.sort = x)
+        Array.mapFoldBack (fun (i,x) () -> tr_fill lines i; {|token_sum=token_sum i; token_count=token_count i; data=tokenize_and_set (i,x); line=i|}, ()) changes ()
+        |> fst |> Array.map (fun x -> 
+            {|
+            token_sum=x.token_sum*5
+            token_count=x.token_count*5
+            data=
+                let line = x.line
+                let toks,_ = 
+                    x.data |> fst |> Array.mapFold (fun (line_delta, from_prev) (r,x) ->
+                        [|line_delta; r.from-from_prev; r.near_to-r.from; token_groups x; 0|], (0, r.from)
+                        ) (line_delta line, 0)
+                let ers = process_error line (snd x.data)
+                Array.concat toks, ers
+            |})
+        |> Array.rev // The edits should be applied in the reverse order they have been received.
+        |> Ch.give res
+    Job.foreverServer loop >>-. (tr_vscode_view lines, (req,res))
+    

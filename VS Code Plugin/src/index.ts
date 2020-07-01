@@ -25,7 +25,7 @@ const matchResult = <a, b, r>(x: Result<a, b>, onOk: (arg: a) => r, onError: (ar
 type PositionRec = { line: number, character: number }
 type RangeRec = [PositionRec, PositionRec]
 export const activate = async (ctx: ExtensionContext) => {
-    window.showInformationMessage("Spiral plugin is active.")
+    console.log("Spiral plugin is active.")
     
     const errors = languages.createDiagnosticCollection()
     const errorsSet = (doc: TextDocument) => (x: [string, RangeRec | null][]) => {
@@ -67,10 +67,12 @@ export const activate = async (ctx: ExtensionContext) => {
         }
     }
 
+    // window.showInformationMessage(JSON.stringify(workspace.textDocuments.map(x => x.uri.fsPath))) 
+    window.showInformationMessage(JSON.stringify(window.visibleTextEditors.map(x => x.document.uri.fsPath)))
     ctx.subscriptions.push(
         errors,
         workspace.onDidOpenTextDocument(x => {
-            window.showInformationMessage(`path: ${x.uri.fsPath}`)
+            
         }),
         workspace.onDidChangeTextDocument(x => {
             const doc = x.document

@@ -21,12 +21,12 @@ let error_char i er = Error [range_char i, er]
 let inc' i (s : Tokenizer) = s.from <- s.from+i
 let inc (s : Tokenizer) = inc' 1 s
 
-/// Out Of Bounds character
-let oob = Char.MaxValue
+/// End Of Line character
+let eol = Char.MaxValue
 let peek' (s : Tokenizer) i =
     let i = s.from + i
     if 0 <= i && i < s.text.Length then s.text.[i]
-    else oob
+    else eol
 
 let peek (s : Tokenizer) = peek' s 0
 
@@ -75,7 +75,7 @@ let chars_till_string close (s : Tokenizer) =
         let x = peek s
         if x = close.[0] && String.Compare(s.text,s.from,close,1,close.Length-1) = 0 then inc' close.Length s; Ok(b.ToString())
         else 
-            if x <> oob then inc s; b.Append(x) |> ignore; loop()
+            if x <> eol then inc s; b.Append(x) |> ignore; loop()
             else error_char s.from (Expected close)
     loop()
 

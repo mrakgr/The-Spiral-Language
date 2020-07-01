@@ -17,7 +17,8 @@
 				"extensions": [
 					".spi",
 					".spiproj"
-				]
+				],
+				"aliases": ["Spiral"]
 			}
 		],
 		"semanticTokenTypes": [
