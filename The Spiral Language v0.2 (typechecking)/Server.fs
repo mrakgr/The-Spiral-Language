@@ -16,7 +16,8 @@ type ClientReq =
 type ProjectFileRes = Result<Schema, VSCErrorOpt []>
 type FileOpenRes = VSCTokenArray * VSCError []
 
-let uri = "tcp://*:13805"
+let uri_editor = "tcp://localhost:13806"
+let uri_lang_serv = "tcp://*:13805"
 
 open Hopac
 open Hopac.Infixes
@@ -26,8 +27,8 @@ let server () =
 
     use sock = new RouterSocket()
     sock.Options.ReceiveHighWatermark <- Int32.MaxValue
-    sock.Bind(uri)
-    printfn "Server bound to: %s" uri
+    sock.Bind(uri_lang_serv)
+    printfn "Server bound to: %s" uri_lang_serv
 
     while true do
         let msg = sock.ReceiveMultipartMessage(3)
