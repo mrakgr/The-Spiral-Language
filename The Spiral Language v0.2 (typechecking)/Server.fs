@@ -9,17 +9,20 @@ open Spiral.Config
 open Spiral.Tokenize
 
 type ClientReq =
-    | ProjectFile of {|spiprojDir : string; spiprojText : string|}
+    | ProjectFileOpen of {|spiprojDir : string; spiprojText : string|}
     | FileOpen of {|spiPath : string; spiText : string|}
     | FileChanged of {|spiPath : string; spiChangedLines : (int * string) []|}
 
 type ProjectFileRes = Result<Schema, VSCErrorOpt []>
-type FileOpenRes = VSCToken * VSCError []
+type FileOpenRes = VSCTokenArray * VSCError []
 
 let uri = "tcp://*:13805"
 
+open Hopac
+open Hopac.Infixes
+open Hopac.Extensions
 let server () =
-    let tokenizer_state = Utils.memoize (Dictionary()) (fun _ -> ResizeArray())
+    let server_tokenizer = Utils.memoize (Dictionary()) (fun _ -> run Tokenize.server)
 
     use sock = new RouterSocket()
     sock.Options.ReceiveHighWatermark <- Int32.MaxValue
@@ -32,15 +35,17 @@ let server () =
         msg.Pop() |> ignore
 
         match Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer)) with
-        | ProjectFile x -> (config x.spiprojDir x.spiprojText : ProjectFileRes) |> Json.serialize
+        | ProjectFileOpen x -> (config x.spiprojDir x.spiprojText : ProjectFileRes) |> Json.serialize
         | FileOpen x -> 
-            let lines = tokenizer_state x.spiPath
-            x.spiText |> Utils.lines |> Array.iteri (fun i x -> tr_set lines (i, tokenize x))
-            tr_vscode_view lines |> Json.serialize
+            let server = server_tokenizer x.spiPath
+            (Ch.give server.open'.req x.spiText >>=. Ch.take server.open'.res)
+            |> run
+            |> Json.serialize
         | FileChanged x -> 
-            let lines = tokenizer_state x.spiPath
-            x.spiChangedLines |> Array.iter (fun (i,x) -> tr_set lines (i, tokenize x))
-            tr_vscode_view lines |> Json.serialize
+            let server = server_tokenizer x.spiPath
+            (Ch.give server.change.req x.spiChangedLines >>=. Ch.take server.change.res)
+            |> run
+            |> Json.serialize
         |> msg.Push
         msg.PushEmptyFrame()
         msg.Push(address)
