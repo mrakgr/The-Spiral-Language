@@ -3,7 +3,7 @@ open System
 open System.Text
 open ParserCombinators
 
-type Range = {from : int; near_to : int}
+type Range = {from : int; nearTo : int}
 type TokenizerError =
     | Expected of string
     | Message of string
@@ -15,7 +15,7 @@ type Tokenizer = {
 
     member t.Index with get() = t.from and set i = t.from <- i
 
-let range_char i = {from=i; near_to=i+1}
+let range_char i = {from=i; nearTo=i+1}
 let error_char i er = Error [range_char i, er]
 
 let inc' i (s : Tokenizer) = s.from <- s.from+i

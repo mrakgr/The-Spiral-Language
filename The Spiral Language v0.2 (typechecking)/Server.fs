@@ -36,14 +36,14 @@ let server () =
 
         match Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer)) with
         | ProjectFileOpen x -> (config x.spiprojDir x.spiprojText : ProjectFileRes) |> Json.serialize
-        | FileOpen x -> 
+        | FileOpen x ->
             let server = server_tokenizer x.spiPath
             (Ch.give server.open'.req x.spiText >>=. Ch.take server.open'.res)
             |> run
             |> Json.serialize
-        | FileChanged x -> 
+        | FileChanged x ->
             let server = server_tokenizer x.spiPath
-            (Ch.give server.change.req x.spiChangedLines >>=. Ch.take server.change.res)
+            (Ch.give server.change.req x.spiEdits >>=. Ch.take server.change.res)
             |> run
             |> Json.serialize
         |> msg.Push

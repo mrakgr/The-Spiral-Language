@@ -99,7 +99,7 @@ let is_separator_char c = is_prefix_separator_char c || is_parenth_close c
 
 let var (s: Tokenizer) = 
     let from = s.from
-    let ok x = ({from=from; near_to=s.from}, x)
+    let ok x = ({from=from; nearTo=s.from}, x)
     let body x = 
         skip ':' s (fun () -> TokSymbolPaired(x) |> ok)
             (fun () ->
@@ -129,7 +129,7 @@ let var (s: Tokenizer) =
 
 let number (s: Tokenizer) = 
     let from = s.from
-    let ok x = ({from=from; near_to=s.from}, x) |> Ok
+    let ok x = ({from=from; nearTo=s.from}, x) |> Ok
 
     let parser (s: Tokenizer) = 
         if peek s = '-' && Char.IsDigit (peek' s 1) && is_prefix_separator_char (peek' s -1) then 
@@ -146,7 +146,7 @@ let number (s: Tokenizer) =
             if is_separator_char (peek s) then 
                 match string_to_val x with
                 | true, x -> val_to_lit x |> TokValue |> ok
-                | false, _ -> Error [{from=from; near_to=s.from}, Message (sprintf "The string %s cannot be safely parsed as %s." x val_dsc)]
+                | false, _ -> Error [{from=from; nearTo=s.from}, Message (sprintf "The string %s cannot be safely parsed as %s." x val_dsc)]
             else error_char s.from (Expected "separator")
         let skip c = skip c s (fun () -> true) (fun () -> false)
         if skip 'i' then
@@ -171,7 +171,7 @@ let number (s: Tokenizer) =
 
 let symbol s =
     let from = s.from
-    let f x = ({from=from; near_to=s.from}, TokSymbol x)
+    let f x = ({from=from; nearTo=s.from}, TokSymbol x)
 
     let x = peek s
     let x' = peek' s 1
@@ -188,13 +188,13 @@ let comment (s : Tokenizer) =
         inc' 2 s
         let com = s.text.[s.from..]
         s.from <- s.text.Length
-        Ok ({from=from; near_to=s.from}, TokComment com)
+        Ok ({from=from; nearTo=s.from}, TokComment com)
     else
         error_char from (Expected "comment")
 
 let operator (s : Tokenizer) = 
     let from = s.from
-    let ok x = ({from=from; near_to=s.from}, x) |> Ok
+    let ok x = ({from=from; nearTo=s.from}, x) |> Ok
     let is_separator_prev = is_prefix_separator_char (peek' s -1)
     let f name (s: Tokenizer) = 
         if is_separator_prev && (is_postfix_separator_char (peek s) = false) then TokUnaryOperator(name) |> ok
@@ -203,7 +203,7 @@ let operator (s : Tokenizer) =
 
 let string_raw s =
     let from = s.from
-    let f x = {from=from; near_to=s.from}, TokValue(LitString x)
+    let f x = {from=from; nearTo=s.from}, TokValue(LitString x)
     (skip_string "@\"" >>. chars_till_string "\"" |>> f .>> spaces) s
 
 let char_quoted s = 
@@ -223,7 +223,7 @@ let char_quoted s =
             | x -> Ok x
             )
     let from = s.from
-    let f _ x _ = {from=from; near_to=s.from}, TokValue(LitChar x)
+    let f _ x _ = {from=from; nearTo=s.from}, TokValue(LitChar x)
     (pipe3 (skip_char '\'') char_quoted_body (skip_char '\'') f .>> spaces) s
 
 let string_quoted s = 
@@ -247,12 +247,12 @@ let string_quoted s =
                 )
         loop (StringBuilder())
     let from = s.from
-    let f _ x = {from=from; near_to=s.from}, TokValue(LitString x)
+    let f _ x = {from=from; nearTo=s.from}, TokValue(LitString x)
     (pipe2 (skip_char '"') string_quoted_body f .>> spaces) s
 
 let brackets s =
     let from = s.from
-    let f spec = inc s; (spaces >>% ({from=from; near_to=s.from}, TokBracket(spec))) s
+    let f spec = inc s; (spaces >>% ({from=from; nearTo=s.from}, TokBracket(spec))) s
     match peek s with
     | '(' -> f (Round,Open) | '[' -> f (Square,Open) | '{' -> f (Curly,Open)
     | ')' -> f (Round,Close) | ']' -> f (Square,Close) | '}' -> f (Curly,Close)
@@ -273,7 +273,7 @@ let process_error line (ers : (Range * TokenizerError) list) : (string * VSCRang
         if 0 < ar.Length then
             let near_to, (expecteds, messages) = 
                 ar |> Array.fold (fun (near_to, (expecteds, messages)) (a,b) -> 
-                    max near_to a.near_to,
+                    max near_to a.nearTo,
                     match b with
                     | Expected x -> x :: expecteds, messages
                     | Message x -> expecteds, x :: messages
@@ -312,46 +312,61 @@ let tr_set (lines : TokenResult ResizeArray) (i,v) = tr_fill lines i; lines.[i] 
 let tr_update (lines : TokenResult ResizeArray) (l : (int * TokenResult) []) = l |> Array.iter (tr_set lines)
 
 type VSCodeTokenData = int [] * (string * VSCRange) [] // FSharp.Json does not support serializing ResizeArray objects
-let tr_vscode_view (lines : TokenResult ResizeArray) : VSCodeTokenData =
+let tr_vscode_toks line_delta (lines : TokenResult seq) =
     let toks = ResizeArray()
-    let ers = ResizeArray()
-    let rec loop_outer line_prev line =
-        if line < lines.Count then
-            let tok,er = lines.[line]
-            ers.AddRange(process_error line er)
-            let rec loop_inner line_prev from_prev i =
-                if i < tok.Length then
-                    let r,x = tok.[i]
-                    toks.AddRange [|line-line_prev; r.from-from_prev; r.near_to-r.from; token_groups x; 0|]
-                    loop_inner line r.from (i+1)
-                else
-                    loop_outer line_prev (line+1)
-            loop_inner line_prev 0 0
-        else
-            ()
-    loop_outer 0 0
-    toks.ToArray(), ers.ToArray()
-
-type SpiEdit = {|range: VSCRange; text: string|}
-let server_text_document (lines : string ResizeArray) (edit : SpiEdit) =
-    let edit_length =
-        let rec loop s (x : VSCPos) =
-            if x.line < (snd edit.range).line then loop (s + lines.Count - x.character + 1) {line=x.line+1; character=0}
-            else s + (snd edit.range).character - x.character
-        loop 0 (fst edit.range)
+    lines |> Seq.fold (fun line_delta (tok,_) ->
+        tok |> Array.fold (fun (line_delta,from_prev) (r,x) ->
+            toks.AddRange [|line_delta; r.from-from_prev; r.nearTo-r.from; token_groups x; 0|]
+            0, r.from
+            ) (line_delta, 0)
+        |> fst
+        ) line_delta
+    |> ignore
     
-    let b = StringBuilder()
-    let rec loop line =
-        if line < (snd edit.range).line then b.AppendLine(lines.[line]) |> ignore; loop (line+1)
-        else b.Append(lines.[line]) |> ignore
-    loop (fst edit.range).line
-    b.Remove((fst edit.range).character,edit_length) |> ignore
-    b.Insert((fst edit.range).character,edit.text) |> ignore
-    lines.RemoveRange((fst edit.range).line,(snd edit.range).line-(fst edit.range).line+1)
-    let replaced_lines = b.ToString() |> Utils.lines
-    lines.InsertRange((fst edit.range).line,replaced_lines)
-    replaced_lines
+    toks.ToArray()
+
+let tr_vscode_ers line (lines : TokenResult seq) =
+    let ers = ResizeArray()
+    lines |> Seq.iteri (fun i (_,er) -> process_error (line+i) er |> ers.AddRange)
+    ers.ToArray()
+
+type SpiEdit = {|from: int; nearTo: int; lines: string []|}
 
 open Hopac
 open Hopac.Infixes
 open Hopac.Extensions
+
+let server = Job.delay <| fun () ->
+    let lines_token = ResizeArray([ [||],[] ])
+    
+    let open' = {|req=Ch(); res=Ch()|}
+    let change = {|req=Ch(); res=Ch()|}
+    let loop =
+        (Ch.take open'.req ^=> fun x -> 
+            lines_token.Clear()
+            lines_token.AddRange(x |> Utils.lines |> Array.map tokenize)
+            Ch.give open'.res (tr_vscode_toks 0 lines_token, tr_vscode_ers 0 lines_token)
+            )
+        <|> (Ch.take change.req ^=> fun (changes : SpiEdit []) ->
+            changes |> Array.map (fun edit ->
+                lines_token.RemoveRange(edit.from,edit.nearTo-edit.from)
+                let changed_lines = ResizeArray()
+                Array.iter (tokenize >> changed_lines.Add) edit.lines
+                lines_token.InsertRange(edit.from,changed_lines)
+
+                let line_delta =
+                    let rec loop i = if i = 0 || 0 < (fst lines_token.[i]).Length then i else loop (i-1)
+                    if edit.from = 0 then 0 else edit.from - loop (edit.from-1)
+
+                let rec add_one i = 
+                    if i < lines_token.Count then 
+                        let tok,er = lines_token.[i]
+                        if 0 < tok.Length then changed_lines.Add([|tok.[0]|],er) else changed_lines.Add([||],er); add_one (i+1)
+                    else ()
+                add_one (edit.from+edit.lines.Length)
+
+                tr_vscode_toks line_delta changed_lines, tr_vscode_ers 0 lines_token
+                ) 
+            |> Ch.give change.res
+            )
+    Job.foreverServer loop >>-. {|open'=open'; change=change|}

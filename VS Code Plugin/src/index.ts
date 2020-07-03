@@ -14,7 +14,7 @@ const request = async (file: object) => {
 
 const spiprojOpenReq = async (spiprojDir: string, spiprojText: string) => request({ ProjectFileOpen: { spiprojDir, spiprojText } })
 const spiOpenReq = async (spiPath: string, spiText: string) => request({ FileOpen: { spiPath, spiText } })
-const spiChangeReq = async (spiPath: string, spiChangedLines : [number, string] []) => request({ FileChanged: { spiPath, spiChangedLines } })
+const spiChangeReq = async (spiPath: string, spiEdits : {from: number, nearTo: number, lines: string[]} []) => request({ FileChanged: { spiPath, spiEdits } })
 
 type Result<a, b> = { Ok: a } | { Error: b }
 const matchResult = <a, b, r>(x: Result<a, b>, onOk: (arg: a) => r, onError: (arg: b) => r): r => {
@@ -61,33 +61,37 @@ export const activate = async (ctx: ExtensionContext) => {
         tokenChange.fire()
         errorsSet(doc)(x[1])
     }
-    const spiChange = async (doc : TextDocument, changes: readonly TextDocumentContentChangeEvent[]) => {
-        const linesSet = new Set<number>()
-        changes.forEach(x => {
-            const from = x.range.start.line
-            const to = x.range.end.line
-            for (let i = from; i <= to; i++) { linesSet.add(i) }
-        })
-        const lines : [number,string] [] = []
-        linesSet.forEach(i => lines.push([i,doc.lineAt(i).text])) // TODO: Figure out what happens when lineAt is out of bounds.
-        lines.sort((a,b) => a[0]-b[0])
 
-        const x : [[number, number, number[]] [], [string, RangeRec][]] = await spiChangeReq(doc.uri.fsPath, lines)
-        tokens.set(doc.uri.fsPath,{edits: new SemanticTokensEdits(x[0].map(x => new SemanticTokensEdit(x[0],x[1],new Uint32Array(x[2]))),"")})
+    const numberOfLines = (str: string) => {
+        var length = 1;
+        for (var i = 0; i < str.length; i++) { if (str[i] == '\n') { length++; } }
+        return length;
+    }
+
+    const spiChange = async (doc : TextDocument, changes: readonly TextDocumentContentChangeEvent[]) => {
+        const edits = changes.map(x => {
+            const from = x.range.start.line
+            const nearTo = from + numberOfLines(x.text)
+            const lines : string [] = []
+            for (let i = from; i < nearTo; i++) { lines.push(doc.lineAt(i).text) }
+            return {lines, from, nearTo: x.range.end.line+1}
+        })
+        const x : [number [], [string, RangeRec][]] = await spiChangeReq(doc.uri.fsPath, edits)
+        tokens.set(doc.uri.fsPath,{tokens: new SemanticTokens(new Uint32Array(x[0]),"")})
         tokenChange.fire()
         errorsSet(doc)(x[1])
     }
 
-    const tokensMapDelete = (f : (x : TokensOrEdits | undefined) => any) => (doc : TextDocument) => {
+    const tokensMapDelete = (f : (x : TokensOrEdits) => any) => (doc : TextDocument) => {
         const x = tokens.get(doc.uri.fsPath)
-        if (x) {tokens.delete(doc.uri.fsPath)}
-        return f(x)
+        if (x) {tokens.delete(doc.uri.fsPath); return f(x)}
+        else {throw "Busy"}
     }
 
     class SpiralTokens implements DocumentSemanticTokensProvider {
         onDidChangeSemanticTokens = tokenChangeEvent
-        provideDocumentSemanticTokens = tokensMapDelete(x => (x && "tokens" in x) ? x.tokens : new SemanticTokens(new Uint32Array()))
-        provideDocumentSemanticTokensEdits = tokensMapDelete(x => x ? (("tokens" in x) ? x.tokens : x.edits) : new SemanticTokens(new Uint32Array()))
+        provideDocumentSemanticTokens = tokensMapDelete(x => ("tokens" in x) ? x.tokens : new SemanticTokens(new Uint32Array()))
+        provideDocumentSemanticTokensEdits = tokensMapDelete(x => ("tokens" in x) ? x.tokens : x.edits)
     }
 
     const onDocOpen = (doc: TextDocument) => {
