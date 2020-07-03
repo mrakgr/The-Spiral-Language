@@ -332,45 +332,26 @@ let tr_vscode_view (lines : TokenResult ResizeArray) : VSCodeTokenData =
     loop_outer 0 0
     toks.ToArray(), ers.ToArray()
 
+type SpiEdit = {|range: VSCRange; text: string|}
+let server_text_document (lines : string ResizeArray) (edit : SpiEdit) =
+    let edit_length =
+        let rec loop s (x : VSCPos) =
+            if x.line < (snd edit.range).line then loop (s + lines.Count - x.character + 1) {line=x.line+1; character=0}
+            else s + (snd edit.range).character - x.character
+        loop 0 (fst edit.range)
+    
+    let b = StringBuilder()
+    let rec loop line =
+        if line < (snd edit.range).line then b.AppendLine(lines.[line]) |> ignore; loop (line+1)
+        else b.Append(lines.[line]) |> ignore
+    loop (fst edit.range).line
+    b.Remove((fst edit.range).character,edit_length) |> ignore
+    b.Insert((fst edit.range).character,edit.text) |> ignore
+    lines.RemoveRange((fst edit.range).line,(snd edit.range).line-(fst edit.range).line+1)
+    let replaced_lines = b.ToString() |> Utils.lines
+    lines.InsertRange((fst edit.range).line,replaced_lines)
+    replaced_lines
+
 open Hopac
 open Hopac.Infixes
 open Hopac.Extensions
-let server = Job.delay <| fun () ->
-    let lines = ResizeArray([ [||],[] ])
-    let token_sum = ResizeArray([0]) // Scan add of token counts at the start of the ith line.
-    let tokenize_and_set (i,x) = 
-        let x = tokenize x
-        if fst x |> Array.length <> i then
-            while i < token_sum.Count-1 do token_sum.RemoveAt(token_sum.Count-1) // Forget the offsets after the ith line since they have to be recalced.
-        tr_set lines (i, x)
-        x
-    let token_count i = lines.[i] |> fst |> Array.length
-    let token_sum i =
-        while token_sum.Count <= i do token_sum.Add(Seq.last token_sum + token_count (token_sum.Count-1))
-        token_sum.[i]
-    let line_delta i =
-        let rec loop i = if i = 0 || 0 < token_count i then i else loop (i-1)
-        if i = 0 then 0 else i - loop (i-1)
-    
-    let open' = {|req=Ch(); res=Ch()|}
-    let change = {|req=Ch(); res=Ch()|}
-    let loop =
-        (Ch.take open'.req ^=> (Utils.lines >> Array.map tokenize >> fun x -> lines.Clear(); lines.AddRange(x); Ch.give open'.res (tr_vscode_view lines)))
-        <|> (Ch.take change.req ^=> fun (changes : (int * string) []) ->
-            assert (let x = Array.map fst changes in x |> Array.distinct |> Array.sort = x)
-            Array.mapFoldBack (fun (i,x) () -> tr_fill lines i; {|token_sum=token_sum i; token_count=token_count i; data=tokenize_and_set (i,x); line=i|}, ()) changes ()
-            |> fst |> Array.map (fun x -> 
-                let line = x.line
-                let toks,_ = 
-                    x.data |> fst |> Array.mapFold (fun (line_delta,from_prev) (r,x) ->
-                        [|line_delta; r.from-from_prev; r.near_to-r.from; token_groups x; 0|], (0, r.from)
-                        ) (line_delta line, 0)
-                (x.token_sum*5, x.token_count*5, Array.concat toks), process_error line (snd x.data)
-                )
-            |> Array.unzip
-            // The edits should be applied in the reverse order they have been received.
-            |> fun (a,b) -> Array.rev a, Array.concat b
-            |> Ch.give change.res
-            )
-    Job.foreverServer loop >>-. {|open'=open'; change=change|}
-    

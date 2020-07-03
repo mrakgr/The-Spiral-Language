@@ -11,13 +11,12 @@ open Spiral.Tokenize
 type ClientReq =
     | ProjectFileOpen of {|spiprojDir : string; spiprojText : string|}
     | FileOpen of {|spiPath : string; spiText : string|}
-    | FileChanged of {|spiPath : string; spiChangedLines : (int * string) []|}
+    | FileChanged of {|spiPath : string; spiEdits : SpiEdit []|}
 
 type ProjectFileRes = Result<Schema, VSCErrorOpt []>
 type FileOpenRes = VSCTokenArray * VSCError []
 
-let uri_editor = "tcp://localhost:13806"
-let uri_lang_serv = "tcp://*:13805"
+let uri = "tcp://*:13805"
 
 open Hopac
 open Hopac.Infixes
@@ -27,8 +26,8 @@ let server () =
 
     use sock = new RouterSocket()
     sock.Options.ReceiveHighWatermark <- Int32.MaxValue
-    sock.Bind(uri_lang_serv)
-    printfn "Server bound to: %s" uri_lang_serv
+    sock.Bind(uri)
+    printfn "Server bound to: %s" uri
 
     while true do
         let msg = sock.ReceiveMultipartMessage(3)
