@@ -287,9 +287,9 @@ let process_error (line, ers : (Range * TokenizerError) list) : (string * VSCRan
         else None
         )
 
-type LineTokens = (Range * SpiralToken) []
+type LineToken = Range * SpiralToken
 type LineTokenErrors = (Range * TokenizerError) list
-type LineTokenResult = LineTokens * LineTokenErrors
+type LineTokenResult = LineToken [] * LineTokenErrors
 let tokenize text : LineTokenResult =
     let s = {from=0; text=text}
     LineParsers.spaces' s
@@ -310,7 +310,7 @@ let tokenize text : LineTokenResult =
     ar.ToArray(), ers
 
 type VSCodeTokenData = int [] * (string * VSCRange) [] // FSharp.Json does not support serializing ResizeArray objects
-let tr_vscode_toks line_delta (lines : LineTokens []) =
+let vscode_tokens line_delta (lines : LineToken [] []) =
     let toks = ResizeArray()
     lines |> Array.fold (fun line_delta tok ->
         tok |> Array.fold (fun (line_delta,from_prev) (r,x) ->
@@ -326,23 +326,22 @@ let tr_vscode_toks line_delta (lines : LineTokens []) =
 open Hopac
 open Hopac.Infixes
 open Hopac.Extensions
-open System.Collections.Generic
 
 type SpiEdit = {|from: int; nearTo: int; lines: string []|}
 let server = Job.delay <| fun () ->
     let tokens = ResizeArray([[||]])
     let offsets = ResizeArray([0])
-    let errors = Dictionary()
+    let mutable errors = [||]
 
     let replace (edit : SpiEdit) =
         while edit.from < offsets.Count-1 do offsets.RemoveAt(offsets.Count-1)
 
-        errors.Keys |> Seq.iter (fun x -> if edit.from <= x && x < edit.nearTo then errors.Remove(x) |> ignore)
         let toks, ers = Array.map tokenize edit.lines |> Array.unzip
-        ers |> Array.iteri (fun i x -> errors.[i] <- process_error (edit.from+i, x))
-
         tokens.RemoveRange(edit.from,edit.nearTo-edit.from)
         tokens.InsertRange(edit.from,toks)
+
+        errors <- errors |> Array.filter (fun (_,(a,_)) -> (edit.from <= a.line && a.line < edit.nearTo) = false)
+        errors <- Array.append errors (ers |> Array.mapi (fun i x -> process_error (edit.from+i, x)) |> Array.concat)
 
     let offset i =
         while offsets.Count-1 < i do let i = offsets.Count-1 in offsets.Add(offsets.[i] + tokens.[i].Length)
@@ -356,57 +355,32 @@ let server = Job.delay <| fun () ->
         let rec loop s i = if i < near_to then loop (s + tokens.[i].Length) (i + 1) else s
         loop 0 from
 
-    let tokens_between from near_to =
+    let tokens_between_extra from near_to =
         let ar = ResizeArray()
-        let rec loop i = if i < near_to then ar.AddRange(tokens.[i]); loop (i + 1) else ar
-        loop from
-
-    let tokens_get from = 
-        let rec loop i =
+        let rec loop_extra i = // On every change, the first token after the range needs to have its line delta adjusted.
             if i < tokens.Count then 
                 let x = tokens.[i]
-                if 0 < x.Length then Some x else loop (i+1)
-            else None
-        loop from
+                if 0 < x.Length then ar.Add([|x.[0]|]); 1 else loop_extra (i+1)
+            else 0
+        let rec loop_between i = if i < near_to then ar.Add(tokens.[i]); loop_between (i + 1)
+        loop_between from
+        loop_extra near_to, ar.ToArray()
 
     let open' = {|req=Ch(); res=Ch()|}
     let change = {|req=Ch(); res=Ch()|}
     let loop =
         (Ch.take open'.req ^=> fun x -> 
-            let lines = Utils.lines x
-            replace {|from=0; nearTo=tokens.Count; lines=lines|}
-            Ch.give open'.res (tr_vscode_toks 0 (tokens.ToArray()), errors.Values |> Seq.toArray |> Array.concat)
+            replace {|from=0; nearTo=tokens.Count; lines=Utils.lines x|}
+            Ch.give open'.res (vscode_tokens 0 (tokens.ToArray()), errors)
             )
         <|> (Ch.take change.req ^=> fun (changes : SpiEdit []) ->
             changes |> Array.map (fun edit ->
-                let offset =
-                    let rec loop i = if i < 0 then 0 else (fst lines_token.[i]).Length + loop (i - 1)
-                    loop (edit.from - 1)
-
-                let length =
-                    let rec loop i = if i < edit.nearTo then (fst lines_token.[i]).Length + loop (i + 1) else 0
-                    loop edit.from
-
-                lines_token.RemoveRange(edit.from,edit.nearTo-edit.from)
-                let changed_lines = ResizeArray()
-                Array.iter (tokenize >> changed_lines.Add) edit.lines
-                lines_token.InsertRange(edit.from,changed_lines)
-
-                let line_delta =
-                    let rec loop i = if i = 0 || 0 < (fst lines_token.[i]).Length then i else loop (i-1)
-                    if edit.from = 0 then 0 else edit.from - loop (edit.from-1)
-
-                let rec add_one i = 
-                    if i < lines_token.Count then 
-                        let tok,er = lines_token.[i]
-                        if 0 < tok.Length then changed_lines.Add([|tok.[0]|],er); 1 else changed_lines.Add([||],er); add_one (i+1)
-                    else 0
-                let length = length + add_one (edit.from+edit.lines.Length)
-
-                (offset*5, length*5, tr_vscode_toks line_delta changed_lines), tr_vscode_ers 0 lines_token
-                ) 
-            |> Array.unzip
-            |> fun (a,b) -> a, Array.concat b
-            |> Ch.give change.res
+                let offset = offset edit.from
+                let length = tokens_between_length edit.from edit.nearTo
+                replace edit
+                let extra, data = tokens_between_extra edit.from (edit.from + edit.lines.Length)
+                offset*5, (length+extra)*5, vscode_tokens (line_delta edit.from) data
+                )
+            |> fun x -> Ch.give change.res (x, errors)
             )
     Job.foreverServer loop >>-. {|open'=open'; change=change|}

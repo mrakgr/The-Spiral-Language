@@ -51,13 +51,13 @@ export const activate = async (ctx: ExtensionContext) => {
         )
     }
 
-    type TokensOrEdits = {tokens: SemanticTokens} | {edits: SemanticTokensEdits}
+    type TokensOrEdits = (SemanticTokens | SemanticTokensEdits) []
     let tokens = new Map<string,TokensOrEdits>()
     const tokenChange = new EventEmitter<void>()
     const tokenChangeEvent = tokenChange.event
     const spiOpen = async (doc: TextDocument) => {
         const x : [number [], [string, RangeRec][]] = await spiOpenReq(doc.uri.fsPath, doc.getText())
-        tokens.set(doc.uri.fsPath,{tokens: new SemanticTokens(new Uint32Array(x[0]),"")})
+        tokens.set(doc.uri.fsPath,[new SemanticTokens(new Uint32Array(x[0]),"")])
         tokenChange.fire()
         errorsSet(doc)(x[1])
     }
@@ -76,23 +76,27 @@ export const activate = async (ctx: ExtensionContext) => {
             for (let i = from; i < nearTo; i++) { lines.push(doc.lineAt(i).text) }
             return {lines, from, nearTo: x.range.end.line+1}
         })
-        const x : [[number, number, number []][], [string, RangeRec][]] = await spiChangeReq(doc.uri.fsPath, edits)
-        window.showInformationMessage(JSON.stringify(x))
-        tokens.set(doc.uri.fsPath,{edits: new SemanticTokensEdits(x[0].map(x => new SemanticTokensEdit(x[0],x[1],new Uint32Array(x[2]))) ,"")})
-        tokenChange.fire()
-        errorsSet(doc)(x[1])
-    }
-
-    const tokensMapDelete = (f : (x : TokensOrEdits) => any) => (doc : TextDocument) => {
-        const x = tokens.get(doc.uri.fsPath)
-        if (x) {tokens.delete(doc.uri.fsPath); return f(x)}
-        else {throw "Busy"}
+        const res : [[number, number, number []][], [string, RangeRec][]] = await spiChangeReq(doc.uri.fsPath, edits)
+        const tokenEdits = new SemanticTokensEdits(res[0].map(x => new SemanticTokensEdit(x[0],x[1],new Uint32Array(x[2]))),"")
+        const queue = tokens.get(doc.uri.fsPath) || []
+        queue.push(tokenEdits)
+        tokens.set(doc.uri.fsPath,queue)
     }
 
     class SpiralTokens implements DocumentSemanticTokensProvider {
         onDidChangeSemanticTokens = tokenChangeEvent
-        provideDocumentSemanticTokens = tokensMapDelete(x => ("tokens" in x) ? x.tokens : new SemanticTokens(new Uint32Array()))
-        provideDocumentSemanticTokensEdits = tokensMapDelete(x => ("tokens" in x) ? x.tokens : x.edits)
+        provideDocumentSemanticTokens(doc: TextDocument) {
+            const queue = tokens.get(doc.uri.fsPath) || []
+            const x = queue.shift()
+            if (x instanceof SemanticTokens) {return x}
+            else if (x instanceof SemanticTokensEdits) { queue.unshift(x); } 
+            throw "Busy"
+        } 
+        provideDocumentSemanticTokensEdits(doc: TextDocument) { 
+            const queue = tokens.get(doc.uri.fsPath) || []
+            const x = queue.shift()
+            return (x ? x : new SemanticTokensEdits([],""))
+        }
     }
 
     const onDocOpen = (doc: TextDocument) => {
