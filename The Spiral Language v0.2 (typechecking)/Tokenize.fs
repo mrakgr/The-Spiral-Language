@@ -326,8 +326,22 @@ let vscode_tokens line_delta (lines : LineToken [] []) =
 open Hopac
 open Hopac.Infixes
 open Hopac.Extensions
+open System.Collections.Generic
 
 type SpiEdit = {|from: int; nearTo: int; lines: string []|}
+
+type FileOpenRes = VSCError []
+type FileChangeRes = VSCError []
+type FileTokenAllRes = VSCTokenArray
+type VSCTokenArrayChange = int * int * VSCTokenArray
+type FileTokenChangesRes = VSCTokenArrayChange []
+
+type TokReq =
+    | Put of string * IVar<FileOpenRes>
+    | Modify of SpiEdit [] * IVar<FileChangeRes>
+    | GetAll of IVar<VSCTokenArray>
+    | GetChanges of IVar<FileTokenChangesRes>
+
 let server = Job.delay <| fun () ->
     let tokens = ResizeArray([[||]])
     let offsets = ResizeArray([0])
@@ -366,21 +380,21 @@ let server = Job.delay <| fun () ->
         loop_between from
         loop_extra near_to, ar.ToArray()
 
-    let open' = {|req=Ch(); res=Ch()|}
-    let change = {|req=Ch(); res=Ch()|}
+    let req = Ch()
+    let changes = Queue()
     let loop =
-        (Ch.take open'.req ^=> fun x -> 
-            replace {|from=0; nearTo=tokens.Count; lines=Utils.lines x|}
-            Ch.give open'.res (vscode_tokens 0 (tokens.ToArray()), errors)
-            )
-        <|> (Ch.take change.req ^=> fun (changes : SpiEdit []) ->
-            changes |> Array.map (fun edit ->
-                let offset = offset edit.from
-                let length = tokens_between_length edit.from edit.nearTo
-                replace edit
-                let extra, data = tokens_between_extra edit.from (edit.from + edit.lines.Length)
-                offset*5, (length+extra)*5, vscode_tokens (line_delta edit.from) data
-                )
-            |> fun x -> Ch.give change.res (x, errors)
-            )
-    Job.foreverServer loop >>-. {|open'=open'; change=change|}
+        Ch.take req >>= function
+            | Put(text,res) -> replace {|from=0; nearTo=tokens.Count; lines=Utils.lines text|}; IVar.fill res errors
+            | Modify(edits,res) ->
+                edits |> Array.map (fun edit ->
+                    let offset = offset edit.from
+                    let length = tokens_between_length edit.from edit.nearTo
+                    replace edit
+                    let extra, data = tokens_between_extra edit.from (edit.from + edit.lines.Length)
+                    offset*5, (length+extra)*5, vscode_tokens (line_delta edit.from) data
+                    )
+                |> changes.Enqueue
+                IVar.fill res errors
+            | GetAll res -> changes.Clear(); vscode_tokens 0 (tokens.ToArray()) |> IVar.fill res
+            | GetChanges res -> let x = changes.ToArray() |> Array.concat in changes.Clear(); IVar.fill res x
+    Job.foreverServer loop >>-. req

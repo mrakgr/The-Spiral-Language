@@ -15,6 +15,8 @@ const request = async (file: object) => {
 const spiprojOpenReq = async (spiprojDir: string, spiprojText: string) => request({ ProjectFileOpen: { spiprojDir, spiprojText } })
 const spiOpenReq = async (spiPath: string, spiText: string) => request({ FileOpen: { spiPath, spiText } })
 const spiChangeReq = async (spiPath: string, spiEdits : {from: number, nearTo: number, lines: string[]} []) => request({ FileChanged: { spiPath, spiEdits } })
+const spiTokenAllReq = async (spiPath: string) => request({ FileTokenAll: { spiPath } })
+const spiTokenChangesReq = async (spiPath: string) => request({ FileTokenChanges: { spiPath } })
 
 type Result<a, b> = { Ok: a } | { Error: b }
 const matchResult = <a, b, r>(x: Result<a, b>, onOk: (arg: a) => r, onError: (arg: b) => r): r => {
@@ -44,22 +46,14 @@ export const activate = async (ctx: ExtensionContext) => {
     }
 
     const spiprojOpen = async (doc: TextDocument) => {
-        const project_path = path.dirname(doc.uri.fsPath)
-        matchResult(await spiprojOpenReq(project_path, doc.getText()),
-            () => errors.set(doc.uri, []),
-            errorsSet(doc)
-        )
+        errorsSet(doc)(await spiprojOpenReq(path.dirname(doc.uri.fsPath), doc.getText()))
     }
 
-    type TokensOrEdits = (SemanticTokens | SemanticTokensEdits) []
-    let tokens = new Map<string,TokensOrEdits>()
     const tokenChange = new EventEmitter<void>()
     const tokenChangeEvent = tokenChange.event
     const spiOpen = async (doc: TextDocument) => {
-        const x : [number [], [string, RangeRec][]] = await spiOpenReq(doc.uri.fsPath, doc.getText())
-        tokens.set(doc.uri.fsPath,[new SemanticTokens(new Uint32Array(x[0]),"")])
+        errorsSet(doc)(await spiOpenReq(doc.uri.fsPath, doc.getText()))
         tokenChange.fire()
-        errorsSet(doc)(x[1])
     }
 
     const numberOfLines = (str: string) => {
@@ -76,26 +70,19 @@ export const activate = async (ctx: ExtensionContext) => {
             for (let i = from; i < nearTo; i++) { lines.push(doc.lineAt(i).text) }
             return {lines, from, nearTo: x.range.end.line+1}
         })
-        const res : [[number, number, number []][], [string, RangeRec][]] = await spiChangeReq(doc.uri.fsPath, edits)
-        const tokenEdits = new SemanticTokensEdits(res[0].map(x => new SemanticTokensEdit(x[0],x[1],new Uint32Array(x[2]))),"")
-        const queue = tokens.get(doc.uri.fsPath) || []
-        queue.push(tokenEdits)
-        tokens.set(doc.uri.fsPath,queue)
+        errorsSet(doc)(await spiChangeReq(doc.uri.fsPath, edits))
+        tokenChange.fire()
     }
 
     class SpiralTokens implements DocumentSemanticTokensProvider {
         onDidChangeSemanticTokens = tokenChangeEvent
-        provideDocumentSemanticTokens(doc: TextDocument) {
-            const queue = tokens.get(doc.uri.fsPath) || []
-            const x = queue.shift()
-            if (x instanceof SemanticTokens) {return x}
-            else if (x instanceof SemanticTokensEdits) { queue.unshift(x); } 
-            throw "Busy"
+        async provideDocumentSemanticTokens(doc: TextDocument) {
+            const x : number [] = await spiTokenAllReq(doc.uri.fsPath)
+            return new SemanticTokens(new Uint32Array(x),"")
         } 
-        provideDocumentSemanticTokensEdits(doc: TextDocument) { 
-            const queue = tokens.get(doc.uri.fsPath) || []
-            const x = queue.shift()
-            return (x ? x : new SemanticTokensEdits([],""))
+        async provideDocumentSemanticTokensEdits(doc: TextDocument) { 
+            const x : [number, number, number []][] = await spiTokenChangesReq(doc.uri.fsPath)
+            return new SemanticTokensEdits(x.map(x => new SemanticTokensEdit(x[0],x[1],new Uint32Array(x[2]))),"")
         }
     }
 
