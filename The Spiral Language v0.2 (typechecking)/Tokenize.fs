@@ -266,7 +266,7 @@ let token s =
 /// An array of {line: int; char: int; length: int; tokenType: int; tokenModifiers: int} in the order as written suitable for serialization.
 type VSCTokenArray = int []
 open Config
-let process_error line (ers : (Range * TokenizerError) list) : (string * VSCRange) [] =
+let process_error (line, ers : (Range * TokenizerError) list) : (string * VSCRange) [] =
     List.toArray ers
     |> Array.groupBy (fun (a,_) -> a.from)
     |> Array.choose (fun (from,ar) ->
@@ -287,8 +287,10 @@ let process_error line (ers : (Range * TokenizerError) list) : (string * VSCRang
         else None
         )
 
-type TokenResult = (Range * SpiralToken) [] * (Range * TokenizerError) list
-let tokenize text : TokenResult =
+type LineTokens = (Range * SpiralToken) []
+type LineTokenErrors = (Range * TokenizerError) list
+type LineTokenResult = LineTokens * LineTokenErrors
+let tokenize text : LineTokenResult =
     let s = {from=0; text=text}
     LineParsers.spaces' s
 
@@ -307,14 +309,10 @@ let tokenize text : TokenResult =
         else ers
     ar.ToArray(), ers
 
-let tr_fill (lines : TokenResult ResizeArray) i = while lines.Count <= i do lines.Add([||],[])
-let tr_set (lines : TokenResult ResizeArray) (i,v) = tr_fill lines i; lines.[i] <- v
-let tr_update (lines : TokenResult ResizeArray) (l : (int * TokenResult) []) = l |> Array.iter (tr_set lines)
-
 type VSCodeTokenData = int [] * (string * VSCRange) [] // FSharp.Json does not support serializing ResizeArray objects
-let tr_vscode_toks line_delta (lines : TokenResult seq) =
+let tr_vscode_toks line_delta (lines : LineTokens []) =
     let toks = ResizeArray()
-    lines |> Seq.fold (fun line_delta (tok,_) ->
+    lines |> Array.fold (fun line_delta tok ->
         tok |> Array.fold (fun (line_delta,from_prev) (r,x) ->
             toks.AddRange [|line_delta; r.from-from_prev; r.nearTo-r.from; token_groups x; 0|]
             0, r.from
@@ -325,27 +323,59 @@ let tr_vscode_toks line_delta (lines : TokenResult seq) =
     
     toks.ToArray()
 
-let tr_vscode_ers line (lines : TokenResult seq) =
-    let ers = ResizeArray()
-    lines |> Seq.iteri (fun i (_,er) -> process_error (line+i) er |> ers.AddRange)
-    ers.ToArray()
-
-type SpiEdit = {|from: int; nearTo: int; lines: string []|}
-
 open Hopac
 open Hopac.Infixes
 open Hopac.Extensions
+open System.Collections.Generic
 
+type SpiEdit = {|from: int; nearTo: int; lines: string []|}
 let server = Job.delay <| fun () ->
-    let lines_token = ResizeArray([ [||],[] ])
-    
+    let tokens = ResizeArray([[||]])
+    let offsets = ResizeArray([0])
+    let errors = Dictionary()
+
+    let replace (edit : SpiEdit) =
+        while edit.from < offsets.Count-1 do offsets.RemoveAt(offsets.Count-1)
+
+        errors.Keys |> Seq.iter (fun x -> if edit.from <= x && x < edit.nearTo then errors.Remove(x) |> ignore)
+        let toks, ers = Array.map tokenize edit.lines |> Array.unzip
+        ers |> Array.iteri (fun i x -> errors.[i] <- process_error (edit.from+i, x))
+
+        tokens.RemoveRange(edit.from,edit.nearTo-edit.from)
+        tokens.InsertRange(edit.from,toks)
+
+    let offset i =
+        while offsets.Count-1 < i do let i = offsets.Count-1 in offsets.Add(offsets.[i] + tokens.[i].Length)
+        offsets.[i]
+
+    let line_delta i =
+        let rec loop i = if i = 0 || 0 < tokens.[i].Length then i else loop (i-1)
+        if i = 0 then 0 else i - loop (i-1)
+
+    let tokens_between_length from near_to =
+        let rec loop s i = if i < near_to then loop (s + tokens.[i].Length) (i + 1) else s
+        loop 0 from
+
+    let tokens_between from near_to =
+        let ar = ResizeArray()
+        let rec loop i = if i < near_to then ar.AddRange(tokens.[i]); loop (i + 1) else ar
+        loop from
+
+    let tokens_get from = 
+        let rec loop i =
+            if i < tokens.Count then 
+                let x = tokens.[i]
+                if 0 < x.Length then Some x else loop (i+1)
+            else None
+        loop from
+
     let open' = {|req=Ch(); res=Ch()|}
     let change = {|req=Ch(); res=Ch()|}
     let loop =
         (Ch.take open'.req ^=> fun x -> 
-            lines_token.Clear()
-            lines_token.AddRange(x |> Utils.lines |> Array.map tokenize)
-            Ch.give open'.res (tr_vscode_toks 0 lines_token, tr_vscode_ers 0 lines_token)
+            let lines = Utils.lines x
+            replace {|from=0; nearTo=tokens.Count; lines=lines|}
+            Ch.give open'.res (tr_vscode_toks 0 (tokens.ToArray()), errors.Values |> Seq.toArray |> Array.concat)
             )
         <|> (Ch.take change.req ^=> fun (changes : SpiEdit []) ->
             changes |> Array.map (fun edit ->
