@@ -319,7 +319,7 @@ let tr_vscode_toks line_delta (lines : TokenResult seq) =
             toks.AddRange [|line_delta; r.from-from_prev; r.nearTo-r.from; token_groups x; 0|]
             0, r.from
             ) (line_delta, 0)
-        |> fst
+        |> fst |> ((+) 1)
         ) line_delta
     |> ignore
     
@@ -349,6 +349,14 @@ let server = Job.delay <| fun () ->
             )
         <|> (Ch.take change.req ^=> fun (changes : SpiEdit []) ->
             changes |> Array.map (fun edit ->
+                let offset =
+                    let rec loop i = if i < 0 then 0 else (fst lines_token.[i]).Length + loop (i - 1)
+                    loop (edit.from - 1)
+
+                let length =
+                    let rec loop i = if i < edit.nearTo then (fst lines_token.[i]).Length + loop (i + 1) else 0
+                    loop edit.from
+
                 lines_token.RemoveRange(edit.from,edit.nearTo-edit.from)
                 let changed_lines = ResizeArray()
                 Array.iter (tokenize >> changed_lines.Add) edit.lines
@@ -361,12 +369,14 @@ let server = Job.delay <| fun () ->
                 let rec add_one i = 
                     if i < lines_token.Count then 
                         let tok,er = lines_token.[i]
-                        if 0 < tok.Length then changed_lines.Add([|tok.[0]|],er) else changed_lines.Add([||],er); add_one (i+1)
-                    else ()
-                add_one (edit.from+edit.lines.Length)
+                        if 0 < tok.Length then changed_lines.Add([|tok.[0]|],er); 1 else changed_lines.Add([||],er); add_one (i+1)
+                    else 0
+                let length = length + add_one (edit.from+edit.lines.Length)
 
-                tr_vscode_toks line_delta changed_lines, tr_vscode_ers 0 lines_token
+                (offset*5, length*5, tr_vscode_toks line_delta changed_lines), tr_vscode_ers 0 lines_token
                 ) 
+            |> Array.unzip
+            |> fun (a,b) -> a, Array.concat b
             |> Ch.give change.res
             )
     Job.foreverServer loop >>-. {|open'=open'; change=change|}

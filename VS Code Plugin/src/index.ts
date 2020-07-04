@@ -76,8 +76,9 @@ export const activate = async (ctx: ExtensionContext) => {
             for (let i = from; i < nearTo; i++) { lines.push(doc.lineAt(i).text) }
             return {lines, from, nearTo: x.range.end.line+1}
         })
-        const x : [number [], [string, RangeRec][]] = await spiChangeReq(doc.uri.fsPath, edits)
-        tokens.set(doc.uri.fsPath,{tokens: new SemanticTokens(new Uint32Array(x[0]),"")})
+        const x : [[number, number, number []][], [string, RangeRec][]] = await spiChangeReq(doc.uri.fsPath, edits)
+        window.showInformationMessage(JSON.stringify(x))
+        tokens.set(doc.uri.fsPath,{edits: new SemanticTokensEdits(x[0].map(x => new SemanticTokensEdit(x[0],x[1],new Uint32Array(x[2]))) ,"")})
         tokenChange.fire()
         errorsSet(doc)(x[1])
     }
