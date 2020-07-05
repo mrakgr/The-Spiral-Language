@@ -39,7 +39,9 @@ let server () =
         let address = msg.Pop()
         msg.Pop() |> ignore
 
-        match Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer)) with
+        let id, x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
+        printfn "%i, %A" id x
+        match x with
         | ProjectFileOpen x -> 
             match config x.spiprojDir x.spiprojText with Ok x -> [||] | Error x -> x
             |> Json.serialize

@@ -4,10 +4,11 @@ import * as zmq from "zeromq"
 
 const uri = "tcp://localhost:13805"
 
+let msgId = 0
 const request = async (file: object) => {
     const sock = new zmq.Request()
     sock.connect(uri)
-    await sock.send(JSON.stringify(file))
+    await sock.send(JSON.stringify([msgId++, file]))
     const [x] = await sock.receive()
     return JSON.parse(x.toString())
 }

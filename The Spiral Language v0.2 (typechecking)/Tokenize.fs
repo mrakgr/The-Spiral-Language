@@ -384,7 +384,7 @@ let server = Job.delay <| fun () ->
     let changes = Queue()
     let loop =
         Ch.take req >>= function
-            | Put(text,res) -> replace {|from=0; nearTo=tokens.Count; lines=Utils.lines text|}; IVar.fill res errors
+            | Put(text,res) -> changes.Clear(); replace {|from=0; nearTo=tokens.Count; lines=Utils.lines text|}; IVar.fill res errors
             | Modify(edits,res) ->
                 edits |> Array.map (fun edit ->
                     let offset = offset edit.from
@@ -395,6 +395,10 @@ let server = Job.delay <| fun () ->
                     )
                 |> changes.Enqueue
                 IVar.fill res errors
-            | GetAll res -> changes.Clear(); vscode_tokens 0 (tokens.ToArray()) |> IVar.fill res
-            | GetChanges res -> let x = changes.ToArray() |> Array.concat in changes.Clear(); IVar.fill res x
+            | GetAll res -> vscode_tokens 0 (tokens.ToArray()) |> IVar.fill res
+            | GetChanges res -> 
+                let x = changes.ToArray() |> Array.concat in 
+                printfn "%A" x
+                changes.Clear()
+                IVar.fill res x
     Job.foreverServer loop >>-. req
