@@ -333,23 +333,17 @@ type SpiEdit = {|from: int; nearTo: int; lines: string []|}
 type FileOpenRes = VSCError []
 type FileChangeRes = VSCError []
 type FileTokenAllRes = VSCTokenArray
-type VSCTokenArrayChange = int * int * VSCTokenArray
-type FileTokenChangesRes = VSCTokenArrayChange []
 
 type TokReq =
     | Put of string * IVar<FileOpenRes>
     | Modify of SpiEdit [] * IVar<FileChangeRes>
-    | GetAll of IVar<VSCTokenArray>
-    | GetChanges of IVar<FileTokenChangesRes>
+    | GetRange of VSCRange * IVar<VSCTokenArray>
 
 let server = Job.delay <| fun () ->
     let tokens = ResizeArray([[||]])
-    let offsets = ResizeArray([0])
     let mutable errors = [||]
 
     let replace (edit : SpiEdit) =
-        while edit.from < offsets.Count-1 do offsets.RemoveAt(offsets.Count-1)
-
         let toks, ers = Array.map tokenize edit.lines |> Array.unzip
         tokens.RemoveRange(edit.from,edit.nearTo-edit.from)
         tokens.InsertRange(edit.from,toks)
@@ -357,48 +351,16 @@ let server = Job.delay <| fun () ->
         errors <- errors |> Array.filter (fun (_,(a,_)) -> (edit.from <= a.line && a.line < edit.nearTo) = false)
         errors <- Array.append errors (ers |> Array.mapi (fun i x -> process_error (edit.from+i, x)) |> Array.concat)
 
-    let offset i =
-        while offsets.Count-1 < i do let i = offsets.Count-1 in offsets.Add(offsets.[i] + tokens.[i].Length)
-        offsets.[i]
-
     let line_delta i =
         let rec loop i = if i = 0 || 0 < tokens.[i].Length then i else loop (i-1)
         if i = 0 then 0 else i - loop (i-1)
 
-    let tokens_between_length from near_to =
-        let rec loop s i = if i < near_to then loop (s + tokens.[i].Length) (i + 1) else s
-        loop 0 from
-
-    let tokens_between_extra from near_to =
-        let ar = ResizeArray()
-        let rec loop_extra i = // On every change, the first token after the range needs to have its line delta adjusted.
-            if i < tokens.Count then 
-                let x = tokens.[i]
-                if 0 < x.Length then ar.Add([|x.[0]|]); 1 else loop_extra (i+1)
-            else 0
-        let rec loop_between i = if i < near_to then ar.Add(tokens.[i]); loop_between (i + 1)
-        loop_between from
-        loop_extra near_to, ar.ToArray()
-
     let req = Ch()
-    let changes = Queue()
     let loop =
         Ch.take req >>= function
-            | Put(text,res) -> changes.Clear(); replace {|from=0; nearTo=tokens.Count; lines=Utils.lines text|}; IVar.fill res errors
-            | Modify(edits,res) ->
-                edits |> Array.map (fun edit ->
-                    let offset = offset edit.from
-                    let length = tokens_between_length edit.from edit.nearTo
-                    replace edit
-                    let extra, data = tokens_between_extra edit.from (edit.from + edit.lines.Length)
-                    offset*5, (length+extra)*5, vscode_tokens (line_delta edit.from) data
-                    )
-                |> changes.Enqueue
-                IVar.fill res errors
-            | GetAll res -> vscode_tokens 0 (tokens.ToArray()) |> IVar.fill res
-            | GetChanges res -> 
-                let x = changes.ToArray() |> Array.concat in 
-                printfn "%A" x
-                changes.Clear()
-                IVar.fill res x
+            | Put(text,res) -> replace {|from=0; nearTo=tokens.Count; lines=Utils.lines text|}; IVar.fill res errors
+            | Modify(edits,res) -> edits |> Array.iter replace; IVar.fill res errors
+            | GetRange((a,b), res) -> 
+                let from, near_to = a.line, b.line+1
+                vscode_tokens (line_delta from) (tokens.GetRange(from,near_to-from).ToArray()) |> IVar.fill res
     Job.foreverServer loop >>-. req

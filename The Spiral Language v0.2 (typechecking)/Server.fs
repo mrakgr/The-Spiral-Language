@@ -12,8 +12,7 @@ type ClientReq =
     | ProjectFileOpen of {|spiprojDir : string; spiprojText : string|}
     | FileOpen of {|spiPath : string; spiText : string|}
     | FileChanged of {|spiPath : string; spiEdits : SpiEdit []|}
-    | FileTokenAll of {|spiPath : string|}
-    | FileTokenChanges of {|spiPath : string|}
+    | FileTokenRange of {|spiPath : string; range : VSCRange|}
 
 type ProjectFileRes = VSCErrorOpt []
 type FileOpenRes = VSCError []
@@ -49,26 +48,17 @@ let server () =
             let server = server_tokenizer x.spiPath
             let res = IVar()
             (Ch.give server (TokReq.Put(x.spiText,res)) >>=. IVar.read res)
-            |> run
-            |> Json.serialize
+            |> run |> Json.serialize
         | FileChanged x ->
             let server = server_tokenizer x.spiPath
             let res = IVar()
             (Ch.give server (TokReq.Modify(x.spiEdits,res)) >>=. IVar.read res)
-            |> run
-            |> Json.serialize
-        | FileTokenAll x ->
+            |> run |> Json.serialize
+        | FileTokenRange x ->
             let server = server_tokenizer x.spiPath
             let res = IVar()
-            (Ch.give server (TokReq.GetAll res) >>=. IVar.read res)
-            |> run
-            |> Json.serialize
-        | FileTokenChanges x ->
-            let server = server_tokenizer x.spiPath
-            let res = IVar()
-            (Ch.give server (TokReq.GetChanges res) >>=. IVar.read res)
-            |> run
-            |> Json.serialize
+            (Ch.give server (TokReq.GetRange(x.range,res)) >>=. IVar.read res)
+            |> run |> Json.serialize
         |> msg.Push
         msg.PushEmptyFrame()
         msg.Push(address)

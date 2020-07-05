@@ -16,15 +16,7 @@ const request = async (file: object) => {
 const spiprojOpenReq = async (spiprojDir: string, spiprojText: string) => request({ ProjectFileOpen: { spiprojDir, spiprojText } })
 const spiOpenReq = async (spiPath: string, spiText: string) => request({ FileOpen: { spiPath, spiText } })
 const spiChangeReq = async (spiPath: string, spiEdits : {from: number, nearTo: number, lines: string[]} []) => request({ FileChanged: { spiPath, spiEdits } })
-const spiTokenAllReq = async (spiPath: string) => request({ FileTokenAll: { spiPath } })
-const spiTokenChangesReq = async (spiPath: string) => request({ FileTokenChanges: { spiPath } })
-
-type Result<a, b> = { Ok: a } | { Error: b }
-const matchResult = <a, b, r>(x: Result<a, b>, onOk: (arg: a) => r, onError: (arg: b) => r): r => {
-    if ("Ok" in x) { return onOk(x.Ok) }
-    else if ("Error" in x) { return onError(x.Error) }
-    else { throw "Expected a result type" }
-}
+const spiTokenRangeReq = async (spiPath: string, range : Range) => request({ FileTokenRange: { spiPath, range } })
 
 type PositionRec = { line: number, character: number }
 type RangeRec = [PositionRec, PositionRec]
@@ -50,11 +42,8 @@ export const activate = async (ctx: ExtensionContext) => {
         errorsSet(doc)(await spiprojOpenReq(path.dirname(doc.uri.fsPath), doc.getText()))
     }
 
-    const tokenChange = new EventEmitter<void>()
-    const tokenChangeEvent = tokenChange.event
     const spiOpen = async (doc: TextDocument) => {
         errorsSet(doc)(await spiOpenReq(doc.uri.fsPath, doc.getText()))
-        tokenChange.fire()
     }
 
     const numberOfLines = (str: string) => {
@@ -72,18 +61,12 @@ export const activate = async (ctx: ExtensionContext) => {
             return {lines, from, nearTo: x.range.end.line+1}
         })
         errorsSet(doc)(await spiChangeReq(doc.uri.fsPath, edits))
-        tokenChange.fire()
     }
 
-    class SpiralTokens implements DocumentSemanticTokensProvider {
-        onDidChangeSemanticTokens = tokenChangeEvent
-        async provideDocumentSemanticTokens(doc: TextDocument) {
-            const x : number [] = await spiTokenAllReq(doc.uri.fsPath)
+    class SpiralTokens implements DocumentRangeSemanticTokensProvider {
+        async provideDocumentRangeSemanticTokens(doc: TextDocument, range : Range) {
+            const x : number [] = await spiTokenRangeReq(doc.uri.fsPath, range)
             return new SemanticTokens(new Uint32Array(x),"")
-        } 
-        async provideDocumentSemanticTokensEdits(doc: TextDocument) { 
-            const x : [number, number, number []][] = await spiTokenChangesReq(doc.uri.fsPath)
-            return new SemanticTokensEdits(x.map(x => new SemanticTokensEdit(x[0],x[1],new Uint32Array(x[2]))),"")
         }
     }
 
@@ -107,7 +90,7 @@ export const activate = async (ctx: ExtensionContext) => {
         errors,
         workspace.onDidOpenTextDocument(onDocOpen),
         workspace.onDidChangeTextDocument(onDocChange),
-        languages.registerDocumentSemanticTokensProvider(
+        languages.registerDocumentRangeSemanticTokensProvider(
             { language: 'spiral'}, 
             new SpiralTokens(),
             new SemanticTokensLegend(['variable','symbol','string','number','operator','unary_operator','comment','keyword','bracket'])
