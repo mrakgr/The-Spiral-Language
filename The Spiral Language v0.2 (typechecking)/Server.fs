@@ -38,8 +38,8 @@ let server () =
         let address = msg.Pop()
         msg.Pop() |> ignore
 
+        // TODO: The message id here is for debugging purposes. I'll remove it at some point.
         let id, x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
-        printfn "%i, %A" id x
         match x with
         | ProjectFileOpen x -> 
             match config x.spiprojDir x.spiprojText with Ok x -> [||] | Error x -> x

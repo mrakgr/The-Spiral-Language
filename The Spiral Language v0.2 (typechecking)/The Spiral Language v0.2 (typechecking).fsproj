@@ -24,6 +24,7 @@
     <Compile Include="ParserCombinators.fs" />
     <Compile Include="LineParsers.fs" />
     <Compile Include="Tokenize.fs" />
+    <Compile Include="Blockize.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
 
