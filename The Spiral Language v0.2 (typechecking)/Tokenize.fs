@@ -359,7 +359,7 @@ let server = Job.delay <| fun () ->
         Ch.take req >>= function
             | Put(text,res) -> replace {|from=0; nearTo=tokens.Count; lines=Utils.lines text|}; IVar.fill res errors
             | Modify(edits,res) -> edits |> Array.iter replace; IVar.fill res errors
-            | GetRange((a,b), res) -> // It is assumed that a.character = 0 and b.character = length of the line
+            | GetRange((a,b),res) -> // It is assumed that a.character = 0 and b.character = length of the line
                 let from, near_to = a.line, b.line+1
                 vscode_tokens (line_delta from) (tokens.GetRange(from,near_to-from).ToArray()) |> IVar.fill res
     Job.foreverServer loop >>-. req
