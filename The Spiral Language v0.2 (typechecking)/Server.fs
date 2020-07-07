@@ -5,8 +5,9 @@ open System.Collections.Generic
 open FSharp.Json
 open NetMQ
 open NetMQ.Sockets
-open Spiral.Config
-open Spiral.Tokenize
+open Config
+open Tokenize
+open Blockize
 
 type ClientReq =
     | ProjectFileOpen of {|spiprojDir : string; spiprojText : string|}
@@ -26,7 +27,6 @@ open Hopac
 open Hopac.Infixes
 open Hopac.Extensions
 let server () =
-    let server_tokenizer = Utils.memoize (Dictionary()) (fun _ -> run Tokenize.server)
     let server_blockizer = Utils.memoize (Dictionary()) (fun _ -> run Blockize.server)
 
     use sock = new RouterSocket()
@@ -46,29 +46,15 @@ let server () =
             match config x.spiprojDir x.spiprojText with Ok x -> [||] | Error x -> x
             |> Json.serialize
         | FileOpen x ->
-            (
-            let res = IVar()
-            Ch.give (server_tokenizer x.spiPath) (TokReq.Put(x.spiText,res)) >>=. 
-            IVar.read res >>= fun (edit,errors) ->
-            let res = IVar()
-            Ch.give (server_blockizer x.spiPath) ([|edit|], res) >>=. 
-            IVar.read res >>- fun b ->
-            errors
-            ) |> run |> Json.serialize
+            (let res = IVar() in Ch.give (server_blockizer x.spiPath) (Req.Put(x.spiText,res)) >>=. IVar.read res) 
+            |> run |> Json.serialize
         | FileChanged x ->
-            (
-            let res = IVar()
             // The multiple edits given here all point to coordinates in the original array, but tokenizer works sequentially.
             // So I am reversing them from last to first here.
-            Ch.give (server_tokenizer x.spiPath) (TokReq.Modify(Array.rev x.spiEdits,res)) >>=. 
-            IVar.read res >>= fun (edit,errors) ->
-            let res = IVar()
-            Ch.give (server_blockizer x.spiPath) (edit, res) >>=. 
-            IVar.read res >>- fun b ->
-            errors
-            ) |> run |> Json.serialize
+            (let res = IVar() in Ch.give (server_blockizer x.spiPath) (Req.Modify(Array.rev x.spiEdits,res)) >>=. IVar.read res) 
+            |> run |> Json.serialize
         | FileTokenRange x ->
-            (let res = IVar() in Ch.give (server_tokenizer x.spiPath) (TokReq.GetRange(x.range,res)) >>=. IVar.read res)
+            (let res = IVar() in Ch.give (server_blockizer x.spiPath) (Req.GetRange(x.range,res)) >>=. IVar.read res)
             |> run |> Json.serialize
         |> msg.Push
         msg.PushEmptyFrame()

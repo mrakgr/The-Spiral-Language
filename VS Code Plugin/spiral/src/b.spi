@@ -17,7 +17,6 @@ inl g = 12
     dasdqw
     as
 
-// A slightly big functionq
-let big_f =
-    let q = 2
-    Some(f q x 0)
+
+// A slightly big function
+let big_f = let q = 2 in Some(f q x 0)
