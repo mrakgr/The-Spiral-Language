@@ -328,15 +328,24 @@ open Hopac.Infixes
 open Hopac.Extensions
 
 type SpiEdit = {|from: int; nearTo: int; lines: string []|}
+type TokEdit = {|from: int; nearTo: int; lines: LineToken [] []|}
 
 type FileOpenRes = VSCError []
 type FileChangeRes = VSCError []
 type FileTokenAllRes = VSCTokenArray
 
 type TokReq =
-    | Put of string * IVar<FileOpenRes>
-    | Modify of SpiEdit [] * IVar<FileChangeRes>
+    | Put of string * IVar<TokEdit * FileOpenRes>
+    | Modify of SpiEdit [] * IVar<TokEdit [] * FileChangeRes>
     | GetRange of VSCRange * IVar<VSCTokenArray>
+
+let replace (tokens : _ [] ResizeArray) (errors : _ [] byref) (edit : SpiEdit) =
+    let toks, ers = Array.map tokenize edit.lines |> Array.unzip
+    tokens.RemoveRange(edit.from,edit.nearTo-edit.from)
+    tokens.InsertRange(edit.from,toks)
+
+    errors <- errors |> Array.filter (fun (_,(a,_)) -> (edit.from <= a.line && a.line < edit.nearTo) = false)
+    errors <- Array.append errors (ers |> Array.mapi (fun i x -> process_error (edit.from+i, x)) |> Array.concat)
 
 let server = Job.delay <| fun () ->
     let tokens = ResizeArray([[||]])
@@ -349,17 +358,14 @@ let server = Job.delay <| fun () ->
 
         errors <- errors |> Array.filter (fun (_,(a,_)) -> (edit.from <= a.line && a.line < edit.nearTo) = false)
         errors <- Array.append errors (ers |> Array.mapi (fun i x -> process_error (edit.from+i, x)) |> Array.concat)
-
-    let line_delta i =
-        let rec loop i = if i = 0 || 0 < tokens.[i].Length then i else loop (i-1)
-        if i = 0 then 0 else i - loop (i-1)
+        {|edit with lines=toks|}
 
     let req = Ch()
     let loop =
         Ch.take req >>= function
-            | Put(text,res) -> replace {|from=0; nearTo=tokens.Count; lines=Utils.lines text|}; IVar.fill res errors
-            | Modify(edits,res) -> edits |> Array.iter replace; IVar.fill res errors
+            | Put(text,res) -> IVar.fill res (replace {|from=0; nearTo=tokens.Count; lines=Utils.lines text|}, errors)
+            | Modify(edits,res) -> IVar.fill res (Array.map replace edits, errors)
             | GetRange((a,b),res) -> // It is assumed that a.character = 0 and b.character = length of the line
                 let from, near_to = a.line, b.line+1
-                vscode_tokens (line_delta from) (tokens.GetRange(from,near_to-from).ToArray()) |> IVar.fill res
+                vscode_tokens from (tokens.GetRange(from,near_to-from).ToArray()) |> IVar.fill res
     Job.foreverServer loop >>-. req

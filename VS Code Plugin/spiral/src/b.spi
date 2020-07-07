@@ -1,0 +1,23 @@
+// asd
+ qwe 
+inl f x = y
+
+// qwe
+inl g = 12
+    dasdqw
+    as
+
+// qwe
+inl g = 12
+    dasdqw
+    as
+
+// qwe
+inl g = 12
+    dasdqw
+    as
+
+// A slightly big functionq
+let big_f =
+    let q = 2
+    Some(f q x 0)
