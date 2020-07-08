@@ -45,20 +45,17 @@ let block_at (lines : LineToken [] ResizeArray) i =
 let rec block_all (lines : _ ResizeArray) i = if i < lines.Count then let x = block_at lines i in x :: block_all lines (i+x.block.Length) else []
 
 let blockize (lines : LineToken [] ResizeArray) (blocks : Block list) (edit : SpiEdit) =
-    /// Lines added minus lines removed.
+    // Lines added minus lines removed.
     let line_adjustment = edit.lines.Length - (edit.nearTo - edit.from)
-    let dirty_from = // The dirty block boundary needs to be more conservative when a separator is added in the first position of block.
-        let from = edit.from
-        let x = lines.[from] 
-        from - (if Array.length x = 0 || 0 < (fst x.[0]).from then 1 else 0)
+    // The dirty block boundary needs to be more conservative when a separator is added in the first position of block.
+    let dirty_from = let x = lines.[edit.from] in edit.from - (if Array.length x = 0 || 0 < (fst x.[0]).from then 1 else 0)
     let is_dirty x = (dirty_from <= x.offset && x.offset < edit.nearTo) || (x.offset <= dirty_from && dirty_from < x.offset + Array.length x.block)
     let rec loop blocks i =
         if i < lines.Count then
             match blocks with
             | x :: xs ->
                 // If the block is dirty, forget it.
-                if is_dirty x then loop xs i
-                else 
+                if is_dirty x then loop xs i else 
                     // If the block is past the removal range, adjust its line offset.
                     let x = {x with offset=if edit.nearTo <= x.offset then x.offset + line_adjustment else x.offset}
                     // The block can't be dirty here. Hence if the offsets are the same, so are the blocks. Take it.
