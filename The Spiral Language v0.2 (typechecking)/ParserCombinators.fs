@@ -1,7 +1,7 @@
 ﻿module Spiral.ParserCombinators
 
-let inline index d = (^a : (member Index: int) d)
-let inline index_set i d = (^a : (member set_Index: int -> unit) (d,i))
+let inline index d = (^a : (member Index: ^b) d)
+let inline index_set i d = (^a : (member set_Index: ^b -> unit) (d,i))
 
 let inline (.>>.) a b d =
     match a d with
