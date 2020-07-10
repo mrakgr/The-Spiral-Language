@@ -55,11 +55,10 @@ and RawExpr =
     | RawKeywordCreate of KeywordString * RawExpr []
     | RawRecordWith of RawExpr [] * RawRecordWithPattern []
     | RawOp of Pos * Op * RawExpr []
-    //| RawTypedOp of ret_type: RawTExpr * Op * RawExpr []
     | RawJoinPoint of RawTExpr option * RawExpr
     | RawAnnot of RawTExpr * RawExpr
     | RawTypecase of RawTExpr * (RawTExpr * RawExpr) []
-    | RawModuleOpen of string * (OpenKind * string option) list option * on_succ: RawExpr
+    | RawModuleOpen of string * on_succ: RawExpr
     | RawLet of var: VarString * bind: RawExpr * on_succ: RawExpr
     | RawRecBlock of (VarString * RawExpr) [] * on_succ: RawExpr
     | RawPairTest of var0: VarString * var1: VarString * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
@@ -74,8 +73,7 @@ and RawTExpr =
     | RawTVar of VarString
     | RawTPair of RawTExpr * RawTExpr
     | RawTFun of RawTExpr * RawTExpr
-    | RawTConstraint of RawTExpr * RawTExpr
-    | RawTDepConstraint of RawTExpr * RawTExpr
+
     | RawTRecord of Map<string,RawTExpr>
     | RawTKeyword of KeywordString * RawTExpr []
     | RawTApply of RawTExpr * RawTExpr
@@ -92,12 +90,10 @@ let index_set v (t : Env) = t.Index <- v
 
 let top_let s = failwith "TODO" s
 let top_inl s = failwith "TODO" s
-let top_nominal s = failwith "TODO" s
-let top_proto s = failwith "TODO" s
-let top_union s = failwith "TODO" s
+
 let comments s = failwith "TODO" s
 
 let top_statement s =
     let i = index s
     let inline (+) a b = alt i a b
-    comments (top_let + top_inl + top_nominal + top_proto + top_union) s
+    comments (top_let + top_inl) s
