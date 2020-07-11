@@ -181,16 +181,16 @@ let symbol s =
     else error_char from (Expected "symbol")
 
 let comment (s : Tokenizer) =
-    let from = s.from
-    let x = peek s
-    let x' = peek' s 1
-    if x = '/' && x' = '/' then 
+    if peek s = '/' && peek' s 1 = '/' then 
+        let from = s.from
         inc' 2 s
-        let com = s.text.[s.from..]
-        s.from <- s.text.Length
-        Ok ({from=from; nearTo=s.from}, TokComment com)
+        skip ' ' s (fun () ->
+            let com = s.text.[s.from..]
+            s.from <- s.text.Length
+            Ok ({from=from; nearTo=s.from}, TokComment com)
+            ) (fun () -> error_char s.from (Expected "whitespace"))
     else
-        error_char from (Expected "comment")
+        error_char s.from (Expected "comment")
 
 let operator (s : Tokenizer) = 
     let from = s.from
@@ -288,6 +288,7 @@ let process_error (line, ers : (Range * TokenizerError) list) : (string * VSCRan
         )
 
 type LineToken = Range * SpiralToken
+type LineComment = Range * string
 type LineTokenErrors = (Range * TokenizerError) list
 type LineTokenResult = LineToken [] * LineTokenErrors
 let tokenize text : LineTokenResult =

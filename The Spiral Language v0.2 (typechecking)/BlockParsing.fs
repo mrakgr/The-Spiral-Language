@@ -2,7 +2,8 @@
 open Spiral.ParserCombinators
 
 type Env = {
-    l : Tokenize.LineToken [] []
+    tokens : Tokenize.LineToken [] []
+    comments : Tokenize.LineComment option []
     row : int ref
     col : int ref
     semicolon_line : int
@@ -13,8 +14,8 @@ type Env = {
     member t.Index with get() = t.row.contents, t.col.contents and set(row,col) = t.row := row; t.col := col
 
 type Pos = {line : int; from : int; nearTo : int}
-type SymbolString = string * Pos
-type VarString = string * Pos
+type SymbolString = string
+type VarString = string
 
 type Literal = Tokenize.Literal
 
@@ -32,8 +33,8 @@ type Op =
     | StringIndex
     | StringSlice
 
-    // Pair
-    | PairCreate
+    // Tuple
+    | TupleCreate
 
     // Record
     | RecordMap
@@ -160,7 +161,7 @@ and RawExpr =
     | RawForall of VarString * RawExpr
     | RawSymbolCreate of SymbolString * RawExpr []
     | RawRecordWith of RawExpr [] * RawRecordWithPattern []
-    | RawOp of Pos * Op * RawExpr []
+    | RawOp of Op * RawExpr []
     | RawJoinPoint of RawTExpr option * RawExpr
     | RawAnnot of RawTExpr * RawExpr
     | RawTypecase of RawTExpr * (RawTExpr * RawExpr) []
@@ -175,6 +176,7 @@ and RawExpr =
     | RawDefaultLitTest of string * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawUnionTest of name: SymbolString * vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
     | RawBTest of bind: VarString * on_succ: RawExpr * on_fail: RawExpr
+    | RawAnd of RawExpr
 and RawTExpr =
     | RawTVar of VarString
     | RawTPair of RawTExpr * RawTExpr
@@ -194,12 +196,21 @@ and RawKindExpr =
 let index (t : Env) = t.Index
 let index_set v (t : Env) = t.Index <- v
 
+let comments line_near_to character (s : Env) = 
+    let rec loop line d =
+        if line < 0 then 
+            match s.comments.[line] with
+            | Some(r,text) when r.from = character -> loop (line-1) (text :: d)
+            | _ -> d
+        else d
+    loop (line_near_to-1) []
+    |> String.concat "\n"
+    |> fun x -> x.TrimEnd()
+
 let top_let s = failwith "TODO" s
 let top_inl s = failwith "TODO" s
 
-let comments s = failwith "TODO" s
-
-//let top_statement s =
-//    let i = index s
-//    let inline (+) a b = alt i a b
-//    comments (top_let + top_inl) s
+let top_statement s =
+    let i = index s
+    let inline (+) a b = alt i a b
+    (top_let + top_inl) s
