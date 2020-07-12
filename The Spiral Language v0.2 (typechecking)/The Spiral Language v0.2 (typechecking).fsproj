@@ -18,8 +18,9 @@
   <ItemGroup>
     <None Include="Dump\HopacExample.fs" />
     <None Include="Dump\Prototyping.fs" />
-    <Compile Include="Dump\Blocks.fs" />
-    <Compile Include="Dump\BlockPrototype.fs" />
+    <None Include="Dump\Blocks.fs" />
+    <None Include="Dump\BlockPrototype.fs" />
+    <Compile Include="Utils.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="ParserCombinators.fs" />
     <Compile Include="LineParsers.fs" />
@@ -30,13 +31,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="FParsec" Version="1.1.1" />
     <PackageReference Include="FSharp.Control.Reactive" Version="4.4.0" />
+    <PackageReference Include="FSharp.Json" Version="0.4.0" />
     <PackageReference Include="FSharpx.Async" Version="1.14.1" />
     <PackageReference Include="Hopac" Version="0.4.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\The Spiral Language v0.2\The Spiral Language v0.2.fsproj" />
+    <PackageReference Include="NetMQ" Version="4.0.1.2-pre" />
   </ItemGroup>
 
   <ItemGroup>

@@ -4,7 +4,7 @@ open System.Text
 open Spiral.LineParsers
 open Spiral.ParserCombinators
 
-type TokenSpecial =
+type TokenKeyword =
     | SpecIn
     | SpecAnd
     | SpecFun
@@ -60,7 +60,7 @@ type SpiralToken =
     | TokOperator of string
     | TokUnaryOperator of string
     | TokComment of string
-    | TokKeyword of TokenSpecial
+    | TokKeyword of TokenKeyword
     | TokBracket of Bracket * BracketState
 
 let token_groups = function

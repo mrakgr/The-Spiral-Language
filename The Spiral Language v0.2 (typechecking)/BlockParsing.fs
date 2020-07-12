@@ -1,19 +1,95 @@
 ﻿module Spiral.BlockParsing
 open Spiral.ParserCombinators
-
+open Spiral.Tokenize
+type Range = {line : int; from : int; nearTo : int}
 type Env = {
-    tokens : Tokenize.LineToken [] []
+    tokens : (Range * SpiralToken) []
     comments : Tokenize.LineComment option []
-    row : int ref
-    col : int ref
+    i : int ref
     semicolon_line : int
     symbol_line : int
     is_top_down : bool
     } with
 
-    member t.Index with get() = t.row.contents, t.col.contents and set(row,col) = t.row := row; t.col := col
+    member t.Index with get() = t.i.contents and set(i) = t.i := i
 
-type Pos = {line : int; from : int; nearTo : int}
+let inline try_current_template (t : Env) on_succ on_fail =
+    let i = t.Index
+    if 0 <= i && i < t.tokens.Length then on_succ t.tokens.[i]
+    else on_fail()
+
+let inline try_current t f = try_current_template t f (fun () -> Error [])
+let print_current t = try_current t (fun x -> printfn "%A" x; Ok()) // For parser debugging purposes.
+let fail t er = try_current t (fun x -> Error [fst x,er])
+let inline line_template t f = try_current_template t f (fun _ -> -1)
+   
+let skip' (t : Env) i = t.i := t.i.contents+i
+let skip t = skip' t 1
+
+let peek_special t =
+    try_current t <| function
+        | p, TokKeyword(t') -> Ok(t')
+        | _ -> Error []
+
+    //member d.PeekSpecial =
+    //    d.TryCurrent <| function
+
+    //member d.SkipSpecial(t) =
+    //    d.TryCurrent <| function
+    //        | TokSpecial(_,t') when t = t' -> d.Skip; Ok()
+    //        | _ -> d.FailWith(ExpectedSpecial t)
+
+    //member d.ReadUnaryOp =
+    //    d.TryCurrent <| function
+    //        | TokUnaryOperator(p,t') -> d.Skip; d.Ok(p,"~"+t')
+    //        | _ -> d.FailWith(ExpectedUnaryOperator')
+
+    //member d.ReadOp =
+    //    d.TryCurrent <| function
+    //        | TokOperator(p,t') -> d.Skip; d.Ok(p,t')
+    //        | _ -> d.FailWith(ExpectedOperator')
+
+    //member d.SkipOperator(t) =
+    //    d.TryCurrent <| function
+    //        | TokOperator(_,t') when t' = t -> d.Skip; Ok t'
+    //        | _ -> d.FailWith(ExpectedOperator t)
+
+    //member d.SkipUnaryOperator(t) =
+    //    d.TryCurrent <| function
+    //        | TokUnaryOperator(_,t') when t' = t -> d.Skip; Ok t'
+    //        | _ -> d.FailWith(ExpectedUnaryOperator t)
+
+    //member d.ReadSmallVar =
+    //    d.TryCurrent <| function
+    //        | TokSmallVar(p,t') -> d.Skip; d.Ok(p,t')
+    //        | _ -> d.FailWith(ExpectedSmallVar)
+
+    //member d.ReadBigVar =
+    //    d.TryCurrent <| function
+    //        | TokBigVar(p,t') -> d.Skip; d.Ok(p,t')
+    //        | _ -> d.FailWith(ExpectedBigVar)
+
+    //member d.ReadValue =
+    //    d.TryCurrent <| function
+    //        | TokValue(p,t') -> d.Skip; Ok(t')
+    //        | _ -> d.FailWith(ExpectedLit)
+
+    //member d.ReadDefaultValue =
+    //    d.TryCurrent <| function
+    //        | TokDefaultValue(p,t') -> d.Skip; d.Ok(p,t')
+    //        | _ -> d.FailWith(ExpectedLit)
+
+    //member d.ReadKeyword =
+    //    d.TryCurrent <| function
+    //        | TokKeyword(p,t') -> d.Skip; d.Ok(p,t')
+    //        | _ -> d.FailWith(ExpectedKeyword)
+
+    //member d.ReadKeywordUnary' =
+    //    d.TryCurrent <| function
+    //        | TokKeywordUnary(p,t') -> d.Skip; Ok(t')
+    //        | _ -> d.FailWith(ExpectedKeywordUnary)
+
+
 type SymbolString = string
 type VarString = string
 
