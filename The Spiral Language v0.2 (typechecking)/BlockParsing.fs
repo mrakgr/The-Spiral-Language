@@ -11,84 +11,111 @@ type Env = {
     is_top_down : bool
     } with
 
-    member t.Index with get() = t.i.contents and set(i) = t.i := i
+    member d.Index with get() = d.i.contents and set(i) = d.i := i
 
-let inline try_current_template (t : Env) on_succ on_fail =
-    let i = t.Index
-    if 0 <= i && i < t.tokens.Length then on_succ t.tokens.[i]
+type ParserErrors =
+    | ExpectedKeyword of TokenKeyword
+    | ExpectedOperator'
+    | ExpectedOperator of string
+    | ExpectedUnaryOperator'
+    | ExpectedUnaryOperator of string
+    | ExpectedSmallVar
+    | ExpectedBigVar
+    | ExpectedLit
+    | ExpectedSymbolPaired
+    | ExpectedSymbol
+    | ExpectedBracket of Bracket * BracketState
+    | ExpectedStatement
+    | ExpectedKeywordPatternInObject
+    | ExpectedEob
+    | ExpectedFunction
+    | ExpectedGlobalFunction
+    | StatementLastInBlock
+    | InvalidSemicolon
+    | InbuiltOpNotFound of string
+    | UnexpectedEob
+    | TypeForallNotAllowedInTheRealSegment
+
+let inline try_current_template (d : Env) on_succ on_fail =
+    let i = d.Index
+    if 0 <= i && i < d.tokens.Length then on_succ d.tokens.[i]
     else on_fail()
 
-let inline try_current t f = try_current_template t f (fun () -> Error [])
-let print_current t = try_current t (fun x -> printfn "%A" x; Ok()) // For parser debugging purposes.
-let fail t er = try_current t (fun x -> Error [fst x,er])
-let inline line_template t f = try_current_template t f (fun _ -> -1)
+let inline try_current d f = try_current_template d f (fun () -> Error [])
+let print_current d = try_current d (fun x -> printfn "%A" x; Ok()) // For parser debugging purposes.
+let inline line_template d f = try_current_template d (fst >> f) (fun _ -> -1)
+let col d = line_template d (fun r -> r.from)
+let line d = line_template d (fun r -> r.line)
    
-let skip' (t : Env) i = t.i := t.i.contents+i
-let skip t = skip' t 1
+let skip' (d : Env) i = d.i := d.i.contents+i
+let skip d = skip' d 1
 
-let peek_special t =
-    try_current t <| function
+let ok d (p, t) = Ok(t)
+
+let peek_keyword d =
+    try_current d <| function
         | p, TokKeyword(t') -> Ok(t')
         | _ -> Error []
 
-    //member d.PeekSpecial =
-    //    d.TryCurrent <| function
+let skip_keyword t d =
+    try_current d <| function
+        | p,TokKeyword t' when t = t' -> skip d; Ok()
+        | p, _ -> Error [p, ExpectedKeyword t]
 
-    //member d.SkipSpecial(t) =
-    //    d.TryCurrent <| function
-    //        | TokSpecial(_,t') when t = t' -> d.Skip; Ok()
-    //        | _ -> d.FailWith(ExpectedSpecial t)
+let read_unary_op d =
+    try_current d <| function
+        | p, TokUnaryOperator t' -> skip d; ok d (p,t')
+        | p, _ -> Error [p, ExpectedUnaryOperator']
 
-    //member d.ReadUnaryOp =
-    //    d.TryCurrent <| function
-    //        | TokUnaryOperator(p,t') -> d.Skip; d.Ok(p,"~"+t')
-    //        | _ -> d.FailWith(ExpectedUnaryOperator')
+let read_op d =
+    try_current d <| function
+        | p, TokOperator t' -> skip d; ok d (p,t')
+        | p, _ -> Error [p, ExpectedOperator']
 
-    //member d.ReadOp =
-    //    d.TryCurrent <| function
-    //        | TokOperator(p,t') -> d.Skip; d.Ok(p,t')
-    //        | _ -> d.FailWith(ExpectedOperator')
+let skip_op t d =
+    try_current d <| function
+        | p, TokOperator t' when t' = t -> skip d; Ok t'
+        | p, _ -> Error [p, ExpectedOperator t]
 
-    //member d.SkipOperator(t) =
-    //    d.TryCurrent <| function
-    //        | TokOperator(_,t') when t' = t -> d.Skip; Ok t'
-    //        | _ -> d.FailWith(ExpectedOperator t)
+let skip_unary_op t d =
+    try_current d <| function
+        | p, TokUnaryOperator t' when t' = t -> skip d; Ok t'
+        | p, _ -> Error [p, ExpectedUnaryOperator t]
 
-    //member d.SkipUnaryOperator(t) =
-    //    d.TryCurrent <| function
-    //        | TokUnaryOperator(_,t') when t' = t -> d.Skip; Ok t'
-    //        | _ -> d.FailWith(ExpectedUnaryOperator t)
+let read_small_var d =
+    try_current d <| function
+        | p, TokVar t' when System.Char.IsLower(t',0) -> skip d; ok d (p,t')
+        | p, _ -> Error [p, ExpectedSmallVar]
 
-    //member d.ReadSmallVar =
-    //    d.TryCurrent <| function
-    //        | TokSmallVar(p,t') -> d.Skip; d.Ok(p,t')
-    //        | _ -> d.FailWith(ExpectedSmallVar)
+let read_big_var d =
+    try_current d <| function
+        | p, TokVar t' when System.Char.IsUpper(t',0) -> skip d; ok d (p,t')
+        | p, _ -> Error [p, ExpectedBigVar]
 
-    //member d.ReadBigVar =
-    //    d.TryCurrent <| function
-    //        | TokBigVar(p,t') -> d.Skip; d.Ok(p,t')
-    //        | _ -> d.FailWith(ExpectedBigVar)
+let read_value d =
+    try_current d <| function
+        | p, TokValue t' -> skip d; Ok(t')
+        | p, _ -> Error [p, ExpectedLit]
 
-    //member d.ReadValue =
-    //    d.TryCurrent <| function
-    //        | TokValue(p,t') -> d.Skip; Ok(t')
-    //        | _ -> d.FailWith(ExpectedLit)
+let read_default_value d =
+    try_current d <| function
+        | p, TokDefaultValue t' -> skip d; ok d (p,t')
+        | p, _ -> Error [p, ExpectedLit]
 
-    //member d.ReadDefaultValue =
-    //    d.TryCurrent <| function
-    //        | TokDefaultValue(p,t') -> d.Skip; d.Ok(p,t')
-    //        | _ -> d.FailWith(ExpectedLit)
+let read_symbol_paired d =
+    try_current d <| function
+        | p, TokSymbolPaired t' -> skip d; ok d (p,t')
+        | p, _ -> Error [p, ExpectedSymbolPaired]
 
-    //member d.ReadKeyword =
-    //    d.TryCurrent <| function
-    //        | TokKeyword(p,t') -> d.Skip; d.Ok(p,t')
-    //        | _ -> d.FailWith(ExpectedKeyword)
+let read_keyword_symbol d =
+    try_current d <| function
+        | p, TokSymbol t' -> skip d; Ok(t')
+        | p, _ -> Error [p, ExpectedSymbol]
 
-    //member d.ReadKeywordUnary' =
-    //    d.TryCurrent <| function
-    //        | TokKeywordUnary(p,t') -> d.Skip; Ok(t')
-    //        | _ -> d.FailWith(ExpectedKeywordUnary)
-
+let skip_brackets a b d =
+    try_current d <| function
+        | p, TokBracket(a',b') when a = a' && b = b' -> skip d; Ok()
+        | p, _ -> Error [p, ExpectedBracket(a,b)]
 
 type SymbolString = string
 type VarString = string
@@ -268,6 +295,17 @@ and RawTExpr =
 and RawKindExpr =
     | RawKindStar
     | RawKindFun of RawKindExpr * RawKindExpr
+
+let rounds a d = (skip_brackets Round Open >>. a .>> skip_brackets Round Close) d
+let curlies a d = (skip_brackets Curly Open >>. a .>> skip_brackets Curly Close) d
+let squares a d = (skip_brackets Square Open >>. a .>> skip_brackets Square Close) d
+
+let eof d = 
+    let i = index d
+    let len = d.tokens.Length
+    if i = len then Ok() 
+    elif 0 <= i && i < len then let r,_ = d.tokens.[i] in Error [{line=r.line; from=r.nearTo; nearTo=r.nearTo+1}, ExpectedEob]
+    else failwith "Compiler error: The block parser's pointer is out of bounds in the eof parser."
 
 let index (t : Env) = t.Index
 let index_set v (t : Env) = t.Index <- v
