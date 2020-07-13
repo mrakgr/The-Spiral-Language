@@ -172,6 +172,10 @@ let inline many_resize_array a d =
 let inline many_array a d = many_resize_array a d |> Result.map (fun x -> x.ToArray())
 let inline many a d = many_resize_array a d |> Result.map (fun x -> let rec loop i = if i < x.Count then x.[0] :: loop (i+1) else [] in loop 0)
 
+let inline sepBy a b d =
+    match a d with
+    | Ok a' -> (many (b >>. a) |>> fun b -> a' :: b) d
+    | Error x -> Ok []
 let inline sepBy1 a b d =
     match a d with
     | Ok a' -> (many (b >>. a) |>> fun b -> a' :: b) d

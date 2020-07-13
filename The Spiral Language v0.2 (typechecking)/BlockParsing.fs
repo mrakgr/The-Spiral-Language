@@ -1,4 +1,5 @@
 ﻿module Spiral.BlockParsing
+open System
 open Spiral.ParserCombinators
 open Spiral.Tokenize
 type Range = {line : int; from : int; nearTo : int}
@@ -19,10 +20,12 @@ type ParserErrors =
     | ExpectedOperator of string
     | ExpectedUnaryOperator'
     | ExpectedUnaryOperator of string
+    | ExpectedVar
     | ExpectedSmallVar
     | ExpectedBigVar
     | ExpectedLit
     | ExpectedSymbolPaired
+    | SymbolPairedShouldStartWithUppercase
     | ExpectedSymbol
     | ExpectedBracket of Bracket * BracketState
     | ExpectedStatement
@@ -34,7 +37,7 @@ type ParserErrors =
     | InvalidSemicolon
     | InbuiltOpNotFound of string
     | UnexpectedEob
-    | TypeForallNotAllowedInTheRealSegment
+    | ForallNotAllowed
 
 let inline try_current_template (d : Env) on_succ on_fail =
     let i = d.Index
@@ -82,14 +85,19 @@ let skip_unary_op t d =
         | p, TokUnaryOperator t' when t' = t -> skip d; Ok t'
         | p, _ -> Error [p, ExpectedUnaryOperator t]
 
+let read_var d =
+    try_current d <| function
+        | p, TokVar t' -> skip d; ok d (p,t')
+        | p, _ -> Error [p, ExpectedVar]
+
 let read_small_var d =
     try_current d <| function
-        | p, TokVar t' when System.Char.IsLower(t',0) -> skip d; ok d (p,t')
+        | p, TokVar t' when Char.IsLower(t',0) -> skip d; ok d (p,t')
         | p, _ -> Error [p, ExpectedSmallVar]
 
 let read_big_var d =
     try_current d <| function
-        | p, TokVar t' when System.Char.IsUpper(t',0) -> skip d; ok d (p,t')
+        | p, TokVar t' when Char.IsUpper(t',0) -> skip d; ok d (p,t')
         | p, _ -> Error [p, ExpectedBigVar]
 
 let read_value d =
@@ -107,7 +115,15 @@ let read_symbol_paired d =
         | p, TokSymbolPaired t' -> skip d; ok d (p,t')
         | p, _ -> Error [p, ExpectedSymbolPaired]
 
-let read_keyword_symbol d =
+let to_lower (x : string) = Char.ToLower(x.[0]).ToString() + x.[1..]
+let read_symbol_paired_uplow d =
+    try_current d <| function
+        | p, TokSymbolPaired t' -> 
+            if Char.IsUpper(t',0) then skip d; ok d (p, to_lower t')
+            else Error [p, SymbolPairedShouldStartWithUppercase]
+        | p, _ -> Error [p, ExpectedSymbolPaired]
+
+let read_symbol d =
     try_current d <| function
         | p, TokSymbol t' -> skip d; Ok(t')
         | p, _ -> Error [p, ExpectedSymbol]
@@ -286,7 +302,7 @@ and RawTExpr =
     | RawTFun of RawTExpr * RawTExpr
 
     | RawTRecord of Map<string,RawTExpr>
-    | RawTSymbol of SymbolString * RawTExpr []
+    | RawTSymbol of SymbolString
     | RawTApply of RawTExpr * RawTExpr
     | RawTForall of (VarString * RawKindExpr) * RawTExpr
     | RawTB
@@ -300,6 +316,9 @@ let rounds a d = (skip_brackets Round Open >>. a .>> skip_brackets Round Close) 
 let curlies a d = (skip_brackets Curly Open >>. a .>> skip_brackets Curly Close) d
 let squares a d = (skip_brackets Square Open >>. a .>> skip_brackets Square Close) d
 
+let index (t : Env) = t.Index
+let index_set v (t : Env) = t.Index <- v
+
 let eof d = 
     let i = index d
     let len = d.tokens.Length
@@ -307,8 +326,58 @@ let eof d =
     elif 0 <= i && i < len then let r,_ = d.tokens.[i] in Error [{line=r.line; from=r.nearTo; nearTo=r.nearTo+1}, ExpectedEob]
     else failwith "Compiler error: The block parser's pointer is out of bounds in the eof parser."
 
-let index (t : Env) = t.Index
-let index_set v (t : Env) = t.Index <- v
+let rec kind d = (sepBy1 ((skip_op "*" >>% RawKindStar) <|> rounds kind) (skip_op "->") |>> List.reduceBack (fun a b -> RawKindFun (a,b))) d
+
+let forall_var d = ((read_small_var |>> fun x -> x, RawKindStar) <|> rounds ((read_small_var .>> skip_op ":") .>>. kind)) d
+let forall' d = (skip_keyword SpecForall >>. many1 forall_var .>> skip_op ".") d
+let forall is_forall_allowed d =
+    if is_forall_allowed then forall' d
+    else try_current d (Error << function p, TokKeyword(SpecForall) -> [p, ForallNotAllowed] | _ -> [])
+
+let symbol_paired_process_type a b = 
+    let l = a :: b
+    let k,v = List.unzip l 
+    let b = Text.StringBuilder()
+    List.iter (fun (x : string) -> b.Append(x).Append('_') |> ignore) k
+    List.reduceBack (fun a b -> RawTPair(a,b)) (RawTSymbol (b.ToString()) :: v)
+
+let rec type_template is_forall_allowed d =
+    let recurse = type_template is_forall_allowed
+    let inline pairs next = sepBy1 next (skip_op "*") |>> List.reduceBack (fun a b -> RawTPair(a,b))
+    let inline functions next = sepBy1 next (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(a,b))
+    let inline forall next = pipe2 (forall is_forall_allowed) next (List.foldBack (fun x s -> RawTForall(x,s))) <|> next
+    let inline record next = curlies (sepBy (((read_small_var <|> rounds read_op) .>> skip_op ":") .>>. next) (skip_op ";")) |>> (Map.ofList >> RawTRecord)
+    let symbol = read_symbol |>> RawTSymbol
+    let inline symbol_paired next d =
+        let i = col d
+        let inline indent next d = if i <= index d then next d else Error []
+        ((pipe2 (read_symbol_paired_uplow .>>. next) (many (indent read_symbol_paired .>>. next)) symbol_paired_process_type) <|> next) d
+    let var = read_var |>> function
+        | "i8" -> RawTPrim Int8T
+        | "i16" -> RawTPrim Int16T
+        | "i32" -> RawTPrim Int32T
+        | "i64" -> RawTPrim Int64T
+        | "u8" -> RawTPrim UInt8T
+        | "u16" -> RawTPrim UInt16T
+        | "u32" -> RawTPrim UInt32T
+        | "u64" -> RawTPrim UInt64T
+        | "f32" -> RawTPrim Float32T
+        | "f64" -> RawTPrim Float64T
+        | "string" -> RawTPrim StringT
+        | "bool" -> RawTPrim BoolT
+        | "char" -> RawTPrim CharT
+        | x when Char.IsUpper(x,0) -> RawTPair(RawTSymbol(to_lower x), RawTB)
+        | x -> RawTVar x
+    let inline parenths next = rounds (next <|>% RawTB)
+    let inline apply next d = 
+        let i = col d
+        let inline indent next d = if i < index d then next d else Error []
+        (pipe2 next (many (indent next)) 
+            (fun a b -> List.reduce (fun a b -> match a with RawTVar "array" -> RawTArray b | _ -> RawTApply(a,b)) (a :: b))) d
+
+    let i = index d
+    let inline (+) a b = alt i a b
+    ((var + parenths recurse + record recurse + symbol) |> apply |> pairs |> functions |> symbol_paired |> forall) d
 
 let comments line_near_to character (s : Env) = 
     let rec loop line d =
