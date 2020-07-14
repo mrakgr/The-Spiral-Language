@@ -62,7 +62,7 @@ let peek_keyword d =
 
 let skip_keyword t d =
     try_current d <| function
-        | p,TokKeyword t' when t = t' -> skip d; Ok()
+        | p,TokKeyword t' when t = t' -> skip d; Ok t'
         | p, _ -> Error [p, ExpectedKeyword t]
 
 let read_unary_op d =
@@ -254,11 +254,12 @@ and Pattern =
     | PatE
     | PatVar of VarString
     | PatOperator of VarString // Isn't actually a pattern. Is just here to help the inl/let statement parser.
-    | PatBox of Pattern
+    | PatDyn of Pattern
+    | PatUnbox of Pattern
     | PatAnnot of Pattern * RawTExpr
 
     | PatPair of Pattern * Pattern
-    | PatSymbol of string * Pattern list
+    | PatSymbol of string
     | PatRecordMembers of PatRecordMembersItem list
     | PatActive of RawExpr * Pattern
     | PatUnion of SymbolString * Pattern list
@@ -341,12 +342,13 @@ let symbol_paired_process_type a b =
     List.iter (fun (x : string) -> b.Append(x).Append('_') |> ignore) k
     List.reduceBack (fun a b -> RawTPair(a,b)) (RawTSymbol (b.ToString()) :: v)
 
+let inline record_var d = (read_var <|> rounds read_op) d
 let rec type_template is_forall_allowed d =
     let recurse = type_template is_forall_allowed
     let inline pairs next = sepBy1 next (skip_op "*") |>> List.reduceBack (fun a b -> RawTPair(a,b))
     let inline functions next = sepBy1 next (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(a,b))
     let inline forall next = pipe2 (forall is_forall_allowed) next (List.foldBack (fun x s -> RawTForall(x,s))) <|> next
-    let inline record next = curlies (sepBy (((read_small_var <|> rounds read_op) .>> skip_op ":") .>>. next) (skip_op ";")) |>> (Map.ofList >> RawTRecord)
+    let inline record next = curlies (sepBy ((record_var .>> skip_op ":") .>>. next) (skip_op ";")) |>> (Map.ofList >> RawTRecord)
     let symbol = read_symbol |>> RawTSymbol
     let inline symbol_paired next d =
         let i = col d
@@ -378,6 +380,62 @@ let rec type_template is_forall_allowed d =
     let i = index d
     let inline (+) a b = alt i a b
     ((var + parenths recurse + record recurse + symbol) |> apply |> pairs |> functions |> symbol_paired |> forall) d
+
+let symbol_paired_process_pattern l = 
+    match l |> List.map (function a, b -> a, defaultArg b (PatVar a)) |> List.unzip with
+    | (k :: k' as keys), v ->
+        let body keys =
+            let b = Text.StringBuilder()
+            List.iter (fun (x : string) -> b.Append(x).Append('_') |> ignore) keys
+            List.reduceBack (fun a b -> PatPair(a,b)) (PatSymbol (b.ToString()) :: v)
+        if Char.IsLower(k,0) then body keys else body (to_lower k :: k') |> PatUnbox
+    | _ -> failwith "Compiler error: Should be at least one key in symbol_paired_process_pattern"
+
+let rec pattern_template is_outer expr s =
+    let inline recurse is_outer = pattern_template is_outer expr
+
+    let inline pat_when pattern = pattern .>>. (opt (skip_keyword SpecWhen >>. expr)) |>> function a, Some b -> PatWhen(a,b) | a, None -> a
+    let inline pat_as pattern = pattern .>>. (opt (skip_keyword SpecAs >>. pattern )) |>> function a, Some b -> PatAnd [a;b] | a, None -> a
+    let inline pat_symbol_paired pattern = many1 (read_symbol_paired .>>. opt pattern) |>> symbol_paired_process_pattern <|> pattern
+    let inline pat_pair pattern = sepBy1 pattern (skip_op ",") |>> List.reduceBack (fun a b -> PatPair(a,b))
+    let inline pat_or pattern = sepBy1 pattern (skip_op "|") |>> function [x] -> x | x -> PatOr x
+    let inline pat_and pattern = sepBy1 pattern (skip_op "&") |>> function [x] -> x | x -> PatAnd x
+    
+    let inline pat_type pattern = 
+        pipe2 pattern (opt (skip_op ":" >>. fun d -> type_template d.is_top_down d))
+            (fun a -> function Some b -> PatAnnot(a,b) | None -> a)
+    let pat_wildcard = skip_keyword SpecWildcard >>% PatE
+    let inline pat_var pattern = 
+        read_var >>= fun a d ->
+            if Char.IsLower(a,0) then
+                if is_outer then Ok (PatVar a)
+                else (opt pattern |>> function Some b -> PatNominal(a,b) | None -> PatVar a) d
+            else
+                PatPair(PatSymbol(to_lower a), PatB) |> PatUnbox |> Ok
+            
+    let inline pat_active pattern = skip_unary_op "!" >>. ((read_small_var |>> RawV) <|> rounds expr) .>>. pattern |>> PatActive
+    let pat_value = (read_value |>> PatValue) <|> (read_default_value |>> PatDefaultValue)
+    let inline pat_record_item pattern =
+        pipe3 (opt (skip_unary_op "$")) record_var (opt (skip_op "=" >>. pattern)) (fun dollar a b -> 
+            let b = defaultArg b (PatVar a)
+            match dollar with
+            | Some _ -> PatRecordMembersInjectVar(a,b)
+            | None -> PatRecordMembersSymbol(a,b)
+            )
+    let inline pat_record pattern = curlies (many (pat_record_item pattern)) |>> PatRecordMembers
+    let pat_symbol = read_symbol |>> PatSymbol
+    let inline pat_dyn pattern = skip_unary_op "~" >>. pattern |>> PatDyn
+    let inline pat_rounds pattern s = 
+        let i = index s
+        let inline (+) a b = alt i a b
+        rounds (pat_active pattern + pattern + (read_op |>> PatOperator) + (fun _ -> Ok PatB)) s
+
+    let body s = 
+        let i = index s
+        let inline (+) a b = alt i a b
+        (pat_wildcard + pat_var (recurse true) + pat_dyn (recurse is_outer) + pat_value + pat_record (recurse true) + pat_symbol + pat_rounds (recurse false)) s
+    if is_outer then (body |> pat_pair |> pat_symbol_paired) s
+    else (body |> pat_type |> pat_and |> pat_pair |> pat_symbol_paired |> pat_or |> pat_as |> pat_when) s
 
 let comments line_near_to character (s : Env) = 
     let rec loop line d =
