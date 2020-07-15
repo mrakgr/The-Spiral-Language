@@ -3,6 +3,7 @@ open System
 open Spiral.ParserCombinators
 open Spiral.Tokenize
 type Range = {line : int; from : int; nearTo : int}
+let range_to_vscrange (x : Range) : Config.VSCRange = {line=x.line; character=x.from}, {line=x.line; character=x.nearTo}
 type Env = {
     tokens : (Range * SpiralToken) []
     comments : Tokenize.LineComment option []
@@ -14,7 +15,15 @@ type Env = {
 
     member d.Index with get() = d.i.contents and set(i) = d.i := i
 
+type PatternCompilationErrors =
+| DisjointOrPattern
+| InvalidOp of string
+| DuplicateVar of string
+| DuplicateRecordKeyword of string
+| DuplicateRecordInjection of string
+
 type ParserErrors =
+    | InvalidPattern of PatternCompilationErrors []
     | ExpectedKeyword of TokenKeyword
     | ExpectedOperator'
     | ExpectedOperator of string
@@ -44,7 +53,7 @@ let inline try_current_template (d : Env) on_succ on_fail =
     if 0 <= i && i < d.tokens.Length then on_succ d.tokens.[i]
     else on_fail()
 
-let inline try_current d f = try_current_template d f (fun () -> Error [])
+let inline try_current d f = try_current_template d (fun (p,t) -> f (range_to_vscrange p, t)) (fun () -> Error [])
 let print_current d = try_current d (fun x -> printfn "%A" x; Ok()) // For parser debugging purposes.
 let inline line_template d f = try_current_template d (fst >> f) (fun _ -> -1)
 let col d = line_template d (fun r -> r.from)
@@ -268,8 +277,8 @@ and Pattern =
     | PatSymbol of string
     | PatRecordMembers of PatRecordMembersItem list
     | PatActive of RawExpr * Pattern
-    | PatOr of Pattern list
-    | PatAnd of Pattern list
+    | PatOr of Pattern * Pattern
+    | PatAnd of Pattern * Pattern
     | PatValue of Literal
     | PatDefaultValue of VarString
     | PatWhen of Pattern * RawExpr
@@ -280,8 +289,8 @@ and RawExpr =
     | RawV of VarString
     | RawLit of Literal
     | RawDefaultLit of string
-    | RawInline of RawExpr // Acts as a join point for the prepass specifically.
     | RawType of RawTExpr
+    | RawInline of RawExpr // Acts as a join point for the prepass specifically.
     | RawInl of VarString * RawExpr
     | RawForall of VarString * RawExpr
     | RawSymbolCreate of SymbolString * RawExpr []
@@ -401,17 +410,17 @@ let rec pattern_template is_outer expr s =
     let inline recurse is_outer = pattern_template is_outer expr
 
     let inline pat_when pattern = pattern .>>. (opt (skip_keyword SpecWhen >>. expr)) |>> function a, Some b -> PatWhen(a,b) | a, None -> a
-    let inline pat_as pattern = pattern .>>. (opt (skip_keyword SpecAs >>. pattern )) |>> function a, Some b -> PatAnd [a;b] | a, None -> a
+    let inline pat_as pattern = pattern .>>. (opt (skip_keyword SpecAs >>. pattern )) |>> function a, Some b -> PatAnd(a,b) | a, None -> a
     let inline pat_symbol_paired pattern = many1 (read_symbol_paired .>>. opt pattern) |>> symbol_paired_process_pattern <|> pattern
     let inline pat_pair pattern = sepBy1 pattern (skip_op ",") |>> List.reduceBack (fun a b -> PatPair(a,b))
-    let inline pat_or pattern = sepBy1 pattern (skip_op "|") |>> function [x] -> x | x -> PatOr x
-    let inline pat_and pattern = sepBy1 pattern (skip_op "&") |>> function [x] -> x | x -> PatAnd x
+    let inline pat_or pattern = sepBy1 pattern (skip_op "|") |>> List.reduce (fun a b -> PatOr(a,b))
+    let inline pat_and pattern = sepBy1 pattern (skip_op "&") |>> List.reduce (fun a b -> PatAnd(a,b))
     
     let inline pat_type pattern = 
         pipe2 pattern (opt (skip_op ":" >>. fun d -> type_template d.is_top_down d))
             (fun a -> function Some b -> PatAnnot(a,b) | None -> a)
     let pat_wildcard = skip_keyword SpecWildcard >>% PatE
-    let inline pat_var pattern = 
+    let inline pat_var pattern =
         read_var >>= fun a d ->
             if Char.IsLower(a,0) then
                 if is_outer then Ok (PatVar a)
@@ -419,10 +428,12 @@ let rec pattern_template is_outer expr s =
             else
                 PatPair(PatSymbol(to_lower a), PatB) |> PatUnbox |> Ok
             
-    let inline pat_active pattern = skip_unary_op "!" >>. ((read_small_var |>> RawV) <|> rounds expr) .>>. pattern |>> PatActive
+    let inline pat_active pattern s =
+        if is_outer then Error []
+        else (skip_unary_op "!" >>. ((read_small_var |>> RawV) <|> rounds expr) .>>. pattern |>> PatActive) s
     let pat_value = (read_value |>> PatValue) <|> (read_default_value |>> PatDefaultValue)
     let inline pat_record_item pattern =
-        pipe3 (opt (skip_unary_op "$")) record_var (opt (skip_op "=" >>. pattern)) (fun dollar a b -> 
+        pipe3 (opt (skip_unary_op "$")) record_var (opt (skip_op "=" >>. pattern)) (fun dollar a b ->
             let b = defaultArg b (PatVar a)
             match dollar with
             | Some _ -> PatRecordMembersInjectVar(a,b)
@@ -431,15 +442,16 @@ let rec pattern_template is_outer expr s =
     let inline pat_record pattern = curlies (many (pat_record_item pattern)) |>> PatRecordMembers
     let pat_symbol = read_symbol |>> PatSymbol
     let inline pat_dyn pattern = skip_unary_op "~" >>. pattern |>> PatDyn
-    let inline pat_rounds pattern s = 
+    let inline pat_rounds pattern s =
         let i = index s
         let inline (+) a b = alt i a b
-        rounds (pat_active pattern + pattern + (read_op |>> PatOperator) + (fun _ -> Ok PatB)) s
+        rounds (pattern + (read_op |>> PatOperator) + (fun _ -> Ok PatB)) s
 
     let body s = 
         let i = index s
         let inline (+) a b = alt i a b
-        (pat_wildcard + pat_var (recurse true) + pat_dyn (recurse is_outer) + pat_value + pat_record (recurse true) + pat_symbol + pat_rounds (recurse false)) s
+        (pat_active (recurse true) + pat_wildcard + pat_var (recurse true) + pat_dyn (recurse true) 
+        + pat_value + pat_record (recurse true) + pat_symbol + pat_rounds (recurse false)) s
     if is_outer then (body |> pat_pair |> pat_symbol_paired) s
     else (body |> pat_type |> pat_and |> pat_pair |> pat_symbol_paired |> pat_or |> pat_as |> pat_when) s
 
@@ -462,49 +474,39 @@ let lit' x = RawLit x
 let lit_string x = RawLit(LitString x)
 let def_lit' x = RawDefaultLit x
 
-type PatternCompilationErrors =
-| OrPatternDisjoint
-| MisplacedOp of string
-| DuplicateVar of string
-| DuplicateRecordKeyword of string
-| DuplicateRecordInjection of string
+let pattern_validate pat =
+    let errors = ResizeArray()
+    let vars = Collections.Generic.HashSet()
+    let rec loop pat =
+        match pat with
+        | PatOperator x -> errors.Add(InvalidOp x); Set.empty
+        | PatDefaultValue _ | PatValue _ | PatSymbol _ | PatE | PatB -> Set.empty
+        | PatVar x -> (if vars.Add x = false then errors.Add(DuplicateVar x)); Set.singleton x
+        | PatDyn p | PatAnnot (p,_) | PatNominal(_,p) | PatActive (_,p) | PatUnbox p | PatWhen(p, _) -> loop p
+        | PatPair(a,b) -> loop a + loop b
+        | PatRecordMembers items ->
+            let symbols = Collections.Generic.HashSet()
+            let injects = Collections.Generic.HashSet()
+            List.fold (fun s item ->
+                match item with
+                | PatRecordMembersSymbol(keyword,name) ->
+                    if symbols.Add(keyword) = false then errors.Add(DuplicateRecordKeyword keyword)
+                    s + loop name
+                | PatRecordMembersInjectVar(var,name) ->
+                    if injects.Add(var) = false then errors.Add(DuplicateRecordInjection var)
+                    s + loop name
+                ) Set.empty items
+        | PatAnd(a,b) -> loop a + loop b
+        | PatOr(a,b) -> let a, b = loop a, loop b in if a = b then a else errors.Add(DisjointOrPattern); a
+    loop pat |> ignore
+    errors.ToArray()
 
-let pattern_to_rawexpr (arg: VarString, clauses: (Config.VSCRange * Pattern * RawExpr) []) = 
+let pattern_to_rawexpr (arg: VarString, clauses: (Pattern * RawExpr) []) = 
     let mutable tag = 0
     let patvar () = 
         let x = sprintf " pat_var%i" tag
         tag <- tag + 1
         x
-
-    let validate_clause pat =
-        let errors = ResizeArray()
-        let vars = Collections.Generic.HashSet()
-        let rec loop pat =
-            match pat with
-            | PatOperator x -> errors.Add(MisplacedOp x); Set.empty
-            | PatDefaultValue _ | PatValue _ | PatSymbol _ | PatE | PatB -> Set.empty
-            | PatVar x -> (if vars.Add x = false then errors.Add(DuplicateVar x)); Set.singleton x
-            | PatDyn p | PatAnnot (p,_) | PatNominal(_,p) | PatActive (_,p) | PatUnbox p | PatWhen(p, _) -> loop p
-            | PatPair(a,b) -> loop a + loop b
-            | PatRecordMembers items ->
-                let symbols = Collections.Generic.HashSet()
-                let injects = Collections.Generic.HashSet()
-                List.fold (fun s item ->
-                    match item with
-                    | PatRecordMembersSymbol(keyword,name) ->
-                        if symbols.Add(keyword) = false then errors.Add(DuplicateRecordKeyword keyword)
-                        s + loop name
-                    | PatRecordMembersInjectVar(var,name) ->
-                        if injects.Add(var) = false then errors.Add(DuplicateRecordInjection var)
-                        s + loop name
-                    ) Set.empty items
-            | PatAnd l -> List.fold (fun s x -> s + loop x) Set.empty l
-            | PatOr l -> 
-                match List.map loop l with
-                | [] -> failwith "Compiler error: Or patterns must have at least one element."
-                | x :: x' -> if List.forall ((=) x) x' then x else errors.Add(OrPatternDisjoint); x
-        loop pat |> ignore
-        errors.ToArray()
 
     let rec cp' is_dyned (arg: VarString) (pat: Pattern) (on_succ: RawExpr) (on_fail: RawExpr): RawExpr =
         let cp = cp' is_dyned
@@ -513,7 +515,7 @@ let pattern_to_rawexpr (arg: VarString, clauses: (Config.VSCRange * Pattern * Ra
             | PatVar arg -> arg, on_succ
             | _ -> let arg = patvar() in arg, cp arg pat on_succ on_fail
         match pat with
-        | PatOperator _ -> on_succ // This case is an error that should be caught during validation.
+        | PatOperator _ -> failwith "Compiler error: PatOperator case is an error that should be caught during validation."
         | PatB -> RawBTest(arg,on_succ,on_fail)
         | PatE -> on_succ
         | PatVar x -> l x (v arg) on_succ
@@ -531,8 +533,8 @@ let pattern_to_rawexpr (arg: VarString, clauses: (Config.VSCRange * Pattern * Ra
             RawNominalTest(a,arg',arg,on_succ,on_fail)
         | PatSymbol x -> RawSymbolTest(x,arg,on_succ,on_fail)
         | PatActive (a,b) -> let arg', on_succ = step b on_succ in l arg' (ap a (v arg)) on_succ
-        | PatOr l -> let on_succ = inline_ on_succ in List.foldBack (fun pat on_fail -> cp arg pat on_succ on_fail) l on_fail
-        | PatAnd l -> let on_fail = inline_ on_fail in List.foldBack (fun pat on_succ -> cp arg pat on_succ on_fail) l on_succ
+        | PatOr(a,b) -> let on_succ = inline_ on_succ in cp arg a on_succ (cp arg b on_succ on_fail)
+        | PatAnd(a,b) -> let on_fail = inline_ on_fail in cp arg a (cp arg b on_succ on_fail) on_fail
         | PatValue x -> RawValueTest(x,arg,on_succ,on_fail)
         | PatDefaultValue x -> RawDefaultLitTest(x,arg,on_succ,on_fail)
         | PatWhen(p, e) -> cp arg p (if' e on_succ on_fail) on_fail
@@ -546,14 +548,7 @@ let pattern_to_rawexpr (arg: VarString, clauses: (Config.VSCRange * Pattern * Ra
                     ) items on_succ
             RawRecordTest(List.toArray binds,arg,on_succ,on_fail)
 
-    let errors = ResizeArray()
-    let inline go f = 
-        Array.foldBack (fun (r, pat, exp) on_fail -> 
-            let e = validate_clause pat
-            if 0 < e.Length then errors.Add(r,e)
-            cp' false arg pat (f exp) on_fail
-            ) clauses (RawOp(ErrorPatMiss, [|v arg|]))
-    if clauses.Length > 1 then go inline_ else go id
+    Array.foldBack (fun (pat, exp) on_fail -> cp' false arg pat exp on_fail) clauses (RawOp(ErrorPatMiss, [|v arg|]))
 
 let comments line_near_to character (s : Env) = 
     let rec loop line d =
