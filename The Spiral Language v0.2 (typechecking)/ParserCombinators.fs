@@ -53,6 +53,49 @@ let inline tuple5 a b c d' e d =
         | Error x -> Error x
     | Error x -> Error x  
 
+let inline tuple6 a b c d' e f d =
+    match a d with
+    | Ok a ->
+        match b d with
+        | Ok b -> 
+            match c d with
+            | Ok c -> 
+                match d' d with
+                | Ok d' -> 
+                    match e d with
+                    | Ok e -> 
+                        match f d with
+                        | Ok f -> Ok (a, b, c, d', e, f)
+                        | Error x -> Error x
+                    | Error x -> Error x
+                | Error x -> Error x
+            | Error x -> Error x
+        | Error x -> Error x
+    | Error x -> Error x 
+
+let inline tuple7 a b c d' e f g d =
+    match a d with
+    | Ok a ->
+        match b d with
+        | Ok b -> 
+            match c d with
+            | Ok c -> 
+                match d' d with
+                | Ok d' -> 
+                    match e d with
+                    | Ok e -> 
+                        match f d with
+                        | Ok f ->
+                            match g d with
+                            | Ok g -> Ok (a, b, c, d', e, f, g)
+                            | Error x -> Error x
+                        | Error x -> Error x
+                    | Error x -> Error x
+                | Error x -> Error x
+            | Error x -> Error x
+        | Error x -> Error x
+    | Error x -> Error x  
+
 let inline pipe2 a b f d =
     match a d with
     | Ok a ->

@@ -16,11 +16,11 @@ type Env = {
     member d.Index with get() = d.i.contents and set(i) = d.i := i
 
 type PatternCompilationErrors =
-| DisjointOrPattern
-| InvalidOp of string
-| DuplicateVar of string
-| DuplicateRecordKeyword of string
-| DuplicateRecordInjection of string
+    | DisjointOrPattern
+    | InvalidOp of string
+    | DuplicateVar of string
+    | DuplicateRecordKeyword of string
+    | DuplicateRecordInjection of string
 
 type ParserErrors =
     | InvalidPattern of PatternCompilationErrors []
@@ -30,6 +30,7 @@ type ParserErrors =
     | ExpectedUnaryOperator'
     | ExpectedUnaryOperator of string
     | ExpectedVar
+    | ExpectedVarOrOpAsNameOfRecStatement
     | ExpectedSmallVar
     | ExpectedBigVar
     | ExpectedLit
@@ -40,7 +41,9 @@ type ParserErrors =
     | ExpectedStatement
     | ExpectedKeywordPatternInObject
     | ExpectedEob
-    | ExpectedFunction
+    | ExpectedFunctionAsBodyOfRecStatement
+    | ExpectedSinglePatternWhenStatementNameIsNorVarOrOp
+    | ExpectedStatementBody
     | ExpectedGlobalFunction
     | StatementLastInBlock
     | InvalidSemicolon
@@ -250,10 +253,16 @@ type PrimitiveType =
     | StringT
     | CharT
 
+
+type RawKindExpr =
+    | RawKindStar
+    | RawKindFun of RawKindExpr * RawKindExpr
+
 type RawRecordTestPattern =
     | RawRecordTestSymbol of symbol: SymbolString * name: VarString
     | RawRecordTestInjectVar of var: VarString * name: VarString
-and RawRecordWithPattern =
+
+type RawRecordWithPattern =
     | RawRecordWithSymbol of SymbolString * RawExpr
     | RawRecordWithSymbolModify of SymbolString * RawExpr
     | RawRecordWithInjectVar of VarString * RawExpr
@@ -263,7 +272,6 @@ and RawRecordWithPattern =
 and PatRecordMembersItem =
     | PatRecordMembersSymbol of symbol: SymbolString * name: Pattern
     | PatRecordMembersInjectVar of var: VarString * name: Pattern
-
 and Pattern =
     | PatB
     | PatE
@@ -272,7 +280,6 @@ and Pattern =
     | PatDyn of Pattern
     | PatUnbox of Pattern
     | PatAnnot of Pattern * RawTExpr
-
     | PatPair of Pattern * Pattern
     | PatSymbol of string
     | PatRecordMembers of PatRecordMembersItem list
@@ -283,40 +290,29 @@ and Pattern =
     | PatDefaultValue of VarString
     | PatWhen of Pattern * RawExpr
     | PatNominal of VarString * Pattern
-
 and RawExpr =
     | RawB
     | RawV of VarString
     | RawLit of Literal
     | RawDefaultLit of string
+    | RawSymbolCreate of SymbolString
     | RawType of RawTExpr
     | RawInline of RawExpr // Acts as a join point for the prepass specifically.
-    | RawInl of VarString * RawExpr
-    | RawForall of VarString * RawExpr
-    | RawSymbolCreate of SymbolString * RawExpr []
+    | RawLet of Pattern * RawExpr * on_succ: RawExpr
+    | RawInl of (Pattern * RawExpr) list
+    | RawForall of VarString * RawKindExpr * RawExpr
+    | RawRecBlock of (VarString * RawExpr) [] * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
     | RawRecordWith of RawExpr [] * RawRecordWithPattern []
     | RawOp of Op * RawExpr []
-    | RawJoinPoint of RawTExpr option * RawExpr
+    | RawJoinPoint of RawExpr
     | RawAnnot of RawTExpr * RawExpr
+    | RawMatch of RawExpr * (RawExpr * RawExpr) []
     | RawTypecase of RawTExpr * (RawTExpr * RawExpr) []
     | RawModuleOpen of VarString list * on_succ: RawExpr
-    | RawLet of var: VarString * bind: RawExpr * on_succ: RawExpr
-    | RawCase of var: VarString * bind: VarString * on_succ: RawExpr
-    | RawRecBlock of (VarString * RawExpr) [] * on_succ: RawExpr
-    | RawPairTest of var0: VarString * var1: VarString * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
-    | RawNominalTest of nominal: NominalString * var: VarString * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
-    | RawSymbolTest of SymbolString * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
-    | RawRecordTest of RawRecordTestPattern [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
-    | RawAnnotTest of RawTExpr * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
-    | RawValueTest of Literal * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
-    | RawDefaultLitTest of string * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
-    | RawBTest of bind: VarString * on_succ: RawExpr * on_fail: RawExpr
-    | RawAnd of RawExpr
 and RawTExpr =
     | RawTVar of VarString
     | RawTPair of RawTExpr * RawTExpr
     | RawTFun of RawTExpr * RawTExpr
-
     | RawTRecord of Map<string,RawTExpr>
     | RawTSymbol of SymbolString
     | RawTApply of RawTExpr * RawTExpr
@@ -324,9 +320,6 @@ and RawTExpr =
     | RawTB
     | RawTPrim of PrimitiveType
     | RawTArray of RawTExpr
-and RawKindExpr =
-    | RawKindStar
-    | RawKindFun of RawKindExpr * RawKindExpr
 
 let rounds a d = (skip_brackets Round Open >>. a .>> skip_brackets Round Close) d
 let curlies a d = (skip_brackets Curly Open >>. a .>> skip_brackets Curly Close) d
@@ -455,25 +448,6 @@ let rec pattern_template is_outer expr s =
     if is_outer then (body |> pat_pair |> pat_symbol_paired) s
     else (body |> pat_type |> pat_and |> pat_pair |> pat_symbol_paired |> pat_or |> pat_as |> pat_when) s
 
-let inl x y = RawInl(x,y)
-let v x = RawV x
-let l bind body on_succ = RawLet(bind,body,on_succ)
-let inline_ = function RawInline _ as x -> x | x -> RawInline x
-let if' cond on_succ on_fail = RawOp(If,[|cond;on_succ;on_fail|])
-let ty x = RawType x
-let B = RawB
-
-let unop op' a = RawOp(op',[|a|])
-let dyn x = unop Dyn x
-let binop op' a b = RawOp(op',[|a;b|])
-let eq x y = binop EQ x y
-let ap x y = binop Apply x y
-let rec ap' f l = Array.fold ap f l
-
-let lit' x = RawLit x
-let lit_string x = RawLit(LitString x)
-let def_lit' x = RawDefaultLit x
-
 let pattern_validate pat =
     let errors = ResizeArray()
     let vars = Collections.Generic.HashSet()
@@ -501,54 +475,45 @@ let pattern_validate pat =
     loop pat |> ignore
     errors.ToArray()
 
-let pattern_to_rawexpr (arg: VarString, clauses: (Pattern * RawExpr) []) = 
-    let mutable tag = 0
-    let patvar () = 
-        let x = sprintf " pat_var%i" tag
-        tag <- tag + 1
-        x
+let inline range exp s =
+    let i = index s
+    exp s |> Result.map (fun x ->
+        let i' = index s
+        if i < i' then
+            let r, r' = fst s.tokens.[i], fst s.tokens.[i'-1]
+            ({line=r.line; character=r.from}, {line=r'.line; character=r'.nearTo} : Config.VSCRange), x
+        else
+            failwith "Compiler error: `range` has to consume at least one token to work."
+        )
 
-    let rec cp' is_dyned (arg: VarString) (pat: Pattern) (on_succ: RawExpr) (on_fail: RawExpr): RawExpr =
-        let cp = cp' is_dyned
-        let step pat on_succ = 
-            match pat with
-            | PatVar arg -> arg, on_succ
-            | _ -> let arg = patvar() in arg, cp arg pat on_succ on_fail
-        match pat with
-        | PatOperator _ -> failwith "Compiler error: PatOperator case is an error that should be caught during validation."
-        | PatB -> RawBTest(arg,on_succ,on_fail)
-        | PatE -> on_succ
-        | PatVar x -> l x (v arg) on_succ
-        | PatDyn x when is_dyned -> cp arg x on_succ on_fail
-        | PatDyn x -> let arg' = patvar() in l arg' (dyn (v arg)) (cp' true arg' x on_succ on_fail)
-        | PatAnnot (exp,typ) ->
-            let on_succ = cp arg exp on_succ on_fail
-            RawAnnotTest(typ,arg,on_succ,on_fail)
-        | PatPair(a,b) -> 
-            let b,on_succ = step b on_succ
-            let a,on_succ = step a on_succ
-            RawPairTest(a,b,arg,on_succ,on_fail)
-        | PatNominal(a,b) -> 
-            let arg', on_succ = step b on_succ
-            RawNominalTest(a,arg',arg,on_succ,on_fail)
-        | PatSymbol x -> RawSymbolTest(x,arg,on_succ,on_fail)
-        | PatActive (a,b) -> let arg', on_succ = step b on_succ in l arg' (ap a (v arg)) on_succ
-        | PatOr(a,b) -> let on_succ = inline_ on_succ in cp arg a on_succ (cp arg b on_succ on_fail)
-        | PatAnd(a,b) -> let on_fail = inline_ on_fail in cp arg a (cp arg b on_succ on_fail) on_fail
-        | PatValue x -> RawValueTest(x,arg,on_succ,on_fail)
-        | PatDefaultValue x -> RawDefaultLitTest(x,arg,on_succ,on_fail)
-        | PatWhen(p, e) -> cp arg p (if' e on_succ on_fail) on_fail
-        | PatUnbox p -> let arg', on_succ = step p on_succ in RawCase(arg', arg, on_succ)
-        | PatRecordMembers items ->
-            let binds, on_succ =
-                List.mapFoldBack (fun item on_succ ->
-                    match item with
-                    | PatRecordMembersSymbol(keyword,name) -> let arg, on_succ = step name on_succ in RawRecordTestSymbol(keyword,arg), on_succ
-                    | PatRecordMembersInjectVar(var,name) -> let arg, on_succ = step name on_succ in RawRecordTestInjectVar(var,arg), on_succ
-                    ) items on_succ
-            RawRecordTest(List.toArray binds,arg,on_succ,on_fail)
+let inline pattern x = pattern_template true x
+let inline inl_or_let exp =
+    tuple7 (skip_keyword SpecInl <|> skip_keyword SpecLet) (opt (skip_keyword SpecRec)) (range (pattern exp)) 
+        (forall' <|>% []) (many (range (pattern exp))) (range (skip_op "=")) (opt exp)
+    >>= fun (inl_or_let, is_rec, name, foralls, pats, eq, body) s ->
+        match body with
+        // TODO: Rather than return an error during parsing for this particular error, for the typechecking pass I'll replace it with a metavariable stump.
+        | None -> Error [fst eq, ExpectedStatementBody] 
+        | Some body ->
+            let name, pats =
+                match name with
+                | r, PatUnbox(PatPair(PatSymbol name, pat)) -> (r, PatVar name), (r, pat) :: pats
+                | _ -> name, pats
+            let body = 
+                let dyn_if_let x = match inl_or_let with SpecInl -> x | _ -> PatDyn x
+                List.foldBack (fun (_,pat) body -> RawInl [dyn_if_let pat,body]) pats body
+                |> List.foldBack (fun (a,b) body -> RawForall(a,b,body)) foralls
+            match is_rec, name, foralls, pats, body with
+            | None, (_, (PatVar _ | PatOperator _)), _, _, _
+            | Some _, (_, (PatVar _ | PatOperator _)), _, _, (RawInl _ | RawForall _) -> 
+                match List.choose (fun (r,x) -> let x = pattern_validate x in if 0 < x.Length then Some (r, InvalidPattern x) else None) pats with
+                | [] -> Ok(fun on_succ -> RawLet(snd name,body,on_succ))
+                | ers -> Error ers
+            | Some _, (_, (PatVar _ | PatOperator _)), _, _, _ -> Error [fst eq, ExpectedFunctionAsBodyOfRecStatement]
+            | None, _, [], [], _ -> Ok(fun on_succ -> RawLet(snd name,body,on_succ))
+            | Some _, _, _, _, _ -> Error [fst name, ExpectedVarOrOpAsNameOfRecStatement]
+            | None, _, _, _, _ -> Error [fst name, ExpectedSinglePatternWhenStatementNameIsNorVarOrOp]
 
-    Array.foldBack (fun (pat, exp) on_fail -> cp' false arg pat exp on_fail) clauses (RawOp(ErrorPatMiss, [|v arg|]))
 
 let comments line_near_to character (s : Env) = 
     let rec loop line d =

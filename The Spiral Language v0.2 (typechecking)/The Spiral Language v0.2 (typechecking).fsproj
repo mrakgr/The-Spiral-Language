@@ -27,6 +27,7 @@
     <Compile Include="Tokenize.fs" />
     <Compile Include="Blockize.fs" />
     <Compile Include="BlockParsing.fs" />
+    <Compile Include="Prepass.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
 
