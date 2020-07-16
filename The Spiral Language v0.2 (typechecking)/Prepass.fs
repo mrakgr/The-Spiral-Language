@@ -1,24 +1,5 @@
 ﻿module Spiral.Prepass
 
-//let inl l = RawInl l
-//let v x = RawV x
-//let l bind body on_succ = RawLet(bind,body,on_succ)
-//let inline_ = function RawInline _ as x -> x | x -> RawInline x
-//let if' cond on_succ on_fail = RawOp(If,[|cond;on_succ;on_fail|])
-//let ty x = RawType x
-//let B = RawB
-
-//let unop op' a = RawOp(op',[|a|])
-//let dyn x = unop Dyn x
-//let binop op' a b = RawOp(op',[|a;b|])
-//let eq x y = binop EQ x y
-//let ap x y = binop Apply x y
-//let rec ap' f l = Array.fold ap f l
-
-//let lit' x = RawLit x
-//let lit_string x = RawLit(LitString x)
-//let def_lit' x = RawDefaultLit x
-
 //let pattern_to_rawexpr (arg: VarString, clauses: (Pattern * RawExpr) []) = 
 //    let mutable tag = 0
 //    let patvar () = 

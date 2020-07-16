@@ -51,6 +51,8 @@ type ParserErrors =
     | InbuiltOpNotFound of string
     | UnexpectedEob
     | ForallNotAllowed
+    | MetavarNotAllowed
+    | ValueExprNotAllowed
 
 let inline try_current_template (d : Env) on_succ on_fail =
     let i = d.Index
@@ -322,6 +324,7 @@ and RawTExpr =
     | RawTB
     | RawTPrim of PrimitiveType
     | RawTArray of RawTExpr
+    | RawTValueExpr of RawExpr
 
 let rounds a d = (skip_brackets Round Open >>. a .>> skip_brackets Round Close) d
 let curlies a d = (skip_brackets Curly Open >>. a .>> skip_brackets Curly Close) d
@@ -330,7 +333,7 @@ let squares a d = (skip_brackets Square Open >>. a .>> skip_brackets Square Clos
 let index (t : Env) = t.Index
 let index_set v (t : Env) = t.Index <- v
 
-let eof d = 
+let eob d = 
     let i = index d
     let len = d.tokens.Length
     if i = len then Ok() 
@@ -352,7 +355,7 @@ let inline range exp s =
 
 let forall_var d = ((read_small_var |>> fun x -> x, RawKindStar) <|> rounds ((read_small_var .>> skip_op ":") .>>. kind)) d
 let forall' d = (skip_keyword SpecForall >>. many1 forall_var .>> skip_op ".") d
-let forall is_forall_allowed d = (range forall' >>= fun (r,x) _ -> if is_forall_allowed then Ok x else Error [r, ForallNotAllowed]) d
+let forall allow_forall d = (range forall' >>= fun (r,x) _ -> if allow_forall then Ok x else Error [r, ForallNotAllowed]) d
 
 let symbol_paired_process_type a b = 
     let l = a :: b
@@ -362,18 +365,23 @@ let symbol_paired_process_type a b =
     List.reduceBack (fun a b -> RawTPair(a,b)) (RawTSymbol (b.ToString()) :: v)
 
 let inline record_var d = (read_var <|> rounds read_op) d
-let rec type_template is_forall_allowed d =
-    let recurse = type_template is_forall_allowed
+let rec type_template allow_metavars allow_value_exprs allow_forall expr d =
+    let recurse = type_template allow_metavars allow_value_exprs allow_forall expr
+    let metavar = 
+        range (skip_unary_op "~" >>. read_var) >>= fun (r,x) s -> 
+            if allow_metavars then Ok (RawTMetaVar x) else Error [r, ForallNotAllowed]
+    let value_expr = 
+        range (skip_unary_op "`" >>. ((read_var |>> RawV) <|> rounds expr)) >>= fun (r,x) s ->
+            if allow_value_exprs then Ok(RawTValueExpr x) else Error [r, ValueExprNotAllowed]
     let inline pairs next = sepBy1 next (skip_op "*") |>> List.reduceBack (fun a b -> RawTPair(a,b))
     let inline functions next = sepBy1 next (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(a,b))
-    let inline forall next = pipe2 (forall is_forall_allowed <|>% []) next (List.foldBack (fun x s -> RawTForall(x,s)))
+    let inline forall next = pipe2 (forall allow_forall <|>% []) next (List.foldBack (fun x s -> RawTForall(x,s)))
     let inline record next = curlies (sepBy ((record_var .>> skip_op ":") .>>. next) (skip_op ";")) |>> (Map.ofList >> RawTRecord)
     let symbol = read_symbol |>> RawTSymbol
     let symbol_paired next d =
         let i = col d
         let inline indent next d = if i <= index d then next d else Error []
         ((pipe2 (read_symbol_paired_uplow .>>. next) (many (indent read_symbol_paired .>>. next)) symbol_paired_process_type) <|> next) d
-    let metavar = skip_unary_op "~" >>. read_var |>> RawTMetaVar
     let var = read_var |>> function
         | "i8" -> RawTPrim Int8T
         | "i16" -> RawTPrim Int16T
@@ -399,7 +407,7 @@ let rec type_template is_forall_allowed d =
 
     let i = index d
     let inline (+) a b = alt i a b
-    ((metavar + var + parenths recurse + record recurse + symbol) |> apply |> pairs |> functions |> symbol_paired |> forall) d
+    ((value_expr + metavar + var + parenths recurse + record recurse + symbol) |> apply |> pairs |> functions |> symbol_paired |> forall) d
 
 let symbol_paired_process_pattern l = 
     match l |> List.map (function a, b -> a, defaultArg b (PatVar a)) |> List.unzip with
@@ -422,7 +430,7 @@ let rec pattern_template is_outer expr s =
     let inline pat_and pattern = sepBy1 pattern (skip_op "&") |>> List.reduce (fun a b -> PatAnd(a,b))
     
     let inline pat_type pattern = 
-        pipe2 pattern (opt (skip_op ":" >>. fun d -> type_template d.is_top_down d))
+        pipe2 pattern (opt (skip_op ":" >>. fun d -> type_template false (d.is_top_down = false) d.is_top_down expr d))
             (fun a -> function Some b -> PatAnnot(a,b) | None -> a)
     let pat_wildcard = skip_keyword SpecWildcard >>% PatE
     let inline pat_var pattern =
@@ -527,6 +535,108 @@ let inline top_inl_or_let exp =
         | _, (r , _), _ -> Error [r, ExpectedVarOrOpAsNameOfGlobalStatement]
         )
 
+type Associativity = FParsec.Associativity
+let inbuilt_operators x = 
+    match x with
+    | "+" -> ValueSome(60, Associativity.Left)
+    | "-" -> ValueSome(60, Associativity.Left)
+    | "*" -> ValueSome(70, Associativity.Left)
+    | "/" -> ValueSome(70, Associativity.Left)
+    | "%" -> ValueSome(70, Associativity.Left)
+    | "|>" -> ValueSome(10, Associativity.Left)
+    | ">>" -> ValueSome(10, Associativity.Left)
+    
+    | "<=" -> ValueSome(40, Associativity.None)
+    | "<" -> ValueSome(40, Associativity.None)
+    | "=" -> ValueSome(40, Associativity.None)
+    | "`=" -> ValueSome(40, Associativity.None)
+    | ">" -> ValueSome(40, Associativity.None)
+    | ">=" -> ValueSome(40, Associativity.None)
+    | "<>" -> ValueSome(40, Associativity.None)
+    | "<<<" -> ValueSome(40, Associativity.None)
+    | ">>>" -> ValueSome(40, Associativity.None)
+    | "&&&" -> ValueSome(40, Associativity.None)
+    | "|||" -> ValueSome(40, Associativity.None)
+
+    | "||" -> ValueSome(20, Associativity.Right)
+    | "&&" -> ValueSome(30, Associativity.Right)
+    | "::" -> ValueSome(50, Associativity.Right)
+    | "^" -> ValueSome(45, Associativity.Right)
+    | "<|" -> ValueSome(10, Associativity.Right)
+    | "<<" -> ValueSome(10, Associativity.Right)
+    | ";" -> ValueSome(3, Associativity.Right)
+    | "," -> ValueSome(5, Associativity.Right)
+    | ":>" -> ValueSome(35, Associativity.Right)
+    | ":?>" -> ValueSome(35, Associativity.Right)
+    | "**" -> ValueSome(80, Associativity.Right)
+    | _ -> ValueNone
+
+// Similarly to F#, Spiral filters out the '.' from the operator name and then tries to match to the nearest inbuilt operator
+// for the sake of assigning associativity and precedence.
+let precedence_associativity x = 
+    let rec loop (name : string) =
+        if name.Length > 0 then
+            match inbuilt_operators name with
+            | ValueNone -> loop (name.[0..name.Length-2])
+            | ValueSome v -> ValueSome(v)
+        else
+            ValueNone
+    loop (String.filter ((<>) '.') x)
+
+let inl l = RawInl l
+let v x = RawV x
+let l bind body on_succ = RawLet(bind,body,on_succ)
+let inline_ = function RawInline _ as x -> x | x -> RawInline x
+let if' cond on_succ on_fail = RawOp(If,[|cond;on_succ;on_fail|])
+let ty x = RawType x
+let B = RawB
+
+let unop op' a = RawOp(op',[|a|])
+let dyn x = unop Dyn x
+let binop op' a b = RawOp(op',[|a;b|])
+let eq x y = binop EQ x y
+let ap x y = binop Apply x y
+let rec ap' f l = Array.fold ap f l
+
+let lit' x = RawLit x
+let lit_string x = RawLit(LitString x)
+let def_lit' x = RawDefaultLit x
+
+let op (d : Env) =
+    range read_op d |> Result.bind (fun (r,x) ->
+        match precedence_associativity x with // TODO: Might be good to memoize this.
+        | ValueNone -> skip' d -1; Error [r, InbuiltOpNotFound x] 
+        | ValueSome(p,a) ->
+            match x with
+            | ";" when (fst r).line = d.semicolon_line -> skip' d -1; Error [r, InvalidSemicolon]
+            | ";" -> Ok(p,a,fun a b -> l PatE (unop ErrorNonUnit a) b)
+            | "&&" -> Ok(p,a,fun a b -> if' a b (lit' (LitBool false)))
+            | "||" -> Ok(p,a,fun a b -> if' a (lit' (LitBool true)) b)
+            | "," -> Ok(p,a,fun a b -> binop TupleCreate a b)
+            | x -> Ok(p,a,fun a b -> ap (ap (v x) a) b)
+        )
+
+let operators expr d =
+    let i = col d
+    let inline term s = if i <= col d then expr s else Error []
+
+    /// Pratt parser
+    let rec led left (prec,asoc,m) =
+        match asoc with
+        | Associativity.Left | Associativity.None -> tdop prec |>> m left
+        | Associativity.Right -> tdop (prec-1) |>> m left
+        | _ -> failwith "impossible"
+
+    and tdop rbp =
+        let rec loop left = 
+            (op >>=? fun (prec,_,_ as v) d ->
+                if rbp < prec then (led left v >>= loop) d
+                else Error []) <|>% left
+        term >>= loop
+
+    tdop Int32.MinValue d
+
+
 let comments line_near_to character (s : Env) = 
     let rec loop line d =
         if line < 0 then 
@@ -538,7 +648,7 @@ let comments line_near_to character (s : Env) =
     |> String.concat "\n"
     |> fun x -> x.TrimEnd()
 
-let top_statement s =
-    let i = index s
-    let inline (+) a b = alt i a b
-    (top_let + top_inl) s
+//let top_statement s =
+//    let i = index s
+//    let inline (+) a b = alt i a b
+//    (top_let + top_inl) s
