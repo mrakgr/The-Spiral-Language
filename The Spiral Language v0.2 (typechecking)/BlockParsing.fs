@@ -373,6 +373,7 @@ let rec type_template is_forall_allowed d =
         let i = col d
         let inline indent next d = if i <= index d then next d else Error []
         ((pipe2 (read_symbol_paired_uplow .>>. next) (many (indent read_symbol_paired .>>. next)) symbol_paired_process_type) <|> next) d
+    let metavar = skip_unary_op "~" >>. read_var |>> RawTMetaVar
     let var = read_var |>> function
         | "i8" -> RawTPrim Int8T
         | "i16" -> RawTPrim Int16T
@@ -398,7 +399,7 @@ let rec type_template is_forall_allowed d =
 
     let i = index d
     let inline (+) a b = alt i a b
-    ((var + parenths recurse + record recurse + symbol) |> apply |> pairs |> functions |> symbol_paired |> forall) d
+    ((metavar + var + parenths recurse + record recurse + symbol) |> apply |> pairs |> functions |> symbol_paired |> forall) d
 
 let symbol_paired_process_pattern l = 
     match l |> List.map (function a, b -> a, defaultArg b (PatVar a)) |> List.unzip with
@@ -518,7 +519,7 @@ type TopStatement =
     | TopAnd of TopStatement
     | TopInl of VarString * RawExpr
 
-let inline top_let_or_let exp = 
+let inline top_inl_or_let exp = 
     (inl_or_let exp >>= fun x _ ->
         match x with
         | _, (_ , (PatVar name | PatOperator name)), (RawForall _ | RawInl _ as body) -> Ok(TopInl(name, body))
