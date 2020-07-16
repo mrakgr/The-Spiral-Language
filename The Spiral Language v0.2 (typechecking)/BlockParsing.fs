@@ -31,6 +31,7 @@ type ParserErrors =
     | ExpectedUnaryOperator of string
     | ExpectedVar
     | ExpectedVarOrOpAsNameOfRecStatement
+    | ExpectedVarOrOpAsNameOfGlobalStatement
     | ExpectedSmallVar
     | ExpectedBigVar
     | ExpectedLit
@@ -310,6 +311,7 @@ and RawExpr =
     | RawTypecase of RawTExpr * (RawTExpr * RawExpr) []
     | RawModuleOpen of VarString list * on_succ: RawExpr
 and RawTExpr =
+    | RawTMetaVar of VarString
     | RawTVar of VarString
     | RawTPair of RawTExpr * RawTExpr
     | RawTFun of RawTExpr * RawTExpr
@@ -337,11 +339,20 @@ let eof d =
 
 let rec kind d = (sepBy1 ((skip_op "*" >>% RawKindStar) <|> rounds kind) (skip_op "->") |>> List.reduceBack (fun a b -> RawKindFun (a,b))) d
 
+let inline range exp s =
+    let i = index s
+    exp s |> Result.map (fun x ->
+        let i' = index s
+        if i < i' then
+            let r, r' = fst s.tokens.[i], fst s.tokens.[i'-1]
+            ({line=r.line; character=r.from}, {line=r'.line; character=r'.nearTo} : Config.VSCRange), x
+        else
+            failwith "Compiler error: The parser passed into `range` has to consume at least one token for it to work."
+        )
+
 let forall_var d = ((read_small_var |>> fun x -> x, RawKindStar) <|> rounds ((read_small_var .>> skip_op ":") .>>. kind)) d
 let forall' d = (skip_keyword SpecForall >>. many1 forall_var .>> skip_op ".") d
-let forall is_forall_allowed d =
-    if is_forall_allowed then forall' d
-    else try_current d (Error << function p, TokKeyword(SpecForall) -> [p, ForallNotAllowed] | _ -> [])
+let forall is_forall_allowed d = (range forall' >>= fun (r,x) _ -> if is_forall_allowed then Ok x else Error [r, ForallNotAllowed]) d
 
 let symbol_paired_process_type a b = 
     let l = a :: b
@@ -355,10 +366,10 @@ let rec type_template is_forall_allowed d =
     let recurse = type_template is_forall_allowed
     let inline pairs next = sepBy1 next (skip_op "*") |>> List.reduceBack (fun a b -> RawTPair(a,b))
     let inline functions next = sepBy1 next (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(a,b))
-    let inline forall next = pipe2 (forall is_forall_allowed) next (List.foldBack (fun x s -> RawTForall(x,s))) <|> next
+    let inline forall next = pipe2 (forall is_forall_allowed <|>% []) next (List.foldBack (fun x s -> RawTForall(x,s)))
     let inline record next = curlies (sepBy ((record_var .>> skip_op ":") .>>. next) (skip_op ";")) |>> (Map.ofList >> RawTRecord)
     let symbol = read_symbol |>> RawTSymbol
-    let inline symbol_paired next d =
+    let symbol_paired next d =
         let i = col d
         let inline indent next d = if i <= index d then next d else Error []
         ((pipe2 (read_symbol_paired_uplow .>>. next) (many (indent read_symbol_paired .>>. next)) symbol_paired_process_type) <|> next) d
@@ -379,7 +390,7 @@ let rec type_template is_forall_allowed d =
         | x when Char.IsUpper(x,0) -> RawTPair(RawTSymbol(to_lower x), RawTB)
         | x -> RawTVar x
     let inline parenths next = rounds (next <|>% RawTB)
-    let inline apply next d = 
+    let apply next d = 
         let i = col d
         let inline indent next d = if i < index d then next d else Error []
         (pipe2 next (many (indent next)) 
@@ -404,7 +415,7 @@ let rec pattern_template is_outer expr s =
 
     let inline pat_when pattern = pattern .>>. (opt (skip_keyword SpecWhen >>. expr)) |>> function a, Some b -> PatWhen(a,b) | a, None -> a
     let inline pat_as pattern = pattern .>>. (opt (skip_keyword SpecAs >>. pattern )) |>> function a, Some b -> PatAnd(a,b) | a, None -> a
-    let inline pat_symbol_paired pattern = many1 (read_symbol_paired .>>. opt pattern) |>> symbol_paired_process_pattern <|> pattern
+    let pat_symbol_paired pattern = many1 (read_symbol_paired .>>. opt pattern) |>> symbol_paired_process_pattern <|> pattern
     let inline pat_pair pattern = sepBy1 pattern (skip_op ",") |>> List.reduceBack (fun a b -> PatPair(a,b))
     let inline pat_or pattern = sepBy1 pattern (skip_op "|") |>> List.reduce (fun a b -> PatOr(a,b))
     let inline pat_and pattern = sepBy1 pattern (skip_op "&") |>> List.reduce (fun a b -> PatAnd(a,b))
@@ -475,25 +486,14 @@ let pattern_validate pat =
     loop pat |> ignore
     errors.ToArray()
 
-let inline range exp s =
-    let i = index s
-    exp s |> Result.map (fun x ->
-        let i' = index s
-        if i < i' then
-            let r, r' = fst s.tokens.[i], fst s.tokens.[i'-1]
-            ({line=r.line; character=r.from}, {line=r'.line; character=r'.nearTo} : Config.VSCRange), x
-        else
-            failwith "Compiler error: `range` has to consume at least one token to work."
-        )
-
 let inline pattern x = pattern_template true x
 let inline inl_or_let exp =
-    tuple7 (skip_keyword SpecInl <|> skip_keyword SpecLet) (opt (skip_keyword SpecRec)) (range (pattern exp)) 
-        (forall' <|>% []) (many (range (pattern exp))) (range (skip_op "=")) (opt exp)
-    >>= fun (inl_or_let, is_rec, name, foralls, pats, eq, body) s ->
+    range (tuple6 (skip_keyword SpecInl <|> skip_keyword SpecLet) (opt (skip_keyword SpecRec)) (range (pattern exp)) 
+            (forall' <|>% []) (many (range (pattern exp))) (skip_op "=" >>. opt exp))
+    >>= fun (r, (inl_or_let, is_rec, name, foralls, pats, body)) s ->
         match body with
         // TODO: Rather than return an error during parsing for this particular error, for the typechecking pass I'll replace it with a metavariable stump.
-        | None -> Error [fst eq, ExpectedStatementBody] 
+        | None -> Error [r, ExpectedStatementBody]
         | Some body ->
             let name, pats =
                 match name with
@@ -507,13 +507,24 @@ let inline inl_or_let exp =
             | None, (_, (PatVar _ | PatOperator _)), _, _, _
             | Some _, (_, (PatVar _ | PatOperator _)), _, _, (RawInl _ | RawForall _) -> 
                 match List.choose (fun (r,x) -> let x = pattern_validate x in if 0 < x.Length then Some (r, InvalidPattern x) else None) pats with
-                | [] -> Ok(fun on_succ -> RawLet(snd name,body,on_succ))
+                | [] -> Ok(r,name,body)
                 | ers -> Error ers
-            | Some _, (_, (PatVar _ | PatOperator _)), _, _, _ -> Error [fst eq, ExpectedFunctionAsBodyOfRecStatement]
-            | None, _, [], [], _ -> Ok(fun on_succ -> RawLet(snd name,body,on_succ))
+            | Some _, (_, (PatVar _ | PatOperator _)), _, _, _ -> Error [r, ExpectedFunctionAsBodyOfRecStatement]
+            | None, _, [], [], _ -> Ok(r,name,body)
             | Some _, _, _, _, _ -> Error [fst name, ExpectedVarOrOpAsNameOfRecStatement]
             | None, _, _, _, _ -> Error [fst name, ExpectedSinglePatternWhenStatementNameIsNorVarOrOp]
 
+type TopStatement =
+    | TopAnd of TopStatement
+    | TopInl of VarString * RawExpr
+
+let inline top_let_or_let exp = 
+    (inl_or_let exp >>= fun x _ ->
+        match x with
+        | _, (_ , (PatVar name | PatOperator name)), (RawForall _ | RawInl _ as body) -> Ok(TopInl(name, body))
+        | r, (_ , (PatVar _ | PatOperator _)), _ -> Error [r, ExpectedGlobalFunction]
+        | _, (r , _), _ -> Error [r, ExpectedVarOrOpAsNameOfGlobalStatement]
+        )
 
 let comments line_near_to character (s : Env) = 
     let rec loop line d =
@@ -525,9 +536,6 @@ let comments line_near_to character (s : Env) =
     loop (line_near_to-1) []
     |> String.concat "\n"
     |> fun x -> x.TrimEnd()
-
-let top_let s = failwith "TODO" s
-let top_inl s = failwith "TODO" s
 
 let top_statement s =
     let i = index s
