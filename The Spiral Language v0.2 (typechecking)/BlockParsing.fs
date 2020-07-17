@@ -301,7 +301,7 @@ and RawExpr =
     | RawSymbolCreate of SymbolString
     | RawType of RawTExpr
     | RawInline of RawExpr // Acts as a join point for the prepass specifically.
-    | RawLet of Pattern * RawExpr * on_succ: RawExpr
+    | RawLet of (Pattern * RawExpr) list * body: RawExpr
     | RawInl of (Pattern * RawExpr) list
     | RawForall of VarString * RawKindExpr * RawExpr
     | RawRecBlock of (VarString * RawExpr) [] * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
@@ -309,7 +309,6 @@ and RawExpr =
     | RawOp of Op * RawExpr []
     | RawJoinPoint of RawExpr
     | RawAnnot of RawTExpr * RawExpr
-    | RawMatch of RawExpr * (RawExpr * RawExpr) []
     | RawTypecase of RawTExpr * (RawTExpr * RawExpr) []
     | RawModuleOpen of VarString list * on_succ: RawExpr
 and RawTExpr =
@@ -364,6 +363,8 @@ let symbol_paired_process_type a b =
     List.iter (fun (x : string) -> b.Append(x).Append('_') |> ignore) k
     List.reduceBack (fun a b -> RawTPair(a,b)) (RawTSymbol (b.ToString()) :: v)
 
+let inline indent i op next d = if op i (index d) then next d else Error []
+
 let inline record_var d = (read_var <|> rounds read_op) d
 let rec type_template allow_metavars allow_value_exprs allow_forall expr d =
     let recurse = type_template allow_metavars allow_value_exprs allow_forall expr
@@ -380,8 +381,7 @@ let rec type_template allow_metavars allow_value_exprs allow_forall expr d =
     let symbol = read_symbol |>> RawTSymbol
     let symbol_paired next d =
         let i = col d
-        let inline indent next d = if i <= index d then next d else Error []
-        ((pipe2 (read_symbol_paired_uplow .>>. next) (many (indent read_symbol_paired .>>. next)) symbol_paired_process_type) <|> next) d
+        ((pipe2 (read_symbol_paired_uplow .>>. next) (many (indent i (<=) read_symbol_paired .>>. next)) symbol_paired_process_type) <|> next) d
     let var = read_var |>> function
         | "i8" -> RawTPrim Int8T
         | "i16" -> RawTPrim Int16T
@@ -401,8 +401,7 @@ let rec type_template allow_metavars allow_value_exprs allow_forall expr d =
     let inline parenths next = rounds (next <|>% RawTB)
     let apply next d = 
         let i = col d
-        let inline indent next d = if i < index d then next d else Error []
-        (pipe2 next (many (indent next)) 
+        (pipe2 next (many (indent i (<) next)) 
             (fun a b -> List.reduce (fun a b -> match a with RawTVar "array" -> RawTArray b | _ -> RawTApply(a,b)) (a :: b))) d
 
     let i = index d
@@ -495,6 +494,8 @@ let pattern_validate pat =
     loop pat |> ignore
     errors.ToArray()
 
+let patterns_validate pats = List.choose (fun (r,x) -> let x = pattern_validate x in if 0 < x.Length then Some (r, InvalidPattern x) else None) pats
+
 let inline pattern x = pattern_template true x
 let inline inl_or_let exp =
     range (tuple6 (skip_keyword SpecInl <|> skip_keyword SpecLet) (opt (skip_keyword SpecRec)) (range (pattern exp)) 
@@ -515,7 +516,7 @@ let inline inl_or_let exp =
             match is_rec, name, foralls, pats, body with
             | None, (_, (PatVar _ | PatOperator _)), _, _, _
             | Some _, (_, (PatVar _ | PatOperator _)), _, _, (RawInl _ | RawForall _) -> 
-                match List.choose (fun (r,x) -> let x = pattern_validate x in if 0 < x.Length then Some (r, InvalidPattern x) else None) pats with
+                match patterns_validate pats with
                 | [] -> Ok(r,name,body)
                 | ers -> Error ers
             | Some _, (_, (PatVar _ | PatOperator _)), _, _, _ -> Error [r, ExpectedFunctionAsBodyOfRecStatement]
@@ -585,7 +586,7 @@ let precedence_associativity x =
 
 let inl l = RawInl l
 let v x = RawV x
-let l bind body on_succ = RawLet(bind,body,on_succ)
+let l bind body on_succ = RawLet([bind,on_succ],body)
 let inline_ = function RawInline _ as x -> x | x -> RawInline x
 let if' cond on_succ on_fail = RawOp(If,[|cond;on_succ;on_fail|])
 let ty x = RawType x
@@ -609,33 +610,30 @@ let op (d : Env) =
         | ValueSome(p,a) ->
             match x with
             | ";" when (fst r).line = d.semicolon_line -> skip' d -1; Error [r, InvalidSemicolon]
-            | ";" -> Ok(p,a,fun a b -> l PatE (unop ErrorNonUnit a) b)
-            | "&&" -> Ok(p,a,fun a b -> if' a b (lit' (LitBool false)))
-            | "||" -> Ok(p,a,fun a b -> if' a (lit' (LitBool true)) b)
-            | "," -> Ok(p,a,fun a b -> binop TupleCreate a b)
-            | x -> Ok(p,a,fun a b -> ap (ap (v x) a) b)
+            | ";" -> Ok(p,a,fun (a, b) -> l PatE (unop ErrorNonUnit a) b)
+            | "&&" -> Ok(p,a,fun (a, b) -> if' a b (lit' (LitBool false)))
+            | "||" -> Ok(p,a,fun (a, b) -> if' a (lit' (LitBool true)) b)
+            | "," -> Ok(p,a,fun (a, b) -> binop TupleCreate a b)
+            | x -> Ok(p,a,fun (a, b) -> ap (ap (v x) a) b)
         )
 
-let operators expr d =
-    let i = col d
-    let inline term s = if i <= col d then expr s else Error []
+let inline operators expr d =
+    let term = indent (col d) (<=) expr
 
     /// Pratt parser
-    let rec led left (prec,asoc,m) =
+    let rec led left (prec,asoc,m) d =
         match asoc with
-        | Associativity.Left | Associativity.None -> tdop prec |>> m left
-        | Associativity.Right -> tdop (prec-1) |>> m left
-        | _ -> failwith "impossible"
+        | Associativity.Right -> (tdop (prec-1) |>> fun right -> m (left, right)) d
+        | _ -> (tdop prec |>> fun right -> m (left, right)) d
 
-    and tdop rbp =
-        let rec loop left = 
-            (op >>=? fun (prec,_,_ as v) d ->
+    and tdop rbp d =
+        let rec loop left d = 
+            ((op >>=? fun (prec,_,_ as v) d ->
                 if rbp < prec then (led left v >>= loop) d
-                else Error []) <|>% left
-        term >>= loop
+                else Error []) <|>% left) d
+        (term >>= loop) d
 
     tdop Int32.MinValue d
-
 
 let comments line_near_to character (s : Env) = 
     let rec loop line d =
@@ -647,6 +645,158 @@ let comments line_near_to character (s : Env) =
     loop (line_near_to-1) []
     |> String.concat "\n"
     |> fun x -> x.TrimEnd()
+
+let application expr (d: Env) =
+    let i = col d
+    pipe2 expr (many (indent i (<) expr)) (List.fold ap) d
+
+let application_tight expr d =
+    let inline expr_tight (d: Env) = 
+        let i = index d
+        if 0 < i && i < d.tokens.Length then
+            let r,r' = fst d.tokens.[i-1], fst d.tokens.[i]
+            if r.line = r'.line && r.nearTo = r'.from then expr d else Error []
+        else Error []
+
+    pipe2 expr (many expr_tight) (List.fold ap) d
+
+let inline level_semicolon_set line expr (d: Env) = expr {d with semicolon_line = line}
+let inline level_symbol_set line expr (d: Env) = expr {d with symbol_line = line}
+let inline level_reset expr d = expr {d with semicolon_line= -1; symbol_line= -1}
+
+let private string_to_op_dict = Collections.Generic.Dictionary(HashIdentity.Structural)
+Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<Op>)
+|> Array.iter (fun x -> string_to_op_dict.[x.Name] <- Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(x,[||]) :?> Op)
+let string_to_op x = string_to_op_dict.TryGetValue x
+let pat_main = " pat_main"
+
+let rec expressions expr d =
+    let case_var = read_var |>> v
+    let inline case_rounds expr = rounds ((read_op |>> v) <|> (level_reset expr <|>% B))
+
+    let case_fun =
+        (skip_keyword SpecFun >>. many (range (pattern expr))) .>>. (skip_op "=>" >>. expr)
+        >>= fun (pats, body) d ->
+            match patterns_validate pats with
+            | [] -> List.foldBack (fun (_,pat) body -> RawInl [pat,body]) pats body |> Ok
+            | ers -> Error ers
+            
+    let case_forall =
+        tuple3 (skip_keyword SpecForall >>. forall') (many (range (pattern expr))) (skip_op "=>" >>. expr)
+        >>= fun (foralls, pats, body) d ->
+            match patterns_validate pats with
+            | [] -> 
+                List.foldBack (fun (_,pat) body -> RawInl [pat,body]) pats body
+                |> List.foldBack (fun (a,b) body -> RawForall(a,b,body)) foralls |> Ok
+            | ers -> Error ers
+
+    let case_value = read_value |>> lit'
+    let case_default_value = read_default_value |>> def_lit'
+    let case_if_then_else d = 
+        let i = col d
+        let inline f' keyword = skip_keyword keyword >>. expr
+        let inline f keyword = indent i (<=) (f' keyword)
+        (pipe4 (f' SpecIf) (f SpecThen) (many (f SpecElif .>>. f SpecThen)) (opt (f SpecElse))
+            (fun cond tr elifs fl -> 
+                let fl = List.foldBack (fun (cond,tr) fl -> if' cond tr fl) elifs (Option.defaultValue B fl)
+                if' cond tr fl)) d
+        
+    let bar i d = indent i (<=) (skip_op "|") d
+    let case_pattern_match =
+        let clauses d = 
+            let bar = bar (col d)
+            (optional bar >>. sepBy1 (pattern_template false expr .>>. (skip_op "=>" >>. expr)) bar) d
+
+        (skip_keyword SpecFunction >>. clauses |>> inl)
+        <|> (pipe2 (skip_keyword SpecMatch >>. expr .>> skip_keyword SpecWith) clauses (fun a b -> RawLet(b,a)))
+
+    let case_typecase =
+        let clauses d = 
+            let bar = bar (col d)
+            (optional bar >>. sepBy1 (type_template true false false expr .>>. (skip_op "=>" >>. expr)) bar) d
+
+        pipe2 (skip_keyword SpecTypecase >>. type_template false true false expr .>> skip_keyword SpecWith) clauses 
+            (fun a b -> RawTypecase(a,List.toArray b))
+
+    let case_record =
+        let mp_binding (n,e) = RawRecordWithKeyword(n, e)
+        let mp_binding_inject n e = RawRecordWithInjectVar(n, e)
+        let mp_without n = RawRecordWithoutKeyword n
+        let mp_without_inject n = RawRecordWithoutInjectVar n
+        let mp_create l = RawRecordWith([||],List.toArray l)
+        let mp_with init names l = RawRecordWith(List.toArray (init :: names), List.toArray l)
+
+        let parse_binding_with s =
+            let i = col s
+            let line = s.Line
+            let inline body s = (eq' >>. expr_indent i (<) (set_semicolon_level line expr)) s
+            let a s =
+                pipe2 var_op (opt body)
+                    (fun a -> function
+                        | None -> mp_binding (a, v a)
+                        | Some b -> mp_binding (a, b)) s
+            let b s = pipe2 (dollar >>. var_op) body mp_binding_inject s
+            (a <|> b) s
+
+        let parse_binding_without s = 
+            let a s = var_op |>> mp_without <| s
+            let b s = dollar >>. var_op |>> mp_without_inject <| s
+            (a <|> b) s
+
+        let record_create_with s = (parse_binding_with .>> optional semicolon') s
+        let record_create_without s = (parse_binding_without .>> optional semicolon') s
+
+        let record_with = 
+            let withs' s = many1 record_create_with s
+            let withouts' s = many1 record_create_without s 
+            let withs s = (with_ >>. withs') s
+            let withouts s = (without >>. withouts') s 
+            attempt
+                (tuple3
+                    (case_small_var_rounds expr)
+                    (many ((keyword_unary' |>> keyword_unary'') <|> (dollar' >>. case_small_var_rounds expr)))
+                    ((with_ >>% withs') <|> (without >>% withouts')))
+            >>= (fun (init,names,next) s ->
+                pipe2 next (many (withs <|> withouts)) (fun a b -> mp_with init names (List.concat(a::b))) s
+                )
+
+        let record_create = many record_create_with |>> mp_create
+                
+        curlies (record_with <|> record_create)
+
+    let case_join_point = join >>. expr |>> join_point_entry_method
+
+    let case_keyword_unary = keyword_unary' |>> keyword_unary''
+    let case_keyword_message s =
+        if s.keyword_line <> line s then
+            let i' = col s
+            let pat s = 
+                let i = col s
+                let line = line s
+                (expr_indent i' (<=) keyword .>>. opt (expr_indent i (<) (set_keyword_level line expr))) s
+            (many1 pat |>> (concat_keyword (fun a -> function Some b -> b | None -> v a) >> fun (a,b) -> RawKeywordCreate(a, List.toArray b))) s
+        else
+            Error []
+
+    [|
+    case_value; case_default_value; case_var; case_join_point; case_keyword_unary; case_keyword_message
+    case_typecase; case_pattern_match; case_typecase; case_rounds expr; case_record
+    case_if_then_else; case_fun
+    |] |> choice <| d
+
+let inbuilt_op expr =
+    (exclamationx4 >>. big_var) .>>. (rounds (sepBy1 (expr <|> (type' |>> RawType)) comma))
+    >>= fun (a, b) d ->
+        match string_to_op a with
+        | true, op' -> Ok(RawOp(op',List.toArray b))
+        | false, _ -> d.FailWith(InbuiltOpNotFound a)
+
+let operators_unary expr =
+    choice [|
+        type' |>> RawType
+        inbuilt_op expr
+        pipe2 (opt unary_op) expr (fun op e -> match op with Some op -> ap (v op) e | None -> e)
+        |]
 
 //let top_statement s =
 //    let i = index s
