@@ -85,6 +85,11 @@ let read_unary_op d =
         | p, TokUnaryOperator t' -> skip d; ok d (p,t')
         | p, _ -> Error [p, ExpectedUnaryOperator']
 
+let read_unary_op' d =
+    try_current d <| function
+        | p, TokUnaryOperator t' -> skip d; Ok(p,t')
+        | p, _ -> Error [p, ExpectedUnaryOperator']
+
 let read_op d =
     try_current d <| function
         | p, TokOperator t' -> skip d; ok d (p,t')
@@ -261,18 +266,15 @@ type RawKindExpr =
     | RawKindStar
     | RawKindFun of RawKindExpr * RawKindExpr
 
-type RawRecordTestPattern =
-    | RawRecordTestSymbol of symbol: SymbolString * name: VarString
-    | RawRecordTestInjectVar of var: VarString * name: VarString
-
-type RawRecordWithPattern =
+type RawRecordWith =
     | RawRecordWithSymbol of SymbolString * RawExpr
     | RawRecordWithSymbolModify of SymbolString * RawExpr
     | RawRecordWithInjectVar of VarString * RawExpr
     | RawRecordWithInjectSymbolModify of SymbolString * RawExpr
+and RawRecordWithout =
     | RawRecordWithoutSymbol of SymbolString
     | RawRecordWithoutInjectVar of VarString
-and PatRecordMembersItem =
+and PatRecordMember =
     | PatRecordMembersSymbol of symbol: SymbolString * name: Pattern
     | PatRecordMembersInjectVar of var: VarString * name: Pattern
 and Pattern =
@@ -285,7 +287,7 @@ and Pattern =
     | PatAnnot of Pattern * RawTExpr
     | PatPair of Pattern * Pattern
     | PatSymbol of string
-    | PatRecordMembers of PatRecordMembersItem list
+    | PatRecordMembers of PatRecordMember list
     | PatActive of RawExpr * Pattern
     | PatOr of Pattern * Pattern
     | PatAnd of Pattern * Pattern
@@ -305,7 +307,7 @@ and RawExpr =
     | RawInl of (Pattern * RawExpr) list
     | RawForall of VarString * RawKindExpr * RawExpr
     | RawRecBlock of (VarString * RawExpr) [] * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
-    | RawRecordWith of RawExpr [] * RawRecordWithPattern []
+    | RawRecordWith of RawExpr list * RawRecordWith list * RawRecordWithout list
     | RawOp of Op * RawExpr []
     | RawJoinPoint of RawExpr
     | RawAnnot of RawTExpr * RawExpr
@@ -404,8 +406,7 @@ let rec type_template allow_metavars allow_value_exprs allow_forall expr d =
         (pipe2 next (many (indent i (<) next)) 
             (fun a b -> List.reduce (fun a b -> match a with RawTVar "array" -> RawTArray b | _ -> RawTApply(a,b)) (a :: b))) d
 
-    let i = index d
-    let inline (+) a b = alt i a b
+    let (+) = alt (index d)
     ((value_expr + metavar + var + parenths recurse + record recurse + symbol) |> apply |> pairs |> functions |> symbol_paired |> forall) d
 
 let symbol_paired_process_pattern l = 
@@ -445,23 +446,18 @@ let rec pattern_template is_outer expr s =
         else (skip_unary_op "!" >>. ((read_small_var |>> RawV) <|> rounds expr) .>>. pattern |>> PatActive) s
     let pat_value = (read_value |>> PatValue) <|> (read_default_value |>> PatDefaultValue)
     let inline pat_record_item pattern =
-        pipe3 (opt (skip_unary_op "$")) record_var (opt (skip_op "=" >>. pattern)) (fun dollar a b ->
-            let b = defaultArg b (PatVar a)
-            match dollar with
-            | Some _ -> PatRecordMembersInjectVar(a,b)
-            | None -> PatRecordMembersSymbol(a,b)
-            )
+        let inj = skip_unary_op "$" >>. read_small_var |>> fun a -> PatRecordMembersInjectVar,a
+        let var = record_var |>> fun a -> PatRecordMembersSymbol,a
+        pipe2 (inj <|> var) (opt (skip_op "=" >>. pattern)) (fun (f,a) b -> f (a, defaultArg b (PatVar a)))
     let inline pat_record pattern = curlies (many (pat_record_item pattern)) |>> PatRecordMembers
     let pat_symbol = read_symbol |>> PatSymbol
     let inline pat_dyn pattern = skip_unary_op "~" >>. pattern |>> PatDyn
     let inline pat_rounds pattern s =
-        let i = index s
-        let inline (+) a b = alt i a b
+        let (+) = alt (index s)
         rounds (pattern + (read_op |>> PatOperator) + (fun _ -> Ok PatB)) s
 
     let body s = 
-        let i = index s
-        let inline (+) a b = alt i a b
+        let (+) = alt (index s)
         (pat_active (recurse true) + pat_wildcard + pat_var (recurse true) + pat_dyn (recurse true) 
         + pat_value + pat_record (recurse true) + pat_symbol + pat_rounds (recurse false)) s
     if is_outer then (body |> pat_pair |> pat_symbol_paired) s
@@ -618,7 +614,9 @@ let op (d : Env) =
         )
 
 let inline operators expr d =
-    let term = indent (col d) (<=) expr
+    let i = col d
+    let term = indent i (<=) expr
+    let op = indent (i-1) (<=) op
 
     /// Pratt parser
     let rec led left (prec,asoc,m) d =
@@ -660,19 +658,18 @@ let application_tight expr d =
 
     pipe2 expr (many expr_tight) (List.fold ap) d
 
-let inline level_semicolon_set line expr (d: Env) = expr {d with semicolon_line = line}
-let inline level_symbol_set line expr (d: Env) = expr {d with symbol_line = line}
+let inline level_semicolon_set expr (d: Env) = expr {d with semicolon_line = line d}
+let inline level_symbol_set expr (d: Env) = expr {d with symbol_line = line d}
 let inline level_reset expr d = expr {d with semicolon_line= -1; symbol_line= -1}
 
 let private string_to_op_dict = Collections.Generic.Dictionary(HashIdentity.Structural)
 Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<Op>)
 |> Array.iter (fun x -> string_to_op_dict.[x.Name] <- Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(x,[||]) :?> Op)
 let string_to_op x = string_to_op_dict.TryGetValue x
-let pat_main = " pat_main"
 
 let rec expressions expr d =
-    let case_var = read_var |>> v
-    let inline case_rounds expr = rounds ((read_op |>> v) <|> (level_reset expr <|>% B))
+    let case_var = read_var |>> fun x -> if Char.IsUpper(x,0) then binop TupleCreate (to_lower x |> v) RawB else v x
+    let case_rounds = rounds ((read_op |>> v) <|> (level_reset expr <|>% B))
 
     let case_fun =
         (skip_keyword SpecFun >>. many (range (pattern expr))) .>>. (skip_op "=>" >>. expr)
@@ -718,85 +715,67 @@ let rec expressions expr d =
         pipe2 (skip_keyword SpecTypecase >>. type_template false true false expr .>> skip_keyword SpecWith) clauses 
             (fun a b -> RawTypecase(a,List.toArray b))
 
-    let case_record =
-        let mp_binding (n,e) = RawRecordWithKeyword(n, e)
-        let mp_binding_inject n e = RawRecordWithInjectVar(n, e)
-        let mp_without n = RawRecordWithoutKeyword n
-        let mp_without_inject n = RawRecordWithoutInjectVar n
-        let mp_create l = RawRecordWith([||],List.toArray l)
-        let mp_with init names l = RawRecordWith(List.toArray (init :: names), List.toArray l)
-
-        let parse_binding_with s =
-            let i = col s
-            let line = s.Line
-            let inline body s = (eq' >>. expr_indent i (<) (set_semicolon_level line expr)) s
-            let a s =
-                pipe2 var_op (opt body)
-                    (fun a -> function
-                        | None -> mp_binding (a, v a)
-                        | Some b -> mp_binding (a, b)) s
-            let b s = pipe2 (dollar >>. var_op) body mp_binding_inject s
-            (a <|> b) s
-
-        let parse_binding_without s = 
-            let a s = var_op |>> mp_without <| s
-            let b s = dollar >>. var_op |>> mp_without_inject <| s
-            (a <|> b) s
-
-        let record_create_with s = (parse_binding_with .>> optional semicolon') s
-        let record_create_without s = (parse_binding_without .>> optional semicolon') s
-
-        let record_with = 
-            let withs' s = many1 record_create_with s
-            let withouts' s = many1 record_create_without s 
-            let withs s = (with_ >>. withs') s
-            let withouts s = (without >>. withouts') s 
-            attempt
-                (tuple3
-                    (case_small_var_rounds expr)
-                    (many ((keyword_unary' |>> keyword_unary'') <|> (dollar' >>. case_small_var_rounds expr)))
-                    ((with_ >>% withs') <|> (without >>% withouts')))
-            >>= (fun (init,names,next) s ->
-                pipe2 next (many (withs <|> withouts)) (fun a b -> mp_with init names (List.concat(a::b))) s
+    let case_record = 
+        let record_body = (skip_op "=" >>. level_semicolon_set expr)
+        let record_create_body = record_var .>>. record_body |>> RawRecordWithSymbol
+        let record_create = many record_create_body |>> fun withs -> RawRecordWith([],withs,[])
+        let record_with_bodies =
+            record_create_body <|> (read_unary_op' >>= fun (r,x) d ->
+                match x with
+                | "#" -> (record_var .>>. record_body |>> RawRecordWithSymbolModify) d
+                | "$" -> (read_small_var .>>. record_body |>> RawRecordWithInjectVar) d
+                | "#$" -> (read_small_var .>>. record_body |>> RawRecordWithInjectSymbolModify) d
+                | _ -> Error [r, ExpectedUnaryOperator "#"; r, ExpectedUnaryOperator "$"; r, ExpectedUnaryOperator "#$"]
                 )
+        let record_without_bodies = (record_var |>> RawRecordWithoutSymbol) <|> (skip_unary_op "$" >>. read_small_var |>> RawRecordWithoutInjectVar)
+        let record_with =
+            tuple4 read_small_var
+                (many ((read_symbol |>> RawSymbolCreate) <|> (skip_op "$" >>. read_small_var |>> v)))
+                ((skip_keyword SpecWith >>. many record_with_bodies) <|>% [])
+                ((skip_keyword SpecWithout >>. many record_without_bodies) <|>% [])
+            |>> fun (name, acs, withs, withouts) -> RawRecordWith(v name :: acs,withs,withouts)
+        
+        curlies (restore1 record_with <|> record_create)
 
-        let record_create = many record_create_with |>> mp_create
-                
-        curlies (record_with <|> record_create)
+    let case_join_point = skip_keyword SpecJoin >>. expr |>> (inline_ >> RawJoinPoint)
 
-    let case_join_point = join >>. expr |>> join_point_entry_method
-
-    let case_keyword_unary = keyword_unary' |>> keyword_unary''
-    let case_keyword_message s =
-        if s.keyword_line <> line s then
-            let i' = col s
-            let pat s = 
+    let case_symbol = read_symbol |>> RawSymbolCreate
+    let case_symbol_paired s =
+        if s.symbol_line <> line s then
+            let pat s =
                 let i = col s
-                let line = line s
-                (expr_indent i' (<=) keyword .>>. opt (expr_indent i (<) (set_keyword_level line expr))) s
-            (many1 pat |>> (concat_keyword (fun a -> function Some b -> b | None -> v a) >> fun (a,b) -> RawKeywordCreate(a, List.toArray b))) s
+                ((indent i (<=) read_symbol_paired) .>>. (opt (indent i (<) (level_symbol_set expr)))) s
+            (many1 pat |>> fun l ->
+                let a,b = List.unzip l
+                let x,x' = match a with x::x' -> x,x' | _ -> failwith "Compiler error: Expected `many1 pat` to produce an element."
+                let is_upper = Char.IsUpper(x, 0)
+                let a = if is_upper then to_lower x :: x' else a
+                let b = List.map2 (fun a b -> defaultArg b (v a)) a b
+                let a = 
+                    let sb = Text.StringBuilder()
+                    a |> List.iter (fun x -> sb.Append(x) |> ignore; sb.Append('_') |> ignore)
+                    sb.ToString()
+                if is_upper then ap (v a) (List.reduceBack (binop TupleCreate) b)
+                else List.reduceBack (binop TupleCreate) (RawSymbolCreate a :: b)
+                ) s
         else
             Error []
 
-    [|
-    case_value; case_default_value; case_var; case_join_point; case_keyword_unary; case_keyword_message
-    case_typecase; case_pattern_match; case_typecase; case_rounds expr; case_record
-    case_if_then_else; case_fun
-    |] |> choice <| d
+    let case_inbuilt_op =
+        (skip_unary_op "!!!!" >>. range read_big_var) .>>. (rounds (sepBy1 (expressions expr) (skip_op ",")))
+        >>= fun ((r, a), b) _ ->
+            match string_to_op a with
+            | true, op' -> Ok(RawOp(op',List.toArray b))
+            | false, _ -> Error [r,InbuiltOpNotFound a]
 
-let inbuilt_op expr =
-    (exclamationx4 >>. big_var) .>>. (rounds (sepBy1 (expr <|> (type' |>> RawType)) comma))
-    >>= fun (a, b) d ->
-        match string_to_op a with
-        | true, op' -> Ok(RawOp(op',List.toArray b))
-        | false, _ -> d.FailWith(InbuiltOpNotFound a)
+    let case_type_exp = skip_unary_op "`" >>. ((read_small_var |>> RawTVar) <|> rounds (type_template false true false expr)) |>> RawType
+    let case_unary_op = pipe2 read_unary_op (expressions expr) (fun a b -> ap (v a) b) // Should be last.
 
-let operators_unary expr =
-    choice [|
-        type' |>> RawType
-        inbuilt_op expr
-        pipe2 (opt unary_op) expr (fun op e -> match op with Some op -> ap (v op) e | None -> e)
-        |]
+    let (+) = alt (index d)
+
+    (case_value + case_default_value + case_var + case_join_point + case_symbol + case_symbol_paired
+    + case_typecase + case_pattern_match + case_typecase + case_rounds + case_record
+    + case_if_then_else + case_fun + case_forall + case_inbuilt_op + case_type_exp + case_unary_op) d
 
 //let top_statement s =
 //    let i = index s

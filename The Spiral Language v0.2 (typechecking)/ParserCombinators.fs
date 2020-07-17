@@ -235,6 +235,13 @@ let inline attempt a d =
     | Ok x -> Ok x
     | Error a as a' -> index_set s d; a'
 
+/// Restores the index on an error if only a single token has been consumed.
+let inline restore1 a d =
+    let s = index d
+    match a d with
+    | Ok x -> Ok x
+    | Error a as a' -> (if s + 1 = index d then index_set s d); a'
+
 let inline alt s a b d =
     match a d with
     | Ok x -> Ok x
