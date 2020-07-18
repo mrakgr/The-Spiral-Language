@@ -49,6 +49,7 @@ type ParserErrors =
     | InbuiltOpNotFound of string
     | UnexpectedEob
     | ForallNotAllowed
+    | TypecaseNotAllowed
     | MetavarNotAllowed
     | ValueExprNotAllowed
 
@@ -680,8 +681,11 @@ and root_value d =
                 let bar = bar (col d)
                 (optional bar >>. sepBy1 (root_type true false false .>>. (skip_op "=>" >>. next)) bar) d
 
-            pipe2 (skip_keyword SpecTypecase >>. root_type false true false .>> skip_keyword SpecWith) clauses 
-                (fun a b -> RawTypecase(a,List.toArray b))
+            range ((skip_keyword SpecTypecase >>. root_type false true false .>> skip_keyword SpecWith) .>>. clauses)
+            >>= (fun (r, (a, b)) d ->
+                if d.is_top_down then Error [r,TypecaseNotAllowed]
+                else Ok(RawTypecase(a,List.toArray b))
+                )
 
         let case_record = 
             let record_body = skip_op "=" >>. next
@@ -718,7 +722,7 @@ and root_value d =
                         match string_to_op a with
                         | true, op' -> Ok(RawOp(op',List.toArray b))
                         | false, _ -> Error [r,InbuiltOpNotFound a]) d
-                | "`" -> (((read_small_var |>> RawTVar) <|> rounds (root_type false true false)) |>> RawType) d
+                | "`" -> (((read_small_var |>> RawTVar) <|> (rounds (fun d -> root_type false (d.is_top_down = false) d.is_top_down d))) |>> RawType) d
                 | _ -> (expressions |>> fun b -> ap (v a) b) d
 
         let (+) = alt (index d)
@@ -763,7 +767,7 @@ and root_value d =
             (term >>= loop) d
 
         pipe2 (tdop Int32.MinValue)
-            (opt (indent (i-1) (<=) (skip_op ":") >>. indent i (<=) (root_type false true false)))
+            (opt (indent (i-1) (<=) (skip_op ":") >>. indent i (<=) (fun d -> root_type false (d.is_top_down = false) d.is_top_down d)))
             (fun a -> function Some b -> RawAnnot(a,b) | _ -> a)
             d
 
