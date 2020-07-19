@@ -49,6 +49,7 @@ type ParserErrors =
     | InvalidSemicolon
     | InbuiltOpNotFound of string
     | UnexpectedEob
+    | UnexpectedAndInlRec
     | ForallNotAllowed
     | TypecaseNotAllowed
     | MetavarNotAllowed
@@ -310,7 +311,7 @@ and RawExpr =
     | RawLet of (Pattern * RawExpr) list * body: RawExpr
     | RawInl of (Pattern * RawExpr) list
     | RawForall of VarString * RawKindExpr * RawExpr
-    | RawRecBlock of (VarString * RawExpr) [] * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
+    | RawRecBlock of (VarString * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
     | RawRecordWith of RawExpr list * RawRecordWith list * RawRecordWithout list
     | RawOp of Op * RawExpr []
     | RawJoinPoint of RawExpr
@@ -395,7 +396,7 @@ let pattern_validate pat =
 
 let patterns_validate pats = List.choose (fun (r,x) -> let x = pattern_validate x in if 0 < x.Length then Some (r, InvalidPattern x) else None) pats
 
-let inl_or_let_process (r, (is_let, is_rec, (name, foralls, pats, body))) _ =
+let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
     match body with
     // TODO: Rather than return an error during parsing for this particular error, for the typechecking pass I'll replace it with a metavariable stump.
     | None -> Error [r, ExpectedStatementBody]
@@ -422,16 +423,17 @@ let inl_or_let_process (r, (is_let, is_rec, (name, foralls, pats, body))) _ =
         | true, _, _, _, _ -> Error [fst name, ExpectedVarOrOpAsNameOfRecStatement]
         | false, _, _, _, _ -> Error [fst name, ExpectedSinglePatternWhenStatementNameIsNorVarOrOp]
 
-let inline inl_or_let exp pattern d =
-    let i = col d
-    let pinit = (skip_keyword SpecInl >>% true) <|> (skip_keyword SpecLet >>% false)
-    let pbody = tuple4 (range pattern) (forall' <|>% []) (many (range pattern)) (skip_op "=" >>. opt exp)
-    let inline pall prec = range (tuple3 pinit prec pbody) >>= inl_or_let_process
-    let init = pall ((skip_keyword SpecRec >>% true) <|>% false)
-    let rest = indent i (=) (skip_keyword SpecAnd >>. pall (fun _ -> Ok true))
-    (init >>= fun (x, is_rec) s ->
-        if is_rec then (many (rest |>> fst) |>> fun x' -> x :: x') s
-        else Ok [x]) d
+let inline inl_or_let exp pattern =
+    range (tuple6 ((skip_keyword SpecInl >>% true) <|> (skip_keyword SpecLet >>% false))
+            ((skip_keyword SpecRec >>% true) <|>% false) (range pattern)
+            (forall' <|>% []) (many (range pattern)) (skip_op "=" >>. opt exp))
+    >>= inl_or_let_process
+
+let inline and_inl_or_let exp pattern =
+    range (tuple6 (skip_keyword SpecAnd >>. (skip_keyword SpecInl >>% true) <|> (skip_keyword SpecLet >>% false))
+            (fun _ -> Ok true) (range pattern)
+            (forall' <|>% []) (many (range pattern)) (skip_op "=" >>. opt exp))
+    >>= inl_or_let_process
 
 type Associativity = FParsec.Associativity
 let inbuilt_operators x = 
@@ -792,8 +794,24 @@ and root_term d =
         let next = operators
         let i = col d
         let (+) = alt i
+        let inl_or_let =
+            (inl_or_let root_term root_pattern_pair .>>. many (and_inl_or_let root_term root_pattern_pair))
+            >>= fun x _ -> 
+                match x with
+                | ((r,(_,name),body),false), [] -> Ok(ParserStatement(r,fun on_succ -> l name body on_succ))
+                | ((_,(_,_),_),false), l -> l |> List.map (fun ((r,_,_),_) -> r, UnexpectedAndInlRec) |> Error
+                | x, xs ->
+                    let l = x :: xs
+                    let body =
+                        l |> List.map (function 
+                            | (_,(_,(PatVar name | PatOperator name)),body),true -> name, body
+                            | _ -> failwith "Compiler error: Recursive inl/let statements should always have PatVar or PatOperator for names and should always be recursive."
+                            )
+                    let f ((r,_,_),_) = r
+                    let r = fst (f x), snd (f (List.last l))
+                    Ok(ParserStatement(r,fun on_succ -> RawRecBlock(body, on_succ)))
         let p =
-            (inl_or_let root_term root_pattern_pair |>> fun (r,(_,name),body) -> ParserStatement(r,fun on_succ -> l name body on_succ))
+            inl_or_let
             + (module_open |>> fun (r,(name,acs)) -> ParserStatement(r,fun on_succ -> RawModuleOpen(name,acs,on_succ)))
             + (next |>> ParserExpr)
         let inline if_ x  = indent i x
@@ -822,12 +840,11 @@ type TopStatement =
     | TopType of VarString * ForallVars * RawTExpr
     | TopPrototypeInstance of prototype_name: VarString * nominal_name: VarString * nominal_foralls: ForallVars * RawExpr
 
-let top_inl_or_let = 
-    inl_or_let root_term root_pattern_pair >>= fun x _ ->
-        match x with
-        | _, (_ , (PatVar name | PatOperator name)), (RawForall _ | RawInl _ as body) -> Ok(TopInl(name, body))
-        | r, (_ , (PatVar _ | PatOperator _)), _ -> Error [r, ExpectedGlobalFunction]
-        | _, (r , _), _ -> Error [r, ExpectedVarOrOpAsNameOfGlobalStatement]
+let top_inl_or_let_process = function
+    | (_,(_,(PatVar name | PatOperator name)),(RawForall _ | RawInl _ as body)),_ -> Ok(TopInl(name, body))
+    | (r,(_,(PatVar _ | PatOperator _)),_),_ -> Error [r, ExpectedGlobalFunction]
+    | (_,(r,_),_),_ -> Error [r, ExpectedVarOrOpAsNameOfGlobalStatement]
+let top_inl_or_let = inl_or_let root_term root_pattern_pair >>= fun x _ -> top_inl_or_let_process x
 
 let top_union =
     let clauses d =
@@ -840,21 +857,23 @@ let top_nominal = (skip_keyword SpecNominal >>. many forall_var .>> skip_op "=")
 let top_prototype = tuple3 (skip_keyword SpecPrototype >>. read_small_var) (many forall_var) (skip_op ":" >>. root_type false false true) |>> TopPrototype
 let top_type = tuple3 (skip_keyword SpecType >>. read_small_var) (many forall_var) (skip_op "=" >>. root_type false false false) |>> TopType
 let top_instance =
-    pipe5 (skip_keyword SpecInstance >>. read_small_var)
+    tuple5 (skip_keyword SpecInstance >>. read_small_var)
         ((read_small_var |>> fun x -> x,[]) <|> rounds (read_small_var .>>. many forall_var))
         (forall' <|>% []) (many (range root_pattern_pair))
         (skip_op "=" >>. root_term)
-        (fun prototype_name (nominal_name, nominal_foralls) foralls pats body ->
+    >>= fun (prototype_name, (nominal_name, nominal_foralls), foralls, pats, body) _ ->
             match patterns_validate pats with
-            | [] -> 
+            | [] ->
                 let body =
                     List.foldBack (fun (_,pat) body -> RawInl [pat,body]) pats body
                     |> List.foldBack (fun (a,b) body -> RawForall(a,b,body)) foralls
                 Ok(TopPrototypeInstance(prototype_name,nominal_name,nominal_foralls,body))
             | ers -> Error ers
-            )
 
-//let top_statement s =
-//    let i = index s
-//    let inline (+) a b = alt i a b
-//    (top_let + top_inl) s
+let top_and_inl_or_let = restore1 (and_inl_or_let root_term root_pattern_pair) >>= fun x _ -> top_inl_or_let_process x |> Result.map TopAnd
+let top_and_nominal = restore1 (skip_keyword SpecAnd >>. top_nominal) |>> TopAnd
+let top_and_union = restore1 (skip_keyword SpecAnd >>. top_union) |>> TopAnd
+
+let top_statement s =
+    let (+) = alt (index s)
+    (top_inl_or_let + top_union + top_nominal + top_prototype + top_type + top_instance + top_and_inl_or_let + top_and_nominal + top_and_union) s
