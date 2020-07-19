@@ -32,9 +32,11 @@ type TokenKeyword =
     | SpecUnion
     | SpecOpen
     | SpecWildcard
+    | SpecPrototype
+    | SpecInstance
 
-type BracketState = Open | Close
-type Bracket = Round | Square | Curly
+type ParenthesisState = Open | Close
+type Parenthesis = Round | Square | Curly
 
 type Literal = 
     | LitUInt8 of uint8
@@ -61,7 +63,7 @@ type SpiralToken =
     | TokUnaryOperator of string
     | TokComment of string
     | TokKeyword of TokenKeyword
-    | TokBracket of Bracket * BracketState
+    | TokParenthesis of Parenthesis * ParenthesisState
 
 let token_groups = function
     | TokVar _ -> 0 // variable
@@ -72,7 +74,7 @@ let token_groups = function
     | TokUnaryOperator _ -> 5 // unary operator
     | TokComment _ -> 6 // comment
     | TokKeyword _ -> 7 // keyword
-    | TokBracket _ -> 8 // bracket
+    | TokParenthesis _ -> 8 // parenthesis
 
 let is_small_var_char_starting c = Char.IsLower c || c = '_'
 let is_var_char c = Char.IsLetterOrDigit c || c = '_' || c = '''
@@ -120,6 +122,7 @@ let var (s: Tokenizer) =
                 | "nominal" -> f SpecNominal | "real" -> f SpecReal
                 | "union" -> f SpecUnion
                 | "open" -> f SpecOpen | "_" -> f SpecWildcard
+                | "prototype" -> f SpecPrototype | "instance" -> f SpecInstance
                 | "true" -> TokValue(LitBool true) | "false" -> TokValue(LitBool false)
                 | x -> TokVar(x)
                 |> ok
@@ -252,7 +255,7 @@ let string_quoted s =
 
 let brackets s =
     let from = s.from
-    let f spec = inc s; (spaces >>% ({from=from; nearTo=s.from}, TokBracket(spec))) s
+    let f spec = inc s; (spaces >>% ({from=from; nearTo=s.from}, TokParenthesis(spec))) s
     match peek s with
     | '(' -> f (Round,Open) | '[' -> f (Square,Open) | '{' -> f (Curly,Open)
     | ')' -> f (Round,Close) | ']' -> f (Square,Close) | '}' -> f (Curly,Close)
