@@ -742,7 +742,7 @@ and root_term d =
                         | true, op' -> Ok(RawOp(op',List.toArray b))
                         | false, _ -> Error [r,InbuiltOpNotFound a]) d
                 | "`" -> (((read_small_var |>> RawTVar) <|> (rounds (fun d -> root_type false (d.is_top_down = false) d.is_top_down d))) |>> RawType) d
-                | _ -> (expressions |>> fun b -> ap (v a) b) d
+                | _ -> (expressions |>> fun b -> ap (v ("~" + a)) b) d
 
         let (+) = alt (index d)
 
