@@ -15,7 +15,7 @@ const request = async (file: object) => {
 
 const spiprojOpenReq = async (spiprojDir: string, spiprojText: string) => request({ ProjectFileOpen: { spiprojDir, spiprojText } })
 const spiOpenReq = async (spiPath: string, spiText: string) => request({ FileOpen: { spiPath, spiText } })
-const spiChangeReq = async (spiPath: string, spiEdits : {from: number, nearTo: number, lines: string[]} []) => request({ FileChanged: { spiPath, spiEdits } })
+const spiChangeReq = async (spiPath: string, spiEdits : {from: number, nearTo: number, lines: string[]} ) => request({ FileChanged: { spiPath, spiEdits } })
 const spiTokenRangeReq = async (spiPath: string, range : Range) => request({ FileTokenRange: { spiPath, range } })
 
 type PositionRec = { line: number, character: number }
@@ -53,14 +53,17 @@ export const activate = async (ctx: ExtensionContext) => {
     }
 
     const spiChange = async (doc : TextDocument, changes: readonly TextDocumentContentChangeEvent[]) => {
-        const edits = changes.map(x => {
+        if (1 < changes.length) {
+            await spiOpen(doc)
+        } else if (1 === changes.length) {
+            const x = changes[0]
             const from = x.range.start.line
             const nearTo = from + numberOfLines(x.text)
             const lines : string [] = []
             for (let i = from; i < nearTo; i++) { lines.push(doc.lineAt(i).text) }
-            return {lines, from, nearTo: x.range.end.line+1}
-        })
-        errorsSet(doc)(await spiChangeReq(doc.uri.fsPath, edits))
+            const edit = {lines, from, nearTo: x.range.end.line+1}
+            errorsSet(doc)(await spiChangeReq(doc.uri.fsPath, edit))
+        }
     }
 
     class SpiralTokens implements DocumentRangeSemanticTokensProvider {

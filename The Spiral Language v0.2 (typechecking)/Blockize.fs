@@ -12,7 +12,7 @@ type FileTokenAllRes = VSCTokenArray
 
 type Req =
     | Put of string * IVar<FileOpenRes>
-    | Modify of SpiEdit [] * IVar<FileChangeRes>
+    | Modify of SpiEdit * IVar<FileChangeRes>
     | GetRange of VSCRange * IVar<VSCTokenArray>
 
 type Block = {block: LineToken [] []; offset: int}
@@ -81,7 +81,7 @@ let server = Job.delay <| fun () ->
     let loop =
         Ch.take req >>= function
             | Put(text,res) -> replace {|from=0; nearTo=lines.Count; lines=Utils.lines text|}; IVar.fill res errors
-            | Modify(edits,res) -> Array.iter replace edits; IVar.fill res errors
+            | Modify(edits,res) -> replace edits; IVar.fill res errors
             | GetRange((a,b),res) -> // It is assumed that a.character = 0 and b.character = length of the line
                 let from, near_to = a.line, b.line+1
                 vscode_tokens from (lines.GetRange(from,near_to-from).ToArray()) |> IVar.fill res

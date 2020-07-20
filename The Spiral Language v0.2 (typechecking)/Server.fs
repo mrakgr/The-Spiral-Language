@@ -12,7 +12,7 @@ open Blockize
 type ClientReq =
     | ProjectFileOpen of {|spiprojDir : string; spiprojText : string|}
     | FileOpen of {|spiPath : string; spiText : string|}
-    | FileChanged of {|spiPath : string; spiEdits : SpiEdit []|}
+    | FileChanged of {|spiPath : string; spiEdits : SpiEdit|}
     | FileTokenRange of {|spiPath : string; range : VSCRange|}
 
 type ProjectFileRes = VSCErrorOpt []
@@ -42,16 +42,14 @@ let server () =
         // TODO: The message id here is for debugging purposes. I'll remove it at some point.
         let (id : int), x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
         match x with
-        | ProjectFileOpen x -> 
+        | ProjectFileOpen x ->
             match config x.spiprojDir x.spiprojText with Ok x -> [||] | Error x -> x
             |> Json.serialize
         | FileOpen x ->
-            (let res = IVar() in Ch.give (server_blockizer x.spiPath) (Req.Put(x.spiText,res)) >>=. IVar.read res) 
+            (let res = IVar() in Ch.give (server_blockizer x.spiPath) (Req.Put(x.spiText,res)) >>=. IVar.read res)
             |> run |> Json.serialize
         | FileChanged x ->
-            // The multiple edits given here all point to coordinates in the original array, but tokenizer works sequentially.
-            // So I am reversing them from last to first here.
-            (let res = IVar() in Ch.give (server_blockizer x.spiPath) (Req.Modify(Array.rev x.spiEdits,res)) >>=. IVar.read res) 
+            (let res = IVar() in Ch.give (server_blockizer x.spiPath) (Req.Modify(x.spiEdits,res)) >>=. IVar.read res)
             |> run |> Json.serialize
         | FileTokenRange x ->
             (let res = IVar() in Ch.give (server_blockizer x.spiPath) (Req.GetRange(x.range,res)) >>=. IVar.read res)
