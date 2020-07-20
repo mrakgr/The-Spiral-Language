@@ -5,9 +5,9 @@ open System.Collections.Generic
 open FSharp.Json
 open NetMQ
 open NetMQ.Sockets
-open Config
-open Tokenize
-open Blockize
+open Spiral.Config
+open Spiral.Tokenize
+open Spiral.Blockize
 
 type ClientReq =
     | ProjectFileOpen of {|spiprojDir : string; spiprojText : string|}

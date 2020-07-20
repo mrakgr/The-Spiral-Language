@@ -3,8 +3,8 @@ open Hopac
 open Hopac.Infixes
 open Hopac.Extensions
 
-open Config
-open Tokenize
+open Spiral.Config
+open Spiral.Tokenize
 
 type FileOpenRes = VSCError []
 type FileChangeRes = VSCError []
@@ -15,7 +15,12 @@ type Req =
     | Modify of SpiEdit * IVar<FileChangeRes>
     | GetRange of VSCRange * IVar<VSCTokenArray>
 
-type Block = {block: LineToken [] []; offset: int}
+type Block<'a> = {block: LineToken [] []; offset: int; meta: 'a}
+
+let block_init (block : LineToken [] []) offset =
+    let tokens = 
+        block |> Array.mapi
+    {block=block; offset=offset; meta=BlockParsing.top_statement env}
 
 /// Reads the comments up to a statement, and then reads the statement body. Leaves any errors for the parsing stage.
 let block_at (lines : LineToken [] ResizeArray) i =
@@ -40,11 +45,11 @@ let block_at (lines : LineToken [] ResizeArray) i =
                 if r.from <> 0 then ar.Add x; loop_body (i+1)
             else ar.Add x; loop_body (i+1)
     loop_initial i
-    {block=ar.ToArray(); offset=i}
+    block_init (ar.ToArray()) i
 
 let rec block_all (lines : _ ResizeArray) i = if i < lines.Count then let x = block_at lines i in x :: block_all lines (i+x.block.Length) else []
 
-let blockize (lines : LineToken [] ResizeArray) (blocks : Block list) (edit : SpiEdit) =
+let blockize (lines : LineToken [] ResizeArray) (blocks : _ Block list) (edit : SpiEdit) =
     // Lines added minus lines removed.
     let line_adjustment = edit.lines.Length - (edit.nearTo - edit.from)
     // The dirty block boundary needs to be more conservative when a separator is added in the first position of block.
@@ -71,7 +76,7 @@ let blockize (lines : LineToken [] ResizeArray) (blocks : Block list) (edit : Sp
 let server = Job.delay <| fun () ->
     let lines : LineToken [] ResizeArray = ResizeArray([[||]])
     let mutable errors = [||]
-    let mutable blocks : Block list = []
+    let mutable blocks : _ Block list = []
 
     let replace edit =
         errors <- Tokenize.replace lines errors edit // Mutates the lines array

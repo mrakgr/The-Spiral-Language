@@ -3,9 +3,8 @@ open System
 open Spiral.ParserCombinators
 open Spiral.Tokenize
 type Range = {line : int; from : int; nearTo : int}
-let range_to_vscrange (x : Range) : Config.VSCRange = {line=x.line; character=x.from}, {line=x.line; character=x.nearTo}
 type Env = {
-    tokens : (Range * SpiralToken) []
+    tokens : (Config.VSCRange * SpiralToken) []
     comments : Tokenize.LineComment option []
     i : int ref
     is_top_down : bool
@@ -60,11 +59,11 @@ let inline try_current_template (d : Env) on_succ on_fail =
     if 0 <= i && i < d.tokens.Length then on_succ d.tokens.[i]
     else on_fail()
 
-let inline try_current d f = try_current_template d (fun (p,t) -> f (range_to_vscrange p, t)) (fun () -> Error [])
+let inline try_current d f = try_current_template d (fun (p,t) -> f (p, t)) (fun () -> Error [])
 let print_current d = try_current d (fun x -> printfn "%A" x; Ok()) // For parser debugging purposes.
 let inline line_template d f = try_current_template d (fst >> f) (fun _ -> -1)
-let col d = line_template d (fun r -> r.from)
-let line d = line_template d (fun r -> r.line)
+let col d = line_template d (fun (r,_) -> r.character)
+let line d = line_template d (fun (r,_) -> r.line)
    
 let skip' (d : Env) i = d.i := d.i.contents+i
 let skip d = skip' d 1
@@ -339,22 +338,13 @@ let squares a d = (skip_parenthesis Square Open >>. a .>> skip_parenthesis Squar
 let index (t : Env) = t.Index
 let index_set v (t : Env) = t.Index <- v
 
-let eob d = 
-    let i = index d
-    let len = d.tokens.Length
-    if i = len then Ok() 
-    elif 0 <= i && i < len then let r,_ = d.tokens.[i] in Error [{line=r.line; from=r.nearTo; nearTo=r.nearTo+1}, ExpectedEob]
-    else failwith "Compiler error: The block parser's pointer is out of bounds in the eof parser."
-
 let rec kind d = (sepBy1 ((skip_op "*" >>% RawKindStar) <|> rounds kind) (skip_op "->") |>> List.reduceBack (fun a b -> RawKindFun (a,b))) d
 
 let inline range exp s =
     let i = index s
     exp s |> Result.map (fun x ->
         let i' = index s
-        if i < i' then
-            let r, r' = fst s.tokens.[i], fst s.tokens.[i'-1]
-            ({line=r.line; character=r.from}, {line=r'.line; character=r'.nearTo} : Config.VSCRange), x
+        if i < i' then (fst (fst s.tokens.[i]), snd (fst s.tokens.[i'-1])), x
         else
             failwith "Compiler error: The parser passed into `range` has to consume at least one token for it to work."
         )
@@ -755,8 +745,8 @@ and root_term d =
         let inline expr_tight (d: Env) = 
             let i = index d
             if 0 < i && i < d.tokens.Length then
-                let r,r' = fst d.tokens.[i-1], fst d.tokens.[i]
-                if r.line = r'.line && r.nearTo = r'.from then next d else Error []
+                let r,r' = snd (fst d.tokens.[i-1]), fst (fst d.tokens.[i])
+                if r.line = r'.line && r.character = r'.character then next d else Error []
             else Error []
 
         pipe2 next (many expr_tight) (List.fold ap) d
