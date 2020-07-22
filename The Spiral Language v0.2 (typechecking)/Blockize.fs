@@ -18,8 +18,15 @@ type Req =
 type Block<'a> = {block: LineToken [] []; offset: int; meta: 'a}
 
 let block_init (block : LineToken [] []) offset =
-    let tokens = 
-        block |> Array.mapi
+    let comments, tokens = 
+        block |> Array.mapi (fun i x ->
+            let comment, len = match Array.tryLast x with Some (r, TokComment c) -> Some (r, c), x.Length-1 | _ -> None, x.Length
+            let tokens = Array.init len (fun i -> let r, x = x.[i] in ({ line=i; character=r.from }, { line=i; character=r.nearTo }), x)
+            comment, tokens
+            )
+        |> Array.unzip
+            
+    let env : BlockParsing.Env = {comments = comments; tokens = Array.concat tokens; i = ref 0; is_top_down = false}
     {block=block; offset=offset; meta=BlockParsing.top_statement env}
 
 /// Reads the comments up to a statement, and then reads the statement body. Leaves any errors for the parsing stage.
@@ -75,18 +82,25 @@ let blockize (lines : LineToken [] ResizeArray) (blocks : _ Block list) (edit : 
 
 let server = Job.delay <| fun () ->
     let lines : LineToken [] ResizeArray = ResizeArray([[||]])
-    let mutable errors = [||]
+    let mutable errors_tokenization = [||]
     let mutable blocks : _ Block list = []
 
     let replace edit =
-        errors <- Tokenize.replace lines errors edit // Mutates the lines array
+        errors_tokenization <- Tokenize.replace lines errors_tokenization edit // Mutates the lines array
         blocks <- blockize lines blocks edit
+        let errors_parsing =
+            blocks |> List.collect (fun x ->
+                match x.meta with
+                | Error l -> List.map (show_block_parsing_error x.offset) l
+                | _ -> []
+                ) |> List.toArray
+        Array.append errors_tokenization errors_parsing
 
     let req = Ch()
     let loop =
         Ch.take req >>= function
-            | Put(text,res) -> replace {|from=0; nearTo=lines.Count; lines=Utils.lines text|}; IVar.fill res errors
-            | Modify(edits,res) -> replace edits; IVar.fill res errors
+            | Put(text,res) -> replace {|from=0; nearTo=lines.Count; lines=Utils.lines text|} |> IVar.fill res
+            | Modify(edits,res) -> replace edits |> IVar.fill res
             | GetRange((a,b),res) -> // It is assumed that a.character = 0 and b.character = length of the line
                 let from, near_to = a.line, b.line+1
                 vscode_tokens from (lines.GetRange(from,near_to-from).ToArray()) |> IVar.fill res

@@ -16,7 +16,7 @@ type PatternCompilationErrors =
     | DisjointOrPattern
     | InvalidOp of string
     | DuplicateVar of string
-    | DuplicateRecordKeyword of string
+    | DuplicateRecordSymbol of string
     | DuplicateRecordInjection of string
 
 type ParserErrors =
@@ -38,14 +38,12 @@ type ParserErrors =
     | ExpectedParenthesis of Parenthesis * ParenthesisState
     | ExpectedOpenParenthesis
     | ExpectedStatement
-    | ExpectedKeywordPatternInObject
     | ExpectedEob
     | ExpectedFunctionAsBodyOfRecStatement
     | ExpectedSinglePatternWhenStatementNameIsNorVarOrOp
     | ExpectedStatementBody
     | ExpectedGlobalFunction
     | StatementLastInBlock
-    | InvalidSemicolon
     | InbuiltOpNotFound of string
     | UnexpectedEob
     | UnexpectedAndInlRec
@@ -53,6 +51,8 @@ type ParserErrors =
     | TypecaseNotAllowed
     | MetavarNotAllowed
     | TermNotAllowed
+    | UnknownError
+    | ExpectedAtLeastOneToken
 
 let inline try_current_template (d : Env) on_succ on_fail =
     let i = d.Index
@@ -373,7 +373,7 @@ let pattern_validate pat =
             List.fold (fun s item ->
                 match item with
                 | PatRecordMembersSymbol(keyword,name) ->
-                    if symbols.Add(keyword) = false then errors.Add(DuplicateRecordKeyword keyword)
+                    if symbols.Add(keyword) = false then errors.Add(DuplicateRecordSymbol keyword)
                     s + loop name
                 | PatRecordMembersInjectVar(var,name) ->
                     if injects.Add(var) = false then errors.Add(DuplicateRecordInjection var)
@@ -532,7 +532,7 @@ let rec root_type allow_metavars allow_value_exprs allow_forall d =
         let metavar = 
             range (skip_unary_op "~" >>. read_var) >>= fun (r,x) s -> 
                 if allow_metavars then Ok (RawTMetaVar x) else Error [r, ForallNotAllowed]
-        let value_expr = 
+        let term = 
             range (skip_unary_op "`" >>. ((read_var |>> RawV) <|> rounds root_term)) >>= fun (r,x) s ->
                 if allow_value_exprs then Ok(RawTTerm x) else Error [r, TermNotAllowed]
         let record = curlies (sepBy ((record_var .>> skip_op ":") .>>. next) (skip_op ";")) |>> (Map.ofList >> RawTRecord)
@@ -564,7 +564,7 @@ let rec root_type allow_metavars allow_value_exprs allow_forall d =
                 let (+) = alt (index d)
                 (symbol_paired + next + fun _ -> Ok RawTB) d)
         let (+) = alt (index d)
-        value_expr + metavar + var + parenths + record + symbol
+        term + metavar + var + parenths + record + symbol
     let apply d = 
         let i = col d
         (pipe2 cases (many (indent i (<) cases)) 
@@ -867,3 +867,14 @@ let top_and_union = restore1 (skip_keyword SpecAnd >>. top_union) |>> TopAnd
 let top_statement s =
     let (+) = alt (index s)
     (top_inl_or_let + top_union + top_nominal + top_prototype + top_type + top_instance + top_and_inl_or_let + top_and_nominal + top_and_union) s
+
+let parse (s : Env) =
+    if 0 < s.tokens.Length then
+        match top_statement s with
+        | Ok _ as x -> if s.Index = s.tokens.Length then x else Error [fst s.tokens.[s.Index], ExpectedEob]
+        | Error [] ->
+            if s.Index = s.tokens.Length then Error [fst (Array.last s.tokens), UnexpectedEob]
+            else Error [fst s.tokens.[s.Index], UnknownError]
+        | Error _ as l -> l
+    else
+        Error [({line=0; character=0}, {line=0; character=1}), ExpectedAtLeastOneToken]
