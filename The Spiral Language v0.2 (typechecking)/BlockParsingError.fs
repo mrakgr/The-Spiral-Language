@@ -1,4 +1,4 @@
-﻿module Spiral.BlockParsingErrorShow
+﻿module Spiral.BlockParsingError
 open Spiral.Tokenize
 open Spiral.BlockParsing
 
@@ -81,3 +81,10 @@ let show_parser_error = function
     | ExpectedAtLeastOneToken -> "At least one (non-comment) token should be present in a block."
     | UnknownError -> "Compiler error: Parsing failed at this position with no error message and without consuming all the tokens in a block."
     
+let show_block_parsing_error line (l : (Config.VSCRange * ParserErrors) list) =
+    l |> List.groupBy fst
+    |> List.map (fun ((a,b),v) -> 
+        let k = {a with line=line+a.line}, {b with line=line+b.line}
+        let v = List.toArray v |> Array.map (snd >> show_parser_error)
+        Tokenize.process_error (k, v)
+        )

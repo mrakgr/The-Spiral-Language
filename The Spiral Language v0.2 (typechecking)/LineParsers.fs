@@ -4,9 +4,7 @@ open System.Text
 open ParserCombinators
 
 type Range = {from : int; nearTo : int}
-type TokenizerError =
-    | Expected of string
-    | Message of string
+type TokenizerError = string
 
 type Tokenizer = {
     text : string // A single line.
@@ -43,7 +41,7 @@ let inline many1Satisfy2L init body label (s : Tokenizer) =
         loop ()
     else
         let i = s.from
-        error_char i (Expected label)
+        error_char i label
 
 let inline many1SatisfyL body label (s : Tokenizer) = many1Satisfy2L body body label s
 
@@ -58,15 +56,15 @@ let spaces' (s : Tokenizer) =
 let spaces s = spaces' s |> Ok
 
 let spaces1 (s : Tokenizer) =
-    if peek s = ' ' then inc s; spaces s else error_char s.from (Expected "space")
+    if peek s = ' ' then inc s; spaces s else error_char s.from "space"
 
 let skip_char c (s : Tokenizer) =
     let from = s.from
-    skip c s Ok (fun () -> error_char from (Expected (sprintf "'%c'" c)))
+    skip c s Ok (fun () -> error_char from (sprintf "'%c'" c))
 
 let skip_string x (s : Tokenizer) =
     if String.Compare(s.text,s.from,x,0,x.Length) = 0 then inc' x.Length s; Ok()
-    else error_char s.from (Expected x)
+    else error_char s.from x
 
 let chars_till_string close (s : Tokenizer) =
     assert (close <> "")
@@ -76,7 +74,7 @@ let chars_till_string close (s : Tokenizer) =
         if x = close.[0] && String.Compare(s.text,s.from,close,1,close.Length-1) = 0 then inc' close.Length s; Ok(b.ToString())
         else 
             if x <> eol then inc s; b.Append(x) |> ignore; loop()
-            else error_char s.from (Expected close)
+            else error_char s.from close
     loop()
 
 /// Parses a number as a sequence of digits and optionally underscores. Filters out the underscores from the result.
@@ -94,6 +92,6 @@ let number (s : Tokenizer) =
         loop ()
     else
         let i = s.from
-        error_char i (Expected "number")
+        error_char i "number"
 
 let number_fractional s = (number .>>. (opt (skip_char '.' >>. number))) s

@@ -26,8 +26,8 @@
     <Compile Include="LineParsers.fs" />
     <Compile Include="Tokenize.fs" />
     <Compile Include="BlockParsing.fs" />
+    <Compile Include="BlockParsingError.fs" />
     <Compile Include="Prepass.fs" />
-    <Compile Include="BlockParsingErrorShow.fs" />
     <Compile Include="Blockize.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>

@@ -91,7 +91,7 @@ let server = Job.delay <| fun () ->
         let errors_parsing =
             blocks |> List.collect (fun x ->
                 match x.meta with
-                | Error l -> List.map (show_block_parsing_error x.offset) l
+                | Error l -> BlockParsingError.show_block_parsing_error x.offset l
                 | _ -> []
                 ) |> List.toArray
         Array.append errors_tokenization errors_parsing

@@ -149,25 +149,25 @@ let number (s: Tokenizer) =
             if is_separator_char (peek s) then 
                 match string_to_val x with
                 | true, x -> val_to_lit x |> TokValue |> ok
-                | false, _ -> Error [{from=from; nearTo=s.from}, Message (sprintf "The string %s cannot be safely parsed as %s." x val_dsc)]
-            else error_char s.from (Expected "separator")
+                | false, _ -> Error [{from=from; nearTo=s.from}, (sprintf "The string %s cannot be safely parsed as %s." x val_dsc)]
+            else error_char s.from "separator"
         let skip c = skip c s (fun () -> true) (fun () -> false)
         if skip 'i' then
             if skip '8' then safe_parse SByte.TryParse LitInt8 "int8"
             elif skip '1' && skip '6' then safe_parse Int16.TryParse LitInt16 "int16"
             elif skip '3' && skip '2' then safe_parse Int32.TryParse LitInt32 "int32"
             elif skip '6' && skip '4' then safe_parse Int64.TryParse LitInt64 "int64"
-            else error_char s.from (Expected "8,16,32 or 64")
+            else error_char s.from "8,16,32 or 64"
         elif skip 'u' then
             if skip '8' then safe_parse Byte.TryParse LitUInt8 "uint8"
             elif skip '1' && skip '6' then safe_parse UInt16.TryParse LitUInt16 "uint16"
             elif skip '3' && skip '2' then safe_parse UInt32.TryParse LitUInt32 "uint32"
             elif skip '6' && skip '4' then safe_parse UInt64.TryParse LitUInt64 "uint64"
-            else error_char s.from (Expected "8,16,32 or 64")
+            else error_char s.from "8,16,32 or 64"
         elif skip 'f' then
             if skip '3' && skip '2' then safe_parse Single.TryParse LitFloat32 "float32"
             elif skip '6' && skip '4' then safe_parse Double.TryParse LitFloat64 "float64"
-            else error_char s.from (Expected "32 or 64")
+            else error_char s.from "32 or 64"
         else TokDefaultValue x |> ok
 
     (parser >>= followedBySuffix .>> spaces) s
@@ -181,7 +181,7 @@ let symbol s =
     if x = '.' then
         if x' = '(' then inc' 2 s; ((many1SatisfyL is_operator_char "operator") .>> skip_char ')' |>> f .>> spaces) s
         else inc s; ((many1Satisfy2L is_var_char_starting is_var_char "variable") |>> f .>> spaces) s
-    else error_char from (Expected "symbol")
+    else error_char from "symbol"
 
 let comment (s : Tokenizer) =
     if peek s = '/' && peek' s 1 = '/' then 
@@ -191,9 +191,9 @@ let comment (s : Tokenizer) =
             let com = s.text.[s.from..]
             s.from <- s.text.Length
             Ok ({from=from; nearTo=s.from}, TokComment com)
-            ) (fun () -> error_char s.from (Expected "whitespace"))
+            ) (fun () -> error_char s.from "whitespace")
     else
-        error_char s.from (Expected "comment")
+        error_char s.from "comment"
 
 let operator (s : Tokenizer) = 
     let from = s.from
@@ -214,7 +214,7 @@ let char_quoted s =
         let inline read on_succ =
             let x = peek s
             if x <> eol then inc s; on_succ x
-            else error_char s.from (Expected "character or '")
+            else error_char s.from "character or '"
         read (function
             | '\\' -> 
                 read (Ok << function
@@ -234,7 +234,7 @@ let string_quoted s =
         let inline read on_succ =
             let x = peek s
             if x <> eol then inc s; on_succ x
-            else error_char s.from (Expected "character or \"")
+            else error_char s.from "character or \""
         let rec loop (b : StringBuilder) =
             read (function
                 | '\\' -> 
@@ -259,7 +259,7 @@ let brackets s =
     match peek s with
     | '(' -> f (Round,Open) | '[' -> f (Square,Open) | '{' -> f (Curly,Open)
     | ')' -> f (Round,Close) | ']' -> f (Square,Close) | '}' -> f (Curly,Close)
-    | _ -> error_char s.from (Expected "`(`,`[`,`{`,`}`,`]` or `)`")
+    | _ -> error_char s.from "`(`,`[`,`{`,`}`,`]` or `)`"
 
 let token s =
     let i = s.from
@@ -269,30 +269,27 @@ let token s =
 /// An array of {line: int; char: int; length: int; tokenType: int; tokenModifiers: int} in the order as written suitable for serialization.
 type VSCTokenArray = int []
 open Config
-let process_error (line, ers : (Range * TokenizerError) list) : (string * VSCRange) [] =
-    List.toArray ers
-    |> Array.groupBy (fun (a,_) -> a.from)
-    |> Array.choose (fun (from,ar) ->
-        if 0 < ar.Length then
-            let near_to, (expecteds, messages) = 
-                ar |> Array.fold (fun (near_to, (expecteds, messages)) (a,b) -> 
-                    max near_to a.nearTo,
-                    match b with
-                    | Expected x -> x :: expecteds, messages
-                    | Message x -> expecteds, x :: messages
-                    ) (Int32.MinValue,([],[]))
-            let ex () = match expecteds with [x] -> sprintf "Expected: %s" x | x -> sprintf "Expected one of: %s" (String.concat ", " x)
-            let f l = String.concat "\n" l
-            if List.isEmpty expecteds then f messages
-            elif List.isEmpty messages then ex ()
-            else f (ex () :: "" :: "Other error messages:" :: messages)
-            |> fun x -> Some(x,({line=line; character=from}, {line=line; character=near_to}))
-        else None
+let process_error (k,v) = 
+    let messages, expecteds = v |> Array.partition (fun x -> Char.IsUpper(x,0))
+    let ex () = match expecteds with [|x|] -> sprintf "Expected: %s" x | x -> sprintf "Expected one of: %s" (String.concat ", " x)
+    let f l = String.concat "\n" l
+    if Array.isEmpty expecteds then f messages, k
+    elif Array.isEmpty messages then ex (), k
+    else f (Array.append [|ex (); ""; "Other error messages:"|] messages), k
+
+type LineTokenErrors = (Range * TokenizerError) list
+let process_errors line (ers : LineTokenErrors []) : (string * VSCRange) [] =
+    ers |> Array.mapi (fun i l -> 
+        let i = line + i
+        l |> List.toArray |> Array.map (fun (r,x) -> x, ({line=i; character=r.from}, {line=i; character=r.nearTo}))
         )
+    |> Array.concat
+    |> Array.groupBy snd
+    |> Array.map ((fun (k,v) -> k, Array.map fst v) >> process_error)
 
 type LineToken = Range * SpiralToken
 type LineComment = Range * string
-type LineTokenErrors = (Range * TokenizerError) list
+
 type LineTokenResult = LineToken [] * LineTokenErrors
 let tokenize text : LineTokenResult =
     let s = {from=0; text=text}
@@ -309,7 +306,7 @@ let tokenize text : LineTokenResult =
         let ers = loop ()
         let c = peek s
         if c = eol then []
-        elif c = '\t' then [range_char (index s), Message "Tabs are not allowed."]
+        elif c = '\t' then [range_char (index s), "Tabs are not allowed."]
         else ers
     ar.ToArray(), ers
 
@@ -335,4 +332,4 @@ let replace (lines : _ [] ResizeArray) (errors : _ []) (edit : SpiEdit) =
     lines.InsertRange(edit.from,toks)
 
     let errors = errors |> Array.filter (fun (_,(a,_)) -> (edit.from <= a.line && a.line < edit.nearTo) = false)
-    Array.append errors (ers |> Array.mapi (fun i x -> process_error (edit.from+i, x)) |> Array.concat)
+    Array.append errors (process_errors edit.from ers)
