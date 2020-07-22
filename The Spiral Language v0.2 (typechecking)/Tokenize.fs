@@ -174,13 +174,14 @@ let number (s: Tokenizer) =
 
 let symbol s =
     let from = s.from
-    let f x = ({from=from; nearTo=s.from}, TokSymbol x)
+    let f x = ({from=from; nearTo=s.from}, x)
 
     let x = peek s
     let x' = peek' s 1
     if x = '.' then
-        if x' = '(' then inc' 2 s; ((many1SatisfyL is_operator_char "operator") .>> skip_char ')' |>> f .>> spaces) s
-        else inc s; ((many1Satisfy2L is_var_char_starting is_var_char "variable") |>> f .>> spaces) s
+        if x' = '(' then inc' 2 s; ((many1SatisfyL is_operator_char "operator") .>> skip_char ')' |>> (TokSymbol >> f) .>> spaces) s
+        elif is_var_char_starting x' then inc s; ((many1SatisfyL is_var_char "variable") |>> (TokSymbol >> f) .>> spaces) s
+        else inc s; Ok (f (TokOperator "."))
     else error_char from "symbol"
 
 let comment (s : Tokenizer) =
@@ -270,7 +271,7 @@ let token s =
 type VSCTokenArray = int []
 open Config
 let process_error (k,v) = 
-    let messages, expecteds = v |> Array.partition (fun x -> Char.IsUpper(x,0))
+    let messages, expecteds = v |> Array.distinct |> Array.partition (fun x -> Char.IsUpper(x,0))
     let ex () = match expecteds with [|x|] -> sprintf "Expected: %s" x | x -> sprintf "Expected one of: %s" (String.concat ", " x)
     let f l = String.concat "\n" l
     if Array.isEmpty expecteds then f messages, k

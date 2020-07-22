@@ -1,4 +1,6 @@
 ﻿module Spiral.BlockParsing
+let f p d = let x = p d in printfn "%A" x; x
+
 open System
 open Spiral.ParserCombinators
 open Spiral.Tokenize
@@ -41,7 +43,7 @@ type ParserErrors =
     | ExpectedEob
     | ExpectedFunctionAsBodyOfRecStatement
     | ExpectedSinglePatternWhenStatementNameIsNorVarOrOp
-    | ExpectedStatementBody
+    | MissingFunctionBody
     | ExpectedGlobalFunction
     | StatementLastInBlock
     | InbuiltOpNotFound of string
@@ -56,7 +58,7 @@ type ParserErrors =
 
 let inline try_current_template (d : Env) on_succ on_fail =
     let i = d.Index
-    if 0 <= i && i < d.tokens.Length then on_succ d.tokens.[i]
+    if i < d.tokens.Length then on_succ d.tokens.[i]
     else on_fail()
 
 let inline try_current d f = try_current_template d (fun (p,t) -> f (p, t)) (fun () -> Error [])
@@ -69,11 +71,6 @@ let skip' (d : Env) i = d.i := d.i.contents+i
 let skip d = skip' d 1
 
 let ok d (p, t) = Ok(t)
-
-let peek_keyword d =
-    try_current d <| function
-        | p, TokKeyword(t') -> Ok(t')
-        | _ -> Error []
 
 let skip_keyword t d =
     try_current d <| function
@@ -338,7 +335,6 @@ let squares a d = (skip_parenthesis Square Open >>. a .>> skip_parenthesis Squar
 let index (t : Env) = t.Index
 let index_set v (t : Env) = t.Index <- v
 
-let rec kind d = (sepBy1 ((skip_op "*" >>% RawKindStar) <|> rounds kind) (skip_op "->") |>> List.reduceBack (fun a b -> RawKindFun (a,b))) d
 
 let inline range exp s =
     let i = index s
@@ -349,37 +345,40 @@ let inline range exp s =
             failwith "Compiler error: The parser passed into `range` has to consume at least one token for it to work."
         )
 
+let rec kind d = (sepBy1 ((skip_op "*" >>% RawKindStar) <|> rounds kind) (skip_op "->") |>> List.reduceBack (fun a b -> RawKindFun (a,b))) d
 let forall_var d = ((read_small_var |>> fun x -> x, RawKindStar) <|> rounds ((read_small_var .>> skip_op ":") .>>. kind)) d
-let forall' d = (skip_keyword SpecForall >>. many1 forall_var .>> skip_op ".") d
+let forall' d = (skip_keyword SpecForall >>. (many1 forall_var) .>> skip_op ".") d
 let forall allow_forall d = (range forall' >>= fun (r,x) _ -> if allow_forall then Ok x else Error [r, ForallNotAllowed]) d
 
-let inline indent i op next d = if op i (index d) then next d else Error []
+let inline indent i op next d = if op i (col d) then next d else Error []
 
 let record_var d = (read_var <|> rounds read_op) d
 
 let pattern_validate pat =
     let errors = ResizeArray()
-    let vars = Collections.Generic.HashSet()
     let rec loop pat =
         match pat with
         | PatOperator x -> errors.Add(InvalidOp x); Set.empty
         | PatDefaultValue _ | PatValue _ | PatSymbol _ | PatE | PatB -> Set.empty
-        | PatVar x -> (if vars.Add x = false then errors.Add(DuplicateVar x)); Set.singleton x
+        | PatVar x -> Set.singleton x
         | PatDyn p | PatAnnot (p,_) | PatNominal(_,p) | PatActive (_,p) | PatUnbox p | PatWhen(p, _) -> loop p
-        | PatPair(a,b) -> loop a + loop b
         | PatRecordMembers items ->
             let symbols = Collections.Generic.HashSet()
             let injects = Collections.Generic.HashSet()
-            List.fold (fun s item ->
-                match item with
-                | PatRecordMembersSymbol(keyword,name) ->
-                    if symbols.Add(keyword) = false then errors.Add(DuplicateRecordSymbol keyword)
-                    s + loop name
-                | PatRecordMembersInjectVar(var,name) ->
-                    if injects.Add(var) = false then errors.Add(DuplicateRecordInjection var)
-                    s + loop name
-                ) Set.empty items
-        | PatAnd(a,b) -> loop a + loop b
+            let x =
+                List.map (fun item ->
+                    match item with
+                    | PatRecordMembersSymbol(keyword,name) ->
+                        if symbols.Add(keyword) = false then errors.Add(DuplicateRecordSymbol keyword); Set.empty else loop name
+                    | PatRecordMembersInjectVar(var,name) ->
+                        if injects.Add(var) = false then errors.Add(DuplicateRecordInjection var); Set.empty else loop name
+                    ) items
+            Set.intersectMany x |> Set.iter (DuplicateVar >> errors.Add)
+            Set.unionMany x
+        | PatPair(a,b) | PatAnd(a,b) -> 
+            let a, b = loop a, loop b
+            Set.intersect a b |> Set.iter (DuplicateVar >> errors.Add)
+            a + b
         | PatOr(a,b) -> let a, b = loop a, loop b in if a = b then a else errors.Add(DisjointOrPattern); a
     loop pat |> ignore
     errors.ToArray()
@@ -389,7 +388,7 @@ let patterns_validate pats = List.choose (fun (r,x) -> let x = pattern_validate 
 let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
     match body with
     // TODO: Rather than return an error during parsing for this particular error, for the typechecking pass I'll replace it with a metavariable stump.
-    | None -> Error [r, ExpectedStatementBody]
+    | None -> Error [r, MissingFunctionBody]
     | Some body ->
         let name, pats =
             match name with
@@ -513,16 +512,6 @@ type ParserExpr =
     | ParserStatement of Config.VSCRange * (RawExpr -> RawExpr)
     | ParserExpr of RawExpr
 
-let process_parser_exprs (exprs, in') _ =
-    let f x s = match x with ParserExpr a -> l PatE (unop ErrorNonUnit a) s | ParserStatement (_,a) -> a s
-    match in' with
-    | Some in' -> Ok(List.foldBack f exprs in')
-    | None -> 
-        match List.rev exprs with
-        | ParserStatement (r,_) :: _ -> Error [r,StatementLastInBlock]
-        | ParserExpr x :: xs -> Ok(List.fold (fun a b -> f b a) x xs)
-        | [] -> failwith "Compiler error: At least one statement must be parsed."
-
 let inline pat_pair next = sepBy1 next (skip_op ",") |>> List.reduceBack (fun a b -> PatPair(a,b))
 let bar i d = indent i (<=) (skip_op "|") d
 
@@ -566,8 +555,7 @@ let rec root_type allow_metavars allow_value_exprs allow_forall d =
         let (+) = alt (index d)
         term + metavar + var + parenths + record + symbol
     let apply d = 
-        let i = col d
-        (pipe2 cases (many (indent i (<) cases)) 
+        (pipe2 cases (many (indent (col d) (<) cases)) 
             (fun a b -> List.reduce (fun a b -> match a with RawTVar "array" -> RawTArray b | _ -> RawTApply(a,b)) (a :: b))) d
     let pairs = sepBy1 apply (skip_op "*") |>> List.reduceBack (fun a b -> RawTPair(a,b))
     let functions = sepBy1 pairs (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(a,b))
@@ -629,9 +617,7 @@ and root_term d =
         let case_var = read_var |>> fun x -> if Char.IsUpper(x,0) then binop TupleCreate (to_lower x |> v) RawB else v x
 
         let case_symbol_paired =
-            let pat s =
-                let i = col s
-                (read_symbol_paired .>>. (opt (indent i (<) next))) s
+            let pat s = (read_symbol_paired .>>. (opt (indent (col s) (<) next))) s
             many1 pat |>> fun l ->
                 let a,b = List.unzip l
                 let x,x' = match a with x::x' -> x,x' | _ -> failwith "Compiler error: Expected `many1 pat` to produce an element."
@@ -651,14 +637,14 @@ and root_term d =
                 ((read_op |>> v) + case_symbol_paired + next + fun _ -> Ok B) d)
 
         let case_fun =
-            (skip_keyword SpecFun >>. many (range root_pattern_pair)) .>>. (skip_op "=>" >>. next)
+            (skip_keyword SpecFun >>. many1 (range root_pattern_pair) .>>. (skip_op "=>" >>. next))
             >>= fun (pats, body) d ->
                 match patterns_validate pats with
                 | [] -> List.foldBack (fun (_,pat) body -> RawInl [pat,body]) pats body |> Ok
                 | ers -> Error ers
             
         let case_forall =
-            tuple3 (skip_keyword SpecForall >>. forall') (many (range root_pattern_pair)) (skip_op "=>" >>. next)
+            tuple3 forall' (many (range root_pattern_pair)) (skip_op "=>" >>. next)
             >>= fun (foralls, pats, body) d ->
                 match patterns_validate pats with
                 | [] -> 
@@ -753,8 +739,7 @@ and root_term d =
 
     let application (d: Env) =
         let next = application_tight
-        let i = col d
-        pipe2 next (many (indent i (<) next)) (List.fold ap) d
+        pipe2 next (many (indent (col d) (<) next)) (List.fold ap) d
 
     let operators d =
         let next = application
@@ -770,9 +755,9 @@ and root_term d =
 
         and tdop rbp d =
             let rec loop left d = 
-                ((op >>=? fun (prec,_,_ as v) d ->
+                ((op >>= fun (prec,_,_ as v) d ->
                     if rbp < prec then (led left v >>= loop) d
-                    else Error []) <|>% left) d
+                    else skip' d -1; Error []) <|>% left) d
             (term >>= loop) d
 
         pipe2 (tdop Int32.MinValue)
@@ -782,8 +767,6 @@ and root_term d =
 
     let statements d =
         let next = operators
-        let i = col d
-        let (+) = alt i
         let inl_or_let =
             (inl_or_let root_term root_pattern_pair .>>. many (and_inl_or_let root_term root_pattern_pair))
             >>= fun x _ -> 
@@ -800,12 +783,33 @@ and root_term d =
                     let f ((r,_,_),_) = r
                     let r = fst (f x), snd (f (List.last l))
                     Ok(ParserStatement(r,fun on_succ -> RawRecBlock(body, on_succ)))
-        let p =
-            inl_or_let
+        let p d =
+            let (+) = alt (index d)
+            (inl_or_let
             + (module_open |>> fun (r,(name,acs)) -> ParserStatement(r,fun on_succ -> RawModuleOpen(name,acs,on_succ)))
-            + (next |>> ParserExpr)
-        let inline if_ x  = indent i x
-        (many1 (if_ (=) p) .>>. opt (if_ (<=) (skip_keyword SpecIn) >>. if_ (<=) root_term) >>= process_parser_exprs) d
+            + (next |>> ParserExpr)) d
+        
+        let exprs = ResizeArray()
+        let i = col d
+        let rec parse_statements d =
+            let i' = col d
+            if i = i' then
+                match p d with
+                | Ok x -> exprs.Add x; parse_statements d
+                | Error l -> Error l
+            else Ok()
+        let inline if_ x = indent i x
+        (parse_statements >>. opt (if_ (<=) (skip_keyword SpecIn) >>. if_ (<=) root_term) >>= fun in' _ ->
+            let rec foldBack i in' =
+                if 0 <= i then
+                    match exprs.[i], in' with
+                    | ParserStatement (r,_), None -> Error [r,StatementLastInBlock]
+                    | ParserExpr a, None -> foldBack (i-1) (Some a)
+                    | ParserStatement (_,a), Some s -> foldBack (i-1) (Some (a s))
+                    | ParserExpr a, Some s -> foldBack (i-1) (Some (l PatE (unop ErrorNonUnit a) s))
+                else Ok (in'.Value)
+            foldBack (exprs.Count-1) in'
+        ) d
 
     statements d
 

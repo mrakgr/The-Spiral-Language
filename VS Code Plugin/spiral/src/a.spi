@@ -1,0 +1,4 @@
+inl f x = 
+    inl f = (forall a b c. qw => a+b)
+    zxc
+    

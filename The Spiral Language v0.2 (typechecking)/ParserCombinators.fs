@@ -213,12 +213,13 @@ let inline many_resize_array a d =
         | Error er -> if s = index d then Ok ar else Error er
     loop ()
 let inline many_array a d = many_resize_array a d |> Result.map (fun x -> x.ToArray())
-let inline many a d = many_resize_array a d |> Result.map (fun x -> let rec loop i = if i < x.Count then x.[0] :: loop (i+1) else [] in loop 0)
+let inline many a d = many_resize_array a d |> Result.map Seq.toList
 
 let inline sepBy a b d =
+    let s = index d
     match a d with
     | Ok a' -> (many (b >>. a) |>> fun b -> a' :: b) d
-    | Error x -> Ok []
+    | Error x -> if s = index d then Ok [] else Error x
 let inline sepBy1 a b d =
     match a d with
     | Ok a' -> (many (b >>. a) |>> fun b -> a' :: b) d
@@ -249,7 +250,7 @@ let inline alt s a b d =
         if s = index d then
             match b d with
             | Ok x -> Ok x
-            | Error b -> Error(List.append a b)
+            | Error b -> if s = index d then Error(List.append a b) else Error b
         else
             a'
 

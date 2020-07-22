@@ -19,15 +19,18 @@ type Block<'a> = {block: LineToken [] []; offset: int; meta: 'a}
 
 let block_init (block : LineToken [] []) offset =
     let comments, tokens = 
-        block |> Array.mapi (fun i x ->
+        block |> Array.mapi (fun line x ->
             let comment, len = match Array.tryLast x with Some (r, TokComment c) -> Some (r, c), x.Length-1 | _ -> None, x.Length
-            let tokens = Array.init len (fun i -> let r, x = x.[i] in ({ line=i; character=r.from }, { line=i; character=r.nearTo }), x)
+            let tokens = Array.init len (fun i ->
+                let r, x = x.[i] 
+                ({ line=line; character=r.from }, { line=line; character=r.nearTo }), x
+                )
             comment, tokens
             )
         |> Array.unzip
             
     let env : BlockParsing.Env = {comments = comments; tokens = Array.concat tokens; i = ref 0; is_top_down = false}
-    {block=block; offset=offset; meta=BlockParsing.top_statement env}
+    {block=block; offset=offset; meta=BlockParsing.parse env}
 
 /// Reads the comments up to a statement, and then reads the statement body. Leaves any errors for the parsing stage.
 let block_at (lines : LineToken [] ResizeArray) i =

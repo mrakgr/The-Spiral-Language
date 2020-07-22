@@ -57,7 +57,7 @@ let show_parser_error = function
     | ExpectedSinglePatternWhenStatementNameIsNorVarOrOp -> "Unexpected pattern."
     | ExpectedVarOrOpAsNameOfGlobalStatement -> "The first pattern of a global statement should either be a variable or compile down to it."
     | ExpectedVarOrOpAsNameOfRecStatement -> "The first pattern of a recursive statement should either be a variable or compile down to it."
-    | ExpectedStatementBody -> "Missing function body."
+    | MissingFunctionBody -> "Missing function body."
     | StatementLastInBlock -> "A block requires an expression in last position."
     | InbuiltOpNotFound x -> sprintf "`%s` not found among the inbuilt ops." x
     | ForallNotAllowed -> "Forall not allowed here."
