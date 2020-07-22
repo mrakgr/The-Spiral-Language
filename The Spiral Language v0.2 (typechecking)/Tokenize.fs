@@ -178,10 +178,8 @@ let symbol s =
 
     let x = peek s
     let x' = peek' s 1
-    if x = '.' then
-        if x' = '(' then inc' 2 s; ((many1SatisfyL is_operator_char "operator") .>> skip_char ')' |>> (TokSymbol >> f) .>> spaces) s
-        elif is_var_char_starting x' then inc s; ((many1SatisfyL is_var_char "variable") |>> (TokSymbol >> f) .>> spaces) s
-        else inc s; Ok (f (TokOperator "."))
+    if x = '.' && x' = '(' then inc' 2 s; ((many1SatisfyL is_operator_char "operator") .>> skip_char ')' |>> (TokSymbol >> f) .>> spaces) s
+    elif x = '.' && is_var_char_starting x' then inc s; ((many1SatisfyL is_var_char "variable") |>> (TokSymbol >> f) .>> spaces) s
     else error_char from "symbol"
 
 let comment (s : Tokenizer) =
