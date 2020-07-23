@@ -1,1 +1,12 @@
-inl f _ = { q.w$e$w with #(-)=fun a b => a - b without re $gh}
+union option a = 
+    | Some: a
+    | None
+
+nominal tensor el dim = `(tensor_init `el `dim ``el ``dim)
+
+prototype bind m a : forall b. m a -> (a -> m b) -> m b
+
+instance bind option a : forall b. x f =
+    match x with
+    | Some: x => (Some: f x)
+    | None => None

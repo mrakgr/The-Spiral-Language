@@ -18,4 +18,4 @@ inl gqew = .qwe 12
 
 
 // A slightly big function
-let big_f = let q = 2 in Some(f q x 0)
+let Big = let q = 2 in Some(f q x 0)
