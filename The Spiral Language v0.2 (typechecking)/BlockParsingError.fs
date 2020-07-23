@@ -59,7 +59,8 @@ let show_parser_error = function
     | ExpectedVarOrOpAsNameOfRecStatement -> "The first pattern of a recursive statement should either be a variable or compile down to it."
     | MissingFunctionBody -> "Missing function body."
     | StatementLastInBlock -> "A block requires an expression in last position."
-    | InbuiltOpNotFound x -> sprintf "`%s` not found among the inbuilt ops." x
+    | InbuiltOpNotFound -> "Not found among the inbuilt operations."
+    | UnknownOperator -> "Operator does not have known precedence and associativity."
     | ForallNotAllowed -> "Forall not allowed here."
     | InvalidPattern l -> 
         let f = function

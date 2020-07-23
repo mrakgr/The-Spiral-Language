@@ -220,6 +220,7 @@ let inline sepBy a b d =
     match a d with
     | Ok a' -> (many (b >>. a) |>> fun b -> a' :: b) d
     | Error x -> if s = index d then Ok [] else Error x
+
 let inline sepBy1 a b d =
     match a d with
     | Ok a' -> (many (b >>. a) |>> fun b -> a' :: b) d
@@ -236,12 +237,12 @@ let inline attempt a d =
     | Ok x -> Ok x
     | Error a as a' -> index_set s d; a'
 
-/// Restores the index on an error if only a single token has been consumed.
-let inline restore1 a d =
+/// Restores the index on an error if at least i tokens have been consumed.
+let inline restore i a d =
     let s = index d
     match a d with
     | Ok x -> Ok x
-    | Error a as a' -> (if s + 1 = index d then index_set s d); a'
+    | Error _ as er -> (if index d <= s + i then index_set s d); er
 
 let inline alt s a b d =
     match a d with

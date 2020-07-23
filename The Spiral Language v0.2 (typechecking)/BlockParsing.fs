@@ -46,7 +46,8 @@ type ParserErrors =
     | MissingFunctionBody
     | ExpectedGlobalFunction
     | StatementLastInBlock
-    | InbuiltOpNotFound of string
+    | InbuiltOpNotFound
+    | UnknownOperator
     | UnexpectedEob
     | UnexpectedAndInlRec
     | ForallNotAllowed
@@ -107,15 +108,15 @@ let read_var d =
         | p, TokVar t' -> skip d; ok d (p,t')
         | p, _ -> Error [p, ExpectedVar]
 
-let read_small_var d =
-    try_current d <| function
-        | p, TokVar t' when Char.IsLower(t',0) -> skip d; ok d (p,t')
-        | p, _ -> Error [p, ExpectedSmallVar]
-
 let read_big_var d =
     try_current d <| function
         | p, TokVar t' when Char.IsUpper(t',0) -> skip d; ok d (p,t')
         | p, _ -> Error [p, ExpectedBigVar]
+
+let read_small_var d =
+    try_current d <| function
+        | p, TokVar t' when Char.IsUpper(t',0) = false -> skip d; ok d (p,t')
+        | p, _ -> Error [p, ExpectedSmallVar]
 
 let read_value d =
     try_current d <| function
@@ -335,7 +336,6 @@ let squares a d = (skip_parenthesis Square Open >>. a .>> skip_parenthesis Squar
 let index (t : Env) = t.Index
 let index_set v (t : Env) = t.Index <- v
 
-
 let inline range exp s =
     let i = index s
     exp s |> Result.map (fun x ->
@@ -373,7 +373,7 @@ let pattern_validate pat =
                     | PatRecordMembersInjectVar(var,name) ->
                         if injects.Add(var) = false then errors.Add(DuplicateRecordInjection var); Set.empty else loop name
                     ) items
-            Set.intersectMany x |> Set.iter (DuplicateVar >> errors.Add)
+            match x with _ :: _ :: _ -> Set.intersectMany x |> Set.iter (DuplicateVar >> errors.Add) | _ -> ()
             Set.unionMany x
         | PatPair(a,b) | PatAnd(a,b) -> 
             let a, b = loop a, loop b
@@ -394,11 +394,11 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
             match name with
             | r, PatUnbox(PatPair(PatSymbol name, pat)) -> (r, PatVar name), (r, pat) :: pats
             | _ -> name, pats
+        let dyn_if_let x = if is_let then x else PatDyn x
         match is_rec, name, foralls, pats, body with
         | false, (_, (PatVar _ | PatOperator _)), _, _, _
         | true, (_, (PatVar _ | PatOperator _)), _, _, (RawInl _ | RawForall _) -> 
             let body = 
-                let dyn_if_let x = if is_let then x else PatDyn x
                 List.foldBack (fun (_,pat) body -> RawInl [dyn_if_let pat,body]) pats body
                 |> List.foldBack (fun (a,b) body -> RawForall(a,b,body)) foralls
             match patterns_validate pats with
@@ -407,7 +407,7 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
         | true, (_, (PatVar _ | PatOperator _)), _, _, _ -> Error [r, ExpectedFunctionAsBodyOfRecStatement]
         | false, _, [], [], _ -> 
             match patterns_validate [name] with
-            | [] -> Ok((r,name,body),is_rec)
+            | [] -> Ok((r,(fst name, dyn_if_let (snd name)),body),is_rec)
             | ers -> Error ers
         | true, _, _, _, _ -> Error [fst name, ExpectedVarOrOpAsNameOfRecStatement]
         | false, _, _, _, _ -> Error [fst name, ExpectedSinglePatternWhenStatementNameIsNorVarOrOp]
@@ -453,21 +453,21 @@ let inbuilt_operators x =
     | "^" -> ValueSome(45, Associativity.Right)
     | "<|" -> ValueSome(10, Associativity.Right)
     | "<<" -> ValueSome(10, Associativity.Right)
-    | "" -> ValueSome(3, Associativity.Right) // Is supposed to be ".", but "."s get filtered in Spiral much like in F#.
+    | "." -> ValueSome(3, Associativity.Right)
     | "," -> ValueSome(5, Associativity.Right)
     | ":>" -> ValueSome(35, Associativity.Right)
     | ":?>" -> ValueSome(35, Associativity.Right)
     | "**" -> ValueSome(80, Associativity.Right)
     | _ -> ValueNone
 
-// Similarly to F#, Spiral filters out the '.' from the operator name and then tries to match to the nearest inbuilt operator
-// for the sake of assigning associativity and precedence.
-let precedence_associativity x = 
-    let rec loop (name : string) =
+// Since `.` is an operator in Spiral, unlike in F# it does not filter out `.`s. Instead it just trims the right side until 
+// it finds (or fails to find) a match.
+let rec precedence_associativity name = 
+    if 0 < String.length name then
         match inbuilt_operators name with
-        | ValueNone -> loop (name.[0..name.Length-2])
-        | ValueSome v -> ValueSome(v)
-    loop (String.filter ((<>) '.') x)
+        | ValueNone -> precedence_associativity (name.[0..name.Length-2])
+        | v -> v
+    else ValueNone
 
 let inl l = RawInl l
 let v x = RawV x
@@ -490,15 +490,18 @@ let def_lit' x = RawDefaultLit x
 
 let op (d : Env) =
     range read_op d |> Result.bind (fun (r,x) ->
-        match precedence_associativity x with // TODO: Might be good to memoize this.
-        | ValueNone -> skip' d -1; Error [r, InbuiltOpNotFound x] 
-        | ValueSome(p,a) ->
-            match x with
-            | "." -> Ok(p,a,fun (a, b) -> l PatE (unop ErrorNonUnit a) b)
-            | "&&" -> Ok(p,a,fun (a, b) -> if' a b (lit' (LitBool false)))
-            | "||" -> Ok(p,a,fun (a, b) -> if' a (lit' (LitBool true)) b)
-            | "," -> Ok(p,a,fun (a, b) -> binop TupleCreate a b)
-            | x -> Ok(p,a,fun (a, b) -> ap (ap (v x) a) b)
+        match x with
+        | "=>" | "|" | ":" | ";" -> skip' d -1; Error [] // Separators get special handling for sake of better error messages.
+        | _ ->
+            match precedence_associativity x with // TODO: Might be good to memoize this.
+            | ValueNone -> Error [r, UnknownOperator]
+            | ValueSome(p,a) ->
+                match x with
+                | "." -> Ok(p,a,fun (a, b) -> l PatE (unop ErrorNonUnit a) b)
+                | "&&" -> Ok(p,a,fun (a, b) -> if' a b (lit' (LitBool false)))
+                | "||" -> Ok(p,a,fun (a, b) -> if' a (lit' (LitBool true)) b)
+                | "," -> Ok(p,a,fun (a, b) -> binop TupleCreate a b)
+                | x -> Ok(p,a,fun (a, b) -> ap (ap (v x) a) b)
         )
 
 let private string_to_op_dict = Collections.Generic.Dictionary(HashIdentity.Structural)
@@ -517,11 +520,11 @@ let bar i d = indent i (<=) (skip_op "|") d
 
 let rec root_type allow_metavars allow_value_exprs allow_forall d =
     let next = root_type allow_metavars allow_value_exprs allow_forall
-    let cases =
-        let metavar = 
+    let cases d =
+        let metavar =
             range (skip_unary_op "~" >>. read_var) >>= fun (r,x) s -> 
-                if allow_metavars then Ok (RawTMetaVar x) else Error [r, ForallNotAllowed]
-        let term = 
+                if allow_metavars then Ok (RawTMetaVar x) else Error [r, MetavarNotAllowed]
+        let term =
             range (skip_unary_op "`" >>. ((read_var |>> RawV) <|> rounds root_term)) >>= fun (r,x) s ->
                 if allow_value_exprs then Ok(RawTTerm x) else Error [r, TermNotAllowed]
         let record = curlies (sepBy ((record_var .>> skip_op ":") .>>. next) (skip_op ";")) |>> (Map.ofList >> RawTRecord)
@@ -553,7 +556,7 @@ let rec root_type allow_metavars allow_value_exprs allow_forall d =
                 let (+) = alt (index d)
                 (symbol_paired + next + fun _ -> Ok RawTB) d)
         let (+) = alt (index d)
-        term + metavar + var + parenths + record + symbol
+        (term + metavar + var + parenths + record + symbol) d
     let apply d = 
         (pipe2 cases (many (indent (col d) (<) cases)) 
             (fun a b -> List.reduce (fun a b -> match a with RawTVar "array" -> RawTArray b | _ -> RawTApply(a,b)) (a :: b))) d
@@ -609,7 +612,9 @@ and root_pattern s =
     let pat_as = pat_or .>>. (opt (skip_keyword SpecAs >>. pat_or )) |>> function a, Some b -> PatAnd(a,b) | a, None -> a
     let pat_when = pat_as .>>. (opt (skip_keyword SpecWhen >>. root_term)) |>> function a, Some b -> PatWhen(a,b) | a, None -> a
     pat_when s
-and root_pattern_var d = ((read_small_var |>> PatVar) <|> (peek_open_parenthesis >>. root_pattern)) d
+and root_pattern_var d = 
+    let (+) = alt (index d)
+    ((read_small_var |>> PatVar) + (skip_keyword SpecWildcard >>% PatE) + (peek_open_parenthesis >>. root_pattern)) d
 and root_pattern_pair d = pat_pair root_pattern_var d
 and root_term d =
     let rec expressions d =
@@ -682,10 +687,10 @@ and root_term d =
                 else Ok(RawTypecase(a,List.toArray b))
                 )
 
-        let case_record = 
+        let case_record =
             let record_body = skip_op "=" >>. next
             let record_create_body = record_var .>>. record_body |>> RawRecordWithSymbol
-            let record_create = many record_create_body |>> fun withs -> RawRecordWith([],withs,[])
+            let record_create = sepBy record_create_body (skip_op ";") |>> fun withs -> RawRecordWith([],withs,[])
             let record_with_bodies =
                 record_create_body <|> (read_unary_op' >>= fun (r,x) d ->
                     match x with
@@ -698,11 +703,11 @@ and root_term d =
             let record_with =
                 tuple4 read_small_var
                     (many ((read_symbol |>> RawSymbolCreate) <|> (skip_op "$" >>. read_small_var |>> v)))
-                    ((skip_keyword SpecWith >>. many record_with_bodies) <|>% [])
+                    ((skip_keyword SpecWith >>. sepBy record_with_bodies (skip_op ";")) <|>% [])
                     ((skip_keyword SpecWithout >>. many record_without_bodies) <|>% [])
                 |>> fun (name, acs, withs, withouts) -> RawRecordWith(v name :: acs,withs,withouts)
         
-            curlies (restore1 record_with <|> record_create)
+            restore 2 (curlies record_with) <|> curlies record_create
 
         let case_join_point = skip_keyword SpecJoin >>. next |>> (inline_ >> RawJoinPoint)
 
@@ -716,7 +721,7 @@ and root_term d =
                     >>= fun ((r, a), b) _ ->
                         match string_to_op a with
                         | true, op' -> Ok(RawOp(op',List.toArray b))
-                        | false, _ -> Error [r,InbuiltOpNotFound a]) d
+                        | false, _ -> Error [r,InbuiltOpNotFound]) d
                 | "`" -> (((read_small_var |>> RawTVar) <|> (rounds (fun d -> root_type false (d.is_top_down = false) d.is_top_down d))) |>> RawType) d
                 | _ -> (expressions |>> fun b -> ap (v ("~" + a)) b) d
 
@@ -864,9 +869,9 @@ let top_instance =
                 Ok(TopPrototypeInstance(prototype_name,nominal_name,nominal_foralls,body))
             | ers -> Error ers
 
-let top_and_inl_or_let = restore1 (and_inl_or_let root_term root_pattern_pair) >>= fun x _ -> top_inl_or_let_process x |> Result.map TopAnd
-let top_and_nominal = restore1 (skip_keyword SpecAnd >>. top_nominal) |>> TopAnd
-let top_and_union = restore1 (skip_keyword SpecAnd >>. top_union) |>> TopAnd
+let top_and_inl_or_let = restore 1 (and_inl_or_let root_term root_pattern_pair) >>= fun x _ -> top_inl_or_let_process x |> Result.map TopAnd
+let top_and_nominal = restore 1 (skip_keyword SpecAnd >>. top_nominal) |>> TopAnd
+let top_and_union = restore 1 (skip_keyword SpecAnd >>. top_union) |>> TopAnd
 
 let top_statement s =
     let (+) = alt (index s)
@@ -874,7 +879,9 @@ let top_statement s =
 
 let parse (s : Env) =
     if 0 < s.tokens.Length then
-        match top_statement s with
+        let x = top_statement s
+        //printfn "%A" x
+        match x with
         | Ok _ as x -> if s.Index = s.tokens.Length then x else Error [fst s.tokens.[s.Index], ExpectedEob]
         | Error [] ->
             if s.Index = s.tokens.Length then Error [fst (Array.last s.tokens), UnexpectedEob]
