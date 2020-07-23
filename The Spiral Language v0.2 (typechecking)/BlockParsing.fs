@@ -826,7 +826,7 @@ type TopStatement =
     | TopInl of VarString * RawExpr
     | TopUnion of ForallVars * RawTExpr list
     | TopNominal of ForallVars * RawTExpr
-    | TopPrototype of VarString * ForallVars * RawTExpr
+    | TopPrototype of prototype_name: VarString * nominal_bind: VarString * ForallVars * RawTExpr
     | TopType of VarString * ForallVars * RawTExpr
     | TopPrototypeInstance of prototype_name: VarString * nominal_name: VarString * nominal_foralls: ForallVars * RawExpr
 
@@ -844,7 +844,7 @@ let top_union =
     (skip_keyword SpecUnion >>. many forall_var .>> skip_op "=") .>>. clauses |>> TopUnion
 
 let top_nominal = (skip_keyword SpecNominal >>. many forall_var .>> skip_op "=") .>>. root_type false true false true |>> TopNominal
-let top_prototype = tuple3 (skip_keyword SpecPrototype >>. read_small_var) (many forall_var) (skip_op ":" >>. root_type false false true true) |>> TopPrototype
+let top_prototype = tuple4 (skip_keyword SpecPrototype >>. read_small_var) read_small_var (many forall_var) (skip_op ":" >>. root_type false false true true) |>> TopPrototype
 let top_type = tuple3 (skip_keyword SpecType >>. read_small_var) (many forall_var) (skip_op "=" >>. root_type false false false true) |>> TopType
 let top_instance =
     tuple5 (skip_keyword SpecInstance >>. read_small_var) (read_small_var .>>. many forall_var)
