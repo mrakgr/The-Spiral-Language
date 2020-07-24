@@ -1,21 +1,4 @@
-// asd
-inl f x = y
-
-// qwe
-inl g = 12
-    dasdqw
-    as
-
-// qwe 
-inl g = -12
-    dasdqw
-    as
-a + -2
-// qwe qwe 
-inl gqew = .qwe 12
-    dasdq
-    as
-
-
-// A slightly big function
-let Big = let q = 2 in Some(f q x 0)
+let g (x:e) =
+    inl f = function
+        | a: b:q c: => 1
+    q: 1 w: e: r: x

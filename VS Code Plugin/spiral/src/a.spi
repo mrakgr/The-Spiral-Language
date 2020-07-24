@@ -12,7 +12,7 @@ prototype bind m a : forall b. m a -> (a -> m b) -> m b
 
 instance bind option a : forall b. x f =
     match x with
-    | Some: x => (Some: f x)
+    | Some: x => Some: 2
     | None => None
 
 inl rec f x = x

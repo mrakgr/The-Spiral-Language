@@ -53,10 +53,22 @@ type Literal =
     | LitString of string
     | LitChar of char
 
+type SemanticTokenLegend =
+    | variable = 0
+    | symbol = 1
+    | string = 2
+    | number = 3
+    | operator = 4
+    | unary_operator = 5
+    | comment = 6
+    | keyword = 7
+    | parenthesis = 8
+    | type_variable = 9
+
 type SpiralToken =
-    | TokVar of string
-    | TokSymbol of string
-    | TokSymbolPaired of string
+    | TokVar of string * SemanticTokenLegend ref
+    | TokSymbol of string * SemanticTokenLegend ref
+    | TokSymbolPaired of string * SemanticTokenLegend ref
     | TokValue of Literal
     | TokDefaultValue of string
     | TokOperator of string
@@ -66,15 +78,14 @@ type SpiralToken =
     | TokParenthesis of Parenthesis * ParenthesisState
 
 let token_groups = function
-    | TokVar _ -> 0 // variable
-    | TokSymbol _ | TokSymbolPaired _ -> 1 // symbol
-    | TokValue(LitString _) -> 2 // string
-    | TokValue _ | TokDefaultValue -> 3 // number
-    | TokOperator _ -> 4 // operator
-    | TokUnaryOperator _ -> 5 // unary operator
-    | TokComment _ -> 6 // comment
-    | TokKeyword _ -> 7 // keyword
-    | TokParenthesis _ -> 8 // parenthesis
+    | TokVar (_,r) | TokSymbol (_,r) | TokSymbolPaired (_,r) -> !r
+    | TokValue(LitString _) -> SemanticTokenLegend.string
+    | TokValue _ | TokDefaultValue -> SemanticTokenLegend.number
+    | TokOperator _ -> SemanticTokenLegend.operator
+    | TokUnaryOperator _ -> SemanticTokenLegend.unary_operator
+    | TokComment _ -> SemanticTokenLegend.comment
+    | TokKeyword _ -> SemanticTokenLegend.keyword
+    | TokParenthesis _ -> SemanticTokenLegend.parenthesis
 
 let is_small_var_char_starting c = Char.IsLower c || c = '_'
 let is_var_char c = Char.IsLetterOrDigit c || c = '_' || c = '''
@@ -103,7 +114,7 @@ let var (s: Tokenizer) =
     let from = s.from
     let ok x = ({from=from; nearTo=s.from}, x)
     let body x = 
-        skip ':' s (fun () -> TokSymbolPaired(x) |> ok)
+        skip ':' s (fun () -> TokSymbolPaired(x,ref SemanticTokenLegend.symbol) |> ok)
             (fun () ->
                 let f x = TokKeyword(x)
                 match x with
@@ -124,7 +135,7 @@ let var (s: Tokenizer) =
                 | "open" -> f SpecOpen | "_" -> f SpecWildcard
                 | "prototype" -> f SpecPrototype | "instance" -> f SpecInstance
                 | "true" -> TokValue(LitBool true) | "false" -> TokValue(LitBool false)
-                | x -> TokVar(x)
+                | x -> TokVar(x,ref SemanticTokenLegend.variable)
                 |> ok
                 )
 
@@ -176,10 +187,11 @@ let symbol s =
     let from = s.from
     let f x = ({from=from; nearTo=s.from}, x)
 
+    let symbol x = TokSymbol(x,ref SemanticTokenLegend.symbol)
     let x = peek s
     let x' = peek' s 1
-    if x = '.' && x' = '(' then inc' 2 s; ((many1SatisfyL is_operator_char "operator") .>> skip_char ')' |>> (TokSymbol >> f) .>> spaces) s
-    elif x = '.' && is_var_char_starting x' then inc s; ((many1SatisfyL is_var_char "variable") |>> (TokSymbol >> f) .>> spaces) s
+    if x = '.' && x' = '(' then inc' 2 s; ((many1SatisfyL is_operator_char "operator") .>> skip_char ')' |>> (symbol >> f) .>> spaces) s
+    elif x = '.' && is_var_char_starting x' then inc s; ((many1SatisfyL is_var_char "variable") |>> (symbol >> f) .>> spaces) s
     else error_char from "symbol"
 
 let comment (s : Tokenizer) =
@@ -314,7 +326,7 @@ let vscode_tokens line_delta (lines : LineToken [] []) =
     let toks = ResizeArray()
     lines |> Array.fold (fun line_delta tok ->
         tok |> Array.fold (fun (line_delta,from_prev) (r,x) ->
-            toks.AddRange [|line_delta; r.from-from_prev; r.nearTo-r.from; token_groups x; 0|]
+            toks.AddRange [|line_delta; r.from-from_prev; r.nearTo-r.from; int (token_groups x); 0|]
             0, r.from
             ) (line_delta, 0)
         |> fst |> ((+) 1)

@@ -96,7 +96,7 @@ export const activate = async (ctx: ExtensionContext) => {
         languages.registerDocumentRangeSemanticTokensProvider(
             { language: 'spiral'}, 
             new SpiralTokens(),
-            new SemanticTokensLegend(['variable','symbol','string','number','operator','unary_operator','comment','keyword','parenthesis'])
+            new SemanticTokensLegend(['variable','symbol','string','number','operator','unary_operator','comment','keyword','parenthesis','type_variable'])
             )
     )
 }

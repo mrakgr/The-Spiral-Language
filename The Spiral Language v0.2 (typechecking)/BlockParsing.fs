@@ -105,17 +105,22 @@ let skip_unary_op t d =
 
 let read_var d =
     try_current d <| function
-        | p, TokVar t' -> skip d; ok d (p,t')
+        | p, TokVar(t',r) -> skip d; ok d (p,t')
+        | p, _ -> Error [p, ExpectedVar]
+
+let read_var' d =
+    try_current d <| function
+        | p, TokVar(t',r) -> skip d; ok d (p,(t',r))
         | p, _ -> Error [p, ExpectedVar]
 
 let read_big_var d =
     try_current d <| function
-        | p, TokVar t' when Char.IsUpper(t',0) -> skip d; ok d (p,t')
+        | p, TokVar(t',r) when Char.IsUpper(t',0) -> skip d; ok d (p,t')
         | p, _ -> Error [p, ExpectedBigVar]
 
 let read_small_var d =
     try_current d <| function
-        | p, TokVar t' when Char.IsUpper(t',0) = false -> skip d; ok d (p,t')
+        | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> skip d; ok d (p,t')
         | p, _ -> Error [p, ExpectedSmallVar]
 
 let read_value d =
@@ -130,20 +135,25 @@ let read_default_value d =
 
 let read_symbol_paired d =
     try_current d <| function
-        | p, TokSymbolPaired t' -> skip d; ok d (p,t')
+        | p, TokSymbolPaired(t',r) -> skip d; ok d (p,t')
+        | p, _ -> Error [p, ExpectedSymbolPaired]
+
+let read_symbol_paired' d =
+    try_current d <| function
+        | p, TokSymbolPaired(t',r) -> skip d; ok d (p,(t',r))
         | p, _ -> Error [p, ExpectedSymbolPaired]
 
 let to_lower (x : string) = Char.ToLower(x.[0]).ToString() + x.[1..]
 let read_symbol_paired_big d =
     try_current d <| function
-        | p, TokSymbolPaired t' -> 
+        | p, TokSymbolPaired(t',r) -> 
             if Char.IsUpper(t',0) then skip d; ok d (p, t')
             else Error [p, SymbolPairedShouldStartWithUppercase]
         | p, _ -> Error [p, ExpectedSymbolPaired]
 
 let read_symbol d =
     try_current d <| function
-        | p, TokSymbol t' -> skip d; Ok(t')
+        | p, TokSymbol(t',r) -> skip d; Ok(t')
         | p, _ -> Error [p, ExpectedSymbol]
 
 let skip_parenthesis a b d =
@@ -316,6 +326,7 @@ and RawExpr =
     | RawTypecase of RawTExpr * (RawTExpr * RawExpr) []
     | RawModuleOpen of VarString * SymbolString list * on_succ: RawExpr
 and RawTExpr =
+    | RawTWildcard
     | RawTMetaVar of VarString
     | RawTVar of VarString
     | RawTPair of RawTExpr * RawTExpr
@@ -543,13 +554,14 @@ and root_pattern s =
         (pat_rounds + pat_nominal + pat_wildcard + pat_dyn + pat_value + pat_record + pat_symbol + pat_active) s
 
     let pat_type = 
-        pipe2 body (opt (skip_op ":" >>. fun d -> root_type false (d.is_top_down = false) d.is_top_down true d))
+        pipe2 body (opt (skip_op ":" >>. fun d -> root_type false (d.is_top_down = false) d.is_top_down d))
             (fun a -> function Some b -> PatAnnot(a,b) | None -> a)
     let pat_and = sepBy1 pat_type (skip_op "&") |>> List.reduce (fun a b -> PatAnd(a,b))
     let pat_pair = pat_pair pat_and
     let pat_symbol_paired = 
-        (many1 (read_symbol_paired .>>. opt root_pattern_pair) |>> fun l ->
-            match l |> List.map (function a, b -> a, defaultArg b (PatVar a)) |> List.unzip with
+        (many1 (read_symbol_paired' .>>. opt root_pattern_pair) |>> fun l ->
+            let f ((a,r),b) = a, Option.defaultWith (fun () -> r := SemanticTokenLegend.variable; PatVar a) b
+            match l |> List.map f |> List.unzip with
             | (k :: k' as keys), v ->
                 let body keys =
                     let b = Text.StringBuilder()
@@ -568,15 +580,19 @@ and root_pattern_var d =
     (pat_var + pat_wildcard + pat_dyn + peek_open_parenthesis root_pattern) d
 and root_pattern_pair d = pat_pair root_pattern_var d
 
-and root_type allow_metavars allow_value_exprs allow_forall allow_symbol_paired d =
-    let next = root_type allow_metavars allow_value_exprs allow_forall true
+and root_type allow_metavars allow_value_exprs allow_forall d =
+    let next = root_type allow_metavars allow_value_exprs allow_forall
+    let allow_wildcard = allow_metavars || allow_forall
     let cases d =
+        let wildcard d = if allow_wildcard then (skip_keyword SpecWildcard >>% RawTWildcard) d else Error []
         let metavar d = if allow_metavars then (skip_unary_op "~" >>. read_var |>> RawTMetaVar) d else Error []
         let term d = if allow_value_exprs then (skip_unary_op "`" >>. ((read_var |>> RawV) <|> rounds root_term) |>> RawTTerm) d else Error []
         let record = curlies (sepBy ((record_var .>> skip_op ":") .>>. next) (skip_op ";")) |>> (Map.ofList >> RawTRecord)
         let symbol = read_symbol |>> RawTSymbol
     
-        let var = read_var |>> function
+        let var = read_var' |>> fun (x,r) ->
+            r := SemanticTokenLegend.type_variable
+            match x with
             | "i8" -> RawTPrim Int8T
             | "i16" -> RawTPrim Int16T
             | "i32" -> RawTPrim Int32T
@@ -592,16 +608,9 @@ and root_type allow_metavars allow_value_exprs allow_forall allow_symbol_paired 
             | "char" -> RawTPrim CharT
             | x when Char.IsUpper(x,0) -> RawTPair(RawTSymbol(to_lower x), RawTB)
             | x -> RawTVar x
-        let symbol_paired d = 
-            if allow_symbol_paired = false then Error [] else
-                (pipe2 (read_symbol_paired_big .>>. next) (many (read_symbol_paired .>>. next)) (fun a b ->
-                    let k,v = List.unzip ((to_lower (fst a), snd a) :: b)
-                    let b = Text.StringBuilder()
-                    List.iter (fun (x : string) -> b.Append(x).Append('_') |> ignore) k
-                    List.reduceBack (fun a b -> RawTPair(a,b)) (RawTSymbol (b.ToString()) :: v))) d
         let parenths = rounds (next <|>% RawTB)
         let (+) = alt (index d)
-        (symbol_paired + term + metavar + var + parenths + record + symbol) d
+        (wildcard + term + metavar + var + parenths + record + symbol) d
     let apply d = 
         (pipe2 cases (many (indent (col d) (<) cases)) 
             (fun a b -> List.reduce (fun a b -> match a with RawTVar "array" -> RawTArray b | _ -> RawTApply(a,b)) (a :: b))) d
@@ -610,32 +619,26 @@ and root_type allow_metavars allow_value_exprs allow_forall allow_symbol_paired 
     let forall d = 
         if allow_forall then (pipe2 (forall <|>% []) functions (List.foldBack (fun x s -> RawTForall(x,s)))) d 
         else functions d
-    forall d
+    let symbol_paired d = 
+        let i = col d
+        let next = forall
+        (pipe2 (read_symbol_paired_big .>>. next) (many (indent (i-1) (<=) read_symbol_paired .>>. next)) (fun a b ->
+            let k,v = List.unzip ((to_lower (fst a), snd a) :: b)
+            let b = Text.StringBuilder()
+            List.iter (fun (x : string) -> b.Append(x).Append('_') |> ignore) k
+            List.reduceBack (fun a b -> RawTPair(a,b)) (RawTSymbol (b.ToString()) :: v)) 
+        <|> next) d
+    symbol_paired d
 
 and root_term d =
     let rec expressions d =
         let next = root_term
         let case_var = read_var |>> fun x -> if Char.IsUpper(x,0) then ap (v (to_lower x)) RawB else v x
 
-        let case_symbol_paired =
-            let pat = read_symbol_paired .>>. opt next
-            many1 pat |>> fun l ->
-                let a,b = List.unzip l
-                let x,x' = match a with x::x' -> x,x' | _ -> failwith "Compiler error: Expected `many1 pat` to produce an element."
-                let is_upper = Char.IsUpper(x, 0)
-                let a = if is_upper then to_lower x :: x' else a
-                let b = List.map2 (fun a b -> defaultArg b (v a)) a b
-                let a = 
-                    let sb = Text.StringBuilder()
-                    a |> List.iter (fun x -> sb.Append(x).Append('_') |> ignore)
-                    sb.ToString()
-                if is_upper then ap (v a) (List.reduceBack (binop TupleCreate) b)
-                else List.reduceBack (binop TupleCreate) (RawSymbolCreate a :: b)
-
         let case_rounds = 
             rounds (fun d ->
                 let (+) = alt (index d)
-                ((read_op |>> v) + case_symbol_paired + next + fun _ -> Ok B) d)
+                ((read_op |>> v) + next + fun _ -> Ok B) d)
 
         let case_fun =
             (skip_keyword SpecFun >>. many1 (range root_pattern_pair) .>>. (skip_op "=>" >>. next))
@@ -680,9 +683,9 @@ and root_term d =
         let case_typecase =
             let clauses d = 
                 let bar = bar (col d)
-                (optional bar >>. sepBy1 (root_type true false false true .>>. (skip_op "=>" >>. next)) bar) d
+                (optional bar >>. sepBy1 (root_type true false false .>>. (skip_op "=>" >>. next)) bar) d
 
-            range ((skip_keyword SpecTypecase >>. root_type false true false true .>> skip_keyword SpecWith) .>>. clauses)
+            range ((skip_keyword SpecTypecase >>. root_type false true false .>> skip_keyword SpecWith) .>>. clauses)
             >>= (fun (r, (a, b)) d ->
                 if d.is_top_down then Error [r,TypecaseNotAllowed]
                 else Ok(RawTypecase(a,List.toArray b))
@@ -716,7 +719,7 @@ and root_term d =
 
         let case_unary_op = 
             read_unary_op >>= fun a d ->
-                let type_expr d = (((read_small_var |>> RawTVar) <|> (rounds (fun d -> root_type false (d.is_top_down = false) d.is_top_down true d))) |>> RawType) d
+                let type_expr d = (((read_small_var |>> RawTVar) <|> (rounds (fun d -> root_type false (d.is_top_down = false) d.is_top_down d))) |>> RawType) d
                 match a with
                 | "!!!!" -> 
                     (range read_big_var .>>. (rounds (sepBy1 expressions (skip_op ",")))
@@ -769,12 +772,31 @@ and root_term d =
             (term >>= loop) d
 
         pipe2 (tdop Int32.MinValue)
-            (opt (indent (i-1) (<=) (skip_op ":") >>. indent i (<=) (fun d -> root_type false (d.is_top_down = false) d.is_top_down false d)))
+            (opt (indent (i-1) (<=) (skip_op ":") >>. indent i (<=) (fun d -> root_type false (d.is_top_down = false) d.is_top_down d)))
             (fun a -> function Some b -> RawAnnot(a,b) | _ -> a)
             d
 
-    let statements d =
+    let symbol_paired d =
         let next = operators
+        let i = col d
+        let pat = indent (i-1) (<=) read_symbol_paired' .>>. opt next
+        ((many1 pat |>> fun l ->
+            let a,b = List.unzip l
+            let b = List.map2 (fun (a,r) b -> Option.defaultWith (fun () -> r := SemanticTokenLegend.variable; v a) b) a b
+            let a = List.map fst a
+            let x,x' = match a with x::x' -> x,x' | _ -> failwith "Compiler error: Expected `many1 pat` to produce an element."
+            let is_upper = Char.IsUpper(x, 0)
+            let a = if is_upper then to_lower x :: x' else a
+            let a = 
+                let sb = Text.StringBuilder()
+                a |> List.iter (fun x -> sb.Append(x).Append('_') |> ignore)
+                sb.ToString()
+            if is_upper then ap (v a) (List.reduceBack (binop TupleCreate) b)
+            else List.reduceBack (binop TupleCreate) (RawSymbolCreate a :: b))
+        <|> next) d
+
+    let statements d =
+        let next = symbol_paired
         let inl_or_let =
             (inl_or_let root_term root_pattern_pair .>>. many (and_inl_or_let root_term root_pattern_pair))
             >>= fun x _ -> 
@@ -839,13 +861,13 @@ let top_inl_or_let = inl_or_let root_term root_pattern_pair >>= fun x _ -> top_i
 let top_union =
     let clauses d =
         let bar = bar (col d)
-        (optional bar >>. sepBy1 (root_type false false false true) bar) d
+        (optional bar >>. sepBy1 (root_type false false false) bar) d
 
     (skip_keyword SpecUnion >>. many forall_var .>> skip_op "=") .>>. clauses |>> TopUnion
 
-let top_nominal = (skip_keyword SpecNominal >>. many forall_var .>> skip_op "=") .>>. root_type false true false true |>> TopNominal
-let top_prototype = tuple4 (skip_keyword SpecPrototype >>. read_small_var) read_small_var (many forall_var) (skip_op ":" >>. root_type false false true true) |>> TopPrototype
-let top_type = tuple3 (skip_keyword SpecType >>. read_small_var) (many forall_var) (skip_op "=" >>. root_type false false false true) |>> TopType
+let top_nominal = (skip_keyword SpecNominal >>. many forall_var .>> skip_op "=") .>>. root_type false true false |>> TopNominal
+let top_prototype = tuple4 (skip_keyword SpecPrototype >>. read_small_var) read_small_var (many forall_var) (skip_op ":" >>. root_type false false true) |>> TopPrototype
+let top_type = tuple3 (skip_keyword SpecType >>. read_small_var) (many forall_var) (skip_op "=" >>. root_type false false false) |>> TopType
 let top_instance =
     tuple5 (skip_keyword SpecInstance >>. read_small_var) (read_small_var .>>. many forall_var)
         (skip_op ":" >>. forall <|>% []) (many (range root_pattern_pair))
@@ -873,7 +895,7 @@ let parse (s : Env) =
         | Ok _ as x -> if s.Index = s.tokens.Length then x else Error [fst s.tokens.[s.Index], ExpectedEob]
         | Error [] ->
             if s.Index = s.tokens.Length then Error [fst (Array.last s.tokens), UnexpectedEob]
-            else Error [fst s.tokens.[s.Index], UnknownError]
+            else Error [fst s.tokens.[s.Index], ExpectedEob]
         | Error _ as l -> l
     else
         Error [({line=0; character=0}, {line=0; character=1}), ExpectedAtLeastOneToken]
