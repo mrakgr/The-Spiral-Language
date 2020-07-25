@@ -65,8 +65,8 @@ let show_parser_error = function
     | InvalidPattern l -> 
         let f = function
             | DisjointOrPattern -> "All the branches of an or pattern have to have the same variables."
-            | InvalidOp x -> sprintf "Operator %s is allowed only in the first position of a statement as its name." x
             | DuplicateVar x -> sprintf "Duplicate variable %s." x
+            | ShadowedVar x -> sprintf "Invalid shadowing of variable %s." x
             | DuplicateRecordSymbol x -> sprintf "Duplicate record symbol %s." x
             | DuplicateRecordInjection x -> sprintf "Duplicate record injection %s." x
         let l = Array.map f (Array.distinct l)

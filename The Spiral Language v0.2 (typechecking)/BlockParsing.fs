@@ -16,8 +16,8 @@ type Env = {
 
 type PatternCompilationErrors =
     | DisjointOrPattern
-    | InvalidOp of string
     | DuplicateVar of string
+    | ShadowedVar of string
     | DuplicateRecordSymbol of string
     | DuplicateRecordInjection of string
 
@@ -293,7 +293,6 @@ and Pattern =
     | PatB
     | PatE
     | PatVar of VarString
-    | PatOperator of VarString // Isn't actually a pattern. Is just here to help the inl/let statement parser.
     | PatDyn of Pattern
     | PatUnbox of Pattern
     | PatAnnot of Pattern * RawTExpr
@@ -364,11 +363,9 @@ let inline indent i op next d = if op i (col d) then next d else Error []
 
 let record_var d = (read_var <|> rounds read_op) d
 
-let pattern_validate pat =
-    let errors = ResizeArray()
+let pattern_validate (errors : PatternCompilationErrors -> unit) pat =
     let rec loop pat =
         match pat with
-        | PatOperator x -> errors.Add(InvalidOp x); Set.empty
         | PatDefaultValue _ | PatValue _ | PatSymbol _ | PatE | PatB -> Set.empty
         | PatVar x -> Set.singleton x
         | PatDyn p | PatAnnot (p,_) | PatNominal(_,p) | PatActive (_,p) | PatUnbox p | PatWhen(p, _) -> loop p
@@ -379,21 +376,25 @@ let pattern_validate pat =
                 List.map (fun item ->
                     match item with
                     | PatRecordMembersSymbol(keyword,name) ->
-                        if symbols.Add(keyword) = false then errors.Add(DuplicateRecordSymbol keyword); Set.empty else loop name
+                        if symbols.Add(keyword) = false then errors (DuplicateRecordSymbol keyword); Set.empty else loop name
                     | PatRecordMembersInjectVar(var,name) ->
-                        if injects.Add(var) = false then errors.Add(DuplicateRecordInjection var); Set.empty else loop name
+                        if injects.Add(var) = false then errors (DuplicateRecordInjection var); Set.empty else loop name
                     ) items
-            match x with _ :: _ :: _ -> Set.intersectMany x |> Set.iter (DuplicateVar >> errors.Add) | _ -> ()
+            match x with _ :: _ :: _ -> Set.intersectMany x |> Set.iter (DuplicateVar >> errors) | _ -> ()
             Set.unionMany x
         | PatPair(a,b) | PatAnd(a,b) -> 
             let a, b = loop a, loop b
-            Set.intersect a b |> Set.iter (DuplicateVar >> errors.Add)
+            Set.intersect a b |> Set.iter (DuplicateVar >> errors)
             a + b
-        | PatOr(a,b) -> let a, b = loop a, loop b in if a = b then a else errors.Add(DisjointOrPattern); a
-    loop pat |> ignore
-    errors.ToArray()
+        | PatOr(a,b) -> let a, b = loop a, loop b in if a = b then a else errors DisjointOrPattern; a
+    loop pat
 
-let patterns_validate pats = List.choose (fun (r,x) -> let x = pattern_validate x in if 0 < x.Length then Some (r, InvalidPattern x) else None) pats
+let patterns_validate pats = 
+    let l = List.map (fun (r,x) -> let errors = ResizeArray() in r, pattern_validate errors.Add x, errors) pats
+    match l with
+    | (_,x,_) :: y -> y |> List.fold (fun x (_,y,errors) -> Set.intersect x y |> Set.iter (fun x -> errors.Add(ShadowedVar x)); y) x |> ignore
+    | _ -> ()
+    l |> List.map (fun (r,_,errors) -> r, InvalidPattern(errors.ToArray()))
 
 let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
     match body with
@@ -406,8 +407,8 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
             | _ -> name, pats
         let dyn_if_let x = if is_let then x else PatDyn x
         match is_rec, name, foralls, pats with
-        | _, (_, (PatVar _ | PatOperator _)), _, _ -> 
-            match patterns_validate pats with
+        | _, (_, PatVar _), _, _ -> 
+            match patterns_validate (if is_rec then name :: pats else pats) with
             | [] -> 
                 let body = 
                     List.foldBack (fun (_,pat) body -> RawInl [dyn_if_let pat,body]) pats body
@@ -548,7 +549,7 @@ and root_pattern s =
         let pat_symbol = read_symbol |>> PatSymbol
         let pat_rounds = rounds (fun s ->
             let (+) = alt (index s)
-            (root_pattern + (read_op |>> PatOperator) + (fun _ -> Ok PatB)) s)
+            (root_pattern + (read_op |>> PatVar) + (fun _ -> Ok PatB)) s)
 
         let (+) = alt (index s)
         (pat_rounds + pat_nominal + pat_wildcard + pat_dyn + pat_value + pat_record + pat_symbol + pat_active) s
@@ -806,7 +807,7 @@ and root_term d =
                 | x, xs ->
                     let l = x :: xs
                     let body = l |> List.map (function 
-                        | (_,(_,(PatVar name | PatOperator name)),body),true -> name, body
+                        | (_,(_, PatVar name),body),true -> name, body
                         | _ -> failwith "Compiler error: Recursive inl/let statements should always have PatVar or PatOperator for names and should always be recursive."
                         )
                     Ok(fun on_succ -> RawRecBlock(body, on_succ))
@@ -853,8 +854,8 @@ type TopStatement =
     | TopPrototypeInstance of prototype_name: VarString * nominal_name: VarString * nominal_foralls: ForallVars * RawExpr
 
 let top_inl_or_let_process = function
-    | (_,(_,(PatVar name | PatOperator name)),(RawForall _ | RawInl _ as body)),_ -> Ok(TopInl(name, body))
-    | (r,(_,(PatVar _ | PatOperator _)),_),_ -> Error [r, ExpectedGlobalFunction]
+    | (_,(_,PatVar name),(RawForall _ | RawInl _ as body)),_ -> Ok(TopInl(name, body))
+    | (r,(_,PatVar _),_),_ -> Error [r, ExpectedGlobalFunction]
     | (_,(r,_),_),_ -> Error [r, ExpectedVarOrOpAsNameOfGlobalStatement]
 let top_inl_or_let = inl_or_let root_term root_pattern_pair >>= fun x _ -> top_inl_or_let_process x
 
