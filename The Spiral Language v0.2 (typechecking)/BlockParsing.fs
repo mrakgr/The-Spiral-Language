@@ -314,8 +314,8 @@ and RawExpr =
     | RawSymbolCreate of SymbolString
     | RawType of RawTExpr
     | RawInline of RawExpr // Acts as a join point for the prepass specifically.
-    | RawLet of (Pattern * RawExpr) list * body: RawExpr
-    | RawInl of (Pattern * RawExpr) list
+    | RawMatch of body: RawExpr * (Pattern * RawExpr) list
+    | RawInl of Pattern * RawExpr
     | RawForall of VarString * RawKindExpr * RawExpr
     | RawRecBlock of (VarString * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
     | RawRecordWith of RawExpr list * RawRecordWith list * RawRecordWithout list
@@ -392,9 +392,9 @@ let pattern_validate (errors : PatternCompilationErrors -> unit) pat =
 let patterns_validate pats = 
     let l = List.map (fun (r,x) -> let errors = ResizeArray() in r, pattern_validate errors.Add x, errors) pats
     match l with
-    | (_,x,_) :: y -> y |> List.fold (fun x (_,y,errors) -> Set.intersect x y |> Set.iter (fun x -> errors.Add(ShadowedVar x)); y) x |> ignore
+    | (_,x,_) :: y -> y |> List.fold (fun x (_,y,errors) -> Set.intersect x y |> Set.iter (fun x -> errors.Add(ShadowedVar x)); x + y) x |> ignore
     | _ -> ()
-    l |> List.map (fun (r,_,errors) -> r, InvalidPattern(errors.ToArray()))
+    l |> List.choose (fun (r,_,errors) -> if 0 < errors.Count then Some(r, InvalidPattern(errors.ToArray())) else None)
 
 let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
     match body with
@@ -411,7 +411,7 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
             match patterns_validate (if is_rec then name :: pats else pats) with
             | [] -> 
                 let body = 
-                    List.foldBack (fun (_,pat) body -> RawInl [dyn_if_let pat,body]) pats body
+                    List.foldBack (fun (_,pat) body -> RawInl(dyn_if_let pat,body)) pats body
                     |> List.foldBack (fun (a,b) body -> RawForall(a,b,body)) foralls
                 match is_rec, body with
                 | false, _ | true, (RawInl _ | RawForall _) -> Ok((r,name,body),is_rec)
@@ -483,7 +483,7 @@ let rec precedence_associativity name =
 
 let inl l = RawInl l
 let v x = RawV x
-let l bind body on_succ = RawLet([bind,on_succ],body)
+let l bind body on_succ = RawMatch(body,[bind,on_succ])
 let inline_ = function RawInline _ as x -> x | x -> RawInline x
 let if' cond on_succ on_fail = RawOp(If,[|cond;on_succ;on_fail|])
 let ty x = RawType x
@@ -645,7 +645,7 @@ and root_term d =
             (skip_keyword SpecFun >>. many1 (range root_pattern_pair) .>>. (skip_op "=>" >>. next))
             >>= fun (pats, body) d ->
                 match patterns_validate pats with
-                | [] -> List.foldBack (fun (_,pat) body -> RawInl [pat,body]) pats body |> Ok
+                | [] -> List.foldBack (fun (_,pat) body -> RawInl(pat,body)) pats body |> Ok
                 | ers -> Error ers
             
         let case_forall =
@@ -653,7 +653,7 @@ and root_term d =
             >>= fun (foralls, pats, body) d ->
                 match patterns_validate pats with
                 | [] -> 
-                    List.foldBack (fun (_,pat) body -> RawInl [pat,body]) pats body
+                    List.foldBack (fun (_,pat) body -> RawInl(pat,body)) pats body
                     |> List.foldBack (fun (a,b) body -> RawForall(a,b,body)) foralls |> Ok
                 | ers -> Error ers
 
@@ -678,8 +678,8 @@ and root_term d =
                     | e -> Error e
                     ) d
 
-            (skip_keyword SpecFunction >>. clauses |>> inl)
-            <|> (pipe2 (skip_keyword SpecMatch >>. next .>> skip_keyword SpecWith) clauses (fun a b -> RawLet(b,a)))
+            (skip_keyword SpecFunction >>. clauses |>> fun l -> let pat_main = " main_arg" in inl (PatVar pat_main, RawMatch(v pat_main,l)))
+            <|> ((skip_keyword SpecMatch >>. next .>> skip_keyword SpecWith) .>>. clauses |>> RawMatch)
 
         let case_typecase =
             let clauses d = 
@@ -877,7 +877,7 @@ let top_instance =
             match patterns_validate pats with
             | [] ->
                 let body =
-                    List.foldBack (fun (_,pat) body -> RawInl [pat,body]) pats body
+                    List.foldBack (fun (_,pat) body -> RawInl(pat,body)) pats body
                     |> List.foldBack (fun (a,b) body -> RawForall(a,b,body)) foralls
                 Ok(TopPrototypeInstance(prototype_name,nominal_name,nominal_foralls,body))
             | ers -> Error ers

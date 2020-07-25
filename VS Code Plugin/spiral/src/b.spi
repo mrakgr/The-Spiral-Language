@@ -2,3 +2,7 @@ let g (x:e) =
     inl f = function
         | a: b:q c: => 1
     q: 1 w: e: r: x
+    inl rec f = function
+        | f => f
+        | qwe, asd => 2
+    ()
