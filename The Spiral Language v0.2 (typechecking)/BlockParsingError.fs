@@ -58,7 +58,7 @@ let show_parser_error = function
     | ExpectedVarOrOpAsNameOfGlobalStatement -> "The first pattern of a global statement should either be a variable or compile down to it."
     | ExpectedVarOrOpAsNameOfRecStatement -> "The first pattern of a recursive statement should either be a variable or compile down to it."
     | MissingFunctionBody -> "Missing function body."
-    | StatementLastInBlock -> "A block requires an expression in last position."
+    | ExpectedExpression -> "A sequence of statements should end in an expression."
     | InbuiltOpNotFound -> "Not found among the inbuilt operations."
     | UnknownOperator -> "Operator does not have known precedence and associativity."
     | ForallNotAllowed -> "Forall not allowed here."

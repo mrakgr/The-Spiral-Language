@@ -45,7 +45,7 @@ type ParserErrors =
     | ExpectedSinglePatternWhenStatementNameIsNorVarOrOp
     | MissingFunctionBody
     | ExpectedGlobalFunction
-    | StatementLastInBlock
+    | ExpectedExpression
     | InbuiltOpNotFound
     | UnknownOperator
     | UnexpectedEob
@@ -818,12 +818,14 @@ and root_term d =
         
         let i = col d
         let inline if_ x = indent i x
-        let stmts = many1 (if_ (=) statement_parsers) .>>. ((if_ (<=) (skip_keyword SpecIn) >>. root_term) <|> if_ (=) next)
+        let stmts = 
+            many1 (if_ (=) (range statement_parsers)) .>>. opt ((if_ (<=) (skip_keyword SpecIn) >>. root_term) <|> if_ (=) next)
+            >>= fun (a,b) _ -> match b with Some b -> Ok(a,b) | None -> Error [List.last a |> fst, ExpectedExpression]
         let expr = if_ (=) next |>> fun x -> [],x
         (many1 (stmts <|> expr)
         |>> fun x -> 
             List.foldBack (fun (stmts,expr) s -> 
-                let process_statements s = List.foldBack (<|) stmts s
+                let process_statements s = List.foldBack (fun (_,a) b -> a b) stmts s
                 match s with
                 | ValueNone -> ValueSome (process_statements expr)
                 | ValueSome expr' -> ValueSome (process_statements (l PatE (unop ErrorNonUnit expr) expr'))

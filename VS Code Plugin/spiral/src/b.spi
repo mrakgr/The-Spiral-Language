@@ -5,4 +5,5 @@ let g (x:e) =
     inl rec f = function
         | f => f
         | qwe, asd => 2
-    ()
+    inl x = x
+    inl y = 2
