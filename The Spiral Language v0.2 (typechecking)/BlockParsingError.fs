@@ -45,6 +45,7 @@ let show_parser_error = function
     | ExpectedOperator x -> x
     | ExpectedUnaryOperator' -> "unary operator"
     | ExpectedUnaryOperator x -> x
+    | ExpectedUnit -> "()"
     | ExpectedSmallVar -> "lowercase variable"
     | ExpectedBigVar -> "uppercase variable"
     | ExpectedVar -> "variable"
