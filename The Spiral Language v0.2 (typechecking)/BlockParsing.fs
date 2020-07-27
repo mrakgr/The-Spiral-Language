@@ -15,14 +15,14 @@ type Env = {
     member d.Index with get() = d.i.contents and set(i) = d.i := i
 
 type PatternCompilationErrors =
-    | DisjointOrPattern
-    | DuplicateVar of string
-    | ShadowedVar of string
-    | DuplicateRecordSymbol of string
-    | DuplicateRecordInjection of string
+    | DisjointOrPatternVar
+    | DuplicateVar
+    | ShadowedVar
+    | DuplicateRecordSymbol
+    | DuplicateRecordInjection
 
 type ParserErrors =
-    | InvalidPattern of PatternCompilationErrors []
+    | InvalidPattern of PatternCompilationErrors
     | ExpectedKeyword of TokenKeyword
     | ExpectedOperator'
     | ExpectedOperator of string
@@ -57,7 +57,11 @@ type ParserErrors =
     | TermNotAllowed
     | UnknownError
     | ExpectedAtLeastOneToken
-    | DuplicateVarsInRecordType of string list
+    | DuplicateRecordTypeVar
+    | DuplicateForallVar
+    | DuplicateTermRecordSymbol
+    | DuplicateTermRecordInjection
+    | DuplicateRecFunctionName
 
 let inline try_current_template (d : Env) on_succ on_fail =
     let i = d.Index
@@ -141,6 +145,11 @@ let read_small_var d =
 let read_small_var' d =
     try_current d <| function
         | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> skip d; Ok(p,t')
+        | p, _ -> Error [p, ExpectedSmallVar]
+
+let read_type_var d =
+    try_current d <| function
+        | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> skip d; r := SemanticTokenLegend.type_variable; Ok(t')
         | p, _ -> Error [p, ExpectedSmallVar]
 
 let read_value d =
@@ -286,16 +295,16 @@ type RawKindExpr =
 type TypeVar = Range * (VarString * RawKindExpr)
 
 type RawRecordWith =
-    | RawRecordWithSymbol of Range * SymbolString * RawExpr
-    | RawRecordWithSymbolModify of Range * SymbolString * RawExpr
-    | RawRecordWithInjectVar of Range * VarString * RawExpr
-    | RawRecordWithInjectSymbolModify of Range * SymbolString * RawExpr
+    | RawRecordWithSymbol of (Range * SymbolString) * RawExpr
+    | RawRecordWithSymbolModify of (Range * SymbolString) * RawExpr
+    | RawRecordWithInjectVar of (Range * VarString) * RawExpr
+    | RawRecordWithInjectVarModify of (Range * SymbolString) * RawExpr
 and RawRecordWithout =
     | RawRecordWithoutSymbol of Range * SymbolString
     | RawRecordWithoutInjectVar of Range * VarString
 and PatRecordMember =
-    | PatRecordMembersSymbol of Range * symbol: SymbolString * name: Pattern
-    | PatRecordMembersInjectVar of Range * var: VarString * name: Pattern
+    | PatRecordMembersSymbol of (Range * SymbolString) * name: Pattern
+    | PatRecordMembersInjectVar of (Range * VarString) * name: Pattern
 and Pattern =
     | PatB of Range
     | PatE of Range
@@ -323,7 +332,7 @@ and RawExpr =
     | RawMatch of Range * body: RawExpr * (Pattern * RawExpr) list
     | RawFun of Range * (Pattern * RawExpr) list
     | RawForall of Range * TypeVar * RawExpr
-    | RawRecBlock of Range * (Range * VarString * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
+    | RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
     | RawRecordWith of Range * RawExpr list * RawRecordWith list * RawRecordWithout list
     | RawOp of Range * Op * RawExpr []
     | RawJoinPoint of Range * RawExpr
@@ -351,18 +360,16 @@ and RawTExpr =
     | RawTArray of Range * RawTExpr
     | RawTTerm of Range * RawExpr
 
+let (+.) (a,_) (_,b) = a,b
 let range_of_typevar ((r,(_,_)) : TypeVar) = r
 let range_of_record_with = function
-    | RawRecordWithSymbol(r,_,_)
-    | RawRecordWithSymbolModify(r,_,_)
-    | RawRecordWithInjectVar(r,_,_)
-    | RawRecordWithInjectSymbolModify(r,_,_) -> r
+    | RawRecordWithSymbol((r,_),_)
+    | RawRecordWithSymbolModify((r,_),_)
+    | RawRecordWithInjectVar((r,_),_)
+    | RawRecordWithInjectVarModify((r,_),_) -> r
 let range_of_record_without = function
     | RawRecordWithoutSymbol(r,_)
     | RawRecordWithoutInjectVar(r,_) -> r
-let range_of_pat_record_member = function
-    | PatRecordMembersSymbol(r,_,_)
-    | PatRecordMembersInjectVar(r,_,_) -> r
 let range_of_pattern = function
     | PatB r
     | PatE r
@@ -380,6 +387,9 @@ let range_of_pattern = function
     | PatAnd(r,_,_)
     | PatWhen(r,_,_)
     | PatNominal(r,_,_) -> r
+let range_of_pat_record_member = function
+    | PatRecordMembersSymbol((r,_),x)
+    | PatRecordMembersInjectVar((r,_),x) -> r +. range_of_pattern x
 let range_of_expr = function
     | RawB r
     | RawV(r,_)
@@ -426,7 +436,6 @@ let squares a d = (skip_parenthesis Square Open >>. a .>> skip_parenthesis Squar
 let index (t : Env) = t.Index
 let index_set v (t : Env) = t.Index <- v
 
-let (+.) (a,_) (_,b) = a,b
 let inline range exp s =
     let i = index s
     exp s |> Result.map (fun x ->
@@ -437,18 +446,28 @@ let inline range exp s =
         )
 
 let rec kind d = (sepBy1 ((skip_op "*" >>% RawKindStar) <|> rounds kind) (skip_op "->") |>> List.reduceBack (fun a b -> RawKindFun (a,b))) d
-let forall_var d = range ((read_small_var |>> fun x -> x, RawKindStar) <|> rounds ((read_small_var .>> skip_op ":") .>>. kind)) d
-let forall d = (skip_keyword SpecForall >>. (many1 forall_var) .>> skip_op ".") d
+let forall_var d = range ((read_type_var |>> fun x -> x, RawKindStar) <|> rounds ((read_type_var .>> skip_op ":") .>>. kind)) d
+
+let duplicates er x = 
+    let h = Collections.Generic.HashSet()
+    x |> List.choose (fun (r,n) -> if h.Add n = false then Some(r,er) else None)
+let forall d = 
+    (skip_keyword SpecForall >>. (many1 forall_var) .>> skip_op "." 
+    >>= fun x _ -> duplicates DuplicateForallVar x |> function [] -> Ok x | er -> Error er) d
 
 let inline indent i op next d = if op i (col d) then next d else Error []
 
 let record_var d = (read_var <|> rounds read_op) d
 
-let pattern_validate (errors : PatternCompilationErrors -> unit) pat =
+let patterns_validate pats = 
+    let pos = Collections.Generic.Dictionary(HashIdentity.Reference)
+    let errors = ResizeArray()
     let rec loop pat =
         match pat with
         | PatDefaultValue _ | PatValue _ | PatSymbol _ | PatE | PatB -> Set.empty
-        | PatVar(_,x) -> Set.singleton x
+        | PatVar(r,x) -> 
+            pos.Add(x,r)
+            Set.singleton x
         | PatDyn(_,p) | PatAnnot (_,p,_) | PatNominal(_,_,p) | PatActive (_,_,p) | PatUnbox(_,p) | PatWhen(_,p,_) -> loop p
         | PatRecordMembers(_,items) ->
             let symbols = Collections.Generic.HashSet()
@@ -456,26 +475,29 @@ let pattern_validate (errors : PatternCompilationErrors -> unit) pat =
             let x =
                 List.map (fun item ->
                     match item with
-                    | PatRecordMembersSymbol(_,keyword,name) ->
-                        if symbols.Add(keyword) = false then errors (DuplicateRecordSymbol keyword); Set.empty else loop name
-                    | PatRecordMembersInjectVar(_,var,name) ->
-                        if injects.Add(var) = false then errors (DuplicateRecordInjection var); Set.empty else loop name
+                    | PatRecordMembersSymbol((r,keyword),name) ->
+                        if symbols.Add(keyword) = false then errors.Add (r, InvalidPattern DuplicateRecordSymbol); Set.empty else loop name
+                    | PatRecordMembersInjectVar((r,var),name) ->
+                        if injects.Add(var) = false then errors.Add (r, InvalidPattern DuplicateRecordInjection); Set.empty else loop name
                     ) items
-            match x with _ :: _ :: _ -> Set.intersectMany x |> Set.iter (DuplicateVar >> errors) | _ -> ()
+            match x with _ :: _ :: _ -> Set.intersectMany x |> Set.iter (fun x -> errors.Add (pos.[x], InvalidPattern DuplicateVar)) | _ -> ()
             Set.unionMany x
         | PatPair(_,a,b) | PatAnd(_,a,b) -> 
             let a, b = loop a, loop b
-            Set.intersect a b |> Set.iter (DuplicateVar >> errors)
+            Set.intersect a b |> Set.iter (fun x -> errors.Add (pos.[x], InvalidPattern DuplicateVar))
             a + b
-        | PatOr(_,a,b) -> let a, b = loop a, loop b in if a = b then a else errors DisjointOrPattern; a
-    loop pat
-
-let patterns_validate pats = 
-    let l = List.map (fun x -> let errors = ResizeArray() in range_of_pattern x, pattern_validate errors.Add x, errors) pats
-    match l with
-    | (_,x,_) :: y -> y |> List.fold (fun x (_,y,errors) -> Set.intersect x y |> Set.iter (fun x -> errors.Add(ShadowedVar x)); x + y) x |> ignore
-    | _ -> ()
-    l |> List.choose (fun (r,_,errors) -> if 0 < errors.Count then Some(r, InvalidPattern(errors.ToArray())) else None)
+        | PatOr(_,a,b) -> 
+            let a, b = loop a, loop b
+            let f = Set.iter (fun x -> errors.Add (pos.[x], InvalidPattern DisjointOrPatternVar))
+            f (a-b); f (b-a)
+            a
+    
+    List.fold (fun s x ->
+        let s' = loop x
+        Set.intersect s s' |> Set.iter (fun x -> errors.Add(pos.[x],InvalidPattern ShadowedVar))
+        s + s'
+        ) Set.empty pats |> ignore
+    errors |> Seq.toList
 
 let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
     match body with
@@ -617,7 +639,7 @@ let inline unit' f d =
         let a,b = d.tokens.[i], d.tokens.[i+1]
         let r = fst a +. fst b
         match snd a, snd b with
-        | TokParenthesis(Round,Open), TokParenthesis(Round,Close) -> Ok(f r)
+        | TokParenthesis(Round,Open), TokParenthesis(Round,Close) -> skip' d 2; Ok(f r)
         | _ -> Error [r, ExpectedUnit]
     else
         Error []
@@ -631,9 +653,11 @@ let rec pat_nominal d =
         | PatVar(ra,a) -> (opt root_pattern_var |>> function Some b -> PatNominal(ra +. range_of_pattern b,a,b) | None -> x) d
         | _ -> Ok x) d
 and pat_var d =
-    (read_var'' |>> fun (r,a) ->
-        if Char.IsLower(a,0) then PatVar(r,a)
-        else PatUnbox(r,PatPair(r,PatSymbol(r,to_lower a), PatB r))
+    (read_var' |>> fun (r,a,re) ->
+        if Char.IsUpper(a,0) then 
+            re := SemanticTokenLegend.symbol
+            PatUnbox(r,PatPair(r,PatSymbol(r,to_lower a), PatB r))
+        else PatVar(r,a)
         ) d
 and pat_wildcard d = (skip_keyword' SpecWildcard |>> PatE) d
 and pat_dyn d = (range (skip_unary_op "~" >>. root_pattern_var) |>> PatDyn) d
@@ -645,10 +669,10 @@ and root_pattern s =
             |>> fun (r,(a,b)) -> PatActive(r,a,b)
         let pat_value = (read_value |>> PatValue) <|> (read_default_value |>> PatDefaultValue)
         let pat_record_item =
-            let inj = skip_unary_op "$" >>. read_small_var |>> fun a -> PatRecordMembersInjectVar,a
-            let var = record_var |>> fun a -> PatRecordMembersSymbol,a
-            range ((inj <|> var) .>>. (opt (skip_op "=" >>. root_pattern_pair)))
-            |>> fun (r,((f,a),b)) -> f (r, a, defaultArg b (PatVar(r,a)))
+            let inj = skip_unary_op "$" >>. read_small_var' |>> fun a -> PatRecordMembersInjectVar,a
+            let var = range record_var |>> fun a -> PatRecordMembersSymbol,a
+            ((inj <|> var) .>>. (opt (skip_op "=" >>. root_pattern_pair)))
+            |>> fun ((f,a),b) -> f (a, defaultArg b (PatVar a))
         let pat_record = range (curlies (many pat_record_item)) |>> PatRecordMembers
         let pat_symbol = read_symbol |>> PatSymbol
         let pat_rounds = rounds (root_pattern <|> (read_op' |>> PatVar))
@@ -689,33 +713,33 @@ and root_type allow_metavars allow_value_exprs allow_forall d =
         let metavar d = if allow_metavars then (skip_unary_op "~" >>. read_var'' |>> RawTMetaVar) d else Error []
         let term d = if allow_value_exprs then (range (skip_unary_op "`" >>. ((read_var'' |>> RawV) <|> rounds root_term)) |>> RawTTerm) d else Error []
         let record =
-            range (curlies (sepBy ((record_var .>> skip_op ":") .>>. next) (skip_op ";")))
+            range (curlies (sepBy ((range record_var .>> skip_op ":") .>>. next) (skip_op ";")))
             >>= fun (r,x) _ ->
-                let duplicates = ResizeArray()
-                let h = Collections.Generic.HashSet()
-                List.iter (fun (name,_) -> if h.Add name = false then duplicates.Add name) x
-                if 0 = duplicates.Count then Ok(RawTRecord(r,Map.ofList x))
-                else Error [r, DuplicateVarsInRecordType (Seq.toList duplicates)]
+                x |> List.map fst |> duplicates DuplicateRecordTypeVar
+                |> function [] -> Ok(RawTRecord(r,x |> List.map (fun ((_,n),x) -> n,x) |> Map.ofList)) | er -> Error er
         let symbol = read_symbol |>> RawTSymbol
     
         let var = read_var' |>> fun (o,x,r) ->
-            r := SemanticTokenLegend.type_variable
-            match x with
-            | "i8" -> RawTPrim(o,Int8T)
-            | "i16" -> RawTPrim(o,Int16T)
-            | "i32" -> RawTPrim(o,Int32T)
-            | "i64" -> RawTPrim(o,Int64T)
-            | "u8" -> RawTPrim(o,UInt8T)
-            | "u16" -> RawTPrim(o,UInt16T)
-            | "u32" -> RawTPrim(o,UInt32T)
-            | "u64" -> RawTPrim(o,UInt64T)
-            | "f32" -> RawTPrim(o,Float32T)
-            | "f64" -> RawTPrim(o,Float64T)
-            | "string" -> RawTPrim(o,StringT)
-            | "bool" -> RawTPrim(o,BoolT)
-            | "char" -> RawTPrim(o,CharT)
-            | x when Char.IsUpper(x,0) -> RawTPair(o,RawTSymbol(o,to_lower x), RawTB o)
-            | x -> RawTVar(o, x)
+            if Char.IsUpper(x,0) then
+                r := SemanticTokenLegend.symbol
+                RawTPair(o,RawTSymbol(o,to_lower x), RawTB o)
+            else
+                r := SemanticTokenLegend.type_variable
+                match x with
+                | "i8" -> RawTPrim(o,Int8T)
+                | "i16" -> RawTPrim(o,Int16T)
+                | "i32" -> RawTPrim(o,Int32T)
+                | "i64" -> RawTPrim(o,Int64T)
+                | "u8" -> RawTPrim(o,UInt8T)
+                | "u16" -> RawTPrim(o,UInt16T)
+                | "u32" -> RawTPrim(o,UInt32T)
+                | "u64" -> RawTPrim(o,UInt64T)
+                | "f32" -> RawTPrim(o,Float32T)
+                | "f64" -> RawTPrim(o,Float64T)
+                | "string" -> RawTPrim(o,StringT)
+                | "bool" -> RawTPrim(o,BoolT)
+                | "char" -> RawTPrim(o,CharT)
+                | x -> RawTVar(o, x)
         let (+) = alt (index d)
         (unit' RawTB + rounds next + wildcard + term + metavar + var + record + symbol) d
     let apply d = 
@@ -750,7 +774,13 @@ and root_type allow_metavars allow_value_exprs allow_forall d =
 and root_term d =
     let rec expressions d =
         let next = root_term
-        let case_var = read_var'' |>> fun (r,x) -> if Char.IsUpper(x,0) then RawApply(r, RawV(r,to_lower x), RawB r) else RawV(r,x)
+        let case_var = 
+            read_var' |>> fun (r,x,re) -> 
+                if Char.IsUpper(x,0) then 
+                    re := SemanticTokenLegend.symbol
+                    RawApply(r, RawV(r,to_lower x), RawB r) 
+                else RawV(r,x)
+        let case_unit = unit' RawB
         let case_rounds = rounds ((read_op' |>> RawV) <|> next)
         let case_fun =
             (skip_keyword SpecFun >>. many1 root_pattern_pair .>>. (skip_op "=>" >>. next))
@@ -808,14 +838,14 @@ and root_term d =
 
         let case_record =
             let record_body = skip_op "=" >>. next
-            let record_create_body = range (record_var .>>. record_body) |>> fun (a,(b,c)) -> RawRecordWithSymbol(a,b,c)
-            let record_create = range (sepBy record_create_body (skip_op ";")) |>> fun (r,withs) -> RawRecordWith(r,[],withs,[])
+            let record_create_body = range record_var .>>. record_body |>> RawRecordWithSymbol
+            let record_create = range (sepBy record_create_body (skip_op ";")) |>> fun (r,withs) -> (r,[],withs,[])
             let record_with_bodies =
                 record_create_body <|> (read_unary_op' >>= fun (r,x) d ->
                     match x with
-                    | "#" -> (range (record_var .>>. record_body) |>> fun (a,(b,c)) -> RawRecordWithSymbolModify(a,b,c)) d
-                    | "$" -> (range (read_small_var .>>. record_body) |>> fun (a,(b,c)) -> RawRecordWithInjectVar(a,b,c)) d
-                    | "#$" -> (range (read_small_var .>>. record_body) |>> fun (a,(b,c)) -> RawRecordWithInjectSymbolModify(a,b,c)) d
+                    | "#" -> (range record_var .>>. record_body |>> RawRecordWithSymbolModify) d
+                    | "$" -> (range read_small_var .>>. record_body |>> RawRecordWithInjectVar) d
+                    | "#$" -> (range read_small_var .>>. record_body |>> RawRecordWithInjectVarModify) d
                     | _ -> Error [r, ExpectedUnaryOperator "#"; r, ExpectedUnaryOperator "$"; r, ExpectedUnaryOperator "#$"]
                     )
             let record_without_bodies = (range record_var |>> RawRecordWithoutSymbol) <|> (skip_unary_op "$" >>. read_small_var' |>> RawRecordWithoutInjectVar)
@@ -825,9 +855,16 @@ and root_term d =
                         (many ((read_symbol |>> RawSymbolCreate) <|> (skip_op "$" >>. read_small_var' |>> RawV)))
                         ((skip_keyword SpecWith >>. sepBy record_with_bodies (skip_op ";")) <|>% [])
                         ((skip_keyword SpecWithout >>. many record_without_bodies) <|>% []))
-                |>> fun (r,(name, acs, withs, withouts)) -> RawRecordWith(r,RawV name :: acs,withs,withouts)
+                |>> fun (r,(name, acs, withs, withouts)) -> (r,RawV name :: acs,withs,withouts)
         
             restore 2 (curlies record_with) <|> curlies record_create
+            >>= fun (_,_,withs,withouts as x) _ ->
+                [
+                withs |> List.choose (function RawRecordWithSymbol(a,_) | RawRecordWithSymbolModify(a,_) -> Some a | _ -> None) |> duplicates DuplicateTermRecordSymbol
+                withs |> List.choose (function RawRecordWithInjectVar(a,_) | RawRecordWithInjectVarModify(a,_) -> Some a | _ -> None) |> duplicates DuplicateTermRecordInjection
+                withouts |> List.choose (function RawRecordWithoutSymbol(a,b) -> Some(a,b) | _ -> None) |> duplicates DuplicateTermRecordSymbol
+                withouts |> List.choose (function RawRecordWithoutInjectVar(a,b) -> Some(a,b) | _ -> None) |> duplicates DuplicateTermRecordInjection
+                ] |> List.concat |> function [] -> Ok(RawRecordWith x) | er -> Error er
 
         let case_join_point = skip_keyword SpecJoin >>. next |>> fun x -> RawJoinPoint(range_of_expr x,x)
 
@@ -850,7 +887,7 @@ and root_term d =
         let (+) = alt (index d)
 
         (case_value + case_default_value + case_var + case_join_point + case_symbol
-        + case_typecase + case_match + case_typecase + case_rounds + case_record
+        + case_typecase + case_match + case_typecase + case_unit + case_rounds + case_record
         + case_if_then_else + case_fun + case_forall + case_unary_op) d
 
     let application_tight d =
@@ -913,13 +950,14 @@ and root_term d =
                 | ((r,name,body),false), [] -> Ok(fun on_succ -> RawMatch(r,body,[name,on_succ]))
                 | ((_,_,_),false), l -> l |> List.map (fun ((r,_,_),_) -> r, UnexpectedAndInlRec) |> Error
                 | x, xs ->
-                    let l = x :: xs
-                    let body = l |> List.map (function 
-                        | (r,PatVar(_,name),body),true -> r, name, body
+                    let l = x :: xs |> List.map (function 
+                        | (r,PatVar(o,name),body),true -> r, ((o,name), body)
                         | _ -> failwith "Compiler error: Recursive inl/let statements should always have PatVar or PatOperator for names and should always be recursive."
                         )
-                    let r = body |> List.map (fun (x,_,_) -> x) |> List.reduce (+.)
-                    Ok(fun on_succ -> RawRecBlock(r, body, on_succ))
+                    let r = l |> List.map fst |> List.reduce (+.)
+                    l |> List.map (snd >> fst) 
+                    |> duplicates DuplicateRecFunctionName
+                    |> function [] -> Ok(fun on_succ -> RawRecBlock(r, List.map snd l, on_succ)) | er -> Error er
         let module_open = module_open |>> fun (r,(name,acs)) on_succ -> RawModuleOpen(r,name,acs,on_succ)
         let statement_parsers d =
             let (+) = alt (index d)
@@ -977,11 +1015,11 @@ let top_union =
     range ((skip_keyword SpecUnion >>. many forall_var .>> skip_op "=") .>>. clauses) |>> fun (r,(a,b)) -> TopUnion(r,a,b)
 
 let top_nominal = range ((skip_keyword SpecNominal >>. many forall_var .>> skip_op "=") .>>. root_type false true false) |>> fun (r,(a,b)) -> TopNominal(r,a,b)
-let top_prototype = range (tuple4 (skip_keyword SpecPrototype >>. read_small_var) read_small_var (many forall_var) (skip_op ":" >>. root_type false false true)) |>> fun (r,(a,b,c,d)) -> TopPrototype(r,a,b,c,d)
+let top_prototype = range (tuple4 (skip_keyword SpecPrototype >>. read_small_var) read_type_var (many forall_var) (skip_op ":" >>. root_type false false true)) |>> fun (r,(a,b,c,d)) -> TopPrototype(r,a,b,c,d)
 let top_type = range (tuple3 (skip_keyword SpecType >>. read_small_var) (many forall_var) (skip_op "=" >>. root_type false false false)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)
 let top_instance =
-    range (
-        tuple5 (skip_keyword SpecInstance >>. read_small_var) (read_small_var .>>. many forall_var)
+    range
+        (tuple5 (skip_keyword SpecInstance >>. read_small_var) (read_type_var .>>. many forall_var)
             (skip_op ":" >>. forall <|>% []) (many root_pattern_pair)
             (skip_op "=" >>. root_term))
     >>= fun (r,(prototype_name, (nominal_name, nominal_foralls), foralls, pats, body)) _ ->

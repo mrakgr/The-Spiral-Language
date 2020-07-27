@@ -1,4 +1,4 @@
-let g (x:e) =
+let g forall (q : *) t. (x:e) =
     inl f = function
         | a: b:q c: => 1
     q: 1 w: e: r: x
@@ -7,3 +7,15 @@ let g (x:e) =
         | qwe, asd => 2
     inl x = x
     inl y = 2
+    {r with a = 1; b = x y; $a=1 without $a a e}
+    ()
+    234 : i32 -> i32
+    (2 + 2)
+
+let h {a b $r} =
+    let rec g x = x
+    and inl f x = x
+    and inl g x = f x
+    and inl f x = x
+    and inl f x = x
+    and inl h x = x

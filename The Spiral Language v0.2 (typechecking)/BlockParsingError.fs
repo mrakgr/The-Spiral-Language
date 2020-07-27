@@ -63,16 +63,9 @@ let show_parser_error = function
     | InbuiltOpNotFound -> "Not found among the inbuilt operations."
     | UnknownOperator -> "Operator does not have known precedence and associativity."
     | ForallNotAllowed -> "Forall not allowed here."
-    | InvalidPattern l -> 
-        let f = function
-            | DisjointOrPattern -> "All the branches of an or pattern have to have the same variables."
-            | DuplicateVar x -> sprintf "Duplicate variable %s." x
-            | ShadowedVar x -> sprintf "Invalid shadowing of variable %s." x
-            | DuplicateRecordSymbol x -> sprintf "Duplicate record symbol %s." x
-            | DuplicateRecordInjection x -> sprintf "Duplicate record injection %s." x
-        let l = Array.map f (Array.distinct l)
-        if 1 < l.Length then Array.append [|"Multiple errors:"|] l else l
-        |> String.concat "\n"
+    | InvalidPattern DisjointOrPatternVar -> "Both branches of an or pattern have have the same variables. This one is disjoint."
+    | InvalidPattern DuplicateVar -> "Duplicate pattern variable."
+    | InvalidPattern ShadowedVar -> "Shadowed pattern variable."
     | MetavarNotAllowed -> "Metavariable is not allowed here."
     | SymbolPairedShouldStartWithUppercase -> "Paired symbol should start with uppercase here."
     | TermNotAllowed -> "The term is not allowed here."
@@ -82,7 +75,13 @@ let show_parser_error = function
     | UnexpectedEob -> "Unexpected end of block past this token."
     | ExpectedAtLeastOneToken -> "At least one (non-comment) token should be present in a block."
     | UnknownError -> "Compiler error: Parsing failed at this position with no error message and without consuming all the tokens in a block."
-    | DuplicateVarsInRecordType l -> sprintf "Duplicate variables in record type: %s" (String.concat ", " l)
+    | DuplicateRecordTypeVar -> "Duplicate record type variable."
+    | DuplicateForallVar -> "Duplicate forall variable."
+    | InvalidPattern DuplicateRecordSymbol
+    | DuplicateTermRecordSymbol -> "Duplicate record symbol."
+    | InvalidPattern DuplicateRecordInjection
+    | DuplicateTermRecordInjection -> "Duplicate record injection."
+    | DuplicateRecFunctionName -> "Shadowing of functions by the members of the same mutually recursive block is not allowed."
     
 let show_block_parsing_error line (l : (Config.VSCRange * ParserErrors) list) =
     l |> List.groupBy fst
