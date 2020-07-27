@@ -155,7 +155,7 @@ let read_default_value d =
 
 let read_symbol_paired d =
     try_current d <| function
-        | p, TokSymbolPaired(t',r) -> skip d; Ok t'
+        | p, TokSymbolPaired(t',r) -> skip d; Ok(p,t')
         | p, _ -> Error [p, ExpectedSymbolPaired]
 
 let read_symbol_paired' d =
@@ -164,12 +164,6 @@ let read_symbol_paired' d =
         | p, _ -> Error [p, ExpectedSymbolPaired]
 
 let to_lower (x : string) = Char.ToLower(x.[0]).ToString() + x.[1..]
-let read_symbol_paired_big d =
-    try_current d <| function
-        | p, TokSymbolPaired(t',r) -> 
-            if Char.IsUpper(t',0) then skip d; Ok t'
-            else Error [p, SymbolPairedShouldStartWithUppercase]
-        | p, _ -> Error [p, ExpectedSymbolPaired]
 
 let read_symbol d =
     try_current d <| function
@@ -609,6 +603,11 @@ Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<Op>)
 |> Array.iter (fun x -> string_to_op_dict.[x.Name] <- Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(x,[||]) :?> Op)
 let string_to_op x = string_to_op_dict.TryGetValue x
 
+let symbol_paired_concat k =
+    let b = Text.StringBuilder()
+    List.iter (fun (_, x : string) -> b.Append(x).Append('_') |> ignore) k
+    b.ToString()
+
 let module_open = range ((skip_keyword SpecOpen >>. read_small_var') .>>. (many read_symbol))
 let bar i d = indent i (<=) (skip_op "|") d
 
@@ -662,18 +661,17 @@ and root_pattern s =
     let pat_and = sepBy1 pat_type (skip_op "&") |>> List.reduce (fun a b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b))
     let pat_pair = pat_pair pat_and
     let pat_symbol_paired = 
-        (many1 (read_symbol_paired' .>>. opt root_pattern_pair) |>> fun l ->
-            let f ((o,a,r),b) = (o, a), Option.defaultWith (fun () -> r := SemanticTokenLegend.variable; PatVar(o,a)) b
+        let next = pat_pair
+        (many1 (read_symbol_paired' .>>. opt next) |>> fun l ->
+            let f ((r,a,re),b) = (r, a), Option.defaultWith (fun () -> re := SemanticTokenLegend.variable; PatVar(r,a)) b
             match l |> List.map f |> List.unzip with
-            | (k :: k' as keys), v ->
-                let body keys =
-                    let b = Text.StringBuilder()
-                    List.iter (fun (_,x : string) -> b.Append(x).Append('_') |> ignore) keys
-                    List.reduceBack (fun a b -> PatPair(range_of_pattern a +. range_of_pattern b,a,b)) (PatSymbol (fst k, b.ToString()) :: v)
-                if Char.IsLower(snd k,0) then body keys else body ((fst k, to_lower (snd k)) :: k') |> fun x -> PatUnbox(range_of_pattern x,x)
+            | (r,x) :: k', v ->
+                List.reduceBack (fun a b -> PatPair(range_of_pattern a +. range_of_pattern b,a,b))
+                    (PatSymbol(r,symbol_paired_concat ((r,to_lower x) :: k')) :: v)
+                |> fun l -> if Char.IsUpper(x,0) then PatUnbox(range_of_pattern l,l) else l
             | _ -> failwith "Compiler error: Should be at least one key in symbol_paired_process_pattern"
             )
-        <|> pat_pair
+        <|> next
     let pat_or = sepBy1 pat_symbol_paired (skip_op "|") |>> List.reduce (fun a b -> PatOr(range_of_pattern a +. range_of_pattern b,a,b))
     let pat_as = pat_or .>>. (opt (skip_keyword SpecAs >>. pat_or )) |>> function a, Some b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b) | a, None -> a
     let pat_when = pat_as .>>. (opt (skip_keyword SpecWhen >>. root_term)) |>> function a, Some b -> PatWhen(range_of_pattern a +. range_of_expr b,a,b) | a, None -> a
@@ -731,16 +729,21 @@ and root_type allow_metavars allow_value_exprs allow_forall d =
     let pairs = sepBy1 apply (skip_op "*") |>> List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b))
     let functions = sepBy1 pairs (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(range_of_texpr a +. range_of_texpr b,a,b))
     let forall d = 
-        if allow_forall then (pipe2 (forall <|>% []) functions (List.foldBack (fun x s -> RawTForall(range_of_typevar x +. range_of_texpr s,x,s)))) d 
-        else functions d
+        let next = functions
+        if allow_forall then (pipe2 (forall <|>% []) next (List.foldBack (fun x s -> RawTForall(range_of_typevar x +. range_of_texpr s,x,s)))) d 
+        else next d
     let symbol_paired d = 
-        let i = col d
         let next = forall
-        (pipe2 (range (read_symbol_paired_big .>>. next)) (many (indent (i-1) (<=) read_symbol_paired .>>. next)) (fun (r,a) b ->
-            let k,v = List.unzip ((to_lower (fst a), snd a) :: b)
-            let b = Text.StringBuilder()
-            List.iter (fun (x : string) -> b.Append(x).Append('_') |> ignore) k
-            List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b)) (RawTSymbol (r,b.ToString()) :: v)) 
+        ((many1 (indent (col d) (<=) read_symbol_paired .>>. next) >>= fun l _ ->
+            match List.unzip l with
+            | [], _ -> failwith "Compiler error: Single item expected."
+            | (r,x) :: k', v ->
+                if Char.IsUpper(x,0) then
+                    List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b)) 
+                        (RawTSymbol(r,symbol_paired_concat ((r,to_lower x) :: k')) :: v) |> Ok
+                else
+                    Error [r, SymbolPairedShouldStartWithUppercase]
+            )
         <|> next) d
     symbol_paired d
 
@@ -889,22 +892,16 @@ and root_term d =
 
     let symbol_paired d =
         let next = operators
-        let i = col d
-        let pat = indent (i-1) (<=) read_symbol_paired' .>>. opt next
-        ((many1 pat |>> fun l ->
-            let a,b = List.unzip l
-            let b = List.map2 (fun (o,a,r) b -> Option.defaultWith (fun () -> r := SemanticTokenLegend.variable; RawV(o,a)) b) a b
-            let (o,x,_),x' = match a with x::x' -> x,List.map (fun (_,x,_) -> x) x' | _ -> failwith "Compiler error: Expected `many1 pat` to produce an element."
-            let a = List.map (fun (_,x,_) -> x) a
-            let is_upper = Char.IsUpper(x, 0)
-            let a = if is_upper then to_lower x :: x' else a
-            let a = 
-                let sb = Text.StringBuilder()
-                a |> List.iter (fun x -> sb.Append(x).Append('_') |> ignore)
-                sb.ToString()
-            let f a b = RawPairCreate(range_of_expr a +. range_of_expr b,a,b)
-            if is_upper then RawApply(o,RawV(o,a),List.reduceBack f b)
-            else List.reduceBack f (RawSymbolCreate(o,a) :: b))
+        ((many1 (indent (col d) (<=) read_symbol_paired' .>>. opt next) |>> fun l ->
+            let f ((r,a,re),b) = (r, a), Option.defaultWith (fun () -> re := SemanticTokenLegend.variable; RawV(r,a)) b
+            match l |> List.map f |> List.unzip with
+            | (r,x) :: k', v ->
+                let name = r, symbol_paired_concat ((r,to_lower x) :: k')
+                let body = List.reduceBack (fun a b -> RawPairCreate(range_of_expr a +. range_of_expr b,a,b)) v
+                if Char.IsUpper(x,0) then RawApply(r +. range_of_expr body, RawV name, body)
+                else RawPairCreate(r +. range_of_expr body, RawSymbolCreate name, body)
+            | _ -> failwith "Compiler error: Should be at least one key in symbol_paired_process_pattern"
+            )
         <|> next) d
 
     let statements d =

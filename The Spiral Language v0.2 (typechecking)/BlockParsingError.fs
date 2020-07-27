@@ -82,6 +82,7 @@ let show_parser_error = function
     | UnexpectedEob -> "Unexpected end of block past this token."
     | ExpectedAtLeastOneToken -> "At least one (non-comment) token should be present in a block."
     | UnknownError -> "Compiler error: Parsing failed at this position with no error message and without consuming all the tokens in a block."
+    | DuplicateVarsInRecordType l -> sprintf "Duplicate variables in record type: %s" (String.concat ", " l)
     
 let show_block_parsing_error line (l : (Config.VSCRange * ParserErrors) list) =
     l |> List.groupBy fst
