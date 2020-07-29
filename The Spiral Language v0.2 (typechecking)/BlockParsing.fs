@@ -344,7 +344,7 @@ and RawExpr =
     | RawIfThen of Range * RawExpr * RawExpr
     | RawPairCreate of Range * RawExpr * RawExpr
     | RawSeq of Range * RawExpr * RawExpr
-    | RawTypeToVar of Range * RawTExpr
+    | RawReal of Range * RawExpr
 and RawTExpr =
     | RawTWildcard of Range
     | RawTMetaVar of Range * VarString
@@ -398,9 +398,9 @@ let range_of_expr = function
     | RawSymbolCreate(r,_)
     | RawType(r,_)
     | RawJoinPoint(r,_)
-    | RawTypeToVar(r,_)
     | RawMatch(r,_,_)
     | RawFun(r,_)
+    | RawReal(r,_)
     | RawRecBlock(r,_,_)
     | RawOp(r,_,_)
     | RawAnnot(r,_,_)
@@ -454,6 +454,7 @@ let duplicates er x =
 let forall d = 
     (skip_keyword SpecForall >>. (many1 forall_var) .>> skip_op "." 
     >>= fun x _ -> duplicates DuplicateForallVar x |> function [] -> Ok x | er -> Error er) d
+let inline type_forall next d = (pipe2 (forall <|>% []) next (List.foldBack (fun x s -> RawTForall(range_of_typevar x +. range_of_texpr s,x,s)))) d 
 
 let inline indent i op next d = if op i (col d) then next d else Error []
 
@@ -647,6 +648,19 @@ let inline unit' f d =
 let inline pat_pair next = 
     sepBy1 next (skip_op ",") 
     |>> List.reduceBack (fun a b -> PatPair(range_of_pattern a +. range_of_pattern b,a,b))
+
+type RootTypeFlags = {
+    allow_metavars : bool
+    allow_term : bool
+    allow_wildcard : bool
+    }
+
+let root_type_defaults = {
+    allow_metavars = false
+    allow_term = false
+    allow_wildcard = false
+    }
+
 let rec pat_nominal d =
     (pat_var >>= fun x d -> 
         match x with
@@ -680,7 +694,7 @@ and root_pattern s =
         (pat_unit + pat_rounds + pat_nominal + pat_wildcard + pat_dyn + pat_value + pat_record + pat_symbol + pat_active) s
 
     let pat_type = 
-        pipe2 body (opt (skip_op ":" >>. fun d -> root_type false (d.is_top_down = false) d.is_top_down d))
+        pipe2 body (opt (skip_op ":" >>. fun d -> root_type {root_type_defaults with allow_term=d.is_top_down=false; allow_wildcard=d.is_top_down} d))
             (fun a -> function Some b -> PatAnnot(range_of_pattern a +. range_of_texpr b,a,b) | None -> a)
     let pat_and = sepBy1 pat_type (skip_op "&") |>> List.reduce (fun a b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b))
     let pat_pair = pat_pair pat_and
@@ -705,13 +719,12 @@ and root_pattern_var d =
     (pat_var + pat_wildcard + pat_dyn + peek_open_parenthesis root_pattern) d
 and root_pattern_pair d = pat_pair root_pattern_var d
 
-and root_type allow_metavars allow_value_exprs allow_forall d =
-    let next = root_type allow_metavars allow_value_exprs allow_forall
-    let allow_wildcard = allow_metavars || allow_forall
+and root_type (flags : RootTypeFlags) d =
+    let next = root_type flags
     let cases d =
-        let wildcard d = if allow_wildcard then (skip_keyword' SpecWildcard |>> RawTWildcard) d else Error []
-        let metavar d = if allow_metavars then (skip_unary_op "~" >>. read_var'' |>> RawTMetaVar) d else Error []
-        let term d = if allow_value_exprs then (range (skip_unary_op "`" >>. ((read_var'' |>> RawV) <|> rounds root_term)) |>> RawTTerm) d else Error []
+        let wildcard d = if flags.allow_wildcard then (skip_keyword' SpecWildcard |>> RawTWildcard) d else Error []
+        let metavar d = if flags.allow_metavars then (skip_unary_op "~" >>. read_var'' |>> RawTMetaVar) d else Error []
+        let term d = if flags.allow_term then (range (skip_unary_op "`" >>. ((read_var'' |>> RawV) <|> rounds root_term)) |>> RawTTerm) d else Error []
         let record =
             range (curlies (sepBy ((range record_var .>> skip_op ":") .>>. next) (skip_op ";")))
             >>= fun (r,x) _ ->
@@ -752,12 +765,8 @@ and root_type allow_metavars allow_value_exprs allow_forall d =
                     ) (a :: b))) d
     let pairs = sepBy1 apply (skip_op "*") |>> List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b))
     let functions = sepBy1 pairs (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(range_of_texpr a +. range_of_texpr b,a,b))
-    let forall d = 
-        let next = functions
-        if allow_forall then (pipe2 (forall <|>% []) next (List.foldBack (fun x s -> RawTForall(range_of_typevar x +. range_of_texpr s,x,s)))) d 
-        else next d
     let symbol_paired d = 
-        let next = forall
+        let next = functions
         ((many1 (indent (col d) (<=) read_symbol_paired .>>. next) >>= fun l _ ->
             match List.unzip l with
             | [], _ -> failwith "Compiler error: Single item expected."
@@ -825,16 +834,14 @@ and root_term d =
             (range (skip_keyword SpecFunction >>. clauses) |>> RawFun)
             <|> (range ((skip_keyword SpecMatch >>. next .>> skip_keyword SpecWith) .>>. clauses) |>> fun (a,(b,c)) -> RawMatch(a,b,c))
 
-        let case_typecase =
+        let case_typecase d =
             let clauses d = 
                 let bar = bar (col d)
-                (optional bar >>. sepBy1 (root_type true false false .>>. (skip_op "=>" >>. next)) bar) d
+                (optional bar >>. sepBy1 (root_type {root_type_defaults with allow_metavars=true; allow_wildcard=true} .>>. (skip_op "=>" >>. next)) bar) d
 
-            range ((skip_keyword SpecTypecase >>. root_type false true false .>> skip_keyword SpecWith) .>>. clauses)
-            >>= (fun (r, (a, b)) d ->
-                if d.is_top_down then Error [r,TypecaseNotAllowed]
-                else Ok(RawTypecase(r,a,List.toArray b))
-                )
+            if d.is_top_down then Error [] else
+                (range ((skip_keyword SpecTypecase >>. root_type {root_type_defaults with allow_term=true} .>> skip_keyword SpecWith) .>>. clauses)
+                |>> fun (r, (a, b)) -> RawTypecase(r,a,List.toArray b)) d
 
         let case_record =
             let record_body = skip_op "=" >>. next
@@ -867,12 +874,13 @@ and root_term d =
                 ] |> List.concat |> function [] -> Ok(RawRecordWith x) | er -> Error er
 
         let case_join_point = skip_keyword SpecJoin >>. next |>> fun x -> RawJoinPoint(range_of_expr x,x)
+        let case_real = skip_keyword SpecReal >>. (fun d -> next {d with is_top_down=false}) |>> fun x -> RawReal(range_of_expr x,x)
 
         let case_symbol = read_symbol |>> RawSymbolCreate
 
         let case_unary_op = 
             read_unary_op' >>= fun (o,a) d ->
-                let type_expr d = ((read_small_var' |>> RawTVar) <|> (rounds (fun d -> root_type false (d.is_top_down = false) d.is_top_down d))) d
+                let type_expr d = ((read_small_var' |>> RawTVar) <|> (rounds (fun d -> root_type {root_type_defaults with allow_term=true} d))) d
                 match a with
                 | "!!!!" -> 
                     (range (read_big_var .>>. (rounds (sepBy1 expressions (skip_op ","))))
@@ -880,13 +888,13 @@ and root_term d =
                         match string_to_op a with
                         | true, op' -> Ok(RawOp(r,op',List.toArray b))
                         | false, _ -> Error [ra,InbuiltOpNotFound]) d
-                | "`" -> (range type_expr |>> RawType) d
-                | "``" -> (range type_expr |>> RawTypeToVar) d
+                | "`" -> if d.is_top_down then Error [] else (range type_expr |>> RawType) d
+                | "``" -> if d.is_top_down then Error [] else (range type_expr |>> fun (r,x) -> RawOp(o +. r,TypeToVar, [|RawType(r,x)|])) d
                 | _ -> (expressions |>> fun b -> RawApply(o +. range_of_expr b,RawV(o, "~" + a),b)) d
 
         let (+) = alt (index d)
 
-        (case_value + case_default_value + case_var + case_join_point + case_symbol
+        (case_value + case_default_value + case_var + case_join_point + case_real + case_symbol
         + case_typecase + case_match + case_typecase + case_unit + case_rounds + case_record
         + case_if_then_else + case_fun + case_forall + case_unary_op) d
 
@@ -923,7 +931,7 @@ and root_term d =
             (term >>= loop) d
 
         pipe2 (tdop Int32.MinValue)
-            (opt (skip_op ":" >>. (fun d -> root_type false (d.is_top_down = false) d.is_top_down d)))
+            (opt (skip_op ":" >>. (fun d -> root_type {root_type_defaults with allow_term=d.is_top_down=false; allow_metavars=d.is_top_down} d)))
             (fun a -> function Some b -> RawAnnot(range_of_expr a +. range_of_texpr b,a,b) | _ -> a)
             d
 
@@ -1010,13 +1018,18 @@ let top_inl_or_let = inl_or_let root_term root_pattern_pair >>= fun x _ -> top_i
 let top_union =
     let clauses d =
         let bar = bar (col d)
-        (optional bar >>. sepBy1 (root_type false false false) bar) d
+        (optional bar >>. sepBy1 (root_type root_type_defaults) bar) d
 
     range ((skip_keyword SpecUnion >>. many forall_var .>> skip_op "=") .>>. clauses) |>> fun (r,(a,b)) -> TopUnion(r,a,b)
 
-let top_nominal = range ((skip_keyword SpecNominal >>. many forall_var .>> skip_op "=") .>>. root_type false true false) |>> fun (r,(a,b)) -> TopNominal(r,a,b)
-let top_prototype = range (tuple4 (skip_keyword SpecPrototype >>. read_small_var) read_type_var (many forall_var) (skip_op ":" >>. root_type false false true)) |>> fun (r,(a,b,c,d)) -> TopPrototype(r,a,b,c,d)
-let top_type = range (tuple3 (skip_keyword SpecType >>. read_small_var) (many forall_var) (skip_op "=" >>. root_type false false false)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)
+let top_nominal = range ((skip_keyword SpecNominal >>. many forall_var .>> skip_op "=") .>>. root_type {root_type_defaults with allow_term=true}) |>> fun (r,(a,b)) -> TopNominal(r,a,b)
+let top_prototype = 
+    range 
+        (tuple4 
+            (skip_keyword SpecPrototype >>. read_small_var) read_type_var (many forall_var) 
+            (skip_op ":" >>. type_forall (root_type root_type_defaults)))
+    |>> fun (r,(a,b,c,d)) -> TopPrototype(r,a,b,c,d)
+let top_type = range (tuple3 (skip_keyword SpecType >>. read_small_var) (many forall_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)
 let top_instance =
     range
         (tuple5 (skip_keyword SpecInstance >>. read_small_var) (read_type_var .>>. many forall_var)
