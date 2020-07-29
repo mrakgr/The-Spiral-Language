@@ -15,7 +15,8 @@ type Req =
     | Modify of SpiEdit * IVar<FileChangeRes>
     | GetRange of VSCRange * IVar<VSCTokenArray>
 
-type Block<'a> = {block: LineToken [] []; offset: int; meta: 'a}
+open Spiral.BlockParsing
+type Block = {block: LineToken [] []; offset: int; parsed: Result<TopStatement, (Range * ParserErrors) list>}
 
 let block_init (block : LineToken [] []) offset =
     let comments, tokens = 
@@ -28,9 +29,9 @@ let block_init (block : LineToken [] []) offset =
             comment, tokens
             )
         |> Array.unzip
-            
-    let env : BlockParsing.Env = {comments = comments; tokens = Array.concat tokens; i = ref 0; is_top_down = false}
-    {block=block; offset=offset; meta=BlockParsing.parse env}
+
+    let env : BlockParsing.Env = {comments = comments; tokens = Array.concat tokens; i = ref 0; is_top_down = true}
+    {block=block; offset=offset; parsed=BlockParsing.parse env}
 
 /// Reads the comments up to a statement, and then reads the statement body. Leaves any errors for the parsing stage.
 let block_at (lines : LineToken [] ResizeArray) i =
@@ -59,7 +60,7 @@ let block_at (lines : LineToken [] ResizeArray) i =
 
 let rec block_all (lines : _ ResizeArray) i = if i < lines.Count then let x = block_at lines i in x :: block_all lines (i+x.block.Length) else []
 
-let blockize (lines : LineToken [] ResizeArray) (blocks : _ Block list) (edit : SpiEdit) =
+let block_separate (lines : LineToken [] ResizeArray) (blocks : Block list) (edit : SpiEdit) =
     // Lines added minus lines removed.
     let line_adjustment = edit.lines.Length - (edit.nearTo - edit.from)
     // The dirty block boundary needs to be more conservative when a separator is added in the first position of block.
@@ -83,17 +84,36 @@ let blockize (lines : LineToken [] ResizeArray) (blocks : _ Block list) (edit : 
         else []
     loop blocks 0
 
+let block_bundle (l : TopStatement list) =
+    let inline map_fst f (a,b) = f a, b
+    let cons x l = l |> map_fst (Result.map (fun rest -> x :: rest))
+    let rec and_inls = function
+        | TopAnd(_, TopRecInl _ & x) :: x' -> and_inls x' |> cons x
+        | TopAnd(r,_) :: x' -> Error [r, "Recursive inl/let statements cannot be mixed with recursive type definitions."], x'
+        | l -> Ok [], l
+    let rec and_types = function
+        | TopAnd(_, (TopType _ | TopNominal _ | TopUnion _) & x) :: x' -> and_types x' |> cons x
+        | TopAnd(r,_) :: x' -> Error [r, "Recursive type definitions cannot be mixed with recursive inl/let statements."], x'
+        | l -> Ok [], l
+
+    match l with
+    | TopAnd(r, _) :: x' -> Error [r, "Invalid `and` statement."], x'
+    | (TopRecInl _ as x) :: x' -> and_inls x' |> cons x
+    | (TopType _ | TopNominal _ | TopUnion _ as x) :: x' -> and_types x' |> cons x
+    | x :: x' -> Ok [x], x'
+    | [] -> failwith "Compiler error: Empty lists are invalid inputs to this function."
+
 let server = Job.delay <| fun () ->
     let lines : LineToken [] ResizeArray = ResizeArray([[||]])
     let mutable errors_tokenization = [||]
-    let mutable blocks : _ Block list = []
+    let mutable blocks : Block list = []
 
     let replace edit =
         errors_tokenization <- Tokenize.replace lines errors_tokenization edit // Mutates the lines array
-        blocks <- blockize lines blocks edit
+        blocks <- block_separate lines blocks edit
         let errors_parsing =
             blocks |> List.collect (fun x ->
-                match x.meta with
+                match x.parsed with
                 | Error l -> BlockParsingError.show_block_parsing_error x.offset l
                 | _ -> []
                 ) |> List.toArray

@@ -9,7 +9,9 @@ let g forall (q : *) t. (x:e) =
     inl y = 2
     {r with a = 1; b = x y; $a=1 without $a a e}
     ()
-    234 : i32 -> i32
+    234 : i32 -> _
+    let h = real
+        2 : i32 * `(2+3)
     (2 + 2)
 
 let h {a b $r} =

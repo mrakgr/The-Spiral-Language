@@ -334,10 +334,10 @@ and RawExpr =
     | RawForall of Range * TypeVar * RawExpr
     | RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
     | RawRecordWith of Range * RawExpr list * RawRecordWith list * RawRecordWithout list
-    | RawOp of Range * Op * RawExpr []
+    | RawOp of Range * Op * RawExpr list
     | RawJoinPoint of Range * RawExpr
     | RawAnnot of Range * RawExpr * RawTExpr
-    | RawTypecase of Range * RawTExpr * (RawTExpr * RawExpr) []
+    | RawTypecase of Range * RawTExpr * (RawTExpr * RawExpr) list
     | RawModuleOpen of Range * (Range * VarString) * (Range * SymbolString) list * on_succ: RawExpr
     | RawApply of Range * RawExpr * RawExpr
     | RawIfThenElse of Range * RawExpr * RawExpr * RawExpr
@@ -641,7 +641,7 @@ let inline unit' f d =
         let r = fst a +. fst b
         match snd a, snd b with
         | TokParenthesis(Round,Open), TokParenthesis(Round,Close) -> skip' d 2; Ok(f r)
-        | _ -> Error [r, ExpectedUnit]
+        | _ -> Error [fst a, ExpectedUnit]
     else
         Error []
 
@@ -841,7 +841,7 @@ and root_term d =
 
             if d.is_top_down then Error [] else
                 (range ((skip_keyword SpecTypecase >>. root_type {root_type_defaults with allow_term=true} .>> skip_keyword SpecWith) .>>. clauses)
-                |>> fun (r, (a, b)) -> RawTypecase(r,a,List.toArray b)) d
+                |>> fun (r, (a, b)) -> RawTypecase(r,a,b)) d
 
         let case_record =
             let record_body = skip_op "=" >>. next
@@ -886,10 +886,10 @@ and root_term d =
                     (range (read_big_var .>>. (rounds (sepBy1 expressions (skip_op ","))))
                     >>= fun (r,((ra,a), b)) _ ->
                         match string_to_op a with
-                        | true, op' -> Ok(RawOp(r,op',List.toArray b))
+                        | true, op' -> Ok(RawOp(r,op',b))
                         | false, _ -> Error [ra,InbuiltOpNotFound]) d
                 | "`" -> if d.is_top_down then Error [] else (range type_expr |>> RawType) d
-                | "``" -> if d.is_top_down then Error [] else (range type_expr |>> fun (r,x) -> RawOp(o +. r,TypeToVar, [|RawType(r,x)|])) d
+                | "``" -> if d.is_top_down then Error [] else (range type_expr |>> fun (r,x) -> RawOp(o +. r,TypeToVar,[RawType(r,x)])) d
                 | _ -> (expressions |>> fun b -> RawApply(o +. range_of_expr b,RawV(o, "~" + a),b)) d
 
         let (+) = alt (index d)
@@ -931,7 +931,7 @@ and root_term d =
             (term >>= loop) d
 
         pipe2 (tdop Int32.MinValue)
-            (opt (skip_op ":" >>. (fun d -> root_type {root_type_defaults with allow_term=d.is_top_down=false; allow_metavars=d.is_top_down} d)))
+            (opt (skip_op ":" >>. (fun d -> root_type {root_type_defaults with allow_term=d.is_top_down=false; allow_wildcard=d.is_top_down} d)))
             (fun a -> function Some b -> RawAnnot(range_of_expr a +. range_of_texpr b,a,b) | _ -> a)
             d
 
@@ -1003,35 +1003,37 @@ let comments line_near_to character (s : Env) =
 type TopStatement =
     | TopAnd of Range * TopStatement
     | TopInl of Range * VarString * RawExpr
+    | TopRecInl of Range * VarString * RawExpr
     | TopUnion of Range * TypeVar list * RawTExpr list
     | TopNominal of Range * TypeVar list * RawTExpr
     | TopPrototype of Range * VarString * VarString * TypeVar list * RawTExpr
     | TopType of Range * VarString * TypeVar list * RawTExpr
-    | TopPrototypeInstance of Range * VarString * VarString * TypeVar list * RawExpr
+    | TopInstance of Range * VarString * VarString * TypeVar list * RawExpr
 
 let top_inl_or_let_process = function
-    | (r,PatVar(_,name),(RawForall _ | RawFun _ as body)),_ -> Ok(TopInl(r,name,body))
+    | (r,PatVar(_,name),(RawForall _ | RawFun _ as body)),false -> Ok(TopInl(r,name,body))
+    | (r,PatVar(_,name),(RawForall _ | RawFun _ as body)),true -> Ok(TopRecInl(r,name,body))
     | (r,PatVar _,_),_ -> Error [r, ExpectedGlobalFunction]
     | (_,x,_),_ -> Error [range_of_pattern x, ExpectedVarOrOpAsNameOfGlobalStatement]
-let top_inl_or_let = inl_or_let root_term root_pattern_pair >>= fun x _ -> top_inl_or_let_process x
+let top_inl_or_let d = (inl_or_let root_term root_pattern_pair >>= fun x _ -> top_inl_or_let_process x) d
 
-let top_union =
+let top_union d =
     let clauses d =
         let bar = bar (col d)
         (optional bar >>. sepBy1 (root_type root_type_defaults) bar) d
 
-    range ((skip_keyword SpecUnion >>. many forall_var .>> skip_op "=") .>>. clauses) |>> fun (r,(a,b)) -> TopUnion(r,a,b)
+    (range ((skip_keyword SpecUnion >>. many forall_var .>> skip_op "=") .>>. clauses) |>> fun (r,(a,b)) -> TopUnion(r,a,b)) d
 
-let top_nominal = range ((skip_keyword SpecNominal >>. many forall_var .>> skip_op "=") .>>. root_type {root_type_defaults with allow_term=true}) |>> fun (r,(a,b)) -> TopNominal(r,a,b)
-let top_prototype = 
-    range 
+let top_nominal d = (range ((skip_keyword SpecNominal >>. many forall_var .>> skip_op "=") .>>. root_type {root_type_defaults with allow_term=true}) |>> fun (r,(a,b)) -> TopNominal(r,a,b)) d
+let top_prototype d = 
+    (range 
         (tuple4 
             (skip_keyword SpecPrototype >>. read_small_var) read_type_var (many forall_var) 
             (skip_op ":" >>. type_forall (root_type root_type_defaults)))
-    |>> fun (r,(a,b,c,d)) -> TopPrototype(r,a,b,c,d)
-let top_type = range (tuple3 (skip_keyword SpecType >>. read_small_var) (many forall_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)
-let top_instance =
-    range
+    |>> fun (r,(a,b,c,d)) -> TopPrototype(r,a,b,c,d)) d
+let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_small_var) (many forall_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)) d
+let top_instance d =
+    (range
         (tuple5 (skip_keyword SpecInstance >>. read_small_var) (read_type_var .>>. many forall_var)
             (skip_op ":" >>. forall <|>% []) (many root_pattern_pair)
             (skip_op "=" >>. root_term))
@@ -1041,16 +1043,19 @@ let top_instance =
                 let body =
                     List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[pat,body])) pats body
                     |> List.foldBack (fun a body -> RawForall(range_of_typevar a,a,body)) foralls
-                Ok(TopPrototypeInstance(r,prototype_name,nominal_name,nominal_foralls,body))
-            | ers -> Error ers
+                Ok(TopInstance(r,prototype_name,nominal_name,nominal_foralls,body))
+            | ers -> Error ers) d
 
-let top_and_inl_or_let = restore 1 (range (and_inl_or_let root_term root_pattern_pair)) >>= fun (r,x) _ -> top_inl_or_let_process x |> Result.map (fun x -> TopAnd(r,x))
-let top_and_nominal = restore 1 (range (skip_keyword SpecAnd >>. top_nominal)) |>> TopAnd
-let top_and_union = restore 1 (range (skip_keyword SpecAnd >>. top_union)) |>> TopAnd
+let top_and_inl_or_let d = (restore 1 (range (and_inl_or_let root_term root_pattern_pair)) >>= fun (r,x) _ -> top_inl_or_let_process x |> Result.map (fun x -> TopAnd(r,x))) d
+let inline top_and_template f = restore 1 (range (skip_keyword SpecAnd >>. f)) |>> TopAnd
+let top_and_type d = top_and_template top_type d
+let top_and_nominal d = top_and_template top_nominal d
+let top_and_union d = top_and_template top_union d
 
 let top_statement s =
     let (+) = alt (index s)
-    (top_inl_or_let + top_union + top_nominal + top_prototype + top_type + top_instance + top_and_inl_or_let + top_and_nominal + top_and_union) s
+    (top_inl_or_let + top_union + top_nominal + top_prototype + top_type + top_instance 
+    + top_and_inl_or_let + top_and_type + top_and_nominal + top_and_union) s
 
 let parse (s : Env) =
     if 0 < s.tokens.Length then
