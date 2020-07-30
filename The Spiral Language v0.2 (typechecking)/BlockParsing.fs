@@ -1047,15 +1047,12 @@ let top_instance d =
             | ers -> Error ers) d
 
 let top_and_inl_or_let d = (restore 1 (range (and_inl_or_let root_term root_pattern_pair)) >>= fun (r,x) _ -> top_inl_or_let_process x |> Result.map (fun x -> TopAnd(r,x))) d
-let inline top_and_template f = restore 1 (range (skip_keyword SpecAnd >>. f)) |>> TopAnd
-let top_and_type d = top_and_template top_type d
-let top_and_nominal d = top_and_template top_nominal d
-let top_and_union d = top_and_template top_union d
+let inline top_and f = restore 1 (range (skip_keyword SpecAnd >>. f)) |>> TopAnd
 
 let top_statement s =
     let (+) = alt (index s)
     (top_inl_or_let + top_union + top_nominal + top_prototype + top_type + top_instance 
-    + top_and_inl_or_let + top_and_type + top_and_nominal + top_and_union) s
+    + top_and_inl_or_let + top_and top_nominal + top_and top_union) s
 
 let parse (s : Env) =
     if 0 < s.tokens.Length then

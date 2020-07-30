@@ -23,7 +23,8 @@ type RangeRec = [PositionRec, PositionRec]
 export const activate = async (ctx: ExtensionContext) => {
     console.log("Spiral plugin is active.")
     
-    const errors = languages.createDiagnosticCollection()
+    const errorsParse = languages.createDiagnosticCollection()
+    const errorsType = languages.createDiagnosticCollection()
     const errorsSet = (doc: TextDocument) => (x: [string, RangeRec | null][]) => {
         const diag: Diagnostic[] = []
         x.forEach(([error, range]) => {
@@ -35,7 +36,7 @@ export const activate = async (ctx: ExtensionContext) => {
                 window.showErrorMessage(error)
             }
         })
-        errors.set(doc.uri, diag)
+        errorsParse.set(doc.uri, diag)
     }
 
     const spiprojOpen = async (doc: TextDocument) => {
@@ -90,7 +91,7 @@ export const activate = async (ctx: ExtensionContext) => {
 
     workspace.textDocuments.forEach(onDocOpen)
     ctx.subscriptions.push(
-        errors,
+        errorsParse,
         workspace.onDidOpenTextDocument(onDocOpen),
         workspace.onDidChangeTextDocument(onDocChange),
         languages.registerDocumentRangeSemanticTokensProvider(

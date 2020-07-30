@@ -84,22 +84,21 @@ let block_separate (lines : LineToken [] ResizeArray) (blocks : Block list) (edi
         else []
     loop blocks 0
 
-let block_bundle (l : TopStatement list) =
-    let inline map_fst f (a,b) = f a, b
-    let cons x l = l |> map_fst (Result.map (fun rest -> x :: rest))
+let block_bundle_single (l : TopStatement list) =
+    let cons x (a,b) = Result.map (fun rest -> x :: rest) a, b
     let rec and_inls = function
         | TopAnd(_, TopRecInl _ & x) :: x' -> and_inls x' |> cons x
         | TopAnd(r,_) :: x' -> Error [r, "Recursive inl/let statements cannot be mixed with recursive type definitions."], x'
         | l -> Ok [], l
     let rec and_types = function
-        | TopAnd(_, (TopType _ | TopNominal _ | TopUnion _) & x) :: x' -> and_types x' |> cons x
+        | TopAnd(_, (TopNominal _ | TopUnion _) & x) :: x' -> and_types x' |> cons x
         | TopAnd(r,_) :: x' -> Error [r, "Recursive type definitions cannot be mixed with recursive inl/let statements."], x'
         | l -> Ok [], l
 
     match l with
     | TopAnd(r, _) :: x' -> Error [r, "Invalid `and` statement."], x'
     | (TopRecInl _ as x) :: x' -> and_inls x' |> cons x
-    | (TopType _ | TopNominal _ | TopUnion _ as x) :: x' -> and_types x' |> cons x
+    | (TopNominal _ | TopUnion _ as x) :: x' -> and_types x' |> cons x
     | x :: x' -> Ok [x], x'
     | [] -> failwith "Compiler error: Empty lists are invalid inputs to this function."
 
