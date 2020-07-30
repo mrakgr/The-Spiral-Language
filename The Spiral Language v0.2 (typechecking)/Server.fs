@@ -27,7 +27,7 @@ open Hopac
 open Hopac.Infixes
 open Hopac.Extensions
 let server () =
-    let server_blockizer = Utils.memoize (Dictionary()) (fun _ -> run Blockize.server)
+    let server_blockizer = Utils.memoize (Dictionary()) (fun (x : string) -> run (Blockize.server (IO.Path.GetExtension(x) = ".spi")))
 
     use sock = new RouterSocket()
     sock.Options.ReceiveHighWatermark <- Int32.MaxValue

@@ -347,6 +347,7 @@ and RawExpr =
     | RawReal of Range * RawExpr
 and RawTExpr =
     | RawTWildcard of Range
+    | RawTB of Range
     | RawTMetaVar of Range * VarString
     | RawTVar of Range * VarString
     | RawTPair of Range * RawTExpr * RawTExpr
@@ -355,7 +356,6 @@ and RawTExpr =
     | RawTSymbol of Range * SymbolString
     | RawTApply of Range * RawTExpr * RawTExpr
     | RawTForall of Range * TypeVar * RawTExpr
-    | RawTB of Range
     | RawTPrim of Range * PrimitiveType
     | RawTArray of Range * RawTExpr
     | RawTTerm of Range * RawExpr
@@ -724,7 +724,7 @@ and root_type (flags : RootTypeFlags) d =
     let cases d =
         let wildcard d = if flags.allow_wildcard then (skip_keyword' SpecWildcard |>> RawTWildcard) d else Error []
         let metavar d = if flags.allow_metavars then (skip_unary_op "~" >>. read_var'' |>> RawTMetaVar) d else Error []
-        let term d = if flags.allow_term then (range (skip_unary_op "`" >>. ((read_var'' |>> RawV) <|> rounds root_term)) |>> RawTTerm) d else Error []
+        let term d = if flags.allow_term then (range (skip_unary_op "`" >>. ((read_var'' |>> RawV) <|> rounds root_term)) |>> RawTTerm) {d with is_top_down=false} else Error []
         let record =
             range (curlies (sepBy ((range record_var .>> skip_op ":") .>>. next) (skip_op ";")))
             >>= fun (r,x) _ ->
@@ -1002,20 +1002,20 @@ let comments line_near_to character (s : Env) =
 
 type TopStatement =
     | TopAnd of Range * TopStatement
-    | TopInl of Range * VarString * RawExpr
-    | TopRecInl of Range * VarString * RawExpr
+    | TopInl of Range * VarString * RawExpr * is_top_down: bool
+    | TopRecInl of Range * VarString * RawExpr * is_top_down: bool
     | TopUnion of Range * TypeVar list * RawTExpr list
     | TopNominal of Range * TypeVar list * RawTExpr
     | TopPrototype of Range * VarString * VarString * TypeVar list * RawTExpr
     | TopType of Range * VarString * TypeVar list * RawTExpr
     | TopInstance of Range * VarString * VarString * TypeVar list * RawExpr
 
-let top_inl_or_let_process = function
-    | (r,PatVar(_,name),(RawForall _ | RawFun _ as body)),false -> Ok(TopInl(r,name,body))
-    | (r,PatVar(_,name),(RawForall _ | RawFun _ as body)),true -> Ok(TopRecInl(r,name,body))
+let top_inl_or_let_process is_top_down = function
+    | (r,PatVar(_,name),(RawForall _ | RawFun _ as body)),false -> Ok(TopInl(r,name,body,is_top_down))
+    | (r,PatVar(_,name),(RawForall _ | RawFun _ as body)),true -> Ok(TopRecInl(r,name,body,is_top_down))
     | (r,PatVar _,_),_ -> Error [r, ExpectedGlobalFunction]
     | (_,x,_),_ -> Error [range_of_pattern x, ExpectedVarOrOpAsNameOfGlobalStatement]
-let top_inl_or_let d = (inl_or_let root_term root_pattern_pair >>= fun x _ -> top_inl_or_let_process x) d
+let top_inl_or_let d = (inl_or_let root_term root_pattern_pair >>= fun x d -> top_inl_or_let_process d.is_top_down x) d
 
 let top_union d =
     let clauses d =
@@ -1027,7 +1027,7 @@ let top_union d =
 let top_nominal d = (range ((skip_keyword SpecNominal >>. many forall_var .>> skip_op "=") .>>. root_type {root_type_defaults with allow_term=true}) |>> fun (r,(a,b)) -> TopNominal(r,a,b)) d
 let top_prototype d = 
     (range 
-        (tuple4 
+        (tuple4
             (skip_keyword SpecPrototype >>. read_small_var) read_type_var (many forall_var) 
             (skip_op ":" >>. type_forall (root_type root_type_defaults)))
     |>> fun (r,(a,b,c,d)) -> TopPrototype(r,a,b,c,d)) d
@@ -1046,7 +1046,9 @@ let top_instance d =
                 Ok(TopInstance(r,prototype_name,nominal_name,nominal_foralls,body))
             | ers -> Error ers) d
 
-let top_and_inl_or_let d = (restore 1 (range (and_inl_or_let root_term root_pattern_pair)) >>= fun (r,x) _ -> top_inl_or_let_process x |> Result.map (fun x -> TopAnd(r,x))) d
+let top_and_inl_or_let d = 
+    (restore 1 (range (and_inl_or_let root_term root_pattern_pair)) 
+    >>= fun (r,x) d -> top_inl_or_let_process d.is_top_down x |> Result.map (fun x -> TopAnd(r,x))) d
 let inline top_and f = restore 1 (range (skip_keyword SpecAnd >>. f)) |>> TopAnd
 
 let top_statement s =

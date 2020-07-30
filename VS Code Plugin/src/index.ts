@@ -77,6 +77,7 @@ export const activate = async (ctx: ExtensionContext) => {
     const onDocOpen = (doc: TextDocument) => {
         switch (path.extname(doc.uri.path)) {
             case ".spiproj": return spiprojOpen(doc)
+            case ".spir":
             case ".spi": return spiOpen(doc)
             default: return
         }
@@ -84,6 +85,7 @@ export const activate = async (ctx: ExtensionContext) => {
     const onDocChange = (x: TextDocumentChangeEvent) => {
         switch (path.extname(x.document.uri.path)) {
             case ".spiproj": return spiprojOpen(x.document)
+            case ".spir":
             case ".spi": return spiChange(x.document,x.contentChanges)
             default: return
         }
@@ -91,7 +93,7 @@ export const activate = async (ctx: ExtensionContext) => {
 
     workspace.textDocuments.forEach(onDocOpen)
     ctx.subscriptions.push(
-        errorsParse,
+        errorsParse, errorsType,
         workspace.onDidOpenTextDocument(onDocOpen),
         workspace.onDidChangeTextDocument(onDocChange),
         languages.registerDocumentRangeSemanticTokensProvider(

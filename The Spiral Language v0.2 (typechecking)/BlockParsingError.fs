@@ -82,11 +82,13 @@ let show_parser_error = function
     | InvalidPattern DuplicateRecordInjection
     | DuplicateTermRecordInjection -> "Duplicate record injection."
     | DuplicateRecFunctionName -> "Shadowing of functions by the members of the same mutually recursive block is not allowed."
+
+let add_line_to_range line ((a,b) : Config.VSCRange) = {a with line=line+a.line}, {b with line=line+b.line}
     
 let show_block_parsing_error line (l : (Config.VSCRange * ParserErrors) list) =
     l |> List.groupBy fst
-    |> List.map (fun ((a,b),v) -> 
-        let k = {a with line=line+a.line}, {b with line=line+b.line}
+    |> List.map (fun (k,v) -> 
+        let k = add_line_to_range line k
         let v = List.toArray v |> Array.map (snd >> show_parser_error)
         Tokenize.process_error (k, v)
         )

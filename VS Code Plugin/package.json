@@ -16,6 +16,7 @@
         		"configuration": "./language-configuration.json",
 				"extensions": [
 					".spi",
+					".spir",
 					".spiproj"
 				],
 				"aliases": ["Spiral"]
