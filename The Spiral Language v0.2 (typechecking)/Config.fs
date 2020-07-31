@@ -109,12 +109,34 @@ let record fields fields_necessary schema =
 
         Reply(schema)
 
+type PrimitiveType =
+    | UInt8T
+    | UInt16T
+    | UInt32T
+    | UInt64T
+    | Int8T
+    | Int16T
+    | Int32T
+    | Int64T
+    | Float32T
+    | Float64T
+    | BoolT
+    | StringT
+    | CharT
+
+let default_int = 
+    [ "i8", Int8T; "i16", Int16T; "i32", Int32T; "i64", Int64T; "u8", UInt8T; "u16", UInt16T; "u32", UInt32T; "u64", UInt64T ] 
+    |> List.map (fun (a,b) -> pstring a >>% b) |> choice
+let default_float = [ "f32", Float32T; "f64", Float64T ] |> List.map (fun (a,b) -> pstring a >>% b) |> choice
+
 type Schema = {
     dirSource : string
     dirOut : string
     name : string
     version : string
     files : string []
+    defaultInt : PrimitiveType
+    defaultFloat : PrimitiveType
 }
 
 type ConfigError = ResumableError of ConfigResumableError [] | FatalError of ConfigFatalError
@@ -140,6 +162,8 @@ let config spiproj_dir spiproj_text =
             "version", restOfLine true .>> spaces |>> fun x s -> {s with version=x.TrimEnd()}
             "name", file |>> fun x s -> {s with name=x}
             "files", file_hierarchy |>> fun x s -> {s with files=x}
+            "defaultInt", default_int |>> fun x s -> {s with defaultInt=x}
+            "defaultFloat", default_float |>> fun x s -> {s with defaultFloat=x}
             ]
         let necessary = ["name"; "files"]
 
@@ -149,6 +173,8 @@ let config spiproj_dir spiproj_text =
             name=""
             version=""
             files=[||]
+            defaultInt=Int32T
+            defaultFloat=Float64T
             }
 
         match runParserOnString (spaces >>. record fields necessary schema .>> eof) (ResizeArray()) "spiral.config" spiproj_text with

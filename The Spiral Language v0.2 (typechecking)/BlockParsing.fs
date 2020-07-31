@@ -2,15 +2,13 @@
 let f p d = let x = p d in printfn "%A" x; x
 
 open System
+open Spiral.Config
 open Spiral.ParserCombinators
 open Spiral.Tokenize
-type Range = Config.VSCRange
-
+type Range = VSCRange
 type SymbolString = string
 type VarString = string
 type NominalString = string
-
-type Literal = Tokenize.Literal
 
 type Op =
     // Type
@@ -90,21 +88,6 @@ type Op =
 
     // Infinity
     | Infinity
-
-type PrimitiveType =
-    | UInt8T
-    | UInt16T
-    | UInt32T
-    | UInt64T
-    | Int8T
-    | Int16T
-    | Int32T
-    | Int64T
-    | Float32T
-    | Float64T
-    | BoolT
-    | StringT
-    | CharT
 
 type PatternCompilationErrors =
     | DisjointOrPatternVar
