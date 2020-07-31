@@ -30,7 +30,9 @@ let block_init is_spi (block : LineToken [] []) offset =
             )
         |> Array.unzip
 
-    let env : BlockParsing.Env = {comments = comments; tokens = Array.concat tokens; i = ref 0; is_top_down = is_spi}
+    let env : BlockParsing.Env = 
+        {comments = comments; tokens = Array.concat tokens; i = ref 0; 
+        is_top_down = is_spi; default_int=Int32T; default_float=Float64T}
     {block=block; offset=offset; parsed=BlockParsing.parse env}
 
 /// Reads the comments up to a statement, and then reads the statement body. Leaves any errors for the parsing stage.
@@ -87,7 +89,8 @@ let block_separate is_spi (lines : LineToken [] ResizeArray) (blocks : Block lis
         else []
     loop blocks 0
 
-let block_bundle (l : Block list) =
+type Bundle = (int * TopStatement) [] // offset * statement
+let block_bundle (l : Block list) : Bundle [] * VSCError [] =
     let (+.) a b = BlockParsingError.add_line_to_range a b
     let bundle = ResizeArray()
     let errors = ResizeArray()

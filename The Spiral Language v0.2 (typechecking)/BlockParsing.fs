@@ -5,189 +5,6 @@ open System
 open Spiral.ParserCombinators
 open Spiral.Tokenize
 type Range = Config.VSCRange
-type Env = {
-    tokens : (Range * SpiralToken) []
-    comments : Tokenize.LineComment option []
-    i : int ref
-    is_top_down : bool
-    } with
-
-    member d.Index with get() = d.i.contents and set(i) = d.i := i
-
-type PatternCompilationErrors =
-    | DisjointOrPatternVar
-    | DuplicateVar
-    | ShadowedVar
-    | DuplicateRecordSymbol
-    | DuplicateRecordInjection
-
-type ParserErrors =
-    | InvalidPattern of PatternCompilationErrors
-    | ExpectedKeyword of TokenKeyword
-    | ExpectedOperator'
-    | ExpectedOperator of string
-    | ExpectedUnaryOperator'
-    | ExpectedUnaryOperator of string
-    | ExpectedUnit
-    | ExpectedVar
-    | ExpectedVarOrOpAsNameOfRecStatement
-    | ExpectedVarOrOpAsNameOfGlobalStatement
-    | ExpectedSmallVar
-    | ExpectedBigVar
-    | ExpectedLit
-    | ExpectedSymbolPaired
-    | SymbolPairedShouldStartWithUppercase
-    | ExpectedSymbol
-    | ExpectedParenthesis of Parenthesis * ParenthesisState
-    | ExpectedOpenParenthesis
-    | ExpectedStatement
-    | ExpectedEob
-    | ExpectedFunctionAsBodyOfRecStatement
-    | ExpectedSinglePatternWhenStatementNameIsNorVarOrOp
-    | MissingFunctionBody
-    | ExpectedGlobalFunction
-    | ExpectedExpression
-    | InbuiltOpNotFound
-    | UnknownOperator
-    | UnexpectedEob
-    | UnexpectedAndInlRec
-    | ForallNotAllowed
-    | TypecaseNotAllowed
-    | MetavarNotAllowed
-    | TermNotAllowed
-    | UnknownError
-    | ExpectedAtLeastOneToken
-    | DuplicateRecordTypeVar
-    | DuplicateForallVar
-    | DuplicateTermRecordSymbol
-    | DuplicateTermRecordInjection
-    | DuplicateRecFunctionName
-
-let inline try_current_template (d : Env) on_succ on_fail =
-    let i = d.Index
-    if i < d.tokens.Length then on_succ d.tokens.[i]
-    else on_fail()
-
-let inline try_current d f = try_current_template d (fun (p,t) -> f (p, t)) (fun () -> Error [])
-let print_current d = try_current d (fun x -> printfn "%A" x; Ok()) // For parser debugging purposes.
-let inline line_template d f = try_current_template d (fst >> f) (fun _ -> -1)
-let col d = line_template d (fun (r,_) -> r.character)
-let line d = line_template d (fun (r,_) -> r.line)
-   
-let skip' (d : Env) i = d.i := d.i.contents+i
-let skip d = skip' d 1
-
-let skip_keyword t d =
-    try_current d <| function
-        | p,TokKeyword t' when t = t' -> skip d; Ok t'
-        | p, _ -> Error [p, ExpectedKeyword t]
-
-let skip_keyword' t d =
-    try_current d <| function
-        | p,TokKeyword t' when t = t' -> skip d; Ok p
-        | p, _ -> Error [p, ExpectedKeyword t]
-
-let read_unary_op d =
-    try_current d <| function
-        | p, TokUnaryOperator t' -> skip d; Ok t'
-        | p, _ -> Error [p, ExpectedUnaryOperator']
-
-let read_unary_op' d =
-    try_current d <| function
-        | p, TokUnaryOperator t' -> skip d; Ok(p,t')
-        | p, _ -> Error [p, ExpectedUnaryOperator']
-
-let read_op d =
-    try_current d <| function
-        | p, TokOperator t' -> skip d; Ok t'
-        | p, _ -> Error [p, ExpectedOperator']
-
-let read_op' d =
-    try_current d <| function
-        | p, TokOperator t' -> skip d; Ok(p,t')
-        | p, _ -> Error [p, ExpectedOperator']
-
-let skip_op t d =
-    try_current d <| function
-        | p, TokOperator t' when t' = t -> skip d; Ok t'
-        | p, _ -> Error [p, ExpectedOperator t]
-
-let skip_unary_op t d =
-    try_current d <| function
-        | p, TokUnaryOperator t' when t' = t -> skip d; Ok t'
-        | p, _ -> Error [p, ExpectedUnaryOperator t]
-
-let read_var d =
-    try_current d <| function
-        | p, TokVar(t',r) -> skip d; Ok t'
-        | p, _ -> Error [p, ExpectedVar]
-
-let read_var' d =
-    try_current d <| function
-        | p, TokVar(t',r) -> skip d; Ok(p,t',r)
-        | p, _ -> Error [p, ExpectedVar]
-
-let read_var'' d =
-    try_current d <| function
-        | p, TokVar(t',r) -> skip d; Ok(p,t')
-        | p, _ -> Error [p, ExpectedVar]
-
-let read_big_var d =
-    try_current d <| function
-        | p, TokVar(t',r) when Char.IsUpper(t',0) -> skip d; Ok(p,t')
-        | p, _ -> Error [p, ExpectedBigVar]
-
-let read_small_var d =
-    try_current d <| function
-        | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> skip d; Ok t'
-        | p, _ -> Error [p, ExpectedSmallVar]
-
-let read_small_var' d =
-    try_current d <| function
-        | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> skip d; Ok(p,t')
-        | p, _ -> Error [p, ExpectedSmallVar]
-
-let read_type_var d =
-    try_current d <| function
-        | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> skip d; r := SemanticTokenLegend.type_variable; Ok(t')
-        | p, _ -> Error [p, ExpectedSmallVar]
-
-let read_value d =
-    try_current d <| function
-        | p, TokValue t' -> skip d; Ok(p,t')
-        | p, _ -> Error [p, ExpectedLit]
-
-let read_default_value d =
-    try_current d <| function
-        | p, TokDefaultValue t' -> skip d; Ok(p,t')
-        | p, _ -> Error [p, ExpectedLit]
-
-let read_symbol_paired d =
-    try_current d <| function
-        | p, TokSymbolPaired(t',r) -> skip d; Ok(p,t')
-        | p, _ -> Error [p, ExpectedSymbolPaired]
-
-let read_symbol_paired' d =
-    try_current d <| function
-        | p, TokSymbolPaired(t',r) -> skip d; Ok(p,t',r)
-        | p, _ -> Error [p, ExpectedSymbolPaired]
-
-let to_lower (x : string) = Char.ToLower(x.[0]).ToString() + x.[1..]
-
-let read_symbol d =
-    try_current d <| function
-        | p, TokSymbol(t',r) -> skip d; Ok(p,t')
-        | p, _ -> Error [p, ExpectedSymbol]
-
-let skip_parenthesis a b d =
-    try_current d <| function
-        | p, TokParenthesis(a',b') when a = a' && b = b' -> skip d; Ok()
-        | p, _ -> Error [p, ExpectedParenthesis(a,b)]
-
-let inline peek_open_parenthesis f d =
-    try_current d <| function
-        | p, TokParenthesis(a',Open) -> f d
-        | p, _ -> Error [p, ExpectedOpenParenthesis]
 
 type SymbolString = string
 type VarString = string
@@ -288,6 +105,56 @@ type PrimitiveType =
     | BoolT
     | StringT
     | CharT
+
+type PatternCompilationErrors =
+    | DisjointOrPatternVar
+    | DuplicateVar
+    | ShadowedVar
+    | DuplicateRecordSymbol
+    | DuplicateRecordInjection
+
+type ParserErrors =
+    | InvalidPattern of PatternCompilationErrors
+    | ExpectedKeyword of TokenKeyword
+    | ExpectedOperator'
+    | ExpectedOperator of string
+    | ExpectedUnaryOperator'
+    | ExpectedUnaryOperator of string
+    | ExpectedUnit
+    | ExpectedVar
+    | ExpectedVarOrOpAsNameOfRecStatement
+    | ExpectedVarOrOpAsNameOfGlobalStatement
+    | ExpectedSmallVar
+    | ExpectedBigVar
+    | ExpectedLit
+    | ExpectedSymbolPaired
+    | SymbolPairedShouldStartWithUppercase
+    | ExpectedSymbol
+    | ExpectedParenthesis of Parenthesis * ParenthesisState
+    | ExpectedOpenParenthesis
+    | ExpectedStatement
+    | ExpectedEob
+    | ExpectedFunctionAsBodyOfRecStatement
+    | ExpectedSinglePatternWhenStatementNameIsNorVarOrOp
+    | MissingFunctionBody
+    | ExpectedGlobalFunction
+    | ExpectedExpression
+    | InbuiltOpNotFound
+    | UnknownOperator
+    | UnexpectedEob
+    | UnexpectedAndInlRec
+    | ForallNotAllowed
+    | TypecaseNotAllowed
+    | MetavarNotAllowed
+    | TermNotAllowed
+    | UnknownError
+    | ExpectedAtLeastOneToken
+    | DuplicateRecordTypeVar
+    | DuplicateForallVar
+    | DuplicateTermRecordSymbol
+    | DuplicateTermRecordInjection
+    | DuplicateRecFunctionName
+    | BottomUpNumberParseError of string * string
 
 type RawKindExpr =
     | RawKindStar
@@ -427,6 +294,138 @@ let range_of_texpr = function
     | RawTFun(r,_,_)
     | RawTApply(r,_,_)
     | RawTForall(r,_,_) -> r
+
+type Env = {
+    tokens : (Range * SpiralToken) []
+    comments : Tokenize.LineComment option []
+    i : int ref
+    is_top_down : bool
+    default_int : PrimitiveType // Applies only to the bottom-up stage.
+    default_float : PrimitiveType
+    } with
+
+    member d.Index with get() = d.i.contents and set(i) = d.i := i
+
+let inline try_current_template (d : Env) on_succ on_fail =
+    let i = d.Index
+    if i < d.tokens.Length then on_succ d.tokens.[i]
+    else on_fail()
+
+let inline try_current d f = try_current_template d (fun (p,t) -> f (p, t)) (fun () -> Error [])
+let print_current d = try_current d (fun x -> printfn "%A" x; Ok()) // For parser debugging purposes.
+let inline line_template d f = try_current_template d (fst >> f) (fun _ -> -1)
+let col d = line_template d (fun (r,_) -> r.character)
+let line d = line_template d (fun (r,_) -> r.line)
+   
+let skip' (d : Env) i = d.i := d.i.contents+i
+let skip d = skip' d 1
+
+let skip_keyword t d =
+    try_current d <| function
+        | p,TokKeyword t' when t = t' -> skip d; Ok t'
+        | p, _ -> Error [p, ExpectedKeyword t]
+
+let skip_keyword' t d =
+    try_current d <| function
+        | p,TokKeyword t' when t = t' -> skip d; Ok p
+        | p, _ -> Error [p, ExpectedKeyword t]
+
+let read_unary_op d =
+    try_current d <| function
+        | p, TokUnaryOperator t' -> skip d; Ok t'
+        | p, _ -> Error [p, ExpectedUnaryOperator']
+
+let read_unary_op' d =
+    try_current d <| function
+        | p, TokUnaryOperator t' -> skip d; Ok(p,t')
+        | p, _ -> Error [p, ExpectedUnaryOperator']
+
+let read_op d =
+    try_current d <| function
+        | p, TokOperator t' -> skip d; Ok t'
+        | p, _ -> Error [p, ExpectedOperator']
+
+let read_op' d =
+    try_current d <| function
+        | p, TokOperator t' -> skip d; Ok(p,t')
+        | p, _ -> Error [p, ExpectedOperator']
+
+let skip_op t d =
+    try_current d <| function
+        | p, TokOperator t' when t' = t -> skip d; Ok t'
+        | p, _ -> Error [p, ExpectedOperator t]
+
+let skip_unary_op t d =
+    try_current d <| function
+        | p, TokUnaryOperator t' when t' = t -> skip d; Ok t'
+        | p, _ -> Error [p, ExpectedUnaryOperator t]
+
+let read_var d =
+    try_current d <| function
+        | p, TokVar(t',r) -> skip d; Ok t'
+        | p, _ -> Error [p, ExpectedVar]
+
+let read_var' d =
+    try_current d <| function
+        | p, TokVar(t',r) -> skip d; Ok(p,t',r)
+        | p, _ -> Error [p, ExpectedVar]
+
+let read_var'' d =
+    try_current d <| function
+        | p, TokVar(t',r) -> skip d; Ok(p,t')
+        | p, _ -> Error [p, ExpectedVar]
+
+let read_big_var d =
+    try_current d <| function
+        | p, TokVar(t',r) when Char.IsUpper(t',0) -> skip d; Ok(p,t')
+        | p, _ -> Error [p, ExpectedBigVar]
+
+let read_small_var d =
+    try_current d <| function
+        | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> skip d; Ok t'
+        | p, _ -> Error [p, ExpectedSmallVar]
+
+let read_small_var' d =
+    try_current d <| function
+        | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> skip d; Ok(p,t')
+        | p, _ -> Error [p, ExpectedSmallVar]
+
+let read_type_var d =
+    try_current d <| function
+        | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> skip d; r := SemanticTokenLegend.type_variable; Ok(t')
+        | p, _ -> Error [p, ExpectedSmallVar]
+
+let read_value d =
+    try_current d <| function
+        | p, TokValue t' -> skip d; Ok(p,t')
+        | p, _ -> Error [p, ExpectedLit]
+
+let read_symbol_paired d =
+    try_current d <| function
+        | p, TokSymbolPaired(t',r) -> skip d; Ok(p,t')
+        | p, _ -> Error [p, ExpectedSymbolPaired]
+
+let read_symbol_paired' d =
+    try_current d <| function
+        | p, TokSymbolPaired(t',r) -> skip d; Ok(p,t',r)
+        | p, _ -> Error [p, ExpectedSymbolPaired]
+
+let to_lower (x : string) = Char.ToLower(x.[0]).ToString() + x.[1..]
+
+let read_symbol d =
+    try_current d <| function
+        | p, TokSymbol(t',r) -> skip d; Ok(p,t')
+        | p, _ -> Error [p, ExpectedSymbol]
+
+let skip_parenthesis a b d =
+    try_current d <| function
+        | p, TokParenthesis(a',b') when a = a' && b = b' -> skip d; Ok()
+        | p, _ -> Error [p, ExpectedParenthesis(a,b)]
+
+let inline peek_open_parenthesis f d =
+    try_current d <| function
+        | p, TokParenthesis(a',Open) -> f d
+        | p, _ -> Error [p, ExpectedOpenParenthesis]
 
 let on_succ x _ = Ok x
 let rounds a d = (skip_parenthesis Round Open >>. a .>> skip_parenthesis Round Close) d
@@ -661,6 +660,36 @@ let root_type_defaults = {
     allow_wildcard = false
     }
 
+let bottom_up_number (r : Range,x : string) (d : Env) =
+    let inline f string_to_val val_to_lit val_dsc =
+        match string_to_val x with
+        | true, x -> Ok(r, val_to_lit x)
+        | false, _ -> Error [r, BottomUpNumberParseError(x,val_dsc)]
+    if x.Contains '.' then
+        match d.default_float with
+        | Float32T -> f Single.TryParse LitFloat32 "f32"
+        | Float64T -> f Double.TryParse LitFloat64 "f64"
+        | x -> failwithf "Compiler error: Invalid default float type. Got: %A" x
+    else
+        match d.default_int with
+        | Int8T -> f SByte.TryParse LitInt8 "i8"
+        | Int16T -> f Int16.TryParse LitInt16 "i16"
+        | Int32T -> f Int32.TryParse LitInt32 "i32"
+        | Int64T -> f Int64.TryParse LitInt64 "i64"
+        | UInt8T -> f Byte.TryParse LitUInt8 "u8"
+        | UInt16T -> f UInt16.TryParse LitUInt16 "u16"
+        | UInt32T -> f UInt32.TryParse LitUInt32 "u32"
+        | UInt64T -> f UInt64.TryParse LitUInt64 "u64"
+        | x -> failwithf "Compiler error: Invalid default int type. Got: %A" x
+
+let inline read_default_value on_top on_bot d =
+    try_current d <| function
+        | p, TokDefaultValue t' -> 
+            skip d
+            if d.is_top_down then Ok(on_top (p,t'))
+            else bottom_up_number (p,t') d |> Result.map on_bot
+        | p, _ -> Error [p, ExpectedLit]
+
 let rec pat_nominal d =
     (pat_var >>= fun x d -> 
         match x with
@@ -681,7 +710,7 @@ and root_pattern s =
         let pat_active = 
             range (skip_unary_op "!" >>. ((read_small_var' |>> RawV) <|> rounds root_term) .>>. root_pattern_var) 
             |>> fun (r,(a,b)) -> PatActive(r,a,b)
-        let pat_value = (read_value |>> PatValue) <|> (read_default_value |>> PatDefaultValue)
+        let pat_value = (read_value |>> PatValue) <|> (read_default_value PatDefaultValue PatValue)
         let pat_record_item =
             let inj = skip_unary_op "$" >>. read_small_var' |>> fun a -> PatRecordMembersInjectVar,a
             let var = range record_var |>> fun a -> PatRecordMembersSymbol,a
@@ -800,7 +829,7 @@ and root_term d =
             
         let case_forall =
             tuple3 forall (many root_pattern_pair) (skip_op "=>" >>. next)
-            >>= fun (foralls, pats, body) d ->
+            >>= fun (foralls, pats, body) _ ->
                 match patterns_validate pats with
                 | [] -> 
                     List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[pat,body])) pats body
@@ -808,7 +837,7 @@ and root_term d =
                 | ers -> Error ers
 
         let case_value = read_value |>> RawLit
-        let case_default_value = read_default_value |>> RawDefaultLit
+        let case_default_value = read_default_value RawDefaultLit RawLit
         let case_if_then_else d = 
             let i = col d
             let inline f' keyword = range (skip_keyword keyword >>. next)
@@ -846,7 +875,7 @@ and root_term d =
         let case_record =
             let record_body = skip_op "=" >>. next
             let record_create_body = range record_var .>>. record_body |>> RawRecordWithSymbol
-            let record_create = range (sepBy record_create_body (skip_op ";")) |>> fun (r,withs) -> (r,[],withs,[])
+            let record_create = range (curlies (sepBy record_create_body (optional (skip_op ";")))) |>> fun (r,withs) -> (r,[],withs,[])
             let record_with_bodies =
                 record_create_body <|> (read_unary_op' >>= fun (r,x) d ->
                     match x with
@@ -858,13 +887,14 @@ and root_term d =
             let record_without_bodies = (range record_var |>> RawRecordWithoutSymbol) <|> (skip_unary_op "$" >>. read_small_var' |>> RawRecordWithoutInjectVar)
             let record_with =
                 range
-                    (tuple4 read_small_var'
-                        (many ((read_symbol |>> RawSymbolCreate) <|> (skip_op "$" >>. read_small_var' |>> RawV)))
-                        ((skip_keyword SpecWith >>. sepBy record_with_bodies (skip_op ";")) <|>% [])
-                        ((skip_keyword SpecWithout >>. many record_without_bodies) <|>% []))
+                    (curlies
+                        (tuple4 read_small_var'
+                            (many ((read_symbol |>> RawSymbolCreate) <|> (skip_op "$" >>. read_small_var' |>> RawV)))
+                            ((skip_keyword SpecWith >>. sepBy record_with_bodies (optional (skip_op ";"))) <|>% [])
+                            ((skip_keyword SpecWithout >>. many record_without_bodies) <|>% [])))
                 |>> fun (r,(name, acs, withs, withouts)) -> (r,RawV name :: acs,withs,withouts)
         
-            restore 2 (curlies record_with) <|> curlies record_create
+            restore 2 record_with <|> record_create
             >>= fun (_,_,withs,withouts as x) _ ->
                 [
                 withs |> List.choose (function RawRecordWithSymbol(a,_) | RawRecordWithSymbolModify(a,_) -> Some a | _ -> None) |> duplicates DuplicateTermRecordSymbol

@@ -10,6 +10,8 @@ let g forall (q : *) t. (x:e) =
     {r with a = 1; b = x y; $a=1 without $a a e}
     ()
     234 : i32 -> _
+    inl r = {q with a=1; b=2
+        c=3}
     let h = real
         2 : i32 * `(2+3)
     (2 + 2)
