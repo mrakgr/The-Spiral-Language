@@ -148,7 +148,7 @@ type RawRecordWith =
     | RawRecordWithSymbol of (Range * SymbolString) * RawExpr
     | RawRecordWithSymbolModify of (Range * SymbolString) * RawExpr
     | RawRecordWithInjectVar of (Range * VarString) * RawExpr
-    | RawRecordWithInjectVarModify of (Range * SymbolString) * RawExpr
+    | RawRecordWithInjectVarModify of (Range * VarString) * RawExpr
 and RawRecordWithout =
     | RawRecordWithoutSymbol of Range * SymbolString
     | RawRecordWithoutInjectVar of Range * VarString
