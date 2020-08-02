@@ -32,8 +32,7 @@ let tt = function
 let rec typevar = function
     | RawKindStar -> KindStar
     | RawKindFun(a,b) -> KindFun(typevar a, typevar b)
-let typevars (l : TypeVar list) =
-    List.map (fun (_,(a,b)) -> a, typevar b) l
+let typevars (l : TypeVar list) = List.map (fun (_,(a,b)) -> a, typevar b) l
 
 type TypeError =
     | ExpectedStartKind of TT
@@ -107,15 +106,14 @@ type VariableBoundError =
 let unbound_vars (env_term : Map<string,T>) (env_ty : Map<string,T>) (x : RawExpr) =
     let errors = ResizeArray()
     let rec cterm term ty x =
-        let check' (a,b) = Set.contains b term = false && Map.containsKey b env_term = false
-        let check (a,b) = if check' (a,b) then errors.Add(a,UnboundVar)
+        let check (a,b) = if Set.contains b term = false && Map.containsKey b env_term = false then errors.Add(a,UnboundVar)
         match x with
         | RawSymbolCreate _ | RawDefaultLit _ | RawLit _ | RawB _ -> ()
         | RawV(a,b) -> check (a,b)
         | RawType(_,x) -> ctype term ty x
         | RawMatch(_,body,l) -> cterm term ty body; List.iter (fun (a,b) -> cterm (cpattern term ty a) ty b) l
         | RawFun(_,l) -> List.iter (fun (a,b) -> cterm (cpattern term ty a) ty b) l
-        | RawForall(_,(_,(a,_)),b) -> cterm (Set.add a term) ty b
+        | RawForall(_,(_,(a,_)),b) -> cterm term (Set.add a ty) b
         | RawRecBlock(_,l,on_succ) -> 
             let term = List.fold (fun s ((_,x),_) -> Set.add x s) term l
             List.iter (fun (_,x) -> cterm term ty x) l
@@ -128,7 +126,7 @@ let unbound_vars (env_term : Map<string,T>) (env_ty : Map<string,T>) (x : RawExp
                 ) b
             List.iter (function RawRecordWithoutSymbol _ -> () | RawRecordWithoutInjectVar (a,b) -> check (a,b)) c
         | RawOp(_,_,l) -> List.iter (cterm term ty) l
-        | RawJoinPoint(_,x) -> cterm term ty x
+        | RawReal(_,x) | RawJoinPoint(_,x) -> cterm term ty x
         | RawAnnot(_,a,b) -> cterm term ty a; ctype term ty b
         | RawTypecase(_,a,b) -> 
             ctype term ty a
@@ -156,12 +154,42 @@ let unbound_vars (env_term : Map<string,T>) (env_ty : Map<string,T>) (x : RawExp
                         let combine e m = Map.fold (fun s k _ -> Set.add k s) e m
                         cterm (combine term m_term) (combine ty m_ty) on_succ
                 loop (m_term, m_ty) l
-        | RawApply of Range * RawExpr * RawExpr
-        | RawIfThenElse of Range * RawExpr * RawExpr * RawExpr
-        | RawIfThen of Range * RawExpr * RawExpr
-        | RawPairCreate of Range * RawExpr * RawExpr
-        | RawSeq of Range * RawExpr * RawExpr
-        | RawReal of Range * RawExpr
+        | RawSeq(_,a,b) | RawPairCreate(_,a,b) | RawIfThen(_,a,b) | RawApply(_,a,b) -> cterm term ty a; cterm term ty b
+        | RawIfThenElse(_,a,b,c) -> cterm term ty a; cterm term ty b; cterm term ty c
+    and ctype term ty x =
+        let check (a,b) = if Set.contains b ty = false && Map.containsKey b env_ty = false then errors.Add(a,UnboundVar)
+        match x with
+        | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
+        | RawTVar(a,b) -> check (a,b)
+        | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> ctype term ty a; ctype term ty b
+        | RawTRecord(_,l) -> Map.iter (fun k -> ctype term ty) l
+        | RawTForall(_,(_,(a,_)),b) -> ctype term (Set.add a ty) b
+        | RawTArray(_,a) -> ctype term ty a
+        | RawTTerm (_,a) -> cterm term ty a
+    and cpattern term ty x =
+        let rec loop term x = 
+            let f = loop term
+            match x with
+            | PatSymbol _ | PatB _ | PatE _ -> Set.empty
+            | PatVar(_,b) -> Set.singleton b
+            | PatDyn(_,x) | PatUnbox(_,x) -> loop x
+            | PatAnnot(_,a,b) -> let r = loop a in ctype (r + term) ty b; r
+            | PatPair(_,a,b) -> loop a + loop b
+            | PatRecordMembers(_,l) ->
+                List.fold (fun s x ->
+                    let check (a,b) = if (Set.contains b s || Set.contains b term || Map.containsKey b env_term) = false then errors.Add(a,UnboundVar)
+                    match x with
+                    | PatRecordMembersSymbol(_,b) -> s + loop b
+                    | PatRecordMembersInjectVar(a,b) -> check a
+                    ) Set.empty l
+            | PatActive of Range * RawExpr * Pattern
+            | PatOr of Range * Pattern * Pattern
+            | PatAnd of Range * Pattern * Pattern
+            | PatValue of Range * Literal
+            | PatDefaultValue of Range * VarString
+            | PatWhen of Range * Pattern * RawExpr
+            | PatNominal of Range * VarString * Pattern
+        loop x
 
     cterm Set.empty Set.empty x
 
