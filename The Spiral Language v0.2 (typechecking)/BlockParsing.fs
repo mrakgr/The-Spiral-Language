@@ -171,7 +171,7 @@ and Pattern =
     | PatValue of Range * Literal
     | PatDefaultValue of Range * VarString
     | PatWhen of Range * Pattern * RawExpr
-    | PatNominal of Range * VarString * Pattern
+    | PatNominal of Range * (Range * VarString) * Pattern
 and RawExpr =
     | RawB of Range
     | RawV of Range * VarString
@@ -673,17 +673,23 @@ let inline read_default_value on_top on_bot d =
             else bottom_up_number (p,t') d |> Result.map on_bot
         | p, _ -> Error [p, ExpectedLit]
 
-let rec pat_nominal d =
-    (pat_var >>= fun x d -> 
-        match x with
-        | PatVar(ra,a) -> (opt root_pattern_var |>> function Some b -> PatNominal(ra +. range_of_pattern b,a,b) | None -> x) d
-        | _ -> Ok x) d
-and pat_var d =
+let pat_var d =
     (read_var' |>> fun (r,a,re) ->
         if Char.IsUpper(a,0) then 
             re := SemanticTokenLegend.symbol
             PatUnbox(r,PatPair(r,PatSymbol(r,to_lower a), PatB r))
         else PatVar(r,a)
+        ) d
+let rec pat_nominal d =
+    (read_var' >>= fun (r,a,re) _ ->
+        if Char.IsUpper(a,0) then 
+            re := SemanticTokenLegend.symbol
+            Ok(PatUnbox(r,PatPair(r,PatSymbol(r,to_lower a), PatB r)))
+        else 
+            ((root_pattern_var |>> fun b ->
+                re := SemanticTokenLegend.type_variable
+                PatNominal(r +. range_of_pattern b,(r,a),b)
+                ) <|>% PatVar(r,a)) d
         ) d
 and pat_wildcard d = (skip_keyword' SpecWildcard |>> PatE) d
 and pat_dyn d = (range (skip_unary_op "~" >>. root_pattern_var) |>> PatDyn) d
@@ -795,12 +801,7 @@ and root_type (flags : RootTypeFlags) d =
 and root_term d =
     let rec expressions d =
         let next = root_term
-        let case_var = 
-            read_var' |>> fun (r,x,re) -> 
-                if Char.IsUpper(x,0) then 
-                    re := SemanticTokenLegend.symbol
-                    RawApply(r, RawV(r,to_lower x), RawB r) 
-                else RawV(r,x)
+        let case_var = read_var'' |>> fun (r,x) -> if Char.IsUpper(x,0) then RawApply(r, RawV(r,to_lower x), RawB r) else RawV(r,x)
         let case_unit = unit' RawB
         let case_rounds = rounds ((read_op' |>> RawV) <|> next)
         let case_fun =

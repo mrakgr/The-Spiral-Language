@@ -34,13 +34,21 @@ let rec typevar = function
     | RawKindFun(a,b) -> KindFun(typevar a, typevar b)
 let typevars (l : TypeVar list) = List.map (fun (_,(a,b)) -> a, typevar b) l
 
-type TypeError =
-    | ExpectedStartKind of TT
-    | KindError of TT * TT
-    | RecordKeyNotFound of string
-    | ExpectedSymbolAsRecordKey of T
+type VariableBoundError =
+    | UnboundVar
+    | ModuleUnbound
+    | ModuleShadowed
+    | ModuleShadowedAndUnbound
+    | ModuleIndexFailed
 
-exception TypeErrorException of Range * TypeError
+type TypeError =
+    | ExpectedStartKind of Range * TT
+    | KindError of Range * TT * TT
+    | RecordKeyNotFound of Range * string
+    | ExpectedSymbolAsRecordKey of Range * T
+    | UnboundVariables of (Range * VariableBoundError) []
+
+exception TypeErrorException of TypeError
 exception TermException of Range
 let rec substitute_tyvars (body : T) (env : Map<string, T>) =
     let f x = substitute_tyvars x env
@@ -55,55 +63,14 @@ let rec substitute_tyvars (body : T) (env : Map<string, T>) =
     | TyVar(n,_) -> env.[n]
     | TyInl _ -> failwith "Compiler error: TyInl should already have been substituted during eval."
 
-let rec eval (expr : RawTExpr) (env : Map<string, T>) =
-    let f x = eval x env
-    let f' x =
-        let r = f x
-        match tt r with
-        | KindStar -> r
-        | s -> raise (TypeErrorException(range_of_texpr x, ExpectedStartKind s))
-    match expr with
-    | RawTB _ -> TyB
-    | RawTSymbol(_,x) -> TySymbol x
-    | RawTForall(_,(_,a),b) -> TyForall((fst a, typevar (snd a)), f b)
-    | RawTPrim(_,x) -> TyPrim x
-    | RawTArray(_,x) -> TyArray(f x)
-    | RawTVar(r,n) -> env.[n]
-    | RawTPair(_,a,b) -> TyPair(f' a, f' b)
-    | RawTFun(_,a,b) -> TyFun(f' a, f' b)
-    | RawTRecord(_,l) -> TyRecord(Map.map (fun _ -> f') l)
-    | RawTApply(r,a,b) -> 
-        match f a, f b with
-        | TyRecord l, TySymbol n ->
-            match Map.tryFind n l with
-            | Some x -> x
-            | None -> raise (TypeErrorException (r, RecordKeyNotFound n))
-        | TyRecord _, b -> raise (TypeErrorException (r, ExpectedSymbolAsRecordKey b))
-        | TyInl(env,(name,ka) :: x',body), b ->
-            let kb = tt b
-            if ka = kb then
-                let env = Map.add name b env
-                match x' with
-                | [] -> substitute_tyvars body env
-                | _ -> TyInl(env,x',body)
-            else
-                raise (TypeErrorException (r, KindError(ka,kb)))
-        | a, b ->
-            match tt a, tt b with
-            | KindFun(ka, ka'), kb when ka = kb -> TyApp(a,b,ka')
-            | ka, kb -> raise (TypeErrorException (r, KindError(ka,kb)))
-    | RawTMetaVar _
-    | RawTWildcard _ -> failwith "Compiler error: Invalid node in this function."
-    | RawTTerm(r,_) -> raise (TermException r)
+let rec metavars = function
+    | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ -> Set.empty
+    | RawTMetaVar(_,a) -> Set.singleton a
+    | RawTForall(_,(_,(_,_)),a) | RawTArray(_,a) -> metavars a
+    | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> metavars a + metavars b
+    | RawTRecord(_,l) -> Map.fold (fun s _ v -> s + metavars v) Set.empty l
 
-type VariableBoundError =
-    | UnboundVar
-    | ModuleUnbound
-    | ModuleShadowed
-    | ModuleShadowedAndUnbound
-    | ModuleIndexFailed
-
-let unbound_vars (env_term : Map<string,T>) (env_ty : Map<string,T>) (x : RawExpr) =
+let assert_bound_vars (env_term : Map<string,T>) (env_ty : Map<string,T>) x =
     let errors = ResizeArray()
     let rec cterm term ty x =
         let check (a,b) = if Set.contains b term = false && Map.containsKey b env_term = false then errors.Add(a,UnboundVar)
@@ -162,41 +129,98 @@ let unbound_vars (env_term : Map<string,T>) (env_ty : Map<string,T>) (x : RawExp
         | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
         | RawTVar(a,b) -> check (a,b)
         | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> ctype term ty a; ctype term ty b
-        | RawTRecord(_,l) -> Map.iter (fun k -> ctype term ty) l
+        | RawTRecord(_,l) -> Map.iter (fun _ -> ctype term ty) l
         | RawTForall(_,(_,(a,_)),b) -> ctype term (Set.add a ty) b
         | RawTArray(_,a) -> ctype term ty a
         | RawTTerm (_,a) -> cterm term ty a
-    and cpattern term ty x =
+    and cpattern term' ty x =
         let rec loop term x = 
             let f = loop term
             match x with
-            | PatSymbol _ | PatB _ | PatE _ -> Set.empty
-            | PatVar(_,b) -> Set.singleton b
-            | PatDyn(_,x) | PatUnbox(_,x) -> loop x
-            | PatAnnot(_,a,b) -> let r = loop a in ctype (r + term) ty b; r
-            | PatPair(_,a,b) -> loop a + loop b
+            | PatDefaultValue _ | PatValue _ | PatSymbol _ | PatB _ | PatE _ -> term
+            | PatVar(_,b) -> Set.add b term
+            | PatDyn(_,x) | PatUnbox(_,x) -> f x
+            | PatPair(_,a,b) -> loop (loop term a) b
             | PatRecordMembers(_,l) ->
-                List.fold (fun s x ->
-                    let check (a,b) = if (Set.contains b s || Set.contains b term || Map.containsKey b env_term) = false then errors.Add(a,UnboundVar)
-                    match x with
-                    | PatRecordMembersSymbol(_,b) -> s + loop b
-                    | PatRecordMembersInjectVar(a,b) -> check a
-                    ) Set.empty l
-            | PatActive of Range * RawExpr * Pattern
-            | PatOr of Range * Pattern * Pattern
-            | PatAnd of Range * Pattern * Pattern
-            | PatValue of Range * Literal
-            | PatDefaultValue of Range * VarString
-            | PatWhen of Range * Pattern * RawExpr
-            | PatNominal of Range * VarString * Pattern
-        loop x
+                List.fold (fun s -> function
+                    | PatRecordMembersSymbol(_,x) -> loop s x
+                    | PatRecordMembersInjectVar((a,b),x) ->
+                        if Set.contains b term = false && Map.containsKey b env_term = false then errors.Add(a,UnboundVar)
+                        loop s x
+                    ) term l
+            | PatActive(_,a,b) -> cterm (term' + term) ty a; f b
+            | PatAnd(_,a,b) | PatOr(_,a,b) -> loop (loop term a) b
+            | PatAnnot(_,a,b) -> let r = f a in ctype (term' + r) ty b; r // TODO: I am doing it like this so I can reuse this code later for variable highting.
+            | PatWhen(_,a,b) -> let r = f a in cterm (term' + r) ty b; r
+            | PatNominal(_,a,b) -> (if Map.containsKey (snd a) env_ty = false then errors.Add(fst a,UnboundVar)); f b
+        term' + loop Set.empty x
 
-    cterm Set.empty Set.empty x
+    match x with
+    | Choice1Of2 x -> cterm Set.empty Set.empty x
+    | Choice2Of2 x -> ctype Set.empty Set.empty x
+    if 0 < errors.Count then raise (TypeErrorException (UnboundVariables(errors.ToArray())))
 
-let top_type (name : VarString, vars : TypeVar list, expr : RawTExpr) (env : Map<string, T>) = // TODO: Check for unbound vars.
+let inline eval on_term expr env =
+    let rec loop expr (env : Map<string, T>) = 
+        let f x = loop x env
+        let f' x =
+            let r = f x
+            match tt r with
+            | KindStar -> r
+            | s -> raise (TypeErrorException(ExpectedStartKind(range_of_texpr x, s)))
+        match expr with
+        | RawTB _ -> TyB
+        | RawTSymbol(_,x) -> TySymbol x
+        | RawTForall(_,(_,(name,kind)),b) -> let kind = typevar kind in TyForall((name, kind), loop b (Map.add name (TyVar(name,kind)) env))
+        | RawTPrim(_,x) -> TyPrim x
+        | RawTArray(_,x) -> TyArray(f x)
+        | RawTVar(_,n) -> env.[n]
+        | RawTPair(_,a,b) -> TyPair(f' a, f' b)
+        | RawTFun(_,a,b) -> TyFun(f' a, f' b)
+        | RawTRecord(_,l) -> TyRecord(Map.map (fun _ -> f') l)
+        | RawTApply(r,a,b) -> 
+            match f a, f b with
+            | TyRecord l, TySymbol n ->
+                match Map.tryFind n l with
+                | Some x -> x
+                | None -> raise (TypeErrorException (RecordKeyNotFound(r,n)))
+            | TyRecord _, b -> raise (TypeErrorException (ExpectedSymbolAsRecordKey(r,b)))
+            | TyInl(env,(name,ka) :: x',body), b ->
+                let kb = tt b
+                if ka = kb then
+                    let env = Map.add name b env
+                    match x' with
+                    | [] -> substitute_tyvars body env
+                    | _ -> TyInl(env,x',body)
+                else
+                    raise (TypeErrorException (KindError(r,ka,kb)))
+            | a, b ->
+                match tt a, tt b with
+                | KindFun(ka, ka'), kb when ka = kb -> TyApp(a,b,ka')
+                | ka, kb -> raise (TypeErrorException (KindError(r,ka,kb)))
+        | RawTMetaVar _
+        | RawTWildcard _ -> failwith "Compiler error: Metavars and wildcards are not allowed as inputs to this function."
+        | RawTTerm(r,a) -> on_term (r,a)
+    loop expr env
+
+let eval_no_term expr env_ty = eval (fun _ -> failwith "Compiler error: Terms should not appear in `type` statements.") expr env_ty
+
+type Env = { ty : Map<string,T>; term : Map<string,T> }
+
+let top_type (name : VarString, vars : TypeVar list, expr : RawTExpr) (env : Env) =
     let vars = typevars vars
-    let body = eval expr (List.fold (fun s (k,v) -> Map.add k (TyVar (k,v)) s) env vars)
-    Map.add name (TyInl(Map.empty,vars,body)) env
+    let body =
+        let env_ty = List.fold (fun s (k,v) -> Map.add k (TyVar (k,v)) s) env.ty vars
+        assert_bound_vars env.term env_ty (Choice2Of2 expr)
+        eval_no_term expr env_ty
+    {env with ty = Map.add name (TyInl(Map.empty,vars,body)) env.ty}
+
+type TopHigherOrder =
+    | HOUnion of int * TypeVar list * RawTExpr list
+    | HONominal of int * TypeVar list * RawTExpr
+
+let top_higher_order (l : TopHigherOrder list) =
+    
 
 let tc (l : Bundle list) = 
     ()
