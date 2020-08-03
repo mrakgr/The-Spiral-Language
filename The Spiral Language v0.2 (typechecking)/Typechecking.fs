@@ -42,14 +42,14 @@ type VariableBoundError =
     | ModuleIndexFailed
 
 type TypeError =
-    | ExpectedStartKind of Range * TT
-    | KindError of Range * TT * TT
-    | RecordKeyNotFound of Range * string
-    | ExpectedSymbolAsRecordKey of Range * T
-    | UnboundVariables of (Range * VariableBoundError) []
+    | ExpectedStartKind of TT
+    | KindError of TT * TT
+    | RecordKeyNotFound of string
+    | ExpectedSymbolAsRecordKey of T
+    | UnboundVariable of VariableBoundError
+    | ExpectedSymbolAsUnionKey
 
-exception TypeErrorException of TypeError
-exception TermException of Range
+exception TypeErrorException of (Range * TypeError) list
 let rec substitute_tyvars (body : T) (env : Map<string, T>) =
     let f x = substitute_tyvars x env
     match body with
@@ -73,7 +73,7 @@ let rec metavars = function
 let assert_bound_vars (env_term : Map<string,T>) (env_ty : Map<string,T>) x =
     let errors = ResizeArray()
     let rec cterm term ty x =
-        let check (a,b) = if Set.contains b term = false && Map.containsKey b env_term = false then errors.Add(a,UnboundVar)
+        let check (a,b) = if Set.contains b term = false && Map.containsKey b env_term = false then errors.Add(a,UnboundVariable UnboundVar)
         match x with
         | RawSymbolCreate _ | RawDefaultLit _ | RawLit _ | RawB _ -> ()
         | RawV(a,b) -> check (a,b)
@@ -108,15 +108,15 @@ let assert_bound_vars (env_term : Map<string,T>) (env_ty : Map<string,T>) x =
                 | _ -> None
             let bound_local,bound_global = Set.contains b term, tryFind b
             match bound_local, bound_global with
-            | false, None -> errors.Add(a,ModuleUnbound)
-            | true, Some _ -> errors.Add(a,ModuleShadowed)
-            | true, None -> errors.Add(a,ModuleShadowedAndUnbound)
+            | false, None -> errors.Add(a,UnboundVariable ModuleUnbound)
+            | true, Some _ -> errors.Add(a,UnboundVariable ModuleShadowed)
+            | true, None -> errors.Add(a,UnboundVariable ModuleShadowedAndUnbound)
             | false, Some (m_term, m_ty) ->
                 let rec loop (m_term,m_ty) = function
                     | (r,x) :: x' ->
                         match tryFind x with
                         | Some (m_term, m_ty) -> loop (m_term, m_ty) x'
-                        | _ -> errors.Add(r,ModuleIndexFailed)
+                        | _ -> errors.Add(r,UnboundVariable ModuleIndexFailed)
                     | [] -> 
                         let combine e m = Map.fold (fun s k _ -> Set.add k s) e m
                         cterm (combine term m_term) (combine ty m_ty) on_succ
@@ -124,7 +124,7 @@ let assert_bound_vars (env_term : Map<string,T>) (env_ty : Map<string,T>) x =
         | RawSeq(_,a,b) | RawPairCreate(_,a,b) | RawIfThen(_,a,b) | RawApply(_,a,b) -> cterm term ty a; cterm term ty b
         | RawIfThenElse(_,a,b,c) -> cterm term ty a; cterm term ty b; cterm term ty c
     and ctype term ty x =
-        let check (a,b) = if Set.contains b ty = false && Map.containsKey b env_ty = false then errors.Add(a,UnboundVar)
+        let check (a,b) = if Set.contains b ty = false && Map.containsKey b env_ty = false then errors.Add(a,UnboundVariable UnboundVar)
         match x with
         | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
         | RawTVar(a,b) -> check (a,b)
@@ -145,20 +145,20 @@ let assert_bound_vars (env_term : Map<string,T>) (env_ty : Map<string,T>) x =
                 List.fold (fun s -> function
                     | PatRecordMembersSymbol(_,x) -> loop s x
                     | PatRecordMembersInjectVar((a,b),x) ->
-                        if Set.contains b term = false && Map.containsKey b env_term = false then errors.Add(a,UnboundVar)
+                        if Set.contains b term = false && Map.containsKey b env_term = false then errors.Add(a,UnboundVariable UnboundVar)
                         loop s x
                     ) term l
             | PatActive(_,a,b) -> cterm (term' + term) ty a; f b
             | PatAnd(_,a,b) | PatOr(_,a,b) -> loop (loop term a) b
             | PatAnnot(_,a,b) -> let r = f a in ctype (term' + r) ty b; r // TODO: I am doing it like this so I can reuse this code later for variable highting.
             | PatWhen(_,a,b) -> let r = f a in cterm (term' + r) ty b; r
-            | PatNominal(_,a,b) -> (if Map.containsKey (snd a) env_ty = false then errors.Add(fst a,UnboundVar)); f b
+            | PatNominal(_,a,b) -> (if Map.containsKey (snd a) env_ty = false then errors.Add(fst a,UnboundVariable UnboundVar)); f b
         term' + loop Set.empty x
 
     match x with
     | Choice1Of2 x -> cterm Set.empty Set.empty x
     | Choice2Of2 x -> ctype Set.empty Set.empty x
-    if 0 < errors.Count then raise (TypeErrorException (UnboundVariables(errors.ToArray())))
+    if 0 < errors.Count then raise (TypeErrorException (errors |> Seq.toList))
 
 let inline eval on_term expr env =
     let rec loop expr (env : Map<string, T>) = 
@@ -167,7 +167,7 @@ let inline eval on_term expr env =
             let r = f x
             match tt r with
             | KindStar -> r
-            | s -> raise (TypeErrorException(ExpectedStartKind(range_of_texpr x, s)))
+            | s -> raise (TypeErrorException [range_of_texpr x, ExpectedStartKind s])
         match expr with
         | RawTB _ -> TyB
         | RawTSymbol(_,x) -> TySymbol x
@@ -183,8 +183,8 @@ let inline eval on_term expr env =
             | TyRecord l, TySymbol n ->
                 match Map.tryFind n l with
                 | Some x -> x
-                | None -> raise (TypeErrorException (RecordKeyNotFound(r,n)))
-            | TyRecord _, b -> raise (TypeErrorException (ExpectedSymbolAsRecordKey(r,b)))
+                | None -> raise (TypeErrorException [r, RecordKeyNotFound n])
+            | TyRecord _, b -> raise (TypeErrorException [r, ExpectedSymbolAsRecordKey b])
             | TyInl(env,(name,ka) :: x',body), b ->
                 let kb = tt b
                 if ka = kb then
@@ -193,34 +193,80 @@ let inline eval on_term expr env =
                     | [] -> substitute_tyvars body env
                     | _ -> TyInl(env,x',body)
                 else
-                    raise (TypeErrorException (KindError(r,ka,kb)))
+                    raise (TypeErrorException [r, KindError(ka,kb)])
             | a, b ->
                 match tt a, tt b with
                 | KindFun(ka, ka'), kb when ka = kb -> TyApp(a,b,ka')
-                | ka, kb -> raise (TypeErrorException (KindError(r,ka,kb)))
+                | ka, kb -> raise (TypeErrorException [r, KindError(ka,kb)] )
         | RawTMetaVar _
         | RawTWildcard _ -> failwith "Compiler error: Metavars and wildcards are not allowed as inputs to this function."
         | RawTTerm(r,a) -> on_term (r,a)
     loop expr env
 
 let eval_no_term expr env_ty = eval (fun _ -> failwith "Compiler error: Terms should not appear in `type` statements.") expr env_ty
+let eval_term expr env_ty =
+    let count_term = ref 0
+    eval (fun _ -> let i = !count_term in incr count_term; TyMetavar(i,KindStar)) expr env_ty, !count_term
 
 type Env = { ty : Map<string,T>; term : Map<string,T> }
 
+let add_var s (k,v) = Map.add k (TyVar (k,v)) s
+let add_vars ty vars = List.fold add_var ty vars
 let top_type (name : VarString, vars : TypeVar list, expr : RawTExpr) (env : Env) =
     let vars = typevars vars
     let body =
-        let env_ty = List.fold (fun s (k,v) -> Map.add k (TyVar (k,v)) s) env.ty vars
+        let env_ty = add_vars env.ty vars
         assert_bound_vars env.term env_ty (Choice2Of2 expr)
         eval_no_term expr env_ty
     {env with ty = Map.add name (TyInl(Map.empty,vars,body)) env.ty}
 
 type TopHigherOrder =
-    | HOUnion of int * TypeVar list * RawTExpr list
-    | HONominal of int * TypeVar list * RawTExpr
+    | HOUnion of name: string * id: int * (string * TT) list * RawTExpr list
+    | HONominal of name: string * id: int * (string * TT) list * RawTExpr
 
-let top_higher_order (l : TopHigherOrder list) =
-    
+type HigherOrderCases =
+    | HOCUnion of (string * TT) list * Map<string,T>
+    | HOCNominal of (string * TT) list * T
+    | HOCRealNominal of (string * TT) list * RawTExpr
+
+let top_higher_order (l : TopHigherOrder list) hoc (env : Env) =
+    let env_ty =
+        List.fold (fun s (HOUnion(name,i,vars,_) | HONominal(name,i,vars,_)) ->
+            let tt = List.foldBack (fun (_,x) s -> KindFun(x,s)) vars KindStar
+            Map.add name (TyHigherOrder(i,tt)) s
+            ) env.ty l
+    let errors = ResizeArray()
+    let hoc =
+        List.fold (fun hoc x ->
+            match x with
+            | HOUnion(_,i,vars,l) ->
+                let env_ty = add_vars env_ty vars
+                List.fold (fun cases expr ->
+                    try assert_bound_vars env.term env_ty (Choice2Of2 expr)
+                        match eval_no_term expr env_ty with
+                        | TyPair(TySymbol x, b) -> Map.add x b cases
+                        | _ -> errors.Add (range_of_texpr expr, ExpectedSymbolAsUnionKey); cases
+                    with :? TypeErrorException as x -> errors.AddRange(x.Data0); cases
+                    ) Map.empty l
+                |> fun l -> Map.add i (HOCUnion(vars,l)) hoc
+            | HONominal(_,i,vars,expr) ->
+                let env_ty = add_vars env_ty vars
+                try assert_bound_vars env.term env_ty (Choice2Of2 expr)
+                    let b, count_term = eval_term expr env_ty
+                    let v = if 0 < count_term then HOCRealNominal(vars,expr) else HOCNominal(vars,b)
+                    Map.add i v hoc
+                with :? TypeErrorException as x -> errors.AddRange(x.Data0); hoc
+            ) hoc l
+    if 0 < errors.Count then raise (TypeErrorException (errors |> Seq.toList))
+    hoc, {env with ty=env_ty}
+
+let top_prototype (name,a,b,expr) (env : Env) =
+    let tt = List.foldBack (fun (_,x) s -> KindFun(x,s)) b KindStar
+    let l = (a,tt) :: b
+    let env_ty = add_vars env.ty l
+    assert_bound_vars env.term env_ty (Choice2Of2 expr)
+    let body = eval_no_term expr env_ty |> List.foldBack (fun a b -> TyForall(a,b)) l
+    {env with term = Map.add name body env.term}
 
 let tc (l : Bundle list) = 
     ()
