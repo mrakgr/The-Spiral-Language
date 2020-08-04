@@ -48,6 +48,7 @@ type TypeError =
     | ExpectedSymbolAsRecordKey of T
     | UnboundVariable of VariableBoundError
     | ExpectedSymbolAsUnionKey
+    | DuplicateKeyInUnion
 
 exception TypeErrorException of (Range * TypeError) list
 let rec substitute_tyvars (body : T) (env : Map<string, T>) =
@@ -244,7 +245,9 @@ let top_higher_order (l : TopHigherOrder list) hoc (env : Env) =
                 List.fold (fun cases expr ->
                     try assert_bound_vars env.term env_ty (Choice2Of2 expr)
                         match eval_no_term expr env_ty with
-                        | TyPair(TySymbol x, b) -> Map.add x b cases
+                        | TyPair(TySymbol x, b) -> 
+                            if Map.containsKey x cases then errors.Add(range_of_texpr expr, DuplicateKeyInUnion); cases
+                            else Map.add x b cases
                         | _ -> errors.Add (range_of_texpr expr, ExpectedSymbolAsUnionKey); cases
                     with :? TypeErrorException as x -> errors.AddRange(x.Data0); cases
                     ) Map.empty l
