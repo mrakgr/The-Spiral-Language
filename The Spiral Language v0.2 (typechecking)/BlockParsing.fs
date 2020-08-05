@@ -812,7 +812,7 @@ and root_term d =
                 | ers -> Error ers
             
         let case_forall =
-            tuple3 forall (many root_pattern_pair) (skip_op "=>" >>. next)
+            (tuple3 forall (many root_pattern_pair) (skip_op "=>" >>. next)
             >>= fun (foralls, pats, body) _ ->
                 match patterns_validate pats with
                 | [] -> 
