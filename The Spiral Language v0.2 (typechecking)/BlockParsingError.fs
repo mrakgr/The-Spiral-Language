@@ -67,7 +67,7 @@ let show_parser_error = function
     | InvalidPattern DuplicateVar -> "Duplicate pattern variable."
     | InvalidPattern ShadowedVar -> "Shadowed pattern variable."
     | MetavarNotAllowed -> "Metavariable is not allowed here."
-    | SymbolPairedShouldStartWithUppercase -> "Paired symbol should start with uppercase here."
+    | SymbolPairedShouldStartWithLowercaseInTypeScope -> "Paired symbol should start with lowercase in type scope."
     | TermNotAllowed -> "The term is not allowed here."
     | TypecaseNotAllowed -> "Typecase is not allowed here."
     | UnexpectedAndInlRec -> "The first statement of a recursive block has to be marked as recursive."

@@ -1,10 +1,10 @@
 union option a = 
-    | Some: a
+    | some: a
     | None
 
 nominal tensor el dim = `(tensor_init `el `dim ``el ``dim)
 and union tensor_option el dim =
-    | Some: tensor el dim
+    | some: tensor el dim
     | None
 and nominal tensor2d el a b = tensor el (a * b)
 

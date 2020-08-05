@@ -111,7 +111,7 @@ type ParserErrors =
     | ExpectedBigVar
     | ExpectedLit
     | ExpectedSymbolPaired
-    | SymbolPairedShouldStartWithUppercase
+    | SymbolPairedShouldStartWithLowercaseInTypeScope
     | ExpectedSymbol
     | ExpectedParenthesis of Parenthesis * ParenthesisState
     | ExpectedOpenParenthesis
@@ -789,11 +789,11 @@ and root_type (flags : RootTypeFlags) d =
             match List.unzip l with
             | [], _ -> failwith "Compiler error: Single item expected."
             | (r,x) :: k', v ->
-                if Char.IsUpper(x,0) then
+                if Char.IsLower(x,0) then
                     List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b)) 
-                        (RawTSymbol(r,symbol_paired_concat ((r,to_lower x) :: k')) :: v) |> Ok
+                        (RawTSymbol(r,symbol_paired_concat ((r,x) :: k')) :: v) |> Ok
                 else
-                    Error [r, SymbolPairedShouldStartWithUppercase]
+                    Error [r, SymbolPairedShouldStartWithLowercaseInTypeScope]
             )
         <|> next) d
     symbol_paired d
@@ -889,15 +889,13 @@ and root_term d =
 
         let case_join_point = skip_keyword SpecJoin >>. next |>> fun x -> RawJoinPoint(range_of_expr x,x)
         let case_real = skip_keyword SpecReal >>. (fun d -> next {d with is_top_down=false}) |>> fun x -> RawReal(range_of_expr x,x)
-
         let case_symbol = read_symbol |>> RawSymbolCreate
-
         let case_unary_op = 
             read_unary_op' >>= fun (o,a) d ->
                 let type_expr d = ((read_small_var' |>> RawTVar) <|> (rounds (fun d -> root_type {root_type_defaults with allow_term=true} d))) d
                 match a with
                 | "!!!!" -> 
-                    (range (read_big_var .>>. (rounds (sepBy1 expressions (skip_op ","))))
+                    (range (read_big_var .>>. (rounds (sepBy1 (fun d -> expressions {d with is_top_down=false}) (skip_op ","))))
                     >>= fun (r,((ra,a), b)) _ ->
                         match string_to_op a with
                         | true, op' -> Ok(RawOp(r,op',b))
