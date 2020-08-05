@@ -811,14 +811,15 @@ and root_term d =
                 | [] -> List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[pat,body])) pats body |> Ok
                 | ers -> Error ers
             
-        let case_forall =
-            (tuple3 forall (many root_pattern_pair) (skip_op "=>" >>. next)
-            >>= fun (foralls, pats, body) _ ->
-                match patterns_validate pats with
-                | [] -> 
-                    List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[pat,body])) pats body
-                    |> List.foldBack (fun a body -> RawForall(range_of_typevar a +. range_of_expr body,a,body)) foralls |> Ok
-                | ers -> Error ers
+        let case_forall d =
+            if d.is_top_down then Error [] else
+                (tuple3 forall (many root_pattern_pair) (skip_op "=>" >>. next)
+                >>= fun (foralls, pats, body) _ ->
+                    match patterns_validate pats with
+                    | [] -> 
+                        List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[pat,body])) pats body
+                        |> List.foldBack (fun a body -> RawForall(range_of_typevar a +. range_of_expr body,a,body)) foralls |> Ok
+                    | ers -> Error ers) d
 
         let case_value = read_value |>> RawLit
         let case_default_value = read_default_value RawDefaultLit RawLit
