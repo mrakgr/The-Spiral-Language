@@ -38,6 +38,11 @@ type TypeError =
     | TermError of T * T
     | ForallVarScopeError of string * T * T
     | ForallMetavarScopeError of string * T * T
+    | MetavarsNotAllowedInRecordWith
+    | ExpectedRecord
+    | ExpectedRecordAsResultOfIndex of string
+    | RecordIndexFailed of string
+    | ExpectedSymbolInRecordWith
 
 open Spiral.BlockParsing
 exception TypeErrorException of (Range * TypeError) list
@@ -274,7 +279,7 @@ let top_prototype (name,a,b,expr) (env : Env) =
 
 open Spiral.Tokenize
 
-let top_inl (r,name,body) =
+let top_inl (r,name,body) (top_env : Env) =
     let errors = ResizeArray()
     let term' = ResizeArray()
     let kind = ResizeArray()
@@ -381,7 +386,7 @@ let top_inl (r,name,body) =
         match x with
         | RawB _ -> TyB
         | RawV(r,x) ->
-            match Map.tryFind x env.term with
+            match Map.tryFind x env.term |> Option.orElseWith (fun () -> Map.tryFind x top_env.term) with
             | Some x -> forall_subst_all x
             | None -> errors.Add(r, UnboundVariable UnboundVar); fresh_var()
         | RawLit(_,x) ->
@@ -441,11 +446,55 @@ let top_inl (r,name,body) =
             let k = typevar k
             let v = TyVar(a,k)
             let i = term'.Count
-            fresh_var() |> ignore
+            term'.Add(v)
             forallvar_scopes.Add(a,i)
             TyForall((a,k), term b {env with ty=Map.add a v env.ty})
-        //| RawModuleOpen of Range * (Range * VarString) * (Range * SymbolString) list * on_succ: RawExpr
-        //| RawRecordWith of Range * RawExpr list * RawRecordWith list * RawRecordWithout list
+        | RawModuleOpen(_,(a,b),l,on_succ) ->
+            let tryFind x =
+                match Map.tryFind x top_env.term, Map.tryFind x top_env.ty with
+                | Some (TyRecord a), Some (TyRecord b) -> Some (a,b)
+                | _ -> None
+            let bound_local, bound_global = Map.containsKey b env.term, tryFind b
+            match bound_local, bound_global with
+            | false, None -> errors.Add(a,UnboundVariable ModuleUnbound); env
+            | true, Some _ -> errors.Add(a,UnboundVariable ModuleShadowed); env
+            | true, None -> errors.Add(a,UnboundVariable ModuleShadowedAndUnbound); env
+            | false, Some (m_term, m_ty) ->
+                let rec loop (m_term,m_ty) = function
+                    | (r,x) :: x' ->
+                        match tryFind x with
+                        | Some (m_term, m_ty) -> loop (m_term, m_ty) x'
+                        | _ -> errors.Add(r,UnboundVariable ModuleIndexFailed); env
+                    | [] -> 
+                        let combine e m = Map.foldBack Map.add m e
+                        {env with term=combine env.term m_term; ty=combine env.ty m_ty}
+                loop (m_term, m_ty) l
+            |> term on_succ
+                
+        | RawRecordWith(r,l,withs,withouts) ->
+            let i = errors.Count
+            let record x =
+                match f x |> term_subst with
+                | TyRecord m -> m
+                | TyMetavar _ -> raise (TypeErrorException (if errors.Count = i then [range_of_expr x, MetavarsNotAllowedInRecordWith] else []))
+                | _ -> raise (TypeErrorException [range_of_expr x, ExpectedRecord])
+            let symbol x =
+                match f x with
+                | TySymbol x -> x
+                | TyMetavar _ -> raise (TypeErrorException (if errors.Count = i then [range_of_expr x, MetavarsNotAllowedInRecordWith] else []))
+                | _ -> raise (TypeErrorException [range_of_expr x, ExpectedSymbolInRecordWith])
+            try match l with
+                | x :: x' ->
+                    List.mapFold (fun m x ->
+                        let sym = symbol x
+                        match Map.tryFind sym m with
+                        | Some (TyRecord m') -> (m,sym), m'
+                        | Some _ -> raise (TypeErrorException [range_of_expr x, ExpectedRecordAsResultOfIndex sym])
+                        | None -> raise (TypeErrorException [range_of_expr x, RecordIndexFailed sym])
+                        ) (record x) x'
+                | [] -> [], Map.empty
+                |> tc
+            with :? TypeErrorException as e -> errors.AddRange e.Data0; tc ([], Map.empty) |> ignore; fresh_var()
         //| RawMatch of Range * body: RawExpr * (Pattern * RawExpr) list
         //| RawFun of Range * (Pattern * RawExpr) list
         //| RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
