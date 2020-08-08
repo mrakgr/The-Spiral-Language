@@ -39,6 +39,7 @@ type TypeError =
     | RecordIndexFailed of string
     | ExpectedSymbolInRecordWith
     | RealFunctionInTopDown
+    | MissingRecordFieldsInPattern of string list
 
 open Spiral.BlockParsing
 exception TypeErrorException of (Range * TypeError) list
@@ -477,13 +478,33 @@ let infer (top_env : Env) (env : Env) x =
             | PatValue(r,a) -> unify r s (lit a); env
             | PatDefaultValue _ -> env
             | PatRecordMembers(r,l) ->
+                let l =
+                    List.choose (function
+                        | PatRecordMembersSymbol((r,a),b) -> Some (a,b)
+                        | PatRecordMembersInjectVar((r,a),b) ->
+                            match v a with
+                            | Some (TySymbol a) -> Some (a,b)
+                            | Some x -> errors.Add(r, ExpectedSymbolAsRecordKey x); None
+                            | None -> errors.Add(r, UnboundVariable); None
+                        ) l
                 match term_subst s with
                 | TyRecord l' ->
-                    l |> List.iter (function
-                        | PatRecordMembersSymbol((r,a),b) ->
-                            
-                        | PatRecordMembersInjectVar of (Range * VarString) * name: Pattern
-                        )
+                    let l, missing =
+                        List.mapFoldBack (fun (a,b) missing ->
+                            match Map.tryFind a l' with
+                            | Some x -> (x,b), missing
+                            | None -> (fresh_var(),b), a :: missing
+                            ) l []
+                    if List.isEmpty missing = false then errors.Add(r, MissingRecordFieldsInPattern missing)
+                    List.fold (fun env (a,b) -> pattern env a b) env l
+                | s ->
+                    let l, env =
+                        List.mapFold (fun env (a,b) -> 
+                            let v = fresh_var()
+                            (a, v), pattern env v b
+                            ) env l
+                    unify r s (l |> Map |> TyRecord)
+                    env
             //| PatUnbox of Range * Pattern
             //| PatNominal of Range * (Range * VarString) * Pattern
         loop env s a
