@@ -125,12 +125,15 @@ let assert_bound_vars' (top_env : Env) term ty x =
         | RawTForall(_,(_,(a,_)),b) -> ctype term (Set.add a ty) b
         | RawTArray(_,a) -> ctype term ty a
         | RawTTerm (_,a) -> cterm term ty a
-    and cpattern term' ty x =
+    and cpattern term ty x =
+        //let is_first = System.Collections.Generic.HashSet()
         let rec loop term x = 
             let f = loop term
             match x with
             | PatDefaultValue _ | PatValue _ | PatSymbol _ | PatB _ | PatE _ -> term
-            | PatVar(_,b) -> Set.add b term
+            | PatVar(_,b) -> 
+                //if is_first.Add b then () // TODO: I am doing it like this so I can reuse this code later for variable highting.
+                Set.add b term
             | PatDyn(_,x) | PatUnbox(_,x) -> f x
             | PatPair(_,a,b) -> loop (loop term a) b
             | PatRecordMembers(_,l) ->
@@ -140,12 +143,12 @@ let assert_bound_vars' (top_env : Env) term ty x =
                         if Set.contains b term = false && Map.containsKey b top_env.term = false then errors.Add(a,UnboundVariable)
                         loop s x
                     ) term l
-            | PatActive(_,a,b) -> cterm (term' + term) ty a; f b
+            | PatActive(_,a,b) -> cterm term ty a; f b
             | PatAnd(_,a,b) | PatOr(_,a,b) -> loop (loop term a) b
-            | PatAnnot(_,a,b) -> let r = f a in ctype (term' + r) ty b; r // TODO: I am doing it like this so I can reuse this code later for variable highting.
-            | PatWhen(_,a,b) -> let r = f a in cterm (term' + r) ty b; r
+            | PatAnnot(_,a,b) -> let r = f a in ctype r ty b; r 
+            | PatWhen(_,a,b) -> let r = f a in cterm r ty b; r
             | PatNominal(_,a,b) -> (if Map.containsKey (snd a) top_env.ty = false then errors.Add(fst a,UnboundVariable)); f b
-        term' + loop Set.empty x
+        loop term x
 
     match x with
     | Choice1Of2 x -> cterm term ty x
@@ -261,7 +264,7 @@ let infer (top_env : Env) (env : Env) x =
             | TyArray a, TyArray b -> loop (a,b)
             | TyForall(a,b), TyForall(a',b') | TyInl(a,b), TyInl(a',b') ->
                 unify_kind (snd a) (snd a')
-                loop (b, forall_subst_single(a',b'))
+                loop (forall_subst_single (a,b),b')
             | _ -> er ()
 
         try loop (term_subst got, term_subst expected)
@@ -285,6 +288,21 @@ let infer (top_env : Env) (env : Env) x =
         let keys_of m = Map.fold (fun s k _ -> Set.add k s) Set.empty m
         assert_bound_vars' top_env (keys_of env.term) (keys_of env.ty) (Choice1Of2 a) |> errors.AddRange
 
+    let lit = function
+        | LitUInt8 _ -> TyPrim UInt8T
+        | LitUInt16 _ -> TyPrim UInt16T
+        | LitUInt32 _ -> TyPrim UInt32T
+        | LitUInt64 _ -> TyPrim UInt64T
+        | LitInt8 _ -> TyPrim Int8T
+        | LitInt16 _ -> TyPrim Int16T
+        | LitInt32 _ -> TyPrim Int32T
+        | LitInt64 _ -> TyPrim Int64T
+        | LitFloat32 _ -> TyPrim Float32T
+        | LitFloat64 _ -> TyPrim Float64T
+        | LitBool _ -> TyPrim BoolT
+        | LitString _ -> TyPrim StringT
+        | LitChar _ -> TyPrim CharT
+
     let rec term (env : Env) s x =
         let f = term env
         let f' x = let v = fresh_var() in f v x; term_subst v
@@ -296,24 +314,9 @@ let infer (top_env : Env) (env : Env) x =
             | Some (TySymbol "<real>") -> errors.Add(r,RealFunctionInTopDown)
             | Some x -> unify r s (forall_subst_all x)
             | None -> errors.Add(r, UnboundVariable)
-        | RawLit(r,x) ->
-            match x with
-            | LitUInt8 _ -> TyPrim UInt8T
-            | LitUInt16 _ -> TyPrim UInt16T
-            | LitUInt32 _ -> TyPrim UInt32T
-            | LitUInt64 _ -> TyPrim UInt64T
-            | LitInt8 _ -> TyPrim Int8T
-            | LitInt16 _ -> TyPrim Int16T
-            | LitInt32 _ -> TyPrim Int32T
-            | LitInt64 _ -> TyPrim Int64T
-            | LitFloat32 _ -> TyPrim Float32T
-            | LitFloat64 _ -> TyPrim Float64T
-            | LitBool _ -> TyPrim BoolT
-            | LitString _ -> TyPrim StringT
-            | LitChar _ -> TyPrim CharT
-            |> unify r s
+        | RawLit(r,x) -> unify r s (lit x)
         | RawDefaultLit _ -> ()
-        | RawSymbolCreate (r,x) -> unify r s (TySymbol x)
+        | RawSymbolCreate(r,x) -> unify r s (TySymbol x)
         | RawType(_,x) -> ty env s x
         | RawIfThenElse(_,cond,tr,fl) -> f (TyPrim BoolT) cond; f s tr; f s fl
         | RawIfThen(_,cond,tr) -> f (TyPrim BoolT) cond; f s tr
@@ -447,25 +450,43 @@ let infer (top_env : Env) (env : Env) x =
         | RawTTerm(r,a) -> assert_bound_vars env a; unify r s (TySymbol "<term>")
         | RawTMetaVar _ -> failwith "Compiler error: This particular metavar is only for typecase's clauses. This happens during the bottom-up segment."
     and pattern env s a = 
-        let f = pattern env
-        let v x = Map.tryFind x env.term |> Option.orElseWith (fun () -> Map.tryFind x top_env.term)
-        match a with
-        | PatB r -> unify r s TyB; env
-        | PatE _ -> env
-        | PatVar(_,a) -> {env with term=Map.add a s env.term}
-        //| PatDyn of Range * Pattern
-        //| PatUnbox of Range * Pattern
-        //| PatAnnot of Range * Pattern * RawTExpr
-        //| PatPair of Range * Pattern * Pattern
-        //| PatSymbol of Range * string
-        //| PatRecordMembers of Range * PatRecordMember list
-        //| PatActive of Range * RawExpr * Pattern
-        //| PatOr of Range * Pattern * Pattern
-        //| PatAnd of Range * Pattern * Pattern
-        //| PatValue of Range * Literal
-        //| PatDefaultValue of Range * VarString
-        //| PatWhen of Range * Pattern * RawExpr
-        //| PatNominal of Range * (Range * VarString) * Pattern
+        let is_first = System.Collections.Generic.HashSet()
+        let rec loop env s a =
+            let f = loop env
+            let v x = Map.tryFind x env.term |> Option.orElseWith (fun () -> Map.tryFind x top_env.term)
+            match a with
+            | PatB r -> unify r s TyB; env
+            | PatE _ -> env
+            | PatVar(r,a) -> 
+                if is_first.Add a then {env with term=Map.add a s env.term}
+                else unify r s env.term.[a]; env
+            | PatDyn(_,a) -> f s a
+            | PatAnnot(_,a,b) -> ty env s b; f s a
+            | PatWhen(_,a,b) -> let env = f s a in term env (TyPrim BoolT) b; env
+            | PatPair(r,a,b) ->
+                let q,w = fresh_var(), fresh_var()
+                unify r s (TyPair(q,w))
+                pattern (pattern env q a) w b
+            | PatSymbol(r,a) -> unify r s (TySymbol a); env
+            | PatActive(r,a,b) ->
+                let w,z = fresh_var(),fresh_var()
+                unify r z (TyFun(s, w))
+                term env z a
+                f w b
+            | PatOr(_,a,b) | PatAnd(_,a,b) -> pattern (pattern env s a) s b
+            | PatValue(r,a) -> unify r s (lit a); env
+            | PatDefaultValue _ -> env
+            | PatRecordMembers(r,l) ->
+                match term_subst s with
+                | TyRecord l' ->
+                    l |> List.iter (function
+                        | PatRecordMembersSymbol((r,a),b) ->
+                            
+                        | PatRecordMembersInjectVar of (Range * VarString) * name: Pattern
+                        )
+            //| PatUnbox of Range * Pattern
+            //| PatNominal of Range * (Range * VarString) * Pattern
+        loop env s a
     let v = fresh_var()
     match x with
     | Choice1Of2 x -> term env v x
