@@ -40,6 +40,9 @@ type TypeError =
     | ExpectedSymbolInRecordWith
     | RealFunctionInTopDown
     | MissingRecordFieldsInPattern of string list
+    | CasePatternNotFoundForType of int
+    | CasePatternNotFound of string
+    | NominalInPatternUnbox of int
 
 open Spiral.BlockParsing
 exception TypeErrorException of (Range * TypeError) list
@@ -60,6 +63,15 @@ let rec metavars = function
     | RawTForall(_,(_,(_,_)),a) | RawTArray(_,a) -> metavars a
     | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> metavars a + metavars b
     | RawTRecord(_,l) -> Map.fold (fun s _ v -> s + metavars v) Set.empty l
+
+type HigherOrderCases =
+    | HOCUnion of (string * TT) list * Map<string,T>
+    | HOCNominal of (string * TT) list * T
+
+type AuxEnv = {
+    hoc : Map<int,HigherOrderCases>
+    union_cases : Map<string,int>
+    }
 
 type Env = { ty : Map<string,T>; term : Map<string,T> }
 let module_open (top_env : Env) (r : Range) b l =
@@ -174,8 +186,7 @@ let rec subst (m : Map<string,T>) x =
     | TyInl(a,b) -> TyInl(a, fun_body a b)
 
 open Spiral.Tokenize
-
-let infer (top_env : Env) (env : Env) x =
+let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
     let errors = ResizeArray()
     let term' = ResizeArray()
     let kind = ResizeArray()
@@ -505,7 +516,31 @@ let infer (top_env : Env) (env : Env) x =
                             ) env l
                     unify r s (l |> Map |> TyRecord)
                     env
-            //| PatUnbox of Range * Pattern
+            | PatUnbox(r,PatPair(_,PatSymbol(_,name), a)) ->
+                let make_higher_order (i : int) (l : (string * TT) list) =
+                    let h = TyHigherOrder(i,List.foldBack (fun (_,x) s -> KindFun(x,s)) l KindStar)
+                    let l' = List.map (fun (x,k) -> x, fresh_var' k) l
+                    List.fold (fun s (_,x) -> match tt s with KindFun(_,k) -> TyApp(s,x,k) | _ -> failwith "impossible") h l', Map.ofList l'
+                let assume i =
+                    match aux.hoc.[i] with
+                    | HOCUnion(vars,cases) ->
+                        let x,m = make_higher_order i vars
+                        unify r s x
+                        match Map.tryFind name cases with
+                        | Some v -> f (subst m v) a
+                        | None -> errors.Add(r,CasePatternNotFoundForType i); f (fresh_var()) a
+                    | HOCNominal _ -> errors.Add(r,NominalInPatternUnbox i); f (fresh_var()) a
+                let rec head = function 
+                    | TyApp(a,_,_) -> head a 
+                    | TyHigherOrder(i,_) -> ValueSome i
+                    | _ -> ValueNone
+                match term_subst s |> head with
+                | ValueSome i -> assume i
+                | ValueNone ->
+                    match Map.tryFind name aux.union_cases with
+                    | Some i -> assume i
+                    | None -> errors.Add(r,CasePatternNotFound name); f (fresh_var()) a
+            | PatUnbox _ -> failwith "Compiler error: Malformed PatUnbox."
             //| PatNominal of Range * (Range * VarString) * Pattern
         loop env s a
     let v = fresh_var()
@@ -518,11 +553,11 @@ let infer (top_env : Env) (env : Env) x =
 let add_var s (k,v) = Map.add k (TyVar (k,v)) s
 let add_vars ty vars = List.fold add_var ty vars
 let set_vars vars = List.map fst vars |> Set
-let top_type (name : VarString, vars : TypeVar list, expr : RawTExpr) (top_env : Env) =
+let top_type (name : VarString, vars : TypeVar list, expr : RawTExpr) aux (top_env : Env) =
     let vars = typevars vars
     let body =
         assert_bound_vars top_env Set.empty (set_vars vars) (Choice2Of2 expr)
-        infer top_env {term=Map.empty; ty=add_vars Map.empty vars} (Choice2Of2 expr)
+        infer aux top_env {term=Map.empty; ty=add_vars Map.empty vars} (Choice2Of2 expr)
     let inl = List.foldBack (fun x s -> TyInl(x,s)) vars body
     {top_env with ty = Map.add name inl top_env.ty}
 
@@ -530,11 +565,7 @@ type TopHigherOrder =
     | HOUnion of name: string * id: int * (string * TT) list * RawTExpr list
     | HONominal of name: string * id: int * (string * TT) list * RawTExpr
 
-type HigherOrderCases =
-    | HOCUnion of (string * TT) list * Map<string,T>
-    | HOCNominal of (string * TT) list * T
-
-let top_higher_order (l : TopHigherOrder list) hoc (top_env : Env) =
+let top_higher_order (l : TopHigherOrder list) (aux : AuxEnv) (top_env : Env) =
     let top_env = 
         List.fold (fun s (HOUnion(name,i,vars,_) | HONominal(name,i,vars,_)) ->
             let tt = List.foldBack (fun (_,x) s -> KindFun(x,s)) vars KindStar
@@ -543,33 +574,36 @@ let top_higher_order (l : TopHigherOrder list) hoc (top_env : Env) =
         |> fun ty -> {top_env with ty=ty}
     let errors = ResizeArray()
     let hoc =
-        List.fold (fun hoc x ->
+        List.fold (fun (aux : AuxEnv) x ->
             match x with
             | HOUnion(_,i,vars,l) ->
                 List.fold (fun cases expr ->
                     try assert_bound_vars top_env Set.empty (set_vars vars) (Choice2Of2 expr)
-                        match infer top_env {term=Map.empty; ty=add_vars Map.empty vars} (Choice2Of2 expr) with
+                        match infer aux top_env {term=Map.empty; ty=add_vars Map.empty vars} (Choice2Of2 expr) with
                         | TyPair(TySymbol x, b) -> 
                             if Map.containsKey x cases then errors.Add(range_of_texpr expr, DuplicateKeyInUnion); cases
                             else Map.add x b cases
                         | _ -> errors.Add (range_of_texpr expr, ExpectedSymbolAsUnionKey); cases
                     with :? TypeErrorException as x -> errors.AddRange(x.Data0); cases
                     ) Map.empty l
-                |> fun l -> Map.add i (HOCUnion(vars,l)) hoc
+                |> fun l -> {
+                    union_cases = Map.fold (fun s k _ -> Map.add k i s) aux.union_cases l
+                    hoc = Map.add i (HOCUnion(vars,l)) aux.hoc
+                    }
             | HONominal(_,i,vars,expr) ->
                 try assert_bound_vars top_env Set.empty (set_vars vars) (Choice2Of2 expr)
-                    Map.add i (HOCNominal(vars, infer top_env {term=Map.empty; ty=add_vars Map.empty vars} (Choice2Of2 expr))) hoc
-                with :? TypeErrorException as x -> errors.AddRange(x.Data0); hoc
-            ) hoc l
-    if 0 < errors.Count then raise (TypeErrorException (errors |> Seq.toList))
+                    {aux with hoc = Map.add i (HOCNominal(vars, infer aux top_env {term=Map.empty; ty=add_vars Map.empty vars} (Choice2Of2 expr))) aux.hoc}
+                with :? TypeErrorException as x -> errors.AddRange(x.Data0); aux
+            ) aux l
+    if 0 < errors.Count then raise (TypeErrorException (Seq.toList errors))
     hoc, top_env
 
-let top_prototype (name,a,vars,expr) (top_env : Env) =
+let top_prototype (name,a,vars,expr) aux (top_env : Env) =
     let tt = List.foldBack (fun (_,x) s -> KindFun(x,s)) vars KindStar
     let l = (a,tt) :: vars
     assert_bound_vars top_env Set.empty (set_vars vars) (Choice2Of2 expr)
     let body = 
-        infer top_env {term=Map.empty; ty=add_vars Map.empty vars} (Choice2Of2 expr)
+        infer aux top_env {term=Map.empty; ty=add_vars Map.empty vars} (Choice2Of2 expr)
         |> List.foldBack (fun a b -> TyForall(a,b)) l
     {top_env with term = Map.add name body top_env.term}
 
