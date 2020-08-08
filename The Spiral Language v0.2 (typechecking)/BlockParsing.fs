@@ -482,30 +482,36 @@ let patterns_validate pats =
         ) Set.empty pats |> ignore
     errors |> Seq.toList
 
+let rec let_join_point = function
+    | RawFun(r,l) -> RawFun(r,List.map (fun (a,b) -> a, let_join_point b) l)
+    | x -> RawJoinPoint(range_of_expr x, x)
+
 let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
     match body with
     // TODO: Rather than return an error during parsing for this particular error, for the typechecking pass I'll replace it with a metavariable stump.
     | None -> Error [r, MissingFunctionBody]
     | Some body ->
+        
         let name, pats =
             match name with
             | PatUnbox(_,PatPair(_,PatSymbol(r,name), pat)) -> PatVar(r,name), pat :: pats
             | _ -> name, pats
         let dyn_if_let x = if is_let then x else PatDyn(range_of_pattern x, x)
         match is_rec, name, foralls, pats with
+        | false, _, [], [] -> 
+            match patterns_validate [name] with
+            | [] -> Ok((r,dyn_if_let name,body),is_rec)
+            | ers -> Error ers
         | _, PatVar _, _, _ -> 
             match patterns_validate (if is_rec then name :: pats else pats) with
             | [] -> 
                 let body = 
-                    List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[dyn_if_let pat,body])) pats body
+                    (if is_let then let_join_point body else body)
+                    |> List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[dyn_if_let pat,body])) pats
                     |> List.foldBack (fun typevar body -> RawForall(range_of_typevar typevar +. range_of_expr body,typevar,body)) foralls
                 match is_rec, body with
                 | false, _ | true, (RawFun _ | RawForall _) -> Ok((r,name,body),is_rec)
                 | true, _ -> Error [r, ExpectedFunctionAsBodyOfRecStatement]
-            | ers -> Error ers
-        | false, _, [], [] -> 
-            match patterns_validate [name] with
-            | [] -> Ok((r,dyn_if_let name,body),is_rec)
             | ers -> Error ers
         | true, _, _, _ -> Error [range_of_pattern name, ExpectedVarOrOpAsNameOfRecStatement]
         | false, _, _, _ -> Error [range_of_pattern name, ExpectedSinglePatternWhenStatementNameIsNorVarOrOp]

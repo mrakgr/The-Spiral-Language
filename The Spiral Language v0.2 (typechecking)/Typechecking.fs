@@ -20,15 +20,9 @@ type T =
     | TyVar of string * TT // Staged type vars. Should only appear in TyInl's body. 
     | TyMetavar of int * TT
 
-type VariableBoundError =
-    | UnboundVar
-    | ModuleUnbound
-    | ModuleShadowed
-    | ModuleShadowedAndUnbound
-    | ModuleIndexFailed
-
 type TypeError =
     | KindError of TT * TT
+    | KindError' of T * T
     | RecordKeyNotFound of string
     | ExpectedSymbolAsRecordKey of T
     | UnboundVariable
@@ -44,6 +38,7 @@ type TypeError =
     | ExpectedRecordAsResultOfIndex of string
     | RecordIndexFailed of string
     | ExpectedSymbolInRecordWith
+    | RealFunctionInTopDown
 
 open Spiral.BlockParsing
 exception TypeErrorException of (Range * TypeError) list
@@ -186,20 +181,18 @@ let infer (top_env : Env) (env : Env) x =
 
     let rec kind_get i =
         match kind.[i] with
-        | KindMetavar i' when i <> i' -> let x = kind_get i' in kind.[i] <- x; x
-        | x -> x
-
-    let rec kind_subst = function
+        | KindMetavar i' as x -> if i <> i' then let x = kind_get i' in kind.[i] <- x; x else x
+        | x -> kind_subst x
+    and kind_subst = function
         | KindMetavar i -> kind_get i
         | KindFun(a,b) -> KindFun(kind_subst a,kind_subst b)
         | KindStar -> KindStar
 
     let rec term_get i =
         match term'.[i] with
-        | TyMetavar(i',_) when i <> i' -> let x = term_get i' in term'.[i] <- x; x
-        | x -> x
-
-    let rec term_subst = function
+        | TyMetavar(i',_) as x -> if i <> i' then let x = term_get i' in term'.[i] <- x; x else x
+        | x -> term_subst x
+    and term_subst = function
         | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
         | TyPair(a,b) -> TyPair(term_subst a, term_subst b)
         | TyRecord l -> TyRecord(Map.map (fun _ -> term_subst) l)
@@ -208,7 +201,7 @@ let infer (top_env : Env) (env : Env) x =
         | TyArray a -> TyArray(term_subst a)
         | TyApp(a,b,c) -> TyApp(term_subst a, term_subst b, c)
         | TyMetavar(i,_) -> term_get i
-        | TyInl _ -> failwith "Compiler error: TyInl should have been substituted away by this point."
+        | TyInl(a,b) -> TyInl(a,term_subst b)
 
     let forall_subst_all x =
         let rec loop (m : Map<string,T>) = function
@@ -226,33 +219,35 @@ let infer (top_env : Env) (env : Env) x =
         let m = Map.add n v Map.empty
         subst m b
 
-    let unify_kind r (got : TT) (expected : TT) : unit =
+    let inline unify_kind' er (got : TT) (expected : TT) : unit =
         let rec loop = function
             | KindStar, KindStar -> ()
             | KindFun(a,a'), KindFun(b,b') -> loop (a,b); loop (a',b')
             | KindMetavar a & a', KindMetavar b & b' -> if a < b then kind.[b] <- a' else kind.[a] <- b'
             | KindMetavar a, b | b, KindMetavar a -> kind.[a] <- b
-            | _ -> raise (TypeErrorException [r, KindError (got, expected)])
+            | _ -> er()
         loop (kind_subst got, kind_subst expected)
+    let unify_kind r got expected = unify_kind' (fun () -> raise (TypeErrorException [r, KindError (got, expected)])) got expected
+
     let unify (r : Range) (got : T) (expected : T) : unit =
+        let unify_kind = unify_kind' (fun () -> raise (TypeErrorException [r, KindError' (got, expected)]))
         let er () = raise (TypeErrorException [r, TermError(got, expected)])
-        let rec occurs_check i = 
+        let rec occurs_check i x =
             let f = occurs_check i
-            function
+            match x with
             | TyHigherOrder _ | TyB | TyVar _ | TyPrim _ | TySymbol _ -> ()
-            | TyForall (_,a) | TyArray a -> f a
+            | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
             | TyApp(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a; f b
             | TyRecord l -> Map.iter (fun _ -> f) l
-            | TyInl _ -> failwith "Compiler error: TyInl should not be here."
             | TyMetavar (i',_) -> if i = i' then er()
         let rec loop = function
-            | TyVar(a,_), TyVar(b,_) when a <> b -> er ()
+            | TyVar(a,_), TyVar(b,_) when a = b -> ()
             | TyMetavar(a,ka), TyMetavar(b,kb) ->
-                unify_kind r ka kb
+                unify_kind ka kb
                 if a < b then term'.[b] <- got else term'.[a] <- expected
             | (TyMetavar(a,ka), b | b, TyMetavar(a,ka)) ->
                 occurs_check a b
-                unify_kind r ka (tt b)
+                unify_kind ka (tt b)
                 term'.[a] <- b
             | (TyPair(a,b), TyPair(a',b') | TyFun(a,a'), TyFun(b,b') | TyApp(a,a',_), TyApp(b,b',_)) -> loop (a,b); loop (a',b')
             | TyRecord l, TyRecord l' ->
@@ -264,10 +259,9 @@ let infer (top_env : Env) (env : Env) x =
             | TyPrim x, TyPrim x' -> if x <> x' then er()
             | TySymbol x, TySymbol x' -> if x <> x' then er()
             | TyArray a, TyArray b -> loop (a,b)
-            | (TyForall(a,b), TyForall(a',b')) ->
-                unify_kind r (snd a) (snd a')
-                loop (forall_subst_single(a,b), forall_subst_single(a',b'))
-            | (TyInl _, _ | _, TyInl _) -> failwith "Compiler error: TyInl should have been substituted away by this time."
+            | TyForall(a,b), TyForall(a',b') | TyInl(a,b), TyInl(a',b') ->
+                unify_kind (snd a) (snd a')
+                loop (b, forall_subst_single(a',b'))
             | _ -> er ()
 
         try loop (term_subst got, term_subst expected)
@@ -299,6 +293,7 @@ let infer (top_env : Env) (env : Env) x =
         | RawB r -> unify r s TyB
         | RawV(r,x) ->
             match v x with
+            | Some (TySymbol "<real>") -> errors.Add(r,RealFunctionInTopDown)
             | Some x -> unify r s (forall_subst_all x)
             | None -> errors.Add(r, UnboundVariable)
         | RawLit(r,x) ->
@@ -335,7 +330,6 @@ let infer (top_env : Env) (env : Env) x =
             | TyRecord l -> apply_record r s l (f' b)
             | a -> let v = fresh_var() in unify (range_of_expr a') a (TyFun(v,s)); f v b
         | RawAnnot(_,a,b) -> ty env s b; f s a
-        | RawForall _ -> failwith "Compiler error: Should be taken care of in the let statements."
         | RawModuleOpen(_,(a,b),l,on_succ) ->
             match module_open top_env a b l with
             | Ok x ->
@@ -400,8 +394,12 @@ let infer (top_env : Env) (env : Env) x =
                 | [] -> [], Map.empty
             with :? TypeErrorException as e -> errors.AddRange e.Data0; [], Map.empty
             |> tc
+        | RawFun(r,l) ->
+            let q,w = fresh_var(), fresh_var()
+            unify r s (TyFun(q,w))
+            List.iter (fun (a,b) -> term (pattern a) w b) l
+        | RawForall _ -> failwith "Compiler error: Should be taken care of in the let statements."
         //| RawMatch of Range * body: RawExpr * (Pattern * RawExpr) list
-        //| RawFun of Range * (Pattern * RawExpr) list
         //| RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
         | _ -> failwith "TODO"
