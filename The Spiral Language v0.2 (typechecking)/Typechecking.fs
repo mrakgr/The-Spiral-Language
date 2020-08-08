@@ -397,7 +397,7 @@ let infer (top_env : Env) (env : Env) x =
         | RawFun(r,l) ->
             let q,w = fresh_var(), fresh_var()
             unify r s (TyFun(q,w))
-            List.iter (fun (a,b) -> term (pattern a) w b) l
+            List.iter (fun (a,b) -> term (pattern env q a) w b) l
         | RawForall _ -> failwith "Compiler error: Should be taken care of in the let statements."
         //| RawMatch of Range * body: RawExpr * (Pattern * RawExpr) list
         //| RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
@@ -446,6 +446,26 @@ let infer (top_env : Env) (env : Env) x =
                 unify r s (TyApp(a,x,w))
         | RawTTerm(r,a) -> assert_bound_vars env a; unify r s (TySymbol "<term>")
         | RawTMetaVar _ -> failwith "Compiler error: This particular metavar is only for typecase's clauses. This happens during the bottom-up segment."
+    and pattern env s a = 
+        let f = pattern env
+        let v x = Map.tryFind x env.term |> Option.orElseWith (fun () -> Map.tryFind x top_env.term)
+        match a with
+        | PatB r -> unify r s TyB; env
+        | PatE _ -> env
+        | PatVar(_,a) -> {env with term=Map.add a s env.term}
+        //| PatDyn of Range * Pattern
+        //| PatUnbox of Range * Pattern
+        //| PatAnnot of Range * Pattern * RawTExpr
+        //| PatPair of Range * Pattern * Pattern
+        //| PatSymbol of Range * string
+        //| PatRecordMembers of Range * PatRecordMember list
+        //| PatActive of Range * RawExpr * Pattern
+        //| PatOr of Range * Pattern * Pattern
+        //| PatAnd of Range * Pattern * Pattern
+        //| PatValue of Range * Literal
+        //| PatDefaultValue of Range * VarString
+        //| PatWhen of Range * Pattern * RawExpr
+        //| PatNominal of Range * (Range * VarString) * Pattern
     let v = fresh_var()
     match x with
     | Choice1Of2 x -> term env v x
