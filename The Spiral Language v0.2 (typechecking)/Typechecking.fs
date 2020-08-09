@@ -193,7 +193,12 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
     let term' = ResizeArray()
     let kind = ResizeArray()
     let fresh_kind () = let x = KindMetavar kind.Count in kind.Add(x); x
-    let fresh_var' x = let x = TyMetavar(term'.Count,x) in term'.Add(x); x
+    let fresh_var'' x = 
+        let i = term'.Count
+        let x = TyMetavar(i,x)
+        term'.Add(x)
+        i, x
+    let fresh_var' x = fresh_var'' x |> snd
     let fresh_var () = fresh_var' KindStar
 
     let rec kind_get i =
@@ -320,7 +325,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
     let rec term (env : Env) s x =
         let f = term env
         let f' x = let v = fresh_var() in f v x; term_subst v
-        let v x = Map.tryFind x env.term |> Option.orElseWith (fun () -> Map.tryFind x top_env.term)
+        let v x = Map.tryFind x env.term |> Option.orElseWith (fun () -> Map.tryFind x top_env.term) |> Option.map term_subst
         match x with
         | RawB r -> unify r s TyB
         | RawV(r,x) ->
@@ -378,7 +383,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
                             f (TyFun(x,v)) b
                             Map.add a v m
                         let inline with_injext next ((r,a),b) =
-                            match v a |> Option.map term_subst with
+                            match v a with
                             | Some (TySymbol a) -> next ((r,a),b)
                             | Some x -> errors.Add(r, ExpectedSymbolAsRecordKey x); m
                             | None -> errors.Add(r, UnboundVariable); m
@@ -392,7 +397,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
                     List.fold (fun m -> function
                         | RawRecordWithoutSymbol(_,a) -> Map.remove a m
                         | RawRecordWithoutInjectVar(_,a) ->
-                            match v a |> Option.map term_subst with
+                            match v a with
                             | Some (TySymbol a) -> Map.remove a m
                             | Some x -> errors.Add(r, ExpectedSymbolAsRecordKey x); m
                             | None -> errors.Add(r, UnboundVariable); m
@@ -415,7 +420,14 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
             let q,w = fresh_var(), fresh_var()
             unify r s (TyFun(q,w))
             List.iter (fun (a,b) -> term (pattern env q a) w b) l
-        | RawForall _ -> failwith "Compiler error: Should be taken care of in the let statements."
+        | RawForall(r,(_,(name,k)),b) -> 
+            let k = typevar k
+            let i,v = fresh_var'' k
+            let body = fresh_var()
+            term {env with ty = Map.add name v env.ty} body b
+            validate_meta i
+            subst_meta (Map.add i (TyVar(name,k))) (term_subst body)
+            unify r s (TyForall((name,k),body))
         //| RawMatch of Range * body: RawExpr * (Pattern * RawExpr) list
         //| RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
@@ -453,7 +465,13 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
         | RawTApply(r,a',b) ->
             let f' k x = let v = fresh_var' k in f v x; term_subst v
             match f' (fresh_kind()) a' with
-            | TyRecord l -> apply_record r s l (f' KindStar b)
+            | TyRecord l -> 
+                match f' KindStar b with
+                | TySymbol x ->
+                    match Map.tryFind x l with
+                    | Some x -> unify r s x
+                    | None -> errors.Add(r,RecordIndexFailed x)
+                | b -> errors.Add(r,ExpectedSymbolAsRecordKey b)
             | TyInl((name,k),body) -> let v = fresh_var' k in f v b; unify r s (subst (Map.add name v Map.empty) body)
             | a -> 
                 let q,w = fresh_kind(), fresh_kind()
