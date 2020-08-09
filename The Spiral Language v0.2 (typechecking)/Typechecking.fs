@@ -192,6 +192,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
     let errors = ResizeArray()
     let term' = ResizeArray()
     let kind = ResizeArray()
+    let forall_scopes = System.Collections.Generic.Dictionary()
     let fresh_kind () = let x = KindMetavar kind.Count in kind.Add(x); x
     let fresh_var'' x = 
         let i = term'.Count
@@ -257,13 +258,17 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
         let rec occurs_check i x =
             let f = occurs_check i
             match x with
-            | TyHigherOrder _ | TyB | TyVar _ | TyPrim _ | TySymbol _ -> ()
+            | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> ()
             | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
             | TyApp(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a; f b
             | TyRecord l -> Map.iter (fun _ -> f) l
             | TyMetavar (i',_) -> if i = i' then er()
+            | TyVar(a,_) ->
+                match forall_scopes.TryGetValue(a) with
+                | true, i' -> if i < i' then raise (TypeErrorException [r,ForallVarScopeError(a,got,expected)])
+                | _ -> ()
         let rec loop = function
-            | TyVar(a,_), TyVar(b,_) when a = b -> ()
+            | TyVar(a,_), TyVar(b,_) when System.Object.ReferenceEquals(a,b) -> ()
             | TyMetavar(a,ka), TyMetavar(b,kb) ->
                 unify_kind ka kb
                 if a < b then term'.[b] <- got else term'.[a] <- expected
@@ -423,11 +428,10 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
         | RawForall(r,(_,(name,k)),b) -> 
             let k = typevar k
             let i,v = fresh_var'' k
+            forall_scopes.Add(name,i)
             let body = fresh_var()
-            term {env with ty = Map.add name v env.ty} body b
-            validate_meta i
-            subst_meta (Map.add i (TyVar(name,k))) (term_subst body)
             unify r s (TyForall((name,k),body))
+            term {env with ty = Map.add name v env.ty} body b
         //| RawMatch of Range * body: RawExpr * (Pattern * RawExpr) list
         //| RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
