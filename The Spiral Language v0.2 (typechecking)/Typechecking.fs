@@ -43,6 +43,8 @@ type TypeError =
     | CasePatternNotFoundForType of int
     | CasePatternNotFound of string
     | NominalInPatternUnbox of int
+    | TypeInGlobalEnvIsNotNominal of T
+    | UnionInPatternNominal of int
 
 open Spiral.BlockParsing
 exception TypeErrorException of (Range * TypeError) list
@@ -463,6 +465,14 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
         | RawTMetaVar _ -> failwith "Compiler error: This particular metavar is only for typecase's clauses. This happens during the bottom-up segment."
     and pattern env s a = 
         let is_first = System.Collections.Generic.HashSet()
+        let ho_make (i : int) (l : (string * TT) list) =
+            let h = TyHigherOrder(i,List.foldBack (fun (_,x) s -> KindFun(x,s)) l KindStar)
+            let l' = List.map (fun (x,k) -> x, fresh_var' k) l
+            List.fold (fun s (_,x) -> match tt s with KindFun(_,k) -> TyApp(s,x,k) | _ -> failwith "impossible") h l', Map.ofList l'
+        let rec ho_index = function 
+            | TyApp(a,_,_) -> ho_index a 
+            | TyHigherOrder(i,_) -> ValueSome i
+            | _ -> ValueNone
         let rec loop env s a =
             let f = loop env
             let v x = Map.tryFind x env.term |> Option.orElseWith (fun () -> Map.tryFind x top_env.term)
@@ -517,31 +527,32 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
                     unify r s (l |> Map |> TyRecord)
                     env
             | PatUnbox(r,PatPair(_,PatSymbol(_,name), a)) ->
-                let make_higher_order (i : int) (l : (string * TT) list) =
-                    let h = TyHigherOrder(i,List.foldBack (fun (_,x) s -> KindFun(x,s)) l KindStar)
-                    let l' = List.map (fun (x,k) -> x, fresh_var' k) l
-                    List.fold (fun s (_,x) -> match tt s with KindFun(_,k) -> TyApp(s,x,k) | _ -> failwith "impossible") h l', Map.ofList l'
                 let assume i =
                     match aux.hoc.[i] with
                     | HOCUnion(vars,cases) ->
-                        let x,m = make_higher_order i vars
+                        let x,m = ho_make i vars
                         unify r s x
                         match Map.tryFind name cases with
                         | Some v -> f (subst m v) a
                         | None -> errors.Add(r,CasePatternNotFoundForType i); f (fresh_var()) a
                     | HOCNominal _ -> errors.Add(r,NominalInPatternUnbox i); f (fresh_var()) a
-                let rec head = function 
-                    | TyApp(a,_,_) -> head a 
-                    | TyHigherOrder(i,_) -> ValueSome i
-                    | _ -> ValueNone
-                match term_subst s |> head with
+                match term_subst s |> ho_index with
                 | ValueSome i -> assume i
                 | ValueNone ->
                     match Map.tryFind name aux.union_cases with
                     | Some i -> assume i
                     | None -> errors.Add(r,CasePatternNotFound name); f (fresh_var()) a
             | PatUnbox _ -> failwith "Compiler error: Malformed PatUnbox."
-            //| PatNominal of Range * (Range * VarString) * Pattern
+            | PatNominal(_,(r,name),a) ->
+                match Map.tryFind name top_env.ty with
+                | Some x -> 
+                    match ho_index x with
+                    | ValueSome i ->
+                        match aux.hoc.[i] with
+                        | HOCNominal(vars,v) -> let x,m = ho_make i vars in unify r s x; f (subst m v) a
+                        | HOCUnion _ -> errors.Add(r,UnionInPatternNominal i); f (fresh_var()) a
+                    | ValueNone -> errors.Add(r,TypeInGlobalEnvIsNotNominal x); f (fresh_var()) a
+                | _ -> errors.Add(r,UnboundVariable); f (fresh_var()) a
         loop env s a
     let v = fresh_var()
     match x with
