@@ -55,7 +55,7 @@ let rec tt = function
     | TyInl((_,k),a) -> KindFun(k,tt a)
 
 let rec typevar = function
-    | RawKindStar -> KindStar
+    | RawKindWildcard | RawKindStar -> KindStar
     | RawKindFun(a,b) -> KindFun(typevar a, typevar b)
 let typevars (l : TypeVar list) = List.map (fun (_,(a,b)) -> a, typevar b) l
 
@@ -426,6 +426,10 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
             unify r s (TyFun(q,w))
             List.iter (fun (a,b) -> term (pattern env q a) w b) l
         | RawForall(r,(_,(name,k)),b) -> 
+            let rec typevar = function
+                | RawKindWildcard -> fresh_kind()
+                | RawKindStar -> KindStar
+                | RawKindFun(a,b) -> KindFun(typevar a, typevar b)
             let k = typevar k
             let i,v = fresh_var'' k
             forall_scopes.Add(name,i)

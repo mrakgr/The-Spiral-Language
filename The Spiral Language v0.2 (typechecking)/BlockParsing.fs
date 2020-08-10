@@ -140,6 +140,7 @@ type ParserErrors =
     | BottomUpNumberParseError of string * string
 
 type RawKindExpr =
+    | RawKindWildcard
     | RawKindStar
     | RawKindFun of RawKindExpr * RawKindExpr
 type TypeVar = Range * (VarString * RawKindExpr)
