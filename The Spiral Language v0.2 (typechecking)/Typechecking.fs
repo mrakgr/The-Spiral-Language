@@ -277,7 +277,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x : T =
             | TyApply(a,b,_) | TyRecordApply(a,b) | TyFun(a,b) | TyPair(a,b) -> f a; f b
             | TyRecord l -> Map.iter (fun _ -> f) l
             | TyMetavar (i',_) -> if i = i' then er()
-            | TyVar(a,_) ->
+            | TyVar(a,_) -> // TODO: This is not enough, fix it tomorrow.
                 match forall_scopes.TryGetValue(a) with
                 | true, i' -> if i < i' then raise (TypeErrorException [r,ForallVarScopeError(a,got,expected)])
                 | _ -> ()
