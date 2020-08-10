@@ -206,6 +206,7 @@ and RawTExpr =
     | RawTRecord of Range * Map<string,RawTExpr>
     | RawTSymbol of Range * SymbolString
     | RawTApply of Range * RawTExpr * RawTExpr
+    | RawTRecordApply of Range * RawTExpr * RawTExpr
     | RawTForall of Range * TypeVar * RawTExpr
     | RawTPrim of Range * PrimitiveType
     | RawTArray of Range * RawTExpr
@@ -277,6 +278,7 @@ let range_of_texpr = function
     | RawTPair(r,_,_)
     | RawTFun(r,_,_)
     | RawTApply(r,_,_)
+    | RawTRecordApply(r,_,_)
     | RawTForall(r,_,_) -> r
 
 type Env = {
@@ -788,7 +790,8 @@ and root_type (flags : RootTypeFlags) d =
                     | RawTVar(ra, "array") -> RawTArray(ra +. range_of_texpr b, b)
                     | _ -> RawTApply(range_of_texpr a +. range_of_texpr b,a,b)
                     ) (a :: b))) d
-    let pairs = sepBy1 apply (skip_op "*") |>> List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b))
+    let record_apply = sepBy1 apply (skip_op "@") |>> List.reduceBack (fun a b -> RawTRecordApply(range_of_texpr a +. range_of_texpr b,a,b))
+    let pairs = sepBy1 record_apply (skip_op ",") |>> List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b))
     let functions = sepBy1 pairs (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(range_of_texpr a +. range_of_texpr b,a,b))
     let symbol_paired d = 
         let next = functions

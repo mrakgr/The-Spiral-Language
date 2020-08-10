@@ -15,7 +15,8 @@ type T =
     | TyForall of (string * TT) * T
     | TyArray of T
     | TyHigherOrder of int * TT
-    | TyApp of T * T * TT // Regular type functions (TyInl) get reduced, while this represents the staged reduction of nominals.
+    | TyApply of T * T * TT // Regular type functions (TyInl) get reduced, while this represents the staged reduction of nominals.
+    | TyRecordApply of T * T
     | TyInl of (string * TT) * T
     | TyVar of string * TT // Staged type vars. Should only appear in TyInl's body. 
     | TyMetavar of int * TT
@@ -34,7 +35,7 @@ type TypeError =
     | ForallVarScopeError of string * T * T
     | ForallMetavarScopeError of string * T * T
     | MetavarsNotAllowedInRecordWith
-    | ExpectedRecord
+    | ExpectedRecord of T
     | ExpectedRecordAsResultOfIndex of string
     | RecordIndexFailed of string
     | ExpectedSymbolInRecordWith
@@ -45,13 +46,14 @@ type TypeError =
     | NominalInPatternUnbox of int
     | TypeInGlobalEnvIsNotNominal of T
     | UnionInPatternNominal of int
+    | RecordApplyCannotBeUnified of T * T
 
 open Spiral.BlockParsing
 exception TypeErrorException of (Range * TypeError) list
 
 let rec tt = function
-    | TyHigherOrder(_,x) | TyApp(_,_,x) | TyMetavar(_,x) | TyVar(_,x) -> x
-    | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindStar
+    | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar(_,x) | TyVar(_,x) -> x
+    | TyRecordApply _ | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindStar
     | TyInl((_,k),a) -> KindFun(k,tt a)
 
 let rec typevar = function
@@ -63,7 +65,7 @@ let rec metavars = function
     | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ -> Set.empty
     | RawTMetaVar(_,a) -> Set.singleton a
     | RawTForall(_,(_,(_,_)),a) | RawTArray(_,a) -> metavars a
-    | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> metavars a + metavars b
+    | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTRecordApply(_,a,b) | RawTFun(_,a,b) -> metavars a + metavars b
     | RawTRecord(_,l) -> Map.fold (fun s _ v -> s + metavars v) Set.empty l
 
 type HigherOrderCases =
@@ -135,7 +137,7 @@ let assert_bound_vars' (top_env : Env) term ty x =
         match x with
         | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
         | RawTVar(a,b) -> if Set.contains b ty = false && Map.containsKey b top_env.ty = false then errors.Add(a,UnboundVariable)
-        | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> ctype term ty a; ctype term ty b
+        | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTRecordApply(_,a,b) | RawTFun(_,a,b) -> ctype term ty a; ctype term ty b
         | RawTRecord(_,l) -> Map.iter (fun _ -> ctype term ty) l
         | RawTForall(_,(_,(a,_)),b) -> ctype term (Set.add a ty) b
         | RawTArray(_,a) -> ctype term ty a
@@ -182,13 +184,14 @@ let rec subst (m : Map<string,T>) x =
     | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
     | TyFun(a,b) -> TyFun(f a, f b)
     | TyArray a -> TyArray(f a)
-    | TyApp(a,b,c) -> TyApp(f a, f b, c)
+    | TyApply(a,b,c) -> TyApply(f a, f b, c)
+    | TyRecordApply(a,b) -> TyRecordApply(f a, f b)
     | TyVar(a,_) -> m.[a]
     | TyForall(a,b) -> TyForall(a, fun_body a b)
     | TyInl(a,b) -> TyInl(a, fun_body a b)
 
 open Spiral.Tokenize
-let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
+let infer (aux : AuxEnv) (top_env : Env) (env : Env) x : T =
     let errors = ResizeArray()
     let term' = ResizeArray()
     let kind = ResizeArray()
@@ -211,20 +214,31 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
         | KindFun(a,b) -> KindFun(kind_subst a,kind_subst b)
         | KindStar -> KindStar
 
-    let rec term_get i =
+    let rec term_get r i =
         match term'.[i] with
-        | TyMetavar(i',_) as x -> if i <> i' then let x = term_get i' in term'.[i] <- x; x else x
-        | x -> term_subst x
-    and term_subst = function
+        | TyMetavar(i',_) as x -> if i <> i' then let x = term_get r i' in term'.[i] <- x; x else x
+        | x -> term_subst r x
+    and term_subst r x = 
+        let f = term_subst r
+        match x with
         | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
-        | TyPair(a,b) -> TyPair(term_subst a, term_subst b)
-        | TyRecord l -> TyRecord(Map.map (fun _ -> term_subst) l)
-        | TyFun(a,b) -> TyFun(term_subst a, term_subst b)
-        | TyForall(a,b) -> TyForall(a,term_subst b)
-        | TyArray a -> TyArray(term_subst a)
-        | TyApp(a,b,c) -> TyApp(term_subst a, term_subst b, c)
-        | TyMetavar(i,_) -> term_get i
-        | TyInl(a,b) -> TyInl(a,term_subst b)
+        | TyPair(a,b) -> TyPair(f a, f b)
+        | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
+        | TyFun(a,b) -> TyFun(f a, f b)
+        | TyForall(a,b) -> TyForall(a,f b)
+        | TyArray a -> TyArray(f a)
+        | TyApply(a,b,c) -> TyApply(f a, f b, c)
+        | TyMetavar(i,_) -> term_get r i
+        | TyInl(a,b) -> TyInl(a,f b)
+        | TyRecordApply(a,b) ->
+            match f a, f b with
+            | TyRecord l, TySymbol x ->
+                match Map.tryFind x l with
+                | Some x -> x
+                | None -> errors.Add(r,RecordIndexFailed x); fresh_var()
+            | (TyRecord _ | TyVar _ | TyMetavar _) & a, (TySymbol _ | TyVar _ | TyMetavar _) & b -> TyRecordApply(a,b)
+            | (TyRecord _ | TyVar _ | TyMetavar _), b -> errors.Add(r,ExpectedSymbolAsRecordKey b); fresh_var()
+            | a,_ -> errors.Add(r,ExpectedRecord a); fresh_var()
 
     let forall_subst_all x =
         let rec loop (m : Map<string,T>) = function
@@ -260,7 +274,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
             match x with
             | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> ()
             | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
-            | TyApp(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a; f b
+            | TyApply(a,b,_) | TyRecordApply(a,b) | TyFun(a,b) | TyPair(a,b) -> f a; f b
             | TyRecord l -> Map.iter (fun _ -> f) l
             | TyMetavar (i',_) -> if i = i' then er()
             | TyVar(a,_) ->
@@ -268,30 +282,32 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
                 | true, i' -> if i < i' then raise (TypeErrorException [r,ForallVarScopeError(a,got,expected)])
                 | _ -> ()
         let rec loop = function
-            | TyVar(a,_), TyVar(b,_) when System.Object.ReferenceEquals(a,b) -> ()
-            | TyMetavar(a,ka), TyMetavar(b,kb) ->
-                unify_kind ka kb
-                if a < b then term'.[b] <- got else term'.[a] <- expected
+            | TyMetavar(a,ka) & a', TyMetavar(b,kb) & b' ->
+                if a <> b then
+                    unify_kind ka kb
+                    if a < b then term'.[b] <- a' else term'.[a] <- b'
             | (TyMetavar(a,ka), b | b, TyMetavar(a,ka)) ->
                 occurs_check a b
                 unify_kind ka (tt b)
                 term'.[a] <- b
-            | (TyPair(a,b), TyPair(a',b') | TyFun(a,a'), TyFun(b,b') | TyApp(a,a',_), TyApp(b,b',_)) -> loop (a,b); loop (a',b')
+            | TyVar(a,_), TyVar(b,_) when System.Object.ReferenceEquals(a,b) -> ()
+            | (TyPair(a,b), TyPair(a',b') | TyFun(a,a'), TyFun(b,b') | TyApply(a,a',_), TyApply(b,b',_)) -> loop (a,b); loop (a',b')
             | TyRecord l, TyRecord l' ->
                 let a,b = Map.toArray l, Map.toArray l'
                 if a.Length <> b.Length then er ()
                 else Array.iter2 (fun (_,a) (_,b) -> loop (a,b)) a b
-            | TyHigherOrder(i,_), TyHigherOrder(i',_) -> if i <> i' then er()
-            | TyB, TyB -> er()
-            | TyPrim x, TyPrim x' -> if x <> x' then er()
-            | TySymbol x, TySymbol x' -> if x <> x' then er()
+            | TyHigherOrder(i,_), TyHigherOrder(i',_) when i = i' -> ()
+            | TyB, TyB -> ()
+            | TyPrim x, TyPrim x' when x = x' -> ()
+            | TySymbol x, TySymbol x' when x = x' -> ()
             | TyArray a, TyArray b -> loop (a,b)
             | TyForall(a,b), TyForall(a',b') | TyInl(a,b), TyInl(a',b') ->
                 unify_kind (snd a) (snd a')
                 loop (forall_subst_single (a,b),b')
+            | (TyRecordApply _ | _) & a, (_ | TyRecordApply _) & b -> raise (TypeErrorException [r,RecordApplyCannotBeUnified(a,b)])
             | _ -> er ()
 
-        try loop (term_subst got, term_subst expected)
+        try loop (term_subst r got, term_subst r expected)
         with :? TypeErrorException as e -> errors.AddRange e.Data0
 
     let rec apply_record r s l x =
@@ -329,12 +345,12 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
 
     let rec term (env : Env) s x =
         let f = term env
-        let f' x = let v = fresh_var() in f v x; term_subst v
-        let v x = Map.tryFind x env.term |> Option.orElseWith (fun () -> Map.tryFind x top_env.term) |> Option.map term_subst
+        let f' x = let v = fresh_var() in f v x; term_subst (range_of_expr x) v
+        let v (r,x) = Map.tryFind x env.term |> Option.orElseWith (fun () -> Map.tryFind x top_env.term) |> Option.map (term_subst r)
         match x with
         | RawB r -> unify r s TyB
         | RawV(r,x) ->
-            match v x with
+            match v (r,x) with
             | Some (TySymbol "<real>") -> errors.Add(r,RealFunctionInTopDown)
             | Some x -> unify r s (forall_subst_all x)
             | None -> errors.Add(r, UnboundVariable)
@@ -369,7 +385,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
                 match f' x with
                 | TyRecord m -> m
                 | TyMetavar _ -> raise (TypeErrorException (if errors.Count = i then [range_of_expr x, MetavarsNotAllowedInRecordWith] else []))
-                | _ -> raise (TypeErrorException [range_of_expr x, ExpectedRecord])
+                | a -> raise (TypeErrorException [range_of_expr x, ExpectedRecord a])
             let symbol x =
                 match f' x with
                 | TySymbol x -> x
@@ -388,7 +404,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
                             f (TyFun(x,v)) b
                             Map.add a v m
                         let inline with_injext next ((r,a),b) =
-                            match v a with
+                            match v (r,a) with
                             | Some (TySymbol a) -> next ((r,a),b)
                             | Some x -> errors.Add(r, ExpectedSymbolAsRecordKey x); m
                             | None -> errors.Add(r, UnboundVariable); m
@@ -401,8 +417,8 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
                 let m =
                     List.fold (fun m -> function
                         | RawRecordWithoutSymbol(_,a) -> Map.remove a m
-                        | RawRecordWithoutInjectVar(_,a) ->
-                            match v a with
+                        | RawRecordWithoutInjectVar(r,a) ->
+                            match v (r,a) with
                             | Some (TySymbol a) -> Map.remove a m
                             | Some x -> errors.Add(r, ExpectedSymbolAsRecordKey x); m
                             | None -> errors.Add(r, UnboundVariable); m
@@ -437,9 +453,8 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
             unify r s (TyForall((name,k),body))
             term {env with ty = Map.add name v env.ty} body b
         //| RawMatch of Range * body: RawExpr * (Pattern * RawExpr) list
-        //| RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
+        //| RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
-        | _ -> failwith "TODO"
     and ty (env : Env) s x =
         let f s x = ty env s x
         let v x = Map.tryFind x env.ty |> Option.orElseWith (fun () -> Map.tryFind x top_env.ty)
@@ -471,7 +486,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
             unify r s (TyForall((a,k), x))
             ty {env with ty=Map.add a (TyVar(a,k)) env.ty} x b
         | RawTApply(r,a',b) ->
-            let f' k x = let v = fresh_var' k in f v x; term_subst v
+            let f' k x = let v = fresh_var' k in f v x; term_subst (range_of_texpr x) v
             match f' (fresh_kind()) a' with
             | TyRecord l -> 
                 match f' KindStar b with
@@ -486,7 +501,11 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
                 unify_kind (range_of_texpr a') (tt a) (KindFun(q,w))
                 let x = fresh_var' q
                 f x b
-                unify r s (TyApp(a,x,w))
+                unify r s (TyApply(a,x,w))
+        | RawTRecordApply(r,a,b) ->
+            let q,w = fresh_var(), fresh_var()
+            f q a; f w b
+            unify r s (TyRecordApply(q,w))
         | RawTTerm(r,a) -> assert_bound_vars env a; unify r s (TySymbol "<term>")
         | RawTMetaVar _ -> failwith "Compiler error: This particular metavar is only for typecase's clauses. This happens during the bottom-up segment."
     and pattern env s a = 
@@ -494,9 +513,9 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
         let ho_make (i : int) (l : (string * TT) list) =
             let h = TyHigherOrder(i,List.foldBack (fun (_,x) s -> KindFun(x,s)) l KindStar)
             let l' = List.map (fun (x,k) -> x, fresh_var' k) l
-            List.fold (fun s (_,x) -> match tt s with KindFun(_,k) -> TyApp(s,x,k) | _ -> failwith "impossible") h l', Map.ofList l'
+            List.fold (fun s (_,x) -> match tt s with KindFun(_,k) -> TyApply(s,x,k) | _ -> failwith "impossible") h l', Map.ofList l'
         let rec ho_index = function 
-            | TyApp(a,_,_) -> ho_index a 
+            | TyApply(a,_,_) -> ho_index a 
             | TyHigherOrder(i,_) -> ValueSome i
             | _ -> ValueNone
         let rec loop env s a =
@@ -534,7 +553,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
                             | Some x -> errors.Add(r, ExpectedSymbolAsRecordKey x); None
                             | None -> errors.Add(r, UnboundVariable); None
                         ) l
-                match term_subst s with
+                match term_subst r s with
                 | TyRecord l' ->
                     let l, missing =
                         List.mapFoldBack (fun (a,b) missing ->
@@ -562,7 +581,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
                         | Some v -> f (subst m v) a
                         | None -> errors.Add(r,CasePatternNotFoundForType i); f (fresh_var()) a
                     | HOCNominal _ -> errors.Add(r,NominalInPatternUnbox i); f (fresh_var()) a
-                match term_subst s |> ho_index with
+                match term_subst r s |> ho_index with
                 | ValueSome i -> assume i
                 | ValueNone ->
                     match Map.tryFind name aux.union_cases with
@@ -580,12 +599,13 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x =
                     | ValueNone -> errors.Add(r,TypeInGlobalEnvIsNotNominal x); f (fresh_var()) a
                 | _ -> errors.Add(r,UnboundVariable); f (fresh_var()) a
         loop env s a
-    let v = fresh_var()
-    match x with
-    | Choice1Of2 x -> term env v x
-    | Choice2Of2 x -> ty env v x
+    let v =
+        let v = fresh_var()
+        match x with
+        | Choice1Of2 x -> term env v x; term_subst (range_of_expr x) v
+        | Choice2Of2 x -> ty env v x; term_subst (range_of_texpr x) v
     if 0 < errors.Count then raise (TypeErrorException (Seq.toList errors))
-    else term_subst v
+    else v
 
 let add_var s (k,v) = Map.add k (TyVar (k,v)) s
 let add_vars ty vars = List.fold add_var ty vars
