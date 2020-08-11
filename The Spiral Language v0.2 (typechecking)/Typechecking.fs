@@ -3,23 +3,27 @@ open Spiral.Config
 type TT =
     | KindStar
     | KindFun of TT * TT
-    | KindMetavar of int
+    | KindMetavar of int * link: TT option ref
 
-type T =
+type Constraint =
+    | CNumber
+    | CRecordApply of T * T
+
+and T =
     | TyB
     | TyPrim of PrimitiveType
     | TySymbol of string
     | TyPair of T * T
     | TyRecord of Map<string, T>
     | TyFun of T * T
-    | TyForall of (string * TT) * T
     | TyArray of T
     | TyHigherOrder of int * TT
     | TyApply of T * T * TT // Regular type functions (TyInl) get reduced, while this represents the staged reduction of nominals.
-    | TyRecordApply of T * T
     | TyInl of (string * TT) * T
-    | TyVar of string * TT // Staged type vars. Should only appear in TyInl's body. 
-    | TyMetavar of int * TT
+    | TyVar of string * TT // Staged type vars. Should only appear in TyInl's and TyForall's bodies. 
+    | TyForall of (string * TT) * Constraint Set * T
+    | TyMetavar of id: int * link: T option ref * scope: int * Constraint Set * TT
+    | TyForallMetavar of id: int * scope: int * Constraint Set * TT
 
 type TypeError =
     | KindError of TT * TT
@@ -48,12 +52,26 @@ type TypeError =
     | UnionInPatternNominal of int
     | RecordApplyCannotBeUnified of T * T
 
+let rec visit_tt = function
+    | KindMetavar(_, link) as a ->
+        match !link with
+        | Some x -> let x = visit_tt x in link := Some x; x
+        | None -> a
+    | a -> a
+
+let rec visit_t = function
+    | TyMetavar(_, link, _, _, _) as a ->
+        match !link with
+        | Some x -> let x = visit_t x in link := Some x; x
+        | None -> a
+    | a -> a
+
 open Spiral.BlockParsing
 exception TypeErrorException of (Range * TypeError) list
 
 let rec tt = function
-    | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar(_,x) | TyVar(_,x) -> x
-    | TyRecordApply _ | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindStar
+    | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar(_,_,_,_,x) | TyForallMetavar(_,_,_,x) | TyVar(_,x) -> x
+    | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindStar
     | TyInl((_,k),a) -> KindFun(k,tt a)
 
 let rec typevar = function
