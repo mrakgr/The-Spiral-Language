@@ -9,6 +9,9 @@ type Constraint =
     | CNumber
     | CRecordApply of T * T
 
+/// id * scope * constraints * kind * name
+and Var = int * int * Constraint Set * TT * string
+
 and T =
     | TyB
     | TyPrim of PrimitiveType
@@ -19,11 +22,10 @@ and T =
     | TyArray of T
     | TyHigherOrder of int * TT
     | TyApply of T * T * TT // Regular type functions (TyInl) get reduced, while this represents the staged reduction of nominals.
-    | TyInl of (string * TT) * T
-    | TyVar of string * TT // Staged type vars. Should only appear in TyInl's and TyForall's bodies. 
-    | TyForall of (string * TT) * Constraint Set * T
-    | TyMetavar of id: int * link: T option ref * scope: int * Constraint Set * TT
-    | TyForallMetavar of id: int * scope: int * Constraint Set * TT
+    | TyInl of Var * T
+    | TyForall of Var * T
+    | TyMetavar of Var * link: T option ref
+    | TyVar of Var
 
 type TypeError =
     | KindError of TT * TT
@@ -51,6 +53,8 @@ type TypeError =
     | TypeInGlobalEnvIsNotNominal of T
     | UnionInPatternNominal of int
     | RecordApplyCannotBeUnified of T * T
+
+let id () = failwith "TODO"
 
 let rec visit_tt = function
     | KindMetavar(_, link) as a ->
