@@ -3,14 +3,14 @@ open Spiral.Config
 type TT =
     | KindStar
     | KindFun of TT * TT
-    | KindMetavar of int * link: TT option ref
+    | KindMetavar of TT option ref
 
 type Constraint =
     | CNumber
     | CRecordApply of T * T
 
-/// id * scope * constraints * kind * name
-and Var = int * int * Constraint Set * TT * string
+/// scope * constraints * kind
+and Var = int * Constraint Set * TT
 
 and T =
     | TyB
@@ -24,7 +24,7 @@ and T =
     | TyApply of T * T * TT // Regular type functions (TyInl) get reduced, while this represents the staged reduction of nominals.
     | TyInl of Var * T
     | TyForall of Var * T
-    | TyMetavar of Var * link: T option ref
+    | TyMetavar of Choice<Var,T> ref
     | TyVar of Var
 
 type TypeError =
@@ -53,8 +53,6 @@ type TypeError =
     | TypeInGlobalEnvIsNotNominal of T
     | UnionInPatternNominal of int
     | RecordApplyCannotBeUnified of T * T
-
-let id () = failwith "TODO"
 
 let rec visit_tt = function
     | KindMetavar(_, link) as a ->
