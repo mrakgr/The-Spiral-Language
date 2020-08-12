@@ -24,7 +24,7 @@ and T =
     | TyApply of T * T * TT // Regular type functions (TyInl) get reduced, while this represents the staged reduction of nominals.
     | TyInl of Var * T
     | TyForall of Var * T
-    | TyMetavar of Choice<Var,T> ref
+    | TyMetavar of Var * T option ref
     | TyVar of Var
 
 type TypeError =
@@ -55,14 +55,14 @@ type TypeError =
     | RecordApplyCannotBeUnified of T * T
 
 let rec visit_tt = function
-    | KindMetavar(_, link) as a ->
+    | KindMetavar link as a ->
         match !link with
         | Some x -> let x = visit_tt x in link := Some x; x
         | None -> a
     | a -> a
 
 let rec visit_t = function
-    | TyMetavar(_, link, _, _, _) as a ->
+    | TyMetavar(_, link) as a ->
         match !link with
         | Some x -> let x = visit_t x in link := Some x; x
         | None -> a
