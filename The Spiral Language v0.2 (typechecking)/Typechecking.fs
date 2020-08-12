@@ -9,8 +9,8 @@ type Constraint =
     | CNumber
     | CRecordApply of T * T
 
-/// scope * constraints * kind
-and Var = int * Constraint Set * TT
+/// scope * constraints * kind * display name
+and Var = int * Constraint Set * TT * string
 
 and T =
     | TyB
