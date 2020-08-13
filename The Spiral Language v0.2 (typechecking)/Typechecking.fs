@@ -219,52 +219,28 @@ let rec subst (m : (Var * T) list) x =
 open Spiral.Tokenize
 let infer (aux : AuxEnv) (top_env : Env) (env : Env) x : T =
     let errors = ResizeArray()
-    let term' = ResizeArray()
-    let kind = ResizeArray()
-    let forall_scopes = System.Collections.Generic.Dictionary()
-    let fresh_kind () = let x = KindMetavar kind.Count in kind.Add(x); x
-    let fresh_var'' x = 
-        let i = term'.Count
-        let x = TyMetavar(i,x)
-        term'.Add(x)
-        i, x
-    let fresh_var' x = fresh_var'' x |> snd
-    let fresh_var () = fresh_var' KindStar
+    let fresh_kind () = KindMetavar (ref None)
+    let fresh_var x = TyMetavar (x, ref None)
+    let q = Collections.Generic.HashSet()
 
-    let rec kind_get i =
-        match kind.[i] with
-        | KindMetavar i' as x -> if i <> i' then let x = kind_get i' in kind.[i] <- x; x else x
-        | x -> kind_subst x
-    and kind_subst = function
-        | KindMetavar i -> kind_get i
+    let rec kind_subst = function
+        | KindMetavar ({contents=Some x} & link) -> let x = kind_subst x in link := Some x; x
         | KindFun(a,b) -> KindFun(kind_subst a,kind_subst b)
-        | KindStar -> KindStar
+        | x -> x
 
-    let rec term_get r i =
-        match term'.[i] with
-        | TyMetavar(i',_) as x -> if i <> i' then let x = term_get r i' in term'.[i] <- x; x else x
-        | x -> term_subst r x
-    and term_subst r x = 
+    let rec term_subst r x = 
         let f = term_subst r
         match x with
-        | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
+        | TyConstraint _ | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
         | TyPair(a,b) -> TyPair(f a, f b)
         | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
         | TyFun(a,b) -> TyFun(f a, f b)
         | TyForall(a,b) -> TyForall(a,f b)
         | TyArray a -> TyArray(f a)
         | TyApply(a,b,c) -> TyApply(f a, f b, c)
-        | TyMetavar(i,_) -> term_get r i
         | TyInl(a,b) -> TyInl(a,f b)
-        | TyRecordApply(a,b) ->
-            match f a, f b with
-            | TyRecord l, TySymbol x ->
-                match Map.tryFind x l with
-                | Some x -> x
-                | None -> errors.Add(r,RecordIndexFailed x); fresh_var()
-            | (TyRecord _ | TyVar _ | TyMetavar _) & a, (TySymbol _ | TyVar _ | TyMetavar _) & b -> TyRecordApply(a,b)
-            | (TyRecord _ | TyVar _ | TyMetavar _), b -> errors.Add(r,ExpectedSymbolAsRecordKey b); fresh_var()
-            | a,_ -> errors.Add(r,ExpectedRecord a); fresh_var()
+        | TyMetavar(i,{contents=Some x} & link) -> let x = f x in link := Some x; x
+        | TyMetavar((_,cons,_,_) & i, link) -> eval_constraints cons x
 
     let forall_subst_all x =
         let rec loop (m : Map<string,T>) = function
