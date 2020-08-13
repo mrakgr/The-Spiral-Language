@@ -1,9 +1,20 @@
 ﻿module Spiral.Typechecking
 open Spiral.Config
 type TT =
-    | KindStar
+    | KindType
+    | KindConstraint
     | KindFun of TT * TT
     | KindMetavar of TT option ref
+
+type ConstraintId =
+    | CINumber // * -> /
+    | CIRecordApply // * -> * -> * -> /
+
+let id_to_kind x = 
+    let (^) a b = KindFun(a,b) // ^ is right assoc
+    match x with
+    | CINumber -> KindType ^ KindConstraint
+    | CIRecordApply -> KindType ^ KindType ^ KindType ^ KindConstraint
 
 type Constraint =
     | CNumber
@@ -21,6 +32,7 @@ and T =
     | TyFun of T * T
     | TyArray of T
     | TyHigherOrder of int * TT
+    | TyConstraint of ConstraintId
     | TyApply of T * T * TT // Regular type functions (TyInl) get reduced, while this represents the staged reduction of nominals.
     | TyInl of Var * T
     | TyForall of Var * T
@@ -55,29 +67,24 @@ type TypeError =
     | RecordApplyCannotBeUnified of T * T
 
 let rec visit_tt = function
-    | KindMetavar link as a ->
-        match !link with
-        | Some x -> let x = visit_tt x in link := Some x; x
-        | None -> a
+    | KindMetavar({contents=Some x} & link) -> let x = visit_tt x in link := Some x; x
     | a -> a
 
 let rec visit_t = function
-    | TyMetavar(_, link) as a ->
-        match !link with
-        | Some x -> let x = visit_t x in link := Some x; x
-        | None -> a
+    | TyMetavar(_,{contents=Some x} & link) -> let x = visit_t x in link := Some x; x
     | a -> a
 
 open Spiral.BlockParsing
 exception TypeErrorException of (Range * TypeError) list
 
 let rec tt = function
-    | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar(_,_,_,_,x) | TyForallMetavar(_,_,_,x) | TyVar(_,x) -> x
-    | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindStar
-    | TyInl((_,k),a) -> KindFun(k,tt a)
+    | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar((_,_,x,_),_) | TyVar(_,_,x,_) -> x
+    | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
+    | TyInl((_,_,k,_),a) -> KindFun(k,tt a)
+    | TyConstraint id -> id_to_kind id
 
 let rec typevar = function
-    | RawKindWildcard | RawKindStar -> KindStar
+    | RawKindWildcard | RawKindStar -> KindType
     | RawKindFun(a,b) -> KindFun(typevar a, typevar b)
 let typevars (l : TypeVar list) = List.map (fun (_,(a,b)) -> a, typevar b) l
 
@@ -195,20 +202,19 @@ let assert_bound_vars (top_env : Env) term ty x =
     let errors = assert_bound_vars' top_env term ty x
     if 0 < errors.Count then raise (TypeErrorException (Seq.toList errors))
 
-let rec subst (m : Map<string,T>) x =
+open System
+let rec subst (m : (Var * T) list) x =
     let f = subst m
-    let fun_body a b = subst (Map.add (fst a) (TyVar a) m) b
     match x with
-    | TyMetavar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> x
+    | TyConstraint _ | TyMetavar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> x
     | TyPair(a,b) -> TyPair(f a, f b)
     | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
     | TyFun(a,b) -> TyFun(f a, f b)
     | TyArray a -> TyArray(f a)
     | TyApply(a,b,c) -> TyApply(f a, f b, c)
-    | TyRecordApply(a,b) -> TyRecordApply(f a, f b)
-    | TyVar(a,_) -> m.[a]
-    | TyForall(a,b) -> TyForall(a, fun_body a b)
-    | TyInl(a,b) -> TyInl(a, fun_body a b)
+    | TyVar a -> List.tryPick (fun (v,x) -> if Object.ReferenceEquals(a,v) then Some x else None) m |> Option.defaultValue x
+    | TyForall(a,b) -> TyForall(a, f b)
+    | TyInl(a,b) -> TyInl(a, f b)
 
 open Spiral.Tokenize
 let infer (aux : AuxEnv) (top_env : Env) (env : Env) x : T =
