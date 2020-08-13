@@ -8,17 +8,14 @@ type TT =
 
 type ConstraintId =
     | CINumber // * -> /
-    | CIRecordApply // * -> * -> * -> /
 
 let id_to_kind x = 
     let (^) a b = KindFun(a,b) // ^ is right assoc
     match x with
     | CINumber -> KindType ^ KindConstraint
-    | CIRecordApply -> KindType ^ KindType ^ KindType ^ KindConstraint
 
 type Constraint =
     | CNumber
-    | CRecordApply of T * T
 
 /// scope * constraints * kind * display name
 and Var = int * Constraint Set * TT * string
@@ -221,26 +218,23 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x : T =
     let errors = ResizeArray()
     let fresh_kind () = KindMetavar (ref None)
     let fresh_var x = TyMetavar (x, ref None)
-    let q = Collections.Generic.HashSet()
 
     let rec kind_subst = function
         | KindMetavar ({contents=Some x} & link) -> let x = kind_subst x in link := Some x; x
+        | KindMetavar _ | KindConstraint | KindType as x -> x
         | KindFun(a,b) -> KindFun(kind_subst a,kind_subst b)
-        | x -> x
 
-    let rec term_subst r x = 
-        let f = term_subst r
+    let rec term_subst x = 
         match x with
-        | TyConstraint _ | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
-        | TyPair(a,b) -> TyPair(f a, f b)
-        | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
-        | TyFun(a,b) -> TyFun(f a, f b)
-        | TyForall(a,b) -> TyForall(a,f b)
-        | TyArray a -> TyArray(f a)
-        | TyApply(a,b,c) -> TyApply(f a, f b, c)
-        | TyInl(a,b) -> TyInl(a,f b)
-        | TyMetavar(i,{contents=Some x} & link) -> let x = f x in link := Some x; x
-        | TyMetavar((_,cons,_,_) & i, link) -> eval_constraints cons x
+        | TyMetavar(i,{contents=Some x} & link) -> let x = term_subst x in link := Some x; x
+        | TyMetavar _ | TyConstraint _ | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
+        | TyPair(a,b) -> TyPair(term_subst a, term_subst b)
+        | TyRecord l -> TyRecord(Map.map (fun _ -> term_subst) l)
+        | TyFun(a,b) -> TyFun(term_subst a, term_subst b)
+        | TyForall(a,b) -> TyForall(a,term_subst b)
+        | TyArray a -> TyArray(term_subst a)
+        | TyApply(a,b,c) -> TyApply(term_subst a, term_subst b, c)
+        | TyInl(a,b) -> TyInl(a,term_subst b)
 
     let forall_subst_all x =
         let rec loop (m : Map<string,T>) = function
