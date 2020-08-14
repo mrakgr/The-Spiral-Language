@@ -277,7 +277,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
             let f = scope_lower scope
             match x with
             | TyMetavar(_,{contents=Some x} & link) -> go x link f
-            | TyMetavar(V(scope',q,w,e),_) when scope < scope' -> fresh_var'' (V(scope,q,w,e))
+            | TyMetavar(V(scope',q,w,e),link) when scope < scope' -> let x = fresh_var'' (V(scope,q,w,e)) in link := Some x; x
             | TyVar(V(scope',_,_,name)) when scope < scope' -> errors.Add(r,ForallVarScopeError(name,got,expected)); fresh_var''(V(scope,Set.empty,fresh_kind(),null))
             | TyVar _ | TyMetavar _ | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> x
             | TyPair(a,b) -> TyPair(f a, f b)
