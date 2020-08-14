@@ -206,7 +206,6 @@ and RawTExpr =
     | RawTRecord of Range * Map<string,RawTExpr>
     | RawTSymbol of Range * SymbolString
     | RawTApply of Range * RawTExpr * RawTExpr
-    | RawTRecordApply of Range * RawTExpr * RawTExpr
     | RawTForall of Range * TypeVar * RawTExpr
     | RawTPrim of Range * PrimitiveType
     | RawTArray of Range * RawTExpr
