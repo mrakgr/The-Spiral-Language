@@ -283,7 +283,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
             | TyPair(a,b) -> TyPair(f a, f b)
             | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
             | TyFun(a,b) -> TyFun(f a, f b)
-            | TyForall(a,b) -> TyForall(a,f b)
+            | TyForall(a,b) -> TyForall(a, f b)
             | TyArray a -> TyArray(f a)
             | TyApply(a,b,c) -> TyApply(f a, f b, c)
             | TyInl(a,b) -> TyInl(a,f b)
