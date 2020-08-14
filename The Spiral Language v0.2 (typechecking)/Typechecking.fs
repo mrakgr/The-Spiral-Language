@@ -1,6 +1,6 @@
 ﻿module Spiral.Typechecking
 open Spiral.Config
-type TT =
+type [<ReferenceEquality>] TT =
     | KindType
     | KindConstraint
     | KindFun of TT * TT
@@ -17,8 +17,7 @@ let id_to_kind x =
 type Constraint =
     | CNumber
 
-/// scope * constraints * kind * display name
-and Var = int * Constraint Set * TT * string
+and [<ReferenceEquality>] Var = V of scope: int * Constraint Set * TT * display_name: string
 
 and T =
     | TyB
@@ -61,23 +60,25 @@ type TypeError =
     | NominalInPatternUnbox of int
     | TypeInGlobalEnvIsNotNominal of T
     | UnionInPatternNominal of int
-    | RecordApplyCannotBeUnified of T * T
+    | ConstraintError of Constraint
 
+let inline go x link next = let x = next x in link := Some x; x
 let rec visit_tt = function
-    | KindMetavar({contents=Some x} & link) -> let x = visit_tt x in link := Some x; x
+    | KindMetavar({contents=Some x} & link) -> go x link visit_tt
     | a -> a
 
 let rec visit_t = function
-    | TyMetavar(_,{contents=Some x} & link) -> let x = visit_t x in link := Some x; x
+    | TyMetavar(_,{contents=Some x} & link) -> go x link visit_t
     | a -> a
 
 open Spiral.BlockParsing
 exception TypeErrorException of (Range * TypeError) list
 
+let var_kind (V(_,_,k,_)) = k
 let rec tt = function
-    | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar((_,_,x,_),_) | TyVar(_,_,x,_) -> x
+    | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar(V(_,_,x,_),_) | TyVar(V(_,_,x,_)) -> x
     | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
-    | TyInl((_,_,k,_),a) -> KindFun(k,tt a)
+    | TyInl(v,a) -> KindFun(var_kind v,tt a)
     | TyConstraint id -> id_to_kind id
 
 let rec typevar = function
@@ -199,7 +200,6 @@ let assert_bound_vars (top_env : Env) term ty x =
     let errors = assert_bound_vars' top_env term ty x
     if 0 < errors.Count then raise (TypeErrorException (Seq.toList errors))
 
-open System
 let rec subst (m : (Var * T) list) x =
     let f = subst m
     match x with
@@ -209,84 +209,104 @@ let rec subst (m : (Var * T) list) x =
     | TyFun(a,b) -> TyFun(f a, f b)
     | TyArray a -> TyArray(f a)
     | TyApply(a,b,c) -> TyApply(f a, f b, c)
-    | TyVar a -> List.tryPick (fun (v,x) -> if Object.ReferenceEquals(a,v) then Some x else None) m |> Option.defaultValue x
+    | TyVar a -> List.tryPick (fun (v,x) -> if a = v then Some x else None) m |> Option.defaultValue x
     | TyForall(a,b) -> TyForall(a, f b)
     | TyInl(a,b) -> TyInl(a, f b)
+
+let inline constraint_process x con on_succ on_fail =
+    match con, x with
+    | CNumber, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T | Float32T | Float64T) -> on_succ ()
+    | _ -> on_fail ()
+
+let rec kind_subst = function
+    | KindMetavar ({contents=Some x} & link) -> go x link kind_subst
+    | KindMetavar _ | KindConstraint | KindType as x -> x
+    | KindFun(a,b) -> KindFun(kind_subst a,kind_subst b)
+
+let rec term_subst = function
+    | TyMetavar(_,{contents=Some x} & link) -> go x link term_subst
+    | TyMetavar _ | TyConstraint _ | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
+    | TyPair(a,b) -> TyPair(term_subst a, term_subst b)
+    | TyRecord l -> TyRecord(Map.map (fun _ -> term_subst) l)
+    | TyFun(a,b) -> TyFun(term_subst a, term_subst b)
+    | TyForall(a,b) -> TyForall(a,term_subst b)
+    | TyArray a -> TyArray(term_subst a)
+    | TyApply(a,b,c) -> TyApply(term_subst a, term_subst b, c)
+    | TyInl(a,b) -> TyInl(a,term_subst b)
 
 open Spiral.Tokenize
 let infer (aux : AuxEnv) (top_env : Env) (env : Env) x : T =
     let errors = ResizeArray()
+    let scope = ref 0
     let fresh_kind () = KindMetavar (ref None)
     let fresh_var x = TyMetavar (x, ref None)
 
-    let rec kind_subst = function
-        | KindMetavar ({contents=Some x} & link) -> let x = kind_subst x in link := Some x; x
-        | KindMetavar _ | KindConstraint | KindType as x -> x
-        | KindFun(a,b) -> KindFun(kind_subst a,kind_subst b)
-
-    let rec term_subst x = 
-        match x with
-        | TyMetavar(i,{contents=Some x} & link) -> let x = term_subst x in link := Some x; x
-        | TyMetavar _ | TyConstraint _ | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
-        | TyPair(a,b) -> TyPair(term_subst a, term_subst b)
-        | TyRecord l -> TyRecord(Map.map (fun _ -> term_subst) l)
-        | TyFun(a,b) -> TyFun(term_subst a, term_subst b)
-        | TyForall(a,b) -> TyForall(a,term_subst b)
-        | TyArray a -> TyArray(term_subst a)
-        | TyApply(a,b,c) -> TyApply(term_subst a, term_subst b, c)
-        | TyInl(a,b) -> TyInl(a,term_subst b)
-
     let forall_subst_all x =
-        let rec loop (m : Map<string,T>) = function
-            | TyForall((n,k),b) ->
-                let v = TyMetavar(term'.Count,k)
-                term'.Add(v)
-                let m = Map.add n x m
-                loop m b
+        let rec loop m x = 
+            match visit_t x with
+            | TyForall(V(_,cons,kind,_) & a,b) -> loop ((a, fresh_var (V(!scope,cons,kind,null))) :: m) b
             | x -> subst m x
-        loop Map.empty x
+        loop [] x
 
-    let forall_subst_single ((n,k),b) =
-        let v = TyMetavar(term'.Count,k)
-        term'.Add(v)
-        let m = Map.add n v Map.empty
-        subst m b
+    let forall_subst_single (V(_,cons,kind,_) & a,b) =
+        subst [a, fresh_var (V(!scope,cons,kind,null))] b
 
     let inline unify_kind' er (got : TT) (expected : TT) : unit =
-        let rec loop = function
-            | KindStar, KindStar -> ()
+        let rec loop (a'',b'') =
+            match visit_tt a'', visit_tt b'' with
+            | KindType, KindType
+            | KindConstraint, KindConstraint -> ()
             | KindFun(a,a'), KindFun(b,b') -> loop (a,b); loop (a',b')
-            | KindMetavar a & a', KindMetavar b & b' -> if a < b then kind.[b] <- a' else kind.[a] <- b'
-            | KindMetavar a, b | b, KindMetavar a -> kind.[a] <- b
+            | KindMetavar link & a, KindMetavar _ & b -> if a <> b then link := Some b
+            | KindMetavar link, b | b, KindMetavar link -> link := Some b
             | _ -> er()
-        loop (kind_subst got, kind_subst expected)
+        loop (got, expected)
     let unify_kind r got expected = unify_kind' (fun () -> raise (TypeErrorException [r, KindError (got, expected)])) got expected
 
     let unify (r : Range) (got : T) (expected : T) : unit =
         let unify_kind = unify_kind' (fun () -> raise (TypeErrorException [r, KindError' (got, expected)]))
         let er () = raise (TypeErrorException [r, TermError(got, expected)])
+
+        let rec scope_lower scope x =
+            let f = scope_lower scope
+            match x with
+            | TyMetavar(_,{contents=Some x} & link) -> go x link f
+            | TyMetavar(V(scope',q,w,e),_) when scope < scope' -> fresh_var (V(scope,q,w,e))
+            | TyVar(V(scope',_,_,name)) when scope < scope' -> errors.Add(r,ForallVarScopeError(name,got,expected)); fresh_var(V(scope,Set.empty,fresh_kind(),null))
+            | TyVar _ | TyMetavar _ | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
+            | TyPair(a,b) -> TyPair(f a, f b)
+            | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
+            | TyFun(a,b) -> TyFun(f a, f b)
+            | TyForall(a,b) -> TyForall(a,f b)
+            | TyArray a -> TyArray(f a)
+            | TyApply(a,b,c) -> TyApply(f a, f b, c)
+            | TyInl(a,b) -> TyInl(a,f b)
+
         let rec occurs_check i x =
             let f = occurs_check i
-            match x with
-            | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> ()
+            match visit_t x with
+            | TyConstraint _ | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> ()
             | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
-            | TyApply(a,b,_) | TyRecordApply(a,b) | TyFun(a,b) | TyPair(a,b) -> f a; f b
+            | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a; f b
             | TyRecord l -> Map.iter (fun _ -> f) l
-            | TyMetavar (i',_) -> if i = i' then er()
-            | TyVar(a,_) -> // TODO: This is not enough, fix it tomorrow.
-                match forall_scopes.TryGetValue(a) with
-                | true, i' -> if i < i' then raise (TypeErrorException [r,ForallVarScopeError(a,got,expected)])
-                | _ -> ()
-        let rec loop = function
-            | TyMetavar(a,ka) & a', TyMetavar(b,kb) & b' ->
-                if a <> b then
-                    unify_kind ka kb
-                    if a < b then term'.[b] <- a' else term'.[a] <- b'
-            | (TyMetavar(a,ka), b | b, TyMetavar(a,ka)) ->
-                occurs_check a b
-                unify_kind ka (tt b)
-                term'.[a] <- b
-            | TyVar(a,_), TyVar(b,_) when System.Object.ReferenceEquals(a,b) -> ()
+            | TyMetavar(i',_) -> if i = i' then er()
+
+        let rec loop (a'',b'') = 
+            match visit_t a'', visit_t b'' with
+            | TyMetavar(V(scope,cons,kind,_) & a',link), TyMetavar(V(scope',cons',kind',_) & b',_) ->
+                if a' <> b' then
+                    unify_kind kind kind'
+                    link := fresh_var (V(min scope scope',cons+cons',kind',null)) |> Some
+            | (TyMetavar(V(scope',cons,kind,_) & a',link), b | b, TyMetavar(V(scope',cons,kind,_) & a',link)) ->
+                occurs_check a' b
+                unify_kind kind (tt b)
+                Set.fold (fun x con ->
+                    match x with
+                    | TyMetavar _ -> x
+                    | _ -> constraint_process x con (fun () -> x) (fun () -> errors.Add(r,ConstraintError CNumber); fresh_var (V(!scope,Set.empty,fresh_kind(),null)))
+                    ) b cons
+                |> fun b -> link := Some b
+            | TyVar a, TyVar b when a = b -> ()
             | (TyPair(a,b), TyPair(a',b') | TyFun(a,a'), TyFun(b,b') | TyApply(a,a',_), TyApply(b,b',_)) -> loop (a,b); loop (a',b')
             | TyRecord l, TyRecord l' ->
                 let a,b = Map.toArray l, Map.toArray l'
@@ -303,7 +323,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x : T =
             | (TyRecordApply _ | _) & a, (_ | TyRecordApply _) & b -> raise (TypeErrorException [r,RecordApplyCannotBeUnified(a,b)])
             | _ -> er ()
 
-        try loop (term_subst r got, term_subst r expected)
+        try loop (scope_lower r got, scope_lower r expected)
         with :? TypeErrorException as e -> errors.AddRange e.Data0
 
     let rec apply_record r s l x =
