@@ -273,7 +273,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x : T =
             | TyMetavar(_,{contents=Some x} & link) -> go x link f
             | TyMetavar(V(scope',q,w,e),_) when scope < scope' -> fresh_var (V(scope,q,w,e))
             | TyVar(V(scope',_,_,name)) when scope < scope' -> errors.Add(r,ForallVarScopeError(name,got,expected)); fresh_var(V(scope,Set.empty,fresh_kind(),null))
-            | TyVar _ | TyMetavar _ | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
+            | TyVar _ | TyMetavar _ | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> x
             | TyPair(a,b) -> TyPair(f a, f b)
             | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
             | TyFun(a,b) -> TyFun(f a, f b)
@@ -303,8 +303,12 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x : T =
                 Set.fold (fun x con ->
                     match x with
                     | TyMetavar _ -> x
-                    | _ -> constraint_process x con (fun () -> x) (fun () -> errors.Add(r,ConstraintError CNumber); fresh_var (V(!scope,Set.empty,fresh_kind(),null)))
+                    | _ -> 
+                        let on_succ () = x
+                        let on_fail () = errors.Add(r,ConstraintError con); fresh_var (V(!scope,Set.empty,fresh_kind(),null))
+                        constraint_process x con on_succ on_fail
                     ) b cons
+                |> scope_lower scope'
                 |> fun b -> link := Some b
             | TyVar a, TyVar b when a = b -> ()
             | (TyPair(a,b), TyPair(a',b') | TyFun(a,a'), TyFun(b,b') | TyApply(a,a',_), TyApply(b,b',_)) -> loop (a,b); loop (a',b')
@@ -316,14 +320,14 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) x : T =
             | TyB, TyB -> ()
             | TyPrim x, TyPrim x' when x = x' -> ()
             | TySymbol x, TySymbol x' when x = x' -> ()
+            | TyConstraint x, TyConstraint x' when x = x' -> ()
             | TyArray a, TyArray b -> loop (a,b)
             | TyForall(a,b), TyForall(a',b') | TyInl(a,b), TyInl(a',b') ->
-                unify_kind (snd a) (snd a')
+                unify_kind (var_kind a) (var_kind a')
                 loop (forall_subst_single (a,b),b')
-            | (TyRecordApply _ | _) & a, (_ | TyRecordApply _) & b -> raise (TypeErrorException [r,RecordApplyCannotBeUnified(a,b)])
             | _ -> er ()
 
-        try loop (scope_lower r got, scope_lower r expected)
+        try loop (got, expected)
         with :? TypeErrorException as e -> errors.AddRange e.Data0
 
     let rec apply_record r s l x =
