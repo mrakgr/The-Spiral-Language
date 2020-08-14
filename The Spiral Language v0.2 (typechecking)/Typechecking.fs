@@ -19,7 +19,12 @@ let id_to_kind x =
 type Constraint =
     | CNumber
 
-and [<ReferenceEquality>] Var = V of scope: int * Constraint Set * TT * display_name: string
+and [<ReferenceEquality>] Var = {
+    mutable scope : int
+    mutable constraints : Constraint Set // Must be stated up front and needs to be static in forall vars
+    kind : TT // Has metavars, and so is mutable.
+    name : string // Is what gets printed. Can be null.
+    }
 
 and T =
     | TyB
@@ -78,12 +83,10 @@ let rec visit_t = function
 open Spiral.BlockParsing
 exception TypeErrorException of (Range * TypeError) list
 
-let var_kind (V(_,_,k,_)) = k
-let var_name (V(_,_,_,name)) = name
 let rec tt = function
-    | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar(V(_,_,x,_),_) | TyVar(V(_,_,x,_)) -> x
+    | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar({kind=x},_) | TyVar({kind=x}) -> x
     | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
-    | TyInl(v,a) -> KindFun(var_kind v,tt a)
+    | TyInl(v,a) -> KindFun(v.kind,tt a)
     | TyConstraint id -> id_to_kind id
 
 let rec typevar = function
@@ -244,17 +247,17 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
     let scope = ref 0
     let fresh_kind () = KindMetavar {contents'=None}
     let fresh_var'' x = TyMetavar (x, ref None)
-    let fresh_var' kind = fresh_var'' (V(!scope,Set.empty,kind,null))
-    let fresh_subst_var cons kind = fresh_var'' (V(!scope,cons,kind,null))
+    let fresh_var' kind = fresh_var'' {scope= !scope; constraints=Set.empty; kind=kind; name=null}
+    let fresh_subst_var cons kind = fresh_var'' {scope= !scope; constraints=cons; kind=kind; name=null}
     let forall_subst_all x =
         let rec loop m x = 
             match visit_t x with
-            | TyForall(V(_,cons,kind,_) & a,b) -> loop ((a, fresh_subst_var cons kind) :: m) b
+            | TyForall(a,b) -> loop ((a, fresh_subst_var a.constraints a.kind) :: m) b
             | x -> subst m x
         loop [] x
 
-    let forall_subst_single (V(_,cons,kind,_) & a,b) =
-        subst [a, fresh_var'' (V(!scope,cons,kind,null))] b
+    let forall_subst_single (a,b) =
+        subst [a, fresh_var'' {scope= !scope; constraints=a.constraints; kind=a.kind; name=null}] b
 
     // Note: Loosening the annotation requirement for type definitions would necessitate an occurs check in kinds.
     let inline unify_kind' er (got : TT) (expected : TT) : unit =
@@ -273,49 +276,37 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
         let unify_kind = unify_kind' (fun () -> raise (TypeErrorException [r, KindError' (got, expected)]))
         let er () = raise (TypeErrorException [r, TermError(got, expected)])
 
-        let rec scope_lower scope x =
-            let f = scope_lower scope
-            match x with
-            | TyMetavar(_,{contents=Some x} & link) -> go x link f
-            | TyMetavar(V(scope',q,w,e),link) when scope < scope' -> let x = fresh_var'' (V(scope,q,w,e)) in link := Some x; x
-            | TyVar(V(scope',_,_,name)) when scope < scope' -> errors.Add(r,ForallVarScopeError(name,got,expected)); fresh_var''(V(scope,Set.empty,fresh_kind(),null))
-            | TyVar _ | TyMetavar _ | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> x
-            | TyPair(a,b) -> TyPair(f a, f b)
-            | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
-            | TyFun(a,b) -> TyFun(f a, f b)
-            | TyForall(a,b) -> TyForall(a, f b)
-            | TyArray a -> TyArray(f a)
-            | TyApply(a,b,c) -> TyApply(f a, f b, c)
-            | TyInl(a,b) -> TyInl(a,f b)
-
-        let rec occurs_check i x =
-            let f = occurs_check i
+        let rec occurs_check_and_scope_lower i x =
+            let f = occurs_check_and_scope_lower i
             match visit_t x with
-            | TyConstraint _ | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> ()
+            | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> ()
             | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
             | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a; f b
             | TyRecord l -> Map.iter (fun _ -> f) l
-            | TyMetavar(i',_) -> if i = i' then er()
+            | TyVar x -> if i.scope < x.scope then raise (TypeErrorException [r,ForallVarScopeError(x.name,got,expected)])
+            | TyMetavar(x,_) -> if i = x then er() elif i.scope < x.scope then x.scope <- i.scope
 
         let rec loop (a'',b'') = 
             match visit_t a'', visit_t b'' with
-            | TyMetavar(V(scope,cons,kind,_) & a',link), TyMetavar(V(scope',cons',kind',_) & b',_) ->
-                if a' <> b' then
-                    unify_kind kind kind'
-                    link := fresh_var'' (V(min scope scope',cons+cons',kind',null)) |> Some
-            | (TyMetavar(V(scope',cons,kind,_) & a',link), b | b, TyMetavar(V(scope',cons,kind,_) & a',link)) ->
-                occurs_check a' b
-                unify_kind kind (tt b)
-                Set.fold (fun x con ->
-                    match x with
-                    | TyMetavar _ -> x
-                    | _ -> 
-                        let on_succ () = x
-                        let on_fail () = errors.Add(r,ConstraintError con); fresh_var' (fresh_kind())
-                        constraint_process x con on_succ on_fail
-                    ) b cons
-                |> scope_lower scope'
-                |> fun b -> link := Some b
+            | TyMetavar(a,link), TyMetavar(b,_) & b' ->
+                if a <> b then
+                    unify_kind a.kind b.kind
+                    b.scope <- min a.scope b.scope
+                    b.constraints <- a.constraints + b.constraints
+                    link := Some b'
+            | (TyMetavar(a',link), b | b, TyMetavar(a',link)) ->
+                occurs_check_and_scope_lower a' b
+                unify_kind a'.kind (tt b)
+                let b =
+                    Set.fold (fun x con ->
+                        match x with
+                        | TyMetavar _ -> x
+                        | _ -> 
+                            let on_succ () = x
+                            let on_fail () = errors.Add(r,ConstraintError con); fresh_var' (fresh_kind())
+                            constraint_process x con on_succ on_fail
+                        ) b a'.constraints
+                link := Some b
             | TyVar a, TyVar b when a = b -> ()
             | (TyPair(a,b), TyPair(a',b') | TyFun(a,a'), TyFun(b,b') | TyApply(a,a',_), TyApply(b,b',_)) -> loop (a,b); loop (a',b')
             | TyRecord l, TyRecord l' ->
@@ -328,9 +319,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
             | TySymbol x, TySymbol x' when x = x' -> ()
             | TyConstraint x, TyConstraint x' when x = x' -> ()
             | TyArray a, TyArray b -> loop (a,b)
-            | TyForall(a,b), TyForall(a',b') | TyInl(a,b), TyInl(a',b') ->
-                unify_kind (var_kind a) (var_kind a')
-                loop (forall_subst_single (a,b),b')
+            | TyForall(a,b), TyForall(a',b') | TyInl(a,b), TyInl(a',b') -> loop (forall_subst_single (a,b),b')
             | _ -> er ()
 
         try loop (got, expected)
@@ -338,7 +327,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
 
     let rec apply_record r s l x =
         let f = apply_record r s
-        match x with
+        match visit_t x with
         | TySymbol x ->
             match Map.tryFind x l with
             | Some x -> unify r s x
@@ -372,12 +361,12 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
     let fresh_var () = fresh_var' KindType
     let rec term (env : Env) s x =
         let f = term env
-        let f' x = let v = fresh_var() in f v x; term_subst v
-        let v (r,x) = Map.tryFind x env.term |> Option.orElseWith (fun () -> Map.tryFind x top_env.term) |> Option.map term_subst
+        let f' x = let v = fresh_var() in f v x; visit_t v
+        let v x = Map.tryFind x env.term |> Option.orElseWith (fun () -> Map.tryFind x top_env.term) |> Option.map visit_t
         match x with
         | RawB r -> unify r s TyB
         | RawV(r,x) ->
-            match v (r,x) with
+            match v x with
             | Some (TySymbol "<real>") -> errors.Add(r,RealFunctionInTopDown)
             | Some x -> unify r s (forall_subst_all x)
             | None -> errors.Add(r, UnboundVariable)
@@ -431,7 +420,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
                             f (TyFun(x,v)) b
                             Map.add a v m
                         let inline with_injext next ((r,a),b) =
-                            match v (r,a) with
+                            match v a with
                             | Some (TySymbol a) -> next ((r,a),b)
                             | Some x -> errors.Add(r, ExpectedSymbolAsRecordKey x); m
                             | None -> errors.Add(r, UnboundVariable); m
@@ -445,7 +434,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
                     List.fold (fun m -> function
                         | RawRecordWithoutSymbol(_,a) -> Map.remove a m
                         | RawRecordWithoutInjectVar(r,a) ->
-                            match v (r,a) with
+                            match v a with
                             | Some (TySymbol a) -> Map.remove a m
                             | Some x -> errors.Add(r, ExpectedSymbolAsRecordKey x); m
                             | None -> errors.Add(r, UnboundVariable); m
@@ -474,7 +463,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
                 | RawKindStar -> KindType
                 | RawKindFun(a,b) -> KindFun(typevar a, typevar b)
             let k = typevar k
-            let v = V(!scope,Set.empty,k,name)
+            let v = {scope= !scope; constraints=Set.empty; kind=k; name=name}
             let body = fresh_var()
             unify r s (TyForall(v,body))
             term {env with ty = Map.add name (fresh_var'' v) env.ty} body b
@@ -483,15 +472,14 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
     and ty (env : Env) s x =
         let f s x = ty env s x
-        let v x = Map.tryFind x env.ty |> Option.orElseWith (fun () -> Map.tryFind x top_env.ty)
         match x with
         | RawTWildcard _ -> ()
         | RawTB r -> unify r s TyB
         | RawTSymbol(r,x) -> unify r s (TySymbol x)
         | RawTPrim(r,x) -> unify r s (TyPrim x)
         | RawTArray(r,x) -> let v = fresh_var() in unify r s (TyArray v); f v x
-        | RawTVar(r,n) -> 
-            match v n with
+        | RawTVar(r,x) -> 
+            match Map.tryFind x env.ty |> Option.orElseWith (fun () -> Map.tryFind x top_env.ty) with
             | Some x -> unify r s x
             | None -> errors.Add(r, UnboundVariable)
         | RawTPair(r,a,b) -> 
@@ -508,12 +496,12 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
             Map.iter (fun k s -> f s l.[k]) l'
         | RawTForall(r,(_,(a,k)),b) ->
             let k = typevar k
-            let v = V(!scope,Set.empty,k,a)
+            let v = {scope= !scope; constraints=Set.empty; kind=k; name=a}
             let x = fresh_var'' v
             unify r s (TyForall(v, x))
             ty {env with ty=Map.add a (TyVar v) env.ty} x b
         | RawTApply(r,a',b) ->
-            let f' k x = let v = fresh_var' k in f v x; term_subst v
+            let f' k x = let v = fresh_var' k in f v x; visit_t v
             match f' (fresh_kind()) a' with
             | TyRecord l -> 
                 match f' KindType b with
@@ -522,7 +510,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
                     | Some x -> unify r s x
                     | None -> errors.Add(r,RecordIndexFailed x)
                 | b -> errors.Add(r,ExpectedSymbolAsRecordKey b)
-            | TyInl(a,body) -> let v = fresh_var' (var_kind a) in f v b; unify r s (subst [a,v] body)
+            | TyInl(a,body) -> let v = fresh_var' a.kind in f v b; unify r s (subst [a,v] body)
             | a -> 
                 let q,w = fresh_kind(), fresh_kind()
                 unify_kind (range_of_texpr a') (tt a) (KindFun(q,w))
@@ -534,8 +522,8 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
     and pattern env s a = 
         let is_first = System.Collections.Generic.HashSet()
         let ho_make (i : int) (l : Var list) =
-            let h = TyHigherOrder(i,List.foldBack (fun x s -> KindFun(var_kind x,s)) l KindType)
-            let l' = List.map (fun (V(_,cons,kind,_) as x) -> x, fresh_subst_var cons kind) l
+            let h = TyHigherOrder(i,List.foldBack (fun x s -> KindFun(x.kind,s)) l KindType)
+            let l' = List.map (fun x -> x, fresh_subst_var x.constraints x.kind) l
             List.fold (fun s (_,x) -> match tt s with KindFun(_,k) -> TyApply(s,x,k) | _ -> failwith "impossible") h l', l'
         let rec ho_index = function 
             | TyApply(a,_,_) -> ho_index a 
@@ -576,7 +564,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
                             | Some x -> errors.Add(r, ExpectedSymbolAsRecordKey x); None
                             | None -> errors.Add(r, UnboundVariable); None
                         ) l
-                match term_subst s with
+                match visit_t s with
                 | TyRecord l' ->
                     let l, missing =
                         List.mapFoldBack (fun (a,b) missing ->
@@ -630,11 +618,11 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
     if 0 < errors.Count then raise (TypeErrorException (Seq.toList errors))
     else v
 
-let var_of (name,kind) = V(0,Set.empty,kind,name)
+let var_of (name,kind) = {scope=0; constraints=Set.empty; kind=kind; name=name}
 let typevars (l : TypeVar list) = List.map (fun (_,(a,b)) -> var_of (a, typevar b)) l
-let add_var s x = Map.add (var_name x) (TyVar x) s
+let add_var s x = Map.add x.name (TyVar x) s
 let add_vars ty vars = List.fold add_var ty vars
-let set_vars vars = List.map var_name vars |> Set
+let set_vars vars = List.map (fun x -> x.name) vars |> Set
 let top_type (name : VarString, vars : TypeVar list, expr : RawTExpr) aux (top_env : Env) =
     let vars = typevars vars
     let body =
