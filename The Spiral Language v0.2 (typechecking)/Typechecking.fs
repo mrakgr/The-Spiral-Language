@@ -23,7 +23,7 @@ and [<ReferenceEquality>] Var = {
     mutable scope : int
     mutable constraints : Constraint Set // Must be stated up front and needs to be static in forall vars
     kind : TT // Has metavars, and so is mutable.
-    name : string // Is what gets printed. Can be null.
+    mutable name : string // Is what gets printed. Can be null.
     }
 
 and T =
