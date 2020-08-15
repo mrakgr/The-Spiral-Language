@@ -54,6 +54,7 @@ type TypeError =
     | DuplicateKeyInUnion
     | TermError of T * T
     | ForallVarScopeError of string * T * T
+    | ForallVarConstraintError of string * T * T
     | ForallMetavarScopeError of string * T * T
     | MetavarsNotAllowedInRecordWith
     | ExpectedRecord of T
@@ -276,14 +277,19 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
         let unify_kind = unify_kind' (fun () -> raise (TypeErrorException [r, KindError' (got, expected)]))
         let er () = raise (TypeErrorException [r, TermError(got, expected)])
 
-        let rec occurs_check_and_scope_lower i x =
-            let f = occurs_check_and_scope_lower i
+        // Does occurs checking.
+        // Does scope checking in forall vars.
+        // Does constraint subset checking in forall vars.
+        let rec validate_unification i x =
+            let f = validate_unification i
             match visit_t x with
             | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> ()
             | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
             | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a; f b
             | TyRecord l -> Map.iter (fun _ -> f) l
-            | TyVar x -> if i.scope < x.scope then raise (TypeErrorException [r,ForallVarScopeError(x.name,got,expected)])
+            | TyVar x -> 
+                if i.scope < x.scope then raise (TypeErrorException [r,ForallVarScopeError(x.name,got,expected)])
+                if i.constraints.IsSubsetOf x.constraints = false then raise (TypeErrorException [r,ForallVarConstraintError(x.name,got,expected)]) 
             | TyMetavar(x,_) -> if i = x then er() elif i.scope < x.scope then x.scope <- i.scope
 
         let rec loop (a'',b'') = 
@@ -295,7 +301,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
                     b.constraints <- a.constraints + b.constraints
                     link := Some b'
             | (TyMetavar(a',link), b | b, TyMetavar(a',link)) ->
-                occurs_check_and_scope_lower a' b
+                validate_unification a' b
                 unify_kind a'.kind (tt b)
                 let b =
                     Set.fold (fun x con ->
