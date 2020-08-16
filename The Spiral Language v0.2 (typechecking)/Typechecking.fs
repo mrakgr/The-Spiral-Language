@@ -23,7 +23,7 @@ and [<ReferenceEquality>] Var = {
     scope : int
     constraints : Constraint Set // Must be stated up front and needs to be static in forall vars
     kind : TT // Is not supposed to have metavars.
-    name : string // Is what gets printed.
+    mutable name : string // Is what gets printed.
     }
 
 and [<ReferenceEquality>] MVar = {
@@ -248,10 +248,21 @@ let rec term_subst = function
     | TyApply(a,b,c) -> TyApply(term_subst a, term_subst b, c)
     | TyInl(a,b) -> TyInl(a,term_subst b)
 
+let rec foralls_get = function
+    | RawForall(_,a,b) -> let a', b = foralls_get b in a :: a', b
+    | b -> [], b
+
+let rec kind_force = function
+    | KindMetavar ({contents'=Some x} & link) -> go' x link kind_subst
+    | KindMetavar link -> let x = KindType in link.contents' <- Some x; x
+    | KindConstraint | KindType as x -> x
+    | KindFun(a,b) -> KindFun(kind_subst a,kind_subst b)
+
 open Spiral.Tokenize
 let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
     let errors = ResizeArray()
     let scope = ref 0
+
     let fresh_kind () = KindMetavar {contents'=None}
     let fresh_var'' x = TyMetavar (x, ref None)
     let fresh_var' kind = fresh_var'' {scope= !scope; constraints=Set.empty; kind=kind}
@@ -263,8 +274,30 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
             | x -> subst m x
         loop [] x
 
-    let forall_subst_single (a,b) =
-        subst [a, fresh_var'' {scope= !scope; constraints=a.constraints; kind=a.kind}] b
+    let typevar_to_var ((r,(name,kind)) : TypeVar) : Var = {scope= !scope; constraints=Set.empty; kind=typevar kind; name=name}
+    let generalize (forall_vars : Var list) (body : T) = 
+        let scope = !scope
+        let generalized_metavars = ResizeArray()
+        let rec replace_metavars x =
+            let f = replace_metavars
+            match x with
+            | TyMetavar(_,{contents=Some x} & link) -> go x link f
+            | TyMetavar(x, link) when scope = x.scope -> 
+                let x = {scope=x.scope; constraints=x.constraints; kind=kind_force x.kind; name=null}
+                generalized_metavars.Add(x)
+                TyVar x
+            | TyMetavar _ | TyConstraint _ | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
+            | TyPair(a,b) -> TyPair(f a, f b)
+            | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
+            | TyFun(a,b) -> TyFun(f a, f b)
+            | TyForall(a,b) -> TyForall(a,f b)
+            | TyArray a -> TyArray(f a)
+            | TyApply(a,b,c) -> TyApply(f a, f b, c)
+            | TyInl(a,b) -> TyInl(a,f b)
+
+        let f x s = TyForall(x,s)
+        Seq.foldBack f generalized_metavars body
+        |> List.foldBack f forall_vars 
 
     // Note: Loosening the annotation requirement for type definitions would necessitate an occurs check in kinds.
     let inline unify_kind' er (got : TT) (expected : TT) : unit =
@@ -330,7 +363,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
             | TyConstraint x, TyConstraint x' when x = x' -> ()
             | TyArray a, TyArray b -> loop (a,b)
             // Note: Unifying these two only makes sense if the expected is fully inferred already.
-            | TyForall(a,b), TyForall(a',b') | TyInl(a,b), TyInl(a',b') -> loop (b, subst [a',TyVar a] b')
+            | TyForall(a,b), TyForall(a',b') | TyInl(a,b), TyInl(a',b') when a.kind = a'.kind -> loop (b, subst [a',TyVar a] b')
             | _ -> er ()
 
         try loop (got, expected)
@@ -468,9 +501,41 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
             let q,w = fresh_var(), fresh_var()
             unify r s (TyFun(q,w))
             List.iter (fun (a,b) -> term (pattern env q a) w b) l
-        | RawForall(r,(_,(name,k)),b) -> failwith "Compiler error: Should be handled in let statements."
-        //| RawMatch of Range * body: RawExpr * (Pattern * RawExpr) list
-        //| RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr
+        | RawForall _ -> failwith "Compiler error: Should be handled in let statements."
+        | RawMatch(_,(RawForall _ | RawFun _) & body,[PatVar(_,name), on_succ]) ->
+            incr scope
+            let vars,body = foralls_get body
+            let vars = List.map typevar_to_var vars
+            let body_var = fresh_var()
+            term {env with ty = List.fold (fun s x -> Map.add x.name (TyVar x) s) env.ty vars} body_var body
+            decr scope
+            term {env with term = Map.add name (generalize vars body_var) env.term } s on_succ
+        | RawMatch(_,body,l) ->
+            let body_var = fresh_var()
+            let l = List.map (fun (a,on_succ) -> pattern env body_var a, on_succ) l
+            f body_var body
+            List.iter (fun (env,on_succ) -> term env s on_succ) l
+        | RawRecBlock(_,l,on_succ) ->
+            incr scope
+            let l, has_forall = 
+                List.mapFold (fun has_forall ((_,a),b) -> 
+                    let vars, body = foralls_get b
+                    (a, vars, body), has_forall || (List.isEmpty vars = false)
+                    ) false l
+            if has_forall then
+                let l = annotations_get l
+                
+                
+                ()
+            else
+                let l, m = List.mapFold (fun term (a,_,b) -> 
+                    let v = fresh_var()
+                    ((a, v), b), Map.add a v term) env.term l
+                let _ =
+                    let env = {env with term=m}
+                    List.iter (fun ((_,v),b) -> term env v b) l
+                term {env with term = List.fold (fun term ((a,v), _) -> Map.add a (generalize [] v) term) env.term l} s on_succ
+            decr scope
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
     and ty (env : Env) s x =
         let f s x = ty env s x
