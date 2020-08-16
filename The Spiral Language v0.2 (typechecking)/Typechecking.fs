@@ -20,10 +20,16 @@ type Constraint =
     | CNumber
 
 and [<ReferenceEquality>] Var = {
+    scope : int
+    constraints : Constraint Set // Must be stated up front and needs to be static in forall vars
+    kind : TT // Is not supposed to have metavars.
+    name : string // Is what gets printed.
+    }
+
+and [<ReferenceEquality>] MVar = {
     mutable scope : int
     mutable constraints : Constraint Set // Must be stated up front and needs to be static in forall vars
     kind : TT // Has metavars, and so is mutable.
-    mutable name : string // Is what gets printed. Can be null.
     }
 
 and T =
@@ -39,7 +45,7 @@ and T =
     | TyApply of T * T * TT // Regular type functions (TyInl) get reduced, while this represents the staged reduction of nominals.
     | TyInl of Var * T
     | TyForall of Var * T
-    | TyMetavar of Var * T option ref
+    | TyMetavar of MVar * T option ref
     | TyVar of Var
 
 type TypeError =
@@ -69,7 +75,7 @@ type TypeError =
     | NominalInPatternUnbox of int
     | TypeInGlobalEnvIsNotNominal of T
     | UnionInPatternNominal of int
-    | ConstraintError of Constraint
+    | ConstraintError of Constraint * T
 
 let inline go' x link next = let x = next x in link.contents' <- Some x; x
 let rec visit_tt = function
@@ -248,8 +254,8 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
     let scope = ref 0
     let fresh_kind () = KindMetavar {contents'=None}
     let fresh_var'' x = TyMetavar (x, ref None)
-    let fresh_var' kind = fresh_var'' {scope= !scope; constraints=Set.empty; kind=kind; name=null}
-    let fresh_subst_var cons kind = fresh_var'' {scope= !scope; constraints=cons; kind=kind; name=null}
+    let fresh_var' kind = fresh_var'' {scope= !scope; constraints=Set.empty; kind=kind}
+    let fresh_subst_var cons kind = fresh_var'' {scope= !scope; constraints=cons; kind=kind}
     let forall_subst_all x =
         let rec loop m x = 
             match visit_t x with
@@ -258,7 +264,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
         loop [] x
 
     let forall_subst_single (a,b) =
-        subst [a, fresh_var'' {scope= !scope; constraints=a.constraints; kind=a.kind; name=null}] b
+        subst [a, fresh_var'' {scope= !scope; constraints=a.constraints; kind=a.kind}] b
 
     // Note: Loosening the annotation requirement for type definitions would necessitate an occurs check in kinds.
     let inline unify_kind' er (got : TT) (expected : TT) : unit =
@@ -303,16 +309,14 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
             | (TyMetavar(a',link), b | b, TyMetavar(a',link)) ->
                 validate_unification a' b
                 unify_kind a'.kind (tt b)
-                let b =
-                    Set.fold (fun x con ->
-                        match x with
-                        | TyMetavar _ -> x
-                        | _ -> 
-                            let on_succ () = x
-                            let on_fail () = errors.Add(r,ConstraintError con); fresh_var' (fresh_kind())
-                            constraint_process x con on_succ on_fail
-                        ) b a'.constraints
-                link := Some b
+                Set.fold (fun ers con ->
+                    let on_succ () = ers
+                    let on_fail () = (r,ConstraintError(con, b)) :: ers
+                    constraint_process b con on_succ on_fail
+                    ) [] a'.constraints
+                |> function
+                    | [] -> link := Some b
+                    | constraint_errors -> raise (TypeErrorException constraint_errors)
             | TyVar a, TyVar b when a = b -> ()
             | (TyPair(a,b), TyPair(a',b') | TyFun(a,a'), TyFun(b,b') | TyApply(a,a',_), TyApply(b,b',_)) -> loop (a,b); loop (a',b')
             | TyRecord l, TyRecord l' ->
@@ -325,7 +329,8 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
             | TySymbol x, TySymbol x' when x = x' -> ()
             | TyConstraint x, TyConstraint x' when x = x' -> ()
             | TyArray a, TyArray b -> loop (a,b)
-            | TyForall(a,b), TyForall(a',b') | TyInl(a,b), TyInl(a',b') -> loop (forall_subst_single (a,b),b')
+            // Note: Unifying these two only makes sense if the expected is fully inferred already.
+            | TyForall(a,b), TyForall(a',b') | TyInl(a,b), TyInl(a',b') -> loop (b, subst [a',TyVar a] b')
             | _ -> er ()
 
         try loop (got, expected)
@@ -463,16 +468,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
             let q,w = fresh_var(), fresh_var()
             unify r s (TyFun(q,w))
             List.iter (fun (a,b) -> term (pattern env q a) w b) l
-        | RawForall(r,(_,(name,k)),b) -> 
-            let rec typevar = function
-                | RawKindWildcard -> fresh_kind()
-                | RawKindStar -> KindType
-                | RawKindFun(a,b) -> KindFun(typevar a, typevar b)
-            let k = typevar k
-            let v = {scope= !scope; constraints=Set.empty; kind=k; name=name}
-            let body = fresh_var()
-            unify r s (TyForall(v,body))
-            term {env with ty = Map.add name (fresh_var'' v) env.ty} body b
+        | RawForall(r,(_,(name,k)),b) -> failwith "Compiler error: Should be handled in let statements."
         //| RawMatch of Range * body: RawExpr * (Pattern * RawExpr) list
         //| RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
@@ -500,12 +496,7 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
             let l' = Map.map (fun _ _ -> fresh_var()) l
             unify r s (TyRecord l')
             Map.iter (fun k s -> f s l.[k]) l'
-        | RawTForall(r,(_,(a,k)),b) ->
-            let k = typevar k
-            let v = {scope= !scope; constraints=Set.empty; kind=k; name=a}
-            let x = fresh_var'' v
-            unify r s (TyForall(v, x))
-            ty {env with ty=Map.add a (TyVar v) env.ty} x b
+        | RawTForall _ -> failwith "Compiler error: Needs special handling. Foralls can only appear in prototype definitions right now so it should be handled there."
         | RawTApply(r,a',b) ->
             let f' k x = let v = fresh_var' k in f v x; visit_t v
             match f' (fresh_kind()) a' with
@@ -528,8 +519,8 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
     and pattern env s a = 
         let is_first = System.Collections.Generic.HashSet()
         let ho_make (i : int) (l : Var list) =
-            let h = TyHigherOrder(i,List.foldBack (fun x s -> KindFun(x.kind,s)) l KindType)
-            let l' = List.map (fun x -> x, fresh_subst_var x.constraints x.kind) l
+            let h = TyHigherOrder(i,List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) l KindType)
+            let l' = List.map (fun (x : Var) -> x, fresh_subst_var x.constraints x.kind) l
             List.fold (fun s (_,x) -> match tt s with KindFun(_,k) -> TyApply(s,x,k) | _ -> failwith "impossible") h l', l'
         let rec ho_index = function 
             | TyApply(a,_,_) -> ho_index a 
