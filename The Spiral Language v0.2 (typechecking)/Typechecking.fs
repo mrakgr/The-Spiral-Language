@@ -76,6 +76,8 @@ type TypeError =
     | TypeInGlobalEnvIsNotNominal of T
     | UnionInPatternNominal of int
     | ConstraintError of Constraint * T
+    | ExpectedAnnotation
+    | ExpectedSinglePattern
 
 let inline go' x link next = let x = next x in link.contents' <- Some x; x
 let rec visit_tt = function
@@ -508,8 +510,9 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
             let vars = List.map typevar_to_var vars
             let body_var = fresh_var()
             term {env with ty = List.fold (fun s x -> Map.add x.name (TyVar x) s) env.ty vars} body_var body
+            let env = {env with term = Map.add name (generalize vars body_var) env.term }
             decr scope
-            term {env with term = Map.add name (generalize vars body_var) env.term } s on_succ
+            term env s on_succ
         | RawMatch(_,body,l) ->
             let body_var = fresh_var()
             let l = List.map (fun (a,on_succ) -> pattern env body_var a, on_succ) l
@@ -523,19 +526,18 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
                     (a, vars, body), has_forall || (List.isEmpty vars = false)
                     ) false l
             if has_forall then
-                let l = annotations_get l
-                
-                
-                ()
+                failwith "TODO"
             else
-                let l, m = List.mapFold (fun term (a,_,b) -> 
-                    let v = fresh_var()
-                    ((a, v), b), Map.add a v term) env.term l
+                let l, m = 
+                    List.mapFold (fun term (a,_,b) -> 
+                        let v = fresh_var()
+                        ((a, v), b), Map.add a v term
+                        ) env.term l
                 let _ =
                     let env = {env with term=m}
                     List.iter (fun ((_,v),b) -> term env v b) l
-                term {env with term = List.fold (fun term ((a,v), _) -> Map.add a (generalize [] v) term) env.term l} s on_succ
-            decr scope
+                {env with term = List.fold (fun term ((a,v), _) -> Map.add a (generalize [] v) term) env.term l}
+            |> fun env -> decr scope; term env s on_succ
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
     and ty (env : Env) s x =
         let f s x = ty env s x

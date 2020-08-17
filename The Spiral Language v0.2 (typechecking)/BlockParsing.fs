@@ -486,6 +486,7 @@ let patterns_validate pats =
 
 let rec let_join_point = function
     | RawFun(r,l) -> RawFun(r,List.map (fun (a,b) -> a, let_join_point b) l)
+    | RawAnnot(r,a,b) -> RawAnnot(r,let_join_point a,b)
     | x -> RawJoinPoint(range_of_expr x, x)
 
 let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
