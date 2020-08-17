@@ -484,10 +484,13 @@ let patterns_validate pats =
         ) Set.empty pats |> ignore
     errors |> Seq.toList
 
+let join_point = function
+    | RawJoinPoint _ as x -> x 
+    | x -> RawJoinPoint(range_of_expr x, x)
+
 let rec let_join_point = function
     | RawFun(r,l) -> RawFun(r,List.map (fun (a,b) -> a, let_join_point b) l)
-    | RawAnnot(r,a,b) -> RawAnnot(r,let_join_point a,b)
-    | x -> RawJoinPoint(range_of_expr x, x)
+    | x -> join_point x
 
 let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
     match body with
@@ -898,7 +901,7 @@ and root_term d =
                 withouts |> List.choose (function RawRecordWithoutInjectVar(a,b) -> Some(a,b) | _ -> None) |> duplicates DuplicateTermRecordInjection
                 ] |> List.concat |> function [] -> Ok(RawRecordWith x) | er -> Error er
 
-        let case_join_point = skip_keyword SpecJoin >>. next |>> fun x -> RawJoinPoint(range_of_expr x,x)
+        let case_join_point = skip_keyword SpecJoin >>. next |>> join_point
         let case_real = skip_keyword SpecReal >>. (fun d -> next {d with is_top_down=false}) |>> fun x -> RawReal(range_of_expr x,x)
         let case_symbol = read_symbol |>> RawSymbolCreate
         let case_unary_op = 

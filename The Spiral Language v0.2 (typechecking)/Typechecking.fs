@@ -78,6 +78,7 @@ type TypeError =
     | ConstraintError of Constraint * T
     | ExpectedAnnotation
     | ExpectedSinglePattern
+    | RecursiveAnnotationHasMetavars
 
 let inline go' x link next = let x = next x in link.contents' <- Some x; x
 let rec visit_tt = function
@@ -260,6 +261,15 @@ let rec kind_force = function
     | KindConstraint | KindType as x -> x
     | KindFun(a,b) -> KindFun(kind_subst a,kind_subst b)
 
+let rec has_metavars x =
+    let f = has_metavars
+    match visit_t x with
+    | TyVar _ | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> false
+    | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
+    | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a && f b
+    | TyRecord l -> Map.exists (fun _ -> f) l
+    | TyMetavar(x,_) -> true
+
 open Spiral.Tokenize
 let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
     let errors = ResizeArray()
@@ -301,7 +311,6 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
         Seq.foldBack f generalized_metavars body
         |> List.foldBack f forall_vars 
 
-    // Note: Loosening the annotation requirement for type definitions would necessitate an occurs check in kinds.
     let inline unify_kind' er (got : TT) (expected : TT) : unit =
         let rec loop (a'',b'') =
             match visit_tt a'', visit_tt b'' with
@@ -518,27 +527,60 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
             let l = List.map (fun (a,on_succ) -> pattern env body_var a, on_succ) l
             f body_var body
             List.iter (fun (env,on_succ) -> term env s on_succ) l
-        | RawRecBlock(_,l,on_succ) ->
+        | RawRecBlock(_,l',on_succ) ->
             incr scope
-            let l, has_forall = 
-                List.mapFold (fun has_forall ((_,a),b) -> 
-                    let vars, body = foralls_get b
-                    (a, vars, body), has_forall || (List.isEmpty vars = false)
-                    ) false l
-            if has_forall then
-                failwith "TODO"
-            else
-                let l, m = 
-                    List.mapFold (fun term (a,_,b) -> 
-                        let v = fresh_var()
-                        ((a, v), b), Map.add a v term
-                        ) env.term l
-                let _ =
-                    let env = {env with term=m}
-                    List.iter (fun ((_,v),b) -> term env v b) l
-                {env with term = List.fold (fun term ((a,v), _) -> Map.add a (generalize [] v) term) env.term l}
-            |> fun env -> decr scope; term env s on_succ
+            let env =
+                let has_foralls = List.exists (function (_,RawForall _) -> true | _ -> false) l'
+                if has_foralls then
+                    let i = errors.Count
+                    let l,m =
+                        List.mapFold (fun s ((_,name),body) ->
+                            let vars,body = foralls_get body
+                            let vars = List.map typevar_to_var vars
+                            let ty = List.fold (fun s x -> Map.add x.name (TyVar x) s) env.ty vars
+                            let body_var = term_annotations {env with ty = ty} body
+                            let term env = term {env with ty = ty} body_var body
+                            term, Map.add name (List.foldBack (fun x s -> TyForall(x,s)) vars body_var) s
+                            ) env.term l'
+                
+                    if errors.Count = i then
+                        l |> List.iter ((|>) {env with term = m})
+                        {env with term = m}
+                    else
+                        List.fold (fun s ((_,name),_) -> 
+                            let v = {scope= !scope; constraints=Set.empty; kind=KindType; name="x"}
+                            Map.add name (TyForall(v, TyVar v)) s
+                            ) env.term l'
+                        |> fun term -> {env with term = term}
+                else 
+                    let l, m = 
+                        List.mapFold (fun s ((_,name),body) -> 
+                            let body_var = fresh_var()
+                            let term env = term env body_var body
+                            let gen env = {env with term = Map.add name (generalize [] body_var) env.term}
+                            (term, gen), Map.add name body_var s
+                            ) env.term l'
+                    let _ =
+                        let env = {env with term=m}
+                        List.iter (fun (term, _) -> term env) l
+                    List.fold (fun env (_,gen) -> gen env) env l
+            decr scope
+            term env s on_succ
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
+    and term_annotations env x =
+        let f t = 
+            let i = errors.Count
+            let v = fresh_var()
+            ty env v t
+            let v = term_subst v
+            if i = errors.Count && has_metavars v = false then errors.Add(range_of_texpr t, RecursiveAnnotationHasMetavars)
+            v
+        match x with
+        | RawFun(_,[(PatAnnot(_,_,t) | PatDyn(_,PatAnnot(_,_,t))),body]) -> TyFun(f t, term_annotations env body)
+        | RawFun(_,[pat,body]) -> errors.Add(range_of_pattern pat, ExpectedAnnotation); TyFun(fresh_var(), term_annotations env body)
+        | RawFun(r,_) -> errors.Add(r, ExpectedSinglePattern); TyFun(fresh_var(), fresh_var())
+        | RawJoinPoint(_, RawAnnot(_,_,t)) | RawAnnot(_,_,t) -> f t
+        | x -> errors.Add(range_of_expr x,ExpectedAnnotation); fresh_var()
     and ty (env : Env) s x =
         let f s x = ty env s x
         match x with
