@@ -289,16 +289,18 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
     let typevar_to_var ((r,(name,kind)) : TypeVar) : Var = {scope= !scope; constraints=Set.empty; kind=typevar kind; name=name}
     let generalize (forall_vars : Var list) (body : T) = 
         let scope = !scope
+        let h = System.Collections.Generic.HashSet()
         let generalized_metavars = ResizeArray()
         let rec replace_metavars x =
             let f = replace_metavars
             match x with
             | TyMetavar(_,{contents=Some x} & link) -> go x link f
-            | TyMetavar(x, link) when scope = x.scope -> 
-                let x = {scope=x.scope; constraints=x.constraints; kind=kind_force x.kind; name=null}
-                generalized_metavars.Add(x)
-                TyVar x
-            | TyMetavar _ | TyConstraint _ | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
+            | TyMetavar(x, link) when scope = x.scope ->
+                let v = TyVar {scope=x.scope; constraints=x.constraints; kind=kind_force x.kind; name=null}
+                link := Some v
+                replace_metavars v
+            | TyVar v -> (if v.name = null && h.Add(v) then generalized_metavars.Add(v)); x
+            | TyMetavar _ | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
             | TyPair(a,b) -> TyPair(f a, f b)
             | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
             | TyFun(a,b) -> TyFun(f a, f b)
@@ -785,6 +787,12 @@ let top_prototype (name,a,vars,expr) aux (top_env : Env) =
         infer aux top_env {term=Map.empty; ty=add_vars Map.empty vars} (Choice2Of2 expr)
         |> List.foldBack (fun a b -> TyForall(a,b)) l
     {top_env with term = Map.add name body top_env.term}
+
+let top_inl (r,name,expr,is_top_down) aux (top_env : Env) =
+    if is_top_down then
+        failwith ""
+    else
+        failwith ""
 
 open Spiral.Blockize
 let tc (l : Bundle list) = 
