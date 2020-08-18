@@ -18,7 +18,7 @@ type Req =
 open Spiral.BlockParsing
 type Block = {block: LineToken [] []; offset: int; parsed: Result<TopStatement, (Range * ParserErrors) list>}
 
-let block_init is_spi (block : LineToken [] []) offset =
+let block_init is_top_down (block : LineToken [] []) offset =
     let comments, tokens = 
         block |> Array.mapi (fun line x ->
             let comment, len = match Array.tryLast x with Some (r, TokComment c) -> Some (r, c), x.Length-1 | _ -> None, x.Length
@@ -32,11 +32,11 @@ let block_init is_spi (block : LineToken [] []) offset =
 
     let env : BlockParsing.Env = 
         {comments = comments; tokens = Array.concat tokens; i = ref 0; 
-        is_top_down = is_spi; default_int=Int32T; default_float=Float64T}
+        is_top_down = is_top_down; default_int=Int32T; default_float=Float64T}
     {block=block; offset=offset; parsed=BlockParsing.parse env}
 
 /// Reads the comments up to a statement, and then reads the statement body. Leaves any errors for the parsing stage.
-let block_at is_spi (lines : LineToken [] ResizeArray) i =
+let block_at is_top_down (lines : LineToken [] ResizeArray) i =
     let ar = ResizeArray()
     let rec loop_initial i =
         if i < lines.Count then
@@ -58,14 +58,14 @@ let block_at is_spi (lines : LineToken [] ResizeArray) i =
                 if r.from <> 0 then ar.Add x; loop_body (i+1)
             else ar.Add x; loop_body (i+1)
     loop_initial i
-    block_init is_spi (ar.ToArray()) i
+    block_init is_top_down (ar.ToArray()) i
 
-let rec block_all is_spi (lines : _ ResizeArray) i = 
+let rec block_all is_top_down (lines : _ ResizeArray) i = 
     if i < lines.Count then 
-        let x = block_at is_spi lines i
-        x :: block_all is_spi lines (i+x.block.Length) else []
+        let x = block_at is_top_down lines i
+        x :: block_all is_top_down lines (i+x.block.Length) else []
 
-let block_separate is_spi (lines : LineToken [] ResizeArray) (blocks : Block list) (edit : SpiEdit) =
+let block_separate is_top_down (lines : LineToken [] ResizeArray) (blocks : Block list) (edit : SpiEdit) =
     // Lines added minus lines removed.
     let line_adjustment = edit.lines.Length - (edit.nearTo - edit.from)
     // The dirty block boundary needs to be more conservative when a separator is added in the first position of block.
@@ -84,8 +84,8 @@ let block_separate is_spi (lines : LineToken [] ResizeArray) (blocks : Block lis
                     // Else if the block has been skipped over, forget it.
                     elif x.offset < i then loop xs i
                     // Else the block has been dirty filtered, recalculate it.
-                    else let x = block_at is_spi lines i in x :: loop blocks (i + Array.length x.block)
-            | [] -> block_all is_spi lines i
+                    else let x = block_at is_top_down lines i in x :: loop blocks (i + Array.length x.block)
+            | [] -> block_all is_top_down lines i
         else []
     loop blocks 0
 
@@ -127,14 +127,14 @@ let block_bundle (l : Block list) : Bundle [] * VSCError [] =
     init l
     bundle.ToArray(), errors.ToArray()
 
-let server is_spi = Job.delay <| fun () ->
+let server is_top_down = Job.delay <| fun () ->
     let lines : LineToken [] ResizeArray = ResizeArray([[||]])
     let mutable errors_tokenization = [||]
     let mutable blocks : Block list = []
 
     let replace edit =
         errors_tokenization <- Tokenize.replace lines errors_tokenization edit // Mutates the lines array
-        blocks <- block_separate is_spi lines blocks edit
+        blocks <- block_separate is_top_down lines blocks edit
         let bundles, errors_parsing = block_bundle blocks
         Array.append errors_tokenization errors_parsing
 
