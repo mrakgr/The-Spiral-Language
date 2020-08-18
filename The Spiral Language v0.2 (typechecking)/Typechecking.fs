@@ -116,7 +116,7 @@ type HigherOrderCases =
 
 type AuxEnv = {
     hoc : Map<int,HigherOrderCases>
-    union_cases : Map<string,int>
+    union_cases : Map<string,int> // TODO: This is broken. See the 8/18/2020 final commit.
     }
 
 type Env = { ty : Map<string,T>; term : Map<string,T> }
@@ -703,12 +703,12 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
                 match term_subst s |> ho_index with
                 | ValueSome i -> assume i
                 | ValueNone ->
-                    match Map.tryFind name aux.union_cases with
+                    match Map.tryFind name aux.union_cases with // TODO: This is broken. See the 8/18/2020 final commit.
                     | Some i -> assume i
                     | None -> errors.Add(r,CasePatternNotFound name); f (fresh_var()) a
             | PatUnbox _ -> failwith "Compiler error: Malformed PatUnbox."
             | PatNominal(_,(r,name),a) ->
-                match Map.tryFind name top_env.ty with
+                match Map.tryFind name top_env.ty with // TODO: This is broken. See the 8/18/2020 final commit.
                 | Some x -> 
                     match ho_index x with
                     | ValueSome i ->
