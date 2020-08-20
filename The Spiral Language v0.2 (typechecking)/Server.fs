@@ -29,18 +29,14 @@ open Hopac.Extensions
 let server () =
     let server_blockizer = Utils.memoize (Dictionary()) (fun (x : string) -> run (Blockize.server (IO.Path.GetExtension(x) = ".spi")))
 
-    use sock = new RouterSocket()
+    use sock = new ResponseSocket()
     sock.Options.ReceiveHighWatermark <- Int32.MaxValue
     sock.Bind(uri)
     printfn "Server bound to: %s" uri
 
     while true do
-        let msg = sock.ReceiveMultipartMessage(3)
-        let address = msg.Pop()
-        msg.Pop() |> ignore
-
         // TODO: The message id here is for debugging purposes. I'll remove it at some point.
-        let (id : int), x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
+        let (id : int), x = Json.deserialize(sock.ReceiveFrameString())
         match x with
         | ProjectFileOpen x ->
             match config x.spiprojDir x.spiprojText with Ok x -> [||] | Error x -> x
@@ -54,10 +50,7 @@ let server () =
         | FileTokenRange x ->
             (let res = IVar() in Ch.give (server_blockizer x.spiPath) (Req.GetRange(x.range,res)) >>=. IVar.read res)
             |> run |> Json.serialize
-        |> msg.Push
-        msg.PushEmptyFrame()
-        msg.Push(address)
-        sock.SendMultipartMessage(msg)
+        |> sock.SendFrame
 
 server()
 

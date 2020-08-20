@@ -13,7 +13,7 @@ let g forall (q : *) t. (x:e) =
     inl r = {q with a=1; b=2
         c=3}
     let h = real
-        2 : i32 * `(2+3)
+        2 : i32 , `(2+3)
     (2 + 2)
 
 let h {a b $r} =

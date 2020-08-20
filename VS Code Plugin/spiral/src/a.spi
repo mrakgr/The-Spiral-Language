@@ -6,7 +6,7 @@ nominal tensor el dim = `(tensor_init `el `dim ``el ``dim)
 and union tensor_option el dim =
     | some: tensor el dim
     | None
-and nominal tensor2d el a b = tensor el (a * b)
+and nominal tensor2d el a b = tensor el (a,b)
 
 prototype bind m a : forall b. m a -> (a -> m b) -> m b
 
