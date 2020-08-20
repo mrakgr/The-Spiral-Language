@@ -1,8 +1,10 @@
 import * as path from "path"
-import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit } from "vscode"
+import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource } from "vscode"
 import * as zmq from "zeromq"
 
-const uri = "tcp://localhost:13805"
+const port = 13805
+const uri = `tcp://localhost:${port}`
+const uriParserErrors = `tcp://localhost:${port}/parser_errors`
 
 let msgId = 0
 const request = async (file: object) => {
@@ -13,38 +15,56 @@ const request = async (file: object) => {
     return JSON.parse(x.toString())
 }
 
-const spiprojOpenReq = async (spiprojDir: string, spiprojText: string) => request({ ProjectFileOpen: { spiprojDir, spiprojText } })
-const spiOpenReq = async (spiPath: string, spiText: string) => request({ FileOpen: { spiPath, spiText } })
-const spiChangeReq = async (spiPath: string, spiEdits : {from: number, nearTo: number, lines: string[]} ) => request({ FileChanged: { spiPath, spiEdits } })
-const spiTokenRangeReq = async (spiPath: string, range : Range) => request({ FileTokenRange: { spiPath, range } })
+const spiprojOpenReq = async (uri: string, spiprojText: string) => request({ ProjectFileOpen: { uri, spiprojText } })
+const spiOpenReq = async (uri: string, spiText: string) => request({ FileOpen: { uri, spiText } })
+const spiChangeReq = async (uri: string, spiEdit : {from: number, nearTo: number, lines: string[]} ) => request({ FileChanged: { uri, spiEdit } })
+const spiTokenRangeReq = async (uri: string, range : Range) => request({ FileTokenRange: { uri, range } })
+
+const errorsSet = (errors : DiagnosticCollection, uri: Uri, x: [string, RangeRec | null][]) => {
+    const diag: Diagnostic[] = []
+    x.forEach(([error, range]) => {
+        if (range) {
+            diag.push(new Diagnostic(
+                new Range(range[0].line, range[0].character, range[1].line, range[1].character),
+                error, DiagnosticSeverity.Error))
+        } else {
+            window.showErrorMessage(error)
+        }
+    })
+    errors.set(uri, diag)
+}
+
+const errorsServer = (uriServer : string, errors : DiagnosticCollection, tok : CancellationToken) => {
+    const sock = new zmq.Reply()
+    sock.bind(uriServer)
+    const stop = new Promise(tok.onCancellationRequested)
+    const process = async () => {
+        const [x] = await sock.receive()
+        const msg : [string, [string, RangeRec | null][]] = JSON.parse(x.toString())
+        errorsSet(errors,Uri.parse(msg[0]),msg[1])
+        sock.send(null)
+    }
+    while (!tok.isCancellationRequested) { Promise.race([stop,process()]) }
+    sock.unbind(uriServer)
+}
 
 type PositionRec = { line: number, character: number }
 type RangeRec = [PositionRec, PositionRec]
 export const activate = async (ctx: ExtensionContext) => {
     console.log("Spiral plugin is active.")
-    
+
+    const errorsTokenization = languages.createDiagnosticCollection()
     const errorsParse = languages.createDiagnosticCollection()
+    const cancellationSource = new CancellationTokenSource()
+    errorsServer(uriParserErrors,errorsParse,cancellationSource.token)
     const errorsType = languages.createDiagnosticCollection()
-    const errorsSet = (doc: TextDocument) => (x: [string, RangeRec | null][]) => {
-        const diag: Diagnostic[] = []
-        x.forEach(([error, range]) => {
-            if (range) {
-                diag.push(new Diagnostic(
-                    new Range(range[0].line, range[0].character, range[1].line, range[1].character),
-                    error, DiagnosticSeverity.Error))
-            } else {
-                window.showErrorMessage(error)
-            }
-        })
-        errorsParse.set(doc.uri, diag)
-    }
 
     const spiprojOpen = async (doc: TextDocument) => {
-        errorsSet(doc)(await spiprojOpenReq(path.dirname(doc.uri.fsPath), doc.getText()))
+        errorsSet(errorsTokenization, doc.uri, await spiprojOpenReq(doc.uri.toString(), doc.getText()))
     }
 
     const spiOpen = async (doc: TextDocument) => {
-        errorsSet(doc)(await spiOpenReq(doc.uri.fsPath, doc.getText()))
+        errorsSet(errorsTokenization, doc.uri, await spiOpenReq(doc.uri.toString(), doc.getText()))
     }
 
     const numberOfLines = (str: string) => {
@@ -63,13 +83,13 @@ export const activate = async (ctx: ExtensionContext) => {
             const lines : string [] = []
             for (let i = from; i < nearTo; i++) { lines.push(doc.lineAt(i).text) }
             const edit = {lines, from, nearTo: x.range.end.line+1}
-            errorsSet(doc)(await spiChangeReq(doc.uri.fsPath, edit))
+            errorsSet(errorsTokenization, doc.uri, await spiChangeReq(doc.uri.toString(), edit))
         }
     }
 
     class SpiralTokens implements DocumentRangeSemanticTokensProvider {
         async provideDocumentRangeSemanticTokens(doc: TextDocument, range : Range) {
-            const x : number [] = await spiTokenRangeReq(doc.uri.fsPath, range)
+            const x : number [] = await spiTokenRangeReq(doc.uri.toString(), range)
             return new SemanticTokens(new Uint32Array(x),"")
         }
     }
@@ -93,11 +113,12 @@ export const activate = async (ctx: ExtensionContext) => {
 
     workspace.textDocuments.forEach(onDocOpen)
     ctx.subscriptions.push(
-        errorsParse, errorsType,
+        cancellationSource,
+        errorsTokenization, errorsParse, errorsType,
         workspace.onDidOpenTextDocument(onDocOpen),
         workspace.onDidChangeTextDocument(onDocChange),
         languages.registerDocumentRangeSemanticTokensProvider(
-            { language: 'spiral'}, 
+            { pattern: '**/*.{spi,spir}'}, 
             new SpiralTokens(),
             new SemanticTokensLegend(['variable','symbol','string','number','operator','unary_operator','comment','keyword','parenthesis','type_variable'])
             )

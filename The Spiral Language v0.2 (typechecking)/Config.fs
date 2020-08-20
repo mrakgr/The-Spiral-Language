@@ -142,10 +142,10 @@ type Schema = {
 type ConfigError = ResumableError of ConfigResumableError [] | FatalError of ConfigFatalError
 
 open System.IO
-let config spiproj_dir spiproj_text =
+let config (uri : string) spiproj_text =
     try 
         let project_directory =
-            try DirectoryInfo(spiproj_dir).FullName
+            try DirectoryInfo(uri).Parent.FullName
             with e -> raise' (ConfigProjectDirectoryPathInvalid e.Message)
 
         let _ = tab_positions spiproj_text |> raise_if_not_empty Tabs
