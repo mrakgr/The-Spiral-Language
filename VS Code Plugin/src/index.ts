@@ -36,17 +36,12 @@ const errorsSet = (errors : DiagnosticCollection, uri: Uri, x: [string, RangeRec
 
 type PositionRec = { line: number, character: number }
 type RangeRec = [PositionRec, PositionRec]
-enum ClientMessageTag {
-    ParserError,
-    TypeError
-}
-type ClientMessage = 
-    {tag: ClientMessageTag.ParserError, uri: string, errors: [string, RangeRec][]}
+type ClientRes = 
+    { ParserErrors: {uri : string, errors : [string, RangeRec][]}}
 
 export const activate = async (ctx: ExtensionContext) => {
     console.log("Spiral plugin is active.")
 
-    const errorsTokenization = languages.createDiagnosticCollection()
     const errorsParse = languages.createDiagnosticCollection()
     const errorsType = languages.createDiagnosticCollection()
     let isProcessing = true;
@@ -59,8 +54,10 @@ export const activate = async (ctx: ExtensionContext) => {
             while (isProcessing) {
                 try {
                     const [x] = await sock.receive()
-                    const msg: ClientMessage = JSON.parse(x.toString())
-                    errorsSet(errorsParse, Uri.parse(msg.uri), msg.errors)
+                    const msg: ClientRes = JSON.parse(x.toString())
+                    if ("ParserErrors" in msg) {
+                        errorsSet(errorsParse, Uri.parse(msg.ParserErrors.uri), msg.ParserErrors.errors)
+                    }
                     sock.send(null)
                 } catch (e) {
                     if (e.errno === 11) { } // If the error is a timeout just repeat.
@@ -72,6 +69,7 @@ export const activate = async (ctx: ExtensionContext) => {
         }
     })();
 
+    const errorsTokenization = languages.createDiagnosticCollection()
     const spiprojOpen = async (doc: TextDocument) => {
         errorsSet(errorsTokenization, doc.uri, await spiprojOpenReq(doc.uri.toString(), doc.getText()))
     }

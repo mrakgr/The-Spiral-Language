@@ -21,23 +21,29 @@ type FileChangeRes = VSCError []
 type FileTokenAllRes = VSCTokenArray
 type FileTokenChangesRes = int * int * VSCTokenArray
 
+type ClientRes =
+    | ParserErrors of {|uri : string; errors : VSCError []|}
+    | Qwe
+
 let port = 13805
-let uri_parser_errors = sprintf "tcp://localhost:%i/parser_errors" port
-let uri = sprintf "tcp://*:%i" port
+let uri_server = sprintf "tcp://*:%i" port
+let uri_client = sprintf "tcp://localhost:%i" (port+1)
 
 open Hopac
 open Hopac.Infixes
 open Hopac.Extensions
 let server () =
-    let server_blockizer = Utils.memoize (Dictionary()) (fun (x : string) -> run (Blockize.server (IO.Path.GetExtension(x) = ".spi")))
-    use sock = new ResponseSocket()
-    sock.Options.ReceiveHighWatermark <- Int32.MaxValue
-    sock.Bind(uri)
-    printfn "Server bound to: %s" uri
+    let server_blockizer = Utils.memoize (Dictionary()) (Blockize.server >> run)
+    use poller = new NetMQPoller()
+    use server = new ResponseSocket()
+    poller.Add(server)
+    server.Options.ReceiveHighWatermark <- Int32.MaxValue
+    server.Bind(uri_server)
+    printfn "Server bound to: %s" uri_server
 
-    while true do
+    use __ = server.ReceiveReady.Subscribe(fun s ->
         // TODO: The message id here is for debugging purposes. I'll remove it at some point.
-        let (id : int), x = Json.deserialize(sock.ReceiveFrameString())
+        let (id : int), x = Json.deserialize(s.Socket.ReceiveFrameString())
         match x with
         | ProjectFileOpen x ->
             match config x.uri x.spiprojText with Ok x -> [||] | Error x -> x
@@ -51,7 +57,20 @@ let server () =
         | FileTokenRange x ->
             (let res = IVar() in Ch.give (server_blockizer x.uri) (Req.GetRange(x.range,res)) >>=. IVar.read res)
             |> run |> Json.serialize
-        |> sock.SendFrame
+        |> s.Socket.SendFrame
+        )
+
+    use client = new RequestSocket()
+    client.Connect(uri_client)
+
+    use queue = new NetMQQueue<ClientRes>()
+    poller.Add(queue)
+    use __ = queue.ReceiveReady.Subscribe(fun x -> 
+        x.Queue.Dequeue() |> Json.serialize |> client.SendFrame
+        client.ReceiveMultipartMessage() |> ignore
+        )
+
+    poller.Run()
 
 server()
 

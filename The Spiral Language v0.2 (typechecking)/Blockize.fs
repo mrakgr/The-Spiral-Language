@@ -127,7 +127,8 @@ let block_bundle (l : Block list) : Bundle [] * VSCError [] =
     init l
     bundle.ToArray(), errors.ToArray()
 
-let server is_top_down = Job.delay <| fun () ->
+let server (uri : string) = Job.delay <| fun () ->
+    let is_top_down = System.IO.Path.GetExtension(uri) = ".spi"
     let lines : LineToken [] ResizeArray = ResizeArray([[||]])
     let mutable errors_tokenization = [||]
     let mutable blocks : Block list = []
