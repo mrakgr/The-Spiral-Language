@@ -1,15 +1,15 @@
 import * as path from "path"
-import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource } from "vscode"
+import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable } from "vscode"
 import * as zmq from "zeromq"
 
 const port = 13805
-const uri = `tcp://localhost:${port}`
-const uriParserErrors = `tcp://localhost:${port}/parser_errors`
+const uriServer = `tcp://localhost:${port}`
+const uriClient = `tcp://*:${port+1}`
 
 let msgId = 0
 const request = async (file: object) => {
     const sock = new zmq.Request()
-    sock.connect(uri)
+    sock.connect(uriServer)
     await sock.send(JSON.stringify([msgId++, file]))
     const [x] = await sock.receive()
     return JSON.parse(x.toString())
@@ -34,30 +34,43 @@ const errorsSet = (errors : DiagnosticCollection, uri: Uri, x: [string, RangeRec
     errors.set(uri, diag)
 }
 
-const errorsServer = (uriServer : string, errors : DiagnosticCollection, tok : CancellationToken) => {
-    const sock = new zmq.Reply()
-    sock.bind(uriServer)
-    const stop = new Promise(tok.onCancellationRequested)
-    const process = async () => {
-        const [x] = await sock.receive()
-        const msg : [string, [string, RangeRec | null][]] = JSON.parse(x.toString())
-        errorsSet(errors,Uri.parse(msg[0]),msg[1])
-        sock.send(null)
-    }
-    while (!tok.isCancellationRequested) { Promise.race([stop,process()]) }
-    sock.unbind(uriServer)
-}
-
 type PositionRec = { line: number, character: number }
 type RangeRec = [PositionRec, PositionRec]
+enum ClientMessageTag {
+    ParserError,
+    TypeError
+}
+type ClientMessage = 
+    {tag: ClientMessageTag.ParserError, uri: string, errors: [string, RangeRec][]}
+
 export const activate = async (ctx: ExtensionContext) => {
     console.log("Spiral plugin is active.")
 
     const errorsTokenization = languages.createDiagnosticCollection()
     const errorsParse = languages.createDiagnosticCollection()
-    const cancellationSource = new CancellationTokenSource()
-    errorsServer(uriParserErrors,errorsParse,cancellationSource.token)
     const errorsType = languages.createDiagnosticCollection()
+    let isProcessing = true;
+    (async () => {
+        const sock = new zmq.Reply()
+        sock.receiveTimeout = 2000
+        sock.sendTimeout = 2000
+        await sock.bind(uriClient)
+        try {
+            while (isProcessing) {
+                try {
+                    const [x] = await sock.receive()
+                    const msg: ClientMessage = JSON.parse(x.toString())
+                    errorsSet(errorsParse, Uri.parse(msg.uri), msg.errors)
+                    sock.send(null)
+                } catch (e) {
+                    if (e.errno === 11) { } // If the error is a timeout just repeat.
+                    else { throw e }
+                }
+            }
+        } finally {
+            await sock.unbind(uriServer)
+        }
+    })();
 
     const spiprojOpen = async (doc: TextDocument) => {
         errorsSet(errorsTokenization, doc.uri, await spiprojOpenReq(doc.uri.toString(), doc.getText()))
@@ -113,7 +126,7 @@ export const activate = async (ctx: ExtensionContext) => {
 
     workspace.textDocuments.forEach(onDocOpen)
     ctx.subscriptions.push(
-        cancellationSource,
+        new Disposable(() => {isProcessing = false}),
         errorsTokenization, errorsParse, errorsType,
         workspace.onDidOpenTextDocument(onDocOpen),
         workspace.onDidChangeTextDocument(onDocChange),
