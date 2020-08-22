@@ -33,13 +33,30 @@ open Hopac
 open Hopac.Infixes
 open Hopac.Extensions
 let server () =
-    let server_blockizer = Utils.memoize (Dictionary()) (Blockize.server >> run)
+    let tokenizer = Utils.memoize (Dictionary()) (Blockize.server_tokenizer >> run)
+    let parser = Utils.memoize (Dictionary()) (Blockize.server_parser >> run)
     use poller = new NetMQPoller()
     use server = new ResponseSocket()
     poller.Add(server)
     server.Options.ReceiveHighWatermark <- Int32.MaxValue
     server.Bind(uri_server)
     printfn "Server bound to: %s" uri_server
+
+    use queue = new NetMQQueue<ClientRes>()
+    poller.Add(queue)
+
+    let inline file_message uri f =
+        let tokenizer = tokenizer uri
+        let parser = parser uri
+        let res = IVar() 
+        Ch.give tokenizer (f res) >>=. IVar.read res
+        >>- fun (a,b) ->
+            Hopac.start (
+                let res = IVar()
+                Ch.give parser (a, res) >>=. IVar.read res 
+                >>- fun (_,errors) -> queue.Enqueue(ParserErrors {|errors=errors; uri=uri|})
+                )
+            b
 
     use __ = server.ReceiveReady.Subscribe(fun s ->
         // TODO: The message id here is for debugging purposes. I'll remove it at some point.
@@ -48,14 +65,10 @@ let server () =
         | ProjectFileOpen x ->
             match config x.uri x.spiprojText with Ok x -> [||] | Error x -> x
             |> Json.serialize
-        | FileOpen x ->
-            (let res = IVar() in Ch.give (server_blockizer x.uri) (Req.Put(x.spiText,res)) >>=. IVar.read res)
-            |> run |> Json.serialize
-        | FileChanged x ->
-            (let res = IVar() in Ch.give (server_blockizer x.uri) (Req.Modify(x.spiEdit,res)) >>=. IVar.read res)
-            |> run |> Json.serialize
+        | FileOpen x -> file_message x.uri (fun res -> Req.Put(x.spiText,res)) |> run |> Json.serialize
+        | FileChanged x -> file_message x.uri (fun res -> Req.Modify(x.spiEdit,res)) |> run |> Json.serialize
         | FileTokenRange x ->
-            (let res = IVar() in Ch.give (server_blockizer x.uri) (Req.GetRange(x.range,res)) >>=. IVar.read res)
+            (let res = IVar() in Ch.give (tokenizer x.uri) (Req.GetRange(x.range,res)) >>=. IVar.read res)
             |> run |> Json.serialize
         |> s.Socket.SendFrame
         )
@@ -63,8 +76,6 @@ let server () =
     use client = new RequestSocket()
     client.Connect(uri_client)
 
-    use queue = new NetMQQueue<ClientRes>()
-    poller.Add(queue)
     use __ = queue.ReceiveReady.Subscribe(fun x -> 
         x.Queue.Dequeue() |> Json.serialize |> client.SendFrame
         client.ReceiveMultipartMessage() |> ignore

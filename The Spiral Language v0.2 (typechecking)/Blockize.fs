@@ -6,8 +6,9 @@ open Hopac.Extensions
 open Spiral.Config
 open Spiral.Tokenize
 
-type FileOpenRes = VSCError []
-type FileChangeRes = VSCError []
+type Block = {block: LineToken [] []; offset: int}
+type FileOpenRes = Block list * VSCError []
+type FileChangeRes = Block list * VSCError []
 type FileTokenAllRes = VSCTokenArray
 
 type Req =
@@ -16,7 +17,6 @@ type Req =
     | GetRange of VSCRange * IVar<VSCTokenArray>
 
 open Spiral.BlockParsing
-type Block = {block: LineToken [] []; offset: int}
 type ParsedBlock = {parsed: Result<TopStatement, (Range * ParserErrors) list>; offset: int}
 
 /// Reads the comments up to a statement, and then reads the statement body. Leaves any errors for the parsing stage.
@@ -111,7 +111,7 @@ let block_bundle (l : ParsedBlock list) : Bundle [] * VSCError [] =
     init l
     bundle.ToArray(), errors.ToArray()
 
-let block_init is_top_down (block : LineToken [] []) offset =
+let block_init is_top_down (block : LineToken [] []) =
     let comments, tokens = 
         block |> Array.mapi (fun line x ->
             let comment, len = match Array.tryLast x with Some (r, TokComment c) -> Some (r, c), x.Length-1 | _ -> None, x.Length
@@ -126,22 +126,9 @@ let block_init is_top_down (block : LineToken [] []) offset =
     let env : BlockParsing.Env = 
         {comments = comments; tokens = Array.concat tokens; i = ref 0; 
         is_top_down = is_top_down; default_int=Int32T; default_float=Float64T}
-    {parsed=BlockParsing.parse env; offset=offset}
+    BlockParsing.parse env
 
-let server_parser = Job.delay <| fun () ->
-    let dict = System.Collections.Generic.Dictionary(HashIdentity.Reference)
-    let req = Ch()
-    let loop =
-        Ch.take req >>- fun (is_top_down, a : Block list, res) ->
-            let b = 
-                a |> List.map (fun x ->
-                    Utils.memoize dict (fun _ -> block_init is_top_down x.block x.offset) x.block
-                    )
-
-    Job.foreverServer loop >>-. req
-
-let server (uri : string) = Job.delay <| fun () ->
-    let is_top_down = System.IO.Path.GetExtension(uri) = ".spi"
+let server_tokenizer (uri : string) = Job.delay <| fun () ->
     let lines : LineToken [] ResizeArray = ResizeArray([[||]])
     let mutable errors_tokenization = [||]
     let mutable blocks : Block list = []
@@ -149,8 +136,7 @@ let server (uri : string) = Job.delay <| fun () ->
     let replace edit =
         errors_tokenization <- Tokenize.replace lines errors_tokenization edit // Mutates the lines array
         blocks <- block_separate lines blocks edit
-        let bundles, errors_parsing = block_bundle blocks
-        Array.append errors_tokenization errors_parsing
+        blocks, errors_tokenization
 
     let req = Ch()
     let loop =
@@ -158,6 +144,26 @@ let server (uri : string) = Job.delay <| fun () ->
             | Put(text,res) -> replace {|from=0; nearTo=lines.Count; lines=Utils.lines text|} |> IVar.fill res
             | Modify(edits,res) -> replace edits |> IVar.fill res
             | GetRange((a,b),res) -> // It is assumed that a.character = 0 and b.character = length of the line
+                timeOutMillis 10 >>= fun () ->
                 let from, near_to = a.line, b.line+1
                 vscode_tokens from (lines.GetRange(from,near_to-from).ToArray()) |> IVar.fill res
     Job.foreverServer loop >>-. req
+
+let server_parser (uri : string) = Job.delay <| fun () ->
+    let is_top_down = System.IO.Path.GetExtension(uri) = ".spi"
+    let dict = System.Collections.Generic.Dictionary(HashIdentity.Reference)
+    let parse (a : Block list) =
+        let b = 
+            List.map (fun x -> 
+                {
+                parsed = Utils.memoize dict (block_init is_top_down) x.block
+                offset = x.offset
+                }) a
+        dict.Clear(); List.iter2 (fun a b -> dict.Add(a.block,b.parsed)) a b
+        block_bundle b
+
+    let req = Ch()
+    let rec waiting () = Ch.take req ^=> processing
+    and processing (a : Block list, res) = waiting () <|> Alt.prepareJob (fun () -> IVar.fill res (parse a) >>- waiting)
+        
+    Job.server (waiting()) >>-. req
