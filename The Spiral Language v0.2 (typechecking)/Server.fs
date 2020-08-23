@@ -36,7 +36,7 @@ let server () =
     let tokenizer = Utils.memoize (Dictionary()) (Blockize.server_tokenizer >> run)
     let parser = Utils.memoize (Dictionary()) (Blockize.server_parser >> run)
     use poller = new NetMQPoller()
-    use server = new ResponseSocket()
+    use server = new RouterSocket()
     poller.Add(server)
     server.Options.ReceiveHighWatermark <- Int32.MaxValue
     server.Bind(uri_server)
@@ -54,23 +54,29 @@ let server () =
             Hopac.start (
                 let res = IVar()
                 Ch.give parser (a, res) >>=. IVar.read res 
-                >>- fun (_,errors) -> queue.Enqueue(ParserErrors {|errors=errors; uri=uri|})
+                >>- fun (bundle,errors) -> queue.Enqueue(ParserErrors {|errors=errors; uri=uri|})
                 )
             b
 
     use __ = server.ReceiveReady.Subscribe(fun s ->
+        let msg = server.ReceiveMultipartMessage(3)
+        let address = msg.Pop()
+        msg.Pop() |> ignore
+        let send_back' x =
+            msg.Push(Json.serialize x); msg.PushEmptyFrame(); msg.Push(address)
+            server.SendMultipartMessage(msg)
+        let send_back x = run x |> send_back'
         // TODO: The message id here is for debugging purposes. I'll remove it at some point.
-        let (id : int), x = Json.deserialize(s.Socket.ReceiveFrameString())
+        let (id : int), x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
         match x with
         | ProjectFileOpen x ->
             match config x.uri x.spiprojText with Ok x -> [||] | Error x -> x
-            |> Json.serialize
-        | FileOpen x -> file_message x.uri (fun res -> Req.Put(x.spiText,res)) |> run |> Json.serialize
-        | FileChanged x -> file_message x.uri (fun res -> Req.Modify(x.spiEdit,res)) |> run |> Json.serialize
+            |> send_back'
+        | FileOpen x -> file_message x.uri (fun res -> Req.Put(x.spiText,res)) |> send_back
+        | FileChanged x -> file_message x.uri (fun res -> Req.Modify(x.spiEdit,res)) |> send_back
         | FileTokenRange x ->
             (let res = IVar() in Ch.give (tokenizer x.uri) (Req.GetRange(x.range,res)) >>=. IVar.read res)
-            |> run |> Json.serialize
-        |> s.Socket.SendFrame
+            |> send_back
         )
 
     use client = new RequestSocket()

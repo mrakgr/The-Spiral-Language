@@ -1,5 +1,5 @@
 import * as path from "path"
-import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable } from "vscode"
+import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider } from "vscode"
 import * as zmq from "zeromq"
 
 const port = 13805
@@ -105,6 +105,14 @@ export const activate = async (ctx: ExtensionContext) => {
         }
     }
 
+    // class SpiralHover implements HoverProvider {
+    //     provideHover(document: TextDocument, position: Position, token: CancellationToken) {
+    //         window.showInformationMessage(`${[position.line,position.character]}`);
+    //         const q : Promise<undefined> = new Promise(resolve => {})
+    //         return q
+    //     }
+    // }
+
     const onDocOpen = (doc: TextDocument) => {
         switch (path.extname(doc.uri.path)) {
             case ".spiproj": return spiprojOpen(doc)
@@ -122,16 +130,15 @@ export const activate = async (ctx: ExtensionContext) => {
         }
     }
 
+    const spiralFilePattern = { pattern: '**/*.{spi,spir}'}
+    const spiralTokenLegend = ['variable','symbol','string','number','operator','unary_operator','comment','keyword','parenthesis','type_variable']
     workspace.textDocuments.forEach(onDocOpen)
     ctx.subscriptions.push(
         new Disposable(() => {isProcessing = false}),
         errorsTokenization, errorsParse, errorsType,
         workspace.onDidOpenTextDocument(onDocOpen),
         workspace.onDidChangeTextDocument(onDocChange),
-        languages.registerDocumentRangeSemanticTokensProvider(
-            { pattern: '**/*.{spi,spir}'}, 
-            new SpiralTokens(),
-            new SemanticTokensLegend(['variable','symbol','string','number','operator','unary_operator','comment','keyword','parenthesis','type_variable'])
-            )
+        languages.registerDocumentRangeSemanticTokensProvider(spiralFilePattern,new SpiralTokens(),new SemanticTokensLegend(spiralTokenLegend)),
+        // languages.registerHoverProvider(spiralFilePattern,new SpiralHover())
     )
 }

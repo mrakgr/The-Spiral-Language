@@ -1025,7 +1025,7 @@ let comments line_near_to character (s : Env) =
     |> String.concat "\n"
     |> fun x -> x.TrimEnd()
 
-type TopStatement =
+type [<ReferenceEquality>] TopStatement =
     | TopAnd of Range * TopStatement
     | TopInl of Range * VarString * RawExpr * is_top_down: bool
     | TopRecInl of Range * VarString * RawExpr * is_top_down: bool

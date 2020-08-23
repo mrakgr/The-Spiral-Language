@@ -167,3 +167,13 @@ let server_parser (uri : string) = Job.delay <| fun () ->
     and processing (a : Block list, res) = waiting () <|> Alt.prepareJob (fun () -> IVar.fill res (parse a) >>- waiting)
         
     Job.server (waiting()) >>-. req
+
+let server_typechecking (uri : string) = Job.delay <| fun () ->
+    let req = Ch ()
+    let tc = failwith ""
+    let rec waiting () = req ^=> extracting
+    and extracting bundle_var = waiting () <|> (IVar.read bundle_var ^=> processing)
+    and processing (bundle : Bundle list) = waiting () <|> tc bundle
+
+    Job.server (waiting()) >>-. req
+
