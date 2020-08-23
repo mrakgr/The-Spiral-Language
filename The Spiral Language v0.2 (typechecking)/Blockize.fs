@@ -73,13 +73,13 @@ let block_separate (lines : LineToken [] ResizeArray) (blocks : Block list) (edi
         else []
     loop blocks 0
 
-type Bundle = (int * TopStatement) [] // offset * statement
+type Bundle = (int * TopStatement) list // offset * statement
 let block_bundle (l : ParsedBlock list) : Bundle [] * VSCError [] =
     let (+.) a b = BlockParsingError.add_line_to_range a b
     let bundle = ResizeArray()
     let errors = ResizeArray()
     let temp = ResizeArray()
-    let move_temp () = if 0 < temp.Count then bundle.Add(temp.ToArray()); temp.Clear()
+    let move_temp () = if 0 < temp.Count then bundle.Add(Seq.toList temp); temp.Clear()
     let rec init (l : ParsedBlock list) =
         match l with
         | x :: x' ->
@@ -167,13 +167,3 @@ let server_parser (uri : string) = Job.delay <| fun () ->
     and processing (a : Block list, res) = waiting () <|> Alt.prepareJob (fun () -> IVar.fill res (parse a) >>- waiting)
         
     Job.server (waiting()) >>-. req
-
-let server_typechecking (uri : string) = Job.delay <| fun () ->
-    let req = Ch ()
-    let tc = failwith ""
-    let rec waiting () = req ^=> extracting
-    and extracting bundle_var = waiting () <|> (IVar.read bundle_var ^=> processing)
-    and processing (bundle : Bundle list) = waiting () <|> tc bundle
-
-    Job.server (waiting()) >>-. req
-

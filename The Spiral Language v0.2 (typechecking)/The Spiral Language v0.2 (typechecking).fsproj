@@ -28,6 +28,7 @@
     <Compile Include="BlockParsing.fs" />
     <Compile Include="BlockParsingError.fs" />
     <Compile Include="Blockize.fs" />
+    <Compile Include="MockTypechecker.fs" />
     <Compile Include="Typechecking.fs" />
     <Compile Include="Prepass.fs" />
     <Compile Include="Server.fs" />
