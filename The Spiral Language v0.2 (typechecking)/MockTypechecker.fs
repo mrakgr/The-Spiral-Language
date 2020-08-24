@@ -8,12 +8,12 @@ type BundleRecType =
     | BundleUnion of Range * TypeVar list * RawTExpr list
     | BundleNominal of Range * TypeVar list * RawTExpr
 
-type BundleRecTerm = BundleRecInl of Range * VarString * RawExpr * is_top_down: bool
+type BundleRecTerm = BundleRecInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
 
 type BundleTop =
     | BundleRecType of BundleRecType list
     | BundleRecTerm of BundleRecTerm list
-    | BundleInl of Range * VarString * RawExpr * is_top_down: bool
+    | BundleInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
     | BundlePrototype of Range * VarString * VarString * TypeVar list * RawTExpr
     | BundleType of Range * VarString * TypeVar list * RawTExpr
     | BundleInstance of Range * VarString * VarString * TypeVar list * RawExpr
@@ -135,19 +135,69 @@ let bundle (l : Bundle) =
     | [offset, TopInstance(r,a,b,c,d)] -> BundleInstance(add_offset offset r, a, b, add_offset_typevar_list offset c, fold_offset_term offset d)
     | (_, (TopInl _ | TopPrototype _ | TopType _ | TopInstance _)) :: _ -> failwith "Compiler error: Regular top level statements should be singleton bundles."
         
-
+// A mock typechecker to serve as scaffolding for editor support.
 let mock x =
     let ranges = ResizeArray()
+    let g x = ranges.Add(x, sprintf "id %i" ranges.Count)
+    let rec ty = function
+        | RawTTerm _ | RawTWildcard _ | RawTB _ | RawTMetaVar _ | RawTSymbol _ | RawTPrim _ -> ()
+        | RawTVar(r,a) -> g r
+        | RawTApply(_,a,b) | RawTPair(_,a,b) | RawTFun(_,a,b) -> ty a; ty b
+        | RawTRecord(_,a) -> Map.iter (fun _ -> ty) a
+        | RawTForall(_,_,a) | RawTArray(_,a) -> ty a
+    and term x = 
+        let p x = List.iter (fun (a,b) -> pattern a; term b) x
+        match x with
+        | RawReal _ | RawDefaultLit _ | RawSymbolCreate _ | RawLit _ | RawB _ -> ()
+        | RawV(r,_) -> g r
+        | RawType(_,a) -> ty a
+        | RawMatch(_,a,b) -> term a; p b
+        | RawFun(_,a) -> p a
+        | RawJoinPoint(_,a) | RawForall(_,_,a) -> term a
+        | RawRecBlock(_,a,b) -> List.iter (fun (a,b) -> g (fst a); term b) a; term b
+        | RawRecordWith(_,a,b,c) -> 
+            List.iter term a
+            b |> List.iter (function
+                | RawRecordWithSymbol(_,a) | RawRecordWithSymbolModify(_,a) -> term a
+                | RawRecordWithInjectVar((r,_),a) | RawRecordWithInjectVarModify((r,_),a) -> g r; term a
+                )
+            c |> List.iter (function RawRecordWithoutSymbol _ -> () | RawRecordWithoutInjectVar(r,_) -> g r)
+        | RawOp(_,_,a) -> List.iter term a
+        | RawAnnot(_,a,b) -> term a; ty b
+        | RawTypecase(_,a,b) -> ty a; List.iter (fun (a,b) -> ty a; term b) b
+        | RawModuleOpen(_,a,_,b) -> g (fst a); term b
+        | RawIfThen(_,a,b) | RawPairCreate(_,a,b) | RawSeq(_,a,b) | RawApply(_,a,b) -> term a; term b
+        | RawIfThenElse(_,a,b,c) -> term a; term b; term c
+    and pattern = function
+        | PatValue _ | PatDefaultValue _ | PatSymbol _ | PatB _ | PatE _ -> ()
+        | PatVar(r,_) -> g r
+        | PatNominal(_,_,a) | PatDyn(_,a) | PatUnbox(_,a) -> pattern a
+        | PatAnnot(_,a,b) -> pattern a; ty b
+        | PatAnd(_,a,b) | PatOr(_,a,b) | PatPair(_,a,b) -> pattern a; pattern b
+        | PatRecordMembers(_,a) ->
+            a |> List.iter (function
+                | PatRecordMembersSymbol((r,a),b) -> pattern b
+                | PatRecordMembersInjectVar((r,a),b) -> g r; pattern b
+                )
+        | PatActive(_,a,b) -> term a; pattern b
+        | PatWhen(_,a,b) -> pattern a; term b
+        
     match x with
     | BundleRecType a ->
         a |> List.iter (function
-            | BundleNominal(r,a,b) -> ()
+            | BundleNominal(_,_,a) -> ty a
+            | BundleUnion(_,_,a) -> List.iter ty a
             )
-    //| BundleRecTerm of BundleRecTerm list
-    //| BundleInl of Range * VarString * RawExpr * is_top_down: bool
-    //| BundlePrototype of Range * VarString * VarString * TypeVar list * RawTExpr
-    //| BundleType of Range * VarString * TypeVar list * RawTExpr
-    //| BundleInstance of Range * VarString * VarString * TypeVar list * RawExpr
+    | BundleRecTerm a ->
+        a |> List.iter (function 
+            | BundleRecInl(_,a,b,false) -> g (fst a); term b
+            | BundleRecInl(_,_,_,true) -> ()
+            )
+    | BundleInl(_,a,b,false) -> g (fst a); term b
+    | BundleInl(_,_,_,true) -> ()
+    | BundlePrototype(_,_,_,_,d) -> ty d
+    | BundleType(_,_,_,c) -> ty c
+    | BundleInstance(_,_,_,_,d) -> term d
 
 //let tc_bundle (l : Bundle) =
 //    ()

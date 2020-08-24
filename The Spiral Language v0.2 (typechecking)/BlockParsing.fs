@@ -1027,8 +1027,8 @@ let comments line_near_to character (s : Env) =
 
 type [<ReferenceEquality>] TopStatement =
     | TopAnd of Range * TopStatement
-    | TopInl of Range * VarString * RawExpr * is_top_down: bool
-    | TopRecInl of Range * VarString * RawExpr * is_top_down: bool
+    | TopInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
+    | TopRecInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
     | TopUnion of Range * TypeVar list * RawTExpr list
     | TopNominal of Range * TypeVar list * RawTExpr
     | TopPrototype of Range * VarString * VarString * TypeVar list * RawTExpr
@@ -1036,8 +1036,8 @@ type [<ReferenceEquality>] TopStatement =
     | TopInstance of Range * VarString * VarString * TypeVar list * RawExpr
 
 let top_inl_or_let_process is_top_down = function
-    | (r,PatVar(_,name),(RawForall _ | RawFun _ as body)),false -> Ok(TopInl(r,name,body,is_top_down))
-    | (r,PatVar(_,name),(RawForall _ | RawFun _ as body)),true -> Ok(TopRecInl(r,name,body,is_top_down))
+    | (r,PatVar(r',name),(RawForall _ | RawFun _ as body)),false -> Ok(TopInl(r,(r',name),body,is_top_down))
+    | (r,PatVar(r',name),(RawForall _ | RawFun _ as body)),true -> Ok(TopRecInl(r,(r',name),body,is_top_down))
     | (r,PatVar _,_),_ -> Error [r, ExpectedGlobalFunction]
     | (_,x,_),_ -> Error [range_of_pattern x, ExpectedVarOrOpAsNameOfGlobalStatement]
 let top_inl_or_let d = (inl_or_let root_term root_pattern_pair >>= fun x d -> top_inl_or_let_process d.is_top_down x) d
