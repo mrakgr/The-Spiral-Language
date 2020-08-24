@@ -19,7 +19,5 @@ let g forall (q : *) t. (x:e) =
 let h {a b $r} =
     let rec g x = x
     and inl f x = x
-    and inl g x = f x
-    and inl f x = x
-    and inl f x = x
     and inl h x = x
+    ()

@@ -190,11 +190,11 @@ let mock x =
             )
     | BundleRecTerm a ->
         a |> List.iter (function 
-            | BundleRecInl(_,a,b,false) -> g (fst a); term b
-            | BundleRecInl(_,_,_,true) -> ()
+            | BundleRecInl(_,a,b,true) -> g (fst a); term b
+            | BundleRecInl(_,_,_,false) -> ()
             )
-    | BundleInl(_,a,b,false) -> g (fst a); term b
-    | BundleInl(_,_,_,true) -> ()
+    | BundleInl(_,a,b,true) -> g (fst a); term b
+    | BundleInl(_,_,_,false) -> ()
     | BundlePrototype(_,_,_,_,d) -> ty d
     | BundleType(_,_,_,c) -> ty c
     | BundleInstance(_,_,_,_,d) -> term d

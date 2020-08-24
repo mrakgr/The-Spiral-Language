@@ -38,6 +38,7 @@ type PositionRec = { line: number, character: number }
 type RangeRec = [PositionRec, PositionRec]
 type ClientRes = 
     { ParserErrors: {uri : string, errors : [string, RangeRec][]}}
+    | { TypeErrors: {uri : string, errors : [string, RangeRec][]}}
 
 export const activate = async (ctx: ExtensionContext) => {
     console.log("Spiral plugin is active.")
@@ -50,23 +51,23 @@ export const activate = async (ctx: ExtensionContext) => {
         sock.receiveTimeout = 2000
         sock.sendTimeout = 2000
         await sock.bind(uriClient)
-        try {
-            while (isProcessing) {
-                try {
-                    const [x] = await sock.receive()
-                    const msg: ClientRes = JSON.parse(x.toString())
-                    if ("ParserErrors" in msg) {
-                        errorsSet(errorsParse, Uri.parse(msg.ParserErrors.uri), msg.ParserErrors.errors)
-                    }
-                    sock.send(null)
-                } catch (e) {
-                    if (e.errno === 11) { } // If the error is a timeout just repeat.
-                    else { throw e }
+        while (isProcessing) {
+            try {
+                const [x] = await sock.receive()
+                const msg: ClientRes = JSON.parse(x.toString())
+                if ("ParserErrors" in msg) {
+                    errorsSet(errorsParse, Uri.parse(msg.ParserErrors.uri), msg.ParserErrors.errors)
                 }
+                if ("TypeErrors" in msg) {
+                    errorsSet(errorsType, Uri.parse(msg.TypeErrors.uri), msg.TypeErrors.errors)
+                }
+                sock.send(null)
+            } catch (e) {
+                if (e.errno === 11) { } // If the error is a timeout just repeat.
+                else { throw e }
             }
-        } finally {
-            await sock.unbind(uriServer)
         }
+        await sock.unbind(uriServer)
     })();
 
     const errorsTokenization = languages.createDiagnosticCollection()
