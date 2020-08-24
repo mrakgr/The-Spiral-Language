@@ -23,7 +23,7 @@ type FileTokenChangesRes = int * int * VSCTokenArray
 
 type ClientRes =
     | ParserErrors of {|uri : string; errors : VSCError []|}
-    | Qwe
+    | TypeErrors of {|uri : string; errors : VSCError []|}
 
 let port = 13805
 let uri_server = sprintf "tcp://*:%i" port
@@ -35,6 +35,7 @@ open Hopac.Extensions
 let server () =
     let tokenizer = Utils.memoize (Dictionary()) (Blockize.server_tokenizer >> run)
     let parser = Utils.memoize (Dictionary()) (Blockize.server_parser >> run)
+    let typechecker = Utils.memoize (Dictionary()) (MockTypechecker.server_typechecking >> run)
     use poller = new NetMQPoller()
     use server = new RouterSocket()
     poller.Add(server)
@@ -48,13 +49,23 @@ let server () =
     let inline file_message uri f =
         let tokenizer = tokenizer uri
         let parser = parser uri
+        let typechecker = typechecker uri
         let res = IVar() 
         Ch.give tokenizer (f res) >>=. IVar.read res
         >>- fun (a,b) ->
             Hopac.start (
+                let req_tc = IVar()
+                Ch.give typechecker req_tc >>=.
+
                 let res = IVar()
-                Ch.give parser (a, res) >>=. IVar.read res 
-                >>- fun (bundle,errors) -> queue.Enqueue(ParserErrors {|errors=errors; uri=uri|})
+                Ch.give parser (a, res) >>=. 
+                IVar.read res >>= fun (bundle,errors) -> 
+                queue.Enqueue(ParserErrors {|errors=errors; uri=uri|})
+
+                let res = IVar()
+                IVar.fill req_tc (bundle, res) >>=.
+                IVar.read res >>- fun (_,errors) ->
+                queue.Enqueue(TypeErrors {|errors=errors; uri=uri|})
                 )
             b
 

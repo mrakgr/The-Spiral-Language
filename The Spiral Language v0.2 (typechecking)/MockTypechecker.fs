@@ -199,17 +199,19 @@ let mock x =
     | BundleType(_,_,_,c) -> ty c
     | BundleInstance(_,_,_,_,d) -> term d
 
-//let tc_bundle (l : Bundle) =
-//    ()
+    let a = ranges.ToArray()
+    let b = if 0 < a.Length then [|"some error", fst a.[a.Length/2]|] else [||]
+    a,b
 
 open Hopac
 open Hopac.Infixes
 open Hopac.Extensions
 let server_typechecking (uri : string) = Job.delay <| fun () ->
     let req = Ch ()
-    let tc = failwith ""
+    let tc x = Array.map (bundle >> mock) x |> Array.unzip |> fun (a,b) -> Array.concat a, Array.concat b
+
     let rec waiting () = req ^=> extracting
-    and extracting bundle_var = waiting () <|> (IVar.read bundle_var ^=> processing)
-    and processing (bundle : Bundle list, res) = waiting () <|> tc bundle
+    and extracting subreq = waiting () <|> (IVar.read subreq ^=> processing)
+    and processing (bundle : Bundle [], res) = waiting () <|> Alt.prepareJob (fun () -> IVar.fill res (tc bundle) >>- waiting)
 
     Job.server (waiting()) >>-. req
