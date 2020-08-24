@@ -154,8 +154,7 @@ let server_parser (uri : string) = Job.delay <| fun () ->
     let dict = System.Collections.Generic.Dictionary(HashIdentity.Reference)
     let parse (a : Block list) =
         let b = 
-            List.map (fun x -> 
-                {
+            List.map (fun x -> {
                 parsed = Utils.memoize dict (block_init is_top_down) x.block
                 offset = x.offset
                 }) a
