@@ -1,5 +1,5 @@
 import * as path from "path"
-import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider } from "vscode"
+import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString } from "vscode"
 import * as zmq from "zeromq"
 
 const port = 13805
@@ -19,6 +19,7 @@ const spiprojOpenReq = async (uri: string, spiprojText: string) => request({ Pro
 const spiOpenReq = async (uri: string, spiText: string) => request({ FileOpen: { uri, spiText } })
 const spiChangeReq = async (uri: string, spiEdit : {from: number, nearTo: number, lines: string[]} ) => request({ FileChanged: { uri, spiEdit } })
 const spiTokenRangeReq = async (uri: string, range : Range) => request({ FileTokenRange: { uri, range } })
+const spiHoverAtReq = async (uri: string, pos : Position) => request({ HoverAt: { uri, pos } })
 
 const errorsSet = (errors : DiagnosticCollection, uri: Uri, x: [string, RangeRec | null][]) => {
     const diag: Diagnostic[] = []
@@ -106,13 +107,12 @@ export const activate = async (ctx: ExtensionContext) => {
         }
     }
 
-    // class SpiralHover implements HoverProvider {
-    //     provideHover(document: TextDocument, position: Position, token: CancellationToken) {
-    //         window.showInformationMessage(`${[position.line,position.character]}`);
-    //         const q : Promise<undefined> = new Promise(resolve => {})
-    //         return q
-    //     }
-    // }
+    class SpiralHover implements HoverProvider {
+        async provideHover(document: TextDocument, position: Position) {
+            const x : {HoverReply : string} = await spiHoverAtReq(document.uri.toString(),position)
+            return new Hover(new MarkdownString(x.HoverReply))
+        }
+    }
 
     const onDocOpen = (doc: TextDocument) => {
         switch (path.extname(doc.uri.path)) {
@@ -140,6 +140,6 @@ export const activate = async (ctx: ExtensionContext) => {
         workspace.onDidOpenTextDocument(onDocOpen),
         workspace.onDidChangeTextDocument(onDocChange),
         languages.registerDocumentRangeSemanticTokensProvider(spiralFilePattern,new SpiralTokens(),new SemanticTokensLegend(spiralTokenLegend)),
-        // languages.registerHoverProvider(spiralFilePattern,new SpiralHover())
+        languages.registerHoverProvider(spiralFilePattern,new SpiralHover())
     )
 }

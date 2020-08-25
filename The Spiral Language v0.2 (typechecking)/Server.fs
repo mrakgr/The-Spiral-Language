@@ -14,6 +14,7 @@ type ClientReq =
     | FileOpen of {|uri : string; spiText : string|}
     | FileChanged of {|uri : string; spiEdit : SpiEdit|}
     | FileTokenRange of {|uri : string; range : VSCRange|}
+    | HoverAt of {|uri : string; pos : VSCPos|}
 
 type ProjectFileRes = VSCErrorOpt []
 type FileOpenRes = VSCError []
@@ -98,6 +99,9 @@ let server () =
         | FileTokenRange x ->
             (let res = IVar() in Ch.give (tokenizer x.uri) (Req.GetRange(x.range,res)) >>=. IVar.read res)
             |> send_back
+        | HoverAt x ->
+            let _,hover = hover x.uri
+            Hopac.start (Ch.give hover (x.pos, fun x -> send_back' {|HoverReply=x|}))
         )
 
     use client = new RequestSocket()

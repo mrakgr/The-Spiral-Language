@@ -129,7 +129,7 @@ let bundle (l : Bundle) =
             | _ -> failwith "Compiler error: Recursive type statements can only be followed by statements of the same type."
             )
         |> BundleRecType
-    | [offset, TopInl(r,a,b,c)] -> BundleInl(add_offset offset r, a, fold_offset_term offset b, c)
+    | [offset, TopInl(r,a,b,c)] -> BundleInl(add_offset offset r, add_offset_typevar offset a, fold_offset_term offset b, c)
     | [offset, TopPrototype(r,a,b,c,d)] -> BundlePrototype(add_offset offset r, a, b, add_offset_typevar_list offset c, fold_offset_ty offset d)
     | [offset, TopType(r,a,b,c)] -> BundleType(add_offset offset r, a, add_offset_typevar_list offset b, fold_offset_ty offset c)
     | [offset, TopInstance(r,a,b,c,d)] -> BundleInstance(add_offset offset r, a, b, add_offset_typevar_list offset c, fold_offset_term offset d)
@@ -232,8 +232,13 @@ let server_hover (uri : string) = Job.delay <| fun () ->
     let req_tc, req_hov = Ch (), Ch ()
 
     let eval_req data (pos : Config.VSCPos) = 
-        data |> List.tryPick (fun (offset, b) -> if offset <= pos.line then Some b else None)
-        |> function  Some x -> x | None -> IVar()
+        let rec loop = function // tryPick from the back
+            | (offset,b) :: x' ->
+                match loop x' with
+                | ValueSome _ as x -> x
+                | ValueNone -> if offset <= pos.line then ValueSome b else ValueNone
+            | [] -> ValueNone
+        loop data |> function ValueSome x -> x | ValueNone -> IVar()
 
     let value_of (pos : Config.VSCPos) ranges =
         ranges |> Array.tryPick (fun ((a,b) : Config.VSCRange, r : string) ->
