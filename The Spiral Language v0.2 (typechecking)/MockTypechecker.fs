@@ -207,11 +207,6 @@ open Hopac
 open Hopac.Infixes
 open Hopac.Extensions
 
-//type HoverData = Range * string
-//type TypecheckerReq =
-//    | TCBundle of (Bundle list * (HoverData [] * Config.VSCError list) IVar) IVar
-//    | TCHover of Config.VSCPos
-
 let server_typechecking (uri : string) = Job.delay <| fun () ->
     let req = Ch ()
 
@@ -232,3 +227,27 @@ let server_typechecking (uri : string) = Job.delay <| fun () ->
                 )
 
     Job.server (waiting()) >>-. req
+
+let server_hover (uri : string) = Job.delay <| fun () ->
+    let req_tc, req_hov = Ch (), Ch ()
+
+    let eval_req data (pos : Config.VSCPos) = 
+        data |> List.tryPick (fun (offset, b) -> if offset <= pos.line then Some b else None)
+        |> function  Some x -> x | None -> IVar()
+
+    let value_of (pos : Config.VSCPos) ranges =
+        ranges |> Array.tryPick (fun ((a,b) : Config.VSCRange, r : string) ->
+            if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
+            )
+
+    let rec waiting data ret = 
+        let ret_signal_none x = Option.iter ((|>) None) ret; x
+        (req_tc ^=> (ret_signal_none >> extracting))
+        <|> (req_hov ^=> (ret_signal_none >> processing data))
+    and extracting subreq =
+        (IVar.read subreq ^=> fun (bundle,res) -> IVar.read res ^=> fun x -> waiting (List.map2 (fun a b -> fst (List.head a), b) bundle x) None)
+    and processing data (pos, ret) =
+        waiting data (Some ret)
+        <|> Alt.prepareFun (fun () -> IVar.read (eval_req data pos) ^=> fun (range,_) -> value_of pos range |> ret; waiting data None)
+
+    Job.server (waiting [] None) >>-. (req_tc, req_hov)

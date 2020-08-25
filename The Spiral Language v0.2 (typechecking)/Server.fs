@@ -36,6 +36,7 @@ let server () =
     let tokenizer = Utils.memoize (Dictionary()) (Blockize.server_tokenizer >> run)
     let parser = Utils.memoize (Dictionary()) (Blockize.server_parser >> run)
     let typechecker = Utils.memoize (Dictionary()) (MockTypechecker.server_typechecking >> run)
+    let hover = Utils.memoize (Dictionary()) (MockTypechecker.server_hover >> run)
     use poller = new NetMQPoller()
     use server = new RouterSocket()
     poller.Add(server)
@@ -46,34 +47,37 @@ let server () =
     use queue = new NetMQQueue<ClientRes>()
     poller.Add(queue)
 
-    let inline file_message uri f =
+    let file_message uri f =
         let tokenizer = tokenizer uri
         let parser = parser uri
         let typechecker = typechecker uri
+        let hover,_ = hover uri
+
         let res = IVar() 
-        Ch.give tokenizer (f res) >>=. IVar.read res
-        >>- fun (a,b) ->
-            Hopac.start (
-                let req_tc = IVar()
-                Ch.give typechecker req_tc >>=.
+        Ch.give tokenizer (f res) 
+        >>=. IVar.read res >>- fun (blocks,tokenizer_errors) ->
+        Hopac.start (
+            let req_tc = IVar()
+            Ch.give typechecker req_tc >>=.
+            Ch.give hover req_tc >>=.
 
-                let res = IVar()
-                Ch.give parser (a, res) >>=. 
-                IVar.read res >>= fun (bundle,errors) -> 
-                queue.Enqueue(ParserErrors {|errors=errors; uri=uri|})
+            let res = IVar()
+            Ch.give parser (blocks, res) >>=. 
+            IVar.read res >>= fun (bundle,parser_errors) -> 
+            queue.Enqueue(ParserErrors {|errors=parser_errors; uri=uri|})
 
-                let res = IVar()
-                IVar.fill req_tc (bundle, res) >>=.
-                IVar.read res >>= fun x ->
-                x |> Seq.foldJob (fun s x ->
-                    IVar.read x >>- fun (_,errors) ->
-                    let s = List.append errors s
-                    queue.Enqueue(TypeErrors {|errors=s; uri=uri|})
-                    s
-                    ) []
-                >>-. ()
-                )
-            b
+            let res = IVar()
+            IVar.fill req_tc (bundle, res) >>=.
+            IVar.read res >>= fun x ->
+            x |> Seq.foldJob (fun s x ->
+                IVar.read x >>- fun (_,typechecking_errors) ->
+                let s = List.append typechecking_errors s
+                queue.Enqueue(TypeErrors {|errors=s; uri=uri|})
+                s
+                ) []
+            >>-. ()
+            )
+        tokenizer_errors
 
     use __ = server.ReceiveReady.Subscribe(fun s ->
         let msg = server.ReceiveMultipartMessage(3)
