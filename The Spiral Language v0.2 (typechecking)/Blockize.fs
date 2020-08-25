@@ -74,7 +74,7 @@ let block_separate (lines : LineToken [] ResizeArray) (blocks : Block list) (edi
     loop blocks 0
 
 type Bundle = (int * TopStatement) list // offset * statement
-let block_bundle (l : ParsedBlock list) : Bundle [] * VSCError [] =
+let block_bundle (l : ParsedBlock list) =
     let (+.) a b = BlockParsingError.add_line_to_range a b
     let bundle = ResizeArray()
     let errors = ResizeArray()
@@ -109,7 +109,7 @@ let block_bundle (l : ParsedBlock list) : Bundle [] * VSCError [] =
             | Error er -> BlockParsingError.show_block_parsing_error x.offset er |> errors.AddRange; rectype x'
         | [] -> move_temp()
     init l
-    bundle.ToArray(), errors.ToArray()
+    Seq.toList bundle, errors.ToArray()
 
 let block_init is_top_down (block : LineToken [] []) =
     let comments, tokens = 

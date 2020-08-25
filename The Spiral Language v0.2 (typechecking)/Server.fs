@@ -23,7 +23,7 @@ type FileTokenChangesRes = int * int * VSCTokenArray
 
 type ClientRes =
     | ParserErrors of {|uri : string; errors : VSCError []|}
-    | TypeErrors of {|uri : string; errors : VSCError []|}
+    | TypeErrors of {|uri : string; errors : VSCError list|}
 
 let port = 13805
 let uri_server = sprintf "tcp://*:%i" port
@@ -64,8 +64,14 @@ let server () =
 
                 let res = IVar()
                 IVar.fill req_tc (bundle, res) >>=.
-                IVar.read res >>- fun (_,errors) ->
-                queue.Enqueue(TypeErrors {|errors=errors; uri=uri|})
+                IVar.read res >>= fun x ->
+                x |> Seq.foldJob (fun s x ->
+                    IVar.read x >>- fun (_,errors) ->
+                    let s = List.append errors s
+                    queue.Enqueue(TypeErrors {|errors=s; uri=uri|})
+                    s
+                    ) []
+                >>-. ()
                 )
             b
 

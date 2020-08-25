@@ -200,18 +200,35 @@ let mock x =
     | BundleInstance(_,_,_,_,d) -> term d
 
     let a = ranges.ToArray()
-    let b = if 0 < a.Length then [|"some error", fst a.[a.Length/2]|] else [||]
+    let b = if 0 < a.Length then ["some error", fst a.[a.Length/2]] else []
     a,b
 
 open Hopac
 open Hopac.Infixes
 open Hopac.Extensions
+
+//type HoverData = Range * string
+//type TypecheckerReq =
+//    | TCBundle of (Bundle list * (HoverData [] * Config.VSCError list) IVar) IVar
+//    | TCHover of Config.VSCPos
+
 let server_typechecking (uri : string) = Job.delay <| fun () ->
     let req = Ch ()
-    let tc x = Array.map (bundle >> mock) x |> Array.unzip |> fun (a,b) -> Array.concat a, Array.concat b
 
     let rec waiting () = req ^=> extracting
-    and extracting subreq = waiting () <|> (IVar.read subreq ^=> processing)
-    and processing (bundle : Bundle [], res) = waiting () <|> Alt.prepareJob (fun () -> IVar.fill res (tc bundle) >>- waiting)
+    and extracting subreq = 
+        waiting () <|> (IVar.read subreq ^=> fun (bundle,res) -> 
+            let x = List.map (fun _ -> IVar()) bundle
+            Hopac.start (IVar.fill res x)
+            let x = List.zip bundle x
+            processing x x
+            )
+    and processing data = function
+        | [] -> waiting ()
+        | (x,res) :: x' ->
+            waiting () <|> Alt.prepareFun (fun () -> 
+                Hopac.start (bundle x |> mock |> IVar.fill res)
+                processing data x'
+                )
 
     Job.server (waiting()) >>-. req
