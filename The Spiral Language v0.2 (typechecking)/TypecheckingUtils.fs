@@ -118,7 +118,7 @@ let bundle (l : Bundle) =
     | (_, TopAnd _) :: x' -> failwith "Compiler error: TopAnd should be eliminated during the first bundling step."
     | (_, TopRecInl _) :: _ as l ->
         l |> List.map (function
-            | (offset, TopRecInl(r,a,b,c)) -> BundleRecInl(add_offset offset r, a, fold_offset_term offset b, c)
+            | (offset, TopRecInl(r,a,b,c)) -> BundleRecInl(add_offset offset r, add_offset_typevar offset a, fold_offset_term offset b, c)
             | _ -> failwith "Compiler error: Recursive inl statements can only be followed by statements of the same type."
             )
         |> BundleRecTerm
