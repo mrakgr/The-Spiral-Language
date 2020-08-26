@@ -4,4 +4,4 @@ inl f x =
     inl (+) (a : i32) (b : i32) = !!!!Add(a,b) : i32
     1 + 5 + 2 + 3 + -x
 
-inl f x = x
+inl f x = x + x + x + x + x + x

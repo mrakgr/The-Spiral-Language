@@ -210,28 +210,32 @@ open Hopac.Extensions
 let server_typechecking (uri : string) = Job.delay <| fun () ->
     let req = Ch ()
 
-    let rec waiting () = req ^=> extracting
-    and extracting subreq = 
-        waiting () <|> (IVar.read subreq ^=> fun (bundle,res) -> 
-            let x = List.map (fun _ -> IVar()) bundle
+    let rec waiting data = req ^=> extracting data
+    and extracting data subreq = 
+        waiting data <|> (IVar.read subreq ^=> fun (bundle,res) -> 
+            let rec loop = function // Does memoization by fetching previous computed values.
+                | [], bundle -> List.map (fun _ -> IVar()) bundle
+                | (a, ivar) :: a', (b :: b' as bundle) -> if a = b then ivar :: loop (a',b') else loop ([], bundle)
+                | _, [] -> []
+            let x = loop (data, bundle)
             Hopac.start (IVar.fill res x)
             let x = List.zip bundle x
             processing x x
             )
     and processing data = function
-        | [] -> waiting ()
+        | [] -> waiting data
         | (x,res) :: x' ->
-            waiting () <|> Alt.prepareFun (fun () -> 
-                Hopac.start (bundle x |> mock |> IVar.fill res)
+            waiting data <|> Alt.prepareFun (fun () -> 
+                if res.Full = false then Hopac.start (bundle x |> mock |> IVar.fill res)
                 processing data x'
                 )
 
-    Job.server (waiting()) >>-. req
+    Job.server (waiting []) >>-. req
 
 let server_hover (uri : string) = Job.delay <| fun () ->
     let req_tc, req_hov = Ch (), Ch ()
 
-    let eval_req data (pos : Config.VSCPos) = 
+    let block_at data (pos : Config.VSCPos) = 
         let rec loop = function // tryPick from the back
             | (offset,b) :: x' ->
                 match loop x' with
@@ -240,7 +244,7 @@ let server_hover (uri : string) = Job.delay <| fun () ->
             | [] -> ValueNone
         loop data |> function ValueSome x -> x | ValueNone -> IVar()
 
-    let value_of (pos : Config.VSCPos) ranges =
+    let hover_msg_at (pos : Config.VSCPos) ranges =
         ranges |> Array.tryPick (fun ((a,b) : Config.VSCRange, r : string) ->
             if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
             )
@@ -253,6 +257,6 @@ let server_hover (uri : string) = Job.delay <| fun () ->
         (IVar.read subreq ^=> fun (bundle,res) -> IVar.read res ^=> fun x -> waiting (List.map2 (fun a b -> fst (List.head a), b) bundle x) None)
     and processing data (pos, ret) =
         waiting data (Some ret)
-        <|> Alt.prepareFun (fun () -> IVar.read (eval_req data pos) ^=> fun (range,_) -> value_of pos range |> ret; waiting data None)
+        <|> Alt.prepareFun (fun () -> IVar.read (block_at data pos) ^=> fun (range,_) -> hover_msg_at pos range |> ret; waiting data None)
 
     Job.server (waiting [] None) >>-. (req_tc, req_hov)
