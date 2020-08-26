@@ -379,6 +379,11 @@ let read_type_var d =
         | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> skip d; r := SemanticTokenLegend.type_variable; Ok(t')
         | p, _ -> Error [p, ExpectedSmallVar]
 
+let read_type_var' d =
+    try_current d <| function
+        | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> skip d; r := SemanticTokenLegend.type_variable; Ok(p,t')
+        | p, _ -> Error [p, ExpectedSmallVar]
+
 let read_value d =
     try_current d <| function
         | p, TokValue t' -> skip d; Ok(p,t')
@@ -905,7 +910,7 @@ and root_term d =
         let case_symbol = read_symbol |>> RawSymbolCreate
         let case_unary_op = 
             read_unary_op' >>= fun (o,a) d ->
-                let type_expr d = ((read_small_var' |>> RawTVar) <|> (rounds (fun d -> root_type {root_type_defaults with allow_term=true} d))) d
+                let type_expr d = ((read_type_var' |>> RawTVar) <|> (rounds (fun d -> root_type {root_type_defaults with allow_term=true} d))) d
                 match a with
                 | "!!!!" -> 
                     (range (read_big_var .>>. (rounds (sepBy1 (fun d -> expressions {d with is_top_down=false}) (skip_op ","))))
@@ -1029,11 +1034,11 @@ type [<ReferenceEquality>] TopStatement =
     | TopAnd of Range * TopStatement
     | TopInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
     | TopRecInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
-    | TopUnion of Range * TypeVar list * RawTExpr list
-    | TopNominal of Range * TypeVar list * RawTExpr
-    | TopPrototype of Range * VarString * VarString * TypeVar list * RawTExpr
-    | TopType of Range * VarString * TypeVar list * RawTExpr
-    | TopInstance of Range * VarString * VarString * TypeVar list * RawExpr
+    | TopUnion of Range * (Range * VarString) * TypeVar list * RawTExpr list
+    | TopNominal of Range * (Range * VarString) * TypeVar list * RawTExpr
+    | TopPrototype of Range * (Range * VarString) * TypeVar list * RawTExpr
+    | TopType of Range * (Range * VarString) * TypeVar list * RawTExpr
+    | TopInstance of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawExpr
 
 let top_inl_or_let_process is_top_down = function
     | (r,PatVar(r',name),(RawForall _ | RawFun _ as body)),false -> Ok(TopInl(r,(r',name),body,is_top_down))
@@ -1047,22 +1052,25 @@ let top_union d =
         let bar = bar (col d)
         (optional bar >>. sepBy1 (root_type root_type_defaults) bar) d
 
-    (range ((skip_keyword SpecUnion >>. many forall_var .>> skip_op "=") .>>. clauses) |>> fun (r,(a,b)) -> TopUnion(r,a,b)) d
+    ((range (tuple3 (skip_keyword SpecUnion >>. read_type_var') (many forall_var .>> skip_op "=") clauses))
+    |>> fun (r,(n,a,b)) -> TopUnion(r,n,a,b)) d
+let top_nominal d = 
+    (range (tuple3 (skip_keyword SpecNominal >>. read_type_var') (many forall_var .>> skip_op "=") (root_type {root_type_defaults with allow_term=true}))
+    |>> fun (r,(n,a,b)) -> TopNominal(r,n,a,b)) d
 
-let top_nominal d = (range ((skip_keyword SpecNominal >>. many forall_var .>> skip_op "=") .>>. root_type {root_type_defaults with allow_term=true}) |>> fun (r,(a,b)) -> TopNominal(r,a,b)) d
 let top_prototype d = 
     (range 
-        (tuple4
-            (skip_keyword SpecPrototype >>. read_small_var) read_type_var (many forall_var) 
+        (tuple3
+            (skip_keyword SpecPrototype >>. read_small_var') (many forall_var) 
             (skip_op ":" >>. type_forall (root_type root_type_defaults)))
-    |>> fun (r,(a,b,c,d)) -> TopPrototype(r,a,b,c,d)) d
-let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_small_var) (many forall_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)) d
+    |>> fun (r,(a,b,c)) -> TopPrototype(r,a,b,c)) d
+let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_small_var') (many forall_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)) d
 let top_instance d =
     (range
-        (tuple5 (skip_keyword SpecInstance >>. read_small_var) (read_type_var .>>. many forall_var)
+        (tuple6 (skip_keyword SpecInstance >>. read_small_var') read_type_var' (many forall_var)
             (skip_op ":" >>. forall <|>% []) (many root_pattern_pair)
             (skip_op "=" >>. root_term))
-    >>= fun (r,(prototype_name, (nominal_name, nominal_foralls), foralls, pats, body)) _ ->
+    >>= fun (r,(prototype_name, nominal_name, nominal_foralls, foralls, pats, body)) _ ->
             match patterns_validate pats with
             | [] ->
                 let body =
