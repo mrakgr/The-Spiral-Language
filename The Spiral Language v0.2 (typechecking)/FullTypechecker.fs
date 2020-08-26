@@ -1,6 +1,25 @@
 ﻿module Spiral.FullTypechecker
 open Spiral.BlockParsing
 open Spiral.TypecheckingUtils
+
+let full infer state x =
+    let term x = infer state (Choice1Of2 x)
+    let ty x = infer state (Choice2Of2 x)
+    match x with
+    | BundleRecType a ->
+        a |> List.iter (function
+            | BundleNominal(_,_,_,a) -> ty a
+            | BundleUnion(_,_,_,a) -> List.iter ty a
+            )
+    | BundleRecTerm a ->
+        a |> List.iter (function 
+            | BundleRecInl(_,_,a,true) -> term a
+            | BundleRecInl(_,_,_,false) -> ()
+            )
+    | BundleInl(_,_,a,true) -> term a
+    | BundleInl(_,_,_,false) -> ()
+    | BundlePrototype(_,_,_,a) | BundleType(_,_,_,a) -> ty a
+    | BundleInstance(_,_,_,_,a) -> term a
         
 // A mock typechecker to serve as scaffolding for editor support.
 let mock id_count x =
