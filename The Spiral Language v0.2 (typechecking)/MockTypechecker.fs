@@ -48,22 +48,22 @@ and fold_offset_term offset x =
     let g'' x = add_offset_typevar_list offset x
     match x with
     | RawB r -> RawB (g r)
-    | RawV(r,a) -> RawV (g r, a)
-    | RawLit(r,a) -> RawLit (g r, a)
-    | RawDefaultLit(r,a) -> RawDefaultLit (g r, a)
-    | RawSymbolCreate(r,a) -> RawSymbolCreate (g r, a)
-    | RawType(r,a) -> RawType(g r, a)
-    | RawMatch(r,a,b) -> RawMatch(g r,f a,List.map (fun (a,b) -> fold_offset_pattern offset a, f b) b)
-    | RawFun(r,a) -> RawFun(g r, List.map (fun (a,b) -> fold_offset_pattern offset a, f b) a)
+    | RawV(r,a) -> RawV (g r,a)
+    | RawLit(r,a) -> RawLit (g r,a)
+    | RawDefaultLit(r,a) -> RawDefaultLit (g r,a)
+    | RawSymbolCreate(r,a) -> RawSymbolCreate (g r,a)
+    | RawType(r,a) -> RawType(g r,a)
+    | RawMatch(r,a,b) -> RawMatch(g r,f a,List.map (fun (a,b) -> fold_offset_pattern offset a,f b) b)
+    | RawFun(r,a) -> RawFun(g r,List.map (fun (a,b) -> fold_offset_pattern offset a,f b) a)
     | RawForall(r,a,b) -> RawForall(g r,g' a,f b)
     | RawRecBlock(r,a,b) -> RawRecBlock(g r,List.map (fun ((r,a),b) -> (g r,a),f b) a,f b)
     | RawRecordWith(r,a,b,c) -> 
         let b =
             b |> List.map (function
-                | RawRecordWithSymbol((r,a),b) -> RawRecordWithSymbol((g r,a), f b)
-                | RawRecordWithSymbolModify((r,a),b) -> RawRecordWithSymbolModify((g r,a), f b)
-                | RawRecordWithInjectVar((r,a),b) -> RawRecordWithInjectVar((g r,a), f b)
-                | RawRecordWithInjectVarModify((r,a),b) -> RawRecordWithInjectVarModify((g r,a), f b)
+                | RawRecordWithSymbol((r,a),b) -> RawRecordWithSymbol((g r,a),f b)
+                | RawRecordWithSymbolModify((r,a),b) -> RawRecordWithSymbolModify((g r,a),f b)
+                | RawRecordWithInjectVar((r,a),b) -> RawRecordWithInjectVar((g r,a),f b)
+                | RawRecordWithInjectVarModify((r,a),b) -> RawRecordWithInjectVarModify((g r,a),f b)
                 )
         let c =
             c |> List.map (function
@@ -72,9 +72,9 @@ and fold_offset_term offset x =
                 )
         RawRecordWith(g r, List.map f a,b,c)
     | RawOp(r,a,b) -> RawOp(g r,a,List.map f b)
-    | RawJoinPoint(r,a) -> RawJoinPoint(g r, f a)
-    | RawAnnot(r,a,b) -> RawAnnot(g r, f a, ty b)
-    | RawTypecase(r,a,b) -> RawTypecase(g r,ty a,List.map (fun (a,b) -> ty a, f b) b)
+    | RawJoinPoint(r,a) -> RawJoinPoint(g r,f a)
+    | RawAnnot(r,a,b) -> RawAnnot(g r,f a,ty b)
+    | RawTypecase(r,a,b) -> RawTypecase(g r,ty a,List.map (fun (a,b) -> ty a,f b) b)
     | RawModuleOpen(r,a,b,c) -> RawModuleOpen(g r,g' a,g'' b,f c)
     | RawApply(r,a,b) -> RawApply(g r,f a,f b)
     | RawIfThenElse(r,a,b,c) -> RawIfThenElse(g r,f a,f b,f c)
@@ -103,7 +103,7 @@ and fold_offset_pattern offset x =
                 | PatRecordMembersSymbol((r,a),b) -> PatRecordMembersSymbol((g r,a),f b)
                 | PatRecordMembersInjectVar((r,a),b) -> PatRecordMembersInjectVar((g r,a),f b)
                 )
-        PatRecordMembers(g r, a)
+        PatRecordMembers(g r,a)
     | PatActive(r,a,b) -> PatActive(g r,term a,f b)
     | PatOr(r,a,b) -> PatOr(g r,f a,f b)
     | PatAnd(r,a,b) -> PatAnd(g r,f a,f b)
@@ -136,9 +136,9 @@ let bundle (l : Bundle) =
     | (_, (TopInl _ | TopPrototype _ | TopType _ | TopInstance _)) :: _ -> failwith "Compiler error: Regular top level statements should be singleton bundles."
         
 // A mock typechecker to serve as scaffolding for editor support.
-let mock x =
+let mock id_count x =
     let ranges = ResizeArray()
-    let g x = ranges.Add(x, sprintf "id %i" ranges.Count)
+    let g x = ranges.Add(x, sprintf "id %i" (id_count + ranges.Count))
     let rec ty = function
         | RawTTerm _ | RawTWildcard _ | RawTB _ | RawTMetaVar _ | RawTSymbol _ | RawTPrim _ -> ()
         | RawTVar(r,a) -> g r
@@ -201,7 +201,7 @@ let mock x =
 
     let a = ranges.ToArray()
     let b = if 0 < a.Length then ["some error", fst a.[a.Length/2]] else []
-    a,b
+    (a,b), id_count + a.Length
 
 open Hopac
 open Hopac.Infixes
@@ -220,14 +220,17 @@ let server_typechecking (uri : string) = Job.delay <| fun () ->
             let x = loop (data, bundle)
             Hopac.start (IVar.fill res x)
             let x = List.zip bundle x
-            processing x x
+            processing 0 x x
             )
-    and processing data = function
+    and processing state data = function
         | [] -> waiting data
         | (x,res) :: x' ->
             waiting data <|> Alt.prepareFun (fun () -> 
-                if res.Full = false then Hopac.start (bundle x |> mock |> IVar.fill res)
-                processing data x'
+                if res.Full then IVar.read res ^=> fun (_,state) -> processing state data x'
+                else 
+                    let (_,state as x) = bundle x |> mock state
+                    Hopac.start (IVar.fill res x)
+                    processing state data x'
                 )
 
     Job.server (waiting []) >>-. req
@@ -257,6 +260,6 @@ let server_hover (uri : string) = Job.delay <| fun () ->
         (IVar.read subreq ^=> fun (bundle,res) -> IVar.read res ^=> fun x -> waiting (List.map2 (fun a b -> fst (List.head a), b) bundle x) None)
     and processing data (pos, ret) =
         waiting data (Some ret)
-        <|> Alt.prepareFun (fun () -> IVar.read (block_at data pos) ^=> fun (range,_) -> hover_msg_at pos range |> ret; waiting data None)
+        <|> Alt.prepareFun (fun () -> IVar.read (block_at data pos) ^=> fun ((range,_),_) -> hover_msg_at pos range |> ret; waiting data None)
 
     Job.server (waiting [] None) >>-. (req_tc, req_hov)

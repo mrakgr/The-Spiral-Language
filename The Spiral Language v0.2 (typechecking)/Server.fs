@@ -71,7 +71,7 @@ let server () =
             IVar.fill req_tc (bundle, res) >>=.
             IVar.read res >>= fun x ->
             x |> Seq.foldJob (fun s x ->
-                IVar.read x >>- fun (_,typechecking_errors) ->
+                IVar.read x >>- fun ((_,typechecking_errors),_) ->
                 let s = List.append typechecking_errors s
                 queue.Enqueue(TypeErrors {|errors=s; uri=uri|})
                 s

@@ -72,6 +72,7 @@ type TypeError =
     | MissingRecordFieldsInPattern of string list
     | CasePatternNotFoundForType of int
     | CasePatternNotFound of string
+    | CannotInferCasePatternFromTermInEnv of T
     | NominalInPatternUnbox of int
     | TypeInGlobalEnvIsNotNominal of T
     | UnionInPatternNominal of int
@@ -116,7 +117,6 @@ type HigherOrderCases =
 
 type AuxEnv = {
     hoc : Map<int,HigherOrderCases>
-    union_cases : Map<string,int> // TODO: This is broken. See the 8/18/2020 final commit.
     }
 
 type Env = { ty : Map<string,T>; term : Map<string,T> }
@@ -206,7 +206,9 @@ let assert_bound_vars' (top_env : Env) term ty x =
             | PatAnd(_,a,b) | PatOr(_,a,b) -> loop (loop term a) b
             | PatAnnot(_,a,b) -> let r = f a in ctype r ty b; r 
             | PatWhen(_,a,b) -> let r = f a in cterm r ty b; r
-            | PatNominal(_,a,b) -> (if Map.containsKey (snd a) top_env.ty = false then errors.Add(fst a,UnboundVariable)); f b
+            | PatNominal(_,(r,a),b) -> 
+                if Set.contains a ty = false && Map.containsKey a top_env.ty = false then errors.Add(r,UnboundVariable)
+                f b
         loop term x
 
     match x with
@@ -637,6 +639,9 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
             | TyApply(a,_,_) -> ho_index a 
             | TyHigherOrder(i,_) -> ValueSome i
             | _ -> ValueNone
+        let rec ho_fun = function
+            | TyFun(_,a) | TyForall(_,a) -> ho_fun a
+            | a -> ho_index a
         let rec loop env s a =
             let f = loop env
             let v x = Map.tryFind x env.term |> Option.orElseWith (fun () -> Map.tryFind x top_env.term)
@@ -703,12 +708,15 @@ let infer (aux : AuxEnv) (top_env : Env) (env : Env) expr : T =
                 match term_subst s |> ho_index with
                 | ValueSome i -> assume i
                 | ValueNone ->
-                    match Map.tryFind name aux.union_cases with // TODO: This is broken. See the 8/18/2020 final commit.
-                    | Some i -> assume i
+                    match v name with
+                    | Some x -> 
+                        match term_subst x |> ho_fun with
+                        | ValueSome i -> assume i
+                        | ValueNone -> errors.Add(r,CannotInferCasePatternFromTermInEnv x); f (fresh_var()) a
                     | None -> errors.Add(r,CasePatternNotFound name); f (fresh_var()) a
             | PatUnbox _ -> failwith "Compiler error: Malformed PatUnbox."
             | PatNominal(_,(r,name),a) ->
-                match Map.tryFind name top_env.ty with // TODO: This is broken. See the 8/18/2020 final commit.
+                match Map.tryFind name env.ty |> Option.orElseWith (fun () -> Map.tryFind name top_env.ty) with
                 | Some x -> 
                     match ho_index x with
                     | ValueSome i ->
@@ -766,7 +774,6 @@ let top_higher_order (l : TopHigherOrder list) (aux : AuxEnv) (top_env : Env) =
                     with :? TypeErrorException as x -> errors.AddRange(x.Data0); cases
                     ) Map.empty l
                 |> fun l -> {
-                    union_cases = Map.fold (fun s k _ -> Map.add k i s) aux.union_cases l
                     hoc = Map.add i (HOCUnion(vars,l)) aux.hoc
                     }
             | HONominal(_,i,vars,expr) ->
