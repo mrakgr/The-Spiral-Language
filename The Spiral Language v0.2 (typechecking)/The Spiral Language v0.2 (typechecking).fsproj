@@ -29,6 +29,7 @@
     <Compile Include="BlockParsingError.fs" />
     <Compile Include="Blockize.fs" />
     <Compile Include="TypecheckingUtils.fs" />
+    <Compile Include="Infer.fs" />
     <Compile Include="Typechecking.fs" />
     <Compile Include="FullTypechecker.fs" />
     <Compile Include="Prepass.fs" />
