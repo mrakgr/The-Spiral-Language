@@ -501,7 +501,6 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
     // TODO: Rather than return an error during parsing for this particular error, for the typechecking pass I'll replace it with a metavariable stump.
     | None -> Error [r, MissingFunctionBody]
     | Some body ->
-        
         let name, pats =
             match name with
             | PatUnbox(_,PatPair(_,PatSymbol(r,name), pat)) -> PatVar(r,name), pat :: pats
@@ -510,7 +509,7 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
         match is_rec, name, foralls, pats with
         | false, _, [], [] -> 
             match patterns_validate [name] with
-            | [] -> Ok((r,dyn_if_let name,body),is_rec)
+            | [] -> Ok((r,name,body),is_rec)
             | ers -> Error ers
         | _, PatVar _, _, _ -> 
             match patterns_validate (if is_rec then name :: pats else pats) with
