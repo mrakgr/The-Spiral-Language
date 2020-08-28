@@ -24,7 +24,7 @@ and [<ReferenceEquality>] Var = {
     scope : int
     constraints : Constraint Set // Must be stated up front and needs to be static in forall vars
     kind : TT // Is not supposed to have metavars.
-    mutable name : string // Is what gets printed.
+    name : string // Is what gets printed.
     }
 
 and [<ReferenceEquality>] MVar = {
@@ -302,11 +302,16 @@ let lit = function
     | LitChar _ -> TyPrim CharT
 
 open Spiral.TypecheckingUtils
+open System.Collections.Generic
 let infer (top_env' : TopEnv) (env : Env) expr =
     let hoc = top_env'.hoc
     let top_env = loc_env top_env'
     let errors = ResizeArray()
     let scope = ref 0
+    let autogened_forallvar_count = ref 0
+
+    let hover_types = Dictionary(HashIdentity.Reference)
+    let type_application = Dictionary(HashIdentity.Reference)
 
     let fresh_kind () = KindMetavar {contents'=None}
     let fresh_var'' x = TyMetavar (x, ref None)
@@ -322,17 +327,19 @@ let infer (top_env' : TopEnv) (env : Env) expr =
     let typevar_to_var ((r,(name,kind)) : TypeVar) : Var = {scope= !scope; constraints=Set.empty; kind=typevar kind; name=name}
     let generalize (forall_vars : Var list) (body : T) = 
         let scope = !scope
-        let h = System.Collections.Generic.HashSet()
+        let h = HashSet(HashIdentity.Reference)
+        List.iter (h.Add >> ignore) forall_vars
         let generalized_metavars = ResizeArray()
         let rec replace_metavars x =
             let f = replace_metavars
             match x with
             | TyMetavar(_,{contents=Some x} & link) -> go x link f
             | TyMetavar(x, link) when scope = x.scope ->
-                let v = TyVar {scope=x.scope; constraints=x.constraints; kind=kind_force x.kind; name=null}
+                let v = TyVar {scope=x.scope; constraints=x.constraints; kind=kind_force x.kind; name=sprintf "'%i" !autogened_forallvar_count}
+                incr autogened_forallvar_count
                 link := Some v
                 replace_metavars v
-            | TyVar v -> (if v.name = null && h.Add(v) then generalized_metavars.Add(v)); x
+            | TyVar v -> (if h.Add(v) then generalized_metavars.Add(v)); x
             | TyMetavar _ | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
             | TyPair(a,b) -> TyPair(f a, f b)
             | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
@@ -440,13 +447,13 @@ let infer (top_env' : TopEnv) (env : Env) expr =
         let v x = Map.tryFind x env.term |> Option.orElseWith (fun () -> Map.tryFind x top_env.term) |> Option.map visit_t
         match x with
         | RawB r -> unify r s TyB
-        | RawV(r,x) ->
-            match v x with
+        | RawV(r,a) ->
+            match v a with
+            | None -> errors.Add(r,UnboundVariable)
             | Some (TySymbol "<real>") -> errors.Add(r,RealFunctionInTopDown)
-            | Some x -> unify r s (forall_subst_all x)
-            | None -> errors.Add(r, UnboundVariable)
-        | RawLit(r,x) -> unify r s (lit x)
-        | RawDefaultLit _ -> ()
+            | Some a -> hover_types.Add(r,a); type_application.Add(x,s); unify r s (forall_subst_all a)
+        | RawDefaultLit(r,_) -> hover_types.Add(r,s); type_application.Add(x,s); unify r s (fresh_subst_var (Set.singleton CNumber) KindType)
+        | RawLit(r,a) -> unify r s (lit a)
         | RawSymbolCreate(r,x) -> unify r s (TySymbol x)
         | RawType(_,x) -> ty env s x
         | RawIfThenElse(_,cond,tr,fl) -> f (TyPrim BoolT) cond; f s tr; f s fl
@@ -494,23 +501,23 @@ let infer (top_env' : TopEnv) (env : Env) expr =
                             let v = fresh_var()
                             f (TyFun(x,v)) b
                             Map.add a v m
-                        let inline with_injext next ((r,a),b) =
+                        let inline with_inject next ((r,a),b) =
                             match v a with
-                            | Some (TySymbol a) -> next ((r,a),b)
+                            | Some (TySymbol a as x) -> hover_types.Add(r,x); next ((r,a),b)
                             | Some x -> errors.Add(r, ExpectedSymbolAsRecordKey x); m
                             | None -> errors.Add(r, UnboundVariable); m
                         match x with
                         | RawRecordWithSymbol(a,b) -> with_symbol (a,b)
                         | RawRecordWithSymbolModify(a,b) -> with_symbol_modify (a,b)
-                        | RawRecordWithInjectVar(a,b) -> with_injext with_symbol (a,b)
-                        | RawRecordWithInjectVarModify(a,b) -> with_injext with_symbol_modify (a,b)
+                        | RawRecordWithInjectVar(a,b) -> with_inject with_symbol (a,b)
+                        | RawRecordWithInjectVarModify(a,b) -> with_inject with_symbol_modify (a,b)
                         ) m withs
                 let m =
                     List.fold (fun m -> function
                         | RawRecordWithoutSymbol(_,a) -> Map.remove a m
                         | RawRecordWithoutInjectVar(r,a) ->
                             match v a with
-                            | Some (TySymbol a) -> Map.remove a m
+                            | Some (TySymbol a as x) -> hover_types.Add(r,x); Map.remove a m
                             | Some x -> errors.Add(r, ExpectedSymbolAsRecordKey x); m
                             | None -> errors.Add(r, UnboundVariable); m
                         ) m withouts
@@ -533,35 +540,38 @@ let infer (top_env' : TopEnv) (env : Env) expr =
             unify r s (TyFun(q,w))
             List.iter (fun (a,b) -> term (pattern env q a) w b) l
         | RawForall _ -> failwith "Compiler error: Should be handled in let statements."
-        | RawMatch(_,(RawForall _ | RawFun _) & body,[PatVar(_,name), on_succ]) -> term (standard_let env (name, body)) s on_succ
-        | RawRecBlock(_,l',on_succ) -> term (recursive_let env l') s on_succ
+        | RawMatch(_,(RawForall _ | RawFun _) & body,[PatVar(r,name), on_succ]) -> term (inl env ((r, name), body)) s on_succ
+        | RawRecBlock(_,l',on_succ) -> term (rec_block env l') s on_succ
         | RawMatch(_,body,l) ->
             let body_var = fresh_var()
             let l = List.map (fun (a,on_succ) -> pattern env body_var a, on_succ) l
             f body_var body
             List.iter (fun (env,on_succ) -> term env s on_succ) l
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
-    and standard_let env (name, body) =
+    and inl env ((r, name), body) =
         incr scope
         let vars,body = foralls_get body
         let vars = List.map typevar_to_var vars
         let body_var = fresh_var()
         term {env with ty = List.fold (fun s x -> Map.add x.name (TyVar x) s) env.ty vars} body_var body
-        let env = {env with term = Map.add name (generalize vars body_var) env.term }
+        let t = generalize vars body_var
+        hover_types.Add(r,t)
+        let env = {env with term = Map.add name t env.term }
         decr scope
         env
-    and recursive_let env l' =
+    and rec_block env l' =
         incr scope
         let env =
             let has_foralls = List.exists (function (_,RawForall _) -> true | _ -> false) l'
             if has_foralls then
                 let i = errors.Count
                 let l,m =
-                    List.mapFold (fun s ((_,name),body) ->
+                    List.mapFold (fun s ((r,name),body) ->
                         let vars,body = foralls_get body
                         let vars = List.map typevar_to_var vars
                         let ty = List.fold (fun s x -> Map.add x.name (TyVar x) s) env.ty vars
                         let body_var = term_annotations {env with ty = ty} body
+                        hover_types.Add(r,body_var)
                         let term env = term {env with ty = ty} body_var body
                         term, Map.add name (List.foldBack (fun x s -> TyForall(x,s)) vars body_var) s
                         ) env.term l'
@@ -577,10 +587,13 @@ let infer (top_env' : TopEnv) (env : Env) expr =
                     |> fun term -> {env with term = term}
             else 
                 let l, m = 
-                    List.mapFold (fun s ((_,name),body) -> 
+                    List.mapFold (fun s ((r,name),body) -> 
                         let body_var = fresh_var()
                         let term env = term env body_var body
-                        let gen env : Env = {env with term = Map.add name (generalize [] body_var) env.term}
+                        let gen env : Env = 
+                            let t = generalize [] body_var
+                            hover_types.Add(r,t)
+                            {env with term = Map.add name t env.term}
                         (term, gen), Map.add name body_var s
                         ) env.term l'
                 let _ =
@@ -606,15 +619,15 @@ let infer (top_env' : TopEnv) (env : Env) expr =
     and ty (env : Env) s x =
         let f s x = ty env s x
         match x with
-        | RawTWildcard _ -> ()
+        | RawTWildcard r -> hover_types.Add(r,s)
+        | RawTVar(r,x) -> 
+            match Map.tryFind x env.ty |> Option.orElseWith (fun () -> Map.tryFind x top_env.ty) with
+            | Some x -> hover_types.Add(r,x); unify r s x
+            | None -> errors.Add(r, UnboundVariable)
         | RawTB r -> unify r s TyB
         | RawTSymbol(r,x) -> unify r s (TySymbol x)
         | RawTPrim(r,x) -> unify r s (TyPrim x)
         | RawTArray(r,x) -> let v = fresh_var() in unify r s (TyArray v); f v x
-        | RawTVar(r,x) -> 
-            match Map.tryFind x env.ty |> Option.orElseWith (fun () -> Map.tryFind x top_env.ty) with
-            | Some x -> unify r s x
-            | None -> errors.Add(r, UnboundVariable)
         | RawTPair(r,a,b) -> 
             let q,w = fresh_var(), fresh_var()
             unify r s (TyPair(q,w))
@@ -627,7 +640,11 @@ let infer (top_env' : TopEnv) (env : Env) expr =
             let l' = Map.map (fun _ _ -> fresh_var()) l
             unify r s (TyRecord l')
             Map.iter (fun k s -> f s l.[k]) l'
-        | RawTForall _ -> failwith "Compiler error: Needs special handling. Foralls can only appear in prototype definitions right now so it should be handled there."
+        | RawTForall(r,a,b) ->
+            let a = typevar_to_var a
+            let body_var = fresh_var()
+            ty {env with ty = Map.add a.name (TyVar a) env.ty} body_var b
+            unify r s (TyForall(a, body_var))
         | RawTApply(r,a',b) ->
             let f' k x = let v = fresh_var' k in f v x; visit_t v
             match f' (fresh_kind()) a' with
@@ -665,8 +682,9 @@ let infer (top_env' : TopEnv) (env : Env) expr =
             let v x = Map.tryFind x env.term |> Option.orElseWith (fun () -> Map.tryFind x top_env.term)
             match a with
             | PatB r -> unify r s TyB; env
-            | PatE _ -> env
+            | PatE r -> hover_types.Add(r,s); env
             | PatVar(r,a) ->
+                hover_types.Add(r,s)
                 if is_first.Add a then {env with term=Map.add a s env.term}
                 else unify r s env.term.[a]; env
             | PatDyn(_,a) -> f s a
@@ -691,7 +709,7 @@ let infer (top_env' : TopEnv) (env : Env) expr =
                         | PatRecordMembersSymbol((r,a),b) -> Some (a,b)
                         | PatRecordMembersInjectVar((r,a),b) ->
                             match v a with
-                            | Some (TySymbol a) -> Some (a,b)
+                            | Some (TySymbol a as x) -> hover_types.Add(r,x); Some (a,b)
                             | Some x -> errors.Add(r, ExpectedSymbolAsRecordKey x); None
                             | None -> errors.Add(r, UnboundVariable); None
                         ) l
@@ -791,8 +809,8 @@ let infer (top_env' : TopEnv) (env : Env) expr =
         ty {term=Map.empty; ty=add_vars Map.empty vars} v expr
         let body = List.foldBack (fun a b -> TyForall(a,b)) l (visit_t v)
         {top_env' with term = Map.add name body top_env.term}
-    | BundleInl(_,(_,name),a,true) -> 
-        let env = standard_let {term=Map.empty; ty=Map.empty} (name,a)
+    | BundleInl(_,name,a,true) -> 
+        let env = inl {term=Map.empty; ty=Map.empty} (name,a)
         {top_env' with term = Map.foldBack Map.add env.term top_env.term}
     | BundleInl(_,(_,name),a,false) ->
         assert_bound_vars {term=Map.empty; ty=Map.empty} a
@@ -801,7 +819,7 @@ let infer (top_env' : TopEnv) (env : Env) expr =
         match l with 
         | BundleRecInl(_,_,_,true) :: _ -> 
             let l = List.map (function BundleRecInl(_,a,b,_) -> a,b) l
-            (recursive_let {term=Map.empty; ty=Map.empty} l).term
+            (rec_block {term=Map.empty; ty=Map.empty} l).term
         | _ ->
             let env_term = List.fold (fun s (BundleRecInl(_,(_,a),_,_)) -> Map.add a (TySymbol "<real>") s) env.term l
             l |> List.iter (fun (BundleRecInl(_,_,x,_)) -> assert_bound_vars {term = env_term; ty = Map.empty} x)
