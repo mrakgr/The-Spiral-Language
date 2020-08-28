@@ -9,13 +9,7 @@ type TT =
     | KindFun of TT * TT
     | KindMetavar of TT option ref'
 
-type ConstraintId =
-    | CINumber // * -> /
 
-let id_to_kind x = 
-    let (^) a b = KindFun(a,b) // ^ is right assoc
-    match x with
-    | CINumber -> KindType ^ KindConstraint
 
 type Constraint =
     | CNumber
@@ -42,7 +36,6 @@ and T =
     | TyFun of T * T
     | TyArray of T
     | TyHigherOrder of int * TT
-    | TyConstraint of ConstraintId
     | TyApply of T * T * TT // Regular type functions (TyInl) get reduced, while this represents the staged reduction of nominals.
     | TyInl of Var * T
     | TyForall of Var * T
@@ -52,7 +45,6 @@ and T =
 type TypeError =
     | KindError of TT * TT
     | KindError' of T * T
-    | RecordKeyNotFound of string
     | ExpectedSymbolAsRecordKey of T
     | UnboundVariable
     | UnboundModule
@@ -62,17 +54,15 @@ type TypeError =
     | TermError of T * T
     | ForallVarScopeError of string * T * T
     | ForallVarConstraintError of string * T * T
-    | ForallMetavarScopeError of string * T * T
     | MetavarsNotAllowedInRecordWith
     | ExpectedRecord of T
-    | ExpectedRecordAsResultOfIndex of string
+    | ExpectedRecordAsResultOfIndex of T
     | RecordIndexFailed of string
-    | ExpectedSymbolInRecordWith
+    | ExpectedSymbolInRecordWith of T
     | RealFunctionInTopDown
-    | RealNominalInTopDownPattern
-    | MissingRecordFieldsInPattern of string list
+    | MissingRecordFieldsInPattern of T * string list
     | CasePatternNotFoundForType of int
-    | CasePatternNotFound of string
+    | CasePatternNotFound
     | CannotInferCasePatternFromTermInEnv of T
     | NominalInPatternUnbox of int
     | TypeInGlobalEnvIsNotNominal of T
@@ -80,7 +70,7 @@ type TypeError =
     | ConstraintError of Constraint * T
     | ExpectedAnnotation
     | ExpectedSinglePattern
-    | RecursiveAnnotationHasMetavars
+    | RecursiveAnnotationHasMetavars of T
     | ValueRestriction of T
 
 let inline go' x link next = let x = next x in link.contents' <- Some x; x
@@ -100,7 +90,6 @@ let rec tt = function
     | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar({kind=x},_) | TyVar({kind=x}) -> x
     | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
     | TyInl(v,a) -> KindFun(v.kind,tt a)
-    | TyConstraint id -> id_to_kind id
 
 let rec typevar = function
     | RawKindWildcard | RawKindStar -> KindType
@@ -228,7 +217,7 @@ let assert_bound_vars (top_env : Env) term ty x =
 let rec subst (m : (Var * T) list) x =
     let f = subst m
     match x with
-    | TyConstraint _ | TyMetavar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> x
+    | TyMetavar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> x
     | TyPair(a,b) -> TyPair(f a, f b)
     | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
     | TyFun(a,b) -> TyFun(f a, f b)
@@ -250,7 +239,7 @@ let rec kind_subst = function
 
 let rec term_subst = function
     | TyMetavar(_,{contents=Some x} & link) -> go x link term_subst
-    | TyMetavar _ | TyConstraint _ | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
+    | TyMetavar _ | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
     | TyPair(a,b) -> TyPair(term_subst a, term_subst b)
     | TyRecord l -> TyRecord(Map.map (fun _ -> term_subst) l)
     | TyFun(a,b) -> TyFun(term_subst a, term_subst b)
@@ -272,7 +261,7 @@ let rec kind_force = function
 let rec has_metavars x =
     let f = has_metavars
     match visit_t x with
-    | TyVar _ | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> false
+    | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> false
     | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
     | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a && f b
     | TyRecord l -> Map.exists (fun _ -> f) l
@@ -308,6 +297,8 @@ let show_kind x =
         | KindFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
     f -1 x
 
+let show_hoc (env : TopEnv) i = match env.hoc.[i] with HOCNominal(name,_,_) | HOCUnion(name,_,_) -> name
+
 let show_t (env : TopEnv) x =
     let show_var (a : Var) =
         let n = match a.kind with KindType -> a.name | _ -> sprintf "(%s : %s)" a.name (show_kind a.kind)
@@ -319,7 +310,7 @@ let show_t (env : TopEnv) x =
         | TyMetavar(_,{contents=Some x}) -> f prec x
         | TyMetavar _ -> "?"
         | TyVar a -> a.name
-        | TyHigherOrder(i,_) -> match env.hoc.[i] with HOCNominal(name,_,_) | HOCUnion(name,_,_) -> name
+        | TyHigherOrder(i,_) -> show_hoc env i
         | TyB -> "()"
         | TyPrim x -> show_primt x
         | TySymbol x -> sprintf ".%s" x
@@ -347,6 +338,38 @@ let show_t (env : TopEnv) x =
 
     f -1 x
 
+let show_type_error (env : TopEnv) x =
+    let f = show_t env
+    match x with
+    | KindError(a,b) -> sprintf "Kind unification failure.\nGot: %s\nExpected: %s" (show_kind a) (show_kind b)
+    | KindError'(a,b) -> sprintf "Kind unification failure.\nGot: %s\nExpected: %s" (f a) (f b)
+    | TermError(a,b) -> sprintf "Unification failure.\nGot: %s\nExpected: %s" (f a) (f b)
+    | ExpectedSymbolAsRecordKey a -> sprintf "Expected symbol as a record key.\nGot: %s" (f a)
+    | UnboundVariable -> sprintf "Unbound variable."
+    | UnboundModule -> sprintf "Unbound module."
+    | ModuleIndexFailedInOpen -> sprintf "Module does not have a submodule with that key."
+    | ExpectedSymbolAsUnionKey -> sprintf "Expected a symbol as the union key."
+    | DuplicateKeyInUnion -> sprintf "Union cases must have unique keys."
+    | ForallVarScopeError(a,_,_) -> sprintf "Tried to unify the forall variable %s with a metavar outside its scope." a
+    | ForallVarConstraintError(_,a,b) -> sprintf "Metavariable's constraints must be a subset of the forall vars'.\nGot: %s\nExpected: %s" (f a) (f b)
+    | MetavarsNotAllowedInRecordWith -> sprintf "In the top-down segment the record keys need to be fully known. Please add an annotation."
+    | ExpectedRecord a -> sprintf "Expected a record.\nGot: %s" (f a)
+    | ExpectedRecordAsResultOfIndex a -> sprintf "Expected a record as result of index.\nGot: %s" (f a)
+    | RecordIndexFailed a -> sprintf "The record does not have the key: %s" a
+    | ExpectedSymbolInRecordWith a -> sprintf "Expected a symbol.\nGot: %s" (f a)
+    | RealFunctionInTopDown -> sprintf "Real segment functions are forbidden in the top-down segment."
+    | MissingRecordFieldsInPattern(a,b) -> sprintf "The record is missing the following fields: %s.\nGot: %s" (String.concat ", " b) (f a)
+    | CasePatternNotFoundForType i -> sprintf "%s does not have this case." (show_hoc env i)
+    | CasePatternNotFound -> "Cannot find a function with the same name as this case in the environment."
+    | CannotInferCasePatternFromTermInEnv a -> sprintf "Cannot infer the higher order type that has this case from the following type.\nGot: %s" (f a)
+    | NominalInPatternUnbox i -> sprintf "Expected an union type, but %s is a nominal." (show_hoc env i)
+    | TypeInGlobalEnvIsNotNominal a -> sprintf "Expected a nominal type.\nGot: %s" (f a)
+    | UnionInPatternNominal i -> sprintf "Expected a nominal type, but %s is an union." (show_hoc env i)
+    | ConstraintError(a,b) -> sprintf "Constraint satisfaction error.\nGot: %s\nFails to satisfy: %s" (f b) (show_constraint a)
+    | ExpectedAnnotation -> sprintf "Recursive functions with foralls must be fully annotated."
+    | ExpectedSinglePattern -> sprintf "Recursive functions with foralls must not have multiple clauses in their patterns."
+    | RecursiveAnnotationHasMetavars a -> sprintf "Recursive functions with foralls must not have metavars.\nGot: %s" (f a)
+    | ValueRestriction a -> sprintf "Metavars that are not part of the parent function's signature are not allowed. They need to be values.\nGot: %s" (f a)
 
 let loc_env (x : TopEnv) = {term=x.term; ty=x.ty}
 let var_of (name,kind) = {scope=0; constraints=Set.empty; kind=kind; name=name}
@@ -410,7 +433,7 @@ let infer (top_env' : TopEnv) (env : Env) expr =
                 link := Some v
                 replace_metavars v
             | TyVar v -> (if h.Add(v) then generalized_metavars.Add(v)); x
-            | TyMetavar _ | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
+            | TyMetavar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
             | TyPair(a,b) -> TyPair(f a, f b)
             | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
             | TyFun(a,b) -> TyFun(f a, f b)
@@ -445,7 +468,7 @@ let infer (top_env' : TopEnv) (env : Env) expr =
         let rec validate_unification i x =
             let f = validate_unification i
             match visit_t x with
-            | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> ()
+            | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> ()
             | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
             | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a; f b
             | TyRecord l -> Map.iter (fun _ -> f) l
@@ -483,7 +506,6 @@ let infer (top_env' : TopEnv) (env : Env) expr =
             | TyB, TyB -> ()
             | TyPrim x, TyPrim x' when x = x' -> ()
             | TySymbol x, TySymbol x' when x = x' -> ()
-            | TyConstraint x, TyConstraint x' when x = x' -> ()
             | TyArray a, TyArray b -> loop (a,b)
             // Note: Unifying these two only makes sense if the expected is fully inferred already.
             | TyForall(a,b), TyForall(a',b') | TyInl(a,b), TyInl(a',b') when a.kind = a'.kind -> loop (b, subst [a',TyVar a] b')
@@ -549,16 +571,17 @@ let infer (top_env' : TopEnv) (env : Env) expr =
             | Error e -> errors.Add(e)
         | RawRecordWith(r,l,withs,withouts) ->
             let i = errors.Count
+            let er_metavar () = raise (TypeErrorException (if errors.Count = i then [range_of_expr x, MetavarsNotAllowedInRecordWith] else []))
             let record x =
                 match f' x with
                 | TyRecord m -> m
-                | TyMetavar _ -> raise (TypeErrorException (if errors.Count = i then [range_of_expr x, MetavarsNotAllowedInRecordWith] else []))
+                | TyMetavar _ -> er_metavar()
                 | a -> raise (TypeErrorException [range_of_expr x, ExpectedRecord a])
             let symbol x =
                 match f' x with
                 | TySymbol x -> x
-                | TyMetavar _ -> raise (TypeErrorException (if errors.Count = i then [range_of_expr x, MetavarsNotAllowedInRecordWith] else []))
-                | _ -> raise (TypeErrorException [range_of_expr x, ExpectedSymbolInRecordWith])
+                | TyMetavar _ -> er_metavar()
+                | a -> raise (TypeErrorException [range_of_expr x, ExpectedSymbolInRecordWith a])
             let tc (l,m) =
                 let m =
                     List.fold (fun m x -> 
@@ -599,7 +622,7 @@ let infer (top_env' : TopEnv) (env : Env) expr =
                         let sym = symbol x
                         match Map.tryFind sym m with
                         | Some (TyRecord m') -> (m,sym), m'
-                        | Some _ -> raise (TypeErrorException [range_of_expr x, ExpectedRecordAsResultOfIndex sym])
+                        | Some a -> raise (TypeErrorException [range_of_expr x, ExpectedRecordAsResultOfIndex a])
                         | None -> raise (TypeErrorException [range_of_expr x, RecordIndexFailed sym])
                         ) (record x) x'
                 | [] -> [], Map.empty
@@ -678,7 +701,7 @@ let infer (top_env' : TopEnv) (env : Env) expr =
             let v = fresh_var()
             ty env v t
             let v = term_subst v
-            if i = errors.Count && has_metavars v = false then errors.Add(range_of_texpr t, RecursiveAnnotationHasMetavars)
+            if i = errors.Count && has_metavars v = false then errors.Add(range_of_texpr t, RecursiveAnnotationHasMetavars v)
             v
         match x with
         | RawFun(_,[(PatAnnot(_,_,t) | PatDyn(_,PatAnnot(_,_,t))),body]) -> TyFun(f t, term_annotations env body)
@@ -784,14 +807,14 @@ let infer (top_env' : TopEnv) (env : Env) expr =
                             | None -> errors.Add(r, UnboundVariable); None
                         ) l
                 match visit_t s with
-                | TyRecord l' ->
+                | TyRecord l' as s ->
                     let l, missing =
                         List.mapFoldBack (fun (a,b) missing ->
                             match Map.tryFind a l' with
                             | Some x -> (x,b), missing
                             | None -> (fresh_var(),b), a :: missing
                             ) l []
-                    if List.isEmpty missing = false then errors.Add(r, MissingRecordFieldsInPattern missing)
+                    if List.isEmpty missing = false then errors.Add(r, MissingRecordFieldsInPattern(s, missing))
                     List.fold (fun env (a,b) -> pattern env a b) env l
                 | s ->
                     let l, env =
@@ -819,7 +842,7 @@ let infer (top_env' : TopEnv) (env : Env) expr =
                         match term_subst x |> ho_fun with
                         | ValueSome i -> assume i
                         | ValueNone -> errors.Add(r,CannotInferCasePatternFromTermInEnv x); f (fresh_var()) a
-                    | None -> errors.Add(r,CasePatternNotFound name); f (fresh_var()) a
+                    | None -> errors.Add(r,CasePatternNotFound); f (fresh_var()) a
             | PatUnbox _ -> failwith "Compiler error: Malformed PatUnbox."
             | PatNominal(_,(r,name),a) ->
                 match Map.tryFind name env.ty |> Option.orElseWith (fun () -> Map.tryFind name top_env.ty) with
