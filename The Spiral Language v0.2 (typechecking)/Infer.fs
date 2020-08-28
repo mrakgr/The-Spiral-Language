@@ -81,6 +81,7 @@ type TypeError =
     | ExpectedAnnotation
     | ExpectedSinglePattern
     | RecursiveAnnotationHasMetavars
+    | ValueRestriction of T
 
 let inline go' x link next = let x = next x in link.contents' <- Some x; x
 let rec visit_tt = function
@@ -113,8 +114,8 @@ let rec metavars = function
     | RawTRecord(_,l) -> Map.fold (fun s _ v -> s + metavars v) Set.empty l
 
 type HigherOrderCases =
-    | HOCUnion of Var list * Map<string,T>
-    | HOCNominal of Var list * T
+    | HOCUnion of name: string * Var list * Map<string,T>
+    | HOCNominal of name: string * Var list * T
 
 open FSharpx.Collections
 type TopEnv = {
@@ -277,8 +278,77 @@ let rec has_metavars x =
     | TyRecord l -> Map.exists (fun _ -> f) l
     | TyMetavar(x,_) -> true
 
-let loc_env (x : TopEnv) = {term=x.term; ty=x.ty}
+let show_primt = function
+    | UInt8T -> "u8"
+    | UInt16T -> "u16"
+    | UInt32T -> "u32"
+    | UInt64T -> "u64"
+    | Int8T -> "i8"
+    | Int16T -> "i16"
+    | Int32T -> "i32"
+    | Int64T -> "i64"
+    | Float32T -> "f32"
+    | Float64T -> "f64"
+    | BoolT -> "bool"
+    | StringT -> "string"
+    | CharT -> "char"
 
+let show_constraint = function
+    | CNumber -> "number"
+
+let show_constraints x = Set.toList x |> List.map show_constraint |> String.concat "; " |> sprintf "{%s}"
+let show_kind x =
+    let rec f prec x =
+        let p prec' x = if prec < prec' then x else sprintf "(%s)" x
+        match x with
+        | KindMetavar {contents'=Some x} -> f prec x
+        | KindMetavar _ -> "?"
+        | KindType -> "*"
+        | KindConstraint -> "/"
+        | KindFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
+    f -1 x
+
+let show_t (env : TopEnv) x =
+    let show_var (a : Var) =
+        let n = match a.kind with KindType -> a.name | _ -> sprintf "(%s : %s)" a.name (show_kind a.kind)
+        if Set.isEmpty a.constraints then n
+        else sprintf "%s %s" n (show_constraints a.constraints)
+    let rec f prec x =
+        let p prec' x = if prec < prec' then x else sprintf "(%s)" x
+        match x with
+        | TyMetavar(_,{contents=Some x}) -> f prec x
+        | TyMetavar _ -> "?"
+        | TyVar a -> a.name
+        | TyHigherOrder(i,_) -> match env.hoc.[i] with HOCNominal(name,_,_) | HOCUnion(name,_,_) -> name
+        | TyB -> "()"
+        | TyPrim x -> show_primt x
+        | TySymbol x -> sprintf ".%s" x
+        | TyForall _ -> 
+            let a, b =
+                let rec loop = function
+                    | TyForall(a,b) -> let a',b = loop b in (a :: a'), b
+                    | b -> [], b
+                loop x
+            let a = List.map show_var a |> String.concat " "
+            p 0 (sprintf "∀ %s. %s" a (f -1 b))
+        | TyInl _ -> 
+            let a, b =
+                let rec loop = function
+                    | TyInl(a,b) -> let a',b = loop b in (a :: a'), b
+                    | b -> [], b
+                loop x
+            let a = List.map show_var a |> String.concat " "
+            p 0 (sprintf "%s => %s" a (f -1 b))
+        | TyArray a -> p 30 (sprintf "array %s" (f 30 a))
+        | TyApply(a,b,_) -> p 30 (sprintf "%s %s" (f 29 a) (f 30 b))
+        | TyPair(a,b) -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b))
+        | TyFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
+        | TyRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
+
+    f -1 x
+
+
+let loc_env (x : TopEnv) = {term=x.term; ty=x.ty}
 let var_of (name,kind) = {scope=0; constraints=Set.empty; kind=kind; name=name}
 let typevars (l : TypeVar list) = List.map (fun (_,(a,b)) -> var_of (a, typevar b)) l
 let add_var s x = Map.add x.name (TyVar x) s
@@ -734,7 +804,7 @@ let infer (top_env' : TopEnv) (env : Env) expr =
             | PatUnbox(r,PatPair(_,PatSymbol(_,name), a)) ->
                 let assume i =
                     match hoc.[i] with
-                    | HOCUnion(vars,cases) ->
+                    | HOCUnion(_,vars,cases) ->
                         let x,m = ho_make i vars
                         unify r s x
                         match Map.tryFind name cases with
@@ -757,7 +827,7 @@ let infer (top_env' : TopEnv) (env : Env) expr =
                     match ho_index x with
                     | ValueSome i ->
                         match hoc.[i] with
-                        | HOCNominal(vars,v) -> let x,m = ho_make i vars in unify r s x; f (subst m v) a
+                        | HOCNominal(_,vars,v) -> let x,m = ho_make i vars in unify r s x; f (subst m v) a
                         | HOCUnion _ -> errors.Add(r,UnionInPatternNominal i); f (fresh_var()) a
                     | ValueNone -> errors.Add(r,TypeInGlobalEnvIsNotNominal x); f (fresh_var()) a
                 | _ -> errors.Add(r,UnboundVariable); f (fresh_var()) a
@@ -784,11 +854,11 @@ let infer (top_env' : TopEnv) (env : Env) expr =
         let hoc =
             List.fold (fun hoc x ->
                 match x with
-                | Choice1Of2(_,_,vars,expr) ->
+                | Choice1Of2(_,name,vars,expr) ->
                     let v = fresh_var()
                     ty {term=Map.empty; ty=add_vars env_ty vars} v expr 
-                    PersistentVector.conj (HOCNominal(vars, visit_t v)) hoc
-                | Choice2Of2(_,_,vars,l) ->
+                    PersistentVector.conj (HOCNominal(name,vars, visit_t v)) hoc
+                | Choice2Of2(_,name,vars,l) ->
                     List.fold (fun cases expr ->
                         let v = fresh_var()
                         ty {term=Map.empty; ty=add_vars env_ty vars} v expr 
@@ -798,7 +868,7 @@ let infer (top_env' : TopEnv) (env : Env) expr =
                             else Map.add x b cases
                         | _ -> errors.Add (range_of_texpr expr, ExpectedSymbolAsUnionKey); cases
                         ) Map.empty l
-                    |> fun l -> PersistentVector.conj (HOCUnion(vars,l)) hoc
+                    |> fun l -> PersistentVector.conj (HOCUnion(name,vars,l)) hoc
                 ) hoc l
         {top_env' with hoc = hoc; ty = env_ty}
     | BundlePrototype(_,(_,name),vars,expr) ->
@@ -826,4 +896,6 @@ let infer (top_env' : TopEnv) (env : Env) expr =
             env_term
         |> fun env_term -> {top_env' with term = Map.foldBack Map.add env_term top_env.term}
     | BundleInstance _ -> failwith "TODO: Instances not implemented yet."
-    |> fun x -> if 0 < errors.Count then raise (TypeErrorException (Seq.toList errors)) else x
+    |> fun x -> 
+        type_application |> Seq.iter (fun x -> if has_metavars x.Value then errors.Add(range_of_expr x.Key, ValueRestriction x.Value))
+        if 0 < errors.Count then raise (TypeErrorException (Seq.toList errors)) else x
