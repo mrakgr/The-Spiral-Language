@@ -1,7 +1,7 @@
-inl f x = x + y
-
 inl f x =
     inl (+) (a : i32) (b : i32) = !!!!Add(a,b) : i32
-    1 + 5 + 2 + 3 + -x
+    1 + 5 + 2 + 3 + x
 
-inl f x = x + x + x + x + x + x
+inl id forall t. (x : t) = x
+inl rec q forall t. (x : t) = x : t
+inl rec w forall t. ((+) : t -> t -> t) (x : t) = (x + x + x) : t

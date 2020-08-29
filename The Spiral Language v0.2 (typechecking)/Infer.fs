@@ -72,6 +72,7 @@ type TypeError =
     | ExpectedSinglePattern
     | RecursiveAnnotationHasMetavars of T
     | ValueRestriction of T
+    | DuplicateRecInlName
 
 let inline go' x link next = let x = next x in link.contents' <- Some x; x
 let rec visit_tt = function
@@ -309,7 +310,7 @@ let show_t (env : TopEnv) x =
         match x with
         | TyMetavar(_,{contents=Some x}) -> f prec x
         | TyMetavar _ -> "?"
-        | TyVar a -> a.name
+        | TyVar a -> show_var a
         | TyHigherOrder(i,_) -> show_hoc env i
         | TyB -> "()"
         | TyPrim x -> show_primt x
@@ -321,7 +322,7 @@ let show_t (env : TopEnv) x =
                     | b -> [], b
                 loop x
             let a = List.map show_var a |> String.concat " "
-            p 0 (sprintf "∀ %s. %s" a (f -1 b))
+            p 0 (sprintf "forall %s. %s" a (f -1 b))
         | TyInl _ -> 
             let a, b =
                 let rec loop = function
@@ -332,7 +333,7 @@ let show_t (env : TopEnv) x =
             p 0 (sprintf "%s => %s" a (f -1 b))
         | TyArray a -> p 30 (sprintf "array %s" (f 30 a))
         | TyApply(a,b,_) -> p 30 (sprintf "%s %s" (f 29 a) (f 30 b))
-        | TyPair(a,b) -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b))
+        | TyPair(a,b) -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b)) // TODO: Don't forget the paired symbol pattern.
         | TyFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
         | TyRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
 
@@ -341,9 +342,9 @@ let show_t (env : TopEnv) x =
 let show_type_error (env : TopEnv) x =
     let f = show_t env
     match x with
-    | KindError(a,b) -> sprintf "Kind unification failure.\nGot: %s\nExpected: %s" (show_kind a) (show_kind b)
-    | KindError'(a,b) -> sprintf "Kind unification failure.\nGot: %s\nExpected: %s" (f a) (f b)
-    | TermError(a,b) -> sprintf "Unification failure.\nGot: %s\nExpected: %s" (f a) (f b)
+    | KindError(a,b) -> sprintf "Kind unification failure.\nGot:      %s\nExpected: %s" (show_kind a) (show_kind b)
+    | KindError'(a,b) -> sprintf "Kind unification failure.\nGot:      %s\nExpected: %s" (f a) (f b)
+    | TermError(a,b) -> sprintf "Unification failure.\nGot:      %s\nExpected: %s" (f a) (f b)
     | ExpectedSymbolAsRecordKey a -> sprintf "Expected symbol as a record key.\nGot: %s" (f a)
     | UnboundVariable -> sprintf "Unbound variable."
     | UnboundModule -> sprintf "Unbound module."
@@ -370,6 +371,7 @@ let show_type_error (env : TopEnv) x =
     | ExpectedSinglePattern -> sprintf "Recursive functions with foralls must not have multiple clauses in their patterns."
     | RecursiveAnnotationHasMetavars a -> sprintf "Recursive functions with foralls must not have metavars.\nGot: %s" (f a)
     | ValueRestriction a -> sprintf "Metavars that are not part of the enclosing function's signature are not allowed. They need to be values.\nGot: %s" (f a)
+    | DuplicateRecInlName -> "Shadowing of functions by the members of the same mutually recursive block is not allowed."
 
 let loc_env (x : TopEnv) = {term=x.term; ty=x.ty}
 let var_of (name,kind) = {scope=0; constraints=Set.empty; kind=kind; name=name}
@@ -393,6 +395,20 @@ let lit = function
     | LitBool _ -> TyPrim BoolT
     | LitString _ -> TyPrim StringT
     | LitChar _ -> TyPrim CharT
+
+// TODO: Extend this later.
+let rec strip_fun_pat x = 
+    x |> List.map (function
+        | PatAnnot(_,x,_), body -> x, strip_annotations body
+        | PatDyn(r,PatAnnot(_,x,_)),body -> PatDyn(r,x), strip_annotations body
+        | x -> x
+        )
+
+and strip_annotations = function
+    | RawFun(r,l) -> RawFun(r,strip_fun_pat l)
+    | RawJoinPoint(r, RawAnnot(_,x,_)) -> RawJoinPoint(r,x)
+    | RawAnnot(_,x,_) -> x
+    | x -> x
 
 open Spiral.TypecheckingUtils
 open System.Collections.Generic
@@ -443,7 +459,7 @@ let infer (top_env' : TopEnv) expr =
             | TyInl(a,b) -> TyInl(a,f b)
 
         let f x s = TyForall(x,s)
-        Seq.foldBack f generalized_metavars body
+        Seq.foldBack f generalized_metavars (replace_metavars body)
         |> List.foldBack f forall_vars 
 
     let inline unify_kind' er (got : TT) (expected : TT) : unit =
@@ -456,7 +472,9 @@ let infer (top_env' : TopEnv) expr =
             | KindMetavar link, b | b, KindMetavar link -> link.contents' <- Some b
             | _ -> er()
         loop (got, expected)
-    let unify_kind r got expected = unify_kind' (fun () -> raise (TypeErrorException [r, KindError (got, expected)])) got expected
+    let unify_kind r got expected = 
+        try unify_kind' (fun () -> raise (TypeErrorException [r, KindError (got, expected)])) got expected
+        with :? TypeErrorException as e -> errors.AddRange e.Data0
 
     let unify (r : Range) (got : T) (expected : T) : unit =
         let unify_kind = unify_kind' (fun () -> raise (TypeErrorException [r, KindError' (got, expected)]))
@@ -665,7 +683,7 @@ let infer (top_env' : TopEnv) expr =
                         let ty = List.fold (fun s x -> Map.add x.name (TyVar x) s) env.ty vars
                         let body_var = term_annotations {env with ty = ty} body
                         hover_types.Add(r,body_var)
-                        let term env = term {env with ty = ty} body_var body
+                        let term env = term {env with ty = ty} body_var (strip_annotations body)
                         term, Map.add name (List.foldBack (fun x s -> TyForall(x,s)) vars body_var) s
                         ) env.term l'
                 
@@ -701,7 +719,7 @@ let infer (top_env' : TopEnv) expr =
             let v = fresh_var()
             ty env v t
             let v = term_subst v
-            if i = errors.Count && has_metavars v = false then errors.Add(range_of_texpr t, RecursiveAnnotationHasMetavars v)
+            if i = errors.Count && has_metavars v then errors.Add(range_of_texpr t, RecursiveAnnotationHasMetavars v)
             v
         match x with
         | RawFun(_,[(PatAnnot(_,_,t) | PatDyn(_,PatAnnot(_,_,t))),body]) -> TyFun(f t, term_annotations env body)
@@ -885,11 +903,11 @@ let infer (top_env' : TopEnv) expr =
                     List.fold (fun cases expr ->
                         let v = fresh_var()
                         ty {term=Map.empty; ty=add_vars env_ty vars} v expr 
-                        match visit_t v with
+                        match term_subst v with
                         | TyPair(TySymbol x, b) -> 
                             if Map.containsKey x cases then errors.Add(range_of_texpr expr, DuplicateKeyInUnion); cases
                             else Map.add x b cases
-                        | _ -> errors.Add (range_of_texpr expr, ExpectedSymbolAsUnionKey); cases
+                        | x -> errors.Add (range_of_texpr expr, ExpectedSymbolAsUnionKey); cases
                         ) Map.empty l
                     |> fun l -> PersistentVector.conj (HOCUnion(name,vars,l)) hoc
                 ) hoc l
@@ -909,6 +927,9 @@ let infer (top_env' : TopEnv) expr =
         assert_bound_vars {term=Map.empty; ty=Map.empty} a
         {top_env' with term = Map.add name (TySymbol "<real>") top_env.term }
     | BundleRecTerm l ->
+        let _ =
+            let h = HashSet()
+            List.iter (fun (BundleRecInl(_,(r,n),_,_)) -> if h.Add n = false then errors.Add(r,DuplicateRecInlName)) l
         match l with 
         | BundleRecInl(_,_,_,true) :: _ -> 
             let l = List.map (function BundleRecInl(_,a,b,_) -> a,b) l
@@ -919,10 +940,10 @@ let infer (top_env' : TopEnv) expr =
             env_term
         |> fun env_term -> {top_env' with term = Map.foldBack Map.add env_term top_env.term}
     | BundleInstance _ -> failwith "TODO: Instances not implemented yet."
-    |> fun x -> 
+    |> fun top_env' -> 
         type_application |> Seq.iter (fun x -> if has_metavars x.Value then errors.Add(range_of_expr x.Key, ValueRestriction x.Value))
         let hovers = hover_types |> Seq.toArray |> Array.map (fun x -> x.Key, show_t top_env' x.Value)
         let errors = errors |> Seq.toList |> List.map (fun (a,b) -> show_type_error top_env' b, a)
-        (hovers, errors), x
+        (hovers, errors), top_env'
 
 let default_env : TopEnv = {hoc = PersistentVector.empty; ty=Map.empty; term=Map.empty}

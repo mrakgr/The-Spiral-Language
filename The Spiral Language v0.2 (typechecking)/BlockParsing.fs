@@ -526,13 +526,13 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
         | false, _, _, _ -> Error [range_of_pattern name, ExpectedSinglePatternWhenStatementNameIsNorVarOrOp]
 
 let inline inl_or_let exp pattern =
-    range (tuple6 ((skip_keyword SpecInl >>% true) <|> (skip_keyword SpecLet >>% false))
+    range (tuple6 ((skip_keyword SpecInl >>% false) <|> (skip_keyword SpecLet >>% true))
             ((skip_keyword SpecRec >>% true) <|>% false) pattern
             (forall <|>% []) (many pattern) (skip_op "=" >>. opt exp))
     >>= inl_or_let_process
 
 let inline and_inl_or_let exp pattern =
-    range (tuple6 (skip_keyword SpecAnd >>. ((skip_keyword SpecInl >>% true) <|> (skip_keyword SpecLet >>% false)))
+    range (tuple6 (skip_keyword SpecAnd >>. ((skip_keyword SpecInl >>% false) <|> (skip_keyword SpecLet >>% true)))
             (fun _ -> Ok true) pattern
             (forall <|>% []) (many pattern) (skip_op "=" >>. opt exp))
     >>= inl_or_let_process
