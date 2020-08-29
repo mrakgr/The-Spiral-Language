@@ -73,7 +73,6 @@ let block_separate (lines : LineToken [] ResizeArray) (blocks : Block list) (edi
         else []
     loop blocks 0
 
-type Bundle = (int * TopStatement) list // offset * statement
 let block_bundle (l : ParsedBlock list) =
     let (+.) a b = BlockParsingError.add_line_to_range a b
     let bundle = ResizeArray()
@@ -166,3 +165,60 @@ let server_parser (uri : string) = Job.delay <| fun () ->
     and processing (a : Block list, res) = waiting () <|> Alt.prepareJob (fun () -> IVar.fill res (parse a) >>- waiting)
         
     Job.server (waiting()) >>-. req
+
+let server_typechecking (uri : string) = Job.delay <| fun () ->
+    let req = Ch ()
+
+    let rec waiting data = req ^=> extracting data
+    and extracting data subreq = 
+        waiting data <|> (IVar.read subreq ^=> fun (bundle,res) -> 
+            let rec loop = function // Does memoization by fetching previous computed values.
+                | [], bundle -> List.map (fun _ -> IVar()) bundle
+                | (a, ivar) :: a', (b :: b' as bundle) -> if a = b then ivar :: loop (a',b') else loop ([], bundle)
+                | _, [] -> []
+            let x = loop (data, bundle)
+            Hopac.start (IVar.fill res x)
+            let x = List.zip bundle x
+            processing Infer.default_env x x
+            )
+    and processing state data = function
+        | [] -> waiting data
+        | (x,res) :: x' ->
+            waiting data <|> Alt.prepareFun (fun () -> 
+                if res.Full then IVar.read res ^=> fun (_,state) -> processing state data x'
+                else 
+                    let (_,state as x) = TypecheckingUtils.bundle x |> Infer.infer state
+                    Hopac.start (IVar.fill res x)
+                    processing state data x'
+                )
+
+    Job.server (waiting []) >>-. req
+
+let server_hover (uri : string) = Job.delay <| fun () ->
+    let req_tc, req_hov = Ch (), Ch ()
+
+    let block_at data (pos : Config.VSCPos) = 
+        let rec loop = function // tryPick from the back
+            | (offset,b) :: x' ->
+                match loop x' with
+                | ValueSome _ as x -> x
+                | ValueNone -> if offset <= pos.line then ValueSome b else ValueNone
+            | [] -> ValueNone
+        loop data |> function ValueSome x -> x | ValueNone -> IVar()
+
+    let hover_msg_at (pos : Config.VSCPos) ranges =
+        ranges |> Array.tryPick (fun ((a,b) : Config.VSCRange, r : string) ->
+            if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
+            )
+
+    let rec waiting data ret = 
+        let ret_signal_none x = Option.iter ((|>) None) ret; x
+        (req_tc ^=> (ret_signal_none >> extracting))
+        <|> (req_hov ^=> (ret_signal_none >> processing data))
+    and extracting subreq =
+        (IVar.read subreq ^=> fun (bundle,res) -> IVar.read res ^=> fun x -> waiting (List.map2 (fun a b -> fst (List.head a), b) bundle x) None)
+    and processing data (pos, ret) =
+        waiting data (Some ret)
+        <|> Alt.prepareFun (fun () -> IVar.read (block_at data pos) ^=> fun ((range,_),_) -> hover_msg_at pos range |> ret; waiting data None)
+
+    Job.server (waiting [] None) >>-. (req_tc, req_hov)

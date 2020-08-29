@@ -27,10 +27,9 @@
     <Compile Include="Tokenize.fs" />
     <Compile Include="BlockParsing.fs" />
     <Compile Include="BlockParsingError.fs" />
-    <Compile Include="Blockize.fs" />
     <Compile Include="TypecheckingUtils.fs" />
     <Compile Include="Infer.fs" />
-    <Compile Include="FullTypechecker.fs" />
+    <Compile Include="Blockize.fs" />
     <Compile Include="Prepass.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>

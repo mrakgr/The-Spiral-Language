@@ -36,8 +36,8 @@ open Hopac.Extensions
 let server () =
     let tokenizer = Utils.memoize (Dictionary()) (Blockize.server_tokenizer >> run)
     let parser = Utils.memoize (Dictionary()) (Blockize.server_parser >> run)
-    let typechecker = Utils.memoize (Dictionary()) (FullTypechecker.server_typechecking >> run)
-    let hover = Utils.memoize (Dictionary()) (FullTypechecker.server_hover >> run)
+    let typechecker = Utils.memoize (Dictionary()) (Blockize.server_typechecking >> run)
+    let hover = Utils.memoize (Dictionary()) (Blockize.server_hover >> run)
     use poller = new NetMQPoller()
     use server = new RouterSocket()
     poller.Add(server)

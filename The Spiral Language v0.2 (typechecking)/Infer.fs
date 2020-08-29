@@ -369,7 +369,7 @@ let show_type_error (env : TopEnv) x =
     | ExpectedAnnotation -> sprintf "Recursive functions with foralls must be fully annotated."
     | ExpectedSinglePattern -> sprintf "Recursive functions with foralls must not have multiple clauses in their patterns."
     | RecursiveAnnotationHasMetavars a -> sprintf "Recursive functions with foralls must not have metavars.\nGot: %s" (f a)
-    | ValueRestriction a -> sprintf "Metavars that are not part of the parent function's signature are not allowed. They need to be values.\nGot: %s" (f a)
+    | ValueRestriction a -> sprintf "Metavars that are not part of the enclosing function's signature are not allowed. They need to be values.\nGot: %s" (f a)
 
 let loc_env (x : TopEnv) = {term=x.term; ty=x.ty}
 let var_of (name,kind) = {scope=0; constraints=Set.empty; kind=kind; name=name}
@@ -396,7 +396,7 @@ let lit = function
 
 open Spiral.TypecheckingUtils
 open System.Collections.Generic
-let infer (top_env' : TopEnv) (env : Env) expr =
+let infer (top_env' : TopEnv) expr =
     let hoc = top_env'.hoc
     let top_env = loc_env top_env'
     let errors = ResizeArray()
@@ -914,11 +914,15 @@ let infer (top_env' : TopEnv) (env : Env) expr =
             let l = List.map (function BundleRecInl(_,a,b,_) -> a,b) l
             (rec_block {term=Map.empty; ty=Map.empty} l).term
         | _ ->
-            let env_term = List.fold (fun s (BundleRecInl(_,(_,a),_,_)) -> Map.add a (TySymbol "<real>") s) env.term l
+            let env_term = List.fold (fun s (BundleRecInl(_,(_,a),_,_)) -> Map.add a (TySymbol "<real>") s) Map.empty l
             l |> List.iter (fun (BundleRecInl(_,_,x,_)) -> assert_bound_vars {term = env_term; ty = Map.empty} x)
             env_term
         |> fun env_term -> {top_env' with term = Map.foldBack Map.add env_term top_env.term}
     | BundleInstance _ -> failwith "TODO: Instances not implemented yet."
     |> fun x -> 
         type_application |> Seq.iter (fun x -> if has_metavars x.Value then errors.Add(range_of_expr x.Key, ValueRestriction x.Value))
-        if 0 < errors.Count then raise (TypeErrorException (Seq.toList errors)) else x
+        let hovers = hover_types |> Seq.toArray |> Array.map (fun x -> x.Key, show_t top_env' x.Value)
+        let errors = errors |> Seq.toList |> List.map (fun (a,b) -> show_type_error top_env' b, a)
+        (hovers, errors), x
+
+let default_env : TopEnv = {hoc = PersistentVector.empty; ty=Map.empty; term=Map.empty}

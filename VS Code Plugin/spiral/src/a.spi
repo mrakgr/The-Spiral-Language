@@ -10,10 +10,10 @@ and nominal tensor2d el a b = tensor el (a,b)
 
 prototype bind m a : forall b. m a -> (a -> m b) -> m b
 
-instance bind option a : forall b. x f =
-    match x with
-    | Some: x => Some: 2
-    | None => None
+// instance bind option a : forall b. x f =
+//     match x with
+//     | Some: x => Some: 2
+//     | None => None
 
 inl rec f x = x
 and inl g x = f x

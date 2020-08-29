@@ -1,7 +1,8 @@
 ﻿module Spiral.TypecheckingUtils
 
 open Spiral.BlockParsing
-open Spiral.Blockize
+
+type Bundle = (int * TopStatement) list // offset * statement
 
 // These bundles have their range offsets distributed into them.
 type BundleRecType =
