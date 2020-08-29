@@ -143,9 +143,9 @@ type RawKindExpr =
     | RawKindWildcard
     | RawKindStar
     | RawKindFun of RawKindExpr * RawKindExpr
-type TypeVar = Range * (VarString * RawKindExpr)
 
-type RawRecordWith =
+type TypeVar = Range * (VarString * RawKindExpr * RawTExpr list)
+and RawRecordWith =
     | RawRecordWithSymbol of (Range * SymbolString) * RawExpr
     | RawRecordWithSymbolModify of (Range * SymbolString) * RawExpr
     | RawRecordWithInjectVar of (Range * VarString) * RawExpr
@@ -212,7 +212,7 @@ and RawTExpr =
     | RawTTerm of Range * RawExpr
 
 let (+.) (a,_) (_,b) = a,b
-let range_of_typevar ((r,(_,_)) : TypeVar) = r
+let range_of_typevar ((r,_) : TypeVar) = r
 let range_of_record_with = function
     | RawRecordWithSymbol((r,_),_)
     | RawRecordWithSymbolModify((r,_),_)
@@ -434,15 +434,10 @@ let inline range exp s =
         )
 
 let rec kind d = (sepBy1 ((skip_op "*" >>% RawKindStar) <|> rounds kind) (skip_op "->") |>> List.reduceBack (fun a b -> RawKindFun (a,b))) d
-let forall_var d = range ((read_type_var |>> fun x -> x, RawKindStar) <|> rounds ((read_type_var .>> skip_op ":") .>>. kind)) d
 
 let duplicates er x = 
     let h = Collections.Generic.HashSet()
-    x |> List.choose (fun (r,n) -> if h.Add n = false then Some(r,er) else None)
-let forall d = 
-    (skip_keyword SpecForall >>. (many1 forall_var) .>> skip_op "." 
-    >>= fun x _ -> duplicates DuplicateForallVar x |> function [] -> Ok x | er -> Error er) d
-let inline type_forall next d = (pipe2 (forall <|>% []) next (List.foldBack (fun x s -> RawTForall(range_of_typevar x +. range_of_texpr s,x,s)))) d 
+    x |> List.choose (fun (r : Range,n : string) -> if h.Add n = false then Some(r,er) else None)
 
 let inline indent i op next d = if op i (col d) then next d else Error []
 
@@ -525,13 +520,13 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
         | true, _, _, _ -> Error [range_of_pattern name, ExpectedVarOrOpAsNameOfRecStatement]
         | false, _, _, _ -> Error [range_of_pattern name, ExpectedSinglePatternWhenStatementNameIsNorVarOrOp]
 
-let inline inl_or_let exp pattern =
+let inline inl_or_let forall exp pattern =
     range (tuple6 ((skip_keyword SpecInl >>% false) <|> (skip_keyword SpecLet >>% true))
             ((skip_keyword SpecRec >>% true) <|>% false) pattern
             (forall <|>% []) (many pattern) (skip_op "=" >>. opt exp))
     >>= inl_or_let_process
 
-let inline and_inl_or_let exp pattern =
+let inline and_inl_or_let forall exp pattern =
     range (tuple6 (skip_keyword SpecAnd >>. ((skip_keyword SpecInl >>% false) <|> (skip_keyword SpecLet >>% true)))
             (fun _ -> Ok true) pattern
             (forall <|>% []) (many pattern) (skip_op "=" >>. opt exp))
@@ -751,7 +746,16 @@ and root_pattern_var d =
     let (+) = alt (index d)
     (pat_var + pat_wildcard + pat_dyn + peek_open_parenthesis root_pattern) d
 and root_pattern_pair d = pat_pair root_pattern_var d
-
+and forall_var d : Result<TypeVar,_> = 
+    range (
+        pipe2
+            ((read_type_var |>> fun x -> x, RawKindWildcard) <|> rounds ((read_type_var .>> skip_op ":") .>>. kind))
+            ((curlies (sepBy1 (root_type root_type_defaults) (skip_op ";"))) <|>% [])
+            (fun (a,b) c -> a,b,c)
+        ) d
+and forall d = 
+    (skip_keyword SpecForall >>. many1 forall_var .>> skip_op "." 
+    >>= fun x _ -> duplicates DuplicateForallVar (List.map (fun (a,(b,_,_)) -> a,b) x) |> function [] -> Ok x | er -> Error er) d
 and root_type (flags : RootTypeFlags) d =
     let next = root_type flags
     let cases d =
@@ -830,7 +834,7 @@ and root_term d =
         let case_forall d =
             if d.is_top_down then Error [] else
                 (tuple3 forall (many root_pattern_pair) (skip_op "=>" >>. next)
-                >>= fun (foralls, pats, body) _ ->
+                >>= fun (foralls : TypeVar list, pats, body) _ ->
                     match patterns_validate pats with
                     | [] -> 
                         List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[pat,body])) pats body
@@ -981,7 +985,7 @@ and root_term d =
     let statements d =
         let next = symbol_paired
         let inl_or_let =
-            (inl_or_let root_term root_pattern_pair .>>. many (and_inl_or_let root_term root_pattern_pair))
+            (inl_or_let forall root_term root_pattern_pair .>>. many (and_inl_or_let forall root_term root_pattern_pair))
             >>= fun x _ -> 
                 match x with
                 | ((r,name,body),false), [] -> Ok(fun on_succ -> RawMatch(r,body,[name,on_succ]))
@@ -1044,7 +1048,7 @@ let top_inl_or_let_process is_top_down = function
     | (r,PatVar(r',name),(RawForall _ | RawFun _ as body)),true -> Ok(TopRecInl(r,(r',name),body,is_top_down))
     | (r,PatVar _,_),_ -> Error [r, ExpectedGlobalFunction]
     | (_,x,_),_ -> Error [range_of_pattern x, ExpectedVarOrOpAsNameOfGlobalStatement]
-let top_inl_or_let d = (inl_or_let root_term root_pattern_pair >>= fun x d -> top_inl_or_let_process d.is_top_down x) d
+let top_inl_or_let d = (inl_or_let forall root_term root_pattern_pair >>= fun x d -> top_inl_or_let_process d.is_top_down x) d
 
 let top_union d =
     let clauses d =
@@ -1057,6 +1061,7 @@ let top_nominal d =
     (range (tuple3 (skip_keyword SpecNominal >>. read_type_var') (many forall_var .>> skip_op "=") (root_type {root_type_defaults with allow_term=true}))
     |>> fun (r,(n,a,b)) -> TopNominal(r,n,a,b)) d
 
+let inline type_forall next d = (pipe2 (forall <|>% []) next (List.foldBack (fun x s -> RawTForall(range_of_typevar x +. range_of_texpr s,x,s)))) d 
 let top_prototype d = 
     (range 
         (tuple3
@@ -1079,7 +1084,7 @@ let top_instance d =
             | ers -> Error ers) d
 
 let top_and_inl_or_let d = 
-    (restore 1 (range (and_inl_or_let root_term root_pattern_pair)) 
+    (restore 1 (range (and_inl_or_let forall root_term root_pattern_pair)) 
     >>= fun (r,x) d -> top_inl_or_let_process d.is_top_down x |> Result.map (fun x -> TopAnd(r,x))) d
 let inline top_and f = restore 1 (range (skip_keyword SpecAnd >>. f)) |>> TopAnd
 
