@@ -144,7 +144,7 @@ type RawKindExpr =
     | RawKindStar
     | RawKindFun of RawKindExpr * RawKindExpr
 
-type TypeVar = Range * (VarString * RawKindExpr * RawTExpr list)
+type TypeVar = (Range * VarString) * RawKindExpr * (Range * VarString) list
 and RawRecordWith =
     | RawRecordWithSymbol of (Range * SymbolString) * RawExpr
     | RawRecordWithSymbolModify of (Range * SymbolString) * RawExpr
@@ -212,7 +212,7 @@ and RawTExpr =
     | RawTTerm of Range * RawExpr
 
 let (+.) (a,_) (_,b) = a,b
-let range_of_typevar ((r,_) : TypeVar) = r
+let range_of_typevar (((r,_),_,_) : TypeVar) = r
 let range_of_record_with = function
     | RawRecordWithSymbol((r,_),_)
     | RawRecordWithSymbolModify((r,_),_)
@@ -520,13 +520,22 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
         | true, _, _, _ -> Error [range_of_pattern name, ExpectedVarOrOpAsNameOfRecStatement]
         | false, _, _, _ -> Error [range_of_pattern name, ExpectedSinglePatternWhenStatementNameIsNorVarOrOp]
 
-let inline inl_or_let forall exp pattern =
+let forall_var d : Result<TypeVar,_> = 
+    let tvar = (read_type_var' |>> fun x -> x, RawKindWildcard) <|> rounds ((read_type_var' .>> skip_op ":") .>>. kind)
+    let cons = curlies (sepBy1 read_type_var' (skip_op ";")) <|>% []
+    pipe2 tvar cons (fun (name,kind) cons -> name,kind,cons) d
+
+let forall d = 
+    (skip_keyword SpecForall >>. many1 forall_var .>> skip_op "." 
+    >>= fun x _ -> duplicates DuplicateForallVar (List.map (fun (a,_,_) -> a) x) |> function [] -> Ok x | er -> Error er) d
+
+let inline inl_or_let exp pattern =
     range (tuple6 ((skip_keyword SpecInl >>% false) <|> (skip_keyword SpecLet >>% true))
             ((skip_keyword SpecRec >>% true) <|>% false) pattern
             (forall <|>% []) (many pattern) (skip_op "=" >>. opt exp))
     >>= inl_or_let_process
 
-let inline and_inl_or_let forall exp pattern =
+let inline and_inl_or_let exp pattern =
     range (tuple6 (skip_keyword SpecAnd >>. ((skip_keyword SpecInl >>% false) <|> (skip_keyword SpecLet >>% true)))
             (fun _ -> Ok true) pattern
             (forall <|>% []) (many pattern) (skip_op "=" >>. opt exp))
@@ -746,16 +755,6 @@ and root_pattern_var d =
     let (+) = alt (index d)
     (pat_var + pat_wildcard + pat_dyn + peek_open_parenthesis root_pattern) d
 and root_pattern_pair d = pat_pair root_pattern_var d
-and forall_var d : Result<TypeVar,_> = 
-    range (
-        pipe2
-            ((read_type_var |>> fun x -> x, RawKindWildcard) <|> rounds ((read_type_var .>> skip_op ":") .>>. kind))
-            ((curlies (sepBy1 (root_type root_type_defaults) (skip_op ";"))) <|>% [])
-            (fun (a,b) c -> a,b,c)
-        ) d
-and forall d = 
-    (skip_keyword SpecForall >>. many1 forall_var .>> skip_op "." 
-    >>= fun x _ -> duplicates DuplicateForallVar (List.map (fun (a,(b,_,_)) -> a,b) x) |> function [] -> Ok x | er -> Error er) d
 and root_type (flags : RootTypeFlags) d =
     let next = root_type flags
     let cases d =
@@ -985,7 +984,7 @@ and root_term d =
     let statements d =
         let next = symbol_paired
         let inl_or_let =
-            (inl_or_let forall root_term root_pattern_pair .>>. many (and_inl_or_let forall root_term root_pattern_pair))
+            (inl_or_let root_term root_pattern_pair .>>. many (and_inl_or_let root_term root_pattern_pair))
             >>= fun x _ -> 
                 match x with
                 | ((r,name,body),false), [] -> Ok(fun on_succ -> RawMatch(r,body,[name,on_succ]))
@@ -1048,7 +1047,7 @@ let top_inl_or_let_process is_top_down = function
     | (r,PatVar(r',name),(RawForall _ | RawFun _ as body)),true -> Ok(TopRecInl(r,(r',name),body,is_top_down))
     | (r,PatVar _,_),_ -> Error [r, ExpectedGlobalFunction]
     | (_,x,_),_ -> Error [range_of_pattern x, ExpectedVarOrOpAsNameOfGlobalStatement]
-let top_inl_or_let d = (inl_or_let forall root_term root_pattern_pair >>= fun x d -> top_inl_or_let_process d.is_top_down x) d
+let top_inl_or_let d = (inl_or_let root_term root_pattern_pair >>= fun x d -> top_inl_or_let_process d.is_top_down x) d
 
 let top_union d =
     let clauses d =
@@ -1084,7 +1083,7 @@ let top_instance d =
             | ers -> Error ers) d
 
 let top_and_inl_or_let d = 
-    (restore 1 (range (and_inl_or_let forall root_term root_pattern_pair)) 
+    (restore 1 (range (and_inl_or_let root_term root_pattern_pair)) 
     >>= fun (r,x) d -> top_inl_or_let_process d.is_top_down x |> Result.map (fun x -> TopAnd(r,x))) d
 let inline top_and f = restore 1 (range (skip_keyword SpecAnd >>. f)) |>> TopAnd
 
