@@ -6,27 +6,28 @@ type Bundle = (int * TopStatement) list // offset * statement
 
 // These bundles have their range offsets distributed into them.
 type BundleRecType =
-    | BundleUnion of Range * (Range * VarString) * TypeVar list * RawTExpr list
-    | BundleNominal of Range * (Range * VarString) * TypeVar list * RawTExpr
+    | BundleUnion of Range * (Range * VarString) * HoVar list * RawTExpr list
+    | BundleNominal of Range * (Range * VarString) * HoVar list * RawTExpr
 
 type BundleRecTerm = BundleRecInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
 
 type BundleTop =
     | BundleRecType of BundleRecType list
-    | BundleRecTerm of BundleRecTerm list
     | BundleInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
+    | BundleRecTerm of BundleRecTerm list
+    | BundleType of Range * (Range * VarString) * HoVar list * RawTExpr
     | BundlePrototype of Range * (Range * VarString) * TypeVar list * RawTExpr
-    | BundleType of Range * (Range * VarString) * TypeVar list * RawTExpr
     | BundleInstance of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawExpr
 
 let add_offset offset (range : Range) : Range = let a,b = range in {a with line=offset + a.line}, {b with line=offset + b.line}
-let add_offset_typevar offset (a,b) = add_offset offset a, b
+let add_offset_hovar offset (a,b) = add_offset offset a, b
+let add_offset_hovar_list offset x = List.map (add_offset_hovar offset) x
+let add_offset_typevar offset ((a,b),c) = (add_offset offset a, b), c
 let add_offset_typevar_list offset x = List.map (add_offset_typevar offset) x
 
 let rec fold_offset_ty offset x = 
     let f = fold_offset_ty offset
     let g = add_offset offset
-    let g' x = add_offset_typevar offset x
     match x with
     | RawTWildcard r -> RawTWildcard(g r)
     | RawTB r -> RawTB(g r)
@@ -37,7 +38,7 @@ let rec fold_offset_ty offset x =
     | RawTRecord(r,a) -> RawTRecord(g r,Map.map (fun _ -> f) a)
     | RawTSymbol(r,a) -> RawTSymbol(g r,a)
     | RawTApply(r,a,b) -> RawTApply(g r,f a,f b)
-    | RawTForall(r,a,b) -> RawTForall(g r,g' a,f b)
+    | RawTForall(r,a,b) -> RawTForall(g r,add_offset_typevar offset a,f b)
     | RawTPrim(r,a) -> RawTPrim(g r,a)
     | RawTArray(r,a) -> RawTArray(g r,f a)
     | RawTTerm(r,a) -> RawTTerm(g r,fold_offset_term offset a)
@@ -45,8 +46,6 @@ and fold_offset_term offset x =
     let f = fold_offset_term offset
     let ty = fold_offset_ty offset
     let g = add_offset offset
-    let g' x = add_offset_typevar offset x
-    let g'' x = add_offset_typevar_list offset x
     match x with
     | RawB r -> RawB (g r)
     | RawV(r,a) -> RawV (g r,a)
@@ -56,7 +55,7 @@ and fold_offset_term offset x =
     | RawType(r,a) -> RawType(g r,a)
     | RawMatch(r,a,b) -> RawMatch(g r,f a,List.map (fun (a,b) -> fold_offset_pattern offset a,f b) b)
     | RawFun(r,a) -> RawFun(g r,List.map (fun (a,b) -> fold_offset_pattern offset a,f b) a)
-    | RawForall(r,a,b) -> RawForall(g r,g' a,f b)
+    | RawForall(r,a,b) -> RawForall(g r,add_offset_typevar offset a,f b)
     | RawRecBlock(r,a,b) -> RawRecBlock(g r,List.map (fun ((r,a),b) -> (g r,a),f b) a,f b)
     | RawRecordWith(r,a,b,c) -> 
         let b =
@@ -76,7 +75,7 @@ and fold_offset_term offset x =
     | RawJoinPoint(r,a) -> RawJoinPoint(g r,f a)
     | RawAnnot(r,a,b) -> RawAnnot(g r,f a,ty b)
     | RawTypecase(r,a,b) -> RawTypecase(g r,ty a,List.map (fun (a,b) -> ty a,f b) b)
-    | RawModuleOpen(r,a,b,c) -> RawModuleOpen(g r,g' a,g'' b,f c)
+    | RawModuleOpen(r,a,b,c) -> RawModuleOpen(g r,add_offset_hovar offset a,add_offset_hovar_list offset b,f c)
     | RawApply(r,a,b) -> RawApply(g r,f a,f b)
     | RawIfThenElse(r,a,b,c) -> RawIfThenElse(g r,f a,f b,f c)
     | RawIfThen(r,a,b) -> RawIfThen(g r,f a,f b)
@@ -88,7 +87,7 @@ and fold_offset_pattern offset x =
     let term = fold_offset_term offset
     let ty = fold_offset_ty offset
     let g = add_offset offset
-    let g' x = add_offset_typevar offset x
+    let g' x = add_offset_hovar offset x
     match x with
     | PatB r -> PatB(g r)
     | PatE r -> PatE(g r)
@@ -119,19 +118,19 @@ let bundle (l : Bundle) =
     | (_, TopAnd _) :: x' -> failwith "Compiler error: TopAnd should be eliminated during the first bundling step."
     | (_, TopRecInl _) :: _ as l ->
         l |> List.map (function
-            | (offset, TopRecInl(r,a,b,c)) -> BundleRecInl(add_offset offset r, add_offset_typevar offset a, fold_offset_term offset b, c)
+            | (offset, TopRecInl(r,a,b,c)) -> BundleRecInl(add_offset offset r, add_offset_hovar offset a, fold_offset_term offset b, c)
             | _ -> failwith "Compiler error: Recursive inl statements can only be followed by statements of the same type."
             )
         |> BundleRecTerm
     | (_, (TopUnion _ | TopNominal _)) :: _ as l ->
         l |> List.map (function 
-            | (offset, TopNominal(r,a,b,c)) -> BundleNominal(add_offset offset r, add_offset_typevar offset a, add_offset_typevar_list offset b, fold_offset_ty offset c)
-            | (offset, TopUnion(r,a,b,c)) -> BundleUnion(add_offset offset r, add_offset_typevar offset a, add_offset_typevar_list offset b, List.map (fold_offset_ty offset) c)
+            | (offset, TopNominal(r,a,b,c)) -> BundleNominal(add_offset offset r, add_offset_hovar offset a, add_offset_hovar_list offset b, fold_offset_ty offset c)
+            | (offset, TopUnion(r,a,b,c)) -> BundleUnion(add_offset offset r, add_offset_hovar offset a, add_offset_hovar_list offset b, List.map (fold_offset_ty offset) c)
             | _ -> failwith "Compiler error: Recursive type statements can only be followed by statements of the same type."
             )
         |> BundleRecType
-    | [offset, TopInl(r,a,b,c)] -> BundleInl(add_offset offset r, add_offset_typevar offset a, fold_offset_term offset b, c)
-    | [offset, TopPrototype(r,a,b,c)] -> BundlePrototype(add_offset offset r, add_offset_typevar offset a, add_offset_typevar_list offset b, fold_offset_ty offset c)
-    | [offset, TopType(r,a,b,c)] -> BundleType(add_offset offset r, add_offset_typevar offset a, add_offset_typevar_list offset b, fold_offset_ty offset c)
-    | [offset, TopInstance(r,a,b,c,d)] -> BundleInstance(add_offset offset r, add_offset_typevar offset a, add_offset_typevar offset b, add_offset_typevar_list offset c, fold_offset_term offset d)
+    | [offset, TopInl(r,a,b,c)] -> BundleInl(add_offset offset r, add_offset_hovar offset a, fold_offset_term offset b, c)
+    | [offset, TopPrototype(r,a,b,c)] -> BundlePrototype(add_offset offset r, add_offset_hovar offset a, add_offset_typevar_list offset b, fold_offset_ty offset c)
+    | [offset, TopType(r,a,b,c)] -> BundleType(add_offset offset r, add_offset_hovar offset a, add_offset_hovar_list offset b, fold_offset_ty offset c)
+    | [offset, TopInstance(r,a,b,c,d)] -> BundleInstance(add_offset offset r, add_offset_hovar offset a, add_offset_hovar offset b, add_offset_typevar_list offset c, fold_offset_term offset d)
     | (_, (TopInl _ | TopPrototype _ | TopType _ | TopInstance _)) :: _ -> failwith "Compiler error: Regular top level statements should be singleton bundles."

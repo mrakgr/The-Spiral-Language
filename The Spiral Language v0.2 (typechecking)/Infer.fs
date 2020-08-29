@@ -148,7 +148,7 @@ let validate_bound_vars (top_env : Env) term ty x =
         | RawType(_,x) -> ctype term ty x
         | RawMatch(_,body,l) -> cterm term ty body; List.iter (fun (a,b) -> cterm (cpattern term ty a) ty b) l
         | RawFun(_,l) -> List.iter (fun (a,b) -> cterm (cpattern term ty a) ty b) l
-        | RawForall(_,(((_,a),_,l)),b) -> List.iter (check_ty ty) l; cterm term (Set.add a ty) b
+        | RawForall(_,(((_,(a,_)),l)),b) -> List.iter (check_ty ty) l; cterm term (Set.add a ty) b
         | RawRecBlock(_,l,on_succ) -> 
             let term = List.fold (fun s ((_,x),_) -> Set.add x s) term l
             List.iter (fun (_,x) -> cterm term ty x) l
@@ -183,7 +183,7 @@ let validate_bound_vars (top_env : Env) term ty x =
         | RawTVar(a,b) -> check_ty ty (a,b)
         | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> ctype term ty a; ctype term ty b
         | RawTRecord(_,l) -> Map.iter (fun _ -> ctype term ty) l
-        | RawTForall(_,((_,a),_,l),b) -> List.iter (check_ty ty) l; ctype term (Set.add a ty) b
+        | RawTForall(_,((_,(a,_)),l),b) -> List.iter (check_ty ty) l; ctype term (Set.add a ty) b
         | RawTArray(_,a) -> ctype term ty a
         | RawTTerm (_,a) -> cterm term ty a
     and cpattern term ty x =
@@ -555,7 +555,7 @@ let infer (top_env' : TopEnv) expr =
 
     let fresh_var () = fresh_var' KindType
 
-    let typevar_to_var ty (((_,name),kind,constraints) : TypeVar) : Var = 
+    let typevar_to_var ty (((_,(name,kind)),constraints) : TypeVar) : Var = 
         let rec typevar = function
             | RawKindWildcard -> fresh_kind()
             | RawKindStar -> KindType
@@ -570,7 +570,9 @@ let infer (top_env' : TopEnv) expr =
                 ) |> Set.ofList
         {scope= !scope; constraints=cons; kind=kind_force kind; name=name}
 
-    let typevars x = List.mapFold (fun s x -> typevar_to_var s x |> fun x -> x, Map.add x.name (TyVar x) s) Map.empty x
+    let hovars (x : HoVar list) = 
+        // TODO
+        List.mapFold (fun s x -> typevar_to_var s x |> fun x -> x, Map.add x.name (TyVar x) s) Map.empty x
 
     let rec term (env : Env) s x =
         let f = term env

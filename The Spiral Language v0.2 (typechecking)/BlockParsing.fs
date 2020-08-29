@@ -144,8 +144,9 @@ type RawKindExpr =
     | RawKindStar
     | RawKindFun of RawKindExpr * RawKindExpr
 
-type TypeVar = (Range * VarString) * RawKindExpr * (Range * VarString) list
-and RawRecordWith =
+type HoVar = Range * (VarString * RawKindExpr)
+type TypeVar = HoVar * (Range * VarString) list
+type RawRecordWith =
     | RawRecordWithSymbol of (Range * SymbolString) * RawExpr
     | RawRecordWithSymbolModify of (Range * SymbolString) * RawExpr
     | RawRecordWithInjectVar of (Range * VarString) * RawExpr
@@ -212,7 +213,8 @@ and RawTExpr =
     | RawTTerm of Range * RawExpr
 
 let (+.) (a,_) (_,b) = a,b
-let range_of_typevar (((r,_),_,_) : TypeVar) = r
+let range_of_hovar ((r,_) : HoVar) = r
+let range_of_typevar ((x,_) : TypeVar) = range_of_hovar x
 let range_of_record_with = function
     | RawRecordWithSymbol((r,_),_)
     | RawRecordWithSymbolModify((r,_),_)
@@ -520,14 +522,11 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
         | true, _, _, _ -> Error [range_of_pattern name, ExpectedVarOrOpAsNameOfRecStatement]
         | false, _, _, _ -> Error [range_of_pattern name, ExpectedSinglePatternWhenStatementNameIsNorVarOrOp]
 
-let forall_var d : Result<TypeVar,_> = 
-    let tvar = (read_type_var' |>> fun x -> x, RawKindWildcard) <|> rounds ((read_type_var' .>> skip_op ":") .>>. kind)
-    let cons = curlies (sepBy1 read_type_var' (skip_op ";")) <|>% []
-    pipe2 tvar cons (fun (name,kind) cons -> name,kind,cons) d
-
+let ho_var d : Result<HoVar,_> = range ((read_type_var |>> fun x -> x, RawKindWildcard) <|> rounds ((read_type_var .>> skip_op ":") .>>. kind)) d
+let forall_var d : Result<TypeVar,_> = (ho_var .>>. (curlies (sepBy1 read_type_var' (skip_op ";")) <|>% [])) d
 let forall d = 
     (skip_keyword SpecForall >>. many1 forall_var .>> skip_op "." 
-    >>= fun x _ -> duplicates DuplicateForallVar (List.map (fun (a,_,_) -> a) x) |> function [] -> Ok x | er -> Error er) d
+    >>= fun x _ -> duplicates DuplicateForallVar (List.map (fun ((r,(a,_)),_) -> r,a) x) |> function [] -> Ok x | er -> Error er) d
 
 let inline inl_or_let exp pattern =
     range (tuple6 ((skip_keyword SpecInl >>% false) <|> (skip_keyword SpecLet >>% true))
@@ -1036,10 +1035,10 @@ type [<ReferenceEquality>] TopStatement =
     | TopAnd of Range * TopStatement
     | TopInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
     | TopRecInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
-    | TopUnion of Range * (Range * VarString) * TypeVar list * RawTExpr list
-    | TopNominal of Range * (Range * VarString) * TypeVar list * RawTExpr
+    | TopUnion of Range * (Range * VarString) * HoVar list * RawTExpr list
+    | TopNominal of Range * (Range * VarString) * HoVar list * RawTExpr
+    | TopType of Range * (Range * VarString) * HoVar list * RawTExpr
     | TopPrototype of Range * (Range * VarString) * TypeVar list * RawTExpr
-    | TopType of Range * (Range * VarString) * TypeVar list * RawTExpr
     | TopInstance of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawExpr
 
 let top_inl_or_let_process is_top_down = function
@@ -1054,10 +1053,10 @@ let top_union d =
         let bar = bar (col d)
         (optional bar >>. sepBy1 (root_type root_type_defaults) bar) d
 
-    ((range (tuple3 (skip_keyword SpecUnion >>. read_type_var') (many forall_var .>> skip_op "=") clauses))
+    ((range (tuple3 (skip_keyword SpecUnion >>. read_type_var') (many ho_var .>> skip_op "=") clauses))
     |>> fun (r,(n,a,b)) -> TopUnion(r,n,a,b)) d
 let top_nominal d = 
-    (range (tuple3 (skip_keyword SpecNominal >>. read_type_var') (many forall_var .>> skip_op "=") (root_type {root_type_defaults with allow_term=true}))
+    (range (tuple3 (skip_keyword SpecNominal >>. read_type_var') (many ho_var .>> skip_op "=") (root_type {root_type_defaults with allow_term=true}))
     |>> fun (r,(n,a,b)) -> TopNominal(r,n,a,b)) d
 
 let inline type_forall next d = (pipe2 (forall <|>% []) next (List.foldBack (fun x s -> RawTForall(range_of_typevar x +. range_of_texpr s,x,s)))) d 
@@ -1067,7 +1066,7 @@ let top_prototype d =
             (skip_keyword SpecPrototype >>. read_small_var') (many forall_var) 
             (skip_op ":" >>. type_forall (root_type root_type_defaults)))
     |>> fun (r,(a,b,c)) -> TopPrototype(r,a,b,c)) d
-let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_small_var') (many forall_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)) d
+let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_small_var') (many ho_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)) d
 let top_instance d =
     (range
         (tuple6 (skip_keyword SpecInstance >>. read_small_var') read_type_var' (many forall_var)
