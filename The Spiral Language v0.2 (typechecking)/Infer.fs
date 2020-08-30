@@ -11,11 +11,7 @@ type TT =
 
 type Constraint =
     | CNumber
-
-let constraint_kind x = 
-    let (^) a b = KindFun(a,b) 
-    match x with
-    | CNumber -> KindType ^ KindConstraint
+    | CPrototype of int
 
 type [<ReferenceEquality>] Var = {
     scope : int
@@ -78,6 +74,7 @@ type TypeError =
     | ValueRestriction of T
     | DuplicateRecInlName
     | ExpectedConstraint of T
+    | InstanceNotFound of prototype: int * instance: int
 
 let inline go' x link next = let x = next x in link.contents' <- Some x; x
 let rec visit_tt = function
@@ -91,12 +88,6 @@ let rec visit_t = function
 
 open Spiral.BlockParsing
 exception TypeErrorException of (Range * TypeError) list
-
-let rec tt = function
-    | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar({kind=x},_) | TyVar({kind=x}) -> x
-    | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
-    | TyInl(v,a) -> KindFun(v.kind,tt a)
-    | TyConstraint x -> constraint_kind x
 
 let rec typevar = function
     | RawKindWildcard | RawKindStar -> KindType
@@ -116,10 +107,23 @@ type HigherOrderCases =
 open FSharpx.Collections
 type TopEnv = {
     hoc : HigherOrderCases PersistentVector
+    prototype : {| instance : Map<int,Constraint Set list>; kind_domain : TT; name : string|} PersistentVector
     ty : Map<string,T>
     term : Map<string,T>
     }
 type Env = { ty : Map<string,T>; term : Map<string,T> }
+
+let constraint_kind (env : TopEnv) x = 
+    let (^) a b = KindFun(a,b) 
+    match x with
+    | CNumber -> KindType ^ KindConstraint
+    | CPrototype i -> env.prototype.[i].kind_domain ^ KindConstraint
+
+let rec tt env = function
+    | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar({kind=x},_) | TyVar({kind=x}) -> x
+    | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
+    | TyInl(v,a) -> KindFun(v.kind,tt env a)
+    | TyConstraint x -> constraint_kind env x
 
 let module_open (top_env : Env) (r : Range) b l =
     let tryFind env x =
@@ -231,10 +235,31 @@ let rec subst (m : (Var * T) list) x =
     | TyForall(a,b) -> TyForall(a, f b)
     | TyInl(a,b) -> TyInl(a, f b)
 
-let inline constraint_process x con on_succ on_fail =
-    match con, x with
-    | CNumber, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T | Float32T | Float64T) -> on_succ ()
-    | _ -> on_fail ()
+let rec ho_split s = function 
+    | TyApply(a,b,_) -> ho_split (b :: s) a 
+    | TyHigherOrder _ as x -> x :: s
+    | _ -> []
+
+let rec constraint_process (env : TopEnv) = function
+    | con, TyMetavar(_,{contents=Some x} & link) -> constraint_process env (con, x)
+    | CNumber, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T | Float32T | Float64T) -> []
+    | CPrototype _ & con, TyMetavar(x,_) -> x.constraints <- Set.add con x.constraints; []
+    | CPrototype _ & con, TyVar v & x -> if Set.contains con v.constraints then [] else [ConstraintError(con,x)]
+    | CPrototype i & con, x ->
+        match ho_split [] x with
+        | [] -> [ConstraintError(con,x)]
+        | TyHigherOrder(i',_) :: x' ->
+            match Map.tryFind i' env.prototype.[i].instance with
+            | Some cons -> 
+                let rec loop ers = function
+                    | con :: con', x :: x' -> loop (List.append (constraints_process env (con,x)) ers) (con',x')
+                    | [], _ -> ers
+                    | _, [] -> failwith "Compiler error: The number of constraints for higher order type should never be more than its arity."
+                loop [] (cons,x')
+            | None -> [InstanceNotFound(i,i')]
+        | _ :: _ -> failwith "Compiler error: The first item of a ho_split should always be a higher order type."
+    | con,x -> [ConstraintError(con,x)]
+and constraints_process env (con,x) = Set.fold (fun ers con -> List.append (constraint_process env (con, x)) ers) [] con
 
 let rec kind_subst = function
     | KindMetavar ({contents'=Some x} & link) -> go' x link kind_subst
@@ -286,10 +311,11 @@ let show_primt = function
     | StringT -> "string"
     | CharT -> "char"
 
-let show_constraint = function
+let show_constraint (env : TopEnv) = function
     | CNumber -> "number"
+    | CPrototype i -> env.prototype.[i].name
 
-let show_constraints x = Set.toList x |> List.map show_constraint |> String.concat "; " |> sprintf "{%s}"
+let show_constraints env x = Set.toList x |> List.map (show_constraint env) |> String.concat "; " |> sprintf "{%s}"
 let show_kind x =
     let rec f prec x =
         let p prec' x = if prec < prec' then x else sprintf "(%s)" x
@@ -302,14 +328,12 @@ let show_kind x =
     f -1 x
 
 let show_hoc (env : TopEnv) i = match env.hoc.[i] with HOCNominal(name,_,_) | HOCUnion(name,_,_) -> name
-let show_constraint = function
-    | CNumber -> "number"
 
 let show_t (env : TopEnv) x =
     let show_var (a : Var) =
         let n = match a.kind with KindType -> a.name | _ -> sprintf "(%s : %s)" a.name (show_kind a.kind)
         if Set.isEmpty a.constraints then n
-        else sprintf "%s %s" n (show_constraints a.constraints)
+        else sprintf "%s %s" n (show_constraints env a.constraints)
     let rec f prec x =
         let p prec' x = if prec < prec' then x else sprintf "(%s)" x
         match x with
@@ -341,7 +365,7 @@ let show_t (env : TopEnv) x =
         | TyPair(a,b) -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b)) // TODO: Don't forget the paired symbol pattern.
         | TyFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
         | TyRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
-        | TyConstraint a -> show_constraint a
+        | TyConstraint a -> show_constraint env a
 
     f -1 x
 
@@ -372,13 +396,14 @@ let show_type_error (env : TopEnv) x =
     | NominalInPatternUnbox i -> sprintf "Expected an union type, but %s is a nominal." (show_hoc env i)
     | TypeInGlobalEnvIsNotNominal a -> sprintf "Expected a nominal type.\nGot: %s" (f a)
     | UnionInPatternNominal i -> sprintf "Expected a nominal type, but %s is an union." (show_hoc env i)
-    | ConstraintError(a,b) -> sprintf "Constraint satisfaction error.\nGot: %s\nFails to satisfy: %s" (f b) (show_constraint a)
+    | ConstraintError(a,b) -> sprintf "Constraint satisfaction error.\nGot: %s\nFails to satisfy: %s" (f b) (show_constraint env a)
     | ExpectedAnnotation -> sprintf "Recursive functions with foralls must be fully annotated."
     | ExpectedSinglePattern -> sprintf "Recursive functions with foralls must not have multiple clauses in their patterns."
     | RecursiveAnnotationHasMetavars a -> sprintf "Recursive functions with foralls must not have metavars.\nGot: %s" (f a)
     | ValueRestriction a -> sprintf "Metavars that are not part of the enclosing function's signature are not allowed. They need to be values.\nGot: %s" (f a)
     | DuplicateRecInlName -> "Shadowing of functions by the members of the same mutually recursive block is not allowed."
     | ExpectedConstraint a -> sprintf "Expected a constraint.\nGot: %s" (f a)
+    | InstanceNotFound(prot,ins) -> sprintf "The higher order type %s does not have the prototype instance for %s." (show_hoc env prot) env.prototype.[ins].name
 
 let loc_env (x : TopEnv) = {term=x.term; ty=x.ty}
 let names_of vars = List.map (fun x -> x.name) vars |> Set
@@ -412,6 +437,12 @@ and strip_annotations = function
     | RawJoinPoint(r, RawAnnot(_,x,_)) -> RawJoinPoint(r,x)
     | RawAnnot(_,x,_) -> x
     | x -> x
+
+let hovars (x : HoVar list) = 
+    List.mapFold (fun s (_,(n,t)) -> 
+        let v = {scope=0; kind=typevar t; name=n; constraints=Set.empty}
+        v, Map.add n (TyVar v) s
+        ) Map.empty x
 
 open Spiral.TypecheckingUtils
 open System.Collections.Generic
@@ -496,7 +527,7 @@ let infer (top_env' : TopEnv) expr =
                 if i.scope < x.scope then raise (TypeErrorException [r,ForallVarScopeError(x.name,got,expected)])
                 if i.constraints.IsSubsetOf x.constraints = false then raise (TypeErrorException [r,ForallVarConstraintError(x.name,got,expected)]) 
             | TyMetavar(x,_) -> if i = x then er() elif i.scope < x.scope then x.scope <- i.scope
-            | TyConstraint a -> unify_kind i.kind (constraint_kind a)
+            | TyConstraint a -> unify_kind i.kind (constraint_kind top_env' a)
 
         let rec loop (a'',b'') = 
             match visit_t a'', visit_t b'' with
@@ -508,15 +539,10 @@ let infer (top_env' : TopEnv) expr =
                     link := Some b'
             | (TyMetavar(a',link), b | b, TyMetavar(a',link)) ->
                 validate_unification a' b
-                unify_kind a'.kind (tt b)
-                Set.fold (fun ers con ->
-                    let on_succ () = ers
-                    let on_fail () = (r,ConstraintError(con, b)) :: ers
-                    constraint_process b con on_succ on_fail
-                    ) [] a'.constraints
-                |> function
-                    | [] -> link := Some b
-                    | constraint_errors -> raise (TypeErrorException constraint_errors)
+                unify_kind a'.kind (tt top_env' b)
+                match constraints_process top_env' (a'.constraints,b) with
+                | [] -> link := Some b
+                | constraint_errors -> raise (TypeErrorException (List.map (fun x -> r,x) constraint_errors))
             | TyVar a, TyVar b when a = b -> ()
             | (TyPair(a,b), TyPair(a',b') | TyFun(a,a'), TyFun(b,b') | TyApply(a,a',_), TyApply(b,b',_)) -> loop (a,b); loop (a',b')
             | TyRecord l, TyRecord l' ->
@@ -564,15 +590,17 @@ let infer (top_env' : TopEnv) expr =
         let cons =
             constraints |> List.choose (fun (r,x) ->
                 match Map.tryFind x ty |> Option.orElseWith (fun () -> Map.tryFind x top_env.ty) with
-                | Some (TyConstraint x) -> unify_kind r (KindFun(kind,KindConstraint)) (constraint_kind x); Some x
+                | Some (TyConstraint x) -> unify_kind r (KindFun(kind,KindConstraint)) (constraint_kind top_env' x); Some x
                 | Some x -> errors.Add(r,ExpectedConstraint x); None
                 | None -> errors.Add(r,UnboundVariable); None
                 ) |> Set.ofList
         {scope= !scope; constraints=cons; kind=kind_force kind; name=name}
 
-    let hovars (x : HoVar list) = 
-        // TODO
-        List.mapFold (fun s x -> typevar_to_var s x |> fun x -> x, Map.add x.name (TyVar x) s) Map.empty x
+    let typevars ty (l : TypeVar list) =
+        List.mapFold (fun s x ->
+            let v = typevar_to_var s x
+            v, Map.add v.name (TyVar v) s
+            ) ty l
 
     let rec term (env : Env) s x =
         let f = term env
@@ -685,9 +713,9 @@ let infer (top_env' : TopEnv) expr =
     and inl env ((r, name), body) =
         incr scope
         let vars,body = foralls_get body
-        let vars = List.map (typevar_to_var env.ty) vars
+        let vars,env_ty = typevars env.ty vars
         let body_var = fresh_var()
-        term {env with ty = List.fold (fun s x -> Map.add x.name (TyVar x) s) env.ty vars} body_var body
+        term {env with ty = env_ty} body_var body
         let t = generalize vars body_var
         hover_types.Add(r,t)
         let env = {env with term = Map.add name t env.term }
@@ -702,11 +730,10 @@ let infer (top_env' : TopEnv) expr =
                 let l,m =
                     List.mapFold (fun s ((r,name),body) ->
                         let vars,body = foralls_get body
-                        let vars = List.map (typevar_to_var env.ty) vars
-                        let ty = List.fold (fun s x -> Map.add x.name (TyVar x) s) env.ty vars
-                        let body_var = term_annotations {env with ty = ty} body
+                        let vars, env_ty = typevars env.ty vars
+                        let body_var = term_annotations {env with ty = env_ty} body
                         hover_types.Add(r,body_var)
-                        let term env = term {env with ty = ty} body_var (strip_annotations body)
+                        let term env = term {env with ty = env_ty} body_var (strip_annotations body)
                         term, Map.add name (List.foldBack (fun x s -> TyForall(x,s)) vars body_var) s
                         ) env.term l'
                 
@@ -792,7 +819,7 @@ let infer (top_env' : TopEnv) expr =
             | TyInl(a,body) -> let v = fresh_var' a.kind in f v b; unify r s (subst [a,v] body)
             | a -> 
                 let q,w = fresh_kind(), fresh_kind()
-                unify_kind (range_of_texpr a') (tt a) (KindFun(q,w))
+                unify_kind (range_of_texpr a') (tt top_env' a) (KindFun(q,w))
                 let x = fresh_var' q
                 f x b
                 unify r s (TyApply(a,x,w))
@@ -803,7 +830,7 @@ let infer (top_env' : TopEnv) expr =
         let ho_make (i : int) (l : Var list) =
             let h = TyHigherOrder(i,List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) l KindType)
             let l' = List.map (fun (x : Var) -> x, fresh_subst_var x.constraints x.kind) l
-            List.fold (fun s (_,x) -> match tt s with KindFun(_,k) -> TyApply(s,x,k) | _ -> failwith "impossible") h l', l'
+            List.fold (fun s (_,x) -> match tt top_env' s with KindFun(_,k) -> TyApply(s,x,k) | _ -> failwith "impossible") h l', l'
         let rec ho_index = function 
             | TyApply(a,_,_) -> ho_index a 
             | TyHigherOrder(i,_) -> ValueSome i
@@ -899,7 +926,7 @@ let infer (top_env' : TopEnv) expr =
 
     match expr with
     | BundleType(_,(_,name),vars,expr) ->
-        let vars,env_ty = typevars vars
+        let vars,env_ty = hovars vars
         let v = fresh_var()
         ty {term=Map.empty; ty=env_ty} v expr
         let inl = List.foldBack (fun x s -> TyInl(x,s)) vars (visit_t v)
@@ -907,8 +934,8 @@ let infer (top_env' : TopEnv) expr =
     | BundleRecType l ->
         let l,_ =
             List.mapFold (fun i -> function
-                | BundleNominal(_,(_,name),vars,l) -> Choice1Of2(i,name,typevars vars,l), i+1
-                | BundleUnion(_,(_,name),vars,l) -> Choice2Of2(i,name,typevars vars,l), i+1
+                | BundleNominal(_,(_,name),vars,l) -> Choice1Of2(i,name,hovars vars,l), i+1
+                | BundleUnion(_,(_,name),vars,l) -> Choice2Of2(i,name,hovars vars,l), i+1
                 ) hoc.Length l
         let env_ty = 
             List.fold (fun s (Choice1Of2(i,name,(vars,_),_) | Choice2Of2(i,name,(vars,_),_)) ->
@@ -935,14 +962,6 @@ let infer (top_env' : TopEnv) expr =
                     |> fun l -> PersistentVector.conj (HOCUnion(name,vars,l)) hoc
                 ) hoc l
         {top_env' with hoc = hoc; ty = env_ty}
-    | BundlePrototype(_,(_,name),vars,expr) ->
-        let vars,env_ty = typevars vars
-        let tt = List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) vars KindType
-        let l = {scope=0; name=name; kind=tt; constraints=Set.empty} :: vars
-        let v = fresh_var()
-        ty {term=Map.empty; ty=env_ty} v expr
-        let body = List.foldBack (fun a b -> TyForall(a,b)) l (visit_t v)
-        {top_env' with term = Map.add name body top_env.term}
     | BundleInl(_,name,a,true) -> 
         let env = inl {term=Map.empty; ty=Map.empty} (name,a)
         {top_env' with term = Map.foldBack Map.add env.term top_env.term}
@@ -962,6 +981,16 @@ let infer (top_env' : TopEnv) expr =
             l |> List.iter (fun (BundleRecInl(_,_,x,_)) -> assert_bound_vars {term = env_term; ty = Map.empty} x)
             env_term
         |> fun env_term -> {top_env' with term = Map.foldBack Map.add env_term top_env.term}
+    | BundlePrototype(_,(_,name),vars,expr) ->
+        let cons = CPrototype top_env'.prototype.Length
+        let vars,env_ty = typevars Map.empty vars
+        let tt = List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) vars KindType
+        let l = {scope=0; name=name; kind=tt; constraints=Set.singleton cons} :: vars
+        let v = fresh_var()
+        ty {term=Map.empty; ty=env_ty} v expr
+        let body = List.foldBack (fun a b -> TyForall(a,b)) l (visit_t v)
+        { top_env' with term = Map.add name body top_env.term; ty = Map.add name (TyConstraint cons) top_env.ty; 
+                        prototype = PersistentVector.conj {|instance=Map.empty; kind_domain=tt; name=name|} top_env'.prototype }
     | BundleInstance _ -> failwith "TODO: Instances not implemented yet."
     |> fun top_env' -> 
         type_application |> Seq.iter (fun x -> if has_metavars x.Value then errors.Add(range_of_expr x.Key, ValueRestriction x.Value))
@@ -971,4 +1000,4 @@ let infer (top_env' : TopEnv) expr =
 
 let default_env : TopEnv = 
     let ty = ["number", TyConstraint CNumber] |> Map.ofList
-    {hoc = PersistentVector.empty; ty=Map.empty; term=Map.empty}
+    {hoc=PersistentVector.empty; ty=Map.empty; term=Map.empty; prototype=PersistentVector.empty}
