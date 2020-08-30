@@ -75,6 +75,10 @@ type TypeError =
     | DuplicateRecInlName
     | ExpectedConstraint of T
     | InstanceNotFound of prototype: int * instance: int
+    | ExpectedPrototype of T
+    | ExpectedHigherOrder of T
+    | ArityError of prototype: int * instance: int
+    | InstanceVarsLengthDoesNotMatchArity of int * int
 
 let inline go' x link next = let x = next x in link.contents' <- Some x; x
 let rec visit_tt = function
@@ -107,11 +111,13 @@ type HigherOrderCases =
 open FSharpx.Collections
 type TopEnv = {
     hoc : HigherOrderCases PersistentVector
-    prototype : {| instance : Map<int,Constraint Set list>; kind_domain : TT; name : string|} PersistentVector
+    prototype : {| instance : Map<int,Constraint Set list>; kind_domain : TT; name : string; signature: T|} PersistentVector
     ty : Map<string,T>
     term : Map<string,T>
     }
 type Env = { ty : Map<string,T>; term : Map<string,T> }
+
+let rec kind_arity = function KindFun(a,b) -> 1 + kind_arity b | _ -> 0
 
 let constraint_kind (env : TopEnv) x = 
     let (^) a b = KindFun(a,b) 
@@ -990,8 +996,35 @@ let infer (top_env' : TopEnv) expr =
         ty {term=Map.empty; ty=env_ty} v expr
         let body = List.foldBack (fun a b -> TyForall(a,b)) l (visit_t v)
         { top_env' with term = Map.add name body top_env.term; ty = Map.add name (TyConstraint cons) top_env.ty; 
-                        prototype = PersistentVector.conj {|instance=Map.empty; kind_domain=tt; name=name|} top_env'.prototype }
-    | BundleInstance _ -> failwith "TODO: Instances not implemented yet."
+                        prototype = PersistentVector.conj {|instance=Map.empty; kind_domain=tt; name=name; signature=body|} top_env'.prototype }
+    | BundleInstance(r,prot,ins,vars,body) ->
+        let body i (i',k) = 
+            let ins_arity = kind_arity k
+            let prot_arity = kind_arity top_env'.prototype.[i].kind_domain
+            if prot_arity <= ins_arity then
+                let len = vars.Length
+                if len <> ins_arity then 
+                    errors.Add(r,InstanceVarsLengthDoesNotMatchArity(len,ins_arity))
+                    top_env'
+                else
+                    let a,b = List.splitAt (ins_arity - prot_arity) vars
+                    let b', body = foralls_get body
+                    let forall_vars = List.append b b'
+                    top_env'
+            else
+                errors.Add(r,ArityError(prot_arity,ins_arity))
+                top_env'
+            
+        let fake _ = top_env'
+        let check_ins on_succ =
+            match Map.tryFind (snd ins) top_env.ty with
+            | None -> errors.Add(fst ins, UnboundVariable); top_env'
+            | Some(TyHigherOrder(i',k)) -> on_succ (i',k)
+            | Some x -> errors.Add(fst ins, ExpectedHigherOrder x); top_env'
+        match Map.tryFind (snd prot) top_env.ty with
+        | None -> errors.Add(fst prot, UnboundVariable); check_ins fake
+        | Some(TyConstraint(CPrototype i)) -> check_ins (body i)
+        | Some x -> errors.Add(fst prot, ExpectedPrototype x); check_ins fake
     |> fun top_env' -> 
         type_application |> Seq.iter (fun x -> if has_metavars x.Value then errors.Add(range_of_expr x.Key, ValueRestriction x.Value))
         let hovers = hover_types |> Seq.toArray |> Array.map (fun x -> x.Key, show_t top_env' x.Value)
