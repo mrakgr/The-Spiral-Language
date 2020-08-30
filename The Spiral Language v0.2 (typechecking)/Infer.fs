@@ -987,7 +987,7 @@ let infer (top_env' : TopEnv) expr =
             l |> List.iter (fun (BundleRecInl(_,_,x,_)) -> assert_bound_vars {term = env_term; ty = Map.empty} x)
             env_term
         |> fun env_term -> {top_env' with term = Map.foldBack Map.add env_term top_env.term}
-    | BundlePrototype(_,(_,name),vars,expr) ->
+    | BundlePrototype(_,(_,name),vars,expr) -> // TODO: Validate that there are no unused foralls.
         let cons = CPrototype top_env'.prototype.Length
         let vars,env_ty = typevars Map.empty vars
         let tt = List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) vars KindType
