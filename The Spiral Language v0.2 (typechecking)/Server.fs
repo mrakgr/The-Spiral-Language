@@ -96,7 +96,7 @@ let server () =
             |> send_back'
         | FileOpen x -> file_message x.uri (fun res -> Req.Put(x.spiText,res)) |> send_back
         | FileChanged x -> file_message x.uri (fun res -> Req.Modify(x.spiEdit,res)) |> send_back
-        | FileTokenRange x ->
+        | FileTokenRange x -> // TODO: This should have the same semantics as hover and should be using Hopac.start. It should not block the whole server like it does now.
             (let res = IVar() in Ch.give (tokenizer x.uri) (Req.GetRange(x.range,res)) >>=. IVar.read res)
             |> send_back
         | HoverAt x ->
