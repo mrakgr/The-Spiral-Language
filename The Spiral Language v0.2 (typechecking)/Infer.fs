@@ -77,8 +77,12 @@ type TypeError =
     | InstanceNotFound of prototype: int * instance: int
     | ExpectedPrototype of T
     | ExpectedHigherOrder of T
-    | ArityError of prototype: int * instance: int
-    | InstanceVarsLengthDoesNotMatchArity of int * int
+    | InstanceArityError of prototype_arity: int * instance_arity: int
+    | InstanceCoreVarsShouldMatchTheArityDifference of got: int * expected: int
+    | InstanceKindError of TT * TT
+    | KindNotAllowedInInstanceForall
+    | ConstraintNotAllowedInInstanceForall
+    | ExcessForallInInstance
 
 let inline go' x link next = let x = next x in link.contents' <- Some x; x
 let rec visit_tt = function
@@ -117,7 +121,12 @@ type TopEnv = {
     }
 type Env = { ty : Map<string,T>; term : Map<string,T> }
 
-let rec kind_arity = function KindFun(a,b) -> 1 + kind_arity b | _ -> 0
+let kind_get x = 
+    let rec loop = function
+        | KindFun(a,b) -> a :: loop b
+        | a -> [a]
+    let l = loop x 
+    {|arity=List.length l; args=l|}
 
 let constraint_kind (env : TopEnv) x = 
     let (^) a b = KindFun(a,b) 
@@ -287,6 +296,10 @@ let rec foralls_get = function
     | RawForall(_,a,b) -> let a', b = foralls_get b in a :: a', b
     | b -> [], b
 
+let rec foralls_ty_get = function
+    | TyForall(a,b) -> let a', b = foralls_ty_get b in a :: a', b
+    | b -> [], b
+
 let rec kind_force = function
     | KindMetavar ({contents'=Some x} & link) -> go' x link kind_subst
     | KindMetavar link -> let x = KindType in link.contents' <- Some x; x
@@ -410,6 +423,14 @@ let show_type_error (env : TopEnv) x =
     | DuplicateRecInlName -> "Shadowing of functions by the members of the same mutually recursive block is not allowed."
     | ExpectedConstraint a -> sprintf "Expected a constraint.\nGot: %s" (f a)
     | InstanceNotFound(prot,ins) -> sprintf "The higher order type %s does not have the prototype instance for %s." (show_hoc env prot) env.prototype.[ins].name
+    | ExpectedPrototype a -> sprintf "Expected a prototype.\nGot: %s" (f a)
+    | ExpectedHigherOrder a -> sprintf "Expected a higher order type.\nGot: %s" (f a)
+    | InstanceArityError(prot,ins) -> sprintf "The arity of the instance must be greater or equal to that of the prototype.\nInstance arity:  %i\nPrototype arity: %i" ins prot
+    | InstanceCoreVarsShouldMatchTheArityDifference(num_vars,expected) -> sprintf "The number of forall variables in the instance needs to be specified so it equals the difference between the instance arity and the prototype arity.\nInstance variables specified: %i\nExpected:                     %i" num_vars expected
+    | InstanceKindError(a,b) -> sprintf "The kinds of the instance foralls are incompatible with those of the prototype.\nGot:      %s\nExpected: %s" (show_kind a) (show_kind b)
+    | KindNotAllowedInInstanceForall -> "Kinds should not be explicitly stated in instance foralls."
+    | ConstraintNotAllowedInInstanceForall -> "Constraints should not be explicitly stated in instance foralls."
+    | ExcessForallInInstance -> "The forall is in excess of what the prototype has."
 
 let loc_env (x : TopEnv) = {term=x.term; ty=x.ty}
 let names_of vars = List.map (fun x -> x.name) vars |> Set
@@ -987,7 +1008,7 @@ let infer (top_env' : TopEnv) expr =
             l |> List.iter (fun (BundleRecInl(_,_,x,_)) -> assert_bound_vars {term = env_term; ty = Map.empty} x)
             env_term
         |> fun env_term -> {top_env' with term = Map.foldBack Map.add env_term top_env.term}
-    | BundlePrototype(_,(_,name),vars,expr) -> // TODO: Validate that there are no unused foralls.
+    | BundlePrototype(_,(_,name),vars,expr) ->
         let cons = CPrototype top_env'.prototype.Length
         let vars,env_ty = typevars Map.empty vars
         let tt = List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) vars KindType
@@ -998,22 +1019,55 @@ let infer (top_env' : TopEnv) expr =
         { top_env' with term = Map.add name body top_env.term; ty = Map.add name (TyConstraint cons) top_env.ty; 
                         prototype = PersistentVector.conj {|instance=Map.empty; kind_domain=tt; name=name; signature=body|} top_env'.prototype }
     | BundleInstance(r,prot,ins,vars,body) ->
+        let assert_no_kind (x : TypeVar list) = List.iter (fun ((r,(_,k)),_) -> match k with RawKindWildcard -> () | _ -> errors.Add(r,KindNotAllowedInInstanceForall)) x
+        let assert_no_constraint (x : TypeVar list) = List.iter (fun (_,c) -> c |> List.iter (fun (r,_) -> errors.Add(r,ConstraintNotAllowedInInstanceForall))) x
+        let rec associate_prot_foralls_with_ins_names ty = function
+            | (a : Var) :: a', (((r,(n,_)),_) : TypeVar) :: b' -> 
+                let x = TyVar a
+                hover_types.Add(r,x)
+                associate_prot_foralls_with_ins_names (Map.add n x ty) (a', b')
+            | [], ((r,_),_) :: b' -> errors.Add(r,ExcessForallInInstance); associate_prot_foralls_with_ins_names ty ([], b')
+            | _, [] -> ty
+
         let body i (i',k) = 
-            let ins_arity = kind_arity k
-            let prot_arity = kind_arity top_env'.prototype.[i].kind_domain
-            if prot_arity <= ins_arity then
-                let len = vars.Length
-                if len <> ins_arity then 
-                    errors.Add(r,InstanceVarsLengthDoesNotMatchArity(len,ins_arity))
-                    top_env'
-                else
-                    let a,b = List.splitAt (ins_arity - prot_arity) vars
-                    let b', body = foralls_get body
-                    let forall_vars = List.append b b'
-                    top_env'
-            else
-                errors.Add(r,ArityError(prot_arity,ins_arity))
-                top_env'
+            let er_count = errors.Count
+            let guard next = if errors.Count = er_count then next () else top_env'
+            let ins_kind = kind_get k
+            let prototype = top_env'.prototype.[i]
+            let prot_kind = kind_get prototype.kind_domain
+            if ins_kind.arity < prot_kind.arity then errors.Add(r,InstanceArityError(prot_kind.arity,ins_kind.arity))
+            guard <| fun () ->
+            let vars_expected = ins_kind.arity - prot_kind.arity
+            let _ =
+                let got = List.skip vars_expected ins_kind.args |> List.reduceBack (fun a b -> KindFun(a,b))
+                let expected = prototype.kind_domain
+                try unify_kind' (fun () -> raise (TypeErrorException [r, InstanceKindError (got, expected)])) got expected
+                with :? TypeErrorException as e -> errors.AddRange e.Data0
+            guard <| fun () ->
+            let vars_count = List.length vars
+            if vars_count <> vars_expected then errors.Add(r,InstanceCoreVarsShouldMatchTheArityDifference(vars_count,vars_expected))
+            guard <| fun () ->
+            assert_no_kind vars
+            let ins_foralls, ins_body = foralls_get body
+            assert_no_kind ins_foralls
+            assert_no_constraint ins_foralls
+            guard <| fun () ->
+            let ins_core, env_ty = 
+                List.mapFold (fun s (((r,_),_) & x,k) ->
+                    let v = {typevar_to_var s x with kind = k}
+                    let x = TyVar v
+                    hover_types.Add(r,x)
+                    x, Map.add v.name x s
+                    ) Map.empty (List.zip vars ins_kind.args)
+            let trim_kind = function KindFun(_,k) -> k | _ -> failwith "impossible"
+            let ins_core_ty,_ = List.fold (fun (a,k) (b : T) -> let k = trim_kind k in TyApply(a,b,k),k) (TyHigherOrder(i',k),k) ins_core
+            let env_ty, prot_body = 
+                match foralls_ty_get prototype.signature with 
+                | (prot_core :: prot_foralls), prot_body -> associate_prot_foralls_with_ins_names env_ty (prot_foralls, ins_foralls), subst [prot_core, ins_core_ty] prot_body 
+                | _ -> failwith "impossible"
+            term {term=Map.empty; ty=env_ty} prot_body ins_body
+            let prototype = {|prototype with instance = Map.add i' (ins_core |> List.map (function TyVar x -> x.constraints | _ -> failwith "impossible")) prototype.instance|}
+            {top_env' with prototype = PersistentVector.update i prototype top_env'.prototype}
             
         let fake _ = top_env'
         let check_ins on_succ =
