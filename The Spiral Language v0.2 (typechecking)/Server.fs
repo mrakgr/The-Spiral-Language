@@ -25,6 +25,7 @@ type FileTokenChangesRes = int * int * VSCTokenArray
 type ClientRes =
     | ParserErrors of {|uri : string; errors : VSCError []|}
     | TypeErrors of {|uri : string; errors : VSCError list|}
+    | Message of NetMQMessage // This is just for routing through the queue. It does not have the same semantics as the other ones.
 
 let port = 13805
 let uri_server = sprintf "tcp://*:%i" port
@@ -84,9 +85,9 @@ let server () =
         let msg = server.ReceiveMultipartMessage(3)
         let address = msg.Pop()
         msg.Pop() |> ignore
-        let send_back' x =
-            msg.Push(Json.serialize x); msg.PushEmptyFrame(); msg.Push(address)
-            server.SendMultipartMessage(msg)
+        let push_back x = msg.Push(Json.serialize x); msg.PushEmptyFrame(); msg.Push(address)
+        let send_back' x = push_back x; server.SendMultipartMessage(msg)
+        let send_back_via_queue x = push_back x; queue.Enqueue(Message msg)
         let send_back x = run x |> send_back'
         // TODO: The message id here is for debugging purposes. I'll remove it at some point.
         let (id : int), x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
@@ -96,9 +97,13 @@ let server () =
             |> send_back'
         | FileOpen x -> file_message x.uri (fun res -> Req.Put(x.spiText,res)) |> send_back
         | FileChanged x -> file_message x.uri (fun res -> Req.Modify(x.spiEdit,res)) |> send_back
-        | FileTokenRange x -> // TODO: This should have the same semantics as hover and should be using Hopac.start. It should not block the whole server like it does now.
-            (let res = IVar() in Ch.give (tokenizer x.uri) (Req.GetRange(x.range,res)) >>=. IVar.read res)
-            |> send_back
+        | FileTokenRange x ->
+            Hopac.start (
+                let res = IVar()
+                timeOutMillis 30 >>=.
+                Ch.give (tokenizer x.uri) (Req.GetRange(x.range,res)) >>=. 
+                IVar.read res >>- send_back_via_queue
+                )
         | HoverAt x ->
             let _,hover = hover x.uri
             Hopac.start (Ch.give hover (x.pos, fun x -> send_back' {|HoverReply=x|}))
@@ -108,8 +113,11 @@ let server () =
     client.Connect(uri_client)
 
     use __ = queue.ReceiveReady.Subscribe(fun x -> 
-        x.Queue.Dequeue() |> Json.serialize |> client.SendFrame
-        client.ReceiveMultipartMessage() |> ignore
+        match x.Queue.Dequeue() with
+        | Message msg -> server.SendMultipartMessage(msg)
+        | x -> 
+            x |> Json.serialize |> client.SendFrame
+            client.ReceiveMultipartMessage() |> ignore
         )
 
     poller.Run()

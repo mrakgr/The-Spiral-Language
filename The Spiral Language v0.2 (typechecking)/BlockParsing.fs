@@ -1063,7 +1063,7 @@ let inline type_forall next d = (pipe2 (forall <|>% []) next (List.foldBack (fun
 let top_prototype d = 
     (range 
         (tuple3
-            (skip_keyword SpecPrototype >>. read_small_var') (many forall_var) 
+            (skip_keyword SpecPrototype >>. read_small_var') (many1 forall_var) 
             (skip_op ":" >>. type_forall (root_type root_type_defaults)))
     |>> fun (r,(a,b,c)) -> TopPrototype(r,a,b,c)) d
 let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_small_var') (many ho_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)) d

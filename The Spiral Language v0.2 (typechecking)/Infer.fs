@@ -114,7 +114,7 @@ type HigherOrderCases =
 open FSharpx.Collections
 type TopEnv = {
     hoc : HigherOrderCases PersistentVector
-    prototypes : {| instances : Map<int,Constraint Set list>; kind_domain : TT; name : string; signature: T|} PersistentVector
+    prototypes : {| instances : Map<int,Constraint Set list>; name : string; signature: T|} PersistentVector
     ty : Map<string,T>
     term : Map<string,T>
     }
@@ -127,11 +127,15 @@ let kind_get x =
     let l = loop x 
     {|arity=List.length l; args=l|}
 
+let prototype_init_forall_kind = function
+    | TyForall(a,b) -> a.kind
+    | _ -> failwith "Compiler error: The prototype should have at least one forall."
+
 let constraint_kind (env : TopEnv) x = 
     let (^) a b = KindFun(a,b) 
     match x with
     | CNumber -> KindType ^ KindConstraint
-    | CPrototype i -> env.prototypes.[i].kind_domain ^ KindConstraint
+    | CPrototype i -> prototype_init_forall_kind env.prototypes.[i].signature ^ KindConstraint
 
 let rec tt env = function
     | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar({kind=x},_) | TyVar({kind=x}) -> x
@@ -357,7 +361,7 @@ let show_t (env : TopEnv) x =
         match x with
         | TyMetavar(_,{contents=Some x}) -> f prec x
         | TyMetavar _ -> "?"
-        | TyVar a -> show_var a
+        | TyVar a -> a.name
         | TyHigherOrder(i,_) -> show_hoc env i
         | TyB -> "()"
         | TyPrim x -> show_primt x
@@ -757,9 +761,10 @@ let infer (top_env' : TopEnv) expr =
                         let vars,body = foralls_get body
                         let vars, env_ty = typevars env.ty vars
                         let body_var = term_annotations {env with ty = env_ty} body
-                        hover_types.Add(r,body_var)
                         let term env = term {env with ty = env_ty} body_var (strip_annotations body)
-                        term, Map.add name (List.foldBack (fun x s -> TyForall(x,s)) vars body_var) s
+                        let ty = List.foldBack (fun x s -> TyForall(x,s)) vars body_var
+                        hover_types.Add(r,ty)
+                        term, Map.add name ty s
                         ) env.term l'
                 
                 if errors.Count = i then
@@ -967,26 +972,36 @@ let infer (top_env' : TopEnv) expr =
                 let tt = List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) vars KindType
                 Map.add name (TyHigherOrder(i,tt)) s
                 ) top_env.ty l
-        let hoc =
-            List.fold (fun hoc x ->
+        let hoc,env_term =
+            List.fold (fun (hoc, term) x ->
+                let wrap_forall vars body t =
+                    let tt = match t with TyHigherOrder(_,tt) -> tt | _ -> failwith "impossible"
+                    let t,_ =
+                        List.fold (fun (t,tt) x ->
+                            let tt = match tt with KindFun(_,tt) -> tt | _ -> failwith "impossible"
+                            TyApply(t,TyVar x,tt), tt
+                            ) (t,tt) vars
+                    List.foldBack (fun var ty -> TyForall(var,ty)) vars (TyFun(body,t))
+
                 match x with
                 | Choice1Of2(_,name,(vars,env_ty'),expr) ->
                     let v = fresh_var()
                     ty {term=Map.empty; ty=Map.foldBack Map.add env_ty' env_ty} v expr 
-                    PersistentVector.conj (HOCNominal(name,vars,visit_t v)) hoc
+                    let v = visit_t v
+                    PersistentVector.conj (HOCNominal(name,vars,v)) hoc, Map.add name (wrap_forall vars v env_ty.[name]) term
                 | Choice2Of2(_,name,(vars,env_ty'),l) ->
-                    List.fold (fun cases expr ->
+                    List.fold (fun (cases,term) expr ->
                         let v = fresh_var()
                         ty {term=Map.empty; ty=Map.foldBack Map.add env_ty' env_ty} v expr 
                         match term_subst v with
                         | TyPair(TySymbol x, b) -> 
-                            if Map.containsKey x cases then errors.Add(range_of_texpr expr, DuplicateKeyInUnion); cases
-                            else Map.add x b cases
-                        | x -> errors.Add (range_of_texpr expr, ExpectedSymbolAsUnionKey); cases
-                        ) Map.empty l
-                    |> fun l -> PersistentVector.conj (HOCUnion(name,vars,l)) hoc
-                ) hoc l
-        {top_env' with hoc = hoc; ty = env_ty}
+                            if Map.containsKey x cases then errors.Add(range_of_texpr expr, DuplicateKeyInUnion); cases, term
+                            else Map.add x b cases, Map.add x (wrap_forall vars b env_ty.[name]) term
+                        | x -> errors.Add (range_of_texpr expr, ExpectedSymbolAsUnionKey); cases, term
+                        ) (Map.empty, term) l
+                    |> fun (l, term) -> PersistentVector.conj (HOCUnion(name,vars,l)) hoc, term
+                ) (hoc, top_env.term) l
+        {top_env' with hoc = hoc; ty = env_ty; term = env_term}
     | BundleInl(_,name,a,true) -> 
         let env = inl {term=Map.empty; ty=Map.empty} (name,a)
         {top_env' with term = Map.foldBack Map.add env.term top_env.term}
@@ -1008,14 +1023,17 @@ let infer (top_env' : TopEnv) expr =
         |> fun env_term -> {top_env' with term = Map.foldBack Map.add env_term top_env.term}
     | BundlePrototype(_,(_,name),vars,expr) ->
         let cons = CPrototype top_env'.prototypes.Length
-        let vars,env_ty = typevars Map.empty vars
-        let tt = List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) vars KindType
-        let l = {scope=0; name=name; kind=tt; constraints=Set.singleton cons} :: vars
+        let vars,env_ty = 
+            match typevars Map.empty vars with
+            | (a :: a'), env -> 
+                let a = {a with constraints=Set.add cons a.constraints}
+                a :: a', Map.add a.name (TyVar a) env
+            | _ -> failwith "impossible"
         let v = fresh_var()
         ty {term=Map.empty; ty=env_ty} v expr
-        let body = List.foldBack (fun a b -> TyForall(a,b)) l (visit_t v)
+        let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
         { top_env' with term = Map.add name body top_env.term; ty = Map.add name (TyConstraint cons) top_env.ty; 
-                        prototypes = PersistentVector.conj {|instances=Map.empty; kind_domain=tt; name=name; signature=body|} top_env'.prototypes }
+                        prototypes = PersistentVector.conj {|instances=Map.empty; name=name; signature=body|} top_env'.prototypes }
     | BundleInstance(r,prot,ins,vars,body) ->
         let assert_no_kind x = x |> List.iter (fun ((r,(_,k)),_) -> match k with RawKindWildcard -> () | _ -> errors.Add(r,KindNotAllowedInInstanceForall))
         let assert_vars_count vars_count vars_expected = if vars_count <> vars_expected then errors.Add(r,InstanceCoreVarsShouldMatchTheArityDifference(vars_count,vars_expected))
@@ -1030,11 +1048,12 @@ let infer (top_env' : TopEnv) expr =
             let ins_kind = kind_get ins_kind'
             let prototype = top_env'.prototypes.[prot_id]
             hover_types.Add(fst prot, prototype.signature) // TODO: Do the same for the instance signature.
-            let prot_kind = kind_get prototype.kind_domain
+            let prototype_init_forall_kind = prototype_init_forall_kind prototype.signature
+            let prot_kind = kind_get prototype_init_forall_kind
             assert_kind_arity prot_kind.arity ins_kind.arity
             guard <| fun () ->
             let vars_expected = ins_kind.arity - prot_kind.arity
-            assert_kind_compatibility (List.skip vars_expected ins_kind.args |> List.reduceBack (fun a b -> KindFun(a,b))) prototype.kind_domain
+            assert_kind_compatibility (List.skip vars_expected ins_kind.args |> List.reduceBack (fun a b -> KindFun(a,b))) prototype_init_forall_kind
             guard <| fun () ->
             assert_vars_count (List.length vars) vars_expected
             guard <| fun () ->
@@ -1047,7 +1066,7 @@ let infer (top_env' : TopEnv) expr =
                         let x = TyVar v
                         hover_types.Add(r,x)
                         x, Map.add v.name x s
-                        ) Map.empty (List.zip vars ins_kind.args)
+                        ) Map.empty (List.zip vars (List.take vars_expected ins_kind.args))
                 let ins_constraints = ins_vars |> List.map (function TyVar x -> x.constraints | _ -> failwith "impossible")
                 let ins_core, _ =
                     let trim_kind = function KindFun(_,k) -> k | _ -> failwith "impossible"
