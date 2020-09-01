@@ -1038,7 +1038,7 @@ type [<ReferenceEquality>] TopStatement =
     | TopUnion of Range * (Range * VarString) * HoVar list * RawTExpr list
     | TopNominal of Range * (Range * VarString) * HoVar list * RawTExpr
     | TopType of Range * (Range * VarString) * HoVar list * RawTExpr
-    | TopPrototype of Range * (Range * VarString) * TypeVar list * RawTExpr
+    | TopPrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
     | TopInstance of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawExpr
 
 let top_inl_or_let_process is_top_down = function
@@ -1062,10 +1062,10 @@ let top_nominal d =
 let inline type_forall next d = (pipe2 (forall <|>% []) next (List.foldBack (fun x s -> RawTForall(range_of_typevar x +. range_of_texpr s,x,s)))) d 
 let top_prototype d = 
     (range 
-        (tuple3
-            (skip_keyword SpecPrototype >>. read_small_var') (many1 forall_var) 
+        (tuple4
+            (skip_keyword SpecPrototype >>. read_small_var') read_type_var' (many forall_var) 
             (skip_op ":" >>. type_forall (root_type root_type_defaults)))
-    |>> fun (r,(a,b,c)) -> TopPrototype(r,a,b,c)) d
+    |>> fun (r,(a,b,c,d)) -> TopPrototype(r,a,b,c,d)) d
 let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_small_var') (many ho_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)) d
 let top_instance d =
     (range

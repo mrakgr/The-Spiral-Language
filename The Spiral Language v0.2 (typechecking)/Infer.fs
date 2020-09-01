@@ -735,8 +735,8 @@ let infer (top_env' : TopEnv) expr =
         | RawRecBlock(_,l',on_succ) -> term (rec_block env l') s on_succ
         | RawMatch(_,body,l) ->
             let body_var = fresh_var()
-            let l = List.map (fun (a,on_succ) -> pattern env body_var a, on_succ) l
             f body_var body
+            let l = List.map (fun (a,on_succ) -> pattern env body_var a, on_succ) l
             List.iter (fun (env,on_succ) -> term env s on_succ) l
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
     and inl env ((r, name), body) =
@@ -1021,17 +1021,15 @@ let infer (top_env' : TopEnv) expr =
             l |> List.iter (fun (BundleRecInl(_,_,x,_)) -> assert_bound_vars {term = env_term; ty = Map.empty} x)
             env_term
         |> fun env_term -> {top_env' with term = Map.foldBack Map.add env_term top_env.term}
-    | BundlePrototype(_,(_,name),vars,expr) ->
+    | BundlePrototype(_,(r,name),(_,var_init),vars,expr) ->
         let cons = CPrototype top_env'.prototypes.Length
-        let vars,env_ty = 
-            match typevars Map.empty vars with
-            | (a :: a'), env -> 
-                let a = {a with constraints=Set.add cons a.constraints}
-                a :: a', Map.add a.name (TyVar a) env
-            | _ -> failwith "impossible"
+        let v = {scope=0; constraints=Set.singleton cons; name=var_init; kind=List.foldBack (fun ((_,(_,k)),_) s -> KindFun(typevar k, s)) vars KindType}
+        let vars,env_ty = typevars (Map.add var_init (TyVar v) Map.empty) vars
+        let vars = v :: vars
         let v = fresh_var()
         ty {term=Map.empty; ty=env_ty} v expr
         let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
+        hover_types.Add(r,body)
         { top_env' with term = Map.add name body top_env.term; ty = Map.add name (TyConstraint cons) top_env.ty; 
                         prototypes = PersistentVector.conj {|instances=Map.empty; name=name; signature=body|} top_env'.prototypes }
     | BundleInstance(r,prot,ins,vars,body) ->
@@ -1102,4 +1100,4 @@ let infer (top_env' : TopEnv) expr =
 
 let default_env : TopEnv = 
     let ty = ["number", TyConstraint CNumber] |> Map.ofList
-    {hoc=PersistentVector.empty; ty=Map.empty; term=Map.empty; prototypes=PersistentVector.empty}
+    {hoc=PersistentVector.empty; ty=ty; term=Map.empty; prototypes=PersistentVector.empty}

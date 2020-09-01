@@ -8,7 +8,7 @@ union option a =
 //     | None
 // and nominal tensor2d el a b = tensor el (a,b)
 
-prototype bind (m : * -> *) a : forall b. m a -> (a -> m b) -> m b
+prototype bind m a : forall b. m a -> (a -> m b) -> m b
 
 instance bind option : x f =
     match x with

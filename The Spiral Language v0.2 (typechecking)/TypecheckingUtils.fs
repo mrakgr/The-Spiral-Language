@@ -16,7 +16,7 @@ type BundleTop =
     | BundleInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
     | BundleRecTerm of BundleRecTerm list
     | BundleType of Range * (Range * VarString) * HoVar list * RawTExpr
-    | BundlePrototype of Range * (Range * VarString) * TypeVar list * RawTExpr
+    | BundlePrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
     | BundleInstance of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawExpr
 
 let add_offset offset (range : Range) : Range = let a,b = range in {a with line=offset + a.line}, {b with line=offset + b.line}
@@ -130,7 +130,7 @@ let bundle (l : Bundle) =
             )
         |> BundleRecType
     | [offset, TopInl(r,a,b,c)] -> BundleInl(add_offset offset r, add_offset_hovar offset a, fold_offset_term offset b, c)
-    | [offset, TopPrototype(r,a,b,c)] -> BundlePrototype(add_offset offset r, add_offset_hovar offset a, add_offset_typevar_list offset b, fold_offset_ty offset c)
+    | [offset, TopPrototype(r,a,b,c,d)] -> BundlePrototype(add_offset offset r, add_offset_hovar offset a, add_offset_hovar offset b, add_offset_typevar_list offset c, fold_offset_ty offset d)
     | [offset, TopType(r,a,b,c)] -> BundleType(add_offset offset r, add_offset_hovar offset a, add_offset_hovar_list offset b, fold_offset_ty offset c)
     | [offset, TopInstance(r,a,b,c,d)] -> BundleInstance(add_offset offset r, add_offset_hovar offset a, add_offset_hovar offset b, add_offset_typevar_list offset c, fold_offset_term offset d)
     | (_, (TopInl _ | TopPrototype _ | TopType _ | TopInstance _)) :: _ -> failwith "Compiler error: Regular top level statements should be singleton bundles."

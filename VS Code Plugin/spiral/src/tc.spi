@@ -1,6 +1,6 @@
-inl f x =
-    inl (+) (a : i32) (b : i32) = !!!!Add(a,b) : i32
-    1 + 5 + 2 + 3 + x
+inl (+) forall t {number}. (a : t) (b : t) = !!!!Add(a,b) : t
+
+inl f x = 1 + 5 + 2 + 3 + x
 
 inl id forall t. (x : t) = x
 inl rec q forall t. (x : t) = x : t
