@@ -1069,15 +1069,12 @@ let top_prototype d =
 let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_small_var') (many ho_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)) d
 let top_instance d =
     (range
-        (tuple6 (skip_keyword SpecInstance >>. read_small_var') read_type_var' (many forall_var)
-            (skip_op ":" >>. forall <|>% []) (many root_pattern_pair)
-            (skip_op "=" >>. root_term))
-    >>= fun (r,(prototype_name, nominal_name, nominal_foralls, foralls, pats, body)) _ ->
+        (tuple5 (skip_keyword SpecInstance >>. read_small_var') read_type_var' (many forall_var)
+            (skip_op ":" >>. many root_pattern_pair) (skip_op "=" >>. root_term))
+    >>= fun (r,(prototype_name, nominal_name, nominal_foralls, pats, body)) _ ->
             match patterns_validate pats with
             | [] ->
-                let body =
-                    List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[pat,body])) pats body
-                    |> List.foldBack (fun a body -> RawForall(range_of_typevar a,a,body)) foralls
+                let body = List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[pat,body])) pats body
                 Ok(TopInstance(r,prototype_name,nominal_name,nominal_foralls,body))
             | ers -> Error ers) d
 
