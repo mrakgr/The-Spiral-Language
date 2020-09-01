@@ -1019,11 +1019,11 @@ let infer (top_env' : TopEnv) expr =
         { top_env' with term = Map.add name body top_env.term; ty = Map.add name (TyConstraint cons) top_env.ty; 
                         prototype = PersistentVector.conj {|instance=Map.empty; kind_domain=tt; name=name; signature=body|} top_env'.prototype }
     | BundleInstance(r,prot,ins,vars,body) ->
-        let body i (i',k) = 
+        let body prot_id (ins_id,ins_kind) = 
             let er_count = errors.Count
             let guard next = if errors.Count = er_count then next () else top_env'
-            let ins_kind = kind_get k
-            let prototype = top_env'.prototype.[i]
+            let ins_kind = kind_get ins_kind
+            let prototype = top_env'.prototype.[prot_id]
             hover_types.Add(fst prot, prototype.signature) // TODO: Do the same for the instance signature.
             let prot_kind = kind_get prototype.kind_domain
             if ins_kind.arity < prot_kind.arity then errors.Add(r,InstanceArityError(prot_kind.arity,ins_kind.arity))
@@ -1049,7 +1049,7 @@ let infer (top_env' : TopEnv) expr =
                     x, Map.add v.name x s
                     ) Map.empty (List.zip vars ins_kind.args)
             let trim_kind = function KindFun(_,k) -> k | _ -> failwith "impossible"
-            let ins_core_ty,_ = List.fold (fun (a,k) (b : T) -> let k = trim_kind k in TyApply(a,b,k),k) (TyHigherOrder(i',k),k) ins_core
+            let ins_core_ty,_ = List.fold (fun (a,k) (b : T) -> let k = trim_kind k in TyApply(a,b,k),k) (TyHigherOrder(ins_id,ins_kind),ins_kind) ins_core
             let env_ty, prot_body = 
                 match foralls_ty_get prototype.signature with 
                 | (prot_core :: prot_foralls), prot_body -> 
@@ -1059,8 +1059,8 @@ let infer (top_env' : TopEnv) expr =
                     subst [prot_core, ins_core_ty] prot_body 
                 | _ -> failwith "impossible"
             term {term=Map.empty; ty=env_ty} prot_body body
-            let prototype = {|prototype with instance = Map.add i' (ins_core |> List.map (function TyVar x -> x.constraints | _ -> failwith "impossible")) prototype.instance|}
-            {top_env' with prototype = PersistentVector.update i prototype top_env'.prototype}
+            let prototype = {|prototype with instance = Map.add ins_id (ins_core |> List.map (function TyVar x -> x.constraints | _ -> failwith "impossible")) prototype.instance|}
+            {top_env' with prototype = PersistentVector.update prot_id prototype top_env'.prototype}
             
         let fake _ = top_env'
         let check_ins on_succ =
