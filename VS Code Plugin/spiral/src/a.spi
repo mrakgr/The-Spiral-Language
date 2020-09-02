@@ -1,5 +1,5 @@
 union option a = 
-    | some: a
+    | Some: a
     | None
 
 // nominal tensor el dim = `(tensor_init `el `dim ``el ``dim)

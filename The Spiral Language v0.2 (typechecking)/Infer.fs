@@ -82,6 +82,7 @@ type TypeError =
     | InstanceKindError of TT * TT
     | KindNotAllowedInInstanceForall
     | InstanceVarShouldNotMatchAnyOfPrototypes
+    | MissingBody
 
 let inline go' x link next = let x = next x in link.contents' <- Some x; x
 let rec visit_tt = function
@@ -132,10 +133,14 @@ let prototype_init_forall_kind = function
     | _ -> failwith "Compiler error: The prototype should have at least one forall."
 
 let constraint_kind (env : TopEnv) x = 
-    let (^) a b = KindFun(a,b) 
     match x with
-    | CNumber -> KindType ^ KindConstraint
-    | CPrototype i -> prototype_init_forall_kind env.prototypes.[i].signature ^ KindConstraint
+    | CNumber -> KindType 
+    | CPrototype i -> prototype_init_forall_kind env.prototypes.[i].signature
+    |> fun a -> KindFun(a, KindConstraint)
+
+let constraint_name (env : TopEnv) = function
+    | CNumber -> "number"
+    | CPrototype i -> env.prototypes.[i].name
 
 let rec tt env = function
     | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar({kind=x},_) | TyVar({kind=x}) -> x
@@ -199,6 +204,7 @@ let validate_bound_vars (top_env : Env) term ty x =
             | Error e -> errors.Add(e)
         | RawSeq(_,a,b) | RawPairCreate(_,a,b) | RawIfThen(_,a,b) | RawApply(_,a,b) -> cterm term ty a; cterm term ty b
         | RawIfThenElse(_,a,b,c) -> cterm term ty a; cterm term ty b; cterm term ty c
+        | RawMissingBody r -> errors.Add(r,MissingBody)
     and ctype term ty x =
         match x with
         | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
@@ -333,14 +339,10 @@ let show_primt = function
     | StringT -> "string"
     | CharT -> "char"
 
-let show_constraint (env : TopEnv) = function
-    | CNumber -> "number"
-    | CPrototype i -> env.prototypes.[i].name
-
-let show_constraints env x = Set.toList x |> List.map (show_constraint env) |> String.concat "; " |> sprintf "{%s}"
+let p prec prec' x = if prec < prec' then x else sprintf "(%s)" x
 let show_kind x =
     let rec f prec x =
-        let p prec' x = if prec < prec' then x else sprintf "(%s)" x
+        let p = p prec
         match x with
         | KindMetavar {contents'=Some x} -> f prec x
         | KindMetavar _ -> "?"
@@ -348,6 +350,9 @@ let show_kind x =
         | KindConstraint -> "/"
         | KindFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
     f -1 x
+
+let show_constraint prec (env : TopEnv) x = p prec 0 (sprintf "%s : %s" (constraint_name env x) (constraint_kind env x |> show_kind))
+let show_constraints env x = Set.toList x |> List.map (constraint_name env) |> String.concat "; " |> sprintf "{%s}"
 
 let show_hoc (env : TopEnv) i = match env.hoc.[i] with HOCNominal(name,_,_) | HOCUnion(name,_,_) -> name
 
@@ -357,7 +362,7 @@ let show_t (env : TopEnv) x =
         if Set.isEmpty a.constraints then n
         else sprintf "%s %s" n (show_constraints env a.constraints)
     let rec f prec x =
-        let p prec' x = if prec < prec' then x else sprintf "(%s)" x
+        let p = p prec
         match x with
         | TyMetavar(_,{contents=Some x}) -> f prec x
         | TyMetavar _ -> "?"
@@ -387,7 +392,7 @@ let show_t (env : TopEnv) x =
         | TyPair(a,b) -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b)) // TODO: Don't forget the paired symbol pattern.
         | TyFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
         | TyRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
-        | TyConstraint a -> show_constraint env a
+        | TyConstraint a -> show_constraint prec env a
 
     f -1 x
 
@@ -418,7 +423,7 @@ let show_type_error (env : TopEnv) x =
     | NominalInPatternUnbox i -> sprintf "Expected an union type, but %s is a nominal." (show_hoc env i)
     | TypeInGlobalEnvIsNotNominal a -> sprintf "Expected a nominal type.\nGot: %s" (f a)
     | UnionInPatternNominal i -> sprintf "Expected a nominal type, but %s is an union." (show_hoc env i)
-    | ConstraintError(a,b) -> sprintf "Constraint satisfaction error.\nGot: %s\nFails to satisfy: %s" (f b) (show_constraint env a)
+    | ConstraintError(a,b) -> sprintf "Constraint satisfaction error.\nGot: %s\nFails to satisfy: %s" (f b) (constraint_name env a)
     | ExpectedAnnotation -> sprintf "Recursive functions with foralls must be fully annotated."
     | ExpectedSinglePattern -> sprintf "Recursive functions with foralls must not have multiple clauses in their patterns."
     | RecursiveAnnotationHasMetavars a -> sprintf "Recursive functions with foralls must not have metavars.\nGot: %s" (f a)
@@ -433,6 +438,7 @@ let show_type_error (env : TopEnv) x =
     | InstanceKindError(a,b) -> sprintf "The kinds of the instance foralls are incompatible with those of the prototype.\nGot:      %s\nExpected: %s" (show_kind a) (show_kind b)
     | KindNotAllowedInInstanceForall -> "Kinds should not be explicitly stated in instance foralls."
     | InstanceVarShouldNotMatchAnyOfPrototypes -> "Instance forall must not have the same name as any of the prototype foralls."
+    | MissingBody -> "The function body is missing."
 
 let loc_env (x : TopEnv) = {term=x.term; ty=x.ty}
 let names_of vars = List.map (fun x -> x.name) vars |> Set
@@ -496,7 +502,7 @@ let infer (top_env' : TopEnv) expr =
             | x -> subst m x
         loop [] x
 
-    let generalize (forall_vars : Var list) (body : T) = 
+    let generalize (forall_vars : Var list) (body : T) =
         let scope = !scope
         let h = HashSet(HashIdentity.Reference)
         List.iter (h.Add >> ignore) forall_vars
@@ -619,7 +625,7 @@ let infer (top_env' : TopEnv) expr =
         let cons =
             constraints |> List.choose (fun (r,x) ->
                 match Map.tryFind x ty |> Option.orElseWith (fun () -> Map.tryFind x top_env.ty) with
-                | Some (TyConstraint x) -> unify_kind r (KindFun(kind,KindConstraint)) (constraint_kind top_env' x); Some x
+                | Some (TyConstraint x & a) -> hover_types.Add(r,a); unify_kind r (KindFun(kind,KindConstraint)) (constraint_kind top_env' x); Some x
                 | Some x -> errors.Add(r,ExpectedConstraint x); None
                 | None -> errors.Add(r,UnboundVariable); None
                 ) |> Set.ofList
@@ -738,6 +744,7 @@ let infer (top_env' : TopEnv) expr =
             f body_var body
             let l = List.map (fun (a,on_succ) -> pattern env body_var a, on_succ) l
             List.iter (fun (env,on_succ) -> term env s on_succ) l
+        | RawMissingBody r -> errors.Add(r,MissingBody)
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
     and inl env ((r, name), body) =
         incr scope
@@ -1099,5 +1106,24 @@ let infer (top_env' : TopEnv) expr =
         (hovers, errors), top_env'
 
 let default_env : TopEnv = 
-    let ty = ["number", TyConstraint CNumber] |> Map.ofList
+    let inline inl f = f {scope=0; kind=KindType; constraints=Set.empty; name="x"}
+         
+    let ty = 
+        [
+        "number", TyConstraint CNumber
+        "i8", TyPrim Int8T
+        "i16", TyPrim Int16T
+        "i32", TyPrim Int32T
+        "i64", TyPrim Int64T
+        "u8", TyPrim UInt8T
+        "u16", TyPrim UInt16T
+        "u32", TyPrim UInt32T
+        "u64", TyPrim UInt64T
+        "f32", TyPrim Float32T
+        "f64", TyPrim Float64T
+        "string", TyPrim StringT
+        "bool", TyPrim BoolT
+        "char", TyPrim CharT
+        "array", inl (fun x -> TyInl(x,TyArray (TyVar x)))
+        ] |> Map.ofList
     {hoc=PersistentVector.empty; ty=ty; term=Map.empty; prototypes=PersistentVector.empty}

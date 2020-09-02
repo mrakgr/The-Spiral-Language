@@ -143,8 +143,8 @@ let server_tokenizer (uri : string) = Job.delay <| fun () ->
             | Put(text,res) -> replace {|from=0; nearTo=lines.Count; lines=Utils.lines text|} |> IVar.fill res
             | Modify(edits,res) -> replace edits |> IVar.fill res
             | GetRange((a,b),res) -> // It is assumed that a.character = 0 and b.character = length of the line
-                let from, near_to = a.line, b.line+1
-                vscode_tokens from (lines.GetRange(from,near_to-from).ToArray()) |> IVar.fill res
+                let from, near_to = min (lines.Count-1) a.line, min lines.Count (b.line+1)
+                vscode_tokens from (lines.GetRange(from,near_to-from |> max 0).ToArray()) |> IVar.fill res
     Job.foreverServer loop >>-. req
 
 let server_parser (uri : string) = Job.delay <| fun () ->

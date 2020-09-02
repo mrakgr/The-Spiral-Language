@@ -82,6 +82,7 @@ and fold_offset_term offset x =
     | RawPairCreate(r,a,b) -> RawPairCreate(g r,f a,f b)
     | RawSeq(r,a,b) -> RawSeq(g r,f a,f b)
     | RawReal(r,a) -> RawReal(g r,f a)
+    | RawMissingBody r -> RawMissingBody(g r)
 and fold_offset_pattern offset x = 
     let f = fold_offset_pattern offset
     let term = fold_offset_term offset

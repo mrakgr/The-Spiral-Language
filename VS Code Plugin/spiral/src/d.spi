@@ -1,0 +1,1 @@
+inl (+) forall t {number}. (a : t) (b : t) : t = !!!!Add(a,b)

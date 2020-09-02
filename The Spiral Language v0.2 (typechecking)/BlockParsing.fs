@@ -111,7 +111,7 @@ type ParserErrors =
     | ExpectedBigVar
     | ExpectedLit
     | ExpectedSymbolPaired
-    | SymbolPairedShouldStartWithLowercaseInTypeScope
+    | SymbolPairedShouldStartWithUppercaseInTypeScope
     | ExpectedSymbol
     | ExpectedParenthesis of Parenthesis * ParenthesisState
     | ExpectedOpenParenthesis
@@ -119,7 +119,6 @@ type ParserErrors =
     | ExpectedEob
     | ExpectedFunctionAsBodyOfRecStatement
     | ExpectedSinglePatternWhenStatementNameIsNorVarOrOp
-    | MissingFunctionBody
     | ExpectedGlobalFunction
     | ExpectedExpression
     | InbuiltOpNotFound
@@ -197,6 +196,7 @@ and RawExpr =
     | RawPairCreate of Range * RawExpr * RawExpr
     | RawSeq of Range * RawExpr * RawExpr
     | RawReal of Range * RawExpr
+    | RawMissingBody of Range
 and RawTExpr =
     | RawTWildcard of Range
     | RawTB of Range
@@ -245,6 +245,7 @@ let range_of_pat_record_member = function
     | PatRecordMembersInjectVar((r,_),x) -> r +. range_of_pattern x
 let range_of_expr = function
     | RawB r
+    | RawMissingBody r
     | RawV(r,_)
     | RawLit(r,_)
     | RawDefaultLit(r,_)
@@ -266,6 +267,7 @@ let range_of_expr = function
     | RawRecordWith(r,_,_,_)
     | RawIfThenElse(r,_,_,_)
     | RawModuleOpen(r,_,_,_) -> r
+    
 let range_of_texpr = function
     | RawTWildcard r
     | RawTB r
@@ -338,7 +340,7 @@ let read_op' d =
 
 let skip_op t d =
     try_current d <| function
-        | p, TokOperator t' when t' = t -> skip d; Ok t'
+        | p, TokOperator t' when t' = t -> skip d; Ok p
         | p, _ -> Error [p, ExpectedOperator t]
 
 let skip_unary_op t d =
@@ -494,33 +496,29 @@ let rec let_join_point = function
     | x -> join_point x
 
 let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
-    match body with
-    // TODO: Rather than return an error during parsing for this particular error, for the typechecking pass I'll replace it with a metavariable stump.
-    | None -> Error [r, MissingFunctionBody]
-    | Some body ->
-        let name, pats =
-            match name with
-            | PatUnbox(_,PatPair(_,PatSymbol(r,name), pat)) -> PatVar(r,name), pat :: pats
-            | _ -> name, pats
-        let dyn_if_let x = if is_let then x else PatDyn(range_of_pattern x, x)
-        match is_rec, name, foralls, pats with
-        | false, _, [], [] -> 
-            match patterns_validate [name] with
-            | [] -> Ok((r,name,body),is_rec)
-            | ers -> Error ers
-        | _, PatVar _, _, _ -> 
-            match patterns_validate (if is_rec then name :: pats else pats) with
-            | [] -> 
-                let body = 
-                    (if is_let then let_join_point body else body)
-                    |> List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[dyn_if_let pat,body])) pats
-                    |> List.foldBack (fun typevar body -> RawForall(range_of_typevar typevar +. range_of_expr body,typevar,body)) foralls
-                match is_rec, body with
-                | false, _ | true, (RawFun _ | RawForall _) -> Ok((r,name,body),is_rec)
-                | true, _ -> Error [r, ExpectedFunctionAsBodyOfRecStatement]
-            | ers -> Error ers
-        | true, _, _, _ -> Error [range_of_pattern name, ExpectedVarOrOpAsNameOfRecStatement]
-        | false, _, _, _ -> Error [range_of_pattern name, ExpectedSinglePatternWhenStatementNameIsNorVarOrOp]
+    let name, pats =
+        match name with
+        | PatUnbox(_,PatPair(_,PatSymbol(r,name), pat)) -> PatVar(r,name), pat :: pats
+        | _ -> name, pats
+    let dyn_if_let x = if is_let then x else PatDyn(range_of_pattern x, x)
+    match is_rec, name, foralls, pats with
+    | false, _, [], [] -> 
+        match patterns_validate [name] with
+        | [] -> Ok((r,name,body),is_rec)
+        | ers -> Error ers
+    | _, PatVar _, _, _ -> 
+        match patterns_validate (if is_rec then name :: pats else pats) with
+        | [] -> 
+            let body = 
+                (if is_let then let_join_point body else body)
+                |> List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[dyn_if_let pat,body])) pats
+                |> List.foldBack (fun typevar body -> RawForall(range_of_typevar typevar +. range_of_expr body,typevar,body)) foralls
+            match is_rec, body with
+            | false, _ | true, (RawFun _ | RawForall _) -> Ok((r,name,body),is_rec)
+            | true, _ -> Error [r, ExpectedFunctionAsBodyOfRecStatement]
+        | ers -> Error ers
+    | true, _, _, _ -> Error [range_of_pattern name, ExpectedVarOrOpAsNameOfRecStatement]
+    | false, _, _, _ -> Error [range_of_pattern name, ExpectedSinglePatternWhenStatementNameIsNorVarOrOp]
 
 let ho_var d : Result<HoVar,_> = range ((read_type_var |>> fun x -> x, RawKindWildcard) <|> rounds ((read_type_var .>> skip_op ":") .>>. kind)) d
 let forall_var d : Result<TypeVar,_> = (ho_var .>>. (curlies (sepBy1 read_type_var' (skip_op ";")) <|>% [])) d
@@ -528,16 +526,29 @@ let forall d =
     (skip_keyword SpecForall >>. many1 forall_var .>> skip_op "." 
     >>= fun x _ -> duplicates DuplicateForallVar (List.map (fun ((r,(a,_)),_) -> r,a) x) |> function [] -> Ok x | er -> Error er) d
 
-let inline inl_or_let exp pattern =
+let rec insert_annot a = function
+    | RawJoinPoint(r,b) -> RawJoinPoint(r,insert_annot a b)
+    | b -> RawAnnot(range_of_expr b +. range_of_texpr a,b,a)
+
+let inline annotated_body sep exp ty =
+    pipe2 (opt (skip_op ":" >>. ty))
+        (skip_op sep .>>. opt exp)
+        (fun a (r,b) ->
+            let b = match b with Some b -> b | None -> RawMissingBody r
+            match a with
+            | Some a -> insert_annot a b
+            | None -> b)
+
+let inline inl_or_let exp pattern ty =
     range (tuple6 ((skip_keyword SpecInl >>% false) <|> (skip_keyword SpecLet >>% true))
             ((skip_keyword SpecRec >>% true) <|>% false) pattern
-            (forall <|>% []) (many pattern) (skip_op "=" >>. opt exp))
+            (forall <|>% []) (many pattern) (annotated_body "=" exp ty))
     >>= inl_or_let_process
 
-let inline and_inl_or_let exp pattern =
+let inline and_inl_or_let exp pattern ty =
     range (tuple6 (skip_keyword SpecAnd >>. ((skip_keyword SpecInl >>% false) <|> (skip_keyword SpecLet >>% true)))
             (fun _ -> Ok true) pattern
-            (forall <|>% []) (many pattern) (skip_op "=" >>. opt exp))
+            (forall <|>% []) (many pattern) (annotated_body "=" exp ty))
     >>= inl_or_let_process
 
 type Associativity = FParsec.Associativity
@@ -711,6 +722,13 @@ let rec pat_nominal d =
         ) d
 and pat_wildcard d = (skip_keyword' SpecWildcard |>> PatE) d
 and pat_dyn d = (range (skip_unary_op "~" >>. root_pattern_var) |>> PatDyn) d
+and pat_record d = 
+    let pat_record_item =
+        let inj = skip_unary_op "$" >>. read_small_var' |>> fun a -> PatRecordMembersInjectVar,a
+        let var = range record_var |>> fun a -> PatRecordMembersSymbol,a
+        ((inj <|> var) .>>. (opt (skip_op "=" >>. root_pattern_pair)))
+        |>> fun ((f,a),b) -> f (a, defaultArg b (PatVar a))
+    (range (curlies (many pat_record_item)) |>> PatRecordMembers) d
 and root_pattern s =
     let body s = 
         let pat_unit = unit' PatB
@@ -718,21 +736,15 @@ and root_pattern s =
             range (skip_unary_op "!" >>. ((read_small_var' |>> RawV) <|> rounds root_term) .>>. root_pattern_var) 
             |>> fun (r,(a,b)) -> PatActive(r,a,b)
         let pat_value = (read_value |>> PatValue) <|> (read_default_value PatDefaultValue PatValue)
-        let pat_record_item =
-            let inj = skip_unary_op "$" >>. read_small_var' |>> fun a -> PatRecordMembersInjectVar,a
-            let var = range record_var |>> fun a -> PatRecordMembersSymbol,a
-            ((inj <|> var) .>>. (opt (skip_op "=" >>. root_pattern_pair)))
-            |>> fun ((f,a),b) -> f (a, defaultArg b (PatVar a))
-        let pat_record = range (curlies (many pat_record_item)) |>> PatRecordMembers
         let pat_symbol = read_symbol |>> PatSymbol
-        let pat_rounds = rounds (root_pattern <|> (read_op' |>> PatVar))
+        let pat_type = 
+            pipe2 root_pattern (opt (skip_op ":" >>. fun d -> root_type {root_type_defaults with allow_term=d.is_top_down=false; allow_wildcard=d.is_top_down} d))
+                (fun a -> function Some b -> PatAnnot(range_of_pattern a +. range_of_texpr b,a,b) | None -> a)
+        let pat_rounds = rounds (pat_type <|> (read_op' |>> PatVar))
         let (+) = alt (index s)
         (pat_unit + pat_rounds + pat_nominal + pat_wildcard + pat_dyn + pat_value + pat_record + pat_symbol + pat_active) s
 
-    let pat_type = 
-        pipe2 body (opt (skip_op ":" >>. fun d -> root_type {root_type_defaults with allow_term=d.is_top_down=false; allow_wildcard=d.is_top_down} d))
-            (fun a -> function Some b -> PatAnnot(range_of_pattern a +. range_of_texpr b,a,b) | None -> a)
-    let pat_and = sepBy1 pat_type (skip_op "&") |>> List.reduce (fun a b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b))
+    let pat_and = sepBy1 body (skip_op "&") |>> List.reduce (fun a b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b))
     let pat_pair = pat_pair pat_and
     let pat_symbol_paired = 
         let next = pat_pair
@@ -754,6 +766,7 @@ and root_pattern_var d =
     let (+) = alt (index d)
     (pat_var + pat_wildcard + pat_dyn + peek_open_parenthesis root_pattern) d
 and root_pattern_pair d = pat_pair root_pattern_var d
+and root_type_annot d = root_type {root_type_defaults with allow_term=d.is_top_down=false; allow_wildcard=d.is_top_down} d
 and root_type (flags : RootTypeFlags) d =
     let next = root_type flags
     let cases d =
@@ -773,31 +786,12 @@ and root_type (flags : RootTypeFlags) d =
                 RawTPair(o,RawTSymbol(o,to_lower x), RawTB o)
             else
                 r := SemanticTokenLegend.type_variable
-                match x with
-                | "i8" -> RawTPrim(o,Int8T)
-                | "i16" -> RawTPrim(o,Int16T)
-                | "i32" -> RawTPrim(o,Int32T)
-                | "i64" -> RawTPrim(o,Int64T)
-                | "u8" -> RawTPrim(o,UInt8T)
-                | "u16" -> RawTPrim(o,UInt16T)
-                | "u32" -> RawTPrim(o,UInt32T)
-                | "u64" -> RawTPrim(o,UInt64T)
-                | "f32" -> RawTPrim(o,Float32T)
-                | "f64" -> RawTPrim(o,Float64T)
-                | "string" -> RawTPrim(o,StringT)
-                | "bool" -> RawTPrim(o,BoolT)
-                | "char" -> RawTPrim(o,CharT)
-                | x -> RawTVar(o, x)
+                RawTVar(o, x)
         let (+) = alt (index d)
         (unit' RawTB + rounds next + wildcard + term + metavar + var + record + symbol) d
     let apply d = 
         (pipe2 cases (many (indent (col d) (<) cases)) 
-            (fun a b -> 
-                List.reduce (fun a b -> 
-                    match a with 
-                    | RawTVar(ra, "array") -> RawTArray(ra +. range_of_texpr b, b)
-                    | _ -> RawTApply(range_of_texpr a +. range_of_texpr b,a,b)
-                    ) (a :: b))) d
+            (fun a b -> List.fold (fun a b -> RawTApply(range_of_texpr a +. range_of_texpr b,a,b)) a b)) d
     
     let pairs = sepBy1 apply (skip_op ",") |>> List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b))
     let functions = sepBy1 pairs (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(range_of_texpr a +. range_of_texpr b,a,b))
@@ -807,11 +801,11 @@ and root_type (flags : RootTypeFlags) d =
             match List.unzip l with
             | [], _ -> failwith "Compiler error: Single item expected."
             | (r,x) :: k', v ->
-                if Char.IsLower(x,0) then
+                if Char.IsUpper(x,0) then
                     List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b)) 
-                        (RawTSymbol(r,symbol_paired_concat ((r,x) :: k')) :: v) |> Ok
+                        (RawTSymbol(r,symbol_paired_concat ((r,to_lower x) :: k')) :: v) |> Ok
                 else
-                    Error [r, SymbolPairedShouldStartWithLowercaseInTypeScope]
+                    Error [r, SymbolPairedShouldStartWithUppercaseInTypeScope]
             )
         <|> next) d
     symbol_paired d
@@ -823,7 +817,7 @@ and root_term d =
         let case_unit = unit' RawB
         let case_rounds = rounds ((read_op' |>> RawV) <|> next)
         let case_fun =
-            (skip_keyword SpecFun >>. many1 root_pattern_pair .>>. (skip_op "=>" >>. next))
+            (skip_keyword SpecFun >>. many1 root_pattern_pair .>>. (annotated_body "=>" next root_type_annot))
             >>= fun (pats, body) _ ->
                 match patterns_validate pats with
                 | [] -> List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[pat,body])) pats body |> Ok
@@ -831,7 +825,7 @@ and root_term d =
             
         let case_forall d =
             if d.is_top_down then Error [] else
-                (tuple3 forall (many root_pattern_pair) (skip_op "=>" >>. next)
+                (tuple3 forall (many root_pattern_pair) (annotated_body "=>" next root_type_annot)
                 >>= fun (foralls : TypeVar list, pats, body) _ ->
                     match patterns_validate pats with
                     | [] -> 
@@ -962,7 +956,7 @@ and root_term d =
             (term >>= loop) d
 
         pipe2 (tdop Int32.MinValue)
-            (opt (skip_op ":" >>. (fun d -> root_type {root_type_defaults with allow_term=d.is_top_down=false; allow_wildcard=d.is_top_down} d)))
+            (opt (skip_op ":" >>. root_type_annot))
             (fun a -> function Some b -> RawAnnot(range_of_expr a +. range_of_texpr b,a,b) | _ -> a)
             d
 
@@ -983,7 +977,7 @@ and root_term d =
     let statements d =
         let next = symbol_paired
         let inl_or_let =
-            (inl_or_let root_term root_pattern_pair .>>. many (and_inl_or_let root_term root_pattern_pair))
+            (inl_or_let root_term root_pattern_pair root_type_annot .>>. many (and_inl_or_let root_term root_pattern_pair root_type_annot))
             >>= fun x _ -> 
                 match x with
                 | ((r,name,body),false), [] -> Ok(fun on_succ -> RawMatch(r,body,[name,on_succ]))
@@ -1046,7 +1040,7 @@ let top_inl_or_let_process is_top_down = function
     | (r,PatVar(r',name),(RawForall _ | RawFun _ as body)),true -> Ok(TopRecInl(r,(r',name),body,is_top_down))
     | (r,PatVar _,_),_ -> Error [r, ExpectedGlobalFunction]
     | (_,x,_),_ -> Error [range_of_pattern x, ExpectedVarOrOpAsNameOfGlobalStatement]
-let top_inl_or_let d = (inl_or_let root_term root_pattern_pair >>= fun x d -> top_inl_or_let_process d.is_top_down x) d
+let top_inl_or_let d = (inl_or_let root_term root_pattern_pair root_type_annot >>= fun x d -> top_inl_or_let_process d.is_top_down x) d
 
 let top_union d =
     let clauses d =
@@ -1079,7 +1073,7 @@ let top_instance d =
             | ers -> Error ers) d
 
 let top_and_inl_or_let d = 
-    (restore 1 (range (and_inl_or_let root_term root_pattern_pair)) 
+    (restore 1 (range (and_inl_or_let root_term root_pattern_pair root_type_annot)) 
     >>= fun (r,x) d -> top_inl_or_let_process d.is_top_down x |> Result.map (fun x -> TopAnd(r,x))) d
 let inline top_and f = restore 1 (range (skip_keyword SpecAnd >>. f)) |>> TopAnd
 

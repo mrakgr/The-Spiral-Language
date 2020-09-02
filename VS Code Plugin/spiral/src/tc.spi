@@ -1,7 +1,19 @@
-inl (+) forall t {number}. (a : t) (b : t) = !!!!Add(a,b) : t
+inl (+) forall t {number}. (a : t) (b : t) : t = !!!!Add(a,b)
+inl (-) forall t {number}. (a : t) (b : t) : t = !!!!Sub(a,b)
+inl (*) forall t {number}. (a : t) (b : t) : t = !!!!Mult(a,b)
+inl (**) forall t {number}. (a : t) (b : t) : t = !!!!Pow(a,b)
+inl (/) forall t {number}. (a : t) (b : t) : t = !!!!Div(a,b)
+inl (%) forall t {number}. (a : t) (b : t) : t = !!!!Mod(a,b)
 
-inl f x = 1 + 5 + 2 + 3 + x
+inl (<=) forall t {number}. (a : t) (b : t) : bool = !!!!LTE(a,b)
+inl (<) forall t {number}. (a : t) (b : t) : bool = !!!!LT(a,b)
+inl (=) forall t {number}. (a : t) (b : t) : bool = !!!!EQ(a,b)
+inl (<>) forall t {number}. (a : t) (b : t) : bool = !!!!NEQ(a,b)
+inl (>) forall t {number}. (a : t) (b : t) : bool = !!!!GT(a,b)
+inl (>=) forall t {number}. (a : t) (b : t) : bool = !!!!GTE(a,b)
 
-inl id forall t. (x : t) = x
-inl rec q forall t. (x : t) = x : t
-inl rec w forall t. ((+) : t -> t -> t) (x : t) = (x + x + x) : t
+inl (=) forall t {number}. (a : t) (b : t) : bool = !!!!EQ(a,b)
+inl (<>) forall t {number}. (a : t) (b : t) : bool = !!!!NEQ(a,b)
+
+let rec fib x = if x <= 0 then fib (x-1) + (x-2) else 0
+
