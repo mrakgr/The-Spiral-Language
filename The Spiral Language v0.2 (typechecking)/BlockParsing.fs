@@ -852,7 +852,7 @@ and root_term d =
                 let bar = bar (col d)
                 (optional bar >>. sepBy1 (root_pattern .>>. (skip_op "=>" >>. next)) bar
                 >>= fun l _ ->
-                    match patterns_validate (List.map fst l) with
+                    match l |> List.collect (fun (a,_) -> patterns_validate [a]) with
                     | [] -> Ok l
                     | e -> Error e
                     ) d
@@ -871,15 +871,16 @@ and root_term d =
 
         let case_record =
             let record_body = skip_op "=" >>. next
-            let record_create_body = range record_var .>>. record_body |>> RawRecordWithSymbol
+            let record_create_body = 
+                range record_var .>>. opt record_body |>> function (a,Some b) -> RawRecordWithSymbol(a,b) | (a,None) -> RawRecordWithSymbol(a,RawV(a))
+                <|> (skip_unary_op "$" >>. (range read_small_var .>>. record_body |>> RawRecordWithInjectVar))
             let record_create = range (curlies (sepBy record_create_body (optional (skip_op ";")))) |>> fun (r,withs) -> (r,[],withs,[])
             let record_with_bodies =
                 record_create_body <|> (read_unary_op' >>= fun (r,x) d ->
                     match x with
                     | "#" -> (range record_var .>>. record_body |>> RawRecordWithSymbolModify) d
-                    | "$" -> (range read_small_var .>>. record_body |>> RawRecordWithInjectVar) d
                     | "#$" -> (range read_small_var .>>. record_body |>> RawRecordWithInjectVarModify) d
-                    | _ -> Error [r, ExpectedUnaryOperator "#"; r, ExpectedUnaryOperator "$"; r, ExpectedUnaryOperator "#$"]
+                    | _ -> Error [r, ExpectedUnaryOperator "#"; r, ExpectedUnaryOperator "#$"]
                     )
             let record_without_bodies = (range record_var |>> RawRecordWithoutSymbol) <|> (skip_unary_op "$" >>. read_small_var' |>> RawRecordWithoutInjectVar)
             let record_with =

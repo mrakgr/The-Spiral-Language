@@ -12,8 +12,24 @@ inl (<>) forall t {number}. (a : t) (b : t) : bool = !!!!NEQ(a,b)
 inl (>) forall t {number}. (a : t) (b : t) : bool = !!!!GT(a,b)
 inl (>=) forall t {number}. (a : t) (b : t) : bool = !!!!GTE(a,b)
 
-inl (=) forall t {number}. (a : t) (b : t) : bool = !!!!EQ(a,b)
-inl (<>) forall t {number}. (a : t) (b : t) : bool = !!!!NEQ(a,b)
+inl (=) forall t. (a : t) (b : t) : bool = !!!!EQ(a,b)
+inl (<>) forall t. (a : t) (b : t) : bool = !!!!NEQ(a,b)
+
+inl (|>) a b = b a
+inl (>>) a b x = b (a x)
+inl dyn (~x) = x
 
 let rec fib x = if x <= 0 then fib (x-1) + (x-2) else 0
 
+nominal t x = {q : i32; w : i64; e : string; f : x}
+
+inl testn_1 (q : t bool) =
+    inl r = t {q=1i32; w=2i64; e="e"; f=true}
+    match q with
+    | t {e f} => ()
+
+inl main _ =
+    inl add (left:right:) = left + right
+    add (left:1 right: 2)
+    + add (left: 3 right: 7)
+    |> dyn

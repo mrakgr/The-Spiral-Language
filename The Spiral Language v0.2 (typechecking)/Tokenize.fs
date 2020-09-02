@@ -157,7 +157,7 @@ let number (s: Tokenizer) =
     
     let followedBySuffix x (s: Tokenizer) =
         let inline safe_parse string_to_val val_to_lit val_dsc =
-            if is_separator_char (peek s) then 
+            if (let x = peek s in is_separator_char x || is_operator_char x) then 
                 match string_to_val x with
                 | true, x -> val_to_lit x |> TokValue |> ok
                 | false, _ -> Error [{from=from; nearTo=s.from}, (sprintf "The string %s cannot be safely parsed as %s." x val_dsc)]

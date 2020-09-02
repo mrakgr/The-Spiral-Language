@@ -62,7 +62,7 @@ let show_parser_error = function
     | InbuiltOpNotFound -> "Not found among the inbuilt operations."
     | UnknownOperator -> "Operator does not have known precedence and associativity."
     | ForallNotAllowed -> "Forall not allowed here."
-    | InvalidPattern DisjointOrPatternVar -> "Both branches of an or pattern have have the same variables. This one is disjoint."
+    | InvalidPattern DisjointOrPatternVar -> "Both branches of an or pattern need to have the same variables. This one is disjoint."
     | InvalidPattern DuplicateVar -> "Duplicate pattern variable."
     | InvalidPattern ShadowedVar -> "Shadowed pattern variable."
     | MetavarNotAllowed -> "Metavariable is not allowed here."

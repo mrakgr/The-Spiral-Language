@@ -2,18 +2,17 @@ union option a =
     | Some: a
     | None
 
-// nominal tensor el dim = `(tensor_init `el `dim ``el ``dim)
-// and union tensor_option el dim =
-//     | some: tensor el dim
-//     | None
-// and nominal tensor2d el a b = tensor el (a,b)
-
 prototype bind m a : forall b. m a -> (a -> m b) -> m b
-
 instance bind option : x f =
     match x with
     | Some: x => f x
     | None => None
+
+nominal tensor el dim = el, dim
+and union tensor_option el dim =
+    | Some: tensor el dim
+    | None
+and nominal tensor2d el a b = tensor (tensor_option el i32) (a,b)
 
 inl rec f x = x
 and inl g x = f x

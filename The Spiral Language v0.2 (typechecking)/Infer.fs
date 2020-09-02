@@ -249,7 +249,8 @@ let assert_bound_vars (top_env : Env) term ty x =
 let rec subst (m : (Var * T) list) x =
     let f = subst m
     match x with
-    | TyConstraint _ | TyMetavar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> x
+    | TyMetavar _ -> failwith "Compiler error: Metavars are forbidden in subst."
+    | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> x
     | TyPair(a,b) -> TyPair(f a, f b)
     | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
     | TyFun(a,b) -> TyFun(f a, f b)
@@ -499,7 +500,7 @@ let infer (top_env' : TopEnv) expr =
         let rec loop m x = 
             match visit_t x with
             | TyForall(a,b) -> loop ((a, fresh_subst_var a.constraints a.kind) :: m) b
-            | x -> subst m x
+            | x -> if List.isEmpty m then x else subst m x
         loop [] x
 
     let generalize (forall_vars : Var list) (body : T) =
@@ -579,7 +580,7 @@ let infer (top_env' : TopEnv) expr =
                 | [] -> link := Some b
                 | constraint_errors -> raise (TypeErrorException (List.map (fun x -> r,x) constraint_errors))
             | TyVar a, TyVar b when a = b -> ()
-            | (TyPair(a,b), TyPair(a',b') | TyFun(a,a'), TyFun(b,b') | TyApply(a,a',_), TyApply(b,b',_)) -> loop (a,b); loop (a',b')
+            | (TyPair(a,a'), TyPair(b,b') | TyFun(a,a'), TyFun(b,b') | TyApply(a,a',_), TyApply(b,b',_)) -> loop (a,b); loop (a',b')
             | TyRecord l, TyRecord l' ->
                 let a,b = Map.toArray l, Map.toArray l'
                 if a.Length <> b.Length then er ()
@@ -647,8 +648,10 @@ let infer (top_env' : TopEnv) expr =
             match v a with
             | None -> errors.Add(r,UnboundVariable)
             | Some (TySymbol "<real>") -> errors.Add(r,RealFunctionInTopDown)
-            | Some a -> hover_types.Add(r,a); type_application.Add(x,s); unify r s (forall_subst_all a)
-        | RawDefaultLit(r,_) -> hover_types.Add(r,s); type_application.Add(x,s); unify r s (fresh_subst_var (Set.singleton CNumber) KindType)
+            | Some a -> 
+                match a with TyForall _ -> type_application.Add(x,s) | _ -> ()
+                hover_types.Add(r,a); unify r s (forall_subst_all a)
+        | RawDefaultLit(r,_) -> type_application.Add(x,s); hover_types.Add(r,s); unify r s (fresh_subst_var (Set.singleton CNumber) KindType)
         | RawLit(r,a) -> unify r s (lit a)
         | RawSymbolCreate(r,x) -> unify r s (TySymbol x)
         | RawType(_,x) -> ty env s x
@@ -724,7 +727,7 @@ let infer (top_env' : TopEnv) expr =
                 | x :: x' ->
                     List.mapFold (fun m x ->
                         let sym = symbol x
-                        match Map.tryFind sym m with
+                        match Map.tryFind sym m |> Option.map visit_t with
                         | Some (TyRecord m') -> (m,sym), m'
                         | Some a -> raise (TypeErrorException [range_of_expr x, ExpectedRecordAsResultOfIndex a])
                         | None -> raise (TypeErrorException [range_of_expr x, RecordIndexFailed sym])
@@ -900,13 +903,13 @@ let infer (top_env' : TopEnv) expr =
                 f w b
             | PatOr(_,a,b) | PatAnd(_,a,b) -> pattern (pattern env s a) s b
             | PatValue(r,a) -> unify r s (lit a); env
-            | PatDefaultValue _ -> env
+            | PatDefaultValue(r,_) -> hover_types.Add(r,s); unify r s (fresh_subst_var (Set.singleton CNumber) KindType); env
             | PatRecordMembers(r,l) ->
                 let l =
                     List.choose (function
                         | PatRecordMembersSymbol((r,a),b) -> Some (a,b)
                         | PatRecordMembersInjectVar((r,a),b) ->
-                            match v a with
+                            match v a |> Option.map visit_t with
                             | Some (TySymbol a as x) -> hover_types.Add(r,x); Some (a,b)
                             | Some x -> errors.Add(r, ExpectedSymbolAsRecordKey x); None
                             | None -> errors.Add(r, UnboundVariable); None
@@ -994,7 +997,7 @@ let infer (top_env' : TopEnv) expr =
                 | Choice1Of2(_,name,(vars,env_ty'),expr) ->
                     let v = fresh_var()
                     ty {term=Map.empty; ty=Map.foldBack Map.add env_ty' env_ty} v expr 
-                    let v = visit_t v
+                    let v = term_subst v
                     PersistentVector.conj (HOCNominal(name,vars,v)) hoc, Map.add name (wrap_forall vars v env_ty.[name]) term
                 | Choice2Of2(_,name,(vars,env_ty'),l) ->
                     List.fold (fun (cases,term) expr ->
