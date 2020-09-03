@@ -3,6 +3,14 @@ open Spiral.Tokenize
 open Spiral.BlockParsing
 
 let show_parser_error = function
+    | ExpectedEscapedChar -> "escaped character"
+    | ExpectedUnescapedChar -> "unescaped character"
+    | ExpectedMacroTypeVar -> "type variable"
+    | ExpectedMacroVar -> "variable"
+    | ExpectedText -> "text"
+    | ExpectedMacroOpen -> "$\""
+    | ExpectedStringOpen -> "\""
+    | ExpectedMacroClose | ExpectedStringClose -> "\""
     | ExpectedKeyword x ->
         match x with
         | SpecIn -> "in"

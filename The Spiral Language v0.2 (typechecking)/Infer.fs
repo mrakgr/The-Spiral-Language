@@ -26,7 +26,11 @@ type [<ReferenceEquality>] MVar = {
     kind : TT // Has metavars, and so is mutable.
     }
 
-type T =
+type TM =
+    | TMText of string
+    | TMVar of T
+
+and T =
     | TyB
     | TyPrim of PrimitiveType
     | TySymbol of string
@@ -41,6 +45,7 @@ type T =
     | TyMetavar of MVar * T option ref
     | TyVar of Var
     | TyConstraint of Constraint
+    | TyMacro of TM list
 
 type TypeError =
     | KindError of TT * TT
@@ -102,7 +107,7 @@ let rec typevar = function
     | RawKindFun(a,b) -> KindFun(typevar a, typevar b)
 
 let rec metavars = function
-    | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ -> Set.empty
+    | RawTMacro _ | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ -> Set.empty
     | RawTMetaVar(_,a) -> Set.singleton a
     | RawTForall(_,_,a) | RawTArray(_,a) -> metavars a
     | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> metavars a + metavars b
@@ -144,7 +149,7 @@ let constraint_name (env : TopEnv) = function
 
 let rec tt env = function
     | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar({kind=x},_) | TyVar({kind=x}) -> x
-    | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
+    | TyMacro _ | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
     | TyInl(v,a) -> KindFun(v.kind,tt env a)
     | TyConstraint x -> constraint_kind env x
 
@@ -205,6 +210,13 @@ let validate_bound_vars (top_env : Env) term ty x =
         | RawSeq(_,a,b) | RawPairCreate(_,a,b) | RawIfThen(_,a,b) | RawApply(_,a,b) -> cterm term ty a; cterm term ty b
         | RawIfThenElse(_,a,b,c) -> cterm term ty a; cterm term ty b; cterm term ty c
         | RawMissingBody r -> errors.Add(r,MissingBody)
+        | RawMacro(_,a) -> cmacro term ty a
+    and cmacro term ty a =
+        List.iter (function
+            | RawMacroText _ -> ()
+            | RawMacroTermVar(r,a) -> check_term term (r,a)
+            | RawMacroTypeVar(r,a) -> check_term ty (r,a)
+            ) a
     and ctype term ty x =
         match x with
         | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
@@ -214,6 +226,7 @@ let validate_bound_vars (top_env : Env) term ty x =
         | RawTForall(_,((_,(a,_)),l),b) -> List.iter (check_ty ty) l; ctype term (Set.add a ty) b
         | RawTArray(_,a) -> ctype term ty a
         | RawTTerm (_,a) -> cterm term ty a
+        | RawTMacro(_,a) -> cmacro term ty a
     and cpattern term ty x =
         //let is_first = System.Collections.Generic.HashSet()
         let rec loop term x = 
@@ -259,6 +272,7 @@ let rec subst (m : (Var * T) list) x =
     | TyVar a -> List.tryPick (fun (v,x) -> if a = v then Some x else None) m |> Option.defaultValue x
     | TyForall(a,b) -> TyForall(a, f b)
     | TyInl(a,b) -> TyInl(a, f b)
+    | TyMacro a -> TyMacro(List.map (function TMVar x -> TMVar(subst m x) | x -> x) a)
 
 let rec ho_split s = function 
     | TyApply(a,b,_) -> ho_split (b :: s) a 
@@ -301,6 +315,7 @@ let rec term_subst = function
     | TyArray a -> TyArray(term_subst a)
     | TyApply(a,b,c) -> TyApply(term_subst a, term_subst b, c)
     | TyInl(a,b) -> TyInl(a,term_subst b)
+    | TyMacro a -> TyMacro(List.map (function TMVar x -> TMVar(term_subst x) | x -> x) a)
 
 let rec foralls_get = function
     | RawForall(_,a,b) -> let a', b = foralls_get b in a :: a', b
@@ -324,6 +339,7 @@ let rec has_metavars x =
     | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a && f b
     | TyRecord l -> Map.exists (fun _ -> f) l
     | TyMetavar(x,_) -> true
+    | TyMacro a -> List.exists (function TMVar x -> has_metavars x | _ -> false) a
 
 let show_primt = function
     | UInt8T -> "u8"
@@ -394,6 +410,7 @@ let show_t (env : TopEnv) x =
         | TyFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
         | TyRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
         | TyConstraint a -> show_constraint prec env a
+        | TyMacro a -> p 30 (List.map (function TMVar a -> f -1 a | TMText a -> a) a |> String.concat "")
 
     f -1 x
 
@@ -526,6 +543,7 @@ let infer (top_env' : TopEnv) expr =
             | TyArray a -> TyArray(f a)
             | TyApply(a,b,c) -> TyApply(f a,f b,c)
             | TyInl(a,b) -> TyInl(a,f b)
+            | TyMacro a -> TyMacro(List.map (function TMVar a -> TMVar(replace_metavars a) | a -> a) a)
 
         let f x s = TyForall(x,s)
         Seq.foldBack f generalized_metavars (replace_metavars body)
@@ -555,7 +573,7 @@ let infer (top_env' : TopEnv) expr =
         let rec validate_unification i x =
             let f = validate_unification i
             match visit_t x with
-            | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> ()
+            | TyMacro _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> ()
             | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
             | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a; f b
             | TyRecord l -> Map.iter (fun _ -> f) l
@@ -592,6 +610,13 @@ let infer (top_env' : TopEnv) expr =
             | TyArray a, TyArray b -> loop (a,b)
             // Note: Unifying these two only makes sense if the expected is fully inferred already.
             | TyForall(a,b), TyForall(a',b') | TyInl(a,b), TyInl(a',b') when a.kind = a'.kind && a.constraints = a'.constraints -> loop (b, subst [a',TyVar a] b')
+            | TyMacro a, TyMacro b -> 
+                List.iter2 (fun a b -> 
+                    match a,b with
+                    | TMText a, TMText b when System.Object.ReferenceEquals(a,b) || a = b -> ()
+                    | TMVar a, TMVar b -> loop(a,b)
+                    | _ -> er ()
+                    ) a b
             | _ -> er ()
 
         try loop (got, expected)
@@ -617,6 +642,9 @@ let infer (top_env' : TopEnv) expr =
 
     let fresh_var () = fresh_var' KindType
 
+    let v env a = Map.tryFind a env |> Option.orElseWith (fun () -> Map.tryFind a top_env.term) |> Option.map visit_t
+    let v_term env a = v env.term a
+    let v_ty env a = v env.ty a
     let typevar_to_var ty (((_,(name,kind)),constraints) : TypeVar) : Var = 
         let rec typevar = function
             | RawKindWildcard -> fresh_kind()
@@ -625,7 +653,7 @@ let infer (top_env' : TopEnv) expr =
         let kind = typevar kind
         let cons =
             constraints |> List.choose (fun (r,x) ->
-                match Map.tryFind x ty |> Option.orElseWith (fun () -> Map.tryFind x top_env.ty) with
+                match v ty x with
                 | Some (TyConstraint x & a) -> hover_types.Add(r,a); unify_kind r (KindFun(kind,KindConstraint)) (constraint_kind top_env' x); Some x
                 | Some x -> errors.Add(r,ExpectedConstraint x); None
                 | None -> errors.Add(r,UnboundVariable); None
@@ -638,14 +666,14 @@ let infer (top_env' : TopEnv) expr =
             v, Map.add v.name (TyVar v) s
             ) ty l
 
+
     let rec term (env : Env) s x =
         let f = term env
         let f' x = let v = fresh_var() in f v x; visit_t v
-        let v x = Map.tryFind x env.term |> Option.orElseWith (fun () -> Map.tryFind x top_env.term) |> Option.map visit_t
         match x with
         | RawB r -> unify r s TyB
         | RawV(r,a) ->
-            match v a with
+            match v_term env a with
             | None -> errors.Add(r,UnboundVariable)
             | Some (TySymbol "<real>") -> errors.Add(r,RealFunctionInTopDown)
             | Some a -> 
@@ -702,7 +730,7 @@ let infer (top_env' : TopEnv) expr =
                             f (TyFun(x,v)) b
                             Map.add a v m
                         let inline with_inject next ((r,a),b) =
-                            match v a with
+                            match v_term env a with
                             | Some (TySymbol a as x) -> hover_types.Add(r,x); next ((r,a),b)
                             | Some x -> errors.Add(r, ExpectedSymbolAsRecordKey x); m
                             | None -> errors.Add(r, UnboundVariable); m
@@ -716,7 +744,7 @@ let infer (top_env' : TopEnv) expr =
                     List.fold (fun m -> function
                         | RawRecordWithoutSymbol(_,a) -> Map.remove a m
                         | RawRecordWithoutInjectVar(r,a) ->
-                            match v a with
+                            match v_term env a with
                             | Some (TySymbol a as x) -> hover_types.Add(r,x); Map.remove a m
                             | Some x -> errors.Add(r, ExpectedSymbolAsRecordKey x); m
                             | None -> errors.Add(r, UnboundVariable); m
@@ -748,6 +776,13 @@ let infer (top_env' : TopEnv) expr =
             let l = List.map (fun (a,on_succ) -> pattern env body_var a, on_succ) l
             List.iter (fun (env,on_succ) -> term env s on_succ) l
         | RawMissingBody r -> errors.Add(r,MissingBody)
+        | RawMacro(_,a) ->
+            let f r = function Some a -> hover_types.Add(r,a) | None -> errors.Add(r,UnboundVariable)
+            List.iter (function
+                | RawMacroText _ -> ()
+                | RawMacroTermVar(r,a) -> v_term env a |> f r
+                | RawMacroTypeVar(r,a) -> v_ty env a |> f r
+                ) a
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
     and inl env ((r, name), body) =
         incr scope
@@ -822,7 +857,7 @@ let infer (top_env' : TopEnv) expr =
         match x with
         | RawTWildcard r -> hover_types.Add(r,s)
         | RawTVar(r,x) -> 
-            match Map.tryFind x env.ty |> Option.orElseWith (fun () -> Map.tryFind x top_env.ty) with
+            match v_ty env x with
             | Some x -> hover_types.Add(r,x); unify r s x
             | None -> errors.Add(r, UnboundVariable)
         | RawTB r -> unify r s TyB
@@ -864,6 +899,16 @@ let infer (top_env' : TopEnv) expr =
                 f x b
                 unify r s (TyApply(a,x,w))
         | RawTTerm(r,a) -> assert_bound_vars env a; unify r s (TySymbol "<term>")
+        | RawTMacro(r,a) ->
+            List.map (function
+                | RawMacroText(_,a) -> TMText a
+                | RawMacroTypeVar(r,a) ->
+                    match v_ty env a with
+                    | Some a -> hover_types.Add(r,a); TMVar a
+                    | None -> errors.Add(r,UnboundVariable); TMText "<error>"
+                | RawMacroTermVar _ -> failwith "Compiler error: Term vars should never appear at the type level."
+                ) a
+            |> TyMacro |> unify r s
         | RawTMetaVar _ -> failwith "Compiler error: This particular metavar is only for typecase's clauses. This happens during the bottom-up segment."
     and pattern env s a = 
         let is_first = System.Collections.Generic.HashSet()
@@ -878,9 +923,8 @@ let infer (top_env' : TopEnv) expr =
         let rec ho_fun = function
             | TyFun(_,a) | TyForall(_,a) -> ho_fun a
             | a -> ho_index a
-        let rec loop env s a =
+        let rec loop (env : Env) s a =
             let f = loop env
-            let v x = Map.tryFind x env.term |> Option.orElseWith (fun () -> Map.tryFind x top_env.term)
             match a with
             | PatB r -> unify r s TyB; env
             | PatE r -> hover_types.Add(r,s); env
@@ -909,7 +953,7 @@ let infer (top_env' : TopEnv) expr =
                     List.choose (function
                         | PatRecordMembersSymbol((r,a),b) -> Some (a,b)
                         | PatRecordMembersInjectVar((r,a),b) ->
-                            match v a |> Option.map visit_t with
+                            match v_term env a |> Option.map visit_t with
                             | Some (TySymbol a as x) -> hover_types.Add(r,x); Some (a,b)
                             | Some x -> errors.Add(r, ExpectedSymbolAsRecordKey x); None
                             | None -> errors.Add(r, UnboundVariable); None
@@ -945,7 +989,7 @@ let infer (top_env' : TopEnv) expr =
                 match term_subst s |> ho_index with
                 | ValueSome i -> assume i
                 | ValueNone ->
-                    match v name with
+                    match v_term env name with
                     | Some x -> 
                         match term_subst x |> ho_fun with
                         | ValueSome i -> assume i
@@ -953,7 +997,7 @@ let infer (top_env' : TopEnv) expr =
                     | None -> errors.Add(r,CasePatternNotFound); f (fresh_var()) a
             | PatUnbox _ -> failwith "Compiler error: Malformed PatUnbox."
             | PatNominal(_,(r,name),a) ->
-                match Map.tryFind name env.ty |> Option.orElseWith (fun () -> Map.tryFind name top_env.ty) with
+                match v_ty env name with
                 | Some x -> 
                     match ho_index x with
                     | ValueSome i ->

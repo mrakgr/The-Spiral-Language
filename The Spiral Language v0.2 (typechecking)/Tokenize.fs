@@ -64,6 +64,8 @@ type SemanticTokenLegend =
     | keyword = 7
     | parenthesis = 8
     | type_variable = 9
+    | escaped_char = 10
+    | unescaped_char = 11
 
 type SpiralToken =
     | TokVar of string * SemanticTokenLegend ref
@@ -76,16 +78,27 @@ type SpiralToken =
     | TokComment of string
     | TokKeyword of TokenKeyword
     | TokParenthesis of Parenthesis * ParenthesisState
+    | TokStringOpen | TokStringClose
+    | TokText of string
+    | TokEscapedChar of char
+    | TokUnescapedChar of char
+    | TokMacroOpen | TokMacroClose
+    | TokMacroTermVar of string
+    | TokMacroTypeVar of string
 
 let token_groups = function
     | TokVar (_,r) | TokSymbol (_,r) | TokSymbolPaired (_,r) -> !r
-    | TokValue(LitString _) -> SemanticTokenLegend.string
-    | TokValue _ | TokDefaultValue -> SemanticTokenLegend.number
+    | TokStringOpen | TokStringClose | TokText | TokMacroOpen | TokMacroClose | TokValue(LitString _) -> SemanticTokenLegend.string
     | TokOperator _ -> SemanticTokenLegend.operator
     | TokUnaryOperator _ -> SemanticTokenLegend.unary_operator
     | TokComment _ -> SemanticTokenLegend.comment
     | TokKeyword _ -> SemanticTokenLegend.keyword
     | TokParenthesis _ -> SemanticTokenLegend.parenthesis
+    | TokMacroTypeVar -> SemanticTokenLegend.type_variable
+    | TokMacroTermVar -> SemanticTokenLegend.variable
+    | TokValue (LitChar ('\n' | '\n' | '\t' | '\r')) | TokEscapedChar _ -> SemanticTokenLegend.escaped_char
+    | TokValue (LitChar _) | TokUnescapedChar _ -> SemanticTokenLegend.unescaped_char
+    | TokValue _ | TokDefaultValue -> SemanticTokenLegend.number
 
 let is_small_var_char_starting c = Char.IsLower c || c = '_'
 let is_var_char c = Char.IsLetterOrDigit c || c = '_' || c = '''
@@ -229,9 +242,7 @@ let char_quoted s =
         read (function
             | '\\' -> 
                 read (Ok << function
-                    | 'n' -> '\n'
-                    | 'r' -> '\r'
-                    | 't' -> '\t'
+                    | 'n' -> '\n' | 'r' -> '\r' | 't' -> '\t' | 'b' -> '\b'
                     | x -> x
                     )
             | x -> Ok x
@@ -240,29 +251,60 @@ let char_quoted s =
     let f _ x _ = {from=from; nearTo=s.from}, TokValue(LitChar x)
     (pipe3 (skip_char '\'') char_quoted_body (skip_char '\'') f .>> spaces) s
 
-let string_quoted s = 
-    let string_quoted_body (s: Tokenizer) =
-        let inline read on_succ =
-            let x = peek s
-            if x <> eol then inc s; on_succ x
-            else error_char s.from "character or \""
-        let rec loop (b : StringBuilder) =
-            read (function
-                | '\\' -> 
-                    read (function
-                        | 'n' -> '\n'
-                        | 'r' -> '\r'
-                        | 't' -> '\t'
-                        | x -> x
-                        >> b.Append >> loop
-                        )
-                | '"' -> Ok (b.ToString())
-                | x -> b.Append x |> loop
-                )
+let inline special_char l text s =
+    let inline f from x = {from=from; nearTo=s.from}, x
+    let f = f s.from
+    inc s
+    let esc x = text (f (TokEscapedChar x) :: l)
+    let unesc x = text (f (TokUnescapedChar x) :: l)
+    match peek s with 
+    | x when x = eol -> error_char s.from "character"
+    | 'n' -> esc '\n' | 'r' -> esc '\r'  | 't' -> esc '\t'  | 'b' -> esc '\b' 
+    | x -> unesc x
+
+let string_quoted s =
+    let inline f from x = {from=from; nearTo=s.from}, x
+    let close l = let f = f s.from in inc s; List.rev (f TokStringClose :: l) |> Ok
+    let rec text l =
+        let f = f s.from
+        let rec loop (str : StringBuilder) =
+            let l () = if 0 < str.Length then f (TokText(str.ToString())) :: l else l
+            match peek s with
+            | x when x = eol -> error_char s.from "character or \""
+            | '\\' -> special_char (l ()) text s
+            | '"' -> close (l ())
+            | x -> inc s; loop (str.Append(x))
         loop (StringBuilder())
-    let from = s.from
-    let f _ x = {from=from; nearTo=s.from}, TokValue(LitString x)
-    (pipe2 (skip_char '"') string_quoted_body f .>> spaces) s
+        
+    match peek s with
+    | '$' -> let f = f s.from in inc s; text [f TokStringOpen]
+    | _ -> error_char s.from "\""
+
+let macro s =
+    let inline f from x = {from=from; nearTo=s.from}, x
+    let close l = let f = f s.from in inc s; List.rev (f TokMacroClose :: l) |> Ok
+    let rec text l =
+        let f = f s.from
+        let rec loop (str : StringBuilder) =
+            let l () = if 0 < str.Length then f (TokText(str.ToString())) :: l else l
+            let var b = var b (l ())
+            match peek s with
+            | x when x = eol -> error_char s.from "character or \""
+            | '`' when peek' s 1 = '`' -> inc' 2 s; loop (str.Append(''').Append('''))
+            | '`' -> var true 
+            | '!' when peek' s 1 = '!' -> inc' 2 s; loop (str.Append('!').Append('!'))
+            | '!' -> var false
+            | '\\' -> special_char (l ()) text s
+            | '"' -> close (l ())
+            | x -> inc s; loop (str.Append(x))
+        loop (StringBuilder())
+    and var is_type l =
+        let f = f s.from
+        let text x _ = text (f (if is_type then TokMacroTypeVar x else TokMacroTermVar x) :: l)
+        inc s; (many1Satisfy2L is_var_char_starting is_var_char "variable" >>= text) s
+    match peek s, peek' s 1 with
+    | '$', '"' -> let f = f s.from in inc' 2 s; text [f TokMacroOpen]
+    | _ -> error_char s.from "$\""
 
 let brackets s =
     let from = s.from
@@ -275,7 +317,8 @@ let brackets s =
 let token s =
     let i = s.from
     let inline (+) a b = alt i a b
-    (var + symbol + number + string_raw + char_quoted + string_quoted + brackets + comment + operator) s
+    (((var + symbol + number + string_raw + char_quoted + brackets + comment + operator) |>> fun x -> [x])
+    + string_quoted + macro) s
 
 /// An array of {line: int; char: int; length: int; tokenType: int; tokenModifiers: int} in the order as written suitable for serialization.
 type VSCTokenArray = int []
@@ -311,7 +354,7 @@ let tokenize text : LineTokenResult =
         let i = index s
         match token s with
         | Ok _ when i = index s -> failwith "The parser succeeded without changing the parser index in `tokenize`. Had an exception not been raised the parser would have diverged."
-        | Ok x -> ar.Add x; loop()
+        | Ok x -> ar.AddRange x; loop()
         | Error er -> er
     let ers =
         let ers = loop ()

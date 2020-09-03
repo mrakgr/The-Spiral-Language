@@ -42,6 +42,14 @@ let rec fold_offset_ty offset x =
     | RawTPrim(r,a) -> RawTPrim(g r,a)
     | RawTArray(r,a) -> RawTArray(g r,f a)
     | RawTTerm(r,a) -> RawTTerm(g r,fold_offset_term offset a)
+    | RawTMacro(r,a) -> RawTMacro(g r,fold_offset_macro offset a)
+and fold_offset_macro offset a =
+    let g = add_offset offset
+    List.map (function
+        | RawMacroText(r,a) -> RawMacroText(g r,a)
+        | RawMacroTermVar(r,a) -> RawMacroTermVar(g r,a)
+        | RawMacroTypeVar(r,a) -> RawMacroTypeVar(g r,a)
+        ) a
 and fold_offset_term offset x = 
     let f = fold_offset_term offset
     let ty = fold_offset_ty offset
@@ -83,6 +91,7 @@ and fold_offset_term offset x =
     | RawSeq(r,a,b) -> RawSeq(g r,f a,f b)
     | RawReal(r,a) -> RawReal(g r,f a)
     | RawMissingBody r -> RawMissingBody(g r)
+    | RawMacro(r,a) -> RawMacro(g r,fold_offset_macro offset a)
 and fold_offset_pattern offset x = 
     let f = fold_offset_pattern offset
     let term = fold_offset_term offset

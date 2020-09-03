@@ -99,6 +99,10 @@ type PatternCompilationErrors =
 type ParserErrors =
     | InvalidPattern of PatternCompilationErrors
     | ExpectedKeyword of TokenKeyword
+    | ExpectedStringOpen | ExpectedStringClose
+    | ExpectedMacroOpen | ExpectedMacroClose
+    | ExpectedMacroTypeVar | ExpectedMacroVar
+    | ExpectedText | ExpectedEscapedChar | ExpectedUnescapedChar
     | ExpectedOperator'
     | ExpectedOperator of string
     | ExpectedUnaryOperator'
@@ -143,6 +147,10 @@ type RawKindExpr =
     | RawKindStar
     | RawKindFun of RawKindExpr * RawKindExpr
 
+type RawMacro =
+    | RawMacroText of Range * string
+    | RawMacroTypeVar of Range * string
+    | RawMacroTermVar of Range * string
 type HoVar = Range * (VarString * RawKindExpr)
 type TypeVar = HoVar * (Range * VarString) list
 type RawRecordWith =
@@ -196,6 +204,7 @@ and RawExpr =
     | RawPairCreate of Range * RawExpr * RawExpr
     | RawSeq of Range * RawExpr * RawExpr
     | RawReal of Range * RawExpr
+    | RawMacro of Range * RawMacro list
     | RawMissingBody of Range
 and RawTExpr =
     | RawTWildcard of Range
@@ -211,6 +220,7 @@ and RawTExpr =
     | RawTPrim of Range * PrimitiveType
     | RawTArray of Range * RawTExpr
     | RawTTerm of Range * RawExpr
+    | RawTMacro of Range * RawMacro list
 
 let (+.) (a,_) (_,b) = a,b
 let range_of_hovar ((r,_) : HoVar) = r
@@ -246,6 +256,7 @@ let range_of_pat_record_member = function
 let range_of_expr = function
     | RawB r
     | RawMissingBody r
+    | RawMacro(r,_)
     | RawV(r,_)
     | RawLit(r,_)
     | RawDefaultLit(r,_)
@@ -271,6 +282,7 @@ let range_of_expr = function
 let range_of_texpr = function
     | RawTWildcard r
     | RawTB r
+    | RawTMacro(r,_)
     | RawTMetaVar(r,_)
     | RawTVar(r,_)
     | RawTRecord(r,_)
@@ -307,6 +319,51 @@ let line d = line_template d (fun (r,_) -> r.line)
    
 let skip' (d : Env) i = d.i := d.i.contents+i
 let skip d = skip' d 1
+
+let skip_string_open d =
+    try_current d <| function
+        | p,TokStringOpen -> skip d; Ok(p)
+        | p, _ -> Error [p, ExpectedStringOpen]
+
+let skip_string_close d =
+    try_current d <| function
+        | p,TokStringClose -> skip d; Ok(p)
+        | p, _ -> Error [p, ExpectedStringClose]
+
+let skip_macro_open d =
+    try_current d <| function
+        | p,TokMacroOpen -> skip d; Ok(p)
+        | p, _ -> Error [p, ExpectedMacroOpen]
+
+let skip_macro_close d =
+    try_current d <| function
+        | p,TokMacroClose -> skip d; Ok(p)
+        | p, _ -> Error [p, ExpectedMacroClose]
+
+let read_text d =
+    let (+.) a b =
+        match a with
+        | Some a -> Some (a +. b)
+        | None -> Some b
+    let rec loop (a : Range option) (str : Text.StringBuilder) =
+        try_current d <| function
+            | b,TokText x -> skip d; loop (a +. b) (str.Append(x))
+            | b,(TokEscapedChar x | TokUnescapedChar x) -> skip d; loop (a +. b) (str.Append(x))
+            | b, _ -> 
+                if Option.isNone a then Error [b, ExpectedText; b, ExpectedEscapedChar; b, ExpectedUnescapedChar]
+                else Ok(Option.get a, str.ToString())
+    loop None (Text.StringBuilder())
+
+let read_macro_var d =
+    try_current d <| function
+        | p, TokMacroTermVar x -> Ok(RawMacroTermVar(p,x))
+        | p, TokMacroTypeVar x -> Ok(RawMacroTypeVar(p,x))
+        | p,_ -> Error [p, ExpectedMacroVar]
+
+let read_macro_type_var d =
+    try_current d <| function
+        | p, TokMacroTypeVar x -> Ok(RawMacroTypeVar(p,x))
+        | p,_ -> Error [p, ExpectedMacroTypeVar]
 
 let skip_keyword t d =
     try_current d <| function
@@ -738,7 +795,7 @@ and root_pattern s =
         let pat_value = (read_value |>> PatValue) <|> (read_default_value PatDefaultValue PatValue)
         let pat_symbol = read_symbol |>> PatSymbol
         let pat_type = 
-            pipe2 root_pattern (opt (skip_op ":" >>. fun d -> root_type {root_type_defaults with allow_term=d.is_top_down=false; allow_wildcard=d.is_top_down} d))
+            pipe2 root_pattern (opt (skip_op ":" >>. root_type_annot))
                 (fun a -> function Some b -> PatAnnot(range_of_pattern a +. range_of_texpr b,a,b) | None -> a)
         let pat_rounds = rounds (pat_type <|> (read_op' |>> PatVar))
         let (+) = alt (index s)
@@ -787,8 +844,9 @@ and root_type (flags : RootTypeFlags) d =
             else
                 r := SemanticTokenLegend.type_variable
                 RawTVar(o, x)
+        let macro = pipe3 skip_macro_open (many ((read_text |>> RawMacroText) <|> read_macro_type_var)) skip_macro_close (fun a l b -> RawTMacro(a +. b, l))
         let (+) = alt (index d)
-        (unit' RawTB + rounds next + wildcard + term + metavar + var + record + symbol) d
+        (unit' RawTB + rounds next + wildcard + term + metavar + var + record + symbol + macro) d
     let apply d = 
         (pipe2 cases (many (indent (col d) (<) cases)) 
             (fun a b -> List.fold (fun a b -> RawTApply(range_of_texpr a +. range_of_texpr b,a,b)) a b)) d
@@ -918,11 +976,14 @@ and root_term d =
                 | "``" -> if d.is_top_down then Error [] else (range type_expr |>> fun (r,x) -> RawOp(o +. r,TypeToVar,[RawType(r,x)])) d
                 | _ -> (expressions |>> fun b -> RawApply(o +. range_of_expr b,RawV(o, "~" + a),b)) d
 
+        let case_string = pipe3 skip_string_open ((read_text |>> snd) <|>% "") skip_string_close (fun a x b -> RawLit(a +. b,LitString x))
+        let case_macro = pipe3 skip_macro_open (many ((read_text |>> RawMacroText) <|> read_macro_var)) skip_macro_close (fun a l b -> RawMacro(a +. b, l))
+
         let (+) = alt (index d)
 
         (case_value + case_default_value + case_var + case_join_point + case_real + case_symbol
         + case_typecase + case_match + case_typecase + case_unit + case_rounds + case_record
-        + case_if_then_else + case_fun + case_forall + case_unary_op) d
+        + case_if_then_else + case_fun + case_forall + case_unary_op + case_string + case_macro) d
 
     let application_tight d =
         let next = expressions
