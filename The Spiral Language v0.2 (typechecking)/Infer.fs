@@ -642,9 +642,9 @@ let infer (top_env' : TopEnv) expr =
 
     let fresh_var () = fresh_var' KindType
 
-    let v env a = Map.tryFind a env |> Option.orElseWith (fun () -> Map.tryFind a top_env.term) |> Option.map visit_t
-    let v_term env a = v env.term a
-    let v_ty env a = v env.ty a
+    let v env top_env a = Map.tryFind a env |> Option.orElseWith (fun () -> Map.tryFind a top_env) |> Option.map visit_t
+    let v_term env a = v env.term top_env.term a
+    let v_ty env a = v env.ty top_env.ty a
     let typevar_to_var ty (((_,(name,kind)),constraints) : TypeVar) : Var = 
         let rec typevar = function
             | RawKindWildcard -> fresh_kind()
@@ -653,7 +653,7 @@ let infer (top_env' : TopEnv) expr =
         let kind = typevar kind
         let cons =
             constraints |> List.choose (fun (r,x) ->
-                match v ty x with
+                match v ty top_env.ty x with
                 | Some (TyConstraint x & a) -> hover_types.Add(r,a); unify_kind r (KindFun(kind,KindConstraint)) (constraint_kind top_env' x); Some x
                 | Some x -> errors.Add(r,ExpectedConstraint x); None
                 | None -> errors.Add(r,UnboundVariable); None
@@ -1009,12 +1009,13 @@ let infer (top_env' : TopEnv) expr =
         loop env s a
 
     match expr with
-    | BundleType(_,(_,name),vars,expr) ->
+    | BundleType(_,(r,name),vars,expr) ->
         let vars,env_ty = hovars vars
         let v = fresh_var()
         ty {term=Map.empty; ty=env_ty} v expr
-        let inl = List.foldBack (fun x s -> TyInl(x,s)) vars (visit_t v)
-        {top_env' with ty = Map.add name inl top_env.ty}
+        let t = List.foldBack (fun x s -> TyInl(x,s)) vars (visit_t v)
+        hover_types.Add(r,t)
+        {top_env' with ty = Map.add name t top_env.ty}
     | BundleRecType l ->
         let l,_ =
             List.mapFold (fun i -> function

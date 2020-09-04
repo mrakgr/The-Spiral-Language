@@ -1,1 +1,2 @@
-inl (+) forall t {number}. (a : t) (b : t) : t = !!!!Add(a,b)
+type resize_array t = $"ResizeArray<`t>"
+inl f forall t. (x : t): resize_array t = $"ResizeArray<`t>(!x)"

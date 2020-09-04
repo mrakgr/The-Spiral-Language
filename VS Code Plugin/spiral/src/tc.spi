@@ -24,7 +24,7 @@ let rec fib x = if x <= 0 then fib (x-1) + (x-2) else 0
 nominal t x = {q : i32; w : i64; e : string; f : x}
 
 inl testn_1 (q : t bool) =
-    inl r = t {q=1i32; w=2i64; e="e"; f=true}
+    inl r = t {q=1i32; w=2i64; e="e"; f='a'}
     match q with
     | t {e f} => ()
 

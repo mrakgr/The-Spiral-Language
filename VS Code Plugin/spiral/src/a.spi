@@ -18,3 +18,4 @@ inl rec f x = x
 and inl g x = f x
 and inl h x = x
 
+type m = i32

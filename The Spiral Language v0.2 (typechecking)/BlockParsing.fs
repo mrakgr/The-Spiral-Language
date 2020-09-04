@@ -356,13 +356,13 @@ let read_text d =
 
 let read_macro_var d =
     try_current d <| function
-        | p, TokMacroTermVar x -> Ok(RawMacroTermVar(p,x))
-        | p, TokMacroTypeVar x -> Ok(RawMacroTypeVar(p,x))
+        | p, TokMacroTermVar x -> skip d; Ok(RawMacroTermVar(p,x))
+        | p, TokMacroTypeVar x -> skip d; Ok(RawMacroTypeVar(p,x))
         | p,_ -> Error [p, ExpectedMacroVar]
 
 let read_macro_type_var d =
     try_current d <| function
-        | p, TokMacroTypeVar x -> Ok(RawMacroTypeVar(p,x))
+        | p, TokMacroTypeVar x -> skip d; Ok(RawMacroTypeVar(p,x))
         | p,_ -> Error [p, ExpectedMacroTypeVar]
 
 let skip_keyword t d =
@@ -1122,7 +1122,7 @@ let top_prototype d =
             (skip_keyword SpecPrototype >>. read_small_var') read_type_var' (many forall_var) 
             (skip_op ":" >>. type_forall (root_type root_type_defaults)))
     |>> fun (r,(a,b,c,d)) -> TopPrototype(r,a,b,c,d)) d
-let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_small_var') (many ho_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)) d
+let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_type_var') (many ho_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)) d
 let top_instance d =
     (range
         (tuple5 (skip_keyword SpecInstance >>. read_small_var') read_type_var' (many forall_var)

@@ -37,6 +37,16 @@
 				"id": "type_variable",
 				"superType": "type",
 				"description": "A type variable."
+			},
+			{
+				"id": "escaped_char",
+				"superType": "operator",
+				"description": "Escaped character."
+			},
+			{
+				"id": "unescaped_char",
+				"superType": "member",
+				"description": "Unescaped character."
 			}
 		]
 	},

@@ -109,8 +109,8 @@ export const activate = async (ctx: ExtensionContext) => {
 
     class SpiralHover implements HoverProvider {
         async provideHover(document: TextDocument, position: Position) {
-            const x : {HoverReply : string} = await spiHoverAtReq(document.uri.toString(),position)
-            return new Hover(new MarkdownString(x.HoverReply))
+            const x : string | null = (await spiHoverAtReq(document.uri.toString(),position)).HoverReply
+            if (x) return new Hover(new MarkdownString().appendCodeblock(x,'plaintext'))
         }
     }
 
@@ -132,7 +132,7 @@ export const activate = async (ctx: ExtensionContext) => {
     }
 
     const spiralFilePattern = { pattern: '**/*.{spi,spir}'}
-    const spiralTokenLegend = ['variable','symbol','string','number','operator','unary_operator','comment','keyword','parenthesis','type_variable']
+    const spiralTokenLegend = ['variable','symbol','string','number','operator','unary_operator','comment','keyword','parenthesis','type_variable','escaped_char','unescaped_char']
     workspace.textDocuments.forEach(onDocOpen)
     ctx.subscriptions.push(
         new Disposable(() => {isProcessing = false}),

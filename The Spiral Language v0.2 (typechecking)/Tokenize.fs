@@ -88,7 +88,7 @@ type SpiralToken =
 
 let token_groups = function
     | TokVar (_,r) | TokSymbol (_,r) | TokSymbolPaired (_,r) -> !r
-    | TokStringOpen | TokStringClose | TokText | TokMacroOpen | TokMacroClose | TokValue(LitString _) -> SemanticTokenLegend.string
+    | TokValue (LitChar _) | TokStringOpen | TokStringClose | TokText | TokMacroOpen | TokMacroClose | TokValue(LitString _) -> SemanticTokenLegend.string
     | TokOperator _ -> SemanticTokenLegend.operator
     | TokUnaryOperator _ -> SemanticTokenLegend.unary_operator
     | TokComment _ -> SemanticTokenLegend.comment
@@ -96,8 +96,8 @@ let token_groups = function
     | TokParenthesis _ -> SemanticTokenLegend.parenthesis
     | TokMacroTypeVar -> SemanticTokenLegend.type_variable
     | TokMacroTermVar -> SemanticTokenLegend.variable
-    | TokValue (LitChar ('\n' | '\n' | '\t' | '\r')) | TokEscapedChar _ -> SemanticTokenLegend.escaped_char
-    | TokValue (LitChar _) | TokUnescapedChar _ -> SemanticTokenLegend.unescaped_char
+    | TokEscapedChar _ -> SemanticTokenLegend.escaped_char
+    | TokUnescapedChar _ -> SemanticTokenLegend.unescaped_char
     | TokValue _ | TokDefaultValue -> SemanticTokenLegend.number
 
 let is_small_var_char_starting c = Char.IsLower c || c = '_'
@@ -255,8 +255,8 @@ let inline special_char l text s =
     let inline f from x = {from=from; nearTo=s.from}, x
     let f = f s.from
     inc s
-    let esc x = text (f (TokEscapedChar x) :: l)
-    let unesc x = text (f (TokUnescapedChar x) :: l)
+    let esc x = inc s; text (f (TokEscapedChar x) :: l)
+    let unesc x = inc s; text (f (TokUnescapedChar x) :: l)
     match peek s with 
     | x when x = eol -> error_char s.from "character"
     | 'n' -> esc '\n' | 'r' -> esc '\r'  | 't' -> esc '\t'  | 'b' -> esc '\b' 
@@ -277,7 +277,7 @@ let string_quoted s =
         loop (StringBuilder())
         
     match peek s with
-    | '$' -> let f = f s.from in inc s; text [f TokStringOpen]
+    | '"' -> let f = f s.from in inc s; text [f TokStringOpen]
     | _ -> error_char s.from "\""
 
 let macro s =
@@ -290,9 +290,7 @@ let macro s =
             let var b = var b (l ())
             match peek s with
             | x when x = eol -> error_char s.from "character or \""
-            | '`' when peek' s 1 = '`' -> inc' 2 s; loop (str.Append(''').Append('''))
             | '`' -> var true 
-            | '!' when peek' s 1 = '!' -> inc' 2 s; loop (str.Append('!').Append('!'))
             | '!' -> var false
             | '\\' -> special_char (l ()) text s
             | '"' -> close (l ())
@@ -317,8 +315,7 @@ let brackets s =
 let token s =
     let i = s.from
     let inline (+) a b = alt i a b
-    (((var + symbol + number + string_raw + char_quoted + brackets + comment + operator) |>> fun x -> [x])
-    + string_quoted + macro) s
+    (string_quoted + macro + ((var + symbol + number + string_raw + char_quoted + brackets + comment + operator) |>> fun x -> [x])) s
 
 /// An array of {line: int; char: int; length: int; tokenType: int; tokenModifiers: int} in the order as written suitable for serialization.
 type VSCTokenArray = int []
