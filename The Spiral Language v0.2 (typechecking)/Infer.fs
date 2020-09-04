@@ -26,6 +26,8 @@ type [<ReferenceEquality>] MVar = {
     kind : TT // Has metavars, and so is mutable.
     }
 
+type Layout = Heap | HeapMutable
+
 type TM =
     | TMText of string
     | TMVar of T
@@ -46,6 +48,7 @@ and T =
     | TyVar of Var
     | TyConstraint of Constraint
     | TyMacro of TM list
+    | TyLayout of T * Layout
 
 type TypeError =
     | KindError of TT * TT
@@ -58,11 +61,14 @@ type TypeError =
     | DuplicateKeyInUnion
     | TermError of T * T
     | ForallVarScopeError of string * T * T
-    | ForallVarConstraintError of string * T * T
+    | ForallVarConstraintError of string * Constraint Set * Constraint Set
     | MetavarsNotAllowedInRecordWith
+    | ExpectedLayout of T
     | ExpectedRecord of T
+    | ExpectedRecordInsideALayout of T
     | ExpectedRecordAsResultOfIndex of T
     | RecordIndexFailed of string
+    | ExpectedSymbol' of T
     | ExpectedSymbolInRecordWith of T
     | RealFunctionInTopDown
     | MissingRecordFieldsInPattern of T * string list
@@ -149,7 +155,7 @@ let constraint_name (env : TopEnv) = function
 
 let rec tt env = function
     | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar({kind=x},_) | TyVar({kind=x}) -> x
-    | TyMacro _ | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
+    | TyLayout _ | TyMacro _ | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
     | TyInl(v,a) -> KindFun(v.kind,tt env a)
     | TyConstraint x -> constraint_kind env x
 
@@ -207,7 +213,7 @@ let validate_bound_vars (top_env : Env) term ty x =
                 let combine e m = Map.fold (fun s k _ -> Set.add k s) e m
                 cterm (combine term x.term) (combine ty x.ty) on_succ
             | Error e -> errors.Add(e)
-        | RawSeq(_,a,b) | RawPairCreate(_,a,b) | RawIfThen(_,a,b) | RawApply(_,a,b) -> cterm term ty a; cterm term ty b
+        | RawHeapMutableSet(_,a,b) | RawSeq(_,a,b) | RawPairCreate(_,a,b) | RawIfThen(_,a,b) | RawApply(_,a,b) -> cterm term ty a; cterm term ty b
         | RawIfThenElse(_,a,b,c) -> cterm term ty a; cterm term ty b; cterm term ty c
         | RawMissingBody r -> errors.Add(r,MissingBody)
         | RawMacro(_,a) -> cmacro term ty a
@@ -273,17 +279,18 @@ let rec subst (m : (Var * T) list) x =
     | TyForall(a,b) -> TyForall(a, f b)
     | TyInl(a,b) -> TyInl(a, f b)
     | TyMacro a -> TyMacro(List.map (function TMVar x -> TMVar(subst m x) | x -> x) a)
+    | TyLayout(a,b) -> TyLayout(f a,b)
 
 let rec ho_split s = function 
     | TyApply(a,b,_) -> ho_split (b :: s) a 
     | TyHigherOrder _ as x -> x :: s
     | _ -> []
 
-let rec constraint_process (env : TopEnv) = function
-    | con, TyMetavar(_,{contents=Some x} & link) -> constraint_process env (con, x)
+let rec constraint_process (env : TopEnv) (con,x') = 
+    match con, visit_t x' with
+    | con, TyMetavar(x,_) -> x.constraints <- Set.add con x.constraints; []
+    | con, TyVar v & x -> if Set.contains con v.constraints then [] else [ConstraintError(con,x)]
     | CNumber, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T | Float32T | Float64T) -> []
-    | CPrototype _ & con, TyMetavar(x,_) -> x.constraints <- Set.add con x.constraints; []
-    | CPrototype _ & con, TyVar v & x -> if Set.contains con v.constraints then [] else [ConstraintError(con,x)]
     | CPrototype i & con, x ->
         match ho_split [] x with
         | [] -> [ConstraintError(con,x)]
@@ -297,8 +304,11 @@ let rec constraint_process (env : TopEnv) = function
                 loop [] (cons,x')
             | None -> [InstanceNotFound(i,i')]
         | _ :: _ -> failwith "Compiler error: The first item of a ho_split should always be a higher order type."
-    | con,x -> [ConstraintError(con,x)]
-and constraints_process env (con,x) = Set.fold (fun ers con -> List.append (constraint_process env (con, x)) ers) [] con
+    | con, x -> [ConstraintError(con,x)]
+and constraints_process env (con,b) = 
+    match visit_t b with
+    | TyVar b -> if con.IsSubsetOf b.constraints = false then [ForallVarConstraintError(b.name,con,b.constraints)] else []
+    | b -> Set.fold (fun ers con -> List.append (constraint_process env (con, b)) ers) [] con
 
 let rec kind_subst = function
     | KindMetavar ({contents'=Some x} & link) -> go' x link kind_subst
@@ -316,6 +326,7 @@ let rec term_subst = function
     | TyApply(a,b,c) -> TyApply(term_subst a, term_subst b, c)
     | TyInl(a,b) -> TyInl(a,term_subst b)
     | TyMacro a -> TyMacro(List.map (function TMVar x -> TMVar(term_subst x) | x -> x) a)
+    | TyLayout(a,b) -> TyLayout(term_subst a,b)
 
 let rec foralls_get = function
     | RawForall(_,a,b) -> let a', b = foralls_get b in a :: a', b
@@ -340,6 +351,7 @@ let rec has_metavars x =
     | TyRecord l -> Map.exists (fun _ -> f) l
     | TyMetavar(x,_) -> true
     | TyMacro a -> List.exists (function TMVar x -> has_metavars x | _ -> false) a
+    | TyLayout(a,b) -> f a
 
 let show_primt = function
     | UInt8T -> "u8"
@@ -411,12 +423,17 @@ let show_t (env : TopEnv) x =
         | TyRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
         | TyConstraint a -> show_constraint prec env a
         | TyMacro a -> p 30 (List.map (function TMVar a -> f -1 a | TMText a -> a) a |> String.concat "")
+        | TyLayout(a,b) -> 
+            let b = match b with Heap -> "heap" | HeapMutable -> "mut"
+            p 30 (sprintf "%s %s" b (f 30 a))
 
     f -1 x
 
 let show_type_error (env : TopEnv) x =
     let f = show_t env
     match x with
+    | ExpectedLayout a -> sprintf "Expected a layout type.\nGot: %s" (f a)
+    | ExpectedSymbol' a -> sprintf "Expected a symbol.\nGot: %s" (f a)
     | KindError(a,b) -> sprintf "Kind unification failure.\nGot:      %s\nExpected: %s" (show_kind a) (show_kind b)
     | KindError'(a,b) -> sprintf "Kind unification failure.\nGot:      %s\nExpected: %s" (f a) (f b)
     | TermError(a,b) -> sprintf "Unification failure.\nGot:      %s\nExpected: %s" (f a) (f b)
@@ -427,9 +444,10 @@ let show_type_error (env : TopEnv) x =
     | ExpectedSymbolAsUnionKey -> sprintf "Expected a symbol as the union key."
     | DuplicateKeyInUnion -> sprintf "Union cases must have unique keys."
     | ForallVarScopeError(a,_,_) -> sprintf "Tried to unify the forall variable %s with a metavar outside its scope." a
-    | ForallVarConstraintError(_,a,b) -> sprintf "Metavariable's constraints must be a subset of the forall vars'.\nGot: %s\nExpected: %s" (f a) (f b)
+    | ForallVarConstraintError(n,a,b) -> sprintf "Metavariable's constraints must be a subset of the forall var %s's.\nGot: %s\nExpected: %s" n (show_constraints env a) (show_constraints env b)
     | MetavarsNotAllowedInRecordWith -> sprintf "In the top-down segment the record keys need to be fully known. Please add an annotation."
     | ExpectedRecord a -> sprintf "Expected a record.\nGot: %s" (f a)
+    | ExpectedRecordInsideALayout a -> sprintf "Expected a record inside a layout type.\nGot: %s" (f a)
     | ExpectedRecordAsResultOfIndex a -> sprintf "Expected a record as result of index.\nGot: %s" (f a)
     | RecordIndexFailed a -> sprintf "The record does not have the key: %s" a
     | ExpectedSymbolInRecordWith a -> sprintf "Expected a symbol.\nGot: %s" (f a)
@@ -544,6 +562,7 @@ let infer (top_env' : TopEnv) expr =
             | TyApply(a,b,c) -> TyApply(f a,f b,c)
             | TyInl(a,b) -> TyInl(a,f b)
             | TyMacro a -> TyMacro(List.map (function TMVar a -> TMVar(replace_metavars a) | a -> a) a)
+            | TyLayout(a,b) -> TyLayout(f a,b)
 
         let f x s = TyForall(x,s)
         Seq.foldBack f generalized_metavars (replace_metavars body)
@@ -569,7 +588,6 @@ let infer (top_env' : TopEnv) expr =
 
         // Does occurs checking.
         // Does scope checking in forall vars.
-        // Does constraint subset checking in forall vars.
         let rec validate_unification i x =
             let f = validate_unification i
             match visit_t x with
@@ -577,11 +595,10 @@ let infer (top_env' : TopEnv) expr =
             | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
             | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a; f b
             | TyRecord l -> Map.iter (fun _ -> f) l
-            | TyVar x -> 
-                if i.scope < x.scope then raise (TypeErrorException [r,ForallVarScopeError(x.name,got,expected)])
-                if i.constraints.IsSubsetOf x.constraints = false then raise (TypeErrorException [r,ForallVarConstraintError(x.name,got,expected)]) 
+            | TyVar b -> if i.scope < b.scope then raise (TypeErrorException [r,ForallVarScopeError(b.name,got,expected)])
             | TyMetavar(x,_) -> if i = x then er() elif i.scope < x.scope then x.scope <- i.scope
             | TyConstraint a -> unify_kind i.kind (constraint_kind top_env' a)
+            | TyLayout(a,_) -> f a
 
         let rec loop (a'',b'') = 
             match visit_t a'', visit_t b'' with
@@ -591,10 +608,10 @@ let infer (top_env' : TopEnv) expr =
                     b.scope <- min a.scope b.scope
                     b.constraints <- a.constraints + b.constraints
                     link := Some b'
-            | (TyMetavar(a',link), b | b, TyMetavar(a',link)) ->
-                validate_unification a' b
-                unify_kind a'.kind (tt top_env' b)
-                match constraints_process top_env' (a'.constraints,b) with
+            | (TyMetavar(a,link), b | b, TyMetavar(a,link)) ->
+                validate_unification a b
+                unify_kind a.kind (tt top_env' b)
+                match constraints_process top_env' (a.constraints,b) with
                 | [] -> link := Some b
                 | constraint_errors -> raise (TypeErrorException (List.map (fun x -> r,x) constraint_errors))
             | TyVar a, TyVar b when a = b -> ()
@@ -617,6 +634,7 @@ let infer (top_env' : TopEnv) expr =
                     | TMVar a, TMVar b -> loop(a,b)
                     | _ -> er ()
                     ) a b
+            | TyLayout(a,a'), TyLayout(b,b') when a' = b' -> loop (a,b)
             | _ -> er ()
 
         try loop (got, expected)
@@ -695,6 +713,10 @@ let infer (top_env' : TopEnv) expr =
         | RawJoinPoint(_,a) -> f s a
         | RawApply(r,a',b) ->
             match f' a' with
+            | TyLayout(a,_) ->
+                match visit_t a with
+                | TyRecord l -> apply_record r s l (f' b)
+                | a -> errors.Add(r,ExpectedRecordInsideALayout a)
             | TyRecord l -> apply_record r s l (f' b)
             | a -> let v = fresh_var() in unify (range_of_expr a') a (TyFun(v,s)); f v b
         | RawAnnot(_,a,b) -> ty env s b; f s a
@@ -783,6 +805,25 @@ let infer (top_env' : TopEnv) expr =
                 | RawMacroTermVar(r,a) -> v_term env a |> f r
                 | RawMacroTypeVar(r,a) -> v_ty env a |> f r
                 ) a
+        | RawHeapMutableSet(r,a,b) ->
+            let rec loop = function
+                | RawApply(r,a',b') ->
+                    match loop a' |> visit_t with
+                    | TyRecord a ->
+                        match f' b' with
+                        | TySymbol b ->
+                            match Map.tryFind b a with
+                            | Some x -> x
+                            | _ -> raise (TypeErrorException [r, RecordIndexFailed b])
+                        | b -> raise (TypeErrorException [range_of_expr b', ExpectedSymbol' b])
+                    | a -> raise (TypeErrorException [range_of_expr a', ExpectedRecord a])
+                | a' ->
+                    match f' a' with
+                    | TyLayout(a,_) -> a
+                    | a -> raise (TypeErrorException [range_of_expr a', ExpectedLayout a])
+
+            unify r s TyB
+            f (loop a) b
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
     and inl env ((r, name), body) =
         incr scope
@@ -1154,7 +1195,7 @@ let infer (top_env' : TopEnv) expr =
         (hovers, errors), top_env'
 
 let default_env : TopEnv = 
-    let inline inl f = f {scope=0; kind=KindType; constraints=Set.empty; name="x"}
+    let inline inl f = let v = {scope=0; kind=KindType; constraints=Set.empty; name="x"} in TyInl(v,f v)
          
     let ty = 
         [
@@ -1172,6 +1213,8 @@ let default_env : TopEnv =
         "string", TyPrim StringT
         "bool", TyPrim BoolT
         "char", TyPrim CharT
-        "array", inl (fun x -> TyInl(x,TyArray (TyVar x)))
+        "array", inl (fun x -> TyArray(TyVar x))
+        "heap", inl (fun x -> TyLayout(TyVar x,Layout.Heap))
+        "mut", inl (fun x -> TyLayout(TyVar x,Layout.HeapMutable))
         ] |> Map.ofList
     {hoc=PersistentVector.empty; ty=ty; term=Map.empty; prototypes=PersistentVector.empty}

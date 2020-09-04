@@ -1,7 +1,7 @@
 inl (+) forall t {number}. (a : t) (b : t) : t = !!!!Add(a,b)
 inl (-) forall t {number}. (a : t) (b : t) : t = !!!!Sub(a,b)
 inl (*) forall t {number}. (a : t) (b : t) : t = !!!!Mult(a,b)
-inl (**) forall t {number}. (a : t) (b : t) : t = !!!!Pow(a,b)
+inl (**) forall t number}. (a : t) (b : t) : t = !!!!Pow(a,b)
 inl (/) forall t {number}. (a : t) (b : t) : t = !!!!Div(a,b)
 inl (%) forall t {number}. (a : t) (b : t) : t = !!!!Mod(a,b)
 
@@ -27,6 +27,10 @@ inl testn_1 (q : t bool) =
     inl r = t {q=1i32; w=2i64; e="e"; f='a'}
     match q with
     | t {e f} => ()
+
+inl set (x : mut {q : i32; w : f64}) =
+    let z = {q=1;w=3}
+    x <- z
 
 inl main _ =
     inl add (left:right:) = left + right

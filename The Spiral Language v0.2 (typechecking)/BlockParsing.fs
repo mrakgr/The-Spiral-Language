@@ -203,6 +203,7 @@ and RawExpr =
     | RawIfThen of Range * RawExpr * RawExpr
     | RawPairCreate of Range * RawExpr * RawExpr
     | RawSeq of Range * RawExpr * RawExpr
+    | RawHeapMutableSet of Range * RawExpr * RawExpr
     | RawReal of Range * RawExpr
     | RawMacro of Range * RawMacro list
     | RawMissingBody of Range
@@ -275,6 +276,7 @@ let range_of_expr = function
     | RawPairCreate(r,_,_)
     | RawIfThen(r,_,_)
     | RawSeq(r,_,_)
+    | RawHeapMutableSet(r,_,_)
     | RawRecordWith(r,_,_,_)
     | RawIfThenElse(r,_,_,_)
     | RawModuleOpen(r,_,_,_) -> r
@@ -618,6 +620,7 @@ let inbuilt_operators x =
     | "%" -> ValueSome(70, Associativity.Left)
     | "|>" -> ValueSome(10, Associativity.Left)
     | ">>" -> ValueSome(10, Associativity.Left)
+    | "<-" -> ValueSome(4, Associativity.Left)
     
     | "<=" -> ValueSome(40, Associativity.None)
     | "<" -> ValueSome(40, Associativity.None)
@@ -637,8 +640,8 @@ let inbuilt_operators x =
     | "^" -> ValueSome(45, Associativity.Right)
     | "<|" -> ValueSome(10, Associativity.Right)
     | "<<" -> ValueSome(10, Associativity.Right)
-    | "." -> ValueSome(3, Associativity.Right)
-    | "," -> ValueSome(5, Associativity.Right)
+    | "." -> ValueSome(2, Associativity.Right)
+    | "," -> ValueSome(6, Associativity.Right)
     | ":>" -> ValueSome(35, Associativity.Right)
     | ":?>" -> ValueSome(35, Associativity.Right)
     | "**" -> ValueSome(80, Associativity.Right)
@@ -661,32 +664,18 @@ let op (d : Env) =
             match precedence_associativity x with // TODO: Might be good to memoize this.
             | ValueNone -> Error [o, UnknownOperator]
             | ValueSome(p,a) ->
+                let inline f on_succ = Ok(p,a,fun (a,b) -> 
+                    let ra, rb = range_of_expr a, range_of_expr b
+                    let r = ra +. rb
+                    on_succ(r,a,b)
+                    )
                 match x with
-                | "." -> Ok(p,a,fun (a,b) -> 
-                    let ra, rb = range_of_expr a, range_of_expr b
-                    let r = ra +. rb
-                    RawSeq(r,a,b)
-                    )
-                | "&&" -> Ok(p,a,fun (a,b) -> 
-                    let ra, rb = range_of_expr a, range_of_expr b
-                    let r = ra +. rb
-                    RawIfThenElse(r,a,b,RawLit(o,LitBool false))
-                    )
-                | "||" -> Ok(p,a,fun (a,b) -> 
-                    let ra, rb = range_of_expr a, range_of_expr b
-                    let r = ra +. rb
-                    RawIfThenElse(r,a,RawLit(o,LitBool true),b)
-                    )
-                | "," -> Ok(p,a,fun (a,b) -> 
-                    let ra, rb = range_of_expr a, range_of_expr b
-                    let r = ra +. rb
-                    RawPairCreate(r,a,b)
-                    )
-                | x -> Ok(p,a,fun (a,b) -> 
-                    let ra, rb = range_of_expr a, range_of_expr b
-                    let r = ra +. rb
-                    RawApply(r,RawApply(ra +. o,RawV(o,x),a),b)
-                    )
+                | "." -> f RawSeq
+                | "&&" -> f (fun (r,a,b) -> RawIfThenElse(r,a,b,RawLit(o,LitBool false)))
+                | "||" -> f (fun (r,a,b) -> RawIfThenElse(r,a,RawLit(o,LitBool true),b))
+                | "," -> f RawPairCreate
+                | "<-" -> f RawHeapMutableSet
+                | x -> f (fun (r,a,b) -> RawApply(r,RawApply(r +. o,RawV(o,x),a),b))
         )
 
 let private string_to_op_dict = Collections.Generic.Dictionary(HashIdentity.Structural)

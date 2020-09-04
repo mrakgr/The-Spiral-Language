@@ -22,7 +22,7 @@ type BundleTop =
 let add_offset offset (range : Range) : Range = let a,b = range in {a with line=offset + a.line}, {b with line=offset + b.line}
 let add_offset_hovar offset (a,b) = add_offset offset a, b
 let add_offset_hovar_list offset x = List.map (add_offset_hovar offset) x
-let add_offset_typevar offset ((a,b),c) = (add_offset offset a, b), c
+let add_offset_typevar offset ((a,b),c) = (add_offset offset a, b), add_offset_hovar_list offset c
 let add_offset_typevar_list offset x = List.map (add_offset_typevar offset) x
 
 let rec fold_offset_ty offset x = 
@@ -89,6 +89,7 @@ and fold_offset_term offset x =
     | RawIfThen(r,a,b) -> RawIfThen(g r,f a,f b)
     | RawPairCreate(r,a,b) -> RawPairCreate(g r,f a,f b)
     | RawSeq(r,a,b) -> RawSeq(g r,f a,f b)
+    | RawHeapMutableSet(r,a,b) -> RawHeapMutableSet(g r,f a,f b)
     | RawReal(r,a) -> RawReal(g r,f a)
     | RawMissingBody r -> RawMissingBody(g r)
     | RawMacro(r,a) -> RawMacro(g r,fold_offset_macro offset a)
