@@ -19,21 +19,36 @@ inl (|>) a b = b a
 inl (>>) a b x = b (a x)
 inl dyn (~x) = x
 
-let rec fib x = if x <= 0 then fib (x-1) + (x-2) else 0
+inl array_create forall t. (size : i32) : array t = !!!!ArrayCreate(`t,size)
+inl array_index forall t. (ar : array t) (i : i32) : t = !!!!ArrayIndex(ar,i)
+inl array_set forall t. (ar : array t) (i : i32) (v : t) : () = !!!!ArrayIndexSet(ar,i,v)
+inl array_length forall t. (ar : array t) : i32 = !!!!ArrayLength(ar)
 
-nominal t x = {q : i32; w : i64; e : string; f : x}
+inl for (from: nearTo:) body state =
+    let rec loop i s = if i < nearTo then loop (i+1) (body i s) else s
+    loop from state
 
-inl testn_1 (q : t bool) =
-    inl r = t {q=1i32; w=2i64; e="e"; f='a'}
-    match q with
-    | t {e f} => ()
+inl for' (from: nearTo:) body = for (from:nearTo:) (fun i () => body i) ()
 
-inl set (x : mut {q : i32; w : f64}) =
-    let z = {q=1;w=3}
-    x <- z
+inl array_fold f s ar = for (from: 0 nearTo: array_length ar) (fun i s => f s (array_index ar i)) s
+inl array_map f ar =
+    inl nearTo = array_length ar
+    inl ar' = array_create nearTo
+    for' (from: 0 nearTo: ) (fun i => array_set ar' i (f (array_index ar i)))
+    ar'
 
-inl main _ =
-    inl add (left:right:) = left + right
-    add (left:1 right: 2)
-    + add (left: 3 right: 7)
-    |> dyn
+inl array_filter f ar =
+    inl nearTo = array_length ar
+    inl ar' = array_create nearTo
+    inl nearTo =
+        for (from:0 nearTo:) (fun i count =>
+            if f i then array_set ar' i (array_index ar i) . count + 1
+            else count
+            ) 0
+    inl ar = ar'
+    inl ar' = array_create nearTo
+    for' (from:0 nearTo:) (fun i => array_set ar' i (array_index ar i))
+    ar'
+
+inl writeline (x : string): () = $"System.Console.WriteLine(!x)"
+inl readline (): string = $"System.Console.ReadLine()"

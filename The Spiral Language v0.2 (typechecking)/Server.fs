@@ -81,32 +81,43 @@ let server () =
             )
         tokenizer_errors
 
+    let buffer = Dictionary()
+    let last_id = ref 0
     use __ = server.ReceiveReady.Subscribe(fun s ->
+        let rec loop () =
+            let mutable x = Unchecked.defaultof<_>
+            if buffer.Remove(!last_id,&x) then
+                let address, x = x
+                body address (NetMQMessage(3)) x
+        and body (address : NetMQFrame) (msg : NetMQMessage) x =
+            incr last_id
+            let push_back x = msg.Push(Json.serialize x); msg.PushEmptyFrame(); msg.Push(address)
+            let send_back' x = push_back x; server.SendMultipartMessage(msg)
+            let send_back_via_queue x = push_back x; queue.Enqueue(Message msg)
+            let send_back x = run x |> send_back'
+            match x with
+            | ProjectFileOpen x ->
+                match config x.uri x.spiprojText with Ok x -> [||] | Error x -> x
+                |> send_back'
+            | FileOpen x -> file_message x.uri (fun res -> Req.Put(x.spiText,res)) |> send_back
+            | FileChanged x -> file_message x.uri (fun res -> Req.Modify(x.spiEdit,res)) |> send_back
+            | FileTokenRange x ->
+                Hopac.start (
+                    let res = IVar()
+                    timeOutMillis 30 >>=.
+                    Ch.give (tokenizer x.uri) (Req.GetRange(x.range,res)) >>=. 
+                    IVar.read res >>- send_back_via_queue
+                    )
+            | HoverAt x ->
+                let _,hover = hover x.uri
+                Hopac.start (Ch.give hover (x.pos, fun x -> send_back' {|HoverReply=x|}))
+            loop ()
         let msg = server.ReceiveMultipartMessage(3)
         let address = msg.Pop()
         msg.Pop() |> ignore
-        let push_back x = msg.Push(Json.serialize x); msg.PushEmptyFrame(); msg.Push(address)
-        let send_back' x = push_back x; server.SendMultipartMessage(msg)
-        let send_back_via_queue x = push_back x; queue.Enqueue(Message msg)
-        let send_back x = run x |> send_back'
-        // TODO: The message id here is for debugging purposes. I'll remove it at some point.
         let (id : int), x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
-        match x with
-        | ProjectFileOpen x ->
-            match config x.uri x.spiprojText with Ok x -> [||] | Error x -> x
-            |> send_back'
-        | FileOpen x -> file_message x.uri (fun res -> Req.Put(x.spiText,res)) |> send_back
-        | FileChanged x -> file_message x.uri (fun res -> Req.Modify(x.spiEdit,res)) |> send_back
-        | FileTokenRange x ->
-            Hopac.start (
-                let res = IVar()
-                timeOutMillis 30 >>=.
-                Ch.give (tokenizer x.uri) (Req.GetRange(x.range,res)) >>=. 
-                IVar.read res >>- send_back_via_queue
-                )
-        | HoverAt x ->
-            let _,hover = hover x.uri
-            Hopac.start (Ch.give hover (x.pos, fun x -> send_back' {|HoverReply=x|}))
+        if !last_id = id then body address msg x
+        else buffer.Add(id,(address,x))
         )
 
     use client = new RequestSocket()
@@ -123,4 +134,3 @@ let server () =
     poller.Run()
 
 server()
-

@@ -268,8 +268,8 @@ let assert_bound_vars (top_env : Env) term ty x =
 let rec subst (m : (Var * T) list) x =
     let f = subst m
     match x with
-    | TyMetavar _ -> failwith "Compiler error: Metavars are forbidden in subst."
-    | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> x
+    | TyMetavar(_,{contents=Some x} & link) -> go x link f
+    | TyMetavar _ | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> x
     | TyPair(a,b) -> TyPair(f a, f b)
     | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
     | TyFun(a,b) -> TyFun(f a, f b)
@@ -515,6 +515,8 @@ let hovars (x : HoVar list) =
         v, Map.add n (TyVar v) s
         ) Map.empty x
 
+let autogen_name (i : int) = let x = char i + 'a' in if 'z' < x then sprintf "'%i" i else sprintf "'%c" x
+
 open Spiral.TypecheckingUtils
 open System.Collections.Generic
 let infer (top_env' : TopEnv) expr =
@@ -548,7 +550,7 @@ let infer (top_env' : TopEnv) expr =
             match x with
             | TyMetavar(_,{contents=Some x} & link) -> go x link f
             | TyMetavar(x, link) when scope = x.scope ->
-                let v = TyVar {scope=x.scope; constraints=x.constraints; kind=kind_force x.kind; name=sprintf "'%i" !autogened_forallvar_count}
+                let v = TyVar {scope=x.scope; constraints=x.constraints; kind=kind_force x.kind; name=autogen_name !autogened_forallvar_count}
                 incr autogened_forallvar_count
                 link := Some v
                 replace_metavars v
@@ -561,7 +563,7 @@ let infer (top_env' : TopEnv) expr =
             | TyArray a -> TyArray(f a)
             | TyApply(a,b,c) -> TyApply(f a,f b,c)
             | TyInl(a,b) -> TyInl(a,f b)
-            | TyMacro a -> TyMacro(List.map (function TMVar a -> TMVar(replace_metavars a) | a -> a) a)
+            | TyMacro a -> TyMacro(List.map (function TMVar a -> TMVar(f a) | a -> a) a)
             | TyLayout(a,b) -> TyLayout(f a,b)
 
         let f x s = TyForall(x,s)
@@ -702,7 +704,7 @@ let infer (top_env' : TopEnv) expr =
         | RawSymbolCreate(r,x) -> unify r s (TySymbol x)
         | RawType(_,x) -> ty env s x
         | RawIfThenElse(_,cond,tr,fl) -> f (TyPrim BoolT) cond; f s tr; f s fl
-        | RawIfThen(_,cond,tr) -> f (TyPrim BoolT) cond; f s tr
+        | RawIfThen(r,cond,tr) -> f (TyPrim BoolT) cond; unify r s TyB; f TyB tr
         | RawPairCreate(r,a,b) ->
             let q,w = fresh_var(), fresh_var()
             unify r s (TyPair(q, w))
