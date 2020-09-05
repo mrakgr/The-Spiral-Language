@@ -182,7 +182,7 @@ let validate_bound_vars (top_env : Env) term ty x =
     let rec cterm term ty x =
         match x with
         | RawSymbolCreate _ | RawDefaultLit _ | RawLit _ | RawB _ -> ()
-        | RawV(a,b) -> check_term term (a,b)
+        | RawBigV(a,b) | RawV(a,b) -> check_term term (a,b)
         | RawType(_,x) -> ctype term ty x
         | RawMatch(_,body,l) -> cterm term ty body; List.iter (fun (a,b) -> cterm (cpattern term ty a) ty b) l
         | RawFun(_,l) -> List.iter (fun (a,b) -> cterm (cpattern term ty a) ty b) l
@@ -418,7 +418,18 @@ let show_t (env : TopEnv) x =
             p 0 (sprintf "%s => %s" a (f -1 b))
         | TyArray a -> p 30 (sprintf "array %s" (f 30 a))
         | TyApply(a,b,_) -> p 30 (sprintf "%s %s" (f 29 a) (f 30 b))
-        | TyPair(a,b) -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b)) // TODO: Don't forget the paired symbol pattern.
+        | TyPair(a,b) -> 
+            match visit_t a, visit_t b with
+            | TySymbol a, b when 0 < a.Length && System.Char.IsLower(a,0) && a.[a.Length-1] = '_' -> 
+                let show (s,a) = sprintf "%s: %s" s (f 15 a)
+                let rec loop (a,b) = 
+                    match a,b with
+                    | s :: s', TyPair(a,b) -> show (s,a) :: loop (s',b)
+                    | s :: [], a -> [show (s,a)]
+                    | s, a -> [show (String.concat "_" s, a)]
+                p 15 (loop (a.Split('_',System.StringSplitOptions.RemoveEmptyEntries) |> (fun x -> x.[0] <- to_upper x.[0]; Array.toList x), b) |> String.concat " ")
+            | TySymbol a, TyB when 0 < a.Length && System.Char.IsLower(a,0) -> to_upper a
+            | a,b -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b))
         | TyFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
         | TyRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
         | TyConstraint a -> show_constraint prec env a
@@ -686,19 +697,20 @@ let infer (top_env' : TopEnv) expr =
             v, Map.add v.name (TyVar v) s
             ) ty l
 
-
     let rec term (env : Env) s x =
         let f = term env
         let f' x = let v = fresh_var() in f v x; visit_t v
-        match x with
-        | RawB r -> unify r s TyB
-        | RawV(r,a) ->
+        let inline rawv (r,a) on_succ =
             match v_term env a with
             | None -> errors.Add(r,UnboundVariable)
             | Some (TySymbol "<real>") -> errors.Add(r,RealFunctionInTopDown)
             | Some a -> 
                 match a with TyForall _ -> type_application.Add(x,s) | _ -> ()
-                hover_types.Add(r,a); unify r s (forall_subst_all a)
+                hover_types.Add(r,s); on_succ (forall_subst_all a)
+        match x with
+        | RawB r -> unify r s TyB
+        | RawV(r,a) -> rawv (r,a) (unify r s)
+        | RawBigV(r,a) -> rawv (r,a) (unify r (TyFun(TyB,s)))
         | RawDefaultLit(r,_) -> type_application.Add(x,s); hover_types.Add(r,s); unify r s (fresh_subst_var (Set.singleton CNumber) KindType)
         | RawLit(r,a) -> unify r s (lit a)
         | RawSymbolCreate(r,x) -> unify r s (TySymbol x)
@@ -1019,10 +1031,11 @@ let infer (top_env' : TopEnv) expr =
                             ) env l
                     unify r s (l |> Map |> TyRecord)
                     env
-            | PatUnbox(r,PatPair(_,PatSymbol(_,name), a)) ->
+            | PatUnbox(r,PatPair(_,PatSymbol(r',name), a)) ->
                 let assume i =
                     match hoc.[i] with
                     | HOCUnion(_,vars,cases) ->
+                        hover_types.Add(r',s)
                         let x,m = ho_make i vars
                         unify r s x
                         match Map.tryFind name cases with

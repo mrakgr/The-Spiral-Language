@@ -184,6 +184,7 @@ and Pattern =
 and RawExpr =
     | RawB of Range
     | RawV of Range * VarString
+    | RawBigV of Range * VarString // RawApply(V a,RawB) This case is needed for the sake of having correct hover info.
     | RawLit of Range * Literal
     | RawDefaultLit of Range * string
     | RawSymbolCreate of Range * SymbolString
@@ -259,6 +260,7 @@ let range_of_expr = function
     | RawMissingBody r
     | RawMacro(r,_)
     | RawV(r,_)
+    | RawBigV(r,_)
     | RawLit(r,_)
     | RawDefaultLit(r,_)
     | RawSymbolCreate(r,_)
@@ -463,6 +465,7 @@ let read_symbol_paired' d =
         | p, _ -> Error [p, ExpectedSymbolPaired]
 
 let to_lower (x : string) = Char.ToLower(x.[0]).ToString() + x.[1..]
+let to_upper (x : string) = Char.ToUpper(x.[0]).ToString() + x.[1..]
 
 let read_symbol d =
     try_current d <| function
@@ -817,10 +820,11 @@ and root_type (flags : RootTypeFlags) d =
     let next = root_type flags
     let cases d =
         let wildcard d = if flags.allow_wildcard then (skip_keyword' SpecWildcard |>> RawTWildcard) d else Error []
+        // This metavar case only occurs in typecase during the bottom-up segment. It should not be confused with metavars during top-down type inference.
         let metavar d = if flags.allow_metavars then (skip_unary_op "~" >>. read_var'' |>> RawTMetaVar) d else Error []
         let term d = if flags.allow_term then (range (skip_unary_op "`" >>. ((read_var'' |>> RawV) <|> rounds root_term)) |>> RawTTerm) {d with is_top_down=false} else Error []
         let record =
-            range (curlies (sepBy ((range record_var .>> skip_op ":") .>>. next) (skip_op ";")))
+            range (curlies (sepBy ((range record_var .>> skip_op ":") .>>. next) (optional (skip_op ";"))))
             >>= fun (r,x) _ ->
                 x |> List.map fst |> duplicates DuplicateRecordTypeVar
                 |> function [] -> Ok(RawTRecord(r,x |> List.map (fun ((_,n),x) -> n,x) |> Map.ofList)) | er -> Error er
@@ -860,7 +864,7 @@ and root_type (flags : RootTypeFlags) d =
 and root_term d =
     let rec expressions d =
         let next = root_term
-        let case_var = read_var'' |>> fun (r,x) -> if Char.IsUpper(x,0) then RawApply(r, RawV(r,to_lower x), RawB r) else RawV(r,x)
+        let case_var = read_var' |>> fun (r,x,leg) -> if Char.IsUpper(x,0) then leg := SemanticTokenLegend.symbol; RawBigV(r, to_lower x) else RawV(r,x)
         let case_unit = unit' RawB
         let case_rounds = rounds ((read_op' |>> RawV) <|> next)
         let case_fun =
@@ -1014,12 +1018,16 @@ and root_term d =
     let symbol_paired d =
         let next = operators
         ((many1 (indent (col d) (<=) read_symbol_paired' .>>. opt next) |>> fun l ->
+            let l,is_upper =
+                match l with
+                | ((r,a,re),b) :: l' -> ((r,to_lower a,re),b) :: l', Char.IsUpper(a,0)
+                | [] -> [], false
             let f ((r,a,re),b) = (r, a), Option.defaultWith (fun () -> re := SemanticTokenLegend.variable; RawV(r,a)) b
             match l |> List.map f |> List.unzip with
             | (r,x) :: k', v ->
                 let name = r, symbol_paired_concat ((r,to_lower x) :: k')
                 let body = List.reduceBack (fun a b -> RawPairCreate(range_of_expr a +. range_of_expr b,a,b)) v
-                if Char.IsUpper(x,0) then RawApply(r +. range_of_expr body, RawV name, body)
+                if is_upper then RawApply(r +. range_of_expr body, RawV name, body)
                 else RawPairCreate(r +. range_of_expr body, RawSymbolCreate name, body)
             | _ -> failwith "Compiler error: Should be at least one key in symbol_paired_process_pattern"
             )

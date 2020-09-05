@@ -1,7 +1,7 @@
 inl (+) forall t {number}. (a : t) (b : t) : t = !!!!Add(a,b)
 inl (-) forall t {number}. (a : t) (b : t) : t = !!!!Sub(a,b)
 inl (*) forall t {number}. (a : t) (b : t) : t = !!!!Mult(a,b)
-inl (**) forall t number}. (a : t) (b : t) : t = !!!!Pow(a,b)
+inl (**) forall t {number}. (a : t) (b : t) : t = !!!!Pow(a,b)
 inl (/) forall t {number}. (a : t) (b : t) : t = !!!!Div(a,b)
 inl (%) forall t {number}. (a : t) (b : t) : t = !!!!Mod(a,b)
 
@@ -52,3 +52,65 @@ inl array_filter f ar =
 
 inl writeline (x : string): () = $"System.Console.WriteLine(!x)"
 inl readline (): string = $"System.Console.ReadLine()"
+
+inl string_index (str : string) (i : i32): char = !!!!StringIndex(str,i)
+inl string_length (str : string): i32 = !!!!StringLength(str)
+
+union list a = Nil | Cons: a, list a
+union result a b = Ok: a | Error: b
+
+inl list_singleton x = Cons: x, Nil
+
+type env = i32
+type cont a b r = {on_succ : a -> r; on_fail : b -> r} -> r
+nominal parser a = string -> env -> result a (list string), env
+nominal cps_parser a r = string -> env -> cont (a, env) (list string, env) (r, env)
+inl run_cps (cps_parser a) str i on = a str i on
+inl run (parser x) str i = x str i
+inl conv (cps_parser a) = parser fun str i => a str i { on_succ=fun ok,i => (Ok:),i; on_fail=fun error,i => (Error:),i}
+
+inl Char' = cps_parser fun str i {on_succ on_fail} =>
+    if i < string_length str then on_succ (string_index str i, i+1)
+    else on_fail (list_singleton "Out of bounds.", i)
+
+inl Char = conv Char'
+
+inl i32 (x : char): i32 = !!!!UnsafeConvert(`i32,x)
+inl is_digit x = i32 '0' <= i32 x && i32 x <= i32 '9'
+inl Digit = parser fun str i =>
+    match run Char str i with
+    | (Ok: a), i' as x => if is_digit a then x else (Error: list_singleton "digit"), i'
+    | er => er
+
+inl I32 = parser fun str i =>
+    let rec loop i was_parsed s =
+        match run Digit str i with
+        | (Ok: c), i => 
+            inl s' = s * 10 + i32 c
+            if s <= 214_748_364 && 0 <= s' then loop i true s'
+            else (Error: list_singleton "The number is too large to be parsed as 32 bit int."), i
+        | (Error: _), i => if was_parsed then (Ok: s), i else (Error: list_singleton "i32"), i
+    loop i false 0
+
+inl on_succ ok = parser fun _ i => (Ok:), i
+inl (>>=) (parser a) f = parser fun str i => 
+    match a str i with
+    | (Ok: a), i => run (f a) str i
+    | (Error: l), i => (Error: l), i
+
+inl (<<;) a b =
+    a >>= fun a =>
+    b >>= fun b =>
+    on_succ (a,b)
+
+inl (<<.) a b =
+    a >>= fun a =>
+    b >>= fun b =>
+    on_succ b
+
+inl (<<,) a b =
+    a >>= fun a =>
+    b >>= fun b =>
+    on_succ a
+
+inl Parse3Ints = I32 <<; I32 <<; I32
