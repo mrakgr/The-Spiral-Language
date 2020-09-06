@@ -114,3 +114,25 @@ inl (<<,) a b =
     on_succ a
 
 inl Parse3Ints = I32 <<; I32 <<; I32
+
+prototype eq x : x -> x -> bool
+instance eq list el {eq} = fun a b =>
+    let rec loop = function
+        | Nil, Nil => true
+        | (Cons: a,a'), (Cons: b,b') when eq a b => loop (a',b')
+        | _ => false
+    loop (a,b)
+
+let rec poly forall t. (x : t): t =
+    inl q = poly true
+    inl w = poly "qwe"
+    inl e = poly' 1i32
+    x
+and let poly' forall t {number}. (x : t): t = poly x
+
+inl failwith (x : string) = $"failwith !x"
+
+// inl forall_escape_test q w e = // Should have an error.
+//     inl f forall t {number}. (a : t) (s : t) (d : t) = (q,w,e) = (a,s,d)
+//     f q w e
+

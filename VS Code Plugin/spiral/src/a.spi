@@ -3,7 +3,7 @@ union option a =
     | None
 
 prototype bind m a : forall b. m a -> (a -> m b) -> m b
-instance bind option : x f =
+instance bind option = fun x f =>
     match x with
     | Some: x => f x
     | None => None

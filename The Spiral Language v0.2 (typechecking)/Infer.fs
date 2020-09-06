@@ -95,14 +95,14 @@ type TypeError =
     | InstanceVarShouldNotMatchAnyOfPrototypes
     | MissingBody
 
-let inline go' x link next = let x = next x in link.contents' <- Some x; x
+let shorten' x link next = let x = next x in link.contents' <- Some x; x
 let rec visit_tt = function
-    | KindMetavar({contents'=Some x} & link) -> go' x link visit_tt
+    | KindMetavar({contents'=Some x} & link) -> shorten' x link visit_tt
     | a -> a
 
-let inline go x link next = let x = next x in link := Some x; x
+let shorten x link next = let x = next x in link := Some x; x
 let rec visit_t = function
-    | TyMetavar(_,{contents=Some x} & link) -> go x link visit_t
+    | TyMetavar(_,{contents=Some x} & link) -> shorten x link visit_t
     | a -> a
 
 open Spiral.BlockParsing
@@ -311,12 +311,12 @@ and constraints_process env (con,b) =
     | b -> Set.fold (fun ers con -> List.append (constraint_process env (con, b)) ers) [] con
 
 let rec kind_subst = function
-    | KindMetavar ({contents'=Some x} & link) -> go' x link kind_subst
+    | KindMetavar ({contents'=Some x} & link) -> shorten' x link kind_subst
     | KindMetavar _ | KindConstraint | KindType as x -> x
     | KindFun(a,b) -> KindFun(kind_subst a,kind_subst b)
 
 let rec term_subst = function
-    | TyMetavar(_,{contents=Some x} & link) -> go x link term_subst
+    | TyMetavar(_,{contents=Some x} & link) -> shorten x link term_subst
     | TyConstraint _ | TyMetavar _ | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
     | TyPair(a,b) -> TyPair(term_subst a, term_subst b)
     | TyRecord l -> TyRecord(Map.map (fun _ -> term_subst) l)
@@ -337,7 +337,7 @@ let rec foralls_ty_get = function
     | b -> [], b
 
 let rec kind_force = function
-    | KindMetavar ({contents'=Some x} & link) -> go' x link kind_subst
+    | KindMetavar ({contents'=Some x} & link) -> shorten' x link kind_subst
     | KindMetavar link -> let x = KindType in link.contents' <- Some x; x
     | KindConstraint | KindType as x -> x
     | KindFun(a,b) -> KindFun(kind_subst a,kind_subst b)
@@ -345,13 +345,12 @@ let rec kind_force = function
 let rec has_metavars x =
     let f = has_metavars
     match visit_t x with
+    | TyMetavar _ -> true
     | TyConstraint | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> false
-    | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
-    | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a && f b
+    | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
+    | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a || f b
     | TyRecord l -> Map.exists (fun _ -> f) l
-    | TyMetavar(x,_) -> true
     | TyMacro a -> List.exists (function TMVar x -> has_metavars x | _ -> false) a
-    | TyLayout(a,b) -> f a
 
 let show_primt = function
     | UInt8T -> "u8"
@@ -559,7 +558,7 @@ let infer (top_env' : TopEnv) expr =
         let rec replace_metavars x =
             let f = replace_metavars
             match x with
-            | TyMetavar(_,{contents=Some x} & link) -> go x link f
+            | TyMetavar(_,{contents=Some x} & link) -> shorten x link f
             | TyMetavar(x, link) when scope = x.scope ->
                 let v = TyVar {scope=x.scope; constraints=x.constraints; kind=kind_force x.kind; name=autogen_name !autogened_forallvar_count}
                 incr autogened_forallvar_count

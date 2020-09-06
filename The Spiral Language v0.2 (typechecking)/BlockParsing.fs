@@ -1122,14 +1122,10 @@ let top_prototype d =
 let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_type_var') (many ho_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)) d
 let top_instance d =
     (range
-        (tuple5 (skip_keyword SpecInstance >>. read_small_var') read_type_var' (many forall_var)
-            (skip_op ":" >>. many root_pattern_pair) (skip_op "=" >>. root_term))
-    >>= fun (r,(prototype_name, nominal_name, nominal_foralls, pats, body)) _ ->
-            match patterns_validate pats with
-            | [] ->
-                let body = List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[pat,body])) pats body
-                Ok(TopInstance(r,prototype_name,nominal_name,nominal_foralls,body))
-            | ers -> Error ers) d
+        (tuple4 (skip_keyword SpecInstance >>. read_small_var') read_type_var' (many forall_var) (skip_op "=" >>. root_term))
+    >>= fun (r,(prototype_name, nominal_name, nominal_foralls, body)) _ ->
+            Ok(TopInstance(r,prototype_name,nominal_name,nominal_foralls,body))
+            ) d
 
 let top_and_inl_or_let d = 
     (restore 1 (range (and_inl_or_let root_term root_pattern_pair root_type_annot)) 

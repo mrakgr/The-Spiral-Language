@@ -262,7 +262,7 @@ let inline special_char l text s =
     | 'n' -> esc '\n' | 'r' -> esc '\r'  | 't' -> esc '\t'  | 'b' -> esc '\b' 
     | x -> unesc x
 
-let string_quoted s =
+let string_quoted' s =
     let inline f from x = {from=from; nearTo=s.from}, x
     let close l = let f = f s.from in inc s; List.rev (f TokStringClose :: l) |> Ok
     let rec text l =
@@ -279,8 +279,9 @@ let string_quoted s =
     match peek s with
     | '"' -> let f = f s.from in inc s; text [f TokStringOpen]
     | _ -> error_char s.from "\""
+let string_quoted s = (string_quoted' .>> spaces) s
 
-let macro s =
+let macro' s =
     let inline f from x = {from=from; nearTo=s.from}, x
     let close l = let f = f s.from in inc s; List.rev (f TokMacroClose :: l) |> Ok
     let rec text l =
@@ -303,6 +304,7 @@ let macro s =
     match peek s, peek' s 1 with
     | '$', '"' -> let f = f s.from in inc' 2 s; text [f TokMacroOpen]
     | _ -> error_char s.from "$\""
+let macro s = (macro' .>> spaces) s
 
 let brackets s =
     let from = s.from
