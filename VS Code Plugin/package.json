@@ -13,13 +13,15 @@
 		"languages": [
 			{
 				"id": "spiral",
-        		"configuration": "./language-configuration.json",
+				"configuration": "./language-configuration.json",
 				"extensions": [
 					".spi",
 					".spir",
 					".spiproj"
 				],
-				"aliases": ["Spiral"]
+				"aliases": [
+					"Spiral"
+				]
 			}
 		],
 		"semanticTokenTypes": [
@@ -56,10 +58,12 @@
 	],
 	"author": "Marko Grdinić",
 	"devDependencies": {
+		"@types/lodash": "^4.14.161",
 		"@types/node": "^13.13.5",
 		"@types/vscode": "^1.44.0"
 	},
 	"dependencies": {
+		"lodash": "^4.17.20",
 		"zeromq": "^6.0.0-beta.6"
 	}
 }

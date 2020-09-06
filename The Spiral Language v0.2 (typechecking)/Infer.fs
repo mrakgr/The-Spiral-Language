@@ -268,7 +268,7 @@ let assert_bound_vars (top_env : Env) term ty x =
 let rec subst (m : (Var * T) list) x =
     let f = subst m
     match x with
-    | TyMetavar(_,{contents=Some x} & link) -> go x link f
+    | TyMetavar(_,{contents=Some x} & link) -> f x // Don't do path shortening here.
     | TyMetavar _ | TyConstraint _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> x
     | TyPair(a,b) -> TyPair(f a, f b)
     | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
@@ -278,7 +278,7 @@ let rec subst (m : (Var * T) list) x =
     | TyVar a -> List.tryPick (fun (v,x) -> if a = v then Some x else None) m |> Option.defaultValue x
     | TyForall(a,b) -> TyForall(a, f b)
     | TyInl(a,b) -> TyInl(a, f b)
-    | TyMacro a -> TyMacro(List.map (function TMVar x -> TMVar(subst m x) | x -> x) a)
+    | TyMacro a -> TyMacro(List.map (function TMVar x -> TMVar(f x) | x -> x) a)
     | TyLayout(a,b) -> TyLayout(f a,b)
 
 let rec ho_split s = function 
@@ -1069,17 +1069,17 @@ let infer (top_env' : TopEnv) expr =
         let vars,env_ty = hovars vars
         let v = fresh_var()
         ty {term=Map.empty; ty=env_ty} v expr
-        let t = List.foldBack (fun x s -> TyInl(x,s)) vars (visit_t v)
+        let t = List.foldBack (fun x s -> TyInl(x,s)) vars (term_subst v) // Note: Using visit_t instead of term_subst results in concurrency bugs.
         hover_types.Add(r,t)
         {top_env' with ty = Map.add name t top_env.ty}
     | BundleRecType l ->
         let l,_ =
             List.mapFold (fun i -> function
-                | BundleNominal(_,(_,name),vars,l) -> Choice1Of2(i,name,hovars vars,l), i+1
-                | BundleUnion(_,(_,name),vars,l) -> Choice2Of2(i,name,hovars vars,l), i+1
+                | BundleNominal(_,name,vars,l) -> Choice1Of2(i,name,hovars vars,l), i+1
+                | BundleUnion(_,name,vars,l) -> Choice2Of2(i,name,hovars vars,l), i+1
                 ) hoc.Length l
         let env_ty = 
-            List.fold (fun s (Choice1Of2(i,name,(vars,_),_) | Choice2Of2(i,name,(vars,_),_)) ->
+            List.fold (fun s (Choice1Of2(i,(_,name),(vars,_),_) | Choice2Of2(i,(_,name),(vars,_),_)) ->
                 let tt = List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) vars KindType
                 Map.add name (TyHigherOrder(i,tt)) s
                 ) top_env.ty l
@@ -1095,12 +1095,14 @@ let infer (top_env' : TopEnv) expr =
                     List.foldBack (fun var ty -> TyForall(var,ty)) vars (TyFun(body,t))
 
                 match x with
-                | Choice1Of2(_,name,(vars,env_ty'),expr) ->
+                | Choice1Of2(_,(r,name),(vars,env_ty'),expr) ->
                     let v = fresh_var()
                     ty {term=Map.empty; ty=Map.foldBack Map.add env_ty' env_ty} v expr 
                     let v = term_subst v
-                    PersistentVector.conj (HOCNominal(name,vars,v)) hoc, Map.add name (wrap_forall vars v env_ty.[name]) term
-                | Choice2Of2(_,name,(vars,env_ty'),l) ->
+                    let inl_v = wrap_forall vars v env_ty.[name]
+                    hover_types.Add(r,inl_v)
+                    PersistentVector.conj (HOCNominal(name,vars,v)) hoc, Map.add name inl_v term
+                | Choice2Of2(_,(_,name),(vars,env_ty'),l) ->
                     List.fold (fun (cases,term) expr ->
                         let v = fresh_var()
                         ty {term=Map.empty; ty=Map.foldBack Map.add env_ty' env_ty} v expr 

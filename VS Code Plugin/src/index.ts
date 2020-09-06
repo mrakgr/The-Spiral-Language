@@ -1,4 +1,5 @@
 import * as path from "path"
+import * as _ from "lodash"
 import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString } from "vscode"
 import * as zmq from "zeromq"
 
@@ -80,22 +81,28 @@ export const activate = async (ctx: ExtensionContext) => {
         errorsSet(errorsTokenization, doc.uri, await spiOpenReq(doc.uri.toString(), doc.getText()))
     }
 
-    const numberOfLines = (str: string) => {
-        var length = 1;
+    const numberOfLinesAdded = (str: string) => {
+        var length = 0;
         for (var i = 0; i < str.length; i++) { if (str[i] == '\n') { length++; } }
         return length;
     }
 
     const spiChange = async (doc : TextDocument, changes: readonly TextDocumentContentChangeEvent[]) => {
-        if (1 < changes.length) {
-            await spiOpen(doc)
-        } else if (1 === changes.length) {
-            const x = changes[0]
-            const from = x.range.start.line
-            const nearTo = from + numberOfLines(x.text)
+        if (0 < changes.length) {
+            const sortedChanges = 1 < changes.length ? _.sortBy(changes,x => [x.range.start.line, x.range.start.character]) : changes
+            const from = sortedChanges[0].range.start.line
+            const {nearTo} =
+                sortedChanges.reduce(({lineAdjust},x) => {
+                    const linesRemoved = x.range.end.line - x.range.start.line
+                    const linesAdded = numberOfLinesAdded(x.text)
+                    return {
+                        nearTo: lineAdjust + linesAdded + x.range.start.line + 1, 
+                        lineAdjust: lineAdjust + linesAdded - linesRemoved
+                        }
+                    }, {nearTo: 0, lineAdjust: 0})
             const lines : string [] = []
             for (let i = from; i < nearTo; i++) { lines.push(doc.lineAt(i).text) }
-            const edit = {lines, from, nearTo: x.range.end.line+1}
+            const edit = {lines, from, nearTo: sortedChanges[sortedChanges.length-1].range.end.line+1}
             errorsSet(errorsTokenization, doc.uri, await spiChangeReq(doc.uri.toString(), edit))
         }
     }
