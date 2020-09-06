@@ -17,6 +17,8 @@ inl (<>) forall t. (a : t) (b : t) : bool = !!!!NEQ(a,b)
 
 inl (|>) a b = b a
 inl (>>) a b x = b (a x)
+inl (<|) a b = a b
+inl (<<) a b x = a (b x)
 inl dyn (~x) = x
 
 inl array_create forall t. (size : i32) : array t = !!!!ArrayCreate(`t,size)
@@ -30,25 +32,18 @@ inl for (from: nearTo:) body state =
 
 inl for' (from: nearTo:) body = for (from:nearTo:) (fun i () => body i) ()
 
-inl array_fold f s ar = for (from: 0 nearTo: array_length ar) (fun i s => f s (array_index ar i)) s
-inl array_map f ar =
-    inl nearTo = array_length ar
-    inl ar' = array_create nearTo
-    for' (from: 0 nearTo: ) (fun i => array_set ar' i (f (array_index ar i)))
-    ar'
+inl array_init nearTo f = 
+    inl ar = array_create nearTo
+    for' (from: 0 nearTo:) (fun i => array_set ar i (f i))
+    ar
 
+inl array_fold f s ar = for (from: 0 nearTo: array_length ar) (fun i s => f s (array_index ar i)) s
+inl array_map f ar = array_init (array_length ar) (fun i => f (array_index ar i))
 inl array_filter f ar =
     inl nearTo = array_length ar
     inl ar' = array_create nearTo
-    inl nearTo =
-        for (from:0 nearTo:) (fun i count =>
-            if f i then array_set ar' i (array_index ar i) . count + 1
-            else count
-            ) 0
-    inl ar = ar'
-    inl ar' = array_create nearTo
-    for' (from:0 nearTo:) (fun i => array_set ar' i (array_index ar i))
-    ar'
+    for (from:0 nearTo:) (fun i count => if f i then array_set ar' i (array_index ar i) . count + 1 else count) 0
+    |> fun nearTo => array_init nearTo (array_index ar')
 
 inl writeline (x : string): () = $"System.Console.WriteLine(!x)"
 inl readline (): string = $"System.Console.ReadLine()"
@@ -58,6 +53,7 @@ inl string_length (str : string): i32 = !!!!StringLength(str)
 
 union list a = Nil | Cons: a, list a
 union result a b = Ok: a | Error: b
+union option a = Some: a | None
 
 inl list_singleton x = Cons: x, Nil
 
@@ -131,8 +127,25 @@ let rec poly forall t. (x : t): t =
 and let poly' forall t {number}. (x : t): t = poly x
 
 inl failwith (x : string) = $"failwith !x"
+inl const x _ = x
 
-// inl forall_escape_test q w e = // Should have an error.
-//     inl f forall t {number}. (a : t) (s : t) (d : t) = (q,w,e) = (a,s,d)
-//     f q w e
+union player = First | Second
 
+inl game_of_stones n =
+    inl max_n = 100
+    if max_n < n then failwith "The max input has been exceeded."
+    inl solutions = array_init (max_n+1) (const None)
+    let rec solve player opposing_player n =
+        inl take amount on_fail () = 
+            if n >= amount && solve opposing_player player (n-amount) = player then player
+            else on_fail ()
+
+        let run = take 2 <| take 3 <| take 5 <| const opposing_player
+
+        match player with
+        | First => 
+            match array_index solutions n with
+            | None => inl x = run() in array_set solutions n (Some: x) . x
+            | Some: x => x
+        | Second => run()
+    solve First Second n

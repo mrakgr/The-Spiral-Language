@@ -836,7 +836,7 @@ let infer (top_env' : TopEnv) expr =
                     | a -> raise (TypeErrorException [range_of_expr a', ExpectedLayout a])
 
             unify r s TyB
-            f (loop a) b
+            f (try loop a with :? TypeErrorException as e -> errors.AddRange e.Data0; fresh_var()) b
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
     and inl env ((r, name), body) =
         incr scope
