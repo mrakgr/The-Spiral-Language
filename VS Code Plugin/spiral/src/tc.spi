@@ -21,10 +21,16 @@ inl (<|) a b = a b
 inl (<<) a b x = a (b x)
 inl dyn (~x) = x
 
+inl mut forall t. (x : t): mut t = !!!!LayoutHeapMutable(x)
+inl mut' forall t. (x : mut t): t = !!!!LayoutIndiv(x)
+inl heap forall t. (x : t): heap t = !!!!LayoutHeap(x)
+inl heap' forall t. (x : heap t): t = !!!!LayoutIndiv(x)
+
 inl array_create forall t. (size : i32) : array t = !!!!ArrayCreate(`t,size)
 inl array_index forall t. (ar : array t) (i : i32) : t = !!!!ArrayIndex(ar,i)
 inl array_set forall t. (ar : array t) (i : i32) (v : t) : () = !!!!ArrayIndexSet(ar,i,v)
 inl array_length forall t. (ar : array t) : i32 = !!!!ArrayLength(ar)
+inl array_singleton x = inl a = array_create 1 in array_set a 0 x
 
 inl for (from: nearTo:) body state =
     let rec loop i s = if i < nearTo then loop (i+1) (body i s) else s
@@ -46,16 +52,19 @@ inl array_filter f ar =
     |> fun nearTo => array_init nearTo (array_index ar')
 
 inl writeline (x : string): () = $"System.Console.WriteLine(!x)"
-inl readline (): string = $"System.Console.ReadLine()"
+inl Readline : string = $"System.Console.ReadLine()"
 
 inl string_index (str : string) (i : i32): char = !!!!StringIndex(str,i)
 inl string_length (str : string): i32 = !!!!StringLength(str)
 
 union list a = Nil | Cons: a, list a
+inl list_singleton x = Cons: x, Nil
+inl list_foldBack f l s =
+    let rec loop s = function Cons: x,x' => f x (loop s x') | Nil => s
+    loop s l
+
 union result a b = Ok: a | Error: b
 union option a = Some: a | None
-
-inl list_singleton x = Cons: x, Nil
 
 type env = i32
 type cont a b r = {on_succ : a -> r; on_fail : b -> r} -> r
@@ -129,9 +138,11 @@ and let poly' forall t {number}. (x : t): t = poly x
 inl failwith (x : string) = $"failwith !x"
 inl const x _ = x
 
+inl Readall : string = $"System.Console.OpenStandardInput() |> fun x -> new System.IO.StreamReader(x) |> fun x -> let v = x.ReadToEnd() in x.Dispose(); v"
+
 union player = First | Second
 
-inl game_of_stones n =
+inl game_of_stones' n =
     inl max_n = 100
     if max_n < n then failwith "The max input has been exceeded."
     inl solutions = array_init (max_n+1) (const None)
@@ -149,3 +160,57 @@ inl game_of_stones n =
             | Some: x => x
         | Second => run()
     solve First Second n
+
+inl game_of_stones () =
+    inl show = function First => "First" | Second => "Second"
+    inl p =
+        I32 >>= fun nearTo =>
+            let rec loop i =
+                if i < nearTo then I32 >>= (game_of_stones' >> show >> writeline >> on_succ)
+                else on_succ ()
+            loop 0
+    match run p Readall 0 with
+    | (Error: _), _ => failwith "parsing failed"
+    | _ => ()
+
+union cell = Mario | Princess | Empty
+
+inl save_the_princess (field : array (array cell)) mario_pos =
+    inl cells_visited = 
+        array_init (array_length field) (fun b => 
+            array_init (array_length (array_index field b)) (const false)
+            )
+    inl index ar (b,a) = array_index (array_index ar b) a
+    inl set ar (b,a) v = array_set (array_index ar b) a v
+    inl is_in_range (b,a),_ = b <= 0 && b < array_length field && (inl x = array_index field b in a <= 0 && a < array_length x)
+    inl is_princess_in_state x,_ = match index field x with Princess => true | _ => false
+
+    inl up (row,col), prev_moves = (row-1,col), (Cons: "UP", prev_moves)
+    inl down (row,col), prev_moves = (row+1,col), (Cons: "DOWN", prev_moves)
+    inl left (row,col), prev_moves = (row,col-1), (Cons: "LEFT", prev_moves)
+    inl right (row,col), prev_moves = (row,col+1), (Cons: "RIGHT", prev_moves)
+
+    inl solution = mut None
+    let rec loop queue = 
+        inl queue = 
+            array_map (fun (mario_pos, prev_moves as state) =>
+                inl f move = 
+                    inl (pos_row, pos_col),_ as new_state = move state
+                    inl is_valid =
+                        if is_in_range new_state && index cells_visited (pos_row, pos_col) = false then 
+                            if is_princess_in_state new_state then solution <- (Some: new_state)
+                            set cells_visited (pos_row, pos_col) true
+                            true
+                        else false
+                    new_state, is_valid
+                inl potential_new_states = f up, f down, f left, f right
+                failwith ""
+                ) queue
+            |> array_concat
+        match mut' solution with
+        | None => loop queue
+        | Some: (_, path) => list_foldBack (fun x _ => writeline x) path ()
+
+    loop (array_singleton (mario_pos, Nil))
+
+    ()

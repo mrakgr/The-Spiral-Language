@@ -63,7 +63,6 @@ type TypeError =
     | ForallVarScopeError of string * T * T
     | ForallVarConstraintError of string * Constraint Set * Constraint Set
     | MetavarsNotAllowedInRecordWith
-    | ExpectedLayout of T
     | ExpectedRecord of T
     | ExpectedRecordInsideALayout of T
     | ExpectedRecordAsResultOfIndex of T
@@ -442,7 +441,6 @@ let show_t (env : TopEnv) x =
 let show_type_error (env : TopEnv) x =
     let f = show_t env
     match x with
-    | ExpectedLayout a -> sprintf "Expected a layout type.\nGot: %s" (f a)
     | ExpectedSymbol' a -> sprintf "Expected a symbol.\nGot: %s" (f a)
     | KindError(a,b) -> sprintf "Kind unification failure.\nGot:      %s\nExpected: %s" (show_kind a) (show_kind b)
     | KindError'(a,b) -> sprintf "Kind unification failure.\nGot:      %s\nExpected: %s" (f a) (f b)
@@ -831,9 +829,10 @@ let infer (top_env' : TopEnv) expr =
                         | b -> raise (TypeErrorException [range_of_expr b', ExpectedSymbol' b])
                     | a -> raise (TypeErrorException [range_of_expr a', ExpectedRecord a])
                 | a' ->
-                    match f' a' with
-                    | TyLayout(a,_) -> a
-                    | a -> raise (TypeErrorException [range_of_expr a', ExpectedLayout a])
+                    let v = fresh_var()
+                    let i = errors.Count
+                    f (TyLayout(v,HeapMutable)) a'
+                    if i = errors.Count then v else raise (TypeErrorException [])
 
             unify r s TyB
             f (try loop a with :? TypeErrorException as e -> errors.AddRange e.Data0; fresh_var()) b
@@ -861,20 +860,16 @@ let infer (top_env' : TopEnv) expr =
                         let vars, env_ty = typevars env.ty vars
                         let body_var = term_annotations {env with ty = env_ty} body
                         let term env = term {env with ty = env_ty} body_var (strip_annotations body)
+                        let gen env : Env = 
+                            let t = generalize vars body_var
+                            {env with term = Map.add name t env.term}
                         let ty = List.foldBack (fun x s -> TyForall(x,s)) vars body_var
                         hover_types.Add(r,ty)
-                        term, Map.add name ty s
+                        (term, gen), Map.add name ty s
                         ) env.term l'
                 
-                if errors.Count = i then
-                    l |> List.iter ((|>) {env with term = m})
-                    {env with term = m}
-                else
-                    List.fold (fun s ((_,name),_) -> 
-                        let v = {scope= !scope; constraints=Set.empty; kind=KindType; name="x"}
-                        Map.add name (TyForall(v, TyVar v)) s
-                        ) env.term l'
-                    |> fun term -> {env with term = term}
+                if errors.Count = i then let env = {env with term = m} in l |> List.iter (fun (term,_) -> term env); env
+                else List.fold (fun env (_,gen) -> gen env) env l
             else 
                 let l, m = 
                     List.mapFold (fun s ((r,name),body) -> 

@@ -11,6 +11,11 @@ type VarString = string
 type NominalString = string
 
 type Op =
+    // Tayout
+    | LayoutHeap
+    | LayoutHeapMutable
+    | LayoutIndiv
+
     // Type
     | TypeAnnot
     | TypeToVar
@@ -554,7 +559,7 @@ let join_point = function
     | x -> RawJoinPoint(range_of_expr x, x)
 
 let rec let_join_point = function
-    | RawFun(r,l) -> RawFun(r,List.map (fun (a,b) -> a, let_join_point b) l)
+    | RawFun(r,l) -> RawFun(r,List.map (fun (a,b) -> PatDyn(range_of_pattern a, a), let_join_point b) l)
     | x -> join_point x
 
 let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
@@ -562,7 +567,6 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
         match name with
         | PatUnbox(_,PatPair(_,PatSymbol(r,name), pat)) -> PatVar(r,name), pat :: pats
         | _ -> name, pats
-    let dyn_if_let x = if is_let then x else PatDyn(range_of_pattern x, x)
     match is_rec, name, foralls, pats with
     | false, _, [], [] -> 
         match patterns_validate [name] with
@@ -572,6 +576,7 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
         match patterns_validate (if is_rec then name :: pats else pats) with
         | [] -> 
             let body = 
+                let dyn_if_let x = if is_let then x else PatDyn(range_of_pattern x, x)
                 (if is_let then let_join_point body else body)
                 |> List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[dyn_if_let pat,body])) pats
                 |> List.foldBack (fun typevar body -> RawForall(range_of_typevar typevar +. range_of_expr body,typevar,body)) foralls
