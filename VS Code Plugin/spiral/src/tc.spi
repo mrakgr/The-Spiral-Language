@@ -22,7 +22,7 @@ inl (<<) a b x = a (b x)
 inl dyn (~x) = x
 
 inl mut forall t. (x : t): mut t = !!!!LayoutHeapMutable(x)
-inl mut' forall t. (x : mut t): t = !!!!LayoutIndiv(x)
+inl (~!) forall t. (x : mut t): t = !!!!LayoutIndiv(x)
 inl heap forall t. (x : t): heap t = !!!!LayoutHeap(x)
 inl heap' forall t. (x : heap t): t = !!!!LayoutIndiv(x)
 
@@ -30,7 +30,7 @@ inl array_create forall t. (size : i32) : array t = !!!!ArrayCreate(`t,size)
 inl array_index forall t. (ar : array t) (i : i32) : t = !!!!ArrayIndex(ar,i)
 inl array_set forall t. (ar : array t) (i : i32) (v : t) : () = !!!!ArrayIndexSet(ar,i,v)
 inl array_length forall t. (ar : array t) : i32 = !!!!ArrayLength(ar)
-inl array_singleton x = inl a = array_create 1 in array_set a 0 x
+inl array_singleton x = inl a = array_create 1 in array_set a 0 x . a
 
 inl for (from: nearTo:) body state =
     let rec loop i s = if i < nearTo then loop (i+1) (body i s) else s
@@ -50,6 +50,11 @@ inl array_filter f ar =
     inl ar' = array_create nearTo
     for (from:0 nearTo:) (fun i count => if f i then array_set ar' i (array_index ar i) . count + 1 else count) 0
     |> fun nearTo => array_init nearTo (array_index ar')
+inl array_concat ar =
+    inl nearTo = array_fold (fun s x => s + array_length x) 0 ar
+    inl ar' = array_create nearTo
+    inl _ = array_fold (array_fold (fun i x => array_set ar' i x . i+1)) 0 ar
+    ar'
 
 inl writeline (x : string): () = $"System.Console.WriteLine(!x)"
 inl Readline : string = $"System.Console.ReadLine()"
@@ -59,9 +64,13 @@ inl string_length (str : string): i32 = !!!!StringLength(str)
 
 union list a = Nil | Cons: a, list a
 inl list_singleton x = Cons: x, Nil
+inl list_fold f s l =
+    let rec loop s = function Cons: x,x' => loop (f s x) x' | Nil => s
+    loop s l
 inl list_foldBack f l s =
     let rec loop s = function Cons: x,x' => f x (loop s x') | Nil => s
     loop s l
+inl list_rev l = list_fold (fun s x => Cons: x,s) Nil l
 
 union result a b = Ok: a | Error: b
 union option a = Some: a | None
@@ -175,7 +184,7 @@ inl game_of_stones () =
 
 union cell = Mario | Princess | Empty
 
-inl save_the_princess (field : array (array cell)) mario_pos =
+inl save_the_princess field mario_pos =
     inl cells_visited = 
         array_init (array_length field) (fun b => 
             array_init (array_length (array_index field b)) (const false)
@@ -203,14 +212,18 @@ inl save_the_princess (field : array (array cell)) mario_pos =
                             true
                         else false
                     new_state, is_valid
-                inl potential_new_states = f up, f down, f left, f right
-                failwith ""
+                inl (up, down, left, right as potential_new_states) = f up, f down, f left, f right
+                inl number_of_valid_states =
+                    inl f _,b : i32 = if b then 1 else 0
+                    f up + f down + f left + f right
+                inl new_states = array_create number_of_valid_states
+                inl f (state, is_valid) i = if is_valid then array_set new_states i state . i+1 else i
+                inl _ = f up 0 |> f down |> f left |> f right 
+                new_states
                 ) queue
             |> array_concat
-        match mut' solution with
+        match !solution with
         | None => loop queue
-        | Some: (_, path) => list_foldBack (fun x _ => writeline x) path ()
+        | Some: (_, path) => list_rev path
 
     loop (array_singleton (mario_pos, Nil))
-
-    ()

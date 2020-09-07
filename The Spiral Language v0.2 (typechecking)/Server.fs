@@ -23,9 +23,10 @@ type FileTokenAllRes = VSCTokenArray
 type FileTokenChangesRes = int * int * VSCTokenArray
 
 type ClientRes =
+    | ProjectErrors of {|uri : string; errors : VSCErrorOpt []|}
+    | TokenizerErrors of {|uri : string; errors : VSCError []|}
     | ParserErrors of {|uri : string; errors : VSCError []|}
     | TypeErrors of {|uri : string; errors : VSCError list|}
-    | Message of NetMQMessage // This is just for routing through the queue. It does not have the same semantics as the other ones.
 
 let port = 13805
 let uri_server = sprintf "tcp://*:%i" port
@@ -49,16 +50,20 @@ let server () =
     use queue = new NetMQQueue<ClientRes>()
     poller.Add(queue)
 
+    use queue_server = new NetMQQueue<NetMQMessage>()
+    poller.Add(queue_server)
+
     let file_message uri f =
         let tokenizer = tokenizer uri
         let parser = parser uri
         let typechecker = typechecker uri
         let hover,_ = hover uri
 
-        let res = IVar() 
-        Ch.give tokenizer (f res) 
-        >>=. IVar.read res >>- fun (blocks,tokenizer_errors) ->
         Hopac.start (
+            let res = IVar() 
+            Ch.give tokenizer (f res) >>=. 
+            IVar.read res >>= fun (blocks,tokenizer_errors) ->
+            queue.Enqueue(TokenizerErrors {|uri=uri; errors=tokenizer_errors|})
             let req_tc = IVar()
             Ch.give typechecker req_tc >>=.
             Ch.give hover req_tc >>=.
@@ -76,10 +81,8 @@ let server () =
                 let s = List.append typechecking_errors s
                 queue.Enqueue(TypeErrors {|errors=s; uri=uri|})
                 s
-                ) []
-            >>-. ()
+                ) [] >>- ignore
             )
-        tokenizer_errors
 
     let buffer = Dictionary()
     let last_id = ref 0
@@ -91,16 +94,25 @@ let server () =
                 body address (NetMQMessage(3)) x
         and body (address : NetMQFrame) (msg : NetMQMessage) x =
             incr last_id
-            let push_back x = msg.Push(Json.serialize x); msg.PushEmptyFrame(); msg.Push(address)
-            let send_back' x = push_back x; server.SendMultipartMessage(msg)
-            let send_back_via_queue x = push_back x; queue.Enqueue(Message msg)
-            let send_back x = run x |> send_back'
+            let push_back (x : obj) = 
+                match x with
+                | :? Option<string> as x -> 
+                    match x with 
+                    | None -> msg.Push("null") 
+                    | Some x -> msg.Push(sprintf "\"%s\"" x)
+                | _ -> msg.Push(Json.serialize x)
+                msg.PushEmptyFrame(); msg.Push(address)
+            let send_back x = push_back x; server.SendMultipartMessage(msg)
+            let send_back_via_queue x = push_back x; queue_server.Enqueue(msg)
             match x with
             | ProjectFileOpen x ->
-                match config x.uri x.spiprojText with Ok x -> [||] | Error x -> x
-                |> send_back'
-            | FileOpen x -> file_message x.uri (fun res -> Req.Put(x.spiText,res)) |> send_back
-            | FileChanged x -> file_message x.uri (fun res -> Req.Modify(x.spiEdit,res)) |> send_back
+                Job.thunk (fun () ->
+                    match config x.uri x.spiprojText with Ok x -> [||] | Error x -> x
+                    |> fun errors -> queue.Enqueue(ProjectErrors {|uri=x.uri; errors=errors|})
+                    ) |> Hopac.start
+                send_back None
+            | FileOpen x -> file_message x.uri (fun res -> Req.Put(x.spiText,res)); send_back None
+            | FileChanged x -> file_message x.uri (fun res -> Req.Modify(x.spiEdit,res)); send_back None
             | FileTokenRange x ->
                 Hopac.start (
                     let res = IVar()
@@ -110,7 +122,7 @@ let server () =
                     )
             | HoverAt x ->
                 let _,hover = hover x.uri
-                Hopac.start (Ch.give hover (x.pos, fun x -> send_back' {|HoverReply=x|}))
+                Hopac.start (Ch.give hover (x.pos, send_back_via_queue))
             loop ()
         let msg = server.ReceiveMultipartMessage(3)
         let address = msg.Pop()
@@ -124,12 +136,11 @@ let server () =
     client.Connect(uri_client)
 
     use __ = queue.ReceiveReady.Subscribe(fun x -> 
-        match x.Queue.Dequeue() with
-        | Message msg -> server.SendMultipartMessage(msg)
-        | x -> 
-            x |> Json.serialize |> client.SendFrame
-            client.ReceiveMultipartMessage() |> ignore
+        x.Queue.Dequeue() |> Json.serialize |> client.SendFrame
+        client.ReceiveMultipartMessage() |> ignore
         )
+
+    use __ = queue_server.ReceiveReady.Subscribe(fun x -> x.Queue.Dequeue() |> server.SendMultipartMessage)
 
     poller.Run()
 

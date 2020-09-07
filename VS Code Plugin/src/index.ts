@@ -8,12 +8,22 @@ const uriServer = `tcp://localhost:${port}`
 const uriClient = `tcp://*:${port+1}`
 
 let msgId = 0
-const request = async (file: object) => {
-    const sock = new zmq.Request()
-    sock.connect(uriServer)
-    await sock.send(JSON.stringify([msgId++, file]))
-    const [x] = await sock.receive()
-    return JSON.parse(x.toString())
+const request = (file: object): Promise<any> => {
+    const id = msgId++
+    const loop = async (): Promise<any> => {
+        const sock = new zmq.Request()
+        // sock.sendTimeout = 500
+        // sock.receiveTimeout = 500
+        sock.connect(uriServer)
+        // try {
+        await sock.send(JSON.stringify([id, file]))
+        const [x] = await sock.receive()
+        return JSON.parse(x.toString())
+        // } catch (e) {
+            // return loop()
+        // }
+    }
+    return loop()
 }
 
 const spiprojOpenReq = async (uri: string, spiprojText: string) => request({ ProjectFileOpen: { uri, spiprojText } })
@@ -39,12 +49,17 @@ const errorsSet = (errors : DiagnosticCollection, uri: Uri, x: [string, RangeRec
 type PositionRec = { line: number, character: number }
 type RangeRec = [PositionRec, PositionRec]
 type ClientRes = 
-    { ParserErrors: {uri : string, errors : [string, RangeRec][]}}
+    { ProjectErrors: {uri : string, errors : [string, RangeRec | null][]} }
+    | { TokenizerErrors: {uri : string, errors : [string, RangeRec][]}}
+    | { ParserErrors: {uri : string, errors : [string, RangeRec][]}}
     | { TypeErrors: {uri : string, errors : [string, RangeRec][]}}
+
 
 export const activate = async (ctx: ExtensionContext) => {
     console.log("Spiral plugin is active.")
 
+    const errorsProject = languages.createDiagnosticCollection()
+    const errorsTokenization = languages.createDiagnosticCollection()
     const errorsParse = languages.createDiagnosticCollection()
     const errorsType = languages.createDiagnosticCollection()
     let isProcessing = true;
@@ -57,6 +72,12 @@ export const activate = async (ctx: ExtensionContext) => {
             try {
                 const [x] = await sock.receive()
                 const msg: ClientRes = JSON.parse(x.toString())
+                if ("ProjectErrors" in msg) {
+                    errorsSet(errorsProject, Uri.parse(msg.ProjectErrors.uri), msg.ProjectErrors.errors)
+                }
+                if ("TokenizerErrors" in msg) {
+                    errorsSet(errorsTokenization, Uri.parse(msg.TokenizerErrors.uri), msg.TokenizerErrors.errors)
+                }
                 if ("ParserErrors" in msg) {
                     errorsSet(errorsParse, Uri.parse(msg.ParserErrors.uri), msg.ParserErrors.errors)
                 }
@@ -72,14 +93,8 @@ export const activate = async (ctx: ExtensionContext) => {
         await sock.unbind(uriServer)
     })();
 
-    const errorsTokenization = languages.createDiagnosticCollection()
-    const spiprojOpen = async (doc: TextDocument) => {
-        errorsSet(errorsTokenization, doc.uri, await spiprojOpenReq(doc.uri.toString(), doc.getText()))
-    }
-
-    const spiOpen = async (doc: TextDocument) => {
-        errorsSet(errorsTokenization, doc.uri, await spiOpenReq(doc.uri.toString(), doc.getText()))
-    }
+    const spiprojOpen = (doc: TextDocument) => { spiprojOpenReq(doc.uri.toString(), doc.getText()) }
+    const spiOpen = (doc: TextDocument) => { spiOpenReq(doc.uri.toString(), doc.getText()) }
 
     const numberOfLinesAdded = (str: string) => {
         var length = 0;
@@ -103,7 +118,7 @@ export const activate = async (ctx: ExtensionContext) => {
             const lines : string [] = []
             for (let i = from; i < nearTo; i++) { lines.push(doc.lineAt(i).text) }
             const edit = {lines, from, nearTo: sortedChanges[sortedChanges.length-1].range.end.line+1}
-            errorsSet(errorsTokenization, doc.uri, await spiChangeReq(doc.uri.toString(), edit))
+            spiChangeReq(doc.uri.toString(), edit)
         }
     }
 
@@ -116,7 +131,7 @@ export const activate = async (ctx: ExtensionContext) => {
 
     class SpiralHover implements HoverProvider {
         async provideHover(document: TextDocument, position: Position) {
-            const x : string | null = (await spiHoverAtReq(document.uri.toString(),position)).HoverReply
+            const x : string | null = await spiHoverAtReq(document.uri.toString(),position)
             if (x) return new Hover(new MarkdownString().appendCodeblock(x,'plaintext'))
         }
     }
@@ -143,7 +158,7 @@ export const activate = async (ctx: ExtensionContext) => {
     workspace.textDocuments.forEach(onDocOpen)
     ctx.subscriptions.push(
         new Disposable(() => {isProcessing = false}),
-        errorsTokenization, errorsParse, errorsType,
+        errorsProject, errorsTokenization, errorsParse, errorsType,
         workspace.onDidOpenTextDocument(onDocOpen),
         workspace.onDidChangeTextDocument(onDocChange),
         languages.registerDocumentRangeSemanticTokensProvider(spiralFilePattern,new SpiralTokens(),new SemanticTokensLegend(spiralTokenLegend)),
