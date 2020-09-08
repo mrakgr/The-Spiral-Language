@@ -54,8 +54,9 @@ inl array_concat ar =
     inl _ = array_fold (array_fold (fun i x => array_set ar' i x . i+1)) 0 ar
     ar'
 
-inl writeline (x : string): () = $"System.Console.WriteLine(!x)"
-inl Readline : string = $"System.Console.ReadLine()"
+inl writeLine (x : string): () = $"System.Console.WriteLine(!x)"
+inl ReadLine : string = $"System.Console.ReadLine()"
+inl ReadAll : string = $"System.Console.OpenStandardInput() |> fun x -> new System.IO.StreamReader(x) |> fun x -> let v = x.ReadToEnd() in x.Dispose(); v"
 
 inl string_index (str : string) (i : i32): char = !!!!StringIndex(str,i)
 inl string_length (str : string): i32 = !!!!StringLength(str)
@@ -76,27 +77,96 @@ inl const x _ = x
 union result a b = Ok: a | Error: b
 union option a = Some: a | None
 
-type env = i32
-type cont a b r = {on_succ : a -> r; on_fail : b -> r} -> r
-nominal parser a = string -> env -> result a (list string), env
-nominal cps_parser r a = string -> env -> cont (a, env) (list string, env) (r, env)
-inl run_cps (cps_parser a) str i on = a str i on
-inl run (parser x) str i = x str i
-inl conv (cps_parser a) = parser fun str i => a str i { on_succ=fun ok,i => (Ok:),i; on_fail=fun error,i => (Error:),i}
+nominal range = {from : i32; nearTo : i32}
+type env a = mut { text : string; i : i32; state : a }
+type parser_result a = result a (list (range, string))
+type parser state a = env state -> parser_result a 
 
-prototype (>>=) m a : forall b. m a -> (a -> m b) -> m b
-prototype on_succ m a : a -> m a
+inl range_char i = range {from=i; nearTo=i+1}
+inl error_char i er = Error: list_singleton (range_char i, er)
 
-instance (>>=) cps_parser r = fun (cps_parser a) f => cps_parser fun str i ({on_succ on_fail} & on) =>
-    a str i { on_fail on_succ = fun a,i => run_cps (f a) str i on }
+inl char_to_string (x : char): string = $"string !x"
+inl char_to_i32 (x : char): i32 = !!!!UnsafeConvert(`i32,x)
 
-instance (>>=) parser = fun (parser a) f => parser fun str i =>
-    match a str i with
-    | (Ok: a), i => run (f a) str i
-    | (Error: l), i => (Error: l), i
+inl inc' i (x : env _) = x.i <- x.i+i
+inl inc x = inc' 1 x
 
-instance on_succ cps_parser r = fun ok => cps_parser fun _ i {on_succ} => on_succ (ok,i)
-instance on_succ parser = fun ok => parser fun _ i => (Ok:), i
+inl Oob : char = $"Char.MaxValue"
+inl peek' i (x : env _) = inl i = x.i + i in if 0 <= i && i <= string_length x.text then string_index x.text i else Oob
+inl peek x = peek' 0 x
+
+nominal string_builder = $"System.Text.StringBuilder"
+inl string_builder_create () : string_builder = $"System.Text.StringBuilder()"
+inl string_builder_append x (b : string_builder) : string_builder = $"!b.Append(!x)"
+inl string_builder_to_string (b : string_builder) : string = $"!b.ToString()"
+
+inl many1Satisfy2L init body label s = 
+    let x = peek s
+    if init x then
+        inc s
+        let rec loop b = 
+            let x = peek s
+            if body x then inc s . string_builder_append x b |> loop
+            else string_builder_to_string b
+        Ok: loop (string_builder_append x (string_builder_create()))
+    else
+        error_char s.i label
+
+inl many1SatisfyL body label s = many1Satisfy2L body body label s
+
+inl skip c s = inl b = peek s = c in (if b then inc s) . b
+inl skip_space s = skip ' ' s
+let skip_newline s =
+    match peek s, peek' 1 s with
+    | '\n', '\r' => inc' 2 s . true
+    | ('\r' | '\n'), _ => inc s . true
+    | _ => false
+let skip_space_or_newline s =
+    match peek s, peek' 1 s with
+    | ' ', ' ' | '\n', '\r' => inc' 2 s . true
+    | (' ' | '\r' | '\n'), _ => inc s . true
+    | _ => false
+
+let rec spaces' s = if skip_space_or_newline s then spaces' s
+let rec spaces s = Ok: spaces' s
+let rec spaces1 s = if skip_space_or_newline s then Ok: spaces' s else error_char s.i "space"
+
+let skip_char c s = if skip c s then Ok:() else error_char s.i ($"sprintf \"'%c'\" !c")
+let skip_string x (s : env _) = 
+    inl text,i,len = s.text,s.i,string_length x
+    if $"String.Compare(!text,!i,!x,0,!len) = 0" then Ok: inc' len s else error_char i x
+
+inl parray n p s =
+    inl ar = array_create n
+    let rec loop i =
+        if i < n then
+            match p s with
+            | Ok: => array_set ar i ok . loop (i+1)
+            | Error: => Error:
+        else
+            Ok: ar
+    loop 0
+
+inl is_digit x = char_to_i32 '0' <= char_to_i32 x && char_to_i32 x <= char_to_i32 '9'
+let digit s =
+    inl x = peek s
+    if is_digit x then inc s . (Ok: x) else error_char s.i "digit"
+
+inl i32 env =
+    let rec loop was_parsed s =
+        inl x = peek env
+        if is_digit x then
+            inc env
+            inl s' = s * 10 + char_to_i32 x
+            if s <= 214_748_364 && 0 <= s' then loop true s'
+            else error_char env.i "The number is too large to be parsed as 32 bit int."
+        elif was_parsed then Ok: s 
+        else error_char env.i "i32"
+    loop false 0
+
+inl (>>=) a f s = match a s with Ok: => f ok s | Error: => Error:
+inl (|>>) a f = a >>= fun x s => Ok: f x
+inl on_succ ok _ = Ok:
 
 inl (.<<.) a b =
     a >>= fun a =>
@@ -107,116 +177,11 @@ inl (<<.) a b =
     a >>= fun a =>
     b >>= fun b =>
     on_succ b
-inl (>>.) a b = a <<. b
 
 inl (.<<) a b =
     a >>= fun a =>
     b >>= fun b =>
     on_succ a
-
-inl EOL : char = $"Char.MaxValue"
-inl peek' index = cps_parser fun str i {on_succ} =>
-    if i + index <= 0 && i + index < string_length str then on_succ (string_index str i, i)
-    else on_succ (EOL, i)
-inl Peek = peek' 0
-
-inl skip' index = cps_parser fun str i {on_succ} => on_succ ((),i+index)
-inl Skip = skip' 1
-
-// inl Newline =
-//     Peek >>= fun c 
-
-inl on_fail er = cps_parser fun str i {on_fail} => on_fail (list_singleton er, i)
-inl AnyChar' = 
-    Peek >>= fun c =>
-    if c <> EOL then Skip >>. on_succ c
-    else on_fail "Out of bounds."
-
-inl AnyChar' = cps_parser fun str i {on_succ on_fail} =>
-    run_cps Peek str i { on_fail
-        on_succ=fun c,i => if c <> EOL then on_succ (string_index str i, i+1) else on_fail (list_singleton "Out of bounds.", i)
-    }
-
-inl AnyChar = conv AnyChar'
-
-inl char_to_string (x : char): string = $"string !x"
-inl char_to_i32 (x : char): i32 = !!!!UnsafeConvert(`i32,x)
-
-inl char' x = cps_parser fun str i {on_succ on_fail} =>
-    run_cps AnyChar' str i {
-        on_succ = fun ok, i => if x = ok then (Ok:), i else (Error: list_singleton (char_to_string ok)), i
-        on_fail = fun error, i => (Error:), i
-    }
-inl char x = conv (char' x)
-
-inl is_digit x = char_to_i32 '0' <= char_to_i32 x && char_to_i32 x <= char_to_i32 '9'
-inl Digit = parser fun str i =>
-    run_cps AnyChar' str i {
-        on_succ = fun ok, i => if is_digit ok then (Ok:), i else (Error: list_singleton "digit"), i
-        on_fail = fun error, i => (Error:), i
-    }
-
-inl I32 = parser fun str i =>
-    let rec loop i was_parsed s =
-        match run Digit str i with
-        | (Ok: c), i => 
-            inl s' = s * 10 + char_to_i32 c
-            if s <= 214_748_364 && 0 <= s' then loop i true s'
-            else (Error: list_singleton "The number is too large to be parsed as 32 bit int."), i
-        | (Error: _), i => if was_parsed then (Ok: s), i else (Error: list_singleton "i32"), i
-    loop i false 0
-
-inl Parse3Ints = I32 .<<. I32 .<<. I32
-
-prototype eq x : x -> x -> bool
-instance eq list el {eq} = fun a b =>
-    let rec loop = function
-        | Nil, Nil => true
-        | (Cons: a,a'), (Cons: b,b') when eq a b => loop (a',b')
-        | _ => false
-    loop (a,b)
-
-let rec poly forall t. (x : t): t =
-    inl q = poly true
-    inl w = poly "qwe"
-    inl e = poly' 1i32
-    x
-and let poly' forall t {number}. (x : t): t = poly x
-
-inl Readall : string = $"System.Console.OpenStandardInput() |> fun x -> new System.IO.StreamReader(x) |> fun x -> let v = x.ReadToEnd() in x.Dispose(); v"
-
-union player = First | Second
-
-inl game_of_stones' n =
-    inl max_n = 100
-    if max_n < n then failwith "The max input has been exceeded."
-    inl solutions = array_init (max_n+1) (const None)
-    let rec solve player opposing_player n =
-        inl take amount on_fail () = 
-            if n >= amount && solve opposing_player player (n-amount) = player then player
-            else on_fail ()
-
-        let run = take 2 <| take 3 <| take 5 <| const opposing_player
-
-        match player with
-        | First => 
-            match array_index solutions n with
-            | None => inl x = run() in array_set solutions n (Some: x) . x
-            | Some: x => x
-        | Second => run()
-    solve First Second n
-
-inl game_of_stones () =
-    inl show = function First => "First" | Second => "Second"
-    inl p =
-        I32 >>= fun nearTo =>
-            let rec loop i =
-                if i < nearTo then I32 >>= (game_of_stones' >> show >> writeline >> on_succ)
-                else on_succ ()
-            loop 0
-    match run p Readall 0 with
-    | (Error: _), _ => failwith "parsing failed"
-    | _ => ()
 
 union cell = Mario | Princess | Empty
 
@@ -263,3 +228,36 @@ inl save_the_princess field mario_pos =
         | Some: _, path => list_rev path
 
     loop (array_singleton (mario_pos, Nil))
+
+inl find_mario x =
+    let rec loop b =
+        if b < array_length x then 
+            inl x = array_index x b
+            let rec loop' a =
+                if a < array_length x then 
+                    match array_index x a with
+                    | Mario => Some: b,a
+                    | _ => loop' (a+1)
+                else loop (b+1)
+            loop' 0
+        else None
+    loop 0
+
+inl cell s = 
+    inl x = peek s
+    let f ok = inc s . (Ok:)
+    match x with
+    | '.' => f Empty | 'm' => f Mario | 'p' => f Princess
+    | _ => error_char s.i "cell"
+
+inl Save_the_princess_parse =
+    i32 >>= fun n =>
+    inl field = array_create n
+    let rec loop i s =
+        if i < n then ((parray n cell .<< spaces) >>= fun ok => array_set field i ok . loop (i+1)) s
+        else 
+            match find_mario field with
+            | Some: => Ok: save_the_princess field some
+            | None => error_char s.i "Mario not found."
+    loop 0
+    

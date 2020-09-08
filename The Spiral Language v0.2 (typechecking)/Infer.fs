@@ -474,7 +474,7 @@ let show_type_error (env : TopEnv) x =
     | ValueRestriction a -> sprintf "Metavars that are not part of the enclosing function's signature are not allowed. They need to be values.\nGot: %s" (f a)
     | DuplicateRecInlName -> "Shadowing of functions by the members of the same mutually recursive block is not allowed."
     | ExpectedConstraint a -> sprintf "Expected a constraint.\nGot: %s" (f a)
-    | InstanceNotFound(prot,ins) -> sprintf "The higher order type %s does not have the prototype instance for %s." (show_hoc env prot) env.prototypes.[ins].name
+    | InstanceNotFound(prot,ins) -> sprintf "The higher order type instance %s does not have the prototype %s." (show_hoc env ins) env.prototypes.[prot].name
     | ExpectedPrototype a -> sprintf "Expected a prototype.\nGot: %s" (f a)
     | ExpectedHigherOrder a -> sprintf "Expected a higher order type.\nGot: %s" (f a)
     | InstanceArityError(prot,ins) -> sprintf "The arity of the instance must be greater or equal to that of the prototype.\nInstance arity:  %i\nPrototype arity: %i" ins prot

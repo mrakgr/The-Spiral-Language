@@ -32,27 +32,19 @@ let inline many1Satisfy2L init body label (s : Tokenizer) =
     let x = peek s
     if init x then
         inc s
-        let b = StringBuilder()
-        b.Append(x) |> ignore
-        let rec loop () = 
+        let rec loop (b : StringBuilder) = 
             let x = peek s
-            if body x then inc s; b.Append(x) |> ignore; loop ()
-            else Ok(b.ToString())
-        loop ()
+            if body x then inc s; b.Append(x) |> loop
+            else b.ToString()
+        Ok(loop (StringBuilder().Append(x)))
     else
         let i = s.from
         error_char i label
 
 let inline many1SatisfyL body label (s : Tokenizer) = many1Satisfy2L body body label s
 
-let inline skip c (s : Tokenizer) on_succ on_fail =
-    let x = peek s 
-    if x = c then inc s; on_succ() else on_fail()
-
-let spaces' (s : Tokenizer) =
-    let rec loop () = if peek s = ' ' then inc s; loop() else ()
-    loop ()
-
+let inline skip c (s : Tokenizer) = let b = peek s = c in (if b then inc s); b
+let rec spaces' (s : Tokenizer) = if peek s = ' ' then inc s; spaces' s
 let spaces s = spaces' s |> Ok
 
 let spaces1 (s : Tokenizer) =
@@ -60,7 +52,7 @@ let spaces1 (s : Tokenizer) =
 
 let skip_char c (s : Tokenizer) =
     let from = s.from
-    skip c s Ok (fun () -> error_char from (sprintf "'%c'" c))
+    if skip c s then Ok() else error_char from (sprintf "'%c'" c)
 
 let skip_string x (s : Tokenizer) =
     if String.Compare(s.text,s.from,x,0,x.Length) = 0 then inc' x.Length s; Ok()
@@ -68,28 +60,25 @@ let skip_string x (s : Tokenizer) =
 
 let chars_till_string close (s : Tokenizer) =
     assert (close <> "")
-    let b = StringBuilder()
-    let rec loop () =
+    let rec loop (b : StringBuilder) =
         let x = peek s
         if x = close.[0] && String.Compare(s.text,s.from,close,1,close.Length-1) = 0 then inc' close.Length s; Ok(b.ToString())
         else 
-            if x <> eol then inc s; b.Append(x) |> ignore; loop()
+            if x <> eol then inc s; b.Append(x) |> loop
             else error_char s.from close
-    loop()
+    loop(StringBuilder())
 
 /// Parses a number as a sequence of digits and optionally underscores. Filters out the underscores from the result.
 let number (s : Tokenizer) = 
     let x = peek s
     if Char.IsDigit x then
         inc s
-        let b = StringBuilder()
-        b.Append(x) |> ignore
-        let rec loop () = 
+        let rec loop (b : StringBuilder) = 
             let x = peek s
-            if x = '_' then inc s; loop ()
-            elif Char.IsDigit x then inc s; b.Append(x) |> ignore; loop ()
+            if x = '_' then inc s; loop b
+            elif Char.IsDigit x then inc s; loop(b.Append(x))
             else Ok(b.ToString())
-        loop ()
+        loop (StringBuilder().Append(x))
     else
         let i = s.from
         error_char i "number"

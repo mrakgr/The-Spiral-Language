@@ -386,37 +386,42 @@ let skip_keyword' t d =
 
 let read_unary_op d =
     try_current d <| function
-        | p, TokUnaryOperator t' -> skip d; Ok t'
+        | p, TokUnaryOperator(t',_) -> skip d; Ok t'
         | p, _ -> Error [p, ExpectedUnaryOperator']
 
 let read_unary_op' d =
     try_current d <| function
-        | p, TokUnaryOperator t' -> skip d; Ok(p,t')
+        | p, TokUnaryOperator(t',_) -> skip d; Ok(p,t')
         | p, _ -> Error [p, ExpectedUnaryOperator']
 
 let read_op d =
     try_current d <| function
-        | p, TokOperator t' -> skip d; Ok t'
+        | p, TokOperator(t',_) -> skip d; Ok t'
         | p, _ -> Error [p, ExpectedOperator']
 
 let read_op' d =
     try_current d <| function
-        | p, TokOperator t' -> skip d; Ok(p,t')
+        | p, TokOperator(t',_) -> skip d; Ok(p,t')
+        | p, _ -> Error [p, ExpectedOperator']
+
+let read_op_type d =
+    try_current d <| function
+        | p, TokOperator(t',r) -> skip d; r := SemanticTokenLegend.type_variable; Ok(p,t')
         | p, _ -> Error [p, ExpectedOperator']
 
 let skip_op t d =
     try_current d <| function
-        | p, TokOperator t' when t' = t -> skip d; Ok p
+        | p, TokOperator(t',_) when t' = t -> skip d; Ok p
         | p, _ -> Error [p, ExpectedOperator t]
 
 let skip_unary_op t d =
     try_current d <| function
-        | p, TokUnaryOperator t' when t' = t -> skip d; Ok t'
+        | p, TokUnaryOperator(t',_) when t' = t -> skip d; Ok t'
         | p, _ -> Error [p, ExpectedUnaryOperator t]
 
 let read_var d =
     try_current d <| function
-        | p, TokVar(t',r) -> skip d; Ok t'
+        | p, TokVar(t',_) -> skip d; Ok t'
         | p, _ -> Error [p, ExpectedVar]
 
 let read_var' d =
@@ -588,7 +593,7 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
     | false, _, _, _ -> Error [range_of_pattern name, ExpectedSinglePatternWhenStatementNameIsNorVarOrOp]
 
 let ho_var d : Result<HoVar,_> = range ((read_type_var |>> fun x -> x, RawKindWildcard) <|> rounds ((read_type_var .>> skip_op ":") .>>. kind)) d
-let forall_var d : Result<TypeVar,_> = (ho_var .>>. (curlies (sepBy1 read_type_var' (skip_op ";")) <|>% [])) d
+let forall_var d : Result<TypeVar,_> = (ho_var .>>. (curlies (sepBy1 (read_type_var' <|> rounds read_op_type) (skip_op ";")) <|>% [])) d
 let forall d = 
     (skip_keyword SpecForall >>. many1 forall_var .>> skip_op "." 
     >>= fun x _ -> duplicates DuplicateForallVar (List.map (fun ((r,(a,_)),_) -> r,a) x) |> function [] -> Ok x | er -> Error er) d
@@ -655,13 +660,14 @@ let inbuilt_operators x =
     | "**" -> ValueSome(80, Associativity.Right)
     | _ -> ValueNone
 
-// Since `.` is an operator in Spiral, unlike in F# it does not filter out `.`s. Instead it just trims the right side until 
-// it finds (or fails to find) a match.
+// The `.` operator has special behavior similar to F#.
 let rec precedence_associativity name = 
     if 0 < String.length name then
-        match inbuilt_operators name with
-        | ValueNone -> precedence_associativity (name.[0..name.Length-2])
-        | v -> v
+        if 1 < String.length name && name.[0] = '.' then precedence_associativity name.[1..]
+        else
+            match inbuilt_operators name with
+            | ValueNone -> precedence_associativity (name.[0..name.Length-2])
+            | v -> v
     else ValueNone
 
 let op (d : Env) =
@@ -803,12 +809,13 @@ and root_pattern s =
     let pat_symbol_paired = 
         let next = pat_pair
         (many1 (read_symbol_paired' .>>. opt next) |>> fun l ->
+            let l,is_upper = match l with ((r,a,re),b) :: l' -> ((r,to_lower a,re),b) :: l', Char.IsUpper(a,0) | _ -> [], true
             let f ((r,a,re),b) = (r, a), Option.defaultWith (fun () -> re := SemanticTokenLegend.variable; PatVar(r,a)) b
             match l |> List.map f |> List.unzip with
-            | (r,x) :: k', v ->
-                List.reduceBack (fun a b -> PatPair(range_of_pattern a +. range_of_pattern b,a,b))
-                    (PatSymbol(r,symbol_paired_concat ((r,to_lower x) :: k')) :: v)
-                |> fun l -> if Char.IsUpper(x,0) then PatUnbox(range_of_pattern l,l) else l
+            | ((r,_) :: _ as k), v ->
+                (PatSymbol(r,symbol_paired_concat k) :: v)
+                |> List.reduceBack (fun a b -> PatPair(range_of_pattern a +. range_of_pattern b,a,b))
+                |> fun l -> if is_upper then PatUnbox(range_of_pattern l,l) else l
             | _ -> failwith "Compiler error: Should be at least one key in symbol_paired_process_pattern"
             )
         <|> next
@@ -1121,16 +1128,16 @@ let inline type_forall next d = (pipe2 (forall <|>% []) next (List.foldBack (fun
 let top_prototype d = 
     (range 
         (tuple4
-            (skip_keyword SpecPrototype >>. read_small_var') read_type_var' (many forall_var) 
+            (skip_keyword SpecPrototype >>. (read_small_var' <|> rounds read_op')) read_type_var' (many forall_var) 
             (skip_op ":" >>. type_forall (root_type root_type_defaults)))
     |>> fun (r,(a,b,c,d)) -> TopPrototype(r,a,b,c,d)) d
-let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_type_var') (many ho_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)) d
 let top_instance d =
     (range
-        (tuple4 (skip_keyword SpecInstance >>. read_small_var') read_type_var' (many forall_var) (skip_op "=" >>. root_term))
+        (tuple4 (skip_keyword SpecInstance >>. (read_small_var' <|> rounds read_op')) read_type_var' (many forall_var) (skip_op "=" >>. root_term))
     >>= fun (r,(prototype_name, nominal_name, nominal_foralls, body)) _ ->
             Ok(TopInstance(r,prototype_name,nominal_name,nominal_foralls,body))
             ) d
+let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_type_var') (many ho_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)) d
 
 let top_and_inl_or_let d = 
     (restore 1 (range (and_inl_or_let root_term root_pattern_pair root_type_annot)) 

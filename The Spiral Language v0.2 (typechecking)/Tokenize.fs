@@ -71,10 +71,10 @@ type SpiralToken =
     | TokVar of string * SemanticTokenLegend ref
     | TokSymbol of string * SemanticTokenLegend ref
     | TokSymbolPaired of string * SemanticTokenLegend ref
+    | TokOperator of string * SemanticTokenLegend ref
+    | TokUnaryOperator of string * SemanticTokenLegend ref
     | TokValue of Literal
     | TokDefaultValue of string
-    | TokOperator of string
-    | TokUnaryOperator of string
     | TokComment of string
     | TokKeyword of TokenKeyword
     | TokParenthesis of Parenthesis * ParenthesisState
@@ -87,10 +87,8 @@ type SpiralToken =
     | TokMacroTypeVar of string
 
 let token_groups = function
-    | TokVar (_,r) | TokSymbol (_,r) | TokSymbolPaired (_,r) -> !r
+    | TokUnaryOperator(_,r) | TokOperator(_,r) | TokVar(_,r) | TokSymbol(_,r) | TokSymbolPaired(_,r) -> !r
     | TokValue (LitChar _) | TokStringOpen | TokStringClose | TokText | TokMacroOpen | TokMacroClose | TokValue(LitString _) -> SemanticTokenLegend.string
-    | TokOperator _ -> SemanticTokenLegend.operator
-    | TokUnaryOperator _ -> SemanticTokenLegend.unary_operator
     | TokComment _ -> SemanticTokenLegend.comment
     | TokKeyword _ -> SemanticTokenLegend.keyword
     | TokParenthesis _ -> SemanticTokenLegend.parenthesis
@@ -127,30 +125,29 @@ let var (s: Tokenizer) =
     let from = s.from
     let ok x = ({from=from; nearTo=s.from}, x)
     let body x = 
-        skip ':' s (fun () -> TokSymbolPaired(x,ref SemanticTokenLegend.symbol) |> ok)
-            (fun () ->
-                let f x = TokKeyword(x)
-                match x with
-                | "in" -> f SpecIn
-                | "and" -> f SpecAnd | "fun" -> f SpecFun
-                | "match" -> f SpecMatch | "typecase" -> f SpecTypecase
-                | "function" -> f SpecFunction
-                | "with" -> f SpecWith | "without" -> f SpecWithout
-                | "as" -> f SpecAs | "when" -> f SpecWhen
-                | "inl" -> f SpecInl | "forall" -> f SpecForall
-                | "let" -> f SpecLet | "inm" -> f SpecInm
-                | "inb" -> f SpecInb | "rec" -> f SpecRec
-                | "if" -> f SpecIf | "then" -> f SpecThen
-                | "elif" -> f SpecElif | "else" -> f SpecElse
-                | "join" -> f SpecJoin | "type" -> f SpecType 
-                | "nominal" -> f SpecNominal | "real" -> f SpecReal
-                | "union" -> f SpecUnion
-                | "open" -> f SpecOpen | "_" -> f SpecWildcard
-                | "prototype" -> f SpecPrototype | "instance" -> f SpecInstance
-                | "true" -> TokValue(LitBool true) | "false" -> TokValue(LitBool false)
-                | x -> TokVar(x,ref SemanticTokenLegend.variable)
-                |> ok
-                )
+        if skip ':' s then TokSymbolPaired(x,ref SemanticTokenLegend.symbol) |> ok
+        else
+            let f x = TokKeyword(x)
+            match x with
+            | "in" -> f SpecIn
+            | "and" -> f SpecAnd | "fun" -> f SpecFun
+            | "match" -> f SpecMatch | "typecase" -> f SpecTypecase
+            | "function" -> f SpecFunction
+            | "with" -> f SpecWith | "without" -> f SpecWithout
+            | "as" -> f SpecAs | "when" -> f SpecWhen
+            | "inl" -> f SpecInl | "forall" -> f SpecForall
+            | "let" -> f SpecLet | "inm" -> f SpecInm
+            | "inb" -> f SpecInb | "rec" -> f SpecRec
+            | "if" -> f SpecIf | "then" -> f SpecThen
+            | "elif" -> f SpecElif | "else" -> f SpecElse
+            | "join" -> f SpecJoin | "type" -> f SpecType 
+            | "nominal" -> f SpecNominal | "real" -> f SpecReal
+            | "union" -> f SpecUnion
+            | "open" -> f SpecOpen | "_" -> f SpecWildcard
+            | "prototype" -> f SpecPrototype | "instance" -> f SpecInstance
+            | "true" -> TokValue(LitBool true) | "false" -> TokValue(LitBool false)
+            | x -> TokVar(x,ref SemanticTokenLegend.variable)
+            |> ok
 
     (many1Satisfy2L is_var_char_starting is_var_char "variable" |>> body .>> spaces) s
 
@@ -175,7 +172,7 @@ let number (s: Tokenizer) =
                 | true, x -> val_to_lit x |> TokValue |> ok
                 | false, _ -> Error [{from=from; nearTo=s.from}, (sprintf "The string %s cannot be safely parsed as %s." x val_dsc)]
             else error_char s.from "separator"
-        let skip c = skip c s (fun () -> true) (fun () -> false)
+        let skip c = skip c s
         if skip 'i' then
             if skip '8' then safe_parse SByte.TryParse LitInt8 "int8"
             elif skip '1' && skip '6' then safe_parse Int16.TryParse LitInt16 "int16"
@@ -211,11 +208,11 @@ let comment (s : Tokenizer) =
     if peek s = '/' && peek' s 1 = '/' then 
         let from = s.from
         inc' 2 s
-        skip ' ' s (fun () ->
+        if skip ' ' s then
             let com = s.text.[s.from..]
             s.from <- s.text.Length
             Ok ({from=from; nearTo=s.from}, TokComment com)
-            ) (fun () -> error_char s.from "whitespace")
+        else error_char s.from "whitespace"
     else
         error_char s.from "comment"
 
@@ -224,8 +221,8 @@ let operator (s : Tokenizer) =
     let ok x = ({from=from; nearTo=s.from}, x) |> Ok
     let is_separator_prev = is_prefix_separator_char (peek' s -1)
     let f name (s: Tokenizer) = 
-        if is_separator_prev && (is_postfix_separator_char (peek s) = false) then TokUnaryOperator(name) |> ok
-        else TokOperator(name) |> ok
+        if is_separator_prev && (is_postfix_separator_char (peek s) = false) then TokUnaryOperator(name, ref SemanticTokenLegend.unary_operator) |> ok
+        else TokOperator(name, ref SemanticTokenLegend.operator) |> ok
     (many1SatisfyL is_operator_char "operator"  >>= f .>> spaces) s
 
 let string_raw s =

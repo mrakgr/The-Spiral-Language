@@ -8,22 +8,12 @@ const uriServer = `tcp://localhost:${port}`
 const uriClient = `tcp://*:${port+1}`
 
 let msgId = 0
-const request = (file: object): Promise<any> => {
-    const id = msgId++
-    const loop = async (): Promise<any> => {
-        const sock = new zmq.Request()
-        // sock.sendTimeout = 500
-        // sock.receiveTimeout = 500
-        sock.connect(uriServer)
-        // try {
-        await sock.send(JSON.stringify([id, file]))
-        const [x] = await sock.receive()
-        return JSON.parse(x.toString())
-        // } catch (e) {
-            // return loop()
-        // }
-    }
-    return loop()
+const request = async (file: object): Promise<any> => {
+    const sock = new zmq.Request()
+    sock.connect(uriServer)
+    await sock.send(JSON.stringify([msgId++, file]))
+    const [x] = await sock.receive()
+    return JSON.parse(x.toString())
 }
 
 const spiprojOpenReq = async (uri: string, spiprojText: string) => request({ ProjectFileOpen: { uri, spiprojText } })
