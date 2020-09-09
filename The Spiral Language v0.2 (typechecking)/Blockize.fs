@@ -214,7 +214,7 @@ let server_hover (uri : string) = Job.delay <| fun () ->
         let ret_signal_none x = Option.iter ((|>) None) ret; x
         (req_tc ^=> (ret_signal_none >> extracting))
         <|> (req_hov ^=> (ret_signal_none >> processing data))
-    and extracting subreq =
+    and extracting subreq = // TODO: This can deadlock. Fix it.
         (IVar.read subreq ^=> fun (bundle,res) -> IVar.read res ^=> fun x -> waiting (List.map2 (fun a b -> fst (List.head a), b) bundle x) None)
     and processing data (pos, ret) =
         waiting data (Some ret)

@@ -311,10 +311,18 @@ let brackets s =
     | ')' -> f (Round,Close) | ']' -> f (Square,Close) | '}' -> f (Curly,Close)
     | _ -> error_char s.from "`(`,`[`,`{`,`}`,`]` or `)`"
 
+let tab s = if peek s = '\t' then Error [range_char (index s), "Tabs are not allowed."] else Error []
+let eol s = if peek s = eol then Ok [] else Error [range_char (index s), "end of line"]
+
 let token s =
     let i = s.from
     let inline (+) a b = alt i a b
     (string_quoted + macro + ((var + symbol + number + string_raw + char_quoted + brackets + comment + operator) |>> fun x -> [x])) s
+
+type LineToken = Range * SpiralToken
+type LineComment = Range * string
+type LineTokenErrors = (Range * TokenizerError) list
+let tokenize text = (spaces >>. many_array token .>> (eol <|> tab) |>> Array.collect List.toArray) {from=0; text=text}
 
 /// An array of {line: int; char: int; length: int; tokenType: int; tokenModifiers: int} in the order as written suitable for serialization.
 type VSCTokenArray = int []
@@ -327,7 +335,6 @@ let process_error (k,v) =
     elif Array.isEmpty messages then ex (), k
     else f (Array.append [|ex (); ""; "Other error messages:"|] messages), k
 
-type LineTokenErrors = (Range * TokenizerError) list
 let process_errors line (ers : LineTokenErrors []) : (string * VSCRange) [] =
     ers |> Array.mapi (fun i l -> 
         let i = line + i
@@ -336,29 +343,6 @@ let process_errors line (ers : LineTokenErrors []) : (string * VSCRange) [] =
     |> Array.concat
     |> Array.groupBy snd
     |> Array.map ((fun (k,v) -> k, Array.map fst v) >> process_error)
-
-type LineToken = Range * SpiralToken
-type LineComment = Range * string
-
-type LineTokenResult = LineToken [] * LineTokenErrors
-let tokenize text : LineTokenResult =
-    let s = {from=0; text=text}
-    LineParsers.spaces' s
-
-    let ar = ResizeArray()
-    let rec loop () =
-        let i = index s
-        match token s with
-        | Ok _ when i = index s -> failwith "The parser succeeded without changing the parser index in `tokenize`. Had an exception not been raised the parser would have diverged."
-        | Ok x -> ar.AddRange x; loop()
-        | Error er -> er
-    let ers =
-        let ers = loop ()
-        let c = peek s
-        if c = eol then []
-        elif c = '\t' then [range_char (index s), "Tabs are not allowed."]
-        else ers
-    ar.ToArray(), ers
 
 type VSCodeTokenData = int [] * (string * VSCRange) [] // FSharp.Json does not support serializing ResizeArray objects
 let vscode_tokens line_delta (lines : LineToken [] []) =
@@ -377,7 +361,7 @@ let vscode_tokens line_delta (lines : LineToken [] []) =
 type SpiEdit = {|from: int; nearTo: int; lines: string []|}
 
 let replace (lines : _ [] ResizeArray) (errors : _ []) (edit : SpiEdit) =
-    let toks, ers = Array.map tokenize edit.lines |> Array.unzip
+    let toks, ers = Array.map (tokenize >> function Ok a -> a, [] | Error er -> [||], er) edit.lines |> Array.unzip
     lines.RemoveRange(edit.from,edit.nearTo-edit.from)
     lines.InsertRange(edit.from,toks)
 
