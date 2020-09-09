@@ -94,7 +94,7 @@ export const activate = async (ctx: ExtensionContext) => {
 
     const spiChange = async (doc : TextDocument, changes: readonly TextDocumentContentChangeEvent[]) => {
         if (0 < changes.length) {
-            const sortedChanges = 1 < changes.length ? _.sortBy(changes,x => [x.range.start.line, x.range.start.character]) : changes
+            const sortedChanges = 1 < changes.length ? [...changes].sort((a,b) => a.range.start.compareTo(b.range.start)) : changes
             const from = sortedChanges[0].range.start.line
             const {nearTo} =
                 sortedChanges.reduce(({lineAdjust},x) => {

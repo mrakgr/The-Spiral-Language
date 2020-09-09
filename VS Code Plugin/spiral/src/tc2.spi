@@ -78,21 +78,22 @@ union result a b = Ok: a | Error: b
 union option a = Some: a | None
 
 nominal range = {from : i32; nearTo : i32}
-type env a = mut { text : string; i : i32; state : a }
+nominal env a = mut { text : string; i : i32; state : a }
 type parser_result a = result a (list (range, string))
 type parser state a = env state -> parser_result a 
 
 inl range_char i = range {from=i; nearTo=i+1}
 inl error_char i er = Error: list_singleton (range_char i, er)
+inl error_char' (env s) er = error_char s.i er
 
 inl char_to_string (x : char): string = $"string !x"
 inl char_to_i32 (x : char): i32 = !!!!UnsafeConvert(`i32,x)
 
-inl inc' i (x : env _) = x.i <- x.i+i
+inl inc' i (env x) = x.i <- x.i+i
 inl inc x = inc' 1 x
 
 inl Oob : char = $"Char.MaxValue"
-inl peek' i (x : env _) = inl i = x.i + i in if 0 <= i && i <= string_length x.text then string_index x.text i else Oob
+inl peek' i (env x) = inl i = x.i + i in if 0 <= i && i <= string_length x.text then string_index x.text i else Oob
 inl peek x = peek' 0 x
 
 nominal string_builder = $"System.Text.StringBuilder"
@@ -110,7 +111,7 @@ inl many1Satisfy2L init body label s =
             else string_builder_to_string b
         Ok: loop (string_builder_append x (string_builder_create()))
     else
-        error_char s.i label
+        error_char' s label
 
 inl many1SatisfyL body label s = many1Satisfy2L body body label s
 
@@ -129,12 +130,12 @@ let skip_space_or_newline s =
 
 let rec spaces' s = if skip_space_or_newline s then spaces' s
 let rec spaces s = Ok: spaces' s
-let rec spaces1 s = if skip_space_or_newline s then Ok: spaces' s else error_char s.i "space"
+let rec spaces1 s = if skip_space_or_newline s then Ok: spaces' s else error_char' s "space"
 
-let skip_char c s = if skip c s then Ok:() else error_char s.i ($"sprintf \"'%c'\" !c")
-let skip_string x (s : env _) = 
+let skip_char c s = if skip c s then Ok:() else error_char' s ($"sprintf \"'%c'\" !c")
+let skip_string x (env s & env) = 
     inl text,i,len = s.text,s.i,string_length x
-    if $"String.Compare(!text,!i,!x,0,!len) = 0" then Ok: inc' len s else error_char i x
+    if $"String.Compare(!text,!i,!x,0,!len) = 0" then Ok: inc' len env else error_char i x
 
 inl parray n p s =
     inl ar = array_create n
@@ -150,7 +151,7 @@ inl parray n p s =
 inl is_digit x = char_to_i32 '0' <= char_to_i32 x && char_to_i32 x <= char_to_i32 '9'
 let digit s =
     inl x = peek s
-    if is_digit x then inc s . (Ok: x) else error_char s.i "digit"
+    if is_digit x then inc s . (Ok: x) else error_char' s "digit"
 
 inl i32 env =
     let rec loop was_parsed s =
@@ -159,9 +160,9 @@ inl i32 env =
             inc env
             inl s' = s * 10 + char_to_i32 x
             if s <= 214_748_364 && 0 <= s' then loop true s'
-            else error_char env.i "The number is too large to be parsed as 32 bit int."
+            else error_char' env "The number is too large to be parsed as 32 bit int."
         elif was_parsed then Ok: s 
-        else error_char env.i "i32"
+        else error_char' env "i32"
     loop false 0
 
 inl (>>=) a f s = match a s with Ok: => f ok s | Error: => Error:
@@ -248,7 +249,7 @@ inl cell s =
     let f ok = inc s . (Ok:)
     match x with
     | '.' => f Empty | 'm' => f Mario | 'p' => f Princess
-    | _ => error_char s.i "cell"
+    | _ => error_char' s "cell"
 
 inl Save_the_princess_parse =
     i32 >>= fun n =>
@@ -258,6 +259,6 @@ inl Save_the_princess_parse =
         else 
             match find_mario field with
             | Some: => Ok: save_the_princess field some
-            | None => error_char s.i "Mario not found."
+            | None => error_char' s "Mario not found."
     loop 0
     
