@@ -485,6 +485,7 @@ let show_type_error (env : TopEnv) x =
     | KindNotAllowedInInstanceForall -> "Kinds should not be explicitly stated in instance foralls."
     | InstanceVarShouldNotMatchAnyOfPrototypes -> "Instance forall must not have the same name as any of the prototype foralls."
     | MissingBody -> "The function body is missing."
+    | MacroIsMissingAnnotation -> "The macro needs an annotation."
 
 let loc_env (x : TopEnv) = {term=x.term; ty=x.ty}
 let names_of vars = List.map (fun x -> x.name) vars |> Set
