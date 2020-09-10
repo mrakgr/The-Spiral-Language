@@ -525,6 +525,12 @@ let hovars (x : HoVar list) =
 
 let autogen_name (i : int) = let x = char i + 'a' in if 'z' < x then sprintf "'%i" i else sprintf "'%c" x
 
+type InferResult = {
+    hovers : (Range * string) []
+    errors : VSCError list
+    top_env : TopEnv
+    }
+
 open Spiral.TypecheckingUtils
 open System.Collections.Generic
 let infer (top_env' : TopEnv) expr =
@@ -1199,11 +1205,13 @@ let infer (top_env' : TopEnv) expr =
         | None -> errors.Add(fst prot, UnboundVariable); check_ins fake
         | Some(TyConstraint(CPrototype i)) -> check_ins (body i)
         | Some x -> errors.Add(fst prot, ExpectedPrototype x); check_ins fake
-    |> fun top_env' -> 
+    |> fun top_env -> 
         type_application |> Seq.iter (fun x -> if has_metavars x.Value then errors.Add(range_of_expr x.Key, ValueRestriction x.Value))
-        let hovers = hover_types |> Seq.toArray |> Array.map (fun x -> x.Key, show_t top_env' x.Value)
-        let errors = errors |> Seq.toList |> List.map (fun (a,b) -> show_type_error top_env' b, a)
-        (hovers, errors), top_env'
+        {
+        hovers = hover_types |> Seq.toArray |> Array.map (fun x -> x.Key, show_t top_env x.Value)
+        errors = errors |> Seq.toList |> List.map (fun (a,b) -> show_type_error top_env b, a)
+        top_env = top_env
+        }
 
 let default_env : TopEnv = 
     let inline inl f = let v = {scope=0; kind=KindType; constraints=Set.empty; name="x"} in TyInl(v,f v)

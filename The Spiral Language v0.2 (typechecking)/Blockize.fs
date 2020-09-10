@@ -73,6 +73,8 @@ let block_separate (lines : LineToken [] ResizeArray) (blocks : Block list) (edi
         else []
     loop blocks 0
 
+open Spiral.TypecheckingUtils
+type ParserResult = { bundles : Bundle list; errors : VSCError [] }
 let block_bundle (l : ParsedBlock list) =
     let (+.) a b = BlockParsingError.add_line_to_range a b
     let bundle = ResizeArray()
@@ -84,16 +86,16 @@ let block_bundle (l : ParsedBlock list) =
         | x :: x' ->
             match x.parsed with
             | Ok (TopAnd(r,_)) -> errors.Add("Invalid `and` statement.", x.offset +. r); init x'
-            | Ok (TopRecInl _ as a) -> temp.Add(x.offset,a); recinl x'
-            | Ok (TopNominal _ | TopUnion _ as a) -> temp.Add(x.offset,a); rectype x'
-            | Ok a -> temp.Add(x.offset, a); move_temp(); init x'
+            | Ok (TopRecInl _ as a) -> temp.Add {offset=x.offset; statement=a}; recinl x'
+            | Ok (TopNominal _ | TopUnion _ as a) -> temp.Add {offset=x.offset; statement=a}; rectype x'
+            | Ok a -> temp.Add {offset=x.offset; statement=a}; move_temp(); init x'
             | Error er -> BlockParsingError.show_block_parsing_error x.offset er |> errors.AddRange; init x'
         | [] -> move_temp()
     and recinl (l : ParsedBlock list) =
         match l with
         | x :: x' ->
             match x.parsed with
-            | Ok (TopAnd(_, TopRecInl _ & a)) -> temp.Add(x.offset,a); recinl x'
+            | Ok (TopAnd(_, TopRecInl _ & a)) -> temp.Add {offset=x.offset; statement=a}; recinl x'
             | Ok (TopAnd(r, _)) -> errors.Add("inl/let recursive statements can only be followed by `and` inl/let statements.", x.offset +. r); recinl x'
             | Ok _ -> move_temp(); init l
             | Error er -> BlockParsingError.show_block_parsing_error x.offset er |> errors.AddRange; recinl x'
@@ -102,13 +104,13 @@ let block_bundle (l : ParsedBlock list) =
         match l with
         | x :: x' ->
             match x.parsed with
-            | Ok (TopAnd(_, (TopNominal _ | TopUnion _) & a)) -> temp.Add(x.offset,a); rectype x'
+            | Ok (TopAnd(_, (TopNominal _ | TopUnion _) & a)) -> temp.Add {offset=x.offset; statement=a}; rectype x'
             | Ok (TopAnd(r, _)) -> errors.Add("`union` or `nominal` can only be followed by `and union` or `and nominal.", x.offset +. r); rectype x'
             | Ok _ -> move_temp(); init l
             | Error er -> BlockParsingError.show_block_parsing_error x.offset er |> errors.AddRange; rectype x'
         | [] -> move_temp()
     init l
-    Seq.toList bundle, errors.ToArray()
+    {bundles=Seq.toList bundle; errors=errors.ToArray()}
 
 let block_init is_top_down (block : LineToken [] []) =
     let comments, tokens = 
@@ -147,6 +149,11 @@ let server_tokenizer (uri : string) = Job.delay <| fun () ->
                 vscode_tokens from (lines.GetRange(from,near_to-from |> max 0).ToArray()) |> IVar.fill res
     Job.foreverServer loop >>-. req
 
+type ParserReq = {
+    blocks : Block list
+    res : ParserResult IVar
+    }
+
 let server_parser (uri : string) = Job.delay <| fun () ->
     let is_top_down = System.IO.Path.GetExtension(uri) = ".spi"
     let dict = System.Collections.Generic.Dictionary(HashIdentity.Reference)
@@ -161,34 +168,40 @@ let server_parser (uri : string) = Job.delay <| fun () ->
 
     let req = Ch()
     let rec waiting () = Ch.take req ^=> processing
-    and processing (a : Block list, res) = waiting () <|> Alt.prepareJob (fun () -> IVar.fill res (parse a) >>- waiting)
+    and processing (a : ParserReq) = waiting () <|> Alt.prepareJob (fun () -> IVar.fill a.res (parse a.blocks) >>- waiting)
         
     Job.server (waiting()) >>-. req
+
+open Spiral.Infer
+type TypecheckingReq = {
+    bundles : Bundle list
+    res : InferResult IVar list IVar
+    }
 
 let server_typechecking (uri : string) = Job.delay <| fun () ->
     let req = Ch ()
 
     let rec waiting data = req ^=> extracting data
-    and extracting data subreq = 
-        waiting data <|> (IVar.read subreq ^=> fun (bundle,res) -> 
+    and extracting data req' = 
+        waiting data <|> (IVar.read req' ^=> fun (req' : TypecheckingReq) -> 
             let rec loop = function // Does memoization by fetching previous computed values.
                 | [], bundle -> List.map (fun _ -> IVar()) bundle
                 | (a, ivar) :: a', (b :: b' as bundle) -> if a = b then ivar :: loop (a',b') else loop ([], bundle)
                 | _, [] -> []
-            let x = loop (data, bundle)
-            Hopac.start (IVar.fill res x)
-            let x = List.zip bundle x
+            let x = loop (data, req'.bundles)
+            Hopac.start (IVar.fill req'.res x)
+            let x = List.zip req'.bundles x
             processing Infer.default_env x x
             )
     and processing state data = function
         | [] -> waiting data
         | (x,res) :: x' ->
             waiting data <|> Alt.prepareFun (fun () -> 
-                if res.Full then IVar.read res ^=> fun (_,state) -> processing state data x'
+                if res.Full then IVar.read res ^=> fun x -> processing x.top_env data x'
                 else 
-                    let (_,state as x) = TypecheckingUtils.bundle x |> Infer.infer state
+                    let x = bundle x |> infer state
                     Hopac.start (IVar.fill res x)
-                    processing state data x'
+                    processing x.top_env data x'
                 )
 
     Job.server (waiting []) >>-. req
@@ -210,14 +223,16 @@ let server_hover (uri : string) = Job.delay <| fun () ->
             if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
             )
 
-    let rec waiting data ret = 
-        let ret_signal_none x = Option.iter ((|>) None) ret; x
-        (req_tc ^=> (ret_signal_none >> extracting))
-        <|> (req_hov ^=> (ret_signal_none >> processing data))
-    and extracting subreq = // TODO: This can deadlock. Fix it.
-        (IVar.read subreq ^=> fun (bundle,res) -> IVar.read res ^=> fun x -> waiting (List.map2 (fun a b -> fst (List.head a), b) bundle x) None)
+    let signal_none ret x = Option.iter ((|>) None) ret; x
+    let rec tc ret = req_tc ^=> (signal_none ret >> extracting)
+    and hov data ret = req_hov ^=> (signal_none ret >> processing data)
+    and waiting data ret = tc ret <|> hov data ret
+    and extracting req = tc None <|> (IVar.read req ^=> extracting')
+    and extracting' (req : TypecheckingReq) =
+        tc None 
+        <|> (IVar.read req.res ^=> fun x -> waiting (List.map2 (fun (a : Bundle) b -> (List.head a).offset, b) req.bundles x) None)
     and processing data (pos, ret) =
         waiting data (Some ret)
-        <|> Alt.prepareFun (fun () -> IVar.read (block_at data pos) ^=> fun ((range,_),_) -> hover_msg_at pos range |> ret; waiting data None)
+        <|> (IVar.read (block_at data pos) ^=> fun x -> hover_msg_at pos x.hovers |> ret; waiting data None)
 
-    Job.server (waiting [] None) >>-. (req_tc, req_hov)
+    Job.server (tc None) >>-. (req_tc, req_hov)

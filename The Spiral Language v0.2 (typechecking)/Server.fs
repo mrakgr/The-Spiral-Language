@@ -63,29 +63,25 @@ let server () =
             let res = IVar() 
             Ch.give tokenizer (f res) >>=. 
             IVar.read res >>= fun (blocks,tokenizer_errors) ->
-            printfn "Done tokenizing."
             queue.Enqueue(TokenizerErrors {|uri=uri; errors=tokenizer_errors|})
+
             let req_tc = IVar()
-            Ch.give typechecker req_tc >>= fun () ->
-            printfn "Done sending req_tc to the typechecker.";
-            Ch.give hover req_tc >>= fun () ->
-            printfn "Done sending req_tc to the hover.";
+            Ch.give typechecker req_tc >>=.
+            Ch.give hover req_tc >>=.
 
             let res = IVar()
-            Ch.give parser (blocks, res) >>=. 
-            IVar.read res >>= fun (bundle,parser_errors) -> 
-            printfn "Done parsing."
-            queue.Enqueue(ParserErrors {|errors=parser_errors; uri=uri|})
+            Ch.give parser {blocks=blocks; res=res} >>=. 
+            IVar.read res >>= fun parser ->
+            queue.Enqueue(ParserErrors {|errors=parser.errors; uri=uri|})
 
             let res = IVar()
-            IVar.fill req_tc (bundle, res) >>=.
-            IVar.read res >>= fun x ->
-            printfn "Done typechecking."
-            x |> Seq.foldJob (fun s x ->
-                IVar.read x >>- fun ((_,typechecking_errors),_) ->
-                let s = List.append typechecking_errors s
-                queue.Enqueue(TypeErrors {|errors=s; uri=uri|})
-                s
+            IVar.fill req_tc {bundles=parser.bundles; res=res} >>=.
+            IVar.read res >>= fun tc ->
+            tc |> Seq.foldJob (fun errors tc ->
+                IVar.read tc >>- fun tc ->
+                let errors = List.append tc.errors errors
+                queue.Enqueue(TypeErrors {|errors=errors; uri=uri|})
+                errors
                 ) [] >>- ignore
             )
 
@@ -133,7 +129,6 @@ let server () =
         let address = msg.Pop()
         msg.Pop() |> ignore
         let (id : int), x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
-        printfn "last_id=%i, id=%i" !last_id id
         if !last_id = id then body address msg x
         // TODO: Is enforcing order really needed.
         else failwith "message out of order" //buffer.Add(id,(address,x))

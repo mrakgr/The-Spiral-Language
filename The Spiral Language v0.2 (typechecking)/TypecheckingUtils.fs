@@ -2,7 +2,8 @@
 
 open Spiral.BlockParsing
 
-type Bundle = (int * TopStatement) list // offset * statement
+type BundleItem = { offset : int; statement : TopStatement}
+type Bundle = BundleItem list
 
 // These bundles have their range offsets distributed into them.
 type BundleRecType =
@@ -127,22 +128,22 @@ and fold_offset_pattern offset x =
 let bundle (l : Bundle) =
     match l with
     | [] -> failwith "Compiler error: Bundle should have at least one statement."
-    | (_, TopAnd _) :: x' -> failwith "Compiler error: TopAnd should be eliminated during the first bundling step."
-    | (_, TopRecInl _) :: _ as l ->
+    | {statement=TopAnd _} :: x' -> failwith "Compiler error: TopAnd should be eliminated during the first bundling step."
+    | {statement=TopRecInl _} :: _ as l ->
         l |> List.map (function
-            | (offset, TopRecInl(r,a,b,c)) -> BundleRecInl(add_offset offset r, add_offset_hovar offset a, fold_offset_term offset b, c)
+            | {offset=i; statement=TopRecInl(r,a,b,c)} -> BundleRecInl(add_offset i r, add_offset_hovar i a, fold_offset_term i b, c)
             | _ -> failwith "Compiler error: Recursive inl statements can only be followed by statements of the same type."
             )
         |> BundleRecTerm
-    | (_, (TopUnion _ | TopNominal _)) :: _ as l ->
+    | {statement=TopUnion _ | TopNominal _} :: _ as l ->
         l |> List.map (function 
-            | (offset, TopNominal(r,a,b,c)) -> BundleNominal(add_offset offset r, add_offset_hovar offset a, add_offset_hovar_list offset b, fold_offset_ty offset c)
-            | (offset, TopUnion(r,a,b,c)) -> BundleUnion(add_offset offset r, add_offset_hovar offset a, add_offset_hovar_list offset b, List.map (fold_offset_ty offset) c)
+            | {offset=i; statement=TopNominal(r,a,b,c)} -> BundleNominal(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
+            | {offset=i; statement=TopUnion(r,a,b,c)} -> BundleUnion(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, List.map (fold_offset_ty i) c)
             | _ -> failwith "Compiler error: Recursive type statements can only be followed by statements of the same type."
             )
         |> BundleRecType
-    | [offset, TopInl(r,a,b,c)] -> BundleInl(add_offset offset r, add_offset_hovar offset a, fold_offset_term offset b, c)
-    | [offset, TopPrototype(r,a,b,c,d)] -> BundlePrototype(add_offset offset r, add_offset_hovar offset a, add_offset_hovar offset b, add_offset_typevar_list offset c, fold_offset_ty offset d)
-    | [offset, TopType(r,a,b,c)] -> BundleType(add_offset offset r, add_offset_hovar offset a, add_offset_hovar_list offset b, fold_offset_ty offset c)
-    | [offset, TopInstance(r,a,b,c,d)] -> BundleInstance(add_offset offset r, add_offset_hovar offset a, add_offset_hovar offset b, add_offset_typevar_list offset c, fold_offset_term offset d)
-    | (_, (TopInl _ | TopPrototype _ | TopType _ | TopInstance _)) :: _ -> failwith "Compiler error: Regular top level statements should be singleton bundles."
+    | [{offset=i; statement=TopInl(r,a,b,c)}] -> BundleInl(add_offset i r, add_offset_hovar i a, fold_offset_term i b, c)
+    | [{offset=i; statement=TopPrototype(r,a,b,c,d)}] -> BundlePrototype(add_offset i r, add_offset_hovar i a, add_offset_hovar i b, add_offset_typevar_list i c, fold_offset_ty i d)
+    | [{offset=i; statement=TopType(r,a,b,c)}] -> BundleType(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
+    | [{offset=i; statement=TopInstance(r,a,b,c,d)}] -> BundleInstance(add_offset i r, add_offset_hovar i a, add_offset_hovar i b, add_offset_typevar_list i c, fold_offset_term i d)
+    | {statement=TopInl _ | TopPrototype _ | TopType _ | TopInstance _} :: _ -> failwith "Compiler error: Regular top level statements should be singleton bundles."

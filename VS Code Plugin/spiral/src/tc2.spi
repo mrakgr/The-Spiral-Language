@@ -46,19 +46,6 @@ inl (From: nearTo:) = From: nearTo: up: 1
 inl (From: to:) = From: to: up: 1
 
 inl for range body state =
-    inl check, from, target, by = 
-        match range with
-        | From: nearTo: up: => (<), from, nearTo, up
-        | From: to: up: => (<=), from, to, up
-        | From: nearTo: up: => (<), from, to, up
-        // | From: nearTo: up: => (<), from, nearTo, up
-        // | From: to: up: => (<=), from, to, up
-        // | From: nearTo: down: => (>), from, nearTo, -down
-        // | From: to: down: => (>=), from, to, -down 
-    let rec loop i s = if check i target then loop (i+by) (body i s) else s
-    loop from state
-
-inl for range body state =
     inl check, from, target, by =
         match range with
         | From: nearTo: up: => (<), from, nearTo, up
