@@ -93,6 +93,7 @@ type TypeError =
     | KindNotAllowedInInstanceForall
     | InstanceVarShouldNotMatchAnyOfPrototypes
     | MissingBody
+    | MacroIsMissingAnnotation
 
 let shorten' x link next = let x = next x in link.contents' <- Some x; x
 let rec visit_tt = function
@@ -199,6 +200,8 @@ let validate_bound_vars (top_env : Env) term ty x =
             List.iter (function RawRecordWithoutSymbol _ -> () | RawRecordWithoutInjectVar (a,b) -> check_term term (a,b)) c
         | RawOp(_,_,l) -> List.iter (cterm term ty) l
         | RawReal(_,x) | RawJoinPoint(_,x) -> cterm term ty x
+        | RawAnnot(_,RawMacro(_,a),b) -> cmacro term ty a; ctype term ty b
+        | RawMacro(r,a) -> errors.Add(r,MacroIsMissingAnnotation); cmacro term ty a
         | RawAnnot(_,a,b) -> cterm term ty a; ctype term ty b
         | RawTypecase(_,a,b) -> 
             ctype term ty a
@@ -215,7 +218,6 @@ let validate_bound_vars (top_env : Env) term ty x =
         | RawHeapMutableSet(_,a,b) | RawSeq(_,a,b) | RawPairCreate(_,a,b) | RawIfThen(_,a,b) | RawApply(_,a,b) -> cterm term ty a; cterm term ty b
         | RawIfThenElse(_,a,b,c) -> cterm term ty a; cterm term ty b; cterm term ty c
         | RawMissingBody r -> errors.Add(r,MissingBody)
-        | RawMacro(_,a) -> cmacro term ty a
     and cmacro term ty a =
         List.iter (function
             | RawMacroText _ -> ()
@@ -816,6 +818,7 @@ let infer (top_env' : TopEnv) expr =
             List.iter (fun (env,on_succ) -> term env s on_succ) l
         | RawMissingBody r -> errors.Add(r,MissingBody)
         | RawMacro(_,a) ->
+            type_application.Add(x,s)
             let f r = function Some a -> hover_types.Add(r,a) | None -> errors.Add(r,UnboundVariable)
             List.iter (function
                 | RawMacroText _ -> ()
