@@ -923,14 +923,14 @@ and root_term d =
             (range (skip_keyword SpecFunction >>. clauses) |>> RawFun)
             <|> (range ((skip_keyword SpecMatch >>. next .>> skip_keyword SpecWith) .>>. clauses) |>> fun (a,(b,c)) -> RawMatch(a,b,c))
 
-        let case_typecase d =
-            let clauses d = 
-                let bar = bar (col d)
-                (optional bar >>. sepBy1 (root_type {root_type_defaults with allow_metavars=true; allow_wildcard=true} .>>. (skip_op "=>" >>. next)) bar) d
+        let case_typecase d = Error [] // TODO
+            //let clauses d = 
+            //    let bar = bar (col d)
+            //    (optional bar >>. sepBy1 (root_type {root_type_defaults with allow_metavars=true; allow_wildcard=true} .>>. (skip_op "=>" >>. next)) bar) d
 
-            if d.is_top_down then Error [] else
-                (range ((skip_keyword SpecTypecase >>. root_type {root_type_defaults with allow_term=true} .>> skip_keyword SpecWith) .>>. clauses)
-                |>> fun (r, (a, b)) -> RawTypecase(r,a,b)) d
+            //if d.is_top_down then Error [] else
+            //    (range ((skip_keyword SpecTypecase >>. root_type {root_type_defaults with allow_term=true} .>> skip_keyword SpecWith) .>>. clauses)
+            //    |>> fun (r, (a, b)) -> RawTypecase(r,a,b)) d
 
         let case_record =
             let record_body = skip_op "=" >>. next
