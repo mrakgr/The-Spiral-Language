@@ -115,7 +115,7 @@ let rec typevar = function
 let rec metavars = function
     | RawTMacro _ | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ -> Set.empty
     | RawTMetaVar(_,a) -> Set.singleton a
-    | RawTForall(_,_,a) | RawTArray(_,a) -> metavars a
+    | RawTForall(_,_,a) -> metavars a
     | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> metavars a + metavars b
     | RawTRecord(_,l) -> Map.fold (fun s _ v -> s + metavars v) Set.empty l
 
@@ -231,7 +231,6 @@ let validate_bound_vars (top_env : Env) term ty x =
         | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> ctype term ty a; ctype term ty b
         | RawTRecord(_,l) -> Map.iter (fun _ -> ctype term ty) l
         | RawTForall(_,((_,(a,_)),l),b) -> List.iter (check_ty ty) l; ctype term (Set.add a ty) b
-        | RawTArray(_,a) -> ctype term ty a
         | RawTTerm (_,a) -> cterm term ty a
         | RawTMacro(_,a) -> cmacro term ty a
     and cpattern term ty x =
@@ -922,7 +921,6 @@ let infer (top_env' : TopEnv) expr =
         | RawTB r -> unify r s TyB
         | RawTSymbol(r,x) -> unify r s (TySymbol x)
         | RawTPrim(r,x) -> unify r s (TyPrim x)
-        | RawTArray(r,x) -> let v = fresh_var() in unify r s (TyArray v); f v x
         | RawTPair(r,a,b) -> 
             let q,w = fresh_var(), fresh_var()
             unify r s (TyPair(q,w))

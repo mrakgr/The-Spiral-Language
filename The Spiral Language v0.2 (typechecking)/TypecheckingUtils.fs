@@ -41,7 +41,6 @@ let rec fold_offset_ty offset x =
     | RawTApply(r,a,b) -> RawTApply(g r,f a,f b)
     | RawTForall(r,a,b) -> RawTForall(g r,add_offset_typevar offset a,f b)
     | RawTPrim(r,a) -> RawTPrim(g r,a)
-    | RawTArray(r,a) -> RawTArray(g r,f a)
     | RawTTerm(r,a) -> RawTTerm(g r,fold_offset_term offset a)
     | RawTMacro(r,a) -> RawTMacro(g r,fold_offset_macro offset a)
 and fold_offset_macro offset a =
