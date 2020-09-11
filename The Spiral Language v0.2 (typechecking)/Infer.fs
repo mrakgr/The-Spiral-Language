@@ -199,7 +199,7 @@ let validate_bound_vars (top_env : Env) term ty x =
                 ) b
             List.iter (function RawRecordWithoutSymbol _ -> () | RawRecordWithoutInjectVar (a,b) -> check_term term (a,b)) c
         | RawOp(_,_,l) -> List.iter (cterm term ty) l
-        | RawReal(_,x) | RawJoinPoint(_,x) -> cterm term ty x
+        | RawInline(_,x) | RawReal(_,x) | RawJoinPoint(_,x) -> cterm term ty x
         | RawAnnot(_,RawMacro(_,a),b) -> cmacro term ty a; ctype term ty b
         | RawMacro(r,a) -> errors.Add(r,MacroIsMissingAnnotation); cmacro term ty a
         | RawAnnot(_,a,b) -> cterm term ty a; ctype term ty b
@@ -729,7 +729,7 @@ let infer (top_env' : TopEnv) expr =
         | RawSeq(_,a,b) -> f TyB a; f s b
         | RawReal(_,a) -> assert_bound_vars env a
         | RawOp(_,_,l) -> List.iter (assert_bound_vars env) l
-        | RawJoinPoint(_,a) -> f s a
+        | RawInline(_,a) | RawJoinPoint(_,a) -> f s a
         | RawApply(r,a',b) ->
             match f' a' with
             | TyLayout(a,_) ->

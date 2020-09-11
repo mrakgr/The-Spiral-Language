@@ -92,6 +92,7 @@ and fold_offset_term offset x =
     | RawSeq(r,a,b) -> RawSeq(g r,f a,f b)
     | RawHeapMutableSet(r,a,b) -> RawHeapMutableSet(g r,f a,f b)
     | RawReal(r,a) -> RawReal(g r,f a)
+    | RawInline(r,a) -> RawInline(g r,f a)
     | RawMissingBody r -> RawMissingBody(g r)
     | RawMacro(r,a) -> RawMacro(g r,fold_offset_macro offset a)
 and fold_offset_pattern offset x = 

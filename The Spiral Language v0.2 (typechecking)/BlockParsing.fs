@@ -213,6 +213,7 @@ and RawExpr =
     | RawReal of Range * RawExpr
     | RawMacro of Range * RawMacro list
     | RawMissingBody of Range
+    | RawInline of Range * RawExpr // Acts like a join point during the prepass.
 and RawTExpr =
     | RawTWildcard of Range
     | RawTB of Range
@@ -263,6 +264,7 @@ let range_of_expr = function
     | RawB r
     | RawMissingBody r
     | RawMacro(r,_)
+    | RawInline(r,_)
     | RawV(r,_)
     | RawBigV(r,_)
     | RawLit(r,_)
