@@ -169,12 +169,10 @@ inl I32 = parser fun str i =>
 inl Parse3Ints = I32 .<<. I32 .<<. I32
 
 prototype eq x : x -> x -> bool
-instance eq list el {eq} = fun a b =>
-    let rec loop = function
-        | Nil, Nil => true
-        | (Cons: a,a'), (Cons: b,b') when eq a b => loop (a',b')
-        | _ => false
-    loop (a,b)
+instance eq list el {eq} = fun a b => match a,b with
+    | Nil, Nil => true
+    | (Cons: a,a'), (Cons: b,b') when eq a b => eq a' b'
+    | _ => false
 
 let rec poly forall t. (x : t): t =
     inl q = poly true

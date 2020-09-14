@@ -593,7 +593,7 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
     | false, _, _, _ -> Error [range_of_pattern name, ExpectedSinglePatternWhenStatementNameIsNorVarOrOp]
 
 let ho_var d : Result<HoVar,_> = range ((read_type_var |>> fun x -> x, RawKindWildcard) <|> rounds ((read_type_var .>> skip_op ":") .>>. kind)) d
-let forall_var d : Result<TypeVar,_> = (ho_var .>>. (curlies (sepBy1 (read_type_var' <|> rounds read_op_type) (skip_op ";")) <|>% [])) d
+let forall_var d : Result<TypeVar,_> = (ho_var .>>. (curlies (sepBy (read_type_var' <|> rounds read_op_type) (skip_op ";")) <|>% [])) d
 let forall d = 
     (skip_keyword SpecForall >>. many1 forall_var .>> skip_op "." 
     >>= fun x _ -> duplicates DuplicateForallVar (List.map (fun ((r,(a,_)),_) -> r,a) x) |> function [] -> Ok x | er -> Error er) d
