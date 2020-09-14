@@ -3,16 +3,20 @@
 type Id = int32
 //type FreeVars = {|ty : int; term : int|}
 type FreeVars = unit
-type Range = { uri : string; range : Config.VSCRange }
+//type Range = { uri : string; range : Config.VSCRange }
+type Range = BlockParsing.Range
 
 type TT = Type | Fun of TT * TT
 type TypeVar = Id * TT
 
 type Macro =
     | MText of Range * string
-    | MTypeVar of Range * Id
-    | MTermVar of Range * Id
-type RecordWith =
+    | MType of T
+    | MTerm of E
+and TypeMacro =
+    | TMText of Range * string
+    | TMType of T
+and RecordWith =
     | RSymbol of (Range * string) * E
     | RSymbolModify of (Range * string) * E
     | RVar of (Range * Id) * E
@@ -30,6 +34,7 @@ and E =
     | EDefaultLit of Range * string * T
     | ESymbolCreate of Range * string
     | EType of Range * T
+    | EApply of Range * E * E
     | EFun of Range * FreeVars * Id * E * T
     | ERecursive of E ref
     | EForall of Range * FreeVars * TypeVar * E
@@ -64,14 +69,14 @@ and T =
     | TUnit of Range
     | TVar of Range * Id
     | TPair of Range * T * T
-    | TArrow of Range * T * T
+    | TFun of Range * T * T
     | TRecord of Range * Map<string,T>
     | TSymbol of Range * string
     | TApply of Range * T * T
     | TPrim of Range * Config.PrimitiveType
     | TTerm of Range * E
-    | TMacro of Range * Macro list
-    | TFun of Range * FreeVars * TypeVar * T
+    | TMacro of Range * TypeMacro list
+    | TArrow of Range * FreeVars * TypeVar * T
     | THigherOrder of Range * TypeVar
 
 open FSharpx.Collections
@@ -80,16 +85,90 @@ type HigherOrderCases =
     | Union of name: string * TypeVar list * Map<string,T>
     | Nominal of name: string * TypeVar list * T
 
+open BlockParsing
+open TypecheckingUtils
 type TopEnv = {
     prototypes : Map<int,{|prefix : TT list; body : E|}> PersistentVector
     hoc : HigherOrderCases PersistentVector
-    tern : Map<string,E>
+    term : Map<string,E>
     ty : Map<string,T>
     }
 
-open BlockParsing
-open TypecheckingUtils
+type Env = {
+    term : PersistentHashMap<string,E>
+    ty : PersistentHashMap<string,T>
+    }
+
+type PrepassError =
+    | RecordIndexFailed of string
+
+exception PrepassException of (Range * PrepassError) list
+
+let compile_pattern _ = failwith "TODO"
+let compile_typecase _ = failwith "TODO"
+
 let prepass (top_env : TopEnv) expr =
-    match expr with
-    | BundleType(r,a,b,c) -> ()
+    let v_term env x = if PersistentHashMap.containsKey x env.term then env.term.[x] else top_env.term.[x]
+    let v_ty env x = if PersistentHashMap.containsKey x env.ty then env.ty.[x] else top_env.ty.[x]
+    let rec ty (env : Env) x =
+        let f = ty env
+        match x with
+        | RawTWildcard _ -> failwith "Compiler error: Annotation with wildcards should have been stripped."
+        | RawTMetaVar _ -> failwith "Compiler error: This should have been compiled away in typecase."
+        | RawTForall _ -> failwith "Compiler error: Foralls are not allowed at the type level."
+        | RawTB r -> TUnit r
+        | RawTVar(r,a) -> v_ty env a
+        | RawTPair(r,a,b) -> TPair(r,f a,f b)
+        | RawTFun(r,a,b) -> TFun(r,f a,f b)
+        | RawTRecord(r,l) -> TRecord(r,Map.map (fun _ -> f) l)
+        | RawTSymbol(r,a) -> TSymbol(r,a)
+        | RawTApply(r,a,b) ->
+            match f a, f b with
+            | TRecord(_,a), TSymbol(_,b) ->
+                match Map.tryFind b a with
+                | Some x -> x
+                | None -> raise (PrepassException [r,RecordIndexFailed b])
+            | a,b -> TApply(r,a,b)
+        | RawTPrim(r,a) -> TPrim(r,a)
+        | RawTTerm(r,a) -> TTerm(r,term env a)
+        | RawTMacro(r,l) -> 
+            let f = function 
+                | RawMacroText(r,a) -> TMText(r,a)
+                | RawMacroTypeVar(r,a) -> TMType(v_ty env a)
+                | RawMacroTermVar _ -> failwith "Compiler error: Term vars should not appear on the type level."
+            TMacro(r,List.map f l)
+    and term env x =
+        let f = term env
+        match x with
+        | RawB r -> EB r
+        | RawV(r,a) -> v_term env a
+        | RawBigV(r,a) -> EApply(r,v_term env a,EB r)
+        | RawLit(r,a) -> ELit(r,a)
+        | RawDefaultLit(r,a) -> failwith "TODO"
+        | RawSymbolCreate(r,a) -> ESymbolCreate(r,a)
+        | RawType(r,a) -> EType(r,ty env a)
+        | RawMatch(r,a,b) -> compile_pattern (Some a) b
+        | RawFun(r,a) -> compile_pattern None a
+        | RawForall(r,a,b) -> failwith "TODO"
+        //| RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
+        //| RawRecordWith of Range * RawExpr list * RawRecordWith list * RawRecordWithout list
+        //| RawOp of Range * Op * RawExpr list
+        //| RawJoinPoint of Range * RawExpr
+        //| RawAnnot of Range * RawExpr * RawTExpr
+        //| RawTypecase of Range * RawTExpr * (RawTExpr * RawExpr) list
+        //| RawModuleOpen of Range * (Range * VarString) * (Range * SymbolString) list * on_succ: RawExpr
+        //| RawApply of Range * RawExpr * RawExpr
+        //| RawIfThenElse of Range * RawExpr * RawExpr * RawExpr
+        //| RawIfThen of Range * RawExpr * RawExpr
+        //| RawPairCreate of Range * RawExpr * RawExpr
+        //| RawSeq of Range * RawExpr * RawExpr
+        //| RawHeapMutableSet of Range * RawExpr * RawExpr
+        //| RawReal of Range * RawExpr
+        //| RawMacro of Range * RawMacro list
+        //| RawMissingBody of Range
+        //| RawInline of Range * RawExpr // Acts like a join point during the prepass.
+
+    ()
+    //match expr with
+    //| BundleType(r,a,b,c) -> ()
         
