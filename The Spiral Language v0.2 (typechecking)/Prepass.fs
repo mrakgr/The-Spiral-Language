@@ -29,7 +29,7 @@ and PatRecordMember =
     | Var of (Range * Id) * Id
 and E =
     | EB of Range
-    | EV of Range * Id
+    | EV of Id
     | ELit of Range * Tokenize.Literal
     | EDefaultLit of Range * string * T
     | ESymbolCreate of Range * string
@@ -67,7 +67,7 @@ and E =
     | ETypeHigherOrderDestruct of Range * pat: Id list * bind: Id * on_succ: E * on_fail: E
 and T =
     | TUnit of Range
-    | TVar of Range * Id
+    | TV of Id
     | TPair of Range * T * T
     | TFun of Range * T * T
     | TRecord of Range * Map<string,T>
@@ -95,9 +95,25 @@ type TopEnv = {
     }
 
 type Env = {
-    term : PersistentHashMap<string,E>
-    ty : PersistentHashMap<string,T>
+    term : {| env : Map<string,E>; i : int; i_rec : int |}
+    ty : {| env : Map<string,T>; i : int |}
     }
+
+let add_term (e : Env) k v =
+    let term = e.term
+    {e with term = {|term with i = term.i+1; env = Map.add k v term.env|} }
+
+let add_term_rec (e : Env) k v =
+    let term = e.term
+    {e with term = {|term with i_rec = term.i_rec-1; env = Map.add k v term.env|} }
+
+let add_ty (e : Env) k v =
+    let ty = e.ty
+    {e with ty = {|ty with i = ty.i+1; env = Map.add k v ty.env|} }
+
+let add_term_var (e : Env) k = e.term.i, add_term e k (EV e.term.i)
+let add_term_rec_var (e : Env) k = e.term.i_rec, add_term e k (EV e.term.i_rec)
+let add_ty_var (e : Env) k = e.ty.i, add_ty e k (TV e.ty.i)
 
 type PrepassError =
     | RecordIndexFailed of string
@@ -108,8 +124,8 @@ let compile_pattern _ = failwith "TODO"
 let compile_typecase _ = failwith "TODO"
 
 let prepass (top_env : TopEnv) expr =
-    let v_term env x = if PersistentHashMap.containsKey x env.term then env.term.[x] else top_env.term.[x]
-    let v_ty env x = if PersistentHashMap.containsKey x env.ty then env.ty.[x] else top_env.ty.[x]
+    let v_term (env : Env) x = Map.tryFind x env.term.env |> Option.defaultWith (fun () -> top_env.term.[x])
+    let v_ty (env : Env) x =  Map.tryFind x env.ty.env |> Option.defaultWith (fun () -> top_env.ty.[x])
     let rec ty (env : Env) x =
         let f = ty env
         match x with
@@ -149,7 +165,10 @@ let prepass (top_env : TopEnv) expr =
         | RawType(r,a) -> EType(r,ty env a)
         | RawMatch(r,a,b) -> compile_pattern (Some a) b
         | RawFun(r,a) -> compile_pattern None a
-        | RawForall(r,a,b) -> failwith "TODO"
+        | RawForall(r,((_,(name,_)),_),b) -> 
+            let tt = failwith "TODO"
+            let id, env = add_ty_var env name
+            EForall(r,(),(id,tt),term env b)
         //| RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
         //| RawRecordWith of Range * RawExpr list * RawRecordWith list * RawRecordWithout list
         //| RawOp of Range * Op * RawExpr list
