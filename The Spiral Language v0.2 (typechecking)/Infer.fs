@@ -41,7 +41,8 @@ and T =
     | TyRecord of Map<string, T>
     | TyFun of T * T
     | TyArray of T
-    | TyHigherOrder of int * TT
+    | TyNominal of int
+    | TyUnion of Map<string,T>
     | TyApply of T * T * TT // Regular type functions (TyInl) get reduced, while this represents the staged reduction of nominals.
     | TyInl of Var * T
     | TyForall of Var * T
@@ -118,15 +119,12 @@ let rec metavars = function
     | RawTMetaVar(_,a) -> Set.singleton a
     | RawTForall(_,_,a) -> metavars a
     | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> metavars a + metavars b
-    | RawTRecord(_,l) -> Map.fold (fun s _ v -> s + metavars v) Set.empty l
-
-type HigherOrderCases =
-    | HOCUnion of name: string * Var list * Map<string,T>
-    | HOCNominal of name: string * Var list * T
+    | RawTUnion(_,l) | RawTRecord(_,l) -> Map.fold (fun s _ v -> s + metavars v) Set.empty l
 
 open FSharpx.Collections
 type TopEnv = {
-    hoc : HigherOrderCases PersistentVector
+    nominals_aux : {|name : string; kind : TT|} PersistentVector
+    nominals : T PersistentVector
     prototypes : {| instances : Map<int,Constraint Set list>; name : string; signature: T|} PersistentVector
     ty : Map<string,T>
     term : Map<string,T>
@@ -153,9 +151,11 @@ let rec constraint_name (env : TopEnv) = function
     | CNumber -> "number"
     | CPrototype i -> env.prototypes.[i].name
 
-let rec tt env = function
-    | TyHigherOrder(_,x) | TyApply(_,_,x) | TyMetavar({kind=x},_) | TyVar({kind=x}) -> x
-    | TyLayout _ | TyMacro _ | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
+let rec tt (env : TopEnv) = function
+    | TyMetavar(_,{contents=Some x}) -> tt env x
+    | TyNominal i -> env.nominals_aux.[i].kind
+    | TyApply(_,_,x) | TyMetavar({kind=x},_) | TyVar({kind=x}) -> x
+    | TyUnion _ | TyLayout _ | TyMacro _ | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
     | TyInl(v,a) -> KindFun(v.kind,tt env a)
 
 let module_open (top_env : Env) (r : Range) b l =
@@ -233,7 +233,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
         | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
         | RawTVar(a,b) -> check_ty ty (a,b)
         | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> ctype term ty a; ctype term ty b
-        | RawTRecord(_,l) -> Map.iter (fun _ -> ctype term ty) l
+        | RawTUnion(_,l) | RawTRecord(_,l) -> Map.iter (fun _ -> ctype term ty) l
         | RawTForall(_,((_,(a,_)),l),b) -> List.iter (check_ty ty) l; ctype term (Set.add a ty) b
         | RawTTerm (_,a) -> cterm term ty a
         | RawTMacro(_,a) -> cmacro term ty a
@@ -272,10 +272,11 @@ let assert_bound_vars (top_env : Env) constraints term ty x =
 let rec subst (m : (Var * T) list) x =
     let f = subst m
     match x with
-    | TyMetavar(_,{contents=Some x} & link) -> f x // Don't do path shortening here.
-    | TyMetavar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> x
+    | TyMetavar(_,{contents=Some x}) -> f x // Don't do path shortening here.
+    | TyMetavar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> x
     | TyPair(a,b) -> TyPair(f a, f b)
     | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
+    | TyUnion l -> TyUnion(Map.map (fun _ -> f) l)
     | TyFun(a,b) -> TyFun(f a, f b)
     | TyArray a -> TyArray(f a)
     | TyApply(a,b,c) -> TyApply(f a, f b, c)
@@ -287,7 +288,7 @@ let rec subst (m : (Var * T) list) x =
 
 let rec ho_split s = function 
     | TyApply(a,b,_) -> ho_split (b :: s) a 
-    | TyHigherOrder _ as x -> x :: s
+    | TyNominal _ as x -> x :: s
     | _ -> []
 
 let rec constraint_process (env : TopEnv) (con,x') = 
@@ -298,13 +299,13 @@ let rec constraint_process (env : TopEnv) (con,x') =
     | CPrototype i & con, x ->
         match ho_split [] x with
         | [] -> [ConstraintError(con,x)]
-        | TyHigherOrder(i',_) :: x' ->
+        | TyNominal i' :: x' ->
             match Map.tryFind i' env.prototypes.[i].instances with
             | Some cons -> 
                 let rec loop ers = function
                     | con :: con', x :: x' -> loop (List.append (constraints_process env (con,x)) ers) (con',x')
                     | [], _ -> ers
-                    | _, [] -> failwith "Compiler error: The number of constraints for higher order type should never be more than its arity."
+                    | _, [] -> failwith "Compiler error: The number of constraints for a higher order type should never be more than its arity."
                 loop [] (cons,x')
             | None -> [InstanceNotFound(i,i')]
         | _ :: _ -> failwith "Compiler error: The first item of a ho_split should always be a higher order type."
@@ -319,18 +320,21 @@ let rec kind_subst = function
     | KindMetavar _ | KindType as x -> x
     | KindFun(a,b) -> KindFun(kind_subst a,kind_subst b)
 
-let rec term_subst = function
-    | TyMetavar(_,{contents=Some x} & link) -> shorten x link term_subst
-    | TyMetavar _ | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
-    | TyPair(a,b) -> TyPair(term_subst a, term_subst b)
-    | TyRecord l -> TyRecord(Map.map (fun _ -> term_subst) l)
-    | TyFun(a,b) -> TyFun(term_subst a, term_subst b)
-    | TyForall(a,b) -> TyForall(a,term_subst b)
-    | TyArray a -> TyArray(term_subst a)
-    | TyApply(a,b,c) -> TyApply(term_subst a, term_subst b, c)
-    | TyInl(a,b) -> TyInl(a,term_subst b)
-    | TyMacro a -> TyMacro(List.map (function TMVar x -> TMVar(term_subst x) | x -> x) a)
-    | TyLayout(a,b) -> TyLayout(term_subst a,b)
+let rec term_subst x = 
+    let f = term_subst
+    match x with
+    | TyMetavar(_,{contents=Some x} & link) -> shorten x link f
+    | TyMetavar _ | TyVar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ as x -> x
+    | TyPair(a,b) -> TyPair(f a, f b)
+    | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
+    | TyUnion l -> TyUnion(Map.map (fun _ -> f) l)
+    | TyFun(a,b) -> TyFun(f a, f b)
+    | TyForall(a,b) -> TyForall(a,f b)
+    | TyArray a -> TyArray(f a)
+    | TyApply(a,b,c) -> TyApply(f a, f b, c)
+    | TyInl(a,b) -> TyInl(a,f b)
+    | TyMacro a -> TyMacro(List.map (function TMVar x -> TMVar(f x) | x -> x) a)
+    | TyLayout(a,b) -> TyLayout(f a,b)
 
 let rec foralls_get = function
     | RawForall(_,a,b) -> let a', b = foralls_get b in a :: a', b
@@ -350,10 +354,10 @@ let rec has_metavars x =
     let f = has_metavars
     match visit_t x with
     | TyMetavar _ -> true
-    | TyVar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> false
+    | TyVar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> false
     | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
     | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a || f b
-    | TyRecord l -> Map.exists (fun _ -> f) l
+    | TyUnion l | TyRecord l -> Map.exists (fun _ -> f) l
     | TyMacro a -> List.exists (function TMVar x -> has_metavars x | _ -> false) a
 
 let show_primt = function
@@ -384,7 +388,7 @@ let show_kind x =
 
 let show_constraints env x = Set.toList x |> List.map (constraint_name env) |> String.concat "; " |> sprintf "{%s}"
 
-let show_hoc (env : TopEnv) i = match env.hoc.[i] with HOCNominal(name,_,_) | HOCUnion(name,_,_) -> name
+let show_nominal (env : TopEnv) i = env.nominals_aux.[i].name
 
 let show_t (env : TopEnv) x =
     let show_var (a : Var) =
@@ -397,7 +401,7 @@ let show_t (env : TopEnv) x =
         | TyMetavar(_,{contents=Some x}) -> f prec x
         | TyMetavar _ -> "?"
         | TyVar a -> a.name
-        | TyHigherOrder(i,_) -> show_hoc env i
+        | TyNominal i -> show_nominal env i
         | TyB -> "()"
         | TyPrim x -> show_primt x
         | TySymbol x -> sprintf ".%s" x
@@ -433,6 +437,7 @@ let show_t (env : TopEnv) x =
             | a,b -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b))
         | TyFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
         | TyRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
+        | TyUnion l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "| ")
         | TyMacro a -> p 30 (List.map (function TMVar a -> f -1 a | TMText a -> a) a |> String.concat "")
         | TyLayout(a,b) -> 
             let b = match b with Heap -> "heap" | HeapMutable -> "mut"
@@ -463,12 +468,12 @@ let show_type_error (env : TopEnv) x =
     | ExpectedSymbolInRecordWith a -> sprintf "Expected a symbol.\nGot: %s" (f a)
     | RealFunctionInTopDown -> sprintf "Real segment functions are forbidden in the top-down segment."
     | MissingRecordFieldsInPattern(a,b) -> sprintf "The record is missing the following fields: %s.\nGot: %s" (String.concat ", " b) (f a)
-    | CasePatternNotFoundForType i -> sprintf "%s does not have this case." (show_hoc env i)
+    | CasePatternNotFoundForType i -> sprintf "%s does not have this case." (show_nominal env i)
     | CasePatternNotFound -> "Cannot find a function with the same name as this case in the environment."
     | CannotInferCasePatternFromTermInEnv a -> sprintf "Cannot infer the higher order type that has this case from the following type.\nGot: %s" (f a)
-    | NominalInPatternUnbox i -> sprintf "Expected an union type, but %s is a nominal." (show_hoc env i)
+    | NominalInPatternUnbox i -> sprintf "Expected an union type, but %s is a nominal." (show_nominal env i)
     | TypeInGlobalEnvIsNotNominal a -> sprintf "Expected a nominal type.\nGot: %s" (f a)
-    | UnionInPatternNominal i -> sprintf "Expected a nominal type, but %s is an union." (show_hoc env i)
+    | UnionInPatternNominal i -> sprintf "Expected a nominal type, but %s is an union." (show_nominal env i)
     | ConstraintError(a,b) -> sprintf "Constraint satisfaction error.\nGot: %s\nFails to satisfy: %s" (f b) (constraint_name env a)
     | ExpectedAnnotation -> sprintf "Recursive functions with foralls must be fully annotated."
     | ExpectedSinglePattern -> sprintf "Recursive functions with foralls must not have multiple clauses in their patterns."
@@ -476,7 +481,7 @@ let show_type_error (env : TopEnv) x =
     | ValueRestriction a -> sprintf "Metavars that are not part of the enclosing function's signature are not allowed. They need to be values.\nGot: %s" (f a)
     | DuplicateRecInlName -> "Shadowing of functions by the members of the same mutually recursive block is not allowed."
     | ExpectedConstraintInsteadOfModule -> sprintf "Expected a constraint instead of module."
-    | InstanceNotFound(prot,ins) -> sprintf "The higher order type instance %s does not have the prototype %s." (show_hoc env ins) env.prototypes.[prot].name
+    | InstanceNotFound(prot,ins) -> sprintf "The higher order type instance %s does not have the prototype %s." (show_nominal env ins) env.prototypes.[prot].name
     | ExpectedPrototypeConstraint a -> sprintf "Expected a prototype constraint.\nGot: %s" (constraint_name env a)
     | ExpectedPrototypeInsteadOfModule -> "Expected a prototype instead of module."
     | ExpectedHigherOrder a -> sprintf "Expected a higher order type.\nGot: %s" (f a)
@@ -572,9 +577,10 @@ let infer (top_env : TopEnv) expr =
                 link := Some v
                 replace_metavars v
             | TyVar v -> (if h.Add(v) then generalized_metavars.Add(v)); x
-            | TyMetavar _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ as x -> x
+            | TyMetavar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ as x -> x
             | TyPair(a,b) -> TyPair(f a, f b)
             | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
+            | TyUnion l -> TyUnion(Map.map (fun _ -> f) l)
             | TyFun(a,b) -> TyFun(f a, f b)
             | TyForall(a,b) -> TyForall(a,f b)
             | TyArray a -> TyArray(f a)
@@ -609,10 +615,10 @@ let infer (top_env : TopEnv) expr =
         let rec validate_unification i x =
             let f = validate_unification i
             match visit_t x with
-            | TyMacro _ | TyHigherOrder _ | TyB | TyPrim _ | TySymbol _ -> ()
+            | TyMacro _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> ()
             | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
             | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a; f b
-            | TyRecord l -> Map.iter (fun _ -> f) l
+            | TyUnion l | TyRecord l -> Map.iter (fun _ -> f) l
             | TyVar b -> if i.scope < b.scope then raise (TypeErrorException [r,ForallVarScopeError(b.name,got,expected)])
             | TyMetavar(x,_) -> if i = x then er() elif i.scope < x.scope then x.scope <- i.scope
             | TyLayout(a,_) -> f a
@@ -633,11 +639,12 @@ let infer (top_env : TopEnv) expr =
                 | constraint_errors -> raise (TypeErrorException (List.map (fun x -> r,x) constraint_errors))
             | TyVar a, TyVar b when a = b -> ()
             | (TyPair(a,a'), TyPair(b,b') | TyFun(a,a'), TyFun(b,b') | TyApply(a,a',_), TyApply(b,b',_)) -> loop (a,b); loop (a',b')
+            | TyUnion l, TyUnion l'
             | TyRecord l, TyRecord l' ->
                 let a,b = Map.toArray l, Map.toArray l'
                 if a.Length <> b.Length then er ()
-                else Array.iter2 (fun (_,a) (_,b) -> loop (a,b)) a b
-            | TyHigherOrder(i,_), TyHigherOrder(i',_) when i = i' -> ()
+                else Array.iter2 (fun (ka,a) (kb,b) -> if ka = kb then loop (a,b) else er()) a b
+            | TyNominal i, TyNominal i' when i = i' -> ()
             | TyB, TyB -> ()
             | TyPrim x, TyPrim x' when x = x' -> ()
             | TySymbol x, TySymbol x' when x = x' -> ()
@@ -933,6 +940,10 @@ let infer (top_env : TopEnv) expr =
             let l' = Map.map (fun _ _ -> fresh_var()) l
             unify r s (TyRecord l')
             Map.iter (fun k s -> f s l.[k]) l'
+        | RawTUnion(r,l) -> 
+            let l' = Map.map (fun _ _ -> fresh_var()) l
+            unify r s (TyUnion l')
+            Map.iter (fun k s -> f s l.[k]) l'
         | RawTForall(r,a,b) ->
             let a = typevar_to_var env.constraints a
             let body_var = fresh_var()
@@ -970,12 +981,12 @@ let infer (top_env : TopEnv) expr =
     and pattern env s a = 
         let is_first = System.Collections.Generic.HashSet()
         let ho_make (i : int) (l : Var list) =
-            let h = TyHigherOrder(i,List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) l KindType)
+            let h = TyNominal i
             let l' = List.map (fun (x : Var) -> x, fresh_subst_var x.constraints x.kind) l
             List.fold (fun s (_,x) -> match tt top_env s with KindFun(_,k) -> TyApply(s,x,k) | _ -> failwith "impossible") h l', l'
         let rec ho_index = function 
             | TyApply(a,_,_) -> ho_index a 
-            | TyHigherOrder(i,_) -> ValueSome i
+            | TyNominal i -> ValueSome i
             | _ -> ValueNone
         let rec ho_fun = function
             | TyFun(_,a) | TyForall(_,a) -> ho_fun a
@@ -1035,7 +1046,7 @@ let infer (top_env : TopEnv) expr =
                     env
             | PatUnbox(r,PatPair(_,PatSymbol(r',name), a)) ->
                 let assume i =
-                    match top_env.hoc.[i] with
+                    match top_env.nominals.[i] with
                     | HOCUnion(_,vars,cases) ->
                         hover_types.Add(r',s)
                         let x,m = ho_make i vars
@@ -1059,7 +1070,7 @@ let infer (top_env : TopEnv) expr =
                 | Some x -> 
                     match ho_index x with
                     | ValueSome i ->
-                        match top_env.hoc.[i] with
+                        match top_env.nominals.[i] with
                         | HOCNominal(_,vars,v) -> let x,m = ho_make i vars in unify r s x; f (subst m v) a
                         | HOCUnion _ -> errors.Add(r,UnionInPatternNominal i); f (fresh_var()) a
                     | ValueNone -> errors.Add(r,TypeInGlobalEnvIsNotNominal x); f (fresh_var()) a
@@ -1083,12 +1094,12 @@ let infer (top_env : TopEnv) expr =
         let env_ty = 
             List.fold (fun s (Choice1Of2(i,(_,name),(vars,_),_) | Choice2Of2(i,(_,name),(vars,_),_)) ->
                 let tt = List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) vars KindType
-                Map.add name (TyHigherOrder(i,tt)) s
+                Map.add name (TyNominal(i,tt)) s
                 ) top_env.ty l
         let hoc,env_term =
             List.fold (fun (hoc, term) x ->
                 let wrap_forall vars body t =
-                    let tt = match t with TyHigherOrder(_,tt) -> tt | _ -> failwith "impossible"
+                    let tt = match t with TyNominal(_,tt) -> tt | _ -> failwith "impossible"
                     let t,_ =
                         List.fold (fun (t,tt) x ->
                             let tt = match tt with KindFun(_,tt) -> tt | _ -> failwith "impossible"
@@ -1123,17 +1134,17 @@ let infer (top_env : TopEnv) expr =
     | BundleInl(_,(_,name),a,false) ->
         assert_bound_vars {term=Map.empty; ty=Map.empty; constraints=Map.empty} a
         {top_env with term = Map.add name (TySymbol "<real>") top_env.term }
-    | BundleRecTerm l ->
+    | BundleRecInl l ->
         let _ =
             let h = HashSet()
-            List.iter (fun (BundleRecInl(_,(r,n),_,_)) -> if h.Add n = false then errors.Add(r,DuplicateRecInlName)) l
+            List.iter (fun (_,(r,n),_,_) -> if h.Add n = false then errors.Add(r,DuplicateRecInlName)) l
         match l with 
-        | BundleRecInl(_,_,_,true) :: _ -> 
-            let l = List.map (function BundleRecInl(_,a,b,_) -> a,b) l
+        | (_,_,_,true) :: _ -> 
+            let l = List.map (fun (_,a,b,_) -> a,b) l
             (rec_block {term=Map.empty; ty=Map.empty; constraints=Map.empty} l).term
         | _ ->
-            let env_term = List.fold (fun s (BundleRecInl(_,(_,a),_,_)) -> Map.add a (TySymbol "<real>") s) Map.empty l
-            l |> List.iter (fun (BundleRecInl(_,_,x,_)) -> assert_bound_vars {term = env_term; ty = Map.empty; constraints=Map.empty} x)
+            let env_term = List.fold (fun s (_,(_,a),_,_) -> Map.add a (TySymbol "<real>") s) Map.empty l
+            l |> List.iter (fun (_,_,x,_) -> assert_bound_vars {term = env_term; ty = Map.empty; constraints=Map.empty} x)
             env_term
         |> fun env_term -> {top_env with term = Map.foldBack Map.add env_term top_env.term}
     | BundlePrototype(_,(r,name),(_,var_init),vars,expr) ->
@@ -1183,7 +1194,7 @@ let infer (top_env : TopEnv) expr =
                 let ins_constraints = ins_vars |> List.map (function TyVar x -> x.constraints | _ -> failwith "impossible")
                 let ins_core, _ =
                     let trim_kind = function KindFun(_,k) -> k | _ -> failwith "impossible"
-                    List.fold (fun (a,k) (b : T) -> let k = trim_kind k in TyApply(a,b,k),k) (TyHigherOrder(ins_id,ins_kind'),ins_kind') ins_vars
+                    List.fold (fun (a,k) (b : T) -> let k = trim_kind k in TyApply(a,b,k),k) (TyNominal(ins_id,ins_kind'),ins_kind') ins_vars
                 ins_core, env_ty, ins_constraints
             let env_ty, prot_body =
                 match foralls_ty_get prototype.signature with
@@ -1202,7 +1213,7 @@ let infer (top_env : TopEnv) expr =
         let check_ins on_succ =
             match Map.tryFind (snd ins) top_env.ty with
             | None -> errors.Add(fst ins, UnboundVariable); top_env
-            | Some(TyHigherOrder(i',k)) -> on_succ (i',k)
+            | Some(TyNominal(i',k)) -> on_succ (i',k)
             | Some x -> errors.Add(fst ins, ExpectedHigherOrder x); top_env
         match Map.tryFind (snd prot) top_env.constraints with
         | None -> errors.Add(fst prot, UnboundVariable); check_ins fake
@@ -1243,4 +1254,4 @@ let default_env : TopEnv =
         [
         "number", CNumber
         ] |> Map.ofList |> Map.map (fun _ -> C)
-    {hoc=PersistentVector.empty; ty=ty; term=Map.empty; prototypes=PersistentVector.empty; constraints=constraints}
+    {nominals=PersistentVector.empty; ty=ty; term=Map.empty; prototypes=PersistentVector.empty; constraints=constraints}

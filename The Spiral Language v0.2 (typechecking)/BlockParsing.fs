@@ -146,6 +146,7 @@ type ParserErrors =
     | DuplicateTermRecordInjection
     | DuplicateRecFunctionName
     | BottomUpNumberParseError of string * string
+    | ExpectedPairedSymbolInUnion
 
 type RawKindExpr =
     | RawKindWildcard
@@ -228,6 +229,7 @@ and RawTExpr =
     | RawTPrim of Range * PrimitiveType
     | RawTTerm of Range * RawExpr
     | RawTMacro of Range * RawMacro list
+    | RawTUnion of Range * Map<string,RawTExpr>
 
 let (+.) (a,_) (_,b) = a,b
 let range_of_hovar ((r,_) : HoVar) = r
@@ -296,6 +298,7 @@ let range_of_texpr = function
     | RawTMetaVar(r,_)
     | RawTVar(r,_)
     | RawTRecord(r,_)
+    | RawTUnion(r,_)
     | RawTSymbol(r,_)
     | RawTPrim(r,_)
     | RawTTerm(r,_)
@@ -1100,7 +1103,6 @@ type [<ReferenceEquality>] TopStatement =
     | TopAnd of Range * TopStatement
     | TopInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
     | TopRecInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
-    | TopUnion of Range * (Range * VarString) * HoVar list * RawTExpr list
     | TopNominal of Range * (Range * VarString) * HoVar list * RawTExpr
     | TopType of Range * (Range * VarString) * HoVar list * RawTExpr
     | TopPrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
@@ -1114,12 +1116,19 @@ let top_inl_or_let_process is_top_down = function
 let top_inl_or_let d = (inl_or_let root_term root_pattern_pair root_type_annot >>= fun x d -> top_inl_or_let_process d.is_top_down x) d
 
 let top_union d =
+    let process_clause x _ =
+        match x with
+        | RawTPair(r,RawTSymbol(_,a),b) -> Ok(r,(a,b))
+        | _ -> Error [range_of_texpr x, ExpectedPairedSymbolInUnion]
     let clauses d =
         let bar = bar (col d)
-        (optional bar >>. sepBy1 (root_type root_type_defaults) bar) d
+        (optional bar >>. sepBy1 (root_type root_type_defaults >>= process_clause) bar) d
 
     ((range (tuple3 (skip_keyword SpecUnion >>. read_type_var') (many ho_var .>> skip_op "=") clauses))
-    |>> fun (r,(n,a,b)) -> TopUnion(r,n,a,b)) d
+    |>> fun (r,(n,a,b)) -> 
+        let r' = List.map fst b |> List.reduce (+.)
+        let b = List.map snd b
+        TopNominal(r,n,a,RawTUnion(r',Map.ofList b))) d
 let top_nominal d = 
     (range (tuple3 (skip_keyword SpecNominal >>. read_type_var') (many ho_var .>> skip_op "=") (root_type {root_type_defaults with allow_term=true}))
     |>> fun (r,(n,a,b)) -> TopNominal(r,n,a,b)) d

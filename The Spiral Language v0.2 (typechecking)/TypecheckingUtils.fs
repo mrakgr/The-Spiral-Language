@@ -6,17 +6,11 @@ type BundleItem = { offset : int; statement : TopStatement}
 type Bundle = BundleItem list
 
 // These bundles have their range offsets distributed into them.
-type BundleRecType =
-    | BundleUnion of Range * (Range * VarString) * HoVar list * RawTExpr list
-    | BundleNominal of Range * (Range * VarString) * HoVar list * RawTExpr
-
-type BundleRecTerm = BundleRecInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
-
 type BundleTop =
-    | BundleRecType of BundleRecType list
-    | BundleInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
-    | BundleRecTerm of BundleRecTerm list
     | BundleType of Range * (Range * VarString) * HoVar list * RawTExpr
+    | BundleNominal of (Range * (Range * VarString) * HoVar list * RawTExpr) list
+    | BundleInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
+    | BundleRecInl of (Range * (Range * VarString) * RawExpr * bool) list
     | BundlePrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
     | BundleInstance of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawExpr
 
@@ -37,6 +31,7 @@ let rec fold_offset_ty offset x =
     | RawTPair(r,a,b) -> RawTPair(g r,f a,f b)
     | RawTFun(r,a,b) -> RawTFun(g r,f a,f b)
     | RawTRecord(r,a) -> RawTRecord(g r,Map.map (fun _ -> f) a)
+    | RawTUnion(r,a) -> RawTUnion(g r,Map.map (fun _ -> f) a)
     | RawTSymbol(r,a) -> RawTSymbol(g r,a)
     | RawTApply(r,a,b) -> RawTApply(g r,f a,f b)
     | RawTForall(r,a,b) -> RawTForall(g r,add_offset_typevar offset a,f b)
@@ -131,17 +126,16 @@ let bundle (l : Bundle) =
     | {statement=TopAnd _} :: x' -> failwith "Compiler error: TopAnd should be eliminated during the first bundling step."
     | {statement=TopRecInl _} :: _ as l ->
         l |> List.map (function
-            | {offset=i; statement=TopRecInl(r,a,b,c)} -> BundleRecInl(add_offset i r, add_offset_hovar i a, fold_offset_term i b, c)
+            | {offset=i; statement=TopRecInl(r,a,b,c)} -> (add_offset i r, add_offset_hovar i a, fold_offset_term i b, c)
             | _ -> failwith "Compiler error: Recursive inl statements can only be followed by statements of the same type."
             )
-        |> BundleRecTerm
-    | {statement=TopUnion _ | TopNominal _} :: _ as l ->
+        |> BundleRecInl
+    | {statement=TopNominal _} :: _ as l ->
         l |> List.map (function 
-            | {offset=i; statement=TopNominal(r,a,b,c)} -> BundleNominal(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
-            | {offset=i; statement=TopUnion(r,a,b,c)} -> BundleUnion(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, List.map (fold_offset_ty i) c)
+            | {offset=i; statement=TopNominal(r,a,b,c)} -> (add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
             | _ -> failwith "Compiler error: Recursive type statements can only be followed by statements of the same type."
             )
-        |> BundleRecType
+        |> BundleNominal
     | [{offset=i; statement=TopInl(r,a,b,c)}] -> BundleInl(add_offset i r, add_offset_hovar i a, fold_offset_term i b, c)
     | [{offset=i; statement=TopPrototype(r,a,b,c,d)}] -> BundlePrototype(add_offset i r, add_offset_hovar i a, add_offset_hovar i b, add_offset_typevar_list i c, fold_offset_ty i d)
     | [{offset=i; statement=TopType(r,a,b,c)}] -> BundleType(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
