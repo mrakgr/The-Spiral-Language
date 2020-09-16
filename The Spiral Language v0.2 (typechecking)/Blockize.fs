@@ -87,7 +87,7 @@ let block_bundle (l : ParsedBlock list) =
             match x.parsed with
             | Ok (TopAnd(r,_)) -> errors.Add("Invalid `and` statement.", x.offset +. r); init x'
             | Ok (TopRecInl _ as a) -> temp.Add {offset=x.offset; statement=a}; recinl x'
-            | Ok (TopNominal _ | TopUnion _ as a) -> temp.Add {offset=x.offset; statement=a}; rectype x'
+            | Ok (TopNominal _ as a) -> temp.Add {offset=x.offset; statement=a}; rectype x'
             | Ok a -> temp.Add {offset=x.offset; statement=a}; move_temp(); init x'
             | Error er -> BlockParsingError.show_block_parsing_error x.offset er |> errors.AddRange; init x'
         | [] -> move_temp()
@@ -104,7 +104,7 @@ let block_bundle (l : ParsedBlock list) =
         match l with
         | x :: x' ->
             match x.parsed with
-            | Ok (TopAnd(_, (TopNominal _ | TopUnion _) & a)) -> temp.Add {offset=x.offset; statement=a}; rectype x'
+            | Ok (TopAnd(_, TopNominal _ & a)) -> temp.Add {offset=x.offset; statement=a}; rectype x'
             | Ok (TopAnd(r, _)) -> errors.Add("`union` or `nominal` can only be followed by `and union` or `and nominal.", x.offset +. r); rectype x'
             | Ok _ -> move_temp(); init l
             | Error er -> BlockParsingError.show_block_parsing_error x.offset er |> errors.AddRange; rectype x'

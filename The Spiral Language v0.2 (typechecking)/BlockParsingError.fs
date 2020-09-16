@@ -91,6 +91,7 @@ let show_parser_error = function
     | DuplicateTermRecordInjection -> "Duplicate record injection."
     | DuplicateRecFunctionName -> "Shadowing of functions by the members of the same mutually recursive block is not allowed."
     | BottomUpNumberParseError (x, val_dsc) -> sprintf "The string %s cannot be safely parsed as %s." x val_dsc
+    | DuplicateUnionKey -> "Duplicate union keys are not allowed."
 
 let add_line_to_range line ((a,b) : Config.VSCRange) = {a with line=line+a.line}, {b with line=line+b.line}
     

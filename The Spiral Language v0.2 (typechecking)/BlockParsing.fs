@@ -147,6 +147,7 @@ type ParserErrors =
     | DuplicateRecFunctionName
     | BottomUpNumberParseError of string * string
     | ExpectedPairedSymbolInUnion
+    | DuplicateUnionKey
 
 type RawKindExpr =
     | RawKindWildcard
@@ -1125,10 +1126,13 @@ let top_union d =
         (optional bar >>. sepBy1 (root_type root_type_defaults >>= process_clause) bar) d
 
     ((range (tuple3 (skip_keyword SpecUnion >>. read_type_var') (many ho_var .>> skip_op "=") clauses))
-    |>> fun (r,(n,a,b)) -> 
-        let r' = List.map fst b |> List.reduce (+.)
-        let b = List.map snd b
-        TopNominal(r,n,a,RawTUnion(r',Map.ofList b))) d
+    >>= fun (r,(n,a,b)) _ -> 
+        match duplicates DuplicateUnionKey (List.map (fun (r,(a,_)) -> r,a) b) with
+        | [] ->
+            let r' = List.map fst b |> List.reduce (+.)
+            let b = List.map snd b
+            Ok(TopNominal(r,n,a,RawTUnion(r',Map.ofList b)))
+        | er -> Error er) d
 let top_nominal d = 
     (range (tuple3 (skip_keyword SpecNominal >>. read_type_var') (many ho_var .>> skip_op "=") (root_type {root_type_defaults with allow_term=true}))
     |>> fun (r,(n,a,b)) -> TopNominal(r,n,a,b)) d

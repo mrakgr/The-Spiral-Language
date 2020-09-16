@@ -248,20 +248,20 @@ let prepass (top_env : TopEnv) expr =
     match expr with
     | BundleType(r,(_,name),l,body) -> 
         {top_env with ty = eval_type' name l body top_env.ty}
-    | BundleRecType l ->
-        let env,_ =
-            List.fold (fun (env, i) -> function
-                | BundleUnion(r,(_,name),b,c) -> add_ty env name (THigherOrder i), i+1
-                | BundleNominal(r,(_,name),b,c) -> add_ty env name (THigherOrder i), i+1
-                ) (env, top_env.hoc.Length) l
-        let ty =
-            List.fold (fun ty -> function
-                | BundleUnion(r,(_,name),l,body) -> eval_type' name l body ty
-                | BundleNominal(r,(_,name),l,body) -> eval_type' name l body ty
-                ) top_env.ty l
-        { top_env with  ty = ty
-                        hoc = failwith "TODO"
-                        }
+    //| BundleRecType l ->
+    //    let env,_ =
+    //        List.fold (fun (env, i) -> function
+    //            | BundleUnion(r,(_,name),b,c) -> add_ty env name (THigherOrder i), i+1
+    //            | BundleNominal(r,(_,name),b,c) -> add_ty env name (THigherOrder i), i+1
+    //            ) (env, top_env.hoc.Length) l
+    //    let ty =
+    //        List.fold (fun ty -> function
+    //            | BundleUnion(r,(_,name),l,body) -> eval_type' name l body ty
+    //            | BundleNominal(r,(_,name),l,body) -> eval_type' name l body ty
+    //            ) top_env.ty l
+    //    { top_env with  ty = ty
+    //                    hoc = failwith "TODO"
+    //                    }
     //| BundleInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
     //| BundleRecTerm of BundleRecTerm list
     //| BundlePrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
