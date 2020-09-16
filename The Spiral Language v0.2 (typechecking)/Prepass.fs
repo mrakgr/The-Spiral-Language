@@ -54,6 +54,7 @@ and E =
     | EReal of Range * E
     | EMacro of Range * Macro list
     | EInline of Range * FreeVars * E
+    | EPrototypeApply of Id * T
     // Regular pattern matching
     | ELet of Range * Id * E * E
     | EPairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
@@ -78,25 +79,22 @@ and T =
     | TPair of Range * T * T
     | TFun of Range * T * T
     | TRecord of Range * Map<string,T>
+    | TUnion of Range * Map<string,T>
     | TSymbol of Range * string
     | TApply of Range * T * T
     | TPrim of Range * Config.PrimitiveType
     | TTerm of Range * E
     | TMacro of Range * TypeMacro list
     | TArrow of Range * FreeVars * TypeVar * T
-    | THigherOrder of Id
+    | TNominal of Id
 
 open FSharpx.Collections
-
-type HigherOrderCases =
-    | Union of name: string * TypeVar list * Map<string,T>
-    | Nominal of name: string * TypeVar list * T
 
 open BlockParsing
 open TypecheckingUtils
 type TopEnv = {
-    prototypes : Map<int,{|prefix : TT list; body : E|}> PersistentVector
-    hoc : HigherOrderCases PersistentVector
+    prototypes : Map<int,E> PersistentVector
+    nominals : {|body : T; name : string|} PersistentVector
     term : Map<string,E>
     ty : Map<string,T>
     }
@@ -144,6 +142,7 @@ let prepass (top_env : TopEnv) expr =
         | RawTPair(r,a,b) -> TPair(r,f a,f b)
         | RawTFun(r,a,b) -> TFun(r,f a,f b)
         | RawTRecord(r,l) -> TRecord(r,Map.map (fun _ -> f) l)
+        | RawTUnion(r,l) -> TUnion(r,Map.map (fun _ -> f) l)
         | RawTSymbol(r,a) -> TSymbol(r,a)
         | RawTApply(r,a,b) ->
             match f a, f b with
@@ -153,15 +152,15 @@ let prepass (top_env : TopEnv) expr =
                 | None -> raise (PrepassException [r,RecordIndexFailed b])
             | a,b -> TApply(r,a,b)
         | RawTPrim(r,a) -> TPrim(r,a)
-        | RawTTerm(r,a) -> TTerm(r,term env a)
+        | RawTTerm(r,a) -> TTerm(r,term false env a)
         | RawTMacro(r,l) -> 
             let f = function 
                 | RawMacroText(r,a) -> TMText a
                 | RawMacroTypeVar(r,a) -> TMType(v_ty env a)
                 | RawMacroTermVar _ -> failwith "Compiler error: Term vars should not appear on the type level."
             TMacro(r,List.map f l)
-    and term env x =
-        let f = term env
+    and term is_top_down env x =
+        let f = term is_top_down env
         match x with
         | RawB r -> EB r
         | RawV(r,a) -> v_term env a
@@ -170,16 +169,16 @@ let prepass (top_env : TopEnv) expr =
         | RawDefaultLit(r,a) -> failwith "TODO"
         | RawSymbolCreate(r,a) -> ESymbolCreate(r,a)
         | RawType(r,a) -> EType(r,ty env a)
-        | RawMatch(r,a,b) -> compile_pattern (Some a) b
-        | RawFun(r,a) -> compile_pattern None a
+        | RawMatch(r,a,b) -> compile_pattern is_top_down (Some a) b
+        | RawFun(r,a) -> compile_pattern is_top_down None a
         | RawTypecase(r,a,b) -> compile_typecase a b
         | RawForall(r,((_,(name,_)),_),b) -> 
             let tt = failwith "TODO"
             let id, env = add_ty_var env name
-            EForall(r,(),(id,tt),term env b)
+            EForall(r,(),(id,tt),term is_top_down env b)
         | RawRecBlock(r,l,on_succ) ->
             let l,env = List.mapFold (fun env ((r,name),body) -> let id,env = add_term_rec_var env name in (id,body), env) env l
-            ERecBlock(r,List.map (fun (id,body) -> id, term env body) l,term env on_succ)
+            ERecBlock(r,List.map (fun (id,body) -> id, term is_top_down env body) l,term is_top_down env on_succ)
         | RawRecordWith(r,a,b,c) ->
             let a = List.map f a
             let b = b |> List.map (function
@@ -210,7 +209,7 @@ let prepass (top_env : TopEnv) expr =
                 term = {|env.term with env = combine env.term.env a|}
                 ty = {|env.ty with env = combine env.ty.env b|}
                 }
-            term env on_succ
+            term is_top_down env on_succ
         | RawApply(r,a,b) ->
             match f a, f b with
             | ERecord a, ESymbolCreate(_,b) ->
@@ -223,7 +222,7 @@ let prepass (top_env : TopEnv) expr =
         | RawPairCreate(r,a,b) -> EPairCreate(r,f a,f b)
         | RawSeq(r,a,b) -> ESeq(r,f a,f b)
         | RawHeapMutableSet(r,a,b) -> EHeapMutableSet(r,f a,f b)
-        | RawReal(r,a) -> EReal(r,f a)
+        | RawReal(r,a) -> EReal(r,term false env a)
         | RawMacro(r,a) -> // TODO: Don't forget to fill in the types for the macros.
             let a = a |> List.map (function
                 | RawMacroText(r,a) -> MText a
@@ -244,26 +243,39 @@ let prepass (top_env : TopEnv) expr =
         let tt = failwith "TODO"
         let id, env = add_ty_var env name
         TArrow(r,(),(id,tt),on_succ env)
-    let eval_type' name l body top_env_ty = Map.add name (List.foldBack eval_type l (fun env -> ty env body) env) top_env_ty
+    let eval_type' env l body = List.foldBack eval_type l (fun env -> ty env body) env
     match expr with
-    | BundleType(r,(_,name),l,body) -> 
-        {top_env with ty = eval_type' name l body top_env.ty}
-    //| BundleRecType l ->
-    //    let env,_ =
-    //        List.fold (fun (env, i) -> function
-    //            | BundleUnion(r,(_,name),b,c) -> add_ty env name (THigherOrder i), i+1
-    //            | BundleNominal(r,(_,name),b,c) -> add_ty env name (THigherOrder i), i+1
-    //            ) (env, top_env.hoc.Length) l
-    //    let ty =
-    //        List.fold (fun ty -> function
-    //            | BundleUnion(r,(_,name),l,body) -> eval_type' name l body ty
-    //            | BundleNominal(r,(_,name),l,body) -> eval_type' name l body ty
-    //            ) top_env.ty l
-    //    { top_env with  ty = ty
-    //                    hoc = failwith "TODO"
-    //                    }
-    //| BundleInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
-    //| BundleRecTerm of BundleRecTerm list
-    //| BundlePrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
-    //| BundleInstance of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawExpr
+    | BundleType(r,(_,name),l,body) -> {top_env with ty = Map.add name (eval_type' env l body) top_env.ty}
+    | BundleNominal l ->
+        let env,_ = List.fold (fun (env,i) (r,(_,name),l,body) -> add_ty env name (TNominal i), i+1) (env, top_env.nominals.Length) l
+        let ty,nominals = 
+            List.fold (fun (ty, nominals) (r,(_,name),l,body) -> 
+                let x = eval_type' env l body
+                Map.add name x ty, PersistentVector.conj {|body=x; name=name|} nominals
+                ) (top_env.ty, top_env.nominals) l
+        {top_env with ty = ty; nominals = nominals}
+    | BundleInl(_,(_,name),body,is_top_down) ->
+        {top_env with term = Map.add name (term is_top_down env body) top_env.term}
+    | BundleRecInl l ->
+        let l, env = 
+            List.mapFold (fun env (_,(_,name),_,_ as x) -> 
+                let r = ref Unchecked.defaultof<_>
+                (x,r), add_term_rec env name (ERecursive r)
+                ) env l
+        let term = 
+            List.fold (fun top_env_term ((_,(_,name),body,is_top_down),r) ->
+                r := term is_top_down env body
+                Map.add name !r top_env_term
+                ) top_env.term l
+        {top_env with term = term}
+    | BundlePrototype(r,(_,name),_,_,_) ->
+        let tt = failwith "TODO"
+        let x = EForall(r,(),(0,tt),EPrototypeApply(top_env.prototypes.Length,TV 0))
+        {top_env with term = Map.add name x top_env.term; prototypes = PersistentVector.conj Map.empty top_env.prototypes}
+    | BundleInstance(r,(_,prot),(_,ins),l,body) ->
+        let prot_id = failwith "TODO"
+        let ins_id = match top_env.ty.[ins] with TNominal i -> i | _ -> failwith "Compiler error: Expected a nominal id."
+        // TODO: Don't forget to fill in the implicit foralls as well.
+        let body = List.foldBack (fun x s -> RawForall(range_of_typevar x +. range_of_expr s,x,s)) l body |> term true env 
+        {top_env with prototypes = PersistentVector.update prot_id (Map.add ins_id body top_env.prototypes.[prot_id]) top_env.prototypes}
         
