@@ -6,9 +6,6 @@ type FreeVars = unit
 //type Range = { uri : string; range : Config.VSCRange }
 type Range = BlockParsing.Range
 
-type TT = Type | Fun of TT * TT
-type TypeVar = Id * TT
-
 type Macro =
     | MText of string
     | MType of T
@@ -37,7 +34,7 @@ and E =
     | EApply of Range * E * E
     | EFun of Range * FreeVars * Id * E * T
     | ERecursive of E ref
-    | EForall of Range * FreeVars * TypeVar * E
+    | EForall of Range * FreeVars * Id * E
     | ERecBlock of Range * (Id * E) list * on_succ: E
     | ERecordWith of Range * E list * RecordWith list * RecordWithout list
     | ERecord of Map<string, E> // Used for modules.
@@ -85,7 +82,7 @@ and T =
     | TPrim of Range * Config.PrimitiveType
     | TTerm of Range * E
     | TMacro of Range * TypeMacro list
-    | TArrow of Range * FreeVars * TypeVar * T
+    | TArrow of Range * FreeVars * Id * T
     | TNominal of Id
 
 open FSharpx.Collections
@@ -173,9 +170,8 @@ let prepass (top_env : TopEnv) expr =
         | RawFun(r,a) -> compile_pattern is_top_down None a
         | RawTypecase(r,a,b) -> compile_typecase a b
         | RawForall(r,((_,(name,_)),_),b) -> 
-            let tt = failwith "TODO"
             let id, env = add_ty_var env name
-            EForall(r,(),(id,tt),term is_top_down env b)
+            EForall(r,(),id,term is_top_down env b)
         | RawRecBlock(r,l,on_succ) ->
             let l,env = List.mapFold (fun env ((r,name),body) -> let id,env = add_term_rec_var env name in (id,body), env) env l
             ERecBlock(r,List.map (fun (id,body) -> id, term is_top_down env body) l,term is_top_down env on_succ)
@@ -240,9 +236,8 @@ let prepass (top_env : TopEnv) expr =
         }
 
     let eval_type ((r,(name,kind)) : HoVar) on_succ env =
-        let tt = failwith "TODO"
         let id, env = add_ty_var env name
-        TArrow(r,(),(id,tt),on_succ env)
+        TArrow(r,(),id,on_succ env)
     let eval_type' env l body = List.foldBack eval_type l (fun env -> ty env body) env
     match expr with
     | BundleType(r,(_,name),l,body) -> {top_env with ty = Map.add name (eval_type' env l body) top_env.ty}
@@ -269,8 +264,7 @@ let prepass (top_env : TopEnv) expr =
                 ) top_env.term l
         {top_env with term = term}
     | BundlePrototype(r,(_,name),_,_,_) ->
-        let tt = failwith "TODO"
-        let x = EForall(r,(),(0,tt),EPrototypeApply(top_env.prototypes.Length,TV 0))
+        let x = EForall(r,(),0,EPrototypeApply(top_env.prototypes.Length,TV 0))
         {top_env with term = Map.add name x top_env.term; prototypes = PersistentVector.conj Map.empty top_env.prototypes}
     | BundleInstance(r,(_,prot),(_,ins),l,body) ->
         let prot_id = failwith "TODO"
