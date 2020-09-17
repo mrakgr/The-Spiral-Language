@@ -986,6 +986,11 @@ let infer (top_env : TopEnv) expr =
                 | RawMacroTermVar _ -> failwith "Compiler error: Term vars should never appear at the type level."
                 ) a
             |> TyMacro |> unify r s
+        | RawTLayout(r,a,b) -> 
+            let v = fresh_var()
+            unify r s (TyLayout(v,b))
+            f v a
+        | RawTNominal _ -> failwith "Compiler error: RawTNominal should be filled in by the inferencer."
         | RawTMetaVar _ -> failwith "Compiler error: This particular metavar is only for typecase's clauses. This happens during the bottom-up segment."
     and pattern env s a = 
         let is_first = System.Collections.Generic.HashSet()
