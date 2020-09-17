@@ -63,6 +63,7 @@ and fold_offset_term offset x =
     | RawMatch(r,a,b) -> RawMatch(g r,f a,List.map (fun (a,b) -> fold_offset_pattern offset a,f b) b)
     | RawFun(r,a) -> RawFun(g r,List.map (fun (a,b) -> fold_offset_pattern offset a,f b) a)
     | RawForall(r,a,b) -> RawForall(g r,add_offset_typevar offset a,f b)
+    | RawFilledForall(r,a,b) -> RawFilledForall(g r,a,f b)
     | RawRecBlock(r,a,b) -> RawRecBlock(g r,List.map (fun ((r,a),b) -> (g r,a),f b) a,f b)
     | RawRecordWith(r,a,b,c) -> 
         let b =

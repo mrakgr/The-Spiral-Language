@@ -188,6 +188,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
         | RawMatch(_,body,l) -> cterm constraints term ty body; List.iter (fun (a,b) -> cterm constraints (cpattern constraints term ty a) ty b) l
         | RawFun(_,l) -> List.iter (fun (a,b) -> cterm constraints (cpattern constraints term ty a) ty b) l
         | RawForall(_,((_,(a,_)),l),b) -> List.iter (check_cons constraints) l; cterm constraints term (Set.add a ty) b
+        | RawFilledForall _ -> failwith "Compiler error: Should not appear during type inference"
         | RawRecBlock(_,l,on_succ) -> 
             let term = List.fold (fun s ((_,x),_) -> Set.add x s) term l
             List.iter (fun (_,x) -> cterm constraints term ty x) l
@@ -240,9 +241,9 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
         let rec loop term x = 
             let f = loop term
             match x with
-            | PatDefaultValue _ | PatValue _ | PatSymbol _ | PatB _ | PatE _ -> term
+            | PatDefaultValue | PatDefaultValueFilled | PatValue | PatSymbol | PatB | PatE -> term
             | PatVar(_,b) -> 
-                //if is_first.Add b then () // TODO: I am doing it like this so I can reuse this code later for variable highting.
+                //if is_first.Add b then () // TODO: I am doing it like this so I can reuse this code later for variable highlighting.
                 Set.add b term
             | PatDyn(_,x) | PatUnbox(_,x) -> f x
             | PatPair(_,a,b) -> loop (loop term a) b
@@ -568,39 +569,68 @@ let t_to_rawtexpr r expr =
     f expr
 
 open System.Collections.Generic
-let fill (type_apply : Dictionary<_,_>) (ty : Dictionary<_,_>) expr =
+let fill (gen : Dictionary<_,_>) (type_apply : Dictionary<_,_>) (annot : Dictionary<obj,_>) expr =
     let rec term x = 
+        let fill_foralls r body = List.foldBack (fun x s -> RawFilledForall(r,x,s)) gen.[body] body
         match x with
-        | RawB _ | RawLit _ -> x
+        | RawFilledForall | RawMissingBody | RawReal | RawTypecase | RawType -> failwith "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only."
+        | RawSymbolCreate | RawB | RawLit -> x
         | RawBigV(r,a) -> term (RawApply(r,RawV(r,a), RawB r))
-        | RawV(r,a) -> x
-        //| RawLit of Range * Literal
-        //| RawDefaultLit of Range * string
-        //| RawSymbolCreate of Range * SymbolString
-        //| RawType of Range * RawTExpr
-        //| RawMatch of Range * body: RawExpr * (Pattern * RawExpr) list
-        //| RawFun of Range * (Pattern * RawExpr) list
-        //| RawForall of Range * TypeVar * RawExpr
-        //| RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
-        //| RawRecordWith of Range * RawExpr list * RawRecordWith list * RawRecordWithout list
-        //| RawOp of Range * Op * RawExpr list
-        //| RawJoinPoint of Range * RawExpr
-        //| RawAnnot of Range * RawExpr * RawTExpr
-        //| RawTypecase of Range * RawTExpr * (RawTExpr * RawExpr) list
-        //| RawModuleOpen of Range * (Range * VarString) * (Range * SymbolString) list * on_succ: RawExpr
-        //| RawApply of Range * RawExpr * RawExpr
-        //| RawIfThenElse of Range * RawExpr * RawExpr * RawExpr
-        //| RawIfThen of Range * RawExpr * RawExpr
-        //| RawPairCreate of Range * RawExpr * RawExpr
-        //| RawSeq of Range * RawExpr * RawExpr
-        //| RawHeapMutableSet of Range * RawExpr * RawExpr
-        //| RawReal of Range * RawExpr
-        //| RawMacro of Range * RawMacro list
-        //| RawMissingBody of Range
-        //| RawInline of Range * RawExpr // Acts like a join point during the prepass.
+        | RawV(r,_) -> List.fold (fun s x -> RawApply(r,s,RawType(r,x))) x type_apply.[x]
+        | RawDefaultLit(r,_) -> RawAnnot(r,x,annot.[x])
+        | RawFun(r,a) -> RawAnnot(r,RawFun(r,List.map (fun (a,b) -> pattern a, term b) a),annot.[x])
+        | RawForall(r,a,b) -> RawForall(r,a,term b)
+        | RawMatch(r'',(RawForall _ | RawFun _) & body,[PatVar(r,name), on_succ]) ->
+            let _,body = foralls_get body
+            RawMatch(r'',fill_foralls r body,[PatVar(r,name), term on_succ])
+        | RawMatch(r,a,b) -> RawMatch(r,term a,List.map (fun (a,b) -> pattern a, term b) b)
+        | RawRecBlock(r,l,on_succ) ->
+            let has_foralls = List.exists (function (_,RawForall _) -> true | _ -> false) l
+            if has_foralls then RawRecBlock(r,List.map (fun (a,b) -> a, term b) l,term on_succ)
+            else
+                let l = List.map (fun (a,b) -> a, fill_foralls (fst a) b) l
+                RawRecBlock(r,l,term on_succ)
+        | RawRecordWith(r,a,b,c) ->
+            let b = b |> List.map (function
+                | RawRecordWithSymbol(a,b) -> RawRecordWithSymbol(a,term b)
+                | RawRecordWithSymbolModify(a,b) -> RawRecordWithSymbolModify(a,term b)
+                | RawRecordWithInjectVar(a,b) -> RawRecordWithInjectVar(a,term b)
+                | RawRecordWithInjectVarModify(a,b) -> RawRecordWithInjectVarModify(a,term b)
+                )
+            RawRecordWith(r,List.map term a,b,c)
+        | RawOp(r,a,b) -> RawOp(r,a,List.map term b)
+        | RawJoinPoint(r,a) -> RawAnnot(r,RawJoinPoint(r,term a),annot.[x])
+        | RawAnnot(r,a,_) -> term a
+        | RawModuleOpen(r,a,b,c) -> RawModuleOpen(r,a,b,term c)
+        | RawApply(r,a,b) -> RawApply(r,term a,term b)
+        | RawIfThenElse(r,a,b,c) -> RawIfThenElse(r,term a,term b,term c)
+        | RawIfThen(r,a,b) -> RawIfThen(r,term a,term b)
+        | RawPairCreate(r,a,b) -> RawPairCreate(r,term a,term b)
+        | RawSeq(r,a,b) -> RawSeq(r,term a,term b)
+        | RawHeapMutableSet(r,a,b) -> RawHeapMutableSet(r,term a,term b)
+        | RawMacro(r,l) -> RawAnnot(r,x,annot.[x])
+        | RawInline(r,a) -> RawInline(r,term a)
     and pattern x =
         match x with
-        | PatB -> x
+        | PatDefaultValueFilled -> failwith "Compiler error: PatDefaultValueFilled should not appear in fill."
+        | PatValue | PatSymbol | PatVar | PatE | PatB -> x
+        | PatDyn(r,a) -> PatDyn(r,pattern a)
+        | PatUnbox(r,a) -> PatUnbox(r,pattern a)
+        | PatAnnot(_,a,_) -> pattern a
+        | PatPair(r,a,b) -> PatPair(r,pattern a,pattern b)
+        | PatRecordMembers(r,a) ->
+            let a = a |> List.map (function
+                | PatRecordMembersSymbol(a,b) -> PatRecordMembersSymbol(a,pattern b)
+                | PatRecordMembersInjectVar(a,b) -> PatRecordMembersInjectVar(a,pattern b)
+                )
+            PatRecordMembers(r,a)
+        | PatActive(r,a,b) -> PatActive(r,term a,pattern b)
+        | PatOr(r,a,b) -> PatOr(r,pattern a,pattern b)
+        | PatAnd(r,a,b) -> PatAnd(r,pattern a,pattern b)
+        | PatDefaultValue(r,a) -> PatDefaultValueFilled(r,a,annot.[x])
+        | PatWhen(r,a,b) -> PatWhen(r,pattern a,term b)
+        | PatNominal(r,a,b) -> PatNominal(r,a,pattern b)
+
     term expr
 
 open Spiral.TypecheckingUtils
@@ -913,6 +943,7 @@ let infer (top_env : TopEnv) expr =
 
             unify r s TyB
             f (try loop a with :? TypeErrorException as e -> errors.AddRange e.Data0; fresh_var()) b
+        | RawFilledForall _ -> failwith "Compiler error: Should not during type inference."
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
     and inl env ((r, name), body) =
         incr scope
@@ -1063,6 +1094,7 @@ let infer (top_env : TopEnv) expr =
         let rec loop (env : Env) s a =
             let f = loop env
             match a with
+            | PatDefaultValueFilled -> failwith "Compiler error: PatDefaultValueFilled should not appear during inference."
             | PatB r -> unify r s TyB; env
             | PatE r -> hover_types.Add(r,s); env
             | PatVar(r,a) ->

@@ -188,6 +188,7 @@ and Pattern =
     | PatAnd of Range * Pattern * Pattern
     | PatValue of Range * Literal
     | PatDefaultValue of Range * VarString
+    | PatDefaultValueFilled of Range * VarString * RawTExpr
     | PatWhen of Range * Pattern * RawExpr
     | PatNominal of Range * (Range * VarString) * Pattern
 and RawExpr =
@@ -201,6 +202,7 @@ and RawExpr =
     | RawMatch of Range * body: RawExpr * (Pattern * RawExpr) list
     | RawFun of Range * (Pattern * RawExpr) list
     | RawForall of Range * TypeVar * RawExpr
+    | RawFilledForall of Range * string * RawExpr // These are filled in by the inferencer.
     | RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
     | RawRecordWith of Range * RawExpr list * RawRecordWith list * RawRecordWithout list
     | RawOp of Range * Op * RawExpr list
@@ -264,6 +266,7 @@ let range_of_pattern = function
     | PatOr(r,_,_)
     | PatAnd(r,_,_)
     | PatWhen(r,_,_)
+    | PatDefaultValueFilled(r,_,_)
     | PatNominal(r,_,_) -> r
 let range_of_pat_record_member = function
     | PatRecordMembersSymbol((r,_),x)
@@ -288,6 +291,7 @@ let range_of_expr = function
     | RawAnnot(r,_,_)
     | RawTypecase(r,_,_)
     | RawForall(r,_,_)
+    | RawFilledForall(r,_,_)
     | RawApply(r,_,_)
     | RawPairCreate(r,_,_)
     | RawIfThen(r,_,_)
@@ -536,7 +540,7 @@ let patterns_validate pats =
     let errors = ResizeArray()
     let rec loop pat =
         match pat with
-        | PatDefaultValue _ | PatValue _ | PatSymbol _ | PatE | PatB -> Set.empty
+        | PatDefaultValueFilled | PatDefaultValue | PatValue | PatSymbol | PatE | PatB -> Set.empty
         | PatVar(r,x) -> 
             pos.Add(x,r)
             Set.singleton x
