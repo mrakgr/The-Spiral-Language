@@ -114,7 +114,7 @@ let rec typevar = function
 let rec metavars = function
     | RawTNominal _ | RawTMacro _ | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ -> Set.empty
     | RawTMetaVar(_,a) -> Set.singleton a
-    | RawTLayout(_,a,_) | RawTForall(_,_,a) -> metavars a
+    | RawTArray(_,a) | RawTLayout(_,a,_) | RawTForall(_,_,a) -> metavars a
     | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> metavars a + metavars b
     | RawTUnion(_,l) | RawTRecord(_,l) -> Map.fold (fun s _ v -> s + metavars v) Set.empty l
 
@@ -201,8 +201,8 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
             List.iter (function RawRecordWithoutSymbol _ -> () | RawRecordWithoutInjectVar (a,b) -> check_term term (a,b)) c
         | RawOp(_,_,l) -> List.iter (cterm constraints term ty) l
         | RawInline(_,x) | RawReal(_,x) | RawJoinPoint(_,x) -> cterm constraints term ty x
-        | RawAnnot(_,RawMacro(_,a),b) -> cmacro term ty a; ctype constraints term ty b
-        | RawMacro(r,a) -> errors.Add(r,MacroIsMissingAnnotation); cmacro term ty a
+        | RawAnnot(_,RawMacro(_,a),b) -> cmacro constraints term ty a; ctype constraints term ty b
+        | RawMacro(r,a) -> errors.Add(r,MacroIsMissingAnnotation); cmacro constraints term ty a
         | RawAnnot(_,a,b) -> cterm constraints term ty a; ctype constraints term ty b
         | RawTypecase(_,a,b) -> 
             ctype constraints term ty a
@@ -219,22 +219,22 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
         | RawHeapMutableSet(_,a,b) | RawSeq(_,a,b) | RawPairCreate(_,a,b) | RawIfThen(_,a,b) | RawApply(_,a,b) -> cterm constraints term ty a; cterm constraints term ty b
         | RawIfThenElse(_,a,b,c) -> cterm constraints term ty a; cterm constraints term ty b; cterm constraints term ty c
         | RawMissingBody r -> errors.Add(r,MissingBody)
-    and cmacro term ty a =
+    and cmacro constraints term ty a =
         List.iter (function
             | RawMacroText _ -> ()
-            | RawMacroTermVar(r,a) -> check_term term (r,a)
-            | RawMacroTypeVar(r,a) -> check_term ty (r,a)
+            | RawMacroTermVar(r,a) -> cterm constraints term ty a
+            | RawMacroTypeVar(r,a) -> ctype constraints term ty a
             ) a
     and ctype constraints term ty x =
         match x with
         | RawTNominal(_,_) | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
         | RawTVar(a,b) -> check_ty ty (a,b)
-        | RawTLayout(_,a,_) -> ctype constraints term ty a
+        | RawTArray(_,a) | RawTLayout(_,a,_) -> ctype constraints term ty a
         | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> ctype constraints term ty a; ctype constraints term ty b
         | RawTUnion(_,l) | RawTRecord(_,l) -> Map.iter (fun _ -> ctype constraints term ty) l
         | RawTForall(_,((_,(a,_)),l),b) -> List.iter (check_cons constraints) l; ctype constraints term (Set.add a ty) b
         | RawTTerm (_,a) -> cterm constraints term ty a
-        | RawTMacro(_,a) -> cmacro term ty a
+        | RawTMacro(_,a) -> cmacro constraints term ty a
     and cpattern constraints term ty x =
         //let is_first = System.Collections.Generic.HashSet()
         let rec loop term x = 
@@ -542,13 +542,68 @@ type InferResult = {
 type FilledTop =
     | FType of Range * (Range * VarString) * HoVar list * RawTExpr
     | FNominal of (Range * (Range * VarString) * HoVar list * RawTExpr) list
-    | FInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
-    | FRecInl of (Range * (Range * VarString) * RawExpr * bool) list
+    | FInl of Range * (Range * VarString) * RawExpr
+    | FRecInl of (Range * (Range * VarString) * RawExpr) list
     | FPrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
     | FInstance of Range * (Range * int) * (Range * int) * TypeVar list * RawExpr
 
-open Spiral.TypecheckingUtils
+let t_to_rawtexpr r expr =
+    let rec f = function
+        | TyMetavar _ -> failwith "Compiler error: Metavars should have all been substituted away by this point."
+        | TyForall _ -> failwith "Compiler error: Type level foralls should never appear in the inferencer."
+        | TyInl _ -> failwith "Compiler error: Type level functions should never appear in the inferencer."
+        | TyB -> RawTB r
+        | TyPrim x -> RawTPrim(r,x)
+        | TySymbol x -> RawTSymbol(r,x)
+        | TyPair(a,b) -> RawTPair(r,f a,f b)
+        | TyRecord l -> RawTRecord(r,Map.map (fun _ -> f) l)
+        | TyFun(a,b) -> RawTFun(r,f a,f b)
+        | TyArray a -> RawTArray(r,f a)
+        | TyNominal i -> RawTNominal(r,i)
+        | TyUnion l -> RawTUnion(r,Map.map (fun _ -> f) l)
+        | TyApply(a,b,_) -> RawTApply(r,f a,f b)
+        | TyVar a -> RawTVar(r,a.name)
+        | TyMacro l -> l |> List.map (function TMText x -> RawMacroText(r,x) | TMVar x -> RawMacroTypeVar(r,f x)) |> fun l -> RawTMacro(r,l)
+        | TyLayout(a,b) -> RawTLayout(r,f a,b)
+    f expr
+
 open System.Collections.Generic
+let fill (type_apply : Dictionary<_,_>) (ty : Dictionary<_,_>) expr =
+    let rec term x = 
+        match x with
+        | RawB _ | RawLit _ -> x
+        | RawBigV(r,a) -> term (RawApply(r,RawV(r,a), RawB r))
+        | RawV(r,a) -> x
+        //| RawLit of Range * Literal
+        //| RawDefaultLit of Range * string
+        //| RawSymbolCreate of Range * SymbolString
+        //| RawType of Range * RawTExpr
+        //| RawMatch of Range * body: RawExpr * (Pattern * RawExpr) list
+        //| RawFun of Range * (Pattern * RawExpr) list
+        //| RawForall of Range * TypeVar * RawExpr
+        //| RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
+        //| RawRecordWith of Range * RawExpr list * RawRecordWith list * RawRecordWithout list
+        //| RawOp of Range * Op * RawExpr list
+        //| RawJoinPoint of Range * RawExpr
+        //| RawAnnot of Range * RawExpr * RawTExpr
+        //| RawTypecase of Range * RawTExpr * (RawTExpr * RawExpr) list
+        //| RawModuleOpen of Range * (Range * VarString) * (Range * SymbolString) list * on_succ: RawExpr
+        //| RawApply of Range * RawExpr * RawExpr
+        //| RawIfThenElse of Range * RawExpr * RawExpr * RawExpr
+        //| RawIfThen of Range * RawExpr * RawExpr
+        //| RawPairCreate of Range * RawExpr * RawExpr
+        //| RawSeq of Range * RawExpr * RawExpr
+        //| RawHeapMutableSet of Range * RawExpr * RawExpr
+        //| RawReal of Range * RawExpr
+        //| RawMacro of Range * RawMacro list
+        //| RawMissingBody of Range
+        //| RawInline of Range * RawExpr // Acts like a join point during the prepass.
+    and pattern x =
+        match x with
+        | PatB -> x
+    term expr
+
+open Spiral.TypecheckingUtils
 let infer (top_env : TopEnv) expr =
     let mutable top_env = top_env
     let errors = ResizeArray()
@@ -833,11 +888,10 @@ let infer (top_env : TopEnv) expr =
         | RawMissingBody r -> errors.Add(r,MissingBody)
         | RawMacro(_,a) ->
             type_application.Add(x,s)
-            let f r = function Some a -> hover_types.Add(r,a) | None -> errors.Add(r,UnboundVariable)
             List.iter (function
                 | RawMacroText _ -> ()
-                | RawMacroTermVar(r,a) -> v_term env a |> f r
-                | RawMacroTypeVar(r,a) -> v_ty env a |> f r
+                | RawMacroTermVar(r,a) -> term env (fresh_var()) a
+                | RawMacroTypeVar(r,a) -> ty env (fresh_var()) a
                 ) a
         | RawHeapMutableSet(r,a,b) ->
             let rec loop = function
@@ -930,6 +984,10 @@ let infer (top_env : TopEnv) expr =
         let f s x = ty env s x
         match x with
         | RawTWildcard r -> hover_types.Add(r,s)
+        | RawTArray(r,a) -> 
+            let v = fresh_var()
+            unify r s (TyArray v)
+            f v a
         | RawTVar(r,x) -> 
             match v_ty env x with
             | Some x -> hover_types.Add(r,x); unify r s x
@@ -979,10 +1037,7 @@ let infer (top_env : TopEnv) expr =
         | RawTMacro(r,a) ->
             List.map (function
                 | RawMacroText(_,a) -> TMText a
-                | RawMacroTypeVar(r,a) ->
-                    match v_ty env a with
-                    | Some a -> hover_types.Add(r,a); TMVar a
-                    | None -> errors.Add(r,UnboundVariable); TMText "<error>"
+                | RawMacroTypeVar(r,a) -> let v = fresh_var() in f v a; TMVar v
                 | RawMacroTermVar _ -> failwith "Compiler error: Term vars should never appear at the type level."
                 ) a
             |> TyMacro |> unify r s

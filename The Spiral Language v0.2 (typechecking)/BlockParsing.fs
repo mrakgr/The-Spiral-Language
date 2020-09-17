@@ -156,13 +156,13 @@ type RawKindExpr =
     | RawKindStar
     | RawKindFun of RawKindExpr * RawKindExpr
 
-type RawMacro =
-    | RawMacroText of Range * string
-    | RawMacroTypeVar of Range * string
-    | RawMacroTermVar of Range * string
 type HoVar = Range * (VarString * RawKindExpr)
 type TypeVar = HoVar * (Range * VarString) list
-type RawRecordWith =
+type RawMacro =
+    | RawMacroText of Range * string
+    | RawMacroTypeVar of Range * RawTExpr
+    | RawMacroTermVar of Range * RawExpr
+and RawRecordWith =
     | RawRecordWithSymbol of (Range * SymbolString) * RawExpr
     | RawRecordWithSymbolModify of (Range * SymbolString) * RawExpr
     | RawRecordWithInjectVar of (Range * VarString) * RawExpr
@@ -225,6 +225,7 @@ and RawTExpr =
     | RawTVar of Range * VarString
     | RawTPair of Range * RawTExpr * RawTExpr
     | RawTFun of Range * RawTExpr * RawTExpr
+    | RawTArray of Range * RawTExpr
     | RawTRecord of Range * Map<string,RawTExpr>
     | RawTSymbol of Range * SymbolString
     | RawTApply of Range * RawTExpr * RawTExpr
@@ -302,6 +303,7 @@ let range_of_texpr = function
     | RawTMacro(r,_)
     | RawTMetaVar(r,_)
     | RawTVar(r,_)
+    | RawTArray(r,_)
     | RawTRecord(r,_)
     | RawTUnion(r,_)
     | RawTSymbol(r,_)
@@ -375,13 +377,13 @@ let read_text d =
 
 let read_macro_var d =
     try_current d <| function
-        | p, TokMacroTermVar x -> skip d; Ok(RawMacroTermVar(p,x))
-        | p, TokMacroTypeVar x -> skip d; Ok(RawMacroTypeVar(p,x))
+        | p, TokMacroTermVar x -> skip d; Ok(RawMacroTermVar(p,RawV(p,x)))
+        | p, TokMacroTypeVar x -> skip d; Ok(RawMacroTypeVar(p,RawTVar(p,x)))
         | p,_ -> Error [p, ExpectedMacroVar]
 
 let read_macro_type_var d =
     try_current d <| function
-        | p, TokMacroTypeVar x -> skip d; Ok(RawMacroTypeVar(p,x))
+        | p, TokMacroTypeVar x -> skip d; Ok(RawMacroTypeVar(p,RawTVar(p,x)))
         | p,_ -> Error [p, ExpectedMacroTypeVar]
 
 let skip_keyword t d =
