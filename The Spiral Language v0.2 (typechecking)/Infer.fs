@@ -570,15 +570,16 @@ let t_to_rawtexpr r expr =
 
 open System.Collections.Generic
 let fill (gen : Dictionary<_,_>) (type_apply : Dictionary<_,_>) (annot : Dictionary<obj,_>) expr =
+    let annot r x = t_to_rawtexpr r annot.[x]
     let rec term x = 
         let fill_foralls r body = List.foldBack (fun x s -> RawFilledForall(r,x,s)) gen.[body] body
         match x with
         | RawFilledForall | RawMissingBody | RawReal | RawTypecase | RawType -> failwith "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only."
         | RawSymbolCreate | RawB | RawLit -> x
         | RawBigV(r,a) -> term (RawApply(r,RawV(r,a), RawB r))
-        | RawV(r,_) -> List.fold (fun s x -> RawApply(r,s,RawType(r,x))) x type_apply.[x]
-        | RawDefaultLit(r,_) -> RawAnnot(r,x,annot.[x])
-        | RawFun(r,a) -> RawAnnot(r,RawFun(r,List.map (fun (a,b) -> pattern a, term b) a),annot.[x])
+        | RawV(r,_) -> List.fold (fun s x -> RawApply(r,s,RawType(r,t_to_rawtexpr r x))) x type_apply.[x]
+        | RawDefaultLit(r,_) -> RawAnnot(r,x,annot r x)
+        | RawFun(r,a) -> RawAnnot(r,RawFun(r,List.map (fun (a,b) -> pattern a, term b) a),annot r x)
         | RawForall(r,a,b) -> RawForall(r,a,term b)
         | RawMatch(r'',(RawForall _ | RawFun _) & body,[PatVar(r,name), on_succ]) ->
             let _,body = foralls_get body
@@ -599,7 +600,7 @@ let fill (gen : Dictionary<_,_>) (type_apply : Dictionary<_,_>) (annot : Diction
                 )
             RawRecordWith(r,List.map term a,b,c)
         | RawOp(r,a,b) -> RawOp(r,a,List.map term b)
-        | RawJoinPoint(r,a) -> RawAnnot(r,RawJoinPoint(r,term a),annot.[x])
+        | RawJoinPoint(r,a) -> RawAnnot(r,RawJoinPoint(r,term a),annot r x)
         | RawAnnot(r,a,_) -> term a
         | RawModuleOpen(r,a,b,c) -> RawModuleOpen(r,a,b,term c)
         | RawApply(r,a,b) -> RawApply(r,term a,term b)
@@ -608,7 +609,7 @@ let fill (gen : Dictionary<_,_>) (type_apply : Dictionary<_,_>) (annot : Diction
         | RawPairCreate(r,a,b) -> RawPairCreate(r,term a,term b)
         | RawSeq(r,a,b) -> RawSeq(r,term a,term b)
         | RawHeapMutableSet(r,a,b) -> RawHeapMutableSet(r,term a,term b)
-        | RawMacro(r,l) -> RawAnnot(r,x,annot.[x])
+        | RawMacro(r,l) -> RawAnnot(r,x,annot r x)
         | RawInline(r,a) -> RawInline(r,term a)
     and pattern x =
         match x with
@@ -627,7 +628,7 @@ let fill (gen : Dictionary<_,_>) (type_apply : Dictionary<_,_>) (annot : Diction
         | PatActive(r,a,b) -> PatActive(r,term a,pattern b)
         | PatOr(r,a,b) -> PatOr(r,pattern a,pattern b)
         | PatAnd(r,a,b) -> PatAnd(r,pattern a,pattern b)
-        | PatDefaultValue(r,a) -> PatDefaultValueFilled(r,a,annot.[x])
+        | PatDefaultValue(r,a) -> PatDefaultValueFilled(r,a,annot r x)
         | PatWhen(r,a,b) -> PatWhen(r,pattern a,term b)
         | PatNominal(r,a,b) -> PatNominal(r,a,pattern b)
 
@@ -1232,7 +1233,7 @@ let infer (top_env : TopEnv) expr =
             { top_env  with term = Map.add name body top_env.term; constraints = Map.add name (C cons) top_env.constraints; 
                             prototypes = PersistentVector.conj {|instances=Map.empty; name=name; signature=body|} top_env.prototypes }
         else top_env
-    | BundleInl(_,name,a,true) -> 
+    | BundleInl(_,name,a,true) ->
         let env = inl {term=Map.empty; ty=Map.empty; constraints=Map.empty} (name,a)
         {top_env with term = Map.foldBack Map.add env.term top_env.term}
     | BundleInl(_,(_,name),a,false) ->
