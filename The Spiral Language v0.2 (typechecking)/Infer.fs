@@ -27,8 +27,6 @@ type [<ReferenceEquality>] MVar = {
     kind : TT // Has metavars, and so is mutable.
     }
 
-type Layout = Heap | HeapMutable
-
 type TM =
     | TMText of string
     | TMVar of T
@@ -49,7 +47,7 @@ and T =
     | TyMetavar of MVar * T option ref
     | TyVar of Var
     | TyMacro of TM list
-    | TyLayout of T * Layout
+    | TyLayout of T * BlockParsing.Layout
 
 type TypeError =
     | KindError of TT * TT
@@ -94,6 +92,7 @@ type TypeError =
     | InstanceVarShouldNotMatchAnyOfPrototypes
     | MissingBody
     | MacroIsMissingAnnotation
+    | ShadowedForall
 
 let shorten' x link next = let x = next x in link.contents' <- Some x; x
 let rec visit_tt = function
@@ -113,9 +112,9 @@ let rec typevar = function
     | RawKindFun(a,b) -> KindFun(typevar a, typevar b)
 
 let rec metavars = function
-    | RawTMacro _ | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ -> Set.empty
+    | RawTNominal _ | RawTMacro _ | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ -> Set.empty
     | RawTMetaVar(_,a) -> Set.singleton a
-    | RawTForall(_,_,a) -> metavars a
+    | RawTLayout(_,a,_) | RawTForall(_,_,a) -> metavars a
     | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> metavars a + metavars b
     | RawTUnion(_,l) | RawTRecord(_,l) -> Map.fold (fun s _ v -> s + metavars v) Set.empty l
 
@@ -176,49 +175,49 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
     let errors = ResizeArray()
     let check_term term (a,b) = if Set.contains b term = false && Map.containsKey b top_env.term = false then errors.Add(a,UnboundVariable)
     let check_ty ty (a,b) = if Set.contains b ty = false && Map.containsKey b top_env.ty = false then errors.Add(a,UnboundVariable)
-    let check_cons (a,b) = 
-        match Map.tryFind b constraints with
+    let check_cons constraints (a,b) = 
+        match Map.tryFind b constraints |> Option.orElseWith (fun () -> Map.tryFind b top_env.constraints) with
         | Some (C _) -> ()
         | Some (M _) -> errors.Add(a,ExpectedConstraintInsteadOfModule)
         | None -> errors.Add(a,UnboundVariable)
-    let rec cterm term ty x =
+    let rec cterm constraints term ty x =
         match x with
         | RawSymbolCreate _ | RawDefaultLit _ | RawLit _ | RawB _ -> ()
         | RawBigV(a,b) | RawV(a,b) -> check_term term (a,b)
-        | RawType(_,x) -> ctype term ty x
-        | RawMatch(_,body,l) -> cterm term ty body; List.iter (fun (a,b) -> cterm (cpattern term ty a) ty b) l
-        | RawFun(_,l) -> List.iter (fun (a,b) -> cterm (cpattern term ty a) ty b) l
-        | RawForall(_,(((_,(a,_)),l)),b) -> List.iter check_cons l; cterm term (Set.add a ty) b
+        | RawType(_,x) -> ctype constraints term ty x
+        | RawMatch(_,body,l) -> cterm constraints term ty body; List.iter (fun (a,b) -> cterm constraints (cpattern constraints term ty a) ty b) l
+        | RawFun(_,l) -> List.iter (fun (a,b) -> cterm constraints (cpattern constraints term ty a) ty b) l
+        | RawForall(_,((_,(a,_)),l),b) -> List.iter (check_cons constraints) l; cterm constraints term (Set.add a ty) b
         | RawRecBlock(_,l,on_succ) -> 
             let term = List.fold (fun s ((_,x),_) -> Set.add x s) term l
-            List.iter (fun (_,x) -> cterm term ty x) l
-            cterm term ty on_succ
+            List.iter (fun (_,x) -> cterm constraints term ty x) l
+            cterm constraints term ty on_succ
         | RawRecordWith(_,a,b,c) ->
-            List.iter (cterm term ty) a
+            List.iter (cterm constraints term ty) a
             List.iter (function
-                | RawRecordWithSymbol(_,e) | RawRecordWithSymbolModify(_,e) -> cterm term ty e
-                | RawRecordWithInjectVar(v,e) | RawRecordWithInjectVarModify(v,e) -> check_term term v; cterm term ty e
+                | RawRecordWithSymbol(_,e) | RawRecordWithSymbolModify(_,e) -> cterm constraints term ty e
+                | RawRecordWithInjectVar(v,e) | RawRecordWithInjectVarModify(v,e) -> check_term term v; cterm constraints term ty e
                 ) b
             List.iter (function RawRecordWithoutSymbol _ -> () | RawRecordWithoutInjectVar (a,b) -> check_term term (a,b)) c
-        | RawOp(_,_,l) -> List.iter (cterm term ty) l
-        | RawInline(_,x) | RawReal(_,x) | RawJoinPoint(_,x) -> cterm term ty x
-        | RawAnnot(_,RawMacro(_,a),b) -> cmacro term ty a; ctype term ty b
+        | RawOp(_,_,l) -> List.iter (cterm constraints term ty) l
+        | RawInline(_,x) | RawReal(_,x) | RawJoinPoint(_,x) -> cterm constraints term ty x
+        | RawAnnot(_,RawMacro(_,a),b) -> cmacro term ty a; ctype constraints term ty b
         | RawMacro(r,a) -> errors.Add(r,MacroIsMissingAnnotation); cmacro term ty a
-        | RawAnnot(_,a,b) -> cterm term ty a; ctype term ty b
+        | RawAnnot(_,a,b) -> cterm constraints term ty a; ctype constraints term ty b
         | RawTypecase(_,a,b) -> 
-            ctype term ty a
+            ctype constraints term ty a
             List.iter (fun (a,b) -> 
-                ctype term ty a
-                cterm term (ty + metavars a) b
+                ctype constraints term ty a
+                cterm constraints term (ty + metavars a) b
                 ) b
         | RawModuleOpen(_,(a,b),l,on_succ) ->
             match module_open top_env a b l with
             | Ok x ->
                 let combine e m = Map.fold (fun s k _ -> Set.add k s) e m
-                cterm (combine term x.term) (combine ty x.ty) on_succ
+                cterm (Map.foldBack Map.add x.constraints constraints) (combine term x.term) (combine ty x.ty) on_succ
             | Error e -> errors.Add(e)
-        | RawHeapMutableSet(_,a,b) | RawSeq(_,a,b) | RawPairCreate(_,a,b) | RawIfThen(_,a,b) | RawApply(_,a,b) -> cterm term ty a; cterm term ty b
-        | RawIfThenElse(_,a,b,c) -> cterm term ty a; cterm term ty b; cterm term ty c
+        | RawHeapMutableSet(_,a,b) | RawSeq(_,a,b) | RawPairCreate(_,a,b) | RawIfThen(_,a,b) | RawApply(_,a,b) -> cterm constraints term ty a; cterm constraints term ty b
+        | RawIfThenElse(_,a,b,c) -> cterm constraints term ty a; cterm constraints term ty b; cterm constraints term ty c
         | RawMissingBody r -> errors.Add(r,MissingBody)
     and cmacro term ty a =
         List.iter (function
@@ -226,16 +225,17 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
             | RawMacroTermVar(r,a) -> check_term term (r,a)
             | RawMacroTypeVar(r,a) -> check_term ty (r,a)
             ) a
-    and ctype term ty x =
+    and ctype constraints term ty x =
         match x with
-        | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
+        | RawTNominal(_,_) | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
         | RawTVar(a,b) -> check_ty ty (a,b)
-        | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> ctype term ty a; ctype term ty b
-        | RawTUnion(_,l) | RawTRecord(_,l) -> Map.iter (fun _ -> ctype term ty) l
-        | RawTForall(_,((_,(a,_)),l),b) -> List.iter (check_ty ty) l; ctype term (Set.add a ty) b
-        | RawTTerm (_,a) -> cterm term ty a
+        | RawTLayout(_,a,_) -> ctype constraints term ty a
+        | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> ctype constraints term ty a; ctype constraints term ty b
+        | RawTUnion(_,l) | RawTRecord(_,l) -> Map.iter (fun _ -> ctype constraints term ty) l
+        | RawTForall(_,((_,(a,_)),l),b) -> List.iter (check_cons constraints) l; ctype constraints term (Set.add a ty) b
+        | RawTTerm (_,a) -> cterm constraints term ty a
         | RawTMacro(_,a) -> cmacro term ty a
-    and cpattern term ty x =
+    and cpattern constraints term ty x =
         //let is_first = System.Collections.Generic.HashSet()
         let rec loop term x = 
             let f = loop term
@@ -251,16 +251,16 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
                     | PatRecordMembersSymbol(_,x) -> loop s x
                     | PatRecordMembersInjectVar((a,b),x) -> check_term term (a,b); loop s x
                     ) term l
-            | PatActive(_,a,b) -> cterm term ty a; f b
+            | PatActive(_,a,b) -> cterm constraints term ty a; f b
             | PatAnd(_,a,b) | PatOr(_,a,b) -> loop (loop term a) b
-            | PatAnnot(_,a,b) -> let r = f a in ctype r ty b; r 
-            | PatWhen(_,a,b) -> let r = f a in cterm r ty b; r
+            | PatAnnot(_,a,b) -> let r = f a in ctype constraints r ty b; r 
+            | PatWhen(_,a,b) -> let r = f a in cterm constraints r ty b; r
             | PatNominal(_,(r,a),b) -> check_ty ty (r,a); f b
         loop term x
 
     match x with
-    | Choice1Of2 x -> cterm term ty x
-    | Choice2Of2 x -> ctype term ty x
+    | Choice1Of2 x -> cterm constraints term ty x
+    | Choice2Of2 x -> ctype constraints term ty x
     errors
 
 let assert_bound_vars (top_env : Env) constraints term ty x =
@@ -488,6 +488,7 @@ let show_type_error (env : TopEnv) x =
     | InstanceVarShouldNotMatchAnyOfPrototypes -> "Instance forall must not have the same name as any of the prototype foralls."
     | MissingBody -> "The function body is missing."
     | MacroIsMissingAnnotation -> "The macro needs an annotation."
+    | ShadowedForall -> "Shadowing of foralls (in the top-down) segment is not allowed."
 
 let loc_env (x : TopEnv) = {term=x.term; ty=x.ty; constraints=x.constraints}
 let names_of vars = List.map (fun x -> x.name) vars |> Set
@@ -536,6 +537,15 @@ type InferResult = {
     errors : VSCError list
     top_env : TopEnv
     }
+
+// Similar to BundleTop except with type annotations and type application filled in.
+type FilledTop =
+    | FType of Range * (Range * VarString) * HoVar list * RawTExpr
+    | FNominal of (Range * (Range * VarString) * HoVar list * RawTExpr) list
+    | FInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
+    | FRecInl of (Range * (Range * VarString) * RawExpr * bool) list
+    | FPrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
+    | FInstance of Range * (Range * int) * (Range * int) * TypeVar list * RawExpr
 
 open Spiral.TypecheckingUtils
 open System.Collections.Generic
@@ -853,6 +863,7 @@ let infer (top_env : TopEnv) expr =
     and inl env ((r, name), body) =
         incr scope
         let vars,body = foralls_get body
+        vars |> List.iter (fun ((r,(name,_)),_) -> if Map.containsKey name env.ty then errors.Add(r,ShadowedForall))
         let vars,env_ty = typevars env vars
         let body_var = fresh_var()
         term {env with ty = env_ty} body_var body
@@ -870,6 +881,7 @@ let infer (top_env : TopEnv) expr =
                 let l,m =
                     List.mapFold (fun s ((r,name),body) ->
                         let vars,body = foralls_get body
+                        vars |> List.iter (fun ((r,(name,_)),_) -> if Map.containsKey name env.ty then errors.Add(r,ShadowedForall))
                         let vars, env_ty = typevars env vars
                         let body_var = term_annotations {env with ty = env_ty} body
                         let term env = term {env with ty = env_ty} body_var (strip_annotations body)
@@ -1114,6 +1126,20 @@ let infer (top_env : TopEnv) expr =
                 ) (top_env.nominals, top_env.term) l
         if ers = errors.Count then {top_env with nominals = nominals; ty = env_ty; term = env_term}
         else top_env'
+    | BundlePrototype(_,(r,name),(_,var_init),vars,expr) ->
+        let er_count = errors.Count
+        let cons = CPrototype top_env.prototypes.Length
+        let v = {scope=0; constraints=Set.singleton cons; name=var_init; kind=List.foldBack (fun ((_,(_,k)),_) s -> KindFun(typevar k, s)) vars KindType}
+        let vars,env_ty = typevars {term=Map.empty; constraints=Map.empty; ty=Map.add var_init (TyVar v) Map.empty} vars
+        let vars = v :: vars
+        let v = fresh_var()
+        ty {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
+        let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
+        if er_count = errors.Count then
+            hover_types.Add(r,body)
+            { top_env  with term = Map.add name body top_env.term; constraints = Map.add name (C cons) top_env.constraints; 
+                            prototypes = PersistentVector.conj {|instances=Map.empty; name=name; signature=body|} top_env.prototypes }
+        else top_env
     | BundleInl(_,name,a,true) -> 
         let env = inl {term=Map.empty; ty=Map.empty; constraints=Map.empty} (name,a)
         {top_env with term = Map.foldBack Map.add env.term top_env.term}
@@ -1133,17 +1159,6 @@ let infer (top_env : TopEnv) expr =
             l |> List.iter (fun (_,_,x,_) -> assert_bound_vars {term = env_term; ty = Map.empty; constraints=Map.empty} x)
             env_term
         |> fun env_term -> {top_env with term = Map.foldBack Map.add env_term top_env.term}
-    | BundlePrototype(_,(r,name),(_,var_init),vars,expr) ->
-        let cons = CPrototype top_env.prototypes.Length
-        let v = {scope=0; constraints=Set.singleton cons; name=var_init; kind=List.foldBack (fun ((_,(_,k)),_) s -> KindFun(typevar k, s)) vars KindType}
-        let vars,env_ty = typevars {term=Map.empty; constraints=Map.empty; ty=Map.add var_init (TyVar v) Map.empty} vars
-        let vars = v :: vars
-        let v = fresh_var()
-        ty {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
-        let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
-        hover_types.Add(r,body)
-        { top_env  with term = Map.add name body top_env.term; constraints = Map.add name (C cons) top_env.constraints; 
-                        prototypes = PersistentVector.conj {|instances=Map.empty; name=name; signature=body|} top_env.prototypes }
     | BundleInstance(r,prot,ins,vars,body) ->
         let assert_no_kind x = x |> List.iter (fun ((r,(_,k)),_) -> match k with RawKindWildcard -> () | _ -> errors.Add(r,KindNotAllowedInInstanceForall))
         let assert_vars_count vars_count vars_expected = if vars_count <> vars_expected then errors.Add(r,InstanceCoreVarsShouldMatchTheArityDifference(vars_count,vars_expected))

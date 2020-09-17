@@ -38,6 +38,8 @@ let rec fold_offset_ty offset x =
     | RawTPrim(r,a) -> RawTPrim(g r,a)
     | RawTTerm(r,a) -> RawTTerm(g r,fold_offset_term offset a)
     | RawTMacro(r,a) -> RawTMacro(g r,fold_offset_macro offset a)
+    | RawTNominal(r,a) -> RawTNominal(g r,a)
+    | RawTLayout(r,a,b) -> RawTLayout(g r,f a,b)
 and fold_offset_macro offset a =
     let g = add_offset offset
     List.map (function

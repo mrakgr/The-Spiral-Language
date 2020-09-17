@@ -10,8 +10,10 @@ type SymbolString = string
 type VarString = string
 type NominalString = string
 
+type Layout = Heap | HeapMutable
+
 type Op =
-    // Tayout
+    // Layout
     | LayoutHeap
     | LayoutHeapMutable
     | LayoutIndiv
@@ -231,6 +233,8 @@ and RawTExpr =
     | RawTTerm of Range * RawExpr
     | RawTMacro of Range * RawMacro list
     | RawTUnion of Range * Map<string,RawTExpr>
+    | RawTNominal of Range * int // Does not occur in the parser. Is intended to be filled in by the inferencer.
+    | RawTLayout of Range * RawTExpr * Layout
 
 let (+.) (a,_) (_,b) = a,b
 let range_of_hovar ((r,_) : HoVar) = r
@@ -303,9 +307,11 @@ let range_of_texpr = function
     | RawTSymbol(r,_)
     | RawTPrim(r,_)
     | RawTTerm(r,_)
+    | RawTNominal(r,_)
     | RawTPair(r,_,_)
     | RawTFun(r,_,_)
     | RawTApply(r,_,_)
+    | RawTLayout(r,_,_)
     | RawTForall(r,_,_) -> r
 
 type Env = {
