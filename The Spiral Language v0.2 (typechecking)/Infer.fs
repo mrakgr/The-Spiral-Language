@@ -569,70 +569,82 @@ let t_to_rawtexpr r expr =
     f expr
 
 open System.Collections.Generic
-let fill (forall_names : Dictionary<_,_>) (type_apply_args : Dictionary<_,_>) (annotations : Dictionary<obj,_>) expr =
+let fill (generalized_statements : Dictionary<_,_>) (type_apply_args : Dictionary<_,_>) (annotations : Dictionary<obj,_>) rec_term expr =
     let annot r x = t_to_rawtexpr r annotations.[x]
-    let rec term x = 
-        let fill_foralls r body = List.foldBack (fun x s -> RawFilledForall(r,x,s)) forall_names.[body] body
+    let rec term rec_term x = 
+        let fill_foralls r body = 
+            let l,_ = foralls_ty_get generalized_statements.[body]
+            List.foldBack (fun (x : Var) s -> RawFilledForall(r,x.name,s)) l body
+        let f = term rec_term
+        let clauses l = List.map (fun (a, b) -> let rec_term,a = pattern rec_term a in a,term rec_term b) l
         match x with
         | RawFilledForall | RawMissingBody | RawReal | RawTypecase | RawType -> failwith "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only."
         | RawSymbolCreate | RawB | RawLit -> x
-        | RawBigV(r,a) -> term (RawApply(r,RawV(r,a), RawB r))
-        | RawV(r,_) -> List.fold (fun s x -> RawApply(r,s,RawType(r,t_to_rawtexpr r x))) x type_apply_args.[x]
+        | RawBigV(r,a) -> f (RawApply(r,RawV(r,a), RawB r))
+        | RawV(r,n) ->
+            match Map.tryFind n rec_term with
+            | None -> fst type_apply_args.[n]
+            | Some t -> t |> snd type_apply_args.[n]
+            |> List.fold (fun s x -> RawApply(r,s,RawType(r,t_to_rawtexpr r x))) x
         | RawDefaultLit(r,_) -> RawAnnot(r,x,annot r x)
-        | RawFun(r,a) -> RawAnnot(r,RawFun(r,List.map (fun (a,b) -> pattern a, term b) a),annot r x)
-        | RawForall(r,a,b) -> RawForall(r,a,term b)
-        | RawMatch(r'',(RawForall _ | RawFun _) & body,[PatVar(r,name), on_succ]) ->
+        | RawForall(r,a,b) -> RawForall(r,a,f b)
+        | RawMatch(r'',(RawForall | RawFun) & body,[PatVar(r,name), on_succ]) ->
             let _,body = foralls_get body
-            RawMatch(r'',fill_foralls r body,[PatVar(r,name), term on_succ])
-        | RawMatch(r,a,b) -> RawMatch(r,term a,List.map (fun (a,b) -> pattern a, term b) b)
+            RawMatch(r'',fill_foralls r body,[PatVar(r,name), term (Map.remove name rec_term) on_succ])
+        | RawMatch(r,a,b) -> RawMatch(r,f a,clauses b)
+        | RawFun(r,a) -> RawAnnot(r,RawFun(r,clauses a),annot r x)
         | RawRecBlock(r,l,on_succ) ->
             let has_foralls = List.exists (function (_,RawForall _) -> true | _ -> false) l
-            if has_foralls then RawRecBlock(r,List.map (fun (a,b) -> a, term b) l,term on_succ)
+            if has_foralls then RawRecBlock(r,List.map (fun (a,b) -> a, f b) l,f on_succ)
             else
-                let l = List.map (fun (a,b) -> a, fill_foralls (fst a) b) l
-                RawRecBlock(r,l,term on_succ)
+                let rec_term = List.fold (fun s ((_,name),b) -> Map.add name generalized_statements.[b] s) rec_term l
+                let l = List.map (fun (a,b) -> a, fill_foralls (fst a) (term rec_term b)) l
+                RawRecBlock(r,l,f on_succ)
         | RawRecordWith(r,a,b,c) ->
             let b = b |> List.map (function
-                | RawRecordWithSymbol(a,b) -> RawRecordWithSymbol(a,term b)
-                | RawRecordWithSymbolModify(a,b) -> RawRecordWithSymbolModify(a,term b)
-                | RawRecordWithInjectVar(a,b) -> RawRecordWithInjectVar(a,term b)
-                | RawRecordWithInjectVarModify(a,b) -> RawRecordWithInjectVarModify(a,term b)
+                | RawRecordWithSymbol(a,b) -> RawRecordWithSymbol(a,f b)
+                | RawRecordWithSymbolModify(a,b) -> RawRecordWithSymbolModify(a,f b)
+                | RawRecordWithInjectVar(a,b) -> RawRecordWithInjectVar(a,f b)
+                | RawRecordWithInjectVarModify(a,b) -> RawRecordWithInjectVarModify(a,f b)
                 )
-            RawRecordWith(r,List.map term a,b,c)
-        | RawOp(r,a,b) -> RawOp(r,a,List.map term b)
-        | RawJoinPoint(r,a) -> RawAnnot(r,RawJoinPoint(r,term a),annot r x)
-        | RawAnnot(r,a,_) -> term a
-        | RawModuleOpen(r,a,b,c) -> RawModuleOpen(r,a,b,term c)
-        | RawApply(r,a,b) -> RawApply(r,term a,term b)
-        | RawIfThenElse(r,a,b,c) -> RawIfThenElse(r,term a,term b,term c)
-        | RawIfThen(r,a,b) -> RawIfThen(r,term a,term b)
-        | RawPairCreate(r,a,b) -> RawPairCreate(r,term a,term b)
-        | RawSeq(r,a,b) -> RawSeq(r,term a,term b)
-        | RawHeapMutableSet(r,a,b) -> RawHeapMutableSet(r,term a,term b)
+            RawRecordWith(r,List.map f a,b,c)
+        | RawOp(r,a,b) -> RawOp(r,a,List.map f b)
+        | RawJoinPoint(r,a) -> RawAnnot(r,RawJoinPoint(r,f a),annot r x)
+        | RawAnnot(r,a,_) -> f a
+        | RawModuleOpen(r,a,b,c) -> RawModuleOpen(r,a,b,f c)
+        | RawApply(r,a,b) -> RawApply(r,f a,f b)
+        | RawIfThenElse(r,a,b,c) -> RawIfThenElse(r,f a,f b,f c)
+        | RawIfThen(r,a,b) -> RawIfThen(r,f a,f b)
+        | RawPairCreate(r,a,b) -> RawPairCreate(r,f a,f b)
+        | RawSeq(r,a,b) -> RawSeq(r,f a,f b)
+        | RawHeapMutableSet(r,a,b) -> RawHeapMutableSet(r,f a,f b)
         | RawMacro(r,l) -> 
-            let l = l |> List.map (function RawMacroTermVar(r,x) -> RawMacroTermVar(r,term x) | x -> x )
+            let l = l |> List.map (function RawMacroTermVar(r,x) -> RawMacroTermVar(r,f x) | x -> x )
             RawAnnot(r,RawMacro(r,l),annot r x)
-        | RawInline(r,a) -> RawInline(r,term a)
-    and pattern x =
-        match x with
-        | PatFilledDefaultValue -> failwith "Compiler error: PatDefaultValueFilled should not appear in fill."
-        | PatValue | PatSymbol | PatVar | PatE | PatB -> x
-        | PatDyn(r,a) -> PatDyn(r,pattern a)
-        | PatUnbox(r,a) -> PatUnbox(r,pattern a)
-        | PatAnnot(_,a,_) -> pattern a
-        | PatPair(r,a,b) -> PatPair(r,pattern a,pattern b)
-        | PatRecordMembers(r,a) ->
-            let a = a |> List.map (function
-                | PatRecordMembersSymbol(a,b) -> PatRecordMembersSymbol(a,pattern b)
-                | PatRecordMembersInjectVar(a,b) -> PatRecordMembersInjectVar(a,pattern b)
-                )
-            PatRecordMembers(r,a)
-        | PatActive(r,a,b) -> PatActive(r,term a,pattern b)
-        | PatOr(r,a,b) -> PatOr(r,pattern a,pattern b)
-        | PatAnd(r,a,b) -> PatAnd(r,pattern a,pattern b)
-        | PatDefaultValue(r,a) -> PatFilledDefaultValue(r,a,annot r x)
-        | PatWhen(r,a,b) -> PatWhen(r,pattern a,term b)
-        | PatNominal(r,a,b) -> PatNominal(r,a,pattern b)
+        | RawInline(r,a) -> RawInline(r,f a)
+    and pattern rec_term x =
+        let mutable rec_term = rec_term
+        let rec f = function
+            | PatFilledDefaultValue -> failwith "Compiler error: PatDefaultValueFilled should not appear in fill."
+            | PatValue | PatSymbol | PatE | PatB -> x
+            | PatVar(r,name) as x -> rec_term <- Map.remove name rec_term; x
+            | PatDyn(r,a) -> PatDyn(r,f a)
+            | PatUnbox(r,a) -> PatUnbox(r,f a)
+            | PatAnnot(_,a,_) -> f a
+            | PatPair(r,a,b) -> PatPair(r,f a,f b)
+            | PatRecordMembers(r,a) ->
+                let a = a |> List.map (function
+                    | PatRecordMembersSymbol(a,b) -> PatRecordMembersSymbol(a,f b)
+                    | PatRecordMembersInjectVar(a,b) -> PatRecordMembersInjectVar(a,f b)
+                    )
+                PatRecordMembers(r,a)
+            | PatActive(r,a,b) -> PatActive(r,term rec_term a,f b)
+            | PatOr(r,a,b) -> PatOr(r,f a,f b)
+            | PatAnd(r,a,b) -> PatAnd(r,f a,f b)
+            | PatDefaultValue(r,a) -> PatFilledDefaultValue(r,a,annot r x)
+            | PatWhen(r,a,b) -> PatWhen(r,f a,term rec_term b)
+            | PatNominal(r,a,b) -> PatNominal(r,a,f b)
+        rec_term, f x
 
     term expr
 
@@ -645,8 +657,8 @@ let infer (top_env : TopEnv) expr =
 
     let hover_types = Dictionary(HashIdentity.Reference)
 
-    let forall_names = Dictionary(HashIdentity.Reference)
-    let variable = Dictionary(HashIdentity.Reference)
+    let generalized_statements = Dictionary(HashIdentity.Reference)
+    let type_apply_args = Dictionary(HashIdentity.Reference)
     let annotations = Dictionary<obj,_>(HashIdentity.Reference)
 
     let fresh_kind () = KindMetavar {contents'=None}
@@ -820,11 +832,9 @@ let infer (top_env : TopEnv) expr =
             | Some a -> 
                 match a with TyForall -> annotations.Add(x,(r,s)) | _ -> ()
                 hover_types.Add(r,s)
-                variable.Add(name,fun a -> 
-                    let l,v = forall_subst_all a
-                    on_succ v
-                    )
-                on_succ (forall_subst_all a |> snd)
+                let f a = let l,v = forall_subst_all a in on_succ v; l
+                let l = f a
+                type_apply_args.Add(name,(l,f))
         match x with
         | RawB r -> unify r s TyB
         | RawV(r,a) -> rawv (r,a) (unify r s)
@@ -964,12 +974,12 @@ let infer (top_env : TopEnv) expr =
     and inl env ((r, name), body) =
         incr scope
         let vars,body = foralls_get body
-        forall_names.Add(body,List.map typevar_name vars)
         vars |> List.iter (fun ((r,(name,_)),_) -> if Map.containsKey name env.ty then errors.Add(r,ShadowedForall))
         let vars,env_ty = typevars env vars
         let body_var = fresh_var()
         term {env with ty = env_ty} body_var body
         let t = generalize vars body_var
+        generalized_statements.Add(body,t)
         hover_types.Add(r,t)
         let env = {env with term = Map.add name t env.term }
         decr scope
@@ -983,13 +993,13 @@ let infer (top_env : TopEnv) expr =
                 let l,m =
                     List.mapFold (fun s ((r,name),body) ->
                         let vars,body = foralls_get body
-                        forall_names.Add(body,List.map typevar_name vars)
                         vars |> List.iter (fun x -> if Map.containsKey (typevar_name x) env.ty then errors.Add(range_of_typevar x,ShadowedForall))
                         let vars, env_ty = typevars env vars
                         let body_var = term_annotations {env with ty = env_ty} body
                         let term env = term {env with ty = env_ty} body_var (strip_annotations body)
                         let gen env : Env = 
                             let t = generalize vars body_var
+                            generalized_statements.Add(body,t)
                             {env with term = Map.add name t env.term}
                         let ty = List.foldBack (fun x s -> TyForall(x,s)) vars body_var
                         hover_types.Add(r,ty)
