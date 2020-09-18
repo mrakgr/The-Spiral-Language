@@ -188,9 +188,9 @@ and Pattern =
     | PatAnd of Range * Pattern * Pattern
     | PatValue of Range * Literal
     | PatDefaultValue of Range * VarString
-    | PatDefaultValueFilled of Range * VarString * RawTExpr
     | PatWhen of Range * Pattern * RawExpr
     | PatNominal of Range * (Range * VarString) * Pattern
+    | PatFilledDefaultValue of Range * VarString * RawTExpr // Filled in by the inferencer.
 and RawExpr =
     | RawB of Range
     | RawV of Range * VarString
@@ -202,7 +202,6 @@ and RawExpr =
     | RawMatch of Range * body: RawExpr * (Pattern * RawExpr) list
     | RawFun of Range * (Pattern * RawExpr) list
     | RawForall of Range * TypeVar * RawExpr
-    | RawFilledForall of Range * string * RawExpr // These are filled in by the inferencer.
     | RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
     | RawRecordWith of Range * RawExpr list * RawRecordWith list * RawRecordWithout list
     | RawOp of Range * Op * RawExpr list
@@ -220,6 +219,7 @@ and RawExpr =
     | RawMacro of Range * RawMacro list
     | RawMissingBody of Range
     | RawInline of Range * RawExpr // Acts like a join point during the prepass.
+    | RawFilledForall of Range * string * RawExpr // Filled in by the inferencer.
 and RawTExpr =
     | RawTWildcard of Range
     | RawTB of Range
@@ -236,12 +236,13 @@ and RawTExpr =
     | RawTTerm of Range * RawExpr
     | RawTMacro of Range * RawMacro list
     | RawTUnion of Range * Map<string,RawTExpr>
-    | RawTNominal of Range * int // Does not occur in the parser. Is intended to be filled in by the inferencer.
     | RawTLayout of Range * RawTExpr * Layout
+    | RawTFilledNominal of Range * int // Filled in by the inferencer.
 
 let (+.) (a,_) (_,b) = a,b
 let range_of_hovar ((r,_) : HoVar) = r
 let range_of_typevar ((x,_) : TypeVar) = range_of_hovar x
+let typevar_name (((_,(name,_)),_) : TypeVar) = name
 let range_of_record_with = function
     | RawRecordWithSymbol((r,_),_)
     | RawRecordWithSymbolModify((r,_),_)
@@ -266,7 +267,7 @@ let range_of_pattern = function
     | PatOr(r,_,_)
     | PatAnd(r,_,_)
     | PatWhen(r,_,_)
-    | PatDefaultValueFilled(r,_,_)
+    | PatFilledDefaultValue(r,_,_)
     | PatNominal(r,_,_) -> r
 let range_of_pat_record_member = function
     | PatRecordMembersSymbol((r,_),x)
@@ -313,7 +314,7 @@ let range_of_texpr = function
     | RawTSymbol(r,_)
     | RawTPrim(r,_)
     | RawTTerm(r,_)
-    | RawTNominal(r,_)
+    | RawTFilledNominal(r,_)
     | RawTPair(r,_,_)
     | RawTFun(r,_,_)
     | RawTApply(r,_,_)
@@ -381,7 +382,7 @@ let read_text d =
 
 let read_macro_var d =
     try_current d <| function
-        | p, TokMacroTermVar x -> skip d; Ok(RawMacroTermVar(p,RawV(p,x)))
+        | p, TokMacroTermVar x -> skip d; Ok(RawMacroTermVar(p,if Char.IsUpper(x,0) then RawBigV(p,x) else RawV(p,x)))
         | p, TokMacroTypeVar x -> skip d; Ok(RawMacroTypeVar(p,RawTVar(p,x)))
         | p,_ -> Error [p, ExpectedMacroVar]
 
@@ -540,7 +541,7 @@ let patterns_validate pats =
     let errors = ResizeArray()
     let rec loop pat =
         match pat with
-        | PatDefaultValueFilled | PatDefaultValue | PatValue | PatSymbol | PatE | PatB -> Set.empty
+        | PatFilledDefaultValue | PatDefaultValue | PatValue | PatSymbol | PatE | PatB -> Set.empty
         | PatVar(r,x) -> 
             pos.Add(x,r)
             Set.singleton x
