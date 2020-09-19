@@ -10,7 +10,7 @@ type BundleTop =
     | BundleType of Range * (Range * VarString) * HoVar list * RawTExpr
     | BundleNominal of (Range * (Range * VarString) * HoVar list * RawTExpr) list
     | BundleInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
-    | BundleRecInl of (Range * (Range * VarString) * RawExpr * bool) list
+    | BundleRecInl of (Range * (Range * VarString) * RawExpr) list * is_top_down: bool
     | BundlePrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
     | BundleInstance of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawExpr
 
@@ -101,6 +101,7 @@ and fold_offset_pattern offset x =
     let g = add_offset offset
     let g' x = add_offset_hovar offset x
     match x with
+    | PatFilledDefaultValue -> failwith "Compiler error: Later stages only."
     | PatB r -> PatB(g r)
     | PatE r -> PatE(g r)
     | PatVar(r,a) -> PatVar(g r,a)
@@ -129,10 +130,10 @@ let bundle (l : Bundle) =
     | [] -> failwith "Compiler error: Bundle should have at least one statement."
     | {statement=TopAnd _} :: x' -> failwith "Compiler error: TopAnd should be eliminated during the first bundling step."
     | {statement=TopRecInl _} :: _ as l ->
-        l |> List.map (function
-            | {offset=i; statement=TopRecInl(r,a,b,c)} -> (add_offset i r, add_offset_hovar i a, fold_offset_term i b, c)
+        l |> List.mapFold (fun _ -> function
+            | {offset=i; statement=TopRecInl(r,a,b,c)} -> (add_offset i r, add_offset_hovar i a, fold_offset_term i b), c
             | _ -> failwith "Compiler error: Recursive inl statements can only be followed by statements of the same type."
-            )
+            ) true
         |> BundleRecInl
     | {statement=TopNominal _} :: _ as l ->
         l |> List.map (function 

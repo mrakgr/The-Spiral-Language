@@ -532,12 +532,6 @@ let hovars (x : HoVar list) =
 let autogen_name (i : int) = let x = char i + 'a' in if 'z' < x then sprintf "'%i" i else sprintf "'%c" x
 let trim_kind = function KindFun(_,k) -> k | _ -> failwith "impossible"
 
-type InferResult = {
-    hovers : (Range * string) []
-    errors : VSCError list
-    top_env : TopEnv
-    }
-
 // Similar to BundleTop except with type annotations and type application filled in.
 type FilledTop =
     | FType of Range * (Range * VarString) * HoVar list * RawTExpr
@@ -546,6 +540,13 @@ type FilledTop =
     | FRecInl of (Range * (Range * VarString) * RawExpr) list
     | FPrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
     | FInstance of Range * (Range * int) * (Range * int) * TypeVar list * RawExpr
+
+type InferResult = {
+    filled_top : FilledTop Lazy list
+    hovers : (Range * string) []
+    errors : VSCError list
+    top_env : TopEnv
+    }
 
 let t_to_rawtexpr r expr =
     let rec f x = 
@@ -569,97 +570,106 @@ let t_to_rawtexpr r expr =
     f expr
 
 open System.Collections.Generic
-let fill (generalized_statements : Dictionary<_,_>) (type_apply_args : Dictionary<_,_>) (annotations : Dictionary<obj,_>) rec_term expr =
-    let annot r x = t_to_rawtexpr r annotations.[x]
-    let rec term rec_term x = 
-        let fill_foralls r body = 
-            let l,_ = foralls_ty_get generalized_statements.[body]
-            List.foldBack (fun (x : Var) s -> RawFilledForall(r,x.name,s)) l body
-        let f = term rec_term
-        let clauses l = List.map (fun (a, b) -> let rec_term,a = pattern rec_term a in a,term rec_term b) l
-        match x with
-        | RawFilledForall | RawMissingBody | RawReal | RawTypecase | RawType -> failwith "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only."
-        | RawSymbolCreate | RawB | RawLit -> x
-        | RawBigV(r,a) -> f (RawApply(r,RawV(r,a), RawB r))
-        | RawV(r,n) ->
-            match Map.tryFind n rec_term with
-            | None -> fst type_apply_args.[n]
-            | Some t -> t |> snd type_apply_args.[n]
-            |> List.fold (fun s x -> RawApply(r,s,RawType(r,t_to_rawtexpr r x))) x
-        | RawDefaultLit(r,_) -> RawAnnot(r,x,annot r x)
-        | RawForall(r,a,b) -> RawForall(r,a,f b)
-        | RawMatch(r'',(RawForall | RawFun) & body,[PatVar(r,name), on_succ]) ->
-            let _,body = foralls_get body
-            RawMatch(r'',fill_foralls r body,[PatVar(r,name), term (Map.remove name rec_term) on_succ])
-        | RawMatch(r,a,b) -> RawMatch(r,f a,clauses b)
-        | RawFun(r,a) -> RawAnnot(r,RawFun(r,clauses a),annot r x)
-        | RawRecBlock(r,l,on_succ) ->
-            let has_foralls = List.exists (function (_,RawForall _) -> true | _ -> false) l
-            if has_foralls then RawRecBlock(r,List.map (fun (a,b) -> a, f b) l,f on_succ)
-            else
-                let rec_term = List.fold (fun s ((_,name),b) -> Map.add name generalized_statements.[b] s) rec_term l
-                let l = List.map (fun (a,b) -> a, fill_foralls (fst a) (term rec_term b)) l
-                RawRecBlock(r,l,f on_succ)
-        | RawRecordWith(r,a,b,c) ->
-            let b = b |> List.map (function
-                | RawRecordWithSymbol(a,b) -> RawRecordWithSymbol(a,f b)
-                | RawRecordWithSymbolModify(a,b) -> RawRecordWithSymbolModify(a,f b)
-                | RawRecordWithInjectVar(a,b) -> RawRecordWithInjectVar(a,f b)
-                | RawRecordWithInjectVarModify(a,b) -> RawRecordWithInjectVarModify(a,f b)
-                )
-            RawRecordWith(r,List.map f a,b,c)
-        | RawOp(r,a,b) -> RawOp(r,a,List.map f b)
-        | RawJoinPoint(r,a) -> RawAnnot(r,RawJoinPoint(r,f a),annot r x)
-        | RawAnnot(r,a,_) -> f a
-        | RawModuleOpen(r,a,b,c) -> RawModuleOpen(r,a,b,f c)
-        | RawApply(r,a,b) -> RawApply(r,f a,f b)
-        | RawIfThenElse(r,a,b,c) -> RawIfThenElse(r,f a,f b,f c)
-        | RawIfThen(r,a,b) -> RawIfThen(r,f a,f b)
-        | RawPairCreate(r,a,b) -> RawPairCreate(r,f a,f b)
-        | RawSeq(r,a,b) -> RawSeq(r,f a,f b)
-        | RawHeapMutableSet(r,a,b) -> RawHeapMutableSet(r,f a,f b)
-        | RawMacro(r,l) -> 
-            let l = l |> List.map (function RawMacroTermVar(r,x) -> RawMacroTermVar(r,f x) | x -> x )
-            RawAnnot(r,RawMacro(r,l),annot r x)
-        | RawInline(r,a) -> RawInline(r,f a)
-    and pattern rec_term x =
-        let mutable rec_term = rec_term
-        let rec f = function
-            | PatFilledDefaultValue -> failwith "Compiler error: PatDefaultValueFilled should not appear in fill."
-            | PatValue | PatSymbol | PatE | PatB -> x
-            | PatVar(r,name) as x -> rec_term <- Map.remove name rec_term; x
-            | PatDyn(r,a) -> PatDyn(r,f a)
-            | PatUnbox(r,a) -> PatUnbox(r,f a)
-            | PatAnnot(_,a,_) -> f a
-            | PatPair(r,a,b) -> PatPair(r,f a,f b)
-            | PatRecordMembers(r,a) ->
-                let a = a |> List.map (function
-                    | PatRecordMembersSymbol(a,b) -> PatRecordMembersSymbol(a,f b)
-                    | PatRecordMembersInjectVar(a,b) -> PatRecordMembersInjectVar(a,f b)
-                    )
-                PatRecordMembers(r,a)
-            | PatActive(r,a,b) -> PatActive(r,term rec_term a,f b)
-            | PatOr(r,a,b) -> PatOr(r,f a,f b)
-            | PatAnd(r,a,b) -> PatAnd(r,f a,f b)
-            | PatDefaultValue(r,a) -> PatFilledDefaultValue(r,a,annot r x)
-            | PatWhen(r,a,b) -> PatWhen(r,f a,term rec_term b)
-            | PatNominal(r,a,b) -> PatNominal(r,a,f b)
-        rec_term, f x
-
-    term expr
-
 open Spiral.TypecheckingUtils
 let infer (top_env : TopEnv) expr =
     let mutable top_env_inner = top_env // Is mutated only in two places at the top level. During actual inference can otherwise be thought of as immutable.
     let errors = ResizeArray()
+    let generalized_statements = Dictionary(HashIdentity.Reference)
+    let type_apply_args = Dictionary(HashIdentity.Reference)
+    let annotations = Dictionary<obj,_>(HashIdentity.Reference)
+
+    /// Fills in the type applies and annotations, and generalizes statements. Also strips annotations from terms and patterns.
+    /// Dealing with recursive statement type applies requires some special consideration.
+    let fill r rec_term expr =
+        if 0 <> errors.Count then failwith "Compiler error: `fill` called when the number of errors in a statement is not zero." // TODO: Replace this with an assert.
+        let annot r x = t_to_rawtexpr r (snd annotations.[x])
+        let rec fill_foralls r rec_term body = 
+            let l,_ = foralls_ty_get generalized_statements.[body]
+            List.foldBack (fun (x : Var) s -> RawFilledForall(r,x.name,s)) l (term rec_term body)
+        and term rec_term x = 
+            let f = term rec_term
+            let clauses l = List.map (fun (a, b) -> let rec_term,a = pattern rec_term a in a,term rec_term b) l
+            match x with
+            | RawFilledForall | RawMissingBody | RawReal | RawTypecase | RawType -> failwith "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only."
+            | RawSymbolCreate | RawB | RawLit -> x
+            | RawBigV(r,a) -> f (RawApply(r,RawV(r,a), RawB r))
+            | RawV(r,n) ->
+                match Map.tryFind n rec_term with
+                | None -> fst type_apply_args.[n]
+                | Some t -> t |> snd type_apply_args.[n]
+                |> List.fold (fun s x -> RawApply(r,s,RawType(r,t_to_rawtexpr r x))) x
+            | RawDefaultLit(r,_) -> RawAnnot(r,x,annot r x)
+            | RawForall(r,a,b) -> RawForall(r,a,f b)
+            | RawMatch(r'',(RawForall | RawFun) & body,[PatVar(r,name), on_succ]) ->
+                let _,body = foralls_get body
+                RawMatch(r'',fill_foralls r rec_term body,[PatVar(r,name), term (Map.remove name rec_term) on_succ])
+            | RawMatch(r,a,b) -> RawMatch(r,f a,clauses b)
+            | RawFun(r,a) -> RawAnnot(r,RawFun(r,clauses a),annot r x)
+            | RawRecBlock(r,l,on_succ) ->
+                let has_foralls = List.exists (function (_,RawForall _) -> true | _ -> false) l
+                if has_foralls then RawRecBlock(r,List.map (fun (a,b) -> a, f b) l,f on_succ)
+                else
+                    let rec_term = List.fold (fun s ((_,name),b) -> Map.add name generalized_statements.[b] s) rec_term l
+                    let l = List.map (fun (a,b) -> a, fill_foralls (fst a) rec_term b) l
+                    RawRecBlock(r,l,f on_succ)
+            | RawRecordWith(r,a,b,c) ->
+                let b = b |> List.map (function
+                    | RawRecordWithSymbol(a,b) -> RawRecordWithSymbol(a,f b)
+                    | RawRecordWithSymbolModify(a,b) -> RawRecordWithSymbolModify(a,f b)
+                    | RawRecordWithInjectVar(a,b) -> RawRecordWithInjectVar(a,f b)
+                    | RawRecordWithInjectVarModify(a,b) -> RawRecordWithInjectVarModify(a,f b)
+                    )
+                RawRecordWith(r,List.map f a,b,c)
+            | RawOp(r,a,b) -> RawOp(r,a,List.map f b)
+            | RawJoinPoint(r,a) -> RawAnnot(r,RawJoinPoint(r,f a),annot r x)
+            | RawAnnot(r,a,_) -> f a
+            | RawModuleOpen(r,a,b,c) ->
+                let f = function TyRecord s -> s | _ -> failwith "Compiler error: Module open should always succeed in fill."
+                List.fold (fun s x -> (f s).[snd x]) top_env_inner.term.[snd a] b |> f
+                |> Map.fold (fun s k _ -> Map.remove k s) rec_term
+                |> fun rec_term -> RawModuleOpen(r,a,b,term rec_term c)
+            | RawApply(r,a,b) -> RawApply(r,f a,f b)
+            | RawIfThenElse(r,a,b,c) -> RawIfThenElse(r,f a,f b,f c)
+            | RawIfThen(r,a,b) -> RawIfThen(r,f a,f b)
+            | RawPairCreate(r,a,b) -> RawPairCreate(r,f a,f b)
+            | RawSeq(r,a,b) -> RawSeq(r,f a,f b)
+            | RawHeapMutableSet(r,a,b) -> RawHeapMutableSet(r,f a,f b)
+            | RawMacro(r,l) -> 
+                let l = l |> List.map (function RawMacroTermVar(r,x) -> RawMacroTermVar(r,f x) | x -> x )
+                RawAnnot(r,RawMacro(r,l),annot r x)
+            | RawInline(r,a) -> RawInline(r,f a)
+        and pattern rec_term x =
+            let mutable rec_term = rec_term
+            let rec f = function
+                | PatFilledDefaultValue -> failwith "Compiler error: PatDefaultValueFilled should not appear in fill."
+                | PatValue | PatSymbol | PatE | PatB -> x
+                | PatVar(r,name) as x -> rec_term <- Map.remove name rec_term; x
+                | PatDyn(r,a) -> PatDyn(r,f a)
+                | PatUnbox(r,a) -> PatUnbox(r,f a)
+                | PatAnnot(_,a,_) -> f a
+                | PatPair(r,a,b) -> PatPair(r,f a,f b)
+                | PatRecordMembers(r,a) ->
+                    let a = a |> List.map (function
+                        | PatRecordMembersSymbol(a,b) -> PatRecordMembersSymbol(a,f b)
+                        | PatRecordMembersInjectVar(a,b) -> PatRecordMembersInjectVar(a,f b)
+                        )
+                    PatRecordMembers(r,a)
+                | PatActive(r,a,b) -> PatActive(r,term rec_term a,f b)
+                | PatOr(r,a,b) -> PatOr(r,f a,f b)
+                | PatAnd(r,a,b) -> PatAnd(r,f a,f b)
+                | PatDefaultValue(r,a) -> PatFilledDefaultValue(r,a,annot r x)
+                | PatWhen(r,a,b) -> PatWhen(r,f a,term rec_term b)
+                | PatNominal(r,a,b) -> PatNominal(r,a,f b)
+            rec_term, f x
+
+        let x = fill_foralls r rec_term expr
+        if 0 <> errors.Count then failwith "Compiler error: `fill` finished with nonzero errors as a result."
+        x
+
     let scope = ref 0
     let autogened_forallvar_count = ref 0
 
     let hover_types = Dictionary(HashIdentity.Reference)
-
-    let generalized_statements = Dictionary(HashIdentity.Reference)
-    let type_apply_args = Dictionary(HashIdentity.Reference)
-    let annotations = Dictionary<obj,_>(HashIdentity.Reference)
 
     let fresh_kind () = KindMetavar {contents'=None}
     let fresh_var'' x = TyMetavar (x, ref None)
@@ -1210,23 +1220,20 @@ let infer (top_env : TopEnv) expr =
         loop env s a
 
     match expr with
-    | BundleType(_,(r,name),vars,expr) ->
-        let ers = errors.Count
-        let vars,env_ty = hovars vars
+    | BundleType(q,(r,name),vars',expr) ->
+        let vars,env_ty = hovars vars'
         let v = fresh_var()
         ty {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
         let t = List.foldBack (fun x s -> TyInl(x,s)) vars (term_subst v)
         hover_types.Add(r,t)
-        if ers = errors.Count then {top_env with ty = Map.add name t top_env.ty}
-        else top_env
-    | BundleNominal l ->
-        let ers = errors.Count
+        if 0 = errors.Count then [lazy FType(q,(r,name),vars',expr)], {top_env with ty = Map.add name t top_env.ty} else [],top_env
+    | BundleNominal l' ->
         let l,_ =
             List.mapFold (fun i (_,name,vars,body) ->
                 let l,env = hovars vars
                 let tt = List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) l KindType
                 (i,name,l,env,tt,body), i+1
-                ) top_env.nominals.Length l
+                ) top_env.nominals.Length l'
         top_env_inner <- 
             let f (i,(_,name),l,env,tt,body) = {|name=name; kind=tt|}
             {top_env with nominals_aux = List.fold (fun s x -> PersistentVector.conj (f x) s) top_env.nominals_aux l}
@@ -1240,47 +1247,53 @@ let infer (top_env : TopEnv) expr =
                     let constructor body =
                         let t,_ = List.fold (fun (a,k) b -> let k = trim_kind k in TyApply(a,TyVar b,k),k) (TyNominal i,tt) vars
                         List.foldBack (fun var ty -> TyForall(var,ty)) vars (TyFun(body,t))
-                    let add_hover v = (if ers = errors.Count then hover_types.Add(r,v)); v
+                    let add_hover v = (if 0 = errors.Count then hover_types.Add(r,v)); v
                     match v with
                     | TyUnion l -> Map.fold (fun term k v -> Map.add k (constructor v) term) term l
                     | _ -> Map.add name (add_hover (constructor v)) term
                 PersistentVector.conj (vars,v) hoc, term
                 ) (top_env_inner.nominals, top_env_inner.term) l
-        if ers = errors.Count then {top_env_inner with nominals = nominals; ty = env_ty; term = env_term}
-        else top_env
-    | BundlePrototype(_,(r,name),(_,var_init),vars,expr) ->
-        let er_count = errors.Count
+        if 0 = errors.Count then [lazy FNominal l'], {top_env_inner with nominals = nominals; ty = env_ty; term = env_term} else [],top_env
+    | BundlePrototype(q,(r,name),(w,var_init),vars',expr) ->
         let cons = CPrototype top_env.prototypes.Length
-        let v = {scope=0; constraints=Set.singleton cons; name=var_init; kind=List.foldBack (fun ((_,(_,k)),_) s -> KindFun(typevar k, s)) vars KindType}
-        let vars,env_ty = typevars {term=Map.empty; constraints=Map.empty; ty=Map.add var_init (TyVar v) Map.empty} vars
+        let v = {scope=0; constraints=Set.singleton cons; name=var_init; kind=List.foldBack (fun ((_,(_,k)),_) s -> KindFun(typevar k, s)) vars' KindType}
+        let vars,env_ty = typevars {term=Map.empty; constraints=Map.empty; ty=Map.add var_init (TyVar v) Map.empty} vars'
         let vars = v :: vars
         let v = fresh_var()
         ty {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
         let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
-        if er_count = errors.Count then
+        if 0 = errors.Count then
             hover_types.Add(r,body)
+            [lazy FPrototype(q,(r,name),(w,var_init),vars',expr)],
             { top_env  with term = Map.add name body top_env.term; constraints = Map.add name (C cons) top_env.constraints; 
                             prototypes = PersistentVector.conj {|instances=Map.empty; name=name; signature=body|} top_env.prototypes }
-        else top_env
-    | BundleInl(_,name,a,true) ->
+        else [], top_env
+    | BundleInl(q,name,a,true) ->
         let env = inl {term=Map.empty; ty=Map.empty; constraints=Map.empty} (name,a)
+        (if 0 = errors.Count then [lazy FInl(q,name,fill q Map.empty a)] else []), 
         {top_env with term = Map.foldBack Map.add env.term top_env.term}
-    | BundleInl(_,(_,name),a,false) ->
+    | BundleInl(q,(w,name),a,false) ->
         assert_bound_vars {term=Map.empty; ty=Map.empty; constraints=Map.empty} a
+        (if 0 = errors.Count then [lazy FInl(q,(w,name),a)] else []), 
         {top_env with term = Map.add name (TySymbol "<real>") top_env.term }
-    | BundleRecInl l ->
+    | BundleRecInl(l,is_top_down) ->
         let _ =
             let h = HashSet()
-            List.iter (fun (_,(r,n),_,_) -> if h.Add n = false then errors.Add(r,DuplicateRecInlName)) l
-        match l with 
-        | (_,_,_,true) :: _ -> 
-            let l = List.map (fun (_,a,b,_) -> a,b) l
-            (rec_block {term=Map.empty; ty=Map.empty; constraints=Map.empty} l).term
-        | _ ->
-            let env_term = List.fold (fun s (_,(_,a),_,_) -> Map.add a (TySymbol "<real>") s) Map.empty l
-            l |> List.iter (fun (_,_,x,_) -> assert_bound_vars {term = env_term; ty = Map.empty; constraints=Map.empty} x)
-            env_term
-        |> fun env_term -> {top_env with term = Map.foldBack Map.add env_term top_env.term}
+            List.iter (fun (_,(r,n),_) -> if h.Add n = false then errors.Add(r,DuplicateRecInlName)) l
+        let env_term =
+            if is_top_down then
+                let l = List.map (fun (_,a,b) -> a,b) l
+                (rec_block {term=Map.empty; ty=Map.empty; constraints=Map.empty} l).term
+            else
+                let env_term = List.fold (fun s (_,(_,a),_) -> Map.add a (TySymbol "<real>") s) Map.empty l
+                l |> List.iter (fun (_,_,x) -> assert_bound_vars {term = env_term; ty = Map.empty; constraints=Map.empty} x)
+                env_term
+        let filled_top =
+            if 0 = errors.Count then
+                if is_top_down then [lazy FRecInl(List.map (fun (a,b,c) -> a,b,fill a env_term c) l)]
+                else [lazy FRecInl l]
+            else []
+        filled_top, {top_env with term = Map.foldBack Map.add env_term top_env.term}
     | BundleInstance(r,prot,ins,vars,body) ->
         let assert_no_kind x = x |> List.iter (fun ((r,(_,k)),_) -> match k with RawKindWildcard -> () | _ -> errors.Add(r,KindNotAllowedInInstanceForall))
         let assert_vars_count vars_count vars_expected = if vars_count <> vars_expected then errors.Add(r,InstanceCoreVarsShouldMatchTheArityDifference(vars_count,vars_expected))
@@ -1291,8 +1304,7 @@ let infer (top_env : TopEnv) expr =
         let assert_instance_forall_does_not_shadow_prototype_forall prot_forall_name = List.iter (fun ((r,(a,_)),_) -> if a = prot_forall_name then errors.Add(r,InstanceVarShouldNotMatchAnyOfPrototypes)) vars
         let body prot_id ins_id = 
             let ins_kind' = top_env.nominals_aux.[ins_id].kind
-            let er_count = errors.Count
-            let guard next = if errors.Count = er_count then next () else top_env
+            let guard next = if 0 = errors.Count then next () else [],top_env
             let ins_kind = kind_get ins_kind'
             let prototype = top_env.prototypes.[prot_id]
             hover_types.Add(fst prot, prototype.signature) // TODO: Do the same for the instance signature.
@@ -1324,27 +1336,31 @@ let infer (top_env : TopEnv) expr =
                     List.fold (fun ty x ->
                         assert_instance_forall_does_not_shadow_prototype_forall x.name
                         Map.add x.name (TyVar x) ty) env_ty prot_foralls,
-                    subst [prot_core, ins_core] prot_body
+                    let prot_body = subst [prot_core, ins_core] prot_body
+                    generalized_statements.Add(body,List.foldBack (fun x s -> TyForall(x,s)) prot_foralls prot_body)
+                    prot_body
                 | _ -> failwith "impossible"
             let prototype = {|prototype with instances = Map.add ins_id ins_constraints prototype.instances|}
             top_env_inner <- {top_env with prototypes = PersistentVector.update prot_id prototype top_env.prototypes}
             term {term=Map.empty; ty=env_ty; constraints=Map.empty} prot_body body
+            (if 0 = errors.Count then [lazy FInstance(r,(fst prot, prot_id),(fst ins, ins_id),vars,fill r Map.empty body)] else []), 
             top_env_inner
             
-        let fake _ = top_env
+        let fake _ = [], top_env
         let check_ins on_succ =
             match Map.tryFind (snd ins) top_env.ty with
-            | None -> errors.Add(fst ins, UnboundVariable); top_env
+            | None -> errors.Add(fst ins, UnboundVariable); [], top_env
             | Some(TyNominal i') -> on_succ i'
-            | Some x -> errors.Add(fst ins, ExpectedHigherOrder x); top_env
+            | Some x -> errors.Add(fst ins, ExpectedHigherOrder x); [], top_env
         match Map.tryFind (snd prot) top_env.constraints with
         | None -> errors.Add(fst prot, UnboundVariable); check_ins fake
         | Some(C (CPrototype i)) -> check_ins (body i)
         | Some(C x) -> errors.Add(fst prot, ExpectedPrototypeConstraint x); check_ins fake
         | Some(M _) -> errors.Add(fst prot, ExpectedPrototypeInsteadOfModule); check_ins fake
-    |> fun top_env -> 
+    |> fun (filled_top, top_env) -> 
         annotations |> Seq.iter (fun (KeyValue (_,(r,x))) -> if has_metavars x then errors.Add(r, ValueRestriction x))
         {
+        filled_top = filled_top
         hovers = hover_types |> Seq.toArray |> Array.map (fun x -> x.Key, show_t top_env x.Value)
         errors = errors |> Seq.toList |> List.map (fun (a,b) -> show_type_error top_env b, a)
         top_env = top_env
