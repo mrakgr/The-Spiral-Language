@@ -590,8 +590,9 @@ let infer (top_env : TopEnv) expr =
             let f = term rec_term
             let clauses l = List.map (fun (a, b) -> let rec_term,a = pattern rec_term a in a,term rec_term b) l
             match x with
-            | RawFilledForall | RawMissingBody | RawReal | RawTypecase | RawType -> failwith "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only."
+            | RawFilledForall | RawMissingBody | RawTypecase | RawType -> failwith "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only."
             | RawSymbolCreate | RawB | RawLit -> x
+            | RawReal(_,x) -> x
             | RawBigV(r,a) -> f (RawApply(r,RawV(r,a), RawB r))
             | RawV(r,n) ->
                 match Map.tryFind n rec_term with
@@ -852,7 +853,6 @@ let infer (top_env : TopEnv) expr =
         | RawDefaultLit(r,_) -> hover_types.Add(r,s); annotations.Add(x,(r,s)); unify r s (fresh_subst_var (Set.singleton CNumber) KindType)
         | RawLit(r,a) -> unify r s (lit a)
         | RawSymbolCreate(r,x) -> unify r s (TySymbol x)
-        | RawType(_,x) -> ty env s x
         | RawIfThenElse(_,cond,tr,fl) -> f (TyPrim BoolT) cond; f s tr; f s fl
         | RawIfThen(r,cond,tr) -> f (TyPrim BoolT) cond; unify r s TyB; f TyB tr
         | RawPairCreate(r,a,b) ->
@@ -979,8 +979,9 @@ let infer (top_env : TopEnv) expr =
 
             unify r s TyB
             f (try loop a with :? TypeErrorException as e -> errors.AddRange e.Data0; fresh_var()) b
-        | RawFilledForall _ -> failwith "Compiler error: Should not during type inference."
-        | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
+        | RawFilledForall -> failwith "Compiler error: Should not during type inference."
+        | RawType -> failwith "Compiler error: RawType should not appear in the top down segment."
+        | RawTypecase -> failwith "Compiler error: `typecase` should not appear in the top down segment."
     and inl env ((r, name), body) =
         incr scope
         let vars,body = foralls_get body
