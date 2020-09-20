@@ -201,7 +201,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
                 ) b
             List.iter (function RawRecordWithoutSymbol _ -> () | RawRecordWithoutInjectVar (a,b) -> check_term term (a,b)) c
         | RawOp(_,_,l) -> List.iter (cterm constraints term ty) l
-        | RawInline(_,x) | RawReal(_,x) | RawJoinPoint(_,x) -> cterm constraints term ty x
+        | RawReal(_,x) | RawJoinPoint(_,x) -> cterm constraints term ty x
         | RawAnnot(_,RawMacro(_,a),b) -> cmacro constraints term ty a; ctype constraints term ty b
         | RawMacro(r,a) -> errors.Add(r,MacroIsMissingAnnotation); cmacro constraints term ty a
         | RawAnnot(_,a,b) -> cterm constraints term ty a; ctype constraints term ty b
@@ -638,7 +638,6 @@ let infer (top_env : TopEnv) expr =
             | RawMacro(r,l) -> 
                 let l = l |> List.map (function RawMacroTermVar(r,x) -> RawMacroTermVar(r,f x) | x -> x )
                 RawAnnot(r,RawMacro(r,l),annot r x)
-            | RawInline(r,a) -> RawInline(r,f a)
         and pattern rec_term x =
             let mutable rec_term = rec_term
             let rec f = function
@@ -862,7 +861,6 @@ let infer (top_env : TopEnv) expr =
         | RawSeq(_,a,b) -> f TyB a; f s b
         | RawReal(_,a) -> assert_bound_vars env a
         | RawOp(_,_,l) -> List.iter (assert_bound_vars env) l
-        | RawInline(_,a) -> f s a
         | RawJoinPoint(r,a) -> annotations.Add(x,(r,s)); f s a
         | RawApply(r,a',b) ->
             match f' a' with

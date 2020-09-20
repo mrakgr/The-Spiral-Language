@@ -33,14 +33,15 @@ and E =
     | ESymbolCreate of Range * string
     | EType of Range * T
     | EApply of Range * E * E
-    | EFun of Range * FreeVars * Id * E * T
+    | ETypeApply of Range * E * T
+    | EFun of Range * FreeVars * Id * E * T option
     | ERecursive of E ref
     | EForall of Range * FreeVars * Id * E
     | ERecBlock of Range * (Id * E) list * on_succ: E
     | ERecordWith of Range * E list * RecordWith list * RecordWithout list
     | ERecord of Map<string, E> // Used for modules.
     | EOp of Range * BlockParsing.Op * E list
-    | EJoinPoint of Range * E
+    | EJoinPoint of Range * FreeVars * E * T option
     | EAnnot of Range * E * T
     | ETypecase of Range * T * (T * E) list
     | EModuleOpen of Range * (Range * Id) * (Range * string) list * on_succ: E
@@ -50,9 +51,8 @@ and E =
     | ESeq of Range * E * E
     | EHeapMutableSet of Range * E * E
     | EReal of Range * E
-    | EMacro of Range * Macro list
-    | EInline of Range * FreeVars * E
-    | EPrototypeApply of Id * T
+    | EMacro of Range * Macro list * T
+    | EPrototypeApply of Range * Id * T
     // Regular pattern matching
     | ELet of Range * Id * E * E
     | EPairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
@@ -165,7 +165,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
     and term env x =
         let f = term env
         match x with
-        | RawDefaultLit(r,a) -> failwith "Compiler error: Default values should have been annotated by prepass time."
+        | RawDefaultLit(r,a) -> failwith "Compiler error: Default values should have been annotated in `fill` by prepass time."
         | RawAnnot(_,RawDefaultLit(r,a),b) -> EDefaultLit(r,a,ty env b) // TODO: Don't forget the rest of the annotation cases.
         | RawB r -> EB r
         | RawV(r,a) -> v_term env a
@@ -175,6 +175,10 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         | RawType(r,a) -> EType(r,ty env a)
         | RawMatch(r,a,b) -> compile_pattern (Some a) b
         | RawFun(r,a) -> compile_pattern None a
+        | RawAnnot(_,RawFun(_,a),t) -> 
+            match compile_pattern None a with
+            | EFun(r,a,b,c,_) -> EFun(r,a,b,c,Some (ty env t))
+            | _ -> failwith "Compiler error: RawFun should result in a function."
         | RawTypecase(r,a,b) -> compile_typecase a b
         | RawFilledForall(r,name,b)
         | RawForall(r,((_,(name,_)),_),b) -> 
@@ -195,8 +199,8 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 | RawRecordWithoutInjectVar(r,a) -> WVar(r,v_term env a))
             ERecordWith(r,a,b,c)
         | RawOp(r,a,b) -> EOp(r,a,List.map f b)
-        | RawJoinPoint(r,a) -> EJoinPoint(r,f a)
-        | RawAnnot(r,a,b) -> EAnnot(r,f a,ty env b)
+        | RawJoinPoint(r,a) -> EJoinPoint(r,(),f a,None)
+        | RawAnnot(_,RawJoinPoint(r,a),b) -> EJoinPoint(r,(),f a,Some (ty env b))
         | RawModuleOpen (r,a,l,on_succ) ->
             let a,b = 
                 match top_env.term.[snd a], top_env.ty.[snd a] with
@@ -220,22 +224,24 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 match Map.tryFind b a with
                 | Some x -> x
                 | None -> raise (PrepassException [r,RecordIndexFailed b])
+            | a,EType(_,b) -> ETypeApply(r,a,b)
             | a,b -> EApply(r,a,b)
         | RawIfThenElse(r,a,b,c) -> EIfThenElse(r,f a,f b,f c)
         | RawIfThen(r,a,b) -> EIfThen(r,f a,f b)
         | RawPairCreate(r,a,b) -> EPairCreate(r,f a,f b)
         | RawSeq(r,a,b) -> ESeq(r,f a,f b)
         | RawHeapMutableSet(r,a,b) -> EHeapMutableSet(r,f a,f b)
-        | RawReal(r,a) -> EReal(r,term env a)
-        | RawMacro(r,a) ->
+        | RawReal(r,a) -> f a
+        | RawMacro -> failwith "Compiler error: The macro's annotation should have been added during `fill`."
+        | RawAnnot(_,RawMacro(r,a),b) ->
             let a = a |> List.map (function
                 | RawMacroText(r,a) -> MText a
                 | RawMacroTermVar(r,a) -> MTerm(f a)
                 | RawMacroTypeVar(r,a) -> MType(ty env a)
                 )
-            EMacro(r,a)
+            EMacro(r,a,ty env b)
         | RawMissingBody _ -> failwith "Compiler error: The missing body cases should have been validated."
-        | RawInline(r,a) -> EInline(r,(),f a)
+        | RawAnnot(r,a,b) -> EAnnot(r,f a,ty env b)
 
     let env =
         {
@@ -272,7 +278,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 ) top_env.term l
         {top_env with term = term}
     | FPrototype(r,(_,name),_,_,_) ->
-        let x = EForall(r,(),0,EPrototypeApply(top_env.prototypes.Length,TV 0))
+        let x = EForall(r,(),0,EPrototypeApply(r,top_env.prototypes.Length,TV 0))
         {top_env with term = Map.add name x top_env.term; prototypes = PersistentVector.conj Map.empty top_env.prototypes}
     | FInstance(r,(_,prot_id),(_,ins_id),l,body) ->
         let env = l |> List.fold (fun s x -> add_ty_var s (typevar_name x) |> snd) env

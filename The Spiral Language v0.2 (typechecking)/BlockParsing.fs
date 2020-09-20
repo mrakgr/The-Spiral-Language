@@ -218,7 +218,6 @@ and RawExpr =
     | RawReal of Range * RawExpr
     | RawMacro of Range * RawMacro list
     | RawMissingBody of Range
-    | RawInline of Range * RawExpr // Acts like a join point during the prepass.
     | RawFilledForall of Range * string * RawExpr // Filled in by the inferencer.
 and RawTExpr =
     | RawTWildcard of Range
@@ -276,7 +275,6 @@ let range_of_expr = function
     | RawB r
     | RawMissingBody r
     | RawMacro(r,_)
-    | RawInline(r,_)
     | RawV(r,_)
     | RawBigV(r,_)
     | RawLit(r,_)
@@ -615,17 +613,13 @@ let forall d =
     (skip_keyword SpecForall >>. many1 forall_var .>> skip_op "." 
     >>= fun x _ -> duplicates DuplicateForallVar (List.map (fun ((r,(a,_)),_) -> r,a) x) |> function [] -> Ok x | er -> Error er) d
 
-let rec insert_annot a = function
-    | RawJoinPoint(r,b) -> RawJoinPoint(r,insert_annot a b)
-    | b -> RawAnnot(range_of_expr b +. range_of_texpr a,b,a)
-
 let inline annotated_body sep exp ty =
     pipe2 (opt (skip_op ":" >>. ty))
         (skip_op sep .>>. opt exp)
         (fun a (r,b) ->
             let b = match b with Some b -> b | None -> RawMissingBody r
             match a with
-            | Some a -> insert_annot a b
+            | Some a -> RawAnnot(range_of_expr b +. range_of_texpr a,b,a)
             | None -> b)
 
 let inline inl_or_let exp pattern ty =
