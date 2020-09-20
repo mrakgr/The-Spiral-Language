@@ -116,7 +116,6 @@ and fold_offset_pattern offset x =
                 | PatRecordMembersInjectVar((r,a),b) -> PatRecordMembersInjectVar((g r,a),f b)
                 )
         PatRecordMembers(g r,a)
-    | PatActive(r,a,b) -> PatActive(g r,term a,f b)
     | PatOr(r,a,b) -> PatOr(g r,f a,f b)
     | PatAnd(r,a,b) -> PatAnd(g r,f a,f b)
     | PatValue(r,a) -> PatValue(g r,a)

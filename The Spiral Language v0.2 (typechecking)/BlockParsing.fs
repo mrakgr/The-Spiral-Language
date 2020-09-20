@@ -183,7 +183,6 @@ and Pattern =
     | PatPair of Range * Pattern * Pattern
     | PatSymbol of Range * string
     | PatRecordMembers of Range * PatRecordMember list
-    | PatActive of Range * RawExpr * Pattern
     | PatOr of Range * Pattern * Pattern
     | PatAnd of Range * Pattern * Pattern
     | PatValue of Range * Literal
@@ -262,7 +261,6 @@ let range_of_pattern = function
     | PatRecordMembers(r,_)
     | PatAnnot(r,_,_)
     | PatPair(r,_,_)
-    | PatActive(r,_,_)
     | PatOr(r,_,_)
     | PatAnd(r,_,_)
     | PatWhen(r,_,_)
@@ -543,7 +541,7 @@ let patterns_validate pats =
         | PatVar(r,x) -> 
             pos.Add(x,r)
             Set.singleton x
-        | PatDyn(_,p) | PatAnnot (_,p,_) | PatNominal(_,_,p) | PatActive (_,_,p) | PatUnbox(_,p) | PatWhen(_,p,_) -> loop p
+        | PatDyn(_,p) | PatAnnot (_,p,_) | PatNominal(_,_,p) | PatUnbox(_,p) | PatWhen(_,p,_) -> loop p
         | PatRecordMembers(_,items) ->
             let symbols = Collections.Generic.HashSet()
             let injects = Collections.Generic.HashSet()
@@ -803,9 +801,6 @@ and pat_record d =
 and root_pattern s =
     let body s = 
         let pat_unit = unit' PatB
-        let pat_active = 
-            range (skip_unary_op "!" >>. ((read_small_var' |>> RawV) <|> rounds root_term) .>>. root_pattern_var) 
-            |>> fun (r,(a,b)) -> PatActive(r,a,b)
         let pat_value = (read_value |>> PatValue) <|> (read_default_value PatDefaultValue PatValue)
         let pat_symbol = read_symbol |>> PatSymbol
         let pat_type = 
@@ -813,7 +808,7 @@ and root_pattern s =
                 (fun a -> function Some b -> PatAnnot(range_of_pattern a +. range_of_texpr b,a,b) | None -> a)
         let pat_rounds = rounds (pat_type <|> (read_op' |>> PatVar))
         let (+) = alt (index s)
-        (pat_unit + pat_rounds + pat_nominal + pat_wildcard + pat_dyn + pat_value + pat_record + pat_symbol + pat_active) s
+        (pat_unit + pat_rounds + pat_nominal + pat_wildcard + pat_dyn + pat_value + pat_record + pat_symbol) s
 
     let pat_and = sepBy1 body (skip_op "&") |>> List.reduce (fun a b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b))
     let pat_pair = pat_pair pat_and

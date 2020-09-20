@@ -252,7 +252,6 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
                     | PatRecordMembersSymbol(_,x) -> loop s x
                     | PatRecordMembersInjectVar((a,b),x) -> check_term term (a,b); loop s x
                     ) term l
-            | PatActive(_,a,b) -> cterm constraints term ty a; f b
             | PatAnd(_,a,b) | PatOr(_,a,b) -> loop (loop term a) b
             | PatAnnot(_,a,b) -> let r = f a in ctype constraints r ty b; r 
             | PatWhen(_,a,b) -> let r = f a in cterm constraints r ty b; r
@@ -654,7 +653,6 @@ let infer (top_env : TopEnv) expr =
                         | PatRecordMembersInjectVar(a,b) -> PatRecordMembersInjectVar(a,f b)
                         )
                     PatRecordMembers(r,a)
-                | PatActive(r,a,b) -> PatActive(r,term rec_term a,f b)
                 | PatOr(r,a,b) -> PatOr(r,f a,f b)
                 | PatAnd(r,a,b) -> PatAnd(r,f a,f b)
                 | PatDefaultValue(r,a) -> PatFilledDefaultValue(r,a,annot r x)
@@ -1146,11 +1144,6 @@ let infer (top_env : TopEnv) expr =
                 unify r s (TyPair(q,w))
                 pattern (pattern env q a) w b
             | PatSymbol(r,a) -> unify r s (TySymbol a); env
-            | PatActive(r,a,b) ->
-                let w,z = fresh_var(),fresh_var()
-                unify r z (TyFun(s, w))
-                term env z a
-                f w b
             | PatOr(_,a,b) | PatAnd(_,a,b) -> pattern (pattern env s a) s b
             | PatValue(r,a) -> unify r s (lit a); env
             | PatDefaultValue(r,_) -> 
