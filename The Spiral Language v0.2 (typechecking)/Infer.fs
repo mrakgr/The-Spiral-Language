@@ -253,7 +253,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
                     | PatRecordMembersInjectVar((a,b),x) -> check_term term (a,b); loop s x
                     ) term l
             | PatAnd(_,a,b) | PatOr(_,a,b) -> loop (loop term a) b
-            | PatAnnot(_,a,b) -> let r = f a in ctype constraints r ty b; r 
+            | PatAnnot(_,a,b) -> ctype constraints term ty b; f a
             | PatWhen(_,a,b) -> let r = f a in cterm constraints r ty b; r
             | PatNominal(_,(r,a),b) -> check_ty ty (r,a); f b
         loop term x
