@@ -69,11 +69,10 @@ and E =
     | ETypeLet of Range * Id * T * E
     | ETypePairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
     | ETypeFunTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
-    | ETypeSymbolTest of Range * string * bind: Id * on_succ: E * on_fail: E
     | ETypeRecordTest of Range * Map<string,Id> * bind: Id * on_succ: E * on_fail: E
-    | ETypeUnitTest of Range * bind: Id * on_succ: E * on_fail: E
-    | ETypeHigherOrderTest of Range * ho: Id * bind: Id * on_succ: E * on_fail: E
-    | ETypeHigherOrderDestruct of Range * pat: Id list * bind: Id * on_succ: E * on_fail: E
+    | ETypeApplyTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
+    | ETypeArrayTest of Range * bind: Id * pat: Id * on_succ: E * on_fail: E
+    | ETypeEq of Range * T * bind: Id * on_succ: E * on_fail: E
 and T =
     | TUnit of Range
     | TV of Id
@@ -113,6 +112,7 @@ let add_ty (e : Env) k v = let ty = e.ty in {e with ty = {|ty with i = ty.i+1; e
 
 let add_term_var (e : Env) k = e.term.i, add_term e k (EV e.term.i)
 let fresh_term_var (e : Env) = e.term.i, (let term = e.term in {e with term = {|term with i = term.i+1|} })
+let fresh_ty_var (e : Env) = e.ty.i, (let ty = e.ty in {e with ty = {|ty with i = ty.i+1|} })
 let add_term_rec_var (e : Env) k = e.term.i_rec, add_term e k (EV e.term.i_rec)
 let add_ty_var (e : Env) k = e.ty.i, add_ty e k (TV e.ty.i)
 
@@ -138,6 +138,28 @@ let make_compile_pattern_env (env : Env) x =
         | PatRecordMembers(_,l) -> envs.Add(x,env); List.fold (fun s (PatRecordMembersSymbol(_,x) | PatRecordMembersInjectVar(_,x)) -> f s x) env l
             
     {vars=vars; envs=envs}, f env x
+
+let make_compile_typecase_env (env : Env) x =
+    let metavars' = Dictionary(HashIdentity.Reference)
+    let metavars = Dictionary(HashIdentity.Structural)
+    let rec f (env : Env) x =
+        match x with
+        | RawTFilledNominal | RawTTerm | RawTForall -> failwith "Compiler error: This case is not supposed to appear in typecase."
+        | RawTPrim | RawTSymbol | RawTWildcard | RawTB | RawTVar -> env
+        | RawTMetaVar(r,a) ->
+            match metavars.TryGetValue a with
+            | true, id' -> metavars'.Add(a,fun (id, on_succ, on_fail) -> ETypeEq(r,TV id',id,on_succ,on_fail)); env
+            | _ ->
+                let id', env = add_ty_var env a
+                metavars.Add(a,id')
+                metavars'.Add(a,fun (id,on_succ,_) -> ETypeLet(r,id',TV id,on_succ))
+                env
+        | RawTApply(_,a,b) | RawTFun(_,a,b) | RawTPair(_,a,b) -> f (f env a) b
+        | RawTLayout(_,a,_) | RawTArray(_,a) -> f env a
+        | RawTUnion(_,a) | RawTRecord(_,a) -> Map.fold (fun s k v -> f s v) env a
+        | RawTMacro(_,a) -> a |> List.fold (fun env -> function RawMacroTypeVar(_,a) -> f env a | _ -> env) env
+
+    metavars', f env x
 
 let prepass (top_env : TopEnv) (expr : FilledTop) =
     let v_term (env : Env) x = Map.tryFind x env.term.env |> Option.defaultWith (fun () -> top_env.term.[x])
@@ -175,38 +197,74 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 | PatAnd(r,a,b) -> let on_fail = EPatternMemo on_fail in cp id a (cp id b on_succ on_fail) on_fail
                 | PatValue(r,x) -> ELitTest(r,x,id,on_succ,on_fail)
                 | PatWhen(r,p,e) -> cp id p (EIfThenElse(r, term ve.envs.[pat] e, on_succ, on_fail)) on_fail
-                | PatNominal(r,(_,a),b) ->
-                    let id', on_succ = step b on_succ
-                    ENominalTest(r,v_ty ve.envs.[pat] a,id,id',on_succ,on_fail)
+                | PatNominal(r,(_,a),b) -> let id', on_succ = step b on_succ in ENominalTest(r,v_ty ve.envs.[pat] a,id,id',on_succ,on_fail)
                 | PatFilledDefaultValue(r,a,b) -> EDefaultLitTest(r,a,ty ve.envs.[pat] b,id,on_succ,on_fail)
                 | PatDyn(r,a) -> let id' = patvar() in ELet(r,id',EOp(r,Dyn,[EV id]),cp id' a on_succ on_fail)
                 | PatUnbox(r,a) -> EOp(r,Unbox,[EV id; cp id a on_succ on_fail])
 
             cp id pat on_succ on_fail
         List.foldBack loop l EPatternMiss
-    and pattern (env : Env) body clauses =
-        let r () = List.head clauses |> fst |> range_of_pattern
+    and pattern (env : Env) r body clauses =
         let l env = clauses |> List.map (fun (pat,on_succ) -> let x,env = make_compile_pattern_env env pat in x,pat,EPatternMemo(term env on_succ))
         match body, clauses with
-        | Some body, [PatVar(r,x), on_succ] ->
+        | Some body, [PatVar(_,x), on_succ] ->
             let id,env = add_term_var env x
             ELet(r,id,body,term env on_succ)
         | Some body, _ ->
             let id,env = fresh_term_var env
-            ELet(r(),id,body,compile_pattern id (l env))
-        | None, [PatVar(r,x), on_succ] ->
+            ELet(r,id,body,compile_pattern id (l env))
+        | None, [PatVar(_,x), on_succ] ->
             let id,env = add_term_var env x
             EFun(r,(),id,term env on_succ,None)
         | None, _ ->
             let id,env = fresh_term_var env
-            EFun(r(),(),id,compile_pattern id (l env),None)
-    and typecase _ = failwith "TODO"
+            EFun(r,(),id,compile_pattern id (l env),None)
+    and compile_typecase id l =
+        let loop ((vars : Dictionary<_,_>, env : Env), pat, on_succ) on_fail =
+            let var_count = ref env.ty.i
+            let patvar () = let x = !var_count in incr var_count; x
+            let rec cp id pat on_succ on_fail =
+                let step pat on_succ = let id = patvar() in id, cp id pat on_succ on_fail
+                match pat with
+                | RawTFilledNominal | RawTTerm | RawTForall -> failwith "Compiler error: This case is not supposed to appear in typecase."
+                | RawTWildcard _ -> on_succ
+                | RawTMetaVar(_,a) -> vars.[a] (id,on_succ,on_fail)
+                | RawTPair(r,a,b) ->
+                    let b,on_succ = step b on_succ
+                    let a,on_succ = step a on_succ
+                    ETypePairTest(r,id,a,b,on_succ,on_fail)
+                | RawTFun(r,a,b) ->
+                    let b,on_succ = step b on_succ
+                    let a,on_succ = step a on_succ
+                    ETypeFunTest(r,id,a,b,on_succ,on_fail)
+                | RawTApply(r,a,b) -> 
+                    let b,on_succ = step b on_succ
+                    let a,on_succ = step a on_succ
+                    ETypeApplyTest(r,id,a,b,on_succ,on_fail)
+                | RawTArray(r,a) ->
+                    let a,on_succ = step a on_succ
+                    ETypeArrayTest(r,id,a,on_succ,on_fail)
+                | RawTRecord(r,a) ->
+                    let m,on_succ =
+                        Map.foldBack (fun k pat (s, on_succ) ->
+                            let id,on_succ = step pat on_succ
+                            Map.add k id s, on_succ
+                            ) a (Map.empty, on_succ)
+                    ETypeRecordTest(r,m,id,on_succ,on_fail)
+                | RawTVar | RawTSymbol | RawTB | RawTPrim | RawTMacro | RawTUnion | RawTLayout -> ETypeEq(range_of_texpr pat,ty env pat,id,on_succ,on_fail)
+
+            cp id pat on_succ on_fail
+        List.foldBack loop l EPatternMiss
+    and typecase (env : Env) r body clauses =
+        let id, env = fresh_ty_var env
+        let l = clauses |> List.map (fun (pat,on_succ) -> let _,env as x = make_compile_typecase_env env pat in x,pat,EPatternMemo(term env on_succ))
+        ETypeLet(r,id,body,compile_typecase id l)
     and ty (env : Env) x =
         let f = ty env
         match x with
-        | RawTWildcard _ -> failwith "Compiler error: Annotation with wildcards should have been stripped."
-        | RawTMetaVar _ -> failwith "Compiler error: This should have been compiled away in typecase."
-        | RawTForall _ -> failwith "Compiler error: Foralls are not allowed at the type level."
+        | RawTWildcard -> failwith "Compiler error: Annotation with wildcards should have been stripped."
+        | RawTMetaVar -> failwith "Compiler error: This should have been compiled away in typecase."
+        | RawTForall -> failwith "Compiler error: Foralls are not allowed at the type level."
         | RawTB r -> TUnit r
         | RawTVar(r,a) -> v_ty env a
         | RawTPair(r,a,b) -> TPair(r,f a,f b)
@@ -243,13 +301,13 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         | RawLit(r,a) -> ELit(r,a)
         | RawSymbolCreate(r,a) -> ESymbolCreate(r,a)
         | RawType(r,a) -> EType(r,ty env a)
-        | RawMatch(r,a,b) -> pattern env (Some (f a)) b
-        | RawFun(r,a) -> pattern env None a
-        | RawAnnot(_,RawFun(_,a),t) -> 
-            match pattern env None a with
+        | RawMatch(r,a,b) -> pattern env r (Some (f a)) b
+        | RawFun(r,a) -> pattern env r None a
+        | RawAnnot(_,RawFun(r,a),t) -> 
+            match pattern env r None a with
             | EFun(r,a,b,c,_) -> EFun(r,a,b,c,Some (ty env t))
             | _ -> failwith "Compiler error: RawFun should result in a function."
-        | RawTypecase(r,a,b) -> typecase a b
+        | RawTypecase(r,a,b) -> typecase env r (ty env a) b
         | RawFilledForall(r,name,b)
         | RawForall(r,((_,(name,_)),_),b) -> 
             let id, env = add_ty_var env name

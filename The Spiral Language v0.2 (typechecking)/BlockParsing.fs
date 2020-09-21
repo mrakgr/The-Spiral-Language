@@ -150,6 +150,8 @@ type ParserErrors =
     | BottomUpNumberParseError of string * string
     | ExpectedPairedSymbolInUnion
     | DuplicateUnionKey
+    | MetavarShadowedByVar
+    | VarShadowedByMetavar
 
 type RawKindExpr =
     | RawKindWildcard
@@ -763,6 +765,22 @@ let bottom_up_number (r : Range,x : string) (d : Env) =
         | UInt64T -> f UInt64.TryParse LitUInt64 "u64"
         | x -> failwithf "Compiler error: Invalid default int type. Got: %A" x
 
+let typecase_validate x _ =
+    let metavars = Collections.Generic.HashSet()    
+    let vars = Collections.Generic.HashSet()
+    let errors = ResizeArray()
+    let rec f = function
+        | RawTFilledNominal | RawTTerm | RawTForall -> failwith "Compiler error: This case is not supposed to appear in typecase."
+        | RawTPrim | RawTSymbol | RawTB | RawTWildcard -> ()
+        | RawTMetaVar(r,a) -> if vars.Contains(a) then errors.Add(r,MetavarShadowedByVar) else metavars.Add(a) |> ignore
+        | RawTVar(r,a) -> if metavars.Contains(a) then errors.Add(r,VarShadowedByMetavar) else vars.Add(a) |> ignore
+        | RawTApply(_,a,b) | RawTFun(_,a,b) | RawTPair(_,a,b) -> f a; f b
+        | RawTLayout(_,a,_) | RawTArray(_,a) -> f a
+        | RawTUnion(_,a) | RawTRecord(_,a) -> Map.iter (fun _ -> f) a
+        | RawTMacro(_,a) -> a |> List.iter (function RawMacroTypeVar(_,a) -> f a | _ -> ())
+    f x
+    if 0 < errors.Count then Error (Seq.toList errors) else Ok(x)
+
 let inline read_default_value on_top on_bot d =
     try_current d <| function
         | p, TokDefaultValue t' -> 
@@ -827,8 +845,8 @@ and root_pattern s =
         <|> next
     let pat_or = sepBy1 pat_symbol_paired (skip_op "|") |>> List.reduce (fun a b -> PatOr(range_of_pattern a +. range_of_pattern b,a,b))
     let pat_as = pat_or .>>. (opt (skip_keyword SpecAs >>. pat_or )) |>> function a, Some b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b) | a, None -> a
-    let pat_when = pat_as .>>. (opt (skip_keyword SpecWhen >>. root_term)) |>> function a, Some b -> PatWhen(range_of_pattern a +. range_of_expr b,a,b) | a, None -> a
-    pat_when s
+    pat_as s
+and root_pattern_when d = (root_pattern .>>. (opt (skip_keyword SpecWhen >>. root_term)) |>> function a, Some b -> PatWhen(range_of_pattern a +. range_of_expr b,a,b) | a, None -> a) d
 and root_pattern_var d = 
     let (+) = alt (index d)
     (pat_var + pat_wildcard + pat_dyn + peek_open_parenthesis root_pattern) d
@@ -919,7 +937,7 @@ and root_term d =
         let case_match =
             let clauses d = 
                 let bar = bar (col d)
-                (optional bar >>. sepBy1 (root_pattern .>>. (skip_op "=>" >>. next)) bar
+                (optional bar >>. sepBy1 (root_pattern_when .>>. (skip_op "=>" >>. next)) bar
                 >>= fun l _ ->
                     match l |> List.collect (fun (a,_) -> patterns_validate [a]) with
                     | [] -> Ok l
@@ -932,7 +950,8 @@ and root_term d =
         let case_typecase d =
             let clauses d = 
                 let bar = bar (col d)
-                (optional bar >>. sepBy1 (root_type {root_type_defaults with allow_metavars=true; allow_wildcard=true} .>>. (skip_op "=>" >>. next)) bar) d
+                let typecase = root_type {root_type_defaults with allow_metavars=true; allow_wildcard=true} >>= typecase_validate
+                (optional bar >>. sepBy1 (typecase .>>. (skip_op "=>" >>. next)) bar) d
 
             if d.is_top_down then Error [] else
                 (range ((skip_keyword SpecTypecase >>. root_type {root_type_defaults with allow_term=true} .>> skip_keyword SpecWith) .>>. clauses)

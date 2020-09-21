@@ -3,6 +3,8 @@ open Spiral.Tokenize
 open Spiral.BlockParsing
 
 let show_parser_error = function
+    | MetavarShadowedByVar -> "The metavariable is shadowed by a variable."
+    | VarShadowedByMetavar -> "The variable is shadowed by a metavariable."
     | ExpectedPairedSymbolInUnion -> "The union clause should be pair whose left side is a symbol."
     | ExpectedEscapedChar -> "escaped character"
     | ExpectedUnescapedChar -> "unescaped character"
