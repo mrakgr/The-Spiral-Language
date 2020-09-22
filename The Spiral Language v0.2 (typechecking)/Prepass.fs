@@ -3,7 +3,8 @@ open Infer
 
 type Id = int32
 //type FreeVars = {|ty : int; term : int|}
-type FreeVars = unit
+type FreeVarsEnv = {|free_vars : int []; stack_size : int|} // The stack size does not include the size of free vars.
+type FreeVars = {term : FreeVarsEnv; ty : FreeVarsEnv}
 //type Range = { uri : string; range : Config.VSCRange }
 type Range = BlockParsing.Range
 
@@ -120,38 +121,38 @@ type PrepassError =
 exception PrepassException of (Range * PrepassError) list
 open System.Collections.Generic
 
-type PropagateEnv = {
-    term : {| vars : Set<int>; max_var : int |}
-    ty : {| vars : Set<int>; max_var : int |}
-    }
+type PropagatedVarsEnv = {| vars : Set<int>; max_var : int |}
+type PropagatedVars = {term : PropagatedVarsEnv; ty : PropagatedVarsEnv}
 
-let propagate x =
+let free_vars (env : Env) (x : PropagatedVars) : FreeVars = {
+    term = {|free_vars = Set.toArray x.term.vars; stack_size = max 0 (x.term.max_var-env.term.i) |}
+    ty = {|free_vars = Set.toArray x.ty.vars; stack_size = max 0 (x.ty.max_var-env.ty.i) |}
+    }
+let propagate env x annot =
     let dict = Dictionary(HashIdentity.Reference)
-    let (+) (a : PropagateEnv) (b : PropagateEnv) : PropagateEnv = {
+    let (+) (a : PropagatedVars) (b : PropagatedVars) : PropagatedVars = {
         term = {|vars = Set.union a.term.vars b.term.vars; max_var = max a.term.max_var b.term.max_var |} 
         ty = {|vars = Set.union a.ty.vars b.ty.vars; max_var = max a.ty.max_var b.ty.max_var |} 
         }
-    let sub_term i (a : PropagateEnv) = {a with term = {|vars = Set.remove i a.term.vars; max_var = max i a.term.max_var |} }
-    let sub_ty i (a : PropagateEnv) = {a with ty = {|vars = Set.remove i a.ty.vars; max_var = max i a.ty.max_var |} }
+    let (-) (a : PropagatedVars) i = {a with term = {|vars = Set.remove i a.term.vars; max_var = max i a.term.max_var |} }
+    let (-.) (a : PropagatedVars) i = {a with ty = {|vars = Set.remove i a.ty.vars; max_var = max i a.ty.max_var |} }
     let empty = {term = {|vars = Set.empty; max_var=0|}; ty = {|vars = Set.empty; max_var=0|}}
     let singleton_term i = {term = {|vars = Set.singleton i; max_var=0|}; ty = {|vars = Set.empty; max_var=0|}}
     let singleton_ty i = {ty = {|vars = Set.singleton i; max_var=0|}; term = {|vars = Set.empty; max_var=0|}}
+    let propagated_vars (a : FreeVars) : PropagatedVars = {term = {|vars = Set(a.term.free_vars); max_var = 0|}; ty = {|vars = Set(a.ty.free_vars); max_var = 0|}}
     let rec term x =
         let singleton = singleton_term
-        let (-) a i = sub_term i a
-        let (-.) a i = sub_ty i a
         match x with
         | EPatternMiss | ERecord | ERecursive | ESymbolCreate | ELit | EB -> empty
         | EV i -> singleton i
         | EPrototypeApply(_,_,a) | EType(_,a) | EDefaultLit(_,_,a) -> ty a
         | EHeapMutableSet(_,a,b) | ESeq(_,a,b) | EPairCreate(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
         | EAnnot(_,a,b) | ETypeApply(_,a,b) -> term a + ty b
-        | EForall | EFun -> failwith "TODO"
-        | EJoinPoint -> failwith "TODO"
-        | ERecBlock(r,l,on_succ) ->
+        | EForall(_,a,_,_) | EJoinPoint(_,a,_,_) | EFun(_,a,_,_,_) -> propagated_vars a // No need to eval the optional types for join points and functions.
+        | ERecBlock(_,l,on_succ) ->
             let s = List.fold (fun s (_,body) -> s + term body) (term on_succ) l
             List.fold (fun s (id,_) -> s - id) s l
-        | ERecordWith(r,a,b,c) ->
+        | ERecordWith(_,a,b,c) ->
             let fold f a b = List.fold f b a
             List.fold (fun s a -> s + term a) empty a
             |> fold (fun s -> function
@@ -165,11 +166,11 @@ let propagate x =
         | EOp(_,_,a) -> List.fold (fun s a -> s + term a) empty a
         | EIfThenElse(r,a,b,c) -> term a + term b + term c
         | EReal(_,a) -> term a
-        | EMacro(r,a,b) -> List.fold (fun s -> function MType x -> s + ty x | MTerm x -> s + term x | MText -> s) (ty b) a
+        | EMacro(_,a,b) -> List.fold (fun s -> function MType x -> s + ty x | MTerm x -> s + term x | MText -> s) (ty b) a
         | EPatternMemo a -> Utils.memoize dict term a
         // Regular pattern matching
-        | ELet(r,a,b,c) -> (term b - a) + term c
-        | EPairTest(r,bind,pat1,pat2,on_succ,on_fail) -> singleton bind + (term on_succ - pat1 - pat2) + term on_fail
+        | ELet(_,a,b,c) -> (term b - a) + term c
+        | EPairTest(_,bind,pat1,pat2,on_succ,on_fail) -> singleton bind + (term on_succ - pat1 - pat2) + term on_fail
         | ESymbolTest(_,_,bind,on_succ,on_fail) 
         | EUnitTest(_,bind,on_succ,on_fail) 
         | ELitTest(_,_,bind,on_succ,on_fail) -> singleton bind + term on_succ + term on_fail
@@ -186,14 +187,28 @@ let propagate x =
         | ETypeApplyTest(_,bind,pat1,pat2,on_succ,on_fail)
         | ETypeFunTest(_,bind,pat1,pat2,on_succ,on_fail)
         | ETypePairTest(_,bind,pat1,pat2,on_succ,on_fail) -> singleton_ty bind + (term on_succ -. pat1 -. pat2) + term on_fail
-        | ETypeRecordTest(r,a,bind,on_succ,on_fail) ->
+        | ETypeRecordTest(_,a,bind,on_succ,on_fail) ->
             let on_succ = Map.fold (fun s k v -> s -. v) (term on_succ) a
             singleton_ty bind + on_succ + term on_fail
         | ETypeArrayTest(_,bind,pat,on_succ,on_fail) -> singleton_ty bind + (term on_succ -. pat) + term on_fail
-        | ETypeEq(_,t,bind,on_succ,on_fail) -> singleton bind + ty t + term on_succ + term on_fail
-    and ty x =
-        failwith ""
-    term x
+        | ETypeEq(_,t,bind,on_succ,on_fail) -> singleton_ty bind + ty t + term on_succ + term on_fail
+    and ty = function
+        | TSymbol | TPrim | TNominal | TUnit -> empty
+        | TV i -> singleton_ty i
+        | TApply(_,a,b) | TPair(_,a,b) | TFun(_,a,b) -> ty a + ty b
+        | TUnion(_,a) | TRecord(_,a) -> Map.fold (fun s k v -> s + ty v) empty a
+        | TTerm(_,a) -> term a
+        | TMacro(_,a) -> a |> List.fold (fun s -> function TMText -> s | TMType x -> s + ty x) empty
+        | TArrow(_,a,_,_) -> propagated_vars a
+        | TArray(_,a) | TLayout(_,a,_) -> ty a
+    
+    match x with 
+    | Choice1Of4 x -> term x
+    | Choice2Of4 x -> ty x 
+    | Choice3Of4 (id, x) -> term x - id
+    | Choice4Of4 (id, x) -> ty x -. id
+    |> fun x -> free_vars env (match annot with Some annot -> x + ty annot | None -> x)
+
 
 type CompilePatternEnv = {vars : Dictionary<VarString,Id>; envs : Dictionary<Pattern,Env> }
 let make_compile_pattern_env (env : Env) x = 
@@ -277,21 +292,27 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
 
             cp id pat on_succ on_fail
         List.foldBack loop l EPatternMiss
-    and pattern (env : Env) r body clauses =
-        let l env = clauses |> List.map (fun (pat,on_succ) -> let x,env = make_compile_pattern_env env pat in x,pat,EPatternMemo(term env on_succ))
-        match body, clauses with
-        | Some body, [PatVar(_,x), on_succ] ->
+    and compile_clauses env clauses = List.map (fun (pat,on_succ) -> let x,env = make_compile_pattern_env env pat in x,pat,EPatternMemo(term env on_succ)) clauses
+    and pattern_match (env : Env) r body clauses =
+        match clauses with
+        | [PatVar(_,x), on_succ] ->
             let id,env = add_term_var env x
             ELet(r,id,body,term env on_succ)
-        | Some body, _ ->
+        | _ ->
             let id,env = fresh_term_var env
-            ELet(r,id,body,compile_pattern id (l env))
-        | None, [PatVar(_,x), on_succ] ->
+            ELet(r,id,body,compile_pattern id (compile_clauses env clauses))
+    and pattern_function env r clauses annot =
+        match clauses with
+        | [PatVar(_,x), on_succ] ->
             let id,env = add_term_var env x
-            EFun(r,(),id,term env on_succ,None)
-        | None, _ ->
+            let body = term env on_succ
+            let free_vars = propagate env (Choice3Of4(id, body)) annot
+            EFun(r,free_vars,id,body,annot)
+        | _ ->
             let id,env = fresh_term_var env
-            EFun(r,(),id,compile_pattern id (l env),None)
+            let body = compile_pattern id (compile_clauses env clauses)
+            let free_vars = propagate env (Choice3Of4(id, body)) annot
+            EFun(r,free_vars,id,body,annot)
     and compile_typecase id l =
         let loop ((vars : Dictionary<_,_>, env : Env), pat, on_succ) on_fail =
             let var_count = ref env.ty.i
@@ -374,17 +395,16 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         | RawLit(r,a) -> ELit(r,a)
         | RawSymbolCreate(r,a) -> ESymbolCreate(r,a)
         | RawType(r,a) -> EType(r,ty env a)
-        | RawMatch(r,a,b) -> pattern env r (Some (f a)) b
-        | RawFun(r,a) -> pattern env r None a
-        | RawAnnot(_,RawFun(r,a),t) -> 
-            match pattern env r None a with
-            | EFun(r,a,b,c,_) -> EFun(r,a,b,c,Some (ty env t))
-            | _ -> failwith "Compiler error: RawFun should result in a function."
+        | RawMatch(r,a,b) -> pattern_match env r (f a) b
+        | RawFun(r,a) -> pattern_function env r a None
+        | RawAnnot(_,RawFun(r,a),t) -> pattern_function env r a (Some (ty env t))
         | RawTypecase(r,a,b) -> typecase env r (ty env a) b
         | RawFilledForall(r,name,b)
         | RawForall(r,((_,(name,_)),_),b) -> 
             let id, env = add_ty_var env name
-            EForall(r,(),id,term env b)
+            let body = term env b
+            let free_vars = propagate env (Choice3Of4(id,body)) None
+            EForall(r,free_vars,id,body)
         | RawRecBlock(r,l,on_succ) ->
             let l,env = List.mapFold (fun env ((r,name),body) -> let id,env = add_term_rec_var env name in (id,body), env) env l
             ERecBlock(r,List.map (fun (id,body) -> id, term env body) l,term env on_succ)
@@ -400,9 +420,16 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 | RawRecordWithoutInjectVar(r,a) -> WVar(r,v_term env a))
             ERecordWith(r,a,b,c)
         | RawOp(r,a,b) -> EOp(r,a,List.map f b)
-        | RawJoinPoint(r,a) -> EJoinPoint(r,(),f a,None)
-        | RawAnnot(_,RawJoinPoint(r,a),b) -> EJoinPoint(r,(),f a,Some (ty env b))
-        | RawModuleOpen (r,a,l,on_succ) ->
+        | RawJoinPoint(r,a) -> 
+            let body = f a
+            let free_vars = propagate env (Choice1Of4 body) None
+            EJoinPoint(r,free_vars,body,None)
+        | RawAnnot(_,RawJoinPoint(r,a),b) -> 
+            let body = f a
+            let b = Some (ty env b)
+            let free_vars = propagate env (Choice1Of4 body) b
+            EJoinPoint(r,free_vars,body,b)
+        | RawModuleOpen (_,a,l,on_succ) ->
             let a,b = 
                 match top_env.term.[snd a], top_env.ty.[snd a] with
                 | ERecord a, TRecord(_, b) ->
@@ -412,7 +439,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                         | _ -> failwith "Compiler error: Module open's symbol index should have been validated."
                         ) (a,b) l
                 | _ -> failwith "Compiler error: Module open should have been validated."
-            let env =
+            let env : Env =
                 let combine e m = Map.foldBack Map.add m e
                 {
                 term = {|env.term with env = combine env.term.env a|}
@@ -444,7 +471,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         | RawMissingBody _ -> failwith "Compiler error: The missing body cases should have been validated."
         | RawAnnot(r,a,b) -> EAnnot(r,f a,ty env b)
 
-    let env =
+    let env : Env =
         {
         term = {|env=Map.empty; i=0; i_rec= -1|}
         ty = {|env=Map.empty; i=0|}
@@ -452,10 +479,12 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
 
     let eval_type ((r,(name,kind)) : HoVar) on_succ env =
         let id, env = add_ty_var env name
-        TArrow(r,(),id,on_succ env)
+        let body = on_succ env
+        let free_vars = propagate env (Choice4Of4(id,body)) None
+        TArrow(r,free_vars,id,body)
     let eval_type' env l body = List.foldBack eval_type l (fun env -> ty env body) env
     match expr with
-    | FType(r,(_,name),l,body) -> {top_env with ty = Map.add name (eval_type' env l body) top_env.ty}
+    | FType(_,(_,name),l,body) -> {top_env with ty = Map.add name (eval_type' env l body) top_env.ty}
     | FNominal l ->
         let env,_ = List.fold (fun (env,i) (r,(_,name),l,body) -> add_ty env name (TNominal i), i+1) (env, top_env.nominals.Length) l
         let ty,nominals = 
@@ -479,9 +508,12 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 ) top_env.term l
         {top_env with term = term}
     | FPrototype(r,(_,name),_,_,_) ->
-        let x = EForall(r,(),0,EPrototypeApply(r,top_env.prototypes.Length,TV 0))
+        let id,env = add_ty_var env name
+        let body = EPrototypeApply(r,top_env.prototypes.Length,TV id)
+        let free_vars = propagate env (Choice3Of4(id,body)) None
+        let x = EForall(r,free_vars,id,body)
         {top_env with term = Map.add name x top_env.term; prototypes = PersistentVector.conj Map.empty top_env.prototypes}
-    | FInstance(r,(_,prot_id),(_,ins_id),l,body) ->
+    | FInstance(_,(_,prot_id),(_,ins_id),l,body) ->
         let env = l |> List.fold (fun s x -> add_ty_var s (typevar_name x) |> snd) env
         let body = term env body
         {top_env with prototypes = PersistentVector.update prot_id (Map.add ins_id body top_env.prototypes.[prot_id]) top_env.prototypes}
