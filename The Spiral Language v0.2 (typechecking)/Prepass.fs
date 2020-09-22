@@ -120,18 +120,34 @@ type PrepassError =
 exception PrepassException of (Range * PrepassError) list
 open System.Collections.Generic
 
+type PropagateEnv = {
+    term : {| vars : Set<int>; max_var : int |}
+    ty : {| vars : Set<int>; max_var : int |}
+    }
+
 let propagate x =
-    let (+) (s,m) (s',m') = Set.union s s', max m m'
-    let (-) (s,m) i = Set.remove i s, max m i
-    let empty = Set.empty, 0
-    let singleton i = Set.singleton i, 0
-    let rec term = function
+    let dict = Dictionary(HashIdentity.Reference)
+    let (+) (a : PropagateEnv) (b : PropagateEnv) : PropagateEnv = {
+        term = {|vars = Set.union a.term.vars b.term.vars; max_var = max a.term.max_var b.term.max_var |} 
+        ty = {|vars = Set.union a.ty.vars b.ty.vars; max_var = max a.ty.max_var b.ty.max_var |} 
+        }
+    let sub_term i (a : PropagateEnv) = {a with term = {|vars = Set.remove i a.term.vars; max_var = max i a.term.max_var |} }
+    let sub_ty i (a : PropagateEnv) = {a with ty = {|vars = Set.remove i a.ty.vars; max_var = max i a.ty.max_var |} }
+    let empty = {term = {|vars = Set.empty; max_var=0|}; ty = {|vars = Set.empty; max_var=0|}}
+    let singleton_term i = {term = {|vars = Set.singleton i; max_var=0|}; ty = {|vars = Set.empty; max_var=0|}}
+    let singleton_ty i = {ty = {|vars = Set.singleton i; max_var=0|}; term = {|vars = Set.empty; max_var=0|}}
+    let rec term x =
+        let singleton = singleton_term
+        let (-) a i = sub_term i a
+        let (-.) a i = sub_ty i a
+        match x with
         | EPatternMiss | ERecord | ERecursive | ESymbolCreate | ELit | EB -> empty
         | EV i -> singleton i
         | EPrototypeApply(_,_,a) | EType(_,a) | EDefaultLit(_,_,a) -> ty a
         | EHeapMutableSet(_,a,b) | ESeq(_,a,b) | EPairCreate(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
         | EAnnot(_,a,b) | ETypeApply(_,a,b) -> term a + ty b
         | EForall | EFun -> failwith "TODO"
+        | EJoinPoint -> failwith "TODO"
         | ERecBlock(r,l,on_succ) ->
             let s = List.fold (fun s (_,body) -> s + term body) (term on_succ) l
             List.fold (fun s (id,_) -> s - id) s l
@@ -147,29 +163,34 @@ let propagate x =
                 | WVar(_,a) -> s + term a
                 ) c
         | EOp(_,_,a) -> List.fold (fun s a -> s + term a) empty a
-        | EJoinPoint -> failwith "TODO"
         | EIfThenElse(r,a,b,c) -> term a + term b + term c
         | EReal(_,a) -> term a
         | EMacro(r,a,b) -> List.fold (fun s -> function MType x -> s + ty x | MTerm x -> s + term x | MText -> s) (ty b) a
-        | EPatternMemo a -> term a // TODO: Memoization
+        | EPatternMemo a -> Utils.memoize dict term a
         // Regular pattern matching
         | ELet(r,a,b,c) -> (term b - a) + term c
         | EPairTest(r,bind,pat1,pat2,on_succ,on_fail) -> singleton bind + (term on_succ - pat1 - pat2) + term on_fail
-        //| ESymbolTest of Range * string * bind: Id * on_succ: E * on_fail: E
-        //| ERecordTest of Range * PatRecordMember list * bind: Id * on_succ: E * on_fail: E
-        //| EAnnotTest of Range * T * bind: Id * on_succ: E * on_fail: E
-        //| ELitTest of Range * Tokenize.Literal * bind: Id * on_succ: E * on_fail: E
-        //| EUnitTest of Range * bind: Id * on_succ: E * on_fail: E
-        //| ENominalTest of Range * T * bind: Id * pat: Id * on_succ: E * on_fail: E
-        //| EDefaultLitTest of Range * string * T * bind: Id * on_succ: E * on_fail: E
-        //// Typecase
-        //| ETypeLet of Range * Id * T * E
-        //| ETypePairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
-        //| ETypeFunTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
-        //| ETypeRecordTest of Range * Map<string,Id> * bind: Id * on_succ: E * on_fail: E
-        //| ETypeApplyTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
-        //| ETypeArrayTest of Range * bind: Id * pat: Id * on_succ: E * on_fail: E
-        //| ETypeEq of Range * T * bind: Id * on_succ: E * on_fail: E
+        | ESymbolTest(_,_,bind,on_succ,on_fail) 
+        | EUnitTest(_,bind,on_succ,on_fail) 
+        | ELitTest(_,_,bind,on_succ,on_fail) -> singleton bind + term on_succ + term on_fail
+        | ERecordTest(r,a,bind,on_succ,on_fail) ->
+            let on_succ_and_injects =
+                let on_succ = List.fold (fun s (Symbol(_,a) | Var(_,a)) -> s - a) (term on_succ) a
+                List.fold (fun s -> function Var((_,a),_) -> s + term a | Symbol -> s) on_succ a // Though it is less efficient, I am using two passes here to guard against future changes to pattern compilation breaking this part by accident.
+            singleton bind + term on_fail + on_succ_and_injects
+        | EDefaultLitTest(_,_,t,bind,on_succ,on_fail)
+        | EAnnotTest(_,t,bind,on_succ,on_fail) -> singleton bind + ty t + term on_succ + term on_fail
+        | ENominalTest(_,t,bind,pat,on_succ,on_fail) -> singleton bind + ty t + (term on_succ - pat) + term on_fail
+        // Typecase
+        | ETypeLet(_,a,b,c) -> (ty b -. a) + term c
+        | ETypeApplyTest(_,bind,pat1,pat2,on_succ,on_fail)
+        | ETypeFunTest(_,bind,pat1,pat2,on_succ,on_fail)
+        | ETypePairTest(_,bind,pat1,pat2,on_succ,on_fail) -> singleton_ty bind + (term on_succ -. pat1 -. pat2) + term on_fail
+        | ETypeRecordTest(r,a,bind,on_succ,on_fail) ->
+            let on_succ = Map.fold (fun s k v -> s -. v) (term on_succ) a
+            singleton_ty bind + on_succ + term on_fail
+        | ETypeArrayTest(_,bind,pat,on_succ,on_fail) -> singleton_ty bind + (term on_succ -. pat) + term on_fail
+        | ETypeEq(_,t,bind,on_succ,on_fail) -> singleton bind + ty t + term on_succ + term on_fail
     and ty x =
         failwith ""
     term x
