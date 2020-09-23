@@ -3,7 +3,7 @@ open Infer
 
 type Id = int32
 //type FreeVars = {|ty : int; term : int|}
-type FreeVarsEnv = {|free_vars : int []; stack_size : int|} // The stack size does not include the size of free vars.
+type FreeVarsEnv = {|free_vars : int []; stack_size : int|}
 type FreeVars = {term : FreeVarsEnv; ty : FreeVarsEnv}
 //type Range = { uri : string; range : Config.VSCRange }
 type Range = BlockParsing.Range
@@ -27,6 +27,12 @@ and PatRecordMember =
     | Symbol of (Range * string) * Id
     | Var of (Range * E) * Id
 and E =
+    | EFun' of Range * FreeVars * Id * E * T option
+    | EForall' of Range * FreeVars * Id * E
+    | EJoinPoint' of Range * FreeVars * E * T option
+    | EFun of Range * Id * E * T option
+    | EForall of Range * Id * E
+    | EJoinPoint of Range * E * T option
     | EB of Range
     | EV of Id
     | ELit of Range * Tokenize.Literal
@@ -35,15 +41,12 @@ and E =
     | EType of Range * T
     | EApply of Range * E * E
     | ETypeApply of Range * E * T
-    | EFun of Range * FreeVars * Id * E * T option
     | ERecursive of E ref
-    | EForall of Range * FreeVars * Id * E
     | ERecBlock of Range * (Id * E) list * on_succ: E
     | ERecordWith of Range * E list * RecordWith list * RecordWithout list
     | ERecord of Map<string, E> // Used for modules.
     | EOp of Range * BlockParsing.Op * E list
     | EPatternMiss
-    | EJoinPoint of Range * FreeVars * E * T option
     | EAnnot of Range * E * T
     | EIfThenElse of Range * E * E * E
     | EIfThen of Range * E * E
@@ -73,6 +76,8 @@ and E =
     | ETypeArrayTest of Range * bind: Id * pat: Id * on_succ: E * on_fail: E
     | ETypeEq of Range * T * bind: Id * on_succ: E * on_fail: E
 and T =
+    | TArrow' of Range * FreeVars * Id * T
+    | TArrow of Range * Id * T
     | TUnit of Range
     | TV of Id
     | TPair of Range * T * T
@@ -84,7 +89,6 @@ and T =
     | TPrim of Range * Config.PrimitiveType
     | TTerm of Range * E
     | TMacro of Range * TypeMacro list
-    | TArrow of Range * FreeVars * Id * T
     | TNominal of Id
     | TArray of Range * T
     | TLayout of Range * T * BlockParsing.Layout
@@ -121,34 +125,36 @@ type PrepassError =
 exception PrepassException of (Range * PrepassError) list
 open System.Collections.Generic
 
-type PropagatedVarsEnv = {| vars : Set<int>; max_var : int |}
+type PropagatedVarsEnv = {| vars : Set<int>; max : int ; min : int |}
 type PropagatedVars = {term : PropagatedVarsEnv; ty : PropagatedVarsEnv}
 
-let free_vars i (env : Env) (x : PropagatedVars) : FreeVars = {
-    term = {|free_vars = Set.toArray x.term.vars; stack_size = max 0 (x.term.max_var-env.term.i) + i |}
-    ty = {|free_vars = Set.toArray x.ty.vars; stack_size = max 0 (x.ty.max_var-env.ty.i) + i |}
-    }
-let propagate env x annot =
+let propagate x =
     let dict = Dictionary(HashIdentity.Reference)
     let (+) (a : PropagatedVars) (b : PropagatedVars) : PropagatedVars = {
-        term = {|vars = Set.union a.term.vars b.term.vars; max_var = max a.term.max_var b.term.max_var |} 
-        ty = {|vars = Set.union a.ty.vars b.ty.vars; max_var = max a.ty.max_var b.ty.max_var |} 
+        term = {|vars = Set.union a.term.vars b.term.vars; max = max a.term.max b.term.max; min = min a.term.min b.term.min |} 
+        ty = {|vars = Set.union a.ty.vars b.ty.vars; max = max a.ty.max b.ty.max; min = min a.ty.min b.ty.min |} 
         }
-    let (-) (a : PropagatedVars) i = {a with term = {|vars = Set.remove i a.term.vars; max_var = max i a.term.max_var |} }
-    let (-.) (a : PropagatedVars) i = {a with ty = {|vars = Set.remove i a.ty.vars; max_var = max i a.ty.max_var |} }
-    let empty = {term = {|vars = Set.empty; max_var=0|}; ty = {|vars = Set.empty; max_var=0|}}
-    let singleton_term i = {term = {|vars = Set.singleton i; max_var=0|}; ty = {|vars = Set.empty; max_var=0|}}
-    let singleton_ty i = {ty = {|vars = Set.singleton i; max_var=0|}; term = {|vars = Set.empty; max_var=0|}}
-    let propagated_vars (a : FreeVars) : PropagatedVars = {term = {|vars = Set(a.term.free_vars); max_var = 0|}; ty = {|vars = Set(a.ty.free_vars); max_var = 0|}}
+    let (-) (a : PropagatedVars) i = {a with term = {|vars = Set.remove i a.term.vars; max = max i a.term.max; min = if 0 <= i then min i a.term.min else a.term.min |} } // Recursive vars are negative and get inlined so they should be ignored when calculating the range of a scope.
+    let (-.) (a : PropagatedVars) i = {a with ty = {|vars = Set.remove i a.ty.vars; max = max i a.ty.max; min = if 0 <= i then min i a.ty.min else a.ty.min |} }
+    let empty' term ty = let f x = {|vars = x; max=0; min=System.Int32.MaxValue|} in {term = f term; ty = f ty}
+    let empty = empty' Set.empty Set.empty
+    let singleton_term i = empty' (Set.singleton i) Set.empty
+    let singleton_ty i = empty' Set.empty (Set.singleton i)
+
+    let scope_dict = Dictionary<obj,_>(HashIdentity.Reference)
+    let scope x (v : PropagatedVars) = scope_dict.Add(x,v); empty' v.term.vars v.ty.vars
     let rec term x =
         let singleton = singleton_term
         match x with
+        | EForall' | EJoinPoint' | EFun' -> failwith "Compiler error: Not supposed to show up here."
         | EPatternMiss | ERecord | ERecursive | ESymbolCreate | ELit | EB -> empty
         | EV i -> singleton i
         | EPrototypeApply(_,_,a) | EType(_,a) | EDefaultLit(_,_,a) -> ty a
         | EHeapMutableSet(_,a,b) | ESeq(_,a,b) | EPairCreate(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
         | EAnnot(_,a,b) | ETypeApply(_,a,b) -> term a + ty b
-        | EForall(_,a,_,_) | EJoinPoint(_,a,_,_) | EFun(_,a,_,_,_) -> propagated_vars a // No need to eval the optional types for join points and functions.
+        | EForall(_,i,a) -> scope x (term a - i)
+        | EJoinPoint(_,a,t) -> scope x (match t with Some t -> term a + ty t | None -> term a)
+        | EFun(_,i,a,t) -> scope x (term a - i + (match t with Some t -> term a + ty t | None -> term a))
         | ERecBlock(_,l,on_succ) ->
             let s = List.fold (fun s (_,body) -> s + term body) (term on_succ) l
             List.fold (fun s (id,_) -> s - id) s l
@@ -164,7 +170,7 @@ let propagate env x annot =
                 | WVar(_,a) -> s + term a
                 ) c
         | EOp(_,_,a) -> List.fold (fun s a -> s + term a) empty a
-        | EIfThenElse(r,a,b,c) -> term a + term b + term c
+        | EIfThenElse(_,a,b,c) -> term a + term b + term c
         | EReal(_,a) -> term a
         | EMacro(_,a,b) -> List.fold (fun s -> function MType x -> s + ty x | MTerm x -> s + term x | MText -> s) (ty b) a
         | EPatternMemo a -> Utils.memoize dict term a
@@ -174,7 +180,7 @@ let propagate env x annot =
         | ESymbolTest(_,_,bind,on_succ,on_fail) 
         | EUnitTest(_,bind,on_succ,on_fail) 
         | ELitTest(_,_,bind,on_succ,on_fail) -> singleton bind + term on_succ + term on_fail
-        | ERecordTest(r,a,bind,on_succ,on_fail) ->
+        | ERecordTest(_,a,bind,on_succ,on_fail) ->
             let on_succ_and_injects =
                 let on_succ = List.fold (fun s (Symbol(_,a) | Var(_,a)) -> s - a) (term on_succ) a
                 List.fold (fun s -> function Var((_,a),_) -> s + term a | Symbol -> s) on_succ a // Though it is less efficient, I am using two passes here to guard against future changes to pattern compilation breaking this part by accident.
@@ -193,21 +199,18 @@ let propagate env x annot =
         | ETypeArrayTest(_,bind,pat,on_succ,on_fail) -> singleton_ty bind + (term on_succ -. pat) + term on_fail
         | ETypeEq(_,t,bind,on_succ,on_fail) -> singleton_ty bind + ty t + term on_succ + term on_fail
     and ty = function
+        | TArrow' -> failwith "Compiler error: Not supposed to appear here."
         | TSymbol | TPrim | TNominal | TUnit -> empty
         | TV i -> singleton_ty i
         | TApply(_,a,b) | TPair(_,a,b) | TFun(_,a,b) -> ty a + ty b
         | TUnion(_,a) | TRecord(_,a) -> Map.fold (fun s k v -> s + ty v) empty a
         | TTerm(_,a) -> term a
         | TMacro(_,a) -> a |> List.fold (fun s -> function TMText -> s | TMType x -> s + ty x) empty
-        | TArrow(_,a,_,_) -> propagated_vars a
+        | TArrow(r,i,a) as x -> scope x (ty a -. i)
         | TArray(_,a) | TLayout(_,a,_) -> ty a
     
-    let next i x = free_vars i env (match annot with Some annot -> x + ty annot | None -> x)
-    match x with 
-    | Choice1Of4 x -> next 0 (term x)
-    | Choice2Of4 x -> next 0 (ty x)
-    | Choice3Of4 (id, x) -> next 1 (term x - id)
-    | Choice4Of4 (id, x) -> next 1 (ty x -. id)
+    let _ = match x with Choice1Of2 x -> term x | Choice2Of2 x -> ty x
+    scope_dict
 
 type CompilePatternEnv = {vars : Dictionary<VarString,Id>; envs : Dictionary<Pattern,Env> }
 let make_compile_pattern_env (env : Env) x = 
@@ -304,14 +307,10 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         match clauses with
         | [PatVar(_,x), on_succ] ->
             let id,env = add_term_var env x
-            let body = term env on_succ
-            let free_vars = propagate env (Choice3Of4(id, body)) annot
-            EFun(r,free_vars,id,body,annot)
+            EFun(r,id,term env on_succ,annot)
         | _ ->
             let id,env = fresh_term_var env
-            let body = compile_pattern id (compile_clauses env clauses)
-            let free_vars = propagate env (Choice3Of4(id, body)) annot
-            EFun(r,free_vars,id,body,annot)
+            EFun(r,id,compile_pattern id (compile_clauses env clauses),annot)
     and compile_typecase id l =
         let loop ((vars : Dictionary<_,_>, env : Env), pat, on_succ) on_fail =
             let var_count = ref env.ty.i
@@ -401,9 +400,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         | RawFilledForall(r,name,b)
         | RawForall(r,((_,(name,_)),_),b) -> 
             let id, env = add_ty_var env name
-            let body = term env b
-            let free_vars = propagate env (Choice3Of4(id,body)) None
-            EForall(r,free_vars,id,body)
+            EForall(r,id,term env b)
         | RawRecBlock(r,l,on_succ) ->
             let l,env = List.mapFold (fun env ((r,name),body) -> let id,env = add_term_rec_var env name in (id,body), env) env l
             ERecBlock(r,List.map (fun (id,body) -> id, term env body) l,term env on_succ)
@@ -419,15 +416,8 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 | RawRecordWithoutInjectVar(r,a) -> WVar(r,v_term env a))
             ERecordWith(r,a,b,c)
         | RawOp(r,a,b) -> EOp(r,a,List.map f b)
-        | RawJoinPoint(r,a) -> 
-            let body = f a
-            let free_vars = propagate env (Choice1Of4 body) None
-            EJoinPoint(r,free_vars,body,None)
-        | RawAnnot(_,RawJoinPoint(r,a),b) -> 
-            let body = f a
-            let b = Some (ty env b)
-            let free_vars = propagate env (Choice1Of4 body) b
-            EJoinPoint(r,free_vars,body,b)
+        | RawJoinPoint(r,a) -> EJoinPoint(r,f a,None)
+        | RawAnnot(_,RawJoinPoint(r,a),b) -> EJoinPoint(r,f a,Some (ty env b))
         | RawModuleOpen (_,a,l,on_succ) ->
             let a,b = 
                 match top_env.term.[snd a], top_env.ty.[snd a] with
@@ -478,9 +468,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
 
     let eval_type ((r,(name,kind)) : HoVar) on_succ env =
         let id, env = add_ty_var env name
-        let body = on_succ env
-        let free_vars = propagate env (Choice4Of4(id,body)) None
-        TArrow(r,free_vars,id,body)
+        TArrow(r,id,on_succ env)
     let eval_type' env l body = List.foldBack eval_type l (fun env -> ty env body) env
     match expr with
     | FType(_,(_,name),l,body) -> {top_env with ty = Map.add name (eval_type' env l body) top_env.ty}
@@ -507,91 +495,84 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         {top_env with term = term}
     | FPrototype(r,(_,name),_,_,_) ->
         let id,env = add_ty_var env name
-        let body = EPrototypeApply(r,top_env.prototypes.Length,TV id)
-        let free_vars = propagate env (Choice3Of4(id,body)) None
-        let x = EForall(r,free_vars,id,body)
+        let x = EForall(r,id,EPrototypeApply(r,top_env.prototypes.Length,TV id))
         {top_env with term = Map.add name x top_env.term; prototypes = PersistentVector.conj Map.empty top_env.prototypes}
     | FInstance(_,(_,prot_id),(_,ins_id),l,body) ->
         let env = l |> List.fold (fun s x -> add_ty_var s (typevar_name x) |> snd) env
         let body = term env body
         {top_env with prototypes = PersistentVector.update prot_id (Map.add ins_id body top_env.prototypes.[prot_id]) top_env.prototypes}
 
-type ResolveEnv = Map<int,E * Set<int>>
+type ResolveEnv = { term : Map<int,E>; ty : Map<int,T>; term_rec_free_vars : Map<int,Set<int>> }
 
-let resolve_free_vars (env' : Map<Id,FreeVars>) =
-    let env = env' |> Map.map (fun k v -> Set(v.term.free_vars))
+let resolve_free_vars env =
     Map.fold (fun (env : Map<Id,Set<int>>) k v ->
         let has_visited = HashSet()
         let rec f s k v = if has_visited.Add(k) then Set.fold (fun s k -> if 0 < k then f s k env.[k] else Set.add k s) s v else s
         Map.add k (f Set.empty k v) env
         ) env env
-    |> Map.map (fun k free_vars ->
-        let k = env'.[k]
-        {k with term = {|k.term with free_vars = Set.toArray free_vars|} }
-        )
 
-let resolve x =
-    let subst (env : ResolveEnv) (x : FreeVars) : FreeVars = 
-        let f s x = if 0 < x then match Map.tryFind x env with Some (_,x) -> s + x | None -> s else s
-        {x with term = {|x.term with free_vars = Array.fold f Set.empty x.term.free_vars |> Set.toArray|} }
-    let rec resolve_recursive (env : ResolveEnv) l =
-        let l,e =
-            List.mapFold (fun s (id,body) ->
-                let r = ref Unchecked.defaultof<_>
-                let free_vars, body =
-                    match body with
-                    | EForall(r,a,b,c) -> a, fun free_vars env -> id, EForall(r,free_vars,b,term env c)
-                    | EFun(r,a,b,c,d) -> a, fun free_vars env -> id, EFun(r,free_vars,b,term env c, Option.map (ty env) d)
-                    | _ -> failwith "Compiler error: Expected a function or a forall."
-                (r, body), Map.add id (subst env free_vars) s
-                ) Map.empty l
-        let e = resolve_free_vars e
-        failwith ""
-    and term (env : ResolveEnv) x =
-        let f = term env
-        match x with
-        | ERecursive | ESymbolCreate | EDefaultLit | ELit | EB -> x
-        | EV i -> if i < 0 then fst env.[i] else x
-        | EType(r,a) -> EType(r,ty env a)
-        | EApply(r,a,b) -> EApply(r,f a,f b)
-        | ETypeApply(r,a,b) -> ETypeApply(r,f a,ty env b)
-        | EFun(r,a,b,c,d) -> EFun(r,subst env a,b,f c,Option.map (ty env) d)
-        | EForall(r,a,b,c) -> EForall(r,subst env a,b,f c)
-        | ERecBlock(r,a,b) ->
-            let a,env = resolve_recursive env a
-            ERecBlock(r,a,term env b)
-        //| ERecordWith of Range * E list * RecordWith list * RecordWithout list
-        //| ERecord of Map<string, E> // Used for modules.
-        //| EOp of Range * BlockParsing.Op * E list
-        //| EPatternMiss
-        //| EJoinPoint of Range * FreeVars * E * T option
-        //| EAnnot of Range * E * T
-        //| EIfThenElse of Range * E * E * E
-        //| EIfThen of Range * E * E
-        //| EPairCreate of Range * E * E
-        //| ESeq of Range * E * E
-        //| EHeapMutableSet of Range * E * E
-        //| EReal of Range * E
-        //| EMacro of Range * Macro list * T
-        //| EPrototypeApply of Range * Id * T
-        //| EPatternMemo of E
-        //// Regular pattern matching
-        //| ELet of Range * Id * E * E
-        //| EPairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
-        //| ESymbolTest of Range * string * bind: Id * on_succ: E * on_fail: E
-        //| ERecordTest of Range * PatRecordMember list * bind: Id * on_succ: E * on_fail: E
-        //| EAnnotTest of Range * T * bind: Id * on_succ: E * on_fail: E
-        //| ELitTest of Range * Tokenize.Literal * bind: Id * on_succ: E * on_fail: E
-        //| EUnitTest of Range * bind: Id * on_succ: E * on_fail: E
-        //| ENominalTest of Range * T * bind: Id * pat: Id * on_succ: E * on_fail: E
-        //| EDefaultLitTest of Range * string * T * bind: Id * on_succ: E * on_fail: E
-        //// Typecase
-        //| ETypeLet of Range * Id * T * E
-        //| ETypePairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
-        //| ETypeFunTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
-        //| ETypeRecordTest of Range * Map<string,Id> * bind: Id * on_succ: E * on_fail: E
-        //| ETypeApplyTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
-        //| ETypeArrayTest of Range * bind: Id * pat: Id * on_succ: E * on_fail: E
-        //| ETypeEq of Range * T * bind: Id * on_succ: E * on_fail: E
-    and ty env x = x
-    ()
+//let resolve x =
+//    let subst (env : ResolveEnv) (x : FreeVars) : FreeVars = 
+//        let f s x = if 0 < x then match Map.tryFind x env with Some (_,x) -> s + x | None -> s else s
+//        {x with term = {|x.term with free_vars = Array.fold f Set.empty x.term.free_vars |> Set.toArray|} }
+//    let rec resolve_recursive (env : ResolveEnv) l =
+//        let l,e =
+//            List.mapFold (fun s (id,body) ->
+//                let r = ref Unchecked.defaultof<_>
+//                let free_vars, body =
+//                    match body with
+//                    | EForall(r,a,b,c) -> a, fun free_vars env -> id, EForall(r,free_vars,b,term env c)
+//                    | EFun(r,a,b,c,d) -> a, fun free_vars env -> id, EFun(r,free_vars,b,term env c, Option.map (ty env) d)
+//                    | _ -> failwith "Compiler error: Expected a function or a forall."
+//                (r, body), Map.add id (subst env free_vars) s
+//                ) Map.empty l
+//        let e = resolve_free_vars e
+//        failwith ""
+//    and term (env : ResolveEnv) x =
+//        let f = term env
+//        match x with
+//        | ERecursive | ESymbolCreate | EDefaultLit | ELit | EB -> x
+//        | EV i -> if i < 0 then fst env.[i] else x
+//        | EType(r,a) -> EType(r,ty env a)
+//        | EApply(r,a,b) -> EApply(r,f a,f b)
+//        | ETypeApply(r,a,b) -> ETypeApply(r,f a,ty env b)
+//        | EFun(r,a,b,c,d) -> EFun(r,subst env a,b,f c,Option.map (ty env) d)
+//        | EForall(r,a,b,c) -> EForall(r,subst env a,b,f c)
+//        | ERecBlock(r,a,b) ->
+//            let a,env = resolve_recursive env a
+//            ERecBlock(r,a,term env b)
+//        //| ERecordWith of Range * E list * RecordWith list * RecordWithout list
+//        //| ERecord of Map<string, E> // Used for modules.
+//        //| EOp of Range * BlockParsing.Op * E list
+//        //| EPatternMiss
+//        //| EJoinPoint of Range * FreeVars * E * T option
+//        //| EAnnot of Range * E * T
+//        //| EIfThenElse of Range * E * E * E
+//        //| EIfThen of Range * E * E
+//        //| EPairCreate of Range * E * E
+//        //| ESeq of Range * E * E
+//        //| EHeapMutableSet of Range * E * E
+//        //| EReal of Range * E
+//        //| EMacro of Range * Macro list * T
+//        //| EPrototypeApply of Range * Id * T
+//        //| EPatternMemo of E
+//        //// Regular pattern matching
+//        //| ELet of Range * Id * E * E
+//        //| EPairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
+//        //| ESymbolTest of Range * string * bind: Id * on_succ: E * on_fail: E
+//        //| ERecordTest of Range * PatRecordMember list * bind: Id * on_succ: E * on_fail: E
+//        //| EAnnotTest of Range * T * bind: Id * on_succ: E * on_fail: E
+//        //| ELitTest of Range * Tokenize.Literal * bind: Id * on_succ: E * on_fail: E
+//        //| EUnitTest of Range * bind: Id * on_succ: E * on_fail: E
+//        //| ENominalTest of Range * T * bind: Id * pat: Id * on_succ: E * on_fail: E
+//        //| EDefaultLitTest of Range * string * T * bind: Id * on_succ: E * on_fail: E
+//        //// Typecase
+//        //| ETypeLet of Range * Id * T * E
+//        //| ETypePairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
+//        //| ETypeFunTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
+//        //| ETypeRecordTest of Range * Map<string,Id> * bind: Id * on_succ: E * on_fail: E
+//        //| ETypeApplyTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
+//        //| ETypeArrayTest of Range * bind: Id * pat: Id * on_succ: E * on_fail: E
+//        //| ETypeEq of Range * T * bind: Id * on_succ: E * on_fail: E
+//    and ty env x = x
+//    ()

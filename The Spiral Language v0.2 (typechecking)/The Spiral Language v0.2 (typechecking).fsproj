@@ -31,7 +31,6 @@
     <Compile Include="Infer.fs" />
     <Compile Include="Prepass.fs" />
     <Compile Include="Blockize.fs" />
-    <Content Include="TextFile1.txt" />
     <Compile Include="Server.fs" />
   </ItemGroup>
 
