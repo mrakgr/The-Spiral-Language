@@ -8,40 +8,40 @@ type FreeVars = {term : FreeVarsEnv; ty : FreeVarsEnv}
 //type Range = { uri : string; range : Config.VSCRange }
 type Range = BlockParsing.Range
 
-type Macro<'free_vars> =
+type Macro =
     | MText of string
     | MType of T
-    | MTerm of 'free_vars E
-and TypeMacro<'free_vars> =
+    | MTerm of E
+and TypeMacro =
     | TMText of string
-    | TMType of 'free_vars T
-and RecordWith<'free_vars> =
-    | RSymbol of (Range * string) * 'free_vars E
-    | RSymbolModify of (Range * string) * 'free_vars E
-    | RVar of (Range * 'free_vars E) * 'free_vars E
-    | RVarModify of (Range * 'free_vars E) * 'free_vars E
-and RecordWithout<'free_vars> =
+    | TMType of T
+and RecordWith =
+    | RSymbol of (Range * string) * E
+    | RSymbolModify of (Range * string) * E
+    | RVar of (Range * E) * E
+    | RVarModify of (Range * E) * E
+and RecordWithout =
     | WSymbol of Range * string
-    | WVar of Range * 'free_vars E
-and PatRecordMember<'free_vars> =
+    | WVar of Range * E
+and PatRecordMember =
     | Symbol of (Range * string) * Id
-    | Var of (Range * 'free_vars E) * Id
-and E<'free_vars> =
+    | Var of (Range * E) * Id
+and E =
     | EB of Range
     | EV of Id
     | ELit of Range * Tokenize.Literal
-    | EDefaultLit of Range * string * 'free_vars T
+    | EDefaultLit of Range * string * T
     | ESymbolCreate of Range * string
-    | EType of Range * 'free_vars T
-    | EApply of Range * 'free_vars E * 'free_vars E
-    | ETypeApply of Range * 'free_vars E * 'free_vars T
-    | EFun of Range * 'free_vars * Id * 'free_vars E * 'free_vars T option
-    | ERecursive of 'free_vars E ref
-    | EForall of Range * 'free_vars * Id * 'free_vars E
-    | ERecBlock of Range * (Id * 'free_vars E) list * on_succ: 'free_vars E
-    | ERecordWith of Range * 'free_vars E list * 'free_vars RecordWith list * 'free_vars RecordWithout list
-    | ERecord of Map<string, 'free_vars E> // Used for modules.
-    | EOp of Range * BlockParsing.Op * 'free_vars E list
+    | EType of Range * T
+    | EApply of Range * E * E
+    | ETypeApply of Range * E * T
+    | EFun of Range * FreeVars * Id * E * T option
+    | ERecursive of E ref
+    | EForall of Range * FreeVars * Id * E
+    | ERecBlock of Range * (Id * E) list * on_succ: E
+    | ERecordWith of Range * E list * RecordWith list * RecordWithout list
+    | ERecord of Map<string, E> // Used for modules.
+    | EOp of Range * BlockParsing.Op * E list
     | EPatternMiss
     | EJoinPoint of Range * FreeVars * E * T option
     | EAnnot of Range * E * T
@@ -72,7 +72,7 @@ and E<'free_vars> =
     | ETypeApplyTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
     | ETypeArrayTest of Range * bind: Id * pat: Id * on_succ: E * on_fail: E
     | ETypeEq of Range * T * bind: Id * on_succ: E * on_fail: E
-and T<'free_vars> =
+and T =
     | TUnit of Range
     | TV of Id
     | TPair of Range * T * T
@@ -289,9 +289,9 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 | PatDyn(r,a) -> let id' = patvar() in ELet(r,id',EOp(r,Dyn,[EV id]),cp id' a on_succ on_fail)
                 | PatUnbox(r,a) -> EOp(r,Unbox,[EV id; cp id a on_succ on_fail])
 
-            cp id pat on_succ on_fail
+            cp id pat on_succ (EPatternMemo on_fail)
         List.foldBack loop l EPatternMiss
-    and compile_clauses env clauses = List.map (fun (pat,on_succ) -> let x,env = make_compile_pattern_env env pat in x,pat,EPatternMemo(term env on_succ)) clauses
+    and compile_clauses env clauses = List.map (fun (pat,on_succ) -> let x,env = make_compile_pattern_env env pat in x,pat,term env on_succ) clauses
     and pattern_match (env : Env) r body clauses =
         match clauses with
         | [PatVar(_,x), on_succ] ->
@@ -346,11 +346,11 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                     ETypeRecordTest(r,m,id,on_succ,on_fail)
                 | RawTVar | RawTSymbol | RawTB | RawTPrim | RawTMacro | RawTUnion | RawTLayout -> ETypeEq(range_of_texpr pat,ty env pat,id,on_succ,on_fail)
 
-            cp id pat on_succ on_fail
+            cp id pat on_succ (EPatternMemo on_fail)
         List.foldBack loop l EPatternMiss
     and typecase (env : Env) r body clauses =
         let id, env = fresh_ty_var env
-        let l = clauses |> List.map (fun (pat,on_succ) -> let _,env as x = make_compile_typecase_env env pat in x,pat,EPatternMemo(term env on_succ))
+        let l = clauses |> List.map (fun (pat,on_succ) -> let _,env as x = make_compile_typecase_env env pat in x,pat,term env on_succ)
         ETypeLet(r,id,body,compile_typecase id l)
     and ty (env : Env) x =
         let f = ty env
