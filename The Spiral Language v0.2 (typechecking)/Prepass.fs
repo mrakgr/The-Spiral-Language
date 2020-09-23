@@ -8,40 +8,40 @@ type FreeVars = {term : FreeVarsEnv; ty : FreeVarsEnv}
 //type Range = { uri : string; range : Config.VSCRange }
 type Range = BlockParsing.Range
 
-type Macro =
+type Macro<'free_vars> =
     | MText of string
     | MType of T
-    | MTerm of E
-and TypeMacro =
+    | MTerm of 'free_vars E
+and TypeMacro<'free_vars> =
     | TMText of string
-    | TMType of T
-and RecordWith =
-    | RSymbol of (Range * string) * E
-    | RSymbolModify of (Range * string) * E
-    | RVar of (Range * E) * E
-    | RVarModify of (Range * E) * E
-and RecordWithout =
+    | TMType of 'free_vars T
+and RecordWith<'free_vars> =
+    | RSymbol of (Range * string) * 'free_vars E
+    | RSymbolModify of (Range * string) * 'free_vars E
+    | RVar of (Range * 'free_vars E) * 'free_vars E
+    | RVarModify of (Range * 'free_vars E) * 'free_vars E
+and RecordWithout<'free_vars> =
     | WSymbol of Range * string
-    | WVar of Range * E
-and PatRecordMember =
+    | WVar of Range * 'free_vars E
+and PatRecordMember<'free_vars> =
     | Symbol of (Range * string) * Id
-    | Var of (Range * E) * Id
-and E =
+    | Var of (Range * 'free_vars E) * Id
+and E<'free_vars> =
     | EB of Range
     | EV of Id
     | ELit of Range * Tokenize.Literal
-    | EDefaultLit of Range * string * T
+    | EDefaultLit of Range * string * 'free_vars T
     | ESymbolCreate of Range * string
-    | EType of Range * T
-    | EApply of Range * E * E
-    | ETypeApply of Range * E * T
-    | EFun of Range * FreeVars * Id * E * T option
-    | ERecursive of E ref
-    | EForall of Range * FreeVars * Id * E
-    | ERecBlock of Range * (Id * E) list * on_succ: E
-    | ERecordWith of Range * E list * RecordWith list * RecordWithout list
-    | ERecord of Map<string, E> // Used for modules.
-    | EOp of Range * BlockParsing.Op * E list
+    | EType of Range * 'free_vars T
+    | EApply of Range * 'free_vars E * 'free_vars E
+    | ETypeApply of Range * 'free_vars E * 'free_vars T
+    | EFun of Range * 'free_vars * Id * 'free_vars E * 'free_vars T option
+    | ERecursive of 'free_vars E ref
+    | EForall of Range * 'free_vars * Id * 'free_vars E
+    | ERecBlock of Range * (Id * 'free_vars E) list * on_succ: 'free_vars E
+    | ERecordWith of Range * 'free_vars E list * 'free_vars RecordWith list * 'free_vars RecordWithout list
+    | ERecord of Map<string, 'free_vars E> // Used for modules.
+    | EOp of Range * BlockParsing.Op * 'free_vars E list
     | EPatternMiss
     | EJoinPoint of Range * FreeVars * E * T option
     | EAnnot of Range * E * T
@@ -72,7 +72,7 @@ and E =
     | ETypeApplyTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
     | ETypeArrayTest of Range * bind: Id * pat: Id * on_succ: E * on_fail: E
     | ETypeEq of Range * T * bind: Id * on_succ: E * on_fail: E
-and T =
+and T<'free_vars> =
     | TUnit of Range
     | TV of Id
     | TPair of Range * T * T
@@ -124,9 +124,9 @@ open System.Collections.Generic
 type PropagatedVarsEnv = {| vars : Set<int>; max_var : int |}
 type PropagatedVars = {term : PropagatedVarsEnv; ty : PropagatedVarsEnv}
 
-let free_vars (env : Env) (x : PropagatedVars) : FreeVars = {
-    term = {|free_vars = Set.toArray x.term.vars; stack_size = max 0 (x.term.max_var-env.term.i) |}
-    ty = {|free_vars = Set.toArray x.ty.vars; stack_size = max 0 (x.ty.max_var-env.ty.i) |}
+let free_vars i (env : Env) (x : PropagatedVars) : FreeVars = {
+    term = {|free_vars = Set.toArray x.term.vars; stack_size = max 0 (x.term.max_var-env.term.i) + i |}
+    ty = {|free_vars = Set.toArray x.ty.vars; stack_size = max 0 (x.ty.max_var-env.ty.i) + i |}
     }
 let propagate env x annot =
     let dict = Dictionary(HashIdentity.Reference)
@@ -202,13 +202,12 @@ let propagate env x annot =
         | TArrow(_,a,_,_) -> propagated_vars a
         | TArray(_,a) | TLayout(_,a,_) -> ty a
     
+    let next i x = free_vars i env (match annot with Some annot -> x + ty annot | None -> x)
     match x with 
-    | Choice1Of4 x -> term x
-    | Choice2Of4 x -> ty x 
-    | Choice3Of4 (id, x) -> term x - id
-    | Choice4Of4 (id, x) -> ty x -. id
-    |> fun x -> free_vars env (match annot with Some annot -> x + ty annot | None -> x)
-
+    | Choice1Of4 x -> next 0 (term x)
+    | Choice2Of4 x -> next 0 (ty x)
+    | Choice3Of4 (id, x) -> next 1 (term x - id)
+    | Choice4Of4 (id, x) -> next 1 (ty x -. id)
 
 type CompilePatternEnv = {vars : Dictionary<VarString,Id>; envs : Dictionary<Pattern,Env> }
 let make_compile_pattern_env (env : Env) x = 
@@ -388,7 +387,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         let f = term env
         match x with
         | RawDefaultLit(r,a) -> failwith "Compiler error: Default values should have been annotated in `fill` by prepass time."
-        | RawAnnot(_,RawDefaultLit(r,a),b) -> EDefaultLit(r,a,ty env b) // TODO: Don't forget the rest of the annotation cases.
+        | RawAnnot(_,RawDefaultLit(r,a),b) -> EDefaultLit(r,a,ty env b)
         | RawB r -> EB r
         | RawV(r,a) -> v_term env a
         | RawBigV(r,a) -> EApply(r,v_term env a,EB r)
@@ -493,8 +492,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 Map.add name x ty, PersistentVector.conj {|body=x; name=name|} nominals
                 ) (top_env.ty, top_env.nominals) l
         {top_env with ty = ty; nominals = nominals}
-    | FInl(_,(_,name),body) ->
-        {top_env with term = Map.add name (term env body) top_env.term}
+    | FInl(_,(_,name),body) -> {top_env with term = Map.add name (term env body) top_env.term}
     | FRecInl l ->
         let l, env = 
             List.mapFold (fun env (_,(_,name),_ as x) -> 
@@ -517,4 +515,83 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         let env = l |> List.fold (fun s x -> add_ty_var s (typevar_name x) |> snd) env
         let body = term env body
         {top_env with prototypes = PersistentVector.update prot_id (Map.add ins_id body top_env.prototypes.[prot_id]) top_env.prototypes}
-        
+
+type ResolveEnv = Map<int,E * Set<int>>
+
+let resolve_free_vars (env' : Map<Id,FreeVars>) =
+    let env = env' |> Map.map (fun k v -> Set(v.term.free_vars))
+    Map.fold (fun (env : Map<Id,Set<int>>) k v ->
+        let has_visited = HashSet()
+        let rec f s k v = if has_visited.Add(k) then Set.fold (fun s k -> if 0 < k then f s k env.[k] else Set.add k s) s v else s
+        Map.add k (f Set.empty k v) env
+        ) env env
+    |> Map.map (fun k free_vars ->
+        let k = env'.[k]
+        {k with term = {|k.term with free_vars = Set.toArray free_vars|} }
+        )
+
+let resolve x =
+    let subst (env : ResolveEnv) (x : FreeVars) : FreeVars = 
+        let f s x = if 0 < x then match Map.tryFind x env with Some (_,x) -> s + x | None -> s else s
+        {x with term = {|x.term with free_vars = Array.fold f Set.empty x.term.free_vars |> Set.toArray|} }
+    let rec resolve_recursive (env : ResolveEnv) l =
+        let l,e =
+            List.mapFold (fun s (id,body) ->
+                let r = ref Unchecked.defaultof<_>
+                let free_vars, body =
+                    match body with
+                    | EForall(r,a,b,c) -> a, fun free_vars env -> id, EForall(r,free_vars,b,term env c)
+                    | EFun(r,a,b,c,d) -> a, fun free_vars env -> id, EFun(r,free_vars,b,term env c, Option.map (ty env) d)
+                    | _ -> failwith "Compiler error: Expected a function or a forall."
+                (r, body), Map.add id (subst env free_vars) s
+                ) Map.empty l
+        let e = resolve_free_vars e
+        failwith ""
+    and term (env : ResolveEnv) x =
+        let f = term env
+        match x with
+        | ERecursive | ESymbolCreate | EDefaultLit | ELit | EB -> x
+        | EV i -> if i < 0 then fst env.[i] else x
+        | EType(r,a) -> EType(r,ty env a)
+        | EApply(r,a,b) -> EApply(r,f a,f b)
+        | ETypeApply(r,a,b) -> ETypeApply(r,f a,ty env b)
+        | EFun(r,a,b,c,d) -> EFun(r,subst env a,b,f c,Option.map (ty env) d)
+        | EForall(r,a,b,c) -> EForall(r,subst env a,b,f c)
+        | ERecBlock(r,a,b) ->
+            let a,env = resolve_recursive env a
+            ERecBlock(r,a,term env b)
+        //| ERecordWith of Range * E list * RecordWith list * RecordWithout list
+        //| ERecord of Map<string, E> // Used for modules.
+        //| EOp of Range * BlockParsing.Op * E list
+        //| EPatternMiss
+        //| EJoinPoint of Range * FreeVars * E * T option
+        //| EAnnot of Range * E * T
+        //| EIfThenElse of Range * E * E * E
+        //| EIfThen of Range * E * E
+        //| EPairCreate of Range * E * E
+        //| ESeq of Range * E * E
+        //| EHeapMutableSet of Range * E * E
+        //| EReal of Range * E
+        //| EMacro of Range * Macro list * T
+        //| EPrototypeApply of Range * Id * T
+        //| EPatternMemo of E
+        //// Regular pattern matching
+        //| ELet of Range * Id * E * E
+        //| EPairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
+        //| ESymbolTest of Range * string * bind: Id * on_succ: E * on_fail: E
+        //| ERecordTest of Range * PatRecordMember list * bind: Id * on_succ: E * on_fail: E
+        //| EAnnotTest of Range * T * bind: Id * on_succ: E * on_fail: E
+        //| ELitTest of Range * Tokenize.Literal * bind: Id * on_succ: E * on_fail: E
+        //| EUnitTest of Range * bind: Id * on_succ: E * on_fail: E
+        //| ENominalTest of Range * T * bind: Id * pat: Id * on_succ: E * on_fail: E
+        //| EDefaultLitTest of Range * string * T * bind: Id * on_succ: E * on_fail: E
+        //// Typecase
+        //| ETypeLet of Range * Id * T * E
+        //| ETypePairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
+        //| ETypeFunTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
+        //| ETypeRecordTest of Range * Map<string,Id> * bind: Id * on_succ: E * on_fail: E
+        //| ETypeApplyTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
+        //| ETypeArrayTest of Range * bind: Id * pat: Id * on_succ: E * on_fail: E
+        //| ETypeEq of Range * T * bind: Id * on_succ: E * on_fail: E
+    and ty env x = x
+    ()
