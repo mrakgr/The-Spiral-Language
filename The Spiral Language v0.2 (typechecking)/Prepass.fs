@@ -502,14 +502,75 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         let body = term env body
         {top_env with prototypes = PersistentVector.update prot_id (Map.add ins_id body top_env.prototypes.[prot_id]) top_env.prototypes}
 
-type ResolveEnv = { term : Map<int,E>; ty : Map<int,T>; term_rec_free_vars : Map<int,Set<int>> }
 
-let resolve_free_vars env =
-    Map.fold (fun (env : Map<Id,Set<int>>) k v ->
+type ResolveEnv = Map<int,Set<Id>>
+let resolve_recursive_free_vars env =
+    Map.fold (fun (env : ResolveEnv) k v ->
         let has_visited = HashSet()
         let rec f s k v = if has_visited.Add(k) then Set.fold (fun s k -> if 0 < k then f s k env.[k] else Set.add k s) s v else s
         Map.add k (f Set.empty k v) env
         ) env env
+
+let resolve (scope : Dictionary<obj,PropagatedVars>) x =
+    let dict = Dictionary(HashIdentity.Reference)
+    let subst' (env : ResolveEnv) (x : PropagatedVars) : PropagatedVars = 
+        let f s x = 
+            if x < 0 then 
+                match Map.tryFind x env with 
+                | Some x -> s + x 
+                | None -> Set.add x s
+            else Set.add x s
+        let fv_term = Set.fold f Set.empty x.term.vars
+        {x with term = {|x.term with vars = fv_term|} }
+    let subst env (x : obj) = match scope.TryGetValue(x) with true, v -> scope.[x] <- subst' env v | _ -> ()
+    let rec term (env : ResolveEnv) x =
+        let f = term env
+        match x with
+        | EPatternMiss | ERecord | EV | ERecursive | ESymbolCreate | EDefaultLit | ELit | EB -> ()
+        | EPrototypeApply(_,_,a) | EType(_,a) -> ty env a
+        | EJoinPoint(_,a,b) | EFun(_,_,a,b) -> subst env x; f a; Option.iter (ty env) b
+        | EForall(_,_,a) -> subst env x; f a
+        | ERecBlock(r,a,b) ->
+            let l =
+                List.fold (fun s (id,body) ->
+                    let x = subst' env scope.[body]
+                    Map.add id x.term.vars s
+                    ) Map.empty a
+                |> resolve_recursive_free_vars
+            let env = Map.foldBack Map.add l env
+            a |> List.iter (fun (id,body) -> 
+                Utils.remove scope (body :> _)
+                    (fun v -> term env body; scope.[body] <- {v with term = {|v.term with vars = env.[id]|} })
+                    (fun () -> failwith "impossible")
+                )
+            term env b
+        | ERecordWith(_,a,b,c) ->
+            List.iter f a
+            b |> List.iter (function
+                | RSymbolModify(_,a) | RSymbol(_,a) -> f a
+                | RVarModify((_,a),b) | RVar((_,a),b) -> f a; f b)
+            c |> List.iter (function 
+                | WSymbol -> ()
+                | WVar(_,a) -> f a)
+        | ETypeLet(_,_,b,a) | ETypeApply(_,a,b) | EAnnot(_,a,b) -> f a; ty env b
+        | EOp(_,_,a) -> List.iter f a
+        | EReal(_,a) -> f a
+        | ETypePairTest(_,_,_,_,a,b) | ETypeFunTest(_,_,_,_,a,b) | ETypeRecordTest(_,_,_,a,b) | ETypeApplyTest(_,_,_,_,a,b) | ETypeArrayTest(_,_,_,a,b)
+        | EUnitTest(_,_,a,b) | ESymbolTest(_,_,_,a,b) | EPairTest(_,_,_,_,a,b) | ELitTest(_,_,_,a,b)
+        | ELet(_,_,a,b) | EIfThen(_,a,b) | EPairCreate(_,a,b) | ESeq(_,a,b) | EHeapMutableSet(_,a,b) | EApply(_,a,b) -> f a; f b
+        | EIfThenElse(_,a,b,c) -> f a; f b; f c
+        | EMacro(_,a,b) ->
+            a |> List.iter (function MType a -> ty env a | MTerm a -> f a | MText -> ())
+            ty env b
+        | EPatternMemo a -> Utils.memoize dict f a
+        | ERecordTest(_,l,_,a,b) -> 
+            l |> List.iter (function Symbol -> () | Var((_,a),_) -> f a)
+            f a; f b
+        | ETypeEq(_,t,_,a,b) | EDefaultLitTest(_,_,t,_,a,b) | ENominalTest(_,t,_,_,a,b) | EAnnotTest(_,t,_,a,b) -> ty env t; f a; f b
+
+    and ty (env : ResolveEnv) x = failwith ""
+    term Map.empty x
+
 
 //let resolve x =
 //    let subst (env : ResolveEnv) (x : FreeVars) : FreeVars = 

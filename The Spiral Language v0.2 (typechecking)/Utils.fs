@@ -12,3 +12,7 @@ let inline memoize (memo_dict: Dictionary<_,_>) f k =
     | true, v -> v
     | false, _ -> let v = f k in memo_dict.Add(k,v); v
 let lines (str : string) = str.Split([|"\r\n";"\r";"\n"|],System.StringSplitOptions.None)
+let inline remove (dict : Dictionary<_,_>) x on_succ on_fail =
+    let mutable q = Unchecked.defaultof<_>
+    if dict.Remove(x, &q) then on_succ q else on_fail ()
+        

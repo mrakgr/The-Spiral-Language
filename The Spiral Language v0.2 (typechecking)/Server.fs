@@ -88,12 +88,8 @@ let server () =
     let buffer = Dictionary()
     let last_id = ref 0
     use __ = server.ReceiveReady.Subscribe(fun s ->
-        let rec loop () =
-            let mutable x = Unchecked.defaultof<_>
-            if buffer.Remove(!last_id,&x) then
-                let address, x = x
-                body address (NetMQMessage(3)) x
-        and body (address : NetMQFrame) (msg : NetMQMessage) x =
+        let rec loop () = Utils.remove buffer !last_id (body <| NetMQMessage 3) id
+        and body (msg : NetMQMessage) (address : NetMQFrame, x) =
             incr last_id
             let push_back (x : obj) = 
                 match x with
@@ -129,7 +125,7 @@ let server () =
         let address = msg.Pop()
         msg.Pop() |> ignore
         let (id : int), x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
-        if !last_id = id then body address msg x
+        if !last_id = id then body msg (address, x)
         // TODO: Is enforcing order really needed.
         else failwith "message out of order" //buffer.Add(id,(address,x))
         )
