@@ -55,7 +55,7 @@ and E =
     | EHeapMutableSet of Range * E * E
     | EReal of Range * E
     | EMacro of Range * Macro list * T
-    | EPrototypeApply of Range * Id * T
+    | EPrototypeApply of Range * prototype_id: int * T
     | EPatternMemo of E
     // Regular pattern matching
     | ELet of Range * Id * E * E
@@ -586,24 +586,36 @@ type LowerSubEnv<'x> = {|var : Map<int,'x>; adj : int|}
 type LowerEnv = {term : LowerSubEnv<E>; ty : LowerSubEnv<T> }
 let lower (scope : Dictionary<obj,PropagatedVars>) x =
     let dict = Dictionary(HashIdentity.Reference)
-    let add_term k v (env : LowerEnv) = { env with term = {|env.term with var = Map.add k v env.term.var|} }
-    let add_ty k v (env : LowerEnv) = { env with ty = {|env.ty with var = Map.add k v env.ty.var|} }
     let scope (env : LowerEnv) x =
         let v = scope.[x]
-        let fv_term = v.term.vars |> Set.toArray
+        let fv_term =
+            v.term.vars |> Set.toArray 
+            |> Array.map (fun i ->
+                match Map.tryFind i env.term.var with
+                | Some(EV i) -> i
+                | None -> i + env.term.adj
+                | Some _ -> failwith "Compiler error: Expected a variable in the environment."
+                ) 
         let stack_size_term = fv_term.Length + max 0 (v.term.max - v.term.min)
 
-        let fv_ty = v.ty.vars |> Set.toArray
+        let fv_ty = 
+            v.ty.vars |> Set.toArray 
+            |> Array.map (fun i ->
+                match Map.tryFind i env.ty.var with
+                | Some(TV i) -> i
+                | None -> i + env.term.adj
+                | Some _ -> failwith "Compiler error: Expected a variable in the environment."
+                ) 
         let stack_size_ty = fv_ty.Length + max 0 (v.ty.max - v.ty.min)
         let free_vars : FreeVars = {
             term = {|free_vars = fv_term; stack_size = stack_size_term|}
             ty = {|free_vars = fv_ty; stack_size = stack_size_ty|}
             }
 
-        let var_term,_ = Array.fold (fun (s,i) x -> Map.add x (EV i) s,i+1) (env.term.var, 0) fv_term // I am passing in the old env here in order to keep recursives around.
+        let var_term,_ = Array.fold (fun (s,i) x -> Map.add x (EV i) s,i+1) (Map.filter (fun k _ -> k < 0) env.term.var, 0) fv_term
         let adj_term = if v.term.min = System.Int32.MaxValue then 0 else fv_term.Length - v.term.min
 
-        let var_ty,_ = Array.fold (fun (s,i) x -> Map.add x (TV i) s,i+1) (env.ty.var, 0) fv_ty
+        let var_ty,_ = Array.fold (fun (s,i) x -> Map.add x (TV i) s,i+1) (Map.empty, 0) fv_ty
         let adj_ty = if v.ty.min = System.Int32.MaxValue then 0 else fv_ty.Length - v.ty.min
 
         let env : LowerEnv = {
@@ -630,12 +642,13 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EJoinPoint(r,a,b) ->
             let free_vars, env = scope env x 
             EJoinPoint'(r,free_vars,term env a,Option.map (ty env) b)
-        | EV i -> env.term.var.[i]
+        | EV i -> match Map.tryFind i env.term.var with Some i -> i | None -> EV(adj i)
         | EDefaultLit(r,a,b) -> EDefaultLit(r,a,ty env b)
         | EType(r,a) -> EType(r,ty env a)
         | EApply(r,a,b) -> EApply(r,f a,f b)
         | ETypeApply(r,a,b) -> ETypeApply(r,f a,ty env b)
         | ERecBlock(r,a,b) ->
+            let add_term k v (env : LowerEnv) = { env with term = {|env.term with var = Map.add k v env.term.var|} }
             let a, env =
                 List.mapFold (fun env (id,body) ->
                     let re = ref Unchecked.defaultof<_>
@@ -675,26 +688,57 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EPrototypeApply(r,a,b) -> EPrototypeApply(r,a,ty env b)
         | EPatternMemo x -> Utils.memoize dict f x
         // Regular pattern matching
-        | ELet(r,a,b,c) ->
-            let env = add_term a (EV(adj a)) env
-            ELet(r,adj a,term env b,term env c)
-        //| EPairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
-        //| ESymbolTest of Range * string * bind: Id * on_succ: E * on_fail: E
-        //| ERecordTest of Range * PatRecordMember list * bind: Id * on_succ: E * on_fail: E
-        //| EAnnotTest of Range * T * bind: Id * on_succ: E * on_fail: E
-        //| ELitTest of Range * Tokenize.Literal * bind: Id * on_succ: E * on_fail: E
-        //| EUnitTest of Range * bind: Id * on_succ: E * on_fail: E
-        //| ENominalTest of Range * T * bind: Id * pat: Id * on_succ: E * on_fail: E
-        //| EDefaultLitTest of Range * string * T * bind: Id * on_succ: E * on_fail: E
+        | ELet(r,a,b,c) -> ELet(r,adj a,f b,f c)
+        | EPairTest(r,a,b,c,d,e) -> EPairTest(r,adj a,adj b,adj c,f d,f e)
+        | ESymbolTest(r,a,b,c,d) -> ESymbolTest(r,a,adj b,f c,f d)
+        | ERecordTest(r,a,b,c,d) ->
+            let a = 
+                List.map (function
+                    | Symbol(a,b) -> Symbol(a,adj b)
+                    | Var((r,a),b) -> Var((r,f a),adj b)
+                    ) a
+            ERecordTest(r,a,adj b,term env c,term env d)
+        | EAnnotTest(r,a,b,c,d) -> EAnnotTest(r,ty env a,adj b,f c,f d)
+        | ELitTest(r,a,b,c,d) -> ELitTest(r,a,adj b,f c,f d)
+        | EUnitTest(r,a,b,c) -> EUnitTest(r,adj a,f b,f c)
+        | ENominalTest(r,a,b,c,d,e) -> ENominalTest(r,ty env a,adj b,adj c,term env d,term env e)
+        | EDefaultLitTest(r,a,b,c,d,e) -> EDefaultLitTest(r,a,ty env b,adj c,f d,f e)
         //// Typecase
-        //| ETypeLet of Range * Id * T * E
-        //| ETypePairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
-        //| ETypeFunTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
-        //| ETypeRecordTest of Range * Map<string,Id> * bind: Id * on_succ: E * on_fail: E
-        //| ETypeApplyTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
-        //| ETypeArrayTest of Range * bind: Id * pat: Id * on_succ: E * on_fail: E
-        //| ETypeEq of Range * T * bind: Id * on_succ: E * on_fail: E
-
-
-    and ty env x = failwith ""
-    ()
+        | ETypeLet(r,a,b,c) -> ETypeLet(r,adj a,ty env b,f c)
+        | ETypePairTest(r,a,b,c,d,e) -> ETypePairTest(r,adj a,adj b,adj c,f d,f e)
+        | ETypeFunTest(r,a,b,c,d,e) -> ETypeFunTest(r,adj a,adj b,adj c,f d,f e)
+        | ETypeRecordTest(r,a,b,c,d) -> ETypeRecordTest(r,Map.map (fun _ -> adj) a,adj b,f c,f d)
+        | ETypeApplyTest(r,a,b,c,d,e) -> ETypeApplyTest(r,adj a,adj b,adj c,f d,f e)
+        | ETypeArrayTest(r,a,b,c,d) -> ETypeArrayTest(r,adj a,adj b,f c,f d)
+        | ETypeEq(r,a,b,c,d) -> ETypeEq(r,ty env a,adj b,f c,f d)
+    and ty env x =
+        let f = ty env
+        let adj = adj' env
+        match x with
+        | TNominal  | TPrim | TSymbol | TUnit -> x
+        | TArrow' -> failwith "Compiler error: Not supposed to be here."
+        | TArrow(r,a,b) ->  
+            let free_vars, env = scope env a
+            TArrow'(r,free_vars,adj' env a,ty env b)
+        | TV i -> match Map.tryFind i env.ty.var with Some i -> i | None -> TV(adj i)
+        | TPair(r,a,b) -> TPair(r,f a,f b)
+        | TFun(r,a,b) -> TFun(r,f a,f b)
+        | TRecord(r,a) -> TRecord(r,Map.map (fun _ -> f) a)
+        | TUnion(r,a) -> TUnion(r,Map.map (fun _ -> f) a)
+        | TApply(r,a,b) -> TApply(r,f a,f b)
+        | TTerm(r,a) -> TTerm(r,term env a)
+        | TMacro(r,a) ->
+            let a = a |> List.map (function 
+                | TMText as x -> x
+                | TMType a -> TMType(f a)
+                )
+            TMacro(r,a)
+        | TArray(r,a) -> TArray(r,f a)
+        | TLayout(r,a,b) -> TLayout(r,f a,b)
+    let env : LowerEnv = {
+        term = {|var = Map.empty; adj = 0|}
+        ty = {|var = Map.empty; adj = 0|}
+        }
+    match x with
+    | Choice1Of2(x,ret) -> ret (term env x)
+    | Choice2Of2(x,ret) -> ret (ty env x)
