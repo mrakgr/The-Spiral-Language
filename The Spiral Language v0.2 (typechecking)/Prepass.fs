@@ -2,7 +2,6 @@
 open Infer
 
 type Id = int32
-//type FreeVars = {|ty : int; term : int|}
 type FreeVarsEnv = {|free_vars : int []; stack_size : int|}
 type FreeVars = {term : FreeVarsEnv; ty : FreeVarsEnv}
 //type Range = { uri : string; range : Config.VSCRange }
@@ -92,9 +91,6 @@ and T =
     | TNominal of Id
     | TArray of Range * T
     | TLayout of Range * T * BlockParsing.Layout
-
-type PrepassError =
-    | RecordIndexFailed of string
 
 open FSharpx.Collections
 
@@ -745,4 +741,3 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         let env = l |> List.fold (fun s x -> add_ty_var s (typevar_name x) |> snd) env
         let body = term env body |> process_term
         {top_env with prototypes = PersistentVector.update prot_id (Map.add ins_id body top_env.prototypes.[prot_id]) top_env.prototypes}
-
