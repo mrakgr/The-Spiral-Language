@@ -346,8 +346,8 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
                     let body env = let x = term env body in re := x; id, x
                     body, add_term id (ERecursive re) env
                     ) env a
-            let a, env = List.mapFold (fun env x -> let id,body = x env in (id,body), add_term id body env) env a
-            ERecBlock(r,a,term env b)
+            let env = List.fold (fun env x -> let id,body = x env in add_term id body env) env a
+            term env b
         | ERecordWith(r,a,b,c) ->
             let a = List.map f a
             let b = b |> List.map (function
