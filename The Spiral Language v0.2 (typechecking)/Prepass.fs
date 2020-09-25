@@ -93,6 +93,9 @@ and T =
     | TArray of Range * T
     | TLayout of Range * T * BlockParsing.Layout
 
+type PrepassError =
+    | RecordIndexFailed of string
+
 open FSharpx.Collections
 
 open BlockParsing
@@ -104,31 +107,12 @@ type TopEnv = {
     ty : Map<string,T>
     }
 
-type Env = {
-    term : {| env : Map<string,E>; i : Id; i_rec : Id |}
-    ty : {| env : Map<string,T>; i : Id |}
-    }
-
-let add_term (e : Env) k v = let term = e.term in {e with term = {|term with i = term.i+1; env = Map.add k v term.env|} }
-let add_term_rec (e : Env) k v = let term = e.term in {e with term = {|term with i_rec = term.i_rec-1; env = Map.add k v term.env|} }
-let add_ty (e : Env) k v = let ty = e.ty in {e with ty = {|ty with i = ty.i+1; env = Map.add k v ty.env|} }
-
-let add_term_var (e : Env) k = e.term.i, add_term e k (EV e.term.i)
-let fresh_term_var (e : Env) = e.term.i, (let term = e.term in {e with term = {|term with i = term.i+1|} })
-let fresh_ty_var (e : Env) = e.ty.i, (let ty = e.ty in {e with ty = {|ty with i = ty.i+1|} })
-let add_term_rec_var (e : Env) k = e.term.i_rec, add_term e k (EV e.term.i_rec)
-let add_ty_var (e : Env) k = e.ty.i, add_ty e k (TV e.ty.i)
-
-type PrepassError =
-    | RecordIndexFailed of string
-
-exception PrepassException of (Range * PrepassError) list
 open System.Collections.Generic
 
 type PropagatedVarsEnv = {| vars : Set<int>; max : int ; min : int |}
 type PropagatedVars = {term : PropagatedVarsEnv; ty : PropagatedVarsEnv}
 
-let propagate x =
+let inline propagate x =
     let dict = Dictionary(HashIdentity.Reference)
     let (+) (a : PropagatedVars) (b : PropagatedVars) : PropagatedVars = {
         term = {|vars = Set.union a.term.vars b.term.vars; max = max a.term.max b.term.max; min = min a.term.min b.term.min |} 
@@ -146,8 +130,7 @@ let propagate x =
     let rec term x =
         let singleton = singleton_term
         match x with
-        | EForall' | EJoinPoint' | EFun' -> failwith "Compiler error: Not supposed to show up here."
-        | EPatternMiss | ERecord | ERecursive | ESymbolCreate | ELit | EB -> empty
+        | EForall' | EJoinPoint' | EFun' | EPatternMiss | ERecord | ERecursive | ESymbolCreate | ELit | EB -> empty
         | EV i -> singleton i
         | EPrototypeApply(_,_,a) | EType(_,a) | EDefaultLit(_,_,a) -> ty a
         | EHeapMutableSet(_,a,b) | ESeq(_,a,b) | EPairCreate(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
@@ -199,8 +182,7 @@ let propagate x =
         | ETypeArrayTest(_,bind,pat,on_succ,on_fail) -> singleton_ty bind + (term on_succ -. pat) + term on_fail
         | ETypeEq(_,t,bind,on_succ,on_fail) -> singleton_ty bind + ty t + term on_succ + term on_fail
     and ty = function
-        | TArrow' -> failwith "Compiler error: Not supposed to appear here."
-        | TSymbol | TPrim | TNominal | TUnit -> empty
+        | TArrow' | TSymbol | TPrim | TNominal | TUnit -> empty
         | TV i -> singleton_ty i
         | TApply(_,a,b) | TPair(_,a,b) | TFun(_,a,b) -> ty a + ty b
         | TUnion(_,a) | TRecord(_,a) -> Map.fold (fun s k v -> s + ty v) empty a
@@ -220,7 +202,7 @@ let resolve_recursive_free_vars env =
         Map.add k (f Set.empty k v) env
         ) env env
 
-let resolve (scope : Dictionary<obj,PropagatedVars>) x =
+let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
     let dict = Dictionary(HashIdentity.Reference)
     let subst' (env : ResolveEnv) (x : PropagatedVars) : PropagatedVars = 
         let f s x = 
@@ -235,8 +217,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
     let rec term (env : ResolveEnv) x =
         let f = term env
         match x with
-        | EForall' | EFun' | EJoinPoint' -> failwith "Compiler error: Not supposed to be here."
-        | EPatternMiss | ERecord | EV | ERecursive | ESymbolCreate | EDefaultLit | ELit | EB -> ()
+        | EForall' | EFun' | EJoinPoint' | EPatternMiss | ERecord | EV | ERecursive | ESymbolCreate | EDefaultLit | ELit | EB -> ()
         | EPrototypeApply(_,_,a) | EType(_,a) -> ty env a
         | EJoinPoint(_,a,b) | EFun(_,_,a,b) -> subst env x; f a; Option.iter (ty env) b
         | EForall(_,_,a) -> subst env x; f a
@@ -281,8 +262,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
     and ty (env : ResolveEnv) x = 
         let f = ty env
         match x with
-        | TArrow' -> failwith "Compiler error: Not supposed to show up here."
-        | TNominal | TPrim | TSymbol | TV | TUnit -> ()
+        | TArrow' | TNominal | TPrim | TSymbol | TV | TUnit -> ()
         | TArrow(_,_,a) -> subst env x; f a
         | TApply(_,a,b) | TFun(_,a,b) | TPair(_,a,b) -> f a; f b
         | TRecord(_,a) | TUnion(_,a) -> Map.iter (fun _ -> f) a
@@ -290,7 +270,183 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | TMacro(_,a) -> a |> List.iter (function TMText -> () | TMType a -> f a)
         | TLayout(_,a,_) | TArray(_,a) -> f a
 
-    term Map.empty x
+    match x with
+    | Choice1Of2 x -> term Map.empty x
+    | Choice2Of2 x -> ty Map.empty x
+
+type LowerSubEnv<'x> = {|var : Map<int,'x>; adj : int|}
+type LowerEnv = {term : LowerSubEnv<E>; ty : LowerSubEnv<T> }
+let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
+    let dict = Dictionary(HashIdentity.Reference)
+    let scope (env : LowerEnv) x =
+        let v = scope.[x]
+        let fv_term =
+            v.term.vars |> Set.toArray 
+            |> Array.map (fun i ->
+                match Map.tryFind i env.term.var with
+                | Some(EV i) -> i
+                | None -> i + env.term.adj
+                | Some _ -> failwith "Compiler error: Expected a variable in the environment."
+                ) 
+        let stack_size_term = fv_term.Length + max 0 (v.term.max - v.term.min)
+
+        let fv_ty = 
+            v.ty.vars |> Set.toArray 
+            |> Array.map (fun i ->
+                match Map.tryFind i env.ty.var with
+                | Some(TV i) -> i
+                | None -> i + env.term.adj
+                | Some _ -> failwith "Compiler error: Expected a variable in the environment."
+                ) 
+        let stack_size_ty = fv_ty.Length + max 0 (v.ty.max - v.ty.min)
+        let free_vars : FreeVars = {
+            term = {|free_vars = fv_term; stack_size = stack_size_term|}
+            ty = {|free_vars = fv_ty; stack_size = stack_size_ty|}
+            }
+
+        let var_term,_ = Array.fold (fun (s,i) x -> Map.add x (EV i) s,i+1) (Map.filter (fun k _ -> k < 0) env.term.var, 0) fv_term
+        let adj_term = if v.term.min = System.Int32.MaxValue then 0 else fv_term.Length - v.term.min
+
+        let var_ty,_ = Array.fold (fun (s,i) x -> Map.add x (TV i) s,i+1) (Map.empty, 0) fv_ty
+        let adj_ty = if v.ty.min = System.Int32.MaxValue then 0 else fv_ty.Length - v.ty.min
+
+        let env : LowerEnv = {
+            term = {|var = var_term; adj = adj_term|}
+            ty = {|var = var_ty; adj = adj_ty|}
+            }
+
+        free_vars, env
+
+    let adj' (env : LowerEnv) i = i + env.term.adj
+
+    let rec term (env : LowerEnv) x = 
+        let f = term env
+        let adj = adj' env
+        match x with
+        | EForall' | EJoinPoint' | EFun' | EPatternMiss | ERecord | ERecursive | ESymbolCreate | ELit | EB -> x
+        | EFun(r,a,b,c) -> 
+            let free_vars, env = scope env x 
+            EFun'(r,free_vars,adj' env a,term env b,Option.map (ty env) c)
+        | EForall(r,a,b) ->
+            let free_vars, env = scope env x 
+            EForall'(r,free_vars,adj' env a,term env b)
+        | EJoinPoint(r,a,b) ->
+            let free_vars, env = scope env x 
+            EJoinPoint'(r,free_vars,term env a,Option.map (ty env) b)
+        | EV i -> match Map.tryFind i env.term.var with Some i -> i | None -> EV(adj i)
+        | EDefaultLit(r,a,b) -> EDefaultLit(r,a,ty env b)
+        | EType(r,a) -> EType(r,ty env a)
+        | EApply(r,a,b) -> EApply(r,f a,f b)
+        | ETypeApply(r,a,b) -> ETypeApply(r,f a,ty env b)
+        | ERecBlock(r,a,b) ->
+            let add_term k v (env : LowerEnv) = { env with term = {|env.term with var = Map.add k v env.term.var|} }
+            let a, env =
+                List.mapFold (fun env (id,body) ->
+                    let re = ref Unchecked.defaultof<_>
+                    let body env = let x = term env body in re := x; id, x
+                    body, add_term id (ERecursive re) env
+                    ) env a
+            let a, env = List.mapFold (fun env x -> let id,body = x env in (id,body), add_term id body env) env a
+            ERecBlock(r,a,term env b)
+        | ERecordWith(r,a,b,c) ->
+            let a = List.map f a
+            let b = b |> List.map (function
+                | RSymbol(a,b) -> RSymbol(a,f b)
+                | RSymbolModify(a,b) -> RSymbolModify(a,f b)
+                | RVar((r,a),b) -> RVar((r,f a),f b)
+                | RVarModify((r,a),b) -> RVarModify((r,f a),f b)
+                )
+            let c = c |> List.map (function
+                | WSymbol as x -> x
+                | WVar(r,a) -> WVar(r,f a)
+                )
+            ERecordWith(r,a,b,c)
+        | EOp(r,a,b) -> EOp(r,a,List.map f b)
+        | EAnnot(r,a,b) -> EAnnot(r,f a,ty env b)
+        | EIfThenElse(r,a,b,c) -> EIfThenElse(r,f a,f b,f c)
+        | EIfThen(r,a,b) -> EIfThen(r,f a,f b)
+        | EPairCreate(r,a,b) -> EPairCreate(r,f a,f b)
+        | ESeq(r,a,b) -> ESeq(r,f a,f b)
+        | EHeapMutableSet(r,a,b) -> EHeapMutableSet(r,f a,f b)
+        | EReal(r,a) -> EReal(r,f a)
+        | EMacro(r,a,b) -> 
+            let a = a |> List.map (function
+                | MText as x -> x
+                | MType a -> MType(ty env a)
+                | MTerm a -> MTerm(f a)
+                )
+            EMacro(r,a,ty env b)
+        | EPrototypeApply(r,a,b) -> EPrototypeApply(r,a,ty env b)
+        | EPatternMemo x -> Utils.memoize dict f x
+        // Regular pattern matching
+        | ELet(r,a,b,c) -> ELet(r,adj a,f b,f c)
+        | EPairTest(r,a,b,c,d,e) -> EPairTest(r,adj a,adj b,adj c,f d,f e)
+        | ESymbolTest(r,a,b,c,d) -> ESymbolTest(r,a,adj b,f c,f d)
+        | ERecordTest(r,a,b,c,d) ->
+            let a = 
+                List.map (function
+                    | Symbol(a,b) -> Symbol(a,adj b)
+                    | Var((r,a),b) -> Var((r,f a),adj b)
+                    ) a
+            ERecordTest(r,a,adj b,term env c,term env d)
+        | EAnnotTest(r,a,b,c,d) -> EAnnotTest(r,ty env a,adj b,f c,f d)
+        | ELitTest(r,a,b,c,d) -> ELitTest(r,a,adj b,f c,f d)
+        | EUnitTest(r,a,b,c) -> EUnitTest(r,adj a,f b,f c)
+        | ENominalTest(r,a,b,c,d,e) -> ENominalTest(r,ty env a,adj b,adj c,term env d,term env e)
+        | EDefaultLitTest(r,a,b,c,d,e) -> EDefaultLitTest(r,a,ty env b,adj c,f d,f e)
+        // Typecase
+        | ETypeLet(r,a,b,c) -> ETypeLet(r,adj a,ty env b,f c)
+        | ETypePairTest(r,a,b,c,d,e) -> ETypePairTest(r,adj a,adj b,adj c,f d,f e)
+        | ETypeFunTest(r,a,b,c,d,e) -> ETypeFunTest(r,adj a,adj b,adj c,f d,f e)
+        | ETypeRecordTest(r,a,b,c,d) -> ETypeRecordTest(r,Map.map (fun _ -> adj) a,adj b,f c,f d)
+        | ETypeApplyTest(r,a,b,c,d,e) -> ETypeApplyTest(r,adj a,adj b,adj c,f d,f e)
+        | ETypeArrayTest(r,a,b,c,d) -> ETypeArrayTest(r,adj a,adj b,f c,f d)
+        | ETypeEq(r,a,b,c,d) -> ETypeEq(r,ty env a,adj b,f c,f d)
+    and ty env x =
+        let f = ty env
+        let adj = adj' env
+        match x with
+        | TArrow' | TNominal  | TPrim | TSymbol | TUnit -> x
+        | TArrow(r,a,b) ->  
+            let free_vars, env = scope env a
+            TArrow'(r,free_vars,adj' env a,ty env b)
+        | TV i -> match Map.tryFind i env.ty.var with Some i -> i | None -> TV(adj i)
+        | TPair(r,a,b) -> TPair(r,f a,f b)
+        | TFun(r,a,b) -> TFun(r,f a,f b)
+        | TRecord(r,a) -> TRecord(r,Map.map (fun _ -> f) a)
+        | TUnion(r,a) -> TUnion(r,Map.map (fun _ -> f) a)
+        | TApply(r,a,b) -> TApply(r,f a,f b)
+        | TTerm(r,a) -> TTerm(r,term env a)
+        | TMacro(r,a) ->
+            let a = a |> List.map (function 
+                | TMText as x -> x
+                | TMType a -> TMType(f a)
+                )
+            TMacro(r,a)
+        | TArray(r,a) -> TArray(r,f a)
+        | TLayout(r,a,b) -> TLayout(r,f a,b)
+    let env : LowerEnv = {
+        term = {|var = Map.empty; adj = 0|}
+        ty = {|var = Map.empty; adj = 0|}
+        }
+    match x with
+    | Choice1Of2(x,ret) -> ret (term env x)
+    | Choice2Of2(x,ret) -> ret (ty env x)
+
+type Env = {
+    term : {| env : Map<string,E>; i : Id; i_rec : Id |}
+    ty : {| env : Map<string,T>; i : Id |}
+    }
+
+let add_term (e : Env) k v = let term = e.term in {e with term = {|term with i = term.i+1; env = Map.add k v term.env|} }
+let add_term_rec (e : Env) k v = let term = e.term in {e with term = {|term with i_rec = term.i_rec-1; env = Map.add k v term.env|} }
+let add_ty (e : Env) k v = let ty = e.ty in {e with ty = {|ty with i = ty.i+1; env = Map.add k v ty.env|} }
+
+let add_term_var (e : Env) k = e.term.i, add_term e k (EV e.term.i)
+let fresh_term_var (e : Env) = e.term.i, (let term = e.term in {e with term = {|term with i = term.i+1|} })
+let fresh_ty_var (e : Env) = e.ty.i, (let ty = e.ty in {e with ty = {|ty with i = ty.i+1|} })
+let add_term_rec_var (e : Env) k = e.term.i_rec, add_term e k (EV e.term.i_rec)
+let add_ty_var (e : Env) k = e.ty.i, add_ty e k (TV e.ty.i)
 
 type CompilePatternEnv = {vars : Dictionary<VarString,Id>; envs : Dictionary<Pattern,Env> }
 let make_compile_pattern_env (env : Env) x = 
@@ -330,6 +486,16 @@ let make_compile_typecase_env (env : Env) x =
         | RawTMacro(_,a) -> a |> List.fold (fun env -> function RawMacroTypeVar(_,a) -> f env a | _ -> env) env
 
     metavars', f env x
+
+let process_term (x : E) =
+    let scope = propagate (Choice1Of2 x)
+    resolve scope (Choice1Of2 x)
+    lower scope (Choice1Of2(x,id))
+
+let process_ty (x : T) =
+    let scope = propagate (Choice2Of2 x)
+    resolve scope (Choice2Of2 x)
+    lower scope (Choice2Of2(x,id))
 
 let prepass (top_env : TopEnv) (expr : FilledTop) =
     let v_term (env : Env) x = Map.tryFind x env.term.env |> Option.defaultWith (fun () -> top_env.term.[x])
@@ -446,10 +612,10 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         | RawTSymbol(r,a) -> TSymbol(r,a)
         | RawTApply(r,a,b) ->
             match f a, f b with
-            | TRecord(_,a), TSymbol(_,b) ->
-                match Map.tryFind b a with
+            | TRecord(_,a') & a, TSymbol(_,b') & b ->
+                match Map.tryFind b' a' with
                 | Some x -> x
-                | None -> raise (PrepassException [r,RecordIndexFailed b])
+                | None -> TApply(r,a,b) // TODO: Will be an error during partial evaluation time. Could be substituted for an exception here, but I do not want to have errors during the prepass.
             | a,b -> TApply(r,a,b)
         | RawTPrim(r,a) -> TPrim(r,a)
         | RawTTerm(r,a) -> TTerm(r,term env a)
@@ -508,19 +674,17 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                         | _ -> failwith "Compiler error: Module open's symbol index should have been validated."
                         ) (a,b) l
                 | _ -> failwith "Compiler error: Module open should have been validated."
-            let env : Env =
-                let combine e m = Map.foldBack Map.add m e
-                {
-                term = {|env.term with env = combine env.term.env a|}
-                ty = {|env.ty with env = combine env.ty.env b|}
+            let env : Env = {
+                term = {|env.term with env = Map.foldBack Map.add a env.term.env|}
+                ty = {|env.ty with env = Map.foldBack Map.add b env.ty.env|}
                 }
             term env on_succ
         | RawApply(r,a,b) ->
             match f a, f b with
-            | ERecord a, ESymbolCreate(_,b) ->
-                match Map.tryFind b a with
+            | ERecord a' & a, ESymbolCreate(_,b') & b ->
+                match Map.tryFind b' a' with
                 | Some x -> x
-                | None -> raise (PrepassException [r,RecordIndexFailed b])
+                | None -> EApply(r,a,b) // TODO: Will be an error during partial evaluation time. Could be substituted for an exception here, but I do not want to have errors during the prepass.
             | a,EType(_,b) -> ETypeApply(r,a,b)
             | a,b -> EApply(r,a,b)
         | RawIfThenElse(r,a,b,c) -> EIfThenElse(r,f a,f b,f c)
@@ -549,7 +713,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
     let eval_type ((r,(name,kind)) : HoVar) on_succ env =
         let id, env = add_ty_var env name
         TArrow(r,id,on_succ env)
-    let eval_type' env l body = List.foldBack eval_type l (fun env -> ty env body) env
+    let eval_type' env l body = List.foldBack eval_type l (fun env -> ty env body) env |> process_ty
     match expr with
     | FType(_,(_,name),l,body) -> {top_env with ty = Map.add name (eval_type' env l body) top_env.ty}
     | FNominal l ->
@@ -560,7 +724,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 Map.add name x ty, PersistentVector.conj {|body=x; name=name|} nominals
                 ) (top_env.ty, top_env.nominals) l
         {top_env with ty = ty; nominals = nominals}
-    | FInl(_,(_,name),body) -> {top_env with term = Map.add name (term env body) top_env.term}
+    | FInl(_,(_,name),body) -> {top_env with term = Map.add name (term env body |> process_term) top_env.term}
     | FRecInl l ->
         let l, env = 
             List.mapFold (fun env (_,(_,name),_ as x) -> 
@@ -569,176 +733,16 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 ) env l
         let term = 
             List.fold (fun top_env_term ((_,(_,name),body),r) ->
-                r := term env body
+                r := term env body |> process_term
                 Map.add name !r top_env_term
                 ) top_env.term l
         {top_env with term = term}
     | FPrototype(r,(_,name),_,_,_) ->
         let id,env = add_ty_var env name
-        let x = EForall(r,id,EPrototypeApply(r,top_env.prototypes.Length,TV id))
+        let x = EForall(r,id,EPrototypeApply(r,top_env.prototypes.Length,TV id)) |> process_term
         {top_env with term = Map.add name x top_env.term; prototypes = PersistentVector.conj Map.empty top_env.prototypes}
     | FInstance(_,(_,prot_id),(_,ins_id),l,body) ->
         let env = l |> List.fold (fun s x -> add_ty_var s (typevar_name x) |> snd) env
-        let body = term env body
+        let body = term env body |> process_term
         {top_env with prototypes = PersistentVector.update prot_id (Map.add ins_id body top_env.prototypes.[prot_id]) top_env.prototypes}
 
-type LowerSubEnv<'x> = {|var : Map<int,'x>; adj : int|}
-type LowerEnv = {term : LowerSubEnv<E>; ty : LowerSubEnv<T> }
-let lower (scope : Dictionary<obj,PropagatedVars>) x =
-    let dict = Dictionary(HashIdentity.Reference)
-    let scope (env : LowerEnv) x =
-        let v = scope.[x]
-        let fv_term =
-            v.term.vars |> Set.toArray 
-            |> Array.map (fun i ->
-                match Map.tryFind i env.term.var with
-                | Some(EV i) -> i
-                | None -> i + env.term.adj
-                | Some _ -> failwith "Compiler error: Expected a variable in the environment."
-                ) 
-        let stack_size_term = fv_term.Length + max 0 (v.term.max - v.term.min)
-
-        let fv_ty = 
-            v.ty.vars |> Set.toArray 
-            |> Array.map (fun i ->
-                match Map.tryFind i env.ty.var with
-                | Some(TV i) -> i
-                | None -> i + env.term.adj
-                | Some _ -> failwith "Compiler error: Expected a variable in the environment."
-                ) 
-        let stack_size_ty = fv_ty.Length + max 0 (v.ty.max - v.ty.min)
-        let free_vars : FreeVars = {
-            term = {|free_vars = fv_term; stack_size = stack_size_term|}
-            ty = {|free_vars = fv_ty; stack_size = stack_size_ty|}
-            }
-
-        let var_term,_ = Array.fold (fun (s,i) x -> Map.add x (EV i) s,i+1) (Map.filter (fun k _ -> k < 0) env.term.var, 0) fv_term
-        let adj_term = if v.term.min = System.Int32.MaxValue then 0 else fv_term.Length - v.term.min
-
-        let var_ty,_ = Array.fold (fun (s,i) x -> Map.add x (TV i) s,i+1) (Map.empty, 0) fv_ty
-        let adj_ty = if v.ty.min = System.Int32.MaxValue then 0 else fv_ty.Length - v.ty.min
-
-        let env : LowerEnv = {
-            term = {|var = var_term; adj = adj_term|}
-            ty = {|var = var_ty; adj = adj_ty|}
-            }
-
-        free_vars, env
-
-    let adj' (env : LowerEnv) i = i + env.term.adj
-
-    let rec term (env : LowerEnv) x = 
-        let f = term env
-        let adj = adj' env
-        match x with
-        | EForall' | EJoinPoint' | EFun' -> failwith "Compiler error: Not supposed to show up here."
-        | EPatternMiss | ERecord | ERecursive | ESymbolCreate | ELit | EB -> x
-        | EFun(r,a,b,c) -> 
-            let free_vars, env = scope env x 
-            EFun'(r,free_vars,adj' env a,term env b,Option.map (ty env) c)
-        | EForall(r,a,b) ->
-            let free_vars, env = scope env x 
-            EForall'(r,free_vars,adj' env a,term env b)
-        | EJoinPoint(r,a,b) ->
-            let free_vars, env = scope env x 
-            EJoinPoint'(r,free_vars,term env a,Option.map (ty env) b)
-        | EV i -> match Map.tryFind i env.term.var with Some i -> i | None -> EV(adj i)
-        | EDefaultLit(r,a,b) -> EDefaultLit(r,a,ty env b)
-        | EType(r,a) -> EType(r,ty env a)
-        | EApply(r,a,b) -> EApply(r,f a,f b)
-        | ETypeApply(r,a,b) -> ETypeApply(r,f a,ty env b)
-        | ERecBlock(r,a,b) ->
-            let add_term k v (env : LowerEnv) = { env with term = {|env.term with var = Map.add k v env.term.var|} }
-            let a, env =
-                List.mapFold (fun env (id,body) ->
-                    let re = ref Unchecked.defaultof<_>
-                    let body env = let x = term env body in re := x; id, x
-                    body, add_term id (ERecursive re) env
-                    ) env a
-            let a, env = List.mapFold (fun env x -> let id,body = x env in (id,body), add_term id body env) env a
-            ERecBlock(r,a,term env b)
-        | ERecordWith(r,a,b,c) ->
-            let a = List.map f a
-            let b = b |> List.map (function
-                | RSymbol(a,b) -> RSymbol(a,f b)
-                | RSymbolModify(a,b) -> RSymbolModify(a,f b)
-                | RVar((r,a),b) -> RVar((r,f a),f b)
-                | RVarModify((r,a),b) -> RVarModify((r,f a),f b)
-                )
-            let c = c |> List.map (function
-                | WSymbol as x -> x
-                | WVar(r,a) -> WVar(r,f a)
-                )
-            ERecordWith(r,a,b,c)
-        | EOp(r,a,b) -> EOp(r,a,List.map f b)
-        | EAnnot(r,a,b) -> EAnnot(r,f a,ty env b)
-        | EIfThenElse(r,a,b,c) -> EIfThenElse(r,f a,f b,f c)
-        | EIfThen(r,a,b) -> EIfThen(r,f a,f b)
-        | EPairCreate(r,a,b) -> EPairCreate(r,f a,f b)
-        | ESeq(r,a,b) -> ESeq(r,f a,f b)
-        | EHeapMutableSet(r,a,b) -> EHeapMutableSet(r,f a,f b)
-        | EReal(r,a) -> EReal(r,f a)
-        | EMacro(r,a,b) -> 
-            let a = a |> List.map (function
-                | MText as x -> x
-                | MType a -> MType(ty env a)
-                | MTerm a -> MTerm(f a)
-                )
-            EMacro(r,a,ty env b)
-        | EPrototypeApply(r,a,b) -> EPrototypeApply(r,a,ty env b)
-        | EPatternMemo x -> Utils.memoize dict f x
-        // Regular pattern matching
-        | ELet(r,a,b,c) -> ELet(r,adj a,f b,f c)
-        | EPairTest(r,a,b,c,d,e) -> EPairTest(r,adj a,adj b,adj c,f d,f e)
-        | ESymbolTest(r,a,b,c,d) -> ESymbolTest(r,a,adj b,f c,f d)
-        | ERecordTest(r,a,b,c,d) ->
-            let a = 
-                List.map (function
-                    | Symbol(a,b) -> Symbol(a,adj b)
-                    | Var((r,a),b) -> Var((r,f a),adj b)
-                    ) a
-            ERecordTest(r,a,adj b,term env c,term env d)
-        | EAnnotTest(r,a,b,c,d) -> EAnnotTest(r,ty env a,adj b,f c,f d)
-        | ELitTest(r,a,b,c,d) -> ELitTest(r,a,adj b,f c,f d)
-        | EUnitTest(r,a,b,c) -> EUnitTest(r,adj a,f b,f c)
-        | ENominalTest(r,a,b,c,d,e) -> ENominalTest(r,ty env a,adj b,adj c,term env d,term env e)
-        | EDefaultLitTest(r,a,b,c,d,e) -> EDefaultLitTest(r,a,ty env b,adj c,f d,f e)
-        //// Typecase
-        | ETypeLet(r,a,b,c) -> ETypeLet(r,adj a,ty env b,f c)
-        | ETypePairTest(r,a,b,c,d,e) -> ETypePairTest(r,adj a,adj b,adj c,f d,f e)
-        | ETypeFunTest(r,a,b,c,d,e) -> ETypeFunTest(r,adj a,adj b,adj c,f d,f e)
-        | ETypeRecordTest(r,a,b,c,d) -> ETypeRecordTest(r,Map.map (fun _ -> adj) a,adj b,f c,f d)
-        | ETypeApplyTest(r,a,b,c,d,e) -> ETypeApplyTest(r,adj a,adj b,adj c,f d,f e)
-        | ETypeArrayTest(r,a,b,c,d) -> ETypeArrayTest(r,adj a,adj b,f c,f d)
-        | ETypeEq(r,a,b,c,d) -> ETypeEq(r,ty env a,adj b,f c,f d)
-    and ty env x =
-        let f = ty env
-        let adj = adj' env
-        match x with
-        | TNominal  | TPrim | TSymbol | TUnit -> x
-        | TArrow' -> failwith "Compiler error: Not supposed to be here."
-        | TArrow(r,a,b) ->  
-            let free_vars, env = scope env a
-            TArrow'(r,free_vars,adj' env a,ty env b)
-        | TV i -> match Map.tryFind i env.ty.var with Some i -> i | None -> TV(adj i)
-        | TPair(r,a,b) -> TPair(r,f a,f b)
-        | TFun(r,a,b) -> TFun(r,f a,f b)
-        | TRecord(r,a) -> TRecord(r,Map.map (fun _ -> f) a)
-        | TUnion(r,a) -> TUnion(r,Map.map (fun _ -> f) a)
-        | TApply(r,a,b) -> TApply(r,f a,f b)
-        | TTerm(r,a) -> TTerm(r,term env a)
-        | TMacro(r,a) ->
-            let a = a |> List.map (function 
-                | TMText as x -> x
-                | TMType a -> TMType(f a)
-                )
-            TMacro(r,a)
-        | TArray(r,a) -> TArray(r,f a)
-        | TLayout(r,a,b) -> TLayout(r,f a,b)
-    let env : LowerEnv = {
-        term = {|var = Map.empty; adj = 0|}
-        ty = {|var = Map.empty; adj = 0|}
-        }
-    match x with
-    | Choice1Of2(x,ret) -> ret (term env x)
-    | Choice2Of2(x,ret) -> ret (ty env x)
