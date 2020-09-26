@@ -36,7 +36,7 @@ and E =
     | EV of Id
     | ELit of Range * Tokenize.Literal
     | EDefaultLit of Range * string * T
-    | ESymbolCreate of Range * string
+    | ESymbol of Range * string
     | EType of Range * T
     | EApply of Range * E * E
     | ETypeApply of Range * E * T
@@ -49,13 +49,14 @@ and E =
     | EAnnot of Range * E * T
     | EIfThenElse of Range * E * E * E
     | EIfThen of Range * E * E
-    | EPairCreate of Range * E * E
+    | EPair of Range * E * E
     | ESeq of Range * E * E
     | EHeapMutableSet of Range * E * E
     | EReal of Range * E
     | EMacro of Range * Macro list * T
     | EPrototypeApply of Range * prototype_id: int * T
     | EPatternMemo of E
+    | ENominal of Range * E * T
     // Regular pattern matching
     | ELet of Range * Id * E * E
     | EPairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
@@ -77,6 +78,8 @@ and E =
 and T =
     | TArrow' of Range * FreeVars * Id * T
     | TArrow of Range * Id * T
+    | TJoinPoint' of Range * FreeVars * T
+    | TJoinPoint of Range * T
     | TUnit of Range
     | TV of Id
     | TPair of Range * T * T
@@ -126,11 +129,11 @@ let inline propagate x =
     let rec term x =
         let singleton = singleton_term
         match x with
-        | EForall' | EJoinPoint' | EFun' | EPatternMiss | ERecord | ERecursive | ESymbolCreate | ELit | EB -> empty
+        | EForall' | EJoinPoint' | EFun' | EPatternMiss | ERecord | ERecursive | ESymbol | ELit | EB -> empty
         | EV i -> singleton i
         | EPrototypeApply(_,_,a) | EType(_,a) | EDefaultLit(_,_,a) -> ty a
-        | EHeapMutableSet(_,a,b) | ESeq(_,a,b) | EPairCreate(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
-        | EAnnot(_,a,b) | ETypeApply(_,a,b) -> term a + ty b
+        | EHeapMutableSet(_,a,b) | ESeq(_,a,b) | EPair(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
+        | ENominal(_,a,b) | EAnnot(_,a,b) | ETypeApply(_,a,b) -> term a + ty b
         | EForall(_,i,a) -> scope x (term a - i)
         | EJoinPoint(_,a,t) -> scope x (match t with Some t -> term a + ty t | None -> term a)
         | EFun(_,i,a,t) -> scope x (term a - i + (match t with Some t -> term a + ty t | None -> term a))
@@ -178,13 +181,14 @@ let inline propagate x =
         | ETypeArrayTest(_,bind,pat,on_succ,on_fail) -> singleton_ty bind + (term on_succ -. pat) + term on_fail
         | ETypeEq(_,t,bind,on_succ,on_fail) -> singleton_ty bind + ty t + term on_succ + term on_fail
     and ty = function
-        | TArrow' | TSymbol | TPrim | TNominal | TUnit -> empty
+        | TJoinPoint' | TArrow' | TSymbol | TPrim | TNominal | TUnit -> empty
         | TV i -> singleton_ty i
         | TApply(_,a,b) | TPair(_,a,b) | TFun(_,a,b) -> ty a + ty b
         | TUnion(_,a) | TRecord(_,a) -> Map.fold (fun s k v -> s + ty v) empty a
         | TTerm(_,a) -> term a
         | TMacro(_,a) -> a |> List.fold (fun s -> function TMText -> s | TMType x -> s + ty x) empty
         | TArrow(r,i,a) as x -> scope x (ty a -. i)
+        | TJoinPoint(_,a) as x -> scope x (ty a)
         | TArray(_,a) | TLayout(_,a,_) -> ty a
     
     let _ = match x with Choice1Of2 x -> term x | Choice2Of2 x -> ty x
@@ -213,7 +217,7 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
     let rec term (env : ResolveEnv) x =
         let f = term env
         match x with
-        | EForall' | EFun' | EJoinPoint' | EPatternMiss | ERecord | EV | ERecursive | ESymbolCreate | EDefaultLit | ELit | EB -> ()
+        | EForall' | EFun' | EJoinPoint' | EPatternMiss | ERecord | EV | ERecursive | ESymbol | EDefaultLit | ELit | EB -> ()
         | EPrototypeApply(_,_,a) | EType(_,a) -> ty env a
         | EJoinPoint(_,a,b) | EFun(_,_,a,b) -> subst env x; f a; Option.iter (ty env) b
         | EForall(_,_,a) -> subst env x; f a
@@ -239,12 +243,12 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
             c |> List.iter (function 
                 | WSymbol -> ()
                 | WVar(_,a) -> f a)
-        | ETypeLet(_,_,b,a) | ETypeApply(_,a,b) | EAnnot(_,a,b) -> f a; ty env b
+        | ENominal(_,a,b) | ETypeLet(_,_,b,a) | ETypeApply(_,a,b) | EAnnot(_,a,b) -> f a; ty env b
         | EOp(_,_,a) -> List.iter f a
         | EReal(_,a) -> f a
         | ETypePairTest(_,_,_,_,a,b) | ETypeFunTest(_,_,_,_,a,b) | ETypeRecordTest(_,_,_,a,b) | ETypeApplyTest(_,_,_,_,a,b) | ETypeArrayTest(_,_,_,a,b)
         | EUnitTest(_,_,a,b) | ESymbolTest(_,_,_,a,b) | EPairTest(_,_,_,_,a,b) | ELitTest(_,_,_,a,b)
-        | ELet(_,_,a,b) | EIfThen(_,a,b) | EPairCreate(_,a,b) | ESeq(_,a,b) | EHeapMutableSet(_,a,b) | EApply(_,a,b) -> f a; f b
+        | ELet(_,_,a,b) | EIfThen(_,a,b) | EPair(_,a,b) | ESeq(_,a,b) | EHeapMutableSet(_,a,b) | EApply(_,a,b) -> f a; f b
         | EIfThenElse(_,a,b,c) -> f a; f b; f c
         | EMacro(_,a,b) ->
             a |> List.iter (function MType a -> ty env a | MTerm a -> f a | MText -> ())
@@ -258,13 +262,13 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
     and ty (env : ResolveEnv) x = 
         let f = ty env
         match x with
-        | TArrow' | TNominal | TPrim | TSymbol | TV | TUnit -> ()
+        | TJoinPoint' | TArrow' | TNominal | TPrim | TSymbol | TV | TUnit -> ()
         | TArrow(_,_,a) -> subst env x; f a
         | TApply(_,a,b) | TFun(_,a,b) | TPair(_,a,b) -> f a; f b
         | TRecord(_,a) | TUnion(_,a) -> Map.iter (fun _ -> f) a
         | TTerm(_,a) -> term env a
         | TMacro(_,a) -> a |> List.iter (function TMText -> () | TMType a -> f a)
-        | TLayout(_,a,_) | TArray(_,a) -> f a
+        | TJoinPoint(_,a) | TLayout(_,a,_) | TArray(_,a) -> f a
 
     match x with
     | Choice1Of2 x -> term Map.empty x
@@ -319,7 +323,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         let f = term env
         let adj = adj' env
         match x with
-        | EForall' | EJoinPoint' | EFun' | EPatternMiss | ERecord | ERecursive | ESymbolCreate | ELit | EB -> x
+        | EForall' | EJoinPoint' | EFun' | EPatternMiss | ERecord | ERecursive | ESymbol | ELit | EB -> x
         | EFun(r,a,b,c) -> 
             let free_vars, env = scope env x 
             EFun'(r,free_vars,adj' env a,term env b,Option.map (ty env) c)
@@ -334,6 +338,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EType(r,a) -> EType(r,ty env a)
         | EApply(r,a,b) -> EApply(r,f a,f b)
         | ETypeApply(r,a,b) -> ETypeApply(r,f a,ty env b)
+        | ENominal(r,a,b) -> ENominal(r,f a,ty env b)
         | ERecBlock(r,a,b) ->
             let add_term k v (env : LowerEnv) = { env with term = {|env.term with var = Map.add k v env.term.var|} }
             let a, env =
@@ -361,7 +366,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EAnnot(r,a,b) -> EAnnot(r,f a,ty env b)
         | EIfThenElse(r,a,b,c) -> EIfThenElse(r,f a,f b,f c)
         | EIfThen(r,a,b) -> EIfThen(r,f a,f b)
-        | EPairCreate(r,a,b) -> EPairCreate(r,f a,f b)
+        | EPair(r,a,b) -> EPair(r,f a,f b)
         | ESeq(r,a,b) -> ESeq(r,f a,f b)
         | EHeapMutableSet(r,a,b) -> EHeapMutableSet(r,f a,f b)
         | EReal(r,a) -> EReal(r,f a)
@@ -402,7 +407,10 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         let f = ty env
         let adj = adj' env
         match x with
-        | TArrow' | TNominal  | TPrim | TSymbol | TUnit -> x
+        | TJoinPoint' | TArrow' | TNominal  | TPrim | TSymbol | TUnit -> x
+        | TJoinPoint(r,a) ->
+            let free_vars, env = scope env x 
+            TJoinPoint'(r,free_vars,ty env a)
         | TArrow(r,a,b) ->  
             let free_vars, env = scope env a
             TArrow'(r,free_vars,adj' env a,ty env b)
@@ -633,7 +641,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         | RawV(r,a) -> v_term env a
         | RawBigV(r,a) -> EApply(r,v_term env a,EB r)
         | RawLit(r,a) -> ELit(r,a)
-        | RawSymbolCreate(r,a) -> ESymbolCreate(r,a)
+        | RawSymbolCreate(r,a) -> ESymbol(r,a)
         | RawType(r,a) -> EType(r,ty env a)
         | RawMatch(r,a,b) -> pattern_match env r (f a) b
         | RawFun(r,a) -> pattern_function env r a None
@@ -677,7 +685,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
             term env on_succ
         | RawApply(r,a,b) ->
             match f a, f b with
-            | ERecord a' & a, ESymbolCreate(_,b') & b ->
+            | ERecord a' & a, ESymbol(_,b') & b ->
                 match Map.tryFind b' a' with
                 | Some x -> x
                 | None -> EApply(r,a,b) // TODO: Will be an error during partial evaluation time. Could be substituted for an exception here, but I do not want to have errors during the prepass.
@@ -685,7 +693,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
             | a,b -> EApply(r,a,b)
         | RawIfThenElse(r,a,b,c) -> EIfThenElse(r,f a,f b,f c)
         | RawIfThen(r,a,b) -> EIfThen(r,f a,f b)
-        | RawPairCreate(r,a,b) -> EPairCreate(r,f a,f b)
+        | RawPairCreate(r,a,b) -> EPair(r,f a,f b)
         | RawSeq(r,a,b) -> ESeq(r,f a,f b)
         | RawHeapMutableSet(r,a,b) -> EHeapMutableSet(r,f a,f b)
         | RawReal(r,a) -> f a
@@ -709,17 +717,27 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
     let eval_type ((r,(name,kind)) : HoVar) on_succ env =
         let id, env = add_ty_var env name
         TArrow(r,id,on_succ env)
-    let eval_type' env l body = List.foldBack eval_type l (fun env -> ty env body) env |> process_ty
+    let eval_type' env l body = List.foldBack eval_type l body env |> process_ty
     match expr with
-    | FType(_,(_,name),l,body) -> {top_env with ty = Map.add name (eval_type' env l body) top_env.ty}
+    | FType(_,(_,name),l,body) -> {top_env with ty = Map.add name (eval_type' env l (fun env -> ty env body)) top_env.ty}
     | FNominal l ->
-        let env,_ = List.fold (fun (env,i) (r,(_,name),l,body) -> add_ty env name (TNominal i), i+1) (env, top_env.nominals.Length) l
-        let ty,nominals = 
-            List.fold (fun (ty, nominals) (r,(_,name),l,body) -> 
-                let x = eval_type' env l body
-                Map.add name x ty, PersistentVector.conj {|body=x; name=name|} nominals
+        let term,env,_ = 
+            List.fold (fun (term,env,i) (r,(_,name),l,body) -> 
+                let nom = TNominal i
+                let term = 
+                    let t,i = l |> List.fold (fun (nom,i) _ -> TApply(r,nom,TV i), i+1) (nom,0)
+                    let rec wrap_foralls i x = if 0 < i then let i = i-1 in wrap_foralls i (EForall(r,i,x)) else process_term x
+                    match body with
+                    | RawTUnion(_,l) -> Map.fold (fun term name _ -> Map.add name (wrap_foralls i (EFun(r,0,ENominal(r,EPair(r, ESymbol(r,name), EV 0),t),Some t))) term) term l
+                    | _ -> Map.add name (wrap_foralls i (EFun(r,0,ENominal(r,EV 0,t),Some t))) term
+                term, add_ty env name nom, i+1
+                ) (top_env.term, env, top_env.nominals.Length) l
+        let ty,nominals =
+            List.fold (fun (ty', nominals) (_,(_,name),l,body) -> 
+                let x = eval_type' env l (fun env -> TJoinPoint(range_of_texpr body, ty env body))
+                Map.add name x ty', PersistentVector.conj {|body=x; name=name|} nominals
                 ) (top_env.ty, top_env.nominals) l
-        {top_env with ty = ty; nominals = nominals}
+        {top_env with term = term; ty = ty; nominals = nominals}
     | FInl(_,(_,name),body) -> {top_env with term = Map.add name (term env body |> process_term) top_env.term}
     | FRecInl l ->
         let l, env = 
