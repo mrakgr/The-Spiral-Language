@@ -25,7 +25,7 @@ and RecordWithout =
 and PatRecordMember =
     | Symbol of (Range * string) * Id
     | Var of (Range * E) * Id
-and E =
+and [<ReferenceEquality>] E =
     | EFun' of Range * FreeVars * Id * E * T option
     | EForall' of Range * FreeVars * Id * E
     | EJoinPoint' of Range * FreeVars * E * T option
@@ -75,7 +75,7 @@ and E =
     | ETypeApplyTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
     | ETypeArrayTest of Range * bind: Id * pat: Id * on_succ: E * on_fail: E
     | ETypeEq of Range * T * bind: Id * on_succ: E * on_fail: E
-and T =
+and [<ReferenceEquality>] T =
     | TArrow' of Range * FreeVars * Id * T
     | TArrow of Range * Id * T
     | TJoinPoint' of Range * FreeVars * T
