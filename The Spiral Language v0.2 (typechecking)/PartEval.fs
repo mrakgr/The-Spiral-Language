@@ -2,6 +2,7 @@
 
 open System
 open Spiral.Prepass
+open Spiral.HashConsing
 
 type Tag = int
 type [<CustomComparison;CustomEquality>] L<'a,'b when 'a: equality and 'a: comparison> = 
@@ -43,3 +44,31 @@ and Data =
     | DLit of Tokenize.Literal
     | DV of TyV
 and TyV = L<Tag,Ty>
+
+type RData =
+    | RUnit
+    | RPair of ConsedNode<RData * RData>
+    | RSymbol of string
+    | RFunction of ConsedNode<E * RData [] * Ty []> // T option and stack sizes are entirely dependent on the body.
+    | RForall of ConsedNode<E * RData [] * Ty []>
+    | RRecord of ConsedNode<Map<string, RData>>
+    | RLit of Tokenize.Literal
+    | RV of ConsedNode<TyV>
+
+type Trace = Range list
+type JoinPointKey = 
+    | JPMethod of E * ConsedNode<RData [] * Ty []>
+    | JPClosure of E * ConsedNode<RData [] * Ty [] * Ty [] list>
+
+type JoinPointCall = JoinPointKey * TyV []
+
+type TypedBind =
+    | TyLet of Data * Trace * TypedOp
+    | TyLocalReturnOp of Trace * TypedOp
+    | TyLocalReturnData of Data * Trace
+
+and TypedOp = 
+    | TyOp of BlockParsing.Op * Data []
+    | TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
+    | TyWhile of cond: JoinPointCall * TypedBind []
+    | TyJoinPoint of JoinPointCall

@@ -30,6 +30,7 @@
     <Compile Include="TypecheckingUtils.fs" />
     <Compile Include="Infer.fs" />
     <Compile Include="Prepass.fs" />
+    <Compile Include="HashConsing.fs" />
     <Compile Include="PartEval.fs" />
     <Compile Include="Blockize.fs" />
     <Compile Include="Server.fs" />
