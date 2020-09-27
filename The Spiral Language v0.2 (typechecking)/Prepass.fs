@@ -288,7 +288,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
                 | None -> i + env.term.adj
                 | Some _ -> failwith "Compiler error: Expected a variable in the environment."
                 ) 
-        let stack_size_term = fv_term.Length + max 0 (v.term.max - v.term.min)
+        let stack_size_term = max 0 (v.term.max - v.term.min)
 
         let fv_ty = 
             v.ty.vars |> Set.toArray 
@@ -298,7 +298,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
                 | None -> i + env.term.adj
                 | Some _ -> failwith "Compiler error: Expected a variable in the environment."
                 ) 
-        let stack_size_ty = fv_ty.Length + max 0 (v.ty.max - v.ty.min)
+        let stack_size_ty = max 0 (v.ty.max - v.ty.min)
         let free_vars : FreeVars = {
             term = {|free_vars = fv_term; stack_size = stack_size_term|}
             ty = {|free_vars = fv_ty; stack_size = stack_size_ty|}

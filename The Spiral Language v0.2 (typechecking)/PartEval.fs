@@ -1,6 +1,7 @@
 ﻿module Spiral.PartEval
 
 open System
+open System.Collections.Generic
 open Spiral.Prepass
 open Spiral.HashConsing
 
@@ -49,7 +50,7 @@ type RData =
     | RUnit
     | RPair of ConsedNode<RData * RData>
     | RSymbol of string
-    | RFunction of ConsedNode<E * RData [] * Ty []> // T option and stack sizes are entirely dependent on the body.
+    | RFunction of ConsedNode<E * RData [] * Ty []> // T option and stack sizes are entirely dependent on the body. And unlike in v0.09/v0.1 there are no reified join points.
     | RForall of ConsedNode<E * RData [] * Ty []>
     | RRecord of ConsedNode<Map<string, RData>>
     | RLit of Tokenize.Literal
@@ -58,7 +59,8 @@ type RData =
 type Trace = Range list
 type JoinPointKey = 
     | JPMethod of E * ConsedNode<RData [] * Ty []>
-    | JPClosure of E * ConsedNode<RData [] * Ty [] * Ty [] list>
+    | JPType of T * ConsedNode<Ty []>
+    | JPClosure of E * ConsedNode<RData [] * Ty [] * Ty>
 
 type JoinPointCall = JoinPointKey * TyV []
 
@@ -72,3 +74,18 @@ and TypedOp =
     | TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
     | TyWhile of cond: JoinPointCall * TypedBind []
     | TyJoinPoint of JoinPointCall
+
+type LangEnv = {
+    trace : Trace
+    seq : ResizeArray<TypedBind>
+    cse : Dictionary<BlockParsing.Op * Data [], Data> list
+    i : int ref
+    env_global_type : Ty []
+    env_global_value : Data []
+    env_stack_type : Ty []
+    env_stack_value : Data []
+    }
+
+let lit_is = function
+    | DLit _ -> true
+    | _ -> false
