@@ -387,6 +387,7 @@ let show_kind x =
 let show_constraints env x = Set.toList x |> List.map (constraint_name env) |> String.concat "; " |> sprintf "{%s}"
 
 let show_nominal (env : TopEnv) i = env.nominals_aux.[i].name
+let show_layout_type = function Heap -> "heap" | HeapMutable -> "mut"
 
 let show_t (env : TopEnv) x =
     let show_var (a : Var) =
@@ -437,9 +438,7 @@ let show_t (env : TopEnv) x =
         | TyRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
         | TyUnion l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "| ")
         | TyMacro a -> p 30 (List.map (function TMVar a -> f -1 a | TMText a -> a) a |> String.concat "")
-        | TyLayout(a,b) -> 
-            let b = match b with Heap -> "heap" | HeapMutable -> "mut"
-            p 30 (sprintf "%s %s" b (f 30 a))
+        | TyLayout(a,b) -> p 30 (sprintf "%s %s" (show_layout_type b) (f 30 a))
 
     f -1 x
 

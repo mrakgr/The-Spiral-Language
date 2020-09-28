@@ -4,6 +4,7 @@ open System
 open System.Collections.Generic
 open Spiral.Config
 open Spiral.Tokenize
+open Spiral.BlockParsing
 open Spiral.Prepass
 open Spiral.HashConsing
 
@@ -25,26 +26,27 @@ type [<CustomComparison;CustomEquality>] L<'a,'b when 'a: equality and 'a: compa
 type StackSize = int
 type Macro = Text of string | Type of Ty
 and Ty =
-    | YUnit
+    | YB
     | YPair of Ty * Ty
     | YSymbol of string
     | YTypeFunction of body : T * ty : Ty [] * ty_stack_size : StackSize
     | YRecord of Map<string, Ty>
-    | YPrim of Config.PrimitiveType
+    | YPrim of PrimitiveType
     | YArray of Ty
     | YFunction of Ty * Ty
-    | YMacro of Macro
+    | YMacro of Macro list
     | YNominal of int
     | YApply of Ty * Ty
-    | YLayout of Ty * BlockParsing.Layout
+    | YLayout of Ty * Layout
+    | YUnion of Map<string,Ty>
 and Data =
-    | DUnit
+    | DB
     | DPair of Data * Data
     | DSymbol of string
     | DFunction of body : E * annot : T option * term : Data [] * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
     | DForall of body : E * term : Data [] * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
     | DRecord of Map<string, Data>
-    | DLit of Tokenize.Literal
+    | DLit of Literal
     | DV of TyV
 and TyV = L<Tag,Ty>
 
@@ -105,7 +107,7 @@ let data_to_rdata'' (hc : HashConsTable) call_data =
             | DRecord l -> RRecord(hc(Map.map (fun _ -> f) l))
             | DV(L(_,ty) as t) -> call_args.Add t; RV(hc (call_args.Count-1,ty))
             | DLit a -> RLit a
-            | DUnit -> RUnit
+            | DB -> RUnit
             ) x
     let x = Array.map f call_data
     call_args.ToArray(),x
@@ -123,7 +125,7 @@ let data_free_vars call_data =
             | DForall(_,a,_,_,_) | DFunction(_,_,a,_,_,_) -> Array.iter f a
             | DRecord l -> Map.iter (fun _ -> f) l
             | DV(L(_,ty) as t) -> free_vars.Add t
-            | DSymbol | DLit | DUnit -> ()
+            | DSymbol | DLit | DB -> ()
     f call_data
     free_vars.ToArray()
 
@@ -134,18 +136,18 @@ let data_term_vars call_data =
         | DForall(_,a,_,_,_) | DFunction(_,_,a,_,_,_) -> Array.iter f a
         | DRecord l -> Map.iter (fun _ -> f) l
         | DLit | DV _ as x -> term_vars.Add x
-        | DSymbol | DUnit -> ()
+        | DSymbol | DB -> ()
     f call_data
     term_vars.ToArray()
 
 let ty_to_data i x =
     let rec f = function
-        | YUnit -> DUnit
+        | YB -> DB
         | YPair(a,b) -> DPair(f a, f b) 
         | YSymbol a -> DSymbol a
         | YRecord l -> DRecord(Map.map (fun _ -> f) l)
-        | YNominal | YLayout | YApply | YPrim | YArray | YFunction | YMacro as x -> let r = DV(L(!i,x)) in incr i; r
-        | YTypeFunction -> failwith "Compiler error: Cannot turn a type function to a runtime variable."
+        | YUnion | YNominal | YLayout | YApply | YPrim | YArray | YFunction | YMacro as x -> let r = DV(L(!i,x)) in incr i; r
+        | YTypeFunction -> failwith "Compiler error: Cannot turn a type function to a runtime variable." // TODO: Should be a type error.
     f x
 
 let lit_to_primitive_type = function
@@ -210,22 +212,10 @@ let push_triop d op (a,b,c) ret_ty = push_op' d op [|a;b;c|] ret_ty
 exception TypeError of Trace * string
 let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
 
-let show_primt = function
-    | UInt8T -> "uint8"
-    | UInt16T -> "uint16"
-    | UInt32T -> "uint32"
-    | UInt64T -> "uint64"
-    | Int8T -> "int8"
-    | Int16T -> "int16"
-    | Int32T -> "int32"
-    | Int64T -> "int64"
-    | Float32T -> "float32"
-    | Float64T -> "float64"
-    | BoolT -> "bool"
-    | StringT -> "string"
-    | CharT -> "char"
+let show_primt = Infer.show_primt
+let p = Infer.p
 
-let show_value = function
+let show_lit = function
     | LitUInt8 x -> sprintf "%iu8" x
     | LitUInt16 x -> sprintf "%iu16" x
     | LitUInt32 x -> sprintf "%iu32" x
@@ -240,9 +230,58 @@ let show_value = function
     | LitString x -> sprintf "%s" x
     | LitChar x -> sprintf "%c" x
 
-let show_layout_type = function
-    | BlockParsing.Layout.Heap -> "heap"
-    | BlockParsing.Layout.HeapMutable -> "mut"
+let show_layout_type = Infer.show_layout_type
+
+let show_ty x =
+    let rec f prec x =
+        let p = p prec
+        match x with
+        | YB -> "()"
+        | YPair(YSymbol a, b) when 0 < a.Length && System.Char.IsLower(a,0) && a.[a.Length-1] = '_' -> 
+            let show (s,a) = sprintf "%s: %s" s (f 15 a)
+            let rec loop (a,b) = 
+                match a,b with
+                | s :: s', YPair(a,b) -> show (s,a) :: loop (s',b)
+                | s :: [], a -> [show (s,a)]
+                | s, a -> [show (String.concat "_" s, a)]
+            p 15 (loop (a.Split('_',System.StringSplitOptions.RemoveEmptyEntries) |> (fun x -> x.[0] <- to_upper x.[0]; Array.toList x), b) |> String.concat " ")
+        | YPair(YSymbol a, YB) when 0 < a.Length && System.Char.IsLower(a,0) -> to_upper a
+        | YPair(a,b) -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b))
+        | YSymbol x -> sprintf ".%s" x
+        | YTypeFunction -> p 0 (sprintf "? => ?")
+        | YRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
+        | YUnion l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "| ")
+        | YPrim x -> show_primt x
+        | YArray a -> p 30 (sprintf "array %s" (f 30 a))
+        | YFunction(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
+        | YMacro a -> p 30 (List.map (function Type a -> f -1 a | Text a -> a) a |> String.concat "")
+        | YApply(a,b) -> p 30 (sprintf "%s %s" (f 29 a) (f 30 b))
+        | YLayout(a,b) -> p 30 (sprintf "%s %s" (show_layout_type b) (f 30 a))
+        | YNominal i -> "?" // TODO: Print the actual name.
+    f -1 x
+
+let show_data x =
+    let rec f prec x =
+        let p = p prec
+        match x with
+        | DB -> "()"
+        | DPair(DSymbol a, b) when 0 < a.Length && System.Char.IsLower(a,0) && a.[a.Length-1] = '_' -> 
+            let show (s,a) = sprintf "%s: %s" s (f 15 a)
+            let rec loop (a,b) = 
+                match a,b with
+                | s :: s', DPair(a,b) -> show (s,a) :: loop (s',b)
+                | s :: [], a -> [show (s,a)]
+                | s, a -> [show (String.concat "_" s, a)]
+            p 15 (loop (a.Split('_',System.StringSplitOptions.RemoveEmptyEntries) |> (fun x -> x.[0] <- to_upper x.[0]; Array.toList x), b) |> String.concat " ")
+        | DPair(DSymbol a, DB) when 0 < a.Length && System.Char.IsLower(a,0) -> to_upper a
+        | DPair(a,b) -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b))
+        | DSymbol x -> sprintf ".%s" x
+        | DFunction -> p 20 "? -> ?"
+        | DForall -> p 0 "forall ?. ?"
+        | DRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
+        | DLit a -> show_lit a
+        | DV(L(_,ty)) -> show_ty ty
+    f -1 x
 
 let is_numeric = function
     | YPrim (UInt8T | UInt16T | UInt32T | UInt64T 
@@ -356,7 +395,7 @@ let data_to_ty closure_convert env x =
             | DRecord l -> YRecord(Map.map (fun _ -> f) l)
             | DV(L(_,ty) as t) -> ty
             | DLit x -> lit_to_ty x
-            | DUnit -> YUnit
+            | DB -> YB
             | DFunction(a,Some b,c,d,e,z) -> closure_convert env a b c d e z
             | DFunction(_,None,_,_,_,_) -> raise_type_error env "Cannot convert a function that is not annotated into a type."
             | DForall -> raise_type_error env "Cannot convert a forall into a type."
