@@ -24,6 +24,7 @@ type [<CustomComparison;CustomEquality>] L<'a,'b when 'a: equality and 'a: compa
             | _ -> raise <| ArgumentException "Invalid comparison for T."
 
 type StackSize = int
+type Nominal = {|body : T; id : int; name : string|} ConsedNode
 type Macro = Text of string | Type of Ty
 and Ty =
     | YB
@@ -35,7 +36,7 @@ and Ty =
     | YArray of Ty
     | YFunction of Ty * Ty
     | YMacro of Macro list
-    | YNominal of int
+    | YNominal of Nominal
     | YApply of Ty * Ty
     | YLayout of Ty * Layout
     | YUnion of Map<string,Ty>
@@ -47,6 +48,7 @@ and Data =
     | DForall of body : E * term : Data [] * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
     | DRecord of Map<string, Data>
     | DLit of Literal
+    | DNominal of Data * Ty
     | DV of TyV
 and TyV = L<Tag,Ty>
 
@@ -58,6 +60,7 @@ type RData =
     | RForall of ConsedNode<E * RData [] * Ty []>
     | RRecord of ConsedNode<Map<string, RData>>
     | RLit of Tokenize.Literal
+    | RNominal of ConsedNode<Data * Ty>
     | RV of ConsedNode<Tag * Ty>
 
 type Trace = Range list
@@ -108,6 +111,7 @@ let data_to_rdata'' (hc : HashConsTable) call_data =
             | DV(L(_,ty) as t) -> call_args.Add t; RV(hc (call_args.Count-1,ty))
             | DLit a -> RLit a
             | DB -> RUnit
+            | DNominal(a,b) -> RNominal(hc(a,b))
             ) x
     let x = Array.map f call_data
     call_args.ToArray(),x
@@ -125,6 +129,7 @@ let data_free_vars call_data =
             | DForall(_,a,_,_,_) | DFunction(_,_,a,_,_,_) -> Array.iter f a
             | DRecord l -> Map.iter (fun _ -> f) l
             | DV(L(_,ty) as t) -> free_vars.Add t
+            | DNominal(a,_) -> f a
             | DSymbol | DLit | DB -> ()
     f call_data
     free_vars.ToArray()
@@ -136,6 +141,7 @@ let data_term_vars call_data =
         | DForall(_,a,_,_,_) | DFunction(_,_,a,_,_,_) -> Array.iter f a
         | DRecord l -> Map.iter (fun _ -> f) l
         | DLit | DV _ as x -> term_vars.Add x
+        | DNominal(a,_) -> f a
         | DSymbol | DB -> ()
     f call_data
     term_vars.ToArray()
@@ -257,7 +263,7 @@ let show_ty x =
         | YMacro a -> p 30 (List.map (function Type a -> f -1 a | Text a -> a) a |> String.concat "")
         | YApply(a,b) -> p 30 (sprintf "%s %s" (f 29 a) (f 30 b))
         | YLayout(a,b) -> p 30 (sprintf "%s %s" (show_layout_type b) (f 30 a))
-        | YNominal i -> "?" // TODO: Print the actual name.
+        | YNominal x -> x.node.name
     f -1 x
 
 let show_data x =
@@ -281,6 +287,7 @@ let show_data x =
         | DRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
         | DLit a -> show_lit a
         | DV(L(_,ty)) -> show_ty ty
+        | DNominal(a,b) -> p 0 (sprintf "%s : %s" (f 0 a) (show_ty b))
     f -1 x
 
 let is_numeric = function
@@ -396,6 +403,7 @@ let data_to_ty closure_convert env x =
             | DV(L(_,ty) as t) -> ty
             | DLit x -> lit_to_ty x
             | DB -> YB
+            | DNominal(_,a) -> a
             | DFunction(a,Some b,c,d,e,z) -> closure_convert env a b c d e z
             | DFunction(_,None,_,_,_,_) -> raise_type_error env "Cannot convert a function that is not annotated into a type."
             | DForall -> raise_type_error env "Cannot convert a forall into a type."
@@ -403,6 +411,6 @@ let data_to_ty closure_convert env x =
     f x
 
 type TopEnv = {
-    prototypes : (int * E) [] []
-    nominals : {|body : T; name : string|} []
+    prototypes : Dictionary<int, E> []
+    nominals : Nominal []
     }
