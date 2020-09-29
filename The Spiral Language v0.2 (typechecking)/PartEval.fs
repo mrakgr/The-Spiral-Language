@@ -401,3 +401,8 @@ let data_to_ty closure_convert env x =
             | DForall -> raise_type_error env "Cannot convert a forall into a type."
             ) x
     f x
+
+type TopEnv = {
+    prototypes : (int * E) [] []
+    nominals : {|body : T; name : string|} []
+    }

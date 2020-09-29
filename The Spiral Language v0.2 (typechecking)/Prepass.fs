@@ -98,7 +98,6 @@ and [<ReferenceEquality>] T =
 open FSharpx.Collections
 
 open BlockParsing
-open TypecheckingUtils
 type TopEnv = {
     prototypes : Map<int,E> PersistentVector
     nominals : {|body : T; name : string|} PersistentVector

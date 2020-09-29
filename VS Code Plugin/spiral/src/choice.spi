@@ -1,0 +1,7 @@
+union choice2 a b =
+    | Choice1Of2: a
+    | Choice2Of2: b
+
+inl f = function
+    | Choice1Of2: x, ret => ret (x : i32)
+    | Choice2Of2: x, ret => ret (x : f64)
