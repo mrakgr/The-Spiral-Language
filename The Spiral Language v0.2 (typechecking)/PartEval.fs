@@ -77,7 +77,7 @@ type TypedBind =
     | TyLocalReturnData of Data * Trace
 
 and TypedOp = 
-    | TyOp of BlockParsing.Op * Data []
+    | TyOp of Op * Data []
     | TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
     | TyWhile of cond: JoinPointCall * TypedBind []
     | TyJoinPoint of JoinPointCall
@@ -85,12 +85,17 @@ and TypedOp =
 type LangEnv = {
     trace : Trace
     seq : ResizeArray<TypedBind>
-    cse : Dictionary<BlockParsing.Op * Data [], Data> list
+    cse : Dictionary<Op * Data [], Data> list
     i : int ref
     env_global_type : Ty []
     env_global_value : Data []
     env_stack_type : Ty []
     env_stack_value : Data []
+    }
+
+type TopEnv = {
+    prototypes : Dictionary<int, E> []
+    nominals : Nominal []
     }
 
 let lit_is = function
@@ -128,7 +133,7 @@ let data_free_vars call_data =
             | DPair(a,b) -> f a; f b
             | DForall(_,a,_,_,_) | DFunction(_,_,a,_,_,_) -> Array.iter f a
             | DRecord l -> Map.iter (fun _ -> f) l
-            | DV(L(_,ty) as t) -> free_vars.Add t
+            | DV(L as t) -> free_vars.Add t
             | DNominal(a,_) -> f a
             | DSymbol | DLit | DB -> ()
     f call_data
@@ -400,17 +405,39 @@ let data_to_ty closure_convert env x =
             | DPair(a,b) -> YPair(f a, f b)
             | DSymbol a -> YSymbol a
             | DRecord l -> YRecord(Map.map (fun _ -> f) l)
-            | DV(L(_,ty) as t) -> ty
+            | DNominal(_,a) | DV(L(_,a)) -> a
             | DLit x -> lit_to_ty x
             | DB -> YB
-            | DNominal(_,a) -> a
             | DFunction(a,Some b,c,d,e,z) -> closure_convert env a b c d e z
             | DFunction(_,None,_,_,_,_) -> raise_type_error env "Cannot convert a function that is not annotated into a type."
             | DForall -> raise_type_error env "Cannot convert a forall into a type."
             ) x
     f x
 
-type TopEnv = {
-    prototypes : Dictionary<int, E> []
-    nominals : Nominal []
-    }
+let vt s i = if i < s.env_global_type.Length then s.env_global_type.[i] else s.env_stack_type.[i-s.env_global_type.Length]
+let v s i = if i < s.env_global_value.Length then s.env_global_value.[i] else s.env_stack_value.[i-s.env_global_value.Length]
+let add_trace (s : LangEnv) r = {s with trace = r :: s.trace}
+let store_value_var (s : LangEnv) i v = s.env_stack_value.[i-s.env_global_value.Length] <- v
+let store_type_var (s : LangEnv) i v = s.env_stack_type.[i-s.env_global_type.Length] <- v
+let peval (env : TopEnv) x =
+    let rec term (s : LangEnv) x = 
+        let ev = term
+        match x with
+        | EB -> DB
+        | EV a -> v s a
+        | ELit(_,a) -> DLit a
+        | ESymbol(_,a) -> DSymbol a
+        | EFun'(_,free_vars,i,body,annot) -> 
+            assert (free_vars.term.free_vars.Length = i)
+            DFunction(body,annot,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
+        | EForall'(_,free_vars,i,body) ->
+            assert (free_vars.ty.free_vars.Length = i)
+            DForall(body,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
+        | ERecursive a -> ev s !a
+        | ERecBlock -> failwith "Compiler error: Recursive blocks should be inlined and eliminated during the prepass."
+        | ELet(r,i,a,b) -> store_value_var s i (ev s a); ev (add_trace s r) b
+        | EJoinPoint'(r,free_vars,body,annot) ->
+            
+
+    and ty x = failwith ""
+    term (failwith "TODO") x
