@@ -2,8 +2,8 @@
 open Infer
 
 type Id = int32
-type FreeVarsEnv = {|free_vars : int []; stack_size : int|}
-type FreeVars = {term : FreeVarsEnv; ty : FreeVarsEnv}
+type ScopeEnv = {|free_vars : int []; stack_size : int|}
+type Scope = {term : ScopeEnv; ty : ScopeEnv}
 //type Range = { uri : string; range : Config.VSCRange }
 type Range = BlockParsing.Range
 
@@ -26,9 +26,9 @@ and PatRecordMember =
     | Symbol of (Range * string) * Id
     | Var of (Range * E) * Id
 and [<ReferenceEquality>] E =
-    | EFun' of Range * FreeVars * Id * E * T option
-    | EForall' of Range * FreeVars * Id * E
-    | EJoinPoint' of Range * FreeVars * E * T option
+    | EFun' of Range * Scope * Id * E * T option
+    | EForall' of Range * Scope * Id * E
+    | EJoinPoint' of Range * Scope * E * T option
     | EFun of Range * Id * E * T option
     | EForall of Range * Id * E
     | EJoinPoint of Range * E * T option
@@ -76,9 +76,9 @@ and [<ReferenceEquality>] E =
     | ETypeArrayTest of Range * bind: Id * pat: Id * on_succ: E * on_fail: E
     | ETypeEq of Range * T * bind: Id * on_succ: E * on_fail: E
 and [<ReferenceEquality>] T =
-    | TArrow' of Range * FreeVars * Id * T
+    | TArrow' of Range * Scope * Id * T
     | TArrow of Range * Id * T
-    | TJoinPoint' of Range * FreeVars * T
+    | TJoinPoint' of Range * Scope * T
     | TJoinPoint of Range * T
     | TUnit of Range
     | TV of Id
@@ -298,7 +298,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
                 | Some _ -> failwith "Compiler error: Expected a variable in the environment."
                 ) 
         let stack_size_ty = max 0 (v.ty.max - v.ty.min)
-        let free_vars : FreeVars = {
+        let scope : Scope = {
             term = {|free_vars = fv_term; stack_size = stack_size_term|}
             ty = {|free_vars = fv_ty; stack_size = stack_size_ty|}
             }
@@ -314,7 +314,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
             ty = {|var = var_ty; adj = adj_ty|}
             }
 
-        free_vars, env
+        scope, env
 
     let adj' (env : LowerEnv) i = i + env.term.adj
 
@@ -324,14 +324,14 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         match x with
         | EForall' | EJoinPoint' | EFun' | EPatternMiss | ERecord | ERecursive | ESymbol | ELit | EB -> x
         | EFun(r,a,b,c) -> 
-            let free_vars, env = scope env x 
-            EFun'(r,free_vars,adj' env a,term env b,Option.map (ty env) c)
+            let scope, env = scope env x 
+            EFun'(r,scope,adj' env a,term env b,Option.map (ty env) c)
         | EForall(r,a,b) ->
-            let free_vars, env = scope env x 
-            EForall'(r,free_vars,adj' env a,term env b)
+            let scope, env = scope env x 
+            EForall'(r,scope,adj' env a,term env b)
         | EJoinPoint(r,a,b) ->
-            let free_vars, env = scope env x 
-            EJoinPoint'(r,free_vars,term env a,Option.map (ty env) b)
+            let scope, env = scope env x 
+            EJoinPoint'(r,scope,term env a,Option.map (ty env) b)
         | EV i -> match Map.tryFind i env.term.var with Some i -> i | None -> EV(adj i)
         | EDefaultLit(r,a,b) -> EDefaultLit(r,a,ty env b)
         | EType(r,a) -> EType(r,ty env a)
@@ -408,11 +408,11 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         match x with
         | TJoinPoint' | TArrow' | TNominal  | TPrim | TSymbol | TUnit -> x
         | TJoinPoint(r,a) ->
-            let free_vars, env = scope env x 
-            TJoinPoint'(r,free_vars,ty env a)
+            let scope, env = scope env x 
+            TJoinPoint'(r,scope,ty env a)
         | TArrow(r,a,b) ->  
-            let free_vars, env = scope env a
-            TArrow'(r,free_vars,adj' env a,ty env b)
+            let scope, env = scope env a
+            TArrow'(r,scope,adj' env a,ty env b)
         | TV i -> match Map.tryFind i env.ty.var with Some i -> i | None -> TV(adj i)
         | TPair(r,a,b) -> TPair(r,f a,f b)
         | TFun(r,a,b) -> TFun(r,f a,f b)
