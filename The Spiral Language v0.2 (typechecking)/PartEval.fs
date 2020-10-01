@@ -53,15 +53,15 @@ and Data =
 and TyV = L<Tag,Ty>
 
 type RData =
-    | RB
-    | RPair of ConsedNode<RData * RData>
-    | RSymbol of string
-    | RFunction of ConsedNode<E * RData [] * Ty []> // T option and stack sizes are entirely dependent on the body. And unlike in v0.09/v0.1 there are no reified join points.
-    | RForall of ConsedNode<E * RData [] * Ty []>
-    | RRecord of ConsedNode<Map<string, RData>>
-    | RLit of Tokenize.Literal
-    | RNominal of ConsedNode<Data * Ty>
-    | RV of ConsedNode<Tag * Ty>
+    | ReB
+    | RePair of ConsedNode<RData * RData>
+    | ReSymbol of string
+    | ReFunction of ConsedNode<E * RData [] * Ty []> // T option and stack sizes are entirely dependent on the body. And unlike in v0.09/v0.1 there are no reified join points.
+    | ReForall of ConsedNode<E * RData [] * Ty []>
+    | ReRecord of ConsedNode<Map<string, RData>>
+    | ReLit of Tokenize.Literal
+    | ReNominal of ConsedNode<Data * Ty>
+    | ReV of ConsedNode<Tag * Ty>
 
 type Trace = Range list
 type JoinPointKey = 
@@ -76,7 +76,7 @@ type TypedBind =
     | TyLocalReturnData of Data * Trace
 
 and TypedOp = 
-    | TyOp of Op * Data []
+    | TyOp of Op * Data list
     | TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
     | TyWhile of cond: JoinPointCall * TypedBind []
     | TyJoinPoint of JoinPointCall
@@ -84,7 +84,7 @@ and TypedOp =
 type LangEnv = {
     trace : Trace
     seq : ResizeArray<TypedBind>
-    cse : Dictionary<Op * Data [], Data> list
+    cse : Dictionary<TypedOp, Data> list
     i : int ref
     env_global_type : Ty []
     env_global_term : Data []
@@ -103,15 +103,15 @@ let data_to_rdata'' (hc : HashConsTable) call_data =
     let call_args = ResizeArray()
     let rec f x =
         Utils.memoize m (function
-            | DPair(a,b) -> RPair(hc(f a, f b))
-            | DSymbol a -> RSymbol a
-            | DFunction(a,_,b,c,_,_) -> RFunction(hc(a,Array.map f b,c))
-            | DForall(a,b,c,_,_) -> RFunction(hc(a,Array.map f b,c))
-            | DRecord l -> RRecord(hc(Map.map (fun _ -> f) l))
-            | DV(L(_,ty) as t) -> call_args.Add t; RV(hc (call_args.Count-1,ty))
-            | DLit a -> RLit a
-            | DNominal(a,b) -> RNominal(hc(a,b))
-            | DB -> RB
+            | DPair(a,b) -> RePair(hc(f a, f b))
+            | DSymbol a -> ReSymbol a
+            | DFunction(a,_,b,c,_,_) -> ReFunction(hc(a,Array.map f b,c))
+            | DForall(a,b,c,_,_) -> ReFunction(hc(a,Array.map f b,c))
+            | DRecord l -> ReRecord(hc(Map.map (fun _ -> f) l))
+            | DV(L(_,ty) as t) -> call_args.Add t; ReV(hc (call_args.Count-1,ty))
+            | DLit a -> ReLit a
+            | DNominal(a,b) -> ReNominal(hc(a,b))
+            | DB -> ReB
             ) x
     let x = Array.map f call_data
     call_args.ToArray(),x
@@ -405,15 +405,23 @@ let peval (env : TopEnv) s x =
         let ret = ty_to_data d ret_ty
         d.seq.Add(TyLet(ret,d.trace,op))
         ret
-    and push_op' (d: LangEnv) op l ret_ty =
-        let key = op,l
+    and push_typedop (d: LangEnv) key ret_ty =
         match cse_tryfind d key with
         | Some x -> x
         | None ->
             let x = ty_to_data d ret_ty
-            d.seq.Add(TyLet(x,d.trace,TyOp(op,l)))
+            d.seq.Add(TyLet(x,d.trace,key))
             cse_add d key x
             x
+    and push_op_no_rewrite' (d: LangEnv) op l ret_ty = push_typedop_no_rewrite d (TyOp(op,l)) ret_ty
+    and push_op_no_rewrite d op a ret_ty = push_op_no_rewrite' d op [a] ret_ty
+    and push_binop_no_rewrite d op (a,b) ret_ty = push_op_no_rewrite' d op [a;b] ret_ty
+    and push_triop_no_rewrite d op (a,b,c) ret_ty = push_op_no_rewrite' d op [a;b;c] ret_ty
+
+    and push_op' d op a ret_ty = push_typedop d (TyOp(op, a)) ret_ty
+    and push_op d op a ret_ty = push_op' d op [a] ret_ty
+    and push_binop d op (a,b) ret_ty = push_op' d op [a;b] ret_ty
+    and push_triop d op (a,b,c) ret_ty = push_op' d op [a;b;c] ret_ty
     and closure_convert s (body,annot,gl_term,gl_ty,sz_term,sz_ty) =
         let domain, range, ret_ty = 
             match ty s annot with
@@ -443,7 +451,7 @@ let peval (env : TopEnv) s x =
             dict.[join_point_key] <- Some (seq, ret_ty)
             if range <> ty then raise_type_error s <| sprintf "The annotation of the function does not match its body's type.Got: %s\nExpected: %s" (show_ty ty) (show_ty range)
 
-        push_typedop_no_rewrite s (TyJoinPoint(JPClosure(body,join_point_key),call_args)) ret_ty, ret_ty // TODO: Make it so that CSE affects this.
+        push_typedop s (TyJoinPoint(JPClosure(body,join_point_key),call_args)) ret_ty, ret_ty
     and data_to_ty s x =
         let m = Dictionary(HashIdentity.Reference)
         let rec f x =
@@ -459,72 +467,32 @@ let peval (env : TopEnv) s x =
                 | DForall -> raise_type_error s "Cannot convert a forall into a type."
                 ) x
         f x
+    and dyn s x =
+        let m = Dictionary(HashIdentity.Reference)
+        let rec f x =
+            Utils.memoize m (function
+                | DPair(a,b) -> DPair(f a, f b)
+                | DB | DV | DSymbol as a -> a
+                | DRecord l -> DRecord(Map.map (fun _ -> f) l)
+                | DNominal(a,b) -> DNominal(f a,b)
+                | DLit v as x -> push_typedop_no_rewrite s (TyOp(Dyn, [x])) (lit_to_ty v)
+                | DFunction(body,Some annot,term',ty',sz_term,sz_ty) -> closure_convert s (body,annot,term',ty',sz_term,sz_ty) |> fst
+                | DFunction(_,None,_,_,_,_) -> raise_type_error s "Cannot convert a function that is not annotated into a type."
+                | DForall -> raise_type_error s "Cannot convert a forall into a type."
+                ) x
+        f x
     and term_scope'' s x =
         let x = term s x
         let x_ty = data_to_ty s x
         seq_apply s x, x_ty
     and term_scope' s cse x = term_scope'' {s with seq=ResizeArray(); i=ref !s.i; cse=cse :: s.cse} x
     and term_scope s x = term_scope' s (Dictionary(HashIdentity.Structural)) x
-    and term (s : LangEnv) x = 
-        let push_op_no_rewrite' (d: LangEnv) op l ret_ty = push_typedop_no_rewrite d (TyOp(op,l)) ret_ty
-        let push_op_no_rewrite d op a ret_ty = push_op_no_rewrite' d op [|a|] ret_ty
-        let push_binop_no_rewrite d op (a,b) ret_ty = push_op_no_rewrite' d op [|a;b|] ret_ty
-        let push_triop_no_rewrite d op (a,b,c) ret_ty = push_op_no_rewrite' d op [|a;b;c|] ret_ty
-
-        let push_op d op a ret_ty = push_op' d op [|a|] ret_ty
-        let push_binop d op (a,b) ret_ty = push_op' d op [|a;b|] ret_ty
-        let push_triop d op (a,b,c) ret_ty = push_op' d op [|a;b;c|] ret_ty
-        match x with
-        | EB -> DB
-        | EV a -> v s a
-        | ELit(_,a) -> DLit a
-        | ESymbol(_,a) -> DSymbol a
-        | EFun'(_,free_vars,i,body,annot) -> 
-            assert (free_vars.term.free_vars.Length = i)
-            DFunction(body,annot,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
-        | EForall'(_,free_vars,i,body) ->
-            assert (free_vars.ty.free_vars.Length = i)
-            DForall(body,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
-        | ERecursive a -> term s !a
-        | ERecBlock -> failwith "Compiler error: Recursive blocks should be inlined and eliminated during the prepass."
-        | ELet(r,i,a,b) -> store_value_var s i (term s a); term (add_trace s r) b
-        | EJoinPoint -> failwith "Compiler error: Raw join points should be transformed during the prepass."
-        | EJoinPoint'(r,scope,body,annot) ->
-            let dict, hc_table = Utils.memoize join_point_method (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
-            let call_args, env_global_value = data_to_rdata'' hc_table s.env_global_term
-            let join_point_key = hc_table.Add(env_global_value, s.env_global_type)
-
-            let ret_ty =
-                match dict.TryGetValue(join_point_key) with
-                | true, (_, Some ret_ty) -> ret_ty
-                | true, (_, None) -> raise_type_error (add_trace s r) "Recursive join points must be annotated."
-                | false, _ ->
-                    let s : LangEnv = {
-                        trace = r :: s.trace
-                        seq = ResizeArray()
-                        cse = [Dictionary(HashIdentity.Structural)]
-                        i = ref 0
-                        env_global_type = Array.map (vt s) scope.ty.free_vars
-                        env_global_term = Array.map (v s) scope.term.free_vars
-                        env_stack_type = Array.zeroCreate<_> scope.ty.stack_size
-                        env_stack_term = Array.zeroCreate<_> scope.term.stack_size
-                        }
-                    rename_global_term s
-                    let annot = Option.map (ty s) annot
-                    dict.[join_point_key] <- (None, annot)
-                    let seq,ty = term_scope'' s body
-                    dict.[join_point_key] <- (Some seq, Some ty)
-                    annot |> Option.iter (fun annot -> if annot <> ty then raise_type_error s <| sprintf "The annotation of the join point does not match its body's type.Got: %s\nExpected: %s" (show_ty ty) (show_ty annot))
-                    ty
-
-            push_typedop_no_rewrite s (TyJoinPoint(JPMethod(body,join_point_key),call_args)) ret_ty
-        | EDefaultLit(r,a,b) -> failwith "TODO"
     and nominal_apply s x =
         match x with
-        | YApply(YTypeFunction(body,gl_type,sz_term,sz_ty),b) ->
+        | YApply(YTypeFunction(body,gl_ty,sz_term,sz_ty),b) ->
             let s = 
                 {s with 
-                    env_global_type = gl_type
+                    env_global_type = gl_ty
                     env_global_term = [||]
                     env_stack_type = Array.zeroCreate<_> sz_ty
                     env_stack_term = Array.zeroCreate<_> sz_term
@@ -580,11 +548,11 @@ let peval (env : TopEnv) s x =
                     | None -> raise_type_error s <| sprintf  "Cannot find key %s in the record." b
                 | b -> raise_type_error s <| sprintf "Expected a symbol in the record application.\nGot: %s" (show_ty b)
             | YNominal | YApply as a -> YApply(a,ty s b)
-            | YTypeFunction(body,gl_type,sz_term,sz_ty) -> 
+            | YTypeFunction(body,gl_ty,sz_term,sz_ty) -> 
                 let b = ty s b
                 let s = 
                     {s with 
-                        env_global_type = gl_type
+                        env_global_type = gl_ty
                         env_global_term = [||]
                         env_stack_type = Array.zeroCreate<_> sz_ty
                         env_stack_term = Array.zeroCreate<_> sz_term
@@ -598,5 +566,192 @@ let peval (env : TopEnv) s x =
         | TNominal i -> YNominal env.nominals.[i]
         | TArray(_,a) -> YArray(ty s a)
         | TLayout(_,a,b) -> YLayout(ty s a,b)
+    and term (s : LangEnv) x = 
+        let layout_to_none s = function
+            | DV(L(_,YLayout(ty,layout))) as a -> 
+                match layout with
+                | HeapMutable -> push_typedop_no_rewrite s (TyOp(LayoutIndex,[a])) ty
+                | Heap -> 
+                    match ty with
+                    | YRecord l -> DRecord(Map.map (fun b ty -> push_typedop s (TyOp(LayoutIndex,[a; DSymbol b])) ty) l)
+                    | _ -> push_typedop s (TyOp(LayoutIndex,[a])) ty
+            | a -> raise_type_error s <| sprintf "Expected a layout type.\nGot: %s" (show_data a)
+        let layout_to_heap s x =
+            let x = dyn s x
+            let key = TyOp(LayoutToHeap,[x])
+            push_typedop s key (YLayout(data_to_ty s x,Heap))
+        let layout_to_mut s x =
+            let x = dyn s x
+            let key = TyOp(LayoutToHeapMutable,[x])
+            push_typedop s key (YLayout(data_to_ty s x,HeapMutable))
+        let rec apply s = function
+            | DRecord a, DSymbol b ->
+                match Map.tryFind b a with
+                | Some a -> a
+                | None -> raise_type_error s <| sprintf "Cannot find the key %s inside the record." b
+            | DRecord a, DPair(DSymbol b,b') ->
+                match Map.tryFind b a with
+                | Some a -> apply s (a, b')
+                | None -> raise_type_error s <| sprintf "Cannot find the key %s inside the record." b
+            | DFunction(body,_,gl_term,gl_ty,sz_term,sz_ty), b ->
+                let s : LangEnv = 
+                    {s with
+                        env_global_type = gl_ty
+                        env_global_term = gl_term
+                        env_stack_type = Array.zeroCreate<_> sz_ty
+                        env_stack_term = Array.zeroCreate<_> sz_term
+                        }
+                s.env_global_term.[0] <- b
+                term s body
+            | DForall, _ -> raise_type_error s "Cannot apply a forall with a term."
+            | DV(L(_,YFunction(domain,range) & a_ty)) & a, b ->
+                let b = dyn s b
+                let b_ty = data_to_ty s b
+                if domain = b_ty then push_binop_no_rewrite s Apply (a, b) range
+                else raise_type_error s <| sprintf "Cannot apply an argument of type %s to a function of type: %s" (show_ty b_ty) (show_ty a_ty)
+            | DV(L(_,YLayout(ty,layout))) as a, DSymbol b -> 
+                let key = TyOp(LayoutIndex,[a; DSymbol b])
+                match layout with
+                | HeapMutable -> push_typedop_no_rewrite s key ty
+                | Heap -> push_typedop s key ty
+            | DV(L(_,YLayout)), b -> raise_type_error s <| sprintf "Expected a symbol as the index into the layout type.\nGot: %s" (show_data b)
+            | a,_ -> raise_type_error s <| sprintf "Expected a function, closure, record or a layout type.\nGot: %s" (show_data a)
+
+        match x with
+        | EB -> DB
+        | EV a -> v s a
+        | ELit(_,a) -> DLit a
+        | ESymbol(_,a) -> DSymbol a
+        | EFun'(_,free_vars,i,body,annot) -> 
+            assert (free_vars.term.free_vars.Length = i)
+            DFunction(body,annot,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
+        | EForall'(_,free_vars,i,body) ->
+            assert (free_vars.ty.free_vars.Length = i)
+            DForall(body,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
+        | ERecursive a -> term s !a
+        | ERecBlock -> failwith "Compiler error: Recursive blocks should be inlined and eliminated during the prepass."
+        | ELet(r,i,a,b) -> store_value_var s i (term s a); term (add_trace s r) b
+        | EJoinPoint -> failwith "Compiler error: Raw join points should be transformed during the prepass."
+        | EJoinPoint'(r,scope,body,annot) ->
+            let dict, hc_table = Utils.memoize join_point_method (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
+            let call_args, env_global_value = data_to_rdata'' hc_table s.env_global_term
+            let join_point_key = hc_table.Add(env_global_value, s.env_global_type)
+
+            let ret_ty =
+                match dict.TryGetValue(join_point_key) with
+                | true, (_, Some ret_ty) -> ret_ty
+                | true, (_, None) -> raise_type_error (add_trace s r) "Recursive join points must be annotated."
+                | false, _ ->
+                    let s : LangEnv = {
+                        trace = r :: s.trace
+                        seq = ResizeArray()
+                        cse = [Dictionary(HashIdentity.Structural)]
+                        i = ref 0
+                        env_global_type = Array.map (vt s) scope.ty.free_vars
+                        env_global_term = Array.map (v s) scope.term.free_vars
+                        env_stack_type = Array.zeroCreate<_> scope.ty.stack_size
+                        env_stack_term = Array.zeroCreate<_> scope.term.stack_size
+                        }
+                    rename_global_term s
+                    let annot = Option.map (ty s) annot
+                    dict.[join_point_key] <- (None, annot)
+                    let seq,ty = term_scope'' s body
+                    dict.[join_point_key] <- (Some seq, Some ty)
+                    annot |> Option.iter (fun annot -> if annot <> ty then raise_type_error s <| sprintf "The annotation of the join point does not match its body's type.Got: %s\nExpected: %s" (show_ty ty) (show_ty annot))
+                    ty
+
+            push_typedop_no_rewrite s (TyJoinPoint(JPMethod(body,join_point_key),call_args)) ret_ty
+        | EDefaultLit(r,a,b) ->
+            let s = add_trace s r
+            let inline f string_to_val val_to_lit val_dsc =
+                match string_to_val a with
+                | true, x -> DLit(val_to_lit x)
+                | false, _ -> raise_type_error s <| sprintf "Cannot parse the literal as: %s" val_dsc
+            match ty s b with
+            | YPrim Float32T -> f Single.TryParse LitFloat32 "f32"
+            | YPrim Float64T -> f Double.TryParse LitFloat64 "f64"
+            | YPrim Int8T -> f SByte.TryParse LitInt8 "i8"
+            | YPrim Int16T -> f Int16.TryParse LitInt16 "i16"
+            | YPrim Int32T -> f Int32.TryParse LitInt32 "i32"
+            | YPrim Int64T -> f Int64.TryParse LitInt64 "i64"
+            | YPrim UInt8T -> f Byte.TryParse LitUInt8 "u8"
+            | YPrim UInt16T -> f UInt16.TryParse LitUInt16 "u16"
+            | YPrim UInt32T -> f UInt32.TryParse LitUInt32 "u32"
+            | YPrim UInt64T -> f UInt64.TryParse LitUInt64 "u64"
+            | b -> raise_type_error s <| sprintf "Expected a numberic type (f32,f64,i8,i16,i32,i64,u8,u16,u32,u64) as the type of literaly.\nGot: %s" (show_ty b)
+        | EType(r,_) -> raise_type_error (add_trace s r) "Raw types are not allowed on the term level."
+        | EApply(r,a,b) -> let s = add_trace s r in apply s (term s a, term s b)
+        | ETypeApply(r,a,b) ->
+            let s = add_trace s r
+            match term s a with
+            | DForall(body,gl_term,gl_ty,sz_term,sz_ty) ->
+                let b = ty s b
+                let s = 
+                    {s with 
+                        env_global_type = gl_ty
+                        env_global_term = gl_term
+                        env_stack_type = Array.zeroCreate<_> sz_ty
+                        env_stack_term = Array.zeroCreate<_> sz_term
+                        }
+                s.env_stack_type.[0] <- b
+                term s body
+            | a -> raise_type_error s <| sprintf "Expected a forall.\nGot: %s" (show_data a)
+        | ERecordWith(r,vars,withs,withouts) ->
+            let s = add_trace s r
+            let fold f a b = List.fold f b a
+            let inline var r a on_succ = 
+                match term s a with
+                | DSymbol a -> on_succ a
+                | a -> raise_type_error (add_trace s r) <| sprintf "Expected a symbol.\nGot: %s" (show_data a)
+            List.fold (fun m (r,x) ->
+                let s = add_trace s r
+                match m with
+                | Some a -> 
+                    match term s x with
+                    | DSymbol b -> 
+                        match Map.tryFind b a with
+                        | Some (DRecord a) -> Some a
+                        | Some a -> raise_type_error s <| sprintf "Expected a record as the result of indexing.\nGot: %s" (show_data a)
+                        | None -> raise_type_error s <| sprintf "Cannot find the key %s in a record." b
+                    | b -> raise_type_error s <| sprintf "Expected a symbol.\nGot: %s" (show_data b)
+                | None -> 
+                    match term s x with
+                    | DRecord l -> Some l
+                    | a -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data a)
+                ) None vars
+            |> Option.defaultValue Map.empty
+            |> fold (fun m x -> 
+                let sym a b = Map.add a (term s b) m
+                let sym_mod r a b = 
+                    match Map.tryFind a m with
+                    | Some a' -> Map.add a (apply s (term s b, a')) m
+                    | None -> raise_type_error (add_trace s r) "Cannot find key %s in record." a
+                match x with
+                | RSymbol((_,a),b) -> sym a b
+                | RSymbolModify((r,a),b) -> sym_mod r a b
+                | RVar((r,a),b) -> var r a (fun a -> sym a b)
+                | RVarModify((r,a),b) -> var r a (fun a -> sym_mod r a b)
+                ) withs
+            |> fold (fun m -> function
+                | WSymbol(r,a) -> Map.remove a m
+                | WVar(r,a) -> var r a (fun a -> Map.remove a m)
+                ) withouts
+            |> DRecord
+        | EPatternMemo | EReal -> failwith "Compiler error: Should have been eliminated during the prepass."
+        | ERecord a -> DRecord(Map.map (fun _ -> term s) a)
+        | EPair(r,a,b) -> DPair(term s a, term s b)
+        | ESeq(r,a,b) -> 
+            let s = add_trace s r
+            match term s a with
+            | DB -> term s b
+            | a -> raise_type_error s <| sprintf "Expected unit.\nGot: %s" (show_data a)
+        | EAnnot(r,a,b) ->
+            let s = add_trace s r
+            let a = term s a 
+            let a_ty = data_to_ty s a
+            let b = ty s b
+            if a_ty <> b then raise_type_error s <| sprintf "The body does not match the annotation.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty b)
+            a
+        | EPatternMiss a -> raise_type_error s "Pattern miss.\nGot: %s" (show_data (term s a))
 
     term s x

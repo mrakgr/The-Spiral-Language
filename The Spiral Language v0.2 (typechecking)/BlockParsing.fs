@@ -13,10 +13,14 @@ type NominalString = string
 type Layout = Heap | HeapMutable
 
 type Op =
+    // Closure application
+    | Apply
+    | ClosureConvert
+
     // Layout
-    | LayoutHeap
-    | LayoutHeapMutable
-    | LayoutIndiv
+    | LayoutToHeap
+    | LayoutToHeapMutable
+    | LayoutIndex
 
     // Type
     | TypeAnnot

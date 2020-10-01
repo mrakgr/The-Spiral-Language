@@ -42,10 +42,10 @@ and [<ReferenceEquality>] E =
     | ETypeApply of Range * E * T
     | ERecursive of E ref
     | ERecBlock of Range * (Id * E) list * on_succ: E
-    | ERecordWith of Range * E list * RecordWith list * RecordWithout list
+    | ERecordWith of Range * (Range * E) list * RecordWith list * RecordWithout list
     | ERecord of Map<string, E> // Used for modules.
     | EOp of Range * BlockParsing.Op * E list
-    | EPatternMiss
+    | EPatternMiss of E
     | EAnnot of Range * E * T
     | EIfThenElse of Range * E * E * E
     | EIfThen of Range * E * E
@@ -128,7 +128,7 @@ let inline propagate x =
     let rec term x =
         let singleton = singleton_term
         match x with
-        | EForall' | EJoinPoint' | EFun' | EPatternMiss | ERecord | ERecursive | ESymbol | ELit | EB -> empty
+        | EForall' | EJoinPoint' | EFun' | ERecord | ERecursive | ESymbol | ELit | EB -> empty
         | EV i -> singleton i
         | EPrototypeApply(_,_,a) | EType(_,a) | EDefaultLit(_,_,a) -> ty a
         | EHeapMutableSet(_,a,b) | ESeq(_,a,b) | EPair(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
@@ -141,7 +141,7 @@ let inline propagate x =
             List.fold (fun s (id,_) -> s - id) s l
         | ERecordWith(_,a,b,c) ->
             let fold f a b = List.fold f b a
-            List.fold (fun s a -> s + term a) empty a
+            List.fold (fun s (_,a) -> s + term a) empty a
             |> fold (fun s -> function
                     | RSymbolModify(_,a) | RSymbol(_,a) -> s + term a
                     | RVar((_,a),b) | RVarModify((_,a),b) -> s + term a + term b
@@ -152,7 +152,7 @@ let inline propagate x =
                 ) c
         | EOp(_,_,a) -> List.fold (fun s a -> s + term a) empty a
         | EIfThenElse(_,a,b,c) -> term a + term b + term c
-        | EReal(_,a) -> term a
+        | EPatternMiss a | EReal(_,a) -> term a
         | EMacro(_,a,b) -> List.fold (fun s -> function MType x -> s + ty x | MTerm x -> s + term x | MText -> s) (ty b) a
         | EPatternMemo a -> Utils.memoize dict term a
         // Regular pattern matching
@@ -216,7 +216,7 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
     let rec term (env : ResolveEnv) x =
         let f = term env
         match x with
-        | EForall' | EFun' | EJoinPoint' | EPatternMiss | ERecord | EV | ERecursive | ESymbol | EDefaultLit | ELit | EB -> ()
+        | EForall' | EFun' | EJoinPoint' | ERecord | EV | ERecursive | ESymbol | EDefaultLit | ELit | EB -> ()
         | EPrototypeApply(_,_,a) | EType(_,a) -> ty env a
         | EJoinPoint(_,a,b) | EFun(_,_,a,b) -> subst env x; f a; Option.iter (ty env) b
         | EForall(_,_,a) -> subst env x; f a
@@ -235,7 +235,7 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
                 )
             term env b
         | ERecordWith(_,a,b,c) ->
-            List.iter f a
+            List.iter (snd >> f) a
             b |> List.iter (function
                 | RSymbolModify(_,a) | RSymbol(_,a) -> f a
                 | RVarModify((_,a),b) | RVar((_,a),b) -> f a; f b)
@@ -244,7 +244,7 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
                 | WVar(_,a) -> f a)
         | ENominal(_,a,b) | ETypeLet(_,_,b,a) | ETypeApply(_,a,b) | EAnnot(_,a,b) -> f a; ty env b
         | EOp(_,_,a) -> List.iter f a
-        | EReal(_,a) -> f a
+        | EPatternMiss a | EReal(_,a) -> f a
         | ETypePairTest(_,_,_,_,a,b) | ETypeFunTest(_,_,_,_,a,b) | ETypeRecordTest(_,_,_,a,b) | ETypeApplyTest(_,_,_,_,a,b) | ETypeArrayTest(_,_,_,a,b)
         | EUnitTest(_,_,a,b) | ESymbolTest(_,_,_,a,b) | EPairTest(_,_,_,_,a,b) | ELitTest(_,_,_,a,b)
         | ELet(_,_,a,b) | EIfThen(_,a,b) | EPair(_,a,b) | ESeq(_,a,b) | EHeapMutableSet(_,a,b) | EApply(_,a,b) -> f a; f b
@@ -322,7 +322,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         let f = term env
         let adj = adj' env
         match x with
-        | EForall' | EJoinPoint' | EFun' | EPatternMiss | ERecord | ERecursive | ESymbol | ELit | EB -> x
+        | EForall' | EJoinPoint' | EFun' | ERecord | ERecursive | ESymbol | ELit | EB -> x
         | EFun(r,a,b,c) -> 
             let scope, env = scope env x 
             EFun'(r,scope,adj' env a,term env b,Option.map (ty env) c)
@@ -349,7 +349,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
             let env = List.fold (fun env x -> let id,body = x env in add_term id body env) env a
             term env b
         | ERecordWith(r,a,b,c) ->
-            let a = List.map f a
+            let a = List.map (fun (r,a) -> r, f a) a
             let b = b |> List.map (function
                 | RSymbol(a,b) -> RSymbol(a,f b)
                 | RSymbolModify(a,b) -> RSymbolModify(a,f b)
@@ -368,6 +368,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EPair(r,a,b) -> EPair(r,f a,f b)
         | ESeq(r,a,b) -> ESeq(r,f a,f b)
         | EHeapMutableSet(r,a,b) -> EHeapMutableSet(r,f a,f b)
+        | EPatternMiss a -> Utils.memoize dict (fun _ -> EPatternMiss(f a)) x 
         | EReal(r,a) -> EReal(r,f a)
         | EMacro(r,a,b) -> 
             let a = a |> List.map (function
@@ -542,7 +543,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 | PatUnbox(r,a) -> EOp(r,Unbox,[EV id; cp id a on_succ on_fail])
 
             cp id pat on_succ (EPatternMemo on_fail)
-        List.foldBack loop l EPatternMiss
+        List.foldBack loop l (EPatternMiss(EV id))
     and compile_clauses env clauses = List.map (fun (pat,on_succ) -> let x,env = make_compile_pattern_env env pat in x,pat,term env on_succ) clauses
     and pattern_match (env : Env) r body clauses =
         match clauses with
@@ -595,7 +596,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 | RawTVar | RawTSymbol | RawTB | RawTPrim | RawTMacro | RawTUnion | RawTLayout -> ETypeEq(range_of_texpr pat,ty env pat,id,on_succ,on_fail)
 
             cp id pat on_succ (EPatternMemo on_fail)
-        List.foldBack loop l EPatternMiss
+        List.foldBack loop l (EPatternMiss(EV id))
     and typecase (env : Env) r body clauses =
         let id, env = fresh_ty_var env
         let l = clauses |> List.map (fun (pat,on_succ) -> let _,env as x = make_compile_typecase_env env pat in x,pat,term env on_succ)
@@ -654,7 +655,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
             let l,env = List.mapFold (fun env ((r,name),body) -> let id,env = add_term_rec_var env name in (id,body), env) env l
             ERecBlock(r,List.map (fun (id,body) -> id, term env body) l,term env on_succ)
         | RawRecordWith(r,a,b,c) ->
-            let a = List.map f a
+            let a = List.map (fun a -> range_of_expr a, f a) a
             let b = b |> List.map (function
                 | RawRecordWithSymbol((r,a),b) -> RSymbol((r,a),f b)
                 | RawRecordWithSymbolModify((r,a),b) -> RSymbolModify((r,a),f b)
