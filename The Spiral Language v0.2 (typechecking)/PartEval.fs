@@ -30,7 +30,7 @@ and Ty =
     | YB
     | YPair of Ty * Ty
     | YSymbol of string
-    | YTypeFunction of body : T * ty : Ty [] * ty_stack_size : StackSize
+    | YTypeFunction of body : T * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
     | YRecord of Map<string, Ty>
     | YPrim of PrimitiveType
     | YArray of Ty
@@ -66,7 +66,6 @@ type RData =
 type Trace = Range list
 type JoinPointKey = 
     | JPMethod of E * ConsedNode<RData [] * Ty []>
-    | JPType of T * ConsedNode<Ty []>
     | JPClosure of E * ConsedNode<RData [] * Ty [] * Ty>
 
 type JoinPointCall = JoinPointKey * TyV []
@@ -123,7 +122,7 @@ let data_to_rdata hc call_data = data_to_rdata' hc call_data |> snd // TODO: Spe
 // This rename is a consideration for when I do incremental compilation.
 // In order to allow them to be cleaned by the garbage collection, I do not want the 
 // references to unused nodes to end up in anywhere other than join point keys (which will be weak).
-let rename_global_value (s : LangEnv) =
+let rename_global_term (s : LangEnv) =
     let m = Dictionary(HashIdentity.Reference)
     let rec q x =
         Utils.memoize m (function
@@ -390,23 +389,22 @@ let store_type_var (s : LangEnv) i v = s.env_stack_type.[i-s.env_global_type.Len
 let peval (env : TopEnv) s x =
     let join_point_method = Dictionary(HashIdentity.Reference)
     let join_point_closure = Dictionary(HashIdentity.Reference)
+    let join_point_type = Dictionary(HashIdentity.Reference)
 
     let rec ty_to_data s x =
-        let rec f = function
-            | YB -> DB
-            | YPair(a,b) -> DPair(f a, f b) 
-            | YSymbol a -> DSymbol a
-            | YRecord l -> DRecord(Map.map (fun _ -> f) l)
-            | YUnion | YLayout | YPrim | YArray | YFunction | YMacro as x -> let r = DV(L(!s.i,x)) in incr s.i; r
-            | YNominal | YApply  -> failwith "TODO"
-            | YTypeFunction -> raise_type_error s "Cannot turn a type function to a runtime variable."
-        f x
-
+        let f = ty_to_data s
+        match x with
+        | YB -> DB
+        | YPair(a,b) -> DPair(f a, f b) 
+        | YSymbol a -> DSymbol a
+        | YRecord l -> DRecord(Map.map (fun _ -> f) l)
+        | YUnion | YLayout | YPrim | YArray | YFunction | YMacro as x -> let r = DV(L(!s.i,x)) in incr s.i; r
+        | YNominal | YApply as a -> DNominal(nominal_apply s a |> ty_to_data s, a)
+        | YTypeFunction -> raise_type_error s "Cannot turn a type function to a runtime variable."
     and push_typedop_no_rewrite d op ret_ty =
         let ret = ty_to_data d ret_ty
         d.seq.Add(TyLet(ret,d.trace,op))
         ret
-
     and push_op' (d: LangEnv) op l ret_ty =
         let key = op,l
         match cse_tryfind d key with
@@ -416,7 +414,6 @@ let peval (env : TopEnv) s x =
             d.seq.Add(TyLet(x,d.trace,TyOp(op,l)))
             cse_add d key x
             x
-
     and closure_convert s (body,annot,gl_term,gl_ty,sz_term,sz_ty) =
         let domain, range, ret_ty = 
             match ty s annot with
@@ -440,13 +437,13 @@ let peval (env : TopEnv) s x =
                 env_stack_term = Array.zeroCreate<_> sz_term
                 }
             s.env_stack_term.[0] <- ty_to_data s domain
-            rename_global_value s
+            rename_global_term s
             dict.[join_point_key] <- None
-            let seq,ty = term_seq' s body
+            let seq,ty = term_scope'' s body
             dict.[join_point_key] <- Some (seq, ret_ty)
             if range <> ty then raise_type_error s <| sprintf "The annotation of the function does not match its body's type.Got: %s\nExpected: %s" (show_ty ty) (show_ty range)
 
-        push_typedop_no_rewrite s (TyJoinPoint(JPClosure(body,join_point_key),call_args)) ret_ty, ret_ty
+        push_typedop_no_rewrite s (TyJoinPoint(JPClosure(body,join_point_key),call_args)) ret_ty, ret_ty // TODO: Make it so that CSE affects this.
     and data_to_ty s x =
         let m = Dictionary(HashIdentity.Reference)
         let rec f x =
@@ -462,11 +459,12 @@ let peval (env : TopEnv) s x =
                 | DForall -> raise_type_error s "Cannot convert a forall into a type."
                 ) x
         f x
-    and term_seq' s x =
+    and term_scope'' s x =
         let x = term s x
         let x_ty = data_to_ty s x
         seq_apply s x, x_ty
-    and term_seq s x = term_seq' {s with seq=ResizeArray(); i=ref !s.i} x
+    and term_scope' s cse x = term_scope'' {s with seq=ResizeArray(); i=ref !s.i; cse=cse :: s.cse} x
+    and term_scope s x = term_scope' s (Dictionary(HashIdentity.Structural)) x
     and term (s : LangEnv) x = 
         let push_op_no_rewrite' (d: LangEnv) op l ret_ty = push_typedop_no_rewrite d (TyOp(op,l)) ret_ty
         let push_op_no_rewrite d op a ret_ty = push_op_no_rewrite' d op [|a|] ret_ty
@@ -490,6 +488,7 @@ let peval (env : TopEnv) s x =
         | ERecursive a -> term s !a
         | ERecBlock -> failwith "Compiler error: Recursive blocks should be inlined and eliminated during the prepass."
         | ELet(r,i,a,b) -> store_value_var s i (term s a); term (add_trace s r) b
+        | EJoinPoint -> failwith "Compiler error: Raw join points should be transformed during the prepass."
         | EJoinPoint'(r,scope,body,annot) ->
             let dict, hc_table = Utils.memoize join_point_method (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
             let call_args, env_global_value = data_to_rdata'' hc_table s.env_global_term
@@ -498,7 +497,7 @@ let peval (env : TopEnv) s x =
             let ret_ty =
                 match dict.TryGetValue(join_point_key) with
                 | true, (_, Some ret_ty) -> ret_ty
-                | true, (_, None) -> raise_type_error s "Recursive join points must be annotated."
+                | true, (_, None) -> raise_type_error (add_trace s r) "Recursive join points must be annotated."
                 | false, _ ->
                     let s : LangEnv = {
                         trace = r :: s.trace
@@ -510,15 +509,94 @@ let peval (env : TopEnv) s x =
                         env_stack_type = Array.zeroCreate<_> scope.ty.stack_size
                         env_stack_term = Array.zeroCreate<_> scope.term.stack_size
                         }
-                    rename_global_value s
+                    rename_global_term s
                     let annot = Option.map (ty s) annot
                     dict.[join_point_key] <- (None, annot)
-                    let seq,ty = term_seq' s body
+                    let seq,ty = term_scope'' s body
                     dict.[join_point_key] <- (Some seq, Some ty)
                     annot |> Option.iter (fun annot -> if annot <> ty then raise_type_error s <| sprintf "The annotation of the join point does not match its body's type.Got: %s\nExpected: %s" (show_ty ty) (show_ty annot))
                     ty
 
             push_typedop_no_rewrite s (TyJoinPoint(JPMethod(body,join_point_key),call_args)) ret_ty
+        | EDefaultLit(r,a,b) -> failwith "TODO"
+    and nominal_apply s x =
+        match x with
+        | YApply(YTypeFunction(body,gl_type,sz_term,sz_ty),b) ->
+            let s = 
+                {s with 
+                    env_global_type = gl_type
+                    env_global_term = [||]
+                    env_stack_type = Array.zeroCreate<_> sz_ty
+                    env_stack_term = Array.zeroCreate<_> sz_term
+                    }
+            s.env_stack_type.[0] <- b
+            ty s body
+        | YApply(a,_) -> raise_type_error s <| sprintf "Expected a type level function in nominal application.\nGot: %s" (show_ty a)
+        | YNominal a -> ty s a.node.body
+        | _ -> raise_type_error s <| sprintf "Expected a nominal or a nominal application.\nGot: %s" (show_ty x)
+    and ty s x =
+        match x with
+        | TArrow | TJoinPoint -> failwith "Compiler error: Should have been transformed during the prepass."
+        | TArrow'(_,scope,i,body) -> 
+            assert (i = scope.ty.stack_size)
+            YTypeFunction(body,Array.map (vt s) scope.ty.free_vars,scope.term.stack_size,scope.ty.stack_size)
+        | TJoinPoint'(r,scope,body) ->
+            let dict, hc_table = Utils.memoize join_point_type (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
+            let join_point_key = hc_table.Add(s.env_global_type)
+            match dict.TryGetValue(join_point_key) with
+            | true, Some ret_ty -> ret_ty
+            | true, None -> raise_type_error (add_trace s r) "Type join points must not be unboxed during their definition."
+            | false, _ ->
+                assert (0 = scope.term.free_vars.Length)
+                let s : LangEnv = {
+                    trace = r :: s.trace
+                    seq = ResizeArray()
+                    cse = [Dictionary(HashIdentity.Structural)]
+                    i = ref 0
+                    env_global_type = Array.map (vt s) scope.ty.free_vars
+                    env_global_term = [||]
+                    env_stack_type = Array.zeroCreate<_> scope.ty.stack_size
+                    env_stack_term = Array.zeroCreate<_> scope.term.stack_size
+                    }
+                dict.[join_point_key] <- None
+                let ret_ty = ty s body
+                dict.[join_point_key] <- Some ret_ty
+                ret_ty
+        | TB -> YB
+        | TV i -> vt s i
+        | TPair(_,a,b) -> YPair(ty s a, ty s b)
+        | TFun(_,a,b) -> YFunction(ty s a, ty s b)
+        | TRecord(_,a) -> YRecord(Map.map (fun _ -> ty s) a)
+        | TUnion(_,a) -> YUnion(Map.map (fun _ -> ty s) a)
+        | TSymbol(_,a) -> YSymbol a
+        | TApply(r,a,b) ->
+            let s = add_trace s r
+            match ty s a with
+            | YRecord a ->
+                match ty s b with
+                | YSymbol b ->
+                    match Map.tryFind b a with
+                    | Some x -> x
+                    | None -> raise_type_error s <| sprintf  "Cannot find key %s in the record." b
+                | b -> raise_type_error s <| sprintf "Expected a symbol in the record application.\nGot: %s" (show_ty b)
+            | YNominal | YApply as a -> YApply(a,ty s b)
+            | YTypeFunction(body,gl_type,sz_term,sz_ty) -> 
+                let b = ty s b
+                let s = 
+                    {s with 
+                        env_global_type = gl_type
+                        env_global_term = [||]
+                        env_stack_type = Array.zeroCreate<_> sz_ty
+                        env_stack_term = Array.zeroCreate<_> sz_term
+                        }
+                s.env_stack_type.[0] <- b
+                ty s body
+            | a -> raise_type_error s <| sprintf "Expected record, nominal or a type function.\nGot: %s" (show_ty a)
+        | TPrim(_,a) -> YPrim a
+        | TTerm(_,a) -> term_scope s a |> snd
+        | TMacro(r,a) -> let s = add_trace s r in YMacro(a |> List.map (function TMText a -> Text a | TMType a -> Type(ty s a)))
+        | TNominal i -> YNominal env.nominals.[i]
+        | TArray(_,a) -> YArray(ty s a)
+        | TLayout(_,a,b) -> YLayout(ty s a,b)
 
-    and ty s x = failwith ""
     term s x

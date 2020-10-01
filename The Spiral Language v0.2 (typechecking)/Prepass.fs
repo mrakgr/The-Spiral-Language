@@ -80,7 +80,7 @@ and [<ReferenceEquality>] T =
     | TArrow of Range * Id * T
     | TJoinPoint' of Range * Scope * T
     | TJoinPoint of Range * T
-    | TUnit of Range
+    | TB of Range
     | TV of Id
     | TPair of Range * T * T
     | TFun of Range * T * T
@@ -180,7 +180,7 @@ let inline propagate x =
         | ETypeArrayTest(_,bind,pat,on_succ,on_fail) -> singleton_ty bind + (term on_succ -. pat) + term on_fail
         | ETypeEq(_,t,bind,on_succ,on_fail) -> singleton_ty bind + ty t + term on_succ + term on_fail
     and ty = function
-        | TJoinPoint' | TArrow' | TSymbol | TPrim | TNominal | TUnit -> empty
+        | TJoinPoint' | TArrow' | TSymbol | TPrim | TNominal | TB -> empty
         | TV i -> singleton_ty i
         | TApply(_,a,b) | TPair(_,a,b) | TFun(_,a,b) -> ty a + ty b
         | TUnion(_,a) | TRecord(_,a) -> Map.fold (fun s k v -> s + ty v) empty a
@@ -261,7 +261,7 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
     and ty (env : ResolveEnv) x = 
         let f = ty env
         match x with
-        | TJoinPoint' | TArrow' | TNominal | TPrim | TSymbol | TV | TUnit -> ()
+        | TJoinPoint' | TArrow' | TNominal | TPrim | TSymbol | TV | TB -> ()
         | TArrow(_,_,a) -> subst env x; f a
         | TApply(_,a,b) | TFun(_,a,b) | TPair(_,a,b) -> f a; f b
         | TRecord(_,a) | TUnion(_,a) -> Map.iter (fun _ -> f) a
@@ -406,7 +406,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         let f = ty env
         let adj = adj' env
         match x with
-        | TJoinPoint' | TArrow' | TNominal  | TPrim | TSymbol | TUnit -> x
+        | TJoinPoint' | TArrow' | TNominal  | TPrim | TSymbol | TB -> x
         | TJoinPoint(r,a) ->
             let scope, env = scope env x 
             TJoinPoint'(r,scope,ty env a)
@@ -606,7 +606,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         | RawTWildcard -> failwith "Compiler error: Annotation with wildcards should have been stripped."
         | RawTMetaVar -> failwith "Compiler error: This should have been compiled away in typecase."
         | RawTForall -> failwith "Compiler error: Foralls are not allowed at the type level."
-        | RawTB r -> TUnit r
+        | RawTB r -> TB r
         | RawTVar(r,a) -> v_ty env a
         | RawTPair(r,a,b) -> TPair(r,f a,f b)
         | RawTFun(r,a,b) -> TFun(r,f a,f b)
