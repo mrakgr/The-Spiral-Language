@@ -617,6 +617,49 @@ let peval (env : TopEnv) s x =
             | DV(L(_,YLayout)), b -> raise_type_error s <| sprintf "Expected a symbol as the index into the layout type.\nGot: %s" (show_data b)
             | a,_ -> raise_type_error s <| sprintf "Expected a function, closure, record or a layout type.\nGot: %s" (show_data a)
 
+        let rec if_ s cond on_succ on_fail = 
+            match cond with
+            | DLit (LitBool true) -> term s on_succ
+            | DLit (LitBool false) -> term s on_fail
+            | cond ->
+                match data_to_ty s cond with
+                | YPrim BoolT as type_bool ->
+                    let lit_tr = DLit(LitBool true)
+                    match cse_tryfind s (TyOp(EQ, [cond; lit_tr])) with
+                    | Some cond -> if_ s cond on_succ on_fail
+                    | None ->
+                        let lit_fl = DLit(LitBool false)
+                        let add_rewrite_cases is_true = 
+                            let cse = Dictionary(HashIdentity.Structural)
+                            let tr,fl = if is_true then lit_tr, lit_fl else lit_fl, lit_tr
+                            let inline op op cond' res = cse.Add(TyOp(op,[cond;cond']),res); cse.Add(TyOp(op,[cond';cond]),res)
+                            op EQ lit_tr tr; op NEQ lit_tr fl; op EQ lit_fl fl; op NEQ lit_fl tr
+                            cse
+                        let tr, type_tr = term_scope' s (add_rewrite_cases true) on_succ
+                        let fl, type_fl = term_scope' s (add_rewrite_cases false) on_fail
+                        if type_tr = type_fl then
+                            if tr.Length = 1 && fl.Length = 1 then
+                                match tr.[0], fl.[0] with
+                                | TyLocalReturnOp(_,tr), TyLocalReturnOp(_,fl) when tr = fl -> push_typedop_no_rewrite s tr type_tr
+                                | TyLocalReturnData(tr',_), TyLocalReturnData(fl',_) -> 
+                                    match tr', fl' with
+                                    | tr, fl when tr = fl -> tr
+                                    | DLit(LitBool false), DLit(LitBool true) -> push_binop s EQ (cond,lit_fl) type_bool
+                                    | DLit(LitBool false), fl when cond = fl -> lit_fl
+                                    | DLit(LitBool true), fl -> // boolean or
+                                        match fl with
+                                        | DLit (LitBool false) -> cond
+                                        | _ -> if cond = fl then cond else push_binop s BoolOr (cond,fl) type_bool
+                                    | tr, DLit(LitBool false) -> // boolean and
+                                        match tr with
+                                        | DLit(LitBool true) -> cond
+                                        | _ -> if cond = tr then cond else push_binop s BoolAnd (cond,tr) type_bool
+                                    | _ -> push_typedop_no_rewrite s (TyIf(cond,tr,fl)) type_tr
+                                | _ -> push_typedop_no_rewrite s (TyIf(cond,tr,fl)) type_tr
+                            else push_typedop_no_rewrite s (TyIf(cond,tr,fl)) type_tr
+                        else raise_type_error s <| sprintf "Types in branches of If do not match.\nGot: %s and %s" (show_ty type_tr) (show_ty type_fl)
+                | cond_ty -> raise_type_error s <| sprintf "Expected a bool in conditional.\nGot: %s" (show_ty cond_ty)
+
         match x with
         | EB -> DB
         | EV a -> v s a
@@ -753,5 +796,29 @@ let peval (env : TopEnv) s x =
             if a_ty <> b then raise_type_error s <| sprintf "The body does not match the annotation.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty b)
             a
         | EPatternMiss a -> raise_type_error s "Pattern miss.\nGot: %s" (show_data (term s a))
-
+        | EIfThenElse(r,cond,tr,fl) -> let s = add_trace s r in if_ s (term s cond) tr fl
+        | EIfThen(r,cond,tr) -> let s = add_trace s r in if_ s (term s cond) tr (EB r)
+        | EHeapMutableSet(r,a,b,c) ->
+            let s = add_trace s r
+            let a = term s a
+            let a_layout_ty =
+                match a with
+                | DV(L(_,YLayout(a,b))) -> a
+                | _ -> raise_type_error s <| sprintf "Expected a layout type.\nGot: %s" (show_data a)
+            let b = List.map (fun (r,b) -> r, term s b) b
+            let c_ty =
+                List.fold (fun (r,a) (r',b) ->
+                    match a with
+                    | YRecord a ->
+                        match b with
+                        | DSymbol b ->
+                            match Map.tryFind b a with
+                            | Some a -> r', a
+                            | None -> raise_type_error (add_trace s r) <| sprintf "Key %s not found in the layout type." b
+                        | b -> raise_type_error (add_trace s r') <| sprintf "Expected a symbol.\nGot: %s" (show_data b)
+                    | a -> raise_type_error (add_trace s r) <| sprintf "Expected a record.\nGot: %s" (show_ty a)
+                    ) (r,a_layout_ty) b |> snd
+            let c = term s c |> dyn s
+            if data_to_ty s c = c_ty then push_typedop_no_rewrite s (TyOp(LayoutSet,c :: a :: List.map snd b)) YB
+            else raise_type_error s <| sprintf "The two side do not have the same type.\nGot: %s\nExpected: %s" (show_ty a_layout_ty) (show_ty c_ty)
     term s x

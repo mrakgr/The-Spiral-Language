@@ -89,7 +89,7 @@ and fold_offset_term offset x =
     | RawIfThen(r,a,b) -> RawIfThen(g r,f a,f b)
     | RawPairCreate(r,a,b) -> RawPairCreate(g r,f a,f b)
     | RawSeq(r,a,b) -> RawSeq(g r,f a,f b)
-    | RawHeapMutableSet(r,a,b) -> RawHeapMutableSet(g r,f a,f b)
+    | RawHeapMutableSet(r,a,b,c) -> RawHeapMutableSet(g r,f a,List.map f b,f c)
     | RawReal(r,a) -> RawReal(g r,f a)
     | RawMissingBody r -> RawMissingBody(g r)
     | RawMacro(r,a) -> RawMacro(g r,fold_offset_macro offset a)

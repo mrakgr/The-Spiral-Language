@@ -21,6 +21,7 @@ type Op =
     | LayoutToHeap
     | LayoutToHeapMutable
     | LayoutIndex
+    | LayoutSet
 
     // Type
     | TypeAnnot
@@ -219,7 +220,7 @@ and RawExpr =
     | RawIfThen of Range * RawExpr * RawExpr
     | RawPairCreate of Range * RawExpr * RawExpr
     | RawSeq of Range * RawExpr * RawExpr
-    | RawHeapMutableSet of Range * RawExpr * RawExpr
+    | RawHeapMutableSet of Range * RawExpr * RawExpr list * RawExpr
     | RawReal of Range * RawExpr
     | RawMacro of Range * RawMacro list
     | RawMissingBody of Range
@@ -299,7 +300,7 @@ let range_of_expr = function
     | RawPairCreate(r,_,_)
     | RawIfThen(r,_,_)
     | RawSeq(r,_,_)
-    | RawHeapMutableSet(r,_,_)
+    | RawHeapMutableSet(r,_,_,_)
     | RawRecordWith(r,_,_,_)
     | RawIfThenElse(r,_,_,_)
     | RawModuleOpen(r,_,_,_) -> r
@@ -703,7 +704,13 @@ let op (d : Env) =
                 | "&&" -> f (fun (r,a,b) -> RawIfThenElse(r,a,b,RawLit(o,LitBool false)))
                 | "||" -> f (fun (r,a,b) -> RawIfThenElse(r,a,RawLit(o,LitBool true),b))
                 | "," -> f RawPairCreate
-                | "<-" -> f RawHeapMutableSet
+                | "<-" -> f (fun (r,a,c) ->
+                    let rec loop l = function
+                        | RawApply(_,a,b) -> loop (b :: l) a
+                        | a -> a, l
+                    let a,b = loop [] a
+                    RawHeapMutableSet(r,a,b,c)
+                    )
                 | x -> f (fun (r,a,b) -> RawApply(r,RawApply(r +. o,RawV(o,x),a),b))
         )
 

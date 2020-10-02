@@ -217,7 +217,8 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
                 let combine e m = Map.fold (fun s k _ -> Set.add k s) e m
                 cterm (Map.foldBack Map.add x.constraints constraints) (combine term x.term) (combine ty x.ty) on_succ
             | Error e -> errors.Add(e)
-        | RawHeapMutableSet(_,a,b) | RawSeq(_,a,b) | RawPairCreate(_,a,b) | RawIfThen(_,a,b) | RawApply(_,a,b) -> cterm constraints term ty a; cterm constraints term ty b
+        | RawHeapMutableSet(_,a,b,c) -> cterm constraints term ty a; List.iter (cterm constraints term ty) b; cterm constraints term ty c
+        | RawSeq(_,a,b) | RawPairCreate(_,a,b) | RawIfThen(_,a,b) | RawApply(_,a,b) -> cterm constraints term ty a; cterm constraints term ty b
         | RawIfThenElse(_,a,b,c) -> cterm constraints term ty a; cterm constraints term ty b; cterm constraints term ty c
         | RawMissingBody r -> errors.Add(r,MissingBody)
     and cmacro constraints term ty a =
@@ -537,7 +538,7 @@ type FilledTop =
     | FInl of Range * (Range * VarString) * RawExpr
     | FRecInl of (Range * (Range * VarString) * RawExpr) list
     | FPrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
-    | FInstance of Range * (Range * int) * (Range * int) * TypeVar list * RawExpr
+    | FInstance of Range * (Range * int) * (Range * int) * RawExpr
 
 type InferResult = {
     filled_top : FilledTop Lazy list
@@ -632,7 +633,7 @@ let infer (top_env : TopEnv) expr =
             | RawIfThen(r,a,b) -> RawIfThen(r,f a,f b)
             | RawPairCreate(r,a,b) -> RawPairCreate(r,f a,f b)
             | RawSeq(r,a,b) -> RawSeq(r,f a,f b)
-            | RawHeapMutableSet(r,a,b) -> RawHeapMutableSet(r,f a,f b)
+            | RawHeapMutableSet(r,a,b,c) -> RawHeapMutableSet(r,f a,List.map f b,f c)
             | RawMacro(r,l) -> 
                 let l = l |> List.map (function RawMacroTermVar(r,x) -> RawMacroTermVar(r,f x) | x -> x )
                 RawAnnot(r,RawMacro(r,l),annot r x)
@@ -954,26 +955,26 @@ let infer (top_env : TopEnv) expr =
                 | RawMacroTermVar(r,a) -> term env (fresh_var()) a
                 | RawMacroTypeVar(r,a) -> ty env (fresh_var()) a
                 ) a
-        | RawHeapMutableSet(r,a,b) ->
-            let rec loop = function
-                | RawApply(r,a',b') ->
-                    match loop a' |> visit_t with
+        | RawHeapMutableSet(r,a,b,c) ->
+            unify r s TyB
+            try let v = fresh_var()
+                let i = errors.Count
+                f (TyLayout(v,HeapMutable)) a
+                if i <> errors.Count then raise (TypeErrorException [])
+                let b = List.map (fun x -> range_of_expr x, f' x) b
+                List.fold (fun (r,a') (r',b') ->
+                    match visit_t a' with
                     | TyRecord a ->
-                        match f' b' with
+                        match b' with
                         | TySymbol b ->
                             match Map.tryFind b a with
-                            | Some x -> x
+                            | Some x -> r', x
                             | _ -> raise (TypeErrorException [r, RecordIndexFailed b])
-                        | b -> raise (TypeErrorException [range_of_expr b', ExpectedSymbol' b])
-                    | a -> raise (TypeErrorException [range_of_expr a', ExpectedRecord a])
-                | a' ->
-                    let v = fresh_var()
-                    let i = errors.Count
-                    f (TyLayout(v,HeapMutable)) a'
-                    if i = errors.Count then v else raise (TypeErrorException [])
-
-            unify r s TyB
-            f (try loop a with :? TypeErrorException as e -> errors.AddRange e.Data0; fresh_var()) b
+                        | b -> raise (TypeErrorException [r', ExpectedSymbol' b])
+                    | a -> raise (TypeErrorException [r, ExpectedRecord a])
+                    ) (range_of_expr a, v) b |> snd
+            with :? TypeErrorException as e -> errors.AddRange e.Data0; fresh_var()
+            |> fun v -> f v c
         | RawFilledForall -> failwith "Compiler error: Should not during type inference."
         | RawType -> failwith "Compiler error: RawType should not appear in the top down segment."
         | RawTypecase -> failwith "Compiler error: `typecase` should not appear in the top down segment."
@@ -1334,7 +1335,7 @@ let infer (top_env : TopEnv) expr =
             let prototype = {|prototype with instances = Map.add ins_id ins_constraints prototype.instances|}
             top_env_inner <- {top_env with prototypes = PersistentVector.update prot_id prototype top_env.prototypes}
             term {term=Map.empty; ty=env_ty; constraints=Map.empty} prot_body body
-            (if 0 = errors.Count then [lazy FInstance(r,(fst prot, prot_id),(fst ins, ins_id),vars,fill r Map.empty body)] else []), 
+            (if 0 = errors.Count then [lazy FInstance(r,(fst prot, prot_id),(fst ins, ins_id),fill r Map.empty body)] else []), 
             top_env_inner
             
         let fake _ = [], top_env

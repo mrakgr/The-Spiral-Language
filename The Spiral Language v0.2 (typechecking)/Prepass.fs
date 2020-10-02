@@ -51,7 +51,7 @@ and [<ReferenceEquality>] E =
     | EIfThen of Range * E * E
     | EPair of Range * E * E
     | ESeq of Range * E * E
-    | EHeapMutableSet of Range * E * E
+    | EHeapMutableSet of Range * E * (Range * E) list * E
     | EReal of Range * E
     | EMacro of Range * Macro list * T
     | EPrototypeApply of Range * prototype_id: int * T
@@ -131,7 +131,7 @@ let inline propagate x =
         | EForall' | EJoinPoint' | EFun' | ERecord | ERecursive | ESymbol | ELit | EB -> empty
         | EV i -> singleton i
         | EPrototypeApply(_,_,a) | EType(_,a) | EDefaultLit(_,_,a) -> ty a
-        | EHeapMutableSet(_,a,b) | ESeq(_,a,b) | EPair(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
+        | ESeq(_,a,b) | EPair(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
         | ENominal(_,a,b) | EAnnot(_,a,b) | ETypeApply(_,a,b) -> term a + ty b
         | EForall(_,i,a) -> scope x (term a - i)
         | EJoinPoint(_,a,t) -> scope x (match t with Some t -> term a + ty t | None -> term a)
@@ -151,6 +151,7 @@ let inline propagate x =
                 | WVar(_,a) -> s + term a
                 ) c
         | EOp(_,_,a) -> List.fold (fun s a -> s + term a) empty a
+        | EHeapMutableSet(_,a,b,c) -> term a + List.fold (fun s (_,a) -> s + term a) empty b + term c
         | EIfThenElse(_,a,b,c) -> term a + term b + term c
         | EPatternMiss a | EReal(_,a) -> term a
         | EMacro(_,a,b) -> List.fold (fun s -> function MType x -> s + ty x | MTerm x -> s + term x | MText -> s) (ty b) a
@@ -247,7 +248,8 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | EPatternMiss a | EReal(_,a) -> f a
         | ETypePairTest(_,_,_,_,a,b) | ETypeFunTest(_,_,_,_,a,b) | ETypeRecordTest(_,_,_,a,b) | ETypeApplyTest(_,_,_,_,a,b) | ETypeArrayTest(_,_,_,a,b)
         | EUnitTest(_,_,a,b) | ESymbolTest(_,_,_,a,b) | EPairTest(_,_,_,_,a,b) | ELitTest(_,_,_,a,b)
-        | ELet(_,_,a,b) | EIfThen(_,a,b) | EPair(_,a,b) | ESeq(_,a,b) | EHeapMutableSet(_,a,b) | EApply(_,a,b) -> f a; f b
+        | ELet(_,_,a,b) | EIfThen(_,a,b) | EPair(_,a,b) | ESeq(_,a,b) | EApply(_,a,b) -> f a; f b
+        | EHeapMutableSet(_,a,b,c) -> f a; List.iter (snd >> f) b; f c
         | EIfThenElse(_,a,b,c) -> f a; f b; f c
         | EMacro(_,a,b) ->
             a |> List.iter (function MType a -> ty env a | MTerm a -> f a | MText -> ())
@@ -367,7 +369,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EIfThen(r,a,b) -> EIfThen(r,f a,f b)
         | EPair(r,a,b) -> EPair(r,f a,f b)
         | ESeq(r,a,b) -> ESeq(r,f a,f b)
-        | EHeapMutableSet(r,a,b) -> EHeapMutableSet(r,f a,f b)
+        | EHeapMutableSet(r,a,b,c) -> EHeapMutableSet(r,f a,List.map (fun (a,b) -> a, f b) b,c)
         | EPatternMiss a -> Utils.memoize dict (fun _ -> EPatternMiss(f a)) x 
         | EReal(r,a) -> EReal(r,f a)
         | EMacro(r,a,b) -> 
@@ -684,18 +686,23 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 }
             term env on_succ
         | RawApply(r,a,b) ->
-            match f a, f b with
-            | ERecord a' & a, ESymbol(_,b') & b ->
-                match Map.tryFind b' a' with
-                | Some x -> x
-                | None -> EApply(r,a,b) // TODO: Will be an error during partial evaluation time. Could be substituted for an exception here, but I do not want to have errors during the prepass.
-            | a,EType(_,b) -> ETypeApply(r,a,b)
-            | a,b -> EApply(r,a,b)
+            let rec loop = function
+                | ERecord a' & a, EPair(_,ESymbol(_, b'),b'') & b ->
+                    match Map.tryFind b' a' with
+                    | Some a -> loop (a,b'')
+                    | None -> EApply(r,a,b) // TODO: Will be an error during partial evaluation time. Could be substituted for an exception here, but I do not want to have errors during the prepass.
+                | ERecord a' & a, ESymbol(_,b') & b ->
+                    match Map.tryFind b' a' with
+                    | Some a -> a
+                    | None -> EApply(r,a,b) // TODO: Ditto.
+                | a,EType(_,b) -> ETypeApply(r,a,b)
+                | a,b -> EApply(r,a,b)
+            loop (f a, f b)
         | RawIfThenElse(r,a,b,c) -> EIfThenElse(r,f a,f b,f c)
         | RawIfThen(r,a,b) -> EIfThen(r,f a,f b)
         | RawPairCreate(r,a,b) -> EPair(r,f a,f b)
         | RawSeq(r,a,b) -> ESeq(r,f a,f b)
-        | RawHeapMutableSet(r,a,b) -> EHeapMutableSet(r,f a,f b)
+        | RawHeapMutableSet(r,a,b,c) -> EHeapMutableSet(r,f a,List.map (fun a -> range_of_expr a, f a) b,f c)
         | RawReal(r,a) -> f a
         | RawMacro -> failwith "Compiler error: The macro's annotation should have been added during `fill`."
         | RawAnnot(_,RawMacro(r,a),b) ->
@@ -755,7 +762,6 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         let id,env = add_ty_var env name
         let x = EForall(r,id,EPrototypeApply(r,top_env.prototypes.Length,TV id)) |> process_term
         {top_env with term = Map.add name x top_env.term; prototypes = PersistentVector.conj Map.empty top_env.prototypes}
-    | FInstance(_,(_,prot_id),(_,ins_id),l,body) ->
-        let env = l |> List.fold (fun s x -> add_ty_var s (typevar_name x) |> snd) env
+    | FInstance(_,(_,prot_id),(_,ins_id),body) ->
         let body = term env body |> process_term
         {top_env with prototypes = PersistentVector.update prot_id (Map.add ins_id body top_env.prototypes.[prot_id]) top_env.prototypes}
