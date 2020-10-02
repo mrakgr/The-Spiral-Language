@@ -30,8 +30,9 @@ type Op =
     // Closure conversion
     | Dyn
 
-    // Union unboxing
+    // Union
     | Unbox
+    | Box
 
     // Unsafe casts
     | UnsafeConvert

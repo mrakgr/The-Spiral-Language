@@ -542,7 +542,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 | PatNominal(r,(_,a),b) -> let id', on_succ = step b on_succ in ENominalTest(r,v_ty ve.envs.[pat] a,id,id',on_succ,on_fail)
                 | PatFilledDefaultValue(r,a,b) -> EDefaultLitTest(r,a,ty ve.envs.[pat] b,id,on_succ,on_fail)
                 | PatDyn(r,a) -> let id' = patvar() in ELet(r,id',EOp(r,Dyn,[EV id]),cp id' a on_succ on_fail)
-                | PatUnbox(r,a) -> EOp(r,Unbox,[EV id; cp id a on_succ on_fail])
+                | PatUnbox(r,a) -> let id' = patvar() in EOp(r,Unbox,[EV id; EFun(r, id', cp id' a on_succ on_fail, None)])
 
             cp id pat on_succ (EPatternMemo on_fail)
         List.foldBack loop l (EPatternMiss(EV id))
