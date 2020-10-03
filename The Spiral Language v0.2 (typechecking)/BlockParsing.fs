@@ -15,7 +15,9 @@ type Layout = Heap | HeapMutable
 type Op =
     // Closure application
     | Apply
-    | ClosureConvert
+
+    // Branching
+    | While
 
     // Layout
     | LayoutToHeap
@@ -24,7 +26,6 @@ type Op =
     | LayoutSet
 
     // Type
-    | TypeAnnot
     | TypeToVar
 
     // Closure conversion
@@ -33,9 +34,6 @@ type Op =
     // Union
     | Unbox
     | Box
-
-    // Unsafe casts
-    | UnsafeConvert
 
     // StringOps
     | StringLength
@@ -48,9 +46,6 @@ type Op =
     | RecordFoldL
     | RecordFoldR
     | RecordLength
-
-    // Branching
-    | While
 
     // BinOps
     | Add
@@ -82,11 +77,9 @@ type Op =
     // Static unary operations
     | PrintStatic
     | ErrorType
-    | ErrorPatMiss
     | LitIs
     | PrimIs
     | SymbolIs
-    | EqType
 
     // UnOps
     | Neg

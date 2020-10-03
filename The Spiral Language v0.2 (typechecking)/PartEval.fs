@@ -594,6 +594,8 @@ let peval (env : TopEnv) s x =
         | TArray(_,a) -> YArray(ty s a)
         | TLayout(_,a,b) -> YLayout(ty s a,b)
     and term (s : LangEnv) x = 
+        let term2 s a b = term s a, term s b
+        let term3 s a b c = term s a, term s b, term s c
         let layout_to_none s = function
             | DV(L(_,YLayout(ty,layout))) as a -> 
                 match layout with
@@ -749,6 +751,9 @@ let peval (env : TopEnv) s x =
             let b = v s bind
             if lit_to_ty a = data_to_ty s b then if_ s (eq s (DLit a) b) on_succ on_fail
             else term s on_fail
+
+        let inline nan_guardf32 x = if Single.IsNaN x then raise_type_error s "A 32-bit floating point operation resulting in a nan detected at compile time. Spiral cannot propagate nan literal without diverging." else x
+        let inline nan_guardf64 x = if Double.IsNaN x then raise_type_error s "A 64-bit floating point operation resulting in a nan detected at compile time. Spiral cannot propagate nan literal without diverging." else x
 
         match x with
         | EB -> DB
@@ -1020,5 +1025,91 @@ let peval (env : TopEnv) s x =
             let s = add_trace s r
             if ty s a = vt s b then term s on_succ
             else term s on_fail
-        | EOp -> failwith ""
+        | EOp(_,While,[cond;body]) -> 
+            match term_scope'' s cond with
+            | [|TyLocalReturnOp(_,TyJoinPoint cond)|], ty ->
+                match ty with
+                | YPrim BoolT -> 
+                    match term_scope s body with
+                    | body, YB & ty -> push_typedop s (TyWhile(cond,body)) ty
+                    | _, ty -> raise_type_error s <| sprintf "The body of the while loop must be of type unit.\nGot: %s" (show_ty ty)
+                | _ -> raise_type_error s <| sprintf "The conditional of the while loop must be of type bool.\nGot: %s" (show_ty ty)
+            | _ -> raise_type_error s "Compiler error: The body of the conditional of the while loop must be a solitary join point."
+        | EOp(_,LayoutToHeap,[a]) -> layout_to_heap s (term s a)
+        | EOp(_,LayoutToHeapMutable,[a]) -> layout_to_mut s (term s a)
+        | EOp(_,LayoutIndex,[a]) -> layout_to_none s (term s a)
+        | EOp(_,TypeToVar,[EType(_,a)]) -> push_typedop_no_rewrite s (TyOp(TypeToVar,[])) (ty s a)
+        | EOp(_,TypeToVar,_) -> raise_type_error s "Malformed TypeToVar."
+        | EOp(_,Dyn,[a]) -> term s a |> dyn true s
+        | EOp(_,StringLength,[a]) ->
+            match term s a with
+            | DLit(LitString str) -> DLit (LitInt32 str.Length)
+            | DV(L(_,YPrim StringT)) & str -> push_op s StringLength str (YPrim Int64T)
+            | x -> raise_type_error s <| sprintf "Expected a string.\nGot: %s" (show_data x)
+        | EOp(_,StringIndex,[a;b]) ->
+            match term2 s a b with
+            | DLit(LitString a), DLit(LitInt32 b) ->
+                if b >= 0 && b < a.Length then a.[b] |> LitChar |> DLit
+                else raise_type_error s <| sprintf "String index out of bounds. length: %i index: %i" a.Length b
+            | (DV(L(_,YPrim StringT)) | DLit(LitString)) & a, (DV(L(_,YPrim Int32T)) | DLit(LitInt32)) & b -> push_binop s StringIndex (a,b) (YPrim CharT)
+            | a,b -> raise_type_error s <| sprintf "Expected a string and an int32 as arguments to StringIndex.\nstring: %s\ni: %s" (show_data a) (show_data b)
+        | EOp(_,StringSlice,[a;b;c]) ->
+            match term3 s a b c with
+            | DLit(LitString a), DLit(LitInt32 b), DLit(LitInt32 c) ->
+                if b >= 0 && c < a.Length then a.[b..c] |> LitString |> DLit
+                else raise_type_error s <| sprintf "String slice out of bounds. length: %i from: %i to: %i" a.Length b c
+            | (DV(L(_,YPrim StringT)) | DLit(LitString)) & a, (DV(L(_,YPrim Int32T)) | DLit(LitInt32)) & b, (DV(L(_,YPrim Int32T)) | DLit(LitInt32)) & c -> push_triop s StringSlice (a,b,c) (YPrim StringT)
+            | a,b,c -> raise_type_error s <| sprintf "Expected a string and two int32s as arguments to StringSlice.\nstring: %s\nfrom: %s\nto: %s" (show_data a) (show_data b) (show_data c)
+        | EOp(_,RecordMap,[a;b]) ->
+            match term2 s a b with
+            | a, DRecord l -> Map.map (fun k v -> apply s (a, DPair(DSymbol "key_value_", DPair(DSymbol k,v)))) l |> DRecord
+            | _, b -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data b)
+        | EOp(_,RecordFilter,[a;b]) ->
+            match term2 s a b with
+            | a, DRecord l ->
+                Map.filter (fun k v ->
+                    match apply s (a, DPair(DSymbol "key_value_", DPair(DSymbol k,v))) with
+                    | DLit(LitBool x) -> x
+                    | x -> raise_type_error s <| sprintf "Expected a bool literal in ModuleFilter.\nGot: %s" (show_data x)
+                    ) l
+                |> DRecord
+            | _, b -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data b)
+        | EOp(_,RecordFoldL,[a;b;c]) ->
+            match term3 s a b c with
+            | a, state, DRecord l -> Map.fold (fun state k v -> apply s (a, DPair(DSymbol "state_key_value_", DPair(state, DPair(DSymbol k,v))))) state l
+            | _, _, r -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data r)
+        | EOp(_,RecordFoldR,[a;b;c]) ->
+            match term3 s a b c with
+            | a, state, DRecord l -> Map.foldBack (fun k v state -> apply s (a, DPair(DSymbol "state_key_value_", DPair(state, DPair(DSymbol k,v))))) l state
+            | _, r, _ -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data r)
+        | EOp(_,RecordLength,[a]) ->
+            match term s a with
+            | DRecord l -> Map.count l |> int64 |> LitInt64 |> DLit
+            | r -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data r)
+        | EOp(_,Add,[a;b]) -> 
+            let inline op a b = a + b
+            match term2 s a b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> DLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> DLit
+                | a, b -> raise_type_error s <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if a_ty = b_ty then
+                    if is_lit_zero a then b
+                    elif is_lit_zero b then a
+                    elif is_numeric a_ty then push_binop s Add (a,b) a_ty
+                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error s <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+
     term s x
