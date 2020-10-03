@@ -63,9 +63,9 @@ and [<ReferenceEquality>] E =
     | ESymbolTest of Range * string * bind: Id * on_succ: E * on_fail: E
     | ERecordTest of Range * PatRecordMember list * bind: Id * on_succ: E * on_fail: E
     | EAnnotTest of Range * T * bind: Id * on_succ: E * on_fail: E
-    | ELitTest of Range * Tokenize.Literal * bind: Id * on_succ: E * on_fail: E
     | EUnitTest of Range * bind: Id * on_succ: E * on_fail: E
     | ENominalTest of Range * T * bind: Id * pat: Id * on_succ: E * on_fail: E
+    | ELitTest of Range * Tokenize.Literal * bind: Id * on_succ: E * on_fail: E
     | EDefaultLitTest of Range * string * T * bind: Id * on_succ: E * on_fail: E
     // Typecase
     | ETypeLet of Range * Id * T * E

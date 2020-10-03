@@ -72,7 +72,7 @@ type TypeError =
     | CasePatternNotFound
     | CannotInferCasePatternFromTermInEnv of T
     | NominalInPatternUnbox of int
-    | TypeInGlobalEnvIsNotNominal of T
+    | TypeInEnvIsNotNominal of T
     | UnionInPatternNominal of int
     | ConstraintError of Constraint * T
     | ExpectedAnnotation
@@ -468,7 +468,7 @@ let show_type_error (env : TopEnv) x =
     | CasePatternNotFound -> "Cannot find a function with the same name as this case in the environment."
     | CannotInferCasePatternFromTermInEnv a -> sprintf "Cannot infer the higher order type that has this case from the following type.\nGot: %s" (f a)
     | NominalInPatternUnbox i -> sprintf "Expected an union type, but %s is a nominal." (show_nominal env i)
-    | TypeInGlobalEnvIsNotNominal a -> sprintf "Expected a nominal type.\nGot: %s" (f a)
+    | TypeInEnvIsNotNominal a -> sprintf "Expected a nominal type.\nGot: %s" (f a)
     | UnionInPatternNominal i -> sprintf "Expected a nominal type, but %s is an union." (show_nominal env i)
     | ConstraintError(a,b) -> sprintf "Constraint satisfaction error.\nGot: %s\nFails to satisfy: %s" (f b) (constraint_name env a)
     | ExpectedAnnotation -> sprintf "Recursive functions with foralls must be fully annotated."
@@ -1207,7 +1207,7 @@ let infer (top_env : TopEnv) expr =
                         match top_env_inner.nominals.[i] with
                         | _, (TyUnion _) -> errors.Add(r,UnionInPatternNominal i); f (fresh_var()) a
                         | vars, v -> let x,m = ho_make i vars in unify r s x; f (subst m v) a
-                    | ValueNone -> errors.Add(r,TypeInGlobalEnvIsNotNominal x); f (fresh_var()) a
+                    | ValueNone -> errors.Add(r,TypeInEnvIsNotNominal x); f (fresh_var()) a
                 | _ -> errors.Add(r,UnboundVariable); f (fresh_var()) a
         loop env s a
 

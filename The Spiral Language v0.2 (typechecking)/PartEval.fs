@@ -23,6 +23,15 @@ type [<CustomComparison;CustomEquality>] L<'a,'b when 'a: equality and 'a: compa
             | :? L<'a,'b> as b -> match a,b with L(a,_), L(b,_) -> compare a b
             | _ -> raise <| ArgumentException "Invalid comparison for T."
 
+type [<CustomEquality;NoComparison>] H<'a when 'a : equality> = 
+    | H of 'a * int
+
+    override a.Equals(b) =
+        match b with
+        | :? H<'a> as b -> match a,b with H(a,_), H(b,_) -> Object.ReferenceEquals(a,b)
+        | _ -> false
+    override a.GetHashCode() = match a with H(_,a) -> a
+
 type StackSize = int
 type Nominal = {|body : T; id : int; name : string|} ConsedNode
 type Macro = Text of string | Type of Ty
@@ -34,12 +43,12 @@ and Ty =
     | YRecord of Map<string, Ty>
     | YPrim of PrimitiveType
     | YArray of Ty
-    | YFunction of Ty * Ty
+    | YFun of Ty * Ty
     | YMacro of Macro list
     | YNominal of Nominal
     | YApply of Ty * Ty
     | YLayout of Ty * Layout
-    | YUnion of Map<string,Ty>
+    | YUnion of Map<string,Ty> H // For a given types, unions always go through a join point which enables them to be compared via ref eqaulity.
 and Data =
     | DB
     | DPair of Data * Data
@@ -48,7 +57,7 @@ and Data =
     | DForall of body : E * term : Data [] * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
     | DRecord of Map<string, Data>
     | DLit of Literal
-    | DUnion of Data * Map<string, Ty>
+    | DUnion of Data * Map<string, Ty> H
     | DNominal of Data * Ty
     | DV of TyV
 and TyV = L<Tag,Ty>
@@ -61,7 +70,7 @@ type RData =
     | ReForall of ConsedNode<E * RData [] * Ty []>
     | ReRecord of ConsedNode<Map<string, RData>>
     | ReLit of Tokenize.Literal
-    | ReUnion of ConsedNode<Data * Map<string, Ty>>
+    | ReUnion of ConsedNode<Data * Map<string, Ty> H>
     | ReNominal of ConsedNode<Data * Ty>
     | ReV of ConsedNode<Tag * Ty>
 
@@ -250,10 +259,10 @@ let show_ty x =
         | YSymbol x -> sprintf ".%s" x
         | YTypeFunction -> p 0 (sprintf "? => ?")
         | YRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
-        | YUnion l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "| ")
+        | YUnion(H(l,_)) -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "| ")
         | YPrim x -> show_primt x
         | YArray a -> p 30 (sprintf "array %s" (f 30 a))
-        | YFunction(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
+        | YFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
         | YMacro a -> p 30 (List.map (function Type a -> f -1 a | Text a -> a) a |> String.concat "")
         | YApply(a,b) -> p 30 (sprintf "%s %s" (f 29 a) (f 30 b))
         | YLayout(a,b) -> p 30 (sprintf "%s %s" (show_layout_type b) (f 30 a))
@@ -395,8 +404,8 @@ let lit_zero d = function
 let vt s i = if i < s.env_global_type.Length then s.env_global_type.[i] else s.env_stack_type.[i-s.env_global_type.Length]
 let v s i = if i < s.env_global_term.Length then s.env_global_term.[i] else s.env_stack_term.[i-s.env_global_term.Length]
 let add_trace (s : LangEnv) r = {s with trace = r :: s.trace}
-let store_value_var (s : LangEnv) i v = s.env_stack_term.[i-s.env_global_term.Length] <- v
-let store_type_var (s : LangEnv) i v = s.env_stack_type.[i-s.env_global_type.Length] <- v
+let store_term (s : LangEnv) i v = s.env_stack_term.[i-s.env_global_term.Length] <- v
+let store_ty (s : LangEnv) i v = s.env_stack_type.[i-s.env_global_type.Length] <- v
 
 let peval (env : TopEnv) s x =
     let join_point_method = Dictionary(HashIdentity.Reference)
@@ -410,7 +419,7 @@ let peval (env : TopEnv) s x =
         | YPair(a,b) -> DPair(f a, f b) 
         | YSymbol a -> DSymbol a
         | YRecord l -> DRecord(Map.map (fun _ -> f) l)
-        | YUnion | YLayout | YPrim | YArray | YFunction | YMacro as x -> let r = DV(L(!s.i,x)) in incr s.i; r
+        | YUnion | YLayout | YPrim | YArray | YFun | YMacro as x -> let r = DV(L(!s.i,x)) in incr s.i; r
         | YNominal | YApply as a -> DNominal(nominal_apply s a |> ty_to_data s, a)
         | YTypeFunction -> raise_type_error s "Cannot turn a type function to a runtime variable."
     and push_typedop_no_rewrite d op ret_ty =
@@ -437,7 +446,7 @@ let peval (env : TopEnv) s x =
     and closure_convert s (body,annot,gl_term,gl_ty,sz_term,sz_ty) =
         let domain, range, ret_ty = 
             match ty s annot with
-            | YFunction(a,b) as x -> a,b,x
+            | YFun(a,b) as x -> a,b,x
             | annot -> raise_type_error s "Expected a function type in annotation during closure conversion. Got: %s" (show_ty annot)
         let dict, hc_table = Utils.memoize join_point_closure (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
         let call_args, env_global_value = data_to_rdata'' hc_table s.env_global_term
@@ -480,23 +489,25 @@ let peval (env : TopEnv) s x =
                 | DForall -> raise_type_error s "Cannot convert a forall into a type."
                 ) x
         f x
-    and dyn s x =
+    and dyn do_lit s x =
         let m = Dictionary(HashIdentity.Reference)
+        let mutable dirty = false
         let rec f x =
             Utils.memoize m (function
                 | DPair(a,b) -> DPair(f a, f b)
                 | DB | DV | DSymbol as a -> a
                 | DRecord l -> DRecord(Map.map (fun _ -> f) l)
-                | DUnion(a,b) -> push_op s Box (DUnion(f a,b)) (YUnion b)
+                | DUnion(a,b) -> dirty <- true; push_op s Box (DUnion(f a,b)) (YUnion b)
                 | DNominal(a,b) -> DNominal(f a,b)
-                | DLit v as x -> push_op_no_rewrite s Dyn x (lit_to_ty v)
-                | DFunction(body,Some annot,term',ty',sz_term,sz_ty) -> closure_convert s (body,annot,term',ty',sz_term,sz_ty) |> fst
+                | DLit v as x -> if do_lit then dirty <- true; push_op_no_rewrite s Dyn x (lit_to_ty v) else x // TODO: Since strings are heap allocated, it might be worth it to consider them separate from other literals much like union types.
+                | DFunction(body,Some annot,term',ty',sz_term,sz_ty) -> dirty <- true; closure_convert s (body,annot,term',ty',sz_term,sz_ty) |> fst
                 | DFunction(_,None,_,_,_,_) -> raise_type_error s "Cannot convert a function that is not annotated into a type."
                 | DForall -> raise_type_error s "Cannot convert a forall into a type."
                 ) x
-        f x
+        let v = f x
+        if dirty then v else x
     and term_scope'' s x =
-        let x = term s x |> dyn s
+        let x = term s x |> dyn false s
         let x_ty = data_to_ty s x
         seq_apply s x, x_ty
     and term_scope' s cse x = term_scope'' {s with seq=ResizeArray(); i=ref !s.i; cse=cse :: s.cse} x
@@ -549,9 +560,9 @@ let peval (env : TopEnv) s x =
         | TB -> YB
         | TV i -> vt s i
         | TPair(_,a,b) -> YPair(ty s a, ty s b)
-        | TFun(_,a,b) -> YFunction(ty s a, ty s b)
+        | TFun(_,a,b) -> YFun(ty s a, ty s b)
         | TRecord(_,a) -> YRecord(Map.map (fun _ -> ty s) a)
-        | TUnion(_,a) -> YUnion(Map.map (fun _ -> ty s) a)
+        | TUnion(_,a) -> let a = Map.map (fun _ -> ty s) a in YUnion(H(a,hash a))
         | TSymbol(_,a) -> YSymbol a
         | TApply(r,a,b) ->
             let s = add_trace s r
@@ -593,11 +604,11 @@ let peval (env : TopEnv) s x =
                     | _ -> push_typedop s (TyOp(LayoutIndex,[a])) ty
             | a -> raise_type_error s <| sprintf "Expected a layout type.\nGot: %s" (show_data a)
         let layout_to_heap s x =
-            let x = dyn s x
+            let x = dyn false s x
             let key = TyOp(LayoutToHeap,[x])
             push_typedop s key (YLayout(data_to_ty s x,Heap))
         let layout_to_mut s x =
-            let x = dyn s x
+            let x = dyn false s x
             let key = TyOp(LayoutToHeapMutable,[x])
             push_typedop s key (YLayout(data_to_ty s x,HeapMutable))
         let type_apply s a b =
@@ -634,8 +645,8 @@ let peval (env : TopEnv) s x =
                 s.env_global_term.[0] <- b
                 term s body
             | DForall, _ -> raise_type_error s "Cannot apply a forall with a term."
-            | DV(L(_,YFunction(domain,range) & a_ty)) & a, b ->
-                let b = dyn s b
+            | DV(L(_,YFun(domain,range) & a_ty)) & a, b ->
+                let b = dyn false s b
                 let b_ty = data_to_ty s b
                 if domain = b_ty then push_binop_no_rewrite s Apply (a, b) range
                 else raise_type_error s <| sprintf "Cannot apply an argument of type %s to a function of type: %s" (show_ty b_ty) (show_ty a_ty)
@@ -688,20 +699,72 @@ let peval (env : TopEnv) s x =
                     else raise_type_error s <| sprintf "Types in branches of If do not match.\nGot: %s and %s" (show_ty type_tr) (show_ty type_fl)
             | cond -> raise_type_error s <| sprintf "Expected a bool in conditional.\nGot: %s" (show_data cond)
 
+        let eq s a b = 
+            let inline op a b = a = b
+            match a,b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitBool |> DLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitBool |> DLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitBool |> DLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitBool |> DLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> DLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> DLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> DLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> DLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> DLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> DLit
+                | LitString a, LitString b -> op a b |> LitBool |> DLit
+                | LitChar a, LitChar b -> op a b |> LitBool |> DLit
+                | LitBool a, LitBool b -> op a b |> LitBool |> DLit
+                | a, b -> raise_type_error s <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | DV(L(a,a_ty)), DV(L(b,_)) when a = b && is_non_float_primitive a_ty -> LitBool true |> DLit
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if a_ty = b_ty then
+                    if is_primitive a_ty then push_binop s EQ (a,b) (YPrim BoolT)
+                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error s <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)    
+
+        let default_lit s (a : string) b =
+            let inline f string_to_val val_to_lit val_dsc =
+                match string_to_val a with
+                | true, x -> val_to_lit x
+                | false, _ -> raise_type_error s <| sprintf "Cannot parse the literal as: %s" val_dsc
+            match b with
+            | YPrim Float32T -> f Single.TryParse LitFloat32 "f32"
+            | YPrim Float64T -> f Double.TryParse LitFloat64 "f64"
+            | YPrim Int8T -> f SByte.TryParse LitInt8 "i8"
+            | YPrim Int16T -> f Int16.TryParse LitInt16 "i16"
+            | YPrim Int32T -> f Int32.TryParse LitInt32 "i32"
+            | YPrim Int64T -> f Int64.TryParse LitInt64 "i64"
+            | YPrim UInt8T -> f Byte.TryParse LitUInt8 "u8"
+            | YPrim UInt16T -> f UInt16.TryParse LitUInt16 "u16"
+            | YPrim UInt32T -> f UInt32.TryParse LitUInt32 "u32"
+            | YPrim UInt64T -> f UInt64.TryParse LitUInt64 "u64"
+            | b -> raise_type_error s <| sprintf "Expected a numberic type (f32,f64,i8,i16,i32,i64,u8,u16,u32,u64) as the type of literaly.\nGot: %s" (show_ty b)
+
+        let lit_test s a bind on_succ on_fail =
+            let b = v s bind
+            if lit_to_ty a = data_to_ty s b then if_ s (eq s (DLit a) b) on_succ on_fail
+            else term s on_fail
+
         match x with
         | EB -> DB
         | EV a -> v s a
         | ELit(_,a) -> DLit a
         | ESymbol(_,a) -> DSymbol a
+        | EFun -> failwith "Compiler error: Raw functions should be transformed during the prepass."
         | EFun'(_,free_vars,i,body,annot) -> 
             assert (free_vars.term.free_vars.Length = i)
             DFunction(body,annot,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
+        | EForall -> failwith "Compiler error: Raw foralls should be transformed during the prepass."
         | EForall'(_,free_vars,i,body) ->
             assert (free_vars.ty.free_vars.Length = i)
             DForall(body,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
         | ERecursive a -> term s !a
         | ERecBlock -> failwith "Compiler error: Recursive blocks should be inlined and eliminated during the prepass."
-        | ELet(r,i,a,b) -> store_value_var s i (term s a); term (add_trace s r) b
         | EJoinPoint -> failwith "Compiler error: Raw join points should be transformed during the prepass."
         | EJoinPoint'(r,scope,body,annot) ->
             let dict, hc_table = Utils.memoize join_point_method (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
@@ -732,24 +795,7 @@ let peval (env : TopEnv) s x =
                     ty
 
             push_typedop_no_rewrite s (TyJoinPoint(JPMethod(body,join_point_key),call_args)) ret_ty
-        | EDefaultLit(r,a,b) ->
-            let s = add_trace s r
-            let inline f string_to_val val_to_lit val_dsc =
-                match string_to_val a with
-                | true, x -> DLit(val_to_lit x)
-                | false, _ -> raise_type_error s <| sprintf "Cannot parse the literal as: %s" val_dsc
-            match ty s b with
-            | YPrim Float32T -> f Single.TryParse LitFloat32 "f32"
-            | YPrim Float64T -> f Double.TryParse LitFloat64 "f64"
-            | YPrim Int8T -> f SByte.TryParse LitInt8 "i8"
-            | YPrim Int16T -> f Int16.TryParse LitInt16 "i16"
-            | YPrim Int32T -> f Int32.TryParse LitInt32 "i32"
-            | YPrim Int64T -> f Int64.TryParse LitInt64 "i64"
-            | YPrim UInt8T -> f Byte.TryParse LitUInt8 "u8"
-            | YPrim UInt16T -> f UInt16.TryParse LitUInt16 "u16"
-            | YPrim UInt32T -> f UInt32.TryParse LitUInt32 "u32"
-            | YPrim UInt64T -> f UInt64.TryParse LitUInt64 "u64"
-            | b -> raise_type_error s <| sprintf "Expected a numberic type (f32,f64,i8,i16,i32,i64,u8,u16,u32,u64) as the type of literaly.\nGot: %s" (show_ty b)
+        | EDefaultLit(r,a,b) -> let s = add_trace s r in default_lit s a (ty s b) |> DLit
         | EType(r,_) -> raise_type_error (add_trace s r) "Raw types are not allowed on the term level."
         | EApply(r,a,b) -> let s = add_trace s r in apply s (term s a, term s b)
         | ETypeApply(r,a,b) ->
@@ -834,7 +880,7 @@ let peval (env : TopEnv) s x =
                         | b -> raise_type_error (add_trace s r') <| sprintf "Expected a symbol.\nGot: %s" (show_data b)
                     | a -> raise_type_error (add_trace s r) <| sprintf "Expected a record.\nGot: %s" (show_ty a)
                     ) (r,a_layout_ty) b |> snd
-            let c = term s c |> dyn s
+            let c = term s c |> dyn false s
             if data_to_ty s c = c_ty then push_typedop_no_rewrite s (TyOp(LayoutSet,c :: a :: List.map snd b)) YB
             else raise_type_error s <| sprintf "The two side do not have the same type.\nGot: %s\nExpected: %s" (show_ty a_layout_ty) (show_ty c_ty)
         | EMacro(r,a,b) ->
@@ -852,12 +898,12 @@ let peval (env : TopEnv) s x =
             let a = term s a
             let b = ty s b
             match nominal_apply s b with
-            | YUnion l ->
+            | YUnion(H(l,_) as h) ->
                 match a with
                 | DPair(DSymbol k, v) ->
                     let v_ty = data_to_ty s v
                     match Map.tryFind k l with
-                    | Some v_ty' when v_ty = v_ty' -> DNominal(DUnion(a,l),b) 
+                    | Some v_ty' when v_ty = v_ty' -> DNominal(DUnion(a,h),b) 
                     | Some v_ty' -> raise_type_error s <| sprintf "For key %s, The type of the value does not match the union case.\nGot: %s\nExpected: %s" k (show_ty v_ty) (show_ty v_ty')
                     | None -> raise_type_error s <| sprintf "The union does not have key %s.\nGot: %s" k (show_ty b)
                 | _ -> raise_type_error s <| sprintf "Compiler error: Expected key/value pair.\nGot: %s" (show_data a)
@@ -869,7 +915,7 @@ let peval (env : TopEnv) s x =
             let s = add_trace s r
             match term s a, term s b with
             | DNominal(DUnion(a,_),_), b -> apply s (b,a)
-            | DNominal(DV(L(_,YUnion l)) & a,_), b ->
+            | DNominal(DV(L(_,YUnion(H(l,_)))) & a,_), b ->
                 let key = TyOp(Unbox,[a])
                 match cse_tryfind s key with
                 | Some a -> apply s (b,a)
@@ -880,7 +926,7 @@ let peval (env : TopEnv) s x =
                             let s = {s with i = ref !s.i; cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
                             let a = ty_to_data s v
                             cse_add s key a
-                            let x = apply s (b,a) |> dyn s
+                            let x = apply s (b,a) |> dyn false s
                             let x_ty' = data_to_ty s x
                             match case_ty with
                             | Some x_ty -> if x_ty' <> x_ty then raise_type_error s <| sprintf "One union case for key %s has a different return that the previous one.\nGot: %s\nExpected: %s" k (show_ty x_ty') (show_ty x_ty)
@@ -889,5 +935,90 @@ let peval (env : TopEnv) s x =
                             ) l
                     push_typedop_no_rewrite s (TyCase(a,cases)) (Option.get case_ty)
             | a,_ -> raise_type_error s <| sprintf "Expected an union type.\nGot: %s" (show_data a)
-                
+        | ELet(r,i,a,b) -> let s = add_trace s r in store_term s i (term s a); term s b
+        | EPairTest(r,bind,p1,p2,on_succ,on_fail) ->
+            let s = add_trace s r
+            match v s bind with
+            | DPair(a,b) -> store_term s p1 a; store_term s p2 b; term s on_succ
+            | _ -> term s on_fail
+        | ESymbolTest(r,a,bind,on_succ,on_fail) ->
+            let s = add_trace s r
+            match v s bind with
+            | DSymbol a' when a = a' -> term s on_succ
+            | _ -> term s on_fail
+        | ERecordTest(r,a,bind,on_succ,on_fail) ->
+            let s = add_trace s r
+            match v s bind with
+            | DRecord l ->
+                let rec loop = function
+                    | x :: x' ->
+                        let sym a b =
+                            match Map.tryFind a l with
+                            | Some a -> store_term s b a; loop x'
+                            | None -> term s on_fail
+                        match x with
+                        | Symbol((_,a),b) -> sym a b
+                        | Var((r,a),b) ->
+                            match term s a with
+                            | DSymbol a -> sym a b
+                            | a -> raise_type_error (add_trace s r) <| sprintf "Expected a symbol.\nGot: %s" (show_data a)
+                    | [] -> term s on_succ
+                loop a
+            | _ -> term s on_fail
+        | EAnnotTest(r,a,bind,on_succ,on_fail) -> let s = add_trace s r in if data_to_ty s (v s bind) = ty s a then term s on_succ else term s on_fail
+        | EUnitTest(r,bind,on_succ,on_fail) -> let s = add_trace s r in match v s bind with DB -> term s on_succ | _ -> term s on_fail
+        | ENominalTest(r,a,bind,p1,on_succ,on_fail) ->
+            let s = add_trace s r
+            match ty s a with
+            | YNominal a ->
+                match v s bind with
+                | DNominal((DUnion | DV(L(_,YUnion))),_) -> raise_type_error s "Got an union in a nominal pattern."
+                | DNominal(v,b) ->
+                    let rec loop = function
+                        | YNominal b -> if a = b then store_term s p1 v; term s on_succ else term s on_fail
+                        | YApply(a,_) -> loop a
+                        | _ -> raise_type_error s "Compiler error: Expected a deferred type apply or a nominal."
+                    loop b
+                | _ -> term s on_fail
+            | a -> raise_type_error s <| sprintf "Expected a nominal on the left side of the pattern.\nGot: %s" (show_ty a)
+        | ELitTest(r,a,bind,on_succ,on_fail) -> let s = add_trace s r in lit_test s a bind on_succ on_fail
+        | EDefaultLitTest(r,a,b,bind,on_succ,on_fail) -> let s = add_trace s r in lit_test s (default_lit s a (ty s b)) bind on_succ on_fail
+        | ETypeLet(r,i,a,b) -> let s = add_trace s r in store_ty s i (ty s a); term s b
+        | ETypePairTest(r,bind,p1,p2,on_succ,on_fail) ->
+            let s = add_trace s r
+            match vt s bind with
+            | YPair(a,b) -> store_ty s p1 a; store_ty s p2 b; term s on_succ
+            | _ -> term s on_fail
+        | ETypeFunTest(r,bind,p1,p2,on_succ,on_fail) ->
+            let s = add_trace s r
+            match vt s bind with
+            | YFun(a,b) -> store_ty s p1 a; store_ty s p2 b; term s on_succ
+            | _ -> term s on_fail
+        | ETypeRecordTest(r,p,bind,on_succ,on_fail) ->
+            let s = add_trace s r
+            match vt s bind with
+            | YRecord l -> 
+                let mutable is_succ = true
+                Map.iter (fun k p ->
+                    match Map.tryFind k l with
+                    | Some v -> store_ty s p v
+                    | None -> is_succ <- false
+                    ) p
+                if is_succ then term s on_succ else term s on_fail
+            | _ -> term s on_fail
+        | ETypeApplyTest(r,bind,p1,p2,on_succ,on_fail) ->
+            let s = add_trace s r
+            match vt s bind with
+            | YApply(a,b) -> store_ty s p1 a; store_ty s p2 b; term s on_succ
+            | _ -> term s on_fail
+        | ETypeArrayTest(r,bind,p,on_succ,on_fail) ->
+            let s = add_trace s r
+            match vt s bind with
+            | YArray a -> store_ty s p a; term s on_succ
+            | _ -> term s on_fail
+        | ETypeEq(r,a,b,on_succ,on_fail) ->
+            let s = add_trace s r
+            if ty s a = vt s b then term s on_succ
+            else term s on_fail
+        | EOp -> failwith ""
     term s x
