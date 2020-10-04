@@ -177,7 +177,7 @@ let data_term_vars call_data =
         | DPair(a,b) -> f a; f b
         | DForall(_,a,_,_,_) | DFunction(_,_,a,_,_,_) -> Array.iter f a
         | DRecord l -> Map.iter (fun _ -> f) l
-        | DLit | DV _ as x -> term_vars.Add x
+        | DLit | DV as x -> term_vars.Add x
         | DUnion(a,_) | DNominal(a,_) -> f a
         | DSymbol | DB -> ()
     f call_data
@@ -407,7 +407,7 @@ let add_trace (s : LangEnv) r = {s with trace = r :: s.trace}
 let store_term (s : LangEnv) i v = s.env_stack_term.[i-s.env_global_term.Length] <- v
 let store_ty (s : LangEnv) i v = s.env_stack_type.[i-s.env_global_type.Length] <- v
 
-let peval (env : TopEnv) s x =
+let peval (env : TopEnv) x =
     let join_point_method = Dictionary(HashIdentity.Reference)
     let join_point_closure = Dictionary(HashIdentity.Reference)
     let join_point_type = Dictionary(HashIdentity.Reference)
@@ -1580,4 +1580,16 @@ let peval (env : TopEnv) s x =
         | EOp(_,PrintStatic,[a]) -> printfn "%s" (term s a |> show_data); DB
         | EOp(_,op,a) -> raise_type_error s <| sprintf "Compiler error: %A with %i args not implemented" op (List.length a)
 
-    term s x
+    let s : LangEnv = {
+        trace = []
+        seq = null
+        cse = []
+        i = ref 0
+        env_global_type = null
+        env_global_term = null
+        env_stack_type = null
+        env_stack_term = null
+        }
+    let ty_to_data x = ty_to_data {s with i = ref 0} x
+
+    term_scope s x, {|method=join_point_method; closure=join_point_closure; ty_to_data=ty_to_data|}
