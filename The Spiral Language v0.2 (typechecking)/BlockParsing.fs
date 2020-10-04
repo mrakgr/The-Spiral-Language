@@ -35,10 +35,16 @@ type Op =
     | Unbox
     | Box
 
-    // StringOps
+    // String
     | StringLength
     | StringIndex
     | StringSlice
+
+    // Array
+    | ArrayCreate
+    | ArrayLength
+    | ArrayIndex
+    | ArrayIndexSet
 
     // Record
     | RecordMap
@@ -68,32 +74,28 @@ type Op =
     | ShiftLeft
     | ShiftRight
 
-    // Array
-    | ArrayCreate
-    | ArrayLength
-    | ArrayIndex
-    | ArrayIndexSet
-   
-    // Static unary operations
-    | PrintStatic
-    | ErrorType
-    | LitIs
-    | PrimIs
-    | SymbolIs
-
-    // UnOps
+    // Unary math ops
     | Neg
-    | FailWith
-
-    // Auxiliary math ops
     | Tanh
     | Log
     | Exp
     | Sqrt
-    | NanIs
 
     // Infinity
     | Infinity
+
+    // Is
+    | NanIs
+    | LitIs
+    | PrimIs
+    | SymbolIs
+
+    // Panic
+    | FailWith
+
+    // Static unary operations
+    | PrintStatic
+    | ErrorType
 
 type PatternCompilationErrors =
     | DisjointOrPatternVar

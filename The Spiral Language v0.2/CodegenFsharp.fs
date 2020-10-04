@@ -97,7 +97,7 @@ let rec type' (d: CodegenEnv) x =
     |> Array.map (function
         | ArrayT t -> sprintf "(%s [])" (f t)
         | RuntimeFunctionT(a,b) -> sprintf "(%s -> %s)" (f a) (f b)
-        | PrimT x ->
+        | YPrim x ->
             match x with
             | Int8T -> "int8"
             | Int16T -> "int16"
@@ -131,7 +131,7 @@ let rec data (d: CodegenEnv) x =
     data_term_vars x 
     |> Array.map (function
         | TyV t -> tytag' d t
-        | TyLit x -> lit d x
+        | DLit x -> lit d x
         | _ -> failwith "impossible"
         )
     |> function

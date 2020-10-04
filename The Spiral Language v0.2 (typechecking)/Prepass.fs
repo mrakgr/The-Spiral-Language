@@ -59,6 +59,7 @@ and [<ReferenceEquality>] E =
     | ENominal of Range * E * T
     // Regular pattern matching
     | ELet of Range * Id * E * E
+    | EUnbox of Range * Id * E * E
     | EPairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
     | ESymbolTest of Range * string * bind: Id * on_succ: E * on_fail: E
     | ERecordTest of Range * PatRecordMember list * bind: Id * on_succ: E * on_fail: E
@@ -157,7 +158,7 @@ let inline propagate x =
         | EMacro(_,a,b) -> List.fold (fun s -> function MType x -> s + ty x | MTerm x -> s + term x | MText -> s) (ty b) a
         | EPatternMemo a -> Utils.memoize dict term a
         // Regular pattern matching
-        | ELet(_,a,b,c) -> (term b - a) + term c
+        | ELet(_,a,b,c) | EUnbox(_,a,b,c) -> (term b - a) + term c
         | EPairTest(_,bind,pat1,pat2,on_succ,on_fail) -> singleton bind + (term on_succ - pat1 - pat2) + term on_fail
         | ESymbolTest(_,_,bind,on_succ,on_fail) 
         | EUnitTest(_,bind,on_succ,on_fail) 
@@ -248,7 +249,7 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | EPatternMiss a | EReal(_,a) -> f a
         | ETypePairTest(_,_,_,_,a,b) | ETypeFunTest(_,_,_,_,a,b) | ETypeRecordTest(_,_,_,a,b) | ETypeApplyTest(_,_,_,_,a,b) | ETypeArrayTest(_,_,_,a,b)
         | EUnitTest(_,_,a,b) | ESymbolTest(_,_,_,a,b) | EPairTest(_,_,_,_,a,b) | ELitTest(_,_,_,a,b)
-        | ELet(_,_,a,b) | EIfThen(_,a,b) | EPair(_,a,b) | ESeq(_,a,b) | EApply(_,a,b) -> f a; f b
+        | ELet(_,_,a,b) | EUnbox(_,_,a,b) | EIfThen(_,a,b) | EPair(_,a,b) | ESeq(_,a,b) | EApply(_,a,b) -> f a; f b
         | EHeapMutableSet(_,a,b,c) -> f a; List.iter (snd >> f) b; f c
         | EIfThenElse(_,a,b,c) -> f a; f b; f c
         | EMacro(_,a,b) ->
@@ -383,6 +384,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EPatternMemo x -> Utils.memoize dict f x
         // Regular pattern matching
         | ELet(r,a,b,c) -> ELet(r,adj a,f b,f c)
+        | EUnbox(r,a,b,c) -> EUnbox(r,adj a,f b,f c)
         | EPairTest(r,a,b,c,d,e) -> EPairTest(r,adj a,adj b,adj c,f d,f e)
         | ESymbolTest(r,a,b,c,d) -> ESymbolTest(r,a,adj b,f c,f d)
         | ERecordTest(r,a,b,c,d) ->
@@ -542,7 +544,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 | PatNominal(r,(_,a),b) -> let id', on_succ = step b on_succ in ENominalTest(r,v_ty ve.envs.[pat] a,id,id',on_succ,on_fail)
                 | PatFilledDefaultValue(r,a,b) -> EDefaultLitTest(r,a,ty ve.envs.[pat] b,id,on_succ,on_fail)
                 | PatDyn(r,a) -> let id' = patvar() in ELet(r,id',EOp(r,Dyn,[EV id]),cp id' a on_succ on_fail)
-                | PatUnbox(r,a) -> let id' = patvar() in EOp(r,Unbox,[EV id; EFun(r, id', cp id' a on_succ on_fail, None)])
+                | PatUnbox(r,a) -> let id' = patvar() in EUnbox(r,id',EV id,cp id' a on_succ on_fail)
 
             cp id pat on_succ (EPatternMemo on_fail)
         List.foldBack loop l (EPatternMiss(EV id))
