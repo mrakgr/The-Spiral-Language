@@ -33,7 +33,7 @@ type [<CustomEquality;NoComparison>] H<'a when 'a : equality> =
     override a.GetHashCode() = match a with H(_,a) -> a
 
 type StackSize = int
-type Nominal = {|body : T; id : int; name : string|} ConsedNode
+type Nominal = {|body : T; id : int; name : string|} ConsedNode // TODO: When doing incremental compilation, make the `body` field a weak reference.
 type Macro = Text of string | Type of Ty
 and Ty =
     | YB
