@@ -8,7 +8,8 @@ type Bundle = BundleItem list
 // These bundles have their range offsets distributed into them.
 type BundleTop =
     | BundleType of Range * (Range * VarString) * HoVar list * RawTExpr
-    | BundleNominal of (Range * (Range * VarString) * HoVar list * RawTExpr) list
+    | BundleNominal of Range * (Range * VarString) * HoVar list * RawTExpr
+    | BundleNominalRec of (Range * (Range * VarString) * HoVar list * RawTExpr) list
     | BundleInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
     | BundleRecInl of (Range * (Range * VarString) * RawExpr) list * is_top_down: bool
     | BundlePrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
@@ -32,7 +33,7 @@ let rec fold_offset_ty offset x =
     | RawTPair(r,a,b) -> RawTPair(g r,f a,f b)
     | RawTFun(r,a,b) -> RawTFun(g r,f a,f b)
     | RawTRecord(r,a) -> RawTRecord(g r,Map.map (fun _ -> f) a)
-    | RawTUnion(r,a) -> RawTUnion(g r,Map.map (fun _ -> f) a)
+    | RawTUnion(r,a,b) -> RawTUnion(g r,Map.map (fun _ -> f) a,b)
     | RawTSymbol(r,a) -> RawTSymbol(g r,a)
     | RawTApply(r,a,b) -> RawTApply(g r,f a,f b)
     | RawTForall(r,a,b) -> RawTForall(g r,add_offset_typevar offset a,f b)
@@ -133,14 +134,15 @@ let bundle (l : Bundle) =
             | _ -> failwith "Compiler error: Recursive inl statements can only be followed by statements of the same type."
             ) true
         |> BundleRecInl
-    | {statement=TopNominal _} :: _ as l ->
+    | {statement=TopNominalRec _} :: _ as l ->
         l |> List.map (function 
-            | {offset=i; statement=TopNominal(r,a,b,c)} -> (add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
+            | {offset=i; statement=TopNominalRec(r,a,b,c)} -> (add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
             | _ -> failwith "Compiler error: Recursive type statements can only be followed by statements of the same type."
             )
-        |> BundleNominal
+        |> BundleNominalRec
     | [{offset=i; statement=TopInl(r,a,b,c)}] -> BundleInl(add_offset i r, add_offset_hovar i a, fold_offset_term i b, c)
     | [{offset=i; statement=TopPrototype(r,a,b,c,d)}] -> BundlePrototype(add_offset i r, add_offset_hovar i a, add_offset_hovar i b, add_offset_typevar_list i c, fold_offset_ty i d)
+    | [{offset=i; statement=TopNominal(r,a,b,c)}] -> BundleNominal(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
     | [{offset=i; statement=TopType(r,a,b,c)}] -> BundleType(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
     | [{offset=i; statement=TopInstance(r,a,b,c,d)}] -> BundleInstance(add_offset i r, add_offset_hovar i a, add_offset_hovar i b, add_offset_typevar_list i c, fold_offset_term i d)
-    | {statement=TopInl _ | TopPrototype _ | TopType _ | TopInstance _} :: _ -> failwith "Compiler error: Regular top level statements should be singleton bundles."
+    | {statement=TopInl | TopPrototype | TopNominal | TopType | TopInstance} :: _ -> failwith "Compiler error: Regular top level statements should be singleton bundles."

@@ -159,6 +159,10 @@ type RawKindExpr =
     | RawKindStar
     | RawKindFun of RawKindExpr * RawKindExpr
 
+type UnionLayout =
+    | UnionStruct
+    | UnionHeap
+
 type HoVar = Range * (VarString * RawKindExpr)
 type TypeVar = HoVar * (Range * VarString) list
 type RawMacro =
@@ -236,7 +240,7 @@ and RawTExpr =
     | RawTPrim of Range * PrimitiveType
     | RawTTerm of Range * RawExpr
     | RawTMacro of Range * RawMacro list
-    | RawTUnion of Range * Map<string,RawTExpr>
+    | RawTUnion of Range * Map<string,RawTExpr> * UnionLayout
     | RawTLayout of Range * RawTExpr * Layout
     | RawTFilledNominal of Range * int // Filled in by the inferencer.
 
@@ -309,7 +313,7 @@ let range_of_texpr = function
     | RawTVar(r,_)
     | RawTArray(r,_)
     | RawTRecord(r,_)
-    | RawTUnion(r,_)
+    | RawTUnion(r,_,_)
     | RawTSymbol(r,_)
     | RawTPrim(r,_)
     | RawTTerm(r,_)
@@ -783,7 +787,7 @@ let typecase_validate x _ =
         | RawTVar(r,a) -> if metavars.Contains(a) then errors.Add(r,VarShadowedByMetavar) else vars.Add(a) |> ignore
         | RawTApply(_,a,b) | RawTFun(_,a,b) | RawTPair(_,a,b) -> f a; f b
         | RawTLayout(_,a,_) | RawTArray(_,a) -> f a
-        | RawTUnion(_,a) | RawTRecord(_,a) -> Map.iter (fun _ -> f) a
+        | RawTUnion(_,a,_) | RawTRecord(_,a) -> Map.iter (fun _ -> f) a
         | RawTMacro(_,a) -> a |> List.iter (function RawMacroTypeVar(_,a) -> f a | _ -> ())
     f x
     if 0 < errors.Count then Error (Seq.toList errors) else Ok(x)
@@ -1133,6 +1137,7 @@ type [<ReferenceEquality>] TopStatement =
     | TopInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
     | TopRecInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
     | TopNominal of Range * (Range * VarString) * HoVar list * RawTExpr
+    | TopNominalRec of Range * (Range * VarString) * HoVar list * RawTExpr
     | TopType of Range * (Range * VarString) * HoVar list * RawTExpr
     | TopPrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
     | TopInstance of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawExpr
@@ -1144,23 +1149,24 @@ let top_inl_or_let_process is_top_down = function
     | (_,x,_),_ -> Error [range_of_pattern x, ExpectedVarOrOpAsNameOfGlobalStatement]
 let top_inl_or_let d = (inl_or_let root_term root_pattern_pair root_type_annot >>= fun x d -> top_inl_or_let_process d.is_top_down x) d
 
-let top_union d =
+let process_union (r,(n,layout,a,b)) _ =
+    match duplicates DuplicateUnionKey (List.map (fun (r,(a,_)) -> r,a) b) with
+    | [] ->
+        let r' = List.map fst b |> List.reduce (+.)
+        let b = List.map snd b
+        match layout with
+        | UnionHeap -> Ok(TopNominalRec(r,n,a,RawTUnion(r',Map.ofList b,layout)))
+        | UnionStruct -> Ok(TopNominal(r,n,a,RawTUnion(r',Map.ofList b,layout)))
+    | er -> Error er
+
+let union_clauses d =
     let process_clause x _ =
         match x with
         | RawTPair(r,RawTSymbol(_,a),b) -> Ok(r,(a,b))
         | _ -> Error [range_of_texpr x, ExpectedPairedSymbolInUnion]
-    let clauses d =
-        let bar = bar (col d)
-        (optional bar >>. sepBy1 (root_type root_type_defaults >>= process_clause) bar) d
-
-    ((range (tuple3 (skip_keyword SpecUnion >>. read_type_var') (many ho_var .>> skip_op "=") clauses))
-    >>= fun (r,(n,a,b)) _ -> 
-        match duplicates DuplicateUnionKey (List.map (fun (r,(a,_)) -> r,a) b) with
-        | [] ->
-            let r' = List.map fst b |> List.reduce (+.)
-            let b = List.map snd b
-            Ok(TopNominal(r,n,a,RawTUnion(r',Map.ofList b)))
-        | er -> Error er) d
+    let bar = bar (col d)
+    (optional bar >>. sepBy1 (root_type root_type_defaults >>= process_clause) bar) d
+let top_union d = ((range (tuple4 (skip_keyword SpecUnion >>. read_type_var') ((skip_keyword SpecRec >>% UnionHeap) <|>% UnionStruct) (many ho_var .>> skip_op "=") union_clauses)) >>= process_union) d
 let top_nominal d = 
     (range (tuple3 (skip_keyword SpecNominal >>. read_type_var') (many ho_var .>> skip_op "=") (root_type {root_type_defaults with allow_term=true}))
     |>> fun (r,(n,a,b)) -> TopNominal(r,n,a,b)) d
@@ -1183,12 +1189,14 @@ let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_type_var') (many
 let top_and_inl_or_let d = 
     (restore 1 (range (and_inl_or_let root_term root_pattern_pair root_type_annot)) 
     >>= fun (r,x) d -> top_inl_or_let_process d.is_top_down x |> Result.map (fun x -> TopAnd(r,x))) d
+
 let inline top_and f = restore 1 (range (skip_keyword SpecAnd >>. f)) |>> TopAnd
+let and_top_union d = top_and ((range (tuple4 (skip_keyword SpecUnion >>. read_type_var') (fun _ -> Ok UnionHeap) (many ho_var .>> skip_op "=") union_clauses)) >>= process_union) d
 
 let top_statement s =
     let (+) = alt (index s)
     (top_inl_or_let + top_union + top_nominal + top_prototype + top_type + top_instance 
-    + top_and_inl_or_let + top_and top_nominal + top_and top_union) s
+    + top_and_inl_or_let + top_and top_union) s
 
 let parse (s : Env) =
     if 0 < s.tokens.Length then
