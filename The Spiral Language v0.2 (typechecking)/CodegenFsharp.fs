@@ -40,5 +40,5 @@ type CodegenEnv =
     member x.Text s = x.Statement s
     member x.Indent = {x with indent=x.indent+4}
 
-let codegen join_point_method join_point_close (x : TypedBind []) =
+let codegen (env : PartEvalResult) (x : TypedBind []) =
     failwith ""

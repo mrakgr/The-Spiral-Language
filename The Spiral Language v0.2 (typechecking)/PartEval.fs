@@ -407,6 +407,12 @@ let add_trace (s : LangEnv) r = {s with trace = r :: s.trace}
 let store_term (s : LangEnv) i v = s.env_stack_term.[i-s.env_global_term.Length] <- v
 let store_ty (s : LangEnv) i v = s.env_stack_type.[i-s.env_global_type.Length] <- v
 
+type PartEvalResult = {
+    join_point_method : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty []>,TypedBind [] option * Ty option> * HashConsTable>
+    join_point_closure : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty [] * Ty>,TypedBind [] option> * HashConsTable>
+    ty_to_data : Ty -> Data
+    }
+
 let peval (env : TopEnv) x =
     let join_point_method = Dictionary(HashIdentity.Reference)
     let join_point_closure = Dictionary(HashIdentity.Reference)
@@ -1592,4 +1598,4 @@ let peval (env : TopEnv) x =
         }
     let ty_to_data x = ty_to_data {s with i = ref 0} x
 
-    term_scope s x, {|method=join_point_method; closure=join_point_closure; ty_to_data=ty_to_data|}
+    term_scope s x, {join_point_method=join_point_method; join_point_closure=join_point_closure; ty_to_data=ty_to_data}
