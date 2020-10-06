@@ -33,7 +33,6 @@ type Op =
 
     // Union
     | Unbox
-    | Box
 
     // String
     | StringLength

@@ -49,7 +49,7 @@ and Ty =
     | YNominal of Nominal
     | YApply of Ty * Ty
     | YLayout of Ty * Layout
-    | YUnion of (Map<string,Ty> * UnionLayout) H // Unions always go through a join point which enables them to be compared via ref eqaulity.
+    | YUnion of Union 
 and Data =
     | DB
     | DPair of Data * Data
@@ -58,10 +58,15 @@ and Data =
     | DForall of body : E * term : Data [] * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
     | DRecord of Map<string, Data>
     | DLit of Literal
-    | DUnion of Data * (Map<string, Ty> * UnionLayout) H
+    | DUnion of Data * Union
     | DNominal of Data * Ty
     | DV of TyV
 and TyV = L<Tag,Ty>
+and Union = (Map<string, Ty> * UnionLayout) H // Unions always go through a join point which enables them to be compared via ref eqaulity.
+
+type TermVar =
+    | WV of Tag
+    | WLit of Literal
 
 type RData =
     | ReB
@@ -71,14 +76,14 @@ type RData =
     | ReForall of ConsedNode<E * RData [] * Ty []>
     | ReRecord of ConsedNode<Map<string, RData>>
     | ReLit of Tokenize.Literal
-    | ReUnion of ConsedNode<Data * (Map<string, Ty> * UnionLayout) H>
-    | ReNominal of ConsedNode<Data * Ty>
+    | ReUnion of ConsedNode<RData * Union>
+    | ReNominal of ConsedNode<RData * Ty>
     | ReV of ConsedNode<Tag * Ty>
 
 type Trace = Range list
 type JoinPointKey = 
     | JPMethod of E * ConsedNode<RData [] * Ty []>
-    | JPClosure of E * ConsedNode<RData [] * Ty [] * Ty>
+    | JPClosure of E * ConsedNode<RData [] * Ty [] * Ty * Ty>
 
 type JoinPointCall = JoinPointKey * TyV []
 
@@ -95,10 +100,15 @@ type TypedBind =
 and TypedOp = 
     | TyMacro of CodeMacro list
     | TyOp of Op * Data list
+    | TyUnionBox of string * Data * Union
+    | TyUnionUnbox of Tag * Union * Map<string,Data * TypedBind []>
+    | TyLayoutToHeap of Data * Ty
+    | TyLayoutToHeapMutable of Data * Ty
+    | TyLayoutIndexAll of L<Tag,Ty * Layout>
+    | TyLayoutIndexByKey of L<Tag,Ty * Layout> * string
     | TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
     | TyWhile of cond: JoinPointCall * TypedBind []
     | TyJoinPoint of JoinPointCall
-    | TyCase of Data * Map<string,Data * TypedBind []>
 
 type LangEnv = {
     trace : Trace
@@ -116,7 +126,7 @@ type TopEnv = {
     nominals : Nominal []
     }
 
-let data_to_rdata'' (hc : HashConsTable) call_data =
+let data_to_rdata (hc : HashConsTable) call_data =
     let hc x = hc.Add x
     let m = Dictionary(HashIdentity.Reference)
     let call_args = ResizeArray()
@@ -129,15 +139,12 @@ let data_to_rdata'' (hc : HashConsTable) call_data =
             | DRecord l -> ReRecord(hc(Map.map (fun _ -> f) l))
             | DV(L(_,ty) as t) -> call_args.Add t; ReV(hc (call_args.Count-1,ty))
             | DLit a -> ReLit a
-            | DUnion(a,b) -> ReUnion(hc(a,b))
-            | DNominal(a,b) -> ReNominal(hc(a,b))
+            | DUnion(a,b) -> ReUnion(hc(f a,b))
+            | DNominal(a,b) -> ReNominal(hc(f a,b))
             | DB -> ReB
             ) x
     let x = Array.map f call_data
     call_args.ToArray(),x
-
-let data_to_rdata' (hc : HashConsTable) call_data = let a,b = data_to_rdata'' hc [|call_data|] in a,b.[0]
-let data_to_rdata hc call_data = data_to_rdata' hc call_data |> snd // TODO: Specialize this.
 
 // This rename is a consideration for when I do incremental compilation.
 // In order to allow them to be cleaned by the garbage collection, I do not want the 
@@ -172,13 +179,30 @@ let data_free_vars call_data =
     f call_data
     free_vars.ToArray()
 
+let (|C|) (x : _ ConsedNode) = x.node
+let rdata_free_vars call_data =
+    let m = HashSet(HashIdentity.Reference)
+    let free_vars = ResizeArray()
+    let rec f x =
+        if m.Add x then
+            match x with
+            | RePair(C(a,b)) -> f a; f b
+            | ReForall(C(_,a,_)) | ReFunction(C(_,a,_)) -> Array.iter f a
+            | ReRecord(C l) -> Map.iter (fun _ -> f) l
+            | ReV(C(a,b)) -> free_vars.Add(L(a,b))
+            | ReUnion(C(a,_)) | ReNominal(C(a,_)) -> f a
+            | ReSymbol | ReLit | ReB -> ()
+    Array.iter f call_data
+    free_vars.ToArray()
+
 let data_term_vars call_data =
     let term_vars = ResizeArray(64)
     let rec f = function
         | DPair(a,b) -> f a; f b
         | DForall(_,a,_,_,_) | DFunction(_,_,a,_,_,_) -> Array.iter f a
         | DRecord l -> Map.iter (fun _ -> f) l
-        | DLit | DV as x -> term_vars.Add x
+        | DLit x -> term_vars.Add(WLit x)
+        | DV(L(i,_)) -> term_vars.Add(WV i)
         | DUnion(a,_) | DNominal(a,_) -> f a
         | DSymbol | DB -> ()
     f call_data
@@ -410,7 +434,7 @@ let store_ty (s : LangEnv) i v = s.env_stack_type.[i-s.env_global_type.Length] <
 
 type PartEvalResult = {
     join_point_method : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty []>,TypedBind [] option * Ty option> * HashConsTable>
-    join_point_closure : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty [] * Ty>,TypedBind [] option> * HashConsTable>
+    join_point_closure : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty [] * Ty * Ty>,TypedBind [] option> * HashConsTable>
     ty_to_data : Ty -> Data
     }
 
@@ -453,11 +477,11 @@ let peval (env : TopEnv) x =
     and closure_convert s (body,annot,gl_term,gl_ty,sz_term,sz_ty) =
         let domain, range, ret_ty = 
             match ty s annot with
-            | YFun(a,b) as x -> a,b,x
+            | YFun(a,b) as x -> a,b, x
             | annot -> raise_type_error s "Expected a function type in annotation during closure conversion. Got: %s" (show_ty annot)
         let dict, hc_table = Utils.memoize join_point_closure (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
-        let call_args, env_global_value = data_to_rdata'' hc_table s.env_global_term
-        let join_point_key = hc_table.Add(env_global_value, s.env_global_type, ret_ty)
+        let call_args, env_global_value = data_to_rdata hc_table s.env_global_term
+        let join_point_key = hc_table.Add(env_global_value, s.env_global_type, domain, range)
 
         match dict.TryGetValue(join_point_key) with
         | true, _ -> ()
@@ -504,7 +528,8 @@ let peval (env : TopEnv) x =
                 | DPair(a,b) -> DPair(f a, f b)
                 | DB | DV | DSymbol as a -> a
                 | DRecord l -> DRecord(Map.map (fun _ -> f) l)
-                | DUnion(a,b) -> dirty <- true; push_op s Box (DUnion(f a,b)) (YUnion b)
+                | DUnion(DPair(DSymbol k,v),b) -> dirty <- true; push_typedop s (TyUnionBox(k,f v,b)) (YUnion b)
+                | DUnion -> raise_type_error s "Compiler error: Malformed union"
                 | DNominal(a,b) -> DNominal(f a,b)
                 | DLit v as x -> if do_lit then dirty <- true; push_op_no_rewrite s Dyn x (lit_to_ty v) else x // TODO: Since strings are heap allocated, it might be worth it to consider them separate from other literals much like union types.
                 | DFunction(body,Some annot,term',ty',sz_term,sz_ty) -> dirty <- true; closure_convert s (body,annot,term',ty',sz_term,sz_ty) |> fst
@@ -642,8 +667,8 @@ let peval (env : TopEnv) x =
                 let b_ty = data_to_ty s b
                 if domain = b_ty then push_binop_no_rewrite s Apply (a, b) range
                 else raise_type_error s <| sprintf "Cannot apply an argument of type %s to a function of type: %s" (show_ty b_ty) (show_ty a_ty)
-            | DV(L(_,YLayout(ty,layout))) as a, DSymbol b -> 
-                let key = TyOp(LayoutIndex,[a; DSymbol b])
+            | DV(L(i,YLayout(ty,layout))) as a, DSymbol b -> 
+                let key = TyLayoutIndexByKey(L(i,(ty,layout)), b)
                 match layout with
                 | HeapMutable -> push_typedop_no_rewrite s key ty
                 | Heap -> push_typedop s key ty
@@ -763,7 +788,7 @@ let peval (env : TopEnv) x =
         | EJoinPoint -> failwith "Compiler error: Raw join points should be transformed during the prepass."
         | EJoinPoint'(r,scope,body,annot) ->
             let dict, hc_table = Utils.memoize join_point_method (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
-            let call_args, env_global_value = data_to_rdata'' hc_table s.env_global_term
+            let call_args, env_global_value = data_to_rdata hc_table s.env_global_term
             let join_point_key = hc_table.Add(env_global_value, s.env_global_type)
 
             let ret_ty =
@@ -910,7 +935,7 @@ let peval (env : TopEnv) x =
             let s = add_trace s r
             match term s a with
             | DNominal(DUnion(a,_),_) -> store_term s id a; term s b
-            | DNominal(DV(L(_,YUnion h)) & a,_) ->
+            | DNominal(DV(L(i,YUnion h)) & a,_) ->
                 let key = TyOp(Unbox,[a])
                 match cse_tryfind s key with
                 | Some a -> store_term s id a; term s b
@@ -928,7 +953,7 @@ let peval (env : TopEnv) x =
                             | None -> case_ty <- Some x_ty'
                             a, seq_apply s x
                             ) (fst h.Item)
-                    push_typedop_no_rewrite s (TyCase(a,cases)) (Option.get case_ty)
+                    push_typedop_no_rewrite s (TyUnionUnbox(i,h,cases)) (Option.get case_ty)
             | a -> raise_type_error s <| sprintf "Expected an union type.\nGot: %s" (show_data a)
         | ELet(r,i,a,b) -> let s = add_trace s r in store_term s i (term s a); term s b
         | EPairTest(r,bind,p1,p2,on_succ,on_fail) ->
@@ -1027,21 +1052,24 @@ let peval (env : TopEnv) x =
             | _ -> raise_type_error s "Compiler error: The body of the conditional of the while loop must be a solitary join point."
         | EOp(_,LayoutToHeap,[a]) -> 
             let x = dyn false s (term s a)
-            let key = TyOp(LayoutToHeap,[x])
-            push_typedop s key (YLayout(data_to_ty s x,Heap))
+            let ty = data_to_ty s x
+            let key = TyLayoutToHeap(x,ty)
+            push_typedop_no_rewrite s key (YLayout(ty,Heap))
         | EOp(_,LayoutToHeapMutable,[a]) -> 
             let x = dyn false s (term s a)
-            let key = TyOp(LayoutToHeapMutable,[x])
-            push_typedop s key (YLayout(data_to_ty s x,HeapMutable))
+            let ty = data_to_ty s x
+            let key = TyLayoutToHeapMutable(x,ty)
+            push_typedop_no_rewrite s key (YLayout(ty,HeapMutable))
         | EOp(_,LayoutIndex,[a]) -> 
             match term s a with
-            | DV(L(_,YLayout(ty,layout))) as a -> 
+            | DV(L(i,YLayout(ty,layout))) as a -> 
+                let v = L(i,(ty,layout))
                 match layout with
-                | HeapMutable -> push_typedop_no_rewrite s (TyOp(LayoutIndex,[a])) ty
+                | HeapMutable -> push_typedop_no_rewrite s (TyLayoutIndexAll v) ty
                 | Heap -> 
                     match ty with
-                    | YRecord l -> DRecord(Map.map (fun b ty -> push_typedop s (TyOp(LayoutIndex,[a; DSymbol b])) ty) l)
-                    | _ -> push_typedop s (TyOp(LayoutIndex,[a])) ty
+                    | YRecord l -> DRecord(Map.map (fun b ty -> push_typedop s (TyLayoutIndexByKey(v,b)) ty) l)
+                    | _ -> push_typedop s (TyLayoutIndexAll v) ty
             | a -> raise_type_error s <| sprintf "Expected a layout type.\nGot: %s" (show_data a)
         | EOp(_,TypeToVar,[EType(_,a)]) -> push_typedop_no_rewrite s (TyOp(TypeToVar,[])) (ty s a)
         | EOp(_,TypeToVar,_) -> raise_type_error s "Malformed TypeToVar."
