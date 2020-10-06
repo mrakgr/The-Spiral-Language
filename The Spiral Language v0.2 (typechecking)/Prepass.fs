@@ -86,7 +86,7 @@ and [<ReferenceEquality>] T =
     | TPair of Range * T * T
     | TFun of Range * T * T
     | TRecord of Range * Map<string,T>
-    | TUnion of Range * Map<string,T>
+    | TUnion of Range * (Map<string,T> * BlockParsing.UnionLayout)
     | TSymbol of Range * string
     | TApply of Range * T * T
     | TPrim of Range * Config.PrimitiveType
@@ -185,7 +185,7 @@ let inline propagate x =
         | TJoinPoint' | TArrow' | TSymbol | TPrim | TNominal | TB -> empty
         | TV i -> singleton_ty i
         | TApply(_,a,b) | TPair(_,a,b) | TFun(_,a,b) -> ty a + ty b
-        | TUnion(_,a) | TRecord(_,a) -> Map.fold (fun s k v -> s + ty v) empty a
+        | TUnion(_,(a,_)) | TRecord(_,a) -> Map.fold (fun s k v -> s + ty v) empty a
         | TTerm(_,a) -> term a
         | TMacro(_,a) -> a |> List.fold (fun s -> function TMText -> s | TMType x -> s + ty x) empty
         | TArrow(r,i,a) as x -> scope x (ty a -. i)
@@ -267,7 +267,7 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | TJoinPoint' | TArrow' | TNominal | TPrim | TSymbol | TV | TB -> ()
         | TArrow(_,_,a) -> subst env x; f a
         | TApply(_,a,b) | TFun(_,a,b) | TPair(_,a,b) -> f a; f b
-        | TRecord(_,a) | TUnion(_,a) -> Map.iter (fun _ -> f) a
+        | TRecord(_,a) | TUnion(_,(a,_)) -> Map.iter (fun _ -> f) a
         | TTerm(_,a) -> term env a
         | TMacro(_,a) -> a |> List.iter (function TMText -> () | TMType a -> f a)
         | TJoinPoint(_,a) | TLayout(_,a,_) | TArray(_,a) -> f a
@@ -422,7 +422,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         | TPair(r,a,b) -> TPair(r,f a,f b)
         | TFun(r,a,b) -> TFun(r,f a,f b)
         | TRecord(r,a) -> TRecord(r,Map.map (fun _ -> f) a)
-        | TUnion(r,a) -> TUnion(r,Map.map (fun _ -> f) a)
+        | TUnion(r,(a,b)) -> TUnion(r,(Map.map (fun _ -> f) a,b))
         | TApply(r,a,b) -> TApply(r,f a,f b)
         | TTerm(r,a) -> TTerm(r,term env a)
         | TMacro(r,a) ->
@@ -490,7 +490,7 @@ let make_compile_typecase_env (env : Env) x =
                 env
         | RawTApply(_,a,b) | RawTFun(_,a,b) | RawTPair(_,a,b) -> f (f env a) b
         | RawTLayout(_,a,_) | RawTArray(_,a) -> f env a
-        | RawTUnion(_,a) | RawTRecord(_,a) -> Map.fold (fun s k v -> f s v) env a
+        | RawTUnion(_,a,_) | RawTRecord(_,a) -> Map.fold (fun s k v -> f s v) env a
         | RawTMacro(_,a) -> a |> List.fold (fun env -> function RawMacroTypeVar(_,a) -> f env a | _ -> env) env
 
     metavars', f env x
@@ -616,7 +616,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         | RawTPair(r,a,b) -> TPair(r,f a,f b)
         | RawTFun(r,a,b) -> TFun(r,f a,f b)
         | RawTRecord(r,l) -> TRecord(r,Map.map (fun _ -> f) l)
-        | RawTUnion(r,l) -> TUnion(r,Map.map (fun _ -> f) l)
+        | RawTUnion(r,a,b) -> TUnion(r,(Map.map (fun _ -> f) a,b))
         | RawTSymbol(r,a) -> TSymbol(r,a)
         | RawTApply(r,a,b) ->
             match f a, f b with
@@ -727,18 +727,26 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         let id, env = add_ty_var env name
         TArrow(r,id,on_succ env)
     let eval_type' env l body = List.foldBack eval_type l body env |> process_ty
+
+    let nominal_term term nom r name l body =
+        let t,i = l |> List.fold (fun (nom,i) _ -> TApply(r,nom,TV i), i+1) (nom,0)
+        let rec wrap_foralls i x = if 0 < i then let i = i-1 in wrap_foralls i (EForall(r,i,x)) else process_term x
+        match body with
+        | RawTUnion(_,l,_) -> Map.fold (fun term name _ -> Map.add name (wrap_foralls i (EFun(r,0,ENominal(r,EPair(r, ESymbol(r,name), EV 0),t),Some t))) term) term l
+        | _ -> Map.add name (wrap_foralls i (EFun(r,0,ENominal(r,EV 0,t),Some t))) term
     match expr with
     | FType(_,(_,name),l,body) -> {top_env with ty = Map.add name (eval_type' env l (fun env -> ty env body)) top_env.ty}
-    | FNominal l ->
+    | FNominal(r,(_,name),l,body) ->
+        let term = nominal_term top_env.term (TNominal top_env.nominals.Length) r name l body
+        let x = eval_type' env l (fun env -> TJoinPoint(range_of_texpr body, ty env body))
+        let ty = Map.add name x top_env.ty
+        let nominals = PersistentVector.conj {|body=x; name=name|} top_env.nominals
+        {top_env with term = term; ty = ty; nominals = nominals}
+    | FNominalRec l ->
         let term,env,_ = 
             List.fold (fun (term,env,i) (r,(_,name),l,body) -> 
                 let nom = TNominal i
-                let term = 
-                    let t,i = l |> List.fold (fun (nom,i) _ -> TApply(r,nom,TV i), i+1) (nom,0)
-                    let rec wrap_foralls i x = if 0 < i then let i = i-1 in wrap_foralls i (EForall(r,i,x)) else process_term x
-                    match body with
-                    | RawTUnion(_,l) -> Map.fold (fun term name _ -> Map.add name (wrap_foralls i (EFun(r,0,ENominal(r,EPair(r, ESymbol(r,name), EV 0),t),Some t))) term) term l
-                    | _ -> Map.add name (wrap_foralls i (EFun(r,0,ENominal(r,EV 0,t),Some t))) term
+                let term = nominal_term term nom r name l body
                 term, add_ty env name nom, i+1
                 ) (top_env.term, env, top_env.nominals.Length) l
         let ty,nominals =

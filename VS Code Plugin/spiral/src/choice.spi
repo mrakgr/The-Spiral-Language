@@ -5,3 +5,7 @@ union choice2 a b =
 inl f = function
     | Choice1Of2: x, ret => ret (x : i32)
     | Choice2Of2: x, ret => ret (x : f64)
+
+union even_or_odd = Even: i32 | Odd: i32
+union rec expr = Ty: ty
+and union ty = Expr: expr

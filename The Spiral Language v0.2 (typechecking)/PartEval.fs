@@ -23,14 +23,15 @@ type [<CustomComparison;CustomEquality>] L<'a,'b when 'a: equality and 'a: compa
             | :? L<'a,'b> as b -> match a,b with L(a,_), L(b,_) -> compare a b
             | _ -> raise <| ArgumentException "Invalid comparison for T."
 
-type [<CustomEquality;NoComparison>] H<'a when 'a : equality> = 
-    | H of 'a * int
+type H<'a when 'a : equality>(x : 'a) = 
+    let h = hash x
 
-    override a.Equals(b) =
+    member _.Item = x
+    override _.Equals(b) =
         match b with
-        | :? H<'a> as b -> match a,b with H(a,_), H(b,_) -> Object.ReferenceEquals(a,b)
+        | :? H<'a> as b -> Object.ReferenceEquals(x,b.Item)
         | _ -> false
-    override a.GetHashCode() = match a with H(_,a) -> a
+    override _.GetHashCode() = h
 
 type StackSize = int
 type Nominal = {|body : T; id : int; name : string|} ConsedNode // TODO: When doing incremental compilation, make the `body` field a weak reference.
@@ -48,7 +49,7 @@ and Ty =
     | YNominal of Nominal
     | YApply of Ty * Ty
     | YLayout of Ty * Layout
-    | YUnion of Map<string,Ty> H // For a given types, unions always go through a join point which enables them to be compared via ref eqaulity.
+    | YUnion of (Map<string,Ty> * UnionLayout) H // Unions always go through a join point which enables them to be compared via ref eqaulity.
 and Data =
     | DB
     | DPair of Data * Data
@@ -57,7 +58,7 @@ and Data =
     | DForall of body : E * term : Data [] * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
     | DRecord of Map<string, Data>
     | DLit of Literal
-    | DUnion of Data * Map<string, Ty> H
+    | DUnion of Data * (Map<string, Ty> * UnionLayout) H
     | DNominal of Data * Ty
     | DV of TyV
 and TyV = L<Tag,Ty>
@@ -70,7 +71,7 @@ type RData =
     | ReForall of ConsedNode<E * RData [] * Ty []>
     | ReRecord of ConsedNode<Map<string, RData>>
     | ReLit of Tokenize.Literal
-    | ReUnion of ConsedNode<Data * Map<string, Ty> H>
+    | ReUnion of ConsedNode<Data * (Map<string, Ty> * UnionLayout) H>
     | ReNominal of ConsedNode<Data * Ty>
     | ReV of ConsedNode<Tag * Ty>
 
@@ -259,7 +260,7 @@ let show_ty x =
         | YSymbol x -> sprintf ".%s" x
         | YTypeFunction -> p 0 (sprintf "? => ?")
         | YRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
-        | YUnion(H(l,_)) -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "| ")
+        | YUnion l -> sprintf "{%s}" (l.Item |> fst |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "| ")
         | YPrim x -> show_primt x
         | YArray a -> p 30 (sprintf "array %s" (f 30 a))
         | YFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
@@ -568,7 +569,7 @@ let peval (env : TopEnv) x =
         | TPair(_,a,b) -> YPair(ty s a, ty s b)
         | TFun(_,a,b) -> YFun(ty s a, ty s b)
         | TRecord(_,a) -> YRecord(Map.map (fun _ -> ty s) a)
-        | TUnion(_,a) -> let a = Map.map (fun _ -> ty s) a in YUnion(H(a,hash a))
+        | TUnion(_,(a,b)) -> YUnion(H(Map.map (fun _ -> ty s) a, b))
         | TSymbol(_,a) -> YSymbol a
         | TApply(r,a,b) ->
             let s = add_trace s r
@@ -892,11 +893,11 @@ let peval (env : TopEnv) x =
             let a = term s a
             let b = ty s b
             match nominal_apply s b with
-            | YUnion(H(l,_) as h) ->
+            | YUnion h ->
                 match a with
                 | DPair(DSymbol k, v) ->
                     let v_ty = data_to_ty s v
-                    match Map.tryFind k l with
+                    match Map.tryFind k (fst h.Item) with
                     | Some v_ty' when v_ty = v_ty' -> DNominal(DUnion(a,h),b) 
                     | Some v_ty' -> raise_type_error s <| sprintf "For key %s, The type of the value does not match the union case.\nGot: %s\nExpected: %s" k (show_ty v_ty) (show_ty v_ty')
                     | None -> raise_type_error s <| sprintf "The union does not have key %s.\nGot: %s" k (show_ty b)
@@ -909,7 +910,7 @@ let peval (env : TopEnv) x =
             let s = add_trace s r
             match term s a with
             | DNominal(DUnion(a,_),_) -> store_term s id a; term s b
-            | DNominal(DV(L(_,YUnion(H(l,_)))) & a,_) ->
+            | DNominal(DV(L(_,YUnion h)) & a,_) ->
                 let key = TyOp(Unbox,[a])
                 match cse_tryfind s key with
                 | Some a -> store_term s id a; term s b
@@ -926,7 +927,7 @@ let peval (env : TopEnv) x =
                             | Some x_ty -> if x_ty' <> x_ty then raise_type_error s <| sprintf "One union case for key %s has a different return that the previous one.\nGot: %s\nExpected: %s" k (show_ty x_ty') (show_ty x_ty)
                             | None -> case_ty <- Some x_ty'
                             a, seq_apply s x
-                            ) l
+                            ) (fst h.Item)
                     push_typedop_no_rewrite s (TyCase(a,cases)) (Option.get case_ty)
             | a -> raise_type_error s <| sprintf "Expected an union type.\nGot: %s" (show_data a)
         | ELet(r,i,a,b) -> let s = add_trace s r in store_term s i (term s a); term s b

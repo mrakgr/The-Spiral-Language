@@ -159,9 +159,7 @@ type RawKindExpr =
     | RawKindStar
     | RawKindFun of RawKindExpr * RawKindExpr
 
-type UnionLayout =
-    | UnionStruct
-    | UnionHeap
+type UnionLayout = UStack | UHeap
 
 type HoVar = Range * (VarString * RawKindExpr)
 type TypeVar = HoVar * (Range * VarString) list
@@ -1149,14 +1147,14 @@ let top_inl_or_let_process is_top_down = function
     | (_,x,_),_ -> Error [range_of_pattern x, ExpectedVarOrOpAsNameOfGlobalStatement]
 let top_inl_or_let d = (inl_or_let root_term root_pattern_pair root_type_annot >>= fun x d -> top_inl_or_let_process d.is_top_down x) d
 
-let process_union (r,(n,layout,a,b)) _ =
+let process_union (r,(layout,n,a,b)) _ =
     match duplicates DuplicateUnionKey (List.map (fun (r,(a,_)) -> r,a) b) with
     | [] ->
         let r' = List.map fst b |> List.reduce (+.)
         let b = List.map snd b
         match layout with
-        | UnionHeap -> Ok(TopNominalRec(r,n,a,RawTUnion(r',Map.ofList b,layout)))
-        | UnionStruct -> Ok(TopNominal(r,n,a,RawTUnion(r',Map.ofList b,layout)))
+        | UHeap -> Ok(TopNominalRec(r,n,a,RawTUnion(r',Map.ofList b,layout)))
+        | UStack -> Ok(TopNominal(r,n,a,RawTUnion(r',Map.ofList b,layout)))
     | er -> Error er
 
 let union_clauses d =
@@ -1166,7 +1164,7 @@ let union_clauses d =
         | _ -> Error [range_of_texpr x, ExpectedPairedSymbolInUnion]
     let bar = bar (col d)
     (optional bar >>. sepBy1 (root_type root_type_defaults >>= process_clause) bar) d
-let top_union d = ((range (tuple4 (skip_keyword SpecUnion >>. read_type_var') ((skip_keyword SpecRec >>% UnionHeap) <|>% UnionStruct) (many ho_var .>> skip_op "=") union_clauses)) >>= process_union) d
+let top_union d = ((range (tuple4 (skip_keyword SpecUnion >>. ((skip_keyword SpecRec >>% UHeap) <|>% UStack)) read_type_var' (many ho_var .>> skip_op "=") union_clauses)) >>= process_union) d
 let top_nominal d = 
     (range (tuple3 (skip_keyword SpecNominal >>. read_type_var') (many ho_var .>> skip_op "=") (root_type {root_type_defaults with allow_term=true}))
     |>> fun (r,(n,a,b)) -> TopNominal(r,n,a,b)) d
@@ -1191,12 +1189,11 @@ let top_and_inl_or_let d =
     >>= fun (r,x) d -> top_inl_or_let_process d.is_top_down x |> Result.map (fun x -> TopAnd(r,x))) d
 
 let inline top_and f = restore 1 (range (skip_keyword SpecAnd >>. f)) |>> TopAnd
-let and_top_union d = top_and ((range (tuple4 (skip_keyword SpecUnion >>. read_type_var') (fun _ -> Ok UnionHeap) (many ho_var .>> skip_op "=") union_clauses)) >>= process_union) d
+let top_and_union d = top_and ((range (tuple4 (skip_keyword SpecUnion >>% UHeap) read_type_var' (many ho_var .>> skip_op "=") union_clauses)) >>= process_union) d
 
 let top_statement s =
     let (+) = alt (index s)
-    (top_inl_or_let + top_union + top_nominal + top_prototype + top_type + top_instance 
-    + top_and_inl_or_let + top_and top_union) s
+    (top_inl_or_let + top_union + top_nominal + top_prototype + top_type + top_instance + top_and_inl_or_let + top_and_union) s
 
 let parse (s : Env) =
     if 0 < s.tokens.Length then

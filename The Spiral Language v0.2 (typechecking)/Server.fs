@@ -126,8 +126,7 @@ let server () =
         msg.Pop() |> ignore
         let (id : int), x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
         if !last_id = id then body msg (address, x)
-        // TODO: Is enforcing order really needed.
-        else failwith "message out of order" //buffer.Add(id,(address,x))
+        else buffer.Add(id,(address,x))
         )
 
     use client = new RequestSocket()

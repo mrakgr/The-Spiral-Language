@@ -19,12 +19,12 @@ inl (|>) a b = b a
 inl (>>) a b x = b (a x)
 inl (<|) a b = a b
 inl (<<) a b x = a (b x)
-inl dyn (~x) = x
+inl dyn ~x = x
 
-inl mut forall t. (x : t): mut t = !!!!LayoutHeapMutable(x)
-inl (~!) forall t. (x : mut t): t = !!!!LayoutIndiv(x)
-inl heap forall t. (x : t): heap t = !!!!LayoutHeap(x)
-inl heap' forall t. (x : heap t): t = !!!!LayoutIndiv(x)
+inl mut forall t. (x : t): mut t = !!!!LayoutToHeapMutable(x)
+inl (~*) forall t. (x : mut t): t = !!!!LayoutIndex(x)
+inl heap forall t. (x : t): heap t = !!!!LayoutToHeap(x)
+inl (~!) forall t. (x : heap t): t = !!!!LayoutIndex(x)
 
 inl array_create forall t. (size : i32) : array t = !!!!ArrayCreate(`t,size)
 inl array_index forall t. (ar : array t) (i : i32) : t = !!!!ArrayIndex(ar,i)
@@ -60,7 +60,7 @@ inl Readline : string = $"System.Console.ReadLine()"
 inl string_index (str : string) (i : i32): char = !!!!StringIndex(str,i)
 inl string_length (str : string): i32 = !!!!StringLength(str)
 
-union list a = Nil | Cons: a, list a
+union rec list a = Nil | Cons: a, list a
 inl list_singleton x = Cons: x, Nil
 inl list_fold f s l =
     let rec loop s = function Cons: x,x' => loop (f s x) x' | Nil => s
@@ -140,7 +140,7 @@ inl AnyChar' = cps_parser fun str i {on_succ on_fail} =>
 inl AnyChar = conv AnyChar'
 
 inl char_to_string (x : char): string = $"string !x"
-inl char_to_i32 (x : char): i32 = !!!!UnsafeConvert(`i32,x)
+inl char_to_i32 (x : char): i32 = $"int !x"
 
 inl char' x = cps_parser fun str i {on_succ on_fail} =>
     run_cps AnyChar' str i {
@@ -256,7 +256,7 @@ inl save_the_princess field mario_pos =
                 new_states
                 ) queue
             |> array_concat
-        match !solution with
+        match *solution with
         | None => loop queue
         | Some: _, path => list_rev path
 
