@@ -5,7 +5,7 @@ open System.Collections.Generic
 open Spiral.Config
 open Spiral.Tokenize
 open Spiral.BlockParsing
-open Spiral.Prepass
+open Spiral.PartEval.Prepass
 open Spiral.HashConsing
 
 type Tag = int
@@ -106,6 +106,9 @@ and TypedOp =
     | TyLayoutToHeapMutable of Data * Ty
     | TyLayoutIndexAll of L<Tag,Ty * Layout>
     | TyLayoutIndexByKey of L<Tag,Ty * Layout> * string
+    | TyLayoutHeapMutableSet of L<Tag,Ty> * string list * Data
+    | TyFailwith of Ty * Data
+    | TyArrayCreate of Ty * Data
     | TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
     | TyWhile of cond: JoinPointCall * TypedBind []
     | TyJoinPoint of JoinPointCall
@@ -882,27 +885,29 @@ let peval (env : TopEnv) x =
         | EIfThen(r,cond,tr) -> let s = add_trace s r in if_ s (term s cond) tr (EB r)
         | EHeapMutableSet(r,a,b,c) ->
             let s = add_trace s r
-            let a = term s a
-            let a_layout_ty =
-                match a with
-                | DV(L(_,YLayout(a,b))) -> a
-                | _ -> raise_type_error s <| sprintf "Expected a layout type.\nGot: %s" (show_data a)
-            let b = List.map (fun (r,b) -> r, term s b) b
+            let L(i,a_ty) & a =
+                match term s a with
+                | DV(L(i,YLayout(a,HeapMutable))) -> L(i,a)
+                | DV(L(_,YLayout)) -> raise_type_error s "Expected a mutable layout type, but got an immutable one."
+                | a -> raise_type_error s <| sprintf "Expected a mutable layout type.\nGot: %s" (show_data a)
+            let b = 
+                List.map (fun (r,b) -> 
+                    match term s b with
+                    | DSymbol b -> r,b
+                    | b -> raise_type_error (add_trace s r) <| sprintf "Expected a symbol.\nGot: %s" (show_data b)
+                    ) b
             let c_ty =
                 List.fold (fun (r,a) (r',b) ->
                     match a with
                     | YRecord a ->
-                        match b with
-                        | DSymbol b ->
-                            match Map.tryFind b a with
-                            | Some a -> r', a
-                            | None -> raise_type_error (add_trace s r) <| sprintf "Key %s not found in the layout type." b
-                        | b -> raise_type_error (add_trace s r') <| sprintf "Expected a symbol.\nGot: %s" (show_data b)
+                        match Map.tryFind b a with
+                        | Some a -> r', a
+                        | None -> raise_type_error (add_trace s r) <| sprintf "Key %s not found in the layout type." b
                     | a -> raise_type_error (add_trace s r) <| sprintf "Expected a record.\nGot: %s" (show_ty a)
-                    ) (r,a_layout_ty) b |> snd
+                    ) (r,a_ty) b |> snd
             let c = term s c |> dyn false s
-            if data_to_ty s c = c_ty then push_typedop_no_rewrite s (TyOp(LayoutSet,c :: a :: List.map snd b)) YB
-            else raise_type_error s <| sprintf "The two side do not have the same type.\nGot: %s\nExpected: %s" (show_ty a_layout_ty) (show_ty c_ty)
+            if data_to_ty s c = c_ty then push_typedop_no_rewrite s (TyLayoutHeapMutableSet(a,List.map snd b,c)) YB
+            else raise_type_error s <| sprintf "The two side do not have the same type.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty c_ty)
         | EMacro(r,a,b) ->
             let s = add_trace s r
             let a = a |> List.map (function MText x -> CMText x | MTerm x -> CMTerm(term s x |> dyn false s) | MType x -> CMType(ty s x))
@@ -1100,7 +1105,7 @@ let peval (env : TopEnv) x =
         | EOp(_,ArrayCreate,[EType(_,a);b]) ->
             let a,b = ty s a, term s b
             match data_to_ty s b with
-            | YPrim Int32T -> push_op_no_rewrite s ArrayCreate b (YArray a)
+            | YPrim Int32T -> push_typedop_no_rewrite s (TyArrayCreate(a,b)) (YArray a)
             | b -> raise_type_error s <| sprintf "Expected an i32 as the size of the array.\nGot: %s" (show_ty b)
         | EOp(_,ArrayLength,[a]) ->
             let a = term s a
@@ -1267,9 +1272,8 @@ let peval (env : TopEnv) x =
                 | a, b -> raise_type_error s <| sprintf "The two literals must be both float and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
             | a, b ->
                 let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
-                if a_ty = b_ty then push_binop s Pow (a,b) a_ty
-                else 
-                    raise_type_error s <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+                if a_ty = b_ty && is_float a_ty then push_binop s Pow (a,b) a_ty
+                else raise_type_error s <| sprintf "The two sides need to have the same float types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
         | EOp(_,Mod,[a;b]) -> 
             let inline op a b = a % b
             try
@@ -1584,16 +1588,16 @@ let peval (env : TopEnv) x =
                 let a_ty = data_to_ty s a
                 if is_float a_ty then push_op s Sqrt a a_ty
                 else raise_type_error s <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
-        | EOp(_,Infinity,[EType(_,a)]) -> 
-            match ty s a with
-            | YPrim Float32T -> DLit (LitFloat32 infinityf)
-            | YPrim Float64T -> DLit (LitFloat64 infinity)
-            | a -> raise_type_error s "Expected a float.\nGot: %s" (show_ty a)
         | EOp(_,NanIs,[a]) ->
             let a = term s a
             match data_to_ty s a with
             | YPrim (Float32T | Float64T) -> push_op s NanIs a (YPrim BoolT)
             | a -> raise_type_error s <| sprintf "Expected a float in NanIs. Got: %s" (show_ty a)
+        | EOp(_,Infinity,[EType(_,a)]) -> 
+            match ty s a with
+            | YPrim Float32T -> DLit (LitFloat32 infinityf)
+            | YPrim Float64T -> DLit (LitFloat64 infinity)
+            | a -> raise_type_error s "Expected a float.\nGot: %s" (show_ty a)
         | EOp(_,LitIs,[a]) -> 
             match term s a with
             | DLit -> DLit (LitBool true)
@@ -1608,7 +1612,7 @@ let peval (env : TopEnv) x =
             | _ -> DLit (LitBool false)
         | EOp(_,FailWith,[EType(_,typ);a]) ->
             match ty s typ, term s a with
-            | typ, (DV(L(_,YPrim StringT)) | DLit(LitString)) & a -> push_op_no_rewrite s FailWith a typ
+            | typ, (DV(L(_,YPrim StringT)) | DLit(LitString)) & a -> push_typedop_no_rewrite s (TyFailwith(typ,a)) typ
             | _,a -> raise_type_error s "Expected a string as input to failwith.\nGot: %s" (show_data a)
         | EOp(_,FailWith,_) -> raise_type_error s "Malformed FailWith"
         | EOp(_,ErrorType,[a]) -> term s a |> show_data |> raise_type_error s

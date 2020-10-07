@@ -20,6 +20,7 @@
     <None Include="Dump\Prototyping.fs" />
     <None Include="Dump\Blocks.fs" />
     <None Include="Dump\BlockPrototype.fs" />
+    <Compile Include="HashConsing.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="ParserCombinators.fs" />
@@ -30,7 +31,6 @@
     <Compile Include="TypecheckingUtils.fs" />
     <Compile Include="Infer.fs" />
     <Compile Include="Prepass.fs" />
-    <Compile Include="HashConsing.fs" />
     <Compile Include="PartEval.fs" />
     <Compile Include="CodegenFsharp.fs" />
     <Compile Include="Blockize.fs" />

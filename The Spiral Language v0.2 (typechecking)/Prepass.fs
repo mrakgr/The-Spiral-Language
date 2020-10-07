@@ -1,5 +1,6 @@
-﻿module Spiral.Prepass
-open Infer
+﻿module Spiral.PartEval.Prepass
+open Spiral
+open Spiral.Infer
 
 type Id = int32
 type ScopeEnv = {|free_vars : int []; stack_size : int|}

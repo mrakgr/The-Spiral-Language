@@ -23,7 +23,6 @@ type Op =
     | LayoutToHeap
     | LayoutToHeapMutable
     | LayoutIndex
-    | LayoutSet
 
     // Type
     | TypeToVar
@@ -79,12 +78,12 @@ type Op =
     | Log
     | Exp
     | Sqrt
+    | NanIs
 
     // Infinity
     | Infinity
 
     // Is
-    | NanIs
     | LitIs
     | PrimIs
     | SymbolIs

@@ -1,1 +1,1 @@
-﻿let x = struct (1,2)
+﻿

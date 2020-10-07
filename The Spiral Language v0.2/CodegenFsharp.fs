@@ -147,19 +147,19 @@ exception CodegenErrorWithPos of Trace * string
 let rec op (d: CodegenEnv) x =
     match x with
     | TyOp(op, x') ->
-        let inline t x = data d x
+        let inline term_vars x = data d x
         match op, x' with
-        | UnsafeConvert, [|a;b|] -> sprintf "%s %s" (type' d (data_to_ty a)) (t b)
-        | StringLength, [|a|] -> sprintf "int64 %s.Length" (t a)
-        | StringIndex, [|a;b|] -> sprintf "%s.[int32 %s]" (t a) (t b)
-        | StringSlice, [|a;b;c|] -> sprintf "%s.[int32 %s..int32 %s]" (t a) (t b) (t c)
-        | Apply, [|a;b|] -> sprintf "%s%s" (t a) (t b)
-        | ArrayCreate, [|a;b|] -> sprintf "Array.zeroCreate (System.Convert.ToInt32 %s)" (t b)
-        | GetArray, [|a;b|] -> sprintf "%s.[int32 %s]" (t a) (t b)
-        | SetArray, [|a;b;c|] -> sprintf "%s.[int32 %s] <- %s" (t a) (t b) (t c) 
-        | ArrayLength, [|a|] -> sprintf "%s.LongLength" (t a)
-        | Dynamize, [|a|] -> t a
-        | FailWith, [|a|] -> sprintf "failwith %s" (t a)
+        | UnsafeConvert, [|a;b|] -> sprintf "%s %s" (type' d (data_to_ty a)) (term_vars b)
+        | StringLength, [|a|] -> sprintf "int64 %s.Length" (term_vars a)
+        | StringIndex, [|a;b|] -> sprintf "%s.[int32 %s]" (term_vars a) (term_vars b)
+        | StringSlice, [|a;b;c|] -> sprintf "%s.[int32 %s..int32 %s]" (term_vars a) (term_vars b) (term_vars c)
+        | Apply, [|a;b|] -> sprintf "%s%s" (term_vars a) (term_vars b)
+        | ArrayCreate, [|a;b|] -> sprintf "Array.zeroCreate (System.Convert.ToInt32 %s)" (term_vars b)
+        | GetArray, [|a;b|] -> sprintf "%s.[int32 %s]" (term_vars a) (term_vars b)
+        | SetArray, [|a;b;c|] -> sprintf "%s.[int32 %s] <- %s" (term_vars a) (term_vars b) (term_vars c) 
+        | ArrayLength, [|a|] -> sprintf "%s.LongLength" (term_vars a)
+        | Dynamize, [|a|] -> term_vars a
+        | FailWith, [|a|] -> sprintf "failwith %s" (term_vars a)
         | RJPToStack, [|b;a|] ->
             match data_free_vars b with
             | [||] -> "() // unit stack layout type"
@@ -184,33 +184,33 @@ let rec op (d: CodegenEnv) x =
             | _ -> failwith "impossible"
 
         // Primitive operations on expressions.
-        | Add, [|a;b|] -> sprintf "%s + %s" (t a) (t b)
-        | Sub, [|a;b|] -> sprintf "%s - %s" (t a) (t b)
-        | Mult, [|a;b|] -> sprintf "%s * %s" (t a) (t b)
-        | Div, [|a;b|] -> sprintf "%s / %s" (t a) (t b)
-        | Mod, [|a;b|] -> sprintf "%s %% %s" (t a) (t b)
-        | Pow, [|a;b|] -> sprintf "pow(%s, %s)" (t a) (t b)
-        | LT, [|a;b|] -> sprintf "%s < %s" (t a) (t b)
-        | LTE, [|a;b|] -> sprintf "%s <= %s" (t a) (t b)
-        | EQ, [|a;b|] -> sprintf "%s = %s" (t a) (t b)
-        | NEQ, [|a;b|] -> sprintf "%s != %s" (t a) (t b)
-        | GT, [|a;b|] -> sprintf "%s > %s" (t a) (t b)
-        | GTE, [|a;b|] -> sprintf "%s >= %s" (t a) (t b)
-        | BoolAnd, [|a;b|] -> sprintf "%s && %s" (t a) (t b)
-        | BoolOr, [|a;b|] -> sprintf "%s || %s" (t a) (t b)
-        | BitwiseAnd, [|a;b|] -> sprintf "%s & %s" (t a) (t b)
-        | BitwiseOr, [|a;b|] -> sprintf "%s | %s" (t a) (t b)
-        | BitwiseXor, [|a;b|] -> sprintf "%s ^ %s" (t a) (t b)
+        | Add, [|a;b|] -> sprintf "%s + %s" (term_vars a) (term_vars b)
+        | Sub, [|a;b|] -> sprintf "%s - %s" (term_vars a) (term_vars b)
+        | Mult, [|a;b|] -> sprintf "%s * %s" (term_vars a) (term_vars b)
+        | Div, [|a;b|] -> sprintf "%s / %s" (term_vars a) (term_vars b)
+        | Mod, [|a;b|] -> sprintf "%s %% %s" (term_vars a) (term_vars b)
+        | Pow, [|a;b|] -> sprintf "pow(%s, %s)" (term_vars a) (term_vars b)
+        | LT, [|a;b|] -> sprintf "%s < %s" (term_vars a) (term_vars b)
+        | LTE, [|a;b|] -> sprintf "%s <= %s" (term_vars a) (term_vars b)
+        | EQ, [|a;b|] -> sprintf "%s = %s" (term_vars a) (term_vars b)
+        | NEQ, [|a;b|] -> sprintf "%s != %s" (term_vars a) (term_vars b)
+        | GT, [|a;b|] -> sprintf "%s > %s" (term_vars a) (term_vars b)
+        | GTE, [|a;b|] -> sprintf "%s >= %s" (term_vars a) (term_vars b)
+        | BoolAnd, [|a;b|] -> sprintf "%s && %s" (term_vars a) (term_vars b)
+        | BoolOr, [|a;b|] -> sprintf "%s || %s" (term_vars a) (term_vars b)
+        | BitwiseAnd, [|a;b|] -> sprintf "%s & %s" (term_vars a) (term_vars b)
+        | BitwiseOr, [|a;b|] -> sprintf "%s | %s" (term_vars a) (term_vars b)
+        | BitwiseXor, [|a;b|] -> sprintf "%s ^ %s" (term_vars a) (term_vars b)
 
-        | ShiftLeft, [|a;b|] -> sprintf "%s << %s" (t a) (t b)
-        | ShiftRight, [|a;b|] -> sprintf "%s >> %s" (t a) (t b)
+        | ShiftLeft, [|a;b|] -> sprintf "%s << %s" (term_vars a) (term_vars b)
+        | ShiftRight, [|a;b|] -> sprintf "%s >> %s" (term_vars a) (term_vars b)
                     
-        | Neg, [|x|] -> sprintf " -%s" (t x)
-        | Log, [|x|] -> sprintf "log%s" (t x)
-        | Exp, [|x|] -> sprintf "exp%s" (t x)
-        | Tanh, [|x|] -> sprintf "tanh%s" (t x)
-        | Sqrt, [|x|] -> sprintf "sqrt%s" (t x)
-        | IsNan, [|x|] -> sprintf "isnan%s" (t x)
+        | Neg, [|x|] -> sprintf " -%s" (term_vars x)
+        | Log, [|x|] -> sprintf "log%s" (term_vars x)
+        | Exp, [|x|] -> sprintf "exp%s" (term_vars x)
+        | Tanh, [|x|] -> sprintf "tanh%s" (term_vars x)
+        | Sqrt, [|x|] -> sprintf "sqrt%s" (term_vars x)
+        | IsNan, [|x|] -> sprintf "isnan%s" (term_vars x)
         | a, b -> raise_codegen_error <| sprintf "Compiler error: Case %A with data %A not implemented." a (Array.map (show_typed_data d.keywords) b)
     | TyIf(cond,on_succ,on_fail) ->
         d.Text(sprintf "if %s then" (data d cond))

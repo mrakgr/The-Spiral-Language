@@ -103,7 +103,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 match x with
                 | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
                 | _ -> data_free_vars x, Map.empty
-            enqueue queue {|free_vars=a; free_vars_by_key=b; tag=dict'.Count|}
+            enqueue queue {|data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count|}
         queue, Utils.memoize dict (G >> Utils.memoize dict' f)
     let queue_heap, heap = layout()
     let queue_mut, mut = layout()
@@ -140,6 +140,16 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
 
     let show_w = function WV i -> sprintf "v%i" i | WLit a -> lit a
+    let rec tyv = function
+        | YUnion a -> sprintf "Union%i" (union a).tag
+        | YLayout(a,Heap) -> sprintf "Heap%i" (heap a).tag
+        | YLayout(a,HeapMutable) -> sprintf "Mut%i" (mut a).tag
+        | YMacro a -> a |> List.map (function Text a -> a | Type a -> tyv a) |> String.concat ""
+        | YPrim a -> prim a
+        | YArray a -> sprintf "(%s [])" (tyv a)
+        | YFun(a,b) -> sprintf "(%s -> %s)" (tyv a) (tyv b)
+        | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
+
     let rec binds (s : CodegenEnv) (x : TypedBind []) =
         Array.iter (fun x ->
             match x with
@@ -153,23 +163,18 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | [|x|] -> show_w x
         | x -> Array.map show_w x |> String.concat ", " |> sprintf "struct (%s)"
     and ty x =
-        match x with
-        | YUnion a -> sprintf "Union%i" (union a).tag
-        | YLayout(a,Heap) -> sprintf "Heap%i" (heap a).tag
-        | YLayout(a,HeapMutable) -> sprintf "Mut%i" (mut a).tag
-        | YMacro a -> a |> List.map (function Text a -> a | Type a -> ty a) |> String.concat ""
-        | YPrim a -> prim a
-        | YArray a -> sprintf "(%s [])" (ty a)
-        | YFun(a,b) -> sprintf "(%s -> %s)" (ty a) (ty b)
-        | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
-    and jp (a, b) =
-        let args = args b
-        match a with
-        | JPMethod(a,b) -> sprintf "method%i(%s)" (method (a,b)).tag args
-        | JPClosure(a,b) -> sprintf "closure%i(%s)" (closure (a,b)).tag args
+        match env.ty_to_data x |> data_free_vars |> Array.map (fun (L(_,x)) -> tyv x) with
+        | [||] -> "()"
+        | [|x|] -> x
+        | x -> String.concat " * " x |> sprintf "struct (%s)"
     and op s d a =
+        let jp (a, b) =
+            let args = args b
+            match a with
+            | JPMethod(a,b) -> sprintf "method%i(%s)" (method (a,b)).tag args
+            | JPClosure(a,b) -> sprintf "closure%i(%s)" (closure (a,b)).tag args
         let free_vars do_annot x =
-            let f (L(i,t)) = if do_annot then sprintf "v%i : %s" i (ty t) else sprintf "v%i" i
+            let f (L(i,t)) = if do_annot then sprintf "v%i : %s" i (tyv t) else sprintf "v%i" i
             match data_free_vars x with
             | [||] -> "()"
             | x -> Array.map f x |> String.concat ", " |> sprintf "(%s)"
@@ -241,10 +246,120 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | TyLayoutToHeapMutable(a,b) -> sprintf "{%s} : Mut%i" (layout_vars a) (heap b).tag |> simple
         | TyLayoutIndexAll(L(i,(a,lay))) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i
         | TyLayoutIndexByKey(L(i,(a,lay)),key) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i
-        //| TyOp(op,l) ->
-        //    match op,l with
-        //    | LayoutToHeap,[a] -> 
-        //        let d = data_to_ty
-        //    |> simple
+        | TyLayoutHeapMutableSet(L(i,t),b,c) ->
+            let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
+            Array.iter2 (fun (L(i',_)) b ->
+                line s (sprintf "v%i.l%i <- %s" i i' (show_w b))
+                ) (data_free_vars a) (data_term_vars c)
+        | TyArrayCreate(a,b) -> simple (sprintf "Array.zeroCreate<%s> %s" (ty a) (term_vars b))
+        | TyFailwith(a,b) -> simple (sprintf "failwith<%s> %s" (ty a) (term_vars b))
+        | TyOp(op,l) ->
+            match op, l with
+            | Apply,[a;b] -> sprintf "%s %s" (term_vars a) (term_vars b)
+            | Dyn,[a] -> term_vars a
+            | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
+            | StringLength, [a] -> sprintf "%s.Length" (term_vars a)
+            | StringIndex, [a;b] -> sprintf "%s.[%s]" (term_vars a) (term_vars b)
+            | StringSlice, [a;b;c] -> sprintf "%s.[%s..%s]" (term_vars a) (term_vars b) (term_vars c)
+            | ArrayIndex, [a;b] -> sprintf "%s.[%s]" (term_vars a) (term_vars b)
+            | ArrayIndexSet, [a;b;c] -> sprintf "%s.[%s] <- %s" (term_vars a) (term_vars b) (term_vars c) 
+            | ArrayLength, [a] -> sprintf "%s.Length" (term_vars a)
 
-    binds {text=StringBuilder(); indent=0} x
+            // Math
+            | Add, [a;b] -> sprintf "%s + %s" (term_vars a) (term_vars b)
+            | Sub, [a;b] -> sprintf "%s - %s" (term_vars a) (term_vars b)
+            | Mult, [a;b] -> sprintf "%s * %s" (term_vars a) (term_vars b)
+            | Div, [a;b] -> sprintf "%s / %s" (term_vars a) (term_vars b)
+            | Mod, [a;b] -> sprintf "%s %% %s" (term_vars a) (term_vars b)
+            | Pow, [a;b] -> sprintf "%s ** %s" (term_vars a) (term_vars b)
+            | LT, [a;b] -> sprintf "%s < %s" (term_vars a) (term_vars b)
+            | LTE, [a;b] -> sprintf "%s <= %s" (term_vars a) (term_vars b)
+            | EQ, [a;b] -> sprintf "%s = %s" (term_vars a) (term_vars b)
+            | NEQ, [a;b] -> sprintf "%s != %s" (term_vars a) (term_vars b)
+            | GT, [a;b] -> sprintf "%s > %s" (term_vars a) (term_vars b)
+            | GTE, [a;b] -> sprintf "%s >= %s" (term_vars a) (term_vars b)
+            | BoolAnd, [a;b] -> sprintf "%s && %s" (term_vars a) (term_vars b)
+            | BoolOr, [a;b] -> sprintf "%s || %s" (term_vars a) (term_vars b)
+            | BitwiseAnd, [a;b] -> sprintf "%s & %s" (term_vars a) (term_vars b)
+            | BitwiseOr, [a;b] -> sprintf "%s | %s" (term_vars a) (term_vars b)
+            | BitwiseXor, [a;b] -> sprintf "%s ^ %s" (term_vars a) (term_vars b)
+
+            | ShiftLeft, [a;b] -> sprintf "%s << %s" (term_vars a) (term_vars b)
+            | ShiftRight, [a;b] -> sprintf "%s >> %s" (term_vars a) (term_vars b)
+                    
+            | Neg, [x] -> sprintf " -%s" (term_vars x)
+            | Log, [x] -> sprintf "log %s" (term_vars x)
+            | Exp, [x] -> sprintf "exp %s" (term_vars x)
+            | Tanh, [x] -> sprintf "tanh %s" (term_vars x)
+            | Sqrt, [x] -> sprintf "sqrt %s" (term_vars x)
+            | NanIs, [x] -> 
+                match x with
+                | DLit(LitFloat32) | DV(L(_,YPrim Float32T)) -> sprintf "System.Single.IsNaN(%s)" (term_vars x)
+                | DLit(LitFloat64) | DV(L(_,YPrim Float64T)) -> sprintf "System.Double.IsNaN(%s)" (term_vars x)
+                | _ -> raise_codegen_error "Compiler error: Invalid type in NanIs."
+            | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
+            |> simple
+
+    let types = StringBuilder()
+    let methods = StringBuilder()
+    let main = StringBuilder()
+    binds {text=main; indent=0} x
+
+    let rec loop () =
+        let inline f is_type (queue : _ Queue) on_succ on_fail =
+            if 0 < queue.Count then 
+                let prefix = 
+                    if is_type then if types.Length = 0 then "type" else "and"
+                    else if methods.Length = 0 then "let rec" else "and"
+                let s =
+                    if is_type then {text=types; indent=0}
+                    else {text=methods; indent=0}
+                on_succ prefix s (queue.Dequeue()); loop()
+            else on_fail()
+        let inline (+.) (on_fail : unit -> unit) x () = x on_fail : unit
+        id
+        +. f true queue_mut (fun prefix s x ->
+            line s (sprintf "%s Mut%i = {%s}" prefix x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "mutable l%i : %s" i (tyv t)) |> String.concat "; "))
+            )
+        +. f true queue_heap (fun prefix s x ->
+            line s (sprintf "%s Heap%i = {%s}" prefix x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "l%i : %s" i (tyv t)) |> String.concat "; "))
+            )
+        +. f true queue_union_stack (fun prefix s x ->
+            line s (sprintf "%s [<Struct>] US%i =" prefix x.tag)
+            let mutable i = 0
+            x.free_vars |> Map.iter (fun _ a ->
+                match a with
+                | [||] -> line (indent s) (sprintf "| US%i_%i" x.tag i)
+                | a -> line (indent s) (sprintf "| US%i_%i of %s" x.tag i (a |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat " * "))
+                i <- i+1
+                )
+            )
+        +. f true queue_union_heap (fun prefix s x ->
+            line s (sprintf "%s UH%i =" prefix x.tag)
+            let mutable i = 0
+            x.free_vars |> Map.iter (fun _ a ->
+                match a with
+                | [||] -> line (indent s) (sprintf "| UH%i_%i" x.tag i)
+                | a -> line (indent s) (sprintf "| UH%i_%i of %s" x.tag i (a |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat " * "))
+                i <- i+1
+                )
+            )
+        +. f false queue_closure (fun prefix s x ->
+            let domain = 
+                match x.domain |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (tyv t)) with
+                | [||] -> "()"
+                | [|x|] -> sprintf "(%s)" x
+                | x -> String.concat ", " x |> sprintf "struct (%s)"
+            line s (sprintf "%s closure%i (%s) %s : %s =" prefix x.tag (args x.free_vars) domain (ty x.range))
+            binds (indent s) x.body
+            )
+        +. f false queue_method (fun prefix s x ->
+            line s (sprintf "%s method%i (%s) : %s =" prefix x.tag (args x.free_vars) (ty x.range))
+            binds (indent s) x.body
+            )
+        <| ()
+
+    loop()
+    types.Append(methods)
+        .Append(main)
+        .ToString()
