@@ -1,9 +1,10 @@
 ﻿module Spiral.Codegen.Fsharp
+
 open Spiral
 open Spiral.Config
 open Spiral.Tokenize
 open Spiral.BlockParsing
-open Spiral.PartEval
+open Spiral.PartEval.Main
 open System
 open System.Text
 open System.Collections.Generic
@@ -92,56 +93,110 @@ let prim = function
     | CharT -> "char"
 
 let codegen (env : PartEvalResult) (x : TypedBind []) =
-    let enqueue (queue : _ Queue) x = queue.Enqueue(x); x
-    let layout () =
-        let queue = Queue()
+    let types = ResizeArray()
+    let functions = ResizeArray()
+
+    let print is_type show r =
+        let prefix = 
+            if is_type then if types.Count = 0 then "type" else "and"
+            else if functions.Count = 0 then "let rec" else "and"
+
+        let s = {text=StringBuilder(); indent=0}
+        show prefix s r
+        let text = s.text.ToString()
+        if is_type then types.Add(text) else functions.Add(text)
+
+    let layout show =
         let dict' = Dictionary(HashIdentity.Structural)
         let dict = Dictionary(HashIdentity.Reference)
-        let f (x : _ G) = 
-            let x = env.ty_to_data x.Item
+        let f x = 
+            let x = env.ty_to_data x
             let a, b =
                 match x with
                 | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
                 | _ -> data_free_vars x, Map.empty
-            enqueue queue {|data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count|}
-        queue, Utils.memoize dict (G >> Utils.memoize dict' f)
-    let queue_heap, heap = layout()
-    let queue_mut, mut = layout()
+            {|data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count|}
+        fun x ->
+            let mutable dirty = false
+            let r = Utils.memoize dict (G >> Utils.memoize dict' (fun x -> dirty <- true; f x.Item)) x
+            if dirty then print true show r
+            r
 
-    let queue_union_stack, queue_union_heap, union =
-        let stack = Queue()
-        let heap = Queue()
-        let dict = Dictionary(HashIdentity.Structural)
-        let f (a : Union) = 
-            let d = fst a.Item |> Map.map (fun _ -> env.ty_to_data >> data_free_vars)
-            match snd a.Item with
-            | UStack -> enqueue stack {|free_vars=d; tag=dict.Count|}
-            | UHeap -> enqueue heap {|free_vars=d; tag=dict.Count|}
-        stack, heap, Utils.memoize dict f
+    let union show =
+        let dict = Dictionary(HashIdentity.Reference)
+        let f (a : Map<string,Ty>) = {|free_vars=a |> Map.map (fun _ -> env.ty_to_data >> data_free_vars); tag=dict.Count|}
+        fun x ->
+            let mutable dirty = false
+            let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
+            if dirty then print true show r
+            r
 
-    let jp f =
-        let queue = Queue()
+    let jp f show =
         let dict = Dictionary(HashIdentity.Structural)
-        let f x = enqueue queue (f (x, dict.Count))
-        queue, Utils.memoize dict f
-    let queue_method, method = 
+        let f x = f (x, dict.Count)
+        fun x ->
+            let mutable dirty = false
+            let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
+            if dirty then print false show r
+            r
+
+    let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
+    let show_w = function WV i -> sprintf "v%i" i | WLit a -> lit a
+
+    let rec heap = layout (fun prefix s x ->
+        line s (sprintf "%s Heap%i = {%s}" prefix x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "l%i : %s" i (tyv t)) |> String.concat "; "))
+        )
+    and mut = layout (fun prefix s x ->
+        line s (sprintf "%s Mut%i = {%s}" prefix x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "mutable l%i : %s" i (tyv t)) |> String.concat "; "))
+        )
+    and uheap = union (fun prefix s x ->
+        line s (sprintf "%s UH%i =" prefix x.tag)
+        let mutable i = 0
+        x.free_vars |> Map.iter (fun _ a ->
+            match a with
+            | [||] -> line (indent s) (sprintf "| UH%i_%i" x.tag i)
+            | a -> line (indent s) (sprintf "| UH%i_%i of %s" x.tag i (a |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat " * "))
+            i <- i+1
+            )
+        )
+    and ustack = union (fun prefix s x ->
+        line s (sprintf "%s [<Struct>] US%i =" prefix x.tag)
+        let mutable i = 0
+        x.free_vars |> Map.iter (fun _ a ->
+            match a with
+            | [||] -> line (indent s) (sprintf "| US%i_%i" x.tag i)
+            | a -> line (indent s) (sprintf "| US%i_%i of %s" x.tag i (a |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat " * "))
+            i <- i+1
+            )
+        )
+    and method =
         jp (fun ((jp_body,key & (C(args,_))),i) ->
             match (fst env.join_point_method.[jp_body]).[key] with
             | Some a, Some range -> {|tag=i; free_vars=rdata_free_vars args; range=range; body=a|}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+            ) (fun prefix s x ->
+            line s (sprintf "%s method%i (%s) : %s =" prefix x.tag (args x.free_vars) (ty x.range))
+            binds (indent s) x.body
             )
-    let queue_closure, closure = 
+    and closure =
         jp (fun ((jp_body,key & (C(args,_,domain,range))),i) ->
             match (fst env.join_point_closure.[jp_body]).[key] with
             | Some a -> {|tag=i; free_vars=rdata_free_vars args; domain=env.ty_to_data domain |> data_free_vars; range=range; body=a|}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+            ) (fun prefix s x ->
+            let domain = 
+                match x.domain |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (tyv t)) with
+                | [||] -> "()"
+                | [|x|] -> sprintf "(%s)" x
+                | x -> String.concat ", " x |> sprintf "struct (%s)"
+            line s (sprintf "%s closure%i (%s) %s : %s =" prefix x.tag (args x.free_vars) domain (ty x.range))
+            binds (indent s) x.body
             )
-
-    let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
-
-    let show_w = function WV i -> sprintf "v%i" i | WLit a -> lit a
-    let rec tyv = function
-        | YUnion a -> sprintf "Union%i" (union a).tag
+    and tyv = function
+        | YUnion a -> 
+            match a.Item with
+            | a, UHeap -> sprintf "UH%i" (uheap a).tag
+            | a, UStack -> sprintf "US%i" (ustack a).tag
         | YLayout(a,Heap) -> sprintf "Heap%i" (heap a).tag
         | YLayout(a,HeapMutable) -> sprintf "Mut%i" (mut a).tag
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tyv a) |> String.concat ""
@@ -149,8 +204,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | YArray a -> sprintf "(%s [])" (tyv a)
         | YFun(a,b) -> sprintf "(%s -> %s)" (tyv a) (tyv b)
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
-
-    let rec binds (s : CodegenEnv) (x : TypedBind []) =
+    and binds (s : CodegenEnv) (x : TypedBind []) =
         Array.iter (fun x ->
             match x with
             | TyLet(d,trace,a) -> try op s (Some d) a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
@@ -214,11 +268,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | TyUnionUnbox(i,x,l) ->
             complex <| fun s ->
             line s (sprintf "match v%i with" i)
-            let u = union x
             let prefix = 
-                match snd x.Item with
-                | UHeap -> sprintf "UH%i" u.tag
-                | UStack -> sprintf "US%i" u.tag
+                match x.Item with
+                | a,UHeap -> sprintf "UH%i" (uheap a).tag
+                | a,UStack -> sprintf "US%i" (ustack a).tag
             Map.fold (fun i k (a,b) ->
                 let vars = 
                     match data_free_vars a with
@@ -230,7 +283,6 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 ) 0 l
             |> ignore
         | TyUnionBox(a,b,c) ->
-            let u = union c
             let l,lay = c.Item
             let mutable i = -1
             if Map.exists (fun k _ -> i <- i+1; k = a) l = false then raise_codegen_error "Compiler error: Union key not found."
@@ -238,9 +290,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 match data_term_vars b with
                 | [||] -> ""
                 | x -> Array.map show_w x |> String.concat ", " |> sprintf "(%s)"
-            match lay with
-            | UHeap -> sprintf "UH%i_%i%s" u.tag i vars
-            | UStack -> sprintf "US%i_%i%s" u.tag i vars
+            match c.Item with
+            | x,UHeap -> sprintf "UH%i_%i%s" (uheap x).tag i vars
+            | x,UStack -> sprintf "US%i_%i%s" (ustack x).tag i vars
             |> simple
         | TyLayoutToHeap(a,b) -> sprintf "{%s} : Heap%i" (layout_vars a) (heap b).tag |> simple
         | TyLayoutToHeapMutable(a,b) -> sprintf "{%s} : Mut%i" (layout_vars a) (heap b).tag |> simple
@@ -300,66 +352,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> simple
 
-    let types = StringBuilder()
-    let methods = StringBuilder()
     let main = StringBuilder()
     binds {text=main; indent=0} x
 
-    let rec loop () =
-        let inline f is_type (queue : _ Queue) on_succ on_fail =
-            if 0 < queue.Count then 
-                let prefix = 
-                    if is_type then if types.Length = 0 then "type" else "and"
-                    else if methods.Length = 0 then "let rec" else "and"
-                let s =
-                    if is_type then {text=types; indent=0}
-                    else {text=methods; indent=0}
-                on_succ prefix s (queue.Dequeue()); loop()
-            else on_fail()
-        let inline (+.) (on_fail : unit -> unit) x () = x on_fail : unit
-        id
-        +. f true queue_mut (fun prefix s x ->
-            line s (sprintf "%s Mut%i = {%s}" prefix x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "mutable l%i : %s" i (tyv t)) |> String.concat "; "))
-            )
-        +. f true queue_heap (fun prefix s x ->
-            line s (sprintf "%s Heap%i = {%s}" prefix x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "l%i : %s" i (tyv t)) |> String.concat "; "))
-            )
-        +. f true queue_union_stack (fun prefix s x ->
-            line s (sprintf "%s [<Struct>] US%i =" prefix x.tag)
-            let mutable i = 0
-            x.free_vars |> Map.iter (fun _ a ->
-                match a with
-                | [||] -> line (indent s) (sprintf "| US%i_%i" x.tag i)
-                | a -> line (indent s) (sprintf "| US%i_%i of %s" x.tag i (a |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat " * "))
-                i <- i+1
-                )
-            )
-        +. f true queue_union_heap (fun prefix s x ->
-            line s (sprintf "%s UH%i =" prefix x.tag)
-            let mutable i = 0
-            x.free_vars |> Map.iter (fun _ a ->
-                match a with
-                | [||] -> line (indent s) (sprintf "| UH%i_%i" x.tag i)
-                | a -> line (indent s) (sprintf "| UH%i_%i of %s" x.tag i (a |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat " * "))
-                i <- i+1
-                )
-            )
-        +. f false queue_closure (fun prefix s x ->
-            let domain = 
-                match x.domain |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (tyv t)) with
-                | [||] -> "()"
-                | [|x|] -> sprintf "(%s)" x
-                | x -> String.concat ", " x |> sprintf "struct (%s)"
-            line s (sprintf "%s closure%i (%s) %s : %s =" prefix x.tag (args x.free_vars) domain (ty x.range))
-            binds (indent s) x.body
-            )
-        +. f false queue_method (fun prefix s x ->
-            line s (sprintf "%s method%i (%s) : %s =" prefix x.tag (args x.free_vars) (ty x.range))
-            binds (indent s) x.body
-            )
-        <| ()
-
-    loop()
-    types.Append(methods)
-        .Append(main)
-        .ToString()
+    types.AddRange(functions)
+    types.Add(main.ToString())
+    String.concat "" types
