@@ -10,6 +10,13 @@
 		"onLanguage:spiral"
 	],
 	"contributes": {
+		"commands": [
+			{
+				"command": "buildFile",
+				"title": "Build File",
+				"category": "Spiral"
+			}
+		],
 		"languages": [
 			{
 				"id": "spiral",

@@ -1,6 +1,6 @@
 import * as path from "path"
 import * as _ from "lodash"
-import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString } from "vscode"
+import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands } from "vscode"
 import * as zmq from "zeromq"
 
 const port = 13805
@@ -21,6 +21,7 @@ const spiOpenReq = async (uri: string, spiText: string) => request({ FileOpen: {
 const spiChangeReq = async (uri: string, spiEdit : {from: number, nearTo: number, lines: string[]} ) => request({ FileChanged: { uri, spiEdit } })
 const spiTokenRangeReq = async (uri: string, range : Range) => request({ FileTokenRange: { uri, range } })
 const spiHoverAtReq = async (uri: string, pos : Position) => request({ HoverAt: { uri, pos } })
+const spiBuildFileReq = async (uri: string) => request({ BuildFile: {uri} })
 
 const errorsSet = (errors : DiagnosticCollection, uri: Uri, x: [string, RangeRec | null][]) => {
     const diag: Diagnostic[] = []
@@ -83,8 +84,8 @@ export const activate = async (ctx: ExtensionContext) => {
         await sock.unbind(uriServer)
     })();
 
-    const spiprojOpen = (doc: TextDocument) => { spiprojOpenReq(doc.uri.toString(), doc.getText()) }
-    const spiOpen = (doc: TextDocument) => { spiOpenReq(doc.uri.toString(), doc.getText()) }
+    const spiprojOpen = (doc: TextDocument) => { spiprojOpenReq(doc.uri.toString(true), doc.getText()) }
+    const spiOpen = (doc: TextDocument) => { spiOpenReq(doc.uri.toString(true), doc.getText()) }
 
     const numberOfLinesAdded = (str: string) => {
         var length = 0;
@@ -108,20 +109,20 @@ export const activate = async (ctx: ExtensionContext) => {
             const lines : string [] = []
             for (let i = from; i < nearTo; i++) { lines.push(doc.lineAt(i).text) }
             const edit = {lines, from, nearTo: sortedChanges[sortedChanges.length-1].range.end.line+1}
-            spiChangeReq(doc.uri.toString(), edit)
+            spiChangeReq(doc.uri.toString(true), edit)
         }
     }
 
     class SpiralTokens implements DocumentRangeSemanticTokensProvider {
         async provideDocumentRangeSemanticTokens(doc: TextDocument, range : Range) {
-            const x : number [] = await spiTokenRangeReq(doc.uri.toString(), range)
+            const x : number [] = await spiTokenRangeReq(doc.uri.toString(true), range)
             return new SemanticTokens(new Uint32Array(x),"")
         }
     }
 
     class SpiralHover implements HoverProvider {
         async provideHover(document: TextDocument, position: Position) {
-            const x : string | null = await spiHoverAtReq(document.uri.toString(),position)
+            const x : string | null = await spiHoverAtReq(document.uri.toString(true),position)
             if (x) return new Hover(new MarkdownString().appendCodeblock(x,'plaintext'))
         }
     }
@@ -152,6 +153,9 @@ export const activate = async (ctx: ExtensionContext) => {
         workspace.onDidOpenTextDocument(onDocOpen),
         workspace.onDidChangeTextDocument(onDocChange),
         languages.registerDocumentRangeSemanticTokensProvider(spiralFilePattern,new SpiralTokens(),new SemanticTokensLegend(spiralTokenLegend)),
-        languages.registerHoverProvider(spiralFilePattern,new SpiralHover())
+        languages.registerHoverProvider(spiralFilePattern,new SpiralHover()),
+        commands.registerCommand("buildFile", () => {
+            window.visibleTextEditors.forEach(x => spiBuildFileReq(x.document.uri.toString(true)))
+        })
     )
 }

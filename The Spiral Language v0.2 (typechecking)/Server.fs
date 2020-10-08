@@ -15,6 +15,7 @@ type ClientReq =
     | FileChanged of {|uri : string; spiEdit : SpiEdit|}
     | FileTokenRange of {|uri : string; range : VSCRange|}
     | HoverAt of {|uri : string; pos : VSCPos|}
+    | BuildFile of {|uri : string|}
 
 type ProjectFileRes = VSCErrorOpt []
 type FileOpenRes = VSCError []
@@ -120,6 +121,12 @@ let server () =
             | HoverAt x ->
                 let _,hover = hover x.uri
                 Hopac.start (Ch.give hover (x.pos, send_back_via_queue))
+            | BuildFile x ->
+                let x = Uri(x.uri).LocalPath
+                match IO.Path.GetExtension(x) with
+                | ".spi" | ".spir" -> IO.File.WriteAllText(IO.Path.ChangeExtension(x,"fsx"), "// Compiled with Spiral v0.2.")
+                | _ -> ()
+                send_back null
             loop ()
         let msg = server.ReceiveMultipartMessage(3)
         let address = msg.Pop()
