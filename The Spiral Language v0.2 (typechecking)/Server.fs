@@ -36,9 +36,6 @@ let uri_client = sprintf "tcp://localhost:%i" (port+1)
 open Hopac
 open Hopac.Infixes
 open Hopac.Extensions
-
-type 'a T = T of 'a IVar * 'a T IVar
-
 let server () =
     let tokenizer = Utils.memoize (Dictionary()) (Blockize.server_tokenizer >> run)
     let parser = Utils.memoize (Dictionary()) (Blockize.server_parser >> run)
@@ -112,13 +109,13 @@ let server () =
                     |> fun errors -> queue.Enqueue(ProjectErrors {|uri=x.uri; errors=errors|})
                     ) |> Hopac.start
                 send_back None
-            | FileOpen x -> file_message x.uri (fun res -> Req.Put(x.spiText,res)); send_back None
-            | FileChanged x -> file_message x.uri (fun res -> Req.Modify(x.spiEdit,res)); send_back None
+            | FileOpen x -> file_message x.uri (fun res -> TokReq.Put(x.spiText,res)); send_back None
+            | FileChanged x -> file_message x.uri (fun res -> TokReq.Modify(x.spiEdit,res)); send_back None
             | FileTokenRange x ->
                 Hopac.start (
                     let res = IVar()
                     timeOutMillis 30 >>=.
-                    Ch.give (tokenizer x.uri) (Req.GetRange(x.range,res)) >>=. 
+                    Ch.give (tokenizer x.uri) (TokReq.GetRange(x.range,res)) >>=. 
                     IVar.read res >>- send_back_via_queue
                     )
             | HoverAt x ->
