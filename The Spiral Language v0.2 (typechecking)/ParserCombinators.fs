@@ -203,15 +203,20 @@ let inline (>>=?) a b d =
         | Error _ as x -> (if i' = index d then index_set i d); x // Backtracks to the beginning if the parser state has not changed.
     | Error x -> Error x
 
-let inline many_resize_array a d =
-    let ar = ResizeArray()
+let inline many_iter f a d =
     let rec loop () =
         let s = index d
         match a d with
         | Ok _ when s = index d -> failwith "The parser succeeded without changing the parser index in `many`. Had an exception not been raised the parser would have diverged."
-        | Ok x -> ar.Add x; loop()
-        | Error er -> if s = index d then Ok ar else Error er
+        | Ok x -> f x; loop()
+        | Error er -> if s = index d then Ok() else Error er
     loop ()
+
+let inline many_resize_array a d =
+    let ar = ResizeArray()
+    match many_iter ar.Add a d with
+    | Ok() -> Ok(ar)
+    | Error er -> Error er
 let inline many_array a d = many_resize_array a d |> Result.map (fun x -> x.ToArray())
 let inline many a d = many_resize_array a d |> Result.map Seq.toList
 

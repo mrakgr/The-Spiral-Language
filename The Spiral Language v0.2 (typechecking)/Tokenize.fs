@@ -322,7 +322,10 @@ let token s =
 type LineToken = Range * SpiralToken
 type LineComment = Range * string
 type LineTokenErrors = (Range * TokenizerError) list
-let tokenize text = (spaces >>. many_array token .>> (eol <|> tab) |>> Array.collect List.toArray) {from=0; text=text}
+let tokenize text = 
+    let ar = ResizeArray()
+    let er = match (spaces >>. many_iter ar.Add token .>> (eol <|> tab)) {from=0; text=text} with Ok() -> [] | Error er -> er
+    Array.collect List.toArray (ar.ToArray()), er
 
 /// An array of {line: int; char: int; length: int; tokenType: int; tokenModifiers: int} in the order as written suitable for serialization.
 type VSCTokenArray = int []
@@ -361,7 +364,7 @@ let vscode_tokens line_delta (lines : LineToken [] []) =
 type SpiEdit = {|from: int; nearTo: int; lines: string []|}
 
 let replace (lines : _ [] ResizeArray) (errors : _ []) (edit : SpiEdit) =
-    let toks, ers = Array.map (tokenize >> function Ok a -> a, [] | Error er -> [||], er) edit.lines |> Array.unzip
+    let toks, ers = Array.map tokenize edit.lines |> Array.unzip
     lines.RemoveRange(edit.from,edit.nearTo-edit.from)
     lines.InsertRange(edit.from,toks)
 

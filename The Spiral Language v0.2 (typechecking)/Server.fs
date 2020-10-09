@@ -36,6 +36,9 @@ let uri_client = sprintf "tcp://localhost:%i" (port+1)
 open Hopac
 open Hopac.Infixes
 open Hopac.Extensions
+
+type 'a T = T of 'a IVar * 'a T IVar
+
 let server () =
     let tokenizer = Utils.memoize (Dictionary()) (Blockize.server_tokenizer >> run)
     let parser = Utils.memoize (Dictionary()) (Blockize.server_parser >> run)
