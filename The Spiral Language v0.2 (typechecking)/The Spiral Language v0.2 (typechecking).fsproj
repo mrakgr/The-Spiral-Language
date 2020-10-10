@@ -37,10 +37,9 @@
     <Compile Include="CodegenFsharp.fs" />
     <Content Include="TextFile1.txt" />
     <Compile Include="Blockize.fs" />
+    <Compile Include="Servers.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
-
-  <ItemGroup />
 
   <ItemGroup>
     <PackageReference Include="FParsec" Version="1.1.1" />

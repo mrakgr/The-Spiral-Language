@@ -66,7 +66,6 @@ let block_separate (lines : LineToken [] ResizeArray) (blocks : Block list) (edi
     loop blocks 0
 
 open Spiral.TypecheckingUtils
-type ParserResult = { bundles : Bundle list; errors : VSCError [] }
 let block_bundle (l : ParsedBlock list) =
     let (+.) a b = BlockParsingError.add_line_to_range a b
     let bundle = ResizeArray()
@@ -102,7 +101,7 @@ let block_bundle (l : ParsedBlock list) =
             | Error er -> BlockParsingError.show_block_parsing_error x.offset er |> errors.AddRange; rectype x'
         | [] -> move_temp()
     init l
-    {bundles=Seq.toList bundle; errors=errors.ToArray()}
+    Seq.toList bundle, errors.ToArray()
 
 let block_init is_top_down (block : LineToken [] []) =
     let comments, tokens = 
@@ -120,55 +119,4 @@ let block_init is_top_down (block : LineToken [] []) =
         {comments = comments; tokens = Array.concat tokens; i = ref 0; 
         is_top_down = is_top_down; default_int=Int32T; default_float=Float64T}
     BlockParsing.parse env
-
-open Hopac
-open Hopac.Infixes
-open Hopac.Extensions
-
-type TokReq =
-    | Put of string * IVar<FileOpenRes>
-    | Modify of SpiEdit * IVar<FileChangeRes>
-    | GetRange of VSCRange * IVar<VSCTokenArray>
-
-module StreamServers =
-    open Hopac.Stream
-    type TokReq =
-        | Put of string
-        | Modify of SpiEdit
-        | GetRange of VSCRange * (VSCTokenArray -> unit)
-    type TokRes = {blocks : Block list; errors : VSCError []}
-
-    let tokenizer req =
-        let lines : LineToken [] ResizeArray = ResizeArray([[||]])
-        let mutable errors_tokenization = [||]
-        let mutable blocks : Block list = []
-
-        let res_text = Src.create()
-        let replace edit =
-            errors_tokenization <- Tokenize.replace lines errors_tokenization edit // Mutates the lines array
-            blocks <- block_separate lines blocks edit
-            Src.value res_text {blocks=blocks; errors=errors_tokenization}
-
-        req |> Stream.consumeJob (function 
-            | Put text -> replace {|from=0; nearTo=lines.Count; lines=Utils.lines text|}
-            | Modify edit -> replace edit
-            | GetRange((a,b),res) ->
-                let from, near_to = min (lines.Count-1) a.line, min lines.Count (b.line+1)
-                vscode_tokens from (lines.GetRange(from,near_to-from |> max 0).ToArray()) |> res
-                Job.unit()
-            )
-        Src.tap res_text
-
-    let parser is_top_down req =
-        let dict = System.Collections.Generic.Dictionary(HashIdentity.Reference)
-
-        let parse a =
-            let b = 
-                List.map (fun x -> {
-                    parsed = Utils.memoize dict (block_init is_top_down) x.block
-                    offset = x.offset
-                    }) a
-            dict.Clear(); List.iter2 (fun a b -> dict.Add(a.block,b.parsed)) a b
-            block_bundle b
-        req |> Stream.keepPreceding1
 
