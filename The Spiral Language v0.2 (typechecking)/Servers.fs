@@ -53,4 +53,7 @@ let parser is_top_down req =
             )
     
     let x = tokenizer req in x, parser is_top_down x
-    bundle
+
+    let typechecker (req : ParserRes Stream) =
+        let req = Stream.values req
+        ()
