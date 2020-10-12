@@ -101,7 +101,7 @@ and fold_offset_pattern offset x =
     let g = add_offset offset
     let g' x = add_offset_hovar offset x
     match x with
-    | PatFilledDefaultValue -> failwith "Compiler error: Later stages only."
+    | PatFilledDefaultValue _ -> failwith "Compiler error: Later stages only."
     | PatB r -> PatB(g r)
     | PatE r -> PatE(g r)
     | PatVar(r,a) -> PatVar(g r,a)
@@ -145,4 +145,4 @@ let bundle (l : Bundle) =
     | [{offset=i; statement=TopNominal(r,a,b,c)}] -> BundleNominal(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
     | [{offset=i; statement=TopType(r,a,b,c)}] -> BundleType(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
     | [{offset=i; statement=TopInstance(r,a,b,c,d)}] -> BundleInstance(add_offset i r, add_offset_hovar i a, add_offset_hovar i b, add_offset_typevar_list i c, fold_offset_term i d)
-    | {statement=TopInl | TopPrototype | TopNominal | TopType | TopInstance} :: _ -> failwith "Compiler error: Regular top level statements should be singleton bundles."
+    | {statement=TopInl _ | TopPrototype _ | TopNominal _ | TopType _ | TopInstance _} :: _ -> failwith "Compiler error: Regular top level statements should be singleton bundles."

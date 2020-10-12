@@ -346,8 +346,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | Sqrt, [x] -> sprintf "sqrt %s" (term_vars x)
             | NanIs, [x] -> 
                 match x with
-                | DLit(LitFloat32) | DV(L(_,YPrim Float32T)) -> sprintf "System.Single.IsNaN(%s)" (term_vars x)
-                | DLit(LitFloat64) | DV(L(_,YPrim Float64T)) -> sprintf "System.Double.IsNaN(%s)" (term_vars x)
+                | DLit(LitFloat32 _) | DV(L(_,YPrim Float32T)) -> sprintf "System.Single.IsNaN(%s)" (term_vars x)
+                | DLit(LitFloat64 _) | DV(L(_,YPrim Float64T)) -> sprintf "System.Double.IsNaN(%s)" (term_vars x)
                 | _ -> raise_codegen_error "Compiler error: Invalid type in NanIs."
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> simple

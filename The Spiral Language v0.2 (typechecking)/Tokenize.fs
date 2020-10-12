@@ -88,15 +88,15 @@ type SpiralToken =
 
 let token_groups = function
     | TokUnaryOperator(_,r) | TokOperator(_,r) | TokVar(_,r) | TokSymbol(_,r) | TokSymbolPaired(_,r) -> !r
-    | TokValue (LitChar _) | TokStringOpen | TokStringClose | TokText | TokMacroOpen | TokMacroClose | TokValue(LitString _) -> SemanticTokenLegend.string
+    | TokValue (LitChar _) | TokStringOpen | TokStringClose | TokText _ | TokMacroOpen | TokMacroClose | TokValue(LitString _) -> SemanticTokenLegend.string
     | TokComment _ -> SemanticTokenLegend.comment
     | TokKeyword _ -> SemanticTokenLegend.keyword
     | TokParenthesis _ -> SemanticTokenLegend.parenthesis
-    | TokMacroTypeVar -> SemanticTokenLegend.type_variable
-    | TokMacroTermVar -> SemanticTokenLegend.variable
+    | TokMacroTypeVar _ -> SemanticTokenLegend.type_variable
+    | TokMacroTermVar _ -> SemanticTokenLegend.variable
     | TokEscapedChar _ -> SemanticTokenLegend.escaped_char
     | TokUnescapedChar _ -> SemanticTokenLegend.unescaped_char
-    | TokValue _ | TokDefaultValue -> SemanticTokenLegend.number
+    | TokValue _ | TokDefaultValue _ -> SemanticTokenLegend.number
 
 let is_small_var_char_starting c = Char.IsLower c || c = '_'
 let is_var_char c = Char.IsLetterOrDigit c || c = '_' || c = '''

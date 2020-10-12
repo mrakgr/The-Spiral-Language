@@ -243,7 +243,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
         let rec loop term x = 
             let f = loop term
             match x with
-            | PatDefaultValue | PatFilledDefaultValue | PatValue | PatSymbol | PatB | PatE -> term
+            | PatDefaultValue _ | PatFilledDefaultValue _ | PatValue _ | PatSymbol _ | PatB _ | PatE _ -> term
             | PatVar(_,b) -> 
                 //if is_first.Add b then () // TODO: I am doing it like this so I can reuse this code later for variable highlighting.
                 Set.add b term
@@ -592,8 +592,8 @@ let infer (top_env : TopEnv) expr =
             let f = term rec_term
             let clauses l = List.map (fun (a, b) -> let rec_term,a = pattern rec_term a in a,term rec_term b) l
             match x with
-            | RawFilledForall | RawMissingBody | RawTypecase | RawType -> failwith "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only."
-            | RawSymbolCreate | RawB | RawLit -> x
+            | RawFilledForall _ | RawMissingBody _ | RawTypecase _ | RawType _ -> failwith "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only."
+            | RawSymbolCreate _ | RawB _ | RawLit _ -> x
             | RawReal(_,x) -> x
             | RawBigV(r,a) -> f (RawApply(r,RawV(r,a), RawB r))
             | RawV(r,n) ->
@@ -603,7 +603,7 @@ let infer (top_env : TopEnv) expr =
                 |> List.fold (fun s x -> RawApply(r,s,RawType(r,t_to_rawtexpr r x))) x
             | RawDefaultLit(r,_) -> RawAnnot(r,x,annot r x)
             | RawForall(r,a,b) -> RawForall(r,a,f b)
-            | RawMatch(r'',(RawForall | RawFun) & body,[PatVar(r,name), on_succ]) ->
+            | RawMatch(r'',(RawForall _ | RawFun _) & body,[PatVar(r,name), on_succ]) ->
                 let _,body = foralls_get body
                 RawMatch(r'',fill_foralls r rec_term body,[PatVar(r,name), term (Map.remove name rec_term) on_succ])
             | RawMatch(r,a,b) -> RawMatch(r,f a,clauses b)
@@ -643,8 +643,8 @@ let infer (top_env : TopEnv) expr =
         and pattern rec_term x =
             let mutable rec_term = rec_term
             let rec f = function
-                | PatFilledDefaultValue -> failwith "Compiler error: PatDefaultValueFilled should not appear in fill."
-                | PatValue | PatSymbol | PatE | PatB -> x
+                | PatFilledDefaultValue _ -> failwith "Compiler error: PatDefaultValueFilled should not appear in fill."
+                | PatValue _ | PatSymbol _ | PatE _ | PatB _ -> x
                 | PatVar(r,name) as x -> rec_term <- Map.remove name rec_term; x
                 | PatDyn(r,a) -> PatDyn(r,f a)
                 | PatUnbox(r,a) -> PatUnbox(r,f a)
@@ -701,11 +701,11 @@ let infer (top_env : TopEnv) expr =
                 link := Some v
                 replace_metavars v
             | TyVar v -> if h.Add(v) then generalized_metavars.Add(v)
-            | TyMetavar | TyNominal | TyB | TyPrim | TySymbol -> ()
+            | TyMetavar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> ()
             | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b) -> f a; f b
             | TyUnion(a,_) | TyRecord a -> Map.iter (fun _ -> f) a
             | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
-            | TyMacro a -> List.iter (function TMVar a -> f a | TMText -> ()) a
+            | TyMacro a -> List.iter (function TMVar a -> f a | TMText _ -> ()) a
 
         let f x s = TyForall(x,s)
         replace_metavars body
@@ -837,7 +837,7 @@ let infer (top_env : TopEnv) expr =
             | None -> errors.Add(r,UnboundVariable)
             | Some (TySymbol "<real>") -> errors.Add(r,RealFunctionInTopDown)
             | Some a -> 
-                match a with TyForall -> annotations.Add(x,(r,s)) | _ -> ()
+                match a with TyForall _ -> annotations.Add(x,(r,s)) | _ -> ()
                 hover_types.Add(r,s)
                 let f a = let l,v = forall_subst_all a in on_succ v; l
                 let l = f a
@@ -974,9 +974,9 @@ let infer (top_env : TopEnv) expr =
                     ) (range_of_expr a, v) b |> snd
             with :? TypeErrorException as e -> errors.AddRange e.Data0; fresh_var()
             |> fun v -> f v c
-        | RawFilledForall -> failwith "Compiler error: Should not during type inference."
-        | RawType -> failwith "Compiler error: RawType should not appear in the top down segment."
-        | RawTypecase -> failwith "Compiler error: `typecase` should not appear in the top down segment."
+        | RawFilledForall _ -> failwith "Compiler error: Should not during type inference."
+        | RawType _ -> failwith "Compiler error: RawType should not appear in the top down segment."
+        | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
     and inl env ((r, name), body) =
         incr scope
         let vars,body = foralls_get body
@@ -1128,7 +1128,7 @@ let infer (top_env : TopEnv) expr =
         let rec loop (env : Env) s x =
             let f = loop env
             match x with
-            | PatFilledDefaultValue -> failwith "Compiler error: PatDefaultValueFilled should not appear during inference."
+            | PatFilledDefaultValue _ -> failwith "Compiler error: PatDefaultValueFilled should not appear during inference."
             | PatB r -> unify r s TyB; env
             | PatE r -> hover_types.Add(r,s); env
             | PatVar(r,a) ->

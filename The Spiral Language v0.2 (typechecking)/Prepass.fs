@@ -130,7 +130,7 @@ let inline propagate x =
     let rec term x =
         let singleton = singleton_term
         match x with
-        | EForall' | EJoinPoint' | EFun' | ERecord | ERecursive | ESymbol | ELit | EB -> empty
+        | EForall' _ | EJoinPoint' _ | EFun' _ | ERecord _ | ERecursive _ | ESymbol _ | ELit _ | EB _ -> empty
         | EV i -> singleton i
         | EPrototypeApply(_,_,a) | EType(_,a) | EDefaultLit(_,_,a) -> ty a
         | ESeq(_,a,b) | EPair(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
@@ -149,14 +149,14 @@ let inline propagate x =
                     | RVar((_,a),b) | RVarModify((_,a),b) -> s + term a + term b
                     ) b
             |> fold (fun s -> function
-                | WSymbol -> s
+                | WSymbol _ -> s
                 | WVar(_,a) -> s + term a
                 ) c
         | EOp(_,_,a) -> List.fold (fun s a -> s + term a) empty a
         | EHeapMutableSet(_,a,b,c) -> term a + List.fold (fun s (_,a) -> s + term a) empty b + term c
         | EIfThenElse(_,a,b,c) -> term a + term b + term c
         | EPatternMiss a | EReal(_,a) -> term a
-        | EMacro(_,a,b) -> List.fold (fun s -> function MType x -> s + ty x | MTerm x -> s + term x | MText -> s) (ty b) a
+        | EMacro(_,a,b) -> List.fold (fun s -> function MType x -> s + ty x | MTerm x -> s + term x | MText _ -> s) (ty b) a
         | EPatternMemo a -> Utils.memoize dict term a
         // Regular pattern matching
         | ELet(_,a,b,c) | EUnbox(_,a,b,c) -> (term b - a) + term c
@@ -167,7 +167,7 @@ let inline propagate x =
         | ERecordTest(_,a,bind,on_succ,on_fail) ->
             let on_succ_and_injects =
                 let on_succ = List.fold (fun s (Symbol(_,a) | Var(_,a)) -> s - a) (term on_succ) a
-                List.fold (fun s -> function Var((_,a),_) -> s + term a | Symbol -> s) on_succ a // Though it is less efficient, I am using two passes here to guard against future changes to pattern compilation breaking this part by accident.
+                List.fold (fun s -> function Var((_,a),_) -> s + term a | Symbol _ -> s) on_succ a // Though it is less efficient, I am using two passes here to guard against future changes to pattern compilation breaking this part by accident.
             singleton bind + term on_fail + on_succ_and_injects
         | EDefaultLitTest(_,_,t,bind,on_succ,on_fail)
         | EAnnotTest(_,t,bind,on_succ,on_fail) -> singleton bind + ty t + term on_succ + term on_fail
@@ -183,12 +183,12 @@ let inline propagate x =
         | ETypeArrayTest(_,bind,pat,on_succ,on_fail) -> singleton_ty bind + (term on_succ -. pat) + term on_fail
         | ETypeEq(_,t,bind,on_succ,on_fail) -> singleton_ty bind + ty t + term on_succ + term on_fail
     and ty = function
-        | TJoinPoint' | TArrow' | TSymbol | TPrim | TNominal | TB -> empty
+        | TJoinPoint' _ | TArrow' _ | TSymbol _ | TPrim _ | TNominal _ | TB _ -> empty
         | TV i -> singleton_ty i
         | TApply(_,a,b) | TPair(_,a,b) | TFun(_,a,b) -> ty a + ty b
         | TUnion(_,(a,_)) | TRecord(_,a) -> Map.fold (fun s k v -> s + ty v) empty a
         | TTerm(_,a) -> term a
-        | TMacro(_,a) -> a |> List.fold (fun s -> function TMText -> s | TMType x -> s + ty x) empty
+        | TMacro(_,a) -> a |> List.fold (fun s -> function TMText _ -> s | TMType x -> s + ty x) empty
         | TArrow(r,i,a) as x -> scope x (ty a -. i)
         | TJoinPoint(_,a) as x -> scope x (ty a)
         | TArray(_,a) | TLayout(_,a,_) -> ty a
@@ -219,7 +219,7 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
     let rec term (env : ResolveEnv) x =
         let f = term env
         match x with
-        | EForall' | EFun' | EJoinPoint' | ERecord | EV | ERecursive | ESymbol | EDefaultLit | ELit | EB -> ()
+        | EForall' _ | EFun' _ | EJoinPoint' _ | ERecord _ | EV _ | ERecursive _ | ESymbol _ | EDefaultLit _ | ELit _ | EB _ -> ()
         | EPrototypeApply(_,_,a) | EType(_,a) -> ty env a
         | EJoinPoint(_,a,b) | EFun(_,_,a,b) -> subst env x; f a; Option.iter (ty env) b
         | EForall(_,_,a) -> subst env x; f a
@@ -243,7 +243,7 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
                 | RSymbolModify(_,a) | RSymbol(_,a) -> f a
                 | RVarModify((_,a),b) | RVar((_,a),b) -> f a; f b)
             c |> List.iter (function 
-                | WSymbol -> ()
+                | WSymbol _ -> ()
                 | WVar(_,a) -> f a)
         | ENominal(_,a,b) | ETypeLet(_,_,b,a) | ETypeApply(_,a,b) | EAnnot(_,a,b) -> f a; ty env b
         | EOp(_,_,a) -> List.iter f a
@@ -254,23 +254,23 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | EHeapMutableSet(_,a,b,c) -> f a; List.iter (snd >> f) b; f c
         | EIfThenElse(_,a,b,c) -> f a; f b; f c
         | EMacro(_,a,b) ->
-            a |> List.iter (function MType a -> ty env a | MTerm a -> f a | MText -> ())
+            a |> List.iter (function MType a -> ty env a | MTerm a -> f a | MText _ -> ())
             ty env b
         | EPatternMemo a -> Utils.memoize dict f a
         | ERecordTest(_,l,_,a,b) -> 
-            l |> List.iter (function Symbol -> () | Var((_,a),_) -> f a)
+            l |> List.iter (function Symbol _ -> () | Var((_,a),_) -> f a)
             f a; f b
         | ETypeEq(_,t,_,a,b) | EDefaultLitTest(_,_,t,_,a,b) | ENominalTest(_,t,_,_,a,b) | EAnnotTest(_,t,_,a,b) -> ty env t; f a; f b
 
     and ty (env : ResolveEnv) x = 
         let f = ty env
         match x with
-        | TJoinPoint' | TArrow' | TNominal | TPrim | TSymbol | TV | TB -> ()
+        | TJoinPoint' _ | TArrow' _ | TNominal _ | TPrim _ | TSymbol _ | TV _ | TB _ -> ()
         | TArrow(_,_,a) -> subst env x; f a
         | TApply(_,a,b) | TFun(_,a,b) | TPair(_,a,b) -> f a; f b
         | TRecord(_,a) | TUnion(_,(a,_)) -> Map.iter (fun _ -> f) a
         | TTerm(_,a) -> term env a
-        | TMacro(_,a) -> a |> List.iter (function TMText -> () | TMType a -> f a)
+        | TMacro(_,a) -> a |> List.iter (function TMText _ -> () | TMType a -> f a)
         | TJoinPoint(_,a) | TLayout(_,a,_) | TArray(_,a) -> f a
 
     match x with
@@ -326,7 +326,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         let f = term env
         let adj = adj' env
         match x with
-        | EForall' | EJoinPoint' | EFun' | ERecord | ERecursive | ESymbol | ELit | EB -> x
+        | EForall' _ | EJoinPoint' _ | EFun' _ | ERecord _ | ERecursive _ | ESymbol _ | ELit _ | EB _ -> x
         | EFun(r,a,b,c) -> 
             let scope, env = scope env x 
             EFun'(r,scope,adj' env a,term env b,Option.map (ty env) c)
@@ -361,7 +361,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
                 | RVarModify((r,a),b) -> RVarModify((r,f a),f b)
                 )
             let c = c |> List.map (function
-                | WSymbol as x -> x
+                | WSymbol _ as x -> x
                 | WVar(r,a) -> WVar(r,f a)
                 )
             ERecordWith(r,a,b,c)
@@ -376,7 +376,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EReal(r,a) -> EReal(r,f a)
         | EMacro(r,a,b) -> 
             let a = a |> List.map (function
-                | MText as x -> x
+                | MText _ as x -> x
                 | MType a -> MType(ty env a)
                 | MTerm a -> MTerm(f a)
                 )
@@ -412,7 +412,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         let f = ty env
         let adj = adj' env
         match x with
-        | TJoinPoint' | TArrow' | TNominal  | TPrim | TSymbol | TB -> x
+        | TJoinPoint' _ | TArrow' _ | TNominal  _ | TPrim _ | TSymbol _ | TB _ -> x
         | TJoinPoint(r,a) ->
             let scope, env = scope env x 
             TJoinPoint'(r,scope,ty env a)
@@ -428,7 +428,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         | TTerm(r,a) -> TTerm(r,term env a)
         | TMacro(r,a) ->
             let a = a |> List.map (function 
-                | TMText as x -> x
+                | TMText _ as x -> x
                 | TMType a -> TMType(f a)
                 )
             TMacro(r,a)
@@ -463,10 +463,10 @@ let make_compile_pattern_env (env : Env) x =
     let envs = Dictionary(HashIdentity.Reference)
     let rec f env x = 
         match x with
-        | PatValue | PatDefaultValue | PatSymbol | PatE | PatB -> env
+        | PatValue _ | PatDefaultValue _ | PatSymbol _ | PatE _ | PatB _ -> env
         | PatVar(_,a) -> let id,l = add_term_var env a in vars.Add(a,id); l
         | PatOr(_,a,_) | PatDyn(_,a) | PatUnbox(_,a) -> f env a
-        | PatFilledDefaultValue -> envs.Add(x,env); env
+        | PatFilledDefaultValue _ -> envs.Add(x,env); env
         | PatNominal(_,_,a) | PatAnnot(_,a,_) -> envs.Add(x,env); f env a
         | PatWhen(_,a,_) -> let env = f env a in envs.Add(x,env); env
         | PatAnd(_,a,b) | PatPair(_,a,b) -> f (f env a) b
@@ -479,8 +479,8 @@ let make_compile_typecase_env (env : Env) x =
     let metavars = Dictionary(HashIdentity.Structural)
     let rec f (env : Env) x =
         match x with
-        | RawTFilledNominal | RawTTerm | RawTForall -> failwith "Compiler error: This case is not supposed to appear in typecase."
-        | RawTPrim | RawTSymbol | RawTWildcard | RawTB | RawTVar -> env
+        | RawTFilledNominal _ | RawTTerm _ | RawTForall _ -> failwith "Compiler error: This case is not supposed to appear in typecase."
+        | RawTPrim _ | RawTSymbol _ | RawTWildcard _ | RawTB _ | RawTVar _ -> env
         | RawTMetaVar(r,a) ->
             match metavars.TryGetValue a with
             | true, id' -> metavars'.Add(a,fun (id, on_succ, on_fail) -> ETypeEq(r,TV id',id,on_succ,on_fail)); env
@@ -519,8 +519,8 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                     | PatVar(_,x) -> ve.vars.[x], on_succ
                     | _ -> let id = patvar() in id, cp id pat on_succ on_fail
                 match pat with
-                | PatDefaultValue -> failwith "Compiler error: The default value should be filled."
-                | PatE -> on_succ
+                | PatDefaultValue _ -> failwith "Compiler error: The default value should be filled."
+                | PatE _ -> on_succ
                 | PatB r -> EUnitTest(r,id,on_succ,on_fail)
                 | PatVar(r,a) -> ELet(r,ve.vars.[a],EV id,on_succ)
                 | PatAnnot(r,a,b) -> EAnnotTest(r,ty ve.envs.[pat] b,id,cp id a on_succ on_fail,on_fail)
@@ -573,7 +573,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
             let rec cp id pat on_succ on_fail =
                 let step pat on_succ = let id = patvar() in id, cp id pat on_succ on_fail
                 match pat with
-                | RawTFilledNominal | RawTTerm | RawTForall -> failwith "Compiler error: This case is not supposed to appear in typecase."
+                | RawTFilledNominal _ | RawTTerm _ | RawTForall _ -> failwith "Compiler error: This case is not supposed to appear in typecase."
                 | RawTWildcard _ -> on_succ
                 | RawTMetaVar(_,a) -> vars.[a] (id,on_succ,on_fail)
                 | RawTPair(r,a,b) ->
@@ -598,7 +598,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                             Map.add k id s, on_succ
                             ) a (Map.empty, on_succ)
                     ETypeRecordTest(r,m,id,on_succ,on_fail)
-                | RawTVar | RawTSymbol | RawTB | RawTPrim | RawTMacro | RawTUnion | RawTLayout -> ETypeEq(range_of_texpr pat,ty env pat,id,on_succ,on_fail)
+                | RawTVar _ | RawTSymbol _ | RawTB _ | RawTPrim _ | RawTMacro _ | RawTUnion _ | RawTLayout _ -> ETypeEq(range_of_texpr pat,ty env pat,id,on_succ,on_fail)
 
             cp id pat on_succ (EPatternMemo on_fail)
         List.foldBack loop l (EPatternMiss(EV id))
@@ -609,9 +609,9 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
     and ty (env : Env) x =
         let f = ty env
         match x with
-        | RawTWildcard -> failwith "Compiler error: Annotation with wildcards should have been stripped."
-        | RawTMetaVar -> failwith "Compiler error: This should have been compiled away in typecase."
-        | RawTForall -> failwith "Compiler error: Foralls are not allowed at the type level."
+        | RawTWildcard _ -> failwith "Compiler error: Annotation with wildcards should have been stripped."
+        | RawTMetaVar _ -> failwith "Compiler error: This should have been compiled away in typecase."
+        | RawTForall _ -> failwith "Compiler error: Foralls are not allowed at the type level."
         | RawTB r -> TB r
         | RawTVar(r,a) -> v_ty env a
         | RawTPair(r,a,b) -> TPair(r,f a,f b)
@@ -707,7 +707,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         | RawSeq(r,a,b) -> ESeq(r,f a,f b)
         | RawHeapMutableSet(r,a,b,c) -> EHeapMutableSet(r,f a,List.map (fun a -> range_of_expr a, f a) b,f c)
         | RawReal(r,a) -> f a
-        | RawMacro -> failwith "Compiler error: The macro's annotation should have been added during `fill`."
+        | RawMacro _ -> failwith "Compiler error: The macro's annotation should have been added during `fill`."
         | RawAnnot(_,RawMacro(r,a),b) ->
             let a = a |> List.map (function
                 | RawMacroText(r,a) -> MText a

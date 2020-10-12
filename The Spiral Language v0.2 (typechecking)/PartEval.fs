@@ -164,7 +164,7 @@ let rename_global_term (s : LangEnv) =
             | DV(L(_,ty)) -> let x = DV(L(!s.i,ty)) in incr s.i; x
             | DUnion(a,b) -> DUnion(f a,b)
             | DNominal(a,b) -> DNominal(f a,b)
-            | DSymbol | DLit | DB as x -> x
+            | DSymbol _ | DLit _ | DB as x -> x
             ) x
     for i=0 to s.env_global_term.Length-1 do s.env_global_term.[i] <- f s.env_global_term.[i]
 
@@ -177,9 +177,9 @@ let data_free_vars call_data =
             | DPair(a,b) -> f a; f b
             | DForall(_,a,_,_,_) | DFunction(_,_,a,_,_,_) -> Array.iter f a
             | DRecord l -> Map.iter (fun _ -> f) l
-            | DV(L as t) -> free_vars.Add t
+            | DV(L _ as t) -> free_vars.Add t
             | DUnion(a,_) | DNominal(a,_) -> f a
-            | DSymbol | DLit | DB -> ()
+            | DSymbol _ | DLit _ | DB -> ()
     f call_data
     free_vars.ToArray()
 
@@ -195,7 +195,7 @@ let rdata_free_vars call_data =
             | ReRecord(C l) -> Map.iter (fun _ -> f) l
             | ReV(C(a,b)) -> free_vars.Add(L(a,b))
             | ReUnion(C(a,_)) | ReNominal(C(a,_)) -> f a
-            | ReSymbol | ReLit | ReB -> ()
+            | ReSymbol _ | ReLit _ | ReB -> ()
     Array.iter f call_data
     free_vars.ToArray()
 
@@ -208,24 +208,24 @@ let data_term_vars call_data =
         | DLit x -> term_vars.Add(WLit x)
         | DV(L(i,_)) -> term_vars.Add(WV i)
         | DUnion(a,_) | DNominal(a,_) -> f a
-        | DSymbol | DB -> ()
+        | DSymbol _ | DB -> ()
     f call_data
     term_vars.ToArray()
 
 let lit_to_primitive_type = function
-    | LitUInt8 -> UInt8T
-    | LitUInt16 -> UInt16T
-    | LitUInt32 -> UInt32T
-    | LitUInt64 -> UInt64T
-    | LitInt8 -> Int8T
-    | LitInt16 -> Int16T
-    | LitInt32 -> Int32T
-    | LitInt64 -> Int64T
-    | LitFloat32 -> Float32T
-    | LitFloat64 -> Float64T   
-    | LitBool -> BoolT
-    | LitString -> StringT
-    | LitChar -> CharT
+    | LitUInt8 _ -> UInt8T
+    | LitUInt16 _ -> UInt16T
+    | LitUInt32 _ -> UInt32T
+    | LitUInt64 _ -> UInt64T
+    | LitInt8 _ -> Int8T
+    | LitInt16 _ -> Int16T
+    | LitInt32 _ -> Int32T
+    | LitInt64 _ -> Int64T
+    | LitFloat32 _ -> Float32T
+    | LitFloat64 _ -> Float64T   
+    | LitBool _ -> BoolT
+    | LitString _ -> StringT
+    | LitChar _ -> CharT
 
 let lit_to_ty x = lit_to_primitive_type x |> YPrim
 
@@ -286,7 +286,7 @@ let show_ty x =
         | YPair(YSymbol a, YB) when 0 < a.Length && System.Char.IsLower(a,0) -> to_upper a
         | YPair(a,b) -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b))
         | YSymbol x -> sprintf ".%s" x
-        | YTypeFunction -> p 0 (sprintf "? => ?")
+        | YTypeFunction _ -> p 0 (sprintf "? => ?")
         | YRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
         | YUnion l -> sprintf "{%s}" (l.Item |> fst |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "| ")
         | YPrim x -> show_primt x
@@ -314,8 +314,8 @@ let show_data x =
         | DPair(DSymbol a, DB) when 0 < a.Length && System.Char.IsLower(a,0) -> to_upper a
         | DPair(a,b) -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b))
         | DSymbol x -> sprintf ".%s" x
-        | DFunction -> p 20 "? -> ?"
-        | DForall -> p 0 "forall ?. ?"
+        | DFunction _ -> p 20 "? -> ?"
+        | DForall _ -> p 0 "forall ?. ?"
         | DRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
         | DLit a -> show_lit a
         | DV(L(_,ty)) -> show_ty ty
@@ -324,7 +324,7 @@ let show_data x =
     f -1 x
 
 let is_lit = function
-    | DLit -> true
+    | DLit _ -> true
     | _ -> false
 
 let is_numeric = function
@@ -339,7 +339,7 @@ let is_signed_numeric = function
 
 let is_non_float_primitive = function
     | YPrim (Float32T | Float64T) -> false
-    | YPrim -> true
+    | YPrim _ -> true
     | _ -> false
 
 let is_primitive = function
@@ -355,7 +355,7 @@ let is_char = function
     | _ -> false
 
 let is_primt = function
-    | YPrim -> true
+    | YPrim _ -> true
     | _ -> false
 
 let is_float = function
@@ -454,9 +454,9 @@ let peval (env : TopEnv) x =
         | YPair(a,b) -> DPair(f a, f b) 
         | YSymbol a -> DSymbol a
         | YRecord l -> DRecord(Map.map (fun _ -> f) l)
-        | YUnion | YLayout | YPrim | YArray | YFun | YMacro as x -> let r = DV(L(!s.i,x)) in incr s.i; r
-        | YNominal | YApply as a -> DNominal(nominal_apply s a |> ty_to_data s, a)
-        | YTypeFunction -> raise_type_error s "Cannot turn a type function to a runtime variable."
+        | YUnion _ | YLayout _ | YPrim _ | YArray _ | YFun _ | YMacro _ as x -> let r = DV(L(!s.i,x)) in incr s.i; r
+        | YNominal _ | YApply _ as a -> DNominal(nominal_apply s a |> ty_to_data s, a)
+        | YTypeFunction _ -> raise_type_error s "Cannot turn a type function to a runtime variable."
     and push_typedop_no_rewrite d op ret_ty =
         let ret = ty_to_data d ret_ty
         d.seq.Add(TyLet(ret,d.trace,op))
@@ -521,7 +521,7 @@ let peval (env : TopEnv) x =
                 | DB -> YB
                 | DFunction(_,Some a,_,_,_,_) -> ty s a
                 | DFunction(_,None,_,_,_,_) -> raise_type_error s "Cannot convert a function that is not annotated into a type."
-                | DForall -> raise_type_error s "Cannot convert a forall into a type."
+                | DForall _ -> raise_type_error s "Cannot convert a forall into a type."
                 ) x
         f x
     and dyn do_lit s x =
@@ -530,15 +530,15 @@ let peval (env : TopEnv) x =
         let rec f x =
             Utils.memoize m (function
                 | DPair(a,b) -> DPair(f a, f b)
-                | DB | DV | DSymbol as a -> a
+                | DB | DV _ | DSymbol _ as a -> a
                 | DRecord l -> DRecord(Map.map (fun _ -> f) l)
                 | DUnion(DPair(DSymbol k,v),b) -> dirty <- true; push_typedop s (TyUnionBox(k,f v,b)) (YUnion b)
-                | DUnion -> raise_type_error s "Compiler error: Malformed union"
+                | DUnion _ -> raise_type_error s "Compiler error: Malformed union"
                 | DNominal(a,b) -> DNominal(f a,b)
                 | DLit v as x -> if do_lit then dirty <- true; push_op_no_rewrite s Dyn x (lit_to_ty v) else x // TODO: Since strings are heap allocated, it might be worth it to consider them separate from other literals much like union types.
                 | DFunction(body,Some annot,term',ty',sz_term,sz_ty) -> dirty <- true; closure_convert s (body,annot,term',ty',sz_term,sz_ty) |> fst
                 | DFunction(_,None,_,_,_,_) -> raise_type_error s "Cannot convert a function that is not annotated into a type."
-                | DForall -> raise_type_error s "Cannot convert a forall into a type."
+                | DForall _ -> raise_type_error s "Cannot convert a forall into a type."
                 ) x
         let v = f x
         if dirty then v else x
@@ -567,7 +567,7 @@ let peval (env : TopEnv) x =
         | _ -> raise_type_error s <| sprintf "Expected a nominal or a deferred type apply.\nGot: %s" (show_ty x)
     and ty s x =
         match x with
-        | TArrow | TJoinPoint -> failwith "Compiler error: Should have been transformed during the prepass."
+        | TArrow _ | TJoinPoint _ -> failwith "Compiler error: Should have been transformed during the prepass."
         | TArrow'(_,scope,i,body) -> 
             assert (i = scope.ty.stack_size)
             YTypeFunction(body,Array.map (vt s) scope.ty.free_vars,scope.term.stack_size,scope.ty.stack_size)
@@ -593,7 +593,7 @@ let peval (env : TopEnv) x =
                 let ret_ty = ty s body
                 dict.[join_point_key] <- Some ret_ty
                 ret_ty
-        | TB -> YB
+        | TB _ -> YB
         | TV i -> vt s i
         | TPair(_,a,b) -> YPair(ty s a, ty s b)
         | TFun(_,a,b) -> YFun(ty s a, ty s b)
@@ -610,7 +610,7 @@ let peval (env : TopEnv) x =
                     | Some x -> x
                     | None -> raise_type_error s <| sprintf  "Cannot find key %s in the record." b
                 | b -> raise_type_error s <| sprintf "Expected a symbol in the record application.\nGot: %s" (show_ty b)
-            | YNominal | YApply as a -> YApply(a,ty s b)
+            | YNominal _ | YApply _ as a -> YApply(a,ty s b)
             | YTypeFunction(body,gl_ty,sz_term,sz_ty) -> 
                 let b = ty s b
                 let s = 
@@ -665,7 +665,7 @@ let peval (env : TopEnv) x =
                         }
                 s.env_global_term.[0] <- b
                 term s body
-            | DForall, _ -> raise_type_error s "Cannot apply a forall with a term."
+            | DForall _, _ -> raise_type_error s "Cannot apply a forall with a term."
             | DV(L(_,YFun(domain,range) & a_ty)) & a, b ->
                 let b = dyn false s b
                 let b_ty = data_to_ty s b
@@ -676,7 +676,7 @@ let peval (env : TopEnv) x =
                 match layout with
                 | HeapMutable -> push_typedop_no_rewrite s key ty
                 | Heap -> push_typedop s key ty
-            | DV(L(_,YLayout)), b -> raise_type_error s <| sprintf "Expected a symbol as the index into the layout type.\nGot: %s" (show_data b)
+            | DV(L(_,YLayout _)), b -> raise_type_error s <| sprintf "Expected a symbol as the index into the layout type.\nGot: %s" (show_data b)
             | a,_ -> raise_type_error s <| sprintf "Expected a function, closure, record or a layout type.\nGot: %s" (show_data a)
 
         let rec if_ s cond on_succ on_fail = 
@@ -775,21 +775,21 @@ let peval (env : TopEnv) x =
         let inline nan_guardf64 x = if Double.IsNaN x then raise_type_error s "A 64-bit floating point operation resulting in a nan detected at compile time." else x
 
         match x with
-        | EB -> DB
+        | EB _ -> DB
         | EV a -> v s a
         | ELit(_,a) -> DLit a
         | ESymbol(_,a) -> DSymbol a
-        | EFun -> failwith "Compiler error: Raw functions should be transformed during the prepass."
+        | EFun _ -> failwith "Compiler error: Raw functions should be transformed during the prepass."
         | EFun'(_,free_vars,i,body,annot) -> 
             assert (free_vars.term.free_vars.Length = i)
             DFunction(body,annot,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
-        | EForall -> failwith "Compiler error: Raw foralls should be transformed during the prepass."
+        | EForall _ -> failwith "Compiler error: Raw foralls should be transformed during the prepass."
         | EForall'(_,free_vars,i,body) ->
             assert (free_vars.ty.free_vars.Length = i)
             DForall(body,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
         | ERecursive a -> term s !a
-        | ERecBlock -> failwith "Compiler error: Recursive blocks should be inlined and eliminated during the prepass."
-        | EJoinPoint -> failwith "Compiler error: Raw join points should be transformed during the prepass."
+        | ERecBlock _ -> failwith "Compiler error: Recursive blocks should be inlined and eliminated during the prepass."
+        | EJoinPoint _ -> failwith "Compiler error: Raw join points should be transformed during the prepass."
         | EJoinPoint'(r,scope,body,annot) ->
             let dict, hc_table = Utils.memoize join_point_method (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
             let call_args, env_global_value = data_to_rdata hc_table s.env_global_term
@@ -866,7 +866,7 @@ let peval (env : TopEnv) x =
                 | WVar(r,a) -> var r a (fun a -> Map.remove a m)
                 ) withouts
             |> DRecord
-        | EPatternMemo | EReal -> failwith "Compiler error: Should have been eliminated during the prepass."
+        | EPatternMemo _ | EReal _ -> failwith "Compiler error: Should have been eliminated during the prepass."
         | ERecord a -> DRecord(Map.map (fun _ -> term s) a)
         | EPair(r,a,b) -> DPair(term s a, term s b)
         | ESeq(r,a,b) -> 
@@ -889,7 +889,7 @@ let peval (env : TopEnv) x =
             let L(i,a_ty) & a =
                 match term s a with
                 | DV(L(i,YLayout(a,HeapMutable))) -> L(i,a)
-                | DV(L(_,YLayout)) -> raise_type_error s "Expected a mutable layout type, but got an immutable one."
+                | DV(L(_,YLayout _)) -> raise_type_error s "Expected a mutable layout type, but got an immutable one."
                 | a -> raise_type_error s <| sprintf "Expected a mutable layout type.\nGot: %s" (show_data a)
             let b = 
                 List.map (fun (r,b) -> 
@@ -998,7 +998,7 @@ let peval (env : TopEnv) x =
             match ty s a with
             | YNominal a ->
                 match v s bind with
-                | DNominal((DUnion | DV(L(_,YUnion))),_) -> raise_type_error s "Got an union in a nominal pattern."
+                | DNominal((DUnion _ | DV(L(_,YUnion _))),_) -> raise_type_error s "Got an union in a nominal pattern."
                 | DNominal(v,b) ->
                     let rec loop = function
                         | YNominal b -> if a = b then store_term s p1 v; term s on_succ else term s on_fail
@@ -1111,7 +1111,7 @@ let peval (env : TopEnv) x =
         | EOp(_,ArrayLength,[a]) ->
             let a = term s a
             match data_to_ty s a with
-            | YArray -> push_op s ArrayLength a (YPrim Int32T)
+            | YArray _ -> push_op s ArrayLength a (YPrim Int32T)
             | a -> raise_type_error s <| sprintf "Array length is only supported for non-native arrays. Got: %s" (show_ty a)
         | EOp(_,ArrayIndex,[a;b]) ->
             match term s a with
@@ -1601,19 +1601,19 @@ let peval (env : TopEnv) x =
             | a -> raise_type_error s "Expected a float.\nGot: %s" (show_ty a)
         | EOp(_,LitIs,[a]) -> 
             match term s a with
-            | DLit -> DLit (LitBool true)
+            | DLit _ -> DLit (LitBool true)
             | _ -> DLit (LitBool false)
         | EOp(_,PrimIs,[a]) -> 
             match term s a |> data_to_ty s with
-            | YPrim -> DLit (LitBool true)
+            | YPrim _ -> DLit (LitBool true)
             | _ -> DLit (LitBool false)
         | EOp(_,SymbolIs,[a]) -> 
             match term s a with
-            | DSymbol -> DLit (LitBool true)
+            | DSymbol _ -> DLit (LitBool true)
             | _ -> DLit (LitBool false)
         | EOp(_,FailWith,[EType(_,typ);a]) ->
             match ty s typ, term s a with
-            | typ, (DV(L(_,YPrim StringT)) | DLit(LitString)) & a -> push_typedop_no_rewrite s (TyFailwith(typ,a)) typ
+            | typ, (DV(L(_,YPrim StringT)) | DLit(LitString _)) & a -> push_typedop_no_rewrite s (TyFailwith(typ,a)) typ
             | _,a -> raise_type_error s "Expected a string as input to failwith.\nGot: %s" (show_data a)
         | EOp(_,FailWith,_) -> raise_type_error s "Malformed FailWith"
         | EOp(_,ErrorType,[a]) -> term s a |> show_data |> raise_type_error s

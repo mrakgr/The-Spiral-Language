@@ -1,4 +1,4 @@
-﻿module Spiral.Servers
+﻿module Spiral.Server
 
 open System
 open System.Collections.Generic
@@ -81,8 +81,8 @@ let typechecker (req : ParserRes Stream) : TypecheckerRes Stream =
 
 let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : TypecheckerRes Stream) =
     let req, req_tc = Stream.values req, Stream.values req_tc
-    let rec waiting () = req_tc ^=> processing
-    and processing ((x,_ as r) : TypecheckerRes) = waiting () <|> (req ^=> fun (pos,ret) ->
+    let rec waiting = req_tc ^=> processing
+    and processing ((x,_ as r) : TypecheckerRes) = waiting <|> (req ^=> fun (pos,ret) ->
         let rec block_from i = 
             if 0 <= i then 
                 let a,b = x.[i]
@@ -93,7 +93,7 @@ let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : Typechecke
             ) |> ret
         processing r
         )
-    Hopac.server (waiting())
+    Hopac.server waiting
 
 type ClientReq =
     | ProjectFileOpen of {|uri : string; spiprojText : string|}

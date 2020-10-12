@@ -9,7 +9,7 @@
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <PlatformTarget>x64</PlatformTarget>
-    <NoWarn></NoWarn>
+    <NoWarn>40</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
@@ -36,7 +36,7 @@
     <Compile Include="PartEval.fs" />
     <Compile Include="CodegenFsharp.fs" />
     <Compile Include="Blockize.fs" />
-    <Compile Include="Servers.fs" />
+    <Compile Include="Server.fs" />
   </ItemGroup>
 
   <ItemGroup>
