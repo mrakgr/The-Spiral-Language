@@ -540,7 +540,7 @@ let patterns_validate pats =
     let errors = ResizeArray()
     let rec loop pat =
         match pat with
-        | PatFilledDefaultValue | PatDefaultValue | PatValue | PatSymbol | PatE | PatB -> Set.empty
+        | PatFilledDefaultValue _ | PatDefaultValue _ | PatValue _ | PatSymbol _ | PatE _ | PatB _ -> Set.empty
         | PatVar(r,x) -> 
             pos.Add(x,r)
             Set.singleton x
@@ -777,8 +777,8 @@ let typecase_validate x _ =
     let vars = Collections.Generic.HashSet()
     let errors = ResizeArray()
     let rec f = function
-        | RawTFilledNominal | RawTTerm | RawTForall -> failwith "Compiler error: This case is not supposed to appear in typecase."
-        | RawTPrim | RawTSymbol | RawTB | RawTWildcard -> ()
+        | RawTFilledNominal _ | RawTTerm _ | RawTForall _ -> failwith "Compiler error: This case is not supposed to appear in typecase."
+        | RawTPrim _ | RawTSymbol _ | RawTB _ | RawTWildcard _ -> ()
         | RawTMetaVar(r,a) -> if vars.Contains(a) then errors.Add(r,MetavarShadowedByVar) else metavars.Add(a) |> ignore
         | RawTVar(r,a) -> if metavars.Contains(a) then errors.Add(r,VarShadowedByMetavar) else vars.Add(a) |> ignore
         | RawTApply(_,a,b) | RawTFun(_,a,b) | RawTPair(_,a,b) -> f a; f b

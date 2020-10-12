@@ -1,5 +1,6 @@
 ﻿module Spiral.Servers
 
+open System
 open System.Collections.Generic
 open FSharpx.Collections
 
@@ -54,7 +55,8 @@ let parser is_top_down req =
         {bundles = bundles; parser_errors = parser_errors; tokenizer_errors = a.errors}
         )
     
-let typechecker (req : ParserRes Stream) =
+type TypecheckerRes = (Bundle * Infer.InferResult) PersistentVector * bool
+let typechecker (req : ParserRes Stream) : TypecheckerRes Stream =
     let req = Stream.values req
     let res = Src.create()
     let r = Src.tap res
@@ -66,13 +68,135 @@ let typechecker (req : ParserRes Stream) =
         loop PersistentVector.empty 0 b.bundles |> processing
     and processing = function
         | a, [] -> Alt.prepare (Src.value res (a,true) >>- fun () -> waiting a)
-        | a, b :: b' -> Alt.prepare (Src.value res (a, false) >>- fun () -> 
-                let env = 
-                    match PersistentVector.tryLast a with
-                    | Some(_,x : Infer.InferResult) -> x.top_env
-                    | None -> Infer.default_env
-                let a' = PersistentVector.conj (b, Infer.infer env (bundle b)) a
-                waiting a' <|> processing (a', b')
-                )
-    Job.server (waiting PersistentVector.empty) |> Hopac.queue
+        | a, b :: b' -> waiting a <|> Alt.prepare (Src.value res (a, false) >>- fun () -> 
+            let env = 
+                match PersistentVector.tryLast a with
+                | Some(_,x : Infer.InferResult) -> x.top_env
+                | None -> Infer.default_env
+            let a' = PersistentVector.conj (b, Infer.infer env (bundle b)) a
+            processing (a', b')
+            )
+    Hopac.server (waiting PersistentVector.empty)
     r
+
+let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : TypecheckerRes Stream) =
+    let req, req_tc = Stream.values req, Stream.values req_tc
+    let rec waiting () = req_tc ^=> processing
+    and processing ((x,_ as r) : TypecheckerRes) = waiting () <|> (req ^=> fun (pos,ret) ->
+        let rec block_from i = 
+            if 0 <= i then 
+                let a,b = x.[i]
+                if (List.head a).offset <= pos.line then b.hovers else block_from (i-1)
+            else [||]
+        block_from (x.Length-1) |> Array.tryPick (fun ((a,b),r) ->
+            if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
+            ) |> ret
+        processing r
+        )
+    Hopac.server (waiting())
+
+type ClientReq =
+    | ProjectFileOpen of {|uri : string; spiprojText : string|}
+    | FileOpen of {|uri : string; spiText : string|}
+    | FileChanged of {|uri : string; spiEdit : SpiEdit|}
+    | FileTokenRange of {|uri : string; range : VSCRange|}
+    | HoverAt of {|uri : string; pos : VSCPos|}
+    | BuildFile of {|uri : string|}
+
+type ClientRes =
+    | ProjectErrors of {|uri : string; errors : VSCErrorOpt []|}
+    | TokenizerErrors of {|uri : string; errors : VSCError []|}
+    | ParserErrors of {|uri : string; errors : VSCError []|}
+    | TypeErrors of {|uri : string; errors : VSCError list|}
+
+let port = 13805
+let uri_server = sprintf "tcp://*:%i" port
+let uri_client = sprintf "tcp://localhost:%i" (port+1)
+
+open FSharp.Json
+open NetMQ
+open NetMQ.Sockets
+
+let [<EntryPoint>] main _ =
+    use poller = new NetMQPoller()
+    use server = new RouterSocket()
+    poller.Add(server)
+    server.Options.ReceiveHighWatermark <- System.Int32.MaxValue
+    server.Bind(uri_server)
+    printfn "Server bound to: %s" uri_server
+
+    use queue_server = new NetMQQueue<NetMQMessage>()
+    poller.Add(queue_server)
+
+    use queue_client = new NetMQQueue<ClientRes>()
+    poller.Add(queue_client)
+
+    let file = Utils.memoize (Dictionary()) <| fun (uri : string) ->
+        let s = {|token = Src.create(); hover = Src.create()|}
+        let token = tokenizer (Src.tap s.token)
+        let parse = parser (System.IO.Path.GetExtension(uri) = ".spi") token
+        let ty = typechecker parse
+        hover (Src.tap s.hover) ty
+
+        token |> Stream.consumeFun (fun x -> queue_client.Enqueue(TokenizerErrors {|uri=uri; errors=x.errors|}))
+        parse |> Stream.consumeFun (fun x -> queue_client.Enqueue(ParserErrors {|uri=uri; errors=x.parser_errors|}))
+        ty |> Stream.consumeFun (fun (x,_) -> 
+            let errors = PersistentVector.foldBack (fun (_,x : Infer.InferResult) errors -> List.append errors x.errors) x []
+            queue_client.Enqueue(TypeErrors {|errors=errors; uri=uri|})
+            )
+        s
+
+    let buffer = Dictionary()
+    let last_id = ref 0
+    use __ = server.ReceiveReady.Subscribe(fun s ->
+        let rec loop () = Utils.remove buffer !last_id (body <| NetMQMessage 3) id
+        and body (msg : NetMQMessage) (address : NetMQFrame, x) =
+            incr last_id
+            let push_back (x : obj) = 
+                match x with
+                | :? Option<string> as x -> 
+                    match x with 
+                    | None -> msg.Push("null") 
+                    | Some x -> msg.Push(sprintf "\"%s\"" x)
+                | _ -> msg.Push(Json.serialize x)
+                msg.PushEmptyFrame(); msg.Push(address)
+            let send_back x = push_back x; server.SendMultipartMessage(msg)
+            let send_back_via_queue x = push_back x; queue_server.Enqueue(msg)
+            match x with
+            | ProjectFileOpen x ->
+                Job.thunk (fun () ->
+                    match config x.uri x.spiprojText with Ok _ -> [||] | Error x -> x
+                    |> fun errors -> queue_client.Enqueue(ProjectErrors {|uri=x.uri; errors=errors|})
+                    ) |> Hopac.start
+                send_back null
+            | FileOpen x -> Src.value (file x.uri).token (TokReq.Put(x.spiText)) |> Hopac.start; send_back null
+            | FileChanged x -> Src.value (file x.uri).token (TokReq.Modify(x.spiEdit)) |> Hopac.start; send_back null
+            | FileTokenRange x -> Hopac.start (timeOutMillis 30 >>=. Src.value (file x.uri).token (TokReq.GetRange(x.range,send_back_via_queue)))
+            | HoverAt x -> Hopac.start (Src.value (file x.uri).hover (x.pos, send_back_via_queue))
+            | BuildFile x ->
+                let x = Uri(x.uri).LocalPath
+                match IO.Path.GetExtension(x) with
+                | ".spi" | ".spir" -> IO.File.WriteAllText(IO.Path.ChangeExtension(x,"fsx"), "// Compiled with Spiral v0.2.")
+                | _ -> ()
+                send_back null
+            loop ()
+        let msg = server.ReceiveMultipartMessage(3)
+        let address = msg.Pop()
+        msg.Pop() |> ignore
+        let (id : int), x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
+        if !last_id = id then body msg (address, x)
+        else buffer.Add(id,(address,x))
+        )
+
+    use client = new RequestSocket()
+    client.Connect(uri_client)
+
+    use __ = queue_client.ReceiveReady.Subscribe(fun x -> 
+        x.Queue.Dequeue() |> Json.serialize |> client.SendFrame
+        client.ReceiveMultipartMessage() |> ignore
+        )
+
+    use __ = queue_server.ReceiveReady.Subscribe(fun x -> x.Queue.Dequeue() |> server.SendMultipartMessage)
+
+    poller.Run()
+    0
