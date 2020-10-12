@@ -544,7 +544,7 @@ type FilledTop =
     | FInstance of Range * (Range * int) * (Range * int) * RawExpr
 
 type InferResult = {
-    filled_top : FilledTop Lazy list
+    filled_top : FilledTop Lazy option
     hovers : (Range * string) []
     errors : VSCError list
     top_env : TopEnv
@@ -1226,7 +1226,8 @@ let infer (top_env : TopEnv) expr =
         ty {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
         let t = List.foldBack (fun x s -> TyInl(x,s)) vars (term_subst v)
         hover_types.Add(r,t)
-        if 0 = errors.Count then [lazy FType(q,(r,name),vars',expr)], {top_env with ty = Map.add name t top_env.ty} else [],top_env
+        if 0 = errors.Count then Some (lazy FType(q,(r,name),vars',expr)), {top_env with ty = Map.add name t top_env.ty} 
+        else None, top_env
     | BundleNominal(q,(r,name),vars',expr) ->
         let vars,env_ty = hovars vars'
         let tt = List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) vars KindType
@@ -1240,7 +1241,8 @@ let infer (top_env : TopEnv) expr =
                 ty = Map.add name (TyNominal i) top_env.ty
                 nominals = PersistentVector.conj (vars,v) top_env.nominals
                 nominals_aux = PersistentVector.conj {|name=name; kind=tt|} top_env.nominals_aux } 
-        if 0 = errors.Count then [lazy FNominal(q,(r,name),vars',expr)],top_env' else [],top_env
+        if 0 = errors.Count then Some (lazy FNominal(q,(r,name),vars',expr)), top_env' 
+        else None, top_env
     | BundleNominalRec l' ->
         let l,_ =
             List.mapFold (fun i (_,name,vars,body) ->
@@ -1259,7 +1261,8 @@ let infer (top_env : TopEnv) expr =
                 let v = term_subst v
                 PersistentVector.conj (vars,v) hoc, nominal_term r i tt name vars term v 
                 ) (top_env_inner.nominals, top_env_inner.term) l
-        if 0 = errors.Count then [lazy FNominalRec l'], {top_env_inner with nominals = nominals; ty = env_ty; term = env_term} else [],top_env
+        if 0 = errors.Count then Some (lazy FNominalRec l'), {top_env_inner with nominals = nominals; ty = env_ty; term = env_term} 
+        else None, top_env
     | BundlePrototype(q,(r,name),(w,var_init),vars',expr) ->
         let cons = CPrototype top_env.prototypes.Length
         let v = {scope=0; constraints=Set.singleton cons; name=var_init; kind=List.foldBack (fun ((_,(_,k)),_) s -> KindFun(typevar k, s)) vars' KindType}
@@ -1270,17 +1273,17 @@ let infer (top_env : TopEnv) expr =
         let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
         if 0 = errors.Count then
             hover_types.Add(r,body)
-            [lazy FPrototype(q,(r,name),(w,var_init),vars',expr)],
+            Some (lazy FPrototype(q,(r,name),(w,var_init),vars',expr)),
             { top_env  with term = Map.add name body top_env.term; constraints = Map.add name (C cons) top_env.constraints; 
                             prototypes = PersistentVector.conj {|instances=Map.empty; name=name; signature=body|} top_env.prototypes }
-        else [], top_env
+        else None, top_env
     | BundleInl(q,name,a,true) ->
         let env = inl {term=Map.empty; ty=Map.empty; constraints=Map.empty} (name,a)
-        (if 0 = errors.Count then [lazy FInl(q,name,fill q Map.empty a)] else []), 
+        (if 0 = errors.Count then Some (lazy FInl(q,name,fill q Map.empty a)) else None), 
         {top_env with term = Map.foldBack Map.add env.term top_env.term}
     | BundleInl(q,(w,name),a,false) ->
         assert_bound_vars {term=Map.empty; ty=Map.empty; constraints=Map.empty} a
-        (if 0 = errors.Count then [lazy FInl(q,(w,name),a)] else []), 
+        (if 0 = errors.Count then Some (lazy FInl(q,(w,name),a)) else None), 
         {top_env with term = Map.add name (TySymbol "<real>") top_env.term }
     | BundleRecInl(l,is_top_down) ->
         let _ =
@@ -1296,9 +1299,9 @@ let infer (top_env : TopEnv) expr =
                 env_term
         let filled_top =
             if 0 = errors.Count then
-                if is_top_down then [lazy FRecInl(List.map (fun (a,b,c) -> a,b,fill a env_term c) l)]
-                else [lazy FRecInl l]
-            else []
+                if is_top_down then Some (lazy FRecInl(List.map (fun (a,b,c) -> a,b,fill a env_term c) l))
+                else Some (lazy FRecInl l)
+            else None
         filled_top, {top_env with term = Map.foldBack Map.add env_term top_env.term}
     | BundleInstance(r,prot,ins,vars,body) ->
         let assert_no_kind x = x |> List.iter (fun ((r,(_,k)),_) -> match k with RawKindWildcard -> () | _ -> errors.Add(r,KindNotAllowedInInstanceForall))
@@ -1310,7 +1313,7 @@ let infer (top_env : TopEnv) expr =
         let assert_instance_forall_does_not_shadow_prototype_forall prot_forall_name = List.iter (fun ((r,(a,_)),_) -> if a = prot_forall_name then errors.Add(r,InstanceVarShouldNotMatchAnyOfPrototypes)) vars
         let body prot_id ins_id = 
             let ins_kind' = top_env.nominals_aux.[ins_id].kind
-            let guard next = if 0 = errors.Count then next () else [],top_env
+            let guard next = if 0 = errors.Count then next () else None,top_env
             let ins_kind = kind_get ins_kind'
             let prototype = top_env.prototypes.[prot_id]
             hover_types.Add(fst prot, prototype.signature) // TODO: Do the same for the instance signature.
@@ -1349,15 +1352,15 @@ let infer (top_env : TopEnv) expr =
             let prototype = {|prototype with instances = Map.add ins_id ins_constraints prototype.instances|}
             top_env_inner <- {top_env with prototypes = PersistentVector.update prot_id prototype top_env.prototypes}
             term {term=Map.empty; ty=env_ty; constraints=Map.empty} prot_body body
-            (if 0 = errors.Count then [lazy FInstance(r,(fst prot, prot_id),(fst ins, ins_id),fill r Map.empty body)] else []), 
+            (if 0 = errors.Count then Some (lazy FInstance(r,(fst prot, prot_id),(fst ins, ins_id),fill r Map.empty body)) else None), 
             top_env_inner
             
-        let fake _ = [], top_env
+        let fake _ = None, top_env
         let check_ins on_succ =
             match Map.tryFind (snd ins) top_env.ty with
-            | None -> errors.Add(fst ins, UnboundVariable); [], top_env
+            | None -> errors.Add(fst ins, UnboundVariable); None, top_env
             | Some(TyNominal i') -> on_succ i'
-            | Some x -> errors.Add(fst ins, ExpectedHigherOrder x); [], top_env
+            | Some x -> errors.Add(fst ins, ExpectedHigherOrder x); None, top_env
         match Map.tryFind (snd prot) top_env.constraints with
         | None -> errors.Add(fst prot, UnboundVariable); check_ins fake
         | Some(C (CPrototype i)) -> check_ins (body i)
