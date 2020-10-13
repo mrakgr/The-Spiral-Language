@@ -81,8 +81,7 @@ let typechecker (req : ParserRes Stream) : TypecheckerRes Stream =
 
 let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : TypecheckerRes Stream) =
     let req, req_tc = Stream.values req, Stream.values req_tc
-    let rec waiting () = req_tc ^=> processing
-    and processing ((x,_ as r) : TypecheckerRes) = waiting () <|> (req ^=> fun (pos,ret) ->
+    let rec processing ((x,_ as r) : TypecheckerRes) = waiting  <|> (req ^=> fun (pos,ret) ->
         let rec block_from i = 
             if 0 <= i then 
                 let a,b = x.[i]
@@ -93,10 +92,12 @@ let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : Typechecke
             ) |> ret
         processing r
         )
-    Hopac.server (waiting())
+    and waiting = req_tc ^=> processing
+    Hopac.server waiting
 
 type ClientReq =
     | ProjectFileOpen of {|uri : string; spiprojText : string|}
+    | ProjectFileChange of {|uri : string; spiprojText : string|}
     | FileOpen of {|uri : string; spiText : string|}
     | FileChanged of {|uri : string; spiEdit : SpiEdit|}
     | FileTokenRange of {|uri : string; range : VSCRange|}
@@ -146,6 +147,22 @@ let [<EntryPoint>] main _ =
             )
         s
 
+    let project = Utils.memoize (Dictionary()) <| fun (uri : string) ->
+        let s = {|op=Src.create(); change=Src.create(); links=Src.create()|}
+        let op,change,links = Src.tap s.op |> Stream.values, Src.tap s.change |> Stream.values, Src.tap s.links |> Stream.values
+        let config uri text = 
+            let x = config uri text
+            let errors = match x with Ok _ -> [||] | Error er -> er
+            queue_client.Enqueue(ProjectErrors {|uri=uri; errors=errors|} )
+            x
+            
+        let rec processing schema = 
+            op ^=> fun _ -> processing schema
+            <|> change ^=> (config uri >> function Ok x -> processing x | Error _ -> processing schema)
+            <|> links ^=> fun _ -> failwith "TODO"
+        let rec waiting () = op ^=> (config uri >> function Ok x -> processing x | Error _ -> waiting ())
+        s
+
     let buffer = Dictionary()
     let last_id = ref 0
     use __ = server.ReceiveReady.Subscribe(fun s ->
@@ -163,15 +180,9 @@ let [<EntryPoint>] main _ =
             let send_back x = push_back x; server.SendMultipartMessage(msg)
             let send_back_via_queue x = push_back x; queue_server.Enqueue(msg)
             match x with
-            | ProjectFileOpen x ->
-                Job.thunk (fun () ->
-                    match config x.uri x.spiprojText with Ok _ -> [||] | Error x -> x
-                    |> fun errors -> queue_client.Enqueue(ProjectErrors {|uri=x.uri; errors=errors|})
-                    ) |> Hopac.start
-                send_back null
-            | FileOpen x -> 
-                printfn "%s" x.uri
-                Src.value (file x.uri).token (TokReq.Put(x.spiText)) |> Hopac.start; send_back null
+            | ProjectFileOpen x -> Src.value (project x.uri).op x.spiprojText |> Hopac.start; send_back null
+            | ProjectFileChange x -> Src.value (project x.uri).change x.spiprojText |> Hopac.start; send_back null
+            | FileOpen x -> Src.value (file x.uri).token (TokReq.Put(x.spiText)) |> Hopac.start; send_back null
             | FileChanged x -> Src.value (file x.uri).token (TokReq.Modify(x.spiEdit)) |> Hopac.start; send_back null
             | FileTokenRange x -> Hopac.start (timeOutMillis 30 >>=. Src.value (file x.uri).token (TokReq.GetRange(x.range,send_back_via_queue)))
             | HoverAt x -> Hopac.start (Src.value (file x.uri).hover (x.pos, send_back_via_queue))

@@ -17,6 +17,7 @@ const request = async (file: object): Promise<any> => {
 }
 
 const spiprojOpenReq = async (uri: string, spiprojText: string) => request({ ProjectFileOpen: { uri, spiprojText } })
+const spiprojChangeReq = async (uri: string, spiprojText: string) => request({ ProjectFileChange: { uri, spiprojText } })
 const spiOpenReq = async (uri: string, spiText: string) => request({ FileOpen: { uri, spiText } })
 const spiChangeReq = async (uri: string, spiEdit : {from: number, nearTo: number, lines: string[]} ) => request({ FileChanged: { uri, spiEdit } })
 const spiTokenRangeReq = async (uri: string, range : Range) => request({ FileTokenRange: { uri, range } })
@@ -85,6 +86,7 @@ export const activate = async (ctx: ExtensionContext) => {
     })();
 
     const spiprojOpen = (doc: TextDocument) => { spiprojOpenReq(doc.uri.toString(true), doc.getText()) }
+    const spiprojChange = (doc: TextDocument) => { spiprojChangeReq(doc.uri.toString(true), doc.getText()) }
     const spiOpen = (doc: TextDocument) => { spiOpenReq(doc.uri.toString(true), doc.getText()) }
 
     const numberOfLinesAdded = (str: string) => {
@@ -130,16 +132,14 @@ export const activate = async (ctx: ExtensionContext) => {
     const onDocOpen = (doc: TextDocument) => {
         switch (path.extname(doc.uri.path)) {
             case ".spiproj": return spiprojOpen(doc)
-            case ".spir":
-            case ".spi": return spiOpen(doc)
+            case ".spir": case ".spi": return spiOpen(doc)
             default: return
         }
     }
     const onDocChange = (x: TextDocumentChangeEvent) => {
         switch (path.extname(x.document.uri.path)) {
-            case ".spiproj": return spiprojOpen(x.document)
-            case ".spir":
-            case ".spi": return spiChange(x.document,x.contentChanges)
+            case ".spiproj": return spiprojChange(x.document)
+            case ".spir": case ".spi": return spiChange(x.document,x.contentChanges)
             default: return
         }
     }
