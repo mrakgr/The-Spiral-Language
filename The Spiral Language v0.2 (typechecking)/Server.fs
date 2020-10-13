@@ -81,8 +81,8 @@ let typechecker (req : ParserRes Stream) : TypecheckerRes Stream =
 
 let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : TypecheckerRes Stream) =
     let req, req_tc = Stream.values req, Stream.values req_tc
-    let rec waiting = req_tc ^=> processing
-    and processing ((x,_ as r) : TypecheckerRes) = waiting <|> (req ^=> fun (pos,ret) ->
+    let rec waiting () = req_tc ^=> processing
+    and processing ((x,_ as r) : TypecheckerRes) = waiting () <|> (req ^=> fun (pos,ret) ->
         let rec block_from i = 
             if 0 <= i then 
                 let a,b = x.[i]
@@ -93,7 +93,7 @@ let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : Typechecke
             ) |> ret
         processing r
         )
-    Hopac.server waiting
+    Hopac.server (waiting())
 
 type ClientReq =
     | ProjectFileOpen of {|uri : string; spiprojText : string|}
@@ -169,7 +169,9 @@ let [<EntryPoint>] main _ =
                     |> fun errors -> queue_client.Enqueue(ProjectErrors {|uri=x.uri; errors=errors|})
                     ) |> Hopac.start
                 send_back null
-            | FileOpen x -> Src.value (file x.uri).token (TokReq.Put(x.spiText)) |> Hopac.start; send_back null
+            | FileOpen x -> 
+                printfn "%s" x.uri
+                Src.value (file x.uri).token (TokReq.Put(x.spiText)) |> Hopac.start; send_back null
             | FileChanged x -> Src.value (file x.uri).token (TokReq.Modify(x.spiEdit)) |> Hopac.start; send_back null
             | FileTokenRange x -> Hopac.start (timeOutMillis 30 >>=. Src.value (file x.uri).token (TokReq.GetRange(x.range,send_back_via_queue)))
             | HoverAt x -> Hopac.start (Src.value (file x.uri).hover (x.pos, send_back_via_queue))
