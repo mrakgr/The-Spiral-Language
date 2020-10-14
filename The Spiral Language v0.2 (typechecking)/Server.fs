@@ -105,7 +105,7 @@ type ClientReq =
     | BuildFile of {|uri : string|}
 
 type ClientRes =
-    | ProjectErrors of {|uri : string; errors : VSCErrorOpt []|}
+    | ProjectErrors of {|uri : string; errors : VSCError []|}
     | TokenizerErrors of {|uri : string; errors : VSCError []|}
     | ParserErrors of {|uri : string; errors : VSCError []|}
     | TypeErrors of {|uri : string; errors : VSCError list|}

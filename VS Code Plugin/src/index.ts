@@ -24,28 +24,24 @@ const spiTokenRangeReq = async (uri: string, range : Range) => request({ FileTok
 const spiHoverAtReq = async (uri: string, pos : Position) => request({ HoverAt: { uri, pos } })
 const spiBuildFileReq = async (uri: string) => request({ BuildFile: {uri} })
 
-const errorsSet = (errors : DiagnosticCollection, uri: Uri, x: [string, RangeRec | null][]) => {
+const errorsSet = (errors : DiagnosticCollection, uri: Uri, x: [string, RangeRec][]) => {
     const diag: Diagnostic[] = []
     x.forEach(([error, range]) => {
-        if (range) {
-            diag.push(new Diagnostic(
-                new Range(range[0].line, range[0].character, range[1].line, range[1].character),
-                error, DiagnosticSeverity.Error))
-        } else {
-            window.showErrorMessage(error)
-        }
+        diag.push(new Diagnostic(
+            new Range(range[0].line, range[0].character, range[1].line, range[1].character),
+            error, DiagnosticSeverity.Error))
     })
     errors.set(uri, diag)
 }
 
 type PositionRec = { line: number, character: number }
 type RangeRec = [PositionRec, PositionRec]
+type Errors = [string, RangeRec][]
 type ClientRes = 
-    { ProjectErrors: {uri : string, errors : [string, RangeRec | null][]} }
-    | { TokenizerErrors: {uri : string, errors : [string, RangeRec][]}}
-    | { ParserErrors: {uri : string, errors : [string, RangeRec][]}}
-    | { TypeErrors: {uri : string, errors : [string, RangeRec][]}}
-
+    { ProjectErrors: {uri : string, errors : Errors} }
+    | { TokenizerErrors: {uri : string, errors : Errors} }
+    | { ParserErrors: {uri : string, errors : Errors} }
+    | { TypeErrors: {uri : string, errors : Errors} }
 
 export const activate = async (ctx: ExtensionContext) => {
     console.log("Spiral plugin is active.")
