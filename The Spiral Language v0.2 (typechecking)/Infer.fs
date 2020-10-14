@@ -36,7 +36,7 @@ and T =
     | TyPrim of PrimitiveType
     | TySymbol of string
     | TyPair of T * T
-    | TyRecord of Map<string, T>
+    | TyRecord of Map<string, T> * is_module : bool
     | TyFun of T * T
     | TyArray of T
     | TyNominal of int
@@ -128,6 +128,14 @@ type TopEnv = {
     term : Map<string,T>
     constraints : Map<string,ConstraintOrModule>
     }
+type TopEnvModify =
+    | TeNominal of ins : int * name : string * kind : TT * vars : Var list * body : T
+    | TePrototype of prot : int * name : string * signature: T
+    | TePrototypeInstance of prot : int * ins : int * constraints : Constraint Set list
+    | TeTy of string * T
+    | TeTerm of string * T
+    | TeConstraint of string * Constraint
+
 type Env = { ty : Map<string,T>; term : Map<string,T>; constraints : Map<string,ConstraintOrModule> }
 
 let kind_get x = 
@@ -138,7 +146,7 @@ let kind_get x =
     {|arity=List.length l; args=l|}
 
 let prototype_init_forall_kind = function
-    | TyForall(a,b) -> a.kind
+    | TyForall(a,_) -> a.kind
     | _ -> failwith "Compiler error: The prototype should have at least one forall."
 
 let constraint_kind (env : TopEnv) = function
@@ -159,7 +167,7 @@ let rec tt (env : TopEnv) = function
 let module_open (top_env : Env) (r : Range) b l =
     let tryFind env x =
         match Map.tryFind x env.term, Map.tryFind x env.ty, Map.tryFind x env.constraints with
-        | Some (TyRecord a), Some (TyRecord b), Some (M c) -> ValueSome {term=a; ty=b; constraints=c}
+        | Some (TyRecord(a,true)), Some (TyRecord(b,true)), Some (M c) -> ValueSome {term=a; ty=b; constraints=c}
         | _ -> ValueNone
     match tryFind top_env b with
     | ValueNone -> Error(r, UnboundModule)
@@ -275,7 +283,7 @@ let rec subst (m : (Var * T) list) x =
     | TyMetavar(_,{contents=Some x}) -> f x // Don't do path shortening here.
     | TyMetavar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> x
     | TyPair(a,b) -> TyPair(f a, f b)
-    | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
+    | TyRecord(a,b) -> TyRecord(Map.map (fun _ -> f) a,b)
     | TyUnion(a,b) -> TyUnion(Map.map (fun _ -> f) a,b)
     | TyFun(a,b) -> TyFun(f a, f b)
     | TyArray a -> TyArray(f a)
@@ -326,7 +334,7 @@ let rec term_subst x =
     | TyMetavar(_,{contents=Some x} & link) -> shorten x link f
     | TyMetavar _ | TyVar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ as x -> x
     | TyPair(a,b) -> TyPair(f a, f b)
-    | TyRecord l -> TyRecord(Map.map (fun _ -> f) l)
+    | TyRecord(a,b) -> TyRecord(Map.map (fun _ -> f) a,b)
     | TyUnion(a,b) -> TyUnion(Map.map (fun _ -> f) a,b)
     | TyFun(a,b) -> TyFun(f a, f b)
     | TyForall(a,b) -> TyForall(a,f b)
@@ -357,7 +365,7 @@ let rec has_metavars x =
     | TyVar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> false
     | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
     | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a || f b
-    | TyUnion(l,_) | TyRecord l -> Map.exists (fun _ -> f) l
+    | TyUnion(l,_) | TyRecord(l,_) -> Map.exists (fun _ -> f) l
     | TyMacro a -> List.exists (function TMVar x -> has_metavars x | _ -> false) a
 
 let show_primt = function
@@ -437,7 +445,7 @@ let show_t (env : TopEnv) x =
             | TySymbol a, TyB when 0 < a.Length && System.Char.IsLower(a,0) -> to_upper a
             | a,b -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b))
         | TyFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
-        | TyRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
+        | TyRecord(l,_) -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
         | TyUnion(l,_) -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "| ")
         | TyMacro a -> p 30 (List.map (function TMVar a -> f -1 a | TMText a -> a) a |> String.concat "")
         | TyLayout(a,b) -> p 30 (sprintf "%s %s" (show_layout_type b) (f 30 a))
@@ -547,7 +555,7 @@ type InferResult = {
     filled_top : FilledTop Lazy option
     hovers : (Range * string) []
     errors : VSCError list
-    top_env : TopEnv
+    top_env_changes : TopEnvModify list
     }
 
 let t_to_rawtexpr r expr =
@@ -560,7 +568,7 @@ let t_to_rawtexpr r expr =
         | TyPrim x -> RawTPrim(r,x)
         | TySymbol x -> RawTSymbol(r,x)
         | TyPair(a,b) -> RawTPair(r,f a,f b)
-        | TyRecord l -> RawTRecord(r,Map.map (fun _ -> f) l)
+        | TyRecord(l,_) -> RawTRecord(r,Map.map (fun _ -> f) l)
         | TyFun(a,b) -> RawTFun(r,f a,f b)
         | TyArray a -> RawTArray(r,f a)
         | TyNominal i -> RawTFilledNominal(r,i)
@@ -574,7 +582,7 @@ let t_to_rawtexpr r expr =
 open System.Collections.Generic
 open Spiral.TypecheckingUtils
 let infer (top_env : TopEnv) expr =
-    let mutable top_env_inner = top_env // Is mutated only in two places at the top level. During actual inference can otherwise be thought of as immutable.
+    let mutable top_env = top_env // Is mutated only in two places at the top level. During actual inference can otherwise be thought of as immutable.
     let errors = ResizeArray()
     let generalized_statements = Dictionary(HashIdentity.Reference)
     let type_apply_args = Dictionary(HashIdentity.Reference)
@@ -627,8 +635,8 @@ let infer (top_env : TopEnv) expr =
             | RawJoinPoint(r,a) -> RawAnnot(r,RawJoinPoint(r,f a),annot r x)
             | RawAnnot(r,a,_) -> f a
             | RawModuleOpen(r,a,b,c) ->
-                let f = function TyRecord s -> s | _ -> failwith "Compiler error: Module open should always succeed in fill."
-                List.fold (fun s x -> (f s).[snd x]) top_env_inner.term.[snd a] b |> f
+                let f = function TyRecord(s,_) -> s | _ -> failwith "Compiler error: Module open should always succeed in fill."
+                List.fold (fun s x -> (f s).[snd x]) top_env.term.[snd a] b |> f
                 |> Map.fold (fun s k _ -> Map.remove k s) rec_term
                 |> fun rec_term -> RawModuleOpen(r,a,b,term rec_term c)
             | RawApply(r,a,b) -> RawApply(r,f a,f b)
@@ -703,9 +711,10 @@ let infer (top_env : TopEnv) expr =
             | TyVar v -> if h.Add(v) then generalized_metavars.Add(v)
             | TyMetavar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> ()
             | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b) -> f a; f b
-            | TyUnion(a,_) | TyRecord a -> Map.iter (fun _ -> f) a
-            | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
+            | TyUnion(a,_) | TyRecord(a,false) -> Map.iter (fun _ -> f) a
+            | TyLayout(a,_) | TyArray a -> f a
             | TyMacro a -> List.iter (function TMVar a -> f a | TMText _ -> ()) a
+            | TyRecord(_,true) | TyForall _ | TyInl _ -> ()
 
         let f x s = TyForall(x,s)
         replace_metavars body
@@ -737,7 +746,7 @@ let infer (top_env : TopEnv) expr =
             | TyMacro _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> ()
             | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
             | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a; f b
-            | TyUnion(l,_) | TyRecord l -> Map.iter (fun _ -> f) l
+            | TyUnion(l,_) | TyRecord(l,_) -> Map.iter (fun _ -> f) l
             | TyVar b -> if i.scope < b.scope then raise (TypeErrorException [r,ForallVarScopeError(b.name,got,expected)])
             | TyMetavar(x,_) -> if i = x then er() elif i.scope < x.scope then x.scope <- i.scope
             | TyLayout(a,_) -> f a
@@ -756,14 +765,14 @@ let infer (top_env : TopEnv) expr =
                     link := Some b'
             | (TyMetavar(a,link), b | b, TyMetavar(a,link)) ->
                 validate_unification a b
-                unify_kind a.kind (tt top_env_inner b)
-                match constraints_process top_env_inner (a.constraints,b) with
+                unify_kind a.kind (tt top_env b)
+                match constraints_process top_env (a.constraints,b) with
                 | [] -> link := Some b
                 | constraint_errors -> raise (TypeErrorException (List.map (fun x -> r,x) constraint_errors))
             | TyVar a, TyVar b when a = b -> ()
             | (TyPair(a,a'), TyPair(b,b') | TyFun(a,a'), TyFun(b,b') | TyApply(a,a',_), TyApply(b,b',_)) -> loop (a,b); loop (a',b')
             | (TyUnion(l,q), TyUnion(l',q')) -> if q = q' then record l l' else raise (TypeErrorException [r,UnionTypesMustHaveTheSameLayout])
-            | TyRecord l, TyRecord l' -> record l l'
+            | TyRecord(a,b), TyRecord(a',b') when b = b' -> record a a'
             | TyNominal i, TyNominal i' when i = i' -> ()
             | TyB, TyB -> ()
             | TyPrim x, TyPrim x' when x = x' -> ()
@@ -793,21 +802,21 @@ let infer (top_env : TopEnv) expr =
             | None -> errors.Add(r,RecordIndexFailed x)
         | TyPair(TySymbol x, b) ->
             match Map.tryFind x l with
-            | Some (TyRecord l) -> f l b
+            | Some (TyRecord(l,_)) -> f l b
             | Some a -> unify r a (TyFun(b,s))
             | None -> errors.Add(r,RecordIndexFailed x)
         | x -> errors.Add(r,ExpectedSymbolAsRecordKey x)
            
     let assert_bound_vars env a =
         let keys_of m = Map.fold (fun s k _ -> Set.add k s) Set.empty m
-        validate_bound_vars (loc_env top_env_inner) env.constraints (keys_of env.term) (keys_of env.ty) (Choice1Of2 a) |> errors.AddRange
+        validate_bound_vars (loc_env top_env) env.constraints (keys_of env.term) (keys_of env.ty) (Choice1Of2 a) |> errors.AddRange
 
     let fresh_var () = fresh_var' KindType
 
-    let v_cons env a = Map.tryFind a env |> Option.orElseWith (fun () -> Map.tryFind a top_env_inner.constraints)
+    let v_cons env a = Map.tryFind a env |> Option.orElseWith (fun () -> Map.tryFind a top_env.constraints)
     let v env top_env a = Map.tryFind a env |> Option.orElseWith (fun () -> Map.tryFind a top_env) |> Option.map visit_t
-    let v_term env a = v env.term top_env_inner.term a
-    let v_ty env a = v env.ty top_env_inner.ty a
+    let v_term env a = v env.term top_env.term a
+    let v_ty env a = v env.ty top_env.ty a
     let typevar_to_var cons (((_,(name,kind)),constraints) : TypeVar) : Var = 
         let rec typevar = function
             | RawKindWildcard -> fresh_kind()
@@ -818,7 +827,7 @@ let infer (top_env : TopEnv) expr =
             constraints |> List.choose (fun (r,x) ->
                 match v_cons cons x with
                 | Some (M _) -> errors.Add(r,ExpectedConstraintInsteadOfModule); None
-                | Some (C x) -> unify_kind r kind (constraint_kind top_env_inner x); Some x
+                | Some (C x) -> unify_kind r kind (constraint_kind top_env x); Some x
                 | None -> errors.Add(r,UnboundVariable); None
                 ) |> Set.ofList
         {scope= !scope; constraints=cons; kind=kind_force kind; name=name}
@@ -869,7 +878,7 @@ let infer (top_env : TopEnv) expr =
             | a -> let v = fresh_var() in unify (range_of_expr a') a (TyFun(v,s)); f v b
         | RawAnnot(_,a,b) -> ty env s b; f s a
         | RawModuleOpen(_,(a,b),l,on_succ) ->
-            match module_open (loc_env top_env_inner) a b l with
+            match module_open (loc_env top_env) a b l with
             | Ok x ->
                 let combine e m = Map.foldBack Map.add m e
                 term {term = combine env.term x.term; ty = combine env.ty x.ty; constraints = combine env.constraints x.constraints} s on_succ
@@ -1094,7 +1103,7 @@ let infer (top_env : TopEnv) expr =
             | TyInl(a,body) -> let v = fresh_var' a.kind in f v b; unify r s (subst [a,v] body)
             | a -> 
                 let q,w = fresh_kind(), fresh_kind()
-                unify_kind (range_of_texpr a') (tt top_env_inner a) (KindFun(q,w))
+                unify_kind (range_of_texpr a') (tt top_env a) (KindFun(q,w))
                 let x = fresh_var' q
                 f x b
                 unify r s (TyApply(a,x,w))
@@ -1117,7 +1126,7 @@ let infer (top_env : TopEnv) expr =
         let ho_make (i : int) (l : Var list) =
             let h = TyNominal i
             let l' = List.map (fun (x : Var) -> x, fresh_subst_var x.constraints x.kind) l
-            List.fold (fun s (_,x) -> match tt top_env_inner s with KindFun(_,k) -> TyApply(s,x,k) | _ -> failwith "impossible") h l', l'
+            List.fold (fun s (_,x) -> match tt top_env s with KindFun(_,k) -> TyApply(s,x,k) | _ -> failwith "impossible") h l', l'
         let rec ho_index = function 
             | TyApply(a,_,_) -> ho_index a 
             | TyNominal i -> ValueSome i
@@ -1179,7 +1188,7 @@ let infer (top_env : TopEnv) expr =
                     env
             | PatUnbox(r,PatPair(_,PatSymbol(r',name), a)) ->
                 let assume i =
-                    match top_env_inner.nominals.[i] with
+                    match top_env.nominals.[i] with
                     | vars, (TyUnion(cases,_)) ->
                         hover_types.Add(r',s)
                         let x,m = ho_make i vars
@@ -1203,21 +1212,21 @@ let infer (top_env : TopEnv) expr =
                 | Some x -> 
                     match ho_index x with
                     | ValueSome i ->
-                        match top_env_inner.nominals.[i] with
+                        match top_env.nominals.[i] with
                         | _, (TyUnion _) -> errors.Add(r,UnionInPatternNominal i); f (fresh_var()) a
                         | vars, v -> let x,m = ho_make i vars in unify r s x; f (subst m v) a
                     | ValueNone -> errors.Add(r,TypeInEnvIsNotNominal x); f (fresh_var()) a
                 | _ -> errors.Add(r,UnboundVariable); f (fresh_var()) a
         loop env s a
 
-    let nominal_term r i tt name vars term v =
+    let nominal_term r i tt name vars v =
         let constructor body =
             let t,_ = List.fold (fun (a,k) b -> let k = trim_kind k in TyApply(a,TyVar b,k),k) (TyNominal i,tt) vars
             List.foldBack (fun var ty -> TyForall(var,ty)) vars (TyFun(body,t))
         let add_hover v = (if 0 = errors.Count then hover_types.Add(r,v)); v
         match v with
-        | TyUnion(l,_) -> Map.fold (fun term k v -> Map.add k (constructor v) term) term l
-        | _ -> Map.add name (add_hover (constructor v)) term
+        | TyUnion(l,_) -> Map.foldBack (fun k v s -> TeTerm(k, constructor v) :: s) l []
+        | _ -> [TeTerm(name,(add_hover (constructor v)))]
 
     match expr with
     | BundleType(q,(r,name),vars',expr) ->
@@ -1226,8 +1235,8 @@ let infer (top_env : TopEnv) expr =
         ty {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
         let t = List.foldBack (fun x s -> TyInl(x,s)) vars (term_subst v)
         hover_types.Add(r,t)
-        if 0 = errors.Count then Some (lazy FType(q,(r,name),vars',expr)), {top_env with ty = Map.add name t top_env.ty} 
-        else None, top_env
+        if 0 = errors.Count then Some (lazy FType(q,(r,name),vars',expr)), [TeTy(name, t)]
+        else None, []
     | BundleNominal(q,(r,name),vars',expr) ->
         let vars,env_ty = hovars vars'
         let tt = List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) vars KindType
@@ -1235,14 +1244,10 @@ let infer (top_env : TopEnv) expr =
         let v = fresh_var()
         ty {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
         let v = term_subst v
-        let top_env' = 
-            {top_env with 
-                term = nominal_term r i tt name vars top_env.term v 
-                ty = Map.add name (TyNominal i) top_env.ty
-                nominals = PersistentVector.conj (vars,v) top_env.nominals
-                nominals_aux = PersistentVector.conj {|name=name; kind=tt|} top_env.nominals_aux } 
-        if 0 = errors.Count then Some (lazy FNominal(q,(r,name),vars',expr)), top_env' 
-        else None, top_env
+        if 0 = errors.Count then 
+            Some (lazy FNominal(q,(r,name),vars',expr)), 
+            TeNominal(i,name,tt,vars,v) :: TeTy(name,TyNominal i) :: nominal_term r i tt name vars v
+        else None, []
     | BundleNominalRec l' ->
         let l,_ =
             List.mapFold (fun i (_,name,vars,body) ->
@@ -1250,19 +1255,19 @@ let infer (top_env : TopEnv) expr =
                 let tt = List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) l KindType
                 (i,name,l,env,tt,body), i+1
                 ) top_env.nominals.Length l'
-        top_env_inner <- 
+        top_env <- 
             let f (i,(_,name),l,env,tt,body) = {|name=name; kind=tt|}
             {top_env with nominals_aux = List.fold (fun s x -> PersistentVector.conj (f x) s) top_env.nominals_aux l}
-        let env_ty = List.fold (fun s (i,(_,name),_,_,_,_) -> Map.add name (TyNominal i) s) top_env_inner.ty l
-        let nominals,env_term =
-            List.fold (fun (hoc, term) (i,(r,name),vars,env_ty',tt,body) ->
+        let env_ty = List.fold (fun s (i,(_,name),_,_,_,_) -> Map.add name (TyNominal i) s) top_env.ty l
+        if 0 = errors.Count then
+            Some (lazy FNominalRec l'), 
+            List.collect (fun (i,(r,name),vars,env_ty',tt,body) ->
                 let v = fresh_var()
                 ty {term=Map.empty; ty=Map.foldBack Map.add env_ty' env_ty; constraints=Map.empty} v body 
                 let v = term_subst v
-                PersistentVector.conj (vars,v) hoc, nominal_term r i tt name vars term v 
-                ) (top_env_inner.nominals, top_env_inner.term) l
-        if 0 = errors.Count then Some (lazy FNominalRec l'), {top_env_inner with nominals = nominals; ty = env_ty; term = env_term} 
-        else None, top_env
+                TeNominal(i,name,tt,vars,v) :: TeTy(name,TyNominal i) :: nominal_term r i tt name vars v 
+                ) l
+        else None, []
     | BundlePrototype(q,(r,name),(w,var_init),vars',expr) ->
         let cons = CPrototype top_env.prototypes.Length
         let v = {scope=0; constraints=Set.singleton cons; name=var_init; kind=List.foldBack (fun ((_,(_,k)),_) s -> KindFun(typevar k, s)) vars' KindType}
@@ -1273,18 +1278,17 @@ let infer (top_env : TopEnv) expr =
         let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
         if 0 = errors.Count then
             hover_types.Add(r,body)
-            Some (lazy FPrototype(q,(r,name),(w,var_init),vars',expr)),
-            { top_env  with term = Map.add name body top_env.term; constraints = Map.add name (C cons) top_env.constraints; 
-                            prototypes = PersistentVector.conj {|instances=Map.empty; name=name; signature=body|} top_env.prototypes }
-        else None, top_env
-    | BundleInl(q,name,a,true) ->
-        let env = inl {term=Map.empty; ty=Map.empty; constraints=Map.empty} (name,a)
-        (if 0 = errors.Count then Some (lazy FInl(q,name,fill q Map.empty a)) else None), 
-        {top_env with term = Map.foldBack Map.add env.term top_env.term}
-    | BundleInl(q,(w,name),a,false) ->
+            Some (lazy FPrototype(q,(r,name),(w,var_init),vars',expr)), 
+            [TeTerm(name,body); TeConstraint(name,cons); TePrototype(top_env.prototypes.Length,name,body)]
+        else None, []
+    | BundleInl(q,(_,name as w),a,true) ->
+        let env = inl {term=Map.empty; ty=Map.empty; constraints=Map.empty} (w,a)
+        (if 0 = errors.Count then Some (lazy FInl(q,w,fill q Map.empty a)) else None), 
+        [TeTerm(name,env.term.[name])]
+    | BundleInl(q,(_,name as w),a,false) ->
         assert_bound_vars {term=Map.empty; ty=Map.empty; constraints=Map.empty} a
-        (if 0 = errors.Count then Some (lazy FInl(q,(w,name),a)) else None), 
-        {top_env with term = Map.add name (TySymbol "<real>") top_env.term }
+        (if 0 = errors.Count then Some (lazy FInl(q,w,a)) else None), 
+        [TeTerm(name,TySymbol "<real>")]
     | BundleRecInl(l,is_top_down) ->
         let _ =
             let h = HashSet()
@@ -1302,7 +1306,7 @@ let infer (top_env : TopEnv) expr =
                 if is_top_down then Some (lazy FRecInl(List.map (fun (a,b,c) -> a,b,fill a env_term c) l))
                 else Some (lazy FRecInl l)
             else None
-        filled_top, {top_env with term = Map.foldBack Map.add env_term top_env.term}
+        filled_top, Map.foldBack (fun k v s -> TeTerm(k,v) :: s) env_term []
     | BundleInstance(r,prot,ins,vars,body) ->
         let assert_no_kind x = x |> List.iter (fun ((r,(_,k)),_) -> match k with RawKindWildcard -> () | _ -> errors.Add(r,KindNotAllowedInInstanceForall))
         let assert_vars_count vars_count vars_expected = if vars_count <> vars_expected then errors.Add(r,InstanceCoreVarsShouldMatchTheArityDifference(vars_count,vars_expected))
@@ -1313,7 +1317,7 @@ let infer (top_env : TopEnv) expr =
         let assert_instance_forall_does_not_shadow_prototype_forall prot_forall_name = List.iter (fun ((r,(a,_)),_) -> if a = prot_forall_name then errors.Add(r,InstanceVarShouldNotMatchAnyOfPrototypes)) vars
         let body prot_id ins_id = 
             let ins_kind' = top_env.nominals_aux.[ins_id].kind
-            let guard next = if 0 = errors.Count then next () else None,top_env
+            let guard next = if 0 = errors.Count then next () else None,[]
             let ins_kind = kind_get ins_kind'
             let prototype = top_env.prototypes.[prot_id]
             hover_types.Add(fst prot, prototype.signature) // TODO: Do the same for the instance signature.
@@ -1350,30 +1354,30 @@ let infer (top_env : TopEnv) expr =
                     prot_body
                 | _ -> failwith "impossible"
             let prototype = {|prototype with instances = Map.add ins_id ins_constraints prototype.instances|}
-            top_env_inner <- {top_env with prototypes = PersistentVector.update prot_id prototype top_env.prototypes}
+            top_env <- {top_env with prototypes = PersistentVector.update prot_id prototype top_env.prototypes}
             term {term=Map.empty; ty=env_ty; constraints=Map.empty} prot_body body
             (if 0 = errors.Count then Some (lazy FInstance(r,(fst prot, prot_id),(fst ins, ins_id),fill r Map.empty body)) else None), 
-            top_env_inner
+            [TePrototypeInstance(prot_id,ins_id,ins_constraints)]
             
-        let fake _ = None, top_env
+        let fake _ = None, []
         let check_ins on_succ =
             match Map.tryFind (snd ins) top_env.ty with
-            | None -> errors.Add(fst ins, UnboundVariable); None, top_env
+            | None -> errors.Add(fst ins, UnboundVariable); None, []
             | Some(TyNominal i') -> on_succ i'
-            | Some x -> errors.Add(fst ins, ExpectedHigherOrder x); None, top_env
+            | Some x -> errors.Add(fst ins, ExpectedHigherOrder x); None, []
         match Map.tryFind (snd prot) top_env.constraints with
         | None -> errors.Add(fst prot, UnboundVariable); check_ins fake
         | Some(C (CPrototype i)) -> check_ins (body i)
         | Some(C x) -> errors.Add(fst prot, ExpectedPrototypeConstraint x); check_ins fake
         | Some(M _) -> errors.Add(fst prot, ExpectedPrototypeInsteadOfModule); check_ins fake
-    |> fun (filled_top, top_env) -> 
+    |> fun (filled_top, top_env_changes) -> 
         if 0 = errors.Count then
             annotations |> Seq.iter (fun (KeyValue (_,(r,x))) -> if has_metavars x then errors.Add(r, ValueRestriction x))
         {
         filled_top = filled_top
         hovers = hover_types |> Seq.toArray |> Array.map (fun x -> x.Key, show_t top_env x.Value)
         errors = errors |> Seq.toList |> List.map (fun (a,b) -> show_type_error top_env b, a)
-        top_env = top_env
+        top_env_changes = top_env_changes
         }
 
 let default_env : TopEnv = 
@@ -1406,3 +1410,13 @@ let default_env : TopEnv =
     nominals_aux=PersistentVector.empty; nominals=PersistentVector.empty
     ty=ty; term=Map.empty; prototypes=PersistentVector.empty; constraints=constraints
     }
+
+//let top_env_modify prefix env l = 
+//    List.fold (fun (s : TopEnv) x ->
+//        match x with
+//        | TeTerm(name,body) -> 
+//            let rec loop s = function
+//                | x :: x' ->
+//                    match s with
+//                    | 
+//        ) env l

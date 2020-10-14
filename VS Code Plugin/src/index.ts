@@ -36,12 +36,8 @@ const errorsSet = (errors : DiagnosticCollection, uri: Uri, x: [string, RangeRec
 
 type PositionRec = { line: number, character: number }
 type RangeRec = [PositionRec, PositionRec]
-type Errors = [string, RangeRec][]
-type ClientRes = 
-    { ProjectErrors: {uri : string, errors : Errors} }
-    | { TokenizerErrors: {uri : string, errors : Errors} }
-    | { ParserErrors: {uri : string, errors : Errors} }
-    | { TypeErrors: {uri : string, errors : Errors} }
+type Errors = {uri : string, errors : [string, RangeRec][]}
+type ClientRes = { ProjectErrors: Errors } | { TokenizerErrors: Errors } | { ParserErrors: Errors } | { TypeErrors: Errors }
 
 export const activate = async (ctx: ExtensionContext) => {
     console.log("Spiral plugin is active.")

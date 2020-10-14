@@ -161,6 +161,7 @@ let [<EntryPoint>] main _ =
             <|> change ^=> (config uri >> function Ok x -> processing x | Error _ -> processing schema)
             <|> links ^=> fun _ -> failwith "TODO"
         let rec waiting () = op ^=> (config uri >> function Ok x -> processing x | Error _ -> waiting ())
+        Hopac.start (waiting())
         s
 
     let buffer = Dictionary()
