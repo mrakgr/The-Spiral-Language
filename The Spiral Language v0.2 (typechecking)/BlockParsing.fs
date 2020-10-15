@@ -199,7 +199,7 @@ and RawExpr =
     | RawBigV of Range * VarString // RawApply(V a,RawB) This case is needed for the sake of having correct hover info.
     | RawLit of Range * Literal
     | RawDefaultLit of Range * string
-    | RawSymbolCreate of Range * SymbolString
+    | RawSymbol of Range * SymbolString
     | RawType of Range * RawTExpr
     | RawMatch of Range * body: RawExpr * (Pattern * RawExpr) list
     | RawFun of Range * (Pattern * RawExpr) list
@@ -214,13 +214,14 @@ and RawExpr =
     | RawApply of Range * RawExpr * RawExpr
     | RawIfThenElse of Range * RawExpr * RawExpr * RawExpr
     | RawIfThen of Range * RawExpr * RawExpr
-    | RawPairCreate of Range * RawExpr * RawExpr
+    | RawPair of Range * RawExpr * RawExpr
     | RawSeq of Range * RawExpr * RawExpr
     | RawHeapMutableSet of Range * RawExpr * RawExpr list * RawExpr
     | RawReal of Range * RawExpr
     | RawMacro of Range * RawMacro list
     | RawMissingBody of Range
     | RawFilledForall of Range * string * RawExpr // Filled in by the inferencer.
+    | RawFilledPairStrip of Range * string list * RawExpr
 and RawTExpr =
     | RawTWildcard of Range
     | RawTB of Range
@@ -280,7 +281,7 @@ let range_of_expr = function
     | RawBigV(r,_)
     | RawLit(r,_)
     | RawDefaultLit(r,_)
-    | RawSymbolCreate(r,_)
+    | RawSymbol(r,_)
     | RawType(r,_)
     | RawJoinPoint(r,_)
     | RawMatch(r,_,_)
@@ -293,9 +294,10 @@ let range_of_expr = function
     | RawForall(r,_,_)
     | RawFilledForall(r,_,_)
     | RawApply(r,_,_)
-    | RawPairCreate(r,_,_)
+    | RawPair(r,_,_)
     | RawIfThen(r,_,_)
     | RawSeq(r,_,_)
+    | RawFilledPairStrip(r,_,_) -> r
     | RawHeapMutableSet(r,_,_,_)
     | RawRecordWith(r,_,_,_)
     | RawIfThenElse(r,_,_,_)
@@ -699,7 +701,7 @@ let op (d : Env) =
                 | "." -> f RawSeq
                 | "&&" -> f (fun (r,a,b) -> RawIfThenElse(r,a,b,RawLit(o,LitBool false)))
                 | "||" -> f (fun (r,a,b) -> RawIfThenElse(r,a,RawLit(o,LitBool true),b))
-                | "," -> f RawPairCreate
+                | "," -> f RawPair
                 | "<-" -> f (fun (r,a,c) ->
                     let rec loop l = function
                         | RawApply(_,a,b) -> loop (b :: l) a
@@ -982,7 +984,7 @@ and root_term d =
                 range
                     (curlies
                         (tuple4 read_small_var'
-                            (many ((read_symbol |>> RawSymbolCreate) <|> (skip_op "$" >>. read_small_var' |>> RawV)))
+                            (many ((read_symbol |>> RawSymbol) <|> (skip_op "$" >>. read_small_var' |>> RawV)))
                             ((skip_keyword SpecWith >>. sepBy record_with_bodies (optional (skip_op ";"))) <|>% [])
                             ((skip_keyword SpecWithout >>. many record_without_bodies) <|>% [])))
                 |>> fun (r,(name, acs, withs, withouts)) -> (r,RawV name :: acs,withs,withouts)
@@ -998,7 +1000,7 @@ and root_term d =
 
         let case_join_point = skip_keyword SpecJoin >>. next |>> join_point
         let case_real = skip_keyword SpecReal >>. (fun d -> next {d with is_top_down=false}) |>> fun x -> RawReal(range_of_expr x,x)
-        let case_symbol = read_symbol |>> RawSymbolCreate
+        let case_symbol = read_symbol |>> RawSymbol
         let case_unary_op = 
             read_unary_op' >>= fun (o,a) d ->
                 let type_expr d = ((read_type_var' |>> RawTVar) <|> (rounds (fun d -> root_type {root_type_defaults with allow_term=true} d))) d
@@ -1070,9 +1072,9 @@ and root_term d =
             match l |> List.map f |> List.unzip with
             | (r,x) :: k', v ->
                 let name = r, symbol_paired_concat ((r,to_lower x) :: k')
-                let body = List.reduceBack (fun a b -> RawPairCreate(range_of_expr a +. range_of_expr b,a,b)) v
+                let body = List.reduceBack (fun a b -> RawPair(range_of_expr a +. range_of_expr b,a,b)) v
                 if is_upper then RawApply(r +. range_of_expr body, RawV name, body)
-                else RawPairCreate(r +. range_of_expr body, RawSymbolCreate name, body)
+                else RawPair(r +. range_of_expr body, RawSymbol name, body)
             | _ -> failwith "Compiler error: Should be at least one key in symbol_paired_process_pattern"
             )
         <|> next) d

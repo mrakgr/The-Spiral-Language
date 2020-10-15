@@ -867,8 +867,17 @@ let peval (env : TopEnv) x =
                 ) withouts
             |> DRecord
         | EPatternMemo _ | EReal _ -> failwith "Compiler error: Should have been eliminated during the prepass."
-        | ERecord a -> DRecord(Map.map (fun _ -> term s) a)
+        | EModule a -> DRecord(Map.map (fun _ -> term s) a)
         | EPair(r,a,b) -> DPair(term s a, term s b)
+        | EPairStrip(r,a,b) ->
+            let s = add_trace s r
+            List.fold (fun d x -> 
+                match d with
+                | DPair(DSymbol a,b) when a = x -> b 
+                | DPair(DSymbol a,_) -> raise_type_error s <| sprintf "Cannot strip the key from the pair.\nGot: %s\nExpected: %s" a x
+                | DPair(a,_) -> raise_type_error s <| sprintf "Expected a symbol as the first item of a pair.\nGot: %s" (show_data a)
+                | _ -> raise_type_error s <| sprintf "Expected a pair.\nGot: %s" (show_data d)
+                ) (term s b) a
         | ESeq(r,a,b) -> 
             let s = add_trace s r
             match term s a with

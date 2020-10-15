@@ -44,13 +44,14 @@ and [<ReferenceEquality>] E =
     | ERecursive of E ref
     | ERecBlock of Range * (Id * E) list * on_succ: E
     | ERecordWith of Range * (Range * E) list * RecordWith list * RecordWithout list
-    | ERecord of Map<string, E> // Used for modules.
+    | EModule of Map<string, E>
     | EOp of Range * BlockParsing.Op * E list
     | EPatternMiss of E
     | EAnnot of Range * E * T
     | EIfThenElse of Range * E * E * E
     | EIfThen of Range * E * E
     | EPair of Range * E * E
+    | EPairStrip of Range * string list * E
     | ESeq of Range * E * E
     | EHeapMutableSet of Range * E * (Range * E) list * E
     | EReal of Range * E
@@ -130,7 +131,7 @@ let inline propagate x =
     let rec term x =
         let singleton = singleton_term
         match x with
-        | EForall' _ | EJoinPoint' _ | EFun' _ | ERecord _ | ERecursive _ | ESymbol _ | ELit _ | EB _ -> empty
+        | EForall' _ | EJoinPoint' _ | EFun' _ | EModule _ | ERecursive _ | ESymbol _ | ELit _ | EB _ -> empty
         | EV i -> singleton i
         | EPrototypeApply(_,_,a) | EType(_,a) | EDefaultLit(_,_,a) -> ty a
         | ESeq(_,a,b) | EPair(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
@@ -155,7 +156,7 @@ let inline propagate x =
         | EOp(_,_,a) -> List.fold (fun s a -> s + term a) empty a
         | EHeapMutableSet(_,a,b,c) -> term a + List.fold (fun s (_,a) -> s + term a) empty b + term c
         | EIfThenElse(_,a,b,c) -> term a + term b + term c
-        | EPatternMiss a | EReal(_,a) -> term a
+        | EPairStrip(_,_,a) | EPatternMiss a | EReal(_,a) -> term a
         | EMacro(_,a,b) -> List.fold (fun s -> function MType x -> s + ty x | MTerm x -> s + term x | MText _ -> s) (ty b) a
         | EPatternMemo a -> Utils.memoize dict term a
         // Regular pattern matching
@@ -219,7 +220,7 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
     let rec term (env : ResolveEnv) x =
         let f = term env
         match x with
-        | EForall' _ | EFun' _ | EJoinPoint' _ | ERecord _ | EV _ | ERecursive _ | ESymbol _ | EDefaultLit _ | ELit _ | EB _ -> ()
+        | EForall' _ | EFun' _ | EJoinPoint' _ | EModule _ | EV _ | ERecursive _ | ESymbol _ | EDefaultLit _ | ELit _ | EB _ -> ()
         | EPrototypeApply(_,_,a) | EType(_,a) -> ty env a
         | EJoinPoint(_,a,b) | EFun(_,_,a,b) -> subst env x; f a; Option.iter (ty env) b
         | EForall(_,_,a) -> subst env x; f a
@@ -247,7 +248,7 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
                 | WVar(_,a) -> f a)
         | ENominal(_,a,b) | ETypeLet(_,_,b,a) | ETypeApply(_,a,b) | EAnnot(_,a,b) -> f a; ty env b
         | EOp(_,_,a) -> List.iter f a
-        | EPatternMiss a | EReal(_,a) -> f a
+        | EPairStrip(_,_,a) | EPatternMiss a | EReal(_,a) -> f a
         | ETypePairTest(_,_,_,_,a,b) | ETypeFunTest(_,_,_,_,a,b) | ETypeRecordTest(_,_,_,a,b) | ETypeApplyTest(_,_,_,_,a,b) | ETypeArrayTest(_,_,_,a,b)
         | EUnitTest(_,_,a,b) | ESymbolTest(_,_,_,a,b) | EPairTest(_,_,_,_,a,b) | ELitTest(_,_,_,a,b)
         | ELet(_,_,a,b) | EUnbox(_,_,a,b) | EIfThen(_,a,b) | EPair(_,a,b) | ESeq(_,a,b) | EApply(_,a,b) -> f a; f b
@@ -326,7 +327,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         let f = term env
         let adj = adj' env
         match x with
-        | EForall' _ | EJoinPoint' _ | EFun' _ | ERecord _ | ERecursive _ | ESymbol _ | ELit _ | EB _ -> x
+        | EForall' _ | EJoinPoint' _ | EFun' _ | EModule _ | ERecursive _ | ESymbol _ | ELit _ | EB _ -> x
         | EFun(r,a,b,c) -> 
             let scope, env = scope env x 
             EFun'(r,scope,adj' env a,term env b,Option.map (ty env) c)
@@ -370,6 +371,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EIfThenElse(r,a,b,c) -> EIfThenElse(r,f a,f b,f c)
         | EIfThen(r,a,b) -> EIfThen(r,f a,f b)
         | EPair(r,a,b) -> EPair(r,f a,f b)
+        | EPairStrip(r,a,b) -> EPairStrip(r,a,f b)
         | ESeq(r,a,b) -> ESeq(r,f a,f b)
         | EHeapMutableSet(r,a,b,c) -> EHeapMutableSet(r,f a,List.map (fun (a,b) -> a, f b) b,c)
         | EPatternMiss a -> Utils.memoize dict (fun _ -> EPatternMiss(f a)) x 
@@ -646,7 +648,7 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         | RawV(r,a) -> v_term env a
         | RawBigV(r,a) -> EApply(r,v_term env a,EB r)
         | RawLit(r,a) -> ELit(r,a)
-        | RawSymbolCreate(r,a) -> ESymbol(r,a)
+        | RawSymbol(r,a) -> ESymbol(r,a)
         | RawType(r,a) -> EType(r,ty env a)
         | RawMatch(r,a,b) -> pattern_match env r (f a) b
         | RawFun(r,a) -> pattern_function env r a None
@@ -676,10 +678,10 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
         | RawModuleOpen (_,a,l,on_succ) ->
             let a,b = 
                 match top_env.term.[snd a], top_env.ty.[snd a] with
-                | ERecord a, TRecord(_, b) ->
+                | EModule a, TRecord(_, b) ->
                     List.fold (fun (a,b) (_,x) ->
                         match Map.find x a, Map.find x b with
-                        | ERecord a, TRecord(_, b) -> a,b
+                        | EModule a, TRecord(_, b) -> a,b
                         | _ -> failwith "Compiler error: Module open's symbol index should have been validated."
                         ) (a,b) l
                 | _ -> failwith "Compiler error: Module open should have been validated."
@@ -690,11 +692,11 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
             term env on_succ
         | RawApply(r,a,b) ->
             let rec loop = function
-                | ERecord a' & a, EPair(_,ESymbol(_, b'),b'') & b ->
+                | EModule a' & a, EPair(_,ESymbol(_, b'),b'') & b ->
                     match Map.tryFind b' a' with
                     | Some a -> loop (a,b'')
                     | None -> EApply(r,a,b) // TODO: Will be an error during partial evaluation time. Could be substituted for an exception here, but I do not want to have errors during the prepass.
-                | ERecord a' & a, ESymbol(_,b') & b ->
+                | EModule a' & a, ESymbol(_,b') & b ->
                     match Map.tryFind b' a' with
                     | Some a -> a
                     | None -> EApply(r,a,b) // TODO: Ditto.
@@ -703,7 +705,8 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
             loop (f a, f b)
         | RawIfThenElse(r,a,b,c) -> EIfThenElse(r,f a,f b,f c)
         | RawIfThen(r,a,b) -> EIfThen(r,f a,f b)
-        | RawPairCreate(r,a,b) -> EPair(r,f a,f b)
+        | RawPair(r,a,b) -> EPair(r,f a,f b)
+        | RawFilledPairStrip(r,a,b) -> EPairStrip(r,a,f b)
         | RawSeq(r,a,b) -> ESeq(r,f a,f b)
         | RawHeapMutableSet(r,a,b,c) -> EHeapMutableSet(r,f a,List.map (fun a -> range_of_expr a, f a) b,f c)
         | RawReal(r,a) -> f a

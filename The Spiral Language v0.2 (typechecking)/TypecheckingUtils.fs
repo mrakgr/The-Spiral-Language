@@ -59,7 +59,7 @@ and fold_offset_term offset x =
     | RawBigV(r,a) -> RawBigV (g r,a)
     | RawLit(r,a) -> RawLit (g r,a)
     | RawDefaultLit(r,a) -> RawDefaultLit (g r,a)
-    | RawSymbolCreate(r,a) -> RawSymbolCreate (g r,a)
+    | RawSymbol(r,a) -> RawSymbol (g r,a)
     | RawType(r,a) -> RawType(g r,a)
     | RawMatch(r,a,b) -> RawMatch(g r,f a,List.map (fun (a,b) -> fold_offset_pattern offset a,f b) b)
     | RawFun(r,a) -> RawFun(g r,List.map (fun (a,b) -> fold_offset_pattern offset a,f b) a)
@@ -88,12 +88,13 @@ and fold_offset_term offset x =
     | RawApply(r,a,b) -> RawApply(g r,f a,f b)
     | RawIfThenElse(r,a,b,c) -> RawIfThenElse(g r,f a,f b,f c)
     | RawIfThen(r,a,b) -> RawIfThen(g r,f a,f b)
-    | RawPairCreate(r,a,b) -> RawPairCreate(g r,f a,f b)
+    | RawPair(r,a,b) -> RawPair(g r,f a,f b)
     | RawSeq(r,a,b) -> RawSeq(g r,f a,f b)
     | RawHeapMutableSet(r,a,b,c) -> RawHeapMutableSet(g r,f a,List.map f b,f c)
     | RawReal(r,a) -> RawReal(g r,f a)
     | RawMissingBody r -> RawMissingBody(g r)
     | RawMacro(r,a) -> RawMacro(g r,fold_offset_macro offset a)
+    | RawFilledPairStrip(r,a,b) -> RawFilledPairStrip(g r,a,f b)
 and fold_offset_pattern offset x = 
     let f = fold_offset_pattern offset
     let term = fold_offset_term offset
