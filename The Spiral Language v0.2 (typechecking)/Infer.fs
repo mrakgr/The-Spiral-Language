@@ -560,17 +560,66 @@ type FilledTop =
     | FPrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
     | FInstance of Range * (Range * int) * (Range * int) * RawExpr
 
+open System.Collections.Generic
 type InferResult = {
     filled_top : FilledTop Lazy option
-    hovers : (Range * string) []
-    errors : VSCError list
+    blockwise_top_env : TopEnv
     top_env_changes : TopEnvModify list
+    hovers : (VSCRange * string) []
+    errors : VSCError list
     }
 
-open System.Collections.Generic
+let top_env_modify prefix (env : TopEnv) l = 
+    let term = env.term
+    let ty = env.ty
+    let constraints = env.constraints
+    let env' = 
+        List.fold (fun (s : TopEnv) x ->
+            match x with
+            | TeTerm(name,body) -> {s with term = Map.add name body s.term}
+            | TeTy(name,body) -> {s with ty = Map.add name body s.ty}
+            | TeConstraint(name,body) -> {s with constraints = Map.add name (C body) s.constraints}
+            | TeNominal(id, name, kind, vars, body) ->
+                assert (id = s.nominals_aux.Length && id = s.nominals.Length)
+                {s with 
+                    nominals_aux = PersistentVector.conj {|kind=kind; name=name|} s.nominals_aux
+                    nominals = PersistentVector.conj (vars,body) s.nominals
+                    }
+            | TePrototype(id, name, signature) ->
+                assert (id = s.prototypes.Length)
+                {s with prototypes = PersistentVector.conj {|instances=Map.empty; name=name; signature=signature|} s.prototypes }
+            | TePrototypeInstance(prot_id,ins_id,cons) ->
+                let x = s.prototypes.[prot_id]
+                {s with prototypes = PersistentVector.update prot_id {|x with instances=Map.add ins_id cons x.instances|} s.prototypes}
+            ) {env with term = Map.empty; ty = Map.empty; constraints = Map.empty} l
+
+    let inline add_to_env wrap find into el = 
+        let rec loop m = function a :: b -> Map.add a (loop (find a m) b |> wrap) m | [] -> Map.foldBack Map.add el m
+        loop into prefix
+                
+    let add_t = add_to_env TyModule (fun a m ->
+        match Map.tryFind a m with
+        | Some(TyModule x) -> x
+        | Some _ -> failwith "Compiler error: Expected a module."
+        | None -> Map.empty
+        )
+
+    let add_c = add_to_env M (fun a m ->
+        match Map.tryFind a m with
+        | Some(M x) -> x
+        | Some _ -> failwith "Compiler error: Expected a module."
+        | None -> Map.empty
+        )
+
+    {env' with 
+        term = add_t term env'.term
+        ty = add_t ty env'.ty
+        constraints = add_c constraints env'.constraints
+        }
+
 open Spiral.TypecheckingUtils
-let infer (top_env : TopEnv) expr =
-    let mutable top_env = top_env // Is mutated only in two places at the top level. During actual inference can otherwise be thought of as immutable.
+let infer (top_env' : TopEnv) expr =
+    let mutable top_env = top_env' // Is mutated only in two places at the top level. During actual inference can otherwise be thought of as immutable.
     let errors = ResizeArray()
     let generalized_statements = Dictionary(HashIdentity.Reference)
     let type_apply_args = Dictionary(HashIdentity.Reference)
@@ -650,7 +699,7 @@ let infer (top_env : TopEnv) expr =
                 let a,b = f a, f b
                 match module_type_apply_args.TryGetValue(x) with
                 | true,(q,w) -> 
-                    let a = List.fold (fun s x -> RawApply(r,s,RawSymbol(r,x))) a q
+                    let a = RawApply(r,a,List.reduceBack(fun a b -> RawPair(r,a,b)) (List.map (fun q -> RawSymbol(r,q)) q))
                     let a = List.fold (fun s (x : T) -> RawApply(r,s,RawType(r,t_to_rawtexpr r x))) a w
                     RawApply(r,a,RawFilledPairStrip(r,q,b))
                 | _ -> RawApply(r,a,b)
@@ -1419,7 +1468,9 @@ let infer (top_env : TopEnv) expr =
     |> fun (filled_top, top_env_changes) -> 
         if 0 = errors.Count then
             annotations |> Seq.iter (fun (KeyValue (_,(r,x))) -> if has_metavars x then errors.Add(r, ValueRestriction x))
+        let top_env = top_env_modify [] top_env' top_env_changes
         {
+        blockwise_top_env = top_env
         filled_top = filled_top
         hovers = hover_types |> Seq.toArray |> Array.map (fun x -> x.Key, show_t top_env x.Value)
         errors = errors |> Seq.toList |> List.map (fun (a,b) -> show_type_error top_env b, a)
@@ -1456,51 +1507,3 @@ let default_env : TopEnv =
     nominals_aux=PersistentVector.empty; nominals=PersistentVector.empty
     ty=ty; term=Map.empty; prototypes=PersistentVector.empty; constraints=constraints
     }
-
-let top_env_modify prefix (env : TopEnv) l = 
-    let term = env.term
-    let ty = env.ty
-    let constraints = env.constraints
-    let env' = 
-        List.fold (fun (s : TopEnv) x ->
-            match x with
-            | TeTerm(name,body) -> {s with term = Map.add name body s.term}
-            | TeTy(name,body) -> {s with ty = Map.add name body s.ty}
-            | TeConstraint(name,body) -> {s with constraints = Map.add name (C body) s.constraints}
-            | TeNominal(id, name, kind, vars, body) ->
-                assert (id = s.nominals_aux.Length && id = s.nominals.Length)
-                {s with 
-                    nominals_aux = PersistentVector.conj {|kind=kind; name=name|} s.nominals_aux
-                    nominals = PersistentVector.conj (vars,body) s.nominals
-                    }
-            | TePrototype(id, name, signature) ->
-                assert (id = s.prototypes.Length)
-                {s with prototypes = PersistentVector.conj {|instances=Map.empty; name=name; signature=signature|} s.prototypes }
-            | TePrototypeInstance(prot_id,ins_id,cons) ->
-                let x = s.prototypes.[prot_id]
-                {s with prototypes = PersistentVector.update prot_id {|x with instances=Map.add ins_id cons x.instances|} s.prototypes}
-            ) {env with term = Map.empty; ty = Map.empty; constraints = Map.empty} l
-
-    let inline add_to_env wrap find into el = 
-        let rec loop m = function a :: b -> Map.add a (loop (find a m) b |> wrap) m | [] -> el
-        loop into prefix
-                
-    let add_t = add_to_env TyModule (fun a m ->
-        match Map.tryFind a m with
-        | Some(TyModule x) -> x
-        | Some _ -> failwith "Compiler error: Expected a module."
-        | None -> Map.empty
-        )
-
-    let add_c = add_to_env M (fun a m ->
-        match Map.tryFind a m with
-        | Some(M x) -> x
-        | Some _ -> failwith "Compiler error: Expected a module."
-        | None -> Map.empty
-        )
-
-    {env' with 
-        term = add_t term env'.term
-        ty = add_t ty env'.ty
-        constraints = add_c constraints env'.constraints
-        }

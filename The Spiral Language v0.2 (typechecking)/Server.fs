@@ -71,9 +71,9 @@ let typechecker (req : ParserRes Stream) : TypecheckerRes Stream =
         | a, b :: b' -> waiting a <|> Alt.prepare (Src.value res (a, false) >>- fun () -> 
             let env = 
                 match PersistentVector.tryLast a with
-                | Some(_,x : Infer.InferResult) -> x.top_env
+                | Some(_,b : Infer.InferResult) -> b.blockwise_top_env
                 | None -> Infer.default_env
-            let a' = PersistentVector.conj (b, Infer.infer env (bundle b)) a
+            let a' = PersistentVector.conj (b,Infer.infer env (bundle b)) a
             processing (a', b')
             )
     Hopac.server (waiting PersistentVector.empty)
