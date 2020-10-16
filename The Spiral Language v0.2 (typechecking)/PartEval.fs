@@ -3,7 +3,6 @@
 open System
 open System.Collections.Generic
 open Spiral
-open Spiral.Config
 open Spiral.Tokenize
 open Spiral.BlockParsing
 open Spiral.PartEval.Prepass

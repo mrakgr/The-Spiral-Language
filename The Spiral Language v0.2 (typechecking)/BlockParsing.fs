@@ -2,13 +2,19 @@
 let f p d = let x = p d in printfn "%A" x; x
 
 open System
-open Spiral.Config
 open Spiral.ParserCombinators
 open Spiral.Tokenize
+
 type Range = VSCRange
 type SymbolString = string
 type VarString = string
 type NominalString = string
+
+type PrimitiveType =
+    | UInt8T | UInt16T | UInt32T | UInt64T
+    | Int8T | Int16T | Int32T | Int64T
+    | Float32T | Float64T
+    | BoolT | StringT | CharT
 
 type Layout = Heap | HeapMutable
 
@@ -327,8 +333,6 @@ type Env = {
     comments : Tokenize.LineComment option []
     i : int ref
     is_top_down : bool
-    default_int : PrimitiveType // Applies only to the bottom-up stage.
-    default_float : PrimitiveType
     } with
 
     member d.Index with get() = d.i.contents and set(i) = d.i := i
@@ -752,18 +756,21 @@ let root_type_defaults = {
     allow_wildcard = false
     }
 
-let bottom_up_number (r : Range,x : string) (d : Env) =
+
+let default_float = Float64T
+let default_int = Int32T
+let bottom_up_number (r : Range,x : string) =
     let inline f string_to_val val_to_lit val_dsc =
         match string_to_val x with
         | true, x -> Ok(r, val_to_lit x)
         | false, _ -> Error [r, BottomUpNumberParseError(x,val_dsc)]
     if x.Contains '.' then
-        match d.default_float with
+        match default_float with
         | Float32T -> f Single.TryParse LitFloat32 "f32"
         | Float64T -> f Double.TryParse LitFloat64 "f64"
         | x -> failwithf "Compiler error: Invalid default float type. Got: %A" x
     else
-        match d.default_int with
+        match default_int with
         | Int8T -> f SByte.TryParse LitInt8 "i8"
         | Int16T -> f Int16.TryParse LitInt16 "i16"
         | Int32T -> f Int32.TryParse LitInt32 "i32"
@@ -795,7 +802,7 @@ let inline read_default_value on_top on_bot d =
         | p, TokDefaultValue t' -> 
             skip d
             if d.is_top_down then Ok(on_top (p,t'))
-            else bottom_up_number (p,t') d |> Result.map on_bot
+            else bottom_up_number (p,t') |> Result.map on_bot
         | p, _ -> Error [p, ExpectedLit]
 
 let pat_var d =
@@ -1204,4 +1211,4 @@ let parse (s : Env) =
             else Error [fst s.tokens.[s.Index], ExpectedEob]
         | Error _ as l -> l
     else
-        Error [({line=0; character=0}, {line=0; character=1}), ExpectedAtLeastOneToken]
+        Error [({|line=0; character=0|}, {|line=0; character=1|}), ExpectedAtLeastOneToken]

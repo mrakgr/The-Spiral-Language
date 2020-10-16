@@ -1,7 +1,5 @@
 ﻿module Spiral.Infer
 
-open Spiral.Config
-
 type [<ReferenceEquality>] 'a ref' = {mutable contents' : 'a}
 type TT =
     | KindType
@@ -33,7 +31,7 @@ type TM =
 
 and T =
     | TyB
-    | TyPrim of PrimitiveType
+    | TyPrim of BlockParsing.PrimitiveType
     | TySymbol of string
     | TyPair of T * T
     | TyRecord of Map<string, T>
@@ -566,7 +564,7 @@ type InferResult = {
     blockwise_top_env : TopEnv
     top_env_changes : TopEnvModify list
     hovers : (VSCRange * string) []
-    errors : VSCError list
+    errors : Tokenize.VSCError list
     }
 
 let top_env_modify prefix (env : TopEnv) l = 

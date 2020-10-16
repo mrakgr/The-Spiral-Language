@@ -15,7 +15,10 @@ type BundleTop =
     | BundlePrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
     | BundleInstance of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawExpr
 
-let add_offset offset (range : Range) : Range = let a,b = range in {a with line=offset + a.line}, {b with line=offset + b.line}
+let add_offset offset (range : Range) : Range = 
+    let f (a : Tokenize.VSCPos) = {|a with line=offset + a.line|}
+    let a,b = range
+    f a, f b
 let add_offset_hovar offset (a,b) = add_offset offset a, b
 let add_offset_hovar_list offset x = List.map (add_offset_hovar offset) x
 let add_offset_typevar offset ((a,b),c) = (add_offset offset a, b), add_offset_hovar_list offset c

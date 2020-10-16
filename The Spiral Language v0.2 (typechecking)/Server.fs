@@ -151,7 +151,7 @@ let [<EntryPoint>] main _ =
         let s = {|op=Src.create(); change=Src.create(); links=Src.create()|}
         let op,change,links = Src.tap s.op |> Stream.values, Src.tap s.change |> Stream.values, Src.tap s.links |> Stream.values
         let config uri text = 
-            let x = config uri text
+            let x = config text
             let errors = match x with Ok _ -> [||] | Error er -> er
             queue_client.Enqueue(ProjectErrors {|uri=uri; errors=errors|} )
             x

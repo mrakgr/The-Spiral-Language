@@ -4,6 +4,10 @@ open System.Text
 open Spiral.LineParsers
 open Spiral.ParserCombinators
 
+type VSCPos = {|line : int; character : int|}
+type VSCRange = VSCPos * VSCPos
+type VSCError = string * VSCRange
+
 type TokenKeyword =
     | SpecIn
     | SpecAnd
@@ -329,7 +333,6 @@ let tokenize text =
 
 /// An array of {line: int; char: int; length: int; tokenType: int; tokenModifiers: int} in the order as written suitable for serialization.
 type VSCTokenArray = int []
-open Config
 let process_error (k,v) = 
     let messages, expecteds = v |> Array.distinct |> Array.partition (fun x -> Char.IsUpper(x,0))
     let ex () = match expecteds with [|x|] -> sprintf "Expected: %s" x | x -> sprintf "Expected one of: %s" (String.concat ", " x)
@@ -341,7 +344,7 @@ let process_error (k,v) =
 let process_errors line (ers : LineTokenErrors []) : (string * VSCRange) [] =
     ers |> Array.mapi (fun i l -> 
         let i = line + i
-        l |> List.toArray |> Array.map (fun (r,x) -> x, ({line=i; character=r.from}, {line=i; character=r.nearTo}))
+        l |> List.toArray |> Array.map (fun (r,x) -> x, ({|line=i; character=r.from|}, {|line=i; character=r.nearTo|}))
         )
     |> Array.concat
     |> Array.groupBy snd
@@ -368,5 +371,5 @@ let replace (lines : _ [] ResizeArray) (errors : _ []) (edit : SpiEdit) =
     lines.RemoveRange(edit.from,edit.nearTo-edit.from)
     lines.InsertRange(edit.from,toks)
 
-    let errors = errors |> Array.filter (fun (_,(a,_)) -> (edit.from <= a.line && a.line < edit.nearTo) = false)
+    let errors = errors |> Array.filter (fun (_,(a : VSCPos,_)) -> (edit.from <= a.line && a.line < edit.nearTo) = false)
     Array.append errors (process_errors edit.from ers)

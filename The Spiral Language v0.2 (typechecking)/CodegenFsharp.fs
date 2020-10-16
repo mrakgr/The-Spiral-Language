@@ -1,7 +1,6 @@
 ﻿module Spiral.Codegen.Fsharp
 
 open Spiral
-open Spiral.Config
 open Spiral.Tokenize
 open Spiral.BlockParsing
 open Spiral.PartEval.Main

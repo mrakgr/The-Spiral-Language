@@ -1,14 +1,13 @@
 ﻿module Spiral.Blockize
 
-open Spiral.Config
 open Spiral.Tokenize
+open Spiral.BlockParsing
 
 type Block = {block: LineToken [] []; offset: int}
 type FileOpenRes = Block list * VSCError []
 type FileChangeRes = Block list * VSCError []
 type FileTokenAllRes = VSCTokenArray
 
-open Spiral.BlockParsing
 type ParsedBlock = {parsed: Result<TopStatement, (Range * ParserErrors) list>; offset: int}
 
 /// Reads the comments up to a statement, and then reads the statement body. Leaves any errors for the parsing stage.
@@ -109,14 +108,12 @@ let block_init is_top_down (block : LineToken [] []) =
             let comment, len = match Array.tryLast x with Some (r, TokComment c) -> Some (r, c), x.Length-1 | _ -> None, x.Length
             let tokens = Array.init len (fun i ->
                 let r, x = x.[i] 
-                ({ line=line; character=r.from }, { line=line; character=r.nearTo }), x
+                ({| line=line; character=r.from |}, {| line=line; character=r.nearTo |}), x
                 )
             comment, tokens
             )
         |> Array.unzip
 
-    let env : BlockParsing.Env = 
-        {comments = comments; tokens = Array.concat tokens; i = ref 0; 
-        is_top_down = is_top_down; default_int=Int32T; default_float=Float64T}
+    let env : BlockParsing.Env = {comments = comments; tokens = Array.concat tokens; i = ref 0; is_top_down = is_top_down}
     BlockParsing.parse env
 

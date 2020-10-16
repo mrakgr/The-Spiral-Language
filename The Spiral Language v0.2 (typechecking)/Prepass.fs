@@ -91,7 +91,7 @@ and [<ReferenceEquality>] T =
     | TUnion of Range * (Map<string,T> * BlockParsing.UnionLayout)
     | TSymbol of Range * string
     | TApply of Range * T * T
-    | TPrim of Range * Config.PrimitiveType
+    | TPrim of Range * BlockParsing.PrimitiveType
     | TTerm of Range * E
     | TMacro of Range * TypeMacro list
     | TNominal of Id
