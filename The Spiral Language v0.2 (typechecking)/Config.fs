@@ -8,7 +8,7 @@ type VSCRange = VSCPos * VSCPos
 type VSCError = string * VSCRange
 
 type FileHierarchy =
-    | Directory of (VSCRange * string) * FileHierarchy []
+    | Directory of VSCRange * string * FileHierarchy []
     | File of VSCRange * string * is_top_down : bool * is_include : bool
 type ConfigResumableError =
     | DuplicateFiles of VSCRange [] []
@@ -43,7 +43,7 @@ let file_hierarchy p =
         (many1 expr |>> fun l ->
             let l = l |> List.toArray
             let _ = 
-                l |> Array.map (fun (File(a,b,_,_) | Directory((a,b),_)) -> b,a)
+                l |> Array.map (fun (File(a,b,_,_) | Directory(a,b,_)) -> b,a)
                 |> Array.groupBy fst
                 |> Array.choose (fun (a,b) -> if b.Length > 1 then Some (Array.map snd b) else None)
                 |> add_to_exception_list p DuplicateFiles
@@ -54,11 +54,11 @@ let file_hierarchy p =
         (range file' >>= fun (r,name) p ->
             let x = p.Peek2()
             match x.Char0, x.Char1 with
-            | '/',_ -> p.Skip(); (spaces >>. file_hierarchy_list |>> fun files -> Directory((r,name),files)) p
-            | '-',_ -> p.Skip(); File(r,name,true,true) |> Reply
-            | '*','-' -> p.Skip(2); File(r,name,false,true) |> Reply
-            | '*',_ -> p.Skip(); File(r,name,false,false) |> Reply
-            | _ -> File(r,name,true,false) |> Reply
+            | '/',_ -> p.Skip(); (spaces >>. file_hierarchy_list |>> fun files -> Directory(r,name,files)) p
+            | '-',_ -> p.Skip(); (spaces >>% File(r,name,true,true)) p
+            | '*','-' -> p.Skip(2); (spaces >>% File(r,name,false,true)) p
+            | '*',_ -> p.Skip(); (spaces >>% File(r,name,false,false)) p
+            | _ -> (spaces >>% File(r,name,true,false)) p
             ) p
 
     file_hierarchy_list p

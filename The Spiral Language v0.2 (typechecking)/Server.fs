@@ -1,6 +1,7 @@
 ﻿module Spiral.Server
 
 open System
+open System.IO
 open System.Collections.Generic
 open FSharpx.Collections
 
@@ -19,7 +20,7 @@ type TokReq =
     | Modify of SpiEdit
     | GetRange of VSCRange * (VSCTokenArray -> unit)
 type TokRes = {blocks : Block list; errors : VSCError []}
-type ParserRes = { bundles : Bundle list; parser_errors : VSCError []; tokenizer_errors : VSCError []}
+type ParserRes = {bundles : Bundle list; parser_errors : VSCError []; tokenizer_errors : VSCError []}
 
 let tokenizer req =
     let lines : LineToken [] ResizeArray = ResizeArray([[||]])
@@ -81,7 +82,7 @@ let typechecker (req : ParserRes Stream) : TypecheckerRes Stream =
 
 let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : TypecheckerRes Stream) =
     let req, req_tc = Stream.values req, Stream.values req_tc
-    let rec processing ((x,_ as r) : TypecheckerRes) = waiting  <|> (req ^=> fun (pos,ret) ->
+    let rec processing ((x,_ as r) : TypecheckerRes) = waiting <|> (req ^=> fun (pos,ret) ->
         let rec block_from i = 
             if 0 <= i then 
                 let a,b = x.[i]
@@ -95,9 +96,69 @@ let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : Typechecke
     and waiting = req_tc ^=> processing
     Hopac.server waiting
 
+type ProjectReq =
+    | ProjOpen of string
+    | ProjChange of string
+    | ProjLinks of ({|uri : string; range : VSCRange|} [] -> unit)
+
+type SuggestedFix = 
+    | None = 0
+    | CreateFile = 1
+    | CreateDirectory = 2
+type ProjectError = {|message : string; range : VSCRange; code : SuggestedFix|}
+let project project_dir (req : ProjectReq Stream) =
+    let req = Stream.values req
+    let res : ProjectError [] Src = Src.create()
+    let r = Src.tap res
+
+    let rec file x =
+        match config x with
+        | Ok x ->
+            let errors = ResizeArray()
+            let validate_dir dir =
+                match dir with
+                | Some (r,dir) ->
+                    try let x = DirectoryInfo(Path.Combine(project_dir,dir))
+                        if x.Exists = false then errors.Add {|message="Directory does not exist."; range=r; code=SuggestedFix.CreateDirectory|}
+                        x.FullName
+                    with e -> errors.Add {|message=e.Message; range=r; code=SuggestedFix.None|}; project_dir
+                | None -> project_dir
+            let moduleDir = validate_dir x.moduleDir
+            let outDir = validate_dir x.outDir
+
+            let links = ResizeArray()
+            let rec validate_file prefix = function
+                | File(r,a,is_top_down,is_include) -> 
+                    try let x = FileInfo(Path.Combine(prefix,a + (if is_top_down then ".spi" else ".spir")))
+                        if x.Exists then links.Add {|uri="file:///" + x.FullName; range=r|}
+                        else errors.Add {|message="File does not exist."; range=r; code=SuggestedFix.CreateFile|}
+                    with e -> errors.Add {|message=e.Message; range=r; code=SuggestedFix.None|}
+                | Directory(r,a,b) -> 
+                    try let x = DirectoryInfo(Path.Combine(prefix,a))
+                        if x.Exists then Array.iter (validate_file x.FullName) b
+                        else errors.Add {|message="Directory does not exist."; range=r; code=SuggestedFix.CreateDirectory|}
+                    with e -> errors.Add {|message=e.Message; range=r; code=SuggestedFix.None|}
+            if 0 = errors.Count then Array.iter (validate_file moduleDir) x.modules
+            Src.value res (errors.ToArray()) >>= fun () -> ready (links.ToArray())
+        | Error er -> Src.value res (er |> Array.map (fun (a,b) -> {|message=a; range=b; code=SuggestedFix.None|})) >>= erroneous
+    and ready links = req >>= function
+        | ProjOpen _ -> ready links
+        | ProjChange x -> file x
+        | ProjLinks ret -> ret links; ready links
+    and erroneous () = req >>= function
+        | ProjOpen _ -> erroneous()
+        | ProjChange x -> file x
+        | ProjLinks ret -> ret [||]; erroneous()
+    and opening () = req >>= function
+        | ProjOpen x | ProjChange x -> file x
+        | ProjLinks ret -> ret [||]; opening()
+    Hopac.start (opening())
+    r
+
 type ClientReq =
     | ProjectFileOpen of {|uri : string; spiprojText : string|}
     | ProjectFileChange of {|uri : string; spiprojText : string|}
+    | ProjectFileLinks of {|uri : string|}
     | FileOpen of {|uri : string; spiText : string|}
     | FileChanged of {|uri : string; spiEdit : SpiEdit|}
     | FileTokenRange of {|uri : string; range : VSCRange|}
@@ -105,7 +166,7 @@ type ClientReq =
     | BuildFile of {|uri : string|}
 
 type ClientRes =
-    | ProjectErrors of {|uri : string; errors : VSCError []|}
+    | ProjectErrors of {|uri : string; errors : ProjectError []|}
     | TokenizerErrors of {|uri : string; errors : VSCError []|}
     | ParserErrors of {|uri : string; errors : VSCError []|}
     | TypeErrors of {|uri : string; errors : VSCError list|}
@@ -148,20 +209,9 @@ let [<EntryPoint>] main _ =
         s
 
     let project = Utils.memoize (Dictionary()) <| fun (uri : string) ->
-        let s = {|op=Src.create(); change=Src.create(); links=Src.create()|}
-        let op,change,links = Src.tap s.op |> Stream.values, Src.tap s.change |> Stream.values, Src.tap s.links |> Stream.values
-        let config uri text = 
-            let x = config text
-            let errors = match x with Ok _ -> [||] | Error er -> er
-            queue_client.Enqueue(ProjectErrors {|uri=uri; errors=errors|} )
-            x
-            
-        let rec processing schema = 
-            op ^=> fun _ -> processing schema
-            <|> change ^=> (config uri >> function Ok x -> processing x | Error _ -> processing schema)
-            <|> links ^=> fun _ -> failwith "TODO"
-        let rec waiting () = op ^=> (config uri >> function Ok x -> processing x | Error _ -> waiting ())
-        Hopac.start (waiting())
+        let s = Src.create()
+        project (FileInfo(Uri(uri).LocalPath).Directory.FullName) (Src.tap s)
+        |> Stream.consumeFun (fun errors -> queue_client.Enqueue(ProjectErrors {|uri=uri; errors=errors|}))
         s
 
     let buffer = Dictionary()
@@ -181,8 +231,9 @@ let [<EntryPoint>] main _ =
             let send_back x = push_back x; server.SendMultipartMessage(msg)
             let send_back_via_queue x = push_back x; queue_server.Enqueue(msg)
             match x with
-            | ProjectFileOpen x -> Src.value (project x.uri).op x.spiprojText |> Hopac.start; send_back null
-            | ProjectFileChange x -> Src.value (project x.uri).change x.spiprojText |> Hopac.start; send_back null
+            | ProjectFileOpen x -> Src.value (project x.uri) (ProjOpen x.spiprojText) |> Hopac.start; send_back null
+            | ProjectFileChange x -> Src.value (project x.uri) (ProjChange x.spiprojText) |> Hopac.start; send_back null
+            | ProjectFileLinks x -> Src.value (project x.uri) (ProjLinks send_back_via_queue) |> Hopac.start
             | FileOpen x -> Src.value (file x.uri).token (TokReq.Put(x.spiText)) |> Hopac.start; send_back null
             | FileChanged x -> Src.value (file x.uri).token (TokReq.Modify(x.spiEdit)) |> Hopac.start; send_back null
             | FileTokenRange x -> Hopac.start (timeOutMillis 30 >>=. Src.value (file x.uri).token (TokReq.GetRange(x.range,send_back_via_queue)))

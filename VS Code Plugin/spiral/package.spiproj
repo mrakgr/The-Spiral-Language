@@ -1,13 +1,7 @@
-dirOut: qwe
-dirSource: c:\qwe
-version: 1.2.3 (alpha)
-name: Test
-files: 
-    A
-    Submodule/
-        QQ
-        QQ
-        W
-        E  
-        Main
-    Main
+moduleDir: src
+modules: 
+    tc
+    tc2
+    sub/
+        qwe
+    a

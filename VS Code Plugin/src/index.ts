@@ -1,6 +1,6 @@
 import * as path from "path"
 import * as _ from "lodash"
-import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands } from "vscode"
+import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink } from "vscode"
 import * as zmq from "zeromq"
 
 const port = 13805
@@ -18,26 +18,35 @@ const request = async (file: object): Promise<any> => {
 
 const spiprojOpenReq = async (uri: string, spiprojText: string) => request({ ProjectFileOpen: { uri, spiprojText } })
 const spiprojChangeReq = async (uri: string, spiprojText: string) => request({ ProjectFileChange: { uri, spiprojText } })
+const spiprojLinksReq = async (uri: string) => request({ ProjectFileLinks: { uri } })
+
 const spiOpenReq = async (uri: string, spiText: string) => request({ FileOpen: { uri, spiText } })
 const spiChangeReq = async (uri: string, spiEdit : {from: number, nearTo: number, lines: string[]} ) => request({ FileChanged: { uri, spiEdit } })
 const spiTokenRangeReq = async (uri: string, range : Range) => request({ FileTokenRange: { uri, range } })
 const spiHoverAtReq = async (uri: string, pos : Position) => request({ HoverAt: { uri, pos } })
 const spiBuildFileReq = async (uri: string) => request({ BuildFile: {uri} })
 
-const errorsSet = (errors : DiagnosticCollection, uri: Uri, x: [string, RangeRec][]) => {
-    const diag: Diagnostic[] = []
-    x.forEach(([error, range]) => {
-        diag.push(new Diagnostic(
-            new Range(range[0].line, range[0].character, range[1].line, range[1].character),
-            error, DiagnosticSeverity.Error))
-    })
-    errors.set(uri, diag)
+const range = (x : RangeRec) => new Range(x[0].line, x[0].character, x[1].line, x[1].character)
+
+const errorsSet = (errors : DiagnosticCollection, uri: Uri, x: MessageRange[]) => {
+    errors.set(uri, x.map(([error, rangeRec]) => new Diagnostic(range(rangeRec), error, DiagnosticSeverity.Error)))
 }
 
 type PositionRec = { line: number, character: number }
 type RangeRec = [PositionRec, PositionRec]
-type Errors = {uri : string, errors : [string, RangeRec][]}
-type ClientRes = { ProjectErrors: Errors } | { TokenizerErrors: Errors } | { ParserErrors: Errors } | { TypeErrors: Errors }
+type MessageRange = [string, RangeRec]
+type Errors<a> = {uri : string, errors : a[]}
+enum SuggestedFix {
+    None = 0,
+    CreateFile = 1,
+    CreateDirectory = 2,
+}
+type ProjectError = {message : string; range : RangeRec; code : SuggestedFix}
+type ClientRes = 
+    { ProjectErrors: Errors<ProjectError> } 
+    | { TokenizerErrors: Errors<MessageRange> } 
+    | { ParserErrors: Errors<MessageRange> } 
+    | { TypeErrors: Errors<MessageRange> }
 
 export const activate = async (ctx: ExtensionContext) => {
     console.log("Spiral plugin is active.")
@@ -57,7 +66,11 @@ export const activate = async (ctx: ExtensionContext) => {
                 const [x] = await sock.receive()
                 const msg: ClientRes = JSON.parse(x.toString())
                 if ("ProjectErrors" in msg) {
-                    errorsSet(errorsProject, Uri.parse(msg.ProjectErrors.uri), msg.ProjectErrors.errors)
+                    errorsProject.set(Uri.parse(msg.ProjectErrors.uri), msg.ProjectErrors.errors.map(x => {
+                        const d = new Diagnostic(range(x.range), x.message, DiagnosticSeverity.Error)
+                        d.code = x.code
+                        return d
+                        }))
                 }
                 if ("TokenizerErrors" in msg) {
                     errorsSet(errorsTokenization, Uri.parse(msg.TokenizerErrors.uri), msg.TokenizerErrors.errors)
@@ -123,20 +136,32 @@ export const activate = async (ctx: ExtensionContext) => {
 
     const onDocOpen = (doc: TextDocument) => {
         switch (path.extname(doc.uri.path)) {
-            case ".spiproj": return spiprojOpen(doc)
+            case ".spiproj": 
+                if (path.basename(doc.uri.path,".spiproj") === "package") {spiprojOpen(doc)}
+                return 
             case ".spir": case ".spi": return spiOpen(doc)
             default: return
         }
     }
     const onDocChange = (x: TextDocumentChangeEvent) => {
         switch (path.extname(x.document.uri.path)) {
-            case ".spiproj": return spiprojChange(x.document)
+            case ".spiproj": 
+                if (path.basename(x.document.uri.path,".spiproj") === "package") { spiprojChange(x.document) }
+                return
             case ".spir": case ".spi": return spiChange(x.document,x.contentChanges)
             default: return
         }
     }
 
+    class SpiralProjectLinks implements DocumentLinkProvider {
+        async provideDocumentLinks(document: TextDocument) {
+            const x : {uri : string; range : RangeRec} [] = await spiprojLinksReq(document.uri.toString(true))
+            return x.map(x => new DocumentLink(range(x.range),Uri.parse(x.uri,true)))
+        }
+    }
+
     const spiralFilePattern = { pattern: '**/*.{spi,spir}'}
+    const spiralProjFilePattern = { pattern: '**/package.spiproj'}
     const spiralTokenLegend = ['variable','symbol','string','number','operator','unary_operator','comment','keyword','parenthesis','type_variable','escaped_char','unescaped_char']
     workspace.textDocuments.forEach(onDocOpen)
     ctx.subscriptions.push(
@@ -148,6 +173,7 @@ export const activate = async (ctx: ExtensionContext) => {
         languages.registerHoverProvider(spiralFilePattern,new SpiralHover()),
         commands.registerCommand("buildFile", () => {
             window.visibleTextEditors.forEach(x => spiBuildFileReq(x.document.uri.toString(true)))
-        })
+        }),
+        languages.registerDocumentLinkProvider(spiralProjFilePattern,new SpiralProjectLinks())
     )
 }
