@@ -1,6 +1,6 @@
 import * as path from "path"
 import * as _ from "lodash"
-import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink } from "vscode"
+import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider } from "vscode"
 import * as zmq from "zeromq"
 
 const port = 13805
@@ -16,37 +16,52 @@ const request = async (file: object): Promise<any> => {
     return JSON.parse(x.toString())
 }
 
-const spiprojOpenReq = async (uri: string, spiprojText: string) => request({ ProjectFileOpen: { uri, spiprojText } })
-const spiprojChangeReq = async (uri: string, spiprojText: string) => request({ ProjectFileChange: { uri, spiprojText } })
-const spiprojLinksReq = async (uri: string) => request({ ProjectFileLinks: { uri } })
+type VSCPos = { line: number, character: number }
+type VSCRange = [VSCPos, VSCPos]
+type MessageRange = [string, VSCRange]
 
-const spiOpenReq = async (uri: string, spiText: string) => request({ FileOpen: { uri, spiText } })
-const spiChangeReq = async (uri: string, spiEdit : {from: number, nearTo: number, lines: string[]} ) => request({ FileChanged: { uri, spiEdit } })
-const spiTokenRangeReq = async (uri: string, range : Range) => request({ FileTokenRange: { uri, range } })
-const spiHoverAtReq = async (uri: string, pos : Position) => request({ HoverAt: { uri, pos } })
-const spiBuildFileReq = async (uri: string) => request({ BuildFile: {uri} })
+type ProjectCodeAction = 
+    | { CreateFile: {filePath : string} }
+    | { DeleteFile: {filePath : string} }
+    | { RenameFile: {filePath : string; target : string} }
+    | { CreateDirectory: {dirPath : string} }
+    | { DeleteDirectory: {range: VSCRange; dirPath : string} } // The range here is for the whole tree, not just the code action activation.
+    | { RenameDirectory: {dirPath : string; target : string; validate_as_file : boolean} }
 
-const range = (x : RangeRec) => new Range(x[0].line, x[0].character, x[1].line, x[1].character)
+const spiprojOpenReq = async (uri: string, spiprojText: string): Promise<void> => request({ ProjectFileOpen: { uri, spiprojText } })
+const spiprojChangeReq = async (uri: string, spiprojText: string): Promise<void> => request({ ProjectFileChange: { uri, spiprojText } })
+const spiprojLinksReq = async (uri: string): Promise<{uri: string, range: VSCRange} []> => request({ ProjectFileLinks: { uri } })
+const spiprojCodeActionsReq = async (uri: string): Promise<{action: ProjectCodeAction, range: VSCRange} []> => 
+    request({ ProjectCodeActions: { uri } })
+const spiprojCodeActionExecuteReq = async (uri: string): Promise<{result: string | null}> => request({ ProjectCodeActionExecute: { uri } })
+
+const spiOpenReq = async (uri: string, spiText: string): Promise<void> => request({ FileOpen: { uri, spiText } })
+const spiChangeReq = async (uri: string, spiEdit : {from: number, nearTo: number, lines: string[]} ): Promise<void> => 
+    request({ FileChanged: { uri, spiEdit } })
+const spiTokenRangeReq = async (uri: string, range : Range): Promise<number []> => request({ FileTokenRange: { uri, range } })
+const spiHoverAtReq = async (uri: string, pos : Position): Promise<string | null> => request({ HoverAt: { uri, pos } })
+const spiBuildFileReq = async (uri: string): Promise<void> => request({ BuildFile: {uri} })
+
+const range = (x : VSCRange) => new Range(x[0].line, x[0].character, x[1].line, x[1].character)
 
 const errorsSet = (errors : DiagnosticCollection, uri: Uri, x: MessageRange[]) => {
     errors.set(uri, x.map(([error, rangeRec]) => new Diagnostic(range(rangeRec), error, DiagnosticSeverity.Error)))
 }
 
-type PositionRec = { line: number, character: number }
-type RangeRec = [PositionRec, PositionRec]
-type MessageRange = [string, RangeRec]
-type Errors<a> = {uri : string, errors : a[]}
-enum SuggestedFix {
-    None = 0,
-    CreateFile = 1,
-    CreateDirectory = 2,
-}
-type ProjectError = {message : string; range : RangeRec; code : SuggestedFix}
-type ClientRes = 
-    { ProjectErrors: Errors<ProjectError> } 
-    | { TokenizerErrors: Errors<MessageRange> } 
-    | { ParserErrors: Errors<MessageRange> } 
-    | { TypeErrors: Errors<MessageRange> }
+type Errors = {uri : string; errors : MessageRange[]}
+type ClientRes = { ProjectErrors: Errors } | { TokenizerErrors: Errors } | { ParserErrors: Errors } | { TypeErrors: Errors }
+
+const projectCodeActionsTitle = (x : ProjectCodeAction): string => {
+    if ("CreateFile" in x) {return "Create file."}
+    if ("DeleteFile" in x) {return "Delete file."}
+    if ("RenameFile" in x) {return "Rename file."}
+    if ("CreateDirectory" in x) {return "Create directory."}
+    if ("DeleteDirectory" in x) {return "Delete directory."}
+    if ("RenameDirectory" in x) {return "Rename directory."}
+    throw "Case match failed"
+    }
+
+type SpiralAction = {range : Range; action : CodeAction}
 
 export const activate = async (ctx: ExtensionContext) => {
     console.log("Spiral plugin is active.")
@@ -66,11 +81,7 @@ export const activate = async (ctx: ExtensionContext) => {
                 const [x] = await sock.receive()
                 const msg: ClientRes = JSON.parse(x.toString())
                 if ("ProjectErrors" in msg) {
-                    errorsProject.set(Uri.parse(msg.ProjectErrors.uri), msg.ProjectErrors.errors.map(x => {
-                        const d = new Diagnostic(range(x.range), x.message, DiagnosticSeverity.Error)
-                        d.code = x.code
-                        return d
-                        }))
+                    errorsSet(errorsProject, Uri.parse(msg.ProjectErrors.uri), msg.ProjectErrors.errors)
                 }
                 if ("TokenizerErrors" in msg) {
                     errorsSet(errorsTokenization, Uri.parse(msg.TokenizerErrors.uri), msg.TokenizerErrors.errors)
@@ -122,14 +133,14 @@ export const activate = async (ctx: ExtensionContext) => {
 
     class SpiralTokens implements DocumentRangeSemanticTokensProvider {
         async provideDocumentRangeSemanticTokens(doc: TextDocument, range : Range) {
-            const x : number [] = await spiTokenRangeReq(doc.uri.toString(true), range)
+            const x = await spiTokenRangeReq(doc.uri.toString(true), range)
             return new SemanticTokens(new Uint32Array(x),"")
         }
     }
 
     class SpiralHover implements HoverProvider {
         async provideHover(document: TextDocument, position: Position) {
-            const x : string | null = await spiHoverAtReq(document.uri.toString(true),position)
+            const x = await spiHoverAtReq(document.uri.toString(true),position)
             if (x) return new Hover(new MarkdownString().appendCodeblock(x,'plaintext'))
         }
     }
@@ -138,7 +149,7 @@ export const activate = async (ctx: ExtensionContext) => {
         switch (path.extname(doc.uri.path)) {
             case ".spiproj": 
                 if (path.basename(doc.uri.path,".spiproj") === "package") {spiprojOpen(doc)}
-                return 
+                return
             case ".spir": case ".spi": return spiOpen(doc)
             default: return
         }
@@ -155,8 +166,16 @@ export const activate = async (ctx: ExtensionContext) => {
 
     class SpiralProjectLinks implements DocumentLinkProvider {
         async provideDocumentLinks(document: TextDocument) {
-            const x : {uri : string; range : RangeRec} [] = await spiprojLinksReq(document.uri.toString(true))
+            const x = await spiprojLinksReq(document.uri.toString(true))
             return x.map(x => new DocumentLink(range(x.range),Uri.parse(x.uri,true)))
+        }
+    }
+
+    class SpiralProjectCodeActions implements CodeActionProvider {
+        async provideCodeActions(doc : TextDocument, r : Range) {
+            const actions = await spiprojCodeActionsReq(doc.uri.toString(true))
+            return actions.filter(x => range(x.range).contains(r))
+                .map(x => new CodeAction(projectCodeActionsTitle(x.action)))
         }
     }
 
@@ -174,6 +193,7 @@ export const activate = async (ctx: ExtensionContext) => {
         commands.registerCommand("buildFile", () => {
             window.visibleTextEditors.forEach(x => spiBuildFileReq(x.document.uri.toString(true)))
         }),
-        languages.registerDocumentLinkProvider(spiralProjFilePattern,new SpiralProjectLinks())
+        languages.registerDocumentLinkProvider(spiralProjFilePattern,new SpiralProjectLinks()),
+        languages.registerCodeActionsProvider(spiralProjFilePattern,new SpiralProjectCodeActions())
     )
 }
