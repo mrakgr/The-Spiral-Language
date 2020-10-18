@@ -100,6 +100,12 @@ type ProjectReq =
     | ProjOpen of string
     | ProjChange of string
     | ProjLinks of ({|uri : string; range : VSCRange|} [] -> unit)
+    | ProjCreateFile of {|filePath : string|} * ({|result : string option|} -> unit)
+    | ProjDeleteFile of {|filePath : string|} * ({|result : string option|} -> unit)
+    | ProjRenameFile of {|filePath : string; target : string|} * ({|result : string option|} -> unit)
+    | ProjCreateDirectory of {|dirPath : string|} * ({|result : string option|} -> unit)
+    | ProjDeleteDirectory of {|dirPath : string|} * ({|result : string option|} -> unit)
+    | ProjRenameDirectory of {|dirPath : string; target : string|} * ({|result : string option|} -> unit)
 
 type SuggestedFix = 
     | None = 0
@@ -111,47 +117,81 @@ let project project_dir (req : ProjectReq Stream) =
     let res : ProjectError [] Src = Src.create()
     let r = Src.tap res
 
-    let rec file x =
-        match config x with
-        | Ok x ->
-            let errors = ResizeArray()
-            let validate_dir dir =
-                match dir with
-                | Some (r,dir) ->
-                    try let x = DirectoryInfo(Path.Combine(project_dir,dir))
-                        if x.Exists = false then errors.Add {|message="Directory does not exist."; range=r; code=SuggestedFix.CreateDirectory|}
-                        x.FullName
-                    with e -> errors.Add {|message=e.Message; range=r; code=SuggestedFix.None|}; project_dir
-                | None -> project_dir
-            let moduleDir = validate_dir x.moduleDir
-            let outDir = validate_dir x.outDir
+    let rec schema x =
+        let errors = ResizeArray()
+        let validate_dir dir =
+            match dir with
+            | Some (r,dir) ->
+                try let x = DirectoryInfo(Path.Combine(project_dir,dir))
+                    if x.Exists = false then errors.Add {|message="Directory does not exist."; range=r; code=SuggestedFix.CreateDirectory|}
+                    x.FullName
+                with e -> errors.Add {|message=e.Message; range=r; code=SuggestedFix.None|}; project_dir
+            | None -> project_dir
+        let moduleDir = validate_dir x.moduleDir
+        let outDir = validate_dir x.outDir
 
-            let links = ResizeArray()
-            let rec validate_file prefix = function
-                | File(r,a,is_top_down,is_include) -> 
-                    try let x = FileInfo(Path.Combine(prefix,a + (if is_top_down then ".spi" else ".spir")))
-                        if x.Exists then links.Add {|uri="file:///" + x.FullName; range=r|}
-                        else errors.Add {|message="File does not exist."; range=r; code=SuggestedFix.CreateFile|}
-                    with e -> errors.Add {|message=e.Message; range=r; code=SuggestedFix.None|}
-                | Directory(r,a,b) -> 
-                    try let x = DirectoryInfo(Path.Combine(prefix,a))
-                        if x.Exists then Array.iter (validate_file x.FullName) b
-                        else errors.Add {|message="Directory does not exist."; range=r; code=SuggestedFix.CreateDirectory|}
-                    with e -> errors.Add {|message=e.Message; range=r; code=SuggestedFix.None|}
-            if 0 = errors.Count then Array.iter (validate_file moduleDir) x.modules
-            Src.value res (errors.ToArray()) >>= fun () -> ready (links.ToArray())
+        let links = ResizeArray()
+        let rec validate_file prefix = function
+            | File(r,a,is_top_down,is_include) -> 
+                try let x = FileInfo(Path.Combine(prefix,a + (if is_top_down then ".spi" else ".spir")))
+                    if x.Exists then links.Add {|uri="file:///" + x.FullName; range=r|}
+                    else errors.Add {|message="File does not exist."; range=r; code=SuggestedFix.CreateFile|}
+                with e -> errors.Add {|message=e.Message; range=r; code=SuggestedFix.None|}
+            | Directory(_,(r,a),b) -> 
+                try let x = DirectoryInfo(Path.Combine(prefix,a))
+                    if x.Exists then Array.iter (validate_file x.FullName) b
+                    else errors.Add {|message="Directory does not exist."; range=r; code=SuggestedFix.CreateDirectory|}
+                with e -> errors.Add {|message=e.Message; range=r; code=SuggestedFix.None|}
+        if 0 = errors.Count then Array.iter (validate_file moduleDir) x.modules
+        Src.value res (errors.ToArray()) >>= fun () -> ready {|schema=x; links=links.ToArray()|}
+    and file x =
+        match config x with
+        | Ok x -> schema x
         | Error er -> Src.value res (er |> Array.map (fun (a,b) -> {|message=a; range=b; code=SuggestedFix.None|})) >>= erroneous
-    and ready links = req >>= function
-        | ProjOpen _ -> ready links
+    and ready x = req >>= function
+        | ProjOpen _ -> ready x
         | ProjChange x -> file x
-        | ProjLinks ret -> ret links; ready links
+        | ProjLinks ret -> ret x.links; ready x
+        | ProjCreateDirectory(a,ret) ->
+            try Directory.CreateDirectory(a.dirPath) |> ignore; ret {|result=None|}
+            with e -> ret {|result=Some e.Message|} 
+            schema x.schema
+        | ProjDeleteDirectory(a,ret) ->
+            try Directory.Delete(a.dirPath,true); ret {|result=None|}
+            with e -> ret {|result=Some e.Message|} 
+            ready x
+        | ProjRenameDirectory(a,ret) ->
+            try match FParsec.CharParsers.run Config.file_verify a.target with
+                | FParsec.CharParsers.ParserResult.Success _ -> Directory.Move(a.dirPath,a.target); ret {|result=None|}
+                | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> ret {|result=Some er|}
+            with e -> ret {|result=Some e.Message|}
+            ready x
+        | ProjCreateFile(a,ret) ->
+            try if File.Exists(a.filePath) then ret {|result=Some "File already exists."|}
+                else File.Create(a.filePath) |> ignore; ret {|result=None|}
+            with e -> ret {|result=Some e.Message|}
+            schema x.schema
+        | ProjDeleteFile(a,ret) ->
+            try File.Delete(a.filePath); ret {|result=None|}
+            with e -> ret {|result=Some e.Message|} 
+            ready x
+        | ProjRenameFile(a,ret) ->
+            try match FParsec.CharParsers.run Config.file_verify a.target with
+                | FParsec.CharParsers.ParserResult.Success _ -> File.Move(a.filePath,a.target,false); ret {|result=None|}
+                | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> ret {|result=Some er|}
+            with e -> ret {|result=Some e.Message|}
+            ready x
     and erroneous () = req >>= function
         | ProjOpen _ -> erroneous()
         | ProjChange x -> file x
         | ProjLinks ret -> ret [||]; erroneous()
+        | ProjCreateFile(_,a) | ProjRenameFile(_,a) | ProjCreateDirectory(_,a) | ProjRenameDirectory(_,a) | ProjDeleteDirectory(_,a) | ProjDeleteFile(_,a) ->
+            a {|result=Some "Cannot do the project file operation while the server is in the erronous state."|}; erroneous()
     and opening () = req >>= function
         | ProjOpen x | ProjChange x -> file x
         | ProjLinks ret -> ret [||]; opening()
+        | ProjCreateFile(_,a) | ProjRenameFile(_,a) | ProjCreateDirectory(_,a) | ProjRenameDirectory(_,a) | ProjDeleteDirectory(_,a) | ProjDeleteFile(_,a) ->
+            a {|result=Some "Cannot do the project file operation while the servers is in the opening state."|}; opening()
     Hopac.start (opening())
     r
 
@@ -159,6 +199,12 @@ type ClientReq =
     | ProjectFileOpen of {|uri : string; spiprojText : string|}
     | ProjectFileChange of {|uri : string; spiprojText : string|}
     | ProjectFileLinks of {|uri : string|}
+    | ProjectCreateFile of {|uri : string; filePath : string|}
+    | ProjectDeleteFile of {|uri : string; filePath : string|}
+    | ProjectRenameFile of {|uri : string; filePath : string; target : string|}
+    | ProjectCreateDirectory of {|uri : string; dirPath : string|}
+    | ProjectDeleteDirectory of {|uri : string; dirPath : string|}
+    | ProjectRenameDirectory of {|uri : string; dirPath : string; target : string|}
     | FileOpen of {|uri : string; spiText : string|}
     | FileChanged of {|uri : string; spiEdit : SpiEdit|}
     | FileTokenRange of {|uri : string; range : VSCRange|}
@@ -234,6 +280,12 @@ let [<EntryPoint>] main _ =
             | ProjectFileOpen x -> Src.value (project x.uri) (ProjOpen x.spiprojText) |> Hopac.start; send_back null
             | ProjectFileChange x -> Src.value (project x.uri) (ProjChange x.spiprojText) |> Hopac.start; send_back null
             | ProjectFileLinks x -> Src.value (project x.uri) (ProjLinks send_back_via_queue) |> Hopac.start
+            | ProjectCreateFile x -> Src.value (project x.uri) (ProjCreateFile({|filePath=x.filePath|}, send_back_via_queue)) |> Hopac.start
+            | ProjectDeleteFile x -> Src.value (project x.uri) (ProjDeleteFile({|filePath=x.filePath|}, send_back_via_queue)) |> Hopac.start
+            | ProjectRenameFile x -> Src.value (project x.uri) (ProjRenameFile({|filePath=x.filePath; target=x.target|}, send_back_via_queue)) |> Hopac.start
+            | ProjectCreateDirectory x -> Src.value (project x.uri) (ProjCreateDirectory({|dirPath=x.dirPath|}, send_back_via_queue)) |> Hopac.start
+            | ProjectDeleteDirectory x -> Src.value (project x.uri) (ProjDeleteDirectory({|dirPath=x.dirPath|}, send_back_via_queue)) |> Hopac.start
+            | ProjectRenameDirectory x -> Src.value (project x.uri) (ProjRenameDirectory({|dirPath=x.dirPath; target=x.target|}, send_back_via_queue)) |> Hopac.start
             | FileOpen x -> Src.value (file x.uri).token (TokReq.Put(x.spiText)) |> Hopac.start; send_back null
             | FileChanged x -> Src.value (file x.uri).token (TokReq.Modify(x.spiEdit)) |> Hopac.start; send_back null
             | FileTokenRange x -> Hopac.start (timeOutMillis 30 >>=. Src.value (file x.uri).token (TokReq.GetRange(x.range,send_back_via_queue)))

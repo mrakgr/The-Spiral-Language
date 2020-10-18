@@ -8,7 +8,7 @@ type VSCRange = VSCPos * VSCPos
 type VSCError = string * VSCRange
 
 type FileHierarchy =
-    | Directory of VSCRange * string * FileHierarchy []
+    | Directory of VSCRange * (VSCRange * string) * FileHierarchy []
     | File of VSCRange * string * is_top_down : bool * is_include : bool
 type ConfigResumableError =
     | DuplicateFiles of VSCRange [] []
@@ -35,33 +35,31 @@ let is_small_var_char_starting c = isAsciiLower c
 let is_var_char c = isAsciiLetter c || c = '_' || c = ''' || isDigit c
 let file' p = many1Satisfy2L is_small_var_char_starting is_var_char "lowercase variable name" p
 let file p = range (file' .>> spaces) p
+let file_verify p = (skipMany1Satisfy2L is_small_var_char_starting is_var_char "lowercase variable name" .>> spaces .>> eof) p
 
-let file_hierarchy p =
-    let rec file_hierarchy_list p =
-        let i = column p
-        let expr p = if i = column p then file_or_directory p else Reply(ReplyStatus.Error,expected "file or directory on the same or greater indentation as the first one")
-        (many1 expr |>> fun l ->
-            let l = l |> List.toArray
-            let _ = 
-                l |> Array.map (fun (File(a,b,_,_) | Directory(a,b,_)) -> b,a)
-                |> Array.groupBy fst
-                |> Array.choose (fun (a,b) -> if b.Length > 1 then Some (Array.map snd b) else None)
-                |> add_to_exception_list p DuplicateFiles
-            l
-            ) p
+let rec file_hierarchy p =
+    let i = column p
+    let expr p = if i = column p then file_or_directory p else Reply(ReplyStatus.Error,expected "file or directory on the same or greater indentation as the first one")
+    (many1 expr |>> fun l ->
+        let l = l |> List.toArray
+        let _ = 
+            l |> Array.map (fun (File(a,b,_,_) | Directory(_,(a,b),_)) -> b,a)
+            |> Array.groupBy fst
+            |> Array.choose (fun (a,b) -> if b.Length > 1 then Some (Array.map snd b) else None)
+            |> add_to_exception_list p DuplicateFiles
+        l
+        ) p
 
-    and file_or_directory p =
-        (range file' >>= fun (r,name) p ->
-            let x = p.Peek2()
-            match x.Char0, x.Char1 with
-            | '/',_ -> p.Skip(); (spaces >>. file_hierarchy_list |>> fun files -> Directory(r,name,files)) p
-            | '-',_ -> p.Skip(); (spaces >>% File(r,name,true,true)) p
-            | '*','-' -> p.Skip(2); (spaces >>% File(r,name,false,true)) p
-            | '*',_ -> p.Skip(); (spaces >>% File(r,name,false,false)) p
-            | _ -> (spaces >>% File(r,name,true,false)) p
-            ) p
-
-    file_hierarchy_list p
+and file_or_directory p =
+    (range file' >>= fun (r,name) p ->
+        let x = p.Peek2()
+        match x.Char0, x.Char1 with
+        | '/',_ -> p.Skip(); (spaces >>. range file_hierarchy |>> fun (r',files) -> Directory((fst r, snd r'),(r,name),files)) p
+        | '-',_ -> p.Skip(); (spaces >>% File(r,name,true,true)) p
+        | '*','-' -> p.Skip(2); (spaces >>% File(r,name,false,true)) p
+        | '*',_ -> p.Skip(); (spaces >>% File(r,name,false,false)) p
+        | _ -> (spaces >>% File(r,name,true,false)) p
+        ) p
 
 let tab_positions (str : string): VSCRange [] =
     let mutable line = -1
