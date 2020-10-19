@@ -147,13 +147,13 @@ let project project_dir (req : ProjectReq Stream) =
                         errors.Add ("File does not exist.", r)
                         actions.Add {|range=r; action=CreateFile {|filePath=x.FullName|} |}
                 with e -> errors.Add (e.Message, r)
-            | Directory(r',(r,a),b) -> 
+            | Directory(r',(r,a),b) ->
                 try let x = DirectoryInfo(Path.Combine(prefix,a))
-                    if x.Exists then 
+                    if x.Exists then
                         Array.iter (validate_file x.FullName) b
                         actions.Add {|range=r; action=RenameDirectory {|dirPath=x.FullName; target=null; validate_as_file=true|} |}
                         actions.Add {|range=r; action=DeleteDirectory {|dirPath=x.FullName; range=r'|} |}
-                    else 
+                    else
                         errors.Add ("Directory does not exist.", r)
                         actions.Add {|range=r; action=CreateDirectory {|dirPath=x.FullName|} |}
                 with e -> errors.Add (e.Message, r)

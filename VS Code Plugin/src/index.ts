@@ -1,6 +1,6 @@
 import * as path from "path"
 import * as _ from "lodash"
-import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider } from "vscode"
+import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider, WorkspaceEdit } from "vscode"
 import * as zmq from "zeromq"
 
 const port = 13805
@@ -33,7 +33,7 @@ const spiprojChangeReq = async (uri: string, spiprojText: string): Promise<void>
 const spiprojLinksReq = async (uri: string): Promise<{uri: string, range: VSCRange} []> => request({ ProjectFileLinks: { uri } })
 const spiprojCodeActionsReq = async (uri: string): Promise<{action: ProjectCodeAction, range: VSCRange} []> => 
     request({ ProjectCodeActions: { uri } })
-const spiprojCodeActionExecuteReq = async (uri: string): Promise<{result: string | null}> => request({ ProjectCodeActionExecute: { uri } })
+const spiprojCodeActionExecuteReq = async (uri: string, action : ProjectCodeAction): Promise<string | null> => request({ ProjectCodeActionExecute: { uri, action } }).then(x => x.result)
 
 const spiOpenReq = async (uri: string, spiText: string): Promise<void> => request({ FileOpen: { uri, spiText } })
 const spiChangeReq = async (uri: string, spiEdit : {from: number, nearTo: number, lines: string[]} ): Promise<void> => 
@@ -51,7 +51,7 @@ const errorsSet = (errors : DiagnosticCollection, uri: Uri, x: MessageRange[]) =
 type Errors = {uri : string; errors : MessageRange[]}
 type ClientRes = { ProjectErrors: Errors } | { TokenizerErrors: Errors } | { ParserErrors: Errors } | { TypeErrors: Errors }
 
-const projectCodeActionsTitle = (x : ProjectCodeAction): string => {
+const projectCodeActionTitle = (x : ProjectCodeAction): string => {
     if ("CreateFile" in x) {return "Create file."}
     if ("DeleteFile" in x) {return "Delete file."}
     if ("RenameFile" in x) {return "Rename file."}
@@ -173,9 +173,46 @@ export const activate = async (ctx: ExtensionContext) => {
 
     class SpiralProjectCodeActions implements CodeActionProvider {
         async provideCodeActions(doc : TextDocument, r : Range) {
-            const actions = await spiprojCodeActionsReq(doc.uri.toString(true))
+            const uri = doc.uri.toString(true)
+            const actions = await spiprojCodeActionsReq(uri)
             return actions.filter(x => range(x.range).contains(r))
-                .map(x => new CodeAction(projectCodeActionsTitle(x.action)))
+                .map(x => {
+                    const a = new CodeAction(projectCodeActionTitle(x.action))
+                    a.command = {command: "runClosure", title: "Run closure", arguments:[async () => {
+                        let error : string | null = null
+                        if ("CreateFile" in x.action || "CreateDirectory" in x.action) {
+                            error = await spiprojCodeActionExecuteReq(uri,x.action)
+                        }
+                        if ("RenameFile" in x.action || "RenameDirectory" in x.action) {
+                            const r = range(x.range)
+                            const target = await window.showInputBox({value: doc.getText(r), prompt: "Enter a new file name."})
+                            if (target) {
+                                if ("RenameFile" in x.action) {x.action.RenameFile.target = target}
+                                if ("RenameDirectory" in x.action) {x.action.RenameDirectory.target = target}
+                                error = await spiprojCodeActionExecuteReq(uri,x.action)
+                                if (!error) {
+                                    const edit = new WorkspaceEdit()
+                                    edit.replace(doc.uri,r,target)
+                                    workspace.applyEdit(edit)
+                                    }
+                                }
+                        }
+                        if ("DeleteFile" in x.action || "DeleteDirectory" in x.action) {
+                            const target = await window.showInputBox({prompt: "Enter 'y' to confirm the delete."})
+                            if (target === "y") { 
+                                error = await spiprojCodeActionExecuteReq(uri,x.action)
+                                if (!error) {
+                                    const edit = new WorkspaceEdit()
+                                    if ("DeleteDirectory" in x.action) {edit.replace(doc.uri,range(x.action.DeleteDirectory.range),target)}
+                                    else {edit.replace(doc.uri,r,target)}
+                                    workspace.applyEdit(edit)
+                                    }
+                                }
+                        }
+                        if (error) {window.showErrorMessage(error)}
+                    }]}
+                    return a
+                    })
         }
     }
 
@@ -193,6 +230,7 @@ export const activate = async (ctx: ExtensionContext) => {
         commands.registerCommand("buildFile", () => {
             window.visibleTextEditors.forEach(x => spiBuildFileReq(x.document.uri.toString(true)))
         }),
+        commands.registerCommand("runClosure", x => { x() }),
         languages.registerDocumentLinkProvider(spiralProjFilePattern,new SpiralProjectLinks()),
         languages.registerCodeActionsProvider(spiralProjFilePattern,new SpiralProjectCodeActions())
     )
