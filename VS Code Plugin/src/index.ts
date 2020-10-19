@@ -22,7 +22,7 @@ type MessageRange = [string, VSCRange]
 
 type ProjectCodeAction = 
     | { CreateFile: {filePath : string} }
-    | { DeleteFile: {filePath : string} }
+    | { DeleteFile: {range: VSCRange; filePath : string} }
     | { RenameFile: {filePath : string; target : string} }
     | { CreateDirectory: {dirPath : string} }
     | { DeleteDirectory: {range: VSCRange; dirPath : string} } // The range here is for the whole tree, not just the code action activation.
@@ -187,8 +187,8 @@ export const activate = async (ctx: ExtensionContext) => {
                             const r = range(x.range)
                             const target = await window.showInputBox({value: doc.getText(r), prompt: "Enter a new file name."})
                             if (target) {
-                                if ("RenameFile" in x.action) {x.action.RenameFile.target = target}
                                 if ("RenameDirectory" in x.action) {x.action.RenameDirectory.target = target}
+                                else {x.action.RenameFile.target = target}
                                 error = await spiprojCodeActionExecuteReq(uri,x.action)
                                 if (!error) {
                                     const edit = new WorkspaceEdit()
@@ -203,8 +203,8 @@ export const activate = async (ctx: ExtensionContext) => {
                                 error = await spiprojCodeActionExecuteReq(uri,x.action)
                                 if (!error) {
                                     const edit = new WorkspaceEdit()
-                                    if ("DeleteDirectory" in x.action) {edit.replace(doc.uri,range(x.action.DeleteDirectory.range),target)}
-                                    else {edit.replace(doc.uri,r,target)}
+                                    if ("DeleteDirectory" in x.action) {edit.delete(doc.uri,range(x.action.DeleteDirectory.range))}
+                                    else {edit.delete(doc.uri,range(x.action.DeleteFile.range))}
                                     workspace.applyEdit(edit)
                                     }
                                 }

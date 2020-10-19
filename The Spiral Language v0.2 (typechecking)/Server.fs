@@ -98,7 +98,7 @@ let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : Typechecke
 
 type ProjectCodeAction = 
     | CreateFile of {|filePath : string|}
-    | DeleteFile of {|filePath : string|}
+    | DeleteFile of {|range: VSCRange; filePath : string|} // The range here includes the postfix operators.
     | RenameFile of {|filePath : string; target : string|}
     | CreateDirectory of {|dirPath : string|}
     | DeleteDirectory of {|range: VSCRange; dirPath : string|} // The range here is for the whole tree, not just the code action activation.
@@ -137,12 +137,12 @@ let project project_dir (req : ProjectReq Stream) =
 
         let links = ResizeArray()
         let rec validate_file prefix = function
-            | File(r,a,is_top_down,_) -> 
+            | File(r',(r,a),is_top_down,_) -> 
                 try let x = FileInfo(Path.Combine(prefix,a + (if is_top_down then ".spi" else ".spir")))
                     if x.Exists then 
                         links.Add {|uri="file:///" + x.FullName; range=r|}
                         actions.Add {|range=r; action=RenameFile {|filePath=x.FullName; target=null|} |}
-                        actions.Add {|range=r; action=DeleteFile {|filePath=x.FullName|} |}
+                        actions.Add {|range=r; action=DeleteFile {|range=r'; filePath=x.FullName|} |}
                     else 
                         errors.Add ("File does not exist.", r)
                         actions.Add {|range=r; action=CreateFile {|filePath=x.FullName|} |}
@@ -188,7 +188,7 @@ let project project_dir (req : ProjectReq Stream) =
                     ready x
                 | CreateFile a ->
                     if File.Exists(a.filePath) then ret {|result=Some "File already exists."|}
-                    else File.Create(a.filePath) |> ignore; ret {|result=None|}
+                    else File.Create(a.filePath).Dispose(); ret {|result=None|}
                     schema x.schema
                 | DeleteFile a ->
                     File.Delete(a.filePath)
@@ -196,7 +196,7 @@ let project project_dir (req : ProjectReq Stream) =
                     ready x
                 | RenameFile a ->
                     match FParsec.CharParsers.run Config.file_verify a.target with
-                    | FParsec.CharParsers.ParserResult.Success _ -> File.Move(a.filePath,Path.Combine(a.filePath,"..",a.target),false); ret {|result=None|}
+                    | FParsec.CharParsers.ParserResult.Success _ -> File.Move(a.filePath,Path.Combine(a.filePath,"..",a.target+Path.GetExtension(a.filePath)),false); ret {|result=None|}
                     | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> ret {|result=Some er|}
                     ready x
             with e -> ret {|result=Some e.Message|}; ready x
