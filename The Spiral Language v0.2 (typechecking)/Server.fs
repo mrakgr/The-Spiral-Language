@@ -132,32 +132,49 @@ let project project_dir (req : ProjectReq Stream) =
                     x.FullName
                 with e -> errors.Add (e.Message, r); project_dir
             | None -> project_dir
-        let moduleDir = validate_dir x.moduleDir
-        let outDir = validate_dir x.outDir
 
+        let moduleDir = validate_dir x.moduleDir
         let links = ResizeArray()
-        let rec validate_file prefix = function
-            | File(r',(r,a),is_top_down,_) -> 
-                try let x = FileInfo(Path.Combine(prefix,a + (if is_top_down then ".spi" else ".spir")))
-                    if x.Exists then 
-                        links.Add {|uri="file:///" + x.FullName; range=r|}
-                        actions.Add {|range=r; action=RenameFile {|filePath=x.FullName; target=null|} |}
-                        actions.Add {|range=r; action=DeleteFile {|range=r'; filePath=x.FullName|} |}
-                    else 
-                        errors.Add ("File does not exist.", r)
-                        actions.Add {|range=r; action=CreateFile {|filePath=x.FullName|} |}
-                with e -> errors.Add (e.Message, r)
-            | Directory(r',(r,a),b) ->
-                try let x = DirectoryInfo(Path.Combine(prefix,a))
-                    if x.Exists then
-                        Array.iter (validate_file x.FullName) b
-                        actions.Add {|range=r; action=RenameDirectory {|dirPath=x.FullName; target=null; validate_as_file=true|} |}
-                        actions.Add {|range=r; action=DeleteDirectory {|dirPath=x.FullName; range=r'|} |}
-                    else
-                        errors.Add ("Directory does not exist.", r)
-                        actions.Add {|range=r; action=CreateDirectory {|dirPath=x.FullName|} |}
-                with e -> errors.Add (e.Message, r)
-        if 0 = errors.Count then Array.iter (validate_file moduleDir) x.modules
+        if 0 = errors.Count then
+            let rec validate_ownership (r,dir : DirectoryInfo) =
+                if dir = null then errors.Add("The directory should be a subdirectory of the current project file.",r)
+                else 
+                    let p = Path.Combine(dir.FullName,"package.spiproj")
+                    if File.Exists(p) then
+                        if dir.FullName <> project_dir then 
+                            errors.Add("This module directory belongs to a different project.", r)
+                            links.Add {|uri="file:///" + p; range=r|}
+                    else validate_ownership (r,dir.Parent)
+            x.moduleDir |> Option.iter (fun (r,dir) -> try validate_ownership (r,DirectoryInfo(Path.Combine(project_dir,dir))) with e -> errors.Add (e.Message, r))
+
+        if 0 = errors.Count then 
+            let rec validate_file prefix = function
+                | File(r',(r,a),is_top_down,_) -> 
+                    try let x = FileInfo(Path.Combine(prefix,a + (if is_top_down then ".spi" else ".spir")))
+                        if x.Exists then 
+                            links.Add {|uri="file:///" + x.FullName; range=r|}
+                            actions.Add {|range=r; action=RenameFile {|filePath=x.FullName; target=null|} |}
+                            actions.Add {|range=r; action=DeleteFile {|range=r'; filePath=x.FullName|} |}
+                        else 
+                            errors.Add ("File does not exist.", r)
+                            actions.Add {|range=r; action=CreateFile {|filePath=x.FullName|} |}
+                    with e -> errors.Add (e.Message, r)
+                | Directory(r',(r,a),b) ->
+                    try let x = DirectoryInfo(Path.Combine(prefix,a))
+                        let p = Path.Combine(x.FullName,"package.spiproj")
+                        if File.Exists(p) then 
+                            errors.Add("This directory belongs to a different project.",r)
+                            links.Add {|uri="file:///" + p; range=r|}
+                        elif x.Exists then
+                            Array.iter (validate_file x.FullName) b
+                            actions.Add {|range=r; action=RenameDirectory {|dirPath=x.FullName; target=null; validate_as_file=true|} |}
+                            actions.Add {|range=r; action=DeleteDirectory {|dirPath=x.FullName; range=r'|} |}
+                        else
+                            errors.Add ("Directory does not exist.", r)
+                            actions.Add {|range=r; action=CreateDirectory {|dirPath=x.FullName|} |}
+                    with e -> errors.Add (e.Message, r)
+            Array.iter (validate_file moduleDir) x.modules
+        let outDir = validate_dir x.outDir
         Src.value res (errors.ToArray()) >>= fun () -> ready {|schema=x; links=links.ToArray(); actions=actions.ToArray()|}
     and file x =
         match config x with
