@@ -22,6 +22,7 @@
     <None Include="Dump\Prototyping.fs" />
     <None Include="Dump\Blocks.fs" />
     <None Include="Dump\BlockPrototype.fs" />
+    <None Include="Dump\kosaraju.fsx" />
     <Compile Include="HashConsing.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="ParserCombinators.fs" />
