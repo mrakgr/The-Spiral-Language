@@ -123,7 +123,8 @@ let project project_dir (req : ProjectReq Stream) =
             match dir with
             | Some (r,dir) ->
                 try let x = DirectoryInfo(Path.Combine(project_dir,dir))
-                    if x.Exists then
+                    if x = null then errors.Add ("Directory is rootless.", r)
+                    elif x.Exists then
                         actions.Add {|range=r; action=RenameDirectory {|dirPath=x.FullName; target=null; validate_as_file=false|} |}
                         actions.Add {|range=r; action=DeleteDirectory {|dirPath=x.FullName; range=r|} |}
                     else

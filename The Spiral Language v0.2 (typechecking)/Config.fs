@@ -64,6 +64,11 @@ and file_or_directory p =
         )
     |>> fun (r',f) -> f r') p
 
+let packages p =
+    let i = column p
+    let file p = if i <= column p then file p else Reply(ReplyStatus.Error,expected "directory on the same or greater indentation as the first one")
+    many file p
+
 let tab_positions (str : string): VSCRange [] =
     let mutable line = -1
     Utils.lines str |> Array.choose (fun x -> 
@@ -105,6 +110,8 @@ type Schema = {
     version : (VSCRange * string) option
     moduleDir : (VSCRange * string) option
     modules : FileHierarchy []
+    packageDir : (VSCRange * string) option
+    packages : (VSCRange * string) list
     }
 
 type ConfigError = ResumableError of ConfigResumableError [] | FatalError of ConfigFatalError
@@ -122,6 +129,8 @@ let config text =
             "name", file |>> fun x s -> {s with name=Some x}
             "moduleDir", directory |>> fun x s -> {s with moduleDir=x}
             "modules", file_hierarchy |>> fun x s -> {s with modules=x}
+            "packageDir", directory |>> fun x s -> {s with packageDir=x}
+            "packages", packages |>> fun x s -> {s with packages=x}
             ]
         let necessary = ["modules"]
 
@@ -131,6 +140,8 @@ let config text =
             version=None
             moduleDir=None
             modules=[||]
+            packageDir=None
+            packages=[]
             }
 
         match runParserOnString (spaces >>. record fields necessary schema .>> eof) (ResizeArray()) "spiral.config" text with
