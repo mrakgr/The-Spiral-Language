@@ -96,6 +96,37 @@ let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : Typechecke
     and waiting = req_tc ^=> processing
     Hopac.server waiting
 
+type PackageValidatorReq =
+    | VReplace of projDir: string * packages: {|projDir : string; range : VSCRange|} list * errors: VSCError list Ch
+    | VLinks of projDir: string * links: {|uri : string; range : VSCRange|} list IVar
+    | VRemove of projDir: string
+
+let package_validator (req : PackageValidatorReq list Stream) =
+    let links = Dictionary()
+    let links_rev = Dictionary()
+    let inline rev_modify f b =
+        match links_rev.TryGetValue(b) with
+        | true, (x : string HashSet) -> f x
+        | _ -> ()
+    let inline rev_add a b = rev_modify (fun x -> x.Add(a) |> ignore) b
+    let inline rev_remove a b = rev_modify (fun x -> x.Remove(a) |> ignore) b
+    let replace (a : string) (b : string list) =
+        let a_links =
+            match links.TryGetValue(a) with
+            | false,_ ->
+                let a_links = HashSet()
+                links.Add(a,a_links)
+                a_links
+            | true,a_links ->
+                Seq.iter (rev_remove a) a_links
+                a_links.Clear()
+                a_links
+        b |> List.iter (fun b -> a_links.Add(b) |> ignore; rev_add a b)
+    let remove a = ()
+
+
+    ()
+
 type ProjectCodeAction = 
     | CreateFile of {|filePath : string|}
     | DeleteFile of {|range: VSCRange; filePath : string|} // The range here includes the postfix operators.
