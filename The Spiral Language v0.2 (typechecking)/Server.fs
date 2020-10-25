@@ -96,36 +96,80 @@ let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : Typechecke
     and waiting = req_tc ^=> processing
     Hopac.server waiting
 
+type Graph = Dictionary<string,string HashSet>
+type MirroredGraph = Graph * Graph
+
+let create_mirrored_graph() = Graph(), Graph()
+
+let add_link (s : Graph) a b = (Utils.memoize s (fun _ -> HashSet()) a).Add(b) |> ignore
+let add_link' (s : MirroredGraph) a b = add_link (fst s) a b; add_link (snd s) b a
+
+let remove_link (s : Graph) a b = 
+    match s.TryGetValue(a) with
+    | true, v -> (if v.Count <= 1 then s.Remove(a) else v.Remove(b)) |> ignore
+    | _ -> ()
+let remove_link' (s : MirroredGraph) a b = remove_link (fst s) a b; remove_link (snd s) b a
+
+let remove_links ((fwd,rev) : MirroredGraph) a = 
+    let mutable a_links = Unchecked.defaultof<_>
+    if fwd.Remove(a,&a_links) then Seq.iter (fun b -> remove_link rev b a) a_links
+let add_links s a b = List.iter (add_link' s a) b
+let replace_links (s : MirroredGraph) a b = remove_links s a; add_links s a b
+let get_links (s : Graph) a = match s.TryGetValue(a) with true, x -> x | _ -> HashSet()
+
+let circular_nodes ((fwd,rev) : MirroredGraph) dirty_nodes =
+    let sort_order = Stack()
+    let sort_visited = HashSet()
+    let rec dfs_rev a = if sort_visited.Add(a) then Seq.iter dfs_rev (get_links rev a); sort_order.Push(a)
+    Seq.iter dfs_rev dirty_nodes
+    let order = sort_order.ToArray()
+
+    let visited = HashSet()
+    let circular_nodes = HashSet()
+    order |> Array.iter (fun a ->
+        let ar = ResizeArray()
+        let rec dfs a = if sort_visited.Contains(a) && visited.Add(a) then Seq.iter dfs (get_links fwd a); ar.Add a
+        dfs a
+        if 1 < ar.Count then ar |> Seq.iter (fun x -> circular_nodes.Add(x) |> ignore)
+        )
+    order, circular_nodes
+
 type PackageValidatorReq =
     | VReplace of projDir: string * packages: {|projDir : string; range : VSCRange|} list * errors: VSCError list Ch
-    | VLinks of projDir: string * links: {|uri : string; range : VSCRange|} list IVar
     | VRemove of projDir: string
 
 let package_validator (req : PackageValidatorReq list Stream) =
-    let links = Dictionary()
-    let links_rev = Dictionary()
-    let inline rev_modify f b =
-        match links_rev.TryGetValue(b) with
-        | true, (x : string HashSet) -> f x
-        | _ -> ()
-    let inline rev_add a b = rev_modify (fun x -> x.Add(a) |> ignore) b
-    let inline rev_remove a b = rev_modify (fun x -> x.Remove(a) |> ignore) b
-    let replace (a : string) (b : string list) =
-        let a_links =
-            match links.TryGetValue(a) with
-            | false,_ ->
-                let a_links = HashSet()
-                links.Add(a,a_links)
-                a_links
-            | true,a_links ->
-                Seq.iter (rev_remove a) a_links
-                a_links.Clear()
-                a_links
-        b |> List.iter (fun b -> a_links.Add(b) |> ignore; rev_add a b)
-    let remove a = ()
-
-
-    ()
+    let links = create_mirrored_graph()
+    let data = Dictionary()
+    let errors = Dictionary()
+    req |> Stream.consumeJob (fun l ->
+        let dirty_nodes = HashSet()
+        l |> List.iter (function
+            | VReplace(dir,l,er) ->
+                dirty_nodes.Add(dir) |> ignore
+                data.[dir] <- (l,er)
+                remove_links links dir
+                l |> List.iter (fun x -> add_link' links dir x.projDir)
+            | VRemove dir ->
+                dirty_nodes.Add(dir) |> ignore
+                data.Remove dir |> ignore
+                errors.Remove dir |> ignore
+                remove_links links dir
+            )
+        let order, circular_nodes = circular_nodes links dirty_nodes
+        order |> Array.iterJob (fun x ->
+            let packages, error_channel = data.[x]
+            packages |> List.collect (fun x ->
+                if data.ContainsKey(x.projDir) = false then ["The package does not exist (or has not been loaded yet.)",x.range]
+                elif circular_nodes.Contains(x.projDir) then ["The current package is a part of a circular chain whose path goes through this package.",x.range]
+                elif errors.ContainsKey(x.projDir) then ["The package or the chain it is a part of has an error.",x.range]
+                else []
+                )
+            |> function
+                | [] -> errors.Remove(x) |> ignore; Ch.give error_channel []
+                | er -> errors.[x] <- er; Ch.give error_channel er
+            )
+        )
 
 type ProjectCodeAction = 
     | CreateFile of {|filePath : string|}
