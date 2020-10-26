@@ -135,19 +135,19 @@ let circular_nodes ((fwd,rev) : MirroredGraph) dirty_nodes =
     order, circular_nodes
 
 type PackageValidatorReq =
-    | VReplace of projDir: string * packages: {|projDir : string; range : VSCRange|} list * errors: VSCError list Ch
+    | VReplace of projDir: string * packages: {|projDir : string; range : VSCRange|} list
     | VRemove of projDir: string
 
-let package_validator (req : PackageValidatorReq list Stream) =
+let package_validator (req : (PackageValidatorReq list * {|projDir : string; errors : VSCError list|} Src) Stream) =
     let links = create_mirrored_graph()
     let data = Dictionary()
     let errors = Dictionary()
-    req |> Stream.consumeJob (fun l ->
+    req |> Stream.consumeJob (fun (l, res) ->
         let dirty_nodes = HashSet()
         l |> List.iter (function
-            | VReplace(dir,l,er) ->
+            | VReplace(dir,l) ->
                 dirty_nodes.Add(dir) |> ignore
-                data.[dir] <- (l,er)
+                data.[dir] <- l
                 remove_links links dir
                 l |> List.iter (fun x -> add_link' links dir x.projDir)
             | VRemove dir ->
@@ -157,18 +157,18 @@ let package_validator (req : PackageValidatorReq list Stream) =
                 remove_links links dir
             )
         let order, circular_nodes = circular_nodes links dirty_nodes
-        order |> Array.iterJob (fun x ->
-            let packages, error_channel = data.[x]
-            packages |> List.collect (fun x ->
+        order |> Array.iterJob (fun projDir ->
+            data.[projDir] |> List.collect (fun x ->
                 if data.ContainsKey(x.projDir) = false then ["The package does not exist (or has not been loaded yet.)",x.range]
                 elif circular_nodes.Contains(x.projDir) then ["The current package is a part of a circular chain whose path goes through this package.",x.range]
                 elif errors.ContainsKey(x.projDir) then ["The package or the chain it is a part of has an error.",x.range]
                 else []
                 )
             |> function
-                | [] -> errors.Remove(x) |> ignore; Ch.give error_channel []
-                | er -> errors.[x] <- er; Ch.give error_channel er
+                | [] -> errors.Remove(projDir) |> ignore; Src.value res {|projDir=projDir; errors=[]|}
+                | er -> errors.[projDir] <- er; Src.value res {|projDir=projDir; errors=er|}
             )
+        >>=. Src.close res
         )
 
 type ProjectCodeAction = 
