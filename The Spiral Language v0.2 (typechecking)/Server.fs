@@ -178,6 +178,46 @@ type ProjectCodeAction =
     | CreateDirectory of {|dirPath : string|}
     | DeleteDirectory of {|range: VSCRange; dirPath : string|} // The range here is for the whole tree, not just the code action activation.
     | RenameDirectory of {|dirPath : string; target : string; validate_as_file : bool|}
+type Link = {|uri : string; range : VSCRange|}
+type PackageFileOk = {|dir: string; packages: string list; errors : VSCError list; links : Link list; actions : ProjectCodeAction list|}
+type PackageFileToSupervisorReq = Result<PackageFileOk,{|dir: string; msg: string|}>
+type PackageFileReq =
+    | PReplace of text: string * res: PackageFileToSupervisorReq Src
+    | PRevalidate
+    | PDelete
+
+let package_file (project_dir : string, text : string option, res : PackageFileToSupervisorReq Src) (req : PackageFileReq Stream) = 
+    let opened text = Src.value res (Ok {|dir=project_dir; packages=[]; errors=[]; links=[]; actions=[]|})
+    match text with
+    | Some text -> opened text
+    | None ->
+        try File.ReadAllText(Path.Combine(project_dir,"package.spiproj")) |> opened
+        with e -> Src.value res (Error {|dir=project_dir; msg=e.Message|})
+    |> Hopac.queue
+
+type PackageSupervisorReq =
+    | SOpen of dir: string * text: string
+    | SChange of dir: string * text: string
+    | SDelete of dir: string
+
+let package_supervisor (req : PackageSupervisorReq Stream) =
+    let errors = Src.create()
+    let files = Dictionary()
+    req |> Stream.consumeJob (function
+        | SOpen(dir,text) ->
+            if files.ContainsKey(dir) = false then
+                let r = Src.create()
+                let waiting = HashSet()
+                package_file (dir,Some text,r) >>=.
+                waiting.Add(dir) |> ignore
+                Src.tap r |> Stream.iterJob (function
+                    | SPackages(dir,packages) ->
+                        ()
+                    )
+            else Job.unit()
+        )
+    Src.tap errors
+
 
 type ProjectReq =
     | ProjOpen of string
