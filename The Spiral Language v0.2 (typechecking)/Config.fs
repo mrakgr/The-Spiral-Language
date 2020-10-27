@@ -114,6 +114,16 @@ type Schema = {
     packages : (VSCRange * string) list
     }
 
+let schema_def: Schema = {
+    outDir=None
+    name=None
+    version=None
+    moduleDir=None
+    modules=[||]
+    packageDir=None
+    packages=[]
+    }
+
 type ConfigError = ResumableError of ConfigResumableError [] | FatalError of ConfigFatalError
 
 open System.IO
@@ -134,17 +144,7 @@ let config text =
             ]
         let necessary = ["modules"]
 
-        let schema: Schema = {
-            outDir=None
-            name=None
-            version=None
-            moduleDir=None
-            modules=[||]
-            packageDir=None
-            packages=[]
-            }
-
-        match runParserOnString (spaces >>. record fields necessary schema .>> eof) (ResizeArray()) "spiral.config" text with
+        match runParserOnString (spaces >>. record fields necessary schema_def .>> eof) (ResizeArray()) "spiral.config" text with
         | Success(a,userstate,_) -> 
             if userstate.Count > 0 then userstate.ToArray() |> ResumableError |> Result.Error else Result.Ok a
         | Failure(messages,error,_) ->

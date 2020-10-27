@@ -135,7 +135,7 @@ let circular_nodes ((fwd,rev) : MirroredGraph) dirty_nodes =
     order, circular_nodes
 
 type PackageValidatorReq =
-    | VReplace of projDir: string * packages: {|projDir : string; range : VSCRange|} list
+    | VReplace of projDir: string * packages: (VSCRange * string) list
     | VRemove of projDir: string
 
 let package_validator (req : (PackageValidatorReq list * {|projDir : string; errors : VSCError list|} Src) Stream) =
@@ -149,7 +149,7 @@ let package_validator (req : (PackageValidatorReq list * {|projDir : string; err
                 dirty_nodes.Add(dir) |> ignore
                 data.[dir] <- l
                 remove_links links dir
-                l |> List.iter (fun x -> add_link' links dir x.projDir)
+                l |> List.iter (fun (_,package_dir) -> add_link' links dir package_dir)
             | VRemove dir ->
                 dirty_nodes.Add(dir) |> ignore
                 data.Remove dir |> ignore
@@ -158,10 +158,10 @@ let package_validator (req : (PackageValidatorReq list * {|projDir : string; err
             )
         let order, circular_nodes = circular_nodes links dirty_nodes
         order |> Array.iterJob (fun projDir ->
-            data.[projDir] |> List.collect (fun x ->
-                if data.ContainsKey(x.projDir) = false then ["The package does not exist (or has not been loaded yet.)",x.range]
-                elif circular_nodes.Contains(x.projDir) then ["The current package is a part of a circular chain whose path goes through this package.",x.range]
-                elif errors.ContainsKey(x.projDir) then ["The package or the chain it is a part of has an error.",x.range]
+            data.[projDir] |> List.collect (fun (r,dir) ->
+                if data.ContainsKey(dir) = false then ["The package does not exist (or has not been loaded yet.)",r]
+                elif circular_nodes.Contains(dir) then ["The current package is a part of a circular chain whose path goes through this package.",r]
+                elif errors.ContainsKey(dir) then ["The package or the chain it is a part of has an error.",r]
                 else []
                 )
             |> function
@@ -179,173 +179,221 @@ type ProjectCodeAction =
     | DeleteDirectory of {|range: VSCRange; dirPath : string|} // The range here is for the whole tree, not just the code action activation.
     | RenameDirectory of {|dirPath : string; target : string; validate_as_file : bool|}
 type Link = {|uri : string; range : VSCRange|}
-type PackageFileOk = {|dir: string; packages: string list; errors : VSCError list; links : Link list; actions : ProjectCodeAction list|}
-type PackageFileToSupervisorReq = Result<PackageFileOk,{|dir: string; msg: string|}>
 type PackageFileReq =
-    | PReplace of text: string * res: PackageFileToSupervisorReq Src
-    | PRevalidate
+    | PReplace of string * PackageFileToSupervisorReq Src
     | PDelete
+    | PLinks of {|uri : string; range : VSCRange|} [] IVar
+    | PCodeActions of {|range : VSCRange; action : ProjectCodeAction |} [] IVar
+    | PCodeActionExecute of ProjectCodeAction
+and PackageFileToSupervisorReqOk = {|dir: string; packages: (VSCRange * string) list; src: PackageFileReq Src|}
+and PackageFileToSupervisorReq = Result<PackageFileToSupervisorReqOk,{|dir: string; msg: string|}>
 
-let package_file (project_dir : string, text : string option, res : PackageFileToSupervisorReq Src) (req : PackageFileReq Stream) = 
-    let opened text = Src.value res (Ok {|dir=project_dir; packages=[]; errors=[]; links=[]; actions=[]|})
+let schema project_dir x =
+    let errors = ResizeArray()
+    let actions = ResizeArray()
+    let validate_dir dir =
+        match dir with
+        | Some (r,dir) ->
+            try let x = DirectoryInfo(Path.Combine(project_dir,dir))
+                if x = null then errors.Add ("Directory is rootless.", r)
+                elif x.Exists then
+                    actions.Add {|range=r; action=RenameDirectory {|dirPath=x.FullName; target=null; validate_as_file=false|} |}
+                    actions.Add {|range=r; action=DeleteDirectory {|dirPath=x.FullName; range=r|} |}
+                else
+                    errors.Add ("Directory does not exist.", r)
+                    actions.Add {|range=r; action=CreateDirectory {|dirPath=x.FullName|} |}
+                x.FullName
+            with e -> errors.Add (e.Message, r); project_dir
+        | None -> project_dir
+
+    let moduleDir = validate_dir x.moduleDir
+    let links = ResizeArray()
+    if 0 = errors.Count then
+        let rec validate_ownership (r,dir : DirectoryInfo) =
+            if dir = null then errors.Add("The directory should be a subdirectory of the current project file.",r)
+            else 
+                let p = Path.Combine(dir.FullName,"package.spiproj")
+                if File.Exists(p) then
+                    if dir.FullName <> project_dir then 
+                        errors.Add("This module directory belongs to a different project.", r)
+                        links.Add {|uri="file:///" + p; range=r|}
+                else validate_ownership (r,dir.Parent)
+        x.moduleDir |> Option.iter (fun (r,dir) -> try validate_ownership (r,DirectoryInfo(Path.Combine(project_dir,dir))) with e -> errors.Add (e.Message, r))
+
+    if 0 = errors.Count then 
+        let rec validate_file prefix = function
+            | File(r',(r,a),is_top_down,_) -> 
+                try let x = FileInfo(Path.Combine(prefix,a + (if is_top_down then ".spi" else ".spir")))
+                    if x.Exists then 
+                        links.Add {|uri="file:///" + x.FullName; range=r|}
+                        actions.Add {|range=r; action=RenameFile {|filePath=x.FullName; target=null|} |}
+                        actions.Add {|range=r; action=DeleteFile {|range=r'; filePath=x.FullName|} |}
+                    else 
+                        errors.Add ("File does not exist.", r)
+                        actions.Add {|range=r; action=CreateFile {|filePath=x.FullName|} |}
+                with e -> errors.Add (e.Message, r)
+            | Directory(r',(r,a),b) ->
+                try let x = DirectoryInfo(Path.Combine(prefix,a))
+                    let p = Path.Combine(x.FullName,"package.spiproj")
+                    if File.Exists(p) then 
+                        errors.Add("This directory belongs to a different project.",r)
+                        links.Add {|uri="file:///" + p; range=r|}
+                    elif x.Exists then
+                        Array.iter (validate_file x.FullName) b
+                        actions.Add {|range=r; action=RenameDirectory {|dirPath=x.FullName; target=null; validate_as_file=true|} |}
+                        actions.Add {|range=r; action=DeleteDirectory {|dirPath=x.FullName; range=r'|} |}
+                    else
+                        errors.Add ("Directory does not exist.", r)
+                        actions.Add {|range=r; action=CreateDirectory {|dirPath=x.FullName|} |}
+                with e -> errors.Add (e.Message, r)
+        Array.iter (validate_file moduleDir) x.modules
+    let outDir = validate_dir x.outDir
+    let packages =
+        let validate_package d (r,x) =
+            let p = FileInfo(Path.Combine(d,x,"package.spiproj"))
+            if p.Exists then links.Add {|uri="file:///"+p.FullName; range=r|}
+            else errors.Add("The package file does not exist.",r)
+            r, p.FullName
+        match x.packageDir with
+        | Some(r,n) -> 
+            try let d = DirectoryInfo(Path.Combine(project_dir,n))
+                if d = null then errors.Add("The directory is rootless.",r); []
+                elif d.Exists = false then errors.Add("The directory does not exist.",r); []
+                else x.packages |> List.map (validate_package d.FullName)
+            with e -> errors.Add (e.Message, r); []
+        | None -> 
+            try let d = DirectoryInfo(project_dir).Parent
+                if d = null then x.packages |> List.iter (fun (r,_) -> errors.Add("The directory for this package is rootless.",r)); []
+                else x.packages |> List.map (validate_package d.FullName)
+            with e -> []
+    {|schema=x; packages=packages; links=links.ToArray(); actions=actions.ToArray(); errors=errors.ToArray()|}
+
+let package_file fatal_errors errors (project_dir : string, text : string option, res : PackageFileToSupervisorReq Src) = 
+    let src = Src.create()
+    let req = Src.tap src |> Stream.values
+
+    let uri = "file:///" + Path.Combine(project_dir,"package.spiproj") // TODO: Is this right?
+    let errors x = Src.value errors {|uri=uri; errors=x|}
+    let fatal_errors x = Src.value fatal_errors x |> Hopac.run
+    let schema x = let x = schema project_dir x in errors x.errors >>-. x
+
+    let file x ret =
+        match config x with
+        | Ok x -> 
+            Src.value ret (Ok {|dir=project_dir; packages=x.packages; src=src|} ) >>= fun () -> schema x // TODO: Fix this.
+        | Error x -> 
+            Src.value ret (Ok {|dir=project_dir; packages=[]; src=src|} ) >>=.
+            errors x >>-. {|schema=schema_def; packages=[]; links=[||]; actions=[||]; errors=x|}
+
+    let rec loop x = req >>= function
+        | PReplace(x,ret) -> file x ret >>= loop
+        | PDelete -> Job.unit()
+        | PLinks ret -> IVar.fill ret [||] >>=. loop x
+        | PCodeActions ret -> IVar.fill ret [||] >>=. loop x
+        | PCodeActionExecute a ->
+            try match a with
+                | CreateDirectory a ->
+                    Directory.CreateDirectory(a.dirPath) |> ignore
+                    schema x.schema >>= loop
+                | DeleteDirectory a ->
+                    Directory.Delete(a.dirPath,true)
+                    loop x
+                | RenameDirectory a ->
+                    if a.validate_as_file then
+                        match FParsec.CharParsers.run Config.file_verify a.target with
+                        | FParsec.CharParsers.ParserResult.Success _ -> Directory.Move(a.dirPath,Path.Combine(a.dirPath,"..",a.target))
+                        | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> fatal_errors er
+                    else
+                        Directory.Move(a.dirPath,Path.Combine(a.dirPath,"..",a.target))
+                    loop x
+                | CreateFile a ->
+                    if File.Exists(a.filePath) then fatal_errors "File already exists."
+                    else File.Create(a.filePath).Dispose()
+                    schema x.schema >>= loop
+                | DeleteFile a ->
+                    File.Delete(a.filePath)
+                    loop x
+                | RenameFile a ->
+                    match FParsec.CharParsers.run Config.file_verify a.target with
+                    | FParsec.CharParsers.ParserResult.Success _ -> File.Move(a.filePath,Path.Combine(a.filePath,"..",a.target+Path.GetExtension(a.filePath)),false)
+                    | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> fatal_errors er
+                    loop x
+            with e -> fatal_errors e.Message; loop x
+
+    let opened text = file text res >>= loop
     match text with
     | Some text -> opened text
     | None ->
         try File.ReadAllText(Path.Combine(project_dir,"package.spiproj")) |> opened
         with e -> Src.value res (Error {|dir=project_dir; msg=e.Message|})
-    |> Hopac.queue
+    |> Hopac.start
 
 type PackageSupervisorReq =
     | SOpen of dir: string * text: string
     | SChange of dir: string * text: string
     | SDelete of dir: string
 
+type SupervisorEnv = {|src : PackageFileToSupervisorReq Src; waiting : string HashSet; dirty : string HashSet|}
+let add_waiting (s : SupervisorEnv) dir = s.waiting.Add(dir) |> ignore; s.dirty.Add(dir) |> ignore
+let remove_waiting (s : SupervisorEnv) dir = s.waiting.Remove(dir) |> ignore; s.dirty.Remove(dir) |> ignore
+let files_set (s : SupervisorEnv) (files : Dictionary<_,_>) dir x = s.waiting.Remove(dir) |> ignore; files.[dir] <- x
+
 let package_supervisor (req : PackageSupervisorReq Stream) =
-    let errors = Src.create()
+    let fatal_errors = Src.create()
+    let iter_package_errors = Src.create()
+    let intra_package_errors = Src.create()
+    let validator = Src.create() 
+    package_validator (Src.tap validator)
+
     let files = Dictionary()
-    req |> Stream.consumeJob (function
-        | SOpen(dir,text) ->
-            if files.ContainsKey(dir) = false then
-                let r = Src.create()
-                let waiting = HashSet()
-                package_file (dir,Some text,r) >>=.
-                waiting.Add(dir) |> ignore
-                Src.tap r |> Stream.iterJob (function
-                    | SPackages(dir,packages) ->
-                        ()
-                    )
-            else Job.unit()
+    let loaded (s : SupervisorEnv) (x : PackageFileToSupervisorReqOk) =
+        files_set s files x.dir {|packages=x.packages; src=x.src|}
+        x.packages |> List.iter (fun (_,dir) ->
+            if (s.waiting.Contains(dir) || files.ContainsKey(dir)) = false then
+                package_file fatal_errors intra_package_errors (dir,None,s.src)
+                add_waiting s dir
+            )
+        if s.waiting.Count = 0 then Src.close s.src else Job.unit()
+    let loading (s : SupervisorEnv) =
+        Src.tap s.src |> Stream.iterJob (function
+            | Ok x -> loaded s x
+            | Error x ->
+                remove_waiting s x.dir
+                Src.value fatal_errors (sprintf "Errors when opening %s:\n%s" (Path.Combine(x.dir,"package.spiproj")) x.msg)
+            )
+    let validating (s : SupervisorEnv) =
+        let req = s.dirty |> Seq.toList |> List.map (fun x -> 
+            match files.TryGetValue(x) with
+            | true, v -> VReplace(x,v.packages)
+            | _ -> VRemove x
+            )
+        let src = Src.create()
+        Src.value validator (req,src) >>=.
+        Stream.iterJob (Src.value iter_package_errors) (Src.tap src)
+    let opening (s : SupervisorEnv) (dir : string) text =
+        if files.ContainsKey(dir) = false then
+            add_waiting s dir
+            package_file fatal_errors intra_package_errors (dir,Some text,s.src)
+            loading s
+        else Job.unit()
+    req |> Stream.consumeJob (fun x ->
+        let s = {|src = Src.create(); waiting = HashSet(); dirty = HashSet()|}
+        match x with
+        | SOpen(dir,text) -> opening s dir text
+        | SChange(dir,text) ->
+            match files.TryGetValue(dir) with
+            | false,_ -> opening s dir text
+            | true,x ->
+                add_waiting s dir
+                Src.value x.src (PReplace(text,s.src)) >>=.
+                loading s
+        | SDelete dir ->
+            files.Remove(dir) |> ignore
+            s.dirty.Add(dir) |> ignore
+            Job.unit()
+        >>=. validating s
         )
-    Src.tap errors
-
-
-type ProjectReq =
-    | ProjOpen of string
-    | ProjChange of string
-    | ProjLinks of ({|uri : string; range : VSCRange|} [] -> unit)
-    | ProjCodeActionExecute of ProjectCodeAction * ({|result : string option|} -> unit)
-    | ProjCodeActions of ({|range : VSCRange; action : ProjectCodeAction |} [] -> unit)
-
-let project project_dir (req : ProjectReq Stream) =
-    let req = Stream.values req
-    let res : _ [] Src = Src.create()
-    let r = Src.tap res
-
-    let rec schema x =
-        let errors = ResizeArray()
-        let actions = ResizeArray()
-        let validate_dir dir =
-            match dir with
-            | Some (r,dir) ->
-                try let x = DirectoryInfo(Path.Combine(project_dir,dir))
-                    if x = null then errors.Add ("Directory is rootless.", r)
-                    elif x.Exists then
-                        actions.Add {|range=r; action=RenameDirectory {|dirPath=x.FullName; target=null; validate_as_file=false|} |}
-                        actions.Add {|range=r; action=DeleteDirectory {|dirPath=x.FullName; range=r|} |}
-                    else
-                        errors.Add ("Directory does not exist.", r)
-                        actions.Add {|range=r; action=CreateDirectory {|dirPath=x.FullName|} |}
-                    x.FullName
-                with e -> errors.Add (e.Message, r); project_dir
-            | None -> project_dir
-
-        let moduleDir = validate_dir x.moduleDir
-        let links = ResizeArray()
-        if 0 = errors.Count then
-            let rec validate_ownership (r,dir : DirectoryInfo) =
-                if dir = null then errors.Add("The directory should be a subdirectory of the current project file.",r)
-                else 
-                    let p = Path.Combine(dir.FullName,"package.spiproj")
-                    if File.Exists(p) then
-                        if dir.FullName <> project_dir then 
-                            errors.Add("This module directory belongs to a different project.", r)
-                            links.Add {|uri="file:///" + p; range=r|}
-                    else validate_ownership (r,dir.Parent)
-            x.moduleDir |> Option.iter (fun (r,dir) -> try validate_ownership (r,DirectoryInfo(Path.Combine(project_dir,dir))) with e -> errors.Add (e.Message, r))
-
-        if 0 = errors.Count then 
-            let rec validate_file prefix = function
-                | File(r',(r,a),is_top_down,_) -> 
-                    try let x = FileInfo(Path.Combine(prefix,a + (if is_top_down then ".spi" else ".spir")))
-                        if x.Exists then 
-                            links.Add {|uri="file:///" + x.FullName; range=r|}
-                            actions.Add {|range=r; action=RenameFile {|filePath=x.FullName; target=null|} |}
-                            actions.Add {|range=r; action=DeleteFile {|range=r'; filePath=x.FullName|} |}
-                        else 
-                            errors.Add ("File does not exist.", r)
-                            actions.Add {|range=r; action=CreateFile {|filePath=x.FullName|} |}
-                    with e -> errors.Add (e.Message, r)
-                | Directory(r',(r,a),b) ->
-                    try let x = DirectoryInfo(Path.Combine(prefix,a))
-                        let p = Path.Combine(x.FullName,"package.spiproj")
-                        if File.Exists(p) then 
-                            errors.Add("This directory belongs to a different project.",r)
-                            links.Add {|uri="file:///" + p; range=r|}
-                        elif x.Exists then
-                            Array.iter (validate_file x.FullName) b
-                            actions.Add {|range=r; action=RenameDirectory {|dirPath=x.FullName; target=null; validate_as_file=true|} |}
-                            actions.Add {|range=r; action=DeleteDirectory {|dirPath=x.FullName; range=r'|} |}
-                        else
-                            errors.Add ("Directory does not exist.", r)
-                            actions.Add {|range=r; action=CreateDirectory {|dirPath=x.FullName|} |}
-                    with e -> errors.Add (e.Message, r)
-            Array.iter (validate_file moduleDir) x.modules
-        let outDir = validate_dir x.outDir
-        Src.value res (errors.ToArray()) >>= fun () -> ready {|schema=x; links=links.ToArray(); actions=actions.ToArray()|}
-    and file x =
-        match config x with
-        | Ok x -> schema x
-        | Error er -> Src.value res er >>= erroneous
-    and ready x = req >>= function
-        | ProjOpen _ -> ready x
-        | ProjChange x -> file x
-        | ProjLinks ret -> ret x.links; ready x
-        | ProjCodeActions ret -> ret x.actions; ready x
-        | ProjCodeActionExecute(a,ret) ->
-            try match a with
-                | CreateDirectory a ->
-                    Directory.CreateDirectory(a.dirPath) |> ignore
-                    ret {|result=None|}
-                    schema x.schema
-                | DeleteDirectory a ->
-                    Directory.Delete(a.dirPath,true)
-                    ret {|result=None|}
-                    ready x
-                | RenameDirectory a ->
-                    if a.validate_as_file then
-                        match FParsec.CharParsers.run Config.file_verify a.target with
-                        | FParsec.CharParsers.ParserResult.Success _ -> Directory.Move(a.dirPath,Path.Combine(a.dirPath,"..",a.target)); ret {|result=None|}
-                        | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> ret {|result=Some er|}
-                    else
-                        Directory.Move(a.dirPath,Path.Combine(a.dirPath,"..",a.target)); ret {|result=None|}
-                    ready x
-                | CreateFile a ->
-                    if File.Exists(a.filePath) then ret {|result=Some "File already exists."|}
-                    else File.Create(a.filePath).Dispose(); ret {|result=None|}
-                    schema x.schema
-                | DeleteFile a ->
-                    File.Delete(a.filePath)
-                    ret {|result=None|}
-                    ready x
-                | RenameFile a ->
-                    match FParsec.CharParsers.run Config.file_verify a.target with
-                    | FParsec.CharParsers.ParserResult.Success _ -> File.Move(a.filePath,Path.Combine(a.filePath,"..",a.target+Path.GetExtension(a.filePath)),false); ret {|result=None|}
-                    | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> ret {|result=Some er|}
-                    ready x
-            with e -> ret {|result=Some e.Message|}; ready x
-    and erroneous () = req >>= function
-        | ProjOpen _ -> erroneous()
-        | ProjChange x -> file x
-        | ProjLinks ret -> ret [||]; erroneous()
-        | ProjCodeActions ret -> ret [||]; erroneous()
-        | ProjCodeActionExecute(_,a) -> a {|result=Some "Cannot do the project file code action while the server is in the erronous state."|}; erroneous()
-    and opening () = req >>= function
-        | ProjOpen x | ProjChange x -> file x
-        | ProjLinks ret -> ret [||]; opening()
-        | ProjCodeActions ret -> ret [||]; opening()
-        | ProjCodeActionExecute(_,a) -> a {|result=Some "Cannot do the project file code action while the servers is in the opening state."|}; opening()
-    Hopac.start (opening())
-    r
+    {|fatal_errors=Src.tap fatal_errors; inter_package_errors=Src.tap iter_package_errors; intra_package_errors=Src.tap intra_package_errors|}
 
 type ClientReq =
     | ProjectFileOpen of {|uri : string; spiprojText : string|}
@@ -359,8 +407,10 @@ type ClientReq =
     | HoverAt of {|uri : string; pos : VSCPos|}
     | BuildFile of {|uri : string|}
 
-type ClientRes =
-    | ProjectErrors of {|uri : string; errors : VSCError []|}
+type ClientErrorsRes =
+    | FatalError of string
+    | InterPackageErrors of {|uri : string; errors : VSCError list|}
+    | IntraPackageErrors of {|uri : string; errors : VSCError []|}
     | TokenizerErrors of {|uri : string; errors : VSCError []|}
     | ParserErrors of {|uri : string; errors : VSCError []|}
     | TypeErrors of {|uri : string; errors : VSCError list|}
@@ -384,7 +434,7 @@ let [<EntryPoint>] main _ =
     use queue_server = new NetMQQueue<NetMQMessage>()
     poller.Add(queue_server)
 
-    use queue_client = new NetMQQueue<ClientRes>()
+    use queue_client = new NetMQQueue<ClientErrorsRes>()
     poller.Add(queue_client)
 
     let file = Utils.memoize (Dictionary()) <| fun (uri : string) ->
