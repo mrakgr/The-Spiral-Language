@@ -213,10 +213,8 @@ let schema project_dir x =
     let outDir = validate_dir x.outDir
     let packages =
         let validate_package d (r,x) =
-            try let p = FileInfo(Path.Combine(d,x,"package.spiproj"))
-                if p.Exists then links.Add (r, "file:///"+p.FullName)
-                // The validator needs the backwards links even for files that are currently missing, but might exist.
-                Some(r, p.FullName)
+            try // The validator needs the backwards links even for files that are currently missing, but might exist.
+                Some(r, DirectoryInfo(Path.Combine(d,x)).FullName)
             with e -> errors.Add(r, e.Message); None
         match x.packageDir with
         | Some(r,n) -> 
@@ -227,30 +225,80 @@ let schema project_dir x =
         | None -> List.choose (validate_package (Path.Combine(project_dir,".."))) x.packages
     {schema=x; packages=packages; links=links.ToArray(); actions=actions.ToArray(); errors=errors.ToArray()}
 
-let load' project_dir =
+let load_from_string project_dir text =
+    match config text with
+    | Ok x -> schema project_dir x |> Ok
+    | Error er -> {schema=schema_def; packages=[]; links=[||]; actions=[||]; errors=er} |> Ok
+
+let load_from_file project_dir =
     let p = Path.Combine(project_dir,"package.spiproj")
     if File.Exists(p) then 
         Job.catch (Job.fromTask (fun () -> File.ReadAllTextAsync(p))) >>- function
-        | Choice1Of2 f ->
-            match config f with
-            | Ok x -> schema project_dir x |> Ok
-            | Error er -> {schema=schema_def; packages=[]; links=[||]; actions=[||]; errors=er} |> Ok
+        | Choice1Of2 text -> load_from_string project_dir text
         | Choice2Of2 er -> Error er.Message
     else Job.result (Error "The package file does not exist.")
 
-type PackageValidatedSchemas = Map<string,Result<ValidatedSchema,string> Promise>
-let rec load dict project_dir =
-    MVar.modifyFun (fun (m : PackageValidatedSchemas) ->
+type LoadedSchemas = Map<string,Result<ValidatedSchema,string>>
+let load (m : LoadedSchemas) text project_dir =
+    let waiting = MVar(Set.empty)
+    let finished = MVar(m)
+    let rec loop text project_dir =
         match Map.tryFind project_dir m with
-        | Some f -> m, f
+        | Some _ -> Job.unit()
         | None ->
-            let f = Hopac.memo (Job.delay <| fun () ->
-                match load' project_dir with
-                | Ok x as a -> Seq.Con.iterJob (snd >> load dict) x.packages >>-. a
-                | Error _ as a -> Job.result a
-                )
-            Map.add project_dir f m, f
-        ) dict >>= Job.Ignore
+            MVar.modifyFun (fun waiting ->
+                if Set.contains project_dir waiting then waiting, Job.unit()
+                else 
+                    let process_packages = function
+                        | Ok x -> Seq.Con.iterJob (snd >> loop None) x.packages
+                        | Error _ -> Job.unit()
+                    Set.add project_dir waiting,
+                    match text with
+                    | None -> 
+                        load_from_file project_dir >>= fun x ->
+                        Job.start (MVar.mutateFun (Map.add project_dir x) finished) >>=.
+                        process_packages x
+                    | Some text -> Job.delay <| fun () ->
+                        let x = load_from_string project_dir text 
+                        Job.start (MVar.mutateFun (Map.add project_dir x) finished) >>=.
+                        process_packages x
+                ) waiting >>= Job.Ignore
+    loop text project_dir >>=. MVar.take finished
+
+type PackageSchema = {
+    schema : ValidatedSchema
+    package_links : RString []
+    package_errors : RString []
+    }
+
+let validate (data : Dictionary<string, Result<PackageSchema, string>>) (graph : MirroredGraph) (m : LoadedSchemas) project_dir =
+    let potential_floating_garbage = 
+        project_dir :: 
+        match data.TryGetValue(project_dir) with 
+        | true, Ok v -> v.schema.packages |> List.map snd 
+        | _ -> []
+    let cleanup () = 
+        potential_floating_garbage |> List.fold (fun m project_dir ->
+            if (fst graph).ContainsKey(project_dir) = false && (snd graph).ContainsKey(project_dir) = false then 
+                data.Remove(project_dir) |> ignore
+                Map.remove project_dir m
+            else m
+            ) m
+                
+    let dirty = ResizeArray()
+    let rec loop project_dir =
+        let errors = ResizeArray()
+        let links = ResizeArray()
+        dirty.Add(project_dir)
+        match data.TryGetValue(project_dir), Map.tryFind project_dir m with
+        // Add case.
+        | _, Some x -> 
+            failwith ""
+        | _, None -> data.[project_dir] <- Error "The package does not exist."
+    loop project_dir 
+    cleanup()
+
+
 
 //type PackageValidatorReq =
 //    | VReplace of projDir: string * packages: (VSCRange * string) list
