@@ -1,12 +1,9 @@
 ﻿module Spiral.Tokenize
 open System
 open System.Text
+open VSCTypes
 open Spiral.LineParsers
 open Spiral.ParserCombinators
-
-type VSCPos = {|line : int; character : int|}
-type VSCRange = VSCPos * VSCPos
-type VSCError = string * VSCRange
 
 type TokenKeyword =
     | SpecIn
@@ -337,11 +334,11 @@ let process_error (k,v) =
     let messages, expecteds = v |> Array.distinct |> Array.partition (fun x -> Char.IsUpper(x,0))
     let ex () = match expecteds with [|x|] -> sprintf "Expected: %s" x | x -> sprintf "Expected one of: %s" (String.concat ", " x)
     let f l = String.concat "\n" l
-    if Array.isEmpty expecteds then f messages, k
-    elif Array.isEmpty messages then ex (), k
-    else f (Array.append [|ex (); ""; "Other error messages:"|] messages), k
+    if Array.isEmpty expecteds then k, f messages
+    elif Array.isEmpty messages then k, ex ()
+    else k, f (Array.append [|ex (); ""; "Other error messages:"|] messages)
 
-let process_errors line (ers : LineTokenErrors []) : (string * VSCRange) [] =
+let process_errors line (ers : LineTokenErrors []) : RString [] =
     ers |> Array.mapi (fun i l -> 
         let i = line + i
         l |> List.toArray |> Array.map (fun (r,x) -> x, ({|line=i; character=r.from|}, {|line=i; character=r.nearTo|}))
@@ -350,7 +347,7 @@ let process_errors line (ers : LineTokenErrors []) : (string * VSCRange) [] =
     |> Array.groupBy snd
     |> Array.map ((fun (k,v) -> k, Array.map fst v) >> process_error)
 
-type VSCodeTokenData = int [] * (string * VSCRange) [] // FSharp.Json does not support serializing ResizeArray objects
+type VSCodeTokenData = int [] * (string * Range) [] // FSharp.Json does not support serializing ResizeArray objects
 let vscode_tokens line_delta (lines : LineToken [] []) =
     let toks = ResizeArray()
     lines |> Array.fold (fun line_delta tok ->
@@ -371,5 +368,5 @@ let replace (lines : _ [] ResizeArray) (errors : _ []) (edit : SpiEdit) =
     lines.RemoveRange(edit.from,edit.nearTo-edit.from)
     lines.InsertRange(edit.from,toks)
 
-    let errors = errors |> Array.filter (fun (_,(a : VSCPos,_)) -> (edit.from <= a.line && a.line < edit.nearTo) = false)
+    let errors = errors |> Array.filter (fun ((a : Pos,_),_) -> (edit.from <= a.line && a.line < edit.nearTo) = false)
     Array.append errors (process_errors edit.from ers)

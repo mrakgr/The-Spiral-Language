@@ -2,10 +2,10 @@
 let f p d = let x = p d in printfn "%A" x; x
 
 open System
-open Spiral.ParserCombinators
+open VSCTypes
 open Spiral.Tokenize
+open Spiral.ParserCombinators
 
-type Range = VSCRange
 type SymbolString = string
 type VarString = string
 type NominalString = string

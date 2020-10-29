@@ -1,11 +1,12 @@
 ﻿module Spiral.Blockize
 
+open VSCTypes
 open Spiral.Tokenize
 open Spiral.BlockParsing
 
 type Block = {block: LineToken [] []; offset: int}
-type FileOpenRes = Block list * VSCError []
-type FileChangeRes = Block list * VSCError []
+type FileOpenRes = Block list * RString []
+type FileChangeRes = Block list * RString []
 type FileTokenAllRes = VSCTokenArray
 
 type ParsedBlock = {parsed: Result<TopStatement, (Range * ParserErrors) list>; offset: int}
@@ -68,14 +69,14 @@ open Spiral.TypecheckingUtils
 let block_bundle (l : ParsedBlock list) =
     let (+.) a b = BlockParsingError.add_line_to_range a b
     let bundle = ResizeArray()
-    let errors = ResizeArray()
+    let errors = ResizeArray<RString>()
     let temp = ResizeArray()
     let move_temp () = if 0 < temp.Count then bundle.Add(Seq.toList temp); temp.Clear()
     let rec init (l : ParsedBlock list) =
         match l with
         | x :: x' ->
             match x.parsed with
-            | Ok (TopAnd(r,_)) -> errors.Add("Invalid `and` statement.", x.offset +. r); init x'
+            | Ok (TopAnd(r,_)) -> errors.Add(x.offset +. r, "Invalid `and` statement."); init x'
             | Ok (TopRecInl _ as a) -> temp.Add {offset=x.offset; statement=a}; recinl x'
             | Ok (TopNominalRec _ as a) -> temp.Add {offset=x.offset; statement=a}; rectype x'
             | Ok a -> temp.Add {offset=x.offset; statement=a}; move_temp(); init x'
@@ -86,7 +87,7 @@ let block_bundle (l : ParsedBlock list) =
         | x :: x' ->
             match x.parsed with
             | Ok (TopAnd(_, TopRecInl _ & a)) -> temp.Add {offset=x.offset; statement=a}; recinl x'
-            | Ok (TopAnd(r, _)) -> errors.Add("inl/let recursive statements can only be followed by `and` inl/let statements.", x.offset +. r); recinl x'
+            | Ok (TopAnd(r, _)) -> errors.Add(x.offset +. r, "inl/let recursive statements can only be followed by `and` inl/let statements."); recinl x'
             | Ok _ -> move_temp(); init l
             | Error er -> BlockParsingError.show_block_parsing_error x.offset er |> errors.AddRange; recinl x'
         | [] -> move_temp()
@@ -95,7 +96,7 @@ let block_bundle (l : ParsedBlock list) =
         | x :: x' ->
             match x.parsed with
             | Ok (TopAnd(_, TopNominalRec _ & a)) -> temp.Add {offset=x.offset; statement=a}; rectype x'
-            | Ok (TopAnd(r, _)) -> errors.Add("`union rec` can only be followed by `and union`.", x.offset +. r); rectype x'
+            | Ok (TopAnd(r, _)) -> errors.Add(x.offset +. r, "`union rec` can only be followed by `and union`."); rectype x'
             | Ok _ -> move_temp(); init l
             | Error er -> BlockParsingError.show_block_parsing_error x.offset er |> errors.AddRange; rectype x'
         | [] -> move_temp()

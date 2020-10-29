@@ -5,10 +5,11 @@ open System.IO
 open System.Collections.Generic
 open FSharpx.Collections
 
-open Spiral.Config
+open VSCTypes
 open Spiral.Tokenize
 open Spiral.TypecheckingUtils
 open Spiral.Blockize
+open Spiral.Config
 
 open Hopac
 open Hopac.Infixes
@@ -18,9 +19,9 @@ open Hopac.Stream
 type TokReq =
     | Put of string
     | Modify of SpiEdit
-    | GetRange of VSCRange * (VSCTokenArray -> unit)
-type TokRes = {blocks : Block list; errors : VSCError []}
-type ParserRes = {bundles : Bundle list; parser_errors : VSCError []; tokenizer_errors : VSCError []}
+    | GetRange of Range * (VSCTokenArray -> unit)
+type TokRes = {blocks : Block list; errors : RString []}
+type ParserRes = {bundles : Bundle list; parser_errors : RString []; tokenizer_errors : RString []}
 
 let tokenizer req =
     let lines : LineToken [] ResizeArray = ResizeArray([[||]])
@@ -80,7 +81,7 @@ let typechecker (req : ParserRes Stream) : TypecheckerRes Stream =
     Hopac.server (waiting PersistentVector.empty)
     r
 
-let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : TypecheckerRes Stream) =
+let hover (req : (Pos * (string option -> unit)) Stream) (req_tc : TypecheckerRes Stream) =
     let req, req_tc = Stream.values req, Stream.values req_tc
     let rec processing ((x,_ as r) : TypecheckerRes) = waiting <|> (req ^=> fun (pos,ret) ->
         let rec block_from i = 
@@ -136,12 +137,20 @@ let circular_nodes ((fwd,rev) : MirroredGraph) dirty_nodes =
 
 type ProjectCodeAction = 
     | CreateFile of {|filePath : string|}
-    | DeleteFile of {|range: VSCRange; filePath : string|} // The range here includes the postfix operators.
+    | DeleteFile of {|range: Range; filePath : string|} // The range here includes the postfix operators.
     | RenameFile of {|filePath : string; target : string|}
     | CreateDirectory of {|dirPath : string|}
-    | DeleteDirectory of {|range: VSCRange; dirPath : string|} // The range here is for the whole tree, not just the code action activation.
+    | DeleteDirectory of {|range: Range; dirPath : string|} // The range here is for the whole tree, not just the code action activation.
     | RenameDirectory of {|dirPath : string; target : string; validate_as_file : bool|}
 
+type RAction = Range * ProjectCodeAction
+type ValidatedSchema = {
+    schema : Schema
+    packages : RString list
+    links : RString []
+    actions : RAction []
+    errors : RString []
+    }
 let schema project_dir x =
     let errors = ResizeArray()
     let actions = ResizeArray()
@@ -149,86 +158,89 @@ let schema project_dir x =
         match dir with
         | Some (r,dir) ->
             try let x = DirectoryInfo(Path.Combine(project_dir,dir))
-                if x = null then errors.Add ("Directory is rootless.", r)
+                if x = null then errors.Add (r, "Directory is rootless.")
                 elif x.Exists then
-                    actions.Add {|range=r; action=RenameDirectory {|dirPath=x.FullName; target=null; validate_as_file=false|} |}
-                    actions.Add {|range=r; action=DeleteDirectory {|dirPath=x.FullName; range=r|} |}
+                    actions.Add (r, RenameDirectory {|dirPath=x.FullName; target=null; validate_as_file=false|})
+                    actions.Add (r, DeleteDirectory {|dirPath=x.FullName; range=r|})
                 else
-                    errors.Add ("Directory does not exist.", r)
-                    actions.Add {|range=r; action=CreateDirectory {|dirPath=x.FullName|} |}
+                    errors.Add (r, "Directory does not exist.")
+                    actions.Add (r, CreateDirectory {|dirPath=x.FullName|})
                 x.FullName
-            with e -> errors.Add (e.Message, r); project_dir
+            with e -> errors.Add (r, e.Message); project_dir
         | None -> project_dir
 
     let moduleDir = validate_dir x.moduleDir
     let links = ResizeArray()
     if 0 = errors.Count then
         let rec validate_ownership (r,dir : DirectoryInfo) =
-            if dir = null then errors.Add("The directory should be a subdirectory of the current project file.",r)
+            if dir = null then errors.Add(r, "The directory should be a subdirectory of the current project file.")
             else 
                 let p = Path.Combine(dir.FullName,"package.spiproj")
                 if File.Exists(p) then
                     if dir.FullName <> project_dir then 
-                        errors.Add("This module directory belongs to a different project.", r)
-                        links.Add {|uri="file:///" + p; range=r|}
+                        errors.Add(r, "This module directory belongs to a different project.")
+                        links.Add(r, "file:///" + p)
                 else validate_ownership (r,dir.Parent)
-        x.moduleDir |> Option.iter (fun (r,dir) -> try validate_ownership (r,DirectoryInfo(Path.Combine(project_dir,dir))) with e -> errors.Add (e.Message, r))
+        x.moduleDir |> Option.iter (fun (r,dir) -> try validate_ownership (r,DirectoryInfo(Path.Combine(project_dir,dir))) with e -> errors.Add (r, e.Message))
 
     if 0 = errors.Count then 
         let rec validate_file prefix = function
             | File(r',(r,a),is_top_down,_) -> 
                 try let x = FileInfo(Path.Combine(prefix,a + (if is_top_down then ".spi" else ".spir")))
                     if x.Exists then 
-                        links.Add {|uri="file:///" + x.FullName; range=r|}
-                        actions.Add {|range=r; action=RenameFile {|filePath=x.FullName; target=null|} |}
-                        actions.Add {|range=r; action=DeleteFile {|range=r'; filePath=x.FullName|} |}
+                        links.Add (r, "file:///" + x.FullName)
+                        actions.Add (r, RenameFile {|filePath=x.FullName; target=null|})
+                        actions.Add (r, DeleteFile {|range=r'; filePath=x.FullName|})
                     else 
-                        errors.Add ("File does not exist.", r)
-                        actions.Add {|range=r; action=CreateFile {|filePath=x.FullName|} |}
-                with e -> errors.Add (e.Message, r)
+                        errors.Add (r, "File does not exist.")
+                        actions.Add (r, CreateFile {|filePath=x.FullName|})
+                with e -> errors.Add (r, e.Message)
             | Directory(r',(r,a),b) ->
                 try let x = DirectoryInfo(Path.Combine(prefix,a))
                     let p = Path.Combine(x.FullName,"package.spiproj")
                     if File.Exists(p) then 
-                        errors.Add("This directory belongs to a different project.",r)
-                        links.Add {|uri="file:///" + p; range=r|}
+                        errors.Add(r, "This directory belongs to a different project.")
+                        links.Add (r, "file:///" + p)
                     elif x.Exists then
                         Array.iter (validate_file x.FullName) b
-                        actions.Add {|range=r; action=RenameDirectory {|dirPath=x.FullName; target=null; validate_as_file=true|} |}
-                        actions.Add {|range=r; action=DeleteDirectory {|dirPath=x.FullName; range=r'|} |}
+                        actions.Add (r, RenameDirectory {|dirPath=x.FullName; target=null; validate_as_file=true|})
+                        actions.Add (r, DeleteDirectory {|dirPath=x.FullName; range=r'|})
                     else
-                        errors.Add ("Directory does not exist.", r)
-                        actions.Add {|range=r; action=CreateDirectory {|dirPath=x.FullName|} |}
-                with e -> errors.Add (e.Message, r)
+                        errors.Add (r, "Directory does not exist.")
+                        actions.Add (r, CreateDirectory {|dirPath=x.FullName|})
+                with e -> errors.Add (r, e.Message)
         Array.iter (validate_file moduleDir) x.modules
     let outDir = validate_dir x.outDir
     let packages =
         let validate_package d (r,x) =
             try let p = FileInfo(Path.Combine(d,x,"package.spiproj"))
-                if p.Exists then links.Add {|uri="file:///"+p.FullName; range=r|}
+                if p.Exists then links.Add (r, "file:///"+p.FullName)
                 // The validator needs the backwards links even for files that are currently missing, but might exist.
                 Some(r, p.FullName)
-            with e -> errors.Add(e.Message,r); None
+            with e -> errors.Add(r, e.Message); None
         match x.packageDir with
         | Some(r,n) -> 
             try let d = DirectoryInfo(Path.Combine(project_dir,n))
-                if d.Exists = false then errors.Add("The directory does not exist.",r)
+                if d.Exists = false then errors.Add(r, "The directory does not exist.")
                 List.choose (validate_package d.FullName) x.packages
-            with e -> errors.Add (e.Message, r); []
+            with e -> errors.Add (r, e.Message); []
         | None -> List.choose (validate_package (Path.Combine(project_dir,".."))) x.packages
-    {|schema=x; packages=packages; links=links.ToArray(); actions=actions.ToArray(); errors=errors.ToArray()|}
+    {schema=x; packages=packages; links=links.ToArray(); actions=actions.ToArray(); errors=errors.ToArray()}
 
 let load' project_dir =
-    try let p = Path.Combine(project_dir,"package.spiproj")
-        if File.Exists(p) then 
-            match File.ReadAllText(p) |> config with
+    let p = Path.Combine(project_dir,"package.spiproj")
+    if File.Exists(p) then 
+        Job.catch (Job.fromTask (fun () -> File.ReadAllTextAsync(p))) >>- function
+        | Choice1Of2 f ->
+            match config f with
             | Ok x -> schema project_dir x |> Ok
-            | Error er -> {|schema=schema_def; packages=[]; links=[||]; actions=[||]; errors=er|} |> Ok
-        else Error "The package file does not exist."
-    with e -> Error e.Message
+            | Error er -> {schema=schema_def; packages=[]; links=[||]; actions=[||]; errors=er} |> Ok
+        | Choice2Of2 er -> Error er.Message
+    else Job.result (Error "The package file does not exist.")
 
+type PackageValidatedSchemas = Map<string,Result<ValidatedSchema,string> Promise>
 let rec load dict project_dir =
-    MVar.modifyFun (fun m ->
+    MVar.modifyFun (fun (m : PackageValidatedSchemas) ->
         match Map.tryFind project_dir m with
         | Some f -> m, f
         | None ->

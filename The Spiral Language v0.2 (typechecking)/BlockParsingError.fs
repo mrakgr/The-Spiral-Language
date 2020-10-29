@@ -1,4 +1,5 @@
 ﻿module Spiral.BlockParsingError
+open VSCTypes
 open Spiral.Tokenize
 open Spiral.BlockParsing
 
@@ -95,9 +96,9 @@ let show_parser_error = function
     | BottomUpNumberParseError (x, val_dsc) -> sprintf "The string %s cannot be safely parsed as %s." x val_dsc
     | DuplicateUnionKey -> "Duplicate union keys are not allowed."
 
-let add_line_to_range line ((a,b) : Tokenize.VSCRange) = {|a with line=line+a.line|}, {|b with line=line+b.line|}
+let add_line_to_range line ((a,b) : Range) = {|a with line=line+a.line|}, {|b with line=line+b.line|}
     
-let show_block_parsing_error line (l : (Tokenize.VSCRange * ParserErrors) list) =
+let show_block_parsing_error line (l : (Range * ParserErrors) list) =
     l |> List.groupBy fst
     |> List.map (fun (k,v) -> 
         let k = add_line_to_range line k

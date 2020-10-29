@@ -27,6 +27,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="ParserCombinators.fs" />
     <Compile Include="LineParsers.fs" />
+    <Compile Include="VSCTypes.fs" />
     <Compile Include="Tokenize.fs" />
     <Compile Include="BlockParsing.fs" />
     <Compile Include="BlockParsingError.fs" />
@@ -37,7 +38,6 @@
     <Compile Include="CodegenFsharp.fs" />
     <Compile Include="Blockize.fs" />
     <Compile Include="Config.fs" />
-    <Compile Include="Package.fs" />
     <Compile Include="Server.fs" />
   </ItemGroup>
 

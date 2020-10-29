@@ -1,5 +1,6 @@
 ﻿module Spiral.TypecheckingUtils
 
+open VSCTypes
 open Spiral.BlockParsing
 
 type BundleItem = { offset : int; statement : TopStatement}
@@ -16,7 +17,7 @@ type BundleTop =
     | BundleInstance of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawExpr
 
 let add_offset offset (range : Range) : Range = 
-    let f (a : Tokenize.VSCPos) = {|a with line=offset + a.line|}
+    let f (a : Pos) = {|a with line=offset + a.line|}
     let a,b = range
     f a, f b
 let add_offset_hovar offset (a,b) = add_offset offset a, b

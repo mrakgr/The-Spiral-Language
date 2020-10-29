@@ -2,21 +2,18 @@
 module Spiral.Config
 open System
 open FParsec
-
-type VSCPos = {|line : int; character : int|}
-type VSCRange = VSCPos * VSCPos
-type VSCError = string * VSCRange
+open VSCTypes
 
 type FileHierarchy =
-    | Directory of VSCRange * (VSCRange * string) * FileHierarchy []
-    | File of VSCRange * (VSCRange * string) * is_top_down : bool * is_include : bool
+    | Directory of Range * RString * FileHierarchy []
+    | File of Range * RString * is_top_down : bool * is_include : bool
 type ConfigResumableError =
-    | DuplicateFiles of VSCRange [] []
-    | DuplicateRecordFields of VSCRange [] []
-    | MissingNecessaryRecordFields of string [] * VSCRange
+    | DuplicateFiles of Range [] []
+    | DuplicateRecordFields of Range [] []
+    | MissingNecessaryRecordFields of string [] * Range
 type ConfigFatalError =
-    | Tabs of VSCRange []
-    | ParserError of string * VSCRange
+    | Tabs of Range []
+    | ParserError of string * Range
 exception ConfigException of ConfigFatalError
 
 let rec spaces_template s = (spaces >>. optional (followedByString "//" >>. skipRestOfLine true >>. spaces_template)) s
@@ -27,9 +24,9 @@ let raise_if_not_empty exn l = if Array.isEmpty l = false then raise' (exn l)
 let add_to_exception_list' (p: CharStream<ResizeArray<ConfigResumableError>>) = p.State.UserState.Add
 let add_to_exception_list (p: CharStream<ResizeArray<ConfigResumableError>>) exn l = if Array.isEmpty l = false then p.State.UserState.Add (exn l)
 let column (p : CharStream<_>) = p.Column
-let pos (p : CharStream<_>) : VSCPos = {|line=int p.Line - 1; character=int p.Column - 1|}
+let pos (p : CharStream<_>) : Pos = {|line=int p.Line - 1; character=int p.Column - 1|}
 let pos' p = Reply(pos p)
-let range f p = pipe3 pos' f pos' (fun a b c -> ((a, c) : VSCRange), b) p
+let range f p = pipe3 pos' f pos' (fun a b c -> ((a, c) : Range), b) p
 
 let is_small_var_char_starting c = isAsciiLower c
 let is_var_char c = isAsciiLetter c || c = '_' || c = ''' || isDigit c
@@ -69,7 +66,7 @@ let packages p =
     let file p = if i <= column p then file p else Reply(ReplyStatus.Error,expected "directory on the same or greater indentation as the first one")
     many file p
 
-let tab_positions (str : string): VSCRange [] =
+let tab_positions (str : string): Range [] =
     let mutable line = -1
     Utils.lines str |> Array.choose (fun x -> 
         line <- line + 1
@@ -105,13 +102,13 @@ let record fields fields_necessary schema =
         Reply(schema)
 
 type Schema = {
-    outDir : (VSCRange * string) option
-    name : (VSCRange * string) option
-    version : (VSCRange * string) option
-    moduleDir : (VSCRange * string) option
+    outDir : RString option
+    name : RString option
+    version : RString option
+    moduleDir : RString option
     modules : FileHierarchy []
-    packageDir : (VSCRange * string) option
-    packages : (VSCRange * string) list
+    packageDir : RString option
+    packages : RString list
     }
 
 let schema_def: Schema = {
@@ -155,13 +152,13 @@ let config text =
 
     |> Result.mapError (fun x ->
         let fatal_error = function
-            | Tabs l -> l |> Array.map (fun x -> "Tab not allowed.", x)
-            | ParserError(x,p) -> [|(Utils.lines x).[3..] |> String.concat "\n", p|]
-        let inline duplicate er = Array.collect (fun l -> let er = er (Array.length l) in Array.map (fun x -> er, x) l)
+            | Tabs l -> l |> Array.map (fun r -> r, "Tab not allowed.")
+            | ParserError(x,r) -> [|r, (Utils.lines x).[3..] |> String.concat "\n"|]
+        let inline duplicate er = Array.collect (fun l -> let er = er (Array.length l) in Array.map (fun r -> r, er) l)
         let resumable_error = function
             | DuplicateFiles l -> duplicate (sprintf "Duplicate name. Count: %i") l
             | DuplicateRecordFields l -> duplicate (sprintf "Duplicate record field. Count: %i") l
-            | MissingNecessaryRecordFields (l,p) -> [|sprintf "Record is missing the fields: %s" (String.concat ", " l), p|]
+            | MissingNecessaryRecordFields (l,r) -> [|r, sprintf "Record is missing the fields: %s" (String.concat ", " l)|]
         match x with
         | ResumableError x -> Array.collect resumable_error x
         | FatalError x -> fatal_error x

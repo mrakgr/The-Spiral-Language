@@ -1,5 +1,8 @@
 ﻿module Spiral.Infer
 
+open VSCTypes
+open Spiral.BlockParsing
+
 type [<ReferenceEquality>] 'a ref' = {mutable contents' : 'a}
 type TT =
     | KindType
@@ -107,7 +110,6 @@ let rec visit_t = function
     | TyMetavar(_,{contents=Some x} & link) -> shorten x link visit_t
     | a -> a
 
-open Spiral.BlockParsing
 exception TypeErrorException of (Range * TypeError) list
 
 let rec typevar = function
@@ -563,8 +565,8 @@ type InferResult = {
     filled_top : FilledTop Lazy option
     blockwise_top_env : TopEnv
     top_env_changes : TopEnvModify list
-    hovers : (VSCRange * string) []
-    errors : Tokenize.VSCError list
+    hovers : (Range * string) []
+    errors : RString list
     }
 
 let top_env_modify prefix (env : TopEnv) l = 
@@ -1471,7 +1473,7 @@ let infer (top_env' : TopEnv) expr =
         blockwise_top_env = top_env
         filled_top = filled_top
         hovers = hover_types |> Seq.toArray |> Array.map (fun x -> x.Key, show_t top_env x.Value)
-        errors = errors |> Seq.toList |> List.map (fun (a,b) -> show_type_error top_env b, a)
+        errors = errors |> Seq.toList |> List.map (fun (a,b) -> a, show_type_error top_env b)
         top_env_changes = top_env_changes
         }
 
