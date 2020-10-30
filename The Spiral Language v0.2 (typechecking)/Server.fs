@@ -19,7 +19,7 @@ open Hopac.Stream
 type TokReq =
     | Put of string
     | Modify of SpiEdit
-    | GetRange of Range * (VSCTokenArray -> unit)
+    | GetRange of VSCRange * (VSCTokenArray -> unit)
 type TokRes = {blocks : Block list; errors : RString []}
 type ParserRes = {bundles : Bundle list; parser_errors : RString []; tokenizer_errors : RString []}
 
@@ -81,7 +81,7 @@ let typechecker (req : ParserRes Stream) : TypecheckerRes Stream =
     Hopac.server (waiting PersistentVector.empty)
     r
 
-let hover (req : (Pos * (string option -> unit)) Stream) (req_tc : TypecheckerRes Stream) =
+let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : TypecheckerRes Stream) =
     let req, req_tc = Stream.values req, Stream.values req_tc
     let rec processing ((x,_ as r) : TypecheckerRes) = waiting <|> (req ^=> fun (pos,ret) ->
         let rec block_from i = 
@@ -137,13 +137,13 @@ let circular_nodes ((fwd,rev) : MirroredGraph) dirty_nodes =
 
 type ProjectCodeAction = 
     | CreateFile of {|filePath : string|}
-    | DeleteFile of {|range: Range; filePath : string|} // The range here includes the postfix operators.
+    | DeleteFile of {|range: VSCRange; filePath : string|} // The range here includes the postfix operators.
     | RenameFile of {|filePath : string; target : string|}
     | CreateDirectory of {|dirPath : string|}
-    | DeleteDirectory of {|range: Range; dirPath : string|} // The range here is for the whole tree, not just the code action activation.
+    | DeleteDirectory of {|range: VSCRange; dirPath : string|} // The range here is for the whole tree, not just the code action activation.
     | RenameDirectory of {|dirPath : string; target : string; validate_as_file : bool|}
 
-type RAction = Range * ProjectCodeAction
+type RAction = VSCRange * ProjectCodeAction
 type ValidatedSchema = {
     schema : Schema
     packages : RString list

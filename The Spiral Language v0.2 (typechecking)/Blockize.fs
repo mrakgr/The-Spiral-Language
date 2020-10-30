@@ -9,7 +9,7 @@ type FileOpenRes = Block list * RString []
 type FileChangeRes = Block list * RString []
 type FileTokenAllRes = VSCTokenArray
 
-type ParsedBlock = {parsed: Result<TopStatement, (Range * ParserErrors) list>; offset: int}
+type ParsedBlock = {parsed: Result<TopStatement, (VSCRange * ParserErrors) list>; offset: int}
 
 /// Reads the comments up to a statement, and then reads the statement body. Leaves any errors for the parsing stage.
 let block_at (lines : LineToken [] ResizeArray) i =

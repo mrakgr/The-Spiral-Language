@@ -368,5 +368,5 @@ let replace (lines : _ [] ResizeArray) (errors : _ []) (edit : SpiEdit) =
     lines.RemoveRange(edit.from,edit.nearTo-edit.from)
     lines.InsertRange(edit.from,toks)
 
-    let errors = errors |> Array.filter (fun ((a : Pos,_),_) -> (edit.from <= a.line && a.line < edit.nearTo) = false)
+    let errors = errors |> Array.filter (fun ((a : VSCPos,_),_) -> (edit.from <= a.line && a.line < edit.nearTo) = false)
     Array.append errors (process_errors edit.from ers)

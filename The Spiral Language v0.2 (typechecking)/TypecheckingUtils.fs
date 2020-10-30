@@ -8,16 +8,16 @@ type Bundle = BundleItem list
 
 // These bundles have their range offsets distributed into them.
 type BundleTop =
-    | BundleType of Range * (Range * VarString) * HoVar list * RawTExpr
-    | BundleNominal of Range * (Range * VarString) * HoVar list * RawTExpr
-    | BundleNominalRec of (Range * (Range * VarString) * HoVar list * RawTExpr) list
-    | BundleInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
-    | BundleRecInl of (Range * (Range * VarString) * RawExpr) list * is_top_down: bool
-    | BundlePrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
-    | BundleInstance of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawExpr
+    | BundleType of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
+    | BundleNominal of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
+    | BundleNominalRec of (VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr) list
+    | BundleInl of VSCRange * (VSCRange * VarString) * RawExpr * is_top_down: bool
+    | BundleRecInl of (VSCRange * (VSCRange * VarString) * RawExpr) list * is_top_down: bool
+    | BundlePrototype of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawTExpr
+    | BundleInstance of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawExpr
 
-let add_offset offset (range : Range) : Range = 
-    let f (a : Pos) = {|a with line=offset + a.line|}
+let add_offset offset (range : VSCRange) : VSCRange = 
+    let f (a : VSCPos) = {|a with line=offset + a.line|}
     let a,b = range
     f a, f b
 let add_offset_hovar offset (a,b) = add_offset offset a, b

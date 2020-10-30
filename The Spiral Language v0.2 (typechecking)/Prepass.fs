@@ -6,7 +6,7 @@ type Id = int32
 type ScopeEnv = {|free_vars : int []; stack_size : int|}
 type Scope = {term : ScopeEnv; ty : ScopeEnv}
 //type Range = { uri : string; range : Config.VSCRange }
-type Range = VSCTypes.Range // TODO: Include uris during the prepass.
+type Range = VSCTypes.VSCRange // TODO: Include uris during the prepass.
 
 type Macro =
     | MText of string

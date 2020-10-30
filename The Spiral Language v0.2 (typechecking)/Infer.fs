@@ -110,7 +110,7 @@ let rec visit_t = function
     | TyMetavar(_,{contents=Some x} & link) -> shorten x link visit_t
     | a -> a
 
-exception TypeErrorException of (Range * TypeError) list
+exception TypeErrorException of (VSCRange * TypeError) list
 
 let rec typevar = function
     | RawKindWildcard | RawKindStar -> KindType
@@ -168,7 +168,7 @@ let rec tt (env : TopEnv) = function
     | TyUnion _ | TyLayout _ | TyMacro _ | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyModule _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
     | TyInl(v,a) -> KindFun(v.kind,tt env a)
 
-let module_open (top_env : Env) (r : Range) b l =
+let module_open (top_env : Env) (r : VSCRange) b l =
     let tryFind env x =
         match Map.tryFind x env.term, Map.tryFind x env.ty, Map.tryFind x env.constraints with
         | Some (TyModule a), Some (TyModule b), Some (M c) -> ValueSome {term=a; ty=b; constraints=c}
@@ -552,20 +552,20 @@ let trim_kind = function KindFun(_,k) -> k | _ -> failwith "impossible"
 
 // Similar to BundleTop except with type annotations and type application filled in.
 type FilledTop =
-    | FType of Range * (Range * VarString) * HoVar list * RawTExpr
-    | FNominal of Range * (Range * VarString) * HoVar list * RawTExpr
-    | FNominalRec of (Range * (Range * VarString) * HoVar list * RawTExpr) list
-    | FInl of Range * (Range * VarString) * RawExpr
-    | FRecInl of (Range * (Range * VarString) * RawExpr) list
-    | FPrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
-    | FInstance of Range * (Range * int) * (Range * int) * RawExpr
+    | FType of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
+    | FNominal of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
+    | FNominalRec of (VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr) list
+    | FInl of VSCRange * (VSCRange * VarString) * RawExpr
+    | FRecInl of (VSCRange * (VSCRange * VarString) * RawExpr) list
+    | FPrototype of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawTExpr
+    | FInstance of VSCRange * (VSCRange * int) * (VSCRange * int) * RawExpr
 
 open System.Collections.Generic
 type InferResult = {
     filled_top : FilledTop Lazy option
     blockwise_top_env : TopEnv
     top_env_changes : TopEnvModify list
-    hovers : (Range * string) []
+    hovers : (VSCRange * string) []
     errors : RString list
     }
 
@@ -797,7 +797,7 @@ let infer (top_env' : TopEnv) expr =
         try unify_kind' (fun () -> raise (TypeErrorException [r, KindError (got, expected)])) got expected
         with :? TypeErrorException as e -> errors.AddRange e.Data0
 
-    let unify (r : Range) (got : T) (expected : T) : unit =
+    let unify (r : VSCRange) (got : T) (expected : T) : unit =
         let unify_kind = unify_kind' (fun () -> raise (TypeErrorException [r, KindError' (got, expected)]))
         let er () = raise (TypeErrorException [r, TermError(got, expected)])
 

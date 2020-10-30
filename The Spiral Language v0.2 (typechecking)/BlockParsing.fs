@@ -165,87 +165,87 @@ type RawKindExpr =
 
 type UnionLayout = UStack | UHeap
 
-type HoVar = Range * (VarString * RawKindExpr)
-type TypeVar = HoVar * (Range * VarString) list
+type HoVar = VSCRange * (VarString * RawKindExpr)
+type TypeVar = HoVar * (VSCRange * VarString) list
 type RawMacro =
-    | RawMacroText of Range * string
-    | RawMacroTypeVar of Range * RawTExpr
-    | RawMacroTermVar of Range * RawExpr
+    | RawMacroText of VSCRange * string
+    | RawMacroTypeVar of VSCRange * RawTExpr
+    | RawMacroTermVar of VSCRange * RawExpr
 and RawRecordWith =
-    | RawRecordWithSymbol of (Range * SymbolString) * RawExpr
-    | RawRecordWithSymbolModify of (Range * SymbolString) * RawExpr
-    | RawRecordWithInjectVar of (Range * VarString) * RawExpr
-    | RawRecordWithInjectVarModify of (Range * VarString) * RawExpr
+    | RawRecordWithSymbol of (VSCRange * SymbolString) * RawExpr
+    | RawRecordWithSymbolModify of (VSCRange * SymbolString) * RawExpr
+    | RawRecordWithInjectVar of (VSCRange * VarString) * RawExpr
+    | RawRecordWithInjectVarModify of (VSCRange * VarString) * RawExpr
 and RawRecordWithout =
-    | RawRecordWithoutSymbol of Range * SymbolString
-    | RawRecordWithoutInjectVar of Range * VarString
+    | RawRecordWithoutSymbol of VSCRange * SymbolString
+    | RawRecordWithoutInjectVar of VSCRange * VarString
 and PatRecordMember =
-    | PatRecordMembersSymbol of (Range * SymbolString) * name: Pattern
-    | PatRecordMembersInjectVar of (Range * VarString) * name: Pattern
+    | PatRecordMembersSymbol of (VSCRange * SymbolString) * name: Pattern
+    | PatRecordMembersInjectVar of (VSCRange * VarString) * name: Pattern
 and Pattern =
-    | PatB of Range
-    | PatE of Range
-    | PatVar of Range * VarString
-    | PatDyn of Range * Pattern
-    | PatUnbox of Range * Pattern
-    | PatAnnot of Range * Pattern * RawTExpr
-    | PatPair of Range * Pattern * Pattern
-    | PatSymbol of Range * string
-    | PatRecordMembers of Range * PatRecordMember list
-    | PatOr of Range * Pattern * Pattern
-    | PatAnd of Range * Pattern * Pattern
-    | PatValue of Range * Literal
-    | PatDefaultValue of Range * VarString
-    | PatWhen of Range * Pattern * RawExpr
-    | PatNominal of Range * (Range * VarString) * Pattern
-    | PatFilledDefaultValue of Range * VarString * RawTExpr // Filled in by the inferencer.
+    | PatB of VSCRange
+    | PatE of VSCRange
+    | PatVar of VSCRange * VarString
+    | PatDyn of VSCRange * Pattern
+    | PatUnbox of VSCRange * Pattern
+    | PatAnnot of VSCRange * Pattern * RawTExpr
+    | PatPair of VSCRange * Pattern * Pattern
+    | PatSymbol of VSCRange * string
+    | PatRecordMembers of VSCRange * PatRecordMember list
+    | PatOr of VSCRange * Pattern * Pattern
+    | PatAnd of VSCRange * Pattern * Pattern
+    | PatValue of VSCRange * Literal
+    | PatDefaultValue of VSCRange * VarString
+    | PatWhen of VSCRange * Pattern * RawExpr
+    | PatNominal of VSCRange * (VSCRange * VarString) * Pattern
+    | PatFilledDefaultValue of VSCRange * VarString * RawTExpr // Filled in by the inferencer.
 and RawExpr =
-    | RawB of Range
-    | RawV of Range * VarString
-    | RawBigV of Range * VarString // RawApply(V a,RawB) This case is needed for the sake of having correct hover info.
-    | RawLit of Range * Literal
-    | RawDefaultLit of Range * string
-    | RawSymbol of Range * SymbolString
-    | RawType of Range * RawTExpr
-    | RawMatch of Range * body: RawExpr * (Pattern * RawExpr) list
-    | RawFun of Range * (Pattern * RawExpr) list
-    | RawForall of Range * TypeVar * RawExpr
-    | RawRecBlock of Range * ((Range * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
-    | RawRecordWith of Range * RawExpr list * RawRecordWith list * RawRecordWithout list
-    | RawOp of Range * Op * RawExpr list
-    | RawJoinPoint of Range * RawExpr
-    | RawAnnot of Range * RawExpr * RawTExpr
-    | RawTypecase of Range * RawTExpr * (RawTExpr * RawExpr) list
-    | RawModuleOpen of Range * (Range * VarString) * (Range * SymbolString) list * on_succ: RawExpr
-    | RawApply of Range * RawExpr * RawExpr
-    | RawIfThenElse of Range * RawExpr * RawExpr * RawExpr
-    | RawIfThen of Range * RawExpr * RawExpr
-    | RawPair of Range * RawExpr * RawExpr
-    | RawSeq of Range * RawExpr * RawExpr
-    | RawHeapMutableSet of Range * RawExpr * RawExpr list * RawExpr
-    | RawReal of Range * RawExpr
-    | RawMacro of Range * RawMacro list
-    | RawMissingBody of Range
-    | RawFilledForall of Range * string * RawExpr // Filled in by the inferencer.
-    | RawFilledPairStrip of Range * string list * RawExpr
+    | RawB of VSCRange
+    | RawV of VSCRange * VarString
+    | RawBigV of VSCRange * VarString // RawApply(V a,RawB) This case is needed for the sake of having correct hover info.
+    | RawLit of VSCRange * Literal
+    | RawDefaultLit of VSCRange * string
+    | RawSymbol of VSCRange * SymbolString
+    | RawType of VSCRange * RawTExpr
+    | RawMatch of VSCRange * body: RawExpr * (Pattern * RawExpr) list
+    | RawFun of VSCRange * (Pattern * RawExpr) list
+    | RawForall of VSCRange * TypeVar * RawExpr
+    | RawRecBlock of VSCRange * ((VSCRange * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
+    | RawRecordWith of VSCRange * RawExpr list * RawRecordWith list * RawRecordWithout list
+    | RawOp of VSCRange * Op * RawExpr list
+    | RawJoinPoint of VSCRange * RawExpr
+    | RawAnnot of VSCRange * RawExpr * RawTExpr
+    | RawTypecase of VSCRange * RawTExpr * (RawTExpr * RawExpr) list
+    | RawModuleOpen of VSCRange * (VSCRange * VarString) * (VSCRange * SymbolString) list * on_succ: RawExpr
+    | RawApply of VSCRange * RawExpr * RawExpr
+    | RawIfThenElse of VSCRange * RawExpr * RawExpr * RawExpr
+    | RawIfThen of VSCRange * RawExpr * RawExpr
+    | RawPair of VSCRange * RawExpr * RawExpr
+    | RawSeq of VSCRange * RawExpr * RawExpr
+    | RawHeapMutableSet of VSCRange * RawExpr * RawExpr list * RawExpr
+    | RawReal of VSCRange * RawExpr
+    | RawMacro of VSCRange * RawMacro list
+    | RawMissingBody of VSCRange
+    | RawFilledForall of VSCRange * string * RawExpr // Filled in by the inferencer.
+    | RawFilledPairStrip of VSCRange * string list * RawExpr
 and RawTExpr =
-    | RawTWildcard of Range
-    | RawTB of Range
-    | RawTMetaVar of Range * VarString
-    | RawTVar of Range * VarString
-    | RawTPair of Range * RawTExpr * RawTExpr
-    | RawTFun of Range * RawTExpr * RawTExpr
-    | RawTArray of Range * RawTExpr
-    | RawTRecord of Range * Map<string,RawTExpr>
-    | RawTSymbol of Range * SymbolString
-    | RawTApply of Range * RawTExpr * RawTExpr
-    | RawTForall of Range * TypeVar * RawTExpr
-    | RawTPrim of Range * PrimitiveType
-    | RawTTerm of Range * RawExpr
-    | RawTMacro of Range * RawMacro list
-    | RawTUnion of Range * Map<string,RawTExpr> * UnionLayout
-    | RawTLayout of Range * RawTExpr * Layout
-    | RawTFilledNominal of Range * int // Filled in by the inferencer.
+    | RawTWildcard of VSCRange
+    | RawTB of VSCRange
+    | RawTMetaVar of VSCRange * VarString
+    | RawTVar of VSCRange * VarString
+    | RawTPair of VSCRange * RawTExpr * RawTExpr
+    | RawTFun of VSCRange * RawTExpr * RawTExpr
+    | RawTArray of VSCRange * RawTExpr
+    | RawTRecord of VSCRange * Map<string,RawTExpr>
+    | RawTSymbol of VSCRange * SymbolString
+    | RawTApply of VSCRange * RawTExpr * RawTExpr
+    | RawTForall of VSCRange * TypeVar * RawTExpr
+    | RawTPrim of VSCRange * PrimitiveType
+    | RawTTerm of VSCRange * RawExpr
+    | RawTMacro of VSCRange * RawMacro list
+    | RawTUnion of VSCRange * Map<string,RawTExpr> * UnionLayout
+    | RawTLayout of VSCRange * RawTExpr * Layout
+    | RawTFilledNominal of VSCRange * int // Filled in by the inferencer.
 
 let (+.) (a,_) (_,b) = a,b
 let range_of_hovar ((r,_) : HoVar) = r
@@ -329,7 +329,7 @@ let range_of_texpr = function
     | RawTForall(r,_,_) -> r
 
 type Env = {
-    tokens : (Range * SpiralToken) []
+    tokens : (VSCRange * SpiralToken) []
     comments : Tokenize.LineComment option []
     i : int ref
     is_top_down : bool
@@ -376,7 +376,7 @@ let read_text d =
         match a with
         | Some a -> Some (a +. b)
         | None -> Some b
-    let rec loop (a : Range option) (str : Text.StringBuilder) =
+    let rec loop (a : VSCRange option) (str : Text.StringBuilder) =
         try_current d <| function
             | b,TokText x -> skip d; loop (a +. b) (str.Append(x))
             | b,(TokEscapedChar x | TokUnescapedChar x) -> skip d; loop (a +. b) (str.Append(x))
@@ -526,7 +526,7 @@ let inline range exp s =
     let i = index s
     exp s |> Result.map (fun x ->
         let i' = index s
-        if i < i' then fst s.tokens.[i] +. fst s.tokens.[i'-1], x : Range * _
+        if i < i' then fst s.tokens.[i] +. fst s.tokens.[i'-1], x : VSCRange * _
         else
             failwith "Compiler error: The parser passed into `range` has to consume at least one token for it to work."
         )
@@ -535,7 +535,7 @@ let rec kind d = (sepBy1 ((skip_op "*" >>% RawKindStar) <|> rounds kind) (skip_o
 
 let duplicates er x = 
     let h = Collections.Generic.HashSet()
-    x |> List.choose (fun (r : Range,n : string) -> if h.Add n = false then Some(r,er) else None)
+    x |> List.choose (fun (r : VSCRange,n : string) -> if h.Add n = false then Some(r,er) else None)
 
 let inline indent i op next d = if op i (col d) then next d else Error []
 
@@ -759,7 +759,7 @@ let root_type_defaults = {
 
 let default_float = Float64T
 let default_int = Int32T
-let bottom_up_number (r : Range,x : string) =
+let bottom_up_number (r : VSCRange,x : string) =
     let inline f string_to_val val_to_lit val_dsc =
         match string_to_val x with
         | true, x -> Ok(r, val_to_lit x)
@@ -1138,14 +1138,14 @@ let comments line_near_to character (s : Env) =
     |> fun x -> x.TrimEnd()
 
 type [<ReferenceEquality>] TopStatement =
-    | TopAnd of Range * TopStatement
-    | TopInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
-    | TopRecInl of Range * (Range * VarString) * RawExpr * is_top_down: bool
-    | TopNominal of Range * (Range * VarString) * HoVar list * RawTExpr
-    | TopNominalRec of Range * (Range * VarString) * HoVar list * RawTExpr
-    | TopType of Range * (Range * VarString) * HoVar list * RawTExpr
-    | TopPrototype of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawTExpr
-    | TopInstance of Range * (Range * VarString) * (Range * VarString) * TypeVar list * RawExpr
+    | TopAnd of VSCRange * TopStatement
+    | TopInl of VSCRange * (VSCRange * VarString) * RawExpr * is_top_down: bool
+    | TopRecInl of VSCRange * (VSCRange * VarString) * RawExpr * is_top_down: bool
+    | TopNominal of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
+    | TopNominalRec of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
+    | TopType of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
+    | TopPrototype of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawTExpr
+    | TopInstance of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawExpr
 
 let top_inl_or_let_process is_top_down = function
     | (r,PatVar(r',name),(RawForall _ | RawFun _ as body)),false -> Ok(TopInl(r,(r',name),body,is_top_down))

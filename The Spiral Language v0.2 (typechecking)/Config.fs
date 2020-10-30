@@ -5,15 +5,15 @@ open FParsec
 open VSCTypes
 
 type FileHierarchy =
-    | Directory of Range * RString * FileHierarchy []
-    | File of Range * RString * is_top_down : bool * is_include : bool
+    | Directory of VSCRange * RString * FileHierarchy []
+    | File of VSCRange * RString * is_top_down : bool * is_include : bool
 type ConfigResumableError =
-    | DuplicateFiles of Range [] []
-    | DuplicateRecordFields of Range [] []
-    | MissingNecessaryRecordFields of string [] * Range
+    | DuplicateFiles of VSCRange [] []
+    | DuplicateRecordFields of VSCRange [] []
+    | MissingNecessaryRecordFields of string [] * VSCRange
 type ConfigFatalError =
-    | Tabs of Range []
-    | ParserError of string * Range
+    | Tabs of VSCRange []
+    | ParserError of string * VSCRange
 exception ConfigException of ConfigFatalError
 
 let rec spaces_template s = (spaces >>. optional (followedByString "//" >>. skipRestOfLine true >>. spaces_template)) s
@@ -24,9 +24,9 @@ let raise_if_not_empty exn l = if Array.isEmpty l = false then raise' (exn l)
 let add_to_exception_list' (p: CharStream<ResizeArray<ConfigResumableError>>) = p.State.UserState.Add
 let add_to_exception_list (p: CharStream<ResizeArray<ConfigResumableError>>) exn l = if Array.isEmpty l = false then p.State.UserState.Add (exn l)
 let column (p : CharStream<_>) = p.Column
-let pos (p : CharStream<_>) : Pos = {|line=int p.Line - 1; character=int p.Column - 1|}
+let pos (p : CharStream<_>) : VSCPos = {|line=int p.Line - 1; character=int p.Column - 1|}
 let pos' p = Reply(pos p)
-let range f p = pipe3 pos' f pos' (fun a b c -> ((a, c) : Range), b) p
+let range f p = pipe3 pos' f pos' (fun a b c -> ((a, c) : VSCRange), b) p
 
 let is_small_var_char_starting c = isAsciiLower c
 let is_var_char c = isAsciiLetter c || c = '_' || c = ''' || isDigit c
@@ -66,7 +66,7 @@ let packages p =
     let file p = if i <= column p then file p else Reply(ReplyStatus.Error,expected "directory on the same or greater indentation as the first one")
     many file p
 
-let tab_positions (str : string): Range [] =
+let tab_positions (str : string): VSCRange [] =
     let mutable line = -1
     Utils.lines str |> Array.choose (fun x -> 
         line <- line + 1
