@@ -143,6 +143,27 @@ type ProjectCodeAction =
     | DeleteDirectory of {|range: VSCRange; dirPath : string|} // The range here is for the whole tree, not just the code action activation.
     | RenameDirectory of {|dirPath : string; target : string; validate_as_file : bool|}
 
+let code_action_execute a =
+    try match a with
+        | CreateDirectory a -> Directory.CreateDirectory(a.dirPath) |> ignore; None
+        | DeleteDirectory a -> Directory.Delete(a.dirPath,true); None
+        | RenameDirectory a ->
+            if a.validate_as_file then
+                match FParsec.CharParsers.run Config.file_verify a.target with
+                | FParsec.CharParsers.ParserResult.Success _ -> Directory.Move(a.dirPath,Path.Combine(a.dirPath,"..",a.target)); None
+                | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> Some er
+            else
+                Directory.Move(a.dirPath,Path.Combine(a.dirPath,"..",a.target)); None
+        | CreateFile a ->
+            if File.Exists(a.filePath) then Some "File already exists."
+            else File.Create(a.filePath).Dispose(); None
+        | DeleteFile a -> File.Delete(a.filePath); None
+        | RenameFile a ->
+            match FParsec.CharParsers.run Config.file_verify a.target with
+            | FParsec.CharParsers.ParserResult.Success _ -> File.Move(a.filePath,Path.Combine(a.filePath,"..",a.target+Path.GetExtension(a.filePath)),false); None
+            | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> Some er
+    with e -> Some e.Message
+
 type RAction = VSCRange * ProjectCodeAction
 type ValidatedSchema = {
     schema : Schema
@@ -271,238 +292,128 @@ type PackageSchema = {
     package_errors : RString []
     }
 
-let validate (data : Dictionary<string, Result<PackageSchema, string>>) (graph : MirroredGraph) (m : LoadedSchemas) project_dir =
+let validate (schemas : Dictionary<string, Result<PackageSchema, string>>) (links : MirroredGraph) (loads : LoadedSchemas) project_dir =
     let potential_floating_garbage = 
         project_dir :: 
-        match data.TryGetValue(project_dir) with 
-        | true, Ok v -> v.schema.packages |> List.map snd 
+        match schemas.TryGetValue(project_dir) with 
+        | true, Ok v -> List.map snd v.schema.packages
         | _ -> []
     let cleanup () = 
         potential_floating_garbage |> List.fold (fun m project_dir ->
-            if (fst graph).ContainsKey(project_dir) = false && (snd graph).ContainsKey(project_dir) = false then 
-                data.Remove(project_dir) |> ignore
+            if (fst links).ContainsKey(project_dir) = false && (snd links).ContainsKey(project_dir) = false then 
+                schemas.Remove(project_dir) |> ignore
                 Map.remove project_dir m
             else m
-            ) m
-                
-    let dirty = ResizeArray()
+            ) loads
+
+    let dirty_nodes = ResizeArray()
     let rec loop project_dir =
-        let errors = ResizeArray()
-        let links = ResizeArray()
-        dirty.Add(project_dir)
-        match data.TryGetValue(project_dir), Map.tryFind project_dir m with
-        // Add case.
-        | _, Some x -> 
-            failwith ""
-        | _, None -> data.[project_dir] <- Error "The package does not exist."
+        match schemas.TryGetValue(project_dir) with
+        | false,_ -> 
+            let v = loads.[project_dir]
+            dirty_nodes.Add(project_dir)
+            match v with 
+            | Ok x -> List.iter (fun (r,x) -> add_link' links project_dir x; loop x) x.packages 
+            | Error _ -> ()
+        | true, _ -> ()
+
+    schemas.Remove(project_dir) |> ignore
+    remove_links links project_dir
     loop project_dir 
-    cleanup()
 
+    let order, circular_nodes = circular_nodes links dirty_nodes
+    order |> Array.iter (fun k ->
+        match loads.[k] with
+        | Ok v ->
+            let links = ResizeArray()
+            let errors = ResizeArray()
+            v.packages |> List.iter (fun (r,k) ->
+                match schemas.[k] with
+                | Ok x ->
+                    if circular_nodes.Contains(k) then errors.Add(r,"The current package is a part of a circular chain whose path goes through this package.")
+                    elif 0 < x.schema.errors.Length || 0 < x.package_errors.Length then errors.Add(r,"The package or the chain it is a part of has an error.")
+                | Error x -> errors.Add(r,x)
+                )
+            schemas.[k] <- Ok {schema=v; package_links=links.ToArray(); package_errors=errors.ToArray()}
+        | Error x ->
+            schemas.[k] <- Error x
+        )
+    
+    order, cleanup()
 
+type PackageSupervisorReq =
+    | SOpen of dir: string * text: string option
+    | SChange of dir: string * text: string option
+    | SLinks of dir: string * RString [] IVar
+    | SCodeActions of dir: string * RAction [] IVar
+    | SCodeActionExecute of ProjectCodeAction
 
-//type PackageValidatorReq =
-//    | VReplace of projDir: string * packages: (VSCRange * string) list
-//    | VRemove of projDir: string
+let open' (schemas : Dictionary<_,_>) links loads errors dir text =
+    if schemas.ContainsKey(dir) then Job.unit()
+    else
+        load !loads text dir >>= fun x ->
+        let dirty_nodes, m = validate schemas links x dir
+        loads := m
+        Array.iterJob (fun x ->
+            match schemas.[x] with
+            | Ok x -> Src.value errors {|uri=sprintf "file:///%s/package.spiproj" dir; errors=Array.append x.schema.errors x.package_errors|}
+            | Error x -> Job.unit()
+            ) dirty_nodes
 
-//let package_validator (req : (PackageValidatorReq list * {|projDir : string; errors : VSCError list|} Src) Stream) =
-//    let links = create_mirrored_graph()
-//    let data = Dictionary()
-//    let errors = Dictionary()
-//    req |> Stream.consumeJob (fun (l, res) ->
-//        let dirty_nodes = HashSet()
-//        l |> List.iter (function
-//            | VReplace(dir,l) ->
-//                dirty_nodes.Add(dir) |> ignore
-//                data.[dir] <- l
-//                remove_links links dir
-//                l |> List.iter (fun (_,package_dir) -> add_link' links dir package_dir)
-//            | VRemove dir ->
-//                dirty_nodes.Add(dir) |> ignore
-//                data.Remove dir |> ignore
-//                errors.Remove dir |> ignore
-//                remove_links links dir
-//            )
-//        let order, circular_nodes = circular_nodes links dirty_nodes
-//        order |> Array.iterJob (fun projDir ->
-//            data.[projDir] |> List.collect (fun (r,dir) ->
-//                if data.ContainsKey(dir) = false then ["The package does not exist (or has not been loaded yet.)",r]
-//                elif circular_nodes.Contains(dir) then ["The current package is a part of a circular chain whose path goes through this package.",r]
-//                elif errors.ContainsKey(dir) then ["The package or the chain it is a part of has an error.",r]
-//                else []
-//                )
-//            |> function
-//                | [] -> errors.Remove(projDir) |> ignore; Src.value res {|projDir=projDir; errors=[]|}
-//                | er -> errors.[projDir] <- er; Src.value res {|projDir=projDir; errors=er|}
-//            )
-//        >>=. Src.close res
-//        )
+let supervisor req =
+    let schemas = Dictionary()
+    let links = create_mirrored_graph()
+    let loads = ref Map.empty
 
-//type Link = {|uri : string; range : VSCRange|}
-//type PackageFileReq =
-//    | PReplace of string * PackageFileToSupervisorReq Src
-//    | PDelete
-//    | PLinks of {|uri : string; range : VSCRange|} [] IVar
-//    | PCodeActions of {|range : VSCRange; action : ProjectCodeAction |} [] IVar
-//    | PCodeActionExecute of ProjectCodeAction
-//and PackageFileToSupervisorReqOk = {|dir: string; packages: (VSCRange * string) list; src: PackageFileReq Src|}
-//and PackageFileToSupervisorReq = Result<PackageFileToSupervisorReqOk,{|dir: string; msg: string|}>
+    let fatal_errors = Src.create()
+    let errors = Src.create()
+    let open' = open' schemas links loads errors
 
+    req |> consumeJob (function
+        | SOpen(dir,text) -> open' dir text
+        | SChange(dir,text) -> schemas.Remove(dir) |> ignore; loads := Map.remove dir !loads; open' dir text
+        | SLinks(dir,res) -> 
+            match schemas.[dir] with
+            | Ok x -> IVar.fill res (Array.append x.schema.links x.package_links)
+            | Error _ -> IVar.fill res [||]
+        | SCodeActions(dir,res) ->
+            match schemas.[dir] with
+            | Ok x -> IVar.fill res x.schema.actions
+            | Error _ -> IVar.fill res [||]
+        | SCodeActionExecute a -> 
+            match code_action_execute a with
+            | Some er -> Src.value fatal_errors er
+            | None -> Job.unit()
+        )
 
+    {|fatal_errors=fatal_errors; errors=errors|}
+    
+type ClientReq =
+    | ProjectFileOpen of {|uri : string; spiprojText : string|}
+    | ProjectFileChange of {|uri : string; spiprojText : string|}
+    | ProjectFileLinks of {|uri : string|}
+    | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
+    | ProjectCodeActions of {|uri : string|}
+    | FileOpen of {|uri : string; spiText : string|}
+    | FileChanged of {|uri : string; spiEdit : SpiEdit|}
+    | FileTokenRange of {|uri : string; range : VSCRange|}
+    | HoverAt of {|uri : string; pos : VSCPos|}
+    | BuildFile of {|uri : string|}
 
-//let package_file fatal_errors errors (project_dir : string, text : string option, res : PackageFileToSupervisorReq Src) = 
-//    let src = Src.create()
-//    let req = Src.tap src |> Stream.values
+type ClientErrorsRes =
+    | FatalError of string
+    | PackageErrors of {|uri : string; errors : RString []|}
+    | TokenizerErrors of {|uri : string; errors : RString []|}
+    | ParserErrors of {|uri : string; errors : RString []|}
+    | TypeErrors of {|uri : string; errors : RString list|}
 
-//    let uri = "file:///" + Path.Combine(project_dir,"package.spiproj") // TODO: Is this right?
-//    let errors x = Src.value errors {|uri=uri; errors=x|}
-//    let fatal_errors x = Src.value fatal_errors x |> Hopac.run
-//    let schema x = let x = schema project_dir x in errors x.errors >>-. x
+let port = 13805
+let uri_server = sprintf "tcp://*:%i" port
+let uri_client = sprintf "tcp://localhost:%i" (port+1)
 
-//    let file x ret =
-//        match config x with
-//        | Ok x -> 
-//            Src.value ret (Ok {|dir=project_dir; packages=x.packages; src=src|} ) >>= fun () -> schema x // TODO: Fix this.
-//        | Error x -> 
-//            Src.value ret (Ok {|dir=project_dir; packages=[]; src=src|} ) >>=.
-//            errors x >>-. {|schema=schema_def; packages=[]; links=[||]; actions=[||]; errors=x|}
-
-//    let rec loop x = req >>= function
-//        | PReplace(x,ret) -> file x ret >>= loop
-//        | PDelete -> Job.unit()
-//        | PLinks ret -> IVar.fill ret [||] >>=. loop x
-//        | PCodeActions ret -> IVar.fill ret [||] >>=. loop x
-//        | PCodeActionExecute a ->
-//            try match a with
-//                | CreateDirectory a ->
-//                    Directory.CreateDirectory(a.dirPath) |> ignore
-//                    schema x.schema >>= loop
-//                | DeleteDirectory a ->
-//                    Directory.Delete(a.dirPath,true)
-//                    loop x
-//                | RenameDirectory a ->
-//                    if a.validate_as_file then
-//                        match FParsec.CharParsers.run Config.file_verify a.target with
-//                        | FParsec.CharParsers.ParserResult.Success _ -> Directory.Move(a.dirPath,Path.Combine(a.dirPath,"..",a.target))
-//                        | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> fatal_errors er
-//                    else
-//                        Directory.Move(a.dirPath,Path.Combine(a.dirPath,"..",a.target))
-//                    loop x
-//                | CreateFile a ->
-//                    if File.Exists(a.filePath) then fatal_errors "File already exists."
-//                    else File.Create(a.filePath).Dispose()
-//                    schema x.schema >>= loop
-//                | DeleteFile a ->
-//                    File.Delete(a.filePath)
-//                    loop x
-//                | RenameFile a ->
-//                    match FParsec.CharParsers.run Config.file_verify a.target with
-//                    | FParsec.CharParsers.ParserResult.Success _ -> File.Move(a.filePath,Path.Combine(a.filePath,"..",a.target+Path.GetExtension(a.filePath)),false)
-//                    | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> fatal_errors er
-//                    loop x
-//            with e -> fatal_errors e.Message; loop x
-
-//    let opened text = file text res >>= loop
-//    match text with
-//    | Some text -> opened text
-//    | None ->
-//        try File.ReadAllText(Path.Combine(project_dir,"package.spiproj")) |> opened
-//        with e -> Src.value res (Error {|dir=project_dir; msg=e.Message|})
-//    |> Hopac.start
-
-//type PackageSupervisorReq =
-//    | SOpen of dir: string * text: string
-//    | SChange of dir: string * text: string
-//    | SDelete of dir: string
-
-//type SupervisorEnv = {|src : PackageFileToSupervisorReq Src; waiting : string HashSet; dirty : string HashSet|}
-//let add_waiting (s : SupervisorEnv) dir = s.waiting.Add(dir) |> ignore; s.dirty.Add(dir) |> ignore
-//let remove_waiting (s : SupervisorEnv) dir = s.waiting.Remove(dir) |> ignore; s.dirty.Remove(dir) |> ignore
-//let files_set (s : SupervisorEnv) (files : Dictionary<_,_>) dir x = s.waiting.Remove(dir) |> ignore; files.[dir] <- x
-
-//let package_supervisor (req : PackageSupervisorReq Stream) =
-//    let fatal_errors = Src.create()
-//    let iter_package_errors = Src.create()
-//    let intra_package_errors = Src.create()
-//    let validator = Src.create() 
-//    package_validator (Src.tap validator)
-
-//    let files = Dictionary()
-//    let loaded (s : SupervisorEnv) (x : PackageFileToSupervisorReqOk) =
-//        files_set s files x.dir {|packages=x.packages; src=x.src|}
-//        x.packages |> List.iter (fun (_,dir) ->
-//            if (s.waiting.Contains(dir) || files.ContainsKey(dir)) = false then
-//                package_file fatal_errors intra_package_errors (dir,None,s.src)
-//                add_waiting s dir
-//            )
-//        if s.waiting.Count = 0 then Src.close s.src else Job.unit()
-//    let loading (s : SupervisorEnv) =
-//        Src.tap s.src |> Stream.iterJob (function
-//            | Ok x -> loaded s x
-//            | Error x ->
-//                remove_waiting s x.dir
-//                Src.value fatal_errors (sprintf "Errors when opening %s:\n%s" (Path.Combine(x.dir,"package.spiproj")) x.msg)
-//            )
-//    let validating (s : SupervisorEnv) =
-//        let req = s.dirty |> Seq.toList |> List.map (fun x -> 
-//            match files.TryGetValue(x) with
-//            | true, v -> VReplace(x,v.packages)
-//            | _ -> VRemove x
-//            )
-//        let src = Src.create()
-//        Src.value validator (req,src) >>=.
-//        Stream.iterJob (Src.value iter_package_errors) (Src.tap src)
-//    let opening (s : SupervisorEnv) (dir : string) text =
-//        if files.ContainsKey(dir) = false then
-//            add_waiting s dir
-//            package_file fatal_errors intra_package_errors (dir,Some text,s.src)
-//            loading s
-//        else Job.unit()
-//    req |> Stream.consumeJob (fun x ->
-//        let s = {|src = Src.create(); waiting = HashSet(); dirty = HashSet()|}
-//        match x with
-//        | SOpen(dir,text) -> opening s dir text
-//        | SChange(dir,text) ->
-//            match files.TryGetValue(dir) with
-//            | false,_ -> opening s dir text
-//            | true,x ->
-//                add_waiting s dir
-//                Src.value x.src (PReplace(text,s.src)) >>=.
-//                loading s
-//        | SDelete dir ->
-//            files.Remove(dir) |> ignore
-//            s.dirty.Add(dir) |> ignore
-//            Job.unit()
-//        >>=. validating s
-//        )
-//    {|fatal_errors=Src.tap fatal_errors; inter_package_errors=Src.tap iter_package_errors; intra_package_errors=Src.tap intra_package_errors|}
-
-//type ClientReq =
-//    | ProjectFileOpen of {|uri : string; spiprojText : string|}
-//    | ProjectFileChange of {|uri : string; spiprojText : string|}
-//    | ProjectFileLinks of {|uri : string|}
-//    | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
-//    | ProjectCodeActions of {|uri : string|}
-//    | FileOpen of {|uri : string; spiText : string|}
-//    | FileChanged of {|uri : string; spiEdit : SpiEdit|}
-//    | FileTokenRange of {|uri : string; range : VSCRange|}
-//    | HoverAt of {|uri : string; pos : VSCPos|}
-//    | BuildFile of {|uri : string|}
-
-//type ClientErrorsRes =
-//    | FatalError of string
-//    | InterPackageErrors of {|uri : string; errors : VSCError list|}
-//    | IntraPackageErrors of {|uri : string; errors : VSCError []|}
-//    | TokenizerErrors of {|uri : string; errors : VSCError []|}
-//    | ParserErrors of {|uri : string; errors : VSCError []|}
-//    | TypeErrors of {|uri : string; errors : VSCError list|}
-
-//let port = 13805
-//let uri_server = sprintf "tcp://*:%i" port
-//let uri_client = sprintf "tcp://localhost:%i" (port+1)
-
-//open FSharp.Json
-//open NetMQ
-//open NetMQ.Sockets
+open FSharp.Json
+open NetMQ
+open NetMQ.Sockets
 
 //let [<EntryPoint>] main _ =
 //    use poller = new NetMQPoller()
