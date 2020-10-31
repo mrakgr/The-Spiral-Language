@@ -1,5 +1,5 @@
 ﻿// Everything that deals with Spiral project files themselves goes here
-module Spiral.Config
+module Spiral.SpiProj
 open System
 open FParsec
 open VSCTypes
@@ -31,7 +31,7 @@ let range f p = pipe3 pos' f pos' (fun a b c -> ((a, c) : VSCRange), b) p
 let is_small_var_char_starting c = isAsciiLower c
 let is_var_char c = isAsciiLetter c || c = '_' || c = ''' || isDigit c
 let file' p = many1Satisfy2L is_small_var_char_starting is_var_char "lowercase variable name" p
-let file p = range (file' .>> spaces) p
+let file p = (range file' .>> spaces) p
 let file_verify p = (skipMany1Satisfy2L is_small_var_char_starting is_var_char "lowercase variable name" .>> spaces .>> eof) p
 
 let rec file_hierarchy p =
@@ -139,7 +139,7 @@ let config text =
             "packageDir", directory |>> fun x s -> {s with packageDir=x}
             "packages", packages |>> fun x s -> {s with packages=x}
             ]
-        let necessary = ["modules"]
+        let necessary = []
 
         match runParserOnString (spaces >>. record fields necessary schema_def .>> eof) (ResizeArray()) "spiral.config" text with
         | Success(a,userstate,_) -> 

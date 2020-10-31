@@ -18,7 +18,7 @@ const request = async (file: object): Promise<any> => {
 
 type VSCPos = { line: number, character: number }
 type VSCRange = [VSCPos, VSCPos]
-type MessageRange = [string, VSCRange]
+type RString = [VSCRange, string]
 
 type ProjectCodeAction = 
     | { CreateFile: {filePath : string} }
@@ -28,11 +28,12 @@ type ProjectCodeAction =
     | { DeleteDirectory: {range: VSCRange; dirPath : string} } // The range here is for the whole tree, not just the code action activation.
     | { RenameDirectory: {dirPath : string; target : string; validate_as_file : boolean} }
 
+type RAction = [VSCRange, ProjectCodeAction]
+
 const spiprojOpenReq = async (uri: string, spiprojText: string): Promise<void> => request({ ProjectFileOpen: { uri, spiprojText } })
 const spiprojChangeReq = async (uri: string, spiprojText: string): Promise<void> => request({ ProjectFileChange: { uri, spiprojText } })
-const spiprojLinksReq = async (uri: string): Promise<{uri: string, range: VSCRange} []> => request({ ProjectFileLinks: { uri } })
-const spiprojCodeActionsReq = async (uri: string): Promise<{action: ProjectCodeAction, range: VSCRange} []> => 
-    request({ ProjectCodeActions: { uri } })
+const spiprojLinksReq = async (uri: string): Promise<RString []> => request({ ProjectFileLinks: { uri } })
+const spiprojCodeActionsReq = async (uri: string): Promise<RAction []> => request({ ProjectCodeActions: { uri } })
 const spiprojCodeActionExecuteReq = async (uri: string, action : ProjectCodeAction): Promise<string | null> => request({ ProjectCodeActionExecute: { uri, action } }).then(x => x.result)
 
 const spiOpenReq = async (uri: string, spiText: string): Promise<void> => request({ FileOpen: { uri, spiText } })
@@ -44,12 +45,15 @@ const spiBuildFileReq = async (uri: string): Promise<void> => request({ BuildFil
 
 const range = (x : VSCRange) => new Range(x[0].line, x[0].character, x[1].line, x[1].character)
 
-const errorsSet = (errors : DiagnosticCollection, uri: Uri, x: MessageRange[]) => {
-    errors.set(uri, x.map(([error, rangeRec]) => new Diagnostic(range(rangeRec), error, DiagnosticSeverity.Error)))
+const errorsSet = (errors : DiagnosticCollection, uri: Uri, x: RString[]) => {
+    errors.set(uri, x.map(([r, er]) => new Diagnostic(range(r), er, DiagnosticSeverity.Error)))
 }
 
-type Errors = {uri : string; errors : MessageRange[]}
-type ClientRes = { ProjectErrors: Errors } | { TokenizerErrors: Errors } | { ParserErrors: Errors } | { TypeErrors: Errors }
+type Errors = {uri : string; errors : RString[]}
+type ClientRes = 
+    | { FatalError: string }
+    | { PackageErrors: Errors } | { TokenizerErrors: Errors } 
+    | { ParserErrors: Errors } | { TypeErrors: Errors }
 
 const projectCodeActionTitle = (x : ProjectCodeAction): string => {
     if ("CreateFile" in x) {return "Create file."}
@@ -80,18 +84,12 @@ export const activate = async (ctx: ExtensionContext) => {
             try {
                 const [x] = await sock.receive()
                 const msg: ClientRes = JSON.parse(x.toString())
-                if ("ProjectErrors" in msg) {
-                    errorsSet(errorsProject, Uri.parse(msg.ProjectErrors.uri), msg.ProjectErrors.errors)
-                }
-                if ("TokenizerErrors" in msg) {
-                    errorsSet(errorsTokenization, Uri.parse(msg.TokenizerErrors.uri), msg.TokenizerErrors.errors)
-                }
-                if ("ParserErrors" in msg) {
-                    errorsSet(errorsParse, Uri.parse(msg.ParserErrors.uri), msg.ParserErrors.errors)
-                }
-                if ("TypeErrors" in msg) {
-                    errorsSet(errorsType, Uri.parse(msg.TypeErrors.uri), msg.TypeErrors.errors)
-                }
+                if ("PackageErrors" in msg) { errorsSet(errorsProject, Uri.parse(msg.PackageErrors.uri), msg.PackageErrors.errors) }
+                else if ("TokenizerErrors" in msg) { errorsSet(errorsTokenization, Uri.parse(msg.TokenizerErrors.uri), msg.TokenizerErrors.errors) }
+                else if ("ParserErrors" in msg) { errorsSet(errorsParse, Uri.parse(msg.ParserErrors.uri), msg.ParserErrors.errors) }
+                else if ("TypeErrors" in msg) { errorsSet(errorsType, Uri.parse(msg.TypeErrors.uri), msg.TypeErrors.errors) }
+                else if ("FatalError" in msg) { window.showErrorMessage(msg.FatalError) }
+                else { const _ : never = msg }
                 sock.send(null)
             } catch (e) {
                 if (e.errno === 11) { } // If the error is a timeout just repeat.
@@ -167,7 +165,7 @@ export const activate = async (ctx: ExtensionContext) => {
     class SpiralProjectLinks implements DocumentLinkProvider {
         async provideDocumentLinks(document: TextDocument) {
             const x = await spiprojLinksReq(document.uri.toString(true))
-            return x.map(x => new DocumentLink(range(x.range),Uri.parse(x.uri,true)))
+            return x.map(x => new DocumentLink(range(x[0]),Uri.parse(x[1],true)))
         }
     }
 
@@ -175,21 +173,21 @@ export const activate = async (ctx: ExtensionContext) => {
         async provideCodeActions(doc : TextDocument, r : Range) {
             const uri = doc.uri.toString(true)
             const actions = await spiprojCodeActionsReq(uri)
-            return actions.filter(x => range(x.range).contains(r))
+            return actions.filter(x => range(x[0]).contains(r))
                 .map(x => {
-                    const a = new CodeAction(projectCodeActionTitle(x.action))
+                    const a = new CodeAction(projectCodeActionTitle(x[1]))
                     a.command = {command: "runClosure", title: "Run closure", arguments:[async () => {
                         let error : string | null = null
-                        if ("CreateFile" in x.action || "CreateDirectory" in x.action) {
-                            error = await spiprojCodeActionExecuteReq(uri,x.action)
+                        if ("CreateFile" in x[1] || "CreateDirectory" in x[1]) {
+                            error = await spiprojCodeActionExecuteReq(uri,x[1])
                         }
-                        if ("RenameFile" in x.action || "RenameDirectory" in x.action) {
-                            const r = range(x.range)
+                        if ("RenameFile" in x[1] || "RenameDirectory" in x[1]) {
+                            const r = range(x[0])
                             const target = await window.showInputBox({value: doc.getText(r), prompt: "Enter a new file name."})
                             if (target) {
-                                if ("RenameDirectory" in x.action) {x.action.RenameDirectory.target = target}
-                                else {x.action.RenameFile.target = target}
-                                error = await spiprojCodeActionExecuteReq(uri,x.action)
+                                if ("RenameDirectory" in x[1]) {x[1].RenameDirectory.target = target}
+                                else {x[1].RenameFile.target = target}
+                                error = await spiprojCodeActionExecuteReq(uri,x[1])
                                 if (!error) {
                                     const edit = new WorkspaceEdit()
                                     edit.replace(doc.uri,r,target)
@@ -197,14 +195,14 @@ export const activate = async (ctx: ExtensionContext) => {
                                     }
                                 }
                         }
-                        if ("DeleteFile" in x.action || "DeleteDirectory" in x.action) {
+                        if ("DeleteFile" in x[1] || "DeleteDirectory" in x[1]) {
                             const target = await window.showInputBox({prompt: "Enter 'y' to confirm the delete."})
                             if (target === "y") { 
-                                error = await spiprojCodeActionExecuteReq(uri,x.action)
+                                error = await spiprojCodeActionExecuteReq(uri,x[1])
                                 if (!error) {
                                     const edit = new WorkspaceEdit()
-                                    if ("DeleteDirectory" in x.action) {edit.delete(doc.uri,range(x.action.DeleteDirectory.range))}
-                                    else {edit.delete(doc.uri,range(x.action.DeleteFile.range))}
+                                    if ("DeleteDirectory" in x[1]) {edit.delete(doc.uri,range(x[1].DeleteDirectory.range))}
+                                    else {edit.delete(doc.uri,range(x[1].DeleteFile.range))}
                                     workspace.applyEdit(edit)
                                     }
                                 }

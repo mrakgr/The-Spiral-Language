@@ -9,7 +9,7 @@ open VSCTypes
 open Spiral.Tokenize
 open Spiral.TypecheckingUtils
 open Spiral.Blockize
-open Spiral.Config
+open Spiral.SpiProj
 
 open Hopac
 open Hopac.Infixes
@@ -149,7 +149,7 @@ let code_action_execute a =
         | DeleteDirectory a -> Directory.Delete(a.dirPath,true); None
         | RenameDirectory a ->
             if a.validate_as_file then
-                match FParsec.CharParsers.run Config.file_verify a.target with
+                match FParsec.CharParsers.run file_verify a.target with
                 | FParsec.CharParsers.ParserResult.Success _ -> Directory.Move(a.dirPath,Path.Combine(a.dirPath,"..",a.target)); None
                 | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> Some er
             else
@@ -159,7 +159,7 @@ let code_action_execute a =
             else File.Create(a.filePath).Dispose(); None
         | DeleteFile a -> File.Delete(a.filePath); None
         | RenameFile a ->
-            match FParsec.CharParsers.run Config.file_verify a.target with
+            match FParsec.CharParsers.run file_verify a.target with
             | FParsec.CharParsers.ParserResult.Success _ -> File.Move(a.filePath,Path.Combine(a.filePath,"..",a.target+Path.GetExtension(a.filePath)),false); None
             | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> Some er
     with e -> Some e.Message
@@ -292,6 +292,8 @@ type PackageSchema = {
     package_errors : RString []
     }
 
+let spiproj_link dir = sprintf "file:///%s/package.spiproj" dir
+
 let validate (schemas : Dictionary<string, Result<PackageSchema, string>>) (links : MirroredGraph) (loads : LoadedSchemas) project_dir =
     let potential_floating_garbage = 
         project_dir :: 
@@ -299,46 +301,51 @@ let validate (schemas : Dictionary<string, Result<PackageSchema, string>>) (link
         | true, Ok v -> List.map snd v.schema.packages
         | _ -> []
     let cleanup () = 
-        potential_floating_garbage |> List.fold (fun m project_dir ->
-            if (fst links).ContainsKey(project_dir) = false && (snd links).ContainsKey(project_dir) = false then 
+        List.fold (fun m project_dir ->
+            match schemas.[project_dir] with
+            | Error _ when (fst links).ContainsKey(project_dir) = false && (snd links).ContainsKey(project_dir) = false ->
                 schemas.Remove(project_dir) |> ignore
                 Map.remove project_dir m
-            else m
-            ) loads
+            | _ -> m
+            ) loads potential_floating_garbage
 
-    let dirty_nodes = ResizeArray()
+    let dirty_nodes = HashSet()
     let rec loop project_dir =
-        match schemas.TryGetValue(project_dir) with
-        | false,_ -> 
-            let v = loads.[project_dir]
-            dirty_nodes.Add(project_dir)
-            match v with 
-            | Ok x -> List.iter (fun (r,x) -> add_link' links project_dir x; loop x) x.packages 
-            | Error _ -> ()
-        | true, _ -> ()
+        match loads.[project_dir] with 
+        | Ok x -> List.iter (fun (r,x) -> add_link' links project_dir x; check x) x.packages 
+        | Error _ -> ()
+    and check project_dir = if schemas.ContainsKey(project_dir) = false && dirty_nodes.Add(project_dir) then loop project_dir
 
     schemas.Remove(project_dir) |> ignore
     remove_links links project_dir
+    dirty_nodes.Add(project_dir) |> ignore
     loop project_dir 
 
     let order, circular_nodes = circular_nodes links dirty_nodes
-    order |> Array.iter (fun k ->
-        match loads.[k] with
+    order |> Array.iter (fun cur ->
+        match loads.[cur] with
         | Ok v ->
+            let is_circular = circular_nodes.Contains(cur)
             let links = ResizeArray()
             let errors = ResizeArray()
-            v.packages |> List.iter (fun (r,k) ->
-                match schemas.[k] with
-                | Ok x ->
-                    if circular_nodes.Contains(k) then errors.Add(r,"The current package is a part of a circular chain whose path goes through this package.")
-                    elif 0 < x.schema.errors.Length || 0 < x.package_errors.Length then errors.Add(r,"The package or the chain it is a part of has an error.")
-                | Error x -> errors.Add(r,x)
+            v.packages |> List.iter (fun (r,sub) ->
+                if cur = sub then // TODO: Should this check be here?
+                    circular_nodes.Add(cur) |> ignore
+                    errors.Add(r,sprintf "Self references are not allowed.")
+                elif circular_nodes.Contains(sub) then 
+                    let rest = if is_circular then " and the current package is a part of that loop." else "."
+                    errors.Add(r,sprintf "This package is circular%s" rest)
+                else 
+                    match schemas.[sub] with // Note: This key index might fail if the circularity check is not done first.
+                    | Ok x when 0 < x.schema.errors.Length || 0 < x.package_errors.Length -> errors.Add(r,"The package or the chain it is a part of has an error.") 
+                    | Ok _ -> links.Add(r,spiproj_link sub)
+                    | Error x -> errors.Add(r,x)
                 )
-            schemas.[k] <- Ok {schema=v; package_links=links.ToArray(); package_errors=errors.ToArray()}
+            schemas.[cur] <- Ok {schema=v; package_links=links.ToArray(); package_errors=errors.ToArray()}
         | Error x ->
-            schemas.[k] <- Error x
+            schemas.[cur] <- Error x
         )
-    
+   
     order, cleanup()
 
 type PackageSupervisorReq =
@@ -351,25 +358,23 @@ type PackageSupervisorReq =
 let open' (schemas : Dictionary<_,_>) links loads errors dir text =
     if schemas.ContainsKey(dir) then Job.unit()
     else
-        load !loads text dir >>= fun x ->
-        let dirty_nodes, m = validate schemas links x dir
+        load !loads text dir >>= fun m ->
+        let dirty_nodes, m = validate schemas links m dir
         loads := m
-        Array.iterJob (fun x ->
-            match schemas.[x] with
-            | Ok x -> Src.value errors {|uri=sprintf "file:///%s/package.spiproj" dir; errors=Array.append x.schema.errors x.package_errors|}
+        Array.iterJob (fun dir ->
+            match schemas.[dir] with
+            | Ok x -> Src.value errors {|uri=spiproj_link dir; errors=Array.append x.schema.errors x.package_errors|}
             | Error x -> Job.unit()
             ) dirty_nodes
 
-let supervisor req =
+let supervisor fatal_errors errors =
+    let req = Src.create()
     let schemas = Dictionary()
     let links = create_mirrored_graph()
     let loads = ref Map.empty
-
-    let fatal_errors = Src.create()
-    let errors = Src.create()
     let open' = open' schemas links loads errors
 
-    req |> consumeJob (function
+    Src.tap req |> consumeJob (function
         | SOpen(dir,text) -> open' dir text
         | SChange(dir,text) -> schemas.Remove(dir) |> ignore; loads := Map.remove dir !loads; open' dir text
         | SLinks(dir,res) -> 
@@ -386,8 +391,8 @@ let supervisor req =
             | None -> Job.unit()
         )
 
-    {|fatal_errors=fatal_errors; errors=errors|}
-    
+    req
+
 type ClientReq =
     | ProjectFileOpen of {|uri : string; spiprojText : string|}
     | ProjectFileChange of {|uri : string; spiprojText : string|}
@@ -415,91 +420,94 @@ open FSharp.Json
 open NetMQ
 open NetMQ.Sockets
 
-//let [<EntryPoint>] main _ =
-//    use poller = new NetMQPoller()
-//    use server = new RouterSocket()
-//    poller.Add(server)
-//    server.Options.ReceiveHighWatermark <- System.Int32.MaxValue
-//    server.Bind(uri_server)
-//    printfn "Server bound to: %s" uri_server
+let [<EntryPoint>] main _ =
+    use poller = new NetMQPoller()
+    use server = new RouterSocket()
+    poller.Add(server)
+    server.Options.ReceiveHighWatermark <- System.Int32.MaxValue
+    server.Bind(uri_server)
+    printfn "Server bound to: %s" uri_server
 
-//    use queue_server = new NetMQQueue<NetMQMessage>()
-//    poller.Add(queue_server)
+    use queue_server = new NetMQQueue<NetMQMessage>()
+    poller.Add(queue_server)
 
-//    use queue_client = new NetMQQueue<ClientErrorsRes>()
-//    poller.Add(queue_client)
+    use queue_client = new NetMQQueue<ClientErrorsRes>()
+    poller.Add(queue_client)
 
-//    let file = Utils.memoize (Dictionary()) <| fun (uri : string) ->
-//        let s = {|token = Src.create(); hover = Src.create()|}
-//        let token = tokenizer (Src.tap s.token)
-//        let parse = parser (System.IO.Path.GetExtension(uri) = ".spi") token
-//        let ty = typechecker parse
-//        hover (Src.tap s.hover) ty
+    let file = Utils.memoize (Dictionary()) <| fun (uri : string) ->
+        let s = {|token = Src.create(); hover = Src.create()|}
+        let token = tokenizer (Src.tap s.token)
+        let parse = parser (System.IO.Path.GetExtension(uri) = ".spi") token
+        let ty = typechecker parse
+        hover (Src.tap s.hover) ty
 
-//        token |> Stream.consumeFun (fun x -> queue_client.Enqueue(TokenizerErrors {|uri=uri; errors=x.errors|}))
-//        parse |> Stream.consumeFun (fun x -> queue_client.Enqueue(ParserErrors {|uri=uri; errors=x.parser_errors|}))
-//        ty |> Stream.consumeFun (fun (x,_) -> 
-//            let errors = PersistentVector.foldBack (fun (_,x : Infer.InferResult) errors -> List.append errors x.errors) x []
-//            queue_client.Enqueue(TypeErrors {|errors=errors; uri=uri|})
-//            )
-//        s
+        token |> Stream.consumeFun (fun x -> queue_client.Enqueue(TokenizerErrors {|uri=uri; errors=x.errors|}))
+        parse |> Stream.consumeFun (fun x -> queue_client.Enqueue(ParserErrors {|uri=uri; errors=x.parser_errors|}))
+        ty |> Stream.consumeFun (fun (x,_) -> 
+            let errors = PersistentVector.foldBack (fun (_,x : Infer.InferResult) errors -> List.append errors x.errors) x []
+            queue_client.Enqueue(TypeErrors {|errors=errors; uri=uri|})
+            )
+        s
 
-//    let project = Utils.memoize (Dictionary()) <| fun (uri : string) ->
-//        let s = Src.create()
-//        project (FileInfo(Uri(uri).LocalPath).Directory.FullName) (Src.tap s)
-//        |> Stream.consumeFun (fun x -> queue_client.Enqueue(ProjectErrors {|uri=uri; errors=x|}))
-//        s
+    let fatal_errors = Src.create()
+    Src.tap fatal_errors |> Stream.consumeFun (FatalError >> queue_client.Enqueue)
+    let package_errors = Src.create()
+    Src.tap package_errors |> Stream.consumeFun (PackageErrors >> queue_client.Enqueue)
+    let supervisor = supervisor fatal_errors package_errors
+    let dir uri = FileInfo(Uri(uri).LocalPath).Directory.FullName
 
-//    let buffer = Dictionary()
-//    let last_id = ref 0
-//    use __ = server.ReceiveReady.Subscribe(fun s ->
-//        let rec loop () = Utils.remove buffer !last_id (body <| NetMQMessage 3) id
-//        and body (msg : NetMQMessage) (address : NetMQFrame, x) =
-//            incr last_id
-//            let push_back (x : obj) = 
-//                match x with
-//                | :? Option<string> as x -> 
-//                    match x with 
-//                    | None -> msg.Push("null") 
-//                    | Some x -> msg.Push(sprintf "\"%s\"" x)
-//                | _ -> msg.Push(Json.serialize x)
-//                msg.PushEmptyFrame(); msg.Push(address)
-//            let send_back x = push_back x; server.SendMultipartMessage(msg)
-//            let send_back_via_queue x = push_back x; queue_server.Enqueue(msg)
-//            match x with
-//            | ProjectFileOpen x -> Src.value (project x.uri) (ProjOpen x.spiprojText) |> Hopac.start; send_back null
-//            | ProjectFileChange x -> Src.value (project x.uri) (ProjChange x.spiprojText) |> Hopac.start; send_back null
-//            | ProjectFileLinks x -> Src.value (project x.uri) (ProjLinks send_back_via_queue) |> Hopac.start
-//            | ProjectCodeActionExecute x -> Src.value (project x.uri) (ProjCodeActionExecute (x.action, send_back_via_queue)) |> Hopac.start
-//            | ProjectCodeActions x -> Src.value (project x.uri) (ProjCodeActions send_back_via_queue) |> Hopac.start
-//            | FileOpen x -> Src.value (file x.uri).token (TokReq.Put(x.spiText)) |> Hopac.start; send_back null
-//            | FileChanged x -> Src.value (file x.uri).token (TokReq.Modify(x.spiEdit)) |> Hopac.start; send_back null
-//            | FileTokenRange x -> Hopac.start (timeOutMillis 30 >>=. Src.value (file x.uri).token (TokReq.GetRange(x.range,send_back_via_queue)))
-//            | HoverAt x -> Hopac.start (Src.value (file x.uri).hover (x.pos, send_back_via_queue))
-//            | BuildFile x ->
-//                let x = Uri(x.uri).LocalPath
-//                match IO.Path.GetExtension(x) with
-//                | ".spi" | ".spir" -> IO.File.WriteAllText(IO.Path.ChangeExtension(x,"fsx"), "// Compiled with Spiral v0.2.")
-//                | _ -> ()
-//                send_back null
-//            loop ()
-//        let msg = server.ReceiveMultipartMessage(3)
-//        let address = msg.Pop()
-//        msg.Pop() |> ignore
-//        let (id : int), x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
-//        if !last_id = id then body msg (address, x)
-//        else buffer.Add(id,(address,x))
-//        )
+    let buffer = Dictionary()
+    let last_id = ref 0
+    use __ = server.ReceiveReady.Subscribe(fun s ->
+        let rec loop () = Utils.remove buffer !last_id (body <| NetMQMessage 3) id
+        and body (msg : NetMQMessage) (address : NetMQFrame, x) =
+            incr last_id
+            let push_back (x : obj) = 
+                match x with
+                | :? Option<string> as x -> 
+                    match x with 
+                    | None -> msg.Push("null") 
+                    | Some x -> msg.Push(sprintf "\"%s\"" x)
+                | _ -> msg.Push(Json.serialize x)
+                msg.PushEmptyFrame(); msg.Push(address)
+            let send_back x = push_back x; server.SendMultipartMessage(msg)
+            let send_back_via_queue x = push_back x; queue_server.Enqueue(msg)
+            let send_ivar_back_via_queue () = let res = IVar() in Hopac.start (IVar.read res >>- send_back_via_queue); res
+                
+            match x with
+            | ProjectFileOpen x -> Src.value supervisor (SOpen(dir x.uri, Some x.spiprojText)) |> Hopac.start; send_back null
+            | ProjectFileChange x -> Src.value supervisor (SChange(dir x.uri, Some x.spiprojText)) |> Hopac.start; send_back null
+            | ProjectFileLinks x -> Src.value supervisor (SLinks(dir x.uri, send_ivar_back_via_queue())) |> Hopac.start
+            | ProjectCodeActionExecute x -> Src.value supervisor (SCodeActionExecute x.action) |> Hopac.start; send_back null
+            | ProjectCodeActions x -> Src.value supervisor (SCodeActions(dir x.uri, send_ivar_back_via_queue())) |> Hopac.start
+            | FileOpen x -> Src.value (file x.uri).token (TokReq.Put(x.spiText)) |> Hopac.start; send_back null
+            | FileChanged x -> Src.value (file x.uri).token (TokReq.Modify(x.spiEdit)) |> Hopac.start; send_back null
+            | FileTokenRange x -> Hopac.start (timeOutMillis 30 >>=. Src.value (file x.uri).token (TokReq.GetRange(x.range,send_back_via_queue)))
+            | HoverAt x -> Hopac.start (Src.value (file x.uri).hover (x.pos, send_back_via_queue))
+            | BuildFile x ->
+                let x = Uri(x.uri).LocalPath
+                match IO.Path.GetExtension(x) with
+                | ".spi" | ".spir" -> IO.File.WriteAllText(IO.Path.ChangeExtension(x,"fsx"), "// Compiled with Spiral v0.2.")
+                | _ -> ()
+                send_back null
+            loop ()
+        let msg = server.ReceiveMultipartMessage(3)
+        let address = msg.Pop()
+        msg.Pop() |> ignore
+        let (id : int), x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
+        if !last_id = id then body msg (address, x)
+        else buffer.Add(id,(address,x))
+        )
 
-//    use client = new RequestSocket()
-//    client.Connect(uri_client)
+    use client = new RequestSocket()
+    client.Connect(uri_client)
 
-//    use __ = queue_client.ReceiveReady.Subscribe(fun x -> 
-//        x.Queue.Dequeue() |> Json.serialize |> client.SendFrame
-//        client.ReceiveMultipartMessage() |> ignore
-//        )
+    use __ = queue_client.ReceiveReady.Subscribe(fun x -> 
+        x.Queue.Dequeue() |> Json.serialize |> client.SendFrame
+        client.ReceiveMultipartMessage() |> ignore
+        )
 
-//    use __ = queue_server.ReceiveReady.Subscribe(fun x -> x.Queue.Dequeue() |> server.SendMultipartMessage)
+    use __ = queue_server.ReceiveReady.Subscribe(fun x -> x.Queue.Dequeue() |> server.SendMultipartMessage)
 
-//    poller.Run()
-//    0
+    poller.Run()
+    0
