@@ -265,6 +265,7 @@ let load_from_file project_dir =
 
 type LoadedSchemas = Map<string,Result<ValidatedSchema,string>>
 let load (m : LoadedSchemas) text project_dir =
+    let m = Map.remove project_dir m
     let waiting = MVar(Set.empty)
     let finished = MVar(m)
     let rec loop text project_dir =
@@ -360,8 +361,7 @@ let change (schemas : Dictionary<_,_>) links loads errors is_open dir text =
     match schemas.TryGetValue(dir) with
     | true, Ok _ when is_open -> Job.unit()
     | _ ->
-        schemas.Remove(dir) |> ignore
-        load (Map.remove dir !loads) text dir >>= fun m ->
+        load !loads text dir >>= fun m ->
         let dirty_nodes, m = validate schemas links m dir
         loads := m
         Array.iterJob (fun dir ->
