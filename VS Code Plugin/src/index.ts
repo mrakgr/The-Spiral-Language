@@ -1,6 +1,6 @@
 import * as path from "path"
 import * as _ from "lodash"
-import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider, WorkspaceEdit } from "vscode"
+import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider, WorkspaceEdit, FileDeleteEvent } from "vscode"
 import * as zmq from "zeromq"
 
 const port = 13805
@@ -32,6 +32,7 @@ type RAction = [VSCRange, ProjectCodeAction]
 
 const spiprojOpenReq = async (uri: string, spiprojText: string): Promise<void> => request({ ProjectFileOpen: { uri, spiprojText } })
 const spiprojChangeReq = async (uri: string, spiprojText: string): Promise<void> => request({ ProjectFileChange: { uri, spiprojText } })
+const spiprojDeleteReq = async (uri: string): Promise<void> => request({ ProjectFileDelete: { uri } })
 const spiprojLinksReq = async (uri: string): Promise<RString []> => request({ ProjectFileLinks: { uri } })
 const spiprojCodeActionsReq = async (uri: string): Promise<RAction []> => request({ ProjectCodeActions: { uri } })
 const spiprojCodeActionExecuteReq = async (uri: string, action : ProjectCodeAction): Promise<string | null> => request({ ProjectCodeActionExecute: { uri, action } }).then(x => x.result)
@@ -99,9 +100,10 @@ export const activate = async (ctx: ExtensionContext) => {
         await sock.unbind(uriServer)
     })();
 
-    const spiprojOpen = (doc: TextDocument) => { spiprojOpenReq(doc.uri.toString(true), doc.getText()) }
-    const spiprojChange = (doc: TextDocument) => { spiprojChangeReq(doc.uri.toString(true), doc.getText()) }
-    const spiOpen = (doc: TextDocument) => { spiOpenReq(doc.uri.toString(true), doc.getText()) }
+    const spiprojOpen = (doc: TextDocument) => spiprojOpenReq(doc.uri.toString(true), doc.getText())
+    const spiprojChange = (doc: TextDocument) => spiprojChangeReq(doc.uri.toString(true), doc.getText())
+    const spiprojDelete = (uri: Uri) => spiprojDeleteReq(uri.toString(true))
+    const spiOpen = (doc: TextDocument) => spiOpenReq(doc.uri.toString(true), doc.getText())
 
     const numberOfLinesAdded = (str: string) => {
         var length = 0;
@@ -160,6 +162,18 @@ export const activate = async (ctx: ExtensionContext) => {
             case ".spir": case ".spi": return spiChange(x.document,x.contentChanges)
             default: return
         }
+    }
+
+    const onDelete = (e: FileDeleteEvent) => {
+        e.files.forEach(x => {
+            switch (path.extname(x.path)) {
+                case ".spiproj": 
+                    if (path.basename(x.path,".spiproj") === "package") { spiprojDelete(x) }
+                    return
+                case ".spir": case ".spi": return 
+                default: return
+            }
+        })
     }
 
     class SpiralProjectLinks implements DocumentLinkProvider {
@@ -223,6 +237,7 @@ export const activate = async (ctx: ExtensionContext) => {
         errorsProject, errorsTokenization, errorsParse, errorsType,
         workspace.onDidOpenTextDocument(onDocOpen),
         workspace.onDidChangeTextDocument(onDocChange),
+        workspace.onDidDeleteFiles(onDelete),
         languages.registerDocumentRangeSemanticTokensProvider(spiralFilePattern,new SpiralTokens(),new SemanticTokensLegend(spiralTokenLegend)),
         languages.registerHoverProvider(spiralFilePattern,new SpiralHover()),
         commands.registerCommand("buildFile", () => {

@@ -233,9 +233,13 @@ let schema project_dir x =
         Array.iter (validate_file moduleDir) x.modules
     let outDir = validate_dir x.outDir
     let packages =
+        let packages = HashSet()
         let validate_package d (r,x) =
-            try // The validator needs the backwards links even for files that are currently missing, but might exist.
-                Some(r, DirectoryInfo(Path.Combine(d,x)).FullName)
+            try let x = DirectoryInfo(Path.Combine(d,x)).FullName
+                if project_dir = x then errors.Add(r,"Self references are not allowed."); None
+                // The validator needs the backwards links even for files that are currently missing, but might exist.
+                elif packages.Add(x) then Some(r, x)
+                else errors.Add(r,"Duplicates are not allowed."); None
             with e -> errors.Add(r, e.Message); None
         match x.packageDir with
         | Some(r,n) -> 
@@ -329,10 +333,7 @@ let validate (schemas : Dictionary<string, Result<PackageSchema, string>>) (link
             let links = ResizeArray()
             let errors = ResizeArray()
             v.packages |> List.iter (fun (r,sub) ->
-                if cur = sub then // TODO: Should this check be here?
-                    circular_nodes.Add(cur) |> ignore
-                    errors.Add(r,sprintf "Self references are not allowed.")
-                elif circular_nodes.Contains(sub) then 
+                if circular_nodes.Contains(sub) then 
                     let rest = if is_circular then " and the current package is a part of that loop." else "."
                     errors.Add(r,sprintf "This package is circular%s" rest)
                 else 
@@ -355,16 +356,18 @@ type PackageSupervisorReq =
     | SCodeActions of dir: string * RAction [] IVar
     | SCodeActionExecute of ProjectCodeAction
 
-let open' (schemas : Dictionary<_,_>) links loads errors dir text =
-    if schemas.ContainsKey(dir) then Job.unit()
-    else
-        load !loads text dir >>= fun m ->
+let change (schemas : Dictionary<_,_>) links loads errors is_open dir text =
+    match schemas.TryGetValue(dir) with
+    | true, Ok _ when is_open -> Job.unit()
+    | _ ->
+        schemas.Remove(dir) |> ignore
+        load (Map.remove dir !loads) text dir >>= fun m ->
         let dirty_nodes, m = validate schemas links m dir
         loads := m
         Array.iterJob (fun dir ->
-            match schemas.[dir] with
-            | Ok x -> Src.value errors {|uri=spiproj_link dir; errors=Array.append x.schema.errors x.package_errors|}
-            | Error x -> Job.unit()
+            match schemas.TryGetValue(dir) with
+            | true, Ok x -> Src.value errors {|uri=spiproj_link dir; errors=Array.append x.schema.errors x.package_errors|}
+            | _ -> Job.unit()
             ) dirty_nodes
 
 let supervisor fatal_errors errors =
@@ -372,11 +375,11 @@ let supervisor fatal_errors errors =
     let schemas = Dictionary()
     let links = create_mirrored_graph()
     let loads = ref Map.empty
-    let open' = open' schemas links loads errors
+    let change = change schemas links loads errors
 
     Src.tap req |> consumeJob (function
-        | SOpen(dir,text) -> open' dir text
-        | SChange(dir,text) -> schemas.Remove(dir) |> ignore; loads := Map.remove dir !loads; open' dir text
+        | SOpen(dir,text) -> change true dir text
+        | SChange(dir,text) -> change false dir text
         | SLinks(dir,res) -> 
             match schemas.[dir] with
             | Ok x -> IVar.fill res (Array.append x.schema.links x.package_links)
@@ -396,6 +399,7 @@ let supervisor fatal_errors errors =
 type ClientReq =
     | ProjectFileOpen of {|uri : string; spiprojText : string|}
     | ProjectFileChange of {|uri : string; spiprojText : string|}
+    | ProjectFileDelete of {|uri : string|}
     | ProjectFileLinks of {|uri : string|}
     | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
     | ProjectCodeActions of {|uri : string|}
@@ -473,10 +477,11 @@ let [<EntryPoint>] main _ =
             let send_back x = push_back x; server.SendMultipartMessage(msg)
             let send_back_via_queue x = push_back x; queue_server.Enqueue(msg)
             let send_ivar_back_via_queue () = let res = IVar() in Hopac.start (IVar.read res >>- send_back_via_queue); res
-                
+
             match x with
             | ProjectFileOpen x -> Src.value supervisor (SOpen(dir x.uri, Some x.spiprojText)) |> Hopac.start; send_back null
             | ProjectFileChange x -> Src.value supervisor (SChange(dir x.uri, Some x.spiprojText)) |> Hopac.start; send_back null
+            | ProjectFileDelete x -> Src.value supervisor (SChange(dir x.uri, None)) |> Hopac.start; send_back null
             | ProjectFileLinks x -> Src.value supervisor (SLinks(dir x.uri, send_ivar_back_via_queue())) |> Hopac.start
             | ProjectCodeActionExecute x -> Src.value supervisor (SCodeActionExecute x.action) |> Hopac.start; send_back null
             | ProjectCodeActions x -> Src.value supervisor (SCodeActions(dir x.uri, send_ivar_back_via_queue())) |> Hopac.start
