@@ -44,19 +44,34 @@ let tokenizer req =
         )
     Src.tap res_text
 
-let parser is_top_down req =
-    let dict = System.Collections.Generic.Dictionary(HashIdentity.Reference)
-    req |> Stream.keepPreceding1 |> Stream.mapFun (fun (a : TokRes) ->
-        let b = 
-            List.map (fun x -> {
-                parsed = Utils.memoize dict (block_init is_top_down) x.block
-                offset = x.offset
-                }) a.blocks
-        dict.Clear(); List.iter2 (fun a b -> dict.Add(a.block,b.parsed)) a.blocks b
-        let bundles, parser_errors = block_bundle b
-        {bundles = bundles; parser_errors = parser_errors; tokenizer_errors = a.errors}
-        )
+let parse dict is_top_down (a : TokRes) =
+    let b = 
+        List.map (fun x -> {
+            parsed = Utils.memoize dict (block_init is_top_down) x.block
+            offset = x.offset
+            }) a.blocks
+    dict.Clear(); List.iter2 (fun a b -> dict.Add(a.block,b.parsed)) a.blocks b
+    let bundles, parser_errors = block_bundle b
+    {bundles = bundles; parser_errors = parser_errors; tokenizer_errors = a.errors}
+
+let parser' is_top_down tokens =
+    let tokens = Stream.values tokens
+    let req = Ch()
+
+    let dict = Dictionary(HashIdentity.Reference)
+    let src = Src.create()
+
+    let rec init () = waiting <|> (Ch.give req (Src.tap src) ^=> init)
+    and rest p = waiting <|> (Ch.give req (Stream.cons p (Src.tap src)) ^=> fun () -> rest p)
+    and parsing x = waiting <|> Alt.prepareJob (fun () -> let p = parse dict is_top_down x in Src.value src p >>-. rest p)
+    and waiting = tokens ^=> parsing
     
+    Hopac.start (init ())
+    req
+
+//let parser is_top_down tokens = Ch.take (parser' is_top_down tokens) |> Hopac.run
+let parser is_top_down tokens = tokens |> Stream.keepPreceding1 |> Stream.mapFun (parse (Dictionary(HashIdentity.Reference)) is_top_down)
+
 type TypecheckerRes = (Bundle * Infer.InferResult) PersistentVector * bool
 let typechecker (req : ParserRes Stream) : TypecheckerRes Stream =
     let req = Stream.values req
