@@ -65,7 +65,7 @@ let parser' is_top_down tokens =
     and rest p = waiting <|> (Ch.give req (Stream.cons p (Src.tap src)) ^=> fun () -> rest p)
     and parsing x = waiting <|> Alt.prepareJob (fun () -> let p = parse dict is_top_down x in Src.value src p >>-. rest p)
     and waiting = tokens ^=> parsing
-    
+
     Hopac.start (init ())
     req
 
@@ -85,8 +85,8 @@ let typechecker (req : ParserRes Stream) : TypecheckerRes Stream =
         loop PersistentVector.empty 0 b.bundles |> processing
     and processing = function
         | a, [] -> Alt.prepare (Src.value res (a,true) >>- fun () -> waiting a)
-        | a, b :: b' -> waiting a <|> Alt.prepare (Src.value res (a, false) >>- fun () -> 
-            let env = 
+        | a, b :: b' -> waiting a <|> Alt.prepare (Src.value res (a, false) >>- fun () ->
+            let env =
                 match PersistentVector.tryLast a with
                 | Some(_,b : Infer.InferResult) -> b.blockwise_top_env
                 | None -> Infer.default_env

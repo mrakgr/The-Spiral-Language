@@ -94,7 +94,7 @@ and [<ReferenceEquality>] T =
     | TPrim of Range * BlockParsing.PrimitiveType
     | TTerm of Range * E
     | TMacro of Range * TypeMacro list
-    | TNominal of Id
+    | TNominal of VSCTypes.PackakgeTag
     | TArray of Range * T
     | TLayout of Range * T * BlockParsing.Layout
 

@@ -245,7 +245,7 @@ and RawTExpr =
     | RawTMacro of VSCRange * RawMacro list
     | RawTUnion of VSCRange * Map<string,RawTExpr> * UnionLayout
     | RawTLayout of VSCRange * RawTExpr * Layout
-    | RawTFilledNominal of VSCRange * int // Filled in by the inferencer.
+    | RawTFilledNominal of VSCRange * GlobalId // Filled in by the inferencer.
 
 let (+.) (a,_) (_,b) = a,b
 let range_of_hovar ((r,_) : HoVar) = r

@@ -11,7 +11,7 @@ type TT =
 
 type Constraint =
     | CNumber
-    | CPrototype of int
+    | CPrototype of GlobalId
 
 type ConstraintOrModule = C of Constraint | M of Map<string,ConstraintOrModule>
 
@@ -41,7 +41,7 @@ and T =
     | TyModule of Map<string, T>
     | TyFun of T * T
     | TyArray of T
-    | TyNominal of int
+    | TyNominal of GlobalId
     | TyUnion of Map<string,T> * BlockParsing.UnionLayout
     | TyApply of T * T * TT // Regular type functions (TyInl) get reduced, while this represents the staged reduction of nominals.
     | TyInl of Var * T
@@ -73,12 +73,12 @@ type TypeError =
     | RealFunctionInTopDown
     | ModuleMustBeImmediatelyApplied
     | MissingRecordFieldsInPattern of T * string list
-    | CasePatternNotFoundForType of int
+    | CasePatternNotFoundForType of GlobalId
     | CasePatternNotFound
     | CannotInferCasePatternFromTermInEnv of T
-    | NominalInPatternUnbox of int
+    | NominalInPatternUnbox of GlobalId
     | TypeInEnvIsNotNominal of T
-    | UnionInPatternNominal of int
+    | UnionInPatternNominal of GlobalId
     | ConstraintError of Constraint * T
     | ExpectedAnnotation
     | ExpectedSinglePattern
@@ -86,7 +86,7 @@ type TypeError =
     | ValueRestriction of T
     | DuplicateRecInlName
     | ExpectedConstraintInsteadOfModule
-    | InstanceNotFound of prototype: int * instance: int
+    | InstanceNotFound of prototype: GlobalId * instance: GlobalId
     | ExpectedPrototypeConstraint of Constraint
     | ExpectedPrototypeInsteadOfModule
     | ExpectedHigherOrder of T
@@ -125,20 +125,14 @@ let rec metavars = function
 
 open FSharpx.Collections
 type TopEnv = {
-    nominals_aux : {|name : string; kind : TT|} PersistentVector
-    nominals : (Var list * T) PersistentVector
-    prototypes : {| instances : Map<int,Constraint Set list>; name : string; signature: T|} PersistentVector
+    nominals_aux : Map<GlobalId, {|name : string; kind : TT|}>
+    nominals : Map<GlobalId, {|vars : Var list; body : T|}>
+    prototypes_instances : Map<{|prot : GlobalId; ins : GlobalId|}, Constraint Set list>
+    prototypes : Map<GlobalId, {|name : string; signature: T|}>
     ty : Map<string,T>
     term : Map<string,T>
     constraints : Map<string,ConstraintOrModule>
     }
-type TopEnvModify =
-    | TeNominal of ins : int * name : string * kind : TT * vars : Var list * body : T
-    | TePrototype of prot : int * name : string * signature: T
-    | TePrototypeInstance of prot : int * ins : int * constraints : Constraint Set list
-    | TeTy of string * T
-    | TeTerm of string * T
-    | TeConstraint of string * Constraint
 
 type Env = { ty : Map<string,T>; term : Map<string,T>; constraints : Map<string,ConstraintOrModule> }
 
@@ -155,15 +149,15 @@ let prototype_init_forall_kind = function
 
 let constraint_kind (env : TopEnv) = function
     | CNumber -> KindType 
-    | CPrototype i -> prototype_init_forall_kind env.prototypes.[i].signature
+    | CPrototype i -> prototype_init_forall_kind env.prototypes.[i.package_id].[i.tag].signature
 
 let rec constraint_name (env : TopEnv) = function
     | CNumber -> "number"
-    | CPrototype i -> env.prototypes.[i].name
+    | CPrototype i -> env.prototypes.[i.package_id].[i.tag].name
 
 let rec tt (env : TopEnv) = function
     | TyMetavar(_,{contents=Some x}) -> tt env x
-    | TyNominal i -> env.nominals_aux.[i].kind
+    | TyNominal i -> env.nominals_aux.[i.package_id].[i.tag].kind
     | TyApply(_,_,x) | TyMetavar({kind=x},_) | TyVar({kind=x}) -> x
     | TyUnion _ | TyLayout _ | TyMacro _ | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyModule _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
     | TyInl(v,a) -> KindFun(v.kind,tt env a)
@@ -313,7 +307,7 @@ let rec constraint_process (env : TopEnv) (con,x') =
         match ho_split [] x with
         | [] -> [ConstraintError(con,x)]
         | TyNominal i' :: x' ->
-            match Map.tryFind i' env.prototypes.[i].instances with
+            match Map.tryFind i' env.prototypes.[i.package_id].[i.tag].instances with
             | Some cons -> 
                 let rec loop ers = function
                     | con :: con', x :: x' -> loop (List.append (constraints_process env (con,x)) ers) (con',x')
@@ -401,8 +395,7 @@ let show_kind x =
     f -1 x
 
 let show_constraints env x = Set.toList x |> List.map (constraint_name env) |> String.concat "; " |> sprintf "{%s}"
-
-let show_nominal (env : TopEnv) i = match PersistentVector.tryNth i env.nominals_aux with Some x -> x.name | None -> "?"
+let show_nominal (env : TopEnv) (i : PackageTag) = match PersistentVector.tryNth i.tag env.nominals_aux.[i.package_id] with Some x -> x.name | None -> "?"
 let show_layout_type = function Heap -> "heap" | HeapMutable -> "mut"
 
 let show_t (env : TopEnv) x =
@@ -495,7 +488,7 @@ let show_type_error (env : TopEnv) x =
     | ValueRestriction a -> sprintf "Metavars that are not part of the enclosing function's signature are not allowed. They need to be values.\nGot: %s" (f a)
     | DuplicateRecInlName -> "Shadowing of functions by the members of the same mutually recursive block is not allowed."
     | ExpectedConstraintInsteadOfModule -> sprintf "Expected a constraint instead of module."
-    | InstanceNotFound(prot,ins) -> sprintf "The higher order type instance %s does not have the prototype %s." (show_nominal env ins) env.prototypes.[prot].name
+    | InstanceNotFound(prot,ins) -> sprintf "The higher order type instance %s does not have the prototype %s." (show_nominal env ins) env.prototypes.[prot.package_id].[prot.tag].name
     | ExpectedPrototypeConstraint a -> sprintf "Expected a prototype constraint.\nGot: %s" (constraint_name env a)
     | ExpectedPrototypeInsteadOfModule -> "Expected a prototype instead of module."
     | ExpectedHigherOrder a -> sprintf "Expected a higher order type.\nGot: %s" (f a)
@@ -618,7 +611,7 @@ let top_env_modify prefix (env : TopEnv) l =
         }
 
 open Spiral.TypecheckingUtils
-let infer (top_env' : TopEnv) expr =
+let infer package_id (top_env' : TopEnv) expr =
     let mutable top_env = top_env' // Is mutated only in two places at the top level. During actual inference can otherwise be thought of as immutable.
     let errors = ResizeArray()
     let generalized_statements = Dictionary(HashIdentity.Reference)
@@ -641,7 +634,7 @@ let infer (top_env' : TopEnv) expr =
                 | TyRecord l -> RawTRecord(r,Map.map (fun _ -> f) l)
                 | TyFun(a,b) -> RawTFun(r,f a,f b)
                 | TyArray a -> RawTArray(r,f a)
-                | TyNominal i -> RawTFilledNominal(r,i)
+                | TyNominal i -> RawTFilledNominal(r,{|package_id = package_id; tag = i|})
                 | TyUnion(a,b) -> RawTUnion(r,Map.map (fun _ -> f) a,b)
                 | TyApply(a,b,_) -> RawTApply(r,f a,f b)
                 | TyVar a -> RawTVar(r,a.name)
