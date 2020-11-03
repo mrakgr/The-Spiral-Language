@@ -89,7 +89,7 @@ let typechecker (req : ParserRes Stream) : TypecheckerRes Stream =
             let env =
                 match PersistentVector.tryLast a with
                 | Some(_,b : Infer.InferResult) -> b.blockwise_top_env
-                | None -> Infer.default_env
+                | None -> Infer.top_env_default
             let a' = PersistentVector.conj (b,Infer.infer env (bundle b)) a
             processing (a', b')
             )

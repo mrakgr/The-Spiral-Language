@@ -1,5 +1,6 @@
 ﻿module Spiral.PartEval.Prepass
 open Spiral
+open VSCTypes
 open Spiral.Infer
 
 type Id = int32
@@ -94,7 +95,7 @@ and [<ReferenceEquality>] T =
     | TPrim of Range * BlockParsing.PrimitiveType
     | TTerm of Range * E
     | TMacro of Range * TypeMacro list
-    | TNominal of VSCTypes.PackakgeTag
+    | TNominal of GlobalId
     | TArray of Range * T
     | TLayout of Range * T * BlockParsing.Layout
 
