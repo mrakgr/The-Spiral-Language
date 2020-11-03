@@ -147,16 +147,16 @@ let top_env_empty = {
     constraints = Map.empty
     }
 
-let union a b = {
-    nominals_next_tag = max a.nominals_next_tag b.nominals_next_tag
-    nominals_aux = Map.foldBack Map.add a.nominals_aux b.nominals_aux
-    nominals = Map.foldBack Map.add a.nominals b.nominals
-    prototypes_next_tag = max a.prototypes_next_tag b.prototypes_next_tag
-    prototypes_instances = Map.foldBack Map.add a.prototypes_instances b.prototypes_instances
-    prototypes = Map.foldBack Map.add a.prototypes b.prototypes
-    ty = Map.foldBack Map.add a.ty b.ty
-    term = Map.foldBack Map.add a.term b.term
-    constraints = Map.foldBack Map.add a.constraints b.constraints
+let union small big = {
+    nominals_next_tag = max small.nominals_next_tag big.nominals_next_tag
+    nominals_aux = Map.foldBack Map.add small.nominals_aux big.nominals_aux
+    nominals = Map.foldBack Map.add small.nominals big.nominals
+    prototypes_next_tag = max small.prototypes_next_tag big.prototypes_next_tag
+    prototypes_instances = Map.foldBack Map.add small.prototypes_instances big.prototypes_instances
+    prototypes = Map.foldBack Map.add small.prototypes big.prototypes
+    ty = Map.foldBack Map.add small.ty big.ty
+    term = Map.foldBack Map.add small.term big.term
+    constraints = Map.foldBack Map.add small.constraints big.constraints
     }
 
 let in_module m a =
@@ -596,7 +596,7 @@ type InferResult = {
 
 open Spiral.TypecheckingUtils
 let infer package_id module_id (top_env' : TopEnv) expr =
-    let at_tag i = {|package_id=package_id; module_id=module_id; tag=i|}
+    let at_tag i = {package_id=package_id; module_id=module_id; tag=i}
     let mutable top_env = top_env' // Is mutated only in two places at the top level. During actual inference can otherwise be thought of as immutable.
     let errors = ResizeArray()
     let generalized_statements = Dictionary(HashIdentity.Reference)
@@ -1444,10 +1444,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     generalized_statements.Add(body,List.foldBack (fun x s -> TyForall(x,s)) prot_foralls prot_body)
                     prot_body
                 | _ -> failwith "impossible"
-            //let prototype = {|prototype with instances = Map.add ins_id ins_constraints prototype.instances|}
             top_env <- {top_env with prototypes_instances = Map.add (prot_id,ins_id) ins_constraints top_env.prototypes_instances}
             term {term=Map.empty; ty=env_ty; constraints=Map.empty} prot_body body
             (if 0 = errors.Count then psucc (fun () -> FInstance(r,(fst prot, prot_id),(fst ins, ins_id),fill r Map.empty body)) else pfail),
+            // TODO: Do the instance orphan checking here.
             {top_env_empty with
                 prototypes_instances = Map.add (prot_id,ins_id) ins_constraints Map.empty
                 }

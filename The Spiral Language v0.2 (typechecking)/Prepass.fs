@@ -57,7 +57,7 @@ and [<ReferenceEquality>] E =
     | EHeapMutableSet of Range * E * (Range * E) list * E
     | EReal of Range * E
     | EMacro of Range * Macro list * T
-    | EPrototypeApply of Range * prototype_id: int * T
+    | EPrototypeApply of Range * prototype_id: GlobalId * T
     | EPatternMemo of E
     | ENominal of Range * E * T
     // Regular pattern matching
@@ -103,8 +103,10 @@ open FSharpx.Collections
 
 open BlockParsing
 type TopEnv = {
-    prototypes : Map<int,E> PersistentVector
-    nominals : {|body : T; name : string|} PersistentVector
+    prototypes_next_tag : int
+    prototypes_instances : Map<GlobalId * GlobalId,E>
+    nominals_next_tag : int
+    nominals : Map<GlobalId,{|body : T; name : string|}>
     term : Map<string,E>
     ty : Map<string,T>
     }
@@ -509,7 +511,8 @@ let process_ty (x : T) =
     resolve scope (Choice2Of2 x)
     lower scope (Choice2Of2(x,id))
 
-let prepass (top_env : TopEnv) (expr : FilledTop) =
+let prepass package_id module_id (top_env : TopEnv) (expr : FilledTop) =
+    let at_tag i = { package_id = package_id; module_id = module_id; tag = i }
     let v_term (env : Env) x = Map.tryFind x env.term.env |> Option.defaultWith (fun () -> top_env.term.[x])
     let v_ty (env : Env) x =  Map.tryFind x env.ty.env |> Option.defaultWith (fun () -> top_env.ty.[x])
     let rec compile_pattern id (l : (CompilePatternEnv * Pattern * E) list) =
@@ -742,24 +745,25 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
     match expr with
     | FType(_,(_,name),l,body) -> {top_env with ty = Map.add name (eval_type' env l (fun env -> ty env body)) top_env.ty}
     | FNominal(r,(_,name),l,body) ->
-        let term = nominal_term top_env.term (TNominal top_env.nominals.Length) r name l body
+        let i = at_tag top_env.nominals_next_tag
+        let term = nominal_term top_env.term (TNominal i) r name l body
         let x = eval_type' env l (fun env -> TJoinPoint(range_of_texpr body, ty env body))
         let ty = Map.add name x top_env.ty
-        let nominals = PersistentVector.conj {|body=x; name=name|} top_env.nominals
-        {top_env with term = term; ty = ty; nominals = nominals}
+        let nominals = Map.add i {|body=x; name=name|} top_env.nominals
+        {top_env with term = term; ty = ty; nominals = nominals; nominals_next_tag=i.tag+1}
     | FNominalRec l ->
         let term,env,_ = 
             List.fold (fun (term,env,i) (r,(_,name),l,body) -> 
-                let nom = TNominal i
+                let nom = TNominal (at_tag i)
                 let term = nominal_term term nom r name l body
                 term, add_ty env name nom, i+1
-                ) (top_env.term, env, top_env.nominals.Length) l
-        let ty,nominals =
-            List.fold (fun (ty', nominals) (_,(_,name),l,body) -> 
+                ) (top_env.term, env, top_env.nominals_next_tag) l
+        let ty,nominals,i =
+            List.fold (fun (ty', nominals, i) (_,(_,name),l,body) -> 
                 let x = eval_type' env l (fun env -> TJoinPoint(range_of_texpr body, ty env body))
-                Map.add name x ty', PersistentVector.conj {|body=x; name=name|} nominals
-                ) (top_env.ty, top_env.nominals) l
-        {top_env with term = term; ty = ty; nominals = nominals}
+                Map.add name x ty', Map.add (at_tag i) {|body=x; name=name|} nominals, i+1
+                ) (top_env.ty, top_env.nominals, top_env.nominals_next_tag) l
+        {top_env with term = term; ty = ty; nominals = nominals; nominals_next_tag=i+1}
     | FInl(_,(_,name),body) -> {top_env with term = Map.add name (term env body |> process_term) top_env.term}
     | FRecInl l ->
         let l, env = 
@@ -774,9 +778,8 @@ let prepass (top_env : TopEnv) (expr : FilledTop) =
                 ) top_env.term l
         {top_env with term = term}
     | FPrototype(r,(_,name),_,_,_) ->
-        let id,env = add_ty_var env name
-        let x = EForall(r,id,EPrototypeApply(r,top_env.prototypes.Length,TV id)) |> process_term
-        {top_env with term = Map.add name x top_env.term; prototypes = PersistentVector.conj Map.empty top_env.prototypes}
+        let i = at_tag top_env.prototypes_next_tag
+        let x = EForall(r,0,EPrototypeApply(r,i,TV 0)) |> process_term
+        {top_env with term = Map.add name x top_env.term; prototypes_next_tag = i.tag+1}
     | FInstance(_,(_,prot_id),(_,ins_id),body) ->
-        let body = term env body |> process_term
-        {top_env with prototypes = PersistentVector.update prot_id (Map.add ins_id body top_env.prototypes.[prot_id]) top_env.prototypes}
+        {top_env with prototypes_instances = Map.add (prot_id,ins_id) (term env body |> process_term) top_env.prototypes_instances}

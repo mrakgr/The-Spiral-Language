@@ -72,15 +72,15 @@ let parser' is_top_down tokens =
 //let parser is_top_down tokens = Ch.take (parser' is_top_down tokens) |> Hopac.run
 let parser is_top_down tokens = tokens |> Stream.keepPreceding1 |> Stream.mapFun (parse (Dictionary(HashIdentity.Reference)) is_top_down)
 
-type TypecheckerRes = (Bundle * Infer.InferResult) PersistentVector * bool
-let typechecker (req : ParserRes Stream) : TypecheckerRes Stream =
+type TypecheckerRes = (Bundle * Infer.InferResult * Infer.TopEnv) PersistentVector * bool
+let typechecker package_id module_id (req : ParserRes Stream) : TypecheckerRes Stream =
     let req = Stream.values req
     let res = Src.create()
     let r = Src.tap res
     let rec waiting a = req ^=> fun b ->
         let rec loop s i b = 
             match PersistentVector.tryNth i a, b with
-            | Some(bundle,_ as r), bundle' :: b' when bundle = bundle' -> loop (PersistentVector.conj r s) (i+1) b'
+            | Some(bundle,_,_ as r), bundle' :: b' when bundle = bundle' -> loop (PersistentVector.conj r s) (i+1) b'
             | _ -> s, b
         loop PersistentVector.empty 0 b.bundles |> processing
     and processing = function
@@ -88,9 +88,10 @@ let typechecker (req : ParserRes Stream) : TypecheckerRes Stream =
         | a, b :: b' -> waiting a <|> Alt.prepare (Src.value res (a, false) >>- fun () ->
             let env =
                 match PersistentVector.tryLast a with
-                | Some(_,b : Infer.InferResult) -> b.blockwise_top_env
+                | Some(_,_,env) -> env
                 | None -> Infer.top_env_default
-            let a' = PersistentVector.conj (b,Infer.infer env (bundle b)) a
+            let r = Infer.infer package_id module_id env (bundle b)
+            let a' = PersistentVector.conj (b,r,Infer.union r.top_env_additions env) a
             processing (a', b')
             )
     Hopac.server (waiting PersistentVector.empty)
@@ -101,7 +102,7 @@ let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : Typechecke
     let rec processing ((x,_ as r) : TypecheckerRes) = waiting <|> (req ^=> fun (pos,ret) ->
         let rec block_from i = 
             if 0 <= i then 
-                let a,b = x.[i]
+                let a,b,_ = x.[i]
                 if (List.head a).offset <= pos.line then b.hovers else block_from (i-1)
             else [||]
         block_from (x.Length-1) |> Array.tryPick (fun ((a,b),r) ->
@@ -457,13 +458,13 @@ let [<EntryPoint>] main _ =
         let s = {|token = Src.create(); hover = Src.create()|}
         let token = tokenizer (Src.tap s.token)
         let parse = parser (System.IO.Path.GetExtension(uri) = ".spi") token
-        let ty = typechecker parse
+        let ty = typechecker 0 0 parse
         hover (Src.tap s.hover) ty
 
         token |> Stream.consumeFun (fun x -> queue_client.Enqueue(TokenizerErrors {|uri=uri; errors=x.errors|}))
         parse |> Stream.consumeFun (fun x -> queue_client.Enqueue(ParserErrors {|uri=uri; errors=x.parser_errors|}))
         ty |> Stream.consumeFun (fun (x,_) -> 
-            let errors = PersistentVector.foldBack (fun (_,x : Infer.InferResult) errors -> List.append errors x.errors) x []
+            let errors = PersistentVector.foldBack (fun (_,x : Infer.InferResult,_) errors -> List.append errors x.errors) x []
             queue_client.Enqueue(TypeErrors {|errors=errors; uri=uri|})
             )
         s

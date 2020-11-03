@@ -3,6 +3,7 @@
 open System
 open System.Collections.Generic
 open Spiral
+open VSCTypes
 open Spiral.Tokenize
 open Spiral.BlockParsing
 open Spiral.PartEval.Prepass
@@ -34,7 +35,7 @@ type H<'a when 'a : equality>(x : 'a) =
     override _.GetHashCode() = h
 
 type StackSize = int
-type Nominal = {|body : T; id : int; name : string|} ConsedNode // TODO: When doing incremental compilation, make the `body` field a weak reference.
+type Nominal = {|body : T; id : GlobalId; name : string|} ConsedNode // TODO: When doing incremental compilation, make the `body` field a weak reference.
 type Macro = Text of string | Type of Ty
 and Ty =
     | YB
@@ -125,8 +126,8 @@ type LangEnv = {
     }
 
 type TopEnv = {
-    prototypes : Dictionary<int, E> []
-    nominals : Nominal []
+    prototypes_instances : Dictionary<GlobalId * GlobalId, E>
+    nominals : Dictionary<GlobalId, Nominal>
     }
 
 let data_to_rdata (hc : HashConsTable) call_data =
@@ -921,10 +922,9 @@ let peval (env : TopEnv) x =
             let s = add_trace s r
             let a = a |> List.map (function MText x -> CMText x | MTerm x -> CMTerm(term s x |> dyn false s) | MType x -> CMType(ty s x))
             push_typedop_no_rewrite s (TyMacro(a)) (ty s b)
-        | EPrototypeApply(r,a,b) ->
-            let a = env.prototypes.[a]
+        | EPrototypeApply(_,prot_id,b) ->
             let rec loop = function
-                | YNominal b -> term s a.[b.node.id]
+                | YNominal b -> term s env.prototypes_instances.[prot_id,b.node.id]
                 | YApply(a,b) -> type_apply s (loop a) b
                 | b -> raise_type_error s <| sprintf "Expected a nominal or a deferred type apply.\nGot: %s" (show_ty b)
             loop (ty s b)
