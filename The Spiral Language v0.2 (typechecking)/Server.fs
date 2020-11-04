@@ -97,16 +97,16 @@ let typechecker package_id module_id (req : ParserRes Stream) : TypecheckerRes S
     Hopac.server (waiting PersistentVector.empty)
     r
 
-type TypecheckerFiles<'a> =
-    | TCFile of name: string * stream: 'a Stream
-    | TCDir of name: string * 'a TypecheckerFiles
+//type TypecheckerFiles<'a> =
+//    | TCFile of name: string * stream: 'a Stream
+//    | TCDir of name: string * 'a TypecheckerFiles
 
-let tc_file req = failwith "TODO"
-let tc_dir req = failwith "TODO"
-let multi_file_pipe package_id module_id (env : Infer.TopEnv) (req : ParserRes TypecheckerFiles): TypecheckerRes TypecheckerFiles =
-    let rec loop = function
-        | TCFile(name,s) -> failwith ""
-    failwith ""
+//let tc_file req = failwith "TODO"
+//let tc_dir req = failwith "TODO"
+//let multi_file_pipe package_id module_id (env : Infer.TopEnv) (req : ParserRes TypecheckerFiles): TypecheckerRes TypecheckerFiles =
+//    let rec loop = function
+//        | TCFile(name,s) -> failwith ""
+//    failwith ""
 
 let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : TypecheckerRes Stream) =
     let req, req_tc = Stream.values req, Stream.values req_tc
