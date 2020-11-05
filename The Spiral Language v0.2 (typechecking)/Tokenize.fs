@@ -1,6 +1,7 @@
 ﻿module Spiral.Tokenize
 open System
 open System.Text
+open FSharpx.Collections
 open VSCTypes
 open Spiral.LineParsers
 open Spiral.ParserCombinators
@@ -69,11 +70,11 @@ type SemanticTokenLegend =
     | unescaped_char = 11
 
 type SpiralToken =
-    | TokVar of string * SemanticTokenLegend ref
-    | TokSymbol of string * SemanticTokenLegend ref
-    | TokSymbolPaired of string * SemanticTokenLegend ref
-    | TokOperator of string * SemanticTokenLegend ref
-    | TokUnaryOperator of string * SemanticTokenLegend ref
+    | TokVar of string * SemanticTokenLegend
+    | TokSymbol of string * SemanticTokenLegend
+    | TokSymbolPaired of string * SemanticTokenLegend
+    | TokOperator of string * SemanticTokenLegend
+    | TokUnaryOperator of string * SemanticTokenLegend
     | TokValue of Literal
     | TokDefaultValue of string
     | TokComment of string
@@ -88,7 +89,7 @@ type SpiralToken =
     | TokMacroTypeVar of string
 
 let token_groups = function
-    | TokUnaryOperator(_,r) | TokOperator(_,r) | TokVar(_,r) | TokSymbol(_,r) | TokSymbolPaired(_,r) -> !r
+    | TokUnaryOperator(_,r) | TokOperator(_,r) | TokVar(_,r) | TokSymbol(_,r) | TokSymbolPaired(_,r) -> r
     | TokValue (LitChar _) | TokStringOpen | TokStringClose | TokText _ | TokMacroOpen | TokMacroClose | TokValue(LitString _) -> SemanticTokenLegend.string
     | TokComment _ -> SemanticTokenLegend.comment
     | TokKeyword _ -> SemanticTokenLegend.keyword
@@ -126,7 +127,7 @@ let var (s: Tokenizer) =
     let from = s.from
     let ok x = ({from=from; nearTo=s.from}, x)
     let body x = 
-        if skip ':' s then TokSymbolPaired(x,ref SemanticTokenLegend.symbol) |> ok
+        if skip ':' s then TokSymbolPaired(x,SemanticTokenLegend.symbol) |> ok
         else
             let f x = TokKeyword(x)
             match x with
@@ -147,7 +148,7 @@ let var (s: Tokenizer) =
             | "open" -> f SpecOpen | "_" -> f SpecWildcard
             | "prototype" -> f SpecPrototype | "instance" -> f SpecInstance
             | "true" -> TokValue(LitBool true) | "false" -> TokValue(LitBool false)
-            | x -> TokVar(x,ref SemanticTokenLegend.variable)
+            | x -> TokVar(x,SemanticTokenLegend.variable)
             |> ok
 
     (many1Satisfy2L is_var_char_starting is_var_char "variable" |>> body .>> spaces) s
@@ -198,7 +199,7 @@ let symbol s =
     let from = s.from
     let f x = ({from=from; nearTo=s.from}, x)
 
-    let symbol x = TokSymbol(x,ref SemanticTokenLegend.symbol)
+    let symbol x = TokSymbol(x,SemanticTokenLegend.symbol)
     let x = peek s
     let x' = peek' s 1
     if x = '.' && x' = '(' then inc' 2 s; ((many1SatisfyL is_operator_char "operator") .>> skip_char ')' |>> (symbol >> f) .>> spaces) s
@@ -222,8 +223,8 @@ let operator (s : Tokenizer) =
     let ok x = ({from=from; nearTo=s.from}, x) |> Ok
     let is_separator_prev = is_prefix_separator_char (peek' s -1)
     let f name (s: Tokenizer) = 
-        if is_separator_prev && (is_postfix_separator_char (peek s) = false) then TokUnaryOperator(name, ref SemanticTokenLegend.unary_operator) |> ok
-        else TokOperator(name, ref SemanticTokenLegend.operator) |> ok
+        if is_separator_prev && (is_postfix_separator_char (peek s) = false) then TokUnaryOperator(name,SemanticTokenLegend.unary_operator) |> ok
+        else TokOperator(name,SemanticTokenLegend.operator) |> ok
     (many1SatisfyL is_operator_char "operator"  >>= f .>> spaces) s
 
 let string_raw s =
@@ -324,28 +325,28 @@ type LineToken = Range * SpiralToken
 type LineComment = Range * string
 type LineTokenErrors = (Range * TokenizerError) list
 let tokenize text = 
-    let ar = ResizeArray()
-    let er = match (spaces >>. many_iter ar.Add token .>> (eol <|> tab)) {from=0; text=text} with Ok() -> [] | Error er -> er
-    Array.collect List.toArray (ar.ToArray()), er
+    let mutable ar = PersistentVector.empty
+    let er = match (spaces >>. many_iter (List.iter (fun x -> ar <- PersistentVector.conj x ar)) token .>> (eol <|> tab)) {from=0; text=text} with Ok() -> [] | Error er -> er
+    ar, er
 
 /// An array of {line: int; char: int; length: int; tokenType: int; tokenModifiers: int} in the order as written suitable for serialization.
 type VSCTokenArray = int []
 let process_error (k,v) = 
-    let messages, expecteds = v |> Array.distinct |> Array.partition (fun x -> Char.IsUpper(x,0))
-    let ex () = match expecteds with [|x|] -> sprintf "Expected: %s" x | x -> sprintf "Expected one of: %s" (String.concat ", " x)
+    let messages, expecteds = v |> List.distinct |> List.partition (fun x -> Char.IsUpper(x,0))
+    let ex () = match expecteds with [x] -> sprintf "Expected: %s" x | x -> sprintf "Expected one of: %s" (String.concat ", " x)
     let f l = String.concat "\n" l
-    if Array.isEmpty expecteds then k, f messages
-    elif Array.isEmpty messages then k, ex ()
-    else k, f (Array.append [|ex (); ""; "Other error messages:"|] messages)
+    if List.isEmpty expecteds then k, f messages
+    elif List.isEmpty messages then k, ex ()
+    else k, f (ex () :: "" :: "Other error messages:" :: messages)
 
-let process_errors line (ers : LineTokenErrors []) : RString [] =
-    ers |> Array.mapi (fun i l -> 
+let process_errors line (ers : LineTokenErrors list) : RString list =
+    ers |> List.mapi (fun i l -> 
         let i = line + i
-        l |> List.toArray |> Array.map (fun (r,x) -> x, ({|line=i; character=r.from|}, {|line=i; character=r.nearTo|}))
+        l |> List.map (fun (r,x) -> x, ({|line=i; character=r.from|}, {|line=i; character=r.nearTo|}))
         )
-    |> Array.concat
-    |> Array.groupBy snd
-    |> Array.map ((fun (k,v) -> k, Array.map fst v) >> process_error)
+    |> List.concat
+    |> List.groupBy snd
+    |> List.map ((fun (k,v) -> k, List.map fst v) >> process_error)
 
 type VSCodeTokenData = int [] * (string * Range) [] // FSharp.Json does not support serializing ResizeArray objects
 let vscode_tokens line_delta (lines : LineToken [] []) =
@@ -363,10 +364,27 @@ let vscode_tokens line_delta (lines : LineToken [] []) =
 
 type SpiEdit = {|from: int; nearTo: int; lines: string []|}
 
-let replace (lines : _ [] ResizeArray) (errors : _ []) (edit : SpiEdit) =
+module PersistentVector =
+    /// Replace the specified range in a vector with the sequence.
+    let replace from near_to seq vec =
+        if from <= near_to = false then raise (ArgumentException())
+        if from < 0 || PersistentVector.length vec < near_to then raise (ArgumentOutOfRangeException())
+        let rec rest s =
+            if from < PersistentVector.length s then
+                PersistentVector.unconj s |> fst |> rest
+            else
+                Seq.fold (fun s x -> PersistentVector.conj x s) s seq
+        let rec init s =
+            if near_to < PersistentVector.length s then
+                let s',x = PersistentVector.unconj s
+                PersistentVector.conj x (init s')
+            else
+                rest s
+        init vec
+        
+let replace (lines : _ PersistentVector PersistentVector) (errors : _ list) (edit : SpiEdit) =
     let toks, ers = Array.map tokenize edit.lines |> Array.unzip
-    lines.RemoveRange(edit.from,edit.nearTo-edit.from)
-    lines.InsertRange(edit.from,toks)
-
-    let errors = errors |> Array.filter (fun ((a : VSCPos,_),_) -> (edit.from <= a.line && a.line < edit.nearTo) = false)
-    Array.append errors (process_errors edit.from ers)
+    let lines = PersistentVector.replace edit.from edit.nearTo toks lines
+    let errors = errors |> List.filter (fun ((a : VSCPos,_),_) -> (edit.from <= a.line && a.line < edit.nearTo) = false)
+    let errors = List.append errors (process_errors edit.from (Array.toList ers))
+    lines, errors
