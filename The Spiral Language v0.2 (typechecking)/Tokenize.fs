@@ -365,7 +365,7 @@ let vscode_tokens line_delta (lines : LineToken [] []) =
 type SpiEdit = {|from: int; nearTo: int; lines: string []|}
 
 module PersistentVector =
-    /// Replace the specified range in a vector with the sequence.
+    /// O(n+m). Replace the specified range in a vector with the sequence.
     let replace from near_to seq vec =
         if from <= near_to = false then raise (ArgumentException())
         if from < 0 || PersistentVector.length vec < near_to then raise (ArgumentOutOfRangeException())
@@ -381,7 +381,24 @@ module PersistentVector =
             else
                 rest s
         init vec
+
+    /// O(n). Returns a vector of the supplied length using the supplied function operating on the index.
+    let mapi f vec = PersistentVector.init (PersistentVector.length vec) (fun i -> f i vec.[i])
+
+    /// O(n). Iterates over a vector using the supplied function operating on the index.
+    let iter f vec = 
+        let rec loop i = if i < PersistentVector.length vec then f vec.[i]
+        loop 0
+
+    /// O(n). Unzips a vector of pairs into pairs of vectors.
+    let unzip vec = 
+        let mutable a = PersistentVector.empty
+        let mutable b = PersistentVector.empty
+        iter (fun (a',b') -> a <- PersistentVector.conj a' a; b <- PersistentVector.conj b' b) vec
+        a,b
         
+    /// O(n). Concatenates a vector of vectors.
+    let concat vec = PersistentVector.fold (PersistentVector.append) PersistentVector.empty vec
 let replace (lines : _ PersistentVector PersistentVector) (errors : _ list) (edit : SpiEdit) =
     let toks, ers = Array.map tokenize edit.lines |> Array.unzip
     let lines = PersistentVector.replace edit.from edit.nearTo toks lines

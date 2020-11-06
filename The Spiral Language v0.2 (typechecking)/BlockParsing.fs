@@ -328,7 +328,10 @@ let range_of_texpr = function
     | RawTLayout(r,_,_)
     | RawTForall(r,_,_) -> r
 
+type VectorCord = {|row : int; col : int|}
 type Env = {
+    semantic_updates : (VectorCord * SemanticTokenLegend) ResizeArray
+    tokens_cords : VectorCord []
     tokens : (VSCRange * SpiralToken) []
     comments : Tokenize.LineComment option []
     i : int ref
@@ -426,9 +429,10 @@ let read_op' d =
         | p, TokOperator(t',_) -> skip d; Ok(p,t')
         | p, _ -> Error [p, ExpectedOperator']
 
+let update_semantic (d : Env) = let i = d.Index in fun x -> d.semantic_updates.Add(d.tokens_cords.[i], x)
 let read_op_type d =
     try_current d <| function
-        | p, TokOperator(t',r) -> skip d; r := SemanticTokenLegend.type_variable; Ok(p,t')
+        | p, TokOperator(t',r) -> update_semantic d SemanticTokenLegend.type_variable; skip d; Ok(p,t')
         | p, _ -> Error [p, ExpectedOperator']
 
 let skip_op t d =
@@ -448,7 +452,7 @@ let read_var d =
 
 let read_var' d =
     try_current d <| function
-        | p, TokVar(t',r) -> skip d; Ok(p,t',r)
+        | p, TokVar(t',_) -> let r = update_semantic d in skip d; Ok(p,t',r)
         | p, _ -> Error [p, ExpectedVar]
 
 let read_var'' d =
@@ -473,12 +477,12 @@ let read_small_var' d =
 
 let read_type_var d =
     try_current d <| function
-        | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> skip d; r := SemanticTokenLegend.type_variable; Ok(t')
+        | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> update_semantic d SemanticTokenLegend.type_variable; skip d; Ok(t')
         | p, _ -> Error [p, ExpectedSmallVar]
 
 let read_type_var' d =
     try_current d <| function
-        | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> skip d; r := SemanticTokenLegend.type_variable; Ok(p,t')
+        | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> update_semantic d SemanticTokenLegend.type_variable; skip d; Ok(p,t')
         | p, _ -> Error [p, ExpectedSmallVar]
 
 let read_value d =
@@ -493,7 +497,7 @@ let read_symbol_paired d =
 
 let read_symbol_paired' d =
     try_current d <| function
-        | p, TokSymbolPaired(t',r) -> skip d; Ok(p,t',r)
+        | p, TokSymbolPaired(t',_) -> let r = update_semantic d in skip d; Ok(p,t',r)
         | p, _ -> Error [p, ExpectedSymbolPaired]
 
 let to_lower (x : string) = Char.ToLower(x.[0]).ToString() + x.[1..]
@@ -808,18 +812,18 @@ let inline read_default_value on_top on_bot d =
 let pat_var d =
     (read_var' |>> fun (r,a,re) ->
         if Char.IsUpper(a,0) then 
-            re := SemanticTokenLegend.symbol
+            re SemanticTokenLegend.symbol
             PatUnbox(r,PatPair(r,PatSymbol(r,to_lower a), PatB r))
         else PatVar(r,a)
         ) d
 let rec pat_nominal d =
     (read_var' >>= fun (r,a,re) _ ->
         if Char.IsUpper(a,0) then 
-            re := SemanticTokenLegend.symbol
+            re SemanticTokenLegend.symbol
             Ok(PatUnbox(r,PatPair(r,PatSymbol(r,to_lower a), PatB r)))
         else 
             ((root_pattern_var |>> fun b ->
-                re := SemanticTokenLegend.type_variable
+                re SemanticTokenLegend.type_variable
                 PatNominal(r +. range_of_pattern b,(r,a),b)
                 ) <|>% PatVar(r,a)) d
         ) d
@@ -850,7 +854,7 @@ and root_pattern s =
         let next = pat_pair
         (many1 (read_symbol_paired' .>>. opt next) |>> fun l ->
             let l,is_upper = match l with ((r,a,re),b) :: l' -> ((r,to_lower a,re),b) :: l', Char.IsUpper(a,0) | _ -> [], true
-            let f ((r,a,re),b) = (r, a), Option.defaultWith (fun () -> re := SemanticTokenLegend.variable; PatVar(r,a)) b
+            let f ((r,a,re),b) = (r, a), Option.defaultWith (fun () -> re SemanticTokenLegend.variable; PatVar(r,a)) b
             match l |> List.map f |> List.unzip with
             | ((r,_) :: _ as k), v ->
                 (PatSymbol(r,symbol_paired_concat k) :: v)
@@ -884,10 +888,10 @@ and root_type (flags : RootTypeFlags) d =
     
         let var = read_var' |>> fun (o,x,r) ->
             if Char.IsUpper(x,0) then
-                r := SemanticTokenLegend.symbol
+                r SemanticTokenLegend.symbol
                 RawTPair(o,RawTSymbol(o,to_lower x), RawTB o)
             else
-                r := SemanticTokenLegend.type_variable
+                r SemanticTokenLegend.type_variable
                 RawTVar(o, x)
         let macro = pipe3 skip_macro_open (many ((read_text |>> RawMacroText) <|> read_macro_type_var)) skip_macro_close (fun a l b -> RawTMacro(a +. b, l))
         let (+) = alt (index d)
@@ -916,7 +920,7 @@ and root_type (flags : RootTypeFlags) d =
 and root_term d =
     let rec expressions d =
         let next = root_term
-        let case_var = read_var' |>> fun (r,x,leg) -> if Char.IsUpper(x,0) then leg := SemanticTokenLegend.symbol; RawBigV(r, to_lower x) else RawV(r,x)
+        let case_var = read_var' |>> fun (r,x,leg) -> if Char.IsUpper(x,0) then leg SemanticTokenLegend.symbol; RawBigV(r, to_lower x) else RawV(r,x)
         let case_unit = unit' RawB
         let case_rounds = rounds ((read_op' |>> RawV) <|> next)
         let case_fun =
@@ -1075,7 +1079,7 @@ and root_term d =
                 match l with
                 | ((r,a,re),b) :: l' -> ((r,to_lower a,re),b) :: l', Char.IsUpper(a,0)
                 | [] -> [], false
-            let f ((r,a,re),b) = (r, a), Option.defaultWith (fun () -> re := SemanticTokenLegend.variable; RawV(r,a)) b
+            let f ((r,a,re),b) = (r, a), Option.defaultWith (fun () -> re SemanticTokenLegend.variable; RawV(r,a)) b
             match l |> List.map f |> List.unzip with
             | (r,x) :: k', v ->
                 let name = r, symbol_paired_concat ((r,to_lower x) :: k')
