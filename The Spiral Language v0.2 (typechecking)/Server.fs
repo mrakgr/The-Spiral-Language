@@ -90,7 +90,7 @@ let typechecker package_id module_id (req : ParserRes Stream) : TypecheckerRes S
                 match PersistentVector.tryLast a with
                 | Some(_,_,env) -> env
                 | None -> Infer.top_env_default
-            let r = Infer.infer package_id module_id env (bundle b)
+            let r = Infer.infer package_id module_id env (bundle_top b)
             let a' = PersistentVector.conj (b,r,Infer.union r.top_env_additions env) a
             processing (a', b')
             )

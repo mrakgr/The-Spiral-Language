@@ -129,7 +129,7 @@ and fold_offset_pattern offset x =
     | PatWhen(r,a,b) -> PatWhen(g r,f a,term b)
     | PatNominal(r,a,b) -> PatNominal(g r,g' a,f b)
 
-let bundle (l : Bundle) =
+let bundle_top (l : Bundle) =
     match l with
     | [] -> failwith "Compiler error: Bundle should have at least one statement."
     | {statement=TopAnd _} :: x' -> failwith "Compiler error: TopAnd should be eliminated during the first bundling step."
