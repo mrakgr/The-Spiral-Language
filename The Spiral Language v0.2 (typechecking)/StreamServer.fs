@@ -79,3 +79,13 @@ let typechecker package_id module_id top_env =
         loop PersistentVector.empty bundles
         )
     tc PersistentVector.empty
+
+let hover (l : Infer.InferResult list) (pos : VSCPos) =
+    l |> List.tryFindBack (fun x ->
+        let start = if 0 < x.hovers.Length then (x.hovers.[0] |> fst |> fst).line else Int32.MaxValue
+        start <= pos.line
+        )
+    |> Option.bind (fun x ->
+         x.hovers |> Array.tryPick (fun ((a,b),r) ->
+            if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
+            ))
