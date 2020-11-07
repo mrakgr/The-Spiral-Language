@@ -115,65 +115,6 @@ let hover (req : (VSCPos * (string option -> unit)) Stream) (req_tc : Typechecke
 
 open Spiral.ServerUtils
 
-type PackageSchema = {
-    schema : ValidatedSchema
-    package_links : RString []
-    package_errors : RString []
-    }
-
-let spiproj_link dir = sprintf "file:///%s/package.spiproj" dir
-
-let validate (schemas : Dictionary<string, Result<PackageSchema, string>>) (links : MirroredGraph) (loads : LoadedSchemas) project_dir =
-    let potential_floating_garbage = 
-        project_dir :: 
-        match schemas.TryGetValue(project_dir) with 
-        | true, Ok v -> List.map snd v.schema.packages
-        | _ -> []
-    let cleanup () = 
-        List.fold (fun m project_dir ->
-            match schemas.[project_dir] with
-            | Error _ when (fst links).ContainsKey(project_dir) = false && (snd links).ContainsKey(project_dir) = false ->
-                schemas.Remove(project_dir) |> ignore
-                Map.remove project_dir m
-            | _ -> m
-            ) loads potential_floating_garbage
-
-    let dirty_nodes = HashSet()
-    let rec loop project_dir =
-        match loads.[project_dir] with 
-        | Ok x -> List.iter (fun (r,x) -> add_link' links project_dir x; check x) x.packages 
-        | Error _ -> ()
-    and check project_dir = if schemas.ContainsKey(project_dir) = false && dirty_nodes.Add(project_dir) then loop project_dir
-
-    schemas.Remove(project_dir) |> ignore
-    remove_links links project_dir
-    dirty_nodes.Add(project_dir) |> ignore
-    loop project_dir 
-
-    let order, circular_nodes = circular_nodes links dirty_nodes
-    order |> Array.iter (fun cur ->
-        match loads.[cur] with
-        | Ok v ->
-            let is_circular = circular_nodes.Contains(cur)
-            let links = ResizeArray()
-            let errors = ResizeArray()
-            v.packages |> List.iter (fun (r,sub) ->
-                if circular_nodes.Contains(sub) then 
-                    let rest = if is_circular then " and the current package is a part of that loop." else "."
-                    errors.Add(r,sprintf "This package is circular%s" rest)
-                else 
-                    match schemas.[sub] with // Note: This key index might fail if the circularity check is not done first.
-                    | Ok x when 0 < x.schema.errors.Length || 0 < x.package_errors.Length -> errors.Add(r,"The package or the chain it is a part of has an error.") 
-                    | Ok _ -> links.Add(r,spiproj_link sub)
-                    | Error x -> errors.Add(r,x)
-                )
-            schemas.[cur] <- Ok {schema=v; package_links=links.ToArray(); package_errors=errors.ToArray()}
-        | Error x ->
-            schemas.[cur] <- Error x
-        )
-   
-    order, cleanup()
-
 type PackageSupervisorReq =
     | SOpen of dir: string * text: string option
     | SChange of dir: string * text: string option
@@ -181,35 +122,20 @@ type PackageSupervisorReq =
     | SCodeActions of dir: string * RAction [] IVar
     | SCodeActionExecute of ProjectCodeAction
 
-let change (schemas : Dictionary<_,_>) links loads errors is_open dir text =
-    match schemas.TryGetValue(dir) with
-    | true, Ok _ when is_open -> Job.unit()
-    | _ ->
-        load !loads text dir >>= fun m ->
-        let dirty_nodes, m = validate schemas links m dir
-        loads := m
-        Array.iterJob (fun dir ->
-            match schemas.TryGetValue(dir) with
-            | true, Ok x -> Src.value errors {|uri=spiproj_link dir; errors=Array.append x.schema.errors x.package_errors|}
-            | _ -> Job.unit()
-            ) dirty_nodes
-
 let supervisor fatal_errors errors =
     let req = Src.create()
-    let schemas = Dictionary()
-    let links = create_mirrored_graph()
-    let loads = ref Map.empty
-    let change = change schemas links loads errors
+    let m = ref {schemas=Map.empty; links=mirrored_graph_empty; loads=Map.empty}
+    let change is_open dir text = change is_open !m dir text >>= fun (ers,m') -> m := m'; Array.iterJob (Src.value errors) ers
 
     Src.tap req |> consumeJob (function
         | SOpen(dir,text) -> change true dir text
         | SChange(dir,text) -> change false dir text
         | SLinks(dir,res) -> 
-            match schemas.[dir] with
+            match m.contents.schemas.[dir] with
             | Ok x -> IVar.fill res (Array.append x.schema.links x.package_links)
             | Error _ -> IVar.fill res [||]
         | SCodeActions(dir,res) ->
-            match schemas.[dir] with
+            match m.contents.schemas.[dir] with
             | Ok x -> IVar.fill res x.schema.actions
             | Error _ -> IVar.fill res [||]
         | SCodeActionExecute a -> 

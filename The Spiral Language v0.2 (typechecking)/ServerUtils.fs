@@ -32,6 +32,7 @@ let remove_links ((abs,bas as s) : MirroredGraph) a: MirroredGraph =
 let add_links s a bs = List.fold (fun s b -> add_link' s a b) s bs
 let replace_links (s : MirroredGraph) a bs = add_links (remove_links s a) a bs
 let get_links (abs : Graph) a = Map.tryFind a abs |> Option.defaultValue Set.empty
+let link_exists ((abs,bas) : MirroredGraph) x = Map.containsKey x abs || Map.containsKey x bas
 
 let circular_nodes ((abs,bas) : MirroredGraph) dirty_nodes =
     let sort_order = Stack()
@@ -184,8 +185,8 @@ let load_from_file project_dir =
         | Choice2Of2 er -> Error er.Message
     else Job.result (Error "The package file does not exist.")
 
-type LoadedSchemas = Map<string,Result<ValidatedSchema,string>>
-let load (m : LoadedSchemas) text project_dir =
+type ResultMap<'a> = Map<string,Result<'a,string>>
+let load (m : ValidatedSchema ResultMap) text project_dir =
     let m = Map.remove project_dir m
     let waiting = MVar(Set.empty)
     let finished = MVar(m)
@@ -211,3 +212,77 @@ let load (m : LoadedSchemas) text project_dir =
                         process_packages x
                 ) waiting >>= Job.Ignore
     loop text project_dir >>=. MVar.take finished
+
+type PackageSchema = {
+    schema : ValidatedSchema
+    package_links : RString []
+    package_errors : RString []
+    }
+
+let spiproj_link dir = sprintf "file:///%s/package.spiproj" dir
+
+type PackageMaps = {
+    schemas : PackageSchema ResultMap
+    links : MirroredGraph
+    loads : ValidatedSchema ResultMap
+    }
+
+let validate {schemas=schemas; links=links; loads=loads} project_dir =
+    let potential_floating_garbage =
+        project_dir ::
+        match Map.tryFind project_dir schemas with
+        | Some(Ok v) -> List.map snd v.schema.packages
+        | _ -> []
+
+    let schemas = Map.remove project_dir schemas
+    let dirty_nodes = HashSet()
+    dirty_nodes.Add(project_dir) |> ignore
+    
+    let rec loop links project_dir =
+        match loads.[project_dir] with
+        | Ok x -> List.fold (fun links (r,x) -> check (add_link' links project_dir x) x) links x.packages
+        | Error _ -> links
+    and check links project_dir = if schemas.ContainsKey(project_dir) = false && dirty_nodes.Add(project_dir) then loop links project_dir else links
+    let links = loop (remove_links links project_dir) project_dir 
+
+    let order, circular_nodes = circular_nodes links dirty_nodes
+    let schemas = // Validation and error propagation across the entire graph of packages.
+        Array.fold (fun schemas cur ->
+            match loads.[cur] with
+            | Ok v ->
+                let is_circular = circular_nodes.Contains(cur)
+                let links = ResizeArray()
+                let errors = ResizeArray()
+                v.packages |> List.iter (fun (r,sub) ->
+                    if circular_nodes.Contains(sub) then 
+                        let rest = if is_circular then " and the current package is a part of that loop." else "."
+                        errors.Add(r,sprintf "This package is circular%s" rest)
+                    else 
+                        match Map.find sub schemas with // Note: This key index might fail if the circularity check is not done first.
+                        | Ok x when 0 < x.schema.errors.Length || 0 < x.package_errors.Length -> errors.Add(r,"The package or the chain it is a part of has an error.") 
+                        | Ok _ -> links.Add(r,spiproj_link sub)
+                        | Error x -> errors.Add(r,x)
+                    )
+                Map.add cur (Ok {schema=v; package_links=links.ToArray(); package_errors=errors.ToArray()}) schemas
+            | Error x ->
+                Map.add cur (Error x) schemas
+            ) schemas order
+   
+    let schemas, loads = // Cleans up the dead nodes.
+        List.fold (fun (schemas,loads) project_dir ->
+            match Map.find project_dir schemas with
+            | Error _ when link_exists links project_dir = false -> Map.remove project_dir schemas, Map.remove project_dir loads
+            | _ -> schemas,loads
+            ) (schemas,loads) potential_floating_garbage
+    let errors = order |> Array.choose (fun dir -> 
+        match Map.tryFind dir schemas with
+        | Some(Ok x) -> Some {|uri=spiproj_link dir; errors=Array.append x.schema.errors x.package_errors|}
+        | _ -> None
+        )
+    errors, {schemas=schemas; links=links; loads=loads}
+
+let change is_open (m : PackageMaps) dir text =
+    match Map.tryFind dir m.schemas with
+    | Some(Ok _) when is_open -> Job.result ([||], m)
+    | _ -> load m.loads text dir >>- fun loads -> validate {m with loads=loads} dir
+
