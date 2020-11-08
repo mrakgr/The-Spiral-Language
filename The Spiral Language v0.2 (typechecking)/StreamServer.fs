@@ -10,6 +10,7 @@ open Spiral.Tokenize
 open Spiral.TypecheckingUtils
 open Spiral.Blockize
 open Spiral.SpiProj
+open Spiral.ServerUtils
 
 open Hopac
 open Hopac.Infixes
@@ -25,41 +26,39 @@ type TokenizerStream = Tokenizer of (TokReq -> (TokRes * TokenizerStream) Job)
 let job_thunk_with f x = Job.thunk (fun () -> f x)
 let promise_thunk_with f x = Hopac.memo (job_thunk_with f x)
 let promise_thunk f = Hopac.memo (Job.thunk f)
-let tokenizer =
-    let rec loop (lines, errors, blocks) = Tokenizer(job_thunk_with (fun req -> 
-        let replace edit =
-            let lines, errors = Tokenize.replace lines errors edit
-            let blocks = block_separate lines blocks edit
-            lines, errors, blocks
 
-        let next (lines,errors,blocks as x) = {blocks=blocks; errors=errors}, loop x
-        match req with
-        | DocumentAll text -> replace {|from=0; nearTo=lines.Length; lines=Utils.lines text|} |> next
-        | DocumentEdit edit -> replace edit |> next
-        ))
-    loop (PersistentVector.singleton PersistentVector.empty ,[],[])
+type TokenizerState = { lines : LineTokens; errors : RString list; blocks : Block list }
+let tokenizer_state_def = { lines = PersistentVector.singleton PersistentVector.empty; errors = []; blocks = [] }
 
-type ParserRes = {bundles : Bundle list; parser_errors : RString list; tokenizer_errors : RString list}
-type ParserStream = Parser of (TokRes -> (ParserRes * ParserStream) Job)
+let replace (s : TokenizerState) edit =
+    let lines, errors = Tokenize.replace s.lines s.errors edit
+    let blocks = block_separate lines s.blocks edit
+    {lines=lines; errors=errors; blocks=blocks}
 
-let parse is_top_down (s : (LineTokens * ParsedBlock) list) (x : Block list) =
+let tokenizer (s : TokenizerState) = function
+    | DocumentAll text -> replace s {|from=0; nearTo=s.lines.Length; lines=Utils.lines text|}
+    | DocumentEdit edit -> replace s edit
+
+type ParserRes = {lines : LineTokens; bundles : Bundle list; parser_errors : RString list; tokenizer_errors : RString list}
+type ParserState = {
+    is_top_down : bool
+    blocks : (LineTokens * ParsedBlock) list
+    }
+
+let parse (s : ParserState) (x : Block list) =
     let dict = Dictionary(HashIdentity.Reference)
-    List.iter (fun (a,b) -> dict.Add(a,b.parsed)) s
-    List.map (fun x -> x.block, {
-        parsed = Utils.memoize dict (block_init is_top_down) x.block
-        offset = x.offset
-        }) x
+    List.iter (fun (a,b) -> dict.Add(a,b.parsed)) s.blocks
+    let blocks =
+        List.map (fun x -> x.block, {
+            parsed = Utils.memoize dict (block_init s.is_top_down) x.block
+            offset = x.offset
+            }) x
+    {s with blocks = blocks}
 
-let bundle (tok : TokRes) (s : (_ * ParsedBlock) list) =
-    let bundles, parser_errors = block_bundle s
-    {bundles = bundles; parser_errors = parser_errors; tokenizer_errors = tok.errors}
-
-let parser is_top_down =
-    let rec loop (s : (LineTokens * ParsedBlock) list) = Parser(job_thunk_with (fun req -> 
-        let s = parse is_top_down s req.blocks
-        bundle req s, loop s
-        ))
-    loop []
+let parser (s : ParserState) (req : TokRes) =
+    let s = parse s req.blocks
+    let lines, bundles, parser_errors = block_bundle s.blocks
+    {lines = lines; bundles = bundles; parser_errors = parser_errors; tokenizer_errors = req.errors}, s
 
 type TypecheckerStream = Typechecker of (Bundle list -> (Infer.InferResult * TypecheckerStream) Stream)
 let typechecker package_id module_id top_env =
@@ -89,3 +88,35 @@ let hover (l : Infer.InferResult list) (pos : VSCPos) =
          x.hovers |> Array.tryPick (fun ((a,b),r) ->
             if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
             ))
+
+type SupervisorState = {
+    tokenizer : Map<string, TokenizerStream>
+    parser : Map<string, ParserStream>
+    }
+
+type ClientReq =
+    //| ProjectFileOpen of {|uri : string; spiprojText : string|}
+    //| ProjectFileChange of {|uri : string; spiprojText : string|}
+    //| ProjectFileDelete of {|uri : string|}
+    //| ProjectFileLinks of {|uri : string|}
+    //| ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
+    //| ProjectCodeActions of {|uri : string|}
+    | FileOpen of {|uri : string; spiText : string|}
+    | FileChanged of {|uri : string; spiEdit : SpiEdit|}
+    //| FileTokenRange of {|uri : string; range : VSCRange|}
+    //| HoverAt of {|uri : string; pos : VSCPos|}
+    //| BuildFile of {|uri : string|}
+
+type ClientErrorsRes =
+    | FatalError of string
+    | PackageErrors of {|uri : string; errors : RString []|}
+    | TokenizerErrors of {|uri : string; errors : RString []|}
+    | ParserErrors of {|uri : string; errors : RString []|}
+    | TypeErrors of {|uri : string; errors : RString list|}
+
+let file_op (s : SupervisorState) uri req =
+    let (Tokenizer t) = Map.findOrDefault uri tokenizer s.tokenizer
+    let (Parser p) = Map.findOrDefault uri (parser (Path.GetExtension(uri) = ".spi")) s.parser
+    t req >>= fun (tr,t) ->
+    p tr >>- fun (pr,p) ->
+    pr, {s with tokenizer=Map.add uri t s.tokenizer; parser=Map.add uri p s.parser}

@@ -104,7 +104,9 @@ let block_bundle (l : (_ * ParsedBlock) list) =
             | Error er -> BlockParsingError.show_block_parsing_error x.offset er |> errors.AddRange; rectype x'
         | [] -> move_temp()
     init l
-    Seq.toList bundle, Seq.toList errors
+
+    let line_tokens = List.fold (fun s (_,x) -> PersistentVector.append s (fst x.parsed)) PersistentVector.empty l
+    line_tokens, Seq.toList bundle, Seq.toList errors
 
 let semantic_updates_apply (block : LineTokens) updates =
     Seq.fold (fun block (c : VectorCord,l) -> 
