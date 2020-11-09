@@ -60,6 +60,8 @@ let parser (s : ParserState) (req : TokRes) =
     let lines, bundles, parser_errors = block_bundle s.blocks
     {lines = lines; bundles = bundles; parser_errors = parser_errors; tokenizer_errors = req.errors}, s
 
+type TypecheckerState = (Bundle * Infer.InferResult * Infer.TopEnv) PersistentVector
+
 type TypecheckerStream = Typechecker of (Bundle list -> (Infer.InferResult * TypecheckerStream) Stream)
 let typechecker package_id module_id top_env =
     let rec tc s_old = Typechecker(fun bundles ->
