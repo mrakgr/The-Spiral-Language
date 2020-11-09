@@ -21,64 +21,69 @@ type TokReq =
     | DocumentAll of string
     | DocumentEdit of SpiEdit
 type TokRes = {blocks : Block list; errors : RString list}
-type TokenizerStream = Tokenizer of (TokReq -> (TokRes * TokenizerStream) Job)
 
 let job_thunk_with f x = Job.thunk (fun () -> f x)
 let promise_thunk_with f x = Hopac.memo (job_thunk_with f x)
 let promise_thunk f = Hopac.memo (Job.thunk f)
 
-type TokenizerState = { lines : LineTokens; errors : RString list; blocks : Block list }
-let tokenizer_state_def = { lines = PersistentVector.singleton PersistentVector.empty; errors = []; blocks = [] }
+type TokenizerStream = abstract member Run: TokReq -> TokRes * TokenizerStream
 
-let replace (s : TokenizerState) edit =
-    let lines, errors = Tokenize.replace s.lines s.errors edit
-    let blocks = block_separate lines s.blocks edit
-    {lines=lines; errors=errors; blocks=blocks}
+let tokenizer =
+    let rec loop (lines, errors, blocks) = {new TokenizerStream with
+        member t.Run req =
+            let replace edit =
+                let lines, errors = Tokenize.replace lines errors edit
+                let blocks = block_separate lines blocks edit
+                lines, errors, blocks
 
-let tokenizer (s : TokenizerState) = function
-    | DocumentAll text -> replace s {|from=0; nearTo=s.lines.Length; lines=Utils.lines text|}
-    | DocumentEdit edit -> replace s edit
+            let next (_,errors,blocks as x) = {blocks=blocks; errors=errors}, loop x
+            match req with
+            | DocumentAll text -> replace {|from=0; nearTo=lines.Length; lines=Utils.lines text|} |> next
+            | DocumentEdit edit -> replace edit |> next
+            }
+    loop (PersistentVector.singleton PersistentVector.empty ,[],[])
+
+let parse is_top_down (s : (LineTokens * ParsedBlock) list) (x : Block list) =
+    let dict = Dictionary(HashIdentity.Reference)
+    List.iter (fun (a,b) -> dict.Add(a,b.parsed)) s
+    List.map (fun x -> x.block, {
+        parsed = Utils.memoize dict (block_init is_top_down) x.block
+        offset = x.offset
+        }) x
 
 type ParserRes = {lines : LineTokens; bundles : Bundle list; parser_errors : RString list; tokenizer_errors : RString list}
-type ParserState = {
-    is_top_down : bool
-    blocks : (LineTokens * ParsedBlock) list
-    }
+type ParserStream = abstract member Run : TokRes -> ParserRes Promise * ParserStream
+let parser is_top_down =
+    let rec loop (a,b) = 
+        {new ParserStream with 
+            member t.Run(req) =
+                let a = if Promise.Now.isFulfilled b then Promise.Now.get b else a
+                let r = promise_thunk <| fun () ->
+                    let s = parse is_top_down a req.blocks
+                    let lines, bundles, parser_errors = block_bundle s
+                    {lines = lines; bundles = bundles; parser_errors = parser_errors; tokenizer_errors = req.errors}, s
+                r >>-* fst, loop (a,r >>-* snd)
+            }
+    loop ([],Promise.Now.never())
 
-let parse (s : ParserState) (x : Block list) =
-    let dict = Dictionary(HashIdentity.Reference)
-    List.iter (fun (a,b) -> dict.Add(a,b.parsed)) s.blocks
-    let blocks =
-        List.map (fun x -> x.block, {
-            parsed = Utils.memoize dict (block_init s.is_top_down) x.block
-            offset = x.offset
-            }) x
-    {s with blocks = blocks}
-
-let parser (s : ParserState) (req : TokRes) =
-    let s = parse s req.blocks
-    let lines, bundles, parser_errors = block_bundle s.blocks
-    {lines = lines; bundles = bundles; parser_errors = parser_errors; tokenizer_errors = req.errors}, s
-
-type TypecheckerState = (Bundle * Infer.InferResult * Infer.TopEnv) PersistentVector
-
-type TypecheckerStream = Typechecker of (Bundle list -> (Infer.InferResult * TypecheckerStream) Stream)
+type TypecheckerStream = abstract member Run : Bundle list Promise -> Infer.InferResult Stream * TypecheckerStream
 let typechecker package_id module_id top_env =
-    let rec tc s_old = Typechecker(fun bundles ->
-        let rec loop s (bs : Bundle list) = promise_thunk (fun () ->
+    let rec tc s_old = 
+        let rec loop s (bs : Bundle list) = 
             match bs with
             | b :: bs ->
                 match PersistentVector.tryNth (PersistentVector.length s) s_old with
-                | Some (b', r, _ as old) when b = b'-> Cons((r,tc s_old),loop (PersistentVector.conj old s) bs)
+                | Some (b', r, _ as old) when b = b'-> Cons((r,tc s_old),wrap (PersistentVector.conj old s) bs)
                 | _ ->
                     let env = match PersistentVector.tryLast s with Some(_,_,top_env) -> top_env | _ -> top_env
                     let r = Infer.infer package_id module_id env (bundle_top b)
                     let s = PersistentVector.conj (b,r,Infer.union r.top_env_additions env) s
-                    Cons((r,tc s),loop s bs)
+                    Cons((r,tc s),wrap s bs)
             | [] -> Nil
-            )
-        loop PersistentVector.empty bundles
-        )
+        and wrap s bs = promise_thunk (fun () -> loop s bs)
+        {new TypecheckerStream with
+            member t.Run(bundles) = bundles >>-* loop PersistentVector.empty
+            }
     tc PersistentVector.empty
 
 let hover (l : Infer.InferResult list) (pos : VSCPos) =
@@ -91,34 +96,28 @@ let hover (l : Infer.InferResult list) (pos : VSCPos) =
             if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
             ))
 
-type SupervisorState = {
-    tokenizer : Map<string, TokenizerStream>
-    parser : Map<string, ParserStream>
+type FileStream = abstract member Run : TokReq -> (TokRes * FileStream) * (ParserRes * FileStream) Promise * (Infer.InferResult * FileStream) Stream
+
+type FileStreamState = {
+    tokenizer : TokenizerStream
+    parser : ParserStream
+    typechecker : TypecheckerStream
     }
 
-type ClientReq =
-    //| ProjectFileOpen of {|uri : string; spiprojText : string|}
-    //| ProjectFileChange of {|uri : string; spiprojText : string|}
-    //| ProjectFileDelete of {|uri : string|}
-    //| ProjectFileLinks of {|uri : string|}
-    //| ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
-    //| ProjectCodeActions of {|uri : string|}
-    | FileOpen of {|uri : string; spiText : string|}
-    | FileChanged of {|uri : string; spiEdit : SpiEdit|}
-    //| FileTokenRange of {|uri : string; range : VSCRange|}
-    //| HoverAt of {|uri : string; pos : VSCPos|}
-    //| BuildFile of {|uri : string|}
-
-type ClientErrorsRes =
-    | FatalError of string
-    | PackageErrors of {|uri : string; errors : RString []|}
-    | TokenizerErrors of {|uri : string; errors : RString []|}
-    | ParserErrors of {|uri : string; errors : RString []|}
-    | TypeErrors of {|uri : string; errors : RString list|}
-
-let file_op (s : SupervisorState) uri req =
-    let (Tokenizer t) = Map.findOrDefault uri tokenizer s.tokenizer
-    let (Parser p) = Map.findOrDefault uri (parser (Path.GetExtension(uri) = ".spi")) s.parser
-    t req >>= fun (tr,t) ->
-    p tr >>- fun (pr,p) ->
-    pr, {s with tokenizer=Map.add uri t s.tokenizer; parser=Map.add uri p s.parser}
+let file is_top_down =
+    let rec loop (s : FileStreamState) =
+        {new FileStream with
+            member t.Run req =
+                let a,tok = s.tokenizer.Run req
+                let s = {s with tokenizer = tok}
+                let par = s.parser.Run a >>-* fun (a,s') -> a, {s with parser=s'}
+                let typ = par >>-* fun (b,s) ->
+                    s.typechecker.Run(b.bundles) |> Stream.mapFun (fun (x,s') -> x,{s with typechecker=s'})
+                //let c = s.typechecker.Run(b >>-* fun x -> x.bundles)
+                //a,b,c |> Stream.mapFun fst,loop {
+                //    tokenizer = tok
+                //    parser = par
+                //    typechecker = s.typechecker
+                //    }
+            }
+    loop {tokenizer=tokenizer; parser=parser is_top_down; typechecker=typechecker 0 0 Infer.top_env_default}
