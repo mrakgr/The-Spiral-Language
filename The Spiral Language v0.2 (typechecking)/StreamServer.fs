@@ -54,37 +54,49 @@ let parse is_top_down (s : (LineTokens * ParsedBlock) list) (x : Block list) =
 type ParserRes = {lines : LineTokens; bundles : Bundle list; parser_errors : RString list; tokenizer_errors : RString list}
 type ParserStream = abstract member Run : TokRes -> ParserRes Promise * ParserStream
 let parser is_top_down =
-    let rec loop (a,b) = 
-        {new ParserStream with 
+    let run s req =
+        let s = promise_thunk <| fun () -> parse is_top_down s req.blocks
+        let a = s >>-* fun s ->
+            let lines, bundles, parser_errors = block_bundle s
+            {lines = lines; bundles = bundles; parser_errors = parser_errors; tokenizer_errors = req.errors}
+        a, s
+    let rec loop s =
+        {new ParserStream with
             member t.Run(req) =
-                let a = if Promise.Now.isFulfilled b then Promise.Now.get b else a
-                let r = promise_thunk <| fun () ->
-                    let s = parse is_top_down a req.blocks
-                    let lines, bundles, parser_errors = block_bundle s
-                    {lines = lines; bundles = bundles; parser_errors = parser_errors; tokenizer_errors = req.errors}, s
-                r >>-* fst, loop (a,r >>-* snd)
-            }
-    loop ([],Promise.Now.never())
+                let s = s()
+                let a,s' = run s req
+                a, loop (fun () -> if Promise.Now.isFulfilled s' then Promise.Now.get s' else s)
+                }
+    loop (fun () -> [])
 
 type TypecheckerStream = abstract member Run : Bundle list Promise -> Infer.InferResult Stream * TypecheckerStream
 let typechecker package_id module_id top_env =
-    let rec tc s_old = 
-        let rec loop s (bs : Bundle list) = 
-            match bs with
-            | b :: bs ->
-                match PersistentVector.tryNth (PersistentVector.length s) s_old with
-                | Some (b', r, _ as old) when b = b'-> Cons((r,tc s_old),wrap (PersistentVector.conj old s) bs)
-                | _ ->
-                    let env = match PersistentVector.tryLast s with Some(_,_,top_env) -> top_env | _ -> top_env
-                    let r = Infer.infer package_id module_id env (bundle_top b)
-                    let s = PersistentVector.conj (b,r,Infer.union r.top_env_additions env) s
-                    Cons((r,tc s),wrap s bs)
-            | [] -> Nil
-        and wrap s bs = promise_thunk (fun () -> loop s bs)
+    let rec run old_results env i (bs : Bundle list) = 
+        match bs with
+        | b :: bs ->
+            match PersistentVector.tryNth i old_results with
+            | Some (b', _, env as s) when b = b' -> Cons(s,Promise(run old_results env (i+1) bs))
+            | _ ->
+                let x = Infer.infer package_id module_id env (bundle_top b)
+                let _,_,env as s = b,x,Infer.union x.top_env_additions env
+                Cons(s,promise_thunk (fun () -> run old_results env (i+1) bs))
+        | [] -> Nil
+    let rec cons_fulfilled olds = function
+        | Cons(old,next) when Promise.Now.isFulfilled next -> cons_fulfilled (PersistentVector.conj old olds) (Promise.Now.get next)
+        | _ -> olds
+    let rec loop old_results =
         {new TypecheckerStream with
-            member t.Run(bundles) = bundles >>-* loop PersistentVector.empty
+            member _.Run(bundles) =
+                let r = 
+                    bundles >>=* fun bundles ->
+                    // Doing the memoization like this has the disadvantage of always focing the evaluation of the previous 
+                    // streams' first item, but will never throw away old states.
+                    old_results >>- fun old_results ->
+                    run (cons_fulfilled PersistentVector.empty old_results) top_env 0 bundles
+                let a = Stream.mapFun (fun (_,x,_) -> x) r
+                a, loop r
             }
-    tc PersistentVector.empty
+    loop Stream.nil
 
 let hover (l : Infer.InferResult list) (pos : VSCPos) =
     l |> List.tryFindBack (fun x ->
@@ -96,7 +108,7 @@ let hover (l : Infer.InferResult list) (pos : VSCPos) =
             if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
             ))
 
-type FileStream = abstract member Run : TokReq -> (TokRes * FileStream) * (ParserRes * FileStream) Promise * (Infer.InferResult * FileStream) Stream
+type FileStream = abstract member Run : TokReq -> TokRes * ParserRes Promise * Infer.InferResult Stream * FileStream
 
 type FileStreamState = {
     tokenizer : TokenizerStream
