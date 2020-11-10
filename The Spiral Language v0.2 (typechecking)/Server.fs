@@ -174,7 +174,7 @@ open FSharp.Json
 open NetMQ
 open NetMQ.Sockets
 
-let [<EntryPoint>] main _ =
+let main _ =
     use poller = new NetMQPoller()
     use server = new RouterSocket()
     poller.Add(server)

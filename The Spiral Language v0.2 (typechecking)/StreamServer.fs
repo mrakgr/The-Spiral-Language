@@ -41,7 +41,7 @@ let tokenizer =
             | DocumentAll text -> replace {|from=0; nearTo=lines.Length; lines=Utils.lines text|} |> next
             | DocumentEdit edit -> replace edit |> next
             }
-    loop (PersistentVector.singleton PersistentVector.empty ,[],[])
+    loop (PersistentVector.singleton PersistentVector.empty,[],[])
 
 let parse is_top_down (s : (LineTokens * ParsedBlock) list) (x : Block list) =
     let dict = Dictionary(HashIdentity.Reference)
@@ -90,7 +90,7 @@ let typechecker package_id module_id top_env =
                 let r = 
                     bundles >>=* fun bundles ->
                     // Doing the memoization like this has the disadvantage of always focing the evaluation of the previous 
-                    // streams' first item, but will never throw away old states.
+                    // streams' first item, but on the plus side will reuse old state.
                     old_results >>- fun old_results ->
                     run (cons_fulfilled PersistentVector.empty old_results) top_env 0 bundles
                 let a = Stream.mapFun (fun (_,x,_) -> x) r
@@ -108,28 +108,99 @@ let hover (l : Infer.InferResult list) (pos : VSCPos) =
             if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
             ))
 
-type FileStream = abstract member Run : TokReq -> TokRes * ParserRes Promise * Infer.InferResult Stream * FileStream
+let file_server fatal_errors tokenizer_errors parser_errors type_errors req =
+    let src = Src.create()
+    let str = Stream.values src
+    let dict = Dictionary()
+    let get (uri : string) = 
+        Utils.memoize dict (fun _ -> 
+            {|
+            tokenizer=tokenizer
+            parser=parser (System.IO.Path.GetExtension(uri) = ".spi")
+            typechecker=typechecker 0 0 Infer.top_env_default
+            |}) uri
 
-type FileStreamState = {
-    tokenizer : TokenizerStream
-    parser : ParserStream
-    typechecker : TypecheckerStream
-    }
+    src
 
-let file is_top_down =
-    let rec loop (s : FileStreamState) =
-        {new FileStream with
-            member t.Run req =
-                let a,tok = s.tokenizer.Run req
-                let s = {s with tokenizer = tok}
-                let par = s.parser.Run a >>-* fun (a,s') -> a, {s with parser=s'}
-                let typ = par >>-* fun (b,s) ->
-                    s.typechecker.Run(b.bundles) |> Stream.mapFun (fun (x,s') -> x,{s with typechecker=s'})
-                //let c = s.typechecker.Run(b >>-* fun x -> x.bundles)
-                //a,b,c |> Stream.mapFun fst,loop {
-                //    tokenizer = tok
-                //    parser = par
-                //    typechecker = s.typechecker
-                //    }
-            }
-    loop {tokenizer=tokenizer; parser=parser is_top_down; typechecker=typechecker 0 0 Infer.top_env_default}
+type ClientReq =
+    | ProjectFileOpen of {|uri : string; spiprojText : string|}
+    | ProjectFileChange of {|uri : string; spiprojText : string|}
+    | ProjectFileDelete of {|uri : string|}
+    | ProjectFileLinks of {|uri : string|}
+    | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
+    | ProjectCodeActions of {|uri : string|}
+    | FileOpen of {|uri : string; spiText : string|}
+    | FileChanged of {|uri : string; spiEdit : SpiEdit|}
+    | FileTokenRange of {|uri : string; range : VSCRange|}
+    | HoverAt of {|uri : string; pos : VSCPos|}
+    | BuildFile of {|uri : string|}
+
+type ClientErrorsRes =
+    | FatalError of string
+    | PackageErrors of {|uri : string; errors : RString []|}
+    | TokenizerErrors of {|uri : string; errors : RString []|}
+    | ParserErrors of {|uri : string; errors : RString []|}
+    | TypeErrors of {|uri : string; errors : RString list|}
+
+let port = 13805
+let uri_server = sprintf "tcp://*:%i" port
+let uri_client = sprintf "tcp://localhost:%i" (port+1)
+
+open FSharp.Json
+open NetMQ
+open NetMQ.Sockets
+
+let dir uri = FileInfo(Uri(uri).LocalPath).Directory.FullName
+
+let main _ =
+    use poller = new NetMQPoller()
+    use server = new RouterSocket()
+    poller.Add(server)
+    server.Options.ReceiveHighWatermark <- System.Int32.MaxValue
+    server.Bind(uri_server)
+    printfn "Server bound to: %s" uri_server
+
+    use queue_server = new NetMQQueue<NetMQMessage>()
+    poller.Add(queue_server)
+
+    use queue_client = new NetMQQueue<ClientErrorsRes>()
+    poller.Add(queue_client)
+
+    let buffer = Dictionary()
+    let last_id = ref 0
+    use __ = server.ReceiveReady.Subscribe(fun s ->
+        let rec loop () = Utils.remove buffer !last_id (body <| NetMQMessage 3) id
+        and body (msg : NetMQMessage) (address : NetMQFrame, x) =
+            incr last_id
+            let push_back (x : obj) = 
+                match x with
+                | :? Option<string> as x -> 
+                    match x with 
+                    | None -> msg.Push("null") 
+                    | Some x -> msg.Push(sprintf "\"%s\"" x)
+                | _ -> msg.Push(Json.serialize x)
+                msg.PushEmptyFrame(); msg.Push(address)
+            let send_back x = push_back x; server.SendMultipartMessage(msg)
+            let send_back_via_queue x = push_back x; queue_server.Enqueue(msg)
+            let send_ivar_back_via_queue () = let res = IVar() in Hopac.start (IVar.read res >>- send_back_via_queue); res
+            loop ()
+        let msg = server.ReceiveMultipartMessage(3)
+        let address = msg.Pop()
+        msg.Pop() |> ignore
+        let (id : int), x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
+        if !last_id = id then body msg (address, x)
+        else buffer.Add(id,(address,x))
+        )
+
+    use client = new RequestSocket()
+    client.Connect(uri_client)
+
+    use __ = queue_client.ReceiveReady.Subscribe(fun x -> 
+        x.Queue.Dequeue() |> Json.serialize |> client.SendFrame
+        client.ReceiveMultipartMessage() |> ignore
+        )
+
+    use __ = queue_server.ReceiveReady.Subscribe(fun x -> x.Queue.Dequeue() |> server.SendMultipartMessage)
+
+    poller.Run()
+    0
