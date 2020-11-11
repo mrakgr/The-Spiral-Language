@@ -69,7 +69,7 @@ let parser is_top_down =
                 }
     loop (fun () -> [])
 
-type TypecheckerStream = abstract member Run : Bundle list Promise -> Infer.InferResult Stream * TypecheckerStream
+type TypecheckerStream = abstract member Run : ParserRes Promise -> Infer.InferResult Stream * TypecheckerStream
 let typechecker package_id module_id top_env =
     let rec run old_results env i (bs : Bundle list) = 
         match bs with
@@ -86,13 +86,13 @@ let typechecker package_id module_id top_env =
         | _ -> olds
     let rec loop old_results =
         {new TypecheckerStream with
-            member _.Run(bundles) =
+            member _.Run(res) =
                 let r = 
-                    bundles >>=* fun bundles ->
+                    res >>=* fun res ->
                     // Doing the memoization like this has the disadvantage of always focing the evaluation of the previous 
                     // streams' first item, but on the plus side will reuse old state.
                     old_results >>- fun old_results ->
-                    run (cons_fulfilled PersistentVector.empty old_results) top_env 0 bundles
+                    run (cons_fulfilled PersistentVector.empty old_results) top_env 0 res.bundles
                 let a = Stream.mapFun (fun (_,x,_) -> x) r
                 a, loop r
             }
@@ -108,32 +108,69 @@ let hover (l : Infer.InferResult list) (pos : VSCPos) =
             if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
             ))
 
-type FileReq =
-    | FOpen of {|uri : string; spiText : string|}
-    | FChanged of {|uri : string; spiEdit : SpiEdit|}
+type FileState = {
+    tokenizer : TokenizerStream
+    parser : ParserStream
+    typechecker : TypecheckerStream
+    cancellation_start : unit IVar
+    cancellation_done : unit Promise
+    }
 
-type FileReqAux =
-    | FTokenRange of {|uri : string; range : VSCRange|} * VSCTokenArray IVar
-    | FHoverAt of {|uri : string; pos : VSCPos|} * string option IVar
-
-let file_server fatal_errors tokenizer_errors parser_errors type_errors req req_aux =
-    let dict = Dictionary()
-    let fresh (uri : string) = {|
+let file_server fatal_errors tokenizer_errors parser_errors type_errors (uri : string) req req_token_range req_hover_at =
+    let req = Stream.values req
+    let req_token_range = Stream.values req_token_range
+    let req_hover_at = Stream.values req_hover_at
+    let rec waiting (s : FileState) = req ^=> (s.tokenizer.Run >> processing s)
+    and processing s (r_tok,tok) =
+        waiting {s with tokenizer=tok} <|> Alt.prepare (
+            IVar.fill s.cancellation_start () >>= fun () ->
+            s.cancellation_done >>= fun () ->
+            let r_par,par = s.parser.Run(r_tok)
+            let r_typ,typ = s.typechecker.Run(r_par)
+            let canc = IVar()
+            Promise.start (Job.conIgnore [ 
+                handle_token_range r_par canc
+                handle_hover_at r_typ canc
+                handle_typ r_typ canc
+                ]) >>- fun canc_done ->
+            waiting { tokenizer=tok; parser=par; typechecker=typ; cancellation_start=canc; cancellation_done=canc_done }
+            )
+    waiting {
         tokenizer=tokenizer
         parser=parser (System.IO.Path.GetExtension(uri) = ".spi")
         typechecker=typechecker 0 0 Infer.top_env_default
-        |}
-    let get (uri : string) = Utils.memoize dict fresh uri
-    let req = Stream.values req
-    let req_aux = Stream.values req_aux
+        cancellation_start=IVar()
+        cancellation_done=Promise(())
+        }
+        
+
+
+//type FileReq =
+//    | FOpen of {|uri : string; spiText : string|}
+//    | FChanged of {|uri : string; spiEdit : SpiEdit|}
+
+//type FileReqAux =
+//    | FTokenRange of {|uri : string; range : VSCRange|} * VSCTokenArray IVar
+//    | FHoverAt of {|uri : string; pos : VSCPos|} * string option IVar
+
+//let file_server fatal_errors tokenizer_errors parser_errors type_errors req req_aux =
+//    let dict = Dictionary()
+//    let fresh (uri : string) = {|
+//        tokenizer=tokenizer
+//        parser=parser (System.IO.Path.GetExtension(uri) = ".spi")
+//        typechecker=typechecker 0 0 Infer.top_env_default
+//        |}
+//    let get (uri : string) = Utils.memoize dict fresh uri
+//    let req = Stream.values req
+//    let req_aux = Stream.values req_aux
     
-    let rec read =
-        req ^=> function
-            | FOpen x ->
-                match dict.TryGetValue x.uri with
-                | true, x -> ()
-                | _ -> fresh.tokenizer.Run(DocumentAll(x.spiText))
-    ()
+//    let rec read =
+//        req ^=> function
+//            | FOpen x ->
+//                match dict.TryGetValue x.uri with
+//                | true, x -> ()
+//                | _ -> fresh.tokenizer.Run(DocumentAll(x.spiText))
+//    ()
 
 type ClientReq =
     | ProjectFileOpen of {|uri : string; spiprojText : string|}
