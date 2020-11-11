@@ -108,19 +108,32 @@ let hover (l : Infer.InferResult list) (pos : VSCPos) =
             if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
             ))
 
-let file_server fatal_errors tokenizer_errors parser_errors type_errors req =
-    let src = Src.create()
-    let str = Stream.values src
-    let dict = Dictionary()
-    let get (uri : string) = 
-        Utils.memoize dict (fun _ -> 
-            {|
-            tokenizer=tokenizer
-            parser=parser (System.IO.Path.GetExtension(uri) = ".spi")
-            typechecker=typechecker 0 0 Infer.top_env_default
-            |}) uri
+type FileReq =
+    | FOpen of {|uri : string; spiText : string|}
+    | FChanged of {|uri : string; spiEdit : SpiEdit|}
 
-    src
+type FileReqAux =
+    | FTokenRange of {|uri : string; range : VSCRange|} * VSCTokenArray IVar
+    | FHoverAt of {|uri : string; pos : VSCPos|} * string option IVar
+
+let file_server fatal_errors tokenizer_errors parser_errors type_errors req req_aux =
+    let dict = Dictionary()
+    let fresh (uri : string) = {|
+        tokenizer=tokenizer
+        parser=parser (System.IO.Path.GetExtension(uri) = ".spi")
+        typechecker=typechecker 0 0 Infer.top_env_default
+        |}
+    let get (uri : string) = Utils.memoize dict fresh uri
+    let req = Stream.values req
+    let req_aux = Stream.values req_aux
+    
+    let rec read =
+        req ^=> function
+            | FOpen x ->
+                match dict.TryGetValue x.uri with
+                | true, x -> ()
+                | _ -> fresh.tokenizer.Run(DocumentAll(x.spiText))
+    ()
 
 type ClientReq =
     | ProjectFileOpen of {|uri : string; spiprojText : string|}
