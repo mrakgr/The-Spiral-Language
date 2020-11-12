@@ -28,6 +28,7 @@
     <Compile Include="ParserCombinators.fs" />
     <Compile Include="LineParsers.fs" />
     <Compile Include="VSCTypes.fs" />
+    <Compile Include="PersistentVectorExtensions.fs" />
     <Compile Include="Tokenize.fs" />
     <Compile Include="BlockParsing.fs" />
     <Compile Include="BlockParsingError.fs" />

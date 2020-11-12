@@ -102,6 +102,6 @@ let show_block_parsing_error line (l : (VSCRange * ParserErrors) list) =
     l |> List.groupBy fst
     |> List.map (fun (k,v) -> 
         let k = add_line_to_range line k
-        let v = List.toArray v |> Array.map (snd >> show_parser_error)
+        let v = List.map (snd >> show_parser_error) v
         Tokenize.process_error (k, v)
         )

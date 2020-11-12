@@ -69,6 +69,11 @@ let parser is_top_down =
                 }
     loop (fun () -> [])
 
+let cons_fulfilled l = 
+    let rec loop olds = function
+        | Cons(old,next) when Promise.Now.isFulfilled next -> loop (PersistentVector.conj old olds) (Promise.Now.get next)
+        | _ -> olds
+    loop PersistentVector.empty l
 type TypecheckerStream = abstract member Run : ParserRes Promise -> Infer.InferResult Stream * TypecheckerStream
 let typechecker package_id module_id top_env =
     let rec run old_results env i (bs : Bundle list) = 
@@ -81,9 +86,6 @@ let typechecker package_id module_id top_env =
                 let _,_,env as s = b,x,Infer.union x.top_env_additions env
                 Cons(s,promise_thunk (fun () -> run old_results env (i+1) bs))
         | [] -> Nil
-    let rec cons_fulfilled olds = function
-        | Cons(old,next) when Promise.Now.isFulfilled next -> cons_fulfilled (PersistentVector.conj old olds) (Promise.Now.get next)
-        | _ -> olds
     let rec loop old_results =
         {new TypecheckerStream with
             member _.Run(res) =
@@ -92,21 +94,11 @@ let typechecker package_id module_id top_env =
                     // Doing the memoization like this has the disadvantage of always focing the evaluation of the previous 
                     // streams' first item, but on the plus side will reuse old state.
                     old_results >>- fun old_results ->
-                    run (cons_fulfilled PersistentVector.empty old_results) top_env 0 res.bundles
+                    run (cons_fulfilled old_results) top_env 0 res.bundles
                 let a = Stream.mapFun (fun (_,x,_) -> x) r
                 a, loop r
             }
     loop Stream.nil
-
-let hover (l : Infer.InferResult list) (pos : VSCPos) =
-    l |> List.tryFindBack (fun x ->
-        let start = if 0 < x.hovers.Length then (x.hovers.[0] |> fst |> fst).line else Int32.MaxValue
-        start <= pos.line
-        )
-    |> Option.bind (fun x ->
-         x.hovers |> Array.tryPick (fun ((a,b),r) ->
-            if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
-            ))
 
 type FileState = {
     tokenizer : TokenizerStream
@@ -116,22 +108,63 @@ type FileState = {
     cancellation_done : unit Promise
     }
 
-let file_server fatal_errors tokenizer_errors parser_errors type_errors (uri : string) req req_token_range req_hover_at =
+let token_range (r_par : ParserRes) ((a,b) : VSCRange) =
+    let from, near_to = min (r_par.lines.Length-1) a.line, min r_par.lines.Length (b.line+1)
+    vscode_tokens from near_to r_par.lines
+
+let handle_token_range r_par canc req =
+    r_par >>= fun (r_par : ParserRes) ->
+    let rec loop () =
+        if IVar.Now.isFull canc then Job.unit() 
+        else req >>= fun (r,res) -> IVar.fill res (token_range r_par r) >>= loop
+    loop()
+
+let hover (l : Infer.InferResult PersistentVector) (pos : VSCPos) =
+    l |> PersistentVector.tryFindBack (fun x ->
+        let start = if 0 < x.hovers.Length then (x.hovers.[0] |> fst |> fst).line else Int32.MaxValue
+        start <= pos.line
+        )
+    |> Option.bind (fun x ->
+         x.hovers |> Array.tryPick (fun ((a,b),r) ->
+            if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
+            ))
+
+let handle_hover_at r_typ canc req =
+    r_typ >>= fun r_typ ->
+    let rec loop () =
+        if IVar.Now.isFull canc then Job.unit()
+        else req >>= fun (pos,res) -> IVar.fill res (hover (cons_fulfilled r_typ) pos) // TODO: It might be better if the hover handler tugged on the stream rather than just sampling it like now.
+    loop ()
+
+let handle_typ uri type_errors r_typ canc =
+    let rec loop ers = function
+        | Nil -> Job.unit()
+        | Cons(a : Infer.InferResult,next) ->
+            if IVar.Now.isFull canc then Job.unit()
+            else 
+                let errors = List.append a.errors ers
+                Src.value type_errors {|uri=uri; errors=errors|} >>=.
+                next >>= loop errors
+    r_typ >>= loop []
+
+let file_server tokenizer_errors parser_errors type_errors (uri : string) req req_token_range req_hover_at =
+    let cancel (s : FileState) = IVar.fill s.cancellation_start () >>=. s.cancellation_done
     let req = Stream.values req
     let req_token_range = Stream.values req_token_range
     let req_hover_at = Stream.values req_hover_at
     let rec waiting (s : FileState) = req ^=> (s.tokenizer.Run >> processing s)
     and processing s (r_tok,tok) =
         waiting {s with tokenizer=tok} <|> Alt.prepare (
-            IVar.fill s.cancellation_start () >>= fun () ->
-            s.cancellation_done >>= fun () ->
+            cancel s >>= fun () ->
             let r_par,par = s.parser.Run(r_tok)
             let r_typ,typ = s.typechecker.Run(r_par)
             let canc = IVar()
             Promise.start (Job.conIgnore [ 
-                handle_token_range r_par canc
-                handle_hover_at r_typ canc
-                handle_typ r_typ canc
+                Src.value tokenizer_errors {|uri=uri; errors=r_tok.errors|}
+                r_par >>= fun r_par -> Src.value parser_errors {|uri=uri; errors=r_par.parser_errors|}
+                handle_token_range r_par canc req_token_range
+                handle_typ uri type_errors r_typ canc
+                handle_hover_at r_typ canc req_hover_at
                 ]) >>- fun canc_done ->
             waiting { tokenizer=tok; parser=par; typechecker=typ; cancellation_start=canc; cancellation_done=canc_done }
             )
@@ -143,35 +176,6 @@ let file_server fatal_errors tokenizer_errors parser_errors type_errors (uri : s
         cancellation_done=Promise(())
         }
         
-
-
-//type FileReq =
-//    | FOpen of {|uri : string; spiText : string|}
-//    | FChanged of {|uri : string; spiEdit : SpiEdit|}
-
-//type FileReqAux =
-//    | FTokenRange of {|uri : string; range : VSCRange|} * VSCTokenArray IVar
-//    | FHoverAt of {|uri : string; pos : VSCPos|} * string option IVar
-
-//let file_server fatal_errors tokenizer_errors parser_errors type_errors req req_aux =
-//    let dict = Dictionary()
-//    let fresh (uri : string) = {|
-//        tokenizer=tokenizer
-//        parser=parser (System.IO.Path.GetExtension(uri) = ".spi")
-//        typechecker=typechecker 0 0 Infer.top_env_default
-//        |}
-//    let get (uri : string) = Utils.memoize dict fresh uri
-//    let req = Stream.values req
-//    let req_aux = Stream.values req_aux
-    
-//    let rec read =
-//        req ^=> function
-//            | FOpen x ->
-//                match dict.TryGetValue x.uri with
-//                | true, x -> ()
-//                | _ -> fresh.tokenizer.Run(DocumentAll(x.spiText))
-//    ()
-
 type ClientReq =
     | ProjectFileOpen of {|uri : string; spiprojText : string|}
     | ProjectFileChange of {|uri : string; spiprojText : string|}
@@ -187,9 +191,9 @@ type ClientReq =
 
 type ClientErrorsRes =
     | FatalError of string
-    | PackageErrors of {|uri : string; errors : RString []|}
-    | TokenizerErrors of {|uri : string; errors : RString []|}
-    | ParserErrors of {|uri : string; errors : RString []|}
+    | PackageErrors of {|uri : string; errors : RString list|}
+    | TokenizerErrors of {|uri : string; errors : RString list|}
+    | ParserErrors of {|uri : string; errors : RString list|}
     | TypeErrors of {|uri : string; errors : RString list|}
 
 let port = 13805
