@@ -11,7 +11,7 @@ type FileOpenRes = Block list * RString []
 type FileChangeRes = Block list * RString []
 type FileTokenAllRes = VSCTokenArray
 
-type ParsedBlock = {parsed: LineTokens * Result<TopStatement, (VSCRange * ParserErrors) list>; offset: int}
+type ParsedBlock = {parsed: Result<TopStatement, (VSCRange * ParserErrors) list> * LineTokens; offset: int}
 
 /// Reads the comments up to a statement, and then reads the statement body. Leaves any errors for the parsing stage.
 let block_at (lines : LineTokens) i =
@@ -78,7 +78,7 @@ let block_bundle (l : (_ * ParsedBlock) list) =
     let rec init (l : (_ * ParsedBlock) list) =
         match l with
         | (_,x) :: x' ->
-            match snd x.parsed with
+            match fst x.parsed with
             | Ok (TopAnd(r,_)) -> errors.Add(x.offset +. r, "Invalid `and` statement."); init x'
             | Ok (TopRecInl _ as a) -> temp.Add {offset=x.offset; statement=a}; recinl x'
             | Ok (TopNominalRec _ as a) -> temp.Add {offset=x.offset; statement=a}; rectype x'
@@ -88,7 +88,7 @@ let block_bundle (l : (_ * ParsedBlock) list) =
     and recinl (l : (_ * ParsedBlock) list) =
         match l with
         | (_,x) :: x' ->
-            match snd x.parsed with
+            match fst x.parsed with
             | Ok (TopAnd(_, TopRecInl _ & a)) -> temp.Add {offset=x.offset; statement=a}; recinl x'
             | Ok (TopAnd(r, _)) -> errors.Add(x.offset +. r, "inl/let recursive statements can only be followed by `and` inl/let statements."); recinl x'
             | Ok _ -> move_temp(); init l
@@ -97,7 +97,7 @@ let block_bundle (l : (_ * ParsedBlock) list) =
     and rectype (l : (_ * ParsedBlock) list) =
         match l with
         | (_,x) :: x' ->
-            match snd x.parsed with
+            match fst x.parsed with
             | Ok (TopAnd(_, TopNominalRec _ & a)) -> temp.Add {offset=x.offset; statement=a}; rectype x'
             | Ok (TopAnd(r, _)) -> errors.Add(x.offset +. r, "`union rec` can only be followed by `and union`."); rectype x'
             | Ok _ -> move_temp(); init l
@@ -105,7 +105,7 @@ let block_bundle (l : (_ * ParsedBlock) list) =
         | [] -> move_temp()
     init l
 
-    let line_tokens = List.fold (fun s (_,x) -> PersistentVector.append s (fst x.parsed)) PersistentVector.empty l
+    let line_tokens = List.fold (fun s (_,x) -> PersistentVector.append s (snd x.parsed)) PersistentVector.empty l
     line_tokens, Seq.toList bundle, Seq.toList errors
 
 let semantic_updates_apply (block : LineTokens) updates =
@@ -143,4 +143,4 @@ let block_init is_top_down (block : LineTokens) =
         tokens_cords = cords; semantic_updates = semantic_updates
         comments = comments; tokens = tokens; i = ref 0; is_top_down = is_top_down
         }
-    semantic_updates_apply block semantic_updates, BlockParsing.parse env
+    BlockParsing.parse env, semantic_updates_apply block semantic_updates

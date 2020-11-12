@@ -162,4 +162,5 @@ let config text =
         match x with
         | ResumableError x -> Array.collect resumable_error x
         | FatalError x -> fatal_error x
+        |> Array.toList
         )

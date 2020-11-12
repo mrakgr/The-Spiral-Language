@@ -90,9 +90,9 @@ open Hopac.Stream
 type ValidatedSchema = {
     schema : Schema
     packages : RString list
-    links : RString []
-    actions : RAction []
-    errors : RString []
+    links : RString list
+    actions : RAction list
+    errors : RString list
     }
 let schema project_dir x =
     let errors = ResizeArray()
@@ -170,12 +170,12 @@ let schema project_dir x =
                 List.choose (validate_package d.FullName) x.packages
             with e -> errors.Add (r, e.Message); []
         | None -> List.choose (validate_package (Path.Combine(project_dir,".."))) x.packages
-    {schema=x; packages=packages; links=links.ToArray(); actions=actions.ToArray(); errors=errors.ToArray()}
+    {schema=x; packages=packages; links=Seq.toList links; actions=Seq.toList actions; errors=Seq.toList errors}
 
 let load_from_string project_dir text =
     match config text with
     | Ok x -> schema project_dir x |> Ok
-    | Error er -> {schema=schema_def; packages=[]; links=[||]; actions=[||]; errors=er} |> Ok
+    | Error er -> {schema=schema_def; packages=[]; links=[]; actions=[]; errors=er} |> Ok
 
 let load_from_file project_dir =
     let p = Path.Combine(project_dir,"package.spiproj")
@@ -215,8 +215,8 @@ let load (m : ValidatedSchema ResultMap) text project_dir =
 
 type PackageSchema = {
     schema : ValidatedSchema
-    package_links : RString []
-    package_errors : RString []
+    package_links : RString list
+    package_errors : RString list
     }
 
 let spiproj_link dir = sprintf "file:///%s/package.spiproj" dir
@@ -263,7 +263,7 @@ let validate {schemas=schemas; links=links; loads=loads} project_dir =
                         | Ok _ -> links.Add(r,spiproj_link sub)
                         | Error x -> errors.Add(r,x)
                     )
-                Map.add cur (Ok {schema=v; package_links=links.ToArray(); package_errors=errors.ToArray()}) schemas
+                Map.add cur (Ok {schema=v; package_links=Seq.toList links; package_errors=Seq.toList errors}) schemas
             | Error x ->
                 Map.add cur (Error x) schemas
             ) schemas order
@@ -276,7 +276,7 @@ let validate {schemas=schemas; links=links; loads=loads} project_dir =
             ) (schemas,loads) potential_floating_garbage
     let errors = order |> Array.choose (fun dir -> 
         match Map.tryFind dir schemas with
-        | Some(Ok x) -> Some {|uri=spiproj_link dir; errors=Array.append x.schema.errors x.package_errors|}
+        | Some(Ok x) -> Some {|uri=spiproj_link dir; errors=List.append x.schema.errors x.package_errors|}
         | _ -> None
         )
     errors, {schemas=schemas; links=links; loads=loads}

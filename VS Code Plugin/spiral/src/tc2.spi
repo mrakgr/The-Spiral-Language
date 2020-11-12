@@ -269,8 +269,8 @@ inl cell s =
     | '.' => f Empty | 'm' => f Mario | 'p' => f Princess
     | _ => error_char' s "cell"
 
-inl Save_the_princess_parse =
-    i32 >>= fun n =>
+inl Save_the_princess_parse = 
+    i32 >>= fun n => 
     inl field = array_create n
     let rec loop i s =
         if i < n then ((parray n cell .<< spaces) >>= fun ok => array_set field i ok . loop (i+1)) s

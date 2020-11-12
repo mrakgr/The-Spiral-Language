@@ -133,7 +133,7 @@ let handle_hover_at r_typ canc req =
     r_typ >>= fun r_typ ->
     let rec loop () =
         if IVar.Now.isFull canc then Job.unit()
-        else req >>= fun (pos,res) -> IVar.fill res (hover (cons_fulfilled r_typ) pos) // TODO: It might be better if the hover handler tugged on the stream rather than just sampling it like now.
+        else req >>= fun (pos,res) -> IVar.fill res (hover (cons_fulfilled r_typ) pos) >>= loop // TODO: It might be better if the hover handler tugged on the stream rather than just sampling it like now.
     loop ()
 
 let handle_typ uri type_errors r_typ canc =
@@ -149,33 +149,97 @@ let handle_typ uri type_errors r_typ canc =
 
 let file_server tokenizer_errors parser_errors type_errors (uri : string) req req_token_range req_hover_at =
     let cancel (s : FileState) = IVar.fill s.cancellation_start () >>=. s.cancellation_done
-    let req = Stream.values req
-    let req_token_range = Stream.values req_token_range
-    let req_hover_at = Stream.values req_hover_at
-    let rec waiting (s : FileState) = req ^=> (s.tokenizer.Run >> processing s)
-    and processing s (r_tok,tok) =
-        waiting {s with tokenizer=tok} <|> Alt.prepare (
-            cancel s >>= fun () ->
-            let r_par,par = s.parser.Run(r_tok)
-            let r_typ,typ = s.typechecker.Run(r_par)
-            let canc = IVar()
-            Promise.start (Job.conIgnore [ 
-                Src.value tokenizer_errors {|uri=uri; errors=r_tok.errors|}
-                r_par >>= fun r_par -> Src.value parser_errors {|uri=uri; errors=r_par.parser_errors|}
-                handle_token_range r_par canc req_token_range
-                handle_typ uri type_errors r_typ canc
-                handle_hover_at r_typ canc req_hover_at
-                ]) >>- fun canc_done ->
-            waiting { tokenizer=tok; parser=par; typechecker=typ; cancellation_start=canc; cancellation_done=canc_done }
-            )
-    waiting {
+    let loop s =
+        req >>= fun x ->
+        let rec try_more x = Ch.Try.take req >>= function
+            | Some x -> try_more (s.tokenizer.Run(x))
+            | None -> Job.result x
+        try_more (s.tokenizer.Run(x)) >>= fun (r_tok,tok) ->
+        cancel s >>= fun () ->
+        let r_par,par = s.parser.Run(r_tok)
+        let r_typ,typ = s.typechecker.Run(r_par)
+        let canc = IVar()
+        Promise.start (Job.conIgnore [ 
+            Src.value tokenizer_errors {|uri=uri; errors=r_tok.errors|}
+            r_par >>= fun r_par -> Src.value parser_errors {|uri=uri; errors=r_par.parser_errors|}
+            handle_token_range r_par canc req_token_range
+            handle_typ uri type_errors r_typ canc
+            handle_hover_at r_typ canc req_hover_at
+            ]) >>- fun canc_done ->
+        { tokenizer=tok; parser=par; typechecker=typ; cancellation_start=canc; cancellation_done=canc_done }
+    Job.iterateServer {
         tokenizer=tokenizer
         parser=parser (System.IO.Path.GetExtension(uri) = ".spi")
         typechecker=typechecker 0 0 Infer.top_env_default
         cancellation_start=IVar()
         cancellation_done=Promise(())
-        }
-        
+        } loop
+    
+type AllFileReq =
+    | FileOpen of {|uri : string; spiText : string|}
+    | FileChanged of {|uri : string; spiEdit : SpiEdit|}
+    | FileTokenRange of {|uri : string; range : VSCRange|} * VSCTokenArray IVar
+    | HoverAt of {|uri : string; pos : VSCPos|} * string option IVar
+
+let all_file_server tokenizer_errors parser_errors type_errors req =
+    let dict = Dictionary()
+    let file_server' uri =
+        match dict.TryGetValue(uri) with
+        | true, v -> false, v
+        | false, _ ->
+            let x = {|req=Ch(); req_token_range=Ch(); req_hover_at=Ch()|}
+            Hopac.start (file_server tokenizer_errors parser_errors type_errors uri x.req x.req_token_range x.req_hover_at)
+            dict.[uri] <- x
+            true, x
+    let file_server uri = file_server' uri |> snd
+    let loop = req >>= function
+        | FileOpen x ->
+            let is_new, s = file_server' x.uri
+            if is_new then s.req *<+ DocumentAll(x.spiText)
+            else Job.unit()
+        | FileChanged x ->
+            let s = file_server x.uri
+            s.req *<+ DocumentEdit(x.spiEdit)
+        | FileTokenRange(x, res) ->
+            let s = file_server x.uri
+            s.req_token_range *<+ (x.range, res)
+        | HoverAt(x,res) -> 
+            let s = file_server x.uri
+            s.req_hover_at *<+ (x.pos, res)
+    Job.forever loop
+
+type PackageSupervisorReq =
+    | ProjectFileOpen of {|uri : string; spiprojText : string|}
+    | ProjectFileChange of {|uri : string; spiprojText : string|}
+    | ProjectFileDelete of {|uri : string|}
+    | ProjectFileLinks of {|uri : string|} * RString list IVar
+    | ProjectCodeActions of {|uri : string|} * RAction list IVar
+    | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
+
+let dir uri = FileInfo(Uri(uri).LocalPath).Directory.FullName
+let supervisor_server fatal_errors package_errors req =
+    let m = ref {schemas=Map.empty; links=mirrored_graph_empty; loads=Map.empty}
+    let change is_open dir text = change is_open !m dir text >>= fun (ers,m') -> m := m'; Array.iterJob (Src.value package_errors) ers
+
+    let loop = req >>= function
+        | ProjectFileOpen x -> change true (dir x.uri) (Some x.spiprojText)
+        | ProjectFileChange x -> change false (dir x.uri) (Some x.spiprojText)
+        | ProjectFileDelete x -> change false (dir x.uri) None
+        | ProjectFileLinks(x,res) -> 
+            match m.contents.schemas.[dir x.uri] with
+            | Ok x -> IVar.fill res (List.append x.schema.links x.package_links)
+            | Error _ -> IVar.fill res []
+        | ProjectCodeActions(x,res) ->
+            match m.contents.schemas.[dir x.uri] with
+            | Ok x -> IVar.fill res x.schema.actions
+            | Error _ -> IVar.fill res []
+        | ProjectCodeActionExecute x -> 
+            match code_action_execute x.action with
+            | Some er -> Src.value fatal_errors er
+            | None -> Job.unit()
+
+    Job.foreverServer loop
+       
 type ClientReq =
     | ProjectFileOpen of {|uri : string; spiprojText : string|}
     | ProjectFileChange of {|uri : string; spiprojText : string|}
@@ -204,9 +268,7 @@ open FSharp.Json
 open NetMQ
 open NetMQ.Sockets
 
-let dir uri = FileInfo(Uri(uri).LocalPath).Directory.FullName
-
-let main _ =
+let [<EntryPoint>] main _ =
     use poller = new NetMQPoller()
     use server = new RouterSocket()
     poller.Add(server)
@@ -220,6 +282,20 @@ let main _ =
     use queue_client = new NetMQQueue<ClientErrorsRes>()
     poller.Add(queue_client)
 
+    let consumed_source msg =
+        let x = Src.create()
+        Src.tap x |> Stream.consumeFun (msg >> queue_client.Enqueue)
+        x
+    let fatal_errors = consumed_source FatalError
+    let package_errors = consumed_source PackageErrors
+    let tokenizer_errors = consumed_source TokenizerErrors
+    let parser_errors = consumed_source ParserErrors
+    let type_errors = consumed_source TypeErrors
+    let file = Ch()
+    Hopac.start (all_file_server tokenizer_errors parser_errors type_errors file)
+    let supervisor = Ch()
+    Hopac.start (supervisor_server fatal_errors package_errors supervisor)
+
     let buffer = Dictionary()
     let last_id = ref 0
     use __ = server.ReceiveReady.Subscribe(fun s ->
@@ -229,14 +305,32 @@ let main _ =
             let push_back (x : obj) = 
                 match x with
                 | :? Option<string> as x -> 
-                    match x with 
+                    match x with
                     | None -> msg.Push("null") 
                     | Some x -> msg.Push(sprintf "\"%s\"" x)
                 | _ -> msg.Push(Json.serialize x)
                 msg.PushEmptyFrame(); msg.Push(address)
             let send_back x = push_back x; server.SendMultipartMessage(msg)
             let send_back_via_queue x = push_back x; queue_server.Enqueue(msg)
-            let send_ivar_back_via_queue () = let res = IVar() in Hopac.start (IVar.read res >>- send_back_via_queue); res
+            let job_null job = Hopac.start job; send_back null
+            let job_val job = let res = IVar() in Hopac.start (job res >>=. IVar.read res >>- send_back_via_queue)
+            match x with
+            | ProjectFileOpen x -> job_null (supervisor *<+ PackageSupervisorReq.ProjectFileOpen x)
+            | ProjectFileChange x -> job_null (supervisor *<+ PackageSupervisorReq.ProjectFileChange x)
+            | ProjectFileDelete x -> job_null (supervisor *<+ PackageSupervisorReq.ProjectFileDelete x)
+            | ProjectCodeActionExecute x -> job_null (supervisor *<+ PackageSupervisorReq.ProjectCodeActionExecute x)
+            | ProjectFileLinks x -> job_val (fun res -> supervisor *<+ PackageSupervisorReq.ProjectFileLinks(x,res))
+            | ProjectCodeActions x -> job_val (fun res -> supervisor *<+ PackageSupervisorReq.ProjectCodeActions(x,res))
+            | FileOpen x -> job_null (file *<+ AllFileReq.FileOpen x)
+            | FileChanged x -> job_null (file *<+ AllFileReq.FileChanged x)
+            | FileTokenRange x -> job_val (fun res -> file *<+ AllFileReq.FileTokenRange(x,res))
+            | HoverAt x -> job_val (fun res -> file *<+ AllFileReq.HoverAt(x,res))
+            | BuildFile x -> // TODO: This case is just a stump for now.
+                let x = Uri(x.uri).LocalPath
+                match IO.Path.GetExtension(x) with
+                | ".spi" | ".spir" -> IO.File.WriteAllText(IO.Path.ChangeExtension(x,"fsx"), "// Compiled with Spiral v0.2.")
+                | _ -> ()
+                send_back null
             loop ()
         let msg = server.ReceiveMultipartMessage(3)
         let address = msg.Pop()
