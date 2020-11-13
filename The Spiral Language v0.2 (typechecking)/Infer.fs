@@ -160,7 +160,6 @@ let union small big = {
     }
 
 let in_module m a =
-    let a = List.fold union top_env_empty a
     {a with 
         ty = Map.add m (TyModule a.ty) Map.empty
         term = Map.add m (TyModule a.term) Map.empty
