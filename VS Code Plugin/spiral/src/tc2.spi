@@ -293,8 +293,8 @@ inl Largest_palindrome_product : i32 =
         ) 0
 
 inl Largest_prime_factor =
-    inl target = 600851475143i64
-    inl sieve_length : i32 = $"!target |> float |> sqrt |> int64"
+    inl target = 60085147514i64
+    inl sieve_length : i32 = $"!target |> float |> sqrt |> int"
     inl sieve = array_init (sieve_length+1) (const true)
     for' (From: 2 to: sieve_length) (fun i =>
         if array_index sieve i then 

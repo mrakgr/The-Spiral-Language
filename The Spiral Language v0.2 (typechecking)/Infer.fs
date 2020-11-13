@@ -719,7 +719,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let scope = ref 0
     let autogened_forallvar_count = ref 0
 
-    let hover_types = Dictionary(HashIdentity.Reference)
+    let hover_types = ResizeArray()
 
     let fresh_kind () = KindMetavar {contents'=None}
     let fresh_var'' x = TyMetavar (x, ref None)
@@ -1469,7 +1469,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         {
         filled_top = filled_top
         top_env_additions = top_env_additions
-        hovers = hover_types |> Seq.toArray |> Array.map (fun x -> x.Key, show_t top_env x.Value)
+        hovers = let x = hover_types.ToArray() |> Array.map (fun (a,b) -> a, show_t top_env b) in Array.sortInPlaceBy fst x; x
         errors = errors |> Seq.toList |> List.map (fun (a,b) -> a, show_type_error top_env b)
         }
 

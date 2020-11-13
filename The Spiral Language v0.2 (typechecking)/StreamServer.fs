@@ -114,9 +114,7 @@ let token_range (r_par : ParserRes) ((a,b) : VSCRange) =
 
 let handle_token_range r_par canc req =
     r_par >>= fun (r_par : ParserRes) ->
-    let rec loop () =
-        if IVar.Now.isFull canc then Job.unit() 
-        else req >>= fun (r,res) -> IVar.fill res (token_range r_par r) >>= loop
+    let rec loop () = canc <|> (req ^=> fun (r,res) -> IVar.fill res (token_range r_par r) >>= loop)
     loop()
 
 let hover (l : Infer.InferResult PersistentVector) (pos : VSCPos) =
@@ -131,20 +129,19 @@ let hover (l : Infer.InferResult PersistentVector) (pos : VSCPos) =
 
 let handle_hover_at r_typ canc req =
     r_typ >>= fun r_typ ->
-    let rec loop () =
-        if IVar.Now.isFull canc then Job.unit()
-        else req >>= fun (pos,res) -> IVar.fill res (hover (cons_fulfilled r_typ) pos) >>= loop // TODO: It might be better if the hover handler tugged on the stream rather than just sampling it like now.
+    // TODO: It might be better if the hover handler tugged on the stream rather than just sampling it like now.
+    let rec loop () = canc <|> (req ^=> fun (pos,res) -> IVar.fill res (hover (cons_fulfilled r_typ) pos) >>= loop) 
     loop ()
 
 let handle_typ uri type_errors r_typ canc =
     let rec loop ers = function
-        | Nil -> Job.unit()
+        | Nil -> Alt.unit()
         | Cons(a : Infer.InferResult,next) ->
-            if IVar.Now.isFull canc then Job.unit()
-            else 
+            canc <|> (Alt.unit() ^=> fun () ->
                 let errors = List.append a.errors ers
                 Src.value type_errors {|uri=uri; errors=errors|} >>=.
                 next >>= loop errors
+                )
     r_typ >>= loop []
 
 let file_server tokenizer_errors parser_errors type_errors (uri : string) req req_token_range req_hover_at =
