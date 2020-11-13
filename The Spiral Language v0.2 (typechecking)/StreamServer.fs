@@ -296,7 +296,7 @@ let [<EntryPoint>] main _ =
     let buffer = Dictionary()
     let last_id = ref 0
     use __ = server.ReceiveReady.Subscribe(fun s ->
-        let rec loop () = Utils.remove buffer !last_id (body <| NetMQMessage 3) id
+        let rec loop () = Utils.remove buffer !last_id (body(NetMQMessage 3)) id
         and body (msg : NetMQMessage) (address : NetMQFrame, x) =
             incr last_id
             let push_back (x : obj) = 

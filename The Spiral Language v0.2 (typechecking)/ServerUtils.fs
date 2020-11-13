@@ -217,6 +217,7 @@ type PackageSchema = {
     schema : ValidatedSchema
     package_links : RString list
     package_errors : RString list
+    is_circular : bool
     }
 
 let spiproj_link dir = sprintf "file:///%s/package.spiproj" dir
@@ -259,11 +260,12 @@ let validate {schemas=schemas; links=links; loads=loads} project_dir =
                         errors.Add(r,sprintf "This package is circular%s" rest)
                     else 
                         match Map.find sub schemas with // Note: This key index might fail if the circularity check is not done first.
+                        | Ok x when x.is_circular -> errors.Add(r,"This package is circular.") 
                         | Ok x when 0 < x.schema.errors.Length || 0 < x.package_errors.Length -> errors.Add(r,"The package or the chain it is a part of has an error.") 
                         | Ok _ -> links.Add(r,spiproj_link sub)
                         | Error x -> errors.Add(r,x)
                     )
-                Map.add cur (Ok {schema=v; package_links=Seq.toList links; package_errors=Seq.toList errors}) schemas
+                Map.add cur (Ok {schema=v; package_links=Seq.toList links; package_errors=Seq.toList errors; is_circular=is_circular}) schemas
             | Error x ->
                 Map.add cur (Error x) schemas
             ) schemas order
