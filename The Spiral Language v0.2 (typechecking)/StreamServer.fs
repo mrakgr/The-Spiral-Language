@@ -76,74 +76,83 @@ let cons_fulfilled l =
         | _ -> olds
     loop PersistentVector.empty l
 type TypecheckerStream = abstract member Run : ParserRes Promise -> InferResult Stream * TypecheckerStream
-let typechecker package_id module_id (top_env : _ Promise) =
-    let rec run old_state env i (bs : Bundle list) = 
+let typechecker package_id module_id top_env =
+    let rec run old_results env i (bs : Bundle list) = 
         match bs with
         | b :: bs ->
-            match PersistentVector.tryNth i old_state with
-            | Some (b', _, env as s) when b = b' -> Cons(s,Promise(run old_state env (i+1) bs))
+            match PersistentVector.tryNth i old_results with
+            | Some (b', _, env as s) when b = b' -> Cons(s,Promise(run old_results env (i+1) bs))
             | _ ->
                 let x = Infer.infer package_id module_id env (bundle_top b)
                 let _,_,env as s = b,x,Infer.union x.top_env_additions env
-                Cons(s,promise_thunk (fun () -> run old_state env (i+1) bs))
+                Cons(s,promise_thunk (fun () -> run old_results env (i+1) bs))
         | [] -> Nil
-    let rec loop (old_in, old_out, old_state) =
+    let rec loop old_results =
         {new TypecheckerStream with
-            member this.Run(res) =
-                if Object.ReferenceEquals(old_in,res) then old_out, this
-                else
-                    let r = 
-                        top_env >>=* fun top_env ->
-                        res >>= fun res ->
-                        // Doing the memoization like this has the disadvantage of always focing the evaluation of the previous 
-                        // streams' first item, but on the plus side will reuse old state.
-                        old_state >>- fun old_state ->
-                        run (cons_fulfilled old_state) top_env 0 res.bundles
-                    let a = Stream.mapFun (fun (_,x,_) -> x) r
-                    a, loop (res,a,r)
+            member _.Run(res) =
+                let r = 
+                    res >>=* fun res ->
+                    // Doing the memoization like this has the disadvantage of always focing the evaluation of the previous 
+                    // streams' first item, but on the plus side will reuse old state.
+                    old_results >>- fun old_results ->
+                    run (cons_fulfilled old_results) top_env 0 res.bundles
+                let a = Stream.mapFun (fun (_,x,_) -> x) r
+                a, loop r
             }
-    loop (Promise(), Stream.nil, Stream.nil)
+    loop Stream.nil
 
-type FileHierarchy =
-    | File of uri: string * name: string
-    | Directory of name: string * FileHierarchy list
-
-type MultiFileStream = abstract member Run : Map<string,ParserRes Promise> * FileHierarchy list -> Map<string,InferResult Stream> * TopEnv Promise * MultiFileStream
-type MultiFileLoopState = {
+type MultiFileInState = {
+    module_id : int
+    results_infer : Map<string, InferResult Stream>
+    top_env : TopEnv Promise
+    streams : Map<string, TypecheckerStream>
+    }
+type MultiFileOutState = {
     module_id : int
     results_infer : Map<string, InferResult Stream>
     top_env_additions : TopEnv Promise
     streams : Map<string, TypecheckerStream>
     }
+type FileHierarchy =
+    | File of uri: string * name: string * (MultiFileInState * MultiFileOutState) option * ParserRes Promise * TypecheckerStream option
+    | Directory of name: string * FileHierarchy list
+
+type MultiFileStream = abstract member Run : Map<string,ParserRes Promise> * FileHierarchy list -> Map<string,InferResult Stream> * TopEnv Promise * MultiFileStream
 
 let union a b = a >>=* fun a -> b >>- fun b -> Infer.union a b
+let file_hierarchy_meta = function File(_,_,meta) | Directory(_,_,meta) -> meta
 let multi_file package_id top_env =
     let rec create streams files' =
         {new MultiFileStream with
             member _.Run(results_parser,files) =
-                let rec changed module_id results_infer streams (top_env : _ Promise) = function
-                    | File(uri,name) ->
-                        let r,tc = (typechecker package_id module_id top_env).Run(results_parser.[uri])
-                        let top_env_additions = Stream.foldFromFun top_env_empty (fun a (b : InferResult) -> Infer.union a b.top_env_additions) r >>-* Infer.in_module name
-                        {module_id=module_id+1; results_infer=Map.add uri r results_infer; top_env_additions=top_env_additions; streams=Map.add uri tc streams}
-                    | Directory(name,l) ->
-                        let state = {module_id=module_id; results_infer=results_infer; top_env_additions=Promise top_env_empty; streams=streams}
-                        let r = changed_list (state, top_env) l
-                        {r with top_env_additions=r.top_env_additions >>-* Infer.in_module name}
-                and changed_list s l =
-                    List.fold (fun (r : MultiFileLoopState, top_env) x ->
-                        let r' = changed r.module_id r.results_infer r.streams top_env x
-                        {r' with top_env_additions=union r'.top_env_additions r.top_env_additions}, union r'.top_env_additions top_env
-                        ) s l |> fst
-                //let rec diff module_id results_infer streams (top_env : _ Promise) = function
-                //    | File(uri',name'), File(uri,name) when uri' = uri && name' = name ->
-                //        let p',p = results_parser'.[uri], results_parser.[uri]
-                //        if Object.ReferenceEquals(p',p) then 
-                //            let r,tc = results_infer'.[uri], streams.[uri]
-                //        else failwith "TODO"
-                let state = {module_id=0; results_infer=Map.empty; top_env_additions=Promise top_env_empty; streams=streams}
-                let r = changed_list (state,top_env) files
-                r.results_infer, r.top_env_additions, create r.streams files
+                let rec changed (i : MultiFileInState) x =
+                    match file_hierarchy_meta x with
+                    | Some(i,o) -> x,o
+                    | None ->
+                        match x with
+                        | File(uri,name,_) ->
+                            let r,tc = (typechecker package_id i.module_id i.top_env).Run(results_parser.[uri])
+                            let top_env_additions = Stream.foldFromFun top_env_empty (fun a (b : InferResult) -> Infer.union a b.top_env_additions) r >>-* Infer.in_module name
+                            let o = {module_id=i.module_id+1; results_infer=Map.add uri r i.results_infer; top_env_additions=top_env_additions; streams=Map.add uri tc i.streams}
+                            File(uri,name,Some(i,o)),o
+                        | Directory(name,l,_) ->
+                            let l,o = changed_list i l
+                            let o : MultiFileOutState = {o with top_env_additions=o.top_env_additions >>-* Infer.in_module name}
+                            Directory(name,l,Some(i,o)),o
+                and changed_list i l =
+                    let o = {module_id=i.module_id; results_infer=i.results_infer; top_env_additions=Promise(top_env_empty); streams=i.streams}
+                    let l,(_,o) =
+                        List.mapFold (fun (top_env, o : MultiFileOutState) x ->
+                            let i = {module_id=o.module_id; results_infer=o.results_infer; streams=o.streams; top_env=top_env}
+                            let x,o' = changed i x
+                            let top_env = union o'.top_env_additions top_env
+                            let o = {o with top_env_additions=union o'.top_env_additions o.top_env_additions}
+                            x,(top_env,o)
+                            ) (i.top_env,o) l
+                    l,o
+                let i = {module_id=0; results_infer=Map.empty; top_env=top_env; streams=streams}
+                let l,o = changed_list i (diff files' files) // TODO: Implement diff
+                o.results_infer, o.top_env_additions, create i.streams l
                 }
     create Map.empty []
 
