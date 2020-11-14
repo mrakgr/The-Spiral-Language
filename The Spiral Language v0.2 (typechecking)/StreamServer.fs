@@ -91,7 +91,8 @@ let typechecker package_id module_id top_env =
         {new TypecheckerStream with
             member _.Run(res) =
                 let r = 
-                    res >>=* fun res ->
+                    top_env >>=* fun top_env ->
+                    res >>= fun res ->
                     // Doing the memoization like this has the disadvantage of always focing the evaluation of the previous 
                     // streams' first item, but on the plus side will reuse old state.
                     old_results >>- fun old_results ->
@@ -105,56 +106,83 @@ type MultiFileInState = {
     module_id : int
     results_infer : Map<string, InferResult Stream>
     top_env : TopEnv Promise
-    streams : Map<string, TypecheckerStream>
     }
 type MultiFileOutState = {
     module_id : int
     results_infer : Map<string, InferResult Stream>
     top_env_additions : TopEnv Promise
-    streams : Map<string, TypecheckerStream>
     }
 type FileHierarchy =
-    | File of uri: string * name: string * (MultiFileInState * MultiFileOutState) option * ParserRes Promise * TypecheckerStream option
+    | File of uri: string * name: string * meta: MultiFileOutState option * ParserRes Promise * tc: TypecheckerStream option
     | Directory of name: string * FileHierarchy list
 
-type MultiFileStream = abstract member Run : Map<string,ParserRes Promise> * FileHierarchy list -> Map<string,InferResult Stream> * TopEnv Promise * MultiFileStream
+type MultiFileStream = 
+    abstract member OrderChanged : FileHierarchy list -> Map<string,InferResult Stream> * TopEnv Promise * MultiFileStream
+    abstract member FilesChanged : Map<string,ParserRes Promise> -> Map<string,InferResult Stream> * TopEnv Promise * MultiFileStream
+
+// Rather than just throwing away the old results, diff returns the new tree with as much useful info from the old tree as is possible.
+let diff_order_changed old new' =
+    let mutable same_files = true
+    let mutable same_order = true
+    let rec elem (o,n) = 
+        match o,n with
+        // In `n`, `meta` and `tc` fields are None.
+        | File(uri,name,meta,p,tc) & o,File(uri',name',_,p',_) when uri = uri' && name = name' -> 
+            if same_files && Object.ReferenceEquals(p,p') then o
+            else same_files <- false; File(uri,name,None,p',tc)
+        | Directory(name,l), Directory(name',l') when name = name' -> Directory(name,list (l,l'))
+        | _, n -> same_order <- false; n
+    and list = function
+        | o :: o', n :: n' -> elem (o,n) :: (if same_order then list (o', n') else n')
+        | [], [] -> []
+        | _, n -> same_order <- false; n
+    list (old,new')
+
+let diff_files_changed m old =
+    let mutable same_files = true
+    let rec elem = function
+        | File(uri,name,_,p,tc) as o ->
+            match Map.tryFind uri m with
+            | None -> if same_files then o else File(uri,name,None,p,tc)
+            | Some p -> same_files <- false; File(uri,name,None,p,tc)
+        | Directory(name,l) -> Directory(name,list l)
+    and list l = List.map elem l
+    list old
 
 let union a b = a >>=* fun a -> b >>- fun b -> Infer.union a b
-let file_hierarchy_meta = function File(_,_,meta) | Directory(_,_,meta) -> meta
 let multi_file package_id top_env =
-    let rec create streams files' =
+    let rec changed (i : MultiFileInState) x =
+        match x with
+        | File(uri,name,Some o,_,_) -> x, o
+        | File(uri,name,None,results_parser,tc) ->
+            let tc = match tc with Some tc -> tc | None -> typechecker package_id i.module_id i.top_env
+            let r,tc = tc.Run(results_parser)
+            let top_env_additions = Stream.foldFromFun top_env_empty (fun a (b : InferResult) -> Infer.union a b.top_env_additions) r >>-* Infer.in_module name
+            let o = {module_id=i.module_id+1; results_infer=Map.add uri r i.results_infer; top_env_additions=top_env_additions}
+            File(uri,name,Some o,results_parser,Some tc),o
+        | Directory(name,l) ->
+            let l,o = changed_list i l
+            let o : MultiFileOutState = {o with top_env_additions=o.top_env_additions >>-* Infer.in_module name}
+            Directory(name,l),o
+    and changed_list i l =
+        let o = {module_id=i.module_id; results_infer=i.results_infer; top_env_additions=Promise(top_env_empty)}
+        let l,(_,o) =
+            List.mapFold (fun (top_env, o : MultiFileOutState) x ->
+                let i = {module_id=o.module_id; results_infer=o.results_infer; top_env=top_env}
+                let x,o' = changed i x
+                let top_env = union o'.top_env_additions top_env
+                let o = {o with top_env_additions=union o'.top_env_additions o.top_env_additions}
+                x,(top_env,o)
+                ) (i.top_env,o) l
+        l,o
+    let rec create files' =
+        let i = {module_id=0; results_infer=Map.empty; top_env=top_env}
+        let run files = let l,o = changed_list i files in o.results_infer, o.top_env_additions, create l
         {new MultiFileStream with
-            member _.Run(results_parser,files) =
-                let rec changed (i : MultiFileInState) x =
-                    match file_hierarchy_meta x with
-                    | Some(i,o) -> x,o
-                    | None ->
-                        match x with
-                        | File(uri,name,_) ->
-                            let r,tc = (typechecker package_id i.module_id i.top_env).Run(results_parser.[uri])
-                            let top_env_additions = Stream.foldFromFun top_env_empty (fun a (b : InferResult) -> Infer.union a b.top_env_additions) r >>-* Infer.in_module name
-                            let o = {module_id=i.module_id+1; results_infer=Map.add uri r i.results_infer; top_env_additions=top_env_additions; streams=Map.add uri tc i.streams}
-                            File(uri,name,Some(i,o)),o
-                        | Directory(name,l,_) ->
-                            let l,o = changed_list i l
-                            let o : MultiFileOutState = {o with top_env_additions=o.top_env_additions >>-* Infer.in_module name}
-                            Directory(name,l,Some(i,o)),o
-                and changed_list i l =
-                    let o = {module_id=i.module_id; results_infer=i.results_infer; top_env_additions=Promise(top_env_empty); streams=i.streams}
-                    let l,(_,o) =
-                        List.mapFold (fun (top_env, o : MultiFileOutState) x ->
-                            let i = {module_id=o.module_id; results_infer=o.results_infer; streams=o.streams; top_env=top_env}
-                            let x,o' = changed i x
-                            let top_env = union o'.top_env_additions top_env
-                            let o = {o with top_env_additions=union o'.top_env_additions o.top_env_additions}
-                            x,(top_env,o)
-                            ) (i.top_env,o) l
-                    l,o
-                let i = {module_id=0; results_infer=Map.empty; top_env=top_env; streams=streams}
-                let l,o = changed_list i (diff files' files) // TODO: Implement diff
-                o.results_infer, o.top_env_additions, create i.streams l
-                }
-    create Map.empty []
+            member _.OrderChanged files = diff_order_changed files' files |> run
+            member _.FilesChanged m = diff_files_changed m files' |> run
+            }
+    create []
 
 type FileState = {
     tokenizer : TokenizerStream
@@ -223,7 +251,7 @@ let file_server tokenizer_errors parser_errors type_errors (uri : string) req re
     Job.iterateServer {
         tokenizer=tokenizer
         parser=parser (System.IO.Path.GetExtension(uri) = ".spi")
-        typechecker=typechecker 0 0 Infer.top_env_default
+        typechecker=typechecker 0 0 (Promise(Infer.top_env_default))
         cancellation_start=IVar()
         cancellation_done=Promise(())
         } loop
