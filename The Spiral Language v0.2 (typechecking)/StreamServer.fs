@@ -186,33 +186,90 @@ let multi_file package_id top_env =
             }
     create []
 
+type AddPackageInput = {|links : Map<string,{|name : string|}>; files : FileHierarchy list|}
 type PackageCoreStream =
-    abstract member AddPackages : (string * {|links : Map<string,{|name : string|}>; files : FileHierarchy list|}) list -> Map<string,InferResult Stream> * PackageCoreStream
+    abstract member AddPackages : (string * AddPackageInput) list -> Map<string,InferResult Stream> * PackageCoreStream
     abstract member RemovePackages : string list -> PackageCoreStream
     abstract member FileChanged : Map<string, ParserRes Promise> -> Map<string,InferResult Stream> * PackageCoreStream
 
+type PackageCoreStateItem = {
+    files : FileHierarchy list
+    links : Map<string,{|name : string|}>
+    rev_links : string Set
+    top_env_in : TopEnv Promise
+    top_env_out : TopEnv Promise
+    stream : MultiFileStream
+    }
+
 type PackageCoreState = {
-    packages : Map<string,{|files : FileHierarchy list; links : Map<string,{|name : string|}>; rev_links : string Set; env : TopEnv Promise; stream : MultiFileStream|}>
+    packages : Map<string,PackageCoreStateItem>
     package_ids : PersistentHashMap<string,int>
     }
+
+let links_rev_remove links dir s =
+    links |> Map.fold (fun s k _ ->
+        let x = s.packages.[k]
+        {s with packages = Map.add k {x with rev_links = Set.remove dir x.rev_links} s.packages}
+        ) s
+
+let links_rev_add links dir s =
+    links |> Map.fold (fun s k _ ->
+        let x = s.packages.[k]
+        {s with packages = Map.add k {x with rev_links = Set.add dir x.rev_links} s.packages}
+        ) s
+
+let add_packages (s : PackageCoreState, infer_results' : Map<string,InferResult Stream>, dirty_nodes : Set<string>) (dir, x : AddPackageInput) =
+    let old_package = Map.tryFind dir s.packages
+    let is_dirty = x.links |> Map.exists (fun k _ -> Set.contains k dirty_nodes)
+    let top_env_in =
+        let f() = 
+            let l = x.links |> Map.fold (fun l k v -> (s.packages.[k].top_env_out >>-* in_module v.name) :: l) [] |> Job.conCollect
+            l >>-* Seq.reduce Infer.union
+        if is_dirty then f()
+        else match old_package with Some x -> x.top_env_in | None -> f()
+    
+    let (infer_results, top_env_out, stream), package_ids =
+        match old_package with
+        | Some _ when is_dirty -> 
+            let id, package_ids = s.package_ids.[dir], s.package_ids
+            (multi_file id top_env_in).OrderChanged(x.files), package_ids
+        | Some p -> p.stream.OrderChanged(x.files), s.package_ids
+        | None -> 
+            let id, package_ids = 
+                if PersistentHashMap.containsKey dir s.package_ids then s.package_ids.[dir], s.package_ids
+                else s.package_ids.Count, s.package_ids.Add(dir,s.package_ids.Count)
+            (multi_file id top_env_in).OrderChanged(x.files), package_ids
+    
+    let s = // Remove the current package dir from the parents based on the old links.
+        let old_links = match old_package with Some x -> x.links | None -> Map.empty
+        links_rev_remove old_links dir s
+        // Add the current package dir to the parents based on the new links.
+        |> links_rev_add x.links dir
+    
+    let infer_results = Map.foldBack Map.add infer_results infer_results'
+
+    let package = {
+        files = x.files
+        links = x.links
+        rev_links = match old_package with Some x -> x.rev_links | None -> Set.empty
+        top_env_in = top_env_in
+        top_env_out = top_env_out
+        stream = stream
+        }
+    
+    { packages = Map.add dir package s.packages; package_ids = package_ids }, infer_results, Set.add dir dirty_nodes
+
+let remove_packages (s : PackageCoreState) l =
+    ()
 
 let package_core () =
     let rec loop (state : PackageCoreState) =
         {new PackageCoreStream with
-            member _.AddPackages reqs =
-                let x =
-                    ((state,Map.empty),reqs) ||> List.fold (fun (state,infer_results) (dir,x) -> 
-                        if Set.forall (fun x -> Map.containsKey x state.packages) x.links = false then failwith "Compiler error: Tried adding a package whose link points to a non existing one."
-                        failwith ""
-                        )
-                List.iter (fun (a,b) -> 
-                    failwith ""
-                    ) reqs
-                failwith ""
+            member _.AddPackages reqs = let a,b,_ = List.fold add_packages (state,Map.empty,Set.empty) reqs in b, loop a
             member _.RemovePackages reqs = failwith ""
             member _.FileChanged req = failwith ""
             }
-    loop {packages = Map.empty; id_count=0}
+    loop {packages = Map.empty; package_ids=PersistentHashMap.empty}
 
 type FileState = {
     tokenizer : TokenizerStream
