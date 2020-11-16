@@ -34,13 +34,16 @@ let replace_links (s : MirroredGraph) a bs = add_links (remove_links s a) a bs
 let get_links (abs : Graph) a = Map.tryFind a abs |> Option.defaultValue Set.empty
 let link_exists ((abs,bas) : MirroredGraph) x = Map.containsKey x abs || Map.containsKey x bas
 
-let circular_nodes ((abs,bas) : MirroredGraph) dirty_nodes =
+let topological_sort bas dirty_nodes =
     let sort_order = Stack()
     let sort_visited = HashSet()
     let rec dfs_rev a = if sort_visited.Add(a) then Seq.iter dfs_rev (get_links bas a); sort_order.Push(a)
     Seq.iter dfs_rev dirty_nodes
-    let order = sort_order.ToArray()
+    sort_order, sort_visited
 
+let circular_nodes ((abs,bas) : MirroredGraph) dirty_nodes =
+    let sort_order, sort_visited = topological_sort bas dirty_nodes
+    let order = sort_order.ToArray()
     let visited = HashSet()
     let circular_nodes = HashSet()
     order |> Array.iter (fun a ->

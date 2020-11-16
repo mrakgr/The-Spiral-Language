@@ -111,12 +111,11 @@ type MultiFileOutState = {
     top_env_additions : TopEnv Promise
     }
 type FileHierarchy =
-    | File of uri: string * name: string * meta: MultiFileOutState option * ParserRes Promise * tc: TypecheckerStream option
+    | File of path: string * name: string * meta: MultiFileOutState option * ParserRes Promise * tc: TypecheckerStream option
     | Directory of name: string * FileHierarchy list
 
 type MultiFileStream = 
-    abstract member OrderChanged : FileHierarchy list -> Map<string,InferResult Stream> * TopEnv Promise * MultiFileStream
-    abstract member FilesChanged : Map<string,ParserRes Promise> -> Map<string,InferResult Stream> * TopEnv Promise * MultiFileStream
+    abstract member Run : FileHierarchy list -> Map<string,InferResult Stream> * TopEnv Promise * MultiFileStream
 
 // Rather than just throwing away the old results, diff returns the new tree with as much useful info from the old tree as is possible.
 let diff_order_changed old new' =
@@ -125,9 +124,9 @@ let diff_order_changed old new' =
     let rec elem (o,n) = 
         match o,n with
         // In `n`, `meta` and `tc` fields are None.
-        | File(uri,name,meta,p,tc) & o,File(uri',name',_,p',_) when uri = uri' && name = name' -> 
+        | File(path,name,meta,p,tc) & o,File(path',name',_,p',_) when path = path' && name = name' -> 
             if same_files && Object.ReferenceEquals(p,p') then o
-            else same_files <- false; File(uri,name,None,p',tc)
+            else same_files <- false; File(path,name,None,p',tc)
         | Directory(name,l), Directory(name',l') when name = name' -> Directory(name,list (l,l'))
         | _, n -> same_order <- false; n
     and list = function
@@ -136,17 +135,6 @@ let diff_order_changed old new' =
         | _, n -> same_order <- false; n
     list (old,new')
 
-let diff_files_changed m old =
-    let mutable same_files = true
-    let rec elem = function
-        | File(uri,name,_,p,tc) as o ->
-            match Map.tryFind uri m with
-            | None -> if same_files then o else File(uri,name,None,p,tc)
-            | Some p -> same_files <- false; File(uri,name,None,p,tc)
-        | Directory(name,l) -> Directory(name,list l)
-    and list l = List.map elem l
-    list old
-
 let union a b = a >>=* fun a -> b >>- fun b -> Infer.union a b
 let multi_file package_id top_env =
     let rec create files' =
@@ -154,14 +142,14 @@ let multi_file package_id top_env =
             let mutable changed_files = Map.empty
             let rec changed (i : MultiFileInState) x =
                 match x with
-                | File(uri,name,Some o,_,_) -> x, o
-                | File(uri,name,None,results_parser,tc) ->
+                | File(_,_,Some o,_,_) -> x, o
+                | File(path,name,None,results_parser,tc) ->
                     let tc = match tc with Some tc -> tc | None -> typechecker package_id i.module_id i.top_env
                     let r,tc = tc.Run(results_parser)
-                    changed_files <- Map.add uri r changed_files
+                    changed_files <- Map.add path r changed_files
                     let top_env_additions = Stream.foldFromFun top_env_empty (fun a (b : InferResult) -> Infer.union a b.top_env_additions) r >>-* Infer.in_module name
                     let o = {module_id=i.module_id+1; top_env_additions=top_env_additions}
-                    File(uri,name,Some o,results_parser,Some tc),o
+                    File(path,name,Some o,results_parser,Some tc),o
                 | Directory(name,l) ->
                     let l,o = changed_list i l
                     let o : MultiFileOutState = {o with top_env_additions=o.top_env_additions >>-* Infer.in_module name}
@@ -180,20 +168,14 @@ let multi_file package_id top_env =
             let i = {module_id=0; top_env=top_env}
             let l,o = changed_list i files 
             changed_files, o.top_env_additions, create l
-        {new MultiFileStream with
-            member _.OrderChanged files = diff_order_changed files' files |> run
-            member _.FilesChanged m = diff_files_changed m files' |> run 
-            }
+        {new MultiFileStream with member _.Run files = diff_order_changed files' files |> run}
     create []
 
-type AddPackageInput = {|links : Map<string,{|name : string|}>; files : FileHierarchy list|}
+type AddPackageInput = {links : Map<string,{|name : string|}>; files : FileHierarchy list}
 type PackageCoreStream =
-    abstract member AddPackages : (string * AddPackageInput) list -> Map<string,InferResult Stream> * PackageCoreStream
-    abstract member RemovePackages : string list -> PackageCoreStream
-    abstract member FileChanged : Map<string, ParserRes Promise> -> Map<string,InferResult Stream> * PackageCoreStream
+    abstract member ReplacePackages : (string * AddPackageInput) list * string Set -> Map<string,InferResult Stream> * PackageCoreStream
 
 type PackageCoreStateItem = {
-    files : FileHierarchy list
     links : Map<string,{|name : string|}>
     rev_links : string Set
     top_env_in : TopEnv Promise
@@ -206,19 +188,16 @@ type PackageCoreState = {
     package_ids : PersistentHashMap<string,int>
     }
 
-let links_rev_remove links dir s =
-    links |> Map.fold (fun s k _ ->
-        let x = s.packages.[k]
-        {s with packages = Map.add k {x with rev_links = Set.remove dir x.rev_links} s.packages}
-        ) s
+let inline link_op f dir s k = 
+    match Map.tryFind k s.packages with 
+    | Some x -> {s with packages = Map.add k {x with rev_links = f dir x.rev_links} s.packages}
+    | None -> s
+/// Removes the current package from its parents' reverse links.
+let links_rev_remove links dir s = links |> Map.fold (fun s k _ -> link_op Set.remove dir s k) s
+/// Adds the current package to its parents' reverse links.
+let links_rev_add links dir s = links |> Map.fold (fun s k _ -> link_op Set.add dir s k) s
 
-let links_rev_add links dir s =
-    links |> Map.fold (fun s k _ ->
-        let x = s.packages.[k]
-        {s with packages = Map.add k {x with rev_links = Set.add dir x.rev_links} s.packages}
-        ) s
-
-let add_packages (s : PackageCoreState, infer_results' : Map<string,InferResult Stream>, dirty_nodes : Set<string>) (dir, x : AddPackageInput) =
+let add_package (s : PackageCoreState, infer_results' : Map<string,InferResult Stream>, dirty_nodes : Set<string>) (dir, x : AddPackageInput) =
     let old_package = Map.tryFind dir s.packages
     let is_dirty = x.links |> Map.exists (fun k _ -> Set.contains k dirty_nodes)
     let top_env_in =
@@ -232,13 +211,13 @@ let add_packages (s : PackageCoreState, infer_results' : Map<string,InferResult 
         match old_package with
         | Some _ when is_dirty -> 
             let id, package_ids = s.package_ids.[dir], s.package_ids
-            (multi_file id top_env_in).OrderChanged(x.files), package_ids
-        | Some p -> p.stream.OrderChanged(x.files), s.package_ids
+            (multi_file id top_env_in).Run(x.files), package_ids
+        | Some p -> p.stream.Run(x.files), s.package_ids
         | None -> 
             let id, package_ids = 
                 if PersistentHashMap.containsKey dir s.package_ids then s.package_ids.[dir], s.package_ids
                 else s.package_ids.Count, s.package_ids.Add(dir,s.package_ids.Count)
-            (multi_file id top_env_in).OrderChanged(x.files), package_ids
+            (multi_file id top_env_in).Run(x.files), package_ids
     
     let s = // Remove the current package dir from the parents based on the old links.
         let old_links = match old_package with Some x -> x.links | None -> Map.empty
@@ -249,7 +228,6 @@ let add_packages (s : PackageCoreState, infer_results' : Map<string,InferResult 
     let infer_results = Map.foldBack Map.add infer_results infer_results'
 
     let package = {
-        files = x.files
         links = x.links
         rev_links = match old_package with Some x -> x.rev_links | None -> Set.empty
         top_env_in = top_env_in
@@ -259,17 +237,52 @@ let add_packages (s : PackageCoreState, infer_results' : Map<string,InferResult 
     
     { packages = Map.add dir package s.packages; package_ids = package_ids }, infer_results, Set.add dir dirty_nodes
 
-let remove_packages (s : PackageCoreState) l =
-    ()
+let remove_package (s : PackageCoreState) x =
+    let package = s.packages.[x]
+    let s = links_rev_remove package.links x s
+    {s with packages = Map.remove x s.packages}
 
-let package_core () =
-    let rec loop (state : PackageCoreState) =
+let package_core =
+    let rec loop (s : PackageCoreState) =
         {new PackageCoreStream with
-            member _.AddPackages reqs = let a,b,_ = List.fold add_packages (state,Map.empty,Set.empty) reqs in b, loop a
-            member _.RemovePackages reqs = failwith ""
-            member _.FileChanged req = failwith ""
+            member _.ReplacePackages(adds,removes) =
+                let s,b,_ = List.fold add_package (s,Map.empty,Set.empty) adds
+                b, loop (Set.fold remove_package s removes)
             }
-    loop {packages = Map.empty; package_ids=PersistentHashMap.empty}
+    loop {packages=Map.empty; package_ids=PersistentHashMap.empty}
+
+type PackageDiffStream =
+    abstract member Run : string [] * PackageSchema ResultMap * MirroredGraph * Map<string,ParserRes Promise> -> Map<string, InferResult Stream> * PackageDiffStream
+
+type PackageDiffState = { changes : string Set; errors : string Set; core : PackageCoreStream }
+let get_adds_and_removes (schema : PackageSchema ResultMap) ((abs,bas) : MirroredGraph) (parsers : Map<string,ParserRes Promise>) (changes : string Set) =
+    let sort_order, _ = topological_sort bas changes
+    Seq.foldBack (fun x (adds,removes) ->
+        match Map.tryFind x schema with
+        | Some(Ok p) -> (x,{links=failwith "TODO"; files=failwith "TODO"}) :: adds, removes
+        | _ -> adds, Set.add x removes
+        ) sort_order ([], Set.empty)
+
+let package_diff =
+    let rec loop (s : PackageDiffState) =
+        {new PackageDiffStream with
+            member _.Run(order,schemas,graph,parsers) =
+                let changes = Array.foldBack Set.add order s.changes
+                let errors = 
+                    Array.fold (fun s x ->
+                        let has_error =
+                            match Map.tryFind x schemas with
+                            | Some(Ok x) -> (List.isEmpty x.package_errors && List.isEmpty x.schema.errors) = false
+                            | _ -> false
+                        if has_error then Set.add x s else Set.remove x s
+                        ) s.errors order
+                if Set.isEmpty errors && Set.isEmpty changes = false then 
+                    let adds,removes = get_adds_and_removes schemas graph parsers changes
+                    let x,core = s.core.ReplacePackages(adds,removes)
+                    x,loop {changes=Set.empty; errors=errors; core=core}
+                else Map.empty, loop {s with changes=changes; errors=errors}
+            }
+    loop {changes=Set.empty; errors=Set.empty; core=package_core}
 
 type FileState = {
     tokenizer : TokenizerStream
