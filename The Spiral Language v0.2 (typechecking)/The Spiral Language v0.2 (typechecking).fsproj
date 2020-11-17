@@ -41,6 +41,7 @@
     <Compile Include="SpiProj.fs" />
     <Compile Include="ServerUtils.fs" />
     <Compile Include="StreamServer.fs" />
+    <Compile Include="OldServer.fs" />
   </ItemGroup>
 
   <ItemGroup>
