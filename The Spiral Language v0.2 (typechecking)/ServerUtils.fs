@@ -90,13 +90,19 @@ open Hopac.Infixes
 open Hopac.Extensions
 open Hopac.Stream
 
+type ValidatedFileHierarchy =
+    | File of path: string * name: string
+    | Directory of name: string * ValidatedFileHierarchy list
+
 type ValidatedSchema = {
     schema : Schema
     packages : RString list
     links : RString list
     actions : RAction list
     errors : RString list
+    files : ValidatedFileHierarchy list
     }
+
 let schema project_dir x =
     let errors = ResizeArray()
     let actions = ResizeArray()
@@ -129,33 +135,41 @@ let schema project_dir x =
                 else validate_ownership (r,dir.Parent)
         x.moduleDir |> Option.iter (fun (r,dir) -> try validate_ownership (r,DirectoryInfo(Path.Combine(project_dir,dir))) with e -> errors.Add (r, e.Message))
 
-    if 0 = errors.Count then 
-        let rec validate_file prefix = function
-            | File(r',(r,a),is_top_down,_) -> 
-                try let x = FileInfo(Path.Combine(prefix,a + (if is_top_down then ".spi" else ".spir")))
-                    if x.Exists then 
-                        links.Add (r, "file:///" + x.FullName)
-                        actions.Add (r, RenameFile {|filePath=x.FullName; target=null|})
-                        actions.Add (r, DeleteFile {|range=r'; filePath=x.FullName|})
-                    else 
-                        errors.Add (r, "File does not exist.")
-                        actions.Add (r, CreateFile {|filePath=x.FullName|})
-                with e -> errors.Add (r, e.Message)
-            | Directory(r',(r,a),b) ->
-                try let x = DirectoryInfo(Path.Combine(prefix,a))
-                    let p = Path.Combine(x.FullName,"package.spiproj")
-                    if File.Exists(p) then 
-                        errors.Add(r, "This directory belongs to a different project.")
-                        links.Add (r, "file:///" + p)
-                    elif x.Exists then
-                        Array.iter (validate_file x.FullName) b
-                        actions.Add (r, RenameDirectory {|dirPath=x.FullName; target=null; validate_as_file=true|})
-                        actions.Add (r, DeleteDirectory {|dirPath=x.FullName; range=r'|})
-                    else
-                        errors.Add (r, "Directory does not exist.")
-                        actions.Add (r, CreateDirectory {|dirPath=x.FullName|})
-                with e -> errors.Add (r, e.Message)
-        Array.iter (validate_file moduleDir) x.modules
+    let files =
+        if 0 = errors.Count then 
+            let rec validate_file prefix = function
+                | FileHierarchy.File(r',(r,a),is_top_down,_) -> 
+                    try let x = FileInfo(Path.Combine(prefix,a + (if is_top_down then ".spi" else ".spir")))
+                        if x.Exists then 
+                            links.Add (r, "file:///" + x.FullName)
+                            actions.Add (r, RenameFile {|filePath=x.FullName; target=null|})
+                            actions.Add (r, DeleteFile {|range=r'; filePath=x.FullName|})
+                        else 
+                            errors.Add (r, "File does not exist.")
+                            actions.Add (r, CreateFile {|filePath=x.FullName|})
+                        Some(File(x.FullName,a))
+                    with e -> errors.Add (r, e.Message); None
+                | FileHierarchy.Directory(r',(r,a),b) ->
+                    try let x = DirectoryInfo(Path.Combine(prefix,a))
+                        let p = Path.Combine(x.FullName,"package.spiproj")
+                        let l =
+                            if File.Exists(p) then 
+                                errors.Add(r, "This directory belongs to a different project.")
+                                links.Add(r, "file:///" + p)
+                                []
+                            elif x.Exists then
+                                actions.Add(r, RenameDirectory {|dirPath=x.FullName; target=null; validate_as_file=true|})
+                                actions.Add(r, DeleteDirectory {|dirPath=x.FullName; range=r'|})
+                                List.choose(validate_file x.FullName) b
+                            else
+                                errors.Add(r, "Directory does not exist.")
+                                actions.Add(r, CreateDirectory {|dirPath=x.FullName|})
+                                []
+                        Some(Directory(a,l))
+                    with e -> errors.Add (r, e.Message); None
+            List.choose (validate_file moduleDir) x.modules
+        else
+            []
     let outDir = validate_dir x.outDir
     let packages =
         let packages = HashSet()
@@ -173,7 +187,7 @@ let schema project_dir x =
                 List.choose (validate_package d.FullName) x.packages
             with e -> errors.Add (r, e.Message); []
         | None -> List.choose (validate_package (Path.Combine(project_dir,".."))) x.packages
-    {schema=x; packages=packages; links=Seq.toList links; actions=Seq.toList actions; errors=Seq.toList errors}
+    {schema=x; packages=packages; links=Seq.toList links; actions=Seq.toList actions; errors=Seq.toList errors; files=files}
 
 let load_from_string project_dir text =
     match config text with

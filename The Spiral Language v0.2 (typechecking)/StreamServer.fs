@@ -110,12 +110,12 @@ type MultiFileOutState = {
     module_id : int
     top_env_additions : TopEnv Promise
     }
-type FileHierarchy =
+type DiffableFileHierarchy =
     | File of path: string * name: string * meta: MultiFileOutState option * ParserRes Promise * tc: TypecheckerStream option
-    | Directory of name: string * FileHierarchy list
+    | Directory of name: string * DiffableFileHierarchy list
 
 type MultiFileStream = 
-    abstract member Run : FileHierarchy list -> Map<string,InferResult Stream> * TopEnv Promise * MultiFileStream
+    abstract member Run : DiffableFileHierarchy list -> Map<string,InferResult Stream> * TopEnv Promise * MultiFileStream
 
 // Rather than just throwing away the old results, diff returns the new tree with as much useful info from the old tree as is possible.
 let diff_order_changed old new' =
@@ -171,7 +171,7 @@ let multi_file package_id top_env =
         {new MultiFileStream with member _.Run files = diff_order_changed files' files |> run}
     create []
 
-type AddPackageInput = {links : Map<string,{|name : string|}>; files : FileHierarchy list}
+type AddPackageInput = {links : Map<string,{|name : string|}>; files : DiffableFileHierarchy list}
 type PackageCoreStream =
     abstract member ReplacePackages : (string * AddPackageInput) list * string Set -> Map<string,InferResult Stream> * PackageCoreStream
 
@@ -257,10 +257,19 @@ type PackageDiffStream =
 type PackageDiffState = { changes : string Set; errors : string Set; core : PackageCoreStream }
 let get_adds_and_removes (schema : PackageSchema ResultMap) ((abs,bas) : MirroredGraph) (parsers : Map<string,ParserRes Promise>) (changes : string Set) =
     let sort_order, _ = topological_sort bas changes
-    Seq.foldBack (fun x (adds,removes) ->
-        match Map.tryFind x schema with
-        | Some(Ok p) -> (x,{links=failwith "TODO"; files=failwith "TODO"}) :: adds, removes
-        | _ -> adds, Set.add x removes
+    Seq.foldBack (fun dir (adds,removes) ->
+        match Map.tryFind dir schema with
+        | Some(Ok p) ->
+            let names = p.schema.schema.packages // TODO: Extend the parser for packages and separate out the names and locations.
+            let links = p.schema.packages
+            let files =
+                let rec elem = function
+                    | ValidatedFileHierarchy.File(a,b) -> File(a,b,None,parsers.[a],None)
+                    | ValidatedFileHierarchy.Directory(a,b) -> Directory(a,list b)
+                and list l = List.map elem l
+                list p.schema.files
+            (dir,{links=Map(List.map2 (fun (_,a) (_,b) -> a, {|name=b|}) links names); files=files}) :: adds, removes
+        | _ -> adds, Set.add dir removes
         ) sort_order ([], Set.empty)
 
 let package_diff =

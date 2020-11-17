@@ -5,7 +5,7 @@ open FParsec
 open VSCTypes
 
 type FileHierarchy =
-    | Directory of VSCRange * RString * FileHierarchy []
+    | Directory of VSCRange * RString * FileHierarchy list
     | File of VSCRange * RString * is_top_down : bool * is_include : bool
 type ConfigResumableError =
     | DuplicateFiles of VSCRange [] []
@@ -38,9 +38,9 @@ let rec file_hierarchy p =
     let i = column p
     let expr p = if i = column p then file_or_directory p else Reply(ReplyStatus.Error,expected "file or directory on the same or greater indentation as the first one")
     (many expr |>> fun l ->
-        let l = l |> List.toArray
         let _ = 
-            l |> Array.map (fun (File(_,(a,b),_,_) | Directory(_,(a,b),_)) -> b,a)
+            l |> List.toArray
+            |> Array.map (fun (File(_,(a,b),_,_) | Directory(_,(a,b),_)) -> b,a)
             |> Array.groupBy fst
             |> Array.choose (fun (a,b) -> if b.Length > 1 then Some (Array.map snd b) else None)
             |> add_to_exception_list p DuplicateFiles
@@ -49,7 +49,7 @@ let rec file_hierarchy p =
 
 and file_or_directory p =
     let i = column p
-    let file_hierarchy p = if i < column p then file_hierarchy p else Reply([||])
+    let file_hierarchy p = if i < column p then file_hierarchy p else Reply([])
     (range (range file' >>= fun (r,name) p ->
         let x = p.Peek2()
         match x.Char0, x.Char1 with
@@ -106,7 +106,7 @@ type Schema = {
     name : RString option
     version : RString option
     moduleDir : RString option
-    modules : FileHierarchy []
+    modules : FileHierarchy list
     packageDir : RString option
     packages : RString list
     }
@@ -116,7 +116,7 @@ let schema_def: Schema = {
     name=None
     version=None
     moduleDir=None
-    modules=[||]
+    modules=[]
     packageDir=None
     packages=[]
     }
