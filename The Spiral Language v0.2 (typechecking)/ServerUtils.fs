@@ -192,7 +192,7 @@ let schema project_dir x =
 let load_from_string project_dir text =
     match config text with
     | Ok x -> schema project_dir x |> Ok
-    | Error er -> {schema=schema_def; packages=[]; links=[]; actions=[]; errors=er} |> Ok
+    | Error er -> {schema=schema_def; packages=[]; links=[]; actions=[]; errors=er; files=[]} |> Ok
 
 let load_from_file project_dir =
     let p = Path.Combine(project_dir,"package.spiproj")

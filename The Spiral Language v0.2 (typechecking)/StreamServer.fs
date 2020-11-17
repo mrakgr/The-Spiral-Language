@@ -311,10 +311,7 @@ let handle_token_range r_par canc req =
     loop()
 
 let hover (l : Infer.InferResult PersistentVector) (pos : VSCPos) =
-    l |> PersistentVector.tryFindBack (fun x ->
-        let start = if 0 < x.hovers.Length then (x.hovers.[0] |> fst |> fst).line else Int32.MaxValue
-        start <= pos.line
-        )
+    l |> PersistentVector.tryFindBack (fun x -> x.offset <= pos.line)
     |> Option.bind (fun x ->
          x.hovers |> Array.tryPick (fun ((a,b),r) ->
             if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None

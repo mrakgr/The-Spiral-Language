@@ -16,6 +16,11 @@ type BundleTop =
     | BundlePrototype of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawTExpr
     | BundleInstance of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawExpr
 
+let bundle_top_range = function
+    | BundleType(r,_,_,_) | BundleNominal(r,_,_,_) | BundleInl(r,_,_,_) | BundlePrototype(r,_,_,_,_) | BundleInstance(r,_,_,_,_) -> r
+    | BundleNominalRec l -> List.head l |> fun (r,_,_,_) -> r
+    | BundleRecInl(l,_) -> List.head l |> fun (r,_,_) -> r
+
 let add_offset offset (range : VSCRange) : VSCRange = 
     let f (a : VSCPos) = {|a with line=offset + a.line|}
     let a,b = range

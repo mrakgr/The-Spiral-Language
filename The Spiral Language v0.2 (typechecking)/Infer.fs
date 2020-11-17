@@ -589,6 +589,7 @@ open System.Collections.Generic
 type InferResult = {
     filled_top : FilledTop Hopac.Promise
     top_env_additions : TopEnv
+    offset : int
     hovers : RString []
     errors : RString list
     }
@@ -1361,7 +1362,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         ty {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
         let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
         if 0 = errors.Count then
-            hover_types.Add(r,body)
             psucc (fun () -> FPrototype(q,(r,name),(w,var_init),vars',expr)), 
             { top_env_empty with
                 prototypes_next_tag = i.tag + 1
@@ -1464,11 +1464,12 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | Some(M _) -> errors.Add(fst prot, ExpectedPrototypeInsteadOfModule); check_ins fake
     |> fun (filled_top, top_env_additions) -> 
         if 0 = errors.Count then
-            annotations |> Seq.iter (fun (KeyValue (_,(r,x))) -> if has_metavars x then errors.Add(r, ValueRestriction x))
+            annotations |> Seq.iter (fun (KeyValue(_,(r,x))) -> if has_metavars x then errors.Add(r, ValueRestriction x))
         {
         filled_top = filled_top
         top_env_additions = top_env_additions
-        hovers = let x = hover_types.ToArray() |> Array.map (fun (a,b) -> a, show_t top_env b) in Array.sortInPlaceBy fst x; x
+        offset = bundle_top_range expr |> fst |> fun x -> x.line
+        hovers = hover_types.ToArray() |> Array.map (fun (a,b) -> a, show_t top_env b)
         errors = errors |> Seq.toList |> List.map (fun (a,b) -> a, show_type_error top_env b)
         }
 
