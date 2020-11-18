@@ -91,7 +91,7 @@ open Hopac.Extensions
 open Hopac.Stream
 
 type ValidatedFileHierarchy =
-    | File of path: string * name: string
+    | File of path: string * name: string * exists: bool
     | Directory of name: string * ValidatedFileHierarchy list
 
 type ValidatedSchema = {
@@ -140,14 +140,15 @@ let schema project_dir x =
             let rec validate_file prefix = function
                 | FileHierarchy.File(r',(r,a),is_top_down,_) -> 
                     try let x = FileInfo(Path.Combine(prefix,a + (if is_top_down then ".spi" else ".spir")))
-                        if x.Exists then 
+                        let exists = x.Exists
+                        if exists then 
                             links.Add (r, "file:///" + x.FullName)
                             actions.Add (r, RenameFile {|filePath=x.FullName; target=null|})
                             actions.Add (r, DeleteFile {|range=r'; filePath=x.FullName|})
                         else 
                             errors.Add (r, "File does not exist.")
                             actions.Add (r, CreateFile {|filePath=x.FullName|})
-                        Some(File(x.FullName,a))
+                        Some(File(x.FullName,a,exists))
                     with e -> errors.Add (r, e.Message); None
                 | FileHierarchy.Directory(r',(r,a),b) ->
                     try let x = DirectoryInfo(Path.Combine(prefix,a))

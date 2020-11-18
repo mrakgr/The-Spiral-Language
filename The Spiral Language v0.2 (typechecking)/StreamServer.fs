@@ -70,6 +70,17 @@ let parser is_top_down =
                 }
     loop (fun () -> [])
 
+type ModuleStream = abstract member Run : TokReq -> ParserRes Promise * ModuleStream
+let module' is_top_down =
+    let rec loop (tokenizer : TokenizerStream, parser : ParserStream) =
+        {new ModuleStream with
+            member _.Run(req) =
+                let x,tok = tokenizer.Run(req)
+                let x,par = parser.Run(x)
+                x,loop (tok,par)
+                }
+    loop (tokenizer, parser is_top_down)
+
 let cons_fulfilled l = 
     let rec loop olds = function
         | Cons(old,next) when Promise.Now.isFulfilled next -> loop (PersistentVector.conj old olds) (Promise.Now.get next)
@@ -263,7 +274,7 @@ let get_adds_and_removes (schema : PackageSchema ResultMap) ((abs,bas) : Mirrore
             let links = p.schema.packages
             let files =
                 let rec elem = function
-                    | ValidatedFileHierarchy.File(a,b) -> File(a,b,None,parsers.[a],None)
+                    | ValidatedFileHierarchy.File(a,b,_) -> File(a,b,None,parsers.[a],None)
                     | ValidatedFileHierarchy.Directory(a,b) -> Directory(a,list b)
                 and list l = List.map elem l
                 list p.schema.files
@@ -292,29 +303,29 @@ let package_diff =
             }
     loop {changes=Set.empty; errors=Set.empty; core=package_core}
 
-type SupervisorReq =
-    | ProjectFileOpen of {|uri : string; spiprojText : string|}
-    | ProjectFileChange of {|uri : string; spiprojText : string|}
-    | ProjectFileDelete of {|uri : string|}
-    | ProjectFileLinks of {|uri : string|} * RString list IVar
-    | ProjectCodeActions of {|uri : string|} * RAction list IVar
-    | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
-    | FileOpen of {|uri : string; spiText : string|}
-    | FileChanged of {|uri : string; spiEdit : SpiEdit|}
-    | FileTokenRange of {|uri : string; range : VSCRange|} * VSCTokenArray IVar
-    | HoverAt of {|uri : string; pos : VSCPos|} * string option IVar
+//type SupervisorReq =
+//    | ProjectFileOpen of {|uri : string; spiprojText : string|}
+//    | ProjectFileChange of {|uri : string; spiprojText : string|}
+//    | ProjectFileDelete of {|uri : string|}
+//    | ProjectFileLinks of {|uri : string|} * RString list IVar
+//    | ProjectCodeActions of {|uri : string|} * RAction list IVar
+//    | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
+//    | FileOpen of {|uri : string; spiText : string|}
+//    | FileChanged of {|uri : string; spiEdit : SpiEdit|}
+//    | FileTokenRange of {|uri : string; range : VSCRange|} * VSCTokenArray IVar
+//    | HoverAt of {|uri : string; pos : VSCPos|} * string option IVar
 
-let supervisor tokenizer_errors parser_errors type_errors package_errors fatal_errors req =
-    let loop = req >>= function
-        | ProjectFileOpen x -> failwith "TODO"
-        | ProjectFileChange x -> failwith "TODO"
-        | ProjectFileDelete x -> failwith "TODO"
-        | ProjectFileLinks(x,res) -> failwith "TODO"
-        | ProjectCodeActions(x,res) -> failwith "TODO"
-        | ProjectCodeActionExecute x -> failwith "TODO"
-        | FileOpen x -> failwith "TODO"
-        | FileChanged x -> failwith "TODO"
-        | FileTokenRange(x, res) -> failwith "TODO"
-        | HoverAt(x,res) -> failwith "TODO"
-    Job.foreverServer loop
+//let supervisor tokenizer_errors parser_errors type_errors package_errors fatal_errors req =
+//    let loop = req >>= function
+//        | ProjectFileOpen x -> failwith "TODO"
+//        | ProjectFileChange x -> failwith "TODO"
+//        | ProjectFileDelete x -> failwith "TODO"
+//        | ProjectFileLinks(x,res) -> failwith "TODO"
+//        | ProjectCodeActions(x,res) -> failwith "TODO"
+//        | ProjectCodeActionExecute x -> failwith "TODO"
+//        | FileOpen x -> failwith "TODO"
+//        | FileChanged x -> failwith "TODO"
+//        | FileTokenRange(x, res) -> failwith "TODO"
+//        | HoverAt(x,res) -> failwith "TODO"
+//    Job.foreverServer loop
 

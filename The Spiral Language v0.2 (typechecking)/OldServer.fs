@@ -19,7 +19,6 @@ open Hopac.Infixes
 open Hopac.Extensions
 open Hopac.Stream
 
-
 type FileState = {
     tokenizer : TokenizerStream
     parser : ParserStream
