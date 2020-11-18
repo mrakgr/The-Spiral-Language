@@ -87,20 +87,19 @@ let typechecker package_id module_id top_env =
                 let _,_,env as s = b,x,Infer.union x.top_env_additions env
                 Cons(s,promise_thunk (fun () -> run old_results env (i+1) bs))
         | [] -> Nil
-    let rec loop old_results =
+    let rec loop r =
         {new TypecheckerStream with
             member _.Run(res) =
-                let r = 
-                    top_env >>=* fun top_env ->
-                    res >>= fun res ->
-                    // Doing the memoization like this has the disadvantage of always focing the evaluation of the previous 
-                    // streams' first item, but on the plus side will reuse old state.
-                    old_results >>- fun old_results ->
+                let r = r()
+                let r' = 
+                    r >>=* fun old_results ->
+                    top_env >>= fun top_env ->
+                    res >>- fun res ->
                     run (cons_fulfilled old_results) top_env 0 res.bundles
-                let a = Stream.mapFun (fun (_,x,_) -> x) r
-                a, loop r
+                let a = Stream.mapFun (fun (_,x,_) -> x) r'
+                a, loop (fun () -> if Promise.Now.isFulfilled r' then r' else r)
             }
-    loop Stream.nil
+    loop (fun () -> Stream.nil)
 
 type MultiFileInState = {
     module_id : int
