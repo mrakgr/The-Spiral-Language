@@ -4,11 +4,18 @@ open System
 open System.IO
 open System.Threading.Tasks
 open System.Collections.Generic
+open FSharpx.Collections
 
 open VSCTypes
-open Spiral.SpiProj
+open Spiral.Tokenize
+open Spiral.Infer
 open Spiral.ServerUtils
 open Spiral.StreamServer
+
+open Hopac
+open Hopac.Infixes
+open Hopac.Extensions
+open Hopac.Stream
 
 type SupervisorState = {
     modules : Map<string, ParserRes Hopac.Promise * ModuleStream>
@@ -29,4 +36,4 @@ let schema_modules_from_disk (s : SupervisorState, l : ValidatedSchema) =
         try {s with modules = Map.add path ((module' (path.EndsWith ".spi")).Run(DocumentAll x.Result)) s.modules }, l
         with e -> s, {l with errors = (r, e.Message) :: l.errors}
         ) (s, l) loads
-    
+

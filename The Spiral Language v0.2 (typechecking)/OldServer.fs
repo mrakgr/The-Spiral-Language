@@ -7,10 +7,7 @@ open FSharpx.Collections
 
 open VSCTypes
 open Spiral.Tokenize
-open Spiral.TypecheckingUtils
 open Spiral.Infer
-open Spiral.Blockize
-open Spiral.SpiProj
 open Spiral.ServerUtils
 open Spiral.StreamServer
 
@@ -23,8 +20,7 @@ type FileState = {
     tokenizer : TokenizerStream
     parser : ParserStream
     typechecker : TypecheckerStream
-    cancellation_start : unit IVar
-    cancellation_done : unit Promise
+    cancellable : unit Job
     }
 
 let token_range (r_par : ParserRes) ((a,b) : VSCRange) =
@@ -60,32 +56,34 @@ let handle_typ uri type_errors r_typ canc =
                 )
     r_typ >>= loop []
 
+/// Binding from the outer layer starts a job, and binding from the inner layer cancels it and waits for completion.
+let cancellable_job f =
+    let canc = IVar()
+    Promise.start (f canc) >>- fun fin -> IVar.fill canc () >>=. fin
+
 let file_server tokenizer_errors parser_errors type_errors (uri : string) req req_token_range req_hover_at =
-    let cancel (s : FileState) = IVar.fill s.cancellation_start () >>=. s.cancellation_done
     let loop s =
         req >>= fun x ->
         let rec try_more x = Ch.Try.take req >>= function
             | Some x -> try_more (s.tokenizer.Run(x))
             | None -> Job.result x
         try_more (s.tokenizer.Run(x)) >>= fun (r_tok,tok) ->
-        cancel s >>= fun () ->
+        s.cancellable >>= fun () ->
         let r_par,par = s.parser.Run(r_tok)
         let r_typ,typ = s.typechecker.Run(r_par)
-        let canc = IVar()
-        Promise.start (Job.conIgnore [ 
+        cancellable_job (fun canc -> Job.conIgnore [ 
             Src.value tokenizer_errors {|uri=uri; errors=r_tok.errors|}
             r_par >>= fun r_par -> Src.value parser_errors {|uri=uri; errors=r_par.parser_errors|}
             handle_token_range r_par canc req_token_range
             handle_typ uri type_errors r_typ canc
             handle_hover_at r_typ canc req_hover_at
-            ]) >>- fun canc_done ->
-        { tokenizer=tok; parser=par; typechecker=typ; cancellation_start=canc; cancellation_done=canc_done }
+            ]) >>- fun cancellable ->
+        { tokenizer=tok; parser=par; typechecker=typ; cancellable=cancellable }
     Job.iterateServer {
         tokenizer=tokenizer
         parser=parser (System.IO.Path.GetExtension(uri) = ".spi")
         typechecker=typechecker 0 0 (Promise(Infer.top_env_default))
-        cancellation_start=IVar()
-        cancellation_done=Promise(())
+        cancellable=Job.unit()
         } loop
 
 type AllFileReq =
@@ -95,14 +93,14 @@ type AllFileReq =
     | HoverAt of {|uri : string; pos : VSCPos|} * string option IVar
 
 let all_file_server tokenizer_errors parser_errors type_errors req =
-    let dict = Dictionary()
+    let file_server_dict = Dictionary()
     let file_server' uri =
-        match dict.TryGetValue(uri) with
+        match file_server_dict.TryGetValue(uri) with
         | true, v -> false, v
         | false, _ ->
             let x = {|req=Ch(); req_token_range=Ch(); req_hover_at=Ch()|}
             Hopac.start (file_server tokenizer_errors parser_errors type_errors uri x.req x.req_token_range x.req_hover_at)
-            dict.[uri] <- x
+            file_server_dict.[uri] <- x
             true, x
     let file_server uri = file_server' uri |> snd
     let loop = req >>= function
