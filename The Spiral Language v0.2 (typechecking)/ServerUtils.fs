@@ -91,7 +91,7 @@ open Hopac.Extensions
 open Hopac.Stream
 
 type ValidatedFileHierarchy =
-    | File of path: string * name: string * exists: bool
+    | File of path: RString * name: string * exists: bool
     | Directory of name: string * ValidatedFileHierarchy list
 
 type ValidatedSchema = {
@@ -148,7 +148,7 @@ let schema project_dir x =
                         else 
                             errors.Add (r, "File does not exist.")
                             actions.Add (r, CreateFile {|filePath=x.FullName|})
-                        Some(File(x.FullName,a,exists))
+                        Some(File((r,x.FullName),a,exists))
                     with e -> errors.Add (r, e.Message); None
                 | FileHierarchy.Directory(r',(r,a),b) ->
                     try let x = DirectoryInfo(Path.Combine(prefix,a))
@@ -190,16 +190,16 @@ let schema project_dir x =
         | None -> List.choose (validate_package (Path.Combine(project_dir,".."))) x.packages
     {schema=x; packages=packages; links=Seq.toList links; actions=Seq.toList actions; errors=Seq.toList errors; files=files}
 
-let load_from_string project_dir text =
+let package_from_string project_dir text =
     match config text with
     | Ok x -> schema project_dir x |> Ok
     | Error er -> {schema=schema_def; packages=[]; links=[]; actions=[]; errors=er; files=[]} |> Ok
 
-let load_from_file project_dir =
+let package_from_disk project_dir =
     let p = Path.Combine(project_dir,"package.spiproj")
     if File.Exists(p) then 
         Job.catch (Job.fromTask (fun () -> File.ReadAllTextAsync(p))) >>- function
-        | Choice1Of2 text -> load_from_string project_dir text
+        | Choice1Of2 text -> package_from_string project_dir text
         | Choice2Of2 er -> Error er.Message
     else Job.result (Error "The package file does not exist.")
 
@@ -221,11 +221,11 @@ let load (m : ValidatedSchema ResultMap) text project_dir =
                     Set.add project_dir waiting,
                     match text with
                     | None -> 
-                        load_from_file project_dir >>= fun x ->
+                        package_from_disk project_dir >>= fun x ->
                         Job.start (MVar.mutateFun (Map.add project_dir x) finished) >>=.
                         process_packages x
                     | Some text -> Job.delay <| fun () ->
-                        let x = load_from_string project_dir text 
+                        let x = package_from_string project_dir text 
                         Job.start (MVar.mutateFun (Map.add project_dir x) finished) >>=.
                         process_packages x
                 ) waiting >>= Job.Ignore

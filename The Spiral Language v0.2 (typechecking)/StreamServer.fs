@@ -274,7 +274,7 @@ let get_adds_and_removes (schema : PackageSchema ResultMap) ((abs,bas) : Mirrore
             let links = p.schema.packages
             let files =
                 let rec elem = function
-                    | ValidatedFileHierarchy.File(a,b,_) -> File(a,b,None,parsers.[a],None)
+                    | ValidatedFileHierarchy.File((_,a),b,_) -> File(a,b,None,parsers.[a],None)
                     | ValidatedFileHierarchy.Directory(a,b) -> Directory(a,list b)
                 and list l = List.map elem l
                 list p.schema.files
