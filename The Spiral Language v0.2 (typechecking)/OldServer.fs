@@ -127,7 +127,6 @@ type PackageSupervisorReq =
     | ProjectCodeActions of {|uri : string|} * RAction list IVar
     | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
 
-let dir uri = FileInfo(Uri(uri).LocalPath).Directory.FullName
 let supervisor_server fatal_errors package_errors req =
     let m = ref {schemas=Map.empty; links=mirrored_graph_empty; loads=Map.empty}
     let change is_open dir text = change is_open !m dir text >>= fun (ers,m') -> m := m'; Array.iterJob (Src.value package_errors) ers

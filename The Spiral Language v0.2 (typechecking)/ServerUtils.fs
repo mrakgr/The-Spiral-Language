@@ -190,47 +190,6 @@ let schema project_dir x =
         | None -> List.choose (validate_package (Path.Combine(project_dir,".."))) x.packages
     {schema=x; packages=packages; links=Seq.toList links; actions=Seq.toList actions; errors=Seq.toList errors; files=files}
 
-let package_from_string project_dir text =
-    match config text with
-    | Ok x -> schema project_dir x |> Ok
-    | Error er -> {schema=schema_def; packages=[]; links=[]; actions=[]; errors=er; files=[]} |> Ok
-
-let package_from_disk project_dir =
-    let p = Path.Combine(project_dir,"package.spiproj")
-    if File.Exists(p) then 
-        Job.catch (Job.fromTask (fun () -> File.ReadAllTextAsync(p))) >>- function
-        | Choice1Of2 text -> package_from_string project_dir text
-        | Choice2Of2 er -> Error er.Message
-    else Job.result (Error "The package file does not exist.")
-
-type ResultMap<'a> = Map<string,Result<'a,string>>
-let load (m : ValidatedSchema ResultMap) text project_dir =
-    let m = Map.remove project_dir m
-    let waiting = MVar(Set.empty)
-    let finished = MVar(m)
-    let rec loop text project_dir =
-        match Map.tryFind project_dir m with
-        | Some _ -> Job.unit()
-        | None ->
-            MVar.modifyFun (fun waiting ->
-                if Set.contains project_dir waiting then waiting, Job.unit()
-                else 
-                    let process_packages = function
-                        | Ok x -> Seq.Con.iterJob (snd >> loop None) x.packages
-                        | Error _ -> Job.unit()
-                    Set.add project_dir waiting,
-                    match text with
-                    | None -> 
-                        package_from_disk project_dir >>= fun x ->
-                        Job.start (MVar.mutateFun (Map.add project_dir x) finished) >>=.
-                        process_packages x
-                    | Some text -> Job.delay <| fun () ->
-                        let x = package_from_string project_dir text 
-                        Job.start (MVar.mutateFun (Map.add project_dir x) finished) >>=.
-                        process_packages x
-                ) waiting >>= Job.Ignore
-    loop text project_dir >>=. MVar.take finished
-
 type PackageSchema = {
     schema : ValidatedSchema
     package_links : RString list
@@ -238,36 +197,36 @@ type PackageSchema = {
     is_circular : bool
     }
 
-let spiproj_link dir = sprintf "file:///%s/package.spiproj" dir
-
+type ResultMap<'a> = Map<string,Result<'a,string>>
 type PackageMaps = {
     schemas : PackageSchema ResultMap
     links : MirroredGraph
     loads : ValidatedSchema ResultMap
     }
 
-let validate {schemas=schemas; links=links; loads=loads} project_dir =
+let spiproj_link dir = sprintf "file:///%s/package.spiproj" dir
+let validate (s : PackageMaps) project_dir =
     let potential_floating_garbage =
         project_dir ::
-        match Map.tryFind project_dir schemas with
+        match Map.tryFind project_dir s.schemas with
         | Some(Ok v) -> List.map snd v.schema.packages
         | _ -> []
 
-    let schemas = Map.remove project_dir schemas
+    let schemas = Map.remove project_dir s.schemas
     let dirty_nodes = HashSet()
     dirty_nodes.Add(project_dir) |> ignore
     
     let rec loop links project_dir =
-        match loads.[project_dir] with
+        match s.loads.[project_dir] with
         | Ok x -> List.fold (fun links (r,x) -> check (add_link' links project_dir x) x) links x.packages
         | Error _ -> links
     and check links project_dir = if schemas.ContainsKey(project_dir) = false && dirty_nodes.Add(project_dir) then loop links project_dir else links
-    let links = loop (remove_links links project_dir) project_dir 
+    let links = loop (remove_links s.links project_dir) project_dir 
 
     let order, circular_nodes = circular_nodes links dirty_nodes
     let schemas = // Validation and error propagation across the entire graph of packages.
         Array.fold (fun schemas cur ->
-            match loads.[cur] with
+            match s.loads.[cur] with
             | Ok v ->
                 let is_circular = circular_nodes.Contains(cur)
                 let links = ResizeArray()
@@ -293,16 +252,12 @@ let validate {schemas=schemas; links=links; loads=loads} project_dir =
             match Map.find project_dir schemas with
             | Error _ when link_exists links project_dir = false -> Map.remove project_dir schemas, Map.remove project_dir loads
             | _ -> schemas,loads
-            ) (schemas,loads) potential_floating_garbage
-    let errors = order |> Array.choose (fun dir -> 
-        match Map.tryFind dir schemas with
+            ) (schemas,s.loads) potential_floating_garbage
+    order, {schemas=schemas; links=links; loads=loads}
+
+let order_errors order (s : PackageMaps) =
+    Array.choose (fun dir -> 
+        match Map.tryFind dir s.schemas with
         | Some(Ok x) -> Some {|uri=spiproj_link dir; errors=List.append x.schema.errors x.package_errors|}
         | _ -> None
-        )
-    errors, {schemas=schemas; links=links; loads=loads}
-
-let change is_open (m : PackageMaps) dir text =
-    match Map.tryFind dir m.schemas with
-    | Some(Ok _) when is_open -> Job.result ([||], m)
-    | _ -> load m.loads text dir >>- fun loads -> validate {m with loads=loads} dir
-
+        ) order
