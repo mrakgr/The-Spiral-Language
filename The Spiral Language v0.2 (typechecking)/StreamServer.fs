@@ -191,6 +191,7 @@ let inline link_op f dir s k =
     match Map.tryFind k s.packages with 
     | Some x -> {s with packages = Map.add k {x with rev_links = f dir x.rev_links} s.packages}
     | None -> s
+
 /// Removes the current package from its parents' reverse links.
 let links_rev_remove links dir s = links |> Map.fold (fun s k _ -> link_op Set.remove dir s k) s
 /// Adds the current package to its parents' reverse links.
