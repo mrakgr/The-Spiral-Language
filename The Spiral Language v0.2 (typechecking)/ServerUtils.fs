@@ -103,7 +103,7 @@ type ValidatedSchema = {
     files : ValidatedFileHierarchy list
     }
 
-let schema project_dir x =
+let schema_validate project_dir x =
     let errors = ResizeArray()
     let actions = ResizeArray()
     let validate_dir dir =
@@ -199,25 +199,25 @@ type PackageSchema = {
 
 type ResultMap<'a> = Map<string,Result<'a,string>>
 type PackageMaps = {
-    schemas : PackageSchema ResultMap
+    packages : PackageSchema ResultMap
     links : MirroredGraph
-    loads : ValidatedSchema ResultMap
+    validated_schemas : ValidatedSchema ResultMap
     }
 
 let spiproj_link dir = sprintf "file:///%s/package.spiproj" dir
-let validate (s : PackageMaps) project_dir =
+let package_validate (s : PackageMaps) project_dir =
     let potential_floating_garbage =
         project_dir ::
-        match Map.tryFind project_dir s.schemas with
+        match Map.tryFind project_dir s.packages with
         | Some(Ok v) -> List.map snd v.schema.packages
         | _ -> []
 
-    let schemas = Map.remove project_dir s.schemas
+    let schemas = Map.remove project_dir s.packages
     let dirty_nodes = HashSet()
     dirty_nodes.Add(project_dir) |> ignore
     
     let rec loop links project_dir =
-        match s.loads.[project_dir] with
+        match s.validated_schemas.[project_dir] with
         | Ok x -> List.fold (fun links (r,x) -> check (add_link' links project_dir x) x) links x.packages
         | Error _ -> links
     and check links project_dir = if schemas.ContainsKey(project_dir) = false && dirty_nodes.Add(project_dir) then loop links project_dir else links
@@ -226,7 +226,7 @@ let validate (s : PackageMaps) project_dir =
     let order, circular_nodes = circular_nodes links dirty_nodes
     let schemas = // Validation and error propagation across the entire graph of packages.
         Array.fold (fun schemas cur ->
-            match s.loads.[cur] with
+            match s.validated_schemas.[cur] with
             | Ok v ->
                 let is_circular = circular_nodes.Contains(cur)
                 let links = ResizeArray()
@@ -252,12 +252,17 @@ let validate (s : PackageMaps) project_dir =
             match Map.find project_dir schemas with
             | Error _ when link_exists links project_dir = false -> Map.remove project_dir schemas, Map.remove project_dir loads
             | _ -> schemas,loads
-            ) (schemas,s.loads) potential_floating_garbage
-    order, {schemas=schemas; links=links; loads=loads}
+            ) (schemas,s.validated_schemas) potential_floating_garbage
+    order, {packages=schemas; links=links; validated_schemas=loads}
 
-let order_errors order (s : PackageMaps) =
+let package_errors order (s : PackageMaps) =
     Array.choose (fun dir -> 
-        match Map.tryFind dir s.schemas with
+        match Map.tryFind dir s.packages with
         | Some(Ok x) -> Some {|uri=spiproj_link dir; errors=List.append x.schema.errors x.package_errors|}
         | _ -> None
         ) order
+
+let schema_parse_then_validate project_dir text =
+    match config text with
+    | Ok x -> schema_validate project_dir x
+    | Error er -> {schema=schema_def; packages=[]; links=[]; actions=[]; errors=er; files=[]}
