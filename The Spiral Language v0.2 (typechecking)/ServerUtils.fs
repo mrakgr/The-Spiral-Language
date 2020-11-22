@@ -199,20 +199,21 @@ type PackageSchema = {
 
 type ResultMap<'a> = Map<string,Result<'a,string>>
 type PackageMaps = {
-    packages : PackageSchema ResultMap
-    links : MirroredGraph
+    package_schemas : PackageSchema ResultMap
+    package_links : MirroredGraph
     validated_schemas : ValidatedSchema ResultMap
     }
 
+let dir uri = FileInfo(Uri(uri).LocalPath).Directory.FullName
 let spiproj_link dir = sprintf "file:///%s/package.spiproj" dir
 let package_validate (s : PackageMaps) project_dir =
     let potential_floating_garbage =
         project_dir ::
-        match Map.tryFind project_dir s.packages with
+        match Map.tryFind project_dir s.package_schemas with
         | Some(Ok v) -> List.map snd v.schema.packages
         | _ -> []
 
-    let schemas = Map.remove project_dir s.packages
+    let schemas = Map.remove project_dir s.package_schemas
     let dirty_nodes = HashSet()
     dirty_nodes.Add(project_dir) |> ignore
     
@@ -221,7 +222,7 @@ let package_validate (s : PackageMaps) project_dir =
         | Ok x -> List.fold (fun links (r,x) -> check (add_link' links project_dir x) x) links x.packages
         | Error _ -> links
     and check links project_dir = if schemas.ContainsKey(project_dir) = false && dirty_nodes.Add(project_dir) then loop links project_dir else links
-    let links = loop (remove_links s.links project_dir) project_dir 
+    let links = loop (remove_links s.package_links project_dir) project_dir 
 
     let order, circular_nodes = circular_nodes links dirty_nodes
     let schemas = // Validation and error propagation across the entire graph of packages.
@@ -253,11 +254,11 @@ let package_validate (s : PackageMaps) project_dir =
             | Error _ when link_exists links project_dir = false -> Map.remove project_dir schemas, Map.remove project_dir loads
             | _ -> schemas,loads
             ) (schemas,s.validated_schemas) potential_floating_garbage
-    order, {packages=schemas; links=links; validated_schemas=loads}
+    order, {package_schemas=schemas; package_links=links; validated_schemas=loads}
 
 let package_errors order (s : PackageMaps) =
     Array.choose (fun dir -> 
-        match Map.tryFind dir s.packages with
+        match Map.tryFind dir s.package_schemas with
         | Some(Ok x) -> Some {|uri=spiproj_link dir; errors=List.append x.schema.errors x.package_errors|}
         | _ -> None
         ) order

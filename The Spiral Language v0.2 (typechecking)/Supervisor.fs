@@ -89,3 +89,60 @@ let package_update errors (s : SupervisorState) package_dir text =
     let mutable s = load_package s package_dir text
     while 0 < queue.Count do s <- main s (queue.Dequeue().Result)
     s
+
+type SupervisorReq =
+    | ProjectFileOpen of {|uri : string; spiprojText : string|}
+    | ProjectFileChange of {|uri : string; spiprojText : string|}
+    | ProjectFileDelete of {|uri : string|}
+    | ProjectFileLinks of {|uri : string|} * RString list IVar
+    | ProjectCodeActions of {|uri : string|} * RAction list IVar
+    | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
+    | FileOpen of {|uri : string; spiText : string|}
+    | FileChanged of {|uri : string; spiEdit : SpiEdit|}
+    | FileTokenRange of {|uri : string; range : VSCRange|} * VSCTokenArray IVar
+    | HoverAt of {|uri : string; pos : VSCPos|} * string option IVar
+
+let package_validate_then_send_errors errors s dir =
+    let order,packages = package_validate s.packages dir
+    package_errors order packages |> Array.iter (fun er ->
+        Hopac.start (Src.value errors.package er)
+        )
+    {s with packages=packages}
+
+let supervisor (errors : SupervisorErrorSources) req =
+    let loop s = req >>- function
+        | ProjectFileChange x | ProjectFileOpen x ->
+            let dir = dir x.uri
+            let s = package_update errors s dir (Some x.spiprojText)
+            package_validate_then_send_errors errors s dir
+        | ProjectFileDelete x ->
+            let dir = dir x.uri
+            let s = {s with packages={s.packages with validated_schemas=Map.add dir (Error "The package file does not exist.") s.packages.validated_schemas}}
+            package_validate_then_send_errors errors s dir
+        | ProjectFileLinks(x,res) -> 
+            match Map.tryFind (dir x.uri) s.packages.package_schemas with
+            | Some (Ok x) -> Hopac.start (IVar.fill res (List.append x.schema.links x.package_links))
+            | _ -> Hopac.start (IVar.fill res [])
+            s
+        | ProjectCodeActions(x,res) ->
+            match Map.tryFind (dir x.uri) s.packages.package_schemas with
+            | Some (Ok x) -> Hopac.start (IVar.fill res x.schema.actions)
+            | _ -> Hopac.start (IVar.fill res [])
+            s
+        | ProjectCodeActionExecute x -> 
+            match code_action_execute x.action with
+            | Some er -> Hopac.start (Src.value errors.fatal er)
+            | None -> ()
+            s
+        | FileOpen x -> failwith "TODO"
+        | FileChanged x -> failwith "TODO"
+        | FileTokenRange(x, res) -> failwith "TODO"
+        | HoverAt(x,res) -> failwith "TODO"
+    Job.iterateServer {
+        modules = Map.empty
+        packages = {
+            validated_schemas = Map.empty
+            package_links = mirrored_graph_empty
+            package_schemas = Map.empty
+            }
+        } loop

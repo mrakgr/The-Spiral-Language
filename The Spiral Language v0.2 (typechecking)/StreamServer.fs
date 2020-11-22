@@ -292,30 +292,3 @@ let package_diff =
                 else Map.empty, loop {s with changes=changes; errors=errors}
             }
     loop {changes=Set.empty; errors=Set.empty; core=package_core}
-
-//type SupervisorReq =
-//    | ProjectFileOpen of {|uri : string; spiprojText : string|}
-//    | ProjectFileChange of {|uri : string; spiprojText : string|}
-//    | ProjectFileDelete of {|uri : string|}
-//    | ProjectFileLinks of {|uri : string|} * RString list IVar
-//    | ProjectCodeActions of {|uri : string|} * RAction list IVar
-//    | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
-//    | FileOpen of {|uri : string; spiText : string|}
-//    | FileChanged of {|uri : string; spiEdit : SpiEdit|}
-//    | FileTokenRange of {|uri : string; range : VSCRange|} * VSCTokenArray IVar
-//    | HoverAt of {|uri : string; pos : VSCPos|} * string option IVar
-
-//let supervisor tokenizer_errors parser_errors type_errors package_errors fatal_errors req =
-//    let loop = req >>= function
-//        | ProjectFileOpen x -> failwith "TODO"
-//        | ProjectFileChange x -> failwith "TODO"
-//        | ProjectFileDelete x -> failwith "TODO"
-//        | ProjectFileLinks(x,res) -> failwith "TODO"
-//        | ProjectCodeActions(x,res) -> failwith "TODO"
-//        | ProjectCodeActionExecute x -> failwith "TODO"
-//        | FileOpen x -> failwith "TODO"
-//        | FileChanged x -> failwith "TODO"
-//        | FileTokenRange(x, res) -> failwith "TODO"
-//        | HoverAt(x,res) -> failwith "TODO"
-//    Job.foreverServer loop
-

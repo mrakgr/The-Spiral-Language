@@ -128,7 +128,7 @@ type PackageSupervisorReq =
     | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
 
 let supervisor_server fatal_errors package_errors req =
-    let m = ref {packages=Map.empty; links=mirrored_graph_empty; validated_schemas=Map.empty}
+    let m = ref {package_schemas=Map.empty; package_links=mirrored_graph_empty; validated_schemas=Map.empty}
     let change is_open dir text = change is_open !m dir text >>= fun (ers,m') -> m := m'; Array.iterJob (Src.value package_errors) ers
 
     let loop = req >>= function
@@ -136,11 +136,11 @@ let supervisor_server fatal_errors package_errors req =
         | ProjectFileChange x -> change false (dir x.uri) (Some x.spiprojText)
         | ProjectFileDelete x -> change false (dir x.uri) None
         | ProjectFileLinks(x,res) -> 
-            match m.contents.packages.[dir x.uri] with
+            match m.contents.package_schemas.[dir x.uri] with
             | Ok x -> IVar.fill res (List.append x.schema.links x.package_links)
             | Error _ -> IVar.fill res []
         | ProjectCodeActions(x,res) ->
-            match m.contents.packages.[dir x.uri] with
+            match m.contents.package_schemas.[dir x.uri] with
             | Ok x -> IVar.fill res x.schema.actions
             | Error _ -> IVar.fill res []
         | ProjectCodeActionExecute x -> 
