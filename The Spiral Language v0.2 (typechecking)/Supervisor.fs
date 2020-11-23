@@ -27,6 +27,8 @@ type SupervisorErrorSources = {
     }
 type SupervisorState = {
     modules : Map<string, TokRes * ParserRes Promise * ModuleStream>
+    infer_results : Map<string, InferResult Stream>
+    diff_stream : PackageDiffStream
     packages : PackageMaps
     }
 type LoadResult =
@@ -74,8 +76,7 @@ let package_update errors (s : SupervisorState) package_dir text =
                 s
             else {s with packages={s.packages with validated_schemas=Map.add package_dir (Error "The package file does not exist.") s.packages.validated_schemas}}
 
-    let main (s : SupervisorState) (x : LoadResult) =
-        match queue.Dequeue().Result with
+    let main (s : SupervisorState) = function
         | LoadPackage(dir,x) ->
             let s = {s with packages={s.packages with validated_schemas=Map.add dir x s.packages.validated_schemas}}
             match x with
@@ -97,7 +98,7 @@ type SupervisorReq =
     | ProjectFileDelete of {|uri : string|}
     | ProjectFileLinks of {|uri : string|} * RString list IVar
     | ProjectCodeActions of {|uri : string|} * RAction list IVar
-    | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
+    | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|} * {|result : string option|} IVar
     | FileOpen of {|uri : string; spiText : string|}
     | FileChanged of {|uri : string; spiEdit : SpiEdit|}
     | FileTokenRange of {|uri : string; range : VSCRange|} * VSCTokenArray IVar
@@ -105,10 +106,13 @@ type SupervisorReq =
 
 let package_validate_then_send_errors errors s dir =
     let order,packages = package_validate s.packages dir
+    let infer_results, diff_stream = s.diff_stream.Run(order,s.packages.package_schemas,s.packages.package_links,s.modules)
     package_errors order packages |> Array.iter (fun er ->
         Hopac.start (Src.value errors.package er)
         )
-    {s with packages=packages}
+    {s with packages=packages; infer_results=infer_results; diff_stream=diff_stream}
+
+let package_update_validate_then_send_errors errors s dir text = package_validate_then_send_errors errors (package_update errors s dir text) dir
 
 let token_range (r_par : ParserRes) ((a,b) : VSCRange) =
     let from, near_to = min (r_par.lines.Length-1) a.line, min r_par.lines.Length (b.line+1)
@@ -118,8 +122,7 @@ let supervisor_server (errors : SupervisorErrorSources) req =
     let loop s = req >>- function
         | ProjectFileChange x | ProjectFileOpen x ->
             let dir = dir x.uri
-            let s = package_update errors s dir (Some x.spiprojText)
-            package_validate_then_send_errors errors s dir
+            package_update_validate_then_send_errors errors s dir (Some x.spiprojText)
         | ProjectFileDelete x ->
             let dir = dir x.uri
             let s = {s with packages={s.packages with validated_schemas=Map.add dir (Error "The package file does not exist.") s.packages.validated_schemas}}
@@ -134,16 +137,27 @@ let supervisor_server (errors : SupervisorErrorSources) req =
             | Some (Ok x) -> Hopac.start (IVar.fill res x.schema.actions)
             | _ -> Hopac.start (IVar.fill res [])
             s
-        | ProjectCodeActionExecute x ->
+        | ProjectCodeActionExecute(x,res) ->
             match code_action_execute x.action with
-            | Some er -> Hopac.start (Src.value errors.fatal er)
-            | None -> ()
-            s
+            | Some er -> Hopac.start (IVar.fill res {|result=Some er|})
+            | None -> Hopac.start (IVar.fill res {|result=None|})
+            let dir = dir x.uri
+            package_update_validate_then_send_errors errors s dir None
         | FileOpen x ->
             let p = file x.uri
             match Map.tryFind p s.modules with
             | Some _ -> s
-            | None -> {s with modules = Map.add p ((module' (is_top_down p)).Run(DocumentAll x.spiText)) s.modules}
+            | None -> 
+                let s = {s with modules = Map.add p ((module' (is_top_down p)).Run(DocumentAll x.spiText)) s.modules}
+                let rec loop (p : DirectoryInfo) =
+                    if p = null then s
+                    else
+                        let x = Path.Combine(p.FullName,"package.spiProj")
+                        if File.Exists x then
+                            if Map.containsKey x s.packages.validated_schemas then s
+                            else package_update_validate_then_send_errors errors s p.FullName None
+                        else loop p.Parent
+                loop (FileInfo(p).Directory)
         | FileChanged x ->
             let p = file x.uri
             let m = 
@@ -161,6 +175,8 @@ let supervisor_server (errors : SupervisorErrorSources) req =
             s
     Job.iterateServer {
         modules = Map.empty
+        diff_stream = package_diff
+        infer_results = Map.empty
         packages = {
             validated_schemas = Map.empty
             package_links = mirrored_graph_empty
@@ -196,7 +212,7 @@ open FSharp.Json
 open NetMQ
 open NetMQ.Sockets
 
-let main _ =
+let [<EntryPoint>] main _ =
     use poller = new NetMQPoller()
     use server = new RouterSocket()
     poller.Add(server)
@@ -246,7 +262,7 @@ let main _ =
             | ProjectFileOpen x -> job_null (supervisor *<+ SupervisorReq.ProjectFileOpen x)
             | ProjectFileChange x -> job_null (supervisor *<+ SupervisorReq.ProjectFileChange x)
             | ProjectFileDelete x -> job_null (supervisor *<+ SupervisorReq.ProjectFileDelete x)
-            | ProjectCodeActionExecute x -> job_null (supervisor *<+ SupervisorReq.ProjectCodeActionExecute x)
+            | ProjectCodeActionExecute x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectCodeActionExecute(x,res))
             | ProjectFileLinks x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectFileLinks(x,res))
             | ProjectCodeActions x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectCodeActions(x,res))
             | FileOpen x -> job_null (supervisor *<+ SupervisorReq.FileOpen x)

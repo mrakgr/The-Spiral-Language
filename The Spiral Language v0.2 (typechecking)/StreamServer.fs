@@ -322,10 +322,10 @@ let package_core =
     loop {packages=Map.empty; package_ids=PersistentHashMap.empty}
 
 type PackageDiffStream =
-    abstract member Run : string [] * PackageSchema ResultMap * MirroredGraph * Map<string,ParserRes Promise> -> Map<string, InferResult Stream> * PackageDiffStream
+    abstract member Run : string [] * PackageSchema ResultMap * MirroredGraph * Map<string,'a * ParserRes Promise * 'b> -> Map<string, InferResult Stream> * PackageDiffStream
 
 type PackageDiffState = { changes : string Set; errors : string Set; core : PackageCoreStream }
-let get_adds_and_removes (schema : PackageSchema ResultMap) ((abs,bas) : MirroredGraph) (parsers : Map<string,ParserRes Promise>) (changes : string Set) =
+let get_adds_and_removes (schema : PackageSchema ResultMap) ((abs,bas) : MirroredGraph) (modules : Map<string,_ * ParserRes Promise * _>) (changes : string Set) =
     let sort_order, _ = topological_sort bas changes
     Seq.foldBack (fun dir (adds,removes) ->
         match Map.tryFind dir schema with
@@ -334,7 +334,7 @@ let get_adds_and_removes (schema : PackageSchema ResultMap) ((abs,bas) : Mirrore
             let links = p.schema.packages
             let files =
                 let rec elem = function
-                    | ValidatedFileHierarchy.File((_,a),b,_) -> File(a,b,None,parsers.[a],None)
+                    | ValidatedFileHierarchy.File((_,a),b,_) -> File(a,b,None,modules.[a] |> (fun (_,x,_) -> x),None)
                     | ValidatedFileHierarchy.Directory(a,b) -> Directory(a,list b)
                 and list l = List.map elem l
                 list p.schema.files
@@ -345,7 +345,7 @@ let get_adds_and_removes (schema : PackageSchema ResultMap) ((abs,bas) : Mirrore
 let package_diff =
     let rec loop (s : PackageDiffState) =
         {new PackageDiffStream with
-            member _.Run(order,schemas,graph,parsers) =
+            member _.Run(order,schemas,graph,modules) =
                 let changes = Array.foldBack Set.add order s.changes
                 let errors = 
                     Array.fold (fun s x ->
@@ -356,7 +356,7 @@ let package_diff =
                         if has_error then Set.add x s else Set.remove x s
                         ) s.errors order
                 if Set.isEmpty errors && Set.isEmpty changes = false then 
-                    let adds,removes = get_adds_and_removes schemas graph parsers changes
+                    let adds,removes = get_adds_and_removes schemas graph modules changes
                     let x,core = s.core.ReplacePackages(adds,removes)
                     x,loop {changes=Set.empty; errors=errors; core=core}
                 else Map.empty, loop {s with changes=changes; errors=errors}
