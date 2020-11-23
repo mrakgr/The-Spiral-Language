@@ -205,6 +205,7 @@ type PackageMaps = {
     }
 
 let dir uri = FileInfo(Uri(uri).LocalPath).Directory.FullName
+let file uri = FileInfo(Uri(uri).LocalPath).FullName
 let spiproj_link dir = sprintf "file:///%s/package.spiproj" dir
 let package_validate (s : PackageMaps) project_dir =
     let potential_floating_garbage =

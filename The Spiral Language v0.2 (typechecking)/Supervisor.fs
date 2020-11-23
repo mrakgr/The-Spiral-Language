@@ -26,13 +26,14 @@ type SupervisorErrorSources = {
     package : LocalizedErrors Src
     }
 type SupervisorState = {
-    modules : Map<string, TokRes * TokenizerStream>
+    modules : Map<string, TokRes * ParserRes Promise * ModuleStream>
     packages : PackageMaps
     }
 type LoadResult =
-    | LoadModule of package_dir: string * path: RString * Result<TokRes * TokenizerStream,string>
+    | LoadModule of package_dir: string * path: RString * Result<TokRes * ParserRes Promise * ModuleStream,string>
     | LoadPackage of package_dir: string * Result<ValidatedSchema,string>
 
+let is_top_down (x : string) = System.IO.Path.GetExtension x = ".spi"
 let package_update errors (s : SupervisorState) package_dir text =
     let queue : LoadResult Task Queue = Queue()
     let rec load_module package_dir s l =
@@ -43,8 +44,8 @@ let package_update errors (s : SupervisorState) package_dir text =
                 | None -> 
                     if exists then 
                         File.ReadAllTextAsync(path).ContinueWith(fun (x : _ Task) ->
-                            try let x = tokenizer.Run(DocumentAll x.Result)
-                                Hopac.start (Src.value errors.tokenizer {|uri="file:///" + path; errors=(fst x).errors|})
+                            try let (tok_res,_,_ as x) = (module' (is_top_down path)).Run(DocumentAll x.Result)
+                                Hopac.start (Src.value errors.tokenizer {|uri="file:///" + path; errors=tok_res.errors|})
                                 LoadModule(package_dir,p,Ok(x))
                             with e -> LoadModule(package_dir,p,Error e.Message)
                             ) |> queue.Enqueue
@@ -109,7 +110,11 @@ let package_validate_then_send_errors errors s dir =
         )
     {s with packages=packages}
 
-let supervisor (errors : SupervisorErrorSources) req =
+let token_range (r_par : ParserRes) ((a,b) : VSCRange) =
+    let from, near_to = min (r_par.lines.Length-1) a.line, min r_par.lines.Length (b.line+1)
+    vscode_tokens from near_to r_par.lines
+
+let supervisor_server (errors : SupervisorErrorSources) req =
     let loop s = req >>- function
         | ProjectFileChange x | ProjectFileOpen x ->
             let dir = dir x.uri
@@ -134,10 +139,26 @@ let supervisor (errors : SupervisorErrorSources) req =
             | Some er -> Hopac.start (Src.value errors.fatal er)
             | None -> ()
             s
-        | FileOpen x -> failwith "TODO"
-        | FileChanged x -> failwith "TODO"
-        | FileTokenRange(x, res) -> failwith "TODO"
-        | HoverAt(x,res) -> failwith "TODO"
+        | FileOpen x ->
+            let p = file x.uri
+            match Map.tryFind p s.modules with
+            | Some _ -> s
+            | None -> {s with modules = Map.add p ((module' (is_top_down p)).Run(DocumentAll x.spiText)) s.modules}
+        | FileChanged x ->
+            let p = file x.uri
+            let m = 
+                match Map.tryFind p s.modules with
+                | Some(_,_,m) -> m
+                | None -> module' (is_top_down p)
+            {s with modules = Map.add p (m.Run(DocumentEdit x.spiEdit)) s.modules}
+        | FileTokenRange(x, res) ->
+            match Map.tryFind (file x.uri) s.modules with
+            | Some(_,a,_) -> Hopac.start (a >>= fun a -> IVar.fill res (token_range a x.range))
+            | None -> ()
+            s
+        | HoverAt(x,res) -> 
+            Hopac.start (IVar.fill res None)
+            s
     Job.iterateServer {
         modules = Map.empty
         packages = {
@@ -146,3 +167,116 @@ let supervisor (errors : SupervisorErrorSources) req =
             package_schemas = Map.empty
             }
         } loop
+
+type ClientReq =
+    | ProjectFileOpen of {|uri : string; spiprojText : string|}
+    | ProjectFileChange of {|uri : string; spiprojText : string|}
+    | ProjectFileDelete of {|uri : string|}
+    | ProjectFileLinks of {|uri : string|}
+    | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
+    | ProjectCodeActions of {|uri : string|}
+    | FileOpen of {|uri : string; spiText : string|}
+    | FileChanged of {|uri : string; spiEdit : SpiEdit|}
+    | FileTokenRange of {|uri : string; range : VSCRange|}
+    | HoverAt of {|uri : string; pos : VSCPos|}
+    | BuildFile of {|uri : string|}
+
+type ClientErrorsRes =
+    | FatalError of string
+    | PackageErrors of {|uri : string; errors : RString list|}
+    | TokenizerErrors of {|uri : string; errors : RString list|}
+    | ParserErrors of {|uri : string; errors : RString list|}
+    | TypeErrors of {|uri : string; errors : RString list|}
+
+let port = 13805
+let uri_server = sprintf "tcp://*:%i" port
+let uri_client = sprintf "tcp://localhost:%i" (port+1)
+
+open FSharp.Json
+open NetMQ
+open NetMQ.Sockets
+
+let main _ =
+    use poller = new NetMQPoller()
+    use server = new RouterSocket()
+    poller.Add(server)
+    server.Options.ReceiveHighWatermark <- System.Int32.MaxValue
+    server.Bind(uri_server)
+    printfn "Server bound to: %s" uri_server
+
+    use queue_server = new NetMQQueue<NetMQMessage>()
+    poller.Add(queue_server)
+
+    use queue_client = new NetMQQueue<ClientErrorsRes>()
+    poller.Add(queue_client)
+
+    let consumed_source msg =
+        let x = Src.create()
+        Src.tap x |> Stream.consumeFun (msg >> queue_client.Enqueue)
+        x
+    let errors : SupervisorErrorSources = {
+        fatal = consumed_source FatalError
+        package = consumed_source PackageErrors
+        tokenizer = consumed_source TokenizerErrors
+        parser = consumed_source ParserErrors
+        typer = consumed_source TypeErrors
+        }
+    let supervisor = Ch()
+    Hopac.start (supervisor_server errors supervisor)
+
+    let buffer = Dictionary()
+    let last_id = ref 0
+    use __ = server.ReceiveReady.Subscribe(fun s ->
+        let rec loop () = Utils.remove buffer !last_id (body(NetMQMessage 3)) id
+        and body (msg : NetMQMessage) (address : NetMQFrame, x) =
+            incr last_id
+            let push_back (x : obj) = 
+                match x with
+                | :? Option<string> as x -> 
+                    match x with
+                    | None -> msg.Push("null") 
+                    | Some x -> msg.Push(sprintf "\"%s\"" x)
+                | _ -> msg.Push(Json.serialize x)
+                msg.PushEmptyFrame(); msg.Push(address)
+            let send_back x = push_back x; server.SendMultipartMessage(msg)
+            let send_back_via_queue x = push_back x; queue_server.Enqueue(msg)
+            let job_null job = Hopac.start job; send_back null
+            let job_val job = let res = IVar() in Hopac.start (job res >>=. IVar.read res >>- send_back_via_queue)
+            match x with
+            | ProjectFileOpen x -> job_null (supervisor *<+ SupervisorReq.ProjectFileOpen x)
+            | ProjectFileChange x -> job_null (supervisor *<+ SupervisorReq.ProjectFileChange x)
+            | ProjectFileDelete x -> job_null (supervisor *<+ SupervisorReq.ProjectFileDelete x)
+            | ProjectCodeActionExecute x -> job_null (supervisor *<+ SupervisorReq.ProjectCodeActionExecute x)
+            | ProjectFileLinks x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectFileLinks(x,res))
+            | ProjectCodeActions x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectCodeActions(x,res))
+            | FileOpen x -> job_null (supervisor *<+ SupervisorReq.FileOpen x)
+            | FileChanged x -> job_null (supervisor *<+ SupervisorReq.FileChanged x)
+            | FileTokenRange x -> job_val (fun res -> supervisor *<+ SupervisorReq.FileTokenRange(x,res))
+            | HoverAt x -> job_val (fun res -> supervisor *<+ SupervisorReq.HoverAt(x,res))
+            | BuildFile x -> // TODO: This case is just a stump for now.
+                let x = Uri(x.uri).LocalPath
+                match IO.Path.GetExtension(x) with
+                | ".spi" | ".spir" -> IO.File.WriteAllText(IO.Path.ChangeExtension(x,"fsx"), "// Compiled with Spiral v0.2.")
+                | _ -> ()
+                send_back null
+            loop ()
+        let msg = server.ReceiveMultipartMessage(3)
+        let address = msg.Pop()
+        msg.Pop() |> ignore
+        let (id : int), x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
+        if !last_id = id then body msg (address, x)
+        else buffer.Add(id,(address,x))
+        )
+
+    use client = new RequestSocket()
+    client.Connect(uri_client)
+
+    use __ = queue_client.ReceiveReady.Subscribe(fun x -> 
+        x.Queue.Dequeue() |> Json.serialize |> client.SendFrame
+        client.ReceiveMultipartMessage() |> ignore
+        )
+
+    use __ = queue_server.ReceiveReady.Subscribe(fun x -> x.Queue.Dequeue() |> server.SendMultipartMessage)
+
+    poller.Run()
+    0

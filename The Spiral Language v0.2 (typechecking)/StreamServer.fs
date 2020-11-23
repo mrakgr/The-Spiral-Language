@@ -70,6 +70,17 @@ let parser is_top_down =
                 }
     loop (fun () -> [])
 
+type ModuleStream = abstract member Run : TokReq -> TokRes * ParserRes Promise * ModuleStream
+let module' is_top_down =
+    let rec loop (tokenizer : TokenizerStream, parser : ParserStream) =
+        {new ModuleStream with
+            member _.Run(req) =
+                let a,tok = tokenizer.Run(req)
+                let b,par = parser.Run(a)
+                a, b, loop (tok, par)
+                }
+    loop (tokenizer, parser is_top_down)
+
 let cons_fulfilled l = 
     let rec loop olds = function
         | Cons(old,next) when Promise.Now.isFulfilled next -> loop (PersistentVector.conj old olds) (Promise.Now.get next)
