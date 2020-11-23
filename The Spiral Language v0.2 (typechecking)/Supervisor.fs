@@ -129,7 +129,7 @@ let supervisor (errors : SupervisorErrorSources) req =
             | Some (Ok x) -> Hopac.start (IVar.fill res x.schema.actions)
             | _ -> Hopac.start (IVar.fill res [])
             s
-        | ProjectCodeActionExecute x -> 
+        | ProjectCodeActionExecute x ->
             match code_action_execute x.action with
             | Some er -> Hopac.start (Src.value errors.fatal er)
             | None -> ()

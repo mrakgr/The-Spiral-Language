@@ -134,7 +134,6 @@ let diff_order_changed old new' =
         | _, n -> same_order <- false; n
     list (old,new')
 
-let union a b = a >>=* fun a -> b >>- fun b -> Infer.union a b
 let multi_file package_id top_env =
     let rec create files' =
         let run files = 
@@ -159,6 +158,7 @@ let multi_file package_id top_env =
                     List.mapFold (fun (top_env, o : MultiFileOutState) x ->
                         let i = {module_id=o.module_id; top_env=top_env}
                         let x,o' = changed i x
+                        let union a b = a >>=* fun a -> b >>- fun b -> Infer.union a b
                         let top_env = union o'.top_env_additions top_env
                         let o = {o with top_env_additions=union o'.top_env_additions o.top_env_additions}
                         x,(top_env,o)
@@ -174,11 +174,72 @@ type AddPackageInput = {links : Map<string,{|name : string|}>; files : DiffableF
 type PackageCoreStream =
     abstract member ReplacePackages : (string * AddPackageInput) list * string Set -> Map<string,InferResult Stream> * PackageCoreStream
 
+type PackageEnv = {
+    nominals_aux : Map<int,Map<GlobalId, {|name : string; kind : TT|}>>
+    nominals : Map<int,Map<GlobalId, {|vars : Var list; body : T|}>>
+    prototypes_instances : Map<int,Map<GlobalId * GlobalId, Constraint Set list>>
+    prototypes : Map<int,Map<GlobalId, {|name : string; signature: T|}>>
+    ty : Map<string,T>
+    term : Map<string,T>
+    constraints : Map<string,ConstraintOrModule>
+    }
+
+let union small big = {
+    nominals_aux = Map.foldBack Map.add small.nominals_aux big.nominals_aux
+    nominals = Map.foldBack Map.add small.nominals big.nominals
+    prototypes_instances = Map.foldBack Map.add small.prototypes_instances big.prototypes_instances
+    prototypes = Map.foldBack Map.add small.prototypes big.prototypes
+    ty = Map.foldBack Map.add small.ty big.ty
+    term = Map.foldBack Map.add small.term big.term
+    constraints = Map.foldBack Map.add small.constraints big.constraints
+    }
+
+let in_module m (a : PackageEnv) =
+    {a with 
+        ty = Map.add m (TyModule a.ty) Map.empty
+        term = Map.add m (TyModule a.term) Map.empty
+        constraints = Map.add m (M a.constraints) Map.empty
+        }
+
+let package_to_top (x : PackageEnv) = {
+    nominals_next_tag = 0
+    nominals_aux = Map.foldBack (fun _ -> Map.foldBack Map.add) x.nominals_aux Map.empty
+    nominals = Map.foldBack (fun _ -> Map.foldBack Map.add) x.nominals Map.empty
+    prototypes_next_tag = 0
+    prototypes_instances = Map.foldBack (fun _ -> Map.foldBack Map.add) x.prototypes_instances Map.empty
+    prototypes = Map.foldBack (fun _ -> Map.foldBack Map.add) x.prototypes Map.empty
+    ty = x.ty
+    term = x.term
+    constraints = x.constraints
+    }
+
+let top_to_package package_id (small : TopEnv) (big : PackageEnv): PackageEnv = {
+    nominals_aux = Map.add package_id small.nominals_aux big.nominals_aux
+    nominals = Map.add package_id small.nominals big.nominals
+    prototypes_instances = Map.add package_id small.prototypes_instances big.prototypes_instances
+    prototypes = Map.add package_id small.prototypes big.prototypes
+    ty = small.ty
+    term = small.term
+    constraints = small.constraints
+    }
+
+let package_env_empty = {
+    nominals_aux = Map.empty
+    nominals = Map.empty
+    prototypes_instances = Map.empty
+    prototypes = Map.empty
+    ty = Map.empty
+    term = Map.empty
+    constraints = Map.empty
+    }
+
+let package_env_default = top_to_package top_env_default_package_id top_env_default package_env_empty
+
 type PackageCoreStateItem = {
     links : Map<string,{|name : string|}>
     rev_links : string Set
-    top_env_in : TopEnv Promise
-    top_env_out : TopEnv Promise
+    env_in : PackageEnv Promise
+    env_out : PackageEnv Promise
     stream : MultiFileStream
     }
 
@@ -200,24 +261,22 @@ let links_rev_add links dir s = links |> Map.fold (fun s k _ -> link_op Set.add 
 let add_package (s : PackageCoreState, infer_results' : Map<string,InferResult Stream>, dirty_nodes : Set<string>) (dir, x : AddPackageInput) =
     let old_package = Map.tryFind dir s.packages
     let is_dirty = x.links |> Map.exists (fun k _ -> Set.contains k dirty_nodes)
-    let top_env_in =
-        let f() = // TODO: Package merging is not supposed to work via a simple union. Fix this.
-            let l = x.links |> Map.fold (fun l k v -> (s.packages.[k].top_env_out >>-* in_module v.name) :: l) [] |> Job.conCollect
-            l >>-* Seq.reduce Infer.union
+    let env_in =
+        let f() =
+            let l = x.links |> Map.fold (fun l k v -> (s.packages.[k].env_out >>-* in_module v.name) :: l) [] |> Job.conCollect
+            l >>-* Seq.fold union package_env_default
         if is_dirty then f()
-        else match old_package with Some x -> x.top_env_in | None -> f()
+        else match old_package with Some x -> x.env_in | None -> f()
     
+    let id, package_ids = 
+        if PersistentHashMap.containsKey dir s.package_ids then s.package_ids.[dir], s.package_ids
+        else s.package_ids.Count, s.package_ids.Add(dir,s.package_ids.Count)
     let (infer_results, top_env_out, stream), package_ids =
         match old_package with
-        | Some _ when is_dirty -> 
-            let id, package_ids = s.package_ids.[dir], s.package_ids
-            (multi_file id top_env_in).Run(x.files), package_ids
+        | Some _ when is_dirty -> (multi_file id (env_in >>-* package_to_top)).Run(x.files), package_ids
         | Some p -> p.stream.Run(x.files), s.package_ids
-        | None -> 
-            let id, package_ids = 
-                if PersistentHashMap.containsKey dir s.package_ids then s.package_ids.[dir], s.package_ids
-                else s.package_ids.Count, s.package_ids.Add(dir,s.package_ids.Count)
-            (multi_file id top_env_in).Run(x.files), package_ids
+        | None -> (multi_file id (env_in >>-* package_to_top)).Run(x.files), package_ids
+    let env_out = top_env_out >>=* fun top_env_out -> env_in >>- fun env_in -> top_to_package id top_env_out env_in
     
     let s = // Remove the current package dir from the parents based on the old links.
         let old_links = match old_package with Some x -> x.links | None -> Map.empty
@@ -230,8 +289,8 @@ let add_package (s : PackageCoreState, infer_results' : Map<string,InferResult S
     let package = {
         links = x.links
         rev_links = match old_package with Some x -> x.rev_links | None -> Set.empty
-        top_env_in = top_env_in
-        top_env_out = top_env_out
+        env_in = env_in
+        env_out = env_out
         stream = stream
         }
     
