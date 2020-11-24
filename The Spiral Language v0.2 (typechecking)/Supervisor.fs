@@ -25,6 +25,7 @@ type SupervisorErrorSources = {
     typer : LocalizedErrors Src
     package : LocalizedErrors Src
     }
+
 type SupervisorState = {
     modules : Map<string, TokRes * ParserRes Promise * ModuleStream>
     infer_results : Map<string, InferResult Stream>
@@ -35,7 +36,8 @@ type LoadResult =
     | LoadModule of package_dir: string * path: RString * Result<TokRes * ParserRes Promise * ModuleStream,string>
     | LoadPackage of package_dir: string * Result<ValidatedSchema,string>
 
-let is_top_down (x : string) = System.IO.Path.GetExtension x = ".spi"
+let parser_error errors uri ers = Hopac.start (Src.value errors.parser {|uri=uri; errors=ers|})
+let is_top_down (x : string) = Path.GetExtension x = ".spi"
 let package_update errors (s : SupervisorState) package_dir text =
     let queue : LoadResult Task Queue = Queue()
     let rec load_module package_dir s l =
@@ -46,8 +48,9 @@ let package_update errors (s : SupervisorState) package_dir text =
                 | None -> 
                     if exists then 
                         File.ReadAllTextAsync(path).ContinueWith(fun (x : _ Task) ->
-                            try let (tok_res,_,_ as x) = (module' (is_top_down path)).Run(DocumentAll x.Result)
-                                Hopac.start (Src.value errors.tokenizer {|uri="file:///" + path; errors=tok_res.errors|})
+                            try let uri = "file:///" + path
+                                let (tok_res,_,_ as x) = (module' (parser_error errors uri) (is_top_down path)).Run(DocumentAll x.Result)
+                                Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=tok_res.errors|})
                                 LoadModule(package_dir,p,Ok(x))
                             with e -> LoadModule(package_dir,p,Error e.Message)
                             ) |> queue.Enqueue
@@ -106,17 +109,48 @@ type SupervisorReq =
 
 let package_validate_then_send_errors errors s dir =
     let order,packages = package_validate s.packages dir
-    let infer_results, diff_stream = s.diff_stream.Run(order,s.packages.package_schemas,s.packages.package_links,s.modules)
+    let infer_results, diff_stream = s.diff_stream.Run(order,packages.package_schemas,packages.package_links,s.modules)
+    
+    Map.iter (fun p r ->
+        Hopac.start (
+            let rec loop ers = function
+                | Nil -> Job.unit ()
+                | Cons(a : InferResult,next) ->
+                    let ers = List.append a.errors ers
+                    Src.value errors.typer {|uri="file:///" + p; errors=ers|} >>=. 
+                    next >>= loop ers
+            r >>= loop []
+            )
+        ) infer_results
+
     package_errors order packages |> Array.iter (fun er ->
         Hopac.start (Src.value errors.package er)
         )
-    {s with packages=packages; infer_results=infer_results; diff_stream=diff_stream}
+    {s with packages=packages; infer_results=Map.foldBack Map.add infer_results s.infer_results; diff_stream=diff_stream}
 
 let package_update_validate_then_send_errors errors s dir text = package_validate_then_send_errors errors (package_update errors s dir text) dir
 
 let token_range (r_par : ParserRes) ((a,b) : VSCRange) =
     let from, near_to = min (r_par.lines.Length-1) a.line, min r_par.lines.Length (b.line+1)
     vscode_tokens from near_to r_par.lines
+
+let hover (l : InferResult PersistentVector) (pos : VSCPos) =
+    l |> PersistentVector.tryFindBack (fun x -> x.offset <= pos.line)
+    |> Option.bind (fun x ->
+         x.hovers |> Array.tryPick (fun ((a,b),r) ->
+            if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
+            ))
+
+let module_changed errors s p =
+    let rec loop (p : DirectoryInfo) =
+        if p = null then s
+        else
+            let x = Path.Combine(p.FullName,"package.spiProj")
+            if File.Exists x then
+                if Map.containsKey x s.packages.validated_schemas then s
+                else package_update_validate_then_send_errors errors s p.FullName None
+            else loop p.Parent
+    loop (FileInfo(p).Directory)
 
 let supervisor_server (errors : SupervisorErrorSources) req =
     let loop s = req >>- function
@@ -148,30 +182,24 @@ let supervisor_server (errors : SupervisorErrorSources) req =
             match Map.tryFind p s.modules with
             | Some _ -> s
             | None -> 
-                let s = {s with modules = Map.add p ((module' (is_top_down p)).Run(DocumentAll x.spiText)) s.modules}
-                let rec loop (p : DirectoryInfo) =
-                    if p = null then s
-                    else
-                        let x = Path.Combine(p.FullName,"package.spiProj")
-                        if File.Exists x then
-                            if Map.containsKey x s.packages.validated_schemas then s
-                            else package_update_validate_then_send_errors errors s p.FullName None
-                        else loop p.Parent
-                loop (FileInfo(p).Directory)
+                let s = {s with modules = Map.add p ((module' (parser_error errors x.uri) (is_top_down p)).Run(DocumentAll x.spiText)) s.modules}
+                module_changed errors s p
         | FileChanged x ->
             let p = file x.uri
-            let m = 
-                match Map.tryFind p s.modules with
-                | Some(_,_,m) -> m
-                | None -> module' (is_top_down p)
-            {s with modules = Map.add p (m.Run(DocumentEdit x.spiEdit)) s.modules}
+            let _,_,m = s.modules.[p]
+            let s = {s with modules = Map.add p (m.Run(DocumentEdit x.spiEdit)) s.modules}
+            module_changed errors s p
         | FileTokenRange(x, res) ->
             match Map.tryFind (file x.uri) s.modules with
             | Some(_,a,_) -> Hopac.start (a >>= fun a -> IVar.fill res (token_range a x.range))
             | None -> ()
             s
         | HoverAt(x,res) -> 
-            Hopac.start (IVar.fill res None)
+            Hopac.start (
+                match Map.tryFind (file x.uri) s.infer_results with
+                | Some a -> a >>= fun a -> IVar.fill res (hover (cons_fulfilled a) x.pos)
+                | None -> IVar.fill res None
+                )
             s
     Job.iterateServer {
         modules = Map.empty

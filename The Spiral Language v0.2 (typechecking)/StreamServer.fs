@@ -71,12 +71,13 @@ let parser is_top_down =
     loop (fun () -> [])
 
 type ModuleStream = abstract member Run : TokReq -> TokRes * ParserRes Promise * ModuleStream
-let module' is_top_down =
+let module' error is_top_down =
     let rec loop (tokenizer : TokenizerStream, parser : ParserStream) =
         {new ModuleStream with
             member _.Run(req) =
                 let a,tok = tokenizer.Run(req)
                 let b,par = parser.Run(a)
+                let b = b >>-* fun x -> error x.parser_errors; x
                 a, b, loop (tok, par)
                 }
     loop (tokenizer, parser is_top_down)
@@ -134,9 +135,11 @@ let diff_order_changed old new' =
     let rec elem (o,n) = 
         match o,n with
         // In `n`, `meta` and `tc` fields are None.
-        | File(path,name,meta,p,tc) & o,File(path',name',_,p',_) when path = path' && name = name' -> 
-            if same_files && Object.ReferenceEquals(p,p') then o
-            else same_files <- false; File(path,name,None,p',tc)
+        | File(path,name,_,p,tc) & o,File(path',name',_,p',_) when path = path' && name = name' -> 
+            if same_files then 
+                if Object.ReferenceEquals(p,p') then o
+                else same_files <- false; File(path,name,None,p',tc)
+            else File(path,name,None,p',None)
         | Directory(name,l), Directory(name',l') when name = name' -> Directory(name,list (l,l'))
         | _, n -> same_order <- false; n
     and list = function
@@ -244,7 +247,7 @@ let package_env_empty = {
     constraints = Map.empty
     }
 
-let package_env_default = top_to_package top_env_default_package_id top_env_default package_env_empty
+let package_env_default = {package_env_empty with ty = top_env_default.ty; term = top_env_default.term; constraints = top_env_default.constraints}
 
 type PackageCoreStateItem = {
     links : Map<string,{|name : string|}>
@@ -282,11 +285,11 @@ let add_package (s : PackageCoreState, infer_results' : Map<string,InferResult S
     let id, package_ids = 
         if PersistentHashMap.containsKey dir s.package_ids then s.package_ids.[dir], s.package_ids
         else s.package_ids.Count, s.package_ids.Add(dir,s.package_ids.Count)
-    let (infer_results, top_env_out, stream), package_ids =
+    let infer_results, top_env_out, stream =
         match old_package with
-        | Some _ when is_dirty -> (multi_file id (env_in >>-* package_to_top)).Run(x.files), package_ids
-        | Some p -> p.stream.Run(x.files), s.package_ids
-        | None -> (multi_file id (env_in >>-* package_to_top)).Run(x.files), package_ids
+        | Some _ when is_dirty -> (multi_file id (env_in >>-* package_to_top)).Run(x.files)
+        | Some p -> p.stream.Run(x.files)
+        | None -> (multi_file id (env_in >>-* package_to_top)).Run(x.files)
     let env_out = top_env_out >>=* fun top_env_out -> env_in >>- fun env_in -> top_to_package id top_env_out env_in
     
     let s = // Remove the current package dir from the parents based on the old links.
@@ -308,8 +311,7 @@ let add_package (s : PackageCoreState, infer_results' : Map<string,InferResult S
     { packages = Map.add dir package s.packages; package_ids = package_ids }, infer_results, Set.add dir dirty_nodes
 
 let remove_package (s : PackageCoreState) x =
-    let package = s.packages.[x]
-    let s = links_rev_remove package.links x s
+    let s = links_rev_remove s.packages.[x].links x s
     {s with packages = Map.remove x s.packages}
 
 let package_core =

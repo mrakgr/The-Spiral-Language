@@ -1473,8 +1473,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         errors = errors |> Seq.toList |> List.map (fun (a,b) -> a, show_type_error top_env b)
         }
 
-let top_env_default_package_id = -1 // Note: `top_env_default` should use this as package id in nominals or prototypes.
 let top_env_default : TopEnv = 
+    // Note: `top_env_default` should have no nominals or prototypes.
     {top_env_empty with 
         ty = 
             let inline inl f = let v = {scope=0; kind=KindType; constraints=Set.empty; name="x"} in TyInl(v,f v)
