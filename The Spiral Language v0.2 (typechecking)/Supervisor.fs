@@ -103,32 +103,34 @@ type SupervisorReq =
     | ProjectCodeActions of {|uri : string|} * RAction list IVar
     | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|} * {|result : string option|} IVar
     | FileOpen of {|uri : string; spiText : string|}
-    | FileChanged of {|uri : string; spiEdit : SpiEdit|}
+    | FileChange of {|uri : string; spiEdit : SpiEdit|}
+    | FileDelete of {|uri : string|}
     | FileTokenRange of {|uri : string; range : VSCRange|} * VSCTokenArray IVar
     | HoverAt of {|uri : string; pos : VSCPos|} * string option IVar
 
-let package_validate_then_send_errors errors s dir =
+let package_validate_then_send_errors atten errors s dir =
     let order,packages = package_validate s.packages dir
     let infer_results, diff_stream = s.diff_stream.Run(order,packages.package_schemas,packages.package_links,s.modules)
     
-    Map.iter (fun p r ->
-        Hopac.start (
+    let infer_results = 
+        Map.map (fun p r ->
             let rec loop ers = function
-                | Nil -> Job.unit ()
+                | Nil -> Nil
                 | Cons(a : InferResult,next) ->
                     let ers = List.append a.errors ers
-                    Src.value errors.typer {|uri="file:///" + p; errors=ers|} >>=. 
-                    next >>= loop ers
-            r >>= loop []
-            )
-        ) infer_results
+                    Hopac.start (Src.value errors.typer {|uri="file:///" + p; errors=ers|})
+                    Cons(a, next >>-* loop ers)
+            r >>-* loop []
+            ) infer_results
 
     package_errors order packages |> Array.iter (fun er ->
         Hopac.start (Src.value errors.package er)
         )
-    {s with packages=packages; infer_results=Map.foldBack Map.add infer_results s.infer_results; diff_stream=diff_stream}
+    let s = {s with packages=packages; infer_results=Map.foldBack Map.add infer_results s.infer_results; diff_stream=diff_stream}
+    Hopac.start (Src.value atten (s, dir))
+    s
 
-let package_update_validate_then_send_errors errors s dir text = package_validate_then_send_errors errors (package_update errors s dir text) dir
+let package_update_validate_then_send_errors atten errors s dir text = package_validate_then_send_errors atten errors (package_update errors s dir text) dir
 
 let token_range (r_par : ParserRes) ((a,b) : VSCRange) =
     let from, near_to = min (r_par.lines.Length-1) a.line, min r_par.lines.Length (b.line+1)
@@ -141,26 +143,53 @@ let hover (l : InferResult PersistentVector) (pos : VSCPos) =
             if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
             ))
 
-let module_changed errors s p =
+let module_changed atten errors s p =
     let rec loop (p : DirectoryInfo) =
         if p = null then s
         else
             let x = Path.Combine(p.FullName,"package.spiProj")
             if File.Exists x then
                 if Map.containsKey x s.packages.validated_schemas then s
-                else package_update_validate_then_send_errors errors s p.FullName None
+                else package_update_validate_then_send_errors atten errors s p.FullName None
             else loop p.Parent
     loop (FileInfo(p).Directory)
 
-let supervisor_server (errors : SupervisorErrorSources) req =
+let atten (errors : SupervisorErrorSources) (req : (SupervisorState * string) Stream) =
+    let res = Ch()
+    let pull_stream s (dir : string) canc = failwith "TODO"
+    let rec loop (pulled,c) s canc =
+        (canc ^->. c)
+        <|> (res ^=> fun l ->
+            List.fold (fun (pulled,c) dir ->
+                if Set.contains dir pulled then pulled, c
+                else pull_stream s dir canc; Set.add dir pulled, c+1
+                ) (pulled,c-1) l
+            |> fun x -> loop x s canc
+            )
+    let rec empty c = if 0 < c then res >>= fun _ -> empty (c-1) else Job.unit()
+    let rec main req =
+        req >>= function
+            | Cons(_,req) when req.Full ->
+                main req
+            | Cons((s,dir),req) ->
+                pull_stream s dir req
+                loop (Set.singleton dir,1) s req >>= fun c ->
+                empty c >>= fun () ->
+                main req
+            | Nil ->
+                Job.unit()
+
+    Hopac.start (main req)
+
+let supervisor_server atten (errors : SupervisorErrorSources) req =
     let loop s = req >>- function
         | ProjectFileChange x | ProjectFileOpen x ->
             let dir = dir x.uri
-            package_update_validate_then_send_errors errors s dir (Some x.spiprojText)
+            package_update_validate_then_send_errors atten errors s dir (Some x.spiprojText)
         | ProjectFileDelete x ->
             let dir = dir x.uri
             let s = {s with packages={s.packages with validated_schemas=Map.add dir (Error "The package file does not exist.") s.packages.validated_schemas}}
-            package_validate_then_send_errors errors s dir
+            package_validate_then_send_errors atten errors s dir
         | ProjectFileLinks(x,res) -> 
             match Map.tryFind (dir x.uri) s.packages.package_schemas with
             | Some (Ok x) -> Hopac.start (IVar.fill res (List.append x.schema.links x.package_links))
@@ -176,19 +205,23 @@ let supervisor_server (errors : SupervisorErrorSources) req =
             | Some er -> Hopac.start (IVar.fill res {|result=Some er|})
             | None -> Hopac.start (IVar.fill res {|result=None|})
             let dir = dir x.uri
-            package_update_validate_then_send_errors errors s dir None
+            package_update_validate_then_send_errors atten errors s dir None
         | FileOpen x ->
             let p = file x.uri
             match Map.tryFind p s.modules with
             | Some _ -> s
             | None -> 
                 let s = {s with modules = Map.add p ((module' (parser_error errors x.uri) (is_top_down p)).Run(DocumentAll x.spiText)) s.modules}
-                module_changed errors s p
-        | FileChanged x ->
+                module_changed atten errors s p
+        | FileChange x ->
             let p = file x.uri
             let _,_,m = s.modules.[p]
             let s = {s with modules = Map.add p (m.Run(DocumentEdit x.spiEdit)) s.modules}
-            module_changed errors s p
+            module_changed atten errors s p
+        | FileDelete x ->
+            let p = file x.uri
+            let s = {s with modules = Map.remove p s.modules; infer_results = Map.remove p s.infer_results }
+            module_changed atten errors s p
         | FileTokenRange(x, res) ->
             match Map.tryFind (file x.uri) s.modules with
             | Some(_,a,_) -> Hopac.start (a >>= fun a -> IVar.fill res (token_range a x.range))
@@ -197,8 +230,8 @@ let supervisor_server (errors : SupervisorErrorSources) req =
         | HoverAt(x,res) -> 
             Hopac.start (
                 match Map.tryFind (file x.uri) s.infer_results with
-                | Some a -> a >>= fun a -> IVar.fill res (hover (cons_fulfilled a) x.pos)
-                | None -> IVar.fill res None
+                | Some a when a.Full -> a >>= fun a -> IVar.fill res (hover (cons_fulfilled a) x.pos)
+                | _ -> IVar.fill res None
                 )
             s
     Job.iterateServer {
@@ -220,7 +253,8 @@ type ClientReq =
     | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
     | ProjectCodeActions of {|uri : string|}
     | FileOpen of {|uri : string; spiText : string|}
-    | FileChanged of {|uri : string; spiEdit : SpiEdit|}
+    | FileChange of {|uri : string; spiEdit : SpiEdit|}
+    | FileDelete of {|uri : string|}
     | FileTokenRange of {|uri : string; range : VSCRange|}
     | HoverAt of {|uri : string; pos : VSCPos|}
     | BuildFile of {|uri : string|}
@@ -266,7 +300,7 @@ let [<EntryPoint>] main _ =
         typer = consumed_source TypeErrors
         }
     let supervisor = Ch()
-    Hopac.start (supervisor_server errors supervisor)
+    Hopac.start (supervisor_server (failwith "TODO") errors supervisor)
 
     let buffer = Dictionary()
     let last_id = ref 0
@@ -294,7 +328,8 @@ let [<EntryPoint>] main _ =
             | ProjectFileLinks x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectFileLinks(x,res))
             | ProjectCodeActions x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectCodeActions(x,res))
             | FileOpen x -> job_null (supervisor *<+ SupervisorReq.FileOpen x)
-            | FileChanged x -> job_null (supervisor *<+ SupervisorReq.FileChanged x)
+            | FileChange x -> job_null (supervisor *<+ SupervisorReq.FileChange x)
+            | FileDelete x -> job_null (supervisor *<+ SupervisorReq.FileDelete x)
             | FileTokenRange x -> job_val (fun res -> supervisor *<+ SupervisorReq.FileTokenRange(x,res))
             | HoverAt x -> job_val (fun res -> supervisor *<+ SupervisorReq.HoverAt(x,res))
             | BuildFile x -> // TODO: This case is just a stump for now.

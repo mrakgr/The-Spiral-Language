@@ -39,7 +39,8 @@ const spiprojCodeActionExecuteReq = async (uri: string, action : ProjectCodeActi
 
 const spiOpenReq = async (uri: string, spiText: string): Promise<void> => request({ FileOpen: { uri, spiText } })
 const spiChangeReq = async (uri: string, spiEdit : {from: number, nearTo: number, lines: string[]} ): Promise<void> => 
-    request({ FileChanged: { uri, spiEdit } })
+    request({ FileChange: { uri, spiEdit } })
+const spiDeleteReq = async (uri: string): Promise<void> => request({ FileDelete: { uri } })
 const spiTokenRangeReq = async (uri: string, range : Range): Promise<number []> => request({ FileTokenRange: { uri, range } })
 const spiHoverAtReq = async (uri: string, pos : Position): Promise<string | null> => request({ HoverAt: { uri, pos } })
 const spiBuildFileReq = async (uri: string): Promise<void> => request({ BuildFile: {uri} })
@@ -130,6 +131,7 @@ export const activate = async (ctx: ExtensionContext) => {
             spiChangeReq(doc.uri.toString(true), edit)
         }
     }
+    const spiDelete = (uri: Uri) => spiDeleteReq(uri.toString(true))
 
     class SpiralTokens implements DocumentRangeSemanticTokensProvider {
         async provideDocumentRangeSemanticTokens(doc: TextDocument, range : Range) {
@@ -170,7 +172,7 @@ export const activate = async (ctx: ExtensionContext) => {
                 case ".spiproj": 
                     if (path.basename(x.path,".spiproj") === "package") { spiprojDelete(x) }
                     return
-                case ".spir": case ".spi": return 
+                case ".spir": case ".spi": return spiDelete(x)
                 default: return
             }
         })
