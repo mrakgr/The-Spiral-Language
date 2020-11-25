@@ -91,7 +91,7 @@ open Hopac.Extensions
 open Hopac.Stream
 
 type ValidatedFileHierarchy =
-    | File of path: RString * name: string * exists: bool
+    | File of path: RString * name: string option * exists: bool
     | Directory of name: string * ValidatedFileHierarchy list
 
 type ValidatedSchema = {
@@ -138,7 +138,7 @@ let schema_validate project_dir x =
     let files =
         if 0 = errors.Count then 
             let rec validate_file prefix = function
-                | FileHierarchy.File(r',(r,a),is_top_down,_) -> 
+                | FileHierarchy.File(r',(r,a),is_top_down,is_include) -> 
                     try let x = FileInfo(Path.Combine(prefix,a + (if is_top_down then ".spi" else ".spir")))
                         let exists = x.Exists
                         if exists then 
@@ -148,7 +148,7 @@ let schema_validate project_dir x =
                         else 
                             errors.Add (r, "File does not exist.")
                             actions.Add (r, CreateFile {|filePath=x.FullName|})
-                        Some(File((r,x.FullName),a,exists))
+                        Some(File((r,x.FullName),(if is_include then None else Some a),exists))
                     with e -> errors.Add (r, e.Message); None
                 | FileHierarchy.Directory(r',(r,a),b) ->
                     try let x = DirectoryInfo(Path.Combine(prefix,a))
@@ -161,7 +161,7 @@ let schema_validate project_dir x =
                             elif x.Exists then
                                 actions.Add(r, RenameDirectory {|dirPath=x.FullName; target=null; validate_as_file=true|})
                                 actions.Add(r, DeleteDirectory {|dirPath=x.FullName; range=r'|})
-                                List.choose(validate_file x.FullName) b
+                                List.choose (validate_file x.FullName) b
                             else
                                 errors.Add(r, "Directory does not exist.")
                                 actions.Add(r, CreateDirectory {|dirPath=x.FullName|})

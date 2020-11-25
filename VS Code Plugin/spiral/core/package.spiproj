@@ -1,0 +1,8 @@
+modules:
+    core-
+    loop
+    array
+    string
+    list
+    test
+    

@@ -847,11 +847,14 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             match Map.tryFind x l with
             | Some x -> unify r s x
             | None -> errors.Add(r,RecordIndexFailed x)
-        | TyPair(TySymbol x, b) ->
-            match Map.tryFind x l with
-            | Some (TyRecord l) -> f l b
-            | Some a -> unify r a (TyFun(b,s))
-            | None -> errors.Add(r,RecordIndexFailed x)
+        | TyPair(a, b) ->
+            match visit_t a with
+            | TySymbol x ->
+                match Map.tryFind x l with
+                | Some (TyRecord l) -> f l b
+                | Some a -> unify r a (TyFun(b,s))
+                | None -> errors.Add(r,RecordIndexFailed x)
+            | _ -> errors.Add(r,ExpectedSymbolAsRecordKey x)
         | x -> errors.Add(r,ExpectedSymbolAsRecordKey x)
 
     let assert_bound_vars env a =
@@ -939,15 +942,18 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                             typevars.AddRange(typevars')
                             unify r s a
                         | None -> errors.Add(r,ModuleIndexFailed x)
-                    | TyPair(TySymbol x, b) ->
-                        args.Add(x)
-                        match Map.tryFind x l with
-                        | Some (TyModule l) -> f l b
-                        | Some a -> 
-                            let typevars',a = forall_subst_all a
-                            typevars.AddRange(typevars')
-                            unify r a (TyFun(b,s))
-                        | None -> errors.Add(r,ModuleIndexFailed x)
+                    | TyPair(a, b) ->
+                        match visit_t a with
+                        | TySymbol x ->
+                            args.Add(x)
+                            match Map.tryFind x l with
+                            | Some (TyModule l) -> f l b
+                            | Some a -> 
+                                let typevars',a = forall_subst_all a
+                                typevars.AddRange(typevars')
+                                unify r a (TyFun(b,s))
+                            | None -> errors.Add(r,ModuleIndexFailed x)
+                        | _ -> errors.Add(r,ExpectedSymbolAsModuleKey x)
                     | x -> errors.Add(r,ExpectedSymbolAsModuleKey x)
                 f l (f' b)
                 if 0 < typevars.Count then

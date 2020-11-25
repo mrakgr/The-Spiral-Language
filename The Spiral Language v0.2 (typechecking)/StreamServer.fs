@@ -127,7 +127,7 @@ type MultiFileOutState = {
     top_env_additions : TopEnv Promise
     }
 type DiffableFileHierarchy =
-    | File of path: string * name: string * meta: MultiFileOutState option * ParserRes Promise * tc: TypecheckerStream option
+    | File of path: string * name: string option * meta: MultiFileOutState option * ParserRes Promise * tc: TypecheckerStream option
     | Directory of name: string * DiffableFileHierarchy list
 
 type MultiFileStream = 
@@ -165,11 +165,15 @@ let multi_file package_id top_env =
                     let r,tc = tc.Run(results_parser)
                     changed_files <- Map.add path r changed_files
                     let top_env_additions = 
-                        Stream.foldFromFun top_env_empty (fun a (b : InferResult) -> 
-                            match b.top_env_additions with
-                            | AOpen _ -> a
-                            | AInclude adds -> Infer.union a adds
-                            ) r >>-* Infer.in_module name
+                        let adds =
+                            Stream.foldFromFun top_env_empty (fun a (b : InferResult) -> 
+                                match b.top_env_additions with
+                                | AOpen _ -> a
+                                | AInclude adds -> Infer.union a adds
+                                ) r 
+                        match name with
+                        | Some name -> adds >>-* Infer.in_module name
+                        | None -> Hopac.memo adds
                     let o = {module_id=i.module_id+1; top_env_additions=top_env_additions}
                     File(path,name,Some o,results_parser,Some tc),o
                 | Directory(name,l) ->

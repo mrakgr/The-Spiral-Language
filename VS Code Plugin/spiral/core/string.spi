@@ -1,0 +1,2 @@
+inl string_index (str : string) (i : i32): char = !!!!StringIndex(str,i)
+inl string_length (str : string): i32 = !!!!StringLength(str)
