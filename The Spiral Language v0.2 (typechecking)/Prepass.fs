@@ -511,6 +511,20 @@ let process_ty (x : T) =
     resolve scope (Choice2Of2 x)
     lower scope (Choice2Of2(x,id))
 
+let module_open (top_env : TopEnv) env a l =
+    let a,b = 
+        match top_env.term.[snd a], top_env.ty.[snd a] with
+        | EModule a, TRecord(_, b) ->
+            List.fold (fun (a,b) (_,x) ->
+                match Map.find x a, Map.find x b with
+                | EModule a, TRecord(_, b) -> a,b
+                | _ -> failwith "Compiler error: Module open's symbol index should have been validated."
+                ) (a,b) l
+        | _ -> failwith "Compiler error: Module open should have been validated."
+    {
+    term = {|env.term with env = Map.foldBack Map.add a env.term.env|}
+    ty = {|env.ty with env = Map.foldBack Map.add b env.ty.env|}
+    }
 let prepass package_id module_id (top_env : TopEnv) (expr : FilledTop) =
     let at_tag i = { package_id = package_id; module_id = module_id; tag = i }
     let v_term (env : Env) x = Map.tryFind x env.term.env |> Option.defaultWith (fun () -> top_env.term.[x])
@@ -679,21 +693,7 @@ let prepass package_id module_id (top_env : TopEnv) (expr : FilledTop) =
         | RawOp(r,a,b) -> EOp(r,a,List.map f b)
         | RawJoinPoint(r,a) -> EJoinPoint(r,f a,None)
         | RawAnnot(_,RawJoinPoint(r,a),b) -> EJoinPoint(r,f a,Some (ty env b))
-        | RawModuleOpen (_,a,l,on_succ) ->
-            let a,b = 
-                match top_env.term.[snd a], top_env.ty.[snd a] with
-                | EModule a, TRecord(_, b) ->
-                    List.fold (fun (a,b) (_,x) ->
-                        match Map.find x a, Map.find x b with
-                        | EModule a, TRecord(_, b) -> a,b
-                        | _ -> failwith "Compiler error: Module open's symbol index should have been validated."
-                        ) (a,b) l
-                | _ -> failwith "Compiler error: Module open should have been validated."
-            let env : Env = {
-                term = {|env.term with env = Map.foldBack Map.add a env.term.env|}
-                ty = {|env.ty with env = Map.foldBack Map.add b env.ty.env|}
-                }
-            term env on_succ
+        | RawOpen (_,a,l,on_succ) -> term (module_open top_env env a l) on_succ
         | RawApply(r,a,b) ->
             let rec loop = function
                 | EModule a' & a, EPair(_,ESymbol(_, b'),b'') & b ->
@@ -783,3 +783,6 @@ let prepass package_id module_id (top_env : TopEnv) (expr : FilledTop) =
         {top_env with term = Map.add name x top_env.term; prototypes_next_tag = i.tag+1}
     | FInstance(_,(_,prot_id),(_,ins_id),body) ->
         {top_env with prototypes_instances = Map.add (prot_id,ins_id) (term env body |> process_term) top_env.prototypes_instances}
+    | FOpen(r,a,b) ->
+        let x = module_open top_env env a b
+        {top_env with term=x.term.env; ty=x.ty.env}

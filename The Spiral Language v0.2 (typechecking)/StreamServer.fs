@@ -98,7 +98,8 @@ let typechecker package_id module_id top_env =
                 let rec loop old_results env i = function
                     | b :: bs ->
                         let x = Infer.infer package_id module_id env (bundle_top b)
-                        let _,_,env as s = b,x,Infer.union x.top_env_additions env
+                        let adds = match x.top_env_additions with AOpen x | AInclude x -> x
+                        let _,_,env as s = b,x,Infer.union adds env
                         Cons(s,promise_thunk (fun () -> loop old_results env (i+1) bs))
                     | [] -> Nil
                 loop old_results env i bss
@@ -163,7 +164,12 @@ let multi_file package_id top_env =
                     let tc = match tc with Some tc -> tc | None -> typechecker package_id i.module_id i.top_env
                     let r,tc = tc.Run(results_parser)
                     changed_files <- Map.add path r changed_files
-                    let top_env_additions = Stream.foldFromFun top_env_empty (fun a (b : InferResult) -> Infer.union a b.top_env_additions) r >>-* Infer.in_module name
+                    let top_env_additions = 
+                        Stream.foldFromFun top_env_empty (fun a (b : InferResult) -> 
+                            match b.top_env_additions with
+                            | AOpen _ -> a
+                            | AInclude adds -> Infer.union a adds
+                            ) r >>-* Infer.in_module name
                     let o = {module_id=i.module_id+1; top_env_additions=top_env_additions}
                     File(path,name,Some o,results_parser,Some tc),o
                 | Directory(name,l) ->

@@ -250,7 +250,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
                 ctype constraints term ty a
                 cterm constraints term (ty + metavars a) b
                 ) b
-        | RawModuleOpen(_,(a,b),l,on_succ) ->
+        | RawOpen(_,(a,b),l,on_succ) ->
             match module_open top_env a b l with
             | Ok x ->
                 let combine e m = Map.fold (fun s k _ -> Set.add k s) e m
@@ -584,11 +584,16 @@ type FilledTop =
     | FRecInl of (VSCRange * RString * RawExpr) list
     | FPrototype of VSCRange * RString * RString * TypeVar list * RawTExpr
     | FInstance of VSCRange * RGlobalId * RGlobalId * RawExpr
+    | FOpen of VSCRange * RString * RString list
+
+type 'a AdditionType =
+    | AOpen of 'a
+    | AInclude of 'a
 
 open System.Collections.Generic
 type InferResult = {
     filled_top : FilledTop Hopac.Promise
-    top_env_additions : TopEnv
+    top_env_additions : TopEnv AdditionType
     offset : int
     hovers : RString []
     errors : RString list
@@ -668,11 +673,11 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | RawOp(r,a,b) -> RawOp(r,a,List.map f b)
             | RawJoinPoint(r,a) -> RawAnnot(r,RawJoinPoint(r,f a),annot r x)
             | RawAnnot(r,a,_) -> f a
-            | RawModuleOpen(r,a,b,c) ->
+            | RawOpen(r,a,b,c) ->
                 let f = function TyModule s -> s | _ -> failwith "Compiler error: Module open should always succeed in fill."
                 List.fold (fun s x -> (f s).[snd x]) top_env.term.[snd a] b |> f
                 |> Map.fold (fun s k _ -> Map.remove k s) rec_term
-                |> fun rec_term -> RawModuleOpen(r,a,b,term rec_term c)
+                |> fun rec_term -> RawOpen(r,a,b,term rec_term c)
             | RawApply(r,a,b) ->
                 let a,b = f a, f b
                 match module_type_apply_args.TryGetValue(x) with
@@ -950,10 +955,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     module_type_apply_args.Add(x,(args |> Seq.toList,typevars |> Seq.toList))
             | a -> let v = fresh_var() in unify (range_of_expr a') a (TyFun(v,s)); f v b
         | RawAnnot(_,a,b) -> ty env s b; f s a
-        | RawModuleOpen(_,(a,b),l,on_succ) ->
+        | RawOpen(_,(a,b),l,on_succ) ->
             match module_open (loc_env top_env) a b l with
             | Ok x ->
-                let combine e m = Map.foldBack Map.add m e
+                let combine big small = Map.foldBack Map.add small big
                 term {term = combine env.term x.term; ty = combine env.ty x.ty; constraints = combine env.constraints x.constraints} s on_succ
             | Error e -> errors.Add(e)
         | RawRecordWith(r,l,withs,withouts) ->
@@ -1322,16 +1327,16 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         ty {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
         let t = List.foldBack (fun x s -> TyInl(x,s)) vars (term_subst v)
         hover_types.Add(r,t)
-        if 0 = errors.Count then psucc (fun () -> FType(q,(r,name),vars',expr)), {top_env_empty with ty = Map.add name t Map.empty}
-        else pfail, top_env_empty
+        if 0 = errors.Count then psucc (fun () -> FType(q,(r,name),vars',expr)), AInclude {top_env_empty with ty = Map.add name t Map.empty}
+        else pfail, AInclude top_env_empty
     | BundleNominal(q,(r,name),vars',expr) ->
         let vars,env_ty = hovars vars'
         let tt = List.foldBack (fun (x : Var) s -> KindFun(x.kind,s)) vars KindType
         let v = fresh_var()
         ty {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
         let v = term_subst v
-        if 0 = errors.Count then psucc (fun () -> FNominal(q,(r,name),vars',expr)), top_env_nominal top_env_empty r (at_tag top_env'.nominals_next_tag) tt name vars v
-        else pfail, top_env_empty
+        if 0 = errors.Count then psucc (fun () -> FNominal(q,(r,name),vars',expr)), AInclude(top_env_nominal top_env_empty r (at_tag top_env'.nominals_next_tag) tt name vars v)
+        else pfail, AInclude top_env_empty
     | BundleNominalRec l' ->
         let l,_ =
             List.mapFold (fun i (_,name,vars,body) ->
@@ -1344,14 +1349,15 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             {top_env with nominals_aux = List.fold f top_env.nominals_aux l}
         let env_ty = List.fold (fun s (i,(_,name),_,_,_,_) -> Map.add name (TyNominal i) s) top_env.ty l
         if 0 = errors.Count then
-            psucc (fun () -> FNominalRec l'), 
-            List.fold (fun s (i,(r,name),vars,env_ty',tt,body) ->
-                let v = fresh_var()
-                ty {term=Map.empty; ty=Map.foldBack Map.add env_ty' env_ty; constraints=Map.empty} v body 
-                let v = term_subst v
-                top_env_nominal s r i tt name vars v
-                ) top_env_empty l
-        else pfail, top_env_empty
+            let x = 
+                List.fold (fun s (i,(r,name),vars,env_ty',tt,body) ->
+                    let v = fresh_var()
+                    ty {term=Map.empty; ty=Map.foldBack Map.add env_ty' env_ty; constraints=Map.empty} v body 
+                    let v = term_subst v
+                    top_env_nominal s r i tt name vars v
+                    ) top_env_empty l
+            psucc (fun () -> FNominalRec l'), AInclude x
+        else pfail, AInclude top_env_empty
     | BundlePrototype(q,(r,name),(w,var_init),vars',expr) ->
         let i = at_tag top_env'.prototypes_next_tag
         let cons = CPrototype i
@@ -1362,22 +1368,23 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         ty {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
         let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
         if 0 = errors.Count then
-            psucc (fun () -> FPrototype(q,(r,name),(w,var_init),vars',expr)), 
-            { top_env_empty with
-                prototypes_next_tag = i.tag + 1
-                prototypes = Map.add i {|name=name; signature=body|} Map.empty
-                term = Map.add name body Map.empty
-                constraints = Map.add name (C cons) Map.empty
-                }
-        else pfail, top_env_empty
+            let x =
+                { top_env_empty with
+                    prototypes_next_tag = i.tag + 1
+                    prototypes = Map.add i {|name=name; signature=body|} Map.empty
+                    term = Map.add name body Map.empty
+                    constraints = Map.add name (C cons) Map.empty
+                    }
+            psucc (fun () -> FPrototype(q,(r,name),(w,var_init),vars',expr)), AInclude x
+        else pfail, AInclude top_env_empty
     | BundleInl(q,(_,name as w),a,true) ->
         let env = inl {term=Map.empty; ty=Map.empty; constraints=Map.empty} (w,a)
         (if 0 = errors.Count then psucc (fun () -> FInl(q,w,fill q Map.empty a)) else pfail), 
-        { top_env_empty with term = Map.add name env.term.[name] Map.empty}
+        AInclude { top_env_empty with term = Map.add name env.term.[name] Map.empty}
     | BundleInl(q,(_,name as w),a,false) ->
         assert_bound_vars {term=Map.empty; ty=Map.empty; constraints=Map.empty} a
         (if 0 = errors.Count then psucc (fun () -> FInl(q,w,a)) else pfail),
-        { top_env_empty with term = Map.add name (TySymbol "<real>") Map.empty }
+        AInclude { top_env_empty with term = Map.add name (TySymbol "<real>") Map.empty }
     | BundleRecInl(l,is_top_down) ->
         let _ =
             let h = HashSet()
@@ -1395,9 +1402,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 if is_top_down then psucc (fun () -> FRecInl(List.map (fun (a,b,c) -> a,b,fill a env_term c) l))
                 else psucc (fun () -> FRecInl l)
             else pfail
-        filled_top, Map.fold (fun s k v -> {s with term = Map.add k v s.term}) top_env_empty env_term
+        filled_top, AInclude (Map.fold (fun s k v -> {s with term = Map.add k v s.term}) top_env_empty env_term)
     | BundleInstance(r,prot,ins,vars,body) ->
-        let fail = pfail,top_env_empty
+        let fail = pfail,AInclude top_env_empty
         let assert_no_kind x = x |> List.iter (fun ((r,(_,k)),_) -> match k with RawKindWildcard -> () | _ -> errors.Add(r,KindNotAllowedInInstanceForall))
         let assert_vars_count vars_count vars_expected = if vars_count <> vars_expected then errors.Add(r,InstanceCoreVarsShouldMatchTheArityDifference(vars_count,vars_expected))
         let assert_kind_compatibility got expected =
@@ -1447,9 +1454,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             term {term=Map.empty; ty=env_ty; constraints=Map.empty} prot_body body
             (if 0 = errors.Count then psucc (fun () -> FInstance(r,(fst prot, prot_id),(fst ins, ins_id),fill r Map.empty body)) else pfail),
             // TODO: Do the instance orphan checking here.
-            {top_env_empty with
-                prototypes_instances = Map.add (prot_id,ins_id) ins_constraints Map.empty
-                }
+            AInclude 
+                {top_env_empty with
+                    prototypes_instances = Map.add (prot_id,ins_id) ins_constraints Map.empty
+                    }
             
         let fake _ = fail
         let check_ins on_succ =
@@ -1462,6 +1470,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | Some(C (CPrototype i)) -> check_ins (body i)
         | Some(C x) -> errors.Add(fst prot, ExpectedPrototypeConstraint x); check_ins fake
         | Some(M _) -> errors.Add(fst prot, ExpectedPrototypeInsteadOfModule); check_ins fake
+    | BundleOpen(q,(r,a),b) ->
+        match module_open (loc_env top_env) r a b with
+        | Ok x -> psucc (fun () -> FOpen(q,(r,a),b)), AOpen {top_env_empty with term=x.term; ty=x.ty; constraints=x.constraints}
+        | Error er -> errors.Add(er); pfail, AOpen top_env_empty
     |> fun (filled_top, top_env_additions) -> 
         if 0 = errors.Count then
             annotations |> Seq.iter (fun (KeyValue(_,(r,x))) -> if has_metavars x then errors.Add(r, ValueRestriction x))

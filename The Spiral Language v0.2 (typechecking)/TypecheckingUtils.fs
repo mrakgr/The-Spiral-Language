@@ -15,9 +15,11 @@ type BundleTop =
     | BundleRecInl of (VSCRange * (VSCRange * VarString) * RawExpr) list * is_top_down: bool
     | BundlePrototype of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawTExpr
     | BundleInstance of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawExpr
+    | BundleOpen of VSCRange * (VSCRange * VarString) * (VSCRange * SymbolString) list
 
 let bundle_top_range = function
-    | BundleType(r,_,_,_) | BundleNominal(r,_,_,_) | BundleInl(r,_,_,_) | BundlePrototype(r,_,_,_,_) | BundleInstance(r,_,_,_,_) -> r
+    | BundleType(r,_,_,_) | BundleNominal(r,_,_,_) | BundleInl(r,_,_,_) 
+    | BundlePrototype(r,_,_,_,_) | BundleInstance(r,_,_,_,_) | BundleOpen(r,_,_) -> r
     | BundleNominalRec l -> List.head l |> fun (r,_,_,_) -> r
     | BundleRecInl(l,_) -> List.head l |> fun (r,_,_) -> r
 
@@ -93,7 +95,7 @@ and fold_offset_term offset x =
     | RawJoinPoint(r,a) -> RawJoinPoint(g r,f a)
     | RawAnnot(r,a,b) -> RawAnnot(g r,f a,ty b)
     | RawTypecase(r,a,b) -> RawTypecase(g r,ty a,List.map (fun (a,b) -> ty a,f b) b)
-    | RawModuleOpen(r,a,b,c) -> RawModuleOpen(g r,add_offset_hovar offset a,add_offset_hovar_list offset b,f c)
+    | RawOpen(r,a,b,c) -> RawOpen(g r,add_offset_hovar offset a,add_offset_hovar_list offset b,f c)
     | RawApply(r,a,b) -> RawApply(g r,f a,f b)
     | RawIfThenElse(r,a,b,c) -> RawIfThenElse(g r,f a,f b,f c)
     | RawIfThen(r,a,b) -> RawIfThen(g r,f a,f b)
@@ -155,4 +157,5 @@ let bundle_top (l : Bundle) =
     | [{offset=i; statement=TopNominal(r,a,b,c)}] -> BundleNominal(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
     | [{offset=i; statement=TopType(r,a,b,c)}] -> BundleType(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
     | [{offset=i; statement=TopInstance(r,a,b,c,d)}] -> BundleInstance(add_offset i r, add_offset_hovar i a, add_offset_hovar i b, add_offset_typevar_list i c, fold_offset_term i d)
-    | {statement=TopInl _ | TopPrototype _ | TopNominal _ | TopType _ | TopInstance _} :: _ -> failwith "Compiler error: Regular top level statements should be singleton bundles."
+    | [{offset=i; statement=TopOpen(r,a,b)}] -> BundleOpen(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b)
+    | {statement=TopInl _ | TopPrototype _ | TopNominal _ | TopType _ | TopInstance _ | TopOpen _} :: _ -> failwith "Compiler error: Regular top level statements should be singleton bundles."

@@ -216,7 +216,7 @@ and RawExpr =
     | RawJoinPoint of VSCRange * RawExpr
     | RawAnnot of VSCRange * RawExpr * RawTExpr
     | RawTypecase of VSCRange * RawTExpr * (RawTExpr * RawExpr) list
-    | RawModuleOpen of VSCRange * (VSCRange * VarString) * (VSCRange * SymbolString) list * on_succ: RawExpr
+    | RawOpen of VSCRange * (VSCRange * VarString) * (VSCRange * SymbolString) list * on_succ: RawExpr
     | RawApply of VSCRange * RawExpr * RawExpr
     | RawIfThenElse of VSCRange * RawExpr * RawExpr * RawExpr
     | RawIfThen of VSCRange * RawExpr * RawExpr
@@ -307,7 +307,7 @@ let range_of_expr = function
     | RawHeapMutableSet(r,_,_,_)
     | RawRecordWith(r,_,_,_)
     | RawIfThenElse(r,_,_,_)
-    | RawModuleOpen(r,_,_,_) -> r
+    | RawOpen(r,_,_,_) -> r
     
 let range_of_texpr = function
     | RawTWildcard r
@@ -1107,7 +1107,7 @@ and root_term d =
                     l |> List.map (snd >> fst) 
                     |> duplicates DuplicateRecFunctionName
                     |> function [] -> Ok(fun on_succ -> RawRecBlock(r, List.map snd l, on_succ)) | er -> Error er
-        let module_open = module_open |>> fun (r,(name,acs)) on_succ -> RawModuleOpen(r,name,acs,on_succ)
+        let module_open = module_open |>> fun (r,(name,acs)) on_succ -> RawOpen(r,name,acs,on_succ)
         let statement_parsers d =
             let (+) = alt (index d)
             (inl_or_let + module_open) d
@@ -1150,6 +1150,7 @@ type [<ReferenceEquality>] TopStatement =
     | TopType of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
     | TopPrototype of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawTExpr
     | TopInstance of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawExpr
+    | TopOpen of VSCRange * (VSCRange * VarString) * (VSCRange * SymbolString) list
 
 let top_inl_or_let_process is_top_down = function
     | (r,PatVar(r',name),(RawForall _ | RawFun _ as body)),false -> Ok(TopInl(r,(r',name),body,is_top_down))
@@ -1201,10 +1202,11 @@ let top_and_inl_or_let d =
 
 let inline top_and f = restore 1 (range (skip_keyword SpecAnd >>. f)) |>> TopAnd
 let top_and_union d = top_and ((range (tuple4 (skip_keyword SpecUnion >>% UHeap) read_type_var' (many ho_var .>> skip_op "=") union_clauses)) >>= process_union) d
+let top_open d = (module_open |>> fun (r,(name,acs)) -> TopOpen(r,name,acs)) d
 
 let top_statement s =
     let (+) = alt (index s)
-    (top_inl_or_let + top_union + top_nominal + top_prototype + top_type + top_instance + top_and_inl_or_let + top_and_union) s
+    (top_inl_or_let + top_union + top_nominal + top_prototype + top_type + top_instance + top_and_inl_or_let + top_and_union + top_open) s
 
 let parse (s : Env) =
     if 0 < s.tokens.Length then
