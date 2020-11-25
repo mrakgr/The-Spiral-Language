@@ -147,20 +147,46 @@ let module_changed atten errors s p =
     let rec loop (p : DirectoryInfo) =
         if p = null then s
         else
-            let x = Path.Combine(p.FullName,"package.spiProj")
+            let x = Path.Combine(p.FullName,"package.spiproj")
             if File.Exists x then
                 if Map.containsKey x s.packages.validated_schemas then s
                 else package_update_validate_then_send_errors atten errors s p.FullName None
             else loop p.Parent
     loop (FileInfo(p).Directory)
 
-let atten (errors : SupervisorErrorSources) (req : (SupervisorState * string) Stream) =
+let attention_server (req : (SupervisorState * string) Stream) =
+    let pull_stream (s : SupervisorState) (dir : string) canc =
+        match Map.tryFind dir s.packages.validated_schemas with
+        | Some(Ok x) ->
+            let rec elem = function
+                | ValidatedFileHierarchy.File((_,path),_,_) ->
+                    match Map.tryFind path s.infer_results with
+                    | Some x ->
+                        let rec loop x = (canc ^->. false) <|> (x ^=> function Cons(_,next) -> loop next | Nil -> Alt.always true)
+                        loop x
+                    | None ->
+                        Alt.always false
+                | ValidatedFileHierarchy.Directory(_,l) ->
+                    list l
+            and list = function
+                | x :: xs ->
+                    elem x ^=> function
+                        | false -> Alt.always false
+                        | true -> list xs
+                | [] -> Alt.always true
+            list x.files >>= function
+                | false -> Job.result Set.empty
+                | true ->
+                    match Map.tryFind dir (snd s.packages.package_links) with
+                    | Some x -> Job.result x
+                    | _ -> Job.result Set.empty
+        | _ -> Job.result Set.empty
     let res = Ch()
-    let pull_stream s (dir : string) canc = failwith "TODO"
+    let pull_stream a b c = Hopac.start (pull_stream a b c >>= Ch.send res)
     let rec loop (pulled,c) s canc =
         (canc ^->. c)
         <|> (res ^=> fun l ->
-            List.fold (fun (pulled,c) dir ->
+            Set.fold (fun (pulled,c) dir ->
                 if Set.contains dir pulled then pulled, c
                 else pull_stream s dir canc; Set.add dir pulled, c+1
                 ) (pulled,c-1) l
@@ -179,7 +205,7 @@ let atten (errors : SupervisorErrorSources) (req : (SupervisorState * string) St
             | Nil ->
                 Job.unit()
 
-    Hopac.start (main req)
+    main req
 
 let supervisor_server atten (errors : SupervisorErrorSources) req =
     let loop s = req >>- function
@@ -300,7 +326,9 @@ let [<EntryPoint>] main _ =
         typer = consumed_source TypeErrors
         }
     let supervisor = Ch()
-    Hopac.start (supervisor_server (failwith "TODO") errors supervisor)
+    let atten = Src.create()
+    Hopac.start (attention_server (Src.tap atten))
+    Hopac.start (supervisor_server atten errors supervisor)
 
     let buffer = Dictionary()
     let last_id = ref 0

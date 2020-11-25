@@ -89,15 +89,19 @@ let cons_fulfilled l =
     loop PersistentVector.empty l
 type TypecheckerStream = abstract member Run : ParserRes Promise -> InferResult Stream * TypecheckerStream
 let typechecker package_id module_id top_env =
-    let rec run old_results env i (bs : Bundle list) = 
-        match bs with
+    let rec run old_results env i (bss : Bundle list) = 
+        match bss with
         | b :: bs ->
             match PersistentVector.tryNth i old_results with
             | Some (b', _, env as s) when b = b' -> Cons(s,Promise(run old_results env (i+1) bs))
             | _ ->
-                let x = Infer.infer package_id module_id env (bundle_top b)
-                let _,_,env as s = b,x,Infer.union x.top_env_additions env
-                Cons(s,promise_thunk (fun () -> run old_results env (i+1) bs))
+                let rec loop old_results env i = function
+                    | b :: bs ->
+                        let x = Infer.infer package_id module_id env (bundle_top b)
+                        let _,_,env as s = b,x,Infer.union x.top_env_additions env
+                        Cons(s,promise_thunk (fun () -> loop old_results env (i+1) bs))
+                    | [] -> Nil
+                loop old_results env i bss
         | [] -> Nil
     let rec loop r =
         {new TypecheckerStream with
@@ -311,8 +315,12 @@ let add_package (s : PackageCoreState, infer_results' : Map<string,InferResult S
     { packages = Map.add dir package s.packages; package_ids = package_ids }, infer_results, Set.add dir dirty_nodes
 
 let remove_package (s : PackageCoreState) x =
-    let s = links_rev_remove s.packages.[x].links x s
-    {s with packages = Map.remove x s.packages}
+    match Map.tryFind x s.packages with
+    | Some package ->
+        let s = links_rev_remove package.links x s
+        {s with packages = Map.remove x s.packages}
+    | None ->
+        s
 
 let package_core =
     let rec loop (s : PackageCoreState) =
