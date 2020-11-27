@@ -300,7 +300,7 @@ open FSharp.Json
 open NetMQ
 open NetMQ.Sockets
 
-let [<EntryPoint>] main _ =
+let main _ =
     use poller = new NetMQPoller()
     use server = new RouterSocket()
     poller.Add(server)
@@ -387,3 +387,8 @@ let [<EntryPoint>] main _ =
 
     poller.Run()
     0
+
+let prepass_sketch (package_ids : PersistentHashMap<string,int>) 
+        (packages : Map<string, {|links : Map<string,{|name : string|}>; files : ValidatedFileHierarchy list; results : InferResult list|}>) 
+        (target_package : string) (target_file : string) =
+    ()

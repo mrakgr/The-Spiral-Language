@@ -1491,29 +1491,31 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         errors = errors |> Seq.toList |> List.map (fun (a,b) -> a, show_type_error top_env b)
         }
 
+let base_types =
+    let inline inl f = let v = {scope=0; kind=KindType; constraints=Set.empty; name="x"} in TyInl(v,f v)
+    [
+    "i8", TyPrim Int8T
+    "i16", TyPrim Int16T
+    "i32", TyPrim Int32T
+    "i64", TyPrim Int64T
+    "u8", TyPrim UInt8T
+    "u16", TyPrim UInt16T
+    "u32", TyPrim UInt32T
+    "u64", TyPrim UInt64T
+    "f32", TyPrim Float32T
+    "f64", TyPrim Float64T
+    "string", TyPrim StringT
+    "bool", TyPrim BoolT
+    "char", TyPrim CharT
+    "array", inl (fun x -> TyArray(TyVar x))
+    "heap", inl (fun x -> TyLayout(TyVar x,Layout.Heap))
+    "mut", inl (fun x -> TyLayout(TyVar x,Layout.HeapMutable))
+    ]
+
 let top_env_default : TopEnv = 
-    // Note: `top_env_default` should have no nominals or prototypes.
+    // Note: `top_env_default` should have no nominals, prototypes or terms.
     {top_env_empty with 
-        ty = 
-            let inline inl f = let v = {scope=0; kind=KindType; constraints=Set.empty; name="x"} in TyInl(v,f v)
-            [
-            "i8", TyPrim Int8T
-            "i16", TyPrim Int16T
-            "i32", TyPrim Int32T
-            "i64", TyPrim Int64T
-            "u8", TyPrim UInt8T
-            "u16", TyPrim UInt16T
-            "u32", TyPrim UInt32T
-            "u64", TyPrim UInt64T
-            "f32", TyPrim Float32T
-            "f64", TyPrim Float64T
-            "string", TyPrim StringT
-            "bool", TyPrim BoolT
-            "char", TyPrim CharT
-            "array", inl (fun x -> TyArray(TyVar x))
-            "heap", inl (fun x -> TyLayout(TyVar x,Layout.Heap))
-            "mut", inl (fun x -> TyLayout(TyVar x,Layout.HeapMutable))
-            ] |> Map.ofList
+        ty = Map.ofList base_types
         constraints =
             [
             "number", CNumber

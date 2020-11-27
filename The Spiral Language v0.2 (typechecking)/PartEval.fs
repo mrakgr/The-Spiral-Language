@@ -568,7 +568,7 @@ let peval (env : TopEnv) x =
     and ty s x =
         match x with
         | TArrow _ | TJoinPoint _ -> failwith "Compiler error: Should have been transformed during the prepass."
-        | TArrow'(_,scope,i,body) -> 
+        | TArrow'(scope,i,body) -> 
             assert (i = scope.ty.stack_size)
             YTypeFunction(body,Array.map (vt s) scope.ty.free_vars,scope.term.stack_size,scope.ty.stack_size)
         | TJoinPoint'(r,scope,body) ->
@@ -597,7 +597,7 @@ let peval (env : TopEnv) x =
         | TV i -> vt s i
         | TPair(_,a,b) -> YPair(ty s a, ty s b)
         | TFun(_,a,b) -> YFun(ty s a, ty s b)
-        | TRecord(_,a) -> YRecord(Map.map (fun _ -> ty s) a)
+        | TModule a | TRecord(_,a) -> YRecord(Map.map (fun _ -> ty s) a)
         | TUnion(_,(a,b)) -> YUnion(H(Map.map (fun _ -> ty s) a, b))
         | TSymbol(_,a) -> YSymbol a
         | TApply(r,a,b) ->

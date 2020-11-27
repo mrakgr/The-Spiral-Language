@@ -80,8 +80,8 @@ and [<ReferenceEquality>] E =
     | ETypeArrayTest of Range * bind: Id * pat: Id * on_succ: E * on_fail: E
     | ETypeEq of Range * T * bind: Id * on_succ: E * on_fail: E
 and [<ReferenceEquality>] T =
-    | TArrow' of Range * Scope * Id * T
-    | TArrow of Range * Id * T
+    | TArrow' of Scope * Id * T
+    | TArrow of Id * T
     | TJoinPoint' of Range * Scope * T
     | TJoinPoint of Range * T
     | TB of Range
@@ -89,15 +89,16 @@ and [<ReferenceEquality>] T =
     | TPair of Range * T * T
     | TFun of Range * T * T
     | TRecord of Range * Map<string,T>
+    | TModule of Map<string,T>
     | TUnion of Range * (Map<string,T> * BlockParsing.UnionLayout)
     | TSymbol of Range * string
     | TApply of Range * T * T
-    | TPrim of Range * BlockParsing.PrimitiveType
+    | TPrim of BlockParsing.PrimitiveType
     | TTerm of Range * E
     | TMacro of Range * TypeMacro list
     | TNominal of GlobalId
-    | TArray of Range * T
-    | TLayout of Range * T * BlockParsing.Layout
+    | TArray of T
+    | TLayout of T * BlockParsing.Layout
 
 open FSharpx.Collections
 
@@ -111,9 +112,33 @@ type TopEnv = {
     ty : Map<string,T>
     }
 
+let top_env_empty = {
+    prototypes_next_tag = 0
+    prototypes_instances = Map.empty
+    nominals_next_tag = 0
+    nominals = Map.empty
+    term = Map.empty
+    ty = Map.empty
+    }
+
+let union small big = {
+    prototypes_next_tag = max small.prototypes_next_tag big.prototypes_next_tag
+    prototypes_instances = Map.foldBack Map.add small.prototypes_instances big.prototypes_instances
+    nominals_next_tag = max small.nominals_next_tag big.nominals_next_tag
+    nominals = Map.foldBack Map.add small.nominals big.nominals
+    term = Map.foldBack Map.add small.term big.term
+    ty = Map.foldBack Map.add small.ty big.ty
+    }
+    
+let in_module m (a : TopEnv) =
+    {a with 
+        ty = Map.add m (TModule a.ty) Map.empty
+        term = Map.add m (EModule a.term) Map.empty
+        }
+
 open System.Collections.Generic
 
-type PropagatedVarsEnv = {| vars : Set<int>; max : int ; min : int |}
+type PropagatedVarsEnv = {|vars : Set<int>; max : int; min : int|}
 type PropagatedVars = {term : PropagatedVarsEnv; ty : PropagatedVarsEnv}
 
 let inline propagate x =
@@ -190,12 +215,12 @@ let inline propagate x =
         | TJoinPoint' _ | TArrow' _ | TSymbol _ | TPrim _ | TNominal _ | TB _ -> empty
         | TV i -> singleton_ty i
         | TApply(_,a,b) | TPair(_,a,b) | TFun(_,a,b) -> ty a + ty b
-        | TUnion(_,(a,_)) | TRecord(_,a) -> Map.fold (fun s k v -> s + ty v) empty a
+        | TUnion(_,(a,_)) | TRecord(_,a) | TModule a -> Map.fold (fun s k v -> s + ty v) empty a
         | TTerm(_,a) -> term a
         | TMacro(_,a) -> a |> List.fold (fun s -> function TMText _ -> s | TMType x -> s + ty x) empty
-        | TArrow(r,i,a) as x -> scope x (ty a -. i)
+        | TArrow(i,a) as x -> scope x (ty a -. i)
         | TJoinPoint(_,a) as x -> scope x (ty a)
-        | TArray(_,a) | TLayout(_,a,_) -> ty a
+        | TArray(a) | TLayout(a,_) -> ty a
     
     let _ = match x with Choice1Of2 x -> term x | Choice2Of2 x -> ty x
     scope_dict
@@ -270,12 +295,12 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
         let f = ty env
         match x with
         | TJoinPoint' _ | TArrow' _ | TNominal _ | TPrim _ | TSymbol _ | TV _ | TB _ -> ()
-        | TArrow(_,_,a) -> subst env x; f a
+        | TArrow(_,a) -> subst env x; f a
         | TApply(_,a,b) | TFun(_,a,b) | TPair(_,a,b) -> f a; f b
-        | TRecord(_,a) | TUnion(_,(a,_)) -> Map.iter (fun _ -> f) a
+        | TRecord(_,a) | TModule a | TUnion(_,(a,_)) -> Map.iter (fun _ -> f) a
         | TTerm(_,a) -> term env a
         | TMacro(_,a) -> a |> List.iter (function TMText _ -> () | TMType a -> f a)
-        | TJoinPoint(_,a) | TLayout(_,a,_) | TArray(_,a) -> f a
+        | TJoinPoint(_,a) | TLayout(a,_) | TArray(a) -> f a
 
     match x with
     | Choice1Of2 x -> term Map.empty x
@@ -421,13 +446,14 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
         | TJoinPoint(r,a) ->
             let scope, env = scope env x 
             TJoinPoint'(r,scope,ty env a)
-        | TArrow(r,a,b) ->  
+        | TArrow(a,b) ->  
             let scope, env = scope env a
-            TArrow'(r,scope,adj' env a,ty env b)
+            TArrow'(scope,adj' env a,ty env b)
         | TV i -> match Map.tryFind i env.ty.var with Some i -> i | None -> TV(adj i)
         | TPair(r,a,b) -> TPair(r,f a,f b)
         | TFun(r,a,b) -> TFun(r,f a,f b)
         | TRecord(r,a) -> TRecord(r,Map.map (fun _ -> f) a)
+        | TModule a -> TModule(Map.map (fun _ -> f) a)
         | TUnion(r,(a,b)) -> TUnion(r,(Map.map (fun _ -> f) a,b))
         | TApply(r,a,b) -> TApply(r,f a,f b)
         | TTerm(r,a) -> TTerm(r,term env a)
@@ -437,8 +463,8 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
                 | TMType a -> TMType(f a)
                 )
             TMacro(r,a)
-        | TArray(r,a) -> TArray(r,f a)
-        | TLayout(r,a,b) -> TLayout(r,f a,b)
+        | TArray(a) -> TArray(f a)
+        | TLayout(a,b) -> TLayout(f a,b)
     let env : LowerEnv = {
         term = {|var = Map.empty; adj = 0|}
         ty = {|var = Map.empty; adj = 0|}
@@ -525,7 +551,7 @@ let module_open (top_env : TopEnv) env a l =
     term = {|env.term with env = Map.foldBack Map.add a env.term.env|}
     ty = {|env.ty with env = Map.foldBack Map.add b env.ty.env|}
     }
-let prepass package_id module_id (top_env : TopEnv) (expr : FilledTop) =
+let prepass package_id module_id (top_env : TopEnv) =
     let at_tag i = { package_id = package_id; module_id = module_id; tag = i }
     let v_term (env : Env) x = Map.tryFind x env.term.env |> Option.defaultWith (fun () -> top_env.term.[x])
     let v_ty (env : Env) x =  Map.tryFind x env.ty.env |> Option.defaultWith (fun () -> top_env.ty.[x])
@@ -646,7 +672,7 @@ let prepass package_id module_id (top_env : TopEnv) (expr : FilledTop) =
                 | Some x -> x
                 | None -> TApply(r,a,b) // TODO: Will be an error during partial evaluation time. Could be substituted for an exception here, but I do not want to have errors during the prepass.
             | a,b -> TApply(r,a,b)
-        | RawTPrim(r,a) -> TPrim(r,a)
+        | RawTPrim(r,a) -> TPrim(a)
         | RawTTerm(r,a) -> TTerm(r,term env a)
         | RawTMacro(r,l) -> 
             let f = function 
@@ -654,9 +680,9 @@ let prepass package_id module_id (top_env : TopEnv) (expr : FilledTop) =
                 | RawMacroTypeVar(r,a) -> TMType(f a)
                 | RawMacroTermVar _ -> failwith "Compiler error: Term vars should not appear on the type level."
             TMacro(r,List.map f l)
-        | RawTArray(r,a) -> TArray(r,f a)
+        | RawTArray(r,a) -> TArray(f a)
         | RawTFilledNominal(r,a) -> TNominal a
-        | RawTLayout(r,a,b) -> TLayout(r,f a,b)
+        | RawTLayout(r,a,b) -> TLayout(f a,b)
     and term env x =
         let f = term env
         match x with
@@ -733,7 +759,7 @@ let prepass package_id module_id (top_env : TopEnv) (expr : FilledTop) =
 
     let eval_type ((r,(name,kind)) : HoVar) on_succ env =
         let id, env = add_ty_var env name
-        TArrow(r,id,on_succ env)
+        TArrow(id,on_succ env)
     let eval_type' env l body = List.foldBack eval_type l body env |> process_ty
 
     let nominal_term term nom r name l body =
@@ -742,47 +768,64 @@ let prepass package_id module_id (top_env : TopEnv) (expr : FilledTop) =
         match body with
         | RawTUnion(_,l,_) -> Map.fold (fun term name _ -> Map.add name (wrap_foralls i (EFun(r,0,ENominal(r,EPair(r, ESymbol(r,name), EV 0),t),Some t))) term) term l
         | _ -> Map.add name (wrap_foralls i (EFun(r,0,ENominal(r,EV 0,t),Some t))) term
-    match expr with
-    | FType(_,(_,name),l,body) -> {top_env with ty = Map.add name (eval_type' env l (fun env -> ty env body)) top_env.ty}
-    | FNominal(r,(_,name),l,body) ->
-        let i = at_tag top_env.nominals_next_tag
-        let term = nominal_term top_env.term (TNominal i) r name l body
-        let x = eval_type' env l (fun env -> TJoinPoint(range_of_texpr body, ty env body))
-        let ty = Map.add name x top_env.ty
-        let nominals = Map.add i {|body=x; name=name|} top_env.nominals
-        {top_env with term = term; ty = ty; nominals = nominals; nominals_next_tag=i.tag+1}
-    | FNominalRec l ->
-        let term,env,_ = 
-            List.fold (fun (term,env,i) (r,(_,name),l,body) -> 
-                let nom = TNominal (at_tag i)
-                let term = nominal_term term nom r name l body
-                term, add_ty env name nom, i+1
-                ) (top_env.term, env, top_env.nominals_next_tag) l
-        let ty,nominals,i =
-            List.fold (fun (ty', nominals, i) (_,(_,name),l,body) -> 
-                let x = eval_type' env l (fun env -> TJoinPoint(range_of_texpr body, ty env body))
-                Map.add name x ty', Map.add (at_tag i) {|body=x; name=name|} nominals, i+1
-                ) (top_env.ty, top_env.nominals, top_env.nominals_next_tag) l
-        {top_env with term = term; ty = ty; nominals = nominals; nominals_next_tag=i+1}
-    | FInl(_,(_,name),body) -> {top_env with term = Map.add name (term env body |> process_term) top_env.term}
-    | FRecInl l ->
-        let l, env = 
-            List.mapFold (fun env (_,(_,name),_ as x) -> 
-                let r = ref Unchecked.defaultof<_>
-                (x,r), add_term_rec env name (ERecursive r)
-                ) env l
-        let term = 
-            List.fold (fun top_env_term ((_,(_,name),body),r) ->
-                r := term env body |> process_term
-                Map.add name !r top_env_term
-                ) top_env.term l
-        {top_env with term = term}
-    | FPrototype(r,(_,name),_,_,_) ->
-        let i = at_tag top_env.prototypes_next_tag
-        let x = EForall(r,0,EPrototypeApply(r,i,TV 0)) |> process_term
-        {top_env with term = Map.add name x top_env.term; prototypes_next_tag = i.tag+1}
-    | FInstance(_,(_,prot_id),(_,ins_id),body) ->
-        {top_env with prototypes_instances = Map.add (prot_id,ins_id) (term env body |> process_term) top_env.prototypes_instances}
-    | FOpen(r,a,b) ->
-        let x = module_open top_env env a b
-        {top_env with term=x.term.env; ty=x.ty.env}
+
+    {|
+    base_type = process_ty
+    filled_top = function
+        | FType(_,(_,name),l,body) -> AInclude {top_env_empty with ty = Map.add name (eval_type' env l (fun env -> ty env body)) Map.empty}
+        | FNominal(r,(_,name),l,body) ->
+            let i = at_tag top_env.nominals_next_tag
+            let term = nominal_term Map.empty (TNominal i) r name l body
+            let x = eval_type' env l (fun env -> TJoinPoint(range_of_texpr body, ty env body))
+            let ty = Map.add name x Map.empty
+            let nominals = Map.add i {|body=x; name=name|} Map.empty
+            AInclude {top_env_empty with term = term; ty = ty; nominals = nominals; nominals_next_tag=i.tag+1}
+        | FNominalRec l ->
+            let term,env,_ = 
+                List.fold (fun (term,env,i) (r,(_,name),l,body) -> 
+                    let nom = TNominal (at_tag i)
+                    let term = nominal_term term nom r name l body
+                    term, add_ty env name nom, i+1
+                    ) (Map.empty, env, top_env.nominals_next_tag) l
+            let ty,nominals,i =
+                List.fold (fun (ty', nominals, i) (_,(_,name),l,body) -> 
+                    let x = eval_type' env l (fun env -> TJoinPoint(range_of_texpr body, ty env body))
+                    Map.add name x ty', Map.add (at_tag i) {|body=x; name=name|} nominals, i+1
+                    ) (Map.empty, Map.empty, top_env.nominals_next_tag) l
+            AInclude {top_env_empty with term = term; ty = ty; nominals = nominals; nominals_next_tag=i}
+        | FInl(_,(_,name),body) -> AInclude {top_env_empty with term = Map.add name (term env body |> process_term) Map.empty}
+        | FRecInl l ->
+            let l, env = 
+                List.mapFold (fun env (_,(_,name),_ as x) -> 
+                    let r = ref Unchecked.defaultof<_>
+                    (x,r), add_term_rec env name (ERecursive r)
+                    ) env l
+            let term = 
+                List.fold (fun top_env_term ((_,(_,name),body),r) ->
+                    r := term env body |> process_term
+                    Map.add name !r top_env_term
+                    ) Map.empty l
+            AInclude {top_env_empty with term = term}
+        | FPrototype(r,(_,name),_,_,_) ->
+            let i = at_tag top_env.prototypes_next_tag
+            let x = EForall(r,0,EPrototypeApply(r,i,TV 0)) |> process_term
+            AInclude {top_env_empty with term = Map.add name x Map.empty; prototypes_next_tag = i.tag+1}
+        | FInstance(_,(_,prot_id),(_,ins_id),body) ->
+            AInclude {top_env_empty with prototypes_instances = Map.add (prot_id,ins_id) (term env body |> process_term) Map.empty}
+        | FOpen(r,a,b) ->
+            let x = module_open top_env env a b
+            AOpen {top_env_empty with term=x.term.env; ty=x.ty.env}
+    |}
+
+let top_env_default =
+    let rec f (m : PersistentHashMap<string,int>) = function
+        | TyPrim x -> TPrim x
+        | TyArray x -> TArray (f m x)
+        | TyLayout(a,b) -> TLayout(f m a,b)
+        | TyInl(a,b) -> TArrow(m.Count,f (m.Add(a.name,m.Count)) b)
+        | _ -> failwith "Compiler error: The base type in Infer is not supported in the prepass yet."
+
+    List.fold (fun (top_env : TopEnv) (k, x) ->
+        {top_env with ty = Map.add k ((prepass -1 0 top_env).base_type (f PersistentHashMap.empty x)) top_env.ty}
+        ) top_env_empty Infer.base_types
+    
