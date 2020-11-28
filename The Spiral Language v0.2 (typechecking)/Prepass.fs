@@ -103,7 +103,7 @@ and [<ReferenceEquality>] T =
 open FSharpx.Collections
 
 open BlockParsing
-type TopEnv = {
+type PrepassTopEnv = {
     prototypes_next_tag : int
     prototypes_instances : Map<GlobalId * GlobalId,E>
     nominals_next_tag : int
@@ -130,7 +130,7 @@ let union small big = {
     ty = Map.foldBack Map.add small.ty big.ty
     }
     
-let in_module m (a : TopEnv) =
+let in_module m (a : PrepassTopEnv) =
     {a with 
         ty = Map.add m (TModule a.ty) Map.empty
         term = Map.add m (EModule a.term) Map.empty
@@ -537,7 +537,7 @@ let process_ty (x : T) =
     resolve scope (Choice2Of2 x)
     lower scope (Choice2Of2(x,id))
 
-let module_open (top_env : TopEnv) env a l =
+let module_open (top_env : PrepassTopEnv) env a l =
     let a,b = 
         match top_env.term.[snd a], top_env.ty.[snd a] with
         | EModule a, TRecord(_, b) ->
@@ -551,7 +551,7 @@ let module_open (top_env : TopEnv) env a l =
     term = {|env.term with env = Map.foldBack Map.add a env.term.env|}
     ty = {|env.ty with env = Map.foldBack Map.add b env.ty.env|}
     }
-let prepass package_id module_id (top_env : TopEnv) =
+let prepass package_id module_id (top_env : PrepassTopEnv) =
     let at_tag i = { package_id = package_id; module_id = module_id; tag = i }
     let v_term (env : Env) x = Map.tryFind x env.term.env |> Option.defaultWith (fun () -> top_env.term.[x])
     let v_ty (env : Env) x =  Map.tryFind x env.ty.env |> Option.defaultWith (fun () -> top_env.ty.[x])
@@ -819,13 +819,14 @@ let prepass package_id module_id (top_env : TopEnv) =
 
 let top_env_default =
     let rec f (m : PersistentHashMap<string,int>) = function
+        | TyVar x -> TV m.[x.name] 
         | TyPrim x -> TPrim x
         | TyArray x -> TArray (f m x)
         | TyLayout(a,b) -> TLayout(f m a,b)
         | TyInl(a,b) -> TArrow(m.Count,f (m.Add(a.name,m.Count)) b)
         | _ -> failwith "Compiler error: The base type in Infer is not supported in the prepass yet."
 
-    List.fold (fun (top_env : TopEnv) (k, x) ->
+    List.fold (fun (top_env : PrepassTopEnv) (k, x) ->
         {top_env with ty = Map.add k ((prepass -1 0 top_env).base_type (f PersistentHashMap.empty x)) top_env.ty}
         ) top_env_empty Infer.base_types
     

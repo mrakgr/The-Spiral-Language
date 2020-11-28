@@ -388,7 +388,64 @@ let main _ =
     poller.Run()
     0
 
+open Spiral.PartEval.Prepass
+type PrepassPackageEnv = {
+    prototypes_instances : Map<int, Map<GlobalId * GlobalId,E>>
+    nominals : Map<int, Map<GlobalId,{|body : T; name : string|}>>
+    term : Map<string,E>
+    ty : Map<string,T>
+    }
+
+let union small big = {
+    prototypes_instances = Map.foldBack Map.add small.prototypes_instances big.prototypes_instances
+    nominals = Map.foldBack Map.add small.nominals big.nominals
+    term = Map.foldBack Map.add small.term big.term
+    ty = Map.foldBack Map.add small.ty big.ty
+    }
+    
+let in_module m (a : PrepassPackageEnv) =
+    {a with 
+        ty = Map.add m (TModule a.ty) Map.empty
+        term = Map.add m (EModule a.term) Map.empty
+        }
+
+let package_env_empty = {
+    prototypes_instances = Map.empty
+    nominals = Map.empty
+    term = Map.empty
+    ty = Map.empty
+    }
+
+let package_env_default = { package_env_empty with ty = top_env_default.ty }
+
+let package_to_top (x : PrepassPackageEnv) = {
+    nominals_next_tag = 0
+    nominals = Map.foldBack (fun _ -> Map.foldBack Map.add) x.nominals Map.empty
+    prototypes_next_tag = 0
+    prototypes_instances = Map.foldBack (fun _ -> Map.foldBack Map.add) x.prototypes_instances Map.empty
+    ty = x.ty
+    term = x.term
+    }
+
+let top_to_package package_id (small : PrepassTopEnv) (big : PrepassPackageEnv): PrepassPackageEnv = {
+    nominals = Map.add package_id small.nominals big.nominals
+    prototypes_instances = Map.add package_id small.prototypes_instances big.prototypes_instances
+    ty = small.ty
+    term = small.term
+    }
+
 let prepass_sketch (package_ids : PersistentHashMap<string,int>) 
-        (packages : Map<string, {|links : Map<string,{|name : string|}>; files : ValidatedFileHierarchy list; results : InferResult list|}>) 
-        (target_package : string) (target_file : string) =
-    ()
+        (packages : Map<string, {|links : Map<string,{|name : string|}>; files : ValidatedFileHierarchy list; results : Map<string, InferResult list> |}>) 
+        (order : string seq) =
+    Seq.fold (fun package_envs package_name ->
+        let package = packages.[package_name]
+        let package_env =
+            package.links |> Map.fold (fun s k v ->
+                in_module v.name (union s (Map.find k package_envs))
+                ) package_env_default 
+
+        let rec elem (top_env, top_env_adds) = failwith "TODO"
+        and list (top_env, top_env_adds) = failwith "TODO"
+        let top_env_adds = list (package_to_top package_env, top_env_empty) package.files
+        Map.add package_name (top_to_package package_ids.[package_name] top_env_adds package_env) package_envs
+        ) Map.empty order
