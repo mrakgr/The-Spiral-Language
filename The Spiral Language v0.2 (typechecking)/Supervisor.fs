@@ -10,7 +10,7 @@ open VSCTypes
 open Spiral.Tokenize
 open Spiral.Infer
 open Spiral.ServerUtils
-open Spiral.StreamServer
+open Spiral.StreamServer.Typechecking
 
 open Hopac
 open Hopac.Infixes
@@ -388,64 +388,44 @@ let main _ =
     poller.Run()
     0
 
+open Spiral.PartEval
 open Spiral.PartEval.Prepass
-type PrepassPackageEnv = {
-    prototypes_instances : Map<int, Map<GlobalId * GlobalId,E>>
-    nominals : Map<int, Map<GlobalId,{|body : T; name : string|}>>
-    term : Map<string,E>
-    ty : Map<string,T>
-    }
 
-let union small big = {
-    prototypes_instances = Map.foldBack Map.add small.prototypes_instances big.prototypes_instances
-    nominals = Map.foldBack Map.add small.nominals big.nominals
-    term = Map.foldBack Map.add small.term big.term
-    ty = Map.foldBack Map.add small.ty big.ty
-    }
-    
-let in_module m (a : PrepassPackageEnv) =
-    {a with 
-        ty = Map.add m (TModule a.ty) Map.empty
-        term = Map.add m (EModule a.term) Map.empty
-        }
+//type PrepassFileHierarchy =
+//    | File of path: RString * name: string option * FilledTop list
+//    | Directory of name: string * PrepassFileHierarchy list
 
-let package_env_empty = {
-    prototypes_instances = Map.empty
-    nominals = Map.empty
-    term = Map.empty
-    ty = Map.empty
-    }
+//let prepass_compile (package_ids : PersistentHashMap<string,int>) 
+//        (packages : Map<string, {|links : Map<string,{|name : string|}>; files : PrepassFileHierarchy list |}>) 
+//        (package_order : string seq) =
+//    Seq.fold (fun package_envs package_name ->
+//        let package_id = package_ids.[package_name]
+//        let package = packages.[package_name]
+//        let package_env = package.links |> Map.fold (fun s k v -> in_module v.name (union s (Map.find k package_envs))) package_env_default 
 
-let package_env_default = { package_env_empty with ty = top_env_default.ty }
-
-let package_to_top (x : PrepassPackageEnv) = {
-    nominals_next_tag = 0
-    nominals = Map.foldBack (fun _ -> Map.foldBack Map.add) x.nominals Map.empty
-    prototypes_next_tag = 0
-    prototypes_instances = Map.foldBack (fun _ -> Map.foldBack Map.add) x.prototypes_instances Map.empty
-    ty = x.ty
-    term = x.term
-    }
-
-let top_to_package package_id (small : PrepassTopEnv) (big : PrepassPackageEnv): PrepassPackageEnv = {
-    nominals = Map.add package_id small.nominals big.nominals
-    prototypes_instances = Map.add package_id small.prototypes_instances big.prototypes_instances
-    ty = small.ty
-    term = small.term
-    }
-
-let prepass_sketch (package_ids : PersistentHashMap<string,int>) 
-        (packages : Map<string, {|links : Map<string,{|name : string|}>; files : ValidatedFileHierarchy list; results : Map<string, InferResult list> |}>) 
-        (order : string seq) =
-    Seq.fold (fun package_envs package_name ->
-        let package = packages.[package_name]
-        let package_env =
-            package.links |> Map.fold (fun s k v ->
-                in_module v.name (union s (Map.find k package_envs))
-                ) package_env_default 
-
-        let rec elem (top_env, top_env_adds) = failwith "TODO"
-        and list (top_env, top_env_adds) = failwith "TODO"
-        let top_env_adds = list (package_to_top package_env, top_env_empty) package.files
-        Map.add package_name (top_to_package package_ids.[package_name] top_env_adds package_env) package_envs
-        ) Map.empty order
+//        let rec elem (top_env, module_id) = function
+//            | ValidatedFileHierarchy.File((_,path),name,_) ->
+//                let r = results.[path]
+//                let _,top_env_adds = 
+//                    List.fold (fun (top_env, top_env_adds) x ->
+//                        match (prepass package_id module_id top_env).filled_top x with
+//                        | AOpen adds -> Prepass.union adds top_env, top_env_adds
+//                        | AInclude adds -> Prepass.union adds top_env, Prepass.union adds top_env_adds
+//                        ) (top_env, top_env_empty) r
+//                let top_env_adds =
+//                    match name with
+//                    | None -> top_env_adds
+//                    | Some name -> Prepass.in_module name top_env_adds
+//                (module_id+1), top_env_adds
+//            | ValidatedFileHierarchy.Directory(name,l) ->
+//                let _,module_id,top_env_adds = list (top_env,module_id) l
+//                module_id, top_env_adds
+//        and list (top_env,module_id) l =
+//            List.fold (fun (top_env,module_id,top_env_adds) x ->
+//                let module_id, top_env_adds' = elem (top_env, module_id) x
+//                Prepass.union top_env_adds' top_env, module_id, Prepass.union top_env_adds' top_env_adds
+//                ) (top_env,module_id,top_env_empty) l
+                
+//        let _,_,top_env_adds = list (package_to_top package_env,0) package.files
+//        Map.add package_name (top_to_package package_id top_env_adds package_env) package_envs
+//        ) Map.empty package_order

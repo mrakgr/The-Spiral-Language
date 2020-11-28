@@ -1,4 +1,4 @@
-﻿module Spiral.StreamServer
+﻿module Spiral.StreamServer.Typechecking
 
 open System
 open System.IO
@@ -6,6 +6,7 @@ open System.Collections.Generic
 open FSharpx.Collections
 
 open VSCTypes
+open Spiral
 open Spiral.Tokenize
 open Spiral.TypecheckingUtils
 open Spiral.Infer
@@ -344,21 +345,24 @@ let package_core =
 type PackageDiffStream =
     abstract member Run : string [] * PackageSchema ResultMap * MirroredGraph * Map<string,'a * ParserRes Promise * 'b> -> Map<string, InferResult Stream> * PackageDiffStream
 
+let package_named_links (p : PackageSchema) =
+    let names = p.schema.schema.packages // TODO: Extend the parser for packages and separate out the names and locations.
+    let links = p.schema.packages
+    Map(List.map2 (fun (_,a) (_,b) -> a, {|name=b|}) links names)
+
 type PackageDiffState = { changes : string Set; errors : string Set; core : PackageCoreStream }
 let get_adds_and_removes (schema : PackageSchema ResultMap) ((abs,bas) : MirroredGraph) (modules : Map<string,_ * ParserRes Promise * _>) (changes : string Set) =
     let sort_order, _ = topological_sort bas changes
     Seq.foldBack (fun dir (adds,removes) ->
         match Map.tryFind dir schema with
         | Some(Ok p) ->
-            let names = p.schema.schema.packages // TODO: Extend the parser for packages and separate out the names and locations.
-            let links = p.schema.packages
             let files =
                 let rec elem = function
                     | ValidatedFileHierarchy.File((_,a),b,_) -> File(a,b,None,modules.[a] |> (fun (_,x,_) -> x),None)
                     | ValidatedFileHierarchy.Directory(a,b) -> Directory(a,list b)
                 and list l = List.map elem l
                 list p.schema.files
-            (dir,{links=Map(List.map2 (fun (_,a) (_,b) -> a, {|name=b|}) links names); files=files}) :: adds, removes
+            (dir,{links=package_named_links p; files=files}) :: adds, removes
         | _ -> adds, Set.add dir removes
         ) sort_order ([], Set.empty)
 
