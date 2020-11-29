@@ -29,8 +29,8 @@ let job_thunk_with f x = Job.thunk (fun () -> f x)
 let promise_thunk_with f x = Hopac.memo (job_thunk_with f x)
 let promise_thunk f = Hopac.memo (Job.thunk f)
 
-type Stream<'a,'b> = abstract member Run : 'a -> 'b * Stream<'a,'b>
-type TokenizerStream = Stream<TokReq, TokRes>
+type EditorStream<'a,'b> = abstract member Run : 'a -> 'b * EditorStream<'a,'b>
+type TokenizerStream = EditorStream<TokReq, TokRes>
 
 let tokenizer =
     let rec loop (lines, errors, blocks) = {new TokenizerStream with
@@ -90,7 +90,7 @@ let cons_fulfilled l =
         | Cons(old,next) when Promise.Now.isFulfilled next -> loop (PersistentVector.conj old olds) (Promise.Now.get next)
         | _ -> olds
     loop PersistentVector.empty l
-type TypecheckerStream = Stream<ParserRes Promise, InferResult Stream>
+type TypecheckerStream = EditorStream<ParserRes Promise, InferResult Stream>
 let typechecker package_id module_id top_env =
     let rec run old_results env i (bss : Bundle list) = 
         match bss with
@@ -126,7 +126,7 @@ type DiffableFileHierarchyT<'a> =
     | File of path: string * name: string option * 'a
     | Directory of name: string * 'a DiffableFileHierarchyT list
 type DiffableFileHierarchy = ((ModuleId * TopEnv Promise) option * ParserRes Promise * TypecheckerStream option) DiffableFileHierarchyT
-type MultiFileStream = Stream<DiffableFileHierarchy list, Map<string,InferResult Stream> * TopEnv Promise>
+type MultiFileStream = EditorStream<DiffableFileHierarchy list, Map<string,InferResult Stream> * TopEnv Promise>
 
 // Rather than just throwing away the old results, diff returns the new tree with as much useful info from the old tree as is possible.
 let diff_order_changed old new' =
@@ -148,13 +148,13 @@ let diff_order_changed old new' =
         | _, n -> same_order <- false; n
     list (old,new')
 
-let run create_stream post_process_result union in_module package_id top_env files = 
+let multi_file_run top_env_empty create_stream post_process_result union in_module package_id top_env files = 
     let mutable changed_files = Map.empty
     let rec changed (module_id,top_env as i) x =
         match x with
         | File(_,_,(Some o,_,_)) -> x, o
         | File(path,name,(None,res,tc)) ->
-            let tc : Stream<_,_> = match tc with Some tc -> tc | None -> create_stream package_id module_id top_env
+            let tc : EditorStream<_,_> = match tc with Some tc -> tc | None -> create_stream package_id module_id top_env
             let r,tc = tc.Run res
             changed_files <- Map.add path r changed_files
             let top_env_additions = 
@@ -169,7 +169,7 @@ let run create_stream post_process_result union in_module package_id top_env fil
             let o = module_id, top_env_adds >>-* in_module name
             Directory(name,l),o
     and changed_list (module_id,top_env) l =
-        let o = module_id, Promise(top_env_empty)
+        let o = module_id, Promise.Now.withValue(top_env_empty)
         let l,(_,o) =
             List.mapFold (fun (top_env, (module_id, top_env_adds as o)) x ->
                 let i = module_id, top_env
@@ -184,7 +184,7 @@ let run create_stream post_process_result union in_module package_id top_env fil
     let l,(_,top_env_adds) = changed_list i files 
     (changed_files, top_env_adds), l
 
-let post_process_result r =
+let union_adds r =
     Stream.foldFromFun top_env_empty (fun a (b : InferResult) -> 
         match b.top_env_additions with
         | AOpen _ -> a
@@ -197,7 +197,7 @@ let multi_file package_id top_env =
         {new MultiFileStream with 
             member _.Run files = 
                 let files = diff_order_changed files' files 
-                let x, l = run typechecker post_process_result Infer.union Infer.in_module package_id top_env files
+                let x, l = multi_file_run top_env_empty typechecker union_adds Infer.union Infer.in_module package_id top_env files
                 x, create l
             }
     create []

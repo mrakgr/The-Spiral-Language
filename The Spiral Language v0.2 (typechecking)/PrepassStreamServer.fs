@@ -9,6 +9,7 @@ open VSCTypes
 open Spiral.PartEval
 open Spiral.Infer
 open Spiral.PartEval.Prepass
+open Spiral.StreamServer.Main
 
 open Hopac
 open Hopac.Infixes
@@ -60,7 +61,7 @@ let top_to_package package_id (small : PrepassTopEnv) (big : PrepassPackageEnv):
     term = small.term
     }
 
-type FileStream = abstract member Run : InferResult Stream -> PrepassTopEnv Promise * FileStream
+type FileStream = EditorStream<InferResult Stream, PrepassTopEnv Promise>
 let prepass package_id module_id top_env =
     let rec main r =
         {new FileStream with
@@ -87,66 +88,16 @@ let prepass package_id module_id top_env =
     main (fun () -> [])
 
 type ModuleId = int
-type DiffableFileHierarchy =
-    | File of path: string * name: string option * meta: (ModuleId * PrepassTopEnv Promise) option * InferResult Stream * FileStream option
-    | Directory of name: string * DiffableFileHierarchy list
-
-type MultiFileStream = 
-    abstract member Run : DiffableFileHierarchy list -> PrepassTopEnv Promise * MultiFileStream
-
-// Rather than just throwing away the old results, diff returns the new tree with as much useful info from the old tree as is possible.
-let diff_order_changed old new' =
-    let mutable same_files = true
-    let mutable same_order = true
-    let rec elem (o,n) = 
-        match o,n with
-        // In `n`, `meta` and `tc` fields are None.
-        | File(path,name,_,p,tc) & o,File(path',name',_,p',_) when path = path' && name = name' -> 
-            if same_files then 
-                if Object.ReferenceEquals(p,p') then o
-                else same_files <- false; File(path,name,None,p',tc)
-            else File(path,name,None,p',None)
-        | Directory(name,l), Directory(name',l') when name = name' -> Directory(name,list (l,l'))
-        | _, n -> same_order <- false; n
-    and list = function
-        | o :: o', n :: n' -> elem (o,n) :: (if same_order then list (o', n') else n')
-        | [], [] -> []
-        | _, n -> same_order <- false; n
-    list (old,new')
+type DiffableFileHierarchy = DiffableFileHierarchyT<(ModuleId * PrepassTopEnv Promise) option * InferResult Stream * FileStream option>
+type MultiFileStream = EditorStream<DiffableFileHierarchy list,PrepassTopEnv Promise>
 
 let multi_file package_id top_env =
-    let rec create files' =
-        let run files = 
-            let rec changed (module_id,top_env as i) x =
-                match x with
-                | File(_,_,Some o,_,_) -> x, o
-                | File(path,name,None,results_infer,pr) ->
-                    let pr = match pr with Some tc -> tc | None -> prepass package_id module_id top_env
-                    let r,pr = pr.Run(results_infer)
-                    let top_env_adds = 
-                        match name with
-                        | Some name -> r >>-* fun adds -> Prepass.in_module name adds
-                        | None -> r
-                    let o = module_id+1, top_env_adds
-                    File(path,name,Some o,results_infer,Some pr),o
-                | Directory(name,l) ->
-                    let l,(module_id,top_env_adds) = changed_list i l
-                    let o = module_id, top_env_adds >>-* Prepass.in_module name
-                    Directory(name,l),o
-            and changed_list (module_id,top_env) l =
-                let o = module_id, Promise(top_env_empty)
-                let l,(_,o) =
-                    List.mapFold (fun (top_env, (module_id, top_env_adds as o)) x ->
-                        let i = module_id, top_env
-                        let x,(module_id,top_env_adds') = changed i x
-                        let union a b = a >>=* fun a -> b >>- fun b -> Prepass.union a b
-                        let top_env = union top_env_adds' top_env
-                        let o = module_id, union top_env_adds' top_env_adds
-                        x,(top_env,o)
-                        ) (top_env,o) l
-                l,o
-            let i = 0, top_env
-            let l,(_,top_env_adds) = changed_list i files 
-            top_env_adds, create l
-        {new MultiFileStream with member _.Run files = diff_order_changed files' files |> run}
+    let rec create files' = 
+        {new MultiFileStream with 
+            member _.Run files = 
+                let files = diff_order_changed files' files 
+                let x, l = multi_file_run top_env_empty prepass id Prepass.union Prepass.in_module package_id top_env files
+                snd x, create l
+            }
     create []
+
