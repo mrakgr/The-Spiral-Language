@@ -89,7 +89,7 @@ let prepass package_id module_id top_env =
 
 type ModuleId = int
 type DiffableFileHierarchy = DiffableFileHierarchyT<(ModuleId * PrepassTopEnv Promise) option * InferResult Stream * FileStream option>
-type MultiFileStream = EditorStream<DiffableFileHierarchy list,PrepassTopEnv Promise>
+type MultiFileStream = EditorStream<DiffableFileHierarchy list,bool * PrepassTopEnv Promise>
 
 let multi_file package_id top_env =
     let rec create files' = 
@@ -97,7 +97,12 @@ let multi_file package_id top_env =
             member _.Run files = 
                 let files = diff_order_changed files' files 
                 let x, l = multi_file_run top_env_empty prepass id Prepass.union Prepass.in_module package_id top_env files
-                snd x, create l
+                (Map.isEmpty (fst x), snd x), create l
             }
     create []
 
+open Spiral.ServerUtils
+
+type TargetPackage = string
+type PackageName = string
+type PackageStream = EditorStream<Map<PackageName,InferResult Stream * ValidatedFileHierarchy> * PackageName seq,unit>
