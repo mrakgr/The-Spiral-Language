@@ -10,7 +10,7 @@ open VSCTypes
 open Spiral.Tokenize
 open Spiral.Infer
 open Spiral.ServerUtils
-open Spiral.StreamServer.Typechecking
+open Spiral.StreamServer.Main
 
 open Hopac
 open Hopac.Infixes
