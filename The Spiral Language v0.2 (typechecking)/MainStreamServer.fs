@@ -125,7 +125,7 @@ type ModuleId = int
 type DiffableFileHierarchyT<'a> =
     | File of path: string * name: string option * 'a
     | Directory of name: string * 'a DiffableFileHierarchyT list
-type DiffableFileHierarchy = ((ModuleId * TopEnv Promise) option * ParserRes Promise * TypecheckerStream option) DiffableFileHierarchyT
+type DiffableFileHierarchy = ((InferResult Stream * (ModuleId * TopEnv Promise)) option * ParserRes Promise * TypecheckerStream option) DiffableFileHierarchyT
 type MultiFileStream = EditorStream<DiffableFileHierarchy list, Map<string,InferResult Stream> * TopEnv Promise>
 
 // Rather than just throwing away the old results, diff returns the new tree with as much useful info from the old tree as is possible.
@@ -148,22 +148,23 @@ let diff_order_changed old new' =
         | _, n -> same_order <- false; n
     list (old,new')
 
-let multi_file_run top_env_empty create_stream post_process_result union in_module package_id top_env files = 
-    let mutable changed_files = Map.empty
+let inline multi_file_run on_unchanged_file on_changed_file top_env_empty create_stream post_process_result union in_module package_id top_env files = 
     let rec changed (module_id,top_env as i) x =
         match x with
-        | File(_,_,(Some o,_,_)) -> x, o
+        | File(path,_,(Some (r,o),_,_)) -> 
+            on_unchanged_file path r
+            x, o
         | File(path,name,(None,res,tc)) ->
             let tc : EditorStream<_,_> = match tc with Some tc -> tc | None -> create_stream package_id module_id top_env
             let r,tc = tc.Run res
-            changed_files <- Map.add path r changed_files
+            on_changed_file path r
             let top_env_additions = 
                 let adds = post_process_result r
                 match name with
                 | Some name -> adds >>-* in_module name
                 | None -> adds
             let o = module_id+1, top_env_additions
-            File(path,name,(Some o,res,Some tc)),o
+            File(path,name,(Some (r,o),res,Some tc)),o
         | Directory(name,l) ->
             let l,(module_id,top_env_adds) = changed_list i l
             let o = module_id, top_env_adds >>-* in_module name
@@ -182,7 +183,7 @@ let multi_file_run top_env_empty create_stream post_process_result union in_modu
         l,o
     let i = 0, top_env
     let l,(_,top_env_adds) = changed_list i files 
-    (changed_files, top_env_adds), l
+    top_env_adds, l
 
 let union_adds r =
     Stream.foldFromFun top_env_empty (fun a (b : InferResult) -> 
@@ -197,8 +198,11 @@ let multi_file package_id top_env =
         {new MultiFileStream with 
             member _.Run files = 
                 let files = diff_order_changed files' files 
-                let x, l = multi_file_run top_env_empty typechecker union_adds Infer.union Infer.in_module package_id top_env files
-                x, create l
+                let mutable changed_files = Map.empty
+                let on_unchanged _ _ = ()
+                let on_changed path r = changed_files <- Map.add path r changed_files
+                let x, l = multi_file_run on_unchanged on_changed top_env_empty typechecker union_adds Infer.union Infer.in_module package_id top_env files
+                (changed_files, x), create l
             }
     create []
 

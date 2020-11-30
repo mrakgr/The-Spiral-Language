@@ -88,21 +88,24 @@ let prepass package_id module_id top_env =
     main (fun () -> [])
 
 type ModuleId = int
-type DiffableFileHierarchy = DiffableFileHierarchyT<(ModuleId * PrepassTopEnv Promise) option * InferResult Stream * FileStream option>
-type MultiFileStream = EditorStream<DiffableFileHierarchy list,bool * PrepassTopEnv Promise>
+type DiffableFileHierarchy = DiffableFileHierarchyT<(PrepassTopEnv Promise * (ModuleId * PrepassTopEnv Promise)) option * InferResult Stream * FileStream option>
+type ModuleTarget = string
+type MultiFileStream = EditorStream<DiffableFileHierarchy list * ModuleTarget,PrepassTopEnv Promise option * PrepassTopEnv Promise>
 
 let multi_file package_id top_env =
-    let rec create files' = 
-        {new MultiFileStream with 
-            member _.Run files = 
-                let files = diff_order_changed files' files 
-                let x, l = multi_file_run top_env_empty prepass id Prepass.union Prepass.in_module package_id top_env files
-                (Map.isEmpty (fst x), snd x), create l
+    let rec create files' =
+        {new MultiFileStream with
+            member _.Run((files,target)) =
+                let files = diff_order_changed files' files
+                let mutable res = None
+                let on_res path r = if path = target then res <- Some r
+                let x, l = multi_file_run on_res on_res top_env_empty prepass id Prepass.union Prepass.in_module package_id top_env files
+                (res, x), create l
             }
     create []
 
 open Spiral.ServerUtils
 
-type TargetPackage = string
 type PackageName = string
-type PackageStream = EditorStream<Map<PackageName,InferResult Stream * ValidatedFileHierarchy> * PackageName seq,unit>
+type ModulePath = string
+type PackageStream = EditorStream<Map<PackageName,DiffableFileHierarchy> * PackageName seq * ModuleTarget, PrepassTopEnv Promise option>
