@@ -90,7 +90,8 @@ let prepass package_id module_id top_env =
 type ModuleId = int
 type DiffableFileHierarchy = DiffableFileHierarchyT<(PrepassTopEnv Promise * (ModuleId * PrepassTopEnv Promise)) option * InferResult Stream * FileStream option>
 type ModuleTarget = string
-type MultiFileStream = EditorStream<DiffableFileHierarchy list * ModuleTarget,PrepassTopEnv Promise option * PrepassTopEnv Promise>
+type HasChanged = bool
+type MultiFileStream = EditorStream<DiffableFileHierarchy list * ModuleTarget,HasChanged * PrepassTopEnv Promise option * PrepassTopEnv Promise>
 
 let multi_file package_id top_env =
     let rec create files' =
@@ -98,14 +99,51 @@ let multi_file package_id top_env =
             member _.Run((files,target)) =
                 let files = diff_order_changed files' files
                 let mutable res = None
-                let on_res path r = if path = target then res <- Some r
-                let x, l = multi_file_run on_res on_res top_env_empty prepass id Prepass.union Prepass.in_module package_id top_env files
-                (res, x), create l
+                let mutable changed = false
+                let on_unchanged path r = if path = target then res <- Some r
+                let on_changed path r = on_unchanged path r; changed <- true
+                let x, files = multi_file_run on_unchanged on_changed top_env_empty prepass id Prepass.union Prepass.in_module package_id top_env files
+                (changed, res, x), create files
             }
     create []
 
 open Spiral.ServerUtils
 
-type PackageName = string
-type ModulePath = string
-type PackageStream = EditorStream<Map<PackageName,DiffableFileHierarchy> * PackageName seq * ModuleTarget, PrepassTopEnv Promise option>
+
+type PackageStream = EditorStream<Map<PackageName,DiffableFileHierarchy list * PackageLinks * PackageId> * PackageName seq * ModuleTarget, PrepassTopEnv Promise option>
+
+type PackageItem = {
+    env_in : PrepassPackageEnv Promise
+    env_out : PrepassPackageEnv Promise
+    links : Map<PackagePath,PackageName>
+    stream : MultiFileStream
+    id : PackageId
+    }
+let package = // TODO: This is broken.
+    let rec loop (s : Map<PackageName, PackageItem>) =
+        {new PackageStream with
+            member _.Run((packages,order,target)) = 
+                Seq.fold (fun (s,has_changed,_) n ->
+                    let old_package = Map.tryFind n s
+                    let files, links, id = packages.[n]
+                    let is_dirty_prev = Map.exists (fun k _ -> Set.contains k has_changed) links = false
+                    let env_in = 
+                        let f() =
+                            let l = links |> Map.fold (fun l k v -> ((Map.find k s).env_out >>-* in_module v) :: l) [] |> Job.conCollect
+                            l >>-* Seq.fold union package_env_default
+                        if is_dirty_prev then f()
+                        else match old_package with Some p -> p.env_in | None -> f()
+                    let is_dirty_cur, ((is_dirty_file,target_res,top_env_out), stream) =
+                        match old_package with
+                        | Some p when is_dirty_prev = false && id = p.id && links = p.links -> false, p.stream.Run(files,target)
+                        | _ -> true, (multi_file id (env_in >>-* package_to_top)).Run(files,target)
+                    let env_out = top_env_out >>=* fun top_env_out -> env_in >>- fun env_in -> top_to_package id top_env_out env_in
+                    let s = 
+                        let x = {env_in = env_in; env_out = env_out; stream = stream; id = id; links = links}
+                        Map.add n x s 
+                    let has_changed = if is_dirty_prev || is_dirty_cur || is_dirty_file then Set.add n has_changed else has_changed
+                    s, has_changed, target_res
+                    ) (s,Set.empty,None) order
+                |> fun (_,_,target_res) -> target_res, loop s
+            }
+    loop Map.empty

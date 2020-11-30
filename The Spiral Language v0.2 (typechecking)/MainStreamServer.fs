@@ -206,8 +206,10 @@ let multi_file package_id top_env =
             }
     create []
 
-type Name = string
-type AddPackageInput = {links : Map<string, Name>; files : DiffableFileHierarchy list}
+type PackagePath = string
+type PackageName = string
+type PackageLinks = Map<PackagePath,PackageName>
+type AddPackageInput = {links : PackageLinks; files : DiffableFileHierarchy list}
 type PackageCoreStream =
     abstract member ReplacePackages : (string * AddPackageInput) list * string Set -> Map<string,InferResult Stream> * PackageCoreStream
 
@@ -272,12 +274,48 @@ let package_env_empty = {
 
 let package_env_default = {package_env_empty with ty = top_env_default.ty; term = top_env_default.term; constraints = top_env_default.constraints}
 
+type ModulePath = string
+type PackageId = int
+type PackageMultiFileLinks = Map<PackagePath,PackageName * PackageEnv Promise>
+type PackageMultiFileStreamAux = EditorStream<DiffableFileHierarchy list, Map<string,InferResult Stream> * PackageEnv Promise>
+type PackageMultiFileStream = EditorStream<PackageId * PackageMultiFileLinks * DiffableFileHierarchy list, Map<string,InferResult Stream> * PackageEnv Promise>
+
+let package_multi_file =
+    let make_new_stream (id : PackageId) (links : PackageMultiFileLinks) =
+        let package_env_in = 
+            let l = Map.fold (fun l k (name,env_out) -> (env_out >>-* in_module name) :: l) [] links |> Job.conCollect
+            l >>-* Seq.fold union package_env_default
+        let rec loop (multi_file : MultiFileStream) =
+            {new PackageMultiFileStreamAux with
+                member _.Run x =
+                    let (infer_results,env_out),multi_file = multi_file.Run(x)
+                    let env_out = env_out >>=* fun env_out -> package_env_in >>- fun package_env_in -> top_to_package id env_out package_env_in
+                    (infer_results,env_out), loop multi_file
+                }
+        loop (multi_file id (package_env_in >>-* package_to_top))
+        
+    let rec loop (id',links',stream) =
+        {new PackageMultiFileStream with
+            member _.Run((id,links,files)) =
+                let stream = if id = id' && links = links' then stream else make_new_stream id links
+                run id links stream files
+                }
+    and run id links (stream : PackageMultiFileStreamAux) files =
+        let a,b = stream.Run(files)
+        a, loop (id,links,b)
+
+    {new PackageMultiFileStream with
+        member _.Run((id,links,files)) =
+            let stream = make_new_stream id links
+            run id links stream files
+            }
+
 type PackageCoreStateItem = {
-    links : Map<string,Name>
-    rev_links : string Set
-    env_in : PackageEnv Promise
+    links : PackageLinks
+    rev_links : PackagePath Set
     env_out : PackageEnv Promise
-    stream : MultiFileStream
+    stream : PackageMultiFileStream
+    id : int
     }
 
 type PackageCoreState = {
@@ -296,24 +334,16 @@ let links_rev_remove links dir s = links |> Map.fold (fun s k _ -> link_op Set.r
 let links_rev_add links dir s = links |> Map.fold (fun s k _ -> link_op Set.add dir s k) s
 
 let add_package (s : PackageCoreState, infer_results' : Map<string,InferResult Stream>, dirty_nodes : Set<string>) (dir, x : AddPackageInput) =
-    let old_package = Map.tryFind dir s.packages
-    let is_dirty = x.links |> Map.exists (fun k _ -> Set.contains k dirty_nodes)
-    let env_in =
-        let f() =
-            let l = x.links |> Map.fold (fun l k v -> (s.packages.[k].env_out >>-* in_module v) :: l) [] |> Job.conCollect
-            l >>-* Seq.fold union package_env_default
-        if is_dirty then f()
-        else match old_package with Some x -> x.env_in | None -> f()
-    
     let id, package_ids = 
         if PersistentHashMap.containsKey dir s.package_ids then s.package_ids.[dir], s.package_ids
         else s.package_ids.Count, s.package_ids.Add(dir,s.package_ids.Count)
-    let (infer_results, top_env_out), stream =
+    let old_package = Map.tryFind dir s.packages
+    let (infer_results, env_out), stream =
+        let links = x.links |> Map.map (fun k v -> v, s.packages.[k].env_out)
+        let files = x.files
         match old_package with
-        | Some _ when is_dirty -> (multi_file id (env_in >>-* package_to_top)).Run(x.files)
-        | Some p -> p.stream.Run(x.files)
-        | None -> (multi_file id (env_in >>-* package_to_top)).Run(x.files)
-    let env_out = top_env_out >>=* fun top_env_out -> env_in >>- fun env_in -> top_to_package id top_env_out env_in
+        | Some p -> p.stream.Run(id,links,files)
+        | None -> package_multi_file.Run(id,links,files)
     
     let s = // Remove the current package dir from the parents based on the old links.
         let old_links = match old_package with Some x -> x.links | None -> Map.empty
@@ -324,11 +354,8 @@ let add_package (s : PackageCoreState, infer_results' : Map<string,InferResult S
     let infer_results = Map.foldBack Map.add infer_results infer_results'
 
     let package = {
-        links = x.links
+        links = x.links; env_out = env_out; stream = stream; id = id
         rev_links = match old_package with Some x -> x.rev_links | None -> Set.empty
-        env_in = env_in
-        env_out = env_out
-        stream = stream
         }
     
     { packages = Map.add dir package s.packages; package_ids = package_ids }, infer_results, Set.add dir dirty_nodes
