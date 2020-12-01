@@ -122,10 +122,14 @@ let typechecker package_id module_id top_env =
     loop (fun () -> Stream.nil)
 
 type ModuleId = int
-type DiffableFileHierarchyT<'a> =
+type DiffableFileHierarchyT<'a,'b> =
     | File of path: string * name: string option * 'a
-    | Directory of name: string * 'a DiffableFileHierarchyT list
-type DiffableFileHierarchy = ((InferResult Stream * (ModuleId * TopEnv Promise)) option * ParserRes Promise * TypecheckerStream option) DiffableFileHierarchyT
+    | Directory of name: string * DiffableFileHierarchyT<'a,'b> list * 'b
+type DiffableFileHierarchy = 
+    DiffableFileHierarchyT<
+        (InferResult Stream * (ModuleId * TopEnv Promise)) option * ParserRes Promise * TypecheckerStream option,
+        (ModuleId * TopEnv Promise) option
+        >
 type MultiFileStream = EditorStream<DiffableFileHierarchy list, Map<string,InferResult Stream> * TopEnv Promise>
 
 // Rather than just throwing away the old results, diff returns the new tree with as much useful info from the old tree as is possible.
@@ -140,7 +144,7 @@ let diff_order_changed old new' =
                 if Object.ReferenceEquals(p,p') then o
                 else same_files <- false; File(path,name,(None,p',tc))
             else File(path,name,(None,p',None))
-        | Directory(name,l), Directory(name',l') when name = name' -> Directory(name,list (l,l'))
+        | Directory(name,l,o), Directory(name',l',o') when name = name' -> Directory(name,list (l,l'),if same_files then o else o')
         | _, n -> same_order <- false; n
     and list = function
         | o :: o', n :: n' -> elem (o,n) :: (if same_order then list (o', n') else n')
@@ -165,10 +169,11 @@ let inline multi_file_run on_unchanged_file on_changed_file top_env_empty create
                 | None -> adds
             let o = module_id+1, top_env_additions
             File(path,name,(Some (r,o),res,Some tc)),o
-        | Directory(name,l) ->
+        | Directory(name,l,Some o) -> Directory(name,l,Some o), o
+        | Directory(name,l,None) ->
             let l,(module_id,top_env_adds) = changed_list i l
             let o = module_id, top_env_adds >>-* in_module name
-            Directory(name,l),o
+            Directory(name,l,Some o),o
     and changed_list (module_id,top_env) l =
         let o = module_id, Promise.Now.withValue(top_env_empty)
         let l,(_,o) =
@@ -288,7 +293,7 @@ let package_multi_file =
         let rec loop (multi_file : MultiFileStream) =
             {new PackageMultiFileStreamAux with
                 member _.Run x =
-                    let (infer_results,env_out),multi_file = multi_file.Run(x)
+                    let (infer_results,env_out),multi_file = multi_file.Run(x) // TODO: Merge this with the prepass function.
                     let env_out = env_out >>=* fun env_out -> package_env_in >>- fun package_env_in -> top_to_package id env_out package_env_in
                     (infer_results,env_out), loop multi_file
                 }
@@ -394,7 +399,7 @@ let get_adds_and_removes (schema : PackageSchema ResultMap) ((abs,bas) : Mirrore
             let files =
                 let rec elem = function
                     | ValidatedFileHierarchy.File((_,a),b,_) -> File(a,b,(None,modules.[a] |> (fun (_,x,_) -> x),None))
-                    | ValidatedFileHierarchy.Directory(a,b) -> Directory(a,list b)
+                    | ValidatedFileHierarchy.Directory(a,b) -> Directory(a,list b,None)
                 and list l = List.map elem l
                 list p.schema.files
             (dir,{links=package_named_links p; files=files}) :: adds, removes
