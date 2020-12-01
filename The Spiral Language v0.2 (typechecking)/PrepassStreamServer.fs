@@ -114,39 +114,6 @@ type PackageId = int
 type PackageMultiFileLinks = Map<PackagePath,PackageName * PrepassPackageEnv Promise>
 type PackageMultiFileStreamAux = EditorStream<DiffableFileHierarchy list * ModuleTarget, PrepassPackageEnv Promise option * PrepassPackageEnv Promise>
 type PackageMultiFileStream = EditorStream<PackageId * PackageMultiFileLinks * (DiffableFileHierarchy list * ModuleTarget), PrepassPackageEnv Promise option * PrepassPackageEnv Promise>
-
-let package_multi_file post_process_result multi_file package_env_default union in_module top_to_package package_to_top =
-    let make_new_stream (id : PackageId) links =
-        let package_env_in = 
-            let l = Map.fold (fun l k (name,env_out) -> (env_out >>-* in_module name) :: l) [] links |> Job.conCollect
-            l >>-* Seq.fold union package_env_default
-        let rec loop (top_env_out',env_out') (multi_file : EditorStream<_,_>) =
-            {new EditorStream<_,_> with
-                member _.Run x =
-                    let (result,top_env_out),multi_file = multi_file.Run(x)
-                    let f package_env_in env_out = env_out >>=* fun env_out -> package_env_in >>- fun package_env_in -> top_to_package id env_out package_env_in
-                    let env_out = if top_env_out = top_env_out' then env_out' else f package_env_in top_env_out
-                    let target = post_process_result (f package_env_in) result
-                    (target,env_out), loop (top_env_out, env_out) multi_file
-                }
-        loop (Promise(), Promise()) (multi_file id (package_env_in >>-* package_to_top))
-        
-    let rec loop (id',links',stream) =
-        {new EditorStream<_,_> with
-            member _.Run((id,links,data)) =
-                let stream = if id = id' && links = links' then stream else make_new_stream id links
-                run id links stream data
-                }
-    and run id links (stream : EditorStream<_,_>) data =
-        let a,b = stream.Run(data)
-        a, loop (id,links,b)
-
-    {new EditorStream<_,_> with
-        member _.Run((id,links,data)) =
-            let stream = make_new_stream id links
-            run id links stream data
-            }
-
 type PackageStream = EditorStream<Map<PackageName,DiffableFileHierarchy list * PackageLinks * PackageId> * PackageName seq * ModuleTarget, PrepassPackageEnv Promise option>
 
 type PackageItem = {
