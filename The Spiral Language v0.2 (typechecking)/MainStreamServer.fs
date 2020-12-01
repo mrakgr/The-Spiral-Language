@@ -296,7 +296,7 @@ let package_multi_file post_process_result multi_file package_env_default union 
                     let (result,top_env_out),multi_file = multi_file.Run(x)
                     let f env_out = env_out >>=* fun env_out -> package_env_in >>- fun package_env_in -> top_to_package id env_out package_env_in
                     let env_out = if top_env_out = top_env_out' then env_out' else f top_env_out
-                    let target = post_process_result (f package_env_in) result
+                    let target = post_process_result f result
                     (target,env_out), loop (top_env_out, env_out) multi_file
                 }
         loop (Promise(), Promise()) (multi_file id (package_env_in >>-* package_to_top))
