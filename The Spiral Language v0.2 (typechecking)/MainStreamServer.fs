@@ -214,9 +214,11 @@ let multi_file package_id top_env =
 type PackagePath = string
 type PackageName = string
 type PackageLinks = Map<PackagePath,PackageName>
+type PackageId = int
+type PackageIds = PersistentHashMap<PackagePath,PackageId>
 type AddPackageInput = {links : PackageLinks; files : DiffableFileHierarchy list}
 type PackageCoreStream =
-    abstract member ReplacePackages : (string * AddPackageInput) list * string Set -> Map<string,InferResult Stream> * PackageCoreStream
+    abstract member ReplacePackages : (string * AddPackageInput) list * string Set -> (Map<string,InferResult Stream> * PackageIds) * PackageCoreStream
 
 type PackageEnv = {
     nominals_aux : Map<int,Map<GlobalId, {|name : string; kind : TT|}>>
@@ -280,7 +282,6 @@ let package_env_empty = {
 let package_env_default = {package_env_empty with ty = top_env_default.ty; term = top_env_default.term; constraints = top_env_default.constraints}
 
 type ModulePath = string
-type PackageId = int
 type PackageMultiFileLinks = Map<PackagePath,PackageName * PackageEnv Promise>
 type PackageMultiFileStreamAux = EditorStream<DiffableFileHierarchy list, Map<string,InferResult Stream> * PackageEnv Promise>
 type PackageMultiFileStream = EditorStream<PackageId * PackageMultiFileLinks * DiffableFileHierarchy list, Map<string,InferResult Stream> * PackageEnv Promise>
@@ -326,7 +327,7 @@ type PackageCoreStateItem = {
 
 type PackageCoreState = {
     packages : Map<string,PackageCoreStateItem>
-    package_ids : PersistentHashMap<string,int>
+    package_ids : PackageIds
     }
 
 let inline link_op f dir s k = 
@@ -379,12 +380,13 @@ let package_core =
         {new PackageCoreStream with
             member _.ReplacePackages(adds,removes) =
                 let s,b,_ = List.fold add_package (s,Map.empty,Set.empty) adds
-                b, loop (Set.fold remove_package s removes)
+                let s = Set.fold remove_package s removes
+                (b, s.package_ids), loop s
             }
     loop {packages=Map.empty; package_ids=PersistentHashMap.empty}
 
 type PackageDiffStream =
-    abstract member Run : string [] * PackageSchema ResultMap * MirroredGraph * Map<string,'a * ParserRes Promise * 'b> -> Map<string, InferResult Stream> * PackageDiffStream
+    abstract member Run : string [] * PackageSchema ResultMap * MirroredGraph * Map<string,'a * ParserRes Promise * 'b> -> (Map<string, InferResult Stream> * PackageIds) option * PackageDiffStream
 
 let package_named_links (p : PackageSchema) =
     let names = p.schema.schema.packages // TODO: Extend the parser for packages and separate out the names and locations.
@@ -423,7 +425,7 @@ let package_diff =
                 if Set.isEmpty errors && Set.isEmpty changes = false then 
                     let adds,removes = get_adds_and_removes schemas graph modules changes
                     let x,core = s.core.ReplacePackages(adds,removes)
-                    x,loop {changes=Set.empty; errors=errors; core=core}
-                else Map.empty, loop {s with changes=changes; errors=errors}
+                    Some x,loop {changes=Set.empty; errors=errors; core=core}
+                else None,loop {s with changes=changes; errors=errors}
             }
     loop {changes=Set.empty; errors=Set.empty; core=package_core}

@@ -31,7 +31,36 @@ type SupervisorState = {
     infer_results : Map<string, InferResult Stream>
     diff_stream : PackageDiffStream
     packages : PackageMaps
+    package_ids : PackageIds
     }
+
+module Prepass =
+    open Spiral.StreamServer.Prepass
+    // Note: Don't forget the prepass eval errors as well.
+    let package_inputs (s : SupervisorState) module_target =
+        let package_target = failwith "TODO"
+        let visited : string HashSet = HashSet()
+        let order : (PackageName * (DiffableFileHierarchy list * PackageLinks * PackageId)) Queue = Queue()
+        let rec dfs package_path =
+            if visited.Add package_path then
+                let links = (fst s.packages.package_links).[package_path] // TODO: The key might not be present.
+                Set.iter dfs links
+                match s.packages.package_schemas.[package_path] with // TODO: The key might not be present.
+                | Ok x -> // TODO: The package file itself might have errors.
+                    let rec elem = function
+                        | ServerUtils.File((_,path),name,_) -> File(path,name,(None,s.infer_results.[path],None)) : DiffableFileHierarchy // TODO: The index here might fail.
+                        | ServerUtils.Directory(name,l) -> Directory(name,list l,None)
+                    and list l = List.map elem l
+                    let hier = list x.schema.files
+                    let links = package_named_links x
+                    let id : PackageId = s.package_ids.[package_path] // TODO: Indexing could fail.
+                    order.Enqueue(package_path,(hier,links,id))
+                | Error _ -> failwith "TODO"
+        dfs package_target
+        let a : Map<PackageName,DiffableFileHierarchy list * PackageLinks * PackageId> = Map(order)
+        let b : PackageName seq = Seq.map fst order
+        a,b,package_target
+
 type LoadResult =
     | LoadModule of package_dir: string * path: RString * Result<TokRes * ParserRes Promise * ModuleStream,string>
     | LoadPackage of package_dir: string * Result<ValidatedSchema,string>
@@ -110,25 +139,23 @@ type SupervisorReq =
 
 let package_validate_then_send_errors atten errors s dir =
     let order,packages = package_validate s.packages dir
-    let infer_results, diff_stream = s.diff_stream.Run(order,packages.package_schemas,packages.package_links,s.modules)
-    
-    let infer_results = 
-        Map.map (fun p r ->
-            let rec loop ers = function
-                | Nil -> Nil
-                | Cons(a : InferResult,next) ->
-                    let ers = List.append a.errors ers
-                    Hopac.start (Src.value errors.typer {|uri="file:///" + p; errors=ers|})
-                    Cons(a, next >>-* loop ers)
-            r >>-* loop []
-            ) infer_results
-
-    package_errors order packages |> Array.iter (fun er ->
-        Hopac.start (Src.value errors.package er)
-        )
-    let s = {s with packages=packages; infer_results=Map.foldBack Map.add infer_results s.infer_results; diff_stream=diff_stream}
+    package_errors order packages |> Array.iter (fun er -> Hopac.start (Src.value errors.package er))
     Hopac.start (Src.value atten (s, dir))
-    s
+    
+    match s.diff_stream.Run(order,packages.package_schemas,packages.package_links,s.modules) with
+    | Some (infer_results, package_ids), diff_stream ->
+        let infer_results = 
+            Map.map (fun p r ->
+                let rec loop ers = function
+                    | Nil -> Nil
+                    | Cons(a : InferResult,next) ->
+                        let ers = List.append a.errors ers
+                        Hopac.start (Src.value errors.typer {|uri="file:///" + p; errors=ers|})
+                        Cons(a, next >>-* loop ers)
+                r >>-* loop []
+                ) infer_results
+        {s with packages=packages; package_ids=package_ids; infer_results=Map.foldBack Map.add infer_results s.infer_results; diff_stream=diff_stream}
+    | None, diff_stream -> {s with diff_stream=diff_stream}
 
 let package_update_validate_then_send_errors atten errors s dir text = package_validate_then_send_errors atten errors (package_update errors s dir text) dir
 
@@ -264,6 +291,7 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
         modules = Map.empty
         diff_stream = package_diff
         infer_results = Map.empty
+        package_ids = PersistentHashMap.empty
         packages = {
             validated_schemas = Map.empty
             package_links = mirrored_graph_empty
