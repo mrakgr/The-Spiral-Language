@@ -21,6 +21,7 @@ type PrepassPackageEnv = {
     nominals : Map<int, Map<GlobalId,{|body : T; name : string|}>>
     term : Map<string,E>
     ty : Map<string,T>
+    has_errors : bool
     }
 
 let union small big = {
@@ -28,6 +29,7 @@ let union small big = {
     nominals = Map.foldBack Map.add small.nominals big.nominals
     term = Map.foldBack Map.add small.term big.term
     ty = Map.foldBack Map.add small.ty big.ty
+    has_errors = small.has_errors || big.has_errors
     }
     
 let in_module m (a : PrepassPackageEnv) =
@@ -41,6 +43,7 @@ let package_env_empty = {
     nominals = Map.empty
     term = Map.empty
     ty = Map.empty
+    has_errors = false
     }
 
 let package_env_default = { package_env_empty with ty = top_env_default.ty }
@@ -52,6 +55,7 @@ let package_to_top (x : PrepassPackageEnv) = {
     prototypes_instances = Map.foldBack (fun _ -> Map.foldBack Map.add) x.prototypes_instances Map.empty
     ty = x.ty
     term = x.term
+    has_errors = x.has_errors
     }
 
 let top_to_package package_id (small : PrepassTopEnv) (big : PrepassPackageEnv): PrepassPackageEnv = {
@@ -59,6 +63,7 @@ let top_to_package package_id (small : PrepassTopEnv) (big : PrepassPackageEnv):
     prototypes_instances = Map.add package_id small.prototypes_instances big.prototypes_instances
     ty = small.ty
     term = small.term
+    has_errors = small.has_errors || big.has_errors
     }
 
 type FileStream = EditorStream<InferResult Stream, PrepassTopEnv Promise>
@@ -70,19 +75,23 @@ let prepass package_id module_id top_env =
                 let rec loop top_env top_env_adds old_results = function
                     | Nil -> Job.result (top_env_adds, [])
                     | Cons(x : InferResult,xs) ->
-                        x.filled_top >>= fun filled_top ->
-                        match old_results with
-                        | (filled_top',top_env,top_env_adds as r) :: rs when Object.ReferenceEquals(filled_top,filled_top') -> 
-                            xs >>= loop top_env top_env_adds rs >>- fun (q,rs) -> q,r :: rs
-                        | _ -> 
-                            let top_env, top_env_adds =
-                                match (prepass package_id module_id top_env).filled_top filled_top with
-                                | AOpen adds -> Prepass.union adds top_env, top_env_adds
-                                | AInclude adds -> Prepass.union adds top_env, Prepass.union adds top_env_adds
-                            xs >>= loop top_env top_env_adds [] >>- fun (q,rs) -> q, (filled_top, top_env, top_env_adds) :: rs
+                        if List.isEmpty x.errors then
+                            x.filled_top >>= fun filled_top ->
+                            match old_results with
+                            | (filled_top',top_env,top_env_adds as r) :: rs when Object.ReferenceEquals(filled_top,filled_top') -> 
+                                xs >>= loop top_env top_env_adds rs >>- fun (q,rs) -> q,r :: rs
+                            | _ -> 
+                                let top_env, top_env_adds =
+                                    match (prepass package_id module_id top_env).filled_top filled_top with
+                                    | AOpen adds -> Prepass.union adds top_env, top_env_adds
+                                    | AInclude adds -> Prepass.union adds top_env, Prepass.union adds top_env_adds
+                                xs >>= loop top_env top_env_adds [] >>- fun (q,rs) -> q, (filled_top, top_env, top_env_adds) :: rs
+                        else
+                            Job.result ({top_env_adds with has_errors=true}, [])
                 let l = 
-                    top_env >>=* fun top_env ->
-                    x >>= loop top_env top_env_empty r
+                    top_env >>=* fun (top_env : PrepassTopEnv) ->
+                    if top_env.has_errors then Job.result({top_env_empty with has_errors=true}, [])
+                    else x >>= loop top_env top_env_empty r
                 l >>-* fst, main (fun () -> if l.Full then Promise.Now.get l |> snd else r)
             }
     main (fun () -> [])
