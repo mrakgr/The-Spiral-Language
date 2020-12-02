@@ -71,7 +71,30 @@ module Prepass =
             let a = Map(order)
             let b = Seq.map fst order
             Ok(a,b,package_target)
-        with :? PackageInputsException as e -> Error e.Data
+        with :? PackageInputsException as e -> Error e.Data0
+
+    let build_file (s : SupervisorState) module_target =
+        match inputs s module_target with
+        | Ok x ->
+            let a,b = package.Run(x) // TODO: Take care of the stream.
+            match a with
+            | Some x ->
+                x >>- fun x ->
+                    if x.has_errors then Error "There are type errors in at least one module."
+                    else 
+                        match Map.tryFind "main" x.term with
+                        | Some main ->
+                            let top_env = package_to_top x
+                            let prototypes_instances = Dictionary(top_env.prototypes_instances)
+                            let nominals = 
+                                let t = HashConsing.HashConsTable()
+                                let d = Dictionary()
+                                top_env.nominals |> Map.iter (fun k v -> d.Add(k, t.Add {|v with id=k|}))
+                                d
+                            Ok(PartEval.Main.peval {prototypes_instances=prototypes_instances; nominals=nominals} main)
+                        | None -> Error <| sprintf "Cannot find the main function in module. Path: %s" module_target
+            | None -> Job.result (Error <| sprintf "Cannot find the target module. Path: %s" module_target)
+        | Error x -> Job.result (Error x)
 
 type LoadResult =
     | LoadModule of package_dir: string * path: RString * Result<TokRes * ParserRes Promise * ModuleStream,string>
@@ -427,45 +450,3 @@ let main _ =
 
     poller.Run()
     0
-
-open Spiral.PartEval
-open Spiral.PartEval.Prepass
-
-//type PrepassFileHierarchy =
-//    | File of path: RString * name: string option * FilledTop list
-//    | Directory of name: string * PrepassFileHierarchy list
-
-//let prepass_compile (package_ids : PersistentHashMap<string,int>) 
-//        (packages : Map<string, {|links : Map<string,{|name : string|}>; files : PrepassFileHierarchy list |}>) 
-//        (package_order : string seq) =
-//    Seq.fold (fun package_envs package_name ->
-//        let package_id = package_ids.[package_name]
-//        let package = packages.[package_name]
-//        let package_env = package.links |> Map.fold (fun s k v -> in_module v.name (union s (Map.find k package_envs))) package_env_default 
-
-//        let rec elem (top_env, module_id) = function
-//            | ValidatedFileHierarchy.File((_,path),name,_) ->
-//                let r = results.[path]
-//                let _,top_env_adds = 
-//                    List.fold (fun (top_env, top_env_adds) x ->
-//                        match (prepass package_id module_id top_env).filled_top x with
-//                        | AOpen adds -> Prepass.union adds top_env, top_env_adds
-//                        | AInclude adds -> Prepass.union adds top_env, Prepass.union adds top_env_adds
-//                        ) (top_env, top_env_empty) r
-//                let top_env_adds =
-//                    match name with
-//                    | None -> top_env_adds
-//                    | Some name -> Prepass.in_module name top_env_adds
-//                (module_id+1), top_env_adds
-//            | ValidatedFileHierarchy.Directory(name,l) ->
-//                let _,module_id,top_env_adds = list (top_env,module_id) l
-//                module_id, top_env_adds
-//        and list (top_env,module_id) l =
-//            List.fold (fun (top_env,module_id,top_env_adds) x ->
-//                let module_id, top_env_adds' = elem (top_env, module_id) x
-//                Prepass.union top_env_adds' top_env, module_id, Prepass.union top_env_adds' top_env_adds
-//                ) (top_env,module_id,top_env_empty) l
-                
-//        let _,_,top_env_adds = list (package_to_top package_env,0) package.files
-//        Map.add package_name (top_to_package package_id top_env_adds package_env) package_envs
-//        ) Map.empty package_order
