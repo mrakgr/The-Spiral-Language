@@ -36,30 +36,42 @@ type SupervisorState = {
 
 module Prepass =
     open Spiral.StreamServer.Prepass
-    // Note: Don't forget the prepass eval errors as well.
-    let package_inputs (s : SupervisorState) module_target =
-        let package_target = failwith "TODO"
-        let visited : string HashSet = HashSet()
-        let order : (PackageName * (DiffableFileHierarchy list * PackageLinks * PackageId)) Queue = Queue()
-        let rec dfs package_path =
-            if visited.Add package_path then
-                let links = (fst s.packages.package_links).[package_path] // TODO: The key might not be present.
-                Set.iter dfs links
-                match s.packages.package_schemas.[package_path] with // TODO: The key might not be present.
-                | Ok x -> // TODO: The package file itself might have errors.
-                    let rec elem = function
-                        | ServerUtils.File((_,path),name,_) -> File(path,name,(None,s.infer_results.[path],None)) : DiffableFileHierarchy // TODO: The index here might fail.
-                        | ServerUtils.Directory(name,l) -> Directory(name,list l,None)
-                    and list l = List.map elem l
-                    let hier = list x.schema.files
-                    let links = package_named_links x
-                    let id : PackageId = s.package_ids.[package_path] // TODO: Indexing could fail.
-                    order.Enqueue(package_path,(hier,links,id))
-                | Error _ -> failwith "TODO"
-        dfs package_target
-        let a : Map<PackageName,DiffableFileHierarchy list * PackageLinks * PackageId> = Map(order)
-        let b : PackageName seq = Seq.map fst order
-        a,b,package_target
+    exception PackageInputsException of string
+    let inputs (s : SupervisorState) module_target =
+        let er x = raise (PackageInputsException x)
+        try let package_target =
+                let rec loop (x : DirectoryInfo) = 
+                    if x = null then er "Cannot find the package file of the target module."
+                    elif x.FullName = module_target then x.FullName
+                    else loop x.Parent
+                loop (DirectoryInfo(module_target))
+            let visited = HashSet()
+            let order = Queue()
+            let rec dfs package_path =
+                if visited.Add package_path then
+                    match Map.tryFind package_path s.packages.package_schemas with
+                    | Some(Ok x) when List.isEmpty x.package_errors && List.isEmpty x.schema.errors ->
+                        let rec elem = function
+                            | ServerUtils.File((_,path),name,_) -> 
+                                match Map.tryFind path s.infer_results with
+                                | Some r -> File(path,name,(None,r,None))
+                                | None -> er <| sprintf "Cannot find the infer results for module at path: %s" path
+                            | ServerUtils.Directory(name,l) -> Directory(name,list l,None)
+                        and list l = List.map elem l
+                        let hier = list x.schema.files
+                        let links = package_named_links x
+                        let id = 
+                            if PersistentHashMap.containsKey package_path s.package_ids then s.package_ids.[package_path]
+                            else er <| sprintf "Cannot find the package id. Path: %s" package_path
+                        
+                        Map.iter (fun k _ -> dfs k) links
+                        order.Enqueue(package_path,(hier,links,id))
+                    | _ -> er <| sprintf "Package has an error. Path: %s" package_path
+            dfs package_target
+            let a = Map(order)
+            let b = Seq.map fst order
+            Ok(a,b,package_target)
+        with :? PackageInputsException as e -> Error e.Data
 
 type LoadResult =
     | LoadModule of package_dir: string * path: RString * Result<TokRes * ParserRes Promise * ModuleStream,string>
