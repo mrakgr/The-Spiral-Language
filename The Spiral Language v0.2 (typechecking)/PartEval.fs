@@ -442,7 +442,7 @@ type PartEvalResult = {
     ty_to_data : Ty -> Data
     }
 
-let peval (env : TopEnv) x =
+let peval (env : TopEnv) (x : E) =
     let join_point_method = Dictionary(HashIdentity.Reference)
     let join_point_closure = Dictionary(HashIdentity.Reference)
     let join_point_type = Dictionary(HashIdentity.Reference)
@@ -623,12 +623,12 @@ let peval (env : TopEnv) x =
                 s.env_stack_type.[0] <- b
                 ty s body
             | a -> raise_type_error s <| sprintf "Expected record, nominal or a type function.\nGot: %s" (show_ty a)
-        | TPrim(_,a) -> YPrim a
+        | TPrim a -> YPrim a
         | TTerm(_,a) -> term_scope s a |> snd
         | TMacro(r,a) -> let s = add_trace s r in YMacro(a |> List.map (function TMText a -> Text a | TMType a -> Type(ty s a)))
         | TNominal i -> YNominal env.nominals.[i]
-        | TArray(_,a) -> YArray(ty s a)
-        | TLayout(_,a,b) -> YLayout(ty s a,b)
+        | TArray a -> YArray(ty s a)
+        | TLayout(a,b) -> YLayout(ty s a,b)
     and term (s : LangEnv) x = 
         let term2 s a b = term s a, term s b
         let term3 s a b c = term s a, term s b, term s c

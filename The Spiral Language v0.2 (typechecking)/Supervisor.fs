@@ -91,7 +91,9 @@ module Prepass =
                                 let d = Dictionary()
                                 top_env.nominals |> Map.iter (fun k v -> d.Add(k, t.Add {|v with id=k|}))
                                 d
-                            Ok(PartEval.Main.peval {prototypes_instances=prototypes_instances; nominals=nominals} main)
+                            // TODO: peval throws exceptions on type errors.
+                            let (a,_),b = PartEval.Main.peval {prototypes_instances=prototypes_instances; nominals=nominals} main
+                            Ok(Codegen.Fsharp.codegen b a)
                         | None -> Error <| sprintf "Cannot find the main function in module. Path: %s" module_target
             | None -> Job.result (Error <| sprintf "Cannot find the target module. Path: %s" module_target)
         | Error x -> Job.result (Error x)
