@@ -10,6 +10,7 @@ open VSCTypes
 open Spiral.Tokenize
 open Spiral.Infer
 open Spiral.ServerUtils
+open Spiral.StreamServer
 open Spiral.StreamServer.Main
 
 open Hopac
@@ -30,6 +31,7 @@ type SupervisorState = {
     modules : Map<string, TokRes * ParserRes Promise * ModuleStream>
     infer_results : Map<string, InferResult Stream>
     diff_stream : PackageDiffStream
+    prepass_stream : Prepass.PackageStream
     packages : PackageMaps
     package_ids : PackageIds
     }
@@ -76,11 +78,12 @@ module Prepass =
     let build_file (s : SupervisorState) module_target =
         match inputs s module_target with
         | Ok x ->
-            let a,b = package.Run(x) // TODO: Take care of the stream.
+            let a,prepass_stream = s.prepass_stream.Run(x)
+            let s = {s with prepass_stream=prepass_stream}
             match a with
             | Some x ->
                 x >>- fun x ->
-                    if x.has_errors then Error "There are type errors in at least one module."
+                    if x.has_errors then Error("There are type errors in at least one module."),s
                     else 
                         match Map.tryFind "main" x.term with
                         | Some main ->
@@ -93,10 +96,10 @@ module Prepass =
                                 d
                             // TODO: peval throws exceptions on type errors.
                             let (a,_),b = PartEval.Main.peval {prototypes_instances=prototypes_instances; nominals=nominals} main
-                            Ok(Codegen.Fsharp.codegen b a)
-                        | None -> Error <| sprintf "Cannot find the main function in module. Path: %s" module_target
-            | None -> Job.result (Error <| sprintf "Cannot find the target module. Path: %s" module_target)
-        | Error x -> Job.result (Error x)
+                            Ok(Codegen.Fsharp.codegen b a),s
+                        | None -> Error(sprintf "Cannot find the main function in module. Path: %s" module_target),s
+            | None -> Job.result (Error(sprintf "Cannot find the target module. Path: %s" module_target),s)
+        | Error x -> Job.result (Error(x),s)
 
 type LoadResult =
     | LoadModule of package_dir: string * path: RString * Result<TokRes * ParserRes Promise * ModuleStream,string>
@@ -334,6 +337,7 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
             package_links = mirrored_graph_empty
             package_schemas = Map.empty
             }
+        prepass_stream = Prepass.package
         } loop
 
 type ClientReq =
