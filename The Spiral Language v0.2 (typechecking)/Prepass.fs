@@ -6,8 +6,7 @@ open Spiral.Infer
 type Id = int32
 type ScopeEnv = {|free_vars : int []; stack_size : int|}
 type Scope = {term : ScopeEnv; ty : ScopeEnv}
-//type Range = { uri : string; range : Config.VSCRange }
-type Range = VSCTypes.VSCRange // TODO: Include uris during the prepass.
+type Range = { path : string; range : VSCRange }
 
 type Macro =
     | MText of string
@@ -508,7 +507,8 @@ let make_compile_pattern_env (env : Env) x =
             
     {vars=vars; envs=envs}, f env x
 
-let make_compile_typecase_env (env : Env) x =
+let make_compile_typecase_env path (env : Env) x =
+    let p r = {path=path; range=r}
     let metavars' = Dictionary(HashIdentity.Reference)
     let metavars = Dictionary(HashIdentity.Structural)
     let rec f (env : Env) x =
@@ -517,11 +517,11 @@ let make_compile_typecase_env (env : Env) x =
         | RawTPrim _ | RawTSymbol _ | RawTWildcard _ | RawTB _ | RawTVar _ -> env
         | RawTMetaVar(r,a) ->
             match metavars.TryGetValue a with
-            | true, id' -> metavars'.Add(a,fun (id, on_succ, on_fail) -> ETypeEq(r,TV id',id,on_succ,on_fail)); env
+            | true, id' -> metavars'.Add(a,fun (id, on_succ, on_fail) -> ETypeEq(p r,TV id',id,on_succ,on_fail)); env
             | _ ->
                 let id', env = add_ty_var env a
                 metavars.Add(a,id')
-                metavars'.Add(a,fun (id,on_succ,_) -> ETypeLet(r,id',TV id,on_succ))
+                metavars'.Add(a,fun (id,on_succ,_) -> ETypeLet(p r,id',TV id,on_succ))
                 env
         | RawTApply(_,a,b) | RawTFun(_,a,b) | RawTPair(_,a,b) -> f (f env a) b
         | RawTLayout(_,a,_) | RawTArray(_,a) -> f env a
@@ -554,8 +554,9 @@ let module_open (top_env : PrepassTopEnv) env a l =
     term = {|env.term with env = Map.foldBack Map.add a env.term.env|}
     ty = {|env.ty with env = Map.foldBack Map.add b env.ty.env|}
     }
-let prepass package_id module_id (top_env : PrepassTopEnv) =
+let prepass package_id module_id path (top_env : PrepassTopEnv) =
     assert (top_env.has_errors = false)
+    let p r = {path=path; range=r}
     let at_tag i = { package_id = package_id; module_id = module_id; tag = i }
     let v_term (env : Env) x = Map.tryFind x env.term.env |> Option.defaultWith (fun () -> top_env.term.[x])
     let v_ty (env : Env) x =  Map.tryFind x env.ty.env |> Option.defaultWith (fun () -> top_env.ty.[x])
@@ -571,31 +572,31 @@ let prepass package_id module_id (top_env : PrepassTopEnv) =
                 match pat with
                 | PatDefaultValue _ -> failwith "Compiler error: The default value should be filled."
                 | PatE _ -> on_succ
-                | PatB r -> EUnitTest(r,id,on_succ,on_fail)
-                | PatVar(r,a) -> ELet(r,ve.vars.[a],EV id,on_succ)
-                | PatAnnot(r,a,b) -> EAnnotTest(r,ty ve.envs.[pat] b,id,cp id a on_succ on_fail,on_fail)
+                | PatB r -> EUnitTest(p r,id,on_succ,on_fail)
+                | PatVar(r,a) -> ELet(p r,ve.vars.[a],EV id,on_succ)
+                | PatAnnot(r,a,b) -> EAnnotTest(p r,ty ve.envs.[pat] b,id,cp id a on_succ on_fail,on_fail)
                 | PatPair(r,a,b) ->
                     let b,on_succ = step b on_succ
                     let a,on_succ = step a on_succ
-                    EPairTest(r,id,a,b,on_succ,on_fail)
-                | PatSymbol(r,a) -> ESymbolTest(r,a,id,on_succ,on_fail)
+                    EPairTest(p r,id,a,b,on_succ,on_fail)
+                | PatSymbol(r,a) -> ESymbolTest(p r,a,id,on_succ,on_fail)
                 | PatRecordMembers(r,items) ->
                     let env = ve.envs.[pat]
                     let binds, on_succ =
                         List.mapFoldBack (fun item on_succ ->
                             match item with
-                            | PatRecordMembersSymbol(keyword,name) -> let arg, on_succ = step name on_succ in Symbol(keyword,arg), on_succ
-                            | PatRecordMembersInjectVar((r,var),name) -> let arg, on_succ = step name on_succ in Var((r,v_term env var),arg), on_succ
+                            | PatRecordMembersSymbol((r,keyword),name) -> let arg, on_succ = step name on_succ in Symbol((p r,keyword),arg), on_succ
+                            | PatRecordMembersInjectVar((r,var),name) -> let arg, on_succ = step name on_succ in Var((p r,v_term env var),arg), on_succ
                             ) items on_succ
-                    ERecordTest(r,binds,id,on_succ,on_fail)
+                    ERecordTest(p r,binds,id,on_succ,on_fail)
                 | PatOr(r,a,b) -> let on_succ = EPatternMemo on_succ in cp id a on_succ (cp id b on_succ on_fail)
                 | PatAnd(r,a,b) -> let on_fail = EPatternMemo on_fail in cp id a (cp id b on_succ on_fail) on_fail
-                | PatValue(r,x) -> ELitTest(r,x,id,on_succ,on_fail)
-                | PatWhen(r,p,e) -> cp id p (EIfThenElse(r, term ve.envs.[pat] e, on_succ, on_fail)) on_fail
-                | PatNominal(r,(_,a),b) -> let id', on_succ = step b on_succ in ENominalTest(r,v_ty ve.envs.[pat] a,id,id',on_succ,on_fail)
-                | PatFilledDefaultValue(r,a,b) -> EDefaultLitTest(r,a,ty ve.envs.[pat] b,id,on_succ,on_fail)
-                | PatDyn(r,a) -> let id' = patvar() in ELet(r,id',EOp(r,Dyn,[EV id]),cp id' a on_succ on_fail)
-                | PatUnbox(r,a) -> let id' = patvar() in EUnbox(r,id',EV id,cp id' a on_succ on_fail)
+                | PatValue(r,x) -> ELitTest(p r,x,id,on_succ,on_fail)
+                | PatWhen(r,p',e) -> cp id p' (EIfThenElse(p r, term ve.envs.[pat] e, on_succ, on_fail)) on_fail
+                | PatNominal(r,(_,a),b) -> let id', on_succ = step b on_succ in ENominalTest(p r,v_ty ve.envs.[pat] a,id,id',on_succ,on_fail)
+                | PatFilledDefaultValue(r,a,b) -> EDefaultLitTest(p r,a,ty ve.envs.[pat] b,id,on_succ,on_fail)
+                | PatDyn(r,a) -> let id' = patvar() in ELet(p r,id',EOp(p r,Dyn,[EV id]),cp id' a on_succ on_fail)
+                | PatUnbox(r,a) -> let id' = patvar() in EUnbox(p r,id',EV id,cp id' a on_succ on_fail)
 
             cp id pat on_succ (EPatternMemo on_fail)
         List.foldBack loop l (EPatternMiss(EV id))
@@ -629,32 +630,32 @@ let prepass package_id module_id (top_env : PrepassTopEnv) =
                 | RawTPair(r,a,b) ->
                     let b,on_succ = step b on_succ
                     let a,on_succ = step a on_succ
-                    ETypePairTest(r,id,a,b,on_succ,on_fail)
+                    ETypePairTest(p r,id,a,b,on_succ,on_fail)
                 | RawTFun(r,a,b) ->
                     let b,on_succ = step b on_succ
                     let a,on_succ = step a on_succ
-                    ETypeFunTest(r,id,a,b,on_succ,on_fail)
+                    ETypeFunTest(p r,id,a,b,on_succ,on_fail)
                 | RawTApply(r,a,b) -> 
                     let b,on_succ = step b on_succ
                     let a,on_succ = step a on_succ
-                    ETypeApplyTest(r,id,a,b,on_succ,on_fail)
+                    ETypeApplyTest(p r,id,a,b,on_succ,on_fail)
                 | RawTArray(r,a) ->
                     let a,on_succ = step a on_succ
-                    ETypeArrayTest(r,id,a,on_succ,on_fail)
+                    ETypeArrayTest(p r,id,a,on_succ,on_fail)
                 | RawTRecord(r,a) ->
                     let m,on_succ =
                         Map.foldBack (fun k pat (s, on_succ) ->
                             let id,on_succ = step pat on_succ
                             Map.add k id s, on_succ
                             ) a (Map.empty, on_succ)
-                    ETypeRecordTest(r,m,id,on_succ,on_fail)
-                | RawTVar _ | RawTSymbol _ | RawTB _ | RawTPrim _ | RawTMacro _ | RawTUnion _ | RawTLayout _ -> ETypeEq(range_of_texpr pat,ty env pat,id,on_succ,on_fail)
-
+                    ETypeRecordTest(p r,m,id,on_succ,on_fail)
+                | RawTVar _ | RawTSymbol _ | RawTB _ | RawTPrim _ | RawTMacro _ | RawTUnion _ | RawTLayout _ -> 
+                    ETypeEq(p (range_of_texpr pat),ty env pat,id,on_succ,on_fail)
             cp id pat on_succ (EPatternMemo on_fail)
         List.foldBack loop l (EPatternMiss(EV id))
     and typecase (env : Env) r body clauses =
         let id, env = fresh_ty_var env
-        let l = clauses |> List.map (fun (pat,on_succ) -> let _,env as x = make_compile_typecase_env env pat in x,pat,term env on_succ)
+        let l = clauses |> List.map (fun (pat,on_succ) -> let _,env as x = make_compile_typecase_env path env pat in x,pat,term env on_succ)
         ETypeLet(r,id,body,compile_typecase id l)
     and ty (env : Env) x =
         let f = ty env
@@ -662,28 +663,28 @@ let prepass package_id module_id (top_env : PrepassTopEnv) =
         | RawTWildcard _ -> failwith "Compiler error: Annotation with wildcards should have been stripped."
         | RawTMetaVar _ -> failwith "Compiler error: This should have been compiled away in typecase."
         | RawTForall _ -> failwith "Compiler error: Foralls are not allowed at the type level."
-        | RawTB r -> TB r
+        | RawTB r -> TB (p r)
         | RawTVar(r,a) -> v_ty env a
-        | RawTPair(r,a,b) -> TPair(r,f a,f b)
-        | RawTFun(r,a,b) -> TFun(r,f a,f b)
-        | RawTRecord(r,l) -> TRecord(r,Map.map (fun _ -> f) l)
-        | RawTUnion(r,a,b) -> TUnion(r,(Map.map (fun _ -> f) a,b))
-        | RawTSymbol(r,a) -> TSymbol(r,a)
+        | RawTPair(r,a,b) -> TPair(p r,f a,f b)
+        | RawTFun(r,a,b) -> TFun(p r,f a,f b)
+        | RawTRecord(r,l) -> TRecord(p r,Map.map (fun _ -> f) l)
+        | RawTUnion(r,a,b) -> TUnion(p r,(Map.map (fun _ -> f) a,b))
+        | RawTSymbol(r,a) -> TSymbol(p r,a)
         | RawTApply(r,a,b) ->
             match f a, f b with
             | TRecord(_,a') & a, TSymbol(_,b') & b ->
                 match Map.tryFind b' a' with
                 | Some x -> x
-                | None -> TApply(r,a,b) // TODO: Will be an error during partial evaluation time. Could be substituted for an exception here, but I do not want to have errors during the prepass.
-            | a,b -> TApply(r,a,b)
+                | None -> TApply(p r,a,b) // TODO: Will be an error during partial evaluation time. Could be substituted for an exception here, but I do not want to have errors during the prepass.
+            | a,b -> TApply(p r,a,b)
         | RawTPrim(r,a) -> TPrim(a)
-        | RawTTerm(r,a) -> TTerm(r,term env a)
+        | RawTTerm(r,a) -> TTerm(p r,term env a)
         | RawTMacro(r,l) -> 
             let f = function 
                 | RawMacroText(r,a) -> TMText a
                 | RawMacroTypeVar(r,a) -> TMType(f a)
                 | RawMacroTermVar _ -> failwith "Compiler error: Term vars should not appear on the type level."
-            TMacro(r,List.map f l)
+            TMacro(p r,List.map f l)
         | RawTArray(r,a) -> TArray(f a)
         | RawTFilledNominal(r,a) -> TNominal a
         | RawTLayout(r,a,b) -> TLayout(f a,b)
@@ -691,58 +692,58 @@ let prepass package_id module_id (top_env : PrepassTopEnv) =
         let f = term env
         match x with
         | RawDefaultLit(r,a) -> failwith "Compiler error: Default values should have been annotated in `fill` by prepass time."
-        | RawAnnot(_,RawDefaultLit(r,a),b) -> EDefaultLit(r,a,ty env b)
-        | RawB r -> EB r
+        | RawAnnot(_,RawDefaultLit(r,a),b) -> EDefaultLit(p r,a,ty env b)
+        | RawB r -> EB(p r)
         | RawV(r,a) -> v_term env a
-        | RawBigV(r,a) -> EApply(r,v_term env a,EB r)
-        | RawLit(r,a) -> ELit(r,a)
-        | RawSymbol(r,a) -> ESymbol(r,a)
-        | RawType(r,a) -> EType(r,ty env a)
-        | RawMatch(r,a,b) -> pattern_match env r (f a) b
-        | RawFun(r,a) -> pattern_function env r a None
-        | RawAnnot(_,RawFun(r,a),t) -> pattern_function env r a (Some (ty env t))
-        | RawTypecase(r,a,b) -> typecase env r (ty env a) b
+        | RawBigV(r,a) -> EApply(p r,v_term env a,EB(p r))
+        | RawLit(r,a) -> ELit(p r,a)
+        | RawSymbol(r,a) -> ESymbol(p r,a)
+        | RawType(r,a) -> EType(p r,ty env a)
+        | RawMatch(r,a,b) -> pattern_match env (p r) (f a) b
+        | RawFun(r,a) -> pattern_function env (p r) a None
+        | RawAnnot(_,RawFun(r,a),t) -> pattern_function env (p r) a (Some (ty env t))
+        | RawTypecase(r,a,b) -> typecase env (p r) (ty env a) b
         | RawFilledForall(r,name,b)
         | RawForall(r,((_,(name,_)),_),b) -> 
             let id, env = add_ty_var env name
-            EForall(r,id,term env b)
+            EForall(p r,id,term env b)
         | RawRecBlock(r,l,on_succ) ->
             let l,env = List.mapFold (fun env ((r,name),body) -> let id,env = add_term_rec_var env name in (id,body), env) env l
-            ERecBlock(r,List.map (fun (id,body) -> id, term env body) l,term env on_succ)
+            ERecBlock(p r,List.map (fun (id,body) -> id, term env body) l,term env on_succ)
         | RawRecordWith(r,a,b,c) ->
-            let a = List.map (fun a -> range_of_expr a, f a) a
+            let a = List.map (fun a -> p (range_of_expr a), f a) a
             let b = b |> List.map (function
-                | RawRecordWithSymbol((r,a),b) -> RSymbol((r,a),f b)
-                | RawRecordWithSymbolModify((r,a),b) -> RSymbolModify((r,a),f b)
-                | RawRecordWithInjectVar((r,a),b) -> RVar((r,v_term env a),f b)
-                | RawRecordWithInjectVarModify((r,a),b) -> RVarModify((r,v_term env a),f b))
+                | RawRecordWithSymbol((r,a),b) -> RSymbol((p r,a),f b)
+                | RawRecordWithSymbolModify((r,a),b) -> RSymbolModify((p r,a),f b)
+                | RawRecordWithInjectVar((r,a),b) -> RVar((p r,v_term env a),f b)
+                | RawRecordWithInjectVarModify((r,a),b) -> RVarModify((p r,v_term env a),f b))
             let c = c |> List.map (function
-                | RawRecordWithoutSymbol(r,a) -> WSymbol(r,a)
-                | RawRecordWithoutInjectVar(r,a) -> WVar(r,v_term env a))
-            ERecordWith(r,a,b,c)
-        | RawOp(r,a,b) -> EOp(r,a,List.map f b)
-        | RawJoinPoint(r,a) -> EJoinPoint(r,f a,None)
-        | RawAnnot(_,RawJoinPoint(r,a),b) -> EJoinPoint(r,f a,Some (ty env b))
+                | RawRecordWithoutSymbol(r,a) -> WSymbol(p r,a)
+                | RawRecordWithoutInjectVar(r,a) -> WVar(p r,v_term env a))
+            ERecordWith(p r,a,b,c)
+        | RawOp(r,a,b) -> EOp(p r,a,List.map f b)
+        | RawJoinPoint(r,a) -> EJoinPoint(p r,f a,None)
+        | RawAnnot(_,RawJoinPoint(r,a),b) -> EJoinPoint(p r,f a,Some (ty env b))
         | RawOpen (_,a,l,on_succ) -> term (module_open top_env env a l) on_succ
         | RawApply(r,a,b) ->
             let rec loop = function
                 | EModule a' & a, EPair(_,ESymbol(_, b'),b'') & b ->
                     match Map.tryFind b' a' with
                     | Some a -> loop (a,b'')
-                    | None -> EApply(r,a,b) // TODO: Will be an error during partial evaluation time. Could be substituted for an exception here, but I do not want to have errors during the prepass.
+                    | None -> EApply(p r,a,b) // TODO: Will be an error during partial evaluation time. Could be substituted for an exception here, but I do not want to have errors during the prepass.
                 | EModule a' & a, ESymbol(_,b') & b ->
                     match Map.tryFind b' a' with
                     | Some a -> a
-                    | None -> EApply(r,a,b) // TODO: Ditto.
-                | a,EType(_,b) -> ETypeApply(r,a,b)
-                | a,b -> EApply(r,a,b)
+                    | None -> EApply(p r,a,b) // TODO: Ditto.
+                | a,EType(_,b) -> ETypeApply(p r,a,b)
+                | a,b -> EApply(p r,a,b)
             loop (f a, f b)
-        | RawIfThenElse(r,a,b,c) -> EIfThenElse(r,f a,f b,f c)
-        | RawIfThen(r,a,b) -> EIfThen(r,f a,f b)
-        | RawPair(r,a,b) -> EPair(r,f a,f b)
-        | RawFilledPairStrip(r,a,b) -> EPairStrip(r,a,f b)
-        | RawSeq(r,a,b) -> ESeq(r,f a,f b)
-        | RawHeapMutableSet(r,a,b,c) -> EHeapMutableSet(r,f a,List.map (fun a -> range_of_expr a, f a) b,f c)
+        | RawIfThenElse(r,a,b,c) -> EIfThenElse(p r,f a,f b,f c)
+        | RawIfThen(r,a,b) -> EIfThen(p r,f a,f b)
+        | RawPair(r,a,b) -> EPair(p r,f a,f b)
+        | RawFilledPairStrip(r,a,b) -> EPairStrip(p r,a,f b)
+        | RawSeq(r,a,b) -> ESeq(p r,f a,f b)
+        | RawHeapMutableSet(r,a,b,c) -> EHeapMutableSet(p r,f a,List.map (fun a -> p (range_of_expr a), f a) b,f c)
         | RawReal(r,a) -> f a
         | RawMacro _ -> failwith "Compiler error: The macro's annotation should have been added during `fill`."
         | RawAnnot(_,RawMacro(r,a),b) ->
@@ -751,9 +752,9 @@ let prepass package_id module_id (top_env : PrepassTopEnv) =
                 | RawMacroTermVar(r,a) -> MTerm(f a)
                 | RawMacroTypeVar(r,a) -> MType(ty env a)
                 )
-            EMacro(r,a,ty env b)
+            EMacro(p r,a,ty env b)
         | RawMissingBody _ -> failwith "Compiler error: The missing body cases should have been validated."
-        | RawAnnot(r,a,b) -> EAnnot(r,f a,ty env b)
+        | RawAnnot(r,a,b) -> EAnnot(p r,f a,ty env b)
 
     let env : Env =
         {
@@ -779,8 +780,8 @@ let prepass package_id module_id (top_env : PrepassTopEnv) =
         | FType(_,(_,name),l,body) -> AInclude {top_env_empty with ty = Map.add name (eval_type' env l (fun env -> ty env body)) Map.empty}
         | FNominal(r,(_,name),l,body) ->
             let i = at_tag top_env.nominals_next_tag
-            let term = nominal_term Map.empty (TNominal i) r name l body
-            let x = eval_type' env l (fun env -> TJoinPoint(range_of_texpr body, ty env body))
+            let term = nominal_term Map.empty (TNominal i) (p r) name l body
+            let x = eval_type' env l (fun env -> TJoinPoint(p (range_of_texpr body), ty env body))
             let ty = Map.add name x Map.empty
             let nominals = Map.add i {|body=x; name=name|} Map.empty
             AInclude {top_env_empty with term = term; ty = ty; nominals = nominals; nominals_next_tag=i.tag+1}
@@ -788,12 +789,12 @@ let prepass package_id module_id (top_env : PrepassTopEnv) =
             let term,env,_ = 
                 List.fold (fun (term,env,i) (r,(_,name),l,body) -> 
                     let nom = TNominal (at_tag i)
-                    let term = nominal_term term nom r name l body
+                    let term = nominal_term term nom (p r) name l body
                     term, add_ty env name nom, i+1
                     ) (Map.empty, env, top_env.nominals_next_tag) l
             let ty,nominals,i =
                 List.fold (fun (ty', nominals, i) (_,(_,name),l,body) -> 
-                    let x = eval_type' env l (fun env -> TJoinPoint(range_of_texpr body, ty env body))
+                    let x = eval_type' env l (fun env -> TJoinPoint(p (range_of_texpr body), ty env body))
                     Map.add name x ty', Map.add (at_tag i) {|body=x; name=name|} nominals, i+1
                     ) (Map.empty, Map.empty, top_env.nominals_next_tag) l
             AInclude {top_env_empty with term = term; ty = ty; nominals = nominals; nominals_next_tag=i}
@@ -812,6 +813,7 @@ let prepass package_id module_id (top_env : PrepassTopEnv) =
             AInclude {top_env_empty with term = term}
         | FPrototype(r,(_,name),_,_,_) ->
             let i = at_tag top_env.prototypes_next_tag
+            let r = p r
             let x = EForall(r,0,EPrototypeApply(r,i,TV 0)) |> process_term
             AInclude {top_env_empty with term = Map.add name x Map.empty; prototypes_next_tag = i.tag+1}
         | FInstance(_,(_,prot_id),(_,ins_id),body) ->
@@ -831,6 +833,6 @@ let top_env_default =
         | _ -> failwith "Compiler error: The base type in Infer is not supported in the prepass yet."
 
     List.fold (fun (top_env : PrepassTopEnv) (k, x) ->
-        {top_env with ty = Map.add k ((prepass -1 0 top_env).base_type (f PersistentHashMap.empty x)) top_env.ty}
+        {top_env with ty = Map.add k ((prepass -1 0 "<base_types>" top_env).base_type (f PersistentHashMap.empty x)) top_env.ty}
         ) top_env_empty Infer.base_types
     

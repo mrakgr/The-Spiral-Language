@@ -19,18 +19,30 @@ open Hopac.Infixes
 open Hopac.Extensions
 open Hopac.Stream
 
-
-type TokReq =
-    | DocumentAll of string
-    | DocumentEdit of SpiEdit
-type TokRes = {blocks : Block list; errors : RString list}
-
 let job_thunk_with f x = Job.thunk (fun () -> f x)
 let promise_thunk_with f x = Hopac.memo (job_thunk_with f x)
 let promise_thunk f = Hopac.memo (Job.thunk f)
 
 type EditorStream<'a,'b> = abstract member Run : 'a -> 'b * EditorStream<'a,'b>
+
+type TokReq =
+    | DocumentAll of string []
+    | DocumentEdit of SpiEdit
+type TokRes = {blocks : Block list; errors : RString list}
+type LinerStream = EditorStream<TokReq, string PersistentVector>
 type TokenizerStream = EditorStream<TokReq, TokRes>
+
+let liner =
+    let rec loop lines =
+        {new LinerStream with
+            member t.Run req =
+                let replace (edit : SpiEdit) = PersistentVector.replace edit.from edit.nearTo edit.lines lines
+                let next lines = lines, loop lines
+                match req with
+                | DocumentAll text -> replace {|from=0; nearTo=lines.Length; lines=text|} |> next
+                | DocumentEdit edit -> replace edit |> next
+            }
+    loop PersistentVector.empty
 
 let tokenizer =
     let rec loop (lines, errors, blocks) = {new TokenizerStream with
@@ -42,7 +54,7 @@ let tokenizer =
 
             let next (_,errors,blocks as x) = {blocks=blocks; errors=errors}, loop x
             match req with
-            | DocumentAll text -> replace {|from=0; nearTo=lines.Length; lines=Utils.lines text|} |> next
+            | DocumentAll text -> replace {|from=0; nearTo=lines.Length; lines=text|} |> next
             | DocumentEdit edit -> replace edit |> next
             }
     loop (PersistentVector.singleton PersistentVector.empty,[],[])
@@ -73,17 +85,20 @@ let parser is_top_down =
                 }
     loop (fun () -> [])
 
-type ModuleStream = abstract member Run : TokReq -> TokRes * ParserRes Promise * ModuleStream
+type ModuleStreamOut = string PersistentVector * TokRes * ParserRes Promise
+type ModuleStream = EditorStream<TokReq, ModuleStreamOut>
+type ModuleStreamRes = ModuleStreamOut * ModuleStream
 let module' error is_top_down =
-    let rec loop (tokenizer : TokenizerStream, parser : ParserStream) =
+    let rec loop (liner : LinerStream, tokenizer : TokenizerStream, parser : ParserStream) =
         {new ModuleStream with
             member _.Run(req) =
+                let lines,lin = liner.Run(req)
                 let a,tok = tokenizer.Run(req)
                 let b,par = parser.Run(a)
                 let b = b >>-* fun x -> error x.parser_errors; x
-                a, b, loop (tok, par)
+                (lines, a, b), loop (lin, tok, par)
                 }
-    loop (tokenizer, parser is_top_down)
+    loop (liner, tokenizer, parser is_top_down)
 
 let cons_fulfilled l = 
     let rec loop olds = function
@@ -91,7 +106,7 @@ let cons_fulfilled l =
         | _ -> olds
     loop PersistentVector.empty l
 type TypecheckerStream = EditorStream<ParserRes Promise, InferResult Stream>
-let typechecker package_id module_id top_env =
+let typechecker package_id module_id (path : string) top_env =
     let rec run old_results env i (bss : Bundle list) = 
         match bss with
         | b :: bs ->
@@ -159,7 +174,7 @@ let inline multi_file_run on_unchanged_file on_changed_file top_env_empty create
             on_unchanged_file path r
             x, o
         | File(path,name,(None,res,tc)) ->
-            let tc : EditorStream<_,_> = match tc with Some tc -> tc | None -> create_stream package_id module_id top_env
+            let tc : EditorStream<_,_> = match tc with Some tc -> tc | None -> create_stream package_id module_id path top_env
             let r,tc = tc.Run res
             on_changed_file path r
             let top_env_additions = 
@@ -386,7 +401,7 @@ let package_core =
     loop {packages=Map.empty; package_ids=PersistentHashMap.empty}
 
 type PackageDiffStream =
-    abstract member Run : string [] * PackageSchema ResultMap * MirroredGraph * Map<string,'a * ParserRes Promise * 'b> -> (Map<string, InferResult Stream> * PackageIds) option * PackageDiffStream
+    abstract member Run : string [] * PackageSchema ResultMap * MirroredGraph * Map<string,ModuleStreamRes> -> (Map<string, InferResult Stream> * PackageIds) option * PackageDiffStream
 
 let package_named_links (p : PackageSchema) =
     let names = p.schema.schema.packages // TODO: Extend the parser for packages and separate out the names and locations.
@@ -394,14 +409,14 @@ let package_named_links (p : PackageSchema) =
     Map(List.map2 (fun (_,a) (_,b) -> a, b) links names)
 
 type PackageDiffState = { changes : string Set; errors : string Set; core : PackageCoreStream }
-let get_adds_and_removes (schema : PackageSchema ResultMap) ((abs,bas) : MirroredGraph) (modules : Map<string,_ * ParserRes Promise * _>) (changes : string Set) =
+let get_adds_and_removes (schema : PackageSchema ResultMap) ((abs,bas) : MirroredGraph) (modules : Map<string,ModuleStreamRes>) (changes : string Set) =
     let sort_order, _ = topological_sort bas changes
     Seq.foldBack (fun dir (adds,removes) ->
         match Map.tryFind dir schema with
         | Some(Ok p) ->
             let files =
                 let rec elem = function
-                    | ValidatedFileHierarchy.File((_,a),b,_) -> File(a,b,(None,modules.[a] |> (fun (_,x,_) -> x),None))
+                    | ValidatedFileHierarchy.File((_,a),b,_) -> File(a,b,(None,modules.[a] |> (fun ((_,_,x),_) -> x),None))
                     | ValidatedFileHierarchy.Directory(a,b) -> Directory(a,list b,None)
                 and list l = List.map elem l
                 list p.schema.files

@@ -28,7 +28,7 @@ type SupervisorErrorSources = {
     }
 
 type SupervisorState = {
-    modules : Map<string, TokRes * ParserRes Promise * ModuleStream>
+    modules : Map<string, ModuleStreamRes>
     infer_results : Map<string, InferResult Stream>
     diff_stream : PackageDiffStream
     prepass_stream : Prepass.PackageStream
@@ -36,7 +36,7 @@ type SupervisorState = {
     package_ids : PackageIds
     }
 
-module Prepass =
+module Build =
     open Spiral.StreamServer.Prepass
     exception PackageInputsException of string
     let inputs (s : SupervisorState) module_target =
@@ -75,6 +75,34 @@ module Prepass =
             Ok(a,b,package_target)
         with :? PackageInputsException as e -> Error e.Data0
 
+    let show_position (s : SupervisorState) (strb: Text.StringBuilder) (x : PartEval.Prepass.Range) =
+        let line = (fst x.range).line
+        let col = (fst x.range).character
+        let er_code = s.modules.[x.path] |> fun ((x,_,_),_) -> x.[line]
+
+        strb
+            .AppendLine(sprintf "Error trace on line: %i, column: %i in module: %s." (line+1) (col+1) x.path)
+            .AppendLine(er_code)
+            .Append(' ', col)
+            .AppendLine "^"
+        |> ignore
+
+    let trace_print_length = 5
+    let show_trace s (x : PartEval.Main.Trace) (msg : string) =
+        let error = Text.StringBuilder(1024)
+        let x = 
+            let rec loop l i = function
+                | x :: x' when i > 0 -> loop (x :: l) (i-1) x'
+                | _ -> l
+            loop [] trace_print_length x
+        List.iter (show_position s error) x
+        error.AppendLine msg |> ignore
+        error.ToString()
+
+    type BuildResult =
+        | BuildOk of string
+        | BuildErrorTrace of string
+        | BuildFatalError of string
     let build_file (s : SupervisorState) module_target =
         match inputs s module_target with
         | Ok x ->
@@ -83,7 +111,7 @@ module Prepass =
             match a with
             | Some x ->
                 x >>- fun x ->
-                    if x.has_errors then Error("There are type errors in at least one module."),s
+                    if x.has_errors then BuildFatalError("There are type errors in at least one module.")
                     else 
                         match Map.tryFind "main" x.term with
                         | Some main ->
@@ -94,15 +122,19 @@ module Prepass =
                                 let d = Dictionary()
                                 top_env.nominals |> Map.iter (fun k v -> d.Add(k, t.Add {|v with id=k|}))
                                 d
-                            // TODO: peval throws exceptions on type errors.
-                            let (a,_),b = PartEval.Main.peval {prototypes_instances=prototypes_instances; nominals=nominals} main
-                            Ok(Codegen.Fsharp.codegen b a),s
-                        | None -> Error(sprintf "Cannot find the main function in module. Path: %s" module_target),s
-            | None -> Job.result (Error(sprintf "Cannot find the target module. Path: %s" module_target),s)
-        | Error x -> Job.result (Error(x),s)
+                            try let (a,_),b = PartEval.Main.peval {prototypes_instances=prototypes_instances; nominals=nominals} main
+                                BuildOk(Codegen.Fsharp.codegen b a)
+                            with
+                                | :? PartEval.Main.TypeError as e -> BuildErrorTrace(show_trace s e.Data0 e.Data1)
+                                | :? Codegen.Fsharp.CodegenError as e -> BuildFatalError(e.Data0)
+                                | :? Codegen.Fsharp.CodegenErrorWithPos as e -> BuildFatalError(show_trace s e.Data0 e.Data1)
+                        | None -> BuildFatalError(sprintf "Cannot find the main function in module. Path: %s" module_target)
+            | None -> Job.result (BuildFatalError(sprintf "Cannot find the target module. Path: %s" module_target))
+            >>- fun x -> x,s
+        | Error x -> Job.result (BuildFatalError x,s)
 
 type LoadResult =
-    | LoadModule of package_dir: string * path: RString * Result<TokRes * ParserRes Promise * ModuleStream,string>
+    | LoadModule of package_dir: string * path: RString * Result<ModuleStreamRes,string>
     | LoadPackage of package_dir: string * Result<ValidatedSchema,string>
 
 let parser_error errors uri ers = Hopac.start (Src.value errors.parser {|uri=uri; errors=ers|})
@@ -118,7 +150,7 @@ let package_update errors (s : SupervisorState) package_dir text =
                     if exists then 
                         File.ReadAllTextAsync(path).ContinueWith(fun (x : _ Task) ->
                             try let uri = "file:///" + path
-                                let (tok_res,_,_ as x) = (module' (parser_error errors uri) (is_top_down path)).Run(DocumentAll x.Result)
+                                let ((_,tok_res,_),_ as x) = (module' (parser_error errors uri) (is_top_down path)).Run(DocumentAll(Utils.lines x.Result))
                                 Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=tok_res.errors|})
                                 LoadModule(package_dir,p,Ok(x))
                             with e -> LoadModule(package_dir,p,Error e.Message)
@@ -304,11 +336,11 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
             match Map.tryFind p s.modules with
             | Some _ -> s
             | None -> 
-                let s = {s with modules = Map.add p ((module' (parser_error errors x.uri) (is_top_down p)).Run(DocumentAll x.spiText)) s.modules}
+                let s = {s with modules = Map.add p ((module' (parser_error errors x.uri) (is_top_down p)).Run(DocumentAll(Utils.lines x.spiText))) s.modules}
                 module_changed atten errors s p
         | FileChange x ->
             let p = file x.uri
-            let _,_,m = s.modules.[p]
+            let _,m = s.modules.[p]
             let s = {s with modules = Map.add p (m.Run(DocumentEdit x.spiEdit)) s.modules}
             module_changed atten errors s p
         | FileDelete x ->
@@ -317,7 +349,7 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
             module_changed atten errors s p
         | FileTokenRange(x, res) ->
             match Map.tryFind (file x.uri) s.modules with
-            | Some(_,a,_) -> Hopac.start (a >>= fun a -> IVar.fill res (token_range a x.range))
+            | Some((_,_,a),_) -> Hopac.start (a >>= fun a -> IVar.fill res (token_range a x.range))
             | None -> ()
             s
         | HoverAt(x,res) -> 

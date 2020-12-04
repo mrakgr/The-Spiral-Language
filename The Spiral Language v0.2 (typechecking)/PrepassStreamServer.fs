@@ -67,7 +67,7 @@ let top_to_package package_id (small : PrepassTopEnv) (big : PrepassPackageEnv):
     }
 
 type FileStream = EditorStream<InferResult Stream, PrepassTopEnv Promise>
-let prepass package_id module_id top_env =
+let prepass package_id module_id path top_env =
     let rec main r =
         {new FileStream with
             member _.Run x = 
@@ -82,7 +82,7 @@ let prepass package_id module_id top_env =
                                 xs >>= loop top_env top_env_adds rs >>- fun (q,rs) -> q,r :: rs
                             | _ -> 
                                 let top_env, top_env_adds =
-                                    match (prepass package_id module_id top_env).filled_top filled_top with
+                                    match (prepass package_id module_id path top_env).filled_top filled_top with
                                     | AOpen adds -> Prepass.union adds top_env, top_env_adds
                                     | AInclude adds -> Prepass.union adds top_env, Prepass.union adds top_env_adds
                                 xs >>= loop top_env top_env_adds [] >>- fun (q,rs) -> q, (filled_top, top_env, top_env_adds) :: rs
