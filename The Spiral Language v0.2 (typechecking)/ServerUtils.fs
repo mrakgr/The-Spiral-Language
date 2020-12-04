@@ -171,7 +171,6 @@ let schema_validate project_dir x =
             List.choose (validate_file moduleDir) x.modules
         else
             []
-    let outDir = validate_dir x.outDir
     let packages =
         let packages = HashSet()
         let validate_package d (r,x) =

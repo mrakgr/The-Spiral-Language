@@ -102,7 +102,6 @@ let record fields fields_necessary schema =
         Reply(schema)
 
 type Schema = {
-    outDir : RString option
     name : RString option
     version : RString option
     moduleDir : RString option
@@ -112,7 +111,6 @@ type Schema = {
     }
 
 let schema_def: Schema = {
-    outDir=None
     name=None
     version=None
     moduleDir=None
@@ -131,7 +129,6 @@ let config text =
         let directory p = (range (restOfLine false) .>> spaces |>> fun (r,x) -> Some(r,x.Trim())) p
 
         let fields = [
-            "outDir", directory |>> fun x s -> {s with outDir=x}
             "version", range (restOfLine true .>> spaces) |>> fun (r,x) s -> {s with version=Some (r,x.TrimEnd())}
             "name", file |>> fun x s -> {s with name=Some x}
             "moduleDir", directory |>> fun x s -> {s with moduleDir=x}

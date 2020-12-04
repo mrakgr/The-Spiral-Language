@@ -130,8 +130,8 @@ module Build =
                                 | :? Codegen.Fsharp.CodegenErrorWithPos as e -> BuildFatalError(show_trace s e.Data0 e.Data1)
                         | None -> BuildFatalError(sprintf "Cannot find the main function in module. Path: %s" module_target)
             | None -> Job.result (BuildFatalError(sprintf "Cannot find the target module. Path: %s" module_target))
-            >>- fun x -> x,s
-        | Error x -> Job.result (BuildFatalError x,s)
+            |> fun x -> x,s
+        | Error x -> Job.result (BuildFatalError x), s
 
 type LoadResult =
     | LoadModule of package_dir: string * path: RString * Result<ModuleStreamRes,string>
@@ -208,6 +208,7 @@ type SupervisorReq =
     | FileDelete of {|uri : string|}
     | FileTokenRange of {|uri : string; range : VSCRange|} * VSCTokenArray IVar
     | HoverAt of {|uri : string; pos : VSCPos|} * string option IVar
+    | BuildFile of {|uri : string|}
 
 let package_validate_then_send_errors atten errors s dir =
     let order,packages = package_validate s.packages dir
@@ -359,6 +360,16 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                 | _ -> IVar.fill res None
                 )
             s
+        | BuildFile x ->
+            let p = file x.uri
+            let x,s = Build.build_file s p
+            Hopac.start (x >>= function
+                | Build.BuildOk x -> Job.fromUnitTask (fun () -> IO.File.WriteAllTextAsync(IO.Path.ChangeExtension(p,"fs"), x))
+                | Build.BuildErrorTrace x // TODO: This should send a message to the content provider on the editor side.
+                | Build.BuildFatalError x -> Src.value errors.fatal x
+                )
+            s
+
     Job.iterateServer {
         modules = Map.empty
         diff_stream = package_diff
@@ -461,12 +472,7 @@ let main _ =
             | FileDelete x -> job_null (supervisor *<+ SupervisorReq.FileDelete x)
             | FileTokenRange x -> job_val (fun res -> supervisor *<+ SupervisorReq.FileTokenRange(x,res))
             | HoverAt x -> job_val (fun res -> supervisor *<+ SupervisorReq.HoverAt(x,res))
-            | BuildFile x -> // TODO: This case is just a stump for now.
-                let x = Uri(x.uri).LocalPath
-                match IO.Path.GetExtension(x) with
-                | ".spi" | ".spir" -> IO.File.WriteAllText(IO.Path.ChangeExtension(x,"fsx"), "// Compiled with Spiral v0.2.")
-                | _ -> ()
-                send_back null
+            | BuildFile x -> job_null (supervisor *<+ SupervisorReq.BuildFile x)
             loop ()
         let msg = server.ReceiveMultipartMessage(3)
         let address = msg.Pop()
