@@ -247,7 +247,6 @@ let package_validate (s : PackageMaps) project_dir =
             | Error x ->
                 Map.add cur (Error x) schemas
             ) schemas order
-   
     let schemas, loads = // Cleans up the dead nodes.
         List.fold (fun (schemas,loads) project_dir ->
             match Map.find project_dir schemas with

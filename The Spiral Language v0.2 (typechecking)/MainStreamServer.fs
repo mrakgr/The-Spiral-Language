@@ -206,10 +206,10 @@ let inline multi_file_run on_unchanged_file on_changed_file top_env_empty create
     top_env_adds, l
 
 let union_adds r =
-    Stream.foldFromFun top_env_empty (fun a (b : InferResult) -> 
-        match b.top_env_additions with
-        | AOpen _ -> a
-        | AInclude adds -> union a adds
+    Stream.foldFromFun top_env_empty (fun s (x : InferResult) -> 
+        match x.top_env_additions with
+        | AOpen _ -> s
+        | AInclude x -> union x s
         ) r
     |> Hopac.memo
 

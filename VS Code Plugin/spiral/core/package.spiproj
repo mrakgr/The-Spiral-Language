@@ -4,5 +4,6 @@ modules:
     array
     string
     list
+    option
     test
     

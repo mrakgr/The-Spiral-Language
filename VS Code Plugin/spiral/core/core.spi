@@ -7,13 +7,11 @@ inl (%) forall t {number}. (a : t) (b : t) : t = !!!!Mod(a,b)
 
 inl (<=) forall t {number}. (a : t) (b : t) : bool = !!!!LTE(a,b)
 inl (<) forall t {number}. (a : t) (b : t) : bool = !!!!LT(a,b)
-inl (=) forall t {number}. (a : t) (b : t) : bool = !!!!EQ(a,b)
-inl (<>) forall t {number}. (a : t) (b : t) : bool = !!!!NEQ(a,b)
 inl (>) forall t {number}. (a : t) (b : t) : bool = !!!!GT(a,b)
 inl (>=) forall t {number}. (a : t) (b : t) : bool = !!!!GTE(a,b)
 
-inl (=) forall t. (a : t) (b : t) : bool = !!!!EQ(a,b)
-inl (<>) forall t. (a : t) (b : t) : bool = !!!!NEQ(a,b)
+inl (=) forall t {number}. (a : t) (b : t) : bool = !!!!EQ(a,b)
+inl (<>) forall t {number}. (a : t) (b : t) : bool = !!!!NEQ(a,b)
 
 inl (|>) a b = b a
 inl (>>) a b x = b (a x)
@@ -28,3 +26,6 @@ inl (~!) forall t. (x : heap t): t = !!!!LayoutIndex(x)
 
 inl const x _ = x
 inl id x = x
+
+inl (=) forall t. (a : t) (b : t) : bool = !!!!EQ(a,b)
+inl (<>) forall t. (a : t) (b : t) : bool = !!!!NEQ(a,b)

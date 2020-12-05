@@ -16,7 +16,7 @@ inl filter f ar =
     inl ar' = create nearTo
     for (from:0 nearTo:) (fun i count => if f i then set ar' i (index ar i) . count + 1 else count) 0
     |> fun nearTo => init nearTo (index ar')
-inl array_concat ar =
+inl concat ar =
     inl nearTo = fold (fun s x => s + length x) 0 ar
     inl ar' = create nearTo
     inl _ = fold (fold (fun i x => set ar' i x . i+1)) 0 ar

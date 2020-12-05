@@ -213,7 +213,6 @@ type SupervisorReq =
 let package_validate_then_send_errors atten errors s dir =
     let order,packages = package_validate s.packages dir
     package_errors order packages |> Array.iter (fun er -> Hopac.start (Src.value errors.package er))
-    Hopac.start (Src.value atten (s, dir))
     
     match s.diff_stream.Run(order,packages.package_schemas,packages.package_links,s.modules) with
     | Some (infer_results, package_ids), diff_stream ->
@@ -227,8 +226,10 @@ let package_validate_then_send_errors atten errors s dir =
                         Cons(a, next >>-* loop ers)
                 r >>-* loop []
                 ) infer_results
-        {s with packages=packages; package_ids=package_ids; infer_results=Map.foldBack Map.add infer_results s.infer_results; diff_stream=diff_stream}
-    | None, diff_stream -> {s with diff_stream=diff_stream}
+        let s = {s with packages=packages; package_ids=package_ids; infer_results=Map.foldBack Map.add infer_results s.infer_results; diff_stream=diff_stream}
+        Hopac.start (Src.value atten (s, dir))
+        s
+    | None, diff_stream -> {s with packages=packages; diff_stream=diff_stream}
 
 let package_update_validate_then_send_errors atten errors s dir text = package_validate_then_send_errors atten errors (package_update errors s dir text) dir
 
