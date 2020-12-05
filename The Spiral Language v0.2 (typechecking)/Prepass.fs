@@ -143,7 +143,7 @@ open System.Collections.Generic
 type PropagatedVarsEnv = {|vars : Set<int>; max : int; min : int|}
 type PropagatedVars = {term : PropagatedVarsEnv; ty : PropagatedVarsEnv}
 
-let inline propagate x =
+let propagate x =
     let dict = Dictionary(HashIdentity.Reference)
     let (+) (a : PropagatedVars) (b : PropagatedVars) : PropagatedVars = {
         term = {|vars = Set.union a.term.vars b.term.vars; max = max a.term.max b.term.max; min = min a.term.min b.term.min |} 
@@ -235,7 +235,7 @@ let resolve_recursive_free_vars env =
         Map.add k (f Set.empty k v) env
         ) env env
 
-let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
+let resolve (scope : Dictionary<obj,PropagatedVars>) x =
     let dict = Dictionary(HashIdentity.Reference)
     let subst' (env : ResolveEnv) (x : PropagatedVars) : PropagatedVars = 
         let f s x = 
@@ -310,7 +310,7 @@ let inline resolve (scope : Dictionary<obj,PropagatedVars>) x =
 
 type LowerSubEnv<'x> = {|var : Map<int,'x>; adj : int|}
 type LowerEnv = {term : LowerSubEnv<E>; ty : LowerSubEnv<T> }
-let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
+let lower (scope : Dictionary<obj,PropagatedVars>) x =
     let dict = Dictionary(HashIdentity.Reference)
     let scope (env : LowerEnv) x =
         let v = scope.[x]
@@ -449,7 +449,7 @@ let inline lower (scope : Dictionary<obj,PropagatedVars>) x =
             let scope, env = scope env x 
             TJoinPoint'(r,scope,ty env a)
         | TArrow(a,b) ->  
-            let scope, env = scope env a
+            let scope, env = scope env x
             TArrow'(scope,adj' env a,ty env b)
         | TV i -> match Map.tryFind i env.ty.var with Some i -> i | None -> TV(adj i)
         | TPair(r,a,b) -> TPair(r,f a,f b)
