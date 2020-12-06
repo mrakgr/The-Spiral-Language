@@ -698,7 +698,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let mutable rec_term = rec_term
             let rec f = function
                 | PatFilledDefaultValue _ -> failwith "Compiler error: PatDefaultValueFilled should not appear in fill."
-                | PatValue _ | PatSymbol _ | PatE _ | PatB _ -> x
+                | PatValue _ | PatSymbol _ | PatE _ | PatB _ as x -> x
                 | PatVar(r,name) as x -> rec_term <- Map.remove name rec_term; x
                 | PatDyn(r,a) -> PatDyn(r,f a)
                 | PatUnbox(r,a) -> PatUnbox(r,f a)

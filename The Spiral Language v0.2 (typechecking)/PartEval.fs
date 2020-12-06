@@ -1633,11 +1633,11 @@ let peval (env : TopEnv) (x : E) =
         seq = null
         cse = []
         i = ref 0
-        env_global_type = null
-        env_global_term = null
-        env_stack_type = null
-        env_stack_term = null
+        env_global_type = [||]
+        env_global_term = [||]
+        env_stack_type = [||]
+        env_stack_term = [||]
         }
     let ty_to_data x = ty_to_data {s with i = ref 0} x
-
+    
     term_scope s x, {join_point_method=join_point_method; join_point_closure=join_point_closure; ty_to_data=ty_to_data}

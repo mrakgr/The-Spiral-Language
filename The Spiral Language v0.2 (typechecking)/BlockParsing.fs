@@ -607,7 +607,7 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
         match patterns_validate (if is_rec then name :: pats else pats) with
         | [] -> 
             let body = 
-                let dyn_if_let x = if is_let then x else PatDyn(range_of_pattern x, x)
+                let dyn_if_let x = if is_let then PatDyn(range_of_pattern x, x) else x
                 (if is_let then let_join_point body else body)
                 |> List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[dyn_if_let pat,body])) pats
                 |> List.foldBack (fun typevar body -> RawForall(range_of_typevar typevar +. range_of_expr body,typevar,body)) foralls

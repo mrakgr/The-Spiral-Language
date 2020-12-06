@@ -100,7 +100,6 @@ and [<ReferenceEquality>] T =
     | TLayout of T * BlockParsing.Layout
 
 open FSharpx.Collections
-
 open BlockParsing
 type PrepassTopEnv = {
     prototypes_next_tag : int
@@ -168,7 +167,7 @@ let propagate x =
         | ENominal(_,a,b) | EAnnot(_,a,b) | ETypeApply(_,a,b) -> term a + ty b
         | EForall(_,i,a) -> scope x (term a - i)
         | EJoinPoint(_,a,t) -> scope x (match t with Some t -> term a + ty t | None -> term a)
-        | EFun(_,i,a,t) -> scope x (term a - i + (match t with Some t -> term a + ty t | None -> term a))
+        | EFun(_,i,a,t) -> scope x (match t with Some t -> term a - i + ty t | None -> term a - i)
         | ERecBlock(_,l,on_succ) ->
             let s = List.fold (fun s (_,body) -> s + term body) (term on_succ) l
             List.fold (fun s (id,_) -> s - id) s l
@@ -190,7 +189,7 @@ let propagate x =
         | EMacro(_,a,b) -> List.fold (fun s -> function MType x -> s + ty x | MTerm x -> s + term x | MText _ -> s) (ty b) a
         | EPatternMemo a -> Utils.memoize dict term a
         // Regular pattern matching
-        | ELet(_,a,b,c) | EUnbox(_,a,b,c) -> (term b - a) + term c
+        | ELet(_,bind,body,on_succ) | EUnbox(_,bind,body,on_succ) -> term on_succ - bind + term body
         | EPairTest(_,bind,pat1,pat2,on_succ,on_fail) -> singleton bind + (term on_succ - pat1 - pat2) + term on_fail
         | ESymbolTest(_,_,bind,on_succ,on_fail) 
         | EUnitTest(_,bind,on_succ,on_fail) 
@@ -322,7 +321,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
                 | None -> i + env.term.adj
                 | Some _ -> failwith "Compiler error: Expected a variable in the environment."
                 ) 
-        let stack_size_term = max 0 (v.term.max - v.term.min)
+        let stack_size_term = max 0 (v.term.max - v.term.min + 1)
 
         let fv_ty = 
             v.ty.vars |> Set.toArray 
@@ -332,7 +331,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
                 | None -> i + env.term.adj
                 | Some _ -> failwith "Compiler error: Expected a variable in the environment."
                 ) 
-        let stack_size_ty = max 0 (v.ty.max - v.ty.min)
+        let stack_size_ty = max 0 (v.ty.max - v.ty.min + 1)
         let scope : Scope = {
             term = {|free_vars = fv_term; stack_size = stack_size_term|}
             ty = {|free_vars = fv_ty; stack_size = stack_size_ty|}
@@ -404,7 +403,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EPairStrip(r,a,b) -> EPairStrip(r,a,f b)
         | ESeq(r,a,b) -> ESeq(r,f a,f b)
         | EHeapMutableSet(r,a,b,c) -> EHeapMutableSet(r,f a,List.map (fun (a,b) -> a, f b) b,c)
-        | EPatternMiss a -> Utils.memoize dict (fun _ -> EPatternMiss(f a)) x 
+        | EPatternMiss a -> EPatternMiss(f a)
         | EReal(r,a) -> EReal(r,f a)
         | EMacro(r,a,b) -> 
             let a = a |> List.map (function
@@ -563,7 +562,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
     let rec compile_pattern id (l : (CompilePatternEnv * Pattern * E) list) =
         let loop (ve : CompilePatternEnv, pat, on_succ) on_fail =
             let var_count = ref (id + ve.vars.Count)
-            let patvar () = let x = !var_count in incr var_count; x
+            let patvar () = incr var_count; !var_count
             let rec cp id pat on_succ on_fail =
                 let step pat on_succ = 
                     match pat with
@@ -776,7 +775,8 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
 
     {|
     base_type = process_ty
-    filled_top = function
+    filled_top = fun x ->
+        match x with
         | FType(_,(_,name),l,body) -> AInclude {top_env_empty with ty = Map.add name (eval_type' env l (fun env -> ty env body)) Map.empty}
         | FNominal(r,(_,name),l,body) ->
             let i = at_tag top_env.nominals_next_tag

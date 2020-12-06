@@ -42,11 +42,11 @@ module Build =
     let inputs (s : SupervisorState) module_target =
         let er x = raise (PackageInputsException x)
         try let package_target =
-                let rec loop (x : DirectoryInfo) = 
+                let rec loop (x : DirectoryInfo) =
                     if x = null then er "Cannot find the package file of the target module."
-                    elif x.FullName = module_target then x.FullName
+                    elif File.Exists(Path.Combine(x.FullName,"package.spiproj")) then x.FullName
                     else loop x.Parent
-                loop (DirectoryInfo(module_target))
+                loop (FileInfo(module_target).Directory)
             let visited = HashSet()
             let order = Queue()
             let rec dfs package_path =
@@ -72,7 +72,7 @@ module Build =
             dfs package_target
             let a = Map(order)
             let b = Seq.map fst order
-            Ok(a,b,package_target)
+            Ok(a,b,module_target)
         with :? PackageInputsException as e -> Error e.Data0
 
     let show_position (s : SupervisorState) (strb: Text.StringBuilder) (x : PartEval.Prepass.Range) =
