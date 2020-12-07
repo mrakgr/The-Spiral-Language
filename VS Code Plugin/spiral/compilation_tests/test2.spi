@@ -1,1 +1,3 @@
-inl main () = ()
+inl main () = 
+    inl ~x = 2i32
+    x

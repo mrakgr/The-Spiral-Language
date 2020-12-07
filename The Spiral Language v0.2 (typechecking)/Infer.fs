@@ -612,7 +612,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     /// Fills in the type applies and annotations, and generalizes statements. Also strips annotations from terms and patterns.
     /// Dealing with recursive statement type applies requires some special consideration.
     let fill r rec_term expr =
-        if 0 <> errors.Count then failwith "Compiler error: `fill` called when the number of errors in a statement is not zero." // TODO: Replace this with an assert after `fill` is done being tested.
+        assert (0 = errors.Count)
         let t_to_rawtexpr r expr =
             let rec f x = 
                 match visit_t x with
@@ -633,6 +633,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             f expr
         let annot r x = t_to_rawtexpr r (snd annotations.[x])
         let rec fill_foralls r rec_term body = 
+            let _,body = foralls_get body
             let l,_ = foralls_ty_get generalized_statements.[body]
             List.foldBack (fun (x : Var) s -> RawFilledForall(r,x.name,s)) l (term rec_term body)
         and term rec_term x = 
@@ -644,10 +645,13 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | RawReal(_,x) -> x
             | RawBigV(r,a) -> f (RawApply(r,RawV(r,a), RawB r))
             | RawV(r,n) ->
-                match Map.tryFind n rec_term with
-                | None -> fst type_apply_args.[n]
-                | Some t -> t |> snd type_apply_args.[n]
-                |> List.fold (fun s x -> RawApply(r,s,RawType(r,t_to_rawtexpr r x))) x
+                match type_apply_args.TryGetValue(n) with
+                | true, type_apply_args ->
+                    match Map.tryFind n rec_term with
+                    | None -> fst type_apply_args
+                    | Some t -> t |> snd type_apply_args
+                    |> List.fold (fun s x -> RawApply(r,s,RawType(r,t_to_rawtexpr r x))) x
+                | _ -> x
             | RawDefaultLit(r,_) -> RawAnnot(r,x,annot r x)
             | RawForall(r,a,b) -> RawForall(r,a,f b)
             | RawMatch(r'',(RawForall _ | RawFun _) & body,[PatVar(r,name), on_succ]) ->
@@ -718,7 +722,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             rec_term, f x
 
         let x = fill_foralls r rec_term expr
-        if 0 <> errors.Count then failwith "Compiler error: `fill` finished with nonzero errors as a result."
+        assert (0 = errors.Count)
         x
 
     let scope = ref 0

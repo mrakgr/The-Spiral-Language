@@ -150,7 +150,9 @@ let propagate x =
         }
     let (-) (a : PropagatedVars) i = {a with term = {|vars = Set.remove i a.term.vars; max = max i a.term.max; min = if 0 <= i then min i a.term.min else a.term.min |} } // Recursive vars are negative and get inlined so they should be ignored when calculating the range of a scope.
     let (-.) (a : PropagatedVars) i = {a with ty = {|vars = Set.remove i a.ty.vars; max = max i a.ty.max; min = if 0 <= i then min i a.ty.min else a.ty.min |} }
-    let empty' term ty = let f x = {|vars = x; max=0; min=System.Int32.MaxValue|} in {term = f term; ty = f ty}
+    let empty' term ty = 
+        let f x = {|vars = x; max=Set.fold max 0 x; min=Set.fold min System.Int32.MaxValue x|}
+        {term = f term; ty = f ty}
     let empty = empty' Set.empty Set.empty
     let singleton_term i = empty' (Set.singleton i) Set.empty
     let singleton_ty i = empty' Set.empty (Set.singleton i)
@@ -165,7 +167,7 @@ let propagate x =
         | EPrototypeApply(_,_,a) | EType(_,a) | EDefaultLit(_,_,a) -> ty a
         | ESeq(_,a,b) | EPair(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
         | ENominal(_,a,b) | EAnnot(_,a,b) | ETypeApply(_,a,b) -> term a + ty b
-        | EForall(_,i,a) -> scope x (term a - i)
+        | EForall(_,i,a) -> scope x (term a -. i)
         | EJoinPoint(_,a,t) -> scope x (match t with Some t -> term a + ty t | None -> term a)
         | EFun(_,i,a,t) -> scope x (match t with Some t -> term a - i + ty t | None -> term a - i)
         | ERecBlock(_,l,on_succ) ->
@@ -338,10 +340,10 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
             }
 
         let var_term,_ = Array.fold (fun (s,i) x -> Map.add x (EV i) s,i+1) (Map.filter (fun k _ -> k < 0) env.term.var, 0) fv_term
-        let adj_term = if v.term.min = System.Int32.MaxValue then 0 else fv_term.Length - v.term.min
+        let adj_term = fv_term.Length - v.term.min
 
         let var_ty,_ = Array.fold (fun (s,i) x -> Map.add x (TV i) s,i+1) (Map.empty, 0) fv_ty
-        let adj_ty = if v.ty.min = System.Int32.MaxValue then 0 else fv_ty.Length - v.ty.min
+        let adj_ty = fv_ty.Length - v.ty.min
 
         let env : LowerEnv = {
             term = {|var = var_term; adj = adj_term|}
@@ -350,19 +352,20 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
 
         scope, env
 
-    let adj' (env : LowerEnv) i = i + env.term.adj
+    let adj_term (env : LowerEnv) i = i + env.term.adj
+    let adj_ty (env : LowerEnv) i = i + env.ty.adj
 
     let rec term (env : LowerEnv) x = 
         let f = term env
-        let adj = adj' env
+        let adj = adj_term env
         match x with
         | EForall' _ | EJoinPoint' _ | EFun' _ | EModule _ | ERecursive _ | ESymbol _ | ELit _ | EB _ -> x
         | EFun(r,a,b,c) -> 
             let scope, env = scope env x 
-            EFun'(r,scope,adj' env a,term env b,Option.map (ty env) c)
+            EFun'(r,scope,adj_term env a,term env b,Option.map (ty env) c)
         | EForall(r,a,b) ->
             let scope, env = scope env x 
-            EForall'(r,scope,adj' env a,term env b)
+            EForall'(r,scope,adj_ty env a,term env b)
         | EJoinPoint(r,a,b) ->
             let scope, env = scope env x 
             EJoinPoint'(r,scope,term env a,Option.map (ty env) b)
@@ -441,7 +444,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | ETypeEq(r,a,b,c,d) -> ETypeEq(r,ty env a,adj b,f c,f d)
     and ty env x =
         let f = ty env
-        let adj = adj' env
+        let adj = adj_ty env
         match x with
         | TJoinPoint' _ | TArrow' _ | TNominal  _ | TPrim _ | TSymbol _ | TB _ -> x
         | TJoinPoint(r,a) ->
@@ -449,7 +452,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
             TJoinPoint'(r,scope,ty env a)
         | TArrow(a,b) ->  
             let scope, env = scope env x
-            TArrow'(scope,adj' env a,ty env b)
+            TArrow'(scope,adj_ty env a,ty env b)
         | TV i -> match Map.tryFind i env.ty.var with Some i -> i | None -> TV(adj i)
         | TPair(r,a,b) -> TPair(r,f a,f b)
         | TFun(r,a,b) -> TFun(r,f a,f b)

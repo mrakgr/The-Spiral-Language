@@ -220,7 +220,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | x -> Array.map show_w x |> String.concat ", " |> sprintf "struct (%s)"
     and ty x =
         match env.ty_to_data x |> data_free_vars |> Array.map (fun (L(_,x)) -> tyv x) with
-        | [||] -> "()"
+        | [||] -> "unit"
         | [|x|] -> x
         | x -> String.concat " * " x |> sprintf "struct (%s)"
     and op s d a =
