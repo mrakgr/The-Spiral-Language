@@ -243,7 +243,10 @@ export const activate = async (ctx: ExtensionContext) => {
         languages.registerDocumentRangeSemanticTokensProvider(spiralFilePattern,new SpiralTokens(),new SemanticTokensLegend(spiralTokenLegend)),
         languages.registerHoverProvider(spiralFilePattern,new SpiralHover()),
         commands.registerCommand("buildFile", () => {
-            window.visibleTextEditors.forEach(x => spiBuildFileReq(x.document.uri.toString(true)))
+            window.visibleTextEditors.forEach(x => {
+                switch (path.extname(x.document.uri.path)) {
+                    case ".spi": case ".spir": spiBuildFileReq(x.document.uri.toString(true))
+                }})
         }),
         commands.registerCommand("runClosure", x => { x() }),
         languages.registerDocumentLinkProvider(spiralProjFilePattern,new SpiralProjectLinks()),

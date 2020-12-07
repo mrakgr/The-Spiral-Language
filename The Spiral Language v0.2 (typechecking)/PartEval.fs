@@ -1639,5 +1639,8 @@ let peval (env : TopEnv) (x : E) =
         env_stack_term = [||]
         }
     let ty_to_data x = ty_to_data {s with i = ref 0} x
-    
-    term_scope s x, {join_point_method=join_point_method; join_point_closure=join_point_closure; ty_to_data=ty_to_data}
+
+    match x with
+    | EFun'(r,_,_,_,_) -> term_scope s (EApply(r,x,EB r)), {join_point_method=join_point_method; join_point_closure=join_point_closure; ty_to_data=ty_to_data}
+    | EForall' _ -> raise_type_error s "The main function should not have a forall."
+    | _ -> raise_type_error s "Expected a function as the main."

@@ -142,11 +142,14 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
     let show_w = function WV i -> sprintf "v%i" i | WLit a -> lit a
 
+    let mutable tyv_proxy = Unchecked.defaultof<_>
+    let mutable ty_proxy = Unchecked.defaultof<_>
+    let mutable binds_proxy = Unchecked.defaultof<_>
     let rec heap = layout (fun prefix s x ->
-        line s (sprintf "%s Heap%i = {%s}" prefix x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "l%i : %s" i (tyv t)) |> String.concat "; "))
+        line s (sprintf "%s Heap%i = {%s}" prefix x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "l%i : %s" i (tyv_proxy t)) |> String.concat "; "))
         )
     and mut = layout (fun prefix s x ->
-        line s (sprintf "%s Mut%i = {%s}" prefix x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "mutable l%i : %s" i (tyv t)) |> String.concat "; "))
+        line s (sprintf "%s Mut%i = {%s}" prefix x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "mutable l%i : %s" i (tyv_proxy t)) |> String.concat "; "))
         )
     and uheap = union (fun prefix s x ->
         line s (sprintf "%s UH%i =" prefix x.tag)
@@ -154,7 +157,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         x.free_vars |> Map.iter (fun _ a ->
             match a with
             | [||] -> line (indent s) (sprintf "| UH%i_%i" x.tag i)
-            | a -> line (indent s) (sprintf "| UH%i_%i of %s" x.tag i (a |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat " * "))
+            | a -> line (indent s) (sprintf "| UH%i_%i of %s" x.tag i (a |> Array.map (fun (L(_,t)) -> tyv_proxy t) |> String.concat " * "))
             i <- i+1
             )
         )
@@ -164,7 +167,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         x.free_vars |> Map.iter (fun _ a ->
             match a with
             | [||] -> line (indent s) (sprintf "| US%i_%i" x.tag i)
-            | a -> line (indent s) (sprintf "| US%i_%i of %s" x.tag i (a |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat " * "))
+            | a -> line (indent s) (sprintf "| US%i_%i of %s" x.tag i (a |> Array.map (fun (L(_,t)) -> tyv_proxy t) |> String.concat " * "))
             i <- i+1
             )
         )
@@ -174,8 +177,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | Some a, Some range -> {|tag=i; free_vars=rdata_free_vars args; range=range; body=a|}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun prefix s x ->
-            line s (sprintf "%s method%i (%s) : %s =" prefix x.tag (args x.free_vars) (ty x.range))
-            binds (indent s) x.body
+            line s (sprintf "%s method%i (%s) : %s =" prefix x.tag (args x.free_vars) (ty_proxy x.range))
+            binds_proxy (indent s) x.body
             )
     and closure =
         jp (fun ((jp_body,key & (C(args,_,domain,range))),i) ->
@@ -184,14 +187,14 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun prefix s x ->
             let domain = 
-                match x.domain |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (tyv t)) with
+                match x.domain |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (tyv_proxy t)) with
                 | [||] -> "()"
                 | [|x|] -> sprintf "(%s)" x
                 | x -> String.concat ", " x |> sprintf "struct (%s)"
-            line s (sprintf "%s closure%i (%s) %s : %s =" prefix x.tag (args x.free_vars) domain (ty x.range))
-            binds (indent s) x.body
+            line s (sprintf "%s closure%i (%s) %s : %s =" prefix x.tag (args x.free_vars) domain (ty_proxy x.range))
+            binds_proxy (indent s) x.body
             )
-    and tyv = function
+    let rec tyv = function
         | YUnion a -> 
             match a.Item with
             | a, UHeap -> sprintf "UH%i" (uheap a).tag
@@ -350,6 +353,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 | _ -> raise_codegen_error "Compiler error: Invalid type in NanIs."
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> simple
+    tyv_proxy <- tyv
+    ty_proxy <- ty
+    binds_proxy <- binds
 
     let main = StringBuilder()
     binds {text=main; indent=0} x

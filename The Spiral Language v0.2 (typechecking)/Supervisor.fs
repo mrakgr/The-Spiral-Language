@@ -365,7 +365,7 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
             let p = file x.uri
             let x,s = Build.build_file s p
             Hopac.start (x >>= function
-                | Build.BuildOk x -> Job.fromUnitTask (fun () -> IO.File.WriteAllTextAsync(IO.Path.ChangeExtension(p,"fs"), x))
+                | Build.BuildOk x -> Job.fromUnitTask (fun () -> IO.File.WriteAllTextAsync(IO.Path.ChangeExtension(p,"fsx"), x))
                 | Build.BuildErrorTrace x // TODO: This should send a message to the content provider on the editor side.
                 | Build.BuildFatalError x -> Src.value errors.fatal x
                 )
