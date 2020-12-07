@@ -663,7 +663,7 @@ let peval (env : TopEnv) (x : E) =
                         env_stack_type = Array.zeroCreate<_> sz_ty
                         env_stack_term = Array.zeroCreate<_> sz_term
                         }
-                s.env_global_term.[0] <- b
+                s.env_stack_term.[0] <- b
                 term s body
             | DForall _, _ -> raise_type_error s "Cannot apply a forall with a term."
             | DV(L(_,YFun(domain,range) & a_ty)) & a, b ->

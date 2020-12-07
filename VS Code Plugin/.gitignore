@@ -1,2 +1,4 @@
 *.js
 node_modules
+.fake
+.ionide
