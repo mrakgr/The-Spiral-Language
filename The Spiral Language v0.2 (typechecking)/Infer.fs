@@ -616,7 +616,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let t_to_rawtexpr r expr =
             let rec f x = 
                 match visit_t x with
-                | TyMetavar _  | TyForall _  | TyInl _  | TyModule _ -> failwith "Compiler error: These cases should not appear in fill."
+                | TyMetavar _  | TyForall _  | TyInl _  | TyModule _ as x -> failwithf "Compiler error: These cases should not appear in fill.\nGot: %A" x
                 | TyB -> RawTB r
                 | TyPrim x -> RawTPrim(r,x)
                 | TySymbol x -> RawTSymbol(r,x)
@@ -663,7 +663,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 let has_foralls = List.exists (function (_,RawForall _) -> true | _ -> false) l
                 if has_foralls then RawRecBlock(r,List.map (fun (a,b) -> a, f b) l,f on_succ)
                 else
-                    let rec_term = List.fold (fun s ((_,name),b) -> Map.add name generalized_statements.[b] s) rec_term l
+                    let rec_term = List.fold (fun s ((_,name),b) -> Map.add name generalized_statements.[foralls_get b |> snd] s) rec_term l
                     let l = List.map (fun (a,b) -> a, fill_foralls (fst a) rec_term b) l
                     RawRecBlock(r,l,f on_succ)
             | RawRecordWith(r,a,b,c) ->
@@ -1118,6 +1118,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         let term env = term env body_var body
                         let gen env : Env = 
                             let t = generalize [] body_var
+                            generalized_statements.Add(body,t)
                             hover_types.Add(r,t)
                             {env with term = Map.add name t env.term}
                         (term, gen), Map.add name body_var s

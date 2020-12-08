@@ -782,7 +782,6 @@ let peval (env : TopEnv) (x : E) =
         | EFun _ -> failwith "Compiler error: Raw functions should be transformed during the prepass."
         | EFun'(_,free_vars,i,body,annot) -> 
             assert (free_vars.term.free_vars.Length = i)
-            printfn "%A" x
             DFunction(body,annot,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
         | EForall _ -> failwith "Compiler error: Raw foralls should be transformed during the prepass."
         | EForall'(_,free_vars,i,body) ->

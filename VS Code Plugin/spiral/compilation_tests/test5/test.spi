@@ -1,0 +1,8 @@
+open core
+// inl for (from: nearTo:) body state =
+//     let rec loop i s = if i < nearTo then loop (i+1) (body i s) else s
+//     loop from state
+
+inl main () = 
+    let rec loop i = loop i
+    ()

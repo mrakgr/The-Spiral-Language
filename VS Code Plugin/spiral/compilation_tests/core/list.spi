@@ -1,0 +1,10 @@
+union rec list a = Nil | Cons: a, list a
+inl (::) a b = Cons: a,b
+inl singleton x = Cons: x, Nil
+inl fold f s l =
+    let rec loop s = function Cons: x,x' => loop (f s x) x' | Nil => s
+    loop s l
+inl foldBack f l s =
+    let rec loop s = function Cons: x,x' => f x (loop s x') | Nil => s
+    loop s l
+inl rev l = fold (fun s x => Cons: x,s) Nil l

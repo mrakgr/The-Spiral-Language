@@ -129,7 +129,7 @@ module Build =
                                 | :? Codegen.Fsharp.CodegenError as e -> BuildFatalError(e.Data0)
                                 | :? Codegen.Fsharp.CodegenErrorWithPos as e -> BuildFatalError(show_trace s e.Data0 e.Data1)
                         | None -> BuildFatalError(sprintf "Cannot find the main function in module. Path: %s" module_target)
-            | None -> Job.result (BuildFatalError(sprintf "Cannot find the target module. Path: %s" module_target))
+            | None -> Job.result (BuildFatalError(sprintf "Cannot find the target module in the package. Path: %s" module_target))
             |> fun x -> x,s
         | Error x -> Job.result (BuildFatalError x), s
 

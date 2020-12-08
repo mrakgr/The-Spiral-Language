@@ -139,20 +139,29 @@ let in_module m (a : PrepassTopEnv) =
 
 open System.Collections.Generic
 
-type PropagatedVarsEnv = {|vars : Set<int>; max : int; min : int|}
+type PropagatedVarsEnv = {|vars : Set<int>; range : (int * int) option|}
 type PropagatedVars = {term : PropagatedVarsEnv; ty : PropagatedVarsEnv}
 
 let propagate x =
     let dict = Dictionary(HashIdentity.Reference)
+    let (+*) a b = 
+        match a,b with
+        | Some(min',max'), Some(min'',max'') -> Some(min min' min'', max max' max'')
+        | Some(a,b), _ | _, Some(a,b) -> Some(a,b)
+        | None, None -> None
     let (+) (a : PropagatedVars) (b : PropagatedVars) : PropagatedVars = {
-        term = {|vars = Set.union a.term.vars b.term.vars; max = max a.term.max b.term.max; min = min a.term.min b.term.min |} 
-        ty = {|vars = Set.union a.ty.vars b.ty.vars; max = max a.ty.max b.ty.max; min = min a.ty.min b.ty.min |} 
+        term = {|vars = Set.union a.term.vars b.term.vars; range = a.term.range +* b.term.range |} 
+        ty = {|vars = Set.union a.ty.vars b.ty.vars; range = a.ty.range +* b.ty.range |} 
         }
-    let (-) (a : PropagatedVars) i = {a with term = {|vars = Set.remove i a.term.vars; max = max i a.term.max; min = if 0 <= i then min i a.term.min else a.term.min |} } // Recursive vars are negative and get inlined so they should be ignored when calculating the range of a scope.
-    let (-.) (a : PropagatedVars) i = {a with ty = {|vars = Set.remove i a.ty.vars; max = max i a.ty.max; min = if 0 <= i then min i a.ty.min else a.ty.min |} }
-    let empty' term ty = 
-        let f x = {|vars = x; max=Set.fold max 0 x; min=Set.fold min System.Int32.MaxValue x|}
-        {term = f term; ty = f ty}
+    let (-*) a i =
+        if 0 <= i then 
+            match a with 
+            | Some(min',max') -> Some(min min' i, max max' i)
+            | None -> Some(i,i)
+        else a // Recursive vars are negative and get inlined so they should be ignored when calculating the range of a scope.
+    let (-) (a : PropagatedVars) i = {a with term = {|vars = Set.remove i a.term.vars; range = a.term.range -* i |} }
+    let (-.) (a : PropagatedVars) i = {a with ty = {|vars = Set.remove i a.ty.vars; range = a.ty.range -* i |} }
+    let empty' term ty = let f x = {|vars = x; range=None|} in {term = f term; ty = f ty}
     let empty = empty' Set.empty Set.empty
     let singleton_term i = empty' (Set.singleton i) Set.empty
     let singleton_ty i = empty' Set.empty (Set.singleton i)
@@ -160,10 +169,9 @@ let propagate x =
     let scope_dict = Dictionary<obj,_>(HashIdentity.Reference)
     let scope x (v : PropagatedVars) = scope_dict.Add(x,v); empty' v.term.vars v.ty.vars
     let rec term x =
-        let singleton = singleton_term
         match x with
         | EForall' _ | EJoinPoint' _ | EFun' _ | EModule _ | ERecursive _ | ESymbol _ | ELit _ | EB _ -> empty
-        | EV i -> singleton i
+        | EV i -> singleton_term i
         | EPrototypeApply(_,_,a) | EType(_,a) | EDefaultLit(_,_,a) -> ty a
         | ESeq(_,a,b) | EPair(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
         | ENominal(_,a,b) | EAnnot(_,a,b) | ETypeApply(_,a,b) -> term a + ty b
@@ -192,18 +200,18 @@ let propagate x =
         | EPatternMemo a -> Utils.memoize dict term a
         // Regular pattern matching
         | ELet(_,bind,body,on_succ) | EUnbox(_,bind,body,on_succ) -> term on_succ - bind + term body
-        | EPairTest(_,bind,pat1,pat2,on_succ,on_fail) -> singleton bind + (term on_succ - pat1 - pat2) + term on_fail
+        | EPairTest(_,bind,pat1,pat2,on_succ,on_fail) -> singleton_term bind + (term on_succ - pat1 - pat2) + term on_fail
         | ESymbolTest(_,_,bind,on_succ,on_fail) 
         | EUnitTest(_,bind,on_succ,on_fail) 
-        | ELitTest(_,_,bind,on_succ,on_fail) -> singleton bind + term on_succ + term on_fail
+        | ELitTest(_,_,bind,on_succ,on_fail) -> singleton_term bind + term on_succ + term on_fail
         | ERecordTest(_,a,bind,on_succ,on_fail) ->
             let on_succ_and_injects =
                 let on_succ = List.fold (fun s (Symbol(_,a) | Var(_,a)) -> s - a) (term on_succ) a
                 List.fold (fun s -> function Var((_,a),_) -> s + term a | Symbol _ -> s) on_succ a // Though it is less efficient, I am using two passes here to guard against future changes to pattern compilation breaking this part by accident.
-            singleton bind + term on_fail + on_succ_and_injects
+            singleton_term bind + term on_fail + on_succ_and_injects
         | EDefaultLitTest(_,_,t,bind,on_succ,on_fail)
-        | EAnnotTest(_,t,bind,on_succ,on_fail) -> singleton bind + ty t + term on_succ + term on_fail
-        | ENominalTest(_,t,bind,pat,on_succ,on_fail) -> singleton bind + ty t + (term on_succ - pat) + term on_fail
+        | EAnnotTest(_,t,bind,on_succ,on_fail) -> singleton_term bind + ty t + term on_succ + term on_fail
+        | ENominalTest(_,t,bind,pat,on_succ,on_fail) -> singleton_term bind + ty t + (term on_succ - pat) + term on_fail
         // Typecase
         | ETypeLet(_,a,b,c) -> (ty b -. a) + term c
         | ETypeApplyTest(_,bind,pat1,pat2,on_succ,on_fail)
@@ -232,7 +240,7 @@ type ResolveEnv = Map<int,Set<Id>>
 let resolve_recursive_free_vars env =
     Map.fold (fun (env : ResolveEnv) k v ->
         let has_visited = HashSet()
-        let rec f s k v = if has_visited.Add(k) then Set.fold (fun s k -> if 0 < k then f s k env.[k] else Set.add k s) s v else s
+        let rec f s k v = if has_visited.Add(k) then Set.fold (fun s k -> if k < 0 then f s k env.[k] else Set.add k s) s v else s
         Map.add k (f Set.empty k v) env
         ) env env
 
@@ -309,41 +317,43 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
     | Choice1Of2 x -> term Map.empty x
     | Choice2Of2 x -> ty Map.empty x
 
-type LowerSubEnv<'x> = {|var : Map<int,'x>; adj : int|}
+type LowerSubEnv<'x> = {|var : Map<int,'x>; adj : int option|}
 type LowerEnv = {term : LowerSubEnv<E>; ty : LowerSubEnv<T> }
 let lower (scope : Dictionary<obj,PropagatedVars>) x =
     let dict = Dictionary(HashIdentity.Reference)
     let scope (env : LowerEnv) x =
         let v = scope.[x]
         let fv_term =
-            v.term.vars |> Set.toArray 
+            v.term.vars |> Set.toArray
             |> Array.map (fun i ->
                 match Map.tryFind i env.term.var with
                 | Some(EV i) -> i
-                | None -> i + env.term.adj
+                | None -> i + env.term.adj.Value
                 | Some _ -> failwith "Compiler error: Expected a variable in the environment."
                 ) 
-        let stack_size_term = max 0 (v.term.max - v.term.min + 1)
+        let sz = function Some(min,max) -> max - min + 1 | None -> 0
+        let stack_size_term = sz v.term.range
 
         let fv_ty = 
-            v.ty.vars |> Set.toArray 
+            v.ty.vars |> Set.toArray
             |> Array.map (fun i ->
                 match Map.tryFind i env.ty.var with
                 | Some(TV i) -> i
-                | None -> i + env.term.adj
+                | None -> i + env.ty.adj.Value
                 | Some _ -> failwith "Compiler error: Expected a variable in the environment."
                 ) 
-        let stack_size_ty = max 0 (v.ty.max - v.ty.min + 1)
+        let stack_size_ty = sz v.ty.range
         let scope : Scope = {
             term = {|free_vars = fv_term; stack_size = stack_size_term|}
             ty = {|free_vars = fv_ty; stack_size = stack_size_ty|}
             }
 
-        let var_term,_ = Array.fold (fun (s,i) x -> Map.add x (EV i) s,i+1) (Map.filter (fun k _ -> k < 0) env.term.var, 0) fv_term
-        let adj_term = fv_term.Length - v.term.min
+        let var_term,_ = Set.fold (fun (s,i) x -> Map.add x (EV i) s,i+1) (Map.filter (fun k _ -> k < 0) env.term.var, 0) v.term.vars
+        let adj len range = Option.map (fun (min,_) -> len - min) range
+        let adj_term = adj fv_term.Length v.term.range
 
-        let var_ty,_ = Array.fold (fun (s,i) x -> Map.add x (TV i) s,i+1) (Map.empty, 0) fv_ty
-        let adj_ty = fv_ty.Length - v.ty.min
+        let var_ty,_ = Set.fold (fun (s,i) x -> Map.add x (TV i) s,i+1) (Map.empty, 0) v.ty.vars
+        let adj_ty = adj fv_ty.Length v.ty.range
 
         let env : LowerEnv = {
             term = {|var = var_term; adj = adj_term|}
@@ -352,8 +362,8 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
 
         scope, env
 
-    let adj_term (env : LowerEnv) i = i + env.term.adj
-    let adj_ty (env : LowerEnv) i = i + env.ty.adj
+    let adj_term (env : LowerEnv) i = i + env.term.adj.Value
+    let adj_ty (env : LowerEnv) i = i + env.ty.adj.Value
 
     let rec term (env : LowerEnv) x = 
         let f = term env
@@ -362,10 +372,14 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EForall' _ | EJoinPoint' _ | EFun' _ | EModule _ | ERecursive _ | ESymbol _ | ELit _ | EB _ -> x
         | EFun(r,a,b,c) -> 
             let scope, env = scope env x 
-            EFun'(r,scope,adj_term env a,term env b,Option.map (ty env) c)
+            let i = adj_term env a
+            assert (scope.term.free_vars.Length = i)
+            EFun'(r,scope,i,term env b,Option.map (ty env) c)
         | EForall(r,a,b) ->
             let scope, env = scope env x 
-            EForall'(r,scope,adj_ty env a,term env b)
+            let i = adj_ty env a
+            assert (scope.ty.free_vars.Length = i)
+            EForall'(r,scope,i,term env b)
         | EJoinPoint(r,a,b) ->
             let scope, env = scope env x 
             EJoinPoint'(r,scope,term env a,Option.map (ty env) b)
@@ -470,8 +484,8 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | TArray(a) -> TArray(f a)
         | TLayout(a,b) -> TLayout(f a,b)
     let env : LowerEnv = {
-        term = {|var = Map.empty; adj = 0|}
-        ty = {|var = Map.empty; adj = 0|}
+        term = {|var = Map.empty; adj = None|}
+        ty = {|var = Map.empty; adj = None|}
         }
     match x with
     | Choice1Of2(x,ret) -> ret (term env x)
@@ -545,10 +559,10 @@ let process_ty (x : T) =
 let module_open (top_env : PrepassTopEnv) env a l =
     let a,b = 
         match top_env.term.[snd a], top_env.ty.[snd a] with
-        | EModule a, TRecord(_, b) ->
+        | EModule a, TModule b ->
             List.fold (fun (a,b) (_,x) ->
                 match Map.find x a, Map.find x b with
-                | EModule a, TRecord(_, b) -> a,b
+                | EModule a, TModule b -> a,b
                 | _ -> failwith "Compiler error: Module open's symbol index should have been validated."
                 ) (a,b) l
         | _ -> failwith "Compiler error: Module open should have been validated."

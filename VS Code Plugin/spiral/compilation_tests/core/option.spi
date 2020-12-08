@@ -1,0 +1,6 @@
+union option a =
+    | Some: a
+    | None
+
+inl bind f = function Some: a => f a | None => None
+inl map f = bind (some_ >> f)
