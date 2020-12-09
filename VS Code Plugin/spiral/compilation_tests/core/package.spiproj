@@ -1,9 +1,9 @@
 modules:
     core-
-    // loop
-    // array
-    // string
-    // list
-    // option
-    // test
+    loop
+    array
+    string
+    list
+    option
+    test
     

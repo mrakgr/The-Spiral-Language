@@ -640,8 +640,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let f = term rec_term
             let clauses l = List.map (fun (a, b) -> let rec_term,a = pattern rec_term a in a,term rec_term b) l
             match x with
-            | RawFilledPairStrip _ | RawFilledForall _ | RawMissingBody _ | RawTypecase _ | RawType _ -> failwith "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only."
-            | RawSymbol _ | RawB _ | RawLit _ -> x
+            | RawFilledPairStrip _ | RawFilledForall _ | RawMissingBody _ | RawTypecase _ | RawType _ as x -> failwithf "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only.\nGot: %A" x
+            | RawSymbol _ | RawB _ | RawLit _ | RawOp _ -> x
             | RawReal(_,x) -> x
             | RawBigV(r,a) -> f (RawApply(r,RawV(r,a), RawB r))
             | RawV(r,n) ->
@@ -674,7 +674,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     | RawRecordWithInjectVarModify(a,b) -> RawRecordWithInjectVarModify(a,f b)
                     )
                 RawRecordWith(r,List.map f a,b,c)
-            | RawOp(r,a,b) -> RawOp(r,a,List.map f b)
             | RawJoinPoint(r,a) -> RawAnnot(r,RawJoinPoint(r,f a),annot r x)
             | RawAnnot(r,a,_) -> f a
             | RawOpen(r,a,b,c) ->
