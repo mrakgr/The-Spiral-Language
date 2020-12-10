@@ -5,6 +5,7 @@
     <RootNamespace>The_Spiral_Language_v0._2__typechecking_</RootNamespace>
     <OutputType>Exe</OutputType>
     <ServerGarbageCollection>true</ServerGarbageCollection>
+    <AssemblyName>SpiralAsm</AssemblyName>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

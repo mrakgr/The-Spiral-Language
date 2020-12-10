@@ -228,7 +228,7 @@ let multi_file package_id top_env =
 
 type PackagePath = string
 type PackageName = string
-type PackageLinks = Map<PackagePath,PackageName>
+type PackageLinks = (PackagePath * PackageName option) list
 type PackageId = int
 type PackageIds = PersistentHashMap<PackagePath,PackageId>
 type AddPackageInput = {links : PackageLinks; files : DiffableFileHierarchy list}
@@ -297,14 +297,14 @@ let package_env_empty = {
 let package_env_default = {package_env_empty with ty = top_env_default.ty; term = top_env_default.term; constraints = top_env_default.constraints}
 
 type ModulePath = string
-type PackageMultiFileLinks = Map<PackagePath,PackageName * PackageEnv Promise>
+type PackageMultiFileLinks = (PackagePath * (PackageName option * PackageEnv Promise)) list
 type PackageMultiFileStreamAux = EditorStream<DiffableFileHierarchy list, Map<string,InferResult Stream> * PackageEnv Promise>
 type PackageMultiFileStream = EditorStream<PackageId * PackageMultiFileLinks * DiffableFileHierarchy list, Map<string,InferResult Stream> * PackageEnv Promise>
 
 let package_multi_file post_process_result multi_file package_env_default union in_module top_to_package package_to_top =
     let make_new_stream (id : PackageId) links =
         let package_env_in = 
-            let l = Map.fold (fun l k (name,env_out) -> (env_out >>-* in_module name) :: l) [] links |> Job.conCollect
+            let l = List.fold (fun l (k, (name,env_out)) -> (match name with Some name -> env_out >>-* in_module name | None -> env_out) :: l) [] links |> Job.conCollect
             l >>-* Seq.fold union package_env_default
         let rec loop (top_env_out',env_out') (multi_file : EditorStream<_,_>) =
             {new EditorStream<_,_> with
@@ -351,9 +351,9 @@ let inline link_op f dir s k =
     | None -> s
 
 /// Removes the current package from its parents' reverse links.
-let links_rev_remove links dir s = links |> Map.fold (fun s k _ -> link_op Set.remove dir s k) s
+let links_rev_remove links dir s = links |> List.fold (fun s (k, _) -> link_op Set.remove dir s k) s
 /// Adds the current package to its parents' reverse links.
-let links_rev_add links dir s = links |> Map.fold (fun s k _ -> link_op Set.add dir s k) s
+let links_rev_add links dir s = links |> List.fold (fun s (k, _) -> link_op Set.add dir s k) s
 
 let add_package (s : PackageCoreState, infer_results' : Map<string,InferResult Stream>, dirty_nodes : Set<string>) (dir, x : AddPackageInput) =
     let id, package_ids = 
@@ -361,14 +361,14 @@ let add_package (s : PackageCoreState, infer_results' : Map<string,InferResult S
         else s.package_ids.Count, s.package_ids.Add(dir,s.package_ids.Count)
     let old_package = Map.tryFind dir s.packages
     let (infer_results, env_out), stream =
-        let links = x.links |> Map.map (fun k v -> v, s.packages.[k].env_out)
+        let links = x.links |> List.map (fun (k, v) -> k, (v, s.packages.[k].env_out))
         let files = x.files
         match old_package with
         | Some p -> p.stream.Run(id,links,files)
         | None -> (package_multi_file (fun _ x -> x) multi_file package_env_default union in_module top_to_package package_to_top).Run(id,links,files)
     
     let s = // Remove the current package dir from the parents based on the old links.
-        let old_links = match old_package with Some x -> x.links | None -> Map.empty
+        let old_links = match old_package with Some x -> x.links | None -> []
         links_rev_remove old_links dir s
         // Add the current package dir to the parents based on the new links.
         |> links_rev_add x.links dir
@@ -406,7 +406,7 @@ type PackageDiffStream =
 let package_named_links (p : PackageSchema) =
     let names = p.schema.schema.packages // TODO: Extend the parser for packages and separate out the names and locations.
     let links = p.schema.packages
-    Map(List.map2 (fun (_,a) (_,b) -> a, b) links names)
+    List.map2 (fun (_,a) ((_,b),is_include) -> a, if is_include then None else Some b) links names
 
 type PackageDiffState = { changes : string Set; errors : string Set; core : PackageCoreStream }
 let get_adds_and_removes (schema : PackageSchema ResultMap) ((abs,bas) : MirroredGraph) (modules : Map<string,ModuleStreamRes>) (changes : string Set) =

@@ -1,3 +1,4 @@
+// Does any code get produced?
 inl main () = 
     inl ~x = 2i32
     x

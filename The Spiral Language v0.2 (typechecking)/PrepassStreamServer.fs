@@ -120,26 +120,27 @@ let multi_file package_id top_env =
 
 type ModulePath = string
 type PackageId = int
-type PackageMultiFileLinks = Map<PackagePath,PackageName * PrepassPackageEnv Promise>
+type PackageMultiFileLinks = (PackagePath * (PackageName option * PrepassPackageEnv Promise)) list
 type PackageMultiFileStreamAux = EditorStream<DiffableFileHierarchy list * ModuleTarget, PrepassPackageEnv Promise option * PrepassPackageEnv Promise>
 type PackageMultiFileStream = EditorStream<PackageId * PackageMultiFileLinks * (DiffableFileHierarchy list * ModuleTarget), PrepassPackageEnv Promise option * PrepassPackageEnv Promise>
-type PackageStream = EditorStream<Map<PackageName,DiffableFileHierarchy list * PackageLinks * PackageId> * PackageName seq * ModuleTarget, PrepassPackageEnv Promise option>
+type PackageStreamInput = PackageStreamInput of Map<PackageName,DiffableFileHierarchy list * PackageLinks * PackageId> * PackageName seq * ModuleTarget // Note: I get a 'Method name is too long.' exception unless I use this.
+type PackageStream = EditorStream<PackageStreamInput, PrepassPackageEnv Promise option>
 
 type PackageItem = {
     env_out : PrepassPackageEnv Promise
-    links : Map<PackagePath,PackageName>
+    links : (PackagePath * PackageName option) list
     stream : PackageMultiFileStream
     id : PackageId
     }
 let package =
     let rec loop (s : Map<PackageName, PackageItem>) =
         {new PackageStream with
-            member _.Run((packages,order,target)) = 
+            member _.Run(PackageStreamInput(packages,order,target)) = 
                 Seq.fold (fun (s,_) n ->
                     let old_package = Map.tryFind n s
                     let files, links, id = packages.[n]
                     let (target_res,env_out), stream =
-                        let links = links |> Map.map (fun k v -> v, s.[k].env_out)
+                        let links = links |> List.map (fun (k, v) -> k, (v, s.[k].env_out))
                         let files = files
                         match old_package with
                         | Some p -> p.stream.Run(id,links,(files,target))

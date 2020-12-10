@@ -66,7 +66,7 @@ module Build =
                             if PersistentHashMap.containsKey package_path s.package_ids then s.package_ids.[package_path]
                             else er <| sprintf "Cannot find the package id. Path: %s" package_path
                         
-                        Map.iter (fun k _ -> dfs k) links
+                        List.iter (fun (k, _) -> dfs k) links
                         order.Enqueue(package_path,(hier,links,id))
                     | _ -> er <| sprintf "Package has an error. Path: %s" package_path
             dfs package_target
@@ -106,7 +106,7 @@ module Build =
     let build_file (s : SupervisorState) module_target =
         match inputs s module_target with
         | Ok x ->
-            let a,prepass_stream = s.prepass_stream.Run(x)
+            let a,prepass_stream = s.prepass_stream.Run(PackageStreamInput x)
             let s = {s with prepass_stream=prepass_stream}
             match a with
             | Some x ->

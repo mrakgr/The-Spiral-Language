@@ -63,6 +63,10 @@ and file_or_directory p =
 
 let packages p =
     let i = column p
+    let file = range file' >>= fun (r,name) p ->
+        match p.Peek() with
+        | '-' -> p.Skip(); (spaces >>% ((r,name),true)) p
+        | _ -> (spaces >>% ((r,name),false)) p
     let file p = if i <= column p then file p else Reply(ReplyStatus.Error,expected "directory on the same or greater indentation as the first one")
     many file p
 
@@ -107,7 +111,7 @@ type Schema = {
     moduleDir : RString option
     modules : FileHierarchy list
     packageDir : RString option
-    packages : RString list
+    packages : (RString * bool) list
     }
 
 let schema_def: Schema = {

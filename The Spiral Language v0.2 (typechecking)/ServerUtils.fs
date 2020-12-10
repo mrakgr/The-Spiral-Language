@@ -173,7 +173,7 @@ let schema_validate project_dir x =
             []
     let packages =
         let packages = HashSet()
-        let validate_package d (r,x) =
+        let validate_package d ((r,x),_) =
             try let x = DirectoryInfo(Path.Combine(d,x)).FullName
                 if project_dir = x then errors.Add(r,"Self references are not allowed."); None
                 // The validator needs the backwards links even for files that are currently missing, but might exist.
