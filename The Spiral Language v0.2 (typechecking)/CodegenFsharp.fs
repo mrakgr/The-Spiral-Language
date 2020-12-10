@@ -96,12 +96,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     let functions = ResizeArray()
 
     let print is_type show r =
-        let prefix = 
-            if is_type then if types.Count = 0 then "type" else "and"
-            else if functions.Count = 0 then "let rec" else "and"
-
         let s = {text=StringBuilder(); indent=0}
-        show prefix s r
+        show s r
         let text = s.text.ToString()
         if is_type then types.Add(text) else functions.Add(text)
 
@@ -145,14 +141,15 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     let mutable tyv_proxy = Unchecked.defaultof<_>
     let mutable ty_proxy = Unchecked.defaultof<_>
     let mutable binds_proxy = Unchecked.defaultof<_>
-    let rec heap = layout (fun prefix s x ->
-        line s (sprintf "%s Heap%i = {%s}" prefix x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "l%i : %s" i (tyv_proxy t)) |> String.concat "; "))
+    let args_tys x = x |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (ty_proxy t)) |> String.concat ", "
+    let rec heap = layout (fun s x ->
+        line s (sprintf "Heap%i = {%s}" x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "l%i : %s" i (tyv_proxy t)) |> String.concat "; "))
         )
-    and mut = layout (fun prefix s x ->
-        line s (sprintf "%s Mut%i = {%s}" prefix x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "mutable l%i : %s" i (tyv_proxy t)) |> String.concat "; "))
+    and mut = layout (fun s x ->
+        line s (sprintf "Mut%i = {%s}" x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "mutable l%i : %s" i (tyv_proxy t)) |> String.concat "; "))
         )
-    and uheap = union (fun prefix s x ->
-        line s (sprintf "%s UH%i =" prefix x.tag)
+    and uheap = union (fun s x ->
+        line s (sprintf "UH%i =" x.tag)
         let mutable i = 0
         x.free_vars |> Map.iter (fun _ a ->
             match a with
@@ -161,8 +158,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             i <- i+1
             )
         )
-    and ustack = union (fun prefix s x ->
-        line s (sprintf "%s [<Struct>] US%i =" prefix x.tag)
+    and ustack = union (fun s x ->
+        line s (sprintf "[<Struct>] US%i =" x.tag)
         let mutable i = 0
         x.free_vars |> Map.iter (fun _ a ->
             match a with
@@ -176,22 +173,22 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             match (fst env.join_point_method.[jp_body]).[key] with
             | Some a, Some range -> {|tag=i; free_vars=rdata_free_vars args; range=range; body=a|}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
-            ) (fun prefix s x ->
-            line s (sprintf "%s method%i (%s) : %s =" prefix x.tag (args x.free_vars) (ty_proxy x.range))
+            ) (fun s x ->
+            line s (sprintf "method%i (%s) : %s =" x.tag (args_tys x.free_vars) (ty_proxy x.range))
             binds_proxy (indent s) x.body
             )
     and closure =
         jp (fun ((jp_body,key & (C(args,_,domain,range))),i) ->
             match (fst env.join_point_closure.[jp_body]).[key] with
-            | Some a -> {|tag=i; free_vars=rdata_free_vars args; domain=env.ty_to_data domain |> data_free_vars; range=range; body=a|}
+            | Some(domain_args, body) -> {|tag=i; free_vars=rdata_free_vars args; domain=data_free_vars domain_args; range=range; body=body|}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
-            ) (fun prefix s x ->
+            ) (fun s x ->
             let domain = 
                 match x.domain |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (tyv_proxy t)) with
                 | [||] -> "()"
                 | [|x|] -> sprintf "(%s)" x
                 | x -> String.concat ", " x |> sprintf "struct (%s)"
-            line s (sprintf "%s closure%i (%s) %s : %s =" prefix x.tag (args x.free_vars) domain (ty_proxy x.range))
+            line s (sprintf "closure%i (%s) %s : %s =" x.tag (args_tys x.free_vars) domain (ty_proxy x.range))
             binds_proxy (indent s) x.body
             )
     let rec tyv = function
@@ -201,10 +198,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | a, UStack -> sprintf "US%i" (ustack a).tag
         | YLayout(a,Heap) -> sprintf "Heap%i" (heap a).tag
         | YLayout(a,HeapMutable) -> sprintf "Mut%i" (mut a).tag
-        | YMacro a -> a |> List.map (function Text a -> a | Type a -> tyv a) |> String.concat ""
+        | YMacro a -> a |> List.map (function Text a -> a | Type a -> ty a) |> String.concat ""
         | YPrim a -> prim a
-        | YArray a -> sprintf "(%s [])" (tyv a)
-        | YFun(a,b) -> sprintf "(%s -> %s)" (tyv a) (tyv b)
+        | YArray a -> sprintf "(%s [])" (ty a)
+        | YFun(a,b) -> sprintf "(%s -> %s)" (ty a) (ty b)
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
     and binds (s : CodegenEnv) (x : TypedBind []) =
         Array.iter (fun x ->
@@ -360,6 +357,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     let main = StringBuilder()
     binds {text=main; indent=0} x
 
-    types.AddRange(functions)
-    types.Add(main.ToString())
-    String.concat "" types
+    let program = StringBuilder()
+    types |> Seq.iteri (fun i x -> program.Append(if i = 0 then "type " else "and ").Append(x) |> ignore)
+    functions |> Seq.iteri (fun i x -> program.Append(if i = 0 then "let rec " else "and ").Append(x) |> ignore)
+    program.Append(main).ToString()

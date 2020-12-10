@@ -438,7 +438,7 @@ let store_ty (s : LangEnv) i v = s.env_stack_type.[i-s.env_global_type.Length] <
 
 type PartEvalResult = {
     join_point_method : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty []>,TypedBind [] option * Ty option> * HashConsTable>
-    join_point_closure : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty [] * Ty * Ty>,TypedBind [] option> * HashConsTable>
+    join_point_closure : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty [] * Ty * Ty>,(Data * TypedBind []) option> * HashConsTable>
     ty_to_data : Ty -> Data
     }
 
@@ -481,11 +481,11 @@ let peval (env : TopEnv) (x : E) =
     and closure_convert s (body,annot,gl_term,gl_ty,sz_term,sz_ty) =
         let domain, range, ret_ty = 
             match ty s annot with
-            | YFun(a,b) as x -> a,b, x
+            | YFun(a,b) as x -> a,b,x
             | annot -> raise_type_error s "Expected a function type in annotation during closure conversion. Got: %s" (show_ty annot)
         let dict, hc_table = Utils.memoize join_point_closure (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
-        let call_args, env_global_value = data_to_rdata hc_table s.env_global_term
-        let join_point_key = hc_table.Add(env_global_value, s.env_global_type, domain, range)
+        let call_args, env_global_value = data_to_rdata hc_table gl_term
+        let join_point_key = hc_table.Add(env_global_value, gl_ty, domain, range)
 
         match dict.TryGetValue(join_point_key) with
         | true, _ -> ()
@@ -500,11 +500,12 @@ let peval (env : TopEnv) (x : E) =
                 env_stack_type = Array.zeroCreate<_> sz_ty
                 env_stack_term = Array.zeroCreate<_> sz_term
                 }
-            s.env_stack_term.[0] <- ty_to_data s domain
             rename_global_term s
+            let domain_data = ty_to_data s domain
+            s.env_stack_term.[0] <- domain_data
             dict.[join_point_key] <- None
             let seq,ty = term_scope'' s body
-            dict.[join_point_key] <- Some seq
+            dict.[join_point_key] <- Some(domain_data, seq)
             if range <> ty then raise_type_error s <| sprintf "The annotation of the function does not match its body's type.Got: %s\nExpected: %s" (show_ty ty) (show_ty range)
 
         push_typedop s (TyJoinPoint(JPClosure(body,join_point_key),call_args)) ret_ty, ret_ty
@@ -791,9 +792,12 @@ let peval (env : TopEnv) (x : E) =
         | ERecBlock _ -> failwith "Compiler error: Recursive blocks should be inlined and eliminated during the prepass."
         | EJoinPoint _ -> failwith "Compiler error: Raw join points should be transformed during the prepass."
         | EJoinPoint'(r,scope,body,annot) ->
+            let env_global_type = Array.map (vt s) scope.ty.free_vars
+            let env_global_term = Array.map (v s) scope.term.free_vars
+
             let dict, hc_table = Utils.memoize join_point_method (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
-            let call_args, env_global_value = data_to_rdata hc_table s.env_global_term
-            let join_point_key = hc_table.Add(env_global_value, s.env_global_type)
+            let call_args, env_global_value = data_to_rdata hc_table env_global_term
+            let join_point_key = hc_table.Add(env_global_value, env_global_type)
 
             let ret_ty =
                 match dict.TryGetValue(join_point_key) with
@@ -805,8 +809,8 @@ let peval (env : TopEnv) (x : E) =
                         seq = ResizeArray()
                         cse = [Dictionary(HashIdentity.Structural)]
                         i = ref 0
-                        env_global_type = Array.map (vt s) scope.ty.free_vars
-                        env_global_term = Array.map (v s) scope.term.free_vars
+                        env_global_type = env_global_type
+                        env_global_term = env_global_term
                         env_stack_type = Array.zeroCreate<_> scope.ty.stack_size
                         env_stack_term = Array.zeroCreate<_> scope.term.stack_size
                         }

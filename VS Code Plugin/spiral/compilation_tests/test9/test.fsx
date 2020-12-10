@@ -1,4 +1,4 @@
-﻿let rec method4 (v0 : int32, v1 : float, v2 : float32, v3 : float) : struct (int32 * int32 * float * float32 * float) =
+let rec method4 (v0 : int32, v1 : float, v2 : float32, v3 : float) : struct (int32 * int32 * float * float32 * float) =
     struct (1, v0, v1, v2, v3)
 and closure2 (v0 : int32, v1 : float, v2 : float32, v3 : float) (v4 : string) : struct (int32 * int32 * float * float32 * float) =
     method4(v0, v1, v2, v3)
