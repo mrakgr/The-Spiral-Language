@@ -71,7 +71,7 @@ and fold_offset_term offset x =
     | RawLit(r,a) -> RawLit (g r,a)
     | RawDefaultLit(r,a) -> RawDefaultLit (g r,a)
     | RawSymbol(r,a) -> RawSymbol (g r,a)
-    | RawType(r,a) -> RawType(g r,a)
+    | RawType(r,a) -> RawType(g r, ty a)
     | RawMatch(r,a,b) -> RawMatch(g r,f a,List.map (fun (a,b) -> fold_offset_pattern offset a,f b) b)
     | RawFun(r,a) -> RawFun(g r,List.map (fun (a,b) -> fold_offset_pattern offset a,f b) a)
     | RawForall(r,a,b) -> RawForall(g r,add_offset_typevar offset a,f b)

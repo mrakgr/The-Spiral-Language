@@ -1,0 +1,6 @@
+// Does the record punning work?
+inl main () =
+    inl a = 1i32
+    inl b = 2i32
+    inl d = 4i32
+    dyn {a b c = 3i32; d; e = 5i32}

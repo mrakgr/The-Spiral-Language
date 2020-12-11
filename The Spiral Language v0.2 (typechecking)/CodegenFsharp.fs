@@ -230,7 +230,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let f (L(i,t)) = if do_annot then sprintf "v%i : %s" i (tyv t) else sprintf "v%i" i
             match data_free_vars x with
             | [||] -> "()"
-            | x -> Array.map f x |> String.concat ", " |> sprintf "(%s)"
+            | [|x|] -> f x
+            | x -> Array.map f x |> String.concat ", " |> sprintf "struct (%s)"
         let simple x = 
             match d with
             | None -> x

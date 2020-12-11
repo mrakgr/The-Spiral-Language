@@ -1,4 +1,4 @@
-﻿let rec method0 () : struct (int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32) =
+let rec method0 () : struct (int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32) =
     struct (3, 1, 2, 3, 1, 2, 3, 1, 2, 3, 1, 2)
 and method1 (v0 : int32, v1 : int32, v2 : int32, v3 : int32, v4 : int32, v5 : int32, v6 : int32, v7 : int32, v8 : int32, v9 : int32, v10 : int32, v11 : int32) : struct (int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32 * int32) =
     struct (v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11)

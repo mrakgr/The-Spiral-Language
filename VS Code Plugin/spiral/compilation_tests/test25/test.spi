@@ -1,0 +1,2 @@
+// Does structural polymorphic equality work?
+inl main () = {a=1i32;b=dyn 2i32;c=dyn 3i32} = {a=1;b=2;c=3}

@@ -831,44 +831,47 @@ let peval (env : TopEnv) (x : E) =
             type_apply s (term s a) (ty s b)
         | ERecordWith(r,vars,withs,withouts) ->
             let s = add_trace s r
-            let fold f a b = List.fold f b a
-            let inline var r a on_succ = 
-                match term s a with
-                | DSymbol a -> on_succ a
-                | a -> raise_type_error (add_trace s r) <| sprintf "Expected a symbol.\nGot: %s" (show_data a)
-            List.fold (fun m (r,x) ->
-                let s = add_trace s r
-                match m with
-                | Some a -> 
+            let map x =
+                let fold f a b = List.fold f b a
+                let var r a = 
+                    match term s a with
+                    | DSymbol a -> a
+                    | a -> raise_type_error (add_trace s r) <| sprintf "Expected a symbol.\nGot: %s" (show_data a)
+                x |> fold (fun m x -> 
+                    let sym a b = Map.add a (term s b) m
+                    let sym_mod r a b = 
+                        match Map.tryFind a m with
+                        | Some a' -> Map.add a (apply s (term s b, a')) m
+                        | None -> raise_type_error (add_trace s r) "Cannot find key %s in record." a
+                    match x with
+                    | RSymbol((_,a),b) -> sym a b
+                    | RSymbolModify((r,a),b) -> sym_mod r a b
+                    | RVar((r,a),b) -> sym (var r a) b
+                    | RVarModify((r,a),b) -> sym_mod r (var r a) b
+                    ) withs
+                |> fold (fun m -> function
+                    | WSymbol(r,a) -> Map.remove a m
+                    | WVar(r,a) -> Map.remove (var r a) m
+                    ) withouts
+            
+            let rec dive m = function
+                | (r,x) :: xs ->
+                    let s = add_trace s r
                     match term s x with
                     | DSymbol b -> 
-                        match Map.tryFind b a with
-                        | Some (DRecord a) -> Some a
+                        match Map.tryFind b m with
+                        | Some (DRecord a) -> Map.add b (DRecord (dive a xs)) m
                         | Some a -> raise_type_error s <| sprintf "Expected a record as the result of indexing.\nGot: %s" (show_data a)
                         | None -> raise_type_error s <| sprintf "Cannot find the key %s in a record." b
                     | b -> raise_type_error s <| sprintf "Expected a symbol.\nGot: %s" (show_data b)
-                | None -> 
-                    match term s x with
-                    | DRecord l -> Some l
-                    | a -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data a)
-                ) None vars
-            |> Option.defaultValue Map.empty
-            |> fold (fun m x -> 
-                let sym a b = Map.add a (term s b) m
-                let sym_mod r a b = 
-                    match Map.tryFind a m with
-                    | Some a' -> Map.add a (apply s (term s b, a')) m
-                    | None -> raise_type_error (add_trace s r) "Cannot find key %s in record." a
-                match x with
-                | RSymbol((_,a),b) -> sym a b
-                | RSymbolModify((r,a),b) -> sym_mod r a b
-                | RVar((r,a),b) -> var r a (fun a -> sym a b)
-                | RVarModify((r,a),b) -> var r a (fun a -> sym_mod r a b)
-                ) withs
-            |> fold (fun m -> function
-                | WSymbol(r,a) -> Map.remove a m
-                | WVar(r,a) -> var r a (fun a -> Map.remove a m)
-                ) withouts
+                | [] -> map m
+
+            match vars with
+            | (r,x) :: xs ->
+                match term s x with
+                | DRecord l -> dive l xs
+                | a -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data a)
+            | [] -> map Map.empty
             |> DRecord
         | EPatternMemo _ | EReal _ -> failwith "Compiler error: Should have been eliminated during the prepass."
         | EModule a -> DRecord(Map.map (fun _ -> term s) a)
@@ -894,7 +897,7 @@ let peval (env : TopEnv) (x : E) =
             let b = ty s b
             if a_ty <> b then raise_type_error s <| sprintf "The body does not match the annotation.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty b)
             a
-        | EPatternMiss a -> raise_type_error s "Pattern miss.\nGot: %s" (show_data (term s a))
+        | EPatternMiss a -> raise_type_error s <| sprintf "Pattern miss.\nGot: %s" (show_data (term s a))
         | EIfThenElse(r,cond,tr,fl) -> let s = add_trace s r in if_ s (term s cond) tr fl
         | EIfThen(r,cond,tr) -> let s = add_trace s r in if_ s (term s cond) tr (EB r)
         | EHeapMutableSet(r,a,b,c) ->
@@ -1148,6 +1151,16 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,RecordMap,[a;b]) ->
             match term2 s a b with
             | a, DRecord l -> Map.map (fun k v -> apply s (a, DPair(DSymbol "key_value_", DPair(DSymbol k,v)))) l |> DRecord
+            | _, b -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data b)
+        | EOp(_,RecordIter,[a;b]) ->
+            match term2 s a b with
+            | a, DRecord l -> 
+                Map.iter (fun k v -> 
+                    match apply s (a, DPair(DSymbol "key_value_", DPair(DSymbol k,v))) with
+                    | DB -> ()
+                    | x -> raise_type_error s <| sprintf "Expected an unit value.\nGot: %s" (show_data x)
+                    ) l 
+                DB
             | _, b -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data b)
         | EOp(_,RecordFilter,[a;b]) ->
             match term2 s a b with

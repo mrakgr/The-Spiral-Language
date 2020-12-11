@@ -27,5 +27,5 @@ inl (~!) forall t. (x : heap t): t = !!!!LayoutIndex(x)
 inl const x _ = x
 inl id x = x
 
-inl (=) forall t. (a : t) (b : t) : bool = !!!!EQ(a,b)
-inl (<>) forall t. (a : t) (b : t) : bool = !!!!NEQ(a,b)
+inl (=) forall t. (a : t) (b : t) : bool = real real_core.(=) a b
+inl (<>) forall t. (a : t) (b : t) : bool = real real_core.(<>) a b

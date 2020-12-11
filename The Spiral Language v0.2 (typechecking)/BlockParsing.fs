@@ -52,6 +52,7 @@ type Op =
 
     // Record
     | RecordMap
+    | RecordIter
     | RecordFilter
     | RecordFoldL
     | RecordFoldR
@@ -808,7 +809,7 @@ let inline read_default_value on_top on_bot d =
             if d.is_top_down then Ok(on_top (p,t'))
             else bottom_up_number (p,t') |> Result.map on_bot
         | p, _ -> Error [p, ExpectedLit]
-
+let read_string = tuple3 skip_string_open ((read_text |>> snd) <|>% "") skip_string_close
 let pat_var d =
     (read_var' |>> fun (r,a,re) ->
         if Char.IsUpper(a,0) then 
@@ -840,13 +841,14 @@ and root_pattern s =
     let body s = 
         let pat_unit = unit' PatB
         let pat_value = (read_value |>> PatValue) <|> (read_default_value PatDefaultValue PatValue)
+        let pat_string = read_string |>> (fun (a,x,b) -> PatValue(a +. b,LitString x))
         let pat_symbol = read_symbol |>> PatSymbol
         let pat_type = 
             pipe2 root_pattern (opt (skip_op ":" >>. root_type_annot))
                 (fun a -> function Some b -> PatAnnot(range_of_pattern a +. range_of_texpr b,a,b) | None -> a)
         let pat_rounds = rounds (pat_type <|> (read_op' |>> PatVar))
         let (+) = alt (index s)
-        (pat_unit + pat_rounds + pat_nominal + pat_wildcard + pat_dyn + pat_value + pat_record + pat_symbol) s
+        (pat_unit + pat_rounds + pat_nominal + pat_wildcard + pat_dyn + pat_value + pat_string + pat_record + pat_symbol) s
 
     let pat_and = sepBy1 body (skip_op "&") |>> List.reduce (fun a b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b))
     let pat_pair = pat_pair pat_and
@@ -1026,7 +1028,7 @@ and root_term d =
                 | "``" -> if d.is_top_down then Error [] else (range type_expr |>> fun (r,x) -> RawOp(o +. r,TypeToVar,[RawType(r,x)])) d
                 | _ -> (expressions |>> fun b -> RawApply(o +. range_of_expr b,RawV(o, "~" + a),b)) d
 
-        let case_string = pipe3 skip_string_open ((read_text |>> snd) <|>% "") skip_string_close (fun a x b -> RawLit(a +. b,LitString x))
+        let case_string = read_string |>> fun (a, x, b) -> RawLit(a +. b,LitString x)
         let case_macro = pipe3 skip_macro_open (many ((read_text |>> RawMacroText) <|> read_macro_var)) skip_macro_close (fun a l b -> RawMacro(a +. b, l))
 
         let (+) = alt (index d)
