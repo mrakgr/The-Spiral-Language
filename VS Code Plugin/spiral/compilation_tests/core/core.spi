@@ -26,6 +26,10 @@ inl (~!) forall t. (x : heap t): t = !!!!LayoutIndex(x)
 
 inl const x _ = x
 inl id x = x
+inl fst (x,_) = x
+inl snd (_,x) = x
 
 inl (=) forall t. (a : t) (b : t) : bool = real real_core.(=) a b
 inl (<>) forall t. (a : t) (b : t) : bool = real real_core.(<>) a b
+inl unboxed_is x : bool = !!!!UnboxedIs(x)
+inl lit_is x : bool = !!!!LitIs(x)

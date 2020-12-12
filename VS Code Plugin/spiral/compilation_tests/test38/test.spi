@@ -1,0 +1,3 @@
+// Does missing an argument and returning a closure compile correctly?
+open option
+inl main () = defaultWith (dyn 0i32)

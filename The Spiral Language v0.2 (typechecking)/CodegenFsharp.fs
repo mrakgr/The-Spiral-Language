@@ -277,7 +277,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     match data_free_vars a with
                     | [||] -> ""
                     | x -> sprintf "(%s)" (args x)
-                line s (sprintf "| %s_%i%s -> (* %s *)" prefix i k vars)
+                line s (sprintf "| %s_%i%s -> (* %s *)" prefix i vars k)
                 binds (indent s) b
                 i + 1
                 ) 0 l

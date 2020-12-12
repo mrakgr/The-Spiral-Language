@@ -4,3 +4,6 @@ union option a =
 
 inl bind f = function Some: a => f a | None => None
 inl map f = bind (some_ >> f)
+inl defaultWith d = function
+    | Some: x => x
+    | None => d

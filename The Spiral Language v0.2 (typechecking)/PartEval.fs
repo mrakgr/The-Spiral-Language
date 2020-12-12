@@ -166,7 +166,7 @@ let rename_global_term (s : LangEnv) =
             | DNominal(a,b) -> DNominal(f a,b)
             | DSymbol _ | DLit _ | DB as x -> x
             ) x
-    for i=0 to s.env_global_term.Length-1 do s.env_global_term.[i] <- f s.env_global_term.[i]
+    {s with env_global_term = Array.map f s.env_global_term}
 
 let data_free_vars call_data =
     let m = HashSet(HashIdentity.Reference)
@@ -288,7 +288,7 @@ let show_ty x =
         | YSymbol x -> sprintf ".%s" x
         | YTypeFunction _ -> p 0 (sprintf "? => ?")
         | YRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
-        | YUnion l -> sprintf "{%s}" (l.Item |> fst |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "| ")
+        | YUnion l -> sprintf "{%s}" (l.Item |> fst |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat " | ")
         | YPrim x -> show_primt x
         | YArray a -> p 30 (sprintf "array %s" (f 30 a))
         | YFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
@@ -479,17 +479,7 @@ let peval (env : TopEnv) (x : E) =
     and push_binop d op (a,b) ret_ty = push_op' d op [a;b] ret_ty
     and push_triop d op (a,b,c) ret_ty = push_op' d op [a;b;c] ret_ty
     and closure_convert s (body,annot,gl_term,gl_ty,sz_term,sz_ty) =
-        let domain, range, ret_ty = 
-            match ty s annot with
-            | YFun(a,b) as x -> a,b,x
-            | annot -> raise_type_error s "Expected a function type in annotation during closure conversion. Got: %s" (show_ty annot)
-        let dict, hc_table = Utils.memoize join_point_closure (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
-        let call_args, env_global_value = data_to_rdata hc_table gl_term
-        let join_point_key = hc_table.Add(env_global_value, gl_ty, domain, range)
-
-        match dict.TryGetValue(join_point_key) with
-        | true, _ -> ()
-        | false, _ ->
+        let join_point_key, call_args, ret_ty =
             let s : LangEnv = {
                 trace = s.trace
                 seq = ResizeArray()
@@ -500,14 +490,25 @@ let peval (env : TopEnv) (x : E) =
                 env_stack_type = Array.zeroCreate<_> sz_ty
                 env_stack_term = Array.zeroCreate<_> sz_term
                 }
-            rename_global_term s
-            let domain_data = ty_to_data s domain
-            s.env_stack_term.[0] <- domain_data
-            dict.[join_point_key] <- None
-            let seq,ty = term_scope'' s body
-            dict.[join_point_key] <- Some(domain_data, seq)
-            if range <> ty then raise_type_error s <| sprintf "The annotation of the function does not match its body's type.Got: %s\nExpected: %s" (show_ty ty) (show_ty range)
+            let domain, range, ret_ty = 
+                match ty s annot with
+                | YFun(a,b) as x -> a,b,x
+                | annot -> raise_type_error s "Expected a function type in annotation during closure conversion. Got: %s" (show_ty annot)
+            let dict, hc_table = Utils.memoize join_point_closure (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
+            let call_args, env_global_value = data_to_rdata hc_table gl_term
+            let join_point_key = hc_table.Add(env_global_value, s.env_global_type, domain, range)
 
+            match dict.TryGetValue(join_point_key) with
+            | true, _ -> ()
+            | false, _ ->
+                let s = rename_global_term s
+                let domain_data = ty_to_data s domain
+                s.env_stack_term.[0] <- domain_data
+                dict.[join_point_key] <- None
+                let seq,ty = term_scope'' s body
+                dict.[join_point_key] <- Some(domain_data, seq)
+                if range <> ty then raise_type_error s <| sprintf "The annotation of the function does not match its body's type.Got: %s\nExpected: %s" (show_ty ty) (show_ty range)
+            join_point_key, call_args, ret_ty
         push_typedop s (TyJoinPoint(JPClosure(body,join_point_key),call_args)) ret_ty, ret_ty
     and data_to_ty s x =
         let m = Dictionary(HashIdentity.Reference)
@@ -570,11 +571,14 @@ let peval (env : TopEnv) (x : E) =
         match x with
         | TArrow _ | TJoinPoint _ -> failwith "Compiler error: Should have been transformed during the prepass."
         | TArrow'(scope,i,body) -> 
-            assert (i = scope.ty.stack_size)
+            assert (i = scope.ty.free_vars.Length)
             YTypeFunction(body,Array.map (vt s) scope.ty.free_vars,scope.term.stack_size,scope.ty.stack_size)
         | TJoinPoint'(r,scope,body) ->
+            let env_global_type = Array.map (vt s) scope.ty.free_vars
+            let env_global_term = Array.map (v s) scope.term.free_vars
+
             let dict, hc_table = Utils.memoize join_point_type (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
-            let join_point_key = hc_table.Add(s.env_global_type)
+            let join_point_key = hc_table.Add(env_global_type)
             match dict.TryGetValue(join_point_key) with
             | true, Some ret_ty -> ret_ty
             | true, None -> raise_type_error (add_trace s r) "Type join points must not be unboxed during their definition."
@@ -585,11 +589,12 @@ let peval (env : TopEnv) (x : E) =
                     seq = ResizeArray()
                     cse = [Dictionary(HashIdentity.Structural)]
                     i = ref 0
-                    env_global_type = Array.map (vt s) scope.ty.free_vars
-                    env_global_term = [||]
+                    env_global_type = env_global_type
+                    env_global_term = env_global_term
                     env_stack_type = Array.zeroCreate<_> scope.ty.stack_size
                     env_stack_term = Array.zeroCreate<_> scope.term.stack_size
                     }
+                let s = rename_global_term s
                 dict.[join_point_key] <- None
                 let ret_ty = ty s body
                 dict.[join_point_key] <- Some ret_ty
@@ -814,7 +819,7 @@ let peval (env : TopEnv) (x : E) =
                         env_stack_type = Array.zeroCreate<_> scope.ty.stack_size
                         env_stack_term = Array.zeroCreate<_> scope.term.stack_size
                         }
-                    rename_global_term s
+                    let s = rename_global_term s
                     let annot = Option.map (ty s) annot
                     dict.[join_point_key] <- (None, annot)
                     let seq,ty = term_scope'' s body
@@ -952,6 +957,10 @@ let peval (env : TopEnv) (x : E) =
                 let a_ty = data_to_ty s a
                 if a_ty = b then DNominal(a,b)
                 else raise_type_error s <| sprintf "Type error in nominal constructor.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty b)
+        | EOp(r,UnboxedIs,[a]) -> 
+            match term s a with
+            | DNominal(DUnion _,_) -> DLit(LitBool true)
+            | _ -> DLit(LitBool false)
         | EUnbox(r,id,a,b) ->
             let s = add_trace s r
             match term s a with
@@ -965,7 +974,7 @@ let peval (env : TopEnv) (x : E) =
                     let cases =
                         Map.map (fun k v ->
                             let s = {s with i = ref !s.i; cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
-                            let a = ty_to_data s v
+                            let a = DPair(DSymbol k,ty_to_data s v)
                             cse_add s key a
                             let x = store_term s id a; term s b |> dyn false s
                             let x_ty' = data_to_ty s x

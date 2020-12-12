@@ -1,4 +1,4 @@
-﻿type UH0 =
+type UH0 =
     | UH0_0 of UH0 * UH0
     | UH0_1 of UH0 * UH0
     | UH0_2 of float32

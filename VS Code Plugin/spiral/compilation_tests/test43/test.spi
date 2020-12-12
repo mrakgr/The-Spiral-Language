@@ -1,0 +1,15 @@
+open list
+inl fold f s l =
+    real real_core.print_static "qwe"
+    let rec loop s l = 
+        real real_core.print_static "asd"
+        inl s = 
+            match l with
+            | Cons: x,x' => f s x
+            | Nil => s
+        loop s l
+    inl w x = f s x
+    loop s l
+inl main () =
+    inl ~x = Nil : list i32
+    fold (+) 0i32 x : i32
