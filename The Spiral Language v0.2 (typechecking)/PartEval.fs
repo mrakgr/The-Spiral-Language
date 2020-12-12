@@ -284,7 +284,7 @@ let show_ty x =
                 | s, a -> [show (String.concat "_" s, a)]
             p 15 (loop (a.Split('_',System.StringSplitOptions.RemoveEmptyEntries) |> (fun x -> x.[0] <- to_upper x.[0]; Array.toList x), b) |> String.concat " ")
         | YPair(YSymbol a, YB) when 0 < a.Length && System.Char.IsLower(a,0) -> to_upper a
-        | YPair(a,b) -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b))
+        | YPair(a,b) -> p 25 (sprintf "%s * %s" (f 25 a) (f 24 b))
         | YSymbol x -> sprintf ".%s" x
         | YTypeFunction _ -> p 0 (sprintf "? => ?")
         | YRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")

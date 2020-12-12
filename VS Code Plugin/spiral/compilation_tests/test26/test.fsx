@@ -1,2 +1,2 @@
-let (v0 : bool) = true
+let v0 : bool = true
 ()

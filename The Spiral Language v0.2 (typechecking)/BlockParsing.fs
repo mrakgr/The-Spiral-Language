@@ -902,7 +902,7 @@ and root_type (flags : RootTypeFlags) d =
         (pipe2 cases (many (indent (col d) (<) cases)) 
             (fun a b -> List.fold (fun a b -> RawTApply(range_of_texpr a +. range_of_texpr b,a,b)) a b)) d
     
-    let pairs = sepBy1 apply (skip_op ",") |>> List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b))
+    let pairs = sepBy1 apply (skip_op "*") |>> List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b))
     let functions = sepBy1 pairs (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(range_of_texpr a +. range_of_texpr b,a,b))
     let symbol_paired d = 
         let next = functions
@@ -980,19 +980,22 @@ and root_term d =
                 |>> fun (r, (a, b)) -> RawTypecase(r,a,b)) d
 
         let case_record =
-            let record_body = skip_op "=" >>. next
-            let record_create_body = 
-                range record_var .>>. opt record_body |>> function (a,Some b) -> RawRecordWithSymbol(a,b) | (a,None) -> RawRecordWithSymbol(a,RawV(a))
-                <|> (skip_unary_op "$" >>. (range read_small_var .>>. record_body |>> RawRecordWithInjectVar))
+            let create = skip_op "=" >>. next
+            let modify = skip_op "#=" >>. next
+            let var = range record_var
+            let inject = skip_unary_op "$" >>. range read_small_var
+            let record_create_body =
+                (var .>>. opt create |>> function (a,Some b) -> RawRecordWithSymbol(a,b) | (a,None) -> RawRecordWithSymbol(a,RawV(a)))
+                <|> (inject .>>. create |>> RawRecordWithInjectVar)
             let record_create = range (curlies (sepBy record_create_body (optional (skip_op ";")))) |>> fun (r,withs) -> (r,[],withs,[])
             let record_with_bodies =
-                record_create_body <|> (read_unary_op' >>= fun (r,x) d ->
-                    match x with
-                    | "#" -> (range record_var .>>. record_body |>> RawRecordWithSymbolModify) d
-                    | "#$" -> (range read_small_var .>>. record_body |>> RawRecordWithInjectVarModify) d
-                    | _ -> Error [r, ExpectedUnaryOperator "#"; r, ExpectedUnaryOperator "#$"]
-                    )
-            let record_without_bodies = (range record_var |>> RawRecordWithoutSymbol) <|> (skip_unary_op "$" >>. read_small_var' |>> RawRecordWithoutInjectVar)
+                (var >>= fun a ->
+                    ((modify |>> fun b -> RawRecordWithSymbolModify(a,b))
+                    <|> (opt create |>> function Some b -> RawRecordWithSymbol(a,b) | None -> RawRecordWithSymbol(a,RawV(a)))))
+                <|> (inject >>= fun a ->
+                    ((modify |>> fun b -> RawRecordWithInjectVarModify(a,b))
+                    <|> (create |>> fun b -> RawRecordWithInjectVar(a,b))))
+            let record_without_bodies = (var |>> RawRecordWithoutSymbol) <|> (inject |>> RawRecordWithoutInjectVar)
             let record_with =
                 range
                     (curlies
@@ -1001,7 +1004,7 @@ and root_term d =
                             ((skip_keyword SpecWith >>. sepBy record_with_bodies (optional (skip_op ";"))) <|>% [])
                             ((skip_keyword SpecWithout >>. many record_without_bodies) <|>% [])))
                 |>> fun (r,(name, acs, withs, withouts)) -> (r,RawV name :: acs,withs,withouts)
-        
+
             restore 2 record_with <|> record_create
             >>= fun (_,_,withs,withouts as x) _ ->
                 [
@@ -1054,7 +1057,7 @@ and root_term d =
 
     let operators d =
         let term = application
-        let op = op
+        let op = indent (col d) (<=) op
 
         /// Pratt parser
         let rec led left (prec,asoc,m) d =

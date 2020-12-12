@@ -1,5 +1,5 @@
 // Does the injection pattern work?
-inl main () : () = real
+inl main () = real
     inl m = {
         a = 123
         b = 456

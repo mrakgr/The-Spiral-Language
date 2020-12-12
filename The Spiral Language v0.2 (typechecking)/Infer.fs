@@ -474,7 +474,7 @@ let show_t (env : TopEnv) x =
                     | s, a -> [show (String.concat "_" s, a)]
                 p 15 (loop (a.Split('_',System.StringSplitOptions.RemoveEmptyEntries) |> (fun x -> x.[0] <- to_upper x.[0]; Array.toList x), b) |> String.concat " ")
             | TySymbol a, TyB when 0 < a.Length && System.Char.IsLower(a,0) -> to_upper a
-            | a,b -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b))
+            | a,b -> p 25 (sprintf "%s * %s" (f 25 a) (f 24 b))
         | TyFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
         | TyModule l | TyRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
         | TyUnion(l,_) -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "| ")
