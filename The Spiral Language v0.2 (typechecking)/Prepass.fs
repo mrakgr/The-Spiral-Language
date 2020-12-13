@@ -51,7 +51,6 @@ and [<ReferenceEquality>] E =
     | EIfThenElse of Range * E * E * E
     | EIfThen of Range * E * E
     | EPair of Range * E * E
-    | EPairStrip of Range * string list * E
     | ESeq of Range * E * E
     | EHeapMutableSet of Range * E * (Range * E) list * E
     | EReal of Range * E
@@ -195,7 +194,7 @@ let propagate x =
         | EOp(_,_,a) -> List.fold (fun s a -> s + term a) empty a
         | EHeapMutableSet(_,a,b,c) -> term a + List.fold (fun s (_,a) -> s + term a) empty b + term c
         | EIfThenElse(_,a,b,c) -> term a + term b + term c
-        | EPairStrip(_,_,a) | EPatternMiss a | EReal(_,a) -> term a
+        | EPatternMiss a | EReal(_,a) -> term a
         | EMacro(_,a,b) -> List.fold (fun s -> function MType x -> s + ty x | MTerm x -> s + term x | MText _ -> s) (ty b) a
         | EPatternMemo a -> Utils.memoize dict term a
         // Regular pattern matching
@@ -295,7 +294,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
                 | WVar(_,a) -> f a)
         | ENominal(_,a,b) | ETypeLet(_,_,b,a) | ETypeApply(_,a,b) | EAnnot(_,a,b) -> f a; ty env b
         | EOp(_,_,a) -> List.iter f a
-        | EPairStrip(_,_,a) | EPatternMiss a | EReal(_,a) -> f a
+        | EPatternMiss a | EReal(_,a) -> f a
         | ETypePairTest(_,_,_,_,a,b) | ETypeFunTest(_,_,_,_,a,b) | ETypeRecordTest(_,_,_,a,b) | ETypeApplyTest(_,_,_,_,a,b) | ETypeArrayTest(_,_,_,a,b)
         | EUnitTest(_,_,a,b) | ESymbolTest(_,_,_,a,b) | EPairTest(_,_,_,_,a,b) | ELitTest(_,_,_,a,b)
         | ELet(_,_,a,b) | EUnbox(_,_,a,b) | EIfThen(_,a,b) | EPair(_,a,b) | ESeq(_,a,b) | EApply(_,a,b) -> f a; f b
@@ -425,7 +424,6 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EIfThenElse(r,a,b,c) -> EIfThenElse(r,f a,f b,f c)
         | EIfThen(r,a,b) -> EIfThen(r,f a,f b)
         | EPair(r,a,b) -> EPair(r,f a,f b)
-        | EPairStrip(r,a,b) -> EPairStrip(r,a,f b)
         | ESeq(r,a,b) -> ESeq(r,f a,f b)
         | EHeapMutableSet(r,a,b,c) -> EHeapMutableSet(r,f a,List.map (fun (a,b) -> a, f b) b,c)
         | EPatternMiss a -> EPatternMiss(f a)
@@ -765,7 +763,6 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawIfThenElse(r,a,b,c) -> EIfThenElse(p r,f a,f b,f c)
         | RawIfThen(r,a,b) -> EIfThen(p r,f a,f b)
         | RawPair(r,a,b) -> EPair(p r,f a,f b)
-        | RawFilledPairStrip(r,a,b) -> EPairStrip(p r,a,f b)
         | RawSeq(r,a,b) -> ESeq(p r,f a,f b)
         | RawHeapMutableSet(r,a,b,c) -> EHeapMutableSet(p r,f a,List.map (fun a -> p (range_of_expr a), f a) b,f c)
         | RawReal(r,a) -> f a

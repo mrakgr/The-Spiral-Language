@@ -227,7 +227,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
         | RawMatch(_,body,l) -> cterm constraints term ty body; List.iter (fun (a,b) -> cterm constraints (cpattern constraints term ty a) ty b) l
         | RawFun(_,l) -> List.iter (fun (a,b) -> cterm constraints (cpattern constraints term ty a) ty b) l
         | RawForall(_,((_,(a,_)),l),b) -> List.iter (check_cons constraints) l; cterm constraints term (Set.add a ty) b
-        | RawFilledPairStrip _ | RawFilledForall _ -> failwith "Compiler error: Should not appear during variable validation."
+        | RawFilledForall _ -> failwith "Compiler error: Should not appear during variable validation."
         | RawRecBlock(_,l,on_succ) -> 
             let term = List.fold (fun s ((_,x),_) -> Set.add x s) term l
             List.iter (fun (_,x) -> cterm constraints term ty x) l
@@ -640,7 +640,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let f = term rec_term
             let clauses l = List.map (fun (a, b) -> let rec_term,a = pattern rec_term a in a,term rec_term b) l
             match x with
-            | RawFilledPairStrip _ | RawFilledForall _ | RawMissingBody _ | RawTypecase _ | RawType _ as x -> failwithf "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only.\nGot: %A" x
+            | RawFilledForall _ | RawMissingBody _ | RawTypecase _ | RawType _ as x -> failwithf "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only.\nGot: %A" x
             | RawSymbol _ | RawB _ | RawLit _ | RawOp _ -> x
             | RawReal(_,x) -> x
             | RawBigV(r,a) -> f (RawApply(r,RawV(r,a), RawB r))
@@ -682,13 +682,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 |> Map.fold (fun s k _ -> Map.remove k s) rec_term
                 |> fun rec_term -> RawOpen(r,a,b,term rec_term c)
             | RawApply(r,a,b) ->
-                let a,b = f a, f b
+                let q = RawApply(r,f a,f b)
                 match module_type_apply_args.TryGetValue(x) with
-                | true,(q,w) -> 
-                    let a = RawApply(r,a,List.reduceBack(fun a b -> RawPair(r,a,b)) (List.map (fun q -> RawSymbol(r,q)) q))
-                    let a = List.fold (fun s (x : T) -> RawApply(r,s,RawType(r,t_to_rawtexpr r x))) a w
-                    RawApply(r,a,RawFilledPairStrip(r,q,b))
-                | _ -> RawApply(r,a,b)
+                | true, typevars -> List.fold (fun a b -> RawApply(r,a,RawType(r,t_to_rawtexpr r b))) q typevars
+                | _ -> q
             | RawIfThenElse(r,a,b,c) -> RawIfThenElse(r,f a,f b,f c)
             | RawIfThen(r,a,b) -> RawIfThen(r,f a,f b)
             | RawPair(r,a,b) -> RawPair(r,f a,f b)
@@ -930,36 +927,18 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | a -> errors.Add(r,ExpectedRecordInsideALayout a)
             | TyRecord l -> apply_record r s l (f' b)
             | TyModule l -> 
-                let args = ResizeArray()
-                let typevars = ResizeArray()
-                let rec f l x =
-                    match visit_t x with
-                    | TySymbol x ->
-                        args.Add(x)
-                        match Map.tryFind x l with
-                        | Some (TyModule _) when is_in_left_apply = false -> errors.Add(r,ModuleMustBeImmediatelyApplied)
-                        | Some a -> 
-                            let typevars',a = forall_subst_all scope a
-                            typevars.AddRange(typevars')
-                            unify r s a
-                        | None -> errors.Add(r,ModuleIndexFailed x)
-                    | TyPair(a, b) ->
-                        match visit_t a with
-                        | TySymbol x ->
-                            args.Add(x)
-                            match Map.tryFind x l with
-                            | Some (TyModule l) -> f l b
-                            | Some a -> 
-                                let typevars',a = forall_subst_all scope a
-                                typevars.AddRange(typevars')
-                                unify r a (TyFun(b,s))
-                            | None -> errors.Add(r,ModuleIndexFailed x)
-                        | _ -> errors.Add(r,ExpectedSymbolAsModuleKey x)
-                    | x -> errors.Add(r,ExpectedSymbolAsModuleKey x)
-                f l (f' b)
-                if 0 < typevars.Count then
-                    annotations.Add(obj(),(r,s))
-                    module_type_apply_args.Add(x,(args |> Seq.toList,typevars |> Seq.toList))
+                match f' b with
+                | TySymbol n ->
+                    match Map.tryFind n l with
+                    | Some (TyModule _ as a) ->
+                        if is_in_left_apply then unify r s a
+                        else errors.Add(r,ModuleMustBeImmediatelyApplied)
+                    | Some a -> 
+                        let typevars,a = forall_subst_all scope a
+                        if List.isEmpty typevars = false then module_type_apply_args.Add(x,typevars)
+                        unify r s a
+                    | None -> errors.Add(r,ModuleIndexFailed n)
+                | b -> errors.Add(r,ExpectedSymbolAsModuleKey b)
             | a -> let v = fresh_var scope in unify (range_of_expr a') a (TyFun(v,s)); f v b
         | RawAnnot(_,a,b) -> ty scope env s b; f s a
         | RawOpen(_,(a,b),l,on_succ) ->
@@ -1068,7 +1047,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     ) (range_of_expr a, v) b |> snd
             with :? TypeErrorException as e -> errors.AddRange e.Data0; fresh_var scope
             |> fun v -> f v c
-        | RawFilledPairStrip _ | RawFilledForall _ -> failwith "Compiler error: Should not manifest during type inference."
+        | RawFilledForall _ -> failwith "Compiler error: Should not manifest during type inference."
         | RawType _ -> failwith "Compiler error: RawType should not appear in the top down segment."
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
     and inl scope env ((r, name), body) =

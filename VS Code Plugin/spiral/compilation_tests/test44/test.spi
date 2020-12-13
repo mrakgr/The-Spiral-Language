@@ -1,0 +1,13 @@
+open monad
+open list
+let f a b c =
+    a >>= fun a =>
+    b >>= fun b =>
+    c >>= fun c =>
+    on_succ (a,b,c)
+inl main () =
+    let a = 1i32 :: 2 :: 3 :: Nil
+    let b = "a" :: "b" :: Nil
+    let c = true :: Nil
+    f a b c
+    |> list.iter (fun (a,b,c) => $"printfn \"%i, %s, %b\" !a !b !c")

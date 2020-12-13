@@ -1,10 +1,11 @@
 modules:
     real_core*
     core-
+    monad
     loop
     array
     string
     list
     option
-    test
+    // test
     

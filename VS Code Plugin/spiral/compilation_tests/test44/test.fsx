@@ -1,4 +1,4 @@
-﻿type UH0 =
+type UH0 =
     | UH0_0 of int32 * UH0
     | UH0_1
 and UH1 =

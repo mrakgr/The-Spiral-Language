@@ -229,7 +229,6 @@ and RawExpr =
     | RawMacro of VSCRange * RawMacro list
     | RawMissingBody of VSCRange
     | RawFilledForall of VSCRange * string * RawExpr // Filled in by the inferencer.
-    | RawFilledPairStrip of VSCRange * string list * RawExpr
 and RawTExpr =
     | RawTWildcard of VSCRange
     | RawTB of VSCRange
@@ -305,7 +304,6 @@ let range_of_expr = function
     | RawPair(r,_,_)
     | RawIfThen(r,_,_)
     | RawSeq(r,_,_)
-    | RawFilledPairStrip(r,_,_) -> r
     | RawHeapMutableSet(r,_,_,_)
     | RawRecordWith(r,_,_,_)
     | RawIfThenElse(r,_,_,_)
@@ -592,7 +590,13 @@ let join_point = function
     | x -> RawJoinPoint(range_of_expr x, x)
 
 let rec let_join_point = function
-    | RawFun(r,l) -> RawFun(r,List.map (fun (a,b) -> PatDyn(range_of_pattern a, a), let_join_point b) l)
+    | RawFun(r,[a,b]) -> RawFun(r,[PatDyn(range_of_pattern a, a), let_join_point b])
+    | RawFun(r,l) -> 
+        let empty = fst r, fst r
+        let n = " arg"
+        let a = PatDyn(empty,PatVar(empty,n))
+        let b = RawMatch(empty,RawV(empty,n),List.map (fun (a,b) -> PatDyn(range_of_pattern a, a),b) l)
+        RawFun(r,[a,join_point b])
     | x -> join_point x
 
 let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =

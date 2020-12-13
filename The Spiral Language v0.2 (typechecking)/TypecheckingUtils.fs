@@ -105,7 +105,6 @@ and fold_offset_term offset x =
     | RawReal(r,a) -> RawReal(g r,f a)
     | RawMissingBody r -> RawMissingBody(g r)
     | RawMacro(r,a) -> RawMacro(g r,fold_offset_macro offset a)
-    | RawFilledPairStrip(r,a,b) -> RawFilledPairStrip(g r,a,f b)
 and fold_offset_pattern offset x = 
     let f = fold_offset_pattern offset
     let term = fold_offset_term offset
