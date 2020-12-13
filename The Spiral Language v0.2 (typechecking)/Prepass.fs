@@ -236,25 +236,30 @@ let propagate x =
     let _ = match x with Choice1Of2 x -> term x | Choice2Of2 x -> ty x
     scope_dict
 
-type ResolveEnv = Map<int,Set<Id>>
+type ResolveEnvValue = {|term : Set<Id>; ty : Set<Id> |}
+type ResolveEnv = Map<int, ResolveEnvValue>
 let resolve_recursive_free_vars env =
     Map.fold (fun (env : ResolveEnv) k v ->
         let has_visited = HashSet()
-        let rec f s k v = if has_visited.Add(k) then Set.fold (fun s k -> if k < 0 then f s k env.[k] else Set.add k s) s v else s
-        Map.add k (f Set.empty k v) env
+        let rec f (s : ResolveEnvValue) k v = 
+            if has_visited.Add(k) then 
+                let s = Set.fold (fun s k -> if k < 0 then f s k env.[k] else {|s with term = Set.add k s.term|}) s v.term
+                Set.fold (fun s k -> {|s with ty = Set.add k s.ty|}) s v.ty
+            else s
+        Map.add k (f {|term=Set.empty; ty=Set.empty|} k v) env
         ) env env
 
 let resolve (scope : Dictionary<obj,PropagatedVars>) x =
     let dict = Dictionary(HashIdentity.Reference)
     let subst' (env : ResolveEnv) (x : PropagatedVars) : PropagatedVars = 
-        let f s x = 
+        let f (s : ResolveEnvValue) x = 
             if x < 0 then 
                 match Map.tryFind x env with 
-                | Some x -> s + x 
-                | None -> Set.add x s
-            else Set.add x s
-        let fv_term = Set.fold f Set.empty x.term.vars
-        {x with term = {|x.term with vars = fv_term|} }
+                | Some x -> {|term=Set.union s.term x.term; ty=Set.union s.ty x.ty|}
+                | None -> {|s with term=Set.add x s.term|}
+            else {|s with term=Set.add x s.term|}
+        let fv = Set.fold f {|term=Set.empty; ty=Set.empty|} x.term.vars
+        {x with term = {|x.term with vars = fv.term|}; ty = {|x.ty with vars = Set.union fv.ty x.ty.vars|} }
     let subst env (x : obj) = match scope.TryGetValue(x) with true, v -> scope.[x] <- subst' env v | _ -> ()
     let rec term (env : ResolveEnv) x =
         let f = term env
@@ -264,17 +269,20 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | EJoinPoint(_,a,b) | EFun(_,_,a,b) -> subst env x; f a; Option.iter (ty env) b
         | EForall(_,_,a) -> subst env x; f a
         | ERecBlock(r,a,b) ->
-            let l =
-                List.fold (fun s (id,body) ->
-                    let x = subst' env scope.[body]
-                    Map.add id x.term.vars s
-                    ) Map.empty a
-                |> resolve_recursive_free_vars
-            let env = Map.foldBack Map.add l env
-            a |> List.iter (fun (id,body) -> 
-                Utils.remove scope (body :> _)
-                    (fun v -> term env body; scope.[body] <- {v with term = {|v.term with vars = env.[id]|} })
-                    (fun () -> failwith "impossible")
+            let env = 
+                let l =
+                    List.fold (fun s (id,body) ->
+                        let x = subst' env scope.[body]
+                        Map.add id {|term=x.term.vars; ty=x.ty.vars|} s
+                        ) Map.empty a
+                    |> resolve_recursive_free_vars
+                Map.foldBack Map.add l env
+            a |> List.iter (fun (id,body) ->
+                scope.[body] <- 
+                    let x = env.[id]
+                    let v = scope.[body]
+                    {v with term = {|v.term with vars = x.term |}; ty = {|v.ty with vars=x.ty|} }
+                term env body
                 )
             term env b
         | ERecordWith(_,a,b,c) ->
