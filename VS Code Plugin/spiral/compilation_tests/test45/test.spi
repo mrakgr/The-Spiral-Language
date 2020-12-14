@@ -1,8 +1,8 @@
 open list
 open option
-union cell = Mario | Princess | Empty
+union cell = Princess | Empty
 
-inl save_the_princess field mario_pos =
+let save_the_princess field mario_pos =
     inl cells_visited = 
         array.init (array.length field) (fun b => 
             array.init (array.length (array.index field b)) (const false)
@@ -12,10 +12,10 @@ inl save_the_princess field mario_pos =
     inl is_in_range (b,a),_ = b <= 0 && b < array.length field && (inl x = array.index field b in a <= 0 && a < array.length x)
     inl is_princess_in_state x,_ = match index field x with Princess => true | _ => false
 
-    inl up (row,col), prev_moves = (row-1,col), (Cons: "UP", prev_moves)
-    inl down (row,col), prev_moves = (row+1,col), (Cons: "DOWN", prev_moves)
-    inl left (row,col), prev_moves = (row,col-1), (Cons: "LEFT", prev_moves)
-    inl right (row,col), prev_moves = (row,col+1), (Cons: "RIGHT", prev_moves)
+    inl up (row,col), prev_moves = (row-1,col), ("UP" :: prev_moves)
+    inl down (row,col), prev_moves = (row+1,col), ("DOWN" :: prev_moves)
+    inl left (row,col), prev_moves = (row,col-1), ("LEFT" :: prev_moves)
+    inl right (row,col), prev_moves = (row,col+1), ("RIGHT" :: prev_moves)
 
     inl solution = mut None
     let rec loop queue = 
@@ -45,3 +45,16 @@ inl save_the_princess field mario_pos =
         | Some: _, path => list.rev path
 
     loop (array.singleton (mario_pos, Nil))
+
+inl main () =
+    print_static "start"
+    inl ~field_size = 4
+    inl ~princess_pos = 3,2
+    inl field = 
+        array.init field_size (fun b => 
+            array.init field_size (fun a => 
+                if (b,a) = princess_pos then Princess else Empty
+                ))
+    print_static "---"
+    save_the_princess field (0,0)
+    |> list.iter (fun x => $"printfn \"%s\" !x")

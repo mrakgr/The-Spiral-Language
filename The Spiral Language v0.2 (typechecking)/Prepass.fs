@@ -399,10 +399,21 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | ERecBlock(r,a,b) ->
             let add_term k v (env : LowerEnv) = { env with term = {|env.term with var = Map.add k v env.term.var|} }
             let a, env =
-                List.mapFold (fun env (id,body) ->
+                List.mapFold (fun env (id',body) ->
                     let re = ref Unchecked.defaultof<_>
-                    let body env = let x = term env body in re := x; id, x
-                    body, add_term id (ERecursive re) env
+                    let body env = 
+                        let x = term env body
+                        let rename_scope (x : Scope) : Scope = {
+                            term = {|free_vars = Array.init x.term.free_vars.Length id; stack_size = x.term.stack_size|}
+                            ty = {|free_vars = Array.init x.ty.free_vars.Length id; stack_size = x.ty.stack_size|}
+                            }
+                        re :=
+                            match x with
+                            | EForall'(a,b,c,d) -> EForall'(a,rename_scope b,c,d)
+                            | EFun'(a,b,c,d,e) -> EFun'(a,rename_scope b,c,d,e)
+                            | _ -> failwith "Compiler error: Expected a fun or a forall."
+                        id', x
+                    body, add_term id' (ERecursive re) env
                     ) env a
             let env = List.fold (fun env x -> let id,body = x env in add_term id body env) env a
             term env b
