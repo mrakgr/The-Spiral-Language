@@ -29,6 +29,8 @@ and PatRecordMember =
 and [<ReferenceEquality>] E =
     | EFun' of Range * Scope * Id * E * T option
     | EForall' of Range * Scope * Id * E
+    | ERecursiveFun' of Range * Scope * Id * E ref * T option
+    | ERecursiveForall' of Range * Scope * Id * E ref
     | EJoinPoint' of Range * Scope * E * T option
     | EFun of Range * Id * E * T option
     | EForall of Range * Id * E
@@ -41,7 +43,6 @@ and [<ReferenceEquality>] E =
     | EType of Range * T
     | EApply of Range * E * E
     | ETypeApply of Range * E * T
-    | ERecursive of E ref
     | ERecBlock of Range * (Id * E) list * on_succ: E
     | ERecordWith of Range * (Range * E) list * RecordWith list * RecordWithout list
     | EModule of Map<string, E>
@@ -169,7 +170,7 @@ let propagate x =
     let scope x (v : PropagatedVars) = scope_dict.Add(x,v); empty' v.term.vars v.ty.vars
     let rec term x =
         match x with
-        | EForall' _ | EJoinPoint' _ | EFun' _ | EModule _ | ERecursive _ | ESymbol _ | ELit _ | EB _ -> empty
+        | EFun' _ | EForall' _ | ERecursiveFun' _ | ERecursiveForall' _ | EJoinPoint' _ | EModule _ | ESymbol _ | ELit _ | EB _ -> empty
         | EV i -> singleton_term i
         | EPrototypeApply(_,_,a) | EType(_,a) | EDefaultLit(_,_,a) -> ty a
         | ESeq(_,a,b) | EPair(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
@@ -263,7 +264,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
     let rec term (env : ResolveEnv) x =
         let f = term env
         match x with
-        | EForall' _ | EFun' _ | EJoinPoint' _ | EModule _ | EV _ | ERecursive _ | ESymbol _ | EDefaultLit _ | ELit _ | EB _ -> ()
+        | EForall' _ | EFun' _ | ERecursiveForall' _ | ERecursiveFun' _ | EJoinPoint' _ | EModule _ | EV _ | ESymbol _ | EDefaultLit _ | ELit _ | EB _ -> ()
         | EPrototypeApply(_,_,a) | EType(_,a) -> ty env a
         | EJoinPoint(_,a,b) | EFun(_,_,a,b) -> subst env x; f a; Option.iter (ty env) b
         | EForall(_,_,a) -> subst env x; f a
@@ -324,99 +325,89 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
     | Choice1Of2 x -> term Map.empty x
     | Choice2Of2 x -> ty Map.empty x
 
-type LowerSubEnv<'x> = {|var : Map<int,'x>; adj : int option|}
-type LowerEnv = {term : LowerSubEnv<E>; ty : LowerSubEnv<T> }
+type LowerSubEnv = {|var : Map<int,int>; adj : int option|}
+type LowerEnv = {term : LowerSubEnv; ty : LowerSubEnv }
+type LowerEnvItem = RecFun of Range * Scope * Id * T option | RecForall of Range * Scope * Id
+type LowerEnvRec = Map<int,LowerEnvItem * E ref>
 let lower (scope : Dictionary<obj,PropagatedVars>) x =
     let dict = Dictionary(HashIdentity.Reference)
     let scope (env : LowerEnv) x =
         let v = scope.[x]
-        let fv_term =
-            v.term.vars |> Set.toArray
-            |> Array.map (fun i ->
-                match Map.tryFind i env.term.var with
-                | Some(EV i) -> i
-                | None -> i + env.term.adj.Value
-                | Some _ -> failwith "Compiler error: Expected a variable in the environment."
-                ) 
+        let fv v env = v |> Set.toArray |> Array.map (fun i -> Map.find i env)
         let sz = function Some(min,max) -> max - min + 1 | None -> 0
-        let stack_size_term = sz v.term.range
-
-        let fv_ty = 
-            v.ty.vars |> Set.toArray
-            |> Array.map (fun i ->
-                match Map.tryFind i env.ty.var with
-                | Some(TV i) -> i
-                | None -> i + env.ty.adj.Value
-                | Some _ -> failwith "Compiler error: Expected a variable in the environment."
-                ) 
-        let stack_size_ty = sz v.ty.range
         let scope : Scope = {
-            term = {|free_vars = fv_term; stack_size = stack_size_term|}
-            ty = {|free_vars = fv_ty; stack_size = stack_size_ty|}
+            term = {|free_vars = fv v.term.vars env.term.var; stack_size = sz v.term.range|}
+            ty = {|free_vars = fv v.ty.vars env.ty.var; stack_size = sz v.ty.range|}
             }
 
-        let var_term,_ = Set.fold (fun (s,i) x -> Map.add x (EV i) s,i+1) (Map.filter (fun k _ -> k < 0) env.term.var, 0) v.term.vars
+        let vars v = Set.fold (fun (s,i) x -> Map.add x i s,i+1) (Map.empty, 0) v |> fst
         let adj len range = Option.map (fun (min,_) -> len - min) range
-        let adj_term = adj fv_term.Length v.term.range
-
-        let var_ty,_ = Set.fold (fun (s,i) x -> Map.add x (TV i) s,i+1) (Map.empty, 0) v.ty.vars
-        let adj_ty = adj fv_ty.Length v.ty.range
-
         let env : LowerEnv = {
-            term = {|var = var_term; adj = adj_term|}
-            ty = {|var = var_ty; adj = adj_ty|}
+            term = {|var = vars v.term.vars; adj = adj scope.term.free_vars.Length v.term.range|}
+            ty = {|var = vars v.ty.vars; adj = adj scope.ty.free_vars.Length v.ty.range|}
             }
 
         scope, env
 
-    let adj_term (env : LowerEnv) i = i + env.term.adj.Value
-    let adj_ty (env : LowerEnv) i = i + env.ty.adj.Value
+    let adj_term (env : LowerEnv) i = 
+        let i' = i + env.term.adj.Value
+        i', {env with term = {|env.term with var = Map.add i i' env.term.var|}}
+    let adj_ty (env : LowerEnv) i =
+        let i' = i + env.ty.adj.Value
+        i', {env with ty = {|env.ty with var = Map.add i i' env.ty.var|}}
 
-    let rec term (env : LowerEnv) x = 
-        let f = term env
-        let adj = adj_term env
+    let rec term (env_rec : LowerEnvRec) (env : LowerEnv) x = 
+        let f = term env_rec env
+        let g = ty env_rec
         match x with
-        | EForall' _ | EJoinPoint' _ | EFun' _ | EModule _ | ERecursive _ | ESymbol _ | ELit _ | EB _ -> x
+        | EForall' _ | EJoinPoint' _ | EFun' _ | ERecursiveForall' _ | ERecursiveFun' _ | EModule _ | ESymbol _ | ELit _ | EB _ -> x
         | EFun(r,a,b,c) -> 
             let scope, env = scope env x 
-            let i = adj_term env a
+            let i, env = adj_term env a
             assert (scope.term.free_vars.Length = i)
-            EFun'(r,scope,i,term env b,Option.map (ty env) c)
+            EFun'(r,scope,i,term env_rec env b,Option.map (g env) c)
         | EForall(r,a,b) ->
             let scope, env = scope env x 
-            let i = adj_ty env a
+            let i, env = adj_ty env a
             assert (scope.ty.free_vars.Length = i)
-            EForall'(r,scope,i,term env b)
+            EForall'(r,scope,i,term env_rec env b)
         | EJoinPoint(r,a,b) ->
             let scope, env = scope env x 
-            EJoinPoint'(r,scope,term env a,Option.map (ty env) b)
-        | EV i -> match Map.tryFind i env.term.var with Some i -> i | None -> EV(adj i)
-        | EDefaultLit(r,a,b) -> EDefaultLit(r,a,ty env b)
-        | EType(r,a) -> EType(r,ty env a)
+            EJoinPoint'(r,scope,term env_rec env a,Option.map (g env) b)
+        | EV i when 0 <= i -> EV env.term.var.[i]
+        | EV i ->
+            let q,re = env_rec.[i]
+            let w = !re
+            let is_null = isNull (box w)
+            let rename_scope (scope : Scope) : Scope = {
+                term = {|free_vars = Array.map (fun i -> env.term.var.[i]) scope.term.free_vars; stack_size = scope.term.stack_size|}
+                ty = {|free_vars = Array.map (fun i -> env.ty.var.[i]) scope.ty.free_vars; stack_size = scope.ty.stack_size|}
+                }
+            match q,is_null with
+            | RecFun(a,b,c,d),false -> EFun'(a,rename_scope b,c,w,d)
+            | RecForall(a,b,c),false -> EForall'(a,rename_scope b,c,w)
+            | RecFun(a,b,c,d),true -> ERecursiveFun'(a,rename_scope b,c,re,d)
+            | RecForall(a,b,c),true -> ERecursiveForall'(a,rename_scope b,c,re)
+        | EDefaultLit(r,a,b) -> EDefaultLit(r,a,g env b)
+        | EType(r,a) -> EType(r,g env a)
         | EApply(r,a,b) -> EApply(r,f a,f b)
-        | ETypeApply(r,a,b) -> ETypeApply(r,f a,ty env b)
-        | ENominal(r,a,b) -> ENominal(r,f a,ty env b)
+        | ETypeApply(r,a,b) -> ETypeApply(r,f a,g env b)
+        | ENominal(r,a,b) -> ENominal(r,f a,g env b)
         | ERecBlock(r,a,b) ->
-            let add_term k v (env : LowerEnv) = { env with term = {|env.term with var = Map.add k v env.term.var|} }
-            let a, env =
-                List.mapFold (fun env (id',body) ->
+            let l, env_rec =
+                List.mapFold (fun (env_rec : LowerEnvRec) (i,body) ->
                     let re = ref Unchecked.defaultof<_>
-                    let body env = 
-                        let x = term env body
-                        let rename_scope (x : Scope) : Scope = {
-                            term = {|free_vars = Array.init x.term.free_vars.Length id; stack_size = x.term.stack_size|}
-                            ty = {|free_vars = Array.init x.ty.free_vars.Length id; stack_size = x.ty.stack_size|}
-                            }
-                        re :=
-                            match x with
-                            | EForall'(a,b,c,d) -> EForall'(a,rename_scope b,c,d)
-                            | EFun'(a,b,c,d,e) -> EFun'(a,rename_scope b,c,d,e)
-                            | _ -> failwith "Compiler error: Expected a fun or a forall."
-                        id', x
-                    body, add_term id' (ERecursive re) env
-                    ) env a
-            let env = List.fold (fun env x -> let id,body = x env in add_term id body env) env a
-            term env b
+                    let scope, env = scope env body
+                    let eval body env_rec = re := term env_rec env body
+                    let x, body =
+                        match body with
+                        | EFun(a,i,body,d) -> RecFun(a,scope,i,d), eval body
+                        | EForall(a,i,body) -> RecForall(a,scope,i), eval body
+                        | _ -> failwith "Compiler error: Expected a fun or a forall."
+                    body, Map.add i (x,re) env_rec
+                    ) env_rec a
+            List.iter (fun f -> f env_rec) l
+            term env_rec env b
         | ERecordWith(r,a,b,c) ->
             let a = List.map (fun (r,a) -> r, f a) a
             let b = b |> List.map (function
@@ -431,7 +422,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
                 )
             ERecordWith(r,a,b,c)
         | EOp(r,a,b) -> EOp(r,a,List.map f b)
-        | EAnnot(r,a,b) -> EAnnot(r,f a,ty env b)
+        | EAnnot(r,a,b) -> EAnnot(r,f a,g env b)
         | EIfThenElse(r,a,b,c) -> EIfThenElse(r,f a,f b,f c)
         | EIfThen(r,a,b) -> EIfThen(r,f a,f b)
         | EPair(r,a,b) -> EPair(r,f a,f b)
@@ -442,17 +433,35 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EMacro(r,a,b) -> 
             let a = a |> List.map (function
                 | MText _ as x -> x
-                | MType a -> MType(ty env a)
+                | MType a -> MType(g env a)
                 | MTerm a -> MTerm(f a)
                 )
-            EMacro(r,a,ty env b)
-        | EPrototypeApply(r,a,b) -> EPrototypeApply(r,a,ty env b)
+            EMacro(r,a,g env b)
+        | EPrototypeApply(r,a,b) -> EPrototypeApply(r,a,g env b)
         | EPatternMemo x -> Utils.memoize dict f x
         // Regular pattern matching
-        | ELet(r,a,b,c) -> ELet(r,adj a,f b,f c)
-        | EUnbox(r,a,b,c) -> EUnbox(r,adj a,f b,f c)
-        | EPairTest(r,a,b,c,d,e) -> EPairTest(r,adj a,adj b,adj c,f d,f e)
-        | ESymbolTest(r,a,b,c,d) -> ESymbolTest(r,a,adj b,f c,f d)
+        | ELet(r,a,b,c) -> 
+            let b = term env_rec env b
+            let a,env = adj_term env a
+            let c = term env_rec env c
+            ELet(r,a,b,c)
+        | EUnbox(r,a,b,c) ->
+            let b = term env_rec env b
+            let a,env = adj_term env a
+            let c = term env_rec env c
+            EUnbox(r,a,b,c)
+        | EPairTest(r,a,b,c,on_succ,on_fail) -> 
+            let on_fail = term env_rec env on_fail
+            let i = env.term.var.[a]
+            let pat1,env = adj_term env b
+            let pat2,env = adj_term env c
+            let on_succ = term env_rec env on_succ
+            EPairTest(r,i,pat1,pat2,on_succ,on_fail)
+        | ESymbolTest(r,a,b,on_succ,on_fail) -> 
+            let on_fail = term env_rec env on_fail
+            let i = env.term.var.[b]
+            let on_succ = term env_rec env on_succ
+            ESymbolTest(r,a,i,on_succ,on_fail)
         | ERecordTest(r,a,b,c,d) ->
             let a = 
                 List.map (function
@@ -473,8 +482,8 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | ETypeApplyTest(r,a,b,c,d,e) -> ETypeApplyTest(r,adj a,adj b,adj c,f d,f e)
         | ETypeArrayTest(r,a,b,c,d) -> ETypeArrayTest(r,adj a,adj b,f c,f d)
         | ETypeEq(r,a,b,c,d) -> ETypeEq(r,ty env a,adj b,f c,f d)
-    and ty env x =
-        let f = ty env
+    and ty env_rec env x =
+        let f = ty env_rec env
         let adj = adj_ty env
         match x with
         | TJoinPoint' _ | TArrow' _ | TNominal  _ | TPrim _ | TSymbol _ | TB _ -> x
