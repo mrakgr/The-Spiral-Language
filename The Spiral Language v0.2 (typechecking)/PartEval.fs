@@ -1139,7 +1139,7 @@ let peval (env : TopEnv) (x : E) =
             | DV(L(_,YArray ty)) & a ->
                 let b = term s b
                 match data_to_ty s b with
-                | YPrim Int64T -> push_binop_no_rewrite s ArrayIndex (a,b) ty
+                | YPrim Int32T -> push_binop_no_rewrite s ArrayIndex (a,b) ty
                 | b -> raise_type_error s <| sprintf "Expected a i32 as the index argumet.\nGot: %s" (show_ty b)
             | a -> raise_type_error s <| sprintf "Expected an array.\nGot: %s" (show_data a)
         | EOp(_,ArrayIndexSet,[a;b;c]) ->
@@ -1148,7 +1148,7 @@ let peval (env : TopEnv) (x : E) =
                 let b = term s b
                 match data_to_ty s b with
                 | YPrim Int32T -> 
-                    let c = term s c
+                    let c = term s c |> dyn false s
                     let ty' = data_to_ty s c
                     if ty' = ty then push_triop_no_rewrite s ArrayIndexSet (a,b,c) YB
                     else raise_type_error s <| sprintf "The array and the value being set do not have the same type.\nGot: %s\nExpected: %s" (show_ty ty') (show_ty ty)

@@ -100,6 +100,219 @@ and [<ReferenceEquality>] T =
     | TArray of T
     | TLayout of T * BlockParsing.Layout
 
+module Printable =
+    type PMacro =
+        | MText of string
+        | MType of PT
+        | MTerm of PE
+    and PTypeMacro =
+        | TMText of string
+        | TMType of PT
+    and PRecordWith =
+        | RSymbol of string * PE
+        | RSymbolModify of string * PE
+        | RVar of PE * PE
+        | RVarModify of PE * PE
+    and PRecordWithout =
+        | WSymbol of string
+        | WVar of PE
+    and PPatRecordMember =
+        | Symbol of string * Id
+        | Var of PE * Id
+    and [<ReferenceEquality>] PE =
+        | EFun' of Scope * Id * PE * PT option
+        | EForall' of Scope * Id * PE
+        | ERecursiveFun' of Scope * Id * PE * PT option
+        | ERecursiveForall' of Scope * Id * PE
+        | ERecursive of PE
+        | EJoinPoint' of Scope * PE * PT option
+        | EFun of Id * PE * PT option
+        | EForall of Id * PE
+        | EJoinPoint of PE * PT option
+        | EB
+        | EV of Id
+        | ELit of Tokenize.Literal
+        | EDefaultLit of string * PT
+        | ESymbol of string
+        | EType of PT
+        | EApply of PE * PE
+        | ETypeApply of PE * PT
+        | ERecBlock of (Id * PE) list * on_succ: PE
+        | ERecordWith of PE list * PRecordWith list * PRecordWithout list
+        | EModule of Map<string, PE>
+        | EOp of BlockParsing.Op * PE list
+        | EPatternMiss of PE
+        | EAnnot of PE * PT
+        | EIfThenElse of PE * PE * PE
+        | EIfThen of PE * PE
+        | EPair of PE * PE
+        | ESeq of PE * PE
+        | EHeapMutableSet of PE * PE list * PE
+        | EReal of PE
+        | EMacro of PMacro list * PT
+        | EPrototypeApply of prototype_id: GlobalId * PT
+        | EPatternMemo of PE
+        | ENominal of PE * PT
+        // Regular pattern matching
+        | ELet of Id * PE * PE
+        | EUnbox of Id * PE * PE
+        | EPairTest of bind: Id * pat1: Id * pat2: Id * on_succ: PE * on_fail: PE
+        | ESymbolTest of string * bind: Id * on_succ: PE * on_fail: PE
+        | ERecordTest of PPatRecordMember list * bind: Id * on_succ: PE * on_fail: PE
+        | EAnnotTest of PT * bind: Id * on_succ: PE * on_fail: PE
+        | EUnitTest of bind: Id * on_succ: PE * on_fail: PE
+        | ENominalTest of PT * bind: Id * pat: Id * on_succ: PE * on_fail: PE
+        | ELitTest of Tokenize.Literal * bind: Id * on_succ: PE * on_fail: PE
+        | EDefaultLitTest of string * PT * bind: Id * on_succ: PE * on_fail: PE
+        // Typecase
+        | ETypeLet of bind: Id * PT * PE
+        | ETypePairTest of bind: Id * pat1: Id * pat2: Id * on_succ: PE * on_fail: PE
+        | ETypeFunTest of bind: Id * pat1: Id * pat2: Id * on_succ: PE * on_fail: PE
+        | ETypeRecordTest of Map<string,Id> * bind: Id * on_succ: PE * on_fail: PE
+        | ETypeApplyTest of bind: Id * pat1: Id * pat2: Id * on_succ: PE * on_fail: PE
+        | ETypeArrayTest of bind: Id * pat: Id * on_succ: PE * on_fail: PE
+        | ETypeEq of PT * bind: Id * on_succ: PE * on_fail: PE
+        | EOmmitedRecursive
+    and [<ReferenceEquality>] PT =
+        | TArrow' of Scope * Id * PT
+        | TArrow of Id * PT
+        | TJoinPoint' of Scope * PT
+        | TJoinPoint of PT
+        | TB
+        | TV of Id
+        | TPair of PT * PT
+        | TFun of PT * PT
+        | TRecord of Map<string,PT>
+        | TModule of Map<string,PT>
+        | TUnion of Map<string,PT> * BlockParsing.UnionLayout
+        | TSymbol of string
+        | TApply of PT * PT
+        | TPrim of BlockParsing.PrimitiveType
+        | TTerm of PE
+        | TMacro of PTypeMacro list
+        | TNominal of GlobalId
+        | TArray of PT
+        | TLayout of PT * BlockParsing.Layout
+
+    let eval x =
+        let recs = System.Collections.Generic.HashSet(HashIdentity.Reference)
+        let rec term = function
+            | E.EFun'(_,a,b,c,d) -> EFun'(a,b,term c,Option.map ty d)
+            | E.EForall'(_,a,b,c) -> EForall'(a,b,term c)
+            | E.ERecursiveFun'(_,a,b,c,d) -> 
+                let r = !c
+                let r = if recs.Add(r) then term r else EOmmitedRecursive
+                ERecursiveFun'(a,b,r,Option.map ty d)
+            | E.ERecursiveForall'(_,a,b,c) -> 
+                let r = !c
+                let r = if recs.Add(r) then term r else EOmmitedRecursive
+                ERecursiveForall'(a,b,r)
+            | E.ERecursive a -> 
+                let r = !a
+                if isNull (box r) then EOmmitedRecursive
+                else
+                    let r = if recs.Add(r) then term r else EOmmitedRecursive
+                    ERecursive r
+            | E.EJoinPoint'(_,a,b,c) -> EJoinPoint'(a,term b,Option.map ty c)
+            | E.EFun(_,a,b,c) -> EFun(a,term b,Option.map ty c)
+            | E.EForall(_,a,b) -> EForall(a,term b)
+            | E.EJoinPoint(_,a,b) -> EJoinPoint(term a,Option.map ty b)
+            | E.EB _ -> EB
+            | E.EV i -> EV i
+            | E.ELit(_,a) -> ELit(a)
+            | E.EDefaultLit(_,a,b) -> EDefaultLit(a,ty b)
+            | E.ESymbol(_,a) -> ESymbol a
+            | E.EType(_,a) -> EType(ty a)
+            | E.EApply(_,a,b) -> EApply(term a,term b)
+            | E.ETypeApply(_,a,b) -> ETypeApply(term a,ty b)
+            | E.ERecBlock(_,a,b) -> ERecBlock(List.map (fun (a,b) -> a, term b) a,term b)
+            | E.ERecordWith(_,a,b,c) ->
+                let a = a |> List.map (fun (_,a) -> term a)
+                let b = b |> List.map (function
+                    | RecordWith.RSymbol((_,a),b) -> RSymbol(a,term b)
+                    | RecordWith.RSymbolModify((_,a),b) -> RSymbolModify(a,term b)
+                    | RecordWith.RVar((_,a),b) -> RVar(term a,term b)
+                    | RecordWith.RVarModify((_,a),b) -> RVarModify(term a,term b)
+                    )
+                let c = c |> List.map (function
+                    | RecordWithout.WSymbol(_,a) -> WSymbol a
+                    | RecordWithout.WVar(_,a) -> WVar(term a)
+                    )
+                ERecordWith(a,b,c)
+            | E.EModule a -> EModule(Map.map (fun _ -> term) a)
+            | E.EOp(_,a,b) -> EOp(a,List.map term b)
+            | E.EPatternMiss a -> EPatternMiss(term a)
+            | E.EAnnot(_,a,b) -> EAnnot(term a,ty b)
+            | E.EIfThenElse(_,a,b,c) -> EIfThenElse(term a,term b,term c)
+            | E.EIfThen(_,a,b) -> EIfThen(term a,term b)
+            | E.EPair(_,a,b) -> EPair(term a,term b)
+            | E.ESeq(_,a,b) -> ESeq(term a,term b)
+            | E.EHeapMutableSet(_,a,b,c) -> EHeapMutableSet(term a,List.map (snd >> term) b,term c)
+            | E.EReal(_, a) -> EReal(term a)
+            | E.EMacro(_,a,b) ->
+                let a = a |> List.map (function
+                    | Macro.MText a -> MText a
+                    | Macro.MType a -> MType(ty a)
+                    | Macro.MTerm a -> MTerm(term a)
+                    )
+                EMacro(a,ty b)
+            | E.EPrototypeApply(_,a,b) -> EPrototypeApply(a,ty b)
+            | E.EPatternMemo a -> EPatternMemo(term a)
+            | E.ENominal(_,a,b) -> ENominal(term a,ty b)
+            // Regular pattern matching
+            | E.ELet(_,a,b,c) -> ELet(a,term b,term c)
+            | E.EUnbox(_,a,b,c) -> EUnbox(a,term b,term c)
+            | E.EPairTest(_,a,b,c,d,e) -> EPairTest(a,b,c,term d,term e)
+            | E.ESymbolTest(_,a,b,c,d) -> ESymbolTest(a,b,term c,term d)
+            | E.ERecordTest(_,a,b,c,d) ->
+                let a = a |> List.map (function
+                    | PatRecordMember.Symbol((_,a),b) -> Symbol(a,b)
+                    | PatRecordMember.Var((_,a),b) -> Var(term a,b)
+                    )
+                ERecordTest(a,b,term c,term d)
+            | E.EAnnotTest(_,a,b,c,d) -> EAnnotTest(ty a,b,term c,term d)
+            | E.EUnitTest(_,a,b,c) -> EUnitTest(a,term b,term c)
+            | E.ENominalTest(_,a,b,c,d,e) -> ENominalTest(ty a,b,c,term d,term e)
+            | E.ELitTest(_,a,b,c,d) -> ELitTest(a,b,term c,term d)
+            | E.EDefaultLitTest(_,a,b,c,d,e) -> EDefaultLitTest(a,ty b,c,term d,term e)
+            // Typecase
+            | E.ETypeLet(_,a,b,c) -> ETypeLet(a,ty b,term c)
+            | E.ETypePairTest(_,a,b,c,d,e) -> ETypePairTest(a,b,c,term d,term e)
+            | E.ETypeFunTest(_,a,b,c,d,e) -> ETypeFunTest(a,b,c,term d,term e)
+            | E.ETypeRecordTest(_,a,b,c,d) -> ETypeRecordTest(a,b,term c,term d)
+            | E.ETypeApplyTest(_,a,b,c,d,e) -> ETypeApplyTest(a,b,c,term d,term e)
+            | E.ETypeArrayTest(_,a,b,c,d) -> ETypeArrayTest(a,b,term c,term d)
+            | E.ETypeEq(_,a,b,c,d) -> ETypeEq(ty a,b,term c,term d)
+        and ty = function
+            | T.TArrow'(a,b,c) -> TArrow'(a,b,ty c)
+            | T.TArrow(a,b) -> TArrow(a,ty b)
+            | T.TJoinPoint'(_,a,b) -> TJoinPoint'(a,ty b)
+            | T.TJoinPoint(_,a) -> TJoinPoint(ty a)
+            | T.TB _ -> TB
+            | T.TV a -> TV a
+            | T.TPair(_,a,b) -> TPair(ty a,ty b)
+            | T.TFun(_,a,b) -> TFun(ty a,ty b)
+            | T.TRecord(_,a) -> TRecord(Map.map (fun _ -> ty) a)
+            | T.TModule a -> TModule(Map.map (fun _ -> ty) a)
+            | T.TUnion(_,(a,b)) -> TUnion(Map.map (fun _ -> ty) a,b)
+            | T.TSymbol(_,a) -> TSymbol a
+            | T.TApply(_,a,b) -> TApply(ty a, ty b)
+            | T.TPrim a -> TPrim a
+            | T.TTerm(_,a) -> TTerm(term a)
+            | T.TMacro(_,a) -> 
+                let a = a |> List.map (function
+                    | TypeMacro.TMText a -> TMText a
+                    | TypeMacro.TMType a -> TMType(ty a)
+                    )
+                TMacro(a)
+            | T.TNominal a -> TNominal a
+            | T.TArray a -> TArray(ty a)
+            | T.TLayout(a,b) -> TLayout(ty a,b)
+
+        match x with
+        | Choice1Of2(x,ret) -> ret (term x)
+        | Choice2Of2(x,ret) -> ret (ty x)
+
 open FSharpx.Collections
 open BlockParsing
 type PrepassTopEnv = {
@@ -328,10 +541,8 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
 
 type LowerSubEnv = {|var : Map<int,int>; adj : int option|}
 type LowerEnv = {term : LowerSubEnv; ty : LowerSubEnv }
-type LowerEnvItem = RecFun of Range * Scope * Id * T option | RecForall of Range * Scope * Id
-type LowerEnvRec = Map<int,LowerEnvItem * E ref>
+type LowerEnvRec = Map<int,LowerEnv -> E>
 let lower (scope : Dictionary<obj,PropagatedVars>) x =
-    printfn "In lower."
     let dict = Dictionary(HashIdentity.Reference)
     let scope (env : LowerEnv) x =
         let v = scope.[x]
@@ -344,7 +555,6 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
 
         let vars v = Set.fold (fun (s,i) x -> Map.add x i s,i+1) (Map.empty, 0) v |> fst
         let adj len range = Option.map (fun (min,_) -> len - min) range
-        printfn "%A" v.term.vars
         let env : LowerEnv = {
             term = {|var = vars v.term.vars; adj = adj scope.term.free_vars.Length v.term.range|}
             ty = {|var = vars v.ty.vars; adj = adj scope.ty.free_vars.Length v.ty.range|}
@@ -354,7 +564,6 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
 
     let adj_term (env : LowerEnv) i = 
         let i' = i + env.term.adj.Value
-        printfn "%i -> %i" i i'
         i', {env with term = {|env.term with var = Map.add i i' env.term.var|}}
     let adj_ty (env : LowerEnv) i =
         let i' = i + env.ty.adj.Value
@@ -379,38 +588,40 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
             let scope, env = scope env x 
             EJoinPoint'(r,scope,term env_rec env body,Option.map (g env) t)
         | EV i when 0 <= i -> EV env.term.var.[i]
-        | EV i ->
-            let q,re = env_rec.[i]
-            let w = !re
-            let is_null = isNull (box w)
-            let rename_scope (scope : Scope) : Scope = {
-                term = {|free_vars = Array.map (fun i -> env.term.var.[i]) scope.term.free_vars; stack_size = scope.term.stack_size|}
-                ty = {|free_vars = Array.map (fun i -> env.ty.var.[i]) scope.ty.free_vars; stack_size = scope.ty.stack_size|}
-                }
-            match q,is_null with
-            | RecFun(a,b,c,d),false -> EFun'(a,rename_scope b,c,w,d)
-            | RecForall(a,b,c),false -> EForall'(a,rename_scope b,c,w)
-            | RecFun(a,b,c,d),true -> ERecursiveFun'(a,rename_scope b,c,re,d)
-            | RecForall(a,b,c),true -> ERecursiveForall'(a,rename_scope b,c,re)
+        | EV i -> env_rec.[i] env
         | EDefaultLit(r,a,b) -> EDefaultLit(r,a,g env b)
         | EType(r,a) -> EType(r,g env a)
         | EApply(r,a,b) -> EApply(r,f a,f b)
         | ETypeApply(r,a,b) -> ETypeApply(r,f a,g env b)
         | ENominal(r,a,b) -> ENominal(r,f a,g env b)
         | ERecBlock(r,a,b) ->
-            let l, env_rec =
+            let l,env_rec =
                 List.mapFold (fun (env_rec : LowerEnvRec) (i,body) ->
                     let re = ref Unchecked.defaultof<_>
-                    let scope, env = scope env body
-                    let eval body env_rec = re := term env_rec env body
-                    let x, body =
+                    let eval env_rec = 
+                        let _,env = scope env body
+                        re :=
+                            match body with
+                            | EFun(_,i,body,_) ->
+                                let _,env = adj_term env i
+                                term env_rec env body
+                            | EForall(_,i,body) -> 
+                                let _,env = adj_ty env i
+                                term env_rec env body
+                            | _ -> failwith "Compiler error: Expected a fun or a forall."
+                    let body env =
+                        let scope,env = scope env body
                         match body with
-                        | EFun(a,i,body,d) -> RecFun(a,scope,i,d), eval body
-                        | EForall(a,i,body) -> RecForall(a,scope,i), eval body
+                        | EFun(r,i,_,d) -> 
+                            let i,_ = adj_term env i
+                            ERecursiveFun'(r,scope,i,re,d)
+                        | EForall(r,i,_) -> 
+                            let i,_ = adj_ty env i
+                            ERecursiveForall'(r,scope,i,re)
                         | _ -> failwith "Compiler error: Expected a fun or a forall."
-                    body, Map.add i (x,re) env_rec
+                    eval,Map.add i body env_rec
                     ) env_rec a
-            List.iter (fun f -> f env_rec) l
+            List.iter (fun eval -> eval env_rec) l
             term env_rec env b
         | ERecordWith(r,a,b,c) ->
             let a = List.map (fun (r,a) -> r, f a) a
@@ -431,7 +642,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EIfThen(r,a,b) -> EIfThen(r,f a,f b)
         | EPair(r,a,b) -> EPair(r,f a,f b)
         | ESeq(r,a,b) -> ESeq(r,f a,f b)
-        | EHeapMutableSet(r,a,b,c) -> EHeapMutableSet(r,f a,List.map (fun (a,b) -> a, f b) b,c)
+        | EHeapMutableSet(r,a,b,c) -> EHeapMutableSet(r,f a,List.map (fun (a,b) -> a, f b) b,f c)
         | EPatternMiss a -> EPatternMiss(f a)
         | EReal(r,a) -> EReal(r,f a)
         | EMacro(r,a,b) -> 
@@ -449,10 +660,10 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
             let pat,env = adj_term env pat
             let on_succ = term env_rec env on_succ
             ELet(r,pat,body,on_succ)
-        | EUnbox(r,pat,body,on_fail) ->
+        | EUnbox(r,pat,body,on_succ) ->
             let body = term env_rec env body
             let pat,env = adj_term env pat
-            let on_succ = term env_rec env on_fail
+            let on_succ = term env_rec env on_succ
             EUnbox(r,pat,body,on_succ)
         | EPairTest(r,i,pat1,pat2,on_succ,on_fail) -> 
             let on_fail = term env_rec env on_fail
@@ -475,7 +686,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
                     | Symbol(a,b) -> let b,env = adj_term env b in Symbol(a,b), env
                     | Var((r,a),b) -> let b,env = adj_term env b in Var((r,f a),b), env
                     ) env a
-            ERecordTest(r,a, b,term env_rec env on_succ,on_fail)
+            ERecordTest(r,a,b,term env_rec env on_succ,on_fail)
         | EAnnotTest(r,a,i,on_succ,on_fail) -> EAnnotTest(r,g env a,env.term.var.[i],f on_succ,f on_fail)
         | ELitTest(r,a,i,on_succ,on_fail) -> ELitTest(r,a,env.term.var.[i],f on_succ,f on_fail)
         | EUnitTest(r,i,on_succ,on_fail) -> EUnitTest(r,env.term.var.[i],f on_succ,f on_fail)

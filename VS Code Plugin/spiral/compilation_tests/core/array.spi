@@ -7,7 +7,6 @@ inl length forall t. (ar : array t) : i32 = !!!!ArrayLength(ar)
 inl singleton x = inl a = create 1 in set a 0 x . a
 inl init nearTo f = 
     inl ar = create nearTo
-    print_static "in init"
     for' (from: 0 nearTo:) (fun i => set ar i (f i))
     ar
 inl fold f s ar = for (from: 0 nearTo: length ar) (fun i s => f s (index ar i)) s

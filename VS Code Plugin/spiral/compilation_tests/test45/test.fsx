@@ -1,4 +1,4 @@
-﻿type [<Struct>] US0 =
+type [<Struct>] US0 =
     | US0_0
     | US0_1
 and UH0 =
