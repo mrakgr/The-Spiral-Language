@@ -2,8 +2,8 @@ modules:
     real_core*
     core-
     monad
-    loop
-    array
-    string
-    list
-    option
+    // loop
+    // array
+    // string
+    // list
+    // option

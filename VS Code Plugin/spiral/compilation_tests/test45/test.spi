@@ -47,7 +47,6 @@ let save_the_princess field mario_pos =
     loop (array.singleton (mario_pos, Nil))
 
 inl main () =
-    print_static "start"
     inl ~field_size = 4
     inl ~princess_pos = 3,2
     inl field = 
@@ -55,6 +54,5 @@ inl main () =
             array.init field_size (fun a => 
                 if (b,a) = princess_pos then Princess else Empty
                 ))
-    print_static "---"
     save_the_princess field (0,0)
     |> list.iter (fun x => $"printfn \"%s\" !x")

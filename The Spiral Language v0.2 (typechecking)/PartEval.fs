@@ -780,19 +780,25 @@ let peval (env : TopEnv) (x : E) =
         let inline nan_guardf32 x = if Single.IsNaN x then raise_type_error s "A 32-bit floating point operation resulting in a nan detected at compile time." else x
         let inline nan_guardf64 x = if Double.IsNaN x then raise_type_error s "A 64-bit floating point operation resulting in a nan detected at compile time." else x
 
+        let eforall (free_vars : Scope,i,body) =
+            assert (free_vars.ty.free_vars.Length = i)
+            DForall(body,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
+
+        let efun (free_vars : Scope,i,body,annot) =
+            assert (free_vars.term.free_vars.Length = i)
+            DFunction(body,annot,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
+
         match x with
         | EB _ -> DB
         | EV a -> v s a
         | ELit(_,a) -> DLit a
         | ESymbol(_,a) -> DSymbol a
         | EFun _ -> failwith "Compiler error: Raw functions should be transformed during the prepass."
-        | EFun'(_,free_vars,i,body,annot) -> 
-            assert (free_vars.term.free_vars.Length = i)
-            DFunction(body,annot,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
+        | EFun'(_,free_vars,i,body,annot) -> efun (free_vars,i,body,annot)
+        | ERecursiveFun'(_,free_vars,i,body,annot) -> efun (free_vars,i,!body,annot)
         | EForall _ -> failwith "Compiler error: Raw foralls should be transformed during the prepass."
-        | EForall'(_,free_vars,i,body) ->
-            assert (free_vars.ty.free_vars.Length = i)
-            DForall(body,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
+        | EForall'(_,free_vars,i,body) -> eforall (free_vars,i,body)
+        | ERecursiveForall'(_,free_vars,i,body) -> eforall (free_vars,i,!body)
         | ERecursive a -> term s !a
         | ERecBlock _ -> failwith "Compiler error: Recursive blocks should be inlined and eliminated during the prepass."
         | EJoinPoint _ -> failwith "Compiler error: Raw join points should be transformed during the prepass."

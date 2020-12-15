@@ -1,8 +1,4 @@
 inl for (from: nearTo:) body state =
-    let rec loop i s = 
-        print_static (nearTo:)
-        print_static (i:)
-        print_static (s:)
-        if i < nearTo then loop (i+1) (body i s) else s
+    let rec loop i s = if i < nearTo then loop (i+1) (body i s) else s
     loop from state
 inl for' (from: nearTo:) body = for (from:nearTo:) (fun i () => body i) ()
