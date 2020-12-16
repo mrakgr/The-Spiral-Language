@@ -7,16 +7,9 @@ let save_the_princess field mario_pos =
         array.init (array.length field) (fun b => 
             array.init (array.length (array.index field b)) (const false)
             )
-    inl index ar (b,a) = 
-        $"printfn \"indexing start\""
-        inl x = array.index (array.index ar b) a
-        $"printfn \"indexing done\""
-        x
-    inl set ar (b,a) v = 
-        $"printfn \"set start\""
-        array.set (array.index ar b) a v
-        $"printfn \"set done\""
-    inl is_in_range (b,a),_ = b <= 0 && b < array.length field && (inl x = array.index field b in a <= 0 && a < array.length x)
+    inl index ar (b,a) = array.index (array.index ar b) a
+    inl set ar (b,a) v = array.set (array.index ar b) a v
+    inl is_in_range (b,a),_ = 0 <= b && b < array.length field && (inl x = array.index field b in 0 <= a && a < array.length x)
     inl is_princess_in_state x,_ = match index field x with Princess => true | _ => false
 
     inl up (row,col), prev_moves = (row-1,col), ("UP" :: prev_moves)
@@ -37,17 +30,13 @@ let save_the_princess field mario_pos =
                             true
                         else false
                     new_state, is_valid
-                $"printfn \"q\""
                 inl (up, down, left, right as potential_new_states) = f up, f down, f left, f right
-                $"printfn \"w\""
                 inl number_of_valid_states =
                     inl f _,b = if b then 1 else 0
                     f up + f down + f left + f right
                 inl new_states = array.create number_of_valid_states
                 inl f (state, is_valid) i = if is_valid then array.set new_states i state . i+1 else i
-                $"printfn \"e\""
                 inl _ = f up 0 |> f down |> f left |> f right 
-                $"printfn \"r\""
                 new_states
                 ) queue
             |> array.concat
@@ -59,7 +48,7 @@ let save_the_princess field mario_pos =
 
 inl main () =
     inl ~field_size = 4
-    inl ~princess_pos = 2,1
+    inl ~princess_pos = 2,3
     inl field = 
         array.init field_size (fun b => 
             array.init field_size (fun a => 

@@ -67,16 +67,15 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
     if v7 then
         let v8 : int32 = v6 + 1
         let struct (v9 : int32, v10 : int32, v11 : UH0) = v4.[v6]
-        printfn "q"
         let v12 : int32 = v9 - 1
-        let v13 : bool = v12 <= 0
+        let v13 : bool = 0 <= v12
         let v14 : bool =
             if v13 then
                 let v14 : int32 = v2.Length
                 let v15 : bool = v12 < v14
                 if v15 then
                     let v16 : (US0 []) = v2.[v12]
-                    let v17 : bool = v10 <= 0
+                    let v17 : bool = 0 <= v10
                     if v17 then
                         let v18 : int32 = v16.Length
                         v10 < v18
@@ -88,19 +87,15 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
                 false
         let v15 : bool =
             if v14 then
-                printfn "indexing start"
                 let v15 : (bool []) = v1.[v12]
                 let v16 : bool = v15.[v10]
-                printfn "indexing done"
                 v16 = false
             else
                 false
         let v16 : bool =
             if v15 then
-                printfn "indexing start"
                 let v16 : (US0 []) = v2.[v12]
                 let v17 : US0 = v16.[v10]
-                printfn "indexing done"
                 let v18 : bool =
                     match v17 with
                     | US0_0 -> (* empty *)
@@ -113,22 +108,20 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
                     v3.l0 <- v20
                 else
                     ()
-                printfn "set start"
                 let v19 : (bool []) = v1.[v12]
                 v19.[v10] <- true
-                printfn "set done"
                 true
             else
                 false
         let v17 : int32 = v9 + 1
-        let v18 : bool = v17 <= 0
+        let v18 : bool = 0 <= v17
         let v19 : bool =
             if v18 then
                 let v19 : int32 = v2.Length
                 let v20 : bool = v17 < v19
                 if v20 then
                     let v21 : (US0 []) = v2.[v17]
-                    let v22 : bool = v10 <= 0
+                    let v22 : bool = 0 <= v10
                     if v22 then
                         let v23 : int32 = v21.Length
                         v10 < v23
@@ -140,19 +133,15 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
                 false
         let v20 : bool =
             if v19 then
-                printfn "indexing start"
                 let v20 : (bool []) = v1.[v17]
                 let v21 : bool = v20.[v10]
-                printfn "indexing done"
                 v21 = false
             else
                 false
         let v21 : bool =
             if v20 then
-                printfn "indexing start"
                 let v21 : (US0 []) = v2.[v17]
                 let v22 : US0 = v21.[v10]
-                printfn "indexing done"
                 let v23 : bool =
                     match v22 with
                     | US0_0 -> (* empty *)
@@ -165,22 +154,20 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
                     v3.l0 <- v25
                 else
                     ()
-                printfn "set start"
                 let v24 : (bool []) = v1.[v17]
                 v24.[v10] <- true
-                printfn "set done"
                 true
             else
                 false
         let v22 : int32 = v10 - 1
-        let v23 : bool = v9 <= 0
+        let v23 : bool = 0 <= v9
         let v24 : bool =
             if v23 then
                 let v24 : int32 = v2.Length
                 let v25 : bool = v9 < v24
                 if v25 then
                     let v26 : (US0 []) = v2.[v9]
-                    let v27 : bool = v22 <= 0
+                    let v27 : bool = 0 <= v22
                     if v27 then
                         let v28 : int32 = v26.Length
                         v22 < v28
@@ -192,19 +179,15 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
                 false
         let v25 : bool =
             if v24 then
-                printfn "indexing start"
                 let v25 : (bool []) = v1.[v9]
                 let v26 : bool = v25.[v22]
-                printfn "indexing done"
                 v26 = false
             else
                 false
         let v26 : bool =
             if v25 then
-                printfn "indexing start"
                 let v26 : (US0 []) = v2.[v9]
                 let v27 : US0 = v26.[v22]
-                printfn "indexing done"
                 let v28 : bool =
                     match v27 with
                     | US0_0 -> (* empty *)
@@ -217,10 +200,8 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
                     v3.l0 <- v30
                 else
                     ()
-                printfn "set start"
                 let v29 : (bool []) = v1.[v9]
                 v29.[v22] <- true
-                printfn "set done"
                 true
             else
                 false
@@ -231,7 +212,7 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
                 let v29 : bool = v9 < v28
                 if v29 then
                     let v30 : (US0 []) = v2.[v9]
-                    let v31 : bool = v27 <= 0
+                    let v31 : bool = 0 <= v27
                     if v31 then
                         let v32 : int32 = v30.Length
                         v27 < v32
@@ -243,19 +224,15 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
                 false
         let v29 : bool =
             if v28 then
-                printfn "indexing start"
                 let v29 : (bool []) = v1.[v9]
                 let v30 : bool = v29.[v27]
-                printfn "indexing done"
                 v30 = false
             else
                 false
         let v30 : bool =
             if v29 then
-                printfn "indexing start"
                 let v30 : (US0 []) = v2.[v9]
                 let v31 : US0 = v30.[v27]
-                printfn "indexing done"
                 let v32 : bool =
                     match v31 with
                     | US0_0 -> (* empty *)
@@ -268,14 +245,11 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
                     v3.l0 <- v34
                 else
                     ()
-                printfn "set start"
                 let v33 : (bool []) = v1.[v9]
                 v33.[v27] <- true
-                printfn "set done"
                 true
             else
                 false
-        printfn "w"
         let v31 : int32 =
             if v16 then
                 1
@@ -300,7 +274,6 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
                 0
         let v37 : int32 = v35 + v36
         let v38 : (struct (int32 * int32 * UH0) []) = Array.zeroCreate<struct (int32 * int32 * UH0)> v37
-        printfn "e"
         let v39 : int32 =
             if v16 then
                 let v39 : UH0 = UH0_0("UP", v11)
@@ -329,7 +302,6 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
                 v41 + 1
             else
                 v41
-        printfn "r"
         v5.[v6] <- v38
         method6(v0, v1, v2, v3, v4, v5, v8)
     else
@@ -412,7 +384,7 @@ and method11 (v0 : UH0) : unit =
         ()
 let v0 : int32 = 4
 let v1 : int32 = 2
-let v2 : int32 = 1
+let v2 : int32 = 3
 let v3 : ((US0 []) []) = Array.zeroCreate<(US0 [])> v0
 let v4 : int32 = 0
 method0(v0, v1, v2, v3, v4)
