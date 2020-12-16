@@ -469,8 +469,8 @@ let show_t (env : TopEnv) x =
                 let show (s,a) = sprintf "%s: %s" s (f 15 a)
                 let rec loop (a,b) = 
                     match a,b with
-                    | s :: s', TyPair(a,b) -> show (s,a) :: loop (s',b)
                     | s :: [], a -> [show (s,a)]
+                    | s :: s', TyPair(a,b) -> show (s,a) :: loop (s',b)
                     | s, a -> [show (String.concat "_" s, a)]
                 p 15 (loop (a.Split('_',System.StringSplitOptions.RemoveEmptyEntries) |> (fun x -> x.[0] <- to_upper x.[0]; Array.toList x), b) |> String.concat " ")
             | TySymbol a, TyB when 0 < a.Length && System.Char.IsLower(a,0) -> to_upper a
@@ -1412,17 +1412,15 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             guard <| fun () ->
             assert_no_kind vars
             guard <| fun () ->
-            let ins_core, env_ty, ins_constraints =
-                let ins_vars, env_ty =
-                    List.mapFold (fun s (((r,_),_) & x,k) ->
-                        let v = {typevar_to_var scope Map.empty x with kind = k}
-                        let x = TyVar v
-                        hover_types.Add(r,x)
-                        x, Map.add v.name x s
-                        ) Map.empty (List.zip vars (List.take vars_expected ins_kind.args))
-                let ins_constraints = ins_vars |> List.map (function TyVar x -> x.constraints | _ -> failwith "impossible")
-                let ins_core, _ = List.fold (fun (a,k) (b : T) -> let k = trim_kind k in TyApply(a,b,k),k) (TyNominal ins_id,ins_kind') ins_vars
-                ins_core, env_ty, ins_constraints
+            let ins_vars, env_ty =
+                List.mapFold (fun s (((r,_),_) & x,k) ->
+                    let v = {typevar_to_var scope Map.empty x with kind = k}
+                    let x = TyVar v
+                    hover_types.Add(r,x)
+                    x, Map.add v.name x s
+                    ) Map.empty (List.zip vars (List.take vars_expected ins_kind.args))
+            let ins_constraints = ins_vars |> List.map (function TyVar x -> x.constraints | _ -> failwith "impossible")
+            let ins_core, _ = List.fold (fun (a,k) (b : T) -> let k = trim_kind k in TyApply(a,b,k),k) (TyNominal ins_id,ins_kind') ins_vars
             let env_ty, prot_body =
                 match foralls_ty_get prototype.signature with
                 | (prot_core :: prot_foralls), prot_body ->
@@ -1430,7 +1428,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         assert_instance_forall_does_not_shadow_prototype_forall x.name
                         Map.add x.name (TyVar x) ty) env_ty prot_foralls,
                     let prot_body = subst [prot_core, ins_core] prot_body
-                    generalized_statements.Add(body,List.foldBack (fun x s -> TyForall(x,s)) prot_foralls prot_body)
+                    let _ =
+                        List.foldBack (fun x s -> TyForall(x,s)) prot_foralls prot_body
+                        |> List.foldBack (fun x s -> match x with TyVar x -> TyForall(x,s) | _ -> failwith "impossible") ins_vars
+                        |> fun x -> generalized_statements.Add(body,x)
                     prot_body
                 | _ -> failwith "impossible"
             top_env <- {top_env with prototypes_instances = Map.add (prot_id,ins_id) ins_constraints top_env.prototypes_instances}

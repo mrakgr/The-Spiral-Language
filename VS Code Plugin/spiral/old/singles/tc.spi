@@ -114,7 +114,7 @@ inl (.<<) a b =
     b >>= fun b =>
     on_succ a
 
-inl EOL : char = $"Char.MaxValue"
+inl EOL : char = $"System.Char.MaxValue"
 inl peek' index = cps_parser fun str i {on_succ} =>
     if i + index <= 0 && i + index < string_length str then on_succ (string_index str i, i)
     else on_succ (EOL, i)

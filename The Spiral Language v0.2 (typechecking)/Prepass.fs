@@ -1081,10 +1081,11 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | FType(_,(_,name),l,body) -> AInclude {top_env_empty with ty = Map.add name (eval_type' env l (fun env -> ty env body)) Map.empty}
         | FNominal(r,(_,name),l,body) ->
             let i = at_tag top_env.nominals_next_tag
-            let term = nominal_term Map.empty (TNominal i) (p r) name l body
-            let x = eval_type' env l (fun env -> TJoinPoint(p (range_of_texpr body), ty env body))
-            let ty = Map.add name x Map.empty
-            let nominals = Map.add i {|body=x; name=name|} Map.empty
+            let nom = TNominal i
+            let term = nominal_term Map.empty nom (p r) name l body
+            let body = eval_type' env l (fun env -> TJoinPoint(p (range_of_texpr body), ty env body))
+            let ty = Map.add name nom Map.empty
+            let nominals = Map.add i {|body=body; name=name|} Map.empty
             AInclude {top_env_empty with term = term; ty = ty; nominals = nominals; nominals_next_tag=i.tag+1}
         | FNominalRec l ->
             let term,env,_ = 
@@ -1095,8 +1096,10 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                     ) (Map.empty, env, top_env.nominals_next_tag) l
             let ty,nominals,i =
                 List.fold (fun (ty', nominals, i) (_,(_,name),l,body) -> 
-                    let x = eval_type' env l (fun env -> TJoinPoint(p (range_of_texpr body), ty env body))
-                    Map.add name x ty', Map.add (at_tag i) {|body=x; name=name|} nominals, i+1
+                    let at_tag_i = at_tag i
+                    let nom = TNominal at_tag_i
+                    let body = eval_type' env l (fun env -> TJoinPoint(p (range_of_texpr body), ty env body))
+                    Map.add name nom ty', Map.add at_tag_i {|body=body; name=name|} nominals, i+1
                     ) (Map.empty, Map.empty, top_env.nominals_next_tag) l
             AInclude {top_env_empty with term = term; ty = ty; nominals = nominals; nominals_next_tag=i}
         | FInl(_,(_,name),body) -> AInclude {top_env_empty with term = Map.add name (term env body |> process_term) Map.empty}

@@ -7,3 +7,5 @@ modules:
     string
     list
     option
+    result
+    

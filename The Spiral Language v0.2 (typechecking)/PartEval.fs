@@ -279,8 +279,8 @@ let show_ty x =
             let show (s,a) = sprintf "%s: %s" s (f 15 a)
             let rec loop (a,b) = 
                 match a,b with
-                | s :: s', YPair(a,b) -> show (s,a) :: loop (s',b)
                 | s :: [], a -> [show (s,a)]
+                | s :: s', YPair(a,b) -> show (s,a) :: loop (s',b)
                 | s, a -> [show (String.concat "_" s, a)]
             p 15 (loop (a.Split('_',System.StringSplitOptions.RemoveEmptyEntries) |> (fun x -> x.[0] <- to_upper x.[0]; Array.toList x), b) |> String.concat " ")
         | YPair(YSymbol a, YB) when 0 < a.Length && System.Char.IsLower(a,0) -> to_upper a
@@ -307,8 +307,8 @@ let show_data x =
             let show (s,a) = sprintf "%s: %s" s (f 15 a)
             let rec loop (a,b) = 
                 match a,b with
-                | s :: s', DPair(a,b) -> show (s,a) :: loop (s',b)
                 | s :: [], a -> [show (s,a)]
+                | s :: s', DPair(a,b) -> show (s,a) :: loop (s',b)
                 | s, a -> [show (String.concat "_" s, a)]
             p 15 (loop (a.Split('_',System.StringSplitOptions.RemoveEmptyEntries) |> (fun x -> x.[0] <- to_upper x.[0]; Array.toList x), b) |> String.concat " ")
         | DPair(DSymbol a, DB) when 0 < a.Length && System.Char.IsLower(a,0) -> to_upper a
@@ -950,10 +950,10 @@ let peval (env : TopEnv) (x : E) =
                     | Some v_ty' -> raise_type_error s <| sprintf "For key %s, The type of the value does not match the union case.\nGot: %s\nExpected: %s" k (show_ty v_ty) (show_ty v_ty')
                     | None -> raise_type_error s <| sprintf "The union does not have key %s.\nGot: %s" k (show_ty b)
                 | _ -> raise_type_error s <| sprintf "Compiler error: Expected key/value pair.\nGot: %s" (show_data a)
-            | b ->
+            | b' ->
                 let a_ty = data_to_ty s a
-                if a_ty = b then DNominal(a,b)
-                else raise_type_error s <| sprintf "Type error in nominal constructor.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty b)
+                if a_ty = b' then DNominal(a,b)
+                else raise_type_error s <| sprintf "Type error in nominal constructor.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty b')
         | EOp(r,UnboxedIs,[a]) -> 
             match term s a with
             | DNominal(DUnion _,_) -> DLit(LitBool true)
@@ -1024,7 +1024,7 @@ let peval (env : TopEnv) (x : E) =
                     let rec loop = function
                         | YNominal b -> if a = b then store_term s p1 v; term s on_succ else term s on_fail
                         | YApply(a,_) -> loop a
-                        | _ -> raise_type_error s "Compiler error: Expected a deferred type apply or a nominal."
+                        | _ -> raise_type_error s <| sprintf "Compiler error: Expected a deferred type apply or a nominal.\nGot: %s" (show_ty b)
                     loop b
                 | _ -> term s on_fail
             | a -> raise_type_error s <| sprintf "Expected a nominal on the left side of the pattern.\nGot: %s" (show_ty a)
@@ -1104,7 +1104,7 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,StringLength,[a]) ->
             match term s a with
             | DLit(LitString str) -> DLit (LitInt32 str.Length)
-            | DV(L(_,YPrim StringT)) & str -> push_op s StringLength str (YPrim Int64T)
+            | DV(L(_,YPrim StringT)) & str -> push_op s StringLength str (YPrim Int32T)
             | x -> raise_type_error s <| sprintf "Expected a string.\nGot: %s" (show_data x)
         | EOp(_,StringIndex,[a;b]) ->
             match term2 s a b with
@@ -1649,6 +1649,7 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,FailWith,_) -> raise_type_error s "Malformed FailWith"
         | EOp(_,ErrorType,[a]) -> term s a |> show_data |> raise_type_error s
         | EOp(_,PrintStatic,[a]) -> printfn "%s" (term s a |> show_data); DB
+        | EOp(_,PrintRaw,[a]) -> printfn "%A" (Printable.eval(Choice1Of2(a,id))); DB
         | EOp(_,op,a) -> raise_type_error s <| sprintf "Compiler error: %A with %i args not implemented" op (List.length a)
 
     let s : LangEnv = {

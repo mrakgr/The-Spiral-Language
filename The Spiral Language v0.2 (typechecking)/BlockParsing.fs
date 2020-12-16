@@ -101,6 +101,7 @@ type Op =
 
     // Static unary operations
     | PrintStatic
+    | PrintRaw
     | ErrorType
 
 type PatternCompilationErrors =

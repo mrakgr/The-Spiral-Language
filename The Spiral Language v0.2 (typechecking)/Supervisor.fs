@@ -87,7 +87,7 @@ module Build =
             .AppendLine "^"
         |> ignore
 
-    let trace_print_length = 5
+    let trace_print_length = 30
     let show_trace s (x : PartEval.Main.Trace) (msg : string) =
         let error = Text.StringBuilder(1024)
         let x = 
