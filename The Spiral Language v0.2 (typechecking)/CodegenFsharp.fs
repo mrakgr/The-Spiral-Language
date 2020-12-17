@@ -164,7 +164,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         x.free_vars |> Map.iter (fun _ a ->
             match a with
             | [||] -> line (indent s) (sprintf "| US%i_%i" x.tag i)
-            | a -> line (indent s) (sprintf "| US%i_%i of %s" x.tag i (a |> Array.map (fun (L(_,t)) -> tyv_proxy t) |> String.concat " * "))
+            | a -> line (indent s) (sprintf "| US%i_%i of %s" x.tag i (a |> Array.mapi (fun i' (L(_,t)) -> sprintf "f%i_%i : %s" i i' (tyv_proxy t)) |> String.concat " * "))
             i <- i+1
             )
         )
@@ -327,7 +327,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | LT, [a;b] -> sprintf "%s < %s" (term_vars a) (term_vars b)
             | LTE, [a;b] -> sprintf "%s <= %s" (term_vars a) (term_vars b)
             | EQ, [a;b] -> sprintf "%s = %s" (term_vars a) (term_vars b)
-            | NEQ, [a;b] -> sprintf "%s != %s" (term_vars a) (term_vars b)
+            | NEQ, [a;b] -> sprintf "%s <> %s" (term_vars a) (term_vars b)
             | GT, [a;b] -> sprintf "%s > %s" (term_vars a) (term_vars b)
             | GTE, [a;b] -> sprintf "%s >= %s" (term_vars a) (term_vars b)
             | BoolAnd, [a;b] -> sprintf "%s && %s" (term_vars a) (term_vars b)

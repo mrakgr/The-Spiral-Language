@@ -87,6 +87,11 @@ inl I32 = parser fun str i =>
         | (Error: _), i => if was_parsed then (Ok: s), i else (Error: list.singleton "i32"), i
     loop i false 0
 
+inl Spaces = parser fun str i =>
+    inl f i = 0 <= i && i < string.length str && (inl x = string.index str i in x = ' ' || x = '\n')
+    let rec loop i = if f i then loop (i+1) else (Ok: ()), i
+    loop i
+
 inl Parse3Ints = I32 .<<. I32 .<<. I32
 
 inl (.<<.) a b =
@@ -121,13 +126,17 @@ inl failwith (x : string) = $"failwith !x"
 
 union player = First | Second
 
+inl eq_player = function // TODO: Replace this with `=` when it is capable of handling unions.
+    | First, First | Second, Second => true
+    | _ => false
+
 inl game_of_stones' n =
     inl max_n = 100
     if max_n < n then failwith "The max input has been exceeded."
     inl solutions = array.init (max_n+1) (const None)
     let rec solve player opposing_player n =
         inl take amount on_fail () = 
-            if n >= amount && solve opposing_player player (n-amount) = player then player
+            if n >= amount && eq_player (solve opposing_player player (n-amount), player) then player
             else on_fail ()
 
         let run = take 2 <| take 3 <| take 5 <| const opposing_player
@@ -143,11 +152,16 @@ inl game_of_stones' n =
 inl main () =
     inl show = function First => "First" | Second => "Second"
     inl p =
-        I32 >>= fun nearTo =>
+        (I32 .<< Spaces) >>= fun nearTo =>
             let rec loop i =
-                if i < nearTo then I32 >>= (game_of_stones' >> show >> writeline >> on_succ)
+                if i < nearTo then (I32 .<< Spaces) >>= (game_of_stones' >> show >> writeline >> on_succ)
                 else on_succ ()
             loop 0
-    match run p Readall 0 with
-    | (Error: _), _ => failwith "parsing failed"
+    // let example = Readall
+    let ~example = "6 1 2 3 4 5 6"
+    match run p example 0 with
+    | (Error: ers), i => 
+        $"printfn \"Parsing failed at position %i\" !i"
+        $"printfn \"Errors:\""
+        list.iter (fun er => $"printfn \"%s\" !er") ers
     | _ => ()
