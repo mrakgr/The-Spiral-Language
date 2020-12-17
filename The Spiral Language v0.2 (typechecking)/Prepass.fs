@@ -791,46 +791,6 @@ let fresh_ty_var (e : Env) = e.ty.i, (let ty = e.ty in {e with ty = {|ty with i 
 let add_term_rec_var (e : Env) k = e.term.i_rec, add_term e k (EV e.term.i_rec)
 let add_ty_var (e : Env) k = e.ty.i, add_ty e k (TV e.ty.i)
 
-type CompilePatternEnv = {vars : Dictionary<VarString,Id>; envs : Dictionary<Pattern,Env> }
-let make_compile_pattern_env (env : Env) x = 
-    let vars = Dictionary(HashIdentity.Structural)
-    let envs = Dictionary(HashIdentity.Reference)
-    let rec f env x = 
-        match x with
-        | PatValue _ | PatDefaultValue _ | PatSymbol _ | PatE _ | PatB _ -> env
-        | PatVar(_,a) -> let id,l = add_term_var env a in vars.Add(a,id); l
-        | PatOr(_,a,_) | PatDyn(_,a) | PatUnbox(_,a) -> f env a
-        | PatFilledDefaultValue _ -> envs.Add(x,env); env
-        | PatNominal(_,_,a) | PatAnnot(_,a,_) -> envs.Add(x,env); f env a
-        | PatWhen(_,a,_) -> let env = f env a in envs.Add(x,env); env
-        | PatAnd(_,a,b) | PatPair(_,a,b) -> f (f env a) b
-        | PatRecordMembers(_,l) -> envs.Add(x,env); List.fold (fun s (PatRecordMembersSymbol(_,x) | PatRecordMembersInjectVar(_,x)) -> f s x) env l
-            
-    {vars=vars; envs=envs}, f env x
-
-let make_compile_typecase_env path (env : Env) x =
-    let p r = {path=path; range=r}
-    let metavars' = Dictionary(HashIdentity.Reference)
-    let metavars = Dictionary(HashIdentity.Structural)
-    let rec f (env : Env) x =
-        match x with
-        | RawTFilledNominal _ | RawTTerm _ | RawTForall _ -> failwith "Compiler error: This case is not supposed to appear in typecase."
-        | RawTPrim _ | RawTSymbol _ | RawTWildcard _ | RawTB _ | RawTVar _ -> env
-        | RawTMetaVar(r,a) ->
-            match metavars.TryGetValue a with
-            | true, id' -> metavars'.Add(a,fun (id, on_succ, on_fail) -> ETypeEq(p r,TV id',id,on_succ,on_fail)); env
-            | _ ->
-                let id', env = add_ty_var env a
-                metavars.Add(a,id')
-                metavars'.Add(a,fun (id,on_succ,_) -> ETypeLet(p r,id',TV id,on_succ))
-                env
-        | RawTApply(_,a,b) | RawTFun(_,a,b) | RawTPair(_,a,b) -> f (f env a) b
-        | RawTLayout(_,a,_) | RawTArray(_,a) -> f env a
-        | RawTUnion(_,a,_) | RawTRecord(_,a) -> Map.fold (fun s k v -> f s v) env a
-        | RawTMacro(_,a) -> a |> List.fold (fun env -> function RawMacroTypeVar(_,a) -> f env a | _ -> env) env
-
-    metavars', f env x
-
 let process_term (x : E) =
     let scope = propagate (Choice1Of2 x)
     resolve scope (Choice1Of2 x)
@@ -861,47 +821,49 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
     let at_tag i = { package_id = package_id; module_id = module_id; tag = i }
     let v_term (env : Env) x = Map.tryFind x env.term.env |> Option.defaultWith (fun () -> top_env.term.[x])
     let v_ty (env : Env) x =  Map.tryFind x env.ty.env |> Option.defaultWith (fun () -> top_env.ty.[x])
-    let rec compile_pattern id (l : (CompilePatternEnv * Pattern * E) list) =
-        let loop (ve : CompilePatternEnv, pat, on_succ) on_fail =
-            let var_count = ref (id + ve.vars.Count)
-            let patvar () = incr var_count; !var_count
+    
+    let rec compile_pattern (id : Id) (clauses : (Pattern * E) list) =
+        let mutable var_count = id
+        let patvar () = var_count <- var_count+1; var_count
+        let loop (pat, on_succ) on_fail = 
+            let dict = Dictionary(HashIdentity.Structural)
             let rec cp id pat on_succ on_fail =
+                let v x = Utils.memoize dict (fun _ -> patvar()) x
                 let step pat on_succ = 
                     match pat with
-                    | PatVar(_,x) -> ve.vars.[x], on_succ
+                    | PatVar(_,x) -> v x, on_succ
                     | _ -> let id = patvar() in id, cp id pat on_succ on_fail
                 match pat with
                 | PatDefaultValue _ -> failwith "Compiler error: The default value should be filled."
                 | PatE _ -> on_succ
                 | PatB r -> EUnitTest(p r,id,on_succ,on_fail)
-                | PatVar(r,a) -> ELet(p r,ve.vars.[a],EV id,on_succ)
-                | PatAnnot(r,a,b) -> EAnnotTest(p r,ty ve.envs.[pat] b,id,cp id a on_succ on_fail,on_fail)
+                | PatVar(r,a) -> ELet(p r,v a,EV id,on_succ)
+                | PatAnnot(r,a,b) -> EAnnotTest(p r,failwith "TODO",id,cp id a on_succ on_fail,on_fail)
                 | PatPair(r,a,b) ->
                     let b,on_succ = step b on_succ
                     let a,on_succ = step a on_succ
                     EPairTest(p r,id,a,b,on_succ,on_fail)
                 | PatSymbol(r,a) -> ESymbolTest(p r,a,id,on_succ,on_fail)
                 | PatRecordMembers(r,items) ->
-                    let env = ve.envs.[pat]
                     let binds, on_succ =
                         List.mapFoldBack (fun item on_succ ->
                             match item with
                             | PatRecordMembersSymbol((r,keyword),name) -> let arg, on_succ = step name on_succ in Symbol((p r,keyword),arg), on_succ
-                            | PatRecordMembersInjectVar((r,var),name) -> let arg, on_succ = step name on_succ in Var((p r,v_term env var),arg), on_succ
+                            | PatRecordMembersInjectVar((r,var),name) -> let arg, on_succ = step name on_succ in Var((p r,failwith "TODO"),arg), on_succ
                             ) items on_succ
                     ERecordTest(p r,binds,id,on_succ,on_fail)
                 | PatOr(r,a,b) -> let on_succ = EPatternMemo on_succ in cp id a on_succ (cp id b on_succ on_fail)
                 | PatAnd(r,a,b) -> let on_fail = EPatternMemo on_fail in cp id a (cp id b on_succ on_fail) on_fail
                 | PatValue(r,x) -> ELitTest(p r,x,id,on_succ,on_fail)
-                | PatWhen(r,p',e) -> cp id p' (EIfThenElse(p r, term ve.envs.[pat] e, on_succ, on_fail)) on_fail
-                | PatNominal(r,(_,a),b) -> let id', on_succ = step b on_succ in ENominalTest(p r,v_ty ve.envs.[pat] a,id,id',on_succ,on_fail)
-                | PatFilledDefaultValue(r,a,b) -> EDefaultLitTest(p r,a,ty ve.envs.[pat] b,id,on_succ,on_fail)
+                | PatWhen(r,p',e) -> cp id p' (EIfThenElse(p r,failwith "TODO", on_succ, on_fail)) on_fail
+                | PatNominal(r,(_,a),b) -> let id', on_succ = step b on_succ in ENominalTest(p r,failwith "TODO",id,id',on_succ,on_fail)
+                | PatFilledDefaultValue(r,a,b) -> EDefaultLitTest(p r,a,failwith "TODO",id,on_succ,on_fail)
                 | PatDyn(r,a) -> let id' = patvar() in ELet(p r,id',EOp(p r,Dyn,[EV id]),cp id' a on_succ on_fail)
                 | PatUnbox(r,a) -> let id' = patvar() in EUnbox(p r,id',EV id,cp id' a on_succ on_fail)
 
             cp id pat on_succ (EPatternMemo on_fail)
-        List.foldBack loop l (EPatternMiss(EV id))
-    and compile_clauses env clauses = List.map (fun (pat,on_succ) -> let x,env = make_compile_pattern_env env pat in x,pat,term env on_succ) clauses
+        List.foldBack loop clauses (EPatternMiss(EV id))
+
     and pattern_match (env : Env) r body clauses =
         match clauses with
         | [PatVar(_,x), on_succ] ->
@@ -909,7 +871,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
             ELet(r,id,body,term env on_succ)
         | _ ->
             let id,env = fresh_term_var env
-            ELet(r,id,body,compile_pattern id (compile_clauses env clauses))
+            ELet(r,id,body,compile_pattern id clauses)
     and pattern_function env r clauses annot =
         match clauses with
         | [PatVar(_,x), on_succ] ->
@@ -917,47 +879,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
             EFun(r,id,term env on_succ,annot)
         | _ ->
             let id,env = fresh_term_var env
-            EFun(r,id,compile_pattern id (compile_clauses env clauses),annot)
-    and compile_typecase id l =
-        let loop ((vars : Dictionary<_,_>, env : Env), pat, on_succ) on_fail =
-            let var_count = ref env.ty.i
-            let patvar () = let x = !var_count in incr var_count; x
-            let rec cp id pat on_succ on_fail =
-                let step pat on_succ = let id = patvar() in id, cp id pat on_succ on_fail
-                match pat with
-                | RawTFilledNominal _ | RawTTerm _ | RawTForall _ -> failwith "Compiler error: This case is not supposed to appear in typecase."
-                | RawTWildcard _ -> on_succ
-                | RawTMetaVar(_,a) -> vars.[a] (id,on_succ,on_fail)
-                | RawTPair(r,a,b) ->
-                    let b,on_succ = step b on_succ
-                    let a,on_succ = step a on_succ
-                    ETypePairTest(p r,id,a,b,on_succ,on_fail)
-                | RawTFun(r,a,b) ->
-                    let b,on_succ = step b on_succ
-                    let a,on_succ = step a on_succ
-                    ETypeFunTest(p r,id,a,b,on_succ,on_fail)
-                | RawTApply(r,a,b) -> 
-                    let b,on_succ = step b on_succ
-                    let a,on_succ = step a on_succ
-                    ETypeApplyTest(p r,id,a,b,on_succ,on_fail)
-                | RawTArray(r,a) ->
-                    let a,on_succ = step a on_succ
-                    ETypeArrayTest(p r,id,a,on_succ,on_fail)
-                | RawTRecord(r,a) ->
-                    let m,on_succ =
-                        Map.foldBack (fun k pat (s, on_succ) ->
-                            let id,on_succ = step pat on_succ
-                            Map.add k id s, on_succ
-                            ) a (Map.empty, on_succ)
-                    ETypeRecordTest(p r,m,id,on_succ,on_fail)
-                | RawTVar _ | RawTSymbol _ | RawTB _ | RawTPrim _ | RawTMacro _ | RawTUnion _ | RawTLayout _ -> 
-                    ETypeEq(p (range_of_texpr pat),ty env pat,id,on_succ,on_fail)
-            cp id pat on_succ (EPatternMemo on_fail)
-        List.foldBack loop l (EPatternMiss(EV id))
-    and typecase (env : Env) r body clauses =
-        let id, env = fresh_ty_var env
-        let l = clauses |> List.map (fun (pat,on_succ) -> let _,env as x = make_compile_typecase_env path env pat in x,pat,term env on_succ)
-        ETypeLet(r,id,body,compile_typecase id l)
+            EFun(r,id,compile_pattern id clauses,annot)
     and ty (env : Env) x =
         let f = ty env
         match x with
