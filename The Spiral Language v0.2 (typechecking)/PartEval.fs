@@ -569,6 +569,7 @@ let peval (env : TopEnv) (x : E) =
         | _ -> raise_type_error s <| sprintf "Expected a nominal or a deferred type apply.\nGot: %s" (show_ty x)
     and ty s x =
         match x with
+        | TPatternRef _ -> failwith "Compiler error: TPatternRef should have been eliminated during the prepass."
         | TArrow _ | TJoinPoint _ -> failwith "Compiler error: Should have been transformed during the prepass."
         | TArrow'(scope,i,body) -> 
             assert (i = scope.ty.free_vars.Length)
@@ -789,6 +790,7 @@ let peval (env : TopEnv) (x : E) =
             DFunction(body,annot,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
 
         match x with
+        | EPatternRef _ -> failwith "Compiler error: EPatternRef should have been eliminated during the prepass."
         | EB _ -> DB
         | EV a -> v s a
         | ELit(_,a) -> DLit a

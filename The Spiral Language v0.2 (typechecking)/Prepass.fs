@@ -32,6 +32,7 @@ and [<ReferenceEquality>] E =
     | ERecursiveFun' of Range * Scope * Id * E ref * T option
     | ERecursiveForall' of Range * Scope * Id * E ref
     | ERecursive of E ref // For global mutually recursive functions
+    | EPatternRef of E ref
     | EJoinPoint' of Range * Scope * E * T option
     | EFun of Range * Id * E * T option
     | EForall of Range * Id * E
@@ -84,6 +85,7 @@ and [<ReferenceEquality>] T =
     | TArrow of Id * T
     | TJoinPoint' of Range * Scope * T
     | TJoinPoint of Range * T
+    | TPatternRef of T ref
     | TB of Range
     | TV of Id
     | TPair of Range * T * T
@@ -197,6 +199,7 @@ module Printable =
     let eval x =
         let recs = System.Collections.Generic.HashSet(HashIdentity.Reference)
         let rec term = function
+            | E.EPatternRef a -> term !a
             | E.EFun'(_,a,b,c,d) -> EFun'(a,b,term c,Option.map ty d)
             | E.EForall'(_,a,b,c) -> EForall'(a,b,term c)
             | E.ERecursiveFun'(_,a,b,c,d) -> 
@@ -284,6 +287,7 @@ module Printable =
             | E.ETypeArrayTest(_,a,b,c,d) -> ETypeArrayTest(a,b,term c,term d)
             | E.ETypeEq(_,a,b,c,d) -> ETypeEq(ty a,b,term c,term d)
         and ty = function
+            | T.TPatternRef a -> ty !a
             | T.TArrow'(a,b,c) -> TArrow'(a,b,ty c)
             | T.TArrow(a,b) -> TArrow(a,ty b)
             | T.TJoinPoint'(_,a,b) -> TJoinPoint'(a,ty b)
@@ -385,6 +389,7 @@ let propagate x =
     let rec term x =
         match x with
         | EFun' _ | EForall' _ | ERecursiveFun' _ | ERecursiveForall' _ | ERecursive _ | EJoinPoint' _ | EModule _ | ESymbol _ | ELit _ | EB _ -> empty
+        | EPatternRef a -> term !a
         | EV i -> singleton_term i
         | EPrototypeApply(_,_,a) | EType(_,a) | EDefaultLit(_,_,a) -> ty a
         | ESeq(_,a,b) | EPair(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
@@ -438,6 +443,7 @@ let propagate x =
         | ETypeEq(_,t,bind,on_succ,on_fail) -> singleton_ty bind + ty t + term on_succ + term on_fail
     and ty = function
         | TJoinPoint' _ | TArrow' _ | TSymbol _ | TPrim _ | TNominal _ | TB _ -> empty
+        | TPatternRef a -> ty !a
         | TV i -> singleton_ty i
         | TApply(_,a,b) | TPair(_,a,b) | TFun(_,a,b) -> ty a + ty b
         | TUnion(_,(a,_)) | TRecord(_,a) | TModule a -> Map.fold (fun s k v -> s + ty v) empty a
@@ -479,6 +485,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         let f = term env
         match x with
         | EForall' _ | EFun' _ | ERecursiveForall' _ | ERecursiveFun' _ | ERecursive _ | EJoinPoint' _ | EModule _ | EV _ | ESymbol _ | ELit _ | EB _ -> ()
+        | EPatternRef a -> f !a
         | EDefaultLit(_,_,a) | EPrototypeApply(_,_,a) | EType(_,a) -> ty env a
         | EJoinPoint(_,a,b) | EFun(_,_,a,b) -> subst env x; f a; Option.iter (ty env) b
         | EForall(_,_,a) -> subst env x; f a
@@ -528,6 +535,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         let f = ty env
         match x with
         | TJoinPoint' _ | TArrow' _ | TNominal _ | TPrim _ | TSymbol _ | TV _ | TB _ -> ()
+        | TPatternRef a -> f !a
         | TArrow(_,a) -> subst env x; f a
         | TApply(_,a,b) | TFun(_,a,b) | TPair(_,a,b) -> f a; f b
         | TRecord(_,a) | TModule a | TUnion(_,(a,_)) -> Map.iter (fun _ -> f) a
@@ -574,6 +582,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         let g = ty env_rec
         match x with
         | EForall' _ | EJoinPoint' _ | EFun' _ | ERecursiveForall' _ | ERecursiveFun' _ | ERecursive _ | EModule _ | ESymbol _ | ELit _ | EB _ -> x
+        | EPatternRef a -> f !a
         | EFun(r,pat,body,t) -> 
             let scope, env = scope env x 
             let pat, env = adj_term env pat
@@ -745,6 +754,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         let f = ty env_rec env
         match x with
         | TJoinPoint' _ | TArrow' _ | TNominal  _ | TPrim _ | TSymbol _ | TB _ -> x
+        | TPatternRef a -> f !a
         | TJoinPoint(r,a) ->
             let scope, env = scope env x 
             TJoinPoint'(r,scope,ty env_rec env a)
@@ -822,13 +832,25 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
     let v_term (env : Env) x = Map.tryFind x env.term.env |> Option.defaultWith (fun () -> top_env.term.[x])
     let v_ty (env : Env) x =  Map.tryFind x env.ty.env |> Option.defaultWith (fun () -> top_env.ty.[x])
     
-    let rec compile_pattern (id : Id) (clauses : (Pattern * E) list) =
-        let mutable var_count = id
-        let patvar () = var_count <- var_count+1; var_count
+    let rec compile_pattern (id : Id) (env : Env) (clauses : (Pattern * RawExpr) list) =
+        let mutable var_count = env.term.i
+        let patvar () = let x = var_count in var_count <- var_count+1; x
         let loop (pat, on_succ) on_fail = 
-            let dict = Dictionary(HashIdentity.Structural)
+            let mutable dict = Map.empty
+            let pat_refs_term = ResizeArray()
+            let pat_ref_term x = let re = ref Unchecked.defaultof<_> in pat_refs_term.Add(x,dict,re); EPatternRef re
+            let pat_ref_term' x k = 
+                let re = ref Unchecked.defaultof<_> 
+                let r = k (EPatternRef re)
+                pat_refs_term.Add(x,dict,re)
+                r
+            let pat_refs_ty = ResizeArray()
+            let pat_ref_ty x = let re = ref Unchecked.defaultof<_> in pat_refs_ty.Add(x,dict,re); TPatternRef re
             let rec cp id pat on_succ on_fail =
-                let v x = Utils.memoize dict (fun _ -> patvar()) x
+                let v x = 
+                    match Map.tryFind x dict with
+                    | Some x -> x
+                    | None -> let v = patvar() in dict <- Map.add x v dict; v
                 let step pat on_succ = 
                     match pat with
                     | PatVar(_,x) -> v x, on_succ
@@ -838,31 +860,101 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                 | PatE _ -> on_succ
                 | PatB r -> EUnitTest(p r,id,on_succ,on_fail)
                 | PatVar(r,a) -> ELet(p r,v a,EV id,on_succ)
-                | PatAnnot(r,a,b) -> EAnnotTest(p r,failwith "TODO",id,cp id a on_succ on_fail,on_fail)
+                | PatAnnot(r,a,b) -> EAnnotTest(p r,pat_ref_ty b,id,cp id a on_succ on_fail,on_fail)
                 | PatPair(r,a,b) ->
                     let b,on_succ = step b on_succ
                     let a,on_succ = step a on_succ
                     EPairTest(p r,id,a,b,on_succ,on_fail)
                 | PatSymbol(r,a) -> ESymbolTest(p r,a,id,on_succ,on_fail)
                 | PatRecordMembers(r,items) ->
+                    let inject_vars = Dictionary(HashIdentity.Reference)
+                    List.iter (function
+                        | PatRecordMembersSymbol _ -> ()
+                        | PatRecordMembersInjectVar((_,var),_) -> 
+                            match dict.TryGetValue(var) with
+                            | true, x -> inject_vars.[var] <- EV x
+                            | _ -> inject_vars.[var] <- v_term env var
+                        ) items
                     let binds, on_succ =
                         List.mapFoldBack (fun item on_succ ->
                             match item with
                             | PatRecordMembersSymbol((r,keyword),name) -> let arg, on_succ = step name on_succ in Symbol((p r,keyword),arg), on_succ
-                            | PatRecordMembersInjectVar((r,var),name) -> let arg, on_succ = step name on_succ in Var((p r,failwith "TODO"),arg), on_succ
+                            | PatRecordMembersInjectVar((r,var),name) -> let arg, on_succ = step name on_succ in Var((p r,inject_vars.[var]),arg), on_succ
                             ) items on_succ
                     ERecordTest(p r,binds,id,on_succ,on_fail)
                 | PatOr(r,a,b) -> let on_succ = EPatternMemo on_succ in cp id a on_succ (cp id b on_succ on_fail)
                 | PatAnd(r,a,b) -> let on_fail = EPatternMemo on_fail in cp id a (cp id b on_succ on_fail) on_fail
                 | PatValue(r,x) -> ELitTest(p r,x,id,on_succ,on_fail)
-                | PatWhen(r,p',e) -> cp id p' (EIfThenElse(p r,failwith "TODO", on_succ, on_fail)) on_fail
-                | PatNominal(r,(_,a),b) -> let id', on_succ = step b on_succ in ENominalTest(p r,failwith "TODO",id,id',on_succ,on_fail)
-                | PatFilledDefaultValue(r,a,b) -> EDefaultLitTest(p r,a,failwith "TODO",id,on_succ,on_fail)
+                | PatWhen(r,p',e) -> pat_ref_term' e (fun e -> cp id p' (EIfThenElse(p r, e, on_succ, on_fail)) on_fail)
+                | PatNominal(r,(_,a),b) -> let id', on_succ = step b on_succ in ENominalTest(p r,v_ty env a,id,id',on_succ,on_fail)
+                | PatFilledDefaultValue(r,a,b) -> EDefaultLitTest(p r,a,pat_ref_ty b,id,on_succ,on_fail)
                 | PatDyn(r,a) -> let id' = patvar() in ELet(p r,id',EOp(p r,Dyn,[EV id]),cp id' a on_succ on_fail)
                 | PatUnbox(r,a) -> let id' = patvar() in EUnbox(p r,id',EV id,cp id' a on_succ on_fail)
+            (pat_refs_term, pat_refs_ty), pat_ref_term' on_succ (fun on_succ -> cp id pat on_succ (EPatternMemo on_fail))
 
-            cp id pat on_succ (EPatternMemo on_fail)
-        List.foldBack loop clauses (EPatternMiss(EV id))
+        let l, e = List.mapFoldBack loop clauses (EPatternMiss(EV id))
+        l |> List.iter (fun (terms,tys) ->
+            let env dict = {env with term = {|env.term with i=var_count; env=dict |> Map.fold (fun s k v -> Map.add k (EV v) s) env.term.env|} }
+            terms |> Seq.iter (fun (a,dict,b) -> b := term (env dict) a)
+            tys |> Seq.iter (fun (a,dict,b) -> b := ty (env dict) a)
+            )
+        e
+
+    and compile_typecase id (env : Env) (clauses : (RawTExpr * RawExpr) list) =
+        let mutable var_count = env.term.i
+        let patvar () = let x = var_count in var_count <- var_count+1; x
+        let loop (pat, on_succ) on_fail =
+            let mutable dict = Map.empty
+            let pat_refs_term = ResizeArray()
+            let pat_ref_term' x k = 
+                let re = ref Unchecked.defaultof<_> 
+                let r = k (EPatternRef re)
+                pat_refs_term.Add(x,dict,re)
+                r
+            let rec cp id pat on_succ on_fail =
+                let step pat on_succ = let id = patvar() in id, cp id pat on_succ on_fail
+                match pat with
+                | RawTFilledNominal _ | RawTTerm _ | RawTForall _ -> failwith "Compiler error: This case is not supposed to appear in typecase."
+                | RawTWildcard _ -> on_succ
+                | RawTMetaVar(r,a) -> 
+                    match Map.tryFind a dict with
+                    | Some v -> ETypeEq(p r,TV v,id,on_succ,on_fail)
+                    | None ->
+                        let v = patvar()
+                        dict <- Map.add a v dict
+                        ETypeLet(p r,v,TV id,on_succ)
+                | RawTPair(r,a,b) ->
+                    let b,on_succ = step b on_succ
+                    let a,on_succ = step a on_succ
+                    ETypePairTest(p r,id,a,b,on_succ,on_fail)
+                | RawTFun(r,a,b) ->
+                    let b,on_succ = step b on_succ
+                    let a,on_succ = step a on_succ
+                    ETypeFunTest(p r,id,a,b,on_succ,on_fail)
+                | RawTApply(r,a,b) -> 
+                    let b,on_succ = step b on_succ
+                    let a,on_succ = step a on_succ
+                    ETypeApplyTest(p r,id,a,b,on_succ,on_fail)
+                | RawTArray(r,a) ->
+                    let a,on_succ = step a on_succ
+                    ETypeArrayTest(p r,id,a,on_succ,on_fail)
+                | RawTRecord(r,a) ->
+                    let m,on_succ =
+                        Map.foldBack (fun k pat (s, on_succ) ->
+                            let id,on_succ = step pat on_succ
+                            Map.add k id s, on_succ
+                            ) a (Map.empty, on_succ)
+                    ETypeRecordTest(p r,m,id,on_succ,on_fail)
+                | RawTVar _ | RawTSymbol _ | RawTB _ | RawTPrim _ | RawTMacro _ | RawTUnion _ | RawTLayout _ -> 
+                    ETypeEq(p (range_of_texpr pat),ty env pat,id,on_succ,on_fail)
+            pat_refs_term, pat_ref_term' on_succ (fun on_succ -> cp id pat on_succ (EPatternMemo on_fail))
+
+        let l, e = List.mapFoldBack loop clauses (EPatternMiss(EV id))
+        l |> List.iter (fun terms ->
+            let env dict = {env with ty = {|env.ty with i=var_count; env=dict |> Map.fold (fun s k v -> Map.add k (TV v) s) env.ty.env|} }
+            terms |> Seq.iter (fun (a,dict,b) -> b := term (env dict) a)
+            )
+        e
 
     and pattern_match (env : Env) r body clauses =
         match clauses with
@@ -871,7 +963,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
             ELet(r,id,body,term env on_succ)
         | _ ->
             let id,env = fresh_term_var env
-            ELet(r,id,body,compile_pattern id clauses)
+            ELet(r,id,body,compile_pattern id env clauses)
     and pattern_function env r clauses annot =
         match clauses with
         | [PatVar(_,x), on_succ] ->
@@ -879,7 +971,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
             EFun(r,id,term env on_succ,annot)
         | _ ->
             let id,env = fresh_term_var env
-            EFun(r,id,compile_pattern id clauses,annot)
+            EFun(r,id,compile_pattern id env clauses,annot)
     and ty (env : Env) x =
         let f = ty env
         match x with
@@ -925,7 +1017,10 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawMatch(r,a,b) -> pattern_match env (p r) (f a) b
         | RawFun(r,a) -> pattern_function env (p r) a None
         | RawAnnot(_,RawFun(r,a),t) -> pattern_function env (p r) a (Some (ty env t))
-        | RawTypecase(r,a,b) -> typecase env (p r) (ty env a) b
+        | RawTypecase(r,a,b) ->
+            let a = ty env a
+            let id, env = fresh_ty_var env
+            ETypeLet(p r,id,a,compile_typecase id env b)
         | RawFilledForall(r,name,b)
         | RawForall(r,((_,(name,_)),_),b) -> 
             let id, env = add_ty_var env name
