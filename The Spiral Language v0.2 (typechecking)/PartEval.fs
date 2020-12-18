@@ -102,7 +102,7 @@ and TypedOp =
     | TyMacro of CodeMacro list
     | TyOp of Op * Data list
     | TyUnionBox of string * Data * Union
-    | TyUnionUnbox of Tag * Union * Map<string,Data * TypedBind []>
+    | TyUnionUnbox of Tag list * Union * Map<string,Data list * TypedBind []> * TypedBind [] option
     | TyLayoutToHeap of Data * Ty
     | TyLayoutToHeapMutable of Data * Ty
     | TyLayoutIndexAll of L<Tag,Ty * Layout>
@@ -956,7 +956,7 @@ let peval (env : TopEnv) (x : E) =
                 let a_ty = data_to_ty s a
                 if a_ty = b' then DNominal(a,b)
                 else raise_type_error s <| sprintf "Type error in nominal constructor.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty b')
-        | EOp(r,UnboxedIs,[a]) -> 
+        | EOp(r,UnboxedIs,[a]) -> // TODO: Redesign this one.
             match term s a with
             | DNominal(DUnion _,_) -> DLit(LitBool true)
             | _ -> DLit(LitBool false)
@@ -980,10 +980,66 @@ let peval (env : TopEnv) (x : E) =
                             match case_ty with
                             | Some x_ty -> if x_ty' <> x_ty then raise_type_error s <| sprintf "One union case for key %s has a different return that the previous one.\nGot: %s\nExpected: %s" k (show_ty x_ty') (show_ty x_ty)
                             | None -> case_ty <- Some x_ty'
-                            a, seq_apply s x
+                            [a], seq_apply s x
                             ) (fst h.Item)
-                    push_typedop_no_rewrite s (TyUnionUnbox(i,h,cases)) (Option.get case_ty)
+                    push_typedop_no_rewrite s (TyUnionUnbox([i],h,cases,None)) (Option.get case_ty)
             | a -> raise_type_error s <| sprintf "Expected an union type.\nGot: %s" (show_data a)
+        | EOp(r,Unbox2,[a;b;on_succ;on_fail]) ->
+            let s = add_trace s r
+            let on_succ = term s on_succ
+            let on_fail = term s on_fail
+            let mutable case_ty = None
+            let s' () = {s with i = ref !s.i; cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
+            let assert_case_ty s x =
+                let x_ty' = data_to_ty s x
+                match case_ty with
+                | Some x_ty -> if x_ty' <> x_ty then raise_type_error s <| sprintf "One union case has a different return than the previous one.\nGot: %s\nExpected: %s" (show_ty x_ty') (show_ty x_ty)
+                | None -> case_ty <- Some x_ty'
+            let run s x =
+                let x = apply s x |> dyn false s
+                assert_case_ty s x
+                seq_apply s x
+            let case_on_fail () = run (s'()) (on_fail, DB)
+            let key_value = function
+                | DPair(DSymbol k, a) -> k, a
+                | _ -> failwith "Compiler error: Malformed union."
+            match term s a, term s b with
+            | DNominal(DUnion(_,h),_), DNominal(DUnion(_,h'),_) when h <> h' ->
+                raise_type_error s <| sprintf "The two variables have different union types.\nGot: %s\nGot: %s" (show_ty (YUnion h)) (show_ty (YUnion h'))
+            | DNominal(DUnion(a,_),_), DNominal(DUnion(a',_),_) ->
+                let k,a = key_value a
+                let k',a' = key_value a'
+                if k = k' then apply s (on_succ, DPair(DSymbol k, DPair(a, a')))
+                else apply s (on_fail, DB)
+            | DNominal(DV(L(_,YUnion h)),_), DNominal(DUnion(_,h'),_) | DNominal(DUnion(_,h),_), DNominal(DV(L(_,YUnion h')),_) when h <> h' ->
+                raise_type_error s <| sprintf "The two variables have different union types.\nGot: %s\nGot: %s" (show_ty (YUnion h)) (show_ty (YUnion h'))
+            | DNominal(DUnion(a,_),_), DNominal(DV(L(i,YUnion h)),_) ->
+                let k,a = key_value a
+                let v = (fst h.Item).[k]
+                let case_on_succ =
+                    let s = s'()
+                    let a' = ty_to_data s v
+                    [a'], run s (on_succ, DPair(DSymbol k, DPair(a, a')))
+                push_typedop_no_rewrite s (TyUnionUnbox([i],h,Map.add k case_on_succ Map.empty,Some (case_on_fail()))) (Option.get case_ty)
+            | DNominal(DV(L(i,YUnion h)),_), DNominal(DUnion(a',_),_) ->
+                let k,a' = key_value a'
+                let v = (fst h.Item).[k]
+                let case_on_succ =
+                    let s = s'()
+                    let a = ty_to_data s v
+                    [a], run s (on_succ, DPair(DSymbol k, DPair(a, a')))
+                push_typedop_no_rewrite s (TyUnionUnbox([i],h,Map.add k case_on_succ Map.empty,Some (case_on_fail()))) (Option.get case_ty)
+            | DNominal(DV(L(_,YUnion h & t)),_), DNominal(DV(L(_,YUnion h' & t')),_) when h <> h' -> 
+                raise_type_error s <| sprintf "The two variables have different union types.\nGot: %s\nGot: %s" (show_ty t) (show_ty t')
+            | DNominal(DV(L(i,YUnion h)),_), DNominal(DV(L(i',YUnion _)),_) ->
+                let cases_on_succ =
+                    Map.map (fun k v ->
+                        let s = s'()
+                        let a,a' = ty_to_data s v, ty_to_data s v
+                        [a;a'], run s (on_succ, DPair(DSymbol k, DPair(a, a')))
+                        ) (fst h.Item)
+                push_typedop_no_rewrite s (TyUnionUnbox([i;i'],h,cases_on_succ,Some (case_on_fail()))) (Option.get case_ty)
+            | a,a' -> raise_type_error s <| sprintf "Expected two union types.\nGot: %s\nAnd: %s" (show_data a) (show_data a')
         | ELet(r,i,a,b) -> let s = add_trace s r in store_term s i (term s a); term s b
         | EPairTest(r,bind,p1,p2,on_succ,on_fail) ->
             let s = add_trace s r

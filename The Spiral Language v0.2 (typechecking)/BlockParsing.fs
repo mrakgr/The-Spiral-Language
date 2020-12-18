@@ -39,6 +39,7 @@ type Op =
     // Union
     | Unbox
     | UnboxedIs
+    | Unbox2
 
     // String
     | StringLength
