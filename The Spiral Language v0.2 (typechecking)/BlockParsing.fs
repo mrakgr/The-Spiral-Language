@@ -1009,7 +1009,10 @@ and root_term d =
                             (many ((read_symbol |>> RawSymbol) <|> (skip_op "$" >>. read_small_var' |>> RawV)))
                             ((skip_keyword SpecWith >>. sepBy record_with_bodies (optional (skip_op ";"))) <|>% [])
                             ((skip_keyword SpecWithout >>. many record_without_bodies) <|>% [])))
-                |>> fun (r,(name, acs, withs, withouts)) -> (r,RawV name :: acs,withs,withouts)
+                |>> fun (r,(name, acs, withs, withouts)) -> 
+                    match withs, withouts with
+                    | [], [] -> (r,[],[RawRecordWithSymbol(name,RawV name)],[])
+                    | _ -> (r,RawV name :: acs,withs,withouts)
 
             restore 2 record_with <|> record_create
             >>= fun (_,_,withs,withouts as x) _ ->

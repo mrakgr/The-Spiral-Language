@@ -1,3 +1,4 @@
+// Save The Princess HackerRank problem.
 open list
 open option
 union cell = Princess | Empty

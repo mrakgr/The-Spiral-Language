@@ -1,3 +1,4 @@
+// Games of Stones HackerRank problem.
 open option
 open list
 open result
@@ -39,8 +40,9 @@ inl (.<<) a b =
     on_succ a
 
 inl EOL : char = $"System.Char.MaxValue"
-inl peek' index = cps_parser fun str i {on_succ} =>
-    if i + index <= 0 && i + index < string.length str then on_succ (string.index str i, i)
+inl peek' offset = cps_parser fun str i {on_succ} =>
+    inl i' = i + offset
+    if 0 <= i' && i' < string.length str then on_succ (string.index str i', i)
     else on_succ (EOL, i)
 inl Peek = peek' 0
 
@@ -61,7 +63,7 @@ inl AnyChar' = cps_parser fun str i {on_succ on_fail} =>
 inl AnyChar = conv AnyChar'
 
 inl char_to_string (x : char): string = $"string !x"
-inl char_to_i32 (x : char): i32 = $"int !x"
+inl char_to_digit (x : char): i32 = $"int !x - int '0'"
 
 inl char' x = cps_parser fun str i {on_succ on_fail} =>
     run_cps AnyChar' str i {
@@ -70,10 +72,12 @@ inl char' x = cps_parser fun str i {on_succ on_fail} =>
     }
 inl char x = conv (char' x)
 
-inl is_digit x = char_to_i32 '0' <= char_to_i32 x && char_to_i32 x <= char_to_i32 '9'
+inl is_digit x = 0 <= x && x <= 9
 inl Digit = parser fun str i =>
     run_cps AnyChar' str i {
-        on_succ = fun ok, i => if is_digit ok then (Ok:), i else (Error: list.singleton "digit"), i
+        on_succ = fun ok, i => 
+            inl ok = char_to_digit ok
+            if is_digit ok then (Ok:), i else (Error: list.singleton "digit"), i
         on_fail = fun error, i => (Error:), i
     }
 
@@ -81,10 +85,12 @@ inl I32 = parser fun str i =>
     let rec loop i was_parsed s =
         match run Digit str i with
         | (Ok: c), i => 
-            inl s' = s * 10 + char_to_i32 c
+            inl s' = s * 10 + c
             if s <= 214_748_364 && 0 <= s' then loop i true s'
             else (Error: list.singleton "The number is too large to be parsed as 32 bit int."), i
-        | (Error: _), i => if was_parsed then (Ok: s), i else (Error: list.singleton "i32"), i
+        | (Error: _), i => 
+            if was_parsed then (Ok: s), i 
+            else (Error: list.singleton "i32"), i
     loop i false 0
 
 inl Spaces = parser fun str i =>
@@ -154,11 +160,11 @@ inl main () =
     inl p =
         (I32 .<< Spaces) >>= fun nearTo =>
             let rec loop i =
-                if i < nearTo then (I32 .<< Spaces) >>= (game_of_stones' >> show >> writeline >> on_succ)
+                if i < nearTo then (I32 .<< Spaces) >>= (game_of_stones' >> show >> writeline >> fun () => loop (i+1))
                 else on_succ ()
             loop 0
     // let example = Readall
-    let ~example = "6 1 2 3 4 5 6"
+    let ~example = "8 1 2 3 4 5 6 7 10"
     match run p example 0 with
     | (Error: ers), i => 
         $"printfn \"Parsing failed at position %i\" !i"
