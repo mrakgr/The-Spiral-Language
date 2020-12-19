@@ -956,10 +956,6 @@ let peval (env : TopEnv) (x : E) =
                 let a_ty = data_to_ty s a
                 if a_ty = b' then DNominal(a,b)
                 else raise_type_error s <| sprintf "Type error in nominal constructor.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty b')
-        | EOp(r,UnboxedIs,[a]) -> // TODO: Redesign this one.
-            match term s a with
-            | DNominal(DUnion _,_) -> DLit(LitBool true)
-            | _ -> DLit(LitBool false)
         | EUnbox(r,id,a,b) ->
             let s = add_trace s r
             match term s a with
@@ -1688,18 +1684,70 @@ let peval (env : TopEnv) (x : E) =
             | YPrim Float32T -> DLit (LitFloat32 infinityf)
             | YPrim Float64T -> DLit (LitFloat64 infinity)
             | a -> raise_type_error s "Expected a float.\nGot: %s" (show_ty a)
-        | EOp(_,LitIs,[a]) -> 
+        | EOp(_,LitIs,[a]) ->
             match term s a with
             | DLit _ -> DLit (LitBool true)
             | _ -> DLit (LitBool false)
-        | EOp(_,PrimIs,[a]) -> 
+        | EOp(_,PrimIs,[a]) ->
             match term s a |> data_to_ty s with
             | YPrim _ -> DLit (LitBool true)
             | _ -> DLit (LitBool false)
-        | EOp(_,SymbolIs,[a]) -> 
+        | EOp(_,SymbolIs,[a]) ->
             match term s a with
             | DSymbol _ -> DLit (LitBool true)
             | _ -> DLit (LitBool false)
+        | EOp(_,VarIs,[a]) ->
+            match term s a with
+            | DNominal(DV _, _) | DV _ -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
+        | EOp(_,UnionIs,[a]) -> 
+            match term s a with
+            | DNominal(DV(L(_,YUnion _)), _) | DNominal(DUnion _, _) -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
+        | EOp(_,HeapUnionIs,[a]) ->
+            match term s a with
+            | DNominal(DV(L(_,YUnion x)), _) | DNominal(DUnion(_,x), _) ->
+                match x.Item |> snd with UHeap -> true | UStack -> false
+                |> LitBool |> DLit
+            | _ -> DLit (LitBool false)
+        | EOp(_,LayoutIs,[a]) ->
+            match term s a with
+            | DV(L(_,YLayout _)) -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
+        | EOp(_,NominalIs,[a]) ->
+            match term s a with
+            | DNominal(_, _) -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
+        | EOp(_,NominalStrip,[a]) -> 
+            match term s a with
+            | DNominal(DV(L(_,YUnion _)), _) | DNominal(DUnion _, _) -> raise_type_error s "Cannot strip the nominal wrapper from an union."
+            | DNominal(a,_) -> a
+            | a -> raise_type_error s <| sprintf "Expected a nominal.\nGot: %s" (show_data a)
+        | EOp(_,PrototypeHas,[prot; EType(_,a)]) ->
+            let body (x : Nominal) =
+                let prot_er () = raise_type_error s "Expected a forall or a prototype apply."
+                let rec loop = function
+                    | EForall'(_,_,_,x) -> loop x
+                    | EPrototypeApply(_,prot_id,_) -> env.prototypes_instances.ContainsKey(prot_id,x.node.id) |> LitBool |> DLit
+                    | _ -> prot_er()
+                match term s prot with
+                | DForall(body,_,_,_,_) -> loop body
+                | _ -> prot_er()
+            let rec loop = function
+                | YNominal x -> body x
+                | YApply(l,_) -> loop l
+                | a -> raise_type_error s <| sprintf "Expected a nominal.\nGot: %s" (show_ty a)
+            loop (ty s a)
+        | EOp(_,AssertTypeEq,l) ->
+            List.fold (fun (i,a) b ->
+                let b = term s b
+                let b_ty = data_to_ty s b
+                match a with
+                | Some a_ty when a_ty = b_ty -> i+1, Some b_ty
+                | Some a_ty -> raise_type_error s <| sprintf "Var #%i has a different type from the previous ones.\nGot: %s\nExpected: %s" i (show_ty b_ty) (show_ty a_ty)
+                | None -> i+1, Some b_ty
+                ) (1,None) l |> ignore
+            DB
         | EOp(_,FailWith,[EType(_,typ);a]) ->
             match ty s typ, term s a with
             | typ, (DV(L(_,YPrim StringT)) | DLit(LitString _)) & a -> push_typedop_no_rewrite s (TyFailwith(typ,a)) typ

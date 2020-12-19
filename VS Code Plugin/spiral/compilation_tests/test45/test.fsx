@@ -6,7 +6,7 @@ and UH0 =
     | UH0_1
 and [<Struct>] US1 =
     | US1_0
-    | US1_1 of int32 * int32 * UH0
+    | US1_1 of f1_0 : int32 * f1_1 : int32 * f1_2 : UH0
 and Heap0 = {l0 : US1}
 and Mut0 = {mutable l0 : US1}
 let rec method1 (v0 : int32, v1 : int32, v2 : int32, v3 : int32, v4 : (US0 []), v5 : int32) : unit =

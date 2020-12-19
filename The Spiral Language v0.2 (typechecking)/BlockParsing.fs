@@ -38,7 +38,6 @@ type Op =
 
     // Union
     | Unbox
-    | UnboxedIs
     | Unbox2
 
     // String
@@ -92,18 +91,26 @@ type Op =
     // Infinity
     | Infinity
 
-    // Is
+    // Static is
     | LitIs
     | PrimIs
     | SymbolIs
+    | VarIs
+    | UnionIs
+    | HeapUnionIs
+    | LayoutIs
+    | NominalIs
+    | PrototypeHas
 
     // Panic
     | FailWith
+    | AssertTypeEq
 
     // Static unary operations
     | PrintStatic
     | PrintRaw
     | ErrorType
+    | NominalStrip
 
 type PatternCompilationErrors =
     | DisjointOrPatternVar
@@ -1010,12 +1017,9 @@ and root_term d =
                             (many ((read_symbol |>> RawSymbol) <|> (skip_op "$" >>. read_small_var' |>> RawV)))
                             ((skip_keyword SpecWith >>. sepBy record_with_bodies (optional (skip_op ";"))) <|>% [])
                             ((skip_keyword SpecWithout >>. many record_without_bodies) <|>% [])))
-                |>> fun (r,(name, acs, withs, withouts)) -> 
-                    match withs, withouts with
-                    | [], [] -> (r,[],[RawRecordWithSymbol(name,RawV name)],[])
-                    | _ -> (r,RawV name :: acs,withs,withouts)
+                |>> fun (r,(name, acs, withs, withouts)) -> (r,RawV name :: acs,withs,withouts)
 
-            restore 2 record_with <|> record_create
+            restore 2 record_create <|> record_with
             >>= fun (_,_,withs,withouts as x) _ ->
                 [
                 withs |> List.choose (function RawRecordWithSymbol(a,_) | RawRecordWithSymbolModify(a,_) -> Some a | _ -> None) |> duplicates DuplicateTermRecordSymbol

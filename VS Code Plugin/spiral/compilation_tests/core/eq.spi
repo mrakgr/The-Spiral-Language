@@ -1,0 +1,1 @@
+prototype equable a : a -> a -> bool

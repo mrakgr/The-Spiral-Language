@@ -265,23 +265,33 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             complex <| fun s ->
             line s (sprintf "while %s do" (jp a))
             binds (indent s) b
-        | TyUnionUnbox(i,x,l) ->
+        | TyUnionUnbox(is,x,on_succs,on_fail) ->
             complex <| fun s ->
-            line s (sprintf "match v%i with" i)
+            let case_tags = Dictionary()
+            fst x.Item |> Map.iter (fun k _ -> case_tags.[k] <- case_tags.Count)
+            line s (sprintf "match %s with" (is |> List.map (sprintf "v%i") |> String.concat ", "))
             let prefix = 
                 match x.Item with
                 | a,UHeap -> sprintf "UH%i" (uheap a).tag
                 | a,UStack -> sprintf "US%i" (ustack a).tag
-            Map.fold (fun i k (a,b) ->
-                let vars = 
-                    match data_free_vars a with
-                    | [||] -> ""
-                    | x -> sprintf "(%s)" (args x)
-                line s (sprintf "| %s_%i%s -> (* %s *)" prefix i vars k)
+            Map.iter (fun k (a,b) ->
+                let i = case_tags.[k]
+                let cases = 
+                    a |> List.map (fun a ->
+                        match data_free_vars a with
+                        | [||] -> ""
+                        | x -> sprintf "(%s)" (args x)
+                        |> sprintf "%s_%i%s" prefix i
+                        )
+                    |> String.concat ", "
+                line s (sprintf "| %s -> (* %s *)" cases k)
                 binds (indent s) b
-                i + 1
-                ) 0 l
+                ) on_succs
             |> ignore
+            on_fail |> Option.iter (fun b ->
+                line s "| _ ->"
+                binds (indent s) b
+                )
         | TyUnionBox(a,b,c) ->
             let l,lay = c.Item
             let mutable i = -1

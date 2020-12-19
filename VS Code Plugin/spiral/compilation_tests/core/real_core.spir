@@ -4,6 +4,10 @@ inl error_type x = !!!!ErrorType(x)
 inl print_static x = !!!!PrintStatic(x)
 // Pushes the expression to runtime.
 inl dyn x = !!!!Dyn(x)
+// Indexes the layout type.
+inl (~*) x = !!!!LayoutIndex(x)
+// Indexes the layout type.
+inl (~!) x = !!!!LayoutIndex(x)
 
 // Unary negation.
 inl (~-) x = !!!!Neg(x)
@@ -100,6 +104,20 @@ inl lit_is x = !!!!LitIs(x)
 inl prim_is x = !!!!PrimIs(x)
 // Returns boolean whether the expression is a symbol.
 inl symbol_is x = !!!!SymbolIs(x)
+// Returns boolean whether the expression is a runtime variable.
+inl var_is x = !!!!VarIs(x)
+// Returns boolean whether the expression is an union.
+inl union_is x = !!!!UnionIs(x)
+// Returns boolean whether the expression is a heap allocated union.
+inl heap_union_is x = !!!!HeapUnionIs(x)
+// Returns boolean whether the expression is a layout type.
+inl layout_is x = !!!!LayoutIs(x)
+// Returns boolean whether the expression is a nominal type.
+inl nominal_is x = !!!!NominalIs(x)
+// Strips the nominal wrapper from the value.
+inl nominal_strip x = !!!!NominalStrip(x)
+// Returns boolean whether the type has the relevant prototype.
+inl prototype_has forall t. prot = !!!!PrototypeHas(prot, `t)
 // Returns boolean whether the float is a Nan.
 inl nan_is x = !!!!NanIs(x)
 
@@ -108,7 +126,7 @@ inl failwith forall typ. msg = !!!!FailWith(`typ,msg)
 // Asserts an expression. If the conditional is a literal it raises a type error instead.
 inl assert c msg = 
     inl raise = 
-        if lit_is c then error_type
+        if lit_is c && lit_is msg then error_type
         else failwith ()
     
     if c = false then raise msg
@@ -143,14 +161,27 @@ inl record_foldr f a s = !!!!RecordFoldR(f,s,a)
 // Returns the record length.
 inl record_length m = !!!!RecordLength(m)
 
-// Structural polymorphic equality for every type in the language (apart from functions.)
-// TODO: Put in an assert that only equal types can be compared. Put in union type checking.
-// TODO: Optimize the union type equality.
 inl rec (=) a b =
     match a, b with
     | (a, a'), (b, b') => a = b && a' = b'
     | {} & a, {} & b => record_foldr (fun (state:next key:value:) res => res && match b with { $key=value'} => next (value = value')) a id true
-    | a, b => !!!!EQ(a,b)
+    | (), () => true
+    | a, b => 
+        if symbol_is a then true
+        elif layout_is a then *a = *b
+        elif union_is a then
+            inl body () = 
+                if prototype_has `(`a) equable then equable `(`a) a b
+                else !!!!Unbox2(a,b,(fun (_,a,b) => a = b),(fun () => false))
+            if heap_union_is a && var_is a && var_is b then (join body()) : bool 
+            else body()
+        elif nominal_is a then
+            if prototype_has `(`a) equable then equable `(`a) a b
+            else nominal_strip a = nominal_strip b
+        else !!!!EQ(a,b)
+
+// Structural polymorphic equality for every type in the language (apart from functions.)
+inl (=) a b = !!!!AssertTypeEq(a,b) . a = b
 
 // Structural polymorphic inequality for every type in the language (apart from functions.)
 inl (<>) a b = (a = b) <> true

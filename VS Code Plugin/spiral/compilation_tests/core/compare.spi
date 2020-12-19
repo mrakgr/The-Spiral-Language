@@ -1,0 +1,2 @@
+union order = LT | EQ | GT
+prototype comparable a : a -> a -> order
