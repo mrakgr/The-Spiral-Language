@@ -130,6 +130,11 @@ type TopEnv = {
     nominals : Dictionary<GlobalId, Nominal>
     }
 
+let case_tags (x : Union) =
+    let case_tags = Dictionary()
+    fst x.Item |> Map.iter (fun k _ -> case_tags.[k] <- case_tags.Count)
+    case_tags
+
 let data_to_rdata (hc : HashConsTable) call_data =
     let hc x = hc.Add x
     let m = Dictionary(HashIdentity.Reference)
@@ -534,7 +539,7 @@ let peval (env : TopEnv) (x : E) =
                 | DPair(a,b) -> DPair(f a, f b)
                 | DB | DV _ | DSymbol _ as a -> a
                 | DRecord l -> DRecord(Map.map (fun _ -> f) l)
-                | DUnion(DPair(DSymbol k,v),b) -> dirty <- true; push_typedop s (TyUnionBox(k,f v,b)) (YUnion b)
+                | DNominal(DUnion(DPair(DSymbol k,v),b),b') -> dirty <- true; push_typedop s (TyUnionBox(k,f v,b)) b'
                 | DUnion _ -> raise_type_error s "Compiler error: Malformed union"
                 | DNominal(a,b) -> DNominal(f a,b)
                 | DLit v as x -> if do_lit then dirty <- true; push_op_no_rewrite s Dyn x (lit_to_ty v) else x // TODO: Since strings are heap allocated, it might be worth it to consider them separate from other literals much like union types.
@@ -1756,6 +1761,11 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,ErrorType,[a]) -> term s a |> show_data |> raise_type_error s
         | EOp(_,PrintStatic,[a]) -> printfn "%s" (term s a |> show_data); DB
         | EOp(_,PrintRaw,[a]) -> printfn "%A" (Printable.eval(Choice1Of2(a,id))); DB
+        | EOp(_,UnionTag,[a]) -> 
+            match term s a with
+            | DNominal(DV(L(_,YUnion _)) & a, _) -> push_op_no_rewrite s UnionTag a (YPrim Int32T)
+            | DNominal(DUnion(DPair(DSymbol k,_),h), _) -> (case_tags h).[k] |> LitInt32 |> DLit
+            | a -> raise_type_error s <| sprintf "Expected an union.\nGot: %s" (show_data a)
         | EOp(_,op,a) -> raise_type_error s <| sprintf "Compiler error: %A with %i args not implemented" op (List.length a)
 
     let s : LangEnv = {

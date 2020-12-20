@@ -185,3 +185,34 @@ inl (=) a b = !!!!AssertTypeEq(a,b) . a = b
 
 // Structural polymorphic inequality for every type in the language (apart from functions.)
 inl (<>) a b = (a = b) <> true
+
+// Returns the i32 tag of an union.
+inl union_tag x = !!!!UnionTag(x)
+
+// Structural polymorphic comparison for every type in the language (apart from functions.)
+inl rec comp a b =
+    match a, b with
+    | (a, a'), (b, b') => 
+        inl x = comp a b 
+        if eq_is x then comp a' b' else x
+    | {} & a, {} & b => 
+        record_foldr (fun (state:next key:value:) res => 
+            if eq_is res then match b with { $key=value'} => next (comp value value') else res
+            ) a id EQ
+    | (), () => EQ
+    | a, b => 
+        if symbol_is a then EQ
+        elif layout_is a then comp *a *b
+        elif union_is a then
+            inl body () = 
+                if prototype_has `(`a) comparable then comparable `(`a) a b
+                else !!!!Unbox2(a,b,(fun (_,a,b) => comp a b),(fun () => comp (union_tag a) (union_tag b)))
+            if heap_union_is a && var_is a && var_is b then (join body()) : order 
+            else body()
+        elif nominal_is a then
+            if prototype_has `(`a) comparable then comparable `(`a) a b
+            else comp (nominal_strip a) (nominal_strip b)
+        else 
+            if !!!!LT(a,b) then LT
+            elif !!!!GT(a,b) then GT
+            else EQ

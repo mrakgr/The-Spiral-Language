@@ -33,3 +33,4 @@ inl (=) forall t. (a : t) (b : t) : bool = real real_core.(=) a b
 inl (<>) forall t. (a : t) (b : t) : bool = real real_core.(<>) a b
 inl lit_is x : bool = !!!!LitIs(x)
 inl print_static x : () = !!!!PrintStatic(x)
+inl comp forall t. (a : t) (b : t) : bool = real real_core.comp a b

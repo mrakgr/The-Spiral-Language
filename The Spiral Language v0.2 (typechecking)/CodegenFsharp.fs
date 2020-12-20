@@ -267,8 +267,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             binds (indent s) b
         | TyUnionUnbox(is,x,on_succs,on_fail) ->
             complex <| fun s ->
-            let case_tags = Dictionary()
-            fst x.Item |> Map.iter (fun k _ -> case_tags.[k] <- case_tags.Count)
+            let case_tags = case_tags x
             line s (sprintf "match %s with" (is |> List.map (sprintf "v%i") |> String.concat ", "))
             let prefix = 
                 match x.Item with
@@ -348,7 +347,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
 
             | ShiftLeft, [a;b] -> sprintf "%s << %s" (term_vars a) (term_vars b)
             | ShiftRight, [a;b] -> sprintf "%s >> %s" (term_vars a) (term_vars b)
-                    
+
             | Neg, [x] -> sprintf " -%s" (term_vars x)
             | Log, [x] -> sprintf "log %s" (term_vars x)
             | Exp, [x] -> sprintf "exp %s" (term_vars x)
@@ -359,6 +358,12 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 | DLit(LitFloat32 _) | DV(L(_,YPrim Float32T)) -> sprintf "System.Single.IsNaN(%s)" (term_vars x)
                 | DLit(LitFloat64 _) | DV(L(_,YPrim Float64T)) -> sprintf "System.Double.IsNaN(%s)" (term_vars x)
                 | _ -> raise_codegen_error "Compiler error: Invalid type in NanIs."
+            | UnionTag, [DV(L(i,YUnion h))] -> 
+                let ty =
+                    match h.Item with
+                    | x,UHeap -> sprintf "UH%i" (uheap x).tag
+                    | x,UStack -> sprintf "US%i" (ustack x).tag
+                sprintf "(fst (Reflection.FSharpValue.GetUnionFields(v%i, typeof<%s>))).Tag" i ty // TODO: Stopgap measure for now. Replace this with something more efficient.
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> simple
     tyv_proxy <- tyv

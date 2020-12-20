@@ -1,0 +1,7 @@
+prototype equable a : a -> a -> bool
+
+union order = LT | EQ | GT
+prototype comparable a : a -> a -> order
+inl eq_is = function EQ => true | _ => false
+
+prototype hashable a : a -> i32

@@ -1,7 +1,5 @@
 modules:
-    eq-
-    compare-
-    hash-
+    base-
     real_core*
     core-
     monad
