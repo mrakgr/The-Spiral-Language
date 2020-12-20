@@ -359,10 +359,6 @@ let is_char = function
     | YPrim CharT -> true
     | _ -> false
 
-let is_primt = function
-    | YPrim _ -> true
-    | _ -> false
-
 let is_float = function
     | YPrim (Float32T | Float64T) -> true
     | _ -> false
@@ -794,6 +790,31 @@ let peval (env : TopEnv) (x : E) =
             assert (free_vars.term.free_vars.Length = i)
             DFunction(body,annot,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
 
+        let inline eunbox run r a =
+            let s = add_trace s r
+            match term s a with
+            | DNominal(DUnion(a,_),_) -> run s a 
+            | DNominal(DV(L(i,YUnion h)) & a,_) ->
+                let key = TyOp(Unbox,[a])
+                match cse_tryfind s key with
+                | Some a -> run s a
+                | None ->
+                    let mutable case_ty = None
+                    let cases =
+                        Map.map (fun k v ->
+                            let s = {s with i = ref !s.i; cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
+                            let a = DPair(DSymbol k,ty_to_data s v)
+                            cse_add s key a
+                            let x = run s a |> dyn false s
+                            let x_ty' = data_to_ty s x
+                            match case_ty with
+                            | Some x_ty -> if x_ty' <> x_ty then raise_type_error s <| sprintf "One union case for key %s has a different return that the previous one.\nGot: %s\nExpected: %s" k (show_ty x_ty') (show_ty x_ty)
+                            | None -> case_ty <- Some x_ty'
+                            [a], seq_apply s x
+                            ) (fst h.Item)
+                    push_typedop_no_rewrite s (TyUnionUnbox([i],h,cases,None)) (Option.get case_ty)
+            | a -> raise_type_error s <| sprintf "Expected an union type.\nGot: %s" (show_data a)
+
         match x with
         | EPatternRef _ -> failwith "Compiler error: EPatternRef should have been eliminated during the prepass."
         | EB _ -> DB
@@ -961,30 +982,8 @@ let peval (env : TopEnv) (x : E) =
                 let a_ty = data_to_ty s a
                 if a_ty = b' then DNominal(a,b)
                 else raise_type_error s <| sprintf "Type error in nominal constructor.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty b')
-        | EUnbox(r,id,a,b) ->
-            let s = add_trace s r
-            match term s a with
-            | DNominal(DUnion(a,_),_) -> store_term s id a; term s b
-            | DNominal(DV(L(i,YUnion h)) & a,_) ->
-                let key = TyOp(Unbox,[a])
-                match cse_tryfind s key with
-                | Some a -> store_term s id a; term s b
-                | None ->
-                    let mutable case_ty = None
-                    let cases =
-                        Map.map (fun k v ->
-                            let s = {s with i = ref !s.i; cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
-                            let a = DPair(DSymbol k,ty_to_data s v)
-                            cse_add s key a
-                            let x = store_term s id a; term s b |> dyn false s
-                            let x_ty' = data_to_ty s x
-                            match case_ty with
-                            | Some x_ty -> if x_ty' <> x_ty then raise_type_error s <| sprintf "One union case for key %s has a different return that the previous one.\nGot: %s\nExpected: %s" k (show_ty x_ty') (show_ty x_ty)
-                            | None -> case_ty <- Some x_ty'
-                            [a], seq_apply s x
-                            ) (fst h.Item)
-                    push_typedop_no_rewrite s (TyUnionUnbox([i],h,cases,None)) (Option.get case_ty)
-            | a -> raise_type_error s <| sprintf "Expected an union type.\nGot: %s" (show_data a)
+        | EUnbox(r,id,a,on_succ) -> eunbox (fun s a -> store_term s id a; term s on_succ) r a
+        | EOp(r,Unbox,[a;on_succ]) -> let on_succ = term s on_succ in eunbox (fun s a -> apply s (on_succ,a)) r a
         | EOp(r,Unbox2,[a;b;on_succ;on_fail]) ->
             let s = add_trace s r
             let on_succ = term s on_succ
@@ -1679,6 +1678,28 @@ let peval (env : TopEnv) (x : E) =
                 let a_ty = data_to_ty s a
                 if is_float a_ty then push_op s Sqrt a a_ty
                 else raise_type_error s <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
+        | EOp(_,Hash,[a]) ->
+            let inline op a = hash a
+            match term s a with
+            | DLit a ->
+                match a with
+                | LitInt8 a -> op a |> LitInt32 |> DLit
+                | LitInt16 a -> op a |> LitInt32 |> DLit
+                | LitInt32 a -> op a |> LitInt32 |> DLit
+                | LitInt64 a -> op a |> LitInt32 |> DLit
+                | LitUInt8 a -> op a |> LitInt32 |> DLit
+                | LitUInt16 a -> op a |> LitInt32 |> DLit
+                | LitUInt32 a -> op a |> LitInt32 |> DLit
+                | LitUInt64 a -> op a |> LitInt32 |> DLit
+                | LitFloat32 a -> op a |> LitInt32 |> DLit
+                | LitFloat64 a -> op a |> LitInt32 |> DLit
+                | LitBool a -> op a |> LitInt32 |> DLit
+                | LitString a -> op a |> LitInt32 |> DLit
+                | LitChar a -> op a |> LitInt32 |> DLit
+            | a ->
+                let a_ty = data_to_ty s a
+                if is_primitive a_ty then push_op s Hash a (YPrim Int32T)
+                else raise_type_error s <| sprintf "The argument must be a primitive type.\nGot: %s" (show_ty a_ty)
         | EOp(_,NanIs,[a]) ->
             let a = term s a
             match data_to_ty s a with
@@ -1761,10 +1782,15 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,ErrorType,[a]) -> term s a |> show_data |> raise_type_error s
         | EOp(_,PrintStatic,[a]) -> printfn "%s" (term s a |> show_data); DB
         | EOp(_,PrintRaw,[a]) -> printfn "%A" (Printable.eval(Choice1Of2(a,id))); DB
-        | EOp(_,UnionTag,[a]) -> 
+        | EOp(_,UnionTag,[a]) ->
+            let eval k h = (case_tags h).[k] |> LitInt32 |> DLit
             match term s a with
-            | DNominal(DV(L(_,YUnion _)) & a, _) -> push_op_no_rewrite s UnionTag a (YPrim Int32T)
-            | DNominal(DUnion(DPair(DSymbol k,_),h), _) -> (case_tags h).[k] |> LitInt32 |> DLit
+            | DNominal(DV(L(_,YUnion h)) & a, _) ->
+                match cse_tryfind s (TyOp(Unbox,[a])) with
+                | Some (DPair(DSymbol k, _)) -> eval k h
+                | Some _ -> raise_type_error s "Compiler error: Expected a symbol/value pair."
+                | None -> push_op_no_rewrite s UnionTag a (YPrim Int32T)
+            | DNominal(DUnion(DPair(DSymbol k,_),h), _) -> eval k h
             | a -> raise_type_error s <| sprintf "Expected an union.\nGot: %s" (show_data a)
         | EOp(_,op,a) -> raise_type_error s <| sprintf "Compiler error: %A with %i args not implemented" op (List.length a)
 

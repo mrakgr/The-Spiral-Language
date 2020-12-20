@@ -189,7 +189,6 @@ inl (<>) a b = (a = b) <> true
 // Returns the i32 tag of an union.
 inl union_tag x = !!!!UnionTag(x)
 
-// Structural polymorphic comparison for every type in the language (apart from functions.)
 inl rec comp a b =
     match a, b with
     | (a, a'), (b, b') => 
@@ -216,3 +215,28 @@ inl rec comp a b =
             if !!!!LT(a,b) then LT
             elif !!!!GT(a,b) then GT
             else EQ
+
+// Structural polymorphic comparison for every type in the language (apart from functions.)
+inl comp a b = !!!!AssertTypeEq(a,b) . comp a b
+
+// Structural polymorphic hashing for every type in the language (apart from functions.)
+inl hash x = 
+    inl seed = 33
+    inl rec f = function
+        | (a, a') => f a * seed + f a'
+        | {} & a => inl s,_ = record_foldr (fun (state: (s,seed') key:value:) => s + value * seed', seed * seed') a (0, 1) in s
+        | () => 0
+        | a => 
+            if symbol_is a then 0
+            elif layout_is a then f *a
+            elif union_is a then
+                inl body () = 
+                    if prototype_has `(`a) hashable then hashable `(`a) a
+                    else !!!!Unbox(a,(fun (k,a') => f a' + seed * union_tag a))
+                if heap_union_is a && var_is a then (join body()) : i32
+                else body()
+            elif nominal_is a then
+                if prototype_has `(`a) hashable then hashable `(`a) a
+                else f (nominal_strip a)
+            else !!!!Hash(a)
+    f x

@@ -353,6 +353,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | Exp, [x] -> sprintf "exp %s" (term_vars x)
             | Tanh, [x] -> sprintf "tanh %s" (term_vars x)
             | Sqrt, [x] -> sprintf "sqrt %s" (term_vars x)
+            | Hash, [x] -> sprintf "hash %s" (term_vars x)
             | NanIs, [x] -> 
                 match x with
                 | DLit(LitFloat32 _) | DV(L(_,YPrim Float32T)) -> sprintf "System.Single.IsNaN(%s)" (term_vars x)

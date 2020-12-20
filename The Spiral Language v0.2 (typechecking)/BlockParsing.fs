@@ -88,6 +88,7 @@ type Op =
     | Exp
     | Sqrt
     | NanIs
+    | Hash
 
     // Infinity
     | Infinity
