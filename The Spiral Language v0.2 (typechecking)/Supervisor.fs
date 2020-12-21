@@ -397,6 +397,7 @@ type ClientReq =
     | FileTokenRange of {|uri : string; range : VSCRange|}
     | HoverAt of {|uri : string; pos : VSCPos|}
     | BuildFile of {|uri : string|}
+    | Ping of int
 
 type ClientErrorsRes =
     | FatalError of string
@@ -474,6 +475,7 @@ let [<EntryPoint>] main _ =
             | FileTokenRange x -> job_val (fun res -> supervisor *<+ SupervisorReq.FileTokenRange(x,res))
             | HoverAt x -> job_val (fun res -> supervisor *<+ SupervisorReq.HoverAt(x,res))
             | BuildFile x -> job_null (supervisor *<+ SupervisorReq.BuildFile x)
+            | Ping _ -> failwith "TODO"
             loop ()
         let msg = server.ReceiveMultipartMessage(3)
         let address = msg.Pop()

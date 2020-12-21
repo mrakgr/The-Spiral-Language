@@ -5,13 +5,14 @@
     <RootNamespace>The_Spiral_Language_v0._2__typechecking_</RootNamespace>
     <OutputType>Exe</OutputType>
     <ServerGarbageCollection>true</ServerGarbageCollection>
-    <AssemblyName>SpiralAsm</AssemblyName>
+    <AssemblyName>Spiral</AssemblyName>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <PlatformTarget>x64</PlatformTarget>
     <NoWarn>40</NoWarn>
     <Tailcalls>true</Tailcalls>
+    <WarningLevel>2</WarningLevel>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
@@ -49,16 +50,14 @@
 
   <ItemGroup>
     <PackageReference Include="FParsec" Version="1.1.1" />
-    <PackageReference Include="FSharp.Control.Reactive" Version="4.4.0" />
     <PackageReference Include="FSharp.Json" Version="0.4.0" />
-    <PackageReference Include="FSharpx.Async" Version="1.14.1" />
     <PackageReference Include="FSharpx.Collections" Version="2.1.3" />
-    <PackageReference Include="Hopac" Version="0.4.1" />
-    <PackageReference Include="NetMQ" Version="4.0.1.2-pre" />
+    <PackageReference Include="Hopac" Version="0.5.0" />
+    <PackageReference Include="NetMQ" Version="4.0.1.6" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="4.7.2" />
+    <PackageReference Update="FSharp.Core" Version="5.0.0" />
   </ItemGroup>
 
 </Project>
