@@ -407,7 +407,7 @@ type ClientErrorsRes =
 
 let port = 13805
 let uri_server = sprintf "tcp://*:%i" port
-let uri_client = sprintf "tcp://localhost:%i" (port+1)
+let uri_client = sprintf "tcp://*:%i" (port+1)
 
 open FSharp.Json
 open NetMQ
@@ -483,12 +483,11 @@ let [<EntryPoint>] main _ =
         else buffer.Add(id,(address,x))
         )
 
-    use client = new RequestSocket()
-    client.Connect(uri_client)
+    use client = new PublisherSocket()
+    client.Bind(uri_client)
 
     use __ = queue_client.ReceiveReady.Subscribe(fun x -> 
         x.Queue.Dequeue() |> Json.serialize |> client.SendFrame
-        client.ReceiveMultipartMessage() |> ignore
         )
 
     use __ = queue_server.ReceiveReady.Subscribe(fun x -> x.Queue.Dequeue() |> server.SendMultipartMessage)

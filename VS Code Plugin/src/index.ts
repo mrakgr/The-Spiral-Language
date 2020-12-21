@@ -5,7 +5,7 @@ import * as zmq from "zeromq"
 
 const port = 13805
 const uriServer = `tcp://localhost:${port}`
-const uriClient = `tcp://*:${port+1}`
+const uriClient = `tcp://localhost:${port+1}`
 
 let msgId = 0
 const request = async (file: object): Promise<any> => {
@@ -78,10 +78,10 @@ export const activate = async (ctx: ExtensionContext) => {
     const errorsType = languages.createDiagnosticCollection()
     let isProcessing = true;
     (async () => {
-        const sock = new zmq.Reply()
+        const sock = new zmq.Subscriber()
+        sock.subscribe()
         sock.receiveTimeout = 2000
-        sock.sendTimeout = 2000
-        await sock.bind(uriClient)
+        await sock.connect(uriClient)
         while (isProcessing) {
             try {
                 const [x] = await sock.receive()
@@ -92,13 +92,12 @@ export const activate = async (ctx: ExtensionContext) => {
                 else if ("TypeErrors" in msg) { errorsSet(errorsType, Uri.parse(msg.TypeErrors.uri), msg.TypeErrors.errors) }
                 else if ("FatalError" in msg) { window.showErrorMessage(msg.FatalError) }
                 else { const _ : never = msg }
-                sock.send(null)
             } catch (e) {
                 if (e.errno === 11) { } // If the error is a timeout just repeat.
                 else { throw e }
             }
         }
-        await sock.unbind(uriServer)
+        await sock.disconnect(uriServer)
     })();
 
     const spiprojOpen = (doc: TextDocument) => spiprojOpenReq(doc.uri.toString(true), doc.getText())
