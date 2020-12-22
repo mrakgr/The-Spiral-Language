@@ -1,1 +1,0 @@
-let () = System.Console.WriteLine("Hello, world!")

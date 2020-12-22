@@ -1,25 +1,18 @@
 ﻿module Spiral.Tokenize
 open System
-open FParsec
-open System.Collections.Generic
-open Utils
+open System.Text
+open FSharpx.Collections
+open VSCTypes
+open Spiral.LineParsers
+open Spiral.ParserCombinators
 
-// Globals
-type TokenPosition = {
-    start_line : int
-    start_column : int
-    end_line : int
-    end_column : int
-    }
-
-type TokenSpecial =
+type TokenKeyword =
     | SpecIn
     | SpecAnd
     | SpecFun
     | SpecMatch
     | SpecTypecase
     | SpecFunction
-    | SpecBigType
     | SpecWith
     | SpecWithout
     | SpecAs
@@ -35,18 +28,17 @@ type TokenSpecial =
     | SpecElif
     | SpecElse
     | SpecJoin
-    | SpecSmallType
+    | SpecType
     | SpecNominal
     | SpecReal
     | SpecUnion
     | SpecOpen
     | SpecWildcard
-    | SpecBracketRoundOpen
-    | SpecBracketCurlyOpen
-    | SpecBracketSquareOpen
-    | SpecBracketRoundClose
-    | SpecBracketCurlyClose
-    | SpecBracketSquareClose
+    | SpecPrototype
+    | SpecInstance
+
+type ParenthesisState = Open | Close
+type Parenthesis = Round | Square | Curly
 
 type Literal = 
     | LitUInt8 of uint8
@@ -63,233 +55,317 @@ type Literal =
     | LitString of string
     | LitChar of char
 
+type SemanticTokenLegend =
+    | variable = 0
+    | symbol = 1
+    | string = 2
+    | number = 3
+    | operator = 4
+    | unary_operator = 5
+    | comment = 6
+    | keyword = 7
+    | parenthesis = 8
+    | type_variable = 9
+    | escaped_char = 10
+    | unescaped_char = 11
+
 type SpiralToken =
-    | TokSmallVar of TokenPosition * string
-    | TokBigVar of TokenPosition * string
-    | TokKeyword of TokenPosition * string
-    | TokKeywordUnary of TokenPosition * string
-    | TokValue of TokenPosition * Literal
-    | TokDefaultValue of TokenPosition * string
-    | TokOperator of TokenPosition * string
-    | TokUnaryOperator of TokenPosition * string
-    | TokSpecial of TokenPosition * TokenSpecial
+    | TokVar of string * SemanticTokenLegend
+    | TokSymbol of string * SemanticTokenLegend
+    | TokSymbolPaired of string * SemanticTokenLegend
+    | TokOperator of string * SemanticTokenLegend
+    | TokUnaryOperator of string * SemanticTokenLegend
+    | TokValue of Literal
+    | TokDefaultValue of string
+    | TokComment of string
+    | TokKeyword of TokenKeyword
+    | TokParenthesis of Parenthesis * ParenthesisState
+    | TokStringOpen | TokStringClose
+    | TokText of string
+    | TokEscapedChar of char
+    | TokUnescapedChar of char
+    | TokMacroOpen | TokMacroClose
+    | TokMacroTermVar of string
+    | TokMacroTypeVar of string
 
-    member d.Pos = 
-        match d with 
-        | TokSmallVar(x,_) | TokBigVar(x,_) | TokKeyword(x,_)
-        | TokKeywordUnary(x,_) | TokValue(x,_) | TokDefaultValue(x,_)
-        | TokOperator(x,_) | TokUnaryOperator(x,_) | TokSpecial(x,_) -> x
+let token_groups = function
+    | TokUnaryOperator(_,r) | TokOperator(_,r) | TokVar(_,r) | TokSymbol(_,r) | TokSymbolPaired(_,r) -> r
+    | TokValue (LitChar _) | TokStringOpen | TokStringClose | TokText _ | TokMacroOpen | TokMacroClose | TokValue(LitString _) -> SemanticTokenLegend.string
+    | TokComment _ -> SemanticTokenLegend.comment
+    | TokKeyword _ -> SemanticTokenLegend.keyword
+    | TokParenthesis _ -> SemanticTokenLegend.parenthesis
+    | TokMacroTypeVar _ -> SemanticTokenLegend.type_variable
+    | TokMacroTermVar _ -> SemanticTokenLegend.variable
+    | TokEscapedChar _ -> SemanticTokenLegend.escaped_char
+    | TokUnescapedChar _ -> SemanticTokenLegend.unescaped_char
+    | TokValue _ | TokDefaultValue _ -> SemanticTokenLegend.number
 
-let pos (s: CharStream) = int s.Line, int s.Column
-let pos' (start_line, start_column) (end_line, end_column) = {start_line=start_line; start_column=start_column; end_line=end_line; end_column=end_column}
-
-let rec spaces_template s = spaces >>. optional (followedByString "//" >>. skipRestOfLine true >>. spaces_template) <| s
-let spaces s = spaces_template s
-
-let is_small_var_char_starting c = isAsciiLower c || c = '_'
-let is_var_char c = isAsciiLetter c || c = '_' || c = ''' || isDigit c
-let is_big_var_char_starting c = isAsciiUpper c
-let is_var_starting c = isAsciiLetter c || c = '_'
+let is_small_var_char_starting c = Char.IsLower c || c = '_'
+let is_var_char c = Char.IsLetterOrDigit c || c = '_' || c = '''
+let is_big_var_char_starting c = Char.IsUpper c
+let is_var_char_starting c = Char.IsLetter c || c = '_'
 let is_parenth_open c = 
-    let inline f x = c = x
+    let f x = c = x
     f '(' || f '[' || f '{'
 let is_parenth_close c = 
-    let inline f x = c = x
+    let f x = c = x
     f ')' || f ']' || f '}'
 
 // http://www.asciitable.com/
 let is_operator_char c =
-    let inline f x = c = x
+    let f x = c = x
     '!' <= c && c <= '~' && (is_var_char c || f '"' || is_parenth_open c || is_parenth_close c) = false
-let is_separator_char c = 
-    let inline f x = c = x
-    f ' ' || f '\t' || f '\n' || f '\r' || is_parenth_open c || f CharStream.EndOfStreamChar
+let is_prefix_separator_char c = 
+    let f x = c = x
+    f ' ' || f eol || is_parenth_open c
+let is_postfix_separator_char c = 
+    let f x = c = x
+    f ' ' || f eol || is_parenth_close c
+let is_separator_char c = is_prefix_separator_char c || is_parenth_close c
 
-let var (s:CharStream<_>) = 
-    let start = pos s
+let var (s: Tokenizer) = 
+    let from = s.from
+    let ok x = ({from=from; nearTo=s.from}, x)
+    let body x = 
+        if skip ':' s then TokSymbolPaired(x,SemanticTokenLegend.symbol) |> ok
+        else
+            let f x = TokKeyword(x)
+            match x with
+            | "in" -> f SpecIn
+            | "and" -> f SpecAnd | "fun" -> f SpecFun
+            | "match" -> f SpecMatch | "typecase" -> f SpecTypecase
+            | "function" -> f SpecFunction
+            | "with" -> f SpecWith | "without" -> f SpecWithout
+            | "as" -> f SpecAs | "when" -> f SpecWhen
+            | "inl" -> f SpecInl | "forall" -> f SpecForall
+            | "let" -> f SpecLet | "inm" -> f SpecInm
+            | "inb" -> f SpecInb | "rec" -> f SpecRec
+            | "if" -> f SpecIf | "then" -> f SpecThen
+            | "elif" -> f SpecElif | "else" -> f SpecElse
+            | "join" -> f SpecJoin | "type" -> f SpecType 
+            | "nominal" -> f SpecNominal | "real" -> f SpecReal
+            | "union" -> f SpecUnion
+            | "open" -> f SpecOpen | "_" -> f SpecWildcard
+            | "prototype" -> f SpecPrototype | "instance" -> f SpecInstance
+            | "true" -> TokValue(LitBool true) | "false" -> TokValue(LitBool false)
+            | x -> TokVar(x,SemanticTokenLegend.variable)
+            |> ok
 
-    let small_var s =
-        many1Satisfy2L is_small_var_char_starting is_var_char "small var"
-        >>= (fun x s ->
-            if s.Skip(':') then
-                TokKeyword(pos' start (pos s),x)
-            else
-                let f x = TokSpecial(pos' start (pos s),x)
-                match x with
-                | "in" -> f SpecIn
-                | "and" -> f SpecAnd | "fun" -> f SpecFun
-                | "match" -> f SpecMatch | "typecase" -> f SpecTypecase
-                | "function" -> f SpecFunction | "Type" -> f SpecBigType
-                | "with" -> f SpecWith | "without" -> f SpecWithout
-                | "as" -> f SpecAs | "when" -> f SpecWhen
-                | "inl" -> f SpecInl | "forall" -> f SpecForall
-                | "let" -> f SpecLet | "inm" -> f SpecInm
-                | "inb" -> f SpecInb | "rec" -> f SpecRec
-                | "if" -> f SpecIf | "then" -> f SpecThen
-                | "elif" -> f SpecElif | "else" -> f SpecElse
-                | "join" -> f SpecJoin | "type" -> f SpecSmallType 
-                | "nominal" -> f SpecNominal | "real" -> f SpecReal
-                | "open" -> f SpecOpen | "_" -> f SpecWildcard
-                | "true" -> TokValue(pos' start (pos s),LitBool true) | "false" -> TokValue(pos' start (pos s),LitBool false)
-                | x -> TokSmallVar(pos' start (pos s),x)
-            |> Reply)
-        .>> spaces
-        <| s
+    (many1Satisfy2L is_var_char_starting is_var_char "variable" |>> body .>> spaces) s
 
-    let big_var s =
-        many1Satisfy2L is_big_var_char_starting is_var_char "big var"
-        >>= (fun x s ->
-            if s.Skip(':') then TokKeyword(pos' start (pos s),x)
-            else TokBigVar(pos' start (pos s),x)
-            |> Reply)
-        .>> spaces
-        <| s
+let number (s: Tokenizer) = 
+    let from = s.from
+    let ok x = ({from=from; nearTo=s.from}, x) |> Ok
 
-    (small_var <|> big_var) s
+    let parser (s: Tokenizer) = 
+        if peek s = '-' && Char.IsDigit (peek' s 1) && is_prefix_separator_char (peek' s -1) then 
+            inc s
+            number_fractional s |> Result.map (function 
+                | (a,Some b) -> sprintf "-%s.%s" a b
+                | (a,None) -> "-"+a)
+        else number_fractional s |> Result.map (function 
+                | (a,Some b) -> sprintf "%s.%s" a b
+                | (a,None) -> a)
+    
+    let followedBySuffix x (s: Tokenizer) =
+        let inline safe_parse string_to_val val_to_lit val_dsc =
+            if (let x = peek s in is_separator_char x || is_operator_char x) then 
+                match string_to_val x with
+                | true, x -> val_to_lit x |> TokValue |> ok
+                | false, _ -> Error [{from=from; nearTo=s.from}, (sprintf "The string %s cannot be safely parsed as %s." x val_dsc)]
+            else error_char s.from "separator"
+        let skip c = skip c s
+        if skip 'i' then
+            if skip '8' then safe_parse SByte.TryParse LitInt8 "int8"
+            elif skip '1' && skip '6' then safe_parse Int16.TryParse LitInt16 "int16"
+            elif skip '3' && skip '2' then safe_parse Int32.TryParse LitInt32 "int32"
+            elif skip '6' && skip '4' then safe_parse Int64.TryParse LitInt64 "int64"
+            else error_char s.from "8,16,32 or 64"
+        elif skip 'u' then
+            if skip '8' then safe_parse Byte.TryParse LitUInt8 "uint8"
+            elif skip '1' && skip '6' then safe_parse UInt16.TryParse LitUInt16 "uint16"
+            elif skip '3' && skip '2' then safe_parse UInt32.TryParse LitUInt32 "uint32"
+            elif skip '6' && skip '4' then safe_parse UInt64.TryParse LitUInt64 "uint64"
+            else error_char s.from "8,16,32 or 64"
+        elif skip 'f' then
+            if skip '3' && skip '2' then safe_parse Single.TryParse LitFloat32 "float32"
+            elif skip '6' && skip '4' then safe_parse Double.TryParse LitFloat64 "float64"
+            else error_char s.from "32 or 64"
+        else TokDefaultValue x |> ok
 
-let default_number_format =  
-    NumberLiteralOptions.AllowFraction
-    ||| NumberLiteralOptions.AllowExponent
-    ||| NumberLiteralOptions.AllowHexadecimal
-    ||| NumberLiteralOptions.AllowBinary
-            
-let number_format_with_minus = default_number_format ||| NumberLiteralOptions.AllowMinusSign
+    (parser >>= followedBySuffix .>> spaces) s
 
-let number (s: CharStream<_>) = 
-    let start = pos s
+let symbol s =
+    let from = s.from
+    let f x = ({from=from; nearTo=s.from}, x)
 
-    let inline parser (s: CharStream<_>) = 
-        let parse_num_lit number_format s = numberLiteral number_format "number" s
-        if s.Peek() = '-' && isDigit (s.Peek(1)) && is_separator_char (s.Peek(-1)) then parse_num_lit number_format_with_minus s
-        else parse_num_lit default_number_format s
+    let symbol x = TokSymbol(x,SemanticTokenLegend.symbol)
+    let x = peek s
+    let x' = peek' s 1
+    if x = '.' && x' = '(' then inc' 2 s; ((many1SatisfyL is_operator_char "operator") .>> skip_char ')' |>> (symbol >> f) .>> spaces) s
+    elif x = '.' && is_var_char_starting x' then inc s; ((many1SatisfyL is_var_char "variable") |>> (symbol >> f) .>> spaces) s
+    else error_char from "symbol"
 
-    let inline safe_parse s f on_succ er_msg (x : string) = 
-        match f x with
-        | true, x -> Reply(TokValue(pos' start (pos s),on_succ x))
-        | false, _ -> Reply(ReplyStatus.FatalError,messageError er_msg)
+let comment (s : Tokenizer) =
+    if peek s = '/' && peek' s 1 = '/' then 
+        let from = s.from
+        inc' 2 s
+        if skip ' ' s then
+            let com = s.text.[s.from..]
+            s.from <- s.text.Length
+            Ok ({from=from; nearTo=s.from}, TokComment com)
+        else error_char s.from "whitespace"
+    else
+        error_char s.from "comment"
 
-    let inline default_int x = Reply(TokDefaultValue(pos' start (pos s),x))
-    let inline default_float x = Reply(TokDefaultValue(pos' start (pos s),x))
-
-    let followedBySuffix x is_x_integer (s: CharStream<_>) =
-        let guard f =
-            let a = s.Peek()
-            if is_small_var_char_starting a || isDigit a then Reply(Error, expected "non-identifier character or digit")
-            else f x
-        if s.Skip('i') then
-            if s.Skip('8') then guard (safe_parse s SByte.TryParse LitInt8 "int8 parse failed")
-            elif s.Skip('1') && s.Skip('6') then guard (safe_parse s Int16.TryParse LitInt16 "int16 parse failed")
-            elif s.Skip('3') && s.Skip('2') then guard (safe_parse s Int32.TryParse LitInt32 "int32 parse failed")
-            elif s.Skip('6') && s.Skip('4') then guard (safe_parse s Int64.TryParse LitInt64 "int64 parse failed")
-            else Reply(Error, expected "8,16,32 or 64")
-        elif s.Skip('u') then
-            if s.Skip('8') then guard (safe_parse s Byte.TryParse LitUInt8 "uint8 parse failed")
-            elif s.Skip('1') && s.Skip('6') then guard (safe_parse s UInt16.TryParse LitUInt16 "uint16 parse failed")
-            elif s.Skip('3') && s.Skip('2') then guard (safe_parse s UInt32.TryParse LitUInt32 "uint32 parse failed")
-            elif s.Skip('6') && s.Skip('4') then guard (safe_parse s UInt64.TryParse LitUInt64 "uint64 parse failed")
-            else Reply(Error, expected "8,16,32 or 64")
-        elif s.Skip('f') then
-            if s.Skip('3') && s.Skip('2') then guard (safe_parse s Single.TryParse LitFloat32 "float32 parse failed")
-            elif s.Skip('6') && s.Skip('4') then guard (safe_parse s Double.TryParse LitFloat64 "float64 parse failed")
-            else Reply(Error, expected "32 or 64")
-        elif is_x_integer then guard default_int
-        else guard default_float
-
-    let reply = parser s
-    if reply.Status = Ok then
-        let nl = reply.Result // the parsed NumberLiteral
-        try 
-            ((followedBySuffix nl.String nl.IsInteger) .>> spaces) s
-        with
-        | :? System.OverflowException as e ->
-            s.Skip(-nl.String.Length)
-            Reply(FatalError, messageError e.Message)
-    else // reconstruct error reply
-        Reply(reply.Status, reply.Error)
-
-let keyword_unary s =
-    let start = pos s
-    let f x s = Reply(TokKeywordUnary(pos' start (pos s), x))
-    let er _ = Reply(Error, expected "unary keyword")
-
-    let x = s.Peek2()
-    if x.Char0 = '.' then
-        if is_var_starting x.Char1 then
-            s.Skip()
-            ((manySatisfy is_var_char <?> "unary keyword") >>= f .>> spaces) s
-        elif x.Char1 = '(' then
-            s.Skip(2)
-            ((manySatisfy is_operator_char <?> "unary keyword") .>> skipChar ')' >>= f .>> spaces) s
-        else er()
-    else er()
-
-let operator (s : CharStream<_>) = 
-    let is_separator_prev = is_separator_char (s.Peek(-1))
-    let start = pos s
-    let f name (s: CharStream<_>) = 
-        if is_separator_prev && (let x = s.Peek() in is_var_char x || isDigit x || is_parenth_open x) then Reply(TokUnaryOperator(pos' start (pos s),name))
-        else Reply(TokOperator(pos' start (pos s),name))
+let operator (s : Tokenizer) = 
+    let from = s.from
+    let ok x = ({from=from; nearTo=s.from}, x) |> Ok
+    let is_separator_prev = is_prefix_separator_char (peek' s -1)
+    let f name (s: Tokenizer) = 
+        if is_separator_prev && (is_postfix_separator_char (peek s) = false) then TokUnaryOperator(name,SemanticTokenLegend.unary_operator) |> ok
+        else TokOperator(name,SemanticTokenLegend.operator) |> ok
     (many1SatisfyL is_operator_char "operator"  >>= f .>> spaces) s
 
-let inline string_raw_template begin_ end_ s =
-    let start = pos s
-    let f x = TokValue(pos' start (pos s), LitString x)
-    (skipString begin_ >>. charsTillString end_ true Int32.MaxValue |>> f .>> spaces) s
-
-let string_raw s = string_raw_template "@\"" "\"" s
-let string_raw_triple s = let x = "\"\"\"" in string_raw_template x x s
-
-let inline char_quoted_read check (s: CharStream<_>) =
-    let x = s.Peek()
-    if check x then
-        s.Skip()
-        match x with
-        | '\\' -> 
-            match s.Read() with
-            | 'n' -> '\n'
-            | 'r' -> '\r'
-            | 't' -> '\t'
-            | x -> x
-        | x -> x
-        |> Reply
-    else Reply(Error,null)
+let string_raw s =
+    let from = s.from
+    let f x = {from=from; nearTo=s.from}, TokValue(LitString x)
+    (skip_string "@\"" >>. chars_till_string "\"" |>> f .>> spaces) s
 
 let char_quoted s = 
-    let start = pos s
-    let f x = TokValue(pos' start (pos s), LitChar x)
-    (between (skipChar '\'') (skipChar '"') (char_quoted_read (fun _ -> true) |>> f) .>> spaces) s
-let string_quoted s = 
-    let start = pos s
-    let f x = TokValue(pos' start (pos s), LitString x)
-    (between (skipChar '"') (skipChar '"') (manyChars (char_quoted_read ((<>) '"')) |>> f) .>> spaces) s
+    let char_quoted_body (s: Tokenizer) =
+        let inline read on_succ =
+            let x = peek s
+            if x <> eol then inc s; on_succ x
+            else error_char s.from "character or '"
+        read (function
+            | '\\' -> 
+                read (Ok << function
+                    | 'n' -> '\n' | 'r' -> '\r' | 't' -> '\t' | 'b' -> '\b'
+                    | x -> x
+                    )
+            | x -> Ok x
+            )
+    let from = s.from
+    let f _ x _ = {from=from; nearTo=s.from}, TokValue(LitChar x)
+    (pipe3 (skip_char '\'') char_quoted_body (skip_char '\'') f .>> spaces) s
 
-let special s =
-    let start = pos s
-    let f spec = s.Skip(); (spaces >>% (TokSpecial(pos' start (pos s), spec))) s
-    match s.Peek() with
-    | '(' -> f SpecBracketRoundOpen | '[' -> f SpecBracketSquareOpen | '{' -> f SpecBracketCurlyOpen
-    | ')' -> f SpecBracketRoundClose | ']' -> f SpecBracketSquareClose | '}' -> f SpecBracketCurlyClose
-    | _ -> Reply(Error, expected "`(`,`[`,`{`,`}`,`]` or `)`")
+let inline special_char l text s =
+    let inline f from x = {from=from; nearTo=s.from}, x
+    let f = f s.from
+    inc s
+    let esc x = inc s; text (f (TokEscapedChar x) :: l)
+    let unesc x = inc s; text (f (TokUnescapedChar x) :: l)
+    match peek s with 
+    | x when x = eol -> error_char s.from "character"
+    | 'n' -> esc '\n' | 'r' -> esc '\r'  | 't' -> esc '\t'  | 'b' -> esc '\b' 
+    | x -> unesc x
+
+let string_quoted' s =
+    let inline f from x = {from=from; nearTo=s.from}, x
+    let close l = let f = f s.from in inc s; List.rev (f TokStringClose :: l) |> Ok
+    let rec text l =
+        let f = f s.from
+        let rec loop (str : StringBuilder) =
+            let l () = if 0 < str.Length then f (TokText(str.ToString())) :: l else l
+            match peek s with
+            | x when x = eol -> error_char s.from "character or \""
+            | '\\' -> special_char (l ()) text s
+            | '"' -> close (l ())
+            | x -> inc s; loop (str.Append(x))
+        loop (StringBuilder())
+        
+    match peek s with
+    | '"' -> let f = f s.from in inc s; text [f TokStringOpen]
+    | _ -> error_char s.from "\""
+let string_quoted s = (string_quoted' .>> spaces) s
+
+let macro' s =
+    let inline f from x = {from=from; nearTo=s.from}, x
+    let close l = let f = f s.from in inc s; List.rev (f TokMacroClose :: l) |> Ok
+    let rec text l =
+        let f = f s.from
+        let rec loop (str : StringBuilder) =
+            let l () = if 0 < str.Length then f (TokText(str.ToString())) :: l else l
+            let var b = var b (l ())
+            match peek s with
+            | x when x = eol -> error_char s.from "character or \""
+            | '`' -> var true 
+            | '!' -> var false
+            | '\\' -> special_char (l ()) text s
+            | '"' -> close (l ())
+            | x -> inc s; loop (str.Append(x))
+        loop (StringBuilder())
+    and var is_type l =
+        let f = f s.from
+        let text x _ = text (f (if is_type then TokMacroTypeVar x else TokMacroTermVar x) :: l)
+        inc s; (many1Satisfy2L is_var_char_starting is_var_char "variable" >>= text) s
+    match peek s, peek' s 1 with
+    | '$', '"' -> let f = f s.from in inc' 2 s; text [f TokMacroOpen]
+    | _ -> error_char s.from "$\""
+let macro s = (macro' .>> spaces) s
+
+let brackets s =
+    let from = s.from
+    let f spec = inc s; (spaces >>% ({from=from; nearTo=s.from}, TokParenthesis(spec))) s
+    match peek s with
+    | '(' -> f (Round,Open) | '[' -> f (Square,Open) | '{' -> f (Curly,Open)
+    | ')' -> f (Round,Close) | ']' -> f (Square,Close) | '}' -> f (Curly,Close)
+    | _ -> error_char s.from "`(`,`[`,`{`,`}`,`]` or `)`"
+
+let tab s = if peek s = '\t' then Error [range_char (index s), "Tabs are not allowed."] else Error []
+let eol s = if peek s = eol then Ok [] else Error [range_char (index s), "end of line"]
 
 let token s =
-    choice
-        [|
-        var; keyword_unary; number
-        string_raw_triple; string_raw; char_quoted; string_quoted
-        special; operator
-        |]
-        s
+    let i = s.from
+    let inline (+) a b = alt i a b
+    (string_quoted + macro + ((var + symbol + number + string_raw + char_quoted + brackets + comment + operator) |>> fun x -> [x])) s
 
-let token_array s =
-    Inline.Many(
-                elementParser = token,
-                stateFromFirstElement = (fun x0 ->
-                    let ra = ResizeArray<_>()
-                    ra.Add(x0)
-                    ra),
-                foldState = (fun ra x -> ra.Add(x); ra),
-                resultFromState = (fun ra -> ra.ToArray()),
-                resultForEmptySequence = (fun () -> [||])
-                ) s
+type LineToken = Range * SpiralToken
+type LineComment = Range * string
+type LineTokenErrors = (Range * TokenizerError) list
+let tokenize text = 
+    let mutable ar = PersistentVector.empty
+    let er = match (spaces >>. many_iter (List.iter (fun x -> ar <- PersistentVector.conj x ar)) token .>> (eol <|> tab)) {from=0; text=text} with Ok() -> [] | Error er -> er
+    ar, er
 
-let tokenize s = between spaces eof token_array s
+/// An array of {line: int; char: int; length: int; tokenType: int; tokenModifiers: int} in the order as written suitable for serialization.
+type VSCTokenArray = int []
+let process_error (k,v) = 
+    let messages, expecteds = v |> List.distinct |> List.partition (fun x -> Char.IsUpper(x,0))
+    let ex () = match expecteds with [x] -> sprintf "Expected: %s" x | x -> sprintf "Expected one of: %s" (String.concat ", " x)
+    let f l = String.concat "\n" l
+    if List.isEmpty expecteds then k, f messages
+    elif List.isEmpty messages then k, ex ()
+    else k, f (ex () :: "" :: "Other error messages:" :: messages)
+
+let process_errors line (ers : LineTokenErrors list) : RString list =
+    ers |> List.mapi (fun i l -> 
+        let i = line + i
+        l |> List.map (fun (r,x) -> x, ({|line=i; character=r.from|}, {|line=i; character=r.nearTo|}))
+        )
+    |> List.concat
+    |> List.groupBy snd
+    |> List.map ((fun (k,v) -> k, List.map fst v) >> process_error)
+
+let vscode_tokens from near_to (lines : LineToken PersistentVector PersistentVector) =
+    let toks = ResizeArray()
+    let rec loop i line_delta =
+        if i < near_to then
+            lines.[i] |> PersistentVector.fold (fun (line_delta,from_prev) (r,x) ->
+                toks.AddRange [|line_delta; r.from-from_prev; r.nearTo-r.from; int (token_groups x); 0|]
+                0, r.from
+                ) (line_delta, 0)
+            |> fst |> ((+) 1) |> loop (i+1)
+    
+    loop from from
+    toks.ToArray()
+
+type SpiEdit = {|from: int; nearTo: int; lines: string []|}
+
+let replace (lines : _ PersistentVector PersistentVector) (errors : _ list) (edit : SpiEdit) =
+    let toks, ers = Array.map tokenize edit.lines |> Array.unzip
+    let lines = PersistentVector.replace edit.from edit.nearTo toks lines
+    let errors = errors |> List.filter (fun ((a : VSCPos,_),_) -> (edit.from <= a.line && a.line < edit.nearTo) = false)
+    let errors = List.append errors (process_errors edit.from (Array.toList ers))
+    lines, errors

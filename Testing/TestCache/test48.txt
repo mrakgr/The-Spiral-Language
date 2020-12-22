@@ -1,1 +1,0 @@
-let ((var_1 : bool)) = true

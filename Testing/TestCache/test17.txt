@@ -1,3 +1,0 @@
-let ((var_1 : int64)) = 2L
-let ((var_2 : float)) = 3.400000
-let ((var_3 : string)) = "123"

@@ -1,9 +1,0 @@
-let rec closure_method_0 ((var_1 : int64)) ((var_2 : int64), (var_3 : int64), (var_4 : int64), (var_5 : int64)) : int64 =
-    let ((var_6 : int64)) = 8L + var_1
-    let ((var_7 : int64)) = var_6 + var_2
-    let ((var_8 : int64)) = var_7 + var_3
-    let ((var_9 : int64)) = var_8 + var_4
-    var_9 + var_5
-let ((var_1 : int64)) = 7L
-let ((var_11 : (int64 * int64 * int64 * int64 -> int64))) = closure_method_0 (var_1)
-let ((var_12 : int64)) = var_11(1L, 2L, 5L, 3L)

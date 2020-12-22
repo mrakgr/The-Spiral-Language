@@ -1,78 +1,97 @@
-﻿module Spiral.PartEval
+﻿module Spiral.PartEval.Main
 
-open Spiral.HashConsing
-open Spiral.Tokenize
-open Spiral.Parsing
-open Spiral.Prepass
-open Spiral.Utils
-open System.Collections.Generic
 open System
-
-type Env<'a,'b> = {type' : StackSize * 'a []; value : StackSize * 'b []}
-
-type ReifiedJoinPointLayout =
-    | RJPStack
-    | RJPHeap
+open System.Collections.Generic
+open Spiral
+open VSCTypes
+open Spiral.Tokenize
+open Spiral.BlockParsing
+open Spiral.PartEval.Prepass
+open Spiral.HashConsing
 
 type Tag = int
-type [<CustomComparison;CustomEquality>] T<'a,'b when 'a: equality and 'a: comparison> = 
-    | T of 'a * 'b
+type [<CustomComparison;CustomEquality>] L<'a,'b when 'a: equality and 'a: comparison> = 
+    | L of 'a * 'b
 
     override a.Equals(b) =
         match b with
-        | :? T<'a,'b> as b -> match a,b with T(a,_), T(b,_) -> a = b
+        | :? L<'a,'b> as b -> match a,b with L(a,_), L(b,_) -> a = b
         | _ -> false
-    override a.GetHashCode() = match a with T(a,_) -> hash a
+    override a.GetHashCode() = match a with L(a,_) -> hash a
     interface IComparable with
         member a.CompareTo(b) = 
             match b with
-            | :? T<'a,'b> as b -> match a,b with T(a,_), T(b,_) -> compare a b
+            | :? L<'a,'b> as b -> match a,b with L(a,_), L(b,_) -> compare a b
             | _ -> raise <| ArgumentException "Invalid comparison for T."
 
-type Ty =
-    | BT
-    | PairT of Ty * Ty
-    | KeywordT of KeywordTag * Ty []
-    | FunctionT of Expr * StackSize * Ty [] * StackSize * Ty [] * is_forall : bool // TODO: Remove this. Disallow raw functions being returned from JPs and if statements.
-    | TypeFunctionT of TExpr * StackSize * Ty []
-    | RecordT of Map<KeywordTag, Ty>
+type H<'a when 'a : equality>(x : 'a) = 
+    let h = hash x
+
+    member _.Item = x
+    override _.Equals(b) =
+        match b with
+        | :? H<'a> as b -> Object.ReferenceEquals(x,b.Item)
+        | _ -> false
+    override _.GetHashCode() = h
+
+type StackSize = int
+type Nominal = {|body : T; id : GlobalId; name : string|} ConsedNode // TODO: When doing incremental compilation, make the `body` field a weak reference.
+type Macro = Text of string | Type of Ty
+and Ty =
+    | YB
+    | YPair of Ty * Ty
+    | YSymbol of string
+    | YTypeFunction of body : T * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
+    | YRecord of Map<string, Ty>
     | YPrim of PrimitiveType
-    
-    | RJPT of ReifiedJoinPointLayout * RData
-    | ArrayT of Ty
-    | RuntimeFunctionT of Ty * Ty
-    | MacroT of RData
-
+    | YArray of Ty
+    | YFun of Ty * Ty
+    | YMacro of Macro list
+    | YNominal of Nominal
+    | YApply of Ty * Ty
+    | YLayout of Ty * Layout
+    | YUnion of Union 
 and Data =
-    | TyB
-    | TyPair of Data * Data
-    | TyKeyword of KeywordTag * Data []
-    | TyFunction of Expr * StackSize * Ty [] * StackSize * Data [] * is_forall : bool
-    | TyRecord of Map<KeywordTag, Data>
+    | DB
+    | DPair of Data * Data
+    | DSymbol of string
+    | DFunction of body : E * annot : T option * term : Data [] * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
+    | DForall of body : E * term : Data [] * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
+    | DRecord of Map<string, Data>
     | DLit of Literal
-    | TyV of TyV
+    | DUnion of Data * Union
+    | DNominal of Data * Ty
+    | DV of TyV
+and TyV = L<Tag,Ty>
+and Union = (Map<string, Ty> * UnionLayout) H // Unions always go through a join point which enables them to be compared via ref eqaulity.
 
-and RData = 
-    | RTyB
-    | RTyPair of ConsedNode<RData * RData>
-    | RTyKeyword of ConsedNode<KeywordTag * RData []>
-    | RTyFunction of ConsedNode<Expr * StackSize * Ty [] * StackSize * RData [] * bool>
-    | RTyRecord of ConsedNode<Map<KeywordTag, RData>>
-    | RTyLit of Literal
-    | RTyV of ConsedNode<Tag * Ty>
+type TermVar =
+    | WV of Tag
+    | WLit of Literal
 
-and TyV = T<Tag,Ty>
+type RData =
+    | ReB
+    | RePair of ConsedNode<RData * RData>
+    | ReSymbol of string
+    | ReFunction of ConsedNode<E * RData [] * Ty []> // T option and stack sizes are entirely dependent on the body. And unlike in v0.09/v0.1 there are no reified join points.
+    | ReForall of ConsedNode<E * RData [] * Ty []>
+    | ReRecord of ConsedNode<Map<string, RData>>
+    | ReLit of Tokenize.Literal
+    | ReUnion of ConsedNode<RData * Union>
+    | ReNominal of ConsedNode<RData * Ty>
+    | ReV of ConsedNode<Tag * Ty>
 
-let lit_is = function
-    | DLit _ -> true
-    | _ -> false
-
-type Trace = ParserCombinators.PosKey list
+type Trace = Range list
 type JoinPointKey = 
-    | JPMethod of Expr * ConsedNode<RData [] * Ty []>
-    | JPClosure of Expr * ConsedNode<RData [] * Ty [] * Ty [] list>
+    | JPMethod of E * ConsedNode<RData [] * Ty []>
+    | JPClosure of E * ConsedNode<RData [] * Ty [] * Ty * Ty>
 
 type JoinPointCall = JoinPointKey * TyV []
+
+type CodeMacro =
+    | CMText of string
+    | CMType of Ty
+    | CMTerm of Data
 
 type TypedBind =
     | TyLet of Data * Trace * TypedOp
@@ -80,49 +99,79 @@ type TypedBind =
     | TyLocalReturnData of Data * Trace
 
 and TypedOp = 
-    | TyOp of Op * Data []
+    | TyMacro of CodeMacro list
+    | TyOp of Op * Data list
+    | TyUnionBox of string * Data * Union
+    | TyUnionUnbox of Tag list * Union * Map<string,Data list * TypedBind []> * TypedBind [] option
+    | TyLayoutToHeap of Data * Ty
+    | TyLayoutToHeapMutable of Data * Ty
+    | TyLayoutIndexAll of L<Tag,Ty * Layout>
+    | TyLayoutIndexByKey of L<Tag,Ty * Layout> * string
+    | TyLayoutHeapMutableSet of L<Tag,Ty> * string list * Data
+    | TyFailwith of Ty * Data
+    | TyArrayCreate of Ty * Data
     | TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
     | TyWhile of cond: JoinPointCall * TypedBind []
     | TyJoinPoint of JoinPointCall
 
-let data_to_rdata'' (hc : HashConsTable) call_data =
+type LangEnv = {
+    trace : Trace
+    seq : ResizeArray<TypedBind>
+    cse : Dictionary<TypedOp, Data> list
+    i : int ref
+    env_global_type : Ty []
+    env_global_term : Data []
+    env_stack_type : Ty []
+    env_stack_term : Data []
+    }
+
+type TopEnv = {
+    prototypes_instances : Dictionary<GlobalId * GlobalId, E>
+    nominals : Dictionary<GlobalId, Nominal>
+    }
+
+let case_tags (x : Union) =
+    let case_tags = Dictionary()
+    fst x.Item |> Map.iter (fun k _ -> case_tags.[k] <- case_tags.Count)
+    case_tags
+
+let data_to_rdata (hc : HashConsTable) call_data =
     let hc x = hc.Add x
     let m = Dictionary(HashIdentity.Reference)
     let call_args = ResizeArray()
     let rec f x =
-        memoize m (function
-            | TyPair(a,b) -> RTyPair(hc(f a, f b))
-            | TyKeyword(a,b) -> RTyKeyword(hc (a, Array.map f b))
-            | TyFunction(a,b,c,d,e,z) -> RTyFunction(hc(a,b,c,d,Array.map f e,z))
-            | TyRecord l -> RTyRecord(hc(Map.map (fun _ -> f) l))
-            | TyV(T(v,ty) as t) -> call_args.Add t; RTyV(hc (call_args.Count-1,ty))
-            | DLit v -> RTyLit v
-            | TyB -> RTyB
-        ) x
+        Utils.memoize m (function
+            | DPair(a,b) -> RePair(hc(f a, f b))
+            | DSymbol a -> ReSymbol a
+            | DFunction(a,_,b,c,_,_) -> ReFunction(hc(a,Array.map f b,c))
+            | DForall(a,b,c,_,_) -> ReFunction(hc(a,Array.map f b,c))
+            | DRecord l -> ReRecord(hc(Map.map (fun _ -> f) l))
+            | DV(L(_,ty) as t) -> call_args.Add t; ReV(hc (call_args.Count-1,ty))
+            | DLit a -> ReLit a
+            | DUnion(a,b) -> ReUnion(hc(f a,b))
+            | DNominal(a,b) -> ReNominal(hc(f a,b))
+            | DB -> ReB
+            ) x
     let x = Array.map f call_data
     call_args.ToArray(),x
 
-let data_to_rdata' (hc : HashConsTable) call_data = let a,b = data_to_rdata'' hc [|call_data|] in a,b.[0]
-let data_to_rdata hc call_data = data_to_rdata' hc call_data |> snd // TODO: Specialize this.
-let (|R|) (x : ConsedNode<'a>) = x.node
-
-let rdata_to_data' i call_data =
+// This rename is a consideration for when I do incremental compilation.
+// In order to allow them to be cleaned by the garbage collection, I do not want the 
+// references to unused nodes to end up in anywhere other than join point keys (which will be weak).
+let rename_global_term (s : LangEnv) =
     let m = Dictionary(HashIdentity.Reference)
-    let r_args = ResizeArray()
     let rec f x =
-        memoize m (function
-            | RTyPair(R(a,b)) -> TyPair(f a, f b)
-            | RTyKeyword(R(a,b)) -> TyKeyword(a, Array.map f b)
-            | RTyFunction(R(a,b,c,d,e,z)) -> TyFunction(a,b,c,d,Array.map f e,z)
-            | RTyRecord(R l) -> TyRecord(Map.map (fun _ -> f) l)
-            | RTyV(R(v,ty)) -> r_args.Add(v,ty); let r = TyV(T(!i,ty)) in i := !i+1; r
-            | RTyLit v -> DLit v
-            | RTyB -> TyB
+        Utils.memoize m (function
+            | DPair(a,b) -> DPair(f a, f b)
+            | DForall(body,a,b,c,d) -> DForall(body,Array.map f a,b,c,d)
+            | DFunction(body,annot,a,b,c,d) -> DFunction(body,annot,Array.map f a,b,c,d)
+            | DRecord l -> DRecord(Map.map (fun _ -> f) l)
+            | DV(L(_,ty)) -> let x = DV(L(!s.i,ty)) in incr s.i; x
+            | DUnion(a,b) -> DUnion(f a,b)
+            | DNominal(a,b) -> DNominal(f a,b)
+            | DSymbol _ | DLit _ | DB as x -> x
             ) x
-    let x = f call_data
-    r_args.ToArray(),x
-
-let rdata_to_data i x = rdata_to_data' i x |> snd // TODO: Specialize this.
+    {s with env_global_term = Array.map f s.env_global_term}
 
 let data_free_vars call_data =
     let m = HashSet(HashIdentity.Reference)
@@ -130,66 +179,43 @@ let data_free_vars call_data =
     let rec f x =
         if m.Add x then
             match x with
-            | TyPair(a,b) -> f a; f b
-            | TyKeyword(a,b) -> Array.iter f b
-            | TyFunction(a,b,c,d,e,z) -> Array.iter f e
-            | TyRecord l -> Map.iter (fun _ -> f) l
-            | TyV(T(_,ty) as t) -> free_vars.Add t
-            | DLit _ | TyB -> ()
+            | DPair(a,b) -> f a; f b
+            | DForall(_,a,_,_,_) | DFunction(_,_,a,_,_,_) -> Array.iter f a
+            | DRecord l -> Map.iter (fun _ -> f) l
+            | DV(L _ as t) -> free_vars.Add t
+            | DUnion(a,_) | DNominal(a,_) -> f a
+            | DSymbol _ | DLit _ | DB -> ()
     f call_data
     free_vars.ToArray()
 
-let data_term_vars call_data =
-    let term_vars = ResizeArray(64)
-    let rec f = function
-        | TyPair(a,b) -> f a; f b
-        | TyKeyword(a,b) -> Array.iter f b
-        | TyFunction(a,b,c,d,e,z) -> Array.iter f e
-        | TyRecord l -> Map.iter (fun _ -> f) l
-        | DLit _ | TyV _ as x -> term_vars.Add x
-        | TyB -> ()
-    f call_data
-    term_vars.ToArray()
-
-let rdata_free_vars x = 
+let (|C|) (x : _ ConsedNode) = x.node
+let rdata_free_vars call_data =
     let m = HashSet(HashIdentity.Reference)
     let free_vars = ResizeArray()
     let rec f x =
         if m.Add x then
             match x with
-            | RTyPair(R(a,b)) -> f a; f b
-            | RTyKeyword(R(a,b)) -> Array.iter f b
-            | RTyFunction(R(a,b,c,d,e,z)) -> Array.iter f e
-            | RTyRecord(R l) -> Map.iter (fun _ -> f) l
-            | RTyV(R(v,ty)) -> free_vars.Add(v,ty)
-            | RTyLit _ | RTyB -> ()
-            
-    f x
+            | RePair(C(a,b)) -> f a; f b
+            | ReForall(C(_,a,_)) | ReFunction(C(_,a,_)) -> Array.iter f a
+            | ReRecord(C l) -> Map.iter (fun _ -> f) l
+            | ReV(C(a,b)) -> free_vars.Add(L(a,b))
+            | ReUnion(C(a,_)) | ReNominal(C(a,_)) -> f a
+            | ReSymbol _ | ReLit _ | ReB -> ()
+    Array.iter f call_data
     free_vars.ToArray()
 
-let ty_to_data i x =
+let data_term_vars call_data =
+    let term_vars = ResizeArray(64)
     let rec f = function
-        | BT -> TyB
-        | PairT(a,b) -> TyPair(f a, f b) 
-        | KeywordT(a,b) -> TyKeyword(a,Array.map f b)
-        | FunctionT(a,b,c,d,e,z) -> TyFunction(a,b,c,d,Array.map f e,z)
-        | RecordT l -> TyRecord(Map.map (fun k -> f) l)
-        | YPrim _ | RJPT _ | ArrayT _ | RuntimeFunctionT _ | MacroT _ as x -> let r = TyV(T(!i,x)) in i := !i+1; r
-        | TypeFunctionT _ -> failwith "Compiler error: Cannot turn a type function to a runtime variable."
-    f x
-
-let ty_vars x =
-    let vars = ResizeArray()
-    let rec f = function
-        | BT -> ()
-        | PairT(a,b) -> f a; f b
-        | KeywordT(a,b) -> Array.iter f b
-        | FunctionT(a,b,c,d,e,z) -> Array.iter f e
-        | RecordT l -> Map.iter (fun k -> f) l
-        | YPrim _ | RJPT _ | ArrayT _ | RuntimeFunctionT _ | MacroT _ as x -> vars.Add(x)
-        | TypeFunctionT _ -> failwith "Compiler error: Cannot turn a type function to a runtime variable."
-    f x
-    vars.ToArray()
+        | DPair(a,b) -> f a; f b
+        | DForall(_,a,_,_,_) | DFunction(_,_,a,_,_,_) -> Array.iter f a
+        | DRecord l -> Map.iter (fun _ -> f) l
+        | DLit x -> term_vars.Add(WLit x)
+        | DV(L(i,_)) -> term_vars.Add(WV i)
+        | DUnion(a,_) | DNominal(a,_) -> f a
+        | DSymbol _ | DB -> ()
+    f call_data
+    term_vars.ToArray()
 
 let lit_to_primitive_type = function
     | LitUInt8 _ -> UInt8T
@@ -207,66 +233,6 @@ let lit_to_primitive_type = function
     | LitChar _ -> CharT
 
 let lit_to_ty x = lit_to_primitive_type x |> YPrim
-
-let rdata_to_ty call_data =
-    let m = Dictionary(HashIdentity.Reference)
-    let rec f x =
-        memoize m (function
-            | RTyPair(R(a,b)) -> PairT(f a, f b)
-            | RTyKeyword(R(a,b)) -> KeywordT(a, Array.map f b)
-            | RTyFunction(R(a,b,c,d,e,z)) -> FunctionT(a,b,c,d,Array.map f e,z)
-            | RTyRecord(R l) -> RecordT(Map.map (fun _ -> f) l)
-            | RTyV(R(v,ty)) -> ty
-            | RTyLit x -> lit_to_ty x
-            | RTyB -> BT
-            ) x
-    f call_data
-
-let data_to_ty x =
-    let m = Dictionary(HashIdentity.Reference)
-    let rec f x =
-        memoize m (function
-            | TyPair(a,b) -> PairT(f a, f b)
-            | TyKeyword(a,b) -> KeywordT(a, Array.map f b)
-            | TyFunction(a,b,c,d,e,z) -> FunctionT(a,b,c,d,Array.map f e,z)
-            | TyRecord l -> RecordT(Map.map (fun _ -> f) l)
-            | TyV(T(_,ty) as t) -> ty
-            | DLit x -> lit_to_ty x
-            | TyB -> BT
-            ) x
-    f x
-
-let (|TyType|) x = data_to_ty x
-
-type ExternalLangEnv = {
-    keywords : KeywordEnv
-    hc_table : HashConsTable
-    // TODO: Replace these dicts with weak tables.
-    join_point_method : Dictionary<Expr,Dictionary<ConsedNode<RData [] * Ty []>, (TyV [] * TypedBind [] * Ty) option>>
-    memoized_modules_value : Dictionary<Map<KeywordTag,Expr>,Data>
-    memoized_modules_type : Dictionary<Map<KeywordTag,TExpr>,Ty>
-    }
-
-type LangEnv = {
-    trace : Trace
-    seq : ResizeArray<TypedBind>
-    cse : Dictionary<Op * Data [], Data> list
-    i : VarTag ref
-    env_global_type : Ty []
-    env_global_value : Data []
-    env_stack_type : Ty []
-    env_stack_type_ptr : int
-    env_stack_value : Data []
-    env_stack_value_ptr : int 
-    }
-
-let push_value_var x (d: LangEnv) =
-    d.env_stack_value.[d.env_stack_value_ptr] <- x
-    {d with env_stack_value_ptr=d.env_stack_value_ptr+1}
-
-let push_type_var x (d: LangEnv) =
-    d.env_stack_type.[d.env_stack_type_ptr] <- x
-    {d with env_stack_type_ptr=d.env_stack_type_ptr+1}
 
 let seq_apply (d: LangEnv) end_dat =
     let inline end_ () = d.seq.Add(TyLocalReturnData(end_dat,d.trace))
@@ -286,73 +252,11 @@ let cse_tryfind (d: LangEnv) key =
 
 let cse_add (d: LangEnv) k v = (List.head d.cse).Add(k,v)
 
-let push_typedop d op ret_ty =
-    let ret = ty_to_data d.i ret_ty
-    d.seq.Add(TyLet(ret,d.trace,op))
-    ret
-
-let push_op_no_rewrite' (d: LangEnv) op l ret_ty = push_typedop d (TyOp(op,l)) ret_ty
-let push_op_no_rewrite d op a ret_ty = push_op_no_rewrite' d op [|a|] ret_ty
-let push_binop_no_rewrite d op (a,b) ret_ty = push_op_no_rewrite' d op [|a;b|] ret_ty
-let push_triop_no_rewrite d op (a,b,c) ret_ty = push_op_no_rewrite' d op [|a;b;c|] ret_ty
-
-let push_op' (d: LangEnv) op l ret_ty =
-    let key = op,l
-    match cse_tryfind d key with
-    | Some x -> x
-    | None ->
-        let x = ty_to_data d.i ret_ty
-        d.seq.Add(TyLet(x,d.trace,TyOp(op,l)))
-        cse_add d key x
-        x
-
-let push_op d op a ret_ty = push_op' d op [|a|] ret_ty
-let push_binop d op (a,b) ret_ty = push_op' d op [|a;b|] ret_ty
-let push_triop d op (a,b,c) ret_ty = push_op' d op [|a;b;c|] ret_ty
-
-let rjp_to_none (d: LangEnv) = function
-    | TyV(T(_,RJPT(_,l))) as v ->
-        let key = RJPToNone,[|v|]
-        match cse_tryfind d key with
-        | Some x -> x
-        | None ->
-            let x = rdata_to_data d.i l 
-            d.seq.Add(TyLet(x,d.trace,TyOp key))
-            cse_add d key x
-            x
-    | a -> a
-
-let rjp_to_some layout dict (d: LangEnv) = function
-    | TyV(T(_,RJPT(t,l))) as x when t = layout -> x
-    | x ->
-        let x = rjp_to_none d x
-        let op = match layout with RJPStack -> RJPToStack | RJPHeap -> RJPToHeap
-        let key = op,[|x|]
-        match cse_tryfind d key with
-        | Some x -> x
-        | None ->
-            let ret = ty_to_data d.i (RJPT(layout,data_to_rdata dict x))
-            d.seq.Add(TyLet(ret,d.trace,TyOp(op,[|x;ret|]))) // The codegen needs the return var to print it.
-            cse_add d key ret
-            ret
-
 exception TypeError of Trace * string
 let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
 
-let show_primt = function
-    | UInt8T -> "uint8"
-    | UInt16T -> "uint16"
-    | UInt32T -> "uint32"
-    | UInt64T -> "uint64"
-    | Int8T -> "int8"
-    | Int16T -> "int16"
-    | Int32T -> "int32"
-    | Int64T -> "int64"
-    | Float32T -> "float32"
-    | Float64T -> "float64"
-    | BoolT -> "bool"
-    | StringT -> "string"
-    | CharT -> "char"
+let show_primt = Infer.show_primt
+let p = Infer.p
 
 let show_lit = function
     | LitUInt8 x -> sprintf "%iu8" x
@@ -369,53 +273,64 @@ let show_lit = function
     | LitString x -> sprintf "%s" x
     | LitChar x -> sprintf "%c" x
 
-let show_layout_type = function
-    | RJPStack -> "stack"
-    | RJPHeap -> "heap"
+let show_layout_type = Infer.show_layout_type
 
-let inline show_keyword (keywords: KeywordEnv) show (keyword,l: _[]) =
-    if l.Length > 0 then
-        let a = (keywords.From keyword).Split([|':'|], StringSplitOptions.RemoveEmptyEntries)
-        Array.map2 (fun a l -> String.concat "" [|a;":(";show l;")"|]) a l
-        |> String.concat " "
-    else
-        keywords.From keyword
+let show_ty x =
+    let rec f prec x =
+        let p = p prec
+        match x with
+        | YB -> "()"
+        | YPair(YSymbol a, b) when 0 < a.Length && System.Char.IsLower(a,0) && a.[a.Length-1] = '_' -> 
+            let show (s,a) = sprintf "%s: %s" s (f 15 a)
+            let rec loop (a,b) = 
+                match a,b with
+                | s :: [], a -> [show (s,a)]
+                | s :: s', YPair(a,b) -> show (s,a) :: loop (s',b)
+                | s, a -> [show (String.concat "_" s, a)]
+            p 15 (loop (a.Split('_',System.StringSplitOptions.RemoveEmptyEntries) |> (fun x -> x.[0] <- to_upper x.[0]; Array.toList x), b) |> String.concat " ")
+        | YPair(YSymbol a, YB) when 0 < a.Length && System.Char.IsLower(a,0) -> to_upper a
+        | YPair(a,b) -> p 25 (sprintf "%s * %s" (f 25 a) (f 24 b))
+        | YSymbol x -> sprintf ".%s" x
+        | YTypeFunction _ -> p 0 (sprintf "? => ?")
+        | YRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
+        | YUnion l -> sprintf "{%s}" (l.Item |> fst |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat " | ")
+        | YPrim x -> show_primt x
+        | YArray a -> p 30 (sprintf "array %s" (f 30 a))
+        | YFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
+        | YMacro a -> p 30 (List.map (function Type a -> f -1 a | Text a -> a) a |> String.concat "")
+        | YApply(a,b) -> p 30 (sprintf "%s %s" (f 29 a) (f 30 b))
+        | YLayout(a,b) -> p 30 (sprintf "%s %s" (show_layout_type b) (f 30 a))
+        | YNominal x -> x.node.name
+    f -1 x
 
-let inline show_map (keywords: KeywordEnv) show v = 
-    let body = 
-        Map.toArray v
-        |> Array.map (fun (k,v) -> sprintf "%s=%s" (keywords.From k) (show v))
-        |> String.concat "; "
+let show_data x =
+    let rec f prec x =
+        let p = p prec
+        match x with
+        | DB -> "()"
+        | DPair(DSymbol a, b) when 0 < a.Length && System.Char.IsLower(a,0) && a.[a.Length-1] = '_' -> 
+            let show (s,a) = sprintf "%s: %s" s (f 15 a)
+            let rec loop (a,b) = 
+                match a,b with
+                | s :: [], a -> [show (s,a)]
+                | s :: s', DPair(a,b) -> show (s,a) :: loop (s',b)
+                | s, a -> [show (String.concat "_" s, a)]
+            p 15 (loop (a.Split('_',System.StringSplitOptions.RemoveEmptyEntries) |> (fun x -> x.[0] <- to_upper x.[0]; Array.toList x), b) |> String.concat " ")
+        | DPair(DSymbol a, DB) when 0 < a.Length && System.Char.IsLower(a,0) -> to_upper a
+        | DPair(a,b) -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b))
+        | DSymbol x -> sprintf ".%s" x
+        | DFunction _ -> p 20 "? -> ?"
+        | DForall _ -> p 0 "forall ?. ?"
+        | DRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
+        | DLit a -> show_lit a
+        | DV(L(_,ty)) -> show_ty ty
+        | DUnion(a,_) -> f prec a
+        | DNominal(a,b) -> p 0 (sprintf "%s : %s" (f 0 a) (show_ty b))
+    f -1 x
 
-    sprintf "{%s}" body
-
-let rec show_ty (keywords: KeywordEnv) x = 
-    let f x = show_ty keywords x
-    match x with
-    | BT -> "()"
-    | YPrim x -> show_primt x
-    | KeywordT(keyword,l) -> show_keyword keywords f (keyword,l)
-    | PairT(a, b) -> sprintf "(%s * %s)" (f a) (f b)
-    | RecordT v -> show_map keywords f v
-    | FunctionT(_,_,_,_,_,false) -> "<function>"
-    | FunctionT(_,_,_,_,_,true) -> "<forall>"
-    | TypeFunctionT(_,_,_) -> "<type function>" // TODO: Do proper printing for this case.
-    | RJPT (layout_type,body) -> sprintf "%s (%s)" (show_layout_type layout_type) (show_typed_data keywords (rdata_to_data (ref 0) body))
-    | RuntimeFunctionT (a,b) -> sprintf "(%s -> %s)" (f a) (f b)
-    | ArrayT x -> sprintf "array %s" (f x)
-    | MacroT x -> show_typed_data keywords (rdata_to_data (ref 0) x) |> sprintf "macro (%s)"
-
-and show_typed_data (keywords: KeywordEnv) (x: Data) =
-    let f x = show_typed_data keywords x
-    match x with
-    | TyB -> "()"
-    | TyV(T(_,t)) -> sprintf "var (%s)" (show_ty keywords t)
-    | TyKeyword(keyword,l) -> show_keyword keywords f (keyword,l)
-    | TyPair(a,b) -> sprintf "(%s, %s)" (f a) (f b)
-    | TyRecord a -> show_map keywords f a
-    | TyFunction(_,_,_,_,_,false) -> "<function>"
-    | TyFunction(_,_,_,_,_,true) -> "<forall>"
-    | DLit v -> sprintf "lit %s" (show_lit v)
+let is_lit = function
+    | DLit _ -> true
+    | _ -> false
 
 let is_numeric = function
     | YPrim (UInt8T | UInt16T | UInt32T | UInt64T 
@@ -442,10 +357,6 @@ let is_string = function
 
 let is_char = function
     | YPrim CharT -> true
-    | _ -> false
-
-let is_primt = function
-    | YPrim x -> true
     | _ -> false
 
 let is_float = function
@@ -507,7 +418,7 @@ let is_int_lit_one = function
         | _ -> false
     | _ -> false
 
-let lit_zero k d = function
+let lit_zero = function
     | YPrim Int8T -> LitInt8 0y
     | YPrim Int16T -> LitInt16 0s
     | YPrim Int32T -> LitInt32 0
@@ -518,162 +429,286 @@ let lit_zero k d = function
     | YPrim UInt64T -> LitUInt64 0UL
     | YPrim Float32T -> LitFloat32 0.0f
     | YPrim Float64T -> LitFloat64 0.0
-    | ty -> raise_type_error d <| sprintf "Compiler error: Expected a numeric value in value_zero.\nGot: %s" (show_ty k ty)
+    | _ -> failwith "Compiler error: Expected a numeric value."
 
-let rec partial_eval_type (dex: ExternalLangEnv) d x =
-    let ev' d x = partial_eval_type dex d x
-    let ev d x =
-        match ev' d x with
-        | TypeFunctionT _ -> raise_type_error d "The type expression must not evaluate to a type function."
-        | x -> x
-            
-    let inline vt x = if x < 0 then d.env_global_type.[-x-1] else d.env_stack_type.[x]
-    match x with
-    | TV x -> vt x
-    | TPair (a,b) -> PairT(ev d a, ev d b)
-    | TFun (a,b) -> RuntimeFunctionT(ev d a, ev d b)
-    | TRecord l -> RecordT(Map.map (fun k -> ev d) l)
-    | TKeyword (k,l) -> KeywordT(k,Array.map (ev d) l)
-    | TApply(l,r) ->
-        match ev' d l with
-        | RecordT x ->
-            match ev' d r with
-            | KeywordT(k,_) ->
-                match Map.tryFind k x with
-                | Some x -> x
-                | None -> raise_type_error d <| sprintf "Cannot find the member %s inside the type level record." (dex.keywords.From k)
-            | r -> raise_type_error d <| sprintf "Expected a keyword.\nGot: %s" (show_ty dex.keywords r)
-        | TypeFunctionT(a,b,c) ->
-            let d =
-                {d with
-                    env_global_type=c
-                    env_stack_type=Array.zeroCreate b
-                    env_stack_type_ptr=0}
-            ev' (push_type_var (ev' d r) d) a
-        | l -> raise_type_error d <| sprintf "Expected a type level function as the first argument in type application.Got: %s" (show_ty dex.keywords l)
-    | TInl(a,b) -> TypeFunctionT(a,b.stack_size,Array.map vt b.free_vars)
-    | TUnit -> BT
-    | TPrim x -> YPrim x
-    | TArray x -> ArrayT (ev d x)
-    | TModule x -> memoize dex.memoized_modules_type (fun _ -> RecordT(Map.map (fun k -> ev d) x)) x
-    | TPos x -> ev {d with trace = x.Pos :: d.trace} x.Expression
+let vt s i = if i < s.env_global_type.Length then s.env_global_type.[i] else s.env_stack_type.[i-s.env_global_type.Length]
+let v s i = if i < s.env_global_term.Length then s.env_global_term.[i] else s.env_stack_term.[i-s.env_global_term.Length]
+let add_trace (s : LangEnv) r = {s with trace = r :: s.trace}
+let store_term (s : LangEnv) i v = s.env_stack_term.[i-s.env_global_term.Length] <- v
+let store_ty (s : LangEnv) i v = s.env_stack_type.[i-s.env_global_type.Length] <- v
 
-and partial_eval_value (dex: ExternalLangEnv) (s: LangEnv) x = 
-    let inline show_typed_data x = show_typed_data dex.keywords x
-    let inline show_ty x = show_ty dex.keywords x
+type PartEvalResult = {
+    join_point_method : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty []>,TypedBind [] option * Ty option> * HashConsTable>
+    join_point_closure : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty [] * Ty * Ty>,(Data * TypedBind []) option> * HashConsTable>
+    ty_to_data : Ty -> Data
+    }
 
-    let inline tev d x = partial_eval_type dex d x
-    let inline ev d x = partial_eval_value dex d x
-    let inline term2 d a b = ev d a, ev d b
-    let inline ev3 d a b c = ev d a, ev d b, ev d c
-    let inline ev_seq d x =
-        let d = {d with seq=ResizeArray(); i=ref !d.i}
-        let x = ev d x
-        let x_ty = data_to_ty x
-        seq_apply d x, x_ty
-    let inline ev_branch d x = ev_seq {d with cse=Dictionary(HashIdentity.Structural) :: d.cse} x
-    
-    let inline push_var_ptrt ptr x = s.env_stack_type.[ptr] <- x; ptr+1
-    let inline push_var_ptr ptr x = s.env_stack_value.[ptr] <- x; ptr+1
-    let inline vt x = if x < 0 then s.env_global_type.[-x-1] else s.env_stack_type.[x]
-    let inline v x = if x < 0 then s.env_global_value.[-x-1] else s.env_stack_value.[x]
+let peval (env : TopEnv) (x : E) =
+    let join_point_method = Dictionary(HashIdentity.Reference)
+    let join_point_closure = Dictionary(HashIdentity.Reference)
+    let join_point_type = Dictionary(HashIdentity.Reference)
 
-    let inline nan_guardf32 x = if Single.IsNaN x then raise_type_error s "A 32-bit floating point operation resulting in a nan detected at compile time. Spiral cannot propagate nan literal without diverging." else x
-    let inline nan_guardf64 x = if Double.IsNaN x then raise_type_error s "A 64-bit floating point operation resulting in a nan detected at compile time. Spiral cannot propagate nan literal without diverging." else x
+    let rec ty_to_data s x =
+        let f = ty_to_data s
+        match x with
+        | YB -> DB
+        | YPair(a,b) -> DPair(f a, f b) 
+        | YSymbol a -> DSymbol a
+        | YRecord l -> DRecord(Map.map (fun _ -> f) l)
+        | YUnion _ | YLayout _ | YPrim _ | YArray _ | YFun _ | YMacro _ as x -> let r = DV(L(!s.i,x)) in incr s.i; r
+        | YNominal _ | YApply _ as a -> DNominal(nominal_apply s a |> ty_to_data s, a)
+        | YTypeFunction _ -> raise_type_error s "Cannot turn a type function to a runtime variable."
+    and push_typedop_no_rewrite d op ret_ty =
+        let ret = ty_to_data d ret_ty
+        d.seq.Add(TyLet(ret,d.trace,op))
+        ret
+    and push_typedop (d: LangEnv) key ret_ty =
+        match cse_tryfind d key with
+        | Some x -> x
+        | None ->
+            let x = ty_to_data d ret_ty
+            d.seq.Add(TyLet(x,d.trace,key))
+            cse_add d key x
+            x
+    and push_op_no_rewrite' (d: LangEnv) op l ret_ty = push_typedop_no_rewrite d (TyOp(op,l)) ret_ty
+    and push_op_no_rewrite d op a ret_ty = push_op_no_rewrite' d op [a] ret_ty
+    and push_binop_no_rewrite d op (a,b) ret_ty = push_op_no_rewrite' d op [a;b] ret_ty
+    and push_triop_no_rewrite d op (a,b,c) ret_ty = push_op_no_rewrite' d op [a;b;c] ret_ty
 
-    let func_env d (t_sz,t_env,v_sz,v_env) =
-        {d with 
-            env_global_type=t_env
-            env_global_value=v_env
-            env_stack_type=Array.zeroCreate t_sz
-            env_stack_type_ptr=0
-            env_stack_value=Array.zeroCreate v_sz
-            env_stack_value_ptr=0
-            }
+    and push_op' d op a ret_ty = push_typedop d (TyOp(op, a)) ret_ty
+    and push_op d op a ret_ty = push_op' d op [a] ret_ty
+    and push_binop d op (a,b) ret_ty = push_op' d op [a;b] ret_ty
+    and push_triop d op (a,b,c) ret_ty = push_op' d op [a;b;c] ret_ty
+    and closure_convert s (body,annot,gl_term,gl_ty,sz_term,sz_ty) =
+        let join_point_key, call_args, ret_ty =
+            let s : LangEnv = {
+                trace = s.trace
+                seq = ResizeArray()
+                cse = [Dictionary(HashIdentity.Structural)]
+                i = ref 0
+                env_global_type = gl_ty
+                env_global_term = gl_term
+                env_stack_type = Array.zeroCreate<_> sz_ty
+                env_stack_term = Array.zeroCreate<_> sz_term
+                }
+            let domain, range, ret_ty = 
+                match ty s annot with
+                | YFun(a,b) as x -> a,b,x
+                | annot -> raise_type_error s "Expected a function type in annotation during closure conversion. Got: %s" (show_ty annot)
+            let dict, hc_table = Utils.memoize join_point_closure (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
+            let call_args, env_global_value = data_to_rdata hc_table gl_term
+            let join_point_key = hc_table.Add(env_global_value, s.env_global_type, domain, range)
 
-    let rec apply' d a b =
-        match a,b with
-        | TyFunction(body,t_sz,t_env,v_sz,v_env,false), b ->
-            let d = func_env d (t_sz,t_env,v_sz,v_env)
-            ev (push_value_var b d) body
-        | TyRecord l, TyKeyword(keyword,_) ->
-            match Map.tryFind keyword l with
-            | Some a -> a
-            | None -> raise_type_error d <| sprintf "The record does not have the field %s." (dex.keywords.From keyword)
-        | TyRecord _, b -> raise_type_error d <| sprintf "The second argument in a record application is not a keyword.\nGot: %s" (show_typed_data b)
-        | TyV(T(_,RJPT _)) & a, b -> apply' d (rjp_to_none d a) b
-        | TyV(T(_,RuntimeFunctionT(clo_arg_ty,clo_ret_ty))) & a, b -> 
-            let b_ty = data_to_ty b
-            if clo_arg_ty <> b_ty then raise_type_error d <| sprintf "Cannot apply an argument of type %s to a function of type: %s -> %s" (show_ty b_ty) (show_ty clo_arg_ty) (show_ty clo_ret_ty)
-            else push_binop_no_rewrite d Apply (a, b) clo_ret_ty
-        | a, _ -> raise_type_error d <| sprintf "The first argument provided cannot be applied.\nGot: %s" (show_typed_data a)
+            match dict.TryGetValue(join_point_key) with
+            | true, _ -> ()
+            | false, _ ->
+                let s = rename_global_term s
+                let domain_data = ty_to_data s domain
+                s.env_stack_term.[0] <- domain_data
+                dict.[join_point_key] <- None
+                let seq,ty = term_scope'' s body
+                dict.[join_point_key] <- Some(domain_data, seq)
+                if range <> ty then raise_type_error s <| sprintf "The annotation of the function does not match its body's type.Got: %s\nExpected: %s" (show_ty ty) (show_ty range)
+            join_point_key, call_args, ret_ty
+        push_typedop s (TyJoinPoint(JPClosure(body,join_point_key),call_args)) ret_ty, ret_ty
+    and data_to_ty s x =
+        let m = Dictionary(HashIdentity.Reference)
+        let rec f x =
+            Utils.memoize m (function
+                | DPair(a,b) -> YPair(f a, f b)
+                | DSymbol a -> YSymbol a
+                | DRecord l -> YRecord(Map.map (fun _ -> f) l)
+                | DUnion(_,a) -> YUnion a
+                | DNominal(_,a) | DV(L(_,a)) -> a
+                | DLit x -> lit_to_ty x
+                | DB -> YB
+                | DFunction(_,Some a,_,_,_,_) -> ty s a
+                | DFunction(_,None,_,_,_,_) -> raise_type_error s "Cannot convert a function that is not annotated into a type."
+                | DForall _ -> raise_type_error s "Cannot convert a forall into a type."
+                ) x
+        f x
+    and dyn do_lit s x =
+        let m = Dictionary(HashIdentity.Reference)
+        let mutable dirty = false
+        let rec f x =
+            Utils.memoize m (function
+                | DPair(a,b) -> DPair(f a, f b)
+                | DB | DV _ | DSymbol _ as a -> a
+                | DRecord l -> DRecord(Map.map (fun _ -> f) l)
+                | DNominal(DUnion(DPair(DSymbol k,v),b),b') -> dirty <- true; push_typedop s (TyUnionBox(k,f v,b)) b'
+                | DUnion _ -> raise_type_error s "Compiler error: Malformed union"
+                | DNominal(a,b) -> DNominal(f a,b)
+                | DLit v as x -> if do_lit then dirty <- true; push_op_no_rewrite s Dyn x (lit_to_ty v) else x // TODO: Since strings are heap allocated, it might be worth it to consider them separate from other literals much like union types.
+                | DFunction(body,Some annot,term',ty',sz_term,sz_ty) -> dirty <- true; closure_convert s (body,annot,term',ty',sz_term,sz_ty) |> fst
+                | DFunction(_,None,_,_,_,_) -> raise_type_error s "Cannot convert a function that is not annotated into a type."
+                | DForall _ -> raise_type_error s "Cannot convert a forall into a type."
+                ) x
+        let v = f x
+        if dirty then v else x
+    and term_scope'' s x =
+        let x = term s x |> dyn false s
+        let x_ty = data_to_ty s x
+        seq_apply s x, x_ty
+    and term_scope' s cse x = term_scope'' {s with seq=ResizeArray(); i=ref !s.i; cse=cse :: s.cse} x
+    and term_scope s x = term_scope' s (Dictionary(HashIdentity.Structural)) x
+    and nominal_apply s x =
+        match x with
+        | YApply(a,b) ->
+            match nominal_apply s a with
+            | YTypeFunction(body,gl_ty,sz_term,sz_ty) ->
+                let s =
+                    {s with
+                        env_global_type = gl_ty
+                        env_global_term = [||]
+                        env_stack_type = Array.zeroCreate<_> sz_ty
+                        env_stack_term = Array.zeroCreate<_> sz_term
+                        }
+                s.env_stack_type.[0] <- b
+                ty s body
+            | a -> raise_type_error s <| sprintf "Expected a type level function in nominal application.\nGot: %s" (show_ty a)
+        | YNominal a -> ty s a.node.body
+        | _ -> raise_type_error s <| sprintf "Expected a nominal or a deferred type apply.\nGot: %s" (show_ty x)
+    and ty s x =
+        match x with
+        | TPatternRef _ -> failwith "Compiler error: TPatternRef should have been eliminated during the prepass."
+        | TArrow _ | TJoinPoint _ -> failwith "Compiler error: Should have been transformed during the prepass."
+        | TArrow'(scope,i,body) -> 
+            assert (i = scope.ty.free_vars.Length)
+            YTypeFunction(body,Array.map (vt s) scope.ty.free_vars,scope.term.stack_size,scope.ty.stack_size)
+        | TJoinPoint'(r,scope,body) ->
+            let env_global_type = Array.map (vt s) scope.ty.free_vars
+            let env_global_term = Array.map (v s) scope.term.free_vars
 
+            let dict, hc_table = Utils.memoize join_point_type (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
+            let join_point_key = hc_table.Add(env_global_type)
+            match dict.TryGetValue(join_point_key) with
+            | true, Some ret_ty -> ret_ty
+            | true, None -> raise_type_error (add_trace s r) "Type join points must not be unboxed during their definition."
+            | false, _ ->
+                assert (0 = scope.term.free_vars.Length)
+                let s : LangEnv = {
+                    trace = r :: s.trace
+                    seq = ResizeArray()
+                    cse = [Dictionary(HashIdentity.Structural)]
+                    i = ref 0
+                    env_global_type = env_global_type
+                    env_global_term = env_global_term
+                    env_stack_type = Array.zeroCreate<_> scope.ty.stack_size
+                    env_stack_term = Array.zeroCreate<_> scope.term.stack_size
+                    }
+                let s = rename_global_term s
+                dict.[join_point_key] <- None
+                let ret_ty = ty s body
+                dict.[join_point_key] <- Some ret_ty
+                ret_ty
+        | TB _ -> YB
+        | TV i -> vt s i
+        | TPair(_,a,b) -> YPair(ty s a, ty s b)
+        | TFun(_,a,b) -> YFun(ty s a, ty s b)
+        | TModule a | TRecord(_,a) -> YRecord(Map.map (fun _ -> ty s) a)
+        | TUnion(_,(a,b)) -> YUnion(H(Map.map (fun _ -> ty s) a, b))
+        | TSymbol(_,a) -> YSymbol a
+        | TApply(r,a,b) ->
+            let s = add_trace s r
+            match ty s a with
+            | YRecord a ->
+                match ty s b with
+                | YSymbol b ->
+                    match Map.tryFind b a with
+                    | Some x -> x
+                    | None -> raise_type_error s <| sprintf  "Cannot find key %s in the record." b
+                | b -> raise_type_error s <| sprintf "Expected a symbol in the record application.\nGot: %s" (show_ty b)
+            | YNominal _ | YApply _ as a -> YApply(a,ty s b)
+            | YTypeFunction(body,gl_ty,sz_term,sz_ty) -> 
+                let b = ty s b
+                let s = 
+                    {s with 
+                        env_global_type = gl_ty
+                        env_global_term = [||]
+                        env_stack_type = Array.zeroCreate<_> sz_ty
+                        env_stack_term = Array.zeroCreate<_> sz_term
+                        }
+                s.env_stack_type.[0] <- b
+                ty s body
+            | a -> raise_type_error s <| sprintf "Expected record, nominal or a type function.\nGot: %s" (show_ty a)
+        | TPrim a -> YPrim a
+        | TTerm(_,a) -> term_scope s a |> snd
+        | TMacro(r,a) -> let s = add_trace s r in YMacro(a |> List.map (function TMText a -> Text a | TMType a -> Type(ty s a)))
+        | TNominal i -> YNominal env.nominals.[i]
+        | TArray a -> YArray(ty s a)
+        | TLayout(a,b) -> YLayout(ty s a,b)
+    and term (s : LangEnv) x = 
+        let term2 s a b = term s a, term s b
+        let term3 s a b c = term s a, term s b, term s c
+        let type_apply s a b =
+            match a with
+            | DForall(body,gl_term,gl_ty,sz_term,sz_ty) ->
+                let s =
+                    {s with 
+                        env_global_type = gl_ty
+                        env_global_term = gl_term
+                        env_stack_type = Array.zeroCreate<_> sz_ty
+                        env_stack_term = Array.zeroCreate<_> sz_term
+                        }
+                s.env_stack_type.[0] <- b
+                term s body
+            | a -> raise_type_error s <| sprintf "Expected a forall.\nGot: %s" (show_data a)
 
-    let apply d a b = 
-        match ev d a with
-        | TyFunction(body,t_sz,t_env,v_sz,v_env,true) ->
-            match b with
-            | Type b -> 
-                let d = func_env d (t_sz,t_env,v_sz,v_env)
-                ev (push_type_var (tev d b) d) body
-            | _ -> raise_type_error d <| sprintf "Expected a type as the second argument in the forall application."
-        | a -> apply' d a (ev d b)
+        let rec apply s = function
+            | DRecord a, DSymbol b ->
+                match Map.tryFind b a with
+                | Some a -> a
+                | None -> raise_type_error s <| sprintf "Cannot find the key %s inside the record." b
+            | DRecord a, DPair(DSymbol b,b') ->
+                match Map.tryFind b a with
+                | Some a -> apply s (a, b')
+                | None -> raise_type_error s <| sprintf "Cannot find the key %s inside the record." b
+            | DFunction(body,_,gl_term,gl_ty,sz_term,sz_ty), b ->
+                let s : LangEnv = 
+                    {s with
+                        env_global_type = gl_ty
+                        env_global_term = gl_term
+                        env_stack_type = Array.zeroCreate<_> sz_ty
+                        env_stack_term = Array.zeroCreate<_> sz_term
+                        }
+                s.env_stack_term.[0] <- b
+                term s body
+            | DForall _, _ -> raise_type_error s "Cannot apply a forall with a term."
+            | DV(L(_,YFun(domain,range) & a_ty)) & a, b ->
+                let b = dyn false s b
+                let b_ty = data_to_ty s b
+                if domain = b_ty then push_binop_no_rewrite s Apply (a, b) range
+                else raise_type_error s <| sprintf "Cannot apply an argument of type %s to a function of type: %s" (show_ty b_ty) (show_ty a_ty)
+            | DV(L(i,YLayout(ty,layout))) as a, DSymbol b -> 
+                let key = TyLayoutIndexByKey(L(i,(ty,layout)), b)
+                match layout with
+                | HeapMutable -> push_typedop_no_rewrite s key ty
+                | Heap -> push_typedop s key ty
+            | DV(L(_,YLayout _)), b -> raise_type_error s <| sprintf "Expected a symbol as the index into the layout type.\nGot: %s" (show_data b)
+            | a,_ -> raise_type_error s <| sprintf "Expected a function, closure, record or a layout type.\nGot: %s" (show_data a)
 
-    let function_to_runtime_function env (a : Expr, b : StackSize, c : Ty [], d : StackSize, e : Data []) (a' : Ty, b' : Ty) =
-        raise_type_error env "function_to_runtime_function not implemented."
-
-    let rec box' d (a,b) = 
-        let box (a,b) = box' d (a,b)
-        let fail a b = raise_type_error d <| sprintf "Cannot box %s into %s" (show_typed_data a) (show_ty b)
-        match a, b with
-        | TyB, BT -> a
-        | TyPair(a,b), PairT(a',b') -> TyPair(box (a, a'), box (b, b'))
-        | TyKeyword(k,l), KeywordT(k',l') -> TyKeyword(k,Array.map2 (fun a b -> box (a,b)) l l')
-        | TyFunction(a,b,c,d',e,false), RuntimeFunctionT(a',b') -> function_to_runtime_function d (a,b,c,d',e) (a',b')
-        | TyFunction(_,_,_,_,_,true), _ -> raise_type_error d <| sprintf "Cannot box foralls.\nGot: %s" (show_typed_data a)
-        | TyRecord l & a, RecordT l' -> 
-            if Map.count l = Map.count l' then
-                TyRecord(
-                    Map.map (fun k v -> 
-                        match Map.tryFind k l' with
-                        | Some v' -> box (v, v')
-                        | None -> fail a b
-                        ) l)
-            else fail a b
-        | DLit x, YPrim x' -> if lit_to_primitive_type x = x' then push_op_no_rewrite d Dynamize a b else fail a b
-        | TyV(T(_,x)), x' -> if x = x' then a else fail a b
-        | a,b -> fail a b
-
-    let function' is_forall on_succ (data : ExprData) = 
-        TyFunction(on_succ,
-            data.type'.stack_size,Array.zeroCreate<_> data.type'.free_vars.Length,
-            data.value.stack_size,Array.map v data.value.free_vars,
-            is_forall)
-
-    let rec if_ cond on_succ on_fail = 
-        match cond with
-        | DLit (LitBool true) -> ev s on_succ
-        | DLit (LitBool false) -> ev s on_fail
-        | cond ->
-            match data_to_ty cond with
-            | YPrim BoolT as type_bool ->
+        let rec if_ s cond on_succ on_fail = 
+            match cond with
+            | DLit (LitBool true) -> term s on_succ
+            | DLit (LitBool false) -> term s on_fail
+            | DV(L(_,YPrim BoolT & type_bool)) ->
                 let lit_tr = DLit(LitBool true)
-                match cse_tryfind s (EQ, [|cond; lit_tr|]) with
-                | Some cond -> if_ cond on_succ on_fail
+                match cse_tryfind s (TyOp(EQ, [cond; lit_tr])) with
+                | Some cond -> if_ s cond on_succ on_fail
                 | None ->
                     let lit_fl = DLit(LitBool false)
                     let add_rewrite_cases is_true = 
                         let cse = Dictionary(HashIdentity.Structural)
                         let tr,fl = if is_true then lit_tr, lit_fl else lit_fl, lit_tr
-                        let inline op op cond' res = cse.Add((op,[|cond;cond'|]),res); cse.Add((op,[|cond';cond|]),res)
+                        let inline op op cond' res = cse.Add(TyOp(op,[cond;cond']),res); cse.Add(TyOp(op,[cond';cond]),res)
                         op EQ lit_tr tr; op NEQ lit_tr fl; op EQ lit_fl fl; op NEQ lit_fl tr
                         cse
-                    let tr, type_tr = ev_seq {s with cse = add_rewrite_cases true :: s.cse} on_succ
-                    let fl, type_fl = ev_seq {s with cse = add_rewrite_cases false :: s.cse} on_fail
+                    let tr, type_tr = term_scope' s (add_rewrite_cases true) on_succ
+                    let fl, type_fl = term_scope' s (add_rewrite_cases false) on_fail
                     if type_tr = type_fl then
                         if tr.Length = 1 && fl.Length = 1 then
                             match tr.[0], fl.[0] with
-                            | TyLocalReturnOp(_,tr), TyLocalReturnOp(_,fl) when tr = fl -> push_typedop s tr type_tr
+                            | TyLocalReturnOp(_,tr), TyLocalReturnOp(_,fl) when tr = fl -> push_typedop_no_rewrite s tr type_tr
                             | TyLocalReturnData(tr',_), TyLocalReturnData(fl',_) -> 
                                 match tr', fl' with
                                 | tr, fl when tr = fl -> tr
@@ -687,827 +722,1091 @@ and partial_eval_value (dex: ExternalLangEnv) (s: LangEnv) x =
                                     match tr with
                                     | DLit(LitBool true) -> cond
                                     | _ -> if cond = tr then cond else push_binop s BoolAnd (cond,tr) type_bool
-                                | _ -> push_typedop s (TyIf(cond,tr,fl)) type_tr
-                            | _ -> push_typedop s (TyIf(cond,tr,fl)) type_tr
-                        else push_typedop s (TyIf(cond,tr,fl)) type_tr
+                                | _ -> push_typedop_no_rewrite s (TyIf(cond,tr,fl)) type_tr
+                            | _ -> push_typedop_no_rewrite s (TyIf(cond,tr,fl)) type_tr
+                        else push_typedop_no_rewrite s (TyIf(cond,tr,fl)) type_tr
                     else raise_type_error s <| sprintf "Types in branches of If do not match.\nGot: %s and %s" (show_ty type_tr) (show_ty type_fl)
-            | cond_ty -> raise_type_error s <| sprintf "Expected a bool in conditional.\nGot: %s" (show_ty cond_ty)
+            | cond -> raise_type_error s <| sprintf "Expected a bool in conditional.\nGot: %s" (show_data cond)
 
-    let eq d a b = 
-        let inline op a b = a = b
-        match a,b with
-        | DLit a, DLit b ->
-            match a, b with
-            | LitInt8 a, LitInt8 b -> op a b |> LitBool |> DLit
-            | LitInt16 a, LitInt16 b -> op a b |> LitBool |> DLit
-            | LitInt32 a, LitInt32 b -> op a b |> LitBool |> DLit
-            | LitInt64 a, LitInt64 b -> op a b |> LitBool |> DLit
-            | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> DLit
-            | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> DLit
-            | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> DLit
-            | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> DLit
-            | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> DLit
-            | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> DLit
-            | LitString a, LitString b -> op a b |> LitBool |> DLit
-            | LitChar a, LitChar b -> op a b |> LitBool |> DLit
-            | LitBool a, LitBool b -> op a b |> LitBool |> DLit
-            | a, b -> raise_type_error d <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
-        | TyV(T(a,a_ty)), TyV(T(b,_)) when a = b && is_non_float_primitive a_ty -> LitBool true |> DLit
-        | a, b ->
-            let a_ty, b_ty = data_to_ty a, data_to_ty b 
-            if a_ty = b_ty then
-                if is_primitive a_ty then push_binop d EQ (a,b) (YPrim BoolT)
-                else raise_type_error d <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
-            else
-                raise_type_error d <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)            
+        let eq s a b = 
+            let inline op a b = a = b
+            match a,b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitBool |> DLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitBool |> DLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitBool |> DLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitBool |> DLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> DLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> DLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> DLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> DLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> DLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> DLit
+                | LitString a, LitString b -> op a b |> LitBool |> DLit
+                | LitChar a, LitChar b -> op a b |> LitBool |> DLit
+                | LitBool a, LitBool b -> op a b |> LitBool |> DLit
+                | a, b -> raise_type_error s <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | DV(L(a,a_ty)), DV(L(b,_)) when a = b && is_non_float_primitive a_ty -> LitBool true |> DLit
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if a_ty = b_ty then
+                    if is_primitive a_ty then push_binop s EQ (a,b) (YPrim BoolT)
+                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error s <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)    
+
+        let default_lit s (a : string) b =
+            let inline f string_to_val val_to_lit val_dsc =
+                match string_to_val a with
+                | true, x -> val_to_lit x
+                | false, _ -> raise_type_error s <| sprintf "Cannot parse the literal as: %s" val_dsc
+            match b with
+            | YPrim Float32T -> f Single.TryParse LitFloat32 "f32"
+            | YPrim Float64T -> f Double.TryParse LitFloat64 "f64"
+            | YPrim Int8T -> f SByte.TryParse LitInt8 "i8"
+            | YPrim Int16T -> f Int16.TryParse LitInt16 "i16"
+            | YPrim Int32T -> f Int32.TryParse LitInt32 "i32"
+            | YPrim Int64T -> f Int64.TryParse LitInt64 "i64"
+            | YPrim UInt8T -> f Byte.TryParse LitUInt8 "u8"
+            | YPrim UInt16T -> f UInt16.TryParse LitUInt16 "u16"
+            | YPrim UInt32T -> f UInt32.TryParse LitUInt32 "u32"
+            | YPrim UInt64T -> f UInt64.TryParse LitUInt64 "u64"
+            | b -> raise_type_error s <| sprintf "Expected a numberic type (f32,f64,i8,i16,i32,i64,u8,u16,u32,u64) as the type of literaly.\nGot: %s" (show_ty b)
+
+        let lit_test s a bind on_succ on_fail =
+            let b = v s bind
+            if lit_to_ty a = data_to_ty s b then if_ s (eq s (DLit a) b) on_succ on_fail
+            else term s on_fail
+
+        let inline nan_guardf32 x = if Single.IsNaN x then raise_type_error s "A 32-bit floating point operation resulting in a nan detected at compile time." else x
+        let inline nan_guardf64 x = if Double.IsNaN x then raise_type_error s "A 64-bit floating point operation resulting in a nan detected at compile time." else x
+
+        let eforall (free_vars : Scope,i,body) =
+            assert (free_vars.ty.free_vars.Length = i)
+            DForall(body,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
+
+        let efun (free_vars : Scope,i,body,annot) =
+            assert (free_vars.term.free_vars.Length = i)
+            DFunction(body,annot,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
+
+        let inline eunbox run r a =
+            let s = add_trace s r
+            match term s a with
+            | DNominal(DUnion(a,_),_) -> run s a 
+            | DNominal(DV(L(i,YUnion h)) & a,_) ->
+                let key = TyOp(Unbox,[a])
+                match cse_tryfind s key with
+                | Some a -> run s a
+                | None ->
+                    let mutable case_ty = None
+                    let cases =
+                        Map.map (fun k v ->
+                            let s = {s with i = ref !s.i; cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
+                            let a = DPair(DSymbol k,ty_to_data s v)
+                            cse_add s key a
+                            let x = run s a |> dyn false s
+                            let x_ty' = data_to_ty s x
+                            match case_ty with
+                            | Some x_ty -> if x_ty' <> x_ty then raise_type_error s <| sprintf "One union case for key %s has a different return that the previous one.\nGot: %s\nExpected: %s" k (show_ty x_ty') (show_ty x_ty)
+                            | None -> case_ty <- Some x_ty'
+                            [a], seq_apply s x
+                            ) (fst h.Item)
+                    push_typedop_no_rewrite s (TyUnionUnbox([i],h,cases,None)) (Option.get case_ty)
+            | a -> raise_type_error s <| sprintf "Expected an union type.\nGot: %s" (show_data a)
+
+        match x with
+        | EPatternRef _ -> failwith "Compiler error: EPatternRef should have been eliminated during the prepass."
+        | EB _ -> DB
+        | EV a -> v s a
+        | ELit(_,a) -> DLit a
+        | ESymbol(_,a) -> DSymbol a
+        | EFun _ -> failwith "Compiler error: Raw functions should be transformed during the prepass."
+        | EFun'(_,free_vars,i,body,annot) -> efun (free_vars,i,body,annot)
+        | ERecursiveFun'(_,free_vars,i,body,annot) -> efun (free_vars,i,!body,annot)
+        | EForall _ -> failwith "Compiler error: Raw foralls should be transformed during the prepass."
+        | EForall'(_,free_vars,i,body) -> eforall (free_vars,i,body)
+        | ERecursiveForall'(_,free_vars,i,body) -> eforall (free_vars,i,!body)
+        | ERecursive a -> term s !a
+        | ERecBlock _ -> failwith "Compiler error: Recursive blocks should be inlined and eliminated during the prepass."
+        | EJoinPoint _ -> failwith "Compiler error: Raw join points should be transformed during the prepass."
+        | EJoinPoint'(r,scope,body,annot) ->
+            let env_global_type = Array.map (vt s) scope.ty.free_vars
+            let env_global_term = Array.map (v s) scope.term.free_vars
+
+            let dict, hc_table = Utils.memoize join_point_method (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
+            let call_args, env_global_value = data_to_rdata hc_table env_global_term
+            let join_point_key = hc_table.Add(env_global_value, env_global_type)
+
+            let ret_ty =
+                match dict.TryGetValue(join_point_key) with
+                | true, (_, Some ret_ty) -> ret_ty
+                | true, (_, None) -> raise_type_error (add_trace s r) "Recursive join points must be annotated."
+                | false, _ ->
+                    let s : LangEnv = {
+                        trace = r :: s.trace
+                        seq = ResizeArray()
+                        cse = [Dictionary(HashIdentity.Structural)]
+                        i = ref 0
+                        env_global_type = env_global_type
+                        env_global_term = env_global_term
+                        env_stack_type = Array.zeroCreate<_> scope.ty.stack_size
+                        env_stack_term = Array.zeroCreate<_> scope.term.stack_size
+                        }
+                    let s = rename_global_term s
+                    let annot = Option.map (ty s) annot
+                    dict.[join_point_key] <- (None, annot)
+                    let seq,ty = term_scope'' s body
+                    dict.[join_point_key] <- (Some seq, Some ty)
+                    annot |> Option.iter (fun annot -> if annot <> ty then raise_type_error s <| sprintf "The annotation of the join point does not match its body's type.Got: %s\nExpected: %s" (show_ty ty) (show_ty annot))
+                    ty
+
+            push_typedop_no_rewrite s (TyJoinPoint(JPMethod(body,join_point_key),call_args)) ret_ty
+        | EDefaultLit(r,a,b) -> let s = add_trace s r in default_lit s a (ty s b) |> DLit
+        | EType(r,_) -> raise_type_error (add_trace s r) "Raw types are not allowed on the term level."
+        | EApply(r,a,b) -> let s = add_trace s r in apply s (term s a, term s b)
+        | ETypeApply(r,a,b) ->
+            let s = add_trace s r
+            type_apply s (term s a) (ty s b)
+        | ERecordWith(r,vars,withs,withouts) ->
+            let s = add_trace s r
+            let map x =
+                let fold f a b = List.fold f b a
+                let var r a = 
+                    match term s a with
+                    | DSymbol a -> a
+                    | a -> raise_type_error (add_trace s r) <| sprintf "Expected a symbol.\nGot: %s" (show_data a)
+                x |> fold (fun m x -> 
+                    let sym a b = Map.add a (term s b) m
+                    let sym_mod r a b = 
+                        match Map.tryFind a m with
+                        | Some a' -> Map.add a (apply s (term s b, a')) m
+                        | None -> raise_type_error (add_trace s r) "Cannot find key %s in record." a
+                    match x with
+                    | RSymbol((_,a),b) -> sym a b
+                    | RSymbolModify((r,a),b) -> sym_mod r a b
+                    | RVar((r,a),b) -> sym (var r a) b
+                    | RVarModify((r,a),b) -> sym_mod r (var r a) b
+                    ) withs
+                |> fold (fun m -> function
+                    | WSymbol(r,a) -> Map.remove a m
+                    | WVar(r,a) -> Map.remove (var r a) m
+                    ) withouts
+            
+            let rec dive m = function
+                | (r,x) :: xs ->
+                    let s = add_trace s r
+                    match term s x with
+                    | DSymbol b -> 
+                        match Map.tryFind b m with
+                        | Some (DRecord a) -> Map.add b (DRecord (dive a xs)) m
+                        | Some a -> raise_type_error s <| sprintf "Expected a record as the result of indexing.\nGot: %s" (show_data a)
+                        | None -> raise_type_error s <| sprintf "Cannot find the key %s in a record." b
+                    | b -> raise_type_error s <| sprintf "Expected a symbol.\nGot: %s" (show_data b)
+                | [] -> map m
+
+            match vars with
+            | (r,x) :: xs ->
+                match term s x with
+                | DRecord l -> dive l xs
+                | a -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data a)
+            | [] -> map Map.empty
+            |> DRecord
+        | EPatternMemo _ | EReal _ -> failwith "Compiler error: Should have been eliminated during the prepass."
+        | EModule a -> DRecord(Map.map (fun _ -> term s) a)
+        | EPair(r,a,b) -> DPair(term s a, term s b)
+        | ESeq(r,a,b) -> 
+            let s = add_trace s r
+            match term s a with
+            | DB -> term s b
+            | a -> raise_type_error s <| sprintf "Expected unit.\nGot: %s" (show_data a)
+        | EAnnot(r,a,b) ->
+            let s = add_trace s r
+            let a = term s a 
+            let a_ty = data_to_ty s a
+            let b = ty s b
+            if a_ty <> b then raise_type_error s <| sprintf "The body does not match the annotation.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty b)
+            a
+        | EPatternMiss a -> raise_type_error s <| sprintf "Pattern miss.\nGot: %s" (show_data (term s a))
+        | EIfThenElse(r,cond,tr,fl) -> let s = add_trace s r in if_ s (term s cond) tr fl
+        | EIfThen(r,cond,tr) -> let s = add_trace s r in if_ s (term s cond) tr (EB r)
+        | EHeapMutableSet(r,a,b,c) ->
+            let s = add_trace s r
+            let L(i,a_ty) & a =
+                match term s a with
+                | DV(L(i,YLayout(a,HeapMutable))) -> L(i,a)
+                | DV(L(_,YLayout _)) -> raise_type_error s "Expected a mutable layout type, but got an immutable one."
+                | a -> raise_type_error s <| sprintf "Expected a mutable layout type.\nGot: %s" (show_data a)
+            let b = 
+                List.map (fun (r,b) -> 
+                    match term s b with
+                    | DSymbol b -> r,b
+                    | b -> raise_type_error (add_trace s r) <| sprintf "Expected a symbol.\nGot: %s" (show_data b)
+                    ) b
+            let c_ty =
+                List.fold (fun (r,a) (r',b) ->
+                    match a with
+                    | YRecord a ->
+                        match Map.tryFind b a with
+                        | Some a -> r', a
+                        | None -> raise_type_error (add_trace s r) <| sprintf "Key %s not found in the layout type." b
+                    | a -> raise_type_error (add_trace s r) <| sprintf "Expected a record.\nGot: %s" (show_ty a)
+                    ) (r,a_ty) b |> snd
+            let c = term s c |> dyn false s
+            if data_to_ty s c = c_ty then push_typedop_no_rewrite s (TyLayoutHeapMutableSet(a,List.map snd b,c)) YB
+            else raise_type_error s <| sprintf "The two side do not have the same type.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty c_ty)
+        | EMacro(r,a,b) ->
+            let s = add_trace s r
+            let a = a |> List.map (function MText x -> CMText x | MTerm x -> CMTerm(term s x |> dyn false s) | MType x -> CMType(ty s x))
+            push_typedop_no_rewrite s (TyMacro(a)) (ty s b)
+        | EPrototypeApply(_,prot_id,b) ->
+            let rec loop = function
+                | YNominal b -> term s env.prototypes_instances.[prot_id,b.node.id]
+                | YApply(a,b) -> type_apply s (loop a) b
+                | b -> raise_type_error s <| sprintf "Expected a nominal or a deferred type apply.\nGot: %s" (show_ty b)
+            loop (ty s b)
+        | ENominal(r,a,b) ->
+            let a = term s a
+            let b = ty s b
+            match nominal_apply s b with
+            | YUnion h ->
+                match a with
+                | DPair(DSymbol k, v) ->
+                    let v_ty = data_to_ty s v
+                    match Map.tryFind k (fst h.Item) with
+                    | Some v_ty' when v_ty = v_ty' -> DNominal(DUnion(a,h),b) 
+                    | Some v_ty' -> raise_type_error s <| sprintf "For key %s, The type of the value does not match the union case.\nGot: %s\nExpected: %s" k (show_ty v_ty) (show_ty v_ty')
+                    | None -> raise_type_error s <| sprintf "The union does not have key %s.\nGot: %s" k (show_ty b)
+                | _ -> raise_type_error s <| sprintf "Compiler error: Expected key/value pair.\nGot: %s" (show_data a)
+            | b' ->
+                let a_ty = data_to_ty s a
+                if a_ty = b' then DNominal(a,b)
+                else raise_type_error s <| sprintf "Type error in nominal constructor.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty b')
+        | EUnbox(r,id,a,on_succ) -> eunbox (fun s a -> store_term s id a; term s on_succ) r a
+        | EOp(r,Unbox,[a;on_succ]) -> let on_succ = term s on_succ in eunbox (fun s a -> apply s (on_succ,a)) r a
+        | EOp(r,Unbox2,[a;b;on_succ;on_fail]) ->
+            let s = add_trace s r
+            let on_succ = term s on_succ
+            let on_fail = term s on_fail
+            let mutable case_ty = None
+            let s' () = {s with i = ref !s.i; cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
+            let assert_case_ty s x =
+                let x_ty' = data_to_ty s x
+                match case_ty with
+                | Some x_ty -> if x_ty' <> x_ty then raise_type_error s <| sprintf "One union case has a different return than the previous one.\nGot: %s\nExpected: %s" (show_ty x_ty') (show_ty x_ty)
+                | None -> case_ty <- Some x_ty'
+            let run s x =
+                let x = apply s x |> dyn false s
+                assert_case_ty s x
+                seq_apply s x
+            let case_on_fail () = run (s'()) (on_fail, DB)
+            let key_value = function
+                | DPair(DSymbol k, a) -> k, a
+                | _ -> failwith "Compiler error: Malformed union."
+            match term s a, term s b with
+            | DNominal(DUnion(_,h),_), DNominal(DUnion(_,h'),_) when h <> h' ->
+                raise_type_error s <| sprintf "The two variables have different union types.\nGot: %s\nGot: %s" (show_ty (YUnion h)) (show_ty (YUnion h'))
+            | DNominal(DUnion(a,_),_), DNominal(DUnion(a',_),_) ->
+                let k,a = key_value a
+                let k',a' = key_value a'
+                if k = k' then apply s (on_succ, DPair(DSymbol k, DPair(a, a')))
+                else apply s (on_fail, DB)
+            | DNominal(DV(L(_,YUnion h)),_), DNominal(DUnion(_,h'),_) | DNominal(DUnion(_,h),_), DNominal(DV(L(_,YUnion h')),_) when h <> h' ->
+                raise_type_error s <| sprintf "The two variables have different union types.\nGot: %s\nGot: %s" (show_ty (YUnion h)) (show_ty (YUnion h'))
+            | DNominal(DUnion(a,_),_), DNominal(DV(L(i,YUnion h)),_) ->
+                let k,a = key_value a
+                let v = (fst h.Item).[k]
+                let case_on_succ =
+                    let s = s'()
+                    let a' = ty_to_data s v
+                    [a'], run s (on_succ, DPair(DSymbol k, DPair(a, a')))
+                push_typedop_no_rewrite s (TyUnionUnbox([i],h,Map.add k case_on_succ Map.empty,Some (case_on_fail()))) (Option.get case_ty)
+            | DNominal(DV(L(i,YUnion h)),_), DNominal(DUnion(a',_),_) ->
+                let k,a' = key_value a'
+                let v = (fst h.Item).[k]
+                let case_on_succ =
+                    let s = s'()
+                    let a = ty_to_data s v
+                    [a], run s (on_succ, DPair(DSymbol k, DPair(a, a')))
+                push_typedop_no_rewrite s (TyUnionUnbox([i],h,Map.add k case_on_succ Map.empty,Some (case_on_fail()))) (Option.get case_ty)
+            | DNominal(DV(L(_,YUnion h & t)),_), DNominal(DV(L(_,YUnion h' & t')),_) when h <> h' -> 
+                raise_type_error s <| sprintf "The two variables have different union types.\nGot: %s\nGot: %s" (show_ty t) (show_ty t')
+            | DNominal(DV(L(i,YUnion h)),_), DNominal(DV(L(i',YUnion _)),_) ->
+                let cases_on_succ =
+                    Map.map (fun k v ->
+                        let s = s'()
+                        let a,a' = ty_to_data s v, ty_to_data s v
+                        [a;a'], run s (on_succ, DPair(DSymbol k, DPair(a, a')))
+                        ) (fst h.Item)
+                push_typedop_no_rewrite s (TyUnionUnbox([i;i'],h,cases_on_succ,Some (case_on_fail()))) (Option.get case_ty)
+            | a,a' -> raise_type_error s <| sprintf "Expected two union types.\nGot: %s\nAnd: %s" (show_data a) (show_data a')
+        | ELet(r,i,a,b) -> let s = add_trace s r in store_term s i (term s a); term s b
+        | EPairTest(r,bind,p1,p2,on_succ,on_fail) ->
+            let s = add_trace s r
+            match v s bind with
+            | DPair(a,b) -> store_term s p1 a; store_term s p2 b; term s on_succ
+            | _ -> term s on_fail
+        | ESymbolTest(r,a,bind,on_succ,on_fail) ->
+            let s = add_trace s r
+            match v s bind with
+            | DSymbol a' when a = a' -> term s on_succ
+            | _ -> term s on_fail
+        | ERecordTest(r,a,bind,on_succ,on_fail) ->
+            let s = add_trace s r
+            match v s bind with
+            | DRecord l ->
+                let rec loop = function
+                    | x :: x' ->
+                        let sym a b =
+                            match Map.tryFind a l with
+                            | Some a -> store_term s b a; loop x'
+                            | None -> term s on_fail
+                        match x with
+                        | Symbol((_,a),b) -> sym a b
+                        | Var((r,a),b) ->
+                            match term s a with
+                            | DSymbol a -> sym a b
+                            | a -> raise_type_error (add_trace s r) <| sprintf "Expected a symbol.\nGot: %s" (show_data a)
+                    | [] -> term s on_succ
+                loop a
+            | _ -> term s on_fail
+        | EAnnotTest(r,a,bind,on_succ,on_fail) -> let s = add_trace s r in if data_to_ty s (v s bind) = ty s a then term s on_succ else term s on_fail
+        | EUnitTest(r,bind,on_succ,on_fail) -> let s = add_trace s r in match v s bind with DB -> term s on_succ | _ -> term s on_fail
+        | ENominalTest(r,a,bind,p1,on_succ,on_fail) ->
+            let s = add_trace s r
+            match ty s a with
+            | YNominal a ->
+                match v s bind with
+                | DNominal((DUnion _ | DV(L(_,YUnion _))),_) -> raise_type_error s "Got an union in a nominal pattern."
+                | DNominal(v,b) ->
+                    let rec loop = function
+                        | YNominal b -> if a = b then store_term s p1 v; term s on_succ else term s on_fail
+                        | YApply(a,_) -> loop a
+                        | _ -> raise_type_error s <| sprintf "Compiler error: Expected a deferred type apply or a nominal.\nGot: %s" (show_ty b)
+                    loop b
+                | _ -> term s on_fail
+            | a -> raise_type_error s <| sprintf "Expected a nominal on the left side of the pattern.\nGot: %s" (show_ty a)
+        | ELitTest(r,a,bind,on_succ,on_fail) -> let s = add_trace s r in lit_test s a bind on_succ on_fail
+        | EDefaultLitTest(r,a,b,bind,on_succ,on_fail) -> let s = add_trace s r in lit_test s (default_lit s a (ty s b)) bind on_succ on_fail
+        | ETypeLet(r,i,a,b) -> let s = add_trace s r in store_ty s i (ty s a); term s b
+        | ETypePairTest(r,bind,p1,p2,on_succ,on_fail) ->
+            let s = add_trace s r
+            match vt s bind with
+            | YPair(a,b) -> store_ty s p1 a; store_ty s p2 b; term s on_succ
+            | _ -> term s on_fail
+        | ETypeFunTest(r,bind,p1,p2,on_succ,on_fail) ->
+            let s = add_trace s r
+            match vt s bind with
+            | YFun(a,b) -> store_ty s p1 a; store_ty s p2 b; term s on_succ
+            | _ -> term s on_fail
+        | ETypeRecordTest(r,p,bind,on_succ,on_fail) ->
+            let s = add_trace s r
+            match vt s bind with
+            | YRecord l -> 
+                let mutable is_succ = true
+                Map.iter (fun k p ->
+                    match Map.tryFind k l with
+                    | Some v -> store_ty s p v
+                    | None -> is_succ <- false
+                    ) p
+                if is_succ then term s on_succ else term s on_fail
+            | _ -> term s on_fail
+        | ETypeApplyTest(r,bind,p1,p2,on_succ,on_fail) ->
+            let s = add_trace s r
+            match vt s bind with
+            | YApply(a,b) -> store_ty s p1 a; store_ty s p2 b; term s on_succ
+            | _ -> term s on_fail
+        | ETypeArrayTest(r,bind,p,on_succ,on_fail) ->
+            let s = add_trace s r
+            match vt s bind with
+            | YArray a -> store_ty s p a; term s on_succ
+            | _ -> term s on_fail
+        | ETypeEq(r,a,b,on_succ,on_fail) ->
+            let s = add_trace s r
+            if ty s a = vt s b then term s on_succ
+            else term s on_fail
+        | EOp(_,While,[cond;body]) -> 
+            match term_scope'' s cond with
+            | [|TyLocalReturnOp(_,TyJoinPoint cond)|], ty ->
+                match ty with
+                | YPrim BoolT -> 
+                    match term_scope s body with
+                    | body, YB & ty -> push_typedop s (TyWhile(cond,body)) ty
+                    | _, ty -> raise_type_error s <| sprintf "The body of the while loop must be of type unit.\nGot: %s" (show_ty ty)
+                | _ -> raise_type_error s <| sprintf "The conditional of the while loop must be of type bool.\nGot: %s" (show_ty ty)
+            | _ -> raise_type_error s "Compiler error: The body of the conditional of the while loop must be a solitary join point."
+        | EOp(_,LayoutToHeap,[a]) -> 
+            let x = dyn false s (term s a)
+            let ty = data_to_ty s x
+            let key = TyLayoutToHeap(x,ty)
+            push_typedop_no_rewrite s key (YLayout(ty,Heap))
+        | EOp(_,LayoutToHeapMutable,[a]) -> 
+            let x = dyn false s (term s a)
+            let ty = data_to_ty s x
+            let key = TyLayoutToHeapMutable(x,ty)
+            push_typedop_no_rewrite s key (YLayout(ty,HeapMutable))
+        | EOp(_,LayoutIndex,[a]) -> 
+            match term s a with
+            | DV(L(i,YLayout(ty,layout))) as a -> 
+                let v = L(i,(ty,layout))
+                match layout with
+                | HeapMutable -> push_typedop_no_rewrite s (TyLayoutIndexAll v) ty
+                | Heap -> 
+                    match ty with
+                    | YRecord l -> DRecord(Map.map (fun b ty -> push_typedop s (TyLayoutIndexByKey(v,b)) ty) l)
+                    | _ -> push_typedop s (TyLayoutIndexAll v) ty
+            | a -> raise_type_error s <| sprintf "Expected a layout type.\nGot: %s" (show_data a)
+        | EOp(_,TypeToVar,[EType(_,a)]) -> push_typedop_no_rewrite s (TyOp(TypeToVar,[])) (ty s a)
+        | EOp(_,TypeToVar,_) -> raise_type_error s "Malformed TypeToVar."
+        | EOp(_,Dyn,[a]) -> term s a |> dyn true s
+        | EOp(_,StringLength,[a]) ->
+            match term s a with
+            | DLit(LitString str) -> DLit (LitInt32 str.Length)
+            | DV(L(_,YPrim StringT)) & str -> push_op s StringLength str (YPrim Int32T)
+            | x -> raise_type_error s <| sprintf "Expected a string.\nGot: %s" (show_data x)
+        | EOp(_,StringIndex,[a;b]) ->
+            match term2 s a b with
+            | DLit(LitString a), DLit(LitInt32 b) ->
+                if b >= 0 && b < a.Length then a.[b] |> LitChar |> DLit
+                else raise_type_error s <| sprintf "String index out of bounds. length: %i index: %i" a.Length b
+            | a,b ->
+                match data_to_ty s a, data_to_ty s b with
+                | YPrim StringT,YPrim Int32T -> push_binop s StringIndex (a,b) (YPrim CharT)
+                | a,b -> raise_type_error s <| sprintf "Expected a string and an i32 as arguments.\nstring: %s\ni: %s" (show_ty a) (show_ty b)
+        | EOp(_,StringSlice,[a;b;c]) ->
+            match term3 s a b c with
+            | DLit(LitString a), DLit(LitInt32 b), DLit(LitInt32 c) ->
+                if b >= 0 && c < a.Length then a.[b..c] |> LitString |> DLit
+                else raise_type_error s <| sprintf "String slice out of bounds. length: %i from: %i to: %i" a.Length b c
+            | a,b,c ->
+                match data_to_ty s a, data_to_ty s b, data_to_ty s c with
+                | YPrim StringT, YPrim Int32T, YPrim Int32T -> push_triop s StringSlice (a,b,c) (YPrim StringT)
+                | a,b,c -> raise_type_error s <| sprintf "Expected a string and two i32s as arguments.\nstring: %s\nfrom: %s\nto: %s" (show_ty a) (show_ty b) (show_ty c)
+        | EOp(_,ArrayCreate,[EType(_,a);b]) ->
+            let a,b = ty s a, term s b
+            match data_to_ty s b with
+            | YPrim Int32T -> push_typedop_no_rewrite s (TyArrayCreate(a,b)) (YArray a)
+            | b -> raise_type_error s <| sprintf "Expected an i32 as the size of the array.\nGot: %s" (show_ty b)
+        | EOp(_,ArrayLength,[a]) ->
+            let a = term s a
+            match data_to_ty s a with
+            | YArray _ -> push_op s ArrayLength a (YPrim Int32T)
+            | a -> raise_type_error s <| sprintf "Array length is only supported for non-native arrays. Got: %s" (show_ty a)
+        | EOp(_,ArrayIndex,[a;b]) ->
+            match term s a with
+            | DV(L(_,YArray ty)) & a ->
+                let b = term s b
+                match data_to_ty s b with
+                | YPrim Int32T -> push_binop_no_rewrite s ArrayIndex (a,b) ty
+                | b -> raise_type_error s <| sprintf "Expected a i32 as the index argumet.\nGot: %s" (show_ty b)
+            | a -> raise_type_error s <| sprintf "Expected an array.\nGot: %s" (show_data a)
+        | EOp(_,ArrayIndexSet,[a;b;c]) ->
+            match term s a with
+            | DV(L(_,YArray ty)) & a ->
+                let b = term s b
+                match data_to_ty s b with
+                | YPrim Int32T -> 
+                    let c = term s c |> dyn false s
+                    let ty' = data_to_ty s c
+                    if ty' = ty then push_triop_no_rewrite s ArrayIndexSet (a,b,c) YB
+                    else raise_type_error s <| sprintf "The array and the value being set do not have the same type.\nGot: %s\nExpected: %s" (show_ty ty') (show_ty ty)
+                | b -> raise_type_error s <| sprintf "Expected a i32 as the index argumet.\nGot: %s" (show_ty b)
+            | a -> raise_type_error s <| sprintf "Expected an array.\nGot: %s" (show_data a)
+        | EOp(_,RecordMap,[a;b]) ->
+            match term2 s a b with
+            | a, DRecord l -> Map.map (fun k v -> apply s (a, DPair(DSymbol "key_value_", DPair(DSymbol k,v)))) l |> DRecord
+            | _, b -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data b)
+        | EOp(_,RecordIter,[a;b]) ->
+            match term2 s a b with
+            | a, DRecord l -> 
+                Map.iter (fun k v -> 
+                    match apply s (a, DPair(DSymbol "key_value_", DPair(DSymbol k,v))) with
+                    | DB -> ()
+                    | x -> raise_type_error s <| sprintf "Expected an unit value.\nGot: %s" (show_data x)
+                    ) l 
+                DB
+            | _, b -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data b)
+        | EOp(_,RecordFilter,[a;b]) ->
+            match term2 s a b with
+            | a, DRecord l ->
+                Map.filter (fun k v ->
+                    match apply s (a, DPair(DSymbol "key_value_", DPair(DSymbol k,v))) with
+                    | DLit(LitBool x) -> x
+                    | x -> raise_type_error s <| sprintf "Expected a bool literal in ModuleFilter.\nGot: %s" (show_data x)
+                    ) l
+                |> DRecord
+            | _, b -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data b)
+        | EOp(_,RecordFoldL,[a;b;c]) ->
+            match term3 s a b c with
+            | a, state, DRecord l -> Map.fold (fun state k v -> apply s (a, DPair(DSymbol "state_key_value_", DPair(state, DPair(DSymbol k,v))))) state l
+            | _, _, r -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data r)
+        | EOp(_,RecordFoldR,[a;b;c]) ->
+            match term3 s a b c with
+            | a, state, DRecord l -> Map.foldBack (fun k v state -> apply s (a, DPair(DSymbol "state_key_value_", DPair(state, DPair(DSymbol k,v))))) l state
+            | _, r, _ -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data r)
+        | EOp(_,RecordLength,[a]) ->
+            match term s a with
+            | DRecord l -> Map.count l |> int64 |> LitInt64 |> DLit
+            | r -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data r)
+        | EOp(_,Add,[a;b]) -> 
+            let inline op a b = a + b
+            match term2 s a b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> DLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> DLit
+                | a, b -> raise_type_error s <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if a_ty = b_ty then
+                    if is_lit_zero a then b
+                    elif is_lit_zero b then a
+                    elif is_numeric a_ty then push_binop s Add (a,b) a_ty
+                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error s <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | EOp(_,Sub,[a;b]) ->
+            let inline op a b = a - b
+            match term2 s a b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> DLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> DLit
+                | a, b -> raise_type_error s <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if a_ty = b_ty then
+                    if is_lit_zero a then push_op s Neg b b_ty
+                    elif is_lit_zero b then a
+                    elif is_numeric a_ty then push_binop s Sub (a,b) a_ty
+                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error s <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | EOp(_,Mult,[a;b]) ->
+            let inline op a b = a * b
+            match term2 s a b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> DLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> DLit
+                | a, b -> raise_type_error s <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if a_ty = b_ty then
+                    if is_int_lit_zero a || is_int_lit_zero b then lit_zero a_ty |> DLit
+                    elif is_lit_one a then b
+                    elif is_lit_one b then a
+                    elif is_numeric a_ty then push_binop s Mult (a,b) a_ty
+                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error s <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | EOp(_,Div,[a;b]) -> 
+            let inline op a b = a / b
+            try
+                match term2 s a b with
+                | DLit a, DLit b ->
+                    match a, b with
+                    | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
+                    | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
+                    | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
+                    | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
+                    | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
+                    | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
+                    | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
+                    | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
+                    | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> DLit
+                    | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> DLit
+                    | a, b -> raise_type_error s <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+                | a, b ->
+                    let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                    if a_ty = b_ty then
+                        if is_lit_zero b then raise (DivideByZeroException())
+                        elif is_lit_one b then a
+                        elif is_numeric a_ty then push_binop s Div (a,b) a_ty
+                        else raise_type_error s <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
+                    else
+                        raise_type_error s <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+            with :? DivideByZeroException ->
+                raise_type_error s <| sprintf "An attempt to divide by zero has been detected at compile time."
+        | EOp(_,Pow,[a;b]) -> 
+            let inline op a b = a ** b
+            match term2 s a b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32 |> LitFloat32 |> DLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> DLit
+                | a, b -> raise_type_error s <| sprintf "The two literals must be both float and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if a_ty = b_ty && is_float a_ty then push_binop s Pow (a,b) a_ty
+                else raise_type_error s <| sprintf "The two sides need to have the same float types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | EOp(_,Mod,[a;b]) -> 
+            let inline op a b = a % b
+            try
+                match term2 s a b with
+                | DLit a, DLit b ->
+                    match a, b with
+                    | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
+                    | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
+                    | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
+                    | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
+                    | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
+                    | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
+                    | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
+                    | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
+                    | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> DLit
+                    | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> DLit
+                    | a, b -> raise_type_error s <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+                | a, b ->
+                    let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                    if a_ty = b_ty then
+                        if is_lit_zero b then raise (DivideByZeroException())
+                        elif is_numeric a_ty then push_binop s Mod (a,b) a_ty
+                        else raise_type_error s <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
+                    else
+                        raise_type_error s <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+            with :? DivideByZeroException ->
+                raise_type_error s <| sprintf "An attempt to divide by zero has been detected at compile time."
+        | EOp(_,LT,[a;b]) ->
+            let inline op a b = a < b
+            match term2 s a b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitBool |> DLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitBool |> DLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitBool |> DLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitBool |> DLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> DLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> DLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> DLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> DLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> DLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> DLit
+                | LitString a, LitString b -> op a b |> LitBool |> DLit
+                | LitChar a, LitChar b -> op a b |> LitBool |> DLit
+                | LitBool a, LitBool b -> op a b |> LitBool |> DLit
+                | a, b -> raise_type_error s <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if a_ty = b_ty then
+                    if is_primitive a_ty then push_binop s LT (a,b) (YPrim BoolT)
+                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error s <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | EOp(_,LTE,[a;b]) ->
+            let inline op a b = a <= b
+            match term2 s a b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitBool |> DLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitBool |> DLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitBool |> DLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitBool |> DLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> DLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> DLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> DLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> DLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> DLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> DLit
+                | LitString a, LitString b -> op a b |> LitBool |> DLit
+                | LitChar a, LitChar b -> op a b |> LitBool |> DLit
+                | LitBool a, LitBool b -> op a b |> LitBool |> DLit
+                | a, b -> raise_type_error s <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if a_ty = b_ty then
+                    if is_primitive a_ty then push_binop s LTE (a,b) (YPrim BoolT)
+                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error s <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | EOp(_,GT,[a;b]) -> 
+            let inline op a b = a > b
+            match term2 s a b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitBool |> DLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitBool |> DLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitBool |> DLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitBool |> DLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> DLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> DLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> DLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> DLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> DLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> DLit
+                | LitString a, LitString b -> op a b |> LitBool |> DLit
+                | LitChar a, LitChar b -> op a b |> LitBool |> DLit
+                | LitBool a, LitBool b -> op a b |> LitBool |> DLit
+                | a, b -> raise_type_error s <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if a_ty = b_ty then
+                    if is_primitive a_ty then push_binop s GT (a,b) (YPrim BoolT)
+                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error s <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | EOp(_,GTE,[a;b]) -> 
+            let inline op a b = a >= b
+            match term2 s a b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitBool |> DLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitBool |> DLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitBool |> DLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitBool |> DLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> DLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> DLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> DLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> DLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> DLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> DLit
+                | LitString a, LitString b -> op a b |> LitBool |> DLit
+                | LitChar a, LitChar b -> op a b |> LitBool |> DLit
+                | LitBool a, LitBool b -> op a b |> LitBool |> DLit
+                | a, b -> raise_type_error s <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if a_ty = b_ty then
+                    if is_primitive a_ty then push_binop s GTE (a,b) (YPrim BoolT)
+                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error s <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | EOp(_,EQ,[a;b]) -> eq s (term s a) (term s b)
+        | EOp(_,NEQ,[a;b]) ->
+            let inline op a b = a <> b
+            match term2 s a b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitBool |> DLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitBool |> DLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitBool |> DLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitBool |> DLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> DLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> DLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> DLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> DLit
+                | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> DLit
+                | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> DLit
+                | LitString a, LitString b -> op a b |> LitBool |> DLit
+                | LitChar a, LitChar b -> op a b |> LitBool |> DLit
+                | LitBool a, LitBool b -> op a b |> LitBool |> DLit
+                | a, b -> raise_type_error s <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | DV(L(a,a_ty)), DV(L(b,_)) when a = b && is_non_float_primitive a_ty -> LitBool false |> DLit
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if a_ty = b_ty then
+                    if is_primitive a_ty then push_binop s NEQ (a,b) (YPrim BoolT)
+                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error s <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | EOp(_,BitwiseAnd,[a;b]) -> 
+            let inline op a b = a &&& b
+            match term2 s a b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
+                | a, b -> raise_type_error s <| sprintf "The two literals must be both ints and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if a_ty = b_ty then
+                    if is_any_int a_ty then push_binop s BitwiseAnd (a,b) a_ty
+                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a int type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error s <| sprintf "The two sides need to have the same int types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | EOp(_,BitwiseOr,[a;b]) ->
+            let inline op a b = a ||| b
+            match term2 s a b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
+                | a, b -> raise_type_error s <| sprintf "The two literals must be both ints and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if a_ty = b_ty then
+                    if is_any_int a_ty then push_binop s BitwiseOr (a,b) a_ty
+                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a int type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error s <| sprintf "The two sides need to have the same int types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | EOp(_,BitwiseXor,[a;b]) ->
+            let inline op a b = a ^^^ b
+            match term2 s a b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
+                | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
+                | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
+                | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
+                | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
+                | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
+                | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
+                | a, b -> raise_type_error s <| sprintf "The two literals must be both ints and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if a_ty = b_ty then
+                    if is_any_int a_ty then push_binop s BitwiseXor (a,b) a_ty
+                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a int type.\nGot: %s" (show_ty a_ty)
+                else
+                    raise_type_error s <| sprintf "The two sides need to have the same int types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | EOp(_,ShiftLeft,[a;b]) -> 
+            let inline op a b = a <<< b
+            match term2 s a b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
+                | LitInt64 a, LitInt32 b -> op a b |> LitInt64 |> DLit
+                | LitUInt32 a, LitInt32 b -> op a b |> LitUInt32 |> DLit
+                | LitUInt64 a, LitInt32 b -> op a b |> LitUInt64 |> DLit
+                | a, b -> raise_type_error s <| sprintf "The first literal must be a 32 or 64 bit int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if is_int a_ty && is_int32 b_ty then push_binop s ShiftLeft (a,b) a_ty
+                else raise_type_error s <| sprintf "The type of the first argument must be a 32 or 64 bit int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_ty a_ty) (show_ty b_ty)
+        | EOp(_,ShiftRight,[a;b]) ->
+            let inline op a b = a >>> b
+            match term2 s a b with
+            | DLit a, DLit b ->
+                match a, b with
+                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
+                | LitInt64 a, LitInt32 b -> op a b |> LitInt64 |> DLit
+                | LitUInt32 a, LitInt32 b -> op a b |> LitUInt32 |> DLit
+                | LitUInt64 a, LitInt32 b -> op a b |> LitUInt64 |> DLit
+                | a, b -> raise_type_error s <| sprintf "The first literal must be a 32 or 64 bit int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_lit a) (show_lit b)
+            | a, b ->
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                if is_int a_ty && is_int32 b_ty then push_binop s ShiftRight (a,b) a_ty
+                else raise_type_error s <| sprintf "The type of the first argument must be a 32 or 64 bit int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_ty a_ty) (show_ty b_ty)
+        | EOp(_,Neg,[a]) ->
+            let inline op a = -a
+            match term s a with
+            | DLit a ->
+                match a with
+                | LitInt8 a -> op a |> LitInt8 |> DLit
+                | LitInt16 a -> op a |> LitInt16 |> DLit
+                | LitInt32 a -> op a |> LitInt32 |> DLit
+                | LitInt64 a -> op a |> LitInt64 |> DLit
+                | LitFloat32 a -> op a |> LitFloat32 |> DLit
+                | LitFloat64 a -> op a |> LitFloat64 |> DLit
+                | _ -> raise_type_error s <| sprintf "The literal must be a signed numeric type.\nGot: %s" (show_lit a)
+            | a ->
+                let a_ty = data_to_ty s a
+                if is_signed_numeric a_ty then push_op s Neg a a_ty
+                else raise_type_error s <| sprintf "The argument must be a signed numeric type.\nGot: %s" (show_ty a_ty)
+        | EOp(_,Tanh,[a]) -> 
+            let inline op a = tanh a
+            match term s a with
+            | DLit a ->
+                match a with
+                | LitFloat32 a -> op a |> nan_guardf32 |> LitFloat32 |> DLit
+                | LitFloat64 a -> op a |> nan_guardf64 |> LitFloat64 |> DLit
+                | _ -> raise_type_error s <| sprintf "The literal must be a float type.\nGot: %s" (show_lit a)
+            | a ->
+                let a_ty = data_to_ty s a
+                if is_float a_ty then push_op s Tanh a a_ty
+                else raise_type_error s <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
+        | EOp(_,Log,[a]) ->
+            let inline op a = log a
+            match term s a with
+            | DLit a ->
+                match a with
+                | LitFloat32 a -> op a |> nan_guardf32 |> LitFloat32 |> DLit
+                | LitFloat64 a -> op a |> nan_guardf64 |> LitFloat64 |> DLit
+                | _ -> raise_type_error s <| sprintf "The literal must be a float type.\nGot: %s" (show_lit a)
+            | a ->
+                let a_ty = data_to_ty s a
+                if is_float a_ty then push_op s Log a a_ty
+                else raise_type_error s <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
+        | EOp(_,Exp,[a]) ->
+            let inline op a = exp a
+            match term s a with
+            | DLit a ->
+                match a with
+                | LitFloat32 a -> op a |> nan_guardf32 |> LitFloat32 |> DLit
+                | LitFloat64 a -> op a |> nan_guardf64 |> LitFloat64 |> DLit
+                | _ -> raise_type_error s <| sprintf "The literal must be a float type.\nGot: %s" (show_lit a)
+            | a ->
+                let a_ty = data_to_ty s a
+                if is_float a_ty then push_op s Exp a a_ty
+                else raise_type_error s <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
+        | EOp(_,Sqrt,[a]) ->
+            let inline op a = sqrt a
+            match term s a with
+            | DLit a ->
+                match a with
+                | LitFloat32 a -> op a |> nan_guardf32 |> LitFloat32 |> DLit
+                | LitFloat64 a -> op a |> nan_guardf64 |> LitFloat64 |> DLit
+                | _ -> raise_type_error s <| sprintf "The literal must be a float type.\nGot: %s" (show_lit a)
+            | a ->
+                let a_ty = data_to_ty s a
+                if is_float a_ty then push_op s Sqrt a a_ty
+                else raise_type_error s <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
+        | EOp(_,Hash,[a]) ->
+            let inline op a = hash a
+            match term s a with
+            | DLit a ->
+                match a with
+                | LitInt8 a -> op a |> LitInt32 |> DLit
+                | LitInt16 a -> op a |> LitInt32 |> DLit
+                | LitInt32 a -> op a |> LitInt32 |> DLit
+                | LitInt64 a -> op a |> LitInt32 |> DLit
+                | LitUInt8 a -> op a |> LitInt32 |> DLit
+                | LitUInt16 a -> op a |> LitInt32 |> DLit
+                | LitUInt32 a -> op a |> LitInt32 |> DLit
+                | LitUInt64 a -> op a |> LitInt32 |> DLit
+                | LitFloat32 a -> op a |> LitInt32 |> DLit
+                | LitFloat64 a -> op a |> LitInt32 |> DLit
+                | LitBool a -> op a |> LitInt32 |> DLit
+                | LitString a -> op a |> LitInt32 |> DLit
+                | LitChar a -> op a |> LitInt32 |> DLit
+            | a ->
+                let a_ty = data_to_ty s a
+                if is_primitive a_ty then push_op s Hash a (YPrim Int32T)
+                else raise_type_error s <| sprintf "The argument must be a primitive type.\nGot: %s" (show_ty a_ty)
+        | EOp(_,NanIs,[a]) ->
+            let a = term s a
+            match data_to_ty s a with
+            | YPrim (Float32T | Float64T) -> push_op s NanIs a (YPrim BoolT)
+            | a -> raise_type_error s <| sprintf "Expected a float in NanIs. Got: %s" (show_ty a)
+        | EOp(_,Infinity,[EType(_,a)]) -> 
+            match ty s a with
+            | YPrim Float32T -> DLit (LitFloat32 infinityf)
+            | YPrim Float64T -> DLit (LitFloat64 infinity)
+            | a -> raise_type_error s "Expected a float.\nGot: %s" (show_ty a)
+        | EOp(_,LitIs,[a]) ->
+            match term s a with
+            | DLit _ -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
+        | EOp(_,PrimIs,[a]) ->
+            match term s a |> data_to_ty s with
+            | YPrim _ -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
+        | EOp(_,SymbolIs,[a]) ->
+            match term s a with
+            | DSymbol _ -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
+        | EOp(_,VarIs,[a]) ->
+            match term s a with
+            | DNominal(DV _, _) | DV _ -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
+        | EOp(_,UnionIs,[a]) -> 
+            match term s a with
+            | DNominal(DV(L(_,YUnion _)), _) | DNominal(DUnion _, _) -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
+        | EOp(_,HeapUnionIs,[a]) ->
+            match term s a with
+            | DNominal(DV(L(_,YUnion x)), _) | DNominal(DUnion(_,x), _) ->
+                match x.Item |> snd with UHeap -> true | UStack -> false
+                |> LitBool |> DLit
+            | _ -> DLit (LitBool false)
+        | EOp(_,LayoutIs,[a]) ->
+            match term s a with
+            | DV(L(_,YLayout _)) -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
+        | EOp(_,NominalIs,[a]) ->
+            match term s a with
+            | DNominal(_, _) -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
+        | EOp(_,NominalStrip,[a]) -> 
+            match term s a with
+            | DNominal(DV(L(_,YUnion _)), _) | DNominal(DUnion _, _) -> raise_type_error s "Cannot strip the nominal wrapper from an union."
+            | DNominal(a,_) -> a
+            | a -> raise_type_error s <| sprintf "Expected a nominal.\nGot: %s" (show_data a)
+        | EOp(_,PrototypeHas,[prot; EType(_,a)]) ->
+            let body (x : Nominal) =
+                let prot_er () = raise_type_error s "Expected a forall or a prototype apply."
+                let rec loop = function
+                    | EForall'(_,_,_,x) -> loop x
+                    | EPrototypeApply(_,prot_id,_) -> env.prototypes_instances.ContainsKey(prot_id,x.node.id) |> LitBool |> DLit
+                    | _ -> prot_er()
+                match term s prot with
+                | DForall(body,_,_,_,_) -> loop body
+                | _ -> prot_er()
+            let rec loop = function
+                | YNominal x -> body x
+                | YApply(l,_) -> loop l
+                | a -> raise_type_error s <| sprintf "Expected a nominal.\nGot: %s" (show_ty a)
+            loop (ty s a)
+        | EOp(_,AssertTypeEq,l) ->
+            List.fold (fun (i,a) b ->
+                let b = term s b
+                let b_ty = data_to_ty s b
+                match a with
+                | Some a_ty when a_ty = b_ty -> i+1, Some b_ty
+                | Some a_ty -> raise_type_error s <| sprintf "Var #%i has a different type from the previous ones.\nGot: %s\nExpected: %s" i (show_ty b_ty) (show_ty a_ty)
+                | None -> i+1, Some b_ty
+                ) (1,None) l |> ignore
+            DB
+        | EOp(_,FailWith,[EType(_,typ);a]) ->
+            match ty s typ, term s a with
+            | typ, (DV(L(_,YPrim StringT)) | DLit(LitString _)) & a -> push_typedop_no_rewrite s (TyFailwith(typ,a)) typ
+            | _,a -> raise_type_error s "Expected a string as input to failwith.\nGot: %s" (show_data a)
+        | EOp(_,FailWith,_) -> raise_type_error s "Malformed FailWith"
+        | EOp(_,ErrorType,[a]) -> term s a |> show_data |> raise_type_error s
+        | EOp(_,PrintStatic,[a]) -> printfn "%s" (term s a |> show_data); DB
+        | EOp(_,PrintRaw,[a]) -> printfn "%A" (Printable.eval(Choice1Of2(a,id))); DB
+        | EOp(_,UnionTag,[a]) ->
+            let eval k h = (case_tags h).[k] |> LitInt32 |> DLit
+            match term s a with
+            | DNominal(DV(L(_,YUnion h)) & a, _) ->
+                match cse_tryfind s (TyOp(Unbox,[a])) with
+                | Some (DPair(DSymbol k, _)) -> eval k h
+                | Some _ -> raise_type_error s "Compiler error: Expected a symbol/value pair."
+                | None -> push_op_no_rewrite s UnionTag a (YPrim Int32T)
+            | DNominal(DUnion(DPair(DSymbol k,_),h), _) -> eval k h
+            | a -> raise_type_error s <| sprintf "Expected an union.\nGot: %s" (show_data a)
+        | EOp(_,op,a) -> raise_type_error s <| sprintf "Compiler error: %A with %i args not implemented" op (List.length a)
+
+    let s : LangEnv = {
+        trace = []
+        seq = null
+        cse = []
+        i = ref 0
+        env_global_type = [||]
+        env_global_term = [||]
+        env_stack_type = [||]
+        env_stack_term = [||]
+        }
+    let ty_to_data x = ty_to_data {s with i = ref 0} x
 
     match x with
-    | UnionTest _ -> raise_type_error s "UnionTest not yet implemented." // TODO
-    | B -> TyB
-    | V x -> v x
-    | Lit x -> DLit x
-    | KeywordCreate(k,l) -> TyKeyword(k,Array.map (ev s) l)
-    | Inline(on_succ,data) ->
-        let d = 
-            {s with 
-                env_global_type=Array.map vt data.type'.free_vars
-                env_global_value=Array.map v data.value.free_vars
-                env_stack_type=Array.zeroCreate data.type'.stack_size
-                env_stack_type_ptr=0
-                env_stack_value=Array.zeroCreate data.value.stack_size
-                env_stack_value_ptr=0
-                }
-        ev d on_succ
-    | Inl(on_succ,data) -> function' false on_succ data
-    | Forall(on_succ,data) -> function' true on_succ data
-    | Glob(e) -> ev s !e
-    | Let(bind,on_succ) -> ev (push_value_var (ev s bind) s) on_succ
-    | RecBlock(l,on_succ) ->
-        let l,d =
-            let function' is_forall on_succ (data : ExprData) = 
-                TyFunction(on_succ,
-                    data.type'.stack_size,Array.zeroCreate<_> data.type'.free_vars.Length,
-                    data.value.stack_size,Array.zeroCreate<_> data.value.free_vars.Length,
-                    is_forall)
-            Array.mapFold (fun d x -> 
-                let data,x = 
-                    match x with
-                    | Inl(on_succ,data) -> data,function' false on_succ data
-                    | Forall(on_succ,data) -> data,function' true on_succ data
-                    | _ -> raise_type_error d "Compiler error: Expected a inl or a forall in the recursive block."
-                (data,x), push_value_var x d
-                ) s l
-        l |> Array.iter (function 
-            | data,TyFunction(_,_,c,_,e,_) ->
-                data.type'.free_vars |> Array.iteri (fun i x -> c.[i] <- vt x) // Don't mind the lack of d being passed to vt and v.
-                data.value.free_vars |> Array.iteri (fun i x -> e.[i] <- v x)
-            | _ -> failwith "impossible"
-            )
-        ev d on_succ
-    | LitTest(a,b,on_succ,on_fail) -> 
-        let b = v b
-        if lit_to_ty a = data_to_ty b then if_ (eq s (DLit a) b) on_succ on_fail
-        else ev s on_fail
-    | PairTest(x,on_succ,on_fail) ->
-        match v x with
-        | TyPair(a,b) -> ev (push_value_var a s |> push_value_var b) on_succ
-        | _ -> ev s on_fail
-    | KeywordTest(keyword, bind, on_succ, on_fail) ->
-        match v bind with
-        | TyKeyword(keyword', l) when keyword = keyword' -> ev {s with env_stack_value_ptr=Array.fold push_var_ptr s.env_stack_value_ptr l} on_succ
-        | _ -> ev s on_fail
-    | RecordTest(pats, bind, on_succ, on_fail) ->
-        let inline on_fail () = ev s on_fail
-        match v bind with
-        | TyRecord l -> 
-            let rec loop d i =
-                let inline case keyword =
-                    match l.TryFind keyword with
-                    | Some x -> loop (push_value_var x d) (i+1)
-                    | None -> on_fail()
-                if i < pats.Length then
-                    match pats.[i] with
-                    | RecordTestKeyword keyword -> case keyword
-                    | RecordTestInjectVar var ->
-                        match ev d var with
-                        | TyKeyword(keyword,_) -> case keyword
-                        | _ -> raise_type_error d "The injected variable needs to an unary keyword."
-                else ev d on_succ
-            loop s 0
-        | _ -> on_fail()
-    | RecordWith(vars, withs) ->
-        let withs l =
-            let push_keyword keyword =
-                match Map.tryFind keyword l with
-                | Some this -> push_value_var this s
-                | None -> push_value_var TyB s
-            let var_to_keyword var_string var = 
-                match ev s var with
-                | TyKeyword(keyword,_) -> keyword
-                | _ -> raise_type_error s <| sprintf "The injected variable %s in RecordWith is not a keyword." var_string
-            Array.fold (fun l -> function
-                | RecordWithKeyword(keyword,expr) -> Map.add keyword (ev (push_keyword keyword) expr) l
-                | RecordWithInjectVar(var_string,var,expr) -> let keyword = var_to_keyword var_string var in Map.add keyword (ev (push_keyword keyword) expr) l
-                | RecordWithoutKeyword keyword -> Map.remove keyword l
-                | RecordWithoutInjectVar(var_string,var) -> Map.remove (var_to_keyword var_string var) l
-                ) l withs
-            |> TyRecord
-        match vars with
-        | [||] -> withs Map.empty
-        | _ -> 
-            match ev s vars.[0] with
-            | TyRecord l -> 
-                let rec loop l i =
-                    if i < vars.Length then
-                        let th = function 1 -> "st" | 2 -> "nd" | 3 -> "rd" | _ -> "th"
-                        match ev s vars.[i] with
-                        | TyKeyword(keyword,_) ->
-                            match Map.tryFind keyword l with
-                            | Some(TyRecord l') -> Map.add keyword (loop l' (i+1)) l |> TyRecord
-                            | Some _ -> raise_type_error s <| sprintf "The %i%s variable application in RecordWith does not result in a record." i (th i)
-                            | None -> raise_type_error s <| sprintf "The keyword %s cannot be found in the %i%s sub-record." (dex.keywords.From keyword) i (th i)
-                        | _ -> let i = i+1 in raise_type_error s <| sprintf "The %i%s variable in RecordWith is not a keyword." i (th i)
-                    else withs l
-                loop l 1
-            | _ -> raise_type_error s "The first variable must be a record."
-    | Module l -> memoize dex.memoized_modules_value (fun _ -> TyRecord(Map.map (fun k -> ev s) l)) l
-    | Type _ -> raise_type_error s "Types should only appear as a part of the application to foralls."
-    | UnitTest(a,on_succ,on_fail)-> 
-        match v a with
-        | TyB -> ev s on_succ
-        | _ -> ev s on_fail
-    | Typecase(a,l) ->
-        let f x = tev s x
-        let a = f a
-        match Array.tryPick (fun (b,body) -> if a = f b then Some (ev s body) else None) l with
-        | Some x -> x
-        | None -> raise_type_error s <| sprintf "Typecase miss for %s" (show_ty a)
-    | Pos(pos) -> ev {s with trace=pos.Pos :: s.trace} pos.Expression
-    | AnnotTest(do_boxing,ty,expr,on_succ,on_fail) ->
-        let a = v expr
-        let b = tev s ty
-        if do_boxing then ev (push_value_var (box' s (a,b)) s) on_succ
-        else if data_to_ty a = b then ev s on_succ else ev s on_fail
-    | Annot(tb,a') ->
-        let a = ev s a'
-        let tb = tev s tb
-        let ta = data_to_ty a
-        if ta = tb then a else 
-            let d = match a' with Pos x -> {s with trace = x.Pos :: s.trace} | _ -> s
-            raise_type_error d <| sprintf "Type annotation mismatch.\nReturn type: %s\nAnnotation : %s\n" (show_ty ta) (show_ty tb)
-    | JoinPoint(ret_ty',body) ->
-        // Note: All the join points must be wrapped in an Inline so that their local environments are empty and all used free vars are in the globals.
-        let call_args, env_global_value = data_to_rdata'' dex.hc_table s.env_global_value
-        let join_point_key = dex.hc_table.Add(env_global_value, s.env_global_type)
-           
-        let ret_ty = 
-            let dict = memoize dex.join_point_method (fun _ -> Dictionary(HashIdentity.Structural)) body
-            match dict.TryGetValue join_point_key with
-            | false, _ ->
-                dict.[join_point_key] <- None
-                let seq,ret_ty = ev_seq {s with cse=[Dictionary(HashIdentity.Structural)]} body
-                dict.[join_point_key] <- Some (call_args,seq,ret_ty)
-                match ret_ty' with
-                | Some x -> let annot = tev s x in if ret_ty <> annot then raise_type_error s "Join point type annotation mismatch.\nReturn type: %s\nAnnotation : %s\n" (show_ty ret_ty) (show_ty annot)
-                | None -> ()
-                ret_ty
-            | true, None -> 
-                match ret_ty' with
-                | Some x -> tev s x
-                | None -> raise_type_error s <| sprintf "The recursive join point requires an annotation."
-            | true, Some (_,_,x) -> x
-
-        push_typedop s (TyJoinPoint(JPMethod(body,join_point_key),call_args)) ret_ty
-    | Op(Apply,[|a;b|]) -> apply s a b
-    | Op(RJPToStack,[|a|]) -> rjp_to_some RJPStack dex.hc_table s (ev s a)
-    | Op(RJPToHeap,[|a|]) -> rjp_to_some RJPHeap dex.hc_table s (ev s a)
-    | Op(RJPToNone,[|a|]) -> rjp_to_none s (ev s a)
-    | Op(If,[|cond;on_succ;on_fail|]) -> if_ (ev s cond) on_succ on_fail
-    | Op(While,[|cond;on_succ|]) ->
-        match ev_seq s cond with
-        | [|TyLocalReturnOp(_,TyJoinPoint cond)|], ty ->
-            match ty with
-            | YPrim BoolT -> 
-                match ev_branch s on_succ with
-                | on_succ, BT & ty -> push_typedop s (TyWhile(cond,on_succ)) ty
-                | _, ty -> raise_type_error s <| sprintf "The body of the while loop must be of type unit.\nGot: %s" (show_ty ty)
-            | _ -> raise_type_error s <| sprintf "The conditional of the while loop must be of type bool.\nGot: %s" (show_ty ty)
-        | _ -> raise_type_error s "Compiler error: The body of the conditional of the while loop must be a solitary join point."
-    | Op(Dynamize,[|a|]) ->
-        let m = Dictionary(HashIdentity.Reference)
-        let rec f x = 
-            memoize m (function
-                | TyB as x -> x
-                | TyPair(a,b) -> TyPair(f a, f b)
-                | TyKeyword(a,b) -> (a,Array.map f b) |> TyKeyword
-                | TyFunction(a,b,c,d,e,z) -> TyFunction(a,b,c,d,Array.map f e,z)
-                | TyRecord l -> Map.map (fun _ -> f) l |> TyRecord
-                | TyV _ as x -> x
-                | DLit v as x -> push_op_no_rewrite s Dynamize x (lit_to_ty v)
-                ) x
-            
-        f (ev s a)
-    | Op(StringSlice, [|a;b;c|]) ->
-        match ev3 s a b c with
-        | DLit(LitString a), DLit(LitInt64 b), DLit(LitInt64 c) ->
-            if int b >= 0 && int c < a.Length then a.[(int b)..(int c)] |> LitString |> DLit
-            else raise_type_error s <| sprintf "String slice out of bounds. length: %i from: %i to: %i" a.Length b c
-        | TyType(YPrim StringT) & a, TyType(YPrim Int64T) & b, TyType(YPrim Int64T) & c -> push_triop s StringSlice (a,b,c) (YPrim StringT)
-        | a,b,c -> raise_type_error s <| sprintf "Expected a string and two int64s as arguments to StringSlice.\nstring: %s\nfrom: %s\nto: %s" (show_typed_data a) (show_typed_data b) (show_typed_data c)
-    | Op(StringIndex, [|a;b|]) ->
-        match term2 s a b with
-        | DLit(LitString a), DLit(LitInt64 b) ->
-            if int b >= 0 && int b < a.Length then a.[int b] |> LitChar |> DLit
-            else raise_type_error s <| sprintf "String index out of bounds. length: %i index: %i" a.Length b
-        | TyType(YPrim StringT) & a, TyType(YPrim Int64T) & b -> push_binop s StringIndex (a,b) (YPrim CharT)
-        | a,b -> raise_type_error s <| sprintf "Expected a string and an int64 as arguments to StringIndex.\nstring: %s\ni: %s" (show_typed_data a) (show_typed_data b)
-    | Op(StringLength, [|a|]) ->
-        match ev s a with
-        | DLit (LitString str) -> DLit (LitInt64 (int64 str.Length))
-        | TyType(YPrim StringT) & str -> push_op s StringLength str (YPrim Int64T)
-        | x -> raise_type_error s <| sprintf "Expected a string.\nGot: %s" (show_typed_data x)
-    | Op(UnsafeConvert,[|Type tot;from|]) ->
-        let tot = tev s tot
-        let from = ev s from
-        let fromt = data_to_ty from
-        if tot = fromt then from
-        else
-            let inline conv_lit x =
-                match tot with
-                | YPrim Int8T -> int8 x |> LitInt8
-                | YPrim Int16T -> int16 x |> LitInt16
-                | YPrim Int32T -> int32 x |> LitInt32
-                | YPrim Int64T -> int64 x |> LitInt64
-                | YPrim UInt8T -> uint8 x |> LitUInt8
-                | YPrim UInt16T -> uint16 x |> LitUInt16
-                | YPrim UInt32T -> uint32 x |> LitUInt32
-                | YPrim UInt64T -> uint64 x |> LitUInt64
-                | YPrim CharT -> char x |> LitChar
-                | YPrim Float32T -> float32 x |> LitFloat32
-                | YPrim Float64T -> float x |> LitFloat64
-                | YPrim StringT -> string x |> LitString
-                | _ -> raise_type_error s <| sprintf "Cannot convert the literal to the following type: %s" (show_ty tot)
-                |> DLit
-            match from with
-            | DLit (LitInt8 a) -> conv_lit a
-            | DLit (LitInt16 a) -> conv_lit a
-            | DLit (LitInt32 a) -> conv_lit a
-            | DLit (LitInt64 a) -> conv_lit a
-            | DLit (LitUInt8 a) -> conv_lit a
-            | DLit (LitUInt16 a) -> conv_lit a
-            | DLit (LitUInt32 a) -> conv_lit a
-            | DLit (LitUInt64 a) -> conv_lit a
-            | DLit (LitChar a) -> conv_lit a
-            | DLit (LitFloat32 a) -> conv_lit a
-            | DLit (LitFloat64 a) -> conv_lit a
-            | DLit (LitString a) -> conv_lit a
-            | DLit (LitBool _) -> raise_type_error s "Cannot convert the bool to any type."
-            | _ ->
-                let is_convertible_primt x =
-                    match x with
-                    | YPrim BoolT | YPrim StringT -> false
-                    | YPrim _ -> true
-                    | _ -> false
-                if is_convertible_primt fromt && is_convertible_primt tot then 
-                    let ret = ty_to_data s.i tot
-                    s.seq.Add(TyLet(ret,s.trace,TyOp(UnsafeConvert,[|ret;from|])))
-                    ret
-                else raise_type_error s <| sprintf "Cannot convert %s to the following type: %s" (show_typed_data from) (show_ty tot)
-    | Op(PrintStatic,[|a|]) -> printfn "%s" (ev s a |> show_typed_data); TyB
-    | Op(RecordMap,[|a;b|]) ->
-        match term2 s a b with
-        | a, TyRecord l ->
-            let kv = dex.keywords.To "key:value:"
-            Map.map (fun k v -> apply' s a (TyKeyword(kv,[|TyKeyword(k,[||]); v|]))) l
-            |> TyRecord
-        | _, b -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_typed_data b)
-    | Op(RecordFilter,[|a;b|]) ->
-        match term2 s a b with
-        | a, TyRecord l ->
-            let kv = dex.keywords.To "key:value:"
-            Map.filter (fun k v ->
-                match apply' s a (TyKeyword(kv,[|TyKeyword(k,[||]); v|])) with
-                | DLit(LitBool x) -> x
-                | x -> raise_type_error s <| sprintf "Expected a bool literal in ModuleFilter.\nGot: %s" (show_typed_data x)
-                ) l
-            |> TyRecord
-        | _, b -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_typed_data b)
-    | Op(RecordFoldL,[|a;b;c|]) ->
-        match ev3 s a b c with
-        | a, state, TyRecord l -> 
-            let kv = dex.keywords.To "state:key:value:"
-            Map.fold (fun state k v -> apply' s a (TyKeyword(kv,[|state; TyKeyword(k,[||]); v|]))) state l
-        | _, _, r -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_typed_data r)
-    | Op(RecordFoldR,[|a;b;c|]) ->
-        match ev3 s a b c with
-        | a, state, TyRecord l -> 
-            let kv = dex.keywords.To "state:key:value:"
-            Map.foldBack (fun k x state -> apply' s a (TyKeyword(kv,[|state; TyKeyword(k,[||]); x|]))) l state
-        | _, r, _ -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_typed_data r)
-    | Op(RecordLength,[|a|]) ->
-        match ev s a with
-        | TyRecord l -> Map.count l |> int64 |> LitInt64 |> DLit
-        | r -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_typed_data r)
-    | Op(IsLit,[|a|]) -> 
-        match ev s a with
-        | DLit _ -> DLit (LitBool true)
-        | _ -> DLit (LitBool false)
-    | Op(IsPrim,[|a|]) -> 
-        match ev s a |> data_to_ty with
-        | YPrim _ -> DLit (LitBool true)
-        | _ -> DLit (LitBool false)
-    | Op(IsRJP,[|a|]) -> 
-        match ev s a |> data_to_ty with
-        | RJPT _ -> DLit (LitBool true)
-        | _ -> DLit (LitBool false)
-    | Op(IsKeyword,[|a|]) -> 
-        match ev s a with
-        | TyKeyword _ -> DLit (LitBool true)
-        | _ -> DLit (LitBool false)
-    | Op(IsNan,[|a|]) ->
-        match ev s a with
-        | a & TyType (YPrim (Float32T | Float64T)) -> push_op s IsNan a (YPrim BoolT)
-        | x -> raise_type_error s <| sprintf "Expected a float in NanIs. Got: %s" (show_typed_data x)
-    | Op(StripKeyword,[|a|]) -> 
-        match ev s a with
-        | TyKeyword(_,[||]) -> TyB
-        | TyKeyword(_,l) -> Array.reduceBack (fun a b -> TyPair(a,b)) l
-        | a -> raise_type_error s <| sprintf "Expected a keyword.\nGot: %s" (show_typed_data a)
-    | Op(EqType,[|a;b|]) -> data_to_ty (ev s a) = data_to_ty (ev s b) |> LitBool |> DLit
-    | Op(ArrayCreate,[|Type a;b|]) ->
-        match tev s a, ev s b with
-        | a, TyType(YPrim Int64T) & b -> push_op_no_rewrite s ArrayCreate b (ArrayT a)
-        | _, b -> raise_type_error s <| sprintf "Expected an int64 as the size of the array.\nGot: %s" (show_typed_data b)
-    | Op(ArrayLength,[|a|]) ->
-        let a = ev s a
-        match data_to_ty a with
-        | ArrayT _ -> push_op s ArrayLength a (YPrim Int64T)
-        | _ -> raise_type_error s <| sprintf "ArrayLength is only supported for .NET arrays. Got: %s" (show_typed_data a)
-    | Op(GetArray,[|a;b|]) ->
-        match ev s a with
-        | TyType (ArrayT ty) & a ->
-            match ev s b with
-            | TyType (YPrim Int64T) & b -> push_binop_no_rewrite s GetArray (a,b) ty
-            | b -> raise_type_error s <| sprintf "Expected a int64 as the index argumet in GetArray.\nGot: %s" (show_typed_data b)
-        | a -> raise_type_error s <| sprintf "Expected an array in GetArray.\nGot: %s" (show_typed_data a)
-    | Op(SetArray,[|a;b;c|]) ->
-        match ev s a with
-        | TyType (ArrayT ty) & a ->
-            match ev s b with
-            | TyType (YPrim Int64T) & b -> 
-                match ev s c with
-                | TyType ty' & c -> 
-                    if ty' = ty then push_triop_no_rewrite s SetArray (a,b,c) BT
-                    else raise_type_error s <| sprintf "The array and the value being set do not have the same type.\nGot: %s\nAnd: %s" (show_ty ty) (show_ty ty')
-            | b -> raise_type_error s <| sprintf "Expected a int64 as the index argumet in GetArray.\nGot: %s" (show_typed_data b)
-        | a -> raise_type_error s <| sprintf "Expected an array in SetArray.\nGot: %s" (show_typed_data a)
-    // Primitive operations on expressions.
-    | Op(Add,[|a;b|]) -> 
-        let inline op a b = a + b
-        match term2 s a b with
-        | DLit a, DLit b ->
-            match a, b with
-            | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
-            | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
-            | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
-            | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
-            | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
-            | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
-            | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
-            | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
-            | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> DLit
-            | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> DLit
-            | a, b -> raise_type_error s <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
-        | a, b ->
-            let a_ty, b_ty = data_to_ty a, data_to_ty b 
-            if a_ty = b_ty then
-                if is_lit_zero a then b
-                elif is_lit_zero b then a
-                elif is_numeric a_ty then push_binop s Add (a,b) a_ty
-                else raise_type_error s <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
-            else
-                raise_type_error s <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
-    | Op(Sub,[|a;b|]) ->
-        let inline op a b = a - b
-        match term2 s a b with
-        | DLit a, DLit b ->
-            match a, b with
-            | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
-            | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
-            | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
-            | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
-            | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
-            | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
-            | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
-            | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
-            | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> DLit
-            | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> DLit
-            | a, b -> raise_type_error s <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
-        | a, b ->
-            let a_ty, b_ty = data_to_ty a, data_to_ty b 
-            if a_ty = b_ty then
-                if is_lit_zero a then push_op s Neg b b_ty
-                elif is_lit_zero b then a
-                elif is_numeric a_ty then push_binop s Sub (a,b) a_ty
-                else raise_type_error s <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
-            else
-                raise_type_error s <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
-    | Op(Mult,[|a;b|]) ->
-        let inline op a b = a * b
-        match term2 s a b with
-        | DLit a, DLit b ->
-            match a, b with
-            | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
-            | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
-            | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
-            | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
-            | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
-            | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
-            | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
-            | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
-            | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> DLit
-            | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> DLit
-            | a, b -> raise_type_error s <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
-        | a, b ->
-            let a_ty, b_ty = data_to_ty a, data_to_ty b 
-            if a_ty = b_ty then
-                if is_int_lit_zero a || is_int_lit_zero b then lit_zero dex.keywords s a_ty |> DLit
-                elif is_lit_one a then b
-                elif is_lit_one b then a
-                elif is_numeric a_ty then push_binop s Mult (a,b) a_ty
-                else raise_type_error s <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
-            else
-                raise_type_error s <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
-    | Op(Div,[|a;b|]) -> 
-        let inline op a b = a / b
-        try
-            match term2 s a b with
-            | DLit a, DLit b ->
-                match a, b with
-                | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
-                | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
-                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
-                | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
-                | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
-                | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
-                | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
-                | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
-                | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> DLit
-                | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> DLit
-                | a, b -> raise_type_error s <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
-            | a, b ->
-                let a_ty, b_ty = data_to_ty a, data_to_ty b 
-                if a_ty = b_ty then
-                    if is_lit_zero b then raise (DivideByZeroException())
-                    elif is_lit_one b then a
-                    elif is_numeric a_ty then push_binop s Div (a,b) a_ty
-                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
-                else
-                    raise_type_error s <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
-        with :? DivideByZeroException ->
-            raise_type_error s <| sprintf "An attempt to divide by zero has been detected at compile time."
-    | Op(Pow,[|a;b|]) -> 
-        let inline op a b = a ** b
-        match term2 s a b with
-        | DLit a, DLit b ->
-            match a, b with
-            | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32 |> LitFloat32 |> DLit
-            | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> DLit
-            | a, b -> raise_type_error s <| sprintf "The two literals must be both float and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
-        | a, b ->
-            let a_ty, b_ty = data_to_ty a, data_to_ty b 
-            if a_ty = b_ty then push_binop s Pow (a,b) a_ty
-            else 
-                raise_type_error s <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
-    | Op(Mod,[|a;b|]) -> 
-        let inline op a b = a % b
-        try
-            match term2 s a b with
-            | DLit a, DLit b ->
-                match a, b with
-                | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
-                | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
-                | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
-                | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
-                | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
-                | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
-                | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
-                | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
-                | LitFloat32 a, LitFloat32 b -> op a b |> nan_guardf32  |> LitFloat32 |> DLit
-                | LitFloat64 a, LitFloat64 b -> op a b |> nan_guardf64 |> LitFloat64 |> DLit
-                | a, b -> raise_type_error s <| sprintf "The two literals must be both numeric and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
-            | a, b ->
-                let a_ty, b_ty = data_to_ty a, data_to_ty b 
-                if a_ty = b_ty then
-                    if is_lit_zero b then raise (DivideByZeroException())
-                    elif is_numeric a_ty then push_binop s Mod (a,b) a_ty
-                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
-                else
-                    raise_type_error s <| sprintf "The two sides need to have the same numeric types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
-        with :? DivideByZeroException ->
-            raise_type_error s <| sprintf "An attempt to divide by zero has been detected at compile time."
-    | Op(LT,[|a;b|]) ->
-        let inline op a b = a < b
-        match term2 s a b with
-        | DLit a, DLit b ->
-            match a, b with
-            | LitInt8 a, LitInt8 b -> op a b |> LitBool |> DLit
-            | LitInt16 a, LitInt16 b -> op a b |> LitBool |> DLit
-            | LitInt32 a, LitInt32 b -> op a b |> LitBool |> DLit
-            | LitInt64 a, LitInt64 b -> op a b |> LitBool |> DLit
-            | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> DLit
-            | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> DLit
-            | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> DLit
-            | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> DLit
-            | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> DLit
-            | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> DLit
-            | LitString a, LitString b -> op a b |> LitBool |> DLit
-            | LitChar a, LitChar b -> op a b |> LitBool |> DLit
-            | LitBool a, LitBool b -> op a b |> LitBool |> DLit
-            | a, b -> raise_type_error s <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
-        | a, b ->
-            let a_ty, b_ty = data_to_ty a, data_to_ty b 
-            if a_ty = b_ty then
-                if is_primitive a_ty then push_binop s LT (a,b) (YPrim BoolT)
-                else raise_type_error s <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
-            else
-                raise_type_error s <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
-    | Op(LTE,[|a;b|]) ->
-        let inline op a b = a <= b
-        match term2 s a b with
-        | DLit a, DLit b ->
-            match a, b with
-            | LitInt8 a, LitInt8 b -> op a b |> LitBool |> DLit
-            | LitInt16 a, LitInt16 b -> op a b |> LitBool |> DLit
-            | LitInt32 a, LitInt32 b -> op a b |> LitBool |> DLit
-            | LitInt64 a, LitInt64 b -> op a b |> LitBool |> DLit
-            | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> DLit
-            | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> DLit
-            | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> DLit
-            | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> DLit
-            | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> DLit
-            | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> DLit
-            | LitString a, LitString b -> op a b |> LitBool |> DLit
-            | LitChar a, LitChar b -> op a b |> LitBool |> DLit
-            | LitBool a, LitBool b -> op a b |> LitBool |> DLit
-            | a, b -> raise_type_error s <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
-        | a, b ->
-            let a_ty, b_ty = data_to_ty a, data_to_ty b 
-            if a_ty = b_ty then
-                if is_primitive a_ty then push_binop s LTE (a,b) (YPrim BoolT)
-                else raise_type_error s <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
-            else
-                raise_type_error s <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
-    | Op(GT,[|a;b|]) -> 
-        let inline op a b = a > b
-        match term2 s a b with
-        | DLit a, DLit b ->
-            match a, b with
-            | LitInt8 a, LitInt8 b -> op a b |> LitBool |> DLit
-            | LitInt16 a, LitInt16 b -> op a b |> LitBool |> DLit
-            | LitInt32 a, LitInt32 b -> op a b |> LitBool |> DLit
-            | LitInt64 a, LitInt64 b -> op a b |> LitBool |> DLit
-            | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> DLit
-            | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> DLit
-            | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> DLit
-            | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> DLit
-            | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> DLit
-            | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> DLit
-            | LitString a, LitString b -> op a b |> LitBool |> DLit
-            | LitChar a, LitChar b -> op a b |> LitBool |> DLit
-            | LitBool a, LitBool b -> op a b |> LitBool |> DLit
-            | a, b -> raise_type_error s <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
-        | a, b ->
-            let a_ty, b_ty = data_to_ty a, data_to_ty b 
-            if a_ty = b_ty then
-                if is_primitive a_ty then push_binop s GT (a,b) (YPrim BoolT)
-                else raise_type_error s <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
-            else
-                raise_type_error s <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
-    | Op(GTE,[|a;b|]) -> 
-        let inline op a b = a >= b
-        match term2 s a b with
-        | DLit a, DLit b ->
-            match a, b with
-            | LitInt8 a, LitInt8 b -> op a b |> LitBool |> DLit
-            | LitInt16 a, LitInt16 b -> op a b |> LitBool |> DLit
-            | LitInt32 a, LitInt32 b -> op a b |> LitBool |> DLit
-            | LitInt64 a, LitInt64 b -> op a b |> LitBool |> DLit
-            | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> DLit
-            | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> DLit
-            | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> DLit
-            | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> DLit
-            | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> DLit
-            | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> DLit
-            | LitString a, LitString b -> op a b |> LitBool |> DLit
-            | LitChar a, LitChar b -> op a b |> LitBool |> DLit
-            | LitBool a, LitBool b -> op a b |> LitBool |> DLit
-            | a, b -> raise_type_error s <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
-        | a, b ->
-            let a_ty, b_ty = data_to_ty a, data_to_ty b 
-            if a_ty = b_ty then
-                if is_primitive a_ty then push_binop s GTE (a,b) (YPrim BoolT)
-                else raise_type_error s <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
-            else
-                raise_type_error s <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
-    | Op(EQ,[|a;b|]) -> eq s (ev s a) (ev s b)
-    | Op(NEQ,[|a;b|]) ->
-        let inline op a b = a <> b
-        match term2 s a b with
-        | DLit a, DLit b ->
-            match a, b with
-            | LitInt8 a, LitInt8 b -> op a b |> LitBool |> DLit
-            | LitInt16 a, LitInt16 b -> op a b |> LitBool |> DLit
-            | LitInt32 a, LitInt32 b -> op a b |> LitBool |> DLit
-            | LitInt64 a, LitInt64 b -> op a b |> LitBool |> DLit
-            | LitUInt8 a, LitUInt8 b -> op a b |> LitBool |> DLit
-            | LitUInt16 a, LitUInt16 b -> op a b |> LitBool |> DLit
-            | LitUInt32 a, LitUInt32 b -> op a b |> LitBool |> DLit
-            | LitUInt64 a, LitUInt64 b -> op a b |> LitBool |> DLit
-            | LitFloat32 a, LitFloat32 b -> op a b |> LitBool |> DLit
-            | LitFloat64 a, LitFloat64 b -> op a b |> LitBool |> DLit
-            | LitString a, LitString b -> op a b |> LitBool |> DLit
-            | LitChar a, LitChar b -> op a b |> LitBool |> DLit
-            | LitBool a, LitBool b -> op a b |> LitBool |> DLit
-            | a, b -> raise_type_error s <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
-        | TyV(T(a,a_ty)), TyV(T(b,_)) when a = b && is_non_float_primitive a_ty -> LitBool false |> DLit
-        | a, b ->
-            let a_ty, b_ty = data_to_ty a, data_to_ty b 
-            if a_ty = b_ty then
-                if is_primitive a_ty then push_binop s NEQ (a,b) (YPrim BoolT)
-                else raise_type_error s <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
-            else
-                raise_type_error s <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
-    | Op(BitwiseAnd,[|a;b|]) -> 
-        let inline op a b = a &&& b
-        match term2 s a b with
-        | DLit a, DLit b ->
-            match a, b with
-            | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
-            | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
-            | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
-            | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
-            | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
-            | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
-            | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
-            | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
-            | a, b -> raise_type_error s <| sprintf "The two literals must be both ints and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
-        | a, b ->
-            let a_ty, b_ty = data_to_ty a, data_to_ty b 
-            if a_ty = b_ty then
-                if is_any_int a_ty then push_binop s BitwiseAnd (a,b) a_ty
-                else raise_type_error s <| sprintf "The type of the two arguments needs to be a int type.\nGot: %s" (show_ty a_ty)
-            else
-                raise_type_error s <| sprintf "The two sides need to have the same int types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
-    | Op(BitwiseOr,[|a;b|]) ->
-        let inline op a b = a ||| b
-        match term2 s a b with
-        | DLit a, DLit b ->
-            match a, b with
-            | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
-            | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
-            | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
-            | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
-            | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
-            | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
-            | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
-            | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
-            | a, b -> raise_type_error s <| sprintf "The two literals must be both ints and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
-        | a, b ->
-            let a_ty, b_ty = data_to_ty a, data_to_ty b 
-            if a_ty = b_ty then
-                if is_any_int a_ty then push_binop s BitwiseOr (a,b) a_ty
-                else raise_type_error s <| sprintf "The type of the two arguments needs to be a int type.\nGot: %s" (show_ty a_ty)
-            else
-                raise_type_error s <| sprintf "The two sides need to have the same int types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
-    | Op(BitwiseXor,[|a;b|]) ->
-        let inline op a b = a ^^^ b
-        match term2 s a b with
-        | DLit a, DLit b ->
-            match a, b with
-            | LitInt8 a, LitInt8 b -> op a b |> LitInt8 |> DLit
-            | LitInt16 a, LitInt16 b -> op a b |> LitInt16 |> DLit
-            | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
-            | LitInt64 a, LitInt64 b -> op a b |> LitInt64 |> DLit
-            | LitUInt8 a, LitUInt8 b -> op a b |> LitUInt8 |> DLit
-            | LitUInt16 a, LitUInt16 b -> op a b |> LitUInt16 |> DLit
-            | LitUInt32 a, LitUInt32 b -> op a b |> LitUInt32 |> DLit
-            | LitUInt64 a, LitUInt64 b -> op a b |> LitUInt64 |> DLit
-            | a, b -> raise_type_error s <| sprintf "The two literals must be both ints and equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
-        | a, b ->
-            let a_ty, b_ty = data_to_ty a, data_to_ty b 
-            if a_ty = b_ty then
-                if is_any_int a_ty then push_binop s BitwiseXor (a,b) a_ty
-                else raise_type_error s <| sprintf "The type of the two arguments needs to be a int type.\nGot: %s" (show_ty a_ty)
-            else
-                raise_type_error s <| sprintf "The two sides need to have the same int types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
-    | Op(ShiftLeft,[|a;b|]) -> 
-        let inline op a b = a <<< b
-        match term2 s a b with
-        | DLit a, DLit b ->
-            match a, b with
-            | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
-            | LitInt64 a, LitInt32 b -> op a b |> LitInt64 |> DLit
-            | LitUInt32 a, LitInt32 b -> op a b |> LitUInt32 |> DLit
-            | LitUInt64 a, LitInt32 b -> op a b |> LitUInt64 |> DLit
-            | a, b -> raise_type_error s <| sprintf "The first literal must be a 32 or 64 bit int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_lit a) (show_lit b)
-        | a, b ->
-            let a_ty, b_ty = data_to_ty a, data_to_ty b 
-            if is_int a_ty && is_int32 b_ty then push_binop s ShiftLeft (a,b) a_ty
-            else raise_type_error s <| sprintf "The type of the first argument must be a 32 or 64 bit int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_ty a_ty) (show_ty b_ty)
-    | Op(ShiftRight,[|a;b|]) ->
-        let inline op a b = a >>> b
-        match term2 s a b with
-        | DLit a, DLit b ->
-            match a, b with
-            | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
-            | LitInt64 a, LitInt32 b -> op a b |> LitInt64 |> DLit
-            | LitUInt32 a, LitInt32 b -> op a b |> LitUInt32 |> DLit
-            | LitUInt64 a, LitInt32 b -> op a b |> LitUInt64 |> DLit
-            | a, b -> raise_type_error s <| sprintf "The first literal must be a 32 or 64 bit int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_lit a) (show_lit b)
-        | a, b ->
-            let a_ty, b_ty = data_to_ty a, data_to_ty b 
-            if is_int a_ty && is_int32 b_ty then push_binop s ShiftRight (a,b) a_ty
-            else raise_type_error s <| sprintf "The type of the first argument must be a 32 or 64 bit int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_ty a_ty) (show_ty b_ty)
-    | Op(Log,[|a|]) ->
-        let inline op a = log a
-        match ev s a with
-        | DLit a ->
-            match a with
-            | LitFloat32 a -> op a |> nan_guardf32 |> LitFloat32 |> DLit
-            | LitFloat64 a -> op a |> nan_guardf64 |> LitFloat64 |> DLit
-            | _ -> raise_type_error s <| sprintf "The literal must be a float type.\nGot: %s" (show_lit a)
-        | a ->
-            let a_ty = data_to_ty a
-            if is_float a_ty then push_op s Log a a_ty
-            else raise_type_error s <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
-    | Op(Exp,[|a|]) ->
-        let inline op a = exp a
-        match ev s a with
-        | DLit a ->
-            match a with
-            | LitFloat32 a -> op a |> nan_guardf32 |> LitFloat32 |> DLit
-            | LitFloat64 a -> op a |> nan_guardf64 |> LitFloat64 |> DLit
-            | _ -> raise_type_error s <| sprintf "The literal must be a float type.\nGot: %s" (show_lit a)
-        | a ->
-            let a_ty = data_to_ty a
-            if is_float a_ty then push_op s Exp a a_ty
-            else raise_type_error s <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
-    | Op(Tanh,[|a|]) -> 
-        let inline op a = tanh a
-        match ev s a with
-        | DLit a ->
-            match a with
-            | LitFloat32 a -> op a |> nan_guardf32 |> LitFloat32 |> DLit
-            | LitFloat64 a -> op a |> nan_guardf64 |> LitFloat64 |> DLit
-            | _ -> raise_type_error s <| sprintf "The literal must be a float type.\nGot: %s" (show_lit a)
-        | a ->
-            let a_ty = data_to_ty a
-            if is_float a_ty then push_op s Tanh a a_ty
-            else raise_type_error s <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
-    | Op(Sqrt,[|a|]) ->
-        let inline op a = sqrt a
-        match ev s a with
-        | DLit a ->
-            match a with
-            | LitFloat32 a -> op a |> nan_guardf32 |> LitFloat32 |> DLit
-            | LitFloat64 a -> op a |> nan_guardf64 |> LitFloat64 |> DLit
-            | _ -> raise_type_error s <| sprintf "The literal must be a float type.\nGot: %s" (show_lit a)
-        | a ->
-            let a_ty = data_to_ty a
-            if is_float a_ty then push_op s Sqrt a a_ty
-            else raise_type_error s <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
-    | Op(Neg,[|a|]) ->
-        let inline op a = -a
-        match ev s a with
-        | DLit a ->
-            match a with
-            | LitInt8 a -> op a |> LitInt8 |> DLit
-            | LitInt16 a -> op a |> LitInt16 |> DLit
-            | LitInt32 a -> op a |> LitInt32 |> DLit
-            | LitInt64 a -> op a |> LitInt64 |> DLit
-            | LitFloat32 a -> op a |> LitFloat32 |> DLit
-            | LitFloat64 a -> op a |> LitFloat64 |> DLit
-            | _ -> raise_type_error s <| sprintf "The literal must be a signed numeric type.\nGot: %s" (show_lit a)
-        | a ->
-            let a_ty = data_to_ty a
-            if is_signed_numeric a_ty then push_op s Neg a a_ty
-            else raise_type_error s <| sprintf "The argument must be a signed numeric type.\nGot: %s" (show_ty a_ty)
-    | Op(PairCreate, [|a;b|]) -> TyPair(ev s a, ev s b)
-
-    | Op(ErrorType,[|a|]) -> ev s a |> show_typed_data |> raise_type_error s
-    | Op(ErrorNonUnit,[|a'|]) -> 
-        match ev s a' with
-        | TyB as a -> a
-        | a ->
-            let d = match a' with Pos(x) -> {s with trace = x.Pos :: s.trace} | _ -> s
-            raise_type_error d <| sprintf "Only the last expression of a block is allowed to be unit. Use `ignore` if it intended to be such.\nGot: %s" (show_typed_data a)
-    | Op(ErrorPatMiss,[|a|]) -> ev s a |> show_typed_data |> sprintf "Pattern miss error. The argument is %s" |> raise_type_error s
-    | Op(FailWith,[|Type typ;a|]) ->
-        match tev s typ, ev s a with
-        | typ, TyType (YPrim StringT) & a -> push_op_no_rewrite s FailWith a typ
-        | _,a -> raise_type_error s "Expected a string as input to failwith.\nGot: %s" (show_typed_data a)
-    | Op(InfinityF64,[||]) -> DLit (LitFloat64 infinity)
-    | Op(InfinityF32,[||]) -> DLit (LitFloat32 infinityf)
-    | Op(op,_) -> raise_type_error s <| sprintf "Compiler error: %A not implemented" op
-
+    | EFun'(r,_,_,_,_) -> term_scope s (EApply(r,x,EB r)), {join_point_method=join_point_method; join_point_closure=join_point_closure; ty_to_data=ty_to_data}
+    | EForall' _ -> raise_type_error s "The main function should not have a forall."
+    | _ -> raise_type_error s "Expected a function as the main."

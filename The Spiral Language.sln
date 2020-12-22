@@ -3,53 +3,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29613.14
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "The Spiral Language v0.1", "The Spiral Language\The Spiral Language v0.1.fsproj", "{91C9628B-20CF-46AA-AD73-56456A532819}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{7B818960-A894-4094-93F7-55A892A5530E}"
 	ProjectSection(SolutionItems) = preProject
-		changelog_v0.1.md = changelog_v0.1.md
 		LICENSE = LICENSE
 		readme.md = readme.md
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Testing", "Testing\Testing.fsproj", "{F7CC4D88-0E20-4395-9FFC-DC349C92B00D}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Temporary", "Temporary\Temporary.fsproj", "{DAEDEB63-BB98-412C-82C6-8DCAEA7F24AB}"
-	ProjectSection(ProjectDependencies) = postProject
-		{F7CC4D88-0E20-4395-9FFC-DC349C92B00D} = {F7CC4D88-0E20-4395-9FFC-DC349C92B00D}
-	EndProjectSection
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Benchmarking", "Benchmarking\Benchmarking.fsproj", "{C4A5AE59-82F8-4793-932F-66B60A038048}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Learning", "Learning\Learning.fsproj", "{8A44EEC1-7E30-4B7C-A878-1F78A0C08E9A}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Games", "Games\Games.fsproj", "{29F0D12E-16C2-4847-A735-2454D77719E5}"
-	ProjectSection(ProjectDependencies) = postProject
-		{91C9628B-20CF-46AA-AD73-56456A532819} = {91C9628B-20CF-46AA-AD73-56456A532819}
-		{8A44EEC1-7E30-4B7C-A878-1F78A0C08E9A} = {8A44EEC1-7E30-4B7C-A878-1F78A0C08E9A}
-	EndProjectSection
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Cuda", "Cuda\Cuda.fsproj", "{65203654-5EF9-4CE1-A56B-0EBA11FF03A0}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Probabilistic", "Probabilistic\Probabilistic.fsproj", "{91AF34DA-9D8D-4EA8-B6E9-07283298BE8F}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{5E01042F-F649-494A-BA28-F19A0816F60F}"
-	ProjectSection(SolutionItems) = preProject
-		regret_matching_perf_comparison.md = regret_matching_perf_comparison.md
-	EndProjectSection
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "The Spiral Language v0.2", "The Spiral Language v0.2\The Spiral Language v0.2.fsproj", "{7494F1C3-0307-4CF3-86E6-50C74DF8349D}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Dump", "Dump\Dump.fsproj", "{F84F469E-C58D-4260-A121-60A5022B49AC}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Testing v0.2", "Testing v0.2\Testing v0.2.fsproj", "{CD33ACC2-0B6F-4293-A305-E89C7E35B590}"
-	ProjectSection(ProjectDependencies) = postProject
-		{7494F1C3-0307-4CF3-86E6-50C74DF8349D} = {7494F1C3-0307-4CF3-86E6-50C74DF8349D}
-	EndProjectSection
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "The Spiral Language v0.2 (typechecking)", "The Spiral Language v0.2 (typechecking)\The Spiral Language v0.2 (typechecking).fsproj", "{4A1D2C31-1FAC-4B73-9EF8-43FAE518725D}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "LSP", "LSP\LSP.fsproj", "{BF227BD7-A464-4E56-8B89-5C7E5B5C8DAD}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "The Spiral Language v0.2", "The Spiral Language v0.2\The Spiral Language v0.2.fsproj", "{4A1D2C31-1FAC-4B73-9EF8-43FAE518725D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -57,58 +17,10 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{91C9628B-20CF-46AA-AD73-56456A532819}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{91C9628B-20CF-46AA-AD73-56456A532819}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{91C9628B-20CF-46AA-AD73-56456A532819}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{91C9628B-20CF-46AA-AD73-56456A532819}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F7CC4D88-0E20-4395-9FFC-DC349C92B00D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F7CC4D88-0E20-4395-9FFC-DC349C92B00D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F7CC4D88-0E20-4395-9FFC-DC349C92B00D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F7CC4D88-0E20-4395-9FFC-DC349C92B00D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{DAEDEB63-BB98-412C-82C6-8DCAEA7F24AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DAEDEB63-BB98-412C-82C6-8DCAEA7F24AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{DAEDEB63-BB98-412C-82C6-8DCAEA7F24AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{DAEDEB63-BB98-412C-82C6-8DCAEA7F24AB}.Release|Any CPU.Build.0 = Release|Any CPU
-		{C4A5AE59-82F8-4793-932F-66B60A038048}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C4A5AE59-82F8-4793-932F-66B60A038048}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{C4A5AE59-82F8-4793-932F-66B60A038048}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{C4A5AE59-82F8-4793-932F-66B60A038048}.Release|Any CPU.Build.0 = Release|Any CPU
-		{8A44EEC1-7E30-4B7C-A878-1F78A0C08E9A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{8A44EEC1-7E30-4B7C-A878-1F78A0C08E9A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{8A44EEC1-7E30-4B7C-A878-1F78A0C08E9A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{8A44EEC1-7E30-4B7C-A878-1F78A0C08E9A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{29F0D12E-16C2-4847-A735-2454D77719E5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{29F0D12E-16C2-4847-A735-2454D77719E5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{29F0D12E-16C2-4847-A735-2454D77719E5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{29F0D12E-16C2-4847-A735-2454D77719E5}.Release|Any CPU.Build.0 = Release|Any CPU
-		{65203654-5EF9-4CE1-A56B-0EBA11FF03A0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{65203654-5EF9-4CE1-A56B-0EBA11FF03A0}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{65203654-5EF9-4CE1-A56B-0EBA11FF03A0}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{65203654-5EF9-4CE1-A56B-0EBA11FF03A0}.Release|Any CPU.Build.0 = Release|Any CPU
-		{91AF34DA-9D8D-4EA8-B6E9-07283298BE8F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{91AF34DA-9D8D-4EA8-B6E9-07283298BE8F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{91AF34DA-9D8D-4EA8-B6E9-07283298BE8F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{91AF34DA-9D8D-4EA8-B6E9-07283298BE8F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{7494F1C3-0307-4CF3-86E6-50C74DF8349D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{7494F1C3-0307-4CF3-86E6-50C74DF8349D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{7494F1C3-0307-4CF3-86E6-50C74DF8349D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{7494F1C3-0307-4CF3-86E6-50C74DF8349D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{F84F469E-C58D-4260-A121-60A5022B49AC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{F84F469E-C58D-4260-A121-60A5022B49AC}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{F84F469E-C58D-4260-A121-60A5022B49AC}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{F84F469E-C58D-4260-A121-60A5022B49AC}.Release|Any CPU.Build.0 = Release|Any CPU
-		{CD33ACC2-0B6F-4293-A305-E89C7E35B590}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{CD33ACC2-0B6F-4293-A305-E89C7E35B590}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{CD33ACC2-0B6F-4293-A305-E89C7E35B590}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{CD33ACC2-0B6F-4293-A305-E89C7E35B590}.Release|Any CPU.Build.0 = Release|Any CPU
 		{4A1D2C31-1FAC-4B73-9EF8-43FAE518725D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{4A1D2C31-1FAC-4B73-9EF8-43FAE518725D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4A1D2C31-1FAC-4B73-9EF8-43FAE518725D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4A1D2C31-1FAC-4B73-9EF8-43FAE518725D}.Release|Any CPU.Build.0 = Release|Any CPU
-		{BF227BD7-A464-4E56-8B89-5C7E5B5C8DAD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BF227BD7-A464-4E56-8B89-5C7E5B5C8DAD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BF227BD7-A464-4E56-8B89-5C7E5B5C8DAD}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BF227BD7-A464-4E56-8B89-5C7E5B5C8DAD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

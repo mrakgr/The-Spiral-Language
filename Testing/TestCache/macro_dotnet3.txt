@@ -1,5 +1,0 @@
-let () = () // unit stack layout type
-let () = () // unit stack layout type
-let ((var_1 : System.Collections.Generic.Dictionary<string, int64>)) = System.Collections.Generic.Dictionary<string, int64>()
-let () = var_1.Add("a", 5L)
-let ((var_2 : int64)) = var_1.Item("a")

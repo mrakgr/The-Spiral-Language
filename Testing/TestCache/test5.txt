@@ -1,9 +1,0 @@
-let rec method_0 () : int64 =
-    3L
-and method_1 () : int64 =
-    -1L
-and method_2 () : int64 =
-    2L
-let ((var_1 : int64)) = method_0 ()
-let ((var_2 : int64)) = method_1 ()
-let ((var_3 : int64)) = method_2 ()

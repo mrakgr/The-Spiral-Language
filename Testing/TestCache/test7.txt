@@ -1,3 +1,0 @@
-let ((var_1 : int64)) = 3L
-let ((var_2 : int64)) = -1L
-let ((var_3 : int64)) = 2L

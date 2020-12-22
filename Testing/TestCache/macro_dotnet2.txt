@@ -1,6 +1,0 @@
-let ((var_1 : System.Text.StringBuilder)) = System.Text.StringBuilder("Qwe", 128)
-let ((var_2 : System.Text.StringBuilder)) = var_1.Append(123L)
-let ((var_3 : System.Text.StringBuilder)) = var_1.AppendLine()
-let ((var_4 : System.Text.StringBuilder)) = var_1.Append(123s)
-let ((var_5 : System.Text.StringBuilder)) = var_1.AppendLine("qwe")
-let ((var_6 : string)) = var_1.ToString()

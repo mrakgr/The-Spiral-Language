@@ -1,5 +1,0 @@
-// List
-type SpiralType0 =
-    | SpiralType0_2
-    | SpiralType0_1 of int64 * SpiralType0
-let ((var_1 : SpiralType0)) = SpiralType0_1 (1L, SpiralType0_1 (2L, SpiralType0_1 (3L, SpiralType0_1 (4L, SpiralType0_2))))

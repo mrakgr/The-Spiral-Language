@@ -1,7 +1,0 @@
-let ((var_1 : (int64 []))) = Array.zeroCreate (System.Convert.ToInt32 3L)
-let () = var_1.[int32 0L] <- 0L
-let () = var_1.[int32 1L] <- 1L
-let () = var_1.[int32 2L] <- 2L
-let ((var_2 : int64)) = var_1.[int32 0L]
-let ((var_3 : int64)) = var_1.[int32 1L]
-let ((var_4 : int64)) = var_1.[int32 2L]

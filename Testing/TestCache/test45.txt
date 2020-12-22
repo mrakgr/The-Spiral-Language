@@ -1,7 +1,0 @@
-Error trace on line: 2, column: 5 in module test45.
-inl a : 0f64 = 5
-    ^
-Error trace on line: 2, column: 5 in module test45.
-inl a : 0f64 = 5
-    ^
-Pattern miss error. The argument is lit 5i64

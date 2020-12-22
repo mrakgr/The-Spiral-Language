@@ -1,4 +1,0 @@
-let ((var_1 : bool)) = false
-let ((var_2 : bool)) = true
-let ((var_3 : bool)) = false
-let ((var_4 : bool)) = var_1 = false

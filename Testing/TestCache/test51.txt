@@ -1,9 +1,0 @@
-let ((var_1 : string)) = "2    2.3  qwe  "
-let ((var_2 : int64)) = 2L
-let ((var_3 : float)) = 2.300000
-let ((var_4 : string)) = "qwe"
-let ((var_5 : string)) = System.String.Format("{0,-5}{1,-5}{2,-5}",var_2,var_3,var_4)
-let ((var_6 : string)) = "{0} = {1}"
-let ((var_7 : int64)) = 1L
-let ((var_8 : int64)) = 2L
-let ((var_9 : string)) = System.String.Format(var_6,var_7,var_8)

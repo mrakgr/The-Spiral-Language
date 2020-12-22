@@ -1,2 +1,0 @@
-let ((var_1 : int64)) = 0L
-let ((var_2 : int64)) = 10L
