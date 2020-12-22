@@ -1,4 +1,7 @@
 *.js
+out
+dist
+compiler
 node_modules
 .fake
 .ionide

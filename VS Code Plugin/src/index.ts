@@ -1,6 +1,7 @@
 import * as path from "path"
+import * as cp from "child_process"
 import * as _ from "lodash"
-import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider, WorkspaceEdit, FileDeleteEvent } from "vscode"
+import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider, WorkspaceEdit, FileDeleteEvent, ProcessExecution } from "vscode"
 import * as zmq from "zeromq"
 
 const port = 13805
@@ -71,6 +72,7 @@ type SpiralAction = {range : Range; action : CodeAction}
 
 export const activate = async (ctx: ExtensionContext) => {
     console.log("Spiral plugin is active.")
+    const p = cp.spawn('"' + path.join(__dirname,"../compiler/Spiral.exe") + '"',{shell: true, detached: true})
 
     const errorsProject = languages.createDiagnosticCollection()
     const errorsTokenization = languages.createDiagnosticCollection()
