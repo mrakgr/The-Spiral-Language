@@ -6,11 +6,17 @@ open System.IO
 open Module
 open Cuda.Lib
 open Learning.Lib
+open Spiral.Types
 
 let cfg = {Spiral.Types.cfg_default with cuda_assert_enabled=false}
 
-let union1 =
-    "union1",[union;option;extern_;console],"Does the to_sparse work?",
+let union1: SpiralModule =
+    {
+    name="union1"
+    prerequisites=[union; option; extern_; console]
+    opens=[]
+    description="Does the to_sparse work?"
+    code=
     """
 inl r = Union.int {from=0; near_to=2}
 inl a = Union.to_one_hot (r 0, r (dyn 1), r (dyn 1))
@@ -19,9 +25,15 @@ inl b = Union.to_one_hot (dyn (Option.none (type r int64)))
 inl c = Union.to_one_hot ((Option.some (r 9)))
 Console.writeline (a,b,c)
     """
+    }
 
-let union2 =
-    "union2",[union;option;extern_;console],"Does the from_sparse work?",
+let union2: SpiralModule =
+    {
+    name="union2"
+    prerequisites=[union; option; extern_; console]
+    opens=[]
+    description="Does the from_sparse work?"
+    code=
     """
 inl test x =
     inl a = Union.to_one_hot x
@@ -52,9 +64,15 @@ test (join Option.some (box Q {a}))
 test (Option.some (box Q {a b}))
 test (dyn <| Option.some (box Q {a b c}))
     """
+    }
 
-let union3 =
-    "union3",[union;option;extern_;console],"Does the to_dense work?",
+let union3: SpiralModule =
+    {
+    name="union3"
+    prerequisites=[union; option; extern_; console]
+    opens=[]
+    description="Does the to_dense work?"
+    code=
     """
 inl r = Union.int {from=0; near_to=2}
 inl a = Union.to_dense (r 0, r (dyn 1), r (dyn 1))
@@ -63,9 +81,15 @@ inl b = Union.to_dense (dyn (Option.none (type r int64)))
 inl c = Union.to_dense (Option.some (r 9))
 Console.writeline (a,b,c)
     """
+    }
 
-let union4 =
-    "union4",[union;option;extern_;console],"Does the from_dense work?",
+let union4: SpiralModule =
+    {
+    name="union4"
+    prerequisites=[union; option; extern_; console]
+    opens=[]
+    description="Does the from_dense work?"
+    code=
     """
 inl test x =
     inl a = Union.to_dense x
@@ -96,9 +120,15 @@ test (join Option.some (box Q {a}))
 test (Option.some (box Q {a b}))
 test (dyn <| Option.some (box Q {a b c}))
     """
+    }
 
-let grid1 =
-    "grid1",[console;loops;union;struct';player_tabular],"The Gridworld (Sea) test.",
+let grid1: SpiralModule =
+    {
+    name="grid1"
+    prerequisites=[console; loops; union; struct'; player_tabular]
+    opens=[]
+    description="The Gridworld (Sea) test."
+    code=
     """
 inl n = 50
 inl reward {row col} =
@@ -162,9 +192,15 @@ inl player =
 inl num_episodes = 150000
 Loops.for {from=0; near_to=num_episodes; body=inl {i} -> game player}
     """
+    }
 
-let poker1 =
-    "poker1",[poker;poker_players],"Does the poker game work?",
+let poker1: SpiralModule =
+    {
+    name="poker1"
+    prerequisites=[poker; poker_players]
+    opens=[]
+    description="Does the poker game work?"
+    code=
     """
 inl log = Console.printfn
 inl num_players = 2
@@ -178,9 +214,15 @@ inl c = player_tabular {name="Three"; init=8f32; learning_rate=0.01f32; discount
 
 game 10 (a,c)
     """
+    }
 
-let poker2 =
-    "poker2",[cuda_modules;loops;poker;poker_players;timer],"The iterative test.",
+let poker2: SpiralModule =
+    {
+    name="poker2"
+    prerequisites=[cuda_modules; loops; poker; poker_players; timer]
+    opens=[]
+    description="The iterative test."
+    code=
     """
 //inb s = CudaModules (1024*1024*1024)
 inl num_players = 2
@@ -212,9 +254,15 @@ f game 30 100000
 //open Poker {max_stack_size num_players log=Console.printfn}
 //f game 10 1
     """
+    }
 
-let poker3 =
-    "poker3",[cuda_modules;loops;poker;poker_players;timer],"The iterative test for NN MC based players.",
+let poker3: SpiralModule =
+    {
+    name="poker3"
+    prerequisites=[cuda_modules; loops; poker; poker_players; timer]
+    opens=[]
+    description="The iterative test for NN MC based players."
+    code=
     """
 inb s = CudaModules (1024*1024*1024)
 Struct.iter (inl i ->
@@ -263,6 +311,7 @@ Struct.iter (inl i ->
         }
     ) (-11)
     """
+    }
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) poker3
 |> printfn "%s"

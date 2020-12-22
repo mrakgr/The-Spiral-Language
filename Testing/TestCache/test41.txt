@@ -1,50 +1,5 @@
-module SpiralExample.Main
-let cuda_kernels = """
-#include <assert.h>
-
-extern "C" {
-    
-}
-"""
-
-type EnvHeap0 =
-    {
-    mem_0: int64
-    mem_1: int64
-    mem_2: int64
-    }
-and Union1 =
-    | Union1Case0
-    | Union1Case1
-    | Union1Case2 of EnvHeap0
-and Env2 =
-    struct
-    val mem_0: Tuple3
-    val mem_1: int64
-    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
-    end
-and Tuple3 =
-    struct
-    val mem_0: int64
-    val mem_1: int64
-    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
-    end
-let (var_0: int64) = 1L
-let (var_1: int64) = 3L
-let (var_2: int64) = 1L
-let (var_3: EnvHeap0) = ({mem_0 = (var_0: int64); mem_1 = (var_1: int64); mem_2 = (var_2: int64)} : EnvHeap0)
-let (var_4: Union1) = Union1Case1
-let (var_6: Env2) =
-    match var_4 with
-    | Union1Case0 ->
-        (Env2(Tuple3(2L, 4L), 2L))
-    | Union1Case1 ->
-        (Env2(Tuple3(1L, 3L), 1L))
-    | Union1Case2(var_5) ->
-        (Env2(Tuple3(1L, 3L), 1L))
-let (var_7: Tuple3) = var_6.mem_0
-let (var_8: int64) = var_7.mem_0
-let (var_9: int64) = var_7.mem_1
-let (var_10: int64) = var_6.mem_1
-let (var_11: EnvHeap0) = ({mem_0 = (var_8: int64); mem_1 = (var_9: int64); mem_2 = (var_10: int64)} : EnvHeap0)
-(Union1Case2(var_11))
+let ((var_1 : int64)) = 1L
+let ((var_2 : int64)) = 2L
+let ((var_3 : int64)) = 3L
+let ((var_4 : int64)) = 4L
+let ((var_5 : int64)) = 5L

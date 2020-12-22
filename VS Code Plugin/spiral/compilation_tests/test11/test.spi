@@ -1,0 +1,8 @@
+// Do records work?
+inl main () =
+    inl m =
+        inl x = 2i64
+        inl y = 3.4f64
+        inl z = "123"
+        {x y z}
+    dyn (m.x, m.y, m.z)

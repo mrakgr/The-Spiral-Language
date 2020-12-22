@@ -1,0 +1,5 @@
+inl (+) z x = (a.(+)) z x
+
+inl A = 1 + 2
+inl B = 1 + 2
+inl C = 1 + 2

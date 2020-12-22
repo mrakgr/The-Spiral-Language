@@ -1,0 +1,12 @@
+// Does the partial evaluation of if statements work?
+inl main () =
+    $"// let v0 =  false"
+    inl x = dyn false
+    // Does not get printed.
+    inl _ = dyn (x && (x || x && (x || x)))
+    $"// let v1 = true"
+    inl _ = dyn ((x && x || x) || (x || true))
+    $"// let v2 = false"
+    inl _ = dyn (if x then false else x)
+    $"// v0  = false"
+    dyn (if x then false else true)

@@ -57,12 +57,23 @@
     <Compile Include="AssemblyInfo.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
+    <Compile Include="SpiralLib.fs" />
     <Compile Include="run.fs" />
-    <Content Include="tensor.txt" />
+    <Content Include="old tests\parsing.txt" />
+    <Content Include="old tests\extern_tests.txt" />
+    <Content Include="old tests\array_tests.txt" />
+    <Content Include="old tests\tuple_tests.txt" />
+    <Content Include="old tests\list_tests.txt" />
+    <Content Include="old tests\tensor_tests.txt" />
+    <Content Include="old tests\aux_tests.txt" />
+    <Content Include="old tests\loop_tests.txt" />
+    <Content Include="old tests\parsing_tests.txt" />
+    <Content Include="old tests\euler_tests.txt" />
+    <Content Include="old tests\hacker_rank_tests.txt" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="FSharp.Core">
-      <HintPath>..\packages\FSharp.Core.4.2.3\lib\net45\FSharp.Core.dll</HintPath>
+      <HintPath>..\packages\FSharp.Core.4.6.2\lib\net45\FSharp.Core.dll</HintPath>
     </Reference>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="mscorlib" />
@@ -73,12 +84,14 @@
     <Reference Include="System.ValueTuple">
       <HintPath>..\packages\System.ValueTuple.4.4.0\lib\net461\System.ValueTuple.dll</HintPath>
     </Reference>
-    <ProjectReference Include="..\The Spiral Language\The Spiral Language.fsproj">
-      <Name>The Spiral Language</Name>
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\The Spiral Language\The Spiral Language v0.1.fsproj">
+      <Name>The Spiral Language v0.1</Name>
       <Project>{91c9628b-20cf-46aa-ad73-56456a532819}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <Reference Include="System.Xml" />
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

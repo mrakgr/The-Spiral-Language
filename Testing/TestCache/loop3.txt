@@ -1,11 +1,122 @@
-module SpiralExample.Main
-let cuda_kernels = """
-#include <assert.h>
-
-extern "C" {
-    
-}
-"""
-
-System.Console.WriteLine("14")
-
+let rec method_0 ((var_3 : int64), (var_4 : int64), (var_5 : int64), (var_1 : int64), (var_2 : int64), (var_6 : int64)) : unit =
+    let ((var_7 : bool)) = var_6 < var_5
+    if var_7 then
+        let ((var_8 : int64)) = 0L
+        method_1 (var_8, var_3, var_4, var_1, var_2, var_6, var_5)
+    else
+        failwith "Failure."
+and method_1 ((var_8 : int64), (var_3 : int64), (var_4 : int64), (var_1 : int64), (var_2 : int64), (var_6 : int64), (var_5 : int64)) : unit =
+    let ((var_9 : bool)) = var_8 < var_5
+    if var_9 then
+        let ((var_10 : string)) = System.String.Format("I am at ({0},{1})",var_6,var_8)
+        let () = System.Console.WriteLine(var_10)
+        let ((var_11 : bool)) = var_6 = var_3
+        let ((var_13 : bool)) =
+            if var_11 then
+                var_8 = var_4
+            else
+                false
+        if var_13 then
+            let () = System.Console.WriteLine("I've found Mario.")
+            let ((var_14 : int64)) = var_8 + 1L
+            method_2 (var_14, var_3, var_4, var_1, var_2, var_6, var_5)
+        else
+            let ((var_28 : bool)) = var_6 = var_1
+            let ((var_30 : bool)) =
+                if var_28 then
+                    var_8 = var_2
+                else
+                    false
+            if var_30 then
+                let () = System.Console.WriteLine("I've found Princess.")
+                let ((var_31 : int64)) = var_8 + 1L
+                method_3 (var_31, var_3, var_4, var_1, var_2, var_6, var_5)
+            else
+                let ((var_45 : int64)) = var_8 + 1L
+                method_1 (var_45, var_3, var_4, var_1, var_2, var_6, var_5)
+    else
+        let ((var_46 : int64)) = var_6 + 1L
+        method_0 (var_3, var_4, var_5, var_1, var_2, var_46)
+and method_2 ((var_14 : int64), (var_3 : int64), (var_4 : int64), (var_1 : int64), (var_2 : int64), (var_6 : int64), (var_5 : int64)) : unit =
+    let ((var_15 : bool)) = var_14 < var_5
+    if var_15 then
+        let ((var_16 : string)) = System.String.Format("I am at ({0},{1})",var_6,var_14)
+        let () = System.Console.WriteLine(var_16)
+        let ((var_17 : bool)) = var_6 = var_3
+        let ((var_19 : bool)) =
+            if var_17 then
+                var_14 = var_4
+            else
+                false
+        if var_19 then
+            let () = System.Console.WriteLine("I've found Mario.")
+            let ((var_20 : int64)) = var_14 + 1L
+            method_2 (var_20, var_3, var_4, var_1, var_2, var_6, var_5)
+        else
+            let ((var_21 : bool)) = var_6 = var_1
+            let ((var_23 : bool)) =
+                if var_21 then
+                    var_14 = var_2
+                else
+                    false
+            if var_23 then
+                let () = System.Console.WriteLine("I've found Princess.")
+                System.Console.WriteLine("Success.")
+            else
+                let ((var_24 : int64)) = var_14 + 1L
+                method_2 (var_24, var_3, var_4, var_1, var_2, var_6, var_5)
+    else
+        let ((var_25 : int64)) = var_6 + 1L
+        method_4 (var_3, var_4, var_5, var_1, var_2, var_25)
+and method_3 ((var_31 : int64), (var_3 : int64), (var_4 : int64), (var_1 : int64), (var_2 : int64), (var_6 : int64), (var_5 : int64)) : unit =
+    let ((var_32 : bool)) = var_31 < var_5
+    if var_32 then
+        let ((var_33 : string)) = System.String.Format("I am at ({0},{1})",var_6,var_31)
+        let () = System.Console.WriteLine(var_33)
+        let ((var_34 : bool)) = var_6 = var_3
+        let ((var_36 : bool)) =
+            if var_34 then
+                var_31 = var_4
+            else
+                false
+        if var_36 then
+            let () = System.Console.WriteLine("I've found Mario.")
+            System.Console.WriteLine("Success.")
+        else
+            let ((var_37 : bool)) = var_6 = var_1
+            let ((var_39 : bool)) =
+                if var_37 then
+                    var_31 = var_2
+                else
+                    false
+            if var_39 then
+                let () = System.Console.WriteLine("I've found Princess.")
+                let ((var_40 : int64)) = var_31 + 1L
+                method_3 (var_40, var_3, var_4, var_1, var_2, var_6, var_5)
+            else
+                let ((var_41 : int64)) = var_31 + 1L
+                method_3 (var_41, var_3, var_4, var_1, var_2, var_6, var_5)
+    else
+        let ((var_42 : int64)) = var_6 + 1L
+        method_5 (var_3, var_4, var_5, var_1, var_2, var_42)
+and method_4 ((var_3 : int64), (var_4 : int64), (var_5 : int64), (var_1 : int64), (var_2 : int64), (var_25 : int64)) : unit =
+    let ((var_26 : bool)) = var_25 < var_5
+    if var_26 then
+        let ((var_27 : int64)) = 0L
+        method_2 (var_27, var_3, var_4, var_1, var_2, var_25, var_5)
+    else
+        failwith "Failure."
+and method_5 ((var_3 : int64), (var_4 : int64), (var_5 : int64), (var_1 : int64), (var_2 : int64), (var_42 : int64)) : unit =
+    let ((var_43 : bool)) = var_42 < var_5
+    if var_43 then
+        let ((var_44 : int64)) = 0L
+        method_3 (var_44, var_3, var_4, var_1, var_2, var_42, var_5)
+    else
+        failwith "Failure."
+let ((var_1 : int64)) = 0L
+let ((var_2 : int64)) = 0L
+let ((var_3 : int64)) = 1L
+let ((var_4 : int64)) = 1L
+let ((var_5 : int64)) = 5L
+let ((var_6 : int64)) = 0L
+let () = method_0 (var_3, var_4, var_5, var_1, var_2, var_6)

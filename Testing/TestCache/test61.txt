@@ -1,19 +1,2 @@
-module SpiralExample.Main
-let cuda_kernels = """
-#include <assert.h>
-
-extern "C" {
-    
-}
-"""
-
-let (var_0: bool) = false
-if var_0 then
-    true
-else
-    let (var_1: bool) = false
-    if var_1 then
-        true
-    else
-        false
-
+let ((var_1 : int64)) = 1L
+let ((var_2 : int64)) = 2L

@@ -59,22 +59,6 @@
     <None Include="App.config" />
     <Content Include="packages.config" />
     <Compile Include="GamesModule.fs" />
-    <None Include="old modules\GamesTests.fs%27%27%27" />
-    <None Include="old modules\Module.fs%27%27" />
-    <None Include="old modules\Tests.fs%27%27" />
-    <None Include="old modules\Module.fs%27" />
-    <None Include="old modules\Tests.fs%27" />
-    <None Include="old modules\GamesModule.fs%27" />
-    <None Include="old modules\GamesTests.fs%27" />
-    <None Include="old modules\GamesModule.fs%27%27" />
-    <None Include="old modules\GamesTests.fs%27%27" />
-    <None Include="old modules\Script1.fsx" />
-    <None Include="old modules\GamesModule.fs%27%27%27" />
-    <None Include="old modules\GamesModule.fs%27%27%27%27" />
-    <None Include="old modules\GamesTests.fs%27%27%27%27" />
-    <None Include="old modules\GamesModule.fs%27%27%27%27%27" />
-    <None Include="old modules\GamesTests.fs%27%27%27%27%27" />
-    <Content Include="poker.txt" />
     <Compile Include="GamesTests.fs" />
   </ItemGroup>
   <ItemGroup>
@@ -103,8 +87,8 @@
       <Project>{8a44eec1-7e30-4b7c-a878-1f78a0c08e9a}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <ProjectReference Include="..\The Spiral Language\The Spiral Language.fsproj">
-      <Name>The Spiral Language</Name>
+    <ProjectReference Include="..\The Spiral Language\The Spiral Language v0.1.fsproj">
+      <Name>The Spiral Language v0.1</Name>
       <Project>{91c9628b-20cf-46aa-ad73-56456a532819}</Project>
       <Private>True</Private>
     </ProjectReference>

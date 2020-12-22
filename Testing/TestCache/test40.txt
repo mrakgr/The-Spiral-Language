@@ -1,18 +1,4 @@
-module SpiralExample.Main
-let cuda_kernels = """
-#include <assert.h>
-
-extern "C" {
-    
-}
-"""
-
-let rec method_0((var_0: int64), (var_1: int64)): int64 =
-    let (var_2: bool) = true
-    if var_2 then
-        method_0((var_1: int64), (var_0: int64))
-    else
-        (var_0 + var_1)
-let (var_0: int64) = 1L
-let (var_1: int64) = 2L
-method_0((var_0: int64), (var_1: int64))
+let rec closure_method_0 () ((var_1 : int64), (var_2 : int64)) : unit =
+    ()
+let ((var_3 : (int64 * int64 -> unit))) = closure_method_0 ()
+let () = var_3(1L, 2L)

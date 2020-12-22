@@ -1,4 +1,15 @@
-Error trace on line: 2, column: 5 in file "test70".
-inl a: float64 = 5
-    ^
-Pattern miss error. The argument is lit 5i64
+type SpiralType0 =
+    {
+    subvar_0 : int64
+    }
+and SpiralType1 =
+    {
+    mutable subvar_0 : SpiralType0
+    }
+let ((var_1 : int64)) = 1L
+let ((var_2 : SpiralType0)) = {subvar_0 = var_1}
+let ((var_3 : SpiralType1)) = {subvar_0 = var_2}
+let ((var_4 : int64)) = 2L
+let ((var_5 : SpiralType0)) = {subvar_0 = var_4}
+let () =
+    var_3.subvar_0 <- var_5

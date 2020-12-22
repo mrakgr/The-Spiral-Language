@@ -1,0 +1,6 @@
+// Does the newline after a semicolon work correctly?
+open real_core
+inl main _ =
+    dyn
+        {a=1; b=2; 
+         c=3}

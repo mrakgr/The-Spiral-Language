@@ -1,0 +1,459 @@
+﻿let hacker_rank1: SpiralModule =
+    {
+    name="hacker_rank1"
+    prerequisites=[extern_]
+    opens=[]
+    description="The very first warmup exercise : https://www.hackerrank.com/challenges/solve-me-first"
+    code=
+    """
+open Extern
+inl console = fs [text: "System.Console"]
+inl int32_type = fs [text: "System.Int32"]
+inl parse_int32 str = FS.StaticMethod int32_type .Parse str int32
+inl read_line () = FS.StaticMethod console .ReadLine() string
+inl write x = FS.StaticMethod console .Write x ()
+inl read_int () = read_line() |> parse_int32
+inl a, b = read_int(), read_int()
+write (a + b)
+    """
+    }
+
+let hacker_rank2: SpiralModule =
+    {
+    name="hacker_rank2"
+    prerequisites=[tuple; array; host_tensor; loops; list; option; parsing; console]
+    opens=[]
+    description="Save The Princess"
+    code=
+    """
+// https://www.hackerrank.com/challenges/saveprincess
+// A simple dynamic programming problem. It wouldn't be hard to do in F#, but Spiral
+// gives some novel challenges regarding it.
+open Parsing
+open Console
+open Option
+open Array
+open Loops
+
+inl Cell = .Empty \/ .Princess \/ .Mario
+
+inl empty = pchar '-' >>% box Cell .Empty
+inl princess = pchar 'p' >>% box Cell .Princess
+inl mario = pchar 'm' >>% box Cell .Mario
+
+inl cell = empty <|> princess <|> mario
+
+inl parse_cols n = parse_array {parser=cell; typ=Cell; n} .>> spaces
+inl parse_field n = parse_array {parser=parse_cols n; typ=type (array_create Cell 0); n}
+inl parser = 
+    inm n = parse_int 
+    inm field = parse_field n
+    inl no_pos = none (int64,int64)
+    for' {from = 0; near_to=n; state={princess=no_pos; mario=no_pos}; body = inl {next=row state i=r} ->
+        for' {from = 0; near_to=n; state; 
+            body = inl {next=col state i=c} ->
+                match field r c with
+                | .Mario -> 
+                    inl state = {state with mario=some (r,c)}
+                    match state with
+                    | {princess=.Some, _} -> state
+                    | _ -> col state
+                | .Princess -> 
+                    inl state = {state with princess=some (r,c)}
+                    match state with
+                    | {mario=.Some, _} -> state
+                    | _ -> col state
+                | _ -> col state
+            finally = row
+            }
+        }
+    |> function
+        | {mario=.Some, (mario_row, mario_col as mario_pos) princess=.Some, (princess_row, princess_col as princess_pos)} ->
+            inl cells_visited = Tensor.init (n,n) (inl _ _ -> false)
+            cells_visited mario_row mario_col .set true
+
+            inl up_string = dyn "UP"
+            inl down_string = dyn "DOWN"
+            inl left_string = dyn "LEFT"
+            inl right_string = dyn "RIGHT"
+
+            inl up (row,col), prev_moves = (row-1,col), List.cons up_string prev_moves
+            inl down (row,col), prev_moves = (row+1,col), List.cons down_string prev_moves
+            inl left (row,col), prev_moves = (row,col-1), List.cons left_string prev_moves
+            inl right (row,col), prev_moves = (row,col+1), List.cons right_string prev_moves
+
+            inl next_moves = up,down,left,right
+
+            inl is_valid x = x >= 0 && x < n
+            inl is_in_range (row,col), _ = is_valid row && is_valid col
+            inl is_princess_in_state (row,col), _ = row = princess_row && col = princess_col
+
+            inl start_queue = Array.singleton (mario_pos, List.empty string)
+            inl state_type = start_queue.elem_type
+
+            inl solution = ref (none state_type)
+            met rec loop queue =
+                inl queue =
+                    Array.map (inl mario_pos, prev_moves as state ->
+                        inl potential_new_states = 
+                            Tuple.map (inl move -> 
+                                inl (pos_row, pos_col),_ as new_state = move state
+                                inl is_valid =
+                                    if is_in_range new_state && cells_visited pos_row pos_col .get = false then 
+                                        if is_princess_in_state new_state then solution := some new_state
+                                        cells_visited pos_row pos_col .set true
+                                        true
+                                    else false
+                                new_state, is_valid
+                                ) next_moves
+                        inl bool_to_int x = if x then 1 else 0
+                        inl number_of_valid_states = Tuple.foldl (inl s (_,!bool_to_int x) -> s + x) 0 potential_new_states
+                        inl new_states = array_create state_type number_of_valid_states
+                        Tuple.foldl (inl i (state,is_valid) -> 
+                            if is_valid then new_states i <- state; i+1
+                            else i
+                            ) 0 potential_new_states |> ignore
+                        new_states
+                        ) queue
+                    |> Array.concat
+                match solution() with
+                | .None -> loop queue
+                | .Some, (_, path) -> List.foldr (inl x _ -> Console.writeline x) path ()
+                : ()
+            loop start_queue
+        | _ -> failwith () "Current position not found."
+    |> succ
+
+//inl str = dyn "3
+//---
+//-m-
+//p--
+//    "
+run_with_unit_ret (readall()) parser
+    """
+    }
+
+let hacker_rank3: SpiralModule =
+    {
+    name="hacker_rank3"
+    prerequisites=[tuple; array; host_tensor; loops; list; parsing; console; queue]
+    opens=[]
+    description="Save The Princess 2"
+    code=
+    """
+// https://www.hackerrank.com/challenges/saveprincess2
+// A version of this similar to the previous one made in order to test the new queue.
+open Parsing
+open Console
+open Array
+open Loops
+
+inl Cell = .Empty \/ .Princess \/ .Mario
+
+inl empty = pchar '-' >>% box Cell .Empty
+inl princess = pchar 'p' >>% box Cell .Princess
+inl mario = pchar 'm' >>% box Cell .Mario
+
+inl cell = empty <|> princess <|> mario
+
+inl parse_cols n = parse_array {parser=cell; typ=Cell; n} .>> spaces
+inl parse_field n = parse_array {parser=parse_cols n; typ=type (array_create Cell 0); n}
+inl parser ret = 
+    inm n = parse_int .>> parse_int .>> parse_int
+    inm field = parse_field n
+    for' {from = 0; near_to=n; state={n field}; 
+        body = inl {next=row state i=r} ->
+            for' {from = 0; near_to=n; state; 
+                body = inl {next=col state i=c} ->
+                    inl ret = function
+                        | {mario princess} as state -> ret .some state
+                        | state -> col state
+                    match field r c with
+                    | .Mario -> ret {state with mario=r,c}
+                    | .Princess -> ret {state with princess=r,c}
+                    | _ -> col state
+                finally = row
+                }
+        finally = ret .none
+        }
+    |> succ
+
+inl main = {
+    some = met {n field mario=(mario_row, mario_col as mario_pos) princess=(princess_row, princess_col as princess_pos)} ->
+        inl cells_visited = Tensor.init (n,n) (inl _ _ -> false)
+        cells_visited mario_row mario_col .set true
+
+        inl up_string = dyn "UP"
+        inl down_string = dyn "DOWN"
+        inl left_string = dyn "LEFT"
+        inl right_string = dyn "RIGHT"
+
+        inl up (row,col), prev_moves = (row-1,col), List.cons up_string prev_moves
+        inl down (row,col), prev_moves = (row+1,col), List.cons down_string prev_moves
+        inl left (row,col), prev_moves = (row,col-1), List.cons left_string prev_moves
+        inl right (row,col), prev_moves = (row,col+1), List.cons right_string prev_moves
+
+        inl is_valid x = x >= 0 && x < n
+        inl is_in_range (row,col), _ = is_valid row && is_valid col
+        inl is_princess_in_state (row,col), _ = row = princess_row && col = princess_col
+
+        inl init_state = (mario_pos, List.empty string)
+        inl state_type = type init_state 
+
+        open Queue
+        inl queue = create state_type ()
+        enqueue queue init_state
+
+        met print_solution _, path = //List.foldr (inl x _ -> Console.writeline x) path ()
+            match List.last path with
+            | .Some, x -> Console.writeline x
+            | .None -> failwith () "Error: No moves taken."
+
+        met evaluate_move state move on_fail =
+            inl (pos_row, pos_col),_ as new_state = move state
+            if is_in_range new_state && cells_visited pos_row pos_col .get = false then 
+                if is_princess_in_state new_state then print_solution new_state
+                else
+                    cells_visited pos_row pos_col .set true
+                    enqueue queue new_state
+                    on_fail ()
+            else on_fail ()
+            
+        met rec loop () =
+            inl next_moves = up, down, left, right
+            inl state = dequeue queue
+            Tuple.foldr (inl move next () -> evaluate_move state move next) next_moves loop ()
+            : ()
+
+        loop ()
+    none = inl _ -> failwith () "Current position not found."
+    }
+
+run_with_unit_ret (readall()) (parser main)
+    """
+    }
+
+let hacker_rank4: SpiralModule =
+    {
+    name="hacker_rank4"
+    prerequisites=[tuple; array; parsing; console; option]
+    opens=[]
+    description="Game of Stones"
+    code=
+    """
+// https://www.hackerrank.com/challenges/game-of-stones-1
+open Parsing
+open Console
+open Loops
+open Option
+
+inl Player = .First \/ .Second
+
+inl first = box Player .First
+inl second = box Player .Second
+inl not_visited = none Player
+
+inl max_n = 100
+inl solutions = Array.init (max_n+1) (const not_visited)
+
+met rec solve (!dyn player, !dyn opposing_player) (!dyn n) =
+    inl take amount on_fail = 
+        if n >= amount && solve (opposing_player,player) (n-amount) = player then player
+        else on_fail ()
+
+    met run () = Tuple.foldr (inl take on_fail _ -> take on_fail) (take 2, take 3, take 5) (const opposing_player) () 
+
+    if player = first then
+        match solutions n with
+        | .None -> 
+            inl x = run()
+            solutions n <- some x
+            x
+        | .Some, x -> x
+    else run()
+    : player
+
+inl show .(x) = writeline x
+inl parser = 
+    inm t = parse_int
+    repeat t (inl i -> parse_int |>> (solve (first,second) >> show))
+
+run_with_unit_ret (readall()) parser
+    """
+    }
+
+let hacker_rank5: SpiralModule =
+    {
+    name="hacker_rank5"
+    prerequisites=[parsing; console]
+    opens=[]
+    description="Game of Stones"
+    code=
+    """
+// https://www.hackerrank.com/challenges/tower-breakers-1
+open Parsing
+open Console
+
+// This is the solution from the discussion forum that I've been spoilered on.
+inl solve n,m = if m = 1 || n % 2 = 0 then 2 else 1
+
+inl parser = 
+    inm t = parse_int
+    repeat t (inl i -> parse_int .>>. parse_int |>> (solve >> writeline))
+
+run_with_unit_ret (readall()) parser
+    """
+    }
+
+let hacker_rank6: SpiralModule =
+    {
+    name="hacker_rank6"
+    prerequisites=[tuple; array; host_tensor; parsing; console; option]
+    opens=[]
+    description="A Chessboard Game"
+    code=
+    """
+// https://www.hackerrank.com/challenges/a-chessboard-game-1
+open Parsing
+open Console
+open Option
+
+inl num_players = 2
+inl first = 0
+inl second = 1
+
+inl max_t = 15
+
+inl cache = 
+    inl cache = Tensor.init (max_t,max_t,num_players) (inl _ _ _ -> none first)
+    inl op (x,y,player_one,player_two) -> cache (x-1) (y-1) player_one op
+
+met rec solve !dyn (x,y,player_one,player_two) as d = 
+    inl new_positions = (x-2,y+1),(x-2,y-1),(x+1,y-2),(x-1,y-2)
+    inl is_in_range x = x >= 1 && x <= 15
+    inl try x,y on_fail =
+        if is_in_range x && is_in_range y && solve (x,y,player_two,player_one) = player_one then player_one
+        else on_fail()
+    match cache.get d with
+    | .None -> Tuple.foldr (inl pos next () -> try pos next) new_positions (const player_two) () |> inl x -> some x |> cache.set d; x
+    | .Some, x -> x
+    : player_one
+
+inl show = function
+    | x when x = first -> writeline "First"
+    | _ -> writeline "Second"
+
+inl parser = 
+    inm t = parse_int
+    repeat t (inl i -> parse_int .>>. parse_int |>> inl x,y -> solve (x,y,first,second) |> show)
+
+run_with_unit_ret (readall()) parser
+    """
+    }
+
+let hacker_rank7: SpiralModule =
+    {
+    name="hacker_rank7"
+    prerequisites=[tuple; array; parsing; console; option]
+    opens=[]
+    description="Introduction to Nim Game"
+    code=
+    """
+// https://www.hackerrank.com/challenges/nim-game-1/problem
+
+open Parsing
+open Console
+open Array
+
+inl solve = Array.foldl (^^^) 0
+inl show = function
+    | 0 -> writeline "Second"
+    | _ -> writeline "First"
+
+inl parser = 
+    inm t = parse_int
+    repeat t (inl _ -> 
+        inm n = parse_int 
+        parse_array {n parser=parse_int; typ=int64} |>> (solve >> show)
+        )
+
+run_with_unit_ret (readall()) parser
+    """
+    }
+
+let hacker_rank8: SpiralModule =
+    {
+    name="hacker_rank8"
+    prerequisites=[tuple; array; parsing; console; option]
+    opens=[]
+    description="Misere Nim"
+    code=
+    """
+// https://www.hackerrank.com/challenges/misere-nim-1
+
+open Parsing
+open Console
+open Array
+
+// https://mathoverflow.net/questions/71802/analysis-of-misere-nim
+inl solve ar = 
+    inl r = Array.foldl (^^^) 0 ar
+    if Array.forall ((=) 1) ar then r ^^^ 1
+    else r
+    
+inl show = function
+    | 0 -> writeline "Second"
+    | _ -> writeline "First"
+
+inl parser = 
+    inm t = parse_int
+    repeat t (inl _ -> 
+        inm n = parse_int 
+        parse_array {n parser=parse_int; typ=int64} |>> (solve >> show)
+        )
+
+run_with_unit_ret (readall()) parser
+    """
+    }
+
+let hacker_rank9: SpiralModule =
+    {
+    name="hacker_rank9"
+    prerequisites=[tuple; array; host_tensor_range_view; parsing; console; option]
+    opens=[]
+    description="The Power Sum"
+    code=
+    """
+// https://www.hackerrank.com/challenges/the-power-sum
+
+open Parsing
+open Console
+open Array
+open Loops
+
+inl x_range = {from=1; to=1000}
+inl n_range = {from=2; to=10}
+
+inl x_to_n = 
+    inl cache = ViewR.create {dim=x_range,n_range; elem_type=int64}
+    for {x_range with body=inl {i=x} ->
+        for {n_range with body=inl {i=n} ->
+            for {from=2; to=n; state=x; body=inl {state=x'} -> x*x'}
+            |> cache x n .set
+            }
+        }
+    inl x -> cache x .get
+
+met rec solve !dyn state !dyn sum !dyn from to,n =
+    for' {from to state body=inl {next state i=x} ->
+        inl sum = sum + x_to_n (x,n)
+        if sum = to then state + 1
+        elif sum < to then next (solve state sum (x+1) (to,n))
+        else state
+        }
+    : state
+
+inl parser = parse_int .>>. parse_int |>> (solve 0 0 1 >> writeline)
+run_with_unit_ret (readall()) parser 
+    """
+    }

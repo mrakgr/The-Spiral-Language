@@ -7,8 +7,13 @@ open Spiral.Types
 
 let cfg = {Spiral.Types.cfg_default with trace_length=160; cuda_assert_enabled=false}
 
-let allocator1 =
-    "allocator1",[allocator;cuda],"Does the allocator work?",
+let allocator1: SpiralModule =
+    {
+    name="allocator1"
+    prerequisites=[allocator; cuda]
+    opens=[]
+    description="Does the allocator work?"
+    code=
     """
 inb s = Cuda
 inb s = Allocator s (1024*256)
@@ -31,9 +36,15 @@ print_pointer c
 
 a.Dispose
     """
+    }
 
-let allocator2 =
-    "allocator2",[allocator;region;cuda],"Does the allocator + regions work?",
+let allocator2: SpiralModule =
+    {
+    name="allocator2"
+    prerequisites=[allocator; region; cuda]
+    opens=[]
+    description="Does the allocator + regions work?"
+    code=
     """
 inb s = Cuda
 inb s = Allocator s 1024
@@ -44,9 +55,15 @@ inl c = s.RegionMem.allocate 32
 s.RegionMem.clear
 ()
     """
+    }
 
-let allocator3 =
-    "allocator3",[allocator;region;cuda_stream;cuda],"Does the stream region work?",
+let allocator3: SpiralModule =
+    {
+    name="allocator3"
+    prerequisites=[allocator; region; cuda_stream; cuda]
+    opens=[]
+    description="Does the stream region work?"
+    code=
     """
 inb s = Cuda
 inb s = Allocator s 1024
@@ -58,9 +75,15 @@ inl c = s.RegionStream.allocate
 a.stream.wait_on b.stream
 ()
     """
+    }
 
-let tensor1 =
-    "tensor1",[allocator;cuda;host_tensor;region;cuda_stream;cuda_tensor],"Does the Cuda tensor work?",
+let tensor1: SpiralModule =
+    {
+    name="tensor1"
+    prerequisites=[allocator; cuda; host_tensor; region; cuda_stream; cuda_tensor]
+    opens=[]
+    description="Does the Cuda tensor work?"
+    code=
     """
 inb s = Cuda
 inb s = Allocator s 1024
@@ -74,9 +97,15 @@ inl a2 = s.CudaTensor.zero {dim=1,2,3; elem_type=int64}
 inl a3 = s.CudaTensor.zero_like a1
 ()
     """
+    }
 
-let tensor2 =
-    "tensor2",[allocator;cuda;host_tensor;cuda_tensor;region;cuda_stream],"Does the Cuda tensor work?",
+let tensor2: SpiralModule =
+    {
+    name="tensor2"
+    prerequisites=[allocator; cuda; host_tensor; cuda_tensor; region; cuda_stream]
+    opens=[]
+    description="Does the Cuda tensor work?"
+    code=
     """
 inb s = Cuda
 inb s = Allocator s 1024
@@ -90,9 +119,15 @@ inl a1 = s.CudaTensor.from_host_tensor h
 inl a2 = s.CudaTensor.to_host_tensor a1
 ()
     """
+    }
 
-let tensor3 =
-    "tensor3",[cuda_modules],"Does the Cuda tensor copy work?",
+let tensor3: SpiralModule =
+    {
+    name="tensor3"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the Cuda tensor copy work?"
+    code=
     """
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
@@ -103,9 +138,15 @@ s.CudaTensor.print a
 s.CudaTensor.print b
 ()
     """
+    }
 
-let random1 =
-    "random1",[cuda_modules],"Does the CudaRandom.fill work?",
+let random1: SpiralModule =
+    {
+    name="random1"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the CudaRandom.fill work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -122,9 +163,15 @@ inl sigmoid_initializer s dim =
 inl o1 = sigmoid_initializer s (3,8)
 s.CudaTensor.print o1
     """
+    }
 
-let blas1 =
-    "blas1",[cuda_modules],"Does the gemm work?",
+let blas1: SpiralModule =
+    {
+    name="blas1"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the gemm work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -135,9 +182,15 @@ inl o2 = s.CudaBlas.gemm .nT .T 1f32 o1 a2
 inl o3 = s.CudaBlas.gemm .T .nT 1f32 a1 o1
 Tuple.iter s.CudaTensor.print (a1,a2,o1,o2,o3)
     """
+    }
 
-let blas2 =
-    "blas2",[cuda_modules],"Do the matinv_batched and gemm_strided_batched work?",
+let blas2: SpiralModule =
+    {
+    name="blas2"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Do the matinv_batched and gemm_strided_batched work?"
+    code=
     """
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
@@ -148,9 +201,15 @@ s.CudaTensor.print a'
 inl o = s.CudaBlas.gemm_strided_batched .nT .nT 1f32 a a'
 s.CudaTensor.print o
     """
+    }
 
-let blas3 =
-    "blas3",[cuda_modules],"Does the trmm work?",
+let blas3: SpiralModule =
+    {
+    name="blas3"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the trmm work?"
+    code=
     """
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
@@ -164,9 +223,15 @@ inl o1 = s.CudaBlas.gemm .nT .nT 1f32 a1 a2
 inl o2 = s.CudaBlas.trmm .Left .Lower .nT .NonUnit 1f32 a1 a2
 Tuple.iter s.CudaTensor.print (a1,a2,o1,o2)
     """
+    }
 
-let blas4 =
-    "blas4",[cuda_modules],"Does the trsm work?",
+let blas4: SpiralModule =
+    {
+    name="blas4"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the trsm work?"
+    code=
     """
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
@@ -181,9 +246,15 @@ inl o2 = s.CudaBlas.trinv .Lower a1
 inl r1 = s.CudaBlas.gemm .nT .nT 1f32 a1 o2
 Tuple.iter s.CudaTensor.print (a1,a2,o1,o2,r1)
     """
+    }
 
-let blas5 =
-    "blas5",[cuda_modules],"Does the symm work?",
+let blas5: SpiralModule =
+    {
+    name="blas5"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the symm work?"
+    code=
     """
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
@@ -203,9 +274,15 @@ s.CudaTensor.set (a1 1 2) 0f32
 inl o2 = s.CudaBlas.symm .Right .Lower 1f32 a1 a2
 Tuple.iter s.CudaTensor.print (a1,a2,o1,o2)
     """
+    }
 
-let blas6 =
-    "blas6",[cuda_modules],"Does the geam work?",
+let blas6: SpiralModule =
+    {
+    name="blas6"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the geam work?"
+    code=
     """
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
@@ -217,9 +294,15 @@ s.CudaTensor.print B
 s.CudaTensor.print C
 s.CudaTensor.print (s.CudaBlas.transpose C)
     """
+    }
 
-let blas7 =
-    "blas7",[cuda_modules],"Does the syrk work?",
+let blas7: SpiralModule =
+    {
+    name="blas7"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the syrk work?"
+    code=
     """
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
@@ -229,9 +312,15 @@ s.CudaTensor.print o
 inl o = s.CudaBlas.syrk .Lower .T 1f32 x
 s.CudaTensor.print o
     """
+    }
 
-let blas8 =
-    "blas8",[cuda_modules],"Does the gemv work?",
+let blas8: SpiralModule =
+    {
+    name="blas8"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the gemv work?"
+    code=
     """
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
@@ -242,9 +331,15 @@ s.CudaTensor.print o
 inl o = s.CudaBlas.gemm .T .nT 1f32 A (x.split (inl x -> x,1))
 s.CudaTensor.print o
     """
+    }
 
-let blas9 =
-    "blas9",[cuda_modules],"Does the symv work?",
+let blas9: SpiralModule =
+    {
+    name="blas9"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the symv work?"
+    code=
     """
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
@@ -255,9 +350,15 @@ s.CudaTensor.print o
 inl o = s.CudaBlas.symm .Right .Lower 1f32 A (x.split (inl x -> 1,x))
 s.CudaTensor.print o
     """
+    }
 
-let blas10 =
-    "blas10",[cuda_modules],"Does the syr work?",
+let blas10: SpiralModule =
+    {
+    name="blas10"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the syr work?"
+    code=
     """
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
@@ -267,9 +368,15 @@ s.CudaTensor.print o
 inl o = s.CudaBlas.syrk .Lower .T 1f32 (x.reshape (inl x -> 1,x))
 s.CudaTensor.print o
     """
+    }
 
-let blas11 =
-    "blas11",[cuda_modules],"Does the symv work?",
+let blas11: SpiralModule =
+    {
+    name="blas11"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the symv work?"
+    code=
     """
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
 
@@ -280,9 +387,15 @@ s.CudaTensor.print o
 inl o = s.CudaBlas.trmv .Lower .nT .NonUnit A x
 s.CudaTensor.print o
     """
+    }
 
-let cusolver1 =
-    "cusolver1",[cuda_modules],"Does the Cholesky decomposition (potrf) work?",
+let cusolver1: SpiralModule =
+    {
+    name="cusolver1"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the Cholesky decomposition (potrf) work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -297,9 +410,15 @@ inl O = s.CudaSolve.potrf .Lower S
 s.CudaTensor.print O
 s.CudaTensor.print (s.CudaBlas.trmm .Right .Lower .T .NonUnit 1f32 O O)
     """
+    }
 
-let inverse1 =
-    "inverse1",[cuda_modules;mnist],"Does the matrix inverse using the Cholesky decomposition work?",
+let inverse1: SpiralModule =
+    {
+    name="inverse1"
+    prerequisites=[cuda_modules; mnist]
+    opens=[]
+    description="Does the matrix inverse using the Cholesky decomposition work?"
+    code=
     """
 inb s = CudaModules (1024*1024*1024)
 inl zero = 0f32
@@ -337,9 +456,15 @@ s.CudaTensor.print sampling
 s.CudaTensor.print precision
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one covariance precision)
     """
+    }
 
-let cusolver2 =
-    "cusolver2",[cuda_modules],"Does the LU decomposition (getrf) work?",
+let cusolver2: SpiralModule =
+    {
+    name="cusolver2"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the LU decomposition (getrf) work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -410,9 +535,15 @@ s.CudaTensor.print A
 Console.writeline "P^-1 * L * U:"
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT 1f32 (s.CudaBlas.gemm .nT .nT 1f32 U L) P)
     """
+    }
 
-let inverse2 =
-    "inverse2",[cuda_modules;mnist],"Does the matrix inverse using the LU decomposition work?",
+let inverse2: SpiralModule =
+    {
+    name="inverse2"
+    prerequisites=[cuda_modules; mnist]
+    opens=[]
+    description="Does the matrix inverse using the LU decomposition work?"
+    code=
     """
 inb s = CudaModules (1024*1024*1024)
 inl zero = 0f32
@@ -445,9 +576,15 @@ inl C_inv = s.CudaSolve.lu_inverse C
 s.CudaTensor.print C_inv
 s.CudaTensor.print (s.CudaBlas.gemm .nT .nT one C C_inv)
     """
+    }
 
-let kernel1 =
-    "kernel1",[cuda_modules],"Does the iter kernel work?",
+let kernel1: SpiralModule =
+    {
+    name="kernel1"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the iter kernel work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 inl x = s.CudaTensor.create {elem_type=int64,int64,int64; dim=2,2,128}
@@ -456,9 +593,15 @@ inl _ =
     s.CudaKernel.iter {dim=x.dim} (inl a, b, c -> x a b c .set (a, b, c))
 s.CudaTensor.print x
     """
+    }
 
-let kernel2 =
-    "kernel2",[cuda_modules],"Does the segmented_iter kernel work?",
+let kernel2: SpiralModule =
+    {
+    name="kernel2"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the segmented_iter kernel work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -478,9 +621,15 @@ inl _ =
             ) i map
 s.CudaTensor.print x.basic
     """
+    }
 
-let kernel4 =
-    "kernel4",[cuda_modules],"Does the iter_exscan kernel work?",
+let kernel4: SpiralModule =
+    {
+    name="kernel4"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the iter_exscan kernel work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -501,9 +650,15 @@ inl _ =
 
 Tuple.iter s.CudaTensor.print (a1,o1)
     """
+    }
 
-let kernel5 =
-    "kernel5",[cuda_modules],"Does the inscan kernel work?",
+let kernel5: SpiralModule =
+    {
+    name="kernel5"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the inscan kernel work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -524,9 +679,15 @@ inl _ =
 
 Tuple.iter s.CudaTensor.print (a1,o1)
     """
+    }
 
-let kernel6 =
-    "kernel6",[cuda_modules],"Does the redo kernel work?",
+let kernel6: SpiralModule =
+    {
+    name="kernel6"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the redo kernel work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -544,9 +705,15 @@ inl _ =
         }
 s.CudaTensor.print o1 // 2098176
     """
+    }
 
-let kernel7 =
-    "kernel7",[cuda_modules],"Does the iter2 kernel work?",
+let kernel7: SpiralModule =
+    {
+    name="kernel7"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the iter2 kernel work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -568,9 +735,15 @@ inl _ =
             )
 Tuple.iter s.CudaTensor.print (a1,a2,o1)
     """
+    }
 
-let kernel8 =
-    "kernel8",[cuda_modules],"Does the iter_inscan kernel work?",
+let kernel8: SpiralModule =
+    {
+    name="kernel8"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the iter_inscan kernel work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -591,9 +764,15 @@ inl _ =
 
 Tuple.iter s.CudaTensor.print (a1,o1)
     """
+    }
 
-let kernel9 =
-    "kernel9",[cuda_modules],"Does the iter_redo kernel work?",
+let kernel9: SpiralModule =
+    {
+    name="kernel9"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the iter_redo kernel work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -634,9 +813,15 @@ inl f a1 =
 
 s.CudaTensor.print (f a1)
     """
+    }
 
-let kernel10 =
-    "kernel10",[cuda_modules],"Does the iter_redo_redo kernel work?",
+let kernel10: SpiralModule =
+    {
+    name="kernel10"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the iter_redo_redo kernel work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -668,9 +853,15 @@ inl _ =
         }
 s.CudaTensor.print o1
     """
+    }
 
-let kernel11 =
-    "kernel11",[cuda_modules],"Does the iter_seq kernel work?",
+let kernel11: SpiralModule =
+    {
+    name="kernel11"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the iter_seq kernel work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -801,9 +992,15 @@ Tuple.iter s.CudaTensor.print (prob,scan_prob,boundary,sample prob boundary)
 //[|0.2; 0.2; 0.2; 0.2; 0.2; 0.2|]
 //[|1; 1; 1; 1; 2; 2|]
     """
+    }
 
-let kernel12 =
-    "kernel12",[cuda_modules],"Does the inscan_iter kernel work?",
+let kernel12: SpiralModule =
+    {
+    name="kernel12"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the inscan_iter kernel work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -824,9 +1021,15 @@ inl _ =
 
 Tuple.iter s.CudaTensor.print (a1,o1)
     """
+    }
 
-let kernel13 =
-    "kernel13",[cuda_modules],"Does the redo_iter kernel work?",
+let kernel13: SpiralModule =
+    {
+    name="kernel13"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the redo_iter kernel work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 inl inner_size = 5
@@ -848,18 +1051,30 @@ inl _ =
 s.CudaTensor.print x
 s.CudaTensor.print o
     """
+    }
 
-let fun1 =
-    "fun1",[cuda_modules],"Does the init function work?",
+let fun1: SpiralModule =
+    {
+    name="fun1"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the init function work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
 inl o1 = s.CudaFun.init {dim=2,2,128} id
 s.CudaTensor.print o1
     """
+    }
 
-let fun2 =
-    "fun2",[cuda_modules],"Does the map function work?",
+let fun2: SpiralModule =
+    {
+    name="fun2"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the map function work?"
+    code=
     """
 /// Initializes all the Cuda parts
 inb s = CudaModules (1024*1024) // The allocator takes 1Mb of memory from the heap.
@@ -878,9 +1093,15 @@ inl a2 = s.CudaTensor.to_host_tensor o1
 /// Zips the two tensors and prints them out.
 Tensor.zip (h,a2) |> Tensor.show |> Console.writeline
     """
+    }
 
-let fun3 =
-    "fun3",[cuda_modules],"Does the map_map function work?",
+let fun3: SpiralModule =
+    {
+    name="fun3"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the map_map function work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -890,9 +1111,15 @@ inl a2 = s.CudaFun.init {dim=5} id
 s.CudaFun.map_map {map=inl {in in_inner} -> in+in_inner} {in=a1; in_inner=a2}
 |> s.CudaTensor.print
     """
+    }
 
-let fun4 =
-    "fun4",[cuda_modules],"Does the redo_map function work?",
+let fun4: SpiralModule =
+    {
+    name="fun4"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the redo_map function work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -905,9 +1132,15 @@ s.CudaFun.redo_map {redo=(+); mid=a2
     } a1
 |> s.CudaTensor.print
     """
+    }
 
-let fun5 =
-    "fun5",[cuda_modules],"Does the redo function work?",
+let fun5: SpiralModule =
+    {
+    name="fun5"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the redo function work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -916,9 +1149,15 @@ inl a1 = s.CudaFun.init {dim=2049} id
 s.CudaFun.redo {redo=(+)} a1
 |> s.CudaTensor.print
     """
+    }
 
-let fun6 =
-    "fun6",[cuda_modules],"Does the map_redo function work?",
+let fun6: SpiralModule =
+    {
+    name="fun6"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the map_redo function work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -931,9 +1170,15 @@ s.CudaFun.map_redo {redo=(+); mid=a2
     } a1
 |> s.CudaTensor.print
     """
+    }
 
-let fun7 =
-    "fun7",[cuda_modules],"Does the segmented_init function work?",
+let fun7: SpiralModule =
+    {
+    name="fun7"
+    prerequisites=[cuda_modules]
+    opens=[]
+    description="Does the segmented_init function work?"
+    code=
     """
 inb s = CudaModules (1024*1024)
 
@@ -947,6 +1192,7 @@ inl map =
 inl x = s.CudaFun.segmented_init {dim} map
 s.CudaTensor.print x.basic
     """
+    }
 
 let tests =
     [|

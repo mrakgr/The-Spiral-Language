@@ -1,49 +1,18 @@
-module SpiralExample.Main
-let cuda_kernels = """
-#include <assert.h>
-
-extern "C" {
-    
-}
-"""
-
-type Rec0 =
-    | Rec0Case0
-    | Rec0Case1 of Tuple1
-and Tuple1 =
-    struct
-    val mem_0: int64
-    val mem_1: Rec0
-    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
-    end
-and Rec2 =
-    | Rec2Case0
-    | Rec2Case1 of Tuple3
-and Tuple3 =
-    struct
-    val mem_0: Rec0
-    val mem_1: Rec2
-    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
-    end
-let rec method_2((var_0: Rec2)): Rec0 =
-    match var_0 with
-    | Rec2Case0 ->
-        Rec0Case0
-    | Rec2Case1(var_1) ->
-        let (var_2: Rec0) = var_1.mem_0
-        let (var_3: Rec2) = var_1.mem_1
-        let (var_4: Rec0) = method_2((var_3: Rec2))
-        method_3((var_2: Rec0), (var_4: Rec0))
-and method_3((var_0: Rec0), (var_1: Rec0)): Rec0 =
-    match var_0 with
-    | Rec0Case0 ->
-        var_1
-    | Rec0Case1(var_2) ->
-        let (var_3: int64) = var_2.mem_0
-        let (var_4: Rec0) = var_2.mem_1
-        let (var_5: Rec0) = method_3((var_4: Rec0), (var_1: Rec0))
-        (Rec0Case1(Tuple1(var_3, var_5)))
-let (var_0: Rec0) = (Rec0Case1(Tuple1(1L, (Rec0Case1(Tuple1(2L, (Rec0Case1(Tuple1(3L, Rec0Case0)))))))))
-let (var_1: Rec0) = (Rec0Case1(Tuple1(4L, (Rec0Case1(Tuple1(5L, (Rec0Case1(Tuple1(6L, Rec0Case0)))))))))
-let (var_2: Rec2) = (Rec2Case1(Tuple3(var_0, (Rec2Case1(Tuple3(var_1, Rec2Case0))))))
-method_2((var_2: Rec2))
+// List
+type SpiralType0 =
+    | SpiralType0_2
+    | SpiralType0_1 of float * SpiralType0
+// List
+and SpiralType3 =
+    | SpiralType3_2
+    | SpiralType3_4 of int32 * SpiralType3
+let rec method_0 ((var_1 : SpiralType0)) : SpiralType3 =
+    match var_1 with
+    | SpiralType0_2 ->
+        SpiralType3_2
+    | SpiralType0_1 (var_4, var_5) ->
+        let ((var_6 : int32)) = int32 var_4
+        let ((var_9 : SpiralType3)) = method_0 (var_5)
+        SpiralType3_4 (var_6, var_9)
+let ((var_1 : SpiralType0)) = SpiralType0_1 (1.000000, SpiralType0_1 (2.000000, SpiralType0_1 (3.000000, SpiralType0_2)))
+let ((var_11 : SpiralType3)) = method_0 (var_1)

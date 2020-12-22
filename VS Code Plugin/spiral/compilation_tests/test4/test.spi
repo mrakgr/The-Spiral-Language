@@ -1,0 +1,5 @@
+// Does the core package load correctly?
+inl main () =
+    inl ~a = 1
+    inl ~b = 2
+    a + b : i32

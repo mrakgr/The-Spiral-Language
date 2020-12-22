@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <RootNamespace>The_Spiral_Language_v0._2</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <PlatformTarget>x64</PlatformTarget>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="Script1.fsx" />
+    <Compile Include="HashConsing.fs" />
+    <Compile Include="Utils.fs" />
+    <Compile Include="Tokenize.fs" />
+    <Compile Include="ParserCombinators.fs" />
+    <Compile Include="Parsing.fs" />
+    <Compile Include="Prepass.fs" />
+    <Compile Include="PartEval.fs" />
+    <Compile Include="CodegenFsharp.fs" />
+    <Compile Include="CoreLib.fs" />
+    <Compile Include="Compile.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FParsec" Version="1.1.0-RC" />
+    <PackageReference Include="FSharp.Json" Version="0.4.0" />
+    <PackageReference Include="NetMQ" Version="4.0.1.2-pre" />
+  </ItemGroup>
+
+</Project>

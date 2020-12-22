@@ -1,96 +1,72 @@
-module SpiralExample.Main
-let cuda_kernels = """
-#include <assert.h>
-
-extern "C" {
-    
-}
-"""
-
-type Env0 =
-    struct
-    val mem_0: int64
-    new(arg_mem_0) = {mem_0 = arg_mem_0}
-    end
-and Env1 =
-    struct
-    val mem_0: int64
-    val mem_1: int64
-    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
-    end
-let rec method_0((var_0: int64), (var_1: int64), (var_2: int64)): Env0 =
-    let (var_3: bool) = (var_2 <= var_0)
+let rec method_0 ((var_1 : int64), (var_2 : int64)) : int64 =
+    let ((var_3 : bool)) = var_2 <= var_1
     if var_3 then
-        let (var_4: int64) = 999L
-        let (var_5: Env0) = method_1((var_2: int64), (var_4: int64), (var_1: int64))
-        let (var_6: int64) = var_5.mem_0
-        let (var_7: int64) = (var_2 + 1L)
-        method_0((var_0: int64), (var_6: int64), (var_7: int64))
-    else
-        (Env0(var_1))
-and method_1((var_0: int64), (var_1: int64), (var_2: int64)): Env0 =
-    let (var_3: bool) = (var_0 <= var_1)
-    if var_3 then
-        let (var_4: int64) = (var_0 * var_0)
-        let (var_5: int64) = 0L
-        let (var_6: Env1) = method_2((var_4: int64), (var_5: int64))
-        let (var_7: int64) = var_6.mem_0
-        let (var_8: int64) = var_6.mem_1
-        let (var_9: bool) = (var_4 = var_8)
-        let (var_11: bool) =
-            if var_9 then
-                (var_2 < var_4)
+        let ((var_4 : int64)) = var_2 % 4L
+        let ((var_5 : bool)) = var_4 = 0L
+        let ((var_38 : bool)) =
+            if var_5 then
+                let ((var_6 : int64)) = var_2 % 6L
+                let ((var_7 : bool)) = var_6 = 0L
+                if var_7 then
+                    let ((var_8 : int64)) = var_2 % 7L
+                    let ((var_9 : bool)) = var_8 = 0L
+                    if var_9 then
+                        let ((var_10 : int64)) = var_2 % 8L
+                        let ((var_11 : bool)) = var_10 = 0L
+                        if var_11 then
+                            let ((var_12 : int64)) = var_2 % 9L
+                            let ((var_13 : bool)) = var_12 = 0L
+                            if var_13 then
+                                let ((var_14 : int64)) = var_2 % 10L
+                                let ((var_15 : bool)) = var_14 = 0L
+                                if var_15 then
+                                    let ((var_16 : int64)) = var_2 % 12L
+                                    let ((var_17 : bool)) = var_16 = 0L
+                                    if var_17 then
+                                        let ((var_18 : int64)) = var_2 % 14L
+                                        let ((var_19 : bool)) = var_18 = 0L
+                                        if var_19 then
+                                            let ((var_20 : int64)) = var_2 % 15L
+                                            let ((var_21 : bool)) = var_20 = 0L
+                                            if var_21 then
+                                                let ((var_22 : int64)) = var_2 % 16L
+                                                let ((var_23 : bool)) = var_22 = 0L
+                                                if var_23 then
+                                                    let ((var_24 : int64)) = var_2 % 18L
+                                                    let ((var_25 : bool)) = var_24 = 0L
+                                                    if var_25 then
+                                                        let ((var_26 : int64)) = var_2 % 20L
+                                                        var_26 = 0L
+                                                    else
+                                                        false
+                                                else
+                                                    false
+                                            else
+                                                false
+                                        else
+                                            false
+                                    else
+                                        false
+                                else
+                                    false
+                            else
+                                false
+                        else
+                            false
+                    else
+                        false
+                else
+                    false
             else
                 false
-        let (var_12: Env0) =
-            if var_11 then
-                (Env0(var_4))
-            else
-                (Env0(var_2))
-        let (var_13: int64) = var_12.mem_0
-        let (var_14: int64) = (var_0 + 1L)
-        method_3((var_0: int64), (var_1: int64), (var_13: int64), (var_14: int64))
+        if var_38 then
+            var_2
+        else
+            let ((var_39 : int64)) = var_2 + 1385670L
+            method_0 (var_1, var_39)
     else
-        (Env0(var_2))
-and method_2((var_0: int64), (var_1: int64)): Env1 =
-    let (var_2: bool) = (var_0 > 0L)
-    if var_2 then
-        let (var_3: int64) = (var_0 / 10L)
-        let (var_4: int64) = (var_1 * 10L)
-        let (var_5: int64) = (var_0 % 10L)
-        let (var_6: int64) = (var_4 + var_5)
-        method_2((var_3: int64), (var_6: int64))
-    else
-        (Env1(var_0, var_1))
-and method_3((var_0: int64), (var_1: int64), (var_2: int64), (var_3: int64)): Env0 =
-    let (var_4: bool) = (var_3 <= var_1)
-    if var_4 then
-        let (var_5: int64) = (var_0 * var_3)
-        let (var_6: int64) = 0L
-        let (var_7: Env1) = method_2((var_5: int64), (var_6: int64))
-        let (var_8: int64) = var_7.mem_0
-        let (var_9: int64) = var_7.mem_1
-        let (var_10: bool) = (var_5 = var_9)
-        let (var_12: bool) =
-            if var_10 then
-                (var_2 < var_5)
-            else
-                false
-        let (var_13: Env0) =
-            if var_12 then
-                (Env0(var_5))
-            else
-                (Env0(var_2))
-        let (var_14: int64) = var_13.mem_0
-        let (var_15: int64) = (var_3 + 1L)
-        method_3((var_0: int64), (var_1: int64), (var_14: int64), (var_15: int64))
-    else
-        (Env0(var_2))
-let (var_0: int64) = 100L
-let (var_1: int64) = 999L
-let (var_2: int64) = 0L
-let (var_3: Env0) = method_0((var_1: int64), (var_2: int64), (var_0: int64))
-let (var_4: int64) = var_3.mem_0
-let (var_5: string) = System.String.Format("{0}",var_4)
-System.Console.WriteLine(var_5)
-
+        -1L
+let ((var_1 : int64)) = System.Int64.MaxValue
+let ((var_2 : int64)) = 1385670L
+let ((var_43 : int64)) = method_0 (var_1, var_2)
+let () = System.Console.WriteLine(var_43)

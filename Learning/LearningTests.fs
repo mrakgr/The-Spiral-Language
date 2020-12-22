@@ -8,8 +8,13 @@ open Cuda.Lib
 
 let cfg = {Spiral.Types.cfg_default with trace_length=40; cuda_assert_enabled=false}
 
-let learning1 =
-    "learning1",[cuda_modules;learning;mnist;timer],"Does the training work with Mnist?",
+let learning1: SpiralModule =
+    {
+    name="learning1"
+    prerequisites=[cuda_modules; learning; mnist; timer]
+    opens=[]
+    description="Does the training work with Mnist?"
+    code=
     """
 inb s = CudaModules (1024*1024*1024)
 
@@ -98,9 +103,15 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
         next ()
     }
     """
+    }
 
-let learning2 =
-    "learning2",[cuda_modules;timer;learning],"Does the full training work with the char-RNN?",
+let learning2: SpiralModule =
+    {
+    name="learning2"
+    prerequisites=[cuda_modules; timer; learning]
+    opens=[]
+    description="Does the full training work with the char-RNN?"
+    code=
     """
 inb s = CudaModules (1024*1024*1024)
 
@@ -209,6 +220,7 @@ Loops.for' {from=0; near_to=5; body=inl {i next} ->
         next ()
     }
     """
+    }
 
 output_test_to_temp cfg (Path.Combine(__SOURCE_DIRECTORY__, @"..\Temporary\output.fs")) learning2
 |> printfn "%s"

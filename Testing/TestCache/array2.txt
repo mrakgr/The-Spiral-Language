@@ -1,0 +1,21 @@
+let rec closure_method_0 () ((var_3 : int64), (var_4 : int64)) : int64 =
+    var_3 + var_4
+and closure_method_1 () ((var_8 : int64), (var_9 : int64)) : int64 =
+    var_8 * var_9
+let ((var_1 : (int64 ref))) = ref 0L
+let () = var_1 := 5L
+let ((var_2 : int64)) = !var_1
+let () = () // unit ref create
+let () = () // set to unit reference
+let () = () // get from unit reference
+let ((var_6 : (int64 * int64 -> int64))) = closure_method_0 ()
+let ((var_7 : ((int64 * int64 -> int64) ref))) = ref var_6
+let ((var_11 : (int64 * int64 -> int64))) = closure_method_1 ()
+let () = var_7 := var_11
+let ((var_12 : (int64 * int64 -> int64))) = !var_7
+let ((var_13 : (int64 []))) = Array.zeroCreate (System.Convert.ToInt32 10L)
+let () = var_13.[int32 3L] <- 2L
+let ((var_14 : int64)) = var_13.[int32 3L]
+let () = () // unit array create
+let () = () // set to unit array
+let () = () // get from unit array

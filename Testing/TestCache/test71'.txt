@@ -1,8 +1,0 @@
-Error trace on line: 2, column: 1 in file "test71'".
-55 + id
-^
-Error trace on line: 92, column: 11 in file "Core".
-inl (+) a b = !Add(a,b)
-          ^
-`is_numeric a && get_type a = get_type b` is false.
-a=lit 55i64, b=type (layout_stack (<function>))

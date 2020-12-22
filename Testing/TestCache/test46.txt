@@ -1,10 +1,14 @@
-module SpiralExample.Main
-let cuda_kernels = """
-#include <assert.h>
-
-extern "C" {
-    
-}
-"""
-
-9L
+Error trace on line: 2, column: 1 in module test46.
+55 + id
+^
+Error trace on line: 2, column: 4 in module test46.
+55 + id
+   ^
+Error trace on line: 126, column: 11 in module Core.
+inl (+) a b = !Add(a,b)
+          ^
+Error trace on line: 126, column: 15 in module Core.
+inl (+) a b = !Add(a,b)
+              ^
+The two sides need to have the same numeric types.
+Got: int64 and <function>.

@@ -1,90 +1,64 @@
-module SpiralExample.Main
-let cuda_kernels = """
-#include <assert.h>
-
-extern "C" {
-    
-}
-"""
-
-type Union0 =
-    | Union0Case0 of Tuple1
-    | Union0Case1
-and Tuple1 =
-    struct
-    val mem_0: int64
-    new(arg_mem_0) = {mem_0 = arg_mem_0}
-    end
-let rec method_0((var_0: (bool [])), (var_1: int64), (var_2: int64)): unit =
-    let (var_3: bool) = (var_2 < var_1)
-    if var_3 then
-        var_0.[int32 var_2] <- true
-        let (var_4: int64) = (var_2 + 1L)
-        method_0((var_0: (bool [])), (var_1: int64), (var_4: int64))
-    else
-        ()
-and method_1((var_0: (bool [])), (var_1: int64), (var_2: int64)): unit =
-    let (var_3: bool) = (var_2 <= var_1)
-    if var_3 then
-        let (var_4: bool) = var_0.[int32 var_2]
-        let (var_5: bool) = (var_4 = true)
-        if var_5 then
-            let (var_6: int64) = (var_2 + var_2)
-            method_2((var_0: (bool [])), (var_2: int64), (var_1: int64), (var_6: int64))
-        else
-            ()
-        let (var_7: int64) = (var_2 + 1L)
-        method_1((var_0: (bool [])), (var_1: int64), (var_7: int64))
-    else
-        ()
-and method_3((var_0: (bool [])), (var_1: int64), (var_2: int64)): Union0 =
-    let (var_3: bool) = (var_2 <= 2L)
-    if var_3 then
-        let (var_4: bool) = var_0.[int32 var_2]
-        let (var_5: bool) = (var_4 = true)
-        let (var_8: bool) =
-            if var_5 then
-                let (var_6: int64) = (var_1 % var_2)
-                (var_6 = 0L)
-            else
-                false
-        if var_8 then
-            (Union0Case0(Tuple1(var_2)))
-        else
-            let (var_9: int64) = (var_2 + -1L)
-            method_3((var_0: (bool [])), (var_1: int64), (var_9: int64))
-    else
-        Union0Case1
-and method_2((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_3: int64)): unit =
-    let (var_4: bool) = (var_3 <= var_2)
+let rec method_0 ((var_2 : int64), (var_1 : int64), (var_3 : int64)) : int64 =
+    let ((var_4 : bool)) = var_1 <= var_2
     if var_4 then
-        var_0.[int32 var_3] <- false
-        let (var_5: int64) = (var_3 + var_1)
-        method_2((var_0: (bool [])), (var_1: int64), (var_2: int64), (var_5: int64))
+        let ((var_5 : int64)) = var_1 + 1L
+        let ((var_6 : int64)) = 999L
+        let ((var_40 : int64)) = method_1 (var_1, var_6, var_3)
+        method_0 (var_2, var_5, var_40)
     else
-        ()
-let (var_0: int64) = 600851475143L
-let (var_1: float) = (float var_0)
-let (var_2: float) = System.Math.Sqrt(var_1)
-let (var_3: int64) = (int64 var_2)
-let (var_4: int64) = (var_3 + 1L)
-let (var_5: bool) = (var_4 >= 0L)
-let (var_6: bool) = (var_5 = false)
-if var_6 then
-    (failwith "The input to init needs to be greater or equal to 0.")
-else
-    ()
-let (var_8: (bool [])) = Array.zeroCreate<bool> (System.Convert.ToInt32(var_4))
-let (var_9: int64) = 0L
-method_0((var_8: (bool [])), (var_4: int64), (var_9: int64))
-let (var_10: int64) = 2L
-method_1((var_8: (bool [])), (var_3: int64), (var_10: int64))
-let (var_11: Union0) = method_3((var_8: (bool [])), (var_0: int64), (var_3: int64))
-match var_11 with
-| Union0Case0(var_12) ->
-    let (var_13: int64) = var_12.mem_0
-    let (var_14: string) = System.String.Format("{0}",var_13)
-    System.Console.WriteLine(var_14)
-| Union0Case1 ->
-    (failwith "No prime factor found!")
-
+        var_3
+and method_1 ((var_1 : int64), (var_6 : int64), (var_3 : int64)) : int64 =
+    let ((var_7 : bool)) = var_1 <= var_6
+    if var_7 then
+        let ((var_8 : int64)) = var_1 + 1L
+        let ((var_9 : int64)) = var_1 * var_1
+        let ((var_10 : int64)) = 0L
+        let ((var_20 : int64), (var_21 : int64)) = method_2 (var_9, var_10)
+        let ((var_22 : bool)) = var_9 = var_21
+        let ((var_25 : int64)) =
+            if var_22 then
+                let ((var_23 : bool)) = var_9 > var_3
+                if var_23 then
+                    var_9
+                else
+                    var_3
+            else
+                var_3
+        method_3 (var_1, var_6, var_8, var_25)
+    else
+        var_3
+and method_2 ((var_9 : int64), (var_10 : int64)) : int64 * int64 =
+    let ((var_11 : bool)) = var_9 > 0L
+    if var_11 then
+        let ((var_12 : int64)) = var_9 / 10L
+        let ((var_13 : int64)) = var_10 * 10L
+        let ((var_14 : int64)) = var_9 % 10L
+        let ((var_15 : int64)) = var_13 + var_14
+        method_2 (var_12, var_15)
+    else
+        (var_9, var_10)
+and method_3 ((var_1 : int64), (var_6 : int64), (var_8 : int64), (var_25 : int64)) : int64 =
+    let ((var_26 : bool)) = var_8 <= var_6
+    if var_26 then
+        let ((var_27 : int64)) = var_8 + 1L
+        let ((var_28 : int64)) = var_1 * var_8
+        let ((var_29 : int64)) = 0L
+        let ((var_30 : int64), (var_31 : int64)) = method_2 (var_28, var_29)
+        let ((var_32 : bool)) = var_28 = var_31
+        let ((var_35 : int64)) =
+            if var_32 then
+                let ((var_33 : bool)) = var_28 > var_25
+                if var_33 then
+                    var_28
+                else
+                    var_25
+            else
+                var_25
+        method_3 (var_1, var_6, var_27, var_35)
+    else
+        var_25
+let ((var_1 : int64)) = 100L
+let ((var_2 : int64)) = 999L
+let ((var_3 : int64)) = 0L
+let ((var_43 : int64)) = method_0 (var_2, var_1, var_3)
+let () = System.Console.WriteLine(var_43)

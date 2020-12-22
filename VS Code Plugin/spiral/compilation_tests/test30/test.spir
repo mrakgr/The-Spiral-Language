@@ -1,0 +1,11 @@
+// Does the injection constructor work?
+open real_core
+inl main _ =
+    inl f i v m = {m with $i=v}
+    let x =
+        {c = 789}
+        |> f .a 123
+        |> f .b 456
+        |> fun {a b c} => a,b
+        |> dyn
+    x,"qwe"

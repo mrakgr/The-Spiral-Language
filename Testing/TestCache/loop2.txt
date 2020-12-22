@@ -1,36 +1,127 @@
-module SpiralExample.Main
-let cuda_kernels = """
-#include <assert.h>
-
-extern "C" {
-    
-}
-"""
-
-let rec method_0((var_0: int64), (var_1: int64), (var_2: int64)): int64 =
-    let (var_3: bool) = (var_2 <= var_0)
-    if var_3 then
-        let (var_4: int64) = (var_2 % 3L)
-        let (var_5: bool) = (var_4 = 0L)
-        let (var_8: bool) =
-            if var_5 then
-                true
-            else
-                let (var_6: int64) = (var_2 % 5L)
-                (var_6 = 0L)
-        let (var_10: int64) =
-            if var_8 then
-                (var_1 + var_2)
-            else
-                var_1
-        let (var_11: int64) = (var_2 + 1L)
-        method_0((var_0: int64), (var_10: int64), (var_11: int64))
+let rec method_0 ((var_3 : int64), (var_4 : int64), (var_1 : int64), (var_2 : int64), (var_5 : int64)) : unit =
+    let ((var_6 : bool)) = var_5 < 5L
+    if var_6 then
+        let ((var_7 : int64)) = 0L
+        method_1 (var_3, var_4, var_1, var_2, var_5, var_7)
     else
-        var_1
-let (var_0: int64) = 3L
-let (var_1: int64) = 999L
-let (var_2: int64) = 0L
-let (var_3: int64) = method_0((var_1: int64), (var_2: int64), (var_0: int64))
-let (var_4: string) = System.String.Format("{0}",var_3)
-System.Console.WriteLine(var_4)
-
+        method_2 ()
+and method_1 ((var_3 : int64), (var_4 : int64), (var_1 : int64), (var_2 : int64), (var_5 : int64), (var_7 : int64)) : unit =
+    let ((var_8 : bool)) = var_7 < 5L
+    if var_8 then
+        let ((var_9 : string)) = System.String.Format("I am at ({0},{1})",var_5,var_7)
+        let () = System.Console.WriteLine(var_9)
+        let ((var_10 : bool)) = var_5 = var_3
+        let ((var_12 : bool)) =
+            if var_10 then
+                var_7 = var_4
+            else
+                false
+        if var_12 then
+            let ((var_13 : int64)) = var_7 + 1L
+            method_3 (var_3, var_4, var_1, var_2, var_5, var_13)
+        else
+            let ((var_28 : bool)) = var_5 = var_1
+            let ((var_30 : bool)) =
+                if var_28 then
+                    var_7 = var_2
+                else
+                    false
+            if var_30 then
+                let ((var_31 : int64)) = var_7 + 1L
+                method_4 (var_3, var_4, var_1, var_2, var_5, var_31)
+            else
+                let ((var_46 : int64)) = var_7 + 1L
+                method_1 (var_3, var_4, var_1, var_2, var_5, var_46)
+    else
+        method_5 (var_5, var_3, var_4, var_1, var_2)
+and method_2 () : unit =
+    failwith "Failure."
+and method_3 ((var_3 : int64), (var_4 : int64), (var_1 : int64), (var_2 : int64), (var_5 : int64), (var_13 : int64)) : unit =
+    let ((var_14 : bool)) = var_13 < 5L
+    if var_14 then
+        let ((var_15 : string)) = System.String.Format("I am at ({0},{1})",var_5,var_13)
+        let () = System.Console.WriteLine(var_15)
+        let ((var_16 : bool)) = var_5 = var_3
+        let ((var_18 : bool)) =
+            if var_16 then
+                var_13 = var_4
+            else
+                false
+        if var_18 then
+            let ((var_19 : int64)) = var_13 + 1L
+            method_3 (var_3, var_4, var_1, var_2, var_5, var_19)
+        else
+            let ((var_24 : bool)) = var_5 = var_1
+            let ((var_26 : bool)) =
+                if var_24 then
+                    var_13 = var_2
+                else
+                    false
+            if var_26 then
+                System.Console.WriteLine("Success.")
+            else
+                let ((var_27 : int64)) = var_13 + 1L
+                method_3 (var_3, var_4, var_1, var_2, var_5, var_27)
+    else
+        method_6 (var_5, var_3, var_4, var_1, var_2)
+and method_4 ((var_3 : int64), (var_4 : int64), (var_1 : int64), (var_2 : int64), (var_5 : int64), (var_31 : int64)) : unit =
+    let ((var_32 : bool)) = var_31 < 5L
+    if var_32 then
+        let ((var_33 : string)) = System.String.Format("I am at ({0},{1})",var_5,var_31)
+        let () = System.Console.WriteLine(var_33)
+        let ((var_34 : bool)) = var_5 = var_3
+        let ((var_36 : bool)) =
+            if var_34 then
+                var_31 = var_4
+            else
+                false
+        if var_36 then
+            System.Console.WriteLine("Success.")
+        else
+            let ((var_37 : bool)) = var_5 = var_1
+            let ((var_39 : bool)) =
+                if var_37 then
+                    var_31 = var_2
+                else
+                    false
+            if var_39 then
+                let ((var_40 : int64)) = var_31 + 1L
+                method_4 (var_3, var_4, var_1, var_2, var_5, var_40)
+            else
+                let ((var_45 : int64)) = var_31 + 1L
+                method_4 (var_3, var_4, var_1, var_2, var_5, var_45)
+    else
+        method_7 (var_5, var_3, var_4, var_1, var_2)
+and method_5 ((var_5 : int64), (var_3 : int64), (var_4 : int64), (var_1 : int64), (var_2 : int64)) : unit =
+    let ((var_47 : int64)) = var_5 + 1L
+    method_0 (var_3, var_4, var_1, var_2, var_47)
+and method_6 ((var_5 : int64), (var_3 : int64), (var_4 : int64), (var_1 : int64), (var_2 : int64)) : unit =
+    let ((var_20 : int64)) = var_5 + 1L
+    method_8 (var_3, var_4, var_1, var_2, var_20)
+and method_7 ((var_5 : int64), (var_3 : int64), (var_4 : int64), (var_1 : int64), (var_2 : int64)) : unit =
+    let ((var_41 : int64)) = var_5 + 1L
+    method_9 (var_3, var_4, var_1, var_2, var_41)
+and method_8 ((var_3 : int64), (var_4 : int64), (var_1 : int64), (var_2 : int64), (var_20 : int64)) : unit =
+    let ((var_21 : bool)) = var_20 < 5L
+    if var_21 then
+        let ((var_22 : int64)) = 0L
+        method_3 (var_3, var_4, var_1, var_2, var_20, var_22)
+    else
+        method_10 (var_3, var_4)
+and method_9 ((var_3 : int64), (var_4 : int64), (var_1 : int64), (var_2 : int64), (var_41 : int64)) : unit =
+    let ((var_42 : bool)) = var_41 < 5L
+    if var_42 then
+        let ((var_43 : int64)) = 0L
+        method_4 (var_3, var_4, var_1, var_2, var_41, var_43)
+    else
+        method_11 (var_1, var_2)
+and method_10 ((var_3 : int64), (var_4 : int64)) : unit =
+    failwith "Failure."
+and method_11 ((var_1 : int64), (var_2 : int64)) : unit =
+    failwith "Failure."
+let ((var_1 : int64)) = 0L
+let ((var_2 : int64)) = 0L
+let ((var_3 : int64)) = 1L
+let ((var_4 : int64)) = 1L
+let ((var_5 : int64)) = 0L
+let () = method_0 (var_3, var_4, var_1, var_2, var_5)

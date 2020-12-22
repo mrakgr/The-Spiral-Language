@@ -1,18 +1,9 @@
-module SpiralExample.Main
-let cuda_kernels = """
-#include <assert.h>
-
-extern "C" {
-    
-}
-"""
-
-type Union0 =
-    | Union0Case0 of int64
-    | Union0Case1 of float
-let (var_0: bool) = true
-if var_0 then
-    (Union0Case0(0L))
-else
-    (Union0Case1(0.000000))
-
+type SpiralType0 =
+    | SpiralType0_1 of int64
+    | SpiralType0_2 of float
+let ((var_1 : bool)) = true
+let ((var_2 : SpiralType0)) =
+    if var_1 then
+        SpiralType0_1 0L
+    else
+        SpiralType0_2 0.000000

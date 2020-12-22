@@ -1,30 +1,3 @@
-module SpiralExample.Main
-let cuda_kernels = """
-#include <assert.h>
-
-extern "C" {
-    
-}
-"""
-
-type Rec0 =
-    | Rec0Case0
-    | Rec0Case1 of Tuple1
-and Tuple1 =
-    struct
-    val mem_0: int64
-    val mem_1: Rec0
-    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
-    end
-let rec method_1((var_0: Rec0)): Rec0 =
-    match var_0 with
-    | Rec0Case0 ->
-        Rec0Case0
-    | Rec0Case1(var_1) ->
-        let (var_2: int64) = var_1.mem_0
-        let (var_3: Rec0) = var_1.mem_1
-        let (var_4: int64) = (2L * var_2)
-        let (var_5: Rec0) = method_1((var_3: Rec0))
-        (Rec0Case1(Tuple1(var_4, var_5)))
-let (var_0: Rec0) = (Rec0Case1(Tuple1(1L, (Rec0Case1(Tuple1(2L, (Rec0Case1(Tuple1(3L, Rec0Case0)))))))))
-method_1((var_0: Rec0))
+let ((var_1 : string)) = "1, 2, 3"
+let ((var_2 : string)) = "3"
+let ((var_3 : string)) = String.concat ", " [|"1"; "2"; var_2|]

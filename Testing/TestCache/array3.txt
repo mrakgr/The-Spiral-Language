@@ -1,0 +1,14 @@
+let rec method_0 ((var_4 : (int64 [])), (var_5 : int64)) : unit =
+    let ((var_6 : bool)) = var_5 < 6L
+    if var_6 then
+        let ((var_7 : int64)) = var_5 + 1L
+        let ((var_8 : int64)) = method_1 (var_5)
+        let () = var_4.[int32 var_5] <- var_8
+        method_0 (var_4, var_7)
+    else
+        ()
+and method_1 ((var_1 : int64)) : int64 =
+    var_1 + 1L
+let ((var_4 : (int64 []))) = Array.zeroCreate (System.Convert.ToInt32 6L)
+let ((var_5 : int64)) = 0L
+let () = method_0 (var_4, var_5)

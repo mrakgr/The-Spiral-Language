@@ -1,0 +1,67 @@
+let rec method_0 ((var_10 : ((int64 []) [])), (var_11 : int64)) : unit =
+    let ((var_12 : bool)) = var_11 < 4L
+    if var_12 then
+        let ((var_13 : int64)) = var_11 + 1L
+        let ((var_14 : (int64 []))) = method_3 (var_11)
+        let () = var_10.[int32 var_11] <- var_14
+        method_0 (var_10, var_13)
+    else
+        ()
+and method_1 ((var_10 : ((int64 []) [])), (var_16 : int64), (var_17 : int64), (var_15 : int64)) : int64 =
+    let ((var_18 : bool)) = var_17 < var_16
+    if var_18 then
+        let ((var_19 : int64)) = var_17 + 1L
+        let ((var_20 : (int64 []))) = var_10.[int32 var_17]
+        let ((var_21 : int64)) = var_20.LongLength
+        let ((var_22 : int64)) = var_15 + var_21
+        method_1 (var_10, var_16, var_19, var_22)
+    else
+        var_15
+and method_2 ((var_10 : ((int64 []) [])), (var_28 : (int64 [])), (var_16 : int64), (var_30 : int64), (var_29 : int64)) : int64 =
+    let ((var_31 : bool)) = var_30 < var_16
+    if var_31 then
+        let ((var_32 : int64)) = var_30 + 1L
+        let ((var_33 : (int64 []))) = var_10.[int32 var_30]
+        let ((var_34 : int64)) = var_33.LongLength
+        let ((var_35 : int64)) = 0L
+        let ((var_42 : int64)) = method_4 (var_33, var_28, var_34, var_35, var_29)
+        method_2 (var_10, var_28, var_16, var_32, var_42)
+    else
+        var_29
+and method_3 ((var_1 : int64)) : (int64 []) =
+    let ((var_4 : (int64 []))) = Array.zeroCreate (System.Convert.ToInt32 8L)
+    let ((var_5 : int64)) = 0L
+    let () = method_5 (var_4, var_5)
+    var_4
+and method_4 ((var_33 : (int64 [])), (var_28 : (int64 [])), (var_34 : int64), (var_35 : int64), (var_29 : int64)) : int64 =
+    let ((var_36 : bool)) = var_35 < var_34
+    if var_36 then
+        let ((var_37 : int64)) = var_35 + 1L
+        let ((var_38 : int64)) = var_33.[int32 var_35]
+        let () = var_28.[int32 var_29] <- var_38
+        let ((var_39 : int64)) = var_29 + 1L
+        method_4 (var_33, var_28, var_34, var_37, var_39)
+    else
+        var_29
+and method_5 ((var_4 : (int64 [])), (var_5 : int64)) : unit =
+    let ((var_6 : bool)) = var_5 < 8L
+    if var_6 then
+        let ((var_7 : int64)) = var_5 + 1L
+        let ((var_8 : int64)) = method_6 (var_5)
+        let () = var_4.[int32 var_5] <- var_8
+        method_5 (var_4, var_7)
+    else
+        ()
+and method_6 ((var_1 : int64)) : int64 =
+    var_1
+let ((var_10 : ((int64 []) []))) = Array.zeroCreate (System.Convert.ToInt32 4L)
+let ((var_11 : int64)) = 0L
+let () = method_0 (var_10, var_11)
+let ((var_15 : int64)) = 0L
+let ((var_16 : int64)) = var_10.LongLength
+let ((var_17 : int64)) = 0L
+let ((var_25 : int64)) = method_1 (var_10, var_16, var_17, var_15)
+let ((var_28 : (int64 []))) = Array.zeroCreate (System.Convert.ToInt32 var_25)
+let ((var_29 : int64)) = 0L
+let ((var_30 : int64)) = 0L
+let ((var_45 : int64)) = method_2 (var_10, var_28, var_16, var_30, var_29)

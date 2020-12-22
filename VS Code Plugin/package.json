@@ -1,0 +1,76 @@
+{
+	"name": "spiral-vscode-ide",
+	"version": "0.1.0",
+	"description": "VS Code editor support for the Spiral language.",
+	"engines": {
+		"vscode": "^1.44.0"
+	},
+	"main": "out/index.js",
+	"activationEvents": [
+		"onLanguage:spiral"
+	],
+	"contributes": {
+		"commands": [
+			{
+				"command": "buildFile",
+				"title": "Build File",
+				"category": "Spiral"
+			}
+		],
+		"languages": [
+			{
+				"id": "spiral",
+				"configuration": "./language-configuration.json",
+				"extensions": [
+					".spi",
+					".spir",
+					".spiproj"
+				],
+				"aliases": [
+					"Spiral"
+				]
+			}
+		],
+		"semanticTokenTypes": [
+			{
+				"id": "symbol",
+				"superType": "member",
+				"description": "A compile-time symbol."
+			},
+			{
+				"id": "unary_operator",
+				"superType": "class",
+				"description": "An unary operator."
+			},
+			{
+				"id": "type_variable",
+				"superType": "type",
+				"description": "A type variable."
+			},
+			{
+				"id": "escaped_char",
+				"superType": "operator",
+				"description": "Escaped character."
+			},
+			{
+				"id": "unescaped_char",
+				"superType": "member",
+				"description": "Unescaped character."
+			}
+		]
+	},
+	"scripts": {},
+	"keywords": [
+		"spiral"
+	],
+	"author": "Marko Grdinić",
+	"devDependencies": {
+		"@types/lodash": "^4.14.161",
+		"@types/node": "^13.13.5",
+		"@types/vscode": "^1.44.0"
+	},
+	"dependencies": {
+		"lodash": "^4.17.20",
+		"zeromq": "^6.0.0-beta.6"
+	}
+}

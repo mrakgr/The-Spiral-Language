@@ -4,53 +4,45 @@
 open System
 open System.Collections.Generic
 open HashConsing
-open System.Text
+open System.Runtime.CompilerServices
+
+// Globals
+let hash_cons_table = HashConsing.HashConsTable()
 
 // Language types
 type LayoutType =
     | LayoutStack
-    | LayoutPackedStack
     | LayoutHeap
     | LayoutHeapMutable
 
-type Node<'a>(expr:'a, symbol:int) = 
-    member x.Expression = expr
-    member x.Symbol = symbol
-    override x.ToString() = sprintf "<tag %i>" symbol
-    override x.GetHashCode() = symbol
-    override x.Equals(y) = 
-        match y with 
-        | :? Node<'a> as y -> symbol = y.Symbol
-        | _ -> failwith "Invalid equality for Node."
+type TaggedDictionary<'a,'b when 'a: equality>(capacity: int, tag: int) =
+    inherit Dictionary<'a,'b>(capacity)
+
+    member __.Tag = tag
+
+    override __.Equals(b) =
+        match b with
+        | :? TaggedDictionary<'a,'b> as b -> tag = b.Tag
+        | _ -> false
+
+    override __.GetHashCode() = tag
 
     interface IComparable with
         member x.CompareTo(y) = 
             match y with
-            | :? Node<'a> as y -> compare symbol y.Symbol
-            | _ -> failwith "Invalid comparison for Node."
+            | :? TaggedDictionary<'a,'b> as y -> compare tag y.Tag
+            | _ -> raise <| ArgumentException "Invalid comparison for TaggedDictionary."
 
-let inline n (x: Node<_>) = x.Expression
-let (|N|) x = n x
-let (|S|) (x: Node<_>) = x.Symbol
+type SpiralModule =
+    {
+    name: string
+    prerequisites : SpiralModule list 
+    opens: string list list
+    description : string 
+    code : string
+    }
 
-type ModuleName = string
-type ModuleCode = string
-type ModuleDescription = string
-type Module = Module of Node<ModuleName * Module list * ModuleDescription * ModuleCode>
-
-type PosKey = Module * int64 * int64
-
-let h0() = HashSet(HashIdentity.Structural)
-let d0() = Dictionary(HashIdentity.Structural)
-
-let inline memoize (memo_dict: Dictionary<_,_>) f k =
-    match memo_dict.TryGetValue k with
-    | true, v -> v
-    | false, _ -> let v = f k in memo_dict.[k] <- v; v
-
-let nodify (dict: Dictionary<_,_>) = memoize dict (fun x -> Node(x,dict.Count))
-let nodify_module = nodify <| d0()
-let module_ x = nodify_module x |> Module
+type PosKey = SpiralModule * int * int
 
 type Pos<'a> = Position of PosKey * 'a with
     member x.Expression = match x with Position (_, expr) -> expr
@@ -88,29 +80,19 @@ type Value =
     | LitChar of char
 
 type Op =
-    | ToVar
-    
-    // Extern type constructors
-    | DotNetTypeCreate
-    | CudaTypeCreate
-    
     // Macros
-    | MacroCuda
-    | MacroFs
+    | Macro
+    | MacroExtern
 
     // Term function
     | TermFunctionTypeCreate
-    | TermFunctionDomainRangeCPS
+    | TermFunctionIs
+    | TermFunctionDomain
+    | TermFunctionRange
 
     // Unsafe casts
     | UnsafeConvert
-    | UnsafeUpcastTo
-    | UnsafeDowncastTo
     | UnsafeCoerceToArrayCudaGlobal
-
-    // Pattern matching errors
-    | ErrorPatMiss
-    | ErrorPatClause
 
     // StringOps
     | StringLength
@@ -120,39 +102,18 @@ type Op =
     | StringConcat
 
     // List
-    | ListIndex // codegen only
     | ListCons
-    | ListTakeNCPS
-    | ListTakeNTailCPS
+    | ListCreate
 
-    // Module
-    | ModuleCreate
-    | ModuleWith
-    | ModuleWithout
-    | ModuleAdd
-    | ModuleRemove
-    | ModuleIsCPS
-    | ModuleValues
-    | ModuleHasMember
-    | ModuleMap
-    | ModuleFilter
-    | ModuleFoldL
-    | ModuleFoldR
-    | ModuleLength
-    | MapGetField // Codegen only
-    | ModuleMemberCPS
-    | ModuleInjectCPS
-
-    // Subtype tests
-    | CaseableIs
-    | CaseableBoxIs
-    | BoxIs
-    | BlittableIs
+    // Record
+    | RecordMap
+    | RecordFilter
+    | RecordFoldL
+    | RecordFoldR
+    | RecordLength
 
     // Braching
-    | Case
-    | CaseFoldLMap
-    | IfStatic
+    | If
     | While
 
     // BinOps
@@ -162,12 +123,14 @@ type Op =
     | Div 
     | Mod 
     | Pow
-    | LTE 
-    | LT 
-    | EQ 
-    | NEQ 
-    | GT 
+    | LTE
+    | LT
+    | EQ
+    | NEQ
+    | GT
     | GTE 
+    | BoolAnd
+    | BoolOr
     | BitwiseAnd
     | BitwiseOr
     | BitwiseXor
@@ -187,42 +150,56 @@ type Op =
     // Layout
     | LayoutToNone
     | LayoutToStack
-    | LayoutToPackedStack
     | LayoutToHeap
     | LayoutToHeapMutable
 
-    // Type 
+    // Type
     | TypeCatch
     | TypeRaise
     | TypeGet
     | TypeUnion
     | TypeSplit
     | TypeBox
+    | TypeUnbox
     | EqType
     | SizeOf
 
+    // Recursive types
+    | RecUnionGetName
+    | RecUnionGetMeta
+
     // Array
-    | ArrayCreate
+    | ArrayCreateDotNet
+    | ArrayCreateCudaLocal
+    | ArrayCreateCudaShared
     | ReferenceCreate
-    | ArrayIndex
-    | MutableSet
     | ArrayLength
-    | ArrayIs
+
+    // Getters
+    | GetArray
+    | GetReference
+
+    // Setters
+    | SetArray
+    | SetReference
+    | SetMutableRecord
    
     // Static unary operations
     | PrintStatic
-    | PrintEnv
     | ErrorNonUnit
     | ErrorType
+    | ErrorPatMiss
     | Dynamize
-    | LitIs
-    | ValIs
-
-    // Type lit ops
-    | TypeLitCreate
-    | TypeLitCast
-    | TypeLitIs
-    | TypeLitCPS
+    | IsLit
+    | IsPrim
+    | IsLayout
+    | IsKeyword
+    | StripKeyword
+    | IsBox
+    | IsUnion
+    | IsRecUnion
+    | IsRuntimeUnion
+    | IsRuntimeRecUnion
 
     // UnOps
     | Neg
@@ -233,109 +210,174 @@ type Op =
     | Log
     | Exp
     | Sqrt
-    | NanIs
+    | IsNan
 
     // Infinity
     | InfinityF64
     | InfinityF32
 
-
 type ArrayType =
     | ArtDotNetHeap
     | ArtDotNetReference
-    | ArtCudaGlobal of Ty
+    | ArtCudaGlobal of ConsedTy
     | ArtCudaShared
     | ArtCudaLocal
 
-and FunctionCore = string * Expr
-
-and MapType =
-    | MapTypeFunction of FunctionCore // Type level function. Can also be though of as a procedural macro.
-    | MapTypeRecFunction of FunctionCore * string
-    | MapTypeModule
-
+and PatRecordMembersItem =
+    | PatRecordMembersKeyword of keyword: KeywordString * name: Pattern
+    | PatRecordMembersInjectVar of var: VarString * name: Pattern
 and Pattern =
     | PatE
     | PatVar of string
     | PatTuple of Pattern list
+    | PatKeyword of string * Pattern list
     | PatCons of Pattern list
-    | PatTypeEq of Pattern * Expr
-    | PatActive of Expr * Pattern
-    | PatPartActive of Expr * Pattern
+    | PatTypeEq of Pattern * RawExpr
+    | PatActive of RawExpr * Pattern
+    | PatUnbox of Pattern
     | PatOr of Pattern list
     | PatAnd of Pattern list
-    | PatXor of Pattern list
     | PatNot of Pattern
-    | PatClauses of (Pattern * Expr) list
-    | PatTypeLit of Value
-    | PatTypeLitBind of string
     | PatLit of Value
-    | PatWhen of Pattern * Expr
-    | PatModuleIs of Pattern
-    | PatModuleMember of string
-    | PatModuleRebind of string * Pattern
-    | PatModuleInject of string * Pattern
+    | PatWhen of Pattern * RawExpr
+    | PatRecordMembers of PatRecordMembersItem list
     | PatPos of Pos<Pattern>
     | PatTypeTermFunction of Pattern * Pattern
 
+and VarString = string
+and KeywordString = string
 
-and [<CustomEquality;CustomComparison>] Expr = 
-    | V of string * tag: int
-    | Lit of Value * tag: int
-    | Open of Expr * Expr * Set<string> * tag: int
-    | Fix of string * Expr * tag: int
-    | Pattern of Pattern * tag: int
-    | Function of string * Expr * tag: int
-    | FunctionFilt of Set<string> * string * Expr * tag: int
-    | VV of Expr list * tag: int
-    | Op of Op * Expr list * tag: int
-    | ExprPos of Pos<Expr> * tag: int
+and RawRecordTestPattern = 
+    | RawRecordTestKeyword of keyword: KeywordString * name: VarString
+    | RawRecordTestInjectVar of var: VarString * name: VarString
+and RawRecordWithPattern = 
+    | RawRecordWithKeyword of KeywordString * RawExpr 
+    | RawRecordWithInjectVar of VarString * RawExpr
+    | RawRecordWithoutKeyword of KeywordString 
+    | RawRecordWithoutInjectVar of VarString
 
-    member x.Symbol =
-        match x with
-        | V(_,t) | Lit(_,t) | Open(_,_,_,t) | Fix(_,_,t) | Pattern (_,t)
-        | Function(_,_,t) | FunctionFilt(_,_,_,t) | VV(_,t) 
-        | Op(_,_,t) | ExprPos(_,t) -> t
+and RawExpr =
+    // Note: The VarStrings are annotated with positional information using `var_position_dict` global dictionary in the Tokenize module.
+    | RawV of VarString 
+    | RawLit of Value
+    | RawInline of RawExpr // Acts as a join point during the prepass.
+    | RawFunction of RawExpr * VarString
+    | RawRecFunction of RawExpr * VarString * rec_name: VarString
+    | RawObjectCreate of (VarString * RawExpr) []
+    | RawKeywordCreate of KeywordString * RawExpr []
+    | RawLet of var: VarString * bind: RawExpr * on_succ: RawExpr
+    | RawCase of var: VarString * bind: RawExpr * on_succ: RawExpr
+    | RawListTakeAllTest of vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
+    | RawListTakeNTest of vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
+    | RawKeywordTest of KeywordString * vars: VarString [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
+    | RawRecordTest of RawRecordTestPattern [] * bind: VarString * on_succ: RawExpr * on_fail: RawExpr
+    | RawRecordWith of RawExpr [] * RawRecordWithPattern []
+    | RawOp of Op * RawExpr []
+    | RawExprPos of Pos<RawExpr>
+    | RawPattern of (VarString * (Pattern * RawExpr) []) // These parenthesis are here so the pattern compilation can be memoized via reference identity.
 
-    override x.GetHashCode() = x.Symbol
-    override x.Equals(y) = 
-        match y with 
-        | :? Expr as y -> x.Symbol = y.Symbol
-        | _ -> failwith "Invalid equality for Expr."
+and RecordTestPattern = RecordTestKeyword of keyword: KeywordTag | RecordTestInjectVar of var: VarTag
+and RecordWithPattern = 
+    | RecordWithKeyword of keyword: KeywordTag * Expr 
+    | RecordWithInjectVar of VarString * var: VarTag * Expr // VarString here is for error messages in the partial evaluator.
+    | RecordWithoutKeyword of keyword: KeywordTag
+    | RecordWithoutInjectVar of VarString * var: VarTag
+
+and [<CustomEquality; CustomComparison>] Expr =
+    | V of Tag * VarTag
+    | Lit of Tag * Value
+    | Inline of Tag * Expr * FreeVars * StackSize
+    | Function of Tag * Expr * FreeVars * StackSize
+    | RecFunction of Tag * Expr * FreeVars * StackSize
+    | ObjectCreate of ObjectDict * FreeVars
+    | KeywordCreate of Tag * KeywordTag * Expr []
+    | Let of Tag * bind: Expr * on_succ: Expr
+    | Case of Tag * bind: Expr * on_succ: Expr
+    | ListTakeAllTest of Tag * StackSize * bind: VarTag * on_succ: Expr * on_fail: Expr
+    | ListTakeNTest of Tag * StackSize * bind: VarTag * on_succ: Expr * on_fail: Expr
+    | KeywordTest of Tag * KeywordTag * bind: VarTag * on_succ: Expr * on_fail: Expr
+    | RecordTest of Tag * RecordTestPattern [] * bind: VarTag * on_succ: Expr * on_fail: Expr
+    | RecordWith of Tag * Expr [] * RecordWithPattern []
+    | ExprPos of Tag * Pos<Expr>
+    | Op of Tag * Op * Expr []
+
+    member t.Tag' =
+        match t with
+        | ObjectCreate(x,_) -> x.Tag
+        | V(x,_) | Lit(x,_) | Inline(x,_,_,_) | Function(x,_,_,_)
+        | RecFunction(x,_,_,_) | KeywordCreate(x,_,_) | Let(x,_,_)
+        | Case(x,_,_) | ListTakeAllTest(x,_,_,_,_) | ListTakeNTest(x,_,_,_,_)
+        | KeywordTest(x,_,_,_,_) | RecordTest(x,_,_,_,_) | RecordWith(x,_,_)
+        | ExprPos(x,_) | Op(x,_,_) -> x
+
+    override a.Equals(b) = Object.ReferenceEquals(a,b)
+    override a.GetHashCode() = a.Tag'
 
     interface IComparable with
-        member x.CompareTo(y) = 
-            match y with
-            | :? Expr as y -> compare x.Symbol y.Symbol
-            | _ -> failwith "Invalid comparison for Expr."
+        member a.CompareTo(b) = 
+            match b with
+            | :? Expr as b -> compare a.Tag' b.Tag'
+            | _ -> raise <| ArgumentException "Invalid comparison for Expr."
 
-and Ty =
+and HasFreeVars = bool
+
+and ConsedTy =
+    | ListT of ConsedNode<ConsedTy list>
+    | KeywordT of ConsedNode<KeywordTag * ConsedTy []>
+    | FunctionT of ConsedNode<Expr * StackSize * EnvTy>
+    | RecFunctionT of ConsedNode<Expr * StackSize * EnvTy>
+    | ObjectT of ConsedNode<ObjectDict * EnvTy>
+    | MapT of ConsedNode<MapTy>
+    | LayoutT of ConsedNode<LayoutType * ConsedTypedData * HasFreeVars>
+    | UnionT of ConsedNode<Set<ConsedTy>>
+    | RecUnionT of string * ConsedTy * JoinPointKey
+
     | PrimT of PrimitiveType
-    | ListT of Ty list
-    | LitT of Value
-    | MapT of EnvTy * MapType // function or module
-    | LayoutT of LayoutType * TypedExpr
-    | TermFunctionT of Ty * Ty
-    | UnionT of Set<Ty>
-    | RecT of JoinPointKey
-    | ArrayT of ArrayType * Ty
-    | DotNetTypeT of TypedExpr // macro
-    | CudaTypeT of TypedExpr // macro
+    | TermCastedFunctionT of ConsedTy * ConsedTy
+    | ArrayT of ArrayType * ConsedTy
+    | MacroT of ConsedTypedData
 
-and TypedExpr =
-    // Data structures
-    | TyT of Ty
+and ConsedTypedData = // for join points and layout types
+    | CTyList of ConsedNode<ConsedTypedData list>
+    | CTyKeyword of ConsedNode<KeywordTag * ConsedTypedData []>
+    | CTyFunction of ConsedNode<Expr * StackSize * ConsedEnvTerm>
+    | CTyRecFunction of ConsedNode<Expr * StackSize * ConsedEnvTerm>
+    | CTyObject of ConsedNode<ObjectDict * ConsedEnvTerm>
+    | CTyMap of ConsedNode<ConsedMapTerm>
+
+    | CTyT of ConsedTy
+    | CTyV of Tag * ConsedTy
+    | CTyBox of ConsedTypedData * ConsedTy
+    | CTyLit of Value
+
+and TypedData =
+    | TyList of TypedData list
+    | TyKeyword of KeywordTag * TypedData []
+    | TyFunction of Expr * StackSize * EnvTerm
+    | TyRecFunction of Expr * StackSize * EnvTerm
+    | TyObject of ObjectDict * EnvTerm
+    | TyMap of MapTerm
+
+    | TyT of ConsedTy
     | TyV of TyTag
-    | TyBox of TypedExpr * Ty
-    | TyList of TypedExpr list
-    | TyMap of EnvTerm * MapType
+    | TyBox of TypedData * ConsedTy
     | TyLit of Value
 
-    // Operations
-    | TyLet of TyTag * TypedExpr * TypedExpr * Ty * Trace
-    | TyState of TypedExpr * TypedExpr * Ty * Trace
-    | TyOp of Op * TypedExpr list * Ty
-    | TyJoinPoint of JoinPointKey * JoinPointType * Arguments * Ty
+and TypedBind = // TypedData being `TyList []` indicates a statement.
+    | TyLet of TypedData * Trace * TypedOp
+    | TyLocalReturnOp of Trace * TypedOp
+    | TyLocalReturnData of TypedData * Trace
+
+and JoinPoint = JoinPointKey * JoinPointType * TyTag []
+
+and TypedOp = 
+    | TyOp of Op * TypedData
+    | TyIf of cond: TypedData * tr: TypedBind [] * fl: TypedBind []
+    | TyWhile of cond: JoinPoint * TypedBind []
+    | TyCase of TypedData * (TypedData * TypedBind []) []
+    | TyLayoutToNone of TypedData
+    | TyJoinPoint of JoinPoint
+    | TySetMutableRecord of TypedData * (Tag * ConsedTy) [] * TyTag []
 
 and JoinPointType =
     | JoinPointClosure
@@ -348,168 +390,164 @@ and JoinPointState<'a,'b> =
     | JoinPointDone of 'b
 
 and Tag = int
-and TyTag = Tag * Ty
-and EnvTy = Map<string, Ty>
-and EnvTerm = 
-| EnvConsed of ConsedNode<Map<string, TypedExpr>>
-| Env of Map<string, TypedExpr>
+and [<CustomComparison;CustomEquality>] T<'a,'b when 'a: equality and 'a: comparison> = 
+    | T of 'a * 'b
 
-and JoinPointKey = Node<Expr * EnvTerm>
+    override a.Equals(b) =
+        match b with
+        | :? T<'a,'b> as b -> match a,b with T(a,_), T(b,_) -> a = b
+        | _ -> false
+    override a.GetHashCode() = match a with T(a,_) -> hash a
+    interface IComparable with
+        member a.CompareTo(b) = 
+            match b with
+            | :? T<'a,'b> as b -> match a,b with T(a,_), T(b,_) -> compare a b
+            | _ -> raise <| ArgumentException "Invalid comparison for T."
+and TyTag = T<int,ConsedTy>
 
-and Arguments = TyTag list
-and Renamer = Dictionary<Tag,Tag>
+and EnvTy = ConsedTy []
+and EnvTerm = TypedData []
+and ConsedEnvTerm = ConsedTypedData []
+and KeywordTag = int
+and MapTerm = Map<KeywordTag,TypedData>
+and ConsedMapTerm = Map<KeywordTag,ConsedTypedData>
+and MapTy = Map<KeywordTag, ConsedTy>
+and VarTag = int
+and StackSize = int
+and FreeVars = VarTag []
+and ObjectDict = TaggedDictionary<KeywordTag,Expr * StackSize>
+
+and JoinPointKey = Expr * ConsedTypedData
 
 // This key is for functions without arguments. It is intended that the arguments be passed in through the Environment.
 and JoinPointDict<'a,'b> = Dictionary<JoinPointKey, JoinPointState<'a,'b>>
-// For Common Subexpression Elimination. I need it not for its own sake, but to enable other PE based optimizations.
-and CSEDict = Map<TypedExpr,TypedExpr> ref
 
 and Trace = PosKey list
-
-and TraceNode<'a when 'a:equality and 'a:comparison>(expr:'a, trace:Trace) = 
-    member x.Expression = expr
-    member x.Trace = trace
-    override x.ToString() = sprintf "%A" expr
-    override x.GetHashCode() = hash expr
-    override x.Equals(y) = 
-        match y with 
-        | :? TraceNode<'a> as y -> expr = y.Expression
-        | _ -> failwith "Invalid equality for TraceNode."
-
-    interface IComparable with
-        member x.CompareTo(y) = 
-            match y with
-            | :? TraceNode<'a> as y -> compare expr y.Expression
-            | _ -> failwith "Invalid comparison for TraceNode."
-
-type TypeOrMethod =
-    | TomType of Ty
-    | TomJP of JoinPointType * JoinPointKey
-
-let inline t (x: TraceNode<_>) = x.Expression
-let (|T|) x = t x
 
 type RecursiveBehavior =
     | AnnotationDive
     | AnnotationReturn
 
 type LangEnv = {
-    rbeh: RecursiveBehavior
-    ltag : int ref
-    seq : (TypedExpr -> TypedExpr) ref
-    env : EnvTerm
-    cse_env : CSEDict
     trace : Trace
+    // Recursive join points
+    rbeh : RecursiveBehavior
+    // Joint points
+    seq : ResizeArray<TypedBind>
+    // Objects and inlineables
+    env_global : EnvTerm
+    env_stack : EnvTerm
+    env_stack_ptr : int
+    // If statements
+    cse : Map<Op * TypedData, TypedData> ref
     }
-
-type Result<'a,'b> = Succ of 'a | Fail of 'b
-
-// Parser types
-type Userstate = {
-    ops : Dictionary<string, int * FParsec.Associativity>
-    semicolon_line : int64
-    }
-
-type ParserExpr =
-| ParserStatement of (Expr -> Expr)
-| ParserExpr of Expr
 
 // Codegen types
-type CodegenEnv = {
-    branch_return: string -> string
-    trace: Trace
-    }
-
-type Buf = ResizeArray<ProgramNode>
-and ProgramNode =
-    | Statement of sep: string * code: string
-    | Indent
-    | Dedent
-
-type EnvRenamer = {
-    memo : Dictionary<TypedExpr,TypedExpr>
-    renamer : Dictionary<Tag,Tag>
-    ref_call_args : TyTag list ref
-    ref_method_pars : TyTag list ref
-    }
-
-type RenamerResult = {
-    renamer' : Dictionary<Tag,Tag>
-    call_args : TyTag list
-    method_pars : TyTag list
-    }
+let inline memoize' (memo_dict: ConditionalWeakTable<_,_>) f k =
+    match memo_dict.TryGetValue k with
+    | true, v -> v
+    | false, _ -> let v = f k in memo_dict.Add(k,v); v
+let inline memoize (memo_dict: Dictionary<_,_>) f k =
+    match memo_dict.TryGetValue k with
+    | true, v -> v
+    | false, _ -> let v = f k in memo_dict.Add(k,v); v
 
 let cuda_kernels_name = "cuda_kernels"
 
-type AssemblyLoadType =
-    | LoadType of Type
-    | LoadMap of Map<string,AssemblyLoadType>
-
-let string_to_op =
-    let cases = Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<Op>)
-    let dict = d0()
-    cases |> Array.iter (fun x ->
-        dict.[x.Name] <- Microsoft.FSharp.Reflection.FSharpValue.MakeUnion(x,[||]) :?> Op
-        )
-    dict.TryGetValue
-
-let c = function
-| Env env -> env
-| EnvConsed env -> env.node
-
-let (|C|) x = c x
-let (|CN|) (x: ConsedNode<_>) = x.node
-
-type CompilerSettings = {
-    cub_path : string
-    cuda_path : string
-    cuda_nvcc_options : string
-    vs_path : string
-    vs_path_vcvars : string
-    vcvars_args : string
-    vs_path_cl : string
-    vs_path_include : string
-    cuda_includes : string list
+type SpiralCompilerSettings = {
     trace_length : int // The length of the error messages.
-    cuda_assert_enabled : bool // Enables the bounds checking in Cuda kernels. Off by default.
     filter_list : string list // List of modules to be ignored in the trace.
     }
 
 /// Here are the paths on my machine.
 let cfg_default = {
-    cub_path = "C:/cub-1.7.4"
-    cuda_path = "C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v9.0"
-    cuda_nvcc_options = "-gencode=arch=compute_52,code=\\\"sm_52,compute_52\\\""
-    vs_path = "C:/Program Files (x86)/Microsoft Visual Studio/2017/Community"
-    vs_path_vcvars = "VC/Auxiliary/Build/vcvarsall.bat"
-    vcvars_args = " x64 -vcvars_ver=14.11"
-    vs_path_cl = "VC/Tools/MSVC/14.11.25503/bin/Hostx64/x64"
-    vs_path_include = "VC/Tools/MSVC/14.11.25503/include"
-    cuda_includes = ["cub/cub.cuh"]
-    trace_length = 40
-    cuda_assert_enabled = false
+    trace_length = 20
     filter_list = 
         [
-        "Core"; "Option"; "Lazy"; "Tuple"; "Liple"; "Loops"; "Extern"; "Array"; "List"; "Parsing"; "Console"
-        "Queue"; "Struct"; "Tensor"; "View"; "ViewR"; "Object"; "Cuda"; "Random"; "Math"
+        //"Core"; "Option"; "Lazy"; "Tuple"; "Liple"; "Loops"; "Extern"; "Array"; "List"; "Parsing"; "Console"
+        //"Queue"; "Struct"; "Tensor"; "View"; "ViewR"; "Object"; "Cuda"; "Random"; "Math"
         ]
     }
 
-let cfg_testing = {cfg_default with cuda_includes=[]; trace_length=20}
+type LC = {
+    line : int
+    column : int
+    }
 
-/// Wraps the argument in a list if not a tuple.
-let tuple_field = function 
-    | TyList args -> args
-    | x -> [x]
+type TokenPosition = {
+    start: LC 
+    end_: LC 
+    }
 
-let (|TyTuple|) x = tuple_field x
+type TokenOperator = {
+    name: string
+    associativity: FParsec.Associativity
+    precedence: int
+    }
 
-let (|TypeLit|_|) = function
-    | TyT (LitT x) -> Some x
-    | _ -> None
-let (|TypeString|_|) = function
-    | TyT (LitT (LitString x)) -> Some x
-    | _ -> None
+[<Struct>]
+type Result<'a,'b> =
+    | Ok of result: 'a
+    | Fail of error: 'b
+
+exception PrepassError of string
+exception PrepassErrorWithPos of PosKey * string
+exception TypeError of Trace * string
+exception TypeRaised of ConsedTy
+exception CodegenError of string
+exception CodegenErrorWithPos of Trace * string
+exception CompileError of string
+exception CompileErrorWithPos of Trace * string
+
+let v x = RawV x
+let lit x = RawLit x
+let inline_ = function RawInline _ as x -> x | x -> RawInline x
+let func x y = RawFunction(y,x)
+let objc m = RawObjectCreate m
+let keyword k l = RawKeywordCreate(k,l)
+let keyword_unary k = RawKeywordCreate(k,[||])
+let l bind body on_succ = RawLet(bind,body,on_succ)
+let case bind body on_succ = RawCase(bind,body,on_succ)
+let if_ cond on_succ on_fail = RawOp(If,[|cond;on_succ;on_fail|])
+let list_take_all_test x bind on_succ on_fail = RawListTakeAllTest(x,bind,on_succ,on_fail)
+let list_take_n_test x bind on_succ on_fail = RawListTakeNTest(x,bind,on_succ,on_fail)
+let list_keyword_test keyword x bind on_succ on_fail = RawKeywordTest(keyword,x,bind,on_succ,on_fail)
+let module_test x bind on_succ on_fail = RawRecordTest(x,bind,on_succ,on_fail)
+let module_with binds patterns = RawRecordWith(binds,patterns)
+    
+let op x args = RawOp(x,args)
+let vv x = op ListCreate x
+let B = vv [||]
+let pattern arg clauses = RawPattern(arg,clauses)
+
+let unop op' a = op op' [|a|]
+let binop op' a b = op op' [|a;b|]
+let eq x y = binop EQ x y
+let eq_type a b = binop EqType a b
+let ap x y = binop Apply x y
+let rec ap' f l = Array.fold ap f l
+let expr_pos pos x = RawExprPos(Position(pos,x))
+let pat_pos pos x = PatPos(Position(pos,x))
+
+// The seemingly useless function application is there to filter unused arguments from the environment and move the rest to `env_global`.
+let join_point_entry_method y = inline_ (op JoinPointEntryMethod [|y|])
+
+let pat_main = " pat_main"
+
+let inline (|C|) (x: ConsedNode<_>) = x.node
+
+let type_is_unit e =
+    let dict = Dictionary(HashIdentity.Reference)
+    let rec f e = 
+        memoize dict (function
+            | UnionT _ | RecUnionT _ | MacroT _ | TermCastedFunctionT _ | PrimT _ -> false
+            | ArrayT (_,t) -> f t
+            | MapT t -> Map.forall (fun _ -> f) t.node
+            | ObjectT(C(_,env)) | KeywordT(C(_,env)) | FunctionT(C(_,_,env)) | RecFunctionT(C(_,_,env)) -> Array.forall f env
+            | LayoutT (C(_, _, has_free_vars)) -> has_free_vars = false // This is enough as unit types automatically get converted to TyT.
+            | ListT t -> List.forall f t.node
+            ) e
+    f e
 
 let get_type_of_value = function
     | LitUInt8 _ -> PrimT UInt8T
@@ -526,153 +564,143 @@ let get_type_of_value = function
     | LitString _ -> PrimT StringT
     | LitChar _ -> PrimT CharT
 
-let rec env_to_ty env = Map.map (fun _ -> get_type) env
-and get_type = function
+let keywordt x = x |> hash_cons_table.Add |> KeywordT
+let listt x = x |> hash_cons_table.Add |> ListT
+let functiont x = x |> hash_cons_table.Add |> FunctionT
+let recfunctiont x = x |> hash_cons_table.Add |> RecFunctionT
+let objectt x = x |> hash_cons_table.Add |> ObjectT
+let mapt x = x |> hash_cons_table.Add |> MapT
+let layoutt x = x |> hash_cons_table.Add |> LayoutT
+let uniont x = x |> hash_cons_table.Add |> UnionT
+
+let rec type_get = function
+    | TyKeyword(t,l) -> (t, Array.map type_get l) |> keywordt
+    | TyList l -> List.map type_get l |> listt
+    | TyFunction (a,b,l) -> (a,b,Array.map type_get l) |> functiont
+    | TyRecFunction (a,b,l) -> (a,b,Array.map type_get l) |> recfunctiont
+    | TyObject(a,l) -> (a,Array.map type_get l) |> objectt
+    | TyMap l -> Map.map (fun _ -> type_get) l |> mapt
+    | TyT x | TyV(T(_,x)) | TyBox(_,x) -> x
     | TyLit x -> get_type_of_value x
-    | TyList l -> List.map get_type l |> ListT
-    | TyMap(C l, t) -> MapT (env_to_ty l, t)
 
-    | TyT t | TyV(_,t) | TyBox(_,t)
-    | TyLet(_,_,_,t,_) | TyJoinPoint(_,_,_,t)
-    | TyState(_,_,t,_) | TyOp(_,_,t) -> t
+let rec type_consed_data_get = function
+    | CTyKeyword(C(t,l)) -> (t, Array.map type_consed_data_get l) |> keywordt
+    | CTyList(C l) -> List.map type_consed_data_get l |> listt
+    | CTyFunction(C(a,b,l)) -> (a,b,Array.map type_consed_data_get l) |> functiont
+    | CTyRecFunction(C(a,b,l)) -> (a,b,Array.map type_consed_data_get l) |> recfunctiont
+    | CTyObject(C(a,l)) -> (a,Array.map type_consed_data_get l) |> objectt
+    | CTyMap l -> Map.map (fun _ -> type_consed_data_get) l.node |> mapt
+    | CTyT x | CTyV(_,x) | CTyBox(_,x) -> x
+    | CTyLit x -> get_type_of_value x
 
-let (|TyType|) x = get_type x
+let typed_data_is_unit a = type_get a |> type_is_unit
 
-let show_primt = function
-    | UInt8T -> "uint8"
-    | UInt16T -> "uint16"
-    | UInt32T -> "uint32"
-    | UInt64T -> "uint64"
-    | Int8T -> "int8"
-    | Int16T -> "int16"
-    | Int32T -> "int32"
-    | Int64T -> "int64"
-    | Float32T -> "float32"
-    | Float64T -> "float64"
-    | BoolT -> "bool"
-    | StringT -> "string"
-    | CharT -> "char"
-
-let show_value = function
-    | LitUInt8 x -> sprintf "%iu8" x
-    | LitUInt16 x -> sprintf "%iu16" x
-    | LitUInt32 x -> sprintf "%iu32" x
-    | LitUInt64 x -> sprintf "%iu64" x
-    | LitInt8 x -> sprintf "%ii8" x
-    | LitInt16 x -> sprintf "%ii16" x
-    | LitInt32 x -> sprintf "%ii32" x
-    | LitInt64 x -> sprintf "%ii64" x
-    | LitFloat32 x -> sprintf "%ff32" x
-    | LitFloat64 x -> sprintf "%ff64" x
-    | LitBool x -> sprintf "%b" x
-    | LitString x -> sprintf "%s" x
-    | LitChar x -> sprintf "%c" x
-
-let show_art = function
-    | ArtDotNetHeap -> "array"
-    | ArtDotNetReference -> "ref"
-    | ArtCudaGlobal _ -> "array_cuda_global"
-    | ArtCudaShared -> "array_cuda_shared"
-    | ArtCudaLocal -> "array_cuda_local"
-
-let show_layout_type = function
-    | LayoutStack -> "layout_stack"
-    | LayoutPackedStack -> "layout_packed_stack"
-    | LayoutHeap -> "layout_heap"
-    | LayoutHeapMutable -> "layout_heap_mutable"
-
-let inline codegen_macro' show_typedexpr codegen print_type x = 
-    let strb = StringBuilder()
-    let inline append (x: string) = strb.Append x |> ignore
-    let (|LS|) = function
-            | TyLit (LitString x) | TypeString x -> x
-            | _ -> failwithf "Iter's first three arguments must be strings."
-    let er x = failwithf "Unknown argument in macro. Got: %s" (show_typedexpr x)
-    let rec iter begin_ sep end_ ops = 
-        append begin_
-        match ops with
-        | TyList (x :: xs) -> f x; List.iter (fun x -> append sep; f x) xs
-        | TyList [] -> ()
-        | x -> er x
-        append end_
-    and f = function
-        | TyList [TypeString "text"; (TyLit (LitString x) | TypeString x)] -> append x
-        | TyList [TypeString "arg"; x] -> append (codegen x)
-        | TyList [TypeString "args"; TyTuple l] -> append "("; List.map codegen l |> String.concat ", " |> append; append ")"
-        | TyList [TypeString "fs_array_args"; TyTuple l] -> append "[|"; List.map codegen l |> String.concat "; " |> append; append "|]"
-        | TyList [TypeString "type"; TyType x] -> append (print_type x)
-        | TyList [TypeString "types"; TyTuple l] -> append "<"; List.map (get_type >> print_type) l |> String.concat ", " |> append; append ">" 
-        | TyList [TypeString "iter"; TyList [LS begin_;LS sep;LS end_;ops]] -> iter begin_ sep end_ ops
-        | TyList [TypeString "parenth"; ops] -> iter "(" "," ")" ops
-        | x -> er x
-    match x with
-    | TyList x -> List.iter f x
-    | x -> er x
-    strb.ToString()
-
-let rec show_ty = function
-    | PrimT x -> show_primt x
-    | ListT l -> sprintf "[%s]" (List.map show_ty l |> String.concat ", ")
-    | LitT v -> sprintf "type_lit (%s)" (show_value v)
-    | MapT (v,MapTypeModule) -> 
-        let body = 
-            v |> Map.toArray 
-            |> Array.map (fun (k,v) -> sprintf "%s=%s" k (show_ty v))
-            |> String.concat "; "
-
-        sprintf "{%s}" body
-    | MapT (_, (MapTypeFunction _ | MapTypeRecFunction _)) -> "<function>"
-    | LayoutT (layout_type,body) ->
-        sprintf "%s (%s)" (show_layout_type layout_type) (show_typedexpr body)
-    | TermFunctionT (a,b) ->
-        sprintf "(%s => %s)" (show_ty a) (show_ty b)
-    | UnionT l ->
-        let body =
-            Set.toArray l
-            |> Array.map show_ty
-            |> String.concat " | "
-        sprintf "union {%s}" body
-    | RecT x -> sprintf "rec_type %i" x.Symbol
-    | ArrayT (a,b) -> sprintf "%s (%s)" (show_art a) (show_ty b)
-    | DotNetTypeT x -> sprintf "dotnet_type (%s)" (codegen_macro' show_typedexpr show_typedexpr show_ty x)
-    | CudaTypeT x -> sprintf "cuda_type (%s)" (codegen_macro' show_typedexpr show_typedexpr show_ty x)
-
-and show_typedexpr = function
-    | TyT x -> sprintf "type (%s)" (show_ty x)
-    | TyV (_,t) -> sprintf "var (%s)" (show_ty t)
-    | TyList l -> 
-        let body = List.map show_typedexpr l |> String.concat ", "
-        sprintf "[%s]" body
-    | TyMap (a,MapTypeModule) ->
-        let body =
-            Map.toArray (c a)
-            |> Array.map (fun (a,b) -> sprintf "%s=%s" a (show_typedexpr b))
-            |> String.concat "; "
-        sprintf "{%s}" body
-    | TyMap (_, (MapTypeFunction _ | MapTypeRecFunction _)) -> "<function>"
-    | TyBox (a,b) -> sprintf "(boxed_type %s with %s)" (show_ty b) (show_typedexpr a)
-    | TyLit v -> sprintf "lit %s" (show_value v)
-    | TyOp(x,_,t) -> sprintf "<op %A of type %s>" x (show_ty t)
-    | x -> failwithf "Compiler error: The other typed expressions are forbidden to be printed as type errors. They should never appear in bindings. Got: %A" x
-
-let inline codegen_macro codegen print_type x = codegen_macro' show_typedexpr codegen print_type x
+let (|TyType|) x = type_get x
+let (|TyTuple|) = function
+    | TyList l -> l
+    | x -> [x]
 
 let lit_is = function
     | TyLit _ -> true
     | _ -> false
 
-let val_is = function
-    | TyLit _ 
-    | TyV(_, (PrimT _ | LitT _))
-    | TyT(PrimT _ | LitT _) -> true
+let tyb = ListT (hash_cons_table.Add [])
+
+let rec fsharp_to_cuda_blittable_is = function
+    | PrimT t ->
+        match t with
+        | BoolT _ | CharT _ | StringT _ -> false
+        | _ -> true
+    | ArrayT (ArtCudaGlobal _,t) -> fsharp_to_cuda_blittable_is t
+    | LayoutT(C(_, _, false)) ->  true
     | _ -> false
 
-type Timings = {
-    parsing_time: TimeSpan    
-    prepass_time: TimeSpan
-    peval_time: TimeSpan
-    codegen_time: TimeSpan
-    }
+let is_numeric = function
+    | PrimT (UInt8T | UInt16T | UInt32T | UInt64T 
+        | Int8T | Int16T | Int32T | Int64T 
+        | Float32T | Float64T) -> true
+    | _ -> false
 
-exception TypeError of Trace * string
-exception TypeRaised of Ty
+let is_signed_numeric = function
+    | PrimT (Int8T | Int16T | Int32T | Int64T | Float32T | Float64T) -> true
+    | _ -> false
+
+let is_non_float_primitive = function
+    | PrimT (Float32T | Float64T) -> false
+    | PrimT _ -> true
+    | _ -> false
+
+let is_primitive = function
+    | PrimT _ -> true
+    | _ -> false
+
+let is_string = function
+    | PrimT StringT -> true
+    | _ -> false
+
+let is_char = function
+    | PrimT CharT -> true
+    | _ -> false
+
+let is_primt = function
+    | PrimT x -> true
+    | _ -> false
+
+let is_float = function
+    | PrimT (Float32T | Float64T) -> true
+    | _ -> false
+
+let is_bool = function
+    | PrimT BoolT -> true
+    | _ -> false
+
+let is_int = function
+    | PrimT (UInt32T | UInt64T | Int32T | Int64T) -> true
+    | _ -> false
+
+let is_any_int = function
+    | PrimT (UInt8T | UInt16T | UInt32T | UInt64T 
+        | Int8T | Int16T | Int32T | Int64T) -> true
+    | _ -> false
+
+let is_int64 = function
+    | PrimT Int64T -> true
+    | _ -> false
+
+let is_int32 = function
+    | PrimT Int32T -> true
+    | _ -> false
+
+let is_lit_zero = function
+    | TyLit a ->
+        match a with
+        | LitInt8 0y | LitInt16 0s | LitInt32 0 | LitInt64 0L
+        | LitUInt8 0uy | LitUInt16 0us | LitUInt32 0u | LitUInt64 0UL
+        | LitFloat32 0.0f | LitFloat64 0.0 -> true
+        | _ -> false
+    | _ -> false
+
+let is_lit_one = function
+    | TyLit a ->
+        match a with
+        | LitInt8 1y | LitInt16 1s | LitInt32 1 | LitInt64 1L
+        | LitUInt8 1uy | LitUInt16 1us | LitUInt32 1u | LitUInt64 1UL
+        | LitFloat32 1.0f | LitFloat64 1.0 -> true
+        | _ -> false
+    | _ -> false
+
+let is_int_lit_zero = function
+    | TyLit a ->
+        match a with
+        | LitInt8 0y | LitInt16 0s | LitInt32 0 | LitInt64 0L
+        | LitUInt8 0uy | LitUInt16 0us | LitUInt32 0u | LitUInt64 0UL -> true
+        | _ -> false
+    | _ -> false
+
+let is_int_lit_one = function
+    | TyLit a ->
+        match a with
+        | LitInt8 1y | LitInt16 1s | LitInt32 1 | LitInt64 1L
+        | LitUInt8 1uy | LitUInt16 1us | LitUInt32 1u | LitUInt64 1UL -> true
+        | _ -> false
+    | _ -> false

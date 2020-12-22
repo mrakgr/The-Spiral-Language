@@ -1,0 +1,6 @@
+// Does basic addition produce anything?
+inl (+) forall t {number}. (q : t) (w : t): t = !!!!Add(q,w)
+inl main () =
+    inl ~a = 1
+    inl ~b = 2
+    a + b : i32

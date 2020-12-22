@@ -1,0 +1,16 @@
+// Do literal pattern matchers work? Does partial evaluation of equality work?
+inl main () =
+    inl f x =
+        let h : string = real
+            match x with
+            | 0 => "0"
+            | 1 => "1"
+            | false => "false"
+            | true => "true"
+            | "asd" => "asd"
+            | 1i8 => "1i8"
+            | 5.5 => "5.5"
+            | _ => "unknown"
+        h, x
+
+    dyn (f 0i32, f 1i32, f false, f true, f "asd", f 1i8, f 5.5f64, f 5f64)

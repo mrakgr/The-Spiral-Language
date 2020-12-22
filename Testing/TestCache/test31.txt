@@ -1,43 +1,22 @@
-module SpiralExample.Main
-let cuda_kernels = """
-#include <assert.h>
-
-extern "C" {
-    
-}
-"""
-
-type Union0 =
-    | Union0Case0 of Tuple2
-    | Union0Case1 of Tuple4
-and Tuple1 =
-    struct
-    val mem_0: int64
-    val mem_1: int64
-    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
-    end
-and Tuple2 =
-    struct
-    val mem_0: Tuple1
-    new(arg_mem_0) = {mem_0 = arg_mem_0}
-    end
-and Union3 =
-    | Union3Case0 of Tuple2
-    | Union3Case1 of Tuple4
-    | Union3Case2
-and Tuple4 =
-    struct
-    val mem_0: string
-    new(arg_mem_0) = {mem_0 = arg_mem_0}
-    end
-let (var_0: Union0) = (Union0Case0(Tuple2(Tuple1(2L, 3L))))
-match var_0 with
-| Union0Case0(var_1) ->
-    let (var_3: Tuple1) = var_1.mem_0
-    let (var_4: int64) = var_3.mem_0
-    let (var_5: int64) = var_3.mem_1
-    (Union3Case0(Tuple2(Tuple1(var_4, var_5))))
-| Union0Case1(var_2) ->
-    let (var_6: string) = var_2.mem_0
-    (Union3Case1(Tuple4(var_6)))
-
+type SpiralType0 =
+    {
+    subvar_0 : int64
+    subvar_1 : int64
+    }
+and SpiralType1 =
+    {
+    subvar_0 : SpiralType0
+    }
+let rec method_0 ((var_5 : int64), (var_6 : int64), (var_4 : SpiralType1)) : int64 =
+    let ((var_7 : SpiralType0)) = var_4.subvar_0
+    let ((var_8 : int64), (var_9 : int64)) = var_7.subvar_0, var_7.subvar_1
+    let ((var_10 : int64)) = var_8 + var_9
+    let ((var_11 : int64)) = var_10 + var_5
+    var_11 + var_6
+let ((var_1 : int64)) = 1L
+let ((var_2 : int64)) = 2L
+let ((var_3 : SpiralType0)) = {subvar_0 = var_1; subvar_1 = var_2}
+let ((var_4 : SpiralType1)) = {subvar_0 = var_3}
+let ((var_5 : int64)) = 3L
+let ((var_6 : int64)) = 4L
+let ((var_13 : int64)) = method_0 (var_5, var_6, var_4)

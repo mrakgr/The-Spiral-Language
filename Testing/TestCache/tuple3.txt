@@ -1,0 +1,8 @@
+let ((var_1 : int64)) = 4L
+let ((var_2 : int64)) = 9L
+let ((var_3 : int64)) = 16L
+let ((var_4 : int64)) = 29L
+let ((var_5 : int64)) = 4L
+let ((var_6 : int64)) = 9L
+let ((var_7 : int64)) = 16L
+let ((var_8 : int64)) = 29L

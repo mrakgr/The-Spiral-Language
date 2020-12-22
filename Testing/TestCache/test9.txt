@@ -1,39 +1,36 @@
-module SpiralExample.Main
-let cuda_kernels = """
-#include <assert.h>
-
-extern "C" {
-    
-}
-"""
-
-type Tuple0 =
-    struct
-    val mem_0: Union1
-    val mem_1: Union1
-    val mem_2: Union1
-    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
-    end
-and Union1 =
-    | Union1Case0
-    | Union1Case1
-let rec method_0(): Tuple0 =
-    Tuple0(Union1Case0, Union1Case0, Union1Case0)
-let (var_0: Tuple0) = method_0()
-let (var_1: Union1) = var_0.mem_0
-let (var_2: Union1) = var_0.mem_1
-let (var_3: Union1) = var_0.mem_2
-match var_1 with
-| Union1Case0 ->
-    1L
-| Union1Case1 ->
-    match var_2 with
-    | Union1Case0 ->
-        2L
-    | Union1Case1 ->
-        match var_3 with
-        | Union1Case0 ->
-            3L
-        | Union1Case1 ->
-            4L
-
+type SpiralType0 =
+    | SpiralType0_1
+    | SpiralType0_2
+let rec method_0 () : SpiralType0 * SpiralType0 * SpiralType0 =
+    (SpiralType0_1, SpiralType0_1, SpiralType0_1)
+let ((var_1 : SpiralType0), (var_2 : SpiralType0), (var_3 : SpiralType0)) = method_0 ()
+let ((var_10 : int64)) =
+    match var_1 with
+    | SpiralType0_1 ->
+        match var_2 with
+        | SpiralType0_1 ->
+            match var_3 with
+            | SpiralType0_1 ->
+                1L
+            | SpiralType0_2 ->
+                1L
+        | SpiralType0_2 ->
+            match var_3 with
+            | SpiralType0_1 ->
+                1L
+            | SpiralType0_2 ->
+                1L
+    | SpiralType0_2 ->
+        match var_2 with
+        | SpiralType0_1 ->
+            match var_3 with
+            | SpiralType0_1 ->
+                2L
+            | SpiralType0_2 ->
+                2L
+        | SpiralType0_2 ->
+            match var_3 with
+            | SpiralType0_1 ->
+                3L
+            | SpiralType0_2 ->
+                4L

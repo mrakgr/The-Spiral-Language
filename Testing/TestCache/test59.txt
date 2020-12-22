@@ -1,17 +1,6 @@
-module SpiralExample.Main
-let cuda_kernels = """
-#include <assert.h>
-
-extern "C" {
-    
-}
-"""
-
-type Tuple0 =
-    struct
-    val mem_0: int64
-    val mem_1: int64
-    val mem_2: int64
-    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
-    end
-Tuple0(1L, 2L, 3L)
+let rec method_0 () : int64 * int64 * int64 * int64 * int64 * int64 * int64 * int64 * int64 * int64 * int64 * int64 =
+    (1L, 2L, 3L, 1L, 2L, 3L, 1L, 2L, 3L, 1L, 2L, 3L)
+and method_1 ((var_1 : int64), (var_2 : int64), (var_3 : int64), (var_4 : int64), (var_5 : int64), (var_6 : int64), (var_7 : int64), (var_8 : int64), (var_9 : int64), (var_10 : int64), (var_11 : int64), (var_12 : int64)) : int64 * int64 * int64 * int64 * int64 * int64 * int64 * int64 * int64 * int64 * int64 * int64 =
+    (var_1, var_2, var_3, var_4, var_5, var_6, var_7, var_8, var_9, var_10, var_11, var_12)
+let ((var_1 : int64), (var_2 : int64), (var_3 : int64), (var_4 : int64), (var_5 : int64), (var_6 : int64), (var_7 : int64), (var_8 : int64), (var_9 : int64), (var_10 : int64), (var_11 : int64), (var_12 : int64)) = method_0 ()
+let ((var_13 : int64), (var_14 : int64), (var_15 : int64), (var_16 : int64), (var_17 : int64), (var_18 : int64), (var_19 : int64), (var_20 : int64), (var_21 : int64), (var_22 : int64), (var_23 : int64), (var_24 : int64)) = method_1 (var_1, var_2, var_3, var_4, var_5, var_6, var_7, var_8, var_9, var_10, var_11, var_12)

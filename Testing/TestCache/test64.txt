@@ -1,29 +1,14 @@
-module SpiralExample.Main
-let cuda_kernels = """
-#include <assert.h>
-
-extern "C" {
-    
-}
-"""
-
-type Tuple0 =
-    struct
-    val mem_0: int64
-    val mem_1: int64
-    val mem_2: int64
-    new(arg_mem_0, arg_mem_1, arg_mem_2) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1; mem_2 = arg_mem_2}
-    end
-and Tuple1 =
-    struct
-    val mem_0: Tuple0
-    val mem_1: int64
-    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
-    end
-and Env2 =
-    struct
-    val mem_0: Tuple1
-    val mem_1: Tuple1
-    new(arg_mem_0, arg_mem_1) = {mem_0 = arg_mem_0; mem_1 = arg_mem_1}
-    end
-(Env2(Tuple1(Tuple0(4L, 9L, 16L), 29L), Tuple1(Tuple0(4L, 9L, 16L), 29L)))
+Error trace on line: 2, column: 1 in module test64.
+1 + [name="Tensor"]
+^
+Error trace on line: 2, column: 3 in module test64.
+1 + [name="Tensor"]
+  ^
+Error trace on line: 126, column: 11 in module Core.
+inl (+) a b = !Add(a,b)
+          ^
+Error trace on line: 126, column: 15 in module Core.
+inl (+) a b = !Add(a,b)
+              ^
+The two sides need to have the same numeric types.
+Got: int64 and Tensor.
