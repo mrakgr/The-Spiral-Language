@@ -1,0 +1,8 @@
+// Does the $ record-with pattern work?
+open real_core
+inl main _ =
+    inl k = .q
+    inl m = { $k = { b = 2 }}
+
+    {m$k with a = 1}
+    |> dyn

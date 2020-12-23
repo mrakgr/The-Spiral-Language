@@ -1,0 +1,5 @@
+// Does the pair pattern work?
+inl main () =
+    inl f = function x1, x2, x3, xs => 55 | x1, x2, xs => 2 | x1, xs => 1
+
+    dyn (f (1i32,2i32,3i32,4i32)) : i64

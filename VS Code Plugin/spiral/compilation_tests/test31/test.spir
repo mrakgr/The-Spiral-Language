@@ -1,5 +1,0 @@
-// Does the parser give an error on an indented expression after a statement? It should.
-open real_core
-inl main _ =
-    1 |> ignore
-        2

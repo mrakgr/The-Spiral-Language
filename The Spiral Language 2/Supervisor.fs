@@ -234,8 +234,8 @@ let package_validate_then_send_errors atten errors s dir =
 let package_update_validate_then_send_errors atten errors s dir text = package_validate_then_send_errors atten errors (package_update errors s dir text) dir
 
 let token_range (r_par : ParserRes) ((a,b) : VSCRange) =
-    let from, near_to = min (r_par.lines.Length-1) a.line, min r_par.lines.Length (b.line+1)
-    vscode_tokens from near_to r_par.lines
+    let in_range x = min r_par.lines.Length x
+    vscode_tokens (in_range a.line) (in_range (b.line+1)) r_par.lines
 
 let hover (l : InferResult PersistentVector) (pos : VSCPos) =
     l |> PersistentVector.tryFindBack (fun x -> x.offset <= pos.line)
@@ -397,7 +397,7 @@ type ClientReq =
     | FileTokenRange of {|uri : string; range : VSCRange|}
     | HoverAt of {|uri : string; pos : VSCPos|}
     | BuildFile of {|uri : string|}
-    | Ping of int
+    | Ping of bool
 
 type ClientErrorsRes =
     | FatalError of string
@@ -444,45 +444,46 @@ let [<EntryPoint>] main _ =
     Hopac.start (attention_server (Src.tap atten))
     Hopac.start (supervisor_server atten errors supervisor)
 
-    let buffer = Dictionary()
-    let last_id = ref 0
+    let mutable time = DateTimeOffset.Now
+    let timer = NetMQTimer(2000)
+    poller.Add(timer)
+    timer.EnableAndReset()
+    use __ = timer.Elapsed.Subscribe(fun _ ->
+        if TimeSpan.FromSeconds(2.0) < DateTimeOffset.Now - time then poller.Stop()
+        )
+
     use __ = server.ReceiveReady.Subscribe(fun s ->
-        let rec loop () = Utils.remove buffer !last_id (body(NetMQMessage 3)) id
-        and body (msg : NetMQMessage) (address : NetMQFrame, x) =
-            incr last_id
-            let push_back (x : obj) = 
-                match x with
-                | :? Option<string> as x -> 
-                    match x with
-                    | None -> msg.Push("null") 
-                    | Some x -> msg.Push(sprintf "\"%s\"" x)
-                | _ -> msg.Push(Json.serialize x)
-                msg.PushEmptyFrame(); msg.Push(address)
-            let send_back x = push_back x; server.SendMultipartMessage(msg)
-            let send_back_via_queue x = push_back x; queue_server.Enqueue(msg)
-            let job_null job = Hopac.start job; send_back null
-            let job_val job = let res = IVar() in Hopac.start (job res >>=. IVar.read res >>- send_back_via_queue)
-            match x with
-            | ProjectFileOpen x -> job_null (supervisor *<+ SupervisorReq.ProjectFileOpen x)
-            | ProjectFileChange x -> job_null (supervisor *<+ SupervisorReq.ProjectFileChange x)
-            | ProjectFileDelete x -> job_null (supervisor *<+ SupervisorReq.ProjectFileDelete x)
-            | ProjectCodeActionExecute x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectCodeActionExecute(x,res))
-            | ProjectFileLinks x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectFileLinks(x,res))
-            | ProjectCodeActions x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectCodeActions(x,res))
-            | FileOpen x -> job_null (supervisor *<+ SupervisorReq.FileOpen x)
-            | FileChange x -> job_null (supervisor *<+ SupervisorReq.FileChange x)
-            | FileDelete x -> job_null (supervisor *<+ SupervisorReq.FileDelete x)
-            | FileTokenRange x -> job_val (fun res -> supervisor *<+ SupervisorReq.FileTokenRange(x,res))
-            | HoverAt x -> job_val (fun res -> supervisor *<+ SupervisorReq.HoverAt(x,res))
-            | BuildFile x -> job_null (supervisor *<+ SupervisorReq.BuildFile x)
-            | Ping _ -> failwith "TODO"
-            loop ()
         let msg = server.ReceiveMultipartMessage(3)
         let address = msg.Pop()
         msg.Pop() |> ignore
-        let (id : int), x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
-        if !last_id = id then body msg (address, x)
-        else buffer.Add(id,(address,x))
+        let x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
+        let push_back (x : obj) = 
+            match x with
+            | :? Option<string> as x -> 
+                match x with
+                | None -> msg.Push("null") 
+                | Some x -> msg.Push(sprintf "\"%s\"" x)
+            | _ -> msg.Push(Json.serialize x)
+            msg.PushEmptyFrame(); msg.Push(address)
+        let send_back x = push_back x; server.SendMultipartMessage(msg)
+        let send_back_via_queue x = push_back x; queue_server.Enqueue(msg)
+        let job_null job = Hopac.start job; send_back null
+        let job_val job = let res = IVar() in Hopac.start (job res >>=. IVar.read res >>- send_back_via_queue)
+        match x with
+        | ProjectFileOpen x -> job_null (supervisor *<+ SupervisorReq.ProjectFileOpen x)
+        | ProjectFileChange x -> job_null (supervisor *<+ SupervisorReq.ProjectFileChange x)
+        | ProjectFileDelete x -> job_null (supervisor *<+ SupervisorReq.ProjectFileDelete x)
+        | ProjectCodeActionExecute x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectCodeActionExecute(x,res))
+        | ProjectFileLinks x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectFileLinks(x,res))
+        | ProjectCodeActions x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectCodeActions(x,res))
+        | FileOpen x -> job_null (supervisor *<+ SupervisorReq.FileOpen x)
+        | FileChange x -> job_null (supervisor *<+ SupervisorReq.FileChange x)
+        | FileDelete x -> job_null (supervisor *<+ SupervisorReq.FileDelete x)
+        | FileTokenRange x -> job_val (fun res -> supervisor *<+ SupervisorReq.FileTokenRange(x,res))
+        | HoverAt x -> job_val (fun res -> supervisor *<+ SupervisorReq.HoverAt(x,res))
+        | BuildFile x -> job_null (supervisor *<+ SupervisorReq.BuildFile x)
+        | Ping _ -> send_back null
+        time <- DateTimeOffset.Now
         )
 
     use client = new PublisherSocket()

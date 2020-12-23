@@ -1,6 +1,0 @@
-// Does this compile into just one method? Are the arguments reversed in the method call?
-inl rec f a b = join
-    if dyn true then f b a
-    else a + b
-    : i64
-inl main () = f (dyn 1) (dyn 2)

@@ -1,9 +1,0 @@
-// Does the partial evaluator optimize unused match cases?
-union t = A | B
-inl main () =
-    inl ~a, ~b, ~c = A, A, A
-    match a,b,c with
-    | A, _, _ => 1i32
-    | _, A, _ => 2
-    | _, _, A => 3
-    | _ => 4

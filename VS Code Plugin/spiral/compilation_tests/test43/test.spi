@@ -1,4 +1,0 @@
-open list
-inl main () =
-    inl ~x = Nil : list i32
-    fold (+) 0i32 x : i32

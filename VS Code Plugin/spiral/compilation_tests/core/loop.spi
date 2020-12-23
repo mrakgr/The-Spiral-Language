@@ -1,4 +1,0 @@
-inl for (from: nearTo:) body state =
-    let rec loop i s = if i < nearTo then loop (i+1) (body i s) else s
-    loop from state
-inl for' (from: nearTo:) body = for (from:nearTo:) (fun i () => body i) ()

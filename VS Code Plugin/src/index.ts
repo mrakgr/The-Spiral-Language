@@ -1,6 +1,5 @@
 import * as path from "path"
 import * as cp from "child_process"
-import * as _ from "lodash"
 import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider, WorkspaceEdit, FileDeleteEvent, ProcessExecution } from "vscode"
 import * as zmq from "zeromq"
 
@@ -8,11 +7,10 @@ const port = 13805
 const uriServer = `tcp://localhost:${port}`
 const uriClient = `tcp://localhost:${port+1}`
 
-let msgId = 0
 const request = async (file: object): Promise<any> => {
     const sock = new zmq.Request()
     sock.connect(uriServer)
-    await sock.send(JSON.stringify([msgId++, file]))
+    await sock.send(JSON.stringify(file))
     const [x] = await sock.receive()
     return JSON.parse(x.toString())
 }
@@ -45,6 +43,7 @@ const spiDeleteReq = async (uri: string): Promise<void> => request({ FileDelete:
 const spiTokenRangeReq = async (uri: string, range : Range): Promise<number []> => request({ FileTokenRange: { uri, range } })
 const spiHoverAtReq = async (uri: string, pos : Position): Promise<string | null> => request({ HoverAt: { uri, pos } })
 const spiBuildFileReq = async (uri: string): Promise<void> => request({ BuildFile: {uri} })
+const spiPingReq = async (): Promise<void> => request({ Ping: true })
 
 const range = (x : VSCRange) => new Range(x[0].line, x[0].character, x[1].line, x[1].character)
 
@@ -71,8 +70,10 @@ const projectCodeActionTitle = (x : ProjectCodeAction): string => {
 type SpiralAction = {range : Range; action : CodeAction}
 
 export const activate = async (ctx: ExtensionContext) => {
-    console.log("Spiral plugin is active.")
-    const p = cp.spawn('"' + path.join(__dirname,"../compiler/Spiral.exe") + '"',{shell: true, detached: true})
+    // console.log("Spiral plugin is active.")
+    const compiler_path = path.join(__dirname,"../compiler/Spiral.exe")
+    // const compiler_path_for_shell = `"${compiler_path}"`
+    const p = cp.spawn(compiler_path,{shell: false, detached: true})
 
     const errorsProject = languages.createDiagnosticCollection()
     const errorsTokenization = languages.createDiagnosticCollection()
@@ -101,6 +102,13 @@ export const activate = async (ctx: ExtensionContext) => {
         }
         await sock.disconnect(uriServer)
     })();
+    const pingLater = (ms : number) => {
+        const ping = () => {
+            if (isProcessing) {spiPingReq(); pingLater(ms)}
+        }
+        setTimeout(ping, ms)
+    }
+    pingLater(1000)
 
     const spiprojOpen = (doc: TextDocument) => spiprojOpenReq(doc.uri.toString(true), doc.getText())
     const spiprojChange = (doc: TextDocument) => spiprojChangeReq(doc.uri.toString(true), doc.getText())

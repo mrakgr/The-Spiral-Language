@@ -1,7 +1,0 @@
-// Does the record lens pattern work? Does 'this' work? Does the semicolon get parsed properly?
-inl main () =
-    inl x = { a = { b = { c = 3f32 } } }
-
-    inl f {a={b={c q d}}} = c,q
-    f {x.a.b with q = 4f32; c #= ((+) 3); d = {q = 12i16; w = 23i16}}
-    |> dyn

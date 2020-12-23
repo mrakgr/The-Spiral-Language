@@ -1,3 +1,0 @@
-inl f forall t r. = real
-    typecase t with
-    | ~q, ~q, r, ~r => ()

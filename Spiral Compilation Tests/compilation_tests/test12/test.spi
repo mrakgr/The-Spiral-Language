@@ -1,0 +1,7 @@
+// Does defining user operators work?
+inl main () =
+    inl (.+) a b = a + b
+    inl x = 2 * 22 .+ 33
+
+    inl f op a b = op a b
+    f (*) 2 x |> dyn : i64

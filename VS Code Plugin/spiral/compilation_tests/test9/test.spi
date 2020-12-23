@@ -1,9 +1,0 @@
-// Do functions returned from join points work?
-inl main () =
-    inl tes' n = join
-        inl tes a = join
-            fun b => join
-                fun c => join
-                    fun d => join a,b,c
-        tes 1i32 2i32 (2.2f64,3f32,4.5f64)
-    tes' 10i32 "qwe"

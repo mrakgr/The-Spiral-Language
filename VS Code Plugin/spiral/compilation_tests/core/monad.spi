@@ -1,2 +1,0 @@
-prototype (>>=) m a : forall b. m a -> (a -> m b) -> m b
-prototype on_succ m a : a -> m a

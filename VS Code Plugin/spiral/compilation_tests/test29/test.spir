@@ -1,9 +1,0 @@
-// Does the injection pattern work?
-inl main () = real
-    inl m = {
-        a = 123
-        b = 456
-        }
-    inl f i {$i=x} = x
-    let ~x = f .a m, f .b m
-    x

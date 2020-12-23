@@ -11,10 +11,7 @@
             "runtimeExecutable": "${execPath}",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}",
-                "${workspaceFolder}/spiral/"
-            ],
-            "outFiles": [
-                "${workspaceFolder}/src/**/*.js"
+                "${workspaceFolder}/../Spiral Compilation Tests"
             ],
             "preLaunchTask": "tsc: watch - tsconfig.json"
         }

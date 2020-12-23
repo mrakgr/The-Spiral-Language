@@ -1,0 +1,8 @@
+// Is the compilation of the match cases done efficiently?
+union t = A | B
+inl main () =
+    match join (A, A, A, A) with
+    | A, A, _, _ => join 1i32
+    | _, _, A, A => join 2
+    | A, B, A, B => join 3
+    | _ => join 4

@@ -1,0 +1,4 @@
+inl (=) forall t. (a : t) (b : t) : bool = !!!!EQ(a,b)
+inl forall_escape_test q w e = // Should have an error.
+    inl f forall t {number}. (a : t) (s : t) (d : t) = (q,w,e) = (a,s,d)
+    f q w e

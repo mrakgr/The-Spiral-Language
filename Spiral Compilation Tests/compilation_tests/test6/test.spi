@@ -1,0 +1,6 @@
+// Does the & pattern work?
+inl main () =
+    inl f (a, b) (c, d) = dyn (a+c,b+d)
+    inl (q & (a, b)) = dyn (1i32,2i32)
+    inl (w & (c, d)) = dyn (3,4)
+    f q w

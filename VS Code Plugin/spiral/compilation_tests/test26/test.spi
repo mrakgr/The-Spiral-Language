@@ -1,4 +1,0 @@
-// Does this destructure trigger an error?
-inl main () =
-    inl q = true && dyn true
-    ()

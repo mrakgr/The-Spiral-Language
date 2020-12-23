@@ -1,3 +1,0 @@
-// Do regular join points work?
-let f a b = a + b
-inl main () = f 1i32 2

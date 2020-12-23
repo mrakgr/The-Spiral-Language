@@ -1,6 +1,0 @@
-// Do the keyword arguments get parsed correctly?
-open real_core
-inl main _ =
-    inl add (left:right:) = left + right
-    add (left:1 right: 2)
-    + add (left: 3 right: 7)

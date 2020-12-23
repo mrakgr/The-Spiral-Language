@@ -1,0 +1,37 @@
+inl (+) forall t {number}. (a : t) (b : t) : t = !!!!Add(a,b)
+inl (-) forall t {number}. (a : t) (b : t) : t = !!!!Sub(a,b)
+inl (*) forall t {number}. (a : t) (b : t) : t = !!!!Mult(a,b)
+inl (**) forall t {number}. (a : t) (b : t) : t = !!!!Pow(a,b)
+inl (/) forall t {number}. (a : t) (b : t) : t = !!!!Div(a,b)
+inl (%) forall t {number}. (a : t) (b : t) : t = !!!!Mod(a,b)
+
+inl (<=) forall t {number}. (a : t) (b : t) : bool = !!!!LTE(a,b)
+inl (<) forall t {number}. (a : t) (b : t) : bool = !!!!LT(a,b)
+inl (>) forall t {number}. (a : t) (b : t) : bool = !!!!GT(a,b)
+inl (>=) forall t {number}. (a : t) (b : t) : bool = !!!!GTE(a,b)
+
+inl (=) forall t {number}. (a : t) (b : t) : bool = !!!!EQ(a,b)
+inl (<>) forall t {number}. (a : t) (b : t) : bool = !!!!NEQ(a,b)
+
+inl (|>) a b = b a
+inl (>>) a b x = b (a x)
+inl (<|) a b = a b
+inl (<<) a b x = a (b x)
+inl dyn ~x = x
+
+inl mut forall t. (x : t): mut t = !!!!LayoutToHeapMutable(x)
+inl (~*) forall t. (x : mut t): t = !!!!LayoutIndex(x)
+inl heap forall t. (x : t): heap t = !!!!LayoutToHeap(x)
+inl (~!) forall t. (x : heap t): t = !!!!LayoutIndex(x)
+
+inl const x _ = x
+inl id x = x
+inl fst (x,_) = x
+inl snd (_,x) = x
+
+inl (=) forall t. (a : t) (b : t) : bool = real real_core.(=) a b
+inl (<>) forall t. (a : t) (b : t) : bool = real real_core.(<>) a b
+inl lit_is x : bool = !!!!LitIs(x)
+inl print_static x : () = !!!!PrintStatic(x)
+inl comp forall t. (a : t) (b : t) : order = real real_core.comp a b
+inl hash forall t. (a : t) : i32 = real real_core.hash a

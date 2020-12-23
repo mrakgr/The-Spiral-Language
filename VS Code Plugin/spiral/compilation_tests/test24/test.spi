@@ -1,4 +1,0 @@
-// Do && and || work correctly?
-inl main () =
-    inl a,b,c,d,e = dyn (true, false, true, false, true)
-    a && b || c && d || e

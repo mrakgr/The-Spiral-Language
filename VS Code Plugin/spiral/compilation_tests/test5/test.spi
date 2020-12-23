@@ -1,5 +1,0 @@
-// Do the join points work?
-inl main () =
-    inl a () = join 1
-    inl b () = join 2
-    a () + b () : i32

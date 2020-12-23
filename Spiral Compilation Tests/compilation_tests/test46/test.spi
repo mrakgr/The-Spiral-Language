@@ -1,0 +1,173 @@
+// Games of Stones HackerRank problem.
+open option
+open list
+open result
+open monad
+
+type env = i32
+type cont a b r = {on_succ : a -> r; on_fail : b -> r} -> r
+nominal parser a = string -> env -> result a (list string) * env
+nominal cps_parser r a = string -> env -> cont (a * env) (list string * env) (r * env)
+inl run_cps (cps_parser a) str i on = a str i on
+inl run (parser x) str i = x str i
+inl conv (cps_parser a) = parser fun str i => a str i { on_succ=fun ok,i => (Ok:),i; on_fail=fun error,i => (Error:),i}
+
+instance (>>=) cps_parser r = fun (cps_parser a) f => cps_parser fun str i ({on_succ on_fail} & on) =>
+    a str i { on_fail on_succ = fun a,i => run_cps (f a) str i on }
+
+instance (>>=) parser = fun (parser a) f => parser fun str i =>
+    match a str i with
+    | (Ok: a), i => run (f a) str i
+    | (Error: l), i => (Error: l), i
+
+instance on_succ cps_parser r = fun ok => cps_parser fun _ i {on_succ} => on_succ (ok,i)
+instance on_succ parser = fun ok => parser fun _ i => (Ok:), i
+
+inl (.<<.) a b =
+    a >>= fun a =>
+    b >>= fun b =>
+    on_succ (a,b)
+
+inl (<<.) a b =
+    a >>= fun a =>
+    b >>= fun b =>
+    on_succ b
+inl (>>.) a b = a <<. b
+
+inl (.<<) a b =
+    a >>= fun a =>
+    b >>= fun b =>
+    on_succ a
+
+inl EOL : char = $"System.Char.MaxValue"
+inl peek' offset = cps_parser fun str i {on_succ} =>
+    inl i' = i + offset
+    if 0 <= i' && i' < string.length str then on_succ (string.index str i', i)
+    else on_succ (EOL, i)
+inl Peek = peek' 0
+
+inl skip' index = cps_parser fun str i {on_succ} => on_succ ((),i+index)
+inl Skip = skip' 1
+
+inl on_fail er = cps_parser fun str i {on_fail} => on_fail (list.singleton er, i)
+inl AnyChar' = 
+    Peek >>= fun c =>
+    if c <> EOL then Skip >>. on_succ c
+    else on_fail "Out of bounds."
+
+inl AnyChar' = cps_parser fun str i {on_succ on_fail} =>
+    run_cps Peek str i { on_fail
+        on_succ=fun c,i => if c <> EOL then on_succ (string.index str i, i+1) else on_fail (list.singleton "Out of bounds.", i)
+    }
+
+inl AnyChar = conv AnyChar'
+
+inl char_to_string (x : char): string = $"string !x"
+inl char_to_digit (x : char): i32 = $"int !x - int '0'"
+
+inl char' x = cps_parser fun str i {on_succ on_fail} =>
+    run_cps AnyChar' str i {
+        on_succ = fun ok, i => if x = ok then (Ok:), i else (Error: list.singleton (char_to_string ok)), i
+        on_fail = fun error, i => (Error:), i
+    }
+inl char x = conv (char' x)
+
+inl is_digit x = 0 <= x && x <= 9
+inl Digit = parser fun str i =>
+    run_cps AnyChar' str i {
+        on_succ = fun ok, i => 
+            inl ok = char_to_digit ok
+            if is_digit ok then (Ok:), i else (Error: list.singleton "digit"), i
+        on_fail = fun error, i => (Error:), i
+    }
+
+inl I32 = parser fun str i =>
+    let rec loop i was_parsed s =
+        match run Digit str i with
+        | (Ok: c), i => 
+            inl s' = s * 10 + c
+            if s <= 214_748_364 && 0 <= s' then loop i true s'
+            else (Error: list.singleton "The number is too large to be parsed as 32 bit int."), i
+        | (Error: _), i => 
+            if was_parsed then (Ok: s), i 
+            else (Error: list.singleton "i32"), i
+    loop i false 0
+
+inl Spaces = parser fun str i =>
+    inl f i = 0 <= i && i < string.length str && (inl x = string.index str i in x = ' ' || x = '\n')
+    let rec loop i = if f i then loop (i+1) else (Ok: ()), i
+    loop i
+
+inl Parse3Ints = I32 .<<. I32 .<<. I32
+
+inl (.<<.) a b =
+    a >>= fun a =>
+    b >>= fun b =>
+    on_succ (a,b)
+
+inl (<<.) a b =
+    a >>= fun a =>
+    b >>= fun b =>
+    on_succ b
+inl (>>.) a b = a <<. b
+
+inl (.<<) a b =
+    a >>= fun a =>
+    b >>= fun b =>
+    on_succ a
+
+inl EOL : char = $"System.Char.MaxValue"
+inl peek' index = cps_parser fun str i {on_succ} =>
+    if i + index <= 0 && i + index < string.length str then on_succ (string.index str i, i)
+    else on_succ (EOL, i)
+inl Peek = peek' 0
+
+inl skip' index = cps_parser fun str i {on_succ} => on_succ ((),i+index)
+inl Skip = skip' 1
+
+inl writeline (x : string): () = $"System.Console.WriteLine(!x)"
+inl Readline : string = $"System.Console.ReadLine()"
+inl Readall : string = $"System.Console.OpenStandardInput() |> fun x -> new System.IO.StreamReader(x) |> fun x -> let v = x.ReadToEnd() in x.Dispose(); v"
+inl failwith (x : string) = $"failwith !x"
+
+union player = First | Second
+
+inl eq_player = function // TODO: Replace this with `=` when it is capable of handling unions.
+    | First, First | Second, Second => true
+    | _ => false
+
+inl game_of_stones' n =
+    inl max_n = 100
+    if max_n < n then failwith "The max input has been exceeded."
+    inl solutions = array.init (max_n+1) (const None)
+    let rec solve player opposing_player n =
+        inl take amount on_fail () = 
+            if n >= amount && eq_player (solve opposing_player player (n-amount), player) then player
+            else on_fail ()
+
+        let run = take 2 <| take 3 <| take 5 <| const opposing_player
+
+        match player with
+        | First => 
+            match array.index solutions n with
+            | None => inl x = run() in array.set solutions n (Some: x) . x
+            | Some: x => x
+        | Second => run()
+    solve First Second n
+
+inl main () =
+    inl show = function First => "First" | Second => "Second"
+    inl p =
+        (I32 .<< Spaces) >>= fun nearTo =>
+            let rec loop i =
+                if i < nearTo then (I32 .<< Spaces) >>= (game_of_stones' >> show >> writeline >> fun () => loop (i+1))
+                else on_succ ()
+            loop 0
+    // let example = Readall
+    let ~example = "8 1 2 3 4 5 6 7 10"
+    match run p example 0 with
+    | (Error: ers), i => 
+        $"printfn \"Parsing failed at position %i\" !i"
+        $"printfn \"Errors:\""
+        list.iter (fun er => $"printfn \"%s\" !er") ers
+    | _ => ()

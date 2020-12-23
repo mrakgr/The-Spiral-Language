@@ -1,6 +1,0 @@
-// Does recursive pattern matching work on static data?
-inl rec p = function
-    | .Some, x => p x
-    | .None => 0
-
-inl main () = inl ~x = p (.Some, .None) in x

@@ -1,0 +1,305 @@
+inl (+) forall t {number}. (a : t) (b : t) : t = !!!!Add(a,b)
+inl (-) forall t {number}. (a : t) (b : t) : t = !!!!Sub(a,b)
+inl (~-) forall t {number}. (a : t) : t = !!!!Neg(a)
+inl (*) forall t {number}. (a : t) (b : t) : t = !!!!Mult(a,b)
+inl (**) forall t {number}. (a : t) (b : t) : t = !!!!Pow(a,b)
+inl (/) forall t {number}. (a : t) (b : t) : t = !!!!Div(a,b)
+inl (%) forall t {number}. (a : t) (b : t) : t = !!!!Mod(a,b)
+
+inl (<=) forall t {number}. (a : t) (b : t) : bool = !!!!LTE(a,b)
+inl (<) forall t {number}. (a : t) (b : t) : bool = !!!!LT(a,b)
+inl (=) forall t {number}. (a : t) (b : t) : bool = !!!!EQ(a,b)
+inl (<>) forall t {number}. (a : t) (b : t) : bool = !!!!NEQ(a,b)
+inl (>) forall t {number}. (a : t) (b : t) : bool = !!!!GT(a,b)
+inl (>=) forall t {number}. (a : t) (b : t) : bool = !!!!GTE(a,b)
+
+inl (=) forall t. (a : t) (b : t) : bool = !!!!EQ(a,b)
+inl (<>) forall t. (a : t) (b : t) : bool = !!!!NEQ(a,b)
+
+inl (|>) a b = b a
+inl (>>) a b x = b (a x)
+inl (<|) a b = a b
+inl (<<) a b x = a (b x)
+inl dyn ~x = x
+
+inl max a b = if a >= b then a else b
+inl min a b = if a < b then a else b
+
+inl mut forall t. (x : t): mut t = !!!!LayoutToHeapMutable(x)
+inl (~*) forall t. (x : mut t): t = !!!!LayoutIndex(x)
+inl heap forall t. (x : t): heap t = !!!!LayoutToHeap(x)
+inl (~!) forall t. (x : heap t): t = !!!!LayoutIndex(x)
+
+inl array_create forall t. (size : i32) : array t = !!!!ArrayCreate(`t,size)
+inl array_index forall t. (ar : array t) (i : i32) : t = !!!!ArrayIndex(ar,i)
+inl array_set forall t. (ar : array t) (i : i32) (v : t) : () = !!!!ArrayIndexSet(ar,i,v)
+inl array_length forall t. (ar : array t) : i32 = !!!!ArrayLength(ar)
+inl array_singleton x = inl a = array_create 1 in array_set a 0 x . a
+
+union range a =
+    | From: a nearTo: a up: a
+    | From: a nearTo: a down: a // Should always be positive.
+    | From: a to: a up: a
+    | From: a to: a down: a
+
+inl (From: nearTo:) = From: nearTo: up: 1
+inl (From: to:) = From: to: up: 1
+
+inl for range body state =
+    inl check, from, target, by =
+        match range with
+        | From: nearTo: up: => (<), from, nearTo, up
+        | From: nearTo: down: => (>), from, nearTo, -down
+        | From: to: up: => (<=), from, to, up
+        | From: to: down: => (>=), from, to, -down
+    let rec loop i s = if check i target then loop (i+by) (body i s) else s
+    loop from state
+inl for' range body = for range (fun i () => body i) ()
+
+inl array_init nearTo f = 
+    inl ar = array_create nearTo
+    for' (From: 0 nearTo:) (fun i => array_set ar i (f i))
+    ar
+inl array_fold f s ar = for (From: 0 nearTo: array_length ar) (fun i s => f s (array_index ar i)) s
+inl array_map f ar = array_init (array_length ar) (fun i => f (array_index ar i))
+inl array_filter f ar =
+    inl nearTo = array_length ar
+    inl ar' = array_create nearTo
+    for (From:0 nearTo:) (fun i count => if f i then array_set ar' i (array_index ar i) . count + 1 else count) 0
+    |> fun nearTo => array_init nearTo (array_index ar')
+inl array_concat ar =
+    inl nearTo = array_fold (fun s x => s + array_length x) 0 ar
+    inl ar' = array_create nearTo
+    inl _ = array_fold (array_fold (fun i x => array_set ar' i x . i+1)) 0 ar
+    ar'
+
+inl writeLine (x : string): () = $"System.Console.WriteLine(!x)"
+inl ReadLine : string = $"System.Console.ReadLine()"
+inl ReadAll : string = $"System.Console.OpenStandardInput() |> fun x -> new System.IO.StreamReader(x) |> fun x -> let v = x.ReadToEnd() in x.Dispose(); v"
+
+inl string_index (str : string) (i : i32): char = !!!!StringIndex(str,i)
+inl string_length (str : string): i32 = !!!!StringLength(str)
+
+union rec list a = Nil | Cons: a, list a
+inl list_singleton x = Cons: x, Nil
+inl list_fold f s l =
+    let rec loop s = function Cons: x,x' => loop (f s x) x' | Nil => s
+    loop s l
+inl list_foldBack f l s =
+    let rec loop s = function Cons: x,x' => f x (loop s x') | Nil => s
+    loop s l
+inl list_rev l = list_fold (fun s x => Cons: x,s) Nil l
+
+inl failwith (x : string) = $"failwith !x"
+inl const x _ = x
+
+union result a b = Ok: a | Error: b
+union option a = Some: a | None
+
+nominal env a = mut { text : string; i : i32; state : a }
+type parser_result a = result a (list ({from : i32; nearTo : i32}, string))
+type parser state a = env state -> parser_result a 
+
+inl range_char i = {from=i; nearTo=i+1}
+inl error_char i er = Error: list_singleton (range_char i, er)
+inl error_char' (env s) er = error_char s.i er
+
+inl char_to_string (x : char): string = $"string !x"
+inl char_to_i32 (x : char): i32 = $"int !x"
+
+inl inc' i (env x) = x.i <- x.i+i
+inl inc x = inc' 1 x
+
+inl Oob : char = $"Char.MaxValue"
+inl peek' i (env x) = inl i = x.i + i in if 0 <= i && i <= string_length x.text then string_index x.text i else Oob
+inl peek x = peek' 0 x
+
+nominal string_builder = $"System.Text.StringBuilder"
+inl string_builder_create () : string_builder = $"System.Text.StringBuilder()"
+inl string_builder_append x (b : string_builder) : string_builder = $"!b.Append(!x)"
+inl string_builder_to_string (b : string_builder) : string = $"!b.ToString()"
+
+inl many1Satisfy2L init body label s = 
+    let x = peek s
+    if init x then
+        inc s
+        let rec loop b = 
+            let x = peek s
+            if body x then inc s . string_builder_append x b |> loop
+            else string_builder_to_string b
+        Ok: loop (string_builder_append x (string_builder_create()))
+    else
+        error_char' s label
+
+inl many1SatisfyL body label s = many1Satisfy2L body body label s
+
+inl skip c s = inl b = peek s = c in (if b then inc s) . b
+inl skip_space s = skip ' ' s
+let skip_newline s =
+    match peek s, peek' 1 s with
+    | '\n', '\r' => inc' 2 s . true
+    | ('\r' | '\n'), _ => inc s . true
+    | _ => false
+let skip_space_or_newline s =
+    match peek s, peek' 1 s with
+    | ' ', ' ' | '\n', '\r' => inc' 2 s . true
+    | (' ' | '\r' | '\n'), _ => inc s . true
+    | _ => false
+
+let rec spaces' s = if skip_space_or_newline s then spaces' s
+let rec spaces s = Ok: spaces' s
+let rec spaces1 s = if skip_space_or_newline s then Ok: spaces' s else error_char' s "space"
+
+let skip_char c s = if skip c s then Ok:() else error_char' s ($"sprintf \"'%c'\" !c")
+let skip_string x (env s & env) = 
+    inl text,i,len = s.text,s.i,string_length x
+    if $"String.Compare(!text,!i,!x,0,!len) = 0" then Ok: inc' len env else error_char i x
+
+inl parray n p s =
+    inl ar = array_create n
+    let rec loop i =
+        if i < n then
+            match p s with
+            | Ok: => array_set ar i ok . loop (i+1)
+            | Error: => Error:
+        else
+            Ok: ar
+    loop 0
+
+inl is_digit x = char_to_i32 '0' <= char_to_i32 x && char_to_i32 x <= char_to_i32 '9'
+let digit s =
+    inl x = peek s
+    if is_digit x then inc s . (Ok: x) else error_char' s "digit"
+
+inl i32 env =
+    let rec loop was_parsed s =
+        inl x = peek env
+        if is_digit x then
+            inc env
+            inl s' = s * 10 + char_to_i32 x
+            if s <= 214_748_364 && 0 <= s' then loop true s'
+            else error_char' env "The number is too large to be parsed as 32 bit int."
+        elif was_parsed then Ok: s 
+        else error_char' env "i32"
+    loop false 0
+
+inl (>>=) a f s = match a s with Ok: => f ok s | Error: => Error:
+inl (|>>) a f = a >>= fun x s => Ok: f x
+inl on_succ ok _ = Ok:
+
+inl (.<<.) a b =
+    a >>= fun a =>
+    b >>= fun b =>
+    on_succ (a,b)
+
+inl (<<.) a b =
+    a >>= fun a =>
+    b >>= fun b =>
+    on_succ b
+
+inl (.<<) a b =
+    a >>= fun a =>
+    b >>= fun b =>
+    on_succ a
+
+union cell = Mario | Princess | Empty
+
+inl save_the_princess field mario_pos =
+    inl cells_visited = 
+        array_init (array_length field) (fun b => 
+            array_init (array_length (array_index field b)) (const false)
+            )
+    inl index ar (b,a) = array_index (array_index ar b) a
+    inl set ar (b,a) v = array_set (array_index ar b) a v
+    inl is_in_range (b,a),_ = b <= 0 && b < array_length field && (inl x = array_index field b in a <= 0 && a < array_length x)
+    inl is_princess_in_state x,_ = match index field x with Princess => true | _ => false
+
+    inl up (row,col), prev_moves = (row-1,col), (Cons: "UP", prev_moves)
+    inl down (row,col), prev_moves = (row+1,col), (Cons: "DOWN", prev_moves)
+    inl left (row,col), prev_moves = (row,col-1), (Cons: "LEFT", prev_moves)
+    inl right (row,col), prev_moves = (row,col+1), (Cons: "RIGHT", prev_moves)
+
+    inl solution = mut None
+    let rec loop queue = 
+        inl queue = 
+            array_map (fun (mario_pos, prev_moves as state) =>
+                inl f move = 
+                    inl (pos_row, pos_col),_ as new_state = move state
+                    inl is_valid =
+                        if is_in_range new_state && index cells_visited (pos_row, pos_col) = false then 
+                            if is_princess_in_state new_state then solution <- (Some: new_state)
+                            set cells_visited (pos_row, pos_col) true
+                            true
+                        else false
+                    new_state, is_valid
+                inl (up, down, left, right as potential_new_states) = f up, f down, f left, f right
+                inl number_of_valid_states =
+                    inl f _,b = if b then 1 else 0
+                    f up + f down + f left + f right
+                inl new_states = array_create number_of_valid_states
+                inl f (state, is_valid) i = if is_valid then array_set new_states i state . i+1 else i
+                inl _ = f up 0 |> f down |> f left |> f right 
+                new_states
+                ) queue
+            |> array_concat
+        match *solution with
+        | None => loop queue
+        | Some: _, path => list_rev path
+
+    loop (array_singleton (mario_pos, Nil))
+
+inl find_mario x =
+    let rec loop b =
+        if b < array_length x then 
+            inl x = array_index x b
+            let rec loop' a =
+                if a < array_length x then 
+                    match array_index x a with
+                    | Mario => Some: b,a
+                    | _ => loop' (a+1)
+                else loop (b+1)
+            loop' 0
+        else None
+    loop 0
+
+inl cell s = 
+    inl x = peek s
+    let f ok = inc s . (Ok:)
+    match x with
+    | '.' => f Empty | 'm' => f Mario | 'p' => f Princess
+    | _ => error_char' s "cell"
+
+inl Save_the_princess_parse = 
+    i32 >>= fun n => 
+    inl field = array_create n
+    let rec loop i s =
+        if i < n then ((parray n cell .<< spaces) >>= fun ok => array_set field i ok . loop (i+1)) s
+        else 
+            match find_mario field with
+            | Some: => Ok: save_the_princess field some
+            | None => error_char' s "Mario not found."
+    loop 0
+    
+inl Largest_palindrome_product : i32 =
+    inl reverse_number x =
+        let rec loop (x:x':) = if 0 < x then loop (x: x/10 x': x'*10+x%10) else x'
+        loop (x:x':0)
+    inl is_palindrome x = x = reverse_number x
+    for (From: 100 nearTo: 1000) (fun b =>
+        for (From: b nearTo: 1000) (fun a s =>
+            inl x = b*a
+            if is_palindrome x && s < x then x else s
+            )
+        ) 0
+
+inl Largest_prime_factor =
+    inl target = 60085147514i64
+    inl sieve_length : i32 = $"!target |> float |> sqrt |> int"
+    inl sieve = array_init (sieve_length+1) (const true)
+    for' (From: 2 to: sieve_length) (fun i =>
+        if array_index sieve i then 
+            for' (From: i+i to: sieve_length up: i) (fun i => array_set sieve i false)
+        )
+    for (From: 3 to: sieve_length up: 2) (fun i s =>
+        if array_index sieve i && target % $"int64 !i" = 0 then i else s
+        ) -1

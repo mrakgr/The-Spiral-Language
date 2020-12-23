@@ -1,8 +1,0 @@
-// Does the nested record pattern with rebinding work?
-inl main () =
-    inl f {name p={y=y' x=x'}} = name,(x',y')
-    inl x = { name = "Coord" }
-    f {x with 
-        p = { x = 1i32
-              y = 2i8 }}
-    |> dyn

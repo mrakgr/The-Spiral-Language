@@ -1,9 +1,0 @@
-// Does returning from join points work on nested structures?
-open real_core
-inl main _ =
-    inl q = {q=1;w=2;e=3}
-    inl w = {a=q;b=q}
-    inl e = {z=w;x=w}
-    inl e = join e
-    inl e = join e
-    ()

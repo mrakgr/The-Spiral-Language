@@ -1,2 +1,0 @@
-inl index (str : string) (i : i32): char = !!!!StringIndex(str,i)
-inl length (str : string): i32 = !!!!StringLength(str)

@@ -1,6 +1,7 @@
 {
 	"name": "spiral-lang-vscode",
-	"version": "2.0.0",
+	"displayName": "The Spiral Language",
+	"version": "2.0.4",
 	"description": "VS Code editor support plugin + the Spiral language compiler.",
 	"repository": {
 		"url": "https://github.com/mrakgr/The-Spiral-Language"
@@ -65,25 +66,16 @@
 		]
 	},
 	"scripts": {
-		"vscode:prepublish": "webpack --mode production",
-		"webpack": "webpack --mode development",
-		"webpack-dev": "webpack --mode development --watch",
-		"test-compile": "tsc -p ./"
 	},
 	"keywords": [
 		"spiral"
 	],
 	"devDependencies": {
-		"@types/lodash": "^4.14.161",
 		"@types/node": "^14.14.14",
 		"@types/vscode": "^1.44.0",
-		"ts-loader": "^8.0.12",
-		"typescript": "^4.1.3",
-		"webpack": "^5.11.0",
-		"webpack-cli": "^4.2.0"
+		"typescript": "^4.1.3"
 	},
 	"dependencies": {
-		"lodash": "^4.17.20",
 		"zeromq": "^6.0.0-beta.6"
 	}
 }
