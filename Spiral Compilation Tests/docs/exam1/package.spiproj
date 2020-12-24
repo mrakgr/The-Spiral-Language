@@ -1,0 +1,13 @@
+packageDir: 
+    ..
+packages:
+    a
+    b
+modules:
+    a
+    b-
+    c*
+    d*-
+    some_folder/
+        z
+        x
