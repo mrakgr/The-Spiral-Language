@@ -1,2 +1,6 @@
-inl add ~a ~b : i32 = join a + b
-inl main () = add 1 2, add 3 4, add 5 6
+inl add a b : i32 = a + b
+inl main () = 
+    inl f ~g = join g()
+    inl ~x = 1
+    inl ~y = 2
+    f (fun () => add x y)

@@ -1,3 +1,25 @@
+<!-- TOC -->
+
+- [News](#news)
+    - [12/22/2020](#12222020)
+    - [12/24/2020](#12242020)
+- [The Spiral Language](#the-spiral-language)
+    - [Overview](#overview)
+    - [Getting Spiral](#getting-spiral)
+    - [Status in 12/24/2020](#status-in-12242020)
+    - [Projects & Packages](#projects--packages)
+        - [TODO](#todo)
+    - [Top-down modules](#top-down-modules)
+        - [Compilation](#compilation)
+            - [TODO](#todo-1)
+        - [Basics](#basics)
+        - [Join points](#join-points)
+            - [TODO - Join points and language interop](#todo---join-points-and-language-interop)
+        - [Functions](#functions)
+        - [What triggers dyning?](#what-triggers-dyning)
+
+<!-- /TOC -->
+
 # News
 
 ## 12/22/2020
@@ -454,8 +476,163 @@ These examples cover the essence of join points. All they do is specialize the b
 
 While their essence of their functionality is easy to understand, these examples are just scratching the surface of their usefulness. If it was just performance, they would not be useless, but they would not be enough to motivate me to make a language with them as one of the most essential features.
 
-#### Join points and language interop
+#### TODO - Join points and language interop
 
-It is a pity I cannot demostrate this benefit at the moment as Spiral is in alpha stage, but it is worth illustrating.
+It is a pity I cannot demostrate this benefit at the moment as Spiral is in alpha stage, but it is worth describing how it used to work in the previous version.
 
-The previous version of Spiral, had a Cuda backend with a join point variant specific
+The previous version of Spiral, had a Cuda backend with a join point variant specific to it.
+
+The way the whole thing worked is that the compiler would produce an F# file, similar to how it is done now, and in addition to that, there would also be a C file with the methods specialized by Cuda join points. This C file would further be processed by the Cuda compiler into a `.ptx` one which is the high level assembly language used by LLVM.
+
+The Cuda join point itself would not necessarily return a type like regular ones do, because the F# codegen would not be able to actually run it, and generating the code to run it would be too complex for it. Instead what the Cuda join point would do is return a runtime string with the name of the specialized method along with the array of runtime vars passed into it.
+
+This is exactly the data you need in order to call Cuda kernels through the Cuda library functions that expose that functionality for other platforms. Calling the Cuda kernel from .NET was not as simple as simply wrapping the expression in an join point like for regular methods, instead it was necessary to pass a lambda to some `run` function, which is almost as easy. The Cuda join point was an integral part of connecting the F# to the Cuda backend.
+
+Having this machinery in place made it trivial to make all sort of complex Cuda kernels and call them from the .NET land. And as an example, because of Spiral's inlining capabilities it was possible to have map functions that are autodifferentiated on the GPU. Before working on Spiral, in 2016 I tried making a ML library in raw F# and completely got stuck on how to move beyond the Cuda kernels being raw text strings. Compared to that the ML library I wrote in previous Spiral was a major leap in quality and extensibility compared to the one in F#, afforded completely thanks to the novel abstraction capabilities of the language.
+
+### Functions
+
+In Spiral, inlining is composable. It is not necessarly the case that one is restricted to putting join points at function body starts.
+
+```
+inl add a b : i32 = a + b
+inl main () = 
+    inl ~x = true
+    if x then join add 1 2
+    else add 3 4
+```
+```fs
+let rec method0 () : int32 =
+    3
+let v0 : bool = true
+if v0 then
+    method0()
+else
+    7
+```
+
+Join points can be put everywhere an expression can. Here is some more of their magic.
+
+```
+inl add a b : i32 = a + b
+inl main () = 
+    inl f g = join g()
+    inl x = 1
+    inl y = 2
+    f (fun () => add x y)
+```
+```fs
+let rec method0 () : int32 =
+    3
+method0()
+```
+
+Functions are also partially evaluated in Spiral.
+
+Suppose `1` and `2` were runtime variables.
+
+```
+inl add a b : i32 = a + b
+inl main () = 
+    inl f g = join g()
+    inl ~x = 1
+    inl ~y = 2
+    f (fun () => add x y)
+```
+```fs
+let rec method0 (v0 : int32, v1 : int32) : int32 =
+    v0 + v1
+let v0 : int32 = 1
+let v1 : int32 = 2
+method0(v0, v1)
+```
+
+This example demonstrates how functions interact with join point specialization. As long as functions aren't dyned, the partial evaluator tracks them by their body and environment.
+
+Here is what happens when functions are dyned.
+
+```
+inl add a b : i32 = a + b
+inl main () = 
+    inl ~x = 1
+    inl ~y = 2
+    inl f z = add x y + z
+    inl ~g = f
+    g 3, g 4, g 5
+```
+```fs
+let rec closure0 (v0 : int32, v1 : int32) (v2 : int32) : int32 =
+    let v3 : int32 = v0 + v1
+    v3 + v2
+let v0 : int32 = 1
+let v1 : int32 = 2
+let v2 : (int32 -> int32) = closure0(v0, v1)
+let v3 : int32 = v2 3
+let v4 : int32 = v2 4
+let v5 : int32 = v2 5
+struct (v3, v4, v5)
+```
+
+Dyning does closure conversion of relevant functions. At runtime it creates a heap allocated object with the nessary runtime variables and specializes the function body. After that the object can be passed around and applied at runtime in multiple places.
+
+### What triggers dyning?
+
+* The dyn pattern.
+* Join point returns.
+* If branch and match case returns when their conditional is not known.
+* Stores to runtime data structures such as arrays.
+
+As a language, Spiral is designed to be sensible about when various abstractions such as functions should be heap allocated and not. F# and other functional languages provide no guarantees when a function will get inlined or not. This is important for performance as much as it is for interop.
+
+```
+inl main () = 
+    inl f g = join g()
+```
+
+This was a part of one of the previous examples. Suppose `g` was dyned, like in the following example.
+
+```
+inl add a b : i32 = a + b
+inl main () = 
+    inl f ~g = join g()
+    inl ~x = 1
+    inl ~y = 2
+    f (fun () => add x y)
+```
+```fs
+let rec closure0 (v0 : int32, v1 : int32) () : int32 =
+    v0 + v1
+and method0 (v0 : (unit -> int32)) : int32 =
+    v0 ()
+let v0 : int32 = 1
+let v1 : int32 = 2
+let v2 : (unit -> int32) = closure0(v0, v1)
+method0(v2)
+```
+
+Then the join point would get passed a closure.
+
+Closures are troublesome for interop because they cannot be sent past language boundaries.
+
+In the Cuda backend for example, very little could go past it, namely:
+
+* Primitive number types.
+* Arrays of them.
+
+Runtime strings cannot. Chars would give memory corruption errors. .NET booleans aren't blittable either.
+
+Arrays of compound structures like tuples or records aren't blittable either. The fact that I could use tensors which arranged arrays of tuples into tuples of arrays was a major benefit when it came to interop.
+
+Spiral tracks runtime variables in data structures individually so passing them through backend boundaries is not a problem, but in .NET languages this is something that takes special care. .NET structs for example have their order and padding automated by the compiler, while C structs are sequential, but the C compiler also has leeway to insert padding into them for some reason.
+
+Non-recursive union types could be serialized in theory, but it has not been implemented as I did not require that functionality at the time. The Cuda backend itself supported non-recursive union types though.
+
+The lesson from all of this is - the simpler the runtime representations the language uses the better it is at interop.
+
+F# or Scala or Haskell, or any similar language with advanced type systems do not have this focus on making inlining composable. I do not think it would be possible to take any of those languages and make them a serious C competitor.
+
+But with Spiral, suppose you picked a backend that did not have garbage collection and you disallowed its ability to do closure conversion. It would still retain the vast majority of its expressive power.
+
+My years of experience tell me that the situations where you actually want to heap allocate a function and store it in an array or a reference are actually fairly rare. And the situations where you are abstracting some repeated functionality through higher order functions are quite distinct from those.
+
+Compared to other functional languages, Spiral has added complexity because of all of its partial evaluation magic. That is true. But if you forget the dyn pattern and the inl statements, and only use `let` the language can essentially be treated as any other ML variant.
