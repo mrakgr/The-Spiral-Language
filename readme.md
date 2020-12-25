@@ -127,7 +127,9 @@ moduleDir: src
 
 Besides those 4, there package file schema also supports `name` and `version` fields, but those do not affect compilation in any way at the moment.
 
-The great thing about packages is that their processing is done concurrently. While modules are processed strictly sequentially as in F#, packages are more flexible. Circular links between packages though are not allowed and will report an error.
+The great thing about packages is that their processing is done concurrently. While modules are processed strictly sequentially as in F#, packages are more flexible. Circular links between packages though are not allowed and will report an error. 
+
+As long as any of the loaded packages has an error, type inference won't work - the changes will cached until the package errors are resolved and only show the previous results.
 
 ### TODO
 
@@ -136,10 +138,324 @@ The great thing about packages is that their processing is done concurrently. Wh
 
 ## Top-down modules
 
-### Motivation
+The Spiral language is split into the top-down (`.spi`) and the bottom-up (`.spir`) segments. The difference between the two is that the top-down actually has an ML-styled type system based on unification while the bottom-up does type propagation via partial evaluation.
 
-The way the language works currently, it is split into the top-down and the bottom-up segments.
+This is a major innovation in v2 of Spiral. In its previous version, Spiral did not have a top-down segment. 
 
-In its previous version, Spiral did not have a top-down segment. Though it was statically typed, it did not have a type system in the usual sense. Instead it was all left to the partial evaluator which would propagate information bottom-up. Together with clever use of memoization, that was enough to give many powerful capabilities. Doing type inference bottom-up is very powerful, but after a year of it, I started to realize that expressiveness and power, while worthy and necessary goals in themselves are not all there is. In particular, just because the partial evaluator can do anything it does not mean it should do everything. 
+I spent a year programming like that, but after a while I got tired of it. After a year of it, I started to realize that expressiveness and power, while worthy and necessary goals in themselves are not all there is. I was in love with it for a while as it was such a new perspective on both programming and static typing, but in the end I came to know the truth - just because the partial evaluator can do anything it does not mean it should do everything. 
 
-The ergonomics of bottom-up type inference are nowhere as good as top-down, but ..
+The bottom-up has high expressiveness and power, but the user has to pay a cost for that even when such a power is not needed so there is great benefit to putting a weaker, but easier to use type system on top of it. I expect that at least 95% of the time the programming in Spiral will be done with the help of the top-down type system. The top-down segment is the easy part of Spiral.
+
+### Compilation
+
+For the following part I will be using a `package.spiproj` file with the core library and an arbitrary module to write things in.
+
+```
+packages: core-
+modules: a
+```
+
+The way to compile a module is to have it open in the editor and then use `Spiral: Build File` from the command palette.
+
+Here is an example module `a.spi`:
+
+```
+inl main () = 1i32
+```
+
+Using the build command will partially evaluate the `main` function. This will create `a.fsx` with the following residual program as output.
+
+```
+1
+```
+
+#### TODO
+
+Right now the `main` function takes in an `unit` type as an argument. In the future this might change so it takes in an array of strings, in addition there will be more compilation options available - rather than just compiling `main`, I want Spiral to be usable for compiling libraries. But right now, the status is early alpha and the language is still in the testing phase.
+
+### Basics
+
+In its top level segment, Spiral is fairly similar to F# and various ML-family languages like OCaml. It is an eager and impure statically typed functional language without a doubt. So whatever skills you pick up in those languages will be directly transferable to Spiral. F# in particular has many learning resources whose breadth would be too much for me to cover in this document, so I'd recommend it, especially for beginners. This document is intended for those already proficient in functional languages and people who know how to program, and want to take their skills to the next level.
+
+My goals from here on out will be as follows:
+
+* Cover all the language features with examples.
+* Talk about the design considerations of Spiral and why it is designed the way it is.
+
+In particular when I get to join points and inlineables, the material will get hard to follow for a beginner. This next segment though should be straightforward.
+
+Here are some rudimentary examples of programs and their output.
+
+```
+inl main () =
+    inl x = 1
+    inl y = 2
+    x + y
+```
+
+If you try to compile the above you will actually get an error that the `main` function should not be a forall. If you hover the mouse cursor over the `main` you will see that its type is `forall 'a {number}. () -> 'a`. Here `'a` is the type variable with the `number` constraint. `()` is the unit type and `() -> 'a` indicates it is a function from unit to `a`.
+
+Spiral most closely resembles F# its design, and here is the first difference. Like Haskell it supports polymorphic number literals. In fact if you hover over `1` or `2` you will see that they are of type `'a`.
+
+In order to compile this segment what needs to be done is have the literals be concrete.
+
+```
+inl main () =
+    inl x = 1i32
+    inl y = 2
+    x + y
+```
+
+```fs
+3
+```
+
+Now, the compiled output program is just a single int `3`.
+
+```
+inl main () =
+    inl x = 1f64
+    inl y = 2
+    x + y
+```
+
+```fs
+3.000000
+```
+
+It is easy enough to change the constant to a float. An alternative is to just provide a type annotation somewhere.
+
+```
+inl main () : u16 =
+    inl x = 1
+    inl y = 2
+    x + y
+```
+
+```fs
+3us
+```
+
+Now the literal is inferred to be a 16-bit unsigned int. Here is one more...
+
+```
+inl main () =
+    inl x = 1 : i64
+    inl y = 2
+    x + y
+```
+
+```fs
+3L
+```
+
+Here the literal is now an 64-bit signed int. Primitive number types in Spiral consist of signed ints (`i8`,`i16`,`i32`,`i64`), unsigned ints (`u8`,`u16`,`u32`,`u64`) and floats (`f32`,`f64`). Other primitive types are `bool`, `string` and `char`. 
+
+Unlike mutable heap layout types (think references) and arrays, the primitive types are tracked exactly at compile time. The reason why the output program comes up to 3, is because the partial evaluator will keep 1 and 2 in memory and add them together.
+
+In regular languages, whether something happens at compile time or runtime is vague and indistinct, but Spiral is a lot more careful about such considerations. Performance is one of the reasons, but language interop is just as important as well.
+
+Using `~` it is easy to instruct the partial evaluator to push the variable tracking to runtime.
+
+```
+inl main () =
+    inl ~x = 1 : i64
+    inl y = 2
+    x + y
+```
+
+```fs
+let v0 : int64 = 1L
+v0 + 2L
+```
+
+`~` is called the dyn pattern. Whenever a variable is passed through the dyn pattern during a bind, it gets pushed to runtime. In the above example, only `x` has been dyned so only the `let` statement for it has been generated in the compiled code.
+
+```
+inl main () =
+    inl ~x = 1 : i64
+    inl ~y = 2
+    x + y
+```
+
+```fs
+let v0 : int64 = 1L
+let v1 : int64 = 2L
+v0 + v1
+```
+
+### Join points
+
+The above capability to push compile time data to runtime is hugely important for functions. In languages without exposure to partial evaluation such as F#, you might have ordinary `let` statements and `let inline` requivalents and that is it. You can define a function and then give a suggestion to the compiler to inline it, and that is the whole story when it comes to inlining in most languages.
+
+Spiral is more flexible.
+
+The following example is equivalent to the first one.
+
+```
+inl add a b = a + b
+inl main () =
+    inl x = 1i32
+    inl y = 2
+    add x y
+```
+
+```fs
+3
+```
+
+It is possible to use the dyn pattern on function arguments.
+
+```
+inl add ~a ~b = a + b
+inl main () =
+    inl x = 1i32
+    inl y = 2
+    add x y
+```
+
+```fs
+let v0 : int32 = 1
+let v1 : int32 = 2
+v0 + v1
+```
+
+Here is an example that performs several additions.
+
+```
+inl add ~a ~b : i32 = a + b
+inl main () = add 1 2, add 3 4, add 5 6
+```
+
+```
+let v0 : int32 = 1
+let v1 : int32 = 2
+let v2 : int32 = v0 + v1
+let v3 : int32 = 3
+let v4 : int32 = 4
+let v5 : int32 = v3 + v4
+let v6 : int32 = 5
+let v7 : int32 = 6
+let v8 : int32 = v6 + v7
+struct (v2, v5, v8)
+```
+
+It convient to have the function itself be the one to decide whether it wants runtime or compile time variables.
+
+The above example is trivial, but for larger functions it would be better if they could be compiled to actual methods. The way to accomplish that is to wrap the body of the expression in a join point.
+
+```
+inl add ~a ~b : i32 = join a + b
+inl main () = add 1 2, add 3 4, add 5 6
+```
+
+```fs
+let rec method0 (v0 : int32, v1 : int32) : int32 =
+    v0 + v1
+let v0 : int32 = 1
+let v1 : int32 = 2
+let v2 : int32 = method0(v0, v1)
+let v3 : int32 = 3
+let v4 : int32 = 4
+let v5 : int32 = method0(v3, v4)
+let v6 : int32 = 5
+let v7 : int32 = 6
+let v8 : int32 = method0(v6, v7)
+struct (v2, v5, v8)
+```
+
+The join point converts all the runtime variables passed into its scope into method arguments in the resulting compiled code. During partial evaluation after making the environment as a part of its key, it then partially evaluates the method body which in the above case is just `a + b`.
+
+In order to understand join points better, it would be instructive to show what happens when arguments aren't being dyned.
+
+```
+inl add ~a b : i32 = join a + b
+inl main () = add 1 2, add 3 4, add 5 6
+```
+
+```fs
+let rec method0 (v0 : int32) : int32 =
+    v0 + 2
+and method1 (v0 : int32) : int32 =
+    v0 + 4
+and method2 (v0 : int32) : int32 =
+    v0 + 6
+let v0 : int32 = 1
+let v1 : int32 = method0(v0)
+let v2 : int32 = 3
+let v3 : int32 = method1(v2)
+let v4 : int32 = 5
+let v5 : int32 = method2(v4)
+struct (v1, v3, v5)
+```
+
+The constants are different so the join point gets compiled to different methods.
+
+```
+inl add ~a b : i32 = join a + b
+inl main () = add 1 10, add 3 10, add 5 10
+```
+
+```fs
+let rec method0 (v0 : int32) : int32 =
+    v0 + 10
+let v0 : int32 = 1
+let v1 : int32 = method0(v0)
+let v2 : int32 = 3
+let v3 : int32 = method0(v2)
+let v4 : int32 = 5
+let v5 : int32 = method0(v4)
+struct (v1, v3, v5)
+```
+
+If the constant `b` happened to be the same, then the join point would end up needing only a single method in the compiled code. Without any dyning at all, here is what would happen.
+
+```
+inl add a b : i32 = join a + b
+inl main () = add 1 2, add 3 4, add 5 6
+```
+```fs
+let rec method0 () : int32 =
+    3
+and method1 () : int32 =
+    7
+and method2 () : int32 =
+    11
+let v0 : int32 = method0()
+let v1 : int32 = method1()
+let v2 : int32 = method2()
+struct (v0, v1, v2)
+```
+
+This is just for illustration of what join points are doing. In actual programming practice, you'd generally want to either inline everything or dyn all the arguments and wrap them in a join point. To do the later, `let` is a convenient shorthand.
+
+```
+let add a b : i32 = a + b
+inl main () = add 1 2, add 3 4, add 5 6
+```
+```fs
+let rec method0 (v0 : int32, v1 : int32) : int32 =
+    v0 + v1
+let v0 : int32 = 1
+let v1 : int32 = 2
+let v2 : int32 = method0(v0, v1)
+let v3 : int32 = 3
+let v4 : int32 = 4
+let v5 : int32 = method0(v3, v4)
+let v6 : int32 = 5
+let v7 : int32 = 6
+let v8 : int32 = method0(v6, v7)
+struct (v2, v5, v8)
+```
+
+`inl add ~a ~b : i32 = join a + b` is equivalent to `let add a b : i32 = a + b`.
+
+These examples cover the essence of join points. All they do is specialize the body of their expressions with respect to their environment.
+
+While their essence of their functionality is easy to understand, these examples are just scratching the surface of their usefulness. If it was just performance, they would not be useless, but they would not be enough to motivate me to make a language with them as one of the most essential features.
+
+#### Join points and language interop
+
+It is a pity I cannot demostrate this benefit at the moment as Spiral is in alpha stage, but it is worth illustrating.
+
+The previous version of Spiral, had a Cuda backend with a join point variant specific

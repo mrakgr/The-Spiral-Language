@@ -1,0 +1,2 @@
+inl add ~a ~b : i32 = join a + b
+inl main () = add 1 2, add 3 4, add 5 6
