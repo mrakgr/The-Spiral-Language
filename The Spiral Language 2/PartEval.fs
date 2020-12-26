@@ -681,9 +681,16 @@ let peval (env : TopEnv) (x : E) =
                 else raise_type_error s <| sprintf "Cannot apply an argument of type %s to a function of type: %s" (show_ty b_ty) (show_ty a_ty)
             | DV(L(i,YLayout(ty,layout))) as a, DSymbol b -> 
                 let key = TyLayoutIndexByKey(L(i,(ty,layout)), b)
+                let ret_ty = 
+                    match ty with
+                    | YRecord r ->
+                        match Map.tryFind b r with
+                        | Some a -> a
+                        | None -> raise_type_error s <| sprintf "Cannot find the key %s inside the layout type's record." b
+                    | _ -> raise_type_error s <| sprintf "Expected a record inside the layout type.\nGot: %s" (show_ty ty)
                 match layout with
-                | HeapMutable -> push_typedop_no_rewrite s key ty
-                | Heap -> push_typedop s key ty
+                | HeapMutable -> push_typedop_no_rewrite s key ret_ty
+                | Heap -> push_typedop s key ret_ty
             | DV(L(_,YLayout _)), b -> raise_type_error s <| sprintf "Expected a symbol as the index into the layout type.\nGot: %s" (show_data b)
             | a,_ -> raise_type_error s <| sprintf "Expected a function, closure, record or a layout type.\nGot: %s" (show_data a)
 

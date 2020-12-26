@@ -849,8 +849,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             match visit_t a with
             | TySymbol x ->
                 match Map.tryFind x l with
-                | Some (TyRecord l) -> f l b
-                | Some a -> unify r a (TyFun(b,s))
+                | Some a -> 
+                    match visit_t a with
+                    | TyRecord l -> f l b
+                    | a -> unify r a (TyFun(b,s))
                 | None -> errors.Add(r,RecordIndexFailed x)
             | _ -> errors.Add(r,ExpectedSymbolAsRecordKey x)
         | x -> errors.Add(r,ExpectedSymbolAsRecordKey x)

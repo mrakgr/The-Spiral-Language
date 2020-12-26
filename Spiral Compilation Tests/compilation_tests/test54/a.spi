@@ -1,0 +1,4 @@
+// Does indexing into layout types work.
+inl main () = 
+    inl p = heap {a=1i32; b=2}
+    p.a + p.b

@@ -19,6 +19,11 @@
         - [What triggers dyning?](#what-triggers-dyning)
         - [Macros](#macros)
         - [Layout types](#layout-types)
+        - [Nominals](#nominals)
+        - [Symbols](#symbols)
+            - [Symbols And Records](#symbols-and-records)
+            - [Symbols And Pairs](#symbols-and-pairs)
+                - [Symbols And Unions](#symbols-and-unions)
 
 <!-- /TOC -->
 
@@ -768,7 +773,7 @@ method0()
 Heap allocated objects can be nested.
 
 ```
-inl main () = join heap {q = {a=1i32; n= heap {b=2i32; c=3i32}}}
+inl main () = join heap {q = {a=1i32; n = heap {b=2i32; c=3i32}}}
 ```
 ```fs
 type Heap1 = {l0 : int32; l1 : int32}
@@ -801,10 +806,408 @@ inl main () =
     a <- {q=3; w=4}
 ```
 ```fs
-type Heap0 = {l0 : int32; l1 : int32}
-and Mut0 = {mutable l0 : int32; mutable l1 : int32}
+type Mut0 = {mutable l0 : int32; mutable l1 : int32}
 let v0 : Mut0 = {l0 = 1; l1 = 2} : Mut0
 v0.l0 <- 3
 v0.l1 <- 4
 ```
 
+The same flattening semantics work for heap mutable types as for regular heap types.
+
+```
+inl main () = 
+    inl a = mut {q = {a=1i32; n = {b=2i32; c=3i32}}}
+    a <- {q={a=4; n={b=5; c=6}}}
+```
+```fs
+type Mut0 = {mutable l0 : int32; mutable l1 : int32; mutable l2 : int32}
+let v0 : Mut0 = {l0 = 1; l1 = 2; l2 = 3} : Mut0
+v0.l0 <- 4
+v0.l1 <- 5
+v0.l2 <- 6
+```
+
+Heap mutables when combined with records do have some extra benefits.
+
+```
+inl main () = 
+    inl a = mut {q = {a=1i32; n = {b=2i32; c=3i32}}}
+    a.q.n <- {b=5; c=6}
+```
+```fs
+type Mut0 = {mutable l0 : int32; mutable l1 : int32; mutable l2 : int32}
+let v0 : Mut0 = {l0 = 1; l1 = 2; l2 = 3} : Mut0
+v0.l1 <- 5
+v0.l2 <- 6
+```
+
+This nested indexing on the left side is specific to records, there is no way to get the same effect for pairs for example.
+
+With this, the functionality of layout types has been covered. Here is how to turn layout types into regular ones.
+
+```
+inl main () = 
+    inl a = heap 1i32
+    inl b = mut 2i32
+    !a, *b
+```
+```fs
+type Heap0 = {l0 : int32}
+and Mut0 = {mutable l0 : int32}
+let v0 : Heap0 = {l0 = 1} : Heap0
+let v1 : Mut0 = {l0 = 2} : Mut0
+let v2 : int32 = v0.l0
+let v3 : int32 = v1.l0
+struct (v2, v3)
+```
+
+`!` and `*` are unary operators defined in the core library.
+
+### Nominals
+
+In Spiral, nominals are just compile time wrappers around some underlying type. They are similar to type aliases in that they are type level functions, but they also retain the arguments applied to them. Their unboxing needs to be forced. As mentioned in the previous section, here is what an F# records equivalent would be in Spiral.
+
+```
+nominal t = heap {a : i32; b : i32}
+inl main () = t (heap {a=1; b=2})
+```
+```fs
+type Heap0 = {l0 : int32; l1 : int32}
+let v0 : Heap0 = {l0 = 1; l1 = 2} : Heap0
+v0
+```
+
+As can be seen, the wrapper never appears in the compiled code. It bears mentioning that the generated code samples are in fact perfectly predictable. Spiral does not do any black box or speculative optimization, so you can count on this behavior to happen every time.
+
+Here is how nominals can be destructured in patterns.
+
+```
+nominal t = heap {a : i32; b : i32}
+inl main () = 
+    inl x = t (heap {a=1; b=2})
+    match x with
+    | t p => p.a + p.b
+```
+```fs
+type Heap0 = {l0 : int32; l1 : int32}
+let v0 : Heap0 = {l0 = 1; l1 = 2} : Heap0
+let v1 : int32 = v0.l0
+let v2 : int32 = v0.l1
+v1 + v2
+```
+
+### Symbols
+
+In F# and most statically typed languages it is not possible to bind member accessors. In Spiral that is not a problem.
+
+```
+inl main () = 
+    inl x = .asd
+    x
+```
+```fs
+()
+```
+
+It is possible to use `x` to access a record or a module field like so.
+
+```
+inl main () = 
+    inl x = .asd
+    {asd = "qwe"} x
+```
+```fs
+"qwe"
+```
+
+If you hover the cursor over `x`, you will see that the type is `.asd`. Symbols are a bit like strings, except their type happens to be whatever their value is.
+
+In the top-down segment this is of limited use. Suppose you wrote a program like this...
+
+```
+inl main () = 
+    inl x = {a="asd"; b=true}
+    inl f k = x k
+    f .a, f .b
+```
+```
+Expected symbol as a record key.
+Got: 'a
+```
+
+It is expecting a symbol key known at compile time, but it is instead getting a type variable. The top down system is not powerful enough to deal with this. The `real` bottom up one is however.
+
+```
+inl main () : () = real
+    inl x = {a="asd"; b=true}
+    inl f k = x k
+    f .a, f .b
+```
+```fs
+struct ("asd", true)
+```
+
+The disadvantage of using the bottom up system is that you lose the top down benefits of type inference. Not only will the type errors get deferred to the partial evaluation stage, type application and type annotations for closures and recursive join points have to be set manually. This is tedious or difficult depending on the approach and more details will be provided in a later segment. For now, let us stick to the top-down part of Spiral
+
+#### Symbols And Records
+
+An amazing number of functional languages have crappy records, but in Spiral they really come into their own.
+
+For example, they support nested (lensic) updates.
+
+```
+inl main () =
+    inl x = {q = 1i32; w={a="asd"; b=true}}
+    {x.w with b=false}
+```
+```fs
+struct (1, "asd", false)
+```
+
+The above code fragment is not actually the behavior you'd get in F#. In F#, what would happen is that `x.w` would grab the nested record and update only that one instead.
+
+```fs
+let x = {|q=1; w={|a="asd"; b=true|}|}
+{|x with w={|x.w with b=false|}|}
+```
+
+This is what the record update code fragment would be equivalent to in F#. That F# does not do this is actually fairly annoying at times. One thing I've found that eases record handling significantly that F# does not support is record punning.
+
+```
+inl main () =
+    inl x = {q = 1i32; w={a="asd"; b=true}}
+    inl b = false
+    {x.w with b}
+```
+```fs
+struct (1, "asd", false)
+```
+
+Spiral can do more, here is how key removal can be done.
+
+```
+inl main () =
+    inl x = {q = 1i32; w={a="asd"; b=true}}
+    {x.w without b}
+```
+```fs
+struct (1, "asd")
+```
+
+It supports key injection for removals.
+
+```
+inl main () =
+    inl k = .b
+    inl x = {q = 1i32; w={a="asd"; b=true}}
+    {x.w without $k}
+```
+```fs
+struct (1, "asd")
+```
+
+Key injection also works for updates.
+
+```
+inl main () =
+    inl k = .b
+    inl x = {q = 1i32; w={a="asd"; b=true}}
+    {x.w with $k=false}
+```
+```fs
+struct (1, "asd", false)
+```
+
+The above only demonstrates set-updates. There are also the modify-updates. Instead of writing `a = b`, use the `#=` operator instead.
+
+```
+inl main () =
+    inl k = .b
+    inl flip x = x = false
+    inl x = {q = 1i32; w={a="asd"; b=true}}
+    {x.w with $k#=flip}
+```
+```fs
+struct (1, "asd", false)
+```
+
+The above is the injecting version of the modify update. `b #= flip` would work just as fine.
+
+Just like in updates, injection and punning works in patterns. Here are a few examples.
+
+```
+inl main () : i32 =
+    inl f {a=a b=b} = a + b
+    f {a=1; b=2}
+```
+```fs
+3
+```
+
+The above is equivalent to...
+
+```
+inl main () : i32 =
+    inl f {a b} = a + b
+    f {a=1; b=2}
+```
+```fs
+3
+```
+
+Here are two record injection examples. First is the regular one that does explicit rebinding.
+
+```
+inl main () : i32 =
+    inl k, k' = .q, .w
+    inl f {$k=a $k'=b} = a + b
+    f {q=1; w=2}
+```
+```fs
+3
+```
+
+Here is the punny record injection pattern.
+
+```
+inl main () : i32 =
+    inl k, k' = .q, .w
+    inl f {$k $k'} = k + k'
+    f {q=1; w=2}
+```
+```fs
+3
+```
+
+The record injection patterns aren't too useful in the top down segment, but in the bottom up segment which was the entirety of Spiral in the previous version, I often used them.
+
+There is one other bit of special record syntax worth mentioning.
+
+```
+inl main () : i32 =
+    inl r = {a = fun x => x * 2}
+    r (.a, 5)
+```
+```fs
+10
+```
+
+When you apply a record with a pair whose first element is a symbol, it will do a nested application with the result of that an the right side.
+
+```
+inl main () : i32 =
+    inl r = {q = {a = fun x => x * 2}}
+    r (.q, .a, 5)
+```
+```fs
+10
+```
+
+It is not just a double application, but a nested one, so it works when there are nested pairs.
+
+I originally wanted to allow this for modules as well, but automated filling of type applications cannot work with that so modules are restricted to being applied with individual symbols. This restriction only applies in the top down segment. The bottom up treats them as regular records.
+
+The nested record application will be useful if the language ever gets OO-styled interfaces - I consider those one of the rare good OO ideas.
+
+#### Symbols And Pairs
+
+You'd imagine this part would be short since how much could there be to say about pairs, but there is a decent amount to cover. Spiral v0.2 has a lot of experimental syntax surrounding symbols that draws inspiration from Smalltalk.
+
+Seen from the perspective of the top-down segment a lot of what I am going to show here might seem superflous. You would be able to substitute the various symbol patterns with records to get the same effect. The problem with records though is that they leak and can cause unused arguments to be passed through join points.
+
+Here is an example of that.
+
+```
+open real_core
+inl main () : i32 = real
+    inl f x = join x.a.a + x.a.b
+    inl r _ = inl ~x = {a=1; b=2; c=3} in x
+    f {a=r(); b=r()}
+```
+```fs
+let rec method0 (v0 : int32, v1 : int32, v2 : int32, v3 : int32, v4 : int32, v5 : int32) : int32 =
+    v0 + v1
+let v0 : int32 = 1
+let v1 : int32 = 2
+let v2 : int32 = 3
+let v3 : int32 = 1
+let v4 : int32 = 2
+let v5 : int32 = 3
+method0(v0, v1, v2, v3, v4, v5)
+```
+
+You want to operate on only a few fields of a record, but end up dragging the whole thing through the join point by accident.
+
+The bottom up segment is troublesome - you do not get handholding from the type system when applying functions, so you have even more incentive to use records just in care you miss because the error messages would be better. Since Spiral does function nesting where other languages would use multiple arguments, it is easy to miss one and not realize it until much later when the whole thing is done. Then you have to go like a ping pong ball through the codebase fixing type errors as they crop up, similarly how it would be in a dynamic language.
+
+But records are leaky. here is another way that they can leak, by misspeling optional fields.
+
+```
+open real_core
+inl main () : i32 = real
+    inl r = {name="John"; surname="Smith"; aeg = 18}
+    inl get_age = function
+        | {age} => age
+        | _ => -1
+    get_age r
+```
+```fs
+-1
+```
+
+This is the kind of problem you'd more often encounter in dynamic languages than static ones like Spiral.
+
+Since overuse of records was one of my regrets from the earlier version of Spiral, it is what set my mind towards smoothing out some of the rough edges from it. As a programming pattern, looking up optional record fields is simply something that should not be done. There is no fixing it.
+
+But the first one can be butressed by adding more nuance to the language. You want to express the same thing as with records, but in a more elegant fashion.
+
+```
+inl add (left: a right: b) = a + b
+inl main () : i32 = add (left: 1 right: 2)
+```
+```fs
+3
+```
+
+`(left: a right: b)` is equivalent to `(.left_right_, a, b)`. This holds for both the pattern and the constructor.
+
+```
+inl add (.left_right_, a, b) = a + b
+inl main () : i32 = add (left: 1 right: 2)
+```
+```
+inl add (.left_right_, a, b) = a + b
+inl main () : i32 = add (.left_right_, 1, 2)
+```
+```
+inl add (left: a right: b) = a + b
+inl main () : i32 = add (.left_right_, 1, 2)
+```
+
+All of these are valid and equivalent ways of writing the same thing.
+
+Punning can also be used with symbolic pairs.
+
+```
+inl add (left: right:) = left + right
+inl main () : i32 = inl left, right = 1,2 in add (left: right:)
+```
+
+Like with records, the punning patterns can be mixed with regular ones.
+
+The type of `add` here is a bit interesting. It is `forall 'a {number}. (Left: 'a right: 'a) -> 'a`.
+
+You'd expect it to be `(left: 'a right: 'a)` instead of `(Left: 'a right: 'a)`. The reason for the first letter is capitalized are the union constructors and destructors. Here is how union types are defined and constructed.
+
+##### Symbols And Unions
+
+```
+union t =
+    | A: i32
+    | B: f64
+    | C: string
+
+inl main () = C: "asd"
+```
+
+`C: "asd"` is equivalent to `c_ "asd"`, so it is not special union constructor syntax.

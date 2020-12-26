@@ -1,3 +1,6 @@
-inl main () = 
-    inl a = mut {q=1i32; w=2i32}
-    a <- {q=3; w=4}
+union t =
+    | A: i32
+    | B: f64
+    | C: string
+
+inl main () = C: "asd"
