@@ -7,7 +7,6 @@ and UH0 =
 and [<Struct>] US1 =
     | US1_0
     | US1_1 of f1_0 : int32 * f1_1 : int32 * f1_2 : UH0
-and Heap0 = {l0 : US1}
 and Mut0 = {mutable l0 : US1}
 let rec method1 (v0 : int32, v1 : int32, v2 : int32, v3 : int32, v4 : (US0 []), v5 : int32) : unit =
     let v6 : bool = v5 < v0
@@ -21,11 +20,9 @@ let rec method1 (v0 : int32, v1 : int32, v2 : int32, v3 : int32, v4 : (US0 []), 
                 false
         let v10 : US0 =
             if v9 then
-                let v10 : US0 = US0_1
-                v10
+                US0_1
             else
-                let v10 : US0 = US0_0
-                v10
+                US0_0
         v4.[v5] <- v10
         method1(v0, v1, v2, v3, v4, v7)
     else

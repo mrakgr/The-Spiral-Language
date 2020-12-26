@@ -17,6 +17,8 @@
             - [TODO - Join points and language interop](#todo---join-points-and-language-interop)
         - [Functions](#functions)
         - [What triggers dyning?](#what-triggers-dyning)
+        - [Macros](#macros)
+        - [Layout types](#layout-types)
 
 <!-- /TOC -->
 
@@ -636,3 +638,173 @@ But with Spiral, suppose you picked a backend that did not have garbage collecti
 My years of experience tell me that the situations where you actually want to heap allocate a function and store it in an array or a reference are actually fairly rare. And the situations where you are abstracting some repeated functionality through higher order functions are quite distinct from those.
 
 Compared to other functional languages, Spiral has added complexity because of all of its partial evaluation magic. That is true. But if you forget the dyn pattern and the inl statements, and only use `let` the language can essentially be treated as any other ML variant.
+
+### Macros
+
+Since all the examples so far compiled to F#, you'd be forgiven for thinking that Spiral is a .NET language. That is not necessarily the case. The reason I picked F# as the compilation target is partly familiarity - up to that point F# was my primary language, and party platform specific reasons. JVM for example does not support tail call optimization (TCO). Neither do the various Javascript engines.
+
+Compiling to Python directly would just throw away too many of Spiral's inate performance advantages in addition to not having TCO. C compilers are pretty good these days, so I think they would support TCO. A C backend that interfaces with Python's runtime system would give all the advantages of Python and Spiral with none of the disadvantages, so if there is demand for this I would be willing to work on this.
+
+Back in 2017 during the work on the first Spiral, I actually tried making Spiral a proper .NET language, but in the end realized that .NET is huge. It was really quite difficult to make progress in this direction, and to make matters worse, on the Cuda side I also needed a system to interface with its C++ libraries. I asked around and tried looking for ways of getting the types from C++ header files, but that quickly turned into a dead end as C++ was too complex as a language. Parsing C++ actually requires a full C++ compiler.
+
+So for language interop, I ended up settling on macros. This is actually fairly similar to how ReasonML and Fable interface with Javascript. The new Spiral also uses macros for interop, but they got a refresh. The old Spiral had fairly flexible and powerful macros, that were ugly to write and look at. The new Spiral has nice and elegant string-interpolated ones.
+
+This is the general theme of the move from v0.09 to v2 - the language has been redesigned from the ground up in order to improve its ergonimics and compilation times.
+
+Here is an example of them.
+
+```
+inl main () = 
+    inl ~x = "asd"
+    $"// This is a comment"
+    inl ~y = "qwe"
+    $"printfn \"x=%s, y=%s\" !x !y"
+    ()
+```
+```fs
+let v0 : string = "asd"
+// This is a comment
+let v1 : string = "qwe"
+printfn "x=%s, y=%s" v0 v1
+```
+
+Using ! it is possible to splice in the term variables, and ` can be used to do the same for type variables.
+
+Here is how it is possible to create .NET objects. Note that these examples are easier to read in the editor as it provides semantic highlighting.
+
+```
+type resize_array a = $"ResizeArray<`a>"
+inl resize_array_create forall a. : resize_array a = $"ResizeArray<`a>()"
+inl resize_array_add forall a. (x : resize_array a) (v : a) : () = $"!x.Add(!v)"
+
+inl main () = 
+    inl ~x = resize_array_create
+    resize_array_add x 1i32
+    resize_array_add x 2
+    resize_array_add x 3
+```
+```fs
+let v0 : ResizeArray<int32> = ResizeArray<int32>()
+v0.Add(1)
+v0.Add(2)
+v0.Add(3)
+```
+
+This is not as nice as having direct interop with .NET that F# gives you. If one wanted to program purely on the .NET platform, and the task did not require composable inlining or heavy serialization I would not recommend Spiral over F#. But the system shown here does have an advantage in that it makes the creation of a language backend easy.
+
+The F# one is a bit less than 400 lines of code, and macros give us access to all the .NET libraries right away. The situation would be the same if Spiral were compiling to Cuda, Java, Python or anything else.
+
+### Layout types
+
+F# would say that `let id x = x` is just a function, and according to the previous section, Spiral would contribute to the conversation by saying: 'No, no, this is a function with a dyn pattern on its argument and a join point wrapped around its body.' It shows a more nuanced way of thinking by pointing out a reasonable decomposition for a function into several orthogonal concepts.
+
+When it comes to data structures, many languages mix various orthogonal concepts to arrive at their foundation.
+
+For example, consider an F# record.
+
+```fs
+type R = { a : int; b : string }
+```
+
+In F# this is a record, but in Spiral the equivalent would be a nominal type + heap layout type + a record type.
+
+In Spiral, compund types such as pairs and records do not have a runtime footprint. 
+
+```
+inl main () = join 1i32, 2i32, 3i32
+```
+```fs
+let rec method0 () : struct (int32 * int32 * int32) =
+    struct (1, 2, 3)
+method0()
+```
+
+This is convenient as heap allocation are not necessary for them. If the target was a C backend, the obvious benefit is that the user would never need to hesitate when using records or pairs. F# tuples and records are heap allocated by default and it is up to the compiler to optimize the heap allocations away if it can.
+
+Spiral on the other hand gives a hard guarantee on what their runtime representation will be. Much like for inlining, what you see is what you get. `inl` statements aren't a suggestion to the compiler - it will always inline.
+
+Here is the same example, except with a record.
+
+```
+inl main () = join {a=1i32; b=2i32; c=3i32}
+```
+```fs
+let rec method0 () : struct (int32 * int32 * int32) =
+    struct (1, 2, 3)
+method0()
+```
+
+Spiral records are lexically ordered, and they get compiled down to ordinary stack allocated structs. Their keys get erased. A benefit of this is that it becomes possible to nest records without any penalty.
+
+```
+inl main () = join {q = {a=1i32; n={b=2i32; c=3i32}}}
+```
+```fs
+let rec method0 () : struct (int32 * int32 * int32) =
+    struct (1, 2, 3)
+method0()
+```
+
+The same applies to pairs. In fact `1,2,3` is equivalent to `1,(2,3)` in Spiral. In F# though these would be distinct.
+
+A motivation for having pairs as opposed to tuples in Spiral is that later on when I implement tensors, this will make it possible to easily partially apply their outermost dimension. If you have a 3d tensor for example, typically you need to apply it all at once in various languages, but in Spiral I want to make it easy to write something like `t ! 0` which would then apply the outermost dimension and return a 2d tensor.
+
+In F#, function arrows are right associative `a -> b -> c` is equivalent to `a -> (b -> c)`. The pairs being that way as well gives them a symmetry that can be exploited to make data structures applicable.
+
+At any rate, heap allocation is desirable in some scenarios and Spiral makes it easy to change the layout of its types.
+
+```
+inl main () = join heap {q = {a=1i32; n={b=2i32; c=3i32}}}
+```
+```fs
+type Heap0 = {l0 : int32; l1 : int32; l2 : int32}
+let rec method0 () : Heap0 =
+    {l0 = 1; l1 = 2; l2 = 3} : Heap0
+method0()
+```
+
+`heap` is a core library function of type `forall a. a -> heap a`. It will dyn the input and construct a runtime heap allocated object consisting of them.
+
+Heap allocated objects can be nested.
+
+```
+inl main () = join heap {q = {a=1i32; n= heap {b=2i32; c=3i32}}}
+```
+```fs
+type Heap1 = {l0 : int32; l1 : int32}
+and Heap0 = {l0 : int32; l1 : Heap1}
+let rec method0 () : Heap0 =
+    let v0 : Heap1 = {l0 = 2; l1 = 3} : Heap1
+    {l0 = 1; l1 = v0} : Heap0
+method0()
+```
+
+They can be used on primitive types.
+
+```
+inl main () = join heap {q = {a=1i32; n={b=heap 2i32; c=3i32}}}
+```
+```fs
+type Heap1 = {l0 : int32}
+and Heap0 = {l0 : int32; l1 : Heap1; l2 : int32}
+let rec method0 () : Heap0 =
+    let v0 : Heap1 = {l0 = 2} : Heap1
+    {l0 = 1; l1 = v0; l2 = 3} : Heap0
+method0()
+```
+
+This is useful as Spiral does not have references, but it does have heap mutable types.
+
+```
+inl main () = 
+    inl a = mut {q=1i32; w=2i32}
+    a <- {q=3; w=4}
+```
+```fs
+type Heap0 = {l0 : int32; l1 : int32}
+and Mut0 = {mutable l0 : int32; mutable l1 : int32}
+let v0 : Mut0 = {l0 = 1; l1 = 2} : Mut0
+v0.l0 <- 3
+v0.l1 <- 4
+```
+

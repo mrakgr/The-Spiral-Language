@@ -304,7 +304,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | x,UStack -> sprintf "US%i_%i%s" (ustack x).tag i vars
             |> simple
         | TyLayoutToHeap(a,b) -> sprintf "{%s} : Heap%i" (layout_vars a) (heap b).tag |> simple
-        | TyLayoutToHeapMutable(a,b) -> sprintf "{%s} : Mut%i" (layout_vars a) (heap b).tag |> simple
+        | TyLayoutToHeapMutable(a,b) -> sprintf "{%s} : Mut%i" (layout_vars a) (mut b).tag |> simple
         | TyLayoutIndexAll(L(i,(a,lay))) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i
         | TyLayoutIndexByKey(L(i,(a,lay)),key) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
