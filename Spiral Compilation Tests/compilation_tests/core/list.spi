@@ -14,5 +14,5 @@ inl map f l = foldBack (fun x s => f x :: s) l Nil
 inl iter f l = fold (fun () x => f x) () l
 
 open monad
-instance (>>=) list = fun x f => concat (map f x)
+instance (>>=) list = fun x f => foldBack (fun x l => append (f x) l) x Nil
 instance on_succ list = fun x => x :: Nil

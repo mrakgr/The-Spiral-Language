@@ -99,6 +99,8 @@ type TypeError =
     | MacroIsMissingAnnotation
     | ShadowedForall
     | UnionTypesMustHaveTheSameLayout
+    | OrphanInstance
+    | ShadowedInstance
 
 let shorten' x link next = let x = next x in link.contents' <- Some x; x
 let rec visit_tt = function
@@ -533,6 +535,8 @@ let show_type_error (env : TopEnv) x =
     | MacroIsMissingAnnotation -> "The macro needs an annotation."
     | ShadowedForall -> "Shadowing of foralls (in the top-down) segment is not allowed."
     | UnionTypesMustHaveTheSameLayout -> "The two union types must have the same layout."
+    | OrphanInstance -> "The instance has to be defined in the same module as either the prototype or the nominal."
+    | ShadowedInstance -> "The instance cannot be defined twice."
 
 let loc_env (x : TopEnv) = {term=x.term; ty=x.ty; constraints=x.constraints}
 let names_of vars = List.map (fun x -> x.name) vars |> Set
@@ -1397,6 +1401,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             with :? TypeErrorException as e -> errors.AddRange e.Data0
         let assert_kind_arity prot_kind_arity ins_kind_arity = if ins_kind_arity < prot_kind_arity then errors.Add(r,InstanceArityError(prot_kind_arity,ins_kind_arity))
         let assert_instance_forall_does_not_shadow_prototype_forall prot_forall_name = List.iter (fun ((r,(a,_)),_) -> if a = prot_forall_name then errors.Add(r,InstanceVarShouldNotMatchAnyOfPrototypes)) vars
+        let assert_orphan_shadow_check (prot_id : GlobalId) (ins_id : GlobalId) = if Map.containsKey (prot_id, ins_id) top_env.prototypes_instances then errors.Add(r,ShadowedInstance)
+        let assert_orphan_instance_check (prot_id : GlobalId) (ins_id : GlobalId) = if (prot_id.module_id = module_id || ins_id.module_id = module_id) = false then errors.Add(r,OrphanInstance)
         let body prot_id ins_id = 
             let ins_kind' = top_env.nominals_aux.[ins_id].kind
             let guard next = if 0 = errors.Count then next () else fail
@@ -1436,14 +1442,13 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         |> fun x -> generalized_statements.Add(body,x)
                     prot_body
                 | _ -> failwith "impossible"
+            assert_orphan_shadow_check prot_id ins_id
+            assert_orphan_instance_check prot_id ins_id
+            guard <| fun () ->
             top_env <- {top_env with prototypes_instances = Map.add (prot_id,ins_id) ins_constraints top_env.prototypes_instances}
             term scope {term=Map.empty; ty=env_ty; constraints=Map.empty} prot_body body
             (if 0 = errors.Count then psucc (fun () -> FInstance(r,(fst prot, prot_id),(fst ins, ins_id),fill r Map.empty body)) else pfail),
-            // TODO: Do the instance orphan checking here.
-            AInclude 
-                {top_env_empty with
-                    prototypes_instances = Map.add (prot_id,ins_id) ins_constraints Map.empty
-                    }
+            AInclude {top_env_empty with prototypes_instances = Map.add (prot_id,ins_id) ins_constraints Map.empty}
             
         let fake _ = fail
         let check_ins on_succ =

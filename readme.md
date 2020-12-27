@@ -8,10 +8,10 @@
     - [Getting Spiral](#getting-spiral)
     - [Status in 12/24/2020](#status-in-12242020)
     - [Projects & Packages](#projects--packages)
-        - [TODO](#todo)
-    - [Top-down modules](#top-down-modules)
+        - [TODO - Deal with core and packages](#todo---deal-with-core-and-packages)
+    - [Top-Down Segment](#top-down-segment)
         - [Compilation](#compilation)
-            - [TODO](#todo-1)
+            - [TODO - Expand the compilation options](#todo---expand-the-compilation-options)
         - [Basics](#basics)
         - [Join points](#join-points)
             - [TODO - Join points and language interop](#todo---join-points-and-language-interop)
@@ -24,6 +24,9 @@
             - [Symbols And Records](#symbols-and-records)
             - [Symbols And Pairs](#symbols-and-pairs)
                 - [Symbols And Unions](#symbols-and-unions)
+        - [Prototypes](#prototypes)
+    - [Bottom-Up Segment](#bottom-up-segment)
+        - [Memory](#memory)
 
 <!-- /TOC -->
 
@@ -65,9 +68,11 @@ A language good enough at propagating information so as to be capable of express
 
 * Structural introspection through pattern matching not just for unions, but for all core types.
 * Seamless interoperability between different language backends.
-* First class functions, pairs and records.
+* First class functions, pairs, records and unions.
 * Composable layouts of data structures.
 * Symbols as singleton types.
+* Top-down type inference via unification
+* Extensibility via prototypes.
 
 Spiral is such a language.
 
@@ -160,12 +165,12 @@ The great thing about packages is that their processing is done concurrently. Wh
 
 As long as any of the loaded packages has an error, type inference won't work - the changes will cached until the package errors are resolved and only show the previous results.
 
-### TODO
+### TODO - Deal with core and packages
 
 * Put the core library somewhere the users can get it. Right now it is buried in `Spiral Compilation Tests\compilation_tests`.
 * Expand the `packages` field parser so that more elaborate paths can be provided.
 
-## Top-down modules
+## Top-Down Segment
 
 The Spiral language is split into the top-down (`.spi`) and the bottom-up (`.spir`) segments. The difference between the two is that the top-down actually has an ML-styled type system based on unification while the bottom-up does type propagation via partial evaluation.
 
@@ -198,7 +203,7 @@ Using the build command will partially evaluate the `main` function. This will c
 1
 ```
 
-#### TODO
+#### TODO - Expand the compilation options
 
 Right now the `main` function takes in an `unit` type as an argument. In the future this might change so it takes in an array of strings, in addition there will be more compilation options available - rather than just compiling `main`, I want Spiral to be usable for compiling libraries. But right now, the status is early alpha and the language is still in the testing phase.
 
@@ -1138,9 +1143,9 @@ method0(v0, v1, v2, v3, v4, v5)
 
 You want to operate on only a few fields of a record, but end up dragging the whole thing through the join point by accident.
 
-The bottom up segment is troublesome - you do not get handholding from the type system when applying functions, so you have even more incentive to use records just in care you miss because the error messages would be better. Since Spiral does function nesting where other languages would use multiple arguments, it is easy to miss one and not realize it until much later when the whole thing is done. Then you have to go like a ping pong ball through the codebase fixing type errors as they crop up, similarly how it would be in a dynamic language.
+The bottom up segment is troublesome - you do not get handholding from the type system when applying functions, so you have even more incentive to use records just in care you miss because the error messages would be better. Since Spiral does function nesting where other languages would use multiple arguments, it is easy to miss one and not realize it until much later when the whole thing is done. The bottom-up segment forces you to go like a ping pong ball through the codebase fixing type errors much after they have been made, similarly how it would be in a dynamic language.
 
-But records are leaky. here is another way that they can leak, by misspeling optional fields.
+Records are leaky. Here is another way that they can leak by misspeling optional fields.
 
 ```
 open real_core
@@ -1197,17 +1202,512 @@ Like with records, the punning patterns can be mixed with regular ones.
 
 The type of `add` here is a bit interesting. It is `forall 'a {number}. (Left: 'a right: 'a) -> 'a`.
 
-You'd expect it to be `(left: 'a right: 'a)` instead of `(Left: 'a right: 'a)`. The reason for the first letter is capitalized are the union constructors and destructors. Here is how union types are defined and constructed.
+You'd expect it to be `(left: 'a right: 'a)` instead of `(Left: 'a right: 'a)`. The reason for the first letter is capitalized are the union constructors and destructors.
 
 ##### Symbols And Unions
+
+Here is how union types are defined and constructed.
+
+```
+union t =
+    | A: i32 // .a_ * i32
+    | B: f64 // .b_ * f64
+    | C: string // .c_ * string
+
+inl main () = C: "asd"
+```
+```fs
+type [<Struct>] US0 =
+    | US0_0 of f0_0 : int32
+    | US0_1 of f1_0 : float
+    | US0_2 of f2_0 : string
+US0_2("asd")
+```
+
+`C: "asd"` in the `main` function body is equivalent to writing `c_ "asd"`. It is not necessarily special union constructor syntax.
+
+```
+inl c_ x = x
+inl main () = C: "asd"
+```
+```fs
+"asd"
+```
+
+In fact, it is possible to define the function as so...
+
+```
+inl (C: x) = x
+inl main () = C: "asd"
+```
+```fs
+"asd"
+```
+
+Here is a more elaborate example of what is possible.
+
+```
+inl (Add: to:) = add + to
+inl main () = Add: 1 to: 2
+```
+
+This is the same as...
+
+```
+inl (Add: to:) = add + to
+inl main () = add_to_ (1, 2)
+```
+
+Note how in the function body (on the first line) the `add` is lowercase. This is the general pattern when it comes to symbols - the first capitalized letter gets converted to lower case, and then there is special behavior depending on the context. On the term level, that would turning it into a function call, and in a pattern, that would be union destructuring.
+
+There is one bit of special syntax left.
 
 ```
 union t =
     | A: i32
-    | B: f64
-    | C: string
+    | B // .b * ()
 
-inl main () = C: "asd"
+inl main () = B
 ```
 
-`C: "asd"` is equivalent to `c_ "asd"`, so it is not special union constructor syntax.
+`B` is equivalent to `b ()` in the `main` function body.
+
+```
+inl B = "asd"
+inl main () = B
+```
+```fs
+"asd"
+```
+
+All top level `inl` and `let` statements in Spiral have to be functions known at parse time, and one obvious use of this kind of syntax is for defining constants at the top level.
+
+Now that this bit has been introduced, it should be a bit more clear why changing the first letter of a paired symbol pattern is being done.
+
+For example, if...
+
+```
+inl (A: x) = x
+```
+
+...was compiled to something like...
+
+```
+inl A_ x = x
+```
+
+...then it would conflict with big name pattern that was just introduced. The way it is done now meshes well with the way union types are defined.
+
+For completeness, here is an example of how union destructuring works in Spiral.
+
+```
+union t =
+    | A: i32
+    | C: string
+
+inl main () = 
+    inl ~x = C: "Hello"
+    match x with
+    | A: x => A: x * 2
+    | C: x => C: "zxc"
+```
+```fs
+type [<Struct>] US0 =
+    | US0_0 of f0_0 : int32
+    | US0_1 of f1_0 : string
+let v0 : string = "Hello"
+let v1 : US0 = US0_1(v0)
+match v1 with
+| US0_0(v2) -> (* a_ *)
+    let v3 : int32 = v2 * 2
+    US0_0(v3)
+| US0_1(v2) -> (* c_ *)
+    US0_1("zxc")
+```
+
+One final thing, Spiral makes a distinction between recursive and non-recursive unions. Lists for example need to be defined with `union rec`.
+
+```
+union rec list a =
+    | Nil
+    | Cons: a * list a
+```
+
+Only `union rec` can be a mutually recursive type definition in Spiral. 
+
+```
+union rec a =
+    | A: b
+    | StopA
+and union b =
+    | B: a
+    | StopB
+```
+
+### Prototypes
+
+Spiral supports a form of ad-hoc polymorhism even in the top-down segment. Functionally, they are equivalent to Haskell's single parameter typeclasses. It is possible to use them to implement the monad typeclass for example. Here is a simpler example to start things off.
+
+```
+nominal a = i32
+nominal b = f64
+prototype is_bigger_than_five t : t -> bool
+instance is_bigger_than_five a = fun (a x) => 5 <= x
+instance is_bigger_than_five b = fun (b x) => 5 <= x
+inl main () = is_bigger_than_five (a 1), is_bigger_than_five (b 6)
+```
+```fs
+struct (false, true)
+```
+
+The above is a similar to writing the following using the bottom-up segment.
+
+```
+nominal a = i32
+nominal b = f64
+inl is_bigger_than_five x : bool = real
+    open real_core
+    match x with
+    | a x => 5i32 <= x
+    | b x => 5f64 <= x
+inl main () = is_bigger_than_five (a 1), is_bigger_than_five (b 6)
+```
+```fs
+struct (false, true)
+```
+
+To go deeper into depth, the `prototype is_bigger_than_five t : t -> bool` provides the type signature for the `is_bigger_than_five` function.
+
+```
+instance is_bigger_than_five a = fun (a x) => 5 <= x
+instance is_bigger_than_five b = fun (b x) => 5 <= x
+```
+
+After that, the prototype instances act as match cases. This a convenient way of providing ad-hoc overloading during the top-down segment.
+
+```
+nominal a = i32
+nominal b = f64
+nominal c = i64
+prototype is_bigger_than_five a : a -> bool
+instance is_bigger_than_five a = fun (a x) => 5 <= x
+instance is_bigger_than_five b = fun (b x) => 5 <= x
+inl main () = is_bigger_than_five (a 1), is_bigger_than_five (b 6), is_bigger_than_five (c 7)
+```
+
+Since the instance for nominal `c` does not exist, the above example is erroneous and the error message says as much.
+
+Besides the benefit of being inferable during the top-down segment, the prototype instances can be defined in different modules than the prototype as long as the nominal is defined there.
+
+```
+prototype (>>=) m a : forall b. m a -> (a -> m b) -> m b
+prototype on_succ m a : a -> m a
+```
+
+Here is how the monadic bind `>>=` is defined in Spiral. The first element following the prototype is the name, followed by at least one type variable which acts as a type selector. During partial evaluation, the matching is done on the type itself rather than one of the values, which allows for return polymorphism as `on_succ` demonstrates.
+
+The type variables after the first one are the ones related to it, the kind of the selector is derived from them.
+
+In Spiral, the kinds of the foralls are not automatically derived, instead when an anotation is not provided they are assumed to be `*`.
+
+```
+prototype is_bigger_than_five a : a -> bool
+```
+
+In this simple prototype for example, the kind of `a` is `*`. In the more complex monadic bind the kind of `m` is `* -> *`.
+
+In...
+
+```
+prototype (>>=) m a : forall b. m a -> (a -> m b) -> m b
+prototype on_succ m a : a -> m a
+```
+
+...the `m a` is purposely made to resemble destructuring. When writing instances, you'd imagine substituting `m a` with `list a` or some other nominal that matches the signature.
+
+It should be mentioned - all union types are always wrapped in a nominal which is why prototype instances can be defined for them. It has been mentioned that language's sometimes mix multiple concepts in order to establish their foundational data structures. In Spiral's case, its unions are nominals + raw unions under the hood. The language does not allow taking off the nominal wrapper from unions during destructuring.
+
+## Bottom-Up Segment
+
+From the perspective of the written code, the bottom-up segment generally means the code in `.spir` files and in the `real` bodies. From the perspective of compilation phases, the bottom-up segment happens during partial evaluation. Parsing and the type inference would all be a part of the top-down segment.
+
+There have been a few examples in the previous section, and in this one the advanced use cases of the Spiral language will be covered and explained.
+
+In the previous segment, most langauge features have been covered to a degree that is enough for casual use. There are some new things, but a proficient functional programmer could be expected to pick up Spiral in a few days and make headway in it. The language has eveything a functional programmer knows and loves: first class functions, pattern matching, records, tuples, unions, static typing and so on. Spiral support the low style functional programming as much as any language without dependent types.
+
+The real reason to use Spiral though is its support for the staged functional programming style. This should be a novelty to almost everybody. 
+
+There is much to complain about the bottom-up segment, I've done as much in a few places earlier. It is a direct inheritance from the earlier version of Spiral where it was the only way to program. I was in love in love with it for a while, and then I dropped it in disgust, so you might thing I'd consider it a failure. But in fact it was a great success - Spiral v0.09 is a language I'd rate extremely highly on the expressiveness/performance scale. It gave me a new perspective on what both programming and functional programming is, and if I can be successful at sharing it you'll see that there is no reason to consider functional programming lesser than imperative when it comes to performance.
+
+And as it turns out, the very same things that make the language performant are the ones which make it expressive.
+
+### The Memory Tradeoff
+
+Performance of a language can be boiled down to two factors:
+
+* Understanding what the compiler is doing.
+* Having the ability to express that understanding succinctly.
+
+You do not actually have to do explicit heap allocation for it to happen. Here is how it could be done in F#.
+
+```fs
+let id x = x
+id 3
+```
+
+Consider this simple F# program - `id` is of type `'a -> 'a`. Unless the compiler inlines this, or specializes it the way to compile `id` would be to let its argument pass in boxed form.
+
+What that means is that `3` which is a 4-byte int would be turned into a heap allocated object before.
+
+You might think this is overkill, because 3 is obviously an int here, so why waste resources by boxing it, but things aren't so simple. While it is in this situation an 4-byte int, it could be 2-byte int, or an 8-byte in another. `id` could get passed as 64-byte stack allocated struct.
+
+How do you make a function that covers all those cases all at once in the resulting code? You compile it down to a function that takes a heap allocated object, and returns that same object. Heap allocated objects have the same footprint on the stack (24-bytes in .NET's case) so they are a bit like passing a pointer in C.
+
+This has two important benefits, if you are doing a compiler.
+
+* It makes generating code easy. No need to make a partial evaluator and similar optimizers.
+* It is actually a good strategy for keeping code size down.
+
+If you were doing specialization, you'd have to generate a version of the id function for every data structure...
+
+```
+let id x = x
+inl main () =
+    inl _ = id 1i32
+    inl _ = id 2i64
+    inl _ = id 3f32
+    inl _ = id 5f64
+    inl _ = id ("qwe",true,false,'c')
+    ()
+```
+```fs
+let rec method0 (v0 : int32) : int32 =
+    v0
+and method1 (v0 : int64) : int64 =
+    v0
+and method2 (v0 : float32) : float32 =
+    v0
+and method3 (v0 : float) : float =
+    v0
+and method4 (v0 : string, v1 : bool, v2 : bool, v3 : char) : struct (string * bool * bool * char) =
+    struct (v0, v1, v2, v3)
+let v0 : int32 = 1
+let v1 : int32 = method0(v0)
+let v2 : int64 = 2L
+let v3 : int64 = method1(v2)
+let v4 : float32 = 3.000000f
+let v5 : float32 = method2(v4)
+let v6 : float = 5.000000
+let v7 : float = method3(v6)
+let v8 : string = "qwe"
+let v9 : bool = true
+let v10 : bool = false
+let v11 : char = 'c'
+let struct (v12 : string, v13 : bool, v14 : bool, v15 : char) = method4(v8, v9, v10, v11)
+()
+```
+
+As you can see, Spiral specialized the `id`'s join point to 5 different versions that it needed. This example might seem exagerated, but it is important is to understand the general rule of what goes into a language's performance.
+
+It is not so much that dynamic languages are slow because they are dynamic and static languages are fast because they are static. It is not that C# is slower than C because it has garbage collection. It is not that F# is slower than C# because it is functional.
+
+What it generally comes down to is the compilation stategy of the particular language one is using.
+
+```fs
+let id x = x
+```
+
+If you consider this function, its performance considerations should have nothing to do with memory allocation - there is no malloc, the user never told the compiler to make an object, but it happened even with static typing. This captures the essence of the problem.
+
+If the compiler is using dynamic language compilation tricks, you get a heap allocation just for calling this function. If the compiler does specialization, you get a lot of code generated, but no heap allocation.
+
+Since `id` is so small and simple, every moderately good optimizer would just inline it. But in practice, it does not actually take much to go beyond the capabilities of the optimizer. They generally aren't good at optimizing the data structures used.
+
+The heap allocation and code size tradeoff actually occurs very naturally in programming. This next example is going to have a large resulting output. The programming itself is quite simple though, all I am doing is mapping an array which causes a lot of code to be generated.
+
+```
+inl map f = array.map f
+inl main () =
+    array.init 10 id
+    |> map ((+) 2)
+    |> map ((*) 10)
+    |> map ((/) 2)
+    |> map ((-) 5)
+    |> map ((%) 4)
+```
+```fs
+let rec method0 (v0 : (int32 []), v1 : int32) : unit =
+    let v2 : bool = v1 < 10
+    if v2 then
+        let v3 : int32 = v1 + 1
+        v0.[v1] <- v1
+        method0(v0, v3)
+    else
+        ()
+and method1 (v0 : int32, v1 : (int32 []), v2 : (int32 []), v3 : int32) : unit =
+    let v4 : bool = v3 < v0
+    if v4 then
+        let v5 : int32 = v3 + 1
+        let v6 : int32 = v1.[v3]
+        let v7 : int32 = 2 + v6
+        v2.[v3] <- v7
+        method1(v0, v1, v2, v5)
+    else
+        ()
+and method2 (v0 : int32, v1 : (int32 []), v2 : (int32 []), v3 : int32) : unit =
+    let v4 : bool = v3 < v0
+    if v4 then
+        let v5 : int32 = v3 + 1
+        let v6 : int32 = v1.[v3]
+        let v7 : int32 = 10 * v6
+        v2.[v3] <- v7
+        method2(v0, v1, v2, v5)
+    else
+        ()
+and method3 (v0 : int32, v1 : (int32 []), v2 : (int32 []), v3 : int32) : unit =
+    let v4 : bool = v3 < v0
+    if v4 then
+        let v5 : int32 = v3 + 1
+        let v6 : int32 = v1.[v3]
+        let v7 : int32 = 2 / v6
+        v2.[v3] <- v7
+        method3(v0, v1, v2, v5)
+    else
+        ()
+and method4 (v0 : int32, v1 : (int32 []), v2 : (int32 []), v3 : int32) : unit =
+    let v4 : bool = v3 < v0
+    if v4 then
+        let v5 : int32 = v3 + 1
+        let v6 : int32 = v1.[v3]
+        let v7 : int32 = 5 - v6
+        v2.[v3] <- v7
+        method4(v0, v1, v2, v5)
+    else
+        ()
+and method5 (v0 : int32, v1 : (int32 []), v2 : (int32 []), v3 : int32) : unit =
+    let v4 : bool = v3 < v0
+    if v4 then
+        let v5 : int32 = v3 + 1
+        let v6 : int32 = v1.[v3]
+        let v7 : int32 = 4 % v6
+        v2.[v3] <- v7
+        method5(v0, v1, v2, v5)
+    else
+        ()
+let v0 : (int32 []) = Array.zeroCreate<int32> 10
+let v1 : int32 = 0
+method0(v0, v1)
+let v2 : int32 = v0.Length
+let v3 : (int32 []) = Array.zeroCreate<int32> v2
+let v4 : int32 = 0
+method1(v2, v0, v3, v4)
+let v5 : int32 = v3.Length
+let v6 : (int32 []) = Array.zeroCreate<int32> v5
+let v7 : int32 = 0
+method2(v5, v3, v6, v7)
+let v8 : int32 = v6.Length
+let v9 : (int32 []) = Array.zeroCreate<int32> v8
+let v10 : int32 = 0
+method3(v8, v6, v9, v10)
+let v11 : int32 = v9.Length
+let v12 : (int32 []) = Array.zeroCreate<int32> v11
+let v13 : int32 = 0
+method4(v11, v9, v12, v13)
+let v14 : int32 = v12.Length
+let v15 : (int32 []) = Array.zeroCreate<int32> v14
+let v16 : int32 = 0
+method5(v14, v12, v15, v16)
+v15
+```
+
+Those maps get compiled to a bunch of tail recursive loops. It is not hard to compile loops to imperative while ones in Spiral, but this should not be too hard to follow I hope. It is just how the `array.map` works. Counting the lines in the above program, it comes down to 82.
+
+It bears noting that arrays are the only heap allocated objects in the above example, but they could have just as easily been stack allocated like in the Cuda backend of previous Spiral.
+
+I can make a one character change to the first program, and the resulting output would be a lot smaller.
+
+```
+inl map ~f = array.map f
+inl main () =
+    array.init 10 id
+    |> map ((+) 2)
+    |> map ((*) 10)
+    |> map ((/) 2)
+    |> map ((-) 5)
+    |> map ((%) 4)
+```
+```fs
+let rec method0 (v0 : (int32 []), v1 : int32) : unit =
+    let v2 : bool = v1 < 10
+    if v2 then
+        let v3 : int32 = v1 + 1
+        v0.[v1] <- v1
+        method0(v0, v3)
+    else
+        ()
+and closure0 () (v0 : int32) : int32 =
+    2 + v0
+and method1 (v0 : int32, v1 : (int32 -> int32), v2 : (int32 []), v3 : (int32 []), v4 : int32) : unit =
+    let v5 : bool = v4 < v0
+    if v5 then
+        let v6 : int32 = v4 + 1
+        let v7 : int32 = v2.[v4]
+        let v8 : int32 = v1 v7
+        v3.[v4] <- v8
+        method1(v0, v1, v2, v3, v6)
+    else
+        ()
+and closure1 () (v0 : int32) : int32 =
+    10 * v0
+and closure2 () (v0 : int32) : int32 =
+    2 / v0
+and closure3 () (v0 : int32) : int32 =
+    5 - v0
+and closure4 () (v0 : int32) : int32 =
+    4 % v0
+let v0 : (int32 []) = Array.zeroCreate<int32> 10
+let v1 : int32 = 0
+method0(v0, v1)
+let v2 : (int32 -> int32) = closure0()
+let v3 : int32 = v0.Length
+let v4 : (int32 []) = Array.zeroCreate<int32> v3
+let v5 : int32 = 0
+method1(v3, v2, v0, v4, v5)
+let v6 : (int32 -> int32) = closure1()
+let v7 : int32 = v4.Length
+let v8 : (int32 []) = Array.zeroCreate<int32> v7
+let v9 : int32 = 0
+method1(v7, v6, v4, v8, v9)
+let v10 : (int32 -> int32) = closure2()
+let v11 : int32 = v8.Length
+let v12 : (int32 []) = Array.zeroCreate<int32> v11
+let v13 : int32 = 0
+method1(v11, v10, v8, v12, v13)
+let v14 : (int32 -> int32) = closure3()
+let v15 : int32 = v12.Length
+let v16 : (int32 []) = Array.zeroCreate<int32> v15
+let v17 : int32 = 0
+method1(v15, v14, v12, v16, v17)
+let v18 : (int32 -> int32) = closure4()
+let v19 : int32 = v16.Length
+let v20 : (int32 []) = Array.zeroCreate<int32> v19
+let v21 : int32 = 0
+method1(v19, v18, v16, v20, v21)
+v20
+```
+
+This is 25 lines shorter then the previous one. It comes down to 57 lines.
+
+The expense paid in lines of code is almost a third less, but now the resulting program would allocate closures on the heap. This along with the loop now requiring virtual calls to apply the closure would make the resulting program slower to execute that the first one. The first one's loops since they have the operations inlined directly might get vectorized and made even faster because of that.
+
+Depending on the context, the fact that the program is slower might not matter. The 57 lines version would be faster to compile. If you were programming in Python or Ruby, the fully dynamic version with just a single map for every data structure that could exist would be the fastest possible way of compiling it, but would also be the slowest to actually execute.
+
+As a general rule for reasoning about performance of languages, the more complex the programs being written in them, the more they will trend towards what their defaults are. The main reason why C is fast is because the user would never go out of your way to actually allocate closures when passing them to map functions which F#'s default. Instead the user would write out specialized loops much like those Spiral produces in the first example.
+
+The cost of abstractions can be completely free, or they could result in heap allocated objects being juggled everywhere. The type system is a small part of that.
+
+With that framework in place, it becomes easy to predict that performance of various languages ahead of time. Some languages might claim that they are fast, and might have flashy benchmarks comparing themselves to C. But regardless, you can look at what its defaults are - does it heap allocate basic data structures? Does it heap allocate primitives? Does it specialize like C++ or Spiral, or does it use dynamic language tricks to generate code like JVM and .NET ones do? Does it do the slow thing and then rely on the optimizer to make itself fast, or does it do the right thing from the start?
+
+Overall though, the right thing depends on the context. If you have a very large codebase, you might not want to wait a proportionally long time to make it fast and might prefer a slower-at-runtime language on purpose.
+
+My view, if you are doing a language that compiles to the GPU and similar restricted devices, then Spiral's compilation strategy is right period.
