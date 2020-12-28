@@ -50,6 +50,7 @@ and [<ReferenceEquality>] E =
     | EModule of Map<string, E>
     | EOp of Range * BlockParsing.Op * E list
     | EPatternMiss of E
+    | ETypePatternMiss of T
     | EAnnot of Range * E * T
     | EIfThenElse of Range * E * E * E
     | EIfThen of Range * E * E
@@ -144,6 +145,7 @@ module Printable =
         | EModule of Map<string, PE>
         | EOp of BlockParsing.Op * PE list
         | EPatternMiss of PE
+        | ETypePatternMiss of PT
         | EAnnot of PE * PT
         | EIfThenElse of PE * PE * PE
         | EIfThen of PE * PE
@@ -245,6 +247,7 @@ module Printable =
             | E.EModule a -> EModule(Map.map (fun _ -> term) a)
             | E.EOp(_,a,b) -> EOp(a,List.map term b)
             | E.EPatternMiss a -> EPatternMiss(term a)
+            | E.ETypePatternMiss a -> ETypePatternMiss(ty a)
             | E.EAnnot(_,a,b) -> EAnnot(term a,ty b)
             | E.EIfThenElse(_,a,b,c) -> EIfThenElse(term a,term b,term c)
             | E.EIfThen(_,a,b) -> EIfThen(term a,term b)
@@ -391,7 +394,7 @@ let propagate x =
         | EFun' _ | EForall' _ | ERecursiveFun' _ | ERecursiveForall' _ | ERecursive _ | EJoinPoint' _ | EModule _ | ESymbol _ | ELit _ | EB _ -> empty
         | EPatternRef a -> term !a
         | EV i -> singleton_term i
-        | EPrototypeApply(_,_,a) | EType(_,a) | EDefaultLit(_,_,a) -> ty a
+        | EPrototypeApply(_,_,a) | EType(_,a) | ETypePatternMiss a | EDefaultLit(_,_,a) -> ty a
         | ESeq(_,a,b) | EPair(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
         | ENominal(_,a,b) | EAnnot(_,a,b) | ETypeApply(_,a,b) -> term a + ty b
         | EForall(_,i,a) -> scope x (term a -. i)
@@ -432,7 +435,7 @@ let propagate x =
         | EAnnotTest(_,t,bind,on_succ,on_fail) -> singleton_term bind + ty t + term on_succ + term on_fail
         | ENominalTest(_,t,bind,pat,on_succ,on_fail) -> singleton_term bind + ty t + (term on_succ - pat) + term on_fail
         // Typecase
-        | ETypeLet(_,a,b,c) -> (ty b -. a) + term c
+        | ETypeLet(_,bind,body,on_succ) -> term on_succ -. bind + ty body
         | ETypeApplyTest(_,bind,pat1,pat2,on_succ,on_fail)
         | ETypeFunTest(_,bind,pat1,pat2,on_succ,on_fail)
         | ETypePairTest(_,bind,pat1,pat2,on_succ,on_fail) -> singleton_ty bind + (term on_succ -. pat1 -. pat2) + term on_fail
@@ -486,7 +489,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         match x with
         | EForall' _ | EFun' _ | ERecursiveForall' _ | ERecursiveFun' _ | ERecursive _ | EJoinPoint' _ | EModule _ | EV _ | ESymbol _ | ELit _ | EB _ -> ()
         | EPatternRef a -> f !a
-        | EDefaultLit(_,_,a) | EPrototypeApply(_,_,a) | EType(_,a) -> ty env a
+        | EDefaultLit(_,_,a) | EPrototypeApply(_,_,a) | EType(_,a) | ETypePatternMiss a -> ty env a
         | EJoinPoint(_,a,b) | EFun(_,_,a,b) -> subst env x; f a; Option.iter (ty env) b
         | EForall(_,_,a) -> subst env x; f a
         | ERecBlock(r,a,b) ->
@@ -600,6 +603,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EV i -> env_rec.[i] env
         | EDefaultLit(r,a,b) -> EDefaultLit(r,a,g env b)
         | EType(r,a) -> EType(r,g env a)
+        | ETypePatternMiss a -> ETypePatternMiss(g env a)
         | EApply(r,a,b) -> EApply(r,f a,f b)
         | ETypeApply(r,a,b) -> ETypeApply(r,f a,g env b)
         | ENominal(r,a,b) -> ENominal(r,f a,g env b)
@@ -949,7 +953,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                     ETypeEq(p (range_of_texpr pat),ty env pat,id,on_succ,on_fail)
             pat_refs_term, pat_ref_term' on_succ (fun on_succ -> cp id pat on_succ (EPatternMemo on_fail))
 
-        let l, e = List.mapFoldBack loop clauses (EPatternMiss(EV id))
+        let l, e = List.mapFoldBack loop clauses (ETypePatternMiss(TV id))
         l |> List.iter (fun terms ->
             let env dict = {env with ty = {|env.ty with i=var_count; env=dict |> Map.fold (fun s k v -> Map.add k (TV v) s) env.ty.env|} }
             terms |> Seq.iter (fun (a,dict,b) -> b := term (env dict) a)

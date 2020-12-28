@@ -12,7 +12,7 @@
     <PlatformTarget>x64</PlatformTarget>
     <NoWarn>40</NoWarn>
     <Tailcalls>true</Tailcalls>
-    <WarningLevel>0</WarningLevel>
+    <WarningLevel>3</WarningLevel>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">

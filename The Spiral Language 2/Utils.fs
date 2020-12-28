@@ -15,4 +15,3 @@ let lines (str : string) = str.Split([|"\r\n";"\r";"\n"|],System.StringSplitOpti
 let inline remove (dict : Dictionary<_,_>) x on_succ on_fail =
     let mutable q = Unchecked.defaultof<_>
     if dict.Remove(x, &q) then on_succ q else on_fail ()
-        

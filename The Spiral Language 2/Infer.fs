@@ -1291,10 +1291,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let constructor body =
             let t,_ = List.fold (fun (a,k) b -> let k = trim_kind k in TyApply(a,TyVar b,k),k) (TyNominal i,tt) vars
             List.foldBack (fun var ty -> TyForall(var,ty)) vars (TyFun(body,t))
-        let add_hover v = (if 0 = errors.Count then hover_types.Add(r,v)); v
         match v with
         | TyUnion(l,_) -> Map.fold (fun s name v -> Map.add name (constructor v) s) Map.empty l
-        | _ -> Map.add name (add_hover (constructor v)) Map.empty
+        | _ -> Map.add name (constructor v) Map.empty
 
     let psucc = Hopac.Job.thunk >> Hopac.Hopac.memo
     let pfail = Hopac.Promise.Now.withFailure (System.Exception "Compiler error: Tried to read from a FilledTop that has errors.")

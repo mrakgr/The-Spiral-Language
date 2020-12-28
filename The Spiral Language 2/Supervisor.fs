@@ -91,8 +91,11 @@ module Build =
     let show_trace s (x : PartEval.Main.Trace) (msg : string) =
         let error = Text.StringBuilder(1024)
         let x = 
-            let rec loop l i = function
-                | x :: x' when i > 0 -> loop (x :: l) (i-1) x'
+            let rec loop (l : PartEval.Main.Trace) i = function
+                | (x : PartEval.Prepass.Range) :: xs when i > 0 -> 
+                    match l with
+                    | x' :: _ when x.path = x'.path && fst x.range = fst x'.range -> loop l i xs
+                    | _ -> loop (x :: l) (i-1) xs
                 | _ -> l
             loop [] trace_print_length x
         List.iter (show_position s error) x
@@ -445,12 +448,14 @@ let [<EntryPoint>] main _ =
     Hopac.start (supervisor_server atten errors supervisor)
 
     let mutable time = DateTimeOffset.Now
+    #if !DEBUG 
     let timer = NetMQTimer(2000)
     poller.Add(timer)
     timer.EnableAndReset()
     use __ = timer.Elapsed.Subscribe(fun _ ->
         if TimeSpan.FromSeconds(2.0) < DateTimeOffset.Now - time then poller.Stop()
         )
+    #endif
 
     use __ = server.ReceiveReady.Subscribe(fun s ->
         let msg = server.ReceiveMultipartMessage(3)

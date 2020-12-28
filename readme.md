@@ -26,7 +26,8 @@
                 - [Symbols And Unions](#symbols-and-unions)
         - [Prototypes](#prototypes)
     - [Bottom-Up Segment](#bottom-up-segment)
-        - [Memory](#memory)
+        - [The Memory Tradeoff](#the-memory-tradeoff)
+        - [Types In The Bottom-Up Segment](#types-in-the-bottom-up-segment)
 
 <!-- /TOC -->
 
@@ -80,7 +81,7 @@ Statically typed and with a lightweight, very powerful type system giving it exp
 
 ## Getting Spiral
 
-The language is published on the VS Code marketplace. Getting it is just a matter of installing the **The Spiral Language** plugin. This will install both the VS Code editor plugin and the compiler itself. The compiler itself requires the .NET Core 3.1 rutime and is portable across platforms.
+The language is published on the VS Code marketplace. Getting it is just a matter of installing the **The Spiral Language** plugin. This will install both the VS Code editor plugin and the compiler itself. The compiler itself requires the .NET Core 3.1 rutime and is portable across platforms. The language server uses TCP to communicate with the editor so allow it in the firewall.
 
 ## Status in 12/24/2020
 
@@ -1620,7 +1621,7 @@ method5(v14, v12, v15, v16)
 v15
 ```
 
-Those maps get compiled to a bunch of tail recursive loops. It is not hard to compile loops to imperative while ones in Spiral, but this should not be too hard to follow I hope. It is just how the `array.map` works. Counting the lines in the above program, it comes down to 82.
+Those maps get compiled to a bunch of tail recursive loops. Counting the lines in the above program, it comes down to 82.
 
 It bears noting that arrays are the only heap allocated objects in the above example, but they could have just as easily been stack allocated like in the Cuda backend of previous Spiral.
 
@@ -1708,6 +1709,189 @@ The cost of abstractions can be completely free, or they could result in heap al
 
 With that framework in place, it becomes easy to predict that performance of various languages ahead of time. Some languages might claim that they are fast, and might have flashy benchmarks comparing themselves to C. But regardless, you can look at what its defaults are - does it heap allocate basic data structures? Does it heap allocate primitives? Does it specialize like C++ or Spiral, or does it use dynamic language tricks to generate code like JVM and .NET ones do? Does it do the slow thing and then rely on the optimizer to make itself fast, or does it do the right thing from the start?
 
-Overall though, the right thing depends on the context. If you have a very large codebase, you might not want to wait a proportionally long time to make it fast and might prefer a slower-at-runtime language on purpose.
+Overall though, the right thing depends on the context. If you have a very large codebase, you might not want to wait a proportionally long time to for it compile and might prefer a slower-at-runtime language on purpose.
 
-My view, if you are doing a language that compiles to the GPU and similar restricted devices, then Spiral's compilation strategy is right period.
+My view, if you are doing a language that compiles to the GPU and similar restricted devices then Spiral's compilation strategy is right, period, because heap allocation that other strategies need for their abstractions is not applicable there.
+
+### Types In The Bottom-Up Segment
+
+In addition to quick feedback, the top-down segment does the user a great service by providing annotations to join points, functions (for closure conversion) and macros. It also fills in the type applications and inserts foralls in function bodies.
+
+```
+inl id ~x = join x
+```
+
+The above is how you would define the identity function in the top-down segment. Once the filling is done, here is how the above fragment would be written in bottom-up segment if it were done by hand.
+
+```
+inl id forall t. ~x = (join x) : t
+```
+
+The fact that `x` does not have a type annotation is intentional - annotations have completely different roles in the top-down and bottom-up segment. Join points annotations aren't strictly required unless they are recursive, but in the future they will be important for compile time performance once concurrent compilation of join points becomes a feature. This would be impossible unless their return type is provided.
+
+In the bottom-up segments, the foralls have to be applied manually.
+
+```
+inl main () : i32 = real
+    inl id forall t. ~x = (join x) : t
+    id `i32 2
+```
+```fs
+let rec method0 (v0 : int32) : int32 =
+    v0
+let v0 : int32 = 2
+method0(v0)
+```
+
+The ` operator is used to access the type scope on the term level. It is a mistake to use it unless it is in application to a forall, and in some rare inbuilt ops.
+
+```
+inl main () : i32 = real
+    inl id forall t. ~x = (join x) : t
+    id `(i32 * i32) (2,3)
+```
+```fs
+let rec method0 (v0 : int32, v1 : int32) : struct (int32 * int32) =
+    struct (v0, v1)
+let v0 : int32 = 2
+let v1 : int32 = 3
+method0(v0, v1)
+```
+
+Here is how it is possible to apply pairs. Note that the type and the term scope have completely separate environments.
+
+```
+type id t = t
+inl main () : i32 = real
+    inl id forall t. ~x = (join x) : t
+    id `(id (i32 * i32)) (2,3)
+```
+```fs
+let rec method0 (v0 : int32, v1 : int32) : struct (int32 * int32) =
+    struct (v0, v1)
+let v0 : int32 = 2
+let v1 : int32 = 3
+method0(v0, v1)
+```
+
+The output is same as before.
+
+Filling in foralls (let generalization) and filling in type applications is something that is quite tedious to do by hand. In the bottom-up segment there is actually nothing preventing the user from just doing this.
+
+```
+type id t = t
+inl main () : i32 = real
+    inl id ~x = join x
+    id (2,3)
+```
+
+This is how programming used to be done in the old Spiral. From the perspective of parametric type systems this code is complete gibberish, but to me it demonstrates that functions are the ultimate tools of abstraction, and that macros are only needed for interop.
+
+And the language is still statically typed, there is no doubt about that. It is just that typing is processed in a bottom-up fashion.
+
+Right here I will switch to a `.spir` file. The difference between `.spi` and `.spir` is that the later have their top level statements interpreted as bottom-up, similarly to the local statements in `real` blocks. Here is an example, written in `a.spir`.
+
+```
+inl main () : i32 = 1i32 + 2f64
+```
+```
+Error trace on line: 2, column: 10 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+inl main () : i32 = 1i32 + 2f64
+         ^
+Error trace on line: 2, column: 21 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+inl main () : i32 = 1i32 + 2f64
+                    ^
+The two literals must be both numeric and equal in type.
+Got: 1i32 and 2.000000f64
+```
+
+You won't get an error before you try to compile it, but once you do instead getting a compiled file, you will get a trace as a fatal error in the editor. The trace displays the execution path of the partial evaluator up until the error.
+
+TODO: In the future I might have a separate window open for it with links to specific fragments the trace points to, but now the easiest way to read it is to copy paste it somewhere. The fatal error message window does not have enough room to display it properly.
+
+Doing things bottom up gives a natural form of dead code elimination and bundling.
+
+One of the bad traits of it is that type errors can remain hidden until they are stepped on.
+
+```
+open real_core
+inl f () = 1i32 + 2f64
+inl main () : i32 = 1
+```
+```fs
+1
+```
+
+`f` is never partially evaluated so the error never manifests and the file compiles peacefully even if would be better that it did not.
+
+```
+inl main () : i32 =
+    inl id forall t. ~x = (join x) : t
+    id `(i32 * i32) (2,3)
+```
+
+Let us backtrack to this previous example. It was shown that the tedium of could be avoided by ommiting the forall entirely. Another way it could be done is to infer the type. This actually possible in the bottom-up segment, but it needs to be done programmatically.
+
+```
+inl main () =
+    inl id forall t. ~x = (join x) : t
+    inl f x = id `(`x) x
+    f (2,3)
+```
+```fs
+let rec method0 (v0 : int32, v1 : int32) : struct (int32 * int32) =
+    struct (v0, v1)
+let v0 : int32 = 2
+let v1 : int32 = 3
+method0(v0, v1)
+```
+
+On the term level you can use ` to open the type level. You can use the same unary operator again to go back to the term scope. The term gets evaluated, then converted to a type.
+
+This makes it possible to get a type of an expression without having to explicitly pass it using a forall.
+
+The identity function is simple, so in the bottom up segment you'd just not put in the forall and be done with it. The trouble starts when you encounter situations that do need annotations ahead of time.
+
+The simplest example to illustrate this would be the array map function. In the top down segment its type is `forall 'a 'b. ('a -> 'b) -> array 'a -> array 'b`.
+
+If you were implementing it in the bottom up segment, you'd start with something like...
+
+```
+inl array_map f x = ...
+```
+
+So no foralls, because those are tedious. `x` is an array and you can extract the type of its element to get `'a`. That is not difficult. What you really need though is `'b`.
+
+```
+inl array_map f x =
+    inl x' = array.create ? (array.length x)
+```
+
+You need `'b` in order to create the output array for the map function. You can't get the type from `f` directly because in the bottom up segment nothing is annotated. Because of that the partial evaluator does not know the return type of `f` unless it runs it with some input.
+
+```
+inl array_map f x =
+    inl x' = array.create `(`(f ?)) (array.length x)
+```
+
+You'd do it roughly like this. Now you need to provide the input somehow. Here is how the type of the array can be extracted.
+
+```
+inl array_map f x =
+    typecase `x with
+    | array ~t =>
+```
+
+Spiral supports a typecase constructor for pattern matching on types. In typecase specifically `~t` can be used to make new bindings. Now the problem is that although you have `t` which is a type of the array, in order to call `f` you actually need a term.
+
+```
+inl array_map f x =
+    typecase `x with
+    | array ~t =>
+        inl x' = array.create `(`(f ``t)) (array.length x)
+```
+
+The double grave operator can be used to do that. It creates a term out of a type. This is fine, since the code in the type scope will not get generated. If you try using that operator on the term level and the code with the `TypeToVar` op gets passed into the code generator you will get a trace + type error during code generation.
+
+The next you need to loop over the array, mapping the inputs to the outputs. To make things simpler, let me instead use `array.init` which creates an array and loops over it.
+

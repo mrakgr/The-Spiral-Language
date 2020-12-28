@@ -1,9 +1,0 @@
-inl map ~f = array.map f
-inl main () =
-    array.init 10 id
-    |> map ((+) 2)
-    |> map ((*) 10)
-    |> map ((/) 2)
-    |> map ((-) 5)
-    |> map ((%) 4)
-    

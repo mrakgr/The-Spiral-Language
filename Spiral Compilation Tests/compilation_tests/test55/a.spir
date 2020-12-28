@@ -1,0 +1,6 @@
+// Does the typecase work?
+inl main () =
+    !!!!PrintRaw((
+        typecase array i32 with
+        | array i32 => 1
+    ))

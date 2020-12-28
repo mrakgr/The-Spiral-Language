@@ -895,7 +895,7 @@ and root_type (flags : RootTypeFlags) d =
     let cases d =
         let wildcard d = if flags.allow_wildcard then (skip_keyword' SpecWildcard |>> RawTWildcard) d else Error []
         // This metavar case only occurs in typecase during the bottom-up segment. It should not be confused with metavars during top-down type inference.
-        let metavar d = if flags.allow_metavars then (skip_unary_op "~" >>. read_var'' |>> RawTMetaVar) d else Error []
+        let metavar d = if flags.allow_metavars then (skip_unary_op "~" >>. read_var' |>> fun (a,b,r) -> r SemanticTokenLegend.type_variable; RawTMetaVar(a,b)) d else Error []
         let term d = if flags.allow_term then (range (skip_unary_op "`" >>. ((read_var'' |>> RawV) <|> rounds root_term)) |>> RawTTerm) {d with is_top_down=false} else Error []
         let record =
             range (curlies (sepBy ((range record_var .>> skip_op ":") .>>. next) (optional (skip_op ";"))))
