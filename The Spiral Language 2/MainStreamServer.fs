@@ -406,7 +406,7 @@ type PackageDiffStream =
 let package_named_links (p : PackageSchema) =
     let names = p.schema.schema.packages // TODO: Extend the parser for packages and separate out the names and locations.
     let links = p.schema.packages
-    List.map2 (fun (_,a) ((_,b),is_include) -> a, if is_include then None else Some b) links names
+    List.map2 (fun (_,a) b -> a, if b.is_include then None else Some b.name) links names
 
 type PackageDiffState = { changes : string Set; errors : string Set; core : PackageCoreStream }
 let get_adds_and_removes (schema : PackageSchema ResultMap) ((abs,bas) : MirroredGraph) (modules : Map<string,ModuleStreamRes>) (changes : string Set) =

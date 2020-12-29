@@ -8,7 +8,6 @@
     - [Getting Spiral](#getting-spiral)
     - [Status in 12/24/2020](#status-in-12242020)
     - [Projects & Packages](#projects--packages)
-        - [TODO - Deal with core and packages](#todo---deal-with-core-and-packages)
     - [Top-Down Segment](#top-down-segment)
         - [Compilation](#compilation)
             - [TODO - Expand the compilation options](#todo---expand-the-compilation-options)
@@ -160,16 +159,19 @@ moduleDir: src
 
 `packageDir` and `moduleDir` fields both support relative and absolute paths.
 
+Package names also support the | prefix. Most tests import the core like this...
+
+```
+packages: |core-
+```
+
+Instead of looking for the package in the parent folder of the package file, the | unary operator instructs the compiler to look in the parent folder of its own executable - in other words, the plugin folder itself. This is a convenience for bundling the core library with the plugin.
+
 Besides those 4, there package file schema also supports `name` and `version` fields, but those do not affect compilation in any way at the moment.
 
 The great thing about packages is that their processing is done concurrently. While modules are processed strictly sequentially as in F#, packages are more flexible. Circular links between packages though are not allowed and will report an error. 
 
 As long as any of the loaded packages has an error, type inference won't work - the changes will cached until the package errors are resolved and only show the previous results.
-
-### TODO - Deal with core and packages
-
-* Put the core library somewhere the users can get it. Right now it is buried in `Spiral Compilation Tests\compilation_tests`.
-* Expand the `packages` field parser so that more elaborate paths can be provided.
 
 ## Top-Down Segment
 
