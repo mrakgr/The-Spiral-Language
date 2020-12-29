@@ -61,12 +61,13 @@ and file_or_directory p =
         )
     |>> fun (r',f) -> f r') p
 
+type SchemaPackages = {range : VSCRange; name : string; is_in_compiler_dir : bool; is_include : bool}
 let packages p =
     let i = column p
-    let file = range file' >>= fun (r,name) p ->
+    let file = range (((skipChar '|' >>% true) <|>% false) .>>.  file') >>= fun (r,(is_in_compiler_dir,name)) p ->
         match p.Peek() with
-        | '-' -> p.Skip(); (spaces >>% ((r,name),true)) p
-        | _ -> (spaces >>% ((r,name),false)) p
+        | '-' -> p.Skip(); (spaces >>% {range=r; name=name; is_in_compiler_dir=is_in_compiler_dir; is_include=true}) p
+        | _ -> (spaces >>% {range=r; name=name; is_in_compiler_dir=is_in_compiler_dir; is_include=false}) p
     let file p = if i <= column p then file p else Reply(ReplyStatus.Error,expected "directory on the same or greater indentation as the first one")
     many file p
 
@@ -111,7 +112,7 @@ type Schema = {
     moduleDir : RString option
     modules : FileHierarchy list
     packageDir : RString option
-    packages : (RString * bool) list
+    packages : SchemaPackages list
     }
 
 let schema_def: Schema = {

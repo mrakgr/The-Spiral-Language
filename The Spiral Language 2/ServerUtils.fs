@@ -173,13 +173,15 @@ let schema_validate project_dir x =
             []
     let packages =
         let packages = HashSet()
-        let validate_package d ((r,x),_) =
-            try let x = DirectoryInfo(Path.Combine(d,x)).FullName
-                if project_dir = x then errors.Add(r,"Self references are not allowed."); None
+        let validate_package d (p : SchemaPackages) =
+            try let x = 
+                    if p.is_in_compiler_dir then DirectoryInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..",p.name)).FullName
+                    else DirectoryInfo(Path.Combine(d,p.name)).FullName
+                if project_dir = x then errors.Add(p.range,"Self references are not allowed."); None
                 // The validator needs the backwards links even for files that are currently missing, but might exist.
-                elif packages.Add(x) then Some(r, x)
-                else errors.Add(r,"Duplicates are not allowed."); None
-            with e -> errors.Add(r, e.Message); None
+                elif packages.Add(x) then Some(p.range, x)
+                else errors.Add(p.range,"Duplicates are not allowed."); None
+            with e -> errors.Add(p.range, e.Message); None
         match x.packageDir with
         | Some(r,n) -> 
             try let d = DirectoryInfo(Path.Combine(project_dir,n))
