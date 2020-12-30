@@ -73,14 +73,8 @@ and [<ReferenceEquality>] E =
     | ENominalTest of Range * T * bind: Id * pat: Id * on_succ: E * on_fail: E
     | ELitTest of Range * Tokenize.Literal * bind: Id * on_succ: E * on_fail: E
     | EDefaultLitTest of Range * string * T * bind: Id * on_succ: E * on_fail: E
-    // Typecase
-    | ETypeLet of Range * Id * T * E
-    | ETypePairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
-    | ETypeFunTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
-    | ETypeRecordTest of Range * Map<string,Id> * bind: Id * on_succ: E * on_fail: E
-    | ETypeApplyTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
-    | ETypeArrayTest of Range * bind: Id * pat: Id * on_succ: E * on_fail: E
-    | ETypeEq of Range * T * bind: Id * on_succ: E * on_fail: E
+    | ETypecase of Range * T * (T * E) list
+
 and [<ReferenceEquality>] T =
     | TArrow' of Scope * Id * T
     | TArrow of Id * T
@@ -102,6 +96,7 @@ and [<ReferenceEquality>] T =
     | TNominal of GlobalId
     | TArray of T
     | TLayout of T * BlockParsing.Layout
+    | TMetaV of Id
 
 module Printable =
     type PMacro =
@@ -281,14 +276,6 @@ module Printable =
             | E.ENominalTest(_,a,b,c,d,e) -> ENominalTest(ty a,b,c,term d,term e)
             | E.ELitTest(_,a,b,c,d) -> ELitTest(a,b,term c,term d)
             | E.EDefaultLitTest(_,a,b,c,d,e) -> EDefaultLitTest(a,ty b,c,term d,term e)
-            // Typecase
-            | E.ETypeLet(_,a,b,c) -> ETypeLet(a,ty b,term c)
-            | E.ETypePairTest(_,a,b,c,d,e) -> ETypePairTest(a,b,c,term d,term e)
-            | E.ETypeFunTest(_,a,b,c,d,e) -> ETypeFunTest(a,b,c,term d,term e)
-            | E.ETypeRecordTest(_,a,b,c,d) -> ETypeRecordTest(a,b,term c,term d)
-            | E.ETypeApplyTest(_,a,b,c,d,e) -> ETypeApplyTest(a,b,c,term d,term e)
-            | E.ETypeArrayTest(_,a,b,c,d) -> ETypeArrayTest(a,b,term c,term d)
-            | E.ETypeEq(_,a,b,c,d) -> ETypeEq(ty a,b,term c,term d)
         and ty = function
             | T.TPatternRef a -> ty !a
             | T.TArrow'(a,b,c) -> TArrow'(a,b,ty c)
@@ -434,16 +421,6 @@ let propagate x =
         | EDefaultLitTest(_,_,t,bind,on_succ,on_fail)
         | EAnnotTest(_,t,bind,on_succ,on_fail) -> singleton_term bind + ty t + term on_succ + term on_fail
         | ENominalTest(_,t,bind,pat,on_succ,on_fail) -> singleton_term bind + ty t + (term on_succ - pat) + term on_fail
-        // Typecase
-        | ETypeLet(_,bind,body,on_succ) -> term on_succ -. bind + ty body
-        | ETypeApplyTest(_,bind,pat1,pat2,on_succ,on_fail)
-        | ETypeFunTest(_,bind,pat1,pat2,on_succ,on_fail)
-        | ETypePairTest(_,bind,pat1,pat2,on_succ,on_fail) -> singleton_ty bind + (term on_succ -. pat1 -. pat2) + term on_fail
-        | ETypeRecordTest(_,a,bind,on_succ,on_fail) ->
-            let on_succ = Map.fold (fun s k v -> s -. v) (term on_succ) a
-            singleton_ty bind + on_succ + term on_fail
-        | ETypeArrayTest(_,bind,pat,on_succ,on_fail) -> singleton_ty bind + (term on_succ -. pat) + term on_fail
-        | ETypeEq(_,t,bind,on_succ,on_fail) -> singleton_ty bind + ty t + term on_succ + term on_fail
     and ty = function
         | TJoinPoint' _ | TArrow' _ | TSymbol _ | TPrim _ | TNominal _ | TB _ -> empty
         | TPatternRef a -> ty !a
@@ -517,10 +494,9 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
             c |> List.iter (function 
                 | WSymbol _ -> ()
                 | WVar(_,a) -> f a)
-        | ENominal(_,a,b) | ETypeLet(_,_,b,a) | ETypeApply(_,a,b) | EAnnot(_,a,b) -> f a; ty env b
+        | ENominal(_,a,b) | ETypeApply(_,a,b) | EAnnot(_,a,b) -> f a; ty env b
         | EOp(_,_,a) -> List.iter f a
         | EPatternMiss a | EReal(_,a) -> f a
-        | ETypePairTest(_,_,_,_,a,b) | ETypeFunTest(_,_,_,_,a,b) | ETypeRecordTest(_,_,_,a,b) | ETypeApplyTest(_,_,_,_,a,b) | ETypeArrayTest(_,_,_,a,b)
         | EUnitTest(_,_,a,b) | ESymbolTest(_,_,_,a,b) | EPairTest(_,_,_,_,a,b) | ELitTest(_,_,_,a,b)
         | ELet(_,_,a,b) | EUnbox(_,_,a,b) | EIfThen(_,a,b) | EPair(_,a,b) | ESeq(_,a,b) | EApply(_,a,b) -> f a; f b
         | EHeapMutableSet(_,a,b,c) -> f a; List.iter (snd >> f) b; f c
@@ -532,7 +508,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | ERecordTest(_,l,_,a,b) -> 
             l |> List.iter (function Symbol _ -> () | Var((_,a),_) -> f a)
             f a; f b
-        | ETypeEq(_,t,_,a,b) | EDefaultLitTest(_,_,t,_,a,b) | ENominalTest(_,t,_,_,a,b) | EAnnotTest(_,t,_,a,b) -> ty env t; f a; f b
+        | EDefaultLitTest(_,_,t,_,a,b) | ENominalTest(_,t,_,_,a,b) | EAnnotTest(_,t,_,a,b) -> ty env t; f a; f b
 
     and ty (env : ResolveEnv) x = 
         let f = ty env
@@ -710,50 +686,6 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
             let on_succ = term env_rec env on_succ
             ENominalTest(r,g env a,i,pat,on_succ,on_fail)
         | EDefaultLitTest(r,a,b,i,on_succ,on_fail) -> EDefaultLitTest(r,a,g env b,env.term.var.[i],f on_succ,f on_fail)
-        // Typecase
-        | ETypeLet(r,pat,body,on_succ) -> 
-            let body = g env body
-            let pat,env = adj_ty env pat
-            let on_succ = term env_rec env on_succ
-            ETypeLet(r,pat,body,on_succ)
-        | ETypePairTest(r,i,pat1,pat2,on_succ,on_fail) -> 
-            let on_fail = term env_rec env on_fail
-            let i = env.ty.var.[i]
-            let pat1,env = adj_ty env pat1
-            let pat2,env = adj_ty env pat2
-            let on_succ = term env_rec env on_succ
-            ETypePairTest(r,i,pat1,pat2,on_succ,on_fail)
-        | ETypeFunTest(r,i,pat1,pat2,on_succ,on_fail) ->
-            let on_fail = term env_rec env on_fail
-            let i = env.ty.var.[i]
-            let pat1,env = adj_ty env pat1
-            let pat2,env = adj_ty env pat2
-            let on_succ = term env_rec env on_succ
-            ETypeFunTest(r,i,pat1,pat2,on_succ,on_fail)
-        | ETypeRecordTest(r,pat,i,on_succ,on_fail) -> 
-            let on_fail = term env_rec env on_fail
-            let i = env.ty.var.[i]
-            let pat,env = 
-                Map.fold (fun (pat,env) k v ->
-                    let v, env = adj_ty env v
-                    Map.add k v pat, env
-                    ) (Map.empty, env) pat
-            let on_succ = term env_rec env on_succ
-            ETypeRecordTest(r,pat,i,on_succ,on_fail)
-        | ETypeApplyTest(r,i,pat1,pat2,on_succ,on_fail) ->
-            let on_fail = term env_rec env on_fail
-            let i = env.ty.var.[i]
-            let pat1,env = adj_ty env pat1
-            let pat2,env = adj_ty env pat2
-            let on_succ = term env_rec env on_succ
-            ETypeApplyTest(r,i,pat1,pat2,on_succ,on_fail)
-        | ETypeArrayTest(r,i,pat,on_succ,on_fail) -> 
-            let on_fail = term env_rec env on_fail
-            let i = env.ty.var.[i]
-            let pat,env = adj_ty env pat
-            let on_succ = term env_rec env on_succ
-            ETypeArrayTest(r,i,pat,on_succ,on_fail)
-        | ETypeEq(r,a,i,on_succ,on_fail) -> ETypeEq(r,g env a,env.ty.var.[i],f on_succ,f on_fail)
     and ty env_rec env x =
         let f = ty env_rec env
         match x with
@@ -804,6 +736,7 @@ let fresh_term_var (e : Env) = e.term.i, (let term = e.term in {e with term = {|
 let fresh_ty_var (e : Env) = e.ty.i, (let ty = e.ty in {e with ty = {|ty with i = ty.i+1|} })
 let add_term_rec_var (e : Env) k = e.term.i_rec, add_term e k (EV e.term.i_rec)
 let add_ty_var (e : Env) k = e.ty.i, add_ty e k (TV e.ty.i)
+let add_ty_metavar (e : Env) k = e.ty.i, add_ty e k (TMetaV e.ty.i)
 
 let process_term (x : E) =
     let scope = propagate (Choice1Of2 x)
@@ -904,62 +837,6 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
             )
         e
 
-    and compile_typecase id (env : Env) (clauses : (RawTExpr * RawExpr) list) =
-        let mutable var_count = env.term.i
-        let patvar () = let x = var_count in var_count <- var_count+1; x
-        let loop (pat, on_succ) on_fail =
-            let mutable dict = Map.empty
-            let pat_refs_term = ResizeArray()
-            let pat_ref_term' x k = 
-                let re = ref Unchecked.defaultof<_> 
-                let r = k (EPatternRef re)
-                pat_refs_term.Add(x,dict,re)
-                r
-            let rec cp id pat on_succ on_fail =
-                let step pat on_succ = let id = patvar() in id, cp id pat on_succ on_fail
-                match pat with
-                | RawTFilledNominal _ | RawTTerm _ | RawTForall _ -> failwith "Compiler error: This case is not supposed to appear in typecase."
-                | RawTWildcard _ -> on_succ
-                | RawTMetaVar(r,a) -> 
-                    match Map.tryFind a dict with
-                    | Some v -> ETypeEq(p r,TV v,id,on_succ,on_fail)
-                    | None ->
-                        let v = patvar()
-                        dict <- Map.add a v dict
-                        ETypeLet(p r,v,TV id,on_succ)
-                | RawTPair(r,a,b) ->
-                    let b,on_succ = step b on_succ
-                    let a,on_succ = step a on_succ
-                    ETypePairTest(p r,id,a,b,on_succ,on_fail)
-                | RawTFun(r,a,b) ->
-                    let b,on_succ = step b on_succ
-                    let a,on_succ = step a on_succ
-                    ETypeFunTest(p r,id,a,b,on_succ,on_fail)
-                | RawTApply(r,a,b) -> 
-                    let b,on_succ = step b on_succ
-                    let a,on_succ = step a on_succ
-                    ETypeApplyTest(p r,id,a,b,on_succ,on_fail)
-                | RawTArray(r,a) ->
-                    let a,on_succ = step a on_succ
-                    ETypeArrayTest(p r,id,a,on_succ,on_fail)
-                | RawTRecord(r,a) ->
-                    let m,on_succ =
-                        Map.foldBack (fun k pat (s, on_succ) ->
-                            let id,on_succ = step pat on_succ
-                            Map.add k id s, on_succ
-                            ) a (Map.empty, on_succ)
-                    ETypeRecordTest(p r,m,id,on_succ,on_fail)
-                | RawTVar _ | RawTSymbol _ | RawTB _ | RawTPrim _ | RawTMacro _ | RawTUnion _ | RawTLayout _ -> 
-                    ETypeEq(p (range_of_texpr pat),ty env pat,id,on_succ,on_fail)
-            pat_refs_term, pat_ref_term' on_succ (fun on_succ -> cp id pat on_succ (EPatternMemo on_fail))
-
-        let l, e = List.mapFoldBack loop clauses (ETypePatternMiss(TV id))
-        l |> List.iter (fun terms ->
-            let env dict = {env with ty = {|env.ty with i=var_count; env=dict |> Map.fold (fun s k v -> Map.add k (TV v) s) env.ty.env|} }
-            terms |> Seq.iter (fun (a,dict,b) -> b := term (env dict) a)
-            )
-        e
-
     and pattern_match (env : Env) r body clauses =
         match clauses with
         | [PatVar(_,x), on_succ] ->
@@ -976,37 +853,47 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | _ ->
             let id,env = fresh_term_var env
             EFun(r,id,compile_pattern id env clauses,annot)
-    and ty (env : Env) x =
-        let f = ty env
-        match x with
-        | RawTWildcard _ -> failwith "Compiler error: Annotation with wildcards should have been stripped."
-        | RawTMetaVar _ -> failwith "Compiler error: This should have been compiled away in typecase."
-        | RawTForall _ -> failwith "Compiler error: Foralls are not allowed at the type level."
-        | RawTB r -> TB (p r)
-        | RawTVar(r,a) -> v_ty env a
-        | RawTPair(r,a,b) -> TPair(p r,f a,f b)
-        | RawTFun(r,a,b) -> TFun(p r,f a,f b)
-        | RawTRecord(r,l) -> TRecord(p r,Map.map (fun _ -> f) l)
-        | RawTUnion(r,a,b) -> TUnion(p r,(Map.map (fun _ -> f) a,b))
-        | RawTSymbol(r,a) -> TSymbol(p r,a)
-        | RawTApply(r,a,b) ->
-            match f a, f b with
-            | TRecord(_,a') & a, TSymbol(_,b') & b ->
-                match Map.tryFind b' a' with
-                | Some x -> x
-                | None -> TApply(p r,a,b) // TODO: Will be an error during partial evaluation time. Could be substituted for an exception here, but I do not want to have errors during the prepass.
-            | a,b -> TApply(p r,a,b)
-        | RawTPrim(r,a) -> TPrim(a)
-        | RawTTerm(r,a) -> TTerm(p r,term env a)
-        | RawTMacro(r,l) -> 
-            let f = function 
-                | RawMacroText(r,a) -> TMText a
-                | RawMacroTypeVar(r,a) -> TMType(f a)
-                | RawMacroTermVar _ -> failwith "Compiler error: Term vars should not appear on the type level."
-            TMacro(p r,List.map f l)
-        | RawTArray(r,a) -> TArray(f a)
-        | RawTFilledNominal(r,a) -> TNominal a
-        | RawTLayout(r,a,b) -> TLayout(f a,b)
+    and ty' (env : Env) x =
+        let mutable is_metavar : _ HashSet = null
+        let mutable env = env
+        let rec f = function
+            | RawTMetaVar(r,name) ->
+                if is_metavar = null then is_metavar <- HashSet()
+                if is_metavar.Add(name) then
+                    let id, env' = add_ty_metavar env name
+                    env <- env'
+                    TMetaV id
+                else 
+                    env.ty.env.[name]
+            | RawTWildcard _ -> failwith "Compiler error: Annotation with wildcards should have been stripped."
+            | RawTForall _ -> failwith "Compiler error: Foralls are not allowed at the type level."
+            | RawTB r -> TB (p r)
+            | RawTVar(r,a) -> v_ty env a
+            | RawTPair(r,a,b) -> TPair(p r,f a,f b)
+            | RawTFun(r,a,b) -> TFun(p r,f a,f b)
+            | RawTRecord(r,l) -> TRecord(p r,Map.map (fun _ -> f) l)
+            | RawTUnion(r,a,b) -> TUnion(p r,(Map.map (fun _ -> f) a,b))
+            | RawTSymbol(r,a) -> TSymbol(p r,a)
+            | RawTApply(r,a,b) ->
+                match f a, f b with
+                | TRecord(_,a') & a, TSymbol(_,b') & b ->
+                    match Map.tryFind b' a' with
+                    | Some x -> x
+                    | None -> TApply(p r,a,b) // TODO: Will be an error during partial evaluation time. Could be substituted for an exception here, but I do not want to have errors during the prepass.
+                | a,b -> TApply(p r,a,b)
+            | RawTPrim(r,a) -> TPrim(a)
+            | RawTTerm(r,a) -> TTerm(p r,term env a)
+            | RawTMacro(r,l) -> 
+                let f = function 
+                    | RawMacroText(r,a) -> TMText a
+                    | RawMacroTypeVar(r,a) -> TMType(f a)
+                    | RawMacroTermVar _ -> failwith "Compiler error: Term vars should not appear on the type level."
+                TMacro(p r,List.map f l)
+            | RawTArray(r,a) -> TArray(f a)
+            | RawTFilledNominal(r,a) -> TNominal a
+            | RawTLayout(r,a,b) -> TLayout(f a,b)
+        env, f x
+    and ty env x = ty' env x |> snd
     and term env x =
         let f = term env
         match x with
@@ -1022,9 +909,11 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawFun(r,a) -> pattern_function env (p r) a None
         | RawAnnot(_,RawFun(r,a),t) -> pattern_function env (p r) a (Some (ty env t))
         | RawTypecase(r,a,b) ->
-            let a = ty env a
-            let id, env = fresh_ty_var env
-            ETypeLet(p r,id,a,compile_typecase id env b)
+            let b = b |> List.map (fun (t,e) ->
+                let env, t = ty' env t
+                t, term env e
+                )
+            ETypecase(p r,ty env a,b)
         | RawFilledForall(r,name,b)
         | RawForall(r,((_,(name,_)),_),b) -> 
             let id, env = add_ty_var env name
