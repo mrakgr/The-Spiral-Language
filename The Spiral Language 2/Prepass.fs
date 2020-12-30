@@ -163,14 +163,7 @@ module Printable =
         | ENominalTest of PT * bind: Id * pat: Id * on_succ: PE * on_fail: PE
         | ELitTest of Tokenize.Literal * bind: Id * on_succ: PE * on_fail: PE
         | EDefaultLitTest of string * PT * bind: Id * on_succ: PE * on_fail: PE
-        // Typecase
-        | ETypeLet of bind: Id * PT * PE
-        | ETypePairTest of bind: Id * pat1: Id * pat2: Id * on_succ: PE * on_fail: PE
-        | ETypeFunTest of bind: Id * pat1: Id * pat2: Id * on_succ: PE * on_fail: PE
-        | ETypeRecordTest of Map<string,Id> * bind: Id * on_succ: PE * on_fail: PE
-        | ETypeApplyTest of bind: Id * pat1: Id * pat2: Id * on_succ: PE * on_fail: PE
-        | ETypeArrayTest of bind: Id * pat: Id * on_succ: PE * on_fail: PE
-        | ETypeEq of PT * bind: Id * on_succ: PE * on_fail: PE
+        | ETypecase of PT * (PT * PE) list
         | EOmmitedRecursive
     and [<ReferenceEquality>] PT =
         | TArrow' of Scope * Id * PT
@@ -179,6 +172,7 @@ module Printable =
         | TJoinPoint of PT
         | TB
         | TV of Id
+        | TMetaV of Id
         | TPair of PT * PT
         | TFun of PT * PT
         | TRecord of Map<string,PT>
@@ -196,6 +190,7 @@ module Printable =
     let eval x =
         let recs = System.Collections.Generic.HashSet(HashIdentity.Reference)
         let rec term = function
+            | E.ETypecase(r,a,b) -> ETypecase(ty a,b |> List.map (fun (a,b) -> ty a, term b))
             | E.EPatternRef a -> term !a
             | E.EFun'(_,a,b,c,d) -> EFun'(a,b,term c,Option.map ty d)
             | E.EForall'(_,a,b,c) -> EForall'(a,b,term c)
@@ -284,6 +279,7 @@ module Printable =
             | T.TJoinPoint(_,a) -> TJoinPoint(ty a)
             | T.TB _ -> TB
             | T.TV a -> TV a
+            | T.TMetaV a -> TMetaV a
             | T.TPair(_,a,b) -> TPair(ty a,ty b)
             | T.TFun(_,a,b) -> TFun(ty a,ty b)
             | T.TRecord(_,a) -> TRecord(Map.map (fun _ -> ty) a)
@@ -421,10 +417,20 @@ let propagate x =
         | EDefaultLitTest(_,_,t,bind,on_succ,on_fail)
         | EAnnotTest(_,t,bind,on_succ,on_fail) -> singleton_term bind + ty t + term on_succ + term on_fail
         | ENominalTest(_,t,bind,pat,on_succ,on_fail) -> singleton_term bind + ty t + (term on_succ - pat) + term on_fail
+        | ETypecase(_,a,b) -> 
+            List.fold (fun s (a,b) -> 
+                let a = ty a
+                let mutable b = term b
+                match a.ty.range with
+                | Some(a,a') -> for i=a to a' do b <- b -. i
+                | None -> ()
+                s + a + b
+                ) (ty a) b
     and ty = function
         | TJoinPoint' _ | TArrow' _ | TSymbol _ | TPrim _ | TNominal _ | TB _ -> empty
         | TPatternRef a -> ty !a
         | TV i -> singleton_ty i
+        | TMetaV i -> {empty with ty = {|empty.ty with range = Some(i,i)|} }
         | TApply(_,a,b) | TPair(_,a,b) | TFun(_,a,b) -> ty a + ty b
         | TUnion(_,(a,_)) | TRecord(_,a) | TModule a -> Map.fold (fun s k v -> s + ty v) empty a
         | TTerm(_,a) -> term a
@@ -509,11 +515,12 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
             l |> List.iter (function Symbol _ -> () | Var((_,a),_) -> f a)
             f a; f b
         | EDefaultLitTest(_,_,t,_,a,b) | ENominalTest(_,t,_,_,a,b) | EAnnotTest(_,t,_,a,b) -> ty env t; f a; f b
+        | ETypecase(_,a,b) -> ty env a; b |> List.iter (fun (a,b) -> ty env a; term env b)
 
     and ty (env : ResolveEnv) x = 
         let f = ty env
         match x with
-        | TJoinPoint' _ | TArrow' _ | TNominal _ | TPrim _ | TSymbol _ | TV _ | TB _ -> ()
+        | TJoinPoint' _ | TArrow' _ | TNominal _ | TPrim _ | TSymbol _ | TV _ | TMetaV _ | TB _ -> ()
         | TPatternRef a -> f !a
         | TArrow(_,a) -> subst env x; f a
         | TApply(_,a,b) | TFun(_,a,b) | TPair(_,a,b) -> f a; f b
@@ -686,15 +693,30 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
             let on_succ = term env_rec env on_succ
             ENominalTest(r,g env a,i,pat,on_succ,on_fail)
         | EDefaultLitTest(r,a,b,i,on_succ,on_fail) -> EDefaultLitTest(r,a,g env b,env.term.var.[i],f on_succ,f on_fail)
-    and ty env_rec env x =
-        let f = ty env_rec env
+        | ETypecase(r,a,b) -> 
+            let b = b |> List.map (fun (a,b) -> 
+                let metavars = Dictionary()
+                let mutable env_case = env
+                let a = 
+                    ty' (Utils.memoize metavars (fun i ->
+                        let i, env = adj_ty env_case i
+                        env_case <- env
+                        TMetaV i
+                        )) env_rec env_case a
+                a, term env_rec env_case b
+                )
+            ETypecase(r,g env a,b)
+    and ty env_rec env x = ty' (fun _ -> failwith "Compiler error: TMetaV should not appear here.") env_rec env x
+    and ty' case_tmetav env_rec env x =
+        let f = ty' case_tmetav env_rec env
         match x with
-        | TJoinPoint' _ | TArrow' _ | TNominal  _ | TPrim _ | TSymbol _ | TB _ -> x
+        | TMetaV i -> case_tmetav i
+        | TJoinPoint' _ | TArrow' _ | TNominal  _ | TPrim _ | TSymbol _ | TB _ as x -> x
         | TPatternRef a -> f !a
-        | TJoinPoint(r,a) ->
+        | TJoinPoint(r,a) as x ->
             let scope, env = scope env x 
             TJoinPoint'(r,scope,ty env_rec env a)
-        | TArrow(a,b) ->  
+        | TArrow(a,b) as x ->  
             let scope, env = scope env x
             let a, env = adj_ty env a
             TArrow'(scope,a,ty env_rec env b)
@@ -730,13 +752,14 @@ type Env = {
 let add_term (e : Env) k v = let term = e.term in {e with term = {|term with i = term.i+1; env = Map.add k v term.env|} }
 let add_term_rec (e : Env) k v = let term = e.term in {e with term = {|term with i_rec = term.i_rec-1; env = Map.add k v term.env|} }
 let add_ty (e : Env) k v = let ty = e.ty in {e with ty = {|ty with i = ty.i+1; env = Map.add k v ty.env|} }
+let add_wildcard (e : Env) = let ty = e.ty in {e with ty = {|ty with i = ty.i+1|} }
 
 let add_term_var (e : Env) k = e.term.i, add_term e k (EV e.term.i)
 let fresh_term_var (e : Env) = e.term.i, (let term = e.term in {e with term = {|term with i = term.i+1|} })
 let fresh_ty_var (e : Env) = e.ty.i, (let ty = e.ty in {e with ty = {|ty with i = ty.i+1|} })
 let add_term_rec_var (e : Env) k = e.term.i_rec, add_term e k (EV e.term.i_rec)
 let add_ty_var (e : Env) k = e.ty.i, add_ty e k (TV e.ty.i)
-let add_ty_metavar (e : Env) k = e.ty.i, add_ty e k (TMetaV e.ty.i)
+let add_ty_wildcard (e : Env) = e.ty.i, add_wildcard e
 
 let process_term (x : E) =
     let scope = propagate (Choice1Of2 x)
@@ -853,47 +876,38 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | _ ->
             let id,env = fresh_term_var env
             EFun(r,id,compile_pattern id env clauses,annot)
-    and ty' (env : Env) x =
-        let mutable is_metavar : _ HashSet = null
-        let mutable env = env
-        let rec f = function
-            | RawTMetaVar(r,name) ->
-                if is_metavar = null then is_metavar <- HashSet()
-                if is_metavar.Add(name) then
-                    let id, env' = add_ty_metavar env name
-                    env <- env'
-                    TMetaV id
-                else 
-                    env.ty.env.[name]
-            | RawTWildcard _ -> failwith "Compiler error: Annotation with wildcards should have been stripped."
-            | RawTForall _ -> failwith "Compiler error: Foralls are not allowed at the type level."
-            | RawTB r -> TB (p r)
-            | RawTVar(r,a) -> v_ty env a
-            | RawTPair(r,a,b) -> TPair(p r,f a,f b)
-            | RawTFun(r,a,b) -> TFun(p r,f a,f b)
-            | RawTRecord(r,l) -> TRecord(p r,Map.map (fun _ -> f) l)
-            | RawTUnion(r,a,b) -> TUnion(p r,(Map.map (fun _ -> f) a,b))
-            | RawTSymbol(r,a) -> TSymbol(p r,a)
-            | RawTApply(r,a,b) ->
-                match f a, f b with
-                | TRecord(_,a') & a, TSymbol(_,b') & b ->
-                    match Map.tryFind b' a' with
-                    | Some x -> x
-                    | None -> TApply(p r,a,b) // TODO: Will be an error during partial evaluation time. Could be substituted for an exception here, but I do not want to have errors during the prepass.
-                | a,b -> TApply(p r,a,b)
-            | RawTPrim(r,a) -> TPrim(a)
-            | RawTTerm(r,a) -> TTerm(p r,term env a)
-            | RawTMacro(r,l) -> 
-                let f = function 
-                    | RawMacroText(r,a) -> TMText a
-                    | RawMacroTypeVar(r,a) -> TMType(f a)
-                    | RawMacroTermVar _ -> failwith "Compiler error: Term vars should not appear on the type level."
-                TMacro(p r,List.map f l)
-            | RawTArray(r,a) -> TArray(f a)
-            | RawTFilledNominal(r,a) -> TNominal a
-            | RawTLayout(r,a,b) -> TLayout(f a,b)
-        env, f x
-    and ty env x = ty' env x |> snd
+    and ty env x = ty' (fun _ -> failwith "Compiler error: RawTMetaVar should not appear here.") env x
+    and ty' case_metavar (env : Env) x =
+        let f = ty' case_metavar env
+        match x with
+        | RawTMetaVar(_,name) -> case_metavar (Some name)
+        | RawTWildcard _ -> case_metavar None
+        | RawTForall _ -> failwith "Compiler error: Foralls are not allowed at the type level."
+        | RawTB r -> TB (p r)
+        | RawTVar(r,a) -> v_ty env a
+        | RawTPair(r,a,b) -> TPair(p r,f a,f b)
+        | RawTFun(r,a,b) -> TFun(p r,f a,f b)
+        | RawTRecord(r,l) -> TRecord(p r,Map.map (fun _ -> f) l)
+        | RawTUnion(r,a,b) -> TUnion(p r,(Map.map (fun _ -> f) a,b))
+        | RawTSymbol(r,a) -> TSymbol(p r,a)
+        | RawTApply(r,a,b) ->
+            match f a, f b with
+            | TRecord(_,a') & a, TSymbol(_,b') & b ->
+                match Map.tryFind b' a' with
+                | Some x -> x
+                | None -> TApply(p r,a,b) // TODO: Will be an error during partial evaluation time. Could be substituted for an exception here, but I do not want to have errors during the prepass.
+            | a,b -> TApply(p r,a,b)
+        | RawTPrim(r,a) -> TPrim(a)
+        | RawTTerm(r,a) -> TTerm(p r,term env a)
+        | RawTMacro(r,l) -> 
+            let f = function 
+                | RawMacroText(r,a) -> TMText a
+                | RawMacroTypeVar(r,a) -> TMType(f a)
+                | RawMacroTermVar _ -> failwith "Compiler error: Term vars should not appear on the type level."
+            TMacro(p r,List.map f l)
+        | RawTArray(r,a) -> TArray(f a)
+        | RawTFilledNominal(r,a) -> TNominal a
+        | RawTLayout(r,a,b) -> TLayout(f a,b)
     and term env x =
         let f = term env
         match x with
@@ -910,8 +924,15 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawAnnot(_,RawFun(r,a),t) -> pattern_function env (p r) a (Some (ty env t))
         | RawTypecase(r,a,b) ->
             let b = b |> List.map (fun (t,e) ->
-                let env, t = ty' env t
-                t, term env e
+                let metavars = Dictionary()
+                let mutable env_case = env
+                let t = 
+                    let f (id,env) = env_case <- env; TMetaV id
+                    ty' (function
+                        | None -> add_ty_wildcard env_case |> f
+                        | Some name -> Utils.memoize metavars (add_ty_var env_case >> f) name
+                        ) env t
+                t, term env_case e
                 )
             ETypecase(p r,ty env a,b)
         | RawFilledForall(r,name,b)

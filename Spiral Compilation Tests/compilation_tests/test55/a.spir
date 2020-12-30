@@ -1,6 +1,9 @@
 // Does the typecase work?
 inl main () =
-    !!!!PrintRaw((
-        typecase array i32 with
-        | array i32 => 1
-    ))
+    typecase array {q : i32} with
+    | array ~t =>
+        typecase t with
+        | f64 => 1
+        | i32 => 11
+        | {q : _} => true
+        | i32 * f64 => "zxc"

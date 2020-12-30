@@ -177,7 +177,6 @@ let schema_validate project_dir x =
             try let x = 
                     if p.is_in_compiler_dir then DirectoryInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"..",p.name)).FullName
                     else DirectoryInfo(Path.Combine(d,p.name)).FullName
-                printfn "package_path=%s" x
                 if project_dir = x then errors.Add(p.range,"Self references are not allowed."); None
                 // The validator needs the backwards links even for files that are currently missing, but might exist.
                 elif packages.Add(x) then Some(p.range, x)

@@ -51,6 +51,7 @@ and Ty =
     | YApply of Ty * Ty
     | YLayout of Ty * Layout
     | YUnion of Union 
+    | YMetavar of Id
 and Data =
     | DB
     | DPair of Data * Data
@@ -301,6 +302,7 @@ let show_ty x =
         | YApply(a,b) -> p 30 (sprintf "%s %s" (f 29 a) (f 30 b))
         | YLayout(a,b) -> p 30 (sprintf "%s %s" (show_layout_type b) (f 30 a))
         | YNominal x -> x.node.name
+        | YMetavar _ -> "?"
     f -1 x
 
 let show_data x =
@@ -458,6 +460,7 @@ let peval (env : TopEnv) (x : E) =
         | YUnion _ | YLayout _ | YPrim _ | YArray _ | YFun _ | YMacro _ as x -> let r = DV(L(!s.i,x)) in incr s.i; r
         | YNominal _ | YApply _ as a -> DNominal(nominal_apply s a |> ty_to_data s, a)
         | YTypeFunction _ -> raise_type_error s "Cannot turn a type function to a runtime variable."
+        | YMetavar _ -> raise_type_error s "Compiler error: Cannot turn a metavar to a runtime variable."
     and push_typedop_no_rewrite d op ret_ty =
         let ret = ty_to_data d ret_ty
         d.seq.Add(TyLet(ret,d.trace,op))
@@ -572,6 +575,7 @@ let peval (env : TopEnv) (x : E) =
         match x with
         | TPatternRef _ -> failwith "Compiler error: TPatternRef should have been eliminated during the prepass."
         | TArrow _ | TJoinPoint _ -> failwith "Compiler error: Should have been transformed during the prepass."
+        | TMetaV i -> YMetavar i
         | TArrow'(scope,i,body) -> 
             assert (i = scope.ty.free_vars.Length)
             YTypeFunction(body,Array.map (vt s) scope.ty.free_vars,scope.term.stack_size,scope.ty.stack_size)
@@ -1096,43 +1100,39 @@ let peval (env : TopEnv) (x : E) =
             | a -> raise_type_error s <| sprintf "Expected a nominal on the left side of the pattern.\nGot: %s" (show_ty a)
         | ELitTest(r,a,bind,on_succ,on_fail) -> let s = add_trace s r in lit_test s a bind on_succ on_fail
         | EDefaultLitTest(r,a,b,bind,on_succ,on_fail) -> let s = add_trace s r in lit_test s (default_lit s a (ty s b)) bind on_succ on_fail
-        | ETypeLet(r,i,a,b) -> let s = add_trace s r in store_ty s i (ty s a); term s b
-        | ETypePairTest(r,bind,p1,p2,on_succ,on_fail) ->
+        | ETypecase(r,a,b) ->
             let s = add_trace s r
-            match vt s bind with
-            | YPair(a,b) -> store_ty s p1 a; store_ty s p2 b; term s on_succ
-            | _ -> term s on_fail
-        | ETypeFunTest(r,bind,p1,p2,on_succ,on_fail) ->
-            let s = add_trace s r
-            match vt s bind with
-            | YFun(a,b) -> store_ty s p1 a; store_ty s p2 b; term s on_succ
-            | _ -> term s on_fail
-        | ETypeRecordTest(r,p,bind,on_succ,on_fail) ->
-            let s = add_trace s r
-            match vt s bind with
-            | YRecord l -> 
-                let mutable is_succ = true
-                Map.iter (fun k p ->
-                    match Map.tryFind k l with
-                    | Some v -> store_ty s p v
-                    | None -> is_succ <- false
-                    ) p
-                if is_succ then term s on_succ else term s on_fail
-            | _ -> term s on_fail
-        | ETypeApplyTest(r,bind,p1,p2,on_succ,on_fail) ->
-            let s = add_trace s r
-            match vt s bind with
-            | YApply(a,b) -> store_ty s p1 a; store_ty s p2 b; term s on_succ
-            | _ -> term s on_fail
-        | ETypeArrayTest(r,bind,p,on_succ,on_fail) ->
-            let s = add_trace s r
-            match vt s bind with
-            | YArray a -> store_ty s p a; term s on_succ
-            | _ -> term s on_fail
-        | ETypeEq(r,a,b,on_succ,on_fail) ->
-            let s = add_trace s r
-            if ty s a = vt s b then term s on_succ
-            else term s on_fail
+            let is_unify x =
+                let is_metavar = HashSet()
+                let rec f = function
+                    | YB, YB -> true
+                    | YApply(a,b), YApply(a',b')
+                    | YFun(a,b), YFun(a',b')
+                    | YPair(a,b), YPair(a',b') -> f (a,a') && f (b,b')
+                    | YSymbol a, YSymbol b -> a = b
+                    | YTypeFunction(a,b,c,d), YTypeFunction(a',b',c',d') -> a = a' && Array.forall2 (fun b b' -> f (b,b')) b b' && c = c' && d = d'
+                    | YRecord a, YRecord a' -> 
+                        let a, a' = Map.toArray a, Map.toArray a'
+                        a.Length = a'.Length && Array.forall2 (fun a a' -> fst a = fst a' && f (snd a, snd a')) a a'
+                    | YPrim a, YPrim a' -> a = a'
+                    | YArray a, YArray a' -> f (a, a')
+                    | YMacro a, YMacro a' ->
+                        List.forall2 (fun a a' ->
+                            match a, a' with
+                            | Text a, Text a' -> a = a'
+                            | Type a, Type a' -> f (a,a')
+                            | _ -> false
+                            ) a a'
+                    | YNominal a, YNominal a' -> a = a'
+                    | YLayout(a,b), YLayout(a',b') -> f (a,a') && b = b'
+                    | YUnion a, YUnion a' -> a = a'
+                    | a, YMetavar i -> (is_metavar.Add i && (store_ty s i a; true)) || a = vt s i
+                    | _ -> false
+                f x
+            let a = ty s a
+            let mutable r = Unchecked.defaultof<_>
+            if List.exists (fun (a',b) -> is_unify (a,ty s a') && (r <- term s b; true)) b 
+            then r else raise_type_error s <| sprintf "Typecase miss.\nGot: %s" (show_ty a)
         | EOp(_,While,[cond;body]) -> 
             match term_scope'' s cond with
             | [|TyLocalReturnOp(_,TyJoinPoint cond)|], ty ->
