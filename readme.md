@@ -1,7 +1,6 @@
 <!-- TOC -->
 
 - [News](#news)
-    - [12/22/2020](#12222020)
     - [12/24/2020](#12242020)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
@@ -24,19 +23,13 @@
             - [Symbols And Pairs](#symbols-and-pairs)
                 - [Symbols And Unions](#symbols-and-unions)
         - [Prototypes](#prototypes)
+    - [Heap Allocation vs Code Size](#heap-allocation-vs-code-size)
     - [Bottom-Up Segment](#bottom-up-segment)
-        - [The Memory Tradeoff](#the-memory-tradeoff)
-        - [Types In The Bottom-Up Segment](#types-in-the-bottom-up-segment)
+        - [Partial Evaluation](#partial-evaluation)
 
 <!-- /TOC -->
 
 # News
-
-## 12/22/2020
-
-v0.2 is in alpha stage and I've moved development from the `v0.2` branch to `master`.
-
-The docs from v0.9 are obsolete and will need to be redone. More to come soon. Right now I am cleaning things up and getting ready to publish the VS Code plugin + compiler on the VS Code marketplace.
 
 ## 12/24/2020
 
@@ -1089,6 +1082,16 @@ inl main () : i32 =
 
 The record injection patterns aren't too useful in the top down segment, but in the bottom up segment which was the entirety of Spiral in the previous version, I often used them.
 
+```
+inl main () =
+    inl k, k' = .b, .w
+    inl flip x = x = false
+    inl x = {q = 1i32; w={a="asd"; b=true}}
+    {x$k' with $k#=flip}
+```
+
+Also, it is possible to use the injection pattern on the left side of with.
+
 There is one other bit of special record syntax worth mentioning.
 
 ```
@@ -1430,103 +1433,76 @@ prototype on_succ m a : a -> m a
 
 It should be mentioned - all union types are always wrapped in a nominal which is why prototype instances can be defined for them. It has been mentioned that language's sometimes mix multiple concepts in order to establish their foundational data structures. In Spiral's case, its unions are nominals + raw unions under the hood. The language does not allow taking off the nominal wrapper from unions during destructuring.
 
-## Bottom-Up Segment
+## Heap Allocation vs Code Size
 
-From the perspective of the written code, the bottom-up segment generally means the code in `.spir` files and in the `real` bodies. From the perspective of compilation phases, the bottom-up segment happens during partial evaluation. Parsing and the type inference would all be a part of the top-down segment.
+In today's statically typed languages, type systems span a wide range from weak and monomorphic like C's, to polymorphic like F#'s, to dependently typed ones like Agda's. It is really remarkable that increasing type system sophistication seems to result decreasing performance of languages.
 
-There have been a few examples in the previous section, and in this one the advanced use cases of the Spiral language will be covered and explained.
+It is a widespread meme that compared to, say Python, Java is faster because it is statically typed. But C is considered faster than Java, but there is no doubt that Java has a superior type system.
 
-In the previous segment, most langauge features have been covered to a degree that is enough for casual use. There are some new things, but a proficient functional programmer could be expected to pick up Spiral in a few days and make headway in it. The language has eveything a functional programmer knows and loves: first class functions, pattern matching, records, tuples, unions, static typing and so on. Spiral support the low style functional programming as much as any language without dependent types.
-
-The real reason to use Spiral though is its support for the staged functional programming style. This should be a novelty to almost everybody. 
-
-There is much to complain about the bottom-up segment, I've done as much in a few places earlier. It is a direct inheritance from the earlier version of Spiral where it was the only way to program. I was in love in love with it for a while, and then I dropped it in disgust, so you might thing I'd consider it a failure. But in fact it was a great success - Spiral v0.09 is a language I'd rate extremely highly on the expressiveness/performance scale. It gave me a new perspective on what both programming and functional programming is, and if I can be successful at sharing it you'll see that there is no reason to consider functional programming lesser than imperative when it comes to performance.
-
-And as it turns out, the very same things that make the language performant are the ones which make it expressive.
-
-### The Memory Tradeoff
-
-Performance of a language can be boiled down to two factors:
-
-* Understanding what the compiler is doing.
-* Having the ability to express that understanding succinctly.
-
-You do not actually have to do explicit heap allocation for it to happen. Here is how it could be done in F#.
+To illustrate the trouble that abstractions cause, consider the identity function. Here is how it would be written in F#.
 
 ```fs
 let id x = x
-id 3
 ```
 
-Consider this simple F# program - `id` is of type `'a -> 'a`. Unless the compiler inlines this, or specializes it the way to compile `id` would be to let its argument pass in boxed form.
+In the editor the type shows up as `'a -> 'a`, but with the foralls made explicit its type is `forall 'a. 'a -> 'a`. The forall is troublesome, it is not something that can be executed in assembly. There are two different compilation strategies that compilers can use to deal with the forall.
 
-What that means is that `3` which is a 4-byte int would be turned into a heap allocated object before.
+1) The first is to use uniform representations for every data type. Dynamic languages use this by default, and in .NET languages that corresponds to upcasting a variable to heap allocated base type.
 
-You might think this is overkill, because 3 is obviously an int here, so why waste resources by boxing it, but things aren't so simple. While it is in this situation an 4-byte int, it could be 2-byte int, or an 8-byte in another. `id` could get passed as 64-byte stack allocated struct.
+```fs
+let id (x : obj) = x
+```
 
-How do you make a function that covers all those cases all at once in the resulting code? You compile it down to a function that takes a heap allocated object, and returns that same object. Heap allocated objects have the same footprint on the stack (24-bytes in .NET's case) so they are a bit like passing a pointer in C.
+As a way of illustration in F#, this would in essence compile the identity function to something that is equivalent to `obj -> obj`.
 
-This has two important benefits, if you are doing a compiler.
+Dynamic languages follow this strategy. Also JVM languages, and Haskell and Ocaml.
 
-* It makes generating code easy. No need to make a partial evaluator and similar optimizers.
-* It is actually a good strategy for keeping code size down.
+The advantage of this approach is that one single identity function can be used for any kind of data type. The disadvantage of it is that primitives like ints, and stack allocated structs would need to be heap allocated and passed via reference into that function. This heap allocation happens under the hood and is invisible to the user, but is a real source of memory traffic.
 
-If you were doing specialization, you'd have to generate a version of the id function for every data structure...
+2) Monomorphization. Spiral uses this, as does C++ for its templates, and Rust for example.
 
 ```
-let id x = x
 inl main () =
+    let id x = x
     inl _ = id 1i32
-    inl _ = id 2i64
-    inl _ = id 3f32
-    inl _ = id 5f64
-    inl _ = id ("qwe",true,false,'c')
+    inl _ = id 2f64
+    inl _ = id 3i8
+    inl _ = id true
     ()
 ```
-```fs
+```
 let rec method0 (v0 : int32) : int32 =
     v0
-and method1 (v0 : int64) : int64 =
+and method1 (v0 : float) : float =
     v0
-and method2 (v0 : float32) : float32 =
+and method2 (v0 : int8) : int8 =
     v0
-and method3 (v0 : float) : float =
+and method3 (v0 : bool) : bool =
     v0
-and method4 (v0 : string, v1 : bool, v2 : bool, v3 : char) : struct (string * bool * bool * char) =
-    struct (v0, v1, v2, v3)
 let v0 : int32 = 1
 let v1 : int32 = method0(v0)
-let v2 : int64 = 2L
-let v3 : int64 = method1(v2)
-let v4 : float32 = 3.000000f
-let v5 : float32 = method2(v4)
-let v6 : float = 5.000000
-let v7 : float = method3(v6)
-let v8 : string = "qwe"
-let v9 : bool = true
-let v10 : bool = false
-let v11 : char = 'c'
-let struct (v12 : string, v13 : bool, v14 : bool, v15 : char) = method4(v8, v9, v10, v11)
+let v2 : float = 2.000000
+let v3 : float = method1(v2)
+let v4 : int8 = 3y
+let v5 : int8 = method2(v4)
+let v6 : bool = true
+let v7 : bool = method3(v6)
 ()
 ```
 
-As you can see, Spiral specialized the `id`'s join point to 5 different versions that it needed. This example might seem exagerated, but it is important is to understand the general rule of what goes into a language's performance.
+Now the primitives no longer require boxing in order to be passed into the identity function - the compiler specializes it for each datatype, but the disadvantage is that this requires more work at compile time, and it produces more code at runtime.
 
-It is not so much that dynamic languages are slow because they are dynamic and static languages are fast because they are static. It is not that C# is slower than C because it has garbage collection. It is not that F# is slower than C# because it is functional.
+This is the memory tradeoff between heap allocation and code size.
 
-What it generally comes down to is the compilation stategy of the particular language one is using.
+This tradeoff is a very real phenomenon that users often unwittingly make, and it explains most of the performance difference between different languages.
 
-```fs
-let id x = x
-```
+Dynamic languages are all the way on the heap allocation side of the axis. Their primitives and data structures are all heap allocated **by default**. **By default** should mean, unless the optimizer gets to them. But dynamic languages tend to have very flexible semantics that frequently inhibits that.
 
-If you consider this function, its performance considerations should have nothing to do with memory allocation - there is no malloc, the user never told the compiler to make an object, but it happened even with static typing. This captures the essence of the problem.
+For dynamic languages with good optimizers like Javascript for example, it is well known that to get optimized code in it the way to do it is to write it as if it had a static type system.
 
-If the compiler is using dynamic language compilation tricks, you get a heap allocation just for calling this function. If the compiler does specialization, you get a lot of code generated, but no heap allocation.
+That is why semi-dynamic languages like .NET ones, which have a dynamic runtime and GC and heap allocate by default, but static type systems generally have better performance than dynamic ones.
 
-Since `id` is so small and simple, every moderately good optimizer would just inline it. But in practice, it does not actually take much to go beyond the capabilities of the optimizer. They generally aren't good at optimizing the data structures used.
-
-The heap allocation and code size tradeoff actually occurs very naturally in programming. This next example is going to have a large resulting output. The programming itself is quite simple though, all I am doing is mapping an array which causes a lot of code to be generated.
+Spiral does stack allocation by default for all its primitives (except strings) and errs on the side of too much inlining, but this tradeoff does occur internally as well.
 
 ```
 inl map f = array.map f
@@ -1623,11 +1599,9 @@ method5(v14, v12, v15, v16)
 v15
 ```
 
-Those maps get compiled to a bunch of tail recursive loops. Counting the lines in the above program, it comes down to 82.
+The above program demonstrate how a bunch of maps get compiled to separate loops. In total, the output comes to 82 lines of code. But there is a lot of duplicate code in the loops.
 
-It bears noting that arrays are the only heap allocated objects in the above example, but they could have just as easily been stack allocated like in the Cuda backend of previous Spiral.
-
-I can make a one character change to the first program, and the resulting output would be a lot smaller.
+It is easy to lower the resulting output size by doing more heap allocation at runtime. All it takes is a single character change. Instead of inlining the function, the following example passes them as closures at runtime.
 
 ```
 inl map ~f = array.map f
@@ -1699,201 +1673,61 @@ method1(v19, v18, v16, v20, v21)
 v20
 ```
 
-This is 25 lines shorter then the previous one. It comes down to 57 lines.
+With the change, the output is 25 lines shorter then the previous one. It comes down to 57 lines.
 
 The expense paid in lines of code is almost a third less, but now the resulting program would allocate closures on the heap. This along with the loop now requiring virtual calls to apply the closure would make the resulting program slower to execute that the first one. The first one's loops since they have the operations inlined directly might get vectorized and made even faster because of that.
 
-Depending on the context, the fact that the program is slower might not matter. The 57 lines version would be faster to compile. If you were programming in Python or Ruby, the fully dynamic version with just a single map for every data structure that could exist would be the fastest possible way of compiling it, but would also be the slowest to actually execute.
+It is not the case that performance is maximized by being all the way on the right side of the axis - too much inlining and specialization can hurt performance, but in general the place to look for the optimized spot would be best done by starting from there.
 
-As a general rule for reasoning about performance of languages, the more complex the programs being written in them, the more they will trend towards what their defaults are. The main reason why C is fast is because the user would never go out of your way to actually allocate closures when passing them to map functions which F#'s default. Instead the user would write out specialized loops much like those Spiral produces in the first example.
+There is a saying that there are no fast or slow languages, only fast or slow implementations, but speaking as a language designer I do not agree with this. It is fairly obvious looking at the real world that some languages are very hard to optimize, and it I do not think it is the case that the reason Python or Ruby are slow is because not enough money was thrown at them by Google or Microsoft.
 
-The cost of abstractions can be completely free, or they could result in heap allocated objects being juggled everywhere. The type system is a small part of that.
+The heap allocation vs code size presents a framework for thinking about the performance of languages. Some languages might claim that they are fast, and might have flashy benchmarks comparing themselves to C. But regardless, you can look at what its defaults are - does it heap allocate basic data structures? Does it heap allocate primitives? Does it specialize like C++ or Spiral, or does it use dynamic language tricks to generate code like JVM and .NET ones do? Does it do the slow thing and then rely on the optimizer to make itself fast, or does it do the right thing from the start?
 
-With that framework in place, it becomes easy to predict that performance of various languages ahead of time. Some languages might claim that they are fast, and might have flashy benchmarks comparing themselves to C. But regardless, you can look at what its defaults are - does it heap allocate basic data structures? Does it heap allocate primitives? Does it specialize like C++ or Spiral, or does it use dynamic language tricks to generate code like JVM and .NET ones do? Does it do the slow thing and then rely on the optimizer to make itself fast, or does it do the right thing from the start?
+I feel confident about stating that Spiral is a performant language even without providing bechmarks, and the examples in the previous section were all demonstration of what its compilation defaults are. They are the lead into this framework. Spiral has sensible defaults and gives user the partial evaluation tools to make the heap allocation/code size tradeoff in a sensible manner.
 
-Overall though, the right thing depends on the context. If you have a very large codebase, you might not want to wait a proportionally long time to for it compile and might prefer a slower-at-runtime language on purpose.
+Languages with dependent types are an interesting case study, they are further on the heap allocation side. They are slow because they are hard to compile, meaning they require dynamic runtimes. Idris for example compiles to Scheme. This is not exceptional among high level languages, but they require them much more severely. Since I like to push into extremities and am familiar with dependently typed languages, I did try to come up with top down type system with dependent types for Spiral, but I failed. I could not figure out something that meshes well with the partial evaluator.
 
-My view, if you are doing a language that compiles to the GPU and similar restricted devices then Spiral's compilation strategy is right, period, because heap allocation that other strategies need for their abstractions is not applicable there.
+Here is an example that demonstrates what I got hung up on in pseudo-code. Imagine if F# or Spiral had dependent types and as a thought experiment try to imagine how this would be compiled.
 
-### Types In The Bottom-Up Segment
-
-In addition to quick feedback, the top-down segment does the user a great service by providing annotations to join points, functions (for closure conversion) and macros. It also fills in the type applications and inserts foralls in function bodies.
-
-```
-inl id ~x = join x
-```
-
-The above is how you would define the identity function in the top-down segment. Once the filling is done, here is how the above fragment would be written in bottom-up segment if it were done by hand.
-
-```
-inl id forall t. ~x = (join x) : t
-```
-
-The fact that `x` does not have a type annotation is intentional - annotations have completely different roles in the top-down and bottom-up segment. Join points annotations aren't strictly required unless they are recursive, but in the future they will be important for compile time performance once concurrent compilation of join points becomes a feature. This would be impossible unless their return type is provided.
-
-In the bottom-up segments, the foralls have to be applied manually.
-
-```
-inl main () : i32 = real
-    inl id forall t. ~x = (join x) : t
-    id `i32 2
-```
 ```fs
-let rec method0 (v0 : int32) : int32 =
-    v0
-let v0 : int32 = 2
-method0(v0)
+let (y : (if x < 10 then int else string)) = if x < 10 then 0 else "asd"
+if x < 10 then x + 10 else x + "qwe"
 ```
 
-The ` operator is used to access the type scope on the term level. It is a mistake to use it unless it is in application to a forall, and in some rare inbuilt ops.
+In Spiral, F# and other statically typed languages with strong, but not dependent type systems, the types actually do have a 1:1 correspondence with their underlying representation.
+
+How exactly the type `if x < 10 then int else string` be compiled? Is it some kind of union type? That seems to be a reasonable avenue to go down on at first, but the difficulties of that become apparent very quickly.
+
+In the branches of `if x < 10 then x + 10 else x + "qwe"` how should `x` be destructured if it is an union type under the hood? Thinking about it logically, we know that `x` is an `int` in the *then* branch, and a `string` in the *else* branch, but where is the hook to actually unbox the union? This kind of thinking does not really make sense to me.
+
+As if it were a force of nature, there is an inexorable pull towards admiting that despite being statically typed, the types in dependently typed languages are unmoored from their underlying representation. Much like in dynamically typed languages. And the most natural way of compiling the above fragment would be to forget the type signatures and just execute it in a computational context that has uniform representation for all its datatypes.
+
+The way to performant compile dependently typed languages is a mystery to me. Whereas the simpler type system of Spiral has great synergy with the partial evaluator and is easy to compile.
+
+## Bottom-Up Segment
+
+### Partial Evaluation
+
+The partial evaluator for Spiral v0.09 originally started off as a type system. I only realized that I was working on a partial evaluator after a few months. In 2016 while working on a ML library I got stuck on how exactly to propagate information to Cuda kernels. If the deep learning wave of the 2010s did not need GPUs, F# would have been entirely sufficient as a language, but it was just not powerful enough and I blamed the type system.
+
+So in 2017, when I started work on Spiral I made F# the base and the first thing I got rid of was the type system. I read academic papers and books on type systems, but they were useless so I realized I had to do it on my own. Of course, I wanted the language to be statically typed - it had to be. Because how could GPUs possibly handle uniform representation that dynamic languages use? And rather than just suggestions, I need inlining to be guaranteed, otherwise how could first class function be compiled on the GPU? The same goes for other abstractions like tuples and records.
+
+My earliest memory of working on it was trying to memoize a function's evaluation. I realized that it was possible to split running the function from actually evaluating it and that was how the concept of join points came to be. Along those lines most of what is in the bottom up segment I actually discovered myself, though I am sure the concepts are strewn throughout language implementations and academic papers.
+
+At its core, the partial evaluator propagates information forward. It starts from the `main` function and works its way to there.
+
+Unlike for a human, type annotations in general are not useful to it.
 
 ```
-inl main () : i32 = real
-    inl id forall t. ~x = (join x) : t
-    id `(i32 * i32) (2,3)
-```
-```fs
-let rec method0 (v0 : int32, v1 : int32) : struct (int32 * int32) =
-    struct (v0, v1)
-let v0 : int32 = 2
-let v1 : int32 = 3
-method0(v0, v1)
+let f (a : i32) (b : i32) = a + b
 ```
 
-Here is how it is possible to apply pairs. Note that the type and the term scope have completely separate environments.
+While knowing what the arguments to a function are is useful for a human, in the top down segment, the type annotations actually get stripped from function's arguments.
 
 ```
-type id t = t
-inl main () : i32 = real
-    inl id forall t. ~x = (join x) : t
-    id `(id (i32 * i32)) (2,3)
-```
-```fs
-let rec method0 (v0 : int32, v1 : int32) : struct (int32 * int32) =
-    struct (v0, v1)
-let v0 : int32 = 2
-let v1 : int32 = 3
-method0(v0, v1)
+let f (a : i32) (b : i32) = 
+    inl y = a + b : i32
+    y
 ```
 
-The output is same as before.
-
-Filling in foralls (let generalization) and filling in type applications is something that is quite tedious to do by hand. In the bottom-up segment there is actually nothing preventing the user from just doing this.
-
-```
-type id t = t
-inl main () : i32 = real
-    inl id ~x = join x
-    id (2,3)
-```
-
-This is how programming used to be done in the old Spiral. From the perspective of parametric type systems this code is complete gibberish, but to me it demonstrates that functions are the ultimate tools of abstraction, and that macros are only needed for interop.
-
-And the language is still statically typed, there is no doubt about that. It is just that typing is processed in a bottom-up fashion.
-
-Right here I will switch to a `.spir` file. The difference between `.spi` and `.spir` is that the later have their top level statements interpreted as bottom-up, similarly to the local statements in `real` blocks. Here is an example, written in `a.spir`.
-
-```
-inl main () : i32 = 1i32 + 2f64
-```
-```
-Error trace on line: 2, column: 10 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
-inl main () : i32 = 1i32 + 2f64
-         ^
-Error trace on line: 2, column: 21 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
-inl main () : i32 = 1i32 + 2f64
-                    ^
-The two literals must be both numeric and equal in type.
-Got: 1i32 and 2.000000f64
-```
-
-You won't get an error before you try to compile it, but once you do instead getting a compiled file, you will get a trace as a fatal error in the editor. The trace displays the execution path of the partial evaluator up until the error.
-
-TODO: In the future I might have a separate window open for it with links to specific fragments the trace points to, but now the easiest way to read it is to copy paste it somewhere. The fatal error message window does not have enough room to display it properly.
-
-Doing things bottom up gives a natural form of dead code elimination and bundling.
-
-One of the bad traits of it is that type errors can remain hidden until they are stepped on.
-
-```
-open real_core
-inl f () = 1i32 + 2f64
-inl main () : i32 = 1
-```
-```fs
-1
-```
-
-`f` is never partially evaluated so the error never manifests and the file compiles peacefully even if would be better that it did not.
-
-```
-inl main () : i32 =
-    inl id forall t. ~x = (join x) : t
-    id `(i32 * i32) (2,3)
-```
-
-Let us backtrack to this previous example. It was shown that the tedium of could be avoided by ommiting the forall entirely. Another way it could be done is to infer the type. This actually possible in the bottom-up segment, but it needs to be done programmatically.
-
-```
-inl main () =
-    inl id forall t. ~x = (join x) : t
-    inl f x = id `(`x) x
-    f (2,3)
-```
-```fs
-let rec method0 (v0 : int32, v1 : int32) : struct (int32 * int32) =
-    struct (v0, v1)
-let v0 : int32 = 2
-let v1 : int32 = 3
-method0(v0, v1)
-```
-
-On the term level you can use ` to open the type level. You can use the same unary operator again to go back to the term scope. The term gets evaluated, then converted to a type.
-
-This makes it possible to get a type of an expression without having to explicitly pass it using a forall.
-
-The identity function is simple, so in the bottom up segment you'd just not put in the forall and be done with it. The trouble starts when you encounter situations that do need annotations ahead of time.
-
-The simplest example to illustrate this would be the array map function. In the top down segment its type is `forall 'a 'b. ('a -> 'b) -> array 'a -> array 'b`.
-
-If you were implementing it in the bottom up segment, you'd start with something like...
-
-```
-inl array_map f x = ...
-```
-
-So no foralls, because those are tedious. `x` is an array and you can extract the type of its element to get `'a`. That is not difficult. What you really need though is `'b`.
-
-```
-inl array_map f x =
-    inl x' = array.create ? (array.length x)
-```
-
-You need `'b` in order to create the output array for the map function. You can't get the type from `f` directly because in the bottom up segment nothing is annotated. Because of that the partial evaluator does not know the return type of `f` unless it runs it with some input.
-
-```
-inl array_map f x =
-    inl x' = array.create `(`(f ?)) (array.length x)
-```
-
-You'd do it roughly like this. Now you need to provide the input somehow. Here is how the type of the array can be extracted.
-
-```
-inl array_map f x =
-    typecase `x with
-    | array ~t =>
-```
-
-Spiral supports a typecase constructor for pattern matching on types. In typecase specifically `~t` can be used to make new bindings. Now the problem is that although you have `t` which is a type of the array, in order to call `f` you actually need a term.
-
-```
-inl array_map f x =
-    typecase `x with
-    | array ~t =>
-        inl x' = array.create `(`(f ``t)) (array.length x)
-```
-
-The double grave operator can be used to do that. It creates a term out of a type. This is fine, since the code in the type scope will not get generated. If you try using that operator on the term level and the code with the `TypeToVar` op gets passed into the code generator you will get a trace + type error during code generation.
-
-The next you need to loop over the array, mapping the inputs to the outputs. To make things simpler, let me instead use `array.init` which creates an array and loops over it.
-
+They aren't useful when attached

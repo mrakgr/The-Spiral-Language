@@ -72,10 +72,10 @@ type SpiralAction = {range : Range; action : CodeAction}
 export const activate = async (ctx: ExtensionContext) => {
     // console.log("Spiral plugin is active.")
     const compiler_path = path.join(__dirname,"../compiler/Spiral.exe")
-    // const p = cp.spawn(compiler_path,{shell: true, detached: true})
+    const p = cp.spawn(compiler_path,{shell: false, detached: true})
 
-    const compiler_path_for_shell = `"${compiler_path}"`
-    const p = cp.spawn(compiler_path_for_shell,{shell: true, detached: true})
+    // const compiler_path_for_shell = `"${compiler_path}"`
+    // const p = cp.spawn(compiler_path_for_shell,{shell: true, detached: true})
 
     const errorsProject = languages.createDiagnosticCollection()
     const errorsTokenization = languages.createDiagnosticCollection()
