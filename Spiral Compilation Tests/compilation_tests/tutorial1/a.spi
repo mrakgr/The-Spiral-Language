@@ -1,7 +1,0 @@
-inl main () =
-    let id x = x
-    inl _ = id 1i32
-    inl _ = id 2f64
-    inl _ = id 3i8
-    inl _ = id true
-    ()

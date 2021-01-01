@@ -1073,7 +1073,8 @@ and root_term d =
 
     let operators d =
         let term = application
-        let op = indent (col d) (<=) op
+        let i = col d
+        let op = indent i (<=) op
 
         /// Pratt parser
         let rec led left (prec,asoc,m) d =
@@ -1089,7 +1090,7 @@ and root_term d =
             (term >>= loop) d
 
         pipe2 (tdop Int32.MinValue)
-            (opt (skip_op ":" >>. root_type_annot))
+            (opt (indent i (<=) (skip_op ":" >>. root_type_annot)))
             (fun a -> function Some b -> RawAnnot(range_of_expr a +. range_of_texpr b,a,b) | _ -> a)
             d
 

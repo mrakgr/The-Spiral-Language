@@ -35,3 +35,4 @@ inl lit_is x : bool = !!!!LitIs(x)
 inl print_static x : () = !!!!PrintStatic(x)
 inl comp forall t. (a : t) (b : t) : order = real real_core.comp a b
 inl hash forall t. (a : t) : i32 = real real_core.hash a
+inl assert (c : bool) (msg : string) : () = real real_core.assert c msg

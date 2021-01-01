@@ -123,13 +123,11 @@ inl nan_is x = !!!!NanIs(x)
 
 // Raises an exception at runtime.
 inl failwith forall typ. msg = !!!!FailWith(`typ,msg)
-// Asserts an expression. If the conditional is a literal it raises a type error instead.
+// Asserts an expression. If the conditional and the message are literals it raises a type error instead.
 inl assert c msg = 
-    inl raise = 
-        if lit_is c && lit_is msg then error_type
-        else failwith ()
-    
-    if c = false then raise msg
+    if c = false then 
+        if lit_is c && lit_is msg then error_type msg
+        else failwith `(()) msg
 // Returns the maximum of the two expressions.
 inl max a b = if a >= b then a else b
 // Returns the minimum of the two expressions.

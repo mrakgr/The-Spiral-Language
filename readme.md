@@ -25,7 +25,10 @@
         - [Prototypes](#prototypes)
     - [Heap Allocation vs Code Size](#heap-allocation-vs-code-size)
     - [Bottom-Up Segment](#bottom-up-segment)
-        - [Partial Evaluation](#partial-evaluation)
+        - [Functions](#functions-1)
+        - [Branching](#branching)
+            - [TODO - Loop Unrolling](#todo---loop-unrolling)
+        - [Type Inference](#type-inference)
 
 <!-- /TOC -->
 
@@ -1706,28 +1709,374 @@ The way to performant compile dependently typed languages is a mystery to me. Wh
 
 ## Bottom-Up Segment
 
-### Partial Evaluation
-
 The partial evaluator for Spiral v0.09 originally started off as a type system. I only realized that I was working on a partial evaluator after a few months. In 2016 while working on a ML library I got stuck on how exactly to propagate information to Cuda kernels. If the deep learning wave of the 2010s did not need GPUs, F# would have been entirely sufficient as a language, but it was just not powerful enough and I blamed the type system.
 
 So in 2017, when I started work on Spiral I made F# the base and the first thing I got rid of was the type system. I read academic papers and books on type systems, but they were useless so I realized I had to do it on my own. Of course, I wanted the language to be statically typed - it had to be. Because how could GPUs possibly handle uniform representation that dynamic languages use? And rather than just suggestions, I need inlining to be guaranteed, otherwise how could first class function be compiled on the GPU? The same goes for other abstractions like tuples and records.
 
 My earliest memory of working on it was trying to memoize a function's evaluation. I realized that it was possible to split running the function from actually evaluating it and that was how the concept of join points came to be. Along those lines most of what is in the bottom up segment I actually discovered myself, though I am sure the concepts are strewn throughout language implementations and academic papers.
 
-At its core, the partial evaluator propagates information forward. It starts from the `main` function and works its way to there.
+In this section what I would like to impress is that the bottom-up Spiral is really a great language in its own right. It is the **real** Spiral, the top down type inferencer is just a wrapper, albeit a very useful one. It is the bottom-up Spiral that gets to the heart of what computation is really about.
 
-Unlike for a human, type annotations in general are not useful to it.
+If you picked C as the starting point, and tried to evolve it so that it gets all of the advantages of functional languages without any of disadvantages, the bottom-up Spiral is what you would get.
 
-```
-let f (a : i32) (b : i32) = a + b
-```
-
-While knowing what the arguments to a function are is useful for a human, in the top down segment, the type annotations actually get stripped from function's arguments.
+These next examples will be in a `.spir` file. Here is how the `package.spiproj` file should look like.
 
 ```
-let f (a : i32) (b : i32) = 
-    inl y = a + b : i32
-    y
+packages: |core-
+modules: a*
 ```
 
-They aren't useful when attached
+From the perspective of the written code, the bottom-up segment generally means the code in `.spir` files and in the `real` bodies. From the perspective of compilation phases, the bottom-up segment happens during partial evaluation. Parsing and the type inference would all be a part of the top-down segment.
+
+### Functions
+
+The most important feature of the bottom-up Spiral are its first class functions and join points. From the perspective of a C level language, they are an incredible leap in expressiveness and power and they require zero runtime footprint, essentially allowing the use of regular functions for what would be metaprogramming in any other language.
+
+They are what makes Spiral very suitable for systems programming. First class functions aren't a novelty themselves - they were discovered in the early 20th century as a part of lambda calculus. The way Spiral presents them though is novel.
+
+In the top-down segment I demonstrated how functions can be dyned and converted into a runtime closure, but this capability is not fundamental to them. In Spiral that is an addon; closure conversion is just another kind of join point which has fake arguments passed through it. Whereas in heap allocation by default kind of languages, closure conversion is fundamental and inlining is something that happens optionally.
+
+In the bottom-up segment annotations have to be provided manually.
+
+```
+inl main () =
+    inl id = (fun x => x) : i32 -> i32
+    inl ~x = id
+    ()
+```
+```fs
+let rec closure0 () (v0 : int32) : int32 =
+    v0
+let v0 : (int32 -> int32) = closure0()
+()
+```
+
+It is possible to give the wrong annotation in which case a trace would show up.
+
+```
+inl main () =
+    inl id = (fun x => x) : i32 -> i32
+    inl ~x = id
+    ()
+```
+```
+Error trace on line: 1, column: 10 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+inl main () =
+         ^
+Error trace on line: 2, column: 5 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+    inl id = (fun x => x) : i32 -> f32
+    ^
+Error trace on line: 3, column: 5 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+    inl ~x = id
+    ^
+Error trace on line: 3, column: 9 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+    inl ~x = id
+        ^
+The annotation of the function does not match its body's type.Got: i32
+Expected: f32
+```
+
+The way the annotations have to be provided is fairly dumb - anybody seriously using closures will most likely do it from the top down segment which will fill in the annotations automatically. Here is a more complex with two nested functions.
+
+```
+inl main () =
+    inl const = (fun x => (fun _ => x) : () -> i32) : i32 -> () -> i32
+    inl ~x = const
+    ()
+```
+```fs
+let rec closure1 (v0 : int32) () : int32 =
+    v0
+and closure0 () (v0 : int32) : (unit -> int32) =
+    closure1(v0)
+let v0 : (int32 -> (unit -> int32)) = closure0()
+()
+```
+
+It is tempting to ommit the inner annotation, but that won't work.
+
+```
+inl main () =
+    inl const = (fun x _ => x) : i32 -> () -> i32
+    inl ~x = const
+    ()
+```
+```
+Error trace on line: 1, column: 10 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+inl main () =
+         ^
+Error trace on line: 2, column: 5 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+    inl const = (fun x _ => x) : i32 -> () -> i32
+    ^
+Error trace on line: 3, column: 5 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+    inl ~x = const
+    ^
+Error trace on line: 3, column: 9 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+    inl ~x = const
+        ^
+Cannot convert a function that is not annotated into a type.
+```
+
+This is how v2 works, there isn't some iron rule that the language has to be designed like this. A language that uses partial evaluation for everything could do more processing in order to distribute the annotation if it is possible. Or it could be possible to ommit the return type like it was the case in Spiral v0.09.
+
+In general though, this fanciness is not necessary. Speaking from experience, whenever I've used closures in F#, they tended to be a lot simpler than functions I would use to structure the program. Having closures that return other closures is not the kind of situation I've had to come across. Functions, yes, I use that technique all the time. It is a large part of what makes functional programming so expressive. Closures, no. It is easier to bundle their arguments into a tuple, and it a practice I'd recommend doing in Spiral.
+
+So this kind of design is perfectly fine from my point of view.
+
+It was not the case in v0.09 where closure conversion worked differently, but in v2 the annotation has to be direct and cannot be changed once set.
+
+```
+inl main () =
+    inl id = (fun x => x)
+    inl ~x = id : i32 -> i32
+    ()
+```
+```
+Error trace on line: 1, column: 10 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+inl main () =
+         ^
+Error trace on line: 2, column: 5 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+    inl id = (fun x => x)
+    ^
+Error trace on line: 3, column: 5 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+    inl ~x = id : i32 -> i32
+    ^
+Error trace on line: 3, column: 14 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+    inl ~x = id : i32 -> i32
+             ^
+Cannot convert a function that is not annotated into a type.
+```
+
+The compiler tries converting the left side of the annotation into a type, but it encounters an unannotated function and raises a type error.
+
+The following also does not work. Annotations in arguments, aren't actually annotations, but type patterns.
+
+```
+inl main () =
+    inl id (x : i32) : i32 = x
+    inl ~x = id
+    ()
+```
+```
+Error trace on line: 1, column: 10 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+inl main () =
+         ^
+Error trace on line: 2, column: 5 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+    inl id (x : i32) : i32 = x
+    ^
+Error trace on line: 3, column: 5 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+    inl ~x = id
+    ^
+Error trace on line: 3, column: 9 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+    inl ~x = id
+        ^
+Cannot convert a function that is not annotated into a type.
+```
+
+### Branching
+
+The top-down type inferencer will treat type patterns as annotations, but in the bottom-up segment they have an entirely different role to play.
+
+```
+inl main () =
+    inl f = function
+        | (x : i32) => "int"
+        | (x : f64) => "float"
+        | _ => "something else"
+    f 1, f 2f64, f true
+```
+```fs
+struct ("int", "float", "something else")
+```
+
+Top-down this would be an invalid program. Originally, I wanted top-down to be more flexible and tried designing a top-down type system that could cover the full range of bottom-up Spiral's features, but in the end decided it was too difficult and settled on the current top-down system that can only compile a restricted subset of the bottom-up Spiral programs.
+
+The bottom-up gives you so much power and expressiveness up front for such a light implementation load that it is astonishing. You could wrap the above in a join point and it would be specialized.
+
+Something as simple as overloading could be done with prototypes which are a straight rip of Haskell's typeclasses. Haskell's typeclasses have accumulated a bevy of extensions over the years making them a lot more capable than Spiral's. Spiral's prototypes are the simplest possible implementation of them. Spiral does give the guarante that it will always inline them though.
+
+The way Spiral's prototypes are implemented is by direct matching on the type during partial evaluation, not by passing a dictionary of closures at compile time.
+
+Haskell's typeclasses are capable indeed, but they pale in comparison to what you can easily do in bottom-up Spiral. Suppose you wanted to count the number elements in a tuple, here is how that could be done in Spiral.
+
+```fs
+open real_core
+inl main () =
+    inl rec f = function
+        | (a,b) => f a + f b
+        | _ => 1
+    f (1,2,3)
+```
+
+I am thinking whether this could be done with typeclasses in Haskell, and I think that if the scenario was just restricted to pairs you could iterate over them using the typeclass machinery, but the real problem is the `| _ => 1` branch. Typeclasses have no good way of expressing that. But even that was somehow possible these are just the pairs, things would only get more troublesome from there. Here is how to count the number of elements in a record. There is no good way of expressing this within the language of typeclasses.
+
+```
+open real_core
+inl main () =
+    inl rec f = function
+        | (a,b) => f a + f b
+        | {} as x => record_foldl (fun (state:key:value:) => state + f value) 0 x
+        | _ => 1
+    f (1,2,3,{q=(4,5); w=(6,7)})
+```
+```fs
+7
+```
+
+This is one of the program examples that I tried wrapping my head around from a top-down perspective and in the end gave up. How could this be typed top-down? Bottom-up it is quite clear, but even the most advanced top-down type systems to date cannot cover this particular example.
+
+Spiral's top down type inferencer is 1.5k LOC, while Haskell's is over 70k making it 10x the size of the entire Spiral compiler, so it clearly cannot compare in terms of sophistication. And the bottom-up cannot compete with top-down type infering languages in terms of ease of use and ergonomics. But together the two sides can achieve amazing synergy and get the best of both worlds.
+
+It is not just the shape of the data that can be matched on. As long as the values are known at compile time, it is possible to use some tricks from dependently typed languages. In the top-down segment the following would give a type error because the branches are different. During the bottom-up segment the type checking is deferred until the last moment and the compilation succeeds because there is enough information to completely ignore one of the branches.
+
+```
+open real_core
+inl main () =
+    inl x = 1
+    if x < 10 then x + 10
+```
+```fs
+11
+```
+
+It is possible to raise type errors during partial evaluation manually.
+
+```
+open real_core
+inl main () =
+    inl f = function
+        | (x : i32) => "int"
+        | (x : f64) => "float"
+        | _ => error_type "Expected an i32 or f64."
+    f "qwe"
+```
+```
+Error trace on line: 3, column: 5 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+    inl f = function
+    ^
+Error trace on line: 7, column: 5 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+    f "qwe"
+    ^
+Error trace on line: 4, column: 12 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+        | (x : i32) => "int"
+           ^
+Error trace on line: 5, column: 12 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+        | (x : f64) => "float"
+           ^
+Error trace on line: 6, column: 16 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+        | _ => error_type "Expected an i32 or f64."
+               ^
+Expected an i32 or f64.
+```
+
+The `real_core` module has a large number of primitives for testing types. Pattern matching can test for specific symbols or nominals, but cannot test whether a variable is a symbol or a nominal so there are various inbuilt ops for that. It is possible to test whether something is a compile time literal using `lit_is`. Together with `error_type` that makes it possible to implement an assert that raises a type error if both the conditional and the message are strings, otherwise it compiles to an runtime exception.
+
+This is how it is implemented in `real_core`.
+
+```
+// Asserts an expression. If the conditional and the message are literals it raises a type error instead.
+inl assert c msg = 
+    if c = false then 
+        if lit_is c && lit_is msg then error_type msg
+        else failwith `(()) msg
+```
+
+Here is an example of it in use.
+
+```
+open real_core
+inl main () =
+    inl assert_less_than_ten x = assert (x < 10) "The argument must be less than 10."
+    assert_less_than_ten 11
+```
+```
+Error trace on line: 4, column: 5 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+    assert_less_than_ten 11
+    ^
+Error trace on line: 3, column: 34 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
+    inl assert_less_than_ten x = assert (x < 10) "The argument must be less than 10."
+                                 ^
+Error trace on line: 128, column: 5 in module: c:\Users\Marko\Source\Repos\The Spiral Language\VS Code Plugin\core\real_core.spir.
+    if c = false then 
+    ^
+Error trace on line: 129, column: 9 in module: c:\Users\Marko\Source\Repos\The Spiral Language\VS Code Plugin\core\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+        ^
+Error trace on line: 129, column: 40 in module: c:\Users\Marko\Source\Repos\The Spiral Language\VS Code Plugin\core\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+                                       ^
+The argument must be less than 10.
+```
+
+And when the argument is dyned, it compiles to a panic.
+
+```
+open real_core
+inl main () =
+    inl assert_less_than_ten x = assert (x < 10) "The argument must be less than 10."
+    assert_less_than_ten (dyn 11)
+```
+```fs
+let v0 : int32 = 11
+let v1 : bool = v0 < 10
+let v2 : bool = v1 = false
+if v2 then
+    failwith<unit> "The argument must be less than 10."
+else
+    ()
+```
+
+It could be done using macros if absolutely necessary, but otherwise right now Spiral does not have any exception catching mechanisms. It might have in the future, but right now catching exceptions goes beyond the immediate scope of what the language is intended for.
+
+#### TODO - Loop Unrolling
+
+But before that I need to upgrade the way the server process is handled in the editor. Right now the plugin no way of recovering from stack overflows in the server. Also although `print_static` works, there is no way of printing out that information to the user of the plugin.
+
+### Type Inference
+
+The top-down segment does a great service to the user by doing type inference and filling in the annotations for functions and join points where necessary. It might be surprising to that it is actually possible to do inference in a bottom-up fashion programatically.
+
+Here is how the identity function could be written in the bottom-up segment. Since the type inferencer is not filling in the foralls or type application, it is necessary to do that by hand. This shows how the type inferencer would compile `let id x = x`. The type inferencer in addition to filling in the types, also removes the non-essential ones such as in function arguments.
+
+```
+inl main () =
+    inl id forall t. x = (join x) : t
+    id `i32 1
+```
+```fs
+let rec method0 () : int32 =
+    1
+method0()
+```
+
+The ` unary operator can be used to access the type scope. Otherwise the term and the type scopes are segregated.
+
+Since the above is in the bottom-up segment, instead of passing in the type, it is possible to omit the need to pass the forall entirely.
+
+```
+inl main () =
+    inl id x = join x
+    id 1
+```
+```fs
+let rec method0 () : int32 =
+    1
+method0()
+```
+
+Alternatively, here is how to infer the type bottom up style. It is necessary to instruct the compiler to grab it from somewhere.
+
+```
+inl main () =
+    inl id' forall t. x = (join x) : t
+    inl id x = id' `(`x) x
+    id 1
+```
+```fs
+let rec method0 () : int32 =
+    1
+method0()
+```
+
+While in the type scope, using the ` operator opens the term scope again. The partial evaluator processes the term and converts the resulting expression into a type.
+
