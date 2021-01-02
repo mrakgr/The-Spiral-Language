@@ -1,4 +1,4 @@
+open real_core
 inl main () =
-    inl id' forall t. x = (join x) : t
-    inl id x = id' `(`x) x
-    id 1
+    inl rec f () = 1 + f()
+    f()

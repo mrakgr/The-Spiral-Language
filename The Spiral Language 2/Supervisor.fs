@@ -409,20 +409,27 @@ type ClientErrorsRes =
     | ParserErrors of {|uri : string; errors : RString list|}
     | TypeErrors of {|uri : string; errors : RString list|}
 
-let port = 13805
-let uri_server = sprintf "tcp://*:%i" port
-let uri_client = sprintf "tcp://*:%i" (port+1)
-
 open FSharp.Json
 open NetMQ
 open NetMQ.Sockets
 
-let [<EntryPoint>] main _ =
+let [<EntryPoint>] main args =
+    let env_def = {|
+        port = 13805
+        |}
+    let env = (env_def, args) ||> Array.fold (fun s x -> 
+        match x.Split('=') with
+        | [|"port"; x|] -> {|s with port = Int32.Parse(x)|}
+        | _ -> failwithf "Invalid command line argument received when starting up the server.\nGot: %A" x
+        )
+    let uri_server = sprintf "tcp://*:%i" env.port
+    let uri_client = sprintf "tcp://*:%i" (env.port+1)
     use poller = new NetMQPoller()
     use server = new RouterSocket()
     poller.Add(server)
     server.Options.ReceiveHighWatermark <- System.Int32.MaxValue
     server.Bind(uri_server)
+
     printfn "Server bound to: %s" uri_server
 
     use queue_server = new NetMQQueue<NetMQMessage>()

@@ -2,13 +2,12 @@ import * as path from "path"
 import * as cp from "child_process"
 import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider, WorkspaceEdit, FileDeleteEvent, ProcessExecution } from "vscode"
 import * as zmq from "zeromq"
+import { start } from "repl"
 
-const port = 13805
-const uriServer = `tcp://localhost:${port}`
-const uriClient = `tcp://localhost:${port+1}`
-
+const port : number = workspace.getConfiguration("spiral").get("port") || 13805
 const request = async (file: object): Promise<any> => {
     const sock = new zmq.Request()
+    const uriServer = `tcp://localhost:${port}`
     sock.connect(uriServer)
     await sock.send(JSON.stringify(file))
     const [x] = await sock.receive()
@@ -71,46 +70,11 @@ type SpiralAction = {range : Range; action : CodeAction}
 
 export const activate = async (ctx: ExtensionContext) => {
     // console.log("Spiral plugin is active.")
-    const compiler_path = path.join(__dirname,"../compiler/Spiral.exe")
-    const p = cp.spawn(compiler_path,{shell: false, detached: true})
-
-    // const compiler_path_for_shell = `"${compiler_path}"`
-    // const p = cp.spawn(compiler_path_for_shell,{shell: true, detached: true})
 
     const errorsProject = languages.createDiagnosticCollection()
     const errorsTokenization = languages.createDiagnosticCollection()
     const errorsParse = languages.createDiagnosticCollection()
     const errorsType = languages.createDiagnosticCollection()
-    let isProcessing = true;
-    (async () => {
-        const sock = new zmq.Subscriber()
-        sock.subscribe()
-        sock.receiveTimeout = 2000
-        await sock.connect(uriClient)
-        while (isProcessing) {
-            try {
-                const [x] = await sock.receive()
-                const msg: ClientRes = JSON.parse(x.toString())
-                if ("PackageErrors" in msg) { errorsSet(errorsProject, Uri.parse(msg.PackageErrors.uri), msg.PackageErrors.errors) }
-                else if ("TokenizerErrors" in msg) { errorsSet(errorsTokenization, Uri.parse(msg.TokenizerErrors.uri), msg.TokenizerErrors.errors) }
-                else if ("ParserErrors" in msg) { errorsSet(errorsParse, Uri.parse(msg.ParserErrors.uri), msg.ParserErrors.errors) }
-                else if ("TypeErrors" in msg) { errorsSet(errorsType, Uri.parse(msg.TypeErrors.uri), msg.TypeErrors.errors) }
-                else if ("FatalError" in msg) { window.showErrorMessage(msg.FatalError) }
-                else { const _ : never = msg }
-            } catch (e) {
-                if (e.errno === 11) { } // If the error is a timeout just repeat.
-                else { throw e }
-            }
-        }
-        await sock.disconnect(uriServer)
-    })();
-    const pingLater = (ms : number) => {
-        const ping = () => {
-            if (isProcessing) {spiPingReq(); pingLater(ms)}
-        }
-        setTimeout(ping, ms)
-    }
-    pingLater(1000)
 
     const spiprojOpen = (doc: TextDocument) => spiprojOpenReq(doc.uri.toString(true), doc.getText())
     const spiprojChange = (doc: TextDocument) => spiprojChangeReq(doc.uri.toString(true), doc.getText())
@@ -241,12 +205,69 @@ export const activate = async (ctx: ExtensionContext) => {
         }
     }
 
+    let serverStop = () => {}
+    const startServer = (inShell: boolean) => {
+        serverStop()
+        const compiler_path = path.join(__dirname,"../compiler/Spiral.exe")
+        const compiler_path_for_shell = `"${compiler_path}"`
+        const args = [`port=${port}`]
+        const p = inShell ? cp.spawn(compiler_path_for_shell,args,{shell: true, detached: true}) : cp.spawn(compiler_path,args,{shell: false, detached: true})
+
+        let isProcessing = true;
+        (async () => {
+            const sock = new zmq.Subscriber()
+            sock.subscribe()
+            sock.receiveTimeout = 2000
+            const uriClient = `tcp://localhost:${port+1}`
+            await sock.connect(uriClient)
+            while (isProcessing) {
+                try {
+                    const [x] = await sock.receive()
+                    const msg: ClientRes = JSON.parse(x.toString())
+                    if ("PackageErrors" in msg) { errorsSet(errorsProject, Uri.parse(msg.PackageErrors.uri), msg.PackageErrors.errors) }
+                    else if ("TokenizerErrors" in msg) { errorsSet(errorsTokenization, Uri.parse(msg.TokenizerErrors.uri), msg.TokenizerErrors.errors) }
+                    else if ("ParserErrors" in msg) { errorsSet(errorsParse, Uri.parse(msg.ParserErrors.uri), msg.ParserErrors.errors) }
+                    else if ("TypeErrors" in msg) { errorsSet(errorsType, Uri.parse(msg.TypeErrors.uri), msg.TypeErrors.errors) }
+                    else if ("FatalError" in msg) { window.showErrorMessage(msg.FatalError) }
+                    else { const _ : never = msg }
+                } catch (e) {
+                    if (e.errno === 11) { } // If the error is a timeout just repeat.
+                    else { 
+                        window.showErrorMessage("Spiral: Fatal error in the subscriber socket. Aborting...")
+                        isProcessing = false
+                    }
+                }
+            }
+            await sock.disconnect(uriClient)
+        })();
+        const pingLater = (ms : number) => {
+            const ping = () => {
+                if (isProcessing) {spiPingReq(); pingLater(ms)}
+            }
+            setTimeout(ping, ms)
+        }
+        pingLater(1000)
+
+        serverStop = () => { 
+            p.removeAllListeners()
+            isProcessing = false 
+        }
+        p.on("exit", code => {
+            if (code) {
+                window.showErrorMessage("Spiral: The server has aborted with an error.")
+                serverStop()
+            }
+        })
+        }
+
+    startServer(workspace.getConfiguration("spiral").get("openServerInShell") || false)
+
     const spiralFilePattern = {pattern: '**/*.{spi,spir}'}
     const spiralProjFilePattern = {pattern: '**/package.spiproj'}
     const spiralTokenLegend = ['variable','symbol','string','number','operator','unary_operator','comment','keyword','parenthesis','type_variable','escaped_char','unescaped_char']
     workspace.textDocuments.forEach(onDocOpen)
     ctx.subscriptions.push(
-        new Disposable(() => {isProcessing = false}),
+        new Disposable(() => { serverStop() } ),
         errorsProject, errorsTokenization, errorsParse, errorsType,
         workspace.onDidOpenTextDocument(onDocOpen),
         workspace.onDidChangeTextDocument(onDocChange),
@@ -260,6 +281,8 @@ export const activate = async (ctx: ExtensionContext) => {
                 }})
         }),
         commands.registerCommand("runClosure", x => { x() }),
+        commands.registerCommand("startServer", () => { startServer(false) }),
+        commands.registerCommand("startServerInShell", () => { startServer(true) }),
         languages.registerDocumentLinkProvider(spiralProjFilePattern,new SpiralProjectLinks()),
         languages.registerCodeActionsProvider(spiralProjFilePattern,new SpiralProjectCodeActions())
     )
