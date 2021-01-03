@@ -1,0 +1,3 @@
+inl create forall t. (size : i32) : array' t = array' (real real_array_inv.create `t size)
+inl index forall t. ((array' ar) : array' t) (i : i32) : t = real real_array_inv.index ar i
+inl set forall t. ((array' ar) : array' t) (i : i32) (v : t) : () = real real_array_inv.set ar i v

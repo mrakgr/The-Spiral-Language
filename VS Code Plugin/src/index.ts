@@ -240,6 +240,7 @@ export const activate = async (ctx: ExtensionContext) => {
             }
             await sock.disconnect(uriClient)
         })();
+        
         const pingLater = (ms : number) => {
             const ping = () => {
                 if (isProcessing) {spiPingReq(); pingLater(ms)}
@@ -248,24 +249,23 @@ export const activate = async (ctx: ExtensionContext) => {
         }
         pingLater(1000)
 
-        serverStop = () => { 
-            p.removeAllListeners()
-            isProcessing = false 
-        }
         p.on("exit", code => {
             if (code) {
                 window.showErrorMessage("Spiral: The server has aborted with an error.")
-                serverStop()
             }
         })
+        workspace.textDocuments.forEach(onDocOpen)
+        serverStop = () => {
+            p.removeAllListeners()
+            isProcessing = false
         }
+    }
 
     startServer(workspace.getConfiguration("spiral").get("openServerInShell") || false)
 
     const spiralFilePattern = {pattern: '**/*.{spi,spir}'}
     const spiralProjFilePattern = {pattern: '**/package.spiproj'}
     const spiralTokenLegend = ['variable','symbol','string','number','operator','unary_operator','comment','keyword','parenthesis','type_variable','escaped_char','unescaped_char']
-    workspace.textDocuments.forEach(onDocOpen)
     ctx.subscriptions.push(
         new Disposable(() => { serverStop() } ),
         errorsProject, errorsTokenization, errorsParse, errorsType,

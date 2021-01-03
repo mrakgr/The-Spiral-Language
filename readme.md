@@ -27,8 +27,11 @@
     - [Bottom-Up Segment](#bottom-up-segment)
         - [Functions](#functions-1)
         - [Branching](#branching)
-            - [TODO - Loop Unrolling](#todo---loop-unrolling)
+            - [Example - Loop Unrolling](#example---loop-unrolling)
+            - [Example - Compiler Crash](#example---compiler-crash)
+            - [Example - Print Static](#example---print-static)
         - [Type Inference](#type-inference)
+        - [Real Nominals](#real-nominals)
 
 <!-- /TOC -->
 
@@ -2028,9 +2031,88 @@ else
 
 It could be done using macros if absolutely necessary, but otherwise right now Spiral does not have any exception catching mechanisms. It might have in the future, but right now catching exceptions goes beyond the immediate scope of what the language is intended for.
 
-#### TODO - Loop Unrolling
+#### Example - Loop Unrolling
 
-But before that I need to upgrade the way the server process is handled in the editor. Right now the plugin no way of recovering from stack overflows in the server. Also although `print_static` works, there is no way of printing out that information to the user of the plugin.
+Some languages need pragmas or macros to do loop unrolling, but it is fairly easy to do it naturally in Spiral. In Spiral the `.` operator is similar to `;` in F#. It can be used to separate statements on the same line.
+
+```
+open real_core
+inl main () =
+    inl rec loop f i = 
+        if lit_is i = false then error_type "Expected i to be a literal."
+        if 0 < i then f i . loop f (i-1) else ()
+    loop (fun i => $"// line !i" : ()) 5
+```
+```fs
+// line 5
+// line 4
+// line 3
+// line 2
+// line 1
+```
+
+#### Example - Compiler Crash
+
+Now that all the prerequisites have been met it is a good time to highlight that the Spiral compiler does not do any checks beforehand to make sure some piece of code at compile time does not cause it to stack overflow. Consider the following.
+
+```
+open real_core
+inl main () =
+    inl rec f () = 1 + f()
+    f()
+```
+```
+Spiral: The server has aborted with an error.
+```
+
+When you get this error message that can only mean there was a stack overflow. There is a very, very small chance it is a compiler bug and the server aborted due to an uncaught exception, but that shouldn't happen. This is not because Spiral it solid - at the time of writing it is still in alpha stage, but because all the unchaught exceptions should be caught by the Hopac concurrency library and outputted to the standard error.
+
+In either case the background server has terminated and the editor won't be able to have type inference nor semantic tokenization until the server has been restarted. In the command palette there are `Spiral: Start Server` and `Spiral: Start Server In Shell` commands which can be used to do so. By default during plugin startup Spiral executes the first command. All it does is run the compiler executable stealthily in the background. The second one shows a visible window in the foreground. The option which one to trigger on startup can be accessed in settings.
+
+As I said, languages generally take care to prevent user code from crashing them, but based on all my experience of programming in the old Spiral, I can state that these kinds of errors are very rare and are easy to isolate when they do happen by selectively cutting out pieces until the program compiles. The vast majority of my bug fixing time during the v0.09 was taken up by regular ones. So in my view this kind of language design is not a problem.
+
+---
+
+Note: If you do a build, but nothing is happening, bring up the shell and try it again. If an exception gets thrown then that is a compiler error. On the [Spiral issues page](https://github.com/mrakgr/The-Spiral-Language/issues), please report it along with a minimal example so that it can be fixed. Thank you.
+
+#### Example - Print Static
+
+Being able to see the console information can be useful in some cases.
+
+```
+open real_core
+inl main () =
+    inl x = 1f64
+    print_static x
+    inl ~y = x
+    print_static y
+```
+```
+Server bound to: tcp://*:13805
+1.000000f64
+f64
+```
+
+The above output shows in the shell window, not the compiled file. The last two lines are from the `print_static`.  You can see how `x` is known to the partial evaluator as a compile time literal, but after it has been dyned, it gets tracked as a runtime variable.
+
+```
+open real_core
+inl main () =
+    inl rec loop f i = 
+        if lit_is i = false then error_type "Expected i to be a literal."
+        if 0 < i then f i . loop f (i-1) else ()
+    loop (fun i => print_static {got = i}) 5
+```
+```
+Server bound to: tcp://*:13805
+{got : 5i32}
+{got : 4i32}
+{got : 3i32}
+{got : 2i32}
+{got : 1i32}
+```
+
+The `print_static` statements get executed as a part of partial evaluation. When the codebase gets bigger they are good for ensuring whether the partial evaluator is tracing a particular segment. They might be good for experimentation to get a better sense for how the system works. Keyed comment macros and doing a find in the output file for them is also a good fit for this purpose.
 
 ### Type Inference
 
@@ -2040,13 +2122,14 @@ Here is how the identity function could be written in the bottom-up segment. Sin
 
 ```
 inl main () =
-    inl id forall t. x = (join x) : t
+    inl id forall t. ~x = (join x) : t
     id `i32 1
 ```
 ```fs
-let rec method0 () : int32 =
-    1
-method0()
+let rec method0 (v0 : int32) : int32 =
+    v0
+let v0 : int32 = 1
+method0(v0)
 ```
 
 The ` unary operator can be used to access the type scope. Otherwise the term and the type scopes are segregated.
@@ -2064,19 +2147,176 @@ let rec method0 () : int32 =
 method0()
 ```
 
-Alternatively, here is how to infer the type bottom up style. It is necessary to instruct the compiler to grab it from somewhere.
+Alternatively, here is how to infer the type bottom up style. It is necessary to instruct the compiler to how to derive it, and since we have the element itself using it to get its type is a natural choice.
 
 ```
 inl main () =
-    inl id' forall t. x = (join x) : t
+    inl id' forall t. ~x = (join x) : t
     inl id x = id' `(`x) x
     id 1
 ```
 ```fs
-let rec method0 () : int32 =
-    1
-method0()
+let rec method0 (v0 : int32) : int32 =
+    v0
+let v0 : int32 = 1
+method0(v0)
 ```
 
-While in the type scope, using the ` operator opens the term scope again. The partial evaluator processes the term and converts the resulting expression into a type.
+While in the type scope, using the ` operator opens the term scope again. The partial evaluator processes the term and converts the resulting expression into a type. This illustrates the essence of bottom-up type inference using the simplest possible example.
+
+When doing bottom-up programming implementing identity as `inl id x = x` is a natural choice. But sometimes having the type ahead of time is necessary.
+
+A good example are the various array function like `map`.
+
+```
+inl map f ar = init (length ar) (fun i => f (index ar i))
+```
+
+Here is how it is implemented in the core library. Its type is `forall 'a 'b. ('a -> 'b) -> array 'a -> array 'b`. How would such a function be callable from the bottom up segment assuming we only had the unannotated `f` and the array?
+
+First, it is necessary to extract the element from the array itself. The `typecase` construct allows matching on a type, but its body can be opened into the term scope. The `?` is meant to be seen as pseudo-code in the following examples.
+
+```
+inl map f ar =
+    typecase `ar with
+    | array ~a => array.map `a ? f ar
+```
+
+Here we are matching on the type of `ar`, and `~a` is the metavar to which the array's element gets bound to. Unlike in regular pattern matching it is possible to use repeat metavars to do equality checking. `~t * ~t` for example would test whether the both sides of a pair unify to the same type.
+
+The `?` is troublesome here.
+
+We need a type, so we must open the type scope.
+
+```
+inl map f ar =
+    typecase `ar with
+    | array ~a => array.map `a `(?) f ar
+```
+
+We don't actually have any convenient data structure to extract `b` from, but we can get it by running `b`. For that we need to use `f`, so we should open the term scope again.
+
+```
+inl map f ar =
+    typecase `ar with
+    | array ~a => array.map `a `(`(f ?)) f ar
+```
+
+We can't apply `f` with `a` here because that is a type and `f` wants a term. What we can do is turn it into a term however using the double grave unary operator.
+
+```
+inl map f ar =
+    typecase `ar with
+    | array ~a => array.map `a `(`(f ``a)) f ar
+```
+
+It creates a term out of a type. This is fine, since the code in the type scope will not get generated. If you try using that operator on the term level and the code with the `TypeToVar` op gets passed into the code generator you will get a trace + type error during code generation.
+
+The compiler cannot possibly know how to create a value from an arbitrary type so this move can only ever be used for type inference.
+
+Here is the full example.
+
+```
+inl map f ar =
+    typecase `ar with
+    | array ~a => array.map `a `(`(f ``a)) f ar
+
+inl main () =
+    inl x = array.init `i32 10 (fun x => x)
+    map (fun x => x,x) x
+```
+```fs
+let rec method0 (v0 : (int32 []), v1 : int32) : unit =
+    let v2 : bool = v1 < 10
+    if v2 then
+        let v3 : int32 = v1 + 1
+        v0.[v1] <- v1
+        method0(v0, v3)
+    else
+        ()
+and method1 (v0 : int32, v1 : (int32 []), v2 : (struct (int32 * int32) []), v3 : int32) : unit =
+    let v4 : bool = v3 < v0
+    if v4 then
+        let v5 : int32 = v3 + 1
+        let v6 : int32 = v1.[v3]
+        v2.[v3] <- struct (v6, v6)
+        method1(v0, v1, v2, v5)
+    else
+        ()
+let v0 : (int32 []) = Array.zeroCreate<int32> 10
+let v1 : int32 = 0
+method0(v0, v1)
+let v2 : int32 = v0.Length
+let v3 : (struct (int32 * int32) []) = Array.zeroCreate<struct (int32 * int32)> v2
+let v4 : int32 = 0
+method1(v2, v0, v3, v4)
+v3
+```
+
+I had to implement `array.map` similarly to this in old Spiral. The reason why doing infering the type is needed is because the output array needs its type to be known ahead of time. It is not possible to do something like set it to some metavariable and unify it with its first use because of join points. In order to do their specialization, they need to have concrete terms ahead of time.
+
+This general approach to type inference is what I followed in the old Spiral. I went into it far further than this; I experimented with all sorts of tricks there. For one Cuda kernel for example, I was raising an exception with the thrown type and catching it. I had special ops just to do that.
+
+Consider the following function. How would it be possible to infer the type of the following?
+
+```
+inl main () =
+    inl f = function
+        | (a,b,c) => (a,b,c)
+        | (a,b) => (a,b,b)
+        | a => (a,a)
+    f (f (f (f 1)))
+```
+```fs
+struct (1, 1, 1)
+```
+
+If I ran it only once, I'd get `struct (1, 1)`. So the type of its input argument should be an union of `i32`, `i32 * i32` and `i32 * i32 * i32`. In order to infer the type of this what is necessary is to keep running the function until its type stabilizes. For this purpose, the old Spiral had particularly flexible union types that could be built up during partial evaluation instead of just specified at the top level like in v2.
+
+This is not an academic exercise either, I had to use this technique to infer the types of the internal state of an RNN used as the model for a poker agent otherwise I would not be able to store it. It is fairly remarkable how far it is possible to get without any type annotations in a static language, Spiral v0.09 is definitely a record setter in that regard.
+
+Today, I consider these techniques better off sealed. They are an anti-pattern. If bottom-up type inference sounds difficult, don't worry because it in fact is. The top-down is here for a reason in v2.
+
+Besides taking a lot programming effort to be used, I suspect it was one of the reasons why towards the end the compile times were so poor on that agent.
+
+To demonstrate why consider the previous example again.
+
+```
+inl map f ar =
+    typecase `ar with
+    | array ~a => array.map `a `(`(f ``a)) f ar
+```
+
+The part here where `f` is applied here is not free. Having to evaluate it twice, once to infer its return type, and once to actually generate its code, will in fact take twice as much time during compilation than just having to do it once.
+
+It is possible to reduce this cost by wrapping `f` in a join point.
+
+```
+inl map f ar =
+    inl f x = join f x
+    typecase `ar with
+    | array ~a => array.map `a `(`(f ``a)) f ar
+```
+
+This would reduce the compile time to about the cost of a single run, but now there will be a function call in generated code. You can only hope that whatever compiler is consuming it after that decides to inline it.
+
+I do not like this. Spiral is all about giving the user guarantees - for when functions are inlined, for how the values are propagated, and when data structures are heap allocated. The language being predictable is what will make hitting performance targets tractable for the user.
+
+Bottom-up programming just does not scale well to large codebases. It is very useful when you need all the power a statically typed programming language can give you, but most of the time you don't and would rather have instant editor feedback instead. When I first discovered all these bottom-up type inference techniques I felt very clever for breaking new ground, but using them where top-down type inference would suffice is just a waste of time.
+
+### Real Nominals
+
+I previously mentioned that very few things can go past language boundaries. One of the structures that can was an array of primitives. The trouble is that the regular arrays gets compiled to tuples. Consider the following top-down program.
+
+```
+inl main () =
+    inl x : array (i32 * i32 * i32) = array.create 10
+    ()
+```
+```fs
+let v0 : (struct (int32 * int32 * int32) []) = Array.zeroCreate<struct (int32 * int32 * int32)> 10
+()
+```
+
+For the sake of language interop, it would be better if this got compiled to three separate arrays and got tracked that way. It could be built into the language, but some things are more easily done as a library. Spiral's bottom-up introspection makes it possible.
 

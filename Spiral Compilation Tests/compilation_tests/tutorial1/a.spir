@@ -1,4 +1,0 @@
-open real_core
-inl main () =
-    inl rec f () = 1 + f()
-    f()

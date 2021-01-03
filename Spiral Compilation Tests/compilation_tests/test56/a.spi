@@ -1,0 +1,10 @@
+// Do the real nominals work?
+inl main () =
+    open array_inv
+    $"// create"
+    inl x : array' _ = create 10
+    $"// set"
+    inl y = set x 0 (true, "qwe", 2i32)
+    $"// index"
+    index x 0
+    

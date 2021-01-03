@@ -345,9 +345,13 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                 module_changed atten errors s p
         | FileChange x ->
             let p = file x.uri
-            let _,m = s.modules.[p]
-            let s = {s with modules = Map.add p (m.Run(DocumentEdit x.spiEdit)) s.modules}
-            module_changed atten errors s p
+            match Map.tryFind p s.modules with
+            | Some(_,m) -> 
+                let s = {s with modules = Map.add p (m.Run(DocumentEdit x.spiEdit)) s.modules}
+                module_changed atten errors s p
+            | None -> 
+                Hopac.start (Src.value errors.fatal "Cannot apply the edit in the server. Please close and open the file again."); s
+                s
         | FileDelete x ->
             let p = file x.uri
             let s = {s with modules = Map.remove p s.modules; infer_results = Map.remove p s.infer_results }

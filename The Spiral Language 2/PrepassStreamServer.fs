@@ -145,9 +145,10 @@ let package =
                         match old_package with
                         | Some p -> p.stream.Run(id,links,(files,target))
                         | None -> (package_multi_file Option.map multi_file package_env_default union in_module top_to_package package_to_top).Run(id,links,(files,target))
+                    let target_res = target_res |> Option.map (fun small -> small >>=* fun small -> env_out >>-* fun big -> {big with term = small.term; ty = small.ty})
                     let s = Map.add n {env_out = env_out; stream = stream; id = id; links = links} s
                     s, target_res
                     ) (s,None) order
-                |> fun (_,target_res) -> target_res, loop s
+                |> fun (s,target_res) -> target_res, loop s
             }
     loop Map.empty
