@@ -1,5 +1,1 @@
-modules: 
-    real_array_inv*
-    array_inv_type-
-    array_inv
-    a
+modules: a*

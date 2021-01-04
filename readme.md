@@ -32,6 +32,7 @@
             - [Example - Print Static](#example---print-static)
         - [Type Inference](#type-inference)
         - [Real Nominals](#real-nominals)
+        - [Serialization](#serialization)
 
 <!-- /TOC -->
 
@@ -2320,3 +2321,139 @@ let v0 : (struct (int32 * int32 * int32) []) = Array.zeroCreate<struct (int32 * 
 
 For the sake of language interop, it would be better if this got compiled to three separate arrays and got tracked that way. It could be built into the language, but some things are more easily done as a library. Spiral's bottom-up introspection makes it possible.
 
+Back in the very early days of old Spiral, it became quickly obvious to me that keeping the partial evaluator's operations simple, and leaving the harder tasks to be done in the language itself is a good practice. Not only would would the hard tasks be so hard as to be practically untenable - programming in the raw AST scales really poorly, doing it in the language itself means that the components can be reused elsewhere.
+
+This example is going to be more complex as it involves making a small library. Here is how the complete `package.spiproj` file will look like.
+
+```
+packages: |core-
+modules: 
+    real_array_inv*
+    array_inv_type-
+    array_inv
+    a
+```
+
+Let us move to the contents of the `real_array_inv.spir` file. Before the inverse array can be indexed and set, it needs to be created. Given a type like `i32 * i32` and a size argument, we need to compile it down to something like...
+
+```
+array.create `i32 10, array.create `i32 10
+```
+
+The resulting type of this term would be `array i32 * array i32`.
+
+In other words, for a given type, we need to map over it and turn each element into an array. The bottom-up segment is necessary for this. In non-primitive type systems, it is easy to take some type `'a` and apply a function to it. Going in the constructive direction, it is then easy to get data structures like arrays of `a`, or sets of `a`, or dictionaries whose values are `a`.
+
+But going the other way is very hard. I am yet to see a coherent scheme for doing this in a top-down type system. Dependently typed languages cannot do it either.
+
+It is a pity, as these inverse arrays are probably the most underrated data structure in all of computer science. They have huge value, but they aren't present in any of the general purpose languages that I'd want to use. In the wild, they are often referred as struct-of-arrays or tuple-of-array datatypes as opposed to array-of-structs or array-of-tuples that are regular arrays.
+
+Here is how `create` can be done in Spiral. Mapping over types is similar to mapping over regular structures using pattern matching.
+
+```
+open real_core
+inl rec create forall t. size =
+    typecase t with
+    | ~a * ~b => create `a size, create `b size
+    | {} => record_type_map (fun k => forall v. => create `v size) `t
+    | _ => !!!!ArrayCreate(`t, size)
+```
+
+`typecase` unification has some differences from top-down unification. Rather than being strict, it unifies records loosely similarly to regular record patterns, meaning that it only checks whether they keys in the pattern are present. Since there are no keys, it just checks whether the type is a record.
+
+`record_type_map` is a built in that maps over the elements of a type record. Unlike in the top-down, in the bottom-up segment it is possible to use `forall` freely on the term level. Writing `fun k => forall v. =>` is somewhat awkward, but is is necessary because the key is a term while the value is a type.
+
+On the last line instead of ```!!!!ArrayCreate(`t, size)``` it would have been possible to use ```array.create `t size```. In fact, `array.create` is a straightforward binding to this built in op.
+
+```
+inl create forall t. (size : i32) : array t = !!!!ArrayCreate(`t,size)
+inl index forall t. (ar : array t) (i : i32) : t = !!!!ArrayIndex(ar,i)
+inl set forall t. (ar : array t) (i : i32) (v : t) : () = !!!!ArrayIndexSet(ar,i,v)
+```
+
+One advantage of using built in ops for this purpose instead of macros is interop. C for example is wonky when it comes to type signatures, and creating arrays needs special care there. It is not possible to create arrays in arbitrary expression like in F#. Also, C arrays can have various annotations tacked on that aren't properly a part of the type. Using built in ops ensures consistency across languages.
+
+Another benefit is having better error messages in the bottom-up segment during partial evaluation. `ArrayCreate` for example, requires a 32-bit int as the size. Doing this type checking in the language directly would slow down partial evaluation.
+
+Many built in ops simply need access to internal state of the partial evaluator and cannot be implemented using macros at all.
+
+```
+inl rec index ar i = 
+    match ar with
+    | a,b => index a i, index b i
+    | {} => record_map (fun (key:value:) => index value i) ar
+    | ar => !!!!ArrayIndex(ar,i)
+
+inl rec set ar i v =
+    match ar, v with
+    | (a,b), (va,vb) => set a i va . set b i vb
+    | {}, {} => record_iter (fun (key:value:) => set (ar key) i value) v
+    | _ => !!!!ArrayIndexSet(ar,i,v)
+```
+
+`index` and `set` are mirrors of create. Rather than mapping over a type, they map (or iter) over a term.
+
+The next module on the list is `array_inv_type.spi`. That `-` postfix after its name in the package file is there to eliminate the module wrapping.
+
+```
+nominal array' t = `(real_array_inv.create `t ``i32)
+```
+
+In the previous section how it is possible to go from the term to the type segment, and then to the term segment by nesting the ` uses.
+
+This is the same thing. Nominals start out in the type scope and can do bottom-up style of type inference by directly evaluating an expression in term scope. If the nominal with these term fields are destructured, in the editor they will be shown as the symbol `.<term>`, but this is just an illusion. During partial evaluation they are the real thing.
+
+`array_inv.spi` are just the bindings to the `real_array_inv` functions.
+
+```
+inl create forall t. (size : i32) : array' t = array' (real real_array_inv.create `t size)
+inl index forall t. ((array' ar) : array' t) (i : i32) : t = real real_array_inv.index ar i
+inl set forall t. ((array' ar) : array' t) (i : i32) (v : t) : () = real real_array_inv.set ar i v
+```
+
+Here is a small test for the library.
+
+```
+inl main () =
+    open array_inv
+    $"// create"
+    inl x : array' _ = create 10
+    $"// set 0"
+    set x 0 (true, "qwe", 2i32, {q=false; w=true})
+    $"// set 1 - note how record fields can be omitted in the real segment"
+    real set `(bool * string * i32 * {q : bool; w : bool}) x 1 (false, "zxc", -2i32, {w=false})
+    $"// index 0"
+    index x 0
+```
+```fs
+// create
+let v0 : (bool []) = Array.zeroCreate<bool> 10
+let v1 : (string []) = Array.zeroCreate<string> 10
+let v2 : (int32 []) = Array.zeroCreate<int32> 10
+let v3 : (bool []) = Array.zeroCreate<bool> 10
+let v4 : (bool []) = Array.zeroCreate<bool> 10
+// set 0
+v0.[0] <- true
+v1.[0] <- "qwe"
+v2.[0] <- 2
+v3.[0] <- false
+v4.[0] <- true
+// set 1 - note how record fields can be omitted in the real segment
+v0.[1] <- false
+v1.[1] <- "zxc"
+v2.[1] <- -2
+v4.[1] <- false
+// index 0
+let v5 : bool = v0.[0]
+let v6 : string = v1.[0]
+let v7 : int32 = v2.[0]
+let v8 : bool = v3.[0]
+let v9 : bool = v4.[0]
+struct (v5, v6, v7, v8, v9)
+```
+
+The only function that is really missing from `real_array_inv.spir` is the length function. Implementing it and then the corresponding binding would allow the `array.spi` module function to be copy pasted and used verbatim with the new arrays.
+
+### Serialization
+
+...

@@ -60,6 +60,13 @@ type Op =
     | RecordFoldR
     | RecordLength
 
+    // Record Type
+    | RecordTypeMap
+    | RecordTypeIter
+    | RecordTypeFoldL
+    | RecordTypeFoldR
+    | RecordTypeLength
+
     // BinOps
     | Add
     | Sub
@@ -93,7 +100,7 @@ type Op =
     // Infinity
     | Infinity
 
-    // Static is
+    // Static Is
     | LitIs
     | PrimIs
     | SymbolIs
@@ -103,6 +110,14 @@ type Op =
     | LayoutIs
     | NominalIs
     | PrototypeHas
+
+    // Static Type Is
+    | PrimTypeIs
+    | SymbolTypeIs
+    | UnionTypeIs
+    | HeapUnionTypeIs
+    | LayoutTypeIs
+    | NominalTypeIs
 
     // Panic
     | FailWith

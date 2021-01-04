@@ -1,0 +1,5 @@
+// Does the metavar typecase on nominals?
+nominal t a = a
+inl main () =
+    typecase t i32 with
+    | ~a ~b => (t `b 1) : a b

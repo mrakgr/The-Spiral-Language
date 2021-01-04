@@ -1,0 +1,12 @@
+// Do the real nominals work?
+inl main () =
+    open array_inv
+    $"// create"
+    inl x : array' _ = create 10
+    $"// set 0"
+    set x 0 (true, "qwe", 2i32, {q=false; w=true})
+    $"// set 1 - note how record fields can be omitted in the real segment"
+    real set `(bool * string * i32 * {q : bool; w : bool}) x 1 (false, "zxc", -2i32, {w=false})
+    $"// index 0"
+    index x 0
+    

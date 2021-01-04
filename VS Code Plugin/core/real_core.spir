@@ -1,8 +1,8 @@
 // Raises a type error.
 inl error_type x = !!!!ErrorType(x)
-// Prints an expression at compile time.
+// Prints an term at compile time.
 inl print_static x = !!!!PrintStatic(x)
-// Pushes the expression to runtime.
+// Pushes the term to runtime.
 inl dyn x = !!!!Dyn(x)
 // Indexes the layout type.
 inl (~*) x = !!!!LayoutIndex(x)
@@ -11,9 +11,9 @@ inl (~!) x = !!!!LayoutIndex(x)
 
 // Unary negation.
 inl (~-) x = !!!!Neg(x)
-// Evaluates an expression and throws away the result.
+// Evaluates an term and throws away the result.
 inl ignore x = ()
-// Returns an expression after evaluating it.
+// Returns an term after evaluating it.
 inl id x = x
 // Throws away the second argument and returns the first.
 inl const x _ = x
@@ -98,21 +98,21 @@ inl string_slice x (from:to:) = !!!!StringSlice(x,from,to)
 // Returns the length of a string.
 inl string_length x = !!!!StringLength(x)
 
-// Returns boolean whether the expression is a literal.
+// Returns boolean whether the term is a literal.
 inl lit_is x = !!!!LitIs(x)
-// Returns boolean whether the expression is a primitive type.
+// Returns boolean whether the term is a primitive type.
 inl prim_is x = !!!!PrimIs(x)
-// Returns boolean whether the expression is a symbol.
+// Returns boolean whether the term is a symbol.
 inl symbol_is x = !!!!SymbolIs(x)
-// Returns boolean whether the expression is a runtime variable.
+// Returns boolean whether the term is a runtime variable.
 inl var_is x = !!!!VarIs(x)
-// Returns boolean whether the expression is an union.
+// Returns boolean whether the term is an union.
 inl union_is x = !!!!UnionIs(x)
-// Returns boolean whether the expression is a heap allocated union.
+// Returns boolean whether the term is a heap allocated union.
 inl heap_union_is x = !!!!HeapUnionIs(x)
-// Returns boolean whether the expression is a layout type.
+// Returns boolean whether the term is a layout type.
 inl layout_is x = !!!!LayoutIs(x)
-// Returns boolean whether the expression is a nominal type.
+// Returns boolean whether the term is a nominal type.
 inl nominal_is x = !!!!NominalIs(x)
 // Strips the nominal wrapper from the value.
 inl nominal_strip x = !!!!NominalStrip(x)
@@ -123,14 +123,14 @@ inl nan_is x = !!!!NanIs(x)
 
 // Raises an exception at runtime.
 inl failwith forall typ. msg = !!!!FailWith(`typ,msg)
-// Asserts an expression. If the conditional and the message are literals it raises a type error instead.
+// Asserts an term. If the conditional and the message are literals it raises a type error instead.
 inl assert c msg = 
     if c = false then 
         if lit_is c && lit_is msg then error_type msg
         else failwith `(()) msg
-// Returns the maximum of the two expressions.
+// Returns the maximum of the two terms.
 inl max a b = if a >= b then a else b
-// Returns the minimum of the two expressions.
+// Returns the minimum of the two terms.
 inl min a b = if a < b then a else b
 // Returns the absolute value.
 inl abs x = max x -x
@@ -141,9 +141,9 @@ inl lit_comp op a b =
     elif lit_is b then b
     else error_type "a or b needs to be a literal"
 
-// Returns the compile time expressible maximum of the two expressions.
+// Returns the compile time expressible maximum of the two terms.
 inl lit_max x = lit_comp max x
-// Returns the compile time expressible minimum of the two expressions.
+// Returns the compile time expressible minimum of the two terms.
 inl lit_min x = lit_comp min x
 
 // Maps over a record.
@@ -156,8 +156,32 @@ inl record_filter f a = !!!!RecordFilter(f,a)
 inl record_foldl f s a = !!!!RecordFoldL(f,s,a)
 // Folds over a record right to left.
 inl record_foldr f a s = !!!!RecordFoldR(f,s,a)
-// Returns the record length.
+// Returns the record's length as i32.
 inl record_length m = !!!!RecordLength(m)
+
+// Maps over a type record.
+inl record_type_map f = forall a. => !!!!RecordTypeMap(f, `a)
+// Iterates over a type record.
+inl record_type_iter f = forall a. => !!!!RecordTypeIter(f, `a)
+// Folds over a type record left to right.
+inl record_type_foldl f s = forall a. => !!!!RecordTypeFoldL(f,s, `a)
+// Folds over a type record right to left.
+inl record_type_foldr f = forall a. s => !!!!RecordTypeFoldR(f,s, `a)
+// Returns the type record's length as i32.
+inl record_type_length forall m. = !!!!RecordTypeLength(`m)
+
+// Returns boolean whether the type is a primitive type.
+inl prim_type_is forall x. = !!!!PrimTypeIs(`x)
+// Returns boolean whether the type is a symbol.
+inl symbol_type_is forall x. = !!!!SymbolTypeIs(`x)
+// Returns boolean whether the type is an union.
+inl union_type_is forall x. = !!!!UnionTypeIs(`x)
+// Returns boolean whether the type is a heap allocated union.
+inl heap_union_type_is forall x. = !!!!HeapUnionTypeIs(`x)
+// Returns boolean whether the type is a layout type.
+inl layout_type_is forall x. = !!!!LayoutTypeIs(`x)
+// Returns boolean whether the type is a nominal type.
+inl nominal_type_is forall x. = !!!!NominalTypeIs(`x)
 
 inl rec (=) a b =
     match a, b with

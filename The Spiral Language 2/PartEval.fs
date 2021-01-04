@@ -622,7 +622,7 @@ let peval (env : TopEnv) (x : E) =
                     | Some x -> x
                     | None -> raise_type_error s <| sprintf  "Cannot find key %s in the record." b
                 | b -> raise_type_error s <| sprintf "Expected a symbol in the record application.\nGot: %s" (show_ty b)
-            | YNominal _ | YApply _ as a -> YApply(a,ty s b)
+            | YMetavar _ | YNominal _ | YApply _ as a -> YApply(a,ty s b)
             | YTypeFunction(body,gl_ty,sz_term,sz_ty) -> 
                 let b = ty s b
                 let s = 
@@ -634,7 +634,7 @@ let peval (env : TopEnv) (x : E) =
                         }
                 s.env_stack_type.[0] <- b
                 ty s body
-            | a -> raise_type_error s <| sprintf "Expected record, nominal or a type function.\nGot: %s" (show_ty a)
+            | a -> raise_type_error s <| sprintf "Expected a record, nominal or a type function. Or a metavar when in typecase.\nGot: %s" (show_ty a)
         | TPrim a -> YPrim a
         | TTerm(_,a) -> term_scope s a |> snd
         | TMacro(r,a) -> let s = add_trace s r in YMacro(a |> List.map (function TMText a -> Text a | TMType a -> Type(ty s a)))
@@ -1111,9 +1111,7 @@ let peval (env : TopEnv) (x : E) =
                     | YPair(a,b), YPair(a',b') -> f (a,a') && f (b,b')
                     | YSymbol a, YSymbol b -> a = b
                     | YTypeFunction(a,b,c,d), YTypeFunction(a',b',c',d') -> a = a' && Array.forall2 (fun b b' -> f (b,b')) b b' && c = c' && d = d'
-                    | YRecord a, YRecord a' -> 
-                        let a, a' = Map.toArray a, Map.toArray a'
-                        a.Length = a'.Length && Array.forall2 (fun a a' -> fst a = fst a' && f (snd a, snd a')) a a'
+                    | YRecord a, YRecord a' -> Map.forall (fun k v' -> match Map.tryFind k a with Some v -> f (v, v') | None -> false) a'
                     | YPrim a, YPrim a' -> a = a'
                     | YArray a, YArray a' -> f (a, a')
                     | YMacro a, YMacro a' ->
@@ -1240,7 +1238,7 @@ let peval (env : TopEnv) (x : E) =
                 Map.filter (fun k v ->
                     match apply s (a, DPair(DSymbol "key_value_", DPair(DSymbol k,v))) with
                     | DLit(LitBool x) -> x
-                    | x -> raise_type_error s <| sprintf "Expected a bool literal in ModuleFilter.\nGot: %s" (show_data x)
+                    | x -> raise_type_error s <| sprintf "Expected a bool literal.\nGot: %s" (show_data x)
                     ) l
                 |> DRecord
             | _, b -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data b)
@@ -1254,8 +1252,34 @@ let peval (env : TopEnv) (x : E) =
             | _, r, _ -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data r)
         | EOp(_,RecordLength,[a]) ->
             match term s a with
-            | DRecord l -> Map.count l |> int64 |> LitInt64 |> DLit
+            | DRecord l -> Map.count l |> LitInt32 |> DLit
             | r -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data r)
+        | EOp(_,RecordTypeMap,[a;EType(_,b)]) ->
+            match term s a, ty s b with
+            | a, YRecord l -> Map.map (fun k v -> type_apply s (apply s (a, DSymbol k)) v) l |> DRecord
+            | _, b -> raise_type_error s <| sprintf "Expected a type record.\nGot: %s" (show_ty b)
+        | EOp(_,RecordTypeIter,[a;EType(_,b)]) ->
+            match term s a, ty s b with
+            | a, YRecord l -> 
+                Map.iter (fun k v -> 
+                    match type_apply s (apply s (a, DSymbol k)) v with
+                    | DB -> ()
+                    | x -> raise_type_error s <| sprintf "Expected an unit value.\nGot: %s" (show_data x)
+                    ) l 
+                DB
+            | _, b -> raise_type_error s <| sprintf "Expected a type record.\nGot: %s" (show_ty b)
+        | EOp(_,RecordTypeFoldL,[f;state;EType(_,x)]) ->
+            match term s f, term s state, ty s x with
+            | f, state, YRecord l -> Map.fold (fun state k v -> type_apply s (apply s ((apply s (f, state), DSymbol k))) v) state l
+            | _, _, r -> raise_type_error s <| sprintf "Expected a type record.\nGot: %s" (show_ty r)
+        | EOp(_,RecordTypeFoldR,[f;state;EType(_,x)]) ->
+            match term s f, term s state, ty s x with
+            | f, state, YRecord l -> Map.foldBack (fun k v state -> apply s ((type_apply s (apply s (f, DSymbol k)) v), state)) l state 
+            | _, _, r -> raise_type_error s <| sprintf "Expected a type record.\nGot: %s" (show_ty r)
+        | EOp(_,RecordTypeLength,[EType(_,a)]) ->
+            match ty s a with
+            | YRecord l -> Map.count l |> LitInt32 |> DLit
+            | r -> raise_type_error s <| sprintf "Expected a type record.\nGot: %s" (show_ty r)
         | EOp(_,Add,[a;b]) -> 
             let inline op a b = a + b
             match term2 s a b with
@@ -1751,6 +1775,36 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,NominalIs,[a]) ->
             match term s a with
             | DNominal(_, _) -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
+        | EOp(_,PrimTypeIs,[EType(_,a)]) ->
+            match ty s a with
+            | YPrim _ -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
+        | EOp(_,SymbolTypeIs,[EType(_,a)]) ->
+            match ty s a with
+            | YSymbol _ -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
+        | EOp(_,UnionTypeIs,[EType(_,a)]) -> 
+            match ty s a with
+            | YNominal _ | YApply _ as a -> 
+                match nominal_apply s a with
+                | YUnion _ -> DLit (LitBool true)
+                | _ -> DLit (LitBool false)
+            | _ -> DLit (LitBool false)
+        | EOp(_,HeapUnionTypeIs,[EType(_,a)]) ->
+            match ty s a with
+            | YNominal _ | YApply _ as a -> 
+                match nominal_apply s a with
+                | YUnion x -> DLit (LitBool (match x.Item |> snd with UHeap -> true | UStack -> false))
+                | _ -> DLit (LitBool false)
+            | _ -> DLit (LitBool false)
+        | EOp(_,LayoutTypeIs,[EType(_,a)]) ->
+            match ty s a with
+            | YLayout _ -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
+        | EOp(_,NominalTypeIs,[EType(_,a)]) ->
+            match ty s a with
+            | YNominal _ | YApply _ -> DLit (LitBool true)
             | _ -> DLit (LitBool false)
         | EOp(_,NominalStrip,[a]) -> 
             match term s a with
