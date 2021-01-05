@@ -1,0 +1,8 @@
+open result
+
+type resize_array a = $"ResizeArray<`a>"
+nominal pu a = {
+    pickle : a -> resize_array i8 -> ()
+    unpickle : mut i32 * resize_array i8 -> result a string
+    }
+

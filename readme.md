@@ -27,12 +27,13 @@
     - [Bottom-Up Segment](#bottom-up-segment)
         - [Functions](#functions-1)
         - [Branching](#branching)
-            - [Example - Loop Unrolling](#example---loop-unrolling)
-            - [Example - Compiler Crash](#example---compiler-crash)
-            - [Example - Print Static](#example---print-static)
+            - [Loop Unrolling](#loop-unrolling)
+            - [Compiler Crash](#compiler-crash)
+            - [Print Static](#print-static)
         - [Type Inference](#type-inference)
         - [Real Nominals](#real-nominals)
         - [Serialization](#serialization)
+            - [Pickler Combinators](#pickler-combinators)
 
 <!-- /TOC -->
 
@@ -2032,7 +2033,7 @@ else
 
 It could be done using macros if absolutely necessary, but otherwise right now Spiral does not have any exception catching mechanisms. It might have in the future, but right now catching exceptions goes beyond the immediate scope of what the language is intended for.
 
-#### Example - Loop Unrolling
+#### Loop Unrolling
 
 Some languages need pragmas or macros to do loop unrolling, but it is fairly easy to do it naturally in Spiral. In Spiral the `.` operator is similar to `;` in F#. It can be used to separate statements on the same line.
 
@@ -2052,7 +2053,7 @@ inl main () =
 // line 1
 ```
 
-#### Example - Compiler Crash
+#### Compiler Crash
 
 Now that all the prerequisites have been met it is a good time to highlight that the Spiral compiler does not do any checks beforehand to make sure some piece of code at compile time does not cause it to stack overflow. Consider the following.
 
@@ -2076,7 +2077,7 @@ As I said, languages generally take care to prevent user code from crashing them
 
 Note: If you do a build, but nothing is happening, bring up the shell and try it again. If an exception gets thrown then that is a compiler error. On the [Spiral issues page](https://github.com/mrakgr/The-Spiral-Language/issues), please report it along with a minimal example so that it can be fixed. Thank you.
 
-#### Example - Print Static
+#### Print Static
 
 Being able to see the console information can be useful in some cases.
 
@@ -2456,4 +2457,44 @@ The only function that is really missing from `real_array_inv.spir` is the lengt
 
 ### Serialization
 
-...
+Serialization comes in many guises and happens at boundaries. It involves making an isomorphic mapping that the two sides can interpret. It is about commnication through a protocol.
+
+In the old Spiral, once had to serialize tuple one of whose fields was an union to a binary format of 32-bit floats that a NN could consume. This is remarkable because this kind of task would be fairly difficult to do in F#. .NET reflection is nasty to work with and is slow because it has to be done at runtime. Just for the Spiral plugin I had to download a library and it has quirks like raising errors at runtime for invalid JSON objects. The C# ZeroMQ library (NetMQ) which I am using to communicate with the editor is a straight up foray into assembly style programming - it is not even C style in terms of type safety.
+
+More broadly, having to cross language boundaries in the old F# ML library that I did was the main reason why I embarked on creating Spiral. For all its performance advantages, the real reason to create a language has always been to raise one's productivity in a particular domain. A good way to raise productivity is to drive assembly style and C style programming to a minimum.
+
+#### Pickler Combinators
+
+It is tempting to dive right using typecase and doing bottom-up programming right away, but right now I am not actually sure how I want to do things myself. A part of the reason is that I am going to have to put in a few extra ops into the partial evaluator so that union types can be serialized.
+
+In such a situation a good practice will be to prototype first. Another benefit of doing the combinator library first is that I'll be able to reuse its primitives in the introspective library.
+
+This will also be a good chance to showcase the difference between SML level (F#,Ocaml,Haskell,Scala) and Spiral level programming. The general technique of [pickler combinators](https://www.microsoft.com/en-us/research/publication/functional-pearl-pickler-combinators/) is easy to grasp, is useful and might be new to even experienced functional programmers reading this.
+
+In general, the SML level can be surpassed through hacks like runtime reflection, but that has the disadvantage of deferring type checking to runtime and slowness. Runtime code generation can be fast if not optimal, but is even harder to implement and still has the first issue. Some languages can use macros to do it at compile time, but macros are top-down and not composable. Some particularly weak programming languages use code generation to get around their lack of expressiveness, but that misses the point that programming languages are in fact just fancy code generators.
+
+The way to start with making a pickler combinator library is to define its type first.
+
+```
+open result
+
+type resize_array a = $"ResizeArray<`a>"
+nominal pu a = {
+    pickle : a -> resize_array i8 -> ()
+    unpickle : mut i32 * resize_array i8 -> result a string
+    }
+```
+
+There are other ways to do it, it would be possible for example to do...
+
+```
+nominal pu a = {
+    pickle : a -> array i8
+    unpickle : i32 -> array i8 -> result a string * i32
+    }
+```
+
+This would be more functional in nature, but I've found that using references where they are appropriate rather than monadic passing of variables results in more readable code. Using resizable arrays instead of fixed arrays is also a design choice, and just adding to resizable arrays would be more performant than concatenating fixed arrays.
+
+The choice of `i32 -> array i8` vs `i32 * array i8` as `unpickle`'s first argument would matter if the functions were doing closure conversion at any point, but that is not the case here. Using pairs would be a tad faster at compile time.
+
