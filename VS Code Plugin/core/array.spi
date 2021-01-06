@@ -11,6 +11,7 @@ inl init nearTo f =
     ar
 inl fold f s ar = for (from: 0 nearTo: length ar) (fun i s => f s (index ar i)) s
 inl map f ar = init (length ar) (fun i => f (index ar i))
+inl iter f ar = for' (from: 0 nearTo: length ar) (index ar >> f)
 inl filter f ar =
     inl nearTo = length ar
     inl ar' = create nearTo

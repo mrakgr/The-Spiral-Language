@@ -1,0 +1,30 @@
+nominal pu a = {
+    pickle : a -> mut i32 * array i8 -> ()
+    size : a -> i32
+    unpickle : mut i32 * array i8 -> a
+    }
+
+inl I32 = 
+    inl length = 4 // $"sizeof<int>"
+    pu {size = fun _ => length
+        pickle = fun (x : i32) (i',s) =>
+            inl i = *i'
+            inl s = span.create' s (i:length:)
+            assert $"System.BitConverter.TryWriteBytes(!s,!x)" "Conversion failed."
+            i' <- i+length
+        unpickle = fun (i',s) =>
+            inl i = *i'
+            i' <- i+length
+            $"System.BitConverter.ToInt32(!s,!i)"
+        }
+
+inl array' (pu prim) =
+    inl (pu i32) = I32
+    pu {size = fun x => array.fold (fun s x => s + prim.size x) 0 x
+        pickle = fun x state =>
+            i32.pickle (array.length x) state
+            array.iter (fun x => prim.pickle x state) x
+        unpickle = fun state =>
+            inl length = i32.unpickle state
+            array.init length (fun _ => prim.unpickle state)
+        }

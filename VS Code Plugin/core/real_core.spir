@@ -122,7 +122,7 @@ inl prototype_has forall t. prot = !!!!PrototypeHas(prot, `t)
 inl nan_is x = !!!!NanIs(x)
 
 // Raises an exception at runtime.
-inl failwith forall typ. msg = !!!!FailWith(`typ,msg)
+inl failwith forall t. msg = !!!!FailWith(`t,msg)
 // Asserts an term. If the conditional and the message are literals it raises a type error instead.
 inl assert c msg = 
     if c = false then 

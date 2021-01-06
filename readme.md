@@ -34,6 +34,7 @@
         - [Real Nominals](#real-nominals)
         - [Serialization](#serialization)
             - [Pickler Combinators](#pickler-combinators)
+                - [Chosing A Type](#chosing-a-type)
 
 <!-- /TOC -->
 
@@ -2473,6 +2474,8 @@ This will also be a good chance to showcase the difference between SML level (F#
 
 In general, the SML level can be surpassed through hacks like runtime reflection, but that has the disadvantage of deferring type checking to runtime and slowness. Runtime code generation can be fast if not optimal, but is even harder to implement and still has the first issue. Some languages can use macros to do it at compile time, but macros are top-down and not composable. Some particularly weak programming languages use code generation to get around their lack of expressiveness, but that misses the point that programming languages are in fact just fancy code generators.
 
+##### Chosing A Type
+
 The way to start with making a pickler combinator library is to define its type first.
 
 ```
@@ -2498,3 +2501,36 @@ This would be more functional in nature, but I've found that using references wh
 
 The choice of `i32 -> array i8` vs `i32 * array i8` as `unpickle`'s first argument would matter if the functions were doing closure conversion at any point, but that is not the case here. Using pairs would be a tad faster at compile time.
 
+---
+
+I wrote the above yesterday, but it seems resize arrays are a poor fit for the task at hand. The advantage of them is that it would not be necessary to calculate the size in advance, but the [`BitConverter.GetBytes`](https://docs.microsoft.com/en-us/dotnet/api/system.bitconverter.getbytes?view=net-5.0) overloads all return a heap allocated array. For this particular example, I'd like to make the library maximally performant, which means eliminating all the meaningless copying and heap allocation.
+
+Instead of using `GetBytes`, what should be used in the library is [`TryWriteBytes`](https://docs.microsoft.com/en-us/dotnet/api/system.bitconverter.trywritebytes?view=net-5.0). All those functions handle `[Span`](https://docs.microsoft.com/en-us/dotnet/api/system.span-1?view=net-5.0)s structs which are views on a contiguous range of memory. Resizeable arrays are a linked list of arrays so that would not work with them.
+
+Unless I want to write my own bit converter functions, I'll have to adjust the design of the pickler so it works with the .NET standard library.
+
+The main reason I was reluctant to calculate the size in advance is because that would require more coding effort, which will result in a bigger error surface for the bugs to crawl on, but the perfomance should be the highest like this. Yes, calculating the size will require a separate pass over the input, but resizeable array's resizing is not free either. Resizeable array accesses are a few times closer than those of regular ones.
+
+Here is the type signature for the pickler that I've decided on.
+
+```
+nominal pu a = {
+    pickle : a -> mut i32 * array i8 -> ()
+    size : a -> i32
+    unpickle : mut i32 * array i8 -> result.t a string
+    }
+```
+
+Since we will need to use spans here are the helper functions for it. They have been factord out in the `span` module.
+
+```
+nominal span a = $"System.Span<`a>"
+type t a = span a
+
+inl create forall a. (ar : array a) : t a = $"System.Span(!ar)"
+inl create' forall a. (ar : array a) (i:(i : i32) length:(length : i32)) : t a = $"System.Span(!ar,!i,!length)"
+inl index forall a. (s : t a) (i : i32) : a = $"!s.[!i]"
+inl slice forall a. (s : t a) (i:(i : i32) length:(length : i32)) : a = $"!s.Slice(!i,!length)"
+```
+
+Only `create'` will be used in the pickler primitives.

@@ -1,0 +1,5 @@
+type t a = $"ResizeArray<`a>"
+inl create forall a. : t a = $"ResizeArray<`a>()"
+inl add forall a. (x : t a) (v : a) : () = $"!x.Add(!v)"
+inl index forall a. (x : t a) (i : i32) = $"!x.[!i]"
+inl set forall a. (x : t a) (i : i32) (v : a) = $"!x.[!i] <- !v"

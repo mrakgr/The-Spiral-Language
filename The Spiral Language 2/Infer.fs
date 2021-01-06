@@ -101,6 +101,7 @@ type TypeError =
     | UnionTypesMustHaveTheSameLayout
     | OrphanInstance
     | ShadowedInstance
+    | UnusedForall of string list
 
 let shorten' x link next = let x = next x in link.contents' <- Some x; x
 let rec visit_tt = function
@@ -537,6 +538,8 @@ let show_type_error (env : TopEnv) x =
     | UnionTypesMustHaveTheSameLayout -> "The two union types must have the same layout."
     | OrphanInstance -> "The instance has to be defined in the same module as either the prototype or the nominal."
     | ShadowedInstance -> "The instance cannot be defined twice."
+    | UnusedForall [x] -> sprintf "The forall variable %s is unused in the function's type signature." x
+    | UnusedForall vars -> sprintf "The forall variables %s are unused in the function's type signature." (vars |> String.concat ", ")
 
 let loc_env (x : TopEnv) = {term=x.term; ty=x.ty; constraints=x.constraints}
 let names_of vars = List.map (fun x -> x.name) vars |> Set
@@ -743,7 +746,24 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | x -> [], if List.isEmpty m then x else subst m x
         loop [] x
 
-    let generalize scope (forall_vars : Var list) (body : T) =
+    let assert_foralls_used r x =
+        let h = HashSet()
+        let rec f = function
+            | TyForall(v,a) -> h.Add v |> ignore; f a
+            | TyVar v -> h.Remove v |> ignore
+            | TyMetavar _ -> failwith "Compiler error: Metavars should not appear here."
+            | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> ()
+            | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b) -> f a; f b
+            | TyUnion(a,_) | TyRecord a -> Map.iter (fun _ -> f) a
+            | TyLayout(a,_) | TyInl(_,a) | TyArray a -> f a
+            | TyMacro a -> List.iter (function TMVar a -> f a | TMText _ -> ()) a
+            | TyModule _ -> ()
+        f x
+        if 0 < h.Count then
+            let vars = h |> Seq.toList |> List.map (fun x -> x.name) |> List.sort
+            errors.Add(r, UnusedForall vars)
+
+    let generalize r scope (forall_vars : Var list) (body : T) =
         let h = HashSet(HashIdentity.Reference)
         List.iter (h.Add >> ignore) forall_vars
         let generalized_metavars = ResizeArray()
@@ -766,8 +786,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
 
         let f x s = TyForall(x,s)
         replace_metavars body
-        Seq.foldBack f generalized_metavars body
-        |> List.foldBack f forall_vars 
+        let x = Seq.foldBack f generalized_metavars body |> List.foldBack f forall_vars |> term_subst
+        match forall_vars with
+        | [] -> x
+        | _ -> assert_foralls_used r x; x
 
     let inline unify_kind' er (got : TT) (expected : TT) : unit =
         let rec loop (a'',b'') =
@@ -1063,7 +1085,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let vars,env_ty = typevars scope env vars
         let body_var = fresh_var scope
         term scope {env with ty = env_ty} body_var body
-        let t = generalize scope vars body_var
+        let t = generalize r scope vars body_var
         generalized_statements.Add(body,t)
         hover_types.Add(r,t)
         {env with term = Map.add name t env.term }
@@ -1080,7 +1102,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     let body_var = term_annotations scope {env with ty = env_ty} body
                     let term env = term scope {env with ty = env_ty} body_var (strip_annotations body)
                     let gen env : Env = 
-                        let t = generalize scope vars body_var
+                        let t = generalize r scope vars body_var
                         generalized_statements.Add(body,t)
                         {env with term = Map.add name t env.term}
                     let ty = List.foldBack (fun x s -> TyForall(x,s)) vars body_var
@@ -1096,7 +1118,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     let body_var = fresh_var scope
                     let term env = term scope env body_var body
                     let gen env : Env = 
-                        let t = generalize scope [] body_var
+                        let t = generalize r scope [] body_var
                         generalized_statements.Add(body,t)
                         hover_types.Add(r,t)
                         {env with term = Map.add name t env.term}
@@ -1355,7 +1377,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let v = fresh_var scope
         ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
         let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
-        if 0 = errors.Count then
+        if 0 = errors.Count && (assert_foralls_used r body; 0 = errors.Count) then
             let x =
                 { top_env_empty with
                     prototypes_next_tag = i.tag + 1

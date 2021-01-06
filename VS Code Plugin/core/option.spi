@@ -1,4 +1,5 @@
 union option a = Some: a | None
+type t a = option a
 
 inl bind f = function Some: a => f a | None => None
 inl map f = bind (some_ >> f)
