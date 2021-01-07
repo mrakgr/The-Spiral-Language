@@ -32,6 +32,7 @@ type Op =
 
     // Type
     | TypeToVar
+    | TypeToSymbol
 
     // Closure conversion
     | Dyn

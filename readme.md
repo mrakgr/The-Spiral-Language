@@ -2534,3 +2534,22 @@ inl slice forall a. (s : t a) (i:(i : i32) length:(length : i32)) : a = $"!s.Sli
 ```
 
 Only `create'` will be used in the pickler primitives.
+
+```
+inl I32 = 
+    inl length = 4 // $"sizeof<int>"
+    pu {
+        pickle = fun (x : i32) (i',s) =>
+            inl i = *i'
+            inl s = span.create' s (i:length:)
+            if $"System.BitConverter.TryWriteBytes(!s,!x)" = false then failwith "Conversion failed."
+            i' <- i+length
+        size = fun _ => length
+        unpickle = fun (i',s) =>
+            inl i = *i'
+            i' <- i+length
+            $"System.BitConverter.ToInt32(!s,!i)"
+        }
+```
+
+Here is the first pickler primitive for 32-bit ints.

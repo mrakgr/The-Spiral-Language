@@ -1163,7 +1163,11 @@ let peval (env : TopEnv) (x : E) =
                     | _ -> push_typedop s (TyLayoutIndexAll v) ty
             | a -> raise_type_error s <| sprintf "Expected a layout type.\nGot: %s" (show_data a)
         | EOp(_,TypeToVar,[EType(_,a)]) -> push_typedop_no_rewrite s (TyOp(TypeToVar,[])) (ty s a)
-        | EOp(_,TypeToVar,_) -> raise_type_error s "Malformed TypeToVar."
+        | EOp(_,TypeToSymbol,[EType(_,a)]) -> 
+            match ty s a with
+            | YSymbol a -> DSymbol a
+            | a -> raise_type_error s <| sprintf "Expected a symbol.\nGot: %s" (show_ty a)
+        | EOp(_,(TypeToVar | TypeToSymbol),[a]) -> raise_type_error s "Expected a type."
         | EOp(_,Dyn,[a]) -> term s a |> dyn true s
         | EOp(_,StringLength,[a]) ->
             match term s a with

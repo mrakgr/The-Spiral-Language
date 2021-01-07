@@ -4,10 +4,21 @@ nominal pu a = {
     unpickle : mut i32 * array i8 -> a
     }
 
-inl I32 = 
-    inl length = 4 // $"sizeof<int>"
+inl Unit =
+    pu {size = fun _ => 0
+        pickle = fun () _ => ()
+        unpickle = fun _ => ()
+        }
+
+inl symbol forall t {symbol}. : pu t =
+    pu {size = fun _ => 0
+        pickle = fun _ _ => ()
+        unpickle = fun _ => !!!!TypeToSymbol(`t)
+        }
+
+inl primitive length read =
     pu {size = fun _ => length
-        pickle = fun (x : i32) (i',s) =>
+        pickle = fun x (i',s) =>
             inl i = *i'
             inl s = span.create' s (i:length:)
             assert $"System.BitConverter.TryWriteBytes(!s,!x)" "Conversion failed."
@@ -15,16 +26,88 @@ inl I32 =
         unpickle = fun (i',s) =>
             inl i = *i'
             i' <- i+length
-            $"System.BitConverter.ToInt32(!s,!i)"
+            read s i
         }
+
+inl I32Size = 4 // $"sizeof<int>"
+inl I32 : pu i32 = primitive I32Size (fun s i => $"System.BitConverter.ToInt32(!s,!i)")
+
+inl CharSize = 2 // $"sizeof<char>"
+inl Char : pu char = primitive CharSize (fun s i => $"System.BitConverter.ToChar(!s,!i)")
 
 inl array' (pu prim) =
     inl (pu i32) = I32
-    pu {size = fun x => array.fold (fun s x => s + prim.size x) 0 x
+    pu {size = fun x => array.fold (fun s x => s + prim.size x) I32Size x
         pickle = fun x state =>
             i32.pickle (array.length x) state
             array.iter (fun x => prim.pickle x state) x
         unpickle = fun state =>
             inl length = i32.unpickle state
             array.init length (fun _ => prim.unpickle state)
+        }
+
+inl String =
+    inl (pu p) = array' Char
+    pu {size = fun x => I32Size + CharSize * string.length x
+        pickle = fun x state => p.pickle $"!x.ToCharArray()" state
+        unpickle = fun state => inl ar = p.unpickle state in $"System.String(!ar)"
+        }
+
+inl pair (pu a') (pu b') =
+    pu {size = fun (a,b) => a'.size a + b'.size b
+        pickle = fun (a,b) state => a'.pickle a state . b'.pickle b state
+        unpickle = fun state => a'.unpickle state, b'.unpickle state
+        }
+
+inl wrap (b,a) (pu p) =
+    pu {size = a >> p.size
+        pickle = fun x state => p.pickle (a x) state
+        unpickle = fun state => p.unpickle state |> b
+        }
+
+inl record_qwe p = wrap ((fun (q,w,e) => {q w e}),(fun {q w e} => q,w,e)) p
+
+open list
+inl alt forall t. (tag : t -> i32) (l : list (pu t)) =
+    inl rec static_index (i : i32) = function
+        | Nil => error_type "Invalid tag."
+        | Cons: l, ls => if i = 0 then l else static_index (i-1) ls
+    // TODO: Don't forget to fix the generalization bug here.
+    inl pu_of (x : t) =
+        inl i = tag x
+        if var_is i = false then error_type "Tag must be static here."
+        i, static_index i l
+        
+    // If x is already unboxed in scope, trying to unbox it again will be substituted with that.
+    inl unbox_tag forall r. (x : t) (on_succ : i32 * pu t -> r) : r = !!!!Unbox(x,fun _ => on_succ (pu_of x))
+    inl (pu i32) = I32
+    pu {size = fun x => unbox_tag x (fun (i, pu p) => I32Size + p.size x)
+        pickle = fun x state => unbox_tag x (fun (i, pu p) => i32.pickle i state . p.pickle x state)
+        unpickle = fun state => 
+            inl tag = i32.unpickle state
+            let rec loop i = function
+                | Cons: (pu p), ls => if i = tag then p.unpickle state else loop (i+1) ls
+                | Nil => failwith "Invalid tag."
+            loop 0 l
+        }
+
+inl list (pu p) =
+    inl (pu i32) = I32
+    pu {size = list.fold (fun s x => s + I32Size + p.size x) I32Size
+        pickle = fun x state =>
+            let rec loop = function
+                | Cons: x, xs =>
+                    i32.pickle 0 state
+                    p.pickle x state
+                    loop xs
+                | Nil =>
+                    i32.pickle 1 state
+            loop x
+        unpickle = fun state =>
+            let rec loop () =
+                match i32.unpickle state with
+                | 0 => Cons: p.unpickle state, loop()
+                | 1 => Nil
+                | _ => failwith "Invalid tag."
+            loop ()
         }

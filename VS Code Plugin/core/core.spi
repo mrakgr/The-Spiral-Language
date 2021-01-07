@@ -29,11 +29,14 @@ inl id x = x
 inl fst (x,_) = x
 inl snd (_,x) = x
 
-inl (=) forall t. (a : t) (b : t) : bool = real real_core.(=) a b
-inl (<>) forall t. (a : t) (b : t) : bool = real real_core.(<>) a b
+open real_core
+inl (=) forall t. (a : t) (b : t) : bool = real a = b
+inl (<>) forall t. (a : t) (b : t) : bool = real a <> b
 inl lit_is x : bool = !!!!LitIs(x)
 inl print_static x : () = !!!!PrintStatic(x)
-inl comp forall t. (a : t) (b : t) : order = real real_core.comp a b
-inl hash forall t. (a : t) : i32 = real real_core.hash a
-inl assert (c : bool) (msg : string) : () = real real_core.assert c msg
-inl failwith forall t. (msg : string) : t = real real_core.failwith `t msg
+inl comp forall t. (a : t) (b : t) : order = real comp a b
+inl hash forall t. (a : t) : i32 = real hash a
+inl assert (c : bool) (msg : string) : () = real assert c msg
+inl failwith forall t. (msg : string) : t = real failwith `t msg
+inl var_is forall t. (x : t) : bool = real var_is x
+inl error_type (msg : string) = real error_type msg
