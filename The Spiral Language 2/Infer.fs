@@ -779,7 +779,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 incr autogened_forallvar_count
                 link := Some v
                 replace_metavars v
-            | TyVar v -> if h.Add(v) then generalized_metavars.Add(v)
+            // This scheme with the HashSet is so generalize works for mutually recursive statements.
+            | TyVar v -> if scope = v.scope && h.Add(v) then generalized_metavars.Add(v)
             | TyMetavar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> ()
             | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b) -> f a; f b
             | TyUnion(a,_) | TyRecord a -> Map.iter (fun _ -> f) a

@@ -62,7 +62,14 @@ inl pair (pu a') (pu b') =
 inl wrap (b,a) (pu p) =
     pu {size = a >> p.size
         pickle = fun x state => p.pickle (a x) state
-        unpickle = fun state => p.unpickle state |> b
+        unpickle = fun state => b (p.unpickle state)
+        }
+
+// Like wrap, except for recursive types.
+inl wrap' (b,a) p =
+    pu {size = fun x => inl (pu p) = p() in p.size(a x)
+        pickle = fun x state => inl (pu p) = p() in p.pickle (a x) state
+        unpickle = fun state => inl (pu p) = p() in b (p.unpickle state)
         }
 
 inl record_qwe p = wrap ((fun (q,w,e) => {q w e}),(fun {q w e} => q,w,e)) p
@@ -72,7 +79,6 @@ inl alt forall t. (tag : t -> i32) (l : list (pu t)) =
     inl rec static_index (i : i32) = function
         | Nil => error_type "Invalid tag."
         | Cons: l, ls => if i = 0 then l else static_index (i-1) ls
-    // TODO: Don't forget to fix the generalization bug here.
     inl pu_of (x : t) =
         inl i = tag x
         if var_is i = false then error_type "Tag must be static here."
@@ -81,7 +87,7 @@ inl alt forall t. (tag : t -> i32) (l : list (pu t)) =
     // If x is already unboxed in scope, trying to unbox it again will be substituted with that.
     inl unbox_tag forall r. (x : t) (on_succ : i32 * pu t -> r) : r = !!!!Unbox(x,fun _ => on_succ (pu_of x))
     inl (pu i32) = I32
-    pu {size = fun x => unbox_tag x (fun (i, pu p) => I32Size + p.size x)
+    pu {size = fun x => unbox_tag x (fun (_, pu p) => I32Size + p.size x)
         pickle = fun x state => unbox_tag x (fun (i, pu p) => i32.pickle i state . p.pickle x state)
         unpickle = fun state => 
             inl tag = i32.unpickle state
@@ -91,23 +97,51 @@ inl alt forall t. (tag : t -> i32) (l : list (pu t)) =
             loop 0 l
         }
 
-inl list (pu p) =
-    inl (pu i32) = I32
-    pu {size = list.fold (fun s x => s + I32Size + p.size x) I32Size
-        pickle = fun x state =>
-            let rec loop = function
-                | Cons: x, xs =>
-                    i32.pickle 0 state
-                    p.pickle x state
-                    loop xs
-                | Nil =>
-                    i32.pickle 1 state
-            loop x
-        unpickle = fun state =>
-            let rec loop () =
-                match i32.unpickle state with
-                | 0 => Cons: p.unpickle state, loop()
-                | 1 => Nil
-                | _ => failwith "Invalid tag."
-            loop ()
-        }
+// inl list (pu p) =
+//     inl (pu i32) = I32
+//     pu {size = list.fold (fun s x => s + I32Size + p.size x) I32Size
+//         pickle = fun x state =>
+//             let rec loop = function
+//                 | Cons: x, xs =>
+//                     i32.pickle 0 state
+//                     p.pickle x state
+//                     loop xs
+//                 | Nil =>
+//                     i32.pickle 1 state
+//             loop x
+//         unpickle = fun state =>
+//             let rec loop () =
+//                 match i32.unpickle state with
+//                 | 0 => Cons: p.unpickle state, loop()
+//                 | 1 => Nil
+//                 | _ => failwith "Invalid tag."
+//             loop ()
+//         }
+
+inl rec list p =
+    alt (function Cons: _ => 0 | Nil => 1) (
+        wrap' (cons_,fun (Cons: a,b) => a,b) (fun () => pair p (list p)) :: 
+        wrap (nil,fun Nil => ()) Unit :: 
+        Nil
+        )
+
+nominal serialized a = array i8
+
+inl serialize forall t. (pu p) x =
+    inl size = p.size x
+    inl ar = array.create size
+    inl i = mut 0
+    p.pickle x (i,ar)
+    assert (*i = size) "The size of the array does not correspond to the amount being pickled. One of the combinators is faulty."
+    serialized ar : serialized t
+
+inl deserialize forall t. (pu p : pu t) (serialized x : serialized t) : t =
+    inl i = mut 0
+    inl r = p.unpickle (i,x)
+    assert (*i = array.length x) "The size of the array does not correspond to the amount being unpickled. One of the combinators is faulty or the data is malformed."
+    r
+
+inl main () =
+    inl scheme = pair I32 (pair I32 (list (record_qwe (pair I32 (pair String Char)))))
+    inl x = 1,2,({q=1;w="a";e='z'} :: {q=2;w="s";e='x'} :: Nil)
+    assert (x = deserialize scheme (serialize scheme x)) "Serialization and deserialization should result in the same result."
