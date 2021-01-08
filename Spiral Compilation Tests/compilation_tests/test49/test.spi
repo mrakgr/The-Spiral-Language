@@ -13,7 +13,6 @@ inl union_test () =
     inl _ = comp (dyn a) (dyn b)
     ()
 
-open list
 inl union_rec_test () =
     inl a = 1i32 :: 2 :: dyn (3 :: Nil)
     inl b = 1 :: dyn (2 :: 3 :: Nil)

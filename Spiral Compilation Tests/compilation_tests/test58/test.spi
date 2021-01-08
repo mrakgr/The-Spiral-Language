@@ -1,5 +1,4 @@
-// Does the open array work? Do unapplied metavars errors happen on module application?
-open array
+// Do unapplied metavars errors happen on module application? They should.
 inl main () = 
-    inl x = array.fold
+    inl x = arraym.fold
     ()

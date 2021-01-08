@@ -5,3 +5,8 @@ prototype comparable a : a -> a -> order
 inl eq_is = function EQ => true | _ => false
 
 prototype hashable a : a -> i32
+
+union option a = Some: a | None
+union result a b = Ok: a | Error: b
+union rec list a = Nil | Cons: a * list a
+inl (::) a b = Cons: a,b

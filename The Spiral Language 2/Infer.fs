@@ -653,7 +653,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | RawFilledForall _ | RawMissingBody _ | RawTypecase _ | RawType _ as x -> failwithf "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only.\nGot: %A" x
             | RawSymbol _ | RawB _ | RawLit _ | RawOp _ -> x
             | RawReal(_,x) -> x
-            | RawBigV(r,a) -> f (RawApply(r,RawV(r,a), RawB r))
+            | RawBigV(r,a) -> f (RawApply(r,RawV(r,a),RawB r))
             | RawV(r,n) ->
                 match type_apply_args.TryGetValue(n) with
                 | true, type_apply_args ->
@@ -967,7 +967,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         else errors.Add(r,ModuleMustBeImmediatelyApplied)
                     | Some a -> 
                         let typevars,a = forall_subst_all scope a
-                        if List.isEmpty typevars = false then module_type_apply_args.Add(x,typevars)
+                        if List.isEmpty typevars = false then 
+                            annotations.Add(x,(r,s))
+                            module_type_apply_args.Add(x,typevars)
+                        match b with RawSymbol(r,_) -> hover_types.Add(r,s) | _ -> ()
                         unify r s a
                     | None -> errors.Add(r,ModuleIndexFailed n)
                 | b -> errors.Add(r,ExpectedSymbolAsModuleKey b)

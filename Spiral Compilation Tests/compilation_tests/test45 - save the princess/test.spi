@@ -1,16 +1,14 @@
 // Save The Princess HackerRank problem.
-open list
-open option
 union cell = Princess | Empty
 
 let save_the_princess field mario_pos =
     inl cells_visited = 
-        array.init (array.length field) (fun b => 
-            array.init (array.length (array.index field b)) (const false)
+        arraym.init (arraym.length field) (fun b => 
+            arraym.init (arraym.length (arraym.index field b)) (const false)
             )
-    inl index ar (b,a) = array.index (array.index ar b) a
-    inl set ar (b,a) v = array.set (array.index ar b) a v
-    inl is_in_range (b,a),_ = 0 <= b && b < array.length field && (inl x = array.index field b in 0 <= a && a < array.length x)
+    inl index ar (b,a) = arraym.index (arraym.index ar b) a
+    inl set ar (b,a) v = arraym.set (arraym.index ar b) a v
+    inl is_in_range (b,a),_ = 0 <= b && b < arraym.length field && (inl x = arraym.index field b in 0 <= a && a < arraym.length x)
     inl is_princess_in_state x,_ = match index field x with Princess => true | _ => false
 
     inl up (row,col), prev_moves = (row-1,col), ("UP" :: prev_moves)
@@ -21,7 +19,7 @@ let save_the_princess field mario_pos =
     inl solution = mut None
     let rec loop queue = 
         inl queue = 
-            array.map (fun (mario_pos, prev_moves as state) =>
+            arraym.map (fun (mario_pos, prev_moves as state) =>
                 inl f move = 
                     inl (pos_row, pos_col),_ as new_state = move state
                     inl is_valid =
@@ -35,25 +33,25 @@ let save_the_princess field mario_pos =
                 inl number_of_valid_states =
                     inl f _,b = if b then 1 else 0
                     f up + f down + f left + f right
-                inl new_states = array.create number_of_valid_states
-                inl f (state, is_valid) i = if is_valid then array.set new_states i state . i+1 else i
+                inl new_states = arraym.create number_of_valid_states
+                inl f (state, is_valid) i = if is_valid then arraym.set new_states i state . i+1 else i
                 inl _ = f up 0 |> f down |> f left |> f right 
                 new_states
                 ) queue
-            |> array.concat
+            |> arraym.concat
         match *solution with
         | None => loop queue
-        | Some: _, path => list.rev path
+        | Some: _, path => listm.rev path
 
-    loop (array.singleton (mario_pos, Nil))
+    loop (arraym.singleton (mario_pos, Nil))
 
 inl main () =
     inl ~field_size = 4
     inl ~princess_pos = 2,3
     inl field = 
-        array.init field_size (fun b => 
-            array.init field_size (fun a => 
+        arraym.init field_size (fun b => 
+            arraym.init field_size (fun a => 
                 if (b,a) = princess_pos then Princess else Empty
                 ))
     save_the_princess field (0,0)
-    |> list.iter (fun x => $"printfn \"%s\" !x")
+    |> listm.iter (fun x => $"printfn \"%s\" !x")

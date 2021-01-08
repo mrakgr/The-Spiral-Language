@@ -12,7 +12,7 @@ inl main() =
         | V: x => x
         | Add: a, b => g a + g b
         | Mult: a, b => g a * g b
-    and inl g x = if unboxed_is x then f x else join f x
+    and inl g x = if var_is x then join f x else f x
     $"// static"
     inl ~x = g c : f32
     $"// dynamic"

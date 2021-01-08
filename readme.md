@@ -34,7 +34,6 @@
         - [Real Nominals](#real-nominals)
         - [Serialization](#serialization)
             - [Pickler Combinators](#pickler-combinators)
-                - [Chosing A Type](#chosing-a-type)
 
 <!-- /TOC -->
 
@@ -2474,54 +2473,18 @@ This will also be a good chance to showcase the difference between SML level (F#
 
 In general, the SML level can be surpassed through hacks like runtime reflection, but that has the disadvantage of deferring type checking to runtime and slowness. Runtime code generation can be fast if not optimal, but is even harder to implement and still has the first issue. Some languages can use macros to do it at compile time, but macros are top-down and not composable. Some particularly weak programming languages use code generation to get around their lack of expressiveness, but that misses the point that programming languages are in fact just fancy code generators.
 
-##### Chosing A Type
-
-The way to start with making a pickler combinator library is to define its type first.
-
-```
-open result
-
-type resize_array a = $"ResizeArray<`a>"
-nominal pu a = {
-    pickle : a -> resize_array i8 -> ()
-    unpickle : mut i32 * resize_array i8 -> result a string
-    }
-```
-
-There are other ways to do it, it would be possible for example to do...
-
-```
-nominal pu a = {
-    pickle : a -> array i8
-    unpickle : i32 -> array i8 -> result a string * i32
-    }
-```
-
-This would be more functional in nature, but I've found that using references where they are appropriate rather than monadic passing of variables results in more readable code. Using resizable arrays instead of fixed arrays is also a design choice, and just adding to resizable arrays would be more performant than concatenating fixed arrays.
-
-The choice of `i32 -> array i8` vs `i32 * array i8` as `unpickle`'s first argument would matter if the functions were doing closure conversion at any point, but that is not the case here. Using pairs would be a tad faster at compile time.
-
 ---
 
-I wrote the above yesterday, but it seems resize arrays are a poor fit for the task at hand. The advantage of them is that it would not be necessary to calculate the size in advance, but the [`BitConverter.GetBytes`](https://docs.microsoft.com/en-us/dotnet/api/system.bitconverter.getbytes?view=net-5.0) overloads all return a heap allocated array. For this particular example, I'd like to make the library maximally performant, which means eliminating all the meaningless copying and heap allocation.
-
-Instead of using `GetBytes`, what should be used in the library is [`TryWriteBytes`](https://docs.microsoft.com/en-us/dotnet/api/system.bitconverter.trywritebytes?view=net-5.0). All those functions handle `[Span`](https://docs.microsoft.com/en-us/dotnet/api/system.span-1?view=net-5.0)s structs which are views on a contiguous range of memory. Resizeable arrays are a linked list of arrays so that would not work with them.
-
-Unless I want to write my own bit converter functions, I'll have to adjust the design of the pickler so it works with the .NET standard library.
-
-The main reason I was reluctant to calculate the size in advance is because that would require more coding effort, which will result in a bigger error surface for the bugs to crawl on, but the perfomance should be the highest like this. Yes, calculating the size will require a separate pass over the input, but resizeable array's resizing is not free either. Resizeable array accesses are a few times closer than those of regular ones.
-
-Here is the type signature for the pickler that I've decided on.
+It was quite a ride to make this short pickler combinator library. I found a bunch of compiler bugs that are now fixed. Here is the `package.spiproj` file.
 
 ```
-nominal pu a = {
-    pickle : a -> mut i32 * array i8 -> ()
-    size : a -> i32
-    unpickle : mut i32 * array i8 -> result.t a string
-    }
+packages: |core-
+modules: 
+    span
+    pickle
 ```
 
-Since we will need to use spans here are the helper functions for it. They have been factord out in the `span` module.
+The `span.spi` file is this.
 
 ```
 nominal span a = $"System.Span<`a>"
@@ -2533,18 +2496,58 @@ inl index forall a. (s : t a) (i : i32) : a = $"!s.[!i]"
 inl slice forall a. (s : t a) (i:(i : i32) length:(length : i32)) : a = $"!s.Slice(!i,!length)"
 ```
 
-Only `create'` will be used in the pickler primitives.
+These are just bindings for the .NET [`Span`](https://docs.microsoft.com/en-us/dotnet/api/system.span-1?view=net-5.0) struct. Spans are just views over regular .NET (or unmanaged) arrays. Since I do not want to implement my own conversion function, I want to reuse the [`BitConverter`](https://docs.microsoft.com/en-us/dotnet/api/system.bitconverter?view=net-5.0).
+
+In particular, the [`TryWriteBytes`](https://docs.microsoft.com/en-us/dotnet/api/system.bitconverter.trywritebytes?view=net-5.0) method has an overload that takes in a `Span` struct. It also has variants that return an array, so I could take that and then copy to my target by myself, but that would be inefficient as it would cause an array to be allocated on the heap every time primitive pickling was attempted.
+
+It also has various unpickling methods that take in an array and an index as an argument which are needed.
+
+The `pickle` module starts by defining the pickler combinator type.
 
 ```
-inl I32 = 
-    inl length = 4 // $"sizeof<int>"
-    pu {
-        pickle = fun (x : i32) (i',s) =>
+nominal pu a = {
+    pickle : a -> mut i32 * array u8 -> ()
+    size : a -> i32
+    unpickle : mut i32 * array u8 -> a
+    }
+```
+
+Compared to the paper, I've added the `size` field. The idea behind it to get the size of the byte array used in pickling as a separate pass and then preallocate it. I meant to use a resizable array originally, but those bitconverter functions all take in either spans or regular arrays which represent blocks of contiguous memory. Resizeable arrays are a linked list of arrays under the hood, so they aren't contiguous. Spans can't be used with them.
+
+Here is the first primitive.
+
+```
+inl Unit =
+    pu {size = fun _ => 0
+        pickle = fun () _ => ()
+        unpickle = fun _ => ()
+        }
+```
+
+The type of it is `pu ()`. Since it is a singleton type, there is no need for it to have a serialization footprint. This makes its implementation very simple. Symbols are next.
+
+```
+inl symbol forall t {symbol}. : pu t =
+    pu {size = fun _ => 0
+        pickle = fun _ _ => ()
+        unpickle = fun _ => !!!!TypeToSymbol(`t)
+        }
+```
+
+Symbols are also singleton types, the only troublesome part compared to the unit types is unpickling. Here the `TypeToSymbol` op is used to convert the type to a term.
+
+The next come some meatier primitives.
+
+```
+inl I32Size = 4 // $"sizeof<int>"
+inl I32 : pu i32 =
+    inl length = I32Size
+    pu {size = fun _ => length
+        pickle = fun x (i',s) =>
             inl i = *i'
             inl s = span.create' s (i:length:)
-            if $"System.BitConverter.TryWriteBytes(!s,!x)" = false then failwith "Conversion failed."
+            assert $"System.BitConverter.TryWriteBytes(!s,!x)" "Conversion failed."
             i' <- i+length
-        size = fun _ => length
         unpickle = fun (i',s) =>
             inl i = *i'
             i' <- i+length
@@ -2552,4 +2555,99 @@ inl I32 =
         }
 ```
 
-Here is the first pickler primitive for 32-bit ints.
+A bunch of the .NET library functions throw exceptions, but `TryWriteBytes` returns a bool, so I pass it as an argument to an assert.
+
+Since this is not intended to be a full library, I thought that maybe just serializing 32-bit ints would be fine, but as it turned out to serialize strings, I needed a primitive for char arrays. And char arrays needed a char primitive.
+
+```
+inl CharSize = 2 // $"sizeof<char>"
+inl Char : pu char =
+    inl length = CharSize
+    pu {size = fun _ => length
+        pickle = fun x (i',s) =>
+            inl i = *i'
+            inl s = span.create' s (i:length:)
+            assert $"System.BitConverter.TryWriteBytes(!s,!x)" "Conversion failed."
+            i' <- i+length
+        unpickle = fun (i',s) =>
+            inl i = *i'
+            i' <- i+length
+            $"System.BitConverter.ToChar(!s,!i)"
+        }
+```
+
+When I see this much shared code next to each other I start thinking about ways to factor some of it out. This is easy in this situation.
+
+```
+inl primitive length read =
+    pu {size = fun _ => length
+        pickle = fun x (i',s) =>
+            inl i = *i'
+            inl s = span.create' s (i:length:)
+            assert $"System.BitConverter.TryWriteBytes(!s,!x)" "Conversion failed."
+            i' <- i+length
+        unpickle = fun (i',s) =>
+            inl i = *i'
+            i' <- i+length
+            read s i
+        }
+
+inl I32Size = 4 // $"sizeof<int>"
+inl I32 : pu i32 = primitive I32Size (fun s i => $"System.BitConverter.ToInt32(!s,!i)")
+
+inl CharSize = 2 // $"sizeof<char>"
+inl Char : pu char = primitive CharSize (fun s i => $"System.BitConverter.ToChar(!s,!i)")
+```
+
+Implementing `pu`s for other primitive data types would be easy thanks to this.
+
+Here is the array primitive.
+
+```
+inl array' (pu prim) =
+    inl (pu i32) = I32
+    pu {
+        size = fun x => arraym.fold (fun s x => s + prim.size x) I32Size x
+        pickle = fun x state =>
+            i32.pickle (arraym.length x) state
+            arraym.iter (fun x => prim.pickle x state) x
+        unpickle = fun state =>
+            inl length = i32.unpickle state
+            arraym.init length (fun _ => prim.unpickle state)
+        }
+```
+
+Note that it has to go over the input to get its size. That is no easy way of determining whether it is looking at a fixed type in order to a quick multiplication and avoid doing that. As the above shows `I32` pickler is quite useful for writing down lengths and tags of data structures. It makes sense to start with it first and then move to arrays.
+
+```
+inl String =
+    inl (pu p) = array' Char
+    pu {size = fun x => I32Size + CharSize * stringm.length x
+        pickle = fun x state => p.pickle $"!x.ToCharArray()" state
+        unpickle = fun state => inl ar = p.unpickle state in $"System.String(!ar)"
+        }
+```
+
+The string pickler is mostly a wrapper, but note that since it is known that we are dealing with a char array we can do that quick multiply here to get the size efficiently.
+
+The following function is the first pickler combinator.
+
+```
+inl pair (pu a') (pu b') =
+    pu {size = fun (a,b) => a'.size a + b'.size b
+        pickle = fun (a,b) state => a'.pickle a state . b'.pickle b state
+        unpickle = fun state => a'.unpickle state, b'.unpickle state
+        }
+```
+
+Its type is `forall 'a 'b. pu 'a -> pu 'b -> pu ('a * 'b)`. It makes it possible to compose picklers by writing things like `pair I32 Char` and so on.
+
+```
+inl wrap (b,a) (pu p) =
+    pu {size = a >> p.size
+        pickle = fun x state => p.pickle (a x) state
+        unpickle = fun state => b (p.unpickle state)
+        }
+```
+
+...

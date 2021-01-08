@@ -1,7 +1,4 @@
 // Games of Stones HackerRank problem.
-open option
-open list
-open result
 open monad
 
 type env = i32
@@ -42,14 +39,14 @@ inl (.<<) a b =
 inl EOL : char = $"System.Char.MaxValue"
 inl peek' offset = cps_parser fun str i {on_succ} =>
     inl i' = i + offset
-    if 0 <= i' && i' < string.length str then on_succ (string.index str i', i)
+    if 0 <= i' && i' < stringm.length str then on_succ (stringm.index str i', i)
     else on_succ (EOL, i)
 inl Peek = peek' 0
 
 inl skip' index = cps_parser fun str i {on_succ} => on_succ ((),i+index)
 inl Skip = skip' 1
 
-inl on_fail er = cps_parser fun str i {on_fail} => on_fail (list.singleton er, i)
+inl on_fail er = cps_parser fun str i {on_fail} => on_fail (listm.singleton er, i)
 inl AnyChar' = 
     Peek >>= fun c =>
     if c <> EOL then Skip >>. on_succ c
@@ -57,7 +54,7 @@ inl AnyChar' =
 
 inl AnyChar' = cps_parser fun str i {on_succ on_fail} =>
     run_cps Peek str i { on_fail
-        on_succ=fun c,i => if c <> EOL then on_succ (string.index str i, i+1) else on_fail (list.singleton "Out of bounds.", i)
+        on_succ=fun c,i => if c <> EOL then on_succ (stringm.index str i, i+1) else on_fail (listm.singleton "Out of bounds.", i)
     }
 
 inl AnyChar = conv AnyChar'
@@ -67,7 +64,7 @@ inl char_to_digit (x : char): i32 = $"int !x - int '0'"
 
 inl char' x = cps_parser fun str i {on_succ on_fail} =>
     run_cps AnyChar' str i {
-        on_succ = fun ok, i => if x = ok then (Ok:), i else (Error: list.singleton (char_to_string ok)), i
+        on_succ = fun ok, i => if x = ok then (Ok:), i else (Error: listm.singleton (char_to_string ok)), i
         on_fail = fun error, i => (Error:), i
     }
 inl char x = conv (char' x)
@@ -77,7 +74,7 @@ inl Digit = parser fun str i =>
     run_cps AnyChar' str i {
         on_succ = fun ok, i => 
             inl ok = char_to_digit ok
-            if is_digit ok then (Ok:), i else (Error: list.singleton "digit"), i
+            if is_digit ok then (Ok:), i else (Error: listm.singleton "digit"), i
         on_fail = fun error, i => (Error:), i
     }
 
@@ -87,14 +84,14 @@ inl I32 = parser fun str i =>
         | (Ok: c), i => 
             inl s' = s * 10 + c
             if s <= 214_748_364 && 0 <= s' then loop i true s'
-            else (Error: list.singleton "The number is too large to be parsed as 32 bit int."), i
+            else (Error: listm.singleton "The number is too large to be parsed as 32 bit int."), i
         | (Error: _), i => 
             if was_parsed then (Ok: s), i 
-            else (Error: list.singleton "i32"), i
+            else (Error: listm.singleton "i32"), i
     loop i false 0
 
 inl Spaces = parser fun str i =>
-    inl f i = 0 <= i && i < string.length str && (inl x = string.index str i in x = ' ' || x = '\n')
+    inl f i = 0 <= i && i < stringm.length str && (inl x = stringm.index str i in x = ' ' || x = '\n')
     let rec loop i = if f i then loop (i+1) else (Ok: ()), i
     loop i
 
@@ -118,7 +115,7 @@ inl (.<<) a b =
 
 inl EOL : char = $"System.Char.MaxValue"
 inl peek' index = cps_parser fun str i {on_succ} =>
-    if i + index <= 0 && i + index < string.length str then on_succ (string.index str i, i)
+    if i + index <= 0 && i + index < stringm.length str then on_succ (stringm.index str i, i)
     else on_succ (EOL, i)
 inl Peek = peek' 0
 
@@ -139,7 +136,7 @@ inl eq_player = function // TODO: Replace this with `=` when it is capable of ha
 inl game_of_stones' n =
     inl max_n = 100
     if max_n < n then failwith "The max input has been exceeded."
-    inl solutions = array.init (max_n+1) (const None)
+    inl solutions = arraym.init (max_n+1) (const None)
     let rec solve player opposing_player n =
         inl take amount on_fail () = 
             if n >= amount && eq_player (solve opposing_player player (n-amount), player) then player
@@ -149,8 +146,8 @@ inl game_of_stones' n =
 
         match player with
         | First => 
-            match array.index solutions n with
-            | None => inl x = run() in array.set solutions n (Some: x) . x
+            match arraym.index solutions n with
+            | None => inl x = run() in arraym.set solutions n (Some: x) . x
             | Some: x => x
         | Second => run()
     solve First Second n
@@ -169,5 +166,5 @@ inl main () =
     | (Error: ers), i => 
         $"printfn \"Parsing failed at position %i\" !i"
         $"printfn \"Errors:\""
-        list.iter (fun er => $"printfn \"%s\" !er") ers
+        listm.iter (fun er => $"printfn \"%s\" !er") ers
     | _ => ()

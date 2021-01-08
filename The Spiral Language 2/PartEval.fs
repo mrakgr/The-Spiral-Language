@@ -482,18 +482,19 @@ let peval (env : TopEnv) (x : E) =
     and push_op d op a ret_ty = push_op' d op [a] ret_ty
     and push_binop d op (a,b) ret_ty = push_op' d op [a;b] ret_ty
     and push_triop d op (a,b,c) ret_ty = push_op' d op [a;b;c] ret_ty
-    and closure_convert s (body,annot,gl_term,gl_ty,sz_term,sz_ty) =
+    and closure_env s (body,annot,gl_term,gl_ty,sz_term,sz_ty) = {
+        trace = s.trace
+        seq = ResizeArray()
+        cse = [Dictionary(HashIdentity.Structural)]
+        i = ref 0
+        env_global_type = gl_ty
+        env_global_term = gl_term
+        env_stack_type = Array.zeroCreate<_> sz_ty
+        env_stack_term = Array.zeroCreate<_> sz_term
+        }
+    and closure_convert s (body,annot,gl_term,gl_ty,sz_term,sz_ty as args) =
         let join_point_key, call_args, ret_ty =
-            let s : LangEnv = {
-                trace = s.trace
-                seq = ResizeArray()
-                cse = [Dictionary(HashIdentity.Structural)]
-                i = ref 0
-                env_global_type = gl_ty
-                env_global_term = gl_term
-                env_stack_type = Array.zeroCreate<_> sz_ty
-                env_stack_term = Array.zeroCreate<_> sz_term
-                }
+            let s : LangEnv = closure_env s args
             let domain, range, ret_ty = 
                 match ty s annot with
                 | YFun(a,b) as x -> a,b,x
@@ -525,7 +526,7 @@ let peval (env : TopEnv) (x : E) =
                 | DNominal(_,a) | DV(L(_,a)) -> a
                 | DLit x -> lit_to_ty x
                 | DB -> YB
-                | DFunction(_,Some a,_,_,_,_) -> ty s a
+                | DFunction(body,Some annot,gl_term,gl_ty,sz_term,sz_ty) -> ty (closure_env s (body,annot,gl_term,gl_ty,sz_term,sz_ty)) annot
                 | DFunction(_,None,_,_,_,_) -> raise_type_error s "Cannot convert a function that is not annotated into a type."
                 | DForall _ -> raise_type_error s "Cannot convert a forall into a type."
                 ) x

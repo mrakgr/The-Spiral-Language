@@ -1,5 +1,4 @@
 // Do the nested patterns work?
-open list
 inl main() =
     match dyn Nil : _ (i32 * i32) with
     | Nil => "No elements", 0

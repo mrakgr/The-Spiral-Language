@@ -1,5 +1,4 @@
 // Does the basic union type work?
-open option
 inl main () =
     inl ~x = Some: 3
     match x with

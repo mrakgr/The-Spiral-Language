@@ -8,16 +8,6 @@ open System
 open System.Text
 open System.Collections.Generic
 
-type G<'a when 'a: equality>(x : 'a) = 
-    let h = hash x
-
-    member _.Item = x
-    override a.Equals(b) =
-        match b with
-        | :? H<'a> as b -> h = hash b && x = b.Item
-        | _ -> false
-    override a.GetHashCode() = h
-
 type CodegenEnv =
     {
     text : StringBuilder
@@ -113,7 +103,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             {|data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count|}
         fun x ->
             let mutable dirty = false
-            let r = Utils.memoize dict (G >> Utils.memoize dict' (fun x -> dirty <- true; f x.Item)) x
+            let r = Utils.memoize dict (Utils.memoize dict' (fun x -> dirty <- true; f x)) x
             if dirty then print true show r
             r
 

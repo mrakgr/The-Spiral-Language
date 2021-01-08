@@ -305,7 +305,7 @@ let package_multi_file post_process_result multi_file package_env_default union 
     let make_new_stream (id : PackageId) links =
         let package_env_in = 
             let l = List.fold (fun l (k, (name,env_out)) -> (match name with Some name -> env_out >>-* in_module name | None -> env_out) :: l) [] links |> Job.conCollect
-            l >>-* Seq.fold union package_env_default
+            l >>-* Seq.fold (fun big small -> union small big) package_env_default
         let rec loop (top_env_out',env_out') (multi_file : EditorStream<_,_>) =
             {new EditorStream<_,_> with
                 member _.Run x =

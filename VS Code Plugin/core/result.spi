@@ -1,2 +1,0 @@
-union result a b = Ok: a | Error: b
-type t a b = result a b

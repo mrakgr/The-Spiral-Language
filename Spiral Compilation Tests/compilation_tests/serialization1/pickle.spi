@@ -1,7 +1,7 @@
 nominal pu a = {
-    pickle : a -> mut i32 * array i8 -> ()
+    pickle : a -> mut i32 * array u8 -> ()
     size : a -> i32
-    unpickle : mut i32 * array i8 -> a
+    unpickle : mut i32 * array u8 -> a
     }
 
 inl Unit =
@@ -37,18 +37,19 @@ inl Char : pu char = primitive CharSize (fun s i => $"System.BitConverter.ToChar
 
 inl array' (pu prim) =
     inl (pu i32) = I32
-    pu {size = fun x => array.fold (fun s x => s + prim.size x) I32Size x
+    pu {
+        size = fun x => arraym.fold (fun s x => s + prim.size x) I32Size x
         pickle = fun x state =>
-            i32.pickle (array.length x) state
-            array.iter (fun x => prim.pickle x state) x
+            i32.pickle (arraym.length x) state
+            arraym.iter (fun x => prim.pickle x state) x
         unpickle = fun state =>
             inl length = i32.unpickle state
-            array.init length (fun _ => prim.unpickle state)
+            arraym.init length (fun _ => prim.unpickle state)
         }
 
 inl String =
     inl (pu p) = array' Char
-    pu {size = fun x => I32Size + CharSize * string.length x
+    pu {size = fun x => I32Size + CharSize * stringm.length x
         pickle = fun x state => p.pickle $"!x.ToCharArray()" state
         unpickle = fun state => inl ar = p.unpickle state in $"System.String(!ar)"
         }
@@ -66,6 +67,7 @@ inl wrap (b,a) (pu p) =
         }
 
 // Like wrap, except for recursive types.
+// Trying to run wrap' without passing it to alt risks stack overflowing the compiler.
 inl wrap' (b,a) p =
     pu {size = fun x => inl (pu p) = p() in p.size(a x)
         pickle = fun x state => inl (pu p) = p() in p.pickle (a x) state
@@ -74,24 +76,24 @@ inl wrap' (b,a) p =
 
 inl record_qwe p = wrap ((fun (q,w,e) => {q w e}),(fun {q w e} => q,w,e)) p
 
-open list
 inl alt forall t. (tag : t -> i32) (l : list (pu t)) =
     inl rec static_index (i : i32) = function
         | Nil => error_type "Invalid tag."
         | Cons: l, ls => if i = 0 then l else static_index (i-1) ls
     inl pu_of (x : t) =
         inl i = tag x
-        if var_is i = false then error_type "Tag must be static here."
+        if var_is i then error_type "Tag must be static here."
         i, static_index i l
         
     // If x is already unboxed in scope, trying to unbox it again will be substituted with that.
     inl unbox_tag forall r. (x : t) (on_succ : i32 * pu t -> r) : r = !!!!Unbox(x,fun _ => on_succ (pu_of x))
     inl (pu i32) = I32
-    pu {size = fun x => unbox_tag x (fun (_, pu p) => I32Size + p.size x)
-        pickle = fun x state => unbox_tag x (fun (i, pu p) => i32.pickle i state . p.pickle x state)
-        unpickle = fun state => 
+    pu {size = fun ~x => join unbox_tag x (fun (_, pu p) => I32Size + p.size x)
+        pickle = fun ~x state => join unbox_tag x (fun (i, pu p) => i32.pickle i state . p.pickle x state)
+        unpickle = fun state => join
             inl tag = i32.unpickle state
-            let rec loop i = function
+            inl rec loop i ls =
+                match ls with
                 | Cons: (pu p), ls => if i = tag then p.unpickle state else loop (i+1) ls
                 | Nil => failwith "Invalid tag."
             loop 0 l
@@ -99,7 +101,7 @@ inl alt forall t. (tag : t -> i32) (l : list (pu t)) =
 
 // inl list (pu p) =
 //     inl (pu i32) = I32
-//     pu {size = list.fold (fun s x => s + I32Size + p.size x) I32Size
+//     pu {size = listm.fold (fun s x => s + I32Size + p.size x) I32Size
 //         pickle = fun x state =>
 //             let rec loop = function
 //                 | Cons: x, xs =>
@@ -120,16 +122,16 @@ inl alt forall t. (tag : t -> i32) (l : list (pu t)) =
 
 inl rec list p =
     alt (function Cons: _ => 0 | Nil => 1) (
-        wrap' (cons_,fun (Cons: a,b) => a,b) (fun () => pair p (list p)) :: 
         wrap (nil,fun Nil => ()) Unit :: 
+        wrap' (cons_,fun (Cons: a,b) => a,b) (fun () => pair p (list p)) :: 
         Nil
         )
 
-nominal serialized a = array i8
+nominal serialized a = array u8
 
 inl serialize forall t. (pu p) x =
     inl size = p.size x
-    inl ar = array.create size
+    inl ar = arraym.create size
     inl i = mut 0
     p.pickle x (i,ar)
     assert (*i = size) "The size of the array does not correspond to the amount being pickled. One of the combinators is faulty."
@@ -138,10 +140,24 @@ inl serialize forall t. (pu p) x =
 inl deserialize forall t. (pu p : pu t) (serialized x : serialized t) : t =
     inl i = mut 0
     inl r = p.unpickle (i,x)
-    assert (*i = array.length x) "The size of the array does not correspond to the amount being unpickled. One of the combinators is faulty or the data is malformed."
+    assert (*i = arraym.length x) "The size of the array does not correspond to the amount being unpickled. One of the combinators is faulty or the data is malformed."
     r
 
-inl main () =
+inl test scheme x = assert (x = deserialize scheme (serialize scheme x)) "Serialization and deserialization should result in the same result."
+inl test_big () =
     inl scheme = pair I32 (pair I32 (list (record_qwe (pair I32 (pair String Char)))))
-    inl x = 1,2,({q=1;w="a";e='z'} :: {q=2;w="s";e='x'} :: Nil)
-    assert (x = deserialize scheme (serialize scheme x)) "Serialization and deserialization should result in the same result."
+    inl ~x = 1,2,({q=1;w="a";e='z'} :: {q=2;w="s";e='x'} :: Nil)
+    test scheme x
+inl test_list () =
+    inl scheme = list I32
+    inl ~x = 1 :: 2 :: Nil
+    test scheme x
+inl test_string () =
+    inl scheme = String
+    inl ~x = "qwe"
+    test scheme x
+inl test_int () =
+    inl scheme = I32
+    inl ~x = 0
+    test scheme x
+inl main () : () = join test_big() . $"printfn \"Done.\""
