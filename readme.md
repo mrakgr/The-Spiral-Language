@@ -34,6 +34,7 @@
         - [Real Nominals](#real-nominals)
         - [Serialization](#serialization)
             - [Pickler Combinators](#pickler-combinators)
+                - [Pickling Union Types](#pickling-union-types)
 
 <!-- /TOC -->
 
@@ -2482,6 +2483,7 @@ packages: |core-
 modules: 
     span
     pickle
+    main
 ```
 
 The `span.spi` file is this.
@@ -2511,6 +2513,8 @@ nominal pu a = {
     unpickle : mut i32 * array u8 -> a
     }
 ```
+
+What pickler combinators allow is building up and composing these `pu`s. For example a `pu (i32 * string)` object would allow pickling and depickling of a `i32 * string` type.
 
 Compared to the paper, I've added the `size` field. The idea behind it to get the size of the byte array used in pickling as a separate pass and then preallocate it. I meant to use a resizable array originally, but those bitconverter functions all take in either spans or regular arrays which represent blocks of contiguous memory. Resizeable arrays are a linked list of arrays under the hood, so they aren't contiguous. Spans can't be used with them.
 
@@ -2650,4 +2654,173 @@ inl wrap (b,a) (pu p) =
         }
 ```
 
-...
+`wrap`'s type is `forall 'a 'b. ('a -> 'b) * ('b -> 'a) -> pu 'a -> pu 'b`. `wrap` makes it possible to derive more complicated complicated picklers based on the simples compound ones. Here is an example.
+
+```
+inl record_qwe p = wrap ((fun (q,w,e) => {q w e}),(fun {q w e} => q,w,e)) p
+```
+
+`record_qwe`'s type is `forall 'a 'b 'c. pu ('a * 'b * 'c) -> pu {e : 'c; q : 'a; w : 'b}`.
+
+```
+// Like wrap, except for recursive types.
+// Trying to run wrap' without passing it to alt risks stack overflowing the compiler.
+inl wrap' (b,a) p =
+    pu {size = fun x => inl (pu p) = p() in p.size(a x)
+        pickle = fun x state => inl (pu p) = p() in p.pickle (a x) state
+        unpickle = fun state => inl (pu p) = p() in b (p.unpickle state)
+        }
+```
+
+Here is a `wrap'` for recursive types.
+
+The next compount combinator is `alt`, but there is a lot to be said about it. For now, let's make a few tests to demonstrate how pickler combinators are supposed to be used.
+
+The following should be in `main`.
+
+```
+open pickle
+nominal serialized a = array u8
+
+inl serialize forall t. (pu p : pu t) (x : t) : serialized t =
+    inl size = p.size x
+    inl ar = arraym.create size
+    inl i = mut 0
+    p.pickle x (i,ar)
+    assert (*i = size) "The size of the array does not correspond to the amount being pickled. One of the combinators is faulty."
+    serialized ar
+
+inl deserialize forall t. (pu p : pu t) (serialized x : serialized t) : t =
+    inl i = mut 0
+    inl r = p.unpickle (i,x)
+    assert (*i = arraym.length x) "The size of the array does not correspond to the amount being unpickled. One of the combinators is faulty or the data is malformed."
+    r
+
+inl test scheme x = assert (x = deserialize scheme (serialize scheme x)) "Serialization and deserialization should result in the same result."
+```
+
+With this it is possible to run the picklers and unpicklers. Here is a simple string packing test.
+
+```
+inl test_string () =
+    inl scheme = String
+    inl ~x = "qwe"
+    test scheme x
+// The join point is here because `Span`s cannot be bound at the top level due to being byref structs.
+inl main () : () = join test_string()
+```
+
+`scheme` has the type `pu string`, and `x` is obviously a string. Here is the output. These will be on the large side. The point of these is not to do an in depth study of them, but merely to get a sense of the kind of code Spiral produces. You can easily see with a cursory examination - are inadvertent heap allocations occuring in this code. Are all those pickler combinator abstraction costing us at runtime or is the resulting code the same as if were handwritten in C style? Thankfully it is the later.
+
+```fs
+type Mut0 = {mutable l0 : int32}
+let rec method1 (v0 : int32, v1 : (char []), v2 : Mut0, v3 : (uint8 []), v4 : int32) : unit =
+    let v5 : bool = v4 < v0
+    if v5 then
+        let v6 : int32 = v4 + 1
+        let v7 : char = v1.[v4]
+        let v8 : int32 = v2.l0
+        let v9 : System.Span<uint8> = System.Span(v3,v8,2)
+        let v10 : bool = System.BitConverter.TryWriteBytes(v9,v7)
+        let v11 : bool = v10 = false
+        if v11 then
+            failwith<unit> "Conversion failed."
+        else
+            ()
+        let v12 : int32 = v8 + 2
+        v2.l0 <- v12
+        method1(v0, v1, v2, v3, v6)
+    else
+        ()
+and method2 (v0 : int32, v1 : Mut0, v2 : (uint8 []), v3 : (char []), v4 : int32) : unit =
+    let v5 : bool = v4 < v0
+    if v5 then
+        let v6 : int32 = v4 + 1
+        let v7 : int32 = v1.l0
+        let v8 : int32 = v7 + 2
+        v1.l0 <- v8
+        let v9 : char = System.BitConverter.ToChar(v2,v7)
+        v3.[v4] <- v9
+        method2(v0, v1, v2, v3, v6)
+    else
+        ()
+and method0 () : unit =
+    let v0 : string = "qwe"
+    let v1 : int32 = v0.Length
+    let v2 : int32 = 2 * v1
+    let v3 : int32 = 4 + v2
+    let v4 : (uint8 []) = Array.zeroCreate<uint8> v3
+    let v5 : Mut0 = {l0 = 0} : Mut0
+    let v6 : (char []) = v0.ToCharArray()
+    let v7 : int32 = v6.Length
+    let v8 : int32 = v5.l0
+    let v9 : System.Span<uint8> = System.Span(v4,v8,4)
+    let v10 : bool = System.BitConverter.TryWriteBytes(v9,v7)
+    let v11 : bool = v10 = false
+    if v11 then
+        failwith<unit> "Conversion failed."
+    else
+        ()
+    let v12 : int32 = v8 + 4
+    v5.l0 <- v12
+    let v13 : int32 = 0
+    method1(v7, v6, v5, v4, v13)
+    let v14 : int32 = v5.l0
+    let v15 : bool = v14 = v3
+    let v16 : bool = v15 = false
+    if v16 then
+        failwith<unit> "The size of the array does not correspond to the amount being pickled. One of the combinators is faulty."
+    else
+        ()
+    let v17 : Mut0 = {l0 = 0} : Mut0
+    let v18 : int32 = v17.l0
+    let v19 : int32 = v18 + 4
+    v17.l0 <- v19
+    let v20 : int32 = System.BitConverter.ToInt32(v4,v18)
+    let v21 : (char []) = Array.zeroCreate<char> v20
+    let v22 : int32 = 0
+    method2(v20, v17, v4, v21, v22)
+    let v23 : string = System.String(v21)
+    let v24 : int32 = v17.l0
+    let v25 : int32 = v4.Length
+    let v26 : bool = v24 = v25
+    let v27 : bool = v26 = false
+    if v27 then
+        failwith<unit> "The size of the array does not correspond to the amount being unpickled. One of the combinators is faulty or the data is malformed."
+    else
+        ()
+    let v28 : bool = v0 = v23
+    let v29 : bool = v28 = false
+    if v29 then
+        failwith<unit> "Serialization and deserialization should result in the same result."
+    else
+        ()
+method0()
+```
+
+I said that the above is C style, but I'd imagine actual C programmers would not write out so many bindings and make significant use of mutation. Once meaningless heap allocation is minimized and inlining is taken care of, the main stylistic difference between functional and imperative programming lies in the use of mutation.
+
+This is actually a fake difference, much like the large number of bindings. It is necessary to think what happens under the hood to understand that.
+
+Even if one is using an imperative language and making heavy use of mutation, when it comes to doing optimizations the first thing the compiler will do translate that heavily mutating program into [SSA form](https://www.youtube.com/watch?v=P1_VtLhVimA). The net effect of that will be to transform it into a form similar to what it would have been if it were written in a functional style.
+
+This is a strong argument in favor of the style Spiral espouses.
+
+Here is another example just for illustration.
+
+```
+inl test_qwe () =
+    inl scheme = record_qwe (pair I32 (pair I32 String))
+    inl ~x = {q=1; w=1; e="qwe"}
+    test scheme x
+inl main () : () = join test_qwe()
+```
+
+The `scheme` is of type `pu {e : string; q : i32; w : i32}`. The output will be ommitted to avoid bloating the section too much.
+
+##### Pickling Union Types
+
+The following part will be contributing to the `main` module again.
+
+Union types are more troublesome than the rest of the bunch. For this part, I had to look into the paper. My trouble was that I forgot about `wrap` and `alt` combinators, and due to that could only progress in a direct fashion. If it were written by hand, here is how a list primitive could be written.
+

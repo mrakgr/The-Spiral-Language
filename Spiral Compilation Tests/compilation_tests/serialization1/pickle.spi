@@ -66,6 +66,8 @@ inl wrap (b,a) (pu p) =
         unpickle = fun state => b (p.unpickle state)
         }
 
+inl record_qwe p = wrap ((fun (q,w,e) => {q w e}),(fun {q w e} => q,w,e)) p
+
 // Like wrap, except for recursive types.
 // Trying to run wrap' without passing it to alt risks stack overflowing the compiler.
 inl wrap' (b,a) p =
@@ -73,8 +75,6 @@ inl wrap' (b,a) p =
         pickle = fun x state => inl (pu p) = p() in p.pickle (a x) state
         unpickle = fun state => inl (pu p) = p() in b (p.unpickle state)
         }
-
-inl record_qwe p = wrap ((fun (q,w,e) => {q w e}),(fun {q w e} => q,w,e)) p
 
 inl alt forall t. (tag : t -> i32) (l : list (pu t)) =
     inl rec static_index (i : i32) = function
@@ -122,42 +122,8 @@ inl alt forall t. (tag : t -> i32) (l : list (pu t)) =
 
 inl rec list p =
     alt (function Cons: _ => 0 | Nil => 1) (
-        wrap (nil,fun Nil => ()) Unit :: 
         wrap' (cons_,fun (Cons: a,b) => a,b) (fun () => pair p (list p)) :: 
+        wrap (nil,fun Nil => ()) Unit :: 
         Nil
         )
 
-nominal serialized a = array u8
-
-inl serialize forall t. (pu p) x =
-    inl size = p.size x
-    inl ar = arraym.create size
-    inl i = mut 0
-    p.pickle x (i,ar)
-    assert (*i = size) "The size of the array does not correspond to the amount being pickled. One of the combinators is faulty."
-    serialized ar : serialized t
-
-inl deserialize forall t. (pu p : pu t) (serialized x : serialized t) : t =
-    inl i = mut 0
-    inl r = p.unpickle (i,x)
-    assert (*i = arraym.length x) "The size of the array does not correspond to the amount being unpickled. One of the combinators is faulty or the data is malformed."
-    r
-
-inl test scheme x = assert (x = deserialize scheme (serialize scheme x)) "Serialization and deserialization should result in the same result."
-inl test_big () =
-    inl scheme = pair I32 (pair I32 (list (record_qwe (pair I32 (pair String Char)))))
-    inl ~x = 1,2,({q=1;w="a";e='z'} :: {q=2;w="s";e='x'} :: Nil)
-    test scheme x
-inl test_list () =
-    inl scheme = list I32
-    inl ~x = 1 :: 2 :: Nil
-    test scheme x
-inl test_string () =
-    inl scheme = String
-    inl ~x = "qwe"
-    test scheme x
-inl test_int () =
-    inl scheme = I32
-    inl ~x = 0
-    test scheme x
-inl main () : () = join test_big() . $"printfn \"Done.\""

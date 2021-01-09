@@ -1,0 +1,40 @@
+open pickle
+nominal serialized a = array u8
+
+inl serialize forall t. (pu p : pu t) (x : t) : serialized t =
+    inl size = p.size x
+    inl ar = arraym.create size
+    inl i = mut 0
+    p.pickle x (i,ar)
+    assert (*i = size) "The size of the array does not correspond to the amount being pickled. One of the combinators is faulty."
+    serialized ar
+
+inl deserialize forall t. (pu p : pu t) (serialized x : serialized t) : t =
+    inl i = mut 0
+    inl r = p.unpickle (i,x)
+    assert (*i = arraym.length x) "The size of the array does not correspond to the amount being unpickled. One of the combinators is faulty or the data is malformed."
+    r
+
+inl test scheme x = assert (x = deserialize scheme (serialize scheme x)) "Serialization and deserialization should result in the same result."
+
+inl test_big () =
+    inl scheme = pair I32 (pair I32 (list (record_qwe (pair I32 (pair String Char)))))
+    inl ~x = 1,2,({q=1;w="a";e='z'} :: {q=2;w="s";e='x'} :: Nil)
+    test scheme x
+inl test_list () =
+    inl scheme = list I32
+    inl ~x = 1 :: 2 :: Nil
+    test scheme x
+inl test_int () =
+    inl scheme = I32
+    inl ~x = 0
+    test scheme x
+inl test_string () =
+    inl scheme = String
+    inl ~x = "qwe"
+    test scheme x
+inl test_qwe () =
+    inl scheme = record_qwe (pair I32 (pair I32 String))
+    inl ~x = {q=1; w=1; e="qwe"}
+    test scheme x
+inl main () : () = join test_string()

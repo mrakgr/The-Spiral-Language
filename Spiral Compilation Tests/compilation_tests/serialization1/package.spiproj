@@ -2,3 +2,4 @@ packages: |core-
 modules: 
     span
     pickle
+    main
