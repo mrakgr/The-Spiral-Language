@@ -35,6 +35,9 @@
         - [Serialization](#serialization)
             - [Pickler Combinators](#pickler-combinators)
                 - [Pickling Union Types](#pickling-union-types)
+                - [Pattern Matching And Scope](#pattern-matching-and-scope)
+                - [Pickling Union Types 2](#pickling-union-types-2)
+            - [Introspective Pickling](#introspective-pickling)
 
 <!-- /TOC -->
 
@@ -221,7 +224,7 @@ My goals from here on out will be as follows:
 * Cover all the language features with examples.
 * Talk about the design considerations of Spiral and why it is designed the way it is.
 
-In particular when I get to join points and inlineables, the material will get hard to follow for a beginner. This next segment though should be straightforward.
+In particular when I get to join points and function, the material will get hard to follow for a beginner. This next segment though should be straightforward.
 
 Here are some rudimentary examples of programs and their output.
 
@@ -2823,4 +2826,609 @@ The `scheme` is of type `pu {e : string; q : i32; w : i32}`. The output will be 
 The following part will be contributing to the `main` module again.
 
 Union types are more troublesome than the rest of the bunch. For this part, I had to look into the paper. My trouble was that I forgot about `wrap` and `alt` combinators, and due to that could only progress in a direct fashion. If it were written by hand, here is how a list primitive could be written.
+
+```
+inl list (pu p) =
+    inl (pu i32) = I32
+    pu {size = listm.fold (fun s x => s + I32Size + p.size x) I32Size
+        pickle = fun x state =>
+            let rec loop = function
+                | Cons: x, xs =>
+                    i32.pickle 0 state
+                    p.pickle x state
+                    loop xs
+                | Nil =>
+                    i32.pickle 1 state
+            loop x
+        unpickle = fun state =>
+            let rec loop () =
+                match i32.unpickle state with
+                | 0 => Cons: p.unpickle state, loop()
+                | 1 => Nil
+                | _ => failwith "Invalid tag."
+            loop ()
+        }
+```
+
+The above is correct, but I definitely felt like I was on the wrong path. It seems like there is a lot of room for abstraction, but it isn't really too obvious how exactly to proceed.
+
+Writing picklers in this style is just far too dangerous. A list has only two cases, but it would be easy to make a mistake due to carelessness if one had to do this often for each union type.
+
+Here is how the list combinator could be done with the help of `alt` and `wrap` combinators.
+
+```
+inl rec list p =
+    alt (function Cons: _ => 0 | Nil => 1) (
+        wrap' (cons_,fun (Cons: a,b) => a,b) (fun () => pair p (list p)) :: 
+        wrap (nil,fun Nil => ()) Unit :: 
+        Nil
+        )
+```
+
+This is a remarkable leap in abstraction capability, even though it is not as far one could go. The best way would be to derive the picklers from the type directly, and that will be the focus of the next section. But unlike for the other picklers that I've demonstrated, there is actually a fair amount to learn from the way `alt` is implemented in Spiral, so this section should not be skipped.
+
+For some of the previous picklers, I've pasted them as they are without much comment because I drew a blank what about anything extra to say that is not clear by just reading the source code.
+
+This next part will require some explanation.
+
+```
+inl alt forall t. (tag : t -> i32) (l : list (pu t)) : pu t =
+    inl rec static_index (i : i32) = function
+        | Nil => error_type "Invalid tag."
+        | Cons: l, ls => if i = 0 then l else static_index (i-1) ls
+    inl pu_of (x : t) =
+        inl i = tag x
+        if var_is i then error_type "Tag must be static here."
+        i, static_index i l
+        
+    // If x is already unboxed in scope, trying to unbox it again will be substituted with that.
+    inl unbox_tag forall r. (x : t) (on_succ : i32 * pu t -> r) : r = !!!!Unbox(x,fun _ => on_succ (pu_of x))
+    inl (pu i32) = I32
+    pu {size = fun ~x => join unbox_tag x (fun (_, pu p) => I32Size + p.size x)
+        pickle = fun ~x state => join unbox_tag x (fun (i, pu p) => i32.pickle i state . p.pickle x state)
+        unpickle = fun state => join
+            inl tag = i32.unpickle state
+            inl rec loop i = function
+                | Cons: (pu p), ls => if i = tag then p.unpickle state else loop (i+1) ls
+                | Nil => failwith "Invalid tag."
+            loop 0 l
+        }
+```
+
+During pickling, the `pu_of` function is used to extract the tag of its input and then indexes into the list of cases. Let me bring up the list example again.
+
+```
+inl rec list p =
+    alt (function Cons: _ => 0 | Nil => 1) (
+        wrap' (cons_,fun (Cons: a,b) => a,b) (fun () => pair p (list p)) :: 
+        wrap (nil,fun Nil => ()) Unit :: 
+        Nil
+        )
+```
+
+If the input to `pu_of` is `Cons`, then...
+
+```
+    inl pu_of (x : t) =
+        inl i = tag x
+        if var_is i then error_type "Tag must be static here."
+        i, static_index i l
+```
+
+Using the tag function would return a tag of 0. And `static_index` would return the first case of `l` which happens to be `wrap' (cons_,fun (Cons: a,b) => a,b) (fun () => pair p (list p))`. The interesting part is that `i` is expected to be static in this function. If you tried doing a print_static on `x` though, you'd see that is a runtime variable. So how can the result of passing it to tag be static?
+
+##### Pattern Matching And Scope
+
+To explain this, let me demonstrate a little test.
+
+```
+union t = A | B | C
+inl f = function A => 0i32 | B => 1 | C => 2
+inl main () = f (dyn A)
+```
+
+```fs
+type [<Struct>] US0 =
+    | US0_0
+    | US0_1
+    | US0_2
+let v0 : US0 = US0_0
+match v0 with
+| US0_0 -> (* a *)
+    0
+| US0_1 -> (* b *)
+    1
+| US0_2 -> (* c *)
+    2
+```
+
+This is what one would expect.
+
+```
+union t = A | B | C
+inl f = function A => 0i32 | B => 1 | C => 2
+inl main () = 
+    inl ~x = A
+    match x with
+    | A | B | C => f x
+```
+```fs
+type [<Struct>] US0 =
+    | US0_0
+    | US0_1
+    | US0_2
+let v0 : US0 = US0_0
+match v0 with
+| US0_0 -> (* a *)
+    0
+| US0_1 -> (* b *)
+    1
+| US0_2 -> (* c *)
+    2
+```
+
+Only one unbox is done in the produced code. What is going on is that trying to unbox a runtime variable that has already been unboxed in scope just causes it to be substituted with already unboxed value. In the partial evaluator this information is transmited using the common sub-expression dictionary and does not get transmitted past join point boundaries.
+
+```
+union t = A | B | C
+inl f = function A => 0i32 | B => 1 | C => 2
+inl main () = 
+    inl ~x = A
+    match x with
+    | A | B | C => join f x
+```
+```fs
+type [<Struct>] US0 =
+    | US0_0
+    | US0_1
+    | US0_2
+let rec method0 (v0 : US0) : int32 =
+    match v0 with
+    | US0_0 -> (* a *)
+        0
+    | US0_1 -> (* b *)
+        1
+    | US0_2 -> (* c *)
+        2
+let v0 : US0 = US0_0
+match v0 with
+| US0_0 -> (* a *)
+    method0(v0)
+| US0_1 -> (* b *)
+    method0(v0)
+| US0_2 -> (* c *)
+    method0(v0)
+```
+
+This optimization is fairly important. It is what enables for nested pattern matches to be compiled efficiently.
+
+```
+let rec f = function
+    | Cons: (Some: a),b => a + f b
+    | Cons: None, b => f b
+    | Nil => 0
+inl main () : i32 = f Nil
+```
+```fs
+type [<Struct>] US0 =
+    | US0_0
+    | US0_1 of f1_0 : int32
+and UH0 =
+    | UH0_0 of US0 * UH0
+    | UH0_1
+let rec method0 (v0 : UH0) : int32 =
+    match v0 with
+    | UH0_0(v1, v2) -> (* cons_ *)
+        match v1 with
+        | US0_0 -> (* none *)
+            method0(v2)
+        | US0_1(v3) -> (* some_ *)
+            let v4 : int32 = method0(v2)
+            v3 + v4
+    | UH0_1 -> (* nil *)
+        0
+let v0 : UH0 = UH0_1
+method0(v0)
+```
+
+The way partial evaluation of pattern in Spiral proceeds is that on pattern unboxing it first unboxes the outermost variable. It first unboxes it as `Cons` and tries evaluating that case succeeding with the pattern match. Then it encounters `(Some: a)` and tries unboxing the first field of the `Cons`. Since internally unions are ordered by their key, it unboxes it to the `None` case - it is why it generated that way in the resulting code first.
+
+Having failed that pattern check for `Some`, it evaluates the next `Cons: None, b` clause. It actually tries unboxing the list again - since it has already been unboxed it gets substituted with what is in scope. The it encounters `None`, and tries unboxing the first field of the list again. Since it is already in scope, it gets substituted with that and the case body gets evaluated.
+
+When unboxing, all that matters is whether the variables has already been unboxed in scope or not. At the time of writing (1/9/2021), the top-down segment does not have exhaustiveness checking. Nonetheless since Spiral is intented for novel kinds of hardware that might not have exception mechanism partial patterns are forbidden. It will report a pattern miss error during partial evaluation if it encounters them.
+
+Yet in Spiral it is possible to do things like the following which would be warned against in F#.
+
+```
+union t = A | B | C
+inl main () = 
+    inl ~x = A
+    match x with
+    | A => 0i32
+    | _ =>
+        match x with
+        | B => 1
+        | C => 2
+```
+```fs
+type [<Struct>] US0 =
+    | US0_0
+    | US0_1
+    | US0_2
+let v0 : US0 = US0_0
+match v0 with
+| US0_0 -> (* a *)
+    0
+| US0_1 -> (* b *)
+    1
+| US0_2 -> (* c *)
+    2
+```
+
+In Spiral, that inner match is in fact exhaustive.
+
+It is possible to take advantage of this like in the pickler combinator to get a more efficient compilation.
+
+##### Pickling Union Types 2
+
+Here is the `alt` again.
+
+```
+inl alt forall t. (tag : t -> i32) (l : list (pu t)) : pu t =
+    inl rec static_index (i : i32) = function
+        | Nil => error_type "Invalid tag."
+        | Cons: l, ls => if i = 0 then l else static_index (i-1) ls
+    inl pu_of (x : t) =
+        inl i = tag x
+        if var_is i then error_type "Tag must be static here."
+        i, static_index i l
+        
+    // If x is already unboxed in scope, trying to unbox it again will be substituted with that.
+    inl unbox_tag forall r. (x : t) (on_succ : i32 * pu t -> r) : r = !!!!Unbox(x,fun _ => on_succ (pu_of x))
+    inl (pu i32) = I32
+    pu {size = fun ~x => join unbox_tag x (fun (_, pu p) => I32Size + p.size x)
+        pickle = fun ~x state => join unbox_tag x (fun (i, pu p) => i32.pickle i state . p.pickle x state)
+        unpickle = fun state => join
+            inl tag = i32.unpickle state
+            inl rec loop i = function
+                | Cons: (pu p), ls => if i = tag then p.unpickle state else loop (i+1) ls
+                | Nil => failwith "Invalid tag."
+            loop 0 l
+        }
+```
+
+The union unboxing trick demonstrated in the previous section becomes useful in `inl unbox_tag forall r. (x : t) (on_succ : i32 * pu t -> r) : r = !!!!Unbox(x,fun _ => on_succ (pu_of x))`. The `Unbox` op takes in the variable to unbox as its first argument, and a function. Here the function arguments are ignored, but they are a key/value pair.
+
+The `x` gets unboxed, but then seemingly nothing gets done with that result, and it gets passed into `pu_of`. But the important thing to remember is that it is unboxed in scope already. So when it gets passed into `tag` that can be taken advantage of to return a statically known value.
+
+If `i` weren't a compile time literal, things would be horrible.
+
+```
+    inl rec static_index (i : i32) = function
+        | Nil => error_type "Invalid tag."
+        | Cons: l, ls => if i = 0 then l else static_index (i-1) ls
+```
+
+This would need to be rewritten so it does dynamic indexing. The problem with that is that it would result in runtime branches, meaning that the picklers would need to be heap allocated as closures in order to return from them.
+
+That covers the first half of `alt`. What `size` and `pickle` field functions are doing should be clear enough. `unpickle` has some novelty to it.
+
+```
+            inl tag = i32.unpickle state
+            inl rec loop i = function
+                | Cons: (pu p), ls => if i = tag then p.unpickle state else loop (i+1) ls
+                | Nil => failwith "Invalid tag."
+            loop 0 l
+```
+
+Since the `tag` here is dynamic, that makes it necessary to do dynamic indexing into `l`. As I mentioned earlier, if picklers are returned from if statement branches they will have to be allocated on the heap. The alternative to that is to do the processing in the branch itself. Generally speaking, it is always possible to convert `inl x = if cond then a else b in on_succ x` into an equivalent `if cond then on_succ a else on_succ b`. Thanks to Spiral's functions always inlining that makes it possible to avoid spurios allocation by doing the work directly in branches.
+
+This might be going too much into it. The way the above loop is written simply makes sense and you'd not want to return the pickler from the branch for no reason. But you could. It is possible to write the above as...
+
+```
+            inl tag = i32.unpickle state
+            inl rec loop i = function
+                | Cons: (pu p), ls => if i = tag then p else loop (i+1) ls
+                | Nil => failwith "Invalid tag."
+            (loop 0 l).unpickle state
+```
+
+This would run correctly just as the previous, but there would be a very real difference in the performance profile.
+
+The only remaining point that needs to be remarked on is the use of join points and dyns.
+
+```
+    pu {size = fun ~x => join unbox_tag x (fun (_, pu p) => I32Size + p.size x)
+        pickle = fun ~x state => join unbox_tag x (fun (i, pu p) => i32.pickle i state . p.pickle x state)
+        unpickle = fun state => join
+```
+
+Originally when I wrote this, I did not put in join points and trying to compile this would cause the partial evaluator to stack overflow. Putting in `print_static` statements, I realized that pickling worked because the inputs just happened to be static, but unpickling had to be dynamic so it diverged.
+
+```
+            inl rec loop i = function
+                | Cons: (pu p), ls => if i = tag then p.unpickle state else loop (i+1) ls
+                | Nil => failwith "Invalid tag."
+```
+
+I quickly isolated the problem to this loop, and after thinking a while I realized that running unpickle here is what the problem is. At that point, I knew what the problem was, but not how to fix it.
+
+My first thought was to look at the list itself.
+
+```
+inl rec list p =
+    alt (function Cons: _ => 0 | Nil => 1) (
+        wrap' (cons_,fun (Cons: a,b) => a,b) (fun () => pair p (list p)) :: 
+        wrap (nil,fun Nil => ()) Unit :: 
+        Nil
+        )
+```
+
+The list here is obviously recursive so only that can be the cause of the problem. I considered whether I could fix the problem here and relented. It would be possible by doing dyning here, but doing any kind of fix here would mess up the inlining and cause the `pu` functions to be turned into closures.
+
+A conservative compiler would do something like that. In fact, conservative compilation would cause even the list structures used as auxiliaries here to be heap allocated.
+
+So I turned my attention back to `alt`, dyned the inputs and put the join points on the bodies. That did the trick.
+
+Putting the join points there really is the most sensible thing to do. It would be very hard for the compiler itself to figure this out. The user knows how unions should be used in alt - he knows that some parts of the program will always be static and some always dynamic, but there is just no way to adequately express this kind of knowledge in F# or other functional languages.
+
+Here is a test.
+
+```
+inl test_big () =
+    inl scheme = pair I32 (pair I32 (list (record_qwe (pair I32 (pair String Char)))))
+    inl ~x = 1,2,({q=1;w="a";e='z'} :: {q=2;w="s";e='x'} :: Nil)
+    test scheme x
+inl main () : () = join test_big()
+```
+
+At 237 lines of code, the output here will be the biggest yet and is just for reference. Note that no closures or lists with the pickler closures are getting allocated anywhere.
+
+```fs
+type UH0 =
+    | UH0_0 of char * int32 * string * UH0
+    | UH0_1
+and Mut0 = {mutable l0 : int32}
+let rec method1 (v0 : UH0) : int32 =
+    match v0 with
+    | UH0_0(v1, v2, v3, v4) -> (* cons_ *)
+        let v5 : int32 = v3.Length
+        let v6 : int32 = 2 * v5
+        let v7 : int32 = 4 + v6
+        let v8 : int32 = v7 + 2
+        let v9 : int32 = 4 + v8
+        let v10 : int32 = method1(v4)
+        let v11 : int32 = v9 + v10
+        4 + v11
+    | UH0_1 -> (* nil *)
+        4
+and method3 (v0 : int32, v1 : (char []), v2 : Mut0, v3 : (uint8 []), v4 : int32) : unit =
+    let v5 : bool = v4 < v0
+    if v5 then
+        let v6 : int32 = v4 + 1
+        let v7 : char = v1.[v4]
+        let v8 : int32 = v2.l0
+        let v9 : System.Span<uint8> = System.Span(v3,v8,2)
+        let v10 : bool = System.BitConverter.TryWriteBytes(v9,v7)
+        let v11 : bool = v10 = false
+        if v11 then
+            failwith<unit> "Conversion failed."
+        else
+            ()
+        let v12 : int32 = v8 + 2
+        v2.l0 <- v12
+        method3(v0, v1, v2, v3, v6)
+    else
+        ()
+and method2 (v0 : UH0, v1 : Mut0, v2 : (uint8 [])) : unit =
+    match v0 with
+    | UH0_0(v3, v4, v5, v6) -> (* cons_ *)
+        let v7 : int32 = v1.l0
+        let v8 : System.Span<uint8> = System.Span(v2,v7,4)
+        let v9 : bool = System.BitConverter.TryWriteBytes(v8,0)
+        let v10 : bool = v9 = false
+        if v10 then
+            failwith<unit> "Conversion failed."
+        else
+            ()
+        let v11 : int32 = v7 + 4
+        v1.l0 <- v11
+        let v12 : int32 = v1.l0
+        let v13 : System.Span<uint8> = System.Span(v2,v12,4)
+        let v14 : bool = System.BitConverter.TryWriteBytes(v13,v4)
+        let v15 : bool = v14 = false
+        if v15 then
+            failwith<unit> "Conversion failed."
+        else
+            ()
+        let v16 : int32 = v12 + 4
+        v1.l0 <- v16
+        let v17 : (char []) = v5.ToCharArray()
+        let v18 : int32 = v17.Length
+        let v19 : int32 = v1.l0
+        let v20 : System.Span<uint8> = System.Span(v2,v19,4)
+        let v21 : bool = System.BitConverter.TryWriteBytes(v20,v18)
+        let v22 : bool = v21 = false
+        if v22 then
+            failwith<unit> "Conversion failed."
+        else
+            ()
+        let v23 : int32 = v19 + 4
+        v1.l0 <- v23
+        let v24 : int32 = 0
+        method3(v18, v17, v1, v2, v24)
+        let v25 : int32 = v1.l0
+        let v26 : System.Span<uint8> = System.Span(v2,v25,2)
+        let v27 : bool = System.BitConverter.TryWriteBytes(v26,v3)
+        let v28 : bool = v27 = false
+        if v28 then
+            failwith<unit> "Conversion failed."
+        else
+            ()
+        let v29 : int32 = v25 + 2
+        v1.l0 <- v29
+        method2(v6, v1, v2)
+    | UH0_1 -> (* nil *)
+        let v3 : int32 = v1.l0
+        let v4 : System.Span<uint8> = System.Span(v2,v3,4)
+        let v5 : bool = System.BitConverter.TryWriteBytes(v4,1)
+        let v6 : bool = v5 = false
+        if v6 then
+            failwith<unit> "Conversion failed."
+        else
+            ()
+        let v7 : int32 = v3 + 4
+        v1.l0 <- v7
+and method5 (v0 : int32, v1 : Mut0, v2 : (uint8 []), v3 : (char []), v4 : int32) : unit =
+    let v5 : bool = v4 < v0
+    if v5 then
+        let v6 : int32 = v4 + 1
+        let v7 : int32 = v1.l0
+        let v8 : int32 = v7 + 2
+        v1.l0 <- v8
+        let v9 : char = System.BitConverter.ToChar(v2,v7)
+        v3.[v4] <- v9
+        method5(v0, v1, v2, v3, v6)
+    else
+        ()
+and method4 (v0 : Mut0, v1 : (uint8 [])) : UH0 =
+    let v2 : int32 = v0.l0
+    let v3 : int32 = v2 + 4
+    v0.l0 <- v3
+    let v4 : int32 = System.BitConverter.ToInt32(v1,v2)
+    let v5 : bool = 0 = v4
+    if v5 then
+        let v6 : int32 = v0.l0
+        let v7 : int32 = v6 + 4
+        v0.l0 <- v7
+        let v8 : int32 = System.BitConverter.ToInt32(v1,v6)
+        let v9 : int32 = v0.l0
+        let v10 : int32 = v9 + 4
+        v0.l0 <- v10
+        let v11 : int32 = System.BitConverter.ToInt32(v1,v9)
+        let v12 : (char []) = Array.zeroCreate<char> v11
+        let v13 : int32 = 0
+        method5(v11, v0, v1, v12, v13)
+        let v14 : string = System.String(v12)
+        let v15 : int32 = v0.l0
+        let v16 : int32 = v15 + 2
+        v0.l0 <- v16
+        let v17 : char = System.BitConverter.ToChar(v1,v15)
+        let v18 : UH0 = method4(v0, v1)
+        UH0_0(v17, v8, v14, v18)
+    else
+        let v6 : bool = 1 = v4
+        if v6 then
+            UH0_1
+        else
+            failwith<UH0> "Invalid tag."
+and method6 (v0 : UH0, v1 : UH0) : bool =
+    match v1, v0 with
+    | UH0_0(v2, v3, v4, v5), UH0_0(v6, v7, v8, v9) -> (* cons_ *)
+        let v10 : bool = v2 = v6
+        let v11 : bool =
+            if v10 then
+                let v11 : bool = v3 = v7
+                if v11 then
+                    v4 = v8
+                else
+                    false
+            else
+                false
+        if v11 then
+            method6(v9, v5)
+        else
+            false
+    | UH0_1, UH0_1 -> (* nil *)
+        true
+    | _ ->
+        false
+and method0 () : unit =
+    let v0 : int32 = 1
+    let v1 : int32 = 2
+    let v2 : char = 'z'
+    let v3 : int32 = 1
+    let v4 : string = "a"
+    let v5 : char = 'x'
+    let v6 : int32 = 2
+    let v7 : string = "s"
+    let v8 : UH0 = UH0_1
+    let v9 : UH0 = UH0_0(v5, v6, v7, v8)
+    let v10 : UH0 = UH0_0(v2, v3, v4, v9)
+    let v11 : int32 = method1(v10)
+    let v12 : int32 = 4 + v11
+    let v13 : int32 = 4 + v12
+    let v14 : (uint8 []) = Array.zeroCreate<uint8> v13
+    let v15 : Mut0 = {l0 = 0} : Mut0
+    let v16 : int32 = v15.l0
+    let v17 : System.Span<uint8> = System.Span(v14,v16,4)
+    let v18 : bool = System.BitConverter.TryWriteBytes(v17,v0)
+    let v19 : bool = v18 = false
+    if v19 then
+        failwith<unit> "Conversion failed."
+    else
+        ()
+    let v20 : int32 = v16 + 4
+    v15.l0 <- v20
+    let v21 : int32 = v15.l0
+    let v22 : System.Span<uint8> = System.Span(v14,v21,4)
+    let v23 : bool = System.BitConverter.TryWriteBytes(v22,v1)
+    let v24 : bool = v23 = false
+    if v24 then
+        failwith<unit> "Conversion failed."
+    else
+        ()
+    let v25 : int32 = v21 + 4
+    v15.l0 <- v25
+    method2(v10, v15, v14)
+    let v26 : int32 = v15.l0
+    let v27 : bool = v26 = v13
+    let v28 : bool = v27 = false
+    if v28 then
+        failwith<unit> "The size of the array does not correspond to the amount being pickled. One of the combinators is faulty."
+    else
+        ()
+    let v29 : Mut0 = {l0 = 0} : Mut0
+    let v30 : int32 = v29.l0
+    let v31 : int32 = v30 + 4
+    v29.l0 <- v31
+    let v32 : int32 = System.BitConverter.ToInt32(v14,v30)
+    let v33 : int32 = v29.l0
+    let v34 : int32 = v33 + 4
+    v29.l0 <- v34
+    let v35 : int32 = System.BitConverter.ToInt32(v14,v33)
+    let v36 : UH0 = method4(v29, v14)
+    let v37 : int32 = v29.l0
+    let v38 : int32 = v14.Length
+    let v39 : bool = v37 = v38
+    let v40 : bool = v39 = false
+    if v40 then
+        failwith<unit> "The size of the array does not correspond to the amount being unpickled. One of the combinators is faulty or the data is malformed."
+    else
+        ()
+    let v41 : bool = v0 = v32
+    let v42 : bool =
+        if v41 then
+            let v42 : bool = v1 = v35
+            if v42 then
+                method6(v36, v10)
+            else
+                false
+        else
+            false
+    let v43 : bool = v42 = false
+    if v43 then
+        failwith<unit> "Serialization and deserialization should result in the same result."
+    else
+        ()
+method0()
+```
+
+I would give it great odds that the equivalent pickler combinator library and test written in F# would be at least 10-100x times slower that the residual program shown above. The Spiral version has very little in the way of excess - with slight effort it would be an easy thing to adapt the library so it compiles to C.
+
+Spiral uses GC and heap allocated data structures like recursive unions and closures for convenience, but it is not beholden to them. With some care highly abstract code can be tuned to produce code surpassing any kind of optimizing compiler.
+
+#### Introspective Pickling
+
+The above was an useful case study in producing an efficient combinator library. Spiral has its own flow separate from other functional languages where it encourages inlining first and then putting join points and doing heap allocation later. Still, using combinators and composing them by hand is something that can be improved on, especially when the entire program can be derived just from the type.
 

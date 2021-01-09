@@ -17,10 +17,6 @@ inl deserialize forall t. (pu p : pu t) (serialized x : serialized t) : t =
 
 inl test scheme x = assert (x = deserialize scheme (serialize scheme x)) "Serialization and deserialization should result in the same result."
 
-inl test_big () =
-    inl scheme = pair I32 (pair I32 (list (record_qwe (pair I32 (pair String Char)))))
-    inl ~x = 1,2,({q=1;w="a";e='z'} :: {q=2;w="s";e='x'} :: Nil)
-    test scheme x
 inl test_list () =
     inl scheme = list I32
     inl ~x = 1 :: 2 :: Nil
@@ -37,4 +33,8 @@ inl test_qwe () =
     inl scheme = record_qwe (pair I32 (pair I32 String))
     inl ~x = {q=1; w=1; e="qwe"}
     test scheme x
-inl main () : () = join test_string()
+inl test_big () =
+    inl scheme = pair I32 (pair I32 (list (record_qwe (pair I32 (pair String Char)))))
+    inl ~x = 1,2,({q=1;w="a";e='z'} :: {q=2;w="s";e='x'} :: Nil)
+    test scheme x
+inl main () : () = join test_big()
