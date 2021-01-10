@@ -1,0 +1,20 @@
+open pickle
+nominal serialized a = array u8
+
+inl serialize forall t. (x : t) : serialized t =
+    inl size = size x
+    inl ar = arraym.create size
+    inl i = mut 0
+    pickle x (i,ar)
+    assert (*i = size) "The size of the array does not correspond to the amount being pickled."
+    serialized ar
+
+inl deserialize forall t. (serialized x : serialized t) : t =
+    inl i = mut 0
+    inl r = unpickle (i,x)
+    assert (*i = arraym.length x) "The size of the array does not correspond to the amount being unpickled."
+    r
+
+inl test x = assert (x = deserialize (serialize x)) "Serialization and deserialization should result in the same result."
+
+inl main () : () = join test(dyn (1i32 :: Nil))

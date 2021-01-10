@@ -183,9 +183,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             )
     let rec tyv = function
         | YUnion a -> 
-            match a.Item with
-            | a, UHeap -> sprintf "UH%i" (uheap a).tag
-            | a, UStack -> sprintf "US%i" (ustack a).tag
+            let a = a.Item
+            match a.layout with
+            | UHeap -> sprintf "UH%i" (uheap a.cases).tag
+            | UStack -> sprintf "US%i" (ustack a.cases).tag
         | YLayout(a,Heap) -> sprintf "Heap%i" (heap a).tag
         | YLayout(a,HeapMutable) -> sprintf "Mut%i" (mut a).tag
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> ty a) |> String.concat ""
@@ -255,14 +256,24 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             complex <| fun s ->
             line s (sprintf "while %s do" (jp a))
             binds (indent s) b
+        | TyIntSwitch(i,on_succ,on_fail) ->
+            complex <| fun s ->
+            line s (sprintf "match v%i with" i)
+            Array.iteri (fun i x ->
+                line s (sprintf "| %i ->" i)
+                binds (indent s) x
+                ) on_succ
+            line s "| _ ->"
+            binds (indent s) on_fail
         | TyUnionUnbox(is,x,on_succs,on_fail) ->
             complex <| fun s ->
-            let case_tags = case_tags x
+            let case_tags = x.Item.tags
             line s (sprintf "match %s with" (is |> List.map (sprintf "v%i") |> String.concat ", "))
             let prefix = 
-                match x.Item with
-                | a,UHeap -> sprintf "UH%i" (uheap a).tag
-                | a,UStack -> sprintf "US%i" (ustack a).tag
+                let x = x.Item
+                match x.layout with
+                | UHeap -> sprintf "UH%i" (uheap x.cases).tag
+                | UStack -> sprintf "US%i" (ustack x.cases).tag
             Map.iter (fun k (a,b) ->
                 let i = case_tags.[k]
                 let cases = 
@@ -282,16 +293,16 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 binds (indent s) b
                 )
         | TyUnionBox(a,b,c) ->
-            let l,lay = c.Item
+            let c = c.Item
             let mutable i = -1
-            if Map.exists (fun k _ -> i <- i+1; k = a) l = false then raise_codegen_error "Compiler error: Union key not found."
+            if Map.exists (fun k _ -> i <- i+1; k = a) c.cases = false then raise_codegen_error "Compiler error: Union key not found."
             let vars =
                 match data_term_vars b with
                 | [||] -> ""
                 | x -> Array.map show_w x |> String.concat ", " |> sprintf "(%s)"
-            match c.Item with
-            | x,UHeap -> sprintf "UH%i_%i%s" (uheap x).tag i vars
-            | x,UStack -> sprintf "US%i_%i%s" (ustack x).tag i vars
+            match c.layout with
+            | UHeap -> sprintf "UH%i_%i%s" (uheap c.cases).tag i vars
+            | UStack -> sprintf "US%i_%i%s" (ustack c.cases).tag i vars
             |> simple
         | TyLayoutToHeap(a,b) -> sprintf "{%s} : Heap%i" (layout_vars a) (heap b).tag |> simple
         | TyLayoutToHeapMutable(a,b) -> sprintf "{%s} : Mut%i" (layout_vars a) (mut b).tag |> simple
@@ -351,9 +362,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 | _ -> raise_codegen_error "Compiler error: Invalid type in NanIs."
             | UnionTag, [DV(L(i,YUnion h))] -> 
                 let ty =
-                    match h.Item with
-                    | x,UHeap -> sprintf "UH%i" (uheap x).tag
-                    | x,UStack -> sprintf "US%i" (ustack x).tag
+                    let h = h.Item
+                    match h.layout with
+                    | UHeap -> sprintf "UH%i" (uheap h.cases).tag
+                    | UStack -> sprintf "US%i" (ustack h.cases).tag
                 sprintf "(fst (Reflection.FSharpValue.GetUnionFields(v%i, typeof<%s>))).Tag" i ty // TODO: Stopgap measure for now. Replace this with something more efficient.
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> simple

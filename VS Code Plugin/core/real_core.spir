@@ -211,6 +211,13 @@ inl (<>) a b = (a = b) <> true
 // Returns the i32 tag of an union.
 inl union_tag x = !!!!UnionTag(x)
 
+// Takes in a tag and an union type and passes the key/value pair of the union at that tag into the success case.
+// When the tag is a runtime variable it iterates through all the cases in turn.
+inl union_untag forall t. x on_succ on_fail = !!!!UnionUntag(`t,x,on_succ,on_fail)
+
+// Creates a nominal or an union type based on the input.
+inl nominal_create forall t. x = !!!!NominalCreate(x, `t)
+
 inl rec comp a b =
     match a, b with
     | (a, a'), (b, b') => 

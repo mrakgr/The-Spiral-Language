@@ -37,10 +37,14 @@ type Op =
     // Closure conversion
     | Dyn
 
+    // Nominal 
+    | NominalCreate // Also creates the union
+
     // Union
     | Unbox
     | Unbox2
     | UnionTag
+    | UnionUntag
 
     // String
     | StringLength

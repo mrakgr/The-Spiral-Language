@@ -1,0 +1,7 @@
+nominal span a = $"System.Span<`a>"
+type t a = span a
+
+inl create forall a. (ar : array a) : t a = $"System.Span(!ar)"
+inl create' forall a. (ar : array a) (i:(i : i32) length:(length : i32)) : t a = $"System.Span(!ar,!i,!length)"
+inl index forall a. (s : t a) (i : i32) : a = $"!s.[!i]"
+inl slice forall a. (s : t a) (i:(i : i32) length:(length : i32)) : a = $"!s.Slice(!i,!length)"

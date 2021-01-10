@@ -64,7 +64,9 @@ and Data =
     | DNominal of Data * Ty
     | DV of TyV
 and TyV = L<Tag,Ty>
-and Union = (Map<string, Ty> * UnionLayout) H // Unions always go through a join point which enables them to be compared via ref eqaulity.
+// Unions always go through a join point which enables them to be compared via ref eqaulity.
+// tags and tag_cases are straightforward mapping from cases for the sake of efficiency.
+and Union = {|cases : Map<string, Ty>; layout : UnionLayout; tags : Dictionary<string, int>; tag_cases : (string * Ty) [] |} H
 
 type TermVar =
     | WV of Tag
@@ -104,6 +106,7 @@ and TypedOp =
     | TyOp of Op * Data list
     | TyUnionBox of string * Data * Union
     | TyUnionUnbox of Tag list * Union * Map<string,Data list * TypedBind []> * TypedBind [] option
+    | TyIntSwitch of Tag * TypedBind [] [] * TypedBind []
     | TyLayoutToHeap of Data * Ty
     | TyLayoutToHeapMutable of Data * Ty
     | TyLayoutIndexAll of L<Tag,Ty * Layout>
@@ -130,11 +133,6 @@ type TopEnv = {
     prototypes_instances : Dictionary<GlobalId * GlobalId, E>
     nominals : Dictionary<GlobalId, Nominal>
     }
-
-let case_tags (x : Union) =
-    let case_tags = Dictionary()
-    fst x.Item |> Map.iter (fun k _ -> case_tags.[k] <- case_tags.Count)
-    case_tags
 
 let data_to_rdata (hc : HashConsTable) call_data =
     let hc x = hc.Add x
@@ -294,7 +292,7 @@ let show_ty x =
         | YSymbol x -> sprintf ".%s" x
         | YTypeFunction _ -> p 0 (sprintf "? => ?")
         | YRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
-        | YUnion l -> sprintf "{%s}" (l.Item |> fst |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat " | ")
+        | YUnion l -> sprintf "{%s}" (l.Item.cases |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat " | ")
         | YPrim x -> show_primt x
         | YArray a -> p 30 (sprintf "array %s" (f 30 a))
         | YFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
@@ -611,7 +609,18 @@ let peval (env : TopEnv) (x : E) =
         | TPair(_,a,b) -> YPair(ty s a, ty s b)
         | TFun(_,a,b) -> YFun(ty s a, ty s b)
         | TModule a | TRecord(_,a) -> YRecord(Map.map (fun _ -> ty s) a)
-        | TUnion(_,(a,b)) -> YUnion(H(Map.map (fun _ -> ty s) a, b))
+        | TUnion(_,(a,b)) -> 
+            let tags = Dictionary()
+            let tag_cases = Array.zeroCreate (Map.count a)
+            let cases = 
+                Map.map (fun k v -> 
+                    let v = ty s v
+                    let i = tags.Count
+                    tags.[k] <- i
+                    tag_cases.[i] <- (k,v)
+                    v
+                    ) a
+            YUnion(H {|cases=cases; layout=b; tags=tags; tag_cases=tag_cases|})
         | TSymbol(_,a) -> YSymbol a
         | TApply(r,a,b) ->
             let s = add_trace s r
@@ -823,9 +832,27 @@ let peval (env : TopEnv) (x : E) =
                             | Some x_ty -> if x_ty' <> x_ty then raise_type_error s <| sprintf "One union case for key %s has a different return that the previous one.\nGot: %s\nExpected: %s" k (show_ty x_ty') (show_ty x_ty)
                             | None -> case_ty <- Some x_ty'
                             [a], seq_apply s x
-                            ) (fst h.Item)
+                            ) h.Item.cases
                     push_typedop_no_rewrite s (TyUnionUnbox([i],h,cases,None)) (Option.get case_ty)
             | a -> raise_type_error s <| sprintf "Expected an union type.\nGot: %s" (show_data a)
+
+        let enominal (r,a,b) =
+            let a = term s a
+            let b = ty s b
+            match nominal_apply s b with
+            | YUnion h ->
+                match a with
+                | DPair(DSymbol k, v) ->
+                    let v_ty = data_to_ty s v
+                    match Map.tryFind k h.Item.cases with
+                    | Some v_ty' when v_ty = v_ty' -> DNominal(DUnion(a,h),b) 
+                    | Some v_ty' -> raise_type_error s <| sprintf "For key %s, The type of the value does not match the union case.\nGot: %s\nExpected: %s" k (show_ty v_ty) (show_ty v_ty')
+                    | None -> raise_type_error s <| sprintf "The union does not have key %s.\nGot: %s" k (show_ty b)
+                | _ -> raise_type_error s <| sprintf "Compiler error: Expected key/value pair.\nGot: %s" (show_data a)
+            | b' ->
+                let a_ty = data_to_ty s a
+                if a_ty = b' then DNominal(a,b)
+                else raise_type_error s <| sprintf "Type error in nominal constructor.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty b')
 
         match x with
         | EPatternRef _ -> failwith "Compiler error: EPatternRef should have been eliminated during the prepass."
@@ -978,23 +1005,7 @@ let peval (env : TopEnv) (x : E) =
                 | YApply(a,b) -> type_apply s (loop a) b
                 | b -> raise_type_error s <| sprintf "Expected a nominal or a deferred type apply.\nGot: %s" (show_ty b)
             loop (ty s b)
-        | ENominal(r,a,b) ->
-            let a = term s a
-            let b = ty s b
-            match nominal_apply s b with
-            | YUnion h ->
-                match a with
-                | DPair(DSymbol k, v) ->
-                    let v_ty = data_to_ty s v
-                    match Map.tryFind k (fst h.Item) with
-                    | Some v_ty' when v_ty = v_ty' -> DNominal(DUnion(a,h),b) 
-                    | Some v_ty' -> raise_type_error s <| sprintf "For key %s, The type of the value does not match the union case.\nGot: %s\nExpected: %s" k (show_ty v_ty) (show_ty v_ty')
-                    | None -> raise_type_error s <| sprintf "The union does not have key %s.\nGot: %s" k (show_ty b)
-                | _ -> raise_type_error s <| sprintf "Compiler error: Expected key/value pair.\nGot: %s" (show_data a)
-            | b' ->
-                let a_ty = data_to_ty s a
-                if a_ty = b' then DNominal(a,b)
-                else raise_type_error s <| sprintf "Type error in nominal constructor.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty b')
+        | EOp(r,NominalCreate,[a;EType(_,b)]) | ENominal(r,a,b) -> enominal (r,a,b)
         | EUnbox(r,id,a,on_succ) -> eunbox (fun s a -> store_term s id a; term s on_succ) r a
         | EOp(r,Unbox,[a;on_succ]) -> let on_succ = term s on_succ in eunbox (fun s a -> apply s (on_succ,a)) r a
         | EOp(r,Unbox2,[a;b;on_succ;on_fail]) ->
@@ -1028,7 +1039,7 @@ let peval (env : TopEnv) (x : E) =
                 raise_type_error s <| sprintf "The two variables have different union types.\nGot: %s\nGot: %s" (show_ty (YUnion h)) (show_ty (YUnion h'))
             | DNominal(DUnion(a,_),_), DNominal(DV(L(i,YUnion h)),_) ->
                 let k,a = key_value a
-                let v = (fst h.Item).[k]
+                let v = h.Item.cases.[k]
                 let case_on_succ =
                     let s = s'()
                     let a' = ty_to_data s v
@@ -1036,7 +1047,7 @@ let peval (env : TopEnv) (x : E) =
                 push_typedop_no_rewrite s (TyUnionUnbox([i],h,Map.add k case_on_succ Map.empty,Some (case_on_fail()))) (Option.get case_ty)
             | DNominal(DV(L(i,YUnion h)),_), DNominal(DUnion(a',_),_) ->
                 let k,a' = key_value a'
-                let v = (fst h.Item).[k]
+                let v = h.Item.cases.[k]
                 let case_on_succ =
                     let s = s'()
                     let a = ty_to_data s v
@@ -1050,9 +1061,45 @@ let peval (env : TopEnv) (x : E) =
                         let s = s'()
                         let a,a' = ty_to_data s v, ty_to_data s v
                         [a;a'], run s (on_succ, DPair(DSymbol k, DPair(a, a')))
-                        ) (fst h.Item)
+                        ) h.Item.cases
                 push_typedop_no_rewrite s (TyUnionUnbox([i;i'],h,cases_on_succ,Some (case_on_fail()))) (Option.get case_ty)
             | a,a' -> raise_type_error s <| sprintf "Expected two union types.\nGot: %s\nAnd: %s" (show_data a) (show_data a')
+        | EOp(r,UnionUntag,[EType(_,t);a;on_succ;on_fail]) ->
+            let t = ty s t
+            match nominal_apply s t with
+            | YUnion h ->
+                let h = h.Item
+                let on_succ, on_fail = term s on_succ, term s on_fail
+                let lit i =
+                    if 0 <= i && i < h.tag_cases.Length then
+                        let k,v = h.tag_cases.[i]
+                        type_apply s (apply s (on_succ, DSymbol k)) v
+                    else raise_type_error s <| sprintf "Invalid tag %i." i
+                match term s a with
+                | DV(L(i,YPrim Int32T)) as a -> 
+                    let key = TyOp(UnionTag,[a])
+                    match cse_tryfind s key with
+                    | Some(DLit(LitInt32 i)) -> lit i
+                    | Some _ -> failwith "Compiler error: Expected an 32-bit int."
+                    | None ->
+                        let on_fail, on_fail_ty =
+                            let s = {s with i = ref !s.i; cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
+                            let r = apply s (on_fail, DB) |> dyn false s
+                            seq_apply s r, data_to_ty s r
+                        let on_succ =
+                            Array.mapi (fun i (k,v) ->
+                                let cse = Dictionary()
+                                cse.Add(key,DLit(LitInt32 i))
+                                let s = {s with i = ref !s.i; cse = cse :: s.cse; seq = ResizeArray()}
+                                let r = type_apply s (apply s (on_succ, DSymbol k)) v |> dyn false s
+                                let r_ty = data_to_ty s r
+                                if on_fail_ty <> r_ty then raise_type_error s <| sprintf "Return type of the success case does not match the failure one.\nGot: %s\nExpected: %s" (show_ty r_ty) (show_ty on_fail_ty)
+                                seq_apply s r
+                                ) h.tag_cases
+                        push_typedop_no_rewrite s (TyIntSwitch(i,on_succ,on_fail)) on_fail_ty
+                | DLit(LitInt32 i) -> lit i
+                | a -> raise_type_error s <| sprintf "Expected an i32.\nGot: %s" (show_data a)
+            | _ -> raise_type_error s <| sprintf "Expected an union type.\nGot: %s" (show_ty t)
         | ELet(r,i,a,b) -> let s = add_trace s r in store_term s i (term s a); term s b
         | EPairTest(r,bind,p1,p2,on_succ,on_fail) ->
             let s = add_trace s r
@@ -1770,7 +1817,7 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,HeapUnionIs,[a]) ->
             match term s a with
             | DNominal(DV(L(_,YUnion x)), _) | DNominal(DUnion(_,x), _) ->
-                match x.Item |> snd with UHeap -> true | UStack -> false
+                match x.Item.layout with UHeap -> true | UStack -> false
                 |> LitBool |> DLit
             | _ -> DLit (LitBool false)
         | EOp(_,LayoutIs,[a]) ->
@@ -1800,7 +1847,7 @@ let peval (env : TopEnv) (x : E) =
             match ty s a with
             | YNominal _ | YApply _ as a -> 
                 match nominal_apply s a with
-                | YUnion x -> DLit (LitBool (match x.Item |> snd with UHeap -> true | UStack -> false))
+                | YUnion x -> DLit (LitBool (match x.Item.layout with UHeap -> true | UStack -> false))
                 | _ -> DLit (LitBool false)
             | _ -> DLit (LitBool false)
         | EOp(_,LayoutTypeIs,[EType(_,a)]) ->
@@ -1850,7 +1897,7 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,PrintStatic,[a]) -> printfn "%s" (term s a |> show_data); DB
         | EOp(_,PrintRaw,[a]) -> printfn "%A" (Printable.eval(Choice1Of2(a,id))); DB
         | EOp(_,UnionTag,[a]) ->
-            let eval k h = (case_tags h).[k] |> LitInt32 |> DLit
+            let eval k (h : Union) = h.Item.tags.[k] |> LitInt32 |> DLit
             match term s a with
             | DNominal(DV(L(_,YUnion h)) & a, _) ->
                 match cse_tryfind s (TyOp(Unbox,[a])) with
