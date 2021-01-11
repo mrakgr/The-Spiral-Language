@@ -854,6 +854,17 @@ let peval (env : TopEnv) (x : E) =
                 if a_ty = b' then DNominal(a,b)
                 else raise_type_error s <| sprintf "Type error in nominal constructor.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty b')
 
+        let ty_union s x = 
+            let x = ty s x
+            match nominal_apply s x with
+            | YUnion x -> x
+            | _ -> raise_type_error s <| sprintf "Expected an union.\nGot: %s" (show_ty x)
+
+        let ty_record s x =
+            match ty s x with
+            | YRecord l -> l
+            | x -> raise_type_error s <| sprintf "Expected a type record.\nGot: %s" (show_ty x)
+
         match x with
         | EPatternRef _ -> failwith "Compiler error: EPatternRef should have been eliminated during the prepass."
         | EB _ -> DB
@@ -1307,31 +1318,43 @@ let peval (env : TopEnv) (x : E) =
             | DRecord l -> Map.count l |> LitInt32 |> DLit
             | r -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data r)
         | EOp(_,RecordTypeMap,[a;EType(_,b)]) ->
-            match term s a, ty s b with
-            | a, YRecord l -> Map.map (fun k v -> type_apply s (apply s (a, DSymbol k)) v) l |> DRecord
-            | _, b -> raise_type_error s <| sprintf "Expected a type record.\nGot: %s" (show_ty b)
+            let a,l = term s a, ty_record s b
+            Map.map (fun k v -> type_apply s (apply s (a, DSymbol k)) v) l |> DRecord
         | EOp(_,RecordTypeIter,[a;EType(_,b)]) ->
-            match term s a, ty s b with
-            | a, YRecord l -> 
-                Map.iter (fun k v -> 
-                    match type_apply s (apply s (a, DSymbol k)) v with
-                    | DB -> ()
-                    | x -> raise_type_error s <| sprintf "Expected an unit value.\nGot: %s" (show_data x)
-                    ) l 
-                DB
-            | _, b -> raise_type_error s <| sprintf "Expected a type record.\nGot: %s" (show_ty b)
+            let a,l = term s a, ty_record s b
+            Map.iter (fun k v -> 
+                match type_apply s (apply s (a, DSymbol k)) v with
+                | DB -> ()
+                | x -> raise_type_error s <| sprintf "Expected an unit value.\nGot: %s" (show_data x)
+                ) l 
+            DB
         | EOp(_,RecordTypeFoldL,[f;state;EType(_,x)]) ->
-            match term s f, term s state, ty s x with
-            | f, state, YRecord l -> Map.fold (fun state k v -> type_apply s (apply s ((apply s (f, state), DSymbol k))) v) state l
-            | _, _, r -> raise_type_error s <| sprintf "Expected a type record.\nGot: %s" (show_ty r)
+            let f,state,l = term s f, term s state, ty_record s x
+            Map.fold (fun state k v -> type_apply s (apply s ((apply s (f, state), DSymbol k))) v) state l
         | EOp(_,RecordTypeFoldR,[f;state;EType(_,x)]) ->
-            match term s f, term s state, ty s x with
-            | f, state, YRecord l -> Map.foldBack (fun k v state -> apply s ((type_apply s (apply s (f, DSymbol k)) v), state)) l state 
-            | _, _, r -> raise_type_error s <| sprintf "Expected a type record.\nGot: %s" (show_ty r)
+            let f,state,l = term s f, term s state, ty_record s x
+            Map.foldBack (fun k v state -> apply s ((type_apply s (apply s (f, DSymbol k)) v), state)) l state 
         | EOp(_,RecordTypeLength,[EType(_,a)]) ->
-            match ty s a with
-            | YRecord l -> Map.count l |> LitInt32 |> DLit
-            | r -> raise_type_error s <| sprintf "Expected a type record.\nGot: %s" (show_ty r)
+            Map.count (ty_record s a) |> LitInt32 |> DLit
+        | EOp(_,UnionMap,[a;EType(_,b)]) ->
+            let a,l = term s a, ty_union s b
+            Map.map (fun k v -> type_apply s (apply s (a, DSymbol k)) v) l.Item.cases |> DRecord
+        | EOp(_,UnionIter,[a;EType(_,b)]) ->
+            let a,l = term s a, ty_union s b
+            Map.iter (fun k v -> 
+                match type_apply s (apply s (a, DSymbol k)) v with
+                | DB -> ()
+                | x -> raise_type_error s <| sprintf "Expected an unit value.\nGot: %s" (show_data x)
+                ) l.Item.cases
+            DB
+        | EOp(_,UnionFoldL,[f;state;EType(_,x)]) ->
+            let f,state,l = term s f, term s state, ty_union s x
+            Map.fold (fun state k v -> type_apply s (apply s ((apply s (f, state), DSymbol k))) v) state l.Item.cases
+        | EOp(_,UnionFoldR,[f;state;EType(_,x)]) ->
+            let f,state,l = term s f, term s state, ty_union s x
+            Map.foldBack (fun k v state -> apply s ((type_apply s (apply s (f, DSymbol k)) v), state)) l.Item.cases state 
+        | EOp(_,UnionLength,[EType(_,a)]) ->
+            (ty_union s a).Item.tag_cases.Length |> LitInt32 |> DLit
         | EOp(_,Add,[a;b]) -> 
             let inline op a b = a + b
             match term2 s a b with

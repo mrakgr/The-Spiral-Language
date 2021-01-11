@@ -32,12 +32,13 @@
             - [Print Static](#print-static)
         - [Type Inference](#type-inference)
         - [Real Nominals](#real-nominals)
-        - [Serialization](#serialization)
+        - [Serialization (Binary)](#serialization-binary)
             - [Pickler Combinators](#pickler-combinators)
                 - [Pickling Union Types](#pickling-union-types)
                 - [Pattern Matching And Scope](#pattern-matching-and-scope)
                 - [Pickling Union Types 2](#pickling-union-types-2)
             - [Introspective Pickling](#introspective-pickling)
+        - [Serialization (One-Hot Vector Sequences)](#serialization-one-hot-vector-sequences)
 
 <!-- /TOC -->
 
@@ -2459,7 +2460,7 @@ struct (v5, v6, v7, v8, v9)
 
 The only function that is really missing from `real_array_inv.spir` is the length function. Implementing it and then the corresponding binding would allow the `array.spi` module function to be copy pasted and used verbatim with the new arrays.
 
-### Serialization
+### Serialization (Binary)
 
 Serialization comes in many guises and happens at boundaries. It involves making an isomorphic mapping that the two sides can interpret. It is about commnication through a protocol.
 
@@ -3430,5 +3431,223 @@ Spiral uses GC and heap allocated data structures like recursive unions and clos
 
 #### Introspective Pickling
 
-The above was an useful case study in producing an efficient combinator library. Spiral has its own flow separate from other functional languages where it encourages inlining first and then putting join points and doing heap allocation later. Still, using combinators and composing them by hand is something that can be improved on, especially when the entire program can be derived just from the type.
+The above was an useful case study in producing an efficient combinator library. Spiral has its own flow separate from other functional languages where it encourages inlining first and then putting join points and doing heap allocation either through layout types or closures, later. Still, using combinators and composing them by hand is something that can be improved on, especially when the entire program could be derived just from the type.
+
+That would alleviate some of the weaknesses of pickler combinators as well. For example, you could consider it an error that `alt` from the previous section has no checks to ensure that the schema is static at compile time. If a runtime list of `pu`s gets passed into it, then the partial evaluator will stack overflow during compilation.
+
+I could go back and shore it up, but it demonstrates how direct action can end up leaving stray cases unattented. The problem wih pickler combinators is that they are more flexible that the situation demands from them.
+
+Here is the `package.spiproj` file for this section.
+
+```
+packages: |core-
+modules: 
+    span
+    real_pickle*
+    pickle
+    main
+```
+
+`span` is the same as in the previous section, so it will be skipped here. The real meat is all in the `real_pickle.spir` file. Unlike the pickler combinators which had `pu`s for various data types, this module will have just 3 big functions: `size`, `pickle` and `unpickle`, plus an auxiliary for the size of the primitives.
+
+```
+open real_core
+
+inl size_prim forall t. =
+    typecase t with
+    | i32 => 4
+    | char => 2
+inl rec size x : i32 =
+    match x with
+    | () => 0
+    | a,b => size a + size b
+    | {} => record_foldl (fun (state:key:value:) => state + size value) 0 x
+    | _ when symbol_is x => 0
+    | _ => 
+        typecase `x with
+        | array ~t => 
+            if prim_type_is `t then size_prim `i32 + size_prim `t * arraym.length `t x
+            else arraym.fold `i32 `t (fun s x => s + size x) (size_prim `i32) x
+        | string => size_prim `i32 + size_prim `char * stringm.length x
+        | ~t => 
+            if prim_is x then size_prim `t
+            // Assume it is an union type.
+            else inl ~x = x in (join size_prim `i32 + unbox x (fun (k,v) => size v)) : i32
+```
+
+There might be some new things here, but the code by this point should hopefully be clear enough that one can infer what it does just by looking at it. This segment requires the use of various real core functions, and those are mostly bindings to built in ops. It is easy to see what is inside the core library by following the package links. I encourage it.
+
+Some ecosysytems like .NET are closed - in feel if not license. Even if they are open source you'd need to jump through hoops to see what is in its standard library. If I wanted to see how `BitConverter` is implemented for example, I'd need to locate the .NET Core standard library repo and seek it out there. 
+
+Some like Pharo's for example allow easy debugging of the entire system from within, and there is a great feeling of freedom and accessibility. I'd like Spiral closer to that than .NET.
+
+If you follow the `|core` package link and take a look inside the `real_core*` module, you'll see `unbox`.
+
+```
+// It unboxes an arbitrary union type. Passes the resulting key/value pair into success branch.
+inl unbox x on_succ = !!!!Unbox(x,on_succ)
+```
+
+`!!!!Unbox` was introduced in its raw form earlier, but it is ugly to use such form directly. And using a bit of indirection ensures that the arguments passed into an inbuilt op are already evaluated. I can't think of any way that to cause an error by using inbuilt ops directly instead of their bindings - I'll consider it a bug such a way is found for any of the ops, but it is an assumption that the arguments should be maximally reduced by the time the partial evaluator reaches them.
+
+```
+            // Assume it is an union type.
+            else inl ~x = x in (join size_prim `i32 + unbox x (fun (k,v) => size v)) : i32
+```
+
+In these examples the nominals and layout types are purposely ommited. The cases for them could easily be added using the implementation of structural equality as a reference. I also do not bother making a distinction between recursive and non-recursive unions and just dyn the input before passing it through join point. Doing it with more nuance would improve performance, though it is not a big deal either way.
+
+Note that this join point has an annotation. In this case, it is necessary otherwise processing lists would not work properly.
+
+Join points by themselves do not require type annotations, but those that are used recursively do. In the future when Spiral gets concurrent compilation, join point annotations are what will allow them to be compiled concurrently.
+
+Note that what this only needs to be considered in the bottom-up segment like here. In the top-down segment the inferencer fills in the annotations automatically, so that is not a concern there. It also fills in the type applications. Here that needed to be done manually.
+
+```
+inl rec pickle x (i',s as state) : () =
+    match x with
+    | () => ()
+    | a,b => pickle a state . pickle b state
+    | {} => record_iter (fun (key:value:) => pickle value state) x
+    | _ =>
+        typecase `x with
+        | array ~t => 
+            pickle (arraym.length `t x) state
+            arraym.iter `t (fun x => pickle x state) x
+        | string => pickle ($"!x.ToCharArray()" : array char) state
+        | ~t => 
+            if prim_is x then
+                inl i = *i'
+                inl length = size_prim `t
+                inl s = span.create' `u8 s (i:length:)
+                assert ($"System.BitConverter.TryWriteBytes(!s,!x)" : bool) "Conversion failed."
+                i' <- i+length
+            elif symbol_is x then ()
+            else inl ~x = x in (join unbox x (fun (k,v) => pickle (union_tag x) state . pickle v state)) : ()
+```
+
+The main novelty here would be the `union_tag` function. When passed in an union, it extracts it tag. If the union is statically known at compile time, then that tag is a constant. This will be the case here since `x` unboxed in scope.
+
+```
+inl rec unpickle forall t. (i', s as state) : t =
+    inl prim read =
+        inl i = *i'
+        i' <- i + size_prim `t
+        read i
+    typecase t with
+    | () => ()
+    | ~a * ~b => unpickle `a state, unpickle `b state
+    | {} => record_type_map (fun k => forall v. => unpickle `v state) `t
+    | i32 => prim (fun i => $"System.BitConverter.ToInt32(!s,!i)" : t)
+    | char => prim (fun i => $"System.BitConverter.ToChar(!s,!i)" : t)
+    | array ~y => arraym.init `y (unpickle `i32 state) (fun i => unpickle `y state)
+    | string => inl ar = unpickle `(array char) state in $"System.String(!ar)" : string
+    | _ =>
+        if symbol_type_is `t then type_to_symbol `t
+        else 
+            (join
+                inl tag = unpickle `i32 state
+                union_untag `t tag 
+                    (fun k => forall v. => nominal_create `t (k,unpickle `v state)) 
+                    (fun _ => failwith `t "Invalid tag.")
+                ) : t
+```
+
+Here, the union case has some novelties. The `union_tag` function takes in an union type and a `i32` tag, which it then maps to the key and the type of that union. If the `tag` is statically known, that makes things easy and only the success branch will get evaluated. Otherwise it just iterates through all the keys and values of an union.
+
+`nominal_create` creates an union or a nominal given just the type and the term content. It will of course do type checking to make sure that the type of the data matches.
+
+The next is the `pickle` module.
+
+```
+open real_pickle
+inl size forall t. (x : t) : i32 = real size x
+inl pickle forall t. (x : t) (state : mut i32 * array u8) = real pickle x state
+inl unpickle forall t. (state : mut i32 * array u8) : t = real unpickle `t state
+```
+
+These are just the bindings to the real module functions.
+
+Here is a test for it in the `main.spi` file.
+
+```
+open pickle
+nominal serialized a = array u8
+
+inl serialize forall t. (x : t) : serialized t =
+    inl size = size x
+    inl ar = arraym.create size
+    inl i = mut 0
+    pickle x (i,ar)
+    assert (*i = size) "The size of the array does not correspond to the amount being pickled."
+    serialized ar
+
+inl deserialize forall t. (serialized x : serialized t) : t =
+    inl i = mut 0
+    inl r = unpickle (i,x)
+    assert (*i = arraym.length x) "The size of the array does not correspond to the amount being unpickled."
+    r
+
+inl test x = assert (x = deserialize (serialize x)) "Serialization and deserialization should result in the same result."
+
+inl main () : () = join test(dyn (1i32,2i32,({q=1i32;w="a";e='z'} :: {q=2;w="s";e='x'} :: Nil)))
+```
+
+It is quite similar to what was here in the previous section. I won't paste the output as it is 236 lines long. This is a nearly identical in size compared to the combinator version, and yet the implementation was simpler than it and the ergonomics of this is significantly better.
+
+It is worth constrasting this with how it would be done in [F#](https://mbraceproject.github.io/FsPickler/overview.html#Putting-it-all-together). The Spiral version is extremely readable while being efficient, whereas the nasty looking F# version does runtime casts all over the place, does not use pattern matching, and all of this is done at runtime meaning the pickler combinators would need to be built up as closures. This will definitely have a perfomance impact, both due to heap allocation and the need to do virtual calls.
+
+### Serialization (One-Hot Vector Sequences)
+
+The previous segment is not all there is to serialization. I could have picked other subjects to demonstrate the language's prowess at abstraction, but serialization is a common task that other languages rarely do without flaw. It will only get more important as time goes on. When I picked F# as main target in the old version of Spiral it was mistake because I had no automatic way to manage GPU memory. Yet, the future hardware will not have unified memory and it won't be necessary to deal with unmanaged pointers like in the past. Instead it will all be about message passing between isolated cores, and being able to succinctly and efficiently serialize data in various formats and having it cross various kinds of boundaries is Spiral's greatest strength.
+
+Back in 2016, I ran into a fairly extreme serialization challenge when trying to pass data to a NN agent. At that time, I had no idea how to do pickler combinators so my situation was that much worse - I fervently wished for some way to map a regular type to a sequence of one-hot vectors.
+
+An one-hot vector is an array whose elements are all 0, apart from a single element which is 1. I needed an efficient way to do this task - I tried doing it by hand in C style, but the problem with doing that quickly becomes aparent. It is extemely unsafe and very hard to do. It is a killer combination that slowly set me on the path of being a language designer.
+
+Imagine you are doing a NN-based poker agent, and the you are trying to pass an input to its model. The is a simple HU poker variant with two cards. Here is how the game state could be modeled.
+
+```
+type rank = i32
+type suit = i32
+type card = rank * suit
+type player = {
+    stack : i32
+    hand : card * card
+    }
+type pot = i32
+type game = player * player * pot
+```
+
+We'll assume that the opponent's previous action could be inferred from the size of the pot. But the player should receive his previous action during this betting round. So the actual player input would be something like this.
+
+```
+union action =
+    | Raise: i32
+    | Call
+    | NoAction
+type player_view = {
+    stack_self : i32
+    stack_opp : i32
+    pot : i32
+    hand : card * card
+    prev_action : action
+    }
+```
+
+This `player_view` is what needs to be serialized. Compared to the previous scheme, things are more difficult this time. There are two main challenges.
+
+1) Serializing arbirary ints is far too wasteful. An int converted to a one hot-vector would take 2Gb. Instead one has to account for maximum and minimum stack sizes which might be between 0 to a few 100 chips. Suits are only 4, and the number of different cards is 13.
+
+In other words, the problem is that unlike in the previous section, the type no longer corresponds to the representation being used. It would be great if Spiral had dependent types so that bounded ints could be used, but that is not the case here.
+
+There is no problem with using ints for stack sizes and such inside the game itself, but they are huge problem to serialize in the one-hot format.
+
+2) Dealing with sizes. As in the previous section, the union types are tricky here because one case is prefixed by the rest.
+
+---
+
+Because of the added difficulties, unlike when it comes to vanilla serialization, the introspective approach is no longer so obviously superior to the introspective one. If all the bounds are known at compile time, an introspective approach would involve using nominals with symbolic bounds which would require hackery like converting symbols to ints to serve as bounds. I previously had the idea of specifying the size using a prototype function, but something like `prototype size a : i32` is not allowed in Spiral because `a` is an unused forall variable.
+
+In the old version of Spiral, I did not use pickler combinators, but I still had to specify a schema even there, so the advantages of the introspective approach is minimal over the combinator one.
 

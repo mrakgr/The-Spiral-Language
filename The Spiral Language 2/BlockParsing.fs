@@ -46,6 +46,13 @@ type Op =
     | UnionTag
     | UnionUntag
 
+    // Unions as type records analogues
+    | UnionMap
+    | UnionIter
+    | UnionFoldL
+    | UnionFoldR
+    | UnionLength
+
     // String
     | StringLength
     | StringIndex

@@ -1,3 +1,24 @@
+type rank = i32
+type suit = i32
+type card = rank * suit
+type player = {
+    stack : i32
+    hand : card * card
+    }
+type pot = i32
+type game = player * player * pot
+union action =
+    | Raise: i32
+    | Call
+    | NoAction
+type player_view = {
+    stack_self : i32
+    stack_opp : i32
+    pot : i32
+    hand : card * card
+    prev_action : action
+    }
+
 open pickle
 nominal serialized a = array u8
 

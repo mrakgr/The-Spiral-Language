@@ -170,6 +170,17 @@ inl record_type_foldr f = forall a. s => !!!!RecordTypeFoldR(f,s, `a)
 // Returns the type record's length as i32.
 inl record_type_length forall m. = !!!!RecordTypeLength(`m)
 
+// Maps over an union.
+inl union_map f = forall a. => !!!!UnionMap(f, `a)
+// Iterates over an union.
+inl union_iter f = forall a. => !!!!UnionIter(f, `a)
+// Folds over an union left to right.
+inl union_foldl f s = forall a. => !!!!UnionFoldL(f,s, `a)
+// Folds over an union right to left.
+inl union_foldr f = forall a. s => !!!!UnionFoldR(f,s, `a)
+// Returns the union's length as i32.
+inl union_length forall m. = !!!!UnionLength(`m)
+
 // Returns boolean whether the type is a primitive type.
 inl prim_type_is forall x. = !!!!PrimTypeIs(`x)
 // Returns boolean whether the type is a symbol.
@@ -217,6 +228,12 @@ inl union_untag forall t. x on_succ on_fail = !!!!UnionUntag(`t,x,on_succ,on_fai
 
 // Creates a nominal or an union type based on the input.
 inl nominal_create forall t. x = !!!!NominalCreate(x, `t)
+
+// It unboxes an arbitrary union type. Passes the resulting key/value pair into success branch.
+inl unbox x on_succ = !!!!Unbox(x,on_succ)
+
+// Converts a type symbol to a term symbol.
+inl type_to_symbol forall t. = !!!!TypeToSymbol(`t)
 
 inl rec comp a b =
     match a, b with
