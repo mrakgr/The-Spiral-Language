@@ -169,17 +169,8 @@ inl record_type_foldl f s = forall a. => !!!!RecordTypeFoldL(f,s, `a)
 inl record_type_foldr f = forall a. s => !!!!RecordTypeFoldR(f,s, `a)
 // Returns the type record's length as i32.
 inl record_type_length forall m. = !!!!RecordTypeLength(`m)
-
-// Maps over an union.
-inl union_map f = forall a. => !!!!UnionMap(f, `a)
-// Iterates over an union.
-inl union_iter f = forall a. => !!!!UnionIter(f, `a)
-// Folds over an union left to right.
-inl union_foldl f s = forall a. => !!!!UnionFoldL(f,s, `a)
-// Folds over an union right to left.
-inl union_foldr f = forall a. s => !!!!UnionFoldR(f,s, `a)
-// Returns the union's length as i32.
-inl union_length forall m. = !!!!UnionLength(`m)
+// Tries indexing into a type record at the specified key. Passes the value into the success branch if it finds it.
+inl record_type_try_find forall a. k on_succ on_fail = !!!!RecordTypeTryFind(`a,k,on_succ,on_fail)
 
 // Returns boolean whether the type is a primitive type.
 inl prim_type_is forall x. = !!!!PrimTypeIs(`x)
@@ -225,6 +216,9 @@ inl union_tag x = !!!!UnionTag(x)
 // Takes in a tag and an union type and passes the key/value pair of the union at that tag into the success case.
 // When the tag is a runtime variable it iterates through all the cases in turn.
 inl union_untag forall t. x on_succ on_fail = !!!!UnionUntag(`t,x,on_succ,on_fail)
+
+// Converts an union type to a type record.
+inl union_to_record forall t. = !!!!UnionToRecord(`t)
 
 // Creates a nominal or an union type based on the input.
 inl nominal_create forall t. x = !!!!NominalCreate(x, `t)

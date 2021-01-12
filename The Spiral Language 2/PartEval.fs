@@ -1336,25 +1336,15 @@ let peval (env : TopEnv) (x : E) =
             Map.foldBack (fun k v state -> apply s ((type_apply s (apply s (f, DSymbol k)) v), state)) l state 
         | EOp(_,RecordTypeLength,[EType(_,a)]) ->
             Map.count (ty_record s a) |> LitInt32 |> DLit
-        | EOp(_,UnionMap,[a;EType(_,b)]) ->
-            let a,l = term s a, ty_union s b
-            Map.map (fun k v -> type_apply s (apply s (a, DSymbol k)) v) l.Item.cases |> DRecord
-        | EOp(_,UnionIter,[a;EType(_,b)]) ->
-            let a,l = term s a, ty_union s b
-            Map.iter (fun k v -> 
-                match type_apply s (apply s (a, DSymbol k)) v with
-                | DB -> ()
-                | x -> raise_type_error s <| sprintf "Expected an unit value.\nGot: %s" (show_data x)
-                ) l.Item.cases
-            DB
-        | EOp(_,UnionFoldL,[f;state;EType(_,x)]) ->
-            let f,state,l = term s f, term s state, ty_union s x
-            Map.fold (fun state k v -> type_apply s (apply s ((apply s (f, state), DSymbol k))) v) state l.Item.cases
-        | EOp(_,UnionFoldR,[f;state;EType(_,x)]) ->
-            let f,state,l = term s f, term s state, ty_union s x
-            Map.foldBack (fun k v state -> apply s ((type_apply s (apply s (f, DSymbol k)) v), state)) l.Item.cases state 
-        | EOp(_,UnionLength,[EType(_,a)]) ->
-            (ty_union s a).Item.tag_cases.Length |> LitInt32 |> DLit
+        | EOp(_,RecordTypeTryFind,[EType(_,a);k;on_succ;on_fail]) ->
+            match ty_record s a, term s k with
+            | l, DSymbol k ->
+                match Map.tryFind k l with
+                | Some v -> type_apply s (term s on_succ) v
+                | None -> apply s (term s on_fail, DB)
+            | _, k -> raise_type_error s <| sprintf "Expected a symbol.\nGot: %s" (show_data k)
+        | EOp(_,UnionToRecord,[EType(_,a);on_succ]) ->
+            type_apply s (term s on_succ) (YRecord (ty_union s a).Item.cases)
         | EOp(_,Add,[a;b]) -> 
             let inline op a b = a + b
             match term2 s a b with

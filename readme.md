@@ -3479,7 +3479,7 @@ There might be some new things here, but the code by this point should hopefully
 
 Some ecosysytems like .NET are closed - in feel if not license. Even if they are open source you'd need to jump through hoops to see what is in its standard library. If I wanted to see how `BitConverter` is implemented for example, I'd need to locate the .NET Core standard library repo and seek it out there. 
 
-Some like Pharo's for example allow easy debugging of the entire system from within, and there is a great feeling of freedom and accessibility. I'd like Spiral closer to that than .NET.
+Some like Pharo's for example allow easy debugging of the entire system from within, and there is a great feeling of freedom and accessibility. I'd like Spiral to be closer to that in spirit than .NET.
 
 If you follow the `|core` package link and take a look inside the `real_core*` module, you'll see `unbox`.
 
@@ -3488,7 +3488,7 @@ If you follow the `|core` package link and take a look inside the `real_core*` m
 inl unbox x on_succ = !!!!Unbox(x,on_succ)
 ```
 
-`!!!!Unbox` was introduced in its raw form earlier, but it is ugly to use such form directly. And using a bit of indirection ensures that the arguments passed into an inbuilt op are already evaluated. I can't think of any way that to cause an error by using inbuilt ops directly instead of their bindings - I'll consider it a bug such a way is found for any of the ops, but it is an assumption that the arguments should be maximally reduced by the time the partial evaluator reaches them.
+`!!!!Unbox` was introduced in its raw form earlier, but it is ugly to use such form directly. And using a bit of indirection ensures that the arguments passed into an inbuilt op are already evaluated. I can't think of any way that to cause an error by using inbuilt ops directly instead of their bindings - I'll consider it a bug such a way is found for any of the ops, but it was an assumption that the arguments should be maximally reduced by the time the partial evaluator reaches them.
 
 ```
             // Assume it is an union type.
@@ -3637,11 +3637,7 @@ type player_view = {
 
 This `player_view` is what needs to be serialized. Compared to the previous scheme, things are more difficult this time. There are two main challenges.
 
-1) Serializing arbirary ints is far too wasteful. An int converted to a one hot-vector would take 2Gb. Instead one has to account for maximum and minimum stack sizes which might be between 0 to a few 100 chips. Suits are only 4, and the number of different cards is 13.
-
-In other words, the problem is that unlike in the previous section, the type no longer corresponds to the representation being used. It would be great if Spiral had dependent types so that bounded ints could be used, but that is not the case here.
-
-There is no problem with using ints for stack sizes and such inside the game itself, but they are huge problem to serialize in the one-hot format.
+1) Serializing arbirary ints is far too wasteful. An int converted to a one hot-vector would take 2Gb. Instead one has to account for maximum and minimum stack sizes which might be between 0 to a few 100 chips. Suits are only 4, and the number of different cards is 13. In other words, the problem is that unlike in the previous section, the type no longer corresponds to the representation being used. It would be great if Spiral had dependent types so that bounded ints could be used, but that is not the case here. There is no problem with using ints for stack sizes and such inside the game itself, but they are huge problem to serialize in the one-hot format.
 
 2) Dealing with sizes. As in the previous section, the union types are tricky here because one case is prefixed by the rest.
 

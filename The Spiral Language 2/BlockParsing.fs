@@ -45,13 +45,7 @@ type Op =
     | Unbox2
     | UnionTag
     | UnionUntag
-
-    // Unions as type records analogues
-    | UnionMap
-    | UnionIter
-    | UnionFoldL
-    | UnionFoldR
-    | UnionLength
+    | UnionToRecord
 
     // String
     | StringLength
@@ -78,6 +72,7 @@ type Op =
     | RecordTypeFoldL
     | RecordTypeFoldR
     | RecordTypeLength
+    | RecordTypeTryFind
 
     // BinOps
     | Add
