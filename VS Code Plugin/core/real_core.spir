@@ -65,6 +65,8 @@ inl (<=) a b = !!!!LTE(a,b)
 inl (<) a b = !!!!LT(a,b)
 // Binary equals.
 inl (=) a b = !!!!EQ(a,b)
+// Binary type equals.
+inl (`=) forall a b. = !!!!TypeEq(`a, `b)
 // Binary unequals.
 inl (<>) a b = !!!!NEQ(a,b)
 // Binary greater-than.
@@ -205,7 +207,7 @@ inl rec (=) a b =
         else !!!!EQ(a,b)
 
 // Structural polymorphic equality for every type in the language (apart from functions.)
-inl (=) a b = !!!!AssertTypeEq(a,b) . a = b
+inl (=) a b = if `(`(a)) `= `(`(b)) then a = b else error_type "The variables compared for equality have to have the same type."
 
 // Structural polymorphic inequality for every type in the language (apart from functions.)
 inl (<>) a b = (a = b) <> true
@@ -218,7 +220,7 @@ inl union_tag x = !!!!UnionTag(x)
 inl union_untag forall t. x on_succ on_fail = !!!!UnionUntag(`t,x,on_succ,on_fail)
 
 // Converts an union type to a type record.
-inl union_to_record forall t. = !!!!UnionToRecord(`t)
+inl union_to_record forall t. on_succ = !!!!UnionToRecord(`t,on_succ)
 
 // Creates a nominal or an union type based on the input.
 inl nominal_create forall t. x = !!!!NominalCreate(x, `t)
@@ -257,7 +259,7 @@ inl rec comp a b =
             else EQ
 
 // Structural polymorphic comparison for every type in the language (apart from functions.)
-inl comp a b = !!!!AssertTypeEq(a,b) . comp a b
+inl comp a b = if `(`(a)) `= `(`(b)) then comp a b else error_type "The variables compared have to have the same type."
 
 // Structural polymorphic hashing for every type in the language (apart from functions.)
 inl hash x = 

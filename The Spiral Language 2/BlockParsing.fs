@@ -84,6 +84,7 @@ type Op =
     | LTE
     | LT
     | EQ
+    | TypeEq
     | NEQ
     | GT
     | GTE 
@@ -125,10 +126,10 @@ type Op =
     | HeapUnionTypeIs
     | LayoutTypeIs
     | NominalTypeIs
+    
 
     // Panic
     | FailWith
-    | AssertTypeEq
 
     // Static unary operations
     | PrintStatic

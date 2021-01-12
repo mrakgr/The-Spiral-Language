@@ -1,4 +1,90 @@
-open real_pickle
-inl size forall t. (x : t) : i32 = real size x
-inl pickle forall t. (x : t) (state : mut i32 * array u8) = real pickle x state
-inl unpickle forall t. (state : mut i32 * array u8) : t = real unpickle `t state
+type state = i32 * array f32
+nominal pu a = {
+    pickle : a -> state -> ()
+    size : i32
+    unpickle : state -> option a
+    }
+
+inl Unit =
+    pu {size = 1
+        pickle = fun () (i,s) => arraym.set s i 1
+        unpickle = fun (i,s) => 
+            inl x = arraym.index s i
+            if x = 1 then Some: () elif x = 0 then None 
+            else failwith "Unpickling failure. The unit type should always be either be active or inactive."
+        }
+
+inl I32 size : pu i32 =
+    pu {size
+        pickle = fun x (i,s) =>
+            if 0 <= x && x < size then arraym.set s (i+x) 1
+            else failwith "Value out of bounds."
+        unpickle = fun (from,s) =>
+            inl nearTo = from+size
+            let rec loop (case,c) i = 
+                if i < nearTo then 
+                    inl x = arraym.index s i
+                    if x = 0 then loop (case,c) (i+1)
+                    elif x = 1 then loop (i-from,c+1) (i+1)
+                    else failwith "Unpickling failure. The int type must either be active or inactive."
+                else 
+                    if c = 0i32 then None
+                    elif c = 1i32 then Some: case
+                    else failwith "Unpickling failure. Too many active indices in the one-hot vector."
+            loop (-1,0) from
+        }
+
+inl pair (pu a') (pu b') =
+    pu {size = a'.size + b'.size
+        pickle = fun (a,b) (i,s) => a'.pickle a (i,s) . b'.pickle b (i + a'.size, s)
+        unpickle = fun (i,s) => 
+            match a'.unpickle (i,s), b'.unpickle (i + a'.size, s) with
+            | (Some: a), (Some: b) => Some: a,b
+            | (Some: _), _ | _, (Some: _) => failwith "Unpickling failure. Two sides of a pair should either all be active or inactive."
+            | _ => None
+        }
+
+inl wrap (b,a) (pu p) =
+    pu {size = p.size
+        pickle = fun x state => p.pickle (a x) state
+        unpickle = fun state => optionm.map b (p.unpickle state)
+        }
+
+inl alt forall t r. (l : r) : pu t = 
+    inl _ = real // Typechecking.
+        open real_core
+        union_to_record `t forall r'. =>
+        assert (record_type_length `r' = record_type_length `r) "The number of keys in the record should be the same as in the union type."
+        record_type_iter (fun k => forall v. =>
+            record_type_try_find `r' k
+                (forall v'. => typecase v' * v with ~x * pu ~x => ())
+                (fun () => error_type "The record's keys must match those of the union.")
+            ) `r
+    inl offsets, size = real
+        open real_core
+        record_foldl (fun (state:(m,s) key:value:) => inl (pu p) = value in {m with $key=s}, s + p.size) ({},0) l
+    inl pickle (m : t) (i,s : state) : () = real
+        open real_core
+        unbox m (fun (k,v) => inl (pu p) = l k in p.pickle v (i + offsets k,s))
+    inl unpickle (i,s : state) : option t = real
+        open real_core
+        inl x = 
+            record_type_map (fun k => forall v. => typecase v with | pu ~v =>
+                inl (pu p) = l k 
+                inl x = p.unpickle (i + offsets k,s)
+                optionm.map `v `t (fun x => nominal_create `t (k,x)) x
+                ) `r
+        inl none = none `t ()
+        inl case, c =
+            record_foldl (fun (state:(case,c) key:value:) => 
+                match value with
+                | Some: _ => value,c+1
+                | None => case,c
+                ) (none,0) x
+        if c = 0 then none
+        elif c = 1 then case 
+        else failwith `(option t) "Unpickling failure. Only a single case of an union type should be active at most."
+    pu {size pickle unpickle}
+    
+inl option forall t. (a : pu t) : pu (option t) = alt { some_ = a; none = Unit }
+inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { ok_ = a; error_ = b }

@@ -1,6 +1,5 @@
 packages: |core-
 modules: 
     span
-    real_pickle*
     pickle
     main

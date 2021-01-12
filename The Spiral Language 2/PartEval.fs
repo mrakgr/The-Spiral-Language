@@ -848,7 +848,7 @@ let peval (env : TopEnv) (x : E) =
                     | Some v_ty' when v_ty = v_ty' -> DNominal(DUnion(a,h),b) 
                     | Some v_ty' -> raise_type_error s <| sprintf "For key %s, The type of the value does not match the union case.\nGot: %s\nExpected: %s" k (show_ty v_ty) (show_ty v_ty')
                     | None -> raise_type_error s <| sprintf "The union does not have key %s.\nGot: %s" k (show_ty b)
-                | _ -> raise_type_error s <| sprintf "Compiler error: Expected key/value pair.\nGot: %s" (show_data a)
+                | _ -> raise_type_error s <| sprintf "Expected key/value pair.\nGot: %s" (show_data a)
             | b' ->
                 let a_ty = data_to_ty s a
                 if a_ty = b' then DNominal(a,b)
@@ -1391,6 +1391,7 @@ let peval (env : TopEnv) (x : E) =
                 if a_ty = b_ty then
                     if is_lit_zero a then push_op s Neg b b_ty
                     elif is_lit_zero b then a
+                    elif is_any_int a_ty && a = b then DLit(lit_zero a_ty)
                     elif is_numeric a_ty then push_binop s Sub (a,b) a_ty
                     else raise_type_error s <| sprintf "The type of the two arguments needs to be a numeric type.\nGot: %s" (show_ty a_ty)
                 else
@@ -1891,16 +1892,7 @@ let peval (env : TopEnv) (x : E) =
                 | YApply(l,_) -> loop l
                 | a -> raise_type_error s <| sprintf "Expected a nominal.\nGot: %s" (show_ty a)
             loop (ty s a)
-        | EOp(_,AssertTypeEq,l) ->
-            List.fold (fun (i,a) b ->
-                let b = term s b
-                let b_ty = data_to_ty s b
-                match a with
-                | Some a_ty when a_ty = b_ty -> i+1, Some b_ty
-                | Some a_ty -> raise_type_error s <| sprintf "Var #%i has a different type from the previous ones.\nGot: %s\nExpected: %s" i (show_ty b_ty) (show_ty a_ty)
-                | None -> i+1, Some b_ty
-                ) (1,None) l |> ignore
-            DB
+        | EOp(_,TypeEq,[EType(_,a);EType(_,b)]) -> DLit(LitBool(ty s a = ty s b))
         | EOp(_,FailWith,[EType(_,typ);a]) ->
             match ty s typ, term s a with
             | typ, (DV(L(_,YPrim StringT)) | DLit(LitString _)) & a -> push_typedop_no_rewrite s (TyFailwith(typ,a)) typ
