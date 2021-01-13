@@ -1,0 +1,18 @@
+// Euler problems - Largest Palindrome
+open loop
+inl Largest_palindrome_product : i32 =
+    inl reverse_number x =
+        let rec loop (x:x':) = if 0 < x then loop (x: x/10 x': x'*10+x%10) else x'
+        loop (x:x':0)
+    inl is_palindrome x = x = reverse_number x
+    for (from: 100 nearTo: 1000) (fun b =>
+        for (from: b nearTo: 1000) (fun a s =>
+            inl x = b*a
+            if is_palindrome x && s < x then x else s
+            )
+        ) 0
+
+inl main () : () = 
+    inl x = Largest_palindrome_product in $"printfn \"%i\" !x"
+    ()
+    
