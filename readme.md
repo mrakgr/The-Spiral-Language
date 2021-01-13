@@ -39,6 +39,7 @@
                 - [Pickling Union Types 2](#pickling-union-types-2)
             - [Introspective Pickling](#introspective-pickling)
         - [Serialization (One-Hot Vector Sequences)](#serialization-one-hot-vector-sequences)
+            - [Pickler Combinators](#pickler-combinators-1)
 
 <!-- /TOC -->
 
@@ -3605,21 +3606,7 @@ Back in 2016, I ran into a fairly extreme serialization challenge when trying to
 
 An one-hot vector is an array whose elements are all 0, apart from a single element which is 1. I needed an efficient way to do this task - I tried doing it by hand in C style, but the problem with doing that quickly becomes aparent. It is extemely unsafe and very hard to do. It is a killer combination that slowly set me on the path of being a language designer.
 
-Imagine you are doing a NN-based poker agent, and the you are trying to pass an input to its model. The is a simple HU poker variant with two cards. Here is how the game state could be modeled.
-
-```
-type rank = i32
-type suit = i32
-type card = rank * suit
-type player = {
-    stack : i32
-    hand : card * card
-    }
-type pot = i32
-type game = player * player * pot
-```
-
-We'll assume that the opponent's previous action could be inferred from the size of the pot. But the player should receive his previous action during this betting round. So the actual player input would be something like this.
+Suppose you the task is to pass an imput from some poker game to the NN agent.
 
 ```
 union action =
@@ -3635,15 +3622,16 @@ type player_view = {
     }
 ```
 
-This `player_view` is what needs to be serialized. Compared to the previous scheme, things are more difficult this time. There are two main challenges.
+This `player_view` is what needs to be serialized. Compared to the previous scheme, things are more difficult this time.
 
-1) Serializing arbirary ints is far too wasteful. An int converted to a one hot-vector would take 2Gb. Instead one has to account for maximum and minimum stack sizes which might be between 0 to a few 100 chips. Suits are only 4, and the number of different cards is 13. In other words, the problem is that unlike in the previous section, the type no longer corresponds to the representation being used. It would be great if Spiral had dependent types so that bounded ints could be used, but that is not the case here. There is no problem with using ints for stack sizes and such inside the game itself, but they are huge problem to serialize in the one-hot format.
+The main challenge is that serializing arbirary ints is far too wasteful. An int converted to a one hot-vector would take 2Gb. Instead one has to account for maximum and minimum stack sizes which might be between 0 to a few 100 chips. Suits are only 4, and the number of different cards is 13. In other words, the problem is that unlike in the previous section, the type no longer corresponds to the representation being used. It would be great if Spiral had dependent types so that bounded ints could be used, but that is not the case here. There is no problem with using ints for stack sizes and such inside the game itself, but they are huge problem to serialize in the one-hot format.
 
-2) Dealing with sizes. As in the previous section, the union types are tricky here because one case is prefixed by the rest.
+#### Pickler Combinators
 
----
+For this problem I spent a lot of time thinking how to do it using the introspective approach, but in the end I gave up on that. It would just be too hacky, and Spiral's top-down type system is the main limitation here. If it had dependent types things would be different, but since it does not the combinator approach is the superior one here.
 
-Because of the added difficulties, unlike when it comes to vanilla serialization, the introspective approach is no longer so obviously superior to the introspective one. If all the bounds are known at compile time, an introspective approach would involve using nominals with symbolic bounds which would require hackery like converting symbols to ints to serve as bounds. I previously had the idea of specifying the size using a prototype function, but something like `prototype size a : i32` is not allowed in Spiral because `a` is an unused forall variable.
 
-In the old version of Spiral, I did not use pickler combinators, but I still had to specify a schema even there, so the advantages of the introspective approach is minimal over the combinator one.
 
+
+
+Whereas last time I went by the paper in the implementation of `alt`, this time I pushed as hard as I could to make it as elegant as possible in Spiral. I've succeeded in trimming down the boilerplate.
