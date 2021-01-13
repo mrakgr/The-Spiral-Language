@@ -2,6 +2,7 @@
 
 - [News](#news)
     - [12/24/2020](#12242020)
+    - [1/13/2021](#1132021)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
     - [Getting Spiral](#getting-spiral)
@@ -40,6 +41,8 @@
             - [Introspective Pickling](#introspective-pickling)
         - [Serialization (One-Hot Vector Sequences)](#serialization-one-hot-vector-sequences)
             - [Pickler Combinators](#pickler-combinators-1)
+            - [Pickler Combinators (Alt)](#pickler-combinators-alt)
+        - [Notes](#notes)
 
 <!-- /TOC -->
 
@@ -54,6 +57,16 @@ v0.2 is now just v2.0. This way of versioning will work better with the way VS C
 The next are the docs. In truth, the testing phase for the language should have been done for a while longer, but I decided to push up the publication. It is better this way. Rather than trying to force tests, I'll find and resolve bugs organically as I go along. Doing the docs will also force me to cover the features of the language in depth.
 
 Let me start with the overview.
+
+## 1/13/2021
+
+I haven't proofread the docs yet, but I've put everything that I wanted in them. In particular the serializers are good and non-trivial showcase of Spiral's capabilities. One weakness of the documentation in its current form is that it won't be beginner friendly. I'll decide what to do about that based on feedback. If there are any questions, don't hesitate to ask in the issues page.
+
+At 4.1k lines, the quantity of it won't embarass me. It takes a decent while to get to the bottom when holding down the page-down key. The next thing on my agenda will be to get Spiral to work on Linux. .NET is supposed to be portable now, but who knows what can break when moving OSes.
+
+After that I'll make sure the hover comments are added into the language. After that comes proofreading the docs.
+
+After that, comes putting the language to use in the real world.
 
 # The Spiral Language
 
@@ -3610,9 +3623,12 @@ Suppose you the task is to pass an imput from some poker game to the NN agent.
 
 ```
 union action =
-    | Raise: i32
+    | Raise: i32 // `Raise: 0` would be a raise of 1 in the actual game.
     | Call
     | NoAction
+type rank = i32
+type suit = i32
+type card = rank * suit
 type player_view = {
     stack_self : i32
     stack_opp : i32
@@ -3630,8 +3646,473 @@ The main challenge is that serializing arbirary ints is far too wasteful. An int
 
 For this problem I spent a lot of time thinking how to do it using the introspective approach, but in the end I gave up on that. It would just be too hacky, and Spiral's top-down type system is the main limitation here. If it had dependent types things would be different, but since it does not the combinator approach is the superior one here.
 
+Whereas last time I went by the paper in the implementation of `alt`, this time I pushed as hard as I could to make it as elegant as possible in Spiral. I've succeeded in trimming down the boilerplate by mixing in some bottom-up techniques in its implementation.
 
+Here is the `package.spiproj` file.
 
+```
+packages: |core-
+modules: 
+    pickle
+    main
+```
 
+Here is the `pickle`.
 
-Whereas last time I went by the paper in the implementation of `alt`, this time I pushed as hard as I could to make it as elegant as possible in Spiral. I've succeeded in trimming down the boilerplate.
+```
+type state = i32 * array f32
+nominal pu a = {
+    pickle : a -> state -> ()
+    size : i32
+    unpickle : state -> option a
+    }
+```
+
+Unlike before, the array is now an array of 32-bit floats. And rather than the index being a reference, it is passed in directly. I found this to be more convenient this time around. This is related to how now all the sizes are fixed, as they no longer depends on the input.
+
+Since during the making of this I fiddled with what the types should be, instead of having to do the changes in two different places, I decided to alias the state. But otherwise it is similar to before.
+
+```
+inl Unit =
+    pu {size = 1
+        pickle = fun () (i,s) => arraym.set s i 1
+        unpickle = fun (i,s) => 
+            inl x = arraym.index s i
+            if x = 1 then Some: () elif x = 0 then None 
+            else failwith "Unpickling failure. The unit type should always be either be active or inactive."
+        }
+```
+
+Unlike in the previous serializer format, the unit type now has a footprint. The reason for that is that in union types, the empty cases need to have something to mark them.
+
+During unpickling the input is validated to make sure that it is either 1 or 0. The design decision to do validation during the unpickling phase is something the library abides by in each of its primitives. Each of the primitives are designed to do validation during `unpickling`.
+
+```
+inl I32 size : pu i32 =
+    pu {size
+        pickle = fun x (i,s) =>
+            if 0 <= x && x < size then arraym.set s (i+x) 1
+            else failwith "Value out of bounds."
+```
+
+`size` and `pickle` hold no surprises, but `unpickle` has some nuance that needs to be considered.
+
+```
+        unpickle = fun (from,s) =>
+            inl nearTo = from+size
+            let rec loop (case,c) i = 
+                if i < nearTo then 
+                    inl x = arraym.index s i
+                    if x = 0 then loop (case,c) (i+1)
+                    elif x = 1 then loop (i-from,c+1) (i+1)
+                    else failwith "Unpickling failure. The int type must either be active or inactive."
+                else 
+                    if c = 0i32 then None
+                    elif c = 1i32 then Some: case
+                    else failwith "Unpickling failure. Too many active indices in the one-hot vector."
+            loop (-1,0) from
+        }
+```
+
+This is one way to implement the primitive int `pu`. One disadvantage of this kind of implementation is that it will specialize the loop to each of the constants in the environment. By that I mean `nearTo` and `from`. This behavior might be desirable depending on the context - GPU loops might get a large saving in register use from inlining the loop bounds for example.
+
+But here while looking at the produced output, I actually got bothered by how much code is being produced.
+
+When I tried to fix this, here is what I tried first.
+
+```
+        unpickle = fun (from,s) =>
+            inl ~(from,nearTo) = from, from+size
+            let rec loop (case,c) i = 
+                if i < nearTo then 
+                    inl x = arraym.index s i
+                    if x = 0 then loop (case,c) (i+1)
+                    elif x = 1 then loop (i-from,c+1) (i+1)
+                    else failwith "Unpickling failure. The int type must either be active or inactive."
+                else 
+                    if c = 0i32 then None
+                    elif c = 1i32 then Some: case
+                    else failwith "Unpickling failure. Too many active indices in the one-hot vector."
+            loop (-1,0) from
+```
+
+This seems logical, but when I tried this, I was surprised to see that this produced two loops in fact. The reason is that on the very first iteration the `from` and `i` variables are aliased to the same tag.
+
+Here a better way of doing it.
+
+```
+        unpickle = fun (from,s) =>
+            inl ~(from,nearTo) = from, from+size
+            join
+                inl case,c =
+                    loop.for (from:nearTo:) (fun i (case,c) =>
+                        inl x = arraym.index s i
+                        if x = 0 then case,c
+                        elif x = 1 then i,c+1
+                        else failwith "Unpickling failure. The int type must either be active or inactive."
+                        ) (-1,0)
+                if c = 0i32 then None
+                elif c = 1i32 then Some: case-from
+                else failwith "Unpickling failure. Too many active indices in the one-hot vector."
+```
+
+Note how I've pulled `from` outside the loop. Now there is no inadvertent code duplication going on. This kind of implementation detail is something I'd never think about in F#, but it does matter in Spiral.
+
+It might be a sign that rather than using tail recursive loops, it might be better to use a while-based loop.
+
+Right now, here is how the regular loops are implemented in the `loop` module.
+
+```
+inl for (from: nearTo:) body state =
+    let rec loop i s = if i < nearTo then loop (i+1) (body i s) else s
+    loop from state
+```
+
+There is also the stateless version.
+
+```
+inl for' (from: nearTo:) body = for (from:nearTo:) (fun i () => body i) ()
+```
+
+Spiral does have an op for while loops. Here is how a for loop could be implemented using it.
+
+```
+inl while (cond : () -> bool) (body : () -> ()) : () = !!!!While((join cond()),(body()))
+inl for (from: nearTo:) body state =
+    inl s = mut {i=from; state}
+    while (fun _ => s.i < nearTo) (fun _ => s <- {i=s.i+1; state=body s.i s.state})
+    s.state
+```
+
+These can be found in the `loopw` module. This `for` function has the same type signature as the regular one.
+
+Back in 2018 I ended up running into compiler bugs in the NVCC compiler due to tail-recursive loops, so I put the while based ones in. On the Cuda side, the reference types were stack allocated, so using while loops had no disadvantage there, but `mut`s are heap allocated on the F# side so there will be a performance penalty there unless the compiler optimizes them away.
+
+```
+inl I32 size : pu i32 =
+    pu {size
+        pickle = fun x (i,s) =>
+            if 0 <= x && x < size then arraym.set s (i+x) 1
+            else failwith "Value out of bounds."
+        unpickle = fun (from,s) =>
+            inl ~(from,nearTo) = from, from+size
+            join
+                inl case,c =
+                    loop.for (from:nearTo:) (fun i (case,c) =>
+                        inl x = arraym.index s i
+                        if x = 0 then case,c
+                        elif x = 1 then i,c+1
+                        else failwith "Unpickling failure. The int type must either be active or inactive."
+                        ) (-1,0)
+                if c = 0i32 then None
+                elif c = 1i32 then Some: case-from
+                else failwith "Unpickling failure. Too many active indices in the one-hot vector."
+        }
+```
+
+The tail recursive implementation is fine here.
+
+```
+inl pair (pu a') (pu b') =
+    pu {size = a'.size + b'.size
+        pickle = fun (a,b) (i,s) => a'.pickle a (i,s) . b'.pickle b (i + a'.size, s)
+        unpickle = fun (i,s) => 
+            match a'.unpickle (i,s), b'.unpickle (i + a'.size, s) with
+            | (Some: a), (Some: b) => Some: a,b
+            | (Some: _), _ | _, (Some: _) => failwith "Unpickling failure. Two sides of a pair should either all be active or inactive."
+            | _ => None
+        }
+
+inl wrap (b,a) (pu p) =
+    pu {size = p.size
+        pickle = fun x state => p.pickle (a x) state
+        unpickle = fun state => optionm.map b (p.unpickle state)
+        }
+```
+
+These two should be relatively straightforward. The `alt` is more involved.
+
+```
+inl option forall t. (a : pu t) : pu (option t) = alt { some_ = a; none = Unit }
+inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { ok_ = a; error_ = b }
+```
+
+Here are two example of how `alt` is intended to be used. Instead of passing in the tag function and a list of combinators, here what is passed in is a record of combinators whose keys correspond to the union type keys.
+
+```
+inl alt forall t r. (l : r) : pu t = 
+    inl _ = real // Typechecking.
+        open real_core
+        union_to_record `t forall r'. =>
+        assert (record_type_length `r' = record_type_length `r) "The number of keys in the record should be the same as in the union type."
+        record_type_iter (fun k => forall v. =>
+            record_type_try_find `r' k
+                (forall v'. => typecase v' * v with ~x * pu ~x => ())
+                (fun () => error_type "The record's keys must match those of the union.")
+            ) `r
+    inl offsets, size = real
+        open real_core
+        record_foldl (fun (state:(m,s) key:value:) => inl (pu p) = value in {m with $key=s}, s + p.size) ({},0) l
+    inl pickle (m : t) (i,s : state) : () = real
+        open real_core
+        unbox m (fun (k,v) => inl (pu p) = l k in p.pickle v (i + offsets k,s))
+    inl unpickle (i,s : state) : option t = real
+        open real_core
+        inl x = 
+            record_type_map (fun k => forall v. => typecase v with | pu ~v =>
+                inl (pu p) = l k 
+                inl x = p.unpickle (i + offsets k,s)
+                optionm.map `v `t (fun x => nominal_create `t (k,x)) x
+                ) `r
+        inl none = none `t ()
+        inl case, c =
+            record_foldl (fun (state:(case,c) key:value:) => 
+                match value with
+                | Some: _ => value,c+1
+                | None => case,c
+                ) (none,0) x
+        if c = 0 then none
+        elif c = 1 then case 
+        else failwith `(option t) "Unpickling failure. Only a single case of an union type should be active at most."
+    pu {size pickle unpickle}
+```
+
+The very first thing once the first argument applied is to check that the record field values match with the union type. If not, that will result in a type error during partial evaluation.
+
+Then the offsets for every key are calculated along with the size. After that the 3 main functions that comprise the functionality of the `alt` combinators are defined. It might seem complicated at first glance, but all the novel built ins have analogues to F# library functions. For example, `record_type_try_find` is the analogues in the standard F# library function `Map.tryFind` as applied to type records. Other map and fold function are analogues of `Map.map` and `Map.fold` for regular and type records.
+
+Here is the `main` module. It has a few tests showing the library in action.
+
+```
+open pickle
+nominal serialized a = array f32
+
+inl serialize forall t. (pu p : pu t) (x : t) : serialized t =
+    inl ar = arraym.create p.size
+    p.pickle x (0,ar)
+    // $"printfn \"%A\" !ar"\
+    serialized ar
+
+inl deserialize forall t. (pu p : pu t) (serialized x : serialized t) : t =
+    match p.unpickle (0,x) with
+    | Some: x => x
+    | _ => failwith "Invalid format."
+
+inl test scheme x = assert (x = deserialize scheme (serialize scheme x)) "Serialization and deserialization should result in the same result."
+inl test_int () =
+    inl scheme = I32 5
+    inl ~x = 4
+    test scheme x
+
+inl (**) a b = pair a b
+inl test_pairs () =
+    inl scheme = I32 5 ** I32 3 ** I32 3
+    inl ~x = 4,2,2
+    test scheme x
+inl test_option () =
+    inl scheme = I32 5 ** I32 3 ** I32 3 ** option (I32 1)
+    inl ~x = 4,2,2,(Some: 0)
+    test scheme x
+
+union action =
+    | Raise: i32 // `Raise: 0` would be a raise of 1 in the actual game.
+    | Call
+    | NoAction
+type rank = i32
+type suit = i32
+type card = rank * suit
+type player_view = {
+    stack_self : i32
+    stack_opp : i32
+    pot : i32
+    hand : card * card
+    prev_action : action
+    }
+
+inl Action : pu action = alt {raise_=I32 4; call=Unit; noAction=Unit}
+inl Card = I32 13 ** I32 4
+inl playerView max_stack : pu player_view = 
+    inl a (stack_self,stack_opp,pot,hand,prev_action) = {stack_self stack_opp pot hand prev_action}
+    inl b {stack_self stack_opp pot hand prev_action} = (stack_self,stack_opp,pot,hand,prev_action)
+    wrap (a,b) (I32 max_stack ** I32 max_stack ** I32 max_stack ** (Card ** Card) ** Action)
+
+inl test_view max_stack = 
+    inl scheme = playerView (max_stack+1)
+    inl ~x = {stack_self=max_stack/2; stack_opp=max_stack/2; pot=max_stack; hand=(0,1),(12,3); prev_action=NoAction}
+    test scheme x
+
+inl main () : () = join test_view 10
+```
+
+Here `**` is used instead of `*` for pair combinators because the former is right associative.
+
+I won't paste the compilation output for this test as it is 424 lines. It would have been over 200 more with loop specialization in the `I32` unpickler. 
+
+Here is how the one-hot vector sequence for the test looks like. I'll just uncomment `// $"printfn \"%A\" !ar"\`, compile it and run the script.
+
+```
+[|0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 1.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f;
+  0.0f; 0.0f; 0.0f; 1.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f;
+  0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 1.0f; 1.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f;
+  0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 1.0f; 0.0f; 0.0f; 0.0f; 0.0f;
+  0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 0.0f; 1.0f; 0.0f; 0.0f;
+  0.0f; 1.0f; 0.0f; 1.0f; 0.0f; 0.0f; 0.0f; 0.0f|]
+```
+
+Whereas CPUs are comfortable with ints, an array such as this is what neural nets can process.
+
+#### Pickler Combinators (Alt)
+
+Since using those options causes a lot of code to be generated, let me try an implementation that does not make use of them.
+
+The package file is the same as for the previous version. Here is the `pickle` module.
+
+```
+type state = i32 * array f32
+nominal pu a = {
+    pickle : a -> state -> ()
+    size : i32
+    unpickle : state -> a * u32
+    }
+
+inl Unit =
+    pu {size = 1
+        pickle = fun () (i,s) => arraym.set s i 1
+        unpickle = fun (i,s) => 
+            inl x = arraym.index s i
+            (), if x = 1 then 1 elif x = 0 then 0 else failwith "Unpickling failure. The unit type should always be either be active or inactive."
+        }
+
+inl I32 size : pu i32 =
+    pu {size
+        pickle = fun x (i,s) =>
+            if 0 <= x && x < size then arraym.set s (i+x) 1
+            else failwith "Value out of bounds."
+        unpickle = fun (from,s) =>
+            inl ~(from,nearTo) = from, from+size
+            join
+                inl case,c =
+                    loop.for (from:nearTo:) (fun i (case,c) =>
+                        inl x = arraym.index s i
+                        if x = 0 then case,c
+                        elif x = 1 then i,c+1
+                        else failwith "Unpickling failure. The int type must either be active or inactive."
+                        ) (-1,0)
+                if 1 < c then failwith "Unpickling failure. Too many active indices in the one-hot vector."
+                case-from, c
+        }
+
+inl pair (pu a') (pu b') =
+    pu {size = a'.size + b'.size
+        pickle = fun (a,b) (i,s) => a'.pickle a (i,s) . b'.pickle b (i + a'.size, s)
+        unpickle = fun (i,s) => 
+            inl x,c' = a'.unpickle (i,s)
+            inl x',c'' = b'.unpickle (i + a'.size, s)
+            inl c = c' + c''
+            if c = 1 then failwith "Unpickling failure. Two sides of a pair should either all be active or inactive."
+            (x,x'), c / 2
+        }
+
+inl wrap (b,a) (pu p) =
+    pu {size = p.size
+        pickle = fun x state => p.pickle (a x) state
+        unpickle = fun state => inl x,c = p.unpickle state in b x,c
+        }
+
+inl alt forall t r. (l : r) : pu t = 
+    inl _ = real // Typechecking.
+        open real_core
+        union_to_record `t forall r'. =>
+        assert (record_type_length `r' = record_type_length `r) "The number of keys in the record should be the same as in the union type."
+        record_type_iter (fun k => forall v. =>
+            record_type_try_find `r' k
+                (forall v'. => typecase v' * v with ~x * pu ~x => ())
+                (fun () => error_type "The record's keys must match those of the union.")
+            ) `r
+    inl offsets, size = real
+        open real_core
+        record_foldl (fun (state:(m,s) key:value:) => inl (pu p) = value in {m with $key=s}, s + p.size) ({},0) l
+    inl pickle (m : t) (i,s : state) : () = real
+        open real_core
+        unbox m (fun (k,v) => inl (pu p) = l k in p.pickle v (i + offsets k,s))
+    inl unpickle (i,s : state) : t * u32 = real
+        open real_core
+        inl x = 
+            record_type_map (fun k => forall v. =>
+                inl (pu p) = l k 
+                inl x,c = p.unpickle (i + offsets k,s)
+                nominal_create `t (k,x), c
+                ) `r
+        inl case, c =
+            record_foldl (fun (state:key:value:) => 
+                match state with
+                | () => value
+                | (case,c) =>
+                    inl case', c' = value
+                    (if c' = 1u32 then case' else case), c + c'
+                ) () x
+        if 1u32 < c then failwith `(()) "Unpickling failure. Only a single case of an union type should be active at most."
+        case, c
+    pu {size pickle unpickle}
+    
+inl option forall t. (a : pu t) : pu (option t) = alt { some_ = a; none = Unit }
+inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { ok_ = a; error_ = b }
+```
+
+Here the option types are gone in favor of ints. This implementation is more involved since the type system is less helpful than when options are used, but pushing the bounds for a reusable library is palatable. Just like the previous one, this particular library is very generic given that it uses no .NET standard library functions.
+
+Here is the `main` module.
+
+```
+open pickle
+nominal serialized a = array f32
+
+inl serialize forall t. (pu p : pu t) (x : t) : serialized t =
+    inl ar = arraym.create p.size
+    p.pickle x (0,ar)
+    $"printfn \"%A\" !ar"
+    serialized ar
+
+inl deserialize forall t. (pu p : pu t) (serialized x : serialized t) : t =
+    inl x,c = p.unpickle (0,x)
+    if c <> 1 then failwith "Invalid format."
+    x
+
+inl test scheme x = assert (x = deserialize scheme (serialize scheme x)) "Serialization and deserialization should result in the same result."
+inl (**) a b = pair a b
+
+union action =
+    | Raise: i32 // `Raise: 0` would be a raise of 1 in the actual game.
+    | Call
+    | NoAction
+type rank = i32
+type suit = i32
+type card = rank * suit
+type player_view = {
+    stack_self : i32
+    stack_opp : i32
+    pot : i32
+    hand : card * card
+    prev_action : action
+    }
+
+inl Action : pu action = alt {raise_=I32 4; call=Unit; noAction=Unit}
+inl Card = I32 13 ** I32 4
+inl playerView max_stack : pu player_view = 
+    inl a (stack_self,stack_opp,pot,hand,prev_action) = {stack_self stack_opp pot hand prev_action}
+    inl b {stack_self stack_opp pot hand prev_action} = (stack_self,stack_opp,pot,hand,prev_action)
+    wrap (a,b) (I32 max_stack ** I32 max_stack ** I32 max_stack ** (Card ** Card) ** Action)
+
+inl test_view max_stack = 
+    inl scheme = playerView (max_stack+1)
+    inl ~x = {stack_self=max_stack/2; stack_opp=max_stack/2; pot=max_stack; hand=(0,1),(12,3); prev_action=NoAction}
+    test scheme x
+
+inl main () : () = join test_view 10
+```
+
+The compiled output of this is 285 lines, which a bit over 100 lines less than the previous one. Both having to execute less code and replacing branching with arithmetic will result in improved performance, both at compile and runtime. Though of course, for a high level library such as this, the most important thing is to not do needless heap allocation and that is something the previous version has taken care of already.
+
+### Notes
+
+* The serializer code, along with various other code samples can be found in the [Spiral repo](https://github.com/mrakgr/The-Spiral-Language/tree/master/Spiral%20Compilation%20Tests).

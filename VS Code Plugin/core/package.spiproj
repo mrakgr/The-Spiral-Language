@@ -3,6 +3,7 @@ modules:
     real_core*
     core-
     loop
+    loopw
     arraym
     stringm
     listm

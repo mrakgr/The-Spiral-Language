@@ -249,8 +249,11 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             complex <| fun s ->
             line s (sprintf "if %s then" (term_vars cond))
             binds (indent s) tr
-            line s "else"
-            binds (indent s) fl
+            match fl with
+            | [|TyLocalReturnData(DB,_)|] -> ()
+            | _ ->
+                line s "else"
+                binds (indent s) fl
         | TyJoinPoint(a,args) -> simple (jp (a, args))
         | TyWhile(a,b) ->
             complex <| fun s ->

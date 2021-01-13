@@ -1191,7 +1191,7 @@ let peval (env : TopEnv) (x : E) =
             if List.exists (fun (a',b) -> is_unify (a,ty s a') && (r <- term s b; true)) b 
             then r else raise_type_error s <| sprintf "Typecase miss.\nGot: %s" (show_ty a)
         | EOp(_,While,[cond;body]) -> 
-            match term_scope'' s cond with
+            match term_scope s cond with
             | [|TyLocalReturnOp(_,TyJoinPoint cond)|], ty ->
                 match ty with
                 | YPrim BoolT -> 
@@ -1199,7 +1199,7 @@ let peval (env : TopEnv) (x : E) =
                     | body, YB & ty -> push_typedop s (TyWhile(cond,body)) ty
                     | _, ty -> raise_type_error s <| sprintf "The body of the while loop must be of type unit.\nGot: %s" (show_ty ty)
                 | _ -> raise_type_error s <| sprintf "The conditional of the while loop must be of type bool.\nGot: %s" (show_ty ty)
-            | _ -> raise_type_error s "Compiler error: The body of the conditional of the while loop must be a solitary join point."
+            | _ -> raise_type_error s "The body of the conditional of the while loop must be a solitary join point."
         | EOp(_,LayoutToHeap,[a]) -> 
             let x = dyn false s (term s a)
             let ty = data_to_ty s x

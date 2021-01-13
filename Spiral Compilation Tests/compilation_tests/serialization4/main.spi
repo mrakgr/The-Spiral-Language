@@ -8,25 +8,12 @@ inl serialize forall t. (pu p : pu t) (x : t) : serialized t =
     serialized ar
 
 inl deserialize forall t. (pu p : pu t) (serialized x : serialized t) : t =
-    match p.unpickle (0,x) with
-    | Some: x => x
-    | _ => failwith "Invalid format."
+    inl x,c = p.unpickle (0,x)
+    if c <> 1 then failwith "Invalid format."
+    x
 
 inl test scheme x = assert (x = deserialize scheme (serialize scheme x)) "Serialization and deserialization should result in the same result."
-inl test_int () =
-    inl scheme = I32 5
-    inl ~x = 4
-    test scheme x
-
 inl (**) a b = pair a b
-inl test_pairs () =
-    inl scheme = I32 5 ** I32 3 ** I32 3
-    inl ~x = 4,2,2
-    test scheme x
-inl test_option () =
-    inl scheme = I32 5 ** I32 3 ** I32 3 ** option (I32 1)
-    inl ~x = 4,2,2,(Some: 0)
-    test scheme x
 
 union action =
     | Raise: i32 // `Raise: 0` would be a raise of 1 in the actual game.
