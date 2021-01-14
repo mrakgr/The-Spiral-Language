@@ -11,7 +11,8 @@ const request = async (file: object): Promise<any> => {
     sock.connect(uriServer)
     await sock.send(JSON.stringify(file))
     const [x] = await sock.receive()
-    return JSON.parse(x.toString())
+    sock.disconnect(uriServer)
+    return 0 < x.byteLength ? JSON.parse(x.toString()) : null
 }
 
 type VSCPos = { line: number, character: number }
@@ -69,7 +70,7 @@ const projectCodeActionTitle = (x : ProjectCodeAction): string => {
 type SpiralAction = {range : Range; action : CodeAction}
 
 export const activate = async (ctx: ExtensionContext) => {
-    // console.log("Spiral plugin is active.")
+    console.log("Spiral plugin is active.")
 
     const errorsProject = languages.createDiagnosticCollection()
     const errorsTokenization = languages.createDiagnosticCollection()
@@ -208,8 +209,9 @@ export const activate = async (ctx: ExtensionContext) => {
     let serverStop = () => {}
     const startServer = (inShell: boolean) => {
         serverStop()
-        const compiler_path = path.join(__dirname,"../compiler/Spiral.exe")
+        const compiler_path = path.join(__dirname,"../compiler/Spiral")
         const compiler_path_for_shell = `"${compiler_path}"`
+
         const args = [`port=${port}`]
         const p = inShell ? cp.spawn(compiler_path_for_shell,args,{shell: true, detached: true}) : cp.spawn(compiler_path,args,{shell: false, detached: true})
 
