@@ -2,10 +2,9 @@ import * as path from "path"
 import * as cp from "child_process"
 import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider, WorkspaceEdit, FileDeleteEvent, ProcessExecution } from "vscode"
 import * as zmq from "zeromq"
-import { start } from "repl"
 
 const port : number = workspace.getConfiguration("spiral").get("port") || 13805
-const request = async (file: object): Promise<any> => {
+const request = async (file: any): Promise<any> => {
     const sock = new zmq.Request()
     const uriServer = `tcp://localhost:${port}`
     sock.connect(uriServer)
@@ -70,7 +69,7 @@ const projectCodeActionTitle = (x : ProjectCodeAction): string => {
 type SpiralAction = {range : Range; action : CodeAction}
 
 export const activate = async (ctx: ExtensionContext) => {
-    console.log("Spiral plugin is active.")
+    // console.log("Spiral plugin is active.")
 
     const errorsProject = languages.createDiagnosticCollection()
     const errorsTokenization = languages.createDiagnosticCollection()
@@ -209,12 +208,19 @@ export const activate = async (ctx: ExtensionContext) => {
     let serverStop = () => {}
     const startServer = (inShell: boolean) => {
         serverStop()
-        const compiler_path = path.join(__dirname,"../compiler/Spiral")
-        const compiler_path_for_shell = `"${compiler_path}"`
-
         const args = [`port=${port}`]
-        const p = inShell ? cp.spawn(compiler_path_for_shell,args,{shell: true, detached: true}) : cp.spawn(compiler_path,args,{shell: false, detached: true})
-
+        const launchWin32 = () => {
+            const compiler_path = path.join(__dirname,"../compiler/Spiral.exe")
+            const compiler_path_for_shell = `"${compiler_path}"`
+            return inShell ? cp.spawn(compiler_path_for_shell,args,{shell: true, detached: true}) 
+            : cp.spawn(compiler_path,args,{shell: false, detached: true})
+        }
+        const launchLinux = () => {
+            const compiler_path = path.join(__dirname,"../compiler/Spiral.dll")
+            const compiler_path_for_shell = `"${compiler_path}"`
+            return cp.spawn("dotnet",[compiler_path_for_shell,...args],{shell: true, detached: true})
+        }
+        const p = process.platform === 'win32' ? launchWin32() : launchLinux()
         let isProcessing = true;
         (async () => {
             const sock = new zmq.Subscriber()
@@ -235,7 +241,7 @@ export const activate = async (ctx: ExtensionContext) => {
                 } catch (e) {
                     if (e.errno === 11) { } // If the error is a timeout just repeat.
                     else { 
-                        window.showErrorMessage("Spiral: Fatal error in the subscriber socket. Aborting...")
+                        window.showErrorMessage(`Spiral: Fatal error in the subscriber socket. Aborting...\nMessage: ${e.message}`)
                         isProcessing = false
                     }
                 }

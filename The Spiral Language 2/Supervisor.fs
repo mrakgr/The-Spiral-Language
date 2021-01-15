@@ -152,7 +152,7 @@ let package_update errors (s : SupervisorState) package_dir text =
                 | None -> 
                     if exists then 
                         File.ReadAllTextAsync(path).ContinueWith(fun (x : _ Task) ->
-                            try let uri = "file:///" + path
+                            try let uri = Utils.file_uri path
                                 let ((_,tok_res,_),_ as x) = (module' (parser_error errors uri) (is_top_down path)).Run(DocumentAll(Utils.lines x.Result))
                                 Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=tok_res.errors|})
                                 LoadModule(package_dir,p,Ok(x))
@@ -225,7 +225,7 @@ let package_validate_then_send_errors atten errors s dir =
                     | Nil -> Nil
                     | Cons(a : InferResult,next) ->
                         let ers = List.append a.errors ers
-                        Hopac.start (Src.value errors.typer {|uri="file:///" + p; errors=ers|})
+                        Hopac.start (Src.value errors.typer {|uri=Utils.file_uri p; errors=ers|})
                         Cons(a, next >>-* loop ers)
                 r >>-* loop []
                 ) infer_results

@@ -131,7 +131,7 @@ let schema_validate project_dir x =
                 if File.Exists(p) then
                     if dir.FullName <> project_dir then 
                         errors.Add(r, "This module directory belongs to a different project.")
-                        links.Add(r, "file:///" + p)
+                        links.Add(r, Utils.file_uri p)
                 else validate_ownership (r,dir.Parent)
         x.moduleDir |> Option.iter (fun (r,dir) -> try validate_ownership (r,DirectoryInfo(Path.Combine(project_dir,dir))) with e -> errors.Add (r, e.Message))
 
@@ -142,7 +142,7 @@ let schema_validate project_dir x =
                     try let x = FileInfo(Path.Combine(prefix,a + (if is_top_down then ".spi" else ".spir")))
                         let exists = x.Exists
                         if exists then 
-                            links.Add (r, "file:///" + x.FullName)
+                            links.Add (r, Utils.file_uri x.FullName)
                             actions.Add (r, RenameFile {|filePath=x.FullName; target=null|})
                             actions.Add (r, DeleteFile {|range=r'; filePath=x.FullName|})
                         else 
@@ -156,7 +156,7 @@ let schema_validate project_dir x =
                         let l =
                             if File.Exists(p) then 
                                 errors.Add(r, "This directory belongs to a different project.")
-                                links.Add(r, "file:///" + p)
+                                links.Add(r, Utils.file_uri p)
                                 []
                             elif x.Exists then
                                 actions.Add(r, RenameDirectory {|dirPath=x.FullName; target=null; validate_as_file=true|})
@@ -207,7 +207,7 @@ type PackageMaps = {
 
 let dir uri = FileInfo(Uri(uri).LocalPath).Directory.FullName
 let file uri = FileInfo(Uri(uri).LocalPath).FullName
-let spiproj_link dir = sprintf "file:///%s/package.spiproj" dir
+let spiproj_link dir = Utils.file_uri (sprintf "%s/package.spiproj" dir)
 let package_validate (s : PackageMaps) project_dir =
     let potential_floating_garbage =
         project_dir ::
