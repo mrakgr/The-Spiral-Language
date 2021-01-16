@@ -1,5 +1,4 @@
 import * as path from "path"
-import * as cp from "child_process"
 import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider, WorkspaceEdit, FileDeleteEvent, ProcessExecution } from "vscode"
 import * as zmq from "zeromq"
 
@@ -205,77 +204,61 @@ export const activate = async (ctx: ExtensionContext) => {
         }
     }
 
-    let serverStop = () => {}
-    const startServer = (inShell: boolean) => {
-        serverStop()
-        const args = [`port=${port}`]
-        const launchWin32 = () => {
-            const compiler_path = path.join(__dirname,"../compiler/Spiral.exe")
-            const compiler_path_for_shell = `"${compiler_path}"`
-            return inShell ? cp.spawn(compiler_path_for_shell,args,{shell: true, detached: true}) 
-            : cp.spawn(compiler_path,args,{shell: false, detached: true})
-        }
-        const launchLinux = () => {
+    let serverStop = (next : () => void) => {next()}
+    const startServer = (hideFromUser: boolean) => {
+        serverStop(() => {
+            const terminal = window.createTerminal({name: "Spiral Server", hideFromUser})
             const compiler_path = path.join(__dirname,"../compiler/Spiral.dll")
-            const compiler_path_for_shell = `"${compiler_path}"`
-            return cp.spawn("dotnet",[compiler_path_for_shell,...args],{shell: true, detached: true})
-        }
-        const p = process.platform === 'win32' ? launchWin32() : launchLinux()
-        let isProcessing = true;
-        (async () => {
-            const sock = new zmq.Subscriber()
-            sock.subscribe()
-            sock.receiveTimeout = 2000
-            const uriClient = `tcp://localhost:${port+1}`
-            await sock.connect(uriClient)
-            while (isProcessing) {
-                try {
-                    const [x] = await sock.receive()
-                    const msg: ClientRes = JSON.parse(x.toString())
-                    if ("PackageErrors" in msg) { errorsSet(errorsProject, Uri.parse(msg.PackageErrors.uri), msg.PackageErrors.errors) }
-                    else if ("TokenizerErrors" in msg) { errorsSet(errorsTokenization, Uri.parse(msg.TokenizerErrors.uri), msg.TokenizerErrors.errors) }
-                    else if ("ParserErrors" in msg) { errorsSet(errorsParse, Uri.parse(msg.ParserErrors.uri), msg.ParserErrors.errors) }
-                    else if ("TypeErrors" in msg) { errorsSet(errorsType, Uri.parse(msg.TypeErrors.uri), msg.TypeErrors.errors) }
-                    else if ("FatalError" in msg) { window.showErrorMessage(msg.FatalError) }
-                    else { const _ : never = msg }
-                } catch (e) {
-                    if (e.errno === 11) { } // If the error is a timeout just repeat.
-                    else { 
-                        window.showErrorMessage(`Spiral: Fatal error in the subscriber socket. Aborting...\nMessage: ${e.message}`)
-                        isProcessing = false
+            terminal.sendText(`dotnet "${compiler_path}" port=${port}`)
+            let isProcessing = true;
+            (async () => {
+                const sock = new zmq.Subscriber()
+                sock.subscribe()
+                sock.receiveTimeout = 2000
+                const uriClient = `tcp://localhost:${port+1}`
+                await sock.connect(uriClient)
+                while (isProcessing) {
+                    try {
+                        const [x] = await sock.receive()
+                        const msg: ClientRes = JSON.parse(x.toString())
+                        if ("PackageErrors" in msg) { errorsSet(errorsProject, Uri.parse(msg.PackageErrors.uri), msg.PackageErrors.errors) }
+                        else if ("TokenizerErrors" in msg) { errorsSet(errorsTokenization, Uri.parse(msg.TokenizerErrors.uri), msg.TokenizerErrors.errors) }
+                        else if ("ParserErrors" in msg) { errorsSet(errorsParse, Uri.parse(msg.ParserErrors.uri), msg.ParserErrors.errors) }
+                        else if ("TypeErrors" in msg) { errorsSet(errorsType, Uri.parse(msg.TypeErrors.uri), msg.TypeErrors.errors) }
+                        else if ("FatalError" in msg) { window.showErrorMessage(msg.FatalError) }
+                        else { const _ : never = msg }
+                    } catch (e) {
+                        if (e.errno === 11) { } // If the error is a timeout just repeat.
+                        else { 
+                            window.showErrorMessage(`Spiral: Fatal error in the subscriber socket. Aborting...\nMessage: ${e.message}`)
+                            isProcessing = false
+                        }
                     }
                 }
+                await sock.disconnect(uriClient)
+            })();
+            
+            const pingLater = (ms : number) => {
+                const ping = () => {
+                    if (isProcessing) {spiPingReq(); pingLater(ms)}
+                }
+                setTimeout(ping, ms)
             }
-            await sock.disconnect(uriClient)
-        })();
-        
-        const pingLater = (ms : number) => {
-            const ping = () => {
-                if (isProcessing) {spiPingReq(); pingLater(ms)}
-            }
-            setTimeout(ping, ms)
-        }
-        pingLater(1000)
-
-        p.on("exit", code => {
-            if (code) {
-                window.showErrorMessage("Spiral: The server has aborted with an error.")
-            }
+            pingLater(1000)
+    
+            workspace.textDocuments.forEach(onDocOpen)
+            // Restarting the server needs some time to work properly. 500ms works for me.
+            serverStop = (next) => { terminal.dispose(); isProcessing = false; setTimeout(next,500) }
         })
-        workspace.textDocuments.forEach(onDocOpen)
-        serverStop = () => {
-            p.removeAllListeners()
-            isProcessing = false
-        }
     }
 
-    startServer(workspace.getConfiguration("spiral").get("openServerInShell") || false)
+    startServer(workspace.getConfiguration("spiral").get("hideTerminal") || false)
 
     const spiralFilePattern = {pattern: '**/*.{spi,spir}'}
     const spiralProjFilePattern = {pattern: '**/package.spiproj'}
     const spiralTokenLegend = ['variable','symbol','string','number','operator','unary_operator','comment','keyword','parenthesis','type_variable','escaped_char','unescaped_char']
     ctx.subscriptions.push(
-        new Disposable(() => { serverStop() } ),
+        new Disposable(() => { serverStop(() => {}); serverStop = () => {throw "Plugin has been exited already."} } ),
         errorsProject, errorsTokenization, errorsParse, errorsType,
         workspace.onDidOpenTextDocument(onDocOpen),
         workspace.onDidChangeTextDocument(onDocChange),
@@ -290,7 +273,7 @@ export const activate = async (ctx: ExtensionContext) => {
         }),
         commands.registerCommand("runClosure", x => { x() }),
         commands.registerCommand("startServer", () => { startServer(false) }),
-        commands.registerCommand("startServerInShell", () => { startServer(true) }),
+        commands.registerCommand("startServerHidden", () => { startServer(true) }),
         languages.registerDocumentLinkProvider(spiralProjFilePattern,new SpiralProjectLinks()),
         languages.registerCodeActionsProvider(spiralProjFilePattern,new SpiralProjectCodeActions())
     )

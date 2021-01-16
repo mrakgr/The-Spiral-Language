@@ -1,7 +1,7 @@
 {
 	"name": "spiral-lang-vscode",
 	"displayName": "The Spiral Language",
-	"version": "2.0.28",
+	"version": "2.0.29",
 	"description": "VS Code editor support plugin + the Spiral language compiler.",
 	"repository": {
 		"url": "https://github.com/mrakgr/The-Spiral-Language"
@@ -19,10 +19,10 @@
 		"configuration": {
 			"title": "Spiral Configuration",
 			"properties": {
-				"spiral.openServerInShell": {
+				"spiral.hideTerminal": {
 					"type": "boolean",
 					"default": false,
-					"description": "Open the language server in the shell during starup. (Windows only)"
+					"description": "Hide the server terminal."
 				},
 				"spiral.port": {
 					"type": "number",
@@ -43,8 +43,8 @@
 				"category": "Spiral"
 			},
 			{
-				"command": "startServerInShell",
-				"title": "Start Server In Shell",
+				"command": "startServerHidden",
+				"title": "Start Server (Hidden)",
 				"category": "Spiral"
 			}
 		],
