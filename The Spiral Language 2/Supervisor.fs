@@ -19,12 +19,14 @@ open Hopac.Extensions
 open Hopac.Stream
 
 type LocalizedErrors = {|uri : string; errors : RString list|}
+type TracedError = {|trace : string list; message : string|}
 type SupervisorErrorSources = {
     fatal : string Src
     tokenizer : LocalizedErrors Src
     parser : LocalizedErrors Src
     typer : LocalizedErrors Src
     package : LocalizedErrors Src
+    traced : TracedError Src
     }
 
 type SupervisorState = {
@@ -75,36 +77,30 @@ module Build =
             Ok(a,b,module_target)
         with :? PackageInputsException as e -> Error e.Data0
 
-    let show_position (s : SupervisorState) (strb: Text.StringBuilder) (x : PartEval.Prepass.Range) =
+    let show_position (s : SupervisorState) (x : PartEval.Prepass.Range) =
         let line = (fst x.range).line
         let col = (fst x.range).character
         let er_code = s.modules.[x.path] |> fun ((x,_,_),_) -> x.[line]
-
-        strb
+        Text.StringBuilder()
             .AppendLine(sprintf "Error trace on line: %i, column: %i in module: %s." (line+1) (col+1) x.path)
             .AppendLine(er_code)
             .Append(' ', col)
-            .AppendLine "^"
-        |> ignore
+            .AppendLine("^")
+            .ToString()
 
-    let trace_print_length = 5
     let show_trace s (x : PartEval.Main.Trace) (msg : string) =
         let error = Text.StringBuilder(1024)
-        let x = 
-            let rec loop (l : PartEval.Main.Trace) i = function
-                | (x : PartEval.Prepass.Range) :: xs when i > 0 -> 
-                    match l with
-                    | x' :: _ when x.path = x'.path && fst x.range = fst x'.range -> loop l i xs
-                    | _ -> loop (x :: l) (i-1) xs
-                | _ -> l
-            loop [] trace_print_length x
-        List.iter (show_position s error) x
-        error.AppendLine msg |> ignore
-        error.ToString()
+        let rec loop (l : PartEval.Main.Trace) = function
+            | (x : PartEval.Prepass.Range) :: xs -> 
+                match l with
+                | x' :: _ when x.path = x'.path && fst x.range = fst x'.range -> loop l xs
+                | _ -> loop (x :: l) xs
+            | _ -> l
+        List.map (show_position s) (loop [] x), msg
 
     type BuildResult =
         | BuildOk of string
-        | BuildErrorTrace of string
+        | BuildErrorTrace of string list * string
         | BuildFatalError of string
     let build_file (s : SupervisorState) module_target =
         match inputs s module_target with
@@ -130,7 +126,7 @@ module Build =
                             with
                                 | :? PartEval.Main.TypeError as e -> BuildErrorTrace(show_trace s e.Data0 e.Data1)
                                 | :? Codegen.Fsharp.CodegenError as e -> BuildFatalError(e.Data0)
-                                | :? Codegen.Fsharp.CodegenErrorWithPos as e -> BuildFatalError(show_trace s e.Data0 e.Data1)
+                                | :? Codegen.Fsharp.CodegenErrorWithPos as e -> BuildErrorTrace(show_trace s e.Data0 e.Data1)
                         | None -> BuildFatalError(sprintf "Cannot find the main function in module. Path: %s" module_target)
             | None -> Job.result (BuildFatalError(sprintf "Cannot find the target module in the package. Path: %s" module_target))
             |> fun x -> x,s
@@ -373,8 +369,8 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
             let x,s = Build.build_file s p
             Hopac.start (x >>= function
                 | Build.BuildOk x -> Job.fromUnitTask (fun () -> IO.File.WriteAllTextAsync(IO.Path.ChangeExtension(p,"fsx"), x))
-                | Build.BuildErrorTrace x // TODO: This should send a message to the content provider on the editor side.
                 | Build.BuildFatalError x -> Src.value errors.fatal x
+                | Build.BuildErrorTrace(a,b) -> Src.value errors.traced {|trace=a; message=b|}
                 )
             s
 
@@ -408,6 +404,7 @@ type ClientReq =
 
 type ClientErrorsRes =
     | FatalError of string
+    | TracedError of TracedError
     | PackageErrors of {|uri : string; errors : RString list|}
     | TokenizerErrors of {|uri : string; errors : RString list|}
     | ParserErrors of {|uri : string; errors : RString list|}
@@ -434,7 +431,7 @@ let [<EntryPoint>] main args =
     server.Options.ReceiveHighWatermark <- System.Int32.MaxValue
     server.Bind(uri_server)
 
-    printfn "Server bound to: %s" uri_server
+    printfn "Server bound to: %s & %s" uri_server uri_client
 
     use queue_server = new NetMQQueue<NetMQMessage>()
     poller.Add(queue_server)
@@ -452,6 +449,7 @@ let [<EntryPoint>] main args =
         tokenizer = consumed_source TokenizerErrors
         parser = consumed_source ParserErrors
         typer = consumed_source TypeErrors
+        traced = consumed_source TracedError
         }
     let supervisor = Ch()
     let atten = Src.create()

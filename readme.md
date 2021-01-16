@@ -43,6 +43,7 @@
             - [Pickler Combinators](#pickler-combinators-1)
             - [Pickler Combinators (Alt)](#pickler-combinators-alt)
         - [Notes](#notes)
+    - [Known Bugs](#known-bugs)
 
 <!-- /TOC -->
 
@@ -100,7 +101,7 @@ Statically typed and with a lightweight, very powerful type system giving it exp
 
 ## Getting Spiral
 
-The language is published on the VS Code marketplace. Getting it is just a matter of installing the **The Spiral Language** plugin. This will install both the VS Code editor plugin and the compiler itself. The compiler itself requires the .NET Core 3.1 rutime and is portable across platforms. The language server uses TCP to communicate with the editor so allow it in the firewall.
+The language is published on the VS Code marketplace. Getting it is just a matter of installing the **The Spiral Language** plugin. This will install both the VS Code editor plugin and the compiler itself. The compiler itself requires the [.NET Core 3.1 SDK](https://dotnet.microsoft.com/download/dotnet-core/3.1) and is portable across platforms. The language server uses TCP to communicate with the editor so allow it in the firewall.
 
 ## Status in 12/24/2020
 
@@ -212,7 +213,7 @@ packages: core-
 modules: a
 ```
 
-The way to compile a module is to have it open in the editor and then use `Spiral: Build File` from the command palette.
+The way to compile a module is to have it open in the editor and then use `Spiral: Build File` from the command palette. In VS Code, the easiest way to bring it up is to press F1. It also keyed to Ctrl + Shift + P by default.
 
 Here is an example module `a.spi`:
 
@@ -2074,7 +2075,9 @@ inl main () =
 
 #### Compiler Crash
 
-Now that all the prerequisites have been met it is a good time to highlight that the Spiral compiler does not do any checks beforehand to make sure some piece of code at compile time does not cause it to stack overflow. Consider the following.
+Languages generally take care to prevent user code from crashing them, but based on all my experience of programming in the old Spiral, I can state that these kinds of errors are very rare and are easy to isolate when they do happen by selectively cutting out pieces until the program compiles. The vast majority of my bug fixing time during the v0.09 was taken up by regular ones. So in my view this kind of language design is not a problem.
+
+Since ensuring termination would require solving the halting problem, the Spiral compiler does not do any checks beforehand to make sure some piece of code at compile time does not cause it to stack overflow. Consider the following.
 
 ```
 open real_core
@@ -2083,18 +2086,28 @@ inl main () =
     f()
 ```
 ```
-Spiral: The server has aborted with an error.
+PS C:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1> dotnet "c:\Users\Marko\.vscode\extensions\mrakgr.spiral-lang-vscode-2.0.29\compiler\Spiral.dll" port=13805
+Server bound to: tcp://*:13805 & tcp://*:13806
+Stack overflow.
 ```
 
-When you get this error message that can only mean there was a stack overflow. There is a very, very small chance it is a compiler bug and the server aborted due to an uncaught exception, but that shouldn't happen. This is not because Spiral it solid - at the time of writing it is still in alpha stage, but because all the unchaught exceptions should be caught by the Hopac concurrency library and outputted to the standard error.
+If you press Ctrl + `, it will bring up the terminal view. Amongst them there will be Spiral Server with similar output to the above. During plugin startup, the terminal is used to start the language server. If the first line runs successfully, it should print out... 
 
-In either case the background server has terminated and the editor won't be able to have type inference nor semantic tokenization until the server has been restarted. In the command palette there are `Spiral: Start Server` and `Spiral: Start Server In Shell` commands which can be used to do so. By default during plugin startup Spiral executes the first command. All it does is run the compiler executable stealthily in the background. The second one shows a visible window in the foreground. The option which one to trigger on startup can be accessed in settings.
+```
+Server bound to: tcp://*:13805 & tcp://*:13806
+```
 
-As I said, languages generally take care to prevent user code from crashing them, but based on all my experience of programming in the old Spiral, I can state that these kinds of errors are very rare and are easy to isolate when they do happen by selectively cutting out pieces until the program compiles. The vast majority of my bug fixing time during the v0.09 was taken up by regular ones. So in my view this kind of language design is not a problem.
+If the `dotnet` command fails, that means that the .NET SDK has not been installed properly. The first TCP port is by default `13805` and the second is first plus one. It is possible to modify this in the Spiral settings. It is also possible to hide the server terminal on startup using a config option as well.
 
----
+```
+Stack overflow.
+```
 
-Note: If you do a build, but nothing is happening, bring up the shell and try it again. If an exception gets thrown then that is a compiler error. On the [Spiral issues page](https://github.com/mrakgr/The-Spiral-Language/issues), please report it along with a minimal example so that it can be fixed. Thank you.
+This happens during partial evaluation once the build has been started on the offending file.
+
+When the server crashes the editor support will cease to work, and the best option is to restart it using `Spiral: Start Server` command which will dispose of the old terminal and start a fresh one. Only one server instance can occupy the same port at a time - in theory, this could allow multiple VS Code editor instances to reuse the same server.
+
+If the editor starts getting wonky check whether there are any exceptions being thrown in the server terminal. Any unexpected .NET exceptions there are compiler bugs and I'd appreciate their report.
 
 #### Print Static
 
@@ -2109,7 +2122,7 @@ inl main () =
     print_static y
 ```
 ```
-Server bound to: tcp://*:13805
+Server bound to: tcp://*:13805 & tcp://*:13806
 1.000000f64
 f64
 ```
@@ -2125,7 +2138,7 @@ inl main () =
     loop (fun i => print_static {got = i}) 5
 ```
 ```
-Server bound to: tcp://*:13805
+Server bound to: tcp://*:13805 & tcp://*:13806
 {got : 5i32}
 {got : 4i32}
 {got : 3i32}
@@ -2133,7 +2146,7 @@ Server bound to: tcp://*:13805
 {got : 1i32}
 ```
 
-The `print_static` statements get executed as a part of partial evaluation. When the codebase gets bigger they are good for ensuring whether the partial evaluator is tracing a particular segment. They might be good for experimentation to get a better sense for how the system works. Keyed comment macros and doing a find in the output file for them is also a good fit for this purpose.
+The `print_static` statements get executed as a part of partial evaluation. When the codebase gets bigger they are good for ensuring whether the partial evaluator is tracing a particular segment. They might be good for experimentation to get a better sense for how the system works. Sprinkling `print_static` statements can be useful for narrowing down the locations of stack overflow errors.
 
 ### Type Inference
 
@@ -4116,3 +4129,13 @@ The compiled output of this is 285 lines, which a bit over 100 lines less than t
 ### Notes
 
 * The serializer code, along with various other code samples can be found in the [Spiral repo](https://github.com/mrakgr/The-Spiral-Language/tree/master/Spiral%20Compilation%20Tests).
+
+## Known Bugs
+
+I don't have intention of working on these for the time being. I do not know how to deal with them at the moment and the work needed to fix them far exceeds the benefit from it. They happen rarely.
+
+* Sometimes during startup the semantic highlighting won't be immediate and instead will require user action to take effect. This is because ZeroMQ does not offer any ordering guarantees when sending messages. If during startup the file open message gets sent after semantic hightlight the editor will receive the semantic highlighting data for an empty file.
+
+* It is possible for file edits to get out of order and cause editor confusion. I managed to trigger that once while restarting the server after a crash. The old edits ended up being queued and when the server came back they were sent out of order.
+
+* The mapping from the files on the hard drive, to the editor, to the language server is not perfect. For example opening a file first, and then having a new project file usurp ownership from another project file will not be reacted to by the language server unless it is done from the editor.

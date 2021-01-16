@@ -1,4 +1,5 @@
 import * as path from "path"
+import { config } from "process"
 import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider, WorkspaceEdit, FileDeleteEvent, ProcessExecution } from "vscode"
 import * as zmq from "zeromq"
 
@@ -52,6 +53,7 @@ const errorsSet = (errors : DiagnosticCollection, uri: Uri, x: RString[]) => {
 type Errors = {uri : string; errors : RString[]}
 type ClientRes = 
     | { FatalError: string }
+    | { TracedError: {trace : string [], message :string}}
     | { PackageErrors: Errors } | { TokenizerErrors: Errors } 
     | { ParserErrors: Errors } | { TypeErrors: Errors }
 
@@ -226,6 +228,14 @@ export const activate = async (ctx: ExtensionContext) => {
                         else if ("ParserErrors" in msg) { errorsSet(errorsParse, Uri.parse(msg.ParserErrors.uri), msg.ParserErrors.errors) }
                         else if ("TypeErrors" in msg) { errorsSet(errorsType, Uri.parse(msg.TypeErrors.uri), msg.TypeErrors.errors) }
                         else if ("FatalError" in msg) { window.showErrorMessage(msg.FatalError) }
+                        else if ("TracedError" in msg) { 
+                            const max0 = (x : number) => 0 <= x ? x : 0
+                            const {trace, message} = msg.TracedError
+                            const traceLength : number | undefined = workspace.getConfiguration("spiral").get("errorTraceMaxLength")
+                            const from = max0(trace.length-(traceLength === undefined ? 5 : max0(traceLength)))
+                            trace.push(message)
+                            window.showErrorMessage(trace.slice(from).join(""))
+                         }
                         else { const _ : never = msg }
                     } catch (e) {
                         if (e.errno === 11) { } // If the error is a timeout just repeat.

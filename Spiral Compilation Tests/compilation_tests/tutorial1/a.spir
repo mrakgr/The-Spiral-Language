@@ -1,1 +1,2 @@
+open real_core
 inl main () = ()

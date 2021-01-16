@@ -1,1 +1,2 @@
-modules: a
+packages: |core-
+modules: a*
