@@ -510,7 +510,7 @@ let peval (env : TopEnv) (x : E) =
                 dict.[join_point_key] <- None
                 let seq,ty = term_scope'' s body
                 dict.[join_point_key] <- Some(domain_data, seq)
-                if range <> ty then raise_type_error s <| sprintf "The annotation of the function does not match its body's type.Got: %s\nExpected: %s" (show_ty ty) (show_ty range)
+                if range <> ty then raise_type_error s <| sprintf "The annotation of the function does not match its body's type.\nGot: %s\nExpected: %s" (show_ty ty) (show_ty range)
             join_point_key, call_args, ret_ty
         push_typedop s (TyJoinPoint(JPClosure(body,join_point_key),call_args)) ret_ty, ret_ty
     and data_to_ty s x =

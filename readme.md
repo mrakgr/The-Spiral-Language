@@ -3,6 +3,7 @@
 - [News](#news)
     - [12/24/2020](#12242020)
     - [1/13/2021](#1132021)
+- [1/17/2021](#1172021)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
     - [Getting Spiral](#getting-spiral)
@@ -29,7 +30,7 @@
         - [Functions](#functions-1)
         - [Branching](#branching)
             - [Loop Unrolling](#loop-unrolling)
-            - [Compiler Crash](#compiler-crash)
+            - [Compiler Crashing](#compiler-crashing)
             - [Print Static](#print-static)
         - [Type Inference](#type-inference)
         - [Real Nominals](#real-nominals)
@@ -61,13 +62,17 @@ Let me start with the overview.
 
 ## 1/13/2021
 
-I haven't proofread the docs yet, but I've put everything that I wanted in them. In particular the serializers are good and non-trivial showcase of Spiral's capabilities. One weakness of the documentation in its current form is that it won't be beginner friendly. I'll decide what to do about that based on feedback. If there are any questions, don't hesitate to ask in the issues page.
+I haven't proofread the docs yet, but I've put everything that I wanted in them. In particular the serializers are good and non-trivial showcase of Spiral's capabilities. One weakness of the documentation in its current form is that it won't be beginner-friendly. I'll decide what to do about that based on feedback. If there are any questions, don't hesitate to ask in the issues page.
 
-At 4.1k lines, the quantity of it won't embarass me. It takes a decent while to get to the bottom when holding down the page-down key. The next thing on my agenda will be to get Spiral to work on Linux. .NET is supposed to be portable now, but who knows what can break when moving OSes.
+At 4.1k lines, the quantity of it won't embarrass me. It takes a decent while to get to the bottom when holding down the page-down key. The next thing on my agenda will be to get Spiral to work on Linux. .NET is supposed to be portable now, but who knows what can break when moving OSes.
 
 After that I'll make sure the hover comments are added into the language. After that comes proofreading the docs.
 
 After that, comes putting the language to use in the real world.
+
+# 1/17/2021
+
+Spiral is now properly portable, and I've just finished added hover comments. I am done with adding language features here. The next step is to proofread these docs.
 
 # The Spiral Language
 
@@ -81,7 +86,7 @@ The culprit for this is the heap allocation by default dogma introduced by Lisp 
 
 Abstraction by heap allocation is a dead end. It works moderately well on the current generation of computers where CPU is still the dominant driver of computation.
 
-It cannot work for devices like GPUs and the rest coming down the line. Many of the most important computational devices of the future won't support heap allocation so an alternative is needed to draw out their full power. It is of absolute importance that a language for that task have excellent control over inlining. Inlining, therefore, must come as a guarantee in the language and be a part of the type system.
+It cannot work for devices like GPUs and the rest coming down the line. Many of the most important computational devices of the future won't support heap allocation, so an alternative is needed to draw out their full power. It is of absolute importance that a language for that task have excellent control over inlining. Inlining, therefore, must come as a guarantee in the language and be a part of the type system.
 
 Inlining is a trade-off that expresses the exchange of memory for computation. It should be the default instead of heap allocating.
 
@@ -105,7 +110,7 @@ The language is published on the VS Code marketplace. Getting it is just a matte
 
 ## Status in 12/24/2020
 
-Alpha - the language needs more testing before it can be considered roboust. It only has the F# backend at present. More will be added assuming I can get sponsors for novel kinds of hardware. If you are a AI hardware company interested in sponsoring Spiral please get in touch.
+Alpha - the language needs more testing before it can be considered robust. It only has the F# backend at present. More will be added assuming I can get sponsors for novel kinds of hardware. If you are an AI hardware company interested in sponsoring Spiral please get in touch.
 
 Besides lacking backends and libraries, it only has rudimentary package management and some important partial evaluator optimizations to improve compile times for large codebases have been left for later until the need for them arises. But overall, and even just considering compilation times, the situation is way better than it was during the v0.09 era already.
 
@@ -344,7 +349,7 @@ v0 + v1
 
 ### Join points
 
-The above capability to push compile time data to runtime is hugely important for functions. In languages without exposure to partial evaluation such as F#, you might have ordinary `let` statements and `let inline` requivalents and that is it. You can define a function and then give a suggestion to the compiler to inline it, and that is the whole story when it comes to inlining in most languages.
+The above capability to push compile time data to runtime is hugely important for functions. In languages without exposure to partial evaluation such as F#, you might have ordinary `let` statements and `let inline` equivalents and that is it. You can define a function and then give a suggestion to the compiler to inline it, and that is the whole story when it comes to inlining in most languages.
 
 Spiral is more flexible.
 
@@ -485,7 +490,7 @@ let v2 : int32 = method2()
 struct (v0, v1, v2)
 ```
 
-This is just for illustration of what join points are doing. In actual programming practice, you'd generally want to either inline everything or dyn all the arguments and wrap them in a join point. To do the later, `let` is a convenient shorthand.
+This is just for illustration of what join points are doing. In actual programming practice, you'd generally want to either inline everything or dyn all the arguments and wrap them in a join point. To do the latter, `let` is a convenient shorthand.
 
 ```
 let add a b : i32 = a + b
@@ -510,7 +515,7 @@ struct (v2, v5, v8)
 
 These examples cover the essence of join points. All they do is specialize the body of their expressions with respect to their environment.
 
-While their essence of their functionality is easy to understand, these examples are just scratching the surface of their usefulness. If it was just performance, they would not be useless, but they would not be enough to motivate me to make a language with them as one of the most essential features.
+While the essence of their functionality is easy to understand, these examples are just scratching the surface of their usefulness. If it was just performance, they would not be useless, but they would not be enough to motivate me to make a language with them as one of the most essential features.
 
 #### TODO - Join points and language interop
 
@@ -522,13 +527,13 @@ The way the whole thing worked is that the compiler would produce an F# file, si
 
 The Cuda join point itself would not necessarily return a type like regular ones do, because the F# codegen would not be able to actually run it, and generating the code to run it would be too complex for it. Instead what the Cuda join point would do is return a runtime string with the name of the specialized method along with the array of runtime vars passed into it.
 
-This is exactly the data you need in order to call Cuda kernels through the Cuda library functions that expose that functionality for other platforms. Calling the Cuda kernel from .NET was not as simple as simply wrapping the expression in an join point like for regular methods, instead it was necessary to pass a lambda to some `run` function, which is almost as easy. The Cuda join point was an integral part of connecting the F# to the Cuda backend.
+This is exactly the data you need in order to call Cuda kernels through the Cuda library functions that expose that functionality for other platforms. Calling the Cuda kernel from .NET was not as simple as simply wrapping the expression in a join point like for regular methods, instead it was necessary to pass a lambda to some `run` function, which is almost as easy. The Cuda join point was an integral part of connecting the F# to the Cuda backend.
 
-Having this machinery in place made it trivial to make all sort of complex Cuda kernels and call them from the .NET land. And as an example, because of Spiral's inlining capabilities it was possible to have map functions that are autodifferentiated on the GPU. Before working on Spiral, in 2016 I tried making a ML library in raw F# and completely got stuck on how to move beyond the Cuda kernels being raw text strings. Compared to that the ML library I wrote in previous Spiral was a major leap in quality and extensibility compared to the one in F#, afforded completely thanks to the novel abstraction capabilities of the language.
+Having this machinery in place made it trivial to make all sort of complex Cuda kernels and call them from the .NET land. And as an example, because of Spiral's inlining capabilities it was possible to have map functions that are autodifferentiated on the GPU. Before working on Spiral, in 2016 I tried making an ML library in raw F# and completely got stuck on how to move beyond the Cuda kernels being raw text strings. Compared to that the ML library I wrote in previous Spiral was a major leap in quality and extensibility compared to the one in F#, afforded completely thanks to the novel abstraction capabilities of the language.
 
 ### Functions
 
-In Spiral, inlining is composable. It is not necessarly the case that one is restricted to putting join points at function body starts.
+In Spiral, inlining is composable. It is not necessarily the case that one is restricted to putting join points at function body starts.
 
 ```
 inl add a b : i32 = a + b
@@ -609,7 +614,7 @@ let v5 : int32 = v2 5
 struct (v3, v4, v5)
 ```
 
-Dyning does closure conversion of relevant functions. At runtime it creates a heap allocated object with the nessary runtime variables and specializes the function body. After that the object can be passed around and applied at runtime in multiple places.
+Dyning does closure conversion of relevant functions. At runtime it creates a heap allocated object with the necessary runtime variables and specializes the function body. After that the object can be passed around and applied at runtime in multiple places.
 
 ### What triggers dyning?
 
@@ -618,7 +623,7 @@ Dyning does closure conversion of relevant functions. At runtime it creates a he
 * If branch and match case returns when their conditional is not known.
 * Stores to runtime data structures such as arrays.
 
-As a language, Spiral is designed to be sensible about when various abstractions such as functions should be heap allocated and not. F# and other functional languages provide no guarantees when a function will get inlined or not. This is important for performance as much as it is for interop.
+As a language, Spiral is designed to be sensible about when various abstractions such as functions should be heap allocated and not. F# and other functional languages provide no guarantees when a function will get inlined or not. Guarantees are important for performance as much as they are for interop.
 
 ```
 inl main () = 
@@ -677,13 +682,13 @@ Compared to other functional languages, Spiral has added complexity because of a
 
 Since all the examples so far compiled to F#, you'd be forgiven for thinking that Spiral is a .NET language. That is not necessarily the case. The reason I picked F# as the compilation target is partly familiarity - up to that point F# was my primary language, and party platform specific reasons. JVM for example does not support tail call optimization (TCO). Neither do the various Javascript engines.
 
-Compiling to Python directly would just throw away too many of Spiral's inate performance advantages in addition to not having TCO. C compilers are pretty good these days, so I think they would support TCO. A C backend that interfaces with Python's runtime system would give all the advantages of Python and Spiral with none of the disadvantages, so if there is demand for this I would be willing to work on this.
+Compiling to Python directly would just throw away too many of Spiral's innate performance advantages in addition to not having TCO. C compilers are pretty good these days, so I think they would support TCO. A C backend that interfaces with Python's runtime system would give all the advantages of Python and Spiral with none of the disadvantages, so if there is demand for this I would be willing to work on this.
 
 Back in 2017 during the work on the first Spiral, I actually tried making Spiral a proper .NET language, but in the end realized that .NET is huge. It was really quite difficult to make progress in this direction, and to make matters worse, on the Cuda side I also needed a system to interface with its C++ libraries. I asked around and tried looking for ways of getting the types from C++ header files, but that quickly turned into a dead end as C++ was too complex as a language. Parsing C++ actually requires a full C++ compiler.
 
-So for language interop, I ended up settling on macros. This is actually fairly similar to how ReasonML and Fable interface with Javascript. The new Spiral also uses macros for interop, but they got a refresh. The old Spiral had fairly flexible and powerful macros, that were ugly to write and look at. The new Spiral has nice and elegant string-interpolated ones.
+So for language interop, I ended up settling on macros. This is actually fairly similar to how ReasonML and Fable interface with Javascript. The new Spiral also uses macros for interop, but they got a refresh. The old Spiral had fairly flexible and powerful macros that were ugly to write and look at. The new Spiral has nice and elegant string-interpolated ones.
 
-This is the general theme of the move from v0.09 to v2 - the language has been redesigned from the ground up in order to improve its ergonimics and compilation times.
+This is the general theme of the move from v0.09 to v2 - the language has been redesigned from the ground up in order to improve its ergonomics and compilation times.
 
 Here is an example of them.
 
@@ -742,7 +747,7 @@ type R = { a : int; b : string }
 
 In F# this is a record, but in Spiral the equivalent would be a nominal type + heap layout type + a record type.
 
-In Spiral, compund types such as pairs and records do not have a runtime footprint. 
+In Spiral, compound types such as pairs and records do not have a runtime footprint. 
 
 ```
 inl main () = join 1i32, 2i32, 3i32
@@ -964,7 +969,7 @@ Expected symbol as a record key.
 Got: 'a
 ```
 
-It is expecting a symbol key known at compile time, but it is instead getting a type variable. The top down system is not powerful enough to deal with this. The `real` bottom up one is however.
+It is expecting a symbol key known at compile time, but it is instead getting a type variable. The top-down system is not powerful enough to deal with this. The `real` bottom-up one is however.
 
 ```
 inl main () : () = real
@@ -976,7 +981,7 @@ inl main () : () = real
 struct ("asd", true)
 ```
 
-The disadvantage of using the bottom up system is that you lose the top down benefits of type inference. Not only will the type errors get deferred to the partial evaluation stage, type application and type annotations for closures and recursive join points have to be set manually. This is tedious or difficult depending on the approach and more details will be provided in a later segment. For now, let us stick to the top-down part of Spiral
+The disadvantage of using the bottom-up system is that you lose the top-down benefits of type inference. Not only will the type errors get deferred to the partial evaluation stage, type application and type annotations for closures and recursive join points have to be set manually. This is tedious or difficult depending on the approach and more details will be provided in a later segment. For now, let us stick to the top-down part of Spiral
 
 #### Symbols And Records
 
@@ -1108,7 +1113,7 @@ inl main () : i32 =
 3
 ```
 
-The record injection patterns aren't too useful in the top down segment, but in the bottom up segment which was the entirety of Spiral in the previous version, I often used them.
+The record injection patterns aren't too useful in the top-down segment, but in the bottom-up segment which was the entirety of Spiral in the previous version, I often used them.
 
 ```
 inl main () =
@@ -1131,7 +1136,7 @@ inl main () : i32 =
 10
 ```
 
-When you apply a record with a pair whose first element is a symbol, it will do a nested application with the result of that an the right side.
+When you apply a record with a pair whose first element is a symbol, it will do a nested application with the result of that on the right side.
 
 ```
 inl main () : i32 =
@@ -1144,7 +1149,7 @@ inl main () : i32 =
 
 It is not just a double application, but a nested one, so it works when there are nested pairs.
 
-I originally wanted to allow this for modules as well, but automated filling of type applications cannot work with that so modules are restricted to being applied with individual symbols. This restriction only applies in the top down segment. The bottom up treats them as regular records.
+I originally wanted to allow this for modules as well, but automated filling of type applications cannot work with that, so modules are restricted to being applied with individual symbols. This restriction only applies in the top-down segment. The bottom-up treats them as regular records.
 
 The nested record application will be useful if the language ever gets OO-styled interfaces - I consider those one of the rare good OO ideas.
 
@@ -1152,7 +1157,7 @@ The nested record application will be useful if the language ever gets OO-styled
 
 You'd imagine this part would be short since how much could there be to say about pairs, but there is a decent amount to cover. Spiral v0.2 has a lot of experimental syntax surrounding symbols that draws inspiration from Smalltalk.
 
-Seen from the perspective of the top-down segment a lot of what I am going to show here might seem superflous. You would be able to substitute the various symbol patterns with records to get the same effect. The problem with records though is that they leak and can cause unused arguments to be passed through join points.
+Seen from the perspective of the top-down segment a lot of what I am going to show here might seem superfluous. You would be able to substitute the various symbol patterns with records to get the same effect. The problem with records though is that they leak and can cause unused arguments to be passed through join points.
 
 Here is an example of that.
 
@@ -1177,9 +1182,9 @@ method0(v0, v1, v2, v3, v4, v5)
 
 You want to operate on only a few fields of a record, but end up dragging the whole thing through the join point by accident.
 
-The bottom up segment is troublesome - you do not get handholding from the type system when applying functions, so you have even more incentive to use records just in care you miss because the error messages would be better. Since Spiral does function nesting where other languages would use multiple arguments, it is easy to miss one and not realize it until much later when the whole thing is done. The bottom-up segment forces you to go like a ping pong ball through the codebase fixing type errors much after they have been made, similarly how it would be in a dynamic language.
+The bottom-up segment is troublesome - you do not get hand holding from the type system when applying functions, so you have even more incentive to use records just in care you miss because the error messages would be better. Since Spiral does function nesting where other languages would use multiple arguments, it is easy to miss one and not realize it until much later when the whole thing is done. The bottom-up segment forces you to go like a ping pong ball through the codebase fixing type errors much after they have been made, similarly how it would be in a dynamic language.
 
-Records are leaky. Here is another way that they can leak by misspeling optional fields.
+Records are leaky. Here is another way that they can leak by misspelling optional fields.
 
 ```
 open real_core
@@ -1198,7 +1203,7 @@ This is the kind of problem you'd more often encounter in dynamic languages than
 
 Since overuse of records was one of my regrets from the earlier version of Spiral, it is what set my mind towards smoothing out some of the rough edges from it. As a programming pattern, looking up optional record fields is simply something that should not be done. There is no fixing it.
 
-But the first one can be butressed by adding more nuance to the language. You want to express the same thing as with records, but in a more elegant fashion.
+But the first one can be buttressed by adding more nuance to the language. You want to express the same thing as with records, but in a more elegant fashion.
 
 ```
 inl add (left: a right: b) = a + b
@@ -1292,7 +1297,7 @@ inl (Add: to:) = add + to
 inl main () = add_to_ (1, 2)
 ```
 
-Note how in the function body (on the first line) the `add` is lowercase. This is the general pattern when it comes to symbols - the first capitalized letter gets converted to lower case, and then there is special behavior depending on the context. On the term level, that would turning it into a function call, and in a pattern, that would be union destructuring.
+Note how in the function body (on the first line) the `add` is lowercase. This is the general pattern when it comes to symbols - the first capitalized letter gets converted to lower case, and then there is special behavior depending on the context. On the term level, that would be turning it into a function call, and in a pattern, that would be union destructuring.
 
 There is one bit of special syntax left.
 
@@ -1442,7 +1447,7 @@ Here is how the monadic bind `>>=` is defined in Spiral. The first element follo
 
 The type variables after the first one are the ones related to it, the kind of the selector is derived from them.
 
-In Spiral, the kinds of the foralls are not automatically derived, instead when an anotation is not provided they are assumed to be `*`.
+In Spiral, the kinds of the foralls are not automatically derived, instead when an annotation is not provided they are assumed to be `*`.
 
 ```
 prototype is_bigger_than_five a : a -> bool
@@ -1473,7 +1478,7 @@ To illustrate the trouble that abstractions cause, consider the identity functio
 let id x = x
 ```
 
-In the editor the type shows up as `'a -> 'a`, but with the foralls made explicit its type is `forall 'a. 'a -> 'a`. The forall is troublesome, it is not something that can be executed in assembly. There are two different compilation strategies that compilers can use to deal with the forall.
+In the editor the type shows up as `'a -> 'a`, but with the foralls made explicit its type is `forall 'a. 'a -> 'a`. The forall is troublesome, it is not something that can be compiled to machine code straightforwardly. There are two different compilation strategies that compilers can use to deal with the forall.
 
 1) The first is to use uniform representations for every data type. Dynamic languages use this by default, and in .NET languages that corresponds to upcasting a variable to heap allocated base type.
 
@@ -1526,9 +1531,7 @@ This tradeoff is a very real phenomenon that users often unwittingly make, and i
 
 Dynamic languages are all the way on the heap allocation side of the axis. Their primitives and data structures are all heap allocated **by default**. **By default** should mean, unless the optimizer gets to them. But dynamic languages tend to have very flexible semantics that frequently inhibits that.
 
-For dynamic languages with good optimizers like Javascript for example, it is well known that to get optimized code in it the way to do it is to write it as if it had a static type system.
-
-That is why semi-dynamic languages like .NET ones, which have a dynamic runtime and GC and heap allocate by default, but static type systems generally have better performance than dynamic ones.
+For dynamic languages with good optimizers like Javascript for example, it is well known that to get optimized code in it the way to do it is to write it as if it had a static type system. That is why semi-dynamic languages like .NET ones, which have a dynamic runtime and GC and heap allocate by default, but static type systems generally have better performance than dynamic ones.
 
 Spiral does stack allocation by default for all its primitives (except strings) and errs on the side of too much inlining, but this tradeoff does occur internally as well.
 
@@ -1711,9 +1714,9 @@ There is a saying that there are no fast or slow languages, only fast or slow im
 
 The heap allocation vs code size presents a framework for thinking about the performance of languages. Some languages might claim that they are fast, and might have flashy benchmarks comparing themselves to C. But regardless, you can look at what its defaults are - does it heap allocate basic data structures? Does it heap allocate primitives? Does it specialize like C++ or Spiral, or does it use dynamic language tricks to generate code like JVM and .NET ones do? Does it do the slow thing and then rely on the optimizer to make itself fast, or does it do the right thing from the start?
 
-I feel confident about stating that Spiral is a performant language even without providing bechmarks, and the examples in the previous section were all demonstration of what its compilation defaults are. They are the lead into this framework. Spiral has sensible defaults and gives user the partial evaluation tools to make the heap allocation/code size tradeoff in a sensible manner.
+I feel confident about stating that Spiral is a performant language even without providing benchmarks, and the examples in the previous section were all demonstration of what its compilation defaults are. They are the lead into this framework. Spiral has sensible defaults and gives user the partial evaluation tools to make the heap allocation/code size tradeoff in a sensible manner.
 
-Languages with dependent types are an interesting case study, they are further on the heap allocation side. They are slow because they are hard to compile, meaning they require dynamic runtimes. Idris for example compiles to Scheme. This is not exceptional among high level languages, but they require them much more severely. Since I like to push into extremities and am familiar with dependently typed languages, I did try to come up with top down type system with dependent types for Spiral, but I failed. I could not figure out something that meshes well with the partial evaluator.
+Languages with dependent types are an interesting case study, they are further on the heap allocation side. They are slow because they are hard to compile, meaning they require dynamic runtimes. Idris for example compiles to Scheme. This is not exceptional among high level languages, but they require them much more severely. Since I like to push into extremities and am familiar with dependently typed languages, I did try to come up with top-down type system with dependent types for Spiral, but I failed. I could not figure out something that meshes well with the partial evaluator.
 
 Here is an example that demonstrates what I got hung up on in pseudo-code. Imagine if F# or Spiral had dependent types and as a thought experiment try to imagine how this would be compiled.
 
@@ -1726,23 +1729,23 @@ In Spiral, F# and other statically typed languages with strong, but not dependen
 
 How exactly the type `if x < 10 then int else string` be compiled? Is it some kind of union type? That seems to be a reasonable avenue to go down on at first, but the difficulties of that become apparent very quickly.
 
-In the branches of `if x < 10 then x + 10 else x + "qwe"` how should `x` be destructured if it is an union type under the hood? Thinking about it logically, we know that `x` is an `int` in the *then* branch, and a `string` in the *else* branch, but where is the hook to actually unbox the union? This kind of thinking does not really make sense to me.
+In the branches of `if x < 10 then x + 10 else x + "qwe"` how should `x` be destructured if it is a union type under the hood? Thinking about it logically, we know that `x` is an `int` in the *then* branch, and a `string` in the *else* branch, but where is the hook to actually unbox the union? This kind of thinking does not really make sense to me.
 
-As if it were a force of nature, there is an inexorable pull towards admiting that despite being statically typed, the types in dependently typed languages are unmoored from their underlying representation. Much like in dynamically typed languages. And the most natural way of compiling the above fragment would be to forget the type signatures and just execute it in a computational context that has uniform representation for all its datatypes.
+As if it were a force of nature, there is an inexorable pull towards admitting that despite being statically typed, the types in dependently typed languages are unmoored from their underlying representation. Much like in dynamically typed languages. And the most natural way of compiling the above fragment would be to forget the type signatures and just execute it in a computational context that has uniform representation for all its datatypes.
 
-The way to performant compile dependently typed languages is a mystery to me. Whereas the simpler type system of Spiral has great synergy with the partial evaluator and is easy to compile.
+The way to performantly compile dependently typed languages is a mystery to me. Whereas the simpler type system of Spiral has great synergy with the partial evaluator and is easy to compile.
 
 ## Bottom-Up Segment
 
-The partial evaluator for Spiral v0.09 originally started off as a type system. I only realized that I was working on a partial evaluator after a few months. In 2016 while working on a ML library I got stuck on how exactly to propagate information to Cuda kernels. If the deep learning wave of the 2010s did not need GPUs, F# would have been entirely sufficient as a language, but it was just not powerful enough and I blamed the type system.
+The partial evaluator for Spiral v0.09 originally started off as a type system. I only realized that I was working on a partial evaluator after a few months. In 2016 while working on an ML library I got stuck on how exactly to propagate information to Cuda kernels. If the deep learning wave of the 2010s did not need GPUs, F# would have been entirely sufficient as a language, but it was just not powerful enough and I blamed the type system.
 
 So in 2017, when I started work on Spiral I made F# the base and the first thing I got rid of was the type system. I read academic papers and books on type systems, but they were useless so I realized I had to do it on my own. Of course, I wanted the language to be statically typed - it had to be. Because how could GPUs possibly handle uniform representation that dynamic languages use? And rather than just suggestions, I need inlining to be guaranteed, otherwise how could first class function be compiled on the GPU? The same goes for other abstractions like tuples and records.
 
-My earliest memory of working on it was trying to memoize a function's evaluation. I realized that it was possible to split running the function from actually evaluating it and that was how the concept of join points came to be. Along those lines most of what is in the bottom up segment I actually discovered myself, though I am sure the concepts are strewn throughout language implementations and academic papers.
+My earliest memory of working on it was trying to memoize a function's evaluation. This was the first big challenge. I realized that it was possible to split running the function from actually evaluating it and that was how the concept of join points came to be. Along those lines most of what is in the bottom-up segment I actually discovered myself, though I am sure the concepts are strewn throughout language implementations and academic papers.
 
-In this section what I would like to impress is that the bottom-up Spiral is really a great language in its own right. It is the **real** Spiral, the top down type inferencer is just a wrapper, albeit a very useful one. It is the bottom-up Spiral that gets to the heart of what computation is really about.
+In this section what I would like to impress is that the bottom-up Spiral is really a great language in its own right. It is the **real** Spiral, the top-down type inferencer is just a wrapper, albeit a very useful one. It is the bottom-up Spiral that gets to the heart of what computation is really about.
 
-If you picked C as the starting point, and tried to evolve it so that it gets all of the advantages of functional languages without any of disadvantages, the bottom-up Spiral is what you would get.
+If you picked C as the starting point, and tried to evolve it so that it gets all the advantages of functional languages without any of disadvantages, the bottom-up Spiral is what you would get.
 
 These next examples will be in a `.spir` file. Here is how the `package.spiproj` file should look like.
 
@@ -1797,11 +1800,12 @@ Error trace on line: 3, column: 5 in module: c:\Users\Marko\Source\Repos\The Spi
 Error trace on line: 3, column: 9 in module: c:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\tutorial1\a.spir.
     inl ~x = id
         ^
-The annotation of the function does not match its body's type.Got: i32
+The annotation of the function does not match its body's type.
+Got: i32
 Expected: f32
 ```
 
-The way the annotations have to be provided is fairly dumb - anybody seriously using closures will most likely do it from the top down segment which will fill in the annotations automatically. Here is a more complex with two nested functions.
+The way the annotations have to be provided is fairly dumb - anybody seriously using closures will most likely do it from the top-down segment which will fill in the annotations automatically. Here is a more complex with two nested functions.
 
 ```
 inl main () =
@@ -1818,7 +1822,7 @@ let v0 : (int32 -> (unit -> int32)) = closure0()
 ()
 ```
 
-It is tempting to ommit the inner annotation, but that won't work.
+It is tempting to omit the inner annotation, but that won't work.
 
 ```
 inl main () =
@@ -1842,9 +1846,9 @@ Error trace on line: 3, column: 9 in module: c:\Users\Marko\Source\Repos\The Spi
 Cannot convert a function that is not annotated into a type.
 ```
 
-This is how v2 works, there isn't some iron rule that the language has to be designed like this. A language that uses partial evaluation for everything could do more processing in order to distribute the annotation if it is possible. Or it could be possible to ommit the return type like it was the case in Spiral v0.09.
+This is how v2 works, there isn't some iron rule that the language has to be designed like this. A language that uses partial evaluation for everything could do more processing in order to distribute the annotation if it is possible. Or it could be possible to omit the return type like it was the case in Spiral v0.09.
 
-In general though, this fanciness is not necessary. Speaking from experience, whenever I've used closures in F#, they tended to be a lot simpler than functions I would use to structure the program. Having closures that return other closures is not the kind of situation I've had to come across. Functions, yes, I use that technique all the time. It is a large part of what makes functional programming so expressive. Closures, no. It is easier to bundle their arguments into a tuple, and it a practice I'd recommend doing in Spiral.
+In general though, this fanciness is not necessary. Speaking from experience, whenever I've used closures in F#, they tended to be a lot simpler than functions I would use to structure the program. Having closures that return other closures is not the kind of situation I've had to come across. Functions, yes, I use that technique all the time. It is a large part of what makes functional programming so expressive. Closures, no. It is easier to bundle their arguments into a tuple, and it is a practice I'd recommend doing in Spiral.
 
 So this kind of design is perfectly fine from my point of view.
 
@@ -1918,7 +1922,7 @@ Top-down this would be an invalid program. Originally, I wanted top-down to be m
 
 The bottom-up gives you so much power and expressiveness up front for such a light implementation load that it is astonishing. You could wrap the above in a join point and it would be specialized.
 
-Something as simple as overloading could be done with prototypes which are a straight rip of Haskell's typeclasses. Haskell's typeclasses have accumulated a bevy of extensions over the years making them a lot more capable than Spiral's. Spiral's prototypes are the simplest possible implementation of them. Spiral does give the guarante that it will always inline them though.
+Something as simple as overloading could be done with prototypes which are a straight rip of Haskell's typeclasses. Haskell's typeclasses have accumulated a bevy of extensions over the years making them a lot more capable than Spiral's. Spiral's prototypes are the simplest possible implementation of them. Spiral does give the guarantee that it will always inline them though.
 
 The way Spiral's prototypes are implemented is by direct matching on the type during partial evaluation, not by passing a dictionary of closures at compile time.
 
@@ -1950,7 +1954,7 @@ inl main () =
 
 This is one of the program examples that I tried wrapping my head around from a top-down perspective and in the end gave up. How could this be typed top-down? Bottom-up it is quite clear, but even the most advanced top-down type systems to date cannot cover this particular example.
 
-Spiral's top down type inferencer is 1.5k LOC, while Haskell's is over 70k making it 10x the size of the entire Spiral compiler, so it clearly cannot compare in terms of sophistication. And the bottom-up cannot compete with top-down type infering languages in terms of ease of use and ergonomics. But together the two sides can achieve amazing synergy and get the best of both worlds.
+Spiral's top-down type inferencer is 1.5k LOC, while Haskell's is over 70k making it 10x the size of the entire Spiral compiler, so it clearly cannot compare in terms of sophistication. And the bottom-up cannot compete with top-down type inferring languages in terms of ease of use and ergonomics. But together the two sides can achieve amazing synergy and get the best of both worlds.
 
 It is not just the shape of the data that can be matched on. As long as the values are known at compile time, it is possible to use some tricks from dependently typed languages. In the top-down segment the following would give a type error because the branches are different. During the bottom-up segment the type checking is deferred until the last moment and the compilation succeeds because there is enough information to completely ignore one of the branches.
 
@@ -2073,7 +2077,7 @@ inl main () =
 // line 1
 ```
 
-#### Compiler Crash
+#### Compiler Crashing
 
 Languages generally take care to prevent user code from crashing them, but based on all my experience of programming in the old Spiral, I can state that these kinds of errors are very rare and are easy to isolate when they do happen by selectively cutting out pieces until the program compiles. The vast majority of my bug fixing time during the v0.09 was taken up by regular ones. So in my view this kind of language design is not a problem.
 
@@ -2105,7 +2109,7 @@ Stack overflow.
 
 This happens during partial evaluation once the build has been started on the offending file.
 
-When the server crashes the editor support will cease to work, and the best option is to restart it using `Spiral: Start Server` command which will dispose of the old terminal and start a fresh one. Only one server instance can occupy the same port at a time - in theory, this could allow multiple VS Code editor instances to reuse the same server.
+When the server crashes the editor support will cease to work, and the best option is to restart it using `Spiral: Start Server` command which will dispose of the old terminal and start a fresh one. Only one server instance can occupy the same port at a time - in theory, this could allow multiple editor instances to reuse the same server.
 
 If the editor starts getting wonky check whether there are any exceptions being thrown in the server terminal. Any unexpected .NET exceptions there are compiler bugs and I'd appreciate their report.
 
@@ -2150,7 +2154,7 @@ The `print_static` statements get executed as a part of partial evaluation. When
 
 ### Type Inference
 
-The top-down segment does a great service to the user by doing type inference and filling in the annotations for functions and join points where necessary. It might be surprising to that it is actually possible to do inference in a bottom-up fashion programatically.
+The top-down segment does a great service to the user by doing type inference and filling in the annotations for functions and join points where necessary. It might be surprising to that it is actually possible to do inference in a bottom-up fashion programmatically.
 
 Here is how the identity function could be written in the bottom-up segment. Since the type inferencer is not filling in the foralls or type application, it is necessary to do that by hand. This shows how the type inferencer would compile `let id x = x`. The type inferencer in addition to filling in the types, also removes the non-essential ones such as in function arguments.
 
@@ -2181,7 +2185,7 @@ let rec method0 () : int32 =
 method0()
 ```
 
-Alternatively, here is how to infer the type bottom up style. It is necessary to instruct the compiler to how to derive it, and since we have the element itself using it to get its type is a natural choice.
+Alternatively, here is how to infer the type bottom-up style. It is necessary to instruct the compiler to how to derive it, and since we have the element itself using it to get its type is a natural choice.
 
 ```
 inl main () =
@@ -2206,7 +2210,7 @@ A good example are the various array function like `map`.
 inl map f ar = init (length ar) (fun i => f (index ar i))
 ```
 
-Here is how it is implemented in the core library. Its type is `forall 'a 'b. ('a -> 'b) -> array 'a -> array 'b`. How would such a function be callable from the bottom up segment assuming we only had the unannotated `f` and the array?
+Here is how it is implemented in the core library. Its type is `forall 'a 'b. ('a -> 'b) -> array 'a -> array 'b`. How would such a function be callable from the bottom-up segment assuming we only had the unannotated `f` and the array?
 
 First, it is necessary to extract the element from the array itself. The `typecase` construct allows matching on a type, but its body can be opened into the term scope. The `?` is meant to be seen as pseudo-code in the following examples.
 
@@ -2287,7 +2291,7 @@ method1(v2, v0, v3, v4)
 v3
 ```
 
-I had to implement `array.map` similarly to this in old Spiral. The reason why doing infering the type is needed is because the output array needs its type to be known ahead of time. It is not possible to do something like set it to some metavariable and unify it with its first use because of join points. In order to do their specialization, they need to have concrete terms ahead of time.
+I had to implement `array.map` similarly to this in old Spiral. The reason why doing inferring the type is needed is because the output array needs its type to be known ahead of time. It is not possible to do something like set it to some metavariable and unify it with its first use because of join points. In order to do their specialization, they need to have concrete terms ahead of time.
 
 This general approach to type inference is what I followed in the old Spiral. I went into it far further than this; I experimented with all sorts of tricks there. For one Cuda kernel for example, I was raising an exception with the thrown type and catching it. I had special ops just to do that.
 
@@ -2305,13 +2309,13 @@ inl main () =
 struct (1, 1, 1)
 ```
 
-If I ran it only once, I'd get `struct (1, 1)`. So the type of its input argument should be an union of `i32`, `i32 * i32` and `i32 * i32 * i32`. In order to infer the type of this what is necessary is to keep running the function until its type stabilizes. For this purpose, the old Spiral had particularly flexible union types that could be built up during partial evaluation instead of just specified at the top level like in v2.
+If I ran it only once, I'd get `struct (1, 1)`. So the type of its input argument should be a union of `i32`, `i32 * i32` and `i32 * i32 * i32`. In order to infer the type of this what is necessary is to keep running the function until its type stabilizes. For this purpose, the old Spiral had particularly flexible union types that could be built up during partial evaluation instead of just specified at the top level like in v2.
 
 This is not an academic exercise either, I had to use this technique to infer the types of the internal state of an RNN used as the model for a poker agent otherwise I would not be able to store it. It is fairly remarkable how far it is possible to get without any type annotations in a static language, Spiral v0.09 is definitely a record setter in that regard.
 
 Today, I consider these techniques better off sealed. They are an anti-pattern. If bottom-up type inference sounds difficult, don't worry because it in fact is. The top-down is here for a reason in v2.
 
-Besides taking a lot programming effort to be used, I suspect it was one of the reasons why towards the end the compile times were so poor on that agent.
+Besides requiring a lot of programming effort to be used, I suspect it was one of the reasons why towards the end the compile times were so poor on that agent.
 
 To demonstrate why consider the previous example again.
 
@@ -2354,7 +2358,7 @@ let v0 : (struct (int32 * int32 * int32) []) = Array.zeroCreate<struct (int32 * 
 
 For the sake of language interop, it would be better if this got compiled to three separate arrays and got tracked that way. It could be built into the language, but some things are more easily done as a library. Spiral's bottom-up introspection makes it possible.
 
-Back in the very early days of old Spiral, it became quickly obvious to me that keeping the partial evaluator's operations simple, and leaving the harder tasks to be done in the language itself is a good practice. Not only would would the hard tasks be so hard as to be practically untenable - programming in the raw AST scales really poorly, doing it in the language itself means that the components can be reused elsewhere.
+Back in the very early days of old Spiral, it became quickly obvious to me that keeping the partial evaluator's operations simple, and leaving the harder tasks to be done in the language itself is a good practice. Not only would the hard tasks be so hard as to be practically untenable - programming in the raw AST scales really poorly, doing it in the language itself means that the components can be reused elsewhere.
 
 This example is going to be more complex as it involves making a small library. Here is how the complete `package.spiproj` file will look like.
 
@@ -2379,7 +2383,7 @@ In other words, for a given type, we need to map over it and turn each element i
 
 But going the other way is very hard. I am yet to see a coherent scheme for doing this in a top-down type system. Dependently typed languages cannot do it either.
 
-It is a pity, as these inverse arrays are probably the most underrated data structure in all of computer science. They have huge value, but they aren't present in any of the general purpose languages that I'd want to use. In the wild, they are often referred as struct-of-arrays or tuple-of-array datatypes as opposed to array-of-structs or array-of-tuples that are regular arrays.
+It is a pity, as these inverse arrays are probably the most underrated data structure in the entire art of programming. They have huge value, but they aren't present in any of the general purpose languages that I'd want to use. In the wild, they are often referred as struct-of-arrays or tuple-of-array datatypes as opposed to array-of-structs or array-of-tuples that are regular arrays.
 
 Here is how `create` can be done in Spiral. Mapping over types is similar to mapping over regular structures using pattern matching.
 
@@ -2392,9 +2396,9 @@ inl rec create forall t. size =
     | _ => !!!!ArrayCreate(`t, size)
 ```
 
-`typecase` unification has some differences from top-down unification. Rather than being strict, it unifies records loosely similarly to regular record patterns, meaning that it only checks whether they keys in the pattern are present. Since there are no keys, it just checks whether the type is a record.
+`typecase` unification has some differences from top-down unification. Rather than being strict, it unifies records loosely similarly to regular record patterns, meaning that it only checks whether the keys in the pattern are present. Since there are no keys, it just checks whether the type is a record.
 
-`record_type_map` is a built in that maps over the elements of a type record. Unlike in the top-down, in the bottom-up segment it is possible to use `forall` freely on the term level. Writing `fun k => forall v. =>` is somewhat awkward, but is is necessary because the key is a term while the value is a type.
+`record_type_map` is a built-in that maps over the elements of a type record. Unlike in the top-down, in the bottom-up segment it is possible to use `forall` freely on the term level. Writing `fun k => forall v. =>` is somewhat awkward, but is is necessary because the key is a term while the value is a type.
 
 On the last line instead of ```!!!!ArrayCreate(`t, size)``` it would have been possible to use ```array.create `t size```. In fact, `array.create` is a straightforward binding to this built in op.
 
@@ -2489,9 +2493,9 @@ The only function that is really missing from `real_array_inv.spir` is the lengt
 
 ### Serialization (Binary)
 
-Serialization comes in many guises and happens at boundaries. It involves making an isomorphic mapping that the two sides can interpret. It is about commnication through a protocol.
+Serialization comes in many guises and happens at boundaries. It involves making an isomorphic mapping that the two sides can interpret. It is about communication through a protocol.
 
-In the old Spiral, once had to serialize tuple one of whose fields was an union to a binary format of 32-bit floats that a NN could consume. This is remarkable because this kind of task would be fairly difficult to do in F#. .NET reflection is nasty to work with and is slow because it has to be done at runtime. Just for the Spiral plugin I had to download a library and it has quirks like raising errors at runtime for invalid JSON objects. The C# ZeroMQ library (NetMQ) which I am using to communicate with the editor is a straight up foray into assembly style programming - it is not even C style in terms of type safety.
+In the old Spiral, once had to serialize tuple one of whose fields was a union to a binary format of 32-bit floats that a NN could consume. This is remarkable because this kind of task would be fairly difficult to do in F#. .NET reflection is nasty to work with and is slow because it has to be done at runtime. Just for the Spiral plugin I had to download a library and it has quirks like raising errors at runtime for invalid JSON objects. The C# ZeroMQ library (NetMQ) which I am using to communicate with the editor is a straight up foray into assembly style programming - it is not even C style in terms of type safety.
 
 More broadly, having to cross language boundaries in the old F# ML library that I did was the main reason why I embarked on creating Spiral. For all its performance advantages, the real reason to create a language has always been to raise one's productivity in a particular domain. A good way to raise productivity is to drive assembly style and C style programming to a minimum.
 
@@ -2545,9 +2549,9 @@ nominal pu a = {
     }
 ```
 
-What pickler combinators allow is building up and composing these `pu`s. For example a `pu (i32 * string)` object would allow pickling and depickling of a `i32 * string` type.
+What pickler combinators allow is building up and composing these `pu`s. For example a `pu (i32 * string)` object would allow pickling and unpickling of a `i32 * string` type.
 
-Compared to the paper, I've added the `size` field. The idea behind it to get the size of the byte array used in pickling as a separate pass and then preallocate it. I meant to use a resizable array originally, but those bitconverter functions all take in either spans or regular arrays which represent blocks of contiguous memory. Resizeable arrays are a linked list of arrays under the hood, so they aren't contiguous. Spans can't be used with them.
+Compared to the paper, I've added the `size` field. The idea behind it to get the size of the byte array used in pickling as a separate pass and then preallocate it. I meant to use a resizable array originally, but those `BitConverter` functions all take in either spans or regular arrays which represent blocks of contiguous memory. Resizeable arrays are a linked list of arrays under the hood, so they aren't contiguous. Spans can't be used with them.
 
 Here is the first primitive.
 
@@ -2685,7 +2689,7 @@ inl wrap (b,a) (pu p) =
         }
 ```
 
-`wrap`'s type is `forall 'a 'b. ('a -> 'b) * ('b -> 'a) -> pu 'a -> pu 'b`. `wrap` makes it possible to derive more complicated complicated picklers based on the simples compound ones. Here is an example.
+`wrap`'s type is `forall 'a 'b. ('a -> 'b) * ('b -> 'a) -> pu 'a -> pu 'b`. `wrap` makes it possible to derive more complicated picklers based on the simpler compound ones. Here is an example.
 
 ```
 inl record_qwe p = wrap ((fun (q,w,e) => {q w e}),(fun {q w e} => q,w,e)) p
@@ -2705,7 +2709,7 @@ inl wrap' (b,a) p =
 
 Here is a `wrap'` for recursive types.
 
-The next compount combinator is `alt`, but there is a lot to be said about it. For now, let's make a few tests to demonstrate how pickler combinators are supposed to be used.
+The next compound combinator is `alt`, but there is a lot to be said about it. For now, let's make a few tests to demonstrate how pickler combinators are supposed to be used.
 
 The following should be in `main`.
 
@@ -2741,7 +2745,7 @@ inl test_string () =
 inl main () : () = join test_string()
 ```
 
-`scheme` has the type `pu string`, and `x` is obviously a string. Here is the output. These will be on the large side. The point of these is not to do an in depth study of them, but merely to get a sense of the kind of code Spiral produces. You can easily see with a cursory examination - are inadvertent heap allocations occuring in this code. Are all those pickler combinator abstraction costing us at runtime or is the resulting code the same as if were handwritten in C style? Thankfully it is the later.
+`scheme` has the type `pu string`, and `x` is obviously a string. Here is the output. These will be on the large side. The point of these is not to do an in depth study of them, but merely to get a sense of the kind of code Spiral produces. You can easily see with a cursory examination - are inadvertent heap allocations occurring in this code. Are all those pickler combinator abstractions costing us at runtime or is the resulting code the same as if were handwritten in C style? Thankfully it is the latter.
 
 ```fs
 type Mut0 = {mutable l0 : int32}
@@ -2847,7 +2851,7 @@ inl test_qwe () =
 inl main () : () = join test_qwe()
 ```
 
-The `scheme` is of type `pu {e : string; q : i32; w : i32}`. The output will be ommitted to avoid bloating the section too much.
+The `scheme` is of type `pu {e : string; q : i32; w : i32}`. The output will be omitted to avoid bloating the section too much.
 
 ##### Pickling Union Types
 
@@ -2895,7 +2899,7 @@ inl rec list p =
 
 This is a remarkable leap in abstraction capability, even though it is not as far one could go. The best way would be to derive the picklers from the type directly, and that will be the focus of the next section. But unlike for the other picklers that I've demonstrated, there is actually a fair amount to learn from the way `alt` is implemented in Spiral, so this section should not be skipped.
 
-For some of the previous picklers, I've pasted them as they are without much comment because I drew a blank what about anything extra to say that is not clear by just reading the source code.
+For some previous picklers, I've pasted them as they are without much comment because I drew a blank what about anything extra to say that is not clear by just reading the source code.
 
 This next part will require some explanation.
 
@@ -2943,7 +2947,7 @@ If the input to `pu_of` is `Cons`, then...
         i, static_index i l
 ```
 
-Using the tag function would return a tag of 0. And `static_index` would return the first case of `l` which happens to be `wrap' (cons_,fun (Cons: a,b) => a,b) (fun () => pair p (list p))`. The interesting part is that `i` is expected to be static in this function. If you tried doing a print_static on `x` though, you'd see that is a runtime variable. So how can the result of passing it to tag be static?
+Using the tag function would return a tag of 0. And `static_index` would return the first case of `l` which happens to be `wrap' (cons_,fun (Cons: a,b) => a,b) (fun () => pair p (list p))`. The interesting part is that `i` is expected to be static in this function. If you tried doing a `print_static` on `x` though, you'd see that is a runtime variable. So how can the result of passing it to tag be static?
 
 ##### Pattern Matching And Scope
 
@@ -2995,7 +2999,7 @@ match v0 with
     2
 ```
 
-Only one unbox is done in the produced code. What is going on is that trying to unbox a runtime variable that has already been unboxed in scope just causes it to be substituted with already unboxed value. In the partial evaluator this information is transmited using the common sub-expression dictionary and does not get transmitted past join point boundaries.
+Only one unbox is done in the produced code. What is going on is that trying to unbox a runtime variable that has already been unboxed in scope just causes it to be substituted with already unboxed value. In the partial evaluator this information is transmitted using the common sub-expression dictionary and does not get transmitted past join point boundaries.
 
 ```
 union t = A | B | C
@@ -3061,11 +3065,11 @@ method0(v0)
 
 The way partial evaluation of pattern in Spiral proceeds is that on pattern unboxing it first unboxes the outermost variable. It first unboxes it as `Cons` and tries evaluating that case succeeding with the pattern match. Then it encounters `(Some: a)` and tries unboxing the first field of the `Cons`. Since internally unions are ordered by their key, it unboxes it to the `None` case - it is why it generated that way in the resulting code first.
 
-Having failed that pattern check for `Some`, it evaluates the next `Cons: None, b` clause. It actually tries unboxing the list again - since it has already been unboxed it gets substituted with what is in scope. The it encounters `None`, and tries unboxing the first field of the list again. Since it is already in scope, it gets substituted with that and the case body gets evaluated.
+Having failed that pattern check for `Some`, it evaluates the next `Cons: None, b` clause. It actually tries unboxing the list again - since it has already been unboxed it gets substituted with what is in scope. Then it encounters `None`, and tries unboxing the first field of the list again. Since it is already in scope, it gets substituted with that and the case body gets evaluated.
 
-When unboxing, all that matters is whether the variables has already been unboxed in scope or not. At the time of writing (1/9/2021), the top-down segment does not have exhaustiveness checking. Nonetheless since Spiral is intented for novel kinds of hardware that might not have exception mechanism partial patterns are forbidden. It will report a pattern miss error during partial evaluation if it encounters them.
+When unboxing, all that matters is whether the variables has already been unboxed in scope or not. At the time of writing (1/9/2021), the top-down segment does not have exhaustiveness checking. Nonetheless since Spiral is intended for novel kinds of hardware that might not have exception mechanism partial patterns are forbidden. It will report a pattern miss error during partial evaluation if it encounters them.
 
-Yet in Spiral it is possible to do things like the following which would be warned against in F#.
+Yet in Spiral it is possible to do things like the following which would be warned to be inexhaustive in F#.
 
 ```
 union t = A | B | C
@@ -3149,7 +3153,7 @@ That covers the first half of `alt`. What `size` and `pickle` field functions ar
             loop 0 l
 ```
 
-Since the `tag` here is dynamic, that makes it necessary to do dynamic indexing into `l`. As I mentioned earlier, if picklers are returned from if statement branches they will have to be allocated on the heap. The alternative to that is to do the processing in the branch itself. Generally speaking, it is always possible to convert `inl x = if cond then a else b in on_succ x` into an equivalent `if cond then on_succ a else on_succ b`. Thanks to Spiral's functions always inlining that makes it possible to avoid spurios allocation by doing the work directly in branches.
+Since the `tag` here is dynamic, that makes it necessary to do dynamic indexing into `l`. As I mentioned earlier, if picklers are returned from if statement branches they will have to be allocated on the heap. The alternative to that is to do the processing in the branch itself. Generally speaking, it is always possible to convert `inl x = if cond then a else b in on_succ x` into an equivalent `if cond then on_succ a else on_succ b`. Thanks to Spiral's functions always inlining that makes it possible to avoid spurious allocation by doing the work directly in branches.
 
 This might be going too much into it. The way the above loop is written simply makes sense and you'd not want to return the pickler from the branch for no reason. But you could. It is possible to write the above as...
 
@@ -3458,11 +3462,11 @@ Spiral uses GC and heap allocated data structures like recursive unions and clos
 
 #### Introspective Pickling
 
-The above was an useful case study in producing an efficient combinator library. Spiral has its own flow separate from other functional languages where it encourages inlining first and then putting join points and doing heap allocation either through layout types or closures, later. Still, using combinators and composing them by hand is something that can be improved on, especially when the entire program could be derived just from the type.
+The above was a useful case study in producing an efficient combinator library. Spiral has its own flow separate from other functional languages where it encourages inlining first and then putting join points and doing heap allocation either through layout types or closures, later. Still, using combinators and composing them by hand is something that can be improved on, especially when the entire program could be derived just from the type.
 
 That would alleviate some of the weaknesses of pickler combinators as well. For example, you could consider it an error that `alt` from the previous section has no checks to ensure that the schema is static at compile time. If a runtime list of `pu`s gets passed into it, then the partial evaluator will stack overflow during compilation.
 
-I could go back and shore it up, but it demonstrates how direct action can end up leaving stray cases unattented. The problem wih pickler combinators is that they are more flexible that the situation demands from them.
+I could go back and shore it up, but it demonstrates how direct action can end up leaving stray cases unattended. The problem with pickler combinators is that they are more flexible that the situation demands from them.
 
 Here is the `package.spiproj` file for this section.
 
@@ -3504,7 +3508,7 @@ inl rec size x : i32 =
 
 There might be some new things here, but the code by this point should hopefully be clear enough that one can infer what it does just by looking at it. This segment requires the use of various real core functions, and those are mostly bindings to built in ops. It is easy to see what is inside the core library by following the package links. I encourage it.
 
-Some ecosysytems like .NET are closed - in feel if not license. Even if they are open source you'd need to jump through hoops to see what is in its standard library. If I wanted to see how `BitConverter` is implemented for example, I'd need to locate the .NET Core standard library repo and seek it out there. 
+Some ecosystems like .NET are closed - in feel if not license. Even if they are open source you'd need to jump through hoops to see what is in its standard library. If I wanted to see how `BitConverter` is implemented for example, I'd need to locate the .NET Core standard library repo and seek it out there. 
 
 Some like Pharo's for example allow easy debugging of the entire system from within, and there is a great feeling of freedom and accessibility. I'd like Spiral to be closer to that in spirit than .NET.
 
@@ -3522,7 +3526,7 @@ inl unbox x on_succ = !!!!Unbox(x,on_succ)
             else inl ~x = x in (join size_prim `i32 + unbox x (fun (k,v) => size v)) : i32
 ```
 
-In these examples the nominals and layout types are purposely ommited. The cases for them could easily be added using the implementation of structural equality as a reference. I also do not bother making a distinction between recursive and non-recursive unions and just dyn the input before passing it through join point. Doing it with more nuance would improve performance, though it is not a big deal either way.
+In these examples the nominals and layout types are purposely omitted. The cases for them could easily be added using the implementation of structural equality as a reference. I also do not bother making a distinction between recursive and non-recursive unions and just dyn the input before passing it through join point. Doing it with more nuance would improve performance, though it is not a big deal either way.
 
 Note that this join point has an annotation. In this case, it is necessary otherwise processing lists would not work properly.
 
@@ -3553,7 +3557,7 @@ inl rec pickle x (i',s as state) : () =
             else inl ~x = x in (join unbox x (fun (k,v) => pickle (union_tag x) state . pickle v state)) : ()
 ```
 
-The main novelty here would be the `union_tag` function. When passed in an union, it extracts it tag. If the union is statically known at compile time, then that tag is a constant. This will be the case here since `x` unboxed in scope.
+The main novelty here would be the `union_tag` function. When passed in a union, it extracts it tag. If the union is statically known at compile time, then that tag is a constant. This will be the case here since `x` unboxed in scope.
 
 ```
 inl rec unpickle forall t. (i', s as state) : t =
@@ -3580,9 +3584,9 @@ inl rec unpickle forall t. (i', s as state) : t =
                 ) : t
 ```
 
-Here, the union case has some novelties. The `union_tag` function takes in an union type and a `i32` tag, which it then maps to the key and the type of that union. If the `tag` is statically known, that makes things easy and only the success branch will get evaluated. Otherwise it just iterates through all the keys and values of an union.
+Here, the union case has some novelties. The `union_tag` function takes in a union type and a `i32` tag, which it then maps to the key and the type of that union. If the `tag` is statically known, that makes things easy and only the success branch will get evaluated. Otherwise it just iterates through all the keys and values of a union.
 
-`nominal_create` creates an union or a nominal given just the type and the term content. It will of course do type checking to make sure that the type of the data matches.
+`nominal_create` creates a union or a nominal given just the type and the term content. It will of course do type checking to make sure that the type of the data matches.
 
 The next is the `pickle` module.
 
@@ -3622,7 +3626,7 @@ inl main () : () = join test(dyn (1i32,2i32,({q=1i32;w="a";e='z'} :: {q=2;w="s";
 
 It is quite similar to what was here in the previous section. I won't paste the output as it is 236 lines long. This is a nearly identical in size compared to the combinator version, and yet the implementation was simpler than it and the ergonomics of this is significantly better.
 
-It is worth constrasting this with how it would be done in [F#](https://mbraceproject.github.io/FsPickler/overview.html#Putting-it-all-together). The Spiral version is extremely readable while being efficient, whereas the nasty looking F# version does runtime casts all over the place, does not use pattern matching, and all of this is done at runtime meaning the pickler combinators would need to be built up as closures. This will definitely have a perfomance impact, both due to heap allocation and the need to do virtual calls.
+It is worth contrasting this with how it would be done in [F#](https://mbraceproject.github.io/FsPickler/overview.html#Putting-it-all-together). The Spiral version is extremely readable while being efficient, whereas the nasty looking F# version does runtime casts all over the place, does not use pattern matching, and all of this is done at runtime meaning the pickler combinators would need to be built up as closures. This will definitely have a performance impact, both due to heap allocation and the need to do virtual calls.
 
 ### Serialization (One-Hot Vector Sequences)
 
@@ -3630,9 +3634,9 @@ The previous segment is not all there is to serialization. I could have picked o
 
 Back in 2016, I ran into a fairly extreme serialization challenge when trying to pass data to a NN agent. At that time, I had no idea how to do pickler combinators so my situation was that much worse - I fervently wished for some way to map a regular type to a sequence of one-hot vectors.
 
-An one-hot vector is an array whose elements are all 0, apart from a single element which is 1. I needed an efficient way to do this task - I tried doing it by hand in C style, but the problem with doing that quickly becomes aparent. It is extemely unsafe and very hard to do. It is a killer combination that slowly set me on the path of being a language designer.
+A one-hot vector is an array whose elements are all 0, apart from a single element which is 1. I needed an efficient way to do this task - I tried doing it by hand in C style, but the problem with doing that quickly becomes apparent. It is extremely unsafe and very hard to do. It is a killer combination that slowly set me on the path of being a language designer.
 
-Suppose you the task is to pass an imput from some poker game to the NN agent.
+Suppose you the task is to pass an input from some poker game to the NN agent.
 
 ```
 union action =
@@ -3653,7 +3657,7 @@ type player_view = {
 
 This `player_view` is what needs to be serialized. Compared to the previous scheme, things are more difficult this time.
 
-The main challenge is that serializing arbirary ints is far too wasteful. An int converted to a one hot-vector would take 2Gb. Instead one has to account for maximum and minimum stack sizes which might be between 0 to a few 100 chips. Suits are only 4, and the number of different cards is 13. In other words, the problem is that unlike in the previous section, the type no longer corresponds to the representation being used. It would be great if Spiral had dependent types so that bounded ints could be used, but that is not the case here. There is no problem with using ints for stack sizes and such inside the game itself, but they are huge problem to serialize in the one-hot format.
+The main challenge is that serializing arbitrary ints is far too wasteful. An int converted to a one hot-vector would take 2Gb. Instead one has to account for maximum and minimum stack sizes which might be between 0 to a few 100 chips. Suits are only 4, and the number of different cards is 13. In other words, the problem is that unlike in the previous section, the type no longer corresponds to the representation being used. It would be great if Spiral had dependent types so that bounded ints could be used, but that is not the case here. There is no problem with using ints for stack sizes and such inside the game itself, but they are huge problem to serialize in the one-hot format.
 
 #### Pickler Combinators
 
@@ -4134,7 +4138,7 @@ The compiled output of this is 285 lines, which a bit over 100 lines less than t
 
 I don't have intention of working on these for the time being. I do not know how to deal with them at the moment and the work needed to fix them far exceeds the benefit from it. They happen rarely.
 
-* Sometimes during startup the semantic highlighting won't be immediate and instead will require user action to take effect. This is because ZeroMQ does not offer any ordering guarantees when sending messages. If during startup the file open message gets sent after semantic hightlight the editor will receive the semantic highlighting data for an empty file.
+* Sometimes during startup the semantic highlighting won't be immediate and instead will require user action to take effect. This is because ZeroMQ does not offer any ordering guarantees when sending messages. If during startup the file open message gets sent after semantic highlight the editor will receive the semantic highlighting data for an empty file.
 
 * It is possible for file edits to get out of order and cause editor confusion. I managed to trigger that once while restarting the server after a crash. The old edits ended up being queued and when the server came back they were sent out of order.
 
