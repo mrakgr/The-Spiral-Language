@@ -4,15 +4,16 @@ import { window, ExtensionContext, languages, workspace, DiagnosticCollection, T
 import * as zmq from "zeromq"
 
 const port : number = workspace.getConfiguration("spiral").get("port") || 13805
-const request = async (file: any): Promise<any> => {
+const request = async (file: any): Promise<string | null> => {
     const sock = new zmq.Request()
     const uriServer = `tcp://localhost:${port}`
     sock.connect(uriServer)
     await sock.send(JSON.stringify(file))
     const [x] = await sock.receive()
     sock.disconnect(uriServer)
-    return 0 < x.byteLength ? JSON.parse(x.toString()) : null
+    return x ? x.toString() : null
 }
+const requestJSON = (file : any) => request(file).then(x => x ? JSON.parse(x) : undefined)
 
 type VSCPos = { line: number, character: number }
 type VSCRange = [VSCPos, VSCPos]
@@ -28,21 +29,21 @@ type ProjectCodeAction =
 
 type RAction = [VSCRange, ProjectCodeAction]
 
-const spiprojOpenReq = async (uri: string, spiprojText: string): Promise<void> => request({ ProjectFileOpen: { uri, spiprojText } })
-const spiprojChangeReq = async (uri: string, spiprojText: string): Promise<void> => request({ ProjectFileChange: { uri, spiprojText } })
-const spiprojDeleteReq = async (uri: string): Promise<void> => request({ ProjectFileDelete: { uri } })
-const spiprojLinksReq = async (uri: string): Promise<RString []> => request({ ProjectFileLinks: { uri } })
-const spiprojCodeActionsReq = async (uri: string): Promise<RAction []> => request({ ProjectCodeActions: { uri } })
-const spiprojCodeActionExecuteReq = async (uri: string, action : ProjectCodeAction): Promise<string | null> => request({ ProjectCodeActionExecute: { uri, action } }).then(x => x.result)
+const spiprojOpenReq = async (uri: string, spiprojText: string): Promise<void> => requestJSON({ ProjectFileOpen: { uri, spiprojText } })
+const spiprojChangeReq = async (uri: string, spiprojText: string): Promise<void> => requestJSON({ ProjectFileChange: { uri, spiprojText } })
+const spiprojDeleteReq = async (uri: string): Promise<void> => requestJSON({ ProjectFileDelete: { uri } })
+const spiprojLinksReq = async (uri: string): Promise<RString []> => requestJSON({ ProjectFileLinks: { uri } })
+const spiprojCodeActionsReq = async (uri: string): Promise<RAction []> => requestJSON({ ProjectCodeActions: { uri } })
+const spiprojCodeActionExecuteReq = async (uri: string, action : ProjectCodeAction): Promise<string | null> => requestJSON({ ProjectCodeActionExecute: { uri, action } }).then(x => x.result)
 
-const spiOpenReq = async (uri: string, spiText: string): Promise<void> => request({ FileOpen: { uri, spiText } })
+const spiOpenReq = async (uri: string, spiText: string): Promise<void> => requestJSON({ FileOpen: { uri, spiText } })
 const spiChangeReq = async (uri: string, spiEdit : {from: number, nearTo: number, lines: string[]} ): Promise<void> => 
-    request({ FileChange: { uri, spiEdit } })
-const spiDeleteReq = async (uri: string): Promise<void> => request({ FileDelete: { uri } })
-const spiTokenRangeReq = async (uri: string, range : Range): Promise<number []> => request({ FileTokenRange: { uri, range } })
+    requestJSON({ FileChange: { uri, spiEdit } })
+const spiDeleteReq = async (uri: string): Promise<void> => requestJSON({ FileDelete: { uri } })
+const spiTokenRangeReq = async (uri: string, range : Range): Promise<number []> => requestJSON({ FileTokenRange: { uri, range } })
 const spiHoverAtReq = async (uri: string, pos : Position): Promise<string | null> => request({ HoverAt: { uri, pos } })
-const spiBuildFileReq = async (uri: string): Promise<void> => request({ BuildFile: {uri} })
-const spiPingReq = async (): Promise<void> => request({ Ping: true })
+const spiBuildFileReq = async (uri: string): Promise<void> => requestJSON({ BuildFile: {uri} })
+const spiPingReq = async (): Promise<void> => requestJSON({ Ping: true })
 
 const range = (x : VSCRange) => new Range(x[0].line, x[0].character, x[1].line, x[1].character)
 
@@ -119,7 +120,9 @@ export const activate = async (ctx: ExtensionContext) => {
     class SpiralHover implements HoverProvider {
         async provideHover(document: TextDocument, position: Position) {
             const x = await spiHoverAtReq(document.uri.toString(true),position)
-            if (x) return new Hover(new MarkdownString().appendCodeblock(x,'plaintext'))
+            if (x) {
+                return new Hover(new MarkdownString().appendCodeblock(x,'plaintext'))
+            }
         }
     }
 

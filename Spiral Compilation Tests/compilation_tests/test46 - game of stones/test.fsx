@@ -134,8 +134,6 @@ and method3 (v0 : (US2 []), v1 : int32) : unit =
         let v4 : US2 = US2_0
         v0.[v1] <- v4
         method3(v0, v3)
-    else
-        ()
 and method4 (v0 : (US2 []), v1 : US3, v2 : US3, v3 : int32) : US3 =
     match v1 with
     | US3_0 -> (* first *)
@@ -267,8 +265,6 @@ and closure1 (v0 : int32, v1 : int32, v2 : string) (v3 : int32) : struct (US1 * 
         let v11 : bool = 100 < v10
         if v11 then
             failwith "The max input has been exceeded."
-        else
-            ()
         let v12 : (US2 []) = Array.zeroCreate<US2> 101
         let v13 : int32 = 0
         method3(v12, v13)

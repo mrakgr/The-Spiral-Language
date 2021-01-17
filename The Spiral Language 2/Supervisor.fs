@@ -473,10 +473,7 @@ let [<EntryPoint>] main args =
         let x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
         let push_back (x : obj) = 
             match x with
-            | :? Option<string> as x -> 
-                match x with
-                | None -> msg.Push("null") 
-                | Some x -> msg.Push(sprintf "\"%s\"" x)
+            | :? Option<string> as x -> x |> Option.iter msg.Push
             | _ -> msg.Push(Json.serialize x)
             msg.PushEmptyFrame(); msg.Push(address)
         let send_back x = push_back x; server.SendMultipartMessage(msg)

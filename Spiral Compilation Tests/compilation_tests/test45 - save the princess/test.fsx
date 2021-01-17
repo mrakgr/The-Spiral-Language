@@ -25,8 +25,6 @@ let rec method1 (v0 : int32, v1 : int32, v2 : int32, v3 : int32, v4 : (US0 []), 
                 US0_0
         v4.[v5] <- v10
         method1(v0, v1, v2, v3, v4, v7)
-    else
-        ()
 and method0 (v0 : int32, v1 : int32, v2 : int32, v3 : ((US0 []) []), v4 : int32) : unit =
     let v5 : bool = v4 < v0
     if v5 then
@@ -36,16 +34,12 @@ and method0 (v0 : int32, v1 : int32, v2 : int32, v3 : ((US0 []) []), v4 : int32)
         method1(v0, v1, v2, v4, v7, v8)
         v3.[v4] <- v7
         method0(v0, v1, v2, v3, v6)
-    else
-        ()
 and method4 (v0 : int32, v1 : (bool []), v2 : int32) : unit =
     let v3 : bool = v2 < v0
     if v3 then
         let v4 : int32 = v2 + 1
         v1.[v2] <- false
         method4(v0, v1, v4)
-    else
-        ()
 and method3 (v0 : int32, v1 : ((US0 []) []), v2 : ((bool []) []), v3 : int32) : unit =
     let v4 : bool = v3 < v0
     if v4 then
@@ -57,8 +51,6 @@ and method3 (v0 : int32, v1 : ((US0 []) []), v2 : ((bool []) []), v3 : int32) : 
         method4(v7, v8, v9)
         v2.[v3] <- v8
         method3(v0, v1, v2, v5)
-    else
-        ()
 and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 : (struct (int32 * int32 * UH0) []), v5 : ((struct (int32 * int32 * UH0) []) []), v6 : int32) : unit =
     let v7 : bool = v6 < v0
     if v7 then
@@ -103,8 +95,6 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
                     let v19 : UH0 = UH0_0("UP", v11)
                     let v20 : US1 = US1_1(v12, v10, v19)
                     v3.l0 <- v20
-                else
-                    ()
                 let v19 : (bool []) = v1.[v12]
                 v19.[v10] <- true
                 true
@@ -149,8 +139,6 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
                     let v24 : UH0 = UH0_0("DOWN", v11)
                     let v25 : US1 = US1_1(v17, v10, v24)
                     v3.l0 <- v25
-                else
-                    ()
                 let v24 : (bool []) = v1.[v17]
                 v24.[v10] <- true
                 true
@@ -195,8 +183,6 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
                     let v29 : UH0 = UH0_0("LEFT", v11)
                     let v30 : US1 = US1_1(v9, v22, v29)
                     v3.l0 <- v30
-                else
-                    ()
                 let v29 : (bool []) = v1.[v9]
                 v29.[v22] <- true
                 true
@@ -240,8 +226,6 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
                     let v33 : UH0 = UH0_0("RIGHT", v11)
                     let v34 : US1 = US1_1(v9, v27, v33)
                     v3.l0 <- v34
-                else
-                    ()
                 let v33 : (bool []) = v1.[v9]
                 v33.[v27] <- true
                 true
@@ -301,8 +285,6 @@ and method6 (v0 : int32, v1 : ((bool []) []), v2 : ((US0 []) []), v3 : Mut0, v4 
                 v41
         v5.[v6] <- v38
         method6(v0, v1, v2, v3, v4, v5, v8)
-    else
-        ()
 and method7 (v0 : int32, v1 : ((struct (int32 * int32 * UH0) []) []), v2 : int32, v3 : int32) : int32 =
     let v4 : bool = v2 < v0
     if v4 then

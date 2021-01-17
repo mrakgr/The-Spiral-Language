@@ -1,6 +1,7 @@
+// Folds over the sequence given the range. `up` specifies the size of the step.
 inl foru (from: nearTo: up:) body state =
     let rec loop i s = if i < nearTo then loop (i+up) (body i s) else s
     loop from state
 inl foru' a body = foru a (fun i () => body i) ()
-inl for (from: nearTo:) body state = foru (from:nearTo: up:1) body state
+inl for (from: nearTo:) body state = foru (from:nearTo:up:1) body state
 inl for' (from: nearTo:) body = for (from:nearTo:) (fun i () => body i) ()
