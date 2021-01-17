@@ -367,7 +367,7 @@ type Env = {
     semantic_updates : (VectorCord * SemanticTokenLegend) ResizeArray
     tokens_cords : VectorCord []
     tokens : (VSCRange * SpiralToken) []
-    comments : Tokenize.LineComment option []
+    comments : LineComment option []
     i : int ref
     is_top_down : bool
     } with
@@ -1175,21 +1175,24 @@ and root_term d =
 
     statements d
 
-let comments line_near_to character (s : Env) = 
+let comments (s : Env) = 
+    let line_near_to = line s
     let rec loop line d =
-        if line < 0 then 
+        if 0 <= line then 
             match s.comments.[line] with
-            | Some(r,text) when r.from = character -> loop (line-1) (text :: d)
+            | Some(r,text) -> loop (line-1) (text :: d)
             | _ -> d
         else d
     loop (line_near_to-1) []
     |> String.concat "\n"
-    |> fun x -> x.TrimEnd()
+    |> fun x -> Ok(x.TrimEnd())
+
+type Comments = string
 
 type [<ReferenceEquality>] TopStatement =
     | TopAnd of VSCRange * TopStatement
-    | TopInl of VSCRange * (VSCRange * VarString) * RawExpr * is_top_down: bool
-    | TopRecInl of VSCRange * (VSCRange * VarString) * RawExpr * is_top_down: bool
+    | TopInl of Comments * VSCRange * (VSCRange * VarString) * RawExpr * is_top_down: bool
+    | TopRecInl of Comments * VSCRange * (VSCRange * VarString) * RawExpr * is_top_down: bool
     | TopNominal of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
     | TopNominalRec of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
     | TopType of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
@@ -1197,12 +1200,12 @@ type [<ReferenceEquality>] TopStatement =
     | TopInstance of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawExpr
     | TopOpen of VSCRange * (VSCRange * VarString) * (VSCRange * SymbolString) list
 
-let top_inl_or_let_process is_top_down = function
-    | (r,PatVar(r',name),(RawForall _ | RawFun _ as body)),false -> Ok(TopInl(r,(r',name),body,is_top_down))
-    | (r,PatVar(r',name),(RawForall _ | RawFun _ as body)),true -> Ok(TopRecInl(r,(r',name),body,is_top_down))
+let top_inl_or_let_process comments is_top_down = function
+    | (r,PatVar(r',name),(RawForall _ | RawFun _ as body)),false -> Ok(TopInl(comments,r,(r',name),body,is_top_down))
+    | (r,PatVar(r',name),(RawForall _ | RawFun _ as body)),true -> Ok(TopRecInl(comments,r,(r',name),body,is_top_down))
     | (r,PatVar _,_),_ -> Error [r, ExpectedGlobalFunction]
     | (_,x,_),_ -> Error [range_of_pattern x, ExpectedVarOrOpAsNameOfGlobalStatement]
-let top_inl_or_let d = (inl_or_let root_term root_pattern_pair root_type_annot >>= fun x d -> top_inl_or_let_process d.is_top_down x) d
+let top_inl_or_let d = ((comments .>>. inl_or_let root_term root_pattern_pair root_type_annot) >>= fun (comments,x) d -> top_inl_or_let_process comments d.is_top_down x) d
 
 let process_union (r,(layout,n,a,b)) _ =
     match duplicates DuplicateUnionKey (List.map (fun (r,(a,_)) -> r,a) b) with
@@ -1242,8 +1245,8 @@ let top_instance d =
 let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_type_var') (many ho_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)) d
 
 let top_and_inl_or_let d = 
-    (restore 1 (range (and_inl_or_let root_term root_pattern_pair root_type_annot)) 
-    >>= fun (r,x) d -> top_inl_or_let_process d.is_top_down x |> Result.map (fun x -> TopAnd(r,x))) d
+    (comments .>>. restore 1 (range (and_inl_or_let root_term root_pattern_pair root_type_annot)) 
+    >>= fun (comments,(r,x)) d -> top_inl_or_let_process comments d.is_top_down x |> Result.map (fun x -> TopAnd(r,x))) d
 
 let inline top_and f = restore 1 (range (skip_keyword SpecAnd >>. f)) |>> TopAnd
 let top_and_union d = top_and ((range (tuple4 (skip_keyword SpecUnion >>% UHeap) read_type_var' (many ho_var .>> skip_op "=") union_clauses)) >>= process_union) d

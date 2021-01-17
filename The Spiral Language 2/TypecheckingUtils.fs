@@ -11,17 +11,17 @@ type BundleTop =
     | BundleType of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
     | BundleNominal of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
     | BundleNominalRec of (VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr) list
-    | BundleInl of VSCRange * (VSCRange * VarString) * RawExpr * is_top_down: bool
-    | BundleRecInl of (VSCRange * (VSCRange * VarString) * RawExpr) list * is_top_down: bool
+    | BundleInl of Comments * VSCRange * (VSCRange * VarString) * RawExpr * is_top_down: bool
+    | BundleRecInl of (Comments * VSCRange * (VSCRange * VarString) * RawExpr) list * is_top_down: bool
     | BundlePrototype of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawTExpr
     | BundleInstance of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawExpr
     | BundleOpen of VSCRange * (VSCRange * VarString) * (VSCRange * SymbolString) list
 
 let bundle_top_range = function
-    | BundleType(r,_,_,_) | BundleNominal(r,_,_,_) | BundleInl(r,_,_,_) 
+    | BundleType(r,_,_,_) | BundleNominal(r,_,_,_) | BundleInl(_,r,_,_,_) 
     | BundlePrototype(r,_,_,_,_) | BundleInstance(r,_,_,_,_) | BundleOpen(r,_,_) -> r
     | BundleNominalRec l -> List.head l |> fun (r,_,_,_) -> r
-    | BundleRecInl(l,_) -> List.head l |> fun (r,_,_) -> r
+    | BundleRecInl(l,_) -> List.head l |> fun (_,r,_,_) -> r
 
 let add_offset offset (range : VSCRange) : VSCRange = 
     let f (a : VSCPos) = {|a with line=offset + a.line|}
@@ -141,7 +141,7 @@ let bundle_top (l : Bundle) =
     | {statement=TopAnd _} :: x' -> failwith "Compiler error: TopAnd should be eliminated during the first bundling step."
     | {statement=TopRecInl _} :: _ as l ->
         l |> List.mapFold (fun _ -> function
-            | {offset=i; statement=TopRecInl(r,a,b,c)} -> (add_offset i r, add_offset_hovar i a, fold_offset_term i b), c
+            | {offset=i; statement=TopRecInl(com,r,a,b,c)} -> (com, add_offset i r, add_offset_hovar i a, fold_offset_term i b), c
             | _ -> failwith "Compiler error: Recursive inl statements can only be followed by statements of the same type."
             ) true
         |> BundleRecInl
@@ -151,7 +151,7 @@ let bundle_top (l : Bundle) =
             | _ -> failwith "Compiler error: Recursive type statements can only be followed by statements of the same type."
             )
         |> BundleNominalRec
-    | [{offset=i; statement=TopInl(r,a,b,c)}] -> BundleInl(add_offset i r, add_offset_hovar i a, fold_offset_term i b, c)
+    | [{offset=i; statement=TopInl(com,r,a,b,c)}] -> BundleInl(com, add_offset i r, add_offset_hovar i a, fold_offset_term i b, c)
     | [{offset=i; statement=TopPrototype(r,a,b,c,d)}] -> BundlePrototype(add_offset i r, add_offset_hovar i a, add_offset_hovar i b, add_offset_typevar_list i c, fold_offset_ty i d)
     | [{offset=i; statement=TopNominal(r,a,b,c)}] -> BundleNominal(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
     | [{offset=i; statement=TopType(r,a,b,c)}] -> BundleType(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)

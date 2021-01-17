@@ -40,6 +40,7 @@ and T =
     | TyPair of T * T
     | TyRecord of Map<string, T>
     | TyModule of Map<string, T>
+    | TyComment of Comments * T
     | TyFun of T * T
     | TyArray of T
     | TyNominal of GlobalId
@@ -193,7 +194,7 @@ let rec constraint_name (env : TopEnv) = function
     | CPrototype i -> env.prototypes.[i].name
 
 let rec tt (env : TopEnv) = function
-    | TyMetavar(_,{contents=Some x}) -> tt env x
+    | TyComment(_,x) | TyMetavar(_,{contents=Some x}) -> tt env x
     | TyNominal i -> env.nominals_aux.[i].kind
     | TyApply(_,_,x) | TyMetavar({kind=x},_) | TyVar({kind=x}) -> x
     | TyUnion _ | TyLayout _ | TyMacro _ | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyModule _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
@@ -315,6 +316,7 @@ let assert_bound_vars (top_env : Env) constraints term ty x =
 let rec subst (m : (Var * T) list) x =
     let f = subst m
     match x with
+    | TyComment(_,x)
     | TyMetavar(_,{contents=Some x}) -> f x // Don't do path shortening here.
     | TyMetavar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> x
     | TyPair(a,b) -> TyPair(f a, f b)
@@ -370,6 +372,7 @@ let rec term_subst x =
     match x with
     | TyMetavar(_,{contents=Some x} & link) -> shorten x link f
     | TyMetavar _ | TyVar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ as x -> x
+    | TyComment(a,b) -> TyComment(a,f b)
     | TyPair(a,b) -> TyPair(f a, f b)
     | TyRecord a -> TyRecord(Map.map (fun _ -> f) a)
     | TyModule a -> TyModule(Map.map (fun _ -> f) a)
@@ -401,7 +404,7 @@ let rec has_metavars x =
     match visit_t x with
     | TyMetavar _ -> true
     | TyVar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ | TyModule _ -> false
-    | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
+    | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
     | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a || f b
     | TyUnion(l,_) | TyRecord l -> Map.exists (fun _ -> f) l
     | TyMacro a -> List.exists (function TMVar x -> has_metavars x | _ -> false) a
@@ -444,6 +447,7 @@ let show_t (env : TopEnv) x =
     let rec f prec x =
         let p = p prec
         match x with
+        | TyComment(_,a) -> f prec a
         | TyMetavar(_,{contents=Some x}) -> f prec x
         | TyMetavar _ -> "?"
         | TyVar a -> a.name
@@ -627,6 +631,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let rec f x = 
                 match visit_t x with
                 | TyMetavar _  | TyForall _  | TyInl _  | TyModule _ as x -> failwithf "Compiler error: These cases should not appear in fill.\nGot: %A" x
+                | TyComment(_,x) -> f x
                 | TyB -> RawTB r
                 | TyPrim x -> RawTPrim(r,x)
                 | TySymbol x -> RawTSymbol(r,x)
@@ -758,7 +763,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> ()
             | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b) -> f a; f b
             | TyUnion(a,_) | TyRecord a -> Map.iter (fun _ -> f) a
-            | TyLayout(a,_) | TyInl(_,a) | TyArray a -> f a
+            | TyComment(_,a) | TyLayout(a,_) | TyInl(_,a) | TyArray a -> f a
             | TyMacro a -> List.iter (function TMVar a -> f a | TMText _ -> ()) a
             | TyModule _ -> ()
         f x
@@ -784,7 +789,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyMetavar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> ()
             | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b) -> f a; f b
             | TyUnion(a,_) | TyRecord a -> Map.iter (fun _ -> f) a
-            | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
+            | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
             | TyMacro a -> List.iter (function TMVar a -> f a | TMText _ -> ()) a
             | TyModule _ -> ()
 
@@ -819,7 +824,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             match visit_t x with
             | TyModule _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> ()
             | TyMacro a -> a |> List.iter (function TMText _ -> () | TMVar a -> f a)
-            | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
+            | TyComment(_,a) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
             | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a; f b
             | TyUnion(l,_) | TyRecord l -> Map.iter (fun _ -> f) l
             | TyVar b -> if i.scope < b.scope then raise (TypeErrorException [r,ForallVarScopeError(b.name,got,expected)])
@@ -832,6 +837,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 if a.Length <> b.Length then er ()
                 else Array.iter2 (fun (ka,a) (kb,b) -> if ka = kb then loop (a,b) else er()) a b
             match visit_t a'', visit_t b'' with
+            | TyComment(_,a), b | a, TyComment(_,b) -> loop (a,b)
             | TyMetavar(a,link), TyMetavar(b,_) & b' ->
                 if a <> b then
                     unify_kind a.kind b.kind
@@ -1394,30 +1400,30 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     }
             psucc (fun () -> FPrototype(q,(r,name),(w,var_init),vars',expr)), AInclude x
         else pfail, AInclude top_env_empty
-    | BundleInl(q,(_,name as w),a,true) ->
+    | BundleInl(com,q,(_,name as w),a,true) ->
         let env = inl scope {term=Map.empty; ty=Map.empty; constraints=Map.empty} (w,a)
         (if 0 = errors.Count then psucc (fun () -> FInl(q,w,fill q Map.empty a)) else pfail), 
         AInclude { top_env_empty with term = Map.add name env.term.[name] Map.empty}
-    | BundleInl(q,(_,name as w),a,false) ->
+    | BundleInl(com,q,(_,name as w),a,false) ->
         assert_bound_vars {term=Map.empty; ty=Map.empty; constraints=Map.empty} a
         (if 0 = errors.Count then psucc (fun () -> FInl(q,w,a)) else pfail),
         AInclude { top_env_empty with term = Map.add name (TySymbol "<real>") Map.empty }
     | BundleRecInl(l,is_top_down) ->
         let _ =
             let h = HashSet()
-            List.iter (fun (_,(r,n),_) -> if h.Add n = false then errors.Add(r,DuplicateRecInlName)) l
+            List.iter (fun (_,_,(r,n),_) -> if h.Add n = false then errors.Add(r,DuplicateRecInlName)) l
         let env_term =
             if is_top_down then
-                let l = List.map (fun (_,a,b) -> a,b) l
+                let l = List.map (fun (com,_,a,b) -> a,b) l
                 (rec_block scope {term=Map.empty; ty=Map.empty; constraints=Map.empty} l).term
             else
-                let env_term = List.fold (fun s (_,(_,a),_) -> Map.add a (TySymbol "<real>") s) Map.empty l
-                l |> List.iter (fun (_,_,x) -> assert_bound_vars {term = env_term; ty = Map.empty; constraints=Map.empty} x)
+                let env_term = List.fold (fun s (com,_,(_,a),_) -> Map.add a (TySymbol "<real>") s) Map.empty l
+                l |> List.iter (fun (com,_,_,x) -> assert_bound_vars {term = env_term; ty = Map.empty; constraints=Map.empty} x)
                 env_term
         let filled_top =
             if 0 = errors.Count then
-                if is_top_down then psucc (fun () -> FRecInl(List.map (fun (a,b,c) -> a,b,fill a env_term c) l))
-                else psucc (fun () -> FRecInl l)
+                if is_top_down then psucc (fun () -> FRecInl(List.map (fun (_,a,b,c) -> a,b,fill a env_term c) l))
+                else psucc (fun () -> FRecInl(List.map (fun (_,a,b,c) -> a,b,c) l))
             else pfail
         filled_top, AInclude (Map.fold (fun s k v -> {s with term = Map.add k v s.term}) top_env_empty env_term)
     | BundleInstance(r,prot,ins,vars,body) ->
