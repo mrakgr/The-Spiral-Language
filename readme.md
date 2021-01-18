@@ -3,7 +3,7 @@
 - [News](#news)
     - [12/24/2020](#12242020)
     - [1/13/2021](#1132021)
-- [1/17/2021](#1172021)
+    - [1/17/2021](#1172021)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
     - [Getting Spiral](#getting-spiral)
@@ -70,7 +70,7 @@ After that I'll make sure the hover comments are added into the language. After 
 
 After that, comes putting the language to use in the real world.
 
-# 1/17/2021
+## 1/17/2021
 
 Spiral is now properly portable, and I've just finished added hover comments. I am done with adding language features here. The next step is to proofread these docs.
 
