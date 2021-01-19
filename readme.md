@@ -4143,3 +4143,5 @@ I don't have intention of working on these for the time being. I do not know how
 * It is possible for file edits to get out of order and cause editor confusion. I managed to trigger that once while restarting the server after a crash. The old edits ended up being queued and when the server came back they were sent out of order.
 
 * The mapping from the files on the hard drive, to the editor, to the language server is not perfect. For example opening a file first, and then having a new project file usurp ownership from another project file will not be reacted to by the language server unless it is done from the editor.
+
+* There is a name collision between Spiral and a [DSL](https://www.spiral.net/) by the same name. This is purely coincidental and there is no association between the two.
