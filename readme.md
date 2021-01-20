@@ -1722,14 +1722,14 @@ Here is an example that demonstrates what I got hung up on in pseudo-code. Imagi
 
 ```fs
 let (y : (if x < 10 then int else string)) = if x < 10 then 0 else "asd"
-if x < 10 then x + 10 else x + "qwe"
+if x < 10 then y + 10 else y + "qwe"
 ```
 
 In Spiral, F# and other statically typed languages with strong, but not dependent type systems, the types actually do have a 1:1 correspondence with their underlying representation.
 
 How exactly the type `if x < 10 then int else string` be compiled? Is it some kind of union type? That seems to be a reasonable avenue to go down on at first, but the difficulties of that become apparent very quickly.
 
-In the branches of `if x < 10 then x + 10 else x + "qwe"` how should `x` be destructured if it is a union type under the hood? Thinking about it logically, we know that `x` is an `int` in the *then* branch, and a `string` in the *else* branch, but where is the hook to actually unbox the union? This kind of thinking does not really make sense to me.
+In the branches of `if x < 10 then y + 10 else y + "qwe"` how should `y` be destructured if it is a union type under the hood? Thinking about it logically, we know that `y` is an `int` in the *then* branch, and a `string` in the *else* branch, but where is the hook to actually unbox the union? This kind of thinking does not really make sense to me.
 
 As if it were a force of nature, there is an inexorable pull towards admitting that despite being statically typed, the types in dependently typed languages are unmoored from their underlying representation. Much like in dynamically typed languages. And the most natural way of compiling the above fragment would be to forget the type signatures and just execute it in a computational context that has uniform representation for all its datatypes.
 
@@ -1962,7 +1962,7 @@ It is not just the shape of the data that can be matched on. As long as the valu
 open real_core
 inl main () =
     inl x = 1
-    if x < 10 then x + 10
+    if x < 10 then x + 10 else "asd"
 ```
 ```fs
 11
