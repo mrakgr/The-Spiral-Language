@@ -70,7 +70,7 @@ let block_separate (lines : LineTokens) (blocks : Block list) (edit : SpiEdit) =
 
 open Spiral.TypecheckingUtils
 let block_bundle (l : (_ * ParsedBlock) list) =
-    let (+.) a b = BlockParsingError.add_line_to_range a b
+    let (+.) a b = Tokenize.add_line_to_range a b
     let bundle = ResizeArray()
     let errors = ResizeArray<RString>()
     let temp = ResizeArray()

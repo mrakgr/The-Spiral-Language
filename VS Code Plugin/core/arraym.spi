@@ -1,22 +1,34 @@
 open loop
 
+// Creates an array.
 inl create forall t. (size : i32) : array t = !!!!ArrayCreate(`t,size)
+// Indexes into an array.
 inl index forall t. (ar : array t) (i : i32) : t = !!!!ArrayIndex(ar,i)
+// Sets the value of an array at the specified index.
 inl set forall t. (ar : array t) (i : i32) (v : t) : () = !!!!ArrayIndexSet(ar,i,v)
+// Returns the length of an array.
 inl length forall t. (ar : array t) : i32 = !!!!ArrayLength(ar)
+// Creates an array with a single element.
 inl singleton x = inl a = create 1 in set a 0 x . a
+// Initializes array using the given function.
 inl init nearTo f = 
     inl ar = create nearTo
     for' (from: 0 nearTo:) (fun i => set ar i (f i))
     ar
+// Applies a function to each element of the array, threading an accumulator argument through the computation. If the input function is f and the elements are i0...iN then computes f (... (f s i0)...) iN
 inl fold f s ar = for (from: 0 nearTo: length ar) (fun i s => f s (index ar i)) s
+inl q x = fold x
+// Maps an array.
 inl map f ar = init (length ar) (fun i => f (index ar i))
+// Iterates over an array.
 inl iter f ar = for' (from: 0 nearTo: length ar) (index ar >> f)
+// Filters the elements of an array using the function.
 inl filter f ar =
     inl nearTo = length ar
     inl ar' = create nearTo
     for (from:0 nearTo:) (fun i count => if f i then set ar' i (index ar i) . count + 1 else count) 0
     |> fun nearTo => init nearTo (index ar')
+// Concatenates an array of arrays.
 inl concat ar =
     inl nearTo = fold (fun s x => s + length x) 0 ar
     inl ar' = create nearTo

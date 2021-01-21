@@ -1,4 +1,6 @@
+// As long as the conditional returns true, executes the body.
 inl while (cond : () -> bool) (body : () -> ()) : () = !!!!While((join cond()),(body()))
+// Folds over the range. Compiles to a while loop.
 inl for (from: nearTo:) body state =
     inl s = mut {i=from; state}
     while (fun _ => s.i < nearTo) (fun _ => s <- {i=s.i+1; state=body s.i s.state})

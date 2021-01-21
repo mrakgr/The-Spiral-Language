@@ -136,6 +136,7 @@ type LoadResult =
     | LoadModule of package_dir: string * path: RString * Result<ModuleStreamRes,string>
     | LoadPackage of package_dir: string * Result<ValidatedSchema,string>
 
+let tokenizer_error errors uri ers = Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=ers|})
 let parser_error errors uri ers = Hopac.start (Src.value errors.parser {|uri=uri; errors=ers|})
 let is_top_down (x : string) = Path.GetExtension x = ".spi"
 let package_update errors (s : SupervisorState) package_dir text =
@@ -149,8 +150,7 @@ let package_update errors (s : SupervisorState) package_dir text =
                     if exists then 
                         File.ReadAllTextAsync(path).ContinueWith(fun (x : _ Task) ->
                             try let uri = Utils.file_uri path
-                                let ((_,tok_res,_),_ as x) = (module' (parser_error errors uri) (is_top_down path)).Run(DocumentAll(Utils.lines x.Result))
-                                Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=tok_res.errors|})
+                                let x = (module' (tokenizer_error errors uri) (parser_error errors uri) (is_top_down path)).Run(DocumentAll(Utils.lines x.Result))
                                 LoadModule(package_dir,p,Ok(x))
                             with e -> LoadModule(package_dir,p,Error e.Message)
                             ) |> queue.Enqueue
@@ -337,7 +337,7 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
             match Map.tryFind p s.modules with
             | Some _ -> s
             | None -> 
-                let s = {s with modules = Map.add p ((module' (parser_error errors x.uri) (is_top_down p)).Run(DocumentAll(Utils.lines x.spiText))) s.modules}
+                let s = {s with modules = Map.add p ((module' (tokenizer_error errors x.uri) (parser_error errors x.uri) (is_top_down p)).Run(DocumentAll(Utils.lines x.spiText))) s.modules}
                 module_changed atten errors s p
         | FileChange x ->
             let p = file x.uri
@@ -473,7 +473,10 @@ let [<EntryPoint>] main args =
         let x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
         let push_back (x : obj) = 
             match x with
-            | :? Option<string> as x -> x |> Option.iter msg.Push
+            | :? Option<string> as x -> 
+                match x with
+                | Some x -> msg.Push(x)
+                | None -> msg.PushEmptyFrame()
             | _ -> msg.Push(Json.serialize x)
             msg.PushEmptyFrame(); msg.Push(address)
         let send_back x = push_back x; server.SendMultipartMessage(msg)

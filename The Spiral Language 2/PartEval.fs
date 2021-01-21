@@ -793,7 +793,7 @@ let peval (env : TopEnv) (x : E) =
             | YPrim UInt16T -> f UInt16.TryParse LitUInt16 "u16"
             | YPrim UInt32T -> f UInt32.TryParse LitUInt32 "u32"
             | YPrim UInt64T -> f UInt64.TryParse LitUInt64 "u64"
-            | b -> raise_type_error s <| sprintf "Expected a numberic type (f32,f64,i8,i16,i32,i64,u8,u16,u32,u64) as the type of literaly.\nGot: %s" (show_ty b)
+            | b -> raise_type_error s <| sprintf "Expected a numberic type (f32,f64,i8,i16,i32,i64,u8,u16,u32,u64) as the type of literal.\nGot: %s" (show_ty b)
 
         let lit_test s a bind on_succ on_fail =
             let b = v s bind
@@ -1689,29 +1689,37 @@ let peval (env : TopEnv) (x : E) =
             match term2 s a b with
             | DLit a, DLit b ->
                 match a, b with
+                | LitInt8 a, LitInt32 b -> op a b |> LitInt8 |> DLit
+                | LitInt16 a, LitInt32 b -> op a b |> LitInt16 |> DLit
                 | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
                 | LitInt64 a, LitInt32 b -> op a b |> LitInt64 |> DLit
+                | LitUInt8 a, LitInt32 b -> op a b |> LitUInt8 |> DLit
+                | LitUInt16 a, LitInt32 b -> op a b |> LitUInt16 |> DLit
                 | LitUInt32 a, LitInt32 b -> op a b |> LitUInt32 |> DLit
                 | LitUInt64 a, LitInt32 b -> op a b |> LitUInt64 |> DLit
-                | a, b -> raise_type_error s <| sprintf "The first literal must be a 32 or 64 bit int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_lit a) (show_lit b)
+                | a, b -> raise_type_error s <| sprintf "The first literal must be an int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_lit a) (show_lit b)
             | a, b ->
                 let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
-                if is_int a_ty && is_int32 b_ty then push_binop s ShiftLeft (a,b) a_ty
-                else raise_type_error s <| sprintf "The type of the first argument must be a 32 or 64 bit int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_ty a_ty) (show_ty b_ty)
+                if is_any_int a_ty && is_int32 b_ty then push_binop s ShiftLeft (a,b) a_ty
+                else raise_type_error s <| sprintf "The type of the first argument must be an int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_ty a_ty) (show_ty b_ty)
         | EOp(_,ShiftRight,[a;b]) ->
             let inline op a b = a >>> b
             match term2 s a b with
             | DLit a, DLit b ->
                 match a, b with
+                | LitInt8 a, LitInt32 b -> op a b |> LitInt8 |> DLit
+                | LitInt16 a, LitInt32 b -> op a b |> LitInt16 |> DLit
                 | LitInt32 a, LitInt32 b -> op a b |> LitInt32 |> DLit
                 | LitInt64 a, LitInt32 b -> op a b |> LitInt64 |> DLit
+                | LitUInt8 a, LitInt32 b -> op a b |> LitUInt8 |> DLit
+                | LitUInt16 a, LitInt32 b -> op a b |> LitUInt16 |> DLit
                 | LitUInt32 a, LitInt32 b -> op a b |> LitUInt32 |> DLit
                 | LitUInt64 a, LitInt32 b -> op a b |> LitUInt64 |> DLit
-                | a, b -> raise_type_error s <| sprintf "The first literal must be a 32 or 64 bit int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_lit a) (show_lit b)
+                | a, b -> raise_type_error s <| sprintf "The first literal must be an int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_lit a) (show_lit b)
             | a, b ->
                 let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
-                if is_int a_ty && is_int32 b_ty then push_binop s ShiftRight (a,b) a_ty
-                else raise_type_error s <| sprintf "The type of the first argument must be a 32 or 64 bit int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_ty a_ty) (show_ty b_ty)
+                if is_any_int a_ty && is_int32 b_ty then push_binop s ShiftRight (a,b) a_ty
+                else raise_type_error s <| sprintf "The type of the first argument must be an int and the second must be a 32-bit signed int.\nGot: %s and %s" (show_ty a_ty) (show_ty b_ty)
         | EOp(_,Neg,[a]) ->
             let inline op a = -a
             match term s a with

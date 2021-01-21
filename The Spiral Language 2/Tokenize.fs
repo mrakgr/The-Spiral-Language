@@ -176,20 +176,20 @@ let number (s: Tokenizer) =
             else error_char s.from "separator"
         let skip c = skip c s
         if skip 'i' then
-            if skip '8' then safe_parse SByte.TryParse LitInt8 "int8"
-            elif skip '1' && skip '6' then safe_parse Int16.TryParse LitInt16 "int16"
-            elif skip '3' && skip '2' then safe_parse Int32.TryParse LitInt32 "int32"
-            elif skip '6' && skip '4' then safe_parse Int64.TryParse LitInt64 "int64"
+            if skip '8' then safe_parse SByte.TryParse LitInt8 "i8"
+            elif skip '1' && skip '6' then safe_parse Int16.TryParse LitInt16 "i16"
+            elif skip '3' && skip '2' then safe_parse Int32.TryParse LitInt32 "i32"
+            elif skip '6' && skip '4' then safe_parse Int64.TryParse LitInt64 "i64"
             else error_char s.from "8,16,32 or 64"
         elif skip 'u' then
             if skip '8' then safe_parse Byte.TryParse LitUInt8 "uint8"
-            elif skip '1' && skip '6' then safe_parse UInt16.TryParse LitUInt16 "uint16"
-            elif skip '3' && skip '2' then safe_parse UInt32.TryParse LitUInt32 "uint32"
-            elif skip '6' && skip '4' then safe_parse UInt64.TryParse LitUInt64 "uint64"
+            elif skip '1' && skip '6' then safe_parse UInt16.TryParse LitUInt16 "u16"
+            elif skip '3' && skip '2' then safe_parse UInt32.TryParse LitUInt32 "u32"
+            elif skip '6' && skip '4' then safe_parse UInt64.TryParse LitUInt64 "u64"
             else error_char s.from "8,16,32 or 64"
         elif skip 'f' then
-            if skip '3' && skip '2' then safe_parse Single.TryParse LitFloat32 "float32"
-            elif skip '6' && skip '4' then safe_parse Double.TryParse LitFloat64 "float64"
+            if skip '3' && skip '2' then safe_parse Single.TryParse LitFloat32 "f32"
+            elif skip '6' && skip '4' then safe_parse Double.TryParse LitFloat64 "f64"
             else error_char s.from "32 or 64"
         else TokDefaultValue x |> ok
 
@@ -362,10 +362,16 @@ let vscode_tokens from near_to (lines : LineToken PersistentVector PersistentVec
     toks.ToArray()
 
 type SpiEdit = {|from: int; nearTo: int; lines: string []|}
-
+let add_line_to_range line ((a,b) : VSCRange) = {|a with line=line+a.line|}, {|b with line=line+b.line|}
 let replace (lines : _ PersistentVector PersistentVector) (errors : _ list) (edit : SpiEdit) =
     let toks, ers = Array.map tokenize edit.lines |> Array.unzip
     let lines = PersistentVector.replace edit.from edit.nearTo toks lines
-    let errors = errors |> List.filter (fun ((a : VSCPos,_),_) -> (edit.from <= a.line && a.line < edit.nearTo) = false)
+    let errors = 
+        let adj = edit.lines.Length - (edit.nearTo - edit.from)
+        errors |> List.choose (fun ((a : VSCPos,b),c as x) -> 
+            if edit.from <= a.line && a.line < edit.nearTo then None
+            elif edit.nearTo <= a.line && adj <> 0 then Some (add_line_to_range adj (a,b),c)
+            else Some x
+            )
     let errors = List.append errors (process_errors edit.from (Array.toList ers))
     lines, errors

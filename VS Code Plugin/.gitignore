@@ -4,3 +4,4 @@ compiler
 node_modules
 .fake
 .ionide
+*.vsix

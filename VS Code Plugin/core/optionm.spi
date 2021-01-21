@@ -1,3 +1,6 @@
-inl bind f = function Some: a => f a | None => None
-inl map f = bind (f >> some_)
+// If the option is Some: x, applies the function to x.
+inl bind x f = match x with Some: a => f a | None => None
+// If the option is Some: x, applies the function to x and pipes the result to some_.
+inl map f x = bind x (f >> some_)
+// If the option is Some: x, returns the x otherwise it returns the default argument.
 inl defaultWith d = function Some: x => x | None => d

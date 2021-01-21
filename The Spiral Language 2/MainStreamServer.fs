@@ -88,14 +88,15 @@ let parser is_top_down =
 type ModuleStreamOut = string PersistentVector * TokRes * ParserRes Promise
 type ModuleStream = EditorStream<TokReq, ModuleStreamOut>
 type ModuleStreamRes = ModuleStreamOut * ModuleStream
-let module' error is_top_down =
+let module' error_tokenizer error_parser is_top_down =
     let rec loop (liner : LinerStream, tokenizer : TokenizerStream, parser : ParserStream) =
         {new ModuleStream with
             member _.Run(req) =
                 let lines,lin = liner.Run(req)
                 let a,tok = tokenizer.Run(req)
+                error_tokenizer a.errors
                 let b,par = parser.Run(a)
-                let b = b >>-* fun x -> error x.parser_errors; x
+                let b = b >>-* fun x -> error_parser x.parser_errors; x
                 (lines, a, b), loop (lin, tok, par)
                 }
     loop (liner, tokenizer, parser is_top_down)

@@ -96,12 +96,10 @@ let show_parser_error = function
     | BottomUpNumberParseError (x, val_dsc) -> sprintf "The string %s cannot be safely parsed as %s." x val_dsc
     | DuplicateUnionKey -> "Duplicate union keys are not allowed."
 
-let add_line_to_range line ((a,b) : VSCRange) = {|a with line=line+a.line|}, {|b with line=line+b.line|}
-    
 let show_block_parsing_error line (l : (VSCRange * ParserErrors) list) =
     l |> List.groupBy fst
     |> List.map (fun (k,v) -> 
-        let k = add_line_to_range line k
+        let k = Tokenize.add_line_to_range line k
         let v = List.map (snd >> show_parser_error) v
         Tokenize.process_error (k, v)
         )
