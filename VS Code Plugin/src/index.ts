@@ -1,6 +1,6 @@
+import * as fs from "fs"
 import * as path from "path"
-import { config } from "process"
-import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider, WorkspaceEdit, FileDeleteEvent, ProcessExecution } from "vscode"
+import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider, WorkspaceEdit, FileDeleteEvent, ProcessExecution, FileRenameEvent, FileWillDeleteEvent, FileWillRenameEvent } from "vscode"
 import * as zmq from "zeromq"
 
 const port : number = workspace.getConfiguration("spiral").get("port") || 13805
@@ -69,6 +69,7 @@ const projectCodeActionTitle = (x : ProjectCodeAction): string => {
     }
 
 type SpiralAction = {range : Range; action : CodeAction}
+type RenamedUri = {newUri : Uri; oldUri : Uri}
 
 export const activate = async (ctx: ExtensionContext) => {
     // console.log("Spiral plugin is active.")
@@ -109,6 +110,7 @@ export const activate = async (ctx: ExtensionContext) => {
         }
     }
     const spiDelete = (uri: Uri) => spiDeleteReq(uri.toString(true))
+    
 
     class SpiralTokens implements DocumentRangeSemanticTokensProvider {
         async provideDocumentRangeSemanticTokens(doc: TextDocument, range : Range) {
@@ -145,18 +147,24 @@ export const activate = async (ctx: ExtensionContext) => {
         }
     }
 
-    const onDelete = (e: FileDeleteEvent) => {
-        e.files.forEach(x => {
-            switch (path.extname(x.path)) {
+    const fileUri = (x : string) => Uri.parse(x.startsWith('/') ? `file://${x}` : `file:///${x}`,true)
+    const onDeleteFun = async (x : string): Promise<void> => {
+        const stats = fs.statSync(x) qwe
+        if (stats.isDirectory()) {
+            const files = fs.readdirSync(x)
+            await Promise.all(files.map(file => onDeleteFun(path.join(x,file))))
+        } else {
+            switch (path.extname(x)) {
                 case ".spiproj": 
-                    if (path.basename(x.path,".spiproj") === "package") { spiprojDelete(x) }
+                    if (path.basename(x,".spiproj") === "package") { spiprojDelete(fileUri(x)) }
                     return
-                case ".spir": case ".spi": return spiDelete(x)
+                case ".spir": case ".spi": return spiDelete(fileUri(x))
                 default: return
             }
-        })
+        }
     }
-
+    const onDelete = (e: FileWillDeleteEvent) => Promise.all(e.files.map(x => onDeleteFun(x.path))) 
+    const onRename = (e: FileWillRenameEvent) => Promise.all(e.files.map(x => onDeleteFun(x.oldUri.path)))
     class SpiralProjectLinks implements DocumentLinkProvider {
         async provideDocumentLinks(document: TextDocument) {
             const x = await spiprojLinksReq(document.uri.toString(true))
@@ -226,10 +234,10 @@ export const activate = async (ctx: ExtensionContext) => {
                     try {
                         const [x] = await sock.receive()
                         const msg: ClientRes = JSON.parse(x.toString())
-                        if ("PackageErrors" in msg) { errorsSet(errorsProject, Uri.parse(msg.PackageErrors.uri), msg.PackageErrors.errors) }
-                        else if ("TokenizerErrors" in msg) { errorsSet(errorsTokenization, Uri.parse(msg.TokenizerErrors.uri), msg.TokenizerErrors.errors) }
-                        else if ("ParserErrors" in msg) { errorsSet(errorsParse, Uri.parse(msg.ParserErrors.uri), msg.ParserErrors.errors) }
-                        else if ("TypeErrors" in msg) { errorsSet(errorsType, Uri.parse(msg.TypeErrors.uri), msg.TypeErrors.errors) }
+                        if ("PackageErrors" in msg) { errorsSet(errorsProject, Uri.parse(msg.PackageErrors.uri,true), msg.PackageErrors.errors) }
+                        else if ("TokenizerErrors" in msg) { errorsSet(errorsTokenization, Uri.parse(msg.TokenizerErrors.uri,true), msg.TokenizerErrors.errors) }
+                        else if ("ParserErrors" in msg) { errorsSet(errorsParse, Uri.parse(msg.ParserErrors.uri,true), msg.ParserErrors.errors) }
+                        else if ("TypeErrors" in msg) { errorsSet(errorsType, Uri.parse(msg.TypeErrors.uri,true), msg.TypeErrors.errors) }
                         else if ("FatalError" in msg) { window.showErrorMessage(msg.FatalError) }
                         else if ("TracedError" in msg) { 
                             const max0 = (x : number) => 0 <= x ? x : 0
@@ -275,7 +283,8 @@ export const activate = async (ctx: ExtensionContext) => {
         errorsProject, errorsTokenization, errorsParse, errorsType,
         workspace.onDidOpenTextDocument(onDocOpen),
         workspace.onDidChangeTextDocument(onDocChange),
-        workspace.onDidDeleteFiles(onDelete),
+        workspace.onWillRenameFiles(onRename),
+        workspace.onWillDeleteFiles(onDelete),
         languages.registerDocumentRangeSemanticTokensProvider(spiralFilePattern,new SpiralTokens(),new SemanticTokensLegend(spiralTokenLegend)),
         languages.registerHoverProvider(spiralFilePattern,new SpiralHover()),
         commands.registerCommand("buildFile", () => {

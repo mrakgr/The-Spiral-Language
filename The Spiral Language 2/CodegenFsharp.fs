@@ -81,6 +81,11 @@ let prim = function
     | StringT -> "string"
     | CharT -> "char"
 
+type UnionRec = {free_vars : Map<string, TyV[]>; tag : int}
+type LayoutRec = {data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>; tag : int}
+type MethodRec = {tag : int; free_vars : L<Tag,Ty>[]; range : Ty; body : TypedBind[]}
+type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain : TyV[]; range : Ty; body : TypedBind[]}
+
 let codegen (env : PartEvalResult) (x : TypedBind []) =
     let types = ResizeArray()
     let functions = ResizeArray()
@@ -94,13 +99,13 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     let layout show =
         let dict' = Dictionary(HashIdentity.Structural)
         let dict = Dictionary(HashIdentity.Reference)
-        let f x = 
+        let f x : LayoutRec = 
             let x = env.ty_to_data x
             let a, b =
                 match x with
                 | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
                 | _ -> data_free_vars x, Map.empty
-            {|data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count|}
+            {data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count}
         fun x ->
             let mutable dirty = false
             let r = Utils.memoize dict (Utils.memoize dict' (fun x -> dirty <- true; f x)) x
@@ -109,7 +114,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
 
     let union show =
         let dict = Dictionary(HashIdentity.Reference)
-        let f (a : Map<string,Ty>) = {|free_vars=a |> Map.map (fun _ -> env.ty_to_data >> data_free_vars); tag=dict.Count|}
+        let f (a : Map<string,Ty>) : UnionRec = {free_vars=a |> Map.map (fun _ -> env.ty_to_data >> data_free_vars); tag=dict.Count}
         fun x ->
             let mutable dirty = false
             let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
@@ -128,59 +133,6 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
     let show_w = function WV i -> sprintf "v%i" i | WLit a -> lit a
 
-    let mutable tyv_proxy = Unchecked.defaultof<_>
-    let mutable ty_proxy = Unchecked.defaultof<_>
-    let mutable binds_proxy = Unchecked.defaultof<_>
-    let args_tys x = x |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (ty_proxy t)) |> String.concat ", "
-    let rec heap = layout (fun s x ->
-        line s (sprintf "Heap%i = {%s}" x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "l%i : %s" i (tyv_proxy t)) |> String.concat "; "))
-        )
-    and mut = layout (fun s x ->
-        line s (sprintf "Mut%i = {%s}" x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "mutable l%i : %s" i (tyv_proxy t)) |> String.concat "; "))
-        )
-    and uheap = union (fun s x ->
-        line s (sprintf "UH%i =" x.tag)
-        let mutable i = 0
-        x.free_vars |> Map.iter (fun _ a ->
-            match a with
-            | [||] -> line (indent s) (sprintf "| UH%i_%i" x.tag i)
-            | a -> line (indent s) (sprintf "| UH%i_%i of %s" x.tag i (a |> Array.map (fun (L(_,t)) -> tyv_proxy t) |> String.concat " * "))
-            i <- i+1
-            )
-        )
-    and ustack = union (fun s x ->
-        line s (sprintf "[<Struct>] US%i =" x.tag)
-        let mutable i = 0
-        x.free_vars |> Map.iter (fun _ a ->
-            match a with
-            | [||] -> line (indent s) (sprintf "| US%i_%i" x.tag i)
-            | a -> line (indent s) (sprintf "| US%i_%i of %s" x.tag i (a |> Array.mapi (fun i' (L(_,t)) -> sprintf "f%i_%i : %s" i i' (tyv_proxy t)) |> String.concat " * "))
-            i <- i+1
-            )
-        )
-    and method =
-        jp (fun ((jp_body,key & (C(args,_))),i) ->
-            match (fst env.join_point_method.[jp_body]).[key] with
-            | Some a, Some range -> {|tag=i; free_vars=rdata_free_vars args; range=range; body=a|}
-            | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
-            ) (fun s x ->
-            line s (sprintf "method%i (%s) : %s =" x.tag (args_tys x.free_vars) (ty_proxy x.range))
-            binds_proxy (indent s) x.body
-            )
-    and closure =
-        jp (fun ((jp_body,key & (C(args,_,domain,range))),i) ->
-            match (fst env.join_point_closure.[jp_body]).[key] with
-            | Some(domain_args, body) -> {|tag=i; free_vars=rdata_free_vars args; domain=data_free_vars domain_args; range=range; body=body|}
-            | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
-            ) (fun s x ->
-            let domain = 
-                match x.domain |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (tyv_proxy t)) with
-                | [||] -> "()"
-                | [|x|] -> sprintf "(%s)" x
-                | x -> String.concat ", " x |> sprintf "struct (%s)"
-            line s (sprintf "closure%i (%s) %s : %s =" x.tag (args_tys x.free_vars) domain (ty_proxy x.range))
-            binds_proxy (indent s) x.body
-            )
     let rec tyv = function
         | YUnion a -> 
             let a = a.Item
@@ -194,6 +146,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | YArray a -> sprintf "(%s [])" (ty a)
         | YFun(a,b) -> sprintf "(%s -> %s)" (ty a) (ty b)
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
+    and args_tys x = x |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (ty t)) |> String.concat ", "
     and binds (s : CodegenEnv) (x : TypedBind []) =
         Array.iter (fun x ->
             match x with
@@ -372,9 +325,55 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 sprintf "(fst (Reflection.FSharpValue.GetUnionFields(v%i, typeof<%s>))).Tag" i ty // TODO: Stopgap measure for now. Replace this with something more efficient.
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> simple
-    tyv_proxy <- tyv
-    ty_proxy <- ty
-    binds_proxy <- binds
+    and heap : _ -> LayoutRec = layout (fun s x ->
+        line s (sprintf "Heap%i = {%s}" x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "l%i : %s" i (tyv t)) |> String.concat "; "))
+        )
+    and mut : _ -> LayoutRec = layout (fun s x ->
+        line s (sprintf "Mut%i = {%s}" x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "mutable l%i : %s" i (tyv t)) |> String.concat "; "))
+        )
+    and uheap : _ -> UnionRec = union (fun s x ->
+        line s (sprintf "UH%i =" x.tag)
+        let mutable i = 0
+        x.free_vars |> Map.iter (fun _ a ->
+            match a with
+            | [||] -> line (indent s) (sprintf "| UH%i_%i" x.tag i)
+            | a -> line (indent s) (sprintf "| UH%i_%i of %s" x.tag i (a |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat " * "))
+            i <- i+1
+            )
+        )
+    and ustack : _ -> UnionRec = union (fun s x ->
+        line s (sprintf "[<Struct>] US%i =" x.tag)
+        let mutable i = 0
+        x.free_vars |> Map.iter (fun _ a ->
+            match a with
+            | [||] -> line (indent s) (sprintf "| US%i_%i" x.tag i)
+            | a -> line (indent s) (sprintf "| US%i_%i of %s" x.tag i (a |> Array.mapi (fun i' (L(_,t)) -> sprintf "f%i_%i : %s" i i' (tyv t)) |> String.concat " * "))
+            i <- i+1
+            )
+        )
+    and method : _ -> MethodRec =
+        jp (fun ((jp_body,key & (C(args,_))),i) ->
+            match (fst env.join_point_method.[jp_body]).[key] with
+            | Some a, Some range -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a}
+            | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+            ) (fun s x ->
+            line s (sprintf "method%i (%s) : %s =" x.tag (args_tys x.free_vars) (ty x.range))
+            binds (indent s) x.body
+            )
+    and closure : _ -> ClosureRec =
+        jp (fun ((jp_body,key & (C(args,_,domain,range))),i) ->
+            match (fst env.join_point_closure.[jp_body]).[key] with
+            | Some(domain_args, body) -> {tag=i; free_vars=rdata_free_vars args; domain=data_free_vars domain_args; range=range; body=body}
+            | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+            ) (fun s x ->
+            let domain = 
+                match x.domain |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (tyv t)) with
+                | [||] -> "()"
+                | [|x|] -> sprintf "(%s)" x
+                | x -> String.concat ", " x |> sprintf "struct (%s)"
+            line s (sprintf "closure%i (%s) %s : %s =" x.tag (args_tys x.free_vars) domain (ty x.range))
+            binds (indent s) x.body
+            )
 
     let main = StringBuilder()
     binds {text=main; indent=0} x

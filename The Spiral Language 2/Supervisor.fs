@@ -350,6 +350,12 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                 s
         | FileDelete x ->
             let p = file x.uri
+            Hopac.start (
+                let ers = {|uri=x.uri; errors=[]|}
+                Src.value errors.tokenizer ers >>=.
+                Src.value errors.parser ers >>=.
+                Src.value errors.typer ers
+                )
             let s = {s with modules = Map.remove p s.modules; infer_results = Map.remove p s.infer_results }
             module_changed atten errors s p
         | FileTokenRange(x, res) ->

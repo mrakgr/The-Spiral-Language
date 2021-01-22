@@ -258,10 +258,10 @@ let package_validate (s : PackageMaps) project_dir =
     order, {package_schemas=schemas; package_links=links; validated_schemas=loads}
 
 let package_errors order (s : PackageMaps) =
-    Array.choose (fun dir -> 
+    Array.map (fun dir -> 
         match Map.tryFind dir s.package_schemas with
-        | Some(Ok x) -> Some {|uri=spiproj_link dir; errors=List.append x.schema.errors x.package_errors|}
-        | _ -> None
+        | Some(Ok x) -> {|uri=spiproj_link dir; errors=List.append x.schema.errors x.package_errors|}
+        | _ -> {|uri=spiproj_link dir; errors=[]|}
         ) order
 
 let schema_parse_then_validate project_dir text =
