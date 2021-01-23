@@ -198,13 +198,12 @@ let package_update errors (s : SupervisorState) package_dir text =
 type SupervisorReq =
     | ProjectFileOpen of {|uri : string; spiprojText : string|}
     | ProjectFileChange of {|uri : string; spiprojText : string|}
-    | ProjectFileDelete of {|uri : string|}
     | ProjectFileLinks of {|uri : string|} * RString list IVar
     | ProjectCodeActions of {|uri : string|} * RAction list IVar
     | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|} * {|result : string option|} IVar
     | FileOpen of {|uri : string; spiText : string|}
     | FileChange of {|uri : string; spiEdit : SpiEdit|}
-    | FileDelete of {|uri : string|}
+    | FileDelete of {|uris : string []|}
     | FileTokenRange of {|uri : string; range : VSCRange|} * VSCTokenArray IVar
     | HoverAt of {|uri : string; pos : VSCPos|} * string option IVar
     | BuildFile of {|uri : string|}
@@ -243,16 +242,19 @@ let hover (l : InferResult PersistentVector) (pos : VSCPos) =
             if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
             ))
 
-let module_changed atten errors s p =
+let module_project p =
     let rec loop (p : DirectoryInfo) =
-        if p = null then s
-        else
-            let x = Path.Combine(p.FullName,"package.spiproj")
-            if File.Exists x then
-                if Map.containsKey x s.packages.validated_schemas then s
-                else package_update_validate_then_send_errors atten errors s p.FullName None
-            else loop p.Parent
+        if p = null then null
+        elif File.Exists (Path.Combine(p.FullName,"package.spiproj")) then p.FullName 
+        else loop p.Parent
     loop (FileInfo(p).Directory)
+
+let module_changed atten errors s p =
+    match module_project p with
+    | null -> s
+    | x -> 
+        if Map.containsKey x s.packages.validated_schemas then s
+        else package_update_validate_then_send_errors atten errors s x None
 
 let attention_server (req : (SupervisorState * string) Stream) =
     let pull_stream (s : SupervisorState) (dir : string) canc =
@@ -312,10 +314,6 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
         | ProjectFileChange x | ProjectFileOpen x ->
             let dir = dir x.uri
             package_update_validate_then_send_errors atten errors s dir (Some x.spiprojText)
-        | ProjectFileDelete x ->
-            let dir = dir x.uri
-            let s = {s with packages={s.packages with validated_schemas=Map.add dir (Error "The package file does not exist.") s.packages.validated_schemas}}
-            package_validate_then_send_errors atten errors s dir
         | ProjectFileLinks(x,res) -> 
             match Map.tryFind (dir x.uri) s.packages.package_schemas with
             | Some (Ok x) -> Hopac.start (IVar.fill res (List.append x.schema.links x.package_links))
@@ -349,15 +347,30 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                 Hopac.start (Src.value errors.fatal "Cannot apply the edit in the server. Please close and open the file again.")
                 s
         | FileDelete x ->
-            let p = file x.uri
-            Hopac.start (
-                let ers = {|uri=x.uri; errors=[]|}
-                Src.value errors.tokenizer ers >>=.
-                Src.value errors.parser ers >>=.
-                Src.value errors.typer ers
+            let modules = HashSet()
+            let packages = HashSet()
+            x.uris |> Array.iter (fun x ->
+                let x = Uri(x).LocalPath
+                match Path.GetExtension(x) with
+                | ".spiproj" -> Path.GetDirectoryName(x) |> packages.Add |> ignore
+                | ".spi" | ".spir" -> modules.Add(x) |> ignore
+                | _ ->
+                    s.packages.validated_schemas |> Map.iter (fun k _ -> if k.StartsWith(x) then packages.Add(k) |> ignore)
+                    s.modules |> Map.iter (fun k _ -> if k.StartsWith(x) then modules.Add(k) |> ignore; packages.Add(module_project k) |> ignore)
                 )
-            let s = {s with modules = Map.remove p s.modules; infer_results = Map.remove p s.infer_results }
-            module_changed atten errors s p
+            let case_packages (s : SupervisorState) dir =
+                let s = {s with packages={s.packages with validated_schemas=Map.add dir (Error "The package file does not exist.") s.packages.validated_schemas}}
+                package_validate_then_send_errors atten errors s dir
+            let case_modules (s : SupervisorState) p =
+                Hopac.start (
+                    let ers = {|uri=Utils.file_uri p; errors=[]|}
+                    Src.value errors.tokenizer ers >>=.
+                    Src.value errors.parser ers >>=.
+                    Src.value errors.typer ers
+                    )
+                {s with modules = Map.remove p s.modules; infer_results = Map.remove p s.infer_results }
+            let s = Seq.fold case_modules s modules
+            Seq.fold case_packages s packages
         | FileTokenRange(x, res) ->
             match Map.tryFind (file x.uri) s.modules with
             | Some((_,_,a),_) -> Hopac.start (a >>= fun a -> IVar.fill res (token_range a x.range))
@@ -396,13 +409,12 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
 type ClientReq =
     | ProjectFileOpen of {|uri : string; spiprojText : string|}
     | ProjectFileChange of {|uri : string; spiprojText : string|}
-    | ProjectFileDelete of {|uri : string|}
     | ProjectFileLinks of {|uri : string|}
     | ProjectCodeActionExecute of {|uri : string; action : ProjectCodeAction|}
     | ProjectCodeActions of {|uri : string|}
     | FileOpen of {|uri : string; spiText : string|}
     | FileChange of {|uri : string; spiEdit : SpiEdit|}
-    | FileDelete of {|uri : string|}
+    | FileDelete of {|uris : string []|} // Also works for project files and directories.
     | FileTokenRange of {|uri : string; range : VSCRange|}
     | HoverAt of {|uri : string; pos : VSCPos|}
     | BuildFile of {|uri : string|}
@@ -436,8 +448,6 @@ let [<EntryPoint>] main args =
     poller.Add(server)
     server.Options.ReceiveHighWatermark <- System.Int32.MaxValue
     server.Bind(uri_server)
-
-    printfn "Server bound to: %s & %s" uri_server uri_client
 
     use queue_server = new NetMQQueue<NetMQMessage>()
     poller.Add(queue_server)
@@ -492,7 +502,6 @@ let [<EntryPoint>] main args =
         match x with
         | ProjectFileOpen x -> job_null (supervisor *<+ SupervisorReq.ProjectFileOpen x)
         | ProjectFileChange x -> job_null (supervisor *<+ SupervisorReq.ProjectFileChange x)
-        | ProjectFileDelete x -> job_null (supervisor *<+ SupervisorReq.ProjectFileDelete x)
         | ProjectCodeActionExecute x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectCodeActionExecute(x,res))
         | ProjectFileLinks x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectFileLinks(x,res))
         | ProjectCodeActions x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectCodeActions(x,res))
@@ -508,6 +517,8 @@ let [<EntryPoint>] main args =
 
     use client = new PublisherSocket()
     client.Bind(uri_client)
+
+    printfn "Server bound to: %s & %s" uri_server uri_client
 
     use __ = queue_client.ReceiveReady.Subscribe(fun x -> 
         x.Queue.Dequeue() |> Json.serialize |> client.SendFrame

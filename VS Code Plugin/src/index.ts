@@ -31,7 +31,6 @@ type RAction = [VSCRange, ProjectCodeAction]
 
 const spiprojOpenReq = async (uri: string, spiprojText: string): Promise<void> => requestJSON({ ProjectFileOpen: { uri, spiprojText } })
 const spiprojChangeReq = async (uri: string, spiprojText: string): Promise<void> => requestJSON({ ProjectFileChange: { uri, spiprojText } })
-const spiprojDeleteReq = async (uri: string): Promise<void> => requestJSON({ ProjectFileDelete: { uri } })
 const spiprojLinksReq = async (uri: string): Promise<RString []> => requestJSON({ ProjectFileLinks: { uri } })
 const spiprojCodeActionsReq = async (uri: string): Promise<RAction []> => requestJSON({ ProjectCodeActions: { uri } })
 const spiprojCodeActionExecuteReq = async (uri: string, action : ProjectCodeAction): Promise<string | null> => requestJSON({ ProjectCodeActionExecute: { uri, action } }).then(x => x.result)
@@ -39,7 +38,7 @@ const spiprojCodeActionExecuteReq = async (uri: string, action : ProjectCodeActi
 const spiOpenReq = async (uri: string, spiText: string): Promise<void> => requestJSON({ FileOpen: { uri, spiText } })
 const spiChangeReq = async (uri: string, spiEdit : {from: number, nearTo: number, lines: string[]} ): Promise<void> => 
     requestJSON({ FileChange: { uri, spiEdit } })
-const spiDeleteReq = async (uri: string): Promise<void> => requestJSON({ FileDelete: { uri } })
+const spiDeleteReq = async (uris: string []): Promise<void> => requestJSON({ FileDelete: { uris } })
 const spiTokenRangeReq = async (uri: string, range : Range): Promise<number []> => requestJSON({ FileTokenRange: { uri, range } })
 const spiHoverAtReq = async (uri: string, pos : Position): Promise<string | null> => request({ HoverAt: { uri, pos } })
 const spiBuildFileReq = async (uri: string): Promise<void> => requestJSON({ BuildFile: {uri} })
@@ -81,7 +80,6 @@ export const activate = async (ctx: ExtensionContext) => {
 
     const spiprojOpen = (doc: TextDocument) => spiprojOpenReq(doc.uri.toString(true), doc.getText())
     const spiprojChange = (doc: TextDocument) => spiprojChangeReq(doc.uri.toString(true), doc.getText())
-    const spiprojDelete = (uri: Uri) => spiprojDeleteReq(uri.toString(true))
     const spiOpen = (doc: TextDocument) => spiOpenReq(doc.uri.toString(true), doc.getText())
 
     const numberOfLinesAdded = (str: string) => {
@@ -109,8 +107,7 @@ export const activate = async (ctx: ExtensionContext) => {
             spiChangeReq(doc.uri.toString(true), edit)
         }
     }
-    const spiDelete = (uri: Uri) => spiDeleteReq(uri.toString(true))
-    
+    const spiDelete = (uri: readonly Uri []) => spiDeleteReq(uri.map(x => x.toString(true)))
 
     class SpiralTokens implements DocumentRangeSemanticTokensProvider {
         async provideDocumentRangeSemanticTokens(doc: TextDocument, range : Range) {
@@ -147,24 +144,8 @@ export const activate = async (ctx: ExtensionContext) => {
         }
     }
 
-    const fileUri = (x : string) => Uri.parse(x.startsWith('/') ? `file://${x}` : `file:///${x}`,true)
-    const onDeleteFun = async (x : string): Promise<void> => {
-        const stats = fs.statSync(x) qwe
-        if (stats.isDirectory()) {
-            const files = fs.readdirSync(x)
-            await Promise.all(files.map(file => onDeleteFun(path.join(x,file))))
-        } else {
-            switch (path.extname(x)) {
-                case ".spiproj": 
-                    if (path.basename(x,".spiproj") === "package") { spiprojDelete(fileUri(x)) }
-                    return
-                case ".spir": case ".spi": return spiDelete(fileUri(x))
-                default: return
-            }
-        }
-    }
-    const onDelete = (e: FileWillDeleteEvent) => Promise.all(e.files.map(x => onDeleteFun(x.path))) 
-    const onRename = (e: FileWillRenameEvent) => Promise.all(e.files.map(x => onDeleteFun(x.oldUri.path)))
+    const onDelete = (e: FileDeleteEvent) => spiDelete(e.files)
+    const onRename = (e: FileRenameEvent) => spiDelete(e.files.map(x => x.oldUri))
     class SpiralProjectLinks implements DocumentLinkProvider {
         async provideDocumentLinks(document: TextDocument) {
             const x = await spiprojLinksReq(document.uri.toString(true))
@@ -283,8 +264,8 @@ export const activate = async (ctx: ExtensionContext) => {
         errorsProject, errorsTokenization, errorsParse, errorsType,
         workspace.onDidOpenTextDocument(onDocOpen),
         workspace.onDidChangeTextDocument(onDocChange),
-        workspace.onWillRenameFiles(onRename),
-        workspace.onWillDeleteFiles(onDelete),
+        workspace.onDidRenameFiles(onRename),
+        workspace.onDidDeleteFiles(onDelete),
         languages.registerDocumentRangeSemanticTokensProvider(spiralFilePattern,new SpiralTokens(),new SemanticTokensLegend(spiralTokenLegend)),
         languages.registerHoverProvider(spiralFilePattern,new SpiralHover()),
         commands.registerCommand("buildFile", () => {
