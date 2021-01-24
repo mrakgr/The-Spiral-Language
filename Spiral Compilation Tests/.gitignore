@@ -1,3 +1,5 @@
 
 .fake
 .ionide
+*.pyd
+*.c
