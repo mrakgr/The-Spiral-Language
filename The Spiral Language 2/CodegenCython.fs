@@ -1,4 +1,4 @@
-﻿module Spiral.Codegen.Fsharp
+﻿module Spiral.Codegen.Cython
 
 open Spiral
 open Spiral.Tokenize
@@ -23,23 +23,23 @@ let raise_codegen_error x = raise (CodegenError x)
 let raise_codegen_error' trace x = raise (CodegenErrorWithPos(trace,x))
 
 let lit = function
-    | LitInt8 x -> sprintf "%iy" x
-    | LitInt16 x -> sprintf "%is" x
+    | LitInt8 x -> sprintf "%i" x
+    | LitInt16 x -> sprintf "%i" x
     | LitInt32 x -> sprintf "%i" x
-    | LitInt64 x -> sprintf "%iL" x
-    | LitUInt8 x -> sprintf "%iuy" x
-    | LitUInt16 x -> sprintf "%ius" x
-    | LitUInt32 x -> sprintf "%iu" x
-    | LitUInt64 x -> sprintf "%iUL" x
+    | LitInt64 x -> sprintf "%i" x
+    | LitUInt8 x -> sprintf "%i" x
+    | LitUInt16 x -> sprintf "%i" x
+    | LitUInt32 x -> sprintf "%i" x
+    | LitUInt64 x -> sprintf "%i" x
     | LitFloat32 x -> 
-        if x = infinityf then "infinityf"
-        elif x = -infinityf then "-infinityf"
-        elif Single.IsNaN x then "nanf"
-        else sprintf "%ff" x
+        if x = infinityf then "float(inf)"
+        elif x = -infinityf then "float(-inf)"
+        elif Single.IsNaN x then "float()"
+        else sprintf "%f" x
     | LitFloat64 x ->
-        if x = infinity then "infinity"
-        elif x = -infinity then "-infinity"
-        elif Double.IsNaN x then "nan"
+        if x = infinity then "float(inf)"
+        elif x = -infinity then "float(-inf)"
+        elif Double.IsNaN x then "float()"
         else sprintf "%f" x
     | LitString x -> 
         let strb = StringBuilder(x.Length+2)
@@ -64,22 +64,21 @@ let lit = function
         | '\r' -> @"\r"
         | x -> string x
         |> sprintf "'%s'"
-    | LitBool x -> if x then "true" else "false"
+    | LitBool x -> if x then "1" else "0"
 
 let prim = function
-    | Int8T -> "int8"
-    | Int16T -> "int16"
-    | Int32T -> "int32"
-    | Int64T -> "int64"
-    | UInt8T -> "uint8"
-    | UInt16T -> "uint16"
-    | UInt32T -> "uint32"
-    | UInt64T -> "uint64"
-    | Float32T -> "float32"
-    | Float64T -> "float"
-    | BoolT -> "bool"
-    | StringT -> "string"
-    | CharT -> "char"
+    | Int8T -> "signed char"
+    | Int16T -> "signed short"
+    | Int32T -> "signed long"
+    | Int64T -> "signed long long"
+    | UInt8T -> "unsigned char"
+    | UInt16T -> "unsigned short"
+    | UInt32T -> "unsigned long"
+    | UInt64T -> "unsigned long long"
+    | Float32T -> "float"
+    | Float64T -> "double"
+    | BoolT -> "char"
+    | StringT | CharT -> "object"
 
 type UnionRec = {free_vars : Map<string, TyV[]>; tag : int}
 type LayoutRec = {data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>; tag : int}
@@ -143,10 +142,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | YLayout(a,HeapMutable) -> sprintf "Mut%i" (mut a).tag
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> ty a) |> String.concat ""
         | YPrim a -> prim a
-        | YArray a -> sprintf "(%s [])" (ty a)
-        | YFun(a,b) -> sprintf "(%s -> %s)" (ty a) (ty b)
+        | YArray a -> "object" // TODO: Special cases for primitive arrays.
+        | YFun(a,b) -> closure_ty (a,b)
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
-    and args_tys x = x |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (ty t)) |> String.concat ", "
+    and args_tys x = x |> Array.map (fun (L(i,t)) -> sprintf "%s v%i" (ty t) i) |> String.concat ", "
     and binds (s : CodegenEnv) (x : TypedBind []) =
         Array.iter (fun x ->
             match x with

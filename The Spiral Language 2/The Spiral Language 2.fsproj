@@ -36,6 +36,7 @@
     <Compile Include="Prepass.fs" />
     <Compile Include="PartEval.fs" />
     <Compile Include="CodegenFsharp.fs" />
+    <Compile Include="CodegenCython.fs" />
     <Compile Include="Blockize.fs" />
     <Compile Include="SpiProj.fs" />
     <Compile Include="ServerUtils.fs" />
@@ -43,8 +44,6 @@
     <Compile Include="PrepassStreamServer.fs" />
     <Compile Include="Supervisor.fs" />
   </ItemGroup>
-
-  <ItemGroup />
 
   <ItemGroup>
     <PackageReference Include="FParsec" Version="1.1.1" />
