@@ -69,7 +69,7 @@ and TyV = L<Tag,Ty>
 and Union = {|cases : Map<string, Ty>; layout : UnionLayout; tags : Dictionary<string, int>; tag_cases : (string * Ty) [] |} H
 
 type TermVar =
-    | WV of Tag
+    | WV of TyV
     | WLit of Literal
 
 type RData =
@@ -210,7 +210,7 @@ let data_term_vars call_data =
         | DForall(_,a,_,_,_) | DFunction(_,_,a,_,_,_) -> Array.iter f a
         | DRecord l -> Map.iter (fun _ -> f) l
         | DLit x -> term_vars.Add(WLit x)
-        | DV(L(i,_)) -> term_vars.Add(WV i)
+        | DV x -> term_vars.Add(WV x)
         | DUnion(a,_) | DNominal(a,_) -> f a
         | DSymbol _ | DB -> ()
     f call_data

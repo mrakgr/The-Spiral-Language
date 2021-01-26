@@ -3,7 +3,7 @@ cdef class FuncInt:
 
 cdef class FuncAddInt(FuncInt):
     cdef int x
-    def __init__(self, int x): self.x = x
+    def __init__(self, int x): self.x = x; self.x = x
     cdef int apply(self, int y): return self.x + y
 
 cpdef int applyAdd(FuncInt a, int b):
