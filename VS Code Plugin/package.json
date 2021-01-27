@@ -1,7 +1,7 @@
 {
 	"name": "spiral-lang-vscode",
 	"displayName": "The Spiral Language",
-	"version": "2.0.36",
+	"version": "2.0.37",
 	"description": "VS Code editor support plugin + the Spiral language compiler.",
 	"repository": {
 		"url": "https://github.com/mrakgr/The-Spiral-Language"
@@ -33,6 +33,15 @@
 					"type": "integer",
 					"default": 5,
 					"description": "The maximum length of the partial evaluation and codegen error traces."
+				},
+				"spiral.backend": {
+					"type": "string",
+					"enum": [
+						"Fsharp",
+						"Cython"
+					],
+					"default": "Fsharp",
+					"description": "The code generator to use when the file is built."
 				}
 			}
 		},

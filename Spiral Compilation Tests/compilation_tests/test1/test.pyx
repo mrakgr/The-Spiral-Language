@@ -1,0 +1,2 @@
+cpdef main():
+    pass

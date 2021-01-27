@@ -300,8 +300,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | BitwiseOr, [a;b] -> sprintf "%s | %s" (tup a) (tup b)
             | BitwiseXor, [a;b] -> sprintf "%s ^ %s" (tup a) (tup b)
 
-            | ShiftLeft, [a;b] -> sprintf "%s << %s" (tup a) (tup b)
-            | ShiftRight, [a;b] -> sprintf "%s >> %s" (tup a) (tup b)
+            | ShiftLeft, [a;b] -> sprintf "%s <<< %s" (tup a) (tup b)
+            | ShiftRight, [a;b] -> sprintf "%s >>> %s" (tup a) (tup b)
 
             | Neg, [x] -> sprintf " -%s" (tup x)
             | Log, [x] -> sprintf "log %s" (tup x)

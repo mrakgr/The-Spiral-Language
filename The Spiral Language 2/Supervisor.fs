@@ -99,10 +99,10 @@ module Build =
         List.map (show_position s) (loop [] x), msg
 
     type BuildResult =
-        | BuildOk of string
+        | BuildOk of code: string * file_extension : string
         | BuildErrorTrace of string list * string
         | BuildFatalError of string
-    let build_file (s : SupervisorState) module_target =
+    let build_file (s : SupervisorState) backend module_target =
         match inputs s module_target with
         | Ok x ->
             let a,prepass_stream = s.prepass_stream.Run(PackageStreamInput x)
@@ -122,7 +122,10 @@ module Build =
                                 top_env.nominals |> Map.iter (fun k v -> d.Add(k, t.Add {|v with id=k|}))
                                 d
                             try let (a,_),b = PartEval.Main.peval {prototypes_instances=prototypes_instances; nominals=nominals} main
-                                BuildOk(Codegen.Fsharp.codegen b a)
+                                match backend with
+                                | "Fsharp" -> BuildOk(Codegen.Fsharp.codegen b a, "fsx")
+                                | "Cython" -> BuildOk(Codegen.Cython.codegen b a, "pyx")
+                                | _ -> BuildFatalError $"Cannot recognize the backend: {backend}"
                             with
                                 | :? PartEval.Main.TypeError as e -> BuildErrorTrace(show_trace s e.Data0 e.Data1)
                                 | :? Codegen.Fsharp.CodegenError as e -> BuildFatalError(e.Data0)
@@ -206,7 +209,7 @@ type SupervisorReq =
     | FileDelete of {|uris : string []|}
     | FileTokenRange of {|uri : string; range : VSCRange|} * VSCTokenArray IVar
     | HoverAt of {|uri : string; pos : VSCPos|} * string option IVar
-    | BuildFile of {|uri : string|}
+    | BuildFile of {|uri : string; backend : string|}
 
 let package_validate_then_send_errors atten errors s dir =
     let order,packages = package_validate s.packages dir
@@ -385,9 +388,9 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
             s
         | BuildFile x ->
             let p = file x.uri
-            let x,s = Build.build_file s p
+            let x,s = Build.build_file s x.backend p
             Hopac.start (x >>= function
-                | Build.BuildOk x -> Job.fromUnitTask (fun () -> IO.File.WriteAllTextAsync(IO.Path.ChangeExtension(p,"fsx"), x))
+                | Build.BuildOk(x,ext) -> Job.fromUnitTask (fun () -> IO.File.WriteAllTextAsync(IO.Path.ChangeExtension(p,ext), x))
                 | Build.BuildFatalError x -> Src.value errors.fatal x
                 | Build.BuildErrorTrace(a,b) -> Src.value errors.traced {|trace=a; message=b|}
                 )
@@ -417,7 +420,7 @@ type ClientReq =
     | FileDelete of {|uris : string []|} // Also works for project files and directories.
     | FileTokenRange of {|uri : string; range : VSCRange|}
     | HoverAt of {|uri : string; pos : VSCPos|}
-    | BuildFile of {|uri : string|}
+    | BuildFile of {|uri : string; backend : string|}
     | Ping of bool
 
 type ClientErrorsRes =

@@ -32,13 +32,13 @@ let lit = function
     | LitUInt32 x -> sprintf "%i" x
     | LitUInt64 x -> sprintf "%i" x
     | LitFloat32 x -> 
-        if x = infinityf then "float(inf)"
-        elif x = -infinityf then "float(-inf)"
+        if x = infinityf then "float('inf')"
+        elif x = -infinityf then "float('-inf')"
         elif Single.IsNaN x then "float()"
         else sprintf "%f" x
     | LitFloat64 x ->
-        if x = infinity then "float(inf)"
-        elif x = -infinity then "float(-inf)"
+        if x = infinity then "float('inf')"
+        elif x = -infinity then "float('-inf')"
         elif Double.IsNaN x then "float()"
         else sprintf "%f" x
     | LitString x -> 
@@ -88,6 +88,7 @@ type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain : Ty; domain_args 
 type TupleRec = {tag : int; tys : string []}
 
 let codegen (env : PartEvalResult) (x : TypedBind []) =
+    let imports = ResizeArray()
     let types = ResizeArray()
     let functions = ResizeArray()
 
@@ -122,13 +123,13 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             if dirty then print true show r
             r
 
-    let jp f show =
+    let jp is_type f show =
         let dict = Dictionary(HashIdentity.Structural)
         let f x = f (x, dict.Count)
         fun x ->
             let mutable dirty = false
             let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
-            if dirty then print false show r
+            if dirty then print is_type show r
             r
 
     let tuple show =
@@ -142,10 +143,18 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
 
     let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
     let show_w = function WV(L(i,_)) -> sprintf "v%i" i | WLit a -> lit a
+    let args' b = data_term_vars b |> Array.map show_w |> String.concat ", "
 
     let tmp =
         let mutable i = 0
         fun () -> let x = i in i <- i + 1; x
+
+    let import =
+        let has_added = HashSet()
+        fun x -> if has_added.Add(x) then imports.Add x
+
+    let with_self = function "" -> "self" | x -> $"self, {x}"
+    let pass_if_empty = function "" -> "pass" | x -> x
 
     let rec tyv = function
         | YUnion a -> 
@@ -163,10 +172,16 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and binds (s : CodegenEnv) (x : TypedBind []) =
         Array.iteri (fun i x ->
             match x with
-            | TyLet(d,trace,a) -> try op s (Some d) a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
+            | TyLet(d,trace,a) -> 
+                try let d = data_free_vars d
+                    Array.iter (fun (L(i,t)) -> cdef_show false s i (tyv t)) d
+                    op s (Some d) a
+                with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             | TyLocalReturnOp(trace,a) -> try op s None a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             | TyLocalReturnData(d,trace) -> 
-                try match tup d with "pass" when i <> 0 -> () | x -> line s x
+                try match tup d with 
+                    | "pass" as x -> if i = 0 then line s x
+                    | x -> line s $"return {x}"
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             ) x
     and tup x =
@@ -180,10 +195,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and tup_tyvs = function
         | [||] -> "void"
         | [|L(_,x)|] -> tyv x
-        | x ->
-            let vars = x |> Array.map (fun (L(_,x)) -> tyv x)
-            let i = tup' vars
-            sprintf "Tuple%i" i.tag
+        | x -> $"Tuple{(tup' (tyv_type_show x)).tag}"
     and tup_data x = tup_tyvs (data_free_vars x)
     and tup_ty x = tup_data (env.ty_to_data x)
     and op s d a =
@@ -196,13 +208,18 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             match d with
             | None -> line s (sprintf "return %s" x)
             | Some d ->
-                match data_free_vars d with
+                match d with
                 | [||] -> line s x
                 | [|L(i,_)|] -> line s (sprintf "v%i = %s" i x)
                 | d ->
                     let tmp_i = tmp()
                     line s (sprintf "cdef %s tmp%i = %s" (tup_tyvs d) tmp_i x)
                     line s (Array.mapi (fun i (L(v_i,_)) -> sprintf "v%i = tmp%i.v%i" v_i tmp_i i) d |> String.concat "; ")
+        let layout_index i x =
+            x |> Array.map (fun (L(i',_)) -> sprintf "v%i.l%i" i i')
+            |> String.concat ", "
+            |> function "" -> "pass" | x -> x
+            |> return'
         match a with
         | TyMacro a -> 
             a |> List.map (function 
@@ -240,7 +257,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             Map.iter (fun k (a,b) ->
                 let union_i = case_tags.[k]
                 let branch =
-                    let cond = is |> List.map (fun (v_i : Tag) -> sprintf "v%i == %i" v_i union_i) |> String.concat " and "
+                    let cond = is |> List.map (fun (v_i : Tag) -> sprintf "v%i == %i" v_i union_i) |> String.concat " & "
                     if union_i = 0 then line s (sprintf "if %s: # %s" cond k)
                     else line s (sprintf "elif %s: # %s" cond k)
                 List.iter2 (fun data_i a ->
@@ -257,33 +274,36 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | TyUnionBox(a,b,c) ->
             let c = c.Item
             let i = c.tags.[a]
-            let vars = data_term_vars b |> Array.map show_w |> String.concat ", " |> sprintf "(%s)" // TODO: Factor this.
+            let vars = args' b
             match c.layout with
-            | UHeap -> sprintf "UH%i_%i%s" (uheap c.cases).tag i vars
-            | UStack -> sprintf "US%i_%i%s" (ustack c.cases).tag i vars
+            | UHeap -> sprintf "UH%i_%i(%s)" (uheap c.cases).tag i vars
+            | UStack -> sprintf "US%i_%i(%s)" (ustack c.cases).tag i vars
             |> return'
-        | TyLayoutToHeap(a,b) -> sprintf "{%s} : Heap%i" (layout_vars a) (heap b).tag |> return'
-        | TyLayoutToHeapMutable(a,b) -> sprintf "{%s} : Mut%i" (layout_vars a) (mut b).tag |> return'
+        | TyLayoutToHeap(a,b) -> sprintf "Heap%i(%s)" (heap b).tag (args' a) |> return'
+        | TyLayoutToHeapMutable(a,b) -> sprintf "Mut%i(%s)" (mut b).tag (args' a) |> return'
         | TyLayoutIndexAll(L(i,(a,lay))) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i
         | TyLayoutIndexByKey(L(i,(a,lay)),key) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
             let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
             Array.iter2 (fun (L(i',_)) b ->
-                line s (sprintf "v%i.l%i <- %s" i i' (show_w b))
+                line s (sprintf "v%i.l%i = %s" i i' (show_w b))
                 ) (data_free_vars a) (data_term_vars c)
-        | TyArrayCreate(a,b) -> return' (sprintf "Array.zeroCreate<%s> %s" (ty a) (term_vars b))
-        | TyFailwith(a,b) -> return' (sprintf "failwith<%s> %s" (ty a) (term_vars b))
+        | TyArrayCreate(a,b) -> return' (sprintf "[None] * %s" (tup b))
+        | TyFailwith(a,b) -> return' (sprintf "raise Exception(%s)" (tup b))
         | TyOp(op,l) ->
             match op, l with
-            | Apply,[a;b] -> sprintf "%s %s" (tup a) (tup b)
+            | Apply,[a;b] -> sprintf "%s.apply(%s)" (tup a) (args' b)
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
-            | StringLength, [a] -> sprintf "%s.Length" (tup a)
-            | StringIndex, [a;b] -> sprintf "%s.[%s]" (tup a) (tup b)
-            | StringSlice, [a;b;c] -> sprintf "%s.[%s..%s]" (tup a) (tup b) (tup c)
-            | ArrayIndex, [a;b] -> sprintf "%s.[%s]" (tup a) (tup b)
-            | ArrayIndexSet, [a;b;c] -> sprintf "%s.[%s] <- %s" (tup a) (tup b) (tup c) 
-            | ArrayLength, [a] -> sprintf "%s.Length" (tup a)
+            | StringLength, [a] -> sprintf "length(%s)" (tup a)
+            | StringIndex, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
+            | StringSlice, [a;b;c] -> sprintf "%s[%s..%s]" (tup a) (tup b) (tup c)
+            | ArrayIndex, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
+            | ArrayIndexSet, [a;b;c] -> 
+                match tup c with
+                | "pass" as c -> c
+                | c -> sprintf "%s[%s] = %s" (tup a) (tup b) c
+            | ArrayLength, [a] -> sprintf "length(%s)" (tup a)
 
             // Math
             | Add, [a;b] -> sprintf "%s + %s" (tup a) (tup b)
@@ -291,15 +311,15 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | Mult, [a;b] -> sprintf "%s * %s" (tup a) (tup b)
             | Div, [a;b] -> sprintf "%s / %s" (tup a) (tup b)
             | Mod, [a;b] -> sprintf "%s %% %s" (tup a) (tup b)
-            | Pow, [a;b] -> sprintf "%s ** %s" (tup a) (tup b)
+            | Pow, [a;b] -> sprintf "pow(%s,%s)" (tup a) (tup b)
             | LT, [a;b] -> sprintf "%s < %s" (tup a) (tup b)
             | LTE, [a;b] -> sprintf "%s <= %s" (tup a) (tup b)
-            | EQ, [a;b] -> sprintf "%s = %s" (tup a) (tup b)
-            | NEQ, [a;b] -> sprintf "%s <> %s" (tup a) (tup b)
+            | EQ, [a;b] -> sprintf "%s == %s" (tup a) (tup b)
+            | NEQ, [a;b] -> sprintf "%s != %s" (tup a) (tup b)
             | GT, [a;b] -> sprintf "%s > %s" (tup a) (tup b)
             | GTE, [a;b] -> sprintf "%s >= %s" (tup a) (tup b)
-            | BoolAnd, [a;b] -> sprintf "%s && %s" (tup a) (tup b)
-            | BoolOr, [a;b] -> sprintf "%s || %s" (tup a) (tup b)
+            | BoolAnd, [a;b] -> sprintf "%s & %s" (tup a) (tup b)
+            | BoolOr, [a;b] -> sprintf "%s | %s" (tup a) (tup b)
             | BitwiseAnd, [a;b] -> sprintf "%s & %s" (tup a) (tup b)
             | BitwiseOr, [a;b] -> sprintf "%s | %s" (tup a) (tup b)
             | BitwiseXor, [a;b] -> sprintf "%s ^ %s" (tup a) (tup b)
@@ -308,102 +328,90 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | ShiftRight, [a;b] -> sprintf "%s >> %s" (tup a) (tup b)
 
             | Neg, [x] -> sprintf " -%s" (tup x)
-            | Log, [x] -> sprintf "log %s" (tup x)
-            | Exp, [x] -> sprintf "exp %s" (tup x)
-            | Tanh, [x] -> sprintf "tanh %s" (tup x)
-            | Sqrt, [x] -> sprintf "sqrt %s" (tup x)
-            | Hash, [x] -> sprintf "hash %s" (tup x)
-            | NanIs, [x] -> 
-                match x with
-                | DLit(LitFloat32 _) | DV(L(_,YPrim Float32T)) -> sprintf "System.Single.IsNaN(%s)" (tup x)
-                | DLit(LitFloat64 _) | DV(L(_,YPrim Float64T)) -> sprintf "System.Double.IsNaN(%s)" (tup x)
-                | _ -> raise_codegen_error "Compiler error: Invalid type in NanIs."
-            | UnionTag, [DV(L(i,YUnion h))] -> 
-                let ty =
-                    let h = h.Item
-                    match h.layout with
-                    | UHeap -> sprintf "UH%i" (uheap h.cases).tag
-                    | UStack -> sprintf "US%i" (ustack h.cases).tag
-                sprintf "(fst (Reflection.FSharpValue.GetUnionFields(v%i, typeof<%s>))).Tag" i ty // TODO: Stopgap measure for now. Replace this with something more efficient.
+            | Log, [x] -> import "math"; sprintf "math.log(%s)" (tup x)
+            | Exp, [x] -> import "math"; sprintf "math.exp(%s)" (tup x)
+            | Tanh, [x] -> import "math"; sprintf "math.tanh(%s)" (tup x)
+            | Sqrt, [x] -> import "math"; sprintf "math.sqrt(%s)" (tup x)
+            | Hash, [x] -> sprintf "hash(%s)" (tup x)
+            | NanIs, [x] -> import "math"; sprintf "math.isnan(%s)" (tup x)
+            | UnionTag, [x] -> sprintf "%s.tag" (tup x)
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> return'
     and arg_show i = function "object" -> sprintf "v%i" i | t -> sprintf "%s v%i" t i
-    and cdef_show s i x = line s (sprintf "cdef %s v%i" x i)
-    and args_tys' x = x |> Array.map (fun (i,t) -> arg_show i t) |> String.concat ", "
+    and cdef_show is_public s i x = line s (sprintf "cdef %s%s v%i" (if is_public then "public " else "") x i)
     and args_tys x = x |> Array.map (fun (L(i,t)) -> arg_show i (tyv t)) |> String.concat ", "
-    and heap : _ -> LayoutRec = layout (fun s x ->
-        line s (sprintf "Heap%i = {%s}" x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "l%i : %s" i (tyv t)) |> String.concat "; "))
-        )
-    and mut : _ -> LayoutRec = layout (fun s x ->
-        line s (sprintf "Mut%i = {%s}" x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "mutable l%i : %s" i (tyv t)) |> String.concat "; "))
-        )
-    and uheap : _ -> UnionRec = union (fun s x ->
-        line s (sprintf "UH%i =" x.tag)
+    and tyv_type_show x = x |> Array.map (fun (L(_,t)) -> tyv t)
+    // TODO: Hopefully Cython will get cdef tuples that can hold Python objects. 
+    // Until then, they will share functionality with layout types and be heap allocated.
+    and layout_template prefix (v : char) s tag tys = 
+        line s (sprintf "cdef class %s%i:" prefix tag)
+        let s = indent s
+        tys |> Array.iteri (cdef_show true s)
+        let args = tys |> Array.mapi arg_show |> String.concat ", " |> with_self
+        let body = Array.init tys.Length (fun i -> $"self.{v}{i} = {v}{i}") |> String.concat "; " |> pass_if_empty
+        line s (sprintf "def __init__(%s): %s" args body)
+    and heap : _ -> LayoutRec = layout (fun s x -> layout_template "Heap" 'l' s x.tag (tyv_type_show x.free_vars))
+    and mut : _ -> LayoutRec = layout (fun s x -> layout_template "Mut" 'l' s x.tag (tyv_type_show x.free_vars))
+    and tup' : _ -> TupleRec = tuple (fun s x -> layout_template "Tuple" 'v' s x.tag x.tys)
+    and union_template (prefix : string) s (x : UnionRec) = 
+        line s $"cdef class {prefix}{x.tag}:"
+        line (indent s) $"cdef public int tag"
         let mutable i = 0
-        x.free_vars |> Map.iter (fun _ a ->
-            match a with
-            | [||] -> line (indent s) (sprintf "| UH%i_%i" x.tag i)
-            | a -> line (indent s) (sprintf "| UH%i_%i of %s" x.tag i (a |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat " * "))
+        x.free_vars |> Map.iter (fun k a ->
+            line s $"cdef class {prefix}{x.tag}_{i}({prefix}{x.tag}): # {k}"
+            let s = indent s
+            let tys = tyv_type_show a
+            tys |> Array.iteri (cdef_show true s)
+            let args = tys |> Array.mapi arg_show |> String.concat ", " |> with_self
+            let body = Array.init tys.Length (fun i -> $"self.v{i} = v{i}") |> String.concat "; " |> pass_if_empty
+            line s $"def __init__({args}): {body}"
             i <- i+1
             )
-        )
-    and ustack : _ -> UnionRec = union (fun s x ->
-        line s (sprintf "[<Struct>] US%i =" x.tag)
-        let mutable i = 0
-        x.free_vars |> Map.iter (fun _ a ->
-            match a with
-            | [||] -> line (indent s) (sprintf "| US%i_%i" x.tag i)
-            | a -> line (indent s) (sprintf "| US%i_%i of %s" x.tag i (a |> Array.mapi (fun i' (L(_,t)) -> sprintf "f%i_%i : %s" i i' (tyv t)) |> String.concat " * "))
-            i <- i+1
-            )
-        )
+    and uheap : _ -> UnionRec = union (union_template "UH")
+    // TODO: Stack unions will be implemented the same as heap ones for the time being. 
+    // I don't have a good way to implement the stack based ones in Cython.
+    and ustack : _ -> UnionRec = union (union_template "US") 
     and method : _ -> MethodRec =
-        jp (fun ((jp_body,key & (C(args,_))),i) ->
+        jp false (fun ((jp_body,key & (C(args,_))),i) ->
             match (fst env.join_point_method.[jp_body]).[key] with
             | Some a, Some range -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s x ->
-            line s (sprintf "method%i (%s) : %s =" x.tag (args_tys x.free_vars) (tup_ty x.range))
+            line s $"cdef {tup_ty x.range} method{x.tag}({args_tys x.free_vars}):"
             binds (indent s) x.body
             )
     and closure_ty : _ -> ClosureTyRec =
-        jp (fun ((domain,range),i) -> {tag=i; domain=domain; range=range}) (fun s x ->
+        jp true (fun ((domain,range),i) -> {tag=i; domain=domain; range=range}) (fun s x ->
             line s (sprintf "cdef class ClosureTy%i:" x.tag)
-            let dom = env.ty_to_data x.domain |> data_free_vars |> args_tys
-            line (indent s) (sprintf "cpdef %s apply(self, %s) = raise raise NotImplementedError()" (tup_ty x.range) dom)
+            let dom = env.ty_to_data x.domain |> data_free_vars |> args_tys |> with_self
+            line (indent s) $"cpdef {tup_ty x.range} apply({dom}): raise NotImplementedError()"
             )
     and closure : _ -> ClosureRec =
-        jp (fun ((jp_body,key & (C(args,_,domain,range))),i) ->
+        jp true (fun ((jp_body,key & (C(args,_,domain,range))),i) ->
             match (fst env.join_point_closure.[jp_body]).[key] with
             | Some(domain_args, body) -> {tag=i; free_vars=rdata_free_vars args; domain=domain; domain_args=data_free_vars domain_args; range=range; body=body}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s x ->
-            let domain = args_tys x.domain_args
             line s (sprintf "cdef class Closure%i(ClosureTy%i):" x.tag (closure_ty (x.domain,x.range)).tag)
             let s = indent s
             let free_vars = x.free_vars |> Array.map (fun (L(i,t)) -> i, tyv t)
-            free_vars |> Array.iter (fun (i,x) -> cdef_show s i x)
-            let init_body = free_vars |> Array.map (fun (i,_) -> sprintf "self.v%i = v%i" i i) |> String.concat "; "
-            line s (sprintf "def __init__(self, %s): %s" (args_tys' free_vars) init_body)
-            line s (sprintf "cpdef apply(self, %s):" (args_tys x.domain_args))
+            free_vars |> Array.iter (fun (i,x) -> cdef_show false s i x)
+            let init_args = free_vars |> Array.map (fun (i,t) -> arg_show i t) |> String.concat ", " |> with_self
+            let init_body = free_vars |> Array.map (fun (i,_) -> $"self.v{i} = v{i}") |> String.concat "; " |> pass_if_empty
+            line s $"def __init__({init_args}): {init_body}"
+            line s $"cpdef {tup_ty x.range} apply({with_self (args_tys x.domain_args)}):"
             let s = indent s
-            line s (free_vars |> Array.map (function i, "object" -> sprintf "v%i = self.v%i" i i | i, t -> sprintf "cdef %s v%i = self.v%i" t i i) |> String.concat "; ")
+            free_vars |> Array.iter (function i, "object" -> line s $"v{i} = self.v{i}" | i, t -> line s $"cdef {t} v{i} = self.v{i}")
             binds s x.body
-            )
-    and tup' : _ -> TupleRec =
-        tuple (fun s x ->
-            line s (sprintf "cdef class Tuple%i:" x.tag)
-            let s = indent s
-            x.tys |> Array.iteri (cdef_show s)
-            let args = x.tys |> Array.mapi arg_show |> String.concat ", "
-            let body = Array.init x.tys.Length (fun i -> sprintf "self.v%i = v%i" i i) |> String.concat "; "
-            line s (sprintf "def __init__(self, %s): %s" args body)
             )
 
     let main = StringBuilder()
-    binds {text=main; indent=0} x
+    let s = {text=main; indent=0}
+    line s $"cpdef main():"
+    binds (indent s) x
 
     let program = StringBuilder()
-    types |> Seq.iteri (fun i x -> program.Append(if i = 0 then "type " else "and ").Append(x) |> ignore)
-    functions |> Seq.iteri (fun i x -> program.Append(if i = 0 then "let rec " else "and ").Append(x) |> ignore)
+    imports |> Seq.iter (fun x -> program.Append("import ").Append(x) |> ignore)
+    types |> Seq.iter (fun x -> program.Append(x) |> ignore)
+    functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
     program.Append(main).ToString()

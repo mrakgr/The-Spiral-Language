@@ -41,7 +41,7 @@ const spiChangeReq = async (uri: string, spiEdit : {from: number, nearTo: number
 const spiDeleteReq = async (uris: string []): Promise<void> => requestJSON({ FileDelete: { uris } })
 const spiTokenRangeReq = async (uri: string, range : Range): Promise<number []> => requestJSON({ FileTokenRange: { uri, range } })
 const spiHoverAtReq = async (uri: string, pos : Position): Promise<string | null> => request({ HoverAt: { uri, pos } })
-const spiBuildFileReq = async (uri: string): Promise<void> => requestJSON({ BuildFile: {uri} })
+const spiBuildFileReq = async (uri: string, backend : string): Promise<void> => requestJSON({ BuildFile: {uri, backend} })
 const spiPingReq = async (): Promise<void> => requestJSON({ Ping: true })
 
 const range = (x : VSCRange) => new Range(x[0].line, x[0].character, x[1].line, x[1].character)
@@ -271,7 +271,7 @@ export const activate = async (ctx: ExtensionContext) => {
         commands.registerCommand("buildFile", () => {
             window.visibleTextEditors.forEach(x => {
                 switch (path.extname(x.document.uri.path)) {
-                    case ".spi": case ".spir": spiBuildFileReq(x.document.uri.toString(true))
+                    case ".spi": case ".spir": spiBuildFileReq(x.document.uri.toString(true), workspace.getConfiguration("spiral").get("backend") || "Fsharp")
                 }})
         }),
         commands.registerCommand("runClosure", x => { x() }),
