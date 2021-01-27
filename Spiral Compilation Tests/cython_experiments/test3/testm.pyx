@@ -7,4 +7,6 @@ cdef class FuncAddInt(FuncInt):
     cdef int apply(self, int y): return self.x + y
 
 cpdef int applyAdd(FuncInt a, int b):
+    cdef char [1] q
+    pass
     return a.apply(b)

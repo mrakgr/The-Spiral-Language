@@ -243,7 +243,6 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s (sprintf "| %s -> (* %s *)" cases k)
                 binds (indent s) b
                 ) on_succs
-            |> ignore
             on_fail |> Option.iter (fun b ->
                 line s "| _ ->"
                 binds (indent s) b

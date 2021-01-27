@@ -157,27 +157,33 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | YLayout(a,HeapMutable) -> sprintf "Mut%i" (mut a).tag
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a) |> String.concat ""
         | YPrim a -> prim a
-        | YArray a -> "object" // TODO: Special cases for primitive arrays.
+        | YArray a -> "list" // TODO: Special cases for primitive arrays.
         | YFun(a,b) -> sprintf "ClosureTy%i" ((closure_ty (a,b)).tag)
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
     and binds (s : CodegenEnv) (x : TypedBind []) =
-        Array.iter (fun x ->
+        Array.iteri (fun i x ->
             match x with
             | TyLet(d,trace,a) -> try op s (Some d) a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             | TyLocalReturnOp(trace,a) -> try op s None a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
-            | TyLocalReturnData(d,trace) -> try line s (tup d) with :? CodegenError as e -> raise_codegen_error' trace e.Data0
+            | TyLocalReturnData(d,trace) -> 
+                try match tup d with "pass" when i <> 0 -> () | x -> line s x
+                with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             ) x
     and tup x =
         match data_term_vars x with
+        | [||] -> "pass"
         | [|x|] -> show_w x
         | x -> 
             let args = Array.map show_w x |> String.concat ", " 
             let ty = x |> Array.map (function WV(L(_,t)) -> tyv t | WLit x -> prim (lit_to_primitive_type x))
             sprintf "Tuple%i(%s)" ((tup' ty).tag) args
-    and tup_tyvs (x : TyV []) = 
-        let vars = x |> Array.map (fun (L(_,x)) -> tyv x)
-        let i = tup' vars
-        sprintf "Tuple%i" i.tag
+    and tup_tyvs = function
+        | [||] -> "void"
+        | [|L(_,x)|] -> tyv x
+        | x ->
+            let vars = x |> Array.map (fun (L(_,x)) -> tyv x)
+            let i = tup' vars
+            sprintf "Tuple%i" i.tag
     and tup_data x = tup_tyvs (data_free_vars x)
     and tup_ty x = tup_data (env.ty_to_data x)
     and op s d a =
@@ -198,7 +204,12 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     line s (sprintf "cdef %s tmp%i = %s" (tup_tyvs d) tmp_i x)
                     line s (Array.mapi (fun i (L(v_i,_)) -> sprintf "v%i = tmp%i.v%i" v_i tmp_i i) d |> String.concat "; ")
         match a with
-        | TyMacro a -> a |> List.map (function CMText x -> x | CMTerm x -> tup x | CMType x -> tup_ty x) |> String.concat "" |> return'
+        | TyMacro a -> 
+            a |> List.map (function 
+                | CMText x -> x 
+                | CMTerm x -> match tup x with "pass" -> raise_codegen_error "Cython codegen error: Void terms are not allowed in macros." | x -> x
+                | CMType x -> match tup_ty x with "void" -> raise_codegen_error "Cython codegen error: Void types are not allowed in macros." | x -> x
+                ) |> String.concat "" |> return'
         | TyIf(cond,tr,fl) ->
             line s (sprintf "if %s:" (tup cond))
             binds (indent s) tr
@@ -220,39 +231,33 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s "else:"
             binds (indent s) on_fail
         | TyUnionUnbox(is,x,on_succs,on_fail) ->
-            complex <| fun s ->
             let case_tags = x.Item.tags
-            line s (sprintf "match %s with" (is |> List.map (sprintf "v%i") |> String.concat ", "))
             let prefix = 
                 let x = x.Item
                 match x.layout with
                 | UHeap -> sprintf "UH%i" (uheap x.cases).tag
                 | UStack -> sprintf "US%i" (ustack x.cases).tag
             Map.iter (fun k (a,b) ->
-                let i = case_tags.[k]
-                let cases = 
-                    a |> List.map (fun a ->
-                        match data_free_vars a with
-                        | [||] -> ""
-                        | x -> sprintf "(%s)" (args x)
-                        |> sprintf "%s_%i%s" prefix i
+                let union_i = case_tags.[k]
+                let branch =
+                    let cond = is |> List.map (fun (v_i : Tag) -> sprintf "v%i == %i" v_i union_i) |> String.concat " and "
+                    if union_i = 0 then line s (sprintf "if %s: # %s" cond k)
+                    else line s (sprintf "elif %s: # %s" cond k)
+                List.iter2 (fun data_i a ->
+                    data_free_vars a |> Array.iteri (fun field_i (L(v_i,t)) ->
+                        line s $"cdef {tyv t} v{v_i} = (<{prefix}_{union_i}>v{data_i}).v{field_i}"
                         )
-                    |> String.concat ", "
-                line s (sprintf "| %s -> (* %s *)" cases k)
+                    ) is a
                 binds (indent s) b
                 ) on_succs
-            |> ignore
             on_fail |> Option.iter (fun b ->
-                line s "| _ ->"
+                line s "else:"
                 binds (indent s) b
                 )
         | TyUnionBox(a,b,c) ->
             let c = c.Item
             let i = c.tags.[a]
-            let vars =
-                match data_term_vars b with
-                | [||] -> ""
-                | x -> Array.map show_w x |> String.concat ", " |> sprintf "(%s)"
+            let vars = data_term_vars b |> Array.map show_w |> String.concat ", " |> sprintf "(%s)" // TODO: Factor this.
             match c.layout with
             | UHeap -> sprintf "UH%i_%i%s" (uheap c.cases).tag i vars
             | UStack -> sprintf "US%i_%i%s" (ustack c.cases).tag i vars
@@ -323,9 +328,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> return'
     and arg_show i = function "object" -> sprintf "v%i" i | t -> sprintf "%s v%i" t i
-    and cdef_show s i = function
-        | "object" -> line s (sprintf "v%i" i)
-        | x -> line s (sprintf "cdef %s v%i" x i)
+    and cdef_show s i x = line s (sprintf "cdef %s v%i" x i)
     and args_tys' x = x |> Array.map (fun (i,t) -> arg_show i t) |> String.concat ", "
     and args_tys x = x |> Array.map (fun (L(i,t)) -> arg_show i (tyv t)) |> String.concat ", "
     and heap : _ -> LayoutRec = layout (fun s x ->
