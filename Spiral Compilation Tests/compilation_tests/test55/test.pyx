@@ -1,0 +1,2 @@
+cpdef void main():
+    pass

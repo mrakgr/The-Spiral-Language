@@ -8,12 +8,12 @@ let rec method0 (v0 : UH0) : float32 =
         let v3 : float32 = method0(v1)
         let v4 : float32 = method0(v2)
         v3 + v4
-    | UH0_1(v1, v2) -> (* mult_ *)
-        let v3 : float32 = method0(v1)
-        let v4 : float32 = method0(v2)
-        v3 * v4
-    | UH0_2(v1) -> (* v_ *)
-        v1
+    | UH0_1(v6, v7) -> (* mult_ *)
+        let v8 : float32 = method0(v6)
+        let v9 : float32 = method0(v7)
+        v8 * v9
+    | UH0_2(v11) -> (* v_ *)
+        v11
 // static
 let v0 : float32 = 21.000000f
 // dynamic

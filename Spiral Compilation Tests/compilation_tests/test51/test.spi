@@ -3,27 +3,27 @@ union t = A: i32 | B: f64
 inl union_test () =
     inl a = A: 1
     inl b = B: 3
-    $"// Static a"
+    $"# // Static a"
     inl ~_ = hash a
-    $"// Static b"
+    $"# // Static b"
     inl ~_ = hash b
-    $"// Dyn a"
+    $"# // Dyn a"
     inl ~_ = hash (dyn a)
-    $"// Dyn b"
+    $"# // Dyn b"
     inl ~_ = hash (dyn b)
     ()
 
 inl union_rec_test () =
     inl a = 1i32 :: 2 :: dyn (3 :: Nil)
     inl b = 1f64 :: dyn (2 :: 3 :: Nil)
-    $"// a"
+    $"# // a"
     inl ~_ = hash a
-    $"// b"
+    $"# // b"
     inl ~_ = hash b
     ()
 
 inl main () =
-    $"// Union test"
+    $"# // Union test"
     union_test ()
-    $"// Union rec test"
+    $"# // Union rec test"
     union_rec_test ()

@@ -151,10 +151,12 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
 
     let import =
         let has_added = HashSet()
-        fun x -> if has_added.Add(x) then imports.Add x
+        fun x -> if has_added.Add(x) then imports.Add $"import {x}"
 
     let with_self = function "" -> "self" | x -> $"self, {x}"
     let pass_if_empty = function "" -> "pass" | x -> x
+
+    let binds_last_data x = x |> Array.last |> function TyLocalReturnData(x,_) | TyLocalReturnOp(_,_,x) -> x | TyLet _ -> raise_codegen_error "Compiler error: Cannot find the return data of the last bind."
 
     let rec tyv = function
         | YUnion a -> 
@@ -169,19 +171,25 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | YArray a -> "list" // TODO: Special cases for primitive arrays.
         | YFun(a,b) -> sprintf "ClosureTy%i" ((closure_ty (a,b)).tag)
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
-    and binds (s : CodegenEnv) (x : TypedBind []) =
+    and binds' (defs : CodegenEnv) (x : TypedBind []) =
+        let s = {defs with text = StringBuilder()}
+        binds defs s (Choice1Of2(binds_last_data x |> data_free_vars |> Array.isEmpty)) x
+        defs.text.Append(s.text) |> ignore
+    and binds (defs : CodegenEnv) (s : CodegenEnv) ret (x : TypedBind []) =
         Array.iteri (fun i x ->
             match x with
             | TyLet(d,trace,a) -> 
                 try let d = data_free_vars d
-                    Array.iter (fun (L(i,t)) -> cdef_show false s i (tyv t)) d
-                    op s (Some d) a
+                    Array.iter (fun (L(i,t)) -> cdef_show false defs i (tyv t)) d
+                    op defs s (Choice2Of2 d) a
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
-            | TyLocalReturnOp(trace,a) -> try op s None a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
+            | TyLocalReturnOp(trace,a,_) -> try op defs s ret a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             | TyLocalReturnData(d,trace) -> 
-                try match tup d with 
-                    | "pass" as x -> if i = 0 then line s x
-                    | x -> line s $"return {x}"
+                try match ret with
+                    | Choice1Of2 true -> if i = 0 then line s "pass"
+                    | Choice1Of2 false -> line s $"return {tup d}"
+                    | Choice2Of2 [||] -> ()
+                    | Choice2Of2 ret -> line s $"{args ret} = {args' d}"
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             ) x
     and tup x =
@@ -198,25 +206,26 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | x -> $"Tuple{(tup' (tyv_type_show x)).tag}"
     and tup_data x = tup_tyvs (data_free_vars x)
     and tup_ty x = tup_data (env.ty_to_data x)
-    and op s d a =
+    and op defs s ret a =
+        let return' x =
+            match ret with
+            | Choice1Of2 true -> line s x 
+            | Choice1Of2 false -> line s (sprintf "return %s" x)
+            | Choice2Of2 [||] -> line s x
+            | Choice2Of2 [|L(i,_)|] -> line s $"v{i} = {x}"
+            | Choice2Of2 ret ->
+                    let tmp_i = tmp()
+                    line defs $"cdef {tup_tyvs ret} tmp{tmp_i}"
+                    line s $"tmp{tmp_i} = {x}"
+                    let tmp_is = Array.init ret.Length (fun i -> $"tmp{tmp_i}.v{i}") |> String.concat ", "
+                    line s $"{args ret} = {tmp_is}"
         let jp (a,b) =
             let args = args b
             match a with
             | JPMethod(a,b) -> sprintf "method%i(%s)" (method (a,b)).tag args
             | JPClosure(a,b) -> sprintf "Closure%i(%s)" (closure (a,b)).tag args
-        let return' x =
-            match d with
-            | None -> line s (sprintf "return %s" x)
-            | Some d ->
-                match d with
-                | [||] -> line s x
-                | [|L(i,_)|] -> line s (sprintf "v%i = %s" i x)
-                | d ->
-                    let tmp_i = tmp()
-                    line s (sprintf "cdef %s tmp%i = %s" (tup_tyvs d) tmp_i x)
-                    line s (Array.mapi (fun i (L(v_i,_)) -> sprintf "v%i = tmp%i.v%i" v_i tmp_i i) d |> String.concat "; ")
         let layout_index i x =
-            x |> Array.map (fun (L(i',_)) -> sprintf "v%i.l%i" i i')
+            x |> Array.map (fun (L(i',_)) -> $"v{i}.v{i'}")
             |> String.concat ", "
             |> function "" -> "pass" | x -> x
             |> return'
@@ -229,24 +238,24 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 ) |> String.concat "" |> return'
         | TyIf(cond,tr,fl) ->
             line s (sprintf "if %s:" (tup cond))
-            binds (indent s) tr
+            binds defs (indent s) ret tr
             match fl with
             | [|TyLocalReturnData(DB,_)|] -> ()
             | _ ->
                 line s "else:"
-                binds (indent s) fl
+                binds defs (indent s) ret fl
         | TyJoinPoint(a,args) -> return' (jp (a, args))
         | TyWhile(a,b) ->
             line s (sprintf "while %s:" (jp a))
-            binds (indent s) b
+            binds defs (indent s) ret b
         | TyIntSwitch(v_i,on_succ,on_fail) ->
             Array.iteri (fun i x ->
                 if i = 0 then line s (sprintf "if v%i = %i:" v_i i)
                 else line s (sprintf "elif v%i = %i:" v_i i)
-                binds (indent s) x
+                binds defs (indent s) ret x
                 ) on_succ
             line s "else:"
-            binds (indent s) on_fail
+            binds defs (indent s) ret on_fail
         | TyUnionUnbox(is,x,on_succs,on_fail) ->
             let case_tags = x.Item.tags
             let prefix = 
@@ -254,22 +263,27 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 match x.layout with
                 | UHeap -> sprintf "UH%i" (uheap x.cases).tag
                 | UStack -> sprintf "US%i" (ustack x.cases).tag
+            let mutable is_first = true
             Map.iter (fun k (a,b) ->
                 let union_i = case_tags.[k]
                 let branch =
-                    let cond = is |> List.map (fun (v_i : Tag) -> sprintf "v%i == %i" v_i union_i) |> String.concat " & "
-                    if union_i = 0 then line s (sprintf "if %s: # %s" cond k)
+                    let cond = is |> List.map (fun (v_i : Tag) -> sprintf "v%i == %i" v_i union_i) |> String.concat " and "
+                    if is_first then 
+                        line s (sprintf "if %s: # %s" cond k)
+                        is_first <- false
                     else line s (sprintf "elif %s: # %s" cond k)
+                let s = indent s
                 List.iter2 (fun data_i a ->
                     data_free_vars a |> Array.iteri (fun field_i (L(v_i,t)) ->
-                        line s $"cdef {tyv t} v{v_i} = (<{prefix}_{union_i}>v{data_i}).v{field_i}"
+                        line defs $"cdef {tyv t} v{v_i}"
+                        line s $"v{v_i} = (<{prefix}_{union_i}>v{data_i}).v{field_i}"
                         )
                     ) is a
-                binds (indent s) b
+                binds defs s ret b
                 ) on_succs
             on_fail |> Option.iter (fun b ->
                 line s "else:"
-                binds (indent s) b
+                binds defs (indent s) ret b
                 )
         | TyUnionBox(a,b,c) ->
             let c = c.Item
@@ -286,7 +300,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
             let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
             Array.iter2 (fun (L(i',_)) b ->
-                line s (sprintf "v%i.l%i = %s" i i' (show_w b))
+                line s $"v{i}.v{i'} = {show_w b}"
                 ) (data_free_vars a) (data_term_vars c)
         | TyArrayCreate(a,b) -> return' (sprintf "[None] * %s" (tup b))
         | TyFailwith(a,b) -> return' (sprintf "raise Exception(%s)" (tup b))
@@ -295,7 +309,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | Apply,[a;b] -> sprintf "%s.apply(%s)" (tup a) (args' b)
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
-            | StringLength, [a] -> sprintf "length(%s)" (tup a)
+            | StringLength, [a] -> sprintf "len(%s)" (tup a)
             | StringIndex, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
             | StringSlice, [a;b;c] -> sprintf "%s[%s..%s]" (tup a) (tup b) (tup c)
             | ArrayIndex, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
@@ -303,7 +317,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 match tup c with
                 | "pass" as c -> c
                 | c -> sprintf "%s[%s] = %s" (tup a) (tup b) c
-            | ArrayLength, [a] -> sprintf "length(%s)" (tup a)
+            | ArrayLength, [a] -> sprintf "len(%s)" (tup a)
 
             // Math
             | Add, [a;b] -> sprintf "%s + %s" (tup a) (tup b)
@@ -318,8 +332,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | NEQ, [a;b] -> sprintf "%s != %s" (tup a) (tup b)
             | GT, [a;b] -> sprintf "%s > %s" (tup a) (tup b)
             | GTE, [a;b] -> sprintf "%s >= %s" (tup a) (tup b)
-            | BoolAnd, [a;b] -> sprintf "%s & %s" (tup a) (tup b)
-            | BoolOr, [a;b] -> sprintf "%s | %s" (tup a) (tup b)
+            | BoolAnd, [a;b] -> sprintf "%s and %s" (tup a) (tup b)
+            | BoolOr, [a;b] -> sprintf "%s or %s" (tup a) (tup b)
             | BitwiseAnd, [a;b] -> sprintf "%s & %s" (tup a) (tup b)
             | BitwiseOr, [a;b] -> sprintf "%s | %s" (tup a) (tup b)
             | BitwiseXor, [a;b] -> sprintf "%s ^ %s" (tup a) (tup b)
@@ -343,16 +357,16 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and tyv_type_show x = x |> Array.map (fun (L(_,t)) -> tyv t)
     // TODO: Hopefully Cython will get cdef tuples that can hold Python objects. 
     // Until then, they will share functionality with layout types and be heap allocated.
-    and layout_template prefix (v : char) s tag tys = 
+    and layout_template prefix s tag tys = 
         line s (sprintf "cdef class %s%i:" prefix tag)
         let s = indent s
         tys |> Array.iteri (cdef_show true s)
         let args = tys |> Array.mapi arg_show |> String.concat ", " |> with_self
-        let body = Array.init tys.Length (fun i -> $"self.{v}{i} = {v}{i}") |> String.concat "; " |> pass_if_empty
+        let body = Array.init tys.Length (fun i -> $"self.v{i} = v{i}") |> String.concat "; " |> pass_if_empty
         line s (sprintf "def __init__(%s): %s" args body)
-    and heap : _ -> LayoutRec = layout (fun s x -> layout_template "Heap" 'l' s x.tag (tyv_type_show x.free_vars))
-    and mut : _ -> LayoutRec = layout (fun s x -> layout_template "Mut" 'l' s x.tag (tyv_type_show x.free_vars))
-    and tup' : _ -> TupleRec = tuple (fun s x -> layout_template "Tuple" 'v' s x.tag x.tys)
+    and heap : _ -> LayoutRec = layout (fun s x -> layout_template "Heap" s x.tag (tyv_type_show x.free_vars))
+    and mut : _ -> LayoutRec = layout (fun s x -> layout_template "Mut" s x.tag (tyv_type_show x.free_vars))
+    and tup' : _ -> TupleRec = tuple (fun s x -> layout_template "Tuple" s x.tag x.tys)
     and union_template (prefix : string) s (x : UnionRec) = 
         line s $"cdef class {prefix}{x.tag}:"
         line (indent s) $"cdef public int tag"
@@ -363,7 +377,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let tys = tyv_type_show a
             tys |> Array.iteri (cdef_show true s)
             let args = tys |> Array.mapi arg_show |> String.concat ", " |> with_self
-            let body = Array.init tys.Length (fun i -> $"self.v{i} = v{i}") |> String.concat "; " |> pass_if_empty
+            let body = $"self.tag = {i}" :: List.init tys.Length (fun i -> $"self.v{i} = v{i}") |> String.concat "; "
             line s $"def __init__({args}): {body}"
             i <- i+1
             )
@@ -378,7 +392,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s x ->
             line s $"cdef {tup_ty x.range} method{x.tag}({args_tys x.free_vars}):"
-            binds (indent s) x.body
+            binds' (indent s) x.body
             )
     and closure_ty : _ -> ClosureTyRec =
         jp true (fun ((domain,range),i) -> {tag=i; domain=domain; range=range}) (fun s x ->
@@ -402,16 +416,16 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s $"cpdef {tup_ty x.range} apply({with_self (args_tys x.domain_args)}):"
             let s = indent s
             free_vars |> Array.iter (function i, "object" -> line s $"v{i} = self.v{i}" | i, t -> line s $"cdef {t} v{i} = self.v{i}")
-            binds s x.body
+            binds' s x.body
             )
 
     let main = StringBuilder()
     let s = {text=main; indent=0}
-    line s $"cpdef main():"
-    binds (indent s) x
+    line s $"cpdef {tup_data (binds_last_data x)} main():"
+    binds' (indent s) x
 
     let program = StringBuilder()
-    imports |> Seq.iter (fun x -> program.Append("import ").Append(x) |> ignore)
+    imports |> Seq.iter (fun x -> program.Append(x) |> ignore)
     types |> Seq.iter (fun x -> program.Append(x) |> ignore)
     functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
     program.Append(main).ToString()

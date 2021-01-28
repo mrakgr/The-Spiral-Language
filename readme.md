@@ -1,9 +1,7 @@
 <!-- TOC -->
 
 - [News](#news)
-    - [12/24/2020](#12242020)
-    - [1/13/2021](#1132021)
-    - [1/17/2021](#1172021)
+- [1/28/2021](#1282021)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
     - [Getting Spiral](#getting-spiral)
@@ -50,29 +48,9 @@
 
 # News
 
-## 12/24/2020
+# 1/28/2021
 
-Spiral 2 has been released on the VS Code marketplace yesterday!
-
-v0.2 is now just v2.0. This way of versioning will work better with the way VS Code marketplace does it, namely `<major>.<minor>.<patch>`. I want to retain the option to move up the minor versions in the future. That won't work if `0.2` freezes the major and the minor fields in place.
-
-The next are the docs. In truth, the testing phase for the language should have been done for a while longer, but I decided to push up the publication. It is better this way. Rather than trying to force tests, I'll find and resolve bugs organically as I go along. Doing the docs will also force me to cover the features of the language in depth.
-
-Let me start with the overview.
-
-## 1/13/2021
-
-I haven't proofread the docs yet, but I've put everything that I wanted in them. In particular the serializers are good and non-trivial showcase of Spiral's capabilities. One weakness of the documentation in its current form is that it won't be beginner-friendly. I'll decide what to do about that based on feedback. If there are any questions, don't hesitate to ask in the issues page.
-
-At 4.1k lines, the quantity of it won't embarrass me. It takes a decent while to get to the bottom when holding down the page-down key. The next thing on my agenda will be to get Spiral to work on Linux. .NET is supposed to be portable now, but who knows what can break when moving OSes.
-
-After that I'll make sure the hover comments are added into the language. After that comes proofreading the docs.
-
-After that, comes putting the language to use in the real world.
-
-## 1/17/2021
-
-Spiral is now properly portable, and I've just finished added hover comments. I am done with adding language features here. The next step is to proofread these docs.
+Spiral now has a Cython backend. It can be selected in the Spiral settings. Right now it compiles valid code for all the programs in the testing suite, but I've yet to actually run any of them. Testing for it should be done tomorrow.
 
 # The Spiral Language
 

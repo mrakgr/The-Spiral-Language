@@ -6,13 +6,15 @@ union rec arith x =
 inl main() =
     inl a = Add: v_ 1, v_ 2
     inl b = Add: v_ 3, v_ 4
-    inl c = Mult: a, b
+    inl c : arith f32 = Mult: a, b
     inl rec f x = 
         match x with
         | V: x => x
         | Add: a, b => g a + g b
         | Mult: a, b => g a * g b
-    and inl g x = if var_is x then join f x else f x
+    and inl g x = 
+        if var_is x then join f x 
+        else f x
     $"// static"
     inl ~x = g c : f32
     $"// dynamic"

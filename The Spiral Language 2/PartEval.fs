@@ -98,7 +98,7 @@ type CodeMacro =
 
 type TypedBind =
     | TyLet of Data * Trace * TypedOp
-    | TyLocalReturnOp of Trace * TypedOp
+    | TyLocalReturnOp of Trace * TypedOp * Data
     | TyLocalReturnData of Data * Trace
 
 and TypedOp = 
@@ -237,7 +237,7 @@ let seq_apply (d: LangEnv) end_dat =
     let inline end_ () = d.seq.Add(TyLocalReturnData(end_dat,d.trace))
     if d.seq.Count > 0 then
         match d.seq.[d.seq.Count-1] with
-        | TyLet(end_dat',a,b) when Object.ReferenceEquals(end_dat,end_dat') -> d.seq.[d.seq.Count-1] <- TyLocalReturnOp(a,b)
+        | TyLet(end_dat',a,b) when Object.ReferenceEquals(end_dat,end_dat') -> d.seq.[d.seq.Count-1] <- TyLocalReturnOp(a,b,end_dat')
         | _ -> end_()
     else end_()
     d.seq.ToArray()
@@ -551,7 +551,7 @@ let peval (env : TopEnv) (x : E) =
         let x = term s x |> dyn false s
         let x_ty = data_to_ty s x
         seq_apply s x, x_ty
-    and term_scope' s cse x = term_scope'' {s with seq=ResizeArray(); i=ref !s.i; cse=cse :: s.cse} x
+    and term_scope' s cse x = term_scope'' {s with seq=ResizeArray(); cse=cse :: s.cse} x
     and term_scope s x = term_scope' s (Dictionary(HashIdentity.Structural)) x
     and nominal_apply s x =
         match x with
@@ -729,7 +729,7 @@ let peval (env : TopEnv) (x : E) =
                     if type_tr = type_fl then
                         if tr.Length = 1 && fl.Length = 1 then
                             match tr.[0], fl.[0] with
-                            | TyLocalReturnOp(_,tr), TyLocalReturnOp(_,fl) when tr = fl -> push_typedop_no_rewrite s tr type_tr
+                            | TyLocalReturnOp(_,tr,_), TyLocalReturnOp(_,fl,_) when tr = fl -> push_typedop_no_rewrite s tr type_tr
                             | TyLocalReturnData(tr',_), TyLocalReturnData(fl',_) -> 
                                 match tr', fl' with
                                 | tr, fl when tr = fl -> tr
@@ -823,7 +823,7 @@ let peval (env : TopEnv) (x : E) =
                     let mutable case_ty = None
                     let cases =
                         Map.map (fun k v ->
-                            let s = {s with i = ref !s.i; cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
+                            let s = {s with cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
                             let a = DPair(DSymbol k,ty_to_data s v)
                             cse_add s key a
                             let x = run s a |> dyn false s
@@ -1024,7 +1024,7 @@ let peval (env : TopEnv) (x : E) =
             let on_succ = term s on_succ
             let on_fail = term s on_fail
             let mutable case_ty = None
-            let s' () = {s with i = ref !s.i; cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
+            let s' () = {s with cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
             let assert_case_ty s x =
                 let x_ty' = data_to_ty s x
                 match case_ty with
@@ -1094,14 +1094,14 @@ let peval (env : TopEnv) (x : E) =
                     | Some _ -> failwith "Compiler error: Expected an 32-bit int."
                     | None ->
                         let on_fail, on_fail_ty =
-                            let s = {s with i = ref !s.i; cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
+                            let s = {s with cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
                             let r = apply s (on_fail, DB) |> dyn false s
                             seq_apply s r, data_to_ty s r
                         let on_succ =
                             Array.mapi (fun i (k,v) ->
                                 let cse = Dictionary()
                                 cse.Add(key,DLit(LitInt32 i))
-                                let s = {s with i = ref !s.i; cse = cse :: s.cse; seq = ResizeArray()}
+                                let s = {s with cse = cse :: s.cse; seq = ResizeArray()}
                                 let r = type_apply s (apply s (on_succ, DSymbol k)) v |> dyn false s
                                 let r_ty = data_to_ty s r
                                 if on_fail_ty <> r_ty then raise_type_error s <| sprintf "Return type of the success case does not match the failure one.\nGot: %s\nExpected: %s" (show_ty r_ty) (show_ty on_fail_ty)
@@ -1192,7 +1192,7 @@ let peval (env : TopEnv) (x : E) =
             then r else raise_type_error s <| sprintf "Typecase miss.\nGot: %s" (show_ty a)
         | EOp(_,While,[cond;body]) -> 
             match term_scope s cond with
-            | [|TyLocalReturnOp(_,TyJoinPoint cond)|], ty ->
+            | [|TyLocalReturnOp(_,TyJoinPoint cond,_)|], ty ->
                 match ty with
                 | YPrim BoolT -> 
                     match term_scope s body with

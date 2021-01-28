@@ -1,19 +1,19 @@
 cpdef main():
     cdef char v0
-    v0 = 1
     cdef char v1
-    v1 = 0
     cdef char v2
-    v2 = 1
     cdef char v3
-    v3 = 0
     cdef char v4
-    v4 = 1
     cdef char v5
-    v5 = v0 & v1
+    cdef char v6
+    v0 = 1
+    v1 = 0
+    v2 = 1
+    v3 = 0
+    v4 = 1
+    v5 = v0 and v1
     if v5:
         return 1
     else:
-        cdef char v6
-        v6 = v2 & v3
-        return v6 | v4
+        v6 = v2 and v3
+        return v6 or v4

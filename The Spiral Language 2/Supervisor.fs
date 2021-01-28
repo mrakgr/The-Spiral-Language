@@ -256,7 +256,7 @@ let module_changed atten errors s p =
     match module_project p with
     | null -> s
     | x -> 
-        if Map.containsKey x s.packages.validated_schemas then s
+        if Map.containsKey x s.packages.validated_schemas then package_validate_then_send_errors atten errors s x
         else package_update_validate_then_send_errors atten errors s x None
 
 let attention_server (req : (SupervisorState * string) Stream) =

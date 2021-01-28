@@ -211,6 +211,9 @@ inl rec (=) a b =
             else nominal_strip a = nominal_strip b
         else !!!!EQ(a,b)
 
+// Structural polymorphic equality for every type in the language (apart from functions.)
+inl (=) a b = if `(`(a)) `= `(`(b)) then a = b else error_type "The variables compared for equality have to have the same type."
+
 // Structural polymorphic inequality for every type in the language (apart from functions.)
 inl (<>) a b = (a = b) <> true
 
@@ -260,6 +263,9 @@ inl rec comp a b =
             if !!!!LT(a,b) then LT
             elif !!!!GT(a,b) then GT
             else EQ
+
+// Structural polymorphic comparison for every type in the language (apart from functions.)
+inl comp a b = if `(`(a)) `= `(`(b)) then comp a b else error_type "The variables compared have to have the same type."
 
 // Structural polymorphic hashing for every type in the language (apart from functions.)
 inl hash x = 

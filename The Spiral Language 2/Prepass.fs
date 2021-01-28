@@ -757,7 +757,7 @@ let add_wildcard (e : Env) = let ty = e.ty in {e with ty = {|ty with i = ty.i+1|
 let add_term_var (e : Env) k = e.term.i, add_term e k (EV e.term.i)
 let fresh_term_var (e : Env) = e.term.i, (let term = e.term in {e with term = {|term with i = term.i+1|} })
 let fresh_ty_var (e : Env) = e.ty.i, (let ty = e.ty in {e with ty = {|ty with i = ty.i+1|} })
-let add_term_rec_var (e : Env) k = e.term.i_rec, add_term e k (EV e.term.i_rec)
+let add_term_rec_var (e : Env) k = e.term.i_rec, add_term_rec e k (EV e.term.i_rec)
 let add_ty_var (e : Env) k = e.ty.i, add_ty e k (TV e.ty.i)
 let add_ty_wildcard (e : Env) = e.ty.i, add_wildcard e
 
