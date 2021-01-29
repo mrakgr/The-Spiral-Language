@@ -5,5 +5,4 @@ inl main _ =
     inl w = {a=q;b=q}
     inl e = {z=w;x=w}
     inl e = join e
-    inl e = join e
-    ()
+    join e

@@ -173,7 +173,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
     and binds' (defs : CodegenEnv) (x : TypedBind []) =
         let s = {defs with text = StringBuilder()}
-        binds defs s (Choice1Of2(binds_last_data x |> data_free_vars |> Array.isEmpty)) x
+        binds defs s (Choice1Of2(binds_last_data x |> data_term_vars |> Array.isEmpty)) x
         defs.text.Append(s.text) |> ignore
     and binds (defs : CodegenEnv) (s : CodegenEnv) ret (x : TypedBind []) =
         Array.iteri (fun i x ->
@@ -192,20 +192,23 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     | Choice2Of2 ret -> line s $"{args ret} = {args' d}"
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             ) x
+    and term_vars_type_show x = x |> Array.map (function WV(L(_,t)) -> tyv t | WLit x -> prim (lit_to_primitive_type x))
     and tup x =
         match data_term_vars x with
         | [||] -> "pass"
         | [|x|] -> show_w x
         | x -> 
             let args = Array.map show_w x |> String.concat ", " 
-            let ty = x |> Array.map (function WV(L(_,t)) -> tyv t | WLit x -> prim (lit_to_primitive_type x))
+            let ty = term_vars_type_show x
             sprintf "Tuple%i(%s)" ((tup' ty).tag) args
-    and tup_tyvs = function
+    and tup_ty_template = function
         | [||] -> "void"
-        | [|L(_,x)|] -> tyv x
-        | x -> $"Tuple{(tup' (tyv_type_show x)).tag}"
-    and tup_data x = tup_tyvs (data_free_vars x)
-    and tup_ty x = tup_data (env.ty_to_data x)
+        | [|x|] -> x
+        | x -> $"Tuple{(tup' x).tag}"
+    and tup_data_term_vars x = tup_ty_template (data_term_vars x |> term_vars_type_show)
+    and tup_tyvs x = tup_ty_template (tyv_type_show x)
+    and tup_data_free_vars x = tup_tyvs (data_free_vars x)
+    and tup_ty x = tup_data_free_vars (env.ty_to_data x)
     and op defs s ret a =
         let return' x =
             match ret with
@@ -422,7 +425,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
 
     let main = StringBuilder()
     let s = {text=main; indent=0}
-    line s $"cpdef {tup_data (binds_last_data x)} main():"
+    line s $"cpdef {tup_data_term_vars (binds_last_data x)} main():"
     binds' (indent s) x
 
     let program = StringBuilder()
