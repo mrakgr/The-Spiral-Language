@@ -1,1 +1,4 @@
-inl main() = 5i32
+open arraym
+inl main() =
+    inl x : array (i32 * i32) = arraym.create 10 
+    arraym.set x 0 (1,2)
