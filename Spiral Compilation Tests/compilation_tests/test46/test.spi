@@ -125,7 +125,6 @@ inl Skip = skip' 1
 inl writeline (x : string): () = $"System.Console.WriteLine(!x)"
 inl Readline : string = $"System.Console.ReadLine()"
 inl Readall : string = $"System.Console.OpenStandardInput() |> fun x -> new System.IO.StreamReader(x) |> fun x -> let v = x.ReadToEnd() in x.Dispose(); v"
-inl failwith (x : string) = $"failwith !x"
 
 union player = First | Second
 

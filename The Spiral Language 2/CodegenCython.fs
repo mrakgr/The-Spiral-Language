@@ -78,7 +78,7 @@ let prim = function
     | Float32T -> "float"
     | Float64T -> "double"
     | BoolT -> "char"
-    | StringT | CharT -> "object"
+    | StringT | CharT -> "str"
 
 type UnionRec = {free_vars : Map<string, TyV[]>; tag : int}
 type LayoutRec = {data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>; tag : int}
@@ -180,7 +180,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             match x with
             | TyLet(d,trace,a) -> 
                 try let d = data_free_vars d
-                    Array.iter (fun (L(i,t)) -> cdef_show false defs i (tyv t)) d
+                    Array.iter (fun (L(i,t)) -> cdef_show "" defs i (tyv t)) d
                     op defs s (Choice2Of2 d) a
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             | TyLocalReturnOp(trace,a,_) -> try op defs s ret a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
@@ -267,7 +267,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             Map.iter (fun k (a,b) ->
                 let union_i = case_tags.[k]
                 let branch =
-                    let cond = is |> List.map (fun (v_i : Tag) -> sprintf "v%i == %i" v_i union_i) |> String.concat " and "
+                    let cond = is |> List.map (fun (v_i : Tag) -> sprintf "v%i.tag == %i" v_i union_i) |> String.concat " and "
                     if is_first then 
                         line s (sprintf "if %s: # %s" cond k)
                         is_first <- false
@@ -309,7 +309,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | Apply,[a;b] -> sprintf "%s.apply(%s)" (tup a) (args' b)
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
-            | StringLength, [a] -> sprintf "len(%s)" (tup a)
+            | StringLength, [a] -> sprintf "<signed long>len(%s)" (tup a)
             | StringIndex, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
             | StringSlice, [a;b;c] -> sprintf "%s[%s..%s]" (tup a) (tup b) (tup c)
             | ArrayIndex, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
@@ -317,13 +317,14 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 match tup c with
                 | "pass" as c -> c
                 | c -> sprintf "%s[%s] = %s" (tup a) (tup b) c
-            | ArrayLength, [a] -> sprintf "len(%s)" (tup a)
+            | ArrayLength, [a] -> sprintf "<signed long>len(%s)" (tup a)
 
             // Math
             | Add, [a;b] -> sprintf "%s + %s" (tup a) (tup b)
             | Sub, [a;b] -> sprintf "%s - %s" (tup a) (tup b)
             | Mult, [a;b] -> sprintf "%s * %s" (tup a) (tup b)
-            | Div, [a;b] -> sprintf "%s / %s" (tup a) (tup b)
+            | Div, [(DV(L(_,YPrim (Float32T | Float64T))) | DLit(LitFloat32 _ | LitFloat64 _)) & a;b] -> sprintf "%s / %s" (tup a) (tup b)
+            | Div, [a;b] -> sprintf "%s // %s" (tup a) (tup b)
             | Mod, [a;b] -> sprintf "%s %% %s" (tup a) (tup b)
             | Pow, [a;b] -> sprintf "pow(%s,%s)" (tup a) (tup b)
             | LT, [a;b] -> sprintf "%s < %s" (tup a) (tup b)
@@ -346,36 +347,36 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | Exp, [x] -> import "math"; sprintf "math.exp(%s)" (tup x)
             | Tanh, [x] -> import "math"; sprintf "math.tanh(%s)" (tup x)
             | Sqrt, [x] -> import "math"; sprintf "math.sqrt(%s)" (tup x)
-            | Hash, [x] -> sprintf "hash(%s)" (tup x)
+            | Hash, [x] -> sprintf "<signed long>hash(%s)" (tup x)
             | NanIs, [x] -> import "math"; sprintf "math.isnan(%s)" (tup x)
             | UnionTag, [x] -> sprintf "%s.tag" (tup x)
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> return'
     and arg_show i = function "object" -> sprintf "v%i" i | t -> sprintf "%s v%i" t i
-    and cdef_show is_public s i x = line s (sprintf "cdef %s%s v%i" (if is_public then "public " else "") x i)
+    and cdef_show (prefix : string) s i x = line s $"cdef {prefix}{x} v{i}"
     and args_tys x = x |> Array.map (fun (L(i,t)) -> arg_show i (tyv t)) |> String.concat ", "
     and tyv_type_show x = x |> Array.map (fun (L(_,t)) -> tyv t)
     // TODO: Hopefully Cython will get cdef tuples that can hold Python objects. 
     // Until then, they will share functionality with layout types and be heap allocated.
-    and layout_template prefix s tag tys = 
-        line s (sprintf "cdef class %s%i:" prefix tag)
+    and layout_template name prefix s tag tys = 
+        line s (sprintf "cdef class %s%i:" name tag)
         let s = indent s
-        tys |> Array.iteri (cdef_show true s)
+        tys |> Array.iteri (cdef_show prefix s)
         let args = tys |> Array.mapi arg_show |> String.concat ", " |> with_self
         let body = Array.init tys.Length (fun i -> $"self.v{i} = v{i}") |> String.concat "; " |> pass_if_empty
         line s (sprintf "def __init__(%s): %s" args body)
-    and heap : _ -> LayoutRec = layout (fun s x -> layout_template "Heap" s x.tag (tyv_type_show x.free_vars))
-    and mut : _ -> LayoutRec = layout (fun s x -> layout_template "Mut" s x.tag (tyv_type_show x.free_vars))
-    and tup' : _ -> TupleRec = tuple (fun s x -> layout_template "Tuple" s x.tag x.tys)
+    and heap : _ -> LayoutRec = layout (fun s x -> layout_template "Heap" "readonly " s x.tag (tyv_type_show x.free_vars))
+    and mut : _ -> LayoutRec = layout (fun s x -> layout_template "Mut" "public " s x.tag (tyv_type_show x.free_vars))
+    and tup' : _ -> TupleRec = tuple (fun s x -> layout_template "Tuple" "readonly " s x.tag x.tys)
     and union_template (prefix : string) s (x : UnionRec) = 
         line s $"cdef class {prefix}{x.tag}:"
-        line (indent s) $"cdef public int tag"
+        line (indent s) $"cdef readonly unsigned long tag"
         let mutable i = 0
         x.free_vars |> Map.iter (fun k a ->
             line s $"cdef class {prefix}{x.tag}_{i}({prefix}{x.tag}): # {k}"
             let s = indent s
             let tys = tyv_type_show a
-            tys |> Array.iteri (cdef_show true s)
+            tys |> Array.iteri (cdef_show "readonly " s)
             let args = tys |> Array.mapi arg_show |> String.concat ", " |> with_self
             let body = $"self.tag = {i}" :: List.init tys.Length (fun i -> $"self.v{i} = v{i}") |> String.concat "; "
             line s $"def __init__({args}): {body}"
@@ -409,7 +410,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s (sprintf "cdef class Closure%i(ClosureTy%i):" x.tag (closure_ty (x.domain,x.range)).tag)
             let s = indent s
             let free_vars = x.free_vars |> Array.map (fun (L(i,t)) -> i, tyv t)
-            free_vars |> Array.iter (fun (i,x) -> cdef_show false s i x)
+            free_vars |> Array.iter (fun (i,x) -> cdef_show "" s i x)
             let init_args = free_vars |> Array.map (fun (i,t) -> arg_show i t) |> String.concat ", " |> with_self
             let init_body = free_vars |> Array.map (fun (i,_) -> $"self.v{i} = v{i}") |> String.concat "; " |> pass_if_empty
             line s $"def __init__({init_args}): {init_body}"

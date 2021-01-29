@@ -1,33 +1,33 @@
 cdef class US0:
-    cdef public int tag
+    cdef readonly unsigned long tag
 cdef class US0_0(US0): # empty
     def __init__(self): self.tag = 0
 cdef class US0_1(US0): # princess
     def __init__(self): self.tag = 1
 cdef class UH0:
-    cdef public int tag
+    cdef readonly unsigned long tag
 cdef class UH0_0(UH0): # cons_
-    cdef public object v0
-    cdef public UH0 v1
-    def __init__(self, v0, UH0 v1): self.tag = 0; self.v0 = v0; self.v1 = v1
+    cdef readonly str v0
+    cdef readonly UH0 v1
+    def __init__(self, str v0, UH0 v1): self.tag = 0; self.v0 = v0; self.v1 = v1
 cdef class UH0_1(UH0): # nil
     def __init__(self): self.tag = 1
 cdef class US1:
-    cdef public int tag
+    cdef readonly unsigned long tag
 cdef class US1_0(US1): # none
     def __init__(self): self.tag = 0
 cdef class US1_1(US1): # some_
-    cdef public signed long v0
-    cdef public signed long v1
-    cdef public UH0 v2
+    cdef readonly signed long v0
+    cdef readonly signed long v1
+    cdef readonly UH0 v2
     def __init__(self, signed long v0, signed long v1, UH0 v2): self.tag = 1; self.v0 = v0; self.v1 = v1; self.v2 = v2
 cdef class Mut0:
     cdef public US1 v0
     def __init__(self, US1 v0): self.v0 = v0
 cdef class Tuple0:
-    cdef public signed long v0
-    cdef public signed long v1
-    cdef public UH0 v2
+    cdef readonly signed long v0
+    cdef readonly signed long v1
+    cdef readonly UH0 v2
     def __init__(self, signed long v0, signed long v1, UH0 v2): self.v0 = v0; self.v1 = v1; self.v2 = v2
 cdef void method1(signed long v0, signed long v1, signed long v2, signed long v3, list v4, signed long v5):
     cdef char v6
@@ -81,7 +81,7 @@ cdef void method3(signed long v0, list v1, list v2, signed long v3):
     if v4:
         v5 = v3 + 1
         v6 = v1[v3]
-        v7 = len(v6)
+        v7 = <signed long>len(v6)
         v8 = [None] * v7
         v9 = 0
         method4(v7, v8, v9)
@@ -189,13 +189,13 @@ cdef void method6(signed long v0, list v1, list v2, Mut0 v3, list v4, list v5, s
         v12 = v9 - 1
         v13 = 0 <= v12
         if v13:
-            v14 = len(v2)
+            v14 = <signed long>len(v2)
             v15 = v12 < v14
             if v15:
                 v16 = v2[v12]
                 v17 = 0 <= v10
                 if v17:
-                    v18 = len(v16)
+                    v18 = <signed long>len(v16)
                     v22 = v10 < v18
                 else:
                     v22 = 0
@@ -212,9 +212,9 @@ cdef void method6(signed long v0, list v1, list v2, Mut0 v3, list v4, list v5, s
         if v26:
             v27 = v2[v12]
             v28 = v27[v10]
-            if v28 == 0: # empty
+            if v28.tag == 0: # empty
                 v29 = 0
-            elif v28 == 1: # princess
+            elif v28.tag == 1: # princess
                 v29 = 1
             if v29:
                 v30 = UH0_0("UP", v11)
@@ -228,13 +228,13 @@ cdef void method6(signed long v0, list v1, list v2, Mut0 v3, list v4, list v5, s
         v34 = v9 + 1
         v35 = 0 <= v34
         if v35:
-            v36 = len(v2)
+            v36 = <signed long>len(v2)
             v37 = v34 < v36
             if v37:
                 v38 = v2[v34]
                 v39 = 0 <= v10
                 if v39:
-                    v40 = len(v38)
+                    v40 = <signed long>len(v38)
                     v44 = v10 < v40
                 else:
                     v44 = 0
@@ -251,9 +251,9 @@ cdef void method6(signed long v0, list v1, list v2, Mut0 v3, list v4, list v5, s
         if v48:
             v49 = v2[v34]
             v50 = v49[v10]
-            if v50 == 0: # empty
+            if v50.tag == 0: # empty
                 v51 = 0
-            elif v50 == 1: # princess
+            elif v50.tag == 1: # princess
                 v51 = 1
             if v51:
                 v52 = UH0_0("DOWN", v11)
@@ -267,13 +267,13 @@ cdef void method6(signed long v0, list v1, list v2, Mut0 v3, list v4, list v5, s
         v56 = v10 - 1
         v57 = 0 <= v9
         if v57:
-            v58 = len(v2)
+            v58 = <signed long>len(v2)
             v59 = v9 < v58
             if v59:
                 v60 = v2[v9]
                 v61 = 0 <= v56
                 if v61:
-                    v62 = len(v60)
+                    v62 = <signed long>len(v60)
                     v66 = v56 < v62
                 else:
                     v66 = 0
@@ -290,9 +290,9 @@ cdef void method6(signed long v0, list v1, list v2, Mut0 v3, list v4, list v5, s
         if v70:
             v71 = v2[v9]
             v72 = v71[v56]
-            if v72 == 0: # empty
+            if v72.tag == 0: # empty
                 v73 = 0
-            elif v72 == 1: # princess
+            elif v72.tag == 1: # princess
                 v73 = 1
             if v73:
                 v74 = UH0_0("LEFT", v11)
@@ -305,13 +305,13 @@ cdef void method6(signed long v0, list v1, list v2, Mut0 v3, list v4, list v5, s
             v77 = 0
         v78 = v10 + 1
         if v57:
-            v79 = len(v2)
+            v79 = <signed long>len(v2)
             v80 = v9 < v79
             if v80:
                 v81 = v2[v9]
                 v82 = 0 <= v78
                 if v82:
-                    v83 = len(v81)
+                    v83 = <signed long>len(v81)
                     v87 = v78 < v83
                 else:
                     v87 = 0
@@ -328,9 +328,9 @@ cdef void method6(signed long v0, list v1, list v2, Mut0 v3, list v4, list v5, s
         if v91:
             v92 = v2[v9]
             v93 = v92[v78]
-            if v93 == 0: # empty
+            if v93.tag == 0: # empty
                 v94 = 0
-            elif v93 == 1: # princess
+            elif v93.tag == 1: # princess
                 v94 = 1
             if v94:
                 v95 = UH0_0("RIGHT", v11)
@@ -397,7 +397,7 @@ cdef signed long method7(signed long v0, list v1, signed long v2, signed long v3
     if v4:
         v5 = v2 + 1
         v6 = v1[v2]
-        v7 = len(v6)
+        v7 = <signed long>len(v6)
         v8 = v3 + v7
         return method7(v0, v1, v5, v8)
     else:
@@ -431,22 +431,22 @@ cdef signed long method8(signed long v0, list v1, list v2, signed long v3, signe
     if v5:
         v6 = v3 + 1
         v7 = v2[v3]
-        v8 = len(v7)
+        v8 = <signed long>len(v7)
         v9 = 0
         v10 = method9(v8, v1, v7, v9, v4)
         return method8(v0, v1, v2, v6, v10)
     else:
         return v4
 cdef UH0 method10(UH0 v0, UH0 v1):
-    cdef object v2
+    cdef str v2
     cdef UH0 v3
     cdef UH0 v4
-    if v1 == 0: # cons_
+    if v1.tag == 0: # cons_
         v2 = (<UH0_0>v1).v0
         v3 = (<UH0_0>v1).v1
         v4 = UH0_0(v2, v0)
         return method10(v4, v3)
-    elif v1 == 1: # nil
+    elif v1.tag == 1: # nil
         return v0
 cdef UH0 method5(list v0, list v1, Mut0 v2, list v3):
     cdef signed long v4
@@ -465,11 +465,11 @@ cdef UH0 method5(list v0, list v1, Mut0 v2, list v3):
     cdef signed long v18
     cdef UH0 v19
     cdef UH0 v20
-    v4 = len(v3)
+    v4 = <signed long>len(v3)
     v5 = [None] * v4
     v6 = 0
     method6(v4, v0, v1, v2, v3, v5, v6)
-    v7 = len(v5)
+    v7 = <signed long>len(v5)
     v8 = 0
     v9 = 0
     v10 = method7(v7, v5, v8, v9)
@@ -478,9 +478,9 @@ cdef UH0 method5(list v0, list v1, Mut0 v2, list v3):
     v13 = 0
     v14 = method8(v7, v11, v5, v12, v13)
     v15 = v2.v0
-    if v15 == 0: # none
+    if v15.tag == 0: # none
         return method5(v0, v1, v2, v11)
-    elif v15 == 1: # some_
+    elif v15.tag == 1: # some_
         v17 = (<US1_1>v15).v0
         v18 = (<US1_1>v15).v1
         v19 = (<US1_1>v15).v2
@@ -494,7 +494,7 @@ cdef UH0 method2(list v0, signed long v1, signed long v2):
     cdef Mut0 v7
     cdef list v8
     cdef UH0 v9
-    v3 = len(v0)
+    v3 = <signed long>len(v0)
     v4 = [None] * v3
     v5 = 0
     method3(v3, v0, v4, v5)
@@ -505,14 +505,14 @@ cdef UH0 method2(list v0, signed long v1, signed long v2):
     v8[0] = Tuple0(v1, v2, v9)
     return method5(v4, v0, v7, v8)
 cdef void method11(UH0 v0):
-    cdef object v1
+    cdef str v1
     cdef UH0 v2
-    if v0 == 0: # cons_
+    if v0.tag == 0: # cons_
         v1 = (<UH0_0>v0).v0
         v2 = (<UH0_0>v0).v1
-        # printfn "%s" v1
+        print(v1)
         method11(v2)
-    elif v0 == 1: # nil
+    elif v0.tag == 1: # nil
         pass
 cpdef void main():
     cdef signed long v0
@@ -526,10 +526,13 @@ cpdef void main():
     v0 = 4
     v1 = 2
     v2 = 3
+    print("Initing")
     v3 = [None] * v0
     v4 = 0
     method0(v0, v1, v2, v3, v4)
+    print("Starting")
     v5 = 0
     v6 = 0
     v7 = method2(v3, v5, v6)
+    print("Printing")
     method11(v7)

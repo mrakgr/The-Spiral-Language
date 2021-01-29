@@ -1,8 +1,8 @@
 cpdef void main():
     cdef signed long v0
-    cdef object v1
+    cdef str v1
     cdef signed long v2
-    cdef object v3
+    cdef str v3
     cdef signed long v4
     cdef signed long v5
     cdef signed long v6

@@ -1,5 +1,5 @@
 cdef class US0:
-    cdef public int tag
+    cdef readonly int tag
 cdef class US0_0(US0): # eQ
     def __init__(self): self.tag = 0
 cdef class US0_1(US0): # gT
@@ -7,18 +7,18 @@ cdef class US0_1(US0): # gT
 cdef class US0_2(US0): # lT
     def __init__(self): self.tag = 2
 cdef class US1:
-    cdef public int tag
+    cdef readonly int tag
 cdef class US1_0(US1): # a_
-    cdef public signed long v0
+    cdef readonly signed long v0
     def __init__(self, signed long v0): self.tag = 0; self.v0 = v0
 cdef class US1_1(US1): # b_
-    cdef public double v0
+    cdef readonly double v0
     def __init__(self, double v0): self.tag = 1; self.v0 = v0
 cdef class UH0:
-    cdef public int tag
+    cdef readonly int tag
 cdef class UH0_0(UH0): # cons_
-    cdef public signed long v0
-    cdef public UH0 v1
+    cdef readonly signed long v0
+    cdef readonly UH0 v1
     def __init__(self, signed long v0, UH0 v1): self.tag = 0; self.v0 = v0; self.v1 = v1
 cdef class UH0_1(UH0): # nil
     def __init__(self): self.tag = 1

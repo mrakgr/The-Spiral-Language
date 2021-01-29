@@ -6,7 +6,7 @@ cdef signed long method2(signed long v0, signed long v1):
     cdef signed long v6
     v2 = 0 < v1
     if v2:
-        v3 = v1 / 10
+        v3 = v1 // 10
         v4 = v0 * 10
         v5 = v1 % 10
         v6 = v4 + v5
@@ -78,11 +78,9 @@ cdef signed long method0(signed long v0, signed long v1):
         return method0(v3, v4)
     else:
         return v1
-cpdef void main():
+cpdef signed long main():
     cdef signed long v0
     cdef signed long v1
-    cdef signed long v2
     v0 = 100
     v1 = 0
-    v2 = method0(v0, v1)
-    # printfn "%i" v2
+    return method0(v0, v1)

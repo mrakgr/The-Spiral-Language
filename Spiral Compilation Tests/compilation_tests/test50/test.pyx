@@ -1,5 +1,5 @@
 cdef class US0:
-    cdef public int tag
+    cdef readonly int tag
 cdef class US0_0(US0): # eQ
     def __init__(self): self.tag = 0
 cdef class US0_1(US0): # gT
@@ -8,9 +8,9 @@ cdef class US0_2(US0): # lT
     def __init__(self): self.tag = 2
 cpdef void main():
     cdef signed long v0
-    cdef object v1
+    cdef str v1
     cdef signed long v2
-    cdef object v3
+    cdef str v3
     cdef char v4
     cdef US0 v10
     cdef char v6

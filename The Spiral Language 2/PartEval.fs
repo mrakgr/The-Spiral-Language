@@ -1786,22 +1786,22 @@ let peval (env : TopEnv) (x : E) =
                 else raise_type_error s <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
         | EOp(_,Hash,[a]) ->
             let inline op a = hash a
-            match term s a with
-            | DLit a ->
-                match a with
-                | LitInt8 a -> op a |> LitInt32 |> DLit
-                | LitInt16 a -> op a |> LitInt32 |> DLit
-                | LitInt32 a -> op a |> LitInt32 |> DLit
-                | LitInt64 a -> op a |> LitInt32 |> DLit
-                | LitUInt8 a -> op a |> LitInt32 |> DLit
-                | LitUInt16 a -> op a |> LitInt32 |> DLit
-                | LitUInt32 a -> op a |> LitInt32 |> DLit
-                | LitUInt64 a -> op a |> LitInt32 |> DLit
-                | LitFloat32 a -> op a |> LitInt32 |> DLit
-                | LitFloat64 a -> op a |> LitInt32 |> DLit
-                | LitBool a -> op a |> LitInt32 |> DLit
-                | LitString a -> op a |> LitInt32 |> DLit
-                | LitChar a -> op a |> LitInt32 |> DLit
+            match term s a with // The following is commented out for compatibility between the Cython and F# backends.
+            //| DLit a ->
+            //    match a with
+            //    | LitInt8 a -> op a |> LitInt32 |> DLit
+            //    | LitInt16 a -> op a |> LitInt32 |> DLit
+            //    | LitInt32 a -> op a |> LitInt32 |> DLit
+            //    | LitInt64 a -> op a |> LitInt32 |> DLit
+            //    | LitUInt8 a -> op a |> LitInt32 |> DLit
+            //    | LitUInt16 a -> op a |> LitInt32 |> DLit
+            //    | LitUInt32 a -> op a |> LitInt32 |> DLit
+            //    | LitUInt64 a -> op a |> LitInt32 |> DLit
+            //    | LitFloat32 a -> op a |> LitInt32 |> DLit
+            //    | LitFloat64 a -> op a |> LitInt32 |> DLit
+            //    | LitBool a -> op a |> LitInt32 |> DLit
+            //    | LitString a -> op a |> LitInt32 |> DLit
+            //    | LitChar a -> op a |> LitInt32 |> DLit
             | a ->
                 let a_ty = data_to_ty s a
                 if is_primitive a_ty then push_op s Hash a (YPrim Int32T)

@@ -12,7 +12,5 @@ inl Largest_palindrome_product : i32 =
             )
         ) 0
 
-inl main () : () =
-    inl x = Largest_palindrome_product in $"# printfn \"%i\" !x"
-    ()
+inl main () = Largest_palindrome_product
     

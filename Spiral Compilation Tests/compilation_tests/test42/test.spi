@@ -15,7 +15,7 @@ inl main() =
     and inl g x = 
         if var_is x then join f x 
         else f x
-    $"// static"
-    inl ~x = g c : f32
-    $"// dynamic"
+    // $"// static"
+    inl ~x = g c
+    // $"// dynamic"
     g (Mult: dyn c, v_ 2)
