@@ -1919,6 +1919,10 @@ let peval (env : TopEnv) (x : E) =
                 | None -> push_op_no_rewrite s UnionTag a (YPrim Int32T)
             | DNominal(DUnion(DPair(DSymbol k,_),h), _) -> eval k h
             | a -> raise_type_error s <| sprintf "Expected an union.\nGot: %s" (show_data a)
+        | EOp(_,(CImport | Import) & op,[a]) ->
+            match term s a with
+            | DLit (LitString _) & a -> push_op_no_rewrite s op a YB
+            | a -> raise_type_error s $"Expected a string literal.\nGot: {show_data a}"
         | EOp(_,op,a) -> raise_type_error s <| sprintf "Compiler error: %A with %i args not implemented" op (List.length a)
 
     let s : LangEnv = {

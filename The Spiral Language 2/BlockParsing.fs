@@ -19,6 +19,10 @@ type PrimitiveType =
 type Layout = Heap | HeapMutable
 
 type Op =
+    // Cython imports
+    | Import
+    | CImport
+
     // Closure application
     | Apply
 

@@ -1,8 +1,5 @@
-cpdef char main():
-    cdef char v0
-    cdef char v1
-    cdef char v2
-    v0 = 0
-    v1 = 1
-    v2 = 0
-    return v0 == 0
+cimport libc.math
+cpdef float main():
+    cdef float v0
+    v0 = 10.000000
+    return libc.math.sqrt(v0)

@@ -5,7 +5,7 @@
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
     - [Getting Spiral](#getting-spiral)
-    - [Status in 12/24/2020](#status-in-12242020)
+    - [Status in 1/30/2020](#status-in-1302020)
     - [Projects & Packages](#projects--packages)
     - [Top-Down Segment](#top-down-segment)
         - [Compilation](#compilation)
@@ -42,6 +42,7 @@
             - [Pickler Combinators](#pickler-combinators-1)
             - [Pickler Combinators (Alt)](#pickler-combinators-alt)
         - [Notes](#notes)
+    - [Notes on the Cython backend](#notes-on-the-cython-backend)
     - [Known Bugs](#known-bugs)
 
 <!-- /TOC -->
@@ -86,9 +87,9 @@ Statically typed and with a lightweight, very powerful type system giving it exp
 
 The language is published on the VS Code marketplace. Getting it is just a matter of installing the **The Spiral Language** plugin. This will install both the VS Code editor plugin and the compiler itself. The compiler itself requires the [.NET Core 3.1 SDK](https://dotnet.microsoft.com/download/dotnet-core/3.1) and is portable across platforms. The language server uses TCP to communicate with the editor so allow it in the firewall.
 
-## Status in 12/24/2020
+## Status in 1/30/2020
 
-Alpha - the language needs more testing before it can be considered robust. It only has the F# backend at present. More will be added assuming I can get sponsors for novel kinds of hardware. If you are an AI hardware company interested in sponsoring Spiral please get in touch.
+Alpha - the language has gone through significant bugfixing and is more roboust compared to last month. It now has the Cython backend in addition to the F# one. More will be added assuming I can get sponsors for novel kinds of hardware. If you are an AI hardware company interested in sponsoring Spiral please get in touch.
 
 Besides lacking backends and libraries, it only has rudimentary package management and some important partial evaluator optimizations to improve compile times for large codebases have been left for later until the need for them arises. But overall, and even just considering compilation times, the situation is way better than it was during the v0.09 era already.
 
@@ -4111,6 +4112,16 @@ The compiled output of this is 285 lines, which a bit over 100 lines less than t
 ### Notes
 
 * The serializer code, along with various other code samples can be found in the [Spiral repo](https://github.com/mrakgr/The-Spiral-Language/tree/master/Spiral%20Compilation%20Tests).
+
+## Notes on the Cython backend
+
+The Cython backend supports all the features of Spiral such as union types. Since it compiles to C, tail call optimization is supported as well. That having said, right now (1/30/2021) tuples are heap allocated, stack (non-recursive) union types are heap allocated and primitive arrays are compiled to Numpy arrays which only support base objects and primitives as data types.
+
+Though Spiral compiled code will be blazing fast compared to regular Python, it would be even better if the [wishlist](https://github.com/cython/cython/issues/3992) items are fulfilled.
+
+If you run into trouble trying to `cimport numpy` on Windows check out this [SO post](https://stackoverflow.com/questions/14657375/cython-fatal-error-numpy-arrayobject-h-no-such-file-or-directory).
+
+To produce import and cimport statements inside Spiral code, the `Import` and `CImport` ops can be used.
 
 ## Known Bugs
 

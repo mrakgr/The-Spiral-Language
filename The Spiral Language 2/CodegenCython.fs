@@ -80,6 +80,19 @@ let prim = function
     | BoolT -> "char"
     | StringT | CharT -> "str"
 
+let numpy_ty = function
+    | YPrim Int8T -> "numpy.int8"
+    | YPrim Int16T -> "numpy.int16"
+    | YPrim Int32T -> "numpy.int32"
+    | YPrim Int64T -> "numpy.int64"
+    | YPrim UInt8T -> "numpy.uint8"
+    | YPrim UInt16T -> "numpy.uint16"
+    | YPrim UInt32T -> "numpy.uint32"
+    | YPrim UInt64T -> "numpy.uint64"
+    | YPrim Float32T -> "numpy.float32"
+    | YPrim Float64T -> "numpy.float64"
+    | _ -> "object"
+
 type UnionRec = {free_vars : Map<string, TyV[]>; tag : int}
 type LayoutRec = {data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>; tag : int}
 type MethodRec = {tag : int; free_vars : L<Tag,Ty>[]; range : Ty; body : TypedBind[]}
@@ -153,6 +166,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         let has_added = HashSet()
         fun x -> if has_added.Add(x) then imports.Add $"import {x}"
 
+    let cimport =
+        let has_added = HashSet()
+        fun x -> if has_added.Add(x) then imports.Add $"cimport {x}"
+
     let with_self = function "" -> "self" | x -> $"self, {x}"
     let pass_if_empty = function "" -> "pass" | x -> x
 
@@ -168,7 +185,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | YLayout(a,HeapMutable) -> sprintf "Mut%i" (mut a).tag
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a) |> String.concat ""
         | YPrim a -> prim a
-        | YArray a -> "list" // TODO: Special cases for primitive arrays.
+        | YArray a ->
+            import "numpy"; cimport "numpy"
+            let a = match a with YPrim x -> prim x | _ -> "object"
+            $"numpy.ndarray[{a},ndim=1]"
         | YFun(a,b) -> sprintf "ClosureTy%i" ((closure_ty (a,b)).tag)
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
     and binds' (defs : CodegenEnv) (x : TypedBind []) =
@@ -305,8 +325,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             Array.iter2 (fun (L(i',_)) b ->
                 line s $"v{i}.v{i'} = {show_w b}"
                 ) (data_free_vars a) (data_term_vars c)
-        | TyArrayCreate(a,b) -> return' (sprintf "[None] * %s" (tup b))
+        | TyArrayCreate(a,b) -> return' $"numpy.empty({tup b},dtype={numpy_ty a})" 
         | TyFailwith(a,b) -> return' (sprintf "raise Exception(%s)" (tup b))
+        | TyOp(Import,[DLit (LitString x)]) -> import x
+        | TyOp(CImport,[DLit (LitString x)]) -> cimport x
         | TyOp(op,l) ->
             match op, l with
             | Apply,[a;b] -> sprintf "%s.apply(%s)" (tup a) (args' b)
@@ -429,7 +451,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     binds' (indent s) x
 
     let program = StringBuilder()
-    imports |> Seq.iter (fun x -> program.Append(x) |> ignore)
+    imports |> Seq.iter (fun x -> program.AppendLine(x) |> ignore)
     types |> Seq.iter (fun x -> program.Append(x) |> ignore)
     functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
     program.Append(main).ToString()

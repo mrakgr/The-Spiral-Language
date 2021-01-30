@@ -48,6 +48,15 @@ inl (<<<) forall t {int}. (a : t) (b : i32) : t = !!!!ShiftLeft(a,b)
 // Shift right.
 inl (>>>) forall t {int}. (a : t) (b : i32) : t = !!!!ShiftRight(a,b)
 
+// Natural Logarithm.
+inl log forall t {float}. (x : t) : t = !!!!Log(x)
+// Exponent.
+inl exp forall t {float}. (x : t) : t = !!!!Exp(x)
+// Hyperbolic tangent. 
+inl tanh forall t {float}. (x : t) : t = !!!!Tanh(x)
+// Square root.
+inl sqrt forall t {float}. (x : t) : t = !!!!Sqrt(x)
+
 // Creates a heap mutable layout type.
 inl mut forall t. (x : t): mut t = !!!!LayoutToHeapMutable(x)
 // Unboxes a heap mutable layout type.
