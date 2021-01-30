@@ -368,12 +368,12 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | ShiftRight, [a;b] -> sprintf "%s >> %s" (tup a) (tup b)
 
             | Neg, [x] -> sprintf " -%s" (tup x)
-            | Log, [x] -> import "math"; sprintf "math.log(%s)" (tup x)
-            | Exp, [x] -> import "math"; sprintf "math.exp(%s)" (tup x)
-            | Tanh, [x] -> import "math"; sprintf "math.tanh(%s)" (tup x)
-            | Sqrt, [x] -> import "math"; sprintf "math.sqrt(%s)" (tup x)
-            | Hash, [x] -> sprintf "<signed long>hash(%s)" (tup x)
-            | NanIs, [x] -> import "math"; sprintf "math.isnan(%s)" (tup x)
+            | Log, [x] -> cimport "libc.math"; sprintf "libc.math.log(%s)" (tup x)
+            | Exp, [x] -> cimport "libc.math"; sprintf "libc.math.exp(%s)" (tup x)
+            | Tanh, [x] -> cimport "libc.math"; sprintf "libc.math.tanh(%s)" (tup x)
+            | Sqrt, [x] -> cimport "libc.math"; sprintf "libc.math.sqrt(%s)" (tup x)
+            | Hash, [x] -> sprintf "hash(%s)" (tup x)
+            | NanIs, [x] -> cimport "libc.math"; sprintf "libc.math.isnan(%s)" (tup x)
             | UnionTag, [x] -> sprintf "%s.tag" (tup x)
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> return'

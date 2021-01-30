@@ -1,1 +1,4 @@
-inl main() : f32 = dyn 10 |> log
+inl main() = 
+    // inl x : array i32 = arraym.create 10
+    // ()
+    tanh (dyn 1f32) |> exp |> log
