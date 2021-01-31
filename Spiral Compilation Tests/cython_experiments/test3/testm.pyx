@@ -1,9 +1,9 @@
-cimport libc.math
-cpdef float main():
-    cdef float v0
-    cdef float v1
-    cdef float v2
-    v0 = 1.000000
-    v1 = libc.math.tanh(v0)
-    v2 = libc.math.exp(v1)
-    return libc.math.log(v2)
+cimport cython
+cdef class Tuple0:
+    cdef readonly signed long v0
+    cdef readonly double v1
+    def __init__(self, signed long v0, double v1): self.v0 = v0; self.v1 = v1
+cpdef void main():
+    cdef Tuple0 [::1] v0
+    v0 = cython.view.array(shape=(10,), itemsize=sizeof(void *), format='O')
+    v0[0] = Tuple0(1, 2.000000)

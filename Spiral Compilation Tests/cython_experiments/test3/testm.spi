@@ -1,4 +1,3 @@
 inl main() = 
-    // inl x : array i32 = arraym.create 10
-    // ()
-    tanh (dyn 1f32) |> exp |> log
+    inl x : array (i32  * f64) = arraym.create 10
+    arraym.set x 0 (1,2)

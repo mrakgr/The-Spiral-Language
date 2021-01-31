@@ -67,31 +67,11 @@ let lit = function
     | LitBool x -> if x then "1" else "0"
 
 let prim = function
-    | Int8T -> "signed char"
-    | Int16T -> "signed short"
-    | Int32T -> "signed long"
-    | Int64T -> "signed long long"
-    | UInt8T -> "unsigned char"
-    | UInt16T -> "unsigned short"
-    | UInt32T -> "unsigned long"
-    | UInt64T -> "unsigned long long"
-    | Float32T -> "float"
-    | Float64T -> "double"
+    | Int8T -> "signed char" | Int16T -> "signed short" | Int32T -> "signed long" | Int64T -> "signed long long"
+    | UInt8T -> "unsigned char" | UInt16T -> "unsigned short" | UInt32T -> "unsigned long" | UInt64T -> "unsigned long long"
+    | Float32T -> "float" | Float64T -> "double"
     | BoolT -> "char"
     | StringT | CharT -> "str"
-
-let numpy_ty = function
-    | YPrim Int8T -> "numpy.int8"
-    | YPrim Int16T -> "numpy.int16"
-    | YPrim Int32T -> "numpy.int32"
-    | YPrim Int64T -> "numpy.int64"
-    | YPrim UInt8T -> "numpy.uint8"
-    | YPrim UInt16T -> "numpy.uint16"
-    | YPrim UInt32T -> "numpy.uint32"
-    | YPrim UInt64T -> "numpy.uint64"
-    | YPrim Float32T -> "numpy.float32"
-    | YPrim Float64T -> "numpy.float64"
-    | _ -> "object"
 
 type UnionRec = {free_vars : Map<string, TyV[]>; tag : int}
 type LayoutRec = {data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>; tag : int}
@@ -185,10 +165,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | YLayout(a,HeapMutable) -> sprintf "Mut%i" (mut a).tag
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a) |> String.concat ""
         | YPrim a -> prim a
-        | YArray a ->
-            import "numpy"; cimport "numpy"
-            let a = match a with YPrim x -> prim x | _ -> "object"
-            $"numpy.ndarray[{a},ndim=1]"
+        | YArray a -> 
+            match tup_ty a with 
+            | "void" -> raise_codegen_error "Void arrays are not allowed."
+            | x -> $"{x} [::1]"
         | YFun(a,b) -> sprintf "ClosureTy%i" ((closure_ty (a,b)).tag)
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
     and binds' (defs : CodegenEnv) (x : TypedBind []) =
@@ -325,7 +305,23 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             Array.iter2 (fun (L(i',_)) b ->
                 line s $"v{i}.v{i'} = {show_w b}"
                 ) (data_free_vars a) (data_term_vars c)
-        | TyArrayCreate(a,b) -> return' $"numpy.empty({tup b},dtype={numpy_ty a})" 
+        | TyArrayCreate(a,b) ->
+            cimport "cython"
+            let format =
+                match a with
+                | YPrim Int8T -> 'b' | YPrim Int16T -> 'h' | YPrim Int32T -> 'l' | YPrim Int64T -> 'q'
+                | YPrim UInt8T -> 'B' | YPrim UInt16T -> 'H' | YPrim UInt32T -> 'L' | YPrim UInt64T -> 'Q'
+                | YPrim Float32T -> 'f' | YPrim Float64T -> 'd'
+                | YPrim BoolT -> 'b'
+                | _ -> 'O'
+            let sizeof =
+                match a with
+                | YPrim Int8T -> "signed char" | YPrim Int16T -> "signed short" | YPrim Int32T -> "signed long" | YPrim Int64T -> "signed long long"
+                | YPrim UInt8T -> "unsigned char" | YPrim UInt16T -> "unsigned short" | YPrim UInt32T -> "unsigned long" | YPrim UInt64T -> "unsigned long long"
+                | YPrim Float32T -> "float" | YPrim Float64T -> "double"
+                | YPrim BoolT -> "char"
+                | _ -> "void *"
+            return' $"cython.view.array(shape=({tup b},), itemsize=sizeof({sizeof}), format='{format}')"
         | TyFailwith(a,b) -> return' (sprintf "raise Exception(%s)" (tup b))
         | TyOp(Import,[DLit (LitString x)]) -> import x
         | TyOp(CImport,[DLit (LitString x)]) -> cimport x
