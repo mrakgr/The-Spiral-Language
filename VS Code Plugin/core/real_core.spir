@@ -268,23 +268,25 @@ inl rec comp a b =
 inl comp a b = if `(`(a)) `= `(`(b)) then comp a b else error_type "The variables compared have to have the same type."
 
 // Structural polymorphic hashing for every type in the language (apart from functions.)
-inl hash x = 
-    inl seed = 33
+inl hash_template prim tag_conv zero one seed x = 
     inl rec f = function
         | (a, a') => f a * seed + f a'
-        | {} & a => inl s,_ = record_foldr (fun (state: (s,seed') key:value:) => s + value * seed', seed * seed') a (0, 1) in s
-        | () => 0
+        | {} & a => inl s,_ = record_foldr (fun (state: (s,seed') key:value:) => s + value * seed', seed * seed') a (zero, one) in s
+        | () => zero
         | a => 
-            if symbol_is a then 0
+            if symbol_is a then zero
             elif layout_is a then f *a
             elif union_is a then
                 inl body () = 
                     if prototype_has `(`a) hashable then hashable `(`a) a
-                    else !!!!Unbox(a,(fun (k,a') => f a' + seed * union_tag a))
-                if heap_union_is a && var_is a then (join body()) : i32
+                    else !!!!Unbox(a,(fun (k,a') => f a' + seed * tag_conv (union_tag a)))
+                if heap_union_is a && var_is a then (join body()) : `zero
                 else body()
             elif nominal_is a then
                 if prototype_has `(`a) hashable then hashable `(`a) a
                 else f (nominal_strip a)
-            else !!!!Hash(a)
+            else prim a
     f x
+
+inl hash_fsharp x = hash_template (fun x => $"hash !x" : i32) id 0 1 31 x
+inl hash_cython x = hash_template (fun x => $"hash(!x)" : u64) (fun x => $"!x" : u64) 0u64 1u64 31u64 x

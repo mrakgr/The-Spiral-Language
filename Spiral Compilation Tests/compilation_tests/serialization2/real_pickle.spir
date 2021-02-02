@@ -13,9 +13,9 @@ inl rec size x : i32 =
     | _ => 
         typecase `x with
         | array ~t => 
-            if prim_type_is `t then size_prim `i32 + size_prim `t * arraym.length `t x
-            else arraym.fold `i32 `t (fun s x => s + size x) (size_prim `i32) x
-        | string => size_prim `i32 + size_prim `char * stringm.length x
+            if prim_type_is `t then size_prim `i32 + size_prim `t * arrayi32.length `t x
+            else arrayi32.fold `i32 `t (fun s x => s + size x) (size_prim `i32) x
+        | string => size_prim `i32 + size_prim `char * stringi32.length x
         | ~t => 
             if prim_is x then size_prim `t
             // Assume it is an union type.
@@ -29,8 +29,8 @@ inl rec pickle x (i',s as state) : () =
     | _ =>
         typecase `x with
         | array ~t => 
-            pickle (arraym.length `t x) state
-            arraym.iter `t (fun x => pickle x state) x
+            pickle (arrayi32.length `t x) state
+            arrayi32.iter `t (fun x => pickle x state) x
         | string => pickle ($"!x.ToCharArray()" : array char) state
         | ~t => 
             if prim_is x then
@@ -53,7 +53,7 @@ inl rec unpickle forall t. (i', s as state) : t =
     | {} => record_type_map (fun k => forall v. => unpickle `v state) `t
     | i32 => prim (fun i => $"System.BitConverter.ToInt32(!s,!i)" : t)
     | char => prim (fun i => $"System.BitConverter.ToChar(!s,!i)" : t)
-    | array ~y => arraym.init `y (unpickle `i32 state) (fun i => unpickle `y state)
+    | array ~y => arrayi32.init `y (unpickle `i32 state) (fun i => unpickle `y state)
     | string => inl ar = unpickle `(array char) state in $"System.String(!ar)" : string
     | _ =>
         if symbol_type_is `t then type_to_symbol `t

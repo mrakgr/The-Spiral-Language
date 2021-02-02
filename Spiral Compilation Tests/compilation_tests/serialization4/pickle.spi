@@ -7,23 +7,23 @@ nominal pu a = {
 
 inl Unit =
     pu {size = 1
-        pickle = fun () (i,s) => arraym.set s i 1
+        pickle = fun () (i,s) => arrayi32.set s i 1
         unpickle = fun (i,s) => 
-            inl x = arraym.index s i
+            inl x = arrayi32.index s i
             (), if x = 1 then 1 elif x = 0 then 0 else failwith "Unpickling failure. The unit type should always be either be active or inactive."
         }
 
 inl I32 size : pu i32 =
     pu {size
         pickle = fun x (i,s) =>
-            if 0 <= x && x < size then arraym.set s (i+x) 1
+            if 0 <= x && x < size then arrayi32.set s (i+x) 1
             else failwith "Value out of bounds."
         unpickle = fun (from,s) =>
             inl ~(from,nearTo) = from, from+size
             join
                 inl case,c =
                     loop.for (from:nearTo:) (fun i (case,c) =>
-                        inl x = arraym.index s i
+                        inl x = arrayi32.index s i
                         if x = 0 then case,c
                         elif x = 1 then i,c+1
                         else failwith "Unpickling failure. The int type must either be active or inactive."

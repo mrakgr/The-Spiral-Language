@@ -39,7 +39,7 @@ inl (.<<) a b =
 inl EOL : char = $"System.Char.MaxValue"
 inl peek' offset = cps_parser fun str i {on_succ} =>
     inl i' = i + offset
-    if 0 <= i' && i' < stringm.length str then on_succ (stringm.index str i', i)
+    if 0 <= i' && i' < stringi32.length str then on_succ (stringi32.index str i', i)
     else on_succ (EOL, i)
 inl Peek = peek' 0
 
@@ -54,7 +54,7 @@ inl AnyChar' =
 
 inl AnyChar' = cps_parser fun str i {on_succ on_fail} =>
     run_cps Peek str i { on_fail
-        on_succ=fun c,i => if c <> EOL then on_succ (stringm.index str i, i+1) else on_fail (listm.singleton "Out of bounds.", i)
+        on_succ=fun c,i => if c <> EOL then on_succ (stringi32.index str i, i+1) else on_fail (listm.singleton "Out of bounds.", i)
     }
 
 inl AnyChar = conv AnyChar'
@@ -91,7 +91,7 @@ inl I32 = parser fun str i =>
     loop i false 0
 
 inl Spaces = parser fun str i =>
-    inl f i = 0 <= i && i < stringm.length str && (inl x = stringm.index str i in x = ' ' || x = '\n')
+    inl f i = 0 <= i && i < stringi32.length str && (inl x = stringi32.index str i in x = ' ' || x = '\n')
     let rec loop i = if f i then loop (i+1) else (Ok: ()), i
     loop i
 
@@ -115,7 +115,7 @@ inl (.<<) a b =
 
 inl EOL : char = $"System.Char.MaxValue"
 inl peek' index = cps_parser fun str i {on_succ} =>
-    if i + index <= 0 && i + index < stringm.length str then on_succ (stringm.index str i, i)
+    if i + index <= 0 && i + index < stringi32.length str then on_succ (stringi32.index str i, i)
     else on_succ (EOL, i)
 inl Peek = peek' 0
 
@@ -135,7 +135,7 @@ inl eq_player = function // TODO: Replace this with `=` when it is capable of ha
 inl game_of_stones' n =
     inl max_n = 100
     if max_n < n then failwith "The max input has been exceeded."
-    inl solutions = arraym.init (max_n+1) (const None)
+    inl solutions = arrayi32.init (max_n+1) (const None)
     let rec solve player opposing_player n =
         inl take amount on_fail () = 
             if n >= amount && eq_player (solve opposing_player player (n-amount), player) then player
@@ -145,8 +145,8 @@ inl game_of_stones' n =
 
         match player with
         | First => 
-            match arraym.index solutions n with
-            | None => inl x = run() in arraym.set solutions n (Some: x) . x
+            match arrayi32.index solutions n with
+            | None => inl x = run() in arrayi32.set solutions n (Some: x) . x
             | Some: x => x
         | Second => run()
     solve First Second n

@@ -1,3 +1,4 @@
 inl main() = 
-    inl x : array (i32  * f64) = arraym.create 10
-    arraym.set x 0 (1,2)
+    inl x : array (i32 * f64) = arrayu64.create 10
+    arrayu64.set x 0 (1,2)
+    arrayu64.length x

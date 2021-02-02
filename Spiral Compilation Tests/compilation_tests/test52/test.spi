@@ -1,15 +1,15 @@
 // Does structural hashing for nominals work?
 nominal t = {a : i32; meta : string}
-instance hashable t = fun (t a) => hash a.a
+instance hashable t = fun (t a) => hash_fsharp a.a
 nominal y = i32 * f64
 
 inl main () =
     inl ~_ =
         inl ~a = t {a=1; meta="qwe"}
         inl ~b = t {a=2; meta="asd"}
-        hash a, hash b
+        hash_fsharp a, hash_fsharp b
     inl ~_ =
         inl ~a = y (1,2)
         inl b = y (3,4)
-        hash a, hash b
+        hash_fsharp a, hash_fsharp b
     ()

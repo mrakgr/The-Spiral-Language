@@ -1,4 +1,4 @@
 // Do unapplied metavars errors happen on module application? They should.
 inl main () = 
-    inl x = arraym.fold
+    inl x = arrayi32.fold
     ()

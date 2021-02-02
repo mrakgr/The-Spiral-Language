@@ -4,22 +4,22 @@ inl union_test () =
     inl a = A: 1
     inl b = B: 3
     $"# // Static a"
-    inl ~_ = hash a
+    inl ~_ = hash_cython a
     $"# // Static b"
-    inl ~_ = hash b
+    inl ~_ = hash_cython b
     $"# // Dyn a"
-    inl ~_ = hash (dyn a)
+    inl ~_ = hash_cython (dyn a)
     $"# // Dyn b"
-    inl ~_ = hash (dyn b)
+    inl ~_ = hash_cython (dyn b)
     ()
 
 inl union_rec_test () =
     inl a = 1i32 :: 2 :: dyn (3 :: Nil)
     inl b = 1f64 :: dyn (2 :: 3 :: Nil)
     $"# // a"
-    inl ~_ = hash a
+    inl ~_ = hash_cython a
     $"# // b"
-    inl ~_ = hash b
+    inl ~_ = hash_cython b
     ()
 
 inl main () =

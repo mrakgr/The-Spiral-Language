@@ -4,23 +4,11 @@ open Spiral
 open Spiral.Tokenize
 open Spiral.BlockParsing
 open Spiral.PartEval.Main
+open Spiral.CodegenUtils
+
 open System
 open System.Text
 open System.Collections.Generic
-
-type CodegenEnv =
-    {
-    text : StringBuilder
-    indent : int
-    }
-
-let line x s = x.text.Append(' ', x.indent).AppendLine s |> ignore
-let indent x = {x with indent=x.indent+4}
-
-exception CodegenError of string
-exception CodegenErrorWithPos of Trace * string
-let raise_codegen_error x = raise (CodegenError x)
-let raise_codegen_error' trace x = raise (CodegenErrorWithPos(trace,x))
 
 let lit = function
     | LitInt8 x -> sprintf "%i" x
@@ -166,9 +154,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> 
-            match tup_ty a with 
-            | "void" -> raise_codegen_error "Void arrays are not allowed."
-            | x -> $"{x} [::1]"
+            match a with
+            | YPrim x -> $"{prim x} [::1]"
+            | _ -> "object [::1]"
         | YFun(a,b) -> sprintf "ClosureTy%i" ((closure_ty (a,b)).tag)
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
     and binds' (defs : CodegenEnv) (x : TypedBind []) =
@@ -305,7 +293,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             Array.iter2 (fun (L(i',_)) b ->
                 line s $"v{i}.v{i'} = {show_w b}"
                 ) (data_free_vars a) (data_term_vars c)
-        | TyArrayCreate(a,b) ->
+        | TyArrayCreate _ -> raise_codegen_error "The Cython backend does not support creating i32 arrays. Try the u64 array create instead."
+        | TyArrayU64Create(a,b) ->
             cimport "cython"
             let format =
                 match a with
@@ -330,15 +319,17 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | Apply,[a;b] -> sprintf "%s.apply(%s)" (tup a) (args' b)
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
-            | StringLength, [a] -> sprintf "<signed long>len(%s)" (tup a)
-            | StringIndex, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
-            | StringSlice, [a;b;c] -> sprintf "%s[%s..%s]" (tup a) (tup b) (tup c)
-            | ArrayIndex, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
-            | ArrayIndexSet, [a;b;c] -> 
+            | (StringLength | StringIndex | StringSlice | ArrayIndex | ArrayIndexSet | ArrayLength), _ -> 
+                raise_codegen_error "The Cython backend does not support i32 string and array operations. Try the u64 ones instead."
+            | StringU64Length, [a] -> sprintf "len(%s)" (tup a)
+            | StringU64Index, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
+            | StringU64Slice, [a;b;c] -> sprintf "%s[%s..%s]" (tup a) (tup b) (tup c)
+            | ArrayU64Index, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
+            | ArrayU64IndexSet, [a;b;c] -> 
                 match tup c with
                 | "pass" as c -> c
                 | c -> sprintf "%s[%s] = %s" (tup a) (tup b) c
-            | ArrayLength, [a] -> sprintf "<signed long>len(%s)" (tup a)
+            | ArrayU64Length, [a] -> sprintf "len(%s)" (tup a)
 
             // Math
             | Add, [a;b] -> sprintf "%s + %s" (tup a) (tup b)
@@ -368,7 +359,6 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | Exp, [x] -> cimport "libc.math"; sprintf "libc.math.exp(%s)" (tup x)
             | Tanh, [x] -> cimport "libc.math"; sprintf "libc.math.tanh(%s)" (tup x)
             | Sqrt, [x] -> cimport "libc.math"; sprintf "libc.math.sqrt(%s)" (tup x)
-            | Hash, [x] -> sprintf "hash(%s)" (tup x)
             | NanIs, [x] -> cimport "libc.math"; sprintf "libc.math.isnan(%s)" (tup x)
             | UnionTag, [x] -> sprintf "%s.tag" (tup x)
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
@@ -391,7 +381,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and tup' : _ -> TupleRec = tuple (fun s x -> layout_template "Tuple" "readonly " s x.tag x.tys)
     and union_template (prefix : string) s (x : UnionRec) = 
         line s $"cdef class {prefix}{x.tag}:"
-        line (indent s) $"cdef readonly unsigned long tag"
+        line (indent s) $"cdef readonly signed long tag"
         let mutable i = 0
         x.free_vars |> Map.iter (fun k a ->
             line s $"cdef class {prefix}{x.tag}_{i}({prefix}{x.tag}): # {k}"

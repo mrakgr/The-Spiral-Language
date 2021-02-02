@@ -2,7 +2,7 @@ open pickle
 nominal serialized a = array f32
 
 inl serialize forall t. (pu p : pu t) (x : t) : serialized t =
-    inl ar = arraym.create p.size
+    inl ar = arrayi32.create p.size
     p.pickle x (0,ar)
     $"printfn \"%A\" !ar"
     serialized ar

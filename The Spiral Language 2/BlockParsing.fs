@@ -56,11 +56,22 @@ type Op =
     | StringIndex
     | StringSlice
 
+    // String U64
+    | StringU64Length
+    | StringU64Index
+    | StringU64Slice
+
     // Array
     | ArrayCreate
     | ArrayLength
     | ArrayIndex
     | ArrayIndexSet
+
+    // Array U64
+    | ArrayU64Create
+    | ArrayU64Length
+    | ArrayU64Index
+    | ArrayU64IndexSet
 
     // Record
     | RecordMap
@@ -107,7 +118,6 @@ type Op =
     | Exp
     | Sqrt
     | NanIs
-    | Hash
 
     // Infinity
     | Infinity

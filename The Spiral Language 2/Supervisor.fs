@@ -128,8 +128,8 @@ module Build =
                                 | _ -> BuildFatalError $"Cannot recognize the backend: {backend}"
                             with
                                 | :? PartEval.Main.TypeError as e -> BuildErrorTrace(show_trace s e.Data0 e.Data1)
-                                | :? Codegen.Fsharp.CodegenError as e -> BuildFatalError(e.Data0)
-                                | :? Codegen.Fsharp.CodegenErrorWithPos as e -> BuildErrorTrace(show_trace s e.Data0 e.Data1)
+                                | :? CodegenUtils.CodegenError as e -> BuildFatalError(e.Data0)
+                                | :? CodegenUtils.CodegenErrorWithPos as e -> BuildErrorTrace(show_trace s e.Data0 e.Data1)
                         | None -> BuildFatalError(sprintf "Cannot find the main function in module. Path: %s" module_target)
             | None -> Job.result (BuildFatalError(sprintf "Cannot find the target module in the package. Path: %s" module_target))
             |> fun x -> x,s

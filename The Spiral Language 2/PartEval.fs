@@ -114,6 +114,7 @@ and TypedOp =
     | TyLayoutHeapMutableSet of L<Tag,Ty> * string list * Data
     | TyFailwith of Ty * Data
     | TyArrayCreate of Ty * Data
+    | TyArrayU64Create of Ty * Data
     | TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
     | TyWhile of cond: JoinPointCall * TypedBind []
     | TyJoinPoint of JoinPointCall
@@ -1236,21 +1237,47 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,StringIndex,[a;b]) ->
             match term2 s a b with
             | DLit(LitString a), DLit(LitInt32 b) ->
-                if b >= 0 && b < a.Length then a.[b] |> LitChar |> DLit
+                if 0 <= b && b < a.Length then a.[b] |> LitChar |> DLit
                 else raise_type_error s <| sprintf "String index out of bounds. length: %i index: %i" a.Length b
             | a,b ->
                 match data_to_ty s a, data_to_ty s b with
                 | YPrim StringT,YPrim Int32T -> push_binop s StringIndex (a,b) (YPrim CharT)
-                | a,b -> raise_type_error s <| sprintf "Expected a string and an i32 as arguments.\nstring: %s\ni: %s" (show_ty a) (show_ty b)
+                | a,b -> raise_type_error s <| sprintf "Expected a string and an i32 as arguments.\nGot: %s\nAnd: %s" (show_ty a) (show_ty b)
         | EOp(_,StringSlice,[a;b;c]) ->
             match term3 s a b c with
             | DLit(LitString a), DLit(LitInt32 b), DLit(LitInt32 c) ->
-                if b >= 0 && c < a.Length then a.[b..c] |> LitString |> DLit
+                if 0 <= b && b <= c && c < a.Length then a.[b..c] |> LitString |> DLit
                 else raise_type_error s <| sprintf "String slice out of bounds. length: %i from: %i to: %i" a.Length b c
             | a,b,c ->
                 match data_to_ty s a, data_to_ty s b, data_to_ty s c with
                 | YPrim StringT, YPrim Int32T, YPrim Int32T -> push_triop s StringSlice (a,b,c) (YPrim StringT)
-                | a,b,c -> raise_type_error s <| sprintf "Expected a string and two i32s as arguments.\nstring: %s\nfrom: %s\nto: %s" (show_ty a) (show_ty b) (show_ty c)
+                | a,b,c -> raise_type_error s <| sprintf "Expected a string and two i32s as arguments.\nGot: %s\nAnd: %s\nAnd: %s" (show_ty a) (show_ty b) (show_ty c)
+        | EOp(_,StringU64Length,[a]) ->
+            match term s a with
+            | DLit(LitString str) -> DLit (LitUInt64 (uint64 str.Length))
+            | DV(L(_,YPrim StringT)) & str -> push_op s StringU64Length str (YPrim UInt64T)
+            | x -> raise_type_error s <| sprintf "Expected a string.\nGot: %s" (show_data x)
+        | EOp(_,StringU64Index,[a;b]) ->
+            match term2 s a b with
+            | DLit(LitString a), DLit(LitUInt64 b) ->
+                if uint64 Int32.MaxValue < b then raise_type_error s <| "String index is greater than the max i32 value."
+                if 0UL <= b && b < (uint64 a.Length) then a.[int b] |> LitChar |> DLit
+                else raise_type_error s <| sprintf "String index out of bounds. length: %i index: %i" a.Length b
+            | a,b ->
+                match data_to_ty s a, data_to_ty s b with
+                | YPrim StringT,YPrim UInt64T -> push_binop s StringU64Index (a,b) (YPrim CharT)
+                | a,b -> raise_type_error s <| sprintf "Expected a string and an u64 as arguments.\nGot: %s\nAnd: %s" (show_ty a) (show_ty b)
+        | EOp(_,StringU64Slice,[a;b;c]) ->
+            match term3 s a b c with
+            | DLit(LitString a), DLit(LitUInt64 b), DLit(LitUInt64 c) ->
+                if uint64 Int32.MaxValue < b then raise_type_error s <| "String index `from` is greater than the max i32 value."
+                if uint64 Int32.MaxValue < c then raise_type_error s <| "String index `to` is greater than the max i32 value."
+                if 0UL <= b && b <= c && c < (uint64 a.Length) then a.[int b..int c] |> LitString |> DLit
+                else raise_type_error s <| sprintf "String slice out of bounds. length: %i from: %i to: %i" a.Length b c
+            | a,b,c ->
+                match data_to_ty s a, data_to_ty s b, data_to_ty s c with
+                | YPrim StringT, YPrim Int64T, YPrim Int64T -> push_triop s StringU64Slice (a,b,c) (YPrim StringT)
+                | a,b,c -> raise_type_error s <| sprintf "Expected a string and two u64s as arguments.\nGot: %s\nAnd: %s\nAnd: %s" (show_ty a) (show_ty b) (show_ty c)
         | EOp(_,ArrayCreate,[EType(_,a);b]) ->
             let a,b = ty s a, term s b
             match data_to_ty s b with
@@ -1260,7 +1287,7 @@ let peval (env : TopEnv) (x : E) =
             let a = term s a
             match data_to_ty s a with
             | YArray _ -> push_op s ArrayLength a (YPrim Int32T)
-            | a -> raise_type_error s <| sprintf "Array length is only supported for non-native arrays. Got: %s" (show_ty a)
+            | a -> raise_type_error s <| sprintf "Expected an array.\nGot: %s" (show_ty a)
         | EOp(_,ArrayIndex,[a;b]) ->
             match term s a with
             | DV(L(_,YArray ty)) & a ->
@@ -1280,6 +1307,36 @@ let peval (env : TopEnv) (x : E) =
                     if ty' = ty then push_triop_no_rewrite s ArrayIndexSet (a,b,c) YB
                     else raise_type_error s <| sprintf "The array and the value being set do not have the same type.\nGot: %s\nExpected: %s" (show_ty ty') (show_ty ty)
                 | b -> raise_type_error s <| sprintf "Expected a i32 as the index argumet.\nGot: %s" (show_ty b)
+            | a -> raise_type_error s <| sprintf "Expected an array.\nGot: %s" (show_data a)
+        | EOp(_,ArrayU64Create,[EType(_,a);b]) ->
+            let a,b = ty s a, term s b
+            match data_to_ty s b with
+            | YPrim UInt64T -> push_typedop_no_rewrite s (TyArrayU64Create(a,b)) (YArray a)
+            | b -> raise_type_error s <| sprintf "Expected an u64 as the size of the array.\nGot: %s" (show_ty b)
+        | EOp(_,ArrayU64Length,[a]) ->
+            let a = term s a
+            match data_to_ty s a with
+            | YArray _ -> push_op s ArrayU64Length a (YPrim UInt64T)
+            | a -> raise_type_error s <| sprintf "Expected an array.\nGot: %s" (show_ty a)
+        | EOp(_,ArrayU64Index,[a;b]) ->
+            match term s a with
+            | DV(L(_,YArray ty)) & a ->
+                let b = term s b
+                match data_to_ty s b with
+                | YPrim UInt64T -> push_binop_no_rewrite s ArrayU64Index (a,b) ty
+                | b -> raise_type_error s <| sprintf "Expected a u64 as the index argumet.\nGot: %s" (show_ty b)
+            | a -> raise_type_error s <| sprintf "Expected an array.\nGot: %s" (show_data a)
+        | EOp(_,ArrayU64IndexSet,[a;b;c]) ->
+            match term s a with
+            | DV(L(_,YArray ty)) & a ->
+                let b = term s b
+                match data_to_ty s b with
+                | YPrim UInt64T -> 
+                    let c = term s c |> dyn false s
+                    let ty' = data_to_ty s c
+                    if ty' = ty then push_triop_no_rewrite s ArrayU64IndexSet (a,b,c) YB
+                    else raise_type_error s <| sprintf "The array and the value being set do not have the same type.\nGot: %s\nExpected: %s" (show_ty ty') (show_ty ty)
+                | b -> raise_type_error s <| sprintf "Expected a u64 as the index argumet.\nGot: %s" (show_ty b)
             | a -> raise_type_error s <| sprintf "Expected an array.\nGot: %s" (show_data a)
         | EOp(_,RecordMap,[a;b]) ->
             match term2 s a b with
@@ -1784,28 +1841,6 @@ let peval (env : TopEnv) (x : E) =
                 let a_ty = data_to_ty s a
                 if is_float a_ty then push_op s Sqrt a a_ty
                 else raise_type_error s <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
-        | EOp(_,Hash,[a]) ->
-            let inline op a = hash a
-            match term s a with // The following is commented out for compatibility between the Cython and F# backends.
-            //| DLit a ->
-            //    match a with
-            //    | LitInt8 a -> op a |> LitInt32 |> DLit
-            //    | LitInt16 a -> op a |> LitInt32 |> DLit
-            //    | LitInt32 a -> op a |> LitInt32 |> DLit
-            //    | LitInt64 a -> op a |> LitInt32 |> DLit
-            //    | LitUInt8 a -> op a |> LitInt32 |> DLit
-            //    | LitUInt16 a -> op a |> LitInt32 |> DLit
-            //    | LitUInt32 a -> op a |> LitInt32 |> DLit
-            //    | LitUInt64 a -> op a |> LitInt32 |> DLit
-            //    | LitFloat32 a -> op a |> LitInt32 |> DLit
-            //    | LitFloat64 a -> op a |> LitInt32 |> DLit
-            //    | LitBool a -> op a |> LitInt32 |> DLit
-            //    | LitString a -> op a |> LitInt32 |> DLit
-            //    | LitChar a -> op a |> LitInt32 |> DLit
-            | a ->
-                let a_ty = data_to_ty s a
-                if is_primitive a_ty then push_op s Hash a (YPrim Int32T)
-                else raise_type_error s <| sprintf "The argument must be a primitive type.\nGot: %s" (show_ty a_ty)
         | EOp(_,NanIs,[a]) ->
             let a = term s a
             match data_to_ty s a with

@@ -1,11 +1,12 @@
+cimport cython
 cdef class US0:
-    cdef readonly unsigned long tag
+    cdef readonly signed long tag
 cdef class US0_0(US0): # empty
     def __init__(self): self.tag = 0
 cdef class US0_1(US0): # princess
     def __init__(self): self.tag = 1
 cdef class UH0:
-    cdef readonly unsigned long tag
+    cdef readonly signed long tag
 cdef class UH0_0(UH0): # cons_
     cdef readonly str v0
     cdef readonly UH0 v1
@@ -13,25 +14,25 @@ cdef class UH0_0(UH0): # cons_
 cdef class UH0_1(UH0): # nil
     def __init__(self): self.tag = 1
 cdef class US1:
-    cdef readonly unsigned long tag
+    cdef readonly signed long tag
 cdef class US1_0(US1): # none
     def __init__(self): self.tag = 0
 cdef class US1_1(US1): # some_
-    cdef readonly signed long v0
-    cdef readonly signed long v1
+    cdef readonly unsigned long long v0
+    cdef readonly unsigned long long v1
     cdef readonly UH0 v2
-    def __init__(self, signed long v0, signed long v1, UH0 v2): self.tag = 1; self.v0 = v0; self.v1 = v1; self.v2 = v2
+    def __init__(self, unsigned long long v0, unsigned long long v1, UH0 v2): self.tag = 1; self.v0 = v0; self.v1 = v1; self.v2 = v2
 cdef class Mut0:
     cdef public US1 v0
     def __init__(self, US1 v0): self.v0 = v0
 cdef class Tuple0:
-    cdef readonly signed long v0
-    cdef readonly signed long v1
+    cdef readonly unsigned long long v0
+    cdef readonly unsigned long long v1
     cdef readonly UH0 v2
-    def __init__(self, signed long v0, signed long v1, UH0 v2): self.v0 = v0; self.v1 = v1; self.v2 = v2
-cdef void method1(signed long v0, signed long v1, signed long v2, signed long v3, list v4, signed long v5):
+    def __init__(self, unsigned long long v0, unsigned long long v1, UH0 v2): self.v0 = v0; self.v1 = v1; self.v2 = v2
+cdef void method1(unsigned long long v0, unsigned long long v1, unsigned long long v2, unsigned long long v3, object [::1] v4, unsigned long long v5):
     cdef char v6
-    cdef signed long v7
+    cdef unsigned long long v7
     cdef char v8
     cdef char v10
     cdef US0 v13
@@ -49,137 +50,137 @@ cdef void method1(signed long v0, signed long v1, signed long v2, signed long v3
             v13 = US0_0()
         v4[v5] = v13
         method1(v0, v1, v2, v3, v4, v7)
-cdef void method0(signed long v0, signed long v1, signed long v2, list v3, signed long v4):
+cdef void method0(unsigned long long v0, unsigned long long v1, unsigned long long v2, object [::1] v3, unsigned long long v4):
     cdef char v5
-    cdef signed long v6
-    cdef list v7
-    cdef signed long v8
+    cdef unsigned long long v6
+    cdef object [::1] v7
+    cdef unsigned long long v8
     v5 = v4 < v0
     if v5:
         v6 = v4 + 1
-        v7 = [None] * v0
+        v7 = cython.view.array(shape=(v0,), itemsize=sizeof(void *), format='O')
         v8 = 0
         method1(v0, v1, v2, v4, v7, v8)
         v3[v4] = v7
         method0(v0, v1, v2, v3, v6)
-cdef void method4(signed long v0, list v1, signed long v2):
+cdef void method4(unsigned long long v0, char [::1] v1, unsigned long long v2):
     cdef char v3
-    cdef signed long v4
+    cdef unsigned long long v4
     v3 = v2 < v0
     if v3:
         v4 = v2 + 1
         v1[v2] = 0
         method4(v0, v1, v4)
-cdef void method3(signed long v0, list v1, list v2, signed long v3):
+cdef void method3(unsigned long long v0, object [::1] v1, object [::1] v2, unsigned long long v3):
     cdef char v4
-    cdef signed long v5
-    cdef list v6
-    cdef signed long v7
-    cdef list v8
-    cdef signed long v9
+    cdef unsigned long long v5
+    cdef object [::1] v6
+    cdef unsigned long long v7
+    cdef char [::1] v8
+    cdef unsigned long long v9
     v4 = v3 < v0
     if v4:
         v5 = v3 + 1
         v6 = v1[v3]
-        v7 = <signed long>len(v6)
-        v8 = [None] * v7
+        v7 = len(v6)
+        v8 = cython.view.array(shape=(v7,), itemsize=sizeof(char), format='b')
         v9 = 0
         method4(v7, v8, v9)
         v2[v3] = v8
         method3(v0, v1, v2, v5)
-cdef void method6(signed long v0, list v1, list v2, Mut0 v3, list v4, list v5, signed long v6):
+cdef void method6(unsigned long long v0, object [::1] v1, object [::1] v2, Mut0 v3, object [::1] v4, object [::1] v5, unsigned long long v6):
     cdef char v7
-    cdef signed long v8
-    cdef signed long v9
-    cdef signed long v10
+    cdef unsigned long long v8
+    cdef unsigned long long v9
+    cdef unsigned long long v10
     cdef UH0 v11
     cdef Tuple0 tmp0
-    cdef signed long v12
+    cdef unsigned long long v12
     cdef char v13
     cdef char v22
-    cdef signed long v14
+    cdef unsigned long long v14
     cdef char v15
-    cdef list v16
+    cdef object [::1] v16
     cdef char v17
-    cdef signed long v18
+    cdef unsigned long long v18
     cdef char v26
-    cdef list v23
+    cdef char [::1] v23
     cdef char v24
     cdef char v33
-    cdef list v27
+    cdef object [::1] v27
     cdef US0 v28
     cdef char v29
     cdef UH0 v30
     cdef US1 v31
-    cdef list v32
-    cdef signed long v34
+    cdef char [::1] v32
+    cdef unsigned long long v34
     cdef char v35
     cdef char v44
-    cdef signed long v36
+    cdef unsigned long long v36
     cdef char v37
-    cdef list v38
+    cdef object [::1] v38
     cdef char v39
-    cdef signed long v40
+    cdef unsigned long long v40
     cdef char v48
-    cdef list v45
+    cdef char [::1] v45
     cdef char v46
     cdef char v55
-    cdef list v49
+    cdef object [::1] v49
     cdef US0 v50
     cdef char v51
     cdef UH0 v52
     cdef US1 v53
-    cdef list v54
-    cdef signed long v56
+    cdef char [::1] v54
+    cdef unsigned long long v56
     cdef char v57
     cdef char v66
-    cdef signed long v58
+    cdef unsigned long long v58
     cdef char v59
-    cdef list v60
+    cdef object [::1] v60
     cdef char v61
-    cdef signed long v62
+    cdef unsigned long long v62
     cdef char v70
-    cdef list v67
+    cdef char [::1] v67
     cdef char v68
     cdef char v77
-    cdef list v71
+    cdef object [::1] v71
     cdef US0 v72
     cdef char v73
     cdef UH0 v74
     cdef US1 v75
-    cdef list v76
-    cdef signed long v78
+    cdef char [::1] v76
+    cdef unsigned long long v78
     cdef char v87
-    cdef signed long v79
+    cdef unsigned long long v79
     cdef char v80
-    cdef list v81
+    cdef object [::1] v81
     cdef char v82
-    cdef signed long v83
+    cdef unsigned long long v83
     cdef char v91
-    cdef list v88
+    cdef char [::1] v88
     cdef char v89
     cdef char v98
-    cdef list v92
+    cdef object [::1] v92
     cdef US0 v93
     cdef char v94
     cdef UH0 v95
     cdef US1 v96
-    cdef list v97
-    cdef signed long v99
-    cdef signed long v100
-    cdef signed long v101
-    cdef signed long v102
-    cdef signed long v103
-    cdef signed long v104
-    cdef signed long v105
-    cdef list v106
-    cdef signed long v108
+    cdef char [::1] v97
+    cdef unsigned long long v99
+    cdef unsigned long long v100
+    cdef unsigned long long v101
+    cdef unsigned long long v102
+    cdef unsigned long long v103
+    cdef unsigned long long v104
+    cdef unsigned long long v105
+    cdef object [::1] v106
+    cdef unsigned long long v108
     cdef UH0 v107
-    cdef signed long v111
+    cdef unsigned long long v111
     cdef UH0 v109
-    cdef signed long v114
+    cdef unsigned long long v114
     cdef UH0 v112
-    cdef signed long v117
+    cdef unsigned long long v117
     cdef UH0 v115
     v7 = v6 < v0
     if v7:
@@ -189,13 +190,13 @@ cdef void method6(signed long v0, list v1, list v2, Mut0 v3, list v4, list v5, s
         v12 = v9 - 1
         v13 = 0 <= v12
         if v13:
-            v14 = <signed long>len(v2)
+            v14 = len(v2)
             v15 = v12 < v14
             if v15:
                 v16 = v2[v12]
                 v17 = 0 <= v10
                 if v17:
-                    v18 = <signed long>len(v16)
+                    v18 = len(v16)
                     v22 = v10 < v18
                 else:
                     v22 = 0
@@ -228,13 +229,13 @@ cdef void method6(signed long v0, list v1, list v2, Mut0 v3, list v4, list v5, s
         v34 = v9 + 1
         v35 = 0 <= v34
         if v35:
-            v36 = <signed long>len(v2)
+            v36 = len(v2)
             v37 = v34 < v36
             if v37:
                 v38 = v2[v34]
                 v39 = 0 <= v10
                 if v39:
-                    v40 = <signed long>len(v38)
+                    v40 = len(v38)
                     v44 = v10 < v40
                 else:
                     v44 = 0
@@ -267,13 +268,13 @@ cdef void method6(signed long v0, list v1, list v2, Mut0 v3, list v4, list v5, s
         v56 = v10 - 1
         v57 = 0 <= v9
         if v57:
-            v58 = <signed long>len(v2)
+            v58 = len(v2)
             v59 = v9 < v58
             if v59:
                 v60 = v2[v9]
                 v61 = 0 <= v56
                 if v61:
-                    v62 = <signed long>len(v60)
+                    v62 = len(v60)
                     v66 = v56 < v62
                 else:
                     v66 = 0
@@ -305,13 +306,13 @@ cdef void method6(signed long v0, list v1, list v2, Mut0 v3, list v4, list v5, s
             v77 = 0
         v78 = v10 + 1
         if v57:
-            v79 = <signed long>len(v2)
+            v79 = len(v2)
             v80 = v9 < v79
             if v80:
                 v81 = v2[v9]
                 v82 = 0 <= v78
                 if v82:
-                    v83 = <signed long>len(v81)
+                    v83 = len(v81)
                     v87 = v78 < v83
                 else:
                     v87 = 0
@@ -360,7 +361,7 @@ cdef void method6(signed long v0, list v1, list v2, Mut0 v3, list v4, list v5, s
         else:
             v104 = 0
         v105 = v103 + v104
-        v106 = [None] * v105
+        v106 = cython.view.array(shape=(v105,), itemsize=sizeof(void *), format='O')
         if v33:
             v107 = UH0_0("UP", v11)
             v106[0] = Tuple0(v12, v10, v107)
@@ -387,29 +388,29 @@ cdef void method6(signed long v0, list v1, list v2, Mut0 v3, list v4, list v5, s
             v117 = v114
         v5[v6] = v106
         method6(v0, v1, v2, v3, v4, v5, v8)
-cdef signed long method7(signed long v0, list v1, signed long v2, signed long v3):
+cdef unsigned long long method7(unsigned long long v0, object [::1] v1, unsigned long long v2, unsigned long long v3):
     cdef char v4
-    cdef signed long v5
-    cdef list v6
-    cdef signed long v7
-    cdef signed long v8
+    cdef unsigned long long v5
+    cdef object [::1] v6
+    cdef unsigned long long v7
+    cdef unsigned long long v8
     v4 = v2 < v0
     if v4:
         v5 = v2 + 1
         v6 = v1[v2]
-        v7 = <signed long>len(v6)
+        v7 = len(v6)
         v8 = v3 + v7
         return method7(v0, v1, v5, v8)
     else:
         return v3
-cdef signed long method9(signed long v0, list v1, list v2, signed long v3, signed long v4):
+cdef unsigned long long method9(unsigned long long v0, object [::1] v1, object [::1] v2, unsigned long long v3, unsigned long long v4):
     cdef char v5
-    cdef signed long v6
-    cdef signed long v7
-    cdef signed long v8
+    cdef unsigned long long v6
+    cdef unsigned long long v7
+    cdef unsigned long long v8
     cdef UH0 v9
     cdef Tuple0 tmp1
-    cdef signed long v10
+    cdef unsigned long long v10
     v5 = v3 < v0
     if v5:
         v6 = v3 + 1
@@ -420,18 +421,18 @@ cdef signed long method9(signed long v0, list v1, list v2, signed long v3, signe
         return method9(v0, v1, v2, v6, v10)
     else:
         return v4
-cdef signed long method8(signed long v0, list v1, list v2, signed long v3, signed long v4):
+cdef unsigned long long method8(unsigned long long v0, object [::1] v1, object [::1] v2, unsigned long long v3, unsigned long long v4):
     cdef char v5
-    cdef signed long v6
-    cdef list v7
-    cdef signed long v8
-    cdef signed long v9
-    cdef signed long v10
+    cdef unsigned long long v6
+    cdef object [::1] v7
+    cdef unsigned long long v8
+    cdef unsigned long long v9
+    cdef unsigned long long v10
     v5 = v3 < v0
     if v5:
         v6 = v3 + 1
         v7 = v2[v3]
-        v8 = <signed long>len(v7)
+        v8 = len(v7)
         v9 = 0
         v10 = method9(v8, v1, v7, v9, v4)
         return method8(v0, v1, v2, v6, v10)
@@ -448,32 +449,32 @@ cdef UH0 method10(UH0 v0, UH0 v1):
         return method10(v4, v3)
     elif v1.tag == 1: # nil
         return v0
-cdef UH0 method5(list v0, list v1, Mut0 v2, list v3):
-    cdef signed long v4
-    cdef list v5
-    cdef signed long v6
-    cdef signed long v7
-    cdef signed long v8
-    cdef signed long v9
-    cdef signed long v10
-    cdef list v11
-    cdef signed long v12
-    cdef signed long v13
-    cdef signed long v14
+cdef UH0 method5(object [::1] v0, object [::1] v1, Mut0 v2, object [::1] v3):
+    cdef unsigned long long v4
+    cdef object [::1] v5
+    cdef unsigned long long v6
+    cdef unsigned long long v7
+    cdef unsigned long long v8
+    cdef unsigned long long v9
+    cdef unsigned long long v10
+    cdef object [::1] v11
+    cdef unsigned long long v12
+    cdef unsigned long long v13
+    cdef unsigned long long v14
     cdef US1 v15
-    cdef signed long v17
-    cdef signed long v18
+    cdef unsigned long long v17
+    cdef unsigned long long v18
     cdef UH0 v19
     cdef UH0 v20
-    v4 = <signed long>len(v3)
-    v5 = [None] * v4
+    v4 = len(v3)
+    v5 = cython.view.array(shape=(v4,), itemsize=sizeof(void *), format='O')
     v6 = 0
     method6(v4, v0, v1, v2, v3, v5, v6)
-    v7 = <signed long>len(v5)
+    v7 = len(v5)
     v8 = 0
     v9 = 0
     v10 = method7(v7, v5, v8, v9)
-    v11 = [None] * v10
+    v11 = cython.view.array(shape=(v10,), itemsize=sizeof(void *), format='O')
     v12 = 0
     v13 = 0
     v14 = method8(v7, v11, v5, v12, v13)
@@ -486,21 +487,21 @@ cdef UH0 method5(list v0, list v1, Mut0 v2, list v3):
         v19 = (<US1_1>v15).v2
         v20 = UH0_1()
         return method10(v20, v19)
-cdef UH0 method2(list v0, signed long v1, signed long v2):
-    cdef signed long v3
-    cdef list v4
-    cdef signed long v5
+cdef UH0 method2(object [::1] v0, unsigned long long v1, unsigned long long v2):
+    cdef unsigned long long v3
+    cdef object [::1] v4
+    cdef unsigned long long v5
     cdef US1 v6
     cdef Mut0 v7
-    cdef list v8
+    cdef object [::1] v8
     cdef UH0 v9
-    v3 = <signed long>len(v0)
-    v4 = [None] * v3
+    v3 = len(v0)
+    v4 = cython.view.array(shape=(v3,), itemsize=sizeof(void *), format='O')
     v5 = 0
     method3(v3, v0, v4, v5)
     v6 = US1_0()
     v7 = Mut0(v6)
-    v8 = [None] * 1
+    v8 = cython.view.array(shape=(1,), itemsize=sizeof(void *), format='O')
     v9 = UH0_1()
     v8[0] = Tuple0(v1, v2, v9)
     return method5(v4, v0, v7, v8)
@@ -515,19 +516,19 @@ cdef void method11(UH0 v0):
     elif v0.tag == 1: # nil
         pass
 cpdef void main():
-    cdef signed long v0
-    cdef signed long v1
-    cdef signed long v2
-    cdef list v3
-    cdef signed long v4
-    cdef signed long v5
-    cdef signed long v6
+    cdef unsigned long long v0
+    cdef unsigned long long v1
+    cdef unsigned long long v2
+    cdef object [::1] v3
+    cdef unsigned long long v4
+    cdef unsigned long long v5
+    cdef unsigned long long v6
     cdef UH0 v7
     v0 = 4
     v1 = 2
     v2 = 3
     print("Initing")
-    v3 = [None] * v0
+    v3 = cython.view.array(shape=(v0,), itemsize=sizeof(void *), format='O')
     v4 = 0
     method0(v0, v1, v2, v3, v4)
     print("Starting")

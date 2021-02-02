@@ -2625,13 +2625,13 @@ Here is the array primitive.
 inl array' (pu prim) =
     inl (pu i32) = I32
     pu {
-        size = fun x => arraym.fold (fun s x => s + prim.size x) I32Size x
+        size = fun x => arrayi32.fold (fun s x => s + prim.size x) I32Size x
         pickle = fun x state =>
-            i32.pickle (arraym.length x) state
-            arraym.iter (fun x => prim.pickle x state) x
+            i32.pickle (arrayi32.length x) state
+            arrayi32.iter (fun x => prim.pickle x state) x
         unpickle = fun state =>
             inl length = i32.unpickle state
-            arraym.init length (fun _ => prim.unpickle state)
+            arrayi32.init length (fun _ => prim.unpickle state)
         }
 ```
 
@@ -2698,7 +2698,7 @@ nominal serialized a = array u8
 
 inl serialize forall t. (pu p : pu t) (x : t) : serialized t =
     inl size = p.size x
-    inl ar = arraym.create size
+    inl ar = arrayi32.create size
     inl i = mut 0
     p.pickle x (i,ar)
     assert (*i = size) "The size of the array does not correspond to the amount being pickled. One of the combinators is faulty."
@@ -2707,7 +2707,7 @@ inl serialize forall t. (pu p : pu t) (x : t) : serialized t =
 inl deserialize forall t. (pu p : pu t) (serialized x : serialized t) : t =
     inl i = mut 0
     inl r = p.unpickle (i,x)
-    assert (*i = arraym.length x) "The size of the array does not correspond to the amount being unpickled. One of the combinators is faulty or the data is malformed."
+    assert (*i = arrayi32.length x) "The size of the array does not correspond to the amount being unpickled. One of the combinators is faulty or the data is malformed."
     r
 
 inl test scheme x = assert (x = deserialize scheme (serialize scheme x)) "Serialization and deserialization should result in the same result."
@@ -3476,8 +3476,8 @@ inl rec size x : i32 =
     | _ => 
         typecase `x with
         | array ~t => 
-            if prim_type_is `t then size_prim `i32 + size_prim `t * arraym.length `t x
-            else arraym.fold `i32 `t (fun s x => s + size x) (size_prim `i32) x
+            if prim_type_is `t then size_prim `i32 + size_prim `t * arrayi32.length `t x
+            else arrayi32.fold `i32 `t (fun s x => s + size x) (size_prim `i32) x
         | string => size_prim `i32 + size_prim `char * stringm.length x
         | ~t => 
             if prim_is x then size_prim `t
@@ -3522,8 +3522,8 @@ inl rec pickle x (i',s as state) : () =
     | _ =>
         typecase `x with
         | array ~t => 
-            pickle (arraym.length `t x) state
-            arraym.iter `t (fun x => pickle x state) x
+            pickle (arrayi32.length `t x) state
+            arrayi32.iter `t (fun x => pickle x state) x
         | string => pickle ($"!x.ToCharArray()" : array char) state
         | ~t => 
             if prim_is x then
@@ -3550,7 +3550,7 @@ inl rec unpickle forall t. (i', s as state) : t =
     | {} => record_type_map (fun k => forall v. => unpickle `v state) `t
     | i32 => prim (fun i => $"System.BitConverter.ToInt32(!s,!i)" : t)
     | char => prim (fun i => $"System.BitConverter.ToChar(!s,!i)" : t)
-    | array ~y => arraym.init `y (unpickle `i32 state) (fun i => unpickle `y state)
+    | array ~y => arrayi32.init `y (unpickle `i32 state) (fun i => unpickle `y state)
     | string => inl ar = unpickle `(array char) state in $"System.String(!ar)" : string
     | _ =>
         if symbol_type_is `t then type_to_symbol `t
@@ -3586,7 +3586,7 @@ nominal serialized a = array u8
 
 inl serialize forall t. (x : t) : serialized t =
     inl size = size x
-    inl ar = arraym.create size
+    inl ar = arrayi32.create size
     inl i = mut 0
     pickle x (i,ar)
     assert (*i = size) "The size of the array does not correspond to the amount being pickled."
@@ -3595,7 +3595,7 @@ inl serialize forall t. (x : t) : serialized t =
 inl deserialize forall t. (serialized x : serialized t) : t =
     inl i = mut 0
     inl r = unpickle (i,x)
-    assert (*i = arraym.length x) "The size of the array does not correspond to the amount being unpickled."
+    assert (*i = arrayi32.length x) "The size of the array does not correspond to the amount being unpickled."
     r
 
 inl test x = assert (x = deserialize (serialize x)) "Serialization and deserialization should result in the same result."
@@ -3671,9 +3671,9 @@ Since during the making of this I fiddled with what the types should be, instead
 ```
 inl Unit =
     pu {size = 1
-        pickle = fun () (i,s) => arraym.set s i 1
+        pickle = fun () (i,s) => arrayi32.set s i 1
         unpickle = fun (i,s) => 
-            inl x = arraym.index s i
+            inl x = arrayi32.index s i
             if x = 1 then Some: () elif x = 0 then None 
             else failwith "Unpickling failure. The unit type should always be either be active or inactive."
         }
@@ -3687,7 +3687,7 @@ During unpickling the input is validated to make sure that it is either 1 or 0. 
 inl I32 size : pu i32 =
     pu {size
         pickle = fun x (i,s) =>
-            if 0 <= x && x < size then arraym.set s (i+x) 1
+            if 0 <= x && x < size then arrayi32.set s (i+x) 1
             else failwith "Value out of bounds."
 ```
 
@@ -3698,7 +3698,7 @@ inl I32 size : pu i32 =
             inl nearTo = from+size
             let rec loop (case,c) i = 
                 if i < nearTo then 
-                    inl x = arraym.index s i
+                    inl x = arrayi32.index s i
                     if x = 0 then loop (case,c) (i+1)
                     elif x = 1 then loop (i-from,c+1) (i+1)
                     else failwith "Unpickling failure. The int type must either be active or inactive."
@@ -3721,7 +3721,7 @@ When I tried to fix this, here is what I tried first.
             inl ~(from,nearTo) = from, from+size
             let rec loop (case,c) i = 
                 if i < nearTo then 
-                    inl x = arraym.index s i
+                    inl x = arrayi32.index s i
                     if x = 0 then loop (case,c) (i+1)
                     elif x = 1 then loop (i-from,c+1) (i+1)
                     else failwith "Unpickling failure. The int type must either be active or inactive."
@@ -3742,7 +3742,7 @@ Here a better way of doing it.
             join
                 inl case,c =
                     loop.for (from:nearTo:) (fun i (case,c) =>
-                        inl x = arraym.index s i
+                        inl x = arrayi32.index s i
                         if x = 0 then case,c
                         elif x = 1 then i,c+1
                         else failwith "Unpickling failure. The int type must either be active or inactive."
@@ -3788,14 +3788,14 @@ Back in 2018 I ended up running into compiler bugs in the NVCC compiler due to t
 inl I32 size : pu i32 =
     pu {size
         pickle = fun x (i,s) =>
-            if 0 <= x && x < size then arraym.set s (i+x) 1
+            if 0 <= x && x < size then arrayi32.set s (i+x) 1
             else failwith "Value out of bounds."
         unpickle = fun (from,s) =>
             inl ~(from,nearTo) = from, from+size
             join
                 inl case,c =
                     loop.for (from:nearTo:) (fun i (case,c) =>
-                        inl x = arraym.index s i
+                        inl x = arrayi32.index s i
                         if x = 0 then case,c
                         elif x = 1 then i,c+1
                         else failwith "Unpickling failure. The int type must either be active or inactive."
@@ -3884,7 +3884,7 @@ open pickle
 nominal serialized a = array f32
 
 inl serialize forall t. (pu p : pu t) (x : t) : serialized t =
-    inl ar = arraym.create p.size
+    inl ar = arrayi32.create p.size
     p.pickle x (0,ar)
     // $"printfn \"%A\" !ar"\
     serialized ar
@@ -3973,23 +3973,23 @@ nominal pu a = {
 
 inl Unit =
     pu {size = 1
-        pickle = fun () (i,s) => arraym.set s i 1
+        pickle = fun () (i,s) => arrayi32.set s i 1
         unpickle = fun (i,s) => 
-            inl x = arraym.index s i
+            inl x = arrayi32.index s i
             (), if x = 1 then 1 elif x = 0 then 0 else failwith "Unpickling failure. The unit type should always be either be active or inactive."
         }
 
 inl I32 size : pu i32 =
     pu {size
         pickle = fun x (i,s) =>
-            if 0 <= x && x < size then arraym.set s (i+x) 1
+            if 0 <= x && x < size then arrayi32.set s (i+x) 1
             else failwith "Value out of bounds."
         unpickle = fun (from,s) =>
             inl ~(from,nearTo) = from, from+size
             join
                 inl case,c =
                     loop.for (from:nearTo:) (fun i (case,c) =>
-                        inl x = arraym.index s i
+                        inl x = arrayi32.index s i
                         if x = 0 then case,c
                         elif x = 1 then i,c+1
                         else failwith "Unpickling failure. The int type must either be active or inactive."
@@ -4064,7 +4064,7 @@ open pickle
 nominal serialized a = array f32
 
 inl serialize forall t. (pu p : pu t) (x : t) : serialized t =
-    inl ar = arraym.create p.size
+    inl ar = arrayi32.create p.size
     p.pickle x (0,ar)
     $"printfn \"%A\" !ar"
     serialized ar

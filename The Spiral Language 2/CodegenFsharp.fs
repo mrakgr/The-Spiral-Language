@@ -4,23 +4,10 @@ open Spiral
 open Spiral.Tokenize
 open Spiral.BlockParsing
 open Spiral.PartEval.Main
+open Spiral.CodegenUtils
 open System
 open System.Text
 open System.Collections.Generic
-
-type CodegenEnv =
-    {
-    text : StringBuilder
-    indent : int
-    }
-
-let line x s = x.text.Append(' ', x.indent).AppendLine s |> ignore
-let indent x = {x with indent=x.indent+4}
-
-exception CodegenError of string
-exception CodegenErrorWithPos of Trace * string
-let raise_codegen_error x = raise (CodegenError x)
-let raise_codegen_error' trace x = raise (CodegenErrorWithPos(trace,x))
 
 let lit = function
     | LitInt8 x -> sprintf "%iy" x
@@ -268,12 +255,15 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s (sprintf "v%i.l%i <- %s" i i' (show_w b))
                 ) (data_free_vars a) (data_term_vars c)
         | TyArrayCreate(a,b) -> simple (sprintf "Array.zeroCreate<%s> %s" (tup_ty a) (tup b))
+        | TyArrayU64Create _ -> raise_codegen_error "The F# backend does not support creating u64 arrays. Try the i32 array create instead."
         | TyFailwith(a,b) -> simple (sprintf "failwith<%s> %s" (tup_ty a) (tup b))
         | TyOp(op,l) ->
             match op, l with
             | Apply,[a;b] -> sprintf "%s %s" (tup a) (tup b)
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
+            | (StringU64Length | StringU64Index | StringU64Slice | ArrayU64Index | ArrayU64IndexSet | ArrayU64Length), _ -> 
+                raise_codegen_error "The F# backend does not support u64 string and array operations. Try the i32 ones instead."
             | StringLength, [a] -> sprintf "%s.Length" (tup a)
             | StringIndex, [a;b] -> sprintf "%s.[%s]" (tup a) (tup b)
             | StringSlice, [a;b;c] -> sprintf "%s.[%s..%s]" (tup a) (tup b) (tup c)
@@ -308,7 +298,6 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | Exp, [x] -> sprintf "exp %s" (tup x)
             | Tanh, [x] -> sprintf "tanh %s" (tup x)
             | Sqrt, [x] -> sprintf "sqrt %s" (tup x)
-            | Hash, [x] -> sprintf "hash %s" (tup x)
             | NanIs, [x] -> 
                 match x with
                 | DLit(LitFloat32 _) | DV(L(_,YPrim Float32T)) -> sprintf "System.Single.IsNaN(%s)" (tup x)

@@ -82,8 +82,10 @@ inl (=) forall t. (a : t) (b : t) : bool = real a = b
 inl (<>) forall t. (a : t) (b : t) : bool = real a <> b
 // Structural polymorphic comparison for every type in the language (apart from functions.)
 inl comp forall t. (a : t) (b : t) : order = real comp a b
-// Structural polymorphic hashing for every type in the language (apart from functions.)
-inl hash forall t. (a : t) : i32 = real hash a
+// Structural polymorphic hashing for every type in the language (apart from functions.) F# version.
+inl hash_fsharp forall t. (a : t) : i32 = real hash_fsharp a
+// Structural polymorphic hashing for every type in the language (apart from functions.) Cython version.
+inl hash_cython forall t. (a : t) : u64 = real hash_cython a
 // Asserts an term. If the conditional and the message are literals it raises a type error instead.
 inl assert (c : bool) (msg : string) : () = real assert c msg
 // Raises an exception at runtime.
