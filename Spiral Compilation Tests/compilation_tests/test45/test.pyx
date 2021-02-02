@@ -84,7 +84,7 @@ cdef void method3(unsigned long long v0, numpy.ndarray[object,ndim=1] v1, numpy.
         v5 = v3 + 1
         v6 = v1[v3]
         v7 = len(v6)
-        v8 = numpy.empty(v7,dtype=object)
+        v8 = numpy.empty(v7,dtype=numpy.int8)
         v9 = 0
         method4(v7, v8, v9)
         v2[v3] = v8

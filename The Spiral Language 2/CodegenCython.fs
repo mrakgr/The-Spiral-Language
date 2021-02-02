@@ -21,6 +21,7 @@ let numpy_ty = function
     | YPrim UInt64T -> "numpy.uint64"
     | YPrim Float32T -> "numpy.float32"
     | YPrim Float64T -> "numpy.float64"
+    | YPrim BoolT -> "numpy.int8"
     | _ -> "object"
 
 let lit = function
