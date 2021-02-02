@@ -84,7 +84,9 @@ cdef void method3(unsigned long long v0, numpy.ndarray[object,ndim=1] v1, numpy.
         v5 = v3 + 1
         v6 = v1[v3]
         v7 = len(v6)
+        print("v7 - ",v7)
         v8 = numpy.empty(v7,dtype=object)
+        print("qqq")
         v9 = 0
         method4(v7, v8, v9)
         v2[v3] = v8
@@ -499,7 +501,9 @@ cdef UH0 method2(numpy.ndarray[object,ndim=1] v0, unsigned long long v1, unsigne
     v3 = len(v0)
     v4 = numpy.empty(v3,dtype=object)
     v5 = 0
+    print("asd")
     method3(v3, v0, v4, v5)
+    print("qwe")
     v6 = US1_0()
     v7 = Mut0(v6)
     v8 = numpy.empty(1,dtype=object)

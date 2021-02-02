@@ -1,4 +1,5 @@
 inl main() = 
     inl x : array (i32 * f64) = arrayu64.create 10
-    arrayu64.set x 0 (1,2)
+    inl y : array (option i32) = arrayu64.create (arrayu64.length x)
+    arrayu64.set y 0 (Some: 1)
     arrayu64.length x
