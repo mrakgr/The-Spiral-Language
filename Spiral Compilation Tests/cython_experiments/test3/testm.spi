@@ -1,3 +1,8 @@
 inl main() = 
-    inl x : array (i32 * f64) = arrayu64.create 10
-    arrayu64.set x 0 (1,2)
+    if dyn true then
+        inl x : array (i32 * f64) = arrayu64.create 10
+        arrayu64.set x 0 (1,2)
+    else
+        inl x : array (i32 * f64) = arrayu64.create 10
+        arrayu64.set x 0 (1,2)
+    "ok"

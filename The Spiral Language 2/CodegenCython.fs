@@ -82,6 +82,10 @@ type ClosureTyRec = {tag : int; domain : Ty; range : Ty}
 type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain : Ty; domain_args : TyV[]; range : Ty; body : TypedBind[]}
 type TupleRec = {tag : int; tys : string []}
 
+type BindsReturn =
+    | BindsReturn of is_void : bool
+    | BindsLocal of TyV []
+
 let codegen (env : PartEvalResult) (x : TypedBind []) =
     let imports = ResizeArray()
     let types = ResizeArray()
@@ -175,23 +179,33 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
     and binds' (defs : CodegenEnv) (x : TypedBind []) =
         let s = {defs with text = StringBuilder()}
-        binds defs s (Choice1Of2(binds_last_data x |> data_term_vars |> Array.isEmpty)) x
+        binds defs s (BindsReturn(binds_last_data x |> data_term_vars |> Array.isEmpty)) x
         defs.text.Append(s.text) |> ignore
     and binds (defs : CodegenEnv) (s : CodegenEnv) ret (x : TypedBind []) =
+        let ds = ResizeArray(x.Length-1)
+        let done'() = 
+            match ret with
+            | BindsReturn _ -> ()
+            | BindsLocal _ -> 
+                ds |> Seq.collect (Array.choose (fun (L(i,t)) -> 
+                    if is_numeric t then None else Some $"v{i} = None"
+                    )) |> String.concat "; " |> line s
         Array.iteri (fun i x ->
             match x with
             | TyLet(d,trace,a) -> 
                 try let d = data_free_vars d
+                    ds.Add(d)      
                     Array.iter (fun (L(i,t)) -> cdef_show "" defs i (tyv t)) d
-                    op defs s (Choice2Of2 d) a
+                    op defs s (BindsLocal d) a
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
-            | TyLocalReturnOp(trace,a,_) -> try op defs s ret a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
+            | TyLocalReturnOp(trace,a,_) -> try op defs s ret a; done'() with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             | TyLocalReturnData(d,trace) -> 
                 try match ret with
-                    | Choice1Of2 true -> if i = 0 then line s "pass"
-                    | Choice1Of2 false -> line s $"return {tup d}"
-                    | Choice2Of2 [||] -> ()
-                    | Choice2Of2 ret -> line s $"{args ret} = {args' d}"
+                    | BindsReturn true -> if i = 0 then line s "pass"
+                    | BindsReturn false -> line s $"return {tup d}"
+                    | BindsLocal [||] -> ()
+                    | BindsLocal ret -> line s $"{args ret} = {args' d}"
+                    done'()
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             ) x
     and term_vars_type_show x = x |> Array.map (function WV(L(_,t)) -> tyv t | WLit x -> prim (lit_to_primitive_type x))
@@ -211,19 +225,20 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and tup_tyvs x = tup_ty_template (tyv_type_show x)
     and tup_data_free_vars x = tup_tyvs (data_free_vars x)
     and tup_ty x = tup_data_free_vars (env.ty_to_data x)
-    and op defs s ret a =
+    and op defs s (ret : BindsReturn) a =
         let return' x =
             match ret with
-            | Choice1Of2 true -> line s x 
-            | Choice1Of2 false -> line s (sprintf "return %s" x)
-            | Choice2Of2 [||] -> line s x
-            | Choice2Of2 [|L(i,_)|] -> line s $"v{i} = {x}"
-            | Choice2Of2 ret ->
+            | BindsReturn true -> line s x 
+            | BindsReturn false -> line s (sprintf "return %s" x)
+            | BindsLocal [||] -> line s x
+            | BindsLocal [|L(i,_)|] -> line s $"v{i} = {x}"
+            | BindsLocal ret ->
                     let tmp_i = tmp()
                     line defs $"cdef {tup_tyvs ret} tmp{tmp_i}"
                     line s $"tmp{tmp_i} = {x}"
                     let tmp_is = Array.init ret.Length (fun i -> $"tmp{tmp_i}.v{i}") |> String.concat ", "
                     line s $"{args ret} = {tmp_is}"
+                    line s $"tmp{tmp_i} = None"
         let jp (a,b) =
             let args = args b
             match a with
