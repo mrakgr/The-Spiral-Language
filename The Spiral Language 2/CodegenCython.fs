@@ -9,9 +9,63 @@ open Spiral.CodegenUtils
 open System
 open System.Text
 open System.Collections.Generic
-
-//let rec nullable_vars_of (freeable_vars : TyV []) (x : TypedBind []) =
-//    let rec binds (freeable_vars : Tag Set)
+let is_stack = function
+    | YPrim (UInt8T | UInt16T | UInt32T | UInt64T 
+        | Int8T | Int16T | Int32T | Int64T 
+        | Float32T | Float64T | BoolT) -> true
+    | _ -> false
+let nullable_vars_of (init_freeable : TyV []) (x : TypedBind []) =
+    let nulls = Dictionary<obj,_>(HashIdentity.Reference)
+    let tags' d = d |> Array.choose (fun (L(i,t)) -> if is_stack t then None else Some i) |> Set
+    let tags d = data_free_vars d |> tags'
+    let rec binds is_tail (init_freeable : Tag Set) (init_used : Tag Set) (x : TypedBind []) = 
+        let rec loop (freeable : Tag Set) i =
+            let st = x.[i]
+            match st with
+            | TyLet(d,_,o) ->
+                let d = tags d
+                let next_used = loop (d + freeable) (i+1)
+                let op_nulls, op_used = ops false freeable next_used o
+                let d_nulls = d |> Set.filter (fun i -> Set.contains i next_used = false)
+                nulls.[st] <- d_nulls + op_nulls
+                op_used + (next_used - Set d)
+            | TyLocalReturnOp(_,o,_) ->
+                let next_used = init_used
+                let op_nulls, op_used = ops is_tail freeable next_used o
+                nulls.[st] <- op_nulls
+                op_used + next_used
+            | TyLocalReturnData(d,_) ->
+                let d = tags d
+                let next_used = init_used
+                let d_nulls = d |> Set.filter (fun i -> Set.contains i next_used = false)
+                nulls.[st] <- d_nulls
+                d + next_used
+        loop init_freeable 0
+    and ops is_tail (freeable : Tag Set) (used : Tag Set) (x : TypedOp) = 
+        let return_op used = 
+            let nulls = used |> Set.filter (fun i -> Set.contains i freeable && Set.contains i used = false)
+            nulls, used
+        match x with
+        | TyMacro l -> List.fold (fun s -> function CMTerm d -> s + tags d | _ -> s) Set.empty l |> return_op
+        | TyOp(_,l) -> List.fold (fun s x -> s + tags x) Set.empty l |> return_op
+        //| TyUnionBox of string * Data * Union
+        //| TyUnionUnbox of TyV list * Union * Map<string,Data list * TypedBind []> * TypedBind [] option
+        //| TyIntSwitch of Tag * TypedBind [] [] * TypedBind []
+        //| TyLayoutToHeap of Data * Ty
+        //| TyLayoutToHeapMutable of Data * Ty
+        //| TyLayoutIndexAll of L<Tag,Ty * Layout>
+        //| TyLayoutIndexByKey of L<Tag,Ty * Layout> * string
+        //| TyLayoutHeapMutableSet of L<Tag,Ty> * string list * Data
+        //| TyFailwith of Ty * Data
+        //| TyArrayCreate of Ty * Data
+        //| TyArrayU64Create of Ty * Data
+        //| TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
+        //| TyWhile of cond: JoinPointCall * TypedBind []
+        //| TyJoinPoint of JoinPointCall
+    let freeable = tags' init_freeable
+    let used = binds true freeable Set.empty x
+    nulls.[x] <- freeable - used
+    nulls
 
 let numpy_ty = function
     | YPrim Int8T -> "numpy.int8"
@@ -86,7 +140,7 @@ type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain : Ty; domain_args 
 type TupleRec = {tag : int; tys : string []}
 
 type BindsReturn =
-    | BindsReturn of is_void : bool
+    | BindsTailEnd of is_void : bool
     | BindsLocal of TyV []
 
 let codegen (env : PartEvalResult) (x : TypedBind []) =
@@ -164,7 +218,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
 
     let binds_last_data x = x |> Array.last |> function TyLocalReturnData(x,_) | TyLocalReturnOp(_,_,x) -> x | TyLet _ -> raise_codegen_error "Compiler error: Cannot find the return data of the last bind."
     let set_to_none i = $"v{i} = None"
-    let print_nullables'' (nullable_vars : Dictionary<obj,Tag []>) s (x : obj) = nullable_vars.[x] |> Array.map set_to_none |> String.concat "; " |> function "" -> () | x -> line s x
+    let print_nullables (nullable_vars : Dictionary<obj,Tag []>) s (x : obj) = nullable_vars.[x] |> Array.map set_to_none |> String.concat "; " |> function "" -> () | x -> line s x
 
     let rec tyv = function
         | YUnion a -> 
@@ -184,29 +238,30 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
     and binds' (defs : CodegenEnv) vars (x : TypedBind []) =
         let s = {defs with text = StringBuilder()}
-        binds (nullable_vars_of vars x) defs s (BindsReturn(binds_last_data x |> data_term_vars |> Array.isEmpty)) x
+        binds (nullable_vars_of vars x) defs s (BindsTailEnd(binds_last_data x |> data_term_vars |> Array.isEmpty)) x
         defs.text.Append(s.text) |> ignore
-    and binds_loop (nullable_vars : Dictionary<obj,Tag []>) (defs : CodegenEnv) (s : CodegenEnv) ret (x : TypedBind []) =
+    and binds_loop (nulls : Dictionary<obj,Tag []>) (defs : CodegenEnv) (s : CodegenEnv) ret (stmts : TypedBind []) =
         Array.iteri (fun i x ->
             match x with
             | TyLet(d,trace,a) -> 
                 try let d = data_free_vars d
                     Array.iter (fun (L(i,t)) -> cdef_show "" defs i (tyv t)) d
-                    op nullable_vars defs s (BindsLocal d) a
+                    op nulls defs s (BindsLocal d) a
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
-            | TyLocalReturnOp(trace,a,_) -> try op nullable_vars defs s ret a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
+            | TyLocalReturnOp(trace,a,_) -> try op nulls defs s ret a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             | TyLocalReturnData(d,trace) -> 
                 try match ret with
-                    | BindsReturn true -> if i = 0 then line s "pass"
-                    | BindsReturn false -> line s $"return {tup d}"
+                    | BindsTailEnd true -> if i = 0 then line s "pass"
+                    | BindsTailEnd false -> line s $"return {tup d}"
                     | BindsLocal [||] -> if i = 0 then line s "pass"
                     | BindsLocal ret -> line s $"{args ret} = {args' d}"
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
-            match ret with BindsLocal _ -> print_nullables'' nullable_vars s x | BindsReturn _ -> ()
-            ) x
-    and binds (nullable_vars : Dictionary<obj,Tag []>) (defs : CodegenEnv) (s : CodegenEnv) ret (x : TypedBind []) =
-        print_nullables'' nullable_vars s x
-        binds_loop nullable_vars defs s ret x
+            let is_ret = function BindsLocal _ -> false | BindsTailEnd _ -> true
+            if (Array.length stmts - 1 = i && is_ret ret) = false then print_nullables nulls s x
+            ) stmts
+    and binds (nulls : Dictionary<obj,Tag []>) (defs : CodegenEnv) (s : CodegenEnv) ret (x : TypedBind []) =
+        print_nullables nulls s x
+        binds_loop nulls defs s ret x
     and term_vars_type_show x = x |> Array.map (function WV(L(_,t)) -> tyv t | WLit x -> prim (lit_to_primitive_type x))
     and tup x =
         match data_term_vars x with
@@ -224,11 +279,11 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and tup_tyvs x = tup_ty_template (tyv_type_show x)
     and tup_data_free_vars x = tup_tyvs (data_free_vars x)
     and tup_ty x = tup_data_free_vars (env.ty_to_data x)
-    and op nullable_vars defs s (ret : BindsReturn) a =
+    and op nulls defs s (ret : BindsReturn) a =
         let return' x =
             match ret with
-            | BindsReturn true -> line s x 
-            | BindsReturn false -> line s (sprintf "return %s" x)
+            | BindsTailEnd true -> line s x 
+            | BindsTailEnd false -> line s (sprintf "return %s" x)
             | BindsLocal [||] -> line s x
             | BindsLocal [|L(i,_)|] -> line s $"v{i} = {x}"
             | BindsLocal ret ->
@@ -257,21 +312,21 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 ) |> String.concat "" |> return'
         | TyIf(cond,tr,fl) ->
             line s (sprintf "if %s:" (tup cond))
-            binds nullable_vars defs (indent s) ret tr
+            binds nulls defs (indent s) ret tr
             line s "else:"
-            binds nullable_vars defs (indent s) ret fl
+            binds nulls defs (indent s) ret fl
         | TyJoinPoint(a,args) -> return' (jp (a, args))
         | TyWhile(a,b) ->
             line s (sprintf "while %s:" (jp a))
-            binds nullable_vars defs (indent s) ret b
+            binds nulls defs (indent s) (BindsLocal [||]) b
         | TyIntSwitch(v_i,on_succ,on_fail) ->
             Array.iteri (fun i x ->
                 if i = 0 then line s $"if v{v_i} == {i}:"
                 else line s $"elif v{v_i} == {i}:"
-                binds nullable_vars defs (indent s) ret x
+                binds nulls defs (indent s) ret x
                 ) on_succ
             line s "else:"
-            binds nullable_vars defs (indent s) ret on_fail
+            binds nulls defs (indent s) ret on_fail
         | TyUnionUnbox(is,x,on_succs,on_fail) ->
             let case_tags = x.Item.tags
             let prefix = 
@@ -289,7 +344,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                         is_first <- false
                     else line s (sprintf "elif %s: # %s" cond k)
                 let s = indent s
-                let mutable nvs = Set(nullable_vars.[b])
+                let mutable nvs = Set(nulls.[b])
                 let vs = ResizeArray()
                 List.iter2 (fun data_i a ->
                     data_free_vars a |> Array.iteri (fun field_i (L(v_i,t)) ->
@@ -302,11 +357,11 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     ) is a
                 line s (String.concat "; " vs)
                 line s (nvs |> Set.toArray |> Array.map set_to_none |> String.concat "; ")
-                binds_loop nullable_vars defs s ret b
+                binds_loop nulls defs s ret b
                 ) on_succs
             on_fail |> Option.iter (fun b ->
                 line s "else:"
-                binds nullable_vars defs (indent s) ret b
+                binds nulls defs (indent s) ret b
                 )
         | TyUnionBox(a,b,c) ->
             let c = c.Item
