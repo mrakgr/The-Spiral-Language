@@ -211,7 +211,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | TyUnionUnbox(is,x,on_succs,on_fail) ->
             complex <| fun s ->
             let case_tags = x.Item.tags
-            line s (sprintf "match %s with" (is |> List.map (sprintf "v%i") |> String.concat ", "))
+            line s (sprintf "match %s with" (is |> List.map (fun (L(i,_)) -> $"v{i}") |> String.concat ", "))
             let prefix = 
                 let x = x.Item
                 match x.layout with
