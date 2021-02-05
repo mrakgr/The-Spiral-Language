@@ -1,3 +1,7 @@
-inl main() = 
-    inl ~x : list i32 = Nil
-    listm.rev x
+union t =
+    | A: string * string * string
+
+inl main() =  // TODO: Factor this out into a proper test.
+    inl ~x = A: "qwe", "asd", "zxc"
+    match x with
+    | A: a,b,c => a

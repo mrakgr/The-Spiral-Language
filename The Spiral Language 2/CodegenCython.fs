@@ -84,12 +84,15 @@ let nullable_vars_of (x : TypedBind []) =
                 if is_tailend.Contains(x) then Set.empty
                 else used' |> Set.filter (fun i -> Set.contains i freeable && Set.contains i used = false)
             nulls, used + used'
+        let freeable_local d = List.fold (fun s x -> s + tags x) Set.empty d
         let binds_tco' (d,x) = 
-            let freeable_local = List.fold (fun s x -> s + tags x) Set.empty d
-            binds (freeable_local + freeable) used x - used - freeable_local
+            let freeable_local = freeable_local d
+            let new_used = binds (freeable_local + freeable) used x - used
+            new_used - freeable_local, freeable_local - new_used
         let binds_reg' (d,x) = 
-            let freeable_local = List.fold (fun s x -> s + tags x) Set.empty d
-            binds freeable_local Set.empty x - freeable_local
+            let freeable_local = freeable_local d
+            let new_used = binds freeable_local Set.empty x
+            new_used - freeable_local, freeable_local - new_used
         let binds_tco x = binds freeable used x - used
         let binds_reg x = binds Set.empty Set.empty x
         match x with
@@ -119,15 +122,16 @@ let nullable_vars_of (x : TypedBind []) =
             if reqs_tco.Contains(x) then
                 let on_succs = Map.map (fun _ -> binds_tco') on_succs'
                 let on_fail = match on_fail' with Some body -> binds_tco body | _ -> Set.empty
-                let all = Map.fold (fun s _ v -> s + v) on_fail on_succs
+                let all = Map.fold (fun s _ v -> s + fst v) on_fail on_succs
                 let all_freeable = Set.intersect all freeable
-                Map.iter (fun k (_,body) -> nulls.[body] <- all_freeable - on_succs.[k]) on_succs'
+                Map.iter (fun k (_,body) -> let freeable, local_unused = on_succs.[k] in nulls.[body] <- all_freeable - freeable + local_unused) on_succs'
                 match on_fail' with Some body -> nulls.[body] <- all_freeable - on_fail | _ -> ()
                 vs + all
             else
-                Map.iter (fun _ (_, body) -> nulls.[body] <- Set.empty) on_succs'
+                let on_succs = Map.map (fun _ -> binds_reg') on_succs'
+                Map.iter (fun k (_, local_unused) -> nulls.[snd on_succs'.[k] : TypedBind []] <- local_unused) on_succs
                 match on_fail' with Some body -> nulls.[body] <- Set.empty | _ -> ()
-                let on_succs = Map.fold (fun s _ v -> s + binds_reg' v) Set.empty on_succs'
+                let on_succs = Map.fold (fun s _ v -> s + fst v) Set.empty on_succs
                 let on_fail = match on_fail' with Some body -> binds_reg body | _ -> Set.empty
                 vs + on_succs + on_fail
         | TyIntSwitch(tag,on_succs',on_fail') ->
