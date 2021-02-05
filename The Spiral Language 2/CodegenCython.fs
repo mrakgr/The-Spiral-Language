@@ -9,62 +9,94 @@ open Spiral.CodegenUtils
 open System
 open System.Text
 open System.Collections.Generic
+
+let tco_enabler (x : TypedBind []) =
+    let is_tailend = HashSet(HashIdentity.Reference)
+    let reqs_tco = HashSet(HashIdentity.Reference)
+
+    let rec binds x = 
+        let x = Array.last x
+        match x with
+        | TyLet _ -> failwith "Compiler error: This function should only be called on the last statement of a sequence."
+        | TyLocalReturnOp(_,o,_) ->
+            let has_jp = ops o
+            is_tailend.Add(o :> obj) |> ignore
+            if has_jp then reqs_tco.Add(o :> obj) |> ignore
+            has_jp
+        | TyLocalReturnData(d,_) ->
+            is_tailend.Add(d) |> ignore
+            false
+    and ops = function
+        | TyJoinPoint(JPMethod _,_) -> true
+        | TyUnionUnbox(_,_,a,b) -> Map.exists (fun _ (_,x) -> binds x) a || match b with Some x -> binds x | _ -> false
+        | TyIntSwitch(_,a,b) -> Array.exists binds a || binds b
+        | TyIf(_,a,b) -> binds a || binds b
+        | _ -> false
+        
+    let _ = binds x
+    is_tailend, reqs_tco
+
 let is_stack = function
-    | YPrim (UInt8T | UInt16T | UInt32T | UInt64T 
+    | YPrim (UInt8T | UInt16T | UInt32T | UInt64T
         | Int8T | Int16T | Int32T | Int64T 
         | Float32T | Float64T | BoolT) -> true
     | _ -> false
-let nullable_vars_of (init_freeable : TyV []) (x : TypedBind []) =
+
+let nullable_vars_of (x : TypedBind []) =
+    let is_tailend, reqs_tco = tco_enabler x
     let nulls = Dictionary<obj,_>(HashIdentity.Reference)
     let tags' d = d |> Array.choose (fun (L(i,t)) -> if is_stack t then None else Some i) |> Set
     let tags d = data_free_vars d |> tags'
-    let rec binds is_tail (init_freeable : Tag Set) (init_used : Tag Set) (x : TypedBind []) = 
+    let rec binds (init_freeable : Tag Set) (init_used : Tag Set) (x : TypedBind []) = 
         let rec loop (freeable : Tag Set) i =
             let st = x.[i]
             match st with
             | TyLet(d,_,o) ->
                 let d = tags d
                 let next_used = loop (d + freeable) (i+1)
-                let op_nulls, op_used = ops false freeable next_used o
+                let op_nulls, op_used = ops freeable next_used o
                 let d_nulls = d |> Set.filter (fun i -> Set.contains i next_used = false)
                 nulls.[st] <- d_nulls + op_nulls
-                op_used + (next_used - Set d)
+                op_used - Set d
             | TyLocalReturnOp(_,o,_) ->
                 let next_used = init_used
-                let op_nulls, op_used = ops is_tail freeable next_used o
+                let op_nulls, op_used = ops freeable next_used o
                 nulls.[st] <- op_nulls
-                op_used + next_used
+                op_used
             | TyLocalReturnData(d,_) ->
                 let d = tags d
                 let next_used = init_used
-                let d_nulls = d |> Set.filter (fun i -> Set.contains i next_used = false)
-                nulls.[st] <- d_nulls
+                if is_tailend.Contains(d) then
+                    nulls.[st] <- Set.empty
+                else
+                    let d_nulls = d |> Set.filter (fun i -> Set.contains i next_used = false)
+                    nulls.[st] <- d_nulls
                 d + next_used
         loop init_freeable 0
-    and ops is_tail (freeable : Tag Set) (used : Tag Set) (x : TypedOp) = 
-        let return_op used = 
-            let nulls = used |> Set.filter (fun i -> Set.contains i freeable && Set.contains i used = false)
-            nulls, used
+    and ops (freeable : Tag Set) (used : Tag Set) (x : TypedOp) =
+        let return_op used' =
+            let nulls =
+                if is_tailend.Contains(x) then Set.empty
+                else used' |> Set.filter (fun i -> Set.contains i freeable && Set.contains i used = false)
+            nulls, used + used'
         match x with
         | TyMacro l -> List.fold (fun s -> function CMTerm d -> s + tags d | _ -> s) Set.empty l |> return_op
         | TyOp(_,l) -> List.fold (fun s x -> s + tags x) Set.empty l |> return_op
+        | TyFailwith(_,x) | TyArrayCreate(_,x) | TyArrayU64Create(_,x) -> tags x |> return_op
+        //| TyWhile of cond: JoinPointCall * TypedBind []
         //| TyUnionBox of string * Data * Union
-        //| TyUnionUnbox of TyV list * Union * Map<string,Data list * TypedBind []> * TypedBind [] option
-        //| TyIntSwitch of Tag * TypedBind [] [] * TypedBind []
         //| TyLayoutToHeap of Data * Ty
         //| TyLayoutToHeapMutable of Data * Ty
         //| TyLayoutIndexAll of L<Tag,Ty * Layout>
         //| TyLayoutIndexByKey of L<Tag,Ty * Layout> * string
         //| TyLayoutHeapMutableSet of L<Tag,Ty> * string list * Data
-        //| TyFailwith of Ty * Data
-        //| TyArrayCreate of Ty * Data
-        //| TyArrayU64Create of Ty * Data
-        //| TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
-        //| TyWhile of cond: JoinPointCall * TypedBind []
         //| TyJoinPoint of JoinPointCall
-    let freeable = tags' init_freeable
-    let used = binds true freeable Set.empty x
-    nulls.[x] <- freeable - used
+        //| TyUnionUnbox of TyV list * Union * Map<string,Data list * TypedBind []> * TypedBind [] option
+        //| TyIntSwitch of Tag * TypedBind [] [] * TypedBind []
+        //| TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
+    let freeable = Set.empty
+    let used = binds freeable Set.empty x
+    nulls.[x] <- Set.empty // freeable - used
     nulls
 
 let numpy_ty = function
@@ -217,8 +249,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     let pass_if_empty = function "" -> "pass" | x -> x
 
     let binds_last_data x = x |> Array.last |> function TyLocalReturnData(x,_) | TyLocalReturnOp(_,_,x) -> x | TyLet _ -> raise_codegen_error "Compiler error: Cannot find the return data of the last bind."
-    let set_to_none i = $"v{i} = None"
-    let print_nullables (nullable_vars : Dictionary<obj,Tag []>) s (x : obj) = nullable_vars.[x] |> Array.map set_to_none |> String.concat "; " |> function "" -> () | x -> line s x
+    let set_to_none (i : int) = $"del v{i}"
+    let print_nullables (nullable_vars : Dictionary<obj,Tag Set>) s (x : obj) = nullable_vars.[x] |> Set.toArray |> Array.map set_to_none |> String.concat "; " |> function "" -> () | x -> line s x
 
     let rec tyv = function
         | YUnion a -> 
@@ -236,11 +268,11 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             $"numpy.ndarray[{a},ndim=1]"
         | YFun(a,b) -> sprintf "ClosureTy%i" ((closure_ty (a,b)).tag)
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
-    and binds' (defs : CodegenEnv) vars (x : TypedBind []) =
+    and binds' (defs : CodegenEnv) (x : TypedBind []) =
         let s = {defs with text = StringBuilder()}
-        binds (nullable_vars_of vars x) defs s (BindsTailEnd(binds_last_data x |> data_term_vars |> Array.isEmpty)) x
+        binds (nullable_vars_of x) defs s (BindsTailEnd(binds_last_data x |> data_term_vars |> Array.isEmpty)) x
         defs.text.Append(s.text) |> ignore
-    and binds_loop (nulls : Dictionary<obj,Tag []>) (defs : CodegenEnv) (s : CodegenEnv) ret (stmts : TypedBind []) =
+    and binds_loop (nulls : Dictionary<obj,Tag Set>) (defs : CodegenEnv) (s : CodegenEnv) ret (stmts : TypedBind []) =
         Array.iteri (fun i x ->
             match x with
             | TyLet(d,trace,a) -> 
@@ -259,7 +291,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let is_ret = function BindsLocal _ -> false | BindsTailEnd _ -> true
             if (Array.length stmts - 1 = i && is_ret ret) = false then print_nullables nulls s x
             ) stmts
-    and binds (nulls : Dictionary<obj,Tag []>) (defs : CodegenEnv) (s : CodegenEnv) ret (x : TypedBind []) =
+    and binds (nulls : Dictionary<obj,Tag Set>) (defs : CodegenEnv) (s : CodegenEnv) ret (x : TypedBind []) =
         print_nullables nulls s x
         binds_loop nulls defs s ret x
     and term_vars_type_show x = x |> Array.map (function WV(L(_,t)) -> tyv t | WLit x -> prim (lit_to_primitive_type x))
@@ -292,7 +324,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s $"tmp{tmp_i} = {x}"
                 let tmp_is = Array.init ret.Length (fun i -> $"tmp{tmp_i}.v{i}") |> String.concat ", "
                 line s $"{args ret} = {tmp_is}"
-                line s $"tmp{tmp_i} = None"
+                line s $"del tmp{tmp_i}"
         let jp (a,b) =
             let args = args b
             match a with
@@ -473,7 +505,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s x ->
             line s $"cdef {tup_ty x.range} method{x.tag}({args_tys x.free_vars}):"
-            binds' (indent s) x.free_vars x.body
+            binds' (indent s) x.body
             )
     and closure_ty : _ -> ClosureTyRec =
         jp true (fun ((domain,range),i) -> {tag=i; domain=domain; range=range}) (fun s x ->
@@ -497,13 +529,13 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s $"cpdef {tup_ty x.range} apply({with_self (args_tys x.domain_args)}):"
             let s = indent s
             free_vars |> Array.iter (function i, "object" -> line s $"v{i} = self.v{i}" | i, t -> line s $"cdef {t} v{i} = self.v{i}")
-            binds' s x.domain_args x.body
+            binds' s x.body
             )
 
     let main = StringBuilder()
     let s = {text=main; indent=0}
     line s $"cpdef {tup_data_term_vars (binds_last_data x)} main():"
-    binds' (indent s) [||] x
+    binds' (indent s) x
 
     let program = StringBuilder()
     imports |> Seq.iter (fun x -> program.AppendLine(x) |> ignore)
