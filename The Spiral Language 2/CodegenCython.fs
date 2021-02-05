@@ -131,9 +131,9 @@ let nullable_vars_of (x : TypedBind []) =
                 let on_succs = Map.map (fun _ -> binds_reg') on_succs'
                 Map.iter (fun k (_, local_unused) -> nulls.[snd on_succs'.[k] : TypedBind []] <- local_unused) on_succs
                 match on_fail' with Some body -> nulls.[body] <- Set.empty | _ -> ()
-                let on_succs = Map.fold (fun s _ v -> s + fst v) Set.empty on_succs
                 let on_fail = match on_fail' with Some body -> binds_reg body | _ -> Set.empty
-                vs + on_succs + on_fail
+                let all = Map.fold (fun s _ v -> s + fst v) on_fail on_succs
+                vs + all
         | TyIntSwitch(tag,on_succs',on_fail') ->
             if reqs_tco.Contains(x) then
                 let on_succs = Array.map binds_tco on_succs'
