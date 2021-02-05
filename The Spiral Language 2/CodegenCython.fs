@@ -14,6 +14,8 @@ let tco_enabler (x : TypedBind []) =
     let is_tailend = HashSet(HashIdentity.Reference)
     let reqs_tco = HashSet(HashIdentity.Reference)
 
+    // Shortcutting workaround.
+    let or' a b = a || b
     let rec binds x = 
         let x = Array.last x
         match x with
@@ -28,9 +30,9 @@ let tco_enabler (x : TypedBind []) =
             false
     and ops = function
         | TyJoinPoint(JPMethod _,_) -> true
-        | TyUnionUnbox(_,_,a,b) -> Map.exists (fun _ (_,x) -> binds x) a || match b with Some x -> binds x | _ -> false
-        | TyIntSwitch(_,a,b) -> Array.exists binds a || binds b
-        | TyIf(_,a,b) -> binds a || binds b
+        | TyUnionUnbox(_,_,a,b) -> or' (Map.fold (fun s _ (_,x) -> or' s (binds x)) false a) (match b with Some x -> binds x | _ -> false)
+        | TyIntSwitch(_,a,b) -> or' (Array.fold (fun s x -> or' s (binds x)) false a) (binds b)
+        | TyIf(_,a,b) -> or' (binds a) (binds b)
         | _ -> false
         
     let _ = binds x
@@ -45,8 +47,11 @@ let is_stack = function
 let nullable_vars_of (x : TypedBind []) =
     let is_tailend, reqs_tco = tco_enabler x
     let nulls = Dictionary<obj,_>(HashIdentity.Reference)
-    let tags' d = d |> Array.choose (fun (L(i,t)) -> if is_stack t then None else Some i) |> Set
+    let tag_fun (L(i,t)) = if is_stack t then None else Some i
+    let tags'' d = d |> List.choose tag_fun |> Set
+    let tags' d = d |> Array.choose tag_fun |> Set
     let tags d = data_free_vars d |> tags'
+    let jp (x : JoinPointCall) = snd x |> tags'
     let rec binds (init_freeable : Tag Set) (init_used : Tag Set) (x : TypedBind []) = 
         let rec loop (freeable : Tag Set) i =
             let st = x.[i]
@@ -63,14 +68,14 @@ let nullable_vars_of (x : TypedBind []) =
                 let op_nulls, op_used = ops freeable next_used o
                 nulls.[st] <- op_nulls
                 op_used
-            | TyLocalReturnData(d,_) ->
-                let d = tags d
+            | TyLocalReturnData(d',_) ->
+                let d = tags d'
                 let next_used = init_used
-                if is_tailend.Contains(d) then
+                if is_tailend.Contains(d') then
                     nulls.[st] <- Set.empty
                 else
-                    let d_nulls = d |> Set.filter (fun i -> Set.contains i next_used = false)
-                    nulls.[st] <- d_nulls
+                    let op_nulls = d |> Set.filter (fun i -> Set.contains i freeable && Set.contains i next_used = false)
+                    nulls.[st] <- op_nulls
                 d + next_used
         loop init_freeable 0
     and ops (freeable : Tag Set) (used : Tag Set) (x : TypedOp) =
@@ -79,23 +84,71 @@ let nullable_vars_of (x : TypedBind []) =
                 if is_tailend.Contains(x) then Set.empty
                 else used' |> Set.filter (fun i -> Set.contains i freeable && Set.contains i used = false)
             nulls, used + used'
+        let binds_tco' (d,x) = 
+            let freeable_local = List.fold (fun s x -> s + tags x) Set.empty d
+            binds (freeable_local + freeable) used x - used - freeable_local
+        let binds_reg' (d,x) = 
+            let freeable_local = List.fold (fun s x -> s + tags x) Set.empty d
+            binds freeable_local Set.empty x - freeable_local
+        let binds_tco x = binds freeable used x - used
+        let binds_reg x = binds Set.empty Set.empty x
         match x with
-        | TyMacro l -> List.fold (fun s -> function CMTerm d -> s + tags d | _ -> s) Set.empty l |> return_op
-        | TyOp(_,l) -> List.fold (fun s x -> s + tags x) Set.empty l |> return_op
-        | TyFailwith(_,x) | TyArrayCreate(_,x) | TyArrayU64Create(_,x) -> tags x |> return_op
-        //| TyWhile of cond: JoinPointCall * TypedBind []
-        //| TyUnionBox of string * Data * Union
-        //| TyLayoutToHeap of Data * Ty
-        //| TyLayoutToHeapMutable of Data * Ty
-        //| TyLayoutIndexAll of L<Tag,Ty * Layout>
-        //| TyLayoutIndexByKey of L<Tag,Ty * Layout> * string
-        //| TyLayoutHeapMutableSet of L<Tag,Ty> * string list * Data
-        //| TyJoinPoint of JoinPointCall
-        //| TyUnionUnbox of TyV list * Union * Map<string,Data list * TypedBind []> * TypedBind [] option
-        //| TyIntSwitch of Tag * TypedBind [] [] * TypedBind []
-        //| TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
+        | TyMacro l -> List.fold (fun s -> function CMTerm d -> s + tags d | _ -> s) Set.empty l
+        | TyOp(_,l) -> List.fold (fun s x -> s + tags x) Set.empty l
+        | TyLayoutToHeap(x,_) | TyLayoutToHeapMutable(x,_)
+        | TyUnionBox(_,x,_) | TyFailwith(_,x) | TyArrayCreate(_,x) | TyArrayU64Create(_,x) -> tags x
+        | TyWhile(cond, body) -> nulls.[body] <- Set.empty; jp cond + binds Set.empty Set.empty body
+        | TyLayoutIndexAll(L(i,_)) | TyLayoutIndexByKey(L(i,_),_) -> Set.singleton i
+        | TyLayoutHeapMutableSet(L(i,_),_,d) -> Set.singleton i + tags d
+        | TyJoinPoint x -> jp x
+        | TyIf(cond,tr',fl') -> 
+            if reqs_tco.Contains(x) then
+                let tr = binds_tco tr'
+                let fl = binds_tco fl'
+                let all = tr + fl
+                let all_freeable = Set.intersect all freeable
+                nulls.[tr'] <- all_freeable - tr
+                nulls.[fl'] <- all_freeable - fl
+                tags cond + all
+            else
+                nulls.[tr'] <- Set.empty
+                nulls.[fl'] <- Set.empty
+                tags cond + binds_reg tr' + binds_reg fl'
+        | TyUnionUnbox(vs,_,on_succs',on_fail') ->
+            let vs = tags'' vs
+            if reqs_tco.Contains(x) then
+                let on_succs = Map.map (fun _ -> binds_tco') on_succs'
+                let on_fail = match on_fail' with Some body -> binds_tco body | _ -> Set.empty
+                let all = Map.fold (fun s _ v -> s + v) on_fail on_succs
+                let all_freeable = Set.intersect all freeable
+                Map.iter (fun k (_,body) -> nulls.[body] <- all_freeable - on_succs.[k]) on_succs'
+                match on_fail' with Some body -> nulls.[body] <- all_freeable - on_fail | _ -> ()
+                vs + all
+            else
+                Map.iter (fun _ (_, body) -> nulls.[body] <- Set.empty) on_succs'
+                match on_fail' with Some body -> nulls.[body] <- Set.empty | _ -> ()
+                let on_succs = Map.fold (fun s _ v -> s + binds_reg' v) Set.empty on_succs'
+                let on_fail = match on_fail' with Some body -> binds_reg body | _ -> Set.empty
+                vs + on_succs + on_fail
+        | TyIntSwitch(tag,on_succs',on_fail') ->
+            if reqs_tco.Contains(x) then
+                let on_succs = Array.map binds_tco on_succs'
+                let on_fail = binds_tco on_fail'
+                let all = Array.fold Set.union on_fail on_succs
+                let all_freeable = Set.intersect all freeable
+                Array.iter2 (fun body v -> nulls.[body] <- all_freeable - v) on_succs' on_succs
+                nulls.[on_fail'] <- all_freeable - on_fail
+                Set.singleton tag + all
+            else
+                Array.iter (fun body -> nulls.[body] <- Set.empty) on_succs'
+                nulls.[on_fail'] <- Set.empty
+                let on_succs = Array.fold (fun s x -> s + binds_reg x) Set.empty on_succs'
+                let on_fail = binds_reg on_fail'
+                Set.singleton tag + on_succs + on_fail
+        |> return_op
     let freeable = Set.empty
     let used = binds freeable Set.empty x
+    // Function call args do not need to be freed in Cython. This is unfortunate as it blocks TCO on some cases.
     nulls.[x] <- Set.empty // freeable - used
     nulls
 
@@ -250,7 +303,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
 
     let binds_last_data x = x |> Array.last |> function TyLocalReturnData(x,_) | TyLocalReturnOp(_,_,x) -> x | TyLet _ -> raise_codegen_error "Compiler error: Cannot find the return data of the last bind."
     let set_to_none (i : int) = $"del v{i}"
-    let print_nullables (nullable_vars : Dictionary<obj,Tag Set>) s (x : obj) = nullable_vars.[x] |> Set.toArray |> Array.map set_to_none |> String.concat "; " |> function "" -> () | x -> line s x
+    let print_nullables' (nulls : Tag Set) s = Set.toArray nulls |> Array.map set_to_none |> String.concat "; " |> function "" -> () | x -> line s x
+    let print_nullables (nulls : Dictionary<obj,Tag Set>) s (x : obj) = print_nullables' nulls.[x] s
 
     let rec tyv = function
         | YUnion a -> 
@@ -288,8 +342,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     | BindsLocal [||] -> if i = 0 then line s "pass"
                     | BindsLocal ret -> line s $"{args ret} = {args' d}"
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
-            let is_ret = function BindsLocal _ -> false | BindsTailEnd _ -> true
-            if (Array.length stmts - 1 = i && is_ret ret) = false then print_nullables nulls s x
+            print_nullables nulls s x
             ) stmts
     and binds (nulls : Dictionary<obj,Tag Set>) (defs : CodegenEnv) (s : CodegenEnv) ret (x : TypedBind []) =
         print_nullables nulls s x
@@ -307,10 +360,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | [||] -> "void"
         | [|x|] -> x
         | x -> $"Tuple{(tup' x).tag}"
-    and tup_data_term_vars x = tup_ty_template (data_term_vars x |> term_vars_type_show)
-    and tup_tyvs x = tup_ty_template (tyv_type_show x)
-    and tup_data_free_vars x = tup_tyvs (data_free_vars x)
-    and tup_ty x = tup_data_free_vars (env.ty_to_data x)
+    and tup_ty_data_term_vars x = tup_ty_template (data_term_vars x |> term_vars_type_show)
+    and tup_ty_tyvs x = tup_ty_template (tyv_type_show x)
+    and tup_ty_data_free_vars x = tup_ty_tyvs (data_free_vars x)
+    and tup_ty x = tup_ty_data_free_vars (env.ty_to_data x)
     and op nulls defs s (ret : BindsReturn) a =
         let return' x =
             match ret with
@@ -320,7 +373,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | BindsLocal [|L(i,_)|] -> line s $"v{i} = {x}"
             | BindsLocal ret ->
                 let tmp_i = tmp()
-                line defs $"cdef {tup_tyvs ret} tmp{tmp_i}"
+                line defs $"cdef {tup_ty_tyvs ret} tmp{tmp_i}"
                 line s $"tmp{tmp_i} = {x}"
                 let tmp_is = Array.init ret.Length (fun i -> $"tmp{tmp_i}.v{i}") |> String.concat ", "
                 line s $"{args ret} = {tmp_is}"
@@ -378,7 +431,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 let s = indent s
                 let mutable nvs = Set(nulls.[b])
                 let vs = ResizeArray()
-                List.iter2 (fun data_i a ->
+                List.iter2 (fun (L(data_i,_)) a ->
                     data_free_vars a |> Array.iteri (fun field_i (L(v_i,t)) ->
                         if Set.contains v_i nvs then
                             nvs <- Set.remove v_i nvs
@@ -387,8 +440,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                             vs.Add $"v{v_i} = (<{prefix}_{union_i}>v{data_i}).v{field_i}"
                         )
                     ) is a
-                line s (String.concat "; " vs)
-                line s (nvs |> Set.toArray |> Array.map set_to_none |> String.concat "; ")
+                if 0 < vs.Count then line s (String.concat "; " vs)
+                print_nullables' nvs s
                 binds_loop nulls defs s ret b
                 ) on_succs
             on_fail |> Option.iter (fun b ->
@@ -534,7 +587,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
 
     let main = StringBuilder()
     let s = {text=main; indent=0}
-    line s $"cpdef {tup_data_term_vars (binds_last_data x)} main():"
+    line s $"cpdef {tup_ty_data_term_vars (binds_last_data x)} main():"
     binds' (indent s) x
 
     let program = StringBuilder()

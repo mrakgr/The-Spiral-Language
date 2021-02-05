@@ -2,6 +2,7 @@
 
 - [News](#news)
 - [1/28/2021](#1282021)
+- [2/5/2021](#252021)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
     - [Getting Spiral](#getting-spiral)
@@ -52,6 +53,14 @@
 # 1/28/2021
 
 Spiral now has a Cython backend. It can be selected in the Spiral settings. Right now it compiles valid code for all the programs in the testing suite, but I've yet to actually run any of them. Testing for it should be done tomorrow.
+
+# 2/5/2021
+
+Going through the [PyTorch docs](https://pytorch.org/docs/stable/notes/faq.html#my-model-reports-cuda-runtime-error-2-out-of-memory) made me realize that scoping in Python works differently than what I thought it does. I took the chance to implement delete-after-last use for references, so they don't linger until the join point is returned from. Now the GC should be precise and immediate, and variables will be evicted aggressively when there is no chance of them being used anymore. Fixed a few bugs in the compiler as well. I wish Spiral was not alpha, but it will have to stand the test of time for a year longer before it earns its release status.
+
+The Cython backend is just a bit short of having full TCO support at the moment. If the backend proves itself useful for long enough, maybe I myself will deal with the [wishlist items](https://github.com/cython/cython/issues/3992) at some point. It is not certain that this will happen. Right now, reference counting as a strategy is just too useful when doing a ML library as it provides a way of managing GPU memory, but .NET eclipses Cython in everything else as a target platform. Once the hardware shifts from shared memory to local memory and message passing, that will no longer apply. That point is not here yet though, and won't be for a few years.
+
+But regardless of which way the winds blow, Spiral will support both backends regardless of my attention and personal interest.
 
 # The Spiral Language
 

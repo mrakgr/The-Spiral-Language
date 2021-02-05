@@ -538,7 +538,7 @@ let peval (env : TopEnv) (x : E) =
                 | DPair(a,b) -> DPair(f a, f b)
                 | DB | DV _ | DSymbol _ as a -> a
                 | DRecord l -> DRecord(Map.map (fun _ -> f) l)
-                | DNominal(DUnion(DPair(DSymbol k,v),b),b') -> dirty <- true; push_typedop s (TyUnionBox(k,f v,b)) b'
+                | DNominal(DUnion(DPair(DSymbol k,v),b),b') -> dirty <- true; push_typedop_no_rewrite s (TyUnionBox(k,f v,b)) b'
                 | DUnion _ -> raise_type_error s "Compiler error: Malformed union"
                 | DNominal(a,b) -> DNominal(f a,b)
                 | DLit v as x -> if do_lit then dirty <- true; push_op_no_rewrite s Dyn x (lit_to_ty v) else x // TODO: Since strings are heap allocated, it might be worth it to consider them separate from other literals much like union types.
