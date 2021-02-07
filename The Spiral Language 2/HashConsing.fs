@@ -54,7 +54,7 @@ type HashConsTable() =
                             x.Free()
                             total_size
                         | a -> 
-                            let bucket = table'.[hash a % table_length']
+                            let bucket = table'.[(hash a &&& Int32.MaxValue) % table_length']
                             bucket.Add x
                             total_size+1
             total_size
@@ -63,9 +63,9 @@ type HashConsTable() =
         total_size <- total_size'
 
     member t.Add(x: 'a): ConsedNode<'a> =
-        let hkey = hash x &&& Int32.MaxValue
+        let hkey = hash x
         let table = table
-        let bucket = table.[hkey % Array.length table]
+        let bucket = table.[(hkey &&& Int32.MaxValue) % Array.length table]
         let sz = bucket.Count
 
         let rec loop empty_pos i =

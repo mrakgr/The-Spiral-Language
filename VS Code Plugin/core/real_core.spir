@@ -285,7 +285,9 @@ inl hash_template prim tag_conv zero one seed x =
             elif nominal_is a then
                 if prototype_has `(`a) hashable then hashable `(`a) a
                 else f (nominal_strip a)
-            else prim a
+            elif prim_is a then prim a
+            elif prototype_has `(`a) hashable then hashable `(`a) a
+            else error_type "The input must be hashable."
     f x
 
 inl hash_fsharp x = hash_template (fun x => $"hash !x" : i32) id 0 1 31 x

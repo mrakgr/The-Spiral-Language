@@ -1,0 +1,13 @@
+union card = King | Queen | Jack
+union response3 next = Fold | Call: next 
+union response2 next = Fold | Call: next | Reraise: response3 next
+union response1 next = Call: next | Raise: response2 next
+union action next = Check: response1 next | Raise: response2 next
+type state_second_round = CommunityCard: card Action: action ()
+type state = HoleCards: (P1: card P2: card ) Action: action state_second_round
+
+inl normalize forall t. (x : array (t * f64)) : array (t * f64) = failwith "TODO"
+inl sample forall t. (x : array (t * f64)) : t = failwith "TODO"
+
+inl main() = 
+    ()
