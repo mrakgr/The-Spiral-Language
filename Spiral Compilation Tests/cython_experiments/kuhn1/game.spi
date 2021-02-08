@@ -1,13 +1,38 @@
 union card = King | Queen | Jack
-union response3 next = Fold | Call: next 
-union response2 next = Fold | Call: next | Reraise: response3 next
-union response1 next = Call: next | Raise: response2 next
-union action next = Check: response1 next | Raise: response2 next
-type state_second_round = CommunityCard: card Action: action ()
-type state = HoleCards: (P1: card P2: card ) Action: action state_second_round
+union player = PlayerOne | PlayerTwo
+type chips = i32
+type raise = u8
+union observation =
+    | HoleCard: card For: player
+    | CommunityCard: card
+    | Call | Raise | Fold
+    | Reward: chips
 
-inl normalize forall t. (x : array (t * f64)) : array (t * f64) = failwith "TODO"
-inl sample forall t. (x : array (t * f64)) : t = failwith "TODO"
+inl GameSettings = {
+    round_one_raise = 2 : chips
+    round_two_raise = 4 : chips
+    max_raises_per_round = 2 : raise
+    }
+
+union kuhn_state =
+    | Init
+    | RoundOne: {pot : chips * chips; hands : card * card; raises_left : raise; waiting_for : player}
+    | RoundTwo: {pot : chips * chips; hands : card * card; community_card : card; raises_left : u8; waiting_for : player}
+
+inl shuffle (x : array _) : () =
+    !!!!Import("numpy.random")
+    $"numpy.random.default_rng(!x)"
+
+// TODO: Make a proper array literal so I can write this as ![King; King; Queen; Queen; Jack; Jack]
+inl InitialDeck = arrayu64.init 6 (fun i => match i / 2 with 0 => King | 1 => Queen | _ => Jack)
+inl sample_with_replacement (x : array card) : card * array card = failwith "TODO"
+
+
+
+inl game _ = ()
+
+// inl normalize forall t. (x : array (t * f64)) : array (t * f64) = failwith "TODO"
+// inl sample forall t. (x : array (t * f64)) : t = failwith "TODO"
 
 inl main() = 
     ()
