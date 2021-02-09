@@ -7,17 +7,13 @@ union action =
     | Claim: claim
     | Dudo
 
-inl Dice : array rank = failwith "TODO" // [|1..6|]
-inl Claims : array claim = failwith "TODO" // [|1,2; 1,3; 1,4; 1,5; 1,6; 1,1; 2,2; 2,3; 2,4; 2,5; 2,6; 2,1|]
-inl Actions : array action = arrayu64.append (arrayu64.map claim_ Claims) (arrayu64.singleton Dudo)
-
 type player = {id : u8; die : rank}
 type players = player * player
 
-inl game {sample action_response action_init terminal} =
-    inl actions = Actions
-    inl claims = Claims
-    inl dice = Dice
+inl game {sample action_response action_init terminal} = join
+    inl claims = failwith "TODO" // [|1,2; 1,3; 1,4; 1,5; 1,6; 1,1; 2,2; 2,3; 2,4; 2,5; 2,6; 2,1|]
+    inl actions = arrayu64.append (arrayu64.map claim_ claims) (arrayu64.singleton Dudo)
+    inl dice = failwith "TODO" // [|1..6|]
 
     let rec loop (number,rank as claim) (p1,p2 : players) =
         inl from = arrayu64.findIndex ((=) claim) claims + 1

@@ -2,11 +2,6 @@
 union action = Fold | Call | Raise
 union card = King | Queen | Jack
 
-// TODO: Implement the array literals.
-inl ActionsInit : array action = failwith "TODO" // ![Call; Rise]
-inl ActionsFull : array action = failwith "TODO" // ![Fold; Call; Rise]
-inl ActionsNoRaise : array action = failwith "TODO" // ![Fold; Call]
-inl DeckInit : array card = failwith "TODO" // ![King; Queen; Jack; King; Queen; Jack]
 type player = {card : card; id : u8; pot : u32}
 type players = player * player
 
@@ -25,17 +20,24 @@ inl compare_hands (community_card : card) (p1,p2 : players) =
         if eq_is x then comp (snd a) (snd b) else x
 
 inl raise amount (p1,p2 : players) = p2.pot + amount
-inl game {sample_all draw action terminal} =
-    
+inl game {sample_all draw action terminal} = join
+    // TODO: Implement the array literals.
+    inl actionsInit : array action = failwith "TODO" // ![Call; Rise]
+    inl actionsFull : array action = failwith "TODO" // ![Fold; Call; Rise]
+    inl actionsNoRaise : array action = failwith "TODO" // ![Fold; Call]
+    inl deckInit : array card = failwith "TODO" // ![King; Queen; Jack; King; Queen; Jack]
+
     inl pot = 1
     inl id = 0
-    draw id DeckInit fun (card, deck : card * array card) =>
+    draw id deckInit fun (card, deck : card * array card) =>
     inl p1 = {card id pot}
+
     inl id = 1
     draw id deck fun card, deck =>
     inl p2 = {card id pot}
+    
     let rec round_two (raises_left : i32) (community_card : card) (p1,p2 : players) =
-        action p1.id (if 0 < raises_left then ActionsFull else ActionsNoRaise) function
+        action p1.id (if 0 < raises_left then actionsFull else actionsNoRaise) function
         | Fold => terminal (p2.id, p1.pot + p2.pot)
         | Call => 
             let x = compare_hands community_card (p1,p2)
@@ -45,17 +47,17 @@ inl game {sample_all draw action terminal} =
         | Raise => round_two (raises_left-1) community_card (p2,{p1 with pot=raise 4 (p1,p2)})
     let round_two_init (p1,p2 : players) =
         sample_all deck fun card =>
-        action p1.id ActionsInit function
+        action p1.id actionsInit function
         | Fold => failwith "impossible"
         | Call => round_two 2 card (p2,p1)
         | Raise => round_two 1 card (p2,{p1 with pot=raise 4 (p1,p2)})
     let rec round_one (raises_left : i32) (p1,p2 : players) =
-        action p1.id (if 0 < raises_left then ActionsFull else ActionsNoRaise) function
+        action p1.id (if 0 < raises_left then actionsFull else actionsNoRaise) function
         | Fold => terminal (p2.id, p1.pot + p2.pot)
         | Call => round_two_init (if p1.id = 0 then p1,p2 else p2,p1)
         | Raise => round_one (raises_left-1) (p2,{p1 with pot=raise 2 (p1,p2)})
 
-    action p1.id ActionsInit function
+    action p1.id actionsInit function
     | Fold => failwith "impossible"
     | Call => round_one 2 (p2,p1)
     | Raise => round_one 1 (p2,{p1 with pot=raise 2 (p1,p2)})
