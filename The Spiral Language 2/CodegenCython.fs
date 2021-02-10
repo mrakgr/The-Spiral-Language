@@ -99,7 +99,7 @@ let nullable_vars_of (x : TypedBind []) =
         | TyMacro l -> List.fold (fun s -> function CMTerm d -> s + tags d | _ -> s) Set.empty l
         | TyOp(_,l) -> List.fold (fun s x -> s + tags x) Set.empty l
         | TyLayoutToHeap(x,_) | TyLayoutToHeapMutable(x,_)
-        | TyUnionBox(_,x,_) | TyFailwith(_,x) | TyArrayCreate(_,x) | TyArrayU64Create(_,x) -> tags x
+        | TyUnionBox(_,x,_) | TyFailwith(_,x) | TyArrayU32Create(_,x) | TyArrayU64Create(_,x) -> tags x
         | TyWhile(cond, body) -> nulls.[body] <- Set.empty; jp cond + binds Set.empty Set.empty body
         | TyLayoutIndexAll(L(i,_)) | TyLayoutIndexByKey(L(i,_),_) -> Set.singleton i
         | TyLayoutHeapMutableSet(L(i,_),_,d) -> Set.singleton i + tags d
@@ -467,7 +467,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
             let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
             Array.iter2 (fun (L(i',_)) b -> line s $"v{i}.v{i'} = {show_w b}") (data_free_vars a) (data_term_vars c)
-        | TyArrayCreate _ -> raise_codegen_error "The Cython backend does not support creating i32 arrays. Try the u64 array create instead."
+        | TyArrayU32Create _ -> raise_codegen_error "The Cython backend does not support creating i32 arrays. Try the u64 array create instead."
         | TyArrayU64Create(a,b) -> return' $"numpy.empty({tup b},dtype={numpy_ty a})" 
         | TyFailwith(a,b) -> return' (sprintf "raise Exception(%s)" (tup b))
         | TyOp(Import,[DLit (LitString x)]) -> import x
@@ -477,12 +477,12 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | Apply,[a;b] -> sprintf "%s.apply(%s)" (tup a) (args' b)
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
-            | (StringLength | StringIndex | StringSlice | ArrayIndex | ArrayIndexSet | ArrayLength), _ -> 
+            | (StringU32Length | StringU32Index | StringU32Slice | ArrayU32IndexSet | ArrayU32Length), _ -> 
                 raise_codegen_error "The Cython backend does not support i32 string and array operations. Try the u64 ones instead."
             | StringU64Length, [a] -> sprintf "len(%s)" (tup a)
-            | StringU64Index, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
-            | StringU64Slice, [a;b;c] -> sprintf "%s[%s..%s]" (tup a) (tup b) (tup c)
-            | ArrayU64Index, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
+            | (StringU32Index | StringU64Index), [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
+            | (StringU32Slice | StringU64Slice), [a;b;c] -> sprintf "%s[%s:%s]" (tup a) (tup b) (tup c)
+            | (ArrayU32Index | ArrayU64Index), [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
             | ArrayU64IndexSet, [a;b;c] -> 
                 match tup c with
                 | "pass" as c -> c

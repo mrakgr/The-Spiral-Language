@@ -12,12 +12,12 @@ type players = player * player
 
 inl game {sample action_response action_init terminal} = join
     inl claims = failwith "TODO" // [|1,2; 1,3; 1,4; 1,5; 1,6; 1,1; 2,2; 2,3; 2,4; 2,5; 2,6; 2,1|]
-    inl actions = arrayu64.append (arrayu64.map claim_ claims) (arrayu64.singleton Dudo)
+    inl actions = a64.append (a64.map claim_ claims) (a64.singleton Dudo)
     inl dice = failwith "TODO" // [|1..6|]
 
     let rec loop (number,rank as claim) (p1,p2 : players) =
-        inl from = arrayu64.findIndex ((=) claim) claims + 1
-        action_response p1.id (arrayu64.sliceFrom from actions) function
+        inl from = a64.findIndex ((=) claim) claims + 1
+        action_response p1.id (a64.sliceFrom from actions) function
         | Claim: x => loop x (p2,p1)
         | Dudo =>
             inl check_guess x = if x = 1 || x = rank then 1 else 0

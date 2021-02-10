@@ -38,18 +38,18 @@ inl Char : pu char = primitive CharSize (fun s i => $"System.BitConverter.ToChar
 inl array' (pu prim) =
     inl (pu i32) = I32
     pu {
-        size = fun x => arrayi32.fold (fun s x => s + prim.size x) I32Size x
+        size = fun x => a32.fold (fun s x => s + prim.size x) I32Size x
         pickle = fun x state =>
-            i32.pickle (arrayi32.length x) state
-            arrayi32.iter (fun x => prim.pickle x state) x
+            i32.pickle (a32.length x) state
+            a32.iter (fun x => prim.pickle x state) x
         unpickle = fun state =>
             inl length = i32.unpickle state
-            arrayi32.init length (fun _ => prim.unpickle state)
+            a32.init length (fun _ => prim.unpickle state)
         }
 
 inl String =
     inl (pu p) = array' Char
-    pu {size = fun x => I32Size + CharSize * stringi32.length x
+    pu {size = fun x => I32Size + CharSize * s32.length x
         pickle = fun x state => p.pickle $"!x.ToCharArray()" state
         unpickle = fun state => inl ar = p.unpickle state in $"System.String(!ar)"
         }

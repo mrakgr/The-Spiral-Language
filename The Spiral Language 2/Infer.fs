@@ -101,6 +101,7 @@ type TypeError =
     | InstanceVarShouldNotMatchAnyOfPrototypes
     | MissingBody
     | MacroIsMissingAnnotation
+    | ArrayIsMissingAnnotation
     | ShadowedForall
     | UnionTypesMustHaveTheSameLayout
     | OrphanInstance
@@ -254,6 +255,8 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
         | RawReal(_,x) | RawJoinPoint(_,x) -> cterm constraints term ty x
         | RawAnnot(_,RawMacro(_,a),b) -> cmacro constraints term ty a; ctype constraints term ty b
         | RawMacro(r,a) -> errors.Add(r,MacroIsMissingAnnotation); cmacro constraints term ty a
+        | RawAnnot(_,RawArray(_,a),b) -> List.iter (cterm constraints term ty) a; ctype constraints term ty b
+        | RawArray(r,a) -> errors.Add(r,ArrayIsMissingAnnotation); List.iter (cterm constraints term ty) a
         | RawAnnot(_,a,b) -> cterm constraints term ty a; ctype constraints term ty b
         | RawTypecase(_,a,b) -> 
             ctype constraints term ty a
@@ -270,6 +273,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
         | RawHeapMutableSet(_,a,b,c) -> cterm constraints term ty a; List.iter (cterm constraints term ty) b; cterm constraints term ty c
         | RawSeq(_,a,b) | RawPair(_,a,b) | RawIfThen(_,a,b) | RawApply(_,a,b) -> cterm constraints term ty a; cterm constraints term ty b
         | RawIfThenElse(_,a,b,c) -> cterm constraints term ty a; cterm constraints term ty b; cterm constraints term ty c
+        
         | RawMissingBody r -> errors.Add(r,MissingBody)
     and cmacro constraints term ty a =
         List.iter (function
@@ -297,7 +301,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
                 //if is_first.Add b then () // TODO: I am doing it like this so I can reuse this code later for variable highlighting.
                 Set.add b term
             | PatDyn(_,x) | PatUnbox(_,x) -> f x
-            | PatPair(_,a,b) -> loop (loop term a) b
+            | PatPair(_,a,b) -> loop (f a) b
             | PatRecordMembers(_,l) ->
                 List.fold (fun s -> function
                     | PatRecordMembersSymbol(_,x) -> loop s x
@@ -307,6 +311,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
             | PatAnnot(_,a,b) -> ctype constraints term ty b; f a
             | PatWhen(_,a,b) -> let r = f a in cterm constraints r ty b; r
             | PatNominal(_,(r,a),b) -> check_ty ty (r,a); f b
+            | PatArray(_,a) -> List.fold loop term a
         loop term x
 
     match x with
@@ -548,6 +553,7 @@ let show_type_error (env : TopEnv) x =
     | InstanceVarShouldNotMatchAnyOfPrototypes -> "Instance forall must not have the same name as any of the prototype foralls."
     | MissingBody -> "The function body is missing."
     | MacroIsMissingAnnotation -> "The macro needs an annotation."
+    | ArrayIsMissingAnnotation -> "The macro needs an annotation."
     | ShadowedForall -> "Shadowing of foralls (in the top-down) segment is not allowed."
     | UnionTypesMustHaveTheSameLayout -> "The two union types must have the same layout."
     | OrphanInstance -> "The instance has to be defined in the same module as either the prototype or the nominal."
@@ -716,6 +722,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | RawMacro(r,l) -> 
                 let l = l |> List.map (function RawMacroTermVar(r,x) -> RawMacroTermVar(r,f x) | x -> x )
                 RawAnnot(r,RawMacro(r,l),annot r x)
+            | RawArray(r,a) -> RawAnnot(r,RawArray(r,List.map f a),annot r x)
         and pattern rec_term x =
             let mutable rec_term = rec_term
             let rec f = function
@@ -737,6 +744,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | PatDefaultValue(r,a) -> PatFilledDefaultValue(r,a,annot r x)
                 | PatWhen(r,a,b) -> PatWhen(r,f a,term rec_term b)
                 | PatNominal(r,a,b) -> PatNominal(r,a,f b)
+                | PatArray(r,a) -> PatArray(r,List.map f a)
             rec_term, f x
 
         let x = fill_foralls r rec_term expr
@@ -1099,6 +1107,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     ) (range_of_expr a, v) b |> snd
             with :? TypeErrorException as e -> errors.AddRange e.Data0; fresh_var scope
             |> fun v -> f v c
+        | RawArray(r,a) ->
+            let v = fresh_var scope
+            unify r s (TyArray v)
+            List.iter (f v) a
         | RawFilledForall _ -> failwith "Compiler error: Should not manifest during type inference."
         | RawType _ -> failwith "Compiler error: RawType should not appear in the top down segment."
         | RawTypecase _ -> failwith "Compiler error: `typecase` should not appear in the top down segment."
@@ -1331,6 +1343,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         | _ -> let x,m = ho_make i n.vars in unify r s x; f (subst m n.body) a
                     | ValueNone -> errors.Add(r,TypeInEnvIsNotNominal x); f (fresh_var scope) a
                 | _ -> errors.Add(r,UnboundVariable); f (fresh_var scope) a
+            | PatArray(r,a) ->
+                let v = fresh_var scope
+                unify r s (TyArray v)
+                List.fold (fun env x -> pattern scope env v x) env a
         loop env s a
 
     let nominal_term r i tt name vars v =

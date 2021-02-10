@@ -2,7 +2,7 @@ open pickle
 nominal serialized a = array f32
 
 inl serialize forall t. (pu p : pu t) (x : t) : serialized t =
-    inl ar = arrayi32.create p.size
+    inl ar = a32.create p.size
     p.pickle x (0,ar)
     $"printfn \"%A\" !ar"
     serialized ar
@@ -16,26 +16,26 @@ inl test scheme x = assert (x = deserialize scheme (serialize scheme x)) "Serial
 inl (**) a b = pair a b
 
 union action =
-    | Raise: i32 // `Raise: 0` would be a raise of 1 in the actual game.
+    | Raise: u32 // `Raise: 0` would be a raise of 1 in the actual game.
     | Call
     | NoAction
-type rank = i32
-type suit = i32
+type rank = u32
+type suit = u32
 type card = rank * suit
 type player_view = {
-    stack_self : i32
-    stack_opp : i32
-    pot : i32
+    stack_self : u32
+    stack_opp : u32
+    pot : u32
     hand : card * card
     prev_action : action
     }
 
-inl Action : pu action = alt {raise_=I32 4; call=Unit; noAction=Unit}
-inl Card = I32 13 ** I32 4
+inl Action : pu action = alt {raise_=U32 4; call=Unit; noAction=Unit}
+inl Card = U32 13 ** U32 4
 inl playerView max_stack : pu player_view = 
     inl a (stack_self,stack_opp,pot,hand,prev_action) = {stack_self stack_opp pot hand prev_action}
     inl b {stack_self stack_opp pot hand prev_action} = (stack_self,stack_opp,pot,hand,prev_action)
-    wrap (a,b) (I32 max_stack ** I32 max_stack ** I32 max_stack ** (Card ** Card) ** Action)
+    wrap (a,b) (U32 max_stack ** U32 max_stack ** U32 max_stack ** (Card ** Card) ** Action)
 
 inl test_view max_stack = 
     inl scheme = playerView (max_stack+1)

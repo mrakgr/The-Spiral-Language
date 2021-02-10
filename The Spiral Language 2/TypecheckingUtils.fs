@@ -105,6 +105,7 @@ and fold_offset_term offset x =
     | RawReal(r,a) -> RawReal(g r,f a)
     | RawMissingBody r -> RawMissingBody(g r)
     | RawMacro(r,a) -> RawMacro(g r,fold_offset_macro offset a)
+    | RawArray(r,a) -> RawArray(g r,List.map f a)
 and fold_offset_pattern offset x = 
     let f = fold_offset_pattern offset
     let term = fold_offset_term offset
@@ -122,11 +123,10 @@ and fold_offset_pattern offset x =
     | PatPair(r,a,b) -> PatPair(g r,f a,f b)
     | PatSymbol(r,a) -> PatSymbol(g r,a)
     | PatRecordMembers(r,a) ->
-        let a =
-            a |> List.map (function
-                | PatRecordMembersSymbol((r,a),b) -> PatRecordMembersSymbol((g r,a),f b)
-                | PatRecordMembersInjectVar((r,a),b) -> PatRecordMembersInjectVar((g r,a),f b)
-                )
+        let a = a |> List.map (function
+            | PatRecordMembersSymbol((r,a),b) -> PatRecordMembersSymbol((g r,a),f b)
+            | PatRecordMembersInjectVar((r,a),b) -> PatRecordMembersInjectVar((g r,a),f b)
+            )
         PatRecordMembers(g r,a)
     | PatOr(r,a,b) -> PatOr(g r,f a,f b)
     | PatAnd(r,a,b) -> PatAnd(g r,f a,f b)
@@ -134,6 +134,7 @@ and fold_offset_pattern offset x =
     | PatDefaultValue(r,a) -> PatDefaultValue(g r,a)
     | PatWhen(r,a,b) -> PatWhen(g r,f a,term b)
     | PatNominal(r,a,b) -> PatNominal(g r,g' a,f b)
+    | PatArray(r,a) -> PatArray(g r,List.map f a)
 
 let bundle_top (l : Bundle) =
     match l with

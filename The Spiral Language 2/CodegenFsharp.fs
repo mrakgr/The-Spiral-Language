@@ -254,22 +254,23 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             Array.iter2 (fun (L(i',_)) b ->
                 line s (sprintf "v%i.l%i <- %s" i i' (show_w b))
                 ) (data_free_vars a) (data_term_vars c)
-        | TyArrayCreate(a,b) -> simple (sprintf "Array.zeroCreate<%s> %s" (tup_ty a) (tup b))
-        | TyArrayU64Create _ -> raise_codegen_error "The F# backend does not support creating u64 arrays. Try the i32 array create instead."
+        | TyArrayU32Create(a,b) -> simple (sprintf "Array.zeroCreate<%s> (int %s)" (tup_ty a) (tup b))
+        | TyArrayU64Create _ -> raise_codegen_error "The F# backend does not support creating u64 arrays. Try the u32 array create instead."
         | TyFailwith(a,b) -> simple (sprintf "failwith<%s> %s" (tup_ty a) (tup b))
         | TyOp(op,l) ->
             match op, l with
             | Apply,[a;b] -> sprintf "%s %s" (tup a) (tup b)
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
-            | (StringU64Length | StringU64Index | StringU64Slice | ArrayU64Index | ArrayU64IndexSet | ArrayU64Length), _ -> 
-                raise_codegen_error "The F# backend does not support u64 string and array operations. Try the i32 ones instead."
-            | StringLength, [a] -> sprintf "%s.Length" (tup a)
-            | StringIndex, [a;b] -> sprintf "%s.[%s]" (tup a) (tup b)
-            | StringSlice, [a;b;c] -> sprintf "%s.[%s..%s]" (tup a) (tup b) (tup c)
-            | ArrayIndex, [a;b] -> sprintf "%s.[%s]" (tup a) (tup b)
-            | ArrayIndexSet, [a;b;c] -> sprintf "%s.[%s] <- %s" (tup a) (tup b) (tup c) 
-            | ArrayLength, [a] -> sprintf "%s.Length" (tup a)
+            | (StringU64Length | StringU64Index | StringU64Slice | ArrayU64Index | ArrayU64IndexSet), _ -> 
+                raise_codegen_error "The F# backend does not support u64 string and array operations. Try the u32 ones instead."
+            | StringU32Index, [a;b] -> sprintf "%s.[int %s]" (tup a) (tup b)
+            | StringU32Slice, [a;b;c] -> sprintf "%s.[int %s..int %s]" (tup a) (tup b) (tup c)
+            | StringU32Length, [a] -> sprintf "uint32 %s.Length" (tup a)
+            | ArrayU32Index, [a;b] -> sprintf "%s.[int %s]" (tup a) (tup b)
+            | ArrayU32IndexSet, [a;b;c] -> sprintf "%s.[int %s] <- %s" (tup a) (tup b) (tup c) 
+            | ArrayU32Length, [a] -> sprintf "uint32 %s.Length" (tup a)
+            | ArrayU64Length, [a] -> sprintf "uint64 %s.LongLength" (tup a)
 
             // Math
             | Add, [a;b] -> sprintf "%s + %s" (tup a) (tup b)

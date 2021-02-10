@@ -1,0 +1,6 @@
+// Indexes into the string.
+inl index (str : string) (i : u32): char = !!!!StringU32Index(str,i)
+// Returns the length of the string.
+inl length (str : string): u32 = !!!!StringU32Length(str)
+// Slice the string between the two points.
+inl slice (str : string) (from: (a : u32) to: (b : u32)) = !!!!StringU32Slice(str,a,b)

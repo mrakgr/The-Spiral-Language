@@ -35,7 +35,7 @@
     <Compile Include="Infer.fs" />
     <Compile Include="Prepass.fs" />
     <Compile Include="PartEval.fs" />
-    <Compile Include="Codegen.fs" />
+    <Compile Include="CodegenUtils.fs" />
     <Compile Include="CodegenFsharp.fs" />
     <Compile Include="CodegenCython.fs" />
     <Compile Include="Blockize.fs" />

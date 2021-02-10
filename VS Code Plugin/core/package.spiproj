@@ -4,10 +4,10 @@ modules:
     core-
     loop
     loopw
-    arrayi32
-    arrayu64
-    stringi32
-    stringu64
+    a32
+    a64
+    s32
+    s64
     listm
     optionm
     monad

@@ -44,6 +44,7 @@ and [<ReferenceEquality>] E =
     | ESymbol of Range * string
     | EType of Range * T
     | EApply of Range * E * E
+    | EArray of Range * E list * T
     | ETypeApply of Range * E * T
     | ERecBlock of Range * (Id * E) list * on_succ: E
     | ERecordWith of Range * (Range * E) list * RecordWith list * RecordWithout list
@@ -124,6 +125,7 @@ module Printable =
         | ERecursiveForall' of Scope * Id * PE
         | ERecursive of PE
         | EJoinPoint' of Scope * PE * PT option
+        | EArray of PE list * PT
         | EFun of Id * PE * PT option
         | EForall of Id * PE
         | EJoinPoint of PE * PT option
@@ -194,6 +196,7 @@ module Printable =
             | E.EPatternRef a -> term !a
             | E.EFun'(_,a,b,c,d) -> EFun'(a,b,term c,Option.map ty d)
             | E.EForall'(_,a,b,c) -> EForall'(a,b,term c)
+            | E.EArray(_,a,b) -> EArray(List.map term a,ty b)
             | E.ERecursiveFun'(_,a,b,c,d) -> 
                 let r = !c
                 let r = if recs.Add(r) then term r else EOmmitedRecursive
@@ -379,6 +382,7 @@ let propagate x =
         | EV i -> singleton_term i
         | EPrototypeApply(_,_,a) | EType(_,a) | ETypePatternMiss a | EDefaultLit(_,_,a) -> ty a
         | ESeq(_,a,b) | EPair(_,a,b) | EIfThen(_,a,b) | EApply(_,a,b) -> term a + term b
+        | EArray(_,a,b) -> List.fold (fun s x -> s + term x) (ty b) a
         | ENominal(_,a,b) | EAnnot(_,a,b) | ETypeApply(_,a,b) -> term a + ty b
         | EForall(_,i,a) -> scope x (term a -. i)
         | EJoinPoint(_,a,t) -> scope x (match t with Some t -> term a + ty t | None -> term a)
@@ -503,6 +507,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | ENominal(_,a,b) | ETypeApply(_,a,b) | EAnnot(_,a,b) -> f a; ty env b
         | EOp(_,_,a) -> List.iter f a
         | EPatternMiss a | EReal(_,a) -> f a
+        | EArray(_,a,b) -> List.iter f a; ty env b
         | EUnitTest(_,_,a,b) | ESymbolTest(_,_,_,a,b) | EPairTest(_,_,_,_,a,b) | ELitTest(_,_,_,a,b)
         | ELet(_,_,a,b) | EUnbox(_,_,a,b) | EIfThen(_,a,b) | EPair(_,a,b) | ESeq(_,a,b) | EApply(_,a,b) -> f a; f b
         | EHeapMutableSet(_,a,b,c) -> f a; List.iter (snd >> f) b; f c
@@ -636,6 +641,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EAnnot(r,a,b) -> EAnnot(r,f a,g env b)
         | EIfThenElse(r,a,b,c) -> EIfThenElse(r,f a,f b,f c)
         | EIfThen(r,a,b) -> EIfThen(r,f a,f b)
+        | EArray(r,a,b) -> EArray(r,List.map f a, g env b)
         | EPair(r,a,b) -> EPair(r,f a,f b)
         | ESeq(r,a,b) -> ESeq(r,f a,f b)
         | EHeapMutableSet(r,a,b,c) -> EHeapMutableSet(r,f a,List.map (fun (a,b) -> a, f b) b,f c)
@@ -825,6 +831,17 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                     let b,on_succ = step b on_succ
                     let a,on_succ = step a on_succ
                     EPairTest(p r,id,a,b,on_succ,on_fail)
+                | PatArray(r,a) ->
+                    let r = p r
+                    let ar_ids,on_succ = List.mapFoldBack step a on_succ
+                    let a_length = List.length a
+                    let on_succ,_ = 
+                        List.foldBack (fun id' (on_succ,i) -> 
+                            ELet(r,id',EOp(r,ArrayU32Index,[EV id; ELit(r,Tokenize.LitUInt32 i)]),on_succ), i-1u
+                            ) ar_ids (on_succ, uint32 a_length)
+                    let id_length = EOp(r,ArrayU64Length,[EV id])
+                    let pat_length = ELit(r,Tokenize.LitUInt64(uint64 a_length))
+                    EIfThenElse(r,EOp(r,EQ,[id_length;pat_length]),on_succ,on_fail)
                 | PatSymbol(r,a) -> ESymbolTest(p r,a,id,on_succ,on_fail)
                 | PatRecordMembers(r,items) ->
                     let inject_vars = Dictionary(HashIdentity.Reference)
@@ -922,6 +939,8 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawMatch(r,a,b) -> pattern_match env (p r) (f a) b
         | RawFun(r,a) -> pattern_function env (p r) a None
         | RawAnnot(_,RawFun(r,a),t) -> pattern_function env (p r) a (Some (ty env t))
+        | RawArray(r,a) -> failwith "Compiler error: The array should have been annotated in `fill` by prepass time."
+        | RawAnnot(_,RawArray(r,a),b) -> EArray(p r,List.map f a,ty env b)
         | RawTypecase(r,a,b) ->
             let b = b |> List.map (fun (t,e) ->
                 let metavars = Dictionary()

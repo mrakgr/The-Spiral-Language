@@ -51,21 +51,21 @@ type Op =
     | UnionUntag
     | UnionToRecord
 
-    // String
-    | StringLength
-    | StringIndex
-    | StringSlice
+    // String U32
+    | StringU32Length
+    | StringU32Index
+    | StringU32Slice
 
     // String U64
     | StringU64Length
     | StringU64Index
     | StringU64Slice
 
-    // Array
-    | ArrayCreate
-    | ArrayLength
-    | ArrayIndex
-    | ArrayIndexSet
+    // Array U32
+    | ArrayU32Create
+    | ArrayU32Length
+    | ArrayU32Index
+    | ArrayU32IndexSet
 
     // Array U64
     | ArrayU64Create
@@ -248,6 +248,7 @@ and Pattern =
     | PatDefaultValue of VSCRange * VarString
     | PatWhen of VSCRange * Pattern * RawExpr
     | PatNominal of VSCRange * (VSCRange * VarString) * Pattern
+    | PatArray of VSCRange * Pattern list
     | PatFilledDefaultValue of VSCRange * VarString * RawTExpr // Filled in by the inferencer.
 and RawExpr =
     | RawB of VSCRange
@@ -275,6 +276,7 @@ and RawExpr =
     | RawHeapMutableSet of VSCRange * RawExpr * RawExpr list * RawExpr
     | RawReal of VSCRange * RawExpr
     | RawMacro of VSCRange * RawMacro list
+    | RawArray of VSCRange * RawExpr list
     | RawMissingBody of VSCRange
     | RawFilledForall of VSCRange * string * RawExpr // Filled in by the inferencer.
 and RawTExpr =
@@ -318,6 +320,7 @@ let range_of_pattern = function
     | PatValue(r,_)
     | PatDefaultValue(r,_)
     | PatRecordMembers(r,_)
+    | PatArray(r,_)
     | PatAnnot(r,_,_)
     | PatPair(r,_,_)
     | PatOr(r,_,_)
@@ -339,6 +342,7 @@ let range_of_expr = function
     | RawSymbol(r,_)
     | RawType(r,_)
     | RawJoinPoint(r,_)
+    | RawArray(r,_)
     | RawMatch(r,_,_)
     | RawFun(r,_)
     | RawReal(r,_)
@@ -599,6 +603,13 @@ let patterns_validate pats =
     let rec loop pat =
         match pat with
         | PatFilledDefaultValue _ | PatDefaultValue _ | PatValue _ | PatSymbol _ | PatE _ | PatB _ -> Set.empty
+        | PatArray(_,x) -> 
+            List.fold (fun s x -> 
+                let x = loop x
+                let inters = Set.intersect s x
+                if Set.isEmpty inters = false then inters |> Set.iter (fun x -> errors.Add(pos.[x], InvalidPattern DuplicateVar))
+                s + x
+                ) Set.empty x
         | PatVar(r,x) -> 
             pos.Add(x,r)
             Set.singleton x
@@ -816,7 +827,7 @@ let root_type_defaults = {
 
 
 let default_float = Float64T
-let default_int = Int32T
+let default_int = UInt32T
 let bottom_up_number (r : VSCRange,x : string) =
     let inline f string_to_val val_to_lit val_dsc =
         match string_to_val x with
@@ -900,8 +911,9 @@ and root_pattern s =
             pipe2 root_pattern (opt (skip_op ":" >>. root_type_annot))
                 (fun a -> function Some b -> PatAnnot(range_of_pattern a +. range_of_texpr b,a,b) | None -> a)
         let pat_rounds = rounds (pat_type <|> (read_op' |>> PatVar))
+        let pat_array = skip_unary_op "!" >>. range (squares (sepBy pat_type (skip_op ";"))) |>> (fun (r,x) -> PatArray(r,x))
         let (+) = alt (index s)
-        (pat_unit + pat_rounds + pat_nominal + pat_wildcard + pat_dyn + pat_value + pat_string + pat_record + pat_symbol) s
+        (pat_unit + pat_rounds + pat_nominal + pat_wildcard + pat_dyn + pat_value + pat_string + pat_record + pat_symbol + pat_array) s
 
     let pat_and = sepBy1 body (skip_op "&") |>> List.reduce (fun a b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b))
     let pat_pair = pat_pair pat_and
@@ -1074,6 +1086,7 @@ and root_term d =
             read_unary_op' >>= fun (o,a) d ->
                 let type_expr d = ((read_type_var' |>> RawTVar) <|> (rounds (fun d -> root_type {root_type_defaults with allow_term=true} d))) d
                 match a with
+                | "!" -> (range (squares (sepBy expressions (skip_op ";"))) |>> fun (r,x) -> RawArray(r,x)) d
                 | "!!!!" -> 
                     (range (read_big_var .>>. (rounds (sepBy1 (fun d -> expressions {d with is_top_down=false}) (skip_op ","))))
                     >>= fun (r,((ra,a), b)) _ ->

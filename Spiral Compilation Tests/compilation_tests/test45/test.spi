@@ -3,12 +3,12 @@ union cell = Princess | Empty
 
 let save_the_princess field mario_pos =
     inl cells_visited = 
-        arrayu64.init (arrayu64.length field) (fun b => 
-            arrayu64.init (arrayu64.length (arrayu64.index field b)) (const false)
+        a64.init (a64.length field) (fun b => 
+            a64.init (a64.length (a64.index field b)) (const false)
             )
-    inl index ar (b,a) = arrayu64.index (arrayu64.index ar b) a
-    inl set ar (b,a) v = arrayu64.set (arrayu64.index ar b) a v
-    inl is_in_range (b,a),_ = 0 <= b && b < arrayu64.length field && (inl x = arrayu64.index field b in 0 <= a && a < arrayu64.length x)
+    inl index ar (b,a) = a64.index (a64.index ar b) a
+    inl set ar (b,a) v = a64.set (a64.index ar b) a v
+    inl is_in_range (b,a),_ = 0 <= b && b < a64.length field && (inl x = a64.index field b in 0 <= a && a < a64.length x)
     inl is_princess_in_state x,_ = match index field x with Princess => true | _ => false
 
     inl up (row,col), prev_moves = (row-1,col), ("UP" :: prev_moves)
@@ -19,7 +19,7 @@ let save_the_princess field mario_pos =
     inl solution = mut None
     let rec loop queue = 
         inl queue = 
-            arrayu64.map (fun (mario_pos, prev_moves as state) =>
+            a64.map (fun (mario_pos, prev_moves as state) =>
                 inl f move = 
                     inl (pos_row, pos_col),_ as new_state = move state
                     inl is_valid =
@@ -33,25 +33,25 @@ let save_the_princess field mario_pos =
                 inl number_of_valid_states =
                     inl f _,b = if b then 1 else 0
                     f up + f down + f left + f right
-                inl new_states = arrayu64.create number_of_valid_states
-                inl f (state, is_valid) i = if is_valid then arrayu64.set new_states i state . i+1 else i
+                inl new_states = a64.create number_of_valid_states
+                inl f (state, is_valid) i = if is_valid then a64.set new_states i state . i+1 else i
                 inl _ = f up 0 |> f down |> f left |> f right 
                 new_states
                 ) queue
-            |> arrayu64.concat
+            |> a64.concat
         match *solution with
         | None => loop queue
         | Some: _, path => listm.rev path
 
-    loop (arrayu64.singleton (mario_pos, Nil))
+    loop (a64.singleton (mario_pos, Nil))
 
 inl main () =
     inl ~field_size = 4
     inl ~princess_pos = 2,3
     $"print(\"Initing\")"
     inl field = 
-        arrayu64.init field_size (fun b => 
-            arrayu64.init field_size (fun a => 
+        a64.init field_size (fun b => 
+            a64.init field_size (fun a => 
                 if (b,a) = princess_pos then Princess else Empty
                 ))
     $"print(\"Starting\")"

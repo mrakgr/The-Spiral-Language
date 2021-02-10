@@ -1,7 +1,7 @@
 // Games of Stones HackerRank problem.
 open monad
 
-type env = i32
+type env = u32
 type cont a b r = {on_succ : a -> r; on_fail : b -> r} -> r
 nominal parser a = string -> env -> result a (list string) * env
 nominal cps_parser r a = string -> env -> cont (a * env) (list string * env) (r * env)
@@ -39,7 +39,7 @@ inl (.<<) a b =
 inl EOL : char = $"System.Char.MaxValue"
 inl peek' offset = cps_parser fun str i {on_succ} =>
     inl i' = i + offset
-    if 0 <= i' && i' < stringi32.length str then on_succ (stringi32.index str i', i)
+    if 0 <= i' && i' < s32.length str then on_succ (s32.index str i', i)
     else on_succ (EOL, i)
 inl Peek = peek' 0
 
@@ -54,13 +54,13 @@ inl AnyChar' =
 
 inl AnyChar' = cps_parser fun str i {on_succ on_fail} =>
     run_cps Peek str i { on_fail
-        on_succ=fun c,i => if c <> EOL then on_succ (stringi32.index str i, i+1) else on_fail (listm.singleton "Out of bounds.", i)
+        on_succ=fun c,i => if c <> EOL then on_succ (s32.index str i, i+1) else on_fail (listm.singleton "Out of bounds.", i)
     }
 
 inl AnyChar = conv AnyChar'
 
 inl char_to_string (x : char): string = $"string !x"
-inl char_to_digit (x : char): i32 = $"int !x - int '0'"
+inl char_to_digit (x : char): u32 = $"uint32 !x - uint32 '0'"
 
 inl char' x = cps_parser fun str i {on_succ on_fail} =>
     run_cps AnyChar' str i {
@@ -78,7 +78,7 @@ inl Digit = parser fun str i =>
         on_fail = fun error, i => (Error:), i
     }
 
-inl I32 = parser fun str i =>
+inl U32 = parser fun str i =>
     let rec loop i was_parsed s =
         match run Digit str i with
         | (Ok: c), i => 
@@ -91,11 +91,11 @@ inl I32 = parser fun str i =>
     loop i false 0
 
 inl Spaces = parser fun str i =>
-    inl f i = 0 <= i && i < stringi32.length str && (inl x = stringi32.index str i in x = ' ' || x = '\n')
+    inl f i = 0 <= i && i < s32.length str && (inl x = s32.index str i in x = ' ' || x = '\n')
     let rec loop i = if f i then loop (i+1) else (Ok: ()), i
     loop i
 
-inl Parse3Ints = I32 .<<. I32 .<<. I32
+inl Parse3Ints = U32 .<<. U32 .<<. U32
 
 inl (.<<.) a b =
     a >>= fun a =>
@@ -115,7 +115,7 @@ inl (.<<) a b =
 
 inl EOL : char = $"System.Char.MaxValue"
 inl peek' index = cps_parser fun str i {on_succ} =>
-    if i + index <= 0 && i + index < stringi32.length str then on_succ (stringi32.index str i, i)
+    if i + index <= 0 && i + index < s32.length str then on_succ (s32.index str i, i)
     else on_succ (EOL, i)
 inl Peek = peek' 0
 
@@ -135,7 +135,7 @@ inl eq_player = function // TODO: Replace this with `=` when it is capable of ha
 inl game_of_stones' n =
     inl max_n = 100
     if max_n < n then failwith "The max input has been exceeded."
-    inl solutions = arrayi32.init (max_n+1) (const None)
+    inl solutions = a32.init (max_n+1) (const None)
     let rec solve player opposing_player n =
         inl take amount on_fail () = 
             if n >= amount && eq_player (solve opposing_player player (n-amount), player) then player
@@ -145,8 +145,8 @@ inl game_of_stones' n =
 
         match player with
         | First => 
-            match arrayi32.index solutions n with
-            | None => inl x = run() in arrayi32.set solutions n (Some: x) . x
+            match a32.index solutions n with
+            | None => inl x = run() in a32.set solutions n (Some: x) . x
             | Some: x => x
         | Second => run()
     solve First Second n
@@ -154,9 +154,9 @@ inl game_of_stones' n =
 inl main () =
     inl show = function First => "First" | Second => "Second"
     inl p =
-        (I32 .<< Spaces) >>= fun nearTo =>
+        (U32 .<< Spaces) >>= fun nearTo =>
             let rec loop i =
-                if i < nearTo then (I32 .<< Spaces) >>= (game_of_stones' >> show >> writeline >> fun () => loop (i+1))
+                if i < nearTo then (U32 .<< Spaces) >>= (game_of_stones' >> show >> writeline >> fun () => loop (i+1))
                 else on_succ ()
             loop 0
     // let example = Readall

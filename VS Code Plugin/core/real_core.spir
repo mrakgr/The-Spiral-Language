@@ -20,10 +20,7 @@ inl const x _ = x
 // Applies the unit to the function.
 // (() -> a) -> a
 inl unconst x = x()
-// Creates an array with the given type and the size.
-inl array_create forall typ. size = !!!!ArrayCreate(`typ,size)
-// Returns the length of an array. Not applicable to Cuda arrays.
-inl array_length ar = !!!!ArrayLength(ar)
+
 
 // Binary addition.
 inl (+) a b = !!!!Add(a,b)
@@ -97,12 +94,7 @@ inl snd (a,b) = b
 
 // Unary negation.
 inl not x = x = false
-// Indexes into a string.
-inl string_index x i = !!!!StringIndex(x,i)
-// Slices a string between the two endpoints.
-inl string_slice x (from:to:) = !!!!StringSlice(x,from,to)
-// Returns the length of a string.
-inl string_length x = !!!!StringLength(x)
+
 
 // Returns boolean whether the term is a literal.
 inl lit_is x = !!!!LitIs(x)

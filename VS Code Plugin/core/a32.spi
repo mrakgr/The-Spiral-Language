@@ -1,13 +1,13 @@
 open loop
 
 // Creates an array.
-inl create forall t. (size : i32) : array t = !!!!ArrayCreate(`t,size)
+inl create forall t. (size : u32) : array t = !!!!ArrayU32Create(`t,size)
 // Indexes into an array.
-inl index forall t. (ar : array t) (i : i32) : t = !!!!ArrayIndex(ar,i)
+inl index forall t. (ar : array t) (i : u32) : t = !!!!ArrayU32Index(ar,i)
 // Sets the value of an array at the specified index.
-inl set forall t. (ar : array t) (i : i32) (v : t) : () = !!!!ArrayIndexSet(ar,i,v)
+inl set forall t. (ar : array t) (i : u32) (v : t) : () = !!!!ArrayU32IndexSet(ar,i,v)
 // Returns the length of an array.
-inl length forall t. (ar : array t) : i32 = !!!!ArrayLength(ar)
+inl length forall t. (ar : array t) : u32 = !!!!ArrayU32Length(ar)
 // Creates an array with a single element.
 inl singleton x = inl a = create 1 in set a 0 x . a
 // Initializes array using the given function.

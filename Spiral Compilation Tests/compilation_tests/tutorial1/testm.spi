@@ -1,4 +1,4 @@
-open arrayi32
+open a32
 inl main() =
-    inl x : array (i32 * i32) = arrayi32.create 10 
-    arrayi32.set x 0 (1,2)
+    inl x : array (i32 * i32) = a32.create 10 
+    a32.set x 0 (1,2)

@@ -1,35 +1,36 @@
-type state = i32 * array f32
+type state = u32 * array f32
 nominal pu a = {
     pickle : a -> state -> ()
-    size : i32
+    size : u32
     unpickle : state -> a * u32
     }
 
 inl Unit =
-    pu {size = 1
-        pickle = fun () (i,s) => arrayi32.set s i 1
+    pu {
+        size = 1u32
+        pickle = fun () (i,s) => a32.set s i 1
         unpickle = fun (i,s) => 
-            inl x = arrayi32.index s i
+            inl x = a32.index s i
             (), if x = 1 then 1 elif x = 0 then 0 else failwith "Unpickling failure. The unit type should always be either be active or inactive."
         }
 
-inl I32 size : pu i32 =
-    pu {size
-        pickle = fun x (i,s) =>
-            if 0 <= x && x < size then arrayi32.set s (i+x) 1
+inl U32 (size : u32) : pu u32 =
+    pu { size
+        pickle = fun x (i,s : state) =>
+            if 0 <= x && x < size then a32.set s (i + x) 1
             else failwith "Value out of bounds."
-        unpickle = fun (from,s) =>
+        unpickle = fun (from,s : state) =>
             inl ~(from,nearTo) = from, from+size
             join
                 inl case,c =
                     loop.for (from:nearTo:) (fun i (case,c) =>
-                        inl x = arrayi32.index s i
+                        inl x = a32.index s i
                         if x = 0 then case,c
                         elif x = 1 then i,c+1
                         else failwith "Unpickling failure. The int type must either be active or inactive."
-                        ) (-1,0)
+                        ) (0,0)
                 if 1 < c then failwith "Unpickling failure. Too many active indices in the one-hot vector."
-                case-from, c
+                case - from, c
         }
 
 inl pair (pu a') (pu b') =
@@ -61,7 +62,7 @@ inl alt forall t r. (l : r) : pu t =
             ) `r
     inl offsets, size = real
         open real_core
-        record_foldl (fun (state:(m,s) key:value:) => inl (pu p) = value in {m with $key=s}, s + p.size) ({},0) l
+        record_foldl (fun (state:(m,s) key:value:) => inl (pu p) = value in {m with $key=s}, s + p.size) ({},0u32) l
     inl pickle (m : t) (i,s : state) : () = real
         open real_core
         unbox m (fun (k,v) => inl (pu p) = l k in p.pickle v (i + offsets k,s))
