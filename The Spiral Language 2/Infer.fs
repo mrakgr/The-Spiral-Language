@@ -553,7 +553,7 @@ let show_type_error (env : TopEnv) x =
     | InstanceVarShouldNotMatchAnyOfPrototypes -> "Instance forall must not have the same name as any of the prototype foralls."
     | MissingBody -> "The function body is missing."
     | MacroIsMissingAnnotation -> "The macro needs an annotation."
-    | ArrayIsMissingAnnotation -> "The macro needs an annotation."
+    | ArrayIsMissingAnnotation -> "The array needs an annotation."
     | ShadowedForall -> "Shadowing of foralls (in the top-down) segment is not allowed."
     | UnionTypesMustHaveTheSameLayout -> "The two union types must have the same layout."
     | OrphanInstance -> "The instance has to be defined in the same module as either the prototype or the nominal."
