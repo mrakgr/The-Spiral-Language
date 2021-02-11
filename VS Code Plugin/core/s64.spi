@@ -1,3 +1,5 @@
+// The 64-bit string module.
+
 // Indexes into the string.
 inl index (str : string) (i : u64): char = !!!!StringU64Index(str,i)
 // Returns the length of the string.

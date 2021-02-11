@@ -1,5 +1,7 @@
 packages: |core-
 modules:
+    dictionary
+    cfr
     leduc
     dudo
     

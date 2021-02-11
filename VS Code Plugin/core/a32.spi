@@ -1,3 +1,4 @@
+// The 32-bit array module.
 open loop
 
 // Creates an array.

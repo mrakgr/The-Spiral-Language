@@ -1,3 +1,5 @@
+// The 32-bit string module.
+
 // Indexes into the string.
 inl index (str : string) (i : u32): char = !!!!StringU32Index(str,i)
 // Returns the length of the string.

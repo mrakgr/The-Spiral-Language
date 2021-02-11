@@ -1,0 +1,16 @@
+nominal dict key value = () // TODO
+
+// Tries finding the value given the key.
+inl tryFind forall k v. (d : dict k v) (x : k) : option v = failwith "TODO"
+// Checks whether the key exists.
+inl contains forall k v. (d : dict k v) (x : k) : bool = failwith "TODO"
+// Set the dictionary value at the given key.
+inl set forall k v. (d : dict k v) (x : k) (v : v) : () = failwith "TODO"
+// Adds the key/value pair to the dictionary. Raises an exception if it is already present.
+inl add forall k v. (d : dict k v) (x : k) (v : v) : () = failwith "TODO"
+// Returns the length of the dictionary.
+inl length (d : dict _ _) : u64 = failwith "TODO"
+// Checks whether the dictionary is empty.
+inl emptyIs (d : dict _ _) : bool = failwith "TODO"
+// If the key is present in the dictionary returns the already known value, otherwise produces the value by mapping the key. Adds it to the dictionary before returning it.
+inl memoize d f k = tryFind d k id (fun _ => inl v = f k in add d k v . v)

@@ -1,0 +1,16 @@
+let regret_match forall t{float; number}. (x : array t) = 
+    inl nearTo = a64.length x
+    let x, normalizing_sum =
+        a64.mapFold (fun s x =>
+            let strategy = max x 0
+            strategy, strategy + s
+            ) 0 x
+
+    inl mutate_temp f = loop.for' (from:0 nearTo:) (fun i => a64.set x i (f (a64.index x i)))
+    if normalizing_sum > 0 then mutate_temp (fun x => x / normalizing_sum)
+    else inl value = 1 / $"<`t> !nearTo" in mutate_temp (fun _ => value)
+    x
+
+inl add x f = loop.for' (from:0 nearTo:a64.length x) (fun i => a64.set x i (a64.index x i + f i))
+
+inl sample () = ()
