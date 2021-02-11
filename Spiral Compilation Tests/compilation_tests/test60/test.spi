@@ -1,0 +1,8 @@
+// Does del insertion work properly?
+union t =
+    | A: string * string * string
+
+inl main() =
+    inl ~x = A: "qwe", "asd", "zxc"
+    match x with
+    | A: a,b,c => a

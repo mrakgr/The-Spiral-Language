@@ -254,6 +254,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             Array.iter2 (fun (L(i',_)) b ->
                 line s (sprintf "v%i.l%i <- %s" i i' (show_w b))
                 ) (data_free_vars a) (data_term_vars c)
+        | TyArrayLiteral(a,b) -> simple <| sprintf "[|%s|]" (List.map tup b |> String.concat "; ")
         | TyArrayU32Create(a,b) -> simple (sprintf "Array.zeroCreate<%s> (int %s)" (tup_ty a) (tup b))
         | TyArrayU64Create _ -> raise_codegen_error "The F# backend does not support creating u64 arrays. Try the u32 array create instead."
         | TyFailwith(a,b) -> simple (sprintf "failwith<%s> %s" (tup_ty a) (tup b))

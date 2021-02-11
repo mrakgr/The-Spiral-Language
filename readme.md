@@ -3,6 +3,7 @@
 - [News](#news)
 - [1/28/2021](#1282021)
 - [2/5/2021](#252021)
+- [2/11/2021](#2112021)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
     - [Getting Spiral](#getting-spiral)
@@ -61,6 +62,25 @@ Going through the [PyTorch docs](https://pytorch.org/docs/stable/notes/faq.html#
 The Cython backend is just a bit short of having full TCO support at the moment. If the backend proves itself useful for long enough, maybe I myself will deal with the [wishlist items](https://github.com/cython/cython/issues/3992) at some point. It is not certain that this will happen. Right now, reference counting as a strategy is just too useful when doing a ML library as it provides a way of managing GPU memory, but .NET eclipses Cython in everything else as a target platform. Once the hardware shifts from shared memory to local memory and message passing, that will no longer apply. That point is not here yet though, and won't be for a few years.
 
 But regardless of which way the winds blow, Spiral will support both backends regardless of my attention and personal interest.
+
+# 2/11/2021
+
+```
+// Do array literals and their patterns work correctly?
+inl main() : i32 =
+    inl a = ;[1;2;3]
+    match a with
+    | ;[a;b;c] => a+b+c
+    | ;[a;b] => a+b
+    | ;[a] => a
+    | _ => 0
+```
+
+Spiral now has array literals and patterns. Amongst other change signed 32-bit arrays have been changed to unsigned 32-bit ones. And its module `arrayi32` has been renamed to `a32`, so the examples in the docs are slightly outdated. The serializer code is outright broken. I adjusted [`serialization4`](https://github.com/mrakgr/The-Spiral-Language/tree/master/Spiral%20Compilation%20Tests/compilation_tests/serialization4) by hand myself, and the other 3 would be a good first contribution for any newcomers. Either way, I'll fix both them and the docs in due time. Some other tests might be broken as well.
+
+The Cython array having unsigned 64-bit indexing and length, and the F# arrays having signed 32-bit of the same has been giving me a headache, and I converged to the current design of having two different unsigned variants of both arrays and strings. This is purely backend dependent. On the top level they will still show up as plain arrays, but using the wrong op will result in a type error during the codegen pass.
+
+In addition to above, the default (unadorned) int literal during the bottom-up pass is now an unsigned 32-bit int.
 
 # The Spiral Language
 
@@ -1524,9 +1544,9 @@ For dynamic languages with good optimizers like Javascript for example, it is we
 Spiral does stack allocation by default for all its primitives (except strings) and errs on the side of too much inlining, but this tradeoff does occur internally as well.
 
 ```
-inl map f = array.map f
+inl map f = arrayi32.map f
 inl main () =
-    array.init 10 id
+    arrayi32.init 10 id
     |> map ((+) 2)
     |> map ((*) 10)
     |> map ((/) 2)

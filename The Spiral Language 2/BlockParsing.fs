@@ -911,7 +911,7 @@ and root_pattern s =
             pipe2 root_pattern (opt (skip_op ":" >>. root_type_annot))
                 (fun a -> function Some b -> PatAnnot(range_of_pattern a +. range_of_texpr b,a,b) | None -> a)
         let pat_rounds = rounds (pat_type <|> (read_op' |>> PatVar))
-        let pat_array = skip_unary_op "!" >>. range (squares (sepBy pat_type (skip_op ";"))) |>> (fun (r,x) -> PatArray(r,x))
+        let pat_array = skip_unary_op ";" >>. range (squares (sepBy pat_type (skip_op ";"))) |>> (fun (r,x) -> PatArray(r,x))
         let (+) = alt (index s)
         (pat_unit + pat_rounds + pat_nominal + pat_wildcard + pat_dyn + pat_value + pat_string + pat_record + pat_symbol + pat_array) s
 
@@ -1086,7 +1086,7 @@ and root_term d =
             read_unary_op' >>= fun (o,a) d ->
                 let type_expr d = ((read_type_var' |>> RawTVar) <|> (rounds (fun d -> root_type {root_type_defaults with allow_term=true} d))) d
                 match a with
-                | "!" -> (range (squares (sepBy expressions (skip_op ";"))) |>> fun (r,x) -> RawArray(r,x)) d
+                | ";" -> (range (squares (sepBy root_term (skip_op ";"))) |>> fun (r,x) -> RawArray(r,x)) d
                 | "!!!!" -> 
                     (range (read_big_var .>>. (rounds (sepBy1 (fun d -> expressions {d with is_top_down=false}) (skip_op ","))))
                     >>= fun (r,((ra,a), b)) _ ->

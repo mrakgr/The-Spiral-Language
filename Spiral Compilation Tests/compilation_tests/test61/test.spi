@@ -1,0 +1,8 @@
+// Do array literals and their patterns work correctly?
+inl main() : i32 =
+    inl a = ;[1;2;3]
+    match a with
+    | ;[a;b;c] => a+b+c
+    | ;[a;b] => a+b
+    | ;[a] => a
+    | _ => 0

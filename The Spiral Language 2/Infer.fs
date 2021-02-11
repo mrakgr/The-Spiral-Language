@@ -1108,6 +1108,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             with :? TypeErrorException as e -> errors.AddRange e.Data0; fresh_var scope
             |> fun v -> f v c
         | RawArray(r,a) ->
+            annotations.Add(x,(r,s))
             let v = fresh_var scope
             unify r s (TyArray v)
             List.iter (f v) a

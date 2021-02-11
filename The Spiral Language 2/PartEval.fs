@@ -113,6 +113,7 @@ and TypedOp =
     | TyLayoutIndexByKey of L<Tag,Ty * Layout> * string
     | TyLayoutHeapMutableSet of L<Tag,Ty> * string list * Data
     | TyFailwith of Ty * Data
+    | TyArrayLiteral of Ty * Data list
     | TyArrayU32Create of Ty * Data
     | TyArrayU64Create of Ty * Data
     | TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
@@ -1278,6 +1279,18 @@ let peval (env : TopEnv) (x : E) =
                 match data_to_ty s a, data_to_ty s b, data_to_ty s c with
                 | YPrim StringT, YPrim Int64T, YPrim Int64T -> push_triop s StringU64Slice (a,b,c) (YPrim StringT)
                 | a,b,c -> raise_type_error s <| sprintf "Expected a string and two u64s as arguments.\nGot: %s\nAnd: %s\nAnd: %s" (show_ty a) (show_ty b) (show_ty c)
+        | EArray(_,a,b) ->
+            match ty s b with
+            | YArray el as b -> 
+                let a = 
+                    List.map (fun x -> 
+                        let x = term s x
+                        let x_ty = data_to_ty s x
+                        if x_ty = el then x 
+                        else raise_type_error s $"All the elements in the array literal have to be the type {show_ty el}.\nGot: {show_ty x_ty}"
+                        ) a
+                push_typedop_no_rewrite s (TyArrayLiteral(el,a)) b
+            | b -> raise_type_error s $"Expected an array.\nGot: {show_ty b}"
         | EOp(_,ArrayU32Create,[EType(_,a);b]) ->
             let a,b = ty s a, term s b
             match data_to_ty s b with

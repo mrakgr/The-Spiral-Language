@@ -19,13 +19,12 @@ inl compare_hands (community_card : card) (p1,p2 : players) =
         inl x = comp (fst a) (fst b)
         if eq_is x then comp (snd a) (snd b) else x
 
-inl raise amount (p1,p2 : players) = p2.pot + amount
+inl raiseBy amount (p1,p2 : players) = p2.pot + amount
 inl game {sample_all draw action terminal} = join
-    // TODO: Implement the array literals.
-    inl actionsInit : array action = failwith "TODO" // ![Call; Rise]
-    inl actionsFull : array action = failwith "TODO" // ![Fold; Call; Rise]
-    inl actionsNoRaise : array action = failwith "TODO" // ![Fold; Call]
-    inl deckInit : array card = failwith "TODO" // ![King; Queen; Jack; King; Queen; Jack]
+    inl actionsInit = ;[Call; Raise]
+    inl actionsFull = ;[Fold; Call; Raise]
+    inl actionsNoRaise = ;[Fold; Call]
+    inl deckInit = ;[King; Queen; Jack; King; Queen; Jack]
 
     inl pot = 1
     inl id = 0
@@ -44,20 +43,20 @@ inl game {sample_all draw action terminal} = join
             if gt_is x then terminal (p1.id, p1.pot + p2.pot)
             elif lt_is x then terminal (p2.id, p1.pot + p2.pot)
             else terminal (p1.id, 0)
-        | Raise => round_two (raises_left-1) community_card (p2,{p1 with pot=raise 4 (p1,p2)})
+        | Raise => round_two (raises_left-1) community_card (p2,{p1 with pot=raiseBy 4 (p1,p2)})
     let round_two_init (p1,p2 : players) =
         sample_all deck fun card =>
         action p1.id actionsInit function
         | Fold => failwith "impossible"
         | Call => round_two 2 card (p2,p1)
-        | Raise => round_two 1 card (p2,{p1 with pot=raise 4 (p1,p2)})
+        | Raise => round_two 1 card (p2,{p1 with pot=raiseBy 4 (p1,p2)})
     let rec round_one (raises_left : i32) (p1,p2 : players) =
         action p1.id (if 0 < raises_left then actionsFull else actionsNoRaise) function
         | Fold => terminal (p2.id, p1.pot + p2.pot)
         | Call => round_two_init (if p1.id = 0 then p1,p2 else p2,p1)
-        | Raise => round_one (raises_left-1) (p2,{p1 with pot=raise 2 (p1,p2)})
+        | Raise => round_one (raises_left-1) (p2,{p1 with pot=raiseBy 2 (p1,p2)})
 
     action p1.id actionsInit function
     | Fold => failwith "impossible"
     | Call => round_one 2 (p2,p1)
-    | Raise => round_one 1 (p2,{p1 with pot=raise 2 (p1,p2)})
+    | Raise => round_one 1 (p2,{p1 with pot=raiseBy 2 (p1,p2)})

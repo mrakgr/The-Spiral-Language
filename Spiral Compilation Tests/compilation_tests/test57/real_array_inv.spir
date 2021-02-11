@@ -3,16 +3,16 @@ inl rec create forall t. size =
     typecase t with
     | ~a * ~b => create `a size, create `b size
     | {} => record_type_map (fun k => forall v. => create `v size) `t
-    | _ => !!!!ArrayCreate(`t, size)
+    | _ => !!!!ArrayU32Create(`t, size)
 
 inl rec index ar i = 
     match ar with
     | a,b => index a i, index b i
     | {} => record_map (fun (key:value:) => index value i) ar
-    | ar => !!!!ArrayIndex(ar,i)
+    | ar => !!!!ArrayU32Index(ar,i)
 
 inl rec set ar i v =
     match ar, v with
     | (a,b), (va,vb) => set a i va . set b i vb
     | {}, {} => record_iter (fun (key:value:) => set (ar key) i value) v
-    | _ => !!!!ArrayIndexSet(ar,i,v)
+    | _ => !!!!ArrayU32IndexSet(ar,i,v)

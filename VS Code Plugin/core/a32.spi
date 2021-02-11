@@ -34,3 +34,15 @@ inl concat ar =
     inl ar' = create nearTo
     inl _ = fold (fold (fun i x => set ar' i x . i+1)) 0 ar
     ar'
+// Appends two arrays.
+inl append a b = init (length a + length b) (fun i => inl l = length a in if i < l then index a i else index b (i - l))
+// Finds the index of the true applicant.
+inl findIndex f x =
+    let rec loop i = 
+        if i < length x then if f (index x i) then i else loop (i+1) 
+        else failwith "The true applicant does not exist."
+    loop 0
+// Slices an array between a range.
+inl slice (from:nearTo:) x = init (nearTo-from) (fun i => index x (i+from))
+// Slices an array from the start of a range.
+inl sliceFrom from x = slice (from:nearTo:length x) x

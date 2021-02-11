@@ -97,7 +97,7 @@ let nullable_vars_of (x : TypedBind []) =
         let binds_reg x = binds Set.empty Set.empty x
         match x with
         | TyMacro l -> List.fold (fun s -> function CMTerm d -> s + tags d | _ -> s) Set.empty l
-        | TyOp(_,l) -> List.fold (fun s x -> s + tags x) Set.empty l
+        | TyArrayLiteral(_,l) | TyOp(_,l) -> List.fold (fun s x -> s + tags x) Set.empty l
         | TyLayoutToHeap(x,_) | TyLayoutToHeapMutable(x,_)
         | TyUnionBox(_,x,_) | TyFailwith(_,x) | TyArrayU32Create(_,x) | TyArrayU64Create(_,x) -> tags x
         | TyWhile(cond, body) -> nulls.[body] <- Set.empty; jp cond + binds Set.empty Set.empty body
@@ -467,7 +467,23 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
             let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
             Array.iter2 (fun (L(i',_)) b -> line s $"v{i}.v{i'} = {show_w b}") (data_free_vars a) (data_term_vars c)
-        | TyArrayU32Create _ -> raise_codegen_error "The Cython backend does not support creating i32 arrays. Try the u64 array create instead."
+        | TyArrayLiteral(a,b) ->
+            //TODO: Check whether optimizing this actually does anything. It might be the case that Cython already optimizes Numpy array creation.
+            //return' <| sprintf "numpy.array([%s],dtype=%s)" (List.map tup b |> String.concat ", ") (numpy_ty a)
+            let l = List.length b
+            let assign v = List.mapi (fun i x -> $"{v}[{i}] = {tup x}") b |> String.concat "; " |> line s
+            match ret with
+            | BindsTailEnd false ->
+                let tmp_i = tmp()
+                line defs $"cdef {tyv (YArray a)} tmp{tmp_i}"
+                line s $"tmp{tmp_i} = numpy.empty({l},dtype={numpy_ty a})"
+                assign $"tmp{tmp_i}"
+                line s $"return tmp{tmp_i}"
+            | BindsLocal [|L(i,_)|] -> 
+                line s $"v{i} = numpy.empty({l},dtype={numpy_ty a})"
+                assign $"v{i}"
+            | _ -> raise_codegen_error "Compiler error: Expected a single var or a non-void return in array literal creation."
+        | TyArrayU32Create _ -> raise_codegen_error "The Cython backend does not support creating u32 arrays. Try the u64 array create instead."
         | TyArrayU64Create(a,b) -> return' $"numpy.empty({tup b},dtype={numpy_ty a})" 
         | TyFailwith(a,b) -> return' (sprintf "raise Exception(%s)" (tup b))
         | TyOp(Import,[DLit (LitString x)]) -> import x
