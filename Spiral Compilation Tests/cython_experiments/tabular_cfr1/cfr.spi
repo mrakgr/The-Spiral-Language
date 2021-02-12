@@ -1,0 +1,16 @@
+type player h = { history : h; prob : f64 }
+type players h = player h * player h
+
+type state h = {
+    is_updateable : bool * bool
+    sums : dict h { regret : array f64; strategy : array f64 }
+    }
+
+type fin = u8 * f64
+type node h = players h -> fin
+
+inl sumsCreate actions = inl l = a64.length actions in { regret = a64.init l (const 0); strategy = a64.init l (const 0) }
+inl action forall a h. (s : state h) (add_to_history : h * a -> h) (actions : array a) (next : a -> node h) : node h = 
+    fun p => join failwith "TODO"
+
+inl sample () = ()

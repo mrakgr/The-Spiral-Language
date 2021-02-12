@@ -12,5 +12,3 @@ let regret_match forall t{float; number}. (x : array t) =
     x
 
 inl add x f = loop.for' (from:0 nearTo:a64.length x) (fun i => a64.set x i (a64.index x i + f i))
-
-inl sample () = ()
