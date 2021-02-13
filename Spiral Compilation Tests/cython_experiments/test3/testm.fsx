@@ -1,5 +1,5 @@
-let decref s : () = failwith "decrements the reference"
-let incref s : () = failwith "increments the reference"
+let decref s : () = failwith "decrements the reference count"
+let incref s : () = failwith "increments the reference count"
 let cntref s : int64 = failwith "get the reference count"
 let assert_reference_count obj (count : int64) : () = failwith "asserts the reference count"
 

@@ -369,55 +369,69 @@ span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 
     Click on a line that starts with a "<code>+</code>" to see the C code that Cython generated for it.
 </p>
 <p>Raw output: <a href="testm.c">testm.c</a></p>
-<div class="cython"><pre class="cython line score-0">&#xA0;<span class="">01</span>: <span class="k">from</span> <span class="nn">cpython.ref</span> <span class="k">cimport</span> <span class="n">PyObject</span><span class="p">,</span> <span class="n">Py_INCREF</span><span class="p">,</span> <span class="n">Py_DECREF</span><span class="p">,</span> <span class="n">Py_CLEAR</span><span class="p">,</span> <span class="n">Py_XDECREF</span><span class="p">,</span> <span class="n">Py_XINCREF</span></pre>
-<pre class="cython line score-8" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">02</span>: <span class="k">import</span> <span class="nn">sys</span></pre>
-<pre class='cython code score-8 '>  __pyx_t_1 = <span class='pyx_c_api'>__Pyx_Import</span>(__pyx_n_s_sys, 0, -1);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 2, __pyx_L1_error)</span>
+<div class="cython"><pre class="cython line score-8" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">01</span>: <span class="k">import</span> <span class="nn">sys</span></pre>
+<pre class='cython code score-8 '>  __pyx_t_1 = <span class='pyx_c_api'>__Pyx_Import</span>(__pyx_n_s_sys, 0, -1);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1, __pyx_L1_error)</span>
   <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_1);
-  if (<span class='py_c_api'>PyDict_SetItem</span>(__pyx_d, __pyx_n_s_sys, __pyx_t_1) &lt; 0) <span class='error_goto'>__PYX_ERR(0, 2, __pyx_L1_error)</span>
+  if (<span class='py_c_api'>PyDict_SetItem</span>(__pyx_d, __pyx_n_s_sys, __pyx_t_1) &lt; 0) <span class='error_goto'>__PYX_ERR(0, 1, __pyx_L1_error)</span>
   <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_1); __pyx_t_1 = 0;
-</pre><pre class="cython line score-3" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">03</span>: <span class="k">cdef</span> <span class="nf">loop_tail</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="nb">int</span> <span class="n">i</span><span class="p">,</span> <span class="nb">int</span> <span class="n">nearTo</span><span class="p">):</span></pre>
-<pre class='cython code score-3 '>static PyObject *__pyx_f_5testm_loop_tail(PyObject *__pyx_v_s, int __pyx_v_i, int __pyx_v_nearTo) {
-  PyObject *__pyx_v_n;
+</pre><pre class="cython line score-0">&#xA0;<span class="">02</span>: <span class="c"># from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF, Py_CLEAR, Py_XDECREF, Py_XINCREF</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">03</span>: <span class="c"># cdef PyObject * loop_tail(PyObject * s, int i, int nearTo):</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">04</span>: <span class="c">#     cdef PyObject * n</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">05</span>: <span class="c">#     if i &lt; nearTo: </span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">06</span>: <span class="c">#         n = &lt;PyObject *&gt;((&lt;object&gt; s) + 0)</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">07</span>: <span class="c">#         Py_DECREF(s)</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">08</span>: <span class="c">#         return loop_tail(n,i+1,nearTo)</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">09</span>: <span class="c">#     else: return s</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">10</span>: </pre>
+<pre class="cython line score-0">&#xA0;<span class="">11</span>: <span class="c"># def test(s):</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">12</span>: <span class="c">#     print(sys.getrefcount(s)) # 1</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">13</span>: <span class="c">#     Py_INCREF(s)</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">14</span>: <span class="c">#     t = loop_tail(s,0,0)</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">15</span>: <span class="c">#     Py_DECREF(t); del t</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">16</span>: <span class="c">#     print(sys.getrefcount(s)) # 1</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">17</span>: <span class="c">#     Py_INCREF(s)</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">18</span>: <span class="c">#     t = loop_tail(s,0,0)</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">19</span>: <span class="c">#     Py_DECREF(t); del t</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">20</span>: <span class="c">#     print(sys.getrefcount(s)) # 1</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">21</span>: <span class="c">#     Py_INCREF(s)</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">22</span>: <span class="c">#     t = loop_tail(s,0,0)</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">23</span>: <span class="c">#     Py_DECREF(t); del t</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">24</span>: <span class="c">#     print(sys.getrefcount(s)) # 1</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">25</span>: </pre>
+<pre class="cython line score-0">&#xA0;<span class="">26</span>: <span class="c"># def test2(s):</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">27</span>: <span class="c">#     print(sys.getrefcount(s)) # 1</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">28</span>: <span class="c">#     Py_INCREF(s)</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">29</span>: <span class="c">#     t = loop_tail(s,0,1)</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">30</span>: <span class="c">#     Py_DECREF(t); del t</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">31</span>: <span class="c">#     print(sys.getrefcount(s)) # 1</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">32</span>: <span class="c">#     Py_INCREF(s)</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">33</span>: <span class="c">#     t = loop_tail(s,0,1)</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">34</span>: <span class="c">#     Py_DECREF(t); del t</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">35</span>: <span class="c">#     print(sys.getrefcount(s)) # 1</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">36</span>: <span class="c">#     Py_INCREF(s)</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">37</span>: <span class="c">#     t = loop_tail(s,0,1)</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">38</span>: <span class="c">#     Py_DECREF(t); del t</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">39</span>: <span class="c">#     print(sys.getrefcount(s)) # 1</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">40</span>: </pre>
+<pre class="cython line score-2" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">41</span>: <span class="k">cdef</span> <span class="nf">id</span><span class="p">(</span><span class="n">x</span><span class="p">):</span> <span class="k">return</span> <span class="n">x</span></pre>
+<pre class='cython code score-2 '>static PyObject *__pyx_f_5testm_id(PyObject *__pyx_v_x) {
   PyObject *__pyx_r = NULL;
   <span class='refnanny'>__Pyx_RefNannyDeclarations</span>
-  <span class='refnanny'>__Pyx_RefNannySetupContext</span>("loop_tail", 0);
-/* … */
+  <span class='refnanny'>__Pyx_RefNannySetupContext</span>("id", 0);
+  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_r);
+  <span class='pyx_macro_api'>__Pyx_INCREF</span>(__pyx_v_x);
+  __pyx_r = __pyx_v_x;
+  goto __pyx_L0;
+
   /* function exit code */
-  __pyx_L1_error:;
-  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_t_2);
-  <span class='pyx_c_api'>__Pyx_AddTraceback</span>("testm.loop_tail", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = 0;
   __pyx_L0:;
   <span class='refnanny'>__Pyx_XGIVEREF</span>(__pyx_r);
   <span class='refnanny'>__Pyx_RefNannyFinishContext</span>();
   return __pyx_r;
 }
-</pre><pre class="cython line score-0">&#xA0;<span class="">04</span>:     <span class="k">cdef</span> <span class="kt">PyObject</span> * <span class="nf">n</span></pre>
-<pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">05</span>:     <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">nearTo</span><span class="p">:</span></pre>
-<pre class='cython code score-0 '>  __pyx_t_1 = ((__pyx_v_i &lt; __pyx_v_nearTo) != 0);
-  if (__pyx_t_1) {
-/* … */
-  }
-</pre><pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">06</span>:         <span class="n">n</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">PyObject</span> <span class="o">*&gt;</span> <span class="n">s</span> <span class="o">+</span> <span class="mf">0</span></pre>
-<pre class='cython code score-0 '>    __pyx_v_n = (((PyObject *)__pyx_v_s) + 0);
-</pre><pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">07</span>:         <span class="n">Py_DECREF</span><span class="p">(</span><span class="n">s</span><span class="p">)</span></pre>
-<pre class='cython code score-0 '>    Py_DECREF(__pyx_v_s);
-</pre><pre class="cython line score-1" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">08</span>:         <span class="k">return</span> <span class="n">loop_tail</span><span class="p">(&lt;</span><span class="kt">object</span><span class="p">&gt;</span> <span class="n">n</span><span class="p">,</span><span class="n">i</span><span class="o">+</span><span class="mf">1</span><span class="p">,</span><span class="n">nearTo</span><span class="p">)</span></pre>
-<pre class='cython code score-1 '>    <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_r);
-    __pyx_t_2 = __pyx_f_5testm_loop_tail(((PyObject *)__pyx_v_n), (__pyx_v_i + 1), __pyx_v_nearTo);<span class='error_goto'> if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 8, __pyx_L1_error)</span>
-    <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_2);
-    __pyx_r = __pyx_t_2;
-    __pyx_t_2 = 0;
-    goto __pyx_L0;
-</pre><pre class="cython line score-2" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">09</span>:     <span class="k">else</span><span class="p">:</span> <span class="k">return</span> <span class="n">s</span></pre>
-<pre class='cython code score-2 '>  /*else*/ {
-    <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_r);
-    <span class='pyx_macro_api'>__Pyx_INCREF</span>(__pyx_v_s);
-    __pyx_r = __pyx_v_s;
-    goto __pyx_L0;
-  }
-</pre><pre class="cython line score-20" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">10</span>: <span class="k">def</span> <span class="nf">main</span><span class="p">():</span></pre>
-<pre class='cython code score-20 '>/* Python wrapper */
+</pre><pre class="cython line score-0">&#xA0;<span class="">42</span>: </pre>
+<pre class="cython line score-7" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">43</span>: <span class="k">def</span> <span class="nf">main</span><span class="p">():</span></pre>
+<pre class='cython code score-7 '>/* Python wrapper */
 static PyObject *__pyx_pw_5testm_1main(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused); /*proto*/
 static PyMethodDef __pyx_mdef_5testm_1main = {"main", (PyCFunction)__pyx_pw_5testm_1main, METH_NOARGS, 0};
 static PyObject *__pyx_pw_5testm_1main(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused) {
@@ -432,104 +446,22 @@ static PyObject *__pyx_pw_5testm_1main(PyObject *__pyx_self, CYTHON_UNUSED PyObj
 }
 
 static PyObject *__pyx_pf_5testm_main(CYTHON_UNUSED PyObject *__pyx_self) {
-  long __pyx_v_s;
-  PyObject *__pyx_v_x = NULL;
-  PyObject *__pyx_v_y = NULL;
-  PyObject *__pyx_v_z = NULL;
   PyObject *__pyx_r = NULL;
   <span class='refnanny'>__Pyx_RefNannyDeclarations</span>
   <span class='refnanny'>__Pyx_RefNannySetupContext</span>("main", 0);
-/* … */
+
   /* function exit code */
-  __pyx_L1_error:;
-  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_t_1);
-  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_t_2);
-  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_t_3);
-  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_t_4);
-  <span class='pyx_c_api'>__Pyx_AddTraceback</span>("testm.main", __pyx_clineno, __pyx_lineno, __pyx_filename);
-  __pyx_r = NULL;
-  __pyx_L0:;
-  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_v_x);
-  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_v_y);
-  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_v_z);
+  __pyx_r = Py_None; <span class='pyx_macro_api'>__Pyx_INCREF</span>(Py_None);
   <span class='refnanny'>__Pyx_XGIVEREF</span>(__pyx_r);
   <span class='refnanny'>__Pyx_RefNannyFinishContext</span>();
   return __pyx_r;
 }
 /* … */
-  __pyx_tuple_ = <span class='py_c_api'>PyTuple_Pack</span>(4, __pyx_n_s_s, __pyx_n_s_x, __pyx_n_s_y, __pyx_n_s_z);<span class='error_goto'> if (unlikely(!__pyx_tuple_)) __PYX_ERR(0, 10, __pyx_L1_error)</span>
-  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_tuple_);
-  <span class='refnanny'>__Pyx_GIVEREF</span>(__pyx_tuple_);
-/* … */
-  __pyx_t_1 = PyCFunction_NewEx(&amp;__pyx_mdef_5testm_1main, NULL, __pyx_n_s_testm);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 10, __pyx_L1_error)</span>
+  __pyx_t_1 = PyCFunction_NewEx(&amp;__pyx_mdef_5testm_1main, NULL, __pyx_n_s_testm);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 43, __pyx_L1_error)</span>
   <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_1);
-  if (<span class='py_c_api'>PyDict_SetItem</span>(__pyx_d, __pyx_n_s_main_2, __pyx_t_1) &lt; 0) <span class='error_goto'>__PYX_ERR(0, 10, __pyx_L1_error)</span>
+  if (<span class='py_c_api'>PyDict_SetItem</span>(__pyx_d, __pyx_n_s_main_2, __pyx_t_1) &lt; 0) <span class='error_goto'>__PYX_ERR(0, 43, __pyx_L1_error)</span>
   <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_1); __pyx_t_1 = 0;
-</pre><pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">11</span>:     <span class="n">s</span> <span class="o">=</span> <span class="mf">1234</span></pre>
-<pre class='cython code score-0 '>  __pyx_v_s = 0x4D2;
-</pre><pre class="cython line score-0">&#xA0;<span class="">12</span>:     <span class="c"># s ref count: 1</span></pre>
-<pre class="cython line score-3" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">13</span>:     <span class="n">x</span> <span class="o">=</span> <span class="n">loop_tail</span><span class="p">(</span><span class="n">s</span><span class="p">,</span><span class="mf">0</span><span class="p">,</span><span class="mf">0</span><span class="p">)</span> <span class="c"># returns s</span></pre>
-<pre class='cython code score-3 '>  __pyx_t_1 = <span class='pyx_c_api'>__Pyx_PyInt_From_long</span>(__pyx_v_s);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 13, __pyx_L1_error)</span>
-  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_1);
-  __pyx_t_2 = __pyx_f_5testm_loop_tail(__pyx_t_1, 0, 0);<span class='error_goto'> if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 13, __pyx_L1_error)</span>
-  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_2);
-  <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_v_x = __pyx_t_2;
-  __pyx_t_2 = 0;
-</pre><pre class="cython line score-0">&#xA0;<span class="">14</span>:     <span class="c"># s ref count: 2</span></pre>
-<pre class="cython line score-3" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">15</span>:     <span class="n">y</span> <span class="o">=</span> <span class="n">loop_tail</span><span class="p">(</span><span class="n">s</span><span class="p">,</span><span class="mf">0</span><span class="p">,</span><span class="mf">0</span><span class="p">)</span></pre>
-<pre class='cython code score-3 '>  __pyx_t_2 = <span class='pyx_c_api'>__Pyx_PyInt_From_long</span>(__pyx_v_s);<span class='error_goto'> if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 15, __pyx_L1_error)</span>
-  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_2);
-  __pyx_t_1 = __pyx_f_5testm_loop_tail(__pyx_t_2, 0, 0);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 15, __pyx_L1_error)</span>
-  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_1);
-  <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_2); __pyx_t_2 = 0;
-  __pyx_v_y = __pyx_t_1;
-  __pyx_t_1 = 0;
-</pre><pre class="cython line score-0">&#xA0;<span class="">16</span>:     <span class="c"># s ref count: 3</span></pre>
-<pre class="cython line score-3" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">17</span>:     <span class="n">z</span> <span class="o">=</span> <span class="n">loop_tail</span><span class="p">(</span><span class="n">s</span><span class="p">,</span><span class="mf">0</span><span class="p">,</span><span class="mf">0</span><span class="p">)</span></pre>
-<pre class='cython code score-3 '>  __pyx_t_1 = <span class='pyx_c_api'>__Pyx_PyInt_From_long</span>(__pyx_v_s);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 17, __pyx_L1_error)</span>
-  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_1);
-  __pyx_t_2 = __pyx_f_5testm_loop_tail(__pyx_t_1, 0, 0);<span class='error_goto'> if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 17, __pyx_L1_error)</span>
-  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_2);
-  <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_v_z = __pyx_t_2;
-  __pyx_t_2 = 0;
-</pre><pre class="cython line score-0">&#xA0;<span class="">18</span>:     <span class="c"># s ref count: 4</span></pre>
-<pre class="cython line score-3" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">19</span>:     <span class="k">del</span> <span class="n">x</span><span class="p">;</span> <span class="k">del</span> <span class="n">y</span><span class="p">;</span> <span class="k">del</span> <span class="n">z</span></pre>
-<pre class='cython code score-3 '>  <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_v_x);
-  __pyx_v_x = NULL;
-  <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_v_y);
-  __pyx_v_y = NULL;
-  <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_v_z);
-  __pyx_v_z = NULL;
-</pre><pre class="cython line score-0">&#xA0;<span class="">20</span>:     <span class="c"># s ref count: 1</span></pre>
-<pre class="cython line score-23" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">21</span>:     <span class="k">return</span> <span class="n">sys</span><span class="o">.</span><span class="n">getrefcount</span><span class="p">(</span><span class="n">s</span><span class="p">)</span></pre>
-<pre class='cython code score-23 '>  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_r);
-  <span class='pyx_c_api'>__Pyx_GetModuleGlobalName</span>(__pyx_t_1, __pyx_n_s_sys);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 21, __pyx_L1_error)</span>
-  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_1);
-  __pyx_t_3 = <span class='pyx_c_api'>__Pyx_PyObject_GetAttrStr</span>(__pyx_t_1, __pyx_n_s_getrefcount);<span class='error_goto'> if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 21, __pyx_L1_error)</span>
-  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_3);
-  <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_1); __pyx_t_1 = 0;
-  __pyx_t_1 = <span class='pyx_c_api'>__Pyx_PyInt_From_long</span>(__pyx_v_s);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 21, __pyx_L1_error)</span>
-  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_1);
-  __pyx_t_4 = NULL;
-  if (CYTHON_UNPACK_METHODS &amp;&amp; unlikely(<span class='py_c_api'>PyMethod_Check</span>(__pyx_t_3))) {
-    __pyx_t_4 = <span class='py_macro_api'>PyMethod_GET_SELF</span>(__pyx_t_3);
-    if (likely(__pyx_t_4)) {
-      PyObject* function = <span class='py_macro_api'>PyMethod_GET_FUNCTION</span>(__pyx_t_3);
-      <span class='pyx_macro_api'>__Pyx_INCREF</span>(__pyx_t_4);
-      <span class='pyx_macro_api'>__Pyx_INCREF</span>(function);
-      <span class='pyx_macro_api'>__Pyx_DECREF_SET</span>(__pyx_t_3, function);
-    }
-  }
-  __pyx_t_2 = (__pyx_t_4) ? __Pyx_PyObject_Call2Args(__pyx_t_3, __pyx_t_4, __pyx_t_1) : <span class='pyx_c_api'>__Pyx_PyObject_CallOneArg</span>(__pyx_t_3, __pyx_t_1);
-  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_t_4); __pyx_t_4 = 0;
-  <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_1); __pyx_t_1 = 0;
-  if (unlikely(!__pyx_t_2)) <span class='error_goto'>__PYX_ERR(0, 21, __pyx_L1_error)</span>
-  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_2);
-  <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_r = __pyx_t_2;
-  __pyx_t_2 = 0;
-  goto __pyx_L0;
-</pre><pre class="cython line score-0">&#xA0;<span class="">22</span>: </pre>
+</pre><pre class="cython line score-0">&#xA0;<span class="">44</span>:     <span class="c"># test(1234)</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">45</span>:     <span class="k">pass</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">46</span>: </pre>
 </div></body></html>
