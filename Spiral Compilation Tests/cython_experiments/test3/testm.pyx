@@ -1,46 +1,24 @@
-import sys
-# from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF, Py_CLEAR, Py_XDECREF, Py_XINCREF
-# cdef PyObject * loop_tail(PyObject * s, int i, int nearTo):
-#     cdef PyObject * n
-#     if i < nearTo: 
-#         n = <PyObject *>((<object> s) + 0)
-#         Py_DECREF(s)
-#         return loop_tail(n,i+1,nearTo)
-#     else: return s
+from cpython.ref cimport PyObject, Py_DECREF, Py_INCREF
 
-# def test(s):
-#     print(sys.getrefcount(s)) # 1
-#     Py_INCREF(s)
-#     t = loop_tail(s,0,0)
-#     Py_DECREF(t); del t
-#     print(sys.getrefcount(s)) # 1
-#     Py_INCREF(s)
-#     t = loop_tail(s,0,0)
-#     Py_DECREF(t); del t
-#     print(sys.getrefcount(s)) # 1
-#     Py_INCREF(s)
-#     t = loop_tail(s,0,0)
-#     Py_DECREF(t); del t
-#     print(sys.getrefcount(s)) # 1
+cdef inline PyObject* getPyObject(object o):
+    Py_INCREF(o)  # Cython will always put a decref in on "o" so need to counteract it
+    return <PyObject*>o
 
-# def test2(s):
-#     print(sys.getrefcount(s)) # 1
-#     Py_INCREF(s)
-#     t = loop_tail(s,0,1)
-#     Py_DECREF(t); del t
-#     print(sys.getrefcount(s)) # 1
-#     Py_INCREF(s)
-#     t = loop_tail(s,0,1)
-#     Py_DECREF(t); del t
-#     print(sys.getrefcount(s)) # 1
-#     Py_INCREF(s)
-#     t = loop_tail(s,0,1)
-#     Py_DECREF(t); del t
-#     print(sys.getrefcount(s)) # 1
+# In a separate function to keep all Python temp cleanup code out of loop_tail
+cdef PyObject* splus0(PyObject* s) except NULL:
+    return getPyObject(<object>s+0)
 
-cdef id(x): return x
+cdef PyObject* loop_tail(PyObject* s, int i, int nearTo):
+    cdef PyObject *n
+    if i < nearTo:
+        n = splus0(s)
+        Py_DECREF(<object>s)
+        return loop_tail(n, i+1, nearTo)
+    else:
+        return s
 
-def main():
-    # test(1234)
-    pass
+def run_loop_tail(s, i, nearTo):
+    # When in tail-end position, s should not be incref'd.
+    return <object>loop_tail(<PyObject*>s, i, nearTo)
 
+def main(): return run_loop_tail(0,0,1_000_000_000)

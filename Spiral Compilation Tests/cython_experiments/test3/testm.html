@@ -369,99 +369,242 @@ span.linenos.special { color: #000000; background-color: #ffffc0; padding-left: 
     Click on a line that starts with a "<code>+</code>" to see the C code that Cython generated for it.
 </p>
 <p>Raw output: <a href="testm.c">testm.c</a></p>
-<div class="cython"><pre class="cython line score-8" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">01</span>: <span class="k">import</span> <span class="nn">sys</span></pre>
-<pre class='cython code score-8 '>  __pyx_t_1 = <span class='pyx_c_api'>__Pyx_Import</span>(__pyx_n_s_sys, 0, -1);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 1, __pyx_L1_error)</span>
-  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_1);
-  if (<span class='py_c_api'>PyDict_SetItem</span>(__pyx_d, __pyx_n_s_sys, __pyx_t_1) &lt; 0) <span class='error_goto'>__PYX_ERR(0, 1, __pyx_L1_error)</span>
-  <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_1); __pyx_t_1 = 0;
-</pre><pre class="cython line score-0">&#xA0;<span class="">02</span>: <span class="c"># from cpython.ref cimport PyObject, Py_INCREF, Py_DECREF, Py_CLEAR, Py_XDECREF, Py_XINCREF</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">03</span>: <span class="c"># cdef PyObject * loop_tail(PyObject * s, int i, int nearTo):</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">04</span>: <span class="c">#     cdef PyObject * n</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">05</span>: <span class="c">#     if i &lt; nearTo: </span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">06</span>: <span class="c">#         n = &lt;PyObject *&gt;((&lt;object&gt; s) + 0)</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">07</span>: <span class="c">#         Py_DECREF(s)</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">08</span>: <span class="c">#         return loop_tail(n,i+1,nearTo)</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">09</span>: <span class="c">#     else: return s</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">10</span>: </pre>
-<pre class="cython line score-0">&#xA0;<span class="">11</span>: <span class="c"># def test(s):</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">12</span>: <span class="c">#     print(sys.getrefcount(s)) # 1</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">13</span>: <span class="c">#     Py_INCREF(s)</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">14</span>: <span class="c">#     t = loop_tail(s,0,0)</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">15</span>: <span class="c">#     Py_DECREF(t); del t</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">16</span>: <span class="c">#     print(sys.getrefcount(s)) # 1</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">17</span>: <span class="c">#     Py_INCREF(s)</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">18</span>: <span class="c">#     t = loop_tail(s,0,0)</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">19</span>: <span class="c">#     Py_DECREF(t); del t</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">20</span>: <span class="c">#     print(sys.getrefcount(s)) # 1</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">21</span>: <span class="c">#     Py_INCREF(s)</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">22</span>: <span class="c">#     t = loop_tail(s,0,0)</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">23</span>: <span class="c">#     Py_DECREF(t); del t</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">24</span>: <span class="c">#     print(sys.getrefcount(s)) # 1</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">25</span>: </pre>
-<pre class="cython line score-0">&#xA0;<span class="">26</span>: <span class="c"># def test2(s):</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">27</span>: <span class="c">#     print(sys.getrefcount(s)) # 1</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">28</span>: <span class="c">#     Py_INCREF(s)</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">29</span>: <span class="c">#     t = loop_tail(s,0,1)</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">30</span>: <span class="c">#     Py_DECREF(t); del t</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">31</span>: <span class="c">#     print(sys.getrefcount(s)) # 1</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">32</span>: <span class="c">#     Py_INCREF(s)</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">33</span>: <span class="c">#     t = loop_tail(s,0,1)</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">34</span>: <span class="c">#     Py_DECREF(t); del t</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">35</span>: <span class="c">#     print(sys.getrefcount(s)) # 1</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">36</span>: <span class="c">#     Py_INCREF(s)</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">37</span>: <span class="c">#     t = loop_tail(s,0,1)</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">38</span>: <span class="c">#     Py_DECREF(t); del t</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">39</span>: <span class="c">#     print(sys.getrefcount(s)) # 1</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">40</span>: </pre>
-<pre class="cython line score-2" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">41</span>: <span class="k">cdef</span> <span class="nf">id</span><span class="p">(</span><span class="n">x</span><span class="p">):</span> <span class="k">return</span> <span class="n">x</span></pre>
-<pre class='cython code score-2 '>static PyObject *__pyx_f_5testm_id(PyObject *__pyx_v_x) {
-  PyObject *__pyx_r = NULL;
+<div class="cython"><pre class="cython line score-0">&#xA0;<span class="">01</span>: <span class="k">from</span> <span class="nn">cpython.ref</span> <span class="k">cimport</span> <span class="n">PyObject</span><span class="p">,</span> <span class="n">Py_DECREF</span><span class="p">,</span> <span class="n">Py_INCREF</span></pre>
+<pre class="cython line score-0">&#xA0;<span class="">02</span>: </pre>
+<pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">03</span>: <span class="k">cdef</span> <span class="kr">inline</span> <span class="kt">PyObject</span>* <span class="nf">getPyObject</span><span class="p">(</span><span class="nb">object</span> <span class="n">o</span><span class="p">):</span></pre>
+<pre class='cython code score-0 '>static CYTHON_INLINE PyObject *__pyx_f_5testm_getPyObject(PyObject *__pyx_v_o) {
+  PyObject *__pyx_r;
   <span class='refnanny'>__Pyx_RefNannyDeclarations</span>
-  <span class='refnanny'>__Pyx_RefNannySetupContext</span>("id", 0);
-  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_r);
-  <span class='pyx_macro_api'>__Pyx_INCREF</span>(__pyx_v_x);
-  __pyx_r = __pyx_v_x;
+  <span class='refnanny'>__Pyx_RefNannySetupContext</span>("getPyObject", 0);
+/* … */
+  /* function exit code */
+  __pyx_L0:;
+  <span class='refnanny'>__Pyx_RefNannyFinishContext</span>();
+  return __pyx_r;
+}
+</pre><pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">04</span>:     <span class="n">Py_INCREF</span><span class="p">(</span><span class="n">o</span><span class="p">)</span>  <span class="c"># Cython will always put a decref in on &quot;o&quot; so need to counteract it</span></pre>
+<pre class='cython code score-0 '>  Py_INCREF(__pyx_v_o);
+</pre><pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">05</span>:     <span class="k">return</span> <span class="o">&lt;</span><span class="n">PyObject</span><span class="o">*&gt;</span><span class="n">o</span></pre>
+<pre class='cython code score-0 '>  __pyx_r = ((PyObject *)__pyx_v_o);
   goto __pyx_L0;
+</pre><pre class="cython line score-0">&#xA0;<span class="">06</span>: </pre>
+<pre class="cython line score-0">&#xA0;<span class="">07</span>: <span class="c"># In a separate function to keep all Python temp cleanup code out of loop_tail</span></pre>
+<pre class="cython line score-3" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">08</span>: <span class="k">cdef</span> <span class="kt">PyObject</span>* <span class="nf">splus0</span><span class="p">(</span><span class="n">PyObject</span><span class="o">*</span> <span class="n">s</span><span class="p">)</span> <span class="k">except</span> <span class="bp">NULL</span><span class="p">:</span></pre>
+<pre class='cython code score-3 '>static PyObject *__pyx_f_5testm_splus0(PyObject *__pyx_v_s) {
+  PyObject *__pyx_r;
+  <span class='refnanny'>__Pyx_RefNannyDeclarations</span>
+  <span class='refnanny'>__Pyx_RefNannySetupContext</span>("splus0", 0);
+/* … */
+  /* function exit code */
+  __pyx_L1_error:;
+  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_t_1);
+  <span class='pyx_c_api'>__Pyx_AddTraceback</span>("testm.splus0", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
+  <span class='refnanny'>__Pyx_RefNannyFinishContext</span>();
+  return __pyx_r;
+}
+</pre><pre class="cython line score-3" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">09</span>:     <span class="k">return</span> <span class="n">getPyObject</span><span class="p">(&lt;</span><span class="kt">object</span><span class="p">&gt;</span><span class="n">s</span><span class="o">+</span><span class="mf">0</span><span class="p">)</span></pre>
+<pre class='cython code score-3 '>  __pyx_t_1 = <span class='pyx_c_api'>__Pyx_PyInt_AddObjC</span>(((PyObject *)__pyx_v_s), __pyx_int_0, 0, 0, 0);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 9, __pyx_L1_error)</span>
+  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_1);
+  __pyx_r = __pyx_f_5testm_getPyObject(__pyx_t_1);
+  <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_1); __pyx_t_1 = 0;
+  goto __pyx_L0;
+</pre><pre class="cython line score-0">&#xA0;<span class="">10</span>: </pre>
+<pre class="cython line score-2" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">11</span>: <span class="k">cdef</span> <span class="kt">PyObject</span>* <span class="nf">loop_tail</span><span class="p">(</span><span class="n">PyObject</span><span class="o">*</span> <span class="n">s</span><span class="p">,</span> <span class="nb">int</span> <span class="n">i</span><span class="p">,</span> <span class="nb">int</span> <span class="n">nearTo</span><span class="p">):</span></pre>
+<pre class='cython code score-2 '>static PyObject *__pyx_f_5testm_loop_tail(PyObject *__pyx_v_s, int __pyx_v_i, int __pyx_v_nearTo) {
+  PyObject *__pyx_v_n;
+  PyObject *__pyx_r;
+  <span class='refnanny'>__Pyx_RefNannyDeclarations</span>
+  <span class='refnanny'>__Pyx_RefNannySetupContext</span>("loop_tail", 0);
+/* … */
+  /* function exit code */
+  __pyx_L1_error:;
+  <span class='pyx_c_api'>__Pyx_WriteUnraisable</span>("testm.loop_tail", __pyx_clineno, __pyx_lineno, __pyx_filename, 1, 0);
+  __pyx_r = 0;
+  __pyx_L0:;
+  <span class='refnanny'>__Pyx_RefNannyFinishContext</span>();
+  return __pyx_r;
+}
+</pre><pre class="cython line score-0">&#xA0;<span class="">12</span>:     <span class="k">cdef</span> <span class="kt">PyObject</span> *<span class="nf">n</span></pre>
+<pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">13</span>:     <span class="k">if</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">nearTo</span><span class="p">:</span></pre>
+<pre class='cython code score-0 '>  __pyx_t_1 = ((__pyx_v_i &lt; __pyx_v_nearTo) != 0);
+  if (__pyx_t_1) {
+/* … */
+  }
+</pre><pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">14</span>:         <span class="n">n</span> <span class="o">=</span> <span class="n">splus0</span><span class="p">(</span><span class="n">s</span><span class="p">)</span></pre>
+<pre class='cython code score-0 '>    __pyx_t_2 = __pyx_f_5testm_splus0(__pyx_v_s);<span class='error_goto'> if (unlikely(__pyx_t_2 == ((PyObject *)NULL))) __PYX_ERR(0, 14, __pyx_L1_error)</span>
+    __pyx_v_n = __pyx_t_2;
+</pre><pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">15</span>:         <span class="n">Py_DECREF</span><span class="p">(&lt;</span><span class="kt">object</span><span class="p">&gt;</span><span class="n">s</span><span class="p">)</span></pre>
+<pre class='cython code score-0 '>    Py_DECREF(((PyObject *)__pyx_v_s));
+</pre><pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">16</span>:         <span class="k">return</span> <span class="n">loop_tail</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">i</span><span class="o">+</span><span class="mf">1</span><span class="p">,</span> <span class="n">nearTo</span><span class="p">)</span></pre>
+<pre class='cython code score-0 '>    __pyx_r = __pyx_f_5testm_loop_tail(__pyx_v_n, (__pyx_v_i + 1), __pyx_v_nearTo);
+    goto __pyx_L0;
+</pre><pre class="cython line score-0">&#xA0;<span class="">17</span>:     <span class="k">else</span><span class="p">:</span></pre>
+<pre class="cython line score-0" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">18</span>:         <span class="k">return</span> <span class="n">s</span></pre>
+<pre class='cython code score-0 '>  /*else*/ {
+    __pyx_r = __pyx_v_s;
+    goto __pyx_L0;
+  }
+</pre><pre class="cython line score-0">&#xA0;<span class="">19</span>: </pre>
+<pre class="cython line score-45" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">20</span>: <span class="k">def</span> <span class="nf">run_loop_tail</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">nearTo</span><span class="p">):</span></pre>
+<pre class='cython code score-45 '>/* Python wrapper */
+static PyObject *__pyx_pw_5testm_1run_loop_tail(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyMethodDef __pyx_mdef_5testm_1run_loop_tail = {"run_loop_tail", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_5testm_1run_loop_tail, METH_VARARGS|METH_KEYWORDS, 0};
+static PyObject *__pyx_pw_5testm_1run_loop_tail(PyObject *__pyx_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+  PyObject *__pyx_v_s = 0;
+  PyObject *__pyx_v_i = 0;
+  PyObject *__pyx_v_nearTo = 0;
+  PyObject *__pyx_r = 0;
+  <span class='refnanny'>__Pyx_RefNannyDeclarations</span>
+  <span class='refnanny'>__Pyx_RefNannySetupContext</span>("run_loop_tail (wrapper)", 0);
+  {
+    static PyObject **__pyx_pyargnames[] = {&amp;__pyx_n_s_s,&amp;__pyx_n_s_i,&amp;__pyx_n_s_nearTo,0};
+    PyObject* values[3] = {0,0,0};
+    if (unlikely(__pyx_kwds)) {
+      Py_ssize_t kw_args;
+      const Py_ssize_t pos_args = <span class='py_macro_api'>PyTuple_GET_SIZE</span>(__pyx_args);
+      switch (pos_args) {
+        case  3: values[2] = <span class='py_macro_api'>PyTuple_GET_ITEM</span>(__pyx_args, 2);
+        CYTHON_FALLTHROUGH;
+        case  2: values[1] = <span class='py_macro_api'>PyTuple_GET_ITEM</span>(__pyx_args, 1);
+        CYTHON_FALLTHROUGH;
+        case  1: values[0] = <span class='py_macro_api'>PyTuple_GET_ITEM</span>(__pyx_args, 0);
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      kw_args = <span class='py_c_api'>PyDict_Size</span>(__pyx_kwds);
+      switch (pos_args) {
+        case  0:
+        if (likely((values[0] = <span class='pyx_c_api'>__Pyx_PyDict_GetItemStr</span>(__pyx_kwds, __pyx_n_s_s)) != 0)) kw_args--;
+        else goto __pyx_L5_argtuple_error;
+        CYTHON_FALLTHROUGH;
+        case  1:
+        if (likely((values[1] = <span class='pyx_c_api'>__Pyx_PyDict_GetItemStr</span>(__pyx_kwds, __pyx_n_s_i)) != 0)) kw_args--;
+        else {
+          <span class='pyx_c_api'>__Pyx_RaiseArgtupleInvalid</span>("run_loop_tail", 1, 3, 3, 1); <span class='error_goto'>__PYX_ERR(0, 20, __pyx_L3_error)</span>
+        }
+        CYTHON_FALLTHROUGH;
+        case  2:
+        if (likely((values[2] = <span class='pyx_c_api'>__Pyx_PyDict_GetItemStr</span>(__pyx_kwds, __pyx_n_s_nearTo)) != 0)) kw_args--;
+        else {
+          <span class='pyx_c_api'>__Pyx_RaiseArgtupleInvalid</span>("run_loop_tail", 1, 3, 3, 2); <span class='error_goto'>__PYX_ERR(0, 20, __pyx_L3_error)</span>
+        }
+      }
+      if (unlikely(kw_args &gt; 0)) {
+        if (unlikely(<span class='pyx_c_api'>__Pyx_ParseOptionalKeywords</span>(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "run_loop_tail") &lt; 0)) <span class='error_goto'>__PYX_ERR(0, 20, __pyx_L3_error)</span>
+      }
+    } else if (<span class='py_macro_api'>PyTuple_GET_SIZE</span>(__pyx_args) != 3) {
+      goto __pyx_L5_argtuple_error;
+    } else {
+      values[0] = <span class='py_macro_api'>PyTuple_GET_ITEM</span>(__pyx_args, 0);
+      values[1] = <span class='py_macro_api'>PyTuple_GET_ITEM</span>(__pyx_args, 1);
+      values[2] = <span class='py_macro_api'>PyTuple_GET_ITEM</span>(__pyx_args, 2);
+    }
+    __pyx_v_s = values[0];
+    __pyx_v_i = values[1];
+    __pyx_v_nearTo = values[2];
+  }
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L5_argtuple_error:;
+  <span class='pyx_c_api'>__Pyx_RaiseArgtupleInvalid</span>("run_loop_tail", 1, 3, 3, <span class='py_macro_api'>PyTuple_GET_SIZE</span>(__pyx_args)); <span class='error_goto'>__PYX_ERR(0, 20, __pyx_L3_error)</span>
+  __pyx_L3_error:;
+  <span class='pyx_c_api'>__Pyx_AddTraceback</span>("testm.run_loop_tail", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  <span class='refnanny'>__Pyx_RefNannyFinishContext</span>();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_5testm_run_loop_tail(__pyx_self, __pyx_v_s, __pyx_v_i, __pyx_v_nearTo);
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
 
   /* function exit code */
+  <span class='refnanny'>__Pyx_RefNannyFinishContext</span>();
+  return __pyx_r;
+}
+
+static PyObject *__pyx_pf_5testm_run_loop_tail(CYTHON_UNUSED PyObject *__pyx_self, PyObject *__pyx_v_s, PyObject *__pyx_v_i, PyObject *__pyx_v_nearTo) {
+  PyObject *__pyx_r = NULL;
+  <span class='refnanny'>__Pyx_RefNannyDeclarations</span>
+  <span class='refnanny'>__Pyx_RefNannySetupContext</span>("run_loop_tail", 0);
+/* … */
+  /* function exit code */
+  __pyx_L1_error:;
+  <span class='pyx_c_api'>__Pyx_AddTraceback</span>("testm.run_loop_tail", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
   __pyx_L0:;
   <span class='refnanny'>__Pyx_XGIVEREF</span>(__pyx_r);
   <span class='refnanny'>__Pyx_RefNannyFinishContext</span>();
   return __pyx_r;
 }
-</pre><pre class="cython line score-0">&#xA0;<span class="">42</span>: </pre>
-<pre class="cython line score-7" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">43</span>: <span class="k">def</span> <span class="nf">main</span><span class="p">():</span></pre>
-<pre class='cython code score-7 '>/* Python wrapper */
-static PyObject *__pyx_pw_5testm_1main(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused); /*proto*/
-static PyMethodDef __pyx_mdef_5testm_1main = {"main", (PyCFunction)__pyx_pw_5testm_1main, METH_NOARGS, 0};
-static PyObject *__pyx_pw_5testm_1main(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused) {
+/* … */
+  __pyx_tuple__2 = <span class='py_c_api'>PyTuple_Pack</span>(3, __pyx_n_s_s, __pyx_n_s_i, __pyx_n_s_nearTo);<span class='error_goto'> if (unlikely(!__pyx_tuple__2)) __PYX_ERR(0, 20, __pyx_L1_error)</span>
+  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_tuple__2);
+  <span class='refnanny'>__Pyx_GIVEREF</span>(__pyx_tuple__2);
+/* … */
+  __pyx_t_1 = PyCFunction_NewEx(&amp;__pyx_mdef_5testm_1run_loop_tail, NULL, __pyx_n_s_testm);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 20, __pyx_L1_error)</span>
+  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_1);
+  if (<span class='py_c_api'>PyDict_SetItem</span>(__pyx_d, __pyx_n_s_run_loop_tail, __pyx_t_1) &lt; 0) <span class='error_goto'>__PYX_ERR(0, 20, __pyx_L1_error)</span>
+  <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_codeobj__3 = (PyObject*)<span class='pyx_c_api'>__Pyx_PyCode_New</span>(3, 0, 3, 0, CO_OPTIMIZED|CO_NEWLOCALS, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__2, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_cython_experiments_test3_testm_p, __pyx_n_s_run_loop_tail, 20, __pyx_empty_bytes);<span class='error_goto'> if (unlikely(!__pyx_codeobj__3)) __PYX_ERR(0, 20, __pyx_L1_error)</span>
+</pre><pre class="cython line score-0">&#xA0;<span class="">21</span>:     <span class="c"># When in tail-end position, s should not be incref&#39;d.</span></pre>
+<pre class="cython line score-16" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">22</span>:     <span class="k">return</span> <span class="p">&lt;</span><span class="kt">object</span><span class="p">&gt;</span><span class="n">loop_tail</span><span class="p">(</span><span class="o">&lt;</span><span class="n">PyObject</span><span class="o">*&gt;</span><span class="n">s</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">nearTo</span><span class="p">)</span></pre>
+<pre class='cython code score-16 '>  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_r);
+  __pyx_t_1 = <span class='pyx_c_api'>__Pyx_PyInt_As_int</span>(__pyx_v_i); if (unlikely((__pyx_t_1 == (int)-1) &amp;&amp; <span class='py_c_api'>PyErr_Occurred</span>())) <span class='error_goto'>__PYX_ERR(0, 22, __pyx_L1_error)</span>
+  __pyx_t_2 = <span class='pyx_c_api'>__Pyx_PyInt_As_int</span>(__pyx_v_nearTo); if (unlikely((__pyx_t_2 == (int)-1) &amp;&amp; <span class='py_c_api'>PyErr_Occurred</span>())) <span class='error_goto'>__PYX_ERR(0, 22, __pyx_L1_error)</span>
+  __pyx_t_3 = __pyx_f_5testm_loop_tail(((PyObject *)__pyx_v_s), __pyx_t_1, __pyx_t_2);
+  <span class='pyx_macro_api'>__Pyx_INCREF</span>(((PyObject *)__pyx_t_3));
+  __pyx_r = ((PyObject *)__pyx_t_3);
+  goto __pyx_L0;
+</pre><pre class="cython line score-0">&#xA0;<span class="">23</span>: </pre>
+<pre class="cython line score-21" onclick="(function(s){s.display=s.display==='block'?'none':'block'})(this.nextElementSibling.style)">+<span class="">24</span>: <span class="k">def</span> <span class="nf">main</span><span class="p">():</span> <span class="k">return</span> <span class="n">run_loop_tail</span><span class="p">(</span><span class="mf">0</span><span class="p">,</span><span class="mf">0</span><span class="p">,</span><span class="mf">1</span><span class="n">_000_000_000</span><span class="p">)</span></pre>
+<pre class='cython code score-21 '>/* Python wrapper */
+static PyObject *__pyx_pw_5testm_3main(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused); /*proto*/
+static PyMethodDef __pyx_mdef_5testm_3main = {"main", (PyCFunction)__pyx_pw_5testm_3main, METH_NOARGS, 0};
+static PyObject *__pyx_pw_5testm_3main(PyObject *__pyx_self, CYTHON_UNUSED PyObject *unused) {
   PyObject *__pyx_r = 0;
   <span class='refnanny'>__Pyx_RefNannyDeclarations</span>
   <span class='refnanny'>__Pyx_RefNannySetupContext</span>("main (wrapper)", 0);
-  __pyx_r = __pyx_pf_5testm_main(__pyx_self);
+  __pyx_r = __pyx_pf_5testm_2main(__pyx_self);
 
   /* function exit code */
   <span class='refnanny'>__Pyx_RefNannyFinishContext</span>();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_5testm_main(CYTHON_UNUSED PyObject *__pyx_self) {
+static PyObject *__pyx_pf_5testm_2main(CYTHON_UNUSED PyObject *__pyx_self) {
   PyObject *__pyx_r = NULL;
   <span class='refnanny'>__Pyx_RefNannyDeclarations</span>
   <span class='refnanny'>__Pyx_RefNannySetupContext</span>("main", 0);
+  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_r);
+  <span class='pyx_c_api'>__Pyx_GetModuleGlobalName</span>(__pyx_t_1, __pyx_n_s_run_loop_tail);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 24, __pyx_L1_error)</span>
+  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_1);
+  __pyx_t_2 = <span class='pyx_c_api'>__Pyx_PyObject_Call</span>(__pyx_t_1, __pyx_tuple_, NULL);<span class='error_goto'> if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 24, __pyx_L1_error)</span>
+  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_2);
+  <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_r = __pyx_t_2;
+  __pyx_t_2 = 0;
+  goto __pyx_L0;
 
   /* function exit code */
-  __pyx_r = Py_None; <span class='pyx_macro_api'>__Pyx_INCREF</span>(Py_None);
+  __pyx_L1_error:;
+  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_t_1);
+  <span class='pyx_macro_api'>__Pyx_XDECREF</span>(__pyx_t_2);
+  <span class='pyx_c_api'>__Pyx_AddTraceback</span>("testm.main", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = NULL;
+  __pyx_L0:;
   <span class='refnanny'>__Pyx_XGIVEREF</span>(__pyx_r);
   <span class='refnanny'>__Pyx_RefNannyFinishContext</span>();
   return __pyx_r;
 }
 /* … */
-  __pyx_t_1 = PyCFunction_NewEx(&amp;__pyx_mdef_5testm_1main, NULL, __pyx_n_s_testm);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 43, __pyx_L1_error)</span>
+  __pyx_tuple_ = <span class='py_c_api'>PyTuple_Pack</span>(3, __pyx_int_0, __pyx_int_0, __pyx_int_1000000000);<span class='error_goto'> if (unlikely(!__pyx_tuple_)) __PYX_ERR(0, 24, __pyx_L1_error)</span>
+  <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_tuple_);
+  <span class='refnanny'>__Pyx_GIVEREF</span>(__pyx_tuple_);
+/* … */
+  __pyx_t_1 = PyCFunction_NewEx(&amp;__pyx_mdef_5testm_3main, NULL, __pyx_n_s_testm);<span class='error_goto'> if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 24, __pyx_L1_error)</span>
   <span class='refnanny'>__Pyx_GOTREF</span>(__pyx_t_1);
-  if (<span class='py_c_api'>PyDict_SetItem</span>(__pyx_d, __pyx_n_s_main_2, __pyx_t_1) &lt; 0) <span class='error_goto'>__PYX_ERR(0, 43, __pyx_L1_error)</span>
+  if (<span class='py_c_api'>PyDict_SetItem</span>(__pyx_d, __pyx_n_s_main_2, __pyx_t_1) &lt; 0) <span class='error_goto'>__PYX_ERR(0, 24, __pyx_L1_error)</span>
   <span class='pyx_macro_api'>__Pyx_DECREF</span>(__pyx_t_1); __pyx_t_1 = 0;
-</pre><pre class="cython line score-0">&#xA0;<span class="">44</span>:     <span class="c"># test(1234)</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">45</span>:     <span class="k">pass</span></pre>
-<pre class="cython line score-0">&#xA0;<span class="">46</span>: </pre>
-</div></body></html>
+</pre></div></body></html>
