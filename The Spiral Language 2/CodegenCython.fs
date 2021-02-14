@@ -341,9 +341,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | TyLocalReturnOp(trace,a,_) -> try op nulls defs s ret a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             | TyLocalReturnData(d,trace) -> 
                 try match ret with
-                    | BindsTailEnd true -> if i = 0 then line s "pass"
+                    | BindsLocal [||] | BindsTailEnd true -> if i = 0 then line s "pass"
                     | BindsTailEnd false -> line s $"return {tup d}"
-                    | BindsLocal [||] -> if i = 0 then line s "pass"
                     | BindsLocal ret -> line s $"{args ret} = {args' d}"
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             print_nullables nulls s x
@@ -486,10 +485,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | TyArrayU32Create _ -> raise_codegen_error "The Cython backend does not support creating u32 arrays. Try the u64 array create instead."
         | TyArrayU64Create(a,b) -> return' $"numpy.empty({tup b},dtype={numpy_ty a})" 
         | TyFailwith(a,b) -> return' (sprintf "raise Exception(%s)" (tup b))
-        | TyOp(Import,[DLit (LitString x)]) -> import x
-        | TyOp(CImport,[DLit (LitString x)]) -> cimport x
         | TyOp(op,l) ->
             match op, l with
+            | Import,[DLit (LitString x)] -> import x; $"pass # import {x}"
+            | CImport,[DLit (LitString x)] -> cimport x; $"pass # cimport {x}"
             | Apply,[a;b] -> sprintf "%s.apply(%s)" (tup a) (args' b)
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."

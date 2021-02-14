@@ -1,6 +1,5 @@
-# import torch
-# x = torch.rand(5, 3)
-# print(x)
-# print(torch.cuda.is_available())
-# print(type(x))
-
+import numpy
+import pyximport
+pyximport.install(language_level=3,setup_args={"include_dirs":numpy.get_include()})
+import main
+print(main.main())
