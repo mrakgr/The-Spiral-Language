@@ -1,6 +1,13 @@
-// Folds over the range.
+// Folds over the range in an upwards direction.
 inl for (from: nearTo:) body state =
     let rec loop i s = if i < nearTo then loop (i+1) (body i s) else s
     loop from state
-// Folds over the range. Stateless version.
+// Folds over the range in an upwards direction. Stateless version.
 inl for' (from: nearTo:) body = for (from:nearTo:) (fun i () => body i) ()
+
+// Folds over the range in an downwards direction.
+inl forDown (nearFrom:to:) body state =
+    let rec loop i s = if to <= i then loop (i-1) (if i < nearFrom then body i s else s) else s
+    loop nearFrom state
+// Folds over the range in an downwards direction. Stateless version.
+inl forDown' (nearFrom:to:) body = forDown (nearFrom:to:) (fun i () => body i) ()

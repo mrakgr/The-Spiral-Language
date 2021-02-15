@@ -1284,7 +1284,7 @@ let peval (env : TopEnv) (x : E) =
             | YArray el as b -> 
                 let a = 
                     List.map (fun x -> 
-                        let x = term s x
+                        let x = term s x |> dyn false s
                         let x_ty = data_to_ty s x
                         if x_ty = el then x 
                         else raise_type_error s $"All the elements in the array literal have to be the type {show_ty el}.\nGot: {show_ty x_ty}"

@@ -10,6 +10,9 @@ open System
 open System.Text
 open System.Collections.Generic
 
+// In order to get block scoped variable, the Cython backend does del insertion.
+// TCO support is not complete yet.
+// https://github.com/cython/cython/issues/3999
 let tco_enabler (x : TypedBind []) =
     let is_tailend = HashSet(HashIdentity.Reference)
     let reqs_tco = HashSet(HashIdentity.Reference)
@@ -322,6 +325,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | YPrim a -> prim a
         | YArray a ->
             import "numpy"; cimport "numpy"
+            // Cython arrays have various restrictions. The inability to give more precise types to container elements will result in runtime typechecks.
+            // https://github.com/cython/cython/issues/3995
             let a = match a with YPrim x -> prim x | _ -> "object"
             $"numpy.ndarray[{a},ndim=1]"
         | YFun(a,b) -> sprintf "ClosureTy%i" ((closure_ty (a,b)).tag)
@@ -484,7 +489,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | _ -> raise_codegen_error "Compiler error: Expected a single var or a non-void return in array literal creation."
         | TyArrayU32Create _ -> raise_codegen_error "The Cython backend does not support creating u32 arrays. Try the u64 array create instead."
         | TyArrayU64Create(a,b) -> return' $"numpy.empty({tup b},dtype={numpy_ty a})" 
-        | TyFailwith(a,b) -> return' (sprintf "raise Exception(%s)" (tup b))
+        | TyFailwith(_,b) -> line s $"raise Exception({tup b})"
         | TyOp(op,l) ->
             match op, l with
             | Import,[DLit (LitString x)] -> import x; $"pass # import {x}"
@@ -540,9 +545,16 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and cdef_show (prefix : string) s i x = line s $"cdef {prefix}{x} v{i}"
     and args_tys x = x |> Array.map (fun (L(i,t)) -> arg_show i (tyv t)) |> String.concat ", "
     and tyv_type_show x = x |> Array.map (fun (L(_,t)) -> tyv t)
+    
+    // These functions are hacks since cdef classes do not support arrays.
+    // https://github.com/cython/cython/issues/4007
+    and layout_arrays_to_objects (tys : string []) = tys |> Array.map (fun x -> if x.StartsWith "numpy.ndarray" then "object" else x)
+    and layout_arrays_to_objects' (tys : (Tag * string) []) = tys |> Array.map (fun (i,x) -> i, if x.StartsWith "numpy.ndarray" then "object" else x)
     // TODO: Hopefully Cython will get cdef tuples that can hold Python objects. 
     // Until then, they will share functionality with layout types and be heap allocated.
+    // https://github.com/cython/cython/issues/3985
     and layout_template name prefix s tag tys = 
+        let tys = layout_arrays_to_objects tys
         line s (sprintf "cdef class %s%i:" name tag)
         let s = indent s
         tys |> Array.iteri (cdef_show prefix s)
@@ -559,7 +571,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         x.free_vars |> Map.iter (fun k a ->
             line s $"cdef class {prefix}{x.tag}_{i}({prefix}{x.tag}): # {k}"
             let s = indent s
-            let tys = tyv_type_show a
+            let tys = tyv_type_show a |> layout_arrays_to_objects
             tys |> Array.iteri (cdef_show "readonly " s)
             let args = tys |> Array.mapi arg_show |> String.concat ", " |> with_self
             let body = $"self.tag = {i}" :: List.init tys.Length (fun i -> $"self.v{i} = v{i}") |> String.concat "; "
@@ -569,6 +581,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and uheap : _ -> UnionRec = union (union_template "UH")
     // TODO: Stack unions will be implemented the same as heap ones for the time being. 
     // I don't have a good way to implement the stack based ones in Cython.
+    // https://github.com/cython/cython/issues/3990
     and ustack : _ -> UnionRec = union (union_template "US") 
     and method : _ -> MethodRec =
         jp false (fun ((jp_body,key & (C(args,_))),i) ->
@@ -593,7 +606,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             ) (fun s x ->
             line s (sprintf "cdef class Closure%i(ClosureTy%i):" x.tag (closure_ty (x.domain,x.range)).tag)
             let s = indent s
-            let free_vars = x.free_vars |> Array.map (fun (L(i,t)) -> i, tyv t)
+            let free_vars = x.free_vars |> Array.map (fun (L(i,t)) -> i, tyv t) |> layout_arrays_to_objects'
             free_vars |> Array.iter (fun (i,x) -> cdef_show "" s i x)
             let init_args = free_vars |> Array.map (fun (i,t) -> arg_show i t) |> String.concat ", " |> with_self
             let init_body = free_vars |> Array.map (fun (i,_) -> $"self.v{i} = v{i}") |> String.concat "; " |> pass_if_empty

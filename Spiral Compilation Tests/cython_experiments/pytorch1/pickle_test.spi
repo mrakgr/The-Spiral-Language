@@ -1,0 +1,46 @@
+open pickle
+nominal serialized a = array f32
+
+inl serialize forall t. (pu p : pu t) (x : t) : serialized t =
+    inl ar = a64.create p.size
+    $"!ar.fill(0)"
+    p.pickle x (0,ar)
+    // $"print(!ar)"
+    serialized ar
+
+inl deserialize forall t. (pu p : pu t) (serialized x : serialized t) : t =
+    inl x,c = p.unpickle (0,x)
+    if c <> 1 then failwith "Invalid format."
+    x
+
+inl test scheme x = assert (x = deserialize scheme (serialize scheme x)) "Serialization and deserialization should result in the same result."
+inl (**) a b = pair a b
+
+union action =
+    | Raise: u64 // `Raise: 0` would be a min raise.
+    | Call
+    | NoAction
+type rank = u64
+type suit = u64
+type card = rank * suit
+type player_view = {
+    stack_self : u64
+    stack_opp : u64
+    pot : u64
+    hand : card * card
+    prev_action : action
+    }
+
+inl Action : pu action = alt {raise_=U64 4; call=Unit; noAction=Unit}
+inl Card = U64 13 ** U64 4
+inl playerView max_stack : pu player_view = 
+    inl a (stack_self,stack_opp,pot,hand,prev_action) = {stack_self stack_opp pot hand prev_action}
+    inl b {stack_self stack_opp pot hand prev_action} = (stack_self,stack_opp,pot,hand,prev_action)
+    wrap (a,b) (U64 max_stack ** U64 max_stack ** U64 max_stack ** (Card ** Card) ** Action)
+
+inl test_view max_stack = 
+    inl scheme = wrap (a64.wrap,a64.unwrap) (array 3 (playerView (max_stack+1)))
+    inl ~x = a64.wrap ;[{stack_self=max_stack/2; stack_opp=max_stack/2; pot=max_stack; hand=(0,1),(12,3); prev_action=NoAction}]
+    test scheme x
+
+inl main () : () = join test_view 10

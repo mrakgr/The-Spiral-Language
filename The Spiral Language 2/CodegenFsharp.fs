@@ -256,21 +256,24 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 ) (data_free_vars a) (data_term_vars c)
         | TyArrayLiteral(a,b) -> simple <| sprintf "[|%s|]" (List.map tup b |> String.concat "; ")
         | TyArrayU32Create(a,b) -> simple (sprintf "Array.zeroCreate<%s> (int %s)" (tup_ty a) (tup b))
-        | TyArrayU64Create _ -> raise_codegen_error "The F# backend does not support creating u64 arrays. Try the u32 array create instead."
+        | TyArrayU64Create(a,b) -> simple (sprintf "Array.zeroCreate<%s> (System.Convert.ToInt32(%s))" (tup_ty a) (tup b))
         | TyFailwith(a,b) -> simple (sprintf "failwith<%s> %s" (tup_ty a) (tup b))
         | TyOp(op,l) ->
             match op, l with
             | Apply,[a;b] -> sprintf "%s %s" (tup a) (tup b)
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
-            | (StringU64Length | StringU64Index | StringU64Slice | ArrayU64Index | ArrayU64IndexSet), _ -> 
-                raise_codegen_error "The F# backend does not support u64 string and array operations. Try the u32 ones instead."
             | StringU32Index, [a;b] -> sprintf "%s.[int %s]" (tup a) (tup b)
             | StringU32Slice, [a;b;c] -> sprintf "%s.[int %s..int %s]" (tup a) (tup b) (tup c)
             | StringU32Length, [a] -> sprintf "uint32 %s.Length" (tup a)
+            | StringU64Index, [a;b] -> sprintf "%s.[System.Convert.ToInt32(%s)]" (tup a) (tup b)
+            | StringU64Slice, [a;b;c] -> sprintf "%s.[System.Convert.ToInt32(%s)..System.Convert.ToInt32(%s)]" (tup a) (tup b) (tup c)
+            | StringU64Length, [a] -> sprintf "uint64 %s.Length" (tup a)
             | ArrayU32Index, [a;b] -> sprintf "%s.[int %s]" (tup a) (tup b)
             | ArrayU32IndexSet, [a;b;c] -> sprintf "%s.[int %s] <- %s" (tup a) (tup b) (tup c) 
             | ArrayU32Length, [a] -> sprintf "uint32 %s.Length" (tup a)
+            | ArrayU64Index, [a;b] -> sprintf "%s.[System.Convert.ToInt32(%s)]" (tup a) (tup b)
+            | ArrayU64IndexSet, [a;b;c] -> sprintf "%s.[System.Convert.ToInt32(%s)] <- %s" (tup a) (tup b) (tup c) 
             | ArrayU64Length, [a] -> sprintf "uint64 %s.LongLength" (tup a)
 
             // Math

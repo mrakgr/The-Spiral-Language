@@ -1,4 +1,4 @@
-﻿type [<Struct>] US0 =
+type [<Struct>] US0 =
     | US0_0
     | US0_1
     | US0_2 of f2_0 : uint64
@@ -141,7 +141,7 @@ and method4 (v0 : (float32 []), v1 : uint64, v2 : uint64) : struct (uint64 * uin
     let v8 : uint64 = v5 - v2
     struct (v8, v6)
 and method3 (v0 : (float32 []), v1 : uint64, v2 : (struct (uint64 * uint64 * uint64 * uint64 * uint64 * US0 * uint64 * uint64) []), v3 : uint64, v4 : uint64) : uint64 =
-    let v5 : bool = v3 < 219UL
+    let v5 : bool = v3 < 3UL
     if v5 then
         let v6 : uint64 = v3 + 1UL
         let v7 : uint64 = v3 * 73UL
@@ -358,7 +358,7 @@ and method6 (v0 : uint64, v1 : (struct (uint64 * uint64 * uint64 * uint64 * uint
         v2.[System.Convert.ToInt32(v3)] <- struct (v6, v7, v8, v9, v10, v11, v12, v13)
         method6(v0, v1, v2, v5)
 and method2 (v0 : (float32 []), v1 : uint64) : struct ((struct (uint64 * uint64 * uint64 * uint64 * uint64 * US0 * uint64 * uint64) []) * uint64) =
-    let v2 : (struct (uint64 * uint64 * uint64 * uint64 * uint64 * US0 * uint64 * uint64) []) = Array.zeroCreate<struct (uint64 * uint64 * uint64 * uint64 * uint64 * US0 * uint64 * uint64)> (System.Convert.ToInt32(219UL))
+    let v2 : (struct (uint64 * uint64 * uint64 * uint64 * uint64 * US0 * uint64 * uint64) []) = Array.zeroCreate<struct (uint64 * uint64 * uint64 * uint64 * uint64 * US0 * uint64 * uint64)> (System.Convert.ToInt32(3UL))
     let v3 : uint64 = 0UL
     let v4 : uint64 = 0UL
     let v5 : uint64 = method3(v0, v1, v2, v3, v4)
@@ -425,7 +425,7 @@ and method0 () : unit =
     let v1 : (struct (uint64 * uint64 * uint64 * uint64 * uint64 * US0 * uint64 * uint64) []) = [|struct (0UL, 1UL, 12UL, 3UL, 10UL, v0, 5UL, 5UL)|]
     let v2 : (float32 []) = Array.zeroCreate<float32> (System.Convert.ToInt32(219UL))
     let v3 : uint64 = uint64 v1.LongLength
-    let v4 : bool = 219UL < v3
+    let v4 : bool = 3UL < v3
     if v4 then
         failwith<unit> "The given array is too large."
     let v5 : uint64 = 0UL

@@ -18,4 +18,10 @@ inl concat l = foldBack append l Nil
 inl map f l = foldBack (fun x s => f x :: s) l Nil
 // Iterates over the list.
 inl iter f l = fold (fun () x => f x) () l
-
+// Returns the length of the list.
+inl length l = fold (fun s _ => s + 1) 0 l
+// Coverts the list to an array.
+let toArray l =
+    inl ar = a64.create (length l)
+    inl _ = fold (fun i x => a64.set ar i x . i+1) 0 l
+    ar

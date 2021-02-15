@@ -1,2 +1,5 @@
 packages: |core-
-modules: main
+modules: 
+    pickle
+    pickle_test
+    main
