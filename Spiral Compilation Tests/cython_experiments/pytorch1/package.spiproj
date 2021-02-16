@@ -1,5 +1,11 @@
 packages: |core-
 modules: 
+    serialization/
+        dense/
+            array
+        sparse/
+            int
     pickle
     pickle_test
-    main
+    nets_test
+    leduc

@@ -4,7 +4,8 @@ import { window, ExtensionContext, languages, workspace, DiagnosticCollection, T
 import * as zmq from "zeromq"
 
 const port : number = workspace.getConfiguration("spiral").get("port") || 13805
-const request = async (file: any): Promise<string | null> => {
+const requestRun = async (prev : Promise<string | null>, file: any): Promise<string | null> => {
+    await prev // Waiting on the previous request is so they get ordered properly. Otherwise, messages might fill up and fire in arbitrary order.
     const sock = new zmq.Request()
     const uriServer = `tcp://localhost:${port}`
     sock.connect(uriServer)
@@ -13,6 +14,10 @@ const request = async (file: any): Promise<string | null> => {
     sock.disconnect(uriServer)
     return x ? x.toString() : null
 }
+const request = (() => {
+    let prev = (async (): Promise<string | null> => null)()
+    return (file: any) => { prev = requestRun(prev,file); return prev }
+})()
 const requestJSON = (file : any) => request(file).then(x => x ? JSON.parse(x) : undefined)
 
 type VSCPos = { line: number, character: number }

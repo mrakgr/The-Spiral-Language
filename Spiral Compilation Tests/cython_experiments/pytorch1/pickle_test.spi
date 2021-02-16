@@ -1,20 +1,6 @@
 open pickle
-nominal serialized a = array f32
-
-inl serialize forall t. (pu p : pu t) (x : t) : serialized t =
-    inl ar = a64.create p.size
-    $"!ar.fill(0)"
-    p.pickle x (0,ar)
-    // $"print(!ar)"
-    serialized ar
-
-inl deserialize forall t. (pu p : pu t) (serialized x : serialized t) : t =
-    inl x,c = p.unpickle (0,x)
-    if c <> 1 then failwith "Invalid format."
-    x
 
 inl test scheme x = assert (x = deserialize scheme (serialize scheme x)) "Serialization and deserialization should result in the same result."
-inl (**) a b = pair a b
 
 union action =
     | Raise: u64 // `Raise: 0` would be a min raise.

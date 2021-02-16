@@ -5,7 +5,7 @@ inl (-) forall t {number}. (a : t) (b : t) : t = !!!!Sub(a,b)
 // Binary multiplication.
 inl (*) forall t {number}. (a : t) (b : t) : t = !!!!Mult(a,b)
 // Binary power.
-inl (**) forall t {number}. (a : t) (b : t) : t = !!!!Pow(a,b)
+inl (**) forall t {float}. (a : t) (b : t) : t = !!!!Pow(a,b)
 // Binary division.
 inl (/) forall t {number}. (a : t) (b : t) : t = !!!!Div(a,b)
 // Binary modulo.
@@ -75,6 +75,8 @@ inl (~!) forall t. (x : heap t): t = !!!!LayoutIndex(x)
 inl const x _ = x
 // Returns the argument given to it.
 inl id x = x
+// Ignored the argument given to it.
+inl ignore _ = ()
 // Gets the first elements of a pair.
 inl fst (a,b) = a
 // Gets the second element of a pair.
