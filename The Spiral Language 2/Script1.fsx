@@ -1,1 +1,1 @@
-﻿
+﻿let x = {1UL .. 12UL} |> Seq.fold (*) 1UL

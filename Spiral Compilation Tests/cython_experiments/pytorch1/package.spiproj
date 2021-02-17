@@ -8,4 +8,7 @@ modules:
     serialization_dense_array_test
     serialization_sparse_int_test
     nets_test
+    dudo
     leduc
+    sampling
+    leduc_random_test

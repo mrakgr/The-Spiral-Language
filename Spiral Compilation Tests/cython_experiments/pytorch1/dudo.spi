@@ -1,0 +1,37 @@
+// Liar's Die/Dudo in CPS'd form
+
+type number = i32
+type rank = i32
+type claim = number * rank
+union action =
+    | Claim: claim
+    | Dudo
+
+type player = {id : u8; die : rank}
+type players = player * player
+
+inl game forall r. {sample action_response action_init terminal} : r = join
+    inl claims = ;[1,2; 1,3; 1,4; 1,5; 1,6; 1,1; 2,2; 2,3; 2,4; 2,5; 2,6; 2,1]
+    inl actions = a64.append (a64.map claim_ claims) (a64.singleton Dudo)
+    inl dice : array i32 = ;[1;2;3;4;5;6]
+
+    let rec loop (number,rank as claim) (p1,p2 : players) : r =
+        inl from = a64.findIndex ((=) claim) claims + 1
+        action_response p1.id (a64.sliceFrom from actions) function
+        | Claim: x => loop x (p2,p1)
+        | Dudo =>
+            inl check_guess x = if x = 1 || x = rank then 1 else 0
+            inl dice_guessed = check_guess p1.die + check_guess p2.die
+            inl winner_id = if dice_guessed < number then p1.id else p2.id
+            terminal (winner_id, 1f32)
+    
+    let id = 0
+    sample id dice fun die =>
+    inl p1 = {id die}
+
+    let id = 1
+    sample id dice fun die =>
+    inl p2 = {id die}
+    
+    action_init p1.id claims fun claim =>
+    loop claim (p2,p1)

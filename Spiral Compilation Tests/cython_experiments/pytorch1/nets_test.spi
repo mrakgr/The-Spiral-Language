@@ -57,9 +57,8 @@ inl main() =
     inl net = nets_small (dims.intro, dims.mid, dims.out)
     inl dist = forward net (fromSerialized input) |> categorical
     inl x = sample dist
-    inl idx = $"!x.item()"
     open serialization.sparse.int
-    match deserialize Action (serialized idx) with
+    match deserialize Action (serialized $"!x.item()") with
     | Raise: x => $"f\"Raise: {!x}\""
     | Call => $"f\"Call\""
     | Fold => $"f\"Fold\"" : string
