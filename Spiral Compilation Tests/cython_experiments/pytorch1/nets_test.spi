@@ -1,5 +1,3 @@
-open pickle
-
 type obj = $"object"
 nominal tensor = obj
 nominal net = obj
@@ -7,7 +5,6 @@ nominal distribution = obj
 inl randn forall t {int}. (b,a : t * t) = tensor $"torch.randn(!b,!a)"
 inl forward l (x : tensor) = tensor $"!l.forward(!x)"
 inl fromArray (x : array _) : tensor = $"torch.from_numpy(!x)"
-inl fromSerialized (serialized x) = fromArray x
 inl categorical (probs : tensor) : distribution = $"torch.distributions.Categorical(probs=!probs)"
 inl sample (x : distribution) : tensor = $"!x.sample()"
 
@@ -26,16 +23,22 @@ type player_view = {
     hand : card * card
     }
 
+inl fromSerialized x = 
+    open serialization.dense.array
+    inl (serialized x) = x in fromArray x
 inl MaxStack = 10u64
 inl MaxRaise = 4u64
 
-inl Action : pu action = alt {raise_=U64 MaxRaise; call=Unit; fold=Unit}
-inl Card = U64 13 ** U64 4
+inl Action = 
+    open serialization.sparse.int
+    alt {raise_=int MaxRaise; call=Unit; fold=Unit} : pu action
 
-inl PlayerView : pu player_view = 
+inl PlayerView = 
+    open serialization.dense.array
+    inl Card = int 13 ** int 4
     inl a (stack_self,stack_opp,pot,hand) = {stack_self stack_opp pot hand}
     inl b {stack_self stack_opp pot hand} = (stack_self,stack_opp,pot,hand)
-    wrap (a,b) (U64 MaxStack ** U64 MaxStack ** U64 MaxStack ** (Card ** Card))
+    wrap (a,b) (int MaxStack ** int MaxStack ** int MaxStack ** (Card ** Card)) : pu player_view
 
 inl main() =
     !!!!Import("torch")
@@ -44,16 +47,19 @@ inl main() =
     !!!!Import("nets")
     inl nets_small (c,b,a : u64 * u64 * u64) : net = $"nets.small(!c,!b,!a)"
     inl dims = {
-        intro = size PlayerView
+        intro = serialization.dense.array.size PlayerView
         mid = 32
-        out = size Action
+        out = serialization.sparse.int.size Action
     }
-    inl input = {stack_self=(MaxStack-1)/2; stack_opp=(MaxStack-1)/2; pot=MaxStack-1; hand=(0,1),(12,3)} |> serialize PlayerView
+    inl input = 
+        {stack_self=(MaxStack-1)/2; stack_opp=(MaxStack-1)/2; pot=MaxStack-1; hand=(0,1),(12,3)} 
+        |> serialization.dense.array.serialize PlayerView
     inl net = nets_small (dims.intro, dims.mid, dims.out)
     inl dist = forward net (fromSerialized input) |> categorical
     inl x = sample dist
     inl idx = $"!x.item()"
-    match a64.init dims.out (fun i => if i = idx then 1 else 0) |> serialized |> deserialize Action with
+    open serialization.sparse.int
+    match deserialize Action (serialized idx) with
     | Raise: x => $"f\"Raise: {!x}\""
     | Call => $"f\"Call\""
     | Fold => $"f\"Fold\"" : string

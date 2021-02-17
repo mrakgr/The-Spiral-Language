@@ -17,7 +17,7 @@ inl Unit =
 inl int size : pu u64 =
     pu {size
         pickle = fun x (i,s : state) =>
-            if x < size then a64.set s (i + x) 1
+            if 0 <= x && x < size then a64.set s (i + x) 1
             else failwith "Value out of bounds."
         unpickle = fun (from,s : state) =>
             inl ~(from,nearTo) = from, from+size
@@ -117,13 +117,13 @@ inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { ok_ = a; 
 inl size (pu p) = p.size
 
 nominal serialized a = array at
-let serialize forall t. (pu p : pu t) (x : t) : serialized t =
+inl serialize forall t. (pu p : pu t) ~(x : t) : serialized t =
     inl ar = a64.create p.size
     loop.for' (from:0 nearTo: a64.length ar) (fun i => a64.set ar i 0)
     p.pickle x (0,ar)
     serialized ar
 
-let deserialize forall t. (pu p : pu t) (serialized x : serialized t) : t =
+inl deserialize forall t. (pu p : pu t) ~(serialized x : serialized t) : t =
     inl x,c = p.unpickle (0,x)
     if c <> 1 then failwith "Invalid format."
     x

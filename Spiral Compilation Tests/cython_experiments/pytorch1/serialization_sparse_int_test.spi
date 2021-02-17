@@ -1,4 +1,4 @@
-open pickle
+open serialization.sparse.int
 
 inl test scheme x = assert (x = deserialize scheme (serialize scheme x)) "Serialization and deserialization should result in the same result."
 
@@ -17,16 +17,16 @@ type player_view = {
     prev_action : action
     }
 
-inl Action : pu action = alt {raise_=U64 4; call=Unit; noAction=Unit}
-inl Card = U64 13 ** U64 4
+inl Action : pu action = alt {raise_=int 4; call=Unit; noAction=Unit}
+inl Card = int 13 ** int 4
 inl playerView max_stack : pu player_view = 
     inl a (stack_self,stack_opp,pot,hand,prev_action) = {stack_self stack_opp pot hand prev_action}
     inl b {stack_self stack_opp pot hand prev_action} = (stack_self,stack_opp,pot,hand,prev_action)
-    wrap (a,b) (U64 max_stack ** U64 max_stack ** U64 max_stack ** (Card ** Card) ** Action)
+    wrap (a,b) (int max_stack ** int max_stack ** int max_stack ** (Card ** Card) ** Action)
 
 inl test_view max_stack = 
-    inl scheme = wrap (a64.wrap,a64.unwrap) (array 3 (playerView (max_stack+1)))
+    inl scheme = wrap (a64.wrap,a64.unwrap) (array 1 (playerView (max_stack+1)))
     inl ~x = a64.wrap ;[{stack_self=max_stack/2; stack_opp=max_stack/2; pot=max_stack; hand=(0,1),(12,3); prev_action=NoAction}]
     test scheme x
 
-inl main () : () = join test_view 10
+inl main () = join test_view 10

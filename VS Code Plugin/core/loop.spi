@@ -7,7 +7,9 @@ inl for' (from: nearTo:) body = for (from:nearTo:) (fun i () => body i) ()
 
 // Folds over the range in an downwards direction.
 inl forDown (nearFrom:to:) body state =
-    let rec loop i s = if to <= i then loop (i-1) (if i < nearFrom then body i s else s) else s
-    loop nearFrom state
+    let rec loop i s = 
+        inl s = if to <= i && i < nearFrom then body i s else s
+        if to < i then loop (i-1) s else s
+    loop $"!nearFrom" state
 // Folds over the range in an downwards direction. Stateless version.
 inl forDown' (nearFrom:to:) body = forDown (nearFrom:to:) (fun i () => body i) ()

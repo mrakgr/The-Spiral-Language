@@ -27,7 +27,17 @@ cdef class Tuple2:
     cdef readonly unsigned long long v0
     cdef readonly unsigned long long v1
     def __init__(self, unsigned long long v0, unsigned long long v1): self.v0 = v0; self.v1 = v1
-cdef void method1(unsigned long long v0, numpy.ndarray[float,ndim=1] v1, numpy.ndarray[object,ndim=1] v2, unsigned long long v3):
+cdef void method1(unsigned long long v0, numpy.ndarray[float,ndim=1] v1, unsigned long long v2):
+    cdef char v3
+    cdef unsigned long long v4
+    v3 = v2 < v0
+    if v3:
+        v4 = v2 + 1
+        v1[v2] = 0.000000
+        method1(v0, v1, v4)
+    else:
+        pass
+cdef void method2(unsigned long long v0, numpy.ndarray[float,ndim=1] v1, numpy.ndarray[object,ndim=1] v2, unsigned long long v3):
     cdef char v4
     cdef unsigned long long v5
     cdef unsigned long long v6
@@ -177,10 +187,10 @@ cdef void method1(unsigned long long v0, numpy.ndarray[float,ndim=1] v1, numpy.n
             else:
                 raise Exception("Value out of bounds.")
         del v11
-        method1(v0, v1, v2, v5)
+        method2(v0, v1, v2, v5)
     else:
         pass
-cdef Tuple2 method5(unsigned long long v0, numpy.ndarray[float,ndim=1] v1, unsigned long long v2, unsigned long long v3, unsigned long long v4):
+cdef Tuple2 method6(unsigned long long v0, numpy.ndarray[float,ndim=1] v1, unsigned long long v2, unsigned long long v3, unsigned long long v4):
     cdef char v5
     cdef unsigned long long v6
     cdef float v7
@@ -203,10 +213,10 @@ cdef Tuple2 method5(unsigned long long v0, numpy.ndarray[float,ndim=1] v1, unsig
                 v15, v16 = v2, v10
             else:
                 raise Exception("Unpickling failure. The int type must either be active or inactive.")
-        return method5(v0, v1, v6, v15, v16)
+        return method6(v0, v1, v6, v15, v16)
     else:
         return Tuple2(v3, v4)
-cdef Tuple2 method4(numpy.ndarray[float,ndim=1] v0, unsigned long long v1, unsigned long long v2):
+cdef Tuple2 method5(numpy.ndarray[float,ndim=1] v0, unsigned long long v1, unsigned long long v2):
     cdef unsigned long long v3
     cdef unsigned long long v4
     cdef unsigned long long v5
@@ -216,7 +226,7 @@ cdef Tuple2 method4(numpy.ndarray[float,ndim=1] v0, unsigned long long v1, unsig
     cdef unsigned long long v8
     v3 = 0
     v4 = 0
-    tmp1 = method5(v1, v0, v2, v3, v4)
+    tmp1 = method6(v1, v0, v2, v3, v4)
     v5, v6 = tmp1.v0, tmp1.v1
     del tmp1
     v7 = 1 < v6
@@ -226,7 +236,7 @@ cdef Tuple2 method4(numpy.ndarray[float,ndim=1] v0, unsigned long long v1, unsig
         pass
     v8 = v5 - v2
     return Tuple2(v8, v6)
-cdef unsigned long long method3(numpy.ndarray[float,ndim=1] v0, unsigned long long v1, numpy.ndarray[object,ndim=1] v2, unsigned long long v3, unsigned long long v4):
+cdef unsigned long long method4(numpy.ndarray[float,ndim=1] v0, unsigned long long v1, numpy.ndarray[object,ndim=1] v2, unsigned long long v3, unsigned long long v4):
     cdef char v5
     cdef unsigned long long v6
     cdef unsigned long long v7
@@ -388,23 +398,23 @@ cdef unsigned long long method3(numpy.ndarray[float,ndim=1] v0, unsigned long lo
         v9 = v3 == v4
         if v9:
             v10 = v8 + 11
-            tmp2 = method4(v0, v10, v8)
+            tmp2 = method5(v0, v10, v8)
             v11, v12 = tmp2.v0, tmp2.v1
             del tmp2
             v13 = v10 + 11
-            tmp3 = method4(v0, v13, v10)
+            tmp3 = method5(v0, v13, v10)
             v14, v15 = tmp3.v0, tmp3.v1
             del tmp3
             v16 = v13 + 11
-            tmp4 = method4(v0, v16, v13)
+            tmp4 = method5(v0, v16, v13)
             v17, v18 = tmp4.v0, tmp4.v1
             del tmp4
             v19 = v16 + 13
-            tmp5 = method4(v0, v19, v16)
+            tmp5 = method5(v0, v19, v16)
             v20, v21 = tmp5.v0, tmp5.v1
             del tmp5
             v22 = v19 + 4
-            tmp6 = method4(v0, v22, v19)
+            tmp6 = method5(v0, v22, v19)
             v23, v24 = tmp6.v0, tmp6.v1
             del tmp6
             v25 = v21 + v24
@@ -416,11 +426,11 @@ cdef unsigned long long method3(numpy.ndarray[float,ndim=1] v0, unsigned long lo
             v27 = v25 // 2
             v28 = v16 + 17
             v29 = v28 + 13
-            tmp7 = method4(v0, v29, v28)
+            tmp7 = method5(v0, v29, v28)
             v30, v31 = tmp7.v0, tmp7.v1
             del tmp7
             v32 = v29 + 4
-            tmp8 = method4(v0, v32, v29)
+            tmp8 = method5(v0, v32, v29)
             v33, v34 = tmp8.v0, tmp8.v1
             del tmp8
             v35 = v31 + v34
@@ -461,7 +471,7 @@ cdef unsigned long long method3(numpy.ndarray[float,ndim=1] v0, unsigned long lo
                     raise Exception("Unpickling failure. The unit type should always be either be active or inactive.")
             v55 = v41 + 2
             v56 = v55 + 4
-            tmp9 = method4(v0, v56, v55)
+            tmp9 = method5(v0, v56, v55)
             v57, v58 = tmp9.v0, tmp9.v1
             del tmp9
             v59 = v54 == 1
@@ -519,23 +529,23 @@ cdef unsigned long long method3(numpy.ndarray[float,ndim=1] v0, unsigned long lo
             v156 = v4 + v80
         else:
             v83 = v8 + 11
-            tmp10 = method4(v0, v83, v8)
+            tmp10 = method5(v0, v83, v8)
             v84, v85 = tmp10.v0, tmp10.v1
             del tmp10
             v86 = v83 + 11
-            tmp11 = method4(v0, v86, v83)
+            tmp11 = method5(v0, v86, v83)
             v87, v88 = tmp11.v0, tmp11.v1
             del tmp11
             v89 = v86 + 11
-            tmp12 = method4(v0, v89, v86)
+            tmp12 = method5(v0, v89, v86)
             v90, v91 = tmp12.v0, tmp12.v1
             del tmp12
             v92 = v89 + 13
-            tmp13 = method4(v0, v92, v89)
+            tmp13 = method5(v0, v92, v89)
             v93, v94 = tmp13.v0, tmp13.v1
             del tmp13
             v95 = v92 + 4
-            tmp14 = method4(v0, v95, v92)
+            tmp14 = method5(v0, v95, v92)
             v96, v97 = tmp14.v0, tmp14.v1
             del tmp14
             v98 = v94 + v97
@@ -547,11 +557,11 @@ cdef unsigned long long method3(numpy.ndarray[float,ndim=1] v0, unsigned long lo
             v100 = v98 // 2
             v101 = v89 + 17
             v102 = v101 + 13
-            tmp15 = method4(v0, v102, v101)
+            tmp15 = method5(v0, v102, v101)
             v103, v104 = tmp15.v0, tmp15.v1
             del tmp15
             v105 = v102 + 4
-            tmp16 = method4(v0, v105, v102)
+            tmp16 = method5(v0, v105, v102)
             v106, v107 = tmp16.v0, tmp16.v1
             del tmp16
             v108 = v104 + v107
@@ -592,7 +602,7 @@ cdef unsigned long long method3(numpy.ndarray[float,ndim=1] v0, unsigned long lo
                     raise Exception("Unpickling failure. The unit type should always be either be active or inactive.")
             v128 = v114 + 2
             v129 = v128 + 4
-            tmp17 = method4(v0, v129, v128)
+            tmp17 = method5(v0, v129, v128)
             v130, v131 = tmp17.v0, tmp17.v1
             del tmp17
             v132 = v127 == 1
@@ -648,10 +658,10 @@ cdef unsigned long long method3(numpy.ndarray[float,ndim=1] v0, unsigned long lo
             else:
                 pass
             v156 = v4
-        return method3(v0, v1, v2, v6, v156)
+        return method4(v0, v1, v2, v6, v156)
     else:
         return v4
-cdef void method6(unsigned long long v0, numpy.ndarray[object,ndim=1] v1, numpy.ndarray[object,ndim=1] v2, unsigned long long v3):
+cdef void method7(unsigned long long v0, numpy.ndarray[object,ndim=1] v1, numpy.ndarray[object,ndim=1] v2, unsigned long long v3):
     cdef char v4
     cdef unsigned long long v5
     cdef unsigned long long v6
@@ -671,10 +681,10 @@ cdef void method6(unsigned long long v0, numpy.ndarray[object,ndim=1] v1, numpy.
         del tmp18
         v2[v3] = Tuple0(v6, v7, v8, v9, v10, v11, v12, v13)
         del v11
-        method6(v0, v1, v2, v5)
+        method7(v0, v1, v2, v5)
     else:
         pass
-cdef Tuple1 method2(numpy.ndarray[float,ndim=1] v0, unsigned long long v1):
+cdef Tuple1 method3(numpy.ndarray[float,ndim=1] v0, unsigned long long v1):
     cdef numpy.ndarray[object,ndim=1] v2
     cdef unsigned long long v3
     cdef unsigned long long v4
@@ -684,13 +694,13 @@ cdef Tuple1 method2(numpy.ndarray[float,ndim=1] v0, unsigned long long v1):
     v2 = numpy.empty(3,dtype=object)
     v3 = 0
     v4 = 0
-    v5 = method3(v0, v1, v2, v3, v4)
+    v5 = method4(v0, v1, v2, v3, v4)
     v6 = numpy.empty(v5,dtype=object)
     v7 = 0
-    method6(v5, v2, v6, v7)
+    method7(v5, v2, v6, v7)
     del v2
     return Tuple1(v6, 1)
-cdef char method7(numpy.ndarray[object,ndim=1] v0, numpy.ndarray[object,ndim=1] v1, unsigned long long v2):
+cdef char method8(numpy.ndarray[object,ndim=1] v0, numpy.ndarray[object,ndim=1] v1, unsigned long long v2):
     cdef unsigned long long v3
     cdef char v4
     cdef unsigned long long v5
@@ -771,7 +781,7 @@ cdef char method7(numpy.ndarray[object,ndim=1] v0, numpy.ndarray[object,ndim=1] 
         del v10; del v18
         if v38:
             v39 = v2 + 1
-            return method7(v0, v1, v39)
+            return method8(v0, v1, v39)
         else:
             return 0
     else:
@@ -781,56 +791,60 @@ cdef void method0():
     cdef numpy.ndarray[object,ndim=1] v1
     cdef numpy.ndarray[float,ndim=1] v2
     cdef unsigned long long v3
-    cdef char v4
+    cdef unsigned long long v4
     cdef unsigned long long v5
-    cdef unsigned long long v6
-    cdef numpy.ndarray[object,ndim=1] v7
+    cdef char v6
+    cdef unsigned long long v7
     cdef unsigned long long v8
+    cdef numpy.ndarray[object,ndim=1] v9
+    cdef unsigned long long v10
     cdef Tuple1 tmp19
-    cdef char v9
-    cdef char v10
-    cdef unsigned long long v11
+    cdef char v11
     cdef char v12
-    cdef char v13
-    cdef char v16
-    cdef unsigned long long v14
-    cdef char v17
+    cdef unsigned long long v13
+    cdef char v14
+    cdef char v15
+    cdef char v18
+    cdef unsigned long long v16
+    cdef char v19
     v0 = US0_1()
     v1 = numpy.empty(1,dtype=object)
     v1[0] = Tuple0(0, 1, 12, 3, 10, v0, 5, 5)
     del v0
     v2 = numpy.empty(219,dtype=numpy.float32)
-    v2.fill(0)
-    v3 = len(v1)
-    v4 = 3 < v3
-    if v4:
+    v3 = len(v2)
+    v4 = 0
+    method1(v3, v2, v4)
+    v5 = len(v1)
+    v6 = 3 < v5
+    if v6:
         raise Exception("The given array is too large.")
     else:
         pass
-    v5 = 0
-    method1(v3, v2, v1, v5)
-    v6 = 0
-    tmp19 = method2(v2, v6)
-    v7, v8 = tmp19.v0, tmp19.v1
+    v7 = 0
+    method2(v5, v2, v1, v7)
+    v8 = 0
+    tmp19 = method3(v2, v8)
+    v9, v10 = tmp19.v0, tmp19.v1
     del tmp19
     del v2
-    v9 = v8 == 1
-    v10 = v9 != 1
-    if v10:
+    v11 = v10 == 1
+    v12 = v11 != 1
+    if v12:
         raise Exception("Invalid format.")
     else:
         pass
-    v11 = len(v7)
-    v12 = v3 == v11
-    v13 = v12 != 1
-    if v13:
-        v16 = 0
+    v13 = len(v9)
+    v14 = v5 == v13
+    v15 = v14 != 1
+    if v15:
+        v18 = 0
     else:
-        v14 = 0
-        v16 = method7(v1, v7, v14)
-    del v1; del v7
-    v17 = v16 == 0
-    if v17:
+        v16 = 0
+        v18 = method8(v1, v9, v16)
+    del v1; del v9
+    v19 = v18 == 0
+    if v19:
         raise Exception("Serialization and deserialization should result in the same result.")
     else:
         pass

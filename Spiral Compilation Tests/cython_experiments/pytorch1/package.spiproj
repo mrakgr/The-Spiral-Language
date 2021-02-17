@@ -5,7 +5,7 @@ modules:
             array
         sparse/
             int
-    pickle
-    pickle_test
+    serialization_dense_array_test
+    serialization_sparse_int_test
     nets_test
     leduc
