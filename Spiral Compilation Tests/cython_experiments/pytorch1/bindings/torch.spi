@@ -1,0 +1,18 @@
+type obj = $"object"
+nominal tensor = obj
+nominal net = obj
+nominal distribution = obj
+inl randn forall t {int}. (b,a : t * t) = tensor $"torch.randn(!b,!a)"
+inl forward l (x : tensor) = tensor $"!l.forward(!x)"
+inl fromArray (x : array _) : tensor = $"torch.from_numpy(!x)"
+inl categorical (probs : tensor) : distribution = $"torch.distributions.Categorical(probs=!probs)"
+inl sample (x : distribution) : tensor = $"!x.sample()"
+
+inl serialize schema x = 
+    open serialization.dense.array
+    inl (serialized x) = serialize schema x
+    fromArray x
+
+inl deserialize schema (x : tensor) =
+    open serialization.sparse.int
+    deserialize schema (serialized $"!x.item()")

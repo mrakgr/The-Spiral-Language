@@ -648,11 +648,11 @@ let join_point = function
     | RawJoinPoint _ as x -> x 
     | x -> RawJoinPoint(range_of_expr x, x)
 
-let rec let_join_point = function
-    | RawFun(r,[a,b]) -> RawFun(r,[PatDyn(range_of_pattern a, a), let_join_point b])
+let rec let_join_point postfix = function
+    | RawFun(r,[a,b]) -> RawFun(r,[PatDyn(range_of_pattern a, a), let_join_point postfix b])
     | RawFun(r,l) -> 
         let empty = fst r, fst r
-        let n = " arg"
+        let n = sprintf " arg%s" postfix // Don't remove the postfix otherwise the string will get interned by the .NET compiler.
         let a = PatDyn(empty,PatVar(empty,n))
         let b = RawMatch(empty,RawV(empty,n),List.map (fun (a,b) -> PatDyn(range_of_pattern a, a),b) l)
         RawFun(r,[a,join_point b])
@@ -673,7 +673,7 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
         | [] -> 
             let body = 
                 let dyn_if_let x = if is_let then PatDyn(range_of_pattern x, x) else x
-                (if is_let then let_join_point body else body)
+                (if is_let then let_join_point "let" body else body)
                 |> List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[dyn_if_let pat,body])) pats
                 |> List.foldBack (fun typevar body -> RawForall(range_of_typevar typevar +. range_of_expr body,typevar,body)) foralls
             match is_rec, body with

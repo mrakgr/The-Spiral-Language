@@ -11,4 +11,6 @@ modules:
     dudo
     leduc
     sampling
+    bindings/
+        torch
     leduc_random_test

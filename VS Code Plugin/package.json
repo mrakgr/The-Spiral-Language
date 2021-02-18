@@ -1,7 +1,7 @@
 {
 	"name": "spiral-lang-vscode",
 	"displayName": "The Spiral Language",
-	"version": "2.0.59",
+	"version": "2.0.60",
 	"description": "VS Code editor support plugin + the Spiral language compiler.",
 	"repository": {
 		"url": "https://github.com/mrakgr/The-Spiral-Language"
