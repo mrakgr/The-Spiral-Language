@@ -25,7 +25,7 @@ type player_view = {
 
 inl fromSerialized x = 
     open serialization.dense.array
-    inl (serialized x) = x in fromArray x
+    inl (binary_array x) = x in fromArray x
 inl MaxStack = 10u64
 inl MaxRaise = 4u64
 
@@ -58,7 +58,7 @@ inl main() =
     inl dist = forward net (fromSerialized input) |> categorical
     inl x = sample dist
     open serialization.sparse.int
-    match deserialize Action (serialized $"!x.item()") with
+    match deserialize Action (phash $"!x.item()") with
     | Raise: x => $"f\"Raise: {!x}\""
     | Call => $"f\"Call\""
     | Fold => $"f\"Fold\"" : string

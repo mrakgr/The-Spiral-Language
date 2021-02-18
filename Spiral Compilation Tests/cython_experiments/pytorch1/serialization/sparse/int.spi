@@ -82,8 +82,8 @@ inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { ok_ = a; 
 
 inl size (pu p) = p.size
 
-nominal serialized a = el
-inl serialize forall t. (pu p : pu t) ~(x : t) : serialized t = join serialized (p.pickle x)
-inl deserialize forall t. (pu p : pu t) ~(serialized x : serialized t) : t = join
+nominal phash a = el
+inl serialize forall t. (pu p : pu t) ~(x : t) : phash t = join phash (p.pickle x)
+inl deserialize forall t. (pu p : pu t) ~(phash x : phash t) : t = join
     assert (x < p.size) "The size of the argument is too large."
     p.unpickle x

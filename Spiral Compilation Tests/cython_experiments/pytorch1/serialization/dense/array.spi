@@ -116,14 +116,14 @@ inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { ok_ = a; 
 
 inl size (pu p) = p.size
 
-nominal serialized a = array at
-inl serialize forall t. (pu p : pu t) ~(x : t) : serialized t =
+nominal binary_array a = array at
+inl serialize forall t. (pu p : pu t) ~(x : t) : binary_array t =
     inl ar = a64.create p.size
     loop.for' (from:0 nearTo: a64.length ar) (fun i => a64.set ar i 0)
     p.pickle x (0,ar)
-    serialized ar
+    binary_array ar
 
-inl deserialize forall t. (pu p : pu t) ~(serialized x : serialized t) : t =
+inl deserialize forall t. (pu p : pu t) ~(binary_array x : binary_array t) : t =
     inl x,c = p.unpickle (0,x)
     if c <> 1 then failwith "Invalid format."
     x
