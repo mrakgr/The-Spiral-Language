@@ -26,9 +26,24 @@ inl max a b = if a >= b then a else b
 inl min a b = if a < b then a else b
 
 // Binary equals.
-inl (=) forall t {number}. (a : t) (b : t) : bool = !!!!EQ(a,b)
+inl (=) forall t {prim}. (a : t) (b : t) : bool = !!!!EQ(a,b)
 // Binary unequals.
-inl (<>) forall t {number}. (a : t) (b : t) : bool = !!!!NEQ(a,b)
+inl (<>) forall t {prim}. (a : t) (b : t) : bool = !!!!NEQ(a,b)
+
+// 32/64-bit float infinity
+inl inf forall t {float}. : t = !!!!Infinity(`t)
+// Unary negation.
+inl (~-) forall t {number}. (x : t) : t = !!!!Neg(x)
+// Evaluates an term and throws away the result.
+inl ignore x = ()
+// Returns an term after evaluating it.
+inl id x = x
+// Throws away the second argument and returns the first.
+inl const x () = x
+// Applies the unit to the function.
+inl unconst x = x()
+// Boolean negation.
+inl not x = x = false
 
 // Pipe forward.
 inl (|>) a b = b a
@@ -70,17 +85,6 @@ inl (~*) forall t. (x : mut t): t = !!!!LayoutIndex(x)
 inl heap forall t. (x : t): heap t = !!!!LayoutToHeap(x)
 // Unboxes a heap layout type.
 inl (~!) forall t. (x : heap t): t = !!!!LayoutIndex(x)
-
-// Ignores the second argument to the function.
-inl const x _ = x
-// Returns the argument given to it.
-inl id x = x
-// Ignored the argument given to it.
-inl ignore _ = ()
-// Gets the first elements of a pair.
-inl fst (a,b) = a
-// Gets the second element of a pair.
-inl snd (a,b) = b
 
 open real_core
 // Structural polymorphic equality for every type in the language (apart from functions.)

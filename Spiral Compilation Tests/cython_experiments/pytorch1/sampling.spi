@@ -1,7 +1,7 @@
 // Emulates a dice throw. Samples a random element from the array.
 inl sample forall dice. (dist : array dice) = $"numpy.random.choice(!dist)" : dice
 
-// Emulates a deck draw. Removes an element from the array, and returns it and the new array.
+// Emulates a deck draw. Removes an element from the array, then returns it and the new array with the element removed.
 inl draw forall card. (dist : array card) =
     inl len = a64.length dist
     inl i = $"np.random.randint(0,!len)" : u64

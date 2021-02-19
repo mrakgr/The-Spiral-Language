@@ -18,6 +18,11 @@ inl init nearTo f =
     ar
 // Applies a function to each element of the array, threading an accumulator argument through the computation. If the input function is f and the elements are i0...iN then computes f (... (f s i0)...) iN
 inl fold f s ar = for (from: 0 nearTo: length ar) (fun i s => f s (index ar i)) s
+// Similar to fold with the intial state as the first element of the array.
+inl reduce f ar =
+    inl nearTo = length ar
+    if nearTo = 0 then failwith "The array must be greater than 0."
+    for (from: 1 nearTo:) (fun i s => f s (index ar i)) (index ar 0)
 // Same as fold from the other direction.
 inl foldBack f ar s = forDown (nearFrom: length ar to:0) (fun i s => f (index ar i) s) s
 // Maps an array.

@@ -9,19 +9,6 @@ inl (~*) x = !!!!LayoutIndex(x)
 // Indexes the layout type.
 inl (~!) x = !!!!LayoutIndex(x)
 
-// Unary negation.
-inl (~-) x = !!!!Neg(x)
-// Evaluates an term and throws away the result.
-inl ignore x = ()
-// Returns an term after evaluating it.
-inl id x = x
-// Throws away the second argument and returns the first.
-inl const x _ = x
-// Applies the unit to the function.
-// (() -> a) -> a
-inl unconst x = x()
-
-
 // Binary addition.
 inl (+) a b = !!!!Add(a,b)
 // Binary subtraction.
@@ -43,9 +30,6 @@ inl exp x = !!!!Exp(x)
 inl tanh x = !!!!Tanh(x)
 // Square root.
 inl sqrt x = !!!!Sqrt(x)
-
-// 32/64-bit float infinity
-inl inf forall t. = !!!!Infinity(`t)
 
 // Applies the first argument to the second.
 inl (|>) a b = b a
@@ -71,6 +55,21 @@ inl (>) a b = !!!!GT(a,b)
 // Binary greater-than-or-equals.
 inl (>=) a b = !!!!GTE(a,b)
 
+// 32/64-bit float infinity
+inl inf forall t. = !!!!Infinity(`t)
+// Unary negation.
+inl (~-) x = !!!!Neg(x)
+// Evaluates an term and throws away the result.
+inl ignore x = ()
+// Returns an term after evaluating it.
+inl id x = x
+// Throws away the second argument and returns the first.
+inl const x () = x
+// Applies the unit to the function.
+inl unconst x = x()
+// Boolean negation.
+inl not x = x = false
+
 // Bitwise and.
 inl (&&&) a b = !!!!BitwiseAnd(a,b)
 // Bitwise or.
@@ -82,19 +81,6 @@ inl (^^^) a b = !!!!BitwiseXor(a,b)
 inl (<<<) a b = !!!!ShiftLeft(a,b)
 // Shift right.
 inl (>>>) a b = !!!!ShiftRight(a,b)
-
-// Ignores the second argument to the function.
-inl const x _ = x
-// Returns the argument given to it.
-inl id x = x
-// Gets the first elements of a pair.
-inl fst (a,b) = a
-// Gets the second element of a pair.
-inl snd (a,b) = b
-
-// Unary negation.
-inl not x = x = false
-
 
 // Returns boolean whether the term is a literal.
 inl lit_is x = !!!!LitIs(x)

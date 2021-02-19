@@ -3,18 +3,29 @@ open leduc
 union observation = Action: action | Card: card
 type dense_history = array (card * array action)
 
-nominal game_interface o s a r = {
-    state : s
-    reward : {(+) : r -> r -> r; (*) : r -> r -> r; index : r -> u8 -> f64}
+nominal framework o s a r = {
+    reward : {(+) : r -> r -> r; (*) : r -> f64 -> r; index : r -> u8 -> f64}
     player : {
         action : s -> u8 -> array a -> (a * s -> r) -> r
         observation_add : s -> u8 -> o -> s
+        observation_add_all : s -> o -> s
         path_mult : s -> u8 -> f64 -> s
         }
     }
 
-inl sample_all dist next {observations=o1,o2 players} =
-    ()
+inl terminal (pid,reward) _ : f64 = if pid = 0 then reward else -reward
+inl f64 forall t {number}. (x : t) = $"<`f64>!x" : f64
+
+inl sample_all_many' to_obs dist next (state, fr & framework {reward={(+) (*)} player={observation_add_all}}) =
+    inl run i = inl x = a64.index dist i in next x (observation_add_all state (to_obs x), fr)
+    inl nearTo = a64.length dist
+    loop.for (from: 1 nearTo:) (fun i s => s + run i) (run 0) * (1 / f64 nearTo)
+inl sample_all_many x = sample_all_many' card_ x
+
+inl sample_all_one' to_obs dist next (state, fr & framework {reward={(+) (*)} player={observation_add_all}}) =
+    inl run x = next x (observation_add_all state (to_obs x), fr)
+    run (sampling.sample dist)
+inl sample_all_one x = sample_all_one' card_ x
 
 let process (l : list observation) =
     let rec action (c,l) = function

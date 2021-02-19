@@ -14,6 +14,7 @@ type Constraint =
     | CInt
     | CFloat
     | CSymbol
+    | CPrim
     | CPrototype of GlobalId
 
 type ConstraintOrModule = C of Constraint | M of Map<string,ConstraintOrModule>
@@ -189,7 +190,7 @@ let prototype_init_forall_kind = function
     | _ -> failwith "Compiler error: The prototype should have at least one forall."
 
 let constraint_kind (env : TopEnv) = function
-    | CSymbol | CNumber | CInt | CFloat -> KindType 
+    | CSymbol | CNumber | CInt | CFloat | CPrim -> KindType 
     | CPrototype i -> prototype_init_forall_kind env.prototypes.[i].signature
 
 let rec constraint_name (env : TopEnv) = function
@@ -197,6 +198,7 @@ let rec constraint_name (env : TopEnv) = function
     | CInt -> "int"
     | CSymbol -> "symbol"
     | CFloat -> "float"
+    | CPrim -> "prim"
     | CPrototype i -> env.prototypes.[i].name
 
 let rec tt (env : TopEnv) = function
@@ -354,6 +356,7 @@ let rec constraint_process (env : TopEnv) (con,x') =
     | CSymbol, TySymbol _
     | CInt, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T)
     | CFloat, TyPrim (Float32T | Float64T)
+    | CPrim, TyPrim _
     | CNumber, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T | Float32T | Float64T) -> []
     | CPrototype prot & con, x ->
         match ho_split [] x with
@@ -1575,6 +1578,7 @@ let top_env_default : TopEnv =
             "number", CNumber
             "int", CInt
             "float", CFloat
+            "prim", CPrim
             "symbol", CSymbol
             ] |> Map.ofList |> Map.map (fun _ -> C)
         }
