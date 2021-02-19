@@ -23,12 +23,12 @@ nominal player_random o a = {path_prob : f64; observations : list o}
 instance player_path_prob_mult player_random = fun (player_random {path_prob} & p) x => player_random {p with path_prob#=((*) x)}
 instance player_observation_add player_random = fun (player_random {path_prob} & p) x => player_random {p with observations#=((::) x)}
 
-nominal players2 o a (p1 : * -> * -> *) (p2 : * -> * -> *) = p1 o a * p2 o a
-// instance players_path_prob_mult players2 (p1 : * -> * -> *) (p2 : * -> * -> *) = failwith ""
-inl players_path_prob_mult' (players2 (a,b)) pid prob = 
+nominal players2 (p1 : * -> * -> *) (p2 : * -> * -> *) o a = p1 o a * p2 o a
+instance players_path_prob_mult players2 p1 {player_path_prob_mult} p2 {player_path_prob_mult} = fun (players2 (a,b)) pid prob =>
     inl update (i : u8) a = if pid = i then player_path_prob_mult a prob else a
     players2 (update 0 a, update 1 b)
-    
+
+inl qwe forall (t : * -> * -> *) {player_path_prob_mult}. (x : t i64 i64) = failwith ""
 
 type player observation = {path_prob : f64; observations : list observation}
 nominal player_2p_state observation = player observation * player observation
