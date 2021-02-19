@@ -1,0 +1,93 @@
+prototype reward_add r : r -> r -> r
+prototype reward_mult r : r -> f64 -> r
+prototype reward_index r : r -> u8 -> f64
+
+prototype game_state_action s o a r : s o a r -> u8 -> array a -> (a -> s o a r -> r) -> r
+prototype game_state_observation_add s o a r : s o a r -> option u8 -> o -> s o a r
+prototype game_state_path_mult s o a r : s o a r -> u8 -> f64 -> s o a r
+
+nominal reward_2p = f64
+instance reward_add reward_2p = fun (reward_2p a) (reward_2p b) => reward_2p (a+b)
+instance reward_mult reward_2p = fun (reward_2p a) b => reward_2p (a+b)
+instance reward_index reward_2p = fun (reward_2p reward) pid => if pid = 0u8 then reward else -reward
+
+prototype player_path_prob_mult p o a : p o a -> f64 -> p o a
+prototype player_observation_add p o a : p o a -> o -> p o a
+prototype player_run p o a : p o a -> a
+
+prototype players_path_prob_mult p o a : p o a -> u8 -> f64 -> p o a
+prototype players_observation_add p o a : p o a -> u8 -> o -> p o a
+prototype players_run p o a : p o a -> u8 -> a
+
+nominal player_random o a = {path_prob : f64; observations : list o}
+instance player_path_prob_mult player_random = fun (player_random {path_prob} & p) x => player_random {p with path_prob#=((*) x)}
+instance player_observation_add player_random = fun (player_random {path_prob} & p) x => player_random {p with observations#=((::) x)}
+
+nominal players2 o a (p1 : * -> * -> *) (p2 : * -> * -> *) = p1 o a * p2 o a
+// instance players_path_prob_mult players2 (p1 : * -> * -> *) (p2 : * -> * -> *) = failwith ""
+inl players_path_prob_mult' (players2 (a,b)) pid prob = 
+    inl update (i : u8) a = if pid = i then player_path_prob_mult a prob else a
+    players2 (update 0 a, update 1 b)
+    
+
+type player observation = {path_prob : f64; observations : list observation}
+nominal player_2p_state observation = player observation * player observation
+
+inl player_2p_modify_state update (player_2p_state (a,b)) pid =
+    match pid with
+    | Some: pid => 
+        inl update (i : u8) a = if pid = i then update a else a
+        update 0 a, update 1 b
+    | None => update a, update b
+inl player_2p_observation_add state pid o = player_2p_modify_state (fun a => {a with observations#=((::) o)}) state pid
+inl player_2p_path_mult state pid o = player_2p_modify_state (fun a => {a with path_prob#=((*) o)}) state pid
+inl player_2p_action to_obs (a1,a2) (state & player_2p_state (x1,x2)) pid dist next =
+    inl next a = inl state = player_2p_observation_add state (Some: pid) (to_obs a) in next (a, state)
+    if pid = 0 then a1 x1 x2.path_prob dist next else a2 x2 x1.path_prob dist next
+
+inl f64 forall t {number}. (x : t) = $"<`f64>!x" : f64
+inl sample_many' to_obs pid dist next (state, fr & framework {reward={(+) (*)} player={observation_add}}) =
+    inl run i = inl x = a64.index dist i in next x (observation_add state pid (to_obs x), fr)
+    inl nearTo = a64.length dist
+    loop.for (from: 1 nearTo:) (fun i s => s + run i) (run 0) * (1 / f64 nearTo)
+inl draw_many' to_obs pid dist next (state, fr & framework {reward={(+) (*)} player={observation_add}}) =
+    inl run i = inl x = a64.index dist i in next (x,a64.removeAtIndex i dist) (observation_add state pid (to_obs x), fr)
+    inl nearTo = a64.length dist
+    loop.for (from: 1 nearTo:) (fun i s => s + run i) (run 0) * (1 / f64 nearTo)
+inl sample_one' to_obs pid dist next (state, fr & framework {player={observation_add}}) = 
+    inl x = sampling.sample dist
+    next x (observation_add state pid (to_obs x), fr)
+inl draw_one' to_obs pid dist next (state, fr & framework {player={observation_add}}) = 
+    inl (x,dist) = sampling.draw dist
+    next (x,dist) (observation_add state pid (to_obs x), fr)
+
+// Random player
+
+open leduc
+
+union observation = Action: action | Card: card
+
+inl sample_many x = sample_many' card_ x
+inl draw_many x = draw_many' card_ x
+inl sample_one x = sample_one' card_ x
+inl draw_one x = draw_one' card_ x
+
+inl main () =
+    inl fr = framework {
+        reward={(+) (*) index=reward_2p_index}
+        player={
+            action=fun (player_2p_state state) pid (dist : array action) next =>
+                failwith "TODO"
+            observation_add=fun state pid (o : observation) =>
+                failwith "TODO"
+            path_mult=fun state pid r =>
+                failwith "TODO"
+            }
+        }
+    game {
+        sample = fun pid dist next =>
+            failwith ""
+        draw = failwith "TODO"
+        action = failwith "TODO"
+        terminal = failwith "TODO"
+        }

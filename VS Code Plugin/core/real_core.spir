@@ -69,6 +69,10 @@ inl const x () = x
 inl unconst x = x()
 // Boolean negation.
 inl not x = x = false
+// Gets the first elements of a pair.	
+inl fst (a,b) = a
+// Gets the second element of a pair.	
+inl snd (a,b) = b
 
 // Bitwise and.
 inl (&&&) a b = !!!!BitwiseAnd(a,b)

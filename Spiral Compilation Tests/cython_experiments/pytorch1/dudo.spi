@@ -10,14 +10,14 @@ union action =
 type player = {id : u8; die : rank}
 type players = player * player
 
-inl game forall r. {sample action_response action_init terminal} : r = join
-    inl claims = ;[1,2; 1,3; 1,4; 1,5; 1,6; 1,1; 2,2; 2,3; 2,4; 2,5; 2,6; 2,1]
-    inl actions = a64.append (a64.map claim_ claims) (a64.singleton Dudo)
+inl game forall r. {sample action terminal} : r = join
+    inl claims = a64.map claim_ ;[1,2; 1,3; 1,4; 1,5; 1,6; 1,1; 2,2; 2,3; 2,4; 2,5; 2,6; 2,1]
+    inl actions = a64.append claims (a64.singleton Dudo)
     inl dice : array i32 = ;[1;2;3;4;5;6]
 
     let rec loop (number,rank as claim) (p1,p2 : players) : r =
-        inl from = a64.findIndex ((=) claim) claims + 1
-        action_response p1.id (a64.sliceFrom from actions) function
+        inl from = a64.findIndex ((=) (Claim: claim)) actions + 1
+        action p1.id (a64.sliceFrom from actions) function
         | Claim: x => loop x (p2,p1)
         | Dudo =>
             inl check_guess x = if x = 1 || x = rank then 1 else 0
@@ -26,12 +26,13 @@ inl game forall r. {sample action_response action_init terminal} : r = join
             terminal (winner_id, 1f32)
     
     let id = 0
-    sample id dice fun die =>
+    sample (Some: id) dice fun die =>
     inl p1 = {id die}
 
     let id = 1
-    sample id dice fun die =>
+    sample (Some: id) dice fun die =>
     inl p2 = {id die}
     
-    action_init p1.id claims fun claim =>
-    loop claim (p2,p1)
+    action p1.id claims function
+    | Dudo => failwith "impossible"
+    | Claim: claim => loop claim (p2,p1)

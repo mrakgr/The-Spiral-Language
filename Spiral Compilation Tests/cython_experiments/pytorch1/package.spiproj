@@ -13,4 +13,6 @@ modules:
     sampling
     utils/
         torch
+    random_uniform_agent
+    random_uniform_agent_try2
     leduc_random_neural_test

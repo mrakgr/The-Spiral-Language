@@ -6,5 +6,5 @@ inl draw forall card. (dist : array card) =
     inl len = a64.length dist
     inl i = $"np.random.randint(0,!len)" : u64
     inl x = a64.index dist i
-    inl dist = a64.init (len-1) (fun i' => a64.index dist (if i <= i' then i'+1 else i'))
+    inl dist = a64.removeAtIndex i dist
     x, dist

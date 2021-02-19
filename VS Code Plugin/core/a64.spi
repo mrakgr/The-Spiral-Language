@@ -90,6 +90,8 @@ inl forall2 f x1 x2 =
     if length x1 <> length x2 then failwith "The two arrays have differing lengths."
     let rec loop i = if i < length x1 then f (index x1 i) (index x2 i) && loop (i+1) else true
     loop 0
+// Removes the element at index.
+inl removeAtIndex i dist = init (length dist-1) (fun i' => index dist (if i <= i' then i'+1 else i'))
 
 nominal array64 t = array t
 inl wrap x = array64 x
