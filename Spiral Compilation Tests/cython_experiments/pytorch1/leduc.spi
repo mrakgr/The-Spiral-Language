@@ -20,7 +20,10 @@ inl compare_hands (community_card : card) (p1,p2 : players) =
         if eq_is x then comp (snd a) (snd b) else x
 
 inl raiseBy amount (p1,p2 : players) = p2.pot + amount
-inl game {sample draw action terminal} = join
+
+open nodes
+inl game forall (k : * -> * -> *) {sample; draw; action; terminal}. : k card action =
+    inl terminal (a,b : _ * u32) = terminal (a, utils.f64 b)
     inl actionsInit = ;[Call; Raise]
     inl actionsFull = ;[Fold; Call; Raise]
     inl actionsNoRaise = ;[Fold; Call]
@@ -35,7 +38,7 @@ inl game {sample draw action terminal} = join
     draw (Some: id) deck fun card, deck =>
     inl p2 = {card id pot}
     
-    let rec round_two (raises_left : i32) (community_card : card) (p1,p2 : players) =
+    let rec round_two (raises_left : i32) (community_card : card) (p1,p2 : players) : k card action =
         action p1.id (if 0 < raises_left then actionsFull else actionsNoRaise) function
         | Fold => terminal (p2.id, p1.pot + p2.pot)
         | Call => 

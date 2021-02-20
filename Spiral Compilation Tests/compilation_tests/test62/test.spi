@@ -1,1 +1,15 @@
+// Do the constraints get propagated correctly? The following should not have a type error.
+
+prototype prob_mult p : p -> p
+prototype prob_mult' p : p -> p
+
+nominal p = ()
+nominal p' (b : * -> *) a = b a
+
+instance prob_mult p = fun x => x
+instance prob_mult' p' b {prob_mult} a = fun (p' x) =>
+    p' (prob_mult x)
+inl f forall (b : * -> *) {prob_mult} a. (p' x : p' b a) : p' b a =
+    p' (prob_mult x)
+
 inl main () = ()

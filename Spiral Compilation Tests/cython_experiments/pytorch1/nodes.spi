@@ -1,0 +1,4 @@
+prototype sample k o a : option u8 -> array o -> (o -> k o a) -> k o a
+prototype draw k o a : option u8 -> array o -> (o * array o -> k o a) -> k o a
+prototype action k o a : u8 -> array a -> (a -> k o a) -> k o a
+prototype terminal k o a : u8 * f64 -> k o a

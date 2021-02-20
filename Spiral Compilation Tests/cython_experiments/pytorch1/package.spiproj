@@ -5,14 +5,16 @@ modules:
             array
         sparse/
             int
+    utils/
+        main-
+        torch
     serialization_dense_array_test
     serialization_sparse_int_test
     nets_test
+    nodes
     dudo
     leduc
     sampling
-    utils/
-        torch
     random_uniform_agent
     random_uniform_agent_try2
     leduc_random_neural_test

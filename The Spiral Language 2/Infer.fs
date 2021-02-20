@@ -189,10 +189,6 @@ let prototype_init_forall_kind = function
     | TyForall(a,_) -> a.kind
     | _ -> failwith "Compiler error: The prototype should have at least one forall."
 
-let constraint_kind (env : TopEnv) = function
-    | CSymbol | CNumber | CInt | CFloat | CPrim -> KindType 
-    | CPrototype i -> prototype_init_forall_kind env.prototypes.[i].signature
-
 let rec constraint_name (env : TopEnv) = function
     | CNumber -> "number"
     | CInt -> "int"
@@ -344,38 +340,35 @@ let rec subst (m : (Var * T) list) x =
     | TyMacro a -> TyMacro(List.map (function TMVar x -> TMVar(f x) | x -> x) a)
     | TyLayout(a,b) -> TyLayout(f a,b)
 
-let rec ho_split s = function 
-    | TyApply(a,b,_) -> ho_split (b :: s) a 
-    | TyNominal _ as x -> x :: s
-    | _ -> []
+let type_apply_split x = 
+    let rec loop s x =
+        match visit_t x with
+        | TyApply(a,b,_) -> loop (b :: s) a
+        | x -> x, s
+    loop [] x
 
-let rec constraint_process (env : TopEnv) (con,x') = 
-    match con, visit_t x' with
-    | con, TyMetavar(x,_) -> x.constraints <- Set.add con x.constraints; []
-    | con, TyVar v & x -> if Set.contains con v.constraints then [] else [ConstraintError(con,x)]
-    | CSymbol, TySymbol _
-    | CInt, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T)
-    | CFloat, TyPrim (Float32T | Float64T)
-    | CPrim, TyPrim _
-    | CNumber, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T | Float32T | Float64T) -> []
-    | CPrototype prot & con, x ->
-        match ho_split [] x with
-        | [] -> [ConstraintError(con,x)]
-        | TyNominal ins :: x' ->
-            match Map.tryFind (prot,ins) env.prototypes_instances with
-            | Some cons -> 
-                let rec loop ers = function
-                    | con :: con', x :: x' -> loop (List.append (constraints_process env (con,x)) ers) (con',x')
-                    | [], _ -> ers
-                    | _, [] -> failwith "Compiler error: The number of constraints for a higher order type should never be more than its arity."
-                loop [] (cons,x')
-            | None -> [InstanceNotFound(prot,ins)]
-        | _ :: _ -> failwith "Compiler error: The first item of a ho_split should always be a higher order type."
-    | con, x -> [ConstraintError(con,x)]
+let rec constraint_process (env : TopEnv) = function
+    | CSymbol, TySymbol _, []
+    | CInt, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T), []
+    | CFloat, TyPrim (Float32T | Float64T), []
+    | CPrim, TyPrim _, []
+    | CNumber, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T | Float32T | Float64T), [] -> []
+    | CPrototype prot, TyNominal ins, x' ->
+        match Map.tryFind (prot,ins) env.prototypes_instances with
+        | Some cons -> 
+            let rec loop ers = function
+                | con :: con', x :: x' -> loop (List.append (constraints_process env (con,x)) ers) (con',x')
+                | [], _ -> ers
+                | _, [] -> failwith "Compiler error: The number of constraints for a higher order type should never be more than its arity."
+            loop [] (cons,x')
+        | None -> [InstanceNotFound(prot,ins)]
+    | con, TyMetavar(x,_), _ -> x.constraints <- Set.add con x.constraints; []
+    | con, TyVar v & x, _ -> if Set.contains con v.constraints then [] else [ConstraintError(con,x)]
+    | con, x, _ -> [ConstraintError(con,x)]
 and constraints_process env (con,b) = 
-    match visit_t b with
-    | TyVar b -> if con.IsSubsetOf b.constraints = false then [ForallVarConstraintError(b.name,con,b.constraints)] else []
-    | b -> Set.fold (fun ers con -> List.append (constraint_process env (con, b)) ers) [] con
+    match type_apply_split b with
+    | TyVar b, _ -> if con.IsSubsetOf b.constraints = false then [ForallVarConstraintError(b.name,con,b.constraints)] else []
+    | b, b' -> Set.fold (fun ers con -> List.append (constraint_process env (con,b,b')) ers) [] con
 
 let rec kind_subst = function
     | KindMetavar ({contents'=Some x} & link) -> shorten' x link kind_subst
@@ -931,7 +924,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             constraints |> List.choose (fun (r,x) ->
                 match v_cons cons x with
                 | Some (M _) -> errors.Add(r,ExpectedConstraintInsteadOfModule); None
-                | Some (C x) -> unify_kind r kind (constraint_kind top_env x); Some x
+                | Some (C x) -> Some x
                 | None -> errors.Add(r,UnboundVariable); None
                 ) |> Set.ofList
         {scope=scope; constraints=cons; kind=kind_force kind; name=name}

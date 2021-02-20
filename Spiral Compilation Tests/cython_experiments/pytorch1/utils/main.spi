@@ -1,0 +1,1 @@
+inl f64 forall t {number}. (x : t) = $"<`f64>!x" : f64
