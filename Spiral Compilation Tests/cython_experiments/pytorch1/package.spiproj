@@ -11,10 +11,7 @@ modules:
     serialization_dense_array_test
     serialization_sparse_int_test
     nets_test
+    sampling
     nodes
     dudo
     leduc
-    sampling
-    random_uniform_agent
-    random_uniform_agent_try2
-    leduc_random_neural_test

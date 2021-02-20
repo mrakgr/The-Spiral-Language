@@ -58,7 +58,6 @@ and T =
 
 type TypeError =
     | KindError of TT * TT
-    | KindError' of T * T
     | ExpectedSymbolAsRecordKey of T
     | ExpectedSymbolAsModuleKey of T
     | UnboundVariable
@@ -108,6 +107,7 @@ type TypeError =
     | OrphanInstance
     | ShadowedInstance
     | UnusedForall of string list
+    | CompilerErrorInConstraintPropagation of T list * Constraint Set list
 
 let shorten' x link next = let x = next x in link.contents' <- Some x; x
 let rec visit_tt = function
@@ -359,7 +359,7 @@ let rec constraint_process (env : TopEnv) = function
             let rec loop ers = function
                 | con :: con', x :: x' -> loop (List.append (constraints_process env (con,x)) ers) (con',x')
                 | [], _ -> ers
-                | _, [] -> failwith "Compiler error: The number of constraints for a higher order type should never be more than its arity."
+                | _, [] -> CompilerErrorInConstraintPropagation(x',cons) :: ers
             loop [] (cons,x')
         | None -> [InstanceNotFound(prot,ins)]
     | con, TyMetavar(x,_), _ -> x.constraints <- Set.add con x.constraints; []
@@ -507,7 +507,6 @@ let show_type_error (env : TopEnv) x =
     | ModuleMustBeImmediatelyApplied -> "Module must be immediately applied."
     | ExpectedSymbol' a -> sprintf "Expected a symbol.\nGot: %s" (f a)
     | KindError(a,b) -> sprintf "Kind unification failure.\nGot:      %s\nExpected: %s" (show_kind a) (show_kind b)
-    | KindError'(a,b) -> sprintf "Kind unification failure.\nGot:      %s\nExpected: %s" (f a) (f b)
     | TermError(a,b) -> sprintf "Unification failure.\nGot:      %s\nExpected: %s" (f a) (f b)
     | ExpectedSymbolAsRecordKey a -> sprintf "Expected symbol as a record key.\nGot: %s" (f a)
     | ExpectedSymbolAsModuleKey a -> sprintf "Expected symbol as a module key.\nGot: %s" (f a)
@@ -556,6 +555,10 @@ let show_type_error (env : TopEnv) x =
     | ShadowedInstance -> "The instance cannot be defined twice."
     | UnusedForall [x] -> sprintf "The forall variable %s is unused in the function's type signature." x
     | UnusedForall vars -> sprintf "The forall variables %s are unused in the function's type signature." (vars |> String.concat ", ")
+    | CompilerErrorInConstraintPropagation(a,b) -> 
+        sprintf "Compiler error in constraint propagation!\nVars: %s\nConstraints: %s" 
+            (List.map f a |> String.concat ", ") 
+            (List.map (show_constraints env) b |> String.concat ", ")
 
 let loc_env (x : TopEnv) = {term=x.term; ty=x.ty; constraints=x.constraints}
 let names_of vars = List.map (fun x -> x.name) vars |> Set
@@ -825,7 +828,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         with :? TypeErrorException as e -> errors.AddRange e.Data0
 
     let unify (r : VSCRange) (got : T) (expected : T) : unit =
-        let unify_kind = unify_kind' (fun () -> raise (TypeErrorException [r, KindError' (got, expected)]))
+        let unify_kind got expected = unify_kind' (fun () -> raise (TypeErrorException [r, KindError (got, expected)])) got expected
         let er () = raise (TypeErrorException [r, TermError(got, expected)])
 
         // Does occurs checking.

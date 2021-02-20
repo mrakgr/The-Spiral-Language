@@ -1,4 +1,74 @@
-prototype sample k o a : option u8 -> array o -> (o -> k o a) -> k o a
-prototype draw k o a : option u8 -> array o -> (o * array o -> k o a) -> k o a
-prototype action k o a : u8 -> array a -> (a -> k o a) -> k o a
-prototype terminal k o a : u8 * f64 -> k o a
+prototype sample g o a : option u8 -> array o -> (o -> g o a) -> g o a
+prototype draw g o a : option u8 -> array o -> (o * array o -> g o a) -> g o a
+prototype action g o a : u8 -> array a -> (a -> g o a) -> g o a
+open monad
+prototype terminal g (c : * -> *) {on_succ} r o a : r -> g c r o a
+
+prototype (.+) r : r -> r -> r
+prototype (.*) r : r -> f64 -> r
+prototype rindex r : r -> u8 -> f64
+
+// Reward for 2 player games.
+nominal r2 = f64
+instance (.+) r2 = fun (r2 a) (r2 b) => r2 (a+b)
+instance (.*) r2 = fun (r2 a) b => r2 (a+b)
+inl r2' (pid,reward) = if pid = 0u8 then reward else -reward : f64
+instance rindex r2 = fun (r2 reward) pid => r2' (pid,reward)
+inl r2 x = r2 (r2' x)
+
+inl prob forall p. (x : p) : f64 = real
+    real_core.nominal_strip x .path_prob
+inl prob_mult forall p. (x : p) (prob : f64) : p = real
+    inl x = real_core.nominal_strip x
+    real_core.nominal_create `p {x with path_prob#=(*) prob}
+inl observation_add forall (p : * -> * -> *) o a. (x : p o a) (o : o) : p o a = real
+    inl x = real_core.nominal_strip x
+    real_core.nominal_create `p {x with observations#=(::) `o o}
+prototype run p a : forall r. p a -> f64 -> array a -> (a * p a -> r) -> r
+
+prototype prob_mult' p : p -> u8 -> f64 -> p
+prototype observation_add' p o a : p o a -> option u8 -> o -> p o a
+prototype run' p a : forall r. p a -> u8 -> array a -> (a * p a -> r) -> r
+
+nominal pl2 (p1 : * -> * -> *) (p2 : * -> * -> *) o a = p1 o a * p2 o a
+instance prob_mult' pl2 p1 p2 o a = fun (pl2 (a,b)) pid prob =>
+    inl update (i : u8) a = if pid = i then prob_mult a prob else a
+    pl2 (update 0 a, update 1 b)
+instance observation_add' pl2 p1 p2 = fun (pl2 (a,b)) pid o =>
+    match pid with
+    | Some: pid =>
+        inl update (i : u8) a = if pid = i then observation_add a o else a
+        pl2 (update 0 a, update 1 b)
+    | None =>
+        pl2 (observation_add a o, observation_add b o)
+instance run' pl2 p1 {run} p2 {run} o = fun (pl2 (a,b)) pid dist next =>
+    if pid = 0 then run a (prob b) dist (fun (x,a) => next (x,pl2 (a,b)))
+    else run b (prob a) dist (fun (x,b) => next (x,pl2 (a,b)))
+
+nominal sampled r = r
+instance on_succ sampled = sampled
+
+nominal enumerated r = r
+instance on_succ enumerated = enumerated
+
+prototype sample' cr : forall o. array o -> (o -> cr) -> cr
+prototype draw' cr : forall o. array o -> (o * array o -> cr) -> cr
+
+inl enumerated_template f dist next =
+    inl run i = inl (enumerated x) = next (f dist i) in x
+    inl nearTo = a64.length dist
+    loop.for (from: 1 nearTo:) (fun i s => s .+ run i) (run 0) .* (1 / utils.f64 nearTo) |> enumerated
+
+instance sample' enumerated r {(.+); (.*)} = enumerated_template a64.index
+instance draw' enumerated r {(.+); (.*)} = enumerated_template (fun dist i => a64.index dist i, a64.removeAtIndex i dist)
+instance sample' sampled r = fun dist next => sampling.sample dist |> next
+instance draw' sampled r = fun dist next => sampling.draw dist |> next
+
+nominal game (p : * -> * -> *) (c : * -> *) r o a = p o a -> c r
+instance sample game p {observation_add'} c {sample'} r = fun pid dist next => game fun p =>
+    sample' dist (fun o => inl (game g) = next o in g (observation_add' p pid o))
+instance draw game p {observation_add'} c {draw'} r = fun pid dist next => game fun p =>
+    draw' dist (fun o,dist => inl (game g) = next (o,dist) in g (observation_add' p pid o))
+instance action game p {run'} c r = fun pid dist next => game fun p =>
+    run' p pid dist (fun a,p => inl (game g) = next a in g p)
+instance terminal game p = fun r => game (fun _ => on_succ r)
