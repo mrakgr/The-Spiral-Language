@@ -357,7 +357,9 @@ let rec constraint_process (env : TopEnv) = function
         match Map.tryFind (prot,ins) env.prototypes_instances with
         | Some cons -> 
             let rec loop ers = function
-                | con :: con', x :: x' -> loop (List.append (constraints_process env (con,x)) ers) (con',x')
+                | con :: con', x :: x' -> 
+                    let b,b' = type_apply_split x
+                    loop (List.append (constraints_process env (con,b,b')) ers) (con',x')
                 | [], _ -> ers
                 | _, [] -> CompilerErrorInConstraintPropagation(x',cons) :: ers
             loop [] (cons,x')
@@ -365,10 +367,10 @@ let rec constraint_process (env : TopEnv) = function
     | con, TyMetavar(x,_), _ -> x.constraints <- Set.add con x.constraints; []
     | con, TyVar v & x, _ -> if Set.contains con v.constraints then [] else [ConstraintError(con,x)]
     | con, x, _ -> [ConstraintError(con,x)]
-and constraints_process env (con,b) = 
-    match type_apply_split b with
-    | TyVar b, _ -> if con.IsSubsetOf b.constraints = false then [ForallVarConstraintError(b.name,con,b.constraints)] else []
-    | b, b' -> Set.fold (fun ers con -> List.append (constraint_process env (con,b,b')) ers) [] con
+and constraints_process env (con,b,b') = 
+    match b with
+    | TyVar b -> if con.IsSubsetOf b.constraints = false then [ForallVarConstraintError(b.name,con,b.constraints)] else []
+    | b -> Set.fold (fun ers con -> List.append (constraint_process env (con,b,b')) ers) [] con
 
 let rec kind_subst = function
     | KindMetavar ({contents'=Some x} & link) -> shorten' x link kind_subst
@@ -845,7 +847,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyMetavar(x,_) -> if i = x then er() elif i.scope < x.scope then x.scope <- i.scope
             | TyLayout(a,_) -> f a
 
-        let rec loop (a'',b'') = 
+        let rec loop' extras (a'',b'') = 
+            let loop x = loop' extras x
             let record l l' =
                 let a,b = Map.toArray l, Map.toArray l'
                 if a.Length <> b.Length then er ()
@@ -858,15 +861,17 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     b.scope <- min a.scope b.scope
                     b.constraints <- a.constraints + b.constraints
                     link := Some b'
-            | (TyMetavar(a,link), b | b, TyMetavar(a,link)) ->
+            | TyMetavar(a,link), b | b, TyMetavar(a,link) ->
                 validate_unification a b
                 unify_kind a.kind (tt top_env b)
-                match constraints_process top_env (a.constraints,b) with
+                let b',b'' = type_apply_split b
+                match constraints_process top_env (a.constraints,b',b'' @ extras) with
                 | [] -> link := Some b
                 | constraint_errors -> raise (TypeErrorException (List.map (fun x -> r,x) constraint_errors))
             | TyVar a, TyVar b when a = b -> ()
-            | (TyPair(a,a'), TyPair(b,b') | TyFun(a,a'), TyFun(b,b') | TyApply(a,a',_), TyApply(b,b',_)) -> loop (a,b); loop (a',b')
-            | (TyUnion(l,q), TyUnion(l',q')) -> if q = q' then record l l' else raise (TypeErrorException [r,UnionTypesMustHaveTheSameLayout])
+            | TyPair(a,a'), TyPair(b,b') | TyFun(a,a'), TyFun(b,b') -> loop (a,b); loop (a',b')
+            | TyApply(a,a',_), TyApply(b,b',_) -> loop (a',b'); loop' (a' :: extras) (a,b)
+            | TyUnion(l,q), TyUnion(l',q') -> if q = q' then record l l' else raise (TypeErrorException [r,UnionTypesMustHaveTheSameLayout])
             | TyRecord a, TyRecord a' -> record a a'
             | TyNominal i, TyNominal i' when i = i' -> ()
             | TyB, TyB -> ()
@@ -885,7 +890,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyLayout(a,a'), TyLayout(b,b') when a' = b' -> loop (a,b)
             | _ -> er ()
 
-        try loop (got, expected)
+        try loop' [] (got, expected)
         with :? TypeErrorException as e -> errors.AddRange e.Data0
 
     let rec apply_record r s l x =
@@ -919,10 +924,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let v_ty env a = v env.ty top_env.ty a 
     let typevar_to_var scope cons (((_,(name,kind)),constraints) : TypeVar) : Var = 
         let rec typevar = function
-            | RawKindWildcard -> fresh_kind()
-            | RawKindStar -> KindType
+            | RawKindWildcard | RawKindStar -> KindType
             | RawKindFun(a,b) -> KindFun(typevar a, typevar b)
-        let kind = typevar kind
         let cons =
             constraints |> List.choose (fun (r,x) ->
                 match v_cons cons x with
@@ -930,7 +933,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | Some (C x) -> Some x
                 | None -> errors.Add(r,UnboundVariable); None
                 ) |> Set.ofList
-        {scope=scope; constraints=cons; kind=kind_force kind; name=name}
+        {scope=scope; constraints=cons; kind=typevar kind; name=name}
 
     let typevars scope env (l : TypeVar list) =
         List.mapFold (fun s x ->
