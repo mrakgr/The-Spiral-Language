@@ -10,8 +10,9 @@ modules:
         torch
     serialization_dense_array_test
     serialization_sparse_int_test
-    nets_test
     sampling
     nodes
     dudo
     leduc
+    random_agent
+

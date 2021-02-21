@@ -28,20 +28,20 @@ inl deserializeMaskedSparse schema mask (x : tensor) =
     open serialization.sparse.int
     deserialize schema (a64.index mask $"!x.item()")
 
-nominal serialized_net input output = {
+type serialized_net o a = {
     net : net
-    input : serialization.dense.array.pu input
-    output : serialization.sparse.int.pu output
+    input : serialization.dense.array.pu o
+    output : serialization.sparse.int.pu a
     }
 
-inl runMasked (serialized_net {net input output}) observation mask = 
+inl runMasked ({net input output} : serialized_net _ _) observation mask = 
     inl o = forward net (serializeDense input observation)
     inl mask = a64.map (serializeSparse output) mask
     inl o_mask = $"!o[!mask]" : tensor
     inl o_mask_dist = $"torch.nn.functional.Softmax(!o_mask)" |> categorical
     deserializeMaskedSparse output mask (sample o_mask_dist)
 
-inl run (serialized_net {net input output}) observation =
+inl run ({net input output} : serialized_net _ _) observation =
     inl o = forward net (serializeDense input observation)
     inl o_dist = $"torch.nn.functional.Softmax(!o)" |> categorical
     deserializeSparse output (sample o_dist)

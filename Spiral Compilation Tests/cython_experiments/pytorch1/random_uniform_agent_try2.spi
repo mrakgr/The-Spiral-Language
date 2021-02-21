@@ -1,4 +1,0 @@
-
-
-nominal player_random o a = {path_prob : f64; observations : list o}
-instance run player_random o = fun x _ dist next => next (sampling.sample dist,x)

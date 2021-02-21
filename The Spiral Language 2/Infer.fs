@@ -817,21 +817,18 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | [] -> x
         | _ -> assert_foralls_used r x; x
 
-    let inline unify_kind' er (got : TT) (expected : TT) : unit =
+    let inline unify_kind' er r got expected =
         let rec loop (a'',b'') =
             match visit_tt a'', visit_tt b'' with
             | KindType, KindType -> ()
             | KindFun(a,a'), KindFun(b,b') -> loop (a,b); loop (a',b')
             | KindMetavar a, KindMetavar b & b' -> if a <> b then a.contents' <- Some b'
             | KindMetavar link, b | b, KindMetavar link -> link.contents' <- Some b
-            | _ -> er()
+            | _ -> raise (TypeErrorException [r, er (got, expected)])
         loop (got, expected)
-    let unify_kind r got expected = 
-        try unify_kind' (fun () -> raise (TypeErrorException [r, KindError (got, expected)])) got expected
-        with :? TypeErrorException as e -> errors.AddRange e.Data0
-
+    let unify_kind r got expected = try unify_kind' KindError r got expected with :? TypeErrorException as e -> errors.AddRange e.Data0
     let unify (r : VSCRange) (got : T) (expected : T) : unit =
-        let unify_kind got expected = unify_kind' (fun () -> raise (TypeErrorException [r, KindError (got, expected)])) got expected
+        let unify_kind got expected = unify_kind' KindError r got expected
         let er () = raise (TypeErrorException [r, TermError(got, expected)])
 
         // Does occurs checking.
@@ -1469,7 +1466,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let assert_no_kind x = x |> List.iter (fun ((r,(_,k)),_) -> match k with RawKindWildcard -> () | _ -> errors.Add(r,KindNotAllowedInInstanceForall))
         let assert_vars_count vars_count vars_expected = if vars_count <> vars_expected then errors.Add(r,InstanceCoreVarsShouldMatchTheArityDifference(vars_count,vars_expected))
         let assert_kind_compatibility got expected =
-            try unify_kind' (fun () -> raise (TypeErrorException [r, InstanceKindError (got, expected)])) got expected
+            try unify_kind' InstanceKindError r got expected
             with :? TypeErrorException as e -> errors.AddRange e.Data0
         let assert_kind_arity prot_kind_arity ins_kind_arity = if ins_kind_arity < prot_kind_arity then errors.Add(r,InstanceArityError(prot_kind_arity,ins_kind_arity))
         let assert_instance_forall_does_not_shadow_prototype_forall prot_forall_name = List.iter (fun ((r,(a,_)),_) -> if a = prot_forall_name then errors.Add(r,InstanceVarShouldNotMatchAnyOfPrototypes)) vars

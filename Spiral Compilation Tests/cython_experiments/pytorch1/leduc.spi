@@ -22,8 +22,9 @@ inl compare_hands (community_card : card) (p1,p2 : players) =
 inl raiseBy amount (p1,p2 : players) = p2.pot + amount
 
 open nodes
-inl game forall (k : * -> * -> *) {sample; draw; action; terminal}. : k card action =
-    inl terminal (a,b : _ * u32) = terminal (a, utils.f64 b)
+type game (p1 : * -> * -> *) (p2 : * -> * -> *) (c : * -> *) = game (pl2 p1 p2) c r2 card action
+inl Game : game _ _ _ =
+    inl terminal (a,b : _ * u32) = terminal (r2 (a, utils.f64 b))
     inl actionsInit = ;[Call; Raise]
     inl actionsFull = ;[Fold; Call; Raise]
     inl actionsNoRaise = ;[Fold; Call]
@@ -38,7 +39,7 @@ inl game forall (k : * -> * -> *) {sample; draw; action; terminal}. : k card act
     draw (Some: id) deck fun card, deck =>
     inl p2 = {card id pot}
     
-    let rec round_two (raises_left : i32) (community_card : card) (p1,p2 : players) : k card action =
+    let rec round_two (raises_left : i32) (community_card : card) (p1,p2 : players) : game _ _ _ =
         action p1.id (if 0 < raises_left then actionsFull else actionsNoRaise) function
         | Fold => terminal (p2.id, p1.pot + p2.pot)
         | Call => 
