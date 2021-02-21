@@ -3,9 +3,7 @@
 type number = i32
 type rank = i32
 type claim = number * rank
-union action =
-    | Claim: claim
-    | Dudo
+union action = Claim: claim | Dudo
 
 type player = {id : u8; die : rank}
 type players = player * player
@@ -36,7 +34,4 @@ inl Game : game (pl2 _ _) _ r2 i32 action =
     
     action p1.id claims function
     | Dudo => failwith "impossible"
-    | Claim: claim => 
-        inl x = loop claim 
-        inl y = x (p2,p1)
-        y
+    | Claim: claim => loop claim (p2,p1)
