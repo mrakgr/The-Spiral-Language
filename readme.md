@@ -4154,8 +4154,6 @@ To produce import and cimport statements inside Spiral code, the `Import` and `C
 
 ## Known Bugs
 
-* The mapping from the files on the hard drive, to the editor, to the language server is not perfect. For example opening a file first, and then having a new project file usurp ownership from another project file will not be reacted to by the language server unless it is done from the editor.
-
-* There is a code actions in the project file can leave module errors lingering in the editor.
+* Errors can linger in the problem tab when deleting, moving and renaming files either directly or in the package file. I'll have to make time to iron them out at some point. As errors, they are innocuous though and won't lead to wrong code being compiled.
 
 * There is a name collision between Spiral and a [DSL](https://www.spiral.net/) by the same name. This is purely coincidental and there is no association between the two.
