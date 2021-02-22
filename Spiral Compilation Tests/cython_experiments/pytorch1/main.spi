@@ -1,0 +1,8 @@
+inl main () = 
+    open random_agent
+    inl p1,p2 = NeuralRandomLeduc, UniformRandom
+    loop.for' (from:0u32 nearTo:100) (fun i =>
+        open nodes
+        inl (sampled (r2 r)) = start2p p1 p2 leduc.game
+        $"print(\"Reward for player one at iteration \", !i, \" is \", !r)" : ()
+        )

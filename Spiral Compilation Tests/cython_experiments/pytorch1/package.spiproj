@@ -15,4 +15,5 @@ modules:
     dudo
     leduc
     random_agent
+    main
 

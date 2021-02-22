@@ -2,21 +2,22 @@ open nodes
 nominal statelenss_random o a = ()
 instance run statelenss_random = fun x _ dist next => next (sampling.sample dist,x)
 
-nominal functional_random o a = list o -> array a -> a
+nominal functional_random o a = list (observation o a) -> array a -> a
 instance run functional_random = fun ({observations state=(functional_random f)} & x) _ dist next => next (f observations dist, x)
 
 open leduc
-union observation = Action: action | Card: card
-let process (l : list observation) =
+
+let process (l : list (observation card action)) =
     let rec action (c,l) = function
-        | Cons: (Card: x), x' => (c,listm.rev l |> listm.toArray) :: action (x,Nil) x'
+        | Cons: (Observation: x), x' => (c,listm.rev l |> listm.toArray) :: action (x,Nil) x'
         | Cons: (Action: x), x' => action (c,x :: l) x'
         | Nil => (c,listm.rev l |> listm.toArray) :: Nil
     match l with
-    | Cons: (Card: x), x' => action (x,Nil) x' |> listm.toArray
+    | Cons: (Observation: x), x' => action (x,Nil) x' |> listm.toArray
     | _ => failwith "Expected a card."
 
-inl LeducNeuralFunRand =
+inl UniformRandom = statelenss_random()
+inl NeuralRandomLeduc =
     open utils.torch
     PyTorchImports
     !!!!Import("nets")
@@ -31,4 +32,4 @@ inl LeducNeuralFunRand =
         alt {fold=Unit; call=Unit; raise=Unit} : pu action
 
     inl c,b,a = denseSize input, 64u64, sparseSize output
-    functional_random (process >> runMasked {input output net = $"nets.leduc(!c,!b,!a)"})
+    functional_random (process >> runMasked {input output net = $"nets.small(!c,!b,!a)"})

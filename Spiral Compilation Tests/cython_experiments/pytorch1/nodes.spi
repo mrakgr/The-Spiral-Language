@@ -16,14 +16,17 @@ inl r2' (pid,reward) = if pid = 0u8 then reward else -reward : f64
 instance rindex r2 = fun (r2 reward) pid => r2' (pid,reward)
 inl r2 x = r2 (r2' x)
 
-type pl (p : * -> * -> *) o a = { path_prob : f64; observations : list o; state : p o a }
+union observation o a = Observation: o | Action: a
+type pl (p : * -> * -> *) o a = { path_prob : f64; observations : list (observation o a); state : p o a }
 inl prob ({path_prob} : pl _ _ _) = path_prob
 inl prob_mult (x : pl _ _ _) prob = {x with path_prob#=(*) prob}
-inl observation_add (x : pl _ _ _) o = {x with observations#=(::) o}
+inl observation_add (x : pl _ _ _) o = {x with observations#=(::) (Observation: o)}
+inl action_add (x : pl _ _ _) a = {x with observations#=(::) (Action: a)}
 prototype run p o a : forall r. pl p o a -> f64 -> array a -> (a * pl p o a -> r) -> r
 
 prototype prob_mult' p : p -> u8 -> f64 -> p
 prototype observation_add' p o a : p o a -> option u8 -> o -> p o a
+prototype action_add' p o a : p o a -> option u8 -> a -> p o a
 prototype run' p a : forall r. p a -> u8 -> array a -> (a * p a -> r) -> r
 
 nominal pl2 (p1 : * -> * -> *) (p2 : * -> * -> *) o a = pl p1 o a * pl p2 o a
@@ -37,6 +40,13 @@ instance observation_add' pl2 p1 p2 = fun (pl2 (a,b)) pid o =>
         pl2 (update 0 a, update 1 b)
     | None =>
         pl2 (observation_add a o, observation_add b o)
+instance action_add' pl2 p1 p2 = fun (pl2 (a,b)) pid o =>
+    match pid with
+    | Some: pid =>
+        inl update (i : u8) a = if pid = i then action_add a o else a
+        pl2 (update 0 a, update 1 b)
+    | None =>
+        pl2 (action_add a o, action_add b o)
 instance run' pl2 p1 {run} p2 {run} o = fun (pl2 (a,b)) pid dist next =>
     if pid = 0 then run a (prob b) dist (fun (x,a) => next (x,pl2 (a,b)))
     else run b (prob a) dist (fun (x,b) => next (x,pl2 (a,b)))
@@ -68,3 +78,10 @@ instance draw game p {observation_add'} c {draw'} r = fun pid dist next => game 
 instance action game p {run'} c r = fun pid dist next => game fun p =>
     run' p pid dist (fun a,p => inl (game g) = next a in g p)
 instance terminal game p = fun r => game (fun _ => on_succ r)
+
+prototype start g (p : * -> * -> *) (c : * -> *) r o a : p o a -> (() -> g p c r o a) -> c r
+instance start game = fun p game => join inl (game g) = game () in g p
+
+inl start2p p1 p2 game =
+    inl p state = {observations=Nil; path_prob=1; state}
+    start (pl2 (p p1, p p2)) game

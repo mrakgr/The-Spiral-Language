@@ -189,20 +189,19 @@ let data_free_vars call_data =
     f call_data
     free_vars.ToArray()
 
-let (|C|) (x : _ ConsedNode) = x.node
+let inline (|C|) (x : _ ConsedNode) = x.node
+let inline (|C'|) (x : _ ConsedNode) = x.node, x.tag
 let rdata_free_vars call_data =
-    let m = HashSet(HashIdentity.Reference)
+    let m = HashSet(HashIdentity.Structural)
     let free_vars = ResizeArray()
-    let rec f x =
-        if m.Add x then
-            match x with
-            | RePair(C(a,b)) -> f a; f b
-            | ReForall(C(_,a,_)) | ReFunction(C(_,a,_)) -> Array.iter f a
-            | ReRecord(C l) -> Map.iter (fun _ -> f) l
-            | ReV(C(a,b)) -> free_vars.Add(L(a,b))
-            | ReUnion(C(a,_)) | ReNominal(C(a,_)) -> f a
-            | ReSymbol _ | ReLit _ | ReB -> ()
-    Array.iter f call_data
+    let rec g = function // Note: Using the same scheme as in `data_free_vars` would give wrong results here. Comparing the tags instead is a necessity.
+        | RePair(C'((a,b),tag)) -> if m.Add tag then g a; g b
+        | ReForall(C'((_,a,_),tag)) | ReFunction(C'((_,a,_),tag)) -> if m.Add tag then Array.iter g a
+        | ReRecord(C'(l,tag)) -> if m.Add tag then Map.iter (fun _ -> g) l
+        | ReV(C'((a,b),tag)) -> if m.Add tag then free_vars.Add(L(a,b))
+        | ReUnion(C'((a,_),tag)) | ReNominal(C'((a,_),tag)) -> if m.Add tag then g a
+        | ReSymbol _ | ReLit _ | ReB -> ()
+    Array.iter g call_data
     free_vars.ToArray()
 
 let data_term_vars call_data =

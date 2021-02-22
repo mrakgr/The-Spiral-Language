@@ -13,6 +13,8 @@
     <NoWarn>40</NoWarn>
     <Tailcalls>true</Tailcalls>
     <WarningLevel>3</WarningLevel>
+    <Optimize>false</Optimize>
+    <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">

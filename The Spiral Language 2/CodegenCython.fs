@@ -159,20 +159,6 @@ let nullable_vars_of (x : TypedBind []) =
     nulls.[x] <- Set.empty // freeable - used
     nulls
 
-let numpy_ty = function
-    | YPrim Int8T -> "numpy.int8"
-    | YPrim Int16T -> "numpy.int16"
-    | YPrim Int32T -> "numpy.int32"
-    | YPrim Int64T -> "numpy.int64"
-    | YPrim UInt8T -> "numpy.uint8"
-    | YPrim UInt16T -> "numpy.uint16"
-    | YPrim UInt32T -> "numpy.uint32"
-    | YPrim UInt64T -> "numpy.uint64"
-    | YPrim Float32T -> "numpy.float32"
-    | YPrim Float64T -> "numpy.float64"
-    | YPrim BoolT -> "numpy.int8"
-    | _ -> "object"
-
 let lit = function
     | LitInt8 x -> sprintf "%i" x
     | LitInt16 x -> sprintf "%i" x
@@ -313,6 +299,24 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     let print_nullables' (nulls : Tag Set) s = Set.toArray nulls |> Array.map set_to_none |> String.concat "; " |> function "" -> () | x -> line s x
     let print_nullables (nulls : Dictionary<obj,Tag Set>) s (x : obj) = print_nullables' nulls.[x] s
 
+    let numpy_ty x = 
+        match env.ty_to_data x |> data_free_vars with
+        | [|L(_,YPrim x)|] ->
+            match x with
+            | Int8T -> "numpy.int8"
+            | Int16T -> "numpy.int16"
+            | Int32T -> "numpy.int32"
+            | Int64T -> "numpy.int64"
+            | UInt8T -> "numpy.uint8"
+            | UInt16T -> "numpy.uint16"
+            | UInt32T -> "numpy.uint32"
+            | UInt64T -> "numpy.uint64"
+            | Float32T -> "numpy.float32"
+            | Float64T -> "numpy.float64"
+            | BoolT -> "numpy.int8"
+            | _ -> "object"
+        | _ -> "object"
+
     let rec tyv = function
         | YUnion a -> 
             let a = a.Item
@@ -327,7 +331,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             import "numpy"; cimport "numpy"
             // Cython arrays have various restrictions. The inability to give more precise types to container elements will result in runtime typechecks.
             // https://github.com/cython/cython/issues/3995
-            let a = match a with YPrim x -> prim x | _ -> "object"
+            let a =
+                match env.ty_to_data a |> data_free_vars with 
+                | [|L(_,YPrim x)|] -> prim x
+                | _ -> "object"
             $"numpy.ndarray[{a},ndim=1]"
         | YFun(a,b) -> sprintf "ClosureTy%i" ((closure_ty (a,b)).tag)
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a

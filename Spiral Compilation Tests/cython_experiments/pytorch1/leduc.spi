@@ -25,9 +25,9 @@ open nodes
 type game (p1 : * -> * -> *) (p2 : * -> * -> *) (c : * -> *) = game (pl2 p1 p2) c r2 card action
 inl Game : game _ _ _ =
     inl terminal (a,b : _ * u32) = terminal (r2 (a, utils.f64 b))
-    inl actionsInit = ;[Call; Raise]
-    inl actionsFull = ;[Fold; Call; Raise]
-    inl actionsNoRaise = ;[Fold; Call]
+    inl actionsInit = ;[Call;Raise]
+    inl actionsFull = ;[Fold;Call;Raise]
+    inl actionsNoRaise = ;[Fold;Call]
     inl deckInit = ;[King; Queen; Jack; King; Queen; Jack]
 
     inl pot = 1
@@ -41,11 +41,11 @@ inl Game : game _ _ _ =
     
     let rec round_two (raises_left : i32) (community_card : card) (p1,p2 : players) : game _ _ _ =
         action p1.id (if 0 < raises_left then actionsFull else actionsNoRaise) function
-        | Fold => terminal (p2.id, p1.pot + p2.pot)
+        | Fold => terminal (p2.id, p1.pot)
         | Call => 
             let x = compare_hands community_card (p1,p2)
-            if gt_is x then terminal (p1.id, p1.pot + p2.pot)
-            elif lt_is x then terminal (p2.id, p1.pot + p2.pot)
+            if gt_is x then terminal (p1.id, p2.pot)
+            elif lt_is x then terminal (p2.id, p1.pot)
             else terminal (p1.id, 0)
         | Raise => round_two (raises_left-1) community_card (p2,{p1 with pot=raiseBy 4 (p1,p2)})
     let round_two_init (p1,p2 : players) =
@@ -56,7 +56,7 @@ inl Game : game _ _ _ =
         | Raise => round_two 1 card (p2,{p1 with pot=raiseBy 4 (p1,p2)})
     let rec round_one (raises_left : i32) (p1,p2 : players) =
         action p1.id (if 0 < raises_left then actionsFull else actionsNoRaise) function
-        | Fold => terminal (p2.id, p1.pot + p2.pot)
+        | Fold => terminal (p2.id, p1.pot)
         | Call => round_two_init (if p1.id = 0 then p1,p2 else p2,p1)
         | Raise => round_one (raises_left-1) (p2,{p1 with pot=raiseBy 2 (p1,p2)})
 

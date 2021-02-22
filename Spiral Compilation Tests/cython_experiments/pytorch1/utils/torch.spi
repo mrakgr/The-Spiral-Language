@@ -38,12 +38,12 @@ inl runMasked ({net input output} : serialized_net _ _) observation mask =
     inl o = forward net (serializeDense input observation)
     inl mask = a64.map (serializeSparse output) mask
     inl o_mask = $"!o[!mask]" : tensor
-    inl o_mask_dist = $"torch.nn.functional.Softmax(!o_mask)" |> categorical
+    inl o_mask_dist = $"torch.nn.functional.softmax(!o_mask,-1)" |> categorical
     deserializeMaskedSparse output mask (sample o_mask_dist)
 
 inl run ({net input output} : serialized_net _ _) observation =
     inl o = forward net (serializeDense input observation)
-    inl o_dist = $"torch.nn.functional.Softmax(!o)" |> categorical
+    inl o_dist = $"torch.nn.functional.softmax(!o,-1)" |> categorical
     deserializeSparse output (sample o_dist)
 
 inl PyTorchImports =

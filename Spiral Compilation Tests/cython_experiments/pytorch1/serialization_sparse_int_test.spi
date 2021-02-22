@@ -6,13 +6,13 @@ union action =
     | Raise: u64 // `Raise: 0` would be a min raise.
     | Call
     | NoAction
-type rank = u64
-type suit = u64
+type rank = el
+type suit = el
 type card = rank * suit
 type player_view = {
-    stack_self : u64
-    stack_opp : u64
-    pot : u64
+    stack_self : el
+    stack_opp : el
+    pot : el
     hand : card * card
     prev_action : action
     }

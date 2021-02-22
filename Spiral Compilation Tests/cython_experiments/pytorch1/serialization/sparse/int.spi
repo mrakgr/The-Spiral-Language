@@ -1,4 +1,4 @@
-type el = u64
+type el = i64
 nominal pu a = {
     pickle : a -> el
     size : el
@@ -13,8 +13,8 @@ inl Unit =
 
 inl int size : pu el =
     pu {size
-        pickle = fun x => assert (x < size) "Value out of bounds." . x
-        unpickle = fun i => assert (i < size) "The index should be less than size." . i
+        pickle = fun x => assert (0 <= x && x < size) "Value out of bounds." . x
+        unpickle = fun i => assert (0 <= i && i < size) "The index should be less than size." . i
         }
 
 inl array forall t. size (pu el : pu t) : pu (array t) =
