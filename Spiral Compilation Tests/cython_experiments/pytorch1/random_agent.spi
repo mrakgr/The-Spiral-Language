@@ -3,7 +3,9 @@ nominal statelenss_random o a = ()
 instance run statelenss_random = fun x _ dist next => next (sampling.sample dist,x)
 
 nominal functional_random o a = list (observation o a) -> array a -> a
-instance run functional_random = fun ({observations state=(functional_random f)} & x) _ dist next => next (f observations dist, x)
+instance run functional_random = fun ({observations state=(functional_random f)} & x) _ dist next => 
+    inl a = f observations dist
+    next (a, action_add x a)
 
 open leduc
 
@@ -12,7 +14,7 @@ let process (l : list (observation card action)) =
         | Cons: (Observation: x), x' => (c,listm.rev l |> listm.toArray) :: action (x,Nil) x'
         | Cons: (Action: x), x' => action (c,x :: l) x'
         | Nil => (c,listm.rev l |> listm.toArray) :: Nil
-    match l with
+    match listm.rev l with
     | Cons: (Observation: x), x' => action (x,Nil) x' |> listm.toArray
     | _ => failwith "Expected a card."
 

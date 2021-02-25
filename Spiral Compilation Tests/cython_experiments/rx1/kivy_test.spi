@@ -1,0 +1,8 @@
+open kivy
+inl main () =
+    KivyImports
+    inl app = App
+    inl w = Button
+    widget_setText w "Hello World"
+    app_setRoot app w
+    app_run app

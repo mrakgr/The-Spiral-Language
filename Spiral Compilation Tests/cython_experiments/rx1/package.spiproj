@@ -1,0 +1,7 @@
+packages: |core-
+modules: 
+    kivy
+    kivy_test
+    rx
+    rx_test
+    lithe

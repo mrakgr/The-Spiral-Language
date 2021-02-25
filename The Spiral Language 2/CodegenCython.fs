@@ -207,13 +207,12 @@ let prim = function
     | Int8T -> "signed char" | Int16T -> "signed short" | Int32T -> "signed long" | Int64T -> "signed long long"
     | UInt8T -> "unsigned char" | UInt16T -> "unsigned short" | UInt32T -> "unsigned long" | UInt64T -> "unsigned long long"
     | Float32T -> "float" | Float64T -> "double"
-    | BoolT -> "char"
+    | BoolT -> "bint"
     | StringT | CharT -> "str"
 
 type UnionRec = {free_vars : Map<string, TyV[]>; tag : int}
 type LayoutRec = {data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>; tag : int}
 type MethodRec = {tag : int; free_vars : L<Tag,Ty>[]; range : Ty; body : TypedBind[]}
-type ClosureTyRec = {tag : int; domain : Ty; range : Ty}
 type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain : Ty; domain_args : TyV[]; range : Ty; body : TypedBind[]}
 type TupleRec = {tag : int; tys : string []}
 
@@ -336,7 +335,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 | [|L(_,YPrim x)|] -> prim x
                 | _ -> "object"
             $"numpy.ndarray[{a},ndim=1]"
-        | YFun(a,b) -> sprintf "ClosureTy%i" ((closure_ty (a,b)).tag)
+        | YFun _ -> "object" // Function types used to be more precise, but now I am using objects for the sake of interop. See commit at 2/25/2021 for the more efficient version.
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
     and binds' (defs : CodegenEnv) (x : TypedBind []) =
         let s = {defs with text = StringBuilder()}
@@ -501,7 +500,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             match op, l with
             | Import,[DLit (LitString x)] -> import x; $"pass # import {x}"
             | CImport,[DLit (LitString x)] -> cimport x; $"pass # cimport {x}"
-            | Apply,[a;b] -> sprintf "%s.apply(%s)" (tup a) (args' b)
+            | Apply,[a;b] -> 
+                match tup a, tup b with
+                | a,"pass" -> sprintf "%s()" a
+                | a,b -> sprintf "%s(%s)" a b
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
             | (StringU32Length | StringU32Index | StringU32Slice | ArrayU32IndexSet | ArrayU32Length), _ -> 
@@ -599,28 +601,27 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s $"cdef {tup_ty x.range} method{x.tag}({args_tys x.free_vars}):"
             binds' (indent s) x.body
             )
-    and closure_ty : _ -> ClosureTyRec =
-        jp true (fun ((domain,range),i) -> {tag=i; domain=domain; range=range}) (fun s x ->
-            line s (sprintf "cdef class ClosureTy%i:" x.tag)
-            let dom = env.ty_to_data x.domain |> data_free_vars |> args_tys |> with_self
-            line (indent s) $"cpdef {tup_ty x.range} apply({dom}): raise NotImplementedError()"
-            )
     and closure : _ -> ClosureRec =
         jp true (fun ((jp_body,key & (C(args,_,domain,range))),i) ->
             match (fst env.join_point_closure.[jp_body]).[key] with
             | Some(domain_args, body) -> {tag=i; free_vars=rdata_free_vars args; domain=domain; domain_args=data_free_vars domain_args; range=range; body=body}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s x ->
-            line s (sprintf "cdef class Closure%i(ClosureTy%i):" x.tag (closure_ty (x.domain,x.range)).tag)
+            line s (sprintf "cdef class Closure%i():" x.tag)
             let s = indent s
-            let free_vars = x.free_vars |> Array.map (fun (L(i,t)) -> i, tyv t) |> layout_arrays_to_objects'
-            free_vars |> Array.iter (fun (i,x) -> cdef_show "" s i x)
+            let free_vars = x.free_vars |> Array.map (fun (L(i,t)) -> i, tyv t)
+            free_vars |> layout_arrays_to_objects' |> Array.iter (fun (i,x) -> cdef_show "" s i x)
             let init_args = free_vars |> Array.map (fun (i,t) -> arg_show i t) |> String.concat ", " |> with_self
             let init_body = free_vars |> Array.map (fun (i,_) -> $"self.v{i} = v{i}") |> String.concat "; " |> pass_if_empty
             line s $"def __init__({init_args}): {init_body}"
-            line s $"cpdef {tup_ty x.range} apply({with_self (args_tys x.domain_args)}):"
+            match x.domain_args with 
+            | [||] -> line s $"def __call__(self):"
+            | [|L(i,t)|] -> line s $"def __call__(self, {tyv t} v{i}):"
+            | t -> line s $"def __call__(self, {tup_ty_tyvs t} args):"
             let s = indent s
-            free_vars |> Array.iter (function i, "object" -> line s $"v{i} = self.v{i}" | i, t -> line s $"cdef {t} v{i} = self.v{i}")
+            free_vars |> Array.iter (function i, t -> line s $"cdef {t} v{i} = self.v{i}")
+            if 1 < x.domain_args.Length then
+                x.domain_args |> Array.iteri (fun i' (L(i,t)) -> line s $"cdef {tyv t} v{i} = args.v{i'}")
             binds' s x.body
             )
 

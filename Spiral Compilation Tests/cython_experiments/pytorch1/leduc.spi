@@ -43,6 +43,7 @@ inl Game : game _ _ _ =
         action p1.id (if 0 < raises_left then actionsFull else actionsNoRaise) function
         | Fold => terminal (p2.id, p1.pot)
         | Call => 
+            inl p1 = {p1 with pot=p2.pot}
             let x = compare_hands community_card (p1,p2)
             if gt_is x then terminal (p1.id, p2.pot)
             elif lt_is x then terminal (p2.id, p1.pot)
@@ -57,7 +58,9 @@ inl Game : game _ _ _ =
     let rec round_one (raises_left : i32) (p1,p2 : players) =
         action p1.id (if 0 < raises_left then actionsFull else actionsNoRaise) function
         | Fold => terminal (p2.id, p1.pot)
-        | Call => round_two_init (if p1.id = 0 then p1,p2 else p2,p1)
+        | Call => 
+            inl p1 = {p1 with pot=p2.pot}
+            round_two_init (if p1.id = 0 then p1,p2 else p2,p1)
         | Raise => round_one (raises_left-1) (p2,{p1 with pot=raiseBy 2 (p1,p2)})
 
     action p1.id actionsInit function

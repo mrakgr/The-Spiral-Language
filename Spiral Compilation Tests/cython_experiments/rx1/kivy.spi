@@ -1,0 +1,14 @@
+nominal widget = $"object"
+nominal app = $"object"
+
+inl App = app $"kivy.app.App()"
+inl app_setRoot (x : app) (v : widget) : () = $"!x.root = !v"
+inl app_run (x : app) : () = $"!x.run()"
+
+inl Button = widget $"kivy.uix.button.Button()"
+inl widget_setText (x : widget) (v : string) : () = $"!x.text = !v"
+
+inl KivyImports =
+    !!!!Import("kivy.app")
+    !!!!Import("kivy.uix.button")
+    ()

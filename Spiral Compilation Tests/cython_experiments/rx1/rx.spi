@@ -1,0 +1,10 @@
+nominal observable t = $"object"
+
+inl of_array forall t. (x : array t) : observable t = $"rx.from_iterable(!x)"
+inl map forall a b. (f : a -> b) : observable a -> observable b = $"rx.operators.map(!f)"
+inl filter forall a. (f : a -> bool) : observable a -> observable a = $"rx.operators.filter(!f)"
+inl subscribe forall t. (x : observable t) (on_succ : t -> ()) : () = $"!x.subscribe(!on_succ)"
+
+inl RxImports =
+    !!!!Import("rx")
+    !!!!Import("rx.operators")
