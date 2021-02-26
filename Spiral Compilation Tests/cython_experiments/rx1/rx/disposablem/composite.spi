@@ -1,0 +1,5 @@
+nominal composite_disposable = $"object"
+
+instance toDisposable composite_disposable = fun (composite_disposable x) => disposable x
+inl Create = composite_disposable $"rx.disposable.compositedisposable.CompositeDisposable()"
+inl add v (composite_disposable x) : () = inl v = toDisposable v in $"!x.add(!v)"

@@ -1,0 +1,13 @@
+nominal widget = $"object"
+nominal app = $"object"
+
+prototype toWidget m : m -> widget
+instance toWidget widget = id
+prototype addWidgetAt m : forall a {toWidget}. a -> u64 -> m -> ()
+inl addWidget a m = addWidgetAt a 0 m
+prototype removeWidget m : forall a {toWidget}. a -> m -> ()
+prototype clearWidgets m : m -> ()
+prototype text m : string -> m -> ()
+
+union orientation = Vertical | Horizontal
+prototype orientation m : orientation -> m -> ()

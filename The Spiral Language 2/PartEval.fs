@@ -1876,9 +1876,11 @@ let peval (env : TopEnv) (x : E) =
             | DSymbol _ -> DLit (LitBool true)
             | _ -> DLit (LitBool false)
         | EOp(_,VarIs,[a]) ->
-            match term s a with
-            | DNominal(DV _, _) | DV _ -> DLit (LitBool true)
-            | _ -> DLit (LitBool false)
+            let rec loop = function
+                | DNominal(x, _) -> loop x
+                | DV _ -> DLit (LitBool true)
+                | _ -> DLit (LitBool false)
+            loop (term s a)
         | EOp(_,UnionIs,[a]) -> 
             match term s a with
             | DNominal(DV(L(_,YUnion _)), _) | DNominal(DUnion _, _) -> DLit (LitBool true)

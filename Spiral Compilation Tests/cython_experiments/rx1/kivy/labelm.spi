@@ -1,0 +1,7 @@
+nominal label = $"object"
+
+instance toWidget label = fun (label x) => widget x
+inl Create = 
+    !!!!Import("kivy.uix.label")
+    label $"kivy.uix.label.Label()"
+instance text label = fun (v : string) (label x) => $"!x.text = !v"

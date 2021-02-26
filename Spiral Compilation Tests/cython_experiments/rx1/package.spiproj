@@ -1,7 +1,18 @@
 packages: |core-
 modules: 
-    kivy
-    kivy_test
-    rx
+    rx/
+        types-
+        disposablem/
+            composite
+            serial
+            scheduled
+        main-
     rx_test
+    kivy/
+        types-
+        appm
+        buttonm
+        labelm
+        boxlayoutm
+    kivy_test
     lithe
