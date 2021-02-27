@@ -4,6 +4,7 @@
 - [1/28/2021](#1282021)
 - [2/5/2021](#252021)
 - [2/11/2021](#2112021)
+- [2/27/2021](#2272021)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
     - [Getting Spiral](#getting-spiral)
@@ -81,6 +82,19 @@ Spiral now has array literals and patterns. Amongst other change signed 32-bit a
 The Cython array having unsigned 64-bit indexing and length, and the F# arrays having signed 32-bit of the same has been giving me a headache, and I converged to the current design of having two different unsigned variants of both arrays and strings. This is purely backend dependent. On the top level they will still show up as plain arrays, but using the wrong op will result in a type error during the codegen pass.
 
 In addition to above, the default (unadorned) int literal during the bottom-up pass is now an unsigned 32-bit int.
+
+# 2/27/2021
+
+```
+// Do the list literals work?
+inl main() = 
+    inl q = 1i32 :: 2 :: 3 :: dyn [4; 5; 6]
+    listm.fold (+) 0 q
+```
+
+Here are the list literals as well. I've also modified the list module `fold` and `foldBack` so the statically known list elements get evaluated at compile time. The use case for this will be the reactive UI library I am working on in Spiral. The combination of unary operators, lists and prototypes will make it particularly elegant.
+
+In addition to that, the last 3 weeks have seen a lot of development on Spiral. Numerous bug fixes have been made and the language's various features has been thoroughly tested. One particular series of bugs that I haven't dealt with yet is that deleting and renaming files in the editor is broken. At some point I'll have to make time to deal with that. Right now I want to finish the projects I have in mind first though.
 
 # The Spiral Language
 

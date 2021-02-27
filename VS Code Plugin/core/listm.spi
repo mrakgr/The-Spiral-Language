@@ -2,11 +2,17 @@
 inl singleton x = Cons: x, Nil
 // Applies a function to each element of the list, threading an accumulator argument through the computation. If the input function is f and the elements are i0...iN then computes f (... (f s i0)...) iN
 inl fold f s l =
-    let rec loop s = function Cons: x,x' => loop (f s x) x' | Nil => s
+    inl rec body s = function Cons: x,x' => loop (f s x) x' | Nil => s
+    and inl loop s l =
+        if var_is l then inl ~s = s in join body s l
+        else body s l 
     loop s l
 // Folds the list from the end to the beginning.
 inl foldBack f l s =
-    let rec loop s = function Cons: x,x' => f x (loop s x') | Nil => s
+    inl rec body s = function Cons: x,x' => f x (loop s x') | Nil => s
+    and inl loop s l =
+        if var_is l then inl ~s = s in join body s l
+        else body s l 
     loop s l
 // Reverses a list.
 inl rev l = fold (fun s x => Cons: x,s) Nil l

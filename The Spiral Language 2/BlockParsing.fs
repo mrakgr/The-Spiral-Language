@@ -207,6 +207,7 @@ type ParserErrors =
     | DuplicateUnionKey
     | MetavarShadowedByVar
     | VarShadowedByMetavar
+    | ListLiteralsNotAllowedInBottomUp
 
 type RawKindExpr =
     | RawKindWildcard
@@ -565,11 +566,6 @@ let skip_parenthesis a b d =
         | p, TokParenthesis(a',b') when a = a' && b = b' -> skip d; Ok()
         | p, _ -> Error [p, ExpectedParenthesis(a,b)]
 
-let inline peek_open_parenthesis f d =
-    try_current d <| function
-        | p, TokParenthesis(a',Open) -> f d
-        | p, _ -> Error [p, ExpectedOpenParenthesis]
-
 let on_succ x _ = Ok x
 let rounds a d = (skip_parenthesis Round Open >>. a .>> skip_parenthesis Round Close) d
 let curlies a d = (skip_parenthesis Curly Open >>. a .>> skip_parenthesis Curly Close) d
@@ -648,11 +644,14 @@ let join_point = function
     | RawJoinPoint _ as x -> x 
     | x -> RawJoinPoint(range_of_expr x, x)
 
-let rec let_join_point postfix = function
-    | RawFun(r,[a,b]) -> RawFun(r,[PatDyn(range_of_pattern a, a), let_join_point postfix b])
+// Some places need unique string refs, so this is to keep the compiler from interning static strings.
+let unintern a b = sprintf "%s%c" a b
+
+let rec let_join_point = function
+    | RawFun(r,[a,b]) -> RawFun(r,[PatDyn(range_of_pattern a, a), let_join_point b])
     | RawFun(r,l) -> 
         let empty = fst r, fst r
-        let n = sprintf " arg%s" postfix // Don't remove the postfix otherwise the string will get interned by the .NET compiler.
+        let n = unintern " ar" 'g'
         let a = PatDyn(empty,PatVar(empty,n))
         let b = RawMatch(empty,RawV(empty,n),List.map (fun (a,b) -> PatDyn(range_of_pattern a, a),b) l)
         RawFun(r,[a,join_point b])
@@ -673,7 +672,7 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
         | [] -> 
             let body = 
                 let dyn_if_let x = if is_let then PatDyn(range_of_pattern x, x) else x
-                (if is_let then let_join_point "let" body else body)
+                (if is_let then let_join_point body else body)
                 |> List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[dyn_if_let pat,body])) pats
                 |> List.foldBack (fun typevar body -> RawForall(range_of_typevar typevar +. range_of_expr body,typevar,body)) foralls
             match is_rec, body with
@@ -798,17 +797,6 @@ let symbol_paired_concat k =
 let module_open = range ((skip_keyword SpecOpen >>. read_small_var') .>>. (many read_symbol))
 let bar i d = indent i (<=) (skip_op "|") d
 
-let inline unit' f d =
-    let i = index d
-    if i+1 < d.tokens.Length then
-        let a,b = d.tokens.[i], d.tokens.[i+1]
-        let r = fst a +. fst b
-        match snd a, snd b with
-        | TokParenthesis(Round,Open), TokParenthesis(Round,Close) -> skip' d 2; Ok(f r)
-        | _ -> Error [fst a, ExpectedUnit]
-    else
-        Error []
-
 let inline pat_pair next = 
     sepBy1 next (skip_op ",") 
     |>> List.reduceBack (fun a b -> PatPair(range_of_pattern a +. range_of_pattern b,a,b))
@@ -825,6 +813,7 @@ let root_type_defaults = {
     allow_wildcard = false
     }
 
+let range_empty = {|line=0; character=0|}, {|line=0; character=0|}
 
 let default_float = Float64T
 let default_int = UInt32T
@@ -881,7 +870,7 @@ let pat_var d =
             PatUnbox(r,PatPair(r,PatSymbol(r,to_lower a), PatB r))
         else PatVar(r,a)
         ) d
-let rec pat_nominal d =
+let rec root_pattern_nominal d =
     (read_var' >>= fun (r,a,re) _ ->
         if Char.IsUpper(a,0) then 
             re SemanticTokenLegend.symbol
@@ -892,33 +881,40 @@ let rec pat_nominal d =
                 PatNominal(r +. range_of_pattern b,(r,a),b)
                 ) <|>% PatVar(r,a)) d
         ) d
-and pat_wildcard d = (skip_keyword' SpecWildcard |>> PatE) d
-and pat_dyn d = (range (skip_unary_op "~" >>. root_pattern_var) |>> PatDyn) d
-and pat_record d = 
+and root_pattern_wildcard d = (skip_keyword' SpecWildcard |>> PatE) d
+and root_pattern_dyn d = (range (skip_unary_op "~" >>. root_pattern_var) |>> PatDyn) d
+and root_pattern_record d = 
     let pat_record_item =
         let inj = skip_unary_op "$" >>. read_small_var' |>> fun a -> PatRecordMembersInjectVar,a
         let var = range record_var |>> fun a -> PatRecordMembersSymbol,a
         ((inj <|> var) .>>. (opt (skip_op "=" >>. root_pattern_pair)))
         |>> fun ((f,a),b) -> f (a, defaultArg b (PatVar a))
     (range (curlies (many pat_record_item)) |>> PatRecordMembers) d
+and root_pattern_type s = 
+    pipe2 root_pattern (opt (skip_op ":" >>. root_type_annot))
+        (fun a -> function Some b -> PatAnnot(range_of_pattern a +. range_of_texpr b,a,b) | None -> a) s
+and root_pattern_rounds d = 
+    (range (rounds ((((read_op' |>> PatVar) <|> root_pattern_type) |>> fun x _ -> x) <|>% PatB))
+    |>> fun (r,x) -> x r) d
 and root_pattern s =
+    let pat_list_pair a b = PatUnbox(range_empty,PatPair(range_empty,PatSymbol(range_empty,"cons_"),PatPair(range_empty,a,b)))
     let body s = 
-        let pat_unit = unit' PatB
         let pat_value = (read_value |>> PatValue) <|> (read_default_value PatDefaultValue PatValue)
         let pat_string = read_string |>> (fun (a,x,b) -> PatValue(a +. b,LitString x))
         let pat_symbol = read_symbol |>> PatSymbol
-        let pat_type = 
-            pipe2 root_pattern (opt (skip_op ":" >>. root_type_annot))
-                (fun a -> function Some b -> PatAnnot(range_of_pattern a +. range_of_texpr b,a,b) | None -> a)
-        let pat_rounds = rounds (pat_type <|> (read_op' |>> PatVar))
-        let pat_array = skip_unary_op ";" >>. range (squares (sepBy pat_type (skip_op ";"))) |>> (fun (r,x) -> PatArray(r,x))
+        let pat_array = skip_unary_op ";" >>. range (squares (sepBy root_pattern_type (skip_op ";"))) |>> (fun (r,x) -> PatArray(r,x))
+        let pat_list = 
+            squares (sepBy root_pattern_type (skip_op ";"))
+            |>> fun x -> List.foldBack pat_list_pair x (PatUnbox(range_empty,PatPair(range_empty,PatSymbol(range_empty,"nil"),PatB range_empty)))
         let (+) = alt (index s)
-        (pat_unit + pat_rounds + pat_nominal + pat_wildcard + pat_dyn + pat_value + pat_string + pat_record + pat_symbol + pat_array) s
+        (root_pattern_rounds + root_pattern_nominal + root_pattern_wildcard + root_pattern_dyn + pat_value + pat_string 
+        + root_pattern_record + pat_symbol + pat_array + pat_list) s
 
     let pat_and = sepBy1 body (skip_op "&") |>> List.reduce (fun a b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b))
     let pat_pair = pat_pair pat_and
+    let pat_cons = sepBy1 pat_pair (skip_op "::") |>> List.reduceBack pat_list_pair
     let pat_symbol_paired = 
-        let next = pat_pair
+        let next = pat_cons
         (many1 (read_symbol_paired' .>>. opt next) |>> fun l ->
             let l,is_upper = match l with ((r,a,re),b) :: l' -> ((r,to_lower a,re),b) :: l', Char.IsUpper(a,0) | _ -> [], true
             let f ((r,a,re),b) = (r, a), Option.defaultWith (fun () -> re SemanticTokenLegend.variable; PatVar(r,a)) b
@@ -936,7 +932,7 @@ and root_pattern s =
 and root_pattern_when d = (root_pattern .>>. (opt (skip_keyword SpecWhen >>. root_term)) |>> function a, Some b -> PatWhen(range_of_pattern a +. range_of_expr b,a,b) | a, None -> a) d
 and root_pattern_var d = 
     let (+) = alt (index d)
-    (pat_var + pat_wildcard + pat_dyn + peek_open_parenthesis root_pattern) d
+    (pat_var + root_pattern_wildcard + root_pattern_dyn + root_pattern_rounds + root_pattern_record) d
 and root_pattern_pair d = pat_pair root_pattern_var d
 and root_type_annot d = root_type {root_type_defaults with allow_term=d.is_top_down=false; allow_wildcard=d.is_top_down} d
 and root_type (flags : RootTypeFlags) d =
@@ -960,9 +956,12 @@ and root_type (flags : RootTypeFlags) d =
             else
                 r SemanticTokenLegend.type_variable
                 RawTVar(o, x)
+        let rounds =
+            range (rounds ((next |>> fun x _ -> x) <|>% RawTB))
+            |>> fun (r,x) -> x r
         let macro = pipe3 skip_macro_open (many ((read_text |>> RawMacroText) <|> read_macro_type_var)) skip_macro_close (fun a l b -> RawTMacro(a +. b, l))
         let (+) = alt (index d)
-        (unit' RawTB + rounds next + wildcard + term + metavar + var + record + symbol + macro) d
+        (rounds + wildcard + term + metavar + var + record + symbol + macro) d
     let apply d = 
         (pipe2 cases (many (indent (col d) (<) cases)) 
             (fun a b -> List.fold (fun a b -> RawTApply(range_of_texpr a +. range_of_texpr b,a,b)) a b)) d
@@ -988,8 +987,9 @@ and root_term d =
     let rec expressions d =
         let next = root_term
         let case_var = read_var' |>> fun (r,x,leg) -> if Char.IsUpper(x,0) then leg SemanticTokenLegend.symbol; RawBigV(r, to_lower x) else RawV(r,x)
-        let case_unit = unit' RawB
-        let case_rounds = rounds ((read_op' |>> RawV) <|> next)
+        let case_rounds = 
+            range (rounds ((((read_op' |>> RawV) <|> next) |>> fun x _ -> x) <|>% RawB))
+            |>> fun (r,x) -> x r
         let case_fun =
             (skip_keyword SpecFun >>. many1 root_pattern_pair .>>. (annotated_body "=>" next root_type_annot))
             >>= fun (pats, body) _ ->
@@ -1082,11 +1082,21 @@ and root_term d =
         let case_join_point = skip_keyword SpecJoin >>. next |>> join_point
         let case_real = skip_keyword SpecReal >>. (fun d -> next {d with is_top_down=false}) |>> fun x -> RawReal(range_of_expr x,x)
         let case_symbol = read_symbol |>> RawSymbol
+        let sequence_body d = (many1 (indent (col d) (=) (sepBy1 operators (skip_op ";"))) |>> List.concat) d
+        let case_list = range (squares sequence_body) >>= fun (r,l) d -> 
+            if d.is_top_down then
+                List.foldBack (fun a b -> 
+                    let r = range_of_expr a
+                    RawApply(r,RawV(range_empty,unintern "cons" '_'),RawPair(r,a,b))
+                    ) l (RawBigV(range_empty,unintern "ni" 'l')) |> Ok
+            else
+                Error [r, ListLiteralsNotAllowedInBottomUp]
+
         let case_unary_op = 
             read_unary_op' >>= fun (o,a) d ->
                 let type_expr d = ((read_type_var' |>> RawTVar) <|> (rounds (fun d -> root_type {root_type_defaults with allow_term=true} d))) d
                 match a with
-                | ";" -> (range (squares (sepBy root_term (skip_op ";"))) |>> fun (r,x) -> RawArray(r,x)) d
+                | ";" -> (range (squares sequence_body) |>> fun (r,x) -> RawArray(r,x)) d
                 | "!!!!" -> 
                     (range (read_big_var .>>. (rounds (sepBy1 (fun d -> expressions {d with is_top_down=false}) (skip_op ","))))
                     >>= fun (r,((ra,a), b)) _ ->
@@ -1103,10 +1113,10 @@ and root_term d =
         let (+) = alt (index d)
 
         (case_value + case_default_value + case_var + case_join_point + case_real + case_symbol
-        + case_typecase + case_match + case_typecase + case_unit + case_rounds + case_record
+        + case_typecase + case_match + case_typecase + case_rounds + case_list + case_record
         + case_if_then_else + case_fun + case_forall + case_unary_op + case_string + case_macro) d
 
-    let application_tight d =
+    and application_tight d =
         let next = expressions
         let inline expr_tight (d: Env) = 
             let i = index d
@@ -1117,11 +1127,11 @@ and root_term d =
 
         pipe2 next (many expr_tight) (List.fold (fun a b -> RawApply(range_of_expr a +. range_of_expr b,a,b))) d
 
-    let application (d: Env) =
+    and application (d: Env) =
         let next = application_tight
         pipe2 next (many (indent (col d) (<) next)) (List.fold (fun a b -> RawApply(range_of_expr a +. range_of_expr b,a,b))) d
 
-    let operators d =
+    and operators d =
         let term = application
         let i = col d
         let op = indent i (<=) op

@@ -1,0 +1,4 @@
+// Do the list literals work?
+inl main() = 
+    inl q = 1i32 :: 2 :: 3 :: dyn [4; 5; 6]
+    listm.fold (+) 0 q

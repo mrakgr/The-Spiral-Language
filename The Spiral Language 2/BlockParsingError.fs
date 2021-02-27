@@ -95,6 +95,7 @@ let show_parser_error = function
     | DuplicateRecFunctionName -> "Shadowing of functions by the members of the same mutually recursive block is not allowed."
     | BottomUpNumberParseError (x, val_dsc) -> sprintf "The string %s cannot be safely parsed as %s." x val_dsc
     | DuplicateUnionKey -> "Duplicate union keys are not allowed."
+    | ListLiteralsNotAllowedInBottomUp -> "List literals are not allowed in the bottom-up segment."
 
 let show_block_parsing_error line (l : (VSCRange * ParserErrors) list) =
     l |> List.groupBy fst
