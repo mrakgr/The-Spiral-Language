@@ -2,5 +2,7 @@ nominal observable t = $"object"
 nominal disposable = $"object"
 nominal scheduler = $"object"
 
+nominal observer t = $"object"
+
 prototype toDisposable m : m -> disposable
 instance toDisposable disposable = id

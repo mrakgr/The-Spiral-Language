@@ -1,0 +1,3 @@
+inl on_next forall t. (x : observer t) (v : t) : () = $"!x.on_next(!v)"
+inl on_error forall t er. (x : observer t) (v : er) : () = $"!x.on_error(!v)"
+inl on_complete forall t. (x : observer t) : () = $"!x.on_complete()"

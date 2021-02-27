@@ -3,6 +3,7 @@ inl map forall a b. (f : a -> b) : observable a -> observable b = $"rx.operators
 inl filter forall a. (f : a -> bool) : observable a -> observable a = $"rx.operators.filter(!f)"
 inl subscribe forall t. (x : observable t) (on_succ : t -> ()) = disposable $"!x.subscribe(!on_succ)"
 inl dispose (disposable x) : () = $"!x.dispose()"
+inl create forall a. (f : observer a -> disposable) : observable a = $"rx.create(!f)"
 
 inl RxImports =
     !!!!Import("rx")

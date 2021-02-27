@@ -2,6 +2,6 @@ open kivy
 inl main () =
     inl app = appm.create()
     inl w = buttonm.create()
-    buttonm.setText w "Hello World"
-    appm.setRoot app (buttonm.upcast w)
+    text "Hello World" w
+    appm.root app w
     appm.run app

@@ -3,9 +3,8 @@ nominal app = $"object"
 
 prototype toWidget m : m -> widget
 instance toWidget widget = id
-prototype addWidgetAt m : forall a {toWidget}. a -> u64 -> m -> ()
-inl addWidget a m = addWidgetAt a 0 m
-prototype removeWidget m : forall a {toWidget}. a -> m -> ()
+prototype addWidget m : widget -> u64 -> m -> ()
+prototype removeWidget m : widget -> m -> ()
 prototype clearWidgets m : m -> ()
 prototype text m : string -> m -> ()
 

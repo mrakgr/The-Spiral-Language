@@ -2,4 +2,4 @@ nominal serial_disposable = $"object"
 
 instance toDisposable serial_disposable = fun (serial_disposable x) => disposable x
 inl Create = serial_disposable $"rx.disposable.serialdisposable.SerialDisposable()"
-inl set v (serial_disposable x) : () = inl v = toDisposable v in $"!x.disposable = !v"
+inl set (serial_disposable x) (v : disposable) : () = $"!x.disposable = !v"

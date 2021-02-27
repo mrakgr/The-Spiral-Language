@@ -2,6 +2,7 @@ packages: |core-
 modules: 
     rx/
         types-
+        observerm
         disposablem/
             composite
             serial
