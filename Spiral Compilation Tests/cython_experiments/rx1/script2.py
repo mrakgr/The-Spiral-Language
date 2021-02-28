@@ -14,12 +14,7 @@ class TestApp(App):
         def f(args): 
             args.text = "X"
             label.text = "The button has been pressed."
-        def g(args): 
-            args.text = "Y"
-            label.text = "The button has been pressed."
-        # btn.bind(on_press=f)
-        btn.on_press = f
-        # btn.bind(on_press=g)
+        btn.fbind("on_press",f)
         return lay
 
 TestApp().run()

@@ -1,4 +1,4 @@
-nominal label = $"object"
+nominal label = obj
 
 instance toWidget label = fun (label x) => widget x
 inl Create = 

@@ -1,0 +1,2 @@
+// Creates a disposable.
+inl create (f : () -> ()) : disposable = $"rx.disposable.disposable.Disposable(!f)"

@@ -1,1 +1,1 @@
-inl create (scheduler s, x) = inl x = toDisposable x in disposable $"rx.disposable.scheduleddisposable.ScheduledDisposable(!s,!x)"
+inl create (scheduler s, disposable x) = disposable $"rx.disposable.scheduleddisposable.ScheduledDisposable(!s,!x)"

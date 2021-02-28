@@ -1,7 +1,9 @@
-nominal button = $"object"
+nominal button = obj
 
 instance toWidget button = fun (button x) => widget x
 inl Create = 
     !!!!Import("kivy.uix.button")
     button $"kivy.uix.button.Button()"
-instance text button = fun (v : string) (button x) => $"!x.text = !v"
+instance text button = fun (v : string) x => $"!x.text = !v"
+open rx
+instance on_press button = helpers.bind_zero "on_press"

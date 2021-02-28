@@ -1,8 +1,8 @@
-nominal boxlayout = $"object"
+nominal boxlayout = obj
 
 instance toWidget boxlayout = fun (boxlayout x) => widget x
 inl Create = 
-    !!!!Import("kivy.uix.label")
+    !!!!Import("kivy.uix.boxlayout")
     boxlayout $"kivy.uix.boxlayout.BoxLayout()"
 
 instance orientation boxlayout = fun v x => 

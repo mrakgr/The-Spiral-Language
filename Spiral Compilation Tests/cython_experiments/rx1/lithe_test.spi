@@ -1,0 +1,19 @@
+open kivy
+open lithe
+inl UI =
+    boxlayout [
+        -orientation Vertical
+        children [
+            label [-text "Press the button."]
+            button [
+                -text "Press me."
+                @on_press (fun () => $"print(\"The button has been pressed.\")")
+                ]
+            ]
+        ]
+
+inl main () =
+    rx.rxImports()
+    inl app = appm.create()
+    inl _ = rx.subscribe UI (appm.root app)
+    appm.run app

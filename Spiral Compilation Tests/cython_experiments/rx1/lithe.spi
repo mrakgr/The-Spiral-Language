@@ -5,34 +5,35 @@ inl control c l = create fun obs =>
     inl c = c()
     inl disp = disposablem.composite.create()
     listm.iter (fun f => match f c with None => () | Some: (x : disposable) => disposablem.composite.add disp x) l
-    observerm.on_next obs c
+    observerm.on_next obs (toWidget c)
     toDisposable disp
 
 inl children l c =
-    inl in_front = a64.init (listm.length l) (fun _ => 0)
+    inl len = listm.length l
+    inl in_front = a64.init len (fun _ => 0)
+    inl prev_widget = a64.init len (fun _ => None)
     inl disp = disposablem.composite.create()
     listm.fold (fun i x =>
-        let prev_widget = mut None
         inl subs = subscribe x fun x => 
-            match *prev_widget with
+            match a64.index prev_widget i with
             | None => loop.forDown' (nearFrom: i to: 0) (fun i => a64.set in_front i (a64.index in_front i + 1))
             | Some: x => removeWidget x c
             addWidget x (a64.index in_front i) c
-            prev_widget <- (Some: x)
+            a64.set prev_widget i (Some: x)
         disposablem.composite.add disp subs
         i+1
         ) 0 l
     |> fun _ => Some: toDisposable disp
 
-inl (~-) f x = f x . None
-inl (~+) f x = Some: subscribe x f
-inl (~@) f x = Some: (f x : disposable)
-inl (~#) f x =
+inl (~-) f x c = f x c . None
+inl (~+) f x c = Some: subscribe x (fun x => f x c)
+inl (~@) f x c = Some: (f x c : disposable)
+inl (~#) f x c =
     inl disp = disposablem.serial.create()
-    inl x = subscribe x (fun x => disposablem.serial.set disp (f x))
+    inl x = subscribe x (fun x => disposablem.serial.set disp (f x c))
     inl d = disposablem.composite.create()
     listm.iter (disposablem.composite.add d) [x; toDisposable disp]
-    d
+    toDisposable d
 
 inl button x = control buttonm.create x
 inl boxlayout x = control boxlayoutm.create x

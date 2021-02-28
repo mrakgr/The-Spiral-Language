@@ -1,0 +1,5 @@
+open rx
+inl bind_zero (event_name : string) (f : () -> ()) x =
+    inl f (x : obj) = f ()
+    inl uid : obj = $"!x.fbind(!event_name,!f)"
+    disposablem.create fun () => $"!x.unbind_uid(!event_name,!uid)"

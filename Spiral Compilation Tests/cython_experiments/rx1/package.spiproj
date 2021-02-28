@@ -7,13 +7,16 @@ modules:
             composite
             serial
             scheduled
+            main-
         main-
     rx_test
     kivy/
         types-
+        helpers
         appm
         buttonm
         labelm
         boxlayoutm
     kivy_test
     lithe
+    lithe_test

@@ -1,8 +1,9 @@
-nominal observable t = $"object"
-nominal disposable = $"object"
-nominal scheduler = $"object"
-
-nominal observer t = $"object"
+type obj = $"object"
+type tuple = $"*"
+nominal observable t = obj
+nominal disposable = obj
+nominal scheduler = obj
+nominal observer t = obj
 
 prototype toDisposable m : m -> disposable
 instance toDisposable disposable = id

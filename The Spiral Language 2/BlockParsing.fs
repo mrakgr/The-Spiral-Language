@@ -1082,7 +1082,7 @@ and root_term d =
         let case_join_point = skip_keyword SpecJoin >>. next |>> join_point
         let case_real = skip_keyword SpecReal >>. (fun d -> next {d with is_top_down=false}) |>> fun x -> RawReal(range_of_expr x,x)
         let case_symbol = read_symbol |>> RawSymbol
-        let sequence_body d = (many1 (indent (col d) (=) (sepBy1 operators (skip_op ";"))) |>> List.concat) d
+        let sequence_body d = (many (indent (col d) (=) (sepBy1 operators (skip_op ";"))) |>> List.concat) d
         let case_list = range (squares sequence_body) >>= fun (r,l) d -> 
             if d.is_top_down then
                 List.foldBack (fun a b -> 
