@@ -1,9 +1,10 @@
-import rx
-import rx.operators
-import rx.disposable
 import kivy.app
+import rx.subject
+import rx
 import kivy.uix.label
+import rx.disposable
 import kivy.uix.button
+import kivy.clock
 import kivy.uix.boxlayout
 import numpy
 cimport numpy
@@ -16,16 +17,45 @@ cdef class Closure0():
         v1 = v0[0]
         pass # import kivy.uix.label
         v2 = kivy.uix.label.Label()
+        pass # import rx.disposable
         v3 = rx.disposable.compositedisposable.CompositeDisposable()
         v2.text = "Press the button."
         v1.on_next(v2)
         del v1; del v2
         return v3
 cdef class Closure2():
-    def __init__(self): pass
-    def __call__(self, object v0):
-        print("The button has been pressed.")
+    cdef object v0
+    def __init__(self, v0): self.v0 = v0
+    def __call__(self, unsigned long v1):
+        cdef object v0 = self.v0
+        cdef bint v2
+        cdef str v4
+        v2 = v1 == 0
+        if v2:
+            v4 = "Click me."
+        else:
+            v4 = f"The button has been clicked {v1} times."
+        v0.text = v4
+cdef class Closure4():
+    cdef object v0
+    def __init__(self, v0): self.v0 = v0
+    def __call__(self, object v1):
+        cdef object v0 = self.v0
+        cdef unsigned long v2
+        cdef unsigned long v3
+        v2 = v0.value
+        v3 = 1 + v2
+        v0.on_next(v3)
 cdef class Closure3():
+    cdef object v0
+    def __init__(self, v0): self.v0 = v0
+    def __call__(self, object v1):
+        cdef object v0 = self.v0
+        cdef object v2
+        pass # import kivy.clock
+        v2 = Closure4(v0)
+        kivy.clock.Clock.schedule_once(v2)
+cdef class Closure5():
     cdef object v0
     cdef object v1
     def __init__(self, v0, v1): self.v0 = v0; self.v1 = v1
@@ -34,32 +64,42 @@ cdef class Closure3():
         cdef object v1 = self.v1
         v0.unbind_uid("on_press",v1)
 cdef class Closure1():
-    def __init__(self): pass
-    def __call__(self, * v0):
-        cdef object v1
+    cdef object v0
+    def __init__(self, v0): self.v0 = v0
+    def __call__(self, * v1):
+        cdef object v0 = self.v0
         cdef object v2
         cdef object v3
         cdef object v4
         cdef object v5
         cdef object v6
         cdef object v7
-        v1 = v0[0]
+        cdef object v8
+        cdef object v9
+        cdef object v10
+        v2 = v1[0]
         pass # import kivy.uix.button
-        v2 = kivy.uix.button.Button()
-        v3 = rx.disposable.compositedisposable.CompositeDisposable()
-        v2.text = "Press me."
-        v4 = Closure2()
-        v5 = v2.fbind("on_press",v4)
-        del v4
-        v6 = Closure3(v2, v5)
+        v3 = kivy.uix.button.Button()
+        pass # import rx.disposable
+        v4 = rx.disposable.compositedisposable.CompositeDisposable()
+        v5 = Closure2(v3)
+        v6 = v0.subscribe(v5)
         del v5
-        v7 = rx.disposable.disposable.Disposable(v6)
+        v4.add(v6)
         del v6
-        v3.add(v7)
+        v7 = Closure3(v0)
+        v8 = v3.fbind("on_press",v7)
         del v7
-        v1.on_next(v2)
-        del v1; del v2
-        return v3
+        pass # import rx.disposable
+        v9 = Closure5(v3, v8)
+        del v8
+        v10 = rx.disposable.disposable.Disposable(v9)
+        del v9
+        v4.add(v10)
+        del v10
+        v2.on_next(v3)
+        del v2; del v3
+        return v4
 cdef class US0:
     cdef readonly signed long tag
 cdef class US0_0(US0): # none
@@ -67,7 +107,7 @@ cdef class US0_0(US0): # none
 cdef class US0_1(US0): # some_
     cdef readonly object v0
     def __init__(self, v0): self.tag = 1; self.v0 = v0
-cdef class Closure5():
+cdef class Closure7():
     cdef object v0
     cdef object v1
     cdef object v2
@@ -94,7 +134,7 @@ cdef class Closure5():
         v0.add_widget(v3,v7)
         v8 = US0_1(v3)
         v2[0] = v8
-cdef class Closure6():
+cdef class Closure8():
     cdef object v0
     cdef object v1
     cdef object v2
@@ -121,7 +161,7 @@ cdef class Closure6():
         v0.add_widget(v3,v7)
         v8 = US0_1(v3)
         v2[1] = v8
-cdef class Closure4():
+cdef class Closure6():
     cdef object v0
     cdef object v1
     def __init__(self, v0, v1): self.v0 = v0; self.v1 = v1
@@ -143,6 +183,7 @@ cdef class Closure4():
         v3 = v2[0]
         pass # import kivy.uix.boxlayout
         v4 = kivy.uix.boxlayout.BoxLayout()
+        pass # import rx.disposable
         v5 = rx.disposable.compositedisposable.CompositeDisposable()
         v4.orientation = 'vertical'
         v6 = numpy.empty(2,dtype=numpy.uint64)
@@ -151,13 +192,14 @@ cdef class Closure4():
         v8 = numpy.empty(2,dtype=object)
         v9 = 0
         method1(v8, v9)
+        pass # import rx.disposable
         v10 = rx.disposable.compositedisposable.CompositeDisposable()
-        v11 = Closure5(v4, v6, v8)
+        v11 = Closure7(v4, v6, v8)
         v12 = v0.subscribe(v11)
         del v11
         v10.add(v12)
         del v12
-        v13 = Closure6(v4, v6, v8)
+        v13 = Closure8(v4, v6, v8)
         del v6; del v8
         v14 = v1.subscribe(v13)
         del v13
@@ -168,7 +210,7 @@ cdef class Closure4():
         v3.on_next(v4)
         del v3; del v4
         return v5
-cdef class Closure7():
+cdef class Closure9():
     cdef object v0
     def __init__(self, v0): self.v0 = v0
     def __call__(self, object v1):
@@ -255,22 +297,26 @@ cpdef void main():
     cdef object v6
     cdef object v7
     cdef object v8
-    pass # import rx
-    pass # import rx.operators
-    pass # import rx.disposable
+    cdef object v9
     pass # import kivy.app
     v0 = kivy.app.App()
-    v1 = Closure0()
-    v2 = rx.create(v1)
+    pass # import rx.subject
+    v1 = rx.subject.behaviorsubject.BehaviorSubject(0)
+    pass # import rx
+    v2 = Closure0()
+    v3 = rx.create(v2)
+    del v2
+    pass # import rx
+    v4 = Closure1(v1)
     del v1
-    v3 = Closure1()
-    v4 = rx.create(v3)
-    del v3
-    v5 = Closure4(v2, v4)
-    del v2; del v4
-    v6 = rx.create(v5)
-    del v5
-    v7 = Closure7(v0)
-    v8 = v6.subscribe(v7)
-    del v6; del v7; del v8
+    v5 = rx.create(v4)
+    del v4
+    pass # import rx
+    v6 = Closure6(v3, v5)
+    del v3; del v5
+    v7 = rx.create(v6)
+    del v6
+    v8 = Closure9(v0)
+    v9 = v7.subscribe(v8)
+    del v7; del v8; del v9
     v0.run()

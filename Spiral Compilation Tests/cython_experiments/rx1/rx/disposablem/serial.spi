@@ -1,5 +1,0 @@
-nominal serial_disposable = obj
-
-instance toDisposable serial_disposable = fun (serial_disposable x) => disposable x
-inl Create = serial_disposable $"rx.disposable.serialdisposable.SerialDisposable()"
-inl set (serial_disposable x) (v : disposable) : () = $"!x.disposable = !v"

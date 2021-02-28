@@ -1,11 +1,16 @@
-inl of_array forall t. (x : array t) : observable t = $"rx.from_iterable(!x)"
-inl map forall a b. (f : a -> b) : observable a -> observable b = $"rx.operators.map(!f)"
-inl filter forall a. (f : a -> bool) : observable a -> observable a = $"rx.operators.filter(!f)"
+inl of_array forall t. (x : array t) : observable t = 
+    !!!!Import("rx")
+    $"rx.from_iterable(!x)"
+inl map forall a b. (f : a -> b) : observable a -> observable b = 
+    !!!!Import("rx.operators")
+    $"rx.operators.map(!f)"
+inl filter forall a. (f : a -> bool) : observable a -> observable a = 
+    !!!!Import("rx.operators")
+    $"rx.operators.filter(!f)"
 inl subscribe forall t. (x : observable t) (on_succ : t -> ()) = disposable $"!x.subscribe(!on_succ)"
 inl dispose (disposable x) : () = $"!x.dispose()"
-inl create forall a. (f : observer a -> disposable) : observable a = inl f (x : tuple) = f $"!x[0]" in $"rx.create(!f)"
-
-inl RxImports =
+inl create forall a. (f : observer a -> disposable) : observable a = 
     !!!!Import("rx")
-    !!!!Import("rx.operators")
-    !!!!Import("rx.disposable")
+    inl f (x : tuple) = f $"!x[0]" 
+    $"rx.create(!f)"
+

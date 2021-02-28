@@ -1,7 +1,7 @@
-import rx
-import rx.operators
 import numpy
 cimport numpy
+import rx
+import rx.operators
 cdef class Tuple0:
     cdef readonly str v0
     cdef readonly unsigned long long v1
@@ -24,7 +24,7 @@ cdef class Closure2():
         cdef str v0 = args.v0
         cdef unsigned long long v1 = args.v1
         print(f"Got a value: {v0}")
-cpdef void main():
+cpdef object main():
     cdef numpy.ndarray[str,ndim=1] v0
     cdef object v1
     cdef object v2
@@ -34,21 +34,25 @@ cpdef void main():
     cdef object v6
     cdef object v7
     cdef object v8
-    pass # import rx
-    pass # import rx.operators
+    cdef object v9
     v0 = numpy.empty(5,dtype=object)
     v0[0] = "a"; v0[1] = "ab"; v0[2] = "abc"; v0[3] = "abcd"; v0[4] = "abcde"
+    pass # import rx
     v1 = rx.from_iterable(v0)
     del v0
+    pass # import rx.operators
     v2 = Closure0()
     v3 = rx.operators.map(v2)
     del v2
     v4 = v3(v1)
     del v1; del v3
+    pass # import rx.operators
     v5 = Closure1()
     v6 = rx.operators.filter(v5)
     del v5
     v7 = v6(v4)
     del v4; del v6
     v8 = Closure2()
-    v7.subscribe(v8)
+    v9 = v7.subscribe(v8)
+    del v7; del v8
+    return v9

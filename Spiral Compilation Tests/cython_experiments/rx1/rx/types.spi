@@ -4,6 +4,22 @@ nominal observable t = obj
 nominal disposable = obj
 nominal scheduler = obj
 nominal observer t = obj
+nominal subject t = obj
 
 prototype toDisposable m : m -> disposable
 instance toDisposable disposable = id
+prototype push m : m -> disposable -> ()
+
+prototype toObservable m a : m a -> observable a
+prototype toObserver m a : m a -> observer a
+prototype toSubject m a : m a -> subject a
+
+inl onNext forall t. (x : _ t) (v : t) : () = inl x = toObserver x in $"!x.on_next(!v)"
+inl onError forall t er. (x : _ t) (v : er) : () = inl x = toObserver x in $"!x.on_error(!v)"
+inl onComplete forall t. (x : _ t) : () = inl x = toObserver x in $"!x.on_complete()"
+
+instance toObserver observer = id
+
+instance toObservable subject = fun (subject x) => observable x
+instance toObserver subject = fun (subject x) => observer x
+instance toSubject subject = id

@@ -2,14 +2,9 @@ packages: |core-
 modules: 
     rx/
         types-
-        observerm
-        disposablem/
-            composite
-            serial
-            scheduled
-            main-
+        disposablem
+        subjectm
         main-
-    rx_test
     kivy/
         types-
         helpers
@@ -17,6 +12,8 @@ modules:
         buttonm
         labelm
         boxlayoutm
+    lithe/
+        main-
+    rx_test
     kivy_test
-    lithe
     lithe_test

@@ -1,6 +1,5 @@
 open rx
 inl main () =
-    RxImports
     inl x = of_array ;["a"; "ab"; "abc"; "abcd"; "abcde"]
     inl y = x |> map (fun x => x, s64.length x) |> filter (fun x => 2 < snd x)
     subscribe y (fun x,_ => $"print(f\"Got a value: {!x}\")")

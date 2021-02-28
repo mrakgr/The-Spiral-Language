@@ -1,5 +1,0 @@
-nominal composite_disposable = obj
-
-instance toDisposable composite_disposable = fun (composite_disposable x) => disposable x
-inl Create = composite_disposable $"rx.disposable.compositedisposable.CompositeDisposable()"
-inl add (composite_disposable x) (v : disposable) : () = $"!x.add(!v)"
