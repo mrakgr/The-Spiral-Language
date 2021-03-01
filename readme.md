@@ -1,5 +1,6 @@
 <!-- TOC -->
 
+- [Support Spiral](#support-spiral)
 - [News](#news)
 - [1/28/2021](#1282021)
 - [2/5/2021](#252021)
@@ -49,6 +50,10 @@
     - [Known Bugs](#known-bugs)
 
 <!-- /TOC -->
+
+# Support Spiral
+
+[Link](https://opencollective.com/spiral-collective).
 
 # News
 
