@@ -11,8 +11,6 @@ type FileOpenRes = Block list * RString []
 type FileChangeRes = Block list * RString []
 type FileTokenAllRes = VSCTokenArray
 
-type ParsedBlock = {parsed: Result<TopStatement, (VSCRange * ParserErrors) list> * LineTokens; offset: int}
-
 /// Reads the comments up to a statement, and then reads the statement body. Leaves any errors for the parsing stage.
 let block_at (lines : LineTokens) i =
     let mutable block = PersistentVector.empty
@@ -39,15 +37,21 @@ let block_at (lines : LineTokens) i =
     loop_initial i
     {block = block; offset = i}
 
+// Parses all the blocks.
 let rec block_all lines i = 
     if i < PersistentVector.length lines then 
         let x = block_at lines i
         x :: block_all lines (i+x.block.Length) else []
 
-let block_separate (lines : LineTokens) (blocks : Block list) (edit : SpiEdit) =
+// Parses all the blocks with diffing. Only parses those blocks which are dirty based of the edit range. Preserves ref equality and saves work.
+// Without considering ref preservation, it is functionally equivalent to just call `block_all` on just `lines`.
+// This function is difficult to read as it is several operations fused into one loop.
+let block_all_wdiff (lines : LineTokens) (blocks : Block list) (edit : SpiEdit) =
     // Lines added minus lines removed.
     let line_adjustment = edit.lines.Length - (edit.nearTo - edit.from)
     // The dirty block boundary needs to be more conservative when a separator is added in the first position of block.
+    // Imagine adding a newline right on a block start. This would extend the previous block, but the naive check would not react to it.
+    // The same goes for pasting an indented piece of text.
     let dirty_from = let x = lines.[edit.from] in edit.from - (if x.Length = 0 || 0 < (fst x.[0]).from then 1 else 0)
     let is_dirty (x : Block) = (dirty_from <= x.offset && x.offset < edit.nearTo) || (x.offset <= dirty_from && dirty_from < x.offset + x.block.Length)
     let rec loop blocks i =
@@ -69,6 +73,7 @@ let block_separate (lines : LineTokens) (blocks : Block list) (edit : SpiEdit) =
     loop blocks 0
 
 open Spiral.TypecheckingUtils
+type ParsedBlock = {parsed: Result<TopStatement, (VSCRange * ParserErrors) list> * LineTokens; offset: int}
 let block_bundle (l : (_ * ParsedBlock) list) =
     let (+.) a b = Tokenize.add_line_to_range a b
     let bundle = ResizeArray()

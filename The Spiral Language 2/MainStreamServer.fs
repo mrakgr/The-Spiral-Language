@@ -49,7 +49,7 @@ let tokenizer =
         member t.Run req =
             let replace edit =
                 let lines, errors = Tokenize.replace lines errors edit
-                let blocks = block_separate lines blocks edit
+                let blocks = block_all_wdiff lines blocks edit
                 lines, errors, blocks
 
             let next (_,errors,blocks as x) = {blocks=blocks; errors=errors}, loop x
