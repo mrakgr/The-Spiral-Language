@@ -31,6 +31,7 @@
     <Compile Include="VSCTypes.fs" />
     <Compile Include="PersistentVectorExtensions.fs" />
     <Compile Include="Tokenize.fs" />
+    <Compile Include="BlockSplitting.fs" />
     <Compile Include="BlockParsing.fs" />
     <Compile Include="BlockParsingError.fs" />
     <Compile Include="TypecheckingUtils.fs" />
@@ -40,11 +41,12 @@
     <Compile Include="CodegenUtils.fs" />
     <Compile Include="CodegenFsharp.fs" />
     <Compile Include="CodegenCython.fs" />
+    <Compile Include="WDiff.fs" />
     <Compile Include="Blockize.fs" />
-    <Compile Include="SpiProj.fs" />
-    <Compile Include="ServerUtils.fs" />
     <Compile Include="MainStreamServer.fs" />
     <Compile Include="PrepassStreamServer.fs" />
+    <Compile Include="SpiProj.fs" />
+    <Compile Include="ServerUtils.fs" />
     <Compile Include="Supervisor.fs" />
   </ItemGroup>
 

@@ -1540,7 +1540,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         {
         filled_top = filled_top
         top_env_additions = top_env_additions
-        offset = bundle_top_range expr |> fst |> fun x -> x.line
+        offset = bundle_range expr |> fst |> fun x -> x.line
         hovers = hover_types.ToArray() |> Array.map (fun (a,(b,com)) -> a, let b = show_t top_env b in if com <> "" then sprintf "%s\n---\n%s" b com else b)
         errors = errors |> Seq.toList |> List.map (fun (a,b) -> a, show_type_error top_env b)
         }

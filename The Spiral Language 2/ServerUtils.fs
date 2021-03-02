@@ -94,7 +94,8 @@ type ValidatedFileHierarchy =
     | File of path: RString * name: string option * exists: bool
     | Directory of name: string * ValidatedFileHierarchy list
 
-type ValidatedSchema = {
+// Does only intra-package validation.
+type IntraValidatedSchema = {
     schema : Schema
     packages : RString list
     links : RString list
@@ -191,8 +192,9 @@ let schema_validate project_dir x =
         | None -> List.choose (validate_package (Path.Combine(project_dir,".."))) x.packages
     {schema=x; packages=packages; links=Seq.toList links; actions=Seq.toList actions; errors=Seq.toList errors; files=files}
 
-type PackageSchema = {
-    schema : ValidatedSchema
+// Does circularity checking and propagates errors from linked packages. Also provides links to them.
+type FullyValidatedSchema = {
+    schema : IntraValidatedSchema
     package_links : RString list
     package_errors : RString list
     is_circular : bool
@@ -200,9 +202,9 @@ type PackageSchema = {
 
 type ResultMap<'a> = Map<string,Result<'a,string>>
 type PackageMaps = {
-    package_schemas : PackageSchema ResultMap
+    full_schemas : FullyValidatedSchema ResultMap
     package_links : MirroredGraph
-    validated_schemas : ValidatedSchema ResultMap
+    intra_schemas : IntraValidatedSchema ResultMap
     }
 
 let dir uri = FileInfo(Uri(uri).LocalPath).Directory.FullName
@@ -211,16 +213,16 @@ let spiproj_link dir = Utils.file_uri (sprintf "%s/package.spiproj" dir)
 let package_validate (s : PackageMaps) project_dir =
     let potential_floating_garbage =
         project_dir ::
-        match Map.tryFind project_dir s.package_schemas with
+        match Map.tryFind project_dir s.full_schemas with
         | Some(Ok v) -> List.map snd v.schema.packages
         | _ -> []
 
-    let schemas = Map.remove project_dir s.package_schemas
+    let schemas = Map.remove project_dir s.full_schemas
     let dirty_nodes = HashSet()
     dirty_nodes.Add(project_dir) |> ignore
     
     let rec loop links project_dir =
-        match s.validated_schemas.[project_dir] with
+        match s.intra_schemas.[project_dir] with
         | Ok x -> List.fold (fun links (r,x) -> check (add_link' links project_dir x) x) links x.packages
         | Error _ -> links
     and check links project_dir = if schemas.ContainsKey(project_dir) = false && dirty_nodes.Add(project_dir) then loop links project_dir else links
@@ -229,7 +231,7 @@ let package_validate (s : PackageMaps) project_dir =
     let order, circular_nodes = circular_nodes links dirty_nodes
     let schemas = // Validation and error propagation across the entire graph of packages.
         Array.fold (fun schemas cur ->
-            match s.validated_schemas.[cur] with
+            match s.intra_schemas.[cur] with
             | Ok v ->
                 let is_circular = circular_nodes.Contains(cur)
                 let links = ResizeArray()
@@ -254,12 +256,12 @@ let package_validate (s : PackageMaps) project_dir =
             match Map.find project_dir schemas with
             | Error _ when link_exists links project_dir = false -> Map.remove project_dir schemas, Map.remove project_dir loads
             | _ -> schemas,loads
-            ) (schemas,s.validated_schemas) potential_floating_garbage
-    order, {package_schemas=schemas; package_links=links; validated_schemas=loads}
+            ) (schemas,s.intra_schemas) potential_floating_garbage
+    order, {full_schemas=schemas; package_links=links; intra_schemas=loads}
 
 let package_errors order (s : PackageMaps) =
     Array.map (fun dir -> 
-        match Map.tryFind dir s.package_schemas with
+        match Map.tryFind dir s.full_schemas with
         | Some(Ok x) -> {|uri=spiproj_link dir; errors=List.append x.schema.errors x.package_errors|}
         | _ -> {|uri=spiproj_link dir; errors=[]|}
         ) order

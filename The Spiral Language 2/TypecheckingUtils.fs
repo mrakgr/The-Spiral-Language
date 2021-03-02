@@ -3,11 +3,10 @@
 open VSCTypes
 open Spiral.BlockParsing
 
-type BundleItem = { offset : int; statement : TopStatement}
-type Bundle = BundleItem list
+type TopOffsetStatement = { offset : int; statement : TopStatement}
 
-// These bundles have their range offsets distributed into them.
-type BundleTop =
+// These bundles are top statements that have their range offsets distributed into them.
+type Bundle =
     | BundleType of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
     | BundleNominal of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
     | BundleNominalRec of (VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr) list
@@ -17,7 +16,7 @@ type BundleTop =
     | BundleInstance of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawExpr
     | BundleOpen of VSCRange * (VSCRange * VarString) * (VSCRange * SymbolString) list
 
-let bundle_top_range = function
+let bundle_range = function
     | BundleType(r,_,_,_) | BundleNominal(r,_,_,_) | BundleInl(_,r,_,_,_) 
     | BundlePrototype(r,_,_,_,_) | BundleInstance(r,_,_,_,_) | BundleOpen(r,_,_) -> r
     | BundleNominalRec l -> List.head l |> fun (r,_,_,_) -> r
@@ -136,7 +135,7 @@ and fold_offset_pattern offset x =
     | PatNominal(r,a,b) -> PatNominal(g r,g' a,f b)
     | PatArray(r,a) -> PatArray(g r,List.map f a)
 
-let bundle_top (l : Bundle) =
+let bundle_statements (l : TopOffsetStatement list) =
     match l with
     | [] -> failwith "Compiler error: Bundle should have at least one statement."
     | {statement=TopAnd _} :: x' -> failwith "Compiler error: TopAnd should be eliminated during the first bundling step."

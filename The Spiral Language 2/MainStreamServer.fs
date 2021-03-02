@@ -8,11 +8,10 @@ open FSharpx.Collections
 open VSCTypes
 open Spiral
 open Spiral.Tokenize
+open Spiral.BlockSplitting
 open Spiral.TypecheckingUtils
 open Spiral.Infer
 open Spiral.Blockize
-open Spiral.SpiProj
-open Spiral.ServerUtils
 
 open Hopac
 open Hopac.Infixes
@@ -25,6 +24,7 @@ let promise_thunk f = Hopac.memo (Job.thunk f)
 
 type EditorStream<'a,'b> = abstract member Run : 'a -> 'b * EditorStream<'a,'b>
 
+type SpiEdit = {|from: int; nearTo: int; lines: string []|}
 type TokReq =
     | DocumentAll of string []
     | DocumentEdit of SpiEdit
@@ -32,32 +32,101 @@ type TokRes = {blocks : Block list; errors : RString list}
 type LinerStream = EditorStream<TokReq, string PersistentVector>
 type TokenizerStream = EditorStream<TokReq, TokRes>
 
-let liner =
-    let rec loop lines =
-        {new LinerStream with
-            member t.Run req =
-                let replace (edit : SpiEdit) = PersistentVector.replace edit.from edit.nearTo edit.lines lines
-                let next lines = lines, loop lines
-                match req with
-                | DocumentAll text -> replace {|from=0; nearTo=lines.Length; lines=text|} |> next
-                | DocumentEdit edit -> replace edit |> next
-            }
-    loop PersistentVector.empty
+let liner lines req =
+    let replace (edit : SpiEdit) = PersistentVector.replace edit.from edit.nearTo edit.lines lines
+    match req with
+    | DocumentAll text -> replace {|from=0; nearTo=lines.Length; lines=text|}
+    | DocumentEdit edit -> replace edit
 
-let tokenizer =
-    let rec loop (lines, errors, blocks) = {new TokenizerStream with
-        member t.Run req =
-            let replace edit =
-                let lines, errors = Tokenize.replace lines errors edit
-                let blocks = block_all_wdiff lines blocks edit
-                lines, errors, blocks
+//let liner =
+//    let rec loop lines =
+//        {new LinerStream with
+//            member t.Run req =
+//                let replace (edit : SpiEdit) = PersistentVector.replace edit.from edit.nearTo edit.lines lines
+//                let next lines = lines, loop lines
+//                match req with
+//                | DocumentAll text -> replace {|from=0; nearTo=lines.Length; lines=text|} |> next
+//                | DocumentEdit edit -> replace edit |> next
+//            }
+//    loop PersistentVector.empty
 
-            let next (_,errors,blocks as x) = {blocks=blocks; errors=errors}, loop x
-            match req with
-            | DocumentAll text -> replace {|from=0; nearTo=lines.Length; lines=text|} |> next
-            | DocumentEdit edit -> replace edit |> next
-            }
-    loop (PersistentVector.singleton PersistentVector.empty,[],[])
+type TokenizerState = {
+    lines : (LineParsers.Range * SpiralToken) PersistentVector PersistentVector
+    blocks : Block list
+    errors : RString list
+    }
+
+/// An array of {line: int; char: int; length: int; tokenType: int; tokenModifiers: int} in the order as written suitable for serialization.
+type VSCTokenArray = int []
+let process_error (k,v) = 
+    let messages, expecteds = v |> List.distinct |> List.partition (fun x -> Char.IsUpper(x,0))
+    let ex () = match expecteds with [x] -> sprintf "Expected: %s" x | x -> sprintf "Expected one of: %s" (String.concat ", " x)
+    let f l = String.concat "\n" l
+    if List.isEmpty expecteds then k, f messages
+    elif List.isEmpty messages then k, ex ()
+    else k, f (ex () :: "" :: "Other error messages:" :: messages)
+
+let process_errors line (ers : LineTokenErrors list) : RString list =
+    ers |> List.mapi (fun i l -> 
+        let i = line + i
+        l |> List.map (fun (r,x) -> x, ({|line=i; character=r.from|}, {|line=i; character=r.nearTo|}))
+        )
+    |> List.concat
+    |> List.groupBy snd
+    |> List.map ((fun (k,v) -> k, List.map fst v) >> process_error)
+
+let vscode_tokens from near_to (lines : LineToken PersistentVector PersistentVector) =
+    let toks = ResizeArray()
+    let rec loop i line_delta =
+        if i < near_to then
+            lines.[i] |> PersistentVector.fold (fun (line_delta,from_prev) (r,x) ->
+                toks.AddRange [|line_delta; r.from-from_prev; r.nearTo-r.from; int (token_groups x); 0|]
+                0, r.from
+                ) (line_delta, 0)
+            |> fst |> ((+) 1) |> loop (i+1)
+    
+    loop from from
+    toks.ToArray()
+
+let add_line_to_range line ((a,b) : VSCRange) = {|a with line=line+a.line|}, {|b with line=line+b.line|}
+let tokenize_replace (lines : _ PersistentVector PersistentVector) (errors : _ list) (edit : SpiEdit) =
+    let toks, ers = Array.map tokenize edit.lines |> Array.unzip
+    let lines = PersistentVector.replace edit.from edit.nearTo toks lines
+    let errors = 
+        let adj = edit.lines.Length - (edit.nearTo - edit.from)
+        errors |> List.choose (fun ((a : VSCPos,b),c as x) -> 
+            if edit.from <= a.line && a.line < edit.nearTo then None
+            elif edit.nearTo <= a.line && adj <> 0 then Some (add_line_to_range adj (a,b),c)
+            else Some x
+            )
+    let errors = List.append errors (process_errors edit.from (Array.toList ers))
+    lines, errors
+
+let tokenizer (state : TokenizerState) req = 
+    let replace edit =
+        let lines, errors = tokenize_replace state.lines state.errors edit
+        let blocks = block_all_wdiff state.blocks (lines, edit)
+        {lines=lines; errors=errors; blocks=blocks}
+
+    let next (state : TokenizerState) = {blocks=state.blocks; errors=state.errors}, state
+    match req with
+    | DocumentAll text -> replace {|from=0; nearTo=state.lines.Length; lines=text|} |> next
+    | DocumentEdit edit -> replace edit |> next
+
+//let tokenizer =
+//    let rec loop (lines, errors, blocks) = {new TokenizerStream with
+//        member t.Run req =
+//            let replace edit =
+//                let lines, errors = Tokenize.replace lines errors edit
+//                let blocks = block_all_wdiff blocks (lines, edit)
+//                lines, errors, blocks
+
+//            let next (_,errors,blocks as x) = {blocks=blocks; errors=errors}, loop x
+//            match req with
+//            | DocumentAll text -> replace {|from=0; nearTo=lines.Length; lines=text|} |> next
+//            | DocumentEdit edit -> replace edit |> next
+//            }
+//    loop (PersistentVector.singleton PersistentVector.empty,[],[])
 
 let parse is_top_down (s : (LineTokens * ParsedBlock) list) (x : Block list) =
     let dict = Dictionary(HashIdentity.Reference)
@@ -67,7 +136,7 @@ let parse is_top_down (s : (LineTokens * ParsedBlock) list) (x : Block list) =
         offset = x.offset
         }) x
 
-type ParserRes = {lines : LineTokens; bundles : Bundle list; parser_errors : RString list; tokenizer_errors : RString list}
+type ParserRes = {lines : LineTokens; bundles : TopOffsetStatement list list; parser_errors : RString list; tokenizer_errors : RString list}
 type ParserStream = abstract member Run : TokRes -> ParserRes Promise * ParserStream
 let parser is_top_down =
     let run s req =
@@ -108,7 +177,7 @@ let cons_fulfilled l =
     loop PersistentVector.empty l
 type TypecheckerStream = EditorStream<ParserRes Promise, InferResult Stream>
 let typechecker package_id module_id (path : string) top_env =
-    let rec run old_results env i (bss : Bundle list) = 
+    let rec run old_results env i (bss : TopOffsetStatement list list) = 
         match bss with
         | b :: bs ->
             match PersistentVector.tryNth i old_results with
@@ -116,7 +185,7 @@ let typechecker package_id module_id (path : string) top_env =
             | _ ->
                 let rec loop old_results env i = function
                     | b :: bs ->
-                        let x = Infer.infer package_id module_id env (bundle_top b)
+                        let x = Infer.infer package_id module_id env (bundle_statements b)
                         let adds = match x.top_env_additions with AOpen x | AInclude x -> x
                         let _,_,env as s = b,x,Infer.union adds env
                         Cons(s,promise_thunk (fun () -> loop old_results env (i+1) bs))
@@ -401,47 +470,47 @@ let package_core =
             }
     loop {packages=Map.empty; package_ids=PersistentHashMap.empty}
 
-type PackageDiffStream =
-    abstract member Run : string [] * PackageSchema ResultMap * MirroredGraph * Map<string,ModuleStreamRes> -> (Map<string, InferResult Stream> * PackageIds) option * PackageDiffStream
+//type PackageDiffStream =
+//    abstract member Run : string [] * FullyValidatedSchema ResultMap * MirroredGraph * Map<string,ModuleStreamRes> -> (Map<string, InferResult Stream> * PackageIds) option * PackageDiffStream
 
-let package_named_links (p : PackageSchema) =
-    let names = p.schema.schema.packages // TODO: Extend the parser for packages and separate out the names and locations.
-    let links = p.schema.packages
-    List.map2 (fun (_,a) b -> a, if b.is_include then None else Some b.name) links names
+//let package_named_links (p : FullyValidatedSchema) =
+//    let names = p.schema.schema.packages // TODO: Extend the parser for packages and separate out the names and locations.
+//    let links = p.schema.packages
+//    List.map2 (fun (_,a) b -> a, if b.is_include then None else Some b.name) links names
 
-type PackageDiffState = { changes : string Set; errors : string Set; core : PackageCoreStream }
-let get_adds_and_removes (schema : PackageSchema ResultMap) ((abs,bas) : MirroredGraph) (modules : Map<string,ModuleStreamRes>) (changes : string Set) =
-    let sort_order, _ = topological_sort bas changes
-    Seq.foldBack (fun dir (adds,removes) ->
-        match Map.tryFind dir schema with
-        | Some(Ok p) ->
-            let files =
-                let rec elem = function
-                    | ValidatedFileHierarchy.File((_,a),b,_) -> File(a,b,(None,modules.[a] |> (fun ((_,_,x),_) -> x),None))
-                    | ValidatedFileHierarchy.Directory(a,b) -> Directory(a,list b,None)
-                and list l = List.map elem l
-                list p.schema.files
-            (dir,{links=package_named_links p; files=files}) :: adds, removes
-        | _ -> adds, Set.add dir removes
-        ) sort_order ([], Set.empty)
+//type PackageDiffState = { changes : string Set; errors : string Set; core : PackageCoreStream }
+//let get_adds_and_removes (schema : FullyValidatedSchema ResultMap) ((abs,bas) : MirroredGraph) (modules : Map<string,ModuleStreamRes>) (changes : string Set) =
+//    let sort_order, _ = topological_sort bas changes
+//    Seq.foldBack (fun dir (adds,removes) ->
+//        match Map.tryFind dir schema with
+//        | Some(Ok p) ->
+//            let files =
+//                let rec elem = function
+//                    | ValidatedFileHierarchy.File((_,a),b,_) -> File(a,b,(None,modules.[a] |> (fun ((_,_,x),_) -> x),None))
+//                    | ValidatedFileHierarchy.Directory(a,b) -> Directory(a,list b,None)
+//                and list l = List.map elem l
+//                list p.schema.files
+//            (dir,{links=package_named_links p; files=files}) :: adds, removes
+//        | _ -> adds, Set.add dir removes
+//        ) sort_order ([], Set.empty)
 
-let package_diff =
-    let rec loop (s : PackageDiffState) =
-        {new PackageDiffStream with
-            member _.Run(order,schemas,graph,modules) =
-                let changes = Array.foldBack Set.add order s.changes
-                let errors = 
-                    Array.fold (fun s x ->
-                        let has_error =
-                            match Map.tryFind x schemas with
-                            | Some(Ok x) -> (List.isEmpty x.package_errors && List.isEmpty x.schema.errors) = false
-                            | _ -> false
-                        if has_error then Set.add x s else Set.remove x s
-                        ) s.errors order
-                if Set.isEmpty errors && Set.isEmpty changes = false then 
-                    let adds,removes = get_adds_and_removes schemas graph modules changes
-                    let x,core = s.core.ReplacePackages(adds,removes)
-                    Some x,loop {changes=Set.empty; errors=errors; core=core}
-                else None,loop {s with changes=changes; errors=errors}
-            }
-    loop {changes=Set.empty; errors=Set.empty; core=package_core}
+//let package_diff =
+//    let rec loop (s : PackageDiffState) =
+//        {new PackageDiffStream with
+//            member _.Run(order,schemas,graph,modules) =
+//                let changes = Array.foldBack Set.add order s.changes
+//                let errors = 
+//                    Array.fold (fun s x ->
+//                        let has_error =
+//                            match Map.tryFind x schemas with
+//                            | Some(Ok x) -> (List.isEmpty x.package_errors && List.isEmpty x.schema.errors) = false
+//                            | _ -> false
+//                        if has_error then Set.add x s else Set.remove x s
+//                        ) s.errors order
+//                if Set.isEmpty errors && Set.isEmpty changes = false then 
+//                    let adds,removes = get_adds_and_removes schemas graph modules changes
+//                    let x,core = s.core.ReplacePackages(adds,removes)
+//                    Some x,loop {changes=Set.empty; errors=errors; core=core}
+//                else None,loop {s with changes=changes; errors=errors}
+//            }
+//    loop {changes=Set.empty; errors=Set.empty; core=package_core}

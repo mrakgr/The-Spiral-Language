@@ -53,7 +53,7 @@ module Build =
             let order = Queue()
             let rec dfs package_path =
                 if visited.Add package_path then
-                    match Map.tryFind package_path s.packages.package_schemas with
+                    match Map.tryFind package_path s.packages.full_schemas with
                     | Some(Ok x) when List.isEmpty x.package_errors && List.isEmpty x.schema.errors ->
                         let rec elem = function
                             | ServerUtils.File((_,path),name,_) -> 
@@ -137,7 +137,7 @@ module Build =
 
 type LoadResult =
     | LoadModule of package_dir: string * path: RString * Result<ModuleStreamRes,string>
-    | LoadPackage of package_dir: string * Result<ValidatedSchema,string>
+    | LoadPackage of package_dir: string * Result<IntraValidatedSchema,string>
 
 let tokenizer_error errors uri ers = Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=ers|})
 let parser_error errors uri ers = Hopac.start (Src.value errors.parser {|uri=uri; errors=ers|})
@@ -163,7 +163,7 @@ let package_update errors (s : SupervisorState) package_dir text =
             ) s l
 
     let load_package s package_dir text =
-        match Map.tryFind package_dir s.packages.validated_schemas, text with
+        match Map.tryFind package_dir s.packages.intra_schemas, text with
         | _, Some text -> // Parse and validate the schema using the provided string.
             Task.Run(fun () -> LoadPackage(package_dir, Ok(schema_parse_then_validate package_dir text)))
             |> queue.Enqueue
@@ -180,18 +180,18 @@ let package_update errors (s : SupervisorState) package_dir text =
                     with e -> LoadPackage(package_dir, Error e.Message)
                     ) |> queue.Enqueue
                 s
-            else {s with packages={s.packages with validated_schemas=Map.add package_dir (Error "The package file does not exist.") s.packages.validated_schemas}}
+            else {s with packages={s.packages with intra_schemas=Map.add package_dir (Error "The package file does not exist.") s.packages.intra_schemas}}
 
     let main (s : SupervisorState) = function
         | LoadPackage(dir,x) ->
-            let s = {s with packages={s.packages with validated_schemas=Map.add dir x s.packages.validated_schemas}}
+            let s = {s with packages={s.packages with intra_schemas=Map.add dir x s.packages.intra_schemas}}
             match x with
             | Ok x -> List.fold (fun s (r,x) -> load_package s x None) (load_module dir s x.files) x.packages
             | Error _ -> s
         | LoadModule(_,(_,path),Ok x) -> {s with modules=Map.add path x s.modules}
         | LoadModule(package_dir,(r,_),Error er) ->
-            match Map.tryFind package_dir s.packages.validated_schemas with
-            | Some (Ok x) -> {s with packages={s.packages with validated_schemas=Map.add package_dir (Ok {x with errors = (r,er) :: x.errors}) s.packages.validated_schemas}}
+            match Map.tryFind package_dir s.packages.intra_schemas with
+            | Some (Ok x) -> {s with packages={s.packages with intra_schemas=Map.add package_dir (Ok {x with errors = (r,er) :: x.errors}) s.packages.intra_schemas}}
             | _ -> failwith "Compiler error: The package should be present and valid in the map."
     
     let mutable s = load_package s package_dir text
@@ -215,7 +215,7 @@ let package_validate_then_send_errors atten errors s dir =
     let order,packages = package_validate s.packages dir
     package_errors order packages |> Array.iter (fun er -> Hopac.start (Src.value errors.package er))
     
-    match s.diff_stream.Run(order,packages.package_schemas,packages.package_links,s.modules) with
+    match s.diff_stream.Run(order,packages.full_schemas,packages.package_links,s.modules) with
     | Some (infer_results, package_ids), diff_stream ->
         let infer_results = 
             Map.map (fun p r ->
@@ -256,12 +256,12 @@ let module_changed atten errors s p =
     match module_project p with
     | null -> s
     | x -> 
-        if Map.containsKey x s.packages.validated_schemas then package_validate_then_send_errors atten errors s x
+        if Map.containsKey x s.packages.intra_schemas then package_validate_then_send_errors atten errors s x
         else package_update_validate_then_send_errors atten errors s x None
 
 let attention_server (req : (SupervisorState * string) Stream) =
     let pull_stream (s : SupervisorState) (dir : string) canc =
-        match Map.tryFind dir s.packages.validated_schemas with
+        match Map.tryFind dir s.packages.intra_schemas with
         | Some(Ok x) ->
             let rec elem = function
                 | ValidatedFileHierarchy.File((_,path),_,_) ->
@@ -318,12 +318,12 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
             let dir = dir x.uri
             package_update_validate_then_send_errors atten errors s dir (Some x.spiprojText)
         | ProjectFileLinks(x,res) -> 
-            match Map.tryFind (dir x.uri) s.packages.package_schemas with
+            match Map.tryFind (dir x.uri) s.packages.full_schemas with
             | Some (Ok x) -> Hopac.start (IVar.fill res (List.append x.schema.links x.package_links))
             | _ -> Hopac.start (IVar.fill res [])
             s
         | ProjectCodeActions(x,res) ->
-            match Map.tryFind (dir x.uri) s.packages.package_schemas with
+            match Map.tryFind (dir x.uri) s.packages.full_schemas with
             | Some (Ok x) -> Hopac.start (IVar.fill res x.schema.actions)
             | _ -> Hopac.start (IVar.fill res [])
             s
@@ -358,11 +358,11 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                 | ".spiproj" -> Path.GetDirectoryName(x) |> packages.Add |> ignore
                 | ".spi" | ".spir" -> modules.Add(x) |> ignore
                 | _ ->
-                    s.packages.validated_schemas |> Map.iter (fun k _ -> if k.StartsWith(x) then packages.Add(k) |> ignore)
+                    s.packages.intra_schemas |> Map.iter (fun k _ -> if k.StartsWith(x) then packages.Add(k) |> ignore)
                     s.modules |> Map.iter (fun k _ -> if k.StartsWith(x) then modules.Add(k) |> ignore; packages.Add(module_project k) |> ignore)
                 )
             let case_packages (s : SupervisorState) dir =
-                let s = {s with packages={s.packages with validated_schemas=Map.add dir (Error "The package file does not exist.") s.packages.validated_schemas}}
+                let s = {s with packages={s.packages with intra_schemas=Map.add dir (Error "The package file does not exist.") s.packages.intra_schemas}}
                 package_validate_then_send_errors atten errors s dir
             let case_modules (s : SupervisorState) p =
                 Hopac.start (
@@ -402,9 +402,9 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
         infer_results = Map.empty
         package_ids = PersistentHashMap.empty
         packages = {
-            validated_schemas = Map.empty
+            intra_schemas = Map.empty
             package_links = mirrored_graph_empty
-            package_schemas = Map.empty
+            full_schemas = Map.empty
             }
         prepass_stream = Prepass.package
         } loop
