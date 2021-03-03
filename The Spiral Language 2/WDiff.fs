@@ -68,7 +68,7 @@ let wdiff_tokenizer (state : TokenizerState) req =
         let from = loop ((fun text i -> text.[i]),text) 0
         let text = text.[from..]
         let fromRev = loop ((fun text i -> text.[text.Length-1-i]),text) 0
-        replace {|from=from; nearTo=text'.Length-fromRev; lines=text.[..max 0 (text.Length-1)-fromRev]|}
+        replace {|from=from; nearTo=text'.Length-fromRev; lines=text.[..text.Length-1-fromRev]|}
     | DocumentEdit edit -> replace edit
 
 open BlockParsing
