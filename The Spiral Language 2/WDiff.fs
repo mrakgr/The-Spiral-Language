@@ -9,23 +9,13 @@ open VSCTypes
 open Spiral
 open Spiral.Tokenize
 open Spiral.BlockSplitting
-open Spiral.TypecheckingUtils
+open Spiral.BlockBundling
 open Spiral.Infer
 
 type SpiEdit = {|from: int; nearTo: int; lines: string []|}
 type TokReq =
     | DocumentAll of string []
     | DocumentEdit of SpiEdit
-
-let process_error v = 
-    let messages, expecteds = v |> List.distinct |> List.partition (fun x -> Char.IsUpper(x,0))
-    let ex () = match expecteds with [x] -> sprintf "Expected: %s" x | x -> sprintf "Expected one of: %s" (String.concat ", " x)
-    let f l = String.concat "\n" l
-    if List.isEmpty expecteds then f messages
-    elif List.isEmpty messages then ex ()
-    else f (ex () :: "" :: "Other error messages:" :: messages)
-
-let add_line_to_range line ((a,b) : VSCRange) = {|a with line=line+a.line|}, {|b with line=line+b.line|}
 
 let process_errors line (ers : LineTokenErrors list) : RString list =
     ers |> List.mapi (fun i l -> 
@@ -72,7 +62,13 @@ let wdiff_tokenizer (state : TokenizerState) req =
             Error "The edit is out of bounds and cannot be applied. The language server and the editor are out of sync. Try reopening the file being edited."
 
     match req with
-    | DocumentAll text -> replace {|from=0; nearTo=state.lines_text.Length; lines=text|}
+    | DocumentAll text ->
+        let text' = state.lines_text |> Seq.toArray
+        let rec loop (index,text : string [] as x) i = if i < min text.Length state.lines_text.Length && index text i = index text' i then loop x (i+1) else i
+        let from = loop ((fun text i -> text.[i]),text) 0
+        let text = text.[from..]
+        let fromRev = loop ((fun text i -> text.[text.Length-1-i]),text) 0
+        replace {|from=from; nearTo=text'.Length-fromRev; lines=text.[..max 0 (text.Length-1)-fromRev]|}
     | DocumentEdit edit -> replace edit
 
 open BlockParsing
@@ -113,25 +109,45 @@ let parse_block is_top_down (block : LineTokens) =
         }
     {|result=parse env; semantic_tokens=semantic_updates_apply block semantic_updates|}
 
-let show_block_parsing_error line (l : ParserErrorsList) =
-    l |> List.groupBy fst
-    |> List.map (fun (k,v) -> 
-        let k = add_line_to_range line k
-        let v = List.map (snd >> show_parser_error) v
-        k, process_error v
-        )
-
-let wdiff_parse' (is_top_down, s : ({|old_unparsed_block : LineTokens; result : ParseResult; semantic_tokens : LineTokens|} Block) list) 
-        (unparsed_block : LineTokens Block list) =
-    let dict = Dictionary(HashIdentity.Reference)
-    // Offset should be ignoring when memoizing the results of parsing.
-    s |> List.iter (fun x -> dict.Add(x.block.old_unparsed_block,{|result=x.block.result;semantic_tokens=x.block.semantic_tokens|}))
-    List.map (fun x -> 
-        let r = Utils.memoize dict (parse_block is_top_down) x.block
-        { block = {|r with old_unparsed_block=x.block|}; offset = x.offset }
-        ) unparsed_block
-
 type ParserState = {
     is_top_down : bool
-
+    blocks : {|old_unparsed_block : LineTokens; result : ParseResult; semantic_tokens : LineTokens; offset : int |} list
     }
+let wdiff_parse'_init is_top_down : ParserState = {is_top_down=is_top_down; blocks=[]}
+let wdiff_parse' (state : ParserState) (unparsed_blocks : LineTokens Block list) =
+    let dict = Dictionary(HashIdentity.Reference)
+    // Offset should be ignoring when memoizing the results of parsing.
+    state.blocks |> List.iter (fun x -> dict.Add(x.old_unparsed_block,{|result=x.result;semantic_tokens=x.semantic_tokens|}))
+    let blocks = unparsed_blocks |> List.map (fun x -> 
+        let r = Utils.memoize dict (parse_block state.is_top_down) x.block
+        {|r with old_unparsed_block=x.block; offset = x.offset|}
+        )  
+    {state with blocks = blocks }
+
+open Hopac
+open Hopac.Infixes
+open Hopac.Extensions
+open Hopac.Stream
+
+let job_thunk_with f x = Job.thunk (fun () -> f x)
+let promise_thunk_with f x = Hopac.memo (job_thunk_with f x)
+let promise_thunk f = Hopac.memo (Job.thunk f)
+
+type SP<'a> = {s :'a; p : 'a Promise}
+let sp (x : _ SP) = if Promise.Now.isFulfilled x.p then Promise.Now.get x.p else x.s
+
+let inline wdiff_fold f s x =
+    let s = s()
+    let p = promise_thunk <| fun () -> f s x
+    p, fun () -> if Promise.Now.isFulfilled p then Promise.Now.get p else s
+
+let inline wdiff_mapFold f s x =
+    let s = s()
+    let p = promise_thunk <| fun () -> f s x
+    p, fun () -> if Promise.Now.isFulfilled p then snd (Promise.Now.get p) else s
+
+let wdiff_parse_init is_top_down () = wdiff_parse'_init is_top_down
+let wdiff_parse state unparsed_blocks = wdiff_fold wdiff_parse' state unparsed_blocks
+
+let wdiff_block_bundle_init () = wdiff_block_bundle'_init
+let wdiff_block_bundle state parsed_block_list = wdiff_mapFold wdiff_block_bundle' state parsed_block_list

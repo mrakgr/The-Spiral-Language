@@ -628,7 +628,7 @@ type InferResult = {
     errors : RString list
     }
 
-open Spiral.TypecheckingUtils
+open Spiral.BlockBundling
 let infer package_id module_id (top_env' : TopEnv) expr =
     let at_tag i = {package_id=package_id; module_id=module_id; tag=i}
     let mutable top_env = top_env' // Is mutated only in two places at the top level. During actual inference can otherwise be thought of as immutable.

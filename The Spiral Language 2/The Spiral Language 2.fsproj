@@ -33,7 +33,7 @@
     <Compile Include="Tokenize.fs" />
     <Compile Include="BlockSplitting.fs" />
     <Compile Include="BlockParsing.fs" />
-    <Compile Include="TypecheckingUtils.fs" />
+    <Compile Include="BlockBundling.fs" />
     <Compile Include="Infer.fs" />
     <Compile Include="Prepass.fs" />
     <Compile Include="PartEval.fs" />
@@ -41,7 +41,6 @@
     <Compile Include="CodegenFsharp.fs" />
     <Compile Include="CodegenCython.fs" />
     <Compile Include="WDiff.fs" />
-    <Compile Include="Blockize.fs" />
     <Compile Include="MainStreamServer.fs" />
     <Compile Include="PrepassStreamServer.fs" />
     <Compile Include="SpiProj.fs" />

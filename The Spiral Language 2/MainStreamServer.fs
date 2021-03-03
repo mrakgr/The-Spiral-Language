@@ -9,7 +9,7 @@ open VSCTypes
 open Spiral
 open Spiral.Tokenize
 open Spiral.BlockSplitting
-open Spiral.TypecheckingUtils
+open Spiral.BlockBundling
 open Spiral.Infer
 open Spiral.Blockize
 
