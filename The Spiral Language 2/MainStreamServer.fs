@@ -28,7 +28,7 @@ type SpiEdit = {|from: int; nearTo: int; lines: string []|}
 type TokReq =
     | DocumentAll of string []
     | DocumentEdit of SpiEdit
-type TokRes = {blocks : Block list; errors : RString list}
+type TokRes = {blocks : OffsetBlock list; errors : RString list}
 type LinerStream = EditorStream<TokReq, string PersistentVector>
 type TokenizerStream = EditorStream<TokReq, TokRes>
 
@@ -52,19 +52,19 @@ let liner lines req =
 
 type TokenizerState = {
     lines : (LineParsers.Range * SpiralToken) PersistentVector PersistentVector
-    blocks : Block list
+    blocks : OffsetBlock list
     errors : RString list
     }
 
 /// An array of {line: int; char: int; length: int; tokenType: int; tokenModifiers: int} in the order as written suitable for serialization.
 type VSCTokenArray = int []
-let process_error (k,v) = 
+let process_error v = 
     let messages, expecteds = v |> List.distinct |> List.partition (fun x -> Char.IsUpper(x,0))
     let ex () = match expecteds with [x] -> sprintf "Expected: %s" x | x -> sprintf "Expected one of: %s" (String.concat ", " x)
     let f l = String.concat "\n" l
-    if List.isEmpty expecteds then k, f messages
-    elif List.isEmpty messages then k, ex ()
-    else k, f (ex () :: "" :: "Other error messages:" :: messages)
+    if List.isEmpty expecteds then f messages
+    elif List.isEmpty messages then ex ()
+    else f (ex () :: "" :: "Other error messages:" :: messages)
 
 let process_errors line (ers : LineTokenErrors list) : RString list =
     ers |> List.mapi (fun i l -> 
@@ -73,7 +73,7 @@ let process_errors line (ers : LineTokenErrors list) : RString list =
         )
     |> List.concat
     |> List.groupBy snd
-    |> List.map ((fun (k,v) -> k, List.map fst v) >> process_error)
+    |> List.map (fun (k,v) -> k, process_error (List.map fst v))
 
 let vscode_tokens from near_to (lines : LineToken PersistentVector PersistentVector) =
     let toks = ResizeArray()
@@ -105,7 +105,7 @@ let tokenize_replace (lines : _ PersistentVector PersistentVector) (errors : _ l
 let tokenizer (state : TokenizerState) req = 
     let replace edit =
         let lines, errors = tokenize_replace state.lines state.errors edit
-        let blocks = block_all_wdiff state.blocks (lines, edit)
+        let blocks = wdiff_block_all state.blocks (lines, edit.lines.Length, edit.from, edit.nearTo)
         {lines=lines; errors=errors; blocks=blocks}
 
     let next (state : TokenizerState) = {blocks=state.blocks; errors=state.errors}, state
@@ -128,7 +128,7 @@ let tokenizer (state : TokenizerState) req =
 //            }
 //    loop (PersistentVector.singleton PersistentVector.empty,[],[])
 
-let parse is_top_down (s : (LineTokens * ParsedBlock) list) (x : Block list) =
+let parse is_top_down (s : (LineTokens * ParsedBlock) list) (x : OffsetBlock list) =
     let dict = Dictionary(HashIdentity.Reference)
     List.iter (fun (a,b) -> dict.Add(a,b.parsed)) s
     List.map (fun x -> x.block, {

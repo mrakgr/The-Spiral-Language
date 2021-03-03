@@ -51,39 +51,3 @@
 //    let line_tokens = List.fold (fun s (_,x) -> PersistentVector.append s (snd x.parsed)) PersistentVector.empty l
 //    line_tokens, Seq.toList bundle, Seq.toList errors
 
-//let semantic_updates_apply (block : LineTokens) updates =
-//    Seq.fold (fun block (c : VectorCord,l) -> 
-//        let x =
-//            let r, x = PersistentVector.nthNth c.row c.col block
-//            let x =
-//                match x with
-//                | TokVar(a,_) -> TokVar(a,l)
-//                | TokSymbol(a,_) -> TokSymbol(a,l)
-//                | TokSymbolPaired(a,_) -> TokSymbolPaired(a,l)
-//                | TokOperator(a,_) -> TokOperator(a,l)
-//                | TokUnaryOperator(a,_) -> TokUnaryOperator(a,l)
-//                | x -> failwithf "Compiler error: Cannot change the semantic legend for the %A token." x
-//            r, x
-//        PersistentVector.updateNth c.row c.col x block
-//        ) block updates
-
-//let block_init is_top_down (block : LineTokens) =
-//    let comments, cords_tokens = 
-//        Array.init block.Length (fun line ->
-//            let x = block.[line]
-//            let comment, len = match PersistentVector.tryLast x with Some (r, TokComment c) -> Some (r, c), x.Length-1 | _ -> None, x.Length
-//            let tokens = Array.init len (fun i ->
-//                let r, x = x.[i] 
-//                {|row=line; col=i|}, (({| line=line; character=r.from |}, {| line=line; character=r.nearTo |}), x)
-//                )
-//            comment, tokens
-//            )
-//        |> Array.unzip
-//    let cords, tokens = Array.unzip (Array.concat cords_tokens)
-
-//    let semantic_updates = ResizeArray()
-//    let env : BlockParsing.Env = {
-//        tokens_cords = cords; semantic_updates = semantic_updates
-//        comments = comments; tokens = tokens; i = ref 0; is_top_down = is_top_down
-//        }
-//    BlockParsing.parse env, semantic_updates_apply block semantic_updates

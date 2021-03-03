@@ -5,7 +5,7 @@ open VSCTypes
 open Spiral.Tokenize
 
 type LineTokens = LineToken PersistentVector PersistentVector
-type Block = {block: LineTokens; offset: int}
+type Block<'a> = {block: 'a; offset: int}
 
 /// Reads the comments up to a statement, and then reads the statement body. Leaves any errors for the parsing stage.
 let block_at (lines : LineTokens) i =
@@ -42,14 +42,14 @@ let rec block_all lines i =
 // Parses all the blocks with diffing. Only parses those blocks which are dirty based of the edit range. Preserves ref equality and saves work.
 // Without considering ref preservation, it is functionally equivalent to just call `block_all` on just `lines`.
 // This function is difficult to read as it is several operations fused into one loop.
-let wdiff_block_all (blocks : Block list) (lines : LineTokens, lines_added, from, nearTo) =
+let wdiff_block_all (blocks : LineTokens Block list) (lines : LineTokens, lines_added, from, nearTo) =
     // Lines added minus lines removed.
     let line_adjustment = lines_added - (nearTo - from)
     // The dirty block boundary needs to be more conservative when a separator is added in the first position of block.
     // Imagine adding a newline right on a block start. This would extend the previous block, but the naive check would not react to it.
     // The same goes for pasting an indented piece of text.
     let dirty_from = let x = lines.[from] in from - (if x.Length = 0 || 0 < (fst x.[0]).from then 1 else 0)
-    let is_dirty (x : Block) = (dirty_from <= x.offset && x.offset < nearTo) || (x.offset <= dirty_from && dirty_from < x.offset + x.block.Length)
+    let is_dirty (x : LineTokens Block) = (dirty_from <= x.offset && x.offset < nearTo) || (x.offset <= dirty_from && dirty_from < x.offset + x.block.Length)
     let rec loop blocks i =
         if i < lines.Length then
             match blocks with
