@@ -161,7 +161,7 @@ type TypecheckerState = {
 
 let wdiff_typechecker (state : TypecheckerState) l =
     let rec loop env = function
-        | l :: ls -> 
+        | l :: ls ->
             let x = Infer.infer state.package_id state.module_id env l
             let adds = match x.top_env_additions with AOpen x | AInclude x -> x
             let env = Infer.union adds env
@@ -174,9 +174,67 @@ let wdiff_typechecker (state : TypecheckerState) l =
             if Promise.Now.isFulfilled next then Cons(x,promise_thunk_with (diff env) (Promise.Now.get next,bs))
             else Cons(x,promise_thunk_with (loop env) bs)
         | _,bs -> loop env bs
-    
+
     let results = 
         state.top_env >>=* fun top_env ->
         state.results >>= fun r ->
         l >>- fun l -> diff top_env (r,l)
-    Stream.mapFun (fun (_,x,_) -> x) results, {state with results = results}
+    {state with results = results}
+
+type PackageFiles<'a> =
+    | File of uid: int * name: string option * 'a
+    | Directory of uid: int * name: string * PackageFiles<'a> list
+
+type PackageFilesInnerState<'state> = {
+    package_id : int
+    module_id : int
+    top_env : 'state
+    }
+
+type PackageFilesFuns<'a1,'a2,'state> =
+    abstract member file : string option * 'state * 'a1 -> 'a2 * 'state
+    abstract member union : 'state * 'state -> 'state
+    abstract member in_module : string * 'state -> 'state
+
+type PackageFilesState<'a1,'state> = {
+    package_id : int
+    top_env_init : 'state
+    uids : obj []
+    files : 'a1 PackageFiles list
+    }
+
+let package_files_diff (state : _ [], files) (uids, files') =
+    let state' = Array.zeroCreate uids
+    let inline ok uid = state'.[uid] <- state.[uid]; true
+    let rec loop = function
+        | File(uid,name,x), File(uid',name',x') when uid = uid' && name = name' && x = x' -> ok uid
+        | Directory(uid,name,l), Directory(uid',name',l') when uid = uid' && name = name' && list (l,l') -> ok uid
+        | _ -> false
+    and list = function
+        | x :: xs, y :: ys -> loop (x,y) && list (xs,ys)
+        | _ -> false
+    list (files, files') |> ignore
+    state'
+
+let wdiff_package_files (funs : PackageFilesFuns<'a1,'a2,'state PackageFilesInnerState>) (state : PackageFilesState<'a1,'state >) (uids,l : 'a1 PackageFiles list) =
+    let uids = package_files_diff (state.uids,state.files) (uids,l)
+    let memo uid f =
+        match uids.[uid] with
+        | null -> let x = f() in uids.[uid] <- x :> obj; x
+        | x -> x :?> _
+    let rec loop (state : PackageFilesInnerState<'state>) = function
+        | File(uid,name,x) -> memo uid <| fun () ->
+            let a,state = funs.file(name,state,x)
+            File(uid,name,a),state
+        | Directory(uid,name,l) -> memo uid <| fun () ->
+            let l,state = list state l
+            let state = funs.in_module(name,state)
+            Directory(uid,name,l),state
+    and list state l =
+        List.mapFold (fun big x ->
+            let x,small = loop big x
+            x,funs.union(small,big)
+            ) state l
+            
+    let _,s = list { package_id = state.package_id; module_id = 0; top_env = state.top_env_init } l
+    s.top_env, {state with files=l; uids=uids}
