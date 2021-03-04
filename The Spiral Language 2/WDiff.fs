@@ -129,25 +129,54 @@ open Hopac.Infixes
 open Hopac.Extensions
 open Hopac.Stream
 
-let job_thunk_with f x = Job.thunk (fun () -> f x)
-let promise_thunk_with f x = Hopac.memo (job_thunk_with f x)
-let promise_thunk f = Hopac.memo (Job.thunk f)
+let inline job_thunk_with f x = Job.thunk (fun () -> f x)
+let inline promise_thunk_with f x = Hopac.memo (job_thunk_with f x)
+let inline promise_thunk f = Hopac.memo (Job.thunk f)
 
 type SP<'a> = {s :'a; p : 'a Promise}
 let sp (x : _ SP) = if Promise.Now.isFulfilled x.p then Promise.Now.get x.p else x.s
 
 let inline wdiff_fold f s x =
     let s = s()
-    let p = promise_thunk <| fun () -> f s x
+    let p = promise_thunk_with (f s) x
     p, fun () -> if Promise.Now.isFulfilled p then Promise.Now.get p else s
 
 let inline wdiff_mapFold f s x =
     let s = s()
-    let p = promise_thunk <| fun () -> f s x
-    p, fun () -> if Promise.Now.isFulfilled p then snd (Promise.Now.get p) else s
+    let p = promise_thunk_with (f s) x
+    p >>-* fst, fun () -> if Promise.Now.isFulfilled p then snd (Promise.Now.get p) else s
 
 let wdiff_parse_init is_top_down () = wdiff_parse'_init is_top_down
 let wdiff_parse state unparsed_blocks = wdiff_fold wdiff_parse' state unparsed_blocks
 
 let wdiff_block_bundle_init () = wdiff_block_bundle'_init
 let wdiff_block_bundle state parsed_block_list = wdiff_mapFold wdiff_block_bundle' state parsed_block_list
+
+type TypecheckerState = {
+    package_id : int
+    module_id : int
+    top_env : TopEnv Promise
+    results : (Bundle * InferResult * TopEnv) Stream
+    }
+
+let wdiff_typechecker (state : TypecheckerState) l =
+    let rec loop env = function
+        | l :: ls -> 
+            let x = Infer.infer state.package_id state.module_id env l
+            let adds = match x.top_env_additions with AOpen x | AInclude x -> x
+            let env = Infer.union adds env
+            Cons((l,x,env),promise_thunk_with (loop env) ls)
+        | [] ->
+            Nil
+
+    let rec diff env = function
+        | Cons((b,_,env as x),next), b' :: bs when b = b' -> 
+            if Promise.Now.isFulfilled next then Cons(x,promise_thunk_with (diff env) (Promise.Now.get next,bs))
+            else Cons(x,promise_thunk_with (loop env) bs)
+        | _,bs -> loop env bs
+    
+    let results = 
+        state.top_env >>=* fun top_env ->
+        state.results >>= fun r ->
+        l >>- fun l -> diff top_env (r,l)
+    Stream.mapFun (fun (_,x,_) -> x) results, {state with results = results}
