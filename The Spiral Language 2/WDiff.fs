@@ -159,6 +159,12 @@ type TypecheckerState = {
     results : (Bundle * InferResult * TopEnv) Stream
     }
 
+let wdiff_typechecker_init (package_id, module_id, top_env) = {
+    package_id = package_id
+    module_id = module_id
+    top_env = top_env
+    results = Promise.Now.never()
+    }
 let wdiff_typechecker (state : TypecheckerState) l =
     let rec loop env = function
         | l :: ls ->
@@ -169,16 +175,16 @@ let wdiff_typechecker (state : TypecheckerState) l =
         | [] ->
             Nil
 
-    let rec diff env = function
-        | Cons((b,_,env as x),next), b' :: bs when b = b' -> 
-            if Promise.Now.isFulfilled next then Cons(x,promise_thunk_with (diff env) (Promise.Now.get next,bs))
-            else Cons(x,promise_thunk_with (loop env) bs)
-        | _,bs -> loop env bs
+    let rec diff env (a,b) = 
+        if Promise.Now.isFulfilled a then
+            match Promise.Now.get a,b with
+            | Cons((b,_,env as x),next), b' :: bs when b = b' -> Cons(x,promise_thunk_with (diff env) (next,bs))
+            | _ -> loop env b
+        else loop env b
 
     let results = 
         state.top_env >>=* fun top_env ->
-        state.results >>= fun r ->
-        l >>- fun l -> diff top_env (r,l)
+        l >>- fun l -> diff top_env (state.results,l)
     {state with results = results}
 
 type PackageFiles<'a> =
@@ -216,7 +222,8 @@ let package_files_diff (state : _ [], files) (uids, files') =
     list (files, files') |> ignore
     state'
 
-let wdiff_package_files (funs : PackageFilesFuns<'a1,'a2,'state PackageFilesInnerState>) (state : PackageFilesState<'a1,'state >) (uids,l : 'a1 PackageFiles list) =
+let wdiff_package_files (funs : PackageFilesFuns<'a1,'a2,'state PackageFilesInnerState>) 
+        (state : PackageFilesState<'a1,'state >) (uids,l : 'a1 PackageFiles list) =
     let uids = package_files_diff (state.uids,state.files) (uids,l)
     let memo uid f =
         match uids.[uid] with

@@ -470,47 +470,47 @@ let package_core =
             }
     loop {packages=Map.empty; package_ids=PersistentHashMap.empty}
 
-//type PackageDiffStream =
-//    abstract member Run : string [] * FullyValidatedSchema ResultMap * MirroredGraph * Map<string,ModuleStreamRes> -> (Map<string, InferResult Stream> * PackageIds) option * PackageDiffStream
+type PackageDiffStream =
+    abstract member Run : string [] * FullyValidatedSchema ResultMap * MirroredGraph * Map<string,ModuleStreamRes> -> (Map<string, InferResult Stream> * PackageIds) option * PackageDiffStream
 
-//let package_named_links (p : FullyValidatedSchema) =
-//    let names = p.schema.schema.packages // TODO: Extend the parser for packages and separate out the names and locations.
-//    let links = p.schema.packages
-//    List.map2 (fun (_,a) b -> a, if b.is_include then None else Some b.name) links names
+let package_named_links (p : FullyValidatedSchema) =
+    let names = p.schema.schema.packages // TODO: Extend the parser for packages and separate out the names and locations.
+    let links = p.schema.packages
+    List.map2 (fun (_,a) b -> a, if b.is_include then None else Some b.name) links names
 
-//type PackageDiffState = { changes : string Set; errors : string Set; core : PackageCoreStream }
-//let get_adds_and_removes (schema : FullyValidatedSchema ResultMap) ((abs,bas) : MirroredGraph) (modules : Map<string,ModuleStreamRes>) (changes : string Set) =
-//    let sort_order, _ = topological_sort bas changes
-//    Seq.foldBack (fun dir (adds,removes) ->
-//        match Map.tryFind dir schema with
-//        | Some(Ok p) ->
-//            let files =
-//                let rec elem = function
-//                    | ValidatedFileHierarchy.File((_,a),b,_) -> File(a,b,(None,modules.[a] |> (fun ((_,_,x),_) -> x),None))
-//                    | ValidatedFileHierarchy.Directory(a,b) -> Directory(a,list b,None)
-//                and list l = List.map elem l
-//                list p.schema.files
-//            (dir,{links=package_named_links p; files=files}) :: adds, removes
-//        | _ -> adds, Set.add dir removes
-//        ) sort_order ([], Set.empty)
+type PackageDiffState = { changes : string Set; errors : string Set; core : PackageCoreStream }
+let get_adds_and_removes (schema : FullyValidatedSchema ResultMap) ((abs,bas) : MirroredGraph) (modules : Map<string,ModuleStreamRes>) (changes : string Set) =
+    let sort_order, _ = topological_sort bas changes
+    Seq.foldBack (fun dir (adds,removes) ->
+        match Map.tryFind dir schema with
+        | Some(Ok p) ->
+            let files =
+                let rec elem = function
+                    | ValidatedFileHierarchy.File((_,a),b,_) -> File(a,b,(None,modules.[a] |> (fun ((_,_,x),_) -> x),None))
+                    | ValidatedFileHierarchy.Directory(a,b) -> Directory(a,list b,None)
+                and list l = List.map elem l
+                list p.schema.files
+            (dir,{links=package_named_links p; files=files}) :: adds, removes
+        | _ -> adds, Set.add dir removes
+        ) sort_order ([], Set.empty)
 
-//let package_diff =
-//    let rec loop (s : PackageDiffState) =
-//        {new PackageDiffStream with
-//            member _.Run(order,schemas,graph,modules) =
-//                let changes = Array.foldBack Set.add order s.changes
-//                let errors = 
-//                    Array.fold (fun s x ->
-//                        let has_error =
-//                            match Map.tryFind x schemas with
-//                            | Some(Ok x) -> (List.isEmpty x.package_errors && List.isEmpty x.schema.errors) = false
-//                            | _ -> false
-//                        if has_error then Set.add x s else Set.remove x s
-//                        ) s.errors order
-//                if Set.isEmpty errors && Set.isEmpty changes = false then 
-//                    let adds,removes = get_adds_and_removes schemas graph modules changes
-//                    let x,core = s.core.ReplacePackages(adds,removes)
-//                    Some x,loop {changes=Set.empty; errors=errors; core=core}
-//                else None,loop {s with changes=changes; errors=errors}
-//            }
-//    loop {changes=Set.empty; errors=Set.empty; core=package_core}
+let package_diff =
+    let rec loop (s : PackageDiffState) =
+        {new PackageDiffStream with
+            member _.Run(order,schemas,graph,modules) =
+                let changes = Array.foldBack Set.add order s.changes
+                let errors = 
+                    Array.fold (fun s x ->
+                        let has_error =
+                            match Map.tryFind x schemas with
+                            | Some(Ok x) -> (List.isEmpty x.package_errors && List.isEmpty x.schema.errors) = false
+                            | _ -> false
+                        if has_error then Set.add x s else Set.remove x s
+                        ) s.errors order
+                if Set.isEmpty errors && Set.isEmpty changes = false then 
+                    let adds,removes = get_adds_and_removes schemas graph modules changes
+                    let x,core = s.core.ReplacePackages(adds,removes)
+                    Some x,loop {changes=Set.empty; errors=errors; core=core}
+                else None,loop {s with changes=changes; errors=errors}
+            }
+    loop {changes=Set.empty; errors=Set.empty; core=package_core}
