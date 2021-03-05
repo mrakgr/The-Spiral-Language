@@ -306,10 +306,10 @@ type PackageCoreStream =
     abstract member ReplacePackages : (string * AddPackageInput) list * string Set -> (Map<string,InferResult Stream> * PackageIds) * PackageCoreStream
 
 type PackageEnv = {
-    nominals_aux : Map<int,Map<GlobalId, {|name : string; kind : TT|}>>
-    nominals : Map<int,Map<GlobalId, {|vars : Var list; body : T|}>>
-    prototypes_instances : Map<int,Map<GlobalId * GlobalId, Constraint Set list>>
-    prototypes : Map<int,Map<GlobalId, {|name : string; signature: T|}>>
+    nominals_aux : Map<PackageId,Map<GlobalId, {|name : string; kind : TT|}>>
+    nominals : Map<PackageId,Map<GlobalId, {|vars : Var list; body : T|}>>
+    prototypes_instances : Map<PackageId,Map<GlobalId * GlobalId, Constraint Set list>>
+    prototypes : Map<PackageId,Map<GlobalId, {|name : string; signature: T|}>>
     ty : Map<string,T>
     term : Map<string,T>
     constraints : Map<string,ConstraintOrModule>

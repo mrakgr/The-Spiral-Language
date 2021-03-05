@@ -177,25 +177,32 @@ let show_block_parsing_error line (l : ParserErrorsList) : RString list =
         k, process_error v
         )
 
-type BlockBundleState = {old_blocks : TopStatement Block list; result : Bundle}
+type BlockBundleState = {
+    old_blocks : TopStatement Block list list
+    bundle : Bundle list
+    errors : RString list
+    }
 
-let wdiff_block_bundle'_init : BlockBundleState list = []
+let wdiff_block_bundle'_init = { old_blocks = []; bundle = []; errors = [] }
 /// Bundles the blocks with the `and` statements. Also collects the parser errors.
 /// Does diffing to ref preserve the bundles.
-let wdiff_block_bundle' (state : BlockBundleState list) (l : ParseResult Block list) =
+let wdiff_block_bundle' (state : BlockBundleState) (l : ParseResult Block list) =
     let (+.) a b = add_line_to_range a b
-    let mutable state = state
-    let state' = ResizeArray()
+    let mutable old_blocks = state.old_blocks
+    let mutable bundle = state.bundle
+    let old_blocks' = ResizeArray()
+    let bundle' = ResizeArray()
     let errors = ResizeArray<RString>()
     let temp = ResizeArray()
     let move_temp () = 
         if 0 < temp.Count then 
-            let blocks = Seq.toList temp
-            let add_new() = state'.Add({old_blocks=blocks; result=bundle_blocks blocks})
-            match state with
-            | a :: a' when a.old_blocks = blocks -> state'.Add(a); state <- a' 
-            | _ :: _ -> add_new(); state <- []
-            | [] -> add_new()
+            let o' = Seq.toList temp
+            let add_new() = old_blocks'.Add(o'); bundle'.Add(bundle_blocks o')
+            match old_blocks,bundle with
+            | o :: os, b :: bs when o = o' -> old_blocks'.Add(o); bundle'.Add(b); old_blocks <- os; bundle <- bs
+            | _ :: _, _ :: _ -> add_new(); old_blocks <- []; bundle <- []
+            | [], [] -> add_new()
+            | _ -> failwith "Compiler error: The two lists should be the same size."
             temp.Clear()
     let rec init l =
         match l with
@@ -227,5 +234,4 @@ let wdiff_block_bundle' (state : BlockBundleState list) (l : ParseResult Block l
         | [] -> move_temp()
     init l
     
-    let bundle, state = (state', ([], [])) ||> Seq.foldBack (fun x (s,s') -> x.result :: s, x :: s')
-    {|bundle=bundle; errors=Seq.toList errors|}, state
+    {state with errors = Seq.toList errors; bundle = Seq.toList bundle'; old_blocks = Seq.toList old_blocks'}
