@@ -108,22 +108,7 @@ let parse_block is_top_down (block : LineTokens) =
         tokens_cords = cords; semantic_updates = semantic_updates
         comments = comments; tokens = tokens; i = ref 0; is_top_down = is_top_down
         }
-    {|result=parse env; semantic_tokens=semantic_updates_apply block semantic_updates|}
-
-type ParserState = {
-    is_top_down : bool
-    blocks : {|old_unparsed_block : LineTokens; result : ParseResult; semantic_tokens : LineTokens; offset : int |} list
-    }
-let wdiff_parse'_init is_top_down : ParserState = {is_top_down=is_top_down; blocks=[]}
-let wdiff_parse' (state : ParserState) (unparsed_blocks : LineTokens Block list) =
-    let dict = Dictionary(HashIdentity.Reference)
-    // Offset should be ignoring when memoizing the results of parsing.
-    state.blocks |> List.iter (fun x -> dict.Add(x.old_unparsed_block,{|result=x.result;semantic_tokens=x.semantic_tokens|}))
-    let blocks = unparsed_blocks |> List.map (fun x -> 
-        let r = Utils.memoize dict (parse_block state.is_top_down) x.block
-        {|r with old_unparsed_block=x.block; offset = x.offset|}
-        )  
-    {state with blocks = blocks }
+    {result=parse env; semantic_tokens=semantic_updates_apply block semantic_updates}
 
 open Hopac
 open Hopac.Infixes
@@ -134,19 +119,19 @@ let inline job_thunk_with f x = Job.thunk (fun () -> f x)
 let inline promise_thunk_with f x = Hopac.memo (job_thunk_with f x)
 let inline promise_thunk f = Hopac.memo (Job.thunk f)
 
-type SP<'a> = {s :'a; p : 'a Promise}
-let sp (x : _ SP) = if Promise.Now.isFulfilled x.p then Promise.Now.get x.p else x.s
-
-let inline wdiff_fold f s x =
-    let s = s()
-    let p = promise_thunk_with (f s) x
-    p, fun () -> if Promise.Now.isFulfilled p then Promise.Now.get p else s
-
-let wdiff_parse_init is_top_down () = wdiff_parse'_init is_top_down
-let wdiff_parse state unparsed_blocks = wdiff_fold wdiff_parse' state unparsed_blocks
-
-let wdiff_block_bundle_init () = wdiff_block_bundle'_init
-let wdiff_block_bundle state parsed_block_list = wdiff_fold wdiff_block_bundle' state parsed_block_list
+type ParserState = {
+    is_top_down : bool
+    blocks : (LineTokens * ParsedBlock Promise Block) list
+    }
+let wdiff_parse_init is_top_down : ParserState = {is_top_down=is_top_down; blocks=[]}
+let wdiff_parse (state : ParserState) (unparsed_blocks : LineTokens Block list) =
+    let dict = Dictionary(HashIdentity.Reference)
+    // Offset should be ignoring when memoizing the results of parsing.
+    List.iter dict.Add state.blocks
+    let blocks = unparsed_blocks |> List.map (fun x -> 
+        x.block, Utils.memoize dict (fun a -> {block=promise_thunk_with (parse_block state.is_top_down) a; offset=x.offset}) x.block
+        )  
+    {state with blocks = blocks }
 
 type PackageId = int
 type ModuleId = int
@@ -155,7 +140,7 @@ type TypecheckerState = {
     module_id : ModuleId
     top_env : TopEnv Promise
     results : (Bundle * InferResult * TopEnv) Stream
-    bundle : Bundle list Promise
+    bundle : BlockBundleState Stream
     }
 
 let wdiff_typechecker_init (package_id, module_id, top_env) = {

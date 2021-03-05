@@ -177,16 +177,27 @@ let show_block_parsing_error line (l : ParserErrorsList) : RString list =
         k, process_error v
         )
 
-type BlockBundleState = {
-    old_blocks : TopStatement Block list list
-    bundle : Bundle list
-    errors : RString list
-    }
+open Hopac
+open Hopac.Infixes
+open Hopac.Extensions
+open Hopac.Stream
 
-let wdiff_block_bundle'_init = { old_blocks = []; bundle = []; errors = [] }
+let inline job_thunk_with f x = Job.thunk (fun () -> f x)
+let inline promise_thunk_with f x = Hopac.memo (job_thunk_with f x)
+let inline promise_thunk f = Hopac.memo (Job.thunk f)
+
+type ParsedBlock = {result : ParseResult; semantic_tokens : LineTokens}
+type BlockBundleState = (ParsedBlock Promise Block list * {|bundle : Bundle; errors : RString list|}) Stream
+    //{
+    //old_blocks : TopStatement Block list list
+    //bundle : Bundle list
+    //errors : RString list
+    //}
+
+let wdiff_block_bundle_init = Promise.Now.withValue Nil
 /// Bundles the blocks with the `and` statements. Also collects the parser errors.
 /// Does diffing to ref preserve the bundles.
-let wdiff_block_bundle' (state : BlockBundleState) (l : ParseResult Block list) =
+let wdiff_block_bundle (state : BlockBundleState) (l : ParsedBlock Promise Block list) =
     let (+.) a b = add_line_to_range a b
     let mutable old_blocks = state.old_blocks
     let mutable bundle = state.bundle
