@@ -187,62 +187,53 @@ let inline promise_thunk_with f x = Hopac.memo (job_thunk_with f x)
 let inline promise_thunk f = Hopac.memo (Job.thunk f)
 
 type ParsedBlock = {result : ParseResult; semantic_tokens : LineTokens}
-type BlockBundleState = (ParsedBlock Promise Block list * {|bundle : Bundle; errors : RString list|}) Stream
-    //{
-    //old_blocks : TopStatement Block list list
-    //bundle : Bundle list
-    //errors : RString list
-    //}
+type ParserState = {
+    is_top_down : bool
+    blocks : (LineTokens * ParsedBlock Promise Block) list
+    }
+type BlockBundleValue = {bundle : Bundle; errors : RString list}
+type BlockBundleState = (TopStatement Block list * BlockBundleValue) Stream
+type private BlockBundleStateInner = {errors : RString list; tmp : TopStatement Block list; state : BlockBundleState}
 
-let wdiff_block_bundle_init = Promise.Now.withValue Nil
+let wdiff_block_bundle_init : BlockBundleState = Promise.Now.never()
 /// Bundles the blocks with the `and` statements. Also collects the parser errors.
 /// Does diffing to ref preserve the bundles.
-let wdiff_block_bundle (state : BlockBundleState) (l : ParsedBlock Promise Block list) =
+let wdiff_block_bundle (state : BlockBundleState) (l : ParserState) =
     let (+.) a b = add_line_to_range a b
-    let mutable old_blocks = state.old_blocks
-    let mutable bundle = state.bundle
-    let old_blocks' = ResizeArray()
-    let bundle' = ResizeArray()
-    let errors = ResizeArray<RString>()
-    let temp = ResizeArray()
-    let move_temp () = 
-        if 0 < temp.Count then 
-            let o' = Seq.toList temp
-            let add_new() = old_blocks'.Add(o'); bundle'.Add(bundle_blocks o')
-            match old_blocks,bundle with
-            | o :: os, b :: bs when o = o' -> old_blocks'.Add(o); bundle'.Add(b); old_blocks <- os; bundle <- bs
-            | _ :: _, _ :: _ -> add_new(); old_blocks <- []; bundle <- []
-            | [], [] -> add_new()
-            | _ -> failwith "Compiler error: The two lists should be the same size."
-            temp.Clear()
-    let rec init l =
+    let (>>**) x f = if Promise.Now.isFulfilled x then f (Promise.Now.get x) else x >>=* f
+
+    let move_temp (s : BlockBundleStateInner) next =
+        let o' = List.rev s.tmp
+        let fl() = (o',{bundle=bundle_blocks o'; errors=Seq.toList s.errors}), next {s with state=Promise.Now.never(); tmp=[]; errors=[]}
+        if Promise.Now.isFulfilled s.state then
+            match Promise.Now.get s.state with
+            | Cons((o,q),xs) when o = o' -> (o,{bundle=q.bundle; errors=Seq.toList s.errors}), next {s with state=xs; tmp=[]; errors=[]}
+            | _ -> fl()
+        else fl()
+        |> fun (a,b) -> Promise.Now.withValue(Cons(a,b))
+
+    let inline iter (s : BlockBundleStateInner) l f = 
         match l with
-        | x :: x' ->
-            match x.block with
-            | Ok (TopAnd(r,_)) -> errors.Add(x.offset +. r, "Invalid `and` statement."); init x'
-            | Ok (TopRecInl _ as a) -> temp.Add {offset=x.offset; block=a}; recinl x'
-            | Ok (TopNominalRec _ as a) -> temp.Add {offset=x.offset; block=a}; rectype x'
-            | Ok a -> temp.Add {offset=x.offset; block=a}; move_temp(); init x'
-            | Error er -> show_block_parsing_error x.offset er |> errors.AddRange; init x'
-        | [] -> move_temp()
-    and recinl l =
-        match l with
-        | x :: x' ->
-            match x.block with
-            | Ok (TopAnd(_, TopRecInl _ & a)) -> temp.Add {offset=x.offset; block=a}; recinl x'
-            | Ok (TopAnd(r, _)) -> errors.Add(x.offset +. r, "inl/let recursive statements can only be followed by `and` inl/let statements."); recinl x'
-            | Ok _ -> move_temp(); init l
-            | Error er -> show_block_parsing_error x.offset er |> errors.AddRange; recinl x'
-        | [] -> move_temp()
-    and rectype l =
-        match l with
-        | x :: x' ->
-            match x.block with
-            | Ok (TopAnd(_, TopNominalRec _ & a)) -> temp.Add {offset=x.offset; block=a}; rectype x'
-            | Ok (TopAnd(r, _)) -> errors.Add(x.offset +. r, "`union rec` can only be followed by `and union`."); rectype x'
-            | Ok _ -> move_temp(); init l
-            | Error er -> show_block_parsing_error x.offset er |> errors.AddRange; rectype x'
-        | [] -> move_temp()
-    init l
-    
-    {state with errors = Seq.toList errors; bundle = Seq.toList bundle'; old_blocks = Seq.toList old_blocks'}
+        | (_,x) :: x' -> let offset = x.offset in x.block >>** fun {result=a} -> f (offset,a,x')
+        | [] -> move_temp s (fun _ -> Promise.Now.withValue Nil)
+    let rec init (s : BlockBundleStateInner) l = iter s l <| fun (offset,x,x') -> 
+        match x with
+        | Ok (TopAnd(r,_)) -> init {s with errors = (offset +. r, "Invalid `and` statement.") :: s.errors} x'
+        | Ok (TopRecInl _ as a) -> recinl {s with tmp = {offset=offset; block=a} :: s.tmp} x'
+        | Ok (TopNominalRec _ as a) -> rectype {s with tmp = {offset=offset; block=a} :: s.tmp} x'
+        | Ok a -> move_temp {s with tmp = {offset=offset; block=a} :: s.tmp} (fun s -> init s x')
+        | Error er -> init {s with errors = List.append (show_block_parsing_error offset er) s.errors} x'
+    and recinl (s : BlockBundleStateInner) l = iter s l <| fun (offset,x,x') -> 
+        match x with
+        | Ok (TopAnd(_, TopRecInl _ & a)) -> recinl {s with tmp = {offset=offset; block=a} :: s.tmp} x'
+        | Ok (TopAnd(r, _)) -> recinl {s with errors = (offset +. r, "inl/let recursive statements can only be followed by `and` inl/let statements.") :: s.errors} x'
+        | Ok _ -> move_temp s (fun s -> init s l)
+        | Error er -> recinl {s with errors = List.append (show_block_parsing_error offset er) s.errors} x'
+    and rectype (s : BlockBundleStateInner) l = iter s l <| fun (offset,x,x') -> 
+        match x with
+        | Ok (TopAnd(_, TopNominalRec _ & a)) -> rectype {s with tmp = {offset=offset; block=a} :: s.tmp} x'
+        | Ok (TopAnd(r, _)) -> rectype {s with errors = (offset +. r, "`union rec` can only be followed by `and union`.") :: s.errors} x'
+        | Ok _ -> move_temp s (fun s -> init s l)
+        | Error er -> rectype {s with errors = List.append (show_block_parsing_error offset er) s.errors} x'
+
+    init {tmp=[]; errors=[]; state=state} l.blocks

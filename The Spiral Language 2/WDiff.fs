@@ -119,10 +119,6 @@ let inline job_thunk_with f x = Job.thunk (fun () -> f x)
 let inline promise_thunk_with f x = Hopac.memo (job_thunk_with f x)
 let inline promise_thunk f = Hopac.memo (Job.thunk f)
 
-type ParserState = {
-    is_top_down : bool
-    blocks : (LineTokens * ParsedBlock Promise Block) list
-    }
 let wdiff_parse_init is_top_down : ParserState = {is_top_down=is_top_down; blocks=[]}
 let wdiff_parse (state : ParserState) (unparsed_blocks : LineTokens Block list) =
     let dict = Dictionary(HashIdentity.Reference)
@@ -140,7 +136,7 @@ type TypecheckerState = {
     module_id : ModuleId
     top_env : TopEnv Promise
     results : (Bundle * InferResult * TopEnv) Stream
-    bundle : BlockBundleState Stream
+    bundle : BlockBundleState
     }
 
 let wdiff_typechecker_init (package_id, module_id, top_env) = {
@@ -152,26 +148,27 @@ let wdiff_typechecker_init (package_id, module_id, top_env) = {
     }
 
 let rec typecheck (package_id,module_id,env) = function
-    | l :: ls ->
-        let x = Infer.infer package_id module_id env l
+    | Cons((_,{bundle=bundle} : BlockBundleValue), ls) ->
+        let x = Infer.infer package_id module_id env bundle
         let adds = match x.top_env_additions with AOpen x | AInclude x -> x
         let env = Infer.union adds env
-        Cons((l,x,env),promise_thunk_with (typecheck (package_id,module_id,env)) ls)
-    | [] ->
+        Cons((bundle,x,env),ls >>-* typecheck (package_id,module_id,env))
+    | Nil ->
         Nil
 
-let wdiff_typechecker_input (state : TypecheckerState) bundle =
-    let rec diff env (a,b) = 
+let wdiff_typechecker_input (state : TypecheckerState) (bundle : BlockBundleState) =
+    let rec diff env (a,b : BlockBundleState) = 
+        b >>-* fun b ->
         let tc () = typecheck (state.package_id,state.module_id,env) b
         if Promise.Now.isFulfilled a then
             match Promise.Now.get a,b with
-            | Cons((b,_,env as x),next), b' :: bs when b = b' -> Cons(x,promise_thunk_with (diff env) (next,bs))
+            | Cons((b,_,env as x),next), Cons((_,b'),bs) when b = b'.bundle -> Cons(x,diff env (next,bs))
             | _ -> tc()
         else tc()
 
     let results = 
         state.top_env >>=* fun top_env ->
-        bundle >>- fun l -> diff top_env (state.results,l)
+        diff top_env (state.results,bundle)
     {state with results = results; bundle = bundle}
 
 let wdiff_typechecker_state (state : TypecheckerState) (package_id,module_id,top_env) =
@@ -204,7 +201,7 @@ type PackageFilesState<'a,'state> = {
 //        | File _ -> s
 //        ) s l
 
-let package_files_diff (uids_file : ('a * 'b) [], uids_directory : 'b [], files) (num_dirs, uids, files') =
+let proj_files_diff (uids_file : ('a * 'b) [], uids_directory : 'b [], files) (num_dirs, uids, files') =
     let uids_file' = Array.zeroCreate (Array.length uids)
     let uids_directory' = Array.zeroCreate num_dirs
     let rec loop = function
@@ -217,9 +214,9 @@ let package_files_diff (uids_file : ('a * 'b) [], uids_directory : 'b [], files)
     list (files, files') |> ignore
     uids_file',uids_directory'
 
-let wdiff_package_files (funs : PackageFilesFuns<'a,'state>) 
+let wdiff_proj_files (funs : PackageFilesFuns<'a,'state>) 
         (state : PackageFilesState<'a,'state >) (num_dirs,uids,files : PackageFiles list) =
-    let uids_file, uids_directory = package_files_diff (state.uids_file,state.uids_directory,state.files) (num_dirs,uids,files)
+    let uids_file, uids_directory = proj_files_diff (state.uids_file,state.uids_directory,state.files) (num_dirs,uids,files)
     let memo (uids : _ []) uid f = 
         let x = uids.[uid]
         if isNull (box x) then let x = f() in uids.[uid] <- x; x
@@ -243,7 +240,7 @@ let union_adds l =
         ) l
     |> Hopac.memo
 
-let wdiff_package_files_infer_funs = {new PackageFilesFuns<TypecheckerState,PackageId * ModuleId * TopEnv Promise> with
+let wdiff_proj_files_infer_funs = {new PackageFilesFuns<TypecheckerState,PackageId * ModuleId * TopEnv Promise> with
     member t.file(name,(package_id,module_id,_ as state),c) = 
         let x = wdiff_typechecker_state c state
         let env = union_adds x.results
