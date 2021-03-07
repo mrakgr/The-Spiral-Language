@@ -198,19 +198,19 @@ type private BlockBundleStateInner = {errors : RString list; tmp : TopStatement 
 let wdiff_block_bundle_init : BlockBundleState = Promise.Now.never()
 /// Bundles the blocks with the `and` statements. Also collects the parser errors.
 /// Does diffing to ref preserve the bundles.
-let wdiff_block_bundle (state : BlockBundleState) (l : ParserState) =
+let wdiff_block_bundle (state : BlockBundleState) (l : ParserState) : BlockBundleState =
     let (+.) a b = add_line_to_range a b
     let (>>**) x f = if Promise.Now.isFulfilled x then f (Promise.Now.get x) else x >>=* f
 
     let move_temp (s : BlockBundleStateInner) next =
         let o' = List.rev s.tmp
-        let fl() = (o',{bundle=bundle_blocks o'; errors=Seq.toList s.errors}), next {s with state=Promise.Now.never(); tmp=[]; errors=[]}
+        let fl s = (o',{bundle=bundle_blocks o'; errors=Seq.toList s.errors}), next {s with tmp=[]; errors=[]}
         if Promise.Now.isFulfilled s.state then
             match Promise.Now.get s.state with
             | Cons((o,q),xs) when o = o' -> (o,{bundle=q.bundle; errors=Seq.toList s.errors}), next {s with state=xs; tmp=[]; errors=[]}
-            | _ -> fl()
-        else fl()
-        |> fun (a,b) -> Promise.Now.withValue(Cons(a,b))
+            | _ -> fl {s with state=Promise.Now.never()}
+        else fl s
+        |> Cons |> Promise.Now.withValue
 
     let inline iter (s : BlockBundleStateInner) l f = 
         match l with

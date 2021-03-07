@@ -135,7 +135,7 @@ let wdiff_module (state : ModuleState) x =
 
 type PackageId = int
 type ModuleId = int
-type TypecheckerState = {
+type [<ReferenceEquality>] TypecheckerState = {
     package_id : PackageId
     module_id : ModuleId
     top_env : TopEnv Promise
@@ -143,10 +143,10 @@ type TypecheckerState = {
     bundle : BlockBundleState
     }
 
-let wdiff_typechecker_init (package_id, module_id, top_env) = {
-    package_id = package_id
-    module_id = module_id
-    top_env = top_env
+let wdiff_typechecker_init = {
+    package_id = -1
+    module_id = -1
+    top_env = Promise.Now.never()
     results = Promise.Now.never()
     bundle = Promise.Now.never()
     }
@@ -160,7 +160,7 @@ let rec typecheck (package_id,module_id,env) = function
     | Nil ->
         Nil
 
-let wdiff_typechecker_input (state : TypecheckerState) (bundle : BlockBundleState) =
+let wdiff_typechecker_update_input (state : TypecheckerState) (bundle : BlockBundleState) =
     let rec diff env (a,b : BlockBundleState) = 
         b >>-* fun b ->
         let tc () = typecheck (state.package_id,state.module_id,env) b
@@ -175,7 +175,7 @@ let wdiff_typechecker_input (state : TypecheckerState) (bundle : BlockBundleStat
         diff top_env (state.results,bundle)
     {state with results = results; bundle = bundle}
 
-let wdiff_typechecker_state (state : TypecheckerState) (package_id,module_id,top_env) =
+let wdiff_typechecker_update_state (state : TypecheckerState) (package_id,module_id,top_env) =
     if state.package_id = package_id && state.module_id = module_id && state.top_env = top_env then state else
     let results = 
         top_env >>=* fun top_env ->
@@ -228,18 +228,21 @@ let proj_files (funs : ProjFilesFuns<'a,'state>) uids_file uids_directory uids s
             ) (funs.init, s) l |> fst
     list s l
 
-let wdiff_proj_files_init (funs : ProjFilesFuns<'a,'state>) (init : 'state,num_dirs,uids,files : PackageFiles list) =
-    let uids_file, uids_directory = Array.zeroCreate (Array.length uids), Array.zeroCreate num_dirs
-    {files=files; init=init; uids_file=uids_file; uids_directory=uids_directory; result=proj_files funs uids_file uids_directory uids init files}
+let wdiff_proj_files_init (funs : ProjFilesFuns<'a,'state>) = {files=[]; init=funs.init; uids_file=[||]; uids_directory=[||]; result=funs.init}
 
-let wdiff_proj_files_files (funs : ProjFilesFuns<'a,'state>) (state : ProjFilesState<'a,'state >) (num_dirs,uids,files : PackageFiles list) =
+let wdiff_proj_files_update_files (funs : ProjFilesFuns<'a,'state>) (state : ProjFilesState<'a,'state >) (num_dirs,uids,files : PackageFiles list) =
     let uids_file, uids_directory = proj_files_diff (state.uids_file,state.uids_directory,state.files) (num_dirs,uids,files)
     {state with files=files; uids_file=uids_file; uids_directory=uids_directory; result=proj_files funs uids_file uids_directory uids state.init files}
 
-let wdiff_proj_files_init' (funs : ProjFilesFuns<'a,'state>) (state : ProjFilesState<'a,'state >) (init : 'state) =
+let wdiff_proj_files_update_init (funs : ProjFilesFuns<'a,'state>) (state : ProjFilesState<'a,'state >) (init : 'state) =
+    if state.init = init then state else
     let uids_file, uids_directory = Array.zeroCreate state.uids_file.Length, Array.zeroCreate state.uids_directory.Length
     let uids = Array.map fst state.uids_file
     {state with init=init; uids_file=uids_file; uids_directory=uids_directory; result=proj_files funs uids_file uids_directory uids init state.files}
+
+let wdiff_proj_files (funs : ProjFilesFuns<'a,'state>) (state : ProjFilesState<'a,'state >) (init,num_dirs,uids,files) =
+    let state = wdiff_proj_files_update_init funs state init
+    wdiff_proj_files_update_files funs state (num_dirs,uids,files)
 
 let typechecker_results_summary l =
     Stream.foldFun (fun (has_error,big) (_,x : InferResult,_) -> 
@@ -250,7 +253,7 @@ let typechecker_results_summary l =
         ) (false,top_env_empty) l
     |> Hopac.memo
 
-type TypecheckerStatePropagated = {
+type [<ReferenceEquality>] TypecheckerStatePropagated = {
     package_id : PackageId
     module_id : ModuleId
     has_error : bool Promise
@@ -259,7 +262,7 @@ type TypecheckerStatePropagated = {
 
 let wdiff_proj_files_infer_funs = {new ProjFilesFuns<TypecheckerState,TypecheckerStatePropagated> with
     member _.file(name,state,tc) = 
-        let x = wdiff_typechecker_state tc (state.package_id,state.module_id,state.env)
+        let x = wdiff_typechecker_update_state tc (state.package_id,state.module_id,state.env)
         let summary = typechecker_results_summary x.results
         let has_error = summary >>=* fun (a,_) -> state.has_error >>- fun b -> a || b
         let env = summary >>-* fun (_,env) -> match name with None -> env | Some name -> in_module name env
@@ -296,7 +299,7 @@ let in_module m (a : PackageEnv) =
         constraints = Map.add m (M a.constraints) Map.empty
         }
 
-let package_to_top (x : PackageEnv) = {
+let package_to_file (x : PackageEnv) = {
     nominals_next_tag = 0
     nominals_aux = Map.foldBack (fun _ -> Map.foldBack Map.add) x.nominals_aux Map.empty
     nominals = Map.foldBack (fun _ -> Map.foldBack Map.add) x.nominals Map.empty
@@ -308,7 +311,7 @@ let package_to_top (x : PackageEnv) = {
     constraints = x.constraints
     }
 
-let top_to_package package_id (small : TopEnv) (big : PackageEnv): PackageEnv = {
+let add_file_to_package package_id (small : TopEnv) (big : PackageEnv): PackageEnv = {
     nominals_aux = Map.add package_id small.nominals_aux big.nominals_aux
     nominals = Map.add package_id small.nominals big.nominals
     prototypes_instances = Map.add package_id small.prototypes_instances big.prototypes_instances
@@ -335,12 +338,65 @@ type ProjPackagesState<'a> = {
     packages : (string * 'a) list
     result : 'a
     }
-type [<ReferenceEquality>] ProjState<'a,'b,'state> = {
+type ProjState<'a,'b,'state> = {
     packages : 'state ProjPackagesState
     files : ProjFilesState<'a,'b>
     result : 'state
     }
-
-type ProjStateTC = ProjState<TypecheckerState,TypecheckerStatePropagated,PackageEnv>
+type [<ReferenceEquality>] TypecheckerStateTop = {
+    has_error : bool Promise
+    env : PackageEnv Promise
+    }
+type ProjStateTC = ProjState<TypecheckerState,TypecheckerStatePropagated,TypecheckerStateTop>
 type ProjEnvTC = Map<PackageId,ProjStateTC>
 
+type ProjPackageFuns<'file,'package> =
+    abstract member unions : (string * 'package) list -> 'package
+    abstract member union : 'package * 'package -> 'package
+    abstract member in_module : string * 'package -> 'package
+    abstract member package_to_file : PackageId * 'package -> 'file
+    abstract member add_file_to_package : 'file * 'package -> 'package
+    abstract member init : 'package
+
+let proj_package_funs = {new ProjPackageFuns<TypecheckerStatePropagated,TypecheckerStateTop> with
+    member funs.unions l = 
+        let x = promise_thunk <| fun () ->
+            List.fold (fun big (name,small) -> 
+                Hopac.queueIgnore small.has_error; Hopac.queueIgnore small.env
+                funs.union(funs.in_module(name,small),big)
+                ) funs.init l
+        {
+        has_error=x >>=* fun x -> x.has_error
+        env = x >>=* fun x -> x.env
+        }
+    member _.union(small,big) = {
+        env = small.env >>=* fun small -> big.env >>- union small
+        has_error = small.has_error >>=* fun a -> big.has_error >>- fun b -> a || b
+        }
+    member _.in_module(name,x) = {x with env = x.env >>-* in_module name}
+    member _.package_to_file(package_id,x) = { package_id = package_id; module_id = 0; has_error = x.has_error; env = x.env >>-* package_to_file }
+    member _.add_file_to_package(a,b) = {
+        has_error = a.has_error
+        env = let i,a,b = a.package_id, a.env, b.env in a >>=* fun a -> b >>- add_file_to_package i a
+        }
+    member _.init = {has_error = Promise.Now.withValue false; env = Promise.Now.withValue package_env_default}
+    }
+
+let wdiff_proj_packages (funs : ProjPackageFuns<_,'a>) (state : 'a ProjPackagesState) (x : (string * 'a) list) =
+    if state.packages = x then state else {state with packages = x; result = funs.unions x }
+
+let wdiff_proj_update_packages funs_packages funs_files (state : ProjState<'a,'b,'state>) x =
+    let packages = wdiff_proj_packages funs_packages state.packages x
+    if state.packages = packages then state else
+    let files = wdiff_proj_files_update_init funs_files state.files (funs_packages.package_to_file(packages.package_id,packages.result))
+    let result = funs_packages.add_file_to_package(files.result,state.result)
+    {packages=packages; files=files; result=result}
+
+let wdiff_proj_update_files (funs_packages : ProjPackageFuns<_,_>) funs_files (state : ProjState<'a,'b,'state>) x =
+    let files = wdiff_proj_files_update_files funs_files state.files x
+    let result = funs_packages.add_file_to_package(files.result,state.result)
+    {state with files=files; result=result}
+
+let wdiff_proj (funs_packages : ProjPackageFuns<_,_>) funs_files (state : ProjState<'a,'b,'state>) (packages,files) =
+    let state = wdiff_proj_update_packages funs_packages funs_files state packages
+    wdiff_proj_update_files funs_packages funs_files state files
