@@ -202,14 +202,15 @@ let wdiff_block_bundle (state : BlockBundleState) (l : ParserState) : BlockBundl
     let (+.) a b = add_line_to_range a b
     let (>>**) x f = if Promise.Now.isFulfilled x then f (Promise.Now.get x) else x >>=* f
 
+    let empty = {state=wdiff_block_bundle_init; tmp=[]; errors=[]}
     let move_temp (s : BlockBundleStateInner) next =
         let o' = List.rev s.tmp
-        let fl s = (o',{bundle=bundle_blocks o'; errors=Seq.toList s.errors}), next {s with tmp=[]; errors=[]}
+        let fl () = (o',{bundle=bundle_blocks o'; errors=Seq.toList s.errors}), next empty
         if Promise.Now.isFulfilled s.state then
             match Promise.Now.get s.state with
             | Cons((o,q),xs) when o = o' -> (o,{bundle=q.bundle; errors=Seq.toList s.errors}), next {s with state=xs; tmp=[]; errors=[]}
-            | _ -> fl {s with state=Promise.Now.never()}
-        else fl s
+            | _ -> fl ()
+        else fl ()
         |> Cons |> Promise.Now.withValue
 
     let inline iter (s : BlockBundleStateInner) l f = 
@@ -236,4 +237,4 @@ let wdiff_block_bundle (state : BlockBundleState) (l : ParserState) : BlockBundl
         | Ok _ -> move_temp s (fun s -> init s l)
         | Error er -> rectype {s with errors = List.append (show_block_parsing_error offset er) s.errors} x'
 
-    init {tmp=[]; errors=[]; state=state} l.blocks
+    init {empty with state=state} l.blocks
