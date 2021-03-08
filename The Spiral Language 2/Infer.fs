@@ -620,7 +620,7 @@ type 'a AdditionType =
     | AInclude of 'a
 
 open System.Collections.Generic
-type InferResult = {
+type [<ReferenceEquality>] InferResult = {
     filled_top : FilledTop Hopac.Promise
     top_env_additions : TopEnv AdditionType
     offset : int

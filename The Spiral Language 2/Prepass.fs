@@ -315,7 +315,6 @@ type PrepassTopEnv = {
     nominals : Map<GlobalId,{|body : T; name : string|}>
     term : Map<string,E>
     ty : Map<string,T>
-    has_errors : bool
     }
 
 let top_env_empty = {
@@ -325,7 +324,6 @@ let top_env_empty = {
     nominals = Map.empty
     term = Map.empty
     ty = Map.empty
-    has_errors = false
     }
 
 let union small big = {
@@ -335,7 +333,6 @@ let union small big = {
     nominals = Map.foldBack Map.add small.nominals big.nominals
     term = Map.foldBack Map.add small.term big.term
     ty = Map.foldBack Map.add small.ty big.ty
-    has_errors = small.has_errors || big.has_errors
     }
     
 let in_module m (a : PrepassTopEnv) =
@@ -792,7 +789,6 @@ let module_open (top_env : PrepassTopEnv) env a l =
     ty = {|env.ty with env = Map.foldBack Map.add b env.ty.env|}
     }
 let prepass package_id module_id path (top_env : PrepassTopEnv) =
-    assert (top_env.has_errors = false)
     let p r = {path=path; range=r}
     let at_tag i = { package_id = package_id; module_id = module_id; tag = i }
     let v_term (env : Env) x = Map.tryFind x env.term.env |> Option.defaultWith (fun () -> top_env.term.[x])

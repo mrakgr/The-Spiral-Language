@@ -41,6 +41,7 @@
     <Compile Include="CodegenFsharp.fs" />
     <Compile Include="CodegenCython.fs" />
     <Compile Include="WDiff.fs" />
+    <Compile Include="WDiffPrepass.fs" />
     <Compile Include="MainStreamServer.fs" />
     <Compile Include="PrepassStreamServer.fs" />
     <Compile Include="SpiProj.fs" />
