@@ -1,11 +1,10 @@
 ﻿// Everything that deals with Spiral project files themselves goes here
 module Spiral.SpiProj
-open System
 open FParsec
 open VSCTypes
 
-type FileHierarchy =
-    | Directory of VSCRange * RString * FileHierarchy list
+type RawFileHierarchy =
+    | Directory of VSCRange * RString * RawFileHierarchy list
     | File of VSCRange * RString * is_top_down : bool * is_include : bool
 type ConfigResumableError =
     | DuplicateFiles of VSCRange [] []
@@ -51,17 +50,20 @@ and file_or_directory p =
     let i = column p
     let file_hierarchy p = if i < column p then file_hierarchy p else Reply([])
     (range (range file' >>= fun (r,name) p ->
+        let adjust_range ((a,b) : VSCRange) : VSCRange =
+            if a.character <= b.character then a,{|b with character=a.character|}
+            else a,{|line=b.line-1; character=System.Int32.MaxValue|}
         let x = p.Peek2()
         match x.Char0, x.Char1 with
-        | '/',_ -> p.Skip(); (spaces >>. file_hierarchy |>> fun files r' -> Directory((fst r, snd r'),(r,name),files)) p
-        | '-',_ -> p.Skip(); (spaces >>% fun r' -> File(r',(r,name),true,true)) p
-        | '*','-' -> p.Skip(2); (spaces >>% fun r' -> File(r',(r,name),false,true)) p
-        | '*',_ -> p.Skip(); (spaces >>% fun r' -> File(r',(r,name),false,false)) p
-        | _ -> (spaces >>% fun r' -> File(r',(r,name),true,false)) p
+        | '/',_ -> p.Skip(); (spaces >>. file_hierarchy |>> fun files r' -> Directory(adjust_range r',(r,name),files)) p
+        | '-',_ -> p.Skip(); (spaces >>% fun r' -> File(adjust_range r',(r,name),true,true)) p
+        | '*','-' -> p.Skip(2); (spaces >>% fun r' -> File(adjust_range r',(r,name),false,true)) p
+        | '*',_ -> p.Skip(); (spaces >>% fun r' -> File(adjust_range r',(r,name),false,false)) p
+        | _ -> (spaces >>% fun r' -> File(adjust_range r',(r,name),true,false)) p
         )
     |>> fun (r',f) -> f r') p
 
-type SchemaPackages = {range : VSCRange; name : string; is_in_compiler_dir : bool; is_include : bool}
+type RawSchemaPackages = {range : VSCRange; name : string; is_in_compiler_dir : bool; is_include : bool}
 let packages p =
     let i = column p
     let file = range (((skipChar '|' >>% true) <|>% false) .>>.  file') >>= fun (r,(is_in_compiler_dir,name)) p ->
@@ -106,16 +108,16 @@ let record fields fields_necessary schema =
 
         Reply(schema)
 
-type Schema = {
+type RawSchema = {
     name : RString option
     version : RString option
     moduleDir : RString option
-    modules : FileHierarchy list
+    modules : RawFileHierarchy list
     packageDir : RString option
-    packages : SchemaPackages list
+    packages : RawSchemaPackages list
     }
 
-let schema_def: Schema = {
+let schema_def: RawSchema = {
     name=None
     version=None
     moduleDir=None
@@ -130,7 +132,7 @@ open System.IO
 let config text =
     try 
         let _ = tab_positions text |> raise_if_not_empty Tabs
-
+        
         let directory p = (range (restOfLine false) .>> spaces |>> fun (r,x) -> Some(r,x.Trim())) p
 
         let fields = [
@@ -166,3 +168,45 @@ let config text =
         | FatalError x -> fatal_error x
         |> Array.toList
         )
+
+type FileHierarchy =
+    | Directory of VSCRange * path: RString * name : string * FileHierarchy list
+    | File of VSCRange * path: RString * string option
+type SchemaPackages = {path : RString; name : string option}
+type Schema = {
+    moduleDir : VSCRange option * string
+    modules : FileHierarchy list
+    packageDir : VSCRange option * string 
+    packages : SchemaPackages list
+    }
+
+exception SchemaException of RString
+let schema (pdir,text) = config text |> Result.bind (fun x ->
+    try let combine a (r,b) = try Path.Combine(a,b) |> Path.GetFullPath with e -> raise (SchemaException(r,e.Message))
+        let module_dir =
+            match x.moduleDir with
+            | Some(r,_ as x) -> Some r, combine pdir x
+            | None -> None, pdir
+        let package_dir = 
+            match x.packageDir with
+            | Some(r,_ as x) -> Some r, combine pdir x
+            | None -> None, Path.Combine(pdir,"..") |> Path.GetFullPath
+        let modules =
+            let rec loop prefix = function
+                | RawFileHierarchy.Directory(r,(r',a),l) -> 
+                    let prefix = Path.Combine(prefix,a)
+                    Directory(r,(r',prefix),a,List.map (loop prefix) l)
+                | RawFileHierarchy.File(r,(r',a),is_top_down,is_include) ->
+                    let path = Path.Combine(prefix,sprintf "%s.%s" a (if is_top_down then ".spi" else ".spiproj"))
+                    File(r,(r',path),if is_include then None else Some a)
+            List.map (loop (snd module_dir)) x.modules
+        let packages =
+            let cdir = Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory,"..") |> Path.GetFullPath
+            x.packages |> List.map (fun x ->
+                let name = if x.is_include then None else Some x.name
+                let path = Path.Combine((if x.is_in_compiler_dir then cdir else snd package_dir),x.name)
+                {name = name; path = x.range, path}
+                )
+        Result.Ok {moduleDir = module_dir; modules = modules; packageDir = package_dir; packages = packages}
+    with :? SchemaException as e -> Result.Error [e.Data0]
+    )

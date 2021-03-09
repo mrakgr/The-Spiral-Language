@@ -137,7 +137,7 @@ module Build =
 
 type LoadResult =
     | LoadModule of package_dir: string * path: RString * Result<ModuleStreamRes,string>
-    | LoadPackage of package_dir: string * Result<IntraValidatedSchema,string>
+    | LoadPackage of package_dir: string * Result<Schema',string>
 
 let tokenizer_error errors uri ers = Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=ers|})
 let parser_error errors uri ers = Hopac.start (Src.value errors.parser {|uri=uri; errors=ers|})
@@ -146,7 +146,7 @@ let package_update errors (s : SupervisorState) package_dir text =
     let queue : LoadResult Task Queue = Queue()
     let rec load_module package_dir s l =
         List.fold (fun s -> function
-            | ValidatedFileHierarchy.File((r, path as p),name,exists) ->
+            | FileHierarchy'.File((r, path as p),name,exists) ->
                 match Map.tryFind path s.modules with
                 | Some _ -> if exists then s else {s with modules = Map.remove path s.modules}
                 | None -> 
@@ -158,7 +158,7 @@ let package_update errors (s : SupervisorState) package_dir text =
                             with e -> LoadModule(package_dir,p,Error e.Message)
                             ) |> queue.Enqueue
                     s
-            | ValidatedFileHierarchy.Directory(name,l) ->
+            | FileHierarchy'.Directory(name,l) ->
                 load_module package_dir s l
             ) s l
 
@@ -264,14 +264,14 @@ let attention_server (req : (SupervisorState * string) Stream) =
         match Map.tryFind dir s.packages.intra_schemas with
         | Some(Ok x) ->
             let rec elem = function
-                | ValidatedFileHierarchy.File((_,path),_,_) ->
+                | FileHierarchy'.File((_,path),_,_) ->
                     match Map.tryFind path s.infer_results with
                     | Some x ->
                         let rec loop x = (canc ^->. false) <|> (x ^=> function Cons(_,next) -> loop next | Nil -> Alt.always true)
                         loop x
                     | None ->
                         Alt.always false
-                | ValidatedFileHierarchy.Directory(_,l) ->
+                | FileHierarchy'.Directory(_,l) ->
                     list l
             and list = function
                 | x :: xs ->

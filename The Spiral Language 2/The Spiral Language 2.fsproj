@@ -42,10 +42,11 @@
     <Compile Include="CodegenCython.fs" />
     <Compile Include="WDiff.fs" />
     <Compile Include="WDiffPrepass.fs" />
+    <Compile Include="SpiProj.fs" />
+    <Compile Include="Graph.fs" />
+    <Compile Include="ServerUtils.fs" />
     <Compile Include="MainStreamServer.fs" />
     <Compile Include="PrepassStreamServer.fs" />
-    <Compile Include="SpiProj.fs" />
-    <Compile Include="ServerUtils.fs" />
     <Compile Include="Supervisor.fs" />
   </ItemGroup>
 

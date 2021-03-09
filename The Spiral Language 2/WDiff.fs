@@ -185,7 +185,7 @@ let wdiff_file (funs : FileFuns<'a,'b,'state>) (state : FileState<'a,'b,'state>)
 
 type ProjFilesTree =
     | File of module_id: ModuleId * path: string * name: string option
-    | Directory of dir_id: int * path : string * name: string * ProjFilesTree list
+    | Directory of dir_id: DirId * path : string * name: string * ProjFilesTree list
 
 type ProjFiles = { tree : ProjFilesTree list; num_dirs : int; num_modules : int }
 
@@ -337,7 +337,7 @@ let package_env_empty = {
 let package_env_default = {package_env_empty with ty = top_env_default.ty; term = top_env_default.term; constraints = top_env_default.constraints}
 
 type ProjPackagesState<'a> = {
-    packages : (string * 'a) list
+    packages : (string option * 'a) list
     result : 'a
     }
 type ProjState<'a,'b,'state> = {
@@ -351,7 +351,7 @@ type ProjStateTC = ProjState<TypecheckerState,TypecheckerStatePropagated,Typeche
 type ProjEnvTC = Map<PackageId,ProjStateTC>
 
 type ProjPackageFuns<'file,'package> =
-    abstract member unions : (string * 'package) list -> 'package
+    abstract member unions : (string option * 'package) list -> 'package
     abstract member union : 'package * 'package -> 'package
     abstract member in_module : string * 'package -> 'package
     abstract member package_to_file : 'package -> 'file
@@ -359,7 +359,9 @@ type ProjPackageFuns<'file,'package> =
     abstract member init : 'package
 
 let proj_tc_funs = {new ProjPackageFuns<TypecheckerStatePropagated,TypecheckerStateTop> with
-    member funs.unions l = List.fold (fun big (name,small) -> funs.union(funs.in_module(name,small),big)) funs.init l
+    member funs.unions l = 
+        let f = function Some name, small -> funs.in_module(name,small) | None, small -> small
+        List.fold (fun big x -> funs.union(f x,big)) funs.init l
     member _.union(small,big) = 
         Job.delay <| fun () ->
             Hopac.queueIgnore big
@@ -376,7 +378,7 @@ let proj_tc_funs = {new ProjPackageFuns<TypecheckerStatePropagated,TypecheckerSt
     member _.init = Promise.Now.withValue (false, package_env_default)
     }
 
-let wdiff_proj_packages (funs : ProjPackageFuns<_,'a>) (state : 'a ProjPackagesState) (x : (string * 'a) list) =
+let wdiff_proj_packages (funs : ProjPackageFuns<_,'a>) (state : 'a ProjPackagesState) x =
     if state.packages = x then state else {state with packages = x; result = funs.unions x }
 
 let wdiff_proj_update_packages funs_packages funs_files (state : ProjState<'a,'b,'state>) x =
@@ -408,8 +410,8 @@ let wdiff_projenv_update_module funs_packages funs_files (s : Map<PackageId,Proj
         ) s tail
 
 type ProjEnvUpdate<'a> =
-    | UpdatePackageModule of PackageId * (string * PackageId) list * ('a [] * ProjFiles)
-    | UpdatePackage of PackageId * (string * PackageId) list
+    | UpdatePackageModule of PackageId * (string option * PackageId) list * ('a [] * ProjFiles)
+    | UpdatePackage of PackageId * (string option * PackageId) list
 
 let wdiff_projenv_update_packages funs_packages funs_files (s : Map<PackageId,ProjState<'a,'b,'state>>) l =
     let f packages = packages |> List.map (fun (a,b) -> a, (Map.find b s).result)

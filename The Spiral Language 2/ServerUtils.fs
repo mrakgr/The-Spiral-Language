@@ -4,55 +4,8 @@ open System.IO
 open System.Collections.Generic
 
 open VSCTypes
+open Graph
 open Spiral.SpiProj
-
-type Graph = Map<string,string Set>
-type MirroredGraph = Graph * Graph
-
-let mirrored_graph_empty = Map.empty, Map.empty
-
-let add_link (abs : Graph) a b: Graph = 
-    match Map.tryFind a abs with
-    | Some bs -> Map.add a (Set.add b bs) abs
-    | None -> Map.add a (Set.singleton b) abs
-let add_link' (s : MirroredGraph) a b: MirroredGraph = add_link (fst s) a b, add_link (snd s) b a
-
-let remove_link (abs : Graph) a b = 
-    match Map.tryFind a abs with
-    | Some bs -> 
-        let bs = Set.remove b bs
-        if Set.isEmpty bs then Map.remove a abs else Map.add a bs abs
-    | None -> abs
-let remove_link' (s : MirroredGraph) a b: MirroredGraph = remove_link (fst s) a b, remove_link (snd s) b a
-
-let remove_links ((abs,bas as s) : MirroredGraph) a: MirroredGraph = 
-    match Map.tryFind a abs with
-    | Some bs -> Map.remove a abs, Set.fold (fun bas b -> remove_link bas b a) bas bs
-    | None -> s
-let add_links s a bs = List.fold (fun s b -> add_link' s a b) s bs
-let replace_links (s : MirroredGraph) a bs = add_links (remove_links s a) a bs
-let get_links (abs : Graph) a = Map.tryFind a abs |> Option.defaultValue Set.empty
-let link_exists ((abs,bas) : MirroredGraph) x = Map.containsKey x abs || Map.containsKey x bas
-
-let topological_sort bas dirty_nodes =
-    let sort_order = Stack()
-    let sort_visited = HashSet()
-    let rec dfs_rev a = if sort_visited.Add(a) then Seq.iter dfs_rev (get_links bas a); sort_order.Push(a)
-    Seq.iter dfs_rev dirty_nodes
-    sort_order, sort_visited
-
-let circular_nodes ((abs,bas) : MirroredGraph) dirty_nodes =
-    let sort_order, sort_visited = topological_sort bas dirty_nodes
-    let order = sort_order.ToArray()
-    let visited = HashSet()
-    let circular_nodes = HashSet()
-    order |> Array.iter (fun a ->
-        let ar = ResizeArray()
-        let rec dfs a = if sort_visited.Contains(a) && visited.Add(a) then Seq.iter dfs (get_links abs a); ar.Add a
-        dfs a
-        if 1 < ar.Count then ar |> Seq.iter (fun x -> circular_nodes.Add(x) |> ignore)
-        )
-    order, circular_nodes
 
 type ProjectCodeAction = 
     | CreateFile of {|filePath : string|}
@@ -64,24 +17,24 @@ type ProjectCodeAction =
 
 let code_action_execute a =
     try match a with
-        | CreateDirectory a -> Directory.CreateDirectory(a.dirPath) |> ignore; None
-        | DeleteDirectory a -> Directory.Delete(a.dirPath,true); None
+        | CreateDirectory a -> Directory.CreateDirectory(a.dirPath) |> ignore; Ok null
+        | DeleteDirectory a -> Directory.Delete(a.dirPath,true); Ok a.dirPath
         | RenameDirectory a ->
             if a.validate_as_file then
                 match FParsec.CharParsers.run file_verify a.target with
-                | FParsec.CharParsers.ParserResult.Success _ -> Directory.Move(a.dirPath,Path.Combine(a.dirPath,"..",a.target)); None
-                | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> Some er
+                | FParsec.CharParsers.ParserResult.Success _ -> Directory.Move(a.dirPath,Path.Combine(a.dirPath,"..",a.target)); Ok a.dirPath
+                | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> Error er
             else
-                Directory.Move(a.dirPath,Path.Combine(a.dirPath,"..",a.target)); None
+                Directory.Move(a.dirPath,Path.Combine(a.dirPath,"..",a.target)); Ok a.dirPath
         | CreateFile a ->
-            if File.Exists(a.filePath) then Some "File already exists."
-            else File.Create(a.filePath).Dispose(); None
-        | DeleteFile a -> File.Delete(a.filePath); None
+            if File.Exists(a.filePath) then Error "File already exists."
+            else File.Create(a.filePath).Dispose(); Ok null
+        | DeleteFile a -> File.Delete(a.filePath); Ok a.filePath
         | RenameFile a ->
             match FParsec.CharParsers.run file_verify a.target with
-            | FParsec.CharParsers.ParserResult.Success _ -> File.Move(a.filePath,Path.Combine(a.filePath,"..",a.target+Path.GetExtension(a.filePath)),false); None
-            | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> Some er
-    with e -> Some e.Message
+            | FParsec.CharParsers.ParserResult.Success _ -> File.Move(a.filePath,Path.Combine(a.filePath,"..",a.target+Path.GetExtension(a.filePath)),false); Ok a.filePath
+            | FParsec.CharParsers.ParserResult.Failure(er,_,_) -> Error er
+    with e -> Error e.Message
 
 type RAction = VSCRange * ProjectCodeAction
 
@@ -90,18 +43,18 @@ open Hopac.Infixes
 open Hopac.Extensions
 open Hopac.Stream
 
-type ValidatedFileHierarchy =
+type FileHierarchy' =
     | File of path: RString * name: string option * exists: bool
-    | Directory of name: string * ValidatedFileHierarchy list
+    | Directory of name: string * FileHierarchy' list
 
 // Does only intra-package validation.
-type IntraValidatedSchema = {
-    schema : Schema
+type Schema' = {
+    schema : RawSchema
     packages : RString list
     links : RString list
     actions : RAction list
     errors : RString list
-    files : ValidatedFileHierarchy list
+    files : FileHierarchy' list
     }
 
 let schema_validate project_dir x =
@@ -139,7 +92,7 @@ let schema_validate project_dir x =
     let files =
         if 0 = errors.Count then 
             let rec validate_file prefix = function
-                | FileHierarchy.File(r',(r,a),is_top_down,is_include) -> 
+                | RawFileHierarchy.File(r',(r,a),is_top_down,is_include) -> 
                     try let x = FileInfo(Path.Combine(prefix,a + (if is_top_down then ".spi" else ".spir")))
                         let exists = x.Exists
                         if exists then 
@@ -151,7 +104,7 @@ let schema_validate project_dir x =
                             actions.Add (r, CreateFile {|filePath=x.FullName|})
                         Some(File((r,x.FullName),(if is_include then None else Some a),exists))
                     with e -> errors.Add (r, e.Message); None
-                | FileHierarchy.Directory(r',(r,a),b) ->
+                | RawFileHierarchy.Directory(r',(r,a),b) ->
                     try let x = DirectoryInfo(Path.Combine(prefix,a))
                         let p = Path.Combine(x.FullName,"package.spiproj")
                         let l =
@@ -194,7 +147,7 @@ let schema_validate project_dir x =
 
 // Does circularity checking and propagates errors from linked packages. Also provides links to them.
 type FullyValidatedSchema = {
-    schema : IntraValidatedSchema
+    schema : Schema'
     package_links : RString list
     package_errors : RString list
     is_circular : bool
@@ -204,7 +157,7 @@ type ResultMap<'a> = Map<string,Result<'a,string>>
 type PackageMaps = {
     full_schemas : FullyValidatedSchema ResultMap
     package_links : MirroredGraph
-    intra_schemas : IntraValidatedSchema ResultMap
+    intra_schemas : Schema' ResultMap
     }
 
 let dir uri = FileInfo(Uri(uri).LocalPath).Directory.FullName
@@ -214,7 +167,7 @@ let package_validate (s : PackageMaps) project_dir =
     let potential_floating_garbage =
         project_dir ::
         match Map.tryFind project_dir s.full_schemas with
-        | Some(Ok v) -> List.map snd v.schema.packages
+        | Some(Ok v) -> List.map snd v.schema.RawSchemaPackagesages
         | _ -> []
 
     let schemas = Map.remove project_dir s.full_schemas
