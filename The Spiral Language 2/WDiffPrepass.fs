@@ -39,8 +39,8 @@ let file_prepass_funs = {new FileFuns<PackageId * ModuleId * string * Typechecke
         x >>= prepass (pid,mid,path,env)
     member _.diff(state,b,(pid,mid,path,a)) =
         state >>=* fun env -> diff (pid,mid,path,env) (b,a)
-    member _.init = {
-        input = -1, -1, null, Promise.Now.never()
+    member _.init x = {
+        input = x
         result = Promise.Now.never()
         state = Promise.Now.never()
         }
@@ -63,7 +63,7 @@ let files_prepass_funs = {new ProjFileFuns<PrepassState,PrepassStatePropagated> 
         x,env
     member _.union(small,big) = small >>=* fun small -> big >>- fun big -> union small big
     member _.in_module(name,small) = small >>-* in_module name
-    member _.init = Promise.Now.withValue top_env_empty
+    member _.empty = Promise.Now.withValue top_env_empty
     }
 
 type PrepassPackageEnv = {
@@ -114,7 +114,7 @@ let package_env_default = { package_env_empty with ty = top_env_default.ty }
 let proj_prepass_funs = {new ProjPackageFuns<PrepassStatePropagated,PrepassPackageEnv Promise> with
     member funs.unions l = 
         let f = function Some name, small -> funs.in_module(name,small) | None, small -> small
-        List.fold (fun big x -> funs.union(f x,big)) funs.init l
+        List.fold (fun big x -> funs.union(f x,big)) funs.default' l
     member _.union(small,big) = 
         Job.delay <| fun () ->
             Hopac.queueIgnore big
@@ -125,5 +125,6 @@ let proj_prepass_funs = {new ProjPackageFuns<PrepassStatePropagated,PrepassPacka
     member _.add_file_to_package(pid,a,b) = 
         a >>=* fun env ->
         b >>-* add_file_to_package pid env
-    member _.init = Promise.Now.withValue package_env_default
+    member _.default' = Promise.Now.withValue package_env_default
+    member _.empty = Promise.Now.withValue package_env_empty
     }

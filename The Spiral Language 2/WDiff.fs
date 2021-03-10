@@ -139,7 +139,7 @@ type [<ReferenceEquality>] FileState<'input,'result,'state> = { input : 'input; 
 type FileFuns<'a,'b,'state> =
     abstract member eval : 'state * 'a -> 'b
     abstract member diff : 'state * 'b * 'a -> 'b
-    abstract member init : FileState<'a,'b,'state>
+    abstract member init : 'a -> FileState<'a,'b,'state>
 
 type TypecheckerStateValue = Bundle * InferResult * TopEnv
 type TypecheckerStatePropagated = (bool * TopEnv) Promise
@@ -169,8 +169,8 @@ let file_tc_funs = {new FileFuns<PackageId * ModuleId * BlockBundleState, Typech
         x >>- typecheck (pid,mid,env)
     member _.diff(state,b,(pid,mid,a)) =
         state >>=* fun (_,env) -> diff (pid,mid,env) (b,a)
-    member _.init = {
-        input = -1, -1, Promise.Now.never()
+    member _.init x = {
+        input = x
         result = Promise.Now.never()
         state = Promise.Now.never()
         }
@@ -195,7 +195,7 @@ type ProjFileFuns<'a,'state> =
     abstract member file : string option * 'state * 'a -> 'a * 'state
     abstract member union : 'state * 'state -> 'state
     abstract member in_module : string * 'state -> 'state
-    abstract member init : 'state
+    abstract member empty : 'state
 
 type [<ReferenceEquality>] ProjFilesState<'a,'state> = {
     init : 'state
@@ -234,7 +234,7 @@ let proj_files (funs : ProjFileFuns<'a,'state>) uids_file uids_directory uids s 
         List.fold (fun (init,big) x -> 
             let small = loop big x
             funs.union(small,init), funs.union(small,big)
-            ) (funs.init, s) l |> fst
+            ) (funs.empty, s) l |> fst
     list s l.tree
 
 // TODO: Make a version for updating just a single file.
@@ -272,7 +272,7 @@ let proj_file_tc_funs = {new ProjFileFuns<TypecheckerState,TypecheckerStatePropa
         x,env
     member _.union(small,big) = small >>=* fun small -> big >>- fun big -> fst small || fst big, union (snd small) (snd big)
     member _.in_module(name,small) = small >>-* fun (has_error,env) -> has_error, in_module name env
-    member _.init = Promise.Now.withValue (false,top_env_empty)
+    member _.empty = Promise.Now.withValue (false,top_env_empty)
     }
 
 type PackageEnv = {
@@ -356,12 +356,13 @@ type ProjPackageFuns<'file,'package> =
     abstract member in_module : string * 'package -> 'package
     abstract member package_to_file : 'package -> 'file
     abstract member add_file_to_package : PackageId * 'file * 'package -> 'package
-    abstract member init : 'package
+    abstract member default' : 'package
+    abstract member empty : 'package
 
 let proj_package_tc_funs = {new ProjPackageFuns<TypecheckerStatePropagated,TypecheckerStateTop> with
     member funs.unions l = 
         let f = function Some name, small -> funs.in_module(name,small) | None, small -> small
-        List.fold (fun big x -> funs.union(f x,big)) funs.init l
+        List.fold (fun big x -> funs.union(f x,big)) funs.default' l
     member _.union(small,big) = 
         Job.delay <| fun () ->
             Hopac.queueIgnore big
@@ -375,17 +376,18 @@ let proj_package_tc_funs = {new ProjPackageFuns<TypecheckerStatePropagated,Typec
         a >>=* fun (has_error,env) ->
         b >>-* fun (has_error',env') ->
         has_error || has_error', add_file_to_package pid env env'
-    member _.init = Promise.Now.withValue (false, package_env_default)
+    member _.default' = Promise.Now.withValue (false, package_env_default)
+    member _.empty = Promise.Now.withValue (false, package_env_empty)
     }
 
 let wdiff_proj_init (funs_packages : ProjPackageFuns<'file,'package>) (funs_files : ProjFileFuns<'file_input,'file>) package_id : ProjState<'file_input,'file,'package> = 
-    let packages = { packages = []; result = funs_packages.init }
+    let packages = { packages = []; result = funs_packages.default' }
     let files = {
         files={tree=[]; num_dirs=0; num_files=0}
         uids_file=[||]; uids_directory=[||]
-        init=funs_files.init; result=funs_files.init
+        init=funs_files.empty; result=funs_files.empty
         }
-    let result = funs_packages.init
+    let result = funs_packages.empty
     { package_id = package_id; packages = packages; files = files; result = result}
 
 let wdiff_proj_packages (funs : ProjPackageFuns<_,'a>) (state : 'a ProjPackagesState) x =

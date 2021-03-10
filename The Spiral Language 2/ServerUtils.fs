@@ -104,7 +104,7 @@ let wdiff_projenvr_sync_schema funs_packages funs_files (ids : Map<string, Packa
         ) state order
 
 let projenv_update_packages funs_packages funs_files (ids : Map<string, PackageId>) (packages : SchemaEnv)
-        (state : Map<PackageId,ProjState<'a,'b,'state>>)  (dirty_nodes : Dictionary<_,_>, order : string []) =
+        (state : Map<PackageId,ProjState<'a,'b,'state>>)  (dirty_packages : Dictionary<_,_>, order : string []) =
     Array.foldBack (fun x l ->
         match Map.tryFind x packages with
         | None -> l
@@ -112,20 +112,23 @@ let projenv_update_packages funs_packages funs_files (ids : Map<string, PackageI
         | Some schema ->
             let pid = ids.[x]
             let packages = schema.schema.packages |> List.map (fun x -> x.name, ids.[snd x.path])
-            match dirty_nodes.TryGetValue(x) with
+            match dirty_packages.TryGetValue(x) with
             | true, x -> UpdatePackageModule(pid,packages,x) :: l
             | false, _ -> UpdatePackage(pid,packages) :: l
         ) order []
     |> wdiff_projenv_update_packages funs_packages funs_files state
 
+let inline proj_file_iter_file f (files : ProjFiles) =
+    let rec loop = function
+        | File(module_id,path,_) -> f module_id path
+        | Directory(_,_,l) -> list l
+    and list l = List.iter loop l
+    list files.tree
 
-let proj_file_get_input (x : ProjFilesState<_,_>) =
-    let uids_file = x.uids_file
-    let rec loop state = function
-        | File(uid,path,_) -> Map.add path (fst uids_file.[uid]) state
-        | Directory(_,_,l) -> list state l
-    and list state l = List.fold loop state l
-    list Map.empty x.files.tree
+let proj_file_get_input uids_file (x : ProjFiles) =
+    let d = Dictionary()
+    proj_file_iter_file (fun mid path -> d.Add(path, Array.get uids_file mid |> fst)) x
+    d
 
 let proj_file_from_schema (x : Schema) : ProjFiles =
     let mutable num_files = 0
@@ -143,26 +146,27 @@ let proj_file_from_schema (x : Schema) : ProjFiles =
     let tree = list x.modules
     { tree = tree; num_files = num_files; num_dirs = num_dirs }
 
-let proj_file_make_input (funs : FileFuns<_,_,_>) (m : Map<string,_>) (files : ProjFiles) =
-    let rec loop state = function
-        | File(_,path,_) -> 
-            let x = match Map.tryFind path m with Some x -> x | None -> funs.init
-            Map.add path x state
-        | Directory(_,_,l) -> list state l
-    and list state l = List.fold loop state l
-    list Map.empty files.tree
+let inline proj_file_make_input f (files : ProjFiles) =
+    let ar = Array.zeroCreate files.num_files
+    proj_file_iter_file (fun mid path -> ar.[mid] <- f mid path) files
+    ar
 
-let dirty_tc (ids : Map<string, PackageId>) (packages : SchemaEnv) (modules : ModuleEnv)
-        (state : Map<PackageId,ProjStateTC>) (dirty_nodes : string HashSet) =
-    let d = Dictionary()
-    dirty_nodes |> Seq.iter (fun path ->
+let dirty_nodes_tc (ids : Map<string, PackageId>) (packages : SchemaEnv) (modules : ModuleEnv)
+        (state : Map<PackageId,ProjStateTC>) (dirty_packages : string HashSet) =
+    let d = Dictionary<string,TypecheckerState [] * ProjFiles>()
+    dirty_packages |> Seq.iter (fun path ->
         let pid = ids.[path]
         match Map.tryFind pid state with
         | Some x -> 
             let files = proj_file_from_schema packages.[path].schema
-            let m = proj_file_make_input file_tc_funs (proj_file_get_input x.files) files
-
-            failwith "TODO"
+            let state = 
+                let state = proj_file_get_input x.files.uids_file x.files.files
+                proj_file_make_input (fun mid path ->
+                    match state.TryGetValue(path) with
+                    | true, x -> wdiff_file_update_input file_tc_funs x (pid, mid, modules.[path].bundler)
+                    | false, _ -> file_tc_funs.init (pid, mid, modules.[path].bundler)
+                    ) files
+            d.Add(path,(state,files))
         | None ->
             ()
         )
