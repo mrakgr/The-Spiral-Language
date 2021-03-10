@@ -82,3 +82,88 @@ let ss_validate_packages (packages : SchemaEnv) (x : SchemaState) (order : strin
             Map.add path {x with errors_packages=ers} s
         | _ -> s
         ) packages order
+
+type ResultMap<'a,'b> when 'a : comparison = {ok : Map<'a,'b>; error: Map<'a,'b>}
+type ProjEnvTCResult = ResultMap<PackageId,ProjStateTC>
+
+let wdiff_projenvr_sync_schema funs_packages funs_files (ids : Map<string, PackageId>) (packages : SchemaEnv) 
+        (state : ResultMap<PackageId,ProjState<'file_input,'file,'package>>) order =
+    Array.fold (fun (s : ResultMap<_,_>) x ->
+        let pid = ids.[x]
+        match Map.tryFind x packages with
+        | Some schema ->
+            match Map.tryFind pid s.ok, Map.tryFind pid s.error, ss_has_error schema with
+            | Some _, Some _,_ -> failwith "Compiler error: The ok and error maps should be disjoint."
+            | Some x, None, true -> {ok=Map.remove pid s.ok; error=Map.add pid x s.error}
+            | None, Some x, false -> {ok=Map.add pid x s.ok; error=Map.remove pid s.error}
+            | None, None, c -> 
+                let x = wdiff_proj_init funs_packages funs_files pid
+                if c then {s with error=Map.add pid x s.error} else {s with ok=Map.add pid x s.ok}
+            | _ -> s
+        | None -> {ok=Map.remove pid s.ok; error=Map.remove pid s.error}
+        ) state order
+
+let projenv_update_packages funs_packages funs_files (ids : Map<string, PackageId>) (packages : SchemaEnv)
+        (state : Map<PackageId,ProjState<'a,'b,'state>>)  (dirty_nodes : Dictionary<_,_>, order : string []) =
+    Array.foldBack (fun x l ->
+        match Map.tryFind x packages with
+        | None -> l
+        | Some schema when ss_has_error schema -> l
+        | Some schema ->
+            let pid = ids.[x]
+            let packages = schema.schema.packages |> List.map (fun x -> x.name, ids.[snd x.path])
+            match dirty_nodes.TryGetValue(x) with
+            | true, x -> UpdatePackageModule(pid,packages,x) :: l
+            | false, _ -> UpdatePackage(pid,packages) :: l
+        ) order []
+    |> wdiff_projenv_update_packages funs_packages funs_files state
+
+
+let proj_file_get_input (x : ProjFilesState<_,_>) =
+    let uids_file = x.uids_file
+    let rec loop state = function
+        | File(uid,path,_) -> Map.add path (fst uids_file.[uid]) state
+        | Directory(_,_,l) -> list state l
+    and list state l = List.fold loop state l
+    list Map.empty x.files.tree
+
+let proj_file_from_schema (x : Schema) : ProjFiles =
+    let mutable num_files = 0
+    let mutable num_dirs = 0
+    let rec loop = function
+        | FileHierarchy.File(_,(_,path),name) -> 
+            let uid = num_files
+            num_files <- num_files + 1
+            File(uid,path,name)
+        | FileHierarchy.Directory(_,_,name,l) ->
+            let uid = num_dirs
+            num_dirs <- num_dirs + 1
+            Directory(uid,name,list l)
+    and list l = List.map loop l
+    let tree = list x.modules
+    { tree = tree; num_files = num_files; num_dirs = num_dirs }
+
+let proj_file_make_input (funs : FileFuns<_,_,_>) (m : Map<string,_>) (files : ProjFiles) =
+    let rec loop state = function
+        | File(_,path,_) -> 
+            let x = match Map.tryFind path m with Some x -> x | None -> funs.init
+            Map.add path x state
+        | Directory(_,_,l) -> list state l
+    and list state l = List.fold loop state l
+    list Map.empty files.tree
+
+let dirty_tc (ids : Map<string, PackageId>) (packages : SchemaEnv) (modules : ModuleEnv)
+        (state : Map<PackageId,ProjStateTC>) (dirty_nodes : string HashSet) =
+    let d = Dictionary()
+    dirty_nodes |> Seq.iter (fun path ->
+        let pid = ids.[path]
+        match Map.tryFind pid state with
+        | Some x -> 
+            let files = proj_file_from_schema packages.[path].schema
+            let m = proj_file_make_input file_tc_funs (proj_file_get_input x.files) files
+
+            failwith "TODO"
+        | None ->
+            ()
+        )
+    d

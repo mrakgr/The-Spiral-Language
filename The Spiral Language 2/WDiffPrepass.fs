@@ -39,6 +39,11 @@ let file_prepass_funs = {new FileFuns<PackageId * ModuleId * string * Typechecke
         x >>= prepass (pid,mid,path,env)
     member _.diff(state,b,(pid,mid,path,a)) =
         state >>=* fun env -> diff (pid,mid,path,env) (b,a)
+    member _.init = {
+        input = -1, -1, null, Promise.Now.never()
+        result = Promise.Now.never()
+        state = Promise.Now.never()
+        }
     }
 
 let prepass_results_summary l =
@@ -49,7 +54,7 @@ let prepass_results_summary l =
         ) (top_env_empty) l
 
 type PrepassState = FileState<PackageId * ModuleId * string * TypecheckerStateValue Stream, PrepassStateValue Stream, PrepassStatePropagated>
-let files_prepass_funs = {new ProjFilesFuns<PrepassState,PrepassStatePropagated> with
+let files_prepass_funs = {new ProjFileFuns<PrepassState,PrepassStatePropagated> with
     member _.file(name,state,x) = 
         let x = wdiff_file_update_state file_prepass_funs x state
         let env = 

@@ -134,15 +134,12 @@ let wdiff_module (state : ModuleState) x =
         {tokenizer=tokenizer; parser=parser; bundler=bundler}
         )
 
-type [<ReferenceEquality>] FileState<'a,'b,'state> = {
-    input : 'a
-    state : 'state
-    result : 'b
-    }
+type [<ReferenceEquality>] FileState<'input,'result,'state> = { input : 'input; result : 'result; state : 'state }
 
 type FileFuns<'a,'b,'state> =
     abstract member eval : 'state * 'a -> 'b
     abstract member diff : 'state * 'b * 'a -> 'b
+    abstract member init : FileState<'a,'b,'state>
 
 type TypecheckerStateValue = Bundle * InferResult * TopEnv
 type TypecheckerStatePropagated = (bool * TopEnv) Promise
@@ -172,6 +169,11 @@ let file_tc_funs = {new FileFuns<PackageId * ModuleId * BlockBundleState, Typech
         x >>- typecheck (pid,mid,env)
     member _.diff(state,b,(pid,mid,a)) =
         state >>=* fun (_,env) -> diff (pid,mid,env) (b,a)
+    member _.init = {
+        input = -1, -1, Promise.Now.never()
+        result = Promise.Now.never()
+        state = Promise.Now.never()
+        }
     }
 
 let wdiff_file_update_state (funs : FileFuns<'a,'b,'state>) (state : FileState<'a,'b,'state>) (x : 'state) =
@@ -185,11 +187,11 @@ let wdiff_file (funs : FileFuns<'a,'b,'state>) (state : FileState<'a,'b,'state>)
 
 type ProjFilesTree =
     | File of module_id: ModuleId * path: string * name: string option
-    | Directory of dir_id: DirId * path : string * name: string * ProjFilesTree list
+    | Directory of dir_id: DirId * name: string * ProjFilesTree list
 
-type ProjFiles = { tree : ProjFilesTree list; num_dirs : int; num_modules : int }
+type ProjFiles = { tree : ProjFilesTree list; num_dirs : int; num_files : int }
 
-type ProjFilesFuns<'a,'state> =
+type ProjFileFuns<'a,'state> =
     abstract member file : string option * 'state * 'a -> 'a * 'state
     abstract member union : 'state * 'state -> 'state
     abstract member in_module : string * 'state -> 'state
@@ -212,7 +214,7 @@ let proj_files_diff (uids_file : ('a * 'b) [], uids_directory : 'b [], files) (u
         | File(mid,path,name), File(mid',path',name') when mid = mid' && eq path path' && eq name name' -> 
             let x = uids_file.[mid]
             if uids.[mid] = fst x then uids_file'.[mid] <- x; true else false
-        | Directory(uid,path,name,l), Directory(uid',path',name',l') when uid = uid' && eq path path' && eq name name' && list (l,l') -> 
+        | Directory(uid,name,l), Directory(uid',name',l') when uid = uid' && eq name name' && list (l,l') -> 
             uids_directory'.[uid] <- uids_directory.[uid]; true
         | _ -> false
     and list = function
@@ -220,14 +222,14 @@ let proj_files_diff (uids_file : ('a * 'b) [], uids_directory : 'b [], files) (u
         | _ -> false
     if list (files.tree, files'.tree) then Some (uids_file',uids_directory') else None
 
-let proj_files (funs : ProjFilesFuns<'a,'state>) uids_file uids_directory uids s l =
+let proj_files (funs : ProjFileFuns<'a,'state>) uids_file uids_directory uids s l =
     let inline memo (uids : _ []) uid f = 
         let x = uids.[uid]
         if isNull (box x) then let x = f() in uids.[uid] <- x; x
         else x
     let rec loop state = function
         | File(mid,_,name) -> memo uids_file mid (fun () -> funs.file(name,state,Array.get uids mid)) |> snd
-        | Directory(uid,_,name,l) -> memo uids_directory uid (fun () -> funs.in_module(name,list state l))
+        | Directory(uid,name,l) -> memo uids_directory uid (fun () -> funs.in_module(name,list state l))
     and list s l = 
         List.fold (fun (init,big) x -> 
             let small = loop big x
@@ -235,21 +237,19 @@ let proj_files (funs : ProjFilesFuns<'a,'state>) uids_file uids_directory uids s
             ) (funs.init, s) l |> fst
     list s l.tree
 
-let wdiff_proj_files_init (funs : ProjFilesFuns<'a,'state>) = {files={tree=[]; num_dirs=0; num_modules=0}; init=funs.init; uids_file=[||]; uids_directory=[||]; result=funs.init}
-
 // TODO: Make a version for updating just a single file.
-let wdiff_proj_files_update_files (funs : ProjFilesFuns<'a,'state>) (state : ProjFilesState<'a,'state >) (uids,files : ProjFiles) =
+let wdiff_proj_files_update_files (funs : ProjFileFuns<'a,'state>) (state : ProjFilesState<'a,'state >) (uids,files : ProjFiles) =
     match proj_files_diff (state.uids_file,state.uids_directory,state.files) (uids,files) with
     | Some (uids_file, uids_directory) -> {state with files=files; uids_file=uids_file; uids_directory=uids_directory; result=proj_files funs uids_file uids_directory uids state.init files}
     | None -> state
 
-let wdiff_proj_files_update_packages (funs : ProjFilesFuns<'a,'state>) (state : ProjFilesState<'a,'state >) (init : 'state) =
+let wdiff_proj_files_update_packages (funs : ProjFileFuns<'a,'state>) (state : ProjFilesState<'a,'state >) (init : 'state) =
     if state.init = init then state else
     let uids_file, uids_directory = Array.zeroCreate state.uids_file.Length, Array.zeroCreate state.uids_directory.Length
     let uids = Array.map fst state.uids_file
     {state with init=init; uids_file=uids_file; uids_directory=uids_directory; result=proj_files funs uids_file uids_directory uids init state.files}
 
-let wdiff_proj_files (funs : ProjFilesFuns<'a,'state>) (state : ProjFilesState<'a,'state >) (init,(uids,files)) =
+let wdiff_proj_files (funs : ProjFileFuns<'a,'state>) (state : ProjFilesState<'a,'state >) (init,(uids,files)) =
     if state.init = init then wdiff_proj_files_update_files funs state (uids,files)
     else
         let uids_file, uids_directory = Array.zeroCreate state.uids_file.Length, Array.zeroCreate state.uids_directory.Length
@@ -263,7 +263,7 @@ let typechecker_results_summary l =
         | AInclude small -> union small big
         ) (false,top_env_empty) l
 
-let files_tc_funs = {new ProjFilesFuns<TypecheckerState,TypecheckerStatePropagated> with
+let proj_file_tc_funs = {new ProjFileFuns<TypecheckerState,TypecheckerStatePropagated> with
     member _.file(name,state,x) = 
         let x = wdiff_file_update_state file_tc_funs x state
         let env = 
@@ -340,11 +340,11 @@ type ProjPackagesState<'a> = {
     packages : (string option * 'a) list
     result : 'a
     }
-type ProjState<'a,'b,'state> = {
+type ProjState<'file_inputs,'files,'packages> = {
     package_id : PackageId
-    packages : 'state ProjPackagesState
-    files : ProjFilesState<'a,'b>
-    result : 'state
+    packages : 'packages ProjPackagesState
+    files : ProjFilesState<'file_inputs,'files>
+    result : 'packages
     }
 type TypecheckerStateTop = (bool * PackageEnv) Promise
 type ProjStateTC = ProjState<TypecheckerState,TypecheckerStatePropagated,TypecheckerStateTop>
@@ -358,7 +358,7 @@ type ProjPackageFuns<'file,'package> =
     abstract member add_file_to_package : PackageId * 'file * 'package -> 'package
     abstract member init : 'package
 
-let proj_tc_funs = {new ProjPackageFuns<TypecheckerStatePropagated,TypecheckerStateTop> with
+let proj_package_tc_funs = {new ProjPackageFuns<TypecheckerStatePropagated,TypecheckerStateTop> with
     member funs.unions l = 
         let f = function Some name, small -> funs.in_module(name,small) | None, small -> small
         List.fold (fun big x -> funs.union(f x,big)) funs.init l
@@ -378,6 +378,16 @@ let proj_tc_funs = {new ProjPackageFuns<TypecheckerStatePropagated,TypecheckerSt
     member _.init = Promise.Now.withValue (false, package_env_default)
     }
 
+let wdiff_proj_init (funs_packages : ProjPackageFuns<'file,'package>) (funs_files : ProjFileFuns<'file_input,'file>) package_id : ProjState<'file_input,'file,'package> = 
+    let packages = { packages = []; result = funs_packages.init }
+    let files = {
+        files={tree=[]; num_dirs=0; num_files=0}
+        uids_file=[||]; uids_directory=[||]
+        init=funs_files.init; result=funs_files.init
+        }
+    let result = funs_packages.init
+    { package_id = package_id; packages = packages; files = files; result = result}
+
 let wdiff_proj_packages (funs : ProjPackageFuns<_,'a>) (state : 'a ProjPackagesState) x =
     if state.packages = x then state else {state with packages = x; result = funs.unions x }
 
@@ -385,24 +395,24 @@ let wdiff_proj_update_packages funs_packages funs_files (state : ProjState<'a,'b
     let packages = wdiff_proj_packages funs_packages state.packages x
     if state.packages = packages then state else
     let files = wdiff_proj_files_update_packages funs_files state.files (funs_packages.package_to_file(packages.result))
-    let result = funs_packages.add_file_to_package(state.package_id,files.result,state.result)
+    let result = funs_packages.add_file_to_package(state.package_id,files.result,packages.result)
     {state with packages=packages; files=files; result=result}
 
 let wdiff_proj_update_files (funs_packages : ProjPackageFuns<_,_>) funs_files (state : ProjState<'a,'b,'state>) x =
     let files = wdiff_proj_files_update_files funs_files state.files x
     if state.files = files then state else
-    let result = funs_packages.add_file_to_package(state.package_id,files.result,state.result)
+    let result = funs_packages.add_file_to_package(state.package_id,files.result,state.packages.result)
     {state with files=files; result=result}
 
-let wdiff_proj (funs_packages : ProjPackageFuns<_,_>) funs_files (state : ProjState<'a,'b,'state>) (packages,files) =
+let wdiff_proj (funs_packages : ProjPackageFuns<_,_>) funs_files (state : ProjState<'file_input,'file,'state>) (packages,files) =
     let packages = wdiff_proj_packages funs_packages state.packages packages
     if state.packages = packages then wdiff_proj_update_files funs_packages funs_files state files
     else
         let files = wdiff_proj_files funs_files state.files (funs_packages.package_to_file(packages.result),files)
-        let result = funs_packages.add_file_to_package(state.package_id,files.result,state.result)
+        let result = funs_packages.add_file_to_package(state.package_id,files.result,packages.result)
         {state with packages=packages; files=files; result=result}
 
-let wdiff_projenv_update_module funs_packages funs_files (s : Map<PackageId,ProjState<'a,'b,'state>>) (uid,x,tail) =
+let wdiff_projenv_update_module funs_packages funs_files (s : Map<PackageId,ProjState<'file_input,'file,'state>>) (uid,x,tail) =
     let s = Map.add uid (wdiff_proj_update_files funs_packages funs_files s.[uid] x) s
     Array.fold (fun s (uid,l) ->
         let l = l |> List.map (fun (a,b) -> a, (Map.find b s).result)
@@ -415,7 +425,7 @@ type ProjEnvUpdate<'a> =
 
 let wdiff_projenv_update_packages funs_packages funs_files (s : Map<PackageId,ProjState<'a,'b,'state>>) l =
     let f packages = packages |> List.map (fun (a,b) -> a, (Map.find b s).result)
-    Array.fold (fun s -> function
+    List.fold (fun s -> function
         | UpdatePackageModule(uid,packages,files) -> Map.add uid (wdiff_proj funs_packages funs_files s.[uid] (f packages,files)) s
         | UpdatePackage(uid,packages) -> Map.add uid (wdiff_proj_update_packages funs_packages funs_files s.[uid] (f packages)) s
         ) s l
