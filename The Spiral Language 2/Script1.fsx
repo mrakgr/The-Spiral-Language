@@ -1,10 +1,10 @@
 ﻿open System
 open System.IO
+open System.Collections.Generic
 
-//let a = DirectoryInfo("qwe/asd")
-//let b = DirectoryInfo("QWE")
-//a.FullName = b.FullName
+let x = Queue()
+x.Enqueue(1)
+x.Enqueue(2)
+x.Enqueue(3)
 
-
-Path.GetFullPath(Path.Combine("c:/qwe/asd/zxc"))
-|> Path.
+printfn "%A" (x.ToArray())
