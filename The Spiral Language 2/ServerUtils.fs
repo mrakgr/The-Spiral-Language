@@ -248,22 +248,27 @@ let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (path, text) =
                     try schema (path,x.Result) with e -> LoadPackage(path,None)
                     ) |> queue.Enqueue
 
-    let mutable packages = packages
     let dirty_packages = HashSet()
+    let rec invalidate_parent packages (x : DirectoryInfo) =
+        if x = null then ()
+        elif Map.containsKey x.FullName packages then dirty_packages.Add(x.FullName) |> ignore
+        else invalidate_parent packages x.Parent
+
+    let mutable packages = packages
     let mutable modules = modules
 
     load_package packages (path,text)
     while 0 < queue.Count do
         match queue.Dequeue().Result with
         | LoadPackage(pdir,Some x) -> 
-            packages <- Map.add pdir x packages; dirty_packages.Add(pdir) |> ignore
+            packages <- Map.add pdir x packages; dirty_packages.Add(pdir) |> ignore; invalidate_parent packages (Directory.GetParent(pdir))
             x.schema.packages |> List.iter (fun x -> load_package packages (snd x.path,None))
             let rec loop = function
                 | FileHierarchy.Directory(_,_,_,l) -> list l
                 | FileHierarchy.File(_,(_,path),_) -> load_module modules path
             and list l = List.iter loop l
             list x.schema.modules
-        | LoadPackage(pdir,None) -> packages <- Map.remove pdir packages; dirty_packages.Add(pdir) |> ignore
+        | LoadPackage(pdir,None) -> packages <- Map.remove pdir packages; dirty_packages.Add(pdir) |> ignore; invalidate_parent packages (Directory.GetParent(pdir))
         | LoadModule(mdir,Some x) -> modules <- Map.add mdir x modules
         | LoadModule(mdir,None) -> modules <- Map.remove mdir modules
     packages, dirty_packages, modules

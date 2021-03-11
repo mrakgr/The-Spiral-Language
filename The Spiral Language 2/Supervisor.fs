@@ -52,7 +52,6 @@ let supervisor_server (errors : SupervisorErrorSources) req =
         | ProjectFileChange x | ProjectFileOpen x -> 
             let packages,dirty_packages,modules = loader_package s.packages s.modules (dir x.uri,Some x.spiprojText)
             let package_ids = package_ids_update packages s.package_ids dirty_packages
-            let dirty_packages = revalidate_parents packages dirty_packages
             let graph = graph_update packages s.graph dirty_packages
             let order,socs = Graph.circular_nodes graph dirty_packages
             let packages = ss_validate packages modules (order,socs)
