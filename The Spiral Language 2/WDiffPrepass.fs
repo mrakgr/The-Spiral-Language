@@ -13,6 +13,7 @@ open Hopac.Stream
 
 type PrepassStateValue = InferResult * PrepassTopEnv AdditionType * PrepassTopEnv
 type PrepassStatePropagated = PrepassTopEnv Promise
+type PrepassState = FileState<PackageId * ModuleId * string * TypecheckerStateValue Stream, PrepassStateValue Stream, PrepassStatePropagated>
 
 let rec prepass (package_id,module_id,path,env) = function
     | Cons((_,r,_) : TypecheckerStateValue, ls) ->
@@ -33,7 +34,7 @@ let rec diff (package_id,module_id,path,env) (result,input : TypecheckerStateVal
         | _ -> tc()
     else tc()
 
-let file_prepass_funs = {new FileFuns<PackageId * ModuleId * string * TypecheckerStateValue Stream, PrepassStateValue Stream, PrepassStatePropagated> with
+let funs_file_prepass = {new FileFuns<PackageId * ModuleId * string * TypecheckerStateValue Stream, PrepassStateValue Stream, PrepassStatePropagated> with
     member _.eval(state,(pid,mid,path,x)) = 
         state >>=* fun env -> 
         x >>= prepass (pid,mid,path,env)
@@ -53,10 +54,9 @@ let prepass_results_summary l =
         | AInclude small -> union small big
         ) (top_env_empty) l
 
-type PrepassState = FileState<PackageId * ModuleId * string * TypecheckerStateValue Stream, PrepassStateValue Stream, PrepassStatePropagated>
-let files_prepass_funs = {new ProjFileFuns<PrepassState,PrepassStatePropagated> with
+let funs_proj_file_prepass = {new ProjFileFuns<PrepassState,PrepassStatePropagated> with
     member _.file(name,state,x) = 
-        let x = wdiff_file_update_state file_prepass_funs x state
+        let x = wdiff_file_update_state funs_file_prepass x state
         let env = 
             prepass_results_summary x.result >>-* fun env -> 
             match name with None -> env | Some name -> in_module name env
@@ -111,7 +111,8 @@ let add_file_to_package package_id (small : PrepassTopEnv) (big : PrepassPackage
 
 let package_env_default = { package_env_empty with ty = top_env_default.ty }
 
-let proj_prepass_funs = {new ProjPackageFuns<PrepassStatePropagated,PrepassPackageEnv Promise> with
+type ProjStatePrepass = ProjState<PrepassState,PrepassStatePropagated,PrepassPackageEnv Promise>
+let funs_proj_package_prepass = {new ProjPackageFuns<PrepassStatePropagated,PrepassPackageEnv Promise> with
     member funs.unions l = 
         let f = function Some name, small -> funs.in_module(name,small) | None, small -> small
         List.fold (fun big x -> funs.union(f x,big)) funs.default' l

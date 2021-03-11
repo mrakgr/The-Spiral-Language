@@ -126,7 +126,7 @@ let inline proj_file_iter_file f (files : ProjFiles) =
     list files.tree
 
 let proj_file_get_input uids_file (x : ProjFiles) =
-    let d = Dictionary()
+    let d = Dictionary(Array.length uids_file)
     proj_file_iter_file (fun mid path -> d.Add(path, Array.get uids_file mid |> fst)) x
     d
 
@@ -151,23 +151,51 @@ let inline proj_file_make_input f (files : ProjFiles) =
     proj_file_iter_file (fun mid path -> ar.[mid] <- f mid path) files
     ar
 
-let dirty_nodes_tc (ids : Map<string, PackageId>) (packages : SchemaEnv) (modules : ModuleEnv)
-        (state : Map<PackageId,ProjStateTC>) (dirty_packages : string HashSet) =
-    let d = Dictionary<string,TypecheckerState [] * ProjFiles>()
+let inline dirty_nodes_template funs (ids : Map<string, PackageId>) (packages : SchemaEnv) modules
+        (state : Map<PackageId,_>) (dirty_packages : string HashSet) =
+    let d = Dictionary<string,_ [] * ProjFiles>()
     dirty_packages |> Seq.iter (fun path ->
         let pid = ids.[path]
         match Map.tryFind pid state with
         | Some x -> 
+            let modules = modules pid
             let files = proj_file_from_schema packages.[path].schema
             let state = 
                 let state = proj_file_get_input x.files.uids_file x.files.files
                 proj_file_make_input (fun mid path ->
                     match state.TryGetValue(path) with
-                    | true, x -> wdiff_file_update_input file_tc_funs x (pid, mid, modules.[path].bundler)
-                    | false, _ -> file_tc_funs.init (pid, mid, modules.[path].bundler)
+                    | true, x -> wdiff_file_update_input funs x (modules mid path)
+                    | false, _ -> funs.init (modules mid path)
                     ) files
             d.Add(path,(state,files))
         | None ->
             ()
         )
     d
+
+let dirty_nodes_tc (ids : Map<string, PackageId>) (packages : SchemaEnv) (modules : ModuleEnv)
+        (state : Map<PackageId,ProjStateTC>) (dirty_packages : string HashSet) =
+    dirty_nodes_template funs_file_tc ids packages (fun pid mid path -> pid, mid, modules.[path].bundler) state dirty_packages
+
+open WDiff.Prepass
+let dirty_nodes_prepass (ids : Map<string, PackageId>) (packages : SchemaEnv) (modules : Map<PackageId,ProjStateTC>)
+        (state : Map<PackageId,ProjStatePrepass>) (dirty_packages : string HashSet) =
+    let modules pid =
+        let x = modules.[pid]
+        let state = proj_file_get_input x.files.uids_file x.files.files
+        fun (mid : ModuleId) path -> pid, mid, path, state.[path].result
+    dirty_nodes_template funs_file_prepass ids packages modules state dirty_packages
+
+let wdiff_projenvr_update_packages dirty_nodes funs_proj_package funs_proj_file 
+        ids packages modules (state : ResultMap<PackageId,_>) (dirty_packages, order) =
+    let state = wdiff_projenvr_sync_schema funs_proj_package funs_proj_file ids packages state order
+    let dirty_packages = dirty_nodes ids packages modules state.ok dirty_packages
+    {state with ok=projenv_update_packages funs_proj_package funs_proj_file ids packages state.ok (dirty_packages, order)}
+
+let wdiff_projenvr_update_packages_tc ids packages modules state (dirty_packages, order) =
+    wdiff_projenvr_update_packages dirty_nodes_tc funs_proj_package_tc funs_proj_file_tc 
+        ids packages modules state (dirty_packages, order)
+
+let wdiff_projenvr_update_packages_prepass ids packages modules state (dirty_packages, order) =
+    wdiff_projenvr_update_packages dirty_nodes_prepass funs_proj_package_prepass funs_proj_file_prepass 
+        ids packages modules state (dirty_packages, order)

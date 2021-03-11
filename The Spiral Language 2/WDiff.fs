@@ -163,7 +163,7 @@ let rec diff (package_id,module_id,env) (result,input : BlockBundleState) =
         | _ -> tc()
     else tc()
 
-let file_tc_funs = {new FileFuns<PackageId * ModuleId * BlockBundleState, TypecheckerStateValue Stream, TypecheckerStatePropagated> with
+let funs_file_tc = {new FileFuns<PackageId * ModuleId * BlockBundleState, TypecheckerStateValue Stream, TypecheckerStatePropagated> with
     member _.eval(state,(pid,mid,x)) = 
         state >>=* fun (_,env) -> 
         x >>- typecheck (pid,mid,env)
@@ -237,7 +237,6 @@ let proj_files (funs : ProjFileFuns<'a,'state>) uids_file uids_directory uids s 
             ) (funs.empty, s) l |> fst
     list s l.tree
 
-// TODO: Make a version for updating just a single file.
 let wdiff_proj_files_update_files (funs : ProjFileFuns<'a,'state>) (state : ProjFilesState<'a,'state >) (uids,files : ProjFiles) =
     match proj_files_diff (state.uids_file,state.uids_directory,state.files) (uids,files) with
     | Some (uids_file, uids_directory) -> {state with files=files; uids_file=uids_file; uids_directory=uids_directory; result=proj_files funs uids_file uids_directory uids state.init files}
@@ -263,9 +262,9 @@ let typechecker_results_summary l =
         | AInclude small -> union small big
         ) (false,top_env_empty) l
 
-let proj_file_tc_funs = {new ProjFileFuns<TypecheckerState,TypecheckerStatePropagated> with
+let funs_proj_file_tc = {new ProjFileFuns<TypecheckerState,TypecheckerStatePropagated> with
     member _.file(name,state,x) = 
-        let x = wdiff_file_update_state file_tc_funs x state
+        let x = wdiff_file_update_state funs_file_tc x state
         let env = 
             typechecker_results_summary x.result >>-* fun (has_error,env) -> 
             has_error, match name with None -> env | Some name -> in_module name env
@@ -359,7 +358,7 @@ type ProjPackageFuns<'file,'package> =
     abstract member default' : 'package
     abstract member empty : 'package
 
-let proj_package_tc_funs = {new ProjPackageFuns<TypecheckerStatePropagated,TypecheckerStateTop> with
+let funs_proj_package_tc = {new ProjPackageFuns<TypecheckerStatePropagated,TypecheckerStateTop> with
     member funs.unions l = 
         let f = function Some name, small -> funs.in_module(name,small) | None, small -> small
         List.fold (fun big x -> funs.union(f x,big)) funs.default' l
@@ -414,12 +413,12 @@ let wdiff_proj (funs_packages : ProjPackageFuns<_,_>) funs_files (state : ProjSt
         let result = funs_packages.add_file_to_package(state.package_id,files.result,packages.result)
         {state with packages=packages; files=files; result=result}
 
-let wdiff_projenv_update_module funs_packages funs_files (s : Map<PackageId,ProjState<'file_input,'file,'state>>) (uid,x,tail) =
-    let s = Map.add uid (wdiff_proj_update_files funs_packages funs_files s.[uid] x) s
-    Array.fold (fun s (uid,l) ->
-        let l = l |> List.map (fun (a,b) -> a, (Map.find b s).result)
-        Map.add uid (wdiff_proj_update_packages funs_packages funs_files s.[uid] l) s
-        ) s tail
+//let wdiff_projenv_update_module funs_packages funs_files (s : Map<PackageId,ProjState<'file_input,'file,'state>>) (uid,x,tail) =
+//    let s = Map.add uid (wdiff_proj_update_files funs_packages funs_files s.[uid] x) s
+//    Array.fold (fun s (uid,l) ->
+//        let l = l |> List.map (fun (a,b) -> a, (Map.find b s).result)
+//        Map.add uid (wdiff_proj_update_packages funs_packages funs_files s.[uid] l) s
+//        ) s tail
 
 type ProjEnvUpdate<'a> =
     | UpdatePackageModule of PackageId * (string option * PackageId) list * ('a [] * ProjFiles)
