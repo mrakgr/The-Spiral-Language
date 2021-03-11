@@ -181,7 +181,8 @@ type Schema = {
     }
 
 exception SchemaException of RString
-let schema (pdir,text) = config text |> Result.bind (fun x ->
+type SchemaResult = Result<Schema,RString list>
+let schema (pdir,text) : SchemaResult = config text |> Result.bind (fun x ->
     try let combine a (r,b) = try Path.Combine(a,b) |> Path.GetFullPath with e -> raise (SchemaException(r,e.Message))
         let module_dir =
             match x.moduleDir with

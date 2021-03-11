@@ -9,3 +9,4 @@ type ModuleId = int
 type DirId = int
 type GlobalId = { package_id : PackageId; module_id : ModuleId; tag : int }
 type RGlobalId = VSCRange * GlobalId
+type SpiEdit = {|from: int; nearTo: int; lines: string []|}

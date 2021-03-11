@@ -45,22 +45,28 @@ type RAction = VSCRange * ProjectCodeAction
 
 open WDiff
 
-type SchemaState = { schema : Schema; errors_modules : RString list; errors_packages : RString list}
+type SchemaState = { schema : Schema; errors_parse : RString list; errors_modules : RString list; errors_packages : RString list}
 type SchemaEnv = Map<string,SchemaState>
 type ModuleEnv = Map<string,ModuleState>
 
+let ss_empty = {
+    schema = {moduleDir = None, null; modules = []; packageDir = None, null; packages = []}
+    errors_parse = []; errors_modules = []; errors_packages = []
+    }
+let ss_from_result = function
+    | Ok schema -> {ss_empty with schema = schema}
+    | Error ers -> {ss_empty with errors_parse = ers}
 let ss_validate_modules' (modules : ModuleEnv) (x : SchemaState) =
     let errors = ResizeArray()
     let rec loop = function
         | SpiProj.FileHierarchy.Directory(_,_,_,l) -> list l
-        | SpiProj.FileHierarchy.File(_,(r,path),_) -> if Map.containsKey path modules = false then errors.Add(r,"Module not found.")
+        | SpiProj.FileHierarchy.File(_,(r,path),_) -> if Map.containsKey path modules = false then errors.Add(r,"Module not loaded.")
     and list l = List.iter loop l
     list x.schema.modules
-    
     Seq.toList errors
 let ss_validate_modules modules (x : SchemaState) = {x with errors_modules=ss_validate_modules' modules x}
 
-let ss_has_error x = (List.isEmpty x.errors_modules && List.isEmpty x.errors_packages) = false
+let ss_has_error x = (List.isEmpty x.errors_parse && List.isEmpty x.errors_modules && List.isEmpty x.errors_packages) = false
 let ss_validate_packages (packages : SchemaEnv) (x : SchemaState) (order : string [], circulars : Dictionary<string,int>) =
     Array.fold (fun s path ->
         match Map.tryFind path s with
@@ -73,11 +79,12 @@ let ss_validate_packages (packages : SchemaEnv) (x : SchemaState) (order : strin
                 (x.schema.packages, []) ||> List.foldBack (fun {path=r,p} ers ->
                     let cp = c p
                     if are_in_same_strong_component cpath cp then (r,"Package is circular and loops through the current one.") :: ers
+                    elif path = p then (r,"Self referential links are not allowed.") :: ers
                     else
                         match Map.tryFind p s with
                         | Some s' when ss_has_error s' -> (r,"Package has an error.") :: ers
                         | Some _ -> ers
-                        | None -> (r,"Package not found.") :: ers
+                        | None -> (r,"Package not loaded.") :: ers
                     ) 
             Map.add path {x with errors_packages=ers} s
         | _ -> s
@@ -199,3 +206,60 @@ let wdiff_projenvr_update_packages_tc ids packages modules state (dirty_packages
 let wdiff_projenvr_update_packages_prepass ids packages modules state (dirty_packages, order) =
     wdiff_projenvr_update_packages dirty_nodes_prepass funs_proj_package_prepass funs_proj_file_prepass 
         ids packages modules state (dirty_packages, order)
+
+type LoadResult =
+    | LoadModule of path: string * ModuleState option
+    | LoadPackage of package_dir: string * SchemaState option
+
+open System.Threading.Tasks
+let is_top_down (x : string) = Path.GetExtension x = ".spi"
+let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (path, text) =
+    let queue = Queue()
+
+    let load_module modules path =
+        match Map.tryFind path modules with
+        | Some _ -> ()
+        | None ->
+            File.ReadAllTextAsync(path).ContinueWith(fun (x : _ Task) ->
+                try LoadModule(path,wdiff_module_all (wdiff_module_init (is_top_down path)) x.Result |> Some)
+                with e -> LoadModule(path,None)
+                ) |> queue.Enqueue
+
+    let load_package packages (path,text) =
+        let schema (path,text) = schema (path,text) |> fun x -> LoadPackage(path,Some (ss_from_result x))
+        match text with
+        | Some text -> schema (path,text) |> Task.FromResult |> queue.Enqueue
+        | None ->
+            match Map.tryFind path packages with
+            | Some _ -> ()
+            | None ->
+                File.ReadAllTextAsync(path).ContinueWith(fun (x : _ Task) ->
+                    try schema (path,x.Result) with e -> LoadPackage(path,None)
+                    ) |> queue.Enqueue
+
+    let mutable packages = packages
+    let dirty_packages = HashSet()
+    let mutable modules = modules
+
+    load_package packages (path,text)
+    while 0 < queue.Count do
+        match queue.Dequeue().Result with
+        | LoadPackage(pdir,Some x) -> 
+            packages <- Map.add pdir x packages; dirty_packages.Add(pdir) |> ignore
+            x.schema.packages |> List.iter (fun x -> load_package packages (snd x.path,None))
+            let rec loop = function
+                | FileHierarchy.Directory(_,_,_,l) -> list l
+                | FileHierarchy.File(_,(_,path),_) -> load_module modules path
+            and list l = List.iter loop l
+            list x.schema.modules
+        | LoadPackage(pdir,None) -> packages <- Map.remove pdir packages; dirty_packages.Add(pdir) |> ignore
+        | LoadModule(mdir,Some x) -> modules <- Map.add mdir x modules
+        | LoadModule(mdir,None) -> modules <- Map.remove mdir modules
+    packages, dirty_packages, modules
+
+let graph_update (packages : SchemaEnv) (g : MirroredGraph) (dirty_packages : string HashSet) =
+    Seq.fold (fun g x ->
+        match Map.tryFind x packages with
+        | Some v -> Graph.links_replace g x (v.schema.packages |> List.map (fun x -> snd x.path))
+        | None -> Graph.links_remove g x
+        ) g dirty_packages

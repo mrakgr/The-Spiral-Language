@@ -12,11 +12,6 @@ open Spiral.BlockSplitting
 open Spiral.BlockBundling
 open Spiral.Infer
 
-type SpiEdit = {|from: int; nearTo: int; lines: string []|}
-type TokReq =
-    | DocumentAll of string []
-    | DocumentEdit of SpiEdit
-
 let process_errors line (ers : LineTokenErrors list) : RString list =
     ers |> List.mapi (fun i l -> 
         let i = line + i
@@ -51,26 +46,23 @@ let wdiff_tokenizer_init = { lines_text = PersistentVector.empty; lines_token = 
 
 /// Immutably updates the state based on the request. Does diffing to make the operation efficient.
 /// It is possible for the server to go out of sync, in which case an error is returned.
-let wdiff_tokenizer (state : TokenizerState) req = 
-    let replace (edit : SpiEdit) =
-        if edit.nearTo <= state.lines_text.Length then
-            let lines_text = PersistentVector.replace edit.from edit.nearTo edit.lines state.lines_text
-            let lines_token, errors = tokenize_replace (state.lines_token, state.errors) edit
-            let blocks = wdiff_block_all state.blocks (lines_token, edit.lines.Length, edit.from, edit.nearTo)
-            Ok {lines_text=lines_text; lines_token=lines_token; errors=errors; blocks=blocks}
-        else 
-            Error "The edit is out of bounds and cannot be applied. The language server and the editor are out of sync. Try reopening the file being edited."
-
-    match req with
-    | DocumentAll text ->
-        let text' = state.lines_text |> Seq.toArray
-        let rec loop (index,text : string [] as x) i = if i < min text.Length state.lines_text.Length && index text i = index text' i then loop x (i+1) else i
-        let from = loop ((fun text i -> text.[i]),text) 0
-        if from = text.Length then Ok state else
-        let text = text.[from..]
-        let fromRev = loop ((fun text i -> text.[text.Length-1-i]),text) 0
-        replace {|from=from; nearTo=text'.Length-fromRev; lines=text.[..text.Length-1-fromRev]|}
-    | DocumentEdit edit -> replace edit
+let replace (state : TokenizerState) (edit : SpiEdit) =
+    let lines_text = PersistentVector.replace edit.from edit.nearTo edit.lines state.lines_text
+    let lines_token, errors = tokenize_replace (state.lines_token, state.errors) edit
+    let blocks = wdiff_block_all state.blocks (lines_token, edit.lines.Length, edit.from, edit.nearTo)
+    {lines_text=lines_text; lines_token=lines_token; errors=errors; blocks=blocks}
+let wdiff_tokenizer_all (state : TokenizerState) text = 
+    let text = Utils.lines text
+    let text' = state.lines_text |> Seq.toArray
+    let rec loop (index,text : string [] as x) i = if i < min text.Length state.lines_text.Length && index text i = index text' i then loop x (i+1) else i
+    let from = loop ((fun text i -> text.[i]),text) 0
+    if from = text.Length then state else
+    let text = text.[from..]
+    let fromRev = loop ((fun text i -> text.[text.Length-1-i]),text) 0
+    replace state {|from=from; nearTo=text'.Length-fromRev; lines=text.[..text.Length-1-fromRev]|}
+let wdiff_tokenizer_edit (state : TokenizerState) (edit : SpiEdit) = 
+    if edit.nearTo <= state.lines_text.Length then Ok (replace state edit)
+    else Error "The edit is out of bounds and cannot be applied. The language server and the editor are out of sync. Try reopening the file being edited."
 
 open BlockParsing
 let semantic_updates_apply (block : LineTokens) updates =
@@ -126,16 +118,16 @@ let wdiff_parse (state : ParserState) (unparsed_blocks : LineTokens Block list) 
     {state with blocks = blocks }
 
 type ModuleState = { tokenizer : TokenizerState; bundler : BlockBundleState; parser : ParserState }
-let wdiff_module (state : ModuleState) x =
-    wdiff_tokenizer state.tokenizer x |> Result.map (fun tokenizer ->
-        if state.tokenizer = tokenizer then state else
-        let parser = wdiff_parse state.parser tokenizer.blocks
-        let bundler = wdiff_block_bundle state.bundler parser
-        {tokenizer=tokenizer; parser=parser; bundler=bundler}
-        )
+let wdiff_module_init is_top_down = {tokenizer = wdiff_tokenizer_init; bundler = wdiff_block_bundle_init; parser = wdiff_parse_init is_top_down}
+let wdiff_module_body state tokenizer =
+    if state.tokenizer = tokenizer then state else
+    let parser = wdiff_parse state.parser tokenizer.blocks
+    let bundler = wdiff_block_bundle state.bundler parser
+    {tokenizer=tokenizer; parser=parser; bundler=bundler}
+let wdiff_module_edit (state : ModuleState) x = wdiff_tokenizer_edit state.tokenizer x |> Result.map (wdiff_module_body state)
+let wdiff_module_all state x = wdiff_tokenizer_all state.tokenizer x |> wdiff_module_body state
 
 type [<ReferenceEquality>] FileState<'input,'result,'state> = { input : 'input; result : 'result; state : 'state }
-
 type FileFuns<'a,'b,'state> =
     abstract member eval : 'state * 'a -> 'b
     abstract member diff : 'state * 'b * 'a -> 'b
