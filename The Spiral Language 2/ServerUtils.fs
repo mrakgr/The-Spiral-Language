@@ -56,22 +56,29 @@ let ss_empty = {
 let ss_from_result = function
     | Ok schema -> {ss_empty with schema = schema}
     | Error ers -> {ss_empty with errors_parse = ers}
-let ss_validate_modules' (modules : ModuleEnv) (x : SchemaState) =
+let ss_validate_module (packages : SchemaEnv) (modules : ModuleEnv) (x : SchemaState) =
     let errors = ResizeArray()
     let rec loop = function
-        | SpiProj.FileHierarchy.Directory(_,_,_,l) -> list l
+        | SpiProj.FileHierarchy.Directory(_,(r,path),_,l) -> 
+            if Map.containsKey path packages then errors.Add(r,"Module directory has a package file in it.")
+            list l
         | SpiProj.FileHierarchy.File(_,(r,path),_) -> if Map.containsKey path modules = false then errors.Add(r,"Module not loaded.")
     and list l = List.iter loop l
     list x.schema.modules
     Seq.toList errors
-let ss_validate_modules modules (x : SchemaState) = {x with errors_modules=ss_validate_modules' modules x}
+let ss_validate_modules (packages : SchemaEnv) modules order = 
+    Array.fold (fun s x ->
+        match Map.tryFind x s with
+        | Some v -> Map.add x {v with errors_modules = ss_validate_module packages modules v} s
+        | None -> s
+        ) packages order
 
 let ss_has_error x = (List.isEmpty x.errors_parse && List.isEmpty x.errors_modules && List.isEmpty x.errors_packages) = false
-let ss_validate_packages (packages : SchemaEnv) (x : SchemaState) (order : string [], circulars : Dictionary<string,int>) =
+let ss_validate_packages (packages : SchemaEnv) (order : string [], socs : Dictionary<string,int>) : SchemaEnv =
     Array.fold (fun s path ->
         match Map.tryFind path s with
         | Some (x : SchemaState) -> 
-            let c p = match circulars.TryGetValue(p) with true,b -> b | false,_ -> -1
+            let c p = match socs.TryGetValue(p) with true,b -> b | false,_ -> -1
             let is_circular x = x <> -1
             let are_in_same_strong_component a b = is_circular a && is_circular b && a = b
             let ers =
@@ -89,6 +96,10 @@ let ss_validate_packages (packages : SchemaEnv) (x : SchemaState) (order : strin
             Map.add path {x with errors_packages=ers} s
         | _ -> s
         ) packages order
+
+let ss_validate packages modules (order,socs) =
+    let packages = ss_validate_modules packages modules order
+    ss_validate_packages packages (order,socs)
 
 type ResultMap<'a,'b> when 'a : comparison = {ok : Map<'a,'b>; error: Map<'a,'b>}
 type ProjEnvTCResult = ResultMap<PackageId,ProjStateTC>
@@ -263,3 +274,10 @@ let graph_update (packages : SchemaEnv) (g : MirroredGraph) (dirty_packages : st
         | Some v -> Graph.links_replace g x (v.schema.packages |> List.map (fun x -> snd x.path))
         | None -> Graph.links_remove g x
         ) g dirty_packages
+
+let package_ids_update (packages : SchemaEnv) package_ids (dirty_packages : string HashSet) =
+    let l = dirty_packages |> Seq.toArray |> Array.filter (fun x -> Map.containsKey x packages) |> Array.mapi (fun i x -> (i,x))
+    Map.fold (fun s x _ ->
+        Array.mapFold (fun s x -> if s = fst x then (s+1, snd x),s+1 else x,s) x s |> fst
+        ) l (snd package_ids)
+    |> Array.fold (fun (a,b) (k,v) -> Map.add v k a, Map.add k v b) package_ids

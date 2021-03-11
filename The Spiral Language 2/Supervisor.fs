@@ -4,6 +4,9 @@ open VSCTypes
 open Graph
 open Spiral.ServerUtils
 
+open System
+open System.IO
+
 open Hopac
 open Hopac.Infixes
 open Hopac.Extensions
@@ -39,12 +42,22 @@ type SupervisorState = {
     packages_infer : ResultMap<PackageId,WDiff.ProjStateTC>
     packages_prepass : ResultMap<PackageId,WDiff.Prepass.ProjStatePrepass>
     graph : MirroredGraph
-    package_ids : Map<string,int>
+    package_ids : Map<string,int> * Map<int,string>
     }
 
+let dir uri = FileInfo(Uri(uri).LocalPath).Directory.FullName
+let file uri = FileInfo(Uri(uri).LocalPath).FullName
 let supervisor_server (errors : SupervisorErrorSources) req =
-    let loop s = req >>- function
-        | ProjectFileChange x | ProjectFileOpen x -> failwith ""
+    let loop (s : SupervisorState) = req >>- function
+        | ProjectFileChange x | ProjectFileOpen x -> 
+            let packages,dirty_packages,modules = loader_package s.packages s.modules (dir x.uri,Some x.spiprojText)
+            let package_ids = package_ids_update packages s.package_ids dirty_packages
+            let dirty_packages = revalidate_parents packages dirty_packages
+            let graph = graph_update packages s.graph dirty_packages
+            let order,socs = Graph.circular_nodes graph dirty_packages
+            let packages = ss_validate packages modules (order,socs)
+            let packages_infer = wdiff_projenvr_update_packages_tc (fst package_ids) packages modules s.packages_infer (dirty_packages, order)
+            { packages = packages; modules = modules; packages_infer = packages_infer; packages_prepass = s.packages_prepass; graph = graph; package_ids = package_ids }
         | ProjectFileLinks(x,res) -> failwith ""
         | ProjectCodeActions(x,res) -> failwith ""
         | ProjectCodeActionExecute(x,res) -> failwith ""
@@ -61,5 +74,5 @@ let supervisor_server (errors : SupervisorErrorSources) req =
         packages_infer = {ok=Map.empty; error=Map.empty}
         packages_prepass = {ok=Map.empty; error=Map.empty}
         graph = mirrored_graph_empty
-        package_ids = Map.empty
+        package_ids = Map.empty, Map.empty
         } loop
