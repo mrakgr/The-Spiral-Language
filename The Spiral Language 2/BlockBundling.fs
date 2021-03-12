@@ -238,3 +238,8 @@ let wdiff_block_bundle (state : BlockBundleState) (l : ParserState) : BlockBundl
         | Error er -> rectype {s with errors = List.append (show_block_parsing_error offset er) s.errors} x'
 
     init {empty with state=state} l.blocks
+
+let semantic_tokens (l : ParserState) = 
+    List.fold (fun s (_,x) -> 
+        s >>= fun s -> x.block >>- fun x -> PersistentVector.append s x.semantic_tokens
+        ) (Job.result PersistentVector.empty) l.blocks

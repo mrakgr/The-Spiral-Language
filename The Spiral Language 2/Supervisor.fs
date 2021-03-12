@@ -163,8 +163,47 @@ let supervisor_server (errors : SupervisorErrorSources) req =
             | Error x -> Hopac.start (Src.value errors.fatal x); s
             | Ok null -> s
             | Ok path -> proj_delete s [|path|]
-        | FileTokenRange(x, res) -> failwith ""
-        | HoverAt(x,res) -> failwith ""
+        | FileTokenRange(x, res) -> 
+            Map.tryFind (file x.uri) s.modules
+            |> Option.iter (fun v -> Hopac.start (BlockBundling.semantic_tokens v.parser >>= (Tokenize.vscode_tokens x.range >> IVar.fill res)))
+            s
+        | HoverAt(x,res) -> 
+            let file = file x.uri
+            let pos = x.pos
+            let go_hover = function
+                | None -> Job.unit()
+                | Some (x : Infer.InferResult) ->
+                    x.hovers |> Array.tryPick (fun ((a,b),r) ->
+                        if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
+                        )
+                    |> IVar.fill res
+            let go_block (x : WDiff.TypecheckerState) =
+                let rec loop s (x : WDiff.TypecheckerStateValue Stream) =
+                    x >>= function
+                    | Nil -> Job.unit()
+                    | Cons((_,x,_),b) ->
+                        if x.offset <= pos.line then loop (Some x) b
+                        // If the block is over the offset that means the previous one must be the right choice.
+                        else go_hover s
+                Hopac.start (loop None x.result)
+            let rec go_file uids_file trees = 
+                let rec loop = function
+                    | WDiff.File(uid,file',_) -> if file = file' then go_block (Array.get uids_file uid |> fst); true else false
+                    | WDiff.Directory(_,_,l) -> list l
+                and list l = List.exists loop l
+                list trees |> ignore
+            let rec go_parent (x : DirectoryInfo) =
+                if x = null then ()
+                else
+                    if Map.containsKey x.FullName s.packages then
+                        let pid = (fst s.package_ids).[x.FullName]
+                        match Map.tryFind pid s.packages_infer.ok with
+                        | None -> ()
+                        | Some x -> go_file x.files.uids_file x.files.files.tree
+                    else 
+                        go_parent x.Parent
+            go_parent (Directory.GetParent(file))
+            s
         | BuildFile x -> failwith ""
 
     Job.iterateServer {

@@ -329,3 +329,17 @@ let tokenize text =
     let er = match (spaces >>. many_iter (List.iter (fun x -> ar <- PersistentVector.conj x ar)) token .>> (eol <|> tab)) {from=0; text=text} with Ok() -> [] | Error er -> er
     ar, er
 
+let vscode_tokens ((a,b) : VSCRange) (lines : LineToken PersistentVector PersistentVector) =
+    let in_range x = min lines.Length x
+    let from, near_to = in_range a.line, in_range (b.line+1)
+    let toks = ResizeArray()
+    let rec loop i line_delta =
+        if i < near_to then
+            lines.[i] |> PersistentVector.fold (fun (line_delta,from_prev) (r,x) ->
+                toks.AddRange [|line_delta; r.from-from_prev; r.nearTo-r.from; int (token_groups x); 0|]
+                0, r.from
+                ) (line_delta, 0)
+            |> fst |> ((+) 1) |> loop (i+1)
+    
+    loop from from
+    toks.ToArray()
