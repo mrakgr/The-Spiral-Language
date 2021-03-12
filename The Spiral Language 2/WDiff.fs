@@ -126,6 +126,7 @@ let wdiff_module_body state tokenizer =
     {tokenizer=tokenizer; parser=parser; bundler=bundler}
 let wdiff_module_edit (state : ModuleState) x = wdiff_tokenizer_edit state.tokenizer x |> Result.map (wdiff_module_body state)
 let wdiff_module_all state x = wdiff_tokenizer_all state.tokenizer x |> wdiff_module_body state
+let wdiff_module_init_all is_top_down x = wdiff_module_all (wdiff_module_init is_top_down) x
 
 type [<ReferenceEquality>] FileState<'input,'result,'state> = { input : 'input; result : 'result; state : 'state }
 type FileFuns<'a,'b,'state> =
@@ -405,18 +406,11 @@ let wdiff_proj (funs_packages : ProjPackageFuns<_,_>) funs_files (state : ProjSt
         let result = funs_packages.add_file_to_package(state.package_id,files.result,packages.result)
         {state with packages=packages; files=files; result=result}
 
-//let wdiff_projenv_update_module funs_packages funs_files (s : Map<PackageId,ProjState<'file_input,'file,'state>>) (uid,x,tail) =
-//    let s = Map.add uid (wdiff_proj_update_files funs_packages funs_files s.[uid] x) s
-//    Array.fold (fun s (uid,l) ->
-//        let l = l |> List.map (fun (a,b) -> a, (Map.find b s).result)
-//        Map.add uid (wdiff_proj_update_packages funs_packages funs_files s.[uid] l) s
-//        ) s tail
-
 type ProjEnvUpdate<'a> =
     | UpdatePackageModule of PackageId * (string option * PackageId) list * ('a [] * ProjFiles)
     | UpdatePackage of PackageId * (string option * PackageId) list
 
-let wdiff_projenv_update_packages funs_packages funs_files (s : Map<PackageId,ProjState<'a,'b,'state>>) l =
+let wdiff_projenv funs_packages funs_files (s : Map<PackageId,ProjState<'a,'b,'state>>) l =
     let f packages = packages |> List.map (fun (a,b) -> a, (Map.find b s).result)
     List.fold (fun s -> function
         | UpdatePackageModule(uid,packages,files) -> Map.add uid (wdiff_proj funs_packages funs_files s.[uid] (f packages,files)) s

@@ -172,7 +172,7 @@ let config text =
 type FileHierarchy =
     | Directory of VSCRange * path: RString * name : string * FileHierarchy list
     | File of VSCRange * path: RString * string option
-type SchemaPackages = {path : RString; name : string option}
+type SchemaPackages = {dir : RString; name : string option}
 type Schema = {
     moduleDir : VSCRange option * string
     modules : FileHierarchy list
@@ -205,8 +205,8 @@ let schema (pdir,text) : SchemaResult = config text |> Result.bind (fun x ->
             let cdir = Path.Combine(System.AppDomain.CurrentDomain.BaseDirectory,"..") |> Path.GetFullPath
             x.packages |> List.map (fun x ->
                 let name = if x.is_include then None else Some x.name
-                let path = Path.Combine((if x.is_in_compiler_dir then cdir else snd package_dir),x.name)
-                {name = name; path = x.range, path}
+                let dir = Path.Combine((if x.is_in_compiler_dir then cdir else snd package_dir),x.name)
+                {name = name; dir = x.range, dir}
                 )
         Result.Ok {moduleDir = module_dir; modules = modules; packageDir = package_dir; packages = packages}
     with :? SchemaException as e -> Result.Error [e.Data0]

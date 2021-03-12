@@ -83,7 +83,7 @@ let ss_validate_packages (packages : SchemaEnv) (order : string [], socs : Dicti
             let are_in_same_strong_component a b = is_circular a && is_circular b && a = b
             let ers =
                 let cpath = c path
-                (x.schema.packages, []) ||> List.foldBack (fun {path=r,p} ers ->
+                (x.schema.packages, []) ||> List.foldBack (fun {dir=r,p} ers ->
                     let cp = c p
                     if are_in_same_strong_component cpath cp then (r,"Package is circular and loops through the current one.") :: ers
                     elif path = p then (r,"Self referential links are not allowed.") :: ers
@@ -129,12 +129,12 @@ let projenv_update_packages funs_packages funs_files (ids : Map<string, PackageI
         | Some schema when ss_has_error schema -> l
         | Some schema ->
             let pid = ids.[x]
-            let packages = schema.schema.packages |> List.map (fun x -> x.name, ids.[snd x.path])
+            let packages = schema.schema.packages |> List.map (fun x -> x.name, ids.[snd x.dir])
             match dirty_packages.TryGetValue(x) with
             | true, x -> UpdatePackageModule(pid,packages,x) :: l
             | false, _ -> UpdatePackage(pid,packages) :: l
         ) order []
-    |> wdiff_projenv_update_packages funs_packages funs_files state
+    |> wdiff_projenv funs_packages funs_files state
 
 let inline proj_file_iter_file f (files : ProjFiles) =
     let rec loop = function
@@ -204,18 +204,18 @@ let dirty_nodes_prepass (ids : Map<string, PackageId>) (packages : SchemaEnv) (m
         fun (mid : ModuleId) path -> pid, mid, path, state.[path].result
     dirty_nodes_template funs_file_prepass ids packages modules state dirty_packages
 
-let wdiff_projenvr_update_packages dirty_nodes funs_proj_package funs_proj_file 
+let wdiff_projenvr dirty_nodes funs_proj_package funs_proj_file 
         ids packages modules (state : ResultMap<PackageId,_>) (dirty_packages, order) =
     let state = wdiff_projenvr_sync_schema funs_proj_package funs_proj_file ids packages state order
     let dirty_packages = dirty_nodes ids packages modules state.ok dirty_packages
     {state with ok=projenv_update_packages funs_proj_package funs_proj_file ids packages state.ok (dirty_packages, order)}
 
-let wdiff_projenvr_update_packages_tc ids packages modules state (dirty_packages, order) =
-    wdiff_projenvr_update_packages dirty_nodes_tc funs_proj_package_tc funs_proj_file_tc 
+let wdiff_projenvr_tc ids packages modules state (dirty_packages, order) =
+    wdiff_projenvr dirty_nodes_tc funs_proj_package_tc funs_proj_file_tc 
         ids packages modules state (dirty_packages, order)
 
-let wdiff_projenvr_update_packages_prepass ids packages modules state (dirty_packages, order) =
-    wdiff_projenvr_update_packages dirty_nodes_prepass funs_proj_package_prepass funs_proj_file_prepass 
+let wdiff_projenvr_prepass ids packages modules state (dirty_packages, order) =
+    wdiff_projenvr dirty_nodes_prepass funs_proj_package_prepass funs_proj_file_prepass 
         ids packages modules state (dirty_packages, order)
 
 type LoadResult =
@@ -232,20 +232,20 @@ let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (path, text) =
         | Some _ -> ()
         | None ->
             File.ReadAllTextAsync(path).ContinueWith(fun (x : _ Task) ->
-                try LoadModule(path,wdiff_module_all (wdiff_module_init (is_top_down path)) x.Result |> Some)
+                try LoadModule(path,wdiff_module_init_all (is_top_down path) x.Result |> Some)
                 with e -> LoadModule(path,None)
                 ) |> queue.Enqueue
 
-    let load_package packages (path,text) =
+    let load_package packages (pdir,text) =
         let schema (path,text) = schema (path,text) |> fun x -> LoadPackage(path,Some (ss_from_result x))
         match text with
-        | Some text -> schema (path,text) |> Task.FromResult |> queue.Enqueue
+        | Some text -> schema (pdir,text) |> Task.FromResult |> queue.Enqueue
         | None ->
-            match Map.tryFind path packages with
+            match Map.tryFind pdir packages with
             | Some _ -> ()
             | None ->
-                File.ReadAllTextAsync(path).ContinueWith(fun (x : _ Task) ->
-                    try schema (path,x.Result) with e -> LoadPackage(path,None)
+                File.ReadAllTextAsync(Path.Combine(pdir,"package.spiproj")).ContinueWith(fun (x : _ Task) ->
+                    try schema (pdir,x.Result) with e -> LoadPackage(pdir,None)
                     ) |> queue.Enqueue
 
     let dirty_packages = HashSet()
@@ -262,7 +262,7 @@ let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (path, text) =
         match queue.Dequeue().Result with
         | LoadPackage(pdir,Some x) -> 
             packages <- Map.add pdir x packages; dirty_packages.Add(pdir) |> ignore; invalidate_parent packages (Directory.GetParent(pdir))
-            x.schema.packages |> List.iter (fun x -> load_package packages (snd x.path,None))
+            x.schema.packages |> List.iter (fun x -> load_package packages (snd x.dir,None))
             let rec loop = function
                 | FileHierarchy.Directory(_,_,_,l) -> list l
                 | FileHierarchy.File(_,(_,path),_) -> load_module modules path
@@ -276,12 +276,14 @@ let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (path, text) =
 let graph_update (packages : SchemaEnv) (g : MirroredGraph) (dirty_packages : string HashSet) =
     Seq.fold (fun g x ->
         match Map.tryFind x packages with
-        | Some v -> Graph.links_replace g x (v.schema.packages |> List.map (fun x -> snd x.path))
+        | Some v -> Graph.links_replace g x (v.schema.packages |> List.map (fun x -> snd x.dir))
         | None -> Graph.links_remove g x
         ) g dirty_packages
 
 let package_ids_update (packages : SchemaEnv) package_ids (dirty_packages : string HashSet) =
-    let l = dirty_packages |> Seq.toArray |> Array.filter (fun x -> Map.containsKey x packages) |> Array.mapi (fun i x -> (i,x))
+    let adds,removals = dirty_packages |> Seq.toArray |> Array.partition (fun x -> Map.containsKey x packages)
+    let package_ids = removals |> Array.fold (fun (a,b as s) x -> match Map.tryFind x a with Some x' -> Map.remove x a, Map.remove x' b | None -> s) package_ids
+    let l = adds |> Array.mapi (fun i x -> (i,x))
     Map.fold (fun s x _ ->
         Array.mapFold (fun s x -> if s = fst x then (s+1, snd x),s+1 else x,s) x s |> fst
         ) l (snd package_ids)
