@@ -69,6 +69,27 @@ let proj_revalidate_owner s file =
         else loop x.Parent
     loop (Directory.GetParent(file))
 
+let proj_delete s (files : string []) =
+    let dirty_modules = HashSet()
+    let dirty_packages = HashSet()
+    files |> Array.iter (fun k ->
+        s.packages |> Map.iter (fun k' _ ->
+            if Path.Combine(k',"package.spiproj").StartsWith(k) then 
+                dirty_packages.Add(k') |> ignore
+                let rec delete_parent (x : DirectoryInfo) =
+                    if x = null then ()
+                    elif Map.containsKey x.FullName s.packages then dirty_packages.Add(x.FullName) |> ignore
+                    else delete_parent x.Parent
+                delete_parent (Directory.GetParent(k'))
+            )
+        s.modules |> Map.iter (fun k' _ ->
+            if k'.StartsWith(k) then dirty_modules.Add(k') |> ignore
+            )
+        )
+    let modules = Seq.foldBack Map.remove dirty_modules s.modules
+    let packages = Seq.foldBack Map.remove dirty_packages s.packages
+    proj_graph_update {s with modules = modules; packages = packages} dirty_packages
+
 let dir uri = FileInfo(Uri(uri).LocalPath).Directory.FullName
 let file uri = FileInfo(Uri(uri).LocalPath).FullName
 let supervisor_server (errors : SupervisorErrorSources) req =
@@ -88,27 +109,7 @@ let supervisor_server (errors : SupervisorErrorSources) req =
                 match WDiff.wdiff_module_edit m x.spiEdit with
                 | Ok v -> proj_revalidate_owner {s with modules = Map.add file v s.modules} file
                 | Error er -> Hopac.start (Src.value errors.fatal er); s
-        | FileDelete x ->
-            let dirty_modules = HashSet()
-            let dirty_packages = HashSet()
-            x.uris |> Array.iter (fun k ->
-                let k = file k
-                s.packages |> Map.iter (fun k' _ ->
-                    if Path.Combine(k',"package.spiproj").StartsWith(k) then 
-                        dirty_packages.Add(k') |> ignore
-                        let rec delete_parent (x : DirectoryInfo) =
-                            if x = null then ()
-                            elif Map.containsKey x.FullName s.packages then dirty_packages.Add(x.FullName) |> ignore
-                            else delete_parent x.Parent
-                        delete_parent (Directory.GetParent(k'))
-                    )
-                s.modules |> Map.iter (fun k' _ ->
-                    if k'.StartsWith(k) then dirty_modules.Add(k') |> ignore
-                    )
-                )
-            let modules = Seq.foldBack Map.remove dirty_modules s.modules
-            let packages = Seq.foldBack Map.remove dirty_packages s.packages
-            proj_graph_update {s with modules = modules; packages = packages} dirty_packages
+        | FileDelete x -> proj_delete s (Array.map file x.uris)
         | ProjectFileLinks(x,res) -> 
             match Map.tryFind (dir x.uri) s.packages with
             | None -> ()
@@ -129,19 +130,39 @@ let supervisor_server (errors : SupervisorErrorSources) req =
             match Map.tryFind (dir x.uri) s.packages with
             | None -> ()
             | Some x ->
-                let mutable l = []
-                x.schema.packages |> List.iter (fun x ->
-                    let r,dir = x.dir
-                    if Map.containsKey dir s.packages then l <- (r,Utils.file_uri (Path.Combine(dir,"package.spiproj"))) :: l
-                    )
-                let rec loop = function
-                    | SpiProj.FileHierarchy.Directory(_,_,_,l) -> list l
-                    | SpiProj.FileHierarchy.File(_,(r,path),_) -> if Map.containsKey path s.modules then l <- (r,path) :: l
-                and list l = List.iter loop l
-                list x.schema.modules
-                Hopac.start (IVar.fill res l)
+                let mutable z = []
+                let actions_dir (r,path) =
+                    match r with
+                    | None -> ()
+                    | Some r ->
+                        if Directory.Exists(path) then
+                            z <- (r,RenameDirectory {|dirPath=path; target=null; validate_as_file=false|}) :: (r,DeleteDirectory {|dirPath=path; range=r|}) :: z
+                        else
+                            z <- (r,CreateDirectory {|dirPath=path|}) :: z
+                actions_dir x.schema.moduleDir
+                actions_dir x.schema.packageDir
+
+                let rec actions_module = function
+                    | SpiProj.FileHierarchy.Directory(r',(r,path),_,l) -> 
+                        if Directory.Exists(path) then
+                            z <- (r,RenameDirectory {|dirPath=path; target=null; validate_as_file=true|}) :: (r,DeleteDirectory {|dirPath=path; range=r'|}) :: z
+                        else
+                            z <- (r,CreateDirectory {|dirPath=path|}) :: z
+                        actions_modules l
+                    | SpiProj.FileHierarchy.File(r',(r,path),_) -> 
+                        if Map.containsKey path s.modules then 
+                            z <- (r,RenameFile {|filePath=path; target=null|}) :: (r,DeleteFile {|range=r'; filePath=path|}) :: z
+                        else 
+                            z <- (r,CreateFile {|filePath=path|}) :: z
+                and actions_modules l = List.iter actions_module l
+                actions_modules x.schema.modules
+                Hopac.start (IVar.fill res z)
             s
-        | ProjectCodeActionExecute(x,res) -> failwith ""
+        | ProjectCodeActionExecute(x,res) ->
+            match code_action_execute x.action with
+            | Error x -> Hopac.start (Src.value errors.fatal x); s
+            | Ok null -> s
+            | Ok path -> proj_delete s [|path|]
         | FileTokenRange(x, res) -> failwith ""
         | HoverAt(x,res) -> failwith ""
         | BuildFile x -> failwith ""
