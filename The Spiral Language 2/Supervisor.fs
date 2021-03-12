@@ -74,9 +74,6 @@ let file uri = FileInfo(Uri(uri).LocalPath).FullName
 let supervisor_server (errors : SupervisorErrorSources) req =
     let loop (s : SupervisorState) = req >>- function
         | ProjectFileChange x | ProjectFileOpen x -> proj_open s (dir x.uri,Some x.spiprojText)
-        | ProjectFileLinks(x,res) -> failwith ""
-        | ProjectCodeActions(x,res) -> failwith ""
-        | ProjectCodeActionExecute(x,res) -> failwith ""
         | FileOpen x -> 
             let file = file x.uri
             match Map.tryFind file s.modules with
@@ -91,7 +88,60 @@ let supervisor_server (errors : SupervisorErrorSources) req =
                 match WDiff.wdiff_module_edit m x.spiEdit with
                 | Ok v -> proj_revalidate_owner {s with modules = Map.add file v s.modules} file
                 | Error er -> Hopac.start (Src.value errors.fatal er); s
-        | FileDelete x -> failwith ""
+        | FileDelete x ->
+            let dirty_modules = HashSet()
+            let dirty_packages = HashSet()
+            x.uris |> Array.iter (fun k ->
+                let k = file k
+                s.packages |> Map.iter (fun k' _ ->
+                    if Path.Combine(k',"package.spiproj").StartsWith(k) then 
+                        dirty_packages.Add(k') |> ignore
+                        let rec delete_parent (x : DirectoryInfo) =
+                            if x = null then ()
+                            elif Map.containsKey x.FullName s.packages then dirty_packages.Add(x.FullName) |> ignore
+                            else delete_parent x.Parent
+                        delete_parent (Directory.GetParent(k'))
+                    )
+                s.modules |> Map.iter (fun k' _ ->
+                    if k'.StartsWith(k) then dirty_modules.Add(k') |> ignore
+                    )
+                )
+            let modules = Seq.foldBack Map.remove dirty_modules s.modules
+            let packages = Seq.foldBack Map.remove dirty_packages s.packages
+            proj_graph_update {s with modules = modules; packages = packages} dirty_packages
+        | ProjectFileLinks(x,res) -> 
+            match Map.tryFind (dir x.uri) s.packages with
+            | None -> ()
+            | Some x ->
+                let mutable l = []
+                x.schema.packages |> List.iter (fun x ->
+                    let r,dir = x.dir
+                    if Map.containsKey dir s.packages then l <- (r,Utils.file_uri (Path.Combine(dir,"package.spiproj"))) :: l
+                    )
+                let rec loop = function
+                    | SpiProj.FileHierarchy.Directory(_,_,_,l) -> list l
+                    | SpiProj.FileHierarchy.File(_,(r,path),_) -> if Map.containsKey path s.modules then l <- (r,path) :: l
+                and list l = List.iter loop l
+                list x.schema.modules
+                Hopac.start (IVar.fill res l)
+            s
+        | ProjectCodeActions(x,res) ->
+            match Map.tryFind (dir x.uri) s.packages with
+            | None -> ()
+            | Some x ->
+                let mutable l = []
+                x.schema.packages |> List.iter (fun x ->
+                    let r,dir = x.dir
+                    if Map.containsKey dir s.packages then l <- (r,Utils.file_uri (Path.Combine(dir,"package.spiproj"))) :: l
+                    )
+                let rec loop = function
+                    | SpiProj.FileHierarchy.Directory(_,_,_,l) -> list l
+                    | SpiProj.FileHierarchy.File(_,(r,path),_) -> if Map.containsKey path s.modules then l <- (r,path) :: l
+                and list l = List.iter loop l
+                list x.schema.modules
+                Hopac.start (IVar.fill res l)
+            s
+        | ProjectCodeActionExecute(x,res) -> failwith ""
         | FileTokenRange(x, res) -> failwith ""
         | HoverAt(x,res) -> failwith ""
         | BuildFile x -> failwith ""
