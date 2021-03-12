@@ -90,6 +90,38 @@ let proj_delete s (files : string []) =
     let packages = Seq.foldBack Map.remove dirty_packages s.packages
     proj_graph_update {s with modules = modules; packages = packages} dirty_packages
 
+
+type AttentionState = {
+    modules : string Set * string list
+    packages : string Set * string list
+    supervisor : SupervisorState
+    }
+
+let attention_server (errors : SupervisorErrorSources) req =
+    let add (s,o) l = List.foldBack (fun x (s,o as z) -> if Set.contains x s then z else Set.add x s, x :: o) l (s,o)
+    let rec listen (s : AttentionState) = req ^=> fun (modules,packages,supervisor) ->
+        loop {modules = add s.modules modules; packages = add s.packages packages; supervisor = supervisor}
+    and loop s =
+        let l : WDiff.TypecheckerStateValue Stream list = failwith "TODO"
+        let rec loop_modules = function
+            | (path,l) :: ls ->
+                let rec loop_module ers = function
+                    // TODO: The current list should be zeroed out before moving to the next.
+                    | x :: xs -> listen s <|> (x ^=> fun ((_,x,_) : WDiff.TypecheckerStateValue) -> loop_module (List.append x.errors ers) xs)
+                    | [] -> Hopac.start (Src.value errors.typer {|uri=Utils.file_uri path; errors=ers|}); loop_modules ls
+                loop_module [] l
+            | [] ->
+                match s.packages with
+                | pdir_set,pdir :: pdirs -> loop {s with packages=Set.remove pdir pdir_set,pdirs}
+                | _ -> failwith "Compiler error: The processed package cannot be empty."
+                
+        failwith ""
+    
+
+    Job.foreverServer (req >>= fun (modules,packages,supervisor) -> 
+        loop {modules = Set.ofList modules,modules; packages = Set.ofList packages, packages; supervisor = supervisor}
+        )
+
 let dir uri = FileInfo(Uri(uri).LocalPath).Directory.FullName
 let file uri = FileInfo(Uri(uri).LocalPath).FullName
 let supervisor_server (errors : SupervisorErrorSources) req =

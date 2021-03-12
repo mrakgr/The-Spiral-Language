@@ -240,6 +240,7 @@ let wdiff_block_bundle (state : BlockBundleState) (l : ParserState) : BlockBundl
     init {empty with state=state} l.blocks
 
 let semantic_tokens (l : ParserState) = 
-    List.fold (fun s (_,x) -> 
-        s >>= fun s -> x.block >>- fun x -> PersistentVector.append s x.semantic_tokens
-        ) (Job.result PersistentVector.empty) l.blocks
+    let rec loop s = function
+        | (_,x) :: xs -> x.block >>= fun x -> loop (PersistentVector.append s x.semantic_tokens) xs
+        | [] -> Job.result s
+    loop PersistentVector.empty l.blocks
