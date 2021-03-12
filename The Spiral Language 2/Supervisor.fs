@@ -97,18 +97,33 @@ type AttentionState = {
     supervisor : SupervisorState
     }
 
+let attention_tc_input (x : WDiff.ProjStateTC) =
+    let uids_file = x.files.uids_file
+    let ar = Array.zeroCreate uids_file.Length
+    let rec loop = function
+        | WDiff.File(mid,path,_) -> ar.[mid] <- path, (fst uids_file.[mid]).result
+        | WDiff.Directory(_,_,l) -> list l
+    and list l = List.iter loop l
+    list x.files.files.tree
+    Array.toList ar
+
 let attention_server (errors : SupervisorErrorSources) req =
     let add (s,o) l = List.foldBack (fun x (s,o as z) -> if Set.contains x s then z else Set.add x s, x :: o) l (s,o)
-    let rec listen (s : AttentionState) = req ^=> fun (modules,packages,supervisor) ->
-        loop {modules = add s.modules modules; packages = add s.packages packages; supervisor = supervisor}
-    and loop s =
+    let update (s : AttentionState) (modules,packages,supervisor) = {modules = add s.modules modules; packages = add s.packages packages; supervisor = supervisor}
+    let rec loop (s : AttentionState) =
         let l : WDiff.TypecheckerStateValue Stream list = failwith "TODO"
-        let rec loop_modules = function
+        let rec loop_modules z = function
             | (path,l) :: ls ->
-                let rec loop_module ers = function
-                    // TODO: The current list should be zeroed out before moving to the next.
-                    | x :: xs -> listen s <|> (x ^=> fun ((_,x,_) : WDiff.TypecheckerStateValue) -> loop_module (List.append x.errors ers) xs)
-                    | [] -> Hopac.start (Src.value errors.typer {|uri=Utils.file_uri path; errors=ers|}); loop_modules ls
+                let rec loop_module ers l = l ^=> function
+                    | Cons(x,xs) -> 
+                        (req ^=> fun x -> zero_out (path :: z); loop (update s x))
+                        <|> (x ^=> fun ((_,x,_) : WDiff.TypecheckerStateValue) -> 
+                            if List.isEmpty x.errors then loop_module ers xs
+                            else 
+                                Hopac.start (Src.value errors.typer {|uri=Utils.file_uri path; errors=ers|})
+                                loop_module (List.append x.errors ers) xs
+                            )
+                    | Nil -> loop_modules (path :: z) ls
                 loop_module [] l
             | [] ->
                 match s.packages with
