@@ -41,7 +41,7 @@ type SupervisorState = {
     packages : SchemaEnv
     modules : ModuleEnv
     packages_infer : ResultMap<PackageId,WDiff.ProjStateTC>
-    packages_prepass : ResultMap<PackageId,WDiff.Prepass.ProjStatePrepass>
+    packages_prepass : ResultMap<PackageId,WDiffPrepass.ProjStatePrepass>
     graph : MirroredGraph
     package_ids : Map<string,int> * Map<int,string>
     }
@@ -209,8 +209,8 @@ let file uri = FileInfo(Uri(uri).LocalPath).FullName
 let supervisor_server atten (errors : SupervisorErrorSources) req =
     let fatal x = Hopac.start (Src.value errors.fatal x)
     let handle_packages (dirty_packages,s) = Hopac.start (Src.value atten ([],Seq.toList dirty_packages,s)); s
-    let handle_file_packages file (dirty_packages,s) = Hopac.start (Src.value atten ([file],Seq.toList dirty_packages,s)); s
-    let handle_files_packages (dirty_files,(dirty_packages,s)) = Hopac.start (Src.value atten (Seq.toList dirty_files,Seq.toList dirty_packages,s)); s
+    let handle_file_packages file (dirty_packages : string HashSet,s) = Hopac.start (Src.value atten ([file],Seq.toList dirty_packages,s)); s
+    let handle_files_packages (dirty_files : string HashSet,(dirty_packages : string HashSet,s)) = Hopac.start (Src.value atten (Seq.toList dirty_files,Seq.toList dirty_packages,s)); s
     let loop (s : SupervisorState) = req >>- function
         | ProjectFileChange x | ProjectFileOpen x -> proj_open s (dir x.uri,Some x.spiprojText) |> handle_packages
         | FileOpen x -> 
@@ -230,72 +230,81 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                 | Error er -> fatal er; s
         | FileDelete x -> proj_delete s (Array.map file x.uris) |> handle_files_packages
         | ProjectFileLinks(x,res) -> 
-            match Map.tryFind (dir x.uri) s.packages with
-            | None -> ()
-            | Some x ->
-                let mutable l = []
-                x.schema.packages |> List.iter (fun x ->
-                    let r,dir = x.dir
-                    if Map.containsKey dir s.packages then l <- (r,Utils.file_uri (spiproj_suffix dir)) :: l
-                    )
-                let rec loop = function
-                    | SpiProj.FileHierarchy.Directory(_,_,_,l) -> list l
-                    | SpiProj.FileHierarchy.File(_,(r,path),_) -> if Map.containsKey path s.modules then l <- (r,path) :: l
-                and list l = List.iter loop l
-                list x.schema.modules
-                Hopac.start (IVar.fill res l)
+            let l =
+                match Map.tryFind (dir x.uri) s.packages with
+                | None -> []
+                | Some x ->
+                    let mutable l = []
+                    x.schema.packages |> List.iter (fun x ->
+                        let r,dir = x.dir
+                        if Map.containsKey dir s.packages then l <- (r,Utils.file_uri (spiproj_suffix dir)) :: l
+                        )
+                    let rec loop = function
+                        | SpiProj.FileHierarchy.Directory(_,_,_,l) -> list l
+                        | SpiProj.FileHierarchy.File(_,(r,path),_) -> if Map.containsKey path s.modules then l <- (r,Utils.file_uri path) :: l
+                    and list l = List.iter loop l
+                    list x.schema.modules
+                    l
+            Hopac.start (IVar.fill res l)
             s
         | ProjectCodeActions(x,res) ->
-            match Map.tryFind (dir x.uri) s.packages with
-            | None -> ()
-            | Some x ->
-                let mutable z = []
-                let actions_dir (r,path) =
-                    match r with
-                    | None -> ()
-                    | Some r ->
-                        if Directory.Exists(path) then
-                            z <- (r,RenameDirectory {|dirPath=path; target=null; validate_as_file=false|}) :: (r,DeleteDirectory {|dirPath=path; range=r|}) :: z
-                        else
-                            z <- (r,CreateDirectory {|dirPath=path|}) :: z
-                actions_dir x.schema.moduleDir
-                actions_dir x.schema.packageDir
+            let z =
+                match Map.tryFind (dir x.uri) s.packages with
+                | None -> []
+                | Some x ->
+                    let mutable z = []
+                    let actions_dir (r,path) =
+                        match r with
+                        | None -> ()
+                        | Some r ->
+                            if Directory.Exists(path) then
+                                z <- (r,RenameDirectory {|dirPath=path; target=null; validate_as_file=false|}) :: (r,DeleteDirectory {|dirPath=path; range=r|}) :: z
+                            else
+                                z <- (r,CreateDirectory {|dirPath=path|}) :: z
+                    actions_dir x.schema.moduleDir
+                    actions_dir x.schema.packageDir
 
-                let rec actions_module = function
-                    | SpiProj.FileHierarchy.Directory(r',(r,path),_,l) -> 
-                        if Directory.Exists(path) then
-                            z <- (r,RenameDirectory {|dirPath=path; target=null; validate_as_file=true|}) :: (r,DeleteDirectory {|dirPath=path; range=r'|}) :: z
-                        else
-                            z <- (r,CreateDirectory {|dirPath=path|}) :: z
-                        actions_modules l
-                    | SpiProj.FileHierarchy.File(r',(r,path),_) -> 
-                        if Map.containsKey path s.modules then 
-                            z <- (r,RenameFile {|filePath=path; target=null|}) :: (r,DeleteFile {|range=r'; filePath=path|}) :: z
-                        else 
-                            z <- (r,CreateFile {|filePath=path|}) :: z
-                and actions_modules l = List.iter actions_module l
-                actions_modules x.schema.modules
-                Hopac.start (IVar.fill res z)
+                    let rec actions_module = function
+                        | SpiProj.FileHierarchy.Directory(r',(r,path),_,l) -> 
+                            if Directory.Exists(path) then
+                                z <- (r,RenameDirectory {|dirPath=path; target=null; validate_as_file=true|}) :: (r,DeleteDirectory {|dirPath=path; range=r'|}) :: z
+                            else
+                                z <- (r,CreateDirectory {|dirPath=path|}) :: z
+                            actions_modules l
+                        | SpiProj.FileHierarchy.File(r',(r,path),_) -> 
+                            if Map.containsKey path s.modules then 
+                                z <- (r,RenameFile {|filePath=path; target=null|}) :: (r,DeleteFile {|range=r'; filePath=path|}) :: z
+                            else 
+                                z <- (r,CreateFile {|filePath=path|}) :: z
+                    and actions_modules l = List.iter actions_module l
+                    actions_modules x.schema.modules
+                    z
+            Hopac.start (IVar.fill res z)
             s
         | ProjectCodeActionExecute(x,res) ->
-            match code_action_execute x.action with
-            | Error x -> fatal x; s
-            | Ok null -> s
-            | Ok path -> proj_delete s [|path|] |> handle_files_packages
+            let error, s =
+                match code_action_execute x.action with
+                | Error x -> Some x, s
+                | Ok null -> None, s
+                | Ok path -> None, proj_delete s [|path|] |> handle_files_packages
+            Hopac.start (IVar.fill res {|result=error|})
+            s
         | FileTokenRange(x, res) -> 
-            Map.tryFind (file x.uri) s.modules
-            |> Option.iter (fun v -> Hopac.start (BlockBundling.semantic_tokens v.parser >>= (Tokenize.vscode_tokens x.range >> IVar.fill res)))
+            match Map.tryFind (file x.uri) s.modules with
+            | Some v -> Hopac.start (BlockBundling.semantic_tokens v.parser >>= (Tokenize.vscode_tokens x.range >> IVar.fill res))
+            | None -> Hopac.start (IVar.fill res [||])
             s
         | HoverAt(x,res) -> 
             let file = file x.uri
             let pos = x.pos
-            let go_hover = function
-                | None -> Job.unit()
+            let go_hover x =
+                match x with
+                | None -> None
                 | Some (x : Infer.InferResult) ->
                     x.hovers |> Array.tryPick (fun ((a,b),r) ->
                         if pos.line = a.line && (a.character <= pos.character && pos.character < b.character) then Some r else None
                         )
-                    |> IVar.fill res
+                |> IVar.fill res
             let go_block (x : WDiff.TypecheckerState) =
                 let rec loop s (x : WDiff.TypecheckerStateValue Stream) =
                     x >>= function
@@ -310,18 +319,18 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                     | WDiff.File(uid,file',_) -> if file = file' then go_block (Array.get uids_file uid |> fst); true else false
                     | WDiff.Directory(_,_,l) -> list l
                 and list l = List.exists loop l
-                list trees |> ignore
+                list trees
             let rec go_parent (x : DirectoryInfo) =
-                if x = null then ()
+                if x = null then false
                 else
                     if Map.containsKey x.FullName s.packages then
                         let pid = (fst s.package_ids).[x.FullName]
                         match Map.tryFind pid s.packages_infer.ok with
-                        | None -> ()
+                        | None -> false
                         | Some x -> go_file x.files.uids_file x.files.files.tree
                     else 
                         go_parent x.Parent
-            go_parent (Directory.GetParent(file))
+            if go_parent (Directory.GetParent(file)) = false then Hopac.start (IVar.fill res None)
             s
         | BuildFile x ->
             let backend = x.backend
@@ -330,7 +339,7 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                 | BuildOk(x,ext) -> Job.fromUnitTask (fun () -> IO.File.WriteAllTextAsync(IO.Path.ChangeExtension(file,ext), x))
                 | BuildFatalError x -> Src.value errors.fatal x
                 | BuildErrorTrace(a,b) -> Src.value errors.traced {|trace=a; message=b|}
-            let file_build (s : SupervisorState) mid (tc : WDiff.ProjStateTC, prepass : WDiff.Prepass.ProjStatePrepass) =
+            let file_build (s : SupervisorState) mid (tc : WDiff.ProjStateTC, prepass : WDiffPrepass.ProjStatePrepass) =
                 let _,b = tc.files.uids_file.[mid]
                 let x,_ = prepass.files.uids_file.[mid]
                 Hopac.start (b >>= fun (has_error,_) ->

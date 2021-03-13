@@ -1,7 +1,8 @@
-﻿module Spiral.WDiff.Prepass
+﻿module Spiral.WDiffPrepass
 
 open VSCTypes
 open Spiral
+open Spiral.WDiff
 open Spiral.Infer
 open Spiral.PartEval
 open Spiral.PartEval.Prepass

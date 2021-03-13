@@ -12,6 +12,16 @@ open Spiral.BlockSplitting
 open Spiral.BlockBundling
 open Spiral.Infer
 
+open Hopac
+open Hopac.Infixes
+open Hopac.Extensions
+open Hopac.Stream
+
+//For concurrent debugging.
+//let print_ch = Ch<string>()
+//let pr x = Hopac.run (Ch.send print_ch x)
+//Hopac.start (Job.foreverServer (WDiff.print_ch >>= Src.value errors.fatal))
+
 let process_errors line (ers : LineTokenErrors list) : RString list =
     ers |> List.mapi (fun i l -> 
         let i = line + i
@@ -101,11 +111,6 @@ let parse_block is_top_down (block : LineTokens) =
         comments = comments; tokens = tokens; i = ref 0; is_top_down = is_top_down
         }
     {result=parse env; semantic_tokens=semantic_updates_apply block semantic_updates}
-
-open Hopac
-open Hopac.Infixes
-open Hopac.Extensions
-open Hopac.Stream
 
 let wdiff_parse_init is_top_down : ParserState = {is_top_down=is_top_down; blocks=[]}
 let wdiff_parse (state : ParserState) (unparsed_blocks : LineTokens Block list) =
@@ -213,7 +218,7 @@ let proj_files_diff (uids_file : ('a * 'b) [], uids_directory : 'b [], files) (u
     and list = function
         | x :: xs, y :: ys -> loop (x,y) && list (xs,ys)
         | _ -> false
-    if list (files.tree, files'.tree) then Some (uids_file',uids_directory') else None
+    if list (files.tree, files'.tree) then None else Some (uids_file',uids_directory')
 
 let proj_files (funs : ProjFileFuns<'a,'state>) uids_file uids_directory uids s l =
     let inline memo (uids : _ []) uid f = 

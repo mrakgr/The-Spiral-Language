@@ -216,7 +216,9 @@ let wdiff_block_bundle (state : BlockBundleState) (l : ParserState) : BlockBundl
     let inline iter (s : BlockBundleStateInner) l f = 
         match l with
         | (_,x) :: x' -> let offset = x.offset in x.block >>** fun {result=a} -> f (offset,a,x')
-        | [] -> move_temp s (fun _ -> Promise.Now.withValue Nil)
+        | [] -> 
+            if List.isEmpty s.tmp then Promise.Now.withValue Nil
+            else move_temp s (fun _ -> Promise.Now.withValue Nil)
     let rec init (s : BlockBundleStateInner) l = iter s l <| fun (offset,x,x') -> 
         match x with
         | Ok (TopAnd(r,_)) -> init {s with errors = (offset +. r, "Invalid `and` statement.") :: s.errors} x'

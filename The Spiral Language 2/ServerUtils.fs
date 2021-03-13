@@ -195,7 +195,7 @@ let dirty_nodes_tc (ids : Map<string, PackageId>) (packages : SchemaEnv) (module
         (state : Map<PackageId,ProjStateTC>) (dirty_packages : string HashSet) =
     dirty_nodes_template funs_file_tc ids packages (fun pid mid path -> pid, mid, modules.[path].bundler) state dirty_packages
 
-open WDiff.Prepass
+open WDiffPrepass
 let dirty_nodes_prepass (ids : Map<string, PackageId>) (packages : SchemaEnv) (modules : Map<PackageId,ProjStateTC>)
         (state : Map<PackageId,ProjStatePrepass>) (dirty_packages : string HashSet) =
     let modules pid =
