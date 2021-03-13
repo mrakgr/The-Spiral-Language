@@ -224,6 +224,7 @@ type LoadResult =
 
 open System.Threading.Tasks
 let is_top_down (x : string) = Path.GetExtension x = ".spi"
+let spiproj_suffix x = Path.Combine(x,"package.spiproj")
 let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (path, text) =
     let queue = Queue()
 
@@ -244,7 +245,7 @@ let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (path, text) =
             match Map.tryFind pdir packages with
             | Some _ -> ()
             | None ->
-                File.ReadAllTextAsync(Path.Combine(pdir,"package.spiproj")).ContinueWith(fun (x : _ Task) ->
+                File.ReadAllTextAsync(spiproj_suffix pdir).ContinueWith(fun (x : _ Task) ->
                     try schema (pdir,x.Result) with e -> LoadPackage(pdir,None)
                     ) |> queue.Enqueue
 

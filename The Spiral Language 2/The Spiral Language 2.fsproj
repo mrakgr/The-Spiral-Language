@@ -46,7 +46,6 @@
     <Compile Include="Graph.fs" />
     <Compile Include="ServerUtils.fs" />
     <Compile Include="Supervisor.fs" />
-    <Compile Include="OldSupervisor.fs" />
   </ItemGroup>
 
   <ItemGroup>
