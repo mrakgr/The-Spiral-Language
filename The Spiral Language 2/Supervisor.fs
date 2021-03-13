@@ -97,41 +97,83 @@ type AttentionState = {
     supervisor : SupervisorState
     }
 
-let attention_tc_input (x : WDiff.ProjStateTC) =
-    let uids_file = x.files.uids_file
-    let ar = Array.zeroCreate uids_file.Length
-    let rec loop = function
-        | WDiff.File(mid,path,_) -> ar.[mid] <- path, (fst uids_file.[mid]).result
-        | WDiff.Directory(_,_,l) -> list l
-    and list l = List.iter loop l
-    list x.files.files.tree
-    Array.toList ar
-
 let attention_server (errors : SupervisorErrorSources) req =
+    let push path (s,o) = Set.add path s, path :: o
     let add (s,o) l = List.foldBack (fun x (s,o as z) -> if Set.contains x s then z else Set.add x s, x :: o) l (s,o)
     let update (s : AttentionState) (modules,packages,supervisor) = {modules = add s.modules modules; packages = add s.packages packages; supervisor = supervisor}
     let rec loop (s : AttentionState) =
-        let l : WDiff.TypecheckerStateValue Stream list = failwith "TODO"
-        let rec loop_modules z = function
-            | (path,l) :: ls ->
-                let rec loop_module ers l = l ^=> function
-                    | Cons(x,xs) -> 
-                        (req ^=> fun x -> zero_out (path :: z); loop (update s x))
-                        <|> (x ^=> fun ((_,x,_) : WDiff.TypecheckerStateValue) -> 
-                            if List.isEmpty x.errors then loop_module ers xs
-                            else 
-                                Hopac.start (Src.value errors.typer {|uri=Utils.file_uri path; errors=ers|})
-                                loop_module (List.append x.errors ers) xs
-                            )
-                    | Nil -> loop_modules (path :: z) ls
-                loop_module [] l
-            | [] ->
-                match s.packages with
-                | pdir_set,pdir :: pdirs -> loop {s with packages=Set.remove pdir pdir_set,pdirs}
-                | _ -> failwith "Compiler error: The processed package cannot be empty."
-                
-        failwith ""
-    
+        let clear l = l |> List.iter (fun x ->
+            let uri = Utils.file_uri x
+            Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=[]|})
+            Hopac.start (Src.value errors.parser {|uri=uri; errors=[]|})
+            Hopac.start (Src.value errors.typer {|uri=uri; errors=[]|})
+            )
+
+        let inline body uri interrupt ers ers' src next = interrupt <|> (Alt.unit() ^=> fun () ->
+            if List.isEmpty ers then next ers'
+            else
+                let ers = List.append ers ers'
+                Hopac.start (Src.value src {|uri=uri; errors=ers|})
+                next ers
+            )
+
+        let loop_module (s : AttentionState) mpath (m : WDiff.ModuleState) =
+            let uri = Utils.file_uri mpath
+            let interrupt = req ^=> fun x -> clear [mpath]; loop (update {s with modules=push mpath s.modules} x)
+            let rec bundler (r : BlockBundling.BlockBundleState) ers' = r ^=> function
+                | Cons((_,x),rs) -> body uri interrupt x.errors ers' errors.parser (bundler rs)
+                | Nil -> loop s
+            Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=m.tokenizer.errors|})
+            bundler m.bundler []
+
+        let rec loop_package (s : AttentionState) pdir mpaths = function
+            | (mpath,l) :: ls ->
+                let uri = Utils.file_uri mpath
+                let interrupt = req ^=> fun x -> clear (mpath :: mpaths); loop (update {s with packages=push pdir s.packages} x)
+                let rec typer (r : WDiff.TypecheckerStateValue Stream) ers' = r ^=> function
+                    | Cons((_,x,_),rs) -> body uri interrupt x.errors ers' errors.typer (typer rs)
+                    | Nil -> loop_package s pdir (mpath :: mpaths) ls
+                let rec bundler (r : BlockBundling.BlockBundleState) ers' = r ^=> function
+                    | Cons((_,x),rs) -> body uri interrupt x.errors ers' errors.parser (bundler rs)
+                    | Nil -> typer l []
+                let m = s.supervisor.modules.[mpath]
+                Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=m.tokenizer.errors|})
+                bundler m.bundler []
+            | [] -> loop s
+
+        let package s =
+            match s.packages with
+            | se,x :: xs -> 
+                let s = {s with packages=Set.remove x se,xs}
+                let package_errors = 
+                    match Map.tryFind x s.supervisor.packages with 
+                    | Some v -> List.concat [v.errors_parse; v.errors_modules; v.errors_packages]
+                    | None -> []
+                Hopac.start (Src.value errors.package ({|uri=Utils.file_uri(Path.Combine(x,"package.spiproj")); errors=package_errors|}))
+                match Map.tryFind x (fst s.supervisor.package_ids) with
+                | Some uid ->
+                    match Map.tryFind uid s.supervisor.packages_infer.ok with
+                    | Some v -> 
+                        let path_tcvals =
+                            let uids_file = v.files.uids_file
+                            let rec loop x s = 
+                                match x with
+                                | WDiff.File(mid,path,_) -> (path, (fst uids_file.[mid]).result) :: s
+                                | WDiff.Directory(_,_,l) -> list l s
+                            and list l s = List.foldBack loop l s
+                            list v.files.files.tree []
+                        loop_package s x [] path_tcvals
+                    | None -> loop s
+                | None -> loop s
+            | _, [] -> req ^=> (update s >> loop)
+
+        match s.modules with
+        | se,x :: xs -> 
+            let s = {s with modules=Set.remove x se,xs}
+            match Map.tryFind x s.supervisor.modules with
+            | Some v -> loop_module s x v
+            | None -> clear [x]; package s
+        | _,[] -> package s
 
     Job.foreverServer (req >>= fun (modules,packages,supervisor) -> 
         loop {modules = Set.ofList modules,modules; packages = Set.ofList packages, packages; supervisor = supervisor}
