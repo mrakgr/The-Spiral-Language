@@ -33,7 +33,10 @@ let code_action_execute a =
                 Directory.Move(a.dirPath,Path.Combine(a.dirPath,"..",a.target)); Ok a.dirPath
         | CreateFile a ->
             if File.Exists(a.filePath) then Error "File already exists."
-            else File.Create(a.filePath).Dispose(); Ok null
+            else 
+                Directory.GetParent(a.filePath).Create()
+                File.Create(a.filePath).Dispose()
+                Ok null
         | DeleteFile a -> File.Delete(a.filePath); Ok a.filePath
         | RenameFile a ->
             match FParsec.CharParsers.run file_verify a.target with
@@ -107,23 +110,25 @@ type ProjEnvTCResult = ResultMap<PackageId,ProjStateTC>
 let wdiff_projenvr_sync_schema funs_packages funs_files (ids : Map<string, PackageId>) (packages : SchemaEnv) 
         (state : ResultMap<PackageId,ProjState<'file_input,'file,'package>>) order =
     Array.fold (fun (s : ResultMap<_,_>) x ->
-        let pid = ids.[x]
-        match Map.tryFind x packages with
-        | Some schema ->
-            match Map.tryFind pid s.ok, Map.tryFind pid s.error, ss_has_error schema with
-            | Some _, Some _,_ -> failwith "Compiler error: The ok and error maps should be disjoint."
-            | Some x, None, true -> {ok=Map.remove pid s.ok; error=Map.add pid x s.error}
-            | None, Some x, false -> {ok=Map.add pid x s.ok; error=Map.remove pid s.error}
-            | None, None, c -> 
-                let x = wdiff_proj_init funs_packages funs_files pid
-                if c then {s with error=Map.add pid x s.error} else {s with ok=Map.add pid x s.ok}
-            | _ -> s
-        | None -> {ok=Map.remove pid s.ok; error=Map.remove pid s.error}
+        match Map.tryFind x ids with
+        | Some pid ->
+            match Map.tryFind x packages with
+            | Some schema ->
+                match Map.tryFind pid s.ok, Map.tryFind pid s.error, ss_has_error schema with
+                | Some _, Some _,_ -> failwith "Compiler error: The ok and error maps should be disjoint."
+                | Some x, None, true -> {ok=Map.remove pid s.ok; error=Map.add pid x s.error}
+                | None, Some x, false -> {ok=Map.add pid x s.ok; error=Map.remove pid s.error}
+                | None, None, c -> 
+                    let x = wdiff_proj_init funs_packages funs_files pid
+                    if c then {s with error=Map.add pid x s.error} else {s with ok=Map.add pid x s.ok}
+                | _ -> s
+            | None -> {ok=Map.remove pid s.ok; error=Map.remove pid s.error}
+        | None -> s
         ) state order
 
 let projenv_update_packages funs_packages funs_files (ids : Map<string, PackageId>) (packages : SchemaEnv)
         (state : Map<PackageId,ProjState<'a,'b,'state>>)  (dirty_packages : Dictionary<_,_>, order : string []) =
-    Array.fold (fun l x ->
+    Array.foldBack (fun x l ->
         match Map.tryFind x packages with
         | None -> l
         | Some schema when ss_has_error schema -> l
@@ -133,7 +138,7 @@ let projenv_update_packages funs_packages funs_files (ids : Map<string, PackageI
             match dirty_packages.TryGetValue(x) with
             | true, x -> UpdatePackageModule(pid,packages,x) :: l
             | false, _ -> UpdatePackage(pid,packages) :: l
-        ) [] order
+        ) order []
     |> wdiff_projenv funs_packages funs_files state
 
 let inline proj_file_iter_file f (files : ProjFiles) =
@@ -173,21 +178,22 @@ let inline dirty_nodes_template funs (ids : Map<string, PackageId>) (packages : 
         (state : Map<PackageId,_>) (dirty_packages : string HashSet) =
     let d = Dictionary<string,_ [] * ProjFiles>()
     dirty_packages |> Seq.iter (fun path ->
-        let pid = ids.[path]
-        match Map.tryFind pid state with
-        | Some x -> 
-            let modules = modules pid
-            let files = proj_file_from_schema packages.[path].schema
-            let state = 
-                let state = proj_file_get_input x.files.uids_file x.files.files
-                proj_file_make_input (fun mid path ->
-                    match state.TryGetValue(path) with
-                    | true, x -> wdiff_file_update_input funs x (modules mid path)
-                    | false, _ -> funs.init (modules mid path)
-                    ) files
-            d.Add(path,(state,files))
-        | None ->
-            ()
+        match Map.tryFind path ids with
+        | Some pid ->
+            match Map.tryFind pid state with
+            | Some x -> 
+                let modules = modules pid
+                let files = proj_file_from_schema packages.[path].schema
+                let state = 
+                    let state = proj_file_get_input x.files.uids_file x.files.files
+                    proj_file_make_input (fun mid path ->
+                        match state.TryGetValue(path) with
+                        | true, x -> wdiff_file_update_input funs x (modules mid path)
+                        | false, _ -> funs.init (modules mid path)
+                        ) files
+                d.Add(path,(state,files))
+            | None -> ()
+        | None -> ()
         )
     d
 
@@ -225,9 +231,8 @@ type LoadResult =
 open System.Threading.Tasks
 let is_top_down (x : string) = Path.GetExtension x = ".spi"
 let spiproj_suffix x = Path.Combine(x,"package.spiproj")
-let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (path, text) =
+let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (pdir, text) =
     let queue = Queue()
-
     let load_module modules path =
         match Map.tryFind path modules with
         | Some _ -> ()
@@ -237,17 +242,16 @@ let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (path, text) =
                 with e -> LoadModule(path,None)
                 ) |> queue.Enqueue
 
-    let load_package packages (pdir,text) =
-        let schema (path,text) = schema (path,text) |> fun x -> LoadPackage(path,Some (ss_from_result x))
-        match text with
-        | Some text -> schema (pdir,text) |> Task.FromResult |> queue.Enqueue
-        | None ->
-            match Map.tryFind pdir packages with
-            | Some _ -> ()
-            | None ->
-                File.ReadAllTextAsync(spiproj_suffix pdir).ContinueWith(fun (x : _ Task) ->
-                    try schema (pdir,x.Result) with e -> LoadPackage(pdir,None)
-                    ) |> queue.Enqueue
+    let schema (pdir,text) = schema (pdir,text) |> fun x -> LoadPackage(pdir,Some (ss_from_result x))
+    let load_package_from_disk packages pdir =
+        File.ReadAllTextAsync(spiproj_suffix pdir).ContinueWith(fun (x : _ Task) ->
+            try schema (pdir,x.Result) with e -> LoadPackage(pdir,None)
+            ) |> queue.Enqueue
+    let load_package_some (pdir,text) = schema (pdir,text) |> Task.FromResult |> queue.Enqueue
+    let load_package_none packages pdir =
+        match Map.tryFind pdir packages with
+        | Some _ -> ()
+        | None -> load_package_from_disk packages pdir
 
     let dirty_packages = HashSet()
     let rec invalidate_parent packages (x : DirectoryInfo) =
@@ -258,12 +262,18 @@ let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (path, text) =
     let mutable packages = packages
     let mutable modules = modules
 
-    load_package packages (path,text)
+    match text with
+    | Some text -> load_package_some (pdir,text)
+    | None ->
+        match Map.tryFind pdir packages with
+        | Some x -> LoadPackage(pdir,Some x) |> Task.FromResult |> queue.Enqueue
+        | None -> load_package_from_disk packages pdir
+
     while 0 < queue.Count do
         match queue.Dequeue().Result with
         | LoadPackage(pdir,Some x) -> 
             packages <- Map.add pdir x packages; dirty_packages.Add(pdir) |> ignore; invalidate_parent packages (Directory.GetParent(pdir))
-            x.schema.packages |> List.iter (fun x -> load_package packages (snd x.dir,None))
+            x.schema.packages |> List.iter (fun x -> load_package_none packages (snd x.dir))
             let rec loop = function
                 | FileHierarchy.Directory(_,_,_,l) -> list l
                 | FileHierarchy.File(_,(_,path),_) -> load_module modules path
@@ -281,11 +291,9 @@ let graph_update (packages : SchemaEnv) (g : MirroredGraph) (dirty_packages : st
         | None -> Graph.links_remove g x
         ) g dirty_packages
 
-let package_ids_update (packages : SchemaEnv) package_ids (dirty_packages : string HashSet) =
-    let adds,removals = dirty_packages |> Seq.toArray |> Array.partition (fun x -> Map.containsKey x packages)
-    let adds = adds |> Array.filter (fun x -> Map.containsKey x (fst package_ids) = false) |> Array.mapi (fun i x -> (i,x))
-    let package_ids = removals |> Array.fold (fun (a,b as s) x -> match Map.tryFind x a with Some x' -> Map.remove x a, Map.remove x' b | None -> s) package_ids
-    Map.fold (fun s x _ ->
-        Array.mapFold (fun s x -> if s = fst x then (s+1, snd x),s+1 else x,s) x s |> fst
-        ) adds (snd package_ids)
-    |> Array.fold (fun (a,b) (k,v) -> Map.add v k a, Map.add k v b) package_ids
+let package_ids_update package_ids (dirty_packages : string HashSet) =
+    Seq.fold (fun (s,i) x -> 
+        match Map.tryFind x s with
+        | Some _ -> s,i
+        | None -> Map.add x i s,i+1
+        ) package_ids dirty_packages

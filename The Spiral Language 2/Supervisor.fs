@@ -45,17 +45,17 @@ type SupervisorState = {
     packages_infer : ResultMap<PackageId,WDiff.ProjStateTC>
     packages_prepass : ResultMap<PackageId,WDiffPrepass.ProjStatePrepass>
     graph : MirroredGraph
-    package_ids : Map<string,int> * Map<int,string>
+    package_ids : Map<string,int> * int
     }
 
 let proj_validate s dirty_packages =
     let order,socs = Graph.circular_nodes s.graph dirty_packages
     let packages = ss_validate s.packages s.modules (order,socs)
     let packages_infer = wdiff_projenvr_tc (fst s.package_ids) packages s.modules s.packages_infer (dirty_packages, order)
-    dirty_packages, {s with packages_infer = packages_infer; packages=packages}
+    order, {s with packages_infer = packages_infer; packages=packages}
 
 let proj_graph_update s dirty_packages =
-    let package_ids = package_ids_update s.packages s.package_ids dirty_packages
+    let package_ids = package_ids_update s.package_ids dirty_packages
     let graph = graph_update s.packages s.graph dirty_packages
     proj_validate {s with graph = graph; package_ids = package_ids} dirty_packages
 
@@ -65,33 +65,30 @@ let proj_open s (dir, text) =
 
 let proj_revalidate_owner s file =
     let rec loop (x : DirectoryInfo) =
-        if x = null then HashSet(), s
+        if x = null then [||], s
         elif Map.containsKey x.FullName s.packages then proj_validate s (HashSet [x.FullName])
         elif File.Exists(spiproj_suffix x.FullName) then proj_open s (x.FullName,None)
         else loop x.Parent
     loop (Directory.GetParent(file))
 
-let proj_delete s (files : string []) =
-    let dirty_modules = HashSet()
-    let dirty_packages = HashSet()
+let file_delete s (files : string []) =
+    let deleted_modules = HashSet()
+    let deleted_packages = HashSet()
     files |> Array.iter (fun k ->
-        s.packages |> Map.iter (fun k' _ ->
-            if (spiproj_suffix k').StartsWith(k) then 
-                dirty_packages.Add(k') |> ignore
-                let rec delete_parent (x : DirectoryInfo) =
-                    if x = null then ()
-                    elif Map.containsKey x.FullName s.packages then dirty_packages.Add(x.FullName) |> ignore
-                    else delete_parent x.Parent
-                delete_parent (Directory.GetParent(k'))
-            )
-        s.modules |> Map.iter (fun k' _ ->
-            if k'.StartsWith(k) then dirty_modules.Add(k') |> ignore
-            )
+        s.packages |> Map.iter (fun k' _ -> if (spiproj_suffix k').StartsWith(k) then deleted_packages.Add(k') |> ignore)
+        s.modules |> Map.iter (fun k' _ -> if k'.StartsWith(k) then deleted_modules.Add(k') |> ignore)
         )
-    let modules = Seq.foldBack Map.remove dirty_modules s.modules
-    let packages = Seq.foldBack Map.remove dirty_packages s.packages
-    dirty_modules,proj_graph_update {s with modules = modules; packages = packages} dirty_packages
-
+    let modules = Seq.foldBack Map.remove deleted_modules s.modules
+    let packages = Seq.foldBack Map.remove deleted_packages s.packages
+    let dirty_packages = HashSet(deleted_packages)
+    let revalidate_parent x = 
+        let rec loop (x : DirectoryInfo) =
+            if x = null then ()
+            elif Map.containsKey x.FullName s.packages then dirty_packages.Add(x.FullName) |> ignore
+            else loop x.Parent
+        loop(Directory.GetParent x)
+    Seq.iter revalidate_parent deleted_modules; Seq.iter revalidate_parent deleted_packages
+    Seq.toArray deleted_modules, proj_graph_update {s with modules = modules; packages = packages} dirty_packages
 
 type AttentionState = {
     modules : string Set * string list
@@ -101,7 +98,7 @@ type AttentionState = {
 
 let attention_server (errors : SupervisorErrorSources) req =
     let push path (s,o) = Set.add path s, path :: o
-    let add (s,o) l = List.foldBack (fun x (s,o as z) -> if Set.contains x s then z else Set.add x s, x :: o) l (s,o)
+    let add (s,o) l = Array.foldBack (fun x (s,o as z) -> if Set.contains x s then z else Set.add x s, x :: o) l (s,o)
     let update (s : AttentionState) (modules,packages,supervisor) = {modules = add s.modules modules; packages = add s.packages packages; supervisor = supervisor}
     let rec loop (s : AttentionState) =
         let clear uri =
@@ -181,7 +178,7 @@ let attention_server (errors : SupervisorErrorSources) req =
         | _,[] -> package s
 
     Job.foreverServer (req >>= fun (modules,packages,supervisor) -> 
-        loop {modules = Set.ofList modules,modules; packages = Set.ofList packages, packages; supervisor = supervisor}
+        loop {modules = Set.ofArray modules, Array.toList modules; packages = Set.ofArray packages, Array.toList packages; supervisor = supervisor}
         )
 
 let show_position (s : SupervisorState) (x : PartEval.Prepass.Range) =
@@ -213,9 +210,9 @@ let dir uri = FileInfo(Uri(uri).LocalPath).Directory.FullName
 let file uri = FileInfo(Uri(uri).LocalPath).FullName
 let supervisor_server atten (errors : SupervisorErrorSources) req =
     let fatal x = Hopac.start (Src.value errors.fatal x)
-    let handle_packages (dirty_packages,s) = Hopac.start (Src.value atten ([],Seq.toList dirty_packages,s)); s
-    let handle_file_packages file (dirty_packages : string HashSet,s) = Hopac.start (Src.value atten ([file],Seq.toList dirty_packages,s)); s
-    let handle_files_packages (dirty_files : string HashSet,(dirty_packages : string HashSet,s)) = Hopac.start (Src.value atten (Seq.toList dirty_files,Seq.toList dirty_packages,s)); s
+    let handle_packages (dirty_packages,s) = Hopac.start (Src.value atten ([||],dirty_packages,s)); s
+    let handle_file_packages file (dirty_packages,s) = Hopac.start (Src.value atten ([|file|],dirty_packages,s)); s
+    let handle_files_packages (dirty_files,(dirty_packages,s)) = Hopac.start (Src.value atten (dirty_files,dirty_packages,s)); s
     let loop (s : SupervisorState) = req >>- function
         | ProjectFileChange x | ProjectFileOpen x -> proj_open s (dir x.uri,Some x.spiprojText) |> handle_packages
         | FileOpen x -> 
@@ -233,7 +230,7 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                 match WDiff.wdiff_module_edit m x.spiEdit with
                 | Ok v -> proj_revalidate_owner {s with modules = Map.add file v s.modules} file |> handle_file_packages file
                 | Error er -> fatal er; s
-        | FileDelete x -> proj_delete s (Array.map file x.uris) |> handle_files_packages
+        | FileDelete x -> file_delete s (Array.map file x.uris) |> handle_files_packages
         | ProjectFileLinks(x,res) -> 
             let l =
                 match Map.tryFind (dir x.uri) s.packages with
@@ -290,8 +287,8 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
             let error, s =
                 match code_action_execute x.action with
                 | Error x -> Some x, s
-                | Ok null -> None, s
-                | Ok path -> None, proj_delete s [|path|] |> handle_files_packages
+                | Ok null -> None, proj_open s (dir x.uri,None) |> handle_packages
+                | Ok path -> None, file_delete s [|path|] |> handle_files_packages
             Hopac.start (IVar.fill res {|result=error|})
             s
         | FileTokenRange(x, res) -> 
@@ -383,7 +380,7 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                 | None, None -> fatal $"Owner of file {Path.GetFileNameWithoutExtension file} has an error. Location: {spiproj_suffix pdir}"; s
                 | _ -> failwith "Compiler error: The project status should be the same in both infer and prepass."
             let update_owner pdir =
-                let order,dirty_packages = Graph.topological_sort (fst s.graph) [pdir]
+                let order,dirty_packages = Graph.topological_sort' (fst s.graph) [pdir]
                 let packages_prepass = wdiff_projenvr_prepass (fst s.package_ids) s.packages s.packages_infer.ok s.packages_prepass (dirty_packages, order.ToArray())
                 file_find {s with packages_prepass = packages_prepass} pdir
             let rec find_owner (x : DirectoryInfo) =
@@ -392,14 +389,13 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                 else find_owner x.Parent
             find_owner (Directory.GetParent(file))
 
-
     Job.iterateServer {
         packages = Map.empty
         modules = Map.empty
         packages_infer = {ok=Map.empty; error=Map.empty}
         packages_prepass = {ok=Map.empty; error=Map.empty}
         graph = mirrored_graph_empty
-        package_ids = Map.empty, Map.empty
+        package_ids = Map.empty, 0
         } loop
 
 type ClientReq =

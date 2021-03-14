@@ -29,19 +29,23 @@ let links_replace (s : MirroredGraph) a bs = links_add (links_remove s a) a bs
 let links_get (abs : Graph) a = Map.tryFind a abs |> Option.defaultValue Set.empty
 let link_exists ((abs,bas) : MirroredGraph) x = Map.containsKey x abs || Map.containsKey x bas
 
-let topological_sort bas dirty_nodes =
-    let sort_order = Queue()
+let inline topological_sort_template add bas dirty_nodes =
     let sort_visited = HashSet()
-    let rec dfs_rev a = if sort_visited.Add(a) then Seq.iter dfs_rev (links_get bas a); sort_order.Enqueue(a)
+    let rec dfs_rev a = if sort_visited.Add(a) then Seq.iter dfs_rev (links_get bas a); add a
     Seq.iter dfs_rev dirty_nodes
-    sort_order, sort_visited
+    sort_visited
+
+// Returns the order end -> mid -> start.
+let topological_sort' bas start_nodes = let sort_order = Queue() in sort_order, topological_sort_template sort_order.Enqueue bas start_nodes
+// Returns the order start -> mid -> end.
+let topological_sort bas start_nodes = let sort_order = Stack() in sort_order, topological_sort_template sort_order.Push bas start_nodes
 
 let circular_nodes ((abs,bas) : MirroredGraph) dirty_nodes =
     let sort_order, sort_visited = topological_sort bas dirty_nodes
     let order = sort_order.ToArray()
     let visited = HashSet()
     let circular_nodes = Dictionary()
-    Array.foldBack (fun a i ->
+    Array.fold (fun i a ->
         let sc = ResizeArray() // This array stores the strongly connected components.
         let rec dfs a = if sort_visited.Contains(a) && visited.Add(a) then Seq.iter dfs (links_get abs a); sc.Add a
         dfs a
@@ -50,5 +54,5 @@ let circular_nodes ((abs,bas) : MirroredGraph) dirty_nodes =
             i+1
         else 
             i
-        ) order 0 |> ignore
+        ) 0 order |> ignore
     order, circular_nodes

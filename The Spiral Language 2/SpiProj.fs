@@ -50,9 +50,7 @@ and file_or_directory p =
     let i = column p
     let file_hierarchy p = if i < column p then file_hierarchy p else Reply([])
     (range (range file' >>= fun (r,name) p ->
-        let adjust_range ((a,b) : VSCRange) : VSCRange =
-            if a.character <= b.character then a,{|b with character=a.character|}
-            else a,{|line=b.line-1; character=System.Int32.MaxValue|}
+        let adjust_range ((a,b) : VSCRange) : VSCRange = if b.character < a.character then a,{|line=b.line-1; character=System.Int32.MaxValue|} else a,b
         let x = p.Peek2()
         match x.Char0, x.Char1 with
         | '/',_ -> p.Skip(); (spaces >>. file_hierarchy |>> fun files r' -> Directory(adjust_range r',(r,name),files)) p

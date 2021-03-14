@@ -135,7 +135,7 @@ inl eq_player = function // TODO: Replace this with `=` when it is capable of ha
 inl game_of_stones' n =
     inl max_n = 100
     if max_n < n then failwith "The max input has been exceeded."
-    inl solutions = a32.init (max_n+1) (const None)
+    inl solutions = a32.init (max_n+1) (fun _ => None)
     let rec solve player opposing_player n =
         inl take amount on_fail () = 
             if n >= amount && eq_player (solve opposing_player player (n-amount), player) then player
