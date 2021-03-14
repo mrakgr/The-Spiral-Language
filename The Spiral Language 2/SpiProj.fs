@@ -198,7 +198,7 @@ let schema (pdir,text) : SchemaResult = config text |> Result.bind (fun x ->
                     let prefix = Path.Combine(prefix,a)
                     Directory(r,(r',prefix),a,List.map (loop prefix) l)
                 | RawFileHierarchy.File(r,(r',a),is_top_down,is_include) ->
-                    let path = Path.Combine(prefix,a + if is_top_down then ".spi" else ".spiproj")
+                    let path = Path.Combine(prefix,a + if is_top_down then ".spi" else ".spir")
                     File(r,(r',path),if is_include then None else Some a)
             List.map (loop (snd module_dir)) x.modules
         let packages =

@@ -64,6 +64,7 @@ let funs_proj_file_prepass = {new ProjFileFuns<PrepassState,PrepassStatePropagat
         x,env
     member _.union(small,big) = small >>=* fun small -> big >>- fun big -> union small big
     member _.in_module(name,small) = small >>-* in_module name
+    member _.default' = Promise.Now.withValue top_env_default
     member _.empty = Promise.Now.withValue top_env_empty
     }
 

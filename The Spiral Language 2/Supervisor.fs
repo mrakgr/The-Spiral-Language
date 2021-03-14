@@ -1,5 +1,7 @@
 ﻿module Spiral.Supervisor
 
+let pr = WDiff.pr
+
 open VSCTypes
 open Graph
 open Spiral.ServerUtils
@@ -50,7 +52,7 @@ let proj_validate s dirty_packages =
     let order,socs = Graph.circular_nodes s.graph dirty_packages
     let packages = ss_validate s.packages s.modules (order,socs)
     let packages_infer = wdiff_projenvr_tc (fst s.package_ids) packages s.modules s.packages_infer (dirty_packages, order)
-    dirty_packages, {s with packages_infer = packages_infer}
+    dirty_packages, {s with packages_infer = packages_infer; packages=packages}
 
 let proj_graph_update s dirty_packages =
     let package_ids = package_ids_update s.packages s.package_ids dirty_packages
@@ -64,7 +66,7 @@ let proj_open s (dir, text) =
 let proj_revalidate_owner s file =
     let rec loop (x : DirectoryInfo) =
         if x = null then HashSet(), s
-        elif Map.containsKey x.FullName s.packages then proj_validate s (HashSet([x.FullName]))
+        elif Map.containsKey x.FullName s.packages then proj_validate s (HashSet [x.FullName])
         elif File.Exists(spiproj_suffix x.FullName) then proj_open s (x.FullName,None)
         else loop x.Parent
     loop (Directory.GetParent(file))
@@ -102,12 +104,13 @@ let attention_server (errors : SupervisorErrorSources) req =
     let add (s,o) l = List.foldBack (fun x (s,o as z) -> if Set.contains x s then z else Set.add x s, x :: o) l (s,o)
     let update (s : AttentionState) (modules,packages,supervisor) = {modules = add s.modules modules; packages = add s.packages packages; supervisor = supervisor}
     let rec loop (s : AttentionState) =
-        let clear l = l |> List.iter (fun x ->
-            let uri = Utils.file_uri x
+        let clear uri =
             Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=[]|})
             Hopac.start (Src.value errors.parser {|uri=uri; errors=[]|})
             Hopac.start (Src.value errors.typer {|uri=uri; errors=[]|})
-            )
+        let send_tokenizer uri x = Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=x|})
+        let clear_parse uri = Hopac.start (Src.value errors.parser {|uri=uri; errors=[]|})
+        let clear_typer uri = Hopac.start (Src.value errors.typer {|uri=uri; errors=[]|})
 
         let inline body uri interrupt ers ers' src next = interrupt <|> (Alt.unit() ^=> fun () ->
             if List.isEmpty ers then next ers'
@@ -119,25 +122,27 @@ let attention_server (errors : SupervisorErrorSources) req =
 
         let loop_module (s : AttentionState) mpath (m : WDiff.ModuleState) =
             let uri = Utils.file_uri mpath
-            let interrupt = req ^=> fun x -> clear [mpath]; loop (update {s with modules=push mpath s.modules} x)
+            let interrupt = req ^=> fun x -> loop (update {s with modules=push mpath s.modules} x)
             let rec bundler (r : BlockBundling.BlockBundleState) ers' = r ^=> function
                 | Cons((_,x),rs) -> body uri interrupt x.errors ers' errors.parser (bundler rs)
                 | Nil -> loop s
-            Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=m.tokenizer.errors|})
+            send_tokenizer uri m.tokenizer.errors
+            clear_parse uri
             bundler m.bundler []
 
-        let rec loop_package (s : AttentionState) pdir mpaths = function
+        let rec loop_package (s : AttentionState) pdir = function
             | (mpath,l) :: ls ->
                 let uri = Utils.file_uri mpath
-                let interrupt = req ^=> fun x -> clear (mpath :: mpaths); loop (update {s with packages=push pdir s.packages} x)
+                let interrupt = req ^=> fun x -> loop (update {s with packages=push pdir s.packages} x)
                 let rec typer (r : WDiff.TypecheckerStateValue Stream) ers' = r ^=> function
                     | Cons((_,x,_),rs) -> body uri interrupt x.errors ers' errors.typer (typer rs)
-                    | Nil -> loop_package s pdir (mpath :: mpaths) ls
+                    | Nil -> loop_package s pdir ls
                 let rec bundler (r : BlockBundling.BlockBundleState) ers' = r ^=> function
                     | Cons((_,x),rs) -> body uri interrupt x.errors ers' errors.parser (bundler rs)
-                    | Nil -> typer l []
+                    | Nil -> clear_typer uri; typer l []
                 let m = s.supervisor.modules.[mpath]
-                Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=m.tokenizer.errors|})
+                send_tokenizer uri m.tokenizer.errors
+                clear_parse uri
                 bundler m.bundler []
             | [] -> loop s
 
@@ -162,7 +167,7 @@ let attention_server (errors : SupervisorErrorSources) req =
                                 | WDiff.Directory(_,_,l) -> list l s
                             and list l s = List.foldBack loop l s
                             list v.files.files.tree []
-                        loop_package s x [] path_tcvals
+                        loop_package s x path_tcvals
                     | None -> loop s
                 | None -> loop s
             | _, [] -> req ^=> (update s >> loop)
@@ -172,7 +177,7 @@ let attention_server (errors : SupervisorErrorSources) req =
             let s = {s with modules=Set.remove x se,xs}
             match Map.tryFind x s.supervisor.modules with
             | Some v -> loop_module s x v
-            | None -> clear [x]; package s
+            | None -> clear (Utils.file_uri x); package s
         | _,[] -> package s
 
     Job.foreverServer (req >>= fun (modules,packages,supervisor) -> 
@@ -516,6 +521,6 @@ let [<EntryPoint>] main args =
         )
 
     use __ = queue_server.ReceiveReady.Subscribe(fun x -> x.Queue.Dequeue() |> server.SendMultipartMessage)
-
+    Hopac.start (Job.foreverServer (WDiff.print_ch >>= Src.value errors.fatal))
     poller.Run()
     0

@@ -123,7 +123,7 @@ let wdiff_projenvr_sync_schema funs_packages funs_files (ids : Map<string, Packa
 
 let projenv_update_packages funs_packages funs_files (ids : Map<string, PackageId>) (packages : SchemaEnv)
         (state : Map<PackageId,ProjState<'a,'b,'state>>)  (dirty_packages : Dictionary<_,_>, order : string []) =
-    Array.foldBack (fun x l ->
+    Array.fold (fun l x ->
         match Map.tryFind x packages with
         | None -> l
         | Some schema when ss_has_error schema -> l
@@ -133,7 +133,7 @@ let projenv_update_packages funs_packages funs_files (ids : Map<string, PackageI
             match dirty_packages.TryGetValue(x) with
             | true, x -> UpdatePackageModule(pid,packages,x) :: l
             | false, _ -> UpdatePackage(pid,packages) :: l
-        ) order []
+        ) [] order
     |> wdiff_projenv funs_packages funs_files state
 
 let inline proj_file_iter_file f (files : ProjFiles) =
@@ -283,9 +283,9 @@ let graph_update (packages : SchemaEnv) (g : MirroredGraph) (dirty_packages : st
 
 let package_ids_update (packages : SchemaEnv) package_ids (dirty_packages : string HashSet) =
     let adds,removals = dirty_packages |> Seq.toArray |> Array.partition (fun x -> Map.containsKey x packages)
+    let adds = adds |> Array.filter (fun x -> Map.containsKey x (fst package_ids) = false) |> Array.mapi (fun i x -> (i,x))
     let package_ids = removals |> Array.fold (fun (a,b as s) x -> match Map.tryFind x a with Some x' -> Map.remove x a, Map.remove x' b | None -> s) package_ids
-    let l = adds |> Array.mapi (fun i x -> (i,x))
     Map.fold (fun s x _ ->
         Array.mapFold (fun s x -> if s = fst x then (s+1, snd x),s+1 else x,s) x s |> fst
-        ) l (snd package_ids)
+        ) adds (snd package_ids)
     |> Array.fold (fun (a,b) (k,v) -> Map.add v k a, Map.add k v b) package_ids
