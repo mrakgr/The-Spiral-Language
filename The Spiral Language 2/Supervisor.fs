@@ -45,7 +45,7 @@ type SupervisorState = {
     packages_infer : ResultMap<PackageId,WDiff.ProjStateTC>
     packages_prepass : ResultMap<PackageId,WDiffPrepass.ProjStatePrepass>
     graph : MirroredGraph
-    package_ids : Map<string,int> * int
+    package_ids : Map<string,int> * Map<int,string>
     }
 
 let proj_validate s dirty_packages =
@@ -55,9 +55,10 @@ let proj_validate s dirty_packages =
     order, {s with packages_infer = packages_infer; packages=packages}
 
 let proj_graph_update s dirty_packages =
-    let package_ids = package_ids_update s.package_ids dirty_packages
+    let removed_pids,package_ids = package_ids_update s.packages s.package_ids dirty_packages
+    let packages_infer, packages_prepass = package_ids_remove s.packages_infer removed_pids, package_ids_remove s.packages_prepass removed_pids
     let graph = graph_update s.packages s.graph dirty_packages
-    proj_validate {s with graph = graph; package_ids = package_ids} dirty_packages
+    proj_validate {s with graph = graph; package_ids = package_ids; packages_infer = packages_infer; packages_prepass = packages_prepass} dirty_packages
 
 let proj_open s (dir, text) =
     let packages,dirty_packages,modules = loader_package s.packages s.modules (dir,text)
@@ -395,7 +396,7 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
         packages_infer = {ok=Map.empty; error=Map.empty}
         packages_prepass = {ok=Map.empty; error=Map.empty}
         graph = mirrored_graph_empty
-        package_ids = Map.empty, 0
+        package_ids = Map.empty, Map.empty
         } loop
 
 type ClientReq =

@@ -27,7 +27,7 @@ let rec prepass (package_id,module_id,path,env) = function
         Job.result Nil
 
 let rec diff (package_id,module_id,path,env) (result,input : TypecheckerStateValue Stream) = 
-    input >>=* fun input ->
+    input >>** fun input ->
     let tc () = prepass (package_id,module_id,path,env) input |> Hopac.memo
     if Promise.Now.isFulfilled result then
         match Promise.Now.get result,input with

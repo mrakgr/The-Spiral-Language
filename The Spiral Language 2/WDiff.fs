@@ -139,32 +139,36 @@ type FileFuns<'a,'b,'state> =
     abstract member diff : 'state * 'b * 'a -> 'b
     abstract member init : 'a -> FileState<'a,'b,'state>
 
-type TypecheckerStateValue = Bundle * InferResult * TopEnv
+type TypecheckerStateValue = Bundle option * InferResult * TopEnv
 type TypecheckerStatePropagated = (bool * TopEnv) Promise
 type TypecheckerState = FileState<PackageId * ModuleId * BlockBundleState, TypecheckerStateValue Stream, TypecheckerStatePropagated>
 
-let rec typecheck (package_id,module_id,env : TopEnv) = function
+let rec typecheck (package_id,module_id,env : TopEnv) x = x >>=* function
     | Cons((_,b : BlockBundleValue), ls) ->
-        let x = Infer.infer package_id module_id env b.bundle
-        let adds = match x.top_env_additions with AOpen x | AInclude x -> x
-        let env = Infer.union adds env
-        Cons((b.bundle,x,env),ls >>-* typecheck (package_id,module_id,env))
+        match b.bundle with
+        | Some bundle ->
+            let x = Infer.infer package_id module_id env bundle
+            let adds = match x.top_env_additions with AOpen x | AInclude x -> x
+            let env = Infer.union adds env
+            Job.result (Cons((b.bundle,x,env),typecheck (package_id,module_id,env) ls))
+        | None ->
+            typecheck (package_id,module_id,env) ls :> _ Job
     | Nil ->
-        Nil
+        Job.result Nil
 
 let rec diff (package_id,module_id,env) (result,input : BlockBundleState) = 
-    input >>-* fun input ->
     let tc () = typecheck (package_id,module_id,env) input
     if Promise.Now.isFulfilled result then
+        input >>** fun input ->
         match Promise.Now.get result,input with
-        | Cons((b',_,env as x),next), Cons((_,b),bs) when b' = b.bundle -> Cons(x,diff (package_id,module_id,env) (next,bs))
+        | Cons((b',_,env as x),next), Cons((_,b),bs) when b' = b.bundle -> Promise.Now.withValue (Cons(x,diff (package_id,module_id,env) (next,bs)))
         | _ -> tc()
     else tc()
 
 let funs_file_tc = {new FileFuns<PackageId * ModuleId * BlockBundleState, TypecheckerStateValue Stream, TypecheckerStatePropagated> with
     member _.eval(state,(pid,mid,x)) = 
         state >>=* fun (_,env) -> 
-        x >>- typecheck (pid,mid,env)
+        typecheck (pid,mid,env) x
     member _.diff(state,b,(pid,mid,a)) =
         state >>=* fun (_,env) -> diff (pid,mid,env) (b,a)
     member _.init x = {

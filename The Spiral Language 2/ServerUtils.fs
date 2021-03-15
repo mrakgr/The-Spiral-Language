@@ -291,9 +291,15 @@ let graph_update (packages : SchemaEnv) (g : MirroredGraph) (dirty_packages : st
         | None -> Graph.links_remove g x
         ) g dirty_packages
 
-let package_ids_update package_ids (dirty_packages : string HashSet) =
-    Seq.fold (fun (s,i) x -> 
-        match Map.tryFind x s with
-        | Some _ -> s,i
-        | None -> Map.add x i s,i+1
-        ) package_ids dirty_packages
+let package_ids_update (packages : SchemaEnv) package_ids (dirty_packages : string HashSet) =
+    let adds,removals = dirty_packages |> Seq.toArray |> Array.partition (fun x -> Map.containsKey x packages)
+    let adds = adds |> Array.filter (fun x -> Map.containsKey x (fst package_ids) = false) |> Array.mapi (fun i x -> (i,x))
+    let package_ids, removed_pids = removals |> Array.fold (fun ((a,b),l as s) x -> match Map.tryFind x a with Some x' -> (Map.remove x a, Map.remove x' b), x' :: l | None -> s) (package_ids,[])
+    removed_pids,
+    if Array.isEmpty adds then package_ids else
+    Map.fold (fun s x _ ->
+        Array.mapFold (fun s x -> if s = fst x then (s+1, snd x),s+1 else x,s) x s |> fst
+        ) adds (snd package_ids)
+    |> Array.fold (fun (a,b) (k,v) -> Map.add v k a, Map.add k v b) package_ids
+
+let package_ids_remove (s : ResultMap<PackageId,_>) l = List.fold (fun s x -> {ok=Map.remove x s.ok; error=Map.remove x s.error}) s l

@@ -137,26 +137,26 @@ and fold_offset_pattern offset x =
 
 let bundle_blocks (blocks : TopStatement Block list) =
     match blocks with
-    | [] -> failwith "Compiler error: Bundle should have at least one statement."
+    | [] -> None
     | {block=TopAnd _} :: x' -> failwith "Compiler error: TopAnd should be eliminated during the first bundling step."
     | {block=TopRecInl _} :: _ as l ->
         l |> List.mapFold (fun _ -> function
             | {offset=i; block=TopRecInl(com,r,a,b,c)} -> (com, add_offset i r, add_offset_hovar i a, fold_offset_term i b), c
             | _ -> failwith "Compiler error: Recursive inl statements can only be followed by statements of the same type."
             ) true
-        |> BundleRecInl
+        |> BundleRecInl |> Some
     | {block=TopNominalRec _} :: _ as l ->
         l |> List.map (function 
             | {offset=i; block=TopNominalRec(r,a,b,c)} -> (add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
             | _ -> failwith "Compiler error: Recursive type statements can only be followed by statements of the same type."
             )
-        |> BundleNominalRec
-    | [{offset=i; block=TopInl(com,r,a,b,c)}] -> BundleInl(com, add_offset i r, add_offset_hovar i a, fold_offset_term i b, c)
-    | [{offset=i; block=TopPrototype(r,a,b,c,d)}] -> BundlePrototype(add_offset i r, add_offset_hovar i a, add_offset_hovar i b, add_offset_typevar_list i c, fold_offset_ty i d)
-    | [{offset=i; block=TopNominal(r,a,b,c)}] -> BundleNominal(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
-    | [{offset=i; block=TopType(r,a,b,c)}] -> BundleType(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c)
-    | [{offset=i; block=TopInstance(r,a,b,c,d)}] -> BundleInstance(add_offset i r, add_offset_hovar i a, add_offset_hovar i b, add_offset_typevar_list i c, fold_offset_term i d)
-    | [{offset=i; block=TopOpen(r,a,b)}] -> BundleOpen(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b)
+        |> BundleNominalRec |> Some
+    | [{offset=i; block=TopInl(com,r,a,b,c)}] -> BundleInl(com, add_offset i r, add_offset_hovar i a, fold_offset_term i b, c) |> Some
+    | [{offset=i; block=TopPrototype(r,a,b,c,d)}] -> BundlePrototype(add_offset i r, add_offset_hovar i a, add_offset_hovar i b, add_offset_typevar_list i c, fold_offset_ty i d) |> Some
+    | [{offset=i; block=TopNominal(r,a,b,c)}] -> BundleNominal(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c) |> Some
+    | [{offset=i; block=TopType(r,a,b,c)}] -> BundleType(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c) |> Some
+    | [{offset=i; block=TopInstance(r,a,b,c,d)}] -> BundleInstance(add_offset i r, add_offset_hovar i a, add_offset_hovar i b, add_offset_typevar_list i c, fold_offset_term i d) |> Some
+    | [{offset=i; block=TopOpen(r,a,b)}] -> BundleOpen(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b) |> Some
     | {block=TopInl _ | TopPrototype _ | TopNominal _ | TopType _ | TopInstance _ | TopOpen _} :: _ -> failwith "Compiler error: Regular top level statements should be singleton bundles."
 
 let add_line_to_range line ((a,b) : VSCRange) = {|a with line=line+a.line|}, {|b with line=line+b.line|}
@@ -191,7 +191,7 @@ type ParserState = {
     is_top_down : bool
     blocks : (LineTokens * ParsedBlock Promise Block) list
     }
-type BlockBundleValue = {bundle : Bundle; errors : RString list}
+type BlockBundleValue = {bundle : Bundle option; errors : RString list}
 type BlockBundleState = (TopStatement Block list * BlockBundleValue) Stream
 type private BlockBundleStateInner = {errors : RString list; tmp : TopStatement Block list; state : BlockBundleState}
 
@@ -200,7 +200,6 @@ let wdiff_block_bundle_init : BlockBundleState = Promise.Now.never()
 /// Does diffing to ref preserve the bundles.
 let wdiff_block_bundle (state : BlockBundleState) (l : ParserState) : BlockBundleState =
     let (+.) a b = add_line_to_range a b
-    let (>>**) x f = if Promise.Now.isFulfilled x then f (Promise.Now.get x) else x >>=* f
 
     let empty = {state=wdiff_block_bundle_init; tmp=[]; errors=[]}
     let move_temp (s : BlockBundleStateInner) next =
@@ -216,9 +215,7 @@ let wdiff_block_bundle (state : BlockBundleState) (l : ParserState) : BlockBundl
     let inline iter (s : BlockBundleStateInner) l f = 
         match l with
         | (_,x) :: x' -> let offset = x.offset in x.block >>** fun {result=a} -> f (offset,a,x')
-        | [] -> 
-            if List.isEmpty s.tmp then Promise.Now.withValue Nil
-            else move_temp s (fun _ -> Promise.Now.withValue Nil)
+        | [] -> move_temp s (fun _ -> Promise.Now.withValue Nil)
     let rec init (s : BlockBundleStateInner) l = iter s l <| fun (offset,x,x') -> 
         match x with
         | Ok (TopAnd(r,_)) -> init {s with errors = (offset +. r, "Invalid `and` statement.") :: s.errors} x'
