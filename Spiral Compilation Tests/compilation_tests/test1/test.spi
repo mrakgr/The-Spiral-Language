@@ -1,2 +1,2 @@
 // Does it run?
-inl main ~() = () 
+inl main ~() = ()

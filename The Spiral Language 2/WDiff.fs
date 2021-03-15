@@ -17,11 +17,6 @@ open Hopac.Infixes
 open Hopac.Extensions
 open Hopac.Stream
 
-//For concurrent debugging.
-let print_ch = Ch<string>()
-let pr x = Hopac.run (Ch.send print_ch (x.ToString()))
-//Hopac.start (Job.foreverServer (WDiff.print_ch >>= Src.value errors.fatal))
-
 let process_errors line (ers : LineTokenErrors list) : RString list =
     ers |> List.mapi (fun i l -> 
         let i = line + i
@@ -115,10 +110,10 @@ let parse_block is_top_down (block : LineTokens) =
 let wdiff_parse_init is_top_down : ParserState = {is_top_down=is_top_down; blocks=[]}
 let wdiff_parse (state : ParserState) (unparsed_blocks : LineTokens Block list) =
     let dict = Dictionary(HashIdentity.Reference)
-    // Offset should be ignoring when memoizing the results of parsing.
-    List.iter dict.Add state.blocks
+    // Offset should be ignored when memoizing the results of parsing.
+    List.iter (fun (a,b) -> dict.Add(a,b.block)) state.blocks
     let blocks = unparsed_blocks |> List.map (fun x -> 
-        x.block, Utils.memoize dict (fun a -> {block=promise_thunk_with (parse_block state.is_top_down) a; offset=x.offset}) x.block
+        x.block, {block=Utils.memoize dict (fun a -> Hopac.memo(Job.thunk <| fun () -> (parse_block state.is_top_down) a)) x.block; offset=x.offset}
         )  
     {state with blocks = blocks }
 

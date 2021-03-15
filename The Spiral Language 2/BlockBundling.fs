@@ -1,5 +1,14 @@
 ﻿module Spiral.BlockBundling
 
+open Hopac
+open Hopac.Infixes
+open Hopac.Extensions
+open Hopac.Stream
+
+//For concurrent debugging.
+let print_ch = Ch<string>()
+let pr x = Hopac.run (Ch.send print_ch (x.ToString()))
+
 open VSCTypes
 open FSharpx.Collections
 open Spiral.BlockSplitting
@@ -176,15 +185,6 @@ let show_block_parsing_error line (l : ParserErrorsList) : RString list =
         let v = List.map (snd >> show_parser_error) v
         k, process_error v
         )
-
-open Hopac
-open Hopac.Infixes
-open Hopac.Extensions
-open Hopac.Stream
-
-let inline job_thunk_with f x = Job.thunk (fun () -> f x)
-let inline promise_thunk_with f x = Hopac.memo (job_thunk_with f x)
-let inline promise_thunk f = Hopac.memo (Job.thunk f)
 
 type ParsedBlock = {result : ParseResult; semantic_tokens : LineTokens}
 type ParserState = {

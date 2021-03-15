@@ -1,0 +1,40 @@
+union observation o a = Observation: o | Action: a
+type pl (p : * -> * -> *) o a = { path_prob : f64; observations : list (observation o a); state : p o a }
+inl prob ({path_prob} : pl _ _ _) = path_prob
+inl prob_mult (x : pl _ _ _) prob = {x with path_prob#=(*) prob}
+inl observation_add (x : pl _ _ _) o = {x with observations#=(::) (Observation: o)}
+inl action_add (x : pl _ _ _) a = {x with observations#=(::) (Action: a)}
+
+type pl2 (p1 : * -> * -> *) (p2 : * -> * -> *) o a = pl p1 o a * pl p2 o a
+
+inl obs (x : pl _ _ _) = x.observations
+
+open leduc
+type leduc_funs r = { action : r }
+inl nodes forall (p : * -> * -> *) o a . dispatch : leduc_funs (pl p o a -> ()) = {
+    action=fun p1 => 
+        inl q = p1.observations
+        ()
+    }
+
+// inl nodes forall (p1 : * -> * -> *) (p2 : * -> * -> *) o a ret. dispatch : leduc_funs (pl2 p1 p2 o a * (f64 -> ret) -> ret) = 
+//     inl action pid ar f ((p1,p2),ret : pl2 p1 p2 o a * (f64 -> ret)) =
+//         inl next a = ()
+//         dispatch (pid,(if pid = 0 then p1.observations else p2.observations),ar,next)
+//         ()
+//     {
+//     action=fun pid ar f ((p1,p2),ret) => 
+//         inl q = p1 ()
+//         failwith ""
+//     }
+    // {
+    // terminal = fun (pid,reward) (_,ret) => inl r = $"!reward" in ret (if pid = 0 then r else -r)
+    // action = fun pid ar f ((p1,p2),ret) => 
+    //     // inl next a = ()
+    //     // dispatch (pid,ar,next)
+    //     inl qwe = p1
+    //     inl q = qwe .zxc
+    //     failwith ""
+    // draw = fun pid ar f => failwith ""
+    // sample = fun pid ar f => failwith ""
+    // }

@@ -1,6 +1,6 @@
 ﻿module Spiral.Supervisor
 
-let pr = WDiff.pr
+let pr = BlockBundling.pr
 
 open VSCTypes
 open Graph
@@ -528,6 +528,6 @@ let [<EntryPoint>] main args =
         )
 
     use __ = queue_server.ReceiveReady.Subscribe(fun x -> x.Queue.Dequeue() |> server.SendMultipartMessage)
-    Hopac.start (Job.foreverServer (WDiff.print_ch >>= Src.value errors.fatal))
+    Hopac.start (Job.foreverServer (BlockBundling.print_ch >>= Src.value errors.fatal))
     poller.Run()
     0

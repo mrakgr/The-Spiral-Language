@@ -1,0 +1,6 @@
+inl Nodes = 
+    {
+    action=fun p1 => 
+        inl q = p1.observations
+        ()
+    } : { action : { observations : string} -> () }
