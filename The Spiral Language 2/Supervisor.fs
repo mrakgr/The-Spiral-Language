@@ -94,13 +94,14 @@ let file_delete s (files : string []) =
 type AttentionState = {
     modules : string Set * string list
     packages : string Set * string list
+    old_packages : SchemaEnv
     supervisor : SupervisorState
     }
 
 let attention_server (errors : SupervisorErrorSources) req =
     let push path (s,o) = Set.add path s, path :: o
     let add (s,o) l = Array.foldBack (fun x (s,o as z) -> if Set.contains x s then z else Set.add x s, x :: o) l (s,o)
-    let update (s : AttentionState) (modules,packages,supervisor) = {modules = add s.modules modules; packages = add s.packages packages; supervisor = supervisor}
+    let update (s : AttentionState) (modules,packages,supervisor) = {modules = add s.modules modules; packages = add s.packages packages; supervisor = supervisor; old_packages = s.supervisor.packages}
     let rec loop (s : AttentionState) =
         let clear uri =
             Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=[]|})
@@ -109,6 +110,13 @@ let attention_server (errors : SupervisorErrorSources) req =
         let send_tokenizer uri x = Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=x|})
         let clear_parse uri = Hopac.start (Src.value errors.parser {|uri=uri; errors=[]|})
         let clear_typer uri = Hopac.start (Src.value errors.typer {|uri=uri; errors=[]|})
+        let clear_old_package x = Map.tryFind x s.old_packages |> Option.iter (fun x ->
+            let rec loop = function
+                | SpiProj.FileHierarchy.File(_,(_,pdir),_) -> clear (Utils.file_uri pdir)
+                | SpiProj.FileHierarchy.Directory(_,_,_,l) -> list l
+            and list l = List.iter loop l
+            list x.schema.modules
+            )
 
         let inline body uri interrupt ers ers' src next = interrupt <|> (Alt.unit() ^=> fun () ->
             if List.isEmpty ers then next ers'
@@ -126,6 +134,7 @@ let attention_server (errors : SupervisorErrorSources) req =
                 | Nil -> loop s
             send_tokenizer uri m.tokenizer.errors
             clear_parse uri
+            clear_typer uri
             bundler m.bundler []
 
         let rec loop_package (s : AttentionState) pdir = function
@@ -153,6 +162,7 @@ let attention_server (errors : SupervisorErrorSources) req =
                     | Some v -> List.concat [v.errors_parse; v.errors_modules; v.errors_packages]
                     | None -> []
                 Hopac.start (Src.value errors.package ({|uri=Utils.file_uri(spiproj_suffix x); errors=package_errors|}))
+                clear_old_package x
                 match Map.tryFind x (fst s.supervisor.package_ids) with
                 | Some uid ->
                     match Map.tryFind uid s.supervisor.packages_infer.ok with
@@ -179,7 +189,7 @@ let attention_server (errors : SupervisorErrorSources) req =
         | _,[] -> package s
 
     Job.foreverServer (req >>= fun (modules,packages,supervisor) -> 
-        loop {modules = Set.ofArray modules, Array.toList modules; packages = Set.ofArray packages, Array.toList packages; supervisor = supervisor}
+        loop {modules = Set.ofArray modules, Array.toList modules; packages = Set.ofArray packages, Array.toList packages; supervisor = supervisor; old_packages = Map.empty}
         )
 
 let show_position (s : SupervisorState) (x : PartEval.Prepass.Range) =
