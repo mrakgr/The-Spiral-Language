@@ -22,7 +22,8 @@ inl prob ({path_prob} : pl _ _ _) = path_prob
 inl prob_mult (x : pl _ _ _) prob = {x with path_prob#=(*) prob}
 inl observation_add (x : pl _ _ _) o = {x with observations#=(::) (Observation: o)}
 inl action_add (x : pl _ _ _) a = {x with observations#=(::) (Action: a)}
-prototype run p o a : forall r. pl p o a -> f64 -> array a -> (a * pl p o a -> r) -> r
+type opp_path_prob = f64
+prototype run p o a : forall r. pl p o a -> opp_path_prob -> array a -> (a * pl p o a -> r) -> r
 
 prototype prob_mult' p : p -> u8 -> f64 -> p
 prototype observation_add' p o a : p o a -> option u8 -> o -> p o a
