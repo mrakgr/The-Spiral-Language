@@ -4,7 +4,7 @@ union cell = Princess | Empty
 let save_the_princess field mario_pos =
     inl cells_visited = 
         a64.init (a64.length field) (fun b => 
-            a64.init (a64.length (a64.index field b)) (const false)
+            a64.init (a64.length (a64.index field b)) (fun _ => false)
             )
     inl index ar (b,a) = a64.index (a64.index ar b) a
     inl set ar (b,a) v = a64.set (a64.index ar b) a v
@@ -21,7 +21,7 @@ let save_the_princess field mario_pos =
         inl queue = 
             a64.map (fun (mario_pos, prev_moves as state) =>
                 inl f move = 
-                    inl (pos_row, pos_col),_ as new_state = move state
+                    inl ((pos_row, pos_col),_ as new_state) = move state
                     inl is_valid =
                         if is_in_range new_state && index cells_visited (pos_row, pos_col) = false then 
                             if is_princess_in_state new_state then solution <- (Some: new_state)

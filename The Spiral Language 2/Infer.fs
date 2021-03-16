@@ -1009,63 +1009,98 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | Error e -> errors.Add(e)
         | RawRecordWith(r,l,withs,withouts) ->
             let i = errors.Count
-            let er_metavar () = raise (TypeErrorException (if errors.Count = i then [range_of_expr x, MetavarsNotAllowedInRecordWith] else []))
-            let record x =
-                match f' x with
-                | TyRecord m -> m
-                | TyMetavar _ -> er_metavar()
-                | a -> raise (TypeErrorException [range_of_expr x, ExpectedRecord a])
-            let symbol x =
-                match f' x with
-                | TySymbol x -> x
-                | TyMetavar _ -> er_metavar()
-                | a -> raise (TypeErrorException [range_of_expr x, ExpectedSymbolInRecordWith a])
-            let tc (l,m) =
-                let m =
-                    List.fold (fun m x -> 
-                        let with_symbol ((_,a),b) = 
-                            let v = fresh_var scope
-                            f v b
-                            Map.add a v m
-                        let with_symbol_modify ((r,a),b) =
-                            let x = Map.tryFind a m |> Option.defaultWith (fun () -> errors.Add(r,RecordIndexFailed a); fresh_var scope)
-                            let v = fresh_var scope
-                            f (TyFun(x,v)) b
-                            Map.add a v m
-                        let inline with_inject next ((r,a),b) =
-                            match v_term env a with
-                            | Some (com, TySymbol a & x) -> hover_types.Add(r,(x,com)); next ((r,a),b)
-                            | Some (_, x) -> errors.Add(r, ExpectedSymbolAsRecordKey x); m
-                            | None -> errors.Add(r, UnboundVariable); m
-                        match x with
-                        | RawRecordWithSymbol(a,b) -> with_symbol (a,b)
-                        | RawRecordWithSymbolModify(a,b) -> with_symbol_modify (a,b)
-                        | RawRecordWithInjectVar(a,b) -> with_inject with_symbol (a,b)
-                        | RawRecordWithInjectVarModify(a,b) -> with_inject with_symbol_modify (a,b)
-                        ) m withs
-                let m =
-                    List.fold (fun m -> function
-                        | RawRecordWithoutSymbol(_,a) -> Map.remove a m
-                        | RawRecordWithoutInjectVar(r,a) ->
-                            match v_term env a with
-                            | Some (com, TySymbol a & x) -> hover_types.Add(r,(x,com)); Map.remove a m
-                            | Some (_,x) -> errors.Add(r, ExpectedSymbolAsRecordKey x); m
-                            | None -> errors.Add(r, UnboundVariable); m
-                        ) m withouts
-                    |> TyRecord |> List.foldBack (fun (m,a) m' -> Map.add a m' m |> TyRecord) l
-                if i = errors.Count then unify r s m
-            try match l with
-                | x :: x' ->
-                    List.mapFold (fun m x ->
-                        let sym = symbol x
-                        match Map.tryFind sym m |> Option.map visit_t with
-                        | Some (TyRecord m') -> (m,sym), m'
-                        | Some a -> raise (TypeErrorException [range_of_expr x, ExpectedRecordAsResultOfIndex a])
-                        | None -> raise (TypeErrorException [range_of_expr x, RecordIndexFailed sym])
-                        ) (record x) x'
-                | [] -> [], Map.empty
-            with :? TypeErrorException as e -> errors.AddRange e.Data0; [], Map.empty
-            |> tc
+            let withouts,fields =
+                List.foldBack (fun x (l,s as state) ->
+                    match x with
+                    | RawRecordWithoutSymbol(r,a) -> {|range=r; symbol = a|} :: l, Set.add a s
+                    | RawRecordWithoutInjectVar(r,a) ->
+                        match v_term env a with
+                        | Some (com, TySymbol a & x) -> hover_types.Add(r,(x,com)); {|range=r; symbol = a|} :: l, Set.add a s
+                        | Some (_,x) -> errors.Add(r, ExpectedSymbolAsRecordKey x); state
+                        | None -> errors.Add(r, UnboundVariable); state
+                    ) withouts ([],Set.empty)
+            let withs,_ =
+                List.foldBack (fun x (l,s as state) ->
+                    let with_symbol ((r,a),b) = {|range=r; symbol = a; is_blocked=Set.contains a s; is_modify=false; var=fresh_var scope; body=b|} :: l, Set.add a s
+                    let with_symbol_modify ((r,a),b) = {|range=r; symbol = a; is_blocked=Set.contains a s; is_modify=true; var=TyFun(fresh_var scope,fresh_var scope); body=b|} :: l, Set.add a s
+                    let inline with_inject next ((r,a),b) =
+                        match v_term env a with
+                        | Some (com, TySymbol a & x) -> hover_types.Add(r,(x,com)); next ((r,a),b)
+                        | Some (_, x) -> errors.Add(r, ExpectedSymbolAsRecordKey x); f' b |> ignore; state
+                        | None -> errors.Add(r, UnboundVariable); f' b |> ignore; state
+                    match x with
+                    | RawRecordWithSymbol(a,b) -> with_symbol (a,b)
+                    | RawRecordWithSymbolModify(a,b) -> with_symbol_modify (a,b)
+                    | RawRecordWithInjectVar(a,b) -> with_inject with_symbol (a,b)
+                    | RawRecordWithInjectVarModify(a,b) -> with_inject with_symbol_modify (a,b)
+                    ) withs ([],fields)
+
+            let eval m =
+                let m = (m,withs) ||> List.fold (fun m x ->
+                    if x.is_modify then
+                        let q = match Map.tryFind x.symbol m with Some q -> q | None -> errors.Add(x.range,RecordIndexFailed x.symbol); fresh_var scope
+                        let w = fresh_var scope
+                        unify x.range (TyFun(q,w)) x.var
+                        f x.var x.body
+                        Map.add x.symbol w m
+                    else
+                        f x.var x.body
+                        Map.add x.symbol x.var m
+                    )
+                withouts |> List.fold (fun m x -> Map.remove x.symbol m) m
+
+            let bind s = withs |> List.iter (fun x ->
+                if x.is_blocked = false then
+                    if x.is_modify then Map.tryFind x.symbol s |> Option.iter (fun s -> unify x.range x.var (TyFun(fresh_var scope,s)))
+                    else Map.tryFind x.symbol s |> Option.iter (unify x.range x.var)
+                )
+
+            let rec tail' m = function
+                | x :: xs ->
+                    match f' x with
+                    | TySymbol k ->
+                        match Map.tryFind k m with
+                        | Some m -> 
+                            match visit_t m with
+                            | TyRecord m -> tail' m xs
+                            | m -> errors.Add(range_of_expr x, ExpectedRecordAsResultOfIndex m); eval Map.empty
+                        | _ -> errors.Add(range_of_expr x, RecordIndexFailed k); eval Map.empty
+                        |> fun v -> Map.add k (TyRecord v) m
+                    | TyMetavar _ -> errors.Add(range_of_expr x, MetavarsNotAllowedInRecordWith); eval Map.empty
+                    | a -> errors.Add(range_of_expr x, ExpectedSymbolInRecordWith a); eval Map.empty
+                | [] -> eval m
+
+            let rec tail (m,s) = function
+                | x :: xs ->
+                    match f' x with
+                    | TySymbol k ->
+                        match Map.tryFind k m, Map.tryFind k s with
+                        | Some m, Some s -> 
+                            match visit_t m, visit_t s with
+                            | TyRecord m, TyRecord s -> tail (m,s) xs
+                            | TyRecord m, _ -> tail' m xs
+                            | m, _ -> errors.Add(range_of_expr x, ExpectedRecordAsResultOfIndex m); eval Map.empty
+                        | Some m, None -> 
+                            match visit_t m with
+                            | TyRecord m -> tail' m xs
+                            | m -> errors.Add(range_of_expr x, ExpectedRecordAsResultOfIndex m); eval Map.empty
+                        | _ -> errors.Add(range_of_expr x, RecordIndexFailed k); eval Map.empty
+                        |> fun v -> Map.add k (TyRecord v) m
+                    | TyMetavar _ -> errors.Add(range_of_expr x, MetavarsNotAllowedInRecordWith); eval Map.empty
+                    | a -> errors.Add(range_of_expr x, ExpectedSymbolInRecordWith a); eval Map.empty
+                | [] -> bind s; eval m
+
+            match l with
+            | [] -> 
+                match visit_t s with TyRecord s -> bind s | _ -> ()
+                eval Map.empty
+            | m :: l ->
+                match f' m, visit_t s with
+                | TyRecord m, TyRecord s -> tail (m,s) l
+                | TyRecord m, _ -> tail' m l
+                | TyMetavar _, _ -> errors.Add(range_of_expr x, MetavarsNotAllowedInRecordWith); eval Map.empty
+                | a,_ -> errors.Add(range_of_expr x, ExpectedRecord a); eval Map.empty
+            |> fun v -> if errors.Count = i then unify r (TyRecord v) s
         | RawFun(r,l) ->
             annotations.Add(x,(r,s))
             let q,w = fresh_var scope, fresh_var scope

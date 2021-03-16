@@ -4173,6 +4173,4 @@ To produce import and cimport statements inside Spiral code, the `Import` and `C
 
 ## Known Bugs
 
-* Errors can linger in the problem tab when deleting, moving and renaming files either directly or in the package file. I'll have to make time to iron them out at some point. As errors, they are innocuous though and won't lead to wrong code being compiled.
-
 * There is a name collision between Spiral and a [DSL](https://www.spiral.net/) by the same name. This is purely coincidental and there is no association between the two.
