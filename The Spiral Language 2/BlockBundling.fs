@@ -5,10 +5,6 @@ open Hopac.Infixes
 open Hopac.Extensions
 open Hopac.Stream
 
-//For concurrent debugging.
-let print_ch = Ch<string>()
-let pr x = Hopac.run (Ch.send print_ch (x.ToString()))
-
 open VSCTypes
 open FSharpx.Collections
 open Spiral.BlockSplitting

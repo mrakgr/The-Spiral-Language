@@ -1,7 +1,5 @@
 ﻿module Spiral.Supervisor
 
-let pr = BlockBundling.pr
-
 open VSCTypes
 open Graph
 open Spiral.ServerUtils
@@ -528,6 +526,5 @@ let [<EntryPoint>] main args =
         )
 
     use __ = queue_server.ReceiveReady.Subscribe(fun x -> x.Queue.Dequeue() |> server.SendMultipartMessage)
-    Hopac.start (Job.foreverServer (BlockBundling.print_ch >>= Src.value errors.fatal))
     poller.Run()
     0
