@@ -57,7 +57,7 @@ inl (>>) a b x = b (a x)
 inl (<|) a b = a b
 // Compose backward.
 inl (<<) a b x = a (b x)
-// Dyn.
+// Pushes a variable to runtime. If it is a function, converts it to a closure.
 inl dyn ~x = x
 
 // Bitwise and.

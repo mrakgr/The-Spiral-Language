@@ -1,0 +1,8 @@
+nominal game2p o a r = {
+    terminal : u8 * u32 -> r
+    draw : option u8 -> array o -> (o * array o -> r) -> r
+    action : u8 -> array a -> (a -> r) -> r
+    sample : option u8 -> array o -> (o -> r) -> r
+    }
+
+inl f64 forall t {number}. (x : t) : f64 = $"<`f64>!x"

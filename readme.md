@@ -4,6 +4,7 @@
 - [News](#news)
 - [1/28/2021](#1282021)
 - [2/5/2021](#252021)
+- [3/17/2021](#3172021)
 - [2/11/2021](#2112021)
 - [2/27/2021](#2272021)
 - [The Spiral Language](#the-spiral-language)
@@ -68,6 +69,14 @@ Going through the [PyTorch docs](https://pytorch.org/docs/stable/notes/faq.html#
 The Cython backend is just a bit short of having full TCO support at the moment. If the backend proves itself useful for long enough, maybe I myself will deal with the [wishlist items](https://github.com/cython/cython/issues/3992) at some point. It is not certain that this will happen. Right now, reference counting as a strategy is just too useful when doing a ML library as it provides a way of managing GPU memory, but .NET eclipses Cython in everything else as a target platform. Once the hardware shifts from shared memory to local memory and message passing, that will no longer apply. That point is not here yet though, and won't be for a few years.
 
 But regardless of which way the winds blow, Spiral will support both backends regardless of my attention and personal interest.
+
+# 3/17/2021
+
+In the last two weeks, I did a major redesign of the editor support segments. Around a thousand lines have been rewritten, and design has been significantly improved. Due to not enough time being spent in testing, at this stage I can't vouch that there aren't any bugs remaining, but if they are, I'll have no trouble fixing them. That is how I know the current design is good. The previous one was too complex, so much that I've opted to just defer whatever bugs I stumbled upon for later. No more of that.
+
+Hopefully, now moving, creating and deleting files in the editor should be completely stable. 
+
+I've changed how records are inferred as well. From here on out as a matter of principle, every time the compiler throws up an exception in the console that should be considered a compiler error in need of fixing. Please report any that you stumble upon.
 
 # 2/11/2021
 

@@ -1,7 +1,9 @@
 packages: |core-
 modules:
-    leduc
-    nodes
-
-    
-    
+    utils-
+    sampling
+    nodes/
+        utils-
+        cps
+        main-
+    leduc    

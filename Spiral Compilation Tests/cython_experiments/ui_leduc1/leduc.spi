@@ -21,14 +21,7 @@ inl compare_hands (community_card : card) (p1,p2 : players) =
 
 inl raiseBy amount (p1,p2 : players) = p2.pot + amount
 
-type leduc_funs r = {
-    terminal : u8 * u32 -> r
-    draw : option u8 -> array card -> (card * array card -> r) -> r
-    action : u8 -> array action -> (action -> r) -> r
-    sample : option u8 -> array card -> (card -> r) -> r
-    }
-
-inl game ({terminal draw action sample} : leduc_funs _) =
+inl game (game2p {terminal draw action sample}) =
     inl actionsInit = ;[Call;Raise]
     inl actionsFull = ;[Fold;Call;Raise]
     inl actionsNoRaise = ;[Fold;Call]
