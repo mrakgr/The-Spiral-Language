@@ -526,5 +526,6 @@ let [<EntryPoint>] main args =
         )
 
     use __ = queue_server.ReceiveReady.Subscribe(fun x -> x.Queue.Dequeue() |> server.SendMultipartMessage)
+    //Hopac.start (Job.foreverServer (Utils.print_ch >>= Src.value errors.fatal))
     poller.Run()
     0

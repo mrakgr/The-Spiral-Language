@@ -6,3 +6,7 @@ nominal game2p o a r = {
     }
 
 inl f64 forall t {number}. (x : t) : f64 = $"<`f64>!x"
+
+nominal log_prob = f64
+// Takes in a regular probability in the range (0,1] and converts it to a log one.
+inl to_log_prob prob = log_prob (log prob)

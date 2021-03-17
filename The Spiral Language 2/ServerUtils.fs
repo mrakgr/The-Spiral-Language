@@ -1,4 +1,5 @@
 ﻿module Spiral.ServerUtils
+
 open System
 open System.IO
 open System.Collections.Generic
@@ -6,11 +7,6 @@ open System.Collections.Generic
 open VSCTypes
 open Graph
 open Spiral.SpiProj
-
-open Hopac
-open Hopac.Infixes
-open Hopac.Extensions
-open Hopac.Stream
 
 type ProjectCodeAction = 
     | CreateFile of {|filePath : string|}

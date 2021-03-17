@@ -1,20 +1,24 @@
 union observation o a = Observation: o | Action: a
-nominal player (p : * -> * -> *) o a = { path_prob : f64; observations : list (observation o a); state : p o a }
-nominal run (p : * -> * -> *) o a r = player p o a -> f64 -> array a -> (a * player p o a -> r) -> r
+nominal player (p : * -> * -> *) o a = { path_prob : log_prob; observations : list (observation o a); state : p o a }
+nominal run (p : * -> * -> *) o a r = player p o a -> log_prob -> array a -> (a * log_prob * p o a -> r) -> r
 type pl2 (p1 : * -> * -> *) (p2 : * -> * -> *) o a = player p1 o a * player p2 o a
 
 inl prob (player {path_prob}) = path_prob
-inl prob_mult (player x) prob = player {x with path_prob#=(*) prob}
-inl observation_add (player x) o = player {x with observations#=(::) (Observation: o)}
-inl action_add (player x) a = player {x with observations#=(::) (Action: a)}
+inl state (player {state}) = state
+inl observations (player {observations}) = observations
+inl add_log_prob (log_prob a) (log_prob b) = log_prob (a+b)
+inl apply_action (player x) a = player {x with observations#=(::) (Action: a)}
+inl apply_prob_observation (player x) (prob,o) = player {x with observations#=(::) (Observation: o); path_prob#=add_log_prob prob}
+inl apply_changes (player x) (a,prob,state) = player {x with state observations#=(::) (Action: a); path_prob#=add_log_prob prob}
 
 inl sample_players_update pid (prob,x) (p1,p2) =
     match pid with
     | Some: pid => 
-        let update pid' p = if pid = pid' then prob_mult (observation_add p x) prob else p
+        let update pid' p = if pid = pid' then apply_prob_observation p (prob,x) else p
         update 0 p1, update 1 p2
     | None =>
-        observation_add p1 x,observation_add p2 x
+        inl update p = apply_prob_observation p (prob,x) 
+        update p1, update p2
 
 // Indexes randomly into an uniform categorical distrbution, weighting the choice by its probability.
 inl choice one pid dist = one (sampling.randomInLength dist) pid dist
