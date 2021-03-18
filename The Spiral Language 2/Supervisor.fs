@@ -16,12 +16,12 @@ open Hopac.Stream
 type LocalizedErrors = {|uri : string; errors : RString list|}
 type TracedError = {|trace : string list; message : string|}
 type SupervisorErrorSources = {
-    fatal : string Src
-    tokenizer : LocalizedErrors Src
-    parser : LocalizedErrors Src
-    typer : LocalizedErrors Src
-    package : LocalizedErrors Src
-    traced : TracedError Src
+    fatal : string Ch
+    tokenizer : LocalizedErrors Ch
+    parser : LocalizedErrors Ch
+    typer : LocalizedErrors Ch
+    package : LocalizedErrors Ch
+    traced : TracedError Ch
     }
 
 type SupervisorReq =
@@ -96,18 +96,18 @@ type AttentionState = {
     supervisor : SupervisorState
     }
 
-let attention_server (errors : SupervisorErrorSources) req =
+let attention_server (errors : SupervisorErrorSources) (req : _ Ch) =
     let push path (s,o) = Set.add path s, path :: o
     let add (s,o) l = Array.foldBack (fun x (s,o as z) -> if Set.contains x s then z else Set.add x s, x :: o) l (s,o)
     let update (s : AttentionState) (modules,packages,supervisor) = {modules = add s.modules modules; packages = add s.packages packages; supervisor = supervisor; old_packages = s.supervisor.packages}
     let rec loop (s : AttentionState) =
         let clear uri =
-            Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=[]|})
-            Hopac.start (Src.value errors.parser {|uri=uri; errors=[]|})
-            Hopac.start (Src.value errors.typer {|uri=uri; errors=[]|})
-        let send_tokenizer uri x = Hopac.start (Src.value errors.tokenizer {|uri=uri; errors=x|})
-        let clear_parse uri = Hopac.start (Src.value errors.parser {|uri=uri; errors=[]|})
-        let clear_typer uri = Hopac.start (Src.value errors.typer {|uri=uri; errors=[]|})
+            Hopac.start (Ch.send errors.tokenizer {|uri=uri; errors=[]|})
+            Hopac.start (Ch.send errors.parser {|uri=uri; errors=[]|})
+            Hopac.start (Ch.send errors.typer {|uri=uri; errors=[]|})
+        let send_tokenizer uri x = Hopac.start (Ch.send errors.tokenizer {|uri=uri; errors=x|})
+        let clear_parse uri = Hopac.start (Ch.send errors.parser {|uri=uri; errors=[]|})
+        let clear_typer uri = Hopac.start (Ch.send errors.typer {|uri=uri; errors=[]|})
         let clear_old_package x = Map.tryFind x s.old_packages |> Option.iter (fun x ->
             let rec loop = function
                 | SpiProj.FileHierarchy.File(_,(_,pdir),_) -> clear (Utils.file_uri pdir)
@@ -120,7 +120,7 @@ let attention_server (errors : SupervisorErrorSources) req =
             if List.isEmpty ers then next ers'
             else
                 let ers = List.append ers ers'
-                Hopac.start (Src.value src {|uri=uri; errors=ers|})
+                Hopac.start (Ch.send src {|uri=uri; errors=ers|})
                 next ers
             )
 
@@ -159,7 +159,7 @@ let attention_server (errors : SupervisorErrorSources) req =
                     match Map.tryFind x s.supervisor.packages with 
                     | Some v -> List.concat [v.errors_parse; v.errors_modules; v.errors_packages]
                     | None -> []
-                Hopac.start (Src.value errors.package ({|uri=Utils.file_uri(spiproj_suffix x); errors=package_errors|}))
+                Hopac.start (Ch.send errors.package ({|uri=Utils.file_uri(spiproj_suffix x); errors=package_errors|}))
                 clear_old_package x
                 match Map.tryFind x (fst s.supervisor.package_ids) with
                 | Some uid ->
@@ -186,7 +186,7 @@ let attention_server (errors : SupervisorErrorSources) req =
             | None -> clear (Utils.file_uri x); package s
         | _,[] -> package s
 
-    Job.foreverServer (req >>= fun (modules,packages,supervisor) -> 
+    (req >>= fun (modules,packages,supervisor) -> 
         loop {modules = Set.ofArray modules, Array.toList modules; packages = Set.ofArray packages, Array.toList packages; supervisor = supervisor; old_packages = Map.empty}
         )
 
@@ -218,10 +218,10 @@ type BuildResult =
 let dir uri = FileInfo(Uri(uri).LocalPath).Directory.FullName
 let file uri = FileInfo(Uri(uri).LocalPath).FullName
 let supervisor_server atten (errors : SupervisorErrorSources) req =
-    let fatal x = Hopac.start (Src.value errors.fatal x)
-    let handle_packages (dirty_packages,s) = Hopac.start (Src.value atten ([||],dirty_packages,s)); s
-    let handle_file_packages file (dirty_packages,s) = Hopac.start (Src.value atten ([|file|],dirty_packages,s)); s
-    let handle_files_packages (dirty_files,(dirty_packages,s)) = Hopac.start (Src.value atten (dirty_files,dirty_packages,s)); s
+    let fatal x = Hopac.start (Ch.send errors.fatal x)
+    let handle_packages (dirty_packages,s) = Hopac.start (Ch.send atten ([||],dirty_packages,s)); s
+    let handle_file_packages file (dirty_packages,s) = Hopac.start (Ch.send atten ([|file|],dirty_packages,s)); s
+    let handle_files_packages (dirty_files,(dirty_packages,s)) = Hopac.start (Ch.send atten (dirty_files,dirty_packages,s)); s
     let loop (s : SupervisorState) = req >>- function
         | ProjectFileChange x | ProjectFileOpen x -> proj_open s (dir x.uri,Some x.spiprojText) |> handle_packages
         | FileOpen x -> 
@@ -348,8 +348,8 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
             let file = file x.uri
             let handle_build_result = function
                 | BuildOk(x,ext) -> Job.fromUnitTask (fun () -> IO.File.WriteAllTextAsync(IO.Path.ChangeExtension(file,ext), x))
-                | BuildFatalError x -> Src.value errors.fatal x
-                | BuildErrorTrace(a,b) -> Src.value errors.traced {|trace=a; message=b|}
+                | BuildFatalError x -> Ch.send errors.fatal x
+                | BuildErrorTrace(a,b) -> Ch.send errors.traced {|trace=a; message=b|}
             let file_build (s : SupervisorState) mid (tc : WDiff.ProjStateTC, prepass : WDiffPrepass.ProjStatePrepass) =
                 let _,b = tc.files.uids_file.[mid]
                 let x,_ = prepass.files.uids_file.[mid]
@@ -456,21 +456,21 @@ let [<EntryPoint>] main args =
     use queue_client = new NetMQQueue<ClientErrorsRes>()
     poller.Add(queue_client)
 
-    let consumed_source msg =
-        let x = Src.create()
-        Src.tap x |> Stream.consumeFun (msg >> queue_client.Enqueue)
+    let error_ch_create msg =
+        let x = Ch()
+        Hopac.server (Job.forever (Ch.take x >>- (msg >> queue_client.Enqueue)))
         x
     let errors : SupervisorErrorSources = {
-        fatal = consumed_source FatalError
-        package = consumed_source PackageErrors
-        tokenizer = consumed_source TokenizerErrors
-        parser = consumed_source ParserErrors
-        typer = consumed_source TypeErrors
-        traced = consumed_source TracedError
+        fatal = error_ch_create FatalError
+        package = error_ch_create PackageErrors
+        tokenizer = error_ch_create TokenizerErrors
+        parser = error_ch_create ParserErrors
+        typer = error_ch_create TypeErrors
+        traced = error_ch_create TracedError
         }
     let supervisor = Ch()
-    let atten = Src.create()
-    Hopac.start (attention_server errors (Src.tap atten |> Stream.values))
+    let atten = Ch()
+    Hopac.server (attention_server errors atten)
     Hopac.start (supervisor_server atten errors supervisor)
 
     let mutable time = DateTimeOffset.Now
@@ -526,6 +526,6 @@ let [<EntryPoint>] main args =
         )
 
     use __ = queue_server.ReceiveReady.Subscribe(fun x -> x.Queue.Dequeue() |> server.SendMultipartMessage)
-    //Hopac.start (Job.foreverServer (Utils.print_ch >>= Src.value errors.fatal))
+    //Hopac.start (Job.foreverServer (Utils.print_ch >>- printfn "%s"))
     poller.Run()
     0

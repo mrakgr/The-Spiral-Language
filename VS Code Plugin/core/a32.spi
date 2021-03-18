@@ -9,8 +9,10 @@ inl index forall t. (ar : array t) (i : u32) : t = !!!!ArrayU32Index(ar,i)
 inl set forall t. (ar : array t) (i : u32) (v : t) : () = !!!!ArrayU32IndexSet(ar,i,v)
 // Returns the length of an array.
 inl length forall t. (ar : array t) : u32 = !!!!ArrayU32Length(ar)
+// Creates an empty array.
+inl empty forall t. : array t = ;[]
 // Creates an array with a single element.
-inl singleton x = inl a = create 1 in set a 0 x . a
+inl singleton x = ;[x]
 // Initializes array using the given function.
 inl init nearTo f = 
     inl ar = create nearTo

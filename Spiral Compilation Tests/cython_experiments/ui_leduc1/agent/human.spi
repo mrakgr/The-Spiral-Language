@@ -1,0 +1,27 @@
+open nodes
+open leduc
+
+let show_card = function
+    | King => "King"
+    | Queen => "Queen"
+    | Jack => "Jack"
+
+inl r64_join (l : r64.rarray string) (sep : string) : string = $"!sep.join(!l)"
+
+let rec show_trace l =
+    inl ar : r64.rarray string = r64.empty
+    a64.fold (fun is_first => function
+        | Observation: x => 
+            inl o = show_card x
+            r64.add ar $"f'Observed {!o}.'"
+            true
+        | Action: x =>
+            inl p = if is_first then "Player One" else "Player Two"
+            inl a = match x with Fold => "folds" | Call => "calls" | Raise => "raises"
+            r64.add ar $"f'{!p} {!a}.'"
+            not is_first
+        ) true l |> ignore
+    r64_join ar "\n"
+
+inl create dispatch = run fun (p : _ stateless card action) opp_prob dist next => 
+    failwith ""

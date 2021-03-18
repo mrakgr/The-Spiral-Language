@@ -1,0 +1,16 @@
+type obj = $"object"
+nominal widget = obj
+nominal app = obj
+
+prototype toWidget m : m -> widget
+instance toWidget widget = id
+prototype addWidget m : widget -> u64 -> m -> ()
+prototype removeWidget m : widget -> m -> ()
+prototype clearWidgets m : m -> ()
+prototype text m : string -> m -> ()
+
+union orientation = Vertical | Horizontal
+prototype orientation m : orientation -> m -> ()
+
+open rx
+prototype on_press m : (() -> ()) -> m -> disposable

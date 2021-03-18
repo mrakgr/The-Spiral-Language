@@ -1,5 +1,20 @@
 packages: |core-
 modules:
+    r64
+    rx/
+        types-
+        disposablem
+        subjectm
+        main-
+    kivy/
+        types-
+        helpers
+        appm
+        buttonm
+        labelm
+        boxlayoutm
+    lithe/
+        utils-
     serialization/
         dense/
             array
@@ -18,4 +33,5 @@ modules:
         utils-
         uniform_random
         neural_random
+        human
     main

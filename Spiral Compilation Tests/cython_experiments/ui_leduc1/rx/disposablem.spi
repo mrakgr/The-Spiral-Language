@@ -1,0 +1,24 @@
+// Creates a disposable.
+inl create (f : () -> ()) : disposable = 
+    !!!!Import("rx.disposable")
+    $"rx.disposable.disposable.Disposable(!f)"
+
+nominal composite_disposable = obj
+
+instance toDisposable composite_disposable = fun (composite_disposable x) => disposable x
+inl Composite = 
+    !!!!Import("rx.disposable")
+    composite_disposable $"rx.disposable.compositedisposable.CompositeDisposable()"
+instance push composite_disposable = fun x v => $"!x.add(!v)"
+
+nominal serial_disposable = obj
+
+instance toDisposable serial_disposable = fun (serial_disposable x) => disposable x
+inl Serial = 
+    !!!!Import("rx.disposable")
+    serial_disposable $"rx.disposable.serialdisposable.SerialDisposable()"
+instance push serial_disposable = fun x v => $"!x.disposable = !v"
+
+inl scheduled (scheduler s, disposable x) = 
+    !!!!Import("rx.disposable")
+    disposable $"rx.disposable.scheduleddisposable.ScheduledDisposable(!s,!x)"

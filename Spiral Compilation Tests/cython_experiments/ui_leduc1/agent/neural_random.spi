@@ -26,6 +26,6 @@ inl Create =
 
         inl c,b,a = denseSize input, 64u64, sparseSize output
         process >> runMasked {input output net = $"nets.small(!c,!b,!a)"}
-    run fun (p : _ stateless _ _) opp_prob dist next => 
+    run fun (p : _ stateless card action) opp_prob dist next => 
         inl prob,a = net (observations p) dist
         next (a,prob,state p)
