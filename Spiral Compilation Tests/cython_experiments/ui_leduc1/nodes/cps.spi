@@ -17,11 +17,15 @@ inl iter one pid dist f (p,ret) =
         else ret (prob * s)
     loop 0 0
 
-inl nodes_2p forall (p1 : * -> * -> *) (p2 : * -> * -> *) o a ret. (run runp1, run runp2) : game2p o a (pl2 p1 p2 o a * (f64 -> ret) -> ret) = game2p {
-    terminal = fun (pid,r) (_,ret) => inl r = f64 r in ret (if pid = 0 then r else -r)
+inl nodes_2p forall (p1 : * -> * -> *) (p2 : * -> * -> *) o a ret. (player_funs fp1, player_funs fp2) : game2p o a (pl2 p1 p2 o a * (f64 -> ret) -> ret) = game2p {
+    terminal = fun (pid,r) ((p1,p2),ret) => 
+        inl r = f64 r |> fun r => if pid = 0 then r else -r
+        fp1.terminal p1 (reward: r probOpp: exp_log_prob (prob p2)) 
+        fp2.terminal p2 (reward: -r probOpp: exp_log_prob (prob p1)) 
+        ret r
     action = fun pid ar f ((p1,p2),ret) =>
-        if pid = 0 then runp1 p1 (prob p2) ar (fun (a,_,_ as cs) => f a ((apply_changes p1 cs,apply_action p2 a),ret))
-        else runp2 p2 (prob p1) ar (fun (a,_,_ as cs) => f a ((apply_action p1 a,apply_changes p2 cs),ret))
+        if pid = 0 then fp1.action p1 (prob p2) ar (fun ((_,a),_ as cs) => f a ((apply_changes p1 cs,apply_action p2 a),ret))
+        else fp2.action p2 (prob p1) ar (fun ((_,a),_ as cs) => f a ((apply_action p1 a,apply_changes p2 cs),ret))
     draw = choice draw
     sample = choice sample
     }

@@ -1,9 +1,40 @@
+open kivy
+open lithe
+
+union msg =
+    | Clicked
+
+type state = {
+    times_clicked : u32
+    }
+
+inl model (x : state) = function
+    | Clicked => {x with times_clicked#=((+) 1)}
+
+inl view dispatch (state : _ state) =
+    inl (~+) x = +state x
+    boxlayout [
+        -orientation Vertical
+        children [
+            label [
+                +text fun {times_clicked} => 
+                    if times_clicked = 0 then "Press the button."
+                    else $"f\"The button has been clicked {!times_clicked} times.\""
+                ]
+            boxlayout [
+                -orientation Horizontal
+                -size_hint_y 0.2
+                children [
+                    button [
+                        -text "Click me."
+                        @on_press (fun () => dispatch Clicked)
+                        ]
+                    ]
+                ]
+            ]
+        ]
+
 inl main () =
-    inl p1 = agent.neural_random.create()
-    inl p2 = agent.uniform_random.create()
-    loop.for' (from:0u32 nearTo:100) (fun i =>
-        open nodes
-        inl Empty = player {path_prob=to_log_prob 1; observations=Nil; state=agent.stateless()} |> dyn
-        inl r = leduc.game (nodes.cps.nodes_2p (p1, p2)) ((Empty,Empty),dyn id)
-        $"print(\"Reward for player one at iteration \", !i, \" is \", !r)" : ()
-        )
+    inl app = appm.create()
+    inl _ = rx.subscribe (loop {times_clicked=0} model view) (appm.root app)
+    appm.run app

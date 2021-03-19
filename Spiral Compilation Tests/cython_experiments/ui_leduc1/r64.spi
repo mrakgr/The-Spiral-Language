@@ -1,6 +1,8 @@
+// Python's list module.
 open loop
-nominal rarray a = $"list"
 
+// Concatenates an array of strings.
+inl join' (l : rarray string) (sep : string) : string = $"!sep.join(!l)"
 // Appends to an array.
 inl add forall a. (l : rarray a) (x : a) : () = $"!l.append(!x)"
 // Creates an array.
@@ -14,7 +16,10 @@ inl length forall a. (l : rarray a) : u64 = $"len(!l)"
 // Creates an empty array.
 inl empty forall t. : rarray t = $"[]"
 // Creates an array with a single element.
-inl singleton x = inl a = create 1 in set a 0 x . a
+inl singleton forall t. (x : t) : rarray t = $"[!x]"
+
+// -------
+
 // Initializes array using the given function.
 inl init nearTo f = 
     inl ar = create nearTo

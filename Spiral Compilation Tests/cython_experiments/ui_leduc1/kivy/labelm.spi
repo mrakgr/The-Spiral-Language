@@ -4,4 +4,6 @@ instance toWidget label = fun (label x) => widget x
 inl Create = 
     !!!!Import("kivy.uix.label")
     label $"kivy.uix.label.Label()"
-instance text label = fun (v : string) (label x) => $"!x.text = !v"
+instance text label = fun (v : string) x => $"!x.text = !v"
+instance size_hint_x label = fun (v : f64) x => $"!x.size_hint_x = !v"
+instance size_hint_y label = fun (v : f64) x => $"!x.size_hint_y = !v"

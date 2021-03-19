@@ -554,7 +554,7 @@ let show_type_error (env : TopEnv) x =
     | ArrayIsMissingAnnotation -> "The array needs an annotation."
     | ShadowedForall -> "Shadowing of foralls (in the top-down) segment is not allowed."
     | UnionTypesMustHaveTheSameLayout -> "The two union types must have the same layout."
-    | OrphanInstance -> "The instance has to be defined in the same module as either the prototype or the nominal."
+    | OrphanInstance -> "The instance has to be defined in the same package as either the prototype or the nominal."
     | ShadowedInstance -> "The instance cannot be defined twice."
     | UnusedForall [x] -> sprintf "The forall variable %s is unused in the function's type signature." x
     | UnusedForall vars -> sprintf "The forall variables %s are unused in the function's type signature." (vars |> String.concat ", ")
@@ -1506,7 +1506,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let assert_kind_arity prot_kind_arity ins_kind_arity = if ins_kind_arity < prot_kind_arity then errors.Add(r,InstanceArityError(prot_kind_arity,ins_kind_arity))
         let assert_instance_forall_does_not_shadow_prototype_forall prot_forall_name = List.iter (fun ((r,(a,_)),_) -> if a = prot_forall_name then errors.Add(r,InstanceVarShouldNotMatchAnyOfPrototypes)) vars
         let assert_orphan_shadow_check (prot_id : GlobalId) (ins_id : GlobalId) = if Map.containsKey (prot_id, ins_id) top_env.prototypes_instances then errors.Add(r,ShadowedInstance)
-        let assert_orphan_instance_check (prot_id : GlobalId) (ins_id : GlobalId) = if (prot_id.module_id = module_id || ins_id.module_id = module_id) = false then errors.Add(r,OrphanInstance)
+        let assert_orphan_instance_check (prot_id : GlobalId) (ins_id : GlobalId) = if (prot_id.package_id = package_id || ins_id.package_id = package_id) = false then errors.Add(r,OrphanInstance)
         let body prot_id ins_id = 
             let ins_kind' = top_env.nominals_aux.[ins_id].kind
             let guard next = if 0 = errors.Count then next () else fail

@@ -6,11 +6,9 @@ let show_card = function
     | Queen => "Queen"
     | Jack => "Jack"
 
-inl r64_join (l : r64.rarray string) (sep : string) : string = $"!sep.join(!l)"
-
 let rec show_trace l =
-    inl ar : r64.rarray string = r64.empty
-    a64.fold (fun is_first => function
+    inl ar : rarray string = r64.empty
+    listm.fold (fun is_first => function
         | Observation: x => 
             inl o = show_card x
             r64.add ar $"f'Observed {!o}.'"
@@ -21,7 +19,12 @@ let rec show_trace l =
             r64.add ar $"f'{!p} {!a}.'"
             not is_first
         ) true l |> ignore
-    r64_join ar "\n"
+    r64.join' ar "\n"
 
-inl create dispatch = run fun (p : _ stateless card action) opp_prob dist next => 
-    failwith ""
+open nodes
+inl create dispatch = player_funs {
+    action = fun (player p : player replay card action) opp_prob dist next => 
+        dispatch (p.observations, dist, fun x => next (x,p.state))
+    terminal = fun (player {observations probSelf state=(replay rep)}) (reward: probOpp:) =>
+        r64.add rep {observations reward probOpp probSelf=exp_log_prob probSelf}
+    } 

@@ -1,5 +1,6 @@
 packages: |core-
 modules:
+    types-  
     r64
     rx/
         types-
@@ -34,4 +35,5 @@ modules:
         uniform_random
         neural_random
         human
+    cps_test
     main

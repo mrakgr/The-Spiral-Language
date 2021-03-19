@@ -10,6 +10,9 @@ instance orientation boxlayout = fun v x =>
     | Vertical => $"!x.orientation = 'vertical'"
     | Horizontal => $"!x.orientation = 'horizontal'"
 
+instance size_hint_x boxlayout = fun (v : f64) x => $"!x.size_hint_x = !v"
+instance size_hint_y boxlayout = fun (v : f64) x => $"!x.size_hint_y = !v"
+
 instance addWidget boxlayout = fun w i x => $"!x.add_widget(!w,!i)"
 instance removeWidget boxlayout = fun w x => $"!x.remove_widget(!w)"
 instance clearWidgets boxlayout = fun x => $"!x.clear_widgets()"
