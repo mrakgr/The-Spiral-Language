@@ -13,6 +13,7 @@ prototype orientation m : orientation -> m -> ()
 prototype text m : string -> m -> ()
 prototype size_hint_x m : f64 -> m -> ()
 prototype size_hint_y m : f64 -> m -> ()
+prototype text_size m : (option f64 * option f64) -> m -> ()
 
 open rx
 prototype on_press m : (() -> ()) -> m -> disposable

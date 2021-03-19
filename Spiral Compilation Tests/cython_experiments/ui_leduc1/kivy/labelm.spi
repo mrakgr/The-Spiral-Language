@@ -7,3 +7,9 @@ inl Create =
 instance text label = fun (v : string) x => $"!x.text = !v"
 instance size_hint_x label = fun (v : f64) x => $"!x.size_hint_x = !v"
 instance size_hint_y label = fun (v : f64) x => $"!x.size_hint_y = !v"
+instance text_size label = fun (a,b) x => 
+    match a,b with
+    | (Some: a), (Some: b) => $"!x.text_size = (!a,!b)"
+    | (Some: a), None => $"!x.text_size = (!a,None)"
+    | None, (Some: b) => $"!x.text_size = (None,!b)"
+    | None, None => $"!x.text_size = (None,None)"

@@ -5,11 +5,18 @@ union msg =
     | Clicked
 
 type state = {
-    times_clicked : u32
+    p1 : nodes.player_funs agent.stateless leduc.card leduc.action f64
+    p2 : nodes.player_funs agent.stateless leduc.card leduc.action f64
+    text : string
     }
 
-inl model (x : state) = function
-    | Clicked => {x with times_clicked#=((+) 1)}
+inl model (s : state) = function
+    | Clicked => 
+        open nodes
+        inl Empty = player {probSelf=to_log_prob 1; observations=Nil; state=agent.stateless()} |> dyn
+        inl r = leduc.game (nodes.cps.nodes_2p (s.p1, s.p2)) ((Empty,Empty),dyn id)
+        inl ts = $"f\"Reward for player one is {!r}.\\n\"" : string
+        {s with text#=fun t => $"!t + !ts"}
 
 inl view dispatch (state : _ state) =
     inl (~+) x = +state x
@@ -17,16 +24,15 @@ inl view dispatch (state : _ state) =
         -orientation Vertical
         children [
             label [
-                +text fun {times_clicked} => 
-                    if times_clicked = 0 then "Press the button."
-                    else $"f\"The button has been clicked {!times_clicked} times.\""
+                +text fun {text} => text
+                -text_size (None, (Some: 200))
                 ]
             boxlayout [
                 -orientation Horizontal
                 -size_hint_y 0.2
                 children [
                     button [
-                        -text "Click me."
+                        -text "Start Game."
                         @on_press (fun () => dispatch Clicked)
                         ]
                     ]
@@ -36,5 +42,7 @@ inl view dispatch (state : _ state) =
 
 inl main () =
     inl app = appm.create()
-    inl _ = rx.subscribe (loop {times_clicked=0} model view) (appm.root app)
+    inl p1 = agent.neural_random.create()
+    inl p2 = agent.uniform_random.create()
+    inl _ = rx.subscribe (loop {p1 p2 text=""} model view) (appm.root app)
     appm.run app

@@ -854,6 +854,14 @@ let typecase_validate x _ =
     f x
     if 0 < errors.Count then Error (Seq.toList errors) else Ok(x)
 
+// Parses an expression only if it is directly next to the previous one.
+let inline expr_tight next (d: Env) = 
+    let i = index d
+    if 0 < i && i < d.tokens.Length then
+        let r,r' = snd (fst d.tokens.[i-1]), fst (fst d.tokens.[i])
+        if r.line = r'.line && r.character = r'.character then next d else Error []
+    else Error []
+
 let inline read_default_value on_top on_bot d =
     try_current d <| function
         | p, TokDefaultValue t' -> 
@@ -961,9 +969,10 @@ and root_type (flags : RootTypeFlags) d =
         let macro = pipe3 skip_macro_open (many ((read_text |>> RawMacroText) <|> read_macro_type_var)) skip_macro_close (fun a l b -> RawTMacro(a +. b, l))
         let (+) = alt (index d)
         (rounds + wildcard + term + metavar + var + record + symbol + macro) d
-    let apply d = 
-        (pipe2 cases (many (indent (col d) (<) cases)) 
-            (fun a b -> List.fold (fun a b -> RawTApply(range_of_texpr a +. range_of_texpr b,a,b)) a b)) d
+
+    let fold_applies a b = List.fold (fun a b -> RawTApply(range_of_texpr a +. range_of_texpr b,a,b)) a b
+    let apply_tight d = pipe2 cases (many (expr_tight cases)) fold_applies d
+    let apply d = pipe2 apply_tight (many (indent (col d) (<) apply_tight)) fold_applies d
     
     let pairs = sepBy1 apply (skip_op "*") |>> List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b))
     let functions = sepBy1 pairs (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(range_of_texpr a +. range_of_texpr b,a,b))
@@ -1117,14 +1126,7 @@ and root_term d =
 
     and application_tight d =
         let next = expressions
-        let inline expr_tight (d: Env) = 
-            let i = index d
-            if 0 < i && i < d.tokens.Length then
-                let r,r' = snd (fst d.tokens.[i-1]), fst (fst d.tokens.[i])
-                if r.line = r'.line && r.character = r'.character then next d else Error []
-            else Error []
-
-        pipe2 next (many expr_tight) (List.fold (fun a b -> RawApply(range_of_expr a +. range_of_expr b,a,b))) d
+        pipe2 next (many (expr_tight next)) (List.fold (fun a b -> RawApply(range_of_expr a +. range_of_expr b,a,b))) d
 
     and application (d: Env) =
         let next = application_tight
