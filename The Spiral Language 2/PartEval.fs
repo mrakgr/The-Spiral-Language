@@ -1458,7 +1458,7 @@ let peval (env : TopEnv) (x : E) =
             | a, b ->
                 let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
                 if a_ty = b_ty then
-                    if is_lit_zero a then push_op s Neg b b_ty
+                    if is_lit_zero a && is_signed_numeric a_ty then push_op s Neg b b_ty
                     elif is_lit_zero b then a
                     elif is_any_int a_ty && a = b then DLit(lit_zero a_ty)
                     elif is_numeric a_ty then push_binop s Sub (a,b) a_ty

@@ -19,7 +19,7 @@ let rec show_trace l =
             r64.add ar $"f'{!p} {!a}.'"
             not is_first
         ) true l |> ignore
-    r64.join' ar "\n"
+    r64.join' "\n" ar
 
 open nodes
 inl create dispatch = player_funs {

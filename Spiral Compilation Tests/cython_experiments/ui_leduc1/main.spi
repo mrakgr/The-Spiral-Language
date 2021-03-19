@@ -23,17 +23,24 @@ inl view dispatch (state : _ state) =
     boxlayout [
         -orientation Vertical
         children [
-            label [
-                +text fun {text} => text
-                -text_size (None, (Some: 200))
+            scrollview [
+                -do_scroll_x false
+                -do_scroll_y true
+                children [
+                    label [
+                        -size_hint_y None
+                        @on_texture_size (fun (l,(_,v)) => $"!l.height = !v")
+                        +text fun {text} => text
+                        ]
+                    ]
                 ]
             boxlayout [
                 -orientation Horizontal
-                -size_hint_y 0.2
+                -size_hint_y (Some: 0.2)
                 children [
                     button [
                         -text "Start Game."
-                        @on_press (fun () => dispatch Clicked)
+                        @on_press (fun _ => dispatch Clicked)
                         ]
                     ]
                 ]
@@ -44,5 +51,8 @@ inl main () =
     inl app = appm.create()
     inl p1 = agent.neural_random.create()
     inl p2 = agent.uniform_random.create()
-    inl _ = rx.subscribe (loop {p1 p2 text=""} model view) (appm.root app)
+    inl text = 
+        r64.init 100 (fun i => $"f\"Line {!i}\\n\"" : string)
+        |> r64.join' ""
+    inl _ = rx.subscribe (loop {p1 p2 text} model view) (appm.root app)
     appm.run app

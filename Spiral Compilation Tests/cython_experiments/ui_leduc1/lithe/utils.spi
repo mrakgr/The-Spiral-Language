@@ -50,3 +50,5 @@ inl loop init model view =
 inl button x = control buttonm.create x
 inl boxlayout x = control boxlayoutm.create x
 inl label x = control labelm.create x
+inl textinput x = control textinputm.create x
+inl scrollview x = control scrollviewm.create x

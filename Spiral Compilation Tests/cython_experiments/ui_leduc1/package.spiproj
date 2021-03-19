@@ -14,6 +14,8 @@ modules:
         buttonm
         labelm
         boxlayoutm
+        textinputm
+        scrollviewm  
     lithe/
         utils-
     serialization/

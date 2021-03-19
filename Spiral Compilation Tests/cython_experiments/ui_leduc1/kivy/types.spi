@@ -11,9 +11,20 @@ prototype clearWidgets m : m -> ()
 union orientation = Vertical | Horizontal
 prototype orientation m : orientation -> m -> ()
 prototype text m : string -> m -> ()
-prototype size_hint_x m : f64 -> m -> ()
-prototype size_hint_y m : f64 -> m -> ()
+inl size_hint_x (v : option f64) x =
+    inl x = toWidget x
+    match v with
+    | Some: v => $"!x.size_hint_x = !v"
+    | None => $"!x.size_hint_x = None"
+inl size_hint_y (v : option f64) x =
+    inl x = toWidget x
+    match v with
+    | Some: v => $"!x.size_hint_y = !v"
+    | None => $"!x.size_hint_y = None"
 prototype text_size m : (option f64 * option f64) -> m -> ()
+prototype do_scroll_x m : bool -> m -> ()
+prototype do_scroll_y m : bool -> m -> ()
 
 open rx
-prototype on_press m : (() -> ()) -> m -> disposable
+prototype on_press m : (m -> ()) -> m -> disposable
+prototype on_texture_size m : (m * f64 * f64 -> ()) -> m -> disposable

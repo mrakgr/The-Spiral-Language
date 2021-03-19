@@ -5,8 +5,6 @@ inl Create =
     !!!!Import("kivy.uix.button")
     button $"kivy.uix.button.Button()"
 instance text button = fun (v : string) x => $"!x.text = !v"
-instance size_hint_x button = fun (v : f64) x => $"!x.size_hint_x = !v"
-instance size_hint_y button = fun (v : f64) x => $"!x.size_hint_y = !v"
 
 open rx
-instance on_press button = helpers.bind_none "on_press"
+instance on_press button = helpers.bind0 "on_press"
