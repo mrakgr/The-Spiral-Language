@@ -38,4 +38,4 @@ modules:
         neural_random
         human
     cps_test
-    main
+    ui_test

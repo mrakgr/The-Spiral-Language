@@ -4,13 +4,13 @@ open lithe
 union msg =
     | Clicked
 
-type state = {
-    p1 : nodes.player_funs agent.stateless leduc.card leduc.action f64
-    p2 : nodes.player_funs agent.stateless leduc.card leduc.action f64
+type state (a : * -> * -> *) (b : * -> * -> *) = {
+    p1 : nodes.player_funs a leduc.card leduc.action f64
+    p2 : nodes.player_funs b leduc.card leduc.action f64
     text : string
     }
 
-inl model (s : state) = function
+inl model (s : state _ _) = function
     | Clicked => 
         open nodes
         inl Empty = player {probSelf=to_log_prob 1; observations=Nil; state=agent.stateless()} |> dyn
@@ -18,7 +18,7 @@ inl model (s : state) = function
         inl ts = $"f\"Reward for player one is {!r}.\\n\"" : string
         {s with text#=fun t => $"!t + !ts"}
 
-inl view dispatch (state : _ state) =
+inl view dispatch (state : rx.observable (state _ _)) =
     inl (~+) x = +state x
     boxlayout [
         -orientation Vertical
