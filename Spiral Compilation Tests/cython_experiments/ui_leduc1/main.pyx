@@ -108,11 +108,11 @@ cdef class Closure3():
         cdef unsigned long long v24
         cdef signed long long v25
         cdef US1 v26
-        v5 = method1(v1)
+        v5 = method0(v1)
         v6 = numpy.empty(30,dtype=numpy.float32)
         v7 = len(v6)
         v8 = 0
-        method11(v7, v6, v8)
+        method10(v7, v6, v8)
         v9 = len(v5)
         v10 = 2 < v9
         if v10:
@@ -120,7 +120,7 @@ cdef class Closure3():
         else:
             pass
         v11 = 0
-        method12(v9, v6, v5, v11)
+        method11(v9, v6, v5, v11)
         del v5
         pass # import torch
         v12 = torch.from_numpy(v6)
@@ -130,7 +130,7 @@ cdef class Closure3():
         v14 = len(v3)
         v15 = numpy.empty(v14,dtype=numpy.int64)
         v16 = 0
-        method14(v14, v3, v15, v16)
+        method13(v14, v3, v15, v16)
         v17 = v13[v15]
         del v13
         pass # import torch.nn.functional
@@ -149,7 +149,7 @@ cdef class Closure3():
         v24 = v23
         v25 = v15[v24]
         del v15
-        v26 = method16(v25)
+        v26 = method15(v25)
         return v4(Tuple2(v22, v26))
 cdef class Closure2():
     cdef object v0
@@ -350,7 +350,7 @@ cdef class Closure17():
         v4 = v2[0]
         if v4.tag == 0: # none
             v5 = 0
-            method19(v1, v5)
+            method18(v1, v5)
         elif v4.tag == 1: # some_
             v6 = (<US3_1>v4).v0
             v0.remove_widget(v6)
@@ -384,10 +384,10 @@ cdef class Closure16():
         v3.do_scroll_y = 1
         v5 = numpy.empty(1,dtype=numpy.uint64)
         v6 = 0
-        method17(v5, v6)
+        method16(v5, v6)
         v7 = numpy.empty(1,dtype=object)
         v8 = 0
-        method18(v7, v8)
+        method17(v7, v8)
         pass # import rx.disposable
         v9 = rx.disposable.compositedisposable.CompositeDisposable()
         v10 = Closure17(v3, v5, v7)
@@ -603,9 +603,9 @@ cdef class Closure28():
                 v24 = 2
             elif v7.tag == 2: # queen
                 v24 = 1
-            v25 = method26(v22, v21)
+            v25 = method25(v22, v21)
             if v25:
-                v27 = method26(v24, v23)
+                v27 = method25(v24, v23)
             else:
                 v27 = 0
             if v27:
@@ -619,18 +619,18 @@ cdef class Closure28():
                     else:
                         v50 = 0
             else:
-                v32 = method26(v22, v21)
+                v32 = method25(v22, v21)
                 if v32:
                     v50 = 1
                 else:
-                    v33 = method26(v24, v23)
+                    v33 = method25(v24, v23)
                     if v33:
                         v50 = -1
                     else:
-                        tmp6 = method27(v22, v21)
+                        tmp6 = method26(v22, v21)
                         v34, v35 = tmp6.v0, tmp6.v1
                         del tmp6
-                        tmp7 = method27(v24, v23)
+                        tmp7 = method26(v24, v23)
                         v36, v37 = tmp7.v0, tmp7.v1
                         del tmp7
                         v38 = v34 < v36
@@ -669,7 +669,7 @@ cdef class Closure28():
         elif v20.tag == 2: # raise
             v59 = v6 - 1
             v60 = v10 + 4
-            v62 = method25(v0, v1, v2, v3, v4, v5, v59, v7, v11, v12, v60, v8, v9, v10)
+            v62 = method24(v0, v1, v2, v3, v4, v5, v59, v7, v11, v12, v60, v8, v9, v10)
         v63 = v19 + v18
         v64 = US0_0(v20)
         v65 = UH0_0(v64, v17)
@@ -779,9 +779,9 @@ cdef class Closure31():
                 v24 = 2
             elif v7.tag == 2: # queen
                 v24 = 1
-            v25 = method26(v22, v21)
+            v25 = method25(v22, v21)
             if v25:
-                v27 = method26(v24, v23)
+                v27 = method25(v24, v23)
             else:
                 v27 = 0
             if v27:
@@ -795,18 +795,18 @@ cdef class Closure31():
                     else:
                         v50 = 0
             else:
-                v32 = method26(v22, v21)
+                v32 = method25(v22, v21)
                 if v32:
                     v50 = 1
                 else:
-                    v33 = method26(v24, v23)
+                    v33 = method25(v24, v23)
                     if v33:
                         v50 = -1
                     else:
-                        tmp8 = method27(v22, v21)
+                        tmp8 = method26(v22, v21)
                         v34, v35 = tmp8.v0, tmp8.v1
                         del tmp8
-                        tmp9 = method27(v24, v23)
+                        tmp9 = method26(v24, v23)
                         v36, v37 = tmp9.v0, tmp9.v1
                         del tmp9
                         v38 = v34 < v36
@@ -845,7 +845,7 @@ cdef class Closure31():
         elif v20.tag == 2: # raise
             v59 = v6 - 1
             v60 = v10 + 4
-            v62 = method25(v0, v1, v2, v3, v4, v5, v59, v7, v11, v12, v60, v8, v9, v10)
+            v62 = method24(v0, v1, v2, v3, v4, v5, v59, v7, v11, v12, v60, v8, v9, v10)
         v63 = v19 + v16
         v64 = US0_0(v20)
         v65 = UH0_0(v64, v17)
@@ -974,13 +974,13 @@ cdef class Closure26():
         cdef UH0 v35
         if v19.tag == 0: # call
             v20 = 2
-            v26 = method25(v0, v1, v2, v3, v4, v5, v20, v12, v9, v10, v11, v6, v7, v8)
+            v26 = method24(v0, v1, v2, v3, v4, v5, v20, v12, v9, v10, v11, v6, v7, v8)
         elif v19.tag == 1: # fold
             raise Exception("impossible")
         elif v19.tag == 2: # raise
             v23 = 1
             v24 = v8 + 4
-            v26 = method25(v0, v1, v2, v3, v4, v5, v23, v12, v9, v10, v24, v6, v7, v8)
+            v26 = method24(v0, v1, v2, v3, v4, v5, v23, v12, v9, v10, v24, v6, v7, v8)
         v27 = v18 + v17
         v28 = US0_0(v19)
         v29 = US0_1(v12)
@@ -1051,13 +1051,13 @@ cdef class Closure32():
         cdef UH0 v35
         if v19.tag == 0: # call
             v20 = 2
-            v26 = method25(v0, v1, v2, v3, v4, v5, v20, v12, v9, v10, v11, v6, v7, v8)
+            v26 = method24(v0, v1, v2, v3, v4, v5, v20, v12, v9, v10, v11, v6, v7, v8)
         elif v19.tag == 1: # fold
             raise Exception("impossible")
         elif v19.tag == 2: # raise
             v23 = 1
             v24 = v8 + 4
-            v26 = method25(v0, v1, v2, v3, v4, v5, v23, v12, v9, v10, v24, v6, v7, v8)
+            v26 = method24(v0, v1, v2, v3, v4, v5, v23, v12, v9, v10, v24, v6, v7, v8)
         v27 = v18 + v15
         v28 = US0_0(v19)
         v29 = US0_1(v12)
@@ -1228,14 +1228,14 @@ cdef class Closure34():
                 v23, v24, v25, v26, v27, v28 = v12, v13, v11, v9, v10, v11
             else:
                 v23, v24, v25, v26, v27, v28 = v9, v10, v11, v12, v13, v11
-            v34 = method24(v0, v1, v2, v3, v6, v4, v5, v7, v26, v27, v28, v23, v24, v25)
+            v34 = method23(v0, v1, v2, v3, v6, v4, v5, v7, v26, v27, v28, v23, v24, v25)
             del v23; del v26
         elif v21.tag == 1: # fold
             v34 = Closure29(v0, v1, v2, v3, v14, v10)
         elif v21.tag == 2: # raise
             v31 = v8 - 1
             v32 = v11 + 2
-            v34 = method28(v0, v1, v2, v3, v4, v5, v6, v7, v31, v12, v13, v32, v9, v10, v11)
+            v34 = method27(v0, v1, v2, v3, v4, v5, v6, v7, v31, v12, v13, v32, v9, v10, v11)
         v35 = v20 + v19
         v36 = US0_0(v21)
         v37 = UH0_0(v36, v18)
@@ -1310,14 +1310,14 @@ cdef class Closure35():
                 v23, v24, v25, v26, v27, v28 = v12, v13, v11, v9, v10, v11
             else:
                 v23, v24, v25, v26, v27, v28 = v9, v10, v11, v12, v13, v11
-            v34 = method24(v0, v1, v2, v3, v6, v4, v5, v7, v26, v27, v28, v23, v24, v25)
+            v34 = method23(v0, v1, v2, v3, v6, v4, v5, v7, v26, v27, v28, v23, v24, v25)
             del v23; del v26
         elif v21.tag == 1: # fold
             v34 = Closure29(v0, v1, v2, v3, v14, v10)
         elif v21.tag == 2: # raise
             v31 = v8 - 1
             v32 = v11 + 2
-            v34 = method28(v0, v1, v2, v3, v4, v5, v6, v7, v31, v12, v13, v32, v9, v10, v11)
+            v34 = method27(v0, v1, v2, v3, v4, v5, v6, v7, v31, v12, v13, v32, v9, v10, v11)
         v35 = v20 + v17
         v36 = US0_0(v21)
         v37 = UH0_0(v36, v18)
@@ -1456,14 +1456,14 @@ cdef class Closure24():
                 v22, v23, v24, v25, v26, v27 = v12, v13, v11, v9, v10, v11
             else:
                 v22, v23, v24, v25, v26, v27 = v9, v10, v11, v12, v13, v11
-            v33 = method24(v0, v1, v2, v3, v6, v4, v5, v7, v25, v26, v27, v22, v23, v24)
+            v33 = method23(v0, v1, v2, v3, v6, v4, v5, v7, v25, v26, v27, v22, v23, v24)
             del v22; del v25
         elif v20.tag == 1: # fold
             v33 = Closure29(v0, v1, v2, v3, v11, v10)
         elif v20.tag == 2: # raise
             v30 = v8 - 1
             v31 = v11 + 2
-            v33 = method28(v0, v1, v2, v3, v4, v5, v6, v7, v30, v12, v13, v31, v9, v10, v11)
+            v33 = method27(v0, v1, v2, v3, v4, v5, v6, v7, v30, v12, v13, v31, v9, v10, v11)
         v34 = v19 + v18
         v35 = US0_0(v20)
         v36 = UH0_0(v35, v17)
@@ -1536,14 +1536,14 @@ cdef class Closure36():
                 v22, v23, v24, v25, v26, v27 = v12, v13, v11, v9, v10, v11
             else:
                 v22, v23, v24, v25, v26, v27 = v9, v10, v11, v12, v13, v11
-            v33 = method24(v0, v1, v2, v3, v6, v4, v5, v7, v25, v26, v27, v22, v23, v24)
+            v33 = method23(v0, v1, v2, v3, v6, v4, v5, v7, v25, v26, v27, v22, v23, v24)
             del v22; del v25
         elif v20.tag == 1: # fold
             v33 = Closure29(v0, v1, v2, v3, v11, v10)
         elif v20.tag == 2: # raise
             v30 = v8 - 1
             v31 = v11 + 2
-            v33 = method28(v0, v1, v2, v3, v4, v5, v6, v7, v30, v12, v13, v31, v9, v10, v11)
+            v33 = method27(v0, v1, v2, v3, v4, v5, v6, v7, v30, v12, v13, v31, v9, v10, v11)
         v34 = v19 + v16
         v35 = US0_0(v20)
         v36 = UH0_0(v35, v17)
@@ -1671,7 +1671,7 @@ cdef class Closure22():
             v18 = 1
             v19 = 1
             v20 = 0
-            v29 = method23(v0, v1, v2, v3, v4, v5, v8, v9, v17, v6, v20, v19, v7, v18)
+            v29 = method22(v0, v1, v2, v3, v4, v5, v8, v9, v17, v6, v20, v19, v7, v18)
         elif v16.tag == 1: # fold
             raise Exception("impossible")
         elif v16.tag == 2: # raise
@@ -1680,7 +1680,7 @@ cdef class Closure22():
             v25 = 1
             v26 = 0
             v27 = 3
-            v29 = method28(v0, v1, v2, v3, v4, v5, v8, v9, v23, v6, v26, v27, v7, v24, v25)
+            v29 = method27(v0, v1, v2, v3, v4, v5, v8, v9, v23, v6, v26, v27, v7, v24, v25)
         v30 = v15 + v14
         v31 = US0_0(v16)
         v32 = UH0_0(v31, v13)
@@ -1802,18 +1802,18 @@ cdef class Closure20():
         v32 = v24 - 1
         v33 = numpy.empty(v32,dtype=object)
         v34 = 0
-        method20(v32, v25, v23, v33, v34)
+        method19(v32, v25, v23, v33, v34)
         del v23
         v35 = <double>v24
         v36 = 1.000000 / v35
         v37 = libc.math.log(v36)
         v38 = 0
-        tmp2 = method21(v31, v37, v38, v26, v27)
+        tmp2 = method20(v31, v37, v38, v26, v27)
         v39, v40 = tmp2.v0, tmp2.v1
         del tmp2
         del v26
         v41 = 1
-        tmp3 = method21(v31, v37, v41, v28, v29)
+        tmp3 = method20(v31, v37, v41, v28, v29)
         v42, v43 = tmp3.v0, tmp3.v1
         del tmp3
         del v28
@@ -1823,18 +1823,18 @@ cdef class Closure20():
         v47 = v44 - 1
         v48 = numpy.empty(v47,dtype=object)
         v49 = 0
-        method20(v47, v45, v33, v48, v49)
+        method19(v47, v45, v33, v48, v49)
         del v33
         v50 = <double>v44
         v51 = 1.000000 / v50
         v52 = libc.math.log(v51)
         v53 = 0
-        tmp4 = method22(v46, v52, v53, v39, v40)
+        tmp4 = method21(v46, v52, v53, v39, v40)
         v54, v55 = tmp4.v0, tmp4.v1
         del tmp4
         del v39
         v56 = 1
-        tmp5 = method22(v46, v52, v56, v42, v43)
+        tmp5 = method21(v46, v52, v56, v42, v43)
         v57, v58 = tmp5.v0, tmp5.v1
         del tmp5
         del v42
@@ -1919,7 +1919,7 @@ cdef class Closure39():
         v4 = v2[0]
         if v4.tag == 0: # none
             v5 = 0
-            method19(v1, v5)
+            method18(v1, v5)
         elif v4.tag == 1: # some_
             v6 = (<US3_1>v4).v0
             v0.remove_widget(v6)
@@ -1953,10 +1953,10 @@ cdef class Closure38():
         v3.size_hint_y = 0.200000
         v5 = numpy.empty(1,dtype=numpy.uint64)
         v6 = 0
-        method17(v5, v6)
+        method16(v5, v6)
         v7 = numpy.empty(1,dtype=object)
         v8 = 0
-        method18(v7, v8)
+        method17(v7, v8)
         pass # import rx.disposable
         v9 = rx.disposable.compositedisposable.CompositeDisposable()
         v10 = Closure39(v3, v5, v7)
@@ -1987,7 +1987,7 @@ cdef class Closure41():
         v4 = v2[1]
         if v4.tag == 0: # none
             v5 = 0
-            method31(v1, v5)
+            method30(v1, v5)
         elif v4.tag == 1: # some_
             v6 = (<US3_1>v4).v0
             v0.remove_widget(v6)
@@ -2024,10 +2024,10 @@ cdef class Closure40():
         v4.orientation = 'vertical'
         v6 = numpy.empty(2,dtype=numpy.uint64)
         v7 = 0
-        method29(v6, v7)
+        method28(v6, v7)
         v8 = numpy.empty(2,dtype=object)
         v9 = 0
-        method30(v8, v9)
+        method29(v8, v9)
         pass # import rx.disposable
         v10 = rx.disposable.compositedisposable.CompositeDisposable()
         v11 = Closure39(v4, v6, v8)
@@ -2052,20 +2052,7 @@ cdef class Closure42():
     def __call__(self, object v1):
         cdef object v0 = self.v0
         v0.root = v1
-cdef void method0(list v0, unsigned long long v1):
-    cdef bint v2
-    cdef unsigned long long v3
-    cdef str v4
-    v2 = v1 < 100
-    if v2:
-        v3 = v1 + 1
-        v4 = f"Line {v1}\n"
-        v0[v1] = v4
-        del v4
-        method0(v0, v3)
-    else:
-        pass
-cdef UH0 method2(UH0 v0, UH0 v1):
+cdef UH0 method1(UH0 v0, UH0 v1):
     cdef US0 v2
     cdef UH0 v3
     cdef UH0 v4
@@ -2073,10 +2060,10 @@ cdef UH0 method2(UH0 v0, UH0 v1):
         v2 = (<UH0_0>v0).v0; v3 = (<UH0_0>v0).v1
         v4 = UH0_0(v2, v1)
         del v2
-        return method2(v3, v4)
+        return method1(v3, v4)
     elif v0.tag == 1: # nil
         return v1
-cdef UH1 method4(UH1 v0, UH1 v1):
+cdef UH1 method3(UH1 v0, UH1 v1):
     cdef US1 v2
     cdef UH1 v3
     cdef UH1 v4
@@ -2084,19 +2071,19 @@ cdef UH1 method4(UH1 v0, UH1 v1):
         v2 = (<UH1_0>v0).v0; v3 = (<UH1_0>v0).v1
         v4 = UH1_0(v2, v1)
         del v2
-        return method4(v3, v4)
+        return method3(v3, v4)
     elif v0.tag == 1: # nil
         return v1
-cdef unsigned long long method6(UH1 v0, unsigned long long v1):
+cdef unsigned long long method5(UH1 v0, unsigned long long v1):
     cdef UH1 v3
     cdef unsigned long long v4
     if v0.tag == 0: # cons_
         v3 = (<UH1_0>v0).v1
         v4 = v1 + 1
-        return method6(v3, v4)
+        return method5(v3, v4)
     elif v0.tag == 1: # nil
         return v1
-cdef unsigned long long method7(numpy.ndarray[object,ndim=1] v0, UH1 v1, unsigned long long v2):
+cdef unsigned long long method6(numpy.ndarray[object,ndim=1] v0, UH1 v1, unsigned long long v2):
     cdef US1 v3
     cdef UH1 v4
     cdef unsigned long long v5
@@ -2105,22 +2092,22 @@ cdef unsigned long long method7(numpy.ndarray[object,ndim=1] v0, UH1 v1, unsigne
         v0[v2] = v3
         del v3
         v5 = v2 + 1
-        return method7(v0, v4, v5)
+        return method6(v0, v4, v5)
     elif v1.tag == 1: # nil
         return v2
-cdef numpy.ndarray[object,ndim=1] method5(UH1 v0):
+cdef numpy.ndarray[object,ndim=1] method4(UH1 v0):
     cdef unsigned long long v1
     cdef unsigned long long v2
     cdef numpy.ndarray[object,ndim=1] v3
     cdef unsigned long long v4
     cdef unsigned long long v5
     v1 = 0
-    v2 = method6(v0, v1)
+    v2 = method5(v0, v1)
     v3 = numpy.empty(v2,dtype=object)
     v4 = 0
-    v5 = method7(v3, v0, v4)
+    v5 = method6(v3, v0, v4)
     return v3
-cdef UH2 method3(UH1 v0, US2 v1, UH0 v2):
+cdef UH2 method2(UH1 v0, US2 v1, UH0 v2):
     cdef US0 v3
     cdef UH0 v4
     cdef US1 v5
@@ -2141,36 +2128,36 @@ cdef UH2 method3(UH1 v0, US2 v1, UH0 v2):
             v5 = (<US0_0>v3).v0
             v6 = UH1_0(v5, v0)
             del v5
-            return method3(v6, v1, v4)
+            return method2(v6, v1, v4)
         elif v3.tag == 1: # observation_
             v8 = (<US0_1>v3).v0
             v9 = UH1_1()
-            v10 = method4(v0, v9)
+            v10 = method3(v0, v9)
             del v9
-            v11 = method5(v10)
+            v11 = method4(v10)
             del v10
             v12 = UH1_1()
-            v13 = method3(v12, v8, v4)
+            v13 = method2(v12, v8, v4)
             del v4; del v8; del v12
             return UH2_0(v1, v11, v13)
     elif v2.tag == 1: # nil
         v16 = UH1_1()
-        v17 = method4(v0, v16)
+        v17 = method3(v0, v16)
         del v16
-        v18 = method5(v17)
+        v18 = method4(v17)
         del v17
         v19 = UH2_1()
         return UH2_0(v1, v18, v19)
-cdef unsigned long long method9(UH2 v0, unsigned long long v1):
+cdef unsigned long long method8(UH2 v0, unsigned long long v1):
     cdef UH2 v4
     cdef unsigned long long v5
     if v0.tag == 0: # cons_
         v4 = (<UH2_0>v0).v2
         v5 = v1 + 1
-        return method9(v4, v5)
+        return method8(v4, v5)
     elif v0.tag == 1: # nil
         return v1
-cdef unsigned long long method10(numpy.ndarray[object,ndim=1] v0, UH2 v1, unsigned long long v2):
+cdef unsigned long long method9(numpy.ndarray[object,ndim=1] v0, UH2 v1, unsigned long long v2):
     cdef US2 v3
     cdef numpy.ndarray[object,ndim=1] v4
     cdef UH2 v5
@@ -2180,22 +2167,22 @@ cdef unsigned long long method10(numpy.ndarray[object,ndim=1] v0, UH2 v1, unsign
         v0[v2] = Tuple1(v3, v4)
         del v3; del v4
         v6 = v2 + 1
-        return method10(v0, v5, v6)
+        return method9(v0, v5, v6)
     elif v1.tag == 1: # nil
         return v2
-cdef numpy.ndarray[object,ndim=1] method8(UH2 v0):
+cdef numpy.ndarray[object,ndim=1] method7(UH2 v0):
     cdef unsigned long long v1
     cdef unsigned long long v2
     cdef numpy.ndarray[object,ndim=1] v3
     cdef unsigned long long v4
     cdef unsigned long long v5
     v1 = 0
-    v2 = method9(v0, v1)
+    v2 = method8(v0, v1)
     v3 = numpy.empty(v2,dtype=object)
     v4 = 0
-    v5 = method10(v3, v0, v4)
+    v5 = method9(v3, v0, v4)
     return v3
-cdef numpy.ndarray[object,ndim=1] method1(UH0 v0):
+cdef numpy.ndarray[object,ndim=1] method0(UH0 v0):
     cdef UH0 v1
     cdef UH0 v2
     cdef US0 v3
@@ -2204,7 +2191,7 @@ cdef numpy.ndarray[object,ndim=1] method1(UH0 v0):
     cdef UH1 v8
     cdef UH2 v9
     v1 = UH0_1()
-    v2 = method2(v0, v1)
+    v2 = method1(v0, v1)
     del v1
     if v2.tag == 0: # cons_
         v3 = (<UH0_0>v2).v0; v4 = (<UH0_0>v2).v1
@@ -2214,22 +2201,22 @@ cdef numpy.ndarray[object,ndim=1] method1(UH0 v0):
         elif v3.tag == 1: # observation_
             v7 = (<US0_1>v3).v0
             v8 = UH1_1()
-            v9 = method3(v8, v7, v4)
+            v9 = method2(v8, v7, v4)
             del v4; del v7; del v8
-            return method8(v9)
+            return method7(v9)
     elif v2.tag == 1: # nil
         raise Exception("Expected a card.")
-cdef void method11(unsigned long long v0, numpy.ndarray[float,ndim=1] v1, unsigned long long v2):
+cdef void method10(unsigned long long v0, numpy.ndarray[float,ndim=1] v1, unsigned long long v2):
     cdef bint v3
     cdef unsigned long long v4
     v3 = v2 < v0
     if v3:
         v4 = v2 + 1
         v1[v2] = 0.000000
-        method11(v0, v1, v4)
+        method10(v0, v1, v4)
     else:
         pass
-cdef void method13(unsigned long long v0, numpy.ndarray[float,ndim=1] v1, unsigned long long v2, numpy.ndarray[object,ndim=1] v3, unsigned long long v4):
+cdef void method12(unsigned long long v0, numpy.ndarray[float,ndim=1] v1, unsigned long long v2, numpy.ndarray[object,ndim=1] v3, unsigned long long v4):
     cdef bint v5
     cdef unsigned long long v6
     cdef US1 v7
@@ -2252,10 +2239,10 @@ cdef void method13(unsigned long long v0, numpy.ndarray[float,ndim=1] v1, unsign
             v11 = v9 + 2
             v1[v11] = 1.000000
         del v7
-        method13(v0, v1, v2, v3, v6)
+        method12(v0, v1, v2, v3, v6)
     else:
         pass
-cdef void method12(unsigned long long v0, numpy.ndarray[float,ndim=1] v1, numpy.ndarray[object,ndim=1] v2, unsigned long long v3):
+cdef void method11(unsigned long long v0, numpy.ndarray[float,ndim=1] v1, numpy.ndarray[object,ndim=1] v2, unsigned long long v3):
     cdef bint v4
     cdef unsigned long long v5
     cdef US2 v6
@@ -2292,12 +2279,12 @@ cdef void method12(unsigned long long v0, numpy.ndarray[float,ndim=1] v1, numpy.
         else:
             pass
         v14 = 0
-        method13(v12, v1, v11, v7, v14)
+        method12(v12, v1, v11, v7, v14)
         del v7
-        method12(v0, v1, v2, v5)
+        method11(v0, v1, v2, v5)
     else:
         pass
-cdef signed long long method15(US1 v0):
+cdef signed long long method14(US1 v0):
     cdef signed long long v1
     if v0.tag == 0: # call
         v1 = 0
@@ -2306,7 +2293,7 @@ cdef signed long long method15(US1 v0):
     elif v0.tag == 2: # raise
         v1 = 2
     return v1
-cdef void method14(unsigned long long v0, numpy.ndarray[object,ndim=1] v1, numpy.ndarray[signed long long,ndim=1] v2, unsigned long long v3):
+cdef void method13(unsigned long long v0, numpy.ndarray[object,ndim=1] v1, numpy.ndarray[signed long long,ndim=1] v2, unsigned long long v3):
     cdef bint v4
     cdef unsigned long long v5
     cdef US1 v6
@@ -2315,13 +2302,13 @@ cdef void method14(unsigned long long v0, numpy.ndarray[object,ndim=1] v1, numpy
     if v4:
         v5 = v3 + 1
         v6 = v1[v3]
-        v7 = method15(v6)
+        v7 = method14(v6)
         del v6
         v2[v3] = v7
-        method14(v0, v1, v2, v5)
+        method13(v0, v1, v2, v5)
     else:
         pass
-cdef US1 method16(signed long long v0):
+cdef US1 method15(signed long long v0):
     cdef bint v1
     cdef bint v2
     cdef bint v3
@@ -2372,17 +2359,17 @@ cdef US1 method16(signed long long v0):
                 return US1_2()
             else:
                 raise Exception("Unpickling of an union failed.")
-cdef void method17(numpy.ndarray[unsigned long long,ndim=1] v0, unsigned long long v1):
+cdef void method16(numpy.ndarray[unsigned long long,ndim=1] v0, unsigned long long v1):
     cdef bint v2
     cdef unsigned long long v3
     v2 = v1 < 1
     if v2:
         v3 = v1 + 1
         v0[v1] = 0
-        method17(v0, v3)
+        method16(v0, v3)
     else:
         pass
-cdef void method18(numpy.ndarray[object,ndim=1] v0, unsigned long long v1):
+cdef void method17(numpy.ndarray[object,ndim=1] v0, unsigned long long v1):
     cdef bint v2
     cdef unsigned long long v3
     cdef US3 v4
@@ -2392,10 +2379,10 @@ cdef void method18(numpy.ndarray[object,ndim=1] v0, unsigned long long v1):
         v4 = US3_0()
         v0[v1] = v4
         del v4
-        method18(v0, v3)
+        method17(v0, v3)
     else:
         pass
-cdef void method19(numpy.ndarray[unsigned long long,ndim=1] v0, unsigned long long v1):
+cdef void method18(numpy.ndarray[unsigned long long,ndim=1] v0, unsigned long long v1):
     cdef bint v2
     cdef unsigned long long v3
     cdef unsigned long long v4
@@ -2408,10 +2395,10 @@ cdef void method19(numpy.ndarray[unsigned long long,ndim=1] v0, unsigned long lo
         v5 = v0[v4]
         v6 = v5 + 1
         v0[v4] = v6
-        method19(v0, v3)
+        method18(v0, v3)
     else:
         pass
-cdef void method20(unsigned long long v0, unsigned long long v1, numpy.ndarray[object,ndim=1] v2, numpy.ndarray[object,ndim=1] v3, unsigned long long v4):
+cdef void method19(unsigned long long v0, unsigned long long v1, numpy.ndarray[object,ndim=1] v2, numpy.ndarray[object,ndim=1] v3, unsigned long long v4):
     cdef bint v5
     cdef unsigned long long v6
     cdef bint v7
@@ -2428,10 +2415,10 @@ cdef void method20(unsigned long long v0, unsigned long long v1, numpy.ndarray[o
         v9 = v2[v8]
         v3[v4] = v9
         del v9
-        method20(v0, v1, v2, v3, v6)
+        method19(v0, v1, v2, v3, v6)
     else:
         pass
-cdef Tuple0 method21(US2 v0, double v1, unsigned char v2, UH0 v3, double v4):
+cdef Tuple0 method20(US2 v0, double v1, unsigned char v2, UH0 v3, double v4):
     cdef bint v5
     cdef double v6
     cdef US0 v7
@@ -2445,7 +2432,7 @@ cdef Tuple0 method21(US2 v0, double v1, unsigned char v2, UH0 v3, double v4):
         return Tuple0(v8, v6)
     else:
         return Tuple0(v3, v4)
-cdef Tuple0 method22(US2 v0, double v1, unsigned char v2, UH0 v3, double v4):
+cdef Tuple0 method21(US2 v0, double v1, unsigned char v2, UH0 v3, double v4):
     cdef bint v5
     cdef double v6
     cdef US0 v7
@@ -2459,16 +2446,16 @@ cdef Tuple0 method22(US2 v0, double v1, unsigned char v2, UH0 v3, double v4):
         return Tuple0(v8, v6)
     else:
         return Tuple0(v3, v4)
-cdef bint method26(signed long v0, signed long v1):
+cdef bint method25(signed long v0, signed long v1):
     return v1 == v0
-cdef Tuple6 method27(signed long v0, signed long v1):
+cdef Tuple6 method26(signed long v0, signed long v1):
     cdef bint v2
     v2 = v1 > v0
     if v2:
         return Tuple6(v1, v0)
     else:
         return Tuple6(v0, v1)
-cdef object method25(v0, v1, v2, v3, numpy.ndarray[object,ndim=1] v4, numpy.ndarray[object,ndim=1] v5, signed long v6, US2 v7, US2 v8, unsigned char v9, unsigned long v10, US2 v11, unsigned char v12, unsigned long v13):
+cdef object method24(v0, v1, v2, v3, numpy.ndarray[object,ndim=1] v4, numpy.ndarray[object,ndim=1] v5, signed long v6, US2 v7, US2 v8, unsigned char v9, unsigned long v10, US2 v11, unsigned char v12, unsigned long v13):
     cdef bint v14
     cdef numpy.ndarray[object,ndim=1] v15
     v14 = 0 < v6
@@ -2477,13 +2464,13 @@ cdef object method25(v0, v1, v2, v3, numpy.ndarray[object,ndim=1] v4, numpy.ndar
     else:
         v15 = v5
     return Closure27(v0, v1, v2, v3, v12, v15, v4, v5, v6, v7, v8, v9, v10, v11, v13)
-cdef object method24(v0, v1, v2, v3, numpy.ndarray[object,ndim=1] v4, numpy.ndarray[object,ndim=1] v5, numpy.ndarray[object,ndim=1] v6, numpy.ndarray[object,ndim=1] v7, US2 v8, unsigned char v9, unsigned long v10, US2 v11, unsigned char v12, unsigned long v13):
+cdef object method23(v0, v1, v2, v3, numpy.ndarray[object,ndim=1] v4, numpy.ndarray[object,ndim=1] v5, numpy.ndarray[object,ndim=1] v6, numpy.ndarray[object,ndim=1] v7, US2 v8, unsigned char v9, unsigned long v10, US2 v11, unsigned char v12, unsigned long v13):
     cdef unsigned long long v14
     cdef unsigned long long v15
     v14 = len(v7)
     v15 = numpy.random.randint(0,v14)
     return Closure25(v15, v7, v0, v1, v2, v3, v4, v5, v6, v8, v9, v10, v11, v12, v13)
-cdef object method28(v0, v1, v2, v3, numpy.ndarray[object,ndim=1] v4, numpy.ndarray[object,ndim=1] v5, numpy.ndarray[object,ndim=1] v6, numpy.ndarray[object,ndim=1] v7, signed long v8, US2 v9, unsigned char v10, unsigned long v11, US2 v12, unsigned char v13, unsigned long v14):
+cdef object method27(v0, v1, v2, v3, numpy.ndarray[object,ndim=1] v4, numpy.ndarray[object,ndim=1] v5, numpy.ndarray[object,ndim=1] v6, numpy.ndarray[object,ndim=1] v7, signed long v8, US2 v9, unsigned char v10, unsigned long v11, US2 v12, unsigned char v13, unsigned long v14):
     cdef bint v15
     cdef numpy.ndarray[object,ndim=1] v16
     v15 = 0 < v8
@@ -2492,7 +2479,7 @@ cdef object method28(v0, v1, v2, v3, numpy.ndarray[object,ndim=1] v4, numpy.ndar
     else:
         v16 = v5
     return Closure33(v0, v1, v2, v3, v13, v16, v4, v5, v6, v7, v8, v9, v10, v11, v12, v14)
-cdef object method23(v0, v1, v2, v3, numpy.ndarray[object,ndim=1] v4, numpy.ndarray[object,ndim=1] v5, numpy.ndarray[object,ndim=1] v6, numpy.ndarray[object,ndim=1] v7, signed long v8, US2 v9, unsigned char v10, unsigned long v11, US2 v12, unsigned char v13):
+cdef object method22(v0, v1, v2, v3, numpy.ndarray[object,ndim=1] v4, numpy.ndarray[object,ndim=1] v5, numpy.ndarray[object,ndim=1] v6, numpy.ndarray[object,ndim=1] v7, signed long v8, US2 v9, unsigned char v10, unsigned long v11, US2 v12, unsigned char v13):
     cdef bint v14
     cdef numpy.ndarray[object,ndim=1] v15
     v14 = 0 < v8
@@ -2501,17 +2488,17 @@ cdef object method23(v0, v1, v2, v3, numpy.ndarray[object,ndim=1] v4, numpy.ndar
     else:
         v15 = v5
     return Closure23(v0, v1, v2, v3, v13, v15, v4, v5, v6, v7, v8, v9, v10, v11, v12)
-cdef void method29(numpy.ndarray[unsigned long long,ndim=1] v0, unsigned long long v1):
+cdef void method28(numpy.ndarray[unsigned long long,ndim=1] v0, unsigned long long v1):
     cdef bint v2
     cdef unsigned long long v3
     v2 = v1 < 2
     if v2:
         v3 = v1 + 1
         v0[v1] = 0
-        method29(v0, v3)
+        method28(v0, v3)
     else:
         pass
-cdef void method30(numpy.ndarray[object,ndim=1] v0, unsigned long long v1):
+cdef void method29(numpy.ndarray[object,ndim=1] v0, unsigned long long v1):
     cdef bint v2
     cdef unsigned long long v3
     cdef US3 v4
@@ -2521,10 +2508,10 @@ cdef void method30(numpy.ndarray[object,ndim=1] v0, unsigned long long v1):
         v4 = US3_0()
         v0[v1] = v4
         del v4
-        method30(v0, v3)
+        method29(v0, v3)
     else:
         pass
-cdef void method31(numpy.ndarray[unsigned long long,ndim=1] v0, unsigned long long v1):
+cdef void method30(numpy.ndarray[unsigned long long,ndim=1] v0, unsigned long long v1):
     cdef bint v2
     cdef unsigned long long v3
     cdef unsigned long long v4
@@ -2537,15 +2524,15 @@ cdef void method31(numpy.ndarray[unsigned long long,ndim=1] v0, unsigned long lo
         v5 = v0[v4]
         v6 = v5 + 1
         v0[v4] = v6
-        method31(v0, v3)
+        method30(v0, v3)
     else:
         pass
 cpdef void main():
     cdef object v0
     cdef object v1
-    cdef list v2
-    cdef unsigned long long v3
-    cdef str v4
+    cdef object v2
+    cdef object v3
+    cdef object v4
     cdef object v5
     cdef object v6
     cdef object v7
@@ -2560,51 +2547,43 @@ cpdef void main():
     cdef object v16
     cdef object v17
     cdef object v18
-    cdef object v19
-    cdef object v20
-    cdef object v21
     pass # import kivy.app
     v0 = kivy.app.App()
     pass # import nets
     v1 = nets.small(30,64,3)
-    v2 = [None]*100
-    v3 = 0
-    method0(v2, v3)
-    v4 = "".join(v2)
-    del v2
     pass # import rx.subject
-    v5 = Closure0(v1)
+    v2 = Closure0(v1)
     del v1
-    v6 = Closure4()
-    v7 = Closure6()
-    v8 = Closure10()
-    v9 = rx.subject.behaviorsubject.BehaviorSubject(Tuple4(v5, v6, v7, v8, v4))
-    del v4; del v5; del v6; del v7; del v8
+    v3 = Closure4()
+    v4 = Closure6()
+    v5 = Closure10()
+    v6 = rx.subject.behaviorsubject.BehaviorSubject(Tuple4(v2, v3, v4, v5, ""))
+    del v2; del v3; del v4; del v5
     pass # import rx
-    v10 = Closure12(v9)
-    v11 = rx.create(v10)
-    del v10
+    v7 = Closure12(v6)
+    v8 = rx.create(v7)
+    del v7
     pass # import rx
-    v12 = Closure16(v11)
-    del v11
-    v13 = rx.create(v12)
-    del v12
-    pass # import rx
-    v14 = Closure18(v9)
+    v9 = Closure16(v8)
+    del v8
+    v10 = rx.create(v9)
     del v9
-    v15 = rx.create(v14)
-    del v14
     pass # import rx
-    v16 = Closure38(v15)
+    v11 = Closure18(v6)
+    del v6
+    v12 = rx.create(v11)
+    del v11
+    pass # import rx
+    v13 = Closure38(v12)
+    del v12
+    v14 = rx.create(v13)
+    del v13
+    pass # import rx
+    v15 = Closure40(v10, v14)
+    del v10; del v14
+    v16 = rx.create(v15)
     del v15
-    v17 = rx.create(v16)
-    del v16
-    pass # import rx
-    v18 = Closure40(v13, v17)
-    del v13; del v17
-    v19 = rx.create(v18)
-    del v18
-    v20 = Closure42(v0)
-    v21 = v19.subscribe(v20)
-    del v19; del v20; del v21
+    v17 = Closure42(v0)
+    v18 = v16.subscribe(v17)
+    del v16; del v17; del v18
     v0.run()

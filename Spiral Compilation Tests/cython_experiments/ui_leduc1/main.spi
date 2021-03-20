@@ -51,8 +51,6 @@ inl main () =
     inl app = appm.create()
     inl p1 = agent.neural_random.create()
     inl p2 = agent.uniform_random.create()
-    inl text = 
-        r64.init 100 (fun i => $"f\"Line {!i}\\n\"" : string)
-        |> r64.join' ""
+    inl text = ""
     inl _ = rx.subscribe (loop {p1 p2 text} model view) (appm.root app)
     appm.run app
