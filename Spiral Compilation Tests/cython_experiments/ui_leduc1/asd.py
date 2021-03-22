@@ -1,30 +1,40 @@
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.button import Button
 from kivy.uix.label import Label
+from kivy.uix.widget import Widget
+from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.scrollview import ScrollView
 from kivy.core.window import Window
 from kivy.app import runTouchApp
 from kivy.lang import Builder
 
-# Builder.load_string ('''
-# <ScrollableLabel>:
-#     Label:
-#         text: 'some really really long string \\n' * 100
-#         # text_size: self.width, None
-#         size_hint_y: None
-#         height: self.texture_size[1]
+Builder.load_string('''
+<MyWidget>:
+    canvas:
+        Color:
+            rgba: 1,0,0,0.5
+        Rectangle:
+            pos: self.pos
+            size: self.size
+''')
+
+# root = Builder.load_string('''
+# FloatLayout:
+#     canvas:
+#         Color:
+#             rgba: 0,0.8,0,1
+#         Rectangle:
+#             pos: self.pos
+#             size: self.size
+#     MyWidget:
+#         pos_hint: {'top': 0.99, 'right': 0.99}
+#         size_hint: 0.2,0.2
 # ''')
 
-# class ScrollableLabel(ScrollView): pass
+class MyWidget(Widget):
+    pass
 
-# runTouchApp(ScrollableLabel())
+class Root(FloatLayout):
+    pass
 
-layout = Label()
-layout.text = 'really some amazing text\n' * 100
-layout.size_hint_y = None
-def f(c,x): c.height = x[1]
-layout.fbind('texture_size',f)
-
-root = ScrollView()
-root.add_widget(layout)
-runTouchApp(root)
+runTouchApp(Root())

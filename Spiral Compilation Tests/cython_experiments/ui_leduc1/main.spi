@@ -7,6 +7,11 @@ type player = {
     card : string
     }
 
+type state = {
+    p1 : player
+    p2 : player
+    }
+
 inl view dispatch (state : rx.observable _) =
     inl (~+) x = +state x
     boxlayout [
