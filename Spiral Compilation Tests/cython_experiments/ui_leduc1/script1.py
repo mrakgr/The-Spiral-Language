@@ -8,7 +8,20 @@ from kivy.core.window import Window
 from kivy.app import runTouchApp
 from kivy.lang import Builder
 
-Builder.load_string('''
+class MyWidget(Widget): pass
+
+root = Builder.load_string('''
+FloatLayout:
+    canvas:
+        Color:
+            rgba: 0,0.8,0,1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+    MyWidget:
+        pos_hint: {'top': 0.99, 'right': 0.99}
+        size_hint: 0.2,0.2
+
 <MyWidget>:
     canvas:
         Color:
@@ -18,23 +31,4 @@ Builder.load_string('''
             size: self.size
 ''')
 
-# root = Builder.load_string('''
-# FloatLayout:
-#     canvas:
-#         Color:
-#             rgba: 0,0.8,0,1
-#         Rectangle:
-#             pos: self.pos
-#             size: self.size
-#     MyWidget:
-#         pos_hint: {'top': 0.99, 'right': 0.99}
-#         size_hint: 0.2,0.2
-# ''')
-
-class MyWidget(Widget):
-    pass
-
-class Root(FloatLayout):
-    pass
-
-runTouchApp(Root())
+if __name__ == '__main__': runTouchApp(root)
