@@ -4,9 +4,9 @@
 - [News](#news)
 - [1/28/2021](#1282021)
 - [2/5/2021](#252021)
-- [3/17/2021](#3172021)
 - [2/11/2021](#2112021)
 - [2/27/2021](#2272021)
+- [3/17/2021](#3172021)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
     - [Getting Spiral](#getting-spiral)
@@ -70,14 +70,6 @@ The Cython backend is just a bit short of having full TCO support at the moment.
 
 But regardless of which way the winds blow, Spiral will support both backends regardless of my attention and personal interest.
 
-# 3/17/2021
-
-In the last two weeks, I did a major redesign of the editor support segments. Around a thousand lines have been rewritten, and design has been significantly improved. Due to not enough time being spent in testing, at this stage I can't vouch that there aren't any bugs remaining, but if they are, I'll have no trouble fixing them. That is how I know the current design is good. The previous one was too complex, so much that I've opted to just defer whatever bugs I stumbled upon for later. No more of that.
-
-Hopefully, now moving, creating and deleting files in the editor should be completely stable. 
-
-I've changed how records are inferred as well. From here on out as a matter of principle, every time the compiler throws up an exception in the console that should be considered a compiler error in need of fixing. Please report any that you stumble upon.
-
 # 2/11/2021
 
 ```
@@ -110,7 +102,17 @@ Here are the list literals as well. I've also modified the list module `fold` an
 
 In addition to that, the last 3 weeks have seen a lot of development on Spiral. Numerous bug fixes have been made and the language's various features has been thoroughly tested. One particular series of bugs that I haven't dealt with yet is that deleting and renaming files in the editor is broken. At some point I'll have to make time to deal with that. Right now I want to finish the projects I have in mind first though.
 
+# 3/17/2021
+
+In the last two weeks, I did a major redesign of the editor support segments. Around a thousand lines have been rewritten, and design has been significantly improved. Due to not enough time being spent in testing, at this stage I can't vouch that there aren't any bugs remaining, but if they are, I'll have no trouble fixing them. That is how I know the current design is good. The previous one was too complex, so much that I've opted to just defer whatever bugs I stumbled upon for later. No more of that.
+
+Hopefully, now moving, creating and deleting files in the editor should be completely stable. 
+
+I've changed how records are inferred as well. From here on out as a matter of principle, every time the compiler throws up an exception in the console that should be considered a compiler error in need of fixing. Please report any that you stumble upon.
+
 # The Spiral Language
+
+![Spiral Logo](spiral_logo.svg)
 
 ## Overview
 
