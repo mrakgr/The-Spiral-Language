@@ -1,0 +1,26 @@
+packages: |core-
+modules:
+    types-  
+    r64
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    torch/
+        utils-
+    sampling
+    nodes/
+        utils-
+        cps
+        main-
+    leduc
+    agent/
+        utils-
+        uniform_random
+        neural_random
+        human
+    cps_test
+    main
+    
