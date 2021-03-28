@@ -1,0 +1,73 @@
+open kivy
+open lithe
+
+union msg =
+    | UpdateTablePos: f64 * f64
+    | UpdateTableSize: f64 * f64
+    | UpdateMyStackTextureSize: f64 * f64
+    | Action: string * array leduc.action * (leduc.action -> ())
+    | StartGame
+
+type cords = { x : f64; y : f64; width : f64; height : f64 }
+type texture_size = f64 * f64
+type stack = { cords : cords; texture_size : texture_size; chips : i32 }
+type card = { cords : cords; texture_size : texture_size; text : string }
+type table = {
+    cords : cords
+    myStack : stack; myCard : card; myPot : stack
+    opStack : stack; opCard : card; opPot : stack
+    }
+type state = {
+    table : table
+    actions : array leduc.action
+    cont : leduc.action -> ()
+    trace : string
+    }
+
+inl init_state () : state =
+    inl cords = {x=90; y=90; width=90; height=90}
+    inl texture_size = 0,0
+    inl stack = {cords texture_size chips=10}
+    inl pot = {stack with chips=0}
+    inl card = {cords texture_size text=" "}
+    inl table = { 
+        cords
+        myStack = stack; myCard = card; myPot = pot
+        opStack = stack; opCard = card; opPot = pot
+        }
+    {
+    table
+    actions = ;[]
+    cont = fun _ => ()
+    trace = ""
+    }
+
+inl model (s : state) = function
+    | UpdateTablePos: x,y => {s.table.cords with x y}
+    | UpdateTableSize: width,height => {s.table.cords with width height}
+    | UpdateMyStackTextureSize: (a,b) & texture_size => {s.table.myStack with texture_size}
+    | StartGame => s
+
+inl view dispatch (state : rx.observable state) =
+    inl (~+) x = +state x
+    floatlayout [
+        @on_pos (fun _,x => dispatch (UpdateTablePos: x))
+        @on_size (fun _,x => dispatch (UpdateTableSize: x))
+        children [
+            label [
+                +pos (fun {table={cords={x width y height}}} => x + width * 0.075, y + height * 0.075)
+                +text (fun {table={myPot={chips}}} => a64.join' "" ;["Stack: "; $"str(!chips)"])
+                -size_hint (None, None)
+                -font_size 30
+                +size (fun {table={myStack={texture_size}}} => texture_size)
+                @on_texture_size (fun _,x => dispatch (UpdateMyStackTextureSize: x))
+                ]
+            ]
+        ]
+
+inl main () =
+    inl app = appm.create()
+    // inl p1 = agent.neural_random.create()
+    // inl p2 = agent.uniform_random.create()
+    inl _ = rx.subscribe (loop init_state() model view) (appm.root app)
+    appm.run app

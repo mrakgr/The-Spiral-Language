@@ -1,0 +1,11 @@
+nominal scrollview = obj
+
+instance toWidget scrollview = fun (scrollview x) => widget x
+instance toLayout scrollview = fun (scrollview x) => layout_widget x
+inl Create = 
+    !!!!Import("kivy.uix.scrollview")
+    scrollview $"kivy.uix.scrollview.ScrollView()"
+
+instance do_scroll_x scrollview = fun (v : bool) x => $"!x.do_scroll_x = !v"
+instance do_scroll_y scrollview = fun (v : bool) x => $"!x.do_scroll_y = !v"
+

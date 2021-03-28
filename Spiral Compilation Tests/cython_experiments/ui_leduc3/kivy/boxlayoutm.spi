@@ -1,0 +1,12 @@
+nominal boxlayout = obj
+
+instance toWidget boxlayout = fun (boxlayout x) => widget x
+instance toLayout boxlayout = fun (boxlayout x) => layout_widget x
+inl Create = 
+    !!!!Import("kivy.uix.boxlayout")
+    boxlayout $"kivy.uix.boxlayout.BoxLayout()"
+
+instance orientation boxlayout = fun v x => 
+    match v with
+    | Vertical => $"!x.orientation = 'vertical'"
+    | Horizontal => $"!x.orientation = 'horizontal'"

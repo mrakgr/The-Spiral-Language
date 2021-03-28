@@ -1,0 +1,13 @@
+nominal game2p o a r = {
+    terminal : u8 * u32 -> r
+    draw : option u8 -> array o -> (o * array o -> r) -> r
+    action : u8 -> array a -> (a -> r) -> r
+    sample : option u8 -> array o -> (o -> r) -> r
+    }
+
+inl f64 forall t {number}. (x : t) : f64 = $"<`f64>!x"
+
+nominal log_prob = f64
+// Takes in a regular probability in the range (0,1] and converts it to a log one.
+inl to_log_prob prob = log_prob (log prob)
+inl exp_log_prob (log_prob x) = exp x

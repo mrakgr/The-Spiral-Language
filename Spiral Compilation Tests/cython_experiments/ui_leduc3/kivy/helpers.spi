@@ -1,0 +1,12 @@
+open rx
+inl bind0 forall m. (event_name : string) (f : m -> ()) (x : m) =
+    inl f (x : obj) = f $"!x"
+    inl uid : obj = $"!x.fbind(!event_name,!f)"
+    disposablem.create fun () => $"!x.unbind_uid(!event_name,!uid)"
+
+inl bind1 forall m. (event_name : string) (f : m * obj -> ()) (x : m) =
+    inl f (x : tuple) = f ($"!x[0]", $"!x[1]")
+    inl uid : obj = $"!x.fbind(!event_name,!f)"
+    disposablem.create fun () => $"!x.unbind_uid(!event_name,!uid)"
+
+inl tup2 (x : obj) = $"!x[0]", $"!x[1]"

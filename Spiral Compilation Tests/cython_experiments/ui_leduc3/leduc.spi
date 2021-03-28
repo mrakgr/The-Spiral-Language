@@ -1,0 +1,66 @@
+// The Leduc poker game in CPS'd form.
+union action = Fold | Call | Raise
+union card = King | Queen | Jack
+
+type player = {card : card; id : u8; pot : u32}
+type players = player * player
+
+inl compare_hands (community_card : card) (p1,p2 : players) =
+    let tag = function King => 2i32 | Queen => 1 | Jack => 0
+    let a = tag p1.card, tag community_card
+    let b = tag p2.card, tag community_card
+    let is_pair (a,b) = a = b
+    if is_pair a && is_pair b then comp (fst a) (fst b)
+    elif is_pair a then GT
+    elif is_pair b then LT
+    else 
+        let order (a,b) = if a > b then a,b else b,a
+        inl a,b = order a, order b
+        inl x = comp (fst a) (fst b)
+        if eq_is x then comp (snd a) (snd b) else x
+
+inl raiseBy amount (p1,p2 : players) = p2.pot + amount
+
+inl game (game2p {terminal draw action sample}) =
+    inl actionsInit = ;[Call;Raise]
+    inl actionsFull = ;[Fold;Call;Raise]
+    inl actionsNoRaise = ;[Fold;Call]
+    inl deckInit = ;[King; Queen; Jack; King; Queen; Jack]
+
+    inl pot = 1
+    inl id = 0
+    draw (Some: id) deckInit fun (card, deck : card * array card) =>
+    inl p1 = {card id pot}
+
+    inl id = 1
+    draw (Some: id) deck fun card, deck =>
+    inl p2 = {card id pot}
+    
+    let rec round_two (raises_left : i32) (community_card : card) (p1,p2 : players) =
+        action p1.id (if 0 < raises_left then actionsFull else actionsNoRaise) function
+        | Fold => terminal (p2.id, p1.pot)
+        | Call => 
+            inl p1 = {p1 with pot=p2.pot}
+            let x = compare_hands community_card (p1,p2)
+            if gt_is x then terminal (p1.id, p2.pot)
+            elif lt_is x then terminal (p2.id, p1.pot)
+            else terminal (p1.id, 0)
+        | Raise => round_two (raises_left-1) community_card (p2,{p1 with pot=raiseBy 4 (p1,p2)})
+    let round_two_init (p1,p2 : players) =
+        sample (None : _ u8) deck fun card =>
+        action p1.id actionsInit function
+        | Fold => failwith "impossible"
+        | Call => round_two 2 card (p2,p1)
+        | Raise => round_two 1 card (p2,{p1 with pot=raiseBy 4 (p1,p2)})
+    let rec round_one (raises_left : i32) (p1,p2 : players) =
+        action p1.id (if 0 < raises_left then actionsFull else actionsNoRaise) function
+        | Fold => terminal (p2.id, p1.pot)
+        | Call => 
+            inl p1 = {p1 with pot=p2.pot}
+            round_two_init (if p1.id = 0 then p1,p2 else p2,p1)
+        | Raise => round_one (raises_left-1) (p2,{p1 with pot=raiseBy 2 (p1,p2)})
+
+    action p1.id actionsInit function
+    | Fold => failwith "impossible"
+    | Call => round_one 2 (p2,p1)
+    | Raise => round_one 1 (p2,{p1 with pot=raiseBy 2 (p1,p2)})

@@ -1,0 +1,7 @@
+nominal floatlayout = obj
+
+instance toWidget floatlayout = fun (floatlayout x) => widget x
+instance toLayout floatlayout = fun (floatlayout x) => layout_widget x
+inl Create =
+    !!!!Import("kivy.uix.floatlayout")
+    floatlayout $"kivy.uix.floatlayout.FloatLayout()"

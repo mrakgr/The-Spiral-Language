@@ -1,0 +1,8 @@
+nominal textinput = obj
+
+instance toWidget textinput = fun (textinput x) => widget x
+inl Create = 
+    !!!!Import("kivy.uix.textinput")
+    textinput $"kivy.uix.textinput.TextInput()"
+instance text textinput = fun (v : string) x => $"!x.text = !v"
+
