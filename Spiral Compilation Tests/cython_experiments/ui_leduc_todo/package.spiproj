@@ -2,22 +2,6 @@ packages: |core-
 modules:
     types-  
     r64
-    rx/
-        types-
-        disposablem
-        subjectm
-        main-
-    kivy/
-        types-
-        helpers
-        appm
-        buttonm
-        labelm
-        boxlayoutm
-        textinputm
-        scrollviewm  
-    lithe/
-        utils-
     serialization/
         dense/
             array
@@ -38,5 +22,5 @@ modules:
         neural_random
         human
     cps_test
-    ui_test
+    main
     

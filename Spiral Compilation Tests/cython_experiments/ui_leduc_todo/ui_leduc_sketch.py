@@ -142,19 +142,4 @@ BoxLayout:
         on_press: print(root.ids)
 ''')
 
-# root = Builder.load_string('''
-# FloatLayout:
-#     Stack: # Stack
-#         id: my_stack
-#         # canvas:
-#         #     Line: 
-#         #         rectangle: self.x, self.y, self.width, self.height
-#         text: 'Stack: ' + str(self.chips)
-#         x: root.x + root.width * 0.075
-#         y: root.y + root.height * 0.075
-#         font_size: sp(30)
-#         size_hint: None, None
-#         size: self.texture_size
-# ''')
-
 if __name__ == '__main__': runTouchApp(root)

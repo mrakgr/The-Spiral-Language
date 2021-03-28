@@ -2,19 +2,52 @@ open kivy
 open lithe
 
 union msg =
-    // | Action: string * array a * (a -> ())
+    | Action: string * array leduc.action * (leduc.action -> ())
     | StartGame
 
-type state (a : * -> * -> *) (b : * -> * -> *) = {
-    p1 : nodes.player_funs a leduc.card leduc.action f64
-    p2 : nodes.player_funs b leduc.card leduc.action f64
-    text : string
+// type state (a : * -> * -> *) (b : * -> * -> *) = {
+//     p1 : nodes.player_funs a leduc.card leduc.action f64
+//     p2 : nodes.player_funs b leduc.card leduc.action f64
+//     text : string
+//     }
+
+type cords = { x : f64; y : f64; width : f64; height : f64 }
+type stack = { cords : cords; texture_size : f64 * f64; chips : i32 }
+type card = { cords : cords; texture_size : f64 * f64; text : string }
+type table = {
+    cords : cords
+    myStack : stack; myCard : card; myPot : stack
+    opStack : stack; opCard : card; opPot : stack
+    }
+type state = {
+    table : table
+    actions : array leduc.action
+    cont : leduc.action -> ()
+    trace : string
     }
 
-inl model (s : state _ _) = function
+inl init_state () : state =
+    inl cords = {x=0; y=0; width=0; height=0}
+    inl texture_size = 0,0
+    inl stack = {cords texture_size chips=10}
+    inl pot = {stack with chips=0}
+    inl card = {cords texture_size text=" "}
+    inl table = { 
+        cords
+        myStack = stack; myCard = card; myPot = pot
+        opStack = stack; opCard = card; opPot = pot
+        }
+    {
+    table = table
+    actions = ;[]
+    cont = fun _ => ()
+    trace = ""
+    }
+
+inl model (s : state) = function
     | StartGame => s
 
-inl view dispatch (state : rx.observable (state _ _)) =
+inl view dispatch (state : rx.observable state) =
     inl (~+) x = +state x
     boxlayout [
         -orientation Vertical

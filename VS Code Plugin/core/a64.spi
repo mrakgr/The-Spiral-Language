@@ -1,6 +1,8 @@
 // The 64-bit array module.
 open loop
 
+// Concatenates an array of strings. Python only.
+inl join' (sep : string) (l : array string) : string = $"!sep.join(!l)"
 // Creates an array.
 inl create forall t. (size : u64) : array t = !!!!ArrayU64Create(`t,size)
 // Indexes into an array.

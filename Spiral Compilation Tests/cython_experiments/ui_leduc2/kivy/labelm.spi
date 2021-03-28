@@ -1,0 +1,15 @@
+nominal label = obj
+
+instance toWidget label = fun (label x) => widget x
+inl Create = 
+    !!!!Import("kivy.uix.label")
+    label $"kivy.uix.label.Label()"
+instance text label = fun (v : string) x => $"!x.text = !v"
+instance text_size label = fun (a,b) x => $"!x.text_size = (!a,!b)"
+instance font_size label = fun v x =>
+    !!!!Import("kivy.metrics")
+    $"!x.font_size = kivy.metrics.sp(!v)"
+instance font_name label = fun v x => $"!x.font_name = !v"
+
+open helpers
+instance on_texture_size label = fun f => bind1 "texture_size" (fun a,b => f (a,tup2 b))

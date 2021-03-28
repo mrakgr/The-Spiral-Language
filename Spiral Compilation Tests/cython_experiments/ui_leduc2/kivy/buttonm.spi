@@ -1,0 +1,16 @@
+nominal button = obj
+
+instance toWidget button = fun (button x) => widget x
+inl Create = 
+    !!!!Import("kivy.uix.button")
+    button $"kivy.uix.button.Button()"
+instance text button = fun v x => $"!x.text = !v"
+instance font_size button = fun v x => 
+    !!!!Import("kivy.metrics")
+    $"!x.font_size = kivy.metrics.sp(!v)"
+instance font_name button = fun v x => $"!x.font_name = !v"
+
+open rx
+open helpers
+instance on_texture_size button = fun f => bind1 "texture_size" (fun a,b => f (a,tup2 b))
+instance on_press button = bind0 "on_press"

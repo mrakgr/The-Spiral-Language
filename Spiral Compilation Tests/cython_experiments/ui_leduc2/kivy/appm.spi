@@ -1,0 +1,5 @@
+inl Create = 
+    !!!!Import("kivy.app")
+    app $"kivy.app.App()"
+inl root (x : app) v : () = inl v = toWidget v in $"!x.root = !v"
+inl run (x : app) : () = $"!x.run()"

@@ -1,0 +1,56 @@
+open kivy
+open lithe
+
+union msg =
+    | Clicked
+
+type state (a : * -> * -> *) (b : * -> * -> *) = {
+    p1 : nodes.player_funs a leduc.card leduc.action f64
+    p2 : nodes.player_funs b leduc.card leduc.action f64
+    text : string
+    }
+
+inl model (s : state _ _) = function
+    | Clicked => 
+        open nodes
+        inl Empty = player {probSelf=to_log_prob 1; observations=Nil; state=agent.stateless()} |> dyn
+        inl r = leduc.game (nodes.cps.nodes_2p (s.p1, s.p2)) ((Empty,Empty),dyn id)
+        inl ts = $"f\"Reward for player one is {!r}.\\n\"" : string
+        {s with text#=fun t => $"!t + !ts"}
+
+inl view dispatch (state : rx.observable (state _ _)) =
+    inl (~+) x = +state x
+    boxlayout [
+        -orientation Vertical
+        children [
+            scrollview [
+                -do_scroll_x false
+                -do_scroll_y true
+                children [
+                    label [
+                        -size_hint_y None
+                        @on_texture_size (fun (l,(_,v)) => $"!l.height = !v")
+                        +text fun {text} => text
+                        ]
+                    ]
+                ]
+            boxlayout [
+                -orientation Horizontal
+                -size_hint_y (Some: 0.2)
+                children [
+                    button [
+                        -text "Start Game."
+                        @on_press (fun _ => dispatch Clicked)
+                        ]
+                    ]
+                ]
+            ]
+        ]
+
+inl main () =
+    inl app = appm.create()
+    inl p1 = agent.neural_random.create()
+    inl p2 = agent.uniform_random.create()
+    inl text = ""
+    inl _ = rx.subscribe (loop {p1 p2 text} model view) (appm.root app)
+    appm.run app

@@ -1,20 +1,25 @@
-// The 32-bit array module.
+// Python's list module.
 open loop
 
-// Concatenates an array of strings. Python only.
-inl join' (sep : string) (l : array string) : string = $"!sep.join(!l)"
+// Concatenates an array of strings.
+inl join' (sep : string) (l : rarray string) : string = $"!sep.join(!l)"
+// Appends to an array.
+inl add forall a. (l : rarray a) (x : a) : () = $"!l.append(!x)"
 // Creates an array.
-inl create forall t. (size : u32) : array t = !!!!ArrayU32Create(`t,size)
+inl create forall a. (size : u64) : rarray a = $"[None]*!size"
 // Indexes into an array.
-inl index forall t. (ar : array t) (i : u32) : t = !!!!ArrayU32Index(ar,i)
+inl index forall a. (l : rarray a) (i : u64) : a = $"!l[!i]"
 // Sets the value of an array at the specified index.
-inl set forall t. (ar : array t) (i : u32) (v : t) : () = !!!!ArrayU32IndexSet(ar,i,v)
+inl set forall a. (l : rarray a) (i : u64) (v : a) : () = $"!l[!i] = !v"
 // Returns the length of an array.
-inl length forall t. (ar : array t) : u32 = !!!!ArrayU32Length(ar)
+inl length forall a. (l : rarray a) : u64 = $"len(!l)"
 // Creates an empty array.
-inl empty forall t. : array t = ;[]
+inl empty forall t. : rarray t = $"[]"
 // Creates an array with a single element.
-inl singleton x = ;[x]
+inl singleton forall t. (x : t) : rarray t = $"[!x]"
+
+// -------
+
 // Initializes array using the given function.
 inl init nearTo f = 
     inl ar = create nearTo
@@ -97,17 +102,13 @@ inl forall2 f x1 x2 =
 // Removes the element at index.
 inl removeAtIndex i dist = init (length dist-1) (fun i' => index dist (if i <= i' then i'+1 else i'))
 
-nominal array32 t = array t
-inl wrap x = array32 x
-inl unwrap (array32 x) = x
-
-instance equable array32 t = fun (array32 x1) (array32 x2) => 
+instance equable rarray t = fun x1 x2 => 
     if length x1 <> length x2 then false
     else
         let rec loop i = if i < length x1 then index x1 i = index x2 i && loop (i+1) else true
         loop 0
 
-instance comparable array32 t = fun (array32 x1) (array32 x2) => 
+instance comparable rarray t = fun x1 x2 => 
     if length x1 < length x2 then LT
     elif length x1 > length x2 then GT
     else

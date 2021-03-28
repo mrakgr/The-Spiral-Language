@@ -1,0 +1,63 @@
+type obj = $"object"
+nominal widget = obj
+nominal layout_widget = obj
+nominal app = obj
+
+prototype toWidget m : m -> widget
+prototype toLayout m : m -> layout_widget
+instance toWidget widget = id
+
+inl addWidget (w : widget) (i : u64) x = inl x = toLayout x in $"!x.add_widget(!w,!i)"
+inl removeWidget (w : widget) x = inl x = toLayout x in $"!x.remove_widget(!w)"
+inl clearWidgets x = inl x = toLayout x in $"!x.clear_widgets()"
+
+inl size_hint_x (v : option f64) x = 
+    inl x = toWidget x
+    match v with
+    | Some: v => $"!x.size_hint_x = !v"
+    | None => $"!x.size_hint_x = None"
+inl size_hint_y (v : option f64) x = 
+    inl x = toWidget x
+    match v with
+    | Some: v => $"!x.size_hint_y = !v"
+    | None => $"!x.size_hint_y = None"
+inl size_hint (v : option f64 * option f64) x = 
+    inl x = toWidget x
+    match v with
+    | (Some: a), (Some: b) => $"!x.size_hint = !a,!b"
+    | (Some: a), None => $"!x.size_hint = !a,None"
+    | None, (Some: b) => $"!x.size_hint = None,!b"
+    | None, None => $"!x.size_hint = None,None"
+inl pos_hint (v : option f64 * option f64) x = 
+    inl x = toWidget x
+    match v with
+    | (Some: a), (Some: b) => $"!x.pos_hint = {'x':!a, 'y':!b}"
+    | (Some: a), None => $"!x.pos_hint = {'x':!a, 'y':None}"
+    | None, (Some: b) => $"!x.pos_hint = {'x':None, 'y':!b}"
+    | None, None => $"!x.pos_hint = {'x':None, 'y':None}"
+inl x (v : f64) x = inl x = toWidget x in $"!x.x = !v"
+inl y (v : f64) x = inl x = toWidget x in $"!x.y = !v"
+inl width (v : f64) x = inl x = toWidget x in $"!x.width = !v"
+inl height (v : f64) x = inl x = toWidget x in $"!x.height = !v"
+inl pos (a,b : f64 * f64) x = inl x = toWidget x in $"!x.pos = !a,!b"
+inl size (a,b : f64 * f64) x = inl x = toWidget x in $"!x.size = !a,!b"
+prototype text_size m : (f64 * f64) -> m -> ()
+prototype do_scroll_x m : bool -> m -> ()
+prototype do_scroll_y m : bool -> m -> ()
+
+union orientation = Vertical | Horizontal
+prototype orientation m : orientation -> m -> ()
+prototype text m : string -> m -> ()
+prototype font_size m : f64 -> m -> ()
+prototype font_name m : string -> m -> ()
+
+open rx
+prototype on_press m : (m -> ()) -> m -> disposable
+prototype on_texture_size m : (m * f64 * f64 -> ()) -> m -> disposable
+open helpers
+inl on_x forall a {toWidget}. f (x : a) = bind1 "x" (fun a,b => f (a, $"!b" : _ * f64)) x
+inl on_y forall a {toWidget}. f (x : a) = bind1 "y" (fun a,b => f (a, $"!b" : _ * f64)) x
+inl on_width forall a {toWidget}. f (x : a) = bind1 "width" (fun a,b => f (a, $"!b" : _ * f64)) x
+inl on_height forall a {toWidget}. f (x : a) = bind1 "height" (fun a,b => f (a, $"!b" : _ * f64)) x
+inl on_size forall a {toWidget}. f (x : a) = bind1 "size" (fun a,b => f (a, tup2 b : _ * f64 * f64)) x
+inl on_pos forall a {toWidget}. f (x : a) = bind1 "pos" (fun a,b => f (a, tup2 b : _ * f64 * f64)) x

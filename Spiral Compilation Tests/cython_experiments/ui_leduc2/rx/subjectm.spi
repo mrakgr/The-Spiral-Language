@@ -1,0 +1,13 @@
+inl Create = 
+    !!!!Import("rx.subject")
+    subject $"rx.subject.subject.Subject()"
+
+nominal behavior_subject a = obj
+inl behavior forall t. (init : t) : behavior_subject t = 
+    !!!!Import("rx.subject")
+    behavior_subject $"rx.subject.behaviorsubject.BehaviorSubject(!init)"
+
+instance toObservable behavior_subject = fun (behavior_subject x) => observable x
+instance toObserver behavior_subject = fun (behavior_subject x) => observer x
+instance toSubject behavior_subject = fun (behavior_subject x) => subject x
+inl value forall t. (x : behavior_subject t) : t = $"!x.value"
