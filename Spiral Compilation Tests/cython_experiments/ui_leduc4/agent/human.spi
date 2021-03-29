@@ -23,7 +23,7 @@ let rec show_trace l =
 
 open nodes
 inl create dispatch = player_funs {
-    action = fun (player p : player replay card action) opp_prob dist next => 
+    action = fun _ (player p : player replay card action) opp_prob dist next => 
         dispatch (show_trace p.observations, dist, fun x => next ((log_prob 0,x),p.state))
     terminal = fun (player {observations probSelf state=(replay rep)}) (reward: probOpp:) =>
         r64.add rep {observations reward probOpp probSelf=exp_log_prob probSelf}

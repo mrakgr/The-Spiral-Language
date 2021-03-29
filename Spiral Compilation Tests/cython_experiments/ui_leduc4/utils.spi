@@ -1,7 +1,7 @@
-nominal game2p o a r = {
+nominal game2p game_state o a r = {
     terminal : u8 * u32 -> r
     draw : option u8 -> array o -> (o * array o -> r) -> r
-    action : u8 -> array a -> (a -> r) -> r
+    action : game_state -> u8 -> array a -> (a -> r) -> r
     sample : option u8 -> array o -> (o -> r) -> r
     }
 

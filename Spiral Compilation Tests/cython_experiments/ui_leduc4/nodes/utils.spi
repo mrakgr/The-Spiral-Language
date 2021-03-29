@@ -1,7 +1,7 @@
 union observation o a = Observation: o | Action: a
 nominal player (p : * -> * -> *) o a = { probSelf : log_prob; observations : list (observation o a); state : p o a }
-nominal player_funs (p : * -> * -> *) o a r = {
-    action : player p o a -> log_prob -> array a -> ((log_prob * a) * p o a -> r) -> r
+nominal player_funs game_state (p : * -> * -> *) o a r = {
+    action : game_state -> player p o a -> log_prob -> array a -> ((log_prob * a) * p o a -> r) -> r
     terminal : player p o a -> (Reward: f64 probOpp: f64) -> ()
     }
 type pl2 (p1 : * -> * -> *) (p2 : * -> * -> *) o a = player p1 o a * player p2 o a

@@ -1,9 +1,11 @@
-inl main () =
+inl main () : () =
+    !!!!Import("ui_leduc")
     inl p1 = agent.neural_random.create()
     inl p2 = agent.uniform_random.create()
-    loop.for' (from:0u32 nearTo:100) (fun i =>
+    inl root : obj = $"ui_leduc.root"
+    inl f (): () =
         open nodes
         inl Empty = player {probSelf=to_log_prob 1; observations=Nil; state=agent.stateless()} |> dyn
         inl r = leduc.game (nodes.cps.nodes_2p (p1, p2)) ((Empty,Empty),dyn id)
-        $"print(\"Reward for player one at iteration \", !i, \" is \", !r)" : ()
-        )
+        $"!root.trace += f\"Reward for player one is {!r}.\\n\""
+    $"ui_leduc.start_game(!f)"
