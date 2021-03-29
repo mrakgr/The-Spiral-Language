@@ -3,19 +3,9 @@ nominal widget = obj
 nominal layout_widget = obj
 nominal app = obj
 nominal prop a = {
-    read : () -> a
+    get : () -> a
     set : a -> ()
-    subscribe : (a -> ()) -> rx.disposable
-    }
-
-inl (<<;) (prop a) (prop b) = prop {
-    read = fun () => a.read(), b.read()
-    set = fun a',b' => a.set a' . b.set b'
-    subscribe = fun f =>
-        inl f _ = f (a.read(), b.read())
-        inl c = rx.disposablem.composite()
-        rx.push c (a.subscribe f) . rx.push c (b.subscribe f)
-        rx.toDisposable c
+    obs : rx.observable a
     }
 
 prototype toWidget m : m -> widget
@@ -28,53 +18,45 @@ inl clearWidgets x = inl x = toLayout x in $"!x.clear_widgets()"
 
 open helpers
 inl size_hint_x forall t {toWidget}. (x : t) =
-    prop {
-        set = fun (v : option f64) =>
-            match v with
+    inl m x = if $"!x is None" then None else Some: x
+    inl get () : option f64 = m $"!x.size_hint_x"
+    prop { get set = function
             | Some: v => $"!x.size_hint_x = !v"
             | None => $"!x.size_hint_x = None"
-        read = fun () =>
-            inl x = $"!x.size_hint_x"
-            if $"!x is None" then None else Some: x
-        subscribe = fun f => bind1 "size_hint_x" (fun _,b => f $"!b") x
+        obs = prop1 "size_hint_x" get m x
         }
 inl size_hint_y forall t {toWidget}. (x : t) =
-    prop {
-        set = fun (v : option f64) =>
-            match v with
+    inl m x = if $"!x is None" then None else Some: x
+    inl get () : option f64 = m $"!x.size_hint_y"
+    prop { get set = function
             | Some: v => $"!x.size_hint_y = !v"
             | None => $"!x.size_hint_y = None"
-        read = fun () =>
-            inl x = $"!x.size_hint_y"
-            if $"!x is None" then None else Some: x
-        subscribe = fun f => bind1 "size_hint_y" (fun _,b => f $"!b") x
+        obs = prop1 "size_hint_y" get m x
         }
 inl size_hint forall t {toWidget}. (x : t) =
-    prop {
-        set = fun (v : option f64 * option f64) =>
-            match v with
+    inl m (a,b) =
+        inl a = if $"!a is None" then None else Some: a
+        inl b = if $"!b is None" then None else Some: b
+        a,b
+    inl get () = m (tup2 $"!x.size_hint")
+    prop { get set = function
             | (Some: a), (Some: b) => $"!x.size_hint = !a,!b"
             | (Some: a), None => $"!x.size_hint = !a,None"
             | None, (Some: b) => $"!x.size_hint = None,!b"
             | None, None => $"!x.size_hint = None,None"
-        read = fun () =>
-            inl a,b = tup2 $"!x.size_hint"
-            inl a = if $"!a is None" then None else Some: a
-            inl b = if $"!b is None" then None else Some: b
-            a,b
-        subscribe = fun f => bind1 "size_hint_y" (fun _,b => f (tup2 b)) x
+        obs = prop1 "size_hint" get m x
         }
-inl pos_hint forall t {toWidget}. (x : t) =
-    prop {
-        set = fun (v : option f64 * option f64) =>
-            match v with
-            | (Some: a), (Some: b) => $"!x.pos_hint = {'x':!a, 'y':!b}"
-            | (Some: a), None => $"!x.pos_hint = {'x':!a, 'y':None}"
-            | None, (Some: b) => $"!x.pos_hint = {'x':None, 'y':!b}"
-            | None, None => $"!x.pos_hint = {'x':None, 'y':None}"
-        read = fun () => failwith "TODO"
-        subscribe = fun f => failwith "TODO"
-        }
+// inl pos_hint forall t {toWidget}. (x : t) =
+//     prop {
+//         set = fun (v : option f64 * option f64) =>
+//             match v with
+//             | (Some: a), (Some: b) => $"!x.pos_hint = {'x':!a, 'y':!b}"
+//             | (Some: a), None => $"!x.pos_hint = {'x':!a, 'y':None}"
+//             | None, (Some: b) => $"!x.pos_hint = {'x':None, 'y':!b}"
+//             | None, None => $"!x.pos_hint = {'x':None, 'y':None}"
+//         get = fun () => failwith "TODO"
+//         obs = failwith "TODO"
+//         }
 inl x forall t {toWidget}. (x : t) =
     prop {
         set = fun (v : f64) => $"!x.x = !v"

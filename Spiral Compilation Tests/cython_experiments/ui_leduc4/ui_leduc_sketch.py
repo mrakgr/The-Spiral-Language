@@ -24,8 +24,7 @@ root = Builder.load_string('''
             Line: 
                 rectangle: self.x, self.y, self.width, self.height
         text: 'Stack: ' + str(self.chips)
-        x: root.x + root.width * 0.075
-        y: root.y + root.height * 0.075
+        pos_hint: {'x': 0.075, 'y': 0.075}
         font_size: sp(30)
         size_hint: None, None
         size: self.texture_size
@@ -49,8 +48,7 @@ root = Builder.load_string('''
         color: 1,0,0,1
         font_name: 'RobotoMono-Regular'
         text: ' '
-        x: root.x + root.width * 0.6
-        y: root.y + root.height * 0.925 - self.height
+        pos_hint: {'x': 0.65, 'top': 0.925}
         font_size: sp(70)
         size_hint: None, None
         size: self.texture_size
@@ -60,19 +58,19 @@ root = Builder.load_string('''
                 rectangle: self.x, self.y, self.width, self.height
         text: 'Stack: ' + str(self.chips)
         x: op_card.right + dp(20)
-        y: op_card.top - self.height
+        top: op_card.top
         font_size: sp(30)
         size_hint: None, None
         size: self.texture_size
     Label: # Card
+        id: community_card
         canvas:
             Line: 
                 rectangle: self.x, self.y, self.width, self.height
         color: 1,0,0,1
         font_name: 'RobotoMono-Regular'
         text: 'Q'
-        x: root.center_x - self.width/2
-        y: root.center_y - self.height/2
+        pos_hint: {'center_x': 0.5, 'center_y': 0.5}
         font_size: sp(70)
         size_hint: None, None
         size: self.texture_size
@@ -81,8 +79,8 @@ root = Builder.load_string('''
             Line: 
                 rectangle: self.x, self.y, self.width, self.height
         text: 'Pot: ' + str(self.chips)
-        x: root.center_x - self.width / 2
-        y: root.y + root.height / 4
+        pos_hint: {'center_x': 0.5}
+        top: community_card.y - dp(10)
         font_size: sp(30)
         size_hint: None, None
         size: self.texture_size
@@ -91,8 +89,8 @@ root = Builder.load_string('''
             Line: 
                 rectangle: self.x, self.y, self.width, self.height
         text: 'Pot: ' + str(self.chips)
-        x: root.center_x - self.width / 2
-        y: root.y + root.height * 3 / 4 - self.height
+        pos_hint: {'center_x': 0.5}
+        y: community_card.top + dp(10)
         font_size: sp(30)
         size_hint: None, None
         size: self.texture_size
@@ -139,7 +137,6 @@ BoxLayout:
         text: 'Start Game'
         font_size: sp(50)
         size_hint_y: 0.15
-        on_press: print(root.ids)
 ''')
 
 if __name__ == '__main__': runTouchApp(root)

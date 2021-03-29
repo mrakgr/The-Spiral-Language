@@ -9,6 +9,19 @@ inl filter forall a. (f : a -> bool) : observable a -> observable a =
     $"rx.operators.filter(!f)"
 inl subscribe forall t. (x : observable t) (on_succ : t -> ()) = disposable $"!x.subscribe(!on_succ)"
 inl dispose (disposable x) : () = $"!x.dispose()"
+inl combineLatest2 forall a b. (a : observable a) (b : observable b) : observable (a * b) =
+    !!!!Import("rx")
+    $"rx.observable_latest(!a,!b)"
+inl combineLatest3 forall a b c. (a : observable a) (b : observable b) (c : observable c) : observable (a * b * c) =
+    !!!!Import("rx")
+    $"rx.observable_latest(!a,!b,!c)"
+inl combineLatest4 forall a b c d. (a : observable a) (b : observable b) (c : observable c) (d : observable d) : observable (a * b * c * d) =
+    !!!!Import("rx")
+    $"rx.observable_latest(!a,!b,!c,!d)"
+inl combineLatest5 forall a b c d e. (a : observable a) (b : observable b) (c : observable c) (d : observable d) (e : observable d) : observable (a * b * c * d * e) =
+    !!!!Import("rx")
+    $"rx.observable_latest(!a,!b,!c,!d,!e)"
+
 inl create forall a. (f : observer a -> disposable) : observable a = 
     !!!!Import("rx")
     inl f (x : tuple) = f $"!x[0]" 
