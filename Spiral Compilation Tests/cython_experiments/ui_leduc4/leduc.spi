@@ -2,8 +2,9 @@
 union action = Fold | Call | Raise
 union card = King | Queen | Jack
 
-type player = {card : card; id : u8; pot : u32}
+type player = {card : card; id : u8; pot : i32}
 type players = player * player
+type game_state = player * player * option card
 
 inl compare_hands (community_card : card) (p1,p2 : players) =
     let tag = function King => 2i32 | Queen => 1 | Jack => 0
@@ -35,16 +36,29 @@ inl game (game2p {terminal draw action sample}) =
     inl id = 1
     draw (Some: id) deck fun card, deck =>
     inl p2 = {card id pot}
+
+    inl terminal ((p1 : player),(p2 : player),card) (i,r) = 
+        inl r = if i = 0 then r else -r
+        inl p1,p2 = if p1.id = 0 then p1,p2 else p2,p1
+        terminal ({p1 with pot#=(+) r}, {p2 with pot#=(+) -r}, card) (f64 r)
+
+    inl actions (p1,p2 : players) raises_left =
+        if 0 < raises_left then 
+            if p1.pot = p2.pot then actionsInit 
+            else actionsFull 
+        else actionsNoRaise
     
     let rec round_two (raises_left : i32) (community_card : card) (p1,p2 : players) =
-        action (p1,p2,(Some: community_card)) p1.id (if 0 < raises_left then actionsFull else actionsNoRaise) function
-        | Fold => terminal (p2.id, p1.pot)
+        inl s = p1,p2,(Some: community_card)
+        action s p1.id (actions (p1,p2) raises_left) function
+        | Fold => terminal s (p2.id, p1.pot)
         | Call => 
             inl p1 = {p1 with pot=p2.pot}
+            inl s = p1,p2,(Some: community_card)
             let x = compare_hands community_card (p1,p2)
-            if gt_is x then terminal (p1.id, p2.pot)
-            elif lt_is x then terminal (p2.id, p1.pot)
-            else terminal (p1.id, 0)
+            if gt_is x then terminal s (p1.id, p2.pot)
+            elif lt_is x then terminal s (p2.id, p1.pot)
+            else terminal s (p1.id, 0)
         | Raise => round_two (raises_left-1) community_card (p2,{p1 with pot=raiseBy 4 (p1,p2)})
     let round_two_init (p1,p2 : players) =
         sample (None : _ u8) deck fun community_card =>
@@ -53,9 +67,10 @@ inl game (game2p {terminal draw action sample}) =
         | Call => round_two 2 community_card (p2,p1)
         | Raise => round_two 1 community_card (p2,{p1 with pot=raiseBy 4 (p1,p2)})
     let rec round_one (raises_left : i32) (p1,p2 : players) =
-        action (p1,p2,None) p1.id (if 0 < raises_left then actionsFull else actionsNoRaise) function
-        | Fold => terminal (p2.id, p1.pot)
-        | Call => 
+        inl s = p1,p2,None
+        action s p1.id (actions (p1,p2) raises_left) function
+        | Fold => terminal s (p2.id, p1.pot)
+        | Call =>
             inl p1 = {p1 with pot=p2.pot}
             round_two_init (if p1.id = 0 then p1,p2 else p2,p1)
         | Raise => round_one (raises_left-1) (p2,{p1 with pot=raiseBy 2 (p1,p2)})

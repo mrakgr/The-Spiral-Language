@@ -11,6 +11,7 @@ modules:
     torch/
         utils-
     sampling
+    game-
     nodes/
         utils-
         cps

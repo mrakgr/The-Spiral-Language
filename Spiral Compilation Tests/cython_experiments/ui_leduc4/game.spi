@@ -1,0 +1,6 @@
+nominal game2p game_state o a r = {
+    terminal : game_state -> f64 -> r
+    draw : option u8 -> array o -> (o * array o -> r) -> r
+    action : game_state -> u8 -> array a -> (a -> r) -> r
+    sample : option u8 -> array o -> (o -> r) -> r
+    }

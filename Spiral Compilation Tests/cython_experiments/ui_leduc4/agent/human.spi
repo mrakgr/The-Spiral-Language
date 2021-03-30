@@ -6,10 +6,11 @@ let show_card = function
     | Queen => "Queen"
     | Jack => "Jack"
 
-let rec show_trace l =
+let rec show_trace (l, r) =
     inl ar : rarray string = r64.empty
-    listm.fold (fun is_first => function
-        | Observation: x => 
+    listm.foldBack (fun x is_first =>
+        match x with
+        | Observation: x =>
             inl o = show_card x
             r64.add ar $"f'Observed {!o}.'"
             true
@@ -18,13 +19,20 @@ let rec show_trace l =
             inl a = match x with Fold => "folds" | Call => "calls" | Raise => "raises"
             r64.add ar $"f'{!p} {!a}.'"
             not is_first
-        ) true l |> ignore
+        ) l true |> ignore
+    match r with
+    | Some: (r : f64) =>
+        if 0 < r then $"f\"Player wins {!r} chips.\""
+        elif 0 = r then "Player draws."
+        else $"f\"Player loses {!r} chips.\""
+        |> r64.add ar
+    | None => ()
     r64.join' "\n" ar
 
 open nodes
 inl create dispatch = player_funs {
-    action = fun _ (player p : player replay card action) opp_prob dist next => 
-        dispatch (show_trace p.observations, dist, fun x => next ((log_prob 0,x),p.state))
-    terminal = fun (player {observations probSelf state=(replay rep)}) (reward: probOpp:) =>
-        r64.add rep {observations reward probOpp probSelf=exp_log_prob probSelf}
+    action = fun s (player p : player stateless card action) opp_prob dist next => 
+        dispatch ((s, p.observations, None), dist, fun x => next ((log_prob 0,x),p.state))
+    terminal = fun s (player p) r =>
+        dispatch ((s, p.observations, (Some: r)), ;[], fun x => ())
     } 

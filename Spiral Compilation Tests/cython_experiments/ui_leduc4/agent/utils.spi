@@ -1,3 +1,3 @@
 nominal stateless o a = ()
-type replay_element o a = {observations : list (nodes.observation o a); reward : f64; probSelf : f64; probOpp : f64}
-nominal replay o a = rarray (replay_element o a)
+// type replay_element o a = {observations : list (nodes.observation o a); reward : f64; probSelf : f64; probOpp : f64}
+// nominal replay o a = rarray (replay_element o a)

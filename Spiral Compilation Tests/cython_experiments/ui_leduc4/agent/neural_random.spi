@@ -28,5 +28,5 @@ inl Create =
         process >> runMasked {input output net = $"nets.small(!c,!b,!a)"}
     player_funs {
         action = fun _ (p : _ stateless card action) opp_prob dist next => next (net (observations p) dist,state p)
-        terminal = fun p r => ()
+        terminal = fun s p r => ()
         } 

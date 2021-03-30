@@ -2,7 +2,7 @@ union observation o a = Observation: o | Action: a
 nominal player (p : * -> * -> *) o a = { probSelf : log_prob; observations : list (observation o a); state : p o a }
 nominal player_funs game_state (p : * -> * -> *) o a r = {
     action : game_state -> player p o a -> log_prob -> array a -> ((log_prob * a) * p o a -> r) -> r
-    terminal : player p o a -> (Reward: f64 probOpp: f64) -> ()
+    terminal : game_state -> player p o a -> f64 -> ()
     }
 type pl2 (p1 : * -> * -> *) (p2 : * -> * -> *) o a = player p1 o a * player p2 o a
 
@@ -16,7 +16,7 @@ inl apply_changes (player x) ((prob,a),state) = player {x with state observation
 
 inl sample_players_update pid (prob,x) (p1,p2) =
     match pid with
-    | Some: pid => 
+    | Some: pid =>
         let update pid' p = if pid = pid' then apply_prob_observation p (prob,x) else p
         update 0 p1, update 1 p2
     | None =>

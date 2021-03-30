@@ -13,22 +13,21 @@ from kivy.lang import Builder
 class Stack(Label):
     chips = NumericProperty(0)
 
-init_data = {'my_card': 'K', 'op_card': 'Q', 'my_pot': 0, 'community_card': ' ', 'op_pot': 0}
+init_data = {'my_card': ' ', 'op_card': ' ', 'my_pot': 0, 'community_card': ' ', 'op_pot': 0}
 class Table(FloatLayout):
-    data = DictProperty(init_data)
+    data = ObjectProperty(init_data)
 
-def do_nothing(): pass
-init_actions = {'call': do_nothing, 'fold': do_nothing, 'raise': False}
+init_actions = {'call': False, 'fold': False, 'raise': False}
 class Actions(BoxLayout):
-    actions = DictProperty(init_actions)
+    actions = ObjectProperty(init_actions)
 
 class Top(BoxLayout):
     trace = StringProperty('')
-    actions = DictProperty(init_actions)
-    table_data = DictProperty(init_data)
+    actions = ObjectProperty(init_actions)
+    table_data = ObjectProperty(init_data)
 
 class Action(Button):
-    action = ObjectProperty(do_nothing)
+    action = ObjectProperty(False)
     def on_press(self): 
         if self.action: self.action()
 
@@ -42,7 +41,7 @@ root = Builder.load_string('''
         Line: 
             rectangle: self.x, self.y, self.width, self.height
     color: 1,1,1,1
-    background_color: 0.8,0.4,0,1
+    background_color: 0.59,0.295,0,1
     font_name: 'RobotoMono-Regular'
     font_size: sp(70)
     size_hint: None, None
@@ -66,24 +65,24 @@ root = Builder.load_string('''
             width: 2
             rectangle: self.x, self.y, self.width, self.height
     Card:
-        text: root.data.my_card
+        text: root.data['my_card']
         pos_hint: {'x': 0.075, 'y': 0.075}
     SwitchCard:
         shown: False
-        text: root.data.op_card if self.shown else ' '
+        text: root.data['op_card'] if self.shown else ' '
         pos_hint: {'right': 0.925, 'top': 0.925}
     Card:
         id: community_card
-        text: root.data.community_card
+        text: root.data['community_card']
         pos_hint: {'center_x': 0.5, 'center_y': 0.5}
     Stack: # My Pot
-        chips: root.data.my_pot
-        text: 'Pot: ' + str(self.chips)
+        chips: root.data['my_pot']
+        text: str(self.chips)
         pos_hint: {'center_x': 0.5}
         top: community_card.y - dp(10)
     Stack: # Opponent Pot
-        chips: root.data.op_pot
-        text: 'Pot: ' + str(self.chips)
+        chips: root.data['op_pot']
+        text: str(self.chips)
         pos_hint: {'center_x': 0.5}
         y: community_card.top + dp(10)
 
@@ -96,10 +95,10 @@ root = Builder.load_string('''
         Line:
             rectangle: self.x, self.y, self.width, self.height
     Action:
-        action: root.actions.fold
+        action: root.actions['fold']
         text: 'Fold'
     Action:
-        action: root.actions.call
+        action: root.actions['call']
         text: 'Call'
     Action:
         action: root.actions['raise']
@@ -138,6 +137,11 @@ Top:
 def start_game(runner):
     root.start_game = runner
     runTouchApp(root)
+
+def patch(trace,actions,table_data):
+    root.trace = trace
+    root.actions = actions
+    root.table_data = table_data
 
 if __name__ == '__main__': 
     runTouchApp(root)
