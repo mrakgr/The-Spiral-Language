@@ -2,9 +2,8 @@ inl main () : () =
     !!!!Import("ui_leduc")
     // inl p1 = agent.neural_random.create()
     inl root : obj = $"ui_leduc.root"
-    inl p1 = agent.human.create (fun (((p1,p2,card : leduc.game_state),observations),dist,next) =>
-        inl trace = agent.human.show_trace observations
-        $"!root.trace = !trace"
+    let human_dispatch (((p1,p2,card : leduc.game_state),observations),dist,(next : _ -> ())) : () =
+        inl trace = agent.human.show_trace p1.id observations
         inl actions = mut {fold= $"False"; call= $"False"; raise= $"False"}
         dist |> a64.iter (fun x =>
             open leduc
@@ -15,7 +14,6 @@ inl main () : () =
             )
         inl fold,call,raise = actions.fold, actions.call, actions.raise
         inl actions : obj = $"{'fold': !fold, 'call': !call, 'raise': !raise}"
-        $"!root.actions = {'fold': !fold, 'call': !call, 'raise': !raise}"
         inl show_card = 
             open leduc
             function King => 'K' | Queen => 'Q' | Jack => 'J'
@@ -24,9 +22,11 @@ inl main () : () =
         inl op_card = show_card p2.card
         inl op_pot = p2.pot
         inl community_card = match card with Some: c => show_card c  | None => ' '
+        $"!root.trace = !trace"
+        $"!root.actions = {'fold': !fold, 'call': !call, 'raise': !raise}"
         $"!root.table_data = {'my_card': !my_card, 'my_pot': !my_pot, 'op_card': !op_card, 'op_pot': !op_pot, 'community_card': !community_card}"
-        )
-    inl p2 = agent.uniform_random.create()
+    inl p1 = agent.neural_random.create()
+    inl p2 = agent.human.create human_dispatch
     inl f (): () =
         open nodes
         inl Empty = player {probSelf=to_log_prob 1; observations=Nil; state=agent.stateless()} |> dyn

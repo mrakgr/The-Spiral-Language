@@ -11,8 +11,8 @@ inl iter one pid dist f (p,ret) =
 
 inl nodes_2p forall game_state (p1 : * -> * -> *) (p2 : * -> * -> *) o a. (player_funs fp1, player_funs fp2) 
         : game2p game_state o a (pl2 p1 p2 o a -> f64) = game2p {
-    terminal = fun s r (p1,p2) =>
-        fp1.terminal s p1 r . fp2.terminal s p2 -r
+    terminal = fun (s1,s2) r (p1,p2) =>
+        fp1.terminal s1 p1 r . fp2.terminal s2 p2 -r
         r
     action = fun s pid ar f (p1,p2) =>
         if pid = 0 then fp1.action s p1 (prob p2) ar (fun ((_,a),_ as cs) => f a (apply_changes p1 cs,apply_action p2 a))

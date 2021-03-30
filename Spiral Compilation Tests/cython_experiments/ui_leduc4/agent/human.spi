@@ -6,7 +6,7 @@ let show_card = function
     | Queen => "Queen"
     | Jack => "Jack"
 
-let rec show_trace (l, r) =
+let rec show_trace i (l, r) =
     inl ar : rarray string = r64.empty
     listm.foldBack (fun x is_first =>
         match x with
@@ -15,16 +15,17 @@ let rec show_trace (l, r) =
             r64.add ar $"f'Observed {!o}.'"
             true
         | Action: x =>
-            inl p = if is_first then "Player One" else "Player Two"
+            inl p = if is_first then "One" else "Two"
             inl a = match x with Fold => "folds" | Call => "calls" | Raise => "raises"
-            r64.add ar $"f'{!p} {!a}.'"
+            r64.add ar $"f'Player {!p} {!a}.'"
             not is_first
         ) l true |> ignore
     match r with
     | Some: (r : f64) =>
-        if 0 < r then $"f\"Player wins {!r} chips.\""
-        elif 0 = r then "Player draws."
-        else $"f\"Player loses {!r} chips.\""
+        inl p = if i = 0 then "One" else "Two"
+        if 0 < r then $"f\"Player {!p} wins {!r} chips.\\n\""
+        elif 0 = r then $"f\"Player {!p} draws.\\n\""
+        else inl r = -r in $"f\"Player {!p} loses {!r} chips.\\n\""
         |> r64.add ar
     | None => ()
     r64.join' "\n" ar
