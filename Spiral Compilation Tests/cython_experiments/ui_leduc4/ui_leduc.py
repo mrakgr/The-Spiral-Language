@@ -138,10 +138,5 @@ def start_game(runner):
     root.start_game = runner
     runTouchApp(root)
 
-def patch(trace,actions,table_data):
-    root.trace = trace
-    root.actions = actions
-    root.table_data = table_data
-
 if __name__ == '__main__': 
     runTouchApp(root)

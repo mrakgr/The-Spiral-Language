@@ -30,7 +30,5 @@ inl main () : () =
     inl f (): () =
         open nodes
         inl Empty = player {probSelf=to_log_prob 1; observations=Nil; state=agent.stateless()} |> dyn
-        leduc.game (nodes.cps.nodes_2p (p1, p2)) ((Empty,Empty),fun r => 
-            ()
-            )
+        leduc.game (nodes.cps.nodes_2p (p1, p2)) ((Empty,Empty),fun r => ())
     $"ui_leduc.start_game(!f)"
