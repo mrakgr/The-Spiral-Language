@@ -1,0 +1,10 @@
+open nodes
+inl Funs = player_funs {
+    action = fun _ p opp_prob dist next => 
+        inl a = sampling.sample dist
+        next ((to_log_prob (1 / f64 (a64.length dist)),a),state p)
+    terminal = fun s p r => ()
+    }
+
+inl Init = player {probSelf=to_log_prob 1; observations=Nil; state=()} |> dyn
+inl Create = {funs=Funs; init=Init}

@@ -1,0 +1,31 @@
+inl sample i pid dist f (p,ret) =
+    inl x = a64.index dist i
+    inl p = sample_players_update pid (to_log_prob (1 / f64 (a64.length dist)),x) p
+    f x (p,ret)
+
+inl draw i pid dist f (p,ret) =
+    inl x = a64.index dist i
+    inl ar = a64.removeAtIndex i dist
+    inl p = sample_players_update pid (to_log_prob (1 / f64 (a64.length dist)),x) p
+    f (x,ar) (p,ret)
+
+// Iterates over the an uniform categorical distribution, summing up the rewards divided by the length.
+inl iter one pid dist f (p,ret) =
+    let rec loop i s = 
+        inl prob = 1 / f64 (a64.length dist)
+        if i < a64.length dist then one i pid dist f (p,dyn fun r => loop (i+1) (s+r))
+        else ret (prob * s)
+    loop 0 0
+
+inl nodes_2p forall game_state s1 s2 o a ret. (player_funs fp1, player_funs fp2) 
+        : game2p game_state o a (pl2 s1 s2 o a * (f64 -> ret) -> ret) = 
+    game2p {
+        terminal = fun (s1,s2) r ((p1,p2),ret) => 
+            fp1.terminal s1 p1 r . fp2.terminal s2 p2 -r
+            ret r
+        action = fun s pid ar f ((p1,p2),ret) =>
+            if pid = 0 then fp1.action s p1 (prob p2) ar (fun ((_,a),_ as cs) => f a ((apply_changes p1 cs,apply_action p2 a),ret))
+            else fp2.action s p2 (prob p1) ar (fun ((_,a),_ as cs) => f a ((apply_action p1 a,apply_changes p2 cs),ret))
+        draw = choice draw
+        sample = choice sample
+        }

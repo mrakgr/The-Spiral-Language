@@ -1,0 +1,42 @@
+open nodes
+open leduc
+
+let show_card = function
+    | King => "King"
+    | Queen => "Queen"
+    | Jack => "Jack"
+
+let rec show_trace i (l, r) =
+    inl ar : rarray string = r64.empty
+    listm.foldBack (fun x is_first =>
+        match x with
+        | Observation: x =>
+            inl o = show_card x
+            r64.add ar $"f'Observed {!o}.'"
+            true
+        | Action: x =>
+            inl p = if is_first then "One" else "Two"
+            inl a = match x with Fold => "folds" | Call => "calls" | Raise => "raises"
+            r64.add ar $"f'Player {!p} {!a}.'"
+            not is_first
+        ) l true |> ignore
+    match r with
+    | Some: (r : f64) =>
+        inl p = if i = 0 then "One" else "Two"
+        if 0 < r then $"f\"Player {!p} wins {!r} chips.\\n\""
+        elif 0 = r then $"f\"Player {!p} draws.\\n\""
+        else inl r = -r in $"f\"Player {!p} loses {!r} chips.\\n\""
+        |> r64.add ar
+    | None => ()
+    r64.join' "\n" ar
+
+open nodes
+inl funs dispatch = player_funs {
+    action = fun s (player p : player () card action) opp_prob dist next => 
+        dispatch ((s, p.observations, None), dist, fun x => next ((log_prob 0,x),p.state))
+    terminal = fun s (player p) r =>
+        dispatch ((s, p.observations, (Some: r)), ;[], fun x => ())
+    } 
+
+inl Init = uniform.init()
+inl create dispatch = {funs=funs dispatch; init=Init}
