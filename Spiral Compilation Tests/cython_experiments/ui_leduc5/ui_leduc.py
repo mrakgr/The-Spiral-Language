@@ -22,9 +22,7 @@ class Actions(BoxLayout):
     actions = ObjectProperty(init_actions)
 
 class Top(BoxLayout):
-    trace = StringProperty('')
-    actions = ObjectProperty(init_actions)
-    table_data = ObjectProperty(init_data)
+    data = ObjectProperty({'trace': '', 'actions': init_actions, 'table_data': init_data})
 
 class Action(Button):
     action = ObjectProperty(False)
@@ -113,9 +111,9 @@ Top:
             orientation: 'vertical'
             spacing: dp(10)
             Table:
-                data: root.table_data
+                data: root.data['table_data']
             Actions:
-                actions: root.actions
+                actions: root.data['actions']
                 size_hint_y: 0.15
         ScrollView:
             canvas:
@@ -126,7 +124,7 @@ Top:
                 size_hint: None,None
                 size: self.texture_size
                 font_size: sp(18)
-                text: root.trace
+                text: root.data['trace']
     Button:
         text: 'Start Game'
         font_size: sp(50)

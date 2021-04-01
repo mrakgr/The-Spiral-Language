@@ -846,7 +846,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyLayout(a,_) -> f a
 
         let rec loop' extras (a'',b'') = 
-            let loop x = loop' extras x
+            let loop x = loop' [] x
             let record l l' =
                 let a,b = Map.toArray l, Map.toArray l'
                 if a.Length <> b.Length then er ()

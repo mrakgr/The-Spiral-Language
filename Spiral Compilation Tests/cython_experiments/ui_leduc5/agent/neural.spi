@@ -11,7 +11,6 @@ let process (l : list (observation card action)) =
     | _ => failwith "Expected a card."
 
 inl create_net () =
-    open torch
     !!!!Import("nets")
 
     inl input =
@@ -23,18 +22,29 @@ inl create_net () =
         open serialization.sparse.int
         alt {fold=Unit; call=Unit; raise=Unit} : pu action
 
+    open torch
     inl c,b,a = denseSize input, 64u64, sparseSize output
-    process >> runMasked {input output net = $"nets.small(!c,!b,!a)"}
+    {input output net = $"nets.small(!c,!b,!a)"}
 
-inl funs update_state =
-    inl net = create_net()
+// Samples.
+inl funs net = player_funs { 
+    action = fun {game_state player player' actions next} => next (torch.runMasked net (process (observations player)) actions,state player)
+    terminal = fun _ => () 
+    }
+    
+// Enumerates.
+inl funs_buffer net add_buffer =
     player_funs {
-        action = fun game_state p opp_prob dist next => 
-            inl action = net (observations p) dist
-            inl state = update_state game_state p opp_prob dist action
-            next (action,state)
-        terminal = fun s p r => ()
-        } 
+        action = fun ({game_state player player' actions next} & x) =>
+            inl actions_prob = torch.runMasked' net (process (observations player)) actions
+            inl reward = 
+                inl state = state player
+                a64.fold2 (fun s prob a => inl prob = f64 prob in s + prob * next ((to_log_prob prob, a),state)) 0 actions_prob actions
+            add_buffer {x with reward without next}
+            reward
+        terminal = fun _ => ()
+        }
 
 inl Init = uniform.init()
-inl create update_state = {funs=funs update_state; init=Init}
+inl create net = {funs=funs net; init=Init}
+inl create_buffer net add_buffer = {funs=funs_buffer net add_buffer; init=Init}

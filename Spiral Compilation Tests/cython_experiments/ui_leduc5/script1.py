@@ -136,11 +136,9 @@ class Test(BoxLayout):
         if self.rv.data:
             self.rv.data.pop(0)
 
-
 class TestApp(App):
     def build(self):
         return Test()
-
 
 if __name__ == '__main__':
     TestApp().run()

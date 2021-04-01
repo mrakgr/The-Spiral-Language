@@ -1,5 +1,5 @@
 inl main () =
-    inl p1 = agent.neural.create(fun game_state p p'_prob dist action => nodes.state p)
+    inl p1 = agent.neural.create (agent.neural.create_net())
     inl p2 = agent.uniform.create()
     loop.for' (from:0u32 nearTo:100) (fun i =>
         open nodes

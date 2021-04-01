@@ -20,8 +20,13 @@ inl init nearTo f =
     inl ar = create nearTo
     for' (from: 0 nearTo:) (fun i => set ar i (f i))
     ar
-// Applies a function to each element of the array, threading an accumulator argument through the computation. If the input function is f and the elements are i0...iN then computes f (... (f s i0)...) iN
+// Applies a function to each element of the array, threading an accumulator argument through the computation. 
+// If the input function is f and the elements are i0...iN then computes f (... (f s i0)...) iN
 inl fold f s ar = for (from: 0 nearTo: length ar) (fun i s => f s (index ar i)) s
+// Applies a function to each element of the two arrays, threading an accumulator argument through the computation.
+inl fold2 f s ar1 ar2 = 
+    assert (length ar1 = length ar2) "The length of the two arrays has to the same."
+    for (from: 0 nearTo: length ar1) (fun i s => f s (index ar1 i) (index ar2 i)) s
 // Similar to fold with the intial state as the first element of the array.
 inl reduce f ar =
     inl nearTo = length ar
