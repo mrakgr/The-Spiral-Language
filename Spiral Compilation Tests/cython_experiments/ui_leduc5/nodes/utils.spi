@@ -9,7 +9,7 @@ type pl2 s1 s2 o a = player s1 o a * player s2 o a
 inl prob (player {probSelf}) = probSelf
 inl state (player {state}) = state
 inl observations (player {observations}) = observations
-inl add_log_prob (log_prob a) (log_prob b) = log_prob (a+b)
+inl add_log_prob (log_prob a) (log_prob b) = log_prob (a+b) // Multiplies regular probabilities.
 inl apply_action (player x) a = player {x with observations#=(::) (Action: a)}
 inl apply_prob_observation (player x) (prob,o) = player {x with observations#=(::) (Observation: o); probSelf#=add_log_prob prob}
 inl apply_changes (player x) ((prob,a),state) = player {x with state observations#=(::) (Action: a); probSelf#=add_log_prob prob}
