@@ -3,6 +3,8 @@ open loop
 
 // Concatenates an array of strings.
 inl join' (sep : string) (l : rarray string) : string = $"!sep.join(!l)"
+// Removes the element at the given index and returns it.
+inl pop forall t. (l : rarray t) (i : u64) : t = $"!l.pop(!i)"
 // Appends to an array.
 inl add forall a. (l : rarray a) (x : a) : () = $"!l.append(!x)"
 // Creates an array.

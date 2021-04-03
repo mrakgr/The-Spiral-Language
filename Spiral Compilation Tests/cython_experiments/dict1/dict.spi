@@ -1,0 +1,108 @@
+nominal dict key value = mut {
+    table : array (rarray {key : key; value : value; hkey : u64})
+    total_size : u64
+    limit : u64
+    }
+
+inl EmptyDef = {size = 7; limit = 3}
+inl empty' {size limit} = dict <| mut {
+    table = a64.init size (fun _ => r64.empty)
+    total_size = 0
+    limit = limit
+    }
+
+inl Empty = empty' EmptyDef
+
+// Internal. Increases the dictionary capacity.
+let resize (dict x) =
+    inl next_table_length x = x*3/2+3
+    inl table = x.table
+    inl table_length' = next_table_length (a64.length table)
+    if table_length' <= a64.length table then failwith "The table cannot be grown anymore."
+    inl table' = a64.init table_length' (fun i => r64.empty)
+    loop.for' (from: 0 nearTo: a64.length table) (fun i =>
+        inl table = a64.index table i
+        loop.for' (from: 0 nearTo: r64.length table) (fun i =>
+            inl a = r64.index table i
+            inl bucket = a64.index table' ((a.hkey &&& limit_max.u64()) % table_length')
+            r64.add bucket a
+            )
+        )
+    x.table <- table'
+    x.limit <- x.limit+2
+
+// Internal. Iterates over the dictionary and passes the value to on_succ if it finds a key match otherwise it calls on_fail.
+// The callback arguments can be used to set, remove and add relevant value to the dictionary.
+inl atKey (dict x) key {on_succ on_fail} = 
+    inl hkey = hash_cython key
+    inl table = x.table
+    inl bucket = a64.index table ((hkey &&& limit_max.u64()) % a64.length table)
+    let rec loop i =
+        if i < r64.length bucket then 
+            inl x = r64.index bucket i
+            if hkey = x.hkey && key = x.key then 
+                on_succ x.value {
+                    set = fun value => r64.set bucket i {x with value}
+                    remove = fun () => r64.pop bucket i |> ignore
+                    }
+            else loop (i+1)
+        else
+            on_fail (fun value => 
+                r64.add bucket {key value hkey}
+                x.total_size <- x.total_size+1
+                if x.total_size >= x.limit * a64.length x.table then resize (dict x)
+                )
+    loop 0
+
+// Indexes into the dictionary at the given key. Raises an exception if the key is not present.
+let index x key =
+    atKey x key {
+        on_succ=fun value _ => value
+        on_fail=fun _ => failwith "The key is not present in the dictionary."
+        }
+
+// Adds a key value pair to the dictionary. Raises an exception if the key already exists.
+let add x key value = 
+    atKey x key {
+        on_succ=fun _ _ => failwith "The key already exists in the dictionary."
+        on_fail=fun add => add value . value
+        } |> ignore
+
+// Sets a key value pair to the dictionary. Replaces the existing value if present.
+let set x key value =
+    atKey x key {
+        on_succ=fun value {set} => set value . value
+        on_fail=fun add => add value . value
+        } |> ignore
+
+// Tries finding a value of the specified key in the dictionary.
+let tryFind x key =
+    atKey x key {
+        on_succ=fun value _ => Some: value
+        on_fail=fun _ => None
+        }
+
+// Checks whether key the key is present in the dictionary.
+let contains x key =
+    atKey x key {
+        on_succ=fun _ _ => true
+        on_fail=fun _ => false
+        }
+
+// Tries removing a key from a dictionary. Returns boolean whether the operation succeeded.
+let tryRemove x key =
+    atKey x key {
+        on_succ=fun value {remove} => remove() . true
+        on_fail=fun _ => false
+        }
+
+// Tries removing a key from a dictionary. Throws an exception if the key is not present.
+let remove x key = if tryRemove x key = false then failwith "The key is not present in the dictionary."
+
+// If the key is not in the dictionary it executes the given function and adds its result to the dictionary. Otherwise it
+// returns the already existing result.
+let memoize x f key =
+    atKey x key {
+        on_succ=fun value _ => value
+        on_fail=fun add => inl v = f key in add v . v
+        }

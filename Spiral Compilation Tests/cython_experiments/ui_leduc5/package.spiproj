@@ -1,7 +1,5 @@
 packages: |core-
 modules:
-    types-  
-    r64
     serialization/
         dense/
             array

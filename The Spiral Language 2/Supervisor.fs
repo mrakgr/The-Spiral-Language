@@ -116,18 +116,20 @@ let attention_server (errors : SupervisorErrorSources) (req : _ Ch) =
             list x.schema.modules
             )
 
-        let inline body uri interrupt ers ers' src next = interrupt <|> (Alt.unit() ^=> fun () ->
-            if List.isEmpty ers then next ers'
-            else
-                let ers = List.append ers ers'
-                Hopac.start (Ch.send src {|uri=uri; errors=ers|})
-                next ers
-            )
+        let inline body uri interrupt ers ers' src next = 
+            Ch.Try.take req >>= function
+            | Some x -> interrupt x
+            | None ->
+                if List.isEmpty ers then next ers'
+                else
+                    let ers = List.append ers ers'
+                    Hopac.start (Ch.send src {|uri=uri; errors=ers|})
+                    next ers
 
         let loop_module (s : AttentionState) mpath (m : WDiff.ModuleState) =
             let uri = Utils.file_uri mpath
-            let interrupt = req ^=> fun x -> loop (update {s with modules=push mpath s.modules} x)
-            let rec bundler (r : BlockBundling.BlockBundleState) ers' = r ^=> function
+            let interrupt x = loop (update {s with modules=push mpath s.modules} x)
+            let rec bundler (r : BlockBundling.BlockBundleState) ers' = r >>= function
                 | Cons((_,x),rs) -> body uri interrupt x.errors ers' errors.parser (bundler rs)
                 | Nil -> loop s
             send_tokenizer uri m.tokenizer.errors
@@ -138,11 +140,11 @@ let attention_server (errors : SupervisorErrorSources) (req : _ Ch) =
         let rec loop_package (s : AttentionState) pdir = function
             | (mpath,l) :: ls ->
                 let uri = Utils.file_uri mpath
-                let interrupt = req ^=> fun x -> loop (update {s with packages=push pdir s.packages} x)
-                let rec typer (r : WDiff.TypecheckerStateValue Stream) ers' = r ^=> function
+                let interrupt x = loop (update {s with packages=push pdir s.packages} x)
+                let rec typer (r : WDiff.TypecheckerStateValue Stream) ers' = r >>= function
                     | Cons((_,x,_),rs) -> body uri interrupt x.errors ers' errors.typer (typer rs)
                     | Nil -> loop_package s pdir ls
-                let rec bundler (r : BlockBundling.BlockBundleState) ers' = r ^=> function
+                let rec bundler (r : BlockBundling.BlockBundleState) ers' = r >>= function
                     | Cons((_,x),rs) -> body uri interrupt x.errors ers' errors.parser (bundler rs)
                     | Nil -> clear_typer uri; typer l []
                 let m = s.supervisor.modules.[mpath]
@@ -176,7 +178,7 @@ let attention_server (errors : SupervisorErrorSources) (req : _ Ch) =
                         loop_package s x path_tcvals
                     | None -> loop s
                 | None -> loop s
-            | _, [] -> req ^=> (update s >> loop)
+            | _, [] -> req >>= (update s >> loop)
 
         match s.modules with
         | se,x :: xs -> 

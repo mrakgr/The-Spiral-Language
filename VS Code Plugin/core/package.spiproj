@@ -1,11 +1,14 @@
 modules:
     base-
+    limit_max
+    limit_min
     real_core*
     core-
     loop
     loopw
     a32
     a64
+    r64
     s32
     s64
     listm

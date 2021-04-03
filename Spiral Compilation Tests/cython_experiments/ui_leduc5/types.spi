@@ -1,2 +1,0 @@
-type obj = $"object"
-nominal rarray a = $"list"
