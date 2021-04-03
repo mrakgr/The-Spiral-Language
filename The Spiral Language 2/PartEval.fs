@@ -114,8 +114,9 @@ and TypedOp =
     | TyLayoutHeapMutableSet of L<Tag,Ty> * string list * Data
     | TyFailwith of Ty * Data
     | TyArrayLiteral of Ty * Data list
-    | TyArrayU32Create of Ty * Data
-    | TyArrayU64Create of Ty * Data
+    | TyArrayCreate of Ty * Data
+    | TyArrayLength of Ty * Data
+    | TyStringLength of Ty * Data
     | TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
     | TyWhile of cond: JoinPointCall * TypedBind []
     | TyJoinPoint of JoinPointCall
@@ -866,6 +867,20 @@ let peval (env : TopEnv) (x : E) =
             | YRecord l -> l
             | x -> raise_type_error s <| sprintf "Expected a type record.\nGot: %s" (show_ty x)
 
+        let to_i32 x = 
+            try 
+                match x with
+                | LitUInt8 x -> Convert.ToInt32(x)
+                | LitUInt16 x -> Convert.ToInt32(x)
+                | LitUInt32 x -> Convert.ToInt32(x)
+                | LitUInt64 x -> Convert.ToInt32(x)
+                | LitInt8 x -> Convert.ToInt32(x)
+                | LitInt16 x -> Convert.ToInt32(x)
+                | LitInt32 x -> Convert.ToInt32(x)
+                | LitInt64 x -> Convert.ToInt32(x)
+                | x -> raise_type_error s <| sprintf "Expected an int convertible to an i32.\nGot: %s" (show_lit x)
+            with :? OverflowException -> raise_type_error s <| sprintf "The literal cannot be converted to an i32 as it is either too small or to big.\nGot: %s" (show_lit x)
+
         match x with
         | EPatternRef _ -> failwith "Compiler error: EPatternRef should have been eliminated during the prepass."
         | EB _ -> DB
@@ -1229,55 +1244,43 @@ let peval (env : TopEnv) (x : E) =
             | a -> raise_type_error s <| sprintf "Expected a symbol.\nGot: %s" (show_ty a)
         | EOp(_,(TypeToVar | TypeToSymbol),[a]) -> raise_type_error s "Expected a type."
         | EOp(_,Dyn,[a]) -> term s a |> dyn true s
-        | EOp(_,StringU32Length,[a]) ->
+        | EOp(_,StringLength,[EType(_,t);a]) ->
+            let t = ty s t
+            if is_any_int t = false then raise_type_error s <| sprintf "Expected an int.\nGot: %s" (show_ty t)
             match term s a with
-            | DLit(LitString str) -> DLit (LitUInt32 (uint32 str.Length))
-            | DV(L(_,YPrim StringT)) & str -> push_op s StringU32Length str (YPrim UInt32T)
+            | DLit(LitString str) -> 
+                match t with
+                | YPrim Int8T -> try DLit (LitInt8 (Convert.ToSByte str.Length)) with :? OverflowException -> raise_type_error s <| sprintf "Literal conversion to i8 failed as the string length is either too large.\nGot: %i" str.Length
+                | YPrim Int16T -> try DLit (LitInt16 (Convert.ToInt16 str.Length)) with :? OverflowException -> raise_type_error s <| sprintf "Literal conversion to i16 failed as the string length is either too large.\nGot: %i" str.Length
+                | YPrim Int32T -> try DLit (LitInt32 (Convert.ToInt32 str.Length)) with :? OverflowException -> raise_type_error s <| sprintf "Literal conversion to i32 failed as the string length is either too large.\nGot: %i" str.Length
+                | YPrim Int64T -> try DLit (LitInt64 (Convert.ToInt64 str.Length)) with :? OverflowException -> raise_type_error s <| sprintf "Literal conversion to i64 failed as the string length is either too large.\nGot: %i" str.Length
+                | YPrim UInt8T -> try DLit (LitUInt8 (Convert.ToByte str.Length)) with :? OverflowException -> raise_type_error s <| sprintf "Literal conversion to u8 failed as the string length is either too large.\nGot: %i" str.Length
+                | YPrim UInt16T -> try DLit (LitUInt16 (Convert.ToUInt16 str.Length)) with :? OverflowException -> raise_type_error s <| sprintf "Literal conversion to u16 failed as the string length is either too large.\nGot: %i" str.Length
+                | YPrim UInt32T -> try DLit (LitUInt32 (Convert.ToUInt32 str.Length)) with :? OverflowException -> raise_type_error s <| sprintf "Literal conversion to u32 failed as the string length is either too large.\nGot: %i" str.Length
+                | YPrim UInt64T -> try DLit (LitUInt64 (Convert.ToUInt64 str.Length)) with :? OverflowException -> raise_type_error s <| sprintf "Literal conversion to u64 failed as the string length is either too large.\nGot: %i" str.Length
+                | _ -> failwith "impossible"
+            | DV(L(_,YPrim StringT)) & str -> push_typedop s (TyStringLength(t,str)) t
             | x -> raise_type_error s <| sprintf "Expected a string.\nGot: %s" (show_data x)
-        | EOp(_,StringU32Index,[a;b]) ->
+        | EOp(_,StringIndex,[a;b]) ->
             match term2 s a b with
-            | DLit(LitString a), DLit(LitUInt32 b) ->
-                if 0u <= b && b < uint32 a.Length then a.[int b] |> LitChar |> DLit
-                else raise_type_error s <| sprintf "String index out of bounds. length: %i index: %i" a.Length b
+            | DLit(LitString a), DLit b ->
+                let b = to_i32 b
+                if 0 <= b && b < a.Length then a.[int b] |> LitChar |> DLit
+                else raise_type_error s <| sprintf "Cannot index into a string of length %i at index %i." a.Length b
             | a,b ->
                 match data_to_ty s a, data_to_ty s b with
-                | YPrim StringT,YPrim UInt32T -> push_binop s StringU32Index (a,b) (YPrim CharT)
-                | a,b -> raise_type_error s <| sprintf "Expected a string and an u32 as arguments.\nGot: %s\nAnd: %s" (show_ty a) (show_ty b)
-        | EOp(_,StringU32Slice,[a;b;c]) ->
+                | YPrim StringT,bt when is_any_int bt -> push_binop s StringIndex (a,b) (YPrim CharT)
+                | a,b -> raise_type_error s <| sprintf "Expected a string and an int as arguments.\nGot: %s\nAnd: %s" (show_ty a) (show_ty b)
+        | EOp(_,StringSlice,[a;b;c]) ->
             match term3 s a b c with
-            | DLit(LitString a), DLit(LitUInt32 b), DLit(LitUInt32 c) ->
-                if 0u <= b && b <= c && c < uint32 a.Length then a.[int b..int c] |> LitString |> DLit
-                else raise_type_error s <| sprintf "String slice out of bounds. length: %i from: %i to: %i" a.Length b c
+            | DLit(LitString a), DLit b, DLit c ->
+                let b,c = to_i32 b, to_i32 c
+                if 0 <= b && b <= c && c < a.Length then a.[int b..int c] |> LitString |> DLit
+                else raise_type_error s <| sprintf "String of length %i's slice from %i to %i is invalid." a.Length b c
             | a,b,c ->
                 match data_to_ty s a, data_to_ty s b, data_to_ty s c with
-                | YPrim StringT, YPrim UInt32T, YPrim UInt32T -> push_triop s StringU32Slice (a,b,c) (YPrim StringT)
-                | a,b,c -> raise_type_error s <| sprintf "Expected a string and two u32s as arguments.\nGot: %s\nAnd: %s\nAnd: %s" (show_ty a) (show_ty b) (show_ty c)
-        | EOp(_,StringU64Length,[a]) ->
-            match term s a with
-            | DLit(LitString str) -> DLit (LitUInt64 (uint64 str.Length))
-            | DV(L(_,YPrim StringT)) & str -> push_op s StringU64Length str (YPrim UInt64T)
-            | x -> raise_type_error s <| sprintf "Expected a string.\nGot: %s" (show_data x)
-        | EOp(_,StringU64Index,[a;b]) ->
-            match term2 s a b with
-            | DLit(LitString a), DLit(LitUInt64 b) ->
-                if uint64 Int32.MaxValue < b then raise_type_error s <| "String index is greater than the max i32 value."
-                if 0UL <= b && b < (uint64 a.Length) then a.[int b] |> LitChar |> DLit
-                else raise_type_error s <| sprintf "String index out of bounds. length: %i index: %i" a.Length b
-            | a,b ->
-                match data_to_ty s a, data_to_ty s b with
-                | YPrim StringT,YPrim UInt64T -> push_binop s StringU64Index (a,b) (YPrim CharT)
-                | a,b -> raise_type_error s <| sprintf "Expected a string and an u64 as arguments.\nGot: %s\nAnd: %s" (show_ty a) (show_ty b)
-        | EOp(_,StringU64Slice,[a;b;c]) ->
-            match term3 s a b c with
-            | DLit(LitString a), DLit(LitUInt64 b), DLit(LitUInt64 c) ->
-                if uint64 Int32.MaxValue < b then raise_type_error s <| "String index `from` is greater than the max i32 value."
-                if uint64 Int32.MaxValue < c then raise_type_error s <| "String index `to` is greater than the max i32 value."
-                if 0UL <= b && b <= c && c < (uint64 a.Length) then a.[int b..int c] |> LitString |> DLit
-                else raise_type_error s <| sprintf "String slice out of bounds. length: %i from: %i to: %i" a.Length b c
-            | a,b,c ->
-                match data_to_ty s a, data_to_ty s b, data_to_ty s c with
-                | YPrim StringT, YPrim Int64T, YPrim Int64T -> push_triop s StringU64Slice (a,b,c) (YPrim StringT)
-                | a,b,c -> raise_type_error s <| sprintf "Expected a string and two u64s as arguments.\nGot: %s\nAnd: %s\nAnd: %s" (show_ty a) (show_ty b) (show_ty c)
+                | YPrim StringT, bt, ct when is_any_int bt && is_any_int ct -> push_triop s StringSlice (a,b,c) (YPrim StringT)
+                | a,b,c -> raise_type_error s <| sprintf "Expected a string and two ints as arguments.\nGot: %s\nAnd: %s\nAnd: %s" (show_ty a) (show_ty b) (show_ty c)
         | EArray(_,a,b) ->
             match ty s b with
             | YArray el as b -> 
@@ -1290,65 +1293,37 @@ let peval (env : TopEnv) (x : E) =
                         ) a
                 push_typedop_no_rewrite s (TyArrayLiteral(el,a)) b
             | b -> raise_type_error s $"Expected an array.\nGot: {show_ty b}"
-        | EOp(_,ArrayU32Create,[EType(_,a);b]) ->
+        | EOp(_,ArrayCreate,[EType(_,a);b]) ->
             let a,b = ty s a, term s b
             match data_to_ty s b with
-            | YPrim UInt32T -> push_typedop_no_rewrite s (TyArrayU32Create(a,b)) (YArray a)
-            | b -> raise_type_error s <| sprintf "Expected an u32 as the size of the array.\nGot: %s" (show_ty b)
-        | EOp(_,ArrayU32Length,[a]) ->
+            | bt when is_any_int bt -> push_typedop_no_rewrite s (TyArrayCreate(a,b)) (YArray a)
+            | b -> raise_type_error s <| sprintf "Expected an int as the size of the array.\nGot: %s" (show_ty b)
+        | EOp(_,ArrayLength,[EType(_,t);a]) ->
+            let t = ty s t
+            if is_any_int t = false then raise_type_error s <| sprintf "Expected an int.\nGot: %s" (show_ty t)
             let a = term s a
             match data_to_ty s a with
-            | YArray _ -> push_op s ArrayU32Length a (YPrim UInt32T)
+            | YArray _ -> push_typedop s (TyArrayLength(t,a)) t
             | a -> raise_type_error s <| sprintf "Expected an array.\nGot: %s" (show_ty a)
-        | EOp(_,ArrayU32Index,[a;b]) ->
+        | EOp(_,ArrayIndex,[a;b]) ->
             match term s a with
             | DV(L(_,YArray ty)) & a ->
                 let b = term s b
                 match data_to_ty s b with
-                | YPrim UInt32T -> push_binop_no_rewrite s ArrayU32Index (a,b) ty
-                | b -> raise_type_error s <| sprintf "Expected a u32 as the index argumet.\nGot: %s" (show_ty b)
+                | bt when is_any_int bt -> push_binop_no_rewrite s ArrayIndex (a,b) ty
+                | b -> raise_type_error s <| sprintf "Expected an int as the index argumet.\nGot: %s" (show_ty b)
             | a -> raise_type_error s <| sprintf "Expected an array.\nGot: %s" (show_data a)
-        | EOp(_,ArrayU32IndexSet,[a;b;c]) ->
+        | EOp(_,ArrayIndexSet,[a;b;c]) ->
             match term s a with
             | DV(L(_,YArray ty)) & a ->
                 let b = term s b
                 match data_to_ty s b with
-                | YPrim UInt32T -> 
+                | bt when is_any_int bt -> 
                     let c = term s c |> dyn false s
                     let ty' = data_to_ty s c
-                    if ty' = ty then push_triop_no_rewrite s ArrayU32IndexSet (a,b,c) YB
+                    if ty' = ty then push_triop_no_rewrite s ArrayIndexSet (a,b,c) YB
                     else raise_type_error s <| sprintf "The array and the value being set do not have the same type.\nGot: %s\nExpected: %s" (show_ty ty') (show_ty ty)
-                | b -> raise_type_error s <| sprintf "Expected a u32 as the index argumet.\nGot: %s" (show_ty b)
-            | a -> raise_type_error s <| sprintf "Expected an array.\nGot: %s" (show_data a)
-        | EOp(_,ArrayU64Create,[EType(_,a);b]) ->
-            let a,b = ty s a, term s b
-            match data_to_ty s b with
-            | YPrim UInt64T -> push_typedop_no_rewrite s (TyArrayU64Create(a,b)) (YArray a)
-            | b -> raise_type_error s <| sprintf "Expected an u64 as the size of the array.\nGot: %s" (show_ty b)
-        | EOp(_,ArrayU64Length,[a]) ->
-            let a = term s a
-            match data_to_ty s a with
-            | YArray _ -> push_op s ArrayU64Length a (YPrim UInt64T)
-            | a -> raise_type_error s <| sprintf "Expected an array.\nGot: %s" (show_ty a)
-        | EOp(_,ArrayU64Index,[a;b]) ->
-            match term s a with
-            | DV(L(_,YArray ty)) & a ->
-                let b = term s b
-                match data_to_ty s b with
-                | YPrim UInt64T -> push_binop_no_rewrite s ArrayU64Index (a,b) ty
-                | b -> raise_type_error s <| sprintf "Expected a u64 as the index argumet.\nGot: %s" (show_ty b)
-            | a -> raise_type_error s <| sprintf "Expected an array.\nGot: %s" (show_data a)
-        | EOp(_,ArrayU64IndexSet,[a;b;c]) ->
-            match term s a with
-            | DV(L(_,YArray ty)) & a ->
-                let b = term s b
-                match data_to_ty s b with
-                | YPrim UInt64T -> 
-                    let c = term s c |> dyn false s
-                    let ty' = data_to_ty s c
-                    if ty' = ty then push_triop_no_rewrite s ArrayU64IndexSet (a,b,c) YB
-                    else raise_type_error s <| sprintf "The array and the value being set do not have the same type.\nGot: %s\nExpected: %s" (show_ty ty') (show_ty ty)
-                | b -> raise_type_error s <| sprintf "Expected a u64 as the index argumet.\nGot: %s" (show_ty b)
+                | b -> raise_type_error s <| sprintf "Expected an int as the index argumet.\nGot: %s" (show_ty b)
             | a -> raise_type_error s <| sprintf "Expected an array.\nGot: %s" (show_data a)
         | EOp(_,RecordMap,[a;b]) ->
             match term2 s a b with

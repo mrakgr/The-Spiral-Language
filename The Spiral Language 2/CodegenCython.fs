@@ -102,7 +102,7 @@ let nullable_vars_of (x : TypedBind []) =
         | TyMacro l -> List.fold (fun s -> function CMTerm d -> s + tags d | _ -> s) Set.empty l
         | TyArrayLiteral(_,l) | TyOp(_,l) -> List.fold (fun s x -> s + tags x) Set.empty l
         | TyLayoutToHeap(x,_) | TyLayoutToHeapMutable(x,_)
-        | TyUnionBox(_,x,_) | TyFailwith(_,x) | TyArrayU32Create(_,x) | TyArrayU64Create(_,x) -> tags x
+        | TyUnionBox(_,x,_) | TyFailwith(_,x) | TyArrayCreate(_,x) | TyArrayLength(_,x) | TyStringLength(_,x) -> tags x
         | TyWhile(cond, body) -> nulls.[body] <- Set.empty; jp cond + binds Set.empty Set.empty body
         | TyLayoutIndexAll(L(i,_)) | TyLayoutIndexByKey(L(i,_),_) -> Set.singleton i
         | TyLayoutHeapMutableSet(L(i,_),_,d) -> Set.singleton i + tags d
@@ -402,6 +402,18 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             |> String.concat ", "
             |> function "" -> "pass" | x -> x
             |> return'
+        let length (a,b) =
+            let l = $"len({tup b})"
+            match a with
+            | YPrim UInt64T -> return' l
+            | YPrim a ->
+                let tmp_i = tmp()
+                line defs $"cdef unsigned long long tmp{tmp_i}"
+                line s $"tmp{tmp_i} = {l}"
+                let a = prim a
+                line s $"if <{a}>tmp{tmp_i} != tmp{tmp_i}: raise Exception(\"The conversion to {a} failed.\")"
+                return' (tup b)
+            | _ -> raise_codegen_error "Compiler error: Expected a primitive type in length."
         match a with
         | TyMacro a -> 
             a |> List.map (function 
@@ -493,9 +505,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s $"v{i} = numpy.empty({l},dtype={numpy_ty a})"
                 assign $"v{i}"
             | _ -> raise_codegen_error "Compiler error: Expected a single var or a non-void return in array literal creation."
-        | TyArrayU32Create _ -> raise_codegen_error "The Cython backend does not support creating u32 arrays. Try the u64 array create instead."
-        | TyArrayU64Create(a,b) -> return' $"numpy.empty({tup b},dtype={numpy_ty a})" 
+        | TyArrayCreate(a,b) -> return' $"numpy.empty({tup b},dtype={numpy_ty a})" 
         | TyFailwith(_,b) -> line s $"raise Exception({tup b})"
+        | TyArrayLength(a,b) -> length (a,b)
+        | TyStringLength(a,b) -> length (a,b)
         | TyOp(op,l) ->
             match op, l with
             | Import,[DLit (LitString x)] -> import x; $"pass # import {x}"
@@ -506,18 +519,15 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 | a,b -> sprintf "%s(%s)" a b
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
-            | (StringU32Length | StringU32Index | StringU32Slice | ArrayU32IndexSet | ArrayU32Length), _ -> 
-                raise_codegen_error "The Cython backend does not support i32 string and array operations. Try the u64 ones instead."
-            | StringU64Length, [a] -> sprintf "len(%s)" (tup a)
-            | (StringU32Index | StringU64Index), [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
-            | (StringU32Slice | StringU64Slice), [a;b;c] -> sprintf "%s[%s:%s]" (tup a) (tup b) (tup c)
-            | (ArrayU32Index | ArrayU64Index), [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
-            | ArrayU64IndexSet, [a;b;c] -> 
+            //| StringU64Length, [a] -> sprintf "len(%s)" (tup a)
+            //| ArrayU64Length, [a] -> sprintf "len(%s)" (tup a)
+            | StringIndex, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
+            | StringSlice, [a;b;c] -> sprintf "%s[%s:%s]" (tup a) (tup b) (tup c)
+            | ArrayIndex, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
+            | ArrayIndexSet, [a;b;c] -> 
                 match tup c with
                 | "pass" as c -> c
                 | c -> sprintf "%s[%s] = %s" (tup a) (tup b) c
-            | ArrayU64Length, [a] -> sprintf "len(%s)" (tup a)
-
             // Math
             | Add, [a;b] -> sprintf "%s + %s" (tup a) (tup b)
             | Sub, [a;b] -> sprintf "%s - %s" (tup a) (tup b)

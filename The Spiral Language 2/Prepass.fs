@@ -833,9 +833,9 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                     let a_length = List.length a
                     let on_succ,_ = 
                         List.foldBack (fun id' (on_succ,i) -> 
-                            ELet(r,id',EOp(r,ArrayU32Index,[EV id; ELit(r,Tokenize.LitUInt32 i)]),on_succ), i-1u
-                            ) ar_ids (on_succ, uint32 a_length - 1u)
-                    let id_length = EOp(r,ArrayU64Length,[EV id])
+                            ELet(r,id',EOp(r,ArrayIndex,[EV id; ELit(r,Tokenize.LitInt32 i)]),on_succ), i-1
+                            ) ar_ids (on_succ, a_length - 1)
+                    let id_length = EOp(r,ArrayLength,[EType(r,TPrim UInt64T); EV id])
                     let pat_length = ELit(r,Tokenize.LitUInt64(uint64 a_length))
                     EIfThenElse(r,EOp(r,EQ,[id_length;pat_length]),on_succ,on_fail)
                 | PatSymbol(r,a) -> ESymbolTest(p r,a,id,on_succ,on_fail)

@@ -51,27 +51,16 @@ type Op =
     | UnionUntag
     | UnionToRecord
 
-    // String U32
-    | StringU32Length
-    | StringU32Index
-    | StringU32Slice
+    // String
+    | StringLength
+    | StringIndex
+    | StringSlice
 
-    // String U64
-    | StringU64Length
-    | StringU64Index
-    | StringU64Slice
-
-    // Array U32
-    | ArrayU32Create
-    | ArrayU32Length
-    | ArrayU32Index
-    | ArrayU32IndexSet
-
-    // Array U64
-    | ArrayU64Create
-    | ArrayU64Length
-    | ArrayU64Index
-    | ArrayU64IndexSet
+    // Array
+    | ArrayCreate
+    | ArrayLength
+    | ArrayIndex
+    | ArrayIndexSet
 
     // Record
     | RecordMap

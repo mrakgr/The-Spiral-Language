@@ -183,6 +183,18 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             |> String.concat ", "
             |> function "" -> "()" | x -> x
             |> simple
+        let length (a,b) =
+            match a with
+            | YPrim UInt8T -> sprintf "Convert.ToByte %s.Length" (tup b)
+            | YPrim UInt16T -> sprintf "Convert.ToUInt16 %s.Length" (tup b)
+            | YPrim UInt32T -> sprintf "Convert.ToUInt32 %s.Length" (tup b)
+            | YPrim UInt64T -> sprintf "Convert.ToUInt64 %s.Length" (tup b)
+            | YPrim Int8T -> sprintf "Convert.ToSByte %s.Length" (tup b)
+            | YPrim Int16T -> sprintf "Convert.ToInt16 %s.Length" (tup b)
+            | YPrim Int32T -> sprintf "%s.Length" (tup b)
+            | YPrim Int64T -> sprintf "Convert.ToInt64 %s.Length" (tup b)
+            | _ -> raise_codegen_error "Compiler error: Expected an int in length"
+            |> simple
         match a with
         | TyMacro a -> a |> List.map (function CMText x -> x | CMTerm x -> tup x | CMType x -> tup_ty x) |> String.concat "" |> simple
         | TyIf(cond,tr,fl) ->
@@ -255,26 +267,19 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s (sprintf "v%i.l%i <- %s" i i' (show_w b))
                 ) (data_free_vars a) (data_term_vars c)
         | TyArrayLiteral(a,b) -> simple <| sprintf "[|%s|]" (List.map tup b |> String.concat "; ")
-        | TyArrayU32Create(a,b) -> simple (sprintf "Array.zeroCreate<%s> (int %s)" (tup_ty a) (tup b))
-        | TyArrayU64Create(a,b) -> simple (sprintf "Array.zeroCreate<%s> (System.Convert.ToInt32(%s))" (tup_ty a) (tup b))
+        | TyArrayCreate(a,b) -> simple (sprintf "Array.zeroCreate<%s> (System.Convert.ToInt32(%s))" (tup_ty a) (tup b))
+        | TyArrayLength(a,b) -> length (a,b)
+        | TyStringLength(a,b) -> length (a,b)
         | TyFailwith(a,b) -> simple (sprintf "failwith<%s> %s" (tup_ty a) (tup b))
         | TyOp(op,l) ->
             match op, l with
             | Apply,[a;b] -> sprintf "%s %s" (tup a) (tup b)
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
-            | StringU32Index, [a;b] -> sprintf "%s.[int %s]" (tup a) (tup b)
-            | StringU32Slice, [a;b;c] -> sprintf "%s.[int %s..int %s]" (tup a) (tup b) (tup c)
-            | StringU32Length, [a] -> sprintf "uint32 %s.Length" (tup a)
-            | StringU64Index, [a;b] -> sprintf "%s.[System.Convert.ToInt32(%s)]" (tup a) (tup b)
-            | StringU64Slice, [a;b;c] -> sprintf "%s.[System.Convert.ToInt32(%s)..System.Convert.ToInt32(%s)]" (tup a) (tup b) (tup c)
-            | StringU64Length, [a] -> sprintf "uint64 %s.Length" (tup a)
-            | ArrayU32Index, [a;b] -> sprintf "%s.[int %s]" (tup a) (tup b)
-            | ArrayU32IndexSet, [a;b;c] -> sprintf "%s.[int %s] <- %s" (tup a) (tup b) (tup c) 
-            | ArrayU32Length, [a] -> sprintf "uint32 %s.Length" (tup a)
-            | ArrayU64Index, [a;b] -> sprintf "%s.[System.Convert.ToInt32(%s)]" (tup a) (tup b)
-            | ArrayU64IndexSet, [a;b;c] -> sprintf "%s.[System.Convert.ToInt32(%s)] <- %s" (tup a) (tup b) (tup c) 
-            | ArrayU64Length, [a] -> sprintf "uint64 %s.LongLength" (tup a)
+            | StringIndex, [a;b] -> sprintf "%s.[int %s]" (tup a) (tup b)
+            | StringSlice, [a;b;c] -> sprintf "%s.[int %s..int %s]" (tup a) (tup b) (tup c)
+            | ArrayIndex, [a;b] -> sprintf "%s.[int %s]" (tup a) (tup b)
+            | ArrayIndexSet, [a;b;c] -> sprintf "%s.[int %s] <- %s" (tup a) (tup b) (tup c) 
 
             // Math
             | Add, [a;b] -> sprintf "%s + %s" (tup a) (tup b)
