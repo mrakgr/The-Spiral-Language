@@ -6,12 +6,10 @@ modules:
     core-
     loop
     loopw
-    a32
-    a64
-    r64
-    s32
-    s64
+    atm
+    am
+    rm
+    sm
     listm
     optionm
     monad
-    

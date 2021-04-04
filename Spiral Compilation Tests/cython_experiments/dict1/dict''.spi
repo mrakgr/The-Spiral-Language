@@ -1,0 +1,58 @@
+nominal bucket key value = ra u64 key * ra u64 value
+type field x = a u64 (ra u64 x)
+nominal table key value = field key * field value
+
+inl table_length (table (a,b)) = length a
+inl table_index (table (a,b)) i = bucket (index a i, index b i)
+inl table_init size = table (am.init size (fun _ => am.empty), am.init size (fun _ => am.empty))
+inl bucket_index (bucket (a,b)) i = inl key = index a i in {key value=index b i; hkey=hash_cython key}
+inl bucket_add (bucket (a,b)) {key value hkey} = rm.add a key . rm.add b value
+inl bucket_length (bucket (a,b)) = length a
+inl bucket_remove (bucket (a,b)) i = ignore (rm.pop a i) . ignore (rm.pop b i)
+inl bucket_set (bucket (a,b)) i {key value hkey} = set a i key . set b i value
+
+nominal dict key value = mut {
+    table : table key value
+    total_size : u64
+    limit : u64
+    }
+
+// Internal. Increases the dictionary capacity.
+let resize (dict x) =
+    inl table = x.table
+    inl table_length' = table_length table * 3 / 2 + 3
+    if table_length' <= table_length table then failwith "The table cannot be grown anymore."
+    inl table' = table_init table_length'
+    loop.for' (from: 0 nearTo: table_length table) (fun i =>
+        inl bucket = table_index table i
+        loop.for' (from: 0 nearTo: table_length table) (fun i =>
+            inl a = bucket_index bucket i
+            inl bucket' = table_index table' ((a.hkey &&& limit_max.u64()) % table_length')
+            bucket_add bucket' a
+            )
+        )
+    x.table <- table'
+    x.limit <- x.limit+2
+
+// Internal. Iterates over the dictionary and passes the value to on_succ if it finds a key match otherwise it calls on_fail.
+// The callback arguments can be used to set, remove and add relevant value to the dictionary.
+inl atKey (dict x) key {on_succ on_fail} = 
+    inl hkey = hash_cython key
+    inl table = x.table
+    inl bucket = table_index table ((hkey &&& limit_max.u64()) % table_length table)
+    let rec loop i =
+        if i < bucket_length bucket then 
+            inl x = bucket_index bucket i
+            if hkey = x.hkey && key = x.key then 
+                on_succ x.value {
+                    set = fun value => bucket_set bucket i {x with value}
+                    remove = fun () => bucket_remove bucket i
+                    }
+            else loop (i+1)
+        else
+            on_fail (fun value => 
+                bucket_add bucket {key value hkey}
+                x.total_size <- x.total_size+1
+                if x.total_size >= x.limit * table_length x.table then resize (dict x)
+                )
+    loop 0

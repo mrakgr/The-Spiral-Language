@@ -1,12 +1,12 @@
 nominal dict key value = mut {
-    table : array (rarray {key : key; value : value; hkey : u64})
+    table : a u64 (ra u64 {key : key; value : value; hkey : u64})
     total_size : u64
     limit : u64
     }
 
 inl EmptyDef = {size = 7; limit = 3}
 inl empty' {size limit} = dict <| mut {
-    table = a64.init size (fun _ => r64.empty)
+    table = am.init size (fun _ => am.empty)
     total_size = 0
     limit = limit
     }
@@ -15,17 +15,16 @@ inl Empty = empty' EmptyDef
 
 // Internal. Increases the dictionary capacity.
 let resize (dict x) =
-    inl next_table_length x = x*3/2+3
     inl table = x.table
-    inl table_length' = next_table_length (a64.length table)
-    if table_length' <= a64.length table then failwith "The table cannot be grown anymore."
-    inl table' = a64.init table_length' (fun i => r64.empty)
-    loop.for' (from: 0 nearTo: a64.length table) (fun i =>
-        inl table = a64.index table i
-        loop.for' (from: 0 nearTo: r64.length table) (fun i =>
-            inl a = r64.index table i
-            inl bucket = a64.index table' ((a.hkey &&& limit_max.u64()) % table_length')
-            r64.add bucket a
+    inl table_length' = length table * 3 / 2 + 3
+    if table_length' <= length table then failwith "The table cannot be grown anymore."
+    inl table' = am.init table_length' (fun i => am.empty)
+    loop.for' (from: 0 nearTo: length table) (fun i =>
+        inl bucket = index table i
+        loop.for' (from: 0 nearTo: length table) (fun i =>
+            inl a = index bucket i
+            inl bucket' = index table' ((a.hkey &&& limit_max.u64()) % table_length')
+            rm.add bucket' a
             )
         )
     x.table <- table'
@@ -36,21 +35,21 @@ let resize (dict x) =
 inl atKey (dict x) key {on_succ on_fail} = 
     inl hkey = hash_cython key
     inl table = x.table
-    inl bucket = a64.index table ((hkey &&& limit_max.u64()) % a64.length table)
+    inl bucket = index table ((hkey &&& limit_max.u64()) % length table)
     let rec loop i =
-        if i < r64.length bucket then 
-            inl x = r64.index bucket i
+        if i < length bucket then 
+            inl x = index bucket i
             if hkey = x.hkey && key = x.key then 
                 on_succ x.value {
-                    set = fun value => r64.set bucket i {x with value}
-                    remove = fun () => r64.pop bucket i |> ignore
+                    set = fun value => set bucket i {x with value}
+                    remove = fun () => rm.pop bucket i |> ignore
                     }
             else loop (i+1)
         else
             on_fail (fun value => 
-                r64.add bucket {key value hkey}
+                rm.add bucket {key value hkey}
                 x.total_size <- x.total_size+1
-                if x.total_size >= x.limit * a64.length x.table then resize (dict x)
+                if x.total_size >= x.limit * length x.table then resize (dict x)
                 )
     loop 0
 

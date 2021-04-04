@@ -1,4 +1,8 @@
 packages: |core-
 modules:
     dict
+    dict'
+    dict''
+    dict_generic 
+    table_cached
     main

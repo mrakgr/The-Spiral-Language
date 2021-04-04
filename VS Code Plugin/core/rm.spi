@@ -1,0 +1,9 @@
+// Python's list module.
+open loop
+
+// Concatenates an array of strings.
+inl join' (sep : string) (l : ra _ string) : string = $"!sep.join(!l)"
+// Removes the element at the given index and returns it.
+inl pop forall dim el. (l : ra dim el) (i : dim) : el = $"!l.pop(!i)"
+// Appends to an array.
+inl add forall dim el. (l : ra dim el) (x : el) : () = $"!l.append(!x)"
