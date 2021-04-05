@@ -1,0 +1,25 @@
+open generic
+
+nominal caching_bucket key value = ra u64 {key : key; value : value; hkey : u64}
+
+inl caching_funs forall key value. = 
+    dict_funs {
+        bucket_index = fun (caching_bucket a) i => index a i
+        bucket_add = fun (caching_bucket a) x => rm.add a x
+        bucket_length = fun (caching_bucket a) => length a
+        bucket_remove = fun (caching_bucket a) i => ignore (rm.pop a i)
+        bucket_set = fun (caching_bucket a) i x => set a i x
+        bucket_empty = fun _ => caching_bucket am.empty
+        } : dict_funs caching_bucket key value
+
+nominal pure_bucket key value = ra u64 {key : key; value : value}
+
+inl pure_funs forall key value. = 
+    dict_funs {
+        bucket_index = fun (pure_bucket a) i => inl x = index a i in {x with hkey=hash_cython x.key}
+        bucket_add = fun (pure_bucket a) x => rm.add a {x without hkey}
+        bucket_length = fun (pure_bucket a) => length a
+        bucket_remove = fun (pure_bucket a) i => ignore (rm.pop a i)
+        bucket_set = fun (pure_bucket a) i x => set a i {x without hkey}
+        bucket_empty = fun _ => pure_bucket am.empty
+        } : dict_funs pure_bucket key value

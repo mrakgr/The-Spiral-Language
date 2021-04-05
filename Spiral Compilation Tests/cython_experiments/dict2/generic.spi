@@ -1,0 +1,54 @@
+nominal dict_funs (bucket : * -> * -> *) key value = {
+    bucket_index : bucket key value -> u64 -> {key : key; value : value; hkey : u64}
+    bucket_add : bucket key value -> {key : key; value : value; hkey : u64} -> ()
+    bucket_length : bucket key value -> u64
+    bucket_remove : bucket key value -> u64 -> ()
+    bucket_set : bucket key value -> u64 -> {key : key; value : value; hkey : u64} -> ()
+    bucket_empty : () -> bucket key value
+    }
+
+nominal dictg (bucket : * -> * -> *) key value = mut {
+    table : a u64 (bucket key value)
+    total_size : u64
+    limit : u64
+    }
+
+// Internal. Increases the dictionary capacity.
+inl resize (dict_funs funs) (dictg x) = join
+    inl table = x.table
+    inl table_length' = length table * 3 / 2 + 3
+    if table_length' <= length table then failwith "The table cannot be grown anymore."
+    inl table' = am.init table_length' (fun _ => funs.bucket_empty())
+    loop.for' (from: 0 nearTo: length table) (fun i =>
+        inl bucket = index table i
+        loop.for' (from: 0 nearTo: length table) (fun i =>
+            inl a = funs.bucket_index bucket i
+            inl bucket' = index table' (a.hkey % table_length')
+            funs.bucket_add bucket' a
+            )
+        )
+    x.table <- table'
+    x.limit <- x.limit+2
+
+// Internal. Iterates over the dictionary and passes the value to on_succ if it finds a key match otherwise it calls on_fail.
+// The callback arguments can be used to set, remove and add relevant value to the dictionary.
+inl atKey (dict_funs funs) (dictg x) key {on_succ on_fail} = 
+    inl hkey = hash_cython key
+    inl table = x.table
+    inl bucket = index table (hkey % length table)
+    let rec loop i =
+        if i < funs.bucket_length bucket then 
+            inl x = funs.bucket_index bucket i
+            if hkey = x.hkey && key = x.key then 
+                on_succ x.value {
+                    set = fun value => funs.bucket_set bucket i {x with value}
+                    remove = fun () => funs.bucket_remove bucket i
+                    }
+            else loop (i+1)
+        else
+            on_fail (fun value => 
+                funs.bucket_add bucket {key value hkey}
+                x.total_size <- x.total_size+1
+                if x.total_size >= x.limit * length x.table then resize (dict_funs funs) (dictg x)
+                )
+    loop 0

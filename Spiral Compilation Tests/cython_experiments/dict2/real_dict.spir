@@ -1,0 +1,10 @@
+open real_core
+
+inl is_fast_hashable forall key. =
+    typecase key with
+    | string => false
+    | _ => prim_type_is `key
+
+inl bucket_type forall key value. =
+    open table
+    if is_fast_hashable `key then ``(pure_bucket key value) else ``(caching_bucket key value)

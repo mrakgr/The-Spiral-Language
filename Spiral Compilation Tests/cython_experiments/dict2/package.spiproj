@@ -1,0 +1,7 @@
+packages: |core-
+modules:
+    generic 
+    table 
+    real_dict* 
+    dict
+    main

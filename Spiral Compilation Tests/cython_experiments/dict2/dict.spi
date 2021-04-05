@@ -1,0 +1,86 @@
+nominal dict key value = mut {
+    table : a u64 `(real_dict.bucket_type `key `value)
+    total_size : u64
+    limit : u64
+    }
+
+// Iterates over the dictionary and passes the value to on_succ if it finds a key match otherwise it calls on_fail.
+// The callback arguments can be used to set, remove and add relevant value to the dictionary.
+inl atKey forall key value ret. (x : dict key value) key cont : ret =
+    open table
+    open generic
+    inl run funs (x : dictg _ key value) : ret = atKey funs x key cont
+    real
+    inl (dict x) = x
+    typecase `(x.table) with
+    | a u64 (caching_bucket _ _) => run `caching_bucket (caching_funs `key `value) (dictg `caching_bucket `key `value x)
+    | a u64 (pure_bucket _ _) => run `pure_bucket (pure_funs `key `value) (dictg `pure_bucket `key `value x)
+
+nominal init_def = {size : u64; limit : u64}
+inl EmptyDef = init_def {size = 7; limit = 3}
+let empty' forall key value. (init_def {size limit}) : dict key value = dict <| mut {
+    table = real
+        typecase `(real_dict.bucket_type `key `value) with ~bucket =>
+        am.init `a `u64 `bucket size (fun _ => 
+            open table
+            typecase bucket with
+            | caching_bucket _ _ => (caching_funs `key `value).bucket_empty()
+            | pure_bucket _ _ => (pure_funs `key `value).bucket_empty()
+            )
+    total_size = 0
+    limit = limit
+    }
+inl empty forall key value. : dict key value = empty' EmptyDef
+
+// Indexes into the dictionary at the given key. Raises an exception if the key is not present.
+let index x key =
+    atKey x key {
+        on_succ=fun value _ => value
+        on_fail=fun _ => failwith "The key is not present in the dictionary."
+        }
+
+// Adds a key value pair to the dictionary. Raises an exception if the key already exists.
+let add x key value = 
+    atKey x key {
+        on_succ=fun _ _ => failwith "The key already exists in the dictionary."
+        on_fail=fun add => add value . value
+        } |> ignore
+
+// Sets a key value pair to the dictionary. Replaces the existing value if present.
+let set x key value =
+    atKey x key {
+        on_succ=fun value {set} => set value . value
+        on_fail=fun add => add value . value
+        } |> ignore
+
+// Tries finding a value of the specified key in the dictionary.
+let tryFind x key =
+    atKey x key {
+        on_succ=fun value _ => Some: value
+        on_fail=fun _ => None
+        }
+
+// Checks whether key the key is present in the dictionary.
+let contains x key =
+    atKey x key {
+        on_succ=fun _ _ => true
+        on_fail=fun _ => false
+        }
+
+// Tries removing a key from a dictionary. Returns boolean whether the operation succeeded.
+let tryRemove x key =
+    atKey x key {
+        on_succ=fun value {remove} => remove() . true
+        on_fail=fun _ => false
+        }
+
+// Tries removing a key from a dictionary. Throws an exception if the key is not present.
+let remove x key = if tryRemove x key = false then failwith "The key is not present in the dictionary."
+
+// If the key is not in the dictionary it executes the given function and adds its result to the dictionary. Otherwise it
+// returns the already existing result.
+let memoize x f key =
+    atKey x key {
+        on_succ=fun value _ => value
+        on_fail=fun add => inl v = f key in add v . v
+        }
