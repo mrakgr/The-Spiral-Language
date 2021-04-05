@@ -1,6 +1,6 @@
-// The array module. Compared to the ones in the `atm` module, the functions here are more restricted and easier to compose.
+// The array module. Compared to the ones in the `generic` module, the functions here are more restricted and easier to compose.
 open loop
-open atm
+open generic
 
 // Creates an empty array.
 inl empty forall (ar : * -> * -> *) {create} dim {number} el. : ar dim el = empty

@@ -498,7 +498,7 @@ let peval (env : TopEnv) (x : E) =
             let domain, range, ret_ty = 
                 match ty s annot with
                 | YFun(a,b) as x -> a,b,x
-                | annot -> raise_type_error s "Expected a function type in annotation during closure conversion. Got: %s" (show_ty annot)
+                | annot -> raise_type_error s <| sprintf "Expected a function type in annotation during closure conversion. Got: %s" (show_ty annot)
             let dict, hc_table = Utils.memoize join_point_closure (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
             let call_args, env_global_value = data_to_rdata hc_table gl_term
             let join_point_key = hc_table.Add(env_global_value, s.env_global_type, domain, range)
@@ -671,6 +671,8 @@ let peval (env : TopEnv) (x : E) =
             | a -> raise_type_error s <| sprintf "Expected a forall.\nGot: %s" (show_data a)
 
         let rec apply s = function
+            | DNominal(DUnion _,_), _ -> raise_type_error s "Unions cannot be applied."
+            | DNominal(a,_), b -> apply s (a,b)
             | DRecord a, DSymbol b ->
                 match Map.tryFind b a with
                 | Some a -> a
@@ -708,7 +710,7 @@ let peval (env : TopEnv) (x : E) =
                 | HeapMutable -> push_typedop_no_rewrite s key ret_ty
                 | Heap -> push_typedop s key ret_ty
             | DV(L(_,YLayout _)), b -> raise_type_error s <| sprintf "Expected a symbol as the index into the layout type.\nGot: %s" (show_data b)
-            | a,_ -> raise_type_error s <| sprintf "Expected a function, closure, record or a layout type.\nGot: %s" (show_data a)
+            | a,_ -> raise_type_error s <| sprintf "Expected a function, closure, record or a layout type possibly inside a nominal.\nGot: %s" (show_data a)
 
         let rec if_ s cond on_succ on_fail = 
             match cond with

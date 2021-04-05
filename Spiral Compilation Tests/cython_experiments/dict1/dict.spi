@@ -1,57 +1,37 @@
 nominal dict key value = mut {
-    table : a u64 (ra u64 {key : key; value : value; hkey : u64})
+    table : `(real_dict.table_type `key `value)
     total_size : u64
     limit : u64
     }
 
-inl EmptyDef = {size = 7; limit = 3}
-inl empty' {size limit} = dict <| mut {
-    table = am.init size (fun _ => am.empty)
+// Internal. Iterates over the dictionary and passes the value to on_succ if it finds a key match otherwise it calls on_fail.
+// The callback arguments can be used to set, remove and add relevant value to the dictionary.
+inl atKey forall key value ret. (x : dict key value) key cont : ret =
+    open table
+    open generic
+    inl run funs (x : dictg _ key value) : ret = atKey funs x key cont
+    real
+    inl (dict x) = x
+    typecase `(x.table) with
+    | caching _ _ => run `caching `caching_bucket (caching_funs `key `value) (dictg `caching `key `value x)
+    | pure _ _ => run `pure `pure_bucket (pure_funs `key `value) (dictg `pure `key `value x)
+    | caching_set _ _ => run `caching_set `caching_set_bucket (caching_set_funs `key) (dictg `caching_set `key `value x) // The value here shuold be ()
+    | pure_set _ _ => run `pure_set `pure_set_bucket (pure_set_funs `key) (dictg `pure_set `key `value x)
+
+nominal init_def = {size : u64; limit : u64}
+inl EmptyDef = init_def {size = 7; limit = 3}
+inl empty' forall key value. (init_def {size limit}) : dict key value = dict <| mut {
+    table = real
+        open table
+        typecase `(real_dict.table_type `key `value) with
+        | caching _ _ => (caching_funs `key `value).table_init size
+        | pure _ _ => (pure_funs `key `value).table_init size
+        | caching_set _ _ => (pure_funs `key `value).table_init size
+        | pure_set _ _ => (pure_funs `key `value).table_init size
     total_size = 0
     limit = limit
     }
-
-inl Empty = empty' EmptyDef
-
-// Internal. Increases the dictionary capacity.
-let resize (dict x) =
-    inl table = x.table
-    inl table_length' = length table * 3 / 2 + 3
-    if table_length' <= length table then failwith "The table cannot be grown anymore."
-    inl table' = am.init table_length' (fun i => am.empty)
-    loop.for' (from: 0 nearTo: length table) (fun i =>
-        inl bucket = index table i
-        loop.for' (from: 0 nearTo: length table) (fun i =>
-            inl a = index bucket i
-            inl bucket' = index table' ((a.hkey &&& limit_max.u64()) % table_length')
-            rm.add bucket' a
-            )
-        )
-    x.table <- table'
-    x.limit <- x.limit+2
-
-// Internal. Iterates over the dictionary and passes the value to on_succ if it finds a key match otherwise it calls on_fail.
-// The callback arguments can be used to set, remove and add relevant value to the dictionary.
-inl atKey (dict x) key {on_succ on_fail} = 
-    inl hkey = hash_cython key
-    inl table = x.table
-    inl bucket = index table ((hkey &&& limit_max.u64()) % length table)
-    let rec loop i =
-        if i < length bucket then 
-            inl x = index bucket i
-            if hkey = x.hkey && key = x.key then 
-                on_succ x.value {
-                    set = fun value => set bucket i {x with value}
-                    remove = fun () => rm.pop bucket i |> ignore
-                    }
-            else loop (i+1)
-        else
-            on_fail (fun value => 
-                rm.add bucket {key value hkey}
-                x.total_size <- x.total_size+1
-                if x.total_size >= x.limit * length x.table then resize (dict x)
-                )
-    loop 0
+inl empty forall key value. : dict key value = empty' EmptyDef
 
 // Indexes into the dictionary at the given key. Raises an exception if the key is not present.
 let index x key =

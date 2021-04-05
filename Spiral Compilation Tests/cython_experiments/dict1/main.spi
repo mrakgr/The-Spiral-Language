@@ -1,0 +1,17 @@
+open generic
+open table
+open dict
+inl main () : () =
+    inl q : a u64 (ra u64 string) = 
+        real am.generic.init `u64 `array `(ra u64 string) 10u64 (fun _ => am.empty)
+        // am.init 10u64 (fun _ => am.empty)
+    // inl (dict_funs {table_init}) = table.caching_funs
+    // inl x : caching string u64 = table_init 10
+    // inl x = table.caching_funs.table_init 10
+    // inl x = empty
+    // add x "asd" 1u32
+    // add x "zxc" 2u32
+    // add x "qwe" 3u32
+    // inl a,b = index x "asd", index x "qwe"
+    // $"print(!a,!b)"
+    ()

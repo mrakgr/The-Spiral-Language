@@ -1,0 +1,17 @@
+open real_core
+
+inl is_fast_hashable forall key. =
+    typecase key with
+    | string => false
+    | _ => prim_is `key
+
+inl is_set forall value. =
+    typecase value with
+    | () => true
+    | _ => false
+
+inl table_type forall key value. =
+    open table
+    typecase value with
+    | () => if is_fast_hashable `key then ``(pure_set key value) else ``(caching_set key value)
+    | _ => if is_fast_hashable `key then ``(pure key value) else ``(caching key value)

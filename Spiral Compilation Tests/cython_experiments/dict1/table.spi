@@ -1,0 +1,65 @@
+open generic
+
+nominal caching_bucket key value = ra u64 key * ra u64 value * ra u64 u64
+type field x = a u64 (ra u64 x)
+nominal caching key value = field key * field value * field u64
+
+inl caching_funs forall key value. = 
+    dict_funs {
+        table_length = fun (caching (a,b,c)) => length a
+        table_index = fun (caching (a,b,c)) i => caching_bucket (index a i, index b i, index c i)
+        table_init = fun size => caching (am.init size (fun _ => am.empty), am.init size (fun _ => am.empty), am.init size (fun _ => am.empty))
+        bucket_index = fun (caching_bucket (a,b,c)) i => {key=index a i; value=index b i; hkey=index c i}
+        bucket_add = fun (caching_bucket (a,b,c)) {key value hkey} => rm.add a key . rm.add b value . rm.add c hkey
+        bucket_length = fun (caching_bucket (a,b,c)) => length a
+        bucket_remove = fun (caching_bucket (a,b,c)) i => ignore (rm.pop a i) . ignore (rm.pop b i) . ignore (rm.pop c i)
+        bucket_set = fun (caching_bucket (a,b,c)) i {key value hkey} => set a i key . set b i value . set c i hkey
+        } : dict_funs caching caching_bucket key value
+
+nominal pure_bucket key value = ra u64 key * ra u64 value
+type field x = a u64 (ra u64 x)
+nominal pure key value = field key * field value
+
+inl pure_funs forall key value. = 
+    dict_funs {
+        table_length = fun (pure (a,b)) => length a
+        table_index = fun (pure (a,b)) i => pure_bucket (index a i, index b i)
+        table_init = fun size => pure (am.init size (fun _ => am.empty), am.init size (fun _ => am.empty))
+        bucket_index = fun (pure_bucket (a,b)) i => inl key = index a i in {key value=index b i; hkey=hash_cython key}
+        bucket_add = fun (pure_bucket (a,b)) {key value hkey} => rm.add a key . rm.add b value
+        bucket_length = fun (pure_bucket (a,b)) => length a
+        bucket_remove = fun (pure_bucket (a,b)) i => ignore (rm.pop a i) . ignore (rm.pop b i)
+        bucket_set = fun (pure_bucket (a,b)) i {key value hkey} => set a i key . set b i value
+        } : dict_funs pure pure_bucket key value
+
+nominal caching_set_bucket key value = ra u64 key * ra u64 u64
+type field x = a u64 (ra u64 x)
+nominal caching_set key value = field key * field u64
+
+inl caching_set_funs forall key. = 
+    dict_funs {
+        table_length = fun (caching_set (a,c)) => length a
+        table_index = fun (caching_set (a,c)) i => caching_set_bucket (index a i, index c i)
+        table_init = fun size => caching_set (am.init size (fun _ => am.empty), am.init size (fun _ => am.empty))
+        bucket_index = fun (caching_set_bucket (a,c)) i => {key=index a i; value=(); hkey=index c i}
+        bucket_add = fun (caching_set_bucket (a,c)) {key value hkey} => rm.add a key . rm.add c hkey
+        bucket_length = fun (caching_set_bucket (a,c)) => length a
+        bucket_remove = fun (caching_set_bucket (a,c)) i => ignore (rm.pop a i) . ignore (rm.pop c i)
+        bucket_set = fun (caching_set_bucket (a,c)) i {key value hkey} => set a i key . set c i hkey
+        } : dict_funs caching_set caching_set_bucket key ()
+
+nominal pure_set_bucket key value = ra u64 key
+type field x = a u64 (ra u64 x)
+nominal pure_set key value = field key
+
+inl pure_set_funs forall key. =
+    dict_funs {
+        table_length = fun (pure_set a) => length a
+        table_index = fun (pure_set a) i => pure_set_bucket (index a i)
+        table_init = fun size => pure_set (am.init size (fun _ => am.empty))
+        bucket_index = fun (pure_set_bucket a) i => inl key = index a i in {key value=(); hkey=hash_cython key}
+        bucket_add = fun (pure_set_bucket a) {key value hkey} => rm.add a key
+        bucket_length = fun (pure_set_bucket a) => length a
+        bucket_remove = fun (pure_set_bucket a) i => ignore (rm.pop a i)
+        bucket_set = fun (pure_set_bucket a) i {key value hkey} => set a i key
+        } : dict_funs pure_set pure_set_bucket key ()

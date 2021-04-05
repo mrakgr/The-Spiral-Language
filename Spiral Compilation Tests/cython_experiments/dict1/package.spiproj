@@ -1,8 +1,7 @@
 packages: |core-
 modules:
+    generic 
+    table 
+    real_dict* 
     dict
-    dict'
-    dict''
-    dict_generic 
-    table_cached
     main

@@ -69,6 +69,7 @@ type TypeError =
     | MetavarsNotAllowedInRecordWith
     | ExpectedRecord of T
     | ExpectedRecordInsideALayout of T
+    | UnionsCannotBeApplied
     | ExpectedRecordAsResultOfIndex of T
     | RecordIndexFailed of string
     | ModuleIndexFailed of string
@@ -507,6 +508,7 @@ let show_t (env : TopEnv) x =
 let show_type_error (env : TopEnv) x =
     let f = show_t env
     match x with
+    | UnionsCannotBeApplied -> "Unions cannot be applied."
     | ModuleMustBeImmediatelyApplied -> "Module must be immediately applied."
     | ExpectedSymbol' a -> sprintf "Expected a symbol.\nGot: %s" (f a)
     | KindError(a,b) -> sprintf "Kind unification failure.\nGot:      %s\nExpected: %s" (show_kind a) (show_kind b)
@@ -973,33 +975,38 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | RawOp(_,_,l) -> List.iter (assert_bound_vars env) l
         | RawJoinPoint(r,a) -> annotations.Add(x,(r,s)); f s a
         | RawApply(r,a',b) ->
-            match f'' a' with
-            | TyLayout(a,_) ->
-                match visit_t a with
+            let rec loop = function
+                | TyNominal i -> 
+                    match top_env.nominals.[i].body with
+                    | TyUnion _ -> errors.Add(r,UnionsCannotBeApplied)
+                    | x -> loop x
+                | TyLayout(a,_) ->
+                    match visit_t a with
+                    | TyRecord l -> apply_record r s l (f' b)
+                    | a -> errors.Add(r,ExpectedRecordInsideALayout a)
                 | TyRecord l -> apply_record r s l (f' b)
-                | a -> errors.Add(r,ExpectedRecordInsideALayout a)
-            | TyRecord l -> apply_record r s l (f' b)
-            | TyModule l -> 
-                match f' b with
-                | TySymbol n ->
-                    match Map.tryFind n l with
-                    | Some (TyModule _ as a) ->
-                        if is_in_left_apply then unify r s a
-                        else errors.Add(r,ModuleMustBeImmediatelyApplied)
-                    | Some a' -> 
-                        let typevars,a = forall_subst_all scope a'
-                        if List.isEmpty typevars = false then 
-                            annotations.Add(x,(r,s))
-                            module_type_apply_args.Add(x,typevars)
-                        match b with 
-                        | RawSymbol(r,_) -> 
-                            let com = match a' with TyComment(com,_) -> com | _ -> ""
-                            hover_types.Add(r,(a,com))
-                        | _ -> ()
-                        unify r s a
-                    | None -> errors.Add(r,ModuleIndexFailed n)
-                | b -> errors.Add(r,ExpectedSymbolAsModuleKey b)
-            | a -> let v = fresh_var scope in unify (range_of_expr a') a (TyFun(v,s)); f v b
+                | TyModule l -> 
+                    match f' b with
+                    | TySymbol n ->
+                        match Map.tryFind n l with
+                        | Some (TyModule _ as a) ->
+                            if is_in_left_apply then unify r s a
+                            else errors.Add(r,ModuleMustBeImmediatelyApplied)
+                        | Some a' -> 
+                            let typevars,a = forall_subst_all scope a'
+                            if List.isEmpty typevars = false then 
+                                annotations.Add(x,(r,s))
+                                module_type_apply_args.Add(x,typevars)
+                            match b with 
+                            | RawSymbol(r,_) -> 
+                                let com = match a' with TyComment(com,_) -> com | _ -> ""
+                                hover_types.Add(r,(a,com))
+                            | _ -> ()
+                            unify r s a
+                        | None -> errors.Add(r,ModuleIndexFailed n)
+                    | b -> errors.Add(r,ExpectedSymbolAsModuleKey b)
+                | a -> let v = fresh_var scope in unify (range_of_expr a') a (TyFun(v,s)); f v b
+            loop (f'' a')
         | RawAnnot(_,a,b) -> ty scope env s b; f s a
         | RawOpen(_,(a,b),l,on_succ) ->
             match module_open (loc_env top_env) a b l with

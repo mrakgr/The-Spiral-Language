@@ -6,8 +6,9 @@ modules:
     core-
     loop
     loopw
-    atm
-    am
+    am/
+        generic
+        main-
     rm
     sm
     listm
