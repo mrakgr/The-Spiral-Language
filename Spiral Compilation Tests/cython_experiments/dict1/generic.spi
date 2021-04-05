@@ -16,7 +16,7 @@ nominal dictg (table : * -> * -> *) key value = mut {
     }
 
 // Internal. Increases the dictionary capacity.
-let resize (dict_funs funs) (dictg x) =
+inl resize (dict_funs funs) (dictg x) = join
     inl table = x.table
     inl table_length' = funs.table_length table * 3 / 2 + 3
     if table_length' <= funs.table_length table then failwith "The table cannot be grown anymore."
@@ -25,7 +25,7 @@ let resize (dict_funs funs) (dictg x) =
         inl bucket = funs.table_index table i
         loop.for' (from: 0 nearTo: funs.table_length table) (fun i =>
             inl a = funs.bucket_index bucket i
-            inl bucket' = funs.table_index table' ((a.hkey &&& limit_max.u64()) % table_length')
+            inl bucket' = funs.table_index table' (a.hkey % table_length')
             funs.bucket_add bucket' a
             )
         )
@@ -37,7 +37,7 @@ let resize (dict_funs funs) (dictg x) =
 inl atKey (dict_funs funs) (dictg x) key {on_succ on_fail} = 
     inl hkey = hash_cython key
     inl table = x.table
-    inl bucket = funs.table_index table ((hkey &&& limit_max.u64()) % funs.table_length table)
+    inl bucket = funs.table_index table (hkey % funs.table_length table)
     let rec loop i =
         if i < funs.bucket_length bucket then 
             inl x = funs.bucket_index bucket i

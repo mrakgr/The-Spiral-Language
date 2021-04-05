@@ -28,10 +28,10 @@ prototype set ar dim el : ar dim el -> dim -> el -> ()
 // Returns the length of an array.
 prototype length ar dim el : ar dim el -> dim
 
-instance create a = fun size => !!!!ArrayCreate(`dim,size)
-instance index a = fun ar i => !!!!ArrayIndex(ar,i)
-instance set a = fun ar i v => !!!!ArrayIndexSet(ar,i,v)
-instance length a = fun ar => !!!!ArrayLength(`dim,ar)
+instance create a = fun size => a !!!!ArrayCreate(`el,size)
+instance index a = fun (a ar) i => !!!!ArrayIndex(ar,i)
+instance set a = fun (a ar) i v => !!!!ArrayIndexSet(ar,i,v)
+instance length a = fun (a ar) => !!!!ArrayLength(`dim,ar)
 
 // Python native
 type obj = $"object"

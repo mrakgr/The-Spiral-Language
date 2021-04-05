@@ -4,7 +4,7 @@ nominal dict key value = mut {
     limit : u64
     }
 
-// Internal. Iterates over the dictionary and passes the value to on_succ if it finds a key match otherwise it calls on_fail.
+// Iterates over the dictionary and passes the value to on_succ if it finds a key match otherwise it calls on_fail.
 // The callback arguments can be used to set, remove and add relevant value to the dictionary.
 inl atKey forall key value ret. (x : dict key value) key cont : ret =
     open table
@@ -26,8 +26,8 @@ inl empty' forall key value. (init_def {size limit}) : dict key value = dict <| 
         typecase `(real_dict.table_type `key `value) with
         | caching _ _ => (caching_funs `key `value).table_init size
         | pure _ _ => (pure_funs `key `value).table_init size
-        | caching_set _ _ => (pure_funs `key `value).table_init size
-        | pure_set _ _ => (pure_funs `key `value).table_init size
+        | caching_set _ _ => (caching_set_funs `key).table_init size
+        | pure_set _ _ => (pure_set_funs `key).table_init size
     total_size = 0
     limit = limit
     }

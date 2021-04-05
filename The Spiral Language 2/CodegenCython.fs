@@ -397,11 +397,16 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             match a with
             | JPMethod(a,b) -> sprintf "method%i(%s)" (method (a,b)).tag args
             | JPClosure(a,b) -> sprintf "Closure%i(%s)" (closure (a,b)).tag args
-        let layout_index i x =
-            x |> Array.map (fun (L(i',_)) -> $"v{i}.v{i'}")
+        let layout_index i x' =
+            x' |> Array.map (fun (L(i',_)) -> $"v{i}.v{i'}")
             |> String.concat ", "
-            |> function "" -> "pass" | x -> x
-            |> return'
+            |> fun x -> 
+                match ret with
+                | BindsTailEnd true -> line s x 
+                | BindsTailEnd false -> 
+                    let ty = Array.map (fun (L(_,t)) -> tyv t) x'
+                    line s (sprintf "return Tuple%i(%s)" (tup' ty).tag x)
+                | BindsLocal ret -> line s $"{args ret} = {x}"
         let length (a,b) =
             let l = $"len({tup b})"
             match a with
