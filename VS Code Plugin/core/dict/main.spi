@@ -30,16 +30,6 @@ let empty' forall key value. {size limit} : dict key value = dict <| mut {
     limit = limit
     }
 
-// Creates an empty dictionary with the table length for the given target capacity.
-inl create total_size =
-    let rec loop (x & {size limit}) =
-        if total_size >= limit * size then loop {x with size#=generic.table_length_grow; limit#=(+) 2}
-        else x
-    empty' (loop EmptyDef)
-    
-// Creates an empty dictionary.
-inl empty forall key value. : dict key value = empty' EmptyDef
-
 // Indexes into the dictionary at the given key. Raises an exception if the key is not present.
 let index x key =
     atKey x key {
@@ -51,15 +41,15 @@ let index x key =
 let add x key value = 
     atKey x key {
         on_succ=fun _ _ => failwith "The key already exists in the dictionary."
-        on_fail=fun add => add value . value
-        } |> ignore
+        on_fail=fun add => add value
+        }
 
-// Sets a key value pair to the dictionary. Replaces the existing value if present.
-let set x key value =
+// Adds a key value pair to the dictionary. If the key already exists it leaves the current value in and returns false otherwise it returns true.
+let tryAdd x key value = 
     atKey x key {
-        on_succ=fun value {set} => set value . value
-        on_fail=fun add => add value . value
-        } |> ignore
+        on_succ=fun _ _ => false
+        on_fail=fun add => add value . true
+        }
 
 // Tries finding a value of the specified key in the dictionary.
 let tryFind x key =
@@ -102,3 +92,31 @@ inl fold forall key value s. (f : s -> key * value -> s) ~(s : s) ~(x : dict key
         | (caching_bucket x) => am.fold `ra `u64 `({key : key; value : value; hkey : u64}) `s (fun s {key value} => f s (key,value)) s x
         | (pure_bucket x) => am.fold `ra `u64 `({key : key; value : value}) `s (fun s {key value} => f s (key,value)) s x
         ) s x.table
+
+// Converts a dictionary to an array.
+inl toArray (x : dict _ _) =
+    inl i = x.total_size
+    inl ar = create i
+    inl _ = fold (fun i x => inl i = i-1 in set ar i x . i) i x
+    ar
+
+// Converts a dictionary to a list.
+inl toList x = fold (fun l x => x :: l) [] x
+
+// Creates an empty dictionary with the table length for the given target capacity.
+inl create total_size =
+    open generic
+    let rec loop (x : {size : _; limit : _}) =
+        if grow_needs total_size x then loop {x with size#=grow_length; limit#=grow_limit}
+        else x
+    empty' (loop EmptyDef)
+    
+// Creates an empty dictionary.
+inl empty forall key value. : dict key value = empty' EmptyDef
+
+// Sets a key value pair to the dictionary. Replaces the existing value if present.
+let set x key value =
+    atKey x key {
+        on_succ=fun value {set} => set value
+        on_fail=fun add => add value
+        }

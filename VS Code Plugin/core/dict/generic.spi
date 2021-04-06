@@ -13,15 +13,17 @@ nominal dictg (bucket : * -> * -> *) key value = mut {
     limit : u64
     }
 
-inl table_length_grow x = 
+inl grow_needs total_size {limit size} = total_size >= limit * size
+inl grow_length x = 
     inl x' = x * 3 / 2 + 3
     if x' <= x then failwith "The table length cannot be increased."
     x'
+inl grow_limit x = x + 2
     
 // Internal. Increases the dictionary capacity.
 inl resize (dict_funs funs) (dictg x) = join
     inl table = x.table
-    inl table_length' = table_length_grow (length table)
+    inl table_length' = grow_length (length table)
     inl table' = am.init table_length' (fun _ => funs.bucket_empty())
     loop.for' (from: 0 nearTo: length table) (fun i =>
         inl bucket = index table i
@@ -32,7 +34,7 @@ inl resize (dict_funs funs) (dictg x) = join
             )
         )
     x.table <- table'
-    x.limit <- x.limit+2
+    x.limit <- grow_limit x.limit
 
 // Internal. Iterates over the dictionary and passes the value to on_succ if it finds a key match otherwise it calls on_fail.
 // The callback arguments can be used to set, remove and add relevant value to the dictionary.
@@ -53,6 +55,6 @@ inl atKey (dict_funs funs) (dictg x) key {on_succ on_fail} =
             on_fail (fun value =>
                 funs.bucket_add bucket {key value hkey}
                 x.total_size <- x.total_size+1
-                if x.total_size >= x.limit * length x.table then resize (dict_funs funs) (dictg x)
+                if grow_needs x.total_size {limit=x.limit; size=length x.table} then resize (dict_funs funs) (dictg x)
                 )
     loop 0
