@@ -21,6 +21,4 @@ modules:
         human
     cps_test
     ui_test
-    main
-    
-    
+    main    

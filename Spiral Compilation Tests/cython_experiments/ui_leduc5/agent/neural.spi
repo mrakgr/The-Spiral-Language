@@ -39,7 +39,10 @@ inl funs_buffer net add_buffer =
             inl actions_prob = torch.runMasked' net (process (observations player)) actions
             inl reward = 
                 inl state = state player
-                a64.fold2 (fun s prob a => inl prob = f64 prob in s + prob * next ((to_log_prob prob, a),state)) 0 actions_prob actions
+                am.fold2 (fun s prob a => 
+                    inl prob = f64 prob
+                    s + prob * next ((to_log_prob prob,a),state)
+                    ) 0 actions_prob actions
             add_buffer {x with reward without next}
             reward
         terminal = fun _ => ()

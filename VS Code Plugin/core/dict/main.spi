@@ -94,23 +94,23 @@ inl fold forall key value s. (f : s -> key * value -> s) ~(s : s) ~(x : dict key
         ) s x.table
 
 // Converts a dictionary to an array.
-inl toArray (x : dict _ _) =
+let toArray (x : dict _ _) =
     inl i = x.total_size
     inl ar = create i
     inl _ = fold (fun i x => inl i = i-1 in set ar i x . i) i x
     ar
 
 // Converts a dictionary to a list.
-inl toList x = fold (fun l x => x :: l) [] x
+let toList x = fold (fun l x => x :: l) [] x
 
 // Creates an empty dictionary with the table length for the given target capacity.
-inl create total_size =
+let create total_size =
     open generic
     let rec loop (x : {size : _; limit : _}) =
         if grow_needs total_size x then loop {x with size#=grow_length; limit#=grow_limit}
         else x
     empty' (loop EmptyDef)
-    
+
 // Creates an empty dictionary.
 inl empty forall key value. : dict key value = empty' EmptyDef
 
@@ -120,3 +120,18 @@ let set x key value =
         on_succ=fun value {set} => set value
         on_fail=fun add => add value
         }
+
+// Creates a dictionary from an array.
+let fromArray x =
+    inl d = create (length x)
+    am.iter (fun (k,v) => add d k v) x
+    d
+
+// Creates a dictionary from a list.
+let fromList x =
+    inl d = empty
+    listm.iter (fun (k,v) => add d k v) x
+    d
+
+// Returns the number of key/value pairs in the dictionary.
+inl length (dict x) = x.total_size

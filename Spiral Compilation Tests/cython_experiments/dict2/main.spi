@@ -18,7 +18,7 @@ inl test1 () =
     test (listm.map (fun (k,_) => k,()) l)
     test (listm.map (fun (_,v) => v,()) l)
 
-inl main () : () =
+inl test1 () =
     let test l =
         inl x = empty
         listm.iter (fun (k,v) => add x k v) l
@@ -26,3 +26,10 @@ inl main () : () =
     inl l = ["asd",4; "qwe", 6; "zxc", 9u32]
     inl r = test l
     $"print(!r)"
+
+inl main () : () =
+    [1u32,"zxc"; 2,"asd"; 3,"qwe"]
+    |> listm.toArray |> fun (x : a _ _) => x
+    |> fromArray
+    |> toArray |> fun (x : a _ _) => x
+    |> am.iter (fun (k,v) => $"print(!k,!v)")

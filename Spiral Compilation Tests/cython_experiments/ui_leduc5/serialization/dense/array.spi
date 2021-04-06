@@ -1,5 +1,5 @@
 type at = f32
-type state = u64 * array at
+type state = u64 * a u64 at
 nominal pu a = {
     pickle : a -> state -> ()
     size : u64
@@ -8,23 +8,23 @@ nominal pu a = {
 
 inl Unit =
     pu {size = 1
-        pickle = fun () (i,s) => a64.set s i 1
+        pickle = fun () (i,s) => set s i 1
         unpickle = fun (i,s) => 
-            inl x = a64.index s i
+            inl x = index s i
             (), if x = 1 then 1 elif x = 0 then 0 else failwith "Unpickling failure. The unit type should always be either be active or inactive."
         }
 
 inl int size : pu u64 =
     pu {size
         pickle = fun x (i,s : state) =>
-            if 0 <= x && x < size then a64.set s (i + x) 1
+            if 0 <= x && x < size then set s (i + x) 1
             else failwith "Value out of bounds."
         unpickle = fun (from,s : state) =>
             inl ~(from,nearTo) = from, from+size
             join
                 inl case,c =
                     loop.for (from:nearTo:) (fun i (case,c) =>
-                        inl x = a64.index s i
+                        inl x = index s i
                         if x = 0 then case,c
                         elif x = 1 then i,c+1
                         else failwith "Unpickling failure. The int type must either be active or inactive."
@@ -33,26 +33,26 @@ inl int size : pu u64 =
                 case - from, c
         }
 
-inl array forall t. size (pu el : pu t) : pu (array t) =
+inl array forall t. size (pu el : pu t) : pu (a u64 t) =
     pu {size = size * el.size
         pickle = fun x (i,s : state) =>
-            if size < a64.length x then failwith "The given array is too large."
-            a64.iteri (fun idx x => el.pickle x (i + idx * el.size,s)) x
+            if size < length x then failwith "The given array is too large."
+            am.iteri (fun idx x => el.pickle x (i + idx * el.size,s)) x
         unpickle = fun (~from,s : state) => join
-            inl tmp = a64.create size
+            inl tmp : a _ _ = create size
             inl c = 
                 loop.for (from:0 nearTo:size) (fun i c =>
                     inl from = from + i * el.size
                     if i = c then
                         inl x, c' = el.unpickle (from,s)
-                        if c' = 1 then a64.set tmp i x
+                        if c' = 1 then set tmp i x
                         c + c'
                     else
                         inl x, c' = el.unpickle (from,s)
                         if c' <> 0 then failwith "Expected an inactive subsequence in the array unpickler."
                         c
                     ) 0
-            a64.init c (a64.index tmp), 1
+            am.init c (index tmp), 1
         }
 
 inl pair (pu a') (pu b') =
@@ -116,10 +116,10 @@ inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { ok_ = a; 
 
 inl size (pu p) = p.size
 
-nominal binary_array a = array at
+nominal binary_array t = a u64 at
 inl serialize forall t. (pu p : pu t) ~(x : t) : binary_array t =
-    inl ar = a64.create p.size
-    loop.for' (from:0 nearTo: a64.length ar) (fun i => a64.set ar i 0)
+    inl ar = create p.size
+    loop.for' (from:0 nearTo: length ar) (fun i => set ar i 0)
     p.pickle x (0,ar)
     binary_array ar
 

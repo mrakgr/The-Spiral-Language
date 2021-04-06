@@ -4,8 +4,8 @@ inl draw i pid dist f p = cps.draw i pid dist (fun x (p,ret) => ret (f x p)) (p,
 // Iterates over the an uniform categorical distribution, summing up the rewards divided by the length.
 inl iter one pid dist f p =
     let rec loop i s = 
-        inl prob = 1 / f64 (a64.length dist)
-        if i < a64.length dist then inl r = one i pid dist f p in loop (i+1) (s+r)
+        inl prob = 1 / f64 (length dist)
+        if i < length dist then inl r = one i pid dist f p in loop (i+1) (s+r)
         else prob * s
     loop 0 0
 

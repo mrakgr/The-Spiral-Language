@@ -7,17 +7,17 @@ let show_card = function
     | Jack => "Jack"
 
 let rec show_trace i (l, r) =
-    inl ar : rarray string = r64.empty
+    inl ar : ra u64 string = am.empty
     listm.foldBack (fun x is_first =>
         match x with
         | Observation: x =>
             inl o = show_card x
-            r64.add ar $"f'Observed {!o}.'"
+            rm.add ar $"f'Observed {!o}.'"
             true
         | Action: x =>
             inl p = if is_first then "One" else "Two"
             inl a = match x with Fold => "folds" | Call => "calls" | Raise => "raises"
-            r64.add ar $"f'Player {!p} {!a}.'"
+            rm.add ar $"f'Player {!p} {!a}.'"
             not is_first
         ) l true |> ignore
     match r with
@@ -26,16 +26,16 @@ let rec show_trace i (l, r) =
         if 0 < r then $"f\"Player {!p} wins {!r} chips.\\n\""
         elif 0 = r then $"f\"Player {!p} draws.\\n\""
         else inl r = -r in $"f\"Player {!p} loses {!r} chips.\\n\""
-        |> r64.add ar
+        |> rm.add ar
     | None => ()
-    r64.join' "\n" ar
+    rm.join' "\n" ar
 
 open nodes
 inl funs dispatch = player_funs {
     action = fun {game_state player actions next} => 
         dispatch ((game_state, observations player, None), actions, fun x => next ((log_prob 0,x),state player))
     terminal = fun {game_state player reward} =>
-        dispatch ((game_state, observations player, (Some: reward)), ;[], fun x => ())
+        dispatch ((game_state, observations player, (Some: reward)), a ;[], fun x => ())
     } 
 
 inl Init = uniform.init()

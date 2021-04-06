@@ -5,7 +5,7 @@ inl main () : () =
         inl trace = agent.human.show_trace p1.id observations
         inl actions : obj =
             inl actions = mut {fold= $"False"; call= $"False"; raise= $"False"}
-            dist |> a64.iter (fun x =>
+            dist |> am.iter (fun x =>
                 open leduc
                 match x with
                 | Fold => actions.fold <- fun () => next x

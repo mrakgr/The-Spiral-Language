@@ -17,17 +17,17 @@ inl int size : pu el =
         unpickle = fun i => assert (0 <= i && i < size) "The index should be less than size." . i
         }
 
-inl array forall t. size (pu el : pu t) : pu (array t) =
+inl array forall t. size (pu el : pu t) : pu (a u64 t) =
     inl fullSize = loop.for (from:0 nearTo: size) (fun i s => s * el.size) 1
     pu {size = fullSize
         pickle = fun x =>
-            assert (size = a64.length x) "The array must match the given size."
-            a64.foldBack (fun x (s,dim) => el.pickle x * dim, s * dim) x (0,1) |> fst
+            assert (size = length x) "The array must match the given size."
+            am.foldBack (fun x (s,dim) => el.pickle x * dim, s * dim) x (0,1) |> fst
         unpickle = fun i => 
-            inl ar = a64.create size
+            inl ar = create size
             loop.for (from: 0 nearTo: size) (fun idx (size,i) =>
                 inl size = size / el.size
-                a64.set ar idx (el.unpickle (i / size))
+                set ar idx (el.unpickle (i / size))
                 size, i % size
                 ) (fullSize, i) |> ignore
             ar

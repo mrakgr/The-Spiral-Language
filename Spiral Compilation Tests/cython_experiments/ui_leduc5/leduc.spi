@@ -24,16 +24,16 @@ inl raiseBy amount (p1,p2 : players) = p2.pot + amount
 
 inl game (game2p {terminal draw action sample}) =
     inl actions = heap {
-        init = ;[Call;Raise]
-        full = ;[Fold;Call;Raise]
-        noRaise = ;[Fold;Call]
-        callOnly = ;[Call]
+        init = a ;[Call;Raise]
+        full = a ;[Fold;Call;Raise]
+        noRaise = a ;[Fold;Call]
+        callOnly = a ;[Call]
         }
-    inl deckInit = ;[King; Queen; Jack; King; Queen; Jack]
+    inl deckInit = a ;[King; Queen; Jack; King; Queen; Jack]
 
     inl pot = 1
     inl id = 0
-    draw (Some: id) deckInit fun (card, deck : card * array card) =>
+    draw (Some: id) deckInit fun (card, deck : card * a u64 card) =>
     inl p1 = {card id pot}
 
     inl id = 1

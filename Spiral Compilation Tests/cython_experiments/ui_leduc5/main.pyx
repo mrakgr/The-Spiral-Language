@@ -230,7 +230,7 @@ cdef class Closure3():
             v36 = 0.000000
             v37 = method29(v32, v0, v1, v10, v11, v8, v5, v6, v7, v2, v3, v4, v14, v15, v12, v13, v31, v9, v35, v36)
             del v31
-            v38 = []
+            v38 = [None]*0
             method36(v38, v12)
             v39 = "".join(v38)
             del v38
@@ -247,7 +247,7 @@ cdef class Closure3():
             v44 = '{:.5f}'.format(v43)
             v45 = libc.math.exp(v15)
             v46 = '{:.5f}'.format(v45)
-            v47 = []
+            v47 = [None]*0
             v48 = 0
             method37(v18, v9, v47, v48)
             v49 = "".join(v47)
@@ -412,7 +412,7 @@ cdef class Closure5():
             v36 = 0.000000
             v37 = method41(v32, v0, v1, v9, v10, v11, v5, v6, v7, v2, v3, v4, v14, v15, v12, v13, v31, v8, v35, v36)
             del v31
-            v38 = []
+            v38 = [None]*0
             method36(v38, v12)
             v39 = "".join(v38)
             del v38
@@ -429,7 +429,7 @@ cdef class Closure5():
             v44 = '{:.5f}'.format(v43)
             v45 = libc.math.exp(v15)
             v46 = '{:.5f}'.format(v45)
-            v47 = []
+            v47 = [None]*0
             v48 = 0
             method37(v18, v8, v47, v48)
             v49 = "".join(v47)
@@ -560,7 +560,7 @@ cdef class Closure1():
             v35 = 0.000000
             v36 = method23(v31, v0, v1, v8, v9, v10, v5, v6, v4, v2, v3, v13, v14, v11, v12, v30, v7, v34, v35)
             del v30
-            v37 = []
+            v37 = [None]*0
             method36(v37, v11)
             v38 = "".join(v37)
             del v37
@@ -577,7 +577,7 @@ cdef class Closure1():
             v43 = '{:.5f}'.format(v42)
             v44 = libc.math.exp(v14)
             v45 = '{:.5f}'.format(v44)
-            v46 = []
+            v46 = [None]*0
             v47 = 0
             method37(v17, v7, v46, v47)
             v48 = "".join(v46)
@@ -1795,7 +1795,7 @@ cdef double method25(numpy.ndarray[object,ndim=1] v0, v1, list v2, Heap0 v3, US2
             v49 = 0.000000
             v50 = method26(v45, v1, v2, v3, v4, v5, v6, v7, v8, v9, v20, v12, v25, v10, v24, v44, v26, v48, v49)
             del v44
-            v51 = []
+            v51 = [None]*0
             method36(v51, v10)
             if v20.tag == 0: # jack
                 v52 = "[color=ff0000]J[/color]"
@@ -1820,7 +1820,7 @@ cdef double method25(numpy.ndarray[object,ndim=1] v0, v1, list v2, Heap0 v3, US2
             v58 = '{:.5f}'.format(v57)
             v59 = libc.math.exp(v25)
             v60 = '{:.5f}'.format(v59)
-            v61 = []
+            v61 = [None]*0
             v62 = 0
             method37(v31, v26, v61, v62)
             v63 = "".join(v61)
@@ -2280,7 +2280,7 @@ cdef double method3(numpy.ndarray[object,ndim=1] v0, v1, list v2, Heap0 v3, US2 
         v48 = 0.000000
         v49 = method20(v44, v1, v2, v4, v15, v3, v17, v26, v27, v23, v24, v43, v28, v47, v48)
         del v17; del v26; del v43
-        v50 = []
+        v50 = [None]*0
         method36(v50, v23)
         del v23
         v51 = "".join(v50)
@@ -2299,7 +2299,7 @@ cdef double method3(numpy.ndarray[object,ndim=1] v0, v1, list v2, Heap0 v3, US2 
         v56 = '{:.5f}'.format(v55)
         v57 = libc.math.exp(v27)
         v58 = '{:.5f}'.format(v57)
-        v59 = []
+        v59 = [None]*0
         v60 = 0
         method37(v30, v28, v59, v60)
         del v28
@@ -2378,7 +2378,7 @@ cpdef void main():
     cdef double v5
     cdef object v6
     pass # import ui_replay
-    v0 = []
+    v0 = [None]*0
     pass # import nets
     v1 = nets.small(30,64,3)
     v2 = UH0_1()

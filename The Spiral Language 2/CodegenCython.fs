@@ -405,7 +405,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 | BindsTailEnd true -> line s x 
                 | BindsTailEnd false -> 
                     let ty = Array.map (fun (L(_,t)) -> tyv t) x'
-                    line s (sprintf "return Tuple%i(%s)" (tup' ty).tag x)
+                    if ty.Length <> 1 then line s (sprintf "return Tuple%i(%s)" (tup' ty).tag x)
+                    else line s (sprintf "return %s" x)
                 | BindsLocal ret -> line s $"{args ret} = {x}"
         let length (a,b) =
             let l = $"len({tup b})"
