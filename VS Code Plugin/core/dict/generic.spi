@@ -13,11 +13,15 @@ nominal dictg (bucket : * -> * -> *) key value = mut {
     limit : u64
     }
 
+inl table_length_grow x = 
+    inl x' = x * 3 / 2 + 3
+    if x' <= x then failwith "The table length cannot be increased."
+    x'
+    
 // Internal. Increases the dictionary capacity.
 inl resize (dict_funs funs) (dictg x) = join
     inl table = x.table
-    inl table_length' = length table * 3 / 2 + 3
-    if table_length' <= length table then failwith "The table cannot be grown anymore."
+    inl table_length' = table_length_grow (length table)
     inl table' = am.init table_length' (fun _ => funs.bucket_empty())
     loop.for' (from: 0 nearTo: length table) (fun i =>
         inl bucket = index table i
@@ -32,21 +36,21 @@ inl resize (dict_funs funs) (dictg x) = join
 
 // Internal. Iterates over the dictionary and passes the value to on_succ if it finds a key match otherwise it calls on_fail.
 // The callback arguments can be used to set, remove and add relevant value to the dictionary.
-inl atKey (dict_funs funs) (dictg x) key {on_succ on_fail} = 
+inl atKey (dict_funs funs) (dictg x) key {on_succ on_fail} =
     inl hkey = hash_cython key
     inl table = x.table
     inl bucket = index table (hkey % length table)
     let rec loop i =
-        if i < funs.bucket_length bucket then 
+        if i < funs.bucket_length bucket then
             inl x = funs.bucket_index bucket i
-            if hkey = x.hkey && key = x.key then 
+            if hkey = x.hkey && key = x.key then
                 on_succ x.value {
                     set = fun value => funs.bucket_set bucket i {x with value}
                     remove = fun () => funs.bucket_remove bucket i
                     }
             else loop (i+1)
         else
-            on_fail (fun value => 
+            on_fail (fun value =>
                 funs.bucket_add bucket {key value hkey}
                 x.total_size <- x.total_size+1
                 if x.total_size >= x.limit * length x.table then resize (dict_funs funs) (dictg x)

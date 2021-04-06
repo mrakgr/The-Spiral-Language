@@ -16,12 +16,11 @@ inl atKey forall key value ret. (x : dict key value) key cont : ret =
     | a u64 (caching_bucket _ _) => run `caching_bucket (caching_funs `key `value) (dictg `caching_bucket `key `value x)
     | a u64 (pure_bucket _ _) => run `pure_bucket (pure_funs `key `value) (dictg `pure_bucket `key `value x)
 
-nominal init_def = {size : u64; limit : u64}
-inl EmptyDef = init_def {size = 7; limit = 3}
-let empty' forall key value. (init_def {size limit}) : dict key value = dict <| mut {
+inl EmptyDef = {size = 7u64; limit = 3u64}
+let empty' forall key value. {size limit} : dict key value = dict <| mut {
     table = real
         typecase `(real_dict.bucket_type `key `value) with ~bucket =>
-        am.init `a `u64 `bucket size (fun _ => 
+        am.init `a `u64 `bucket size (fun _ =>
             open table
             typecase bucket with
             | caching_bucket _ _ => (caching_funs `key `value).bucket_empty()
@@ -30,6 +29,15 @@ let empty' forall key value. (init_def {size limit}) : dict key value = dict <| 
     total_size = 0
     limit = limit
     }
+
+// Creates an empty dictionary with the table length for the given target capacity.
+inl create total_size =
+    let rec loop (x & {size limit}) =
+        if total_size >= limit * size then loop {x with size#=generic.table_length_grow; limit#=(+) 2}
+        else x
+    empty' (loop EmptyDef)
+    
+// Creates an empty dictionary.
 inl empty forall key value. : dict key value = empty' EmptyDef
 
 // Indexes into the dictionary at the given key. Raises an exception if the key is not present.
@@ -79,8 +87,18 @@ let remove x key = if tryRemove x key = false then failwith "The key is not pres
 
 // If the key is not in the dictionary it executes the given function and adds its result to the dictionary. Otherwise it
 // returns the already existing result.
-let memoize x f key =
+inl memoize ~x f ~key = join
     atKey x key {
         on_succ=fun value _ => value
         on_fail=fun add => inl v = f key in add v . v
         }
+
+// Threads over all the key/value pairs in the dictionary using the given state and the folding function.
+inl fold forall key value s. (f : s -> key * value -> s) ~(s : s) ~(x : dict key value) : s = join real
+    typecase `(x.table) with a u64 ~bucket => 
+    am.fold `a `u64 `bucket `s (fun s x =>
+        open table
+        match x with
+        | (caching_bucket x) => am.fold `ra `u64 `({key : key; value : value; hkey : u64}) `s (fun s {key value} => f s (key,value)) s x
+        | (pure_bucket x) => am.fold `ra `u64 `({key : key; value : value}) `s (fun s {key value} => f s (key,value)) s x
+        ) s x.table

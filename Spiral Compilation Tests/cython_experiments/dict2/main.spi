@@ -1,8 +1,5 @@
-open generic
-open table
 open dict
-
-inl main () : () =
+inl test1 () =
     let test l =
         inl x = empty
         listm.iter (fun (k,v) => add x k v) l
@@ -20,3 +17,12 @@ inl main () : () =
 
     test (listm.map (fun (k,_) => k,()) l)
     test (listm.map (fun (_,v) => v,()) l)
+
+inl main () : () =
+    let test l =
+        inl x = empty
+        listm.iter (fun (k,v) => add x k v) l
+        fold (fun s (_,v) => s+v) 0 x
+    inl l = ["asd",4; "qwe", 6; "zxc", 9u32]
+    inl r = test l
+    $"print(!r)"

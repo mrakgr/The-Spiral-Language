@@ -12,5 +12,10 @@ modules:
     rm
     sm
     listm
+    dict/
+        generic
+        table
+        real_dict*
+        main- 
     optionm
     monad
