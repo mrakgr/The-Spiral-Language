@@ -232,16 +232,18 @@ cdef class Closure3():
             del v31
             v38 = [None]*0
             method36(v38, v12)
-            v39 = "".join(v38)
-            del v38
             if v5.tag == 0: # jack
-                v40 = "[color=ff0000]J[/color]"
+                v39 = "[color=ff0000]J[/color]"
             elif v5.tag == 1: # king
-                v40 = "[color=ff0000]K[/color]"
+                v39 = "[color=ff0000]K[/color]"
             elif v5.tag == 2: # queen
-                v40 = "[color=ff0000]Q[/color]"
-            v41 = f'{v39} (vs. {v40})'
-            del v39; del v40
+                v39 = "[color=ff0000]Q[/color]"
+            v40 = f' (vs. {v39})'
+            del v39
+            v38.append(v40)
+            del v40
+            v41 = "".join(v38)
+            del v38
             v42 = '{:.5f}'.format(v37)
             v43 = libc.math.exp(v13)
             v44 = '{:.5f}'.format(v43)
@@ -252,7 +254,7 @@ cdef class Closure3():
             method37(v18, v9, v47, v48)
             v49 = "".join(v47)
             del v47
-            v50 = {'trace': v41, 'reward': v42, 'prob_self': v44, 'prob_op': v46, 'actions': v49}
+            v50 = {'actions': v49, 'prob_op': v46, 'prob_self': v44, 'reward': v42, 'trace': v41}
             del v41; del v42; del v44; del v46; del v49
             v1.append(v50)
             del v50
@@ -414,16 +416,18 @@ cdef class Closure5():
             del v31
             v38 = [None]*0
             method36(v38, v12)
-            v39 = "".join(v38)
-            del v38
             if v5.tag == 0: # jack
-                v40 = "[color=ff0000]J[/color]"
+                v39 = "[color=ff0000]J[/color]"
             elif v5.tag == 1: # king
-                v40 = "[color=ff0000]K[/color]"
+                v39 = "[color=ff0000]K[/color]"
             elif v5.tag == 2: # queen
-                v40 = "[color=ff0000]Q[/color]"
-            v41 = f'{v39} (vs. {v40})'
-            del v39; del v40
+                v39 = "[color=ff0000]Q[/color]"
+            v40 = f' (vs. {v39})'
+            del v39
+            v38.append(v40)
+            del v40
+            v41 = "".join(v38)
+            del v38
             v42 = '{:.5f}'.format(v37)
             v43 = libc.math.exp(v13)
             v44 = '{:.5f}'.format(v43)
@@ -434,7 +438,7 @@ cdef class Closure5():
             method37(v18, v8, v47, v48)
             v49 = "".join(v47)
             del v47
-            v50 = {'trace': v41, 'reward': v42, 'prob_self': v44, 'prob_op': v46, 'actions': v49}
+            v50 = {'actions': v49, 'prob_op': v46, 'prob_self': v44, 'reward': v42, 'trace': v41}
             del v41; del v42; del v44; del v46; del v49
             v1.append(v50)
             del v50
@@ -562,16 +566,18 @@ cdef class Closure1():
             del v30
             v37 = [None]*0
             method36(v37, v11)
-            v38 = "".join(v37)
-            del v37
             if v5.tag == 0: # jack
-                v39 = "[color=ff0000]J[/color]"
+                v38 = "[color=ff0000]J[/color]"
             elif v5.tag == 1: # king
-                v39 = "[color=ff0000]K[/color]"
+                v38 = "[color=ff0000]K[/color]"
             elif v5.tag == 2: # queen
-                v39 = "[color=ff0000]Q[/color]"
-            v40 = f'{v38} (vs. {v39})'
-            del v38; del v39
+                v38 = "[color=ff0000]Q[/color]"
+            v39 = f' (vs. {v38})'
+            del v38
+            v37.append(v39)
+            del v39
+            v40 = "".join(v37)
+            del v37
             v41 = '{:.5f}'.format(v36)
             v42 = libc.math.exp(v12)
             v43 = '{:.5f}'.format(v42)
@@ -582,7 +588,7 @@ cdef class Closure1():
             method37(v17, v7, v46, v47)
             v48 = "".join(v46)
             del v46
-            v49 = {'trace': v40, 'reward': v41, 'prob_self': v43, 'prob_op': v45, 'actions': v48}
+            v49 = {'actions': v48, 'prob_op': v45, 'prob_self': v43, 'reward': v41, 'trace': v40}
             del v40; del v41; del v43; del v45; del v48
             v1.append(v49)
             del v49
@@ -1805,16 +1811,18 @@ cdef double method25(numpy.ndarray[object,ndim=1] v0, v1, list v2, Heap0 v3, US2
                 v52 = "[color=ff0000]Q[/color]"
             v51.append(v52)
             del v52
-            v53 = "".join(v51)
-            del v51
             if v4.tag == 0: # jack
-                v54 = "[color=ff0000]J[/color]"
+                v53 = "[color=ff0000]J[/color]"
             elif v4.tag == 1: # king
-                v54 = "[color=ff0000]K[/color]"
+                v53 = "[color=ff0000]K[/color]"
             elif v4.tag == 2: # queen
-                v54 = "[color=ff0000]Q[/color]"
-            v55 = f'{v53} (vs. {v54})'
-            del v53; del v54
+                v53 = "[color=ff0000]Q[/color]"
+            v54 = f' (vs. {v53})'
+            del v53
+            v51.append(v54)
+            del v54
+            v55 = "".join(v51)
+            del v51
             v56 = '{:.5f}'.format(v50)
             v57 = libc.math.exp(v24)
             v58 = '{:.5f}'.format(v57)
@@ -1825,7 +1833,7 @@ cdef double method25(numpy.ndarray[object,ndim=1] v0, v1, list v2, Heap0 v3, US2
             method37(v31, v26, v61, v62)
             v63 = "".join(v61)
             del v61
-            v64 = {'trace': v55, 'reward': v56, 'prob_self': v58, 'prob_op': v60, 'actions': v63}
+            v64 = {'actions': v63, 'prob_op': v60, 'prob_self': v58, 'reward': v56, 'trace': v55}
             del v55; del v56; del v58; del v60; del v63
             v2.append(v64)
             del v64
@@ -2283,17 +2291,19 @@ cdef double method3(numpy.ndarray[object,ndim=1] v0, v1, list v2, Heap0 v3, US2 
         v50 = [None]*0
         method36(v50, v23)
         del v23
-        v51 = "".join(v50)
-        del v50
         if v15.tag == 0: # jack
-            v52 = "[color=ff0000]J[/color]"
+            v51 = "[color=ff0000]J[/color]"
         elif v15.tag == 1: # king
-            v52 = "[color=ff0000]K[/color]"
+            v51 = "[color=ff0000]K[/color]"
         elif v15.tag == 2: # queen
-            v52 = "[color=ff0000]Q[/color]"
+            v51 = "[color=ff0000]Q[/color]"
         del v15
-        v53 = f'{v51} (vs. {v52})'
-        del v51; del v52
+        v52 = f' (vs. {v51})'
+        del v51
+        v50.append(v52)
+        del v52
+        v53 = "".join(v50)
+        del v50
         v54 = '{:.5f}'.format(v49)
         v55 = libc.math.exp(v24)
         v56 = '{:.5f}'.format(v55)
@@ -2305,7 +2315,7 @@ cdef double method3(numpy.ndarray[object,ndim=1] v0, v1, list v2, Heap0 v3, US2 
         del v28
         v61 = "".join(v59)
         del v59
-        v62 = {'trace': v53, 'reward': v54, 'prob_self': v56, 'prob_op': v58, 'actions': v61}
+        v62 = {'actions': v61, 'prob_op': v58, 'prob_self': v56, 'reward': v54, 'trace': v53}
         del v53; del v54; del v56; del v58; del v61
         v2.append(v62)
         del v62

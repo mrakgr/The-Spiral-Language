@@ -519,6 +519,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             match op, l with
             | Import,[DLit (LitString x)] -> import x; $"pass # import {x}"
             | CImport,[DLit (LitString x)] -> cimport x; $"pass # cimport {x}"
+            | ToCythonRecord,[DRecord x] -> Map.foldBack (fun k v l -> $"'{k}': {tup v}" :: l) x [] |> String.concat ", " |> sprintf "{%s}"
             | Apply,[a;b] -> 
                 match tup a, tup b with
                 | a,"pass" -> sprintf "%s()" a

@@ -35,6 +35,7 @@ instance length a = fun (a ar) => !!!!ArrayLength(`dim,ar)
 
 // Python native
 type obj = $"object"
+inl record forall t. (x : t) : obj = !!!!ToCythonRecord(x)
 nominal ra dim a = $"list"
 
 instance create ra = fun size => $"[None]*!size"

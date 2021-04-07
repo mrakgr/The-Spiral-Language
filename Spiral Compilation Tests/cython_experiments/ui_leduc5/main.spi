@@ -12,23 +12,22 @@ inl main () =
             | Call => "C"
             | Raise => "R"
         open nodes
-        inl (player p) = x.player
-        inl trace =
-            inl trace : ra u64 _ = am.empty
-            listm.iterBack ((function Observation: x => show_card x | Action: x => show_action x) >> rm.add trace) p.observations
-            rm.join' "" trace
-        inl op_card = x.game_state |> snd |> fst |> fun {card id pot} => show_card card
-        inl trace = $"f'{!trace} (vs. {!op_card})'" : string
-        inl reward = x.game_state |> fst |> fun {card id pot} => if id = 0 then x.reward else -(x.reward)
         inl pstr x = $"'{:.5f}'.format(!x)" : string
-        inl reward = pstr (x.reward : f64)
-        inl prob_self = pstr (exp_log_prob p.probSelf)
-        inl prob_op = pstr (exp_log_prob x.player')
-        inl actions =
+        {
+        trace =
+            inl trace : ra u64 _ = am.empty
+            listm.iterBack ((function Observation: x => show_card x | Action: x => show_action x) >> rm.add trace) x.player.observations
+            inl op_card = x.game_state |> snd |> fst |> fun {card id pot} => show_card card
+            rm.add trace $"f' (vs. {!op_card})'"
+            rm.join' "" trace
+        reward = x.game_state |> fst |> fun {card id pot} => pstr (if id = 0 then x.reward else -(x.reward) : f64)
+        prob_self = pstr (exp_log_prob x.player.probSelf)
+        prob_op = pstr (exp_log_prob x.player')
+        actions =
             inl trace : ra u64 _ = am.empty
             am.iter (show_action >> rm.add trace) x.actions
             rm.join' "" trace
-        rm.add buffer $"{'trace': !trace, 'reward': !reward, 'prob_self': !prob_self, 'prob_op': !prob_op, 'actions': !actions}"
+        } |> record |> rm.add buffer
     inl p2 = agent.uniform.createEnum()
     inl populate_call () = 
         leduc.game (nodes.nodes_2p (p1.funs, p2.funs)) (p1.init,p2.init) |> ignore

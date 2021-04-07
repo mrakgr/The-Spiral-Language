@@ -2678,6 +2678,7 @@ cdef void method26(v0, v1, numpy.ndarray[object,ndim=1] v2, UH0 v3, US4 v4, US3 
     cdef str v27
     cdef US2 v25
     cdef object v28
+    cdef object v29
     v12 = method27(v10, v4, v3)
     v13 = False
     v14 = False
@@ -2687,11 +2688,9 @@ cdef void method26(v0, v1, numpy.ndarray[object,ndim=1] v2, UH0 v3, US4 v4, US3 
     v17 = len(v2)
     v18 = 0
     method29(v17, v2, v1, v16, v18)
-    v19 = v16.v1
-    v20 = v16.v0
-    v21 = v16.v2
+    v19, v20, v21 = v16.v0, v16.v1, v16.v2
     del v16
-    v22 = {'fold': v19, 'call': v20, 'raise': v21}
+    v22 = {'call': v19, 'fold': v20, 'raise': v21}
     del v19; del v20; del v21
     if v9.tag == 0: # jack
         v23 = 'J'
@@ -2716,9 +2715,11 @@ cdef void method26(v0, v1, numpy.ndarray[object,ndim=1] v2, UH0 v3, US4 v4, US3 
         elif v25.tag == 2: # queen
             v27 = 'Q'
         del v25
-    v28 = {'my_card': v23, 'my_pot': v11, 'op_card': v24, 'op_pot': v8, 'community_card': v27}
+    v28 = {'community_card': v27, 'my_card': v23, 'my_pot': v11, 'op_card': v24, 'op_pot': v8}
     del v23; del v24; del v27
-    v0.data = {'trace':v12, 'actions': v22, 'table_data': v28}
+    v29 = {'actions': v22, 'table_data': v28, 'trace': v12}
+    del v12; del v22; del v28
+    v0.data = v29
 cdef object method25(v0, v1, US3 v2, US2 v3, unsigned char v4, signed long v5, US2 v6, unsigned char v7):
     cdef bint v8
     cdef signed long v10
@@ -2916,6 +2917,7 @@ cdef void method35(v0, v1, numpy.ndarray[object,ndim=1] v2, UH0 v3, US4 v4, US3 
     cdef str v26
     cdef US2 v24
     cdef object v27
+    cdef object v28
     v11 = method27(v10, v4, v3)
     v12 = False
     v13 = False
@@ -2925,11 +2927,9 @@ cdef void method35(v0, v1, numpy.ndarray[object,ndim=1] v2, UH0 v3, US4 v4, US3 
     v16 = len(v2)
     v17 = 0
     method29(v16, v2, v1, v15, v17)
-    v18 = v15.v1
-    v19 = v15.v0
-    v20 = v15.v2
+    v18, v19, v20 = v15.v0, v15.v1, v15.v2
     del v15
-    v21 = {'fold': v18, 'call': v19, 'raise': v20}
+    v21 = {'call': v18, 'fold': v19, 'raise': v20}
     del v18; del v19; del v20
     if v9.tag == 0: # jack
         v22 = 'J'
@@ -2954,9 +2954,11 @@ cdef void method35(v0, v1, numpy.ndarray[object,ndim=1] v2, UH0 v3, US4 v4, US3 
         elif v24.tag == 2: # queen
             v26 = 'Q'
         del v24
-    v27 = {'my_card': v22, 'my_pot': v8, 'op_card': v23, 'op_pot': v8, 'community_card': v26}
+    v27 = {'community_card': v26, 'my_card': v22, 'my_pot': v8, 'op_card': v23, 'op_pot': v8}
     del v22; del v23; del v26
-    v0.data = {'trace':v11, 'actions': v21, 'table_data': v27}
+    v28 = {'actions': v21, 'table_data': v27, 'trace': v11}
+    del v11; del v21; del v27
+    v0.data = v28
 cdef object method22(v0, v1, Heap0 v2, signed long v3, US2 v4, US2 v5, unsigned char v6, signed long v7, US2 v8, unsigned char v9):
     cdef numpy.ndarray[object,ndim=1] v10
     v10 = method20(v2, v5, v6, v7, v8, v9, v3)

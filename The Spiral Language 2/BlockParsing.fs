@@ -23,6 +23,9 @@ type Op =
     | Import
     | CImport
 
+    // Cython
+    | ToCythonRecord
+
     // Closure application
     | Apply
 

@@ -1947,6 +1947,10 @@ let peval (env : TopEnv) (x : E) =
             match term s a with
             | DLit (LitString _) & a -> push_op_no_rewrite s op a YB
             | a -> raise_type_error s $"Expected a string literal.\nGot: {show_data a}"
+        | EOp(_,ToCythonRecord,[a]) ->
+            match term s a with
+            | DRecord _ & a -> push_op_no_rewrite s ToCythonRecord a (YMacro [Text "object"])
+            | a -> raise_type_error s $"Expected a record.\nGot: {show_data a}"
         | EOp(_,op,a) -> raise_type_error s <| sprintf "Compiler error: %A with %i args not implemented" op (List.length a)
 
     let s : LangEnv = {
