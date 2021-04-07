@@ -1,0 +1,54 @@
+// A CFR agent.
+
+// Can also be used for normalizing the avg policy.
+let regret_match regret =
+    inl temp, normalizing_sum = am.mapFold (fun s x => inl x = max 0 x in x, x + s) 0 regret
+    
+    if normalizing_sum = 0 then inl v = 1 / f64 (length temp) in am.mapInplace (fun _ _ => v) temp
+    else am.mapInplace (fun _ x => x / normalizing_sum) temp
+    temp
+
+type state key = dict.dict key {regret : a u64 f64; avg_policy : a u64 f64}
+inl value (d : state _) num_actions = dict.memoize d fun _ => 
+    inl Empty = am.init num_actions (fun _ => 0)
+    {regret = Empty; avg_policy = Empty}
+
+open nodes
+inl funsPlay (d : state _) = player_funs {
+    action = dyn fun {player actions next} =>
+        inl num_actions = length actions
+        inl actions_prob = regret_match (value d num_actions player.observations).avg_policy
+        inl i = $"np.random.choice(!num_actions,p=!actions_prob)"
+        inl p,a = index actions_prob i, index actions i
+        next ((to_log_prob p,a),state player)
+    terminal = fun _ => ()
+    }
+
+// `is_avg_policy` determines whether to use the average or the current policy.
+// The default should have the `is_avg_policy: false`. The paper uses the current one.
+// `is_update` determines whether the updates should be done. This should be true during training and false otherwise.
+inl funsTrain ~(is_avg_policy:is_update:) (d : state _) = player_funs {
+    action = dyn fun {chance_prob player player' actions next} =>
+        inl num_actions = length actions
+        inl op_prob = exp_log_prob (add_log_prob chance_prob player')
+        inl self_prob = exp_log_prob (add_log_prob chance_prob player.prob)
+        inl d = value d num_actions player.observations
+        inl actions_prob = regret_match (if is_avg_policy then d.avg_policy else d.regret)
+        inl reward,reward_wsum =
+            inl state = state player
+            am.mapFold2 (fun s prob a =>
+                inl util =
+                    if prob = 0 && op_prob = 0 then 0 // the pruning optimization
+                    else next ((to_log_prob prob,a),state)
+                util, s + prob * util
+                ) 0 actions_prob actions
+        if is_update then
+            d.regret |> am.mapInplace (fun i x => x + op_prob * (index reward i - reward_wsum))
+            d.avg_policy |> am.mapInplace (fun i x => x + self_prob * index actions_prob i)
+        reward_wsum
+    terminal = fun _ => ()
+    }
+
+inl Init = player {prob=to_log_prob 1; observations=Nil; state=()} |> dyn
+inl createPlay d = {funs=funsPlay d; init=Init}
+inl createTrain d = {funs=funsTrain (is_avg_policy: false is_update: true) d; init=Init}

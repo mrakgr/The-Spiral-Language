@@ -53,3 +53,5 @@ inl forall' forall (ar : * -> * -> *) {index; length} dim {number} el. : _ -> ar
 inl forall2 forall (ar : * -> * -> *) {index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> bool = forall2
 // Removes the element at index.
 inl removeAtIndex forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. : dim -> ar dim el -> ar dim el = removeAtIndex
+// Does an inplace map of the array.
+inl mapInplace forall (ar : * -> * -> *) {index; set; length} dim {number} el. : _ -> ar dim el -> () = mapInplace

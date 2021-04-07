@@ -19,12 +19,12 @@ inl iter one pid dist f (p,ret) =
 
 inl nodes_2p forall game_state s1 s2 o a ret. (player_funs fp1, player_funs fp2) 
         : game2p game_state o a (pl2 s1 s2 o a * (f64 -> ret) -> ret) = game2p {
-    terminal = fun (s1,s2) r ((p1,p2),ret) => 
-        fp1.terminal {game_state=s1; player=p1; reward=r} . fp2.terminal {game_state=s2; player=p2; reward= -r}
+    terminal = fun (s1,s2) r ((chance_prob,p1,p2),ret) => 
+        fp1.terminal {chance_prob game_state=s1; player=p1; reward=r} . fp2.terminal {chance_prob game_state=s2; player=p2; reward= -r}
         ret r
-    action = fun s pid ar f ((p1,p2),ret) =>
-        if pid = 0 then fp1.action {game_state=s; player=p1; player'=prob p2; actions=ar; next=fun ((_,a),_ as cs) => f a ((apply_changes p1 cs,apply_action p2 a),ret)}
-        else fp2.action {game_state=s; player=p2; player'=prob p1; actions=ar; next=fun ((_,a),_ as cs) => f a ((apply_action p1 a,apply_changes p2 cs),ret)}
+    action = fun s pid ar f ((chance_prob,p1,p2),ret) =>
+        if pid = 0 then fp1.action {chance_prob game_state=s; player=p1; player'=prob p2; actions=ar; next=fun ((_,a),_ as cs) => f a ((chance_prob,apply_changes p1 cs,apply_action p2 a),ret)}
+        else fp2.action {chance_prob game_state=s; player=p2; player'=prob p1; actions=ar; next=fun ((_,a),_ as cs) => f a ((chance_prob,apply_action p1 a,apply_changes p2 cs),ret)}
     draw = choice draw
     sample = choice sample
     }

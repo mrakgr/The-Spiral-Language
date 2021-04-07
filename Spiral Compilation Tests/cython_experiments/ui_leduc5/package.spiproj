@@ -18,7 +18,8 @@ modules:
     agent/
         uniform
         neural
+        cfr
         human
     cps_test
     ui_test
-    main    
+    main

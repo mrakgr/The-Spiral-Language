@@ -1,5 +1,7 @@
 // Emulates a dice throw. Samples a random element from the array.
 inl sample forall dice. (dist : a u64 dice) = $"numpy.random.choice(!dist)" : dice
+// Samples an element from array given the probabilities.
+inl sampleP forall dice. (dist : a u64 dice) (p : a u64 f64) = $"numpy.random.choice(!dist,p=!p)" : dice
 
 // Gets a random int between 0 and length dist (exclusive).
 inl randomInLength dist =

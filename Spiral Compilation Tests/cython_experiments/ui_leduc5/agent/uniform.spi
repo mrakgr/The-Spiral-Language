@@ -14,6 +14,6 @@ inl FunsEnum = player_funs {
     terminal = fun _ => ()
     }
 
-inl Init = player {probSelf=to_log_prob 1; observations=Nil; state=()} |> dyn
+inl Init = player {prob=to_log_prob 1; observations=Nil; state=()} |> dyn
 inl Create = {funs=Funs; init=Init}
 inl CreateEnum = {funs=FunsEnum; init=Init}

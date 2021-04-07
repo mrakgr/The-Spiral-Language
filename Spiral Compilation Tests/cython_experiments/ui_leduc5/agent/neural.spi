@@ -27,17 +27,18 @@ inl create_net () =
     {input output net = $"nets.small(!c,!b,!a)"}
 
 // Samples.
-inl funs net = player_funs { 
-    action = fun {game_state player player' actions next} => next (torch.runMasked net (process (observations player)) actions,state player)
-    terminal = fun _ => () 
+inl funs net = player_funs {
+    action = fun {game_state player player' actions next} => 
+        next (torch.runMasked net (process (observations player)) actions,state player)
+    terminal = fun _ => ()
     }
-    
+
 // Enumerates.
 inl funs_buffer net add_buffer =
     player_funs {
-        action = fun ({game_state player player' actions next} & x) =>
+        action = dyn fun ({game_state player player' actions next} & x) =>
             inl actions_prob = torch.runMasked' net (process (observations player)) actions
-            inl reward = 
+            inl reward =
                 inl state = state player
                 am.fold2 (fun s prob a => 
                     inl prob = f64 prob

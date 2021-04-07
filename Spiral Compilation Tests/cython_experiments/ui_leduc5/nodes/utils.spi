@@ -1,26 +1,26 @@
 union observation o a = Observation: o | Action: a
-nominal player s o a = { probSelf : log_prob; observations : list (observation o a); state : s }
+nominal player s o a = { prob : log_prob; observations : list (observation o a); state : s }
 nominal player_funs game_state s obs act r = {
-    action : {game_state : game_state; player : player s obs act;  player' : log_prob; actions : a u64 act; next : (log_prob * act) * s -> r} -> r
-    terminal : {game_state : game_state; player : player s obs act; reward : f64} -> ()
+    action : {game_state : game_state; player : player s obs act;  player' : log_prob; chance_prob : log_prob; actions : a u64 act; next : (log_prob * act) * s -> r} -> r
+    terminal : {game_state : game_state; player : player s obs act; chance_prob : log_prob; reward : f64} -> ()
     }
-type pl2 s1 s2 o a = player s1 o a * player s2 o a
+type pl2 s1 s2 o a = log_prob * player s1 o a * player s2 o a
 
-inl prob (player {probSelf}) = probSelf
+inl prob (player {prob}) = prob
 inl state (player {state}) = state
 inl observations (player {observations}) = observations
-inl add_log_prob (log_prob a) (log_prob b) = log_prob (a+b) // Multiplies regular probabilities.
 inl apply_action (player x) a = player {x with observations#=(::) (Action: a)}
-inl apply_prob_observation (player x) (prob,o) = player {x with observations#=(::) (Observation: o); probSelf#=add_log_prob prob}
-inl apply_changes (player x) ((prob,a),state) = player {x with state observations#=(::) (Action: a); probSelf#=add_log_prob prob}
+inl apply_observation (player x) o = player {x with observations#=(::) (Observation: o)}
+inl apply_changes (player x) ((prob,a),state) = player {x with state observations#=(::) (Action: a); prob#=add_log_prob prob}
 
-inl sample_players_update pid (prob,x) (p1,p2) =
+inl sample_players_update pid (prob,x) (chance_prob,p1,p2) =
+    add_log_prob prob chance_prob, 
     match pid with
     | Some: pid =>
-        let update pid' p = if pid = pid' then apply_prob_observation p (prob,x) else p
+        let update pid' p = if pid = pid' then apply_observation p x else p
         update 0 p1, update 1 p2
     | None =>
-        inl update p = apply_prob_observation p (prob,x) 
+        inl update p = apply_observation p x 
         update p1, update p2
 
 // Indexes randomly into an uniform categorical distrbution, weighting the choice by its probability.

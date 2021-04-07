@@ -88,6 +88,8 @@ inl forall2 f x1 x2 =
     loop 0
 // Removes the element at index.
 inl removeAtIndex i dist = init (length dist-1) (fun i' => index dist (if i <= i' then i'+1 else i'))
+// Does an inplace map of the array.
+inl mapInplace f temp = loop.for' (from:0 nearTo: length temp) (fun i => set temp i (f i (index temp i)))
 
 // Generic equable function that data structures other than regular arrays can reuse.
 inl generic_equable x1 x2 =

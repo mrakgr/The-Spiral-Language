@@ -48,14 +48,14 @@ inl runMasked'' ({net input output} : serialized_net _ _) observation mask =
     inl o_mask = $"!o[!mask]" : tensor
     !!!!Import("torch.nn.functional")
     mask, ($"torch.nn.functional.softmax(!o_mask,-1)" : tensor)
-inl runMasked' net obs mask = 
+inl runMasked' net obs mask =
     inl _,x = runMasked'' net obs mask
     $"!x.cpu().detach().numpy()" : a u64 serialization.dense.array.at
-inl runMasked x observation mask = 
-    inl mask, o_mask_dist = runMasked'' x observation mask
+inl runMasked net observation mask =
+    inl mask, o_mask_dist = runMasked'' net observation mask
     inl o_mask_dist = categorical o_mask_dist
     inl p,v = sample o_mask_dist
-    p, deserializeMaskedSparse x.output mask v
+    p, deserializeMaskedSparse net.output mask v
 
 inl run ({net input output} : serialized_net _ _) observation =
     inl o = forward net (serializeDense input observation)

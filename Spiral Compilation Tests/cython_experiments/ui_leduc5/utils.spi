@@ -4,3 +4,5 @@ nominal log_prob = f64
 // Takes in a regular probability in the range (0,1] and converts it to a log one.
 inl to_log_prob prob = log_prob (log prob)
 inl exp_log_prob (log_prob x) = exp x
+inl is_exp_log_prob_zero (log_prob x) = x = -inf
+inl add_log_prob (log_prob a) (log_prob b) = log_prob (a+b)
