@@ -30,8 +30,8 @@ inl funsPlay (d : state _) = player_funs {
 inl funsTrain ~(is_update:) (d : state _) = player_funs {
     action = dyn fun {chance_prob player player' actions next} =>
         inl num_actions = length actions
+        inl self_prob = exp_log_prob player.prob
         inl op_prob = exp_log_prob (add_log_prob chance_prob player')
-        inl self_prob = exp_log_prob (add_log_prob chance_prob player.prob)
         inl d = value d num_actions player.observations
         let actions_prob () = regret_match d.regret
         // This one might give better results during training.
