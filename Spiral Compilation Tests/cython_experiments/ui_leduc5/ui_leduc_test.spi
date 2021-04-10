@@ -30,5 +30,5 @@ inl main () : () =
     inl p2 = agent.human.create human_dispatch
     inl f (): () =
         open nodes
-        leduc.game (nodes.cps.nodes_2p (p1.funs, p2.funs)) ((to_log_prob 1,p1.init,p2.init),fun r => ())
+        leduc.game (nodes.cps.nodes_2p (p1.funs, p2.funs)) ((log_probm.from 1,p1.init,p2.init),fun r => ())
     $"ui_leduc.start_game(!f)"

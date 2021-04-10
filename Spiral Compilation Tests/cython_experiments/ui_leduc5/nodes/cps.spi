@@ -1,12 +1,12 @@
 inl sample i pid dist f (p,ret) =
     inl x = index dist i
-    inl p = sample_players_update pid (to_log_prob (1 / f64 (length dist)),x) p
+    inl p = sample_players_update pid (log_probm.from (1 / f64 (length dist)),x) p
     f x (p,ret)
 
 inl draw i pid dist f (p,ret) =
     inl x = index dist i
     inl ar = am.removeAtIndex i dist
-    inl p = sample_players_update pid (to_log_prob (1 / f64 (length dist)),x) p
+    inl p = sample_players_update pid (log_probm.from (1 / f64 (length dist)),x) p
     f (x,ar) (p,ret)
 
 // Iterates over the an uniform categorical distribution, summing up the rewards divided by the length.

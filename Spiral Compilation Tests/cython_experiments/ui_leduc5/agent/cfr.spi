@@ -20,40 +20,48 @@ inl funsPlay (d : state _) = player_funs {
         inl actions_prob = regret_match (value d num_actions player.observations).avg_policy
         inl i = $"np.random.choice(!num_actions,p=!actions_prob)"
         inl p,a = index actions_prob i, index actions i
-        next ((to_log_prob p,a),state player)
+        next ((log_probm.from p,a),state player)
     terminal = fun _ => ()
     }
 
-// `is_avg_policy` determines whether to use the average or the current policy.
-// The default should have the `is_avg_policy: false`. The paper uses the current one.
-// `is_update` determines whether the updates should be done. This should be true during training and false otherwise.
-inl funsTrain ~(is_update:) (d : state _) = player_funs {
+union cfr_mode = PlayAvgPolicy | PlayCurrentPolicy | TrainCurrentPolicy
+inl funsTrain mode (d : state _) = player_funs {
     action = dyn fun {chance_prob player player' actions next} =>
-        inl num_actions = length actions
-        inl self_prob = exp_log_prob player.prob
-        inl op_prob = exp_log_prob (add_log_prob chance_prob player')
-        inl d = value d num_actions player.observations
-        let actions_prob () = regret_match d.regret
-        // This one might give better results during training.
-        // let actions_prob () = regret_match (if is_update then d.regret else d.avg_policy)
-        inl reward,reward_wsum =
-            inl state = state player
-            am.mapFold2 (fun s prob a =>
-                inl r =
-                    if prob = 0 && op_prob = 0 then 0 // the pruning optimization
-                    else next ((to_log_prob prob,a),state)
-                r, s + prob * r
-                ) 0 actions_prob() actions
-        if is_update then
+        inl d = value d (length actions) player.observations
+        inl op_prob = log_probm.exp (log_probm.add chance_prob player')
+        inl state = state player
+
+        inl r prob a = 
+            if prob = 0 && op_prob = 0 then 0 // the pruning optimization
+            else next ((log_probm.from prob,a),state)
+
+        let weighted_sum actions_prob = am.fold2 (fun s prob a => s + prob * r prob a) 0 actions_prob actions
+
+        match mode with
+        // For evaling the overall quality of the policy whose agents are done training.
+        | PlayAvgPolicy => weighted_sum (regret_match d.avg_policy)
+        // Alternating updates between the players works better than training both simultaneously.
+        // For the sake of training it is better to play the latest policy and get the freshest data instead of 
+        // sampling the old ones, which in effect would happen if the avg_policy was used for training.
+        | PlayCurrentPolicy => weighted_sum (regret_match d.regret)
+        // Trains the current policy. The old F# version in the `v0.2` branch of the Spiral repo has some bugs.
+        // The way it is done currently reflects my current understanding of the way the algorithm is supposed to be implemented.
+        // For example, I am decently sure that `self_prob` should not have the chance probability like the paper suggests.
+        // Also the latest policy should be added to the average one rather than the stale one.
+        // To speed up learning I also reweight the rewards using the updated policy.
+        | TrainCurrentPolicy =>
+            inl reward,reward_wsum = 
+                am.mapFold2 (fun s prob a => 
+                    inl r = r prob a in r, s + prob * r
+                    ) 0 (regret_match d.regret) actions
             d.regret |> am.mapInplace (fun i x => x + op_prob * (index reward i - reward_wsum))
-            inl actions_prob = actions_prob()
+            inl actions_prob = regret_match d.regret
+            inl self_prob = log_probm.exp player.prob
             d.avg_policy |> am.mapInplace (fun i x => x + self_prob * index actions_prob i)
-            am.fold2 (fun s prob r => s + prob * r) 0 actions_prob reward
-        else
-            reward_wsum
+            weighted_sum actions_prob
     terminal = fun _ => ()
     }
 
-inl Init = player {prob=to_log_prob 1; observations=Nil; state=()} |> dyn
+inl Init = player {prob=log_probm.from 1; observations=Nil; state=()} |> dyn
 inl createPlay d = {funs=funsPlay d; init=Init}
-inl createTrain d = {funs=funsTrain (is_update: true) d; init=Init}
+inl createTrain mode d = {funs=funsTrain mode d; init=Init}

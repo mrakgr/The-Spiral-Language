@@ -2,18 +2,18 @@ open nodes
 inl Funs = player_funs {
     action = fun {player actions next} => 
         inl a = sampling.sample actions
-        next ((to_log_prob (1 / f64 (length actions)),a),state player)
+        next ((log_probm.from (1 / f64 (length actions)),a),state player)
     terminal = fun _ => ()
     }
 
 inl FunsEnum = player_funs {
     action = fun {player actions next} => 
         inl prob = 1 / f64 (length actions)
-        inl log_prob = to_log_prob prob
+        inl log_prob = log_probm.from prob
         am.fold (fun s a => s + prob * next ((log_prob,a),state player)) 0 actions
     terminal = fun _ => ()
     }
 
-inl Init = player {prob=to_log_prob 1; observations=Nil; state=()} |> dyn
+inl Init = player {prob=log_probm.from 1; observations=Nil; state=()} |> dyn
 inl Create = {funs=Funs; init=Init}
 inl CreateEnum = {funs=FunsEnum; init=Init}

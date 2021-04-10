@@ -6,6 +6,7 @@ modules:
         sparse/
             int
     utils-
+    log_probm
     torch/
         utils-
     sampling

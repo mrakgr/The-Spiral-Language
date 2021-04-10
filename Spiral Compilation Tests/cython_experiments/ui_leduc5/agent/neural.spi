@@ -42,7 +42,7 @@ inl funs_buffer net add_buffer =
                 inl state = state player
                 am.fold2 (fun s prob a => 
                     inl prob = f64 prob
-                    s + prob * next ((to_log_prob prob,a),state)
+                    s + prob * next ((log_probm.from prob,a),state)
                     ) 0 actions_prob actions
             add_buffer {x with reward without next}
             reward

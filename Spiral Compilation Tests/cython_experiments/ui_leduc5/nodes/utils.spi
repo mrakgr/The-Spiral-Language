@@ -11,10 +11,10 @@ inl state (player {state}) = state
 inl observations (player {observations}) = observations
 inl apply_action (player x) a = player {x with observations#=(::) (Action: a)}
 inl apply_observation (player x) o = player {x with observations#=(::) (Observation: o)}
-inl apply_changes (player x) ((prob,a),state) = player {x with state observations#=(::) (Action: a); prob#=add_log_prob prob}
+inl apply_changes (player x) ((prob,a),state) = player {x with state observations#=(::) (Action: a); prob#=log_probm.add prob}
 
 inl sample_players_update pid (prob,x) (chance_prob,p1,p2) =
-    add_log_prob prob chance_prob, 
+    log_probm.add prob chance_prob, 
     match pid with
     | Some: pid =>
         let update pid' p = if pid = pid' then apply_observation p x else p

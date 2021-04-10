@@ -21,8 +21,8 @@ inl main () =
             rm.add trace $"f' (vs. {!op_card})'"
             rm.join' "" trace
         reward = x.game_state |> fst |> fun {card id pot} => pstr (if id = 0 then x.reward else -(x.reward) : f64)
-        prob_self = pstr (exp_log_prob x.player.prob)
-        prob_op = pstr (exp_log_prob x.player')
+        prob_self = pstr (log_probm.exp x.player.prob)
+        prob_op = pstr (log_probm.exp x.player')
         actions =
             inl trace : ra u64 _ = am.empty
             am.iter (show_action >> rm.add trace) x.actions
@@ -30,7 +30,7 @@ inl main () =
         } |> record |> rm.add buffer
     inl p2 = agent.uniform.createEnum()
     inl populate_call () = 
-        leduc.game (nodes.nodes_2p (p1.funs, p2.funs)) (to_log_prob 1,p1.init,p2.init) |> ignore
+        leduc.game (nodes.nodes_2p (p1.funs, p2.funs)) (log_probm.from 1,p1.init,p2.init) |> ignore
         buffer
     $"ui_replay.run(!populate_call)"
     ()
