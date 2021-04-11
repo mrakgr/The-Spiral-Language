@@ -3,6 +3,7 @@ nominal dict key value = mut {
     total_size : u64
     limit : u64
     }
+type t key value = dict key value
 
 // Iterates over the dictionary and passes the value to on_succ if it finds a key match otherwise it calls on_fail.
 // The callback arguments can be used to set, remove and add relevant value to the dictionary.

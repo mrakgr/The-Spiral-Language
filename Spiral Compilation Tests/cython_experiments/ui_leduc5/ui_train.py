@@ -5,6 +5,7 @@ from kivy.base import runTouchApp
 from kivy.lang import Builder
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.textinput import TextInput
+import numpy as np
 from kivy.properties import StringProperty, BooleanProperty, NumericProperty
 
 class RowFields(BoxLayout):
@@ -13,13 +14,22 @@ class RowFields(BoxLayout):
     regret = StringProperty('')
 
 class Main(BoxLayout):
-    def train(self,num_iter): 
+    def train(self,chart,progress_bar,num_iter): 
         # self.buffer_view.data = self.train_call()
         self.buffer_view.data = [
             {'trace': 'KCR', 'avg_policy': 'F: 0.25000\nC: 0.25000\nR: 0.50000', 'regret': 'F: -3.12345\nC: 2.25000\nR: 4.50000'}
             ]
-    def clear(self):
-        self.buffer_view.data = []
+        m = chart.meshline
+        chart.add_plot(m)
+        p = m.points
+        p.extend([(len(p),np.random.rand())])
+        chart.ymax = max(p,key=lambda x: x[1])[1]
+        chart.xmax = max(1,len(p))
+        progress_bar.max = chart.xmax
+        progress_bar.value_normalized = np.random.rand()
+
+    def play(self):
+        print('playing')
 
 class U64Input(TextInput):
     is_valid = BooleanProperty(True)
@@ -32,6 +42,9 @@ class U64Input(TextInput):
             self.is_valid = False
 
 root = Builder.load_string("""
+#:import graph kivy_garden.graph
+#:import MeshLinePlot kivy_garden.graph.MeshLinePlot
+
 <U64Input>:
     text: '1'
     multiline: False
@@ -67,7 +80,7 @@ root = Builder.load_string("""
 Main:
     canvas:
         Color:
-            rgba: 0.3, 0.3, 0.3, 1
+            rgba: 0.0, 0.0, 0.0, 1
         Rectangle:
             size: self.size
             pos: self.pos
@@ -87,7 +100,10 @@ Main:
         Button:
             text: 'Train'
             disabled: not(num_iter.is_valid)
-            on_press: root.train(num_iter.value)
+            on_press: root.train(chart,progress_bar,num_iter.value)
+        Button:
+            text: 'Play'
+            on_press: root.play()
     Accordion:
         orientation: 'vertical'
         min_space: dp(30)
@@ -134,6 +150,29 @@ Main:
         AccordionItem:
             min_space: self.parent.min_space
             title: "Chart"
+            Graph:
+                id: chart
+                meshline: MeshLinePlot(color=[1,0,0,1])
+                xlabel:'X'
+                ylabel:'Y'
+                x_ticks_minor:5
+                x_ticks_major:5
+                y_ticks_major:0.2
+                y_grid_label:True
+                x_grid_label:True
+                padding:5
+                x_grid:True
+                y_grid:True
+                xmin:0
+                xmax:5
+                ymin:0
+                ymax:1
+    ProgressBar:
+        id: progress_bar
+        max: 10
+        value: 5
+        size_hint_y: None
+        height: dp(20)
 """)
 
 if __name__ == '__main__': runTouchApp(root)

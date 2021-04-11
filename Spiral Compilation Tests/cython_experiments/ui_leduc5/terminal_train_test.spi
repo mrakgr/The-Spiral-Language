@@ -1,0 +1,22 @@
+inl main () =
+    inl d : dict.t _ _ = dict.empty
+    inl play_avg, play_cur, train_cur = 
+        open agent.cfr
+        funsTrain PlayAvgPolicy d, funsTrain PlayCurrentPolicy d, funsTrain TrainCurrentPolicy d
+    inl _ = 
+        open nodes
+        open leduc
+        inl f (x : player_funs ({card : card; id : u8; pot : i32} * {card : card; id : u8; pot : i32} * option card) () card action f64) = ()
+        f play_avg . f play_cur . f train_cur
+    let run a,b = 
+        inl init = (log_probm.from 1,agent.cfr.init(),agent.cfr.init())
+        leduc.game (nodes.nodes_2p (a, b)) init
+    inl train () =
+        inl _ = run (play_cur, train_cur)
+        run (play_cur, play_cur)
+        // inl _ = run (play_cur,train_cur)
+        // run (play_avg, play_avg)
+    loop.for' (from: 0u32 nearTo: 3) (fun _ =>
+        train() |> fun x => $"print(!x)"
+        )
+    

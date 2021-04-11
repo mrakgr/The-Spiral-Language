@@ -220,7 +220,7 @@ type BindsReturn =
     | BindsTailEnd of is_void : bool
     | BindsLocal of TyV []
 
-let codegen (env : PartEvalResult) (x : TypedBind []) =
+let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
     let imports = ResizeArray()
     let types = ResizeArray()
     let functions = ResizeArray()
@@ -615,7 +615,18 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | Some a, Some range -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s x ->
-            line s $"cdef {tup_ty x.range} method{x.tag}({args_tys x.free_vars}):"
+            let q = tup_ty x.range
+            let e = 
+                if is_except_star then 
+                    let b = 
+                        match q with 
+                        | "void" -> true
+                        | "float" | "double" | "bint" -> true
+                        | x when x.StartsWith "signed" || x.StartsWith "unsigned" -> true
+                        | _ -> false
+                    if b then " except *" else ""
+                else ""
+            line s $"cdef {q} method{x.tag}({args_tys x.free_vars}){e}:"
             binds' (indent s) x.body
             )
     and closure : _ -> ClosureRec =
@@ -644,7 +655,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
 
     let main = StringBuilder()
     let s = {text=main; indent=0}
-    line s $"cpdef {tup_ty_data_term_vars (binds_last_data x)} main():"
+    let e = if is_except_star then " except *" else ""
+    line s $"cpdef {tup_ty_data_term_vars (binds_last_data x)} main(){e}:"
     binds' (indent s) x
 
     let program = StringBuilder()

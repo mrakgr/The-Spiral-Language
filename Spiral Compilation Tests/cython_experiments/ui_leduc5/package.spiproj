@@ -24,3 +24,5 @@ modules:
     cps_test
     ui_leduc_test
     ui_replay_test
+    terminal_train_test
+    ui_train_test

@@ -13,20 +13,21 @@ inl value (d : state _) num_actions = dict.memoize d fun _ =>
     inl Empty = am.init num_actions (fun _ => 0)
     {regret = Empty; avg_policy = Empty}
 
+inl terminal _ = ()
+
 open nodes
 inl funsPlay (d : state _) = player_funs {
-    action = dyn fun {player actions next} =>
+    terminal action = dyn fun {player actions next} =>
         inl num_actions = length actions
         inl actions_prob = regret_match (value d num_actions player.observations).avg_policy
         inl i = $"np.random.choice(!num_actions,p=!actions_prob)"
         inl p,a = index actions_prob i, index actions i
         next ((log_probm.from p,a),state player)
-    terminal = fun _ => ()
     }
 
 union cfr_mode = PlayAvgPolicy | PlayCurrentPolicy | TrainCurrentPolicy
 inl funsTrain mode (d : state _) = player_funs {
-    action = dyn fun {chance_prob player player' actions next} =>
+    terminal action = dyn fun {chance_prob player player' actions next} =>
         inl d = value d (length actions) player.observations
         inl op_prob = log_probm.exp (log_probm.add chance_prob player')
         inl state = state player
@@ -59,7 +60,6 @@ inl funsTrain mode (d : state _) = player_funs {
             inl self_prob = log_probm.exp player.prob
             d.avg_policy |> am.mapInplace (fun i x => x + self_prob * index actions_prob i)
             weighted_sum actions_prob
-    terminal = fun _ => ()
     }
 
 inl Init = player {prob=log_probm.from 1; observations=Nil; state=()} |> dyn

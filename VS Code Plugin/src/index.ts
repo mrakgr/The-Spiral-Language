@@ -276,7 +276,12 @@ export const activate = async (ctx: ExtensionContext) => {
         commands.registerCommand("buildFile", () => {
             window.visibleTextEditors.forEach(x => {
                 switch (path.extname(x.document.uri.path)) {
-                    case ".spi": case ".spir": spiBuildFileReq(x.document.uri.toString(true), workspace.getConfiguration("spiral").get("backend") || "Fsharp")
+                    case ".spi": case ".spir": {
+                        const config = workspace.getConfiguration("spiral")
+                        const backend : string = config.get("backend") || "Fsharp"
+                        const backend2 = backend === "Cython" && config.get("generateExceptStar") ? "Cython*" : backend
+                        spiBuildFileReq(x.document.uri.toString(true), backend2)
+                    }
                 }})
         }),
         commands.registerCommand("runClosure", x => { x() }),

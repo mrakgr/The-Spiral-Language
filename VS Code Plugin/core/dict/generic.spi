@@ -27,7 +27,7 @@ inl resize (dict_funs funs) (dictg x) = join
     inl table' = am.init table_length' (fun _ => funs.bucket_empty())
     loop.for' (from: 0 nearTo: length table) (fun i =>
         inl bucket = index table i
-        loop.for' (from: 0 nearTo: length table) (fun i =>
+        loop.for' (from: 0 nearTo: funs.bucket_length bucket) (fun i =>
             inl a = funs.bucket_index bucket i
             inl hkey = match a.hkey with Some: hkey => hkey | None => hash_cython a.key
             inl bucket' = index table' (hkey % table_length')
