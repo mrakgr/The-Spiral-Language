@@ -1,0 +1,61 @@
+// My own variant of CFR that tracks Q values instead of regret sums.
+// Update: It is not aggressive enough in updating the policy. The original which trains an explicit policy it better.
+let prob_norm p =
+    inl s = am.fold (+) 0 p
+    
+    inl inv = 1 / f64 (length p)
+    inl p =
+        if s = 0 then am.init (length p) (fun _ => inv)
+        else am.map (fun x => x / s) p
+    p
+
+// My own spin on it. I am curious whether it will work.
+let central_match q' =
+    inl inv = 1 / f64 (length q')
+    inl mean = am.fold (+) 0 q' * inv
+    inl q,s = am.mapFold (fun s x => inl v = max 0 (x - mean) in v, s + v) 0 q'
+    if s = 0 then am.mapInplace (fun _ _ => inv) q
+    else am.mapInplace (fun _ x => x / s) q
+    q
+
+type state key act = dict.dict key {q : a u64 f64; avg_policy : a u64 f64; actions : a u64 act}
+inl value (d : state _ _) actions = dict.memoize d fun _ => 
+    inl Empty = am.init (length actions) (fun _ => 0)
+    {q = Empty; avg_policy = Empty; actions}
+
+inl terminal _ = ()
+
+open nodes
+inl funsPlay (d : state _ _) = player_funs {
+    terminal action = dyn fun {player actions next} =>
+        inl num_actions = length actions
+        inl actions_prob = prob_norm (value d actions player.observations).avg_policy
+        inl i = $"np.random.choice(!num_actions,p=!actions_prob)"
+        inl p,a = index actions_prob i, index actions i
+        next ((log_probm.from p,a),state player)
+    }
+
+union cfr_mode = PlayAvgPolicy | PlayCurrentPolicy | TrainCurrentPolicy
+inl funsTrain mode (d : state _ _) = player_funs {
+    terminal action = dyn fun {chance_prob player player' id actions next} =>
+        inl d = value d actions player.observations
+        inl op_prob = log_probm.exp (log_probm.add chance_prob player')
+        inl state = state player
+
+        inl next prob a = 
+            if prob = 0 && op_prob = 0 then r2 0 // the pruning optimization
+            else next ((log_probm.from prob,a),state)
+
+        let weighted_sum actions_prob = am.fold2 (fun s prob a => s +. next prob a *. prob) (r2 0) actions_prob actions
+
+        match mode with
+        | PlayAvgPolicy => weighted_sum (prob_norm d.avg_policy)
+        | PlayCurrentPolicy => weighted_sum (central_match d.q)
+        | TrainCurrentPolicy =>
+            inl reward = am.map2 (fun prob a => r2_index (next prob a) id) (central_match d.q) actions
+            d.q |> am.mapInplace (fun i x => x + op_prob * index reward i)
+            inl actions_prob = central_match d.q
+            inl self_prob = log_probm.exp player.prob
+            d.avg_policy |> am.mapInplace (fun i x => x + self_prob * index actions_prob i)
+            weighted_sum actions_prob
+    }

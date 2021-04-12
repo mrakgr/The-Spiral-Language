@@ -42,13 +42,9 @@ inl funs_buffer net add_buffer =
                 inl state = state player
                 am.fold2 (fun s prob a => 
                     inl prob = f64 prob
-                    s + prob * next ((log_probm.from prob,a),state)
-                    ) 0 actions_prob actions
+                    s +. next ((log_probm.from prob,a),state) *. prob
+                    ) (r2 0) actions_prob actions
             add_buffer {x with reward without next}
             reward
         terminal = fun _ => ()
         }
-
-inl Init = uniform.init()
-inl create net = {funs=funs net; init=Init}
-inl create_buffer net add_buffer = {funs=funs_buffer net add_buffer; init=Init}

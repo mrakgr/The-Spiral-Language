@@ -86,6 +86,15 @@ inl forall2 f x1 x2 =
     if length x1 <> length x2 then failwith "The two arrays have differing lengths."
     let rec loop i = if i < length x1 then f (index x1 i) (index x2 i) && loop (i+1) else true
     loop 0
+// Returns true if the applying the checker function to one element of the array returns true.
+inl exists f x =
+    let rec loop i = if i < length x then f (index x i) || loop (i+1) else false
+    loop 0
+// Returns true if the applying the checker function to one element pair of the two arrays returns true.
+inl exists2 f x1 x2 =
+    if length x1 <> length x2 then failwith "The two arrays have differing lengths."
+    let rec loop i = if i < length x1 then f (index x1 i) (index x2 i) || loop (i+1) else false
+    loop 0
 // Removes the element at index.
 inl removeAtIndex i dist = init (length dist-1) (fun i' => index dist (if i <= i' then i'+1 else i'))
 // Does an inplace map of the array.

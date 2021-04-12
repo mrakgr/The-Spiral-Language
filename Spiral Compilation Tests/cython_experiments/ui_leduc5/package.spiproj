@@ -20,6 +20,7 @@ modules:
         uniform
         neural
         cfr
+        cfrq 
         human
     cps_test
     ui_leduc_test

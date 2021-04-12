@@ -1,8 +1,10 @@
 union observation o a = Observation: o | Action: a
 nominal player s o a = { prob : log_prob; observations : list (observation o a); state : s }
+inl init' state = player {state prob=log_probm.from 1; observations=Nil} |> dyn
+inl init forall observation action. : player () observation action = init' ()
 nominal player_funs game_state s obs act r = {
-    action : {game_state : game_state; player : player s obs act;  player' : log_prob; chance_prob : log_prob; actions : a u64 act; next : (log_prob * act) * s -> r} -> r
-    terminal : {game_state : game_state; player : player s obs act; chance_prob : log_prob; reward : f64} -> ()
+    action : {game_state : game_state; id : u8; player : player s obs act;  player' : log_prob; chance_prob : log_prob; actions : a u64 act; next : (log_prob * act) * s -> r} -> r
+    terminal : {game_state : game_state; id : u8; player : player s obs act; chance_prob : log_prob; reward : r2} -> ()
     }
 type pl2 s1 s2 o a = log_prob * player s1 o a * player s2 o a
 

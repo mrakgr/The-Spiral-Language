@@ -21,8 +21,9 @@ let rec show_trace i (l, r) =
             not is_first
         ) l true |> ignore
     match r with
-    | Some: (r : f64) =>
+    | Some: r =>
         inl p = if i = 0 then "One" else "Two"
+        inl r = r2_index r i
         if 0 < r then $"f\"Player {!p} wins {!r} chips.\\n\""
         elif 0 = r then $"f\"Player {!p} draws.\\n\""
         else inl r = -r in $"f\"Player {!p} loses {!r} chips.\\n\""
@@ -36,7 +37,4 @@ inl funs dispatch = player_funs {
         dispatch ((game_state, observations player, None), actions, fun x => next ((log_prob 0,x),state player))
     terminal = fun {game_state player reward} =>
         dispatch ((game_state, observations player, (Some: reward)), a ;[], fun x => ())
-    } 
-
-inl Init = uniform.init()
-inl create dispatch = {funs=funs dispatch; init=Init}
+    }

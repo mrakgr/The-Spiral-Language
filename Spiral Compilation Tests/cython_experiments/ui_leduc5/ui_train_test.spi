@@ -1,4 +1,53 @@
 inl main () =
-    // !!!!Import("ui_train")
-    ()
+    inl d : dict.t _ _ = dict.empty
+    inl play_avg, play_cur, train_cur = 
+        open agent.cfrq
+        funsTrain PlayAvgPolicy d, funsTrain PlayCurrentPolicy d, funsTrain TrainCurrentPolicy d
+    inl uniform = agent.uniform.funsEnum()
+    inl _ = 
+        open nodes
+        open leduc
+        inl f (x : player_funs ({card : card; id : u8; pot : i32} * {card : card; id : u8; pot : i32} * option card) () card action r2) = ()
+        f play_avg . f play_cur . f train_cur . f uniform
+    let run a,b =
+        inl init = (log_probm.from 1,nodes.init,nodes.init)
+        leduc.game (nodes.nodes_2p (a, b)) init
+    inl train () =
+        // inl _ = run (uniform,train_cur)
+        // run (uniform,play_avg)
+        inl _ = run (train_cur,play_cur)
+        inl _ = run (play_cur,train_cur)
+        run (play_avg, play_avg)
     
+    inl show_buffer () : ra u64 _ = (dict.toArray d : a _ _) |> am.generic.map fun k,v =>
+        open leduc
+        open nodes
+        inl show_card = function
+            | King => "[color=ff0000]K[/color]"
+            | Queen => "[color=ff0000]Q[/color]"
+            | Jack => "[color=ff0000]J[/color]"
+        inl show_action = function
+            | Fold => "F"
+            | Call => "C"
+            | Raise => "R"
+        inl pstr x = $"'{:.5f}'.format(!x)" : string
+        record {
+        trace =
+            inl trace : ra u64 _ = am.empty
+            listm.iterBack ((function Observation: x => show_card x | Action: x => show_action x) >> rm.add trace) k
+            rm.join' "" trace
+        avg_policy =
+            am.generic.map2 (fun k v => 
+                inl k,v = show_action k, pstr v in $"f'{!k}: {!v}'" : string
+                ) v.actions v.avg_policy
+            |> rm.join' "\n"
+        regret =
+            am.generic.map2 (fun k v => 
+                inl k,v = show_action k, pstr v in $"f'{!k}: {!v}'" : string
+                ) v.actions v.q
+            |> rm.join' "\n"
+        }
+    
+    !!!!Import("ui_train")
+    $"ui_train.run(!train,!show_buffer)"
+    ()

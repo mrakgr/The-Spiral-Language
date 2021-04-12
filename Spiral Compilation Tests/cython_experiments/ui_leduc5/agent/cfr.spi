@@ -8,35 +8,35 @@ let regret_match regret =
     else am.mapInplace (fun _ x => x / normalizing_sum) temp
     temp
 
-type state key = dict.dict key {regret : a u64 f64; avg_policy : a u64 f64}
-inl value (d : state _) num_actions = dict.memoize d fun _ => 
-    inl Empty = am.init num_actions (fun _ => 0)
-    {regret = Empty; avg_policy = Empty}
+type state key act = dict.dict key {regret : a u64 f64; avg_policy : a u64 f64; actions : a u64 act}
+inl value (d : state _ _) actions = dict.memoize d fun _ => 
+    inl Empty = am.init (length actions) (fun _ => 0)
+    {regret = Empty; avg_policy = Empty; actions}
 
 inl terminal _ = ()
 
 open nodes
-inl funsPlay (d : state _) = player_funs {
+inl funsPlay (d : state _ _) = player_funs {
     terminal action = dyn fun {player actions next} =>
         inl num_actions = length actions
-        inl actions_prob = regret_match (value d num_actions player.observations).avg_policy
+        inl actions_prob = regret_match (value d actions player.observations).avg_policy
         inl i = $"np.random.choice(!num_actions,p=!actions_prob)"
         inl p,a = index actions_prob i, index actions i
         next ((log_probm.from p,a),state player)
     }
 
 union cfr_mode = PlayAvgPolicy | PlayCurrentPolicy | TrainCurrentPolicy
-inl funsTrain mode (d : state _) = player_funs {
-    terminal action = dyn fun {chance_prob player player' actions next} =>
-        inl d = value d (length actions) player.observations
+inl funsTrain mode (d : state _ _) = player_funs {
+    terminal action = dyn fun {chance_prob player player' id actions next} =>
+        inl d = value d actions player.observations
         inl op_prob = log_probm.exp (log_probm.add chance_prob player')
         inl state = state player
 
-        inl r prob a = 
-            if prob = 0 && op_prob = 0 then 0 // the pruning optimization
+        inl next prob a = 
+            if prob = 0 && op_prob = 0 then r2 0 // the pruning optimization
             else next ((log_probm.from prob,a),state)
 
-        let weighted_sum actions_prob = am.fold2 (fun s prob a => s + prob * r prob a) 0 actions_prob actions
+        let weighted_sum actions_prob = am.fold2 (fun s prob a => s +. next prob a *. prob) (r2 0) actions_prob actions
 
         match mode with
         // For evaling the overall quality of the policy whose agents are done training.
@@ -51,9 +51,10 @@ inl funsTrain mode (d : state _) = player_funs {
         // Also the latest policy should be added to the average one rather than the stale one.
         // To speed up learning I also reweight the rewards using the updated policy.
         | TrainCurrentPolicy =>
-            inl reward,reward_wsum = 
+            inl reward,reward_wsum =
                 am.mapFold2 (fun s prob a => 
-                    inl r = r prob a in r, s + prob * r
+                    inl r = r2_index (next prob a ) id
+                    r, s + prob * r
                     ) 0 (regret_match d.regret) actions
             d.regret |> am.mapInplace (fun i x => x + op_prob * (index reward i - reward_wsum))
             inl actions_prob = regret_match d.regret
@@ -61,7 +62,3 @@ inl funsTrain mode (d : state _) = player_funs {
             d.avg_policy |> am.mapInplace (fun i x => x + self_prob * index actions_prob i)
             weighted_sum actions_prob
     }
-
-inl Init = player {prob=log_probm.from 1; observations=Nil; state=()} |> dyn
-inl createPlay d = {funs=funsPlay d; init=Init}
-inl createTrain mode d = {funs=funsTrain mode d; init=Init}

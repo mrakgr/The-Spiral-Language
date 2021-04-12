@@ -15,18 +15,15 @@ class RowFields(BoxLayout):
 
 class Main(BoxLayout):
     def train(self,chart,progress_bar,num_iter): 
-        # self.buffer_view.data = self.train_call()
-        self.buffer_view.data = [
-            {'trace': 'KCR', 'avg_policy': 'F: 0.25000\nC: 0.25000\nR: 0.50000', 'regret': 'F: -3.12345\nC: 2.25000\nR: 4.50000'}
-            ]
-        m = chart.meshline
-        chart.add_plot(m)
-        p = m.points
-        p.extend([(len(p),np.random.rand())])
-        chart.ymax = max(p,key=lambda x: x[1])[1]
-        chart.xmax = max(1,len(p))
-        progress_bar.max = chart.xmax
-        progress_bar.value_normalized = np.random.rand()
+        progress_bar.max = num_iter
+        for i in range(num_iter):
+            reward = self.cb_train()
+            self.buffer_view.data = self.cb_show_buffer()
+            m = chart.meshline
+            chart.add_plot(m)
+            m.points.extend([(len(m.points),reward)])
+            chart.xmax = max(1,len(m.points))
+            progress_bar.value = i+1
 
     def play(self):
         print('playing')
@@ -110,6 +107,7 @@ Main:
         AccordionItem:
             min_space: self.parent.min_space
             title: 'Dictionary'
+            collapse: False
             BoxLayout:
                 orientation: 'vertical'
                 Label:
@@ -157,7 +155,7 @@ Main:
                 ylabel:'Y'
                 x_ticks_minor:5
                 x_ticks_major:5
-                y_ticks_major:0.2
+                y_ticks_major:1
                 y_grid_label:True
                 x_grid_label:True
                 padding:5
@@ -165,8 +163,8 @@ Main:
                 y_grid:True
                 xmin:0
                 xmax:5
-                ymin:0
-                ymax:1
+                ymin:-15
+                ymax:15
     ProgressBar:
         id: progress_bar
         max: 10
@@ -175,4 +173,10 @@ Main:
         height: dp(20)
 """)
 
-if __name__ == '__main__': runTouchApp(root)
+def run(train,show_buffer):
+    root.cb_train = train
+    root.cb_show_buffer = show_buffer
+    runTouchApp(root)
+
+if __name__ == '__main__': 
+    runTouchApp(root)

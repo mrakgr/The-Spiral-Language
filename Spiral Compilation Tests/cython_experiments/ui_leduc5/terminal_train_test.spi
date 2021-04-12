@@ -6,10 +6,10 @@ inl main () =
     inl _ = 
         open nodes
         open leduc
-        inl f (x : player_funs ({card : card; id : u8; pot : i32} * {card : card; id : u8; pot : i32} * option card) () card action f64) = ()
+        inl f (x : player_funs ({card : card; id : u8; pot : i32} * {card : card; id : u8; pot : i32} * option card) () card action r2) = ()
         f play_avg . f play_cur . f train_cur
     let run a,b = 
-        inl init = (log_probm.from 1,agent.cfr.init(),agent.cfr.init())
+        inl init = (log_probm.from 1,nodes.init,nodes.init)
         leduc.game (nodes.nodes_2p (a, b)) init
     inl train () =
         inl _ = run (play_cur, train_cur)
