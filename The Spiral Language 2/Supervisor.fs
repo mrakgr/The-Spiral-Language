@@ -353,10 +353,11 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                 | BuildFatalError x -> Ch.send errors.fatal x
                 | BuildErrorTrace(a,b) -> Ch.send errors.traced {|trace=a; message=b|}
             let file_build (s : SupervisorState) mid (tc : WDiff.ProjStateTC, prepass : WDiffPrepass.ProjStatePrepass) =
-                let _,b = tc.files.uids_file.[mid]
+                let a,b = tc.files.uids_file.[mid]
                 let x,_ = prepass.files.uids_file.[mid]
-                Hopac.start (b >>= fun (has_error,_) ->
-                    if has_error then fatal $"File {Path.GetFileNameWithoutExtension file} has a type error somewhere in its path."; Job.unit() else 
+                Hopac.start (a.state >>= fun (has_error',_) ->
+                    b >>= fun (has_error,_) ->
+                    if has_error || has_error' then fatal $"File {Path.GetFileNameWithoutExtension file} has a type error somewhere in its path."; Job.unit() else 
                     Stream.foldFun (fun _ (_,_,env) -> env) PartEval.Prepass.top_env_empty x.result >>= fun env ->
                     match Map.tryFind "main" env.term with
                     | Some main ->

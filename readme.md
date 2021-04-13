@@ -7,6 +7,7 @@
 - [2/11/2021](#2112021)
 - [2/27/2021](#2272021)
 - [3/17/2021](#3172021)
+- [4/13/2021](#4132021)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
     - [Getting Spiral](#getting-spiral)
@@ -109,6 +110,14 @@ In the last two weeks, I did a major redesign of the editor support segments. Ar
 Hopefully, now moving, creating and deleting files in the editor should be completely stable. 
 
 I've changed how records are inferred as well. From here on out as a matter of principle, every time the compiler throws up an exception in the console that should be considered a compiler error in need of fixing. Please report any that you stumble upon.
+
+# 4/13/2021
+
+I've done a redesign of the core library and named it `core2` that now comes bundled with the plugin. `core` is legacy as of now. I should replace it completely, but I do not have the energy to spare in modifying all the test cases and the documentation here. The main reason for the revamp is that I realized that I do need generic array operations, otherwise I will need to copy paste the array module functions for regular arrays, resizable arrays, and in the future inverse arrays. 2 copy pastes is borderline for me already, but anymore than that is too much for my taste and is just invitation for bugs to come in.
+
+The new arrays have the dimension parameter, and there are extremely generic array operations in `am.generic` module now which I use to implement the more restricted ones in the `am` (array module) module itself. In the new core, the array types are `a 'dim 'el` where `dim` is the dimension type and `el` is the usual element. 
+
+I wracked my brain whether to go down this route, because adding an extra type arg to primitive arrays would complicate things a lot for beginners and make the type inference harder for the compiler thereby making annotations necessary in places where they wouldn't be otherwise, but I had to yield to in the end. Ultimately, the biggest problem is that Spiral has to support multiple backends. On the .NET side, arrays have signed 32-bit indexing, create and length. The Cython side? Unsigned 64-bit. This is a huge headache and who knows what other backends in the future might need.
 
 # The Spiral Language
 

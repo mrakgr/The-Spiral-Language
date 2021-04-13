@@ -4,3 +4,5 @@ inl bind x f = match x with Some: a => f a | None => None
 inl map f x = bind x (f >> some_)
 // If the option is Some: x, returns the x otherwise it returns the default argument.
 inl defaultWith d = function Some: x => x | None => d
+// Gets the value if it is present, otherwise raises an exception.
+inl value = function Some: x => x | None => failwith "Option does not have a value."

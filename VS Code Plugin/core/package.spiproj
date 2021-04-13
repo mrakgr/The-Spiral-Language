@@ -6,16 +6,12 @@ modules:
     core-
     loop
     loopw
-    am/
-        generic
-        main-
-    rm
-    sm
+    a32
+    a64
+    r64
+    s32
+    s64
     listm
     optionm
-    dict/
-        generic
-        table
-        real_dict*
-        main- 
     monad
+    
