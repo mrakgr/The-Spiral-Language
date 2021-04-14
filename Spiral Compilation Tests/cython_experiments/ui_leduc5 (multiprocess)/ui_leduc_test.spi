@@ -1,0 +1,34 @@
+inl main () : () =
+    !!!!Import("ui_leduc")
+    inl root : obj = $"ui_leduc.root"
+    let human_dispatch (((p1,p2,card : leduc.game_state),observations),(dist : a u64 _),(next : _ -> ())) : () =
+        {
+        trace = agent.human.show_trace p1.id observations
+        actions =
+            inl actions = mut {fold= $"False"; call= $"False"; raise= $"False"}
+            dist |> am.iter fun x =>
+                open leduc
+                match x with
+                | Fold => actions.fold <- fun () => next x
+                | Call => actions.call <- fun () => next x
+                | Raise => actions.raise <- fun () => next x
+                
+            record *actions
+        table_data =
+            inl show_card = 
+                open leduc
+                function King => 'K' | Queen => 'Q' | Jack => 'J'
+            record {
+                my_card = show_card p1.card 
+                my_pot = p1.pot 
+                op_card = show_card p2.card 
+                op_pot = p2.pot 
+                community_card = match card with Some: c => show_card c  | None => ' '
+                }
+        } |> record |> fun r => $"!root.data = !r"
+    inl p1 = agent.neural.funs(agent.neural.create_net())
+    inl p2 = agent.human.funs human_dispatch
+    inl f (): () =
+        open nodes
+        leduc.game (nodes.cps.nodes_2p (p1, p2)) ((log_probm.from 1,init,init),fun r => ())
+    $"ui_leduc.start_game(!f)"

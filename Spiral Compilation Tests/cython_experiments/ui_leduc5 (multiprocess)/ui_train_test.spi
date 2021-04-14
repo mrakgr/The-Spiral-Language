@@ -1,3 +1,7 @@
+union msg =
+    | Train: u64
+    | Stop
+
 inl main () =
     inl d : dict.t _ _ = dict.empty
     inl play_avg, play_cur, train_cur = 
@@ -12,6 +16,7 @@ inl main () =
     let run a,b =
         inl init = (log_probm.from 1,nodes.init,nodes.init)
         leduc.game (nodes.nodes_2p (a, b)) init
+
     inl train () =
         inl _ = run (train_cur,play_cur)
         inl _ = run (play_cur,train_cur)
@@ -45,7 +50,35 @@ inl main () =
                 ) v.actions v.regret
             |> rm.join' "\n"
         }
-    
+
+    !!!!Import("multiprocessing")
+    !!!!Import("sys")
+    $"sys.frozen = True"
+    $"multiprocessing.freeze_support()"
     !!!!Import("ui_train")
-    $"ui_train.run(!train,!show_buffer)"
+
+    inl queue : obj = $"multiprocessing.Queue()"
+    let rec waiting i = 
+        match $"!queue.get()" with
+        | Train: i' => training i (i+i')
+        | Stop => waiting i
+    and let training from nearTo =
+        if from < nearTo then
+            if $"!queue.empty()" then 
+                inl x = record {reward = train(); buffer = show_buffer(); from nearTo}
+                $"ui_train.msg(!x)"
+                training (from+1) nearTo
+            else
+                match $"!queue.get()" with
+                | Train: i' => training from (nearTo+i')
+                | Stop => waiting nearTo
+        else waiting from
+
+    inl start () : obj = waiting 0
+    $"multiprocessing.Process(target=!start).start()"
+
+    inl train i : () = inl x = Train: i in $"!queue.put(!x)"
+    inl stop () : () = inl x = Stop in $"!queue.put(!x)"
+    
+    $"ui_train.run(!train,!stop)"
     ()
