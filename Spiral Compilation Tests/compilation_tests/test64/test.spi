@@ -1,3 +1,5 @@
+// Is the type annotation getting propagated correctly into a record?
+
 inl Nodes = 
     {
     action=fun p1 => 

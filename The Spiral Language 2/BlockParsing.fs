@@ -639,6 +639,7 @@ let join_point = function
 let unintern a b = sprintf "%s%c" a b
 
 let rec let_join_point = function
+    | RawForall(r,a,b) -> RawForall(r,a,let_join_point b)
     | RawFun(r,[a,b]) -> RawFun(r,[PatDyn(range_of_pattern a, a), let_join_point b])
     | RawFun(r,l) -> 
         let empty = fst r, fst r
@@ -648,6 +649,10 @@ let rec let_join_point = function
         RawFun(r,[a,join_point b])
     | x -> join_point x
 
+let let_join_point' = function
+    | RawForall _ | RawFun _ as x -> let_join_point x
+    | x -> x
+
 let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
     let name, pats =
         match name with
@@ -656,7 +661,7 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
     match is_rec, name, foralls, pats with
     | false, _, [], [] -> 
         match patterns_validate [name] with
-        | [] -> Ok((r,name,body),is_rec)
+        | [] -> Ok((r,name,(if is_let then let_join_point' body else body)),is_rec)
         | ers -> Error ers
     | _, PatVar _, _, _ -> 
         match patterns_validate (if is_rec then name :: pats else pats) with

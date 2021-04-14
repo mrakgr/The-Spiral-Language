@@ -1,0 +1,8 @@
+inl main () =
+    inl p1 = agent.uniform.funsEnum()
+    inl p2 = agent.uniform.funsEnum()
+    loop.for' (from:0u32 nearTo:100) (fun i =>
+        open nodes
+        leduc.game (nodes.nodes_2p (p1, p2)) (log_probm.from 1,init,init) |> ignore
+        // $"print(\"Reward for player one at iteration \", !i, \" is \", !r)" : ()
+        )

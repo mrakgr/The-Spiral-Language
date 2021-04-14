@@ -1,0 +1,4 @@
+// Is the join point getting placed correctly on a let followed by a function?
+inl main() =
+    let f = function true => "asd" | _ => "qwe"
+    f true

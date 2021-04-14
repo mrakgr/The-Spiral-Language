@@ -1,0 +1,36 @@
+inl main () =
+    inl buffer : ra u64 obj = am.empty
+    inl p1 = agent.neural.funs_buffer (agent.neural.create_net()) fun x =>
+        open leduc
+        inl show_card = function
+            | King => "[color=ff0000]K[/color]"
+            | Queen => "[color=ff0000]Q[/color]"
+            | Jack => "[color=ff0000]J[/color]"
+        inl show_action = function
+            | Fold => "F"
+            | Call => "C"
+            | Raise => "R"
+        open nodes
+        inl pstr x = $"'{:.5f}'.format(!x)" : string
+        {
+        trace =
+            inl trace : ra u64 _ = am.empty
+            listm.iterBack ((function Observation: x => show_card x | Action: x => show_action x) >> rm.add trace) x.player.observations
+            inl op_card = x.game_state |> snd |> fst |> fun {card id pot} => show_card card
+            rm.add trace $"f' (vs. {!op_card})'"
+            rm.join' "" trace
+        reward = x.game_state |> fst |> fun {card id pot} => pstr (r2_index x.reward id)
+        prob_self = pstr (log_probm.exp x.player.prob)
+        prob_op = pstr (log_probm.exp x.player')
+        actions =
+            inl trace : ra u64 _ = am.empty
+            am.iter (show_action >> rm.add trace) x.actions
+            rm.join' "" trace
+        } |> record |> rm.add buffer
+    inl p2 = agent.uniform.funsEnum()
+    inl populate_call () = 
+        leduc.game (nodes.nodes_2p (p1, p2)) (log_probm.from 1,nodes.init,nodes.init) |> ignore
+        buffer
+    !!!!Import("ui_replay")
+    $"ui_replay.run(!populate_call)"
+    ()

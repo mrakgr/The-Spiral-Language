@@ -342,22 +342,32 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
         binds (nullable_vars_of x) defs s (BindsTailEnd(binds_last_data x |> data_term_vars |> Array.isEmpty)) x
         defs.text.Append(s.text) |> ignore
     and binds_loop (nulls : Dictionary<obj,Tag Set>) (defs : CodegenEnv) (s : CodegenEnv) ret (stmts : TypedBind []) =
-        Array.iteri (fun i x ->
-            match x with
-            | TyLet(d,trace,a) -> 
-                try let d = data_free_vars d
-                    Array.iter (fun (L(i,t)) -> cdef_show "" defs i (tyv t)) d
-                    op nulls defs s (BindsLocal d) a
-                with :? CodegenError as e -> raise_codegen_error' trace e.Data0
-            | TyLocalReturnOp(trace,a,_) -> try op nulls defs s ret a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
-            | TyLocalReturnData(d,trace) -> 
-                try match ret with
-                    | BindsLocal [||] | BindsTailEnd true -> if i = 0 then line s "pass"
-                    | BindsTailEnd false -> line s $"return {tup d}"
-                    | BindsLocal ret -> line s $"{args ret} = {args' d}"
-                with :? CodegenError as e -> raise_codegen_error' trace e.Data0
-            print_nullables nulls s x
-            ) stmts
+        let rec loop i =
+            if i < stmts.Length then
+                let inline op a b c d = function
+                    | TyFailwith(_,b) -> line s $"raise Exception({tup b})"; false
+                    | e -> op a b c d e; true
+                let x = stmts.[i]
+                match x with
+                | TyLet(d,trace,a) ->
+                    try let d = data_free_vars d
+                        Array.iter (fun (L(i,t)) -> cdef_show "" defs i (tyv t)) d
+                        op nulls defs s (BindsLocal d) a
+                    with :? CodegenError as e -> raise_codegen_error' trace e.Data0
+                | TyLocalReturnOp(trace,a,_) ->
+                    try op nulls defs s ret a
+                    with :? CodegenError as e -> raise_codegen_error' trace e.Data0
+                | TyLocalReturnData(d,trace) ->
+                    try match ret with
+                        | BindsLocal [||] | BindsTailEnd true -> if i = 0 then line s "pass"
+                        | BindsTailEnd false -> line s $"return {tup d}"
+                        | BindsLocal ret -> line s $"{args ret} = {args' d}"
+                    with :? CodegenError as e -> raise_codegen_error' trace e.Data0
+                    true
+                |> function
+                    | true -> print_nullables nulls s x; loop (i+1)
+                    | false -> ()
+        loop 0
     and binds (nulls : Dictionary<obj,Tag Set>) (defs : CodegenEnv) (s : CodegenEnv) ret (x : TypedBind []) =
         print_nullables nulls s x
         binds_loop nulls defs s ret x
@@ -512,7 +522,7 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
                 assign $"v{i}"
             | _ -> raise_codegen_error "Compiler error: Expected a single var or a non-void return in array literal creation."
         | TyArrayCreate(a,b) -> return' $"numpy.empty({tup b},dtype={numpy_ty a})" 
-        | TyFailwith(_,b) -> line s $"raise Exception({tup b})"
+        | TyFailwith _ -> failwith "Taken care in the outer level."
         | TyArrayLength(a,b) -> length (a,b)
         | TyStringLength(a,b) -> length (a,b)
         | TyOp(op,l) ->
