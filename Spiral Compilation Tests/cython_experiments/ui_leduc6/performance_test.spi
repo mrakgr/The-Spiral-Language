@@ -1,8 +1,38 @@
+// inl main () : () =
+//     inl d = dict.empty
+//     open agent.cfr
+//     inl p1 = funsTrain TrainCurrentPolicy d
+//     inl p2 = funsTrain TrainCurrentPolicy d
+//     loop.for' (from:0u32 nearTo:1) (fun i =>
+//         open nodes
+//         leduc.game (nodes.nodes_2p (p1,p2)) (log_probm.from 1,init,init) |> ignore
+//         )
+//     inl table_lens : a u64 u64 = d.table |> am.map (fun x => real
+//         open dict.table
+//         open leduc
+//         open nodes
+//         match x with
+//         | (caching_bucket x) => length `(ra u64 {hkey : u64; key : list (observation card action); value : {actions : a u64 action; avg_policy : a u64 f64; regret : a u64 f64}}) x
+//         )
+//     $"print(!table_lens)"
+//     inl hkeys = (dict.toArray d : a _ _) |> am.map (fun k,v => hash_cython k)
+//     $"print(!hkeys)"
+//     ()
+
+// inl main () =
+//     inl d = dict.empty
+//     open agent.cfr
+//     inl p1 = funsTrain TrainCurrentPolicy d
+//     inl p2 = funsTrain TrainCurrentPolicy d
+//     loop.for' (from:0u32 nearTo:100) (fun i =>
+//         open nodes
+//         leduc.game (nodes.nodes_2p (p1,p2)) (log_probm.from 1,init,init) |> ignore
+//         )
+
 inl main () =
     inl p1 = agent.uniform.funsEnum()
     inl p2 = agent.uniform.funsEnum()
     loop.for' (from:0u32 nearTo:100) (fun i =>
         open nodes
         leduc.game (nodes.nodes_2p (p1, p2)) (log_probm.from 1,init,init) |> ignore
-        // $"print(\"Reward for player one at iteration \", !i, \" is \", !r)" : ()
         )

@@ -17,17 +17,17 @@ inl terminal _ = ()
 
 open nodes
 inl funsPlay (d : state _ _) = player_funs {
-    terminal action = dyn fun {player actions next} =>
+    terminal action = fun {player actions next} =>
         inl num_actions = length actions
-        inl actions_prob = regret_match (value d actions player.observations).avg_policy
-        inl i = $"numpy.random.choice(!num_actions,p=!actions_prob)"
-        inl p,a = index actions_prob i, index actions i
+        inl policy = regret_match (value d actions player.observations).avg_policy
+        inl i = $"numpy.random.choice(!num_actions,p=!policy)"
+        inl p,a = index policy i, index actions i
         next ((log_probm.from p,a),state player)
     }
 
 union cfr_mode = PlayAvgPolicy | PlayCurrentPolicy | TrainCurrentPolicy
 inl funsTrain mode (d : state _ _) = player_funs {
-    terminal action = dyn fun {chance_prob player player' id actions next} =>
+    terminal action = fun {chance_prob player player' id actions next} =>
         inl d = value d actions player.observations
         inl op_prob = log_probm.exp (log_probm.add chance_prob player')
         inl state = state player
@@ -36,7 +36,7 @@ inl funsTrain mode (d : state _ _) = player_funs {
             if prob = 0 && op_prob = 0 then r2 0 // the pruning optimization
             else next ((log_probm.from prob,a),state)
 
-        let weighted_sum actions_prob = am.fold2 (fun s prob a => s +. next prob a *. prob) (r2 0) actions_prob actions
+        inl weighted_sum policy = am.fold2 (fun s prob a => s +. next prob a *. prob) (r2 0) policy actions
 
         match mode with
         // For evaling the overall quality of the policy whose agents are done training.
@@ -53,12 +53,14 @@ inl funsTrain mode (d : state _ _) = player_funs {
         | TrainCurrentPolicy =>
             inl reward,reward_wsum =
                 am.mapFold2 (fun s prob a => 
-                    inl r = r2_index (next prob a ) id
-                    r, s + prob * r
-                    ) 0 (regret_match d.regret) actions
-            d.regret |> am.mapInplace (fun i x => x + op_prob * (index reward i - reward_wsum))
-            inl actions_prob = regret_match d.regret
-            inl self_prob = log_probm.exp player.prob
-            d.avg_policy |> am.mapInplace (fun i x => x + self_prob * index actions_prob i)
-            weighted_sum actions_prob
+                    inl r = next prob a
+                    r, s +. r *. prob
+                    ) (r2 0) (regret_match d.regret) actions
+            inl ~id = id
+            join
+                d.regret |> am.mapInplace (fun i x => x + op_prob * (r2_index (index reward i) id - r2_index reward_wsum id))
+                inl policy = regret_match d.regret
+                inl self_prob = log_probm.exp player.prob
+                d.avg_policy |> am.mapInplace (fun i x => x + self_prob * index policy i)
+                am.fold2 (fun s prob reward => s +. reward *. prob) (r2 0) policy reward
     }

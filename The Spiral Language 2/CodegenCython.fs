@@ -161,19 +161,19 @@ let nullable_vars_of (x : TypedBind []) =
     nulls
 
 let lit = function
-    | LitInt8 x -> sprintf "%i" x
-    | LitInt16 x -> sprintf "%i" x
-    | LitInt32 x -> sprintf "%i" x
-    | LitInt64 x -> sprintf "%i" x
-    | LitUInt8 x -> sprintf "%i" x
-    | LitUInt16 x -> sprintf "%i" x
-    | LitUInt32 x -> sprintf "%i" x
-    | LitUInt64 x -> sprintf "%i" x
+    | LitInt8 x -> sprintf "<signed char>(%i)" x
+    | LitInt16 x -> sprintf "<signed short>(%i)" x
+    | LitInt32 x -> sprintf "%il" x
+    | LitInt64 x -> sprintf "%ill" x
+    | LitUInt8 x -> sprintf "<unsigned char>(%i)" x
+    | LitUInt16 x -> sprintf "<unsigned short>(%i)" x
+    | LitUInt32 x -> sprintf "%iul" x
+    | LitUInt64 x -> sprintf "%iull" x
     | LitFloat32 x -> 
         if x = infinityf then "float('inf')"
         elif x = -infinityf then "float('-inf')"
         elif Single.IsNaN x then "float()"
-        else sprintf "%f" x
+        else sprintf "%ff" x
     | LitFloat64 x ->
         if x = infinity then "float('inf')"
         elif x = -infinity then "float('-inf')"
