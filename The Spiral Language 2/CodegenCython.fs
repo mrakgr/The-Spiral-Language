@@ -45,6 +45,7 @@ let is_stack = function
     | YPrim (UInt8T | UInt16T | UInt32T | UInt64T
         | Int8T | Int16T | Int32T | Int64T 
         | Float32T | Float64T | BoolT) -> true
+    | YUnion x -> x.Item.is_degenerate
     | _ -> false
 
 let nullable_vars_of (x : TypedBind []) =
@@ -210,7 +211,7 @@ let prim = function
     | BoolT -> "bint"
     | StringT | CharT -> "str"
 
-type UnionRec = {free_vars : Map<string, TyV[]>; tag : int}
+type UnionRec = {free_vars : Map<string, TyV[]>; tag : int; is_degenerate : bool}
 type LayoutRec = {data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>; tag : int}
 type MethodRec = {tag : int; free_vars : L<Tag,Ty>[]; range : Ty; body : TypedBind[]}
 type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain : Ty; domain_args : TyV[]; range : Ty; body : TypedBind[]}
@@ -249,7 +250,9 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
 
     let union show =
         let dict = Dictionary(HashIdentity.Reference)
-        let f (a : Map<string,Ty>) : UnionRec = {free_vars=a |> Map.map (fun _ -> env.ty_to_data >> data_free_vars); tag=dict.Count}
+        let f (a : Union) : UnionRec = 
+            let free_vars = a.Item.cases |> Map.map (fun _ -> env.ty_to_data >> data_free_vars)
+            {free_vars=free_vars; tag=dict.Count; is_degenerate=a.Item.is_degenerate}
         fun x ->
             let mutable dirty = false
             let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
@@ -300,28 +303,31 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
 
     let numpy_ty x = 
         match env.ty_to_data x |> data_free_vars with
-        | [|L(_,YPrim x)|] ->
+        | [|L(_,x)|] ->
             match x with
-            | Int8T -> "numpy.int8"
-            | Int16T -> "numpy.int16"
-            | Int32T -> "numpy.int32"
-            | Int64T -> "numpy.int64"
-            | UInt8T -> "numpy.uint8"
-            | UInt16T -> "numpy.uint16"
-            | UInt32T -> "numpy.uint32"
-            | UInt64T -> "numpy.uint64"
-            | Float32T -> "numpy.float32"
-            | Float64T -> "numpy.float64"
-            | BoolT -> "numpy.int8"
+            | YPrim x ->
+                match x with
+                | Int8T -> "numpy.int8"
+                | Int16T -> "numpy.int16"
+                | Int32T -> "numpy.int32"
+                | Int64T -> "numpy.int64"
+                | UInt8T -> "numpy.uint8"
+                | UInt16T -> "numpy.uint16"
+                | UInt32T -> "numpy.uint32"
+                | UInt64T -> "numpy.uint64"
+                | Float32T -> "numpy.float32"
+                | Float64T -> "numpy.float64"
+                | BoolT -> "numpy.int8"
+                | _ -> "object"
+            | YUnion l -> if l.Item.is_degenerate then "numpy.int32" else "object"
             | _ -> "object"
         | _ -> "object"
 
     let rec tyv = function
         | YUnion a -> 
-            let a = a.Item
-            match a.layout with
-            | UHeap -> sprintf "UH%i" (uheap a.cases).tag
-            | UStack -> sprintf "US%i" (ustack a.cases).tag
+            match a.Item.layout with
+            | UHeap -> sprintf "UH%i" (uheap a).tag
+            | UStack -> sprintf "US%i" (ustack a).tag
         | YLayout(a,Heap) -> sprintf "Heap%i" (heap a).tag
         | YLayout(a,HeapMutable) -> sprintf "Mut%i" (mut a).tag
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a) |> String.concat ""
@@ -332,7 +338,11 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
             // https://github.com/cython/cython/issues/3995
             let a =
                 match env.ty_to_data a |> data_free_vars with 
-                | [|L(_,YPrim x)|] -> prim x
+                | [|L(_,x)|] -> 
+                    match x with
+                    | YPrim x -> prim x
+                    | YUnion x -> if x.Item.is_degenerate then "signed long" else "object"
+                    | _ -> "object"
                 | _ -> "object"
             $"numpy.ndarray[{a},ndim=1]"
         | YFun _ -> "object" // Function types used to be more precise, but now I am using objects for the sake of interop. See commit at 2/25/2021 for the more efficient version.
@@ -456,16 +466,16 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
             binds nulls defs (indent s) ret on_fail
         | TyUnionUnbox(is,x,on_succs,on_fail) ->
             let case_tags = x.Item.tags
+            let dot_tag = if x.Item.is_degenerate then "" else ".tag"
             let prefix = 
-                let x = x.Item
-                match x.layout with
-                | UHeap -> sprintf "UH%i" (uheap x.cases).tag
-                | UStack -> sprintf "US%i" (ustack x.cases).tag
+                match x.Item.layout with
+                | UHeap -> sprintf "UH%i" (uheap x).tag
+                | UStack -> sprintf "US%i" (ustack x).tag
             let mutable is_first = true
             Map.iter (fun k (a,b) ->
                 let union_i = case_tags.[k]
                 let branch =
-                    let cond = is |> List.map (fun (L(v_i,_)) -> sprintf "v%i.tag == %i" v_i union_i) |> String.concat " and "
+                    let cond = is |> List.map (fun (L(v_i,_)) -> sprintf "v%i%s == %i" v_i dot_tag union_i) |> String.concat " and "
                     if is_first then 
                         line s (sprintf "if %s: # %s" cond k)
                         is_first <- false
@@ -490,14 +500,16 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
                 line s "else:"
                 binds nulls defs (indent s) ret b
                 )
-        | TyUnionBox(a,b,c) ->
-            let c = c.Item
+        | TyUnionBox(a,b,c') ->
+            let c = c'.Item
             let i = c.tags.[a]
-            let vars = args' b
-            match c.layout with
-            | UHeap -> sprintf "UH%i_%i(%s)" (uheap c.cases).tag i vars
-            | UStack -> sprintf "US%i_%i(%s)" (ustack c.cases).tag i vars
-            |> return'
+            if c.is_degenerate then return' (sprintf "%i" i)
+            else
+                let vars = args' b
+                match c.layout with
+                | UHeap -> sprintf "UH%i_%i(%s)" (uheap c').tag i vars
+                | UStack -> sprintf "US%i_%i(%s)" (ustack c').tag i vars
+                |> return'
         | TyLayoutToHeap(a,b) -> sprintf "Heap%i(%s)" (heap b).tag (args' a) |> return'
         | TyLayoutToHeapMutable(a,b) -> sprintf "Mut%i(%s)" (mut b).tag (args' a) |> return'
         | TyLayoutIndexAll(L(i,(a,lay))) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i
@@ -568,13 +580,15 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
             | ShiftLeft, [a;b] -> sprintf "%s << %s" (tup a) (tup b)
             | ShiftRight, [a;b] -> sprintf "%s >> %s" (tup a) (tup b)
 
-            | Neg, [x] -> sprintf " -%s" (tup x)
+            | Neg, [x] -> sprintf "-%s" (tup x)
             | Log, [x] -> cimport "libc.math"; sprintf "libc.math.log(%s)" (tup x)
             | Exp, [x] -> cimport "libc.math"; sprintf "libc.math.exp(%s)" (tup x)
             | Tanh, [x] -> cimport "libc.math"; sprintf "libc.math.tanh(%s)" (tup x)
             | Sqrt, [x] -> cimport "libc.math"; sprintf "libc.math.sqrt(%s)" (tup x)
             | NanIs, [x] -> cimport "libc.math"; sprintf "libc.math.isnan(%s)" (tup x)
-            | UnionTag, [x] -> sprintf "%s.tag" (tup x)
+            | UnionTag, [DUnion(_,l) | DV(L(_,YUnion l)) as x] -> 
+                let dot_tag = if l.Item.is_degenerate then "" else ".tag"
+                sprintf "%s%s" (tup x) dot_tag
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> return'
     and arg_show i = function "object" -> sprintf "v%i" i | t -> sprintf "%s v%i" t i
@@ -601,19 +615,22 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
     and mut : _ -> LayoutRec = layout (fun s x -> layout_template "Mut" "public " s x.tag (tyv_type_show x.free_vars))
     and tup' : _ -> TupleRec = tuple (fun s x -> layout_template "Tuple" "readonly " s x.tag x.tys)
     and union_template (prefix : string) s (x : UnionRec) = 
-        line s $"cdef class {prefix}{x.tag}:"
-        line (indent s) $"cdef readonly signed long tag"
-        let mutable i = 0
-        x.free_vars |> Map.iter (fun k a ->
-            line s $"cdef class {prefix}{x.tag}_{i}({prefix}{x.tag}): # {k}"
-            let s = indent s
-            let tys = tyv_type_show a |> layout_arrays_to_objects
-            tys |> Array.iteri (cdef_show "readonly " s)
-            let args = tys |> Array.mapi arg_show |> String.concat ", " |> with_self
-            let body = $"self.tag = {i}" :: List.init tys.Length (fun i -> $"self.v{i} = v{i}") |> String.concat "; "
-            line s $"def __init__({args}): {body}"
-            i <- i+1
-            )
+        if x.is_degenerate then 
+            line s $"ctypedef signed long {prefix}{x.tag}"
+        else
+            line s $"cdef class {prefix}{x.tag}:"
+            line (indent s) $"cdef readonly signed long tag"
+            let mutable i = 0
+            x.free_vars |> Map.iter (fun k a ->
+                line s $"cdef class {prefix}{x.tag}_{i}({prefix}{x.tag}): # {k}"
+                let s = indent s
+                let tys = tyv_type_show a |> layout_arrays_to_objects
+                tys |> Array.iteri (cdef_show "readonly " s)
+                let args = tys |> Array.mapi arg_show |> String.concat ", " |> with_self
+                let body = $"self.tag = {i}" :: List.init tys.Length (fun i -> $"self.v{i} = v{i}") |> String.concat "; "
+                line s $"def __init__({args}): {body}"
+                i <- i+1
+                )
     and uheap : _ -> UnionRec = union (union_template "UH")
     // TODO: Stack unions will be implemented the same as heap ones for the time being. 
     // I don't have a good way to implement the stack based ones in Cython.

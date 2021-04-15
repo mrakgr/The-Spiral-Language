@@ -66,7 +66,7 @@ and Data =
 and TyV = L<Tag,Ty>
 // Unions always go through a join point which enables them to be compared via ref eqaulity.
 // tags and tag_cases are straightforward mapping from cases for the sake of efficiency.
-and Union = {|cases : Map<string, Ty>; layout : UnionLayout; tags : Dictionary<string, int>; tag_cases : (string * Ty) [] |} H
+and Union = {|cases : Map<string, Ty>; layout : UnionLayout; tags : Dictionary<string, int>; tag_cases : (string * Ty) []; is_degenerate : bool|} H
 
 type TermVar =
     | WV of TyV
@@ -614,15 +614,17 @@ let peval (env : TopEnv) (x : E) =
         | TUnion(_,(a,b)) -> 
             let tags = Dictionary()
             let tag_cases = Array.zeroCreate (Map.count a)
+            let mutable is_degenerate = true
             let cases = 
                 Map.map (fun k v -> 
                     let v = ty s v
+                    is_degenerate <- is_degenerate && match v with YB -> true | _ -> false
                     let i = tags.Count
                     tags.[k] <- i
                     tag_cases.[i] <- (k,v)
                     v
                     ) a
-            YUnion(H {|cases=cases; layout=b; tags=tags; tag_cases=tag_cases|})
+            YUnion(H {|cases=cases; layout=b; tags=tags; tag_cases=tag_cases; is_degenerate=is_degenerate|})
         | TSymbol(_,a) -> YSymbol a
         | TApply(r,a,b) ->
             let s = add_trace s r
