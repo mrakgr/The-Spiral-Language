@@ -161,24 +161,24 @@ let nullable_vars_of (x : TypedBind []) =
     nulls
 
 let lit = function
-    | LitInt8 x -> sprintf "<signed char>(%i)" x
-    | LitInt16 x -> sprintf "<signed short>(%i)" x
-    | LitInt32 x -> sprintf "%il" x
-    | LitInt64 x -> sprintf "%ill" x
-    | LitUInt8 x -> sprintf "<unsigned char>(%i)" x
-    | LitUInt16 x -> sprintf "<unsigned short>(%i)" x
-    | LitUInt32 x -> sprintf "%iul" x
-    | LitUInt64 x -> sprintf "%iull" x
+    | LitInt8 x -> sprintf "(<signed char>%i)" x
+    | LitInt16 x -> sprintf "(<signed short>%i)" x
+    | LitInt32 x -> sprintf "(<signed long>%i)" x
+    | LitInt64 x -> sprintf "(<signed long long>%i)" x
+    | LitUInt8 x -> sprintf "(<unsigned char>%i)" x
+    | LitUInt16 x -> sprintf "(<unsigned short>%i)" x
+    | LitUInt32 x -> sprintf "(<unsigned long>%i)" x
+    | LitUInt64 x -> sprintf "(<unsigned long long>%i)" x
     | LitFloat32 x -> 
-        if x = infinityf then "float('inf')"
-        elif x = -infinityf then "float('-inf')"
-        elif Single.IsNaN x then "float()"
-        else sprintf "%ff" x
+        if x = infinityf then "(<float>float('inf'))"
+        elif x = -infinityf then "(<float>float('-inf'))"
+        elif Single.IsNaN x then "(<float>float())"
+        else sprintf "(<float>%f)" x
     | LitFloat64 x ->
-        if x = infinity then "float('inf')"
-        elif x = -infinity then "float('-inf')"
-        elif Double.IsNaN x then "float()"
-        else sprintf "%f" x
+        if x = infinity then "(<double>float('inf'))"
+        elif x = -infinity then "(<double>float('-inf'))"
+        elif Double.IsNaN x then "(<double>float())"
+        else sprintf "(<double>%f)" x
     | LitString x -> 
         let strb = StringBuilder(x.Length+2)
         strb.Append '"' |> ignore
@@ -429,10 +429,10 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
                     else line s (sprintf "return %s" x)
                 | BindsLocal ret -> line s $"{args ret} = {x}"
         let length (a,b) =
-            let l = $"len({tup b})"
             match a with
-            | YPrim UInt64T -> return' l
+            | YPrim (Int64T | UInt64T) -> return' $"len({tup b})"
             | YPrim a ->
+                let l = $"len({tup b})"
                 let tmp_i = tmp()
                 line defs $"cdef unsigned long long tmp{tmp_i}"
                 line s $"tmp{tmp_i} = {l}"

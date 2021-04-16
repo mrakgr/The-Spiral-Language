@@ -3,6 +3,6 @@ inl main () =
     inl p2 = agent.uniform.funs()
     loop.for' (from:0u32 nearTo:100) (fun i =>
         open nodes
-        inl r = leduc.game (nodes.cps.nodes_2p (p1, p2)) ((log_probm.from 1,init,init),dyn id)
+        inl r = leduc.game (nodes.cps.nodes_2p (p1, p2)) ((log_probm.from 1,init,init),id)
         $"print(\"Reward for player one at iteration \", !i, \" is \", !r)" : ()
         )

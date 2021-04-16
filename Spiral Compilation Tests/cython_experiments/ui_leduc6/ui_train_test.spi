@@ -34,7 +34,6 @@ inl play p1 : () =
 
 inl main () =
     inl d : dict.t _ _ = dict.empty
-    // inl uniform = agent.uniform.funsEnum()
     let run a,b = leduc.game (nodes.nodes_2p (a, b)) (log_probm.from 1,nodes.init,nodes.init)
     inl train () =
         inl play_avg, play_cur, train_cur = 

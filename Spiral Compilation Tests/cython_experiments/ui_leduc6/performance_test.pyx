@@ -522,150 +522,50 @@ cdef signed long method33(US1 v0):
         return 2l
     elif v0 == 2: # queen
         return 1l
-cdef void method35(unsigned long long v0, double v1, double v2, numpy.ndarray[double,ndim=1] v3, unsigned char v4, numpy.ndarray[double,ndim=1] v5, unsigned long long v6):
-    cdef bint v7
-    cdef unsigned long long v8
-    cdef double v9
-    cdef double v10
-    cdef bint v11
-    cdef double v13
-    cdef double v15
-    cdef double v16
-    cdef double v17
-    cdef double v18
-    v7 = v6 < v0
-    if v7:
-        v8 = v6 + 1ull
-        v9 = v5[v6]
-        v10 = v3[v6]
-        v11 = v4 == <unsigned char>(0)
-        if v11:
-            v13 = v10
-        else:
-            v13 = -v10
-        if v11:
-            v15 = v2
-        else:
-            v15 = -v2
-        v16 = v13 - v15
-        v17 = v1 * v16
-        v18 = v9 + v17
-        v5[v6] = v18
-        method35(v0, v1, v2, v3, v4, v5, v8)
-    else:
-        pass
-cdef void method36(unsigned long long v0, numpy.ndarray[double,ndim=1] v1, double v2, numpy.ndarray[double,ndim=1] v3, unsigned long long v4):
-    cdef bint v5
-    cdef unsigned long long v6
-    cdef double v7
-    cdef double v8
-    cdef double v9
-    cdef double v10
-    v5 = v4 < v0
-    if v5:
-        v6 = v4 + 1ull
-        v7 = v3[v4]
-        v8 = v1[v4]
-        v9 = v2 * v8
-        v10 = v7 + v9
-        v3[v4] = v10
-        method36(v0, v1, v2, v3, v6)
-    else:
-        pass
-cdef double method37(unsigned long long v0, numpy.ndarray[double,ndim=1] v1, numpy.ndarray[double,ndim=1] v2, unsigned long long v3, double v4):
-    cdef bint v5
-    cdef unsigned long long v6
-    cdef double v7
-    cdef double v8
-    cdef double v9
-    cdef double v10
-    v5 = v3 < v0
-    if v5:
-        v6 = v3 + 1ull
-        v7 = v1[v3]
-        v8 = v2[v3]
-        v9 = v8 * v7
-        v10 = v4 + v9
-        return method37(v0, v1, v2, v6, v10)
-    else:
-        return v4
-cdef double method34(UH0 v0, double v1, numpy.ndarray[signed long,ndim=1] v2, numpy.ndarray[double,ndim=1] v3, numpy.ndarray[double,ndim=1] v4, double v5, double v6, numpy.ndarray[double,ndim=1] v7, unsigned char v8):
-    cdef unsigned long long v9
-    cdef unsigned long long v10
-    cdef numpy.ndarray[double,ndim=1] v11
-    cdef double v12
-    cdef unsigned long long v13
-    cdef unsigned long long v14
-    cdef unsigned long long v15
-    cdef unsigned long long v16
-    cdef bint v17
-    cdef bint v18
-    cdef unsigned long long v19
-    cdef double v20
-    v9 = len(v4)
-    v10 = 0ull
-    method35(v9, v5, v6, v7, v8, v4, v10)
-    v11 = method17(v4)
-    v12 = libc.math.exp(v1)
-    v13 = len(v3)
-    v14 = 0ull
-    method36(v13, v11, v12, v3, v14)
-    v15 = len(v11)
-    v16 = len(v7)
-    v17 = v15 == v16
-    v18 = v17 == 0
-    if v18:
-        raise Exception("The length of the two arrays has to the same.")
-    else:
-        pass
-    v19 = 0ull
-    v20 = 0.000000
-    return method37(v15, v11, v7, v19, v20)
-cdef double method38(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, Heap0 v7, signed long v8, US1 v9, US1 v10, unsigned char v11, signed long v12, US1 v13, unsigned char v14, signed long v15, double v16, numpy.ndarray[double,ndim=1] v17, numpy.ndarray[signed long,ndim=1] v18, numpy.ndarray[double,ndim=1] v19, unsigned long long v20, double v21):
-    cdef bint v22
-    cdef unsigned long long v23
-    cdef double v24
-    cdef US0 v25
-    cdef bint v26
-    cdef bint v28
-    cdef double v36
+cdef double method34(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, Heap0 v7, signed long v8, US1 v9, US1 v10, unsigned char v11, signed long v12, US1 v13, unsigned char v14, signed long v15, double v16, numpy.ndarray[double,ndim=1] v17, numpy.ndarray[signed long,ndim=1] v18, unsigned long long v19, double v20):
+    cdef bint v21
+    cdef unsigned long long v22
+    cdef double v23
+    cdef US0 v24
+    cdef bint v25
+    cdef bint v27
+    cdef double v35
+    cdef double v28
     cdef double v29
-    cdef double v30
-    cdef US2 v31
-    cdef UH0 v32
-    cdef US2 v33
-    cdef UH0 v34
+    cdef US2 v30
+    cdef UH0 v31
+    cdef US2 v32
+    cdef UH0 v33
+    cdef double v36
     cdef double v37
-    cdef double v38
-    v22 = v20 < v0
-    if v22:
-        v23 = v20 + 1ull
-        v24 = v17[v20]
-        v25 = v18[v20]
-        v26 = v24 == 0.000000
-        if v26:
-            v28 = v16 == 0.000000
+    v21 = v19 < v0
+    if v21:
+        v22 = v19 + 1ull
+        v23 = v17[v19]
+        v24 = v18[v19]
+        v25 = v23 == 0.000000
+        if v25:
+            v27 = v16 == 0.000000
         else:
-            v28 = 0
-        if v28:
-            v36 = 0.000000
+            v27 = 0
+        if v27:
+            v35 = 0.000000
         else:
-            v29 = libc.math.log(v24)
-            v30 = v29 + v2
-            v31 = US2_0(v25)
-            v32 = UH0_0(v31, v3)
-            del v31
-            v33 = US2_0(v25)
-            v34 = UH0_0(v33, v1)
-            del v33
-            v36 = method32(v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v25, v5, v32, v4, v34, v30)
-            del v32; del v34
-        v37 = v36 * v24
-        v38 = v21 + v37
-        v19[v20] = v36
-        return method38(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v23, v38)
+            v28 = libc.math.log(v23)
+            v29 = v28 + v2
+            v30 = US2_0(v24)
+            v31 = UH0_0(v30, v3)
+            del v30
+            v32 = US2_0(v24)
+            v33 = UH0_0(v32, v1)
+            del v32
+            v35 = method32(v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v24, v5, v31, v4, v33, v29)
+            del v31; del v33
+        v36 = v35 * v23
+        v37 = v20 + v36
+        return method34(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v22, v37)
     else:
-        return v21
+        return v20
 cdef double method32(Mut0 v0, Heap0 v1, signed long v2, US1 v3, US1 v4, unsigned char v5, signed long v6, US1 v7, unsigned char v8, signed long v9, US0 v10, double v11, UH0 v12, double v13, UH0 v14, double v15):
     cdef signed long v16
     cdef signed long v17
@@ -736,27 +636,21 @@ cdef double method32(Mut0 v0, Heap0 v1, signed long v2, US1 v3, US1 v4, unsigned
     cdef unsigned long long v98
     cdef bint v99
     cdef bint v100
-    cdef numpy.ndarray[double,ndim=1] v101
-    cdef unsigned long long v102
-    cdef double v103
-    cdef double v104
-    cdef unsigned char v105
-    cdef numpy.ndarray[signed long,ndim=1] v107
-    cdef numpy.ndarray[double,ndim=1] v108
-    cdef numpy.ndarray[double,ndim=1] v109
+    cdef unsigned long long v101
+    cdef double v102
+    cdef numpy.ndarray[signed long,ndim=1] v104
+    cdef numpy.ndarray[double,ndim=1] v105
+    cdef numpy.ndarray[double,ndim=1] v106
     cdef Tuple0 tmp7
-    cdef double v110
-    cdef double v111
-    cdef numpy.ndarray[double,ndim=1] v112
-    cdef unsigned long long v113
+    cdef double v107
+    cdef double v108
+    cdef numpy.ndarray[double,ndim=1] v109
+    cdef unsigned long long v110
+    cdef unsigned long long v111
+    cdef bint v112
+    cdef bint v113
     cdef unsigned long long v114
-    cdef bint v115
-    cdef bint v116
-    cdef numpy.ndarray[double,ndim=1] v117
-    cdef unsigned long long v118
-    cdef double v119
-    cdef double v120
-    cdef unsigned char v121
+    cdef double v115
     if v10 == 0: # call
         v16 = method33(v3)
         v17 = method33(v7)
@@ -880,91 +774,86 @@ cdef double method32(Mut0 v0, Heap0 v1, signed long v2, US1 v3, US1 v4, unsigned
             tmp6 = method8(v0, v89, v12)
             v91, v92, v93 = tmp6.v0, tmp6.v1, tmp6.v2
             del tmp6
+            del v91; del v92
             v94 = v11 + v15
             v95 = libc.math.exp(v94)
             v96 = method17(v93)
+            del v93
             v97 = len(v96)
             v98 = len(v89)
             v99 = v97 == v98
-            v100 = v99 != 1
+            v100 = v99 == 0
             if v100:
-                raise Exception("The two arrays have to have the same size.")
+                raise Exception("The length of the two arrays has to the same.")
             else:
                 pass
-            v101 = numpy.empty(v97,dtype=numpy.float64)
-            v102 = 0ull
-            v103 = 0.000000
-            v104 = method31(v97, v14, v15, v12, v13, v11, v0, v1, v87, v3, v7, v8, v88, v4, v5, v6, v95, v96, v89, v101, v102, v103)
-            del v89; del v96
-            v105 = <unsigned char>(0)
-            return method34(v12, v13, v91, v92, v93, v95, v104, v101, v105)
+            v101 = 0ull
+            v102 = 0.000000
+            return method31(v97, v14, v15, v12, v13, v11, v0, v1, v87, v3, v7, v8, v88, v4, v5, v6, v95, v96, v89, v101, v102)
         else:
             tmp7 = method8(v0, v89, v14)
-            v107, v108, v109 = tmp7.v0, tmp7.v1, tmp7.v2
+            v104, v105, v106 = tmp7.v0, tmp7.v1, tmp7.v2
             del tmp7
-            v110 = v11 + v13
-            v111 = libc.math.exp(v110)
-            v112 = method17(v109)
-            v113 = len(v112)
-            v114 = len(v89)
-            v115 = v113 == v114
-            v116 = v115 != 1
-            if v116:
-                raise Exception("The two arrays have to have the same size.")
+            del v104; del v105
+            v107 = v11 + v13
+            v108 = libc.math.exp(v107)
+            v109 = method17(v106)
+            del v106
+            v110 = len(v109)
+            v111 = len(v89)
+            v112 = v110 == v111
+            v113 = v112 == 0
+            if v113:
+                raise Exception("The length of the two arrays has to the same.")
             else:
                 pass
-            v117 = numpy.empty(v113,dtype=numpy.float64)
-            v118 = 0ull
-            v119 = 0.000000
-            v120 = method38(v113, v14, v15, v12, v13, v11, v0, v1, v87, v3, v7, v8, v88, v4, v5, v6, v111, v112, v89, v117, v118, v119)
-            del v89; del v112
-            v121 = <unsigned char>(1)
-            return method34(v14, v15, v107, v108, v109, v111, v120, v117, v121)
-cdef double method31(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, Heap0 v7, signed long v8, US1 v9, US1 v10, unsigned char v11, signed long v12, US1 v13, unsigned char v14, signed long v15, double v16, numpy.ndarray[double,ndim=1] v17, numpy.ndarray[signed long,ndim=1] v18, numpy.ndarray[double,ndim=1] v19, unsigned long long v20, double v21):
-    cdef bint v22
-    cdef unsigned long long v23
-    cdef double v24
-    cdef US0 v25
-    cdef bint v26
-    cdef bint v28
-    cdef double v36
+            v114 = 0ull
+            v115 = 0.000000
+            return method34(v110, v14, v15, v12, v13, v11, v0, v1, v87, v3, v7, v8, v88, v4, v5, v6, v108, v109, v89, v114, v115)
+cdef double method31(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, Heap0 v7, signed long v8, US1 v9, US1 v10, unsigned char v11, signed long v12, US1 v13, unsigned char v14, signed long v15, double v16, numpy.ndarray[double,ndim=1] v17, numpy.ndarray[signed long,ndim=1] v18, unsigned long long v19, double v20):
+    cdef bint v21
+    cdef unsigned long long v22
+    cdef double v23
+    cdef US0 v24
+    cdef bint v25
+    cdef bint v27
+    cdef double v35
+    cdef double v28
     cdef double v29
-    cdef double v30
-    cdef US2 v31
-    cdef UH0 v32
-    cdef US2 v33
-    cdef UH0 v34
+    cdef US2 v30
+    cdef UH0 v31
+    cdef US2 v32
+    cdef UH0 v33
+    cdef double v36
     cdef double v37
-    cdef double v38
-    v22 = v20 < v0
-    if v22:
-        v23 = v20 + 1ull
-        v24 = v17[v20]
-        v25 = v18[v20]
-        v26 = v24 == 0.000000
-        if v26:
-            v28 = v16 == 0.000000
+    v21 = v19 < v0
+    if v21:
+        v22 = v19 + 1ull
+        v23 = v17[v19]
+        v24 = v18[v19]
+        v25 = v23 == 0.000000
+        if v25:
+            v27 = v16 == 0.000000
         else:
-            v28 = 0
-        if v28:
-            v36 = 0.000000
+            v27 = 0
+        if v27:
+            v35 = 0.000000
         else:
-            v29 = libc.math.log(v24)
-            v30 = v29 + v4
-            v31 = US2_0(v25)
-            v32 = UH0_0(v31, v3)
-            del v31
-            v33 = US2_0(v25)
-            v34 = UH0_0(v33, v1)
-            del v33
-            v36 = method32(v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v25, v5, v32, v30, v34, v2)
-            del v32; del v34
-        v37 = v36 * v24
-        v38 = v21 + v37
-        v19[v20] = v36
-        return method31(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v23, v38)
+            v28 = libc.math.log(v23)
+            v29 = v28 + v4
+            v30 = US2_0(v24)
+            v31 = UH0_0(v30, v3)
+            del v30
+            v32 = US2_0(v24)
+            v33 = UH0_0(v32, v1)
+            del v32
+            v35 = method32(v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v24, v5, v31, v29, v33, v2)
+            del v31; del v33
+        v36 = v35 * v23
+        v37 = v20 + v36
+        return method31(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v22, v37)
     else:
-        return v21
+        return v20
 cdef double method29(Mut0 v0, Heap0 v1, US1 v2, unsigned char v3, signed long v4, US1 v5, unsigned char v6, signed long v7, US1 v8, US0 v9, double v10, UH0 v11, double v12, UH0 v13, double v14):
     cdef signed long v15
     cdef numpy.ndarray[signed long,ndim=1] v16
@@ -980,64 +869,52 @@ cdef double method29(Mut0 v0, Heap0 v1, US1 v2, unsigned char v3, signed long v4
     cdef unsigned long long v25
     cdef bint v26
     cdef bint v27
-    cdef numpy.ndarray[double,ndim=1] v28
-    cdef unsigned long long v29
-    cdef double v30
-    cdef double v31
-    cdef unsigned char v32
-    cdef numpy.ndarray[signed long,ndim=1] v34
-    cdef numpy.ndarray[double,ndim=1] v35
-    cdef numpy.ndarray[double,ndim=1] v36
+    cdef unsigned long long v28
+    cdef double v29
+    cdef numpy.ndarray[signed long,ndim=1] v31
+    cdef numpy.ndarray[double,ndim=1] v32
+    cdef numpy.ndarray[double,ndim=1] v33
     cdef Tuple0 tmp8
-    cdef double v37
-    cdef double v38
-    cdef numpy.ndarray[double,ndim=1] v39
-    cdef unsigned long long v40
+    cdef double v34
+    cdef double v35
+    cdef numpy.ndarray[double,ndim=1] v36
+    cdef unsigned long long v37
+    cdef unsigned long long v38
+    cdef bint v39
+    cdef bint v40
     cdef unsigned long long v41
-    cdef bint v42
-    cdef bint v43
-    cdef numpy.ndarray[double,ndim=1] v44
-    cdef unsigned long long v45
-    cdef double v46
-    cdef double v47
-    cdef unsigned char v48
-    cdef object v51
-    cdef signed long v53
-    cdef signed long v54
-    cdef numpy.ndarray[signed long,ndim=1] v55
-    cdef bint v56
-    cdef numpy.ndarray[signed long,ndim=1] v57
-    cdef numpy.ndarray[double,ndim=1] v58
-    cdef numpy.ndarray[double,ndim=1] v59
+    cdef double v42
+    cdef object v45
+    cdef signed long v47
+    cdef signed long v48
+    cdef numpy.ndarray[signed long,ndim=1] v49
+    cdef bint v50
+    cdef numpy.ndarray[signed long,ndim=1] v51
+    cdef numpy.ndarray[double,ndim=1] v52
+    cdef numpy.ndarray[double,ndim=1] v53
     cdef Tuple0 tmp9
-    cdef double v60
-    cdef double v61
-    cdef numpy.ndarray[double,ndim=1] v62
-    cdef unsigned long long v63
-    cdef unsigned long long v64
-    cdef bint v65
-    cdef bint v66
-    cdef numpy.ndarray[double,ndim=1] v67
-    cdef unsigned long long v68
-    cdef double v69
-    cdef double v70
-    cdef unsigned char v71
-    cdef numpy.ndarray[signed long,ndim=1] v73
-    cdef numpy.ndarray[double,ndim=1] v74
-    cdef numpy.ndarray[double,ndim=1] v75
+    cdef double v54
+    cdef double v55
+    cdef numpy.ndarray[double,ndim=1] v56
+    cdef unsigned long long v57
+    cdef unsigned long long v58
+    cdef bint v59
+    cdef bint v60
+    cdef unsigned long long v61
+    cdef double v62
+    cdef numpy.ndarray[signed long,ndim=1] v64
+    cdef numpy.ndarray[double,ndim=1] v65
+    cdef numpy.ndarray[double,ndim=1] v66
     cdef Tuple0 tmp10
-    cdef double v76
-    cdef double v77
-    cdef numpy.ndarray[double,ndim=1] v78
-    cdef unsigned long long v79
-    cdef unsigned long long v80
-    cdef bint v81
-    cdef bint v82
-    cdef numpy.ndarray[double,ndim=1] v83
-    cdef unsigned long long v84
-    cdef double v85
-    cdef double v86
-    cdef unsigned char v87
+    cdef double v67
+    cdef double v68
+    cdef numpy.ndarray[double,ndim=1] v69
+    cdef unsigned long long v70
+    cdef unsigned long long v71
+    cdef bint v72
+    cdef bint v73
+    cdef unsigned long long v74
+    cdef double v75
     if v9 == 0: # call
         v15 = 2l
         v16 = method30(v1, v5, v6, v7, v2, v3, v4, v15)
@@ -1046,187 +923,177 @@ cdef double method29(Mut0 v0, Heap0 v1, US1 v2, unsigned char v3, signed long v4
             tmp5 = method8(v0, v16, v11)
             v18, v19, v20 = tmp5.v0, tmp5.v1, tmp5.v2
             del tmp5
+            del v18; del v19
             v21 = v10 + v14
             v22 = libc.math.exp(v21)
             v23 = method17(v20)
+            del v20
             v24 = len(v23)
             v25 = len(v16)
             v26 = v24 == v25
-            v27 = v26 != 1
+            v27 = v26 == 0
             if v27:
-                raise Exception("The two arrays have to have the same size.")
+                raise Exception("The length of the two arrays has to the same.")
             else:
                 pass
-            v28 = numpy.empty(v24,dtype=numpy.float64)
-            v29 = 0ull
-            v30 = 0.000000
-            v31 = method31(v24, v13, v14, v11, v12, v10, v0, v1, v15, v8, v5, v6, v7, v2, v3, v4, v22, v23, v16, v28, v29, v30)
-            del v16; del v23
-            v32 = <unsigned char>(0)
-            return method34(v11, v12, v18, v19, v20, v22, v31, v28, v32)
+            v28 = 0ull
+            v29 = 0.000000
+            return method31(v24, v13, v14, v11, v12, v10, v0, v1, v15, v8, v5, v6, v7, v2, v3, v4, v22, v23, v16, v28, v29)
         else:
             tmp8 = method8(v0, v16, v13)
-            v34, v35, v36 = tmp8.v0, tmp8.v1, tmp8.v2
+            v31, v32, v33 = tmp8.v0, tmp8.v1, tmp8.v2
             del tmp8
-            v37 = v10 + v12
-            v38 = libc.math.exp(v37)
-            v39 = method17(v36)
-            v40 = len(v39)
-            v41 = len(v16)
-            v42 = v40 == v41
-            v43 = v42 != 1
-            if v43:
-                raise Exception("The two arrays have to have the same size.")
+            del v31; del v32
+            v34 = v10 + v12
+            v35 = libc.math.exp(v34)
+            v36 = method17(v33)
+            del v33
+            v37 = len(v36)
+            v38 = len(v16)
+            v39 = v37 == v38
+            v40 = v39 == 0
+            if v40:
+                raise Exception("The length of the two arrays has to the same.")
             else:
                 pass
-            v44 = numpy.empty(v40,dtype=numpy.float64)
-            v45 = 0ull
-            v46 = 0.000000
-            v47 = method38(v40, v13, v14, v11, v12, v10, v0, v1, v15, v8, v5, v6, v7, v2, v3, v4, v38, v39, v16, v44, v45, v46)
-            del v16; del v39
-            v48 = <unsigned char>(1)
-            return method34(v13, v14, v34, v35, v36, v38, v47, v44, v48)
+            v41 = 0ull
+            v42 = 0.000000
+            return method34(v37, v13, v14, v11, v12, v10, v0, v1, v15, v8, v5, v6, v7, v2, v3, v4, v35, v36, v16, v41, v42)
     elif v9 == 1: # fold
         raise Exception("impossible")
     elif v9 == 2: # raise
-        v53 = 1l
-        v54 = v4 + 4l
-        v55 = method30(v1, v5, v6, v54, v2, v3, v4, v53)
-        v56 = v3 == <unsigned char>(0)
-        if v56:
-            tmp9 = method8(v0, v55, v11)
-            v57, v58, v59 = tmp9.v0, tmp9.v1, tmp9.v2
+        v47 = 1l
+        v48 = v4 + 4l
+        v49 = method30(v1, v5, v6, v48, v2, v3, v4, v47)
+        v50 = v3 == <unsigned char>(0)
+        if v50:
+            tmp9 = method8(v0, v49, v11)
+            v51, v52, v53 = tmp9.v0, tmp9.v1, tmp9.v2
             del tmp9
-            v60 = v10 + v14
-            v61 = libc.math.exp(v60)
-            v62 = method17(v59)
-            v63 = len(v62)
-            v64 = len(v55)
-            v65 = v63 == v64
-            v66 = v65 != 1
-            if v66:
-                raise Exception("The two arrays have to have the same size.")
+            del v51; del v52
+            v54 = v10 + v14
+            v55 = libc.math.exp(v54)
+            v56 = method17(v53)
+            del v53
+            v57 = len(v56)
+            v58 = len(v49)
+            v59 = v57 == v58
+            v60 = v59 == 0
+            if v60:
+                raise Exception("The length of the two arrays has to the same.")
             else:
                 pass
-            v67 = numpy.empty(v63,dtype=numpy.float64)
-            v68 = 0ull
-            v69 = 0.000000
-            v70 = method31(v63, v13, v14, v11, v12, v10, v0, v1, v53, v8, v5, v6, v54, v2, v3, v4, v61, v62, v55, v67, v68, v69)
-            del v55; del v62
-            v71 = <unsigned char>(0)
-            return method34(v11, v12, v57, v58, v59, v61, v70, v67, v71)
+            v61 = 0ull
+            v62 = 0.000000
+            return method31(v57, v13, v14, v11, v12, v10, v0, v1, v47, v8, v5, v6, v48, v2, v3, v4, v55, v56, v49, v61, v62)
         else:
-            tmp10 = method8(v0, v55, v13)
-            v73, v74, v75 = tmp10.v0, tmp10.v1, tmp10.v2
+            tmp10 = method8(v0, v49, v13)
+            v64, v65, v66 = tmp10.v0, tmp10.v1, tmp10.v2
             del tmp10
-            v76 = v10 + v12
-            v77 = libc.math.exp(v76)
-            v78 = method17(v75)
-            v79 = len(v78)
-            v80 = len(v55)
-            v81 = v79 == v80
-            v82 = v81 != 1
-            if v82:
-                raise Exception("The two arrays have to have the same size.")
+            del v64; del v65
+            v67 = v10 + v12
+            v68 = libc.math.exp(v67)
+            v69 = method17(v66)
+            del v66
+            v70 = len(v69)
+            v71 = len(v49)
+            v72 = v70 == v71
+            v73 = v72 == 0
+            if v73:
+                raise Exception("The length of the two arrays has to the same.")
             else:
                 pass
-            v83 = numpy.empty(v79,dtype=numpy.float64)
-            v84 = 0ull
-            v85 = 0.000000
-            v86 = method38(v79, v13, v14, v11, v12, v10, v0, v1, v53, v8, v5, v6, v54, v2, v3, v4, v77, v78, v55, v83, v84, v85)
-            del v55; del v78
-            v87 = <unsigned char>(1)
-            return method34(v13, v14, v73, v74, v75, v77, v86, v83, v87)
-cdef double method28(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, Heap0 v7, US1 v8, unsigned char v9, signed long v10, US1 v11, unsigned char v12, signed long v13, US1 v14, double v15, numpy.ndarray[double,ndim=1] v16, numpy.ndarray[signed long,ndim=1] v17, numpy.ndarray[double,ndim=1] v18, unsigned long long v19, double v20):
-    cdef bint v21
-    cdef unsigned long long v22
-    cdef double v23
-    cdef US0 v24
-    cdef bint v25
-    cdef bint v27
-    cdef double v35
+            v74 = 0ull
+            v75 = 0.000000
+            return method34(v70, v13, v14, v11, v12, v10, v0, v1, v47, v8, v5, v6, v48, v2, v3, v4, v68, v69, v49, v74, v75)
+cdef double method28(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, Heap0 v7, US1 v8, unsigned char v9, signed long v10, US1 v11, unsigned char v12, signed long v13, US1 v14, double v15, numpy.ndarray[double,ndim=1] v16, numpy.ndarray[signed long,ndim=1] v17, unsigned long long v18, double v19):
+    cdef bint v20
+    cdef unsigned long long v21
+    cdef double v22
+    cdef US0 v23
+    cdef bint v24
+    cdef bint v26
+    cdef double v34
+    cdef double v27
     cdef double v28
-    cdef double v29
-    cdef US2 v30
-    cdef UH0 v31
-    cdef US2 v32
-    cdef UH0 v33
-    cdef double v36
-    cdef double v37
-    v21 = v19 < v0
-    if v21:
-        v22 = v19 + 1ull
-        v23 = v16[v19]
-        v24 = v17[v19]
-        v25 = v23 == 0.000000
-        if v25:
-            v27 = v15 == 0.000000
-        else:
-            v27 = 0
-        if v27:
-            v35 = 0.000000
-        else:
-            v28 = libc.math.log(v23)
-            v29 = v28 + v4
-            v30 = US2_0(v24)
-            v31 = UH0_0(v30, v3)
-            del v30
-            v32 = US2_0(v24)
-            v33 = UH0_0(v32, v1)
-            del v32
-            v35 = method29(v6, v7, v8, v9, v10, v11, v12, v13, v14, v24, v5, v31, v29, v33, v2)
-            del v31; del v33
-        v36 = v35 * v23
-        v37 = v20 + v36
-        v18[v19] = v35
-        return method28(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v22, v37)
-    else:
-        return v20
-cdef double method39(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, Heap0 v7, US1 v8, unsigned char v9, signed long v10, US1 v11, unsigned char v12, signed long v13, US1 v14, double v15, numpy.ndarray[double,ndim=1] v16, numpy.ndarray[signed long,ndim=1] v17, numpy.ndarray[double,ndim=1] v18, unsigned long long v19, double v20):
-    cdef bint v21
-    cdef unsigned long long v22
-    cdef double v23
-    cdef US0 v24
-    cdef bint v25
-    cdef bint v27
+    cdef US2 v29
+    cdef UH0 v30
+    cdef US2 v31
+    cdef UH0 v32
     cdef double v35
-    cdef double v28
-    cdef double v29
-    cdef US2 v30
-    cdef UH0 v31
-    cdef US2 v32
-    cdef UH0 v33
     cdef double v36
-    cdef double v37
-    v21 = v19 < v0
-    if v21:
-        v22 = v19 + 1ull
-        v23 = v16[v19]
-        v24 = v17[v19]
-        v25 = v23 == 0.000000
-        if v25:
-            v27 = v15 == 0.000000
+    v20 = v18 < v0
+    if v20:
+        v21 = v18 + 1ull
+        v22 = v16[v18]
+        v23 = v17[v18]
+        v24 = v22 == 0.000000
+        if v24:
+            v26 = v15 == 0.000000
         else:
-            v27 = 0
-        if v27:
-            v35 = 0.000000
+            v26 = 0
+        if v26:
+            v34 = 0.000000
         else:
-            v28 = libc.math.log(v23)
-            v29 = v28 + v2
-            v30 = US2_0(v24)
-            v31 = UH0_0(v30, v3)
-            del v30
-            v32 = US2_0(v24)
-            v33 = UH0_0(v32, v1)
-            del v32
-            v35 = method29(v6, v7, v8, v9, v10, v11, v12, v13, v14, v24, v5, v31, v4, v33, v29)
-            del v31; del v33
-        v36 = v35 * v23
-        v37 = v20 + v36
-        v18[v19] = v35
-        return method39(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v22, v37)
+            v27 = libc.math.log(v22)
+            v28 = v27 + v4
+            v29 = US2_0(v23)
+            v30 = UH0_0(v29, v3)
+            del v29
+            v31 = US2_0(v23)
+            v32 = UH0_0(v31, v1)
+            del v31
+            v34 = method29(v6, v7, v8, v9, v10, v11, v12, v13, v14, v23, v5, v30, v28, v32, v2)
+            del v30; del v32
+        v35 = v34 * v22
+        v36 = v19 + v35
+        return method28(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v21, v36)
     else:
-        return v20
+        return v19
+cdef double method35(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, Heap0 v7, US1 v8, unsigned char v9, signed long v10, US1 v11, unsigned char v12, signed long v13, US1 v14, double v15, numpy.ndarray[double,ndim=1] v16, numpy.ndarray[signed long,ndim=1] v17, unsigned long long v18, double v19):
+    cdef bint v20
+    cdef unsigned long long v21
+    cdef double v22
+    cdef US0 v23
+    cdef bint v24
+    cdef bint v26
+    cdef double v34
+    cdef double v27
+    cdef double v28
+    cdef US2 v29
+    cdef UH0 v30
+    cdef US2 v31
+    cdef UH0 v32
+    cdef double v35
+    cdef double v36
+    v20 = v18 < v0
+    if v20:
+        v21 = v18 + 1ull
+        v22 = v16[v18]
+        v23 = v17[v18]
+        v24 = v22 == 0.000000
+        if v24:
+            v26 = v15 == 0.000000
+        else:
+            v26 = 0
+        if v26:
+            v34 = 0.000000
+        else:
+            v27 = libc.math.log(v22)
+            v28 = v27 + v2
+            v29 = US2_0(v23)
+            v30 = UH0_0(v29, v3)
+            del v29
+            v31 = US2_0(v23)
+            v32 = UH0_0(v31, v1)
+            del v31
+            v34 = method29(v6, v7, v8, v9, v10, v11, v12, v13, v14, v23, v5, v30, v4, v32, v28)
+            del v30; del v32
+        v35 = v34 * v22
+        v36 = v19 + v35
+        return method35(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v21, v36)
+    else:
+        return v19
 cdef double method27(Mut0 v0, Heap0 v1, US1 v2, unsigned char v3, signed long v4, US1 v5, unsigned char v6, signed long v7, US1 v8, double v9, UH0 v10, double v11, UH0 v12, double v13):
     cdef numpy.ndarray[signed long,ndim=1] v14
     cdef bint v15
@@ -1241,73 +1108,63 @@ cdef double method27(Mut0 v0, Heap0 v1, US1 v2, unsigned char v3, signed long v4
     cdef unsigned long long v23
     cdef bint v24
     cdef bint v25
-    cdef numpy.ndarray[double,ndim=1] v26
-    cdef unsigned long long v27
-    cdef double v28
-    cdef double v29
-    cdef unsigned char v30
-    cdef numpy.ndarray[signed long,ndim=1] v32
-    cdef numpy.ndarray[double,ndim=1] v33
-    cdef numpy.ndarray[double,ndim=1] v34
+    cdef unsigned long long v26
+    cdef double v27
+    cdef numpy.ndarray[signed long,ndim=1] v29
+    cdef numpy.ndarray[double,ndim=1] v30
+    cdef numpy.ndarray[double,ndim=1] v31
     cdef Tuple0 tmp11
-    cdef double v35
-    cdef double v36
-    cdef numpy.ndarray[double,ndim=1] v37
-    cdef unsigned long long v38
+    cdef double v32
+    cdef double v33
+    cdef numpy.ndarray[double,ndim=1] v34
+    cdef unsigned long long v35
+    cdef unsigned long long v36
+    cdef bint v37
+    cdef bint v38
     cdef unsigned long long v39
-    cdef bint v40
-    cdef bint v41
-    cdef numpy.ndarray[double,ndim=1] v42
-    cdef unsigned long long v43
-    cdef double v44
-    cdef double v45
-    cdef unsigned char v46
+    cdef double v40
     v14 = v1.v2
     v15 = v6 == <unsigned char>(0)
     if v15:
         tmp4 = method8(v0, v14, v10)
         v16, v17, v18 = tmp4.v0, tmp4.v1, tmp4.v2
         del tmp4
+        del v16; del v17
         v19 = v9 + v13
         v20 = libc.math.exp(v19)
         v21 = method17(v18)
+        del v18
         v22 = len(v21)
         v23 = len(v14)
         v24 = v22 == v23
-        v25 = v24 != 1
+        v25 = v24 == 0
         if v25:
-            raise Exception("The two arrays have to have the same size.")
+            raise Exception("The length of the two arrays has to the same.")
         else:
             pass
-        v26 = numpy.empty(v22,dtype=numpy.float64)
-        v27 = 0ull
-        v28 = 0.000000
-        v29 = method28(v22, v12, v13, v10, v11, v9, v0, v1, v2, v3, v4, v5, v6, v7, v8, v20, v21, v14, v26, v27, v28)
-        del v14; del v21
-        v30 = <unsigned char>(0)
-        return method34(v10, v11, v16, v17, v18, v20, v29, v26, v30)
+        v26 = 0ull
+        v27 = 0.000000
+        return method28(v22, v12, v13, v10, v11, v9, v0, v1, v2, v3, v4, v5, v6, v7, v8, v20, v21, v14, v26, v27)
     else:
         tmp11 = method8(v0, v14, v12)
-        v32, v33, v34 = tmp11.v0, tmp11.v1, tmp11.v2
+        v29, v30, v31 = tmp11.v0, tmp11.v1, tmp11.v2
         del tmp11
-        v35 = v9 + v11
-        v36 = libc.math.exp(v35)
-        v37 = method17(v34)
-        v38 = len(v37)
-        v39 = len(v14)
-        v40 = v38 == v39
-        v41 = v40 != 1
-        if v41:
-            raise Exception("The two arrays have to have the same size.")
+        del v29; del v30
+        v32 = v9 + v11
+        v33 = libc.math.exp(v32)
+        v34 = method17(v31)
+        del v31
+        v35 = len(v34)
+        v36 = len(v14)
+        v37 = v35 == v36
+        v38 = v37 == 0
+        if v38:
+            raise Exception("The length of the two arrays has to the same.")
         else:
             pass
-        v42 = numpy.empty(v38,dtype=numpy.float64)
-        v43 = 0ull
-        v44 = 0.000000
-        v45 = method39(v38, v12, v13, v10, v11, v9, v0, v1, v2, v3, v4, v5, v6, v7, v8, v36, v37, v14, v42, v43, v44)
-        del v14; del v37
-        v46 = <unsigned char>(1)
-        return method34(v12, v13, v32, v33, v34, v36, v45, v42, v46)
+        v39 = 0ull
+        v40 = 0.000000
+        return method35(v35, v12, v13, v10, v11, v9, v0, v1, v2, v3, v4, v5, v6, v7, v8, v33, v34, v14, v39, v40)
 cdef double method26(numpy.ndarray[signed long,ndim=1] v0, Mut0 v1, Heap0 v2, US1 v3, unsigned char v4, signed long v5, US1 v6, unsigned char v7, signed long v8, double v9, UH0 v10, double v11, UH0 v12, double v13, unsigned long long v14, double v15):
     cdef unsigned long long v16
     cdef double v17
@@ -1350,52 +1207,51 @@ cdef double method26(numpy.ndarray[signed long,ndim=1] v0, Mut0 v1, Heap0 v2, US
     else:
         v33 = v15 * v18
         return v33
-cdef double method42(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, Heap0 v7, numpy.ndarray[signed long,ndim=1] v8, signed long v9, US1 v10, unsigned char v11, signed long v12, US1 v13, unsigned char v14, signed long v15, double v16, numpy.ndarray[double,ndim=1] v17, numpy.ndarray[signed long,ndim=1] v18, numpy.ndarray[double,ndim=1] v19, unsigned long long v20, double v21):
-    cdef bint v22
-    cdef unsigned long long v23
-    cdef double v24
-    cdef US0 v25
-    cdef bint v26
-    cdef bint v28
-    cdef double v36
+cdef double method38(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, Heap0 v7, numpy.ndarray[signed long,ndim=1] v8, signed long v9, US1 v10, unsigned char v11, signed long v12, US1 v13, unsigned char v14, signed long v15, double v16, numpy.ndarray[double,ndim=1] v17, numpy.ndarray[signed long,ndim=1] v18, unsigned long long v19, double v20):
+    cdef bint v21
+    cdef unsigned long long v22
+    cdef double v23
+    cdef US0 v24
+    cdef bint v25
+    cdef bint v27
+    cdef double v35
+    cdef double v28
     cdef double v29
-    cdef double v30
-    cdef US2 v31
-    cdef UH0 v32
-    cdef US2 v33
-    cdef UH0 v34
+    cdef US2 v30
+    cdef UH0 v31
+    cdef US2 v32
+    cdef UH0 v33
+    cdef double v36
     cdef double v37
-    cdef double v38
-    v22 = v20 < v0
-    if v22:
-        v23 = v20 + 1ull
-        v24 = v17[v20]
-        v25 = v18[v20]
-        v26 = v24 == 0.000000
-        if v26:
-            v28 = v16 == 0.000000
+    v21 = v19 < v0
+    if v21:
+        v22 = v19 + 1ull
+        v23 = v17[v19]
+        v24 = v18[v19]
+        v25 = v23 == 0.000000
+        if v25:
+            v27 = v16 == 0.000000
         else:
-            v28 = 0
-        if v28:
-            v36 = 0.000000
+            v27 = 0
+        if v27:
+            v35 = 0.000000
         else:
-            v29 = libc.math.log(v24)
-            v30 = v29 + v2
-            v31 = US2_0(v25)
-            v32 = UH0_0(v31, v3)
-            del v31
-            v33 = US2_0(v25)
-            v34 = UH0_0(v33, v1)
-            del v33
-            v36 = method41(v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v25, v5, v32, v4, v34, v30)
-            del v32; del v34
-        v37 = v36 * v24
-        v38 = v21 + v37
-        v19[v20] = v36
-        return method42(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v23, v38)
+            v28 = libc.math.log(v23)
+            v29 = v28 + v2
+            v30 = US2_0(v24)
+            v31 = UH0_0(v30, v3)
+            del v30
+            v32 = US2_0(v24)
+            v33 = UH0_0(v32, v1)
+            del v32
+            v35 = method37(v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v24, v5, v31, v4, v33, v29)
+            del v31; del v33
+        v36 = v35 * v23
+        v37 = v20 + v36
+        return method38(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v22, v37)
     else:
-        return v21
-cdef double method41(Mut0 v0, Heap0 v1, numpy.ndarray[signed long,ndim=1] v2, signed long v3, US1 v4, unsigned char v5, signed long v6, US1 v7, unsigned char v8, signed long v9, US0 v10, double v11, UH0 v12, double v13, UH0 v14, double v15):
+        return v20
+cdef double method37(Mut0 v0, Heap0 v1, numpy.ndarray[signed long,ndim=1] v2, signed long v3, US1 v4, unsigned char v5, signed long v6, US1 v7, unsigned char v8, signed long v9, US0 v10, double v11, UH0 v12, double v13, UH0 v14, double v15):
     cdef bint v16
     cdef US1 v17
     cdef unsigned char v18
@@ -1434,27 +1290,21 @@ cdef double method41(Mut0 v0, Heap0 v1, numpy.ndarray[signed long,ndim=1] v2, si
     cdef unsigned long long v54
     cdef bint v55
     cdef bint v56
-    cdef numpy.ndarray[double,ndim=1] v57
-    cdef unsigned long long v58
-    cdef double v59
-    cdef double v60
-    cdef unsigned char v61
-    cdef numpy.ndarray[signed long,ndim=1] v63
-    cdef numpy.ndarray[double,ndim=1] v64
-    cdef numpy.ndarray[double,ndim=1] v65
+    cdef unsigned long long v57
+    cdef double v58
+    cdef numpy.ndarray[signed long,ndim=1] v60
+    cdef numpy.ndarray[double,ndim=1] v61
+    cdef numpy.ndarray[double,ndim=1] v62
     cdef Tuple0 tmp14
-    cdef double v66
-    cdef double v67
-    cdef numpy.ndarray[double,ndim=1] v68
-    cdef unsigned long long v69
+    cdef double v63
+    cdef double v64
+    cdef numpy.ndarray[double,ndim=1] v65
+    cdef unsigned long long v66
+    cdef unsigned long long v67
+    cdef bint v68
+    cdef bint v69
     cdef unsigned long long v70
-    cdef bint v71
-    cdef bint v72
-    cdef numpy.ndarray[double,ndim=1] v73
-    cdef unsigned long long v74
-    cdef double v75
-    cdef double v76
-    cdef unsigned char v77
+    cdef double v71
     if v10 == 0: # call
         v16 = v8 == <unsigned char>(0)
         if v16:
@@ -1496,91 +1346,86 @@ cdef double method41(Mut0 v0, Heap0 v1, numpy.ndarray[signed long,ndim=1] v2, si
             tmp13 = method8(v0, v45, v12)
             v47, v48, v49 = tmp13.v0, tmp13.v1, tmp13.v2
             del tmp13
+            del v47; del v48
             v50 = v11 + v15
             v51 = libc.math.exp(v50)
             v52 = method17(v49)
+            del v49
             v53 = len(v52)
             v54 = len(v45)
             v55 = v53 == v54
-            v56 = v55 != 1
+            v56 = v55 == 0
             if v56:
-                raise Exception("The two arrays have to have the same size.")
+                raise Exception("The length of the two arrays has to the same.")
             else:
                 pass
-            v57 = numpy.empty(v53,dtype=numpy.float64)
-            v58 = 0ull
-            v59 = 0.000000
-            v60 = method40(v53, v14, v15, v12, v13, v11, v0, v1, v2, v43, v7, v8, v44, v4, v5, v6, v51, v52, v45, v57, v58, v59)
-            del v45; del v52
-            v61 = <unsigned char>(0)
-            return method34(v12, v13, v47, v48, v49, v51, v60, v57, v61)
+            v57 = 0ull
+            v58 = 0.000000
+            return method36(v53, v14, v15, v12, v13, v11, v0, v1, v2, v43, v7, v8, v44, v4, v5, v6, v51, v52, v45, v57, v58)
         else:
             tmp14 = method8(v0, v45, v14)
-            v63, v64, v65 = tmp14.v0, tmp14.v1, tmp14.v2
+            v60, v61, v62 = tmp14.v0, tmp14.v1, tmp14.v2
             del tmp14
-            v66 = v11 + v13
-            v67 = libc.math.exp(v66)
-            v68 = method17(v65)
-            v69 = len(v68)
-            v70 = len(v45)
-            v71 = v69 == v70
-            v72 = v71 != 1
-            if v72:
-                raise Exception("The two arrays have to have the same size.")
+            del v60; del v61
+            v63 = v11 + v13
+            v64 = libc.math.exp(v63)
+            v65 = method17(v62)
+            del v62
+            v66 = len(v65)
+            v67 = len(v45)
+            v68 = v66 == v67
+            v69 = v68 == 0
+            if v69:
+                raise Exception("The length of the two arrays has to the same.")
             else:
                 pass
-            v73 = numpy.empty(v69,dtype=numpy.float64)
-            v74 = 0ull
-            v75 = 0.000000
-            v76 = method42(v69, v14, v15, v12, v13, v11, v0, v1, v2, v43, v7, v8, v44, v4, v5, v6, v67, v68, v45, v73, v74, v75)
-            del v45; del v68
-            v77 = <unsigned char>(1)
-            return method34(v14, v15, v63, v64, v65, v67, v76, v73, v77)
-cdef double method40(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, Heap0 v7, numpy.ndarray[signed long,ndim=1] v8, signed long v9, US1 v10, unsigned char v11, signed long v12, US1 v13, unsigned char v14, signed long v15, double v16, numpy.ndarray[double,ndim=1] v17, numpy.ndarray[signed long,ndim=1] v18, numpy.ndarray[double,ndim=1] v19, unsigned long long v20, double v21):
-    cdef bint v22
-    cdef unsigned long long v23
-    cdef double v24
-    cdef US0 v25
-    cdef bint v26
-    cdef bint v28
-    cdef double v36
+            v70 = 0ull
+            v71 = 0.000000
+            return method38(v66, v14, v15, v12, v13, v11, v0, v1, v2, v43, v7, v8, v44, v4, v5, v6, v64, v65, v45, v70, v71)
+cdef double method36(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, Heap0 v7, numpy.ndarray[signed long,ndim=1] v8, signed long v9, US1 v10, unsigned char v11, signed long v12, US1 v13, unsigned char v14, signed long v15, double v16, numpy.ndarray[double,ndim=1] v17, numpy.ndarray[signed long,ndim=1] v18, unsigned long long v19, double v20):
+    cdef bint v21
+    cdef unsigned long long v22
+    cdef double v23
+    cdef US0 v24
+    cdef bint v25
+    cdef bint v27
+    cdef double v35
+    cdef double v28
     cdef double v29
-    cdef double v30
-    cdef US2 v31
-    cdef UH0 v32
-    cdef US2 v33
-    cdef UH0 v34
+    cdef US2 v30
+    cdef UH0 v31
+    cdef US2 v32
+    cdef UH0 v33
+    cdef double v36
     cdef double v37
-    cdef double v38
-    v22 = v20 < v0
-    if v22:
-        v23 = v20 + 1ull
-        v24 = v17[v20]
-        v25 = v18[v20]
-        v26 = v24 == 0.000000
-        if v26:
-            v28 = v16 == 0.000000
+    v21 = v19 < v0
+    if v21:
+        v22 = v19 + 1ull
+        v23 = v17[v19]
+        v24 = v18[v19]
+        v25 = v23 == 0.000000
+        if v25:
+            v27 = v16 == 0.000000
         else:
-            v28 = 0
-        if v28:
-            v36 = 0.000000
+            v27 = 0
+        if v27:
+            v35 = 0.000000
         else:
-            v29 = libc.math.log(v24)
-            v30 = v29 + v4
-            v31 = US2_0(v25)
-            v32 = UH0_0(v31, v3)
-            del v31
-            v33 = US2_0(v25)
-            v34 = UH0_0(v33, v1)
-            del v33
-            v36 = method41(v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v25, v5, v32, v30, v34, v2)
-            del v32; del v34
-        v37 = v36 * v24
-        v38 = v21 + v37
-        v19[v20] = v36
-        return method40(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v23, v38)
+            v28 = libc.math.log(v23)
+            v29 = v28 + v4
+            v30 = US2_0(v24)
+            v31 = UH0_0(v30, v3)
+            del v30
+            v32 = US2_0(v24)
+            v33 = UH0_0(v32, v1)
+            del v32
+            v35 = method37(v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v24, v5, v31, v29, v33, v2)
+            del v31; del v33
+        v36 = v35 * v23
+        v37 = v20 + v36
+        return method36(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v22, v37)
     else:
-        return v21
+        return v20
 cdef double method25(Mut0 v0, Heap0 v1, numpy.ndarray[signed long,ndim=1] v2, signed long v3, US1 v4, unsigned char v5, signed long v6, US1 v7, unsigned char v8, US0 v9, double v10, UH0 v11, double v12, UH0 v13, double v14):
     cdef bint v15
     cdef US1 v16
@@ -1620,27 +1465,21 @@ cdef double method25(Mut0 v0, Heap0 v1, numpy.ndarray[signed long,ndim=1] v2, si
     cdef unsigned long long v53
     cdef bint v54
     cdef bint v55
-    cdef numpy.ndarray[double,ndim=1] v56
-    cdef unsigned long long v57
-    cdef double v58
-    cdef double v59
-    cdef unsigned char v60
-    cdef numpy.ndarray[signed long,ndim=1] v62
-    cdef numpy.ndarray[double,ndim=1] v63
-    cdef numpy.ndarray[double,ndim=1] v64
+    cdef unsigned long long v56
+    cdef double v57
+    cdef numpy.ndarray[signed long,ndim=1] v59
+    cdef numpy.ndarray[double,ndim=1] v60
+    cdef numpy.ndarray[double,ndim=1] v61
     cdef Tuple0 tmp15
-    cdef double v65
-    cdef double v66
-    cdef numpy.ndarray[double,ndim=1] v67
-    cdef unsigned long long v68
+    cdef double v62
+    cdef double v63
+    cdef numpy.ndarray[double,ndim=1] v64
+    cdef unsigned long long v65
+    cdef unsigned long long v66
+    cdef bint v67
+    cdef bint v68
     cdef unsigned long long v69
-    cdef bint v70
-    cdef bint v71
-    cdef numpy.ndarray[double,ndim=1] v72
-    cdef unsigned long long v73
-    cdef double v74
-    cdef double v75
-    cdef unsigned char v76
+    cdef double v70
     if v9 == 0: # call
         v15 = v8 == <unsigned char>(0)
         if v15:
@@ -1682,136 +1521,130 @@ cdef double method25(Mut0 v0, Heap0 v1, numpy.ndarray[signed long,ndim=1] v2, si
             tmp12 = method8(v0, v44, v11)
             v46, v47, v48 = tmp12.v0, tmp12.v1, tmp12.v2
             del tmp12
+            del v46; del v47
             v49 = v10 + v14
             v50 = libc.math.exp(v49)
             v51 = method17(v48)
+            del v48
             v52 = len(v51)
             v53 = len(v44)
             v54 = v52 == v53
-            v55 = v54 != 1
+            v55 = v54 == 0
             if v55:
-                raise Exception("The two arrays have to have the same size.")
+                raise Exception("The length of the two arrays has to the same.")
             else:
                 pass
-            v56 = numpy.empty(v52,dtype=numpy.float64)
-            v57 = 0ull
-            v58 = 0.000000
-            v59 = method40(v52, v13, v14, v11, v12, v10, v0, v1, v2, v42, v7, v8, v43, v4, v5, v6, v50, v51, v44, v56, v57, v58)
-            del v44; del v51
-            v60 = <unsigned char>(0)
-            return method34(v11, v12, v46, v47, v48, v50, v59, v56, v60)
+            v56 = 0ull
+            v57 = 0.000000
+            return method36(v52, v13, v14, v11, v12, v10, v0, v1, v2, v42, v7, v8, v43, v4, v5, v6, v50, v51, v44, v56, v57)
         else:
             tmp15 = method8(v0, v44, v13)
-            v62, v63, v64 = tmp15.v0, tmp15.v1, tmp15.v2
+            v59, v60, v61 = tmp15.v0, tmp15.v1, tmp15.v2
             del tmp15
-            v65 = v10 + v12
-            v66 = libc.math.exp(v65)
-            v67 = method17(v64)
-            v68 = len(v67)
-            v69 = len(v44)
-            v70 = v68 == v69
-            v71 = v70 != 1
-            if v71:
-                raise Exception("The two arrays have to have the same size.")
+            del v59; del v60
+            v62 = v10 + v12
+            v63 = libc.math.exp(v62)
+            v64 = method17(v61)
+            del v61
+            v65 = len(v64)
+            v66 = len(v44)
+            v67 = v65 == v66
+            v68 = v67 == 0
+            if v68:
+                raise Exception("The length of the two arrays has to the same.")
             else:
                 pass
-            v72 = numpy.empty(v68,dtype=numpy.float64)
-            v73 = 0ull
-            v74 = 0.000000
-            v75 = method42(v68, v13, v14, v11, v12, v10, v0, v1, v2, v42, v7, v8, v43, v4, v5, v6, v66, v67, v44, v72, v73, v74)
-            del v44; del v67
-            v76 = <unsigned char>(1)
-            return method34(v13, v14, v62, v63, v64, v66, v75, v72, v76)
-cdef double method24(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, Heap0 v7, numpy.ndarray[signed long,ndim=1] v8, signed long v9, US1 v10, unsigned char v11, signed long v12, US1 v13, unsigned char v14, double v15, numpy.ndarray[double,ndim=1] v16, numpy.ndarray[signed long,ndim=1] v17, numpy.ndarray[double,ndim=1] v18, unsigned long long v19, double v20):
-    cdef bint v21
-    cdef unsigned long long v22
-    cdef double v23
-    cdef US0 v24
-    cdef bint v25
-    cdef bint v27
-    cdef double v35
+            v69 = 0ull
+            v70 = 0.000000
+            return method38(v65, v13, v14, v11, v12, v10, v0, v1, v2, v42, v7, v8, v43, v4, v5, v6, v63, v64, v44, v69, v70)
+cdef double method24(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, Heap0 v7, numpy.ndarray[signed long,ndim=1] v8, signed long v9, US1 v10, unsigned char v11, signed long v12, US1 v13, unsigned char v14, double v15, numpy.ndarray[double,ndim=1] v16, numpy.ndarray[signed long,ndim=1] v17, unsigned long long v18, double v19):
+    cdef bint v20
+    cdef unsigned long long v21
+    cdef double v22
+    cdef US0 v23
+    cdef bint v24
+    cdef bint v26
+    cdef double v34
+    cdef double v27
     cdef double v28
-    cdef double v29
-    cdef US2 v30
-    cdef UH0 v31
-    cdef US2 v32
-    cdef UH0 v33
-    cdef double v36
-    cdef double v37
-    v21 = v19 < v0
-    if v21:
-        v22 = v19 + 1ull
-        v23 = v16[v19]
-        v24 = v17[v19]
-        v25 = v23 == 0.000000
-        if v25:
-            v27 = v15 == 0.000000
-        else:
-            v27 = 0
-        if v27:
-            v35 = 0.000000
-        else:
-            v28 = libc.math.log(v23)
-            v29 = v28 + v4
-            v30 = US2_0(v24)
-            v31 = UH0_0(v30, v3)
-            del v30
-            v32 = US2_0(v24)
-            v33 = UH0_0(v32, v1)
-            del v32
-            v35 = method25(v6, v7, v8, v9, v10, v11, v12, v13, v14, v24, v5, v31, v29, v33, v2)
-            del v31; del v33
-        v36 = v35 * v23
-        v37 = v20 + v36
-        v18[v19] = v35
-        return method24(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v22, v37)
-    else:
-        return v20
-cdef double method43(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, Heap0 v7, numpy.ndarray[signed long,ndim=1] v8, signed long v9, US1 v10, unsigned char v11, signed long v12, US1 v13, unsigned char v14, double v15, numpy.ndarray[double,ndim=1] v16, numpy.ndarray[signed long,ndim=1] v17, numpy.ndarray[double,ndim=1] v18, unsigned long long v19, double v20):
-    cdef bint v21
-    cdef unsigned long long v22
-    cdef double v23
-    cdef US0 v24
-    cdef bint v25
-    cdef bint v27
+    cdef US2 v29
+    cdef UH0 v30
+    cdef US2 v31
+    cdef UH0 v32
     cdef double v35
-    cdef double v28
-    cdef double v29
-    cdef US2 v30
-    cdef UH0 v31
-    cdef US2 v32
-    cdef UH0 v33
     cdef double v36
-    cdef double v37
-    v21 = v19 < v0
-    if v21:
-        v22 = v19 + 1ull
-        v23 = v16[v19]
-        v24 = v17[v19]
-        v25 = v23 == 0.000000
-        if v25:
-            v27 = v15 == 0.000000
+    v20 = v18 < v0
+    if v20:
+        v21 = v18 + 1ull
+        v22 = v16[v18]
+        v23 = v17[v18]
+        v24 = v22 == 0.000000
+        if v24:
+            v26 = v15 == 0.000000
         else:
-            v27 = 0
-        if v27:
-            v35 = 0.000000
+            v26 = 0
+        if v26:
+            v34 = 0.000000
         else:
-            v28 = libc.math.log(v23)
-            v29 = v28 + v2
-            v30 = US2_0(v24)
-            v31 = UH0_0(v30, v3)
-            del v30
-            v32 = US2_0(v24)
-            v33 = UH0_0(v32, v1)
-            del v32
-            v35 = method25(v6, v7, v8, v9, v10, v11, v12, v13, v14, v24, v5, v31, v4, v33, v29)
-            del v31; del v33
-        v36 = v35 * v23
-        v37 = v20 + v36
-        v18[v19] = v35
-        return method43(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v22, v37)
+            v27 = libc.math.log(v22)
+            v28 = v27 + v4
+            v29 = US2_0(v23)
+            v30 = UH0_0(v29, v3)
+            del v29
+            v31 = US2_0(v23)
+            v32 = UH0_0(v31, v1)
+            del v31
+            v34 = method25(v6, v7, v8, v9, v10, v11, v12, v13, v14, v23, v5, v30, v28, v32, v2)
+            del v30; del v32
+        v35 = v34 * v22
+        v36 = v19 + v35
+        return method24(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v21, v36)
     else:
-        return v20
+        return v19
+cdef double method39(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, Heap0 v7, numpy.ndarray[signed long,ndim=1] v8, signed long v9, US1 v10, unsigned char v11, signed long v12, US1 v13, unsigned char v14, double v15, numpy.ndarray[double,ndim=1] v16, numpy.ndarray[signed long,ndim=1] v17, unsigned long long v18, double v19):
+    cdef bint v20
+    cdef unsigned long long v21
+    cdef double v22
+    cdef US0 v23
+    cdef bint v24
+    cdef bint v26
+    cdef double v34
+    cdef double v27
+    cdef double v28
+    cdef US2 v29
+    cdef UH0 v30
+    cdef US2 v31
+    cdef UH0 v32
+    cdef double v35
+    cdef double v36
+    v20 = v18 < v0
+    if v20:
+        v21 = v18 + 1ull
+        v22 = v16[v18]
+        v23 = v17[v18]
+        v24 = v22 == 0.000000
+        if v24:
+            v26 = v15 == 0.000000
+        else:
+            v26 = 0
+        if v26:
+            v34 = 0.000000
+        else:
+            v27 = libc.math.log(v22)
+            v28 = v27 + v2
+            v29 = US2_0(v23)
+            v30 = UH0_0(v29, v3)
+            del v29
+            v31 = US2_0(v23)
+            v32 = UH0_0(v31, v1)
+            del v31
+            v34 = method25(v6, v7, v8, v9, v10, v11, v12, v13, v14, v23, v5, v30, v4, v32, v28)
+            del v30; del v32
+        v35 = v34 * v22
+        v36 = v19 + v35
+        return method39(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v21, v36)
+    else:
+        return v19
 cdef double method22(Mut0 v0, US1 v1, US1 v2, Heap0 v3, numpy.ndarray[signed long,ndim=1] v4, US0 v5, double v6, UH0 v7, double v8, UH0 v9, double v10):
     cdef signed long v11
     cdef unsigned char v12
@@ -1830,67 +1663,55 @@ cdef double method22(Mut0 v0, US1 v1, US1 v2, Heap0 v3, numpy.ndarray[signed lon
     cdef unsigned long long v24
     cdef bint v25
     cdef bint v26
-    cdef numpy.ndarray[double,ndim=1] v27
-    cdef unsigned long long v28
-    cdef double v29
-    cdef double v30
-    cdef unsigned char v31
-    cdef numpy.ndarray[signed long,ndim=1] v33
-    cdef numpy.ndarray[double,ndim=1] v34
-    cdef numpy.ndarray[double,ndim=1] v35
+    cdef unsigned long long v27
+    cdef double v28
+    cdef numpy.ndarray[signed long,ndim=1] v30
+    cdef numpy.ndarray[double,ndim=1] v31
+    cdef numpy.ndarray[double,ndim=1] v32
     cdef Tuple0 tmp16
-    cdef double v36
-    cdef double v37
-    cdef numpy.ndarray[double,ndim=1] v38
-    cdef unsigned long long v39
+    cdef double v33
+    cdef double v34
+    cdef numpy.ndarray[double,ndim=1] v35
+    cdef unsigned long long v36
+    cdef unsigned long long v37
+    cdef bint v38
+    cdef bint v39
     cdef unsigned long long v40
-    cdef bint v41
-    cdef bint v42
-    cdef numpy.ndarray[double,ndim=1] v43
-    cdef unsigned long long v44
-    cdef double v45
-    cdef double v46
+    cdef double v41
+    cdef object v44
+    cdef signed long v46
     cdef unsigned char v47
-    cdef object v50
-    cdef signed long v52
-    cdef unsigned char v53
-    cdef signed long v54
-    cdef unsigned char v55
-    cdef signed long v56
-    cdef numpy.ndarray[signed long,ndim=1] v57
-    cdef bint v58
-    cdef numpy.ndarray[signed long,ndim=1] v59
-    cdef numpy.ndarray[double,ndim=1] v60
-    cdef numpy.ndarray[double,ndim=1] v61
+    cdef signed long v48
+    cdef unsigned char v49
+    cdef signed long v50
+    cdef numpy.ndarray[signed long,ndim=1] v51
+    cdef bint v52
+    cdef numpy.ndarray[signed long,ndim=1] v53
+    cdef numpy.ndarray[double,ndim=1] v54
+    cdef numpy.ndarray[double,ndim=1] v55
     cdef Tuple0 tmp17
-    cdef double v62
-    cdef double v63
-    cdef numpy.ndarray[double,ndim=1] v64
-    cdef unsigned long long v65
-    cdef unsigned long long v66
-    cdef bint v67
-    cdef bint v68
-    cdef numpy.ndarray[double,ndim=1] v69
-    cdef unsigned long long v70
-    cdef double v71
-    cdef double v72
-    cdef unsigned char v73
-    cdef numpy.ndarray[signed long,ndim=1] v75
-    cdef numpy.ndarray[double,ndim=1] v76
-    cdef numpy.ndarray[double,ndim=1] v77
+    cdef double v56
+    cdef double v57
+    cdef numpy.ndarray[double,ndim=1] v58
+    cdef unsigned long long v59
+    cdef unsigned long long v60
+    cdef bint v61
+    cdef bint v62
+    cdef unsigned long long v63
+    cdef double v64
+    cdef numpy.ndarray[signed long,ndim=1] v66
+    cdef numpy.ndarray[double,ndim=1] v67
+    cdef numpy.ndarray[double,ndim=1] v68
     cdef Tuple0 tmp18
-    cdef double v78
-    cdef double v79
-    cdef numpy.ndarray[double,ndim=1] v80
-    cdef unsigned long long v81
-    cdef unsigned long long v82
-    cdef bint v83
-    cdef bint v84
-    cdef numpy.ndarray[double,ndim=1] v85
-    cdef unsigned long long v86
-    cdef double v87
-    cdef double v88
-    cdef unsigned char v89
+    cdef double v69
+    cdef double v70
+    cdef numpy.ndarray[double,ndim=1] v71
+    cdef unsigned long long v72
+    cdef unsigned long long v73
+    cdef bint v74
+    cdef bint v75
+    cdef unsigned long long v76
+    cdef double v77
     if v5 == 0: # call
         v11 = 2l
         v12 = <unsigned char>(1)
@@ -1902,145 +1723,136 @@ cdef double method22(Mut0 v0, US1 v1, US1 v2, Heap0 v3, numpy.ndarray[signed lon
             tmp3 = method8(v0, v15, v7)
             v17, v18, v19 = tmp3.v0, tmp3.v1, tmp3.v2
             del tmp3
+            del v17; del v18
             v20 = v6 + v10
             v21 = libc.math.exp(v20)
             v22 = method17(v19)
+            del v19
             v23 = len(v22)
             v24 = len(v15)
             v25 = v23 == v24
-            v26 = v25 != 1
+            v26 = v25 == 0
             if v26:
-                raise Exception("The two arrays have to have the same size.")
+                raise Exception("The length of the two arrays has to the same.")
             else:
                 pass
-            v27 = numpy.empty(v23,dtype=numpy.float64)
-            v28 = 0ull
-            v29 = 0.000000
-            v30 = method24(v23, v9, v10, v7, v8, v6, v0, v3, v4, v11, v1, v14, v13, v2, v12, v21, v22, v15, v27, v28, v29)
-            del v15; del v22
-            v31 = <unsigned char>(0)
-            return method34(v7, v8, v17, v18, v19, v21, v30, v27, v31)
+            v27 = 0ull
+            v28 = 0.000000
+            return method24(v23, v9, v10, v7, v8, v6, v0, v3, v4, v11, v1, v14, v13, v2, v12, v21, v22, v15, v27, v28)
         else:
             tmp16 = method8(v0, v15, v9)
-            v33, v34, v35 = tmp16.v0, tmp16.v1, tmp16.v2
+            v30, v31, v32 = tmp16.v0, tmp16.v1, tmp16.v2
             del tmp16
-            v36 = v6 + v8
-            v37 = libc.math.exp(v36)
-            v38 = method17(v35)
-            v39 = len(v38)
-            v40 = len(v15)
-            v41 = v39 == v40
-            v42 = v41 != 1
-            if v42:
-                raise Exception("The two arrays have to have the same size.")
+            del v30; del v31
+            v33 = v6 + v8
+            v34 = libc.math.exp(v33)
+            v35 = method17(v32)
+            del v32
+            v36 = len(v35)
+            v37 = len(v15)
+            v38 = v36 == v37
+            v39 = v38 == 0
+            if v39:
+                raise Exception("The length of the two arrays has to the same.")
             else:
                 pass
-            v43 = numpy.empty(v39,dtype=numpy.float64)
-            v44 = 0ull
-            v45 = 0.000000
-            v46 = method43(v39, v9, v10, v7, v8, v6, v0, v3, v4, v11, v1, v14, v13, v2, v12, v37, v38, v15, v43, v44, v45)
-            del v15; del v38
-            v47 = <unsigned char>(1)
-            return method34(v9, v10, v33, v34, v35, v37, v46, v43, v47)
+            v40 = 0ull
+            v41 = 0.000000
+            return method39(v36, v9, v10, v7, v8, v6, v0, v3, v4, v11, v1, v14, v13, v2, v12, v34, v35, v15, v40, v41)
     elif v5 == 1: # fold
         raise Exception("impossible")
     elif v5 == 2: # raise
-        v52 = 1l
-        v53 = <unsigned char>(1)
-        v54 = 1l
-        v55 = <unsigned char>(0)
-        v56 = 3l
-        v57 = method30(v3, v1, v55, v56, v2, v53, v54, v52)
-        v58 = v53 == <unsigned char>(0)
-        if v58:
-            tmp17 = method8(v0, v57, v7)
-            v59, v60, v61 = tmp17.v0, tmp17.v1, tmp17.v2
+        v46 = 1l
+        v47 = <unsigned char>(1)
+        v48 = 1l
+        v49 = <unsigned char>(0)
+        v50 = 3l
+        v51 = method30(v3, v1, v49, v50, v2, v47, v48, v46)
+        v52 = v47 == <unsigned char>(0)
+        if v52:
+            tmp17 = method8(v0, v51, v7)
+            v53, v54, v55 = tmp17.v0, tmp17.v1, tmp17.v2
             del tmp17
-            v62 = v6 + v10
-            v63 = libc.math.exp(v62)
-            v64 = method17(v61)
-            v65 = len(v64)
-            v66 = len(v57)
-            v67 = v65 == v66
-            v68 = v67 != 1
-            if v68:
-                raise Exception("The two arrays have to have the same size.")
+            del v53; del v54
+            v56 = v6 + v10
+            v57 = libc.math.exp(v56)
+            v58 = method17(v55)
+            del v55
+            v59 = len(v58)
+            v60 = len(v51)
+            v61 = v59 == v60
+            v62 = v61 == 0
+            if v62:
+                raise Exception("The length of the two arrays has to the same.")
             else:
                 pass
-            v69 = numpy.empty(v65,dtype=numpy.float64)
-            v70 = 0ull
-            v71 = 0.000000
-            v72 = method40(v65, v9, v10, v7, v8, v6, v0, v3, v4, v52, v1, v55, v56, v2, v53, v54, v63, v64, v57, v69, v70, v71)
-            del v57; del v64
-            v73 = <unsigned char>(0)
-            return method34(v7, v8, v59, v60, v61, v63, v72, v69, v73)
+            v63 = 0ull
+            v64 = 0.000000
+            return method36(v59, v9, v10, v7, v8, v6, v0, v3, v4, v46, v1, v49, v50, v2, v47, v48, v57, v58, v51, v63, v64)
         else:
-            tmp18 = method8(v0, v57, v9)
-            v75, v76, v77 = tmp18.v0, tmp18.v1, tmp18.v2
+            tmp18 = method8(v0, v51, v9)
+            v66, v67, v68 = tmp18.v0, tmp18.v1, tmp18.v2
             del tmp18
-            v78 = v6 + v8
-            v79 = libc.math.exp(v78)
-            v80 = method17(v77)
-            v81 = len(v80)
-            v82 = len(v57)
-            v83 = v81 == v82
-            v84 = v83 != 1
-            if v84:
-                raise Exception("The two arrays have to have the same size.")
+            del v66; del v67
+            v69 = v6 + v8
+            v70 = libc.math.exp(v69)
+            v71 = method17(v68)
+            del v68
+            v72 = len(v71)
+            v73 = len(v51)
+            v74 = v72 == v73
+            v75 = v74 == 0
+            if v75:
+                raise Exception("The length of the two arrays has to the same.")
             else:
                 pass
-            v85 = numpy.empty(v81,dtype=numpy.float64)
-            v86 = 0ull
-            v87 = 0.000000
-            v88 = method42(v81, v9, v10, v7, v8, v6, v0, v3, v4, v52, v1, v55, v56, v2, v53, v54, v79, v80, v57, v85, v86, v87)
-            del v57; del v80
-            v89 = <unsigned char>(1)
-            return method34(v9, v10, v75, v76, v77, v79, v88, v85, v89)
-cdef double method21(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, US1 v7, US1 v8, Heap0 v9, numpy.ndarray[signed long,ndim=1] v10, double v11, numpy.ndarray[double,ndim=1] v12, numpy.ndarray[signed long,ndim=1] v13, numpy.ndarray[double,ndim=1] v14, unsigned long long v15, double v16):
-    cdef bint v17
-    cdef unsigned long long v18
-    cdef double v19
-    cdef US0 v20
-    cdef bint v21
-    cdef bint v23
-    cdef double v31
+            v76 = 0ull
+            v77 = 0.000000
+            return method38(v72, v9, v10, v7, v8, v6, v0, v3, v4, v46, v1, v49, v50, v2, v47, v48, v70, v71, v51, v76, v77)
+cdef double method21(unsigned long long v0, UH0 v1, double v2, UH0 v3, double v4, double v5, Mut0 v6, US1 v7, US1 v8, Heap0 v9, numpy.ndarray[signed long,ndim=1] v10, double v11, numpy.ndarray[double,ndim=1] v12, numpy.ndarray[signed long,ndim=1] v13, unsigned long long v14, double v15):
+    cdef bint v16
+    cdef unsigned long long v17
+    cdef double v18
+    cdef US0 v19
+    cdef bint v20
+    cdef bint v22
+    cdef double v30
+    cdef double v23
     cdef double v24
-    cdef double v25
-    cdef US2 v26
-    cdef UH0 v27
-    cdef US2 v28
-    cdef UH0 v29
+    cdef US2 v25
+    cdef UH0 v26
+    cdef US2 v27
+    cdef UH0 v28
+    cdef double v31
     cdef double v32
-    cdef double v33
-    v17 = v15 < v0
-    if v17:
-        v18 = v15 + 1ull
-        v19 = v12[v15]
-        v20 = v13[v15]
-        v21 = v19 == 0.000000
-        if v21:
-            v23 = v11 == 0.000000
+    v16 = v14 < v0
+    if v16:
+        v17 = v14 + 1ull
+        v18 = v12[v14]
+        v19 = v13[v14]
+        v20 = v18 == 0.000000
+        if v20:
+            v22 = v11 == 0.000000
         else:
-            v23 = 0
-        if v23:
-            v31 = 0.000000
+            v22 = 0
+        if v22:
+            v30 = 0.000000
         else:
-            v24 = libc.math.log(v19)
-            v25 = v24 + v4
-            v26 = US2_0(v20)
-            v27 = UH0_0(v26, v3)
-            del v26
-            v28 = US2_0(v20)
-            v29 = UH0_0(v28, v1)
-            del v28
-            v31 = method22(v6, v7, v8, v9, v10, v20, v5, v27, v25, v29, v2)
-            del v27; del v29
-        v32 = v31 * v19
-        v33 = v16 + v32
-        v14[v15] = v31
-        return method21(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v18, v33)
+            v23 = libc.math.log(v18)
+            v24 = v23 + v4
+            v25 = US2_0(v19)
+            v26 = UH0_0(v25, v3)
+            del v25
+            v27 = US2_0(v19)
+            v28 = UH0_0(v27, v1)
+            del v27
+            v30 = method22(v6, v7, v8, v9, v10, v19, v5, v26, v24, v28, v2)
+            del v26; del v28
+        v31 = v30 * v18
+        v32 = v15 + v31
+        return method21(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v17, v32)
     else:
-        return v16
+        return v15
 cdef double method7(Mut0 v0, Heap0 v1, US1 v2, US1 v3, numpy.ndarray[signed long,ndim=1] v4, double v5, UH0 v6, double v7, UH0 v8, double v9):
     cdef numpy.ndarray[signed long,ndim=1] v10
     cdef numpy.ndarray[signed long,ndim=1] v11
@@ -2054,33 +1866,28 @@ cdef double method7(Mut0 v0, Heap0 v1, US1 v2, US1 v3, numpy.ndarray[signed long
     cdef unsigned long long v18
     cdef bint v19
     cdef bint v20
-    cdef numpy.ndarray[double,ndim=1] v21
-    cdef unsigned long long v22
-    cdef double v23
-    cdef double v24
-    cdef unsigned char v25
+    cdef unsigned long long v21
+    cdef double v22
     v10 = v1.v2
     tmp2 = method8(v0, v10, v6)
     v11, v12, v13 = tmp2.v0, tmp2.v1, tmp2.v2
     del tmp2
+    del v11; del v12
     v14 = v5 + v9
     v15 = libc.math.exp(v14)
     v16 = method17(v13)
+    del v13
     v17 = len(v16)
     v18 = len(v10)
     v19 = v17 == v18
-    v20 = v19 != 1
+    v20 = v19 == 0
     if v20:
-        raise Exception("The two arrays have to have the same size.")
+        raise Exception("The length of the two arrays has to the same.")
     else:
         pass
-    v21 = numpy.empty(v17,dtype=numpy.float64)
-    v22 = 0ull
-    v23 = 0.000000
-    v24 = method21(v17, v8, v9, v6, v7, v5, v0, v2, v3, v1, v4, v15, v16, v10, v21, v22, v23)
-    del v10; del v16
-    v25 = <unsigned char>(0)
-    return method34(v6, v7, v11, v12, v13, v15, v24, v21, v25)
+    v21 = 0ull
+    v22 = 0.000000
+    return method21(v17, v8, v9, v6, v7, v5, v0, v2, v3, v1, v4, v15, v16, v10, v21, v22)
 cdef double method6(numpy.ndarray[signed long,ndim=1] v0, Mut0 v1, Heap0 v2, US1 v3, double v4, UH0 v5, double v6, UH0 v7, double v8, unsigned long long v9, double v10):
     cdef unsigned long long v11
     cdef double v12
