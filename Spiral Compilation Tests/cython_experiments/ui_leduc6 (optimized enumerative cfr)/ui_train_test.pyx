@@ -105,8 +105,8 @@ cdef class Closure1():
         v18 = v2 + v14
         v19 = libc.math.exp(v18)
         v20 = method11(v17)
-        v21 = <unsigned long long>len(v20)
-        v22 = <unsigned long long>len(v1)
+        v21 = len(v20)
+        v22 = len(v1)
         v23 = v21 == v22
         v24 = v23 != 1
         if v24:
@@ -189,8 +189,8 @@ cdef class Closure3():
         v19 = libc.math.exp(v18)
         v20 = method11(v17)
         del v17
-        v21 = <unsigned long long>len(v20)
-        v22 = <unsigned long long>len(v1)
+        v21 = len(v20)
+        v22 = len(v1)
         v23 = v21 == v22
         v24 = v23 == 0
         if v24:
@@ -696,8 +696,8 @@ cdef class Closure13():
         v19 = libc.math.exp(v18)
         v20 = method11(v16)
         del v16
-        v21 = <unsigned long long>len(v20)
-        v22 = <unsigned long long>len(v1)
+        v21 = len(v20)
+        v22 = len(v1)
         v23 = v21 == v22
         v24 = v23 == 0
         if v24:
@@ -1174,7 +1174,7 @@ cdef class Closure23():
         cdef list v3
         cdef unsigned long long v4
         v1 = method49(v0)
-        v2 = <unsigned long long>len(v1)
+        v2 = len(v1)
         v3 = [None]*v2
         v4 = (<unsigned long long>0)
         method53(v2, v1, v3, v4)
@@ -1481,7 +1481,7 @@ cdef class Closure25():
         v20 = 0
         v21 = numpy.empty(6,dtype=numpy.int32)
         v21[0] = v15; v21[1] = v16; v21[2] = v17; v21[3] = v18; v21[4] = v19; v21[5] = v20
-        v22 = <unsigned long long>len(v21)
+        v22 = len(v21)
         v23 = numpy.random.randint(0,v22)
         v24 = UH0_1()
         v25 = (<double>0.000000)
@@ -1747,7 +1747,7 @@ cdef void method7(Mut0 v0):
     cdef unsigned long long v10
     cdef unsigned long long v11
     v1 = v0.v1
-    v2 = <unsigned long long>len(v1)
+    v2 = len(v1)
     v3 = v2 * (<unsigned long long>3)
     v4 = v3 // (<unsigned long long>2)
     v5 = v4 + (<unsigned long long>3)
@@ -1811,7 +1811,7 @@ cdef Tuple1 method4(Mut0 v0, UH0 v1, numpy.ndarray[signed long,ndim=1] v2, unsig
             v16 = v5 + (<unsigned long long>1)
             return method4(v0, v1, v2, v3, v4, v16)
     else:
-        v23 = <unsigned long long>len(v2)
+        v23 = len(v2)
         v24 = numpy.empty(v23,dtype=numpy.float64)
         v25 = (<unsigned long long>0)
         method6(v23, v24, v25)
@@ -1825,7 +1825,7 @@ cdef Tuple1 method4(Mut0 v0, UH0 v1, numpy.ndarray[signed long,ndim=1] v2, unsig
         v30 = v0.v2
         v31 = v0.v0
         v32 = v0.v1
-        v33 = <unsigned long long>len(v32)
+        v33 = len(v32)
         del v32
         v34 = v31 * v33
         v35 = v30 >= v34
@@ -1843,7 +1843,7 @@ cdef Tuple1 method2(Mut0 v0, numpy.ndarray[signed long,ndim=1] v1, UH0 v2):
     cdef unsigned long long v9
     v4 = method3(v2)
     v5 = v0.v1
-    v6 = <unsigned long long>len(v5)
+    v6 = len(v5)
     v7 = v4 % v6
     v8 = v5[v7]
     del v5
@@ -1909,20 +1909,20 @@ cdef numpy.ndarray[double,ndim=1] method11(numpy.ndarray[double,ndim=1] v0):
     cdef unsigned long long v10
     cdef unsigned long long v11
     cdef unsigned long long v12
-    v1 = <unsigned long long>len(v0)
+    v1 = len(v0)
     v2 = numpy.empty(v1,dtype=numpy.float64)
     v3 = (<unsigned long long>0)
     v4 = (<double>0.000000)
     v5 = method12(v1, v0, v2, v3, v4)
     v6 = v5 == (<double>0.000000)
     if v6:
-        v7 = <unsigned long long>len(v2)
+        v7 = len(v2)
         v8 = <double>v7
         v9 = (<double>1.000000) / v8
         v10 = (<unsigned long long>0)
         method13(v7, v9, v2, v10)
     else:
-        v11 = <unsigned long long>len(v2)
+        v11 = len(v2)
         v12 = (<unsigned long long>0)
         method14(v11, v5, v2, v12)
     return v2
@@ -2038,16 +2038,16 @@ cdef double method16(UH0 v0, double v1, numpy.ndarray[signed long,ndim=1] v2, nu
     cdef bint v18
     cdef unsigned long long v19
     cdef double v20
-    v9 = <unsigned long long>len(v4)
+    v9 = len(v4)
     v10 = (<unsigned long long>0)
     method17(v9, v5, v6, v7, v8, v4, v10)
     v11 = method11(v4)
     v12 = libc.math.exp(v1)
-    v13 = <unsigned long long>len(v3)
+    v13 = len(v3)
     v14 = (<unsigned long long>0)
     method18(v13, v11, v12, v3, v14)
-    v15 = <unsigned long long>len(v11)
-    v16 = <unsigned long long>len(v7)
+    v15 = len(v11)
+    v16 = len(v7)
     v17 = v15 == v16
     v18 = v17 == 0
     if v18:
@@ -2439,7 +2439,7 @@ cdef double method30(numpy.ndarray[signed long,ndim=1] v0, v1, v2, v3, Heap0 v4,
     cdef unsigned long long v32
     cdef double v33
     cdef double v35
-    v18 = <unsigned long long>len(v0)
+    v18 = len(v0)
     v19 = <double>v18
     v20 = (<double>1.000000) / v19
     v21 = v16 < v18
@@ -2716,7 +2716,7 @@ cdef double method25(numpy.ndarray[signed long,ndim=1] v0, v1, v2, v3, Heap0 v4,
     cdef unsigned long long v28
     cdef double v29
     cdef double v31
-    v13 = <unsigned long long>len(v0)
+    v13 = len(v0)
     v14 = <double>v13
     v15 = (<double>1.000000) / v14
     v16 = v11 < v13
@@ -2765,7 +2765,7 @@ cdef double method22(numpy.ndarray[signed long,ndim=1] v0, v1, v2, v3, Heap0 v4,
     cdef unsigned long long v25
     cdef double v26
     cdef double v28
-    v11 = <unsigned long long>len(v0)
+    v11 = len(v0)
     v12 = <double>v11
     v13 = (<double>1.000000) / v12
     v14 = v9 < v11
@@ -3134,7 +3134,7 @@ cdef double method44(numpy.ndarray[signed long,ndim=1] v0, v1, v2, Heap0 v3, US0
     cdef unsigned long long v31
     cdef double v32
     cdef double v34
-    v17 = <unsigned long long>len(v0)
+    v17 = len(v0)
     v18 = <double>v17
     v19 = (<double>1.000000) / v18
     v20 = v15 < v17
@@ -3411,7 +3411,7 @@ cdef double method40(numpy.ndarray[signed long,ndim=1] v0, v1, v2, Heap0 v3, US0
     cdef unsigned long long v27
     cdef double v28
     cdef double v30
-    v12 = <unsigned long long>len(v0)
+    v12 = len(v0)
     v13 = <double>v12
     v14 = (<double>1.000000) / v13
     v15 = v10 < v12
@@ -3460,7 +3460,7 @@ cdef double method38(numpy.ndarray[signed long,ndim=1] v0, v1, v2, Heap0 v3, UH0
     cdef unsigned long long v24
     cdef double v25
     cdef double v27
-    v10 = <unsigned long long>len(v0)
+    v10 = len(v0)
     v11 = <double>v10
     v12 = (<double>1.000000) / v11
     v13 = v8 < v10
@@ -3589,7 +3589,7 @@ cdef unsigned long long method50(numpy.ndarray[object,ndim=1] v0, unsigned long 
     cdef unsigned long long v5
     cdef unsigned long long v6
     v4 = v2.v1
-    v5 = <unsigned long long>len(v4)
+    v5 = len(v4)
     v6 = (<unsigned long long>0)
     return method51(v5, v0, v4, v6, v1)
 cdef numpy.ndarray[object,ndim=1] method49(Mut0 v0):
@@ -3719,8 +3719,8 @@ cdef void method53(unsigned long long v0, numpy.ndarray[object,ndim=1] v1, list 
         del v6
         v11 = "".join(v10)
         del v10
-        v12 = <unsigned long long>len(v7)
-        v13 = <unsigned long long>len(v8)
+        v12 = len(v7)
+        v13 = len(v8)
         v14 = v12 == v13
         v15 = v14 != 1
         if v15:
@@ -3733,7 +3733,7 @@ cdef void method53(unsigned long long v0, numpy.ndarray[object,ndim=1] v1, list 
         del v8
         v18 = "\n".join(v16)
         del v16
-        v19 = <unsigned long long>len(v9)
+        v19 = len(v9)
         v20 = v12 == v19
         v21 = v20 != 1
         if v21:
@@ -3894,7 +3894,7 @@ cdef void method64(v0, v1, numpy.ndarray[signed long,ndim=1] v2, UH0 v3, US4 v4,
     v15 = False
     v16 = Mut1(v14, v13, v15)
     del v13; del v14; del v15
-    v17 = <unsigned long long>len(v2)
+    v17 = len(v2)
     v18 = (<unsigned long long>0)
     method68(v17, v2, v1, v16, v18)
     v19, v20, v21 = v16.v0, v16.v1, v16.v2
@@ -4147,7 +4147,7 @@ cdef void method63(v0, Mut0 v1, Heap0 v2, signed long v3, US0 v4, US0 v5, unsign
         v99 = method33(v2, v8, v9, v98, v5, v6, v7, v97)
         v100 = v6 == (<unsigned char>0)
         if v100:
-            v101 = <unsigned long long>len(v99)
+            v101 = len(v99)
             tmp11 = method2(v1, v99, v13)
             v102, v103, v104 = tmp11.v0, tmp11.v1, tmp11.v2
             del tmp11
@@ -4223,7 +4223,7 @@ cdef void method62(v0, Mut0 v1, Heap0 v2, US0 v3, unsigned char v4, signed long 
         v18 = method33(v2, v6, v7, v8, v3, v4, v5, v17)
         v19 = v4 == (<unsigned char>0)
         if v19:
-            v20 = <unsigned long long>len(v18)
+            v20 = len(v18)
             tmp10 = method2(v1, v18, v12)
             v21, v22, v23 = tmp10.v0, tmp10.v1, tmp10.v2
             del tmp10
@@ -4257,7 +4257,7 @@ cdef void method62(v0, Mut0 v1, Heap0 v2, US0 v3, unsigned char v4, signed long 
         v40 = method33(v2, v6, v7, v39, v3, v4, v5, v38)
         v41 = v4 == (<unsigned char>0)
         if v41:
-            v42 = <unsigned long long>len(v40)
+            v42 = len(v40)
             tmp12 = method2(v1, v40, v12)
             v43, v44, v45 = tmp12.v0, tmp12.v1, tmp12.v2
             del tmp12
@@ -4307,7 +4307,7 @@ cdef void method61(v0, Mut0 v1, Heap0 v2, US0 v3, unsigned char v4, signed long 
     v16 = v2.v2
     v17 = v7 == (<unsigned char>0)
     if v17:
-        v18 = <unsigned long long>len(v16)
+        v18 = len(v16)
         tmp9 = method2(v1, v16, v11)
         v19, v20, v21 = tmp9.v0, tmp9.v1, tmp9.v2
         del tmp9
@@ -4398,7 +4398,7 @@ cdef void method69(v0, Mut0 v1, Heap0 v2, numpy.ndarray[signed long,ndim=1] v3, 
             v19, v20, v21, v22, v23, v24 = v8, v9, v7, v5, v6, v7
         else:
             v19, v20, v21, v22, v23, v24 = v5, v6, v7, v8, v9, v7
-        v25 = <unsigned long long>len(v3)
+        v25 = len(v3)
         v26 = numpy.random.randint(0,v25)
         v27 = v3[v26]
         v28 = <double>v25
@@ -4448,7 +4448,7 @@ cdef void method69(v0, Mut0 v1, Heap0 v2, numpy.ndarray[signed long,ndim=1] v3, 
         v59 = method33(v2, v8, v9, v58, v5, v6, v7, v57)
         v60 = v6 == (<unsigned char>0)
         if v60:
-            v61 = <unsigned long long>len(v59)
+            v61 = len(v59)
             tmp14 = method2(v1, v59, v13)
             v62, v63, v64 = tmp14.v0, tmp14.v1, tmp14.v2
             del tmp14
@@ -4539,7 +4539,7 @@ cdef void method60(v0, Mut0 v1, Heap0 v2, numpy.ndarray[signed long,ndim=1] v3, 
             v18, v19, v20, v21, v22, v23 = v8, v9, v7, v5, v6, v7
         else:
             v18, v19, v20, v21, v22, v23 = v5, v6, v7, v8, v9, v7
-        v24 = <unsigned long long>len(v3)
+        v24 = len(v3)
         v25 = numpy.random.randint(0,v24)
         v26 = v3[v25]
         v27 = <double>v24
@@ -4589,7 +4589,7 @@ cdef void method60(v0, Mut0 v1, Heap0 v2, numpy.ndarray[signed long,ndim=1] v3, 
         v58 = method33(v2, v8, v9, v57, v5, v6, v7, v56)
         v59 = v6 == (<unsigned char>0)
         if v59:
-            v60 = <unsigned long long>len(v58)
+            v60 = len(v58)
             tmp13 = method2(v1, v58, v12)
             v61, v62, v63 = tmp13.v0, tmp13.v1, tmp13.v2
             del tmp13
@@ -4639,7 +4639,7 @@ cdef void method70(v0, v1, numpy.ndarray[signed long,ndim=1] v2, UH0 v3, US4 v4,
     v14 = False
     v15 = Mut1(v13, v12, v14)
     del v12; del v13; del v14
-    v16 = <unsigned long long>len(v2)
+    v16 = len(v2)
     v17 = (<unsigned long long>0)
     method68(v16, v2, v1, v15, v17)
     v18, v19, v20 = v15.v0, v15.v1, v15.v2
@@ -4732,7 +4732,7 @@ cdef void method59(v0, Mut0 v1, US0 v2, US0 v3, Heap0 v4, numpy.ndarray[signed l
         v17 = method28(v4, v2, v16, v15, v3, v14, v13)
         v18 = v14 == (<unsigned char>0)
         if v18:
-            v19 = <unsigned long long>len(v17)
+            v19 = len(v17)
             tmp8 = method2(v1, v17, v8)
             v20, v21, v22 = tmp8.v0, tmp8.v1, tmp8.v2
             del tmp8
@@ -4769,7 +4769,7 @@ cdef void method59(v0, Mut0 v1, US0 v2, US0 v3, Heap0 v4, numpy.ndarray[signed l
         v42 = method33(v4, v2, v40, v41, v3, v38, v39, v37)
         v43 = v38 == (<unsigned char>0)
         if v43:
-            v44 = <unsigned long long>len(v42)
+            v44 = len(v42)
             tmp15 = method2(v1, v42, v8)
             v45, v46, v47 = tmp15.v0, tmp15.v1, tmp15.v2
             del tmp15
@@ -4813,7 +4813,7 @@ cdef void method58(v0, Mut0 v1, Heap0 v2, US0 v3, US0 v4, numpy.ndarray[signed l
     cdef US2 v25
     cdef UH0 v26
     v12 = v2.v2
-    v13 = <unsigned long long>len(v12)
+    v13 = len(v12)
     tmp7 = method2(v1, v12, v7)
     v14, v15, v16 = tmp7.v0, tmp7.v1, tmp7.v2
     del tmp7
@@ -4847,7 +4847,7 @@ cdef void method57(v0, Mut0 v1, Heap0 v2, US0 v3, numpy.ndarray[signed long,ndim
     cdef double v20
     cdef US2 v21
     cdef UH0 v22
-    v11 = <unsigned long long>len(v4)
+    v11 = len(v4)
     v12 = numpy.random.randint(0,v11)
     v13 = v4[v12]
     v14 = v11 - (<unsigned long long>1)

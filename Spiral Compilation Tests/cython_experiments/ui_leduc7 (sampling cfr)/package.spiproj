@@ -1,0 +1,17 @@
+packages: |core2-
+modules:
+    utils-
+    log_probm
+    sampling
+    game-
+    nodes/
+        utils-
+        cps
+        main-
+    leduc
+    agent/
+        uniform
+        cfr
+        human
+    ui_train_test
+    
