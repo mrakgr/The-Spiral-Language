@@ -22,34 +22,24 @@ inl funsPlay (d : state _ _) = player_funs {
         inl policy = regret_match (value d actions player.observations).avg_policy
         inl i = $"numpy.random.choice(!num_actions,p=!policy)"
         inl p,a = index policy i, index actions i
-        next ((log_probm.from p,a),state player)
+        next (log_probm.from' p,a)
     }
 
 union cfr_mode = PlayAvgPolicy | PlayCurrentPolicy | TrainCurrentPolicy
 inl funsTrain mode (d : state _ _) = player_funs {
     terminal action = fun {chance_prob player player' id actions next} =>
         inl d = value d actions player.observations
-        inl op_prob = log_probm.exp (log_probm.add chance_prob player')
-        inl state = state player
+        inl op_prob = (log_probm.exp (log_probm.add chance_prob player')).policy
 
         inl next prob a = 
             if prob = 0 && op_prob = 0 then r2 0 // the pruning optimization
-            else next ((log_probm.from prob,a),state)
+            else next (log_probm.from' prob,a)
 
         inl weighted_sum policy = am.fold2 (fun s prob a => s +. next prob a *. prob) (r2 0) policy actions
 
         match mode with
-        // For evaling the overall quality of the policy whose agents are done training.
         | PlayAvgPolicy => weighted_sum (regret_match d.avg_policy)
-        // Alternating updates between the players works better than training both simultaneously.
-        // For the sake of training it is better to play the latest policy and get the freshest data instead of 
-        // sampling the old ones, which in effect would happen if the avg_policy was used for training.
         | PlayCurrentPolicy => weighted_sum (regret_match d.regret)
-        // Trains the current policy. The old F# version in the `v0.2` branch of the Spiral repo has some bugs.
-        // The way it is done currently reflects my current understanding of the way the algorithm is supposed to be implemented.
-        // For example, I am decently sure that `self_prob` should not have the chance probability like the paper suggests.
-        // Also the latest policy should be added to the average one rather than the stale one.
-        // To speed up learning I also reweight the rewards using the updated policy.
         | TrainCurrentPolicy =>
             inl reward,reward_wsum =
                 am.mapFold2 (fun s prob a => 
@@ -58,17 +48,11 @@ inl funsTrain mode (d : state _ _) = player_funs {
                     ) (r2 0) (regret_match d.regret) actions
             inl ~id = id
             join
-                // Linear CFR trick.
                 inl t = f64 d.t
-                // That max 0 makes regular CFR into CFR+
                 d.regret |> am.mapInplace (fun i x => max 0 <| x + t * op_prob * (r2_index (index reward i) id - r2_index reward_wsum id))
                 inl policy = regret_match d.regret
-                inl self_prob = log_probm.exp player.prob
+                inl self_prob = (log_probm.exp player.prob).policy
                 d.avg_policy |> am.mapInplace (fun i x => x + t * self_prob * index policy i)
                 d.t <- d.t+1
                 am.fold2 (fun s prob reward => s +. reward *. prob) (r2 0) policy reward
-
-                // Summary: Compared to vanilla, the linear CFR and the CFR+ tricks improve the reward from -0.3 to -0.2 
-                // after 20 iterations. The reward reweighting by the current policy does not speed up learning, but 
-                // does seem to make it more stable
     }

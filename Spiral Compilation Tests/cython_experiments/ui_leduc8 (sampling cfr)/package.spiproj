@@ -11,6 +11,7 @@ modules:
     leduc
     agent/
         uniform
-        cfrp
+        cfr_enum
+        cfr_sample
         human
     ui_train_test

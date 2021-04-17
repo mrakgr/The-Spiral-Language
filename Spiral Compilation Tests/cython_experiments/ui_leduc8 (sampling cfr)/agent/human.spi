@@ -34,7 +34,7 @@ let rec show_trace i (l, r) =
 open nodes
 inl funs dispatch = player_funs {
     action = fun {game_state player actions next} => 
-        dispatch ((game_state, observations player, None), actions, fun x => next ((log_prob 0,x),state player))
+        dispatch ((game_state, observations player, None), actions, fun x => next (log_probm.from' 1,x))
     terminal = fun {game_state player reward} =>
         dispatch ((game_state, observations player, (Some: reward)), a ;[], fun x => ())
     }
