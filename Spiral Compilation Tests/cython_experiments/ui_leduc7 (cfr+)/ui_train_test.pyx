@@ -49,19 +49,18 @@ cdef class Tuple0:
     cdef readonly double v12
     cdef readonly double v13
     def __init__(self, v0, double v1, US0 v2, unsigned char v3, signed long v4, US0 v5, unsigned char v6, signed long v7, US1 v8, unsigned char v9, v10, UH0 v11, double v12, double v13): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13
+cdef class Mut1:
+    cdef public object v0
+    cdef public object v1
+    cdef public object v2
+    cdef public unsigned long long v3
+    def __init__(self, v0, v1, v2, unsigned long long v3): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3
 cdef class Tuple1:
-    cdef readonly object v0
-    cdef readonly object v1
-    cdef readonly object v2
-    def __init__(self, v0, v1, v2): self.v0 = v0; self.v1 = v1; self.v2 = v2
-cdef class Tuple2:
     cdef readonly unsigned long long v0
     cdef readonly UH0 v1
-    cdef readonly object v2
-    cdef readonly object v3
-    cdef readonly object v4
-    def __init__(self, unsigned long long v0, UH0 v1, v2, v3, v4): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4
-cdef class Tuple3:
+    cdef readonly Mut1 v2
+    def __init__(self, unsigned long long v0, UH0 v1, Mut1 v2): self.v0 = v0; self.v1 = v1; self.v2 = v2
+cdef class Tuple2:
     cdef readonly double v0
     cdef readonly US3 v1
     def __init__(self, double v0, US3 v1): self.v0 = v0; self.v1 = v1
@@ -84,42 +83,40 @@ cdef class Closure1():
         cdef UH0 v12 = args.v11
         cdef double v13 = args.v12
         cdef double v14 = args.v13
-        cdef numpy.ndarray[signed long,ndim=1] v15
-        cdef numpy.ndarray[double,ndim=1] v16
-        cdef numpy.ndarray[double,ndim=1] v17
-        cdef Tuple1 tmp2
-        cdef double v18
-        cdef double v19
-        cdef numpy.ndarray[double,ndim=1] v20
+        cdef Mut1 v15
+        cdef double v16
+        cdef double v17
+        cdef numpy.ndarray[double,ndim=1] v18
+        cdef numpy.ndarray[double,ndim=1] v19
+        cdef unsigned long long v20
         cdef unsigned long long v21
-        cdef unsigned long long v22
+        cdef bint v22
         cdef bint v23
-        cdef bint v24
-        cdef numpy.ndarray[double,ndim=1] v25
-        cdef unsigned long long v26
+        cdef numpy.ndarray[double,ndim=1] v24
+        cdef unsigned long long v25
+        cdef double v26
         cdef double v27
-        cdef double v28
-        tmp2 = method2(v0, v1, v12)
-        v15, v16, v17 = tmp2.v0, tmp2.v1, tmp2.v2
-        del tmp2
-        v18 = v2 + v14
-        v19 = libc.math.exp(v18)
-        v20 = method11(v17)
-        v21 = len(v20)
-        v22 = len(v1)
-        v23 = v21 == v22
-        v24 = v23 != 1
-        if v24:
+        v15 = method2(v0, v1, v12)
+        v16 = v2 + v14
+        v17 = libc.math.exp(v16)
+        v18 = v15.v2
+        v19 = method11(v18)
+        del v18
+        v20 = len(v19)
+        v21 = len(v1)
+        v22 = v20 == v21
+        v23 = v22 != 1
+        if v23:
             raise Exception("The two arrays have to have the same size.")
         else:
             pass
-        v25 = numpy.empty(v21,dtype=numpy.float64)
-        v26 = (<unsigned long long>0)
-        v27 = (<double>0.000000)
-        v28 = method15(v21, v11, v19, v20, v1, v25, v26, v27)
-        del v20
-        return method16(v12, v13, v15, v16, v17, v19, v28, v25, v10)
-cdef class Tuple4:
+        v24 = numpy.empty(v20,dtype=numpy.float64)
+        v25 = (<unsigned long long>0)
+        v26 = (<double>0.000000)
+        v27 = method15(v20, v11, v17, v19, v1, v24, v25, v26)
+        del v19
+        return method16(v12, v13, v15, v17, v27, v24, v10)
+cdef class Tuple3:
     cdef readonly double v0
     cdef readonly US0 v1
     cdef readonly unsigned char v2
@@ -135,7 +132,7 @@ cdef class Tuple4:
     def __init__(self, double v0, US0 v1, unsigned char v2, signed long v3, US0 v4, unsigned char v5, signed long v6, US1 v7, unsigned char v8, UH0 v9, double v10, double v11): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11
 cdef class Closure2():
     def __init__(self): pass
-    def __call__(self, Tuple4 args):
+    def __call__(self, Tuple3 args):
         cdef double v0 = args.v0
         cdef US0 v1 = args.v1
         cdef unsigned char v2 = args.v2
@@ -168,38 +165,35 @@ cdef class Closure3():
         cdef UH0 v12 = args.v11
         cdef double v13 = args.v12
         cdef double v14 = args.v13
-        cdef numpy.ndarray[signed long,ndim=1] v15
-        cdef numpy.ndarray[double,ndim=1] v16
-        cdef numpy.ndarray[double,ndim=1] v17
-        cdef Tuple1 tmp3
-        cdef double v18
-        cdef double v19
-        cdef numpy.ndarray[double,ndim=1] v20
+        cdef Mut1 v15
+        cdef double v16
+        cdef double v17
+        cdef numpy.ndarray[double,ndim=1] v18
+        cdef numpy.ndarray[double,ndim=1] v19
+        cdef unsigned long long v20
         cdef unsigned long long v21
-        cdef unsigned long long v22
+        cdef bint v22
         cdef bint v23
-        cdef bint v24
-        cdef unsigned long long v25
-        cdef double v26
-        tmp3 = method2(v0, v1, v12)
-        v15, v16, v17 = tmp3.v0, tmp3.v1, tmp3.v2
-        del tmp3
-        del v15; del v16
-        v18 = v2 + v14
-        v19 = libc.math.exp(v18)
-        v20 = method11(v17)
-        del v17
-        v21 = len(v20)
-        v22 = len(v1)
-        v23 = v21 == v22
-        v24 = v23 == 0
-        if v24:
+        cdef unsigned long long v24
+        cdef double v25
+        v15 = method2(v0, v1, v12)
+        v16 = v2 + v14
+        v17 = libc.math.exp(v16)
+        v18 = v15.v2
+        del v15
+        v19 = method11(v18)
+        del v18
+        v20 = len(v19)
+        v21 = len(v1)
+        v22 = v20 == v21
+        v23 = v22 == 0
+        if v23:
             raise Exception("The length of the two arrays has to the same.")
         else:
             pass
-        v25 = (<unsigned long long>0)
-        v26 = (<double>0.000000)
-        return method20(v21, v11, v19, v20, v1, v25, v26)
+        v24 = (<unsigned long long>0)
+        v25 = (<double>0.000000)
+        return method20(v20, v11, v17, v19, v1, v24, v25)
 cdef class Heap0:
     cdef readonly object v0
     cdef readonly object v1
@@ -225,7 +219,7 @@ cdef class Closure8():
     cdef unsigned char v15
     cdef signed long v16
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, v7, Heap0 v8, signed long v9, US0 v10, US0 v11, unsigned char v12, signed long v13, US0 v14, unsigned char v15, signed long v16): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14; self.v15 = v15; self.v16 = v16
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -277,7 +271,7 @@ cdef class Closure7():
     cdef unsigned char v15
     cdef signed long v16
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, v7, Heap0 v8, signed long v9, US0 v10, US0 v11, unsigned char v12, signed long v13, US0 v14, unsigned char v15, signed long v16): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14; self.v15 = v15; self.v16 = v16
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -328,7 +322,7 @@ cdef class Closure6():
     cdef signed long v14
     cdef US0 v15
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, v7, Heap0 v8, US0 v9, unsigned char v10, signed long v11, US0 v12, unsigned char v13, signed long v14, US0 v15): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14; self.v15 = v15
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -378,7 +372,7 @@ cdef class Closure9():
     cdef signed long v14
     cdef US0 v15
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, v7, Heap0 v8, US0 v9, unsigned char v10, signed long v11, US0 v12, unsigned char v13, signed long v14, US0 v15): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14; self.v15 = v15
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -429,7 +423,7 @@ cdef class Closure11():
     cdef unsigned char v15
     cdef signed long v16
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, v7, Heap0 v8, numpy.ndarray[signed long,ndim=1] v9, signed long v10, US0 v11, unsigned char v12, signed long v13, US0 v14, unsigned char v15, signed long v16): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14; self.v15 = v15; self.v16 = v16
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -481,7 +475,7 @@ cdef class Closure10():
     cdef unsigned char v15
     cdef signed long v16
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, v7, Heap0 v8, numpy.ndarray[signed long,ndim=1] v9, signed long v10, US0 v11, unsigned char v12, signed long v13, US0 v14, unsigned char v15, signed long v16): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14; self.v15 = v15; self.v16 = v16
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -532,7 +526,7 @@ cdef class Closure5():
     cdef US0 v14
     cdef unsigned char v15
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, v7, Heap0 v8, numpy.ndarray[signed long,ndim=1] v9, signed long v10, US0 v11, unsigned char v12, signed long v13, US0 v14, unsigned char v15): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14; self.v15 = v15
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -582,7 +576,7 @@ cdef class Closure12():
     cdef US0 v14
     cdef unsigned char v15
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, v7, Heap0 v8, numpy.ndarray[signed long,ndim=1] v9, signed long v10, US0 v11, unsigned char v12, signed long v13, US0 v14, unsigned char v15): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14; self.v15 = v15
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -628,7 +622,7 @@ cdef class Closure4():
     cdef Heap0 v10
     cdef object v11
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, v7, US0 v8, US0 v9, Heap0 v10, numpy.ndarray[signed long,ndim=1] v11): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -675,38 +669,35 @@ cdef class Closure13():
         cdef UH0 v12 = args.v11
         cdef double v13 = args.v12
         cdef double v14 = args.v13
-        cdef numpy.ndarray[signed long,ndim=1] v15
-        cdef numpy.ndarray[double,ndim=1] v16
-        cdef numpy.ndarray[double,ndim=1] v17
-        cdef Tuple1 tmp4
-        cdef double v18
-        cdef double v19
-        cdef numpy.ndarray[double,ndim=1] v20
+        cdef Mut1 v15
+        cdef double v16
+        cdef double v17
+        cdef numpy.ndarray[double,ndim=1] v18
+        cdef numpy.ndarray[double,ndim=1] v19
+        cdef unsigned long long v20
         cdef unsigned long long v21
-        cdef unsigned long long v22
+        cdef bint v22
         cdef bint v23
-        cdef bint v24
-        cdef unsigned long long v25
-        cdef double v26
-        tmp4 = method2(v0, v1, v12)
-        v15, v16, v17 = tmp4.v0, tmp4.v1, tmp4.v2
-        del tmp4
-        del v15; del v17
-        v18 = v2 + v14
-        v19 = libc.math.exp(v18)
-        v20 = method11(v16)
-        del v16
-        v21 = len(v20)
-        v22 = len(v1)
-        v23 = v21 == v22
-        v24 = v23 == 0
-        if v24:
+        cdef unsigned long long v24
+        cdef double v25
+        v15 = method2(v0, v1, v12)
+        v16 = v2 + v14
+        v17 = libc.math.exp(v16)
+        v18 = v15.v1
+        del v15
+        v19 = method11(v18)
+        del v18
+        v20 = len(v19)
+        v21 = len(v1)
+        v22 = v20 == v21
+        v23 = v22 == 0
+        if v23:
             raise Exception("The length of the two arrays has to the same.")
         else:
             pass
-        v25 = (<unsigned long long>0)
-        v26 = (<double>0.000000)
-        return method20(v21, v11, v19, v20, v1, v25, v26)
+        v24 = (<unsigned long long>0)
+        v25 = (<double>0.000000)
+        return method20(v20, v11, v17, v19, v1, v24, v25)
 cdef class Closure18():
     cdef UH0 v0
     cdef double v1
@@ -725,7 +716,7 @@ cdef class Closure18():
     cdef unsigned char v14
     cdef signed long v15
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, Heap0 v7, signed long v8, US0 v9, US0 v10, unsigned char v11, signed long v12, US0 v13, unsigned char v14, signed long v15): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14; self.v15 = v15
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -775,7 +766,7 @@ cdef class Closure17():
     cdef unsigned char v14
     cdef signed long v15
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, Heap0 v7, signed long v8, US0 v9, US0 v10, unsigned char v11, signed long v12, US0 v13, unsigned char v14, signed long v15): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14; self.v15 = v15
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -824,7 +815,7 @@ cdef class Closure16():
     cdef signed long v13
     cdef US0 v14
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, Heap0 v7, US0 v8, unsigned char v9, signed long v10, US0 v11, unsigned char v12, signed long v13, US0 v14): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -872,7 +863,7 @@ cdef class Closure19():
     cdef signed long v13
     cdef US0 v14
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, Heap0 v7, US0 v8, unsigned char v9, signed long v10, US0 v11, unsigned char v12, signed long v13, US0 v14): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -921,7 +912,7 @@ cdef class Closure21():
     cdef unsigned char v14
     cdef signed long v15
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, Heap0 v7, numpy.ndarray[signed long,ndim=1] v8, signed long v9, US0 v10, unsigned char v11, signed long v12, US0 v13, unsigned char v14, signed long v15): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14; self.v15 = v15
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -971,7 +962,7 @@ cdef class Closure20():
     cdef unsigned char v14
     cdef signed long v15
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, Heap0 v7, numpy.ndarray[signed long,ndim=1] v8, signed long v9, US0 v10, unsigned char v11, signed long v12, US0 v13, unsigned char v14, signed long v15): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14; self.v15 = v15
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -1020,7 +1011,7 @@ cdef class Closure15():
     cdef US0 v13
     cdef unsigned char v14
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, Heap0 v7, numpy.ndarray[signed long,ndim=1] v8, signed long v9, US0 v10, unsigned char v11, signed long v12, US0 v13, unsigned char v14): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -1068,7 +1059,7 @@ cdef class Closure22():
     cdef US0 v13
     cdef unsigned char v14
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, Heap0 v7, numpy.ndarray[signed long,ndim=1] v8, signed long v9, US0 v10, unsigned char v11, signed long v12, US0 v13, unsigned char v14): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -1112,7 +1103,7 @@ cdef class Closure14():
     cdef Heap0 v9
     cdef object v10
     def __init__(self, UH0 v0, double v1, UH0 v2, double v3, double v4, v5, v6, US0 v7, US0 v8, Heap0 v9, numpy.ndarray[signed long,ndim=1] v10): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10
-    def __call__(self, Tuple3 args):
+    def __call__(self, Tuple2 args):
         cdef UH0 v0 = self.v0
         cdef double v1 = self.v1
         cdef UH0 v2 = self.v2
@@ -1158,12 +1149,10 @@ cdef class Closure0():
         del v1; del v3
         v6 = Closure13(v0)
         return method37(v6, v2)
-cdef class Tuple5:
+cdef class Tuple4:
     cdef readonly UH0 v0
-    cdef readonly object v1
-    cdef readonly object v2
-    cdef readonly object v3
-    def __init__(self, UH0 v0, v1, v2, v3): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3
+    cdef readonly Mut1 v1
+    def __init__(self, UH0 v0, Mut1 v1): self.v0 = v0; self.v1 = v1
 cdef class Closure23():
     cdef Mut0 v0
     def __init__(self, Mut0 v0): self.v0 = v0
@@ -1195,7 +1184,7 @@ cdef class Closure27():
     def __init__(self): pass
     def __call__(self, US3 v0):
         pass
-cdef class Mut1:
+cdef class Mut2:
     cdef public object v0
     cdef public object v1
     cdef public object v2
@@ -1698,22 +1687,20 @@ cdef void method10(unsigned long long v0, unsigned long long v1, numpy.ndarray[o
     cdef unsigned long long v6
     cdef unsigned long long v7
     cdef UH0 v8
-    cdef numpy.ndarray[signed long,ndim=1] v9
-    cdef numpy.ndarray[double,ndim=1] v10
-    cdef numpy.ndarray[double,ndim=1] v11
-    cdef Tuple2 tmp1
-    cdef unsigned long long v12
-    cdef list v13
+    cdef Mut1 v9
+    cdef Tuple1 tmp1
+    cdef unsigned long long v10
+    cdef list v11
     v5 = v4 < v0
     if v5:
         v6 = v4 + (<unsigned long long>1)
         tmp1 = v3[v4]
-        v7, v8, v9, v10, v11 = tmp1.v0, tmp1.v1, tmp1.v2, tmp1.v3, tmp1.v4
+        v7, v8, v9 = tmp1.v0, tmp1.v1, tmp1.v2
         del tmp1
-        v12 = v7 % v1
-        v13 = v2[v12]
-        v13.append(Tuple2(v7, v8, v9, v10, v11))
-        del v8; del v9; del v10; del v11; del v13
+        v10 = v7 % v1
+        v11 = v2[v10]
+        v11.append(Tuple1(v7, v8, v9))
+        del v8; del v9; del v11
         method10(v0, v1, v2, v3, v6)
     else:
         pass
@@ -1767,74 +1754,75 @@ cdef void method7(Mut0 v0):
     v10 = v0.v0
     v11 = v10 + (<unsigned long long>2)
     v0.v0 = v11
-cdef Tuple1 method4(Mut0 v0, UH0 v1, numpy.ndarray[signed long,ndim=1] v2, unsigned long long v3, list v4, unsigned long long v5):
+cdef Mut1 method4(Mut0 v0, UH0 v1, numpy.ndarray[signed long,ndim=1] v2, unsigned long long v3, list v4, unsigned long long v5):
     cdef unsigned long long v6
     cdef bint v7
     cdef unsigned long long v8
     cdef UH0 v9
-    cdef numpy.ndarray[signed long,ndim=1] v10
-    cdef numpy.ndarray[double,ndim=1] v11
-    cdef numpy.ndarray[double,ndim=1] v12
-    cdef Tuple2 tmp0
+    cdef Mut1 v10
+    cdef Tuple1 tmp0
+    cdef bint v11
     cdef bint v13
-    cdef bint v15
-    cdef unsigned long long v16
+    cdef unsigned long long v14
+    cdef unsigned long long v17
+    cdef numpy.ndarray[double,ndim=1] v18
+    cdef unsigned long long v19
+    cdef numpy.ndarray[double,ndim=1] v20
+    cdef unsigned long long v21
+    cdef Mut1 v22
     cdef unsigned long long v23
-    cdef numpy.ndarray[double,ndim=1] v24
+    cdef unsigned long long v24
     cdef unsigned long long v25
-    cdef numpy.ndarray[double,ndim=1] v26
-    cdef unsigned long long v27
+    cdef unsigned long long v26
+    cdef numpy.ndarray[object,ndim=1] v27
     cdef unsigned long long v28
     cdef unsigned long long v29
-    cdef unsigned long long v30
-    cdef unsigned long long v31
-    cdef numpy.ndarray[object,ndim=1] v32
-    cdef unsigned long long v33
-    cdef unsigned long long v34
-    cdef bint v35
+    cdef bint v30
     v6 = len(v4)
     v7 = v5 < v6
     if v7:
         tmp0 = v4[v5]
-        v8, v9, v10, v11, v12 = tmp0.v0, tmp0.v1, tmp0.v2, tmp0.v3, tmp0.v4
+        v8, v9, v10 = tmp0.v0, tmp0.v1, tmp0.v2
         del tmp0
-        v13 = v3 == v8
-        if v13:
-            v15 = method5(v9, v1)
+        v11 = v3 == v8
+        if v11:
+            v13 = method5(v9, v1)
         else:
-            v15 = 0
+            v13 = 0
         del v9
-        if v15:
-            return Tuple1(v10, v11, v12)
+        if v13:
+            return v10
         else:
-            del v10; del v11; del v12
-            v16 = v5 + (<unsigned long long>1)
-            return method4(v0, v1, v2, v3, v4, v16)
+            del v10
+            v14 = v5 + (<unsigned long long>1)
+            return method4(v0, v1, v2, v3, v4, v14)
     else:
-        v23 = len(v2)
-        v24 = numpy.empty(v23,dtype=numpy.float64)
-        v25 = (<unsigned long long>0)
-        method6(v23, v24, v25)
-        v26 = numpy.empty(v23,dtype=numpy.float64)
-        v27 = (<unsigned long long>0)
-        method6(v23, v26, v27)
-        v4.append(Tuple2(v3, v1, v2, v26, v24))
-        v28 = v0.v2
-        v29 = v28 + (<unsigned long long>1)
-        v0.v2 = v29
-        v30 = v0.v2
-        v31 = v0.v0
-        v32 = v0.v1
-        v33 = len(v32)
-        del v32
-        v34 = v31 * v33
-        v35 = v30 >= v34
-        if v35:
+        v17 = len(v2)
+        v18 = numpy.empty(v17,dtype=numpy.float64)
+        v19 = (<unsigned long long>0)
+        method6(v17, v18, v19)
+        v20 = numpy.empty(v17,dtype=numpy.float64)
+        v21 = (<unsigned long long>0)
+        method6(v17, v20, v21)
+        v22 = Mut1(v2, v20, v18, (<unsigned long long>1))
+        del v18; del v20
+        v4.append(Tuple1(v3, v1, v22))
+        v23 = v0.v2
+        v24 = v23 + (<unsigned long long>1)
+        v0.v2 = v24
+        v25 = v0.v2
+        v26 = v0.v0
+        v27 = v0.v1
+        v28 = len(v27)
+        del v27
+        v29 = v26 * v28
+        v30 = v25 >= v29
+        if v30:
             method7(v0)
         else:
             pass
-        return Tuple1(v2, v26, v24)
-cdef Tuple1 method2(Mut0 v0, numpy.ndarray[signed long,ndim=1] v1, UH0 v2):
+        return v22
+cdef Mut1 method2(Mut0 v0, numpy.ndarray[signed long,ndim=1] v1, UH0 v2):
     cdef unsigned long long v4
     cdef numpy.ndarray[object,ndim=1] v5
     cdef unsigned long long v6
@@ -1951,61 +1939,72 @@ cdef double method15(unsigned long long v0, v1, double v2, numpy.ndarray[double,
             v17 = (<double>0.000000)
         else:
             v15 = libc.math.log(v10)
-            v17 = v1(Tuple3(v15, v11))
+            v17 = v1(Tuple2(v15, v11))
         v18 = v17 * v10
         v19 = v7 + v18
         v5[v6] = v17
         return method15(v0, v1, v2, v3, v4, v5, v9, v19)
     else:
         return v7
-cdef void method17(unsigned long long v0, double v1, double v2, numpy.ndarray[double,ndim=1] v3, unsigned char v4, numpy.ndarray[double,ndim=1] v5, unsigned long long v6):
-    cdef bint v7
-    cdef unsigned long long v8
-    cdef double v9
+cdef void method17(unsigned long long v0, double v1, double v2, numpy.ndarray[double,ndim=1] v3, unsigned char v4, double v5, numpy.ndarray[double,ndim=1] v6, unsigned long long v7):
+    cdef bint v8
+    cdef unsigned long long v9
     cdef double v10
-    cdef bint v11
-    cdef double v13
+    cdef double v11
+    cdef double v12
+    cdef bint v13
     cdef double v15
-    cdef double v16
     cdef double v17
     cdef double v18
-    v7 = v6 < v0
-    if v7:
-        v8 = v6 + (<unsigned long long>1)
-        v9 = v5[v6]
-        v10 = v3[v6]
-        v11 = v4 == (<unsigned char>0)
-        if v11:
-            v13 = v10
+    cdef double v19
+    cdef double v20
+    cdef bint v21
+    cdef double v22
+    v8 = v7 < v0
+    if v8:
+        v9 = v7 + (<unsigned long long>1)
+        v10 = v6[v7]
+        v11 = v5 * v1
+        v12 = v3[v7]
+        v13 = v4 == (<unsigned char>0)
+        if v13:
+            v15 = v12
         else:
-            v13 = -v10
-        if v11:
-            v15 = v2
+            v15 = -v12
+        if v13:
+            v17 = v2
         else:
-            v15 = -v2
-        v16 = v13 - v15
-        v17 = v1 * v16
-        v18 = v9 + v17
-        v5[v6] = v18
-        method17(v0, v1, v2, v3, v4, v5, v8)
+            v17 = -v2
+        v18 = v15 - v17
+        v19 = v11 * v18
+        v20 = v10 + v19
+        v21 = (<double>0.000000) >= v20
+        if v21:
+            v22 = (<double>0.000000)
+        else:
+            v22 = v20
+        v6[v7] = v22
+        method17(v0, v1, v2, v3, v4, v5, v6, v9)
     else:
         pass
-cdef void method18(unsigned long long v0, numpy.ndarray[double,ndim=1] v1, double v2, numpy.ndarray[double,ndim=1] v3, unsigned long long v4):
-    cdef bint v5
-    cdef unsigned long long v6
-    cdef double v7
+cdef void method18(unsigned long long v0, double v1, numpy.ndarray[double,ndim=1] v2, double v3, numpy.ndarray[double,ndim=1] v4, unsigned long long v5):
+    cdef bint v6
+    cdef unsigned long long v7
     cdef double v8
     cdef double v9
     cdef double v10
-    v5 = v4 < v0
-    if v5:
-        v6 = v4 + (<unsigned long long>1)
-        v7 = v3[v4]
-        v8 = v1[v4]
-        v9 = v2 * v8
-        v10 = v7 + v9
-        v3[v4] = v10
-        method18(v0, v1, v2, v3, v6)
+    cdef double v11
+    cdef double v12
+    v6 = v5 < v0
+    if v6:
+        v7 = v5 + (<unsigned long long>1)
+        v8 = v4[v5]
+        v9 = v1 * v3
+        v10 = v2[v5]
+        v11 = v9 * v10
+        v12 = v8 + v11
+        v4[v5] = v12
+        method18(v0, v1, v2, v3, v4, v7)
     else:
         pass
 cdef double method19(unsigned long long v0, numpy.ndarray[double,ndim=1] v1, numpy.ndarray[double,ndim=1] v2, unsigned long long v3, double v4):
@@ -2025,38 +2024,56 @@ cdef double method19(unsigned long long v0, numpy.ndarray[double,ndim=1] v1, num
         return method19(v0, v1, v2, v6, v10)
     else:
         return v4
-cdef double method16(UH0 v0, double v1, numpy.ndarray[signed long,ndim=1] v2, numpy.ndarray[double,ndim=1] v3, numpy.ndarray[double,ndim=1] v4, double v5, double v6, numpy.ndarray[double,ndim=1] v7, unsigned char v8):
-    cdef unsigned long long v9
+cdef double method16(UH0 v0, double v1, Mut1 v2, double v3, double v4, numpy.ndarray[double,ndim=1] v5, unsigned char v6):
+    cdef unsigned long long v7
+    cdef double v8
+    cdef numpy.ndarray[double,ndim=1] v9
     cdef unsigned long long v10
-    cdef numpy.ndarray[double,ndim=1] v11
-    cdef double v12
-    cdef unsigned long long v13
-    cdef unsigned long long v14
-    cdef unsigned long long v15
+    cdef unsigned long long v11
+    cdef numpy.ndarray[double,ndim=1] v12
+    cdef numpy.ndarray[double,ndim=1] v13
+    cdef double v14
+    cdef numpy.ndarray[double,ndim=1] v15
     cdef unsigned long long v16
-    cdef bint v17
-    cdef bint v18
+    cdef unsigned long long v17
+    cdef unsigned long long v18
     cdef unsigned long long v19
-    cdef double v20
-    v9 = len(v4)
-    v10 = (<unsigned long long>0)
-    method17(v9, v5, v6, v7, v8, v4, v10)
-    v11 = method11(v4)
-    v12 = libc.math.exp(v1)
-    v13 = len(v3)
-    v14 = (<unsigned long long>0)
-    method18(v13, v11, v12, v3, v14)
-    v15 = len(v11)
-    v16 = len(v7)
-    v17 = v15 == v16
-    v18 = v17 == 0
-    if v18:
+    cdef unsigned long long v20
+    cdef unsigned long long v21
+    cdef bint v22
+    cdef bint v23
+    cdef unsigned long long v24
+    cdef double v25
+    v7 = v2.v3
+    v8 = <double>v7
+    v9 = v2.v2
+    v10 = len(v9)
+    v11 = (<unsigned long long>0)
+    method17(v10, v3, v4, v5, v6, v8, v9, v11)
+    del v9
+    v12 = v2.v2
+    v13 = method11(v12)
+    del v12
+    v14 = libc.math.exp(v1)
+    v15 = v2.v1
+    v16 = len(v15)
+    v17 = (<unsigned long long>0)
+    method18(v16, v8, v13, v14, v15, v17)
+    del v15
+    v18 = v2.v3
+    v19 = v18 + (<unsigned long long>1)
+    v2.v3 = v19
+    v20 = len(v13)
+    v21 = len(v5)
+    v22 = v20 == v21
+    v23 = v22 == 0
+    if v23:
         raise Exception("The length of the two arrays has to the same.")
     else:
         pass
-    v19 = (<unsigned long long>0)
-    v20 = (<double>0.000000)
-    return method19(v15, v11, v7, v19, v20)
+    v24 = (<unsigned long long>0)
+    v25 = (<double>0.000000)
+    return method19(v20, v13, v5, v24, v25)
 cdef double method20(unsigned long long v0, v1, double v2, numpy.ndarray[double,ndim=1] v3, numpy.ndarray[signed long,ndim=1] v4, unsigned long long v5, double v6):
     cdef bint v7
     cdef unsigned long long v8
@@ -2082,7 +2099,7 @@ cdef double method20(unsigned long long v0, v1, double v2, numpy.ndarray[double,
             v16 = (<double>0.000000)
         else:
             v14 = libc.math.log(v9)
-            v16 = v1(Tuple3(v14, v10))
+            v16 = v1(Tuple2(v14, v10))
         v17 = v16 * v9
         v18 = v6 + v17
         return method20(v0, v1, v2, v3, v4, v8, v18)
@@ -2312,10 +2329,10 @@ cdef double method34(v0, v1, v2, Heap0 v3, signed long v4, US0 v5, US0 v6, unsig
             v65, v66, v67, v68, v69, v70 = v6, v7, v64, v9, v10, v60
         v71 = <double>v56
         v72 = US1_1(v5)
-        v1(Tuple4(v13, v65, v66, v67, v68, v69, v70, v72, (<unsigned char>0), v14, v15, v71))
+        v1(Tuple3(v13, v65, v66, v67, v68, v69, v70, v72, (<unsigned char>0), v14, v15, v71))
         del v72
         v73 = US1_1(v5)
-        v1(Tuple4(v13, v68, v69, v70, v65, v66, v67, v73, (<unsigned char>1), v16, v17, v71))
+        v1(Tuple3(v13, v68, v69, v70, v65, v66, v67, v73, (<unsigned char>1), v16, v17, v71))
         del v73
         return v71
     elif v12 == 1: # fold
@@ -2341,10 +2358,10 @@ cdef double method34(v0, v1, v2, Heap0 v3, signed long v4, US0 v5, US0 v6, unsig
             v84, v85, v86, v87, v88, v89 = v6, v7, v83, v9, v10, v80
         v90 = <double>v76
         v91 = US1_1(v5)
-        v1(Tuple4(v13, v84, v85, v86, v87, v88, v89, v91, (<unsigned char>0), v14, v15, v90))
+        v1(Tuple3(v13, v84, v85, v86, v87, v88, v89, v91, (<unsigned char>0), v14, v15, v90))
         del v91
         v92 = US1_1(v5)
-        v1(Tuple4(v13, v87, v88, v89, v84, v85, v86, v92, (<unsigned char>1), v16, v17, v90))
+        v1(Tuple3(v13, v87, v88, v89, v84, v85, v86, v92, (<unsigned char>1), v16, v17, v90))
         del v92
         return v90
     elif v12 == 2: # raise
@@ -2529,10 +2546,10 @@ cdef double method36(v0, v1, v2, Heap0 v3, numpy.ndarray[signed long,ndim=1] v4,
             v38, v39, v40, v41, v42, v43 = v6, v7, v37, v9, v10, v34
         v44 = <double>v30
         v45 = US1_0()
-        v1(Tuple4(v13, v38, v39, v40, v41, v42, v43, v45, (<unsigned char>0), v14, v15, v44))
+        v1(Tuple3(v13, v38, v39, v40, v41, v42, v43, v45, (<unsigned char>0), v14, v15, v44))
         del v45
         v46 = US1_0()
-        v1(Tuple4(v13, v41, v42, v43, v38, v39, v40, v46, (<unsigned char>1), v16, v17, v44))
+        v1(Tuple3(v13, v41, v42, v43, v38, v39, v40, v46, (<unsigned char>1), v16, v17, v44))
         del v46
         return v44
     elif v12 == 2: # raise
@@ -2614,10 +2631,10 @@ cdef double method29(v0, v1, v2, Heap0 v3, numpy.ndarray[signed long,ndim=1] v4,
             v37, v38, v39, v40, v41, v42 = v6, v7, v36, v9, v10, v33
         v43 = <double>v29
         v44 = US1_0()
-        v1(Tuple4(v12, v37, v38, v39, v40, v41, v42, v44, (<unsigned char>0), v13, v14, v43))
+        v1(Tuple3(v12, v37, v38, v39, v40, v41, v42, v44, (<unsigned char>0), v13, v14, v43))
         del v44
         v45 = US1_0()
-        v1(Tuple4(v12, v40, v41, v42, v37, v38, v39, v45, (<unsigned char>1), v15, v16, v43))
+        v1(Tuple3(v12, v40, v41, v42, v37, v38, v39, v45, (<unsigned char>1), v15, v16, v43))
         del v45
         return v43
     elif v11 == 2: # raise
@@ -3007,10 +3024,10 @@ cdef double method47(v0, v1, Heap0 v2, signed long v3, US0 v4, US0 v5, unsigned 
             v64, v65, v66, v67, v68, v69 = v5, v6, v63, v8, v9, v59
         v70 = <double>v55
         v71 = US1_1(v4)
-        v1(Tuple4(v12, v64, v65, v66, v67, v68, v69, v71, (<unsigned char>0), v13, v14, v70))
+        v1(Tuple3(v12, v64, v65, v66, v67, v68, v69, v71, (<unsigned char>0), v13, v14, v70))
         del v71
         v72 = US1_1(v4)
-        v1(Tuple4(v12, v67, v68, v69, v64, v65, v66, v72, (<unsigned char>1), v15, v16, v70))
+        v1(Tuple3(v12, v67, v68, v69, v64, v65, v66, v72, (<unsigned char>1), v15, v16, v70))
         del v72
         return v70
     elif v11 == 1: # fold
@@ -3036,10 +3053,10 @@ cdef double method47(v0, v1, Heap0 v2, signed long v3, US0 v4, US0 v5, unsigned 
             v83, v84, v85, v86, v87, v88 = v5, v6, v82, v8, v9, v79
         v89 = <double>v75
         v90 = US1_1(v4)
-        v1(Tuple4(v12, v83, v84, v85, v86, v87, v88, v90, (<unsigned char>0), v13, v14, v89))
+        v1(Tuple3(v12, v83, v84, v85, v86, v87, v88, v90, (<unsigned char>0), v13, v14, v89))
         del v90
         v91 = US1_1(v4)
-        v1(Tuple4(v12, v86, v87, v88, v83, v84, v85, v91, (<unsigned char>1), v15, v16, v89))
+        v1(Tuple3(v12, v86, v87, v88, v83, v84, v85, v91, (<unsigned char>1), v15, v16, v89))
         del v91
         return v89
     elif v11 == 2: # raise
@@ -3224,10 +3241,10 @@ cdef double method48(v0, v1, Heap0 v2, numpy.ndarray[signed long,ndim=1] v3, sig
             v37, v38, v39, v40, v41, v42 = v5, v6, v36, v8, v9, v33
         v43 = <double>v29
         v44 = US1_0()
-        v1(Tuple4(v12, v37, v38, v39, v40, v41, v42, v44, (<unsigned char>0), v13, v14, v43))
+        v1(Tuple3(v12, v37, v38, v39, v40, v41, v42, v44, (<unsigned char>0), v13, v14, v43))
         del v44
         v45 = US1_0()
-        v1(Tuple4(v12, v40, v41, v42, v37, v38, v39, v45, (<unsigned char>1), v15, v16, v43))
+        v1(Tuple3(v12, v40, v41, v42, v37, v38, v39, v45, (<unsigned char>1), v15, v16, v43))
         del v45
         return v43
     elif v11 == 2: # raise
@@ -3309,10 +3326,10 @@ cdef double method43(v0, v1, Heap0 v2, numpy.ndarray[signed long,ndim=1] v3, sig
             v36, v37, v38, v39, v40, v41 = v5, v6, v35, v8, v9, v32
         v42 = <double>v28
         v43 = US1_0()
-        v1(Tuple4(v11, v36, v37, v38, v39, v40, v41, v43, (<unsigned char>0), v12, v13, v42))
+        v1(Tuple3(v11, v36, v37, v38, v39, v40, v41, v43, (<unsigned char>0), v12, v13, v42))
         del v43
         v44 = US1_0()
-        v1(Tuple4(v11, v39, v40, v41, v36, v37, v38, v44, (<unsigned char>1), v14, v15, v42))
+        v1(Tuple3(v11, v39, v40, v41, v36, v37, v38, v44, (<unsigned char>1), v14, v15, v42))
         del v44
         return v42
     elif v10 == 2: # raise
@@ -3549,21 +3566,19 @@ cdef unsigned long long method52(unsigned long long v0, numpy.ndarray[object,ndi
     cdef unsigned long long v6
     cdef unsigned long long v7
     cdef UH0 v8
-    cdef numpy.ndarray[signed long,ndim=1] v9
-    cdef numpy.ndarray[double,ndim=1] v10
-    cdef numpy.ndarray[double,ndim=1] v11
-    cdef Tuple2 tmp5
-    cdef unsigned long long v12
+    cdef Mut1 v9
+    cdef Tuple1 tmp2
+    cdef unsigned long long v10
     v5 = v3 < v0
     if v5:
         v6 = v3 + (<unsigned long long>1)
-        tmp5 = v2[v3]
-        v7, v8, v9, v10, v11 = tmp5.v0, tmp5.v1, tmp5.v2, tmp5.v3, tmp5.v4
-        del tmp5
-        v12 = v4 - (<unsigned long long>1)
-        v1[v12] = Tuple5(v8, v9, v10, v11)
-        del v8; del v9; del v10; del v11
-        return method52(v0, v1, v2, v6, v12)
+        tmp2 = v2[v3]
+        v7, v8, v9 = tmp2.v0, tmp2.v1, tmp2.v2
+        del tmp2
+        v10 = v4 - (<unsigned long long>1)
+        v1[v10] = Tuple4(v8, v9)
+        del v8; del v9
+        return method52(v0, v1, v2, v6, v10)
     else:
         return v4
 cdef unsigned long long method51(unsigned long long v0, numpy.ndarray[object,ndim=1] v1, numpy.ndarray[object,ndim=1] v2, unsigned long long v3, unsigned long long v4):
@@ -3688,12 +3703,12 @@ cdef void method53(unsigned long long v0, numpy.ndarray[object,ndim=1] v1, list 
     cdef bint v4
     cdef unsigned long long v5
     cdef UH0 v6
-    cdef numpy.ndarray[signed long,ndim=1] v7
-    cdef numpy.ndarray[double,ndim=1] v8
-    cdef numpy.ndarray[double,ndim=1] v9
-    cdef Tuple5 tmp6
-    cdef list v10
-    cdef str v11
+    cdef Mut1 v7
+    cdef Tuple4 tmp3
+    cdef list v8
+    cdef str v9
+    cdef numpy.ndarray[signed long,ndim=1] v10
+    cdef numpy.ndarray[double,ndim=1] v11
     cdef unsigned long long v12
     cdef unsigned long long v13
     cdef bint v14
@@ -3701,26 +3716,31 @@ cdef void method53(unsigned long long v0, numpy.ndarray[object,ndim=1] v1, list 
     cdef list v16
     cdef unsigned long long v17
     cdef str v18
-    cdef unsigned long long v19
-    cdef bint v20
-    cdef bint v21
-    cdef list v22
-    cdef unsigned long long v23
-    cdef str v24
-    cdef object v25
+    cdef numpy.ndarray[signed long,ndim=1] v19
+    cdef numpy.ndarray[double,ndim=1] v20
+    cdef unsigned long long v21
+    cdef unsigned long long v22
+    cdef bint v23
+    cdef bint v24
+    cdef list v25
+    cdef unsigned long long v26
+    cdef str v27
+    cdef object v28
     v4 = v3 < v0
     if v4:
         v5 = v3 + (<unsigned long long>1)
-        tmp6 = v1[v3]
-        v6, v7, v8, v9 = tmp6.v0, tmp6.v1, tmp6.v2, tmp6.v3
-        del tmp6
-        v10 = [None]*(<unsigned long long>0)
-        method54(v10, v6)
+        tmp3 = v1[v3]
+        v6, v7 = tmp3.v0, tmp3.v1
+        del tmp3
+        v8 = [None]*(<unsigned long long>0)
+        method54(v8, v6)
         del v6
-        v11 = "".join(v10)
-        del v10
-        v12 = len(v7)
-        v13 = len(v8)
+        v9 = "".join(v8)
+        del v8
+        v10 = v7.v0
+        v11 = v7.v1
+        v12 = len(v10)
+        v13 = len(v11)
         v14 = v12 == v13
         v15 = v14 != 1
         if v15:
@@ -3729,27 +3749,31 @@ cdef void method53(unsigned long long v0, numpy.ndarray[object,ndim=1] v1, list 
             pass
         v16 = [None]*v12
         v17 = (<unsigned long long>0)
-        method55(v12, v7, v8, v16, v17)
-        del v8
+        method55(v12, v10, v11, v16, v17)
+        del v10; del v11
         v18 = "\n".join(v16)
         del v16
-        v19 = len(v9)
-        v20 = v12 == v19
-        v21 = v20 != 1
-        if v21:
+        v19 = v7.v0
+        v20 = v7.v2
+        del v7
+        v21 = len(v19)
+        v22 = len(v20)
+        v23 = v21 == v22
+        v24 = v23 != 1
+        if v24:
             raise Exception("The two arrays have to have the same size.")
         else:
             pass
-        v22 = [None]*v12
-        v23 = (<unsigned long long>0)
-        method56(v12, v7, v9, v22, v23)
-        del v7; del v9
-        v24 = "\n".join(v22)
-        del v22
-        v25 = {'avg_policy': v18, 'regret': v24, 'trace': v11}
-        del v11; del v18; del v24
-        v2[v3] = v25
+        v25 = [None]*v21
+        v26 = (<unsigned long long>0)
+        method56(v21, v19, v20, v25, v26)
+        del v19; del v20
+        v27 = "\n".join(v25)
         del v25
+        v28 = {'avg_policy': v18, 'regret': v27, 'trace': v9}
+        del v9; del v18; del v27
+        v2[v3] = v28
+        del v28
         method53(v0, v1, v2, v5)
     else:
         pass
@@ -3844,7 +3868,7 @@ cdef str method65(unsigned char v0, US4 v1, UH0 v2):
         v3.append(v18)
         del v18
     return "\n".join(v3)
-cdef void method68(unsigned long long v0, numpy.ndarray[signed long,ndim=1] v1, v2, Mut1 v3, unsigned long long v4):
+cdef void method68(unsigned long long v0, numpy.ndarray[signed long,ndim=1] v1, v2, Mut2 v3, unsigned long long v4):
     cdef bint v5
     cdef unsigned long long v6
     cdef US3 v7
@@ -3875,7 +3899,7 @@ cdef void method64(v0, v1, numpy.ndarray[signed long,ndim=1] v2, UH0 v3, US4 v4,
     cdef object v13
     cdef object v14
     cdef object v15
-    cdef Mut1 v16
+    cdef Mut2 v16
     cdef unsigned long long v17
     cdef unsigned long long v18
     cdef object v19
@@ -3892,7 +3916,7 @@ cdef void method64(v0, v1, numpy.ndarray[signed long,ndim=1] v2, UH0 v3, US4 v4,
     v13 = False
     v14 = False
     v15 = False
-    v16 = Mut1(v14, v13, v15)
+    v16 = Mut2(v14, v13, v15)
     del v13; del v14; del v15
     v17 = len(v2)
     v18 = (<unsigned long long>0)
@@ -3996,23 +4020,21 @@ cdef void method63(v0, Mut0 v1, Heap0 v2, signed long v3, US0 v4, US0 v5, unsign
     cdef numpy.ndarray[signed long,ndim=1] v99
     cdef bint v100
     cdef unsigned long long v101
-    cdef numpy.ndarray[signed long,ndim=1] v102
+    cdef Mut1 v102
     cdef numpy.ndarray[double,ndim=1] v103
     cdef numpy.ndarray[double,ndim=1] v104
-    cdef Tuple1 tmp11
-    cdef numpy.ndarray[double,ndim=1] v105
-    cdef unsigned long long v106
-    cdef double v107
-    cdef US3 v108
+    cdef unsigned long long v105
+    cdef double v106
+    cdef US3 v107
+    cdef double v108
     cdef double v109
-    cdef double v110
-    cdef US2 v111
-    cdef UH0 v112
-    cdef US2 v113
-    cdef UH0 v114
-    cdef US1 v115
-    cdef US4 v116
-    cdef object v117
+    cdef US2 v110
+    cdef UH0 v111
+    cdef US2 v112
+    cdef UH0 v113
+    cdef US1 v114
+    cdef US4 v115
+    cdef object v116
     if v11 == 0: # call
         v18 = method35(v4)
         v19 = method35(v8)
@@ -4148,191 +4170,181 @@ cdef void method63(v0, Mut0 v1, Heap0 v2, signed long v3, US0 v4, US0 v5, unsign
         v100 = v6 == (<unsigned char>0)
         if v100:
             v101 = len(v99)
-            tmp11 = method2(v1, v99, v13)
-            v102, v103, v104 = tmp11.v0, tmp11.v1, tmp11.v2
-            del tmp11
-            del v102; del v104
-            v105 = method11(v103)
+            v102 = method2(v1, v99, v13)
+            v103 = v102.v1
+            del v102
+            v104 = method11(v103)
             del v103
-            v106 = numpy.random.choice(v101,p=v105)
-            v107 = v105[v106]
-            del v105
-            v108 = v99[v106]
+            v105 = numpy.random.choice(v101,p=v104)
+            v106 = v104[v105]
+            del v104
+            v107 = v99[v105]
             del v99
-            v109 = libc.math.log(v107)
-            v110 = v109 + v14
-            v111 = US2_0(v108)
-            v112 = UH0_0(v111, v13)
-            del v111
-            v113 = US2_0(v108)
-            v114 = UH0_0(v113, v15)
-            del v113
-            method63(v0, v1, v2, v97, v4, v8, v9, v98, v5, v6, v7, v108, v12, v112, v110, v114, v16, v17)
+            v108 = libc.math.log(v106)
+            v109 = v108 + v14
+            v110 = US2_0(v107)
+            v111 = UH0_0(v110, v13)
+            del v110
+            v112 = US2_0(v107)
+            v113 = UH0_0(v112, v15)
+            del v112
+            method63(v0, v1, v2, v97, v4, v8, v9, v98, v5, v6, v7, v107, v12, v111, v109, v113, v16, v17)
         else:
-            v115 = US1_1(v4)
-            v116 = US4_0()
-            v117 = Closure31(v17, v15, v16, v13, v14, v12, v0, v1, v2, v97, v4, v8, v9, v98, v5, v6, v7)
-            method64(v0, v117, v99, v15, v116, v115, v8, v9, v98, v5, v6, v7)
+            v114 = US1_1(v4)
+            v115 = US4_0()
+            v116 = Closure31(v17, v15, v16, v13, v14, v12, v0, v1, v2, v97, v4, v8, v9, v98, v5, v6, v7)
+            method64(v0, v116, v99, v15, v115, v114, v8, v9, v98, v5, v6, v7)
 cdef void method62(v0, Mut0 v1, Heap0 v2, US0 v3, unsigned char v4, signed long v5, US0 v6, unsigned char v7, signed long v8, US0 v9, US3 v10, double v11, UH0 v12, double v13, UH0 v14, double v15, v16):
     cdef signed long v17
     cdef numpy.ndarray[signed long,ndim=1] v18
     cdef bint v19
     cdef unsigned long long v20
-    cdef numpy.ndarray[signed long,ndim=1] v21
+    cdef Mut1 v21
     cdef numpy.ndarray[double,ndim=1] v22
     cdef numpy.ndarray[double,ndim=1] v23
-    cdef Tuple1 tmp10
-    cdef numpy.ndarray[double,ndim=1] v24
-    cdef unsigned long long v25
-    cdef double v26
-    cdef US3 v27
+    cdef unsigned long long v24
+    cdef double v25
+    cdef US3 v26
+    cdef double v27
     cdef double v28
-    cdef double v29
-    cdef US2 v30
-    cdef UH0 v31
-    cdef US2 v32
-    cdef UH0 v33
-    cdef US1 v34
-    cdef US4 v35
+    cdef US2 v29
+    cdef UH0 v30
+    cdef US2 v31
+    cdef UH0 v32
+    cdef US1 v33
+    cdef US4 v34
+    cdef object v35
     cdef object v36
-    cdef object v37
+    cdef signed long v37
     cdef signed long v38
-    cdef signed long v39
-    cdef numpy.ndarray[signed long,ndim=1] v40
-    cdef bint v41
-    cdef unsigned long long v42
-    cdef numpy.ndarray[signed long,ndim=1] v43
+    cdef numpy.ndarray[signed long,ndim=1] v39
+    cdef bint v40
+    cdef unsigned long long v41
+    cdef Mut1 v42
+    cdef numpy.ndarray[double,ndim=1] v43
     cdef numpy.ndarray[double,ndim=1] v44
-    cdef numpy.ndarray[double,ndim=1] v45
-    cdef Tuple1 tmp12
-    cdef numpy.ndarray[double,ndim=1] v46
-    cdef unsigned long long v47
+    cdef unsigned long long v45
+    cdef double v46
+    cdef US3 v47
     cdef double v48
-    cdef US3 v49
-    cdef double v50
-    cdef double v51
+    cdef double v49
+    cdef US2 v50
+    cdef UH0 v51
     cdef US2 v52
     cdef UH0 v53
-    cdef US2 v54
-    cdef UH0 v55
-    cdef US1 v56
-    cdef US4 v57
-    cdef object v58
+    cdef US1 v54
+    cdef US4 v55
+    cdef object v56
     if v10 == 0: # call
         v17 = (<signed long>2)
         v18 = method33(v2, v6, v7, v8, v3, v4, v5, v17)
         v19 = v4 == (<unsigned char>0)
         if v19:
             v20 = len(v18)
-            tmp10 = method2(v1, v18, v12)
-            v21, v22, v23 = tmp10.v0, tmp10.v1, tmp10.v2
-            del tmp10
-            del v21; del v23
-            v24 = method11(v22)
+            v21 = method2(v1, v18, v12)
+            v22 = v21.v1
+            del v21
+            v23 = method11(v22)
             del v22
-            v25 = numpy.random.choice(v20,p=v24)
-            v26 = v24[v25]
-            del v24
-            v27 = v18[v25]
+            v24 = numpy.random.choice(v20,p=v23)
+            v25 = v23[v24]
+            del v23
+            v26 = v18[v24]
             del v18
-            v28 = libc.math.log(v26)
-            v29 = v28 + v13
-            v30 = US2_0(v27)
-            v31 = UH0_0(v30, v12)
-            del v30
-            v32 = US2_0(v27)
-            v33 = UH0_0(v32, v14)
-            del v32
-            method63(v0, v1, v2, v17, v9, v6, v7, v8, v3, v4, v5, v27, v11, v31, v29, v33, v15, v16)
+            v27 = libc.math.log(v25)
+            v28 = v27 + v13
+            v29 = US2_0(v26)
+            v30 = UH0_0(v29, v12)
+            del v29
+            v31 = US2_0(v26)
+            v32 = UH0_0(v31, v14)
+            del v31
+            method63(v0, v1, v2, v17, v9, v6, v7, v8, v3, v4, v5, v26, v11, v30, v28, v32, v15, v16)
         else:
-            v34 = US1_1(v9)
-            v35 = US4_0()
-            v36 = Closure31(v16, v14, v15, v12, v13, v11, v0, v1, v2, v17, v9, v6, v7, v8, v3, v4, v5)
-            method64(v0, v36, v18, v14, v35, v34, v6, v7, v8, v3, v4, v5)
+            v33 = US1_1(v9)
+            v34 = US4_0()
+            v35 = Closure31(v16, v14, v15, v12, v13, v11, v0, v1, v2, v17, v9, v6, v7, v8, v3, v4, v5)
+            method64(v0, v35, v18, v14, v34, v33, v6, v7, v8, v3, v4, v5)
     elif v10 == 1: # fold
         raise Exception("impossible")
     elif v10 == 2: # raise
-        v38 = (<signed long>1)
-        v39 = v5 + (<signed long>4)
-        v40 = method33(v2, v6, v7, v39, v3, v4, v5, v38)
-        v41 = v4 == (<unsigned char>0)
-        if v41:
-            v42 = len(v40)
-            tmp12 = method2(v1, v40, v12)
-            v43, v44, v45 = tmp12.v0, tmp12.v1, tmp12.v2
-            del tmp12
-            del v43; del v45
-            v46 = method11(v44)
+        v37 = (<signed long>1)
+        v38 = v5 + (<signed long>4)
+        v39 = method33(v2, v6, v7, v38, v3, v4, v5, v37)
+        v40 = v4 == (<unsigned char>0)
+        if v40:
+            v41 = len(v39)
+            v42 = method2(v1, v39, v12)
+            v43 = v42.v1
+            del v42
+            v44 = method11(v43)
+            del v43
+            v45 = numpy.random.choice(v41,p=v44)
+            v46 = v44[v45]
             del v44
-            v47 = numpy.random.choice(v42,p=v46)
-            v48 = v46[v47]
-            del v46
-            v49 = v40[v47]
-            del v40
-            v50 = libc.math.log(v48)
-            v51 = v50 + v13
-            v52 = US2_0(v49)
-            v53 = UH0_0(v52, v12)
+            v47 = v39[v45]
+            del v39
+            v48 = libc.math.log(v46)
+            v49 = v48 + v13
+            v50 = US2_0(v47)
+            v51 = UH0_0(v50, v12)
+            del v50
+            v52 = US2_0(v47)
+            v53 = UH0_0(v52, v14)
             del v52
-            v54 = US2_0(v49)
-            v55 = UH0_0(v54, v14)
-            del v54
-            method63(v0, v1, v2, v38, v9, v6, v7, v39, v3, v4, v5, v49, v11, v53, v51, v55, v15, v16)
+            method63(v0, v1, v2, v37, v9, v6, v7, v38, v3, v4, v5, v47, v11, v51, v49, v53, v15, v16)
         else:
-            v56 = US1_1(v9)
-            v57 = US4_0()
-            v58 = Closure31(v16, v14, v15, v12, v13, v11, v0, v1, v2, v38, v9, v6, v7, v39, v3, v4, v5)
-            method64(v0, v58, v40, v14, v57, v56, v6, v7, v39, v3, v4, v5)
+            v54 = US1_1(v9)
+            v55 = US4_0()
+            v56 = Closure31(v16, v14, v15, v12, v13, v11, v0, v1, v2, v37, v9, v6, v7, v38, v3, v4, v5)
+            method64(v0, v56, v39, v14, v55, v54, v6, v7, v38, v3, v4, v5)
 cdef void method61(v0, Mut0 v1, Heap0 v2, US0 v3, unsigned char v4, signed long v5, US0 v6, unsigned char v7, signed long v8, US0 v9, double v10, UH0 v11, double v12, UH0 v13, double v14, v15):
     cdef numpy.ndarray[signed long,ndim=1] v16
     cdef bint v17
     cdef unsigned long long v18
-    cdef numpy.ndarray[signed long,ndim=1] v19
+    cdef Mut1 v19
     cdef numpy.ndarray[double,ndim=1] v20
     cdef numpy.ndarray[double,ndim=1] v21
-    cdef Tuple1 tmp9
-    cdef numpy.ndarray[double,ndim=1] v22
-    cdef unsigned long long v23
-    cdef double v24
-    cdef US3 v25
+    cdef unsigned long long v22
+    cdef double v23
+    cdef US3 v24
+    cdef double v25
     cdef double v26
-    cdef double v27
-    cdef US2 v28
-    cdef UH0 v29
-    cdef US2 v30
-    cdef UH0 v31
-    cdef US1 v32
-    cdef US4 v33
-    cdef object v34
+    cdef US2 v27
+    cdef UH0 v28
+    cdef US2 v29
+    cdef UH0 v30
+    cdef US1 v31
+    cdef US4 v32
+    cdef object v33
     v16 = v2.v2
     v17 = v7 == (<unsigned char>0)
     if v17:
         v18 = len(v16)
-        tmp9 = method2(v1, v16, v11)
-        v19, v20, v21 = tmp9.v0, tmp9.v1, tmp9.v2
-        del tmp9
-        del v19; del v21
-        v22 = method11(v20)
+        v19 = method2(v1, v16, v11)
+        v20 = v19.v1
+        del v19
+        v21 = method11(v20)
         del v20
-        v23 = numpy.random.choice(v18,p=v22)
-        v24 = v22[v23]
-        del v22
-        v25 = v16[v23]
+        v22 = numpy.random.choice(v18,p=v21)
+        v23 = v21[v22]
+        del v21
+        v24 = v16[v22]
         del v16
-        v26 = libc.math.log(v24)
-        v27 = v26 + v12
-        v28 = US2_0(v25)
-        v29 = UH0_0(v28, v11)
-        del v28
-        v30 = US2_0(v25)
-        v31 = UH0_0(v30, v13)
-        del v30
-        method62(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v25, v10, v29, v27, v31, v14, v15)
+        v25 = libc.math.log(v23)
+        v26 = v25 + v12
+        v27 = US2_0(v24)
+        v28 = UH0_0(v27, v11)
+        del v27
+        v29 = US2_0(v24)
+        v30 = UH0_0(v29, v13)
+        del v29
+        method62(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v24, v10, v28, v26, v30, v14, v15)
     else:
-        v32 = US1_1(v9)
-        v33 = US4_0()
-        v34 = Closure32(v15, v13, v14, v11, v12, v10, v0, v1, v2, v3, v4, v5, v6, v7, v8, v9)
-        method64(v0, v34, v16, v13, v33, v32, v3, v4, v5, v6, v7, v8)
+        v31 = US1_1(v9)
+        v32 = US4_0()
+        v33 = Closure32(v15, v13, v14, v11, v12, v10, v0, v1, v2, v3, v4, v5, v6, v7, v8, v9)
+        method64(v0, v33, v16, v13, v32, v31, v3, v4, v5, v6, v7, v8)
 cdef void method69(v0, Mut0 v1, Heap0 v2, numpy.ndarray[signed long,ndim=1] v3, signed long v4, US0 v5, unsigned char v6, signed long v7, US0 v8, unsigned char v9, signed long v10, US3 v11, double v12, UH0 v13, double v14, UH0 v15, double v16, v17):
     cdef bint v18
     cdef US0 v19
@@ -4375,23 +4387,21 @@ cdef void method69(v0, Mut0 v1, Heap0 v2, numpy.ndarray[signed long,ndim=1] v3, 
     cdef numpy.ndarray[signed long,ndim=1] v59
     cdef bint v60
     cdef unsigned long long v61
-    cdef numpy.ndarray[signed long,ndim=1] v62
+    cdef Mut1 v62
     cdef numpy.ndarray[double,ndim=1] v63
     cdef numpy.ndarray[double,ndim=1] v64
-    cdef Tuple1 tmp14
-    cdef numpy.ndarray[double,ndim=1] v65
-    cdef unsigned long long v66
-    cdef double v67
-    cdef US3 v68
+    cdef unsigned long long v65
+    cdef double v66
+    cdef US3 v67
+    cdef double v68
     cdef double v69
-    cdef double v70
-    cdef US2 v71
-    cdef UH0 v72
-    cdef US2 v73
-    cdef UH0 v74
-    cdef US1 v75
-    cdef US4 v76
-    cdef object v77
+    cdef US2 v70
+    cdef UH0 v71
+    cdef US2 v72
+    cdef UH0 v73
+    cdef US1 v74
+    cdef US4 v75
+    cdef object v76
     if v11 == 0: # call
         v18 = v9 == (<unsigned char>0)
         if v18:
@@ -4449,31 +4459,30 @@ cdef void method69(v0, Mut0 v1, Heap0 v2, numpy.ndarray[signed long,ndim=1] v3, 
         v60 = v6 == (<unsigned char>0)
         if v60:
             v61 = len(v59)
-            tmp14 = method2(v1, v59, v13)
-            v62, v63, v64 = tmp14.v0, tmp14.v1, tmp14.v2
-            del tmp14
-            del v62; del v64
-            v65 = method11(v63)
+            v62 = method2(v1, v59, v13)
+            v63 = v62.v1
+            del v62
+            v64 = method11(v63)
             del v63
-            v66 = numpy.random.choice(v61,p=v65)
-            v67 = v65[v66]
-            del v65
-            v68 = v59[v66]
+            v65 = numpy.random.choice(v61,p=v64)
+            v66 = v64[v65]
+            del v64
+            v67 = v59[v65]
             del v59
-            v69 = libc.math.log(v67)
-            v70 = v69 + v14
-            v71 = US2_0(v68)
-            v72 = UH0_0(v71, v13)
-            del v71
-            v73 = US2_0(v68)
-            v74 = UH0_0(v73, v15)
-            del v73
-            method69(v0, v1, v2, v3, v57, v8, v9, v58, v5, v6, v7, v68, v12, v72, v70, v74, v16, v17)
+            v68 = libc.math.log(v66)
+            v69 = v68 + v14
+            v70 = US2_0(v67)
+            v71 = UH0_0(v70, v13)
+            del v70
+            v72 = US2_0(v67)
+            v73 = UH0_0(v72, v15)
+            del v72
+            method69(v0, v1, v2, v3, v57, v8, v9, v58, v5, v6, v7, v67, v12, v71, v69, v73, v16, v17)
         else:
-            v75 = US1_0()
-            v76 = US4_0()
-            v77 = Closure33(v17, v15, v16, v13, v14, v12, v0, v1, v2, v3, v57, v8, v9, v58, v5, v6, v7)
-            method64(v0, v77, v59, v15, v76, v75, v8, v9, v58, v5, v6, v7)
+            v74 = US1_0()
+            v75 = US4_0()
+            v76 = Closure33(v17, v15, v16, v13, v14, v12, v0, v1, v2, v3, v57, v8, v9, v58, v5, v6, v7)
+            method64(v0, v76, v59, v15, v75, v74, v8, v9, v58, v5, v6, v7)
 cdef void method60(v0, Mut0 v1, Heap0 v2, numpy.ndarray[signed long,ndim=1] v3, signed long v4, US0 v5, unsigned char v6, signed long v7, US0 v8, unsigned char v9, US3 v10, double v11, UH0 v12, double v13, UH0 v14, double v15, v16):
     cdef bint v17
     cdef US0 v18
@@ -4516,23 +4525,21 @@ cdef void method60(v0, Mut0 v1, Heap0 v2, numpy.ndarray[signed long,ndim=1] v3, 
     cdef numpy.ndarray[signed long,ndim=1] v58
     cdef bint v59
     cdef unsigned long long v60
-    cdef numpy.ndarray[signed long,ndim=1] v61
+    cdef Mut1 v61
     cdef numpy.ndarray[double,ndim=1] v62
     cdef numpy.ndarray[double,ndim=1] v63
-    cdef Tuple1 tmp13
-    cdef numpy.ndarray[double,ndim=1] v64
-    cdef unsigned long long v65
-    cdef double v66
-    cdef US3 v67
+    cdef unsigned long long v64
+    cdef double v65
+    cdef US3 v66
+    cdef double v67
     cdef double v68
-    cdef double v69
-    cdef US2 v70
-    cdef UH0 v71
-    cdef US2 v72
-    cdef UH0 v73
-    cdef US1 v74
-    cdef US4 v75
-    cdef object v76
+    cdef US2 v69
+    cdef UH0 v70
+    cdef US2 v71
+    cdef UH0 v72
+    cdef US1 v73
+    cdef US4 v74
+    cdef object v75
     if v10 == 0: # call
         v17 = v9 == (<unsigned char>0)
         if v17:
@@ -4590,37 +4597,36 @@ cdef void method60(v0, Mut0 v1, Heap0 v2, numpy.ndarray[signed long,ndim=1] v3, 
         v59 = v6 == (<unsigned char>0)
         if v59:
             v60 = len(v58)
-            tmp13 = method2(v1, v58, v12)
-            v61, v62, v63 = tmp13.v0, tmp13.v1, tmp13.v2
-            del tmp13
-            del v61; del v63
-            v64 = method11(v62)
+            v61 = method2(v1, v58, v12)
+            v62 = v61.v1
+            del v61
+            v63 = method11(v62)
             del v62
-            v65 = numpy.random.choice(v60,p=v64)
-            v66 = v64[v65]
-            del v64
-            v67 = v58[v65]
+            v64 = numpy.random.choice(v60,p=v63)
+            v65 = v63[v64]
+            del v63
+            v66 = v58[v64]
             del v58
-            v68 = libc.math.log(v66)
-            v69 = v68 + v13
-            v70 = US2_0(v67)
-            v71 = UH0_0(v70, v12)
-            del v70
-            v72 = US2_0(v67)
-            v73 = UH0_0(v72, v14)
-            del v72
-            method69(v0, v1, v2, v3, v56, v8, v9, v57, v5, v6, v7, v67, v11, v71, v69, v73, v15, v16)
+            v67 = libc.math.log(v65)
+            v68 = v67 + v13
+            v69 = US2_0(v66)
+            v70 = UH0_0(v69, v12)
+            del v69
+            v71 = US2_0(v66)
+            v72 = UH0_0(v71, v14)
+            del v71
+            method69(v0, v1, v2, v3, v56, v8, v9, v57, v5, v6, v7, v66, v11, v70, v68, v72, v15, v16)
         else:
-            v74 = US1_0()
-            v75 = US4_0()
-            v76 = Closure33(v16, v14, v15, v12, v13, v11, v0, v1, v2, v3, v56, v8, v9, v57, v5, v6, v7)
-            method64(v0, v76, v58, v14, v75, v74, v8, v9, v57, v5, v6, v7)
+            v73 = US1_0()
+            v74 = US4_0()
+            v75 = Closure33(v16, v14, v15, v12, v13, v11, v0, v1, v2, v3, v56, v8, v9, v57, v5, v6, v7)
+            method64(v0, v75, v58, v14, v74, v73, v8, v9, v57, v5, v6, v7)
 cdef void method70(v0, v1, numpy.ndarray[signed long,ndim=1] v2, UH0 v3, US4 v4, US1 v5, US0 v6, unsigned char v7, signed long v8, US0 v9, unsigned char v10):
     cdef str v11
     cdef object v12
     cdef object v13
     cdef object v14
-    cdef Mut1 v15
+    cdef Mut2 v15
     cdef unsigned long long v16
     cdef unsigned long long v17
     cdef object v18
@@ -4637,7 +4643,7 @@ cdef void method70(v0, v1, numpy.ndarray[signed long,ndim=1] v2, UH0 v3, US4 v4,
     v12 = False
     v13 = False
     v14 = False
-    v15 = Mut1(v13, v12, v14)
+    v15 = Mut2(v13, v12, v14)
     del v12; del v13; del v14
     v16 = len(v2)
     v17 = (<unsigned long long>0)
@@ -4681,49 +4687,45 @@ cdef void method59(v0, Mut0 v1, US0 v2, US0 v3, Heap0 v4, numpy.ndarray[signed l
     cdef numpy.ndarray[signed long,ndim=1] v17
     cdef bint v18
     cdef unsigned long long v19
-    cdef numpy.ndarray[signed long,ndim=1] v20
+    cdef Mut1 v20
     cdef numpy.ndarray[double,ndim=1] v21
     cdef numpy.ndarray[double,ndim=1] v22
-    cdef Tuple1 tmp8
-    cdef numpy.ndarray[double,ndim=1] v23
-    cdef unsigned long long v24
-    cdef double v25
-    cdef US3 v26
+    cdef unsigned long long v23
+    cdef double v24
+    cdef US3 v25
+    cdef double v26
     cdef double v27
-    cdef double v28
-    cdef US2 v29
-    cdef UH0 v30
-    cdef US2 v31
-    cdef UH0 v32
-    cdef US1 v33
-    cdef US4 v34
+    cdef US2 v28
+    cdef UH0 v29
+    cdef US2 v30
+    cdef UH0 v31
+    cdef US1 v32
+    cdef US4 v33
+    cdef object v34
     cdef object v35
-    cdef object v36
-    cdef signed long v37
-    cdef unsigned char v38
-    cdef signed long v39
-    cdef unsigned char v40
-    cdef signed long v41
-    cdef numpy.ndarray[signed long,ndim=1] v42
-    cdef bint v43
-    cdef unsigned long long v44
-    cdef numpy.ndarray[signed long,ndim=1] v45
+    cdef signed long v36
+    cdef unsigned char v37
+    cdef signed long v38
+    cdef unsigned char v39
+    cdef signed long v40
+    cdef numpy.ndarray[signed long,ndim=1] v41
+    cdef bint v42
+    cdef unsigned long long v43
+    cdef Mut1 v44
+    cdef numpy.ndarray[double,ndim=1] v45
     cdef numpy.ndarray[double,ndim=1] v46
-    cdef numpy.ndarray[double,ndim=1] v47
-    cdef Tuple1 tmp15
-    cdef numpy.ndarray[double,ndim=1] v48
-    cdef unsigned long long v49
+    cdef unsigned long long v47
+    cdef double v48
+    cdef US3 v49
     cdef double v50
-    cdef US3 v51
-    cdef double v52
-    cdef double v53
+    cdef double v51
+    cdef US2 v52
+    cdef UH0 v53
     cdef US2 v54
     cdef UH0 v55
-    cdef US2 v56
-    cdef UH0 v57
-    cdef US1 v58
-    cdef US4 v59
-    cdef object v60
+    cdef US1 v56
+    cdef US4 v57
+    cdef object v58
     if v6 == 0: # call
         v13 = (<signed long>2)
         v14 = (<unsigned char>1)
@@ -4733,107 +4735,102 @@ cdef void method59(v0, Mut0 v1, US0 v2, US0 v3, Heap0 v4, numpy.ndarray[signed l
         v18 = v14 == (<unsigned char>0)
         if v18:
             v19 = len(v17)
-            tmp8 = method2(v1, v17, v8)
-            v20, v21, v22 = tmp8.v0, tmp8.v1, tmp8.v2
-            del tmp8
-            del v20; del v22
-            v23 = method11(v21)
+            v20 = method2(v1, v17, v8)
+            v21 = v20.v1
+            del v20
+            v22 = method11(v21)
             del v21
-            v24 = numpy.random.choice(v19,p=v23)
-            v25 = v23[v24]
-            del v23
-            v26 = v17[v24]
+            v23 = numpy.random.choice(v19,p=v22)
+            v24 = v22[v23]
+            del v22
+            v25 = v17[v23]
             del v17
-            v27 = libc.math.log(v25)
-            v28 = v27 + v9
-            v29 = US2_0(v26)
-            v30 = UH0_0(v29, v8)
-            del v29
-            v31 = US2_0(v26)
-            v32 = UH0_0(v31, v10)
-            del v31
-            method60(v0, v1, v4, v5, v13, v2, v16, v15, v3, v14, v26, v7, v30, v28, v32, v11, v12)
+            v26 = libc.math.log(v24)
+            v27 = v26 + v9
+            v28 = US2_0(v25)
+            v29 = UH0_0(v28, v8)
+            del v28
+            v30 = US2_0(v25)
+            v31 = UH0_0(v30, v10)
+            del v30
+            method60(v0, v1, v4, v5, v13, v2, v16, v15, v3, v14, v25, v7, v29, v27, v31, v11, v12)
         else:
-            v33 = US1_0()
-            v34 = US4_0()
-            v35 = Closure34(v12, v10, v11, v8, v9, v7, v0, v1, v4, v5, v13, v2, v16, v15, v3, v14)
-            method70(v0, v35, v17, v10, v34, v33, v2, v16, v15, v3, v14)
+            v32 = US1_0()
+            v33 = US4_0()
+            v34 = Closure34(v12, v10, v11, v8, v9, v7, v0, v1, v4, v5, v13, v2, v16, v15, v3, v14)
+            method70(v0, v34, v17, v10, v33, v32, v2, v16, v15, v3, v14)
     elif v6 == 1: # fold
         raise Exception("impossible")
     elif v6 == 2: # raise
-        v37 = (<signed long>1)
-        v38 = (<unsigned char>1)
-        v39 = (<signed long>1)
-        v40 = (<unsigned char>0)
-        v41 = (<signed long>3)
-        v42 = method33(v4, v2, v40, v41, v3, v38, v39, v37)
-        v43 = v38 == (<unsigned char>0)
-        if v43:
-            v44 = len(v42)
-            tmp15 = method2(v1, v42, v8)
-            v45, v46, v47 = tmp15.v0, tmp15.v1, tmp15.v2
-            del tmp15
-            del v45; del v47
-            v48 = method11(v46)
+        v36 = (<signed long>1)
+        v37 = (<unsigned char>1)
+        v38 = (<signed long>1)
+        v39 = (<unsigned char>0)
+        v40 = (<signed long>3)
+        v41 = method33(v4, v2, v39, v40, v3, v37, v38, v36)
+        v42 = v37 == (<unsigned char>0)
+        if v42:
+            v43 = len(v41)
+            v44 = method2(v1, v41, v8)
+            v45 = v44.v1
+            del v44
+            v46 = method11(v45)
+            del v45
+            v47 = numpy.random.choice(v43,p=v46)
+            v48 = v46[v47]
             del v46
-            v49 = numpy.random.choice(v44,p=v48)
-            v50 = v48[v49]
-            del v48
-            v51 = v42[v49]
-            del v42
-            v52 = libc.math.log(v50)
-            v53 = v52 + v9
-            v54 = US2_0(v51)
-            v55 = UH0_0(v54, v8)
+            v49 = v41[v47]
+            del v41
+            v50 = libc.math.log(v48)
+            v51 = v50 + v9
+            v52 = US2_0(v49)
+            v53 = UH0_0(v52, v8)
+            del v52
+            v54 = US2_0(v49)
+            v55 = UH0_0(v54, v10)
             del v54
-            v56 = US2_0(v51)
-            v57 = UH0_0(v56, v10)
-            del v56
-            method69(v0, v1, v4, v5, v37, v2, v40, v41, v3, v38, v39, v51, v7, v55, v53, v57, v11, v12)
+            method69(v0, v1, v4, v5, v36, v2, v39, v40, v3, v37, v38, v49, v7, v53, v51, v55, v11, v12)
         else:
-            v58 = US1_0()
-            v59 = US4_0()
-            v60 = Closure33(v12, v10, v11, v8, v9, v7, v0, v1, v4, v5, v37, v2, v40, v41, v3, v38, v39)
-            method64(v0, v60, v42, v10, v59, v58, v2, v40, v41, v3, v38, v39)
+            v56 = US1_0()
+            v57 = US4_0()
+            v58 = Closure33(v12, v10, v11, v8, v9, v7, v0, v1, v4, v5, v36, v2, v39, v40, v3, v37, v38)
+            method64(v0, v58, v41, v10, v57, v56, v2, v39, v40, v3, v37, v38)
 cdef void method58(v0, Mut0 v1, Heap0 v2, US0 v3, US0 v4, numpy.ndarray[signed long,ndim=1] v5, double v6, UH0 v7, double v8, UH0 v9, double v10, v11):
     cdef numpy.ndarray[signed long,ndim=1] v12
     cdef unsigned long long v13
-    cdef numpy.ndarray[signed long,ndim=1] v14
+    cdef Mut1 v14
     cdef numpy.ndarray[double,ndim=1] v15
     cdef numpy.ndarray[double,ndim=1] v16
-    cdef Tuple1 tmp7
-    cdef numpy.ndarray[double,ndim=1] v17
-    cdef unsigned long long v18
-    cdef double v19
-    cdef US3 v20
+    cdef unsigned long long v17
+    cdef double v18
+    cdef US3 v19
+    cdef double v20
     cdef double v21
-    cdef double v22
-    cdef US2 v23
-    cdef UH0 v24
-    cdef US2 v25
-    cdef UH0 v26
+    cdef US2 v22
+    cdef UH0 v23
+    cdef US2 v24
+    cdef UH0 v25
     v12 = v2.v2
     v13 = len(v12)
-    tmp7 = method2(v1, v12, v7)
-    v14, v15, v16 = tmp7.v0, tmp7.v1, tmp7.v2
-    del tmp7
-    del v14; del v16
-    v17 = method11(v15)
+    v14 = method2(v1, v12, v7)
+    v15 = v14.v1
+    del v14
+    v16 = method11(v15)
     del v15
-    v18 = numpy.random.choice(v13,p=v17)
-    v19 = v17[v18]
-    del v17
-    v20 = v12[v18]
+    v17 = numpy.random.choice(v13,p=v16)
+    v18 = v16[v17]
+    del v16
+    v19 = v12[v17]
     del v12
-    v21 = libc.math.log(v19)
-    v22 = v21 + v8
-    v23 = US2_0(v20)
-    v24 = UH0_0(v23, v7)
-    del v23
-    v25 = US2_0(v20)
-    v26 = UH0_0(v25, v9)
-    del v25
-    method59(v0, v1, v3, v4, v2, v5, v20, v6, v24, v22, v26, v10, v11)
+    v20 = libc.math.log(v18)
+    v21 = v20 + v8
+    v22 = US2_0(v19)
+    v23 = UH0_0(v22, v7)
+    del v22
+    v24 = US2_0(v19)
+    v25 = UH0_0(v24, v9)
+    del v24
+    method59(v0, v1, v3, v4, v2, v5, v19, v6, v23, v21, v25, v10, v11)
 cdef void method57(v0, Mut0 v1, Heap0 v2, US0 v3, numpy.ndarray[signed long,ndim=1] v4, double v5, UH0 v6, double v7, UH0 v8, double v9, v10):
     cdef unsigned long long v11
     cdef unsigned long long v12

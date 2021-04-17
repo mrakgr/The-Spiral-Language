@@ -21,6 +21,7 @@ class Main(BoxLayout):
             self.buffer_view.data = self.cb_show_buffer()
             m = chart.meshline
             chart.add_plot(m)
+            print(reward)
             m.points.extend([(len(m.points),reward)])
             chart.xmax = max(1,len(m.points))
             progress_bar.value = i+1

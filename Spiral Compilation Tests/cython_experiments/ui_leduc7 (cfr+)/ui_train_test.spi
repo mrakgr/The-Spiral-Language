@@ -37,12 +37,12 @@ inl main () =
     let run a,b = leduc.game (nodes.nodes_2p (a, b)) (log_probm.from 1,nodes.init,nodes.init)
     inl train () =
         inl play_avg, play_cur, train_cur = 
-            open agent.cfr
+            open agent.cfrp
             funsTrain PlayAvgPolicy d, funsTrain PlayCurrentPolicy d, funsTrain TrainCurrentPolicy d
         inl _ = run (train_cur,play_cur)
         inl _ = run (play_cur,train_cur)
         run (play_avg, play_avg)
-    inl play () = play (agent.cfr.funsPlay d)
+    inl play () = play (agent.cfrp.funsPlay d)
     
     inl show_buffer () : ra u64 _ = (dict.toArray d : a _ _) |> am.generic.map fun k,v =>
         open leduc

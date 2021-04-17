@@ -1,4 +1,4 @@
-// A CFR agent.
+// A CFR+ agent with linear weightings.
 
 // Can also be used for normalizing the avg policy.
 let regret_match regret =
@@ -8,10 +8,10 @@ let regret_match regret =
     else am.mapInplace (fun _ x => x / normalizing_sum) temp
     temp
 
-type state key act = dict.dict key {regret : a u64 f64; avg_policy : a u64 f64; actions : a u64 act}
+type state key act = dict.dict key (mut {regret : a u64 f64; avg_policy : a u64 f64; actions : a u64 act; t : u64})
 inl value (d : state _ _) actions = dict.memoize d fun _ => 
     inl Empty = am.init (length actions) (fun _ => 0)
-    {regret = Empty; avg_policy = Empty; actions}
+    mut {regret = Empty; avg_policy = Empty; actions; t = 1}
 
 inl terminal _ = ()
 
@@ -58,9 +58,17 @@ inl funsTrain mode (d : state _ _) = player_funs {
                     ) (r2 0) (regret_match d.regret) actions
             inl ~id = id
             join
-                d.regret |> am.mapInplace (fun i x => x + op_prob * (r2_index (index reward i) id - r2_index reward_wsum id))
+                // Linear CFR trick.
+                inl t = f64 d.t
+                // That max 0 makes regular CFR into CFR+
+                d.regret |> am.mapInplace (fun i x => max 0 <| x + t * op_prob * (r2_index (index reward i) id - r2_index reward_wsum id))
                 inl policy = regret_match d.regret
                 inl self_prob = log_probm.exp player.prob
-                d.avg_policy |> am.mapInplace (fun i x => x + self_prob * index policy i)
+                d.avg_policy |> am.mapInplace (fun i x => x + t * self_prob * index policy i)
+                d.t <- d.t+1
                 am.fold2 (fun s prob reward => s +. reward *. prob) (r2 0) policy reward
+
+                // Summary: Compared to vanilla, the linear CFR and the CFR+ tricks improve the reward from -0.3 to -0.2 
+                // after 20 iterations. The reward reweighting by the current policy does not speed up learning, but 
+                // does seem to make it more stable
     }
