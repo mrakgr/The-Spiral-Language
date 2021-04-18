@@ -18,7 +18,9 @@ class Main(BoxLayout):
         progress_bar.max = num_iter
         for i in range(num_iter):
             reward = self.cb_train()
-            self.buffer_view.data = self.cb_show_buffer()
+            buffer = self.cb_show_buffer()
+            buffer.sort(key=lambda x: x['trace'])
+            self.buffer_view.data = buffer
             m = chart.meshline
             chart.add_plot(m)
             print(reward)

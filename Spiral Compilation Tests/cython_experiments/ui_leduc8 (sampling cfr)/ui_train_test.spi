@@ -78,6 +78,11 @@ inl main () =
                 inl k,v = show_action k, pstr v in $"f'{!k}: {!v}'" : string
                 ) v.actions v.regret
             |> rm.join' "\n"
+        q =
+            am.generic.map2 (fun k v => 
+                inl k,v = show_action k, pstr v in $"f'{!k}: {!v}'" : string
+                ) v.actions v.qs
+            |> rm.join' "\n"
         }
     
     !!!!Import("ui_train")

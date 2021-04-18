@@ -12,13 +12,16 @@ class RowFields(BoxLayout):
     trace = StringProperty('')
     avg_policy = StringProperty('')
     regret = StringProperty('')
+    q = StringProperty('')
 
 class Main(BoxLayout):
     def train(self,chart,progress_bar,num_iter): 
         progress_bar.max = num_iter
         for i in range(num_iter):
             reward = self.cb_train()
-            self.buffer_view.data = self.cb_show_buffer()
+            buffer = self.cb_show_buffer()
+            buffer.sort(key=lambda x: x['trace'])
+            self.buffer_view.data = buffer
             m = chart.meshline
             chart.add_plot(m)
             print(reward)
@@ -65,6 +68,9 @@ root = Builder.load_string("""
     FieldLabel:
         size_hint_x: 0.4
         text: root.regret
+    FieldLabel:
+        size_hint_x: 0.4
+        text: root.q
 
 <Row@RecycleDataViewBehavior+RowFields>:
     canvas.before:
@@ -132,6 +138,7 @@ Main:
                     trace: 'Trace'
                     avg_policy: 'Average Policy'
                     regret: 'Regret'
+                    q: 'Q'
                 RecycleView:
                     id: rv
                     scroll_type: ['bars', 'content']
