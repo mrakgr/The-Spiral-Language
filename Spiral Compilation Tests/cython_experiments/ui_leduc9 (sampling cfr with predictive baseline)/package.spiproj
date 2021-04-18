@@ -1,0 +1,19 @@
+// Enumerative CFR works great, but these two samplers are complete failures.
+packages: |core2-
+modules:
+    utils-
+    log_probm
+    sampling
+    game-
+    nodes/
+        utils-
+        cps
+        main-
+    leduc
+    agent/
+        uniform
+        cfr_enum
+        cfr_sample_infoset
+        cfr_sample
+        human
+    ui_train_test

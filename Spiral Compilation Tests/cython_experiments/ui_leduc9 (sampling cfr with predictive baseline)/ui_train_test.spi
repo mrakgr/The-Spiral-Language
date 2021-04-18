@@ -29,28 +29,37 @@ inl play p1 : () =
     inl p2 = agent.human.funs human_dispatch
     inl f (): () =
         open nodes
-        leduc.game (nodes.cps.nodes_2p (p1, p2)) ((log_probm.from 1,init,init),fun r => ())
+        leduc.game (nodes.cps.nodes_2p (p1, p2)) ((log_probm.from' 1,init,init),fun r => ())
     $"ui_leduc.popup_game(!root,!f)"
 
 inl main () =
-    inl d : dict.t _ _ = dict.empty
-    let run a,b = leduc.game (nodes.nodes_2p (a, b)) (log_probm.from 1,nodes.init,nodes.init)
+    inl d_sample : dict.t _ _ = dict.empty
+    inl d_enum : dict.t _ _ = dict.empty
+    let run c (a,b) = leduc.game (nodes.nodes_2p c (a, b)) (log_probm.from' 1,nodes.init,nodes.init)
     inl train () =
         inl play_avg, play_cur, train_cur = 
-            open agent.cfrp
-            funsTrain PlayAvgPolicy d, funsTrain PlayCurrentPolicy d, funsTrain TrainCurrentPolicy d
+            open agent.cfr_sample
+            funsTest d_sample, funsTrain PlayCurrentPolicy d_sample, funsTrain TrainCurrentPolicy d_sample
+        loop.for' (from:0u64 nearTo:2000) fun _ =>
+            inl alternating () =
+                run true (train_cur,play_cur) |> ignore
+                run true (play_cur,train_cur) |> ignore
+            inl simultaneous () =
+                run true (train_cur,train_cur) |> ignore
+            simultaneous ()
+        inl play_avg', play_cur, train_cur = 
+            open agent.cfr_enum
+            funsTrain PlayAvgPolicy d_enum, funsTrain PlayCurrentPolicy d_enum, funsTrain TrainCurrentPolicy d_enum
         inl alternating () =
-            inl _ = run (train_cur,play_cur)
-            inl _ = run (play_cur,train_cur)
-            ()
+            run false (train_cur,play_cur) |> ignore
+            run false (play_cur,train_cur) |> ignore
         inl simultaneous () =
-            inl _ = run (train_cur,train_cur)
-            ()
+            run false (train_cur,train_cur) |> ignore
         simultaneous()
-        run (play_avg, play_avg)
-    inl play () = play (agent.cfrp.funsPlay d)
+        run false (play_avg,play_avg')
+    inl play () = play (agent.cfr_sample.funsPlay d_sample)
     
-    inl show_buffer () : ra u64 _ = (dict.toArray d : a _ _) |> am.generic.map fun k,v =>
+    inl show_buffer () : ra u64 _ = (dict.toArray d_sample : a _ _) |> am.generic.map fun k,v =>
         open leduc
         open nodes
         inl show_card = function
@@ -76,6 +85,18 @@ inl main () =
             am.generic.map2 (fun k v => 
                 inl k,v = show_action k, pstr v in $"f'{!k}: {!v}'" : string
                 ) v.actions v.regret
+            |> rm.join' "\n"
+        q =
+            inl qs : a _ _ = dict.toArray v.qs
+            am.generic.map (fun (card, q) => 
+                inl card = show_card card
+                inl actions =
+                    am.generic.map2 (fun k v =>
+                        inl k,v = show_action k, pstr v in $"f'{!k}: {!v}'" : string
+                        ) v.actions q
+                    |> rm.join' ", "
+                $"f'{!card} - {!actions}'"
+                ) qs
             |> rm.join' "\n"
         }
     
