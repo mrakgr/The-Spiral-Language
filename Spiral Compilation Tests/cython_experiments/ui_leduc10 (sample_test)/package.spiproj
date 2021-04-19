@@ -13,7 +13,9 @@ modules:
     agent/
         uniform
         cfr_enum
+        cfr_enum_alt
         cfr_sample_infoset
         cfr_sample
         human
     ui_train_test
+    terminal_sample_test

@@ -1,0 +1,26 @@
+inl main () =
+    open leduc
+    open nodes
+    inl d = dict.empty
+    inl train () =
+        open agent.cfr_enum
+        inl a = leduc.start (nodes.nodes_2p false (funsTrain TrainCurrentPolicy d, funsTrain PlayCurrentPolicy d))
+        inl b = leduc.start (nodes.nodes_2p false (funsTrain PlayCurrentPolicy d, funsTrain TrainCurrentPolicy d))
+        inl c = leduc.start (nodes.nodes_2p false (funsTrain PlayAvgPolicy d, funsTrain PlayAvgPolicy d))
+        a,b,c
+    loop.for' (from:0i32 nearTo: 10) fun i =>
+        inl a,b,c = train()
+        $"print(!i, !a, !b, !c)"
+        inl d_test = dict.empty
+        inl r : a u64 r2 = am.init 30 fun _ =>
+            inl r = 
+                inl p1 = agent.cfr_enum_alt.funsTrain agent.cfr_enum_alt.trainCurrentPolicy() d_test
+                inl p2 = agent.cfr_enum.funsTrain agent.cfr_enum.playAvgPolicy() d
+                leduc.start (nodes.nodes_2p false (p1,p2))
+            agent.cfr_enum_alt.update d_test
+            r
+        // inl r : a u64 r2 = am.init 10 fun _ => 
+        //     open agent.cfr_enum
+        //     leduc.start (nodes.nodes_2p false (funsTrain TrainCurrentPolicy d_test, funsTrain PlayAvgPolicy d))
+        $"print(!r)"
+        

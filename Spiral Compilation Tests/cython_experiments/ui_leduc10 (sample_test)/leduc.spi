@@ -85,3 +85,5 @@ inl game (game2p {terminal draw action sample}) =
     | Fold => failwith "impossible"
     | Call => round_one 2 (p2,p1)
     | Raise => round_one 1 (p2,{p1 with pot=raiseBy 2 (p1,p2)})
+
+inl start k = game k ((log_probm.from' 1,nodes.init,nodes.init))

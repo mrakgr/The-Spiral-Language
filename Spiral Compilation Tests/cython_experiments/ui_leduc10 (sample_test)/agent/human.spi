@@ -31,6 +31,31 @@ let rec show_trace i (l, r) =
     | None => ()
     rm.join' "\n" ar
 
+let dispatch (((p1,p2,card : leduc.game_state),observations),(dist : a u64 _),(next : _ -> ())) = record {
+    trace = show_trace p1.id observations
+    actions =
+        inl actions = mut {fold= $"False"; call= $"False"; raise= $"False"}
+        dist |> am.iter fun x =>
+            open leduc
+            match x with
+            | Fold => actions.fold <- fun () => next x
+            | Call => actions.call <- fun () => next x
+            | Raise => actions.raise <- fun () => next x
+
+        record *actions
+    table_data =
+        inl show_card = 
+            open leduc
+            function King => 'K' | Queen => 'Q' | Jack => 'J'
+        record {
+            my_card = show_card p1.card 
+            my_pot = p1.pot 
+            op_card = show_card p2.card 
+            op_pot = p2.pot 
+            community_card = match card with Some: c => show_card c | None => ' '
+            }
+    }
+
 open nodes
 inl funs dispatch = player_funs {
     action = fun {game_state player actions next} => 
