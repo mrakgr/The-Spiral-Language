@@ -8,8 +8,8 @@ let regret_match regret =
     else am.mapInplace (fun _ x => x / normalizing_sum) temp
     temp
 
-type state key act = dict.dict key (mut {regret : a u64 f64; avg_policy : a u64 f64; actions : a u64 act; t : u64})
-inl value (d : state _ _) actions = dict.memoize d fun _ => 
+type state key act = dictm.dict key (mut {regret : a u64 f64; avg_policy : a u64 f64; actions : a u64 act; t : u64})
+inl value (d : state _ _) actions = dictm.memoize d fun _ => 
     inl Empty = am.init (length actions) (fun _ => 0)
     mut {regret = Empty; avg_policy = Empty; actions; t = 1}
 
@@ -48,11 +48,9 @@ inl funsTrain mode (d : state _ _) = player_funs {
                     ) (r2 0) (regret_match d.regret) actions
             inl ~id = id
             join
-                inl t = f64 d.t
-                d.regret |> am.mapInplace (fun i x => max 0 <| x + t * op_prob * (r2_index (index reward i) id - r2_index reward_wsum id))
+                d.regret |> am.mapInplace (fun i x => max 0 <| x + op_prob * (r2_index (index reward i) id - r2_index reward_wsum id))
                 inl policy = regret_match d.regret
                 inl self_prob = (log_probm.exp player.prob).policy
-                d.avg_policy |> am.mapInplace (fun i x => x + t * self_prob * index policy i)
-                d.t <- d.t+1
+                d.avg_policy |> am.mapInplace (fun i x => x + self_prob * index policy i)
                 am.fold2 (fun s prob reward => s +. reward *. prob) (r2 0) policy reward
     }

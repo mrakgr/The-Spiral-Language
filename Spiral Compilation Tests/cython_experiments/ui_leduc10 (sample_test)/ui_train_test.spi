@@ -8,8 +8,8 @@ inl play is_first p1 : () =
     $"ui_leduc.popup_game(!root,!f)"
 
 inl main () =
-    inl d_sample : dict.t _ _ = dict.empty
-    inl d_enum : dict.t _ _ = dict.empty
+    inl d_sample : dictm.t _ _ = dictm.empty
+    inl d_enum : dictm.t _ _ = dictm.empty
     let run c (a,b) = leduc.start (nodes.nodes_2p c (a, b))
     inl train () =
         inl play_avg, play_cur, train_cur = 
@@ -34,7 +34,7 @@ inl main () =
         run false (play_avg,play_avg')
     inl play () = play true (agent.cfr_sample.funsPlay d_sample)
     
-    inl show_buffer () : ra u64 _ = (dict.toArray d_sample : a _ _) |> am.generic.map fun k,v =>
+    inl show_buffer () : ra u64 _ = (dictm.toArray d_sample : a _ _) |> am.generic.map fun k,v =>
         open leduc
         open nodes
         inl show_card = function
@@ -62,7 +62,7 @@ inl main () =
                 ) v.actions v.regret
             |> rm.join' "\n"
         q =
-            inl qs : a _ _ = dict.toArray v.qs
+            inl qs : a _ _ = dictm.toArray v.qs
             am.generic.map (fun (card, q) => 
                 inl card = show_card card
                 inl actions =

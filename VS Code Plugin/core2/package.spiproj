@@ -13,7 +13,7 @@ modules:
     sm
     listm
     optionm
-    dict/
+    dictm/
         generic
         table
         real_dict*

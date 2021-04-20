@@ -8,8 +8,8 @@ let regret_match regret =
     else am.mapInplace (fun _ x => x / normalizing_sum) temp
     temp
 
-type state key act = dict.dict key (mut {regret : a u64 f64; utils : a u64 f64; avg_policy : a u64 f64; actions : a u64 act; t : u64})
-inl value (d : state _ _) actions = dict.memoize d fun _ => 
+type state key act = dictm.dict key (mut {regret : a u64 f64; utils : a u64 f64; avg_policy : a u64 f64; actions : a u64 act; t : u64})
+inl value (d : state _ _) actions = dictm.memoize d fun _ => 
     inl Empty = am.init (length actions) (fun _ => 0)
     mut {regret = Empty; utils = Empty; avg_policy = Empty; actions; t = 1}
 
@@ -53,7 +53,7 @@ inl funsTrain mode (d : state _ _) = player_funs {
     }
 
 inl update (d : state _ _) =
-    d |> dict.fold (fun () (k,v) => // TODO: Fix the type inference bug here
+    d |> dictm.fold (fun () (k,v) => // TODO: Fix the type inference bug here
         inl v : mut {actions : a u64 _; avg_policy : a u64 f64; regret : a u64 f64; t : u64; utils : a u64 f64} = v
         inl policy = regret_match v.regret
         inl us = am.fold2 (fun s prob u => s + prob * u) 0 policy v.utils
