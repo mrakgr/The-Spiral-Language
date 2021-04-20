@@ -8,8 +8,8 @@ let regret_match regret =
     else am.mapInplace (fun _ x => x / normalizing_sum) temp
     temp
 
-type state key act = dict.dict key {regret : a u64 f64; avg_policy : a u64 f64; actions : a u64 act}
-inl value (d : state _ _) actions = dict.memoize d fun _ => 
+type state key act = dictm.dict key {regret : a u64 f64; avg_policy : a u64 f64; actions : a u64 act}
+inl value (d : state _ _) actions = dictm.memoize d fun _ => 
     inl Empty = am.init (length actions) (fun _ => 0)
     {regret = Empty; avg_policy = Empty; actions}
 

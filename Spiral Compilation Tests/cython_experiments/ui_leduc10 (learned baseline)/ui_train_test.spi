@@ -1,16 +1,41 @@
-inl play is_first p1 : () =
+inl play p1 : () =
     !!!!Import("ui_leduc")
     inl root : obj = $"ui_leduc.Top()"
-    inl p2 = agent.human.funs (agent.human.dispatch >> fun r => $"!root.data = !r")
+    let human_dispatch (((p1,p2,card : leduc.game_state),observations),(dist : a u64 _),(next : _ -> ())) : () =
+        {
+        trace = agent.human.show_trace p1.id observations
+        actions =
+            inl actions = mut {fold= $"False"; call= $"False"; raise= $"False"}
+            dist |> am.iter fun x =>
+                open leduc
+                match x with
+                | Fold => actions.fold <- fun () => next x
+                | Call => actions.call <- fun () => next x
+                | Raise => actions.raise <- fun () => next x
+
+            record *actions
+        table_data =
+            inl show_card = 
+                open leduc
+                function King => 'K' | Queen => 'Q' | Jack => 'J'
+            record {
+                my_card = show_card p1.card 
+                my_pot = p1.pot 
+                op_card = show_card p2.card 
+                op_pot = p2.pot 
+                community_card = match card with Some: c => show_card c  | None => ' '
+                }
+        } |> record |> fun r => $"!root.data = !r"
+    inl p2 = agent.human.funs human_dispatch
     inl f (): () =
         open nodes
-        leduc.game (cps.nodes_2p (if is_first then p1,p2 else p2,p1)) ((log_probm.from' 1,init,init),fun r => ())
+        leduc.game (nodes.cps.nodes_2p (p1, p2)) ((log_probm.from' 1,init,init),fun r => ())
     $"ui_leduc.popup_game(!root,!f)"
 
 inl main () =
     inl d_sample : dictm.t _ _ = dictm.empty
     inl d_enum : dictm.t _ _ = dictm.empty
-    let run c (a,b) = leduc.start (nodes.nodes_2p c (a, b))
+    let run c (a,b) = leduc.game (nodes.nodes_2p c (a, b)) (log_probm.from' 1,nodes.init,nodes.init)
     inl train () =
         inl play_avg, play_cur, train_cur = 
             open agent.cfr_sample
@@ -32,7 +57,7 @@ inl main () =
             run false (train_cur,train_cur) |> ignore
         simultaneous()
         run false (play_avg,play_avg')
-    inl play () = play true (agent.cfr_sample.funsPlay d_sample)
+    inl play () = play (agent.cfr_sample.funsPlay d_sample)
     
     inl show_buffer () : ra u64 _ = (dictm.toArray d_sample : a _ _) |> am.generic.map fun k,v =>
         open leduc
@@ -62,16 +87,9 @@ inl main () =
                 ) v.actions v.regret
             |> rm.join' "\n"
         q =
-            inl qs : a _ _ = dictm.toArray v.qs
-            am.generic.map (fun (card, q) => 
-                inl card = show_card card
-                inl actions =
-                    am.generic.map2 (fun k v =>
-                        inl k,v = show_action k, pstr v in $"f'{!k}: {!v}'" : string
-                        ) v.actions q
-                    |> rm.join' ", "
-                $"f'{!card} - {!actions}'"
-                ) qs
+            am.generic.map2 (fun k v => 
+                inl k,v = show_action k, pstr (windex v) in $"f'{!k}: {!v}'" : string
+                ) v.actions v.qs
             |> rm.join' "\n"
         }
     

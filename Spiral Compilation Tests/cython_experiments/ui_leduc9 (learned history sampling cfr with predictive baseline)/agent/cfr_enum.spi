@@ -48,9 +48,11 @@ inl funsTrain mode (d : state _ _) = player_funs {
                     ) (r2 0) (regret_match d.regret) actions
             inl ~id = id
             join
-                d.regret |> am.mapInplace (fun i x => max 0 <| x + op_prob * (r2_index (index reward i) id - r2_index reward_wsum id))
+                inl t = f64 d.t
+                d.regret |> am.mapInplace (fun i x => max 0 <| x + t * op_prob * (r2_index (index reward i) id - r2_index reward_wsum id))
                 inl policy = regret_match d.regret
                 inl self_prob = (log_probm.exp player.prob).policy
-                d.avg_policy |> am.mapInplace (fun i x => x + self_prob * index policy i)
+                d.avg_policy |> am.mapInplace (fun i x => x + t * self_prob * index policy i)
+                d.t <- d.t+1
                 am.fold2 (fun s prob reward => s +. reward *. prob) (r2 0) policy reward
     }

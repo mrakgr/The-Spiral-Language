@@ -3,7 +3,7 @@ union msg =
     | Stop
 
 inl main () =
-    inl d : dict.t _ _ = dict.empty
+    inl d : dictm.t _ _ = dictm.empty
     inl play_avg, play_cur, train_cur = 
         open agent.cfr
         funsTrain PlayAvgPolicy d, funsTrain PlayCurrentPolicy d, funsTrain TrainCurrentPolicy d
@@ -22,7 +22,7 @@ inl main () =
         inl _ = run (play_cur,train_cur)
         run (play_avg, play_avg)
     
-    inl show_buffer () : ra u64 _ = (dict.toArray d : a _ _) |> am.generic.map fun k,v =>
+    inl show_buffer () : ra u64 _ = (dictm.toArray d : a _ _) |> am.generic.map fun k,v =>
         open leduc
         open nodes
         inl show_card = function
@@ -52,9 +52,6 @@ inl main () =
         }
 
     !!!!Import("multiprocessing")
-    !!!!Import("sys")
-    $"sys.frozen = True"
-    $"multiprocessing.freeze_support()"
     !!!!Import("ui_train")
 
     inl queue : obj = $"multiprocessing.Queue()"
@@ -75,7 +72,7 @@ inl main () =
         else waiting from
 
     inl start () : obj = waiting 0
-    $"multiprocessing.Process(target=!start).start()"
+    // $"multiprocessing.Process(target=!start).start()"
 
     inl train i : () = inl x = Train: i in $"!queue.put(!x)"
     inl stop () : () = inl x = Stop in $"!queue.put(!x)"

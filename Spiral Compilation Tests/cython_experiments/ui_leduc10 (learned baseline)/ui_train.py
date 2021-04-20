@@ -33,7 +33,7 @@ class Main(BoxLayout):
 
 class U64Input(TextInput):
     is_valid = BooleanProperty(True)
-    value = NumericProperty(1)
+    value = NumericProperty(50)
     def on_text(self,ins,text):
         try: 
             self.value = int(text)
@@ -46,7 +46,7 @@ root = Builder.load_string("""
 #:import MeshLinePlot kivy_garden.graph.MeshLinePlot
 
 <U64Input>:
-    text: '1'
+    text: str(self.value)
     multiline: False
     valign: 'center'
     foreground_color: [0,0,0,1] if self.is_valid else [1,0,0,1]

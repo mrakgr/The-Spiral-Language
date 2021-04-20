@@ -1,5 +1,5 @@
 inl main () =
-    inl d : dict.t _ _ = dict.empty
+    inl d : dictm.t _ _ = dictm.empty
     inl play_avg, play_cur, train_cur = 
         open agent.cfr
         funsTrain PlayAvgPolicy d, funsTrain PlayCurrentPolicy d, funsTrain TrainCurrentPolicy d

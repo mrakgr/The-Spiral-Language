@@ -1,0 +1,7 @@
+nominal wval = {val : r2; weight : f64}
+inl (+,) (wval a) (wval b) = wval {val=a.val+.b.val; weight=a.weight+b.weight}
+inl (-,) (wval a) (wval b) = wval {val=a.val-.b.val; weight=a.weight-b.weight}
+inl (*,) (wval a) b = wval {val=a.val*.b; weight=a.weight*b}
+inl (/,) (wval a) b = wval {val=a.val/.b; weight=a.weight/b}
+inl windex (wval {val weight}) = if weight = 0 then r2 0 else val /. weight
+inl wcreate val weight = wval {val=val*.weight; weight=weight}
