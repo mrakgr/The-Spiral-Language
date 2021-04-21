@@ -604,19 +604,19 @@ let patterns_validate pats =
         | PatRecordMembers(_,items) ->
             let symbols = Collections.Generic.HashSet()
             let injects = Collections.Generic.HashSet()
-            let x =
-                List.map (fun item ->
-                    match item with
-                    | PatRecordMembersSymbol((r,keyword),name) ->
-                        if symbols.Add(keyword) = false then errors.Add (r, InvalidPattern DuplicateRecordSymbol); Set.empty else loop name
-                    | PatRecordMembersInjectVar((r,var),name) ->
-                        if injects.Add(var) = false then errors.Add (r, InvalidPattern DuplicateRecordInjection); Set.empty else loop name
-                    ) items
-            match x with _ :: _ :: _ -> Set.intersectMany x |> Set.iter (fun x -> errors.Add (pos.[x], InvalidPattern DuplicateVar)) | _ -> ()
-            Set.unionMany x
+            let vars = Collections.Generic.HashSet()
+            List.iter (fun item ->
+                match item with
+                | PatRecordMembersSymbol((r,keyword),name) ->
+                    if symbols.Add(keyword) = false then errors.Add (r, InvalidPattern DuplicateRecordSymbol); Set.empty else loop name
+                | PatRecordMembersInjectVar((r,var),name) ->
+                    if injects.Add(var) = false then errors.Add (r, InvalidPattern DuplicateRecordInjection); Set.empty else loop name
+                |> Set.iter (fun x -> if vars.Add x = false then errors.Add (pos.[x], InvalidPattern DuplicateVar))
+                ) items
+            Set vars
         | PatPair(_,a,b) | PatAnd(_,a,b) -> 
             let a, b = loop a, loop b
-            Set.intersect a b |> Set.iter (fun x -> errors.Add (pos.[x], InvalidPattern DuplicateVar))
+            Set.intersect b a |> Set.iter (fun x -> errors.Add (pos.[x], InvalidPattern DuplicateVar))
             a + b
         | PatOr(_,a,b) -> 
             let a, b = loop a, loop b
@@ -626,7 +626,7 @@ let patterns_validate pats =
     
     List.fold (fun s x ->
         let s' = loop x
-        Set.intersect s s' |> Set.iter (fun x -> errors.Add(pos.[x],InvalidPattern ShadowedVar))
+        Set.intersect s' s |> Set.iter (fun x -> errors.Add(pos.[x],InvalidPattern ShadowedVar))
         s + s'
         ) Set.empty pats |> ignore
     errors |> Seq.toList
