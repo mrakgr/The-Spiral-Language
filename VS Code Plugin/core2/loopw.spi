@@ -3,6 +3,9 @@ inl while (cond : () -> bool) (body : () -> ()) : () = !!!!While((join cond()),(
 // Folds over the range. Compiles to a while loop.
 inl for (from: nearTo:) body state =
     inl s = mut {i=from; state}
-    while (fun _ => s.i < nearTo) (fun _ => s <- {i=s.i+1; state=body s.i s.state})
+    while (fun _ => s.i < nearTo) fun _ =>
+        inl i = s.i
+        s <- {state=body i s.state; i=i+1}
     s.state
+// Folds over the range. Stateless version. Compiles to a while loop.
 inl for' (from: nearTo:) body = for (from:nearTo:) (fun i _ => body i) ()

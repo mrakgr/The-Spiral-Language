@@ -422,11 +422,11 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
             |> String.concat ", "
             |> fun x -> 
                 match ret with
-                | BindsTailEnd true -> line s x 
                 | BindsTailEnd false -> 
                     let ty = Array.map (fun (L(_,t)) -> tyv t) x'
-                    if ty.Length <> 1 then line s (sprintf "return Tuple%i(%s)" (tup' ty).tag x)
+                    if 1 < ty.Length then line s (sprintf "return Tuple%i(%s)" (tup' ty).tag x)
                     else line s (sprintf "return %s" x)
+                | BindsTailEnd true | BindsLocal [||] -> ()
                 | BindsLocal ret -> line s $"{args ret} = {x}"
         let length (a,b) =
             match a with
