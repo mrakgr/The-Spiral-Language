@@ -1087,7 +1087,6 @@ and root_term d =
         let case_join_point = skip_keyword SpecJoin >>. next |>> join_point
         let case_real = skip_keyword SpecReal >>. (fun d -> next {d with is_top_down=false}) |>> fun x -> RawReal(range_of_expr x,x)
         let case_symbol = read_symbol |>> RawSymbol
-        let sequence_body d = (many (indent (col d) (=) (sepBy1 operators (skip_op ";"))) |>> List.concat) d
         let case_list = range (squares sequence_body) >>= fun (r,l) d -> 
             if d.is_top_down then
                 List.foldBack (fun a b -> 
@@ -1097,21 +1096,6 @@ and root_term d =
             else
                 Error [r, ListLiteralsNotAllowedInBottomUp]
 
-        let case_unary_op = 
-            read_unary_op' >>= fun (o,a) d ->
-                let type_expr d = ((read_type_var' |>> RawTVar) <|> (rounds (fun d -> root_type {root_type_defaults with allow_term=true} d))) d
-                match a with
-                | ";" -> (range (squares sequence_body) |>> fun (r,x) -> RawArray(r,x)) d
-                | "!!!!" -> 
-                    (range (read_big_var .>>. (rounds (sepBy1 (fun d -> expressions {d with is_top_down=false}) (skip_op ","))))
-                    >>= fun (r,((ra,a), b)) _ ->
-                        match string_to_op a with
-                        | true, op' -> Ok(RawOp(r,op',b))
-                        | false, _ -> Error [ra,InbuiltOpNotFound]) d
-                | "`" -> if d.is_top_down then Error [] else (range type_expr |>> RawType) d
-                | "``" -> if d.is_top_down then Error [] else (range type_expr |>> fun (r,x) -> RawOp(o +. r,TypeToVar,[RawType(r,x)])) d
-                | _ -> (expressions |>> fun b -> RawApply(o +. range_of_expr b,RawV(o, "~" + a),b)) d
-
         let case_string = read_string |>> fun (a, x, b) -> RawLit(a +. b,LitString x)
         let case_macro = pipe3 skip_macro_open (many ((read_text |>> RawMacroText) <|> read_macro_var)) skip_macro_close (fun a l b -> RawMacro(a +. b, l))
 
@@ -1119,14 +1103,33 @@ and root_term d =
 
         (case_value + case_default_value + case_var + case_join_point + case_real + case_symbol
         + case_typecase + case_match + case_typecase + case_rounds + case_list + case_record
-        + case_if_then_else + case_fun + case_forall + case_unary_op + case_string + case_macro) d
+        + case_if_then_else + case_fun + case_forall + case_string + case_macro) d
 
     and application_tight d =
         let next = expressions
         pipe2 next (many (expr_tight next)) (List.fold (fun a b -> RawApply(range_of_expr a +. range_of_expr b,a,b))) d
 
-    and application (d: Env) =
+    and sequence_body d = (many (indent (col d) (=) (sepBy1 operators (skip_op ";"))) |>> List.concat) d
+    and unary_op d =
         let next = application_tight
+        let f = 
+            read_unary_op' >>= fun (o,a) d ->
+                let type_expr d = ((read_type_var' |>> RawTVar) <|> (rounds (fun d -> root_type {root_type_defaults with allow_term=true} d))) d
+                match a with
+                | ";" -> (range (squares sequence_body) |>> fun (r,x) -> RawArray(r,x)) d
+                | "!!!!" -> 
+                    (range (read_big_var .>>. (rounds (sepBy1 (fun d -> unary_op {d with is_top_down=false}) (skip_op ","))))
+                    >>= fun (r,((ra,a), b)) _ ->
+                        match string_to_op a with
+                        | true, op' -> Ok(RawOp(r,op',b))
+                        | false, _ -> Error [ra,InbuiltOpNotFound]) d
+                | "`" -> if d.is_top_down then Error [] else (range type_expr |>> RawType) d
+                | "``" -> if d.is_top_down then Error [] else (range type_expr |>> fun (r,x) -> RawOp(o +. r,TypeToVar,[RawType(r,x)])) d
+                | _ -> (next |>> fun b -> RawApply(o +. range_of_expr b,RawV(o, "~" + a),b)) d
+        (f <|> next) d
+
+    and application (d: Env) =
+        let next = unary_op
         pipe2 next (many (indent (col d) (<) next)) (List.fold (fun a b -> RawApply(range_of_expr a +. range_of_expr b,a,b))) d
 
     and operators d =
