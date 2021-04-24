@@ -1,0 +1,16 @@
+// Having finished with the tabular players, here I prepare the game for consumption by NNs.
+// In particular, GPUs work much more efficiently when inputs are batched, so I need to be able
+// to run multiple games in parallel. The best way to get that is to compile the game to discrete
+// steps rather than have them depth traversed as before. Having them in discrete steps will allow
+// breath traversal.
+packages: |core2-
+modules:
+    utils-
+    log_probm-
+    sampling
+    game-
+    wval-
+    nodes/
+        utils-
+        main-
+    

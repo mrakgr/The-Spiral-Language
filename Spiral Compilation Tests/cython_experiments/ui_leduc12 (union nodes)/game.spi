@@ -1,0 +1,12 @@
+nominal r2 = f64
+inl (+!) (r2 a) (r2 b) = r2 (a+b)
+inl (-!) (r2 a) (r2 b) = r2 (a-b)
+inl (*!) (r2 a) b = r2 (a*b)
+inl (/!) (r2 a) b = r2 (a/b)
+inl (~!!) (r2 a) i = if i = 0 then a else -a
+
+union rec game2p game_state obs act =
+    | Terminal: game_state * r2
+    | Draw: game_state * option u8 * a u64 obs * (obs * a u64 obs -> game2p game_state obs act)
+    | Action: game_state * u8 * a u64 act * (act -> game2p game_state obs act)
+    | Sample: game_state * option u8 * a u64 obs * (obs -> game2p game_state obs act)
