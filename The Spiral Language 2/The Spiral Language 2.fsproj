@@ -23,7 +23,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="variance_norm.fsx" />
     <None Include="Script1.fsx" />
     <Compile Include="PersistentVectorExtensions.fs" />
     <Compile Include="HopacExtensions.fs" />
