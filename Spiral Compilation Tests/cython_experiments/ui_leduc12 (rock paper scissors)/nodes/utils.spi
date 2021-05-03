@@ -20,6 +20,8 @@ inl sample_players_update pid (prob,x) (chance_prob,p1,p2) =
         inl update pid' p = if pid = pid' then apply_observation p x else p
         update 0 p1, update 1 p2
     | None =>
-        inl update p = apply_observation p x
+        inl update p = apply_observation p x 
         update p1, update p2
 
+// Indexes randomly into an uniform categorical distrbution, weighting the choice by its probability.
+inl choice one pid dist = one true (sampling.randomInLength dist) pid dist

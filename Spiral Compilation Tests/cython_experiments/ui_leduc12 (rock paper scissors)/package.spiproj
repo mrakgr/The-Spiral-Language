@@ -1,0 +1,24 @@
+// I want to test my implicit averaging idea, but training against the current policy works too well on Leduc.
+// I know from experience that it ships around wildly in rock paper scissors, so let me try that instead.
+// The stuff here should not be a reference.
+packages: |core2-
+modules:
+    utils-
+    log_probm-
+    sampling
+    game-
+    wval-
+    nodes/
+        utils-
+        cps
+        main-
+    leduc
+    rps 
+    agent/
+        uniform
+        cfr_enum
+        cfr_enum_experimental
+        cfr_sample_learned_infoset
+        cfr_sample_learned_history
+        human
+    rps_test

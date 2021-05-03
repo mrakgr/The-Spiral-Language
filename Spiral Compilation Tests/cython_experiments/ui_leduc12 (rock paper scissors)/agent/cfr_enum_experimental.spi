@@ -1,0 +1,68 @@
+// A CFR agent that averages policies implicitly. Hopefully.
+// Update: It is trash. Using noise is too high variance. Next up is training buckets of policies at random.
+
+// Can also be used for normalizing the avg policy.
+let regret_match regret =
+    inl temp, normalizing_sum = am.mapFold (fun s x => inl x = max 0 x in x, x + s) 0 regret
+    
+    if normalizing_sum = 0 then inl v = 1 / f64 (length temp) in am.mapInplace (fun _ _ => v) temp
+    else am.mapInplace (fun _ x => x / normalizing_sum) temp
+    temp
+
+inl MatrixSize = 64u64
+inl get_cur_policy (regret : obj) : a u64 f64 = regret_match $"!regret[:,0]"
+inl get_keyed_policy (regret : obj) (key : obj) : a u64 f64 = $"numpy.matmul(!regret,!key.T)" |> regret_match
+inl get_rand_key () =
+    inl size = MatrixSize
+    inl key = $"(numpy.random.binomial(1,0.5,!size) - 0.5) * 2"
+    $"!key[0] = 1"
+    key
+
+type state key act = dictm.dict key {regret : obj; actions : a u64 act}
+inl value (d : state _ _) actions = dictm.memoize d fun _ => 
+    inl len = length actions
+    inl size = MatrixSize
+    inl Empty = $"numpy.zeros((!len,!size),dtype=numpy.float64)"
+    {regret = Empty; actions}
+
+inl terminal _ = ()
+
+open nodes
+inl funsPlay (d : state _ _) = player_funs {
+    terminal action = fun {player actions next} =>
+        inl num_actions = length actions
+        inl policy = (value d actions player.observations).regret |> get_cur_policy
+        inl i = $"numpy.random.choice(!num_actions,p=!policy)"
+        inl p,a = index policy i, index actions i
+        next (log_prob_from_sample p,a)
+    }
+
+union cfr_mode = PlayCurrentPolicy | TrainCurrentPolicy
+inl funsTrain is_print mode (d : state _ _) = player_funs {
+    terminal action = fun {chance_prob player player' id actions next} =>
+        inl d = value d actions player.observations
+        inl op_prob = @@(chance_prob +@ player')
+
+        inl next prob a = 
+            if prob = 0 && op_prob = 0 then r2 0 // the pruning optimization
+            else next (log_prob_from_policy prob,a)
+
+        inl weighted_sum policy = am.fold2 (fun s prob a => s +! next prob a *! prob) (r2 0) policy actions
+
+        match mode with
+        | PlayCurrentPolicy => weighted_sum (get_cur_policy d.regret)
+        | TrainCurrentPolicy =>
+            inl num_actions = length actions
+            inl size = MatrixSize
+            inl key : obj = get_rand_key()
+            
+            inl regret = d.regret
+            inl policy = get_keyed_policy regret key
+            inl u,us =
+                am.mapFold2 (fun s prob a => 
+                    inl r = next prob a
+                    r, s +! r *! prob
+                    ) (r2 0) policy actions
+            $"!regret += numpy.outer(!op_prob * (!u - !us), !key)"
+            us
+    }

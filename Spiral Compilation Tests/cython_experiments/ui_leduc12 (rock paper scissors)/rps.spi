@@ -1,0 +1,14 @@
+union action = Rock | Paper | Scissors
+
+inl game (game2p {action_inv sample terminal}) =
+    inl actions : a u64 _ = a ;[Rock; Paper; Scissors]
+    sample None (a ;[0u8]) fun _ =>
+    action_inv () 0 actions fun p1 =>
+    action_inv () 1 actions fun p2 =>
+    match p1,p2 with
+    | Rock, Rock | Paper, Paper | Scissors, Scissors => 0
+    | Scissors, Paper | Paper, Rock | Rock, Scissors => 1
+    | _ => -1
+    |> r2 |> terminal ((),())
+
+inl start f = game f (Log_prob_one,nodes.init,nodes.init)

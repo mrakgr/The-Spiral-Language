@@ -1,0 +1,16 @@
+inl main () =
+    open rps
+    open nodes
+    inl d1 = dictm.empty
+    inl d2 = dictm.empty
+
+    loopw.for' (from: 0i32 nearTo: 20) fun i =>
+        open agent.cfr_enum
+        loopw.for' (from: 0i32 nearTo: 1000) fun _ =>
+            ignore <| rps.start (nodes.nodes_2p false (agent.cfr_enum_experimental.funsTrain false agent.cfr_enum_experimental.trainCurrentPolicy() d1, funsTrain false PlayCurrentPolicy d2))
+            ignore <| rps.start (nodes.nodes_2p false (agent.cfr_enum_experimental.funsTrain false agent.cfr_enum_experimental.playCurrentPolicy() d1, funsTrain false TrainCurrentPolicy d2))
+        inl d_test = dictm.empty
+        loopw.for' (from: 0i32 nearTo: 500) fun _ =>
+            ignore <| rps.start (nodes.nodes_2p false (agent.cfr_enum_experimental.funsTrain false agent.cfr_enum_experimental.playCurrentPolicy() d1, funsTrain false TrainCurrentPolicy d_test))
+        inl r = rps.start (nodes.nodes_2p false (agent.cfr_enum_experimental.funsTrain false agent.cfr_enum_experimental.playCurrentPolicy() d1, funsTrain false PlayCurrentPolicy d_test))
+        $"print('summary -',!i,!r)"
