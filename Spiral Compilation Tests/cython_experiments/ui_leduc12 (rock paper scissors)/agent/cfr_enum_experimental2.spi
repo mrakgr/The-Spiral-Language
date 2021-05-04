@@ -1,0 +1,72 @@
+// This player is not intended to be better than CFR, I am just testing whether optimizing a bucket of policies
+// gets me the benefits of averaging. Keeping around a separate array to average the policies is easy enough
+// in the tabular case, but is hell when it comes to NNs. If this works, that would be good empirical foundation
+// to ditch complicated schemes that keep around old policy nets like the DREAM paper does for example and instead
+// just use dropout to get the benefits of that.
+
+// Update: It works. Great!
+
+// Can also be used for normalizing the avg policy.
+let regret_match regret =
+    inl temp, normalizing_sum = am.mapFold (fun s x => inl x = max 0 x in x, x + s) 0 regret
+    
+    if normalizing_sum = 0 then inl v = 1 / f64 (length temp) in am.mapInplace (fun _ _ => v) temp
+    else am.mapInplace (fun _ x => x / normalizing_sum) temp
+    temp
+
+inl MatrixSize = 64u64
+inl get_cur_policy (regret : obj) : a u64 f64 = 
+    inl len_ii = MatrixSize
+    inl len_i = $"!regret.size" / len_ii
+    inl ar : a u64 f64 = am.init len_i (fun _ => 0)
+    loop.for' (from:0 nearTo: len_ii) fun ii =>
+        inl dist : a u64 f64 = regret_match $"!regret[!ii,:]"
+        ar |> am.mapInplace (fun i x => x + index dist i / f64 len_ii)
+    ar
+
+type state key act = dictm.dict key {regret : obj; actions : a u64 act}
+inl value (d : state _ _) actions = dictm.memoize d fun _ => 
+    inl len = length actions
+    inl size = MatrixSize
+    inl Empty = $"numpy.zeros((!size,!len),dtype=numpy.float64)"
+    {regret = Empty; actions}
+
+inl terminal _ = ()
+
+open nodes
+inl funsPlay (d : state _ _) = player_funs {
+    terminal action = fun {player actions next} =>
+        inl num_actions = length actions
+        inl policy = (value d actions player.observations).regret |> get_cur_policy
+        inl i = $"numpy.random.choice(!num_actions,p=!policy)"
+        inl p,a = index policy i, index actions i
+        next (log_prob_from_sample p,a)
+    }
+
+union cfr_mode = PlayCurrentPolicy | TrainCurrentPolicy
+inl funsTrain is_print mode (d : state _ _) = player_funs {
+    terminal action = fun {chance_prob player player' id actions next} =>
+        inl d = value d actions player.observations
+        inl op_prob = @@(chance_prob +@ player')
+
+        inl next prob a = 
+            if prob = 0 && op_prob = 0 then r2 0 // the pruning optimization
+            else next (log_prob_from_policy prob,a)
+
+        inl weighted_sum policy = am.fold2 (fun s prob a => s +! next prob a *! prob) (r2 0) policy actions
+
+        match mode with
+        | PlayCurrentPolicy => weighted_sum (get_cur_policy d.regret)
+        | TrainCurrentPolicy =>
+            inl size = MatrixSize
+            inl key : u64 = $"numpy.random.randint(0,!size)"
+            
+            inl regret = d.regret |> fun x => $"!x[!key,:]"
+            inl u,us =
+                am.mapFold2 (fun s prob a => 
+                    inl r = next prob a
+                    r, s +! r *! prob
+                    ) (r2 0) (regret_match regret) actions
+            regret |> am.mapInplace (fun i x => max 0 <| x + op_prob * !!(index u i -! us) id)
+            us
+    }

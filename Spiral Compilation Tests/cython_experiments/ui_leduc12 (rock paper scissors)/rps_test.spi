@@ -6,11 +6,11 @@ inl main () =
 
     loopw.for' (from: 0i32 nearTo: 20) fun i =>
         open agent.cfr_enum
-        loopw.for' (from: 0i32 nearTo: 1000) fun _ =>
-            ignore <| rps.start (nodes.nodes_2p false (agent.cfr_enum_experimental.funsTrain false agent.cfr_enum_experimental.trainCurrentPolicy() d1, funsTrain false PlayCurrentPolicy d2))
-            ignore <| rps.start (nodes.nodes_2p false (agent.cfr_enum_experimental.funsTrain false agent.cfr_enum_experimental.playCurrentPolicy() d1, funsTrain false TrainCurrentPolicy d2))
+        loopw.for' (from: 0i32 nearTo: 10000) fun _ =>
+            ignore <| rps.start (nodes.nodes_2p false (agent.cfr_enum_experimental2.funsTrain false agent.cfr_enum_experimental2.trainCurrentPolicy() d1, funsTrain false PlayCurrentPolicy d2))
+            ignore <| rps.start (nodes.nodes_2p false (agent.cfr_enum_experimental2.funsTrain false agent.cfr_enum_experimental2.playCurrentPolicy() d1, funsTrain false TrainCurrentPolicy d2))
         inl d_test = dictm.empty
         loopw.for' (from: 0i32 nearTo: 500) fun _ =>
-            ignore <| rps.start (nodes.nodes_2p false (agent.cfr_enum_experimental.funsTrain false agent.cfr_enum_experimental.playCurrentPolicy() d1, funsTrain false TrainCurrentPolicy d_test))
-        inl r = rps.start (nodes.nodes_2p false (agent.cfr_enum_experimental.funsTrain false agent.cfr_enum_experimental.playCurrentPolicy() d1, funsTrain false PlayCurrentPolicy d_test))
+            ignore <| rps.start (nodes.nodes_2p false (agent.cfr_enum_experimental2.funsTrain false agent.cfr_enum_experimental2.playCurrentPolicy() d1, funsTrain false TrainCurrentPolicy d_test))
+        inl r = rps.start (nodes.nodes_2p false (agent.cfr_enum_experimental2.funsTrain false agent.cfr_enum_experimental2.playCurrentPolicy() d1, funsTrain false PlayCurrentPolicy d_test))
         $"print('summary -',!i,!r)"
