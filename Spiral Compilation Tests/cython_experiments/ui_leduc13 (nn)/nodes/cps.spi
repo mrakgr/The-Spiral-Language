@@ -1,0 +1,33 @@
+inl sample is_sample i pid dist f (p,ret) =
+    let f a b = f a b
+    inl x = index dist i
+    inl p = sample_players_update pid ((if is_sample then log_prob_from_sample else log_prob_from_policy) (1 / f64 (length dist)),x) p
+    f x (p,ret)
+
+inl draw is_sample i pid dist f (p,ret) =
+    let f a b = f a b
+    inl x = index dist i
+    inl ar = am.removeAtIndex i dist
+    inl p = sample_players_update pid ((if is_sample then log_prob_from_sample else log_prob_from_policy) (1 / f64 (length dist)),x) p
+    f (x,ar) (p,ret)
+
+// Iterates over the an uniform categorical distribution, summing up the rewards divided by the length.
+inl iter one pid dist f (p,ret) =
+    let rec loop i s = 
+        inl prob = 1 / f64 (length dist)
+        if i < length dist then one false i pid dist f (p,fun r => loop (i+1) (s+r))
+        else ret (prob * s)
+    loop 0 0
+
+inl nodes_2p forall game_state o a ret. (player_funs fp1, player_funs fp2) 
+        : game2p game_state o a (pl2 o a * (r2 -> ret) -> ret) = game2p {
+    terminal = fun (s1,s2) r ((chance_prob,p1,p2),ret) =>
+        fp1.terminal {chance_prob game_state=s1; id=0; player=p1; reward=r} . fp2.terminal {chance_prob game_state=s2; id=1; player=p2; reward=r}
+        ret r
+    action = fun s pid ar f ((chance_prob,p1,p2),ret) =>
+        let f (a : a) (b : pl2 o a * (r2 -> ret)) : ret = real real_core.unbox a (fun _ => f a b)
+        if pid = 0 then fp1.action {chance_prob game_state=s; id=0; player=p1; player'=prob p2; actions=ar; next=fun (_,a as cs) => f a ((chance_prob,apply_changes p1 cs,apply_action p2 a),ret)}
+        else fp2.action {chance_prob game_state=s; id=1; player=p2; player'=prob p1; actions=ar; next=fun (_,a as cs) => f a ((chance_prob,apply_action p1 a,apply_changes p2 cs),ret)}
+    draw = choice draw
+    sample = choice sample
+    }

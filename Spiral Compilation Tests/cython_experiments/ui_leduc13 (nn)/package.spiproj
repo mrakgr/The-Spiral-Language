@@ -1,6 +1,4 @@
-// Here I do some exploitation testing of the regular and sampling players.
-// The implementation here should be used as a reference rather than the previous
-// `ui_leduc` iterations.
+// Here I finally move on to implementing a neural based agent.
 packages: |core2-
 modules:
     utils-
