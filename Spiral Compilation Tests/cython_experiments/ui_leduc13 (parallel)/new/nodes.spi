@@ -1,0 +1,46 @@
+union observation o a = Observation: o | Action: a
+nominal player o a = { prob : log_prob; observations : list (observation o a) }
+inl init forall observation action. : player observation action = player {prob=Log_prob_one; observations=Nil} |> dyn
+nominal pl2 o a = log_prob * player o a * player o a
+
+inl prob (player {prob}) = prob
+inl observations (player {observations}) = observations
+inl apply_action (player x) a = player {x with observations#=(::) (Action: a)}
+inl apply_observation (player x) o = player {x with observations#=(::) (Observation: o)}
+inl apply_changes (player x) (prob,a) = player {x with observations#=(::) (Action: a); prob#=(+@) prob}
+
+inl sample_players_update pid (prob,x) (pl2 (chance_prob,p1,p2)) =
+    pl2 (
+        prob +@ chance_prob,
+        match pid with
+        | Some: pid =>
+            inl update pid' p = if pid = pid' then apply_observation p x else p
+            update 0 p1, update 1 p2
+        | None =>
+            inl update p = apply_observation p x 
+            update p1, update p2
+        )
+
+inl sample pid dist f p =
+    inl i = sampling.randomInLength dist
+    inl x = index dist i
+    inl p = sample_players_update pid (log_prob_from_sample (1 / f64 (length dist)),x) p
+    f x p
+
+inl draw pid dist f p =
+    inl i = sampling.randomInLength dist
+    inl x = index dist i
+    inl ar = am.removeAtIndex i dist
+    inl p = sample_players_update pid (log_prob_from_sample (1 / f64 (length dist)),x) p
+    f (x,ar) p
+
+union rec node state act =
+    | Terminal: state * r2
+    | Action: state * u8 * a u64 act * (log_prob * act -> node state act)
+
+inl action forall game_state obs act. (state : game_state) pid (dist : a u64 act) f (pl2 (chance_prob,p1,p2) as p) = 
+    Action: (p, state), pid, dist, fun (_,a as cs) => 
+        let f (b : pl2 obs act) = real real_core.unbox a (fun _ => f a b)
+        if pid = 0 then f (pl2 (chance_prob,apply_changes p1 cs,apply_action p2 a))
+        else f (pl2 (chance_prob,apply_action p1 a,apply_changes p2 cs))
+inl terminal state r p = Terminal: (p, state), r
