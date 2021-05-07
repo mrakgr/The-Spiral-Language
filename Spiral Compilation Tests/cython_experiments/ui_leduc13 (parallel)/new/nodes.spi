@@ -1,7 +1,8 @@
 union observation o a = Observation: o | Action: a
 nominal player o a = { prob : log_prob; observations : list (observation o a) }
-inl init forall observation action. : player observation action = player {prob=Log_prob_one; observations=Nil} |> dyn
+inl player_init forall observation action. : player observation action = player {prob=Log_prob_one; observations=Nil} |> dyn
 nominal pl2 o a = log_prob * player o a * player o a
+inl pl2_init forall o a. : pl2 o a = pl2 (Log_prob_one, player_init, player_init)
 
 inl prob (player {prob}) = prob
 inl observations (player {observations}) = observations
@@ -34,13 +35,13 @@ inl draw pid dist f p =
     inl p = sample_players_update pid (log_prob_from_sample (1 / f64 (length dist)),x) p
     f (x,ar) p
 
-union rec node state act =
-    | Terminal: state * r2
-    | Action: state * u8 * a u64 act * (log_prob * act -> node state act)
+union rec node state obs act =
+    | Terminal: pl2 obs act * state * r2
+    | Action: pl2 obs act * state * u8 * a u64 act * (log_prob * act -> node state obs act)
 
-inl action forall game_state obs act. (state : game_state) pid (dist : a u64 act) f (pl2 (chance_prob,p1,p2) as p) = 
-    Action: (p, state), pid, dist, fun (_,a as cs) => 
-        let f (b : pl2 obs act) = real real_core.unbox a (fun _ => f a b)
+inl action forall game_state obs act. (state : game_state) pid (dist : a u64 act) (f : act -> pl2 obs act -> node game_state obs act) (pl2 (chance_prob,p1,p2) as p) = 
+    Action: p, state, pid, dist, fun (_,a as cs) => 
+        let f (b : pl2 obs act) : node game_state obs act = real real_core.unbox a (fun _ => f a b)
         if pid = 0 then f (pl2 (chance_prob,apply_changes p1 cs,apply_action p2 a))
         else f (pl2 (chance_prob,apply_action p1 a,apply_changes p2 cs))
-inl terminal state r p = Terminal: (p, state), r
+inl terminal state r p = Terminal: p, state, r

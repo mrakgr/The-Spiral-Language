@@ -1,0 +1,8 @@
+// Can also be used for normalizing the avg policy.
+let regret_match regret =
+    inl temp, normalizing_sum = am.mapFold (fun s x => inl x = max 0 x in x, x + s) 0 regret
+    
+    if normalizing_sum = 0 then inl v = 1 / f64 (length temp) in am.mapInplace (fun _ _ => v) temp
+    else am.mapInplace (fun _ x => x / normalizing_sum) temp
+    temp
+

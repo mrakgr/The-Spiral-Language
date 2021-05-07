@@ -1447,15 +1447,14 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let f s (i,(_,name),l,env,tt,body) = Map.add i {|name=name; kind=tt|} s
             {top_env with nominals_aux = List.fold f top_env.nominals_aux l}
         let env_ty = List.fold (fun s (i,(_,name),_,_,_,_) -> Map.add name (TyNominal i) s) top_env.ty l
-        if 0 = errors.Count then
-            let x = 
-                List.fold (fun s (i,(r,name),vars,env_ty',tt,body) ->
-                    let v = fresh_var scope
-                    ty scope {term=Map.empty; ty=Map.foldBack Map.add env_ty' env_ty; constraints=Map.empty} v body 
-                    let v = term_subst v
-                    top_env_nominal s r i tt name vars v
-                    ) top_env_empty l
-            psucc (fun () -> FNominalRec l'), AInclude x
+        let x = 
+            List.fold (fun s (i,(r,name),vars,env_ty',tt,body) ->
+                let v = fresh_var scope
+                ty scope {term=Map.empty; ty=Map.foldBack Map.add env_ty' env_ty; constraints=Map.empty} v body 
+                let v = term_subst v
+                top_env_nominal s r i tt name vars v
+                ) top_env_empty l
+        if 0 = errors.Count then psucc (fun () -> FNominalRec l'), AInclude x
         else pfail, AInclude top_env_empty
     | BundlePrototype(q,(r,name),(w,var_init),vars',expr) ->
         let i = at_tag top_env'.prototypes_next_tag

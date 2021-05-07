@@ -4,6 +4,7 @@ modules:
     utils-
     sampling
     old/
+        game-
         nodes/
             utils-
             cps
@@ -19,3 +20,10 @@ modules:
         cfr_exploit_test
         cfr_sample_learned_infoset_exploit_test
         cfr_sample_learned_history_exploit_test
+    new/
+        nodes-
+        leduc
+        agent/
+            uniform
+            regret_match-
+            cfr_learned_infoset 

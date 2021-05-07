@@ -31,7 +31,3 @@ inl nodes_2p forall game_state o a. is_choice (player_funs fp1, player_funs fp2)
     draw = (if is_choice then choice else iter) draw
     sample = (if is_choice then choice else iter) sample
     }
-
-union rec compiled_node obs act =
-    | Reward: r2
-    | Action: obs * a u64 act * (log_prob * act -> compiled_node obs act)

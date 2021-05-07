@@ -1,0 +1,4 @@
+// union rec t y = 
+//     | A: x
+
+// inl w () = A: "true"

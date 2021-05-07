@@ -1,0 +1,11 @@
+type state key act = dictm.dict key ({regret : a u64 f64; avg_policy : a u64 f64; qs : a u64 wval; actions : a u64 act})
+inl value (d : state _ _) actions = dictm.memoize d fun _ => 
+    inl Empty = am.init (length actions) (fun _ => 0)
+    {regret = Empty; avg_policy = Empty; qs = am.init (length actions) (fun _ => wval (r2 0) 0); actions}
+
+inl policy_avg d player_state game_state pid actions next =
+    inl num_actions = length actions
+    inl policy = regret_match (value d actions player.observations).avg_policy
+    inl i = $"numpy.random.choice(!num_actions,p=!policy)"
+    inl p,a = index policy i, index actions i
+    next (log_prob_from_sample p,a)

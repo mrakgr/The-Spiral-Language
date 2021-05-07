@@ -1,0 +1,6 @@
+nominal game2p game_state obs act r = {
+    terminal : game_state -> r2 -> r
+    draw : option u8 -> a u64 obs -> (obs * a u64 obs -> r) -> r
+    action : game_state -> u8 -> a u64 act -> (act -> r) -> r
+    sample : option u8 -> a u64 obs -> (obs -> r) -> r
+    }
