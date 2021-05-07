@@ -1,0 +1,21 @@
+// Here I finally move on to implementing a neural based agent.
+packages: |core2-
+modules:
+    utils-
+    sampling
+    old/
+        nodes/
+            utils-
+            cps
+            main-
+        leduc
+        agent/
+            uniform
+            cfr_enum
+            cfr_sample_learned_infoset
+            cfr_sample_learned_history
+            human
+        ui_train_test
+        cfr_exploit_test
+        cfr_sample_learned_infoset_exploit_test
+        cfr_sample_learned_history_exploit_test

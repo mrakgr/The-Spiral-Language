@@ -21,8 +21,8 @@ inl iter one pid dist f (p,ret) =
 
 inl nodes_2p forall game_state o a ret. (player_funs fp1, player_funs fp2) 
         : game2p game_state o a (pl2 o a * (r2 -> ret) -> ret) = game2p {
-    terminal = fun (s1,s2) r ((chance_prob,p1,p2),ret) =>
-        fp1.terminal {chance_prob game_state=s1; id=0; player=p1; reward=r} . fp2.terminal {chance_prob game_state=s2; id=1; player=p2; reward=r}
+    terminal = fun s r ((chance_prob,p1,p2),ret) =>
+        fp1.terminal {chance_prob game_state=s; id=0; player=p1; reward=r} . fp2.terminal {chance_prob game_state=s; id=1; player=p2; reward=r}
         ret r
     action = fun s pid ar f ((chance_prob,p1,p2),ret) =>
         let f (a : a) (b : pl2 o a * (r2 -> ret)) : ret = real real_core.unbox a (fun _ => f a b)

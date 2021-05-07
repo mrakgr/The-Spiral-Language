@@ -11,7 +11,7 @@ let regret_match regret =
 type state key key2 act = dictm.dict key ({regret : a u64 f64; avg_policy : a u64 f64; qs : a u64 wval; actions : a u64 act})
 inl value (d : state _ _ _) actions = dictm.memoize d fun _ => 
     inl Empty = am.init (length actions) (fun _ => 0)
-    {regret = Empty; avg_policy = Empty; qs = am.init (length actions) (fun _ => wval_create (r2 0) 0); actions}
+    {regret = Empty; avg_policy = Empty; qs = am.init (length actions) (fun _ => wval (r2 0) 0); actions}
 
 inl terminal _ = ()
 
@@ -56,7 +56,7 @@ inl funsTrain mode (d : state _ _ _) = player_funs {
             inl self_prob = player.prob
             inl env_prob = chance_prob +@ op_prob
             inl regret_prob = exp ((0 - self_prob.sample) + (env_prob.policy - env_prob.sample))
-            set qs i' (index qs i' *, (1 - Alpha) +, wval_create r regret_prob *, Alpha)
+            set qs i' (index qs i' *, (1 - Alpha) +, wval r regret_prob *, Alpha)
             d.regret |> am.mapInplace (fun i x => max 0 <| x + regret_prob * !!(index u i -! us) id)
             inl policy = regret_match d.regret
             inl avg_policy_prob = exp ((self_prob.policy - self_prob.sample) - (chance_prob.sample + op_prob.sample))
