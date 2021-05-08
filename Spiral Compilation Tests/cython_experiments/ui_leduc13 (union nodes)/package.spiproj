@@ -1,0 +1,41 @@
+// Prototype for an alternative implementation that could be used on the GPU.
+// It is currently lacking a parallel training function in the `new/train` module. 
+// I meant to implement it, but realized it would be a bad fit for the tabular players.
+// But either way, it won't be hard to do.
+
+// At this point (5/8/2021) I have it up to my neck with the tabular players. I am sick of them.
+// Instead I am going to go straight to the next stage. The linear and then the neural based
+// CFR agents.
+packages: |core2-
+modules:
+    utils-
+    sampling
+    old/
+        game-
+        nodes/
+            utils-
+            cps
+            main-
+        leduc
+        agent/
+            uniform
+            cfr_enum
+            cfr_sample_learned_infoset
+            cfr_sample_learned_history
+            human
+        ui_train_test
+        cfr_exploit_test
+        cfr_sample_learned_infoset_exploit_test
+        cfr_sample_learned_history_exploit_test
+    new/
+        nodes-
+        leduc
+        agent/
+            uniform
+            regret_match-
+            cfr_sample_learned_infoset
+            cfr_sample_learned_history 
+        train 
+        cfr_sample_learned_infoset_exploit_test
+        cfr_sample_learned_history_exploit_test 
+

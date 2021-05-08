@@ -5,6 +5,7 @@ union card = King | Queen | Jack
 type player = {card : card; id : u8; pot : i32}
 type players = player * player
 nominal leduc_state = player * player * option card
+inl leduc_state_op_card (leduc_state (p1,p2,_)) pid = if p1.id = pid then p2.card else p1.card
 
 inl compare_hands (community_card : card) (p1,p2 : players) =
     let tag = function King => 2i32 | Queen => 1 | Jack => 0

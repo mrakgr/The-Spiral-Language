@@ -1,0 +1,42 @@
+nominal agent_state key2 act = {regret : a u64 f64; avg_policy : a u64 f64; qs : dictm.dict key2 (a u64 wval); actions : a u64 act}
+type state key key2 act = dictm.dict key (agent_state key2 act)
+inl value (d : state _ _ _) actions = dictm.memoize d fun _ => 
+    inl Empty = am.init (length actions) (fun _ => 0)
+    agent_state {regret = Empty; avg_policy = Empty; qs = dictm.empty; actions}
+
+inl policy_template is_update epsilon policy_extractor qs_extractor d player_state game_state pid actions =
+    inl key = pl2_observations player_state pid
+    inl num_actions = length actions
+    inl agent_state = value d actions key
+    inl policy = regret_match (policy_extractor agent_state)
+    inl sample_policy =
+        if epsilon = 0 then policy else 
+        policy |> am.map (fun x => epsilon * (1 / f64 num_actions) + (1 - epsilon) * x)
+
+    inl i' = $"numpy.random.choice(!num_actions,p=!sample_policy)"
+    inl p, a = {sample=index sample_policy i'; policy=index policy i'}, index actions i'
+    inl sample = p.sample
+    (log_prob_from p, a), fun r =>
+        inl qs = dictm.memoize agent_state.qs (fun _ => am.init num_actions fun _ => wval (r2 0) 0) (qs_extractor game_state pid)
+        inl q_backups s i =
+            inl q = ,(index qs i)
+            inl r = if i = i' then (r -! q) /! sample +! q else q 
+            r, s +! r *! index policy i
+        match is_update with
+        | Some: alpha =>
+            inl (u : a _ _),us = am.initFold num_actions q_backups (r2 0)
+            inl prob = pl2_probs player_state pid
+            inl env_prob = prob.chance +@ prob.op
+            inl regret_prob = exp (-prob.self.sample + (env_prob.policy - env_prob.sample))
+            set qs i' (index qs i' *, (1 - alpha) +, wval r regret_prob *, alpha)
+            agent_state.regret |> am.mapInplace (fun i x => max 0 <| x + regret_prob * !!(index u i -! us) pid)
+            inl policy = regret_match agent_state.regret
+            inl avg_policy_prob = exp ((prob.self.policy - prob.self.sample) - prob.chance.sample - prob.chance.sample)
+            agent_state.avg_policy |> am.mapInplace (fun i x => x + avg_policy_prob * index policy i)
+            us
+        | None =>
+            loop.for (from: 0 nearTo: num_actions) (fun i s => q_backups s i |> snd) (r2 0)
+
+inl policy_avg d = policy_template None 0 (fun x => x.avg_policy) leduc.leduc_state_op_card d
+inl policy_cur d = policy_template None 0 (fun x => x.regret) leduc.leduc_state_op_card d
+inl policy_train d = policy_template (Some: 2 ** -2) (2 ** -2) (fun x => x.regret) leduc.leduc_state_op_card d
