@@ -5,4 +5,3 @@ let regret_match regret =
     if normalizing_sum = 0 then inl v = 1 / f64 (length temp) in am.mapInplace (fun _ _ => v) temp
     else am.mapInplace (fun _ x => x / normalizing_sum) temp
     temp
-

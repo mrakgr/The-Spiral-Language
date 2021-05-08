@@ -1,4 +1,2 @@
 inl policy player_state game_state pid actions next = 
-    next (log_prob_from_sample (1 / f64 (length actions)),sampling.sample actions)
-
-inl update player_state game_state pid r = ()
+    (log_prob_from_sample (1 / f64 (length actions)), sampling.sample actions), fun r => r

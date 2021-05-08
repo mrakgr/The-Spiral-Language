@@ -11,7 +11,7 @@ inl log_prob_from_policy x = log_prob {sample=log 1; policy=log x}
 // When the sample and policy are the same.
 inl log_prob_from_sample x = log_prob {sample=log x; policy=log x}
 // When the sample and the policy differ.
-inl log_prob_from {sampled policy} = log_prob {sample=log sampled; policy=log policy}
+inl log_prob_from {sample policy} = log_prob {sample=log sample; policy=log policy}
 inl (+@) (log_prob a) (log_prob b) = log_prob {sample=a.sample+b.sample; policy=a.policy+b.policy}
 inl (-@) (log_prob a) (log_prob b) = log_prob {sample=a.sample-b.sample; policy=a.policy-b.policy}
 inl (~@@) (log_prob {sample policy}) = exp (policy - sample)

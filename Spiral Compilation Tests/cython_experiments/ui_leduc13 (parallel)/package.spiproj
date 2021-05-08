@@ -26,4 +26,5 @@ modules:
         agent/
             uniform
             regret_match-
-            cfr_learned_infoset 
+            cfr_learned_infoset
+        train 
