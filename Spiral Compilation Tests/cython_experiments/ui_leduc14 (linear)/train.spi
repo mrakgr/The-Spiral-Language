@@ -1,0 +1,9 @@
+inl run p1 p2 game = 
+    let rec loop = function
+        | Terminal: player_state,game_state,reward => reward
+        | Action: player_state,game_state,pid,actions,next =>
+            inl run p =
+                inl cs,update = p player_state game_state pid actions
+                update (loop (next cs))
+            if pid = 0 then run p1 else run p2
+    loop (game pl2_init)

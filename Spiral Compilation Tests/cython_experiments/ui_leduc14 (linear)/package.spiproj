@@ -2,3 +2,8 @@ packages: |core2-
 modules:
     utils-
     sampling
+    nodes-
+    leduc 
+    train  
+    agent/
+        uniform
