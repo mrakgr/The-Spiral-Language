@@ -25,6 +25,8 @@ inl iter forall (ar : * -> * -> *) {index; length; create; set} dim {number} el.
 inl iteri forall (ar : * -> * -> *) {index; length; create; set} dim {number} el. : _ -> ar dim el -> _ = iteri
 // Filters the elements of an array using the function.
 inl filter forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. : _ -> ar dim el -> ar dim el = filter
+// Picks out the elements from the array.
+inl choose forall (ar : * -> * -> *) {create; set; index; length} dim {number} el el'. : _ -> ar dim el -> ar dim el' = choose
 // Concatenates an array of arrays.
 inl concat' forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. : _ dim (ar dim el) -> ar dim el = concat
 // Concatenates an array of arrays.

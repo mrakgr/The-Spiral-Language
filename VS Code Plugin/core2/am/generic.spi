@@ -34,7 +34,21 @@ inl iteri f ar = for' (from: 0 nearTo: length ar) (fun i => f i (index ar i))
 inl filter forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. f (ar : ar dim el) =
     inl nearTo = length ar
     inl ar' : ar _ _ = create nearTo
-    for (from:0 nearTo:) (fun i count => if f i then set ar' i (index ar i) . count + 1 else count) 0
+    for (from:0 nearTo:) (fun i count => 
+        inl x = index ar i
+        if f x then set ar' i x . count + 1 else count
+        ) 0
+    |> fun nearTo => init nearTo (index ar')
+// Picks out the elements from the array.
+inl choose forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. f (ar : ar dim el) =
+    inl nearTo = length ar
+    inl ar' : ar _ _ = create nearTo
+    for (from:0 nearTo:) (fun i count =>
+        inl x = index ar i
+        match f x with
+        | Some: x => set ar' i x . count + 1 
+        | None => count
+        ) 0
     |> fun nearTo => init nearTo (index ar')
 
 // Concatenates an array of arrays.
