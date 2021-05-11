@@ -23,6 +23,10 @@ inl map forall (ar : * -> * -> *) {index; length; create; set} dim {number} el e
 inl iter forall (ar : * -> * -> *) {index; length; create; set} dim {number} el. : _ -> ar dim el -> _ = iter
 // Iterates over an array. Provides the index as the first argument.
 inl iteri forall (ar : * -> * -> *) {index; length; create; set} dim {number} el. : _ -> ar dim el -> _ = iteri
+// Iterates over two arrays.
+inl iter2 forall (ar : * -> * -> *) {index; length; create; set} dim {number} el el'. : _ -> ar dim el -> ar dim el' -> _ = iter2
+// Iterates over two arrays. Provides the index as the first argument.
+inl iter2i forall (ar : * -> * -> *) {index; length; create; set} dim {number} el el'. : _ -> ar dim el -> ar dim el' -> _ = iteri2
 // Filters the elements of an array using the function.
 inl filter forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. : _ -> ar dim el -> ar dim el = filter
 // Picks out the elements from the array.

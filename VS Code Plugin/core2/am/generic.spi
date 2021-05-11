@@ -14,9 +14,7 @@ inl init nearTo f =
 // If the input function is f and the elements are i0...iN then computes f (... (f s i0)...) iN
 inl fold f s ar = for (from: 0 nearTo: length ar) (fun i s => f s (index ar i)) s
 // Applies a function to each element of the two arrays, threading an accumulator argument through the computation.
-inl fold2 f s ar1 ar2 = 
-    assert (length ar1 = length ar2) "The length of the two arrays has to the same."
-    for (from: 0 nearTo: length ar1) (fun i s => f s (index ar1 i) (index ar2 i)) s
+inl fold2 f s ar1 ar2 = for (from: 0 nearTo: assert_len ar1 ar2) (fun i s => f s (index ar1 i) (index ar2 i)) s
 // Similar to fold with the intial state as the first element of the array.
 inl reduce f ar =
     inl nearTo = length ar
@@ -71,10 +69,11 @@ inl slice (from:nearTo:) x = init (nearTo-from) (fun i => index x (i+from))
 // Slices an array from the start of a range.
 inl sliceFrom from x = slice (from:nearTo:length x) x
 // Applies the mapping function to each element of the two arrays producing a new array with the result of the applications.
-inl map2 f a b = 
-    inl l,l' = length a, length b
-    if l <> l' then failwith "The two arrays have to have the same size."
-    init l (fun i => f (index a i) (index b i))
+inl map2 f a b = init (assert_len a b) (fun i => f (index a i) (index b i))
+// Iterates over two arrays.
+inl iter2 f a b = loop.for' (from: 0 nearTo: assert_len a b) (fun i => f (index a i) (index b i))
+// Iterates over two arrays. Provides the index as the first argument.
+inl iteri2 f a b = loop.for' (from: 0 nearTo: assert_len a b) (fun i => f i (index a i) (index b i))
 // Initializes the array while threading the state through the loop.
 inl initFold nearTo f s =
     inl ar = create nearTo
@@ -86,9 +85,7 @@ inl initFold nearTo f s =
 // Folds over the array while producing the residual array resulting from that operation.
 inl mapFold f s a = initFold (length a) (fun s i => f s (index a i)) s
 // Folds over the two arrays while producing the residual array resulting from that operation.
-inl mapFold2 f s a b =
-    if length a <> length b then failwith "The two arrays have to have the same size."
-    initFold (length a) (fun s i => f s (index a i) (index b i)) s
+inl mapFold2 f s a b = initFold (assert_len a b) (fun s i => f s (index a i) (index b i)) s
 // Converts the array to an list.
 inl toList x = foldBack (::) x Nil
 // Returns true if the applying the checker function to every element of the array returns true.
@@ -97,7 +94,7 @@ inl forall' f x =
     loop 0
 // Returns true if the applying the checker function to every element pair of the two arrays returns true.
 inl forall2 f x1 x2 =
-    if length x1 <> length x2 then failwith "The two arrays have differing lengths."
+    inl _ = assert_len x1 x2
     let rec loop i = if i < length x1 then f (index x1 i) (index x2 i) && loop (i+1) else true
     loop 0
 // Returns true if the applying the checker function to one element of the array returns true.
@@ -106,7 +103,7 @@ inl exists f x =
     loop 0
 // Returns true if the applying the checker function to one element pair of the two arrays returns true.
 inl exists2 f x1 x2 =
-    if length x1 <> length x2 then failwith "The two arrays have differing lengths."
+    inl _ = assert_len x1 x2
     let rec loop i = if i < length x1 then f (index x1 i) (index x2 i) || loop (i+1) else false
     loop 0
 // Removes the element at index.

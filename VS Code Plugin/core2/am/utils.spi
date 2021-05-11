@@ -1,0 +1,4 @@
+inl assert_len ar1 ar2 =
+    inl l = length ar1
+    assert (l = length ar2) "The length of the two arrays has to the same."
+    l
