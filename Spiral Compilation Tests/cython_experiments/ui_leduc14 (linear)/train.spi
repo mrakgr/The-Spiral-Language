@@ -1,9 +1,51 @@
-inl run p1 p2 game = 
-    let rec loop = function
-        | Terminal: player_state,game_state,reward => reward
-        | Action: player_state,game_state,pid,actions,next =>
-            inl run p =
-                inl cs,update = p player_state game_state pid actions
-                update (loop (next cs))
-            if pid = 0 then run p1 else run p2
-    loop (game pl2_init)
+// inl run p1 p2 game = 
+//     let rec loop = function
+//         | Terminal: player_state,game_state,reward => reward
+//         | Action: player_state,game_state,pid,actions,next =>
+//             inl run p =
+//                 inl cs,update = p player_state game_state pid actions
+//                 update (loop (next cs))
+//             if pid = 0 then run p1 else run p2
+//     loop (game pl2_init)
+
+inl run batch_size p game =
+    let rec loop (l : a u64 _) =
+        inl action_indices : ra u64 _ = am.empty
+        l |> am.iteri (fun i => function
+            | Some: (Action: _) => rm.add is i
+            | _ => ()
+            )
+        inl map_actions f : a u64 _ =
+            is |> am.generic.map fun i => 
+                match index l i with
+                | Some: (Action: x) => f i x
+                | _ => failwith "impossible"
+        inl cs,update = 
+            map_actions fun i (player_state,game_state,pid,actions,next) => 
+                player_state,game_state,pid,actions
+            |> p
+        inl r =
+            is |> am.generic.map fun i =>
+        ()
+        // inl cs,update =
+        //     l |> am.choose function
+        //     |> p
+        // let r =
+        //     am.mapFold (fun i => function
+        //         | Some: (Action: _,_,_,_,next) => (Some: next (index cs i)), i+1
+        //         | None => None, i
+        //         ) 0 l
+        //     |> fst |> loop 
+        //     |> am.mapFold (fun i => function
+        //         | Some: (Action: _,_,_,_,next) => (Some: next (index cs i)), i+1
+        //         | None => None, i
+        //         ) 0
+        //     |> fst |> update
+        // am.mapFold (fun i a =>
+        //     match a with
+        //     | Some: (Terminal: _,_,r) => (Some: r), i
+        //     | Some: (Action: _) => (Some: index r i), i+1
+        //     | _ => None, i
+        //     ) 0 l
+        // |> fst
+    loop (am.init batch_size fun _ => Some: game pl2_init)
