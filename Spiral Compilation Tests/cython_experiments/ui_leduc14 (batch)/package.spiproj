@@ -1,0 +1,15 @@
+packages: |core2-
+modules:
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    sampling
+    nodes-
+    leduc
+    train
+    agent/
+        uniform
+    uniform_test

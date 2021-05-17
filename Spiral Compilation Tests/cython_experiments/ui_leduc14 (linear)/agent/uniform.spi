@@ -1,2 +1,0 @@
-inl policy player_state game_state pid actions = 
-    (log_prob_from_sample (1 / f64 (length actions)), sampling.sample actions), fun r => r
