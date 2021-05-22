@@ -12,4 +12,5 @@ modules:
     train
     agent/
         uniform
+        neural 
     uniform_test

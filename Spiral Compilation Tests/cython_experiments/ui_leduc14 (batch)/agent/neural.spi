@@ -1,0 +1,31 @@
+inl create_small_leduc_net () =
+    open leduc
+    let process (l : list (observation card action)) : a u64 (card * a u64 action) =
+        let rec action (c,l) = function
+            | Cons: (Observation: x), x' => (c,listm.rev l |> listm.toArray) :: action (x,Nil) x'
+            | Cons: (Action: x), x' => action (c,x :: l) x'
+            | Nil => (c,listm.rev l |> listm.toArray) :: Nil
+        match listm.rev l with
+        | Cons: (Observation: x), x' => action (x,Nil) x' |> listm.toArray
+        | _ => failwith "Expected a card."
+
+    inl schema = {
+        input =
+            open serialization.dense.array
+            inl card = alt {king=Unit; queen=Unit; jack=Unit} : pu card
+            inl action = alt {fold=Unit; call=Unit; raise=Unit} : pu action
+            // Max pot size is 13, and 0 is impossible for Leduc due to the antes. 
+            // Here I am mapping the 1-13 to 0-12 range and back.
+            inl pot = wrap ((+) -1,(+) 1) (int 13) 
+            inl pid = int 2
+            pid ** pot ** array 2 (card ** array 4 action)
+        output =
+            open serialization.sparse.int
+            alt {fold=Unit; call=Unit; raise=Unit} : pu action
+        }
+
+    open serialization
+    inl c,b,a = dense.array.size schema.input, 64u64, sparse.int.size schema.output
+
+    !!!!Import("nets")
+    {schema net = $"nets.small(!c,!b,!a)" : obj}

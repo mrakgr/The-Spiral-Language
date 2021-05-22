@@ -11,7 +11,7 @@ inl run batch_size p game =
                 rm.add nexts next
             | Terminal: x => 
                 rm.add rewards (i, x)
-        inl rewards_actions = 
+        inl rewards_actions =
             if 0 < length actions then
                 inl cs,update = p actions
                 am.generic.map2 (<|) nexts cs |> loop |> update
