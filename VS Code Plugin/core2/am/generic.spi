@@ -24,6 +24,8 @@ inl reduce f ar =
 inl foldBack f ar s = forDown (nearFrom: length ar to:0) (fun i s => f (index ar i) s) s
 // Maps an array.
 inl map f ar = init (length ar) (fun i => f (index ar i))
+// Maps an array. Provides the index as the first argument.
+inl mapi f ar = init (length ar) (fun i => f i (index ar i))
 // Iterates over an array.
 inl iter f ar = for' (from: 0 nearTo: length ar) (index ar >> f)
 // Iterates over an array. Provides the index as the first argument.
@@ -70,6 +72,8 @@ inl slice (from:nearTo:) x = init (nearTo-from) (fun i => index x (i+from))
 inl sliceFrom from x = slice (from:nearTo:length x) x
 // Applies the mapping function to each element of the two arrays producing a new array with the result of the applications.
 inl map2 f a b = init (assert_len a b) (fun i => f (index a i) (index b i))
+// Applies the mapping function to each element of the two arrays producing a new array with the result of the applications. Provides the index as the first argument.
+inl mapi2 f a b = init (assert_len a b) (fun i => f i (index a i) (index b i))
 // Iterates over two arrays.
 inl iter2 f a b = loop.for' (from: 0 nearTo: assert_len a b) (fun i => f (index a i) (index b i))
 // Iterates over two arrays. Provides the index as the first argument.

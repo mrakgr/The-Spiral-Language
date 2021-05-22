@@ -19,6 +19,8 @@ inl reduce forall (ar : * -> * -> *) {index; length} dim {number} el. : _ -> ar 
 inl foldBack forall (ar : * -> * -> *) {index; length} dim {number} el s. : _ -> ar dim el -> _ -> s = foldBack
 // Maps an array.
 inl map forall (ar : * -> * -> *) {index; length; create; set} dim {number} el el'. : _ -> ar dim el -> ar dim el' = map
+// Maps an array. Provides the index as the first argument.
+inl mapi forall (ar : * -> * -> *) {index; length; create; set} dim {number} el el'. : _ -> ar dim el -> ar dim el' = mapi
 // Iterates over an array.
 inl iter forall (ar : * -> * -> *) {index; length; create; set} dim {number} el. : _ -> ar dim el -> _ = iter
 // Iterates over an array. Provides the index as the first argument.
@@ -45,6 +47,8 @@ inl slice forall (ar : * -> * -> *) {create; set; index; length} dim {number} el
 inl sliceFrom forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. : _ -> ar dim el -> ar dim el = sliceFrom
 // Applies the mapping function to each element of the two arrays producing a new array with the result of the applications.
 inl map2 forall (ar : * -> * -> *) {create; set; index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ = map2
+// Applies the mapping function to each element of the two arrays producing a new array with the result of the applications. Provides the index as the first argument.
+inl mapi2 forall (ar : * -> * -> *) {create; set; index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ = mapi2
 // Initializes the array while threading the state through the loop.
 inl initFold forall (ar : * -> * -> *) {create; set} dim {number} el s. : _ -> _ -> _ -> ar dim el * s = initFold
 // Folds over the array while producing the residual array resulting from that operation.
