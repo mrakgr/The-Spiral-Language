@@ -32,14 +32,14 @@ inl sample_players_update pid (prob,x) (pl2 (chance_prob,p1,p2)) =
 inl sample pid dist f p =
     inl i = sampling.randomInLength dist
     inl x = index dist i
-    inl p = sample_players_update pid (log_prob_from_sample (1 / f64 (length dist)),x) p
+    inl p = sample_players_update pid (log_prob_from_sample (1 / f32 (length dist)),x) p
     f x p
 
 inl draw pid dist f p =
     inl i = sampling.randomInLength dist
     inl x = index dist i
     inl ar = am.removeAtIndex i dist
-    inl p = sample_players_update pid (log_prob_from_sample (1 / f64 (length dist)),x) p
+    inl p = sample_players_update pid (log_prob_from_sample (1 / f32 (length dist)),x) p
     f (x,ar) p
 
 union rec node state obs act =

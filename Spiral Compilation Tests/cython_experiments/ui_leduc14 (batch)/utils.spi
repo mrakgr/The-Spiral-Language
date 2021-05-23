@@ -1,10 +1,11 @@
-// Cython only. Converts a number to a f64.
+// Cython only. Converts a number to a float.
 inl f64 forall t {number}. (x : t) : f64 = $"<`f64>!x"
+inl f32 forall t {number}. (x : t) : f32 = $"<`f32>!x"
 
 // ---
 
 // The sample and the policy probability.
-nominal log_prob = {sample : f64; policy : f64}
+nominal log_prob = {sample : f32; policy : f32}
 
 // During enumeration the sample probability is 1.
 inl log_prob_from_policy x = log_prob {sample=log 1; policy=log x}
@@ -20,7 +21,7 @@ inl log_prob_one() = log_prob {sample=0; policy=0}
 
 // ---
 
-nominal r2 = f64
+nominal r2 = f32
 inl (+!) (r2 a) (r2 b) = r2 (a+b)
 inl (-!) (r2 a) (r2 b) = r2 (a-b)
 inl (*!) (r2 a) b = r2 (a*b)
@@ -29,7 +30,7 @@ inl (~!!) (r2 a) i = if i = 0 then a else -a
 
 // ---
 
-nominal wval = {val : r2; weight : f64}
+nominal wval = {val : r2; weight : f32}
 inl (+,) (wval a) (wval b) = wval {val=a.val+!b.val; weight=a.weight+b.weight}
 inl (-,) (wval a) (wval b) = wval {val=a.val-!b.val; weight=a.weight-b.weight}
 inl (*,) (wval a) b = wval {val=a.val*!b; weight=a.weight*b}

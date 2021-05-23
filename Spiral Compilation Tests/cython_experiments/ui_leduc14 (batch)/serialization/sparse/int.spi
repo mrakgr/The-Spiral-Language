@@ -40,7 +40,7 @@ inl pair (pu a') (pu b') =
         }
 inl (**) a b = pair a b
 
-inl wrap (b,a) (pu p) =
+inl wrap (in: a out: b) (pu p) =
     pu {size = p.size
         pickle = fun x => p.pickle (a x)
         unpickle = fun i => b (p.unpickle i)

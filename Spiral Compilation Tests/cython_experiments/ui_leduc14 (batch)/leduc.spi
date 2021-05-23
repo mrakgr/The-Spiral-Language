@@ -49,7 +49,7 @@ inl Game =
             inl p (x : player) = {x with pot#=(+) (if x.id = 0 then r else -r)}
             inl p1, p2 = p p1, p p2
             if p1.id = 0 then p1,p2 else p2,p1
-        terminal (leduc_state (p1,p2,card)) (r2 (f64 r))
+        terminal (leduc_state (p1,p2,card)) (r2 (f32 r))
 
     let actions_from_state (p1,p2 : players) (raises_left : i32) =
         if 0 < raises_left && p1.pot = p2.pot then actions.init

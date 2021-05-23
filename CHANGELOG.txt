@@ -1,3 +1,7 @@
+WIP
+
+* Renamed array's iter2i to iteri2 so it matches the F# naming scheme.
+
 2.0.85 (5/22/2021)
 
 Minor fixes. I'll start keeping a changelog from here as development on the compiler has stabilized. For the previous versions, the commit history can serve as the changelog. I have a bunch of stuff on the TODO list, but don't have much drive to work on them at this time. At this point the compiler itself is good enough.
