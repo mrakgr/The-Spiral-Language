@@ -50,27 +50,30 @@ inl policy (epsilon : f64) (leduc_net {policy value schema}) l =
     inl len = length l
     inl policy_size = serialization.dense.array.size schema.policy
     inl value_size = serialization.dense.array.size schema.value
-    inl data_value : obj = $"numpy.zeros(!len,!value_size)"
-    inl action_indices : ra u64 u64 = am.empty
+    inl actions_size = serialization.sparse.int.size schema.actions
+
+    inl data_value : obj = $"torch.zeros(!len,!value_size)"
     l |> am.iteri fun b (player_state, (leduc_state (p1,p2,community_card)), pid, actions) =>
         inl seq = pl2_observations player_state pid |> obs_to_array
         inl pot = if pid = p1.id then p1.pot else p2.pot
         schema.value.pickle (leduc_policy_input {pid= $"!pid"; pot= $"!pot"; seq},if pid = p1.id then p2.card else p1.card) (0, $"!data_value[!b,:]")
-        actions |> am.iteri fun a (action : action) =>
-            rm.add action_indices (b * len + schema.actions.pickle action)
-    inl policy_raw_values' : obj = $"!policy.forward(!data_value[:,!policy_size])"
-    inl policy_raw_values : obj = $"torch.full_like(!policy_raw_values',float('-inf'))"
-    $"!policy_raw_values.flatten()[!action_indices] = !policy_raw_values'.flatten()[!action_indices]"
-    inl policy_probs : obj = $"torch.softmax(!policy_raw_values,dim=-1)"
+    inl action_indices : a u64 (a u64 _) = l |> am.generic.map fun (_,_,_,actions) => am.map schema.actions.pickle actions
+    inl policy_mask : obj = $"torch.full((!len,!actions_size),float('-inf'))"
+    am.iteri (fun b => am.iter (fun a => $"!policy_mask[!b,!a] = 0")) action_indices
+    inl policy_raw : obj = $"!policy_mask + !policy.forward(!data_value[:,!policy_size])"
+    inl policy_probs : obj = $"torch.softmax(!policy_raw,dim=-1)"
 
     inl policy_probs_detached : obj = $"!policy_probs.detach()"
     inl e = epsilon * (1.0 / f64 (serialization.sparse.int.size schema.actions))
-    inl sample_indices : obj = $"torch.distributions.Categorical(!e + (1.0 - !epsilon) * !policy_probs_detached).sample()"
+    inl sample_indices : a u64 _ = $"torch.distributions.Categorical(!e + (1.0 - !epsilon) * !policy_probs_detached).sample().numpy()"
+    inl policy : a u64 f32 = $"torch.gather(!policy_probs_detached,1,!sample_indices.unsqueeze(-1)).squeeze(-1).numpy()"
     inl l : a _ _ =
-        inl policy : a u64 f32 = $"torch.gather(!policy_probs_detached,1,!sample_indices.unsqueeze(-1)).squeeze().numpy()"
         am.map2 (fun policy a =>
             inl policy = f64 policy
             inl sample : f64 = e + (1.0 - epsilon) * policy
             log_prob_from {policy sample}, schema.actions.unpickle a
-            ) policy $"!sample_indices.numpy()"
-    l, id
+            ) policy sample_indices
+    l, fun (r : a u64 r2) =>
+        inl value_raw : obj = $"!value.forward(!data_value)"
+        // inl value : a u64 f32 = 
+        r

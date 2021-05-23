@@ -17,7 +17,7 @@ inl run batch_size p game =
                 am.generic.map2 (<|) nexts cs |> loop |> update
             else am.empty
         inl rewards_all : a _ r2 = create (length l)
-        am.generic.iter2 (fun i r => set rewards_all i r) actions_indices rewards_actions
+        am.generic.iter2 (set rewards_all) actions_indices rewards_actions
         am.iter (fun (i,_,_,r) => set rewards_all i r) rewards
         rewards_all
     loop (am.init batch_size fun _ => game pl2_init)
