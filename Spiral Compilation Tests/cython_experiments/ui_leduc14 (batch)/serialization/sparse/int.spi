@@ -1,4 +1,4 @@
-type el = u64
+type el = i64
 nominal pu a = {
     pickle : a -> el
     size : el

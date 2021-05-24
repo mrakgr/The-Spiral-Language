@@ -1,0 +1,5 @@
+inl main () =
+    inl game = leduc.game()
+    inl r = train.run 64 (agent.neural.policy (2 ** -2) agent.neural.create_small_leduc_net()) game
+    $"print(!r)"
+    ()

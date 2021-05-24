@@ -24,7 +24,7 @@ inl create_small_leduc_net () =
             inl action = alt {fold=Unit; call=Unit; raise=Unit} : pu action
             // Max pot size is 13, and 0 is impossible for Leduc due to the antes. 
             // Here I am mapping the 1-13 to 0-12 range and back.
-            inl pot = wrap (in:(+) -1 out:(+) 1) (int 13) 
+            inl pot = wrap (in:(fun x => x-1) out:(+) 1) (int 13) 
             inl pid = int 2
             inl policy =
                 wrap (in: fun (leduc_policy_input {pid pot seq}) => pid, pot, seq
@@ -39,10 +39,12 @@ inl create_small_leduc_net () =
             }
 
     open serialization
-    inl c,b,a = dense.array.size schema.policy, 64u64, sparse.int.size schema.actions
+    inl c_policy = dense.array.size schema.policy
+    inl c_value = dense.array.size schema.value
+    inl b,a = 64u64, sparse.int.size schema.actions
 
     !!!!Import("nets")
-    leduc_net {schema policy = $"nets.small(!c,!b,!a)" : obj; value = $"nets.small(!c,!b,!a)" : obj}
+    leduc_net {schema policy = $"nets.small(!c_policy,!b,!a)" : obj; value = $"nets.small(!c_value,!b,!a)" : obj}
 
 inl policy (epsilon : f32) (leduc_net {policy value schema}) l =
     !!!!Import("torch")
@@ -51,44 +53,47 @@ inl policy (epsilon : f32) (leduc_net {policy value schema}) l =
     inl len = length l
     inl policy_size = serialization.dense.array.size schema.policy
     inl value_size = serialization.dense.array.size schema.value
-    inl actions_size = f32 (serialization.sparse.int.size schema.actions)
+    inl actions_size = serialization.sparse.int.size schema.actions
 
     inl data_value : obj = $"torch.zeros(!len,!value_size)"
     l |> am.iteri fun b (player_state, (leduc_state (p1,p2,community_card)), pid, actions) =>
         inl seq = pl2_observations player_state pid |> obs_to_array
         inl pot = if pid = p1.id then p1.pot else p2.pot
-        schema.value.pickle (leduc_policy_input {pid= $"!pid"; pot= $"!pot"; seq},if pid = p1.id then p2.card else p1.card) (0, $"!data_value[!b,:]")
+        schema.value.pickle (leduc_policy_input {pid= $"!pid"; pot= $"!pot"; seq},if pid = p1.id then p2.card else p1.card) (0, $"!data_value[!b,:].numpy()")
     inl action_indices : a u64 (a u64 _) = l |> am.generic.map fun (_,_,_,actions) => am.map schema.actions.pickle actions
-    inl policy_raw : obj = $"!policy.forward(!data_value[:,!policy_size])"
+    inl policy_raw : obj = $"!policy.forward(!data_value[:,:!policy_size])"
     inl policy_mask : obj = $"torch.full((!len,!actions_size),float('-inf'))"
     am.iteri (fun b => am.iter (fun a => $"!policy_mask[!b,!a] = 0")) action_indices
     inl policy_log_probs : obj = $"torch.log_softmax(!policy_mask + !policy_raw.cpu(),dim=-1)"
     inl policy_probs : obj = $"torch.exp(!policy_log_probs.detach())"
 
-    inl add_noise prob = epsilon / actions_size + (1.0 - epsilon) * prob
-    inl sample_probs : obj =
-        $"!policy_probs.flatten().numpy()"
-        |> am.map add_noise
-        |> fun (x : a u64 _) => $"torch.from_numpy(!x).reshape_as(!policy_probs)"
-    inl sample_indices : a u64 _ = $"torch.distributions.Categorical(!sample_probs).sample().numpy()"
+    inl sample_probs : obj = $"torch.empty_like(!policy_probs)"
+    am.iteri (fun b l =>
+        inl valid_size = f32 (length l)
+        loop.for' (from:0 nearTo: actions_size) fun a =>
+            inl x = if $"!policy_mask[!b,!a]" = 0f32 then epsilon / valid_size + (1.0 - epsilon) * $"!policy_probs[!b,!a]" else 0
+            $"!sample_probs[!b,!a] = !x"
+        ) action_indices
+    inl sample_indices : a u64 i64 = $"torch.distributions.Categorical(!sample_probs).sample().numpy()"
 
     inl l : a _ _ =
         am.mapi (fun b a =>
             inl policy : f32 = $"!policy_probs[!b,!a]"
-            inl sample = add_noise policy
+            inl sample : f32 = $"!sample_probs[!b,!a]"
             log_prob_from {policy sample}, schema.actions.unpickle a
             ) sample_indices
     l, fun (r : a u64 r2) =>
         inl value : obj = $"!value.forward(!data_value).cpu()"
         inl value_sampled : obj = $"!value.detach().clone()"
+        inl value_signal : obj = $"torch.zeros_like(!value)"
         am.iteri2 (fun b a (r2 r) =>
-            inl policy : f32 = $"!policy_probs[!b,!a]"
-            inl sample = add_noise policy
+            inl sample : f32 = $"!sample_probs[!b,!a]"
             inl q : f32 = $"!value_sampled[!b,!a]"
             inl dif : f32 = $"!r - !q"
-            $"!value[!b,!a].backward(torch.scalar_tensor(!dif))"
+            $"!value_signal[!b,!a] = !dif"
             $"!value_sampled[!b,!a] += !dif / !sample"
             ) sample_indices r
         inl means : obj = $"torch.einsum('ab,ab->a',!value_sampled,!policy_probs)"
+        $"!value.backward(!value_signal)"
         $"!policy_log_probs.backward(!value_sampled - !means.unsqueeze(-1))"
         $"!means.numpy()" : a u64 r2
