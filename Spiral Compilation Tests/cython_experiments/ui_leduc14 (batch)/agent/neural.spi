@@ -46,15 +46,13 @@ inl create_small_leduc_net () =
     !!!!Import("nets")
     leduc_net {schema policy = $"nets.small(!c_policy,!b,!a)" : obj; value = $"nets.small(!c_value,!b,!a)" : obj}
 
+inl models (leduc_net {policy value schema}) = policy, value
+
 inl policy (epsilon : f32) (leduc_net {policy value schema}) l =
-    !!!!Import("torch")
-    !!!!Import("torch.distributions")
-    
     inl len = length l
     inl policy_size = serialization.dense.array.size schema.policy
     inl value_size = serialization.dense.array.size schema.value
     inl actions_size = serialization.sparse.int.size schema.actions
-
     inl data_value : obj = $"torch.zeros(!len,!value_size)"
     l |> am.iteri fun b (player_state, (leduc_state (p1,p2,community_card)), pid, actions) =>
         inl seq = pl2_observations player_state pid |> obs_to_array
@@ -67,13 +65,16 @@ inl policy (epsilon : f32) (leduc_net {policy value schema}) l =
     inl policy_log_probs : obj = $"torch.log_softmax(!policy_mask + !policy_raw.cpu(),dim=-1)"
     inl policy_probs : obj = $"torch.exp(!policy_log_probs.detach())"
 
-    inl sample_probs : obj = $"torch.empty_like(!policy_probs)"
-    am.iteri (fun b l =>
-        inl valid_size = f32 (length l)
-        loop.for' (from:0 nearTo: actions_size) fun a =>
-            inl x = if $"!policy_mask[!b,!a]" = 0f32 then epsilon / valid_size + (1.0 - epsilon) * $"!policy_probs[!b,!a]" else 0
-            $"!sample_probs[!b,!a] = !x"
-        ) action_indices
+    inl sample_probs : obj = 
+        if epsilon = 0 then policy_probs else
+        inl sample_probs : obj = $"torch.empty_like(!policy_probs)"
+        am.iteri (fun b l =>
+            inl valid_size = f32 (length l)
+            loop.for' (from:0 nearTo: actions_size) fun a =>
+                inl x = if $"!policy_mask[!b,!a]" = 0f32 then epsilon / valid_size + (1.0 - epsilon) * $"!policy_probs[!b,!a]" else 0
+                $"!sample_probs[!b,!a] = !x"
+            ) action_indices
+        sample_probs
     inl sample_indices : a u64 i64 = $"torch.distributions.Categorical(!sample_probs).sample().numpy()"
 
     inl l : a _ _ =
@@ -83,6 +84,7 @@ inl policy (epsilon : f32) (leduc_net {policy value schema}) l =
             log_prob_from {policy sample}, schema.actions.unpickle a
             ) sample_indices
     l, fun (r : a u64 r2) =>
+        if length r = 0 then r else
         inl value : obj = $"!value.forward(!data_value).cpu()"
         inl value_sampled : obj = $"!value.detach().clone()"
         inl value_signal : obj = $"torch.zeros_like(!value)"

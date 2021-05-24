@@ -1,5 +1,21 @@
+// inl self_play () = // Backup
+//     inl game = leduc.game()
+//     inl r = train.vs_self 102400 (agent.neural.policy (2 ** -2) agent.neural.create_small_leduc_net()) game
+//     inl mean : f32 = $"numpy.mean(!r)"
+//     $"print(!mean)"
+
 inl main () =
+    !!!!Import("torch")
+    !!!!Import("torch.distributions")
+    !!!!Import("torch.optim")
     inl game = leduc.game()
-    inl r = train.run 64 (agent.neural.policy (2 ** -2) agent.neural.create_small_leduc_net()) game
-    $"print(!r)"
+    inl net = agent.neural.create_small_leduc_net()
+    inl policy,value = agent.neural.models net
+    inl opt : obj = $"torch.optim.SGD([{'params':!policy.parameters()},{'params':!value.parameters()}],lr=2 ** -10)"
+    loopw.for' (from: 0i32 nearTo: 1000) fun _ =>
+        $"!opt.zero_grad()"
+        inl r = train.vs_one 1024 (agent.neural.policy 0 net) agent.uniform.policy game
+        $"!opt.step()"
+        inl mean : f32 = $"numpy.mean(!r)"
+        $"print(!mean)"
     ()

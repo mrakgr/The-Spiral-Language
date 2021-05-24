@@ -1,5 +1,5 @@
 // The array template module. Generic functions for array like structures.
-open loop
+open loopw
 
 // Creates an empty array.
 inl empty forall (ar : * -> * -> *) {create} dim {number} el. : ar dim el = create 0
@@ -75,9 +75,9 @@ inl map2 f a b = init (assert_len a b) (fun i => f (index a i) (index b i))
 // Applies the mapping function to each element of the two arrays producing a new array with the result of the applications. Provides the index as the first argument.
 inl mapi2 f a b = init (assert_len a b) (fun i => f i (index a i) (index b i))
 // Iterates over two arrays.
-inl iter2 f a b = loop.for' (from: 0 nearTo: assert_len a b) (fun i => f (index a i) (index b i))
+inl iter2 f a b = for' (from: 0 nearTo: assert_len a b) (fun i => f (index a i) (index b i))
 // Iterates over two arrays. Provides the index as the first argument.
-inl iteri2 f a b = loop.for' (from: 0 nearTo: assert_len a b) (fun i => f i (index a i) (index b i))
+inl iteri2 f a b = for' (from: 0 nearTo: assert_len a b) (fun i => f i (index a i) (index b i))
 // Initializes the array while threading the state through the loop.
 inl initFold nearTo f s =
     inl ar = create nearTo
@@ -113,7 +113,7 @@ inl exists2 f x1 x2 =
 // Removes the element at index.
 inl removeAtIndex i dist = init (length dist-1) (fun i' => index dist (if i <= i' then i'+1 else i'))
 // Does an inplace map of the array.
-inl mapInplace f temp = loop.for' (from:0 nearTo: length temp) (fun i => set temp i (f i (index temp i)))
+inl mapInplace f temp = for' (from:0 nearTo: length temp) (fun i => set temp i (f i (index temp i)))
 
 // Generic equable function that data structures other than regular arrays can reuse.
 inl generic_equable x1 x2 =
