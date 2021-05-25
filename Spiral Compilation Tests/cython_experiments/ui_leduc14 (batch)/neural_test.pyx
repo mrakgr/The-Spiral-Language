@@ -511,7 +511,7 @@ cdef class Mut2:
 cdef bint method0(Mut0 v0) except *:
     cdef signed long v1
     v1 = v0.v0
-    return v1 < (<signed long>10)
+    return v1 < (<signed long>100)
 cdef bint method1(Mut1 v0) except *:
     cdef unsigned long long v1
     v1 = v0.v0
@@ -1888,11 +1888,12 @@ cdef numpy.ndarray[float,ndim=1] method11(v0, v1, numpy.ndarray[object,ndim=1] v
                 v283 = v164[v280,v281]
                 v284 = v274[v280,v281]
                 v285 = v282 - v284
-                v275[v280,v281] = v285
+                v275[v280,v281] -= v285
                 v274[v280,v281] += v285 / v283
                 v286 = v280 + (<unsigned long long>1)
                 v278.v0 = v286
             del v278
+            print(torch.mean(v275))
             v273.backward(v275)
             del v273; del v275
             v287 = len(v5)
@@ -1906,9 +1907,9 @@ cdef numpy.ndarray[float,ndim=1] method11(v0, v1, numpy.ndarray[object,ndim=1] v
                 del v294; del v297; del v306; del v308
                 v309 = v307 == (<unsigned char>0)
                 if v309:
-                    v310 = (<float>-1.000000)
-                else:
                     v310 = (<float>1.000000)
+                else:
+                    v310 = (<float>-1.000000)
                 v288[v291] = v310
                 v311 = v291 + (<unsigned long long>1)
                 v289.v0 = v311
@@ -1916,7 +1917,7 @@ cdef numpy.ndarray[float,ndim=1] method11(v0, v1, numpy.ndarray[object,ndim=1] v
             v312 = torch.from_numpy(v288)
             del v288
             v313 = torch.einsum('ab,ab->a',v274,v164)
-            v163.backward(v312.unsqueeze(-1) * (v274 - v313.unsqueeze(-1)))
+            v163.backward(v312.unsqueeze(-1) * (v313.unsqueeze(-1) - v274))
             del v274; del v312
             v315 = v313.numpy()
             del v313
@@ -2103,7 +2104,7 @@ cpdef void main() except *:
     pass # import nets
     v20 = nets.small((<unsigned long long>45),(<unsigned long long>64),(<signed long long>3))
     v21 = nets.small((<unsigned long long>48),(<unsigned long long>64),(<signed long long>3))
-    v22 = torch.optim.SGD([{'params':v21.parameters()}],lr=2 ** -3)
+    v22 = torch.optim.SGD([{'params':v21.parameters()}],lr=(<float>0.000015))
     v23 = Mut0((<signed long>0))
     while method0(v23):
         v25 = v23.v0
@@ -2181,10 +2182,7 @@ cpdef void main() except *:
         del v27
         v78 = method11(v21, v20, v26)
         del v26; del v78
-        print(v21[0].bias)
-        print(v21[0].bias.grad)
         v22.step()
-        print(v21[0].bias)
         v79 = v25 + (<signed long>1)
         v23.v0 = v79
     del v12; del v19; del v20; del v21; del v22
