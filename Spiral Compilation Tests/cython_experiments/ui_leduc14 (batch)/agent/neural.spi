@@ -48,7 +48,7 @@ inl create_small_leduc_net () =
 
 inl models (leduc_net {policy value schema}) = policy, value
 
-inl policy (epsilon : f32) (leduc_net {policy value schema}) l =
+inl policy (epsilon : f32) (leduc_net {policy value schema}) (l : ra _ _) =
     inl len = length l
     inl policy_size = serialization.dense.array.size schema.policy
     inl value_size = serialization.dense.array.size schema.value
@@ -77,13 +77,13 @@ inl policy (epsilon : f32) (leduc_net {policy value schema}) l =
         sample_probs
     inl sample_indices : a u64 i64 = $"torch.distributions.Categorical(!sample_probs).sample().numpy()"
 
-    inl l : a _ _ =
+    inl l' : a _ _ =
         am.mapi (fun b a =>
             inl policy : f32 = $"!policy_probs[!b,!a]"
             inl sample : f32 = $"!sample_probs[!b,!a]"
             log_prob_from {policy sample}, schema.actions.unpickle a
             ) sample_indices
-    l, fun (r : a u64 r2) =>
+    l', fun (r : a u64 r2) =>
         if length r = 0 then r else
         inl value : obj = $"!value.forward(!data_value).cpu()"
         inl value_sampled : obj = $"!value.detach().clone()"
@@ -95,7 +95,11 @@ inl policy (epsilon : f32) (leduc_net {policy value schema}) l =
             $"!value_signal[!b,!a] = !dif"
             $"!value_sampled[!b,!a] += !dif / !sample"
             ) sample_indices r
-        inl means : obj = $"torch.einsum('ab,ab->a',!value_sampled,!policy_probs)"
         $"!value.backward(!value_signal)"
-        $"!policy_log_probs.backward(!value_sampled - !means.unsqueeze(-1))"
+
+        // The reason why `if pid = 0 then -1 else 1f32` instead of `if pid = 0 then 1 else -1f32` is because the grad needs
+        // to be reversed for the backward pass.
+        inl pids : obj = am.generic.map (fun _,_,pid,_ => if pid = 0 then -1 else 1f32) l |> fun (x : a _ _) => $"torch.from_numpy(!x)"
+        inl means : obj = $"torch.einsum('ab,ab->a',!value_sampled,!policy_probs)"
+        $"!policy_log_probs.backward(!pids.unsqueeze(-1) * (!value_sampled - !means.unsqueeze(-1)))"
         $"!means.numpy()" : a u64 r2

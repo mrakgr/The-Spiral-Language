@@ -11,11 +11,15 @@ inl main () =
     inl game = leduc.game()
     inl net = agent.neural.create_small_leduc_net()
     inl policy,value = agent.neural.models net
-    inl opt : obj = $"torch.optim.SGD([{'params':!policy.parameters()},{'params':!value.parameters()}],lr=2 ** -10)"
-    loopw.for' (from: 0i32 nearTo: 1000) fun _ =>
+    // inl opt : obj = $"torch.optim.SGD([{'params':!policy.parameters()},{'params':!value.parameters()}],lr=2 ** -10)"
+    inl opt : obj = $"torch.optim.SGD([{'params':!value.parameters()}],lr=2 ** -3)"
+    loopw.for' (from: 0i32 nearTo: 10) fun _ =>
         $"!opt.zero_grad()"
         inl r = train.vs_one 1024 (agent.neural.policy 0 net) agent.uniform.policy game
+        $"print(!value[0].bias)"
+        $"print(!value[0].bias.grad)"
         $"!opt.step()"
-        inl mean : f32 = $"numpy.mean(!r)"
-        $"print(!mean)"
+        $"print(!value[0].bias)"
+        // inl mean : f32 = $"numpy.mean(!r)"
+        // $"print(!mean)"
     ()
