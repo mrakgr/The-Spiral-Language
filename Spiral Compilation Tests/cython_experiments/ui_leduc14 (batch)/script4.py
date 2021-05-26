@@ -1,14 +1,7 @@
 import torch
-import torch.optim
-import torch.functional
 import torch.nn
 import torch.nn.functional
-import torch.distributions
-import numpy as np
-import torch._C
-import nets
-
-
+w = torch.nn.Linear(3,4)
 q = torch.rand((3,3),requires_grad=True)
-
-x = torch.softmax(q)
+x = torch.softmax(q,dim=-1)
+print(torch.nn.functional.softmax.forward)

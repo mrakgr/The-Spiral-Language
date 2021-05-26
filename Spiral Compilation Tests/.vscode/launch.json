@@ -5,15 +5,12 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(Windows) Launch",
-            "type": "cppvsdbg",
+            "name": "Python: Current File",
+            "type": "python",
             "request": "launch",
-            "program": "${workspaceFolder}/hello.exe",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
-            "externalConsole": false
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ]
 }
