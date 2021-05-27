@@ -1217,7 +1217,7 @@ cdef numpy.ndarray[float,ndim=1] method11(v0, v1, numpy.ndarray[object,ndim=1] v
     cdef unsigned long long v50
     cdef unsigned long long v51
     cdef bint v52
-    cdef list v345
+    cdef list v346
     cdef unsigned long long v53
     cdef object v54
     cdef unsigned long long v55
@@ -1421,7 +1421,7 @@ cdef numpy.ndarray[float,ndim=1] method11(v0, v1, numpy.ndarray[object,ndim=1] v
     cdef unsigned long long v270
     cdef unsigned long long v271
     cdef bint v272
-    cdef numpy.ndarray[float,ndim=1] v315
+    cdef numpy.ndarray[float,ndim=1] v316
     cdef object v273
     cdef object v274
     cdef object v275
@@ -1433,93 +1433,94 @@ cdef numpy.ndarray[float,ndim=1] method11(v0, v1, numpy.ndarray[object,ndim=1] v
     cdef float v282
     cdef float v283
     cdef float v284
-    cdef float v285
-    cdef unsigned long long v286
+    cdef bint v285
+    cdef float v286
     cdef unsigned long long v287
-    cdef numpy.ndarray[float,ndim=1] v288
-    cdef Mut1 v289
-    cdef unsigned long long v291
-    cdef float v292
-    cdef float v293
-    cdef UH0 v294
+    cdef object v288
+    cdef unsigned long long v289
+    cdef numpy.ndarray[float,ndim=1] v290
+    cdef Mut1 v291
+    cdef unsigned long long v293
+    cdef float v294
     cdef float v295
-    cdef float v296
-    cdef UH0 v297
+    cdef UH0 v296
+    cdef float v297
     cdef float v298
-    cdef float v299
-    cdef US1 v300
-    cdef unsigned char v301
-    cdef signed long v302
-    cdef US1 v303
-    cdef unsigned char v304
-    cdef signed long v305
-    cdef US3 v306
-    cdef unsigned char v307
-    cdef numpy.ndarray[signed long,ndim=1] v308
+    cdef UH0 v299
+    cdef float v300
+    cdef float v301
+    cdef US1 v302
+    cdef unsigned char v303
+    cdef signed long v304
+    cdef US1 v305
+    cdef unsigned char v306
+    cdef signed long v307
+    cdef US3 v308
+    cdef unsigned char v309
+    cdef numpy.ndarray[signed long,ndim=1] v310
     cdef Tuple1 tmp6
-    cdef bint v309
-    cdef float v310
-    cdef unsigned long long v311
-    cdef object v312
-    cdef object v313
-    cdef unsigned long long v316
+    cdef bint v311
+    cdef float v312
+    cdef unsigned long long v313
+    cdef object v314
     cdef unsigned long long v317
-    cdef numpy.ndarray[float,ndim=1] v318
-    cdef Mut1 v319
-    cdef unsigned long long v321
+    cdef unsigned long long v318
+    cdef numpy.ndarray[float,ndim=1] v319
+    cdef Mut1 v320
     cdef unsigned long long v322
-    cdef float v323
-    cdef unsigned long long v324
+    cdef unsigned long long v323
+    cdef float v324
     cdef unsigned long long v325
-    cdef list v326
-    cdef Mut2 v327
-    cdef unsigned long long v329
+    cdef unsigned long long v326
+    cdef list v327
+    cdef Mut2 v328
     cdef unsigned long long v330
     cdef unsigned long long v331
-    cdef unsigned char v332
-    cdef bint v333
-    cdef float v338
-    cdef unsigned long long v339
+    cdef unsigned long long v332
+    cdef unsigned char v333
+    cdef bint v334
+    cdef float v339
     cdef unsigned long long v340
-    cdef float v334
-    cdef unsigned long long v335
-    cdef float v336
-    cdef unsigned long long v337
     cdef unsigned long long v341
+    cdef float v335
+    cdef unsigned long long v336
+    cdef float v337
+    cdef unsigned long long v338
     cdef unsigned long long v342
     cdef unsigned long long v343
-    cdef numpy.ndarray[float,ndim=1] v346
-    cdef unsigned long long v347
+    cdef unsigned long long v344
+    cdef numpy.ndarray[float,ndim=1] v347
     cdef unsigned long long v348
-    cdef bint v349
+    cdef unsigned long long v349
     cdef bint v350
-    cdef Mut1 v351
-    cdef unsigned long long v353
+    cdef bint v351
+    cdef Mut1 v352
     cdef unsigned long long v354
-    cdef float v355
-    cdef unsigned long long v356
+    cdef unsigned long long v355
+    cdef float v356
     cdef unsigned long long v357
-    cdef Mut1 v358
-    cdef unsigned long long v360
+    cdef unsigned long long v358
+    cdef Mut1 v359
     cdef unsigned long long v361
-    cdef float v362
+    cdef unsigned long long v362
     cdef float v363
-    cdef UH0 v364
-    cdef float v365
+    cdef float v364
+    cdef UH0 v365
     cdef float v366
-    cdef UH0 v367
-    cdef float v368
+    cdef float v367
+    cdef UH0 v368
     cdef float v369
-    cdef US1 v370
-    cdef unsigned char v371
-    cdef signed long v372
-    cdef US1 v373
-    cdef unsigned char v374
-    cdef signed long v375
-    cdef US3 v376
-    cdef float v377
+    cdef float v370
+    cdef US1 v371
+    cdef unsigned char v372
+    cdef signed long v373
+    cdef US1 v374
+    cdef unsigned char v375
+    cdef signed long v376
+    cdef US3 v377
+    cdef float v378
     cdef Tuple2 tmp7
-    cdef unsigned long long v378
+    cdef unsigned long long v379
     v3 = [None]*(<unsigned long long>0)
     v4 = [None]*(<unsigned long long>0)
     v5 = [None]*(<unsigned long long>0)
@@ -1869,7 +1870,7 @@ cdef numpy.ndarray[float,ndim=1] method11(v0, v1, numpy.ndarray[object,ndim=1] v
         v271 = len(v265)
         v272 = v271 == (<unsigned long long>0)
         if v272:
-            v315 = v265
+            v316 = v265
         else:
             v273 = v0.forward(v54).cpu()
             v274 = v273.detach().clone()
@@ -1887,116 +1888,120 @@ cdef numpy.ndarray[float,ndim=1] method11(v0, v1, numpy.ndarray[object,ndim=1] v
                 v282 = v265[v280]
                 v283 = v164[v280,v281]
                 v284 = v274[v280,v281]
-                v285 = v282 - v284
-                v275[v280,v281] -= v285
-                v274[v280,v281] += v285 / v283
-                v286 = v280 + (<unsigned long long>1)
-                v278.v0 = v286
+                v285 = libc.math.isnan(v284)
+                if v285:
+                    raise Exception("`q` is nan.")
+                else:
+                    pass
+                v286 = v282 - v284
+                v275[v280,v281] -= v286
+                v274[v280,v281] += v286 / v283
+                v287 = v280 + (<unsigned long long>1)
+                v278.v0 = v287
             del v278
-            print(torch.mean(v275))
             v273.backward(v275)
             del v273; del v275
-            v287 = len(v5)
-            v288 = numpy.empty(v287,dtype=numpy.float32)
-            v289 = Mut1((<unsigned long long>0))
-            while method2(v287, v289):
-                v291 = v289.v0
-                tmp6 = v5[v291]
-                v292, v293, v294, v295, v296, v297, v298, v299, v300, v301, v302, v303, v304, v305, v306, v307, v308 = tmp6.v0, tmp6.v1, tmp6.v2, tmp6.v3, tmp6.v4, tmp6.v5, tmp6.v6, tmp6.v7, tmp6.v8, tmp6.v9, tmp6.v10, tmp6.v11, tmp6.v12, tmp6.v13, tmp6.v14, tmp6.v15, tmp6.v16
+            v288 = torch.einsum('ab,ab->a',v274,v164)
+            v289 = len(v5)
+            v290 = numpy.empty(v289,dtype=numpy.float32)
+            v291 = Mut1((<unsigned long long>0))
+            while method2(v289, v291):
+                v293 = v291.v0
+                tmp6 = v5[v293]
+                v294, v295, v296, v297, v298, v299, v300, v301, v302, v303, v304, v305, v306, v307, v308, v309, v310 = tmp6.v0, tmp6.v1, tmp6.v2, tmp6.v3, tmp6.v4, tmp6.v5, tmp6.v6, tmp6.v7, tmp6.v8, tmp6.v9, tmp6.v10, tmp6.v11, tmp6.v12, tmp6.v13, tmp6.v14, tmp6.v15, tmp6.v16
                 del tmp6
-                del v294; del v297; del v306; del v308
-                v309 = v307 == (<unsigned char>0)
-                if v309:
-                    v310 = (<float>1.000000)
+                del v296; del v299; del v308; del v310
+                v311 = v309 == (<unsigned char>0)
+                if v311:
+                    v312 = (<float>1.000000)
                 else:
-                    v310 = (<float>-1.000000)
-                v288[v291] = v310
-                v311 = v291 + (<unsigned long long>1)
-                v289.v0 = v311
-            del v289
-            v312 = torch.from_numpy(v288)
+                    v312 = (<float>-1.000000)
+                v290[v293] = v312
+                v313 = v293 + (<unsigned long long>1)
+                v291.v0 = v313
+            del v291
+            v314 = torch.from_numpy(v290)
+            del v290
+            v163.backward(v314.unsqueeze(-1) * (v288.unsqueeze(-1) - v274))
+            del v274; del v314
+            v316 = v288.numpy()
             del v288
-            v313 = torch.einsum('ab,ab->a',v274,v164)
-            v163.backward(v312.unsqueeze(-1) * (v313.unsqueeze(-1) - v274))
-            del v274; del v312
-            v315 = v313.numpy()
-            del v313
         del v54; del v163; del v164; del v165; del v265
-        v316 = len(v264)
-        v317 = v316 - v224
-        v318 = numpy.empty(v317,dtype=numpy.float32)
-        v319 = Mut1((<unsigned long long>0))
-        while method2(v317, v319):
-            v321 = v319.v0
-            v322 = v321 + v224
-            v323 = v264[v322]
-            v318[v321] = v323
-            v324 = v321 + (<unsigned long long>1)
-            v319.v0 = v324
+        v317 = len(v264)
+        v318 = v317 - v224
+        v319 = numpy.empty(v318,dtype=numpy.float32)
+        v320 = Mut1((<unsigned long long>0))
+        while method2(v318, v320):
+            v322 = v320.v0
+            v323 = v322 + v224
+            v324 = v264[v323]
+            v319[v322] = v324
+            v325 = v322 + (<unsigned long long>1)
+            v320.v0 = v325
         del v264
-        del v319
-        v325 = len(v9)
-        v326 = [None]*v325
-        v327 = Mut2((<unsigned long long>0), (<unsigned long long>0), (<unsigned long long>0))
-        while method22(v325, v327):
-            v329 = v327.v0
-            v330, v331 = v327.v1, v327.v2
-            v332 = v9[v329]
-            v333 = v332 == (<unsigned char>0)
-            if v333:
-                v334 = v315[v330]
-                v335 = v330 + (<unsigned long long>1)
-                v338, v339, v340 = v334, v335, v331
+        del v320
+        v326 = len(v9)
+        v327 = [None]*v326
+        v328 = Mut2((<unsigned long long>0), (<unsigned long long>0), (<unsigned long long>0))
+        while method22(v326, v328):
+            v330 = v328.v0
+            v331, v332 = v328.v1, v328.v2
+            v333 = v9[v330]
+            v334 = v333 == (<unsigned char>0)
+            if v334:
+                v335 = v316[v331]
+                v336 = v331 + (<unsigned long long>1)
+                v339, v340, v341 = v335, v336, v332
             else:
-                v336 = v318[v331]
-                v337 = v331 + (<unsigned long long>1)
-                v338, v339, v340 = v336, v330, v337
-            v326[v329] = v338
-            v341 = v329 + (<unsigned long long>1)
-            v327.v0 = v341
-            v327.v1 = v339
-            v327.v2 = v340
-        del v315; del v318
-        v342, v343 = v327.v1, v327.v2
+                v337 = v319[v332]
+                v338 = v332 + (<unsigned long long>1)
+                v339, v340, v341 = v337, v331, v338
+            v327[v330] = v339
+            v342 = v330 + (<unsigned long long>1)
+            v328.v0 = v342
+            v328.v1 = v340
+            v328.v2 = v341
+        del v316; del v319
+        v343, v344 = v328.v1, v328.v2
+        del v328
+        v346 = v327
         del v327
-        v345 = v326
-        del v326
     else:
-        v345 = [None]*(<unsigned long long>0)
+        v346 = [None]*(<unsigned long long>0)
     del v5; del v6; del v7; del v8; del v9
-    v346 = numpy.empty(v10,dtype=numpy.float32)
-    v347 = len(v4)
-    v348 = len(v345)
-    v349 = v347 == v348
-    v350 = v349 == 0
-    if v350:
+    v347 = numpy.empty(v10,dtype=numpy.float32)
+    v348 = len(v4)
+    v349 = len(v346)
+    v350 = v348 == v349
+    v351 = v350 == 0
+    if v351:
         raise Exception("The length of the two arrays has to the same.")
     else:
         pass
-    v351 = Mut1((<unsigned long long>0))
-    while method2(v347, v351):
-        v353 = v351.v0
-        v354 = v4[v353]
-        v355 = v345[v353]
-        v346[v354] = v355
-        v356 = v353 + (<unsigned long long>1)
-        v351.v0 = v356
-    del v4; del v345
-    del v351
-    v357 = len(v3)
-    v358 = Mut1((<unsigned long long>0))
-    while method2(v357, v358):
-        v360 = v358.v0
-        tmp7 = v3[v360]
-        v361, v362, v363, v364, v365, v366, v367, v368, v369, v370, v371, v372, v373, v374, v375, v376, v377 = tmp7.v0, tmp7.v1, tmp7.v2, tmp7.v3, tmp7.v4, tmp7.v5, tmp7.v6, tmp7.v7, tmp7.v8, tmp7.v9, tmp7.v10, tmp7.v11, tmp7.v12, tmp7.v13, tmp7.v14, tmp7.v15, tmp7.v16
+    v352 = Mut1((<unsigned long long>0))
+    while method2(v348, v352):
+        v354 = v352.v0
+        v355 = v4[v354]
+        v356 = v346[v354]
+        v347[v355] = v356
+        v357 = v354 + (<unsigned long long>1)
+        v352.v0 = v357
+    del v4; del v346
+    del v352
+    v358 = len(v3)
+    v359 = Mut1((<unsigned long long>0))
+    while method2(v358, v359):
+        v361 = v359.v0
+        tmp7 = v3[v361]
+        v362, v363, v364, v365, v366, v367, v368, v369, v370, v371, v372, v373, v374, v375, v376, v377, v378 = tmp7.v0, tmp7.v1, tmp7.v2, tmp7.v3, tmp7.v4, tmp7.v5, tmp7.v6, tmp7.v7, tmp7.v8, tmp7.v9, tmp7.v10, tmp7.v11, tmp7.v12, tmp7.v13, tmp7.v14, tmp7.v15, tmp7.v16
         del tmp7
-        del v364; del v367; del v376
-        v346[v361] = v377
-        v378 = v360 + (<unsigned long long>1)
-        v358.v0 = v378
+        del v365; del v368; del v377
+        v347[v362] = v378
+        v379 = v361 + (<unsigned long long>1)
+        v359.v0 = v379
     del v3
-    del v358
-    return v346
+    del v359
+    return v347
 cpdef void main() except *:
     cdef US0 v0
     cdef US0 v1
@@ -2071,7 +2076,8 @@ cpdef void main() except *:
     cdef UH1 v76
     cdef unsigned long long v77
     cdef numpy.ndarray[float,ndim=1] v78
-    cdef signed long v79
+    cdef float v79
+    cdef signed long v80
     pass # import torch
     pass # import torch.distributions
     pass # import torch.optim
@@ -2104,7 +2110,7 @@ cpdef void main() except *:
     pass # import nets
     v20 = nets.small((<unsigned long long>45),(<unsigned long long>64),(<signed long long>3))
     v21 = nets.small((<unsigned long long>48),(<unsigned long long>64),(<signed long long>3))
-    v22 = torch.optim.SGD([{'params':v21.parameters()}],lr=(<float>0.000015))
+    v22 = torch.optim.SGD([{'params':v20.parameters()},{'params':v21.parameters()}],lr=(<float>0.000061))
     v23 = Mut0((<signed long>0))
     while method0(v23):
         v25 = v23.v0
@@ -2181,8 +2187,11 @@ cpdef void main() except *:
             v27.v0 = v77
         del v27
         v78 = method11(v21, v20, v26)
-        del v26; del v78
+        del v26
         v22.step()
-        v79 = v25 + (<signed long>1)
-        v23.v0 = v79
+        v79 = numpy.mean(v78)
+        del v78
+        print(v79)
+        v80 = v25 + (<signed long>1)
+        v23.v0 = v80
     del v12; del v19; del v20; del v21; del v22

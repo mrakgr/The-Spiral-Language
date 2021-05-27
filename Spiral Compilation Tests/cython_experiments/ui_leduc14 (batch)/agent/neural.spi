@@ -91,11 +91,12 @@ inl policy (epsilon : f32) (leduc_net {policy value schema}) (l : ra _ _) =
         am.iteri2 (fun b a (r2 r) =>
             inl sample : f32 = $"!sample_probs[!b,!a]"
             inl q : f32 = $"!value_sampled[!b,!a]"
+            if nan_is q then failwith "`q` is nan."
             inl dif : f32 = $"!r - !q"
             $"!value_signal[!b,!a] -= !dif"
             $"!value_sampled[!b,!a] += !dif / !sample"
             ) sample_indices r
-        $"print(torch.mean(!value_signal))"
+        // $"print(torch.mean(!value_signal))"
         $"!value.backward(!value_signal)"
 
         inl means : obj = $"torch.einsum('ab,ab->a',!value_sampled,!policy_probs)"
