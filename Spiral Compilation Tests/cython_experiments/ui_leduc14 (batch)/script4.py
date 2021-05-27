@@ -1,25 +1,20 @@
 import torch
 from torch.autograd import Function
-import torch.nn
-import torch.nn.functional
-
-# Is meant to be arbitrary.
-def f(x): 
-    return x*2
 
 class VarianceMatch(Function):
     @staticmethod
     def forward(ctx, x):
-        y = f(x)
-        ctx.save_for_backward(x,y)
+        y : torch.Tensor = x * 2
+        y.requires_grad_()
+        y.retain_grad() # Does not work.
+        def h(grad): # y.grad is None so this gives me an exception.
+            return grad * torch.sqrt(torch.square(y.grad).sum(1) / torch.square(grad).sum(1))
+        x.register_hook(h)
         return y
 
     @staticmethod
     def backward(ctx, grad_y):
-        x,y = ctx.saved_tensors
-        y.backward(grad_y)
-        x.grad *= torch.sqrt(torch.square(grad_y).sum(1) / torch.square(x.grad).sum(1))
-        return torch.zeros_like(x)
+        return grad_y * 2
 
 i = torch.scalar_tensor(2,requires_grad=True)
 x = VarianceMatch.apply(i)
