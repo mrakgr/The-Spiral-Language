@@ -1,3 +1,12 @@
+// CFR training for a DL agent has been implemented and it is very unstable.
+// I got a few runs where it does well, but largely it collapses.
+// It works well against the static uniform player though.
+// My next two ideas are as follows:
+// 1) Dropout with key sharing.
+// 2) The duality gap training from the 'Generative Minization Networks' paper.
+// Before I move to the second option, I want to see if ensemble averaging will have any positive effect.
+// The training is unstable due to the minimax nature of the problem, so dropout might not be enough,
+// but I should get it out of the way first.
 packages: |core2-
 modules:
     serialization/

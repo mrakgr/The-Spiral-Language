@@ -1,0 +1,62 @@
+inl vs_self batch_size p game =
+    let rec loop (l : a u64 _) =
+        inl rewards : ra u64 _ = am.empty
+        inl actions_indices : ra u64 _ = am.empty
+        inl actions : ra u64 _ = am.empty
+        inl nexts : ra u64 _ = am.empty
+        l |> am.iteri fun i => function
+            | Action: player_state,game_state,pid,actions',next => 
+                rm.add actions_indices i
+                rm.add actions (player_state,game_state,pid,actions')
+                rm.add nexts next
+            | Terminal: x => 
+                rm.add rewards (i, x)
+        inl rewards_actions =
+            if 0 < length actions then
+                inl cs,update = p actions
+                am.generic.map2 (<|) nexts cs |> loop |> update
+            else am.empty
+        inl rewards_all : a _ r2 = create (length l)
+        am.generic.iter2 (set rewards_all) actions_indices rewards_actions
+        am.iter (fun (i,_,_,r) => set rewards_all i r) rewards
+        rewards_all
+    loop (am.init batch_size fun _ => game pl2_init)
+
+inl vs_one batch_size p1 p2 game =
+    let rec loop (l : a u64 _) =
+        inl rewards : ra u64 _ = am.empty
+        inl actions_indices : ra u64 _ = am.empty
+        inl p1_actions : ra u64 _ = am.empty
+        inl p2_actions : ra u64 _ = am.empty
+        inl p1_nexts : ra u64 _ = am.empty
+        inl p2_nexts : ra u64 _ = am.empty
+        inl pids : ra u64 _ = am.empty
+        l |> am.iteri fun i => function
+            | Action: player_state,game_state,pid,actions',next =>
+                rm.add actions_indices i
+                if pid = 0 then
+                    rm.add p1_actions (player_state,game_state,pid,actions')
+                    rm.add p1_nexts next
+                else
+                    rm.add p2_actions (player_state,game_state,pid,actions')
+                    rm.add p2_nexts next
+                rm.add pids pid
+            | Terminal: x =>
+                rm.add rewards (i, x)
+        inl rewards_actions =
+            if 0 < length pids then
+                inl p1_cs,p1_update = p1 p1_actions
+                inl p2_cs,p2_update = p2 p2_actions
+                inl p1_results = am.generic.map2 (<|) p1_nexts p1_cs
+                inl p2_results = am.generic.map2 (<|) p2_nexts p2_cs
+                inl rs = loop (am.append p1_results p2_results)
+                inl p1_rs = am.slice (from:0 nearTo:length p1_cs) rs |> p1_update
+                inl p2_rs = am.sliceFrom (length p1_cs) rs |> p2_update
+                am.mapFold (fun (p1_i,p2_i) i => if i = 0 then index p1_rs p1_i,p1_i+1,p2_i else index p2_rs p2_i,p1_i,p2_i+1)
+                    (0,0) pids |> fst
+            else am.empty
+        inl rewards_all : a _ r2 = create (length l)
+        am.generic.iter2 (set rewards_all) actions_indices rewards_actions
+        am.iter (fun (i,_,_,r) => set rewards_all i r) rewards
+        rewards_all
+    loop (am.init batch_size fun _ => game pl2_init)

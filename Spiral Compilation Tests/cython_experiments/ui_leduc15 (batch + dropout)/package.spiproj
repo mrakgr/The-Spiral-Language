@@ -1,0 +1,19 @@
+// Here I want to test whether dropout has a stabilizing effect on training when the key is shared
+// between the policy and the value net.
+packages: |core2-
+modules:
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    sampling
+    nodes-
+    leduc
+    train
+    agent/
+        uniform
+        neural 
+    uniform_test
+    neural_test 
