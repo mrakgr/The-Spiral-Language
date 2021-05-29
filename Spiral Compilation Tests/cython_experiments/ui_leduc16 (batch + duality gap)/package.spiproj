@@ -1,0 +1,18 @@
+// I'll try the duality gap method from the 'Generative Minimization Networks' which was made for optimizing GANs here.
+packages: |core2-
+modules:
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    sampling
+    nodes-
+    leduc
+    train
+    agent/
+        uniform
+        neural 
+    uniform_test
+    neural_test 

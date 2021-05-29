@@ -95,4 +95,8 @@ class Tanh(torch.nn.Module):
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         return TanhF.apply(input)
 
-def small(intro,mid,out): return torch.nn.Sequential(Linear(intro,mid),Tanh()), Linear(mid,out)
+def small(intro,mid,out): return torch.nn.Sequential(
+    Linear(intro,mid),
+    Tanh(),
+    Linear(mid,out)
+    )

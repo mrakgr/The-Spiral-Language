@@ -1,5 +1,7 @@
 // Here I want to test whether dropout has a stabilizing effect on training when the key is shared
 // between the policy and the value net.
+// Update: It does not. I had beginner's luck at first, but it is fairly unstable overall.
+// I'll have to go for the duality gap method.
 packages: |core2-
 modules:
     serialization/

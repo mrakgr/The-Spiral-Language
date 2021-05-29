@@ -13,14 +13,14 @@ inl main () =
     inl policy,value = agent.neural.models net
     inl lr : f32 = 2 ** -15 // Note: Be careful of Cython integer power bug. `integer ** negative_integer == 0` in raw Cython.
     $"print('The learning rate is 2 **',torch.log2(torch.scalar_tensor(!lr)).item())"
-    inl opt : obj = $"torch.optim.SGD([{'params':!policy.parameters()},{'params':!value.parameters()}],lr=!lr)"
+    inl opt : obj = $"torch.optim.SGD([{'params':!policy[0].parameters()},{'params':!value[0].parameters()},{'params':!policy[1].parameters()},{'params':!value[1].parameters()}],lr=!lr)"
     loopw.for' (from: 0i32 nearTo: 100) fun _ =>
         $"!opt.zero_grad()"
-        inl r = train.vs_self 1024 (agent.neural.policy 0 net) game
-        // inl r = train.vs_one 1024 (agent.neural.policy 0 net) agent.uniform.policy game
+        inl r = train.vs_self 1024 (agent.neural.policy 0.5 0 net) game
+        // inl r = train.vs_one 1024 (agent.neural.policy 0.5 0 net) agent.uniform.policy game
         $"!opt.step()"
         $"print(numpy.mean(!r))"
     $"print('---')"
-    inl r = train.vs_one 10240 agent.uniform.policy (agent.neural.policy 0 net) game
+    inl r = train.vs_one 10240 agent.uniform.policy (agent.neural.policy 1.0 0 net) game
     $"print(numpy.mean(!r))"
     ()

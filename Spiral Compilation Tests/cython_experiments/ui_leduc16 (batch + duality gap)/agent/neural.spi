@@ -47,8 +47,10 @@ inl create_small_leduc_net () =
     leduc_net {schema policy = $"nets.small(!c_policy,!b,!a)" : obj; value = $"nets.small(!c_value,!b,!a)" : obj}
 
 inl models (leduc_net {policy value schema}) = policy, value
+inl deep_copy forall t. (x : t) : t = !!!!Import("copy") . $"copy.deepcopy(!x)"
+inl copy (leduc_net {policy value schema}) = leduc_net {policy=deep_copy policy; value=deep_copy value; schema}
 
-inl policy ~(p : f32) (epsilon : f32) (leduc_net {policy value schema}) (l : ra _ _) =
+inl policy (epsilon : f32) (leduc_net {policy value schema}) (l : ra _ _) =
     inl len = length l
     inl policy_size = serialization.dense.array.size schema.policy
     inl value_size = serialization.dense.array.size schema.value
@@ -59,10 +61,7 @@ inl policy ~(p : f32) (epsilon : f32) (leduc_net {policy value schema}) (l : ra 
         inl pot = if pid = p1.id then p1.pot else p2.pot
         schema.value.pickle (leduc_policy_input {pid= $"!pid"; pot= $"!pot"; seq},if pid = p1.id then p2.card else p1.card) (0, $"!data_value[!b,:].numpy()")
     inl action_indices : a u64 (a u64 _) = l |> am.generic.map fun (_,_,_,actions) => am.map schema.actions.pickle actions
-    inl policy_init_raw : obj = $"!policy[0].forward(!data_value[:,:!policy_size])"
-    inl dropout_mask : obj = $"torch.empty_like(!policy_init_raw).bernoulli_(!p) / !p"
-    inl policy_raw : obj = $"!policy[1].forward(!policy_init_raw * !dropout_mask if !p < 1 else !policy_init_raw)"
-
+    inl policy_raw : obj = $"!policy.forward(!data_value[:,:!policy_size])"
     inl policy_mask : obj = $"torch.full((!len,!actions_size),float('-inf'))"
     am.iteri (fun b => am.iter (fun a => $"!policy_mask[!b,!a] = 0")) action_indices
     inl policy_log_probs : obj = $"torch.log_softmax(!policy_mask + !policy_raw.cpu(),dim=-1)"
@@ -88,10 +87,9 @@ inl policy ~(p : f32) (epsilon : f32) (leduc_net {policy value schema}) (l : ra 
             ) sample_indices
     l', fun (r : a u64 r2) =>
         if length r = 0 then r else
-        inl value_init_raw : obj = $"!value[0].forward(!data_value)"
-        inl value_raw : obj = $"!value[1](!value_init_raw * !dropout_mask if !p < 1 else !value_init_raw).cpu()"
-        inl value_sampled : obj = $"!value_raw.detach().clone()"
-        inl value_signal : obj = $"torch.zeros_like(!value_raw)"
+        inl value : obj = $"!value.forward(!data_value).cpu()"
+        inl value_sampled : obj = $"!value.detach().clone()"
+        inl value_signal : obj = $"torch.zeros_like(!value)"
 
         // The multiplication by the regret probs is what makes the algorithm CFR instead vanilla PG.
         let regret_prob player_state,_,pid,_ =
@@ -109,7 +107,7 @@ inl policy ~(p : f32) (epsilon : f32) (leduc_net {policy value schema}) (l : ra 
             $"!value_sampled[!b,!a] += !dif / !sample"
             ) sample_indices r
         // $"print(torch.mean(!value_signal))"
-        $"!value_raw.backward(!value_signal)"
+        $"!value.backward(!value_signal)"
 
         inl means : obj = $"torch.einsum('ab,ab->a',!value_sampled,!policy_probs)"
         inl regret_prob_times_pids : obj =

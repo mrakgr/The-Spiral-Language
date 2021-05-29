@@ -16,8 +16,8 @@ inl main () =
     inl opt : obj = $"torch.optim.SGD([{'params':!policy.parameters()},{'params':!value.parameters()}],lr=!lr)"
     loopw.for' (from: 0i32 nearTo: 100) fun _ =>
         $"!opt.zero_grad()"
-        inl r = train.vs_self 1024 (agent.neural.policy 0 net) game
-        // inl r = train.vs_one 1024 (agent.neural.policy 0 net) agent.uniform.policy game
+        inl r = train.vs_self 1024 (agent.neural.policy (2 ** -2) net) game
+        // inl r = train.vs_one 1024 (agent.neural.policy (2 ** -2) net) agent.uniform.policy game
         $"!opt.step()"
         $"print(numpy.mean(!r))"
     $"print('---')"

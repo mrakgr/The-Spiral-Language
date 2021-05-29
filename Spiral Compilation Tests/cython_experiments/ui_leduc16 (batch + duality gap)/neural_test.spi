@@ -1,0 +1,33 @@
+inl main () =
+    !!!!Import("torch")
+    !!!!Import("torch.distributions")
+    !!!!Import("torch.optim")
+    inl game = leduc.game()
+    inl net = agent.neural.create_small_leduc_net()
+    inl policy,value = agent.neural.models net
+    inl lr : f32 = 2 ** -15 // Note: Be careful of Cython integer power bug. `integer ** negative_integer == 0` in raw Cython.
+    $"print('The learning rate is 2 **',torch.log2(torch.scalar_tensor(!lr)).item())"
+    inl opt : obj = $"torch.optim.SGD([{'params':!policy.parameters()},{'params':!value.parameters()}],lr=!lr)"
+    loopw.for' (from: 0i32 nearTo: 20) fun _ =>
+        inl net' = agent.neural.copy net
+        inl policy', value' = agent.neural.models net'
+        inl lr' = lr / 4
+        inl opt' : obj = $"torch.optim.SGD([{'params':!policy'.parameters()},{'params':!value'.parameters()}],lr=!lr')"
+        $"!policy'.train()" . $"!value'.train()" . $"!policy.eval()" . $"!value.eval()"
+        inl epsilon = 2 ** -2
+        loopw.for' (from: 0i32 nearTo: 10) fun _ =>
+            $"!opt'.zero_grad()"
+            inl _ = train.vs_one 512 (agent.neural.policy epsilon net') (agent.neural.policy epsilon net) game
+            inl _ = train.vs_one 512 (agent.neural.policy epsilon net) (agent.neural.policy epsilon net') game
+            $"!opt'.step()"
+        $"!policy.train()" . $"!value.train()" . $"!policy'.eval()" . $"!value'.eval()"
+        $"!opt.zero_grad()"
+        inl r = train.vs_one 512 (agent.neural.policy epsilon net') (agent.neural.policy epsilon net) game
+        inl r' = train.vs_one 512 (agent.neural.policy epsilon net) (agent.neural.policy epsilon net') game
+        $"!opt.step()"
+        $"print(numpy.mean(!r),numpy.mean(!r'))"
+    $"print('---')"
+    inl r = train.vs_one 5120 agent.uniform.policy (agent.neural.policy 0 net) game
+    inl r' = train.vs_one 5120 (agent.neural.policy 0 net) agent.uniform.policy game
+    $"print(numpy.mean(!r),numpy.mean(!r'))"
+    ()
