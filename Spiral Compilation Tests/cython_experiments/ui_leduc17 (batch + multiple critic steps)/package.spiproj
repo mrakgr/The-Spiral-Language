@@ -1,0 +1,18 @@
+// Since the rest failed, I'll try multiple critic steps.
+packages: |core2-
+modules:
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    sampling
+    nodes-
+    leduc
+    train
+    agent/
+        uniform
+        neural 
+    uniform_test
+    neural_test 

@@ -1,0 +1,5 @@
+inl main () =
+    inl game = leduc.game()
+    inl r = train.vs_self 64 agent.uniform.policy game
+    $"print(!r)"
+    ()
