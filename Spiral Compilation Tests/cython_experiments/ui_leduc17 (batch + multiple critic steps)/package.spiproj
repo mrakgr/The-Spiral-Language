@@ -1,4 +1,16 @@
 // Since the rest failed, I'll try multiple critic steps.
+
+// Update: No, I am having too much trouble dealing with gradient descent.
+// Tabular RL and supervised ML are on one side, but this is entirely on the other
+// in terms of difficulty. It is not optimizing properly and I can berely even tell
+// whether the learning rate is off, or whether I should let it run for longer or if 
+// it is collapsing, or if there is a bug in the code on top of all of that.
+
+// I should also be using weighted values in the value net and that is not compatible 
+// with backprop.
+
+// I am crap the useless variance matching idea and use an update that I've come up with
+// which interpolates between signSGD and infinity norm normalization over the layers.
 packages: |core2-
 modules:
     serialization/

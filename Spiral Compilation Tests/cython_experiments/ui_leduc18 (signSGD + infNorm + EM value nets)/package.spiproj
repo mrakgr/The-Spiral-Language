@@ -1,0 +1,46 @@
+// Since the past attempts failed, I am going to try something else here.
+// Inspired by the signSGN papers, for the optimizer I am going to make an update 
+// that interpolates signSGD + infinity norm gradient normalization.
+// For the value network, since I absolutely need the values to act as weighted
+// moving averages, I am going to semi-tabular CFR in the value head.
+
+// Instead of one hot vectors like in full tabular, the semi tabular will have 
+// probabilistic vectors. I'll take a log softmax over the body, exp it and use
+// that as the input to the head which be optimized using the tabular algorithm.
+
+// For getting the gradients for the value body, I'll use the absolute value differential
+// between the given and the predicted error, center it with regards to the probabilistic mean
+// and use that as the backwards input for the log softmax.
+
+// Iterating updating the value head and body will make this an EM procedure similar to k-means.
+// The main reason why I am going for this besides being able to weight the values is because
+// right now I can't tell at all whether the value update works. If I had a tabular agent, this
+// kind of debugging would be a lot easier.
+
+// The issue with the value net is that it needs to learn the reward magnitudes in the weights,
+// so I cannot use something like signSGD (which is Adam with full batch learning) to stabilize it.
+// This is a source of many of my headaches. NNs are good for probability distributions, but bad
+// for learning large ranges of values.
+
+// With this method I'll be able to optimize the value head and get something useful even without
+// necessarily optimizing the body.
+
+// The actor on the other hand will be a lot easier to deal with as I will be able to use plain
+// backprop with the aforementioned optimizer.
+packages: |core2-
+modules:
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    sampling
+    nodes-
+    leduc
+    train
+    agent/
+        uniform
+        neural 
+    uniform_test
+    neural_test 

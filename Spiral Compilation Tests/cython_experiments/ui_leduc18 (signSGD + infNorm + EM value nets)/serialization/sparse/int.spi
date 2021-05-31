@@ -1,0 +1,89 @@
+type el = i64
+nominal pu a = {
+    pickle : a -> el
+    size : el
+    unpickle : el -> a
+    }
+
+inl Unit =
+    pu {size = 1
+        pickle = fun () => 0
+        unpickle = fun i => assert (i = 0) "The unit index should be 0." . ()
+        }
+
+inl int size : pu el =
+    pu {size
+        pickle = fun x => assert (0 <= x && x < size) "Value out of bounds." . x
+        unpickle = fun i => assert (0 <= i && i < size) "The index should be less than size." . i
+        }
+
+inl array forall t. size (pu el : pu t) : pu (a u64 t) =
+    inl fullSize = loop.for (from:0 nearTo: size) (fun i s => s * el.size) 1
+    pu {size = fullSize
+        pickle = fun x =>
+            assert (size = length x) "The array must match the given size."
+            am.foldBack (fun x (s,dim) => el.pickle x * dim, s * dim) x (0,1) |> fst
+        unpickle = fun i => 
+            inl ar = create size
+            loop.for (from: 0 nearTo: size) (fun idx (size,i) =>
+                inl size = size / el.size
+                set ar idx (el.unpickle (i / size))
+                size, i % size
+                ) (fullSize, i) |> ignore
+            ar
+        }
+
+inl pair (pu a') (pu b') =
+    pu {size = a'.size * b'.size
+        pickle = fun (a,b) => a'.pickle a * b'.size + b'.pickle b
+        unpickle = fun i => a'.unpickle (i / b'.size), b'.unpickle (i % b'.size)
+        }
+inl (**) a b = pair a b
+
+inl wrap (in: a out: b) (pu p) =
+    pu {size = p.size
+        pickle = fun x => p.pickle (a x)
+        unpickle = fun i => b (p.unpickle i)
+        }
+
+inl alt forall t r. (l : r) : pu t = 
+    inl zero = 0 : el
+    inl _ = real // Typechecking.
+        open real_core
+        union_to_record `t forall r'. =>
+        assert (record_type_length `r' = record_type_length `r) "The number of keys in the record should be the same as in the union type."
+        record_type_iter (fun k => forall v. =>
+            record_type_try_find `r' k
+                (forall v'. => typecase v' * v with ~x * pu ~x => ())
+                (fun () => error_type "The record's keys must match those of the union.")
+            ) `r
+    inl offsets, size = real
+        open real_core
+        record_foldl (fun (state:(m,from) key:value:) => 
+            inl (pu p) = value
+            inl nearTo = from + p.size
+            {m with $key={from nearTo}}, nearTo
+            ) ({},zero) l
+    inl pickle (m : t) : el = real
+        open real_core
+        unbox m (fun (k,v) => inl (pu p) = l k in offsets k .from + p.pickle v)
+    inl unpickle (i : el) : t = real
+        open real_core
+        record_type_foldr (fun k => forall v. => fun next _ =>
+            inl (pu p) = l k 
+            inl {from nearTo} = offsets k
+            if i < nearTo then nominal_create `t (k,p.unpickle (i - from))
+            else next()
+            ) `r (fun _ => failwith `t "Unpickling of an union failed.") ()
+    pu {size pickle unpickle}
+    
+inl option forall t. (a : pu t) : pu (option t) = alt { some_ = a; none = Unit }
+inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { ok_ = a; error_ = b }
+
+inl size (pu p) = p.size
+
+nominal phash a = el
+inl serialize forall t. (pu p : pu t) ~(x : t) : phash t = join phash (p.pickle x)
+inl deserialize forall t. (pu p : pu t) ~(phash x : phash t) : t = join
+    assert (x < p.size) "The size of the argument is too large."
+    p.unpickle x
