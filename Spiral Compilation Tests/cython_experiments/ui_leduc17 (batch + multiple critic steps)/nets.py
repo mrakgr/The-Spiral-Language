@@ -101,4 +101,8 @@ class Tanh(torch.nn.Module):
 #     Linear(mid,out)
 #     )
 
-def small(intro,mid,out): return torch.nn.Linear(intro,out)
+def small(intro,mid,out): 
+    x = torch.nn.Linear(intro,out)
+    torch.nn.init.zeros_(x.weight)
+    torch.nn.init.zeros_(x.bias)
+    return x
