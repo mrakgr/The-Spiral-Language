@@ -4,11 +4,6 @@ import torch.optim
 import torch.nn
 from torch.functional import Tensor
 
-o = torch.optim.SGD()
-y = torch.nn.Sequential(torch.nn.Linear(4,6),torch.nn.Linear(6,2))
-list(y)
-list(y.parameters())
-
 def updates(state_probs : Tensor,head : Tensor,action_indices : Tensor,at_action_value : Tensor,at_action_weights : Tensor):
     # state_probs[batch_dim,state_dim]
     # head[action_dim*2,state_dim]
@@ -24,15 +19,15 @@ def updates(state_probs : Tensor,head : Tensor,action_indices : Tensor,at_action
         head_weighted_values[action_indices,:] += at_action_value * state_weights
         head_value_weights[action_indices,:] += state_weights
 
-    def grads():
+    def funs():
         values = head_weighted_values / head_value_weights # [action_dim,state_dim]
-        def of_state_probs(): # Prediction errors modulate the state probabilities. The cool part is the centering.
+        def state_probs_grad(): # Prediction errors modulate the state probabilities. The cool part is the centering.
             prediction_values_for_state = values[action_indices,:] # [batch_dim,state_dim]
             prediction_errors = torch.abs(at_action_value - prediction_values_for_state) # [batch_dim,state_dim]
             prediction_error_mean = (state_probs * prediction_errors).sum(-1,keepdim=True) # [batch_dim,1]
-            at_action_weights * (prediction_errors - prediction_error_mean) # [batch_dim,state_dim]
+            return at_action_weights * (prediction_errors - prediction_error_mean) # [batch_dim,state_dim]
 
-        def of_action_probs(action_probs, sample_probs): # Implements the VR MC-CFR update.
+        def action_probs(action_probs : Tensor, sample_probs : Tensor): # Implements the VR MC-CFR update. Could be easily adapted to train an ensemble of actors.
             # action_probs[batch_dim,action_dim]
             # sample_probs[batch_dim,action_dim]
             prediction_values_for_action = state_probs.mm(values.t()) # [batch_dim,action_dim]
@@ -40,6 +35,8 @@ def updates(state_probs : Tensor,head : Tensor,action_indices : Tensor,at_action
             at_action_prediction_value = torch.gather(prediction_values_for_action,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
             at_action_prediction_adjustmnet = (at_action_value - at_action_prediction_value) / at_action_sample_probs # [batch_dim,1]
             torch.scatter_add(prediction_values_for_action,-1,action_indices.unsqueeze(-1),at_action_prediction_adjustmnet)
-            -at_action_weights * action_probs * prediction_values_for_action # [batch_dim,action_dim]
-        return of_state_probs, of_action_probs
-    return update_head, grads
+            reward = (action_probs * prediction_values_for_action).sum(-1,keepdim=True) # [batch_dim,1]
+            def grad(): return -at_action_weights * (prediction_values_for_action - reward) # [batch_dim,action_dim]
+            reward, grad
+        return state_probs_grad, action_probs
+    return update_head, funs
