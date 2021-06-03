@@ -1,6 +1,7 @@
 // Cython only. Converts a number to a float.
 inl f64 forall t {number}. (x : t) : f64 = $"<`f64>!x"
 inl f32 forall t {number}. (x : t) : f32 = $"<`f32>!x"
+inl u64 forall t {int}. (x : t) : u64 = $"<`u64>!x"
 
 // ---
 
@@ -37,3 +38,11 @@ inl (*,) (wval a) b = wval {val=a.val*!b; weight=a.weight*b}
 inl (/,) (wval a) b = wval {val=a.val/!b; weight=a.weight/b}
 inl (~,) (wval {val weight}) = if weight = 0 then r2 0 else val /! weight
 inl wval val weight = wval {val=val*!weight; weight=weight}
+
+// ---
+
+nominal schema present future actions = {
+    policy : serialization.dense.array.pu present
+    value : serialization.dense.array.pu (present * future)
+    actions : serialization.sparse.int.pu actions
+    }

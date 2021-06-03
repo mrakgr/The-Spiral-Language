@@ -1,8 +1,3 @@
-nominal schema present future actions = {
-    policy : serialization.dense.array.pu present
-    value : serialization.dense.array.pu (present * future)
-    actions : serialization.sparse.int.pu actions
-    }
 open leduc
 nominal leduc_policy_input = {pid : u64; pot : u64; seq : a u64 (card * a u64 action)}
 nominal leduc_net = {policy : obj; schema : schema leduc_policy_input card action; value : obj}
@@ -15,28 +10,28 @@ let obs_to_array (l : list (observation card action)) : a u64 (card * a u64 acti
     match listm.rev l with
     | Cons: (Observation: x), x' => action (x,Nil) x' |> listm.toArray
     | _ => failwith "Expected a card."
+
+inl leduc_schemas () =
+    inl policy, value =
+        open serialization.dense.array
+        inl card = alt {king=Unit; queen=Unit; jack=Unit} : pu card
+        inl action = alt {fold=Unit; call=Unit; raise=Unit} : pu action
+        // Max pot size is 13, and 0 is impossible for Leduc due to the antes. 
+        // Here I am mapping the 1-13 to 0-12 range and back.
+        inl pot = wrap (in:(fun x => x-1) out:(+) 1) (int 13) 
+        inl pid = int 2
+        inl policy =
+            wrap (in: fun (leduc_policy_input {pid pot seq}) => pid, pot, seq
+                    out: fun pid,pot,seq => leduc_policy_input {pid pot seq})
+                (pid ** pot ** array 2 (card ** array 4 action))
+        policy, policy ** card
+    inl actions =
+        open serialization.sparse.int
+        alt {fold=Unit; call=Unit; raise=Unit} : pu action
+    schema {policy value actions}
     
 inl create_small_leduc_net () =
-    inl schema =
-        inl policy, value =
-            open serialization.dense.array
-            inl card = alt {king=Unit; queen=Unit; jack=Unit} : pu card
-            inl action = alt {fold=Unit; call=Unit; raise=Unit} : pu action
-            // Max pot size is 13, and 0 is impossible for Leduc due to the antes. 
-            // Here I am mapping the 1-13 to 0-12 range and back.
-            inl pot = wrap (in:(fun x => x-1) out:(+) 1) (int 13) 
-            inl pid = int 2
-            inl policy =
-                wrap (in: fun (leduc_policy_input {pid pot seq}) => pid, pot, seq
-                      out: fun pid,pot,seq => leduc_policy_input {pid pot seq})
-                    (pid ** pot ** array 2 (card ** array 4 action))
-            policy, policy ** card
-        schema { 
-            policy value
-            actions =
-                open serialization.sparse.int
-                alt {fold=Unit; call=Unit; raise=Unit} : pu action
-            }
+    inl schema = leduc_schemas()
 
     open serialization
     inl c_policy = dense.array.size schema.policy
@@ -57,9 +52,10 @@ inl policy (epsilon : f32) (leduc_net {policy value schema}) (l : ra _ _) =
     l |> am.iteri fun b (player_state, (leduc_state (p1,p2,community_card)), pid, actions) =>
         inl seq = pl2_observations player_state pid |> obs_to_array
         inl pot = if pid = p1.id then p1.pot else p2.pot
-        schema.value.pickle (leduc_policy_input {pid= $"!pid"; pot= $"!pot"; seq},if pid = p1.id then p2.card else p1.card) (0, $"!data_value[!b,:].numpy()")
+        schema.value.pickle (leduc_policy_input {seq pid=u64 pid; pot=u64 pot},if pid = p1.id then p2.card else p1.card) (0, $"!data_value[!b,:].numpy()")
     inl action_indices : a u64 (a u64 _) = l |> am.generic.map fun (_,_,_,actions) => am.map schema.actions.pickle actions
-    inl policy_raw : obj = $"!policy.forward(!data_value[:,:!policy_size])"
+    inl data_policy : obj = $"!data_value[:,:!policy_size]"
+    inl policy_raw : obj = $"!policy.forward(!data_policy)"
     inl policy_mask : obj = $"torch.full((!len,!actions_size),float('-inf'))"
     am.iteri (fun b => am.iter (fun a => $"!policy_mask[!b,!a] = 0")) action_indices
     inl policy_log_probs : obj = $"torch.log_softmax(!policy_mask + !policy_raw.cpu(),dim=-1)"

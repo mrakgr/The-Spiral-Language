@@ -46,6 +46,7 @@ def control(state_probs : Tensor,head : Tensor,action_indices : Tensor,at_action
 def optimize(moduleList : list,learning_rate : float = 2 ** -7,signSGDfactor : float = 2 ** -3):
     """
     Interpolates between signSGD and infinity norm normalization.
+
     signSGDfactor - The interpolation factor for signSGD. 0 is pure infinity norm normalization, while 1 is pure signSGD.
     """
     assert (0 <= signSGDfactor <= 1)
@@ -58,20 +59,21 @@ def optimize(moduleList : list,learning_rate : float = 2 ** -7,signSGDfactor : f
                 if x.grad: infNorm = torch.max(infNorm,torch.linalg.norm(x.grad.flatten(),ord=float('inf')))
             for x in paramGroup: # The scalars operations are grouped for efficiency.
                 if torch.is_nonzero(infNorm):
-                    x += learning_rate * signSGDfactor * torch.sign(x.grad) + learning_rate * (1 - signSGDfactor) / infNorm * x.grad
+                    if 0 < signSGDfactor: x += learning_rate * signSGDfactor * torch.sign(x.grad)
+                    if signSGDfactor < 1: x += learning_rate * (1 - signSGDfactor) / infNorm * x.grad
                     x.grad = None
 
-def policy(value : Module,head : Tensor,policy : Module,is_update_head : bool,is_update_value : bool,is_update_policy : bool,
-        epsilon : float,input_policy : Tensor,input_value : Tensor,action_mask : Tensor):
-    action_raw = torch.masked_fill(policy(input_policy),action_mask,float('-inf'))
+def run(value : Module,head : Tensor,policy : Module,is_update_head : bool,is_update_value : bool,is_update_policy : bool,
+        epsilon : float,policy_data : Tensor,value_data : Tensor,action_mask : Tensor):
+    action_raw = torch.masked_fill(policy(policy_data),action_mask,float('-inf'))
     action_log_probs : Tensor = torch.log_softmax(action_raw)
     action_probs = torch.exp(action_log_probs.detach())
     action_mask_inv = torch.logical_not(action_mask)
     # Interpolates action probs with an uniform noise distribution for actions that aren't masked out.
     sample_probs = action_mask_inv / (action_mask_inv.sum(-1) * (1 / epsilon)) + action_probs * (1 - epsilon)
     sample_indices = torch.distributions.Categorical(sample_probs).sample()
-    def back(rewards : Tensor, regret_probs : Tensor):
-        value_log_probs : Tensor = torch.log_softmax(value(input_value))
+    def update(rewards : Tensor, regret_probs : Tensor):
+        value_log_probs : Tensor = torch.log_softmax(value(value_data))
         value_probs = torch.exp(value_log_probs.detach())
         update_head, calculate = control(value_probs,head,sample_indices,rewards,regret_probs)
         state_probs_grad, action_probs = calculate()
@@ -80,4 +82,28 @@ def policy(value : Module,head : Tensor,policy : Module,is_update_head : bool,is
         if is_update_value: value_log_probs.backward(state_probs_grad())
         if is_update_policy: action_log_probs.backward(action_probs_grad())
         return reward
-    return (torch.log(action_probs), torch.log(sample_probs), sample_indices), back
+    return action_probs, sample_probs, sample_indices, update
+
+import functools
+def main(vs_self,vs_one,size_value,size_policy,size_action):
+    mid = 64
+    batch_size = 1024
+    head_decay = 0.9
+    head_initial_weight = 2 ** -30 # Effectively acts as a learning rate for the head.
+    epsilon = 2 ** -2
+
+    value = torch.nn.Linear(size_value,mid)
+    head = torch.zeros(size_action*2,mid)
+    head[size_action:,:] = head_initial_weight
+    policy = torch.nn.Linear(size_policy,size_action)
+
+    for b in range(1):
+        for a in range(5):
+            vs_self(batch_size,functools.partial(run,value,head,policy,True,False,False,epsilon))
+        vs_self(batch_size,functools.partial(run,value,head,policy,False,True,True,epsilon))
+        optimize([value,policy])
+        head *= head_decay
+        r : Tensor = vs_self(batch_size,functools.partial(run,value,head,policy,False,False,False,epsilon))
+        print('Value predictions for every state:')
+        print(head[:size_action,:]/head[size_action:,:])
+        print('The mean reward is',r.mean())

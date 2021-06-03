@@ -11,7 +11,7 @@ inl main () =
     loopw.for' (from: 0i32 nearTo: 1) fun _ =>
         $"!policy.eval()" . $"!value.train()"
         loopw.for' (from: 0i32 nearTo: 20) fun _ =>
-            inl r = train.vs_self 1024 (agent.neural.policy (2 ** -2) net) game
+            inl r = train.vs_self game (1024, agent.neural.policy (2 ** -2) net)
             $"print(numpy.sqrt(numpy.sum(numpy.square(!r))))"
             $"print(!value.weight,!value.bias,!value.weight.grad,!value.bias.grad)"
             $"!opt.step()" . $"!opt.zero_grad(True)"
