@@ -1,4 +1,4 @@
-inl vs_self batch_size p game =
+inl vs_self game (batch_size, p) =
     let rec loop (l : a u64 _) =
         inl rewards : ra u64 _ = am.empty
         inl actions_indices : ra u64 _ = am.empty
@@ -22,7 +22,7 @@ inl vs_self batch_size p game =
         rewards_all
     loop (am.init batch_size fun _ => game pl2_init)
 
-inl vs_one batch_size p1 p2 game =
+inl vs_one game (batch_size, p1, p2) =
     let rec loop (l : a u64 _) =
         inl rewards : ra u64 _ = am.empty
         inl actions_indices : ra u64 _ = am.empty

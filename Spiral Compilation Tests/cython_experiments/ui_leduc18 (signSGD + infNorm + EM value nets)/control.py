@@ -4,6 +4,7 @@ import torch.optim
 import torch.nn
 import torch.linalg
 from torch.functional import Tensor
+from torch.nn import Module
 
 def control(state_probs : Tensor,head : Tensor,action_indices : Tensor,at_action_value : Tensor,at_action_weights : Tensor):
     # state_probs[batch_dim,state_dim]
@@ -38,25 +39,45 @@ def control(state_probs : Tensor,head : Tensor,action_indices : Tensor,at_action
             torch.scatter_add(prediction_values_for_action,-1,action_indices.unsqueeze(-1),at_action_prediction_adjustmnet)
             reward = (action_probs * prediction_values_for_action).sum(-1,keepdim=True) # [batch_dim,1]
             def grad(): return -at_action_weights * (prediction_values_for_action - reward) # [batch_dim,action_dim]
-            reward, grad
+            return reward, grad
         return state_probs_grad, action_probs
     return update_head, calculate
 
-def optimize(paramGroupList : list,learning_rate : float = 2 ** -7,signSGDfactor : float = 2 ** -3):
+def optimize(moduleList : list,learning_rate : float = 2 ** -7,signSGDfactor : float = 2 ** -3):
     """
     Interpolates between signSGD and infinity norm normalization.
     signSGDfactor - The interpolation factor for signSGD. 0 is pure infinity norm normalization, while 1 is pure signSGD.
     """
     assert (0 <= signSGDfactor <= 1)
     assert (0 <= learning_rate)
-    for paramGroup in paramGroupList:
-        infNorm = torch.scalar_tensor(0)
-        for x in paramGroup:
-            if x.grad: infNorm = torch.max(infNorm,torch.linalg.norm(x.grad.flatten(),ord=float('inf')))
-        for x in paramGroup: # The scalars operations are grouped for efficiency.
-            if torch.is_nonzero(infNorm):
-                x += learning_rate * signSGDfactor * torch.sign(x.grad) + learning_rate * (1 - signSGDfactor) / infNorm * x.grad
-                x.grad = None
+    with torch.no_grad():
+        for module in moduleList:
+            infNorm = torch.scalar_tensor(0)
+            paramGroup = [x for x in module.parameters() if x.grad is not None]
+            for x in paramGroup:
+                if x.grad: infNorm = torch.max(infNorm,torch.linalg.norm(x.grad.flatten(),ord=float('inf')))
+            for x in paramGroup: # The scalars operations are grouped for efficiency.
+                if torch.is_nonzero(infNorm):
+                    x += learning_rate * signSGDfactor * torch.sign(x.grad) + learning_rate * (1 - signSGDfactor) / infNorm * x.grad
+                    x.grad = None
 
-x = torch.rand(5,5,requires_grad=True)
-torch.masked_fill(x, x < 0.5, float('-inf'))
+def policy(value : Module,head : Tensor,policy : Module,is_update_head : bool,is_update_value : bool,is_update_policy : bool,
+        epsilon : float,input_policy : Tensor,input_value : Tensor,action_mask : Tensor):
+    action_raw = torch.masked_fill(policy(input_policy),action_mask,float('-inf'))
+    action_log_probs : Tensor = torch.log_softmax(action_raw)
+    action_probs = torch.exp(action_log_probs.detach())
+    action_mask_inv = torch.logical_not(action_mask)
+    # Interpolates action probs with an uniform noise distribution for actions that aren't masked out.
+    sample_probs = action_mask_inv / (action_mask_inv.sum(-1) * (1 / epsilon)) + action_probs * (1 - epsilon)
+    sample_indices = torch.distributions.Categorical(sample_probs).sample()
+    def back(rewards : Tensor, regret_probs : Tensor):
+        value_log_probs : Tensor = torch.log_softmax(value(input_value))
+        value_probs = torch.exp(value_log_probs.detach())
+        update_head, calculate = control(value_probs,head,sample_indices,rewards,regret_probs)
+        state_probs_grad, action_probs = calculate()
+        reward, action_probs_grad = action_probs(action_probs,sample_probs)
+        if is_update_head: update_head()
+        if is_update_value: value_log_probs.backward(state_probs_grad())
+        if is_update_policy: action_log_probs.backward(action_probs_grad())
+        return reward
+    return (torch.log(action_probs), torch.log(sample_probs), sample_indices), back
