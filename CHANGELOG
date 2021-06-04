@@ -4,6 +4,7 @@ WIP
 * Since tail recursive loops keep stack overflowing, the array module now uses the imperative while loops instead.
 * Added CythonToNamedTuple op, the `record` constraint and fixed the lack of dyn bug in CythonToRecord partial evaluation case.
 * Added the `namedtuple` function to core.
+* `except *` now does not get generated on main functions returning objects.
 
 2.0.85 (5/22/2021)
 

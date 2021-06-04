@@ -1,15 +1,8 @@
 import torch
-import torch.functional
-import torch.nn
-import torch.nn.functional
+import numpy as np
 
-a = torch.tensor([-1,0,1],requires_grad=True,dtype=torch.float32)
-zero = torch.full_like(a,float('-inf'))
-idx = [1,2]
-zero[idx] = a[idx]
-b = torch.nn.functional.softmax(zero,dim=-1)
-grad = torch.tensor([1,0,1],dtype=torch.float32)
-b.backward(grad)
-print(b)
-print(a.grad)
-
+q = torch.zeros(5,5)
+idx = torch.tensor([4,2]).unsqueeze(-1)
+w = torch.rand(5,1)
+q.scatter_add_(-1,idx,w)
+q

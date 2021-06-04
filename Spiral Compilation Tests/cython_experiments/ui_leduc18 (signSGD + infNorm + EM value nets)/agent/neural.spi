@@ -26,7 +26,7 @@ inl leduc_extractor (player_state,(leduc_state (p1,p2,_)),pid) =
     pl2_observations player_state pid |> leduc_obs_to_array,
     if p1.id = pid then p2.card else p1.card
 
-inl leduc_neural_handler p (actions : a u64 (_ * _ * _ * a u64 action)) = 
+inl leduc_neural_handler p (actions : ra u64 (_ * _ * _ * a u64 action)) = 
     train.neural_handler leduc_extractor leduc_schema() p actions
 
 // The actual player is done on the Python side. These are the serialization helpers for it.

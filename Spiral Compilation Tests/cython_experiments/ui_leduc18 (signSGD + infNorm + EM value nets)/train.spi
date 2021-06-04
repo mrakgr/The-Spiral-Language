@@ -61,35 +61,41 @@ inl vs_one game (batch_size, p1, p2) =
         rewards_all
     loop (am.init batch_size fun _ => game pl2_init)
 
-inl neural_handler extractor (schema : schema _ _ _) p actions =
+type a2 x = $"numpy.ndarray[`x,ndim=2]"
+inl neural_handler extractor (schema : schema _ _ _) p (actions : ra _ _) =
     !!!!Import("torch")
     inl policy_size = serialization.dense.array.size schema.policy
     inl value_size = serialization.dense.array.size schema.value
     inl action_size = serialization.sparse.int.size schema.action
     inl num_actions = length actions
-    inl value_data : obj = $"torch.zeros(!num_actions,!value_size)"
-    inl policy_data : obj = $"!value_data[:,:!policy_size]"
-    inl action_mask : obj = $"torch.ones(!num_actions,!action_size,dtype=torch.bool)"
+    inl value_data : a2 f32 = $"numpy.zeros((!num_actions,!value_size),dtype=numpy.float32)"
+    inl policy_data : a2 f32 = $"!value_data[:,:!policy_size]"
+    inl action_mask : a2 i8 = $"numpy.ones((!num_actions,!action_size),dtype=numpy.int8)"
     actions |> am.iteri fun num_action (player_state,game_state,pid,actions') =>
-        schema.value.pickle (extractor (player_state,game_state,pid)) $"!value_data[!num_action,:].numpy()"
-        actions' |> am.iter (schema.action.pickle >> fun x => $"!action_mask[!num_action,!x] = False")
-    inl x : obj = p (policy_data,value_data,action_mask)
+        schema.value.pickle (extractor (player_state,game_state,pid)) (0, $"!value_data[!num_action,:]")
+        actions' |> am.iter (schema.action.pickle >> fun x => $"!action_mask[!num_action,!x] = 0")
+
+    inl x : obj = 
+        inl f x = $"torch.from_numpy(!x)" : obj
+        p (f policy_data, f value_data, f action_mask)
     inl action_probs, sample_probs, sample_indices, update : obj * obj * obj * (obj * obj -> obj) = $"!x[0]", $"!x[1]", $"!x[2]", $"!x[3]"
     inl cs : a u64 _ = am.init num_actions fun b =>
         inl a : i64 = $"!sample_indices[!b]"
         log_prob_from {policy= $"!action_probs[!b,!a]"; sample= $"!sample_probs[!b,!a]"}, schema.action.unpickle a
-    inl update (rewards : a u64 r2) : a u64 r2 =
-        inl regret_prob : obj = $"torch.empty(!num_actions,1)"
-        inl pids : obj = $"torch.empty(!num_actions,1)"
-        actions |> am.iteri fun num_action (player_state,game_state,pid,actions') =>
-            inl regret_prob' =
+    inl update (rewards' : a u64 r2) : a u64 r2 =
+        inl rewards, regret_probs : a _ _ * a _ _ = create num_actions, create num_actions
+        am.generic.iteri2 (fun num_action reward (player_state,game_state,pid,actions') =>
+            inl regret_prob =
                 inl prob = pl2_probs player_state pid
                 inl env_prob = prob.chance +@ prob.op
                 exp (-prob.self.sample + (env_prob.policy - env_prob.sample))
-            $"!regret_prob[!num_action,0] = !regret_prob'"
-            inl pid = if pid = 0 then 1f32 else -1
-            $"!pids[!num_action,0] = !pid"
-        inl rewards : obj = $"torch.from_numpy(!rewards).unsqueeze(-1) * !pids"
-        inl rewards = update (rewards,regret_prob)
-        $"(!rewards * !pids).squeeze(-1).numpy()"
-    cs,update
+            set regret_probs num_action regret_prob
+            set rewards num_action (!!reward pid)
+            ) rewards' actions
+        inl rewards : a _ _ = 
+            inl f x = $"torch.from_numpy(numpy.expand_dims(!x,-1))"
+            inl x = update (f rewards, f regret_probs)
+            inl x : a2 f32 = $"!x.numpy()"
+            $"!x.squeeze(-1)"
+        am.generic.map2 (fun a (_,_,pid,_) => if pid = 0 then r2 a else r2 -a) rewards actions
+    cs, update

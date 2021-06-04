@@ -10,7 +10,7 @@ open System
 open System.Text
 open System.Collections.Generic
 
-// In order to get block scoped variable, the Cython backend does del insertion.
+// In order to have block scoped variables, the Cython backend does del insertion.
 // TCO support is not complete yet.
 // https://github.com/cython/cython/issues/3999
 let tco_enabler (x : TypedBind []) =
@@ -317,11 +317,22 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
                 | UInt64T -> "numpy.uint64"
                 | Float32T -> "numpy.float32"
                 | Float64T -> "numpy.float64"
-                | BoolT -> "numpy.int8"
+                | BoolT -> "numpy.bool"
                 | _ -> "object"
             | YUnion l -> if l.Item.is_degenerate then "numpy.int32" else "object"
             | _ -> "object"
         | _ -> "object"
+
+    let show_except q =
+        if is_except_star then 
+            let b = 
+                match q with 
+                | "void" -> true
+                | "float" | "double" | "bint" -> true
+                | x when x.StartsWith "signed" || x.StartsWith "unsigned" -> true
+                | _ -> false
+            if b then " except *" else ""
+        else ""
 
     let rec tyv = function
         | YUnion a -> 
@@ -547,10 +558,7 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
                 let field_names = Map.foldBack (fun k v l -> $"'{k}'" :: l) x [] |> String.concat ", "
                 let args = Map.foldBack (fun k v l -> tup v :: l) x [] |> String.concat ", "
                 $"collections.namedtuple({tup n},[{field_names}])({args})"
-            | Apply,[a;b] -> 
-                match tup a, tup b with
-                | a,"pass" -> sprintf "%s()" a
-                | a,b -> sprintf "%s(%s)" a b
+            | Apply,[a;b] -> $"{tup a}({args' b})"
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
             //| StringU64Length, [a] -> sprintf "len(%s)" (tup a)
@@ -648,17 +656,7 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s x ->
             let q = tup_ty x.range
-            let e = 
-                if is_except_star then 
-                    let b = 
-                        match q with 
-                        | "void" -> true
-                        | "float" | "double" | "bint" -> true
-                        | x when x.StartsWith "signed" || x.StartsWith "unsigned" -> true
-                        | _ -> false
-                    if b then " except *" else ""
-                else ""
-            line s $"cdef {q} method{x.tag}({args_tys x.free_vars}){e}:"
+            line s $"cdef {q} method{x.tag}({args_tys x.free_vars}){show_except q}:"
             binds' (indent s) x.body
             )
     and closure : _ -> ClosureRec =
@@ -676,19 +674,16 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
             line s $"def __init__({init_args}): {init_body}"
             match x.domain_args with 
             | [||] -> line s $"def __call__(self):"
-            | [|L(i,t)|] -> line s $"def __call__(self, {tyv t} v{i}):"
-            | t -> line s $"def __call__(self, {tup_ty_tyvs t} args):"
+            | t -> line s $"def __call__(self, {args_tys t}):"
             let s = indent s
             free_vars |> Array.iter (function i, t -> line s $"cdef {t} v{i} = self.v{i}")
-            if 1 < x.domain_args.Length then
-                x.domain_args |> Array.iteri (fun i' (L(i,t)) -> line s $"cdef {tyv t} v{i} = args.v{i'}")
             binds' s x.body
             )
 
     let main = StringBuilder()
     let s = {text=main; indent=0}
-    let e = if is_except_star then " except *" else ""
-    line s $"cpdef {tup_ty_data_term_vars (binds_last_data x)} main(){e}:"
+    let q = tup_ty_data_term_vars (binds_last_data x)
+    line s $"cpdef {q} main(){show_except q}:"
     binds' (indent s) x
 
     let program = StringBuilder()
