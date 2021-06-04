@@ -93,7 +93,6 @@ def run(vs_self,vs_one,neural,uniform_player):
     mid = 64
     batch_size = 4
     head_decay = 0.9
-    head_initial_weight = 2 ** -149 # Smallest 32-bit float.
     epsilon = 2 ** -2
 
     value = torch.nn.Linear(neural.size.value,mid)
@@ -101,9 +100,7 @@ def run(vs_self,vs_one,neural,uniform_player):
         for x in value.parameters():
             x *= 100
     head = torch.zeros(neural.size.action*2,mid)
-    # I'd rather not do this as it breaks reward scale invariance of the algorithm, instead division by the 
-    # weight of zero should be zero, but PyTorch does not support such division, so I'll have to sacrifice a bit here.
-    head[neural.size.action:,:] = head_initial_weight
+    head[neural.size.action:,:] = 2 ** -149 # Smallest 32-bit float.
     policy = torch.nn.Linear(neural.size.policy,neural.size.action)
 
     for b in range(1):
