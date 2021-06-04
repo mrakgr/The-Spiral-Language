@@ -15,6 +15,7 @@ type Constraint =
     | CFloat
     | CSymbol
     | CPrim
+    | CRecord
     | CPrototype of GlobalId
 
 type ConstraintOrModule = C of Constraint | M of Map<string,ConstraintOrModule>
@@ -197,6 +198,7 @@ let rec constraint_name (env : TopEnv) = function
     | CSymbol -> "symbol"
     | CFloat -> "float"
     | CPrim -> "prim"
+    | CRecord -> "record"
     | CPrototype i -> env.prototypes.[i].name
 
 let rec tt (env : TopEnv) = function
@@ -354,6 +356,7 @@ let rec constraint_process (env : TopEnv) = function
     | CInt, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T), []
     | CFloat, TyPrim (Float32T | Float64T), []
     | CPrim, TyPrim _, []
+    | CRecord, TyRecord _, []
     | CNumber, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T | Float32T | Float64T), [] -> []
     | CPrototype prot, TyNominal ins, x' ->
         match Map.tryFind (prot,ins) env.prototypes_instances with
@@ -1623,6 +1626,7 @@ let top_env_default : TopEnv =
             "int", CInt
             "float", CFloat
             "prim", CPrim
+            "record", CRecord
             "symbol", CSymbol
             ] |> Map.ofList |> Map.map (fun _ -> C)
         }

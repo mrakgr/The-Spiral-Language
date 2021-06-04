@@ -1,5 +1,4 @@
 // The array module. Compared to the ones in the `generic` module, the functions here are more restricted and easier to compose.
-open loop
 open generic
 
 // Creates an empty array.

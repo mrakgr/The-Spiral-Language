@@ -542,6 +542,11 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
             | Import,[DLit (LitString x)] -> import x; $"pass # import {x}"
             | CImport,[DLit (LitString x)] -> cimport x; $"pass # cimport {x}"
             | ToCythonRecord,[DRecord x] -> Map.foldBack (fun k v l -> $"'{k}': {tup v}" :: l) x [] |> String.concat ", " |> sprintf "{%s}"
+            | ToCythonNamedTuple,[n;DRecord x] -> 
+                import "collections"
+                let field_names = Map.foldBack (fun k v l -> $"'{k}'" :: l) x [] |> String.concat ", "
+                let args = Map.foldBack (fun k v l -> tup v :: l) x [] |> String.concat ", "
+                $"collections.namedtuple({tup n},[{field_names}])({args})"
             | Apply,[a;b] -> 
                 match tup a, tup b with
                 | a,"pass" -> sprintf "%s()" a

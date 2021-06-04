@@ -41,6 +41,5 @@ modules:
     train
     agent/
         uniform
-        neural 
-    uniform_test
-    neural_test 
+        neural
+    create_args     

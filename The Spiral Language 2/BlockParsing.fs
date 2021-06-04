@@ -25,6 +25,7 @@ type Op =
 
     // Cython
     | ToCythonRecord
+    | ToCythonNamedTuple
 
     // Closure application
     | Apply

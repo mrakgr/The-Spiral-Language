@@ -36,7 +36,9 @@ instance length a = fun (a ar) => !!!!ArrayLength(`dim,ar)
 // Python native
 type obj = $"object"
 // Converts a Spiral record to a Cython record.
-inl record forall t. (x : t) : obj = !!!!ToCythonRecord(x)
+inl record forall t {record}. (x : t) : obj = !!!!ToCythonRecord(x)
+// Converts a Spiral record to a Cython named tuple.
+inl namedtuple forall t {record}. (n : string) (x : t) : obj = !!!!ToCythonNamedTuple(n,x)
 nominal ra dim a = $"list"
 
 instance create ra = fun size => $"[None]*!size"

@@ -1,3 +1,4 @@
+from collections import namedtuple
 import torch
 import torch.distributions
 import torch.optim
@@ -85,25 +86,28 @@ def run(value : Module,head : Tensor,policy : Module,is_update_head : bool,is_up
     return action_probs, sample_probs, sample_indices, update
 
 import functools
-def main(vs_self,vs_one,size_value,size_policy,size_action):
+def main(vs_self,vs_one,neural,uniform_player):
     mid = 64
     batch_size = 1024
     head_decay = 0.9
     head_initial_weight = 2 ** -30 # Effectively acts as a learning rate for the head.
     epsilon = 2 ** -2
 
-    value = torch.nn.Linear(size_value,mid)
-    head = torch.zeros(size_action*2,mid)
-    head[size_action:,:] = head_initial_weight
-    policy = torch.nn.Linear(size_policy,size_action)
+    value = torch.nn.Linear(neural.size.value,mid)
+    head = torch.zeros(neural.size.action*2,mid)
+    head[neural.size.action:,:] = head_initial_weight
+    policy = torch.nn.Linear(neural.size.policy,neural.size.action)
 
     for b in range(1):
         for a in range(5):
-            vs_self(batch_size,functools.partial(run,value,head,policy,True,False,False,epsilon))
-        vs_self(batch_size,functools.partial(run,value,head,policy,False,True,True,epsilon))
+            vs_self(batch_size,neural.handler(functools.partial(run,value,head,policy,True,False,False,epsilon)))
+        vs_self(batch_size,neural.handler(functools.partial(run,value,head,policy,False,True,True,epsilon)))
         optimize([value,policy])
         head *= head_decay
-        r : Tensor = vs_self(batch_size,functools.partial(run,value,head,policy,False,False,False,epsilon))
+        r : Tensor = vs_self(batch_size,neural.handler(functools.partial(run,value,head,policy,False,False,False,epsilon)))
         print('Value predictions for every state:')
-        print(head[:size_action,:]/head[size_action:,:])
-        print('The mean reward is',r.mean())
+        print(head[:neural.size.action,:]/head[neural.size.action:,:])
+        print('The mean reward vs self is',r.mean())
+
+        r = vs_one(batch_size,uniform_player,neural.handler(functools.partial(run,value,head,policy,False,False,False,epsilon)))
+        print('The mean reward vs self is',-r.mean())
