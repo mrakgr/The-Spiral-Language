@@ -317,7 +317,7 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
                 | UInt64T -> "numpy.uint64"
                 | Float32T -> "numpy.float32"
                 | Float64T -> "numpy.float64"
-                | BoolT -> "numpy.bool"
+                | BoolT -> "numpy.int8"
                 | _ -> "object"
             | YUnion l -> if l.Item.is_degenerate then "numpy.int32" else "object"
             | _ -> "object"

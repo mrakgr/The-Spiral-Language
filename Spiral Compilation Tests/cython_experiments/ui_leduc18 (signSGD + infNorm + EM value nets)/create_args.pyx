@@ -134,38 +134,37 @@ cdef class Closure2():
         cdef object v45
         cdef object v46
         cdef object v47
-        cdef numpy.ndarray[float,ndim=2] v48
-        cdef numpy.ndarray[float,ndim=1] v49
+        cdef numpy.ndarray[float,ndim=1] v48
+        cdef unsigned long long v49
         cdef unsigned long long v50
-        cdef unsigned long long v51
+        cdef bint v51
         cdef bint v52
-        cdef bint v53
-        cdef numpy.ndarray[float,ndim=1] v54
-        cdef Mut0 v55
-        cdef unsigned long long v57
+        cdef numpy.ndarray[float,ndim=1] v53
+        cdef Mut0 v54
+        cdef unsigned long long v56
+        cdef float v57
         cdef float v58
         cdef float v59
-        cdef float v60
-        cdef UH0 v61
+        cdef UH0 v60
+        cdef float v61
         cdef float v62
-        cdef float v63
-        cdef UH0 v64
+        cdef UH0 v63
+        cdef float v64
         cdef float v65
-        cdef float v66
-        cdef US1 v67
-        cdef unsigned char v68
-        cdef signed long v69
-        cdef US1 v70
-        cdef unsigned char v71
-        cdef signed long v72
-        cdef US3 v73
-        cdef unsigned char v74
-        cdef numpy.ndarray[signed long,ndim=1] v75
+        cdef US1 v66
+        cdef unsigned char v67
+        cdef signed long v68
+        cdef US1 v69
+        cdef unsigned char v70
+        cdef signed long v71
+        cdef US3 v72
+        cdef unsigned char v73
+        cdef numpy.ndarray[signed long,ndim=1] v74
         cdef Tuple0 tmp3
-        cdef bint v76
-        cdef float v78
+        cdef bint v75
         cdef float v77
-        cdef unsigned long long v79
+        cdef float v76
+        cdef unsigned long long v78
         v4 = numpy.empty(v1,dtype=numpy.float32)
         v5 = numpy.empty(v1,dtype=numpy.float32)
         v6 = len(v3)
@@ -210,39 +209,37 @@ cdef class Closure2():
         del v5
         v47 = v2(v45, v46)
         del v45; del v46
-        v48 = v47.numpy()
+        v48 = v47.squeeze(-1).numpy()
         del v47
-        v49 = v48.squeeze(-1)
-        del v48
-        v50 = len(v49)
-        v51 = len(v0)
-        v52 = v50 == v51
-        v53 = v52 == 0
-        if v53:
+        v49 = len(v48)
+        v50 = len(v0)
+        v51 = v49 == v50
+        v52 = v51 == 0
+        if v52:
             raise Exception("The length of the two arrays has to the same.")
         else:
             pass
-        v54 = numpy.empty(v50,dtype=numpy.float32)
-        v55 = Mut0((<unsigned long long>0))
-        while method0(v50, v55):
-            v57 = v55.v0
-            v58 = v49[v57]
-            tmp3 = v0[v57]
-            v59, v60, v61, v62, v63, v64, v65, v66, v67, v68, v69, v70, v71, v72, v73, v74, v75 = tmp3.v0, tmp3.v1, tmp3.v2, tmp3.v3, tmp3.v4, tmp3.v5, tmp3.v6, tmp3.v7, tmp3.v8, tmp3.v9, tmp3.v10, tmp3.v11, tmp3.v12, tmp3.v13, tmp3.v14, tmp3.v15, tmp3.v16
+        v53 = numpy.empty(v49,dtype=numpy.float32)
+        v54 = Mut0((<unsigned long long>0))
+        while method0(v49, v54):
+            v56 = v54.v0
+            v57 = v48[v56]
+            tmp3 = v0[v56]
+            v58, v59, v60, v61, v62, v63, v64, v65, v66, v67, v68, v69, v70, v71, v72, v73, v74 = tmp3.v0, tmp3.v1, tmp3.v2, tmp3.v3, tmp3.v4, tmp3.v5, tmp3.v6, tmp3.v7, tmp3.v8, tmp3.v9, tmp3.v10, tmp3.v11, tmp3.v12, tmp3.v13, tmp3.v14, tmp3.v15, tmp3.v16
             del tmp3
-            del v61; del v64; del v73; del v75
-            v76 = v74 == (<unsigned char>0)
-            if v76:
-                v78 = v58
+            del v60; del v63; del v72; del v74
+            v75 = v73 == (<unsigned char>0)
+            if v75:
+                v77 = v57
             else:
-                v77 = -v58
-                v78 = v77
-            v54[v57] = v78
-            v79 = v57 + (<unsigned long long>1)
-            v55.v0 = v79
-        del v49
-        del v55
-        return v54
+                v76 = -v57
+                v77 = v76
+            v53[v56] = v77
+            v78 = v56 + (<unsigned long long>1)
+            v54.v0 = v78
+        del v48
+        del v54
+        return v53
 cdef class Tuple3:
     cdef readonly object v0
     cdef readonly object v1

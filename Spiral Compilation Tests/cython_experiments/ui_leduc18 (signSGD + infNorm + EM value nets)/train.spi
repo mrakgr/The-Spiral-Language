@@ -95,7 +95,6 @@ inl neural_handler extractor (schema : schema _ _ _) p (actions : ra _ _) =
         inl rewards : a _ _ = 
             inl f x = $"torch.from_numpy(numpy.expand_dims(!x,-1))"
             inl x = update (f rewards, f regret_probs)
-            inl x : a2 f32 = $"!x.numpy()"
-            $"!x.squeeze(-1)"
+            $"!x.squeeze(-1).numpy()"
         am.generic.map2 (fun a (_,_,pid,_) => if pid = 0 then r2 a else r2 -a) rewards actions
     cs, update

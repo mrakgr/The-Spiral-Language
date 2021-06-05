@@ -1,8 +1,6 @@
 import torch
+import torch.linalg
 import numpy as np
-
-q = torch.zeros(5,5)
-idx = torch.tensor([4,2]).unsqueeze(-1)
-w = torch.rand(5,1)
-q.scatter_add_(-1,idx,w)
-q
+q = torch.ones(16) 
+q /= torch.linalg.norm(q,ord=1)
+-torch.sum(q * torch.log(q))

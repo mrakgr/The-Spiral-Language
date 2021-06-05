@@ -18,10 +18,13 @@ def belief_tabulate(state_probs : Tensor,head : Tensor,action_indices : Tensor,a
     head_weighted_values = head[:num_actions,:] # [action_dim,state_dim]
     head_value_weights = head[num_actions:,:] # [action_dim,state_dim]
 
+    # print(state_probs)
+    print(-torch.sum(state_probs * torch.log(state_probs)) / state_probs.shape[0])
+
     def update_head(): # Weighted moving average update. Works well with probabilistic vectors and weighted updates that CFR requires.
         state_weights = at_action_weights * state_probs # [batch_dim,state_dim]
-        head_weighted_values[action_indices,:] += at_action_value * state_weights
-        head_value_weights[action_indices,:] += state_weights
+        head_weighted_values.index_add_(0,action_indices,at_action_value * state_weights)
+        head_value_weights.index_add_(0,action_indices,state_weights)
 
     def calculate():
         values = head_weighted_values / head_value_weights # [action_dim,state_dim]
@@ -57,8 +60,7 @@ def optimize(moduleList : list,learning_rate : float = 2 ** -7,signSGDfactor : f
         for module in moduleList:
             infNorm = torch.scalar_tensor(0)
             paramGroup = [x for x in module.parameters() if x.grad is not None]
-            for x in paramGroup:
-                if x.grad: infNorm = torch.max(infNorm,torch.linalg.norm(x.grad.flatten(),ord=float('inf')))
+            for x in paramGroup: infNorm = torch.max(infNorm,torch.linalg.norm(x.grad.flatten(),ord=float('inf')))
             for x in paramGroup: # The scalars operations are grouped for efficiency.
                 if torch.is_nonzero(infNorm):
                     if 0 < signSGDfactor: x += learning_rate * signSGDfactor * torch.sign(x.grad)
@@ -73,10 +75,9 @@ def model_evaluate(value : Module,head : Tensor,policy : Module,is_update_head :
     action_mask_inv = torch.logical_not(action_mask)
     # Interpolates action probs with an uniform noise distribution for actions that aren't masked out.
     sample_probs = policy_probs * (1 - epsilon)
-    if 0 < epsilon: sample_probs += action_mask_inv / (action_mask_inv.sum(-1) * (1 / epsilon)) 
+    if 0 < epsilon: sample_probs += action_mask_inv / (action_mask_inv.sum(-1,keepdim=True) * (1 / epsilon)) 
     sample_indices = torch.distributions.Categorical(sample_probs).sample()
     def update(rewards : Tensor, regret_probs : Tensor):
-        print('In:', rewards)
         value_log_probs : Tensor = torch.log_softmax(value(value_data),-1)
         value_probs = torch.exp(value_log_probs.detach())
         update_head, calculate = belief_tabulate(value_probs,head,sample_indices,rewards,regret_probs)
@@ -85,29 +86,31 @@ def model_evaluate(value : Module,head : Tensor,policy : Module,is_update_head :
         if is_update_head: update_head()
         if is_update_value: value_log_probs.backward(state_probs_grad())
         if is_update_policy: action_log_probs.backward(action_probs_grad())
-        print('Out',reward)
         return reward
     return policy_probs, sample_probs, sample_indices, update
 
 def run(vs_self,vs_one,neural,uniform_player):
-    mid = 64
-    batch_size = 4
-    head_decay = 0.9
+    mid = 4
+    batch_size = 2 ** 10
+    head_decay = 0.51
     epsilon = 2 ** -2
 
     value = torch.nn.Linear(neural.size.value,mid)
-    with torch.no_grad():
-        for x in value.parameters():
-            x *= 100
+    # with torch.no_grad():
+    #     for x in value.parameters():
+    #         x *= 100
     head = torch.zeros(neural.size.action*2,mid)
     head[neural.size.action:,:] = 2 ** -149 # Smallest 32-bit float.
     policy = torch.nn.Linear(neural.size.policy,neural.size.action)
 
-    for b in range(1):
-        for a in range(1):
-            r : np.ndarray = vs_self(batch_size,neural.handler(partial(model_evaluate,value,head,policy,False,False,False,0)))
-            print(r.mean())
-        # vs_self(batch_size,neural.handler(partial(run,value,head,policy,False,True,True,epsilon)))
+    for b in range(30):
+        for a in range(2):
+            r : np.ndarray = vs_self(batch_size,neural.handler(partial(model_evaluate,value,head,policy,True,False,False,epsilon)))
+            # if a == 2: print(r.std())
+        vs_self(batch_size,neural.handler(partial(model_evaluate,value,head,policy,False,True,False,epsilon)))
+        optimize([value],learning_rate=0.01,signSGDfactor=0)
+        head *= head_decay
+        # print(value.weight)
         # optimize([value,policy])
         # head *= head_decay
         # r : Tensor = vs_self(batch_size,neural.handler(partial(run,value,head,policy,False,False,False,epsilon)))
@@ -118,3 +121,9 @@ def run(vs_self,vs_one,neural,uniform_player):
         # r = vs_one(batch_size,uniform_player,neural.handler(partial(run,value,head,policy,False,False,False,epsilon)))
         # print('The mean reward vs self is',-r.mean())
 
+if __name__ == '__main__':
+    import numpy as np
+    import pyximport
+    pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
+    from create_args import main
+    run(**main())
