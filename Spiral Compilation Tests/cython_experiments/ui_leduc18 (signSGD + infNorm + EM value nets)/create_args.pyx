@@ -515,7 +515,7 @@ cdef class Closure4():
         return v0
 cdef class Closure3():
     def __init__(self): pass
-    def __call__(self, numpy.ndarray[object,ndim=1] v0):
+    def __call__(self, list v0):
         cdef unsigned long long v1
         cdef numpy.ndarray[object,ndim=1] v2
         cdef Mut0 v3
