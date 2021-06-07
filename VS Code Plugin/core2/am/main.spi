@@ -25,9 +25,17 @@ inl iter forall (ar : * -> * -> *) {index; length; create; set} dim {number} el.
 // Iterates over an array. Provides the index as the first argument.
 inl iteri forall (ar : * -> * -> *) {index; length; create; set} dim {number} el. : _ -> ar dim el -> _ = iteri
 // Iterates over two arrays.
-inl iter2 forall (ar : * -> * -> *) {index; length; create; set} dim {number} el el'. : _ -> ar dim el -> ar dim el' -> _ = iter2
+inl iter2 forall (ar : * -> * -> *) {index; length; create; set} dim {number}. : _ -> ar dim _ -> ar dim _ -> _ = iter2
 // Iterates over two arrays. Provides the index as the first argument.
-inl iteri2 forall (ar : * -> * -> *) {index; length; create; set} dim {number} el el'. : _ -> ar dim el -> ar dim el' -> _ = iteri2
+inl iteri2 forall (ar : * -> * -> *) {index; length; create; set} dim {number}. : _ -> ar dim _ -> ar dim _ -> _ = iteri2
+// Iterates over three arrays.
+inl iter3 forall (ar : * -> * -> *) {index; length; create; set} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> _ = iter3
+// Iterates over three arrays. Provides the index as the first argument.
+inl iteri3 forall (ar : * -> * -> *) {index; length; create; set} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> _ = iteri3
+// Iterates over four arrays.
+inl iter4 forall (ar : * -> * -> *) {index; length; create; set} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ -> _ = iter4
+// Iterates over four arrays. Provides the index as the first argument.
+inl iteri4 forall (ar : * -> * -> *) {index; length; create; set} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ -> _ = iteri4
 // Filters the elements of an array using the function.
 inl filter forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. : _ -> ar dim el -> ar dim el = filter
 // Picks out the elements from the array.
@@ -48,6 +56,14 @@ inl sliceFrom forall (ar : * -> * -> *) {create; set; index; length} dim {number
 inl map2 forall (ar : * -> * -> *) {create; set; index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ = map2
 // Applies the mapping function to each element of the two arrays producing a new array with the result of the applications. Provides the index as the first argument.
 inl mapi2 forall (ar : * -> * -> *) {create; set; index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ = mapi2
+// Applies the mapping function to each element of the three arrays producing a new array with the result of the applications.
+inl map3 forall (ar : * -> * -> *) {create; set; index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ = map3
+// Applies the mapping function to each element of the three arrays producing a new array with the result of the applications. Provides the index as the first argument.
+inl mapi3 forall (ar : * -> * -> *) {create; set; index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ = mapi3
+// Applies the mapping function to each element of the four arrays producing a new array with the result of the applications.
+inl map4 forall (ar : * -> * -> *) {create; set; index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ = map4
+// Applies the mapping function to each element of the four arrays producing a new array with the result of the applications. Provides the index as the first argument.
+inl mapi4 forall (ar : * -> * -> *) {create; set; index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ = mapi4
 // Initializes the array while threading the state through the loop.
 inl initFold forall (ar : * -> * -> *) {create; set} dim {number} el s. : _ -> _ -> _ -> ar dim el * s = initFold
 // Folds over the array while producing the residual array resulting from that operation.

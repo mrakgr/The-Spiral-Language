@@ -42,4 +42,5 @@ modules:
     agent/
         uniform
         neural
+        tabular
     create_args     

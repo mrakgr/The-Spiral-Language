@@ -78,6 +78,22 @@ inl mapi2 f a b = init (assert_len a b) (fun i => f i (index a i) (index b i))
 inl iter2 f a b = for' (from: 0 nearTo: assert_len a b) (fun i => f (index a i) (index b i))
 // Iterates over two arrays. Provides the index as the first argument.
 inl iteri2 f a b = for' (from: 0 nearTo: assert_len a b) (fun i => f i (index a i) (index b i))
+// Applies the mapping function to each element of the three arrays producing a new array with the result of the applications.
+inl map3 f a b c = init (assert_len2 a b c) (fun i => f (index a i) (index b i) (index c i))
+// Applies the mapping function to each element of the three arrays producing a new array with the result of the applications. Provides the index as the first argument.
+inl mapi3 f a b c = init (assert_len2 a b c) (fun i => f i (index a i) (index b i) (index c i))
+// Iterates over three arrays.
+inl iter3 f a b c = for' (from: 0 nearTo: assert_len2 a b c) (fun i => f (index a i) (index b i) (index c i))
+// Iterates over three arrays. Provides the index as the first argument.
+inl iteri3 f a b c = for' (from: 0 nearTo: assert_len2 a b c) (fun i => f i (index a i) (index b i) (index c i))
+// Applies the mapping function to each element of the four arrays producing a new array with the result of the applications.
+inl map4 f a b c d = init (assert_len3 a b c d) (fun i => f (index a i) (index b i) (index c i) (index d i))
+// Applies the mapping function to each element of the four arrays producing a new array with the result of the applications. Provides the index as the first argument.
+inl mapi4 f a b c d = init (assert_len3 a b c d) (fun i => f i (index a i) (index b i) (index c i) (index d i))
+// Iterates over four arrays.
+inl iter4 f a b c d = for' (from: 0 nearTo: assert_len3 a b c d) (fun i => f (index a i) (index b i) (index c i) (index d i))
+// Iterates over four arrays. Provides the index as the first argument.
+inl iteri4 f a b c d = for' (from: 0 nearTo: assert_len3 a b c d) (fun i => f i (index a i) (index b i) (index c i) (index d i))
 // Initializes the array while threading the state through the loop.
 inl initFold nearTo f s =
     inl ar = create nearTo

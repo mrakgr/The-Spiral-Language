@@ -2,3 +2,13 @@ inl assert_len ar1 ar2 =
     inl l = length ar1
     assert (l = length ar2) "The length of the two arrays has to the same."
     l
+
+inl assert_len2 ar1 ar2 ar3 =
+    inl l = length ar1
+    assert (l = length ar2 && l = length ar3) "The length of the three arrays has to the same."
+    l
+
+inl assert_len3 ar1 ar2 ar3 ar4 =
+    inl l = length ar1
+    assert (l = length ar2 && l = length ar3 && l = length ar4) "The length of the four arrays has to the same."
+    l
