@@ -1,4 +1,4 @@
-WIP
+2.0.86 (6/8/2021)
 
 * Renamed array's iter2i to iteri2 so it matches the F# naming scheme.
 * Added `3` and `4` versions of `map` and `iter` function into the array module.
