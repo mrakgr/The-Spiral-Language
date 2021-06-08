@@ -22,11 +22,9 @@ inl leduc_schema () =
         alt {fold=Unit; call=Unit; raise=Unit} : pu action
     schema {policy value action}
 
-inl leduc_extractor (player_state,(leduc_state (p1,p2,_)),pid) =
+inl leduc_extractor' (player_state,(leduc_state (p1,p2,_)),pid) =
     pl2_observations player_state pid, if p1.id = pid then p2.card else p1.card
 
-inl leduc_neural_extractor x = inl a,b = leduc_extractor x in leduc_obs_to_array a,b
-inl leduc_neural_handler p (actions : ra u64 (_ * _ * _ * a u64 action)) = 
-    train.neural_handler leduc_neural_extractor leduc_schema() p actions
+inl leduc_extractor x = inl a,b = leduc_extractor' x in leduc_obs_to_array a,b
 
 // The actual player is done on the Python side. These are the serialization helpers for it.

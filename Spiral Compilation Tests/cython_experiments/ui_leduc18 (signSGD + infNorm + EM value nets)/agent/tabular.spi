@@ -13,21 +13,26 @@ inl belief_tabulate slots (action_indices : a u64 i64) (at_action_value : a u64 
         inl batch_qs = 
             am.map4 (fun {policy head={weighted_value weight}} i_action sample_prob r =>
                 am.mapi2 (fun i_action' weighted_value weight =>
-                    inl q = weighted_value / weight
+                    inl q = if weight <> 0 then weighted_value / weight else 0
                     if i_action = i_action' then (r - q) / (index sample_prob i_action) + q else q
                     ) weighted_value weight
                 ) slots action_indices sample_probs at_action_value
         inl rewards = am.map2 (am.fold2 (fun s a b => s + a * b) 0) batch_qs action_probs
-        inl update_policy () =
-            am.iter4 (fun {policy head} qs mean regret_prob =>
-                am.mapInplace (fun i policy => policy + regret_prob * (index qs i - mean)) policy
+        inl update_policy is_update_average =
+            am.iter4 (fun {policy={current average} head} qs mean regret_prob =>
+                am.mapInplace (fun i policy => policy + regret_prob * (index qs i - mean)) current
                 ) slots batch_qs rewards at_action_weight
-            am.iter (fun {policy head} => am.mapInplace (fun _ => max 0) policy) slots 
+            am.iter (fun {policy={current average} head} => 
+                am.mapInplace (fun _ => max 0) current
+                if is_update_average then 
+                    inl current = policy_probs current
+                    am.mapInplace (fun i x => x + index current i) average
+                ) slots 
         rewards, update_policy
     update_head, action_fun
 
-type agent_dict present future = dictm.dict present {head : dictm.dict future {weighted_value : a i64 f32; weight : a i64 f32}; policy : a i64 f32}
-inl policy forall present future. extractor ((agent : agent_dict present future), is_update_head, is_update_policy, epsilon) 
+type agent_dict present future = dictm.dict present {head : dictm.dict future {weighted_value : a i64 f32; weight : a i64 f32}; policy : {current : a i64 f32; average : a i64 f32}}
+inl policy forall present future. extractor ((agent : agent_dict present future), is_update_head, is_update_policy, is_update_policy_avg, epsilon) 
         (l : ra u64 _) =
     inl num_batch = length l
     inl create x : a _ _ = create x
@@ -48,11 +53,11 @@ inl policy forall present future. extractor ((agent : agent_dict present future)
         inl present, future = extractor (player_state, game_state, pid)
         inl num_actions = length actions
         inl Zeros : a i64 f32 = $"numpy.zeros(!num_actions,dtype=numpy.float32)"
-        inl {policy head} = dictm.memoize agent (fun _ => {policy=Zeros; head=dictm.empty}) present
+        inl {policy head} = dictm.memoize agent (fun _ => {policy={current=Zeros; average=Zeros}; head=dictm.empty}) present
         inl head = dictm.memoize head (fun _ => {weighted_value=Zeros; weight=Zeros}) future
         set slots i_batch {policy head}
 
-        inl action_prob = policy_probs policy
+        inl action_prob = policy_probs policy.current
         set action_probs i_batch action_prob
 
         inl sample_prob = am.map (fun x => epsilon / f32 num_actions + (1 - epsilon) * x) action_prob
@@ -69,5 +74,14 @@ inl policy forall present future. extractor ((agent : agent_dict present future)
         inl update_head, action_fun = belief_tabulate slots action_indices at_action_value at_action_weight
         inl corrected_values,update_policy = action_fun action_probs sample_probs
         if is_update_head then update_head()
-        if is_update_policy then update_policy()
+        if is_update_policy then update_policy is_update_policy_avg
         am.map2 (fun x pid => if pid = 0 then r2 x else r2 -x) corrected_values pids
+
+// Decays multiplies the head values by the specified scalar factor.
+inl head_multiply_ ((agent : agent_dict _ _), w) =
+    dictm.fold (fun () (_,{head policy}) =>
+        dictm.fold (fun () (_,{weight weighted_value}) =>
+            inl f _ x = x * w
+            am.mapInplace f weight . am.mapInplace f weighted_value
+            ) () head
+        ) () agent

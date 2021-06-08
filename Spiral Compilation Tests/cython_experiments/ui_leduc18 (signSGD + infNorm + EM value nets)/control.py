@@ -83,65 +83,89 @@ def model_evaluate(value : Module,head : Tensor,policy : Module,is_update_head :
         if is_update_head: update_head()
         if is_update_value: 
             x = state_probs_grad()
-            value.l2 += (state_probs.detach() * (x.square() / regret_probs)).sum() / x.numel()
-            value.l1 += (state_probs.detach() * x).sum() / x.numel()
-            value.count += 1
+            # value.l2 += (state_probs.detach() * (x.square() / regret_probs)).sum() / x.numel()
+            # value.l1 += (state_probs.detach() * x).sum() / x.numel()
+            # value.count += 1
             state_probs.backward(x)
         if is_update_policy: action_probs.backward(action_probs_grad())
         return reward
     return action_probs, sample_probs, sample_indices, update
 
-def run(vs_self,vs_one,neural,uniform_player):
-    mid = 64
-    batch_size = 2 ** 10
-    head_decay = 2 ** -2
-    epsilon = 2 ** -2
-
+def neural_create_agent(size,mid=64):
     # value = torch.nn.Linear(neural.size.value,mid)
     # policy = torch.nn.Linear(neural.size.policy,neural.size.action)
-    valuet = torch.nn.Sequential(
-        torch.nn.Linear(neural.size.value,mid),
+    value = torch.nn.Sequential(
+        torch.nn.Linear(size.value,mid),
         torch.nn.ReLU(),
         torch.nn.LayerNorm(mid),
         torch.nn.Linear(mid,mid)
         )
-    valuet.l2 = torch.zeros(())
-    valuet.l1 = torch.zeros(())
-    valuet.count = torch.zeros(())
-    policyt = torch.nn.Sequential(
-        torch.nn.Linear(neural.size.policy,mid),
+    # value.l2 = torch.zeros(())
+    # value.l1 = torch.zeros(())
+    # value.count = torch.zeros(())
+    policy = torch.nn.Sequential(
+        torch.nn.Linear(size.policy,mid),
         torch.nn.ReLU(),
         torch.nn.LayerNorm(mid),
-        torch.nn.Linear(mid,neural.size.action)
+        torch.nn.Linear(mid,size.action)
         )
-    headt = torch.zeros(neural.size.action*2,mid)
-    headt[neural.size.action:,:] = 2 ** -149 # Smallest 32-bit float.
-    for d in range(4):
-        value_lr = 2 ** (-5 - d)
-        print(f"The learning rate for the value net is {value_lr}")
-        for c in range(5):
-            value, policy, head = deepcopy(valuet), deepcopy(policyt), deepcopy(headt)
-            def neural_player(is_update_head,is_update_value,is_update_policy): 
-                return neural.handler(partial(model_evaluate,value,head,policy,is_update_head,is_update_value,is_update_policy,epsilon))
-            for b in range(30):
-                for a in range(3):
-                    q : np.ndarray = vs_self(batch_size,neural_player(True,False,False))
-                # print(f'Standard deviation of rewards is {q.std()}')
-                vs_self(batch_size,neural_player(False,True,True))
-                optimize([value],learning_rate=value_lr)
-                optimize([policy],learning_rate=2 ** -9)
-                head *= head_decay
-                print(f'The value errors l2 and l1 are {value.l2 / value.count} and {value.l1 / value.count}')
+    head = torch.zeros(size.action*2,mid)
+    head[size.action:,:] = 2 ** -149 # Smallest 32-bit float.
+    return value, policy, head
 
-                r : Tensor = vs_self(batch_size,neural_player(False,False,False))
-                # print('Value predictions for every state:')
-                # print(head[:neural.size.action,:]/head[neural.size.action:,:])
-                # print(f'The mean reward vs self is {r.mean()}')
+def run(vs_self,vs_one,neural,uniform_player,tabular):
+    batch_size = 2 ** 10
+    head_decay = 2 ** -2
 
-                r = vs_one(batch_size,uniform_player,neural_player(False,False,False))
-                # print(f'The mean reward vs uniform {-r.mean()}')
-            print('---')
-        print('***')
+    tabular_agent = tabular.create_agent()
+    def tabular_player(is_update_head=False,is_update_policy=False,is_update_policy_avg=False,epsilon=2 ** -2): 
+        return tabular.create_policy(tabular_agent,is_update_head,is_update_policy,is_update_policy_avg,epsilon)
+
+    value, policy, head = neural_create_agent(neural.size)
+    def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=2 ** -2): 
+        return neural.handler(partial(model_evaluate,value,head,policy,is_update_head,is_update_value,is_update_policy,epsilon))
+    for c in range(10):
+        for b in range(50):
+            for a in range(3):
+                vs_self(batch_size,tabular_player(True))
+                vs_self(batch_size,neural_player(True))
+                # vs_one(batch_size,uniform_player,neural_player(True,False,False))
+            vs_self(batch_size,tabular_player(False,True))
+            tabular.head_multiply_(tabular_agent,head_decay)
+
+            # vs_one(batch_size,uniform_player,neural_player(False,True,True))
+            vs_self(batch_size,neural_player(False,True,True))
+            optimize([value],learning_rate=2 ** -6)
+            optimize([policy],learning_rate=2 ** -8)
+            head *= head_decay
+
+        # r : np.ndarray = vs_one(batch_size * 32,uniform_player,neural_player(epsilon=0.0))
+        # r : np.ndarray = vs_one(batch_size * 32,neural_player(epsilon=0.0),uniform_player)
+        r : np.ndarray = vs_one(batch_size * 32,neural_player(epsilon=0.0),tabular_player(epsilon=0.0))
+        print(f'The mean reward vs_one is {r.mean()}')
+
+    # valuet, policyt, headt = neural_create_agent(neural.size)
+    # for c in range(5):
+    #     value, policy, head = deepcopy(valuet), deepcopy(policyt), deepcopy(headt)
+    #     def neural_player(is_update_head,is_update_value,is_update_policy): 
+    #         return neural.handler(partial(model_evaluate,value,head,policy,is_update_head,is_update_value,is_update_policy,epsilon))
+    #     for b in range(30):
+    #         for a in range(3):
+    #             q : np.ndarray = vs_self(batch_size,neural_player(True,False,False))
+    #         # print(f'Standard deviation of rewards is {q.std()}')
+    #         vs_self(batch_size,neural_player(False,True,True))
+    #         optimize([value],learning_rate=2 ** -6)
+    #         optimize([policy],learning_rate=2 ** -9)
+    #         head *= head_decay
+    #         print(f'The value errors l2 and l1 are {value.l2 / value.count} and {value.l1 / value.count}')
+
+    #         # r : Tensor = vs_self(batch_size,neural_player(False,False,False))
+    #         # print(f'The mean reward vs self is {r.mean()}')
+
+    #         # r = vs_one(batch_size,uniform_player,neural_player(False,False,False))
+    #         # print(f'The mean reward vs uniform {-r.mean()}')
+    #     print('---')
+    # print('***')
 
 if __name__ == '__main__':
     import numpy as np
