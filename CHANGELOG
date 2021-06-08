@@ -1,11 +1,13 @@
 WIP
 
 * Renamed array's iter2i to iteri2 so it matches the F# naming scheme.
+* Added `3` and `4` versions of `map` and `iter` function into the array module.
 * Since tail recursive loops keep stack overflowing in Cython, the array module now uses the imperative while loops instead.
 * Added `CythonToNamedTuple` op, the `record` constraint and fixed the lack of dyning bug in `CythonToRecord`'s partial evaluation case.
-* Added the `namedtuple` function to core.
-* `except *` now does not get generated on main functions returning objects.
+* Added the `namedtuple` function to core. This should help Python interop as it provides a succinct way of converting Spiral records into Python objects.
+* `except *` now does not get generated on main functions returning objects. The Cython codegen is a rat's nest of hacks due to all the non-composable features of Cython.
 * Changed the semantics of the Cython codegen so closure arguments now behave like those for regular join points. This should make interop easier.
+* For unknown reasons, the language server will sometimes rarely miss a heartbeat and terminate. I haven't resolved the reason for that yet, but the `Restart Server` command should now work properly as it will clear the previous request instead of waiting for it to finish.
 
 2.0.85 (5/22/2021)
 

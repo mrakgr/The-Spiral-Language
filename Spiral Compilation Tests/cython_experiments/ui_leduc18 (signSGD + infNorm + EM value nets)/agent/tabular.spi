@@ -1,15 +1,9 @@
-inl policy_probs (policy : a u64 f32) = // 0 <= x for all x in policy should hold.
+inl policy_probs (policy : a i64 f32) = // 0 <= x for all x in policy should hold.
     inl s = am.reduce (+) policy
     inl a,s = if s = 0 then 1 / f32 (length policy), 0 else 0, 1 / s
     am.map (fun x => a + x * s) policy
 
-inl belief_tabulate forall present future. (agent : dictm.dict present {head : dictm.dict future _; policy : a i64 _}) 
-        present future (action_indices : a u64 i64) (at_action_value : a u64 f32) (at_action_weight : a u64 f32) = 
-    inl slots =
-        am.map2 (fun state hindsight =>
-            inl {policy head} = dictm.index agent state
-            {policy head=dictm.index head hindsight}
-            ) present future
+inl belief_tabulate slots (action_indices : a u64 i64) (at_action_value : a u64 f32) (at_action_weight : a u64 f32) = 
     inl update_head () =
         am.iter4 (fun {policy head={weighted_value weight}} i_action at_action_value at_action_weight =>
             inl add_to l v = inl x = index l i_action in set l i_action (x + v)
@@ -31,3 +25,49 @@ inl belief_tabulate forall present future. (agent : dictm.dict present {head : d
             am.iter (fun {policy head} => am.mapInplace (fun _ => max 0) policy) slots 
         rewards, update_policy
     update_head, action_fun
+
+type agent_dict present future = dictm.dict present {head : dictm.dict future {weighted_value : a i64 f32; weight : a i64 f32}; policy : a i64 f32}
+inl policy forall present future. extractor ((agent : agent_dict present future), is_update_head, is_update_policy, epsilon) 
+        (l : ra u64 _) =
+    inl num_batch = length l
+    inl create x : a _ _ = create x
+    inl at_action_weight = create num_batch
+    inl slots = create num_batch
+    inl action_probs = create num_batch
+    inl sample_probs = create num_batch
+    inl action_indices = create num_batch
+    inl pids = create num_batch
+
+    inl l : a u64 _ = l |> am.generic.mapi fun i_batch (player_state, game_state, pid, (actions : a u64 _)) => 
+        inl regret_prob =
+            inl prob = pl2_probs player_state pid
+            inl env_prob = prob.chance +@ prob.op
+            exp (-prob.self.sample + (env_prob.policy - env_prob.sample))
+        set at_action_weight i_batch regret_prob
+
+        inl present, future = extractor (player_state, game_state, pid)
+        inl num_actions = length actions
+        inl Zeros : a i64 f32 = $"numpy.zeros(!num_actions,dtype=numpy.float32)"
+        inl {policy head} = dictm.memoize agent (fun _ => {policy=Zeros; head=dictm.empty}) present
+        inl head = dictm.memoize head (fun _ => {weighted_value=Zeros; weight=Zeros}) future
+        set slots i_batch {policy head}
+
+        inl action_prob = policy_probs policy
+        set action_probs i_batch action_prob
+
+        inl sample_prob = am.map (fun x => epsilon / f32 num_actions + (1 - epsilon) * x) action_prob
+        set sample_probs i_batch sample_prob
+
+        inl i_action = $"numpy.random.choice(!num_actions,p=!sample_prob)"
+        set action_indices i_batch i_action
+
+        set pids i_batch pid
+
+        log_prob_from {policy=index action_prob i_action; sample=index sample_prob i_action}, index actions (u64 i_action)
+    l, fun (at_action_reward : a u64 r2) =>
+        inl at_action_value = am.map2 (~!!) at_action_reward pids
+        inl update_head, action_fun = belief_tabulate slots action_indices at_action_value at_action_weight
+        inl corrected_values,update_policy = action_fun action_probs sample_probs
+        if is_update_head then update_head()
+        if is_update_policy then update_policy()
+        am.map2 (fun x pid => if pid = 0 then r2 x else r2 -x) corrected_values pids

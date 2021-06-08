@@ -14,10 +14,8 @@ const requestRun = async (prev : Promise<string | null>, file: any): Promise<str
     sock.disconnect(uriServer)
     return x ? x.toString() : null
 }
-const request = (() => {
-    let prev = (async (): Promise<string | null> => null)()
-    return (file: any) => { prev = requestRun(prev,file); return prev }
-})()
+let prev_request : Promise<string | null> = new Promise(resolve => resolve(null))
+const request = async (file: any) => { prev_request = requestRun(prev_request,file); return prev_request }
 const requestJSON = (file : any) => request(file).then(x => x ? JSON.parse(x) : undefined)
 
 type VSCPos = { line: number, character: number }
@@ -255,7 +253,10 @@ export const activate = async (ctx: ExtensionContext) => {
     
             workspace.textDocuments.forEach(onDocOpen)
             // Restarting the server needs some time to work properly. 500ms works for me.
-            serverStop = (next) => { terminal.dispose(); isProcessing = false; setTimeout(next,500) }
+            serverStop = (next) => {
+                prev_request = new Promise(resolve => resolve(null));
+                terminal.dispose(); isProcessing = false; setTimeout(next,500)
+                }
         })
     }
 

@@ -2,18 +2,18 @@ inl vs_self game (batch_size, p) =
     let rec loop (l : a u64 _) =
         inl rewards : ra u64 _ = am.empty
         inl actions_indices : ra u64 _ = am.empty
-        inl actions : ra u64 _ = am.empty
+        inl data : ra u64 _ = am.empty
         inl nexts : ra u64 _ = am.empty
         l |> am.iteri fun i => function
-            | Action: player_state,game_state,pid,actions',next => 
+            | Action: player_state,game_state,pid,actions,next => 
                 rm.add actions_indices i
-                rm.add actions (player_state,game_state,pid,actions')
+                rm.add data (player_state,game_state,pid,actions)
                 rm.add nexts next
             | Terminal: x => 
                 rm.add rewards (i, x)
         inl rewards_actions =
-            if 0 < length actions then
-                inl cs,update = p actions
+            if 0 < length data then
+                inl cs,update = p data
                 am.generic.map2 (<|) nexts cs |> loop |> update
             else am.empty
         inl rewards_all : a _ r2 = create (length l)
@@ -26,27 +26,27 @@ inl vs_one game (batch_size, p1, p2) =
     let rec loop (l : a u64 _) =
         inl rewards : ra u64 _ = am.empty
         inl actions_indices : ra u64 _ = am.empty
-        inl p1_actions : ra u64 _ = am.empty
-        inl p2_actions : ra u64 _ = am.empty
+        inl p1_data : ra u64 _ = am.empty
+        inl p2_data : ra u64 _ = am.empty
         inl p1_nexts : ra u64 _ = am.empty
         inl p2_nexts : ra u64 _ = am.empty
         inl pids : ra u64 _ = am.empty
         l |> am.iteri fun i => function
-            | Action: player_state,game_state,pid,actions',next =>
+            | Action: player_state,game_state,pid,actions,next =>
                 rm.add actions_indices i
                 if pid = 0 then
-                    rm.add p1_actions (player_state,game_state,pid,actions')
+                    rm.add p1_data (player_state,game_state,pid,actions)
                     rm.add p1_nexts next
                 else
-                    rm.add p2_actions (player_state,game_state,pid,actions')
+                    rm.add p2_data (player_state,game_state,pid,actions)
                     rm.add p2_nexts next
                 rm.add pids pid
             | Terminal: x =>
                 rm.add rewards (i, x)
         inl rewards_actions =
             if 0 < length pids then
-                inl p1_cs,p1_update = p1 p1_actions
-                inl p2_cs,p2_update = p2 p2_actions
+                inl p1_cs,p1_update = p1 p1_data
+                inl p2_cs,p2_update = p2 p2_data
                 inl p1_results = am.generic.map2 (<|) p1_nexts p1_cs
                 inl p2_results = am.generic.map2 (<|) p2_nexts p2_cs
                 inl rs = loop (am.append p1_results p2_results)
@@ -62,18 +62,18 @@ inl vs_one game (batch_size, p1, p2) =
     loop (am.init batch_size fun _ => game pl2_init)
 
 type a2 x = $"numpy.ndarray[`x,ndim=2]"
-inl neural_handler extractor (schema : schema _ _ _) p (actions : ra _ _) =
+inl neural_handler extractor (schema : schema _ _ _) p (data : ra _ _) =
     !!!!Import("torch")
     inl policy_size = serialization.dense.array.size schema.policy
     inl value_size = serialization.dense.array.size schema.value
     inl action_size = serialization.sparse.int.size schema.action
-    inl num_actions = length actions
+    inl num_actions = length data
     inl value_data : a2 f32 = $"numpy.zeros((!num_actions,!value_size),dtype=numpy.float32)"
     inl policy_data : a2 f32 = $"!value_data[:,:!policy_size]"
     inl action_mask : a2 i8 = $"numpy.ones((!num_actions,!action_size),dtype=numpy.int8)"
-    actions |> am.iteri fun num_action (player_state,game_state,pid,actions') =>
+    data |> am.iteri fun num_action (player_state,game_state,pid,data) =>
         schema.value.pickle (extractor (player_state,game_state,pid)) (0, $"!value_data[!num_action,:]")
-        actions' |> am.iter (schema.action.pickle >> fun x => $"!action_mask[!num_action,!x] = 0")
+        data |> am.iter (schema.action.pickle >> fun x => $"!action_mask[!num_action,!x] = 0")
 
     inl x : obj = 
         inl f x = $"torch.from_numpy(!x)" : obj
@@ -84,17 +84,17 @@ inl neural_handler extractor (schema : schema _ _ _) p (actions : ra _ _) =
         log_prob_from {policy= $"!action_probs[!b,!a]"; sample= $"!sample_probs[!b,!a]"}, schema.action.unpickle a
     inl update (rewards' : a u64 r2) : a u64 r2 =
         inl rewards, regret_probs : a _ _ * a _ _ = create num_actions, create num_actions
-        am.generic.iteri2 (fun num_action reward (player_state,game_state,pid,actions') =>
+        am.generic.iteri2 (fun num_action reward (player_state,game_state,pid,actions) =>
             inl regret_prob =
                 inl prob = pl2_probs player_state pid
                 inl env_prob = prob.chance +@ prob.op
                 exp (-prob.self.sample + (env_prob.policy - env_prob.sample))
             set regret_probs num_action regret_prob
             set rewards num_action (!!reward pid)
-            ) rewards' actions
+            ) rewards' data
         inl rewards : a _ _ = 
             inl f x = $"torch.from_numpy(numpy.expand_dims(!x,-1))"
             inl x = update (f rewards, f regret_probs)
             $"!x.squeeze(-1).numpy()"
-        am.generic.map2 (fun a (_,_,pid,_) => if pid = 0 then r2 a else r2 -a) rewards actions
+        am.generic.map2 (fun a (_,_,pid,_) => if pid = 0 then r2 a else r2 -a) rewards data
     cs, update
