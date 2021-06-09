@@ -27,6 +27,29 @@
 
 // The actor on the other hand will be a lot easier to deal with as I will be able to use plain
 // backprop with the aforementioned optimizer.
+
+// ---
+
+// Update (6/9/2021): My worked and I am capable of training a NN agent competitive with the tabular one with
+// roughly the same amount of compute. The details are in the commit at this date.
+// The NN algo itself is implemented in `control.py`.
+
+// Some details:
+// * Even though the optimizer supports interpolation, I've ditched infinity norm in favor of pure signSGD.
+//   I might add a momentum component to signSGD in the future, but otherwise I won't bother with adaptive optimizers like Adam.
+//   They all converge to signSGD when doing full batch learning anyway.
+//   In future work, I think I'll just tune the batch size until signSGD is happy.
+// * Averaging in the weight space is sufficient for dampening self play oscilations and getting good policies.
+//   Thanks to it I did not have to gradually lower the learning rate or anneal the exploration epsilon.
+//   I did observe a benefit when I lowered the actor LR by 2x, so it should be possible to get better performance 
+//   by doing LR annealing even with averaging.
+
+// I am quite pleased with how things went here. I'll archive this project and move on to making the Holdem game next.
+// The algorithm here is novel and deserves a blog post at some point, though I won't bother writing a paper 
+// as I am not into theorems.
+
+// I am looking forward to trying it out on games that could give me real world advantages.
+
 packages: |core2-
 modules:
     serialization/

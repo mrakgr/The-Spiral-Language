@@ -11,7 +11,6 @@ from collections import namedtuple
 import numpy as np
 from copy import deepcopy
 
-# TODO: Take Adam and replace variance tracking with infinity norm tracking.
 def optimize(moduleList : list,learning_rate : float = 2 ** -7,signSGDfactor : float = 1):
     """
     Interpolates between signSGD and infinity norm normalization.
@@ -115,102 +114,70 @@ def neural_create_agent(size,mid=64):
     head[size.action:,:] = 2 ** -149 # Smallest 32-bit float.
     return value, policy, head
 
-def run(vs_self,vs_one,neural,uniform_player,tabular):
+def run(vs_self,vs_one,neural,uniform_player,tabular): # old NN vs old tabular
     batch_size = 2 ** 10
     head_decay = 2 ** -2
 
-    # value, policy, head = neural_create_agent(neural.size)
-    # def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=2 ** -2): 
-    #     return neural.handler(partial(model_evaluate,value,head,policy,is_update_head,is_update_value,is_update_policy,epsilon))
+    with open('dump/agent_435.obj','rb') as f: agents = pickle.load(f)
+    tabular_agent_old = agents['average']
 
-    tabular_agent = tabular.create_agent()
-    tabular_avg_agent = tabular.create_agent()
-    def tabular_player(is_update_head=False,is_update_policy=False,epsilon=2 ** -2,tabular_agent=tabular_agent): 
+    with open('dump/nn_agent_800.obj','rb') as f: agents = pickle.load(f)
+    value, policy, head = agents
+
+    def tabular_player(is_update_head=False,is_update_policy=False,epsilon=0,tabular_agent=tabular_agent_old): 
         return tabular.create_policy(tabular_agent,is_update_head,is_update_policy,epsilon)
 
-    def run(tabular_agent,tabular_avg_agent=None):
+    def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
+        return neural.handler(partial(model_evaluate,value,head,policy,is_update_head,is_update_value,is_update_policy,epsilon))
+
+    r : np.ndarray = vs_one(batch_size * 2 ** 8,neural_player(),tabular_player())
+    print(f'The mean is {r.mean()}')
+
+# The code for the tabular player is buried in the 6/9/2021 commit.
+def create_nn_agent(vs_self,vs_one,neural,uniform_player,tabular): # self play NN
+    batch_size = 2 ** 10
+    head_decay = 2 ** -2
+
+    value, policy, head = neural_create_agent(neural.size)
+    valuea, policya, heada = deepcopy(value), deepcopy(policy), deepcopy(head)
+    t = 1
+    def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=2 ** -2): 
+        return neural.handler(partial(model_evaluate,value,head,policy,is_update_head,is_update_value,is_update_policy,epsilon))
+
+    def run(is_avg=False):
+        nonlocal head,heada,t 
         for a in range(3):
-            vs_self(batch_size,tabular_player(True,tabular_agent=tabular_agent))
-        vs_self(batch_size,tabular_player(False,True,tabular_agent=tabular_agent))
-        tabular.optimize(tabular_agent)
-        if tabular_avg_agent is not None: tabular.average(tabular_avg_agent,tabular_agent)
-        tabular.head_multiply_(tabular_agent,head_decay)
+            vs_self(batch_size,neural_player(True,False,False,2 ** -2))
+        vs_self(batch_size,neural_player(False,True,True,2 ** -2))
+        optimize([value],learning_rate=2 ** -6)
+        optimize([policy],learning_rate=2 ** -9)
+        head *= head_decay
 
-    n = 300
-    m = 10
+        if is_avg:
+            t += 1
+            with torch.no_grad():
+                def avg(ap,bp):
+                    ap *= (t-1) / t
+                    ap += 1 / t * bp
+                for am,bm in zip((valuea, policya), (value, policy)):
+                    for ap,bp in zip(am.parameters(),bm.parameters()):
+                        avg(ap,bp)
+                avg(heada,head)
+
+    n = 500
+    m = 300
     print('Training.')
-    for a in range(n): 
-        run(tabular_agent)
-        if a % 10 == 0: print(a)
-    for b in range(m):
-        print('Averaging.')
-        for a in range(n // (2 * m)): run(tabular_agent,tabular_avg_agent)
-        with open(f"dump/agent_{n + b * n // (2 * m)}.obj",'wb') as f:
-            pickle.dump({'average': tabular_avg_agent, 'current': tabular_agent},f)
-        r : np.ndarray = vs_self(batch_size * 2 ** 5,tabular_player(tabular_agent=tabular_avg_agent,epsilon=0.0))
-        print(f'The mean reward vs_self is {r.mean()}')
-
-    # for b in range(30):
-    #     for a in range(3):
-    #         vs_one(batch_size,uniform_player,tabular_player(True))
-    #     vs_one(batch_size,uniform_player,tabular_player(False,True))
-    #     tabular.optimize(tabular_agent)
-    #     tabular.head_multiply_(tabular_agent,head_decay)
-
-    #     r : np.ndarray = vs_one(batch_size,uniform_player,tabular_player(epsilon=0.0))
-    #     print(f'The mean reward vs_one is {r.mean()}')
-
-    # for b in range(30):
-    #     for a in range(3):
-    #         vs_self(batch_size,tabular_player(True))
-    #     vs_self(batch_size,tabular_player(False,True))
-    #     tabular.head_multiply_(tabular_agent,head_decay)
-
-    #     r : np.ndarray = vs_one(batch_size,uniform_player,tabular_player(epsilon=0.0))
-    #     print(f'The mean reward vs_one is {r.mean()}')
-
-    # for c in range(10):
-    #     for b in range(50):
-    #         for a in range(3):
-    #             vs_self(batch_size,tabular_player(True))
-    #             vs_self(batch_size,neural_player(True))
-    #             # vs_one(batch_size,uniform_player,neural_player(True,False,False))
-    #         vs_self(batch_size,tabular_player(False,True))
-    #         tabular.head_multiply_(tabular_agent,head_decay)
-
-    #         # vs_one(batch_size,uniform_player,neural_player(False,True,True))
-    #         vs_self(batch_size,neural_player(False,True,True))
-    #         optimize([value],learning_rate=2 ** -6)
-    #         optimize([policy],learning_rate=2 ** -8)
-    #         head *= head_decay
-
-    #     # r : np.ndarray = vs_one(batch_size * 32,uniform_player,neural_player(epsilon=0.0))
-    #     # r : np.ndarray = vs_one(batch_size * 32,neural_player(epsilon=0.0),uniform_player)
-    #     r : np.ndarray = vs_one(batch_size * 32,neural_player(epsilon=0.0),tabular_player(epsilon=0.0))
-    #     print(f'The mean reward vs_one is {r.mean()}')
-
-    # valuet, policyt, headt = neural_create_agent(neural.size)
-    # for c in range(5):
-    #     value, policy, head = deepcopy(valuet), deepcopy(policyt), deepcopy(headt)
-    #     def neural_player(is_update_head,is_update_value,is_update_policy): 
-    #         return neural.handler(partial(model_evaluate,value,head,policy,is_update_head,is_update_value,is_update_policy,epsilon))
-    #     for b in range(30):
-    #         for a in range(3):
-    #             q : np.ndarray = vs_self(batch_size,neural_player(True,False,False))
-    #         # print(f'Standard deviation of rewards is {q.std()}')
-    #         vs_self(batch_size,neural_player(False,True,True))
-    #         optimize([value],learning_rate=2 ** -6)
-    #         optimize([policy],learning_rate=2 ** -9)
-    #         head *= head_decay
-    #         print(f'The value errors l2 and l1 are {value.l2 / value.count} and {value.l1 / value.count}')
-
-    #         # r : Tensor = vs_self(batch_size,neural_player(False,False,False))
-    #         # print(f'The mean reward vs self is {r.mean()}')
-
-    #         # r = vs_one(batch_size,uniform_player,neural_player(False,False,False))
-    #         # print(f'The mean reward vs uniform {-r.mean()}')
-    #     print('---')
-    # print('***')
+    for a in range(n):
+        run()
+        if (a + 1) % 25 == 0: print(a)
+    print('Averaging.')
+    for a in range(m):
+        run(True)
+        if (a + 1) % 30 == 0: 
+            print(a)
+            r : np.ndarray = vs_self(batch_size * 2 ** 4,neural_player())
+            print(f'The mean reward vs_self is {r.mean()}')
+    with open(f"dump/nn_agent_{n+m}.obj",'wb') as f: pickle.dump((value,policy,head),f)
 
 if __name__ == '__main__':
     import numpy as np
