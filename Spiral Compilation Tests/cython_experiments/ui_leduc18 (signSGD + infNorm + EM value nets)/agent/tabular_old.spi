@@ -18,40 +18,21 @@ inl belief_tabulate slots (action_indices : a u64 i64) (at_action_value : a u64 
                     ) weighted_value weight
                 ) slots action_indices sample_probs at_action_value
         inl rewards = am.map2 (am.fold2 (fun s a b => s + a * b) 0) batch_qs action_probs
-        inl update_policy () =
-            am.iter4 (fun {policy={current grad} head} qs mean regret_prob =>
-                am.mapInplace (fun i grad => grad + regret_prob * (index qs i - mean)) grad
+        inl update_policy is_update_average =
+            am.iter4 (fun {policy={current average} head} qs mean regret_prob =>
+                am.mapInplace (fun i policy => policy + regret_prob * (index qs i - mean)) current
                 ) slots batch_qs rewards at_action_weight
+            am.iter (fun {policy={current average} head} => 
+                am.mapInplace (fun _ => max 0) current
+                if is_update_average then 
+                    inl current = policy_probs current
+                    am.mapInplace (fun i x => x + index current i) average
+                ) slots 
         rewards, update_policy
     update_head, action_fun
 
-type agent_dict present future = dictm.dict present {head : dictm.dict future {weighted_value : a i64 f32; weight : a i64 f32}; policy : {current : a i64 f32; grad : a i64 f32}}
-inl optimize (agent : agent_dict _ _) =
-    dictm.fold (fun () (k,{head policy={current grad}}) =>
-        am.mapInplace (fun i x => inl x = max 0 (x + index grad i) in set grad i 0 . x) current
-        ) () agent
-
-inl zeros (num_actions : u64) : a i64 f32 = $"numpy.zeros(!num_actions,dtype=numpy.float32)"
-inl memo_present agent present num_actions =
-    dictm.memoize agent (fun _ => {policy={current=zeros num_actions; grad=zeros num_actions}; head=dictm.empty}) present
-inl memo_future head future num_actions =
-    dictm.memoize head (fun _ => {weighted_value=zeros num_actions; weight=zeros num_actions}) future
-inl memo_slot agent (present,future) num_actions =
-    inl {policy head} = memo_present agent present num_actions
-    {policy head = memo_future head future num_actions}
-
-inl average (avg, agent : agent_dict _ _ * agent_dict _ _) =
-    inl (+.) a b = am.mapInplace (fun (i : i64) a => a + index b i) a
-    dictm.fold (fun () (present,{head policy={current grad}}) =>
-        inl {policy={current=c grad=g} head=h} = memo_present avg present (u64 (length current))
-        c +. (policy_probs current) . g +. grad
-        dictm.fold (fun () (future,{weighted_value weight}) =>
-            inl {weighted_value=v weight=w} = memo_future h future (u64 (length weighted_value))
-            v +. weighted_value . w +. weight
-            ) () head
-        ) () agent
-
-inl policy forall present future. extractor ((agent : agent_dict present future), is_update_head, is_update_policy, epsilon)
+type agent_dict present future = dictm.dict present {head : dictm.dict future {weighted_value : a i64 f32; weight : a i64 f32}; policy : {current : a i64 f32; average : a i64 f32}}
+inl policy forall present future. extractor ((agent : agent_dict present future), is_update_head, is_update_policy, is_update_policy_avg, epsilon) 
         (l : ra u64 _) =
     inl num_batch = length l
     inl create x : a _ _ = create x
@@ -71,7 +52,9 @@ inl policy forall present future. extractor ((agent : agent_dict present future)
 
         inl present, future = extractor (player_state, game_state, pid)
         inl num_actions = length actions
-        inl {policy head} = memo_slot agent (present,future) num_actions
+        inl Zeros : a i64 f32 = $"numpy.zeros(!num_actions,dtype=numpy.float32)"
+        inl {policy head} = dictm.memoize agent (fun _ => {policy={current=Zeros; average=Zeros}; head=dictm.empty}) present
+        inl head = dictm.memoize head (fun _ => {weighted_value=Zeros; weight=Zeros}) future
         set slots i_batch {policy head}
 
         inl action_prob = policy_probs policy.current
@@ -91,7 +74,7 @@ inl policy forall present future. extractor ((agent : agent_dict present future)
         inl update_head, action_fun = belief_tabulate slots action_indices at_action_value at_action_weight
         inl corrected_values,update_policy = action_fun action_probs sample_probs
         if is_update_head then update_head()
-        if is_update_policy then update_policy()
+        if is_update_policy then update_policy is_update_policy_avg
         am.map2 (fun x pid => if pid = 0 then r2 x else r2 -x) corrected_values pids
 
 // Decays multiplies the head values by the specified scalar factor.

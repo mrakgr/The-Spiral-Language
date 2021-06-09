@@ -18,10 +18,12 @@ inl main () =
     inl uniform_player : ra u64 (pl2 card action * leduc_state * u8 * a u64 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) =
         agent.uniform.policy
     inl tabular =
-        inl create_policy : agent.tabular.agent_dict (list (observation card action)) card * bool * bool * bool * f32 -> ra u64 (pl2 card action * leduc_state * u8 * a u64 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) =
+        inl create_policy : agent.tabular.agent_dict (list (observation card action)) card * bool * bool * f32 -> ra u64 (pl2 card action * leduc_state * u8 * a u64 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) =
             agent.tabular.policy agent.neural.leduc_extractor'
         inl create_agent () : agent.tabular.agent_dict (list (observation card action)) card = dictm.empty
+        inl optimize : agent.tabular.agent_dict (list (observation card action)) card -> () = agent.tabular.optimize
+        inl average : agent.tabular.agent_dict (list (observation card action)) card * agent.tabular.agent_dict (list (observation card action)) card -> () = agent.tabular.average
         inl head_multiply_ : agent.tabular.agent_dict (list (observation card action)) card * _ -> _ = agent.tabular.head_multiply_
-        namedtuple "Tabular" {create_policy create_agent head_multiply_}
+        namedtuple "Tabular" {create_policy create_agent head_multiply_ optimize average}
 
     record {vs_self vs_one neural uniform_player tabular}
