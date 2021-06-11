@@ -1,0 +1,13 @@
+// The hand is passed in as a bitfield in an 64-bit integer.
+type hand = u64
+type card = u8
+type suit = u8
+type rank = u8
+
+inl suit (card:) : suit = card / 13
+inl rank (card:) : rank = card % 13
+
+inl full (suit:rank:) : card = suit * 13 + rank
+inl has_card' (hand:) v = ((hand : hand) &&& (1 <<< i32 (full v))) <> 0
+inl has_card x v : u8 = if has_card' x v then 1 else 0
+inl num_suits x (rank:) = inl f suit = has_card x (suit:rank:) in f 0 + f 1 + f 2 + f 3
