@@ -1,4 +1,10 @@
 packages: |core2-
 modules:
     utils-
-    hand_scorer 
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    serialization_test
+    hand_scorer
