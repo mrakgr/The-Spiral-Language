@@ -1,0 +1,51 @@
+union observation o a = Observation: o | Action: a
+nominal player o a = { prob : log_prob; observations : list (observation o a) }
+inl player_init forall observation action. : player observation action = player {prob=Log_prob_one; observations=Nil} |> dyn
+nominal pl2 o a = log_prob * player o a * player o a
+inl pl2_init forall o a. : pl2 o a = pl2 (Log_prob_one, player_init, player_init)
+inl pl2_observations (pl2 (_,a,b)) pid = if pid = 0 then a.observations else b.observations
+inl pl2_prob (pl2 (_,a,b)) pid = if pid = 0 then a.prob else b.prob
+inl pl2_chance_prob (pl2 (x,_,_)) = x
+inl pl2_probs (pl2 (chance,self,op)) pid =
+    inl self, op = self.prob, op.prob
+    inl self, op = if pid = 0 then self, op else op, self
+    {chance self op}
+
+inl prob (player {prob}) = prob
+inl observations (player {observations}) = observations
+inl apply_action (player x) a = player {x with observations#=(::) (Action: a)}
+inl apply_observation (player x) o = player {x with observations#=(::) (Observation: o)}
+inl apply_changes (player x) (prob,a) = player {x with observations#=(::) (Action: a); prob#=(+@) prob}
+
+inl sample_players_update pid (prob,x) (pl2 (chance_prob,p1,p2)) =
+    pl2 (
+        prob +@ chance_prob,
+        match pid with
+        | Some: pid =>
+            inl update pid' p = if pid = pid' then apply_observation p x else p
+            update 0 p1, update 1 p2
+        | None =>
+            inl update p = apply_observation p x 
+            update p1, update p2
+        )
+
+inl sample pid dist f p =
+    inl x = index dist 0
+    inl p = sample_players_update pid (log_prob_from_sample (1 / f32 (length dist)),x) p
+    f x p
+
+inl draw forall (ar : * -> * -> *) {index; length} dim {number} el. pid (dist : ar dim el) f p =
+    inl x = index dist 0
+    inl p = sample_players_update pid (log_prob_from_sample (1 / f32 (length dist)),x) p
+    f (x, $"!dist[1:]" : el * ar dim el) p
+
+union rec node state obs act =
+    | Terminal: pl2 obs act * state * r2
+    | Action: pl2 obs act * state * u8 * a u64 act * (log_prob * act -> node state obs act)
+
+inl action forall game_state obs act. (state : game_state) pid (dist : a u64 act) (f : act -> pl2 obs act -> node game_state obs act) (pl2 (chance_prob,p1,p2) as p) = 
+    Action: p, state, pid, dist, fun (_,a as cs) => 
+        let f (b : pl2 obs act) : node game_state obs act = real real_core.unbox a (fun _ => f a b)
+        if pid = 0 then f (pl2 (chance_prob,apply_changes p1 cs,apply_action p2 a))
+        else f (pl2 (chance_prob,apply_action p1 a,apply_changes p2 cs))
+inl terminal state r p = Terminal: p, state, r

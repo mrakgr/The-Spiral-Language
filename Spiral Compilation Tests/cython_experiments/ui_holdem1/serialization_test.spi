@@ -1,6 +1,0 @@
-inl main () =
-    open serialization.dense.array
-    inl p = bin_int 8
-    inl x = serialize p 123 |> deserialize p
-    $"print(!x)"
-    ()

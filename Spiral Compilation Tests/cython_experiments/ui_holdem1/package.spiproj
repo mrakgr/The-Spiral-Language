@@ -6,5 +6,6 @@ modules:
             array
         sparse/
             int
-    serialization_test
+    sampling
+    nodes
     hand_scorer
