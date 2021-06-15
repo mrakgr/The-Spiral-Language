@@ -17,7 +17,7 @@ inl apply_action (player x) a = player {x with observations#=(::) (Action: a)}
 inl apply_observation (player x) o = player {x with observations#=(::) (Observation: o)}
 inl apply_changes (player x) (prob,a) = player {x with observations#=(::) (Action: a); prob#=(+@) prob}
 
-inl sample_players_update pid (prob,x) (pl2 (chance_prob,p1,p2)) =
+inl sample_players_update (pid : option u8) (prob,x) (pl2 (chance_prob,p1,p2)) =
     pl2 (
         prob +@ chance_prob,
         match pid with

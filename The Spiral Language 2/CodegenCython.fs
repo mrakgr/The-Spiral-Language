@@ -449,7 +449,7 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
                 line s $"tmp{tmp_i} = {l}"
                 let a = prim a
                 line s $"if <{a}>tmp{tmp_i} != tmp{tmp_i}: raise Exception(\"The conversion to {a} failed.\")"
-                return' l
+                return' $"<{a}>tmp{tmp_i}"
             | _ -> raise_codegen_error "Compiler error: Expected a primitive type in length."
         match a with
         | TyMacro a -> 

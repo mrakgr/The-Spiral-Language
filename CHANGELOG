@@ -1,3 +1,7 @@
+2.0.88 (6/15/2021)
+
+* I was too hasty in fixing the codegen bug and introduced a performance bug instead. Now it should be fixed properly.
+
 2.0.87 (6/15/2021)
 
 * Fixed the length Cython codegen bug when using arrays other than u64/i64.
