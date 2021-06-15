@@ -1,3 +1,7 @@
+2.0.87 (6/15/2021)
+
+* Fixed the length Cython codegen bug when using arrays other than u64/i64.
+
 2.0.86 (6/8/2021)
 
 * Renamed array's iter2i to iteri2 so it matches the F# naming scheme.

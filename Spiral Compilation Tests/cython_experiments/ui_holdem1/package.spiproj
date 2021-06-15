@@ -7,5 +7,7 @@ modules:
         sparse/
             int
     sampling
-    nodes
+    nodes-
+    train
     hand_scorer
+    hu_holdem 

@@ -1,0 +1,31 @@
+union action = Fold | Call | RaiseTo: i32
+type action_array = a i32 action
+
+open hand_scorer
+inl game (stack : i32) = // Stack size should be at least 2.
+    inl deck : a u64 card = $"numpy.arange(0,52,dtype=numpy.int8)"
+    $"numpy.random.shuffle(!deck)"
+    inl actions : action_array = am.init stack fun i =>
+        if i = 0 then Fold
+        elif i = 1 then Call
+        else RaiseTo: stack - i + 2
+
+    inl get_action is_fold (min_raise : i32) : action_array =
+        inl min : i32 = if is_fold then 0 else 1
+        $"!actions[!min:3+!stack-!min_raise]"
+
+    inl pot = 1i32
+    inl id = 0i8
+    draw (Some: id) deck fun (c1, deck) =>
+    draw (Some: id) deck fun (c2, deck) =>
+    inl p1 = {stack pot id hand = c1,c2}
+
+    inl pot = 2i32
+    inl id = 1i8
+    draw (Some: id) deck fun (c1, deck) =>
+    draw (Some: id) deck fun (c2, deck) =>
+    inl p2 = {stack pot id hand = c1,c2}
+    
+    terminal (p1,p2) (r2 1)
+
+inl main() = game 5
