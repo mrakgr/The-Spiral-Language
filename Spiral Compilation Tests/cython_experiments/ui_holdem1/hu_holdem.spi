@@ -30,11 +30,11 @@ inl game (stack : i32) = // Stack size should be at least 2.
         else
             inl is_fold = not (is_init || p1.pot = p2.pot)
             inl amount_call = max p1.pot p2.pot
-            inl amount_min_raise = amount_call + min 1 (amount_call - min p1.pot p2.pot)
+            inl amount_min_raise = amount_call + max 1 (amount_call - min p1.pot p2.pot)
             inl s = p1,p2,(a community_cards : a u64 _)
             action s p1.id (actions is_fold amount_call amount_min_raise) function
             | Fold => terminal s (r2 <| f32 if p1.id = 0 then -p1.pot else p1.pot)
-            | Call => 
+            | Call =>
                 inl p1 = {p1 with pot=p2.pot}
                 if is_init then betting (p2,{p1 with pot=p2.pot}) else next (p1,p2)
             | RaiseTo: pot =>  betting (p2,{p1 with pot})

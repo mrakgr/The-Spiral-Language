@@ -10,20 +10,22 @@ from kivy.core.window import Window
 from kivy.properties import NumericProperty, StringProperty, ObjectProperty, DictProperty, BooleanProperty
 from kivy.app import runTouchApp
 from kivy.lang import Builder
+from collections import namedtuple
 
 class Stack(Label):
     chips = NumericProperty(0)
 
-init_data = {'my_card': ' ', 'op_card': ' ', 'my_pot': 0, 'community_card': ' ', 'op_pot': 0}
+init_data = namedtuple("TableData",['my_stack','my_pot','my_card','op_stack','op_pot','op_card','community_card'])(0,0,'  ',0,0,'  ','')
 class Table(FloatLayout):
     data = ObjectProperty(init_data)
 
-init_actions = {'call': False, 'fold': False, 'raise': False}
+init_actions = namedtuple("Actions",['call','fold','raise_','raise_min','raise_max'])(False,False,False,0,0)
 class Actions(BoxLayout):
     actions = ObjectProperty(init_actions)
 
+init_top = namedtuple("TopData",['trace','actions','table_data'])('',init_actions,init_data)
 class Top(BoxLayout):
-    data = ObjectProperty({'trace': '', 'actions': init_actions, 'table_data': init_data})
+    data = ObjectProperty(init_top)
 
 class Action(Button):
     action = ObjectProperty(False)
@@ -37,7 +39,7 @@ class ShowB(Button):
 Builder.load_string('''
 <CardDef@Widget>:
     canvas:
-        Line: 
+        Line:
             rectangle: self.x, self.y, self.width, self.height
     color: 1,1,1,1
     background_color: 0.59,0.295,0,1
@@ -64,29 +66,29 @@ Builder.load_string('''
             width: 2
             rectangle: self.x, self.y, self.width, self.height
     Card:
-        text: root.data['my_card']
+        text: root.data.my_card
         pos_hint: {'x': 0.075, 'y': 0.075}
     SwitchCard:
         shown: False
-        text: root.data['op_card'] if self.shown else ' '
+        text: root.data.op_card if self.shown else '  '
         pos_hint: {'right': 0.925, 'top': 0.925}
     Card:
         id: community_card
-        text: root.data['community_card']
+        text: root.data.community_card
         pos_hint: {'center_x': 0.5, 'center_y': 0.5}
     Stack: # My Pot
-        chips: root.data['my_pot']
+        chips: root.data.my_pot
         text: str(self.chips)
         pos_hint: {'center_x': 0.5}
         top: community_card.y - dp(10)
     Stack: # Opponent Pot
-        chips: root.data['op_pot']
+        chips: root.data.op_pot
         text: str(self.chips)
         pos_hint: {'center_x': 0.5}
         y: community_card.top + dp(10)
 
 <Action>:
-    font_size: sp(60)
+    font_size: sp(30)
     disabled: self.action == False
 
 <Actions>:
@@ -94,14 +96,23 @@ Builder.load_string('''
         Line:
             rectangle: self.x, self.y, self.width, self.height
     Action:
-        action: root.actions['fold']
+        action: root.actions.fold
         text: 'Fold'
+        size_hint_x: 0.3
     Action:
-        action: root.actions['call']
+        action: root.actions.call
         text: 'Call'
+        size_hint_x: 0.3
     Action:
-        action: root.actions['raise']
-        text: 'Raise'
+        action: root.actions.raise_
+        text: 'Raise ' + str(round(slider.value))
+        size_hint_x: 0.6
+    Slider:
+        id: slider
+        min: 2
+        max: 210
+        step: 1
+        value: 5
 
 <Top>:
     orientation: 'vertical'
@@ -112,9 +123,9 @@ Builder.load_string('''
             orientation: 'vertical'
             spacing: dp(10)
             Table:
-                data: root.data['table_data']
+                data: root.data.table_data
             Actions:
-                actions: root.data['actions']
+                actions: root.data.actions
                 size_hint_y: 0.15
         ScrollView:
             canvas:
@@ -125,7 +136,7 @@ Builder.load_string('''
                 size_hint: None,None
                 size: self.texture_size
                 font_size: sp(18)
-                text: root.data['trace']
+                text: root.data.trace
     Button:
         text: 'Start Game'
         font_size: sp(50)
