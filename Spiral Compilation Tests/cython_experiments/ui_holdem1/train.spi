@@ -4,6 +4,16 @@ nominal schema present future actions = {
     action : serialization.sparse.int.pu actions
     }
 
+inl vs_human game human_pid p =
+    let rec loop = function
+        | Terminal: _ as g => g
+        | Action: player_state,game_state,pid,actions,next as g => 
+            if pid = human_pid then g
+            else
+                inl cs,_ = p (am.singleton (player_state,game_state,pid,actions))
+                next (index cs 0)
+    loop game
+
 inl vs_self game (batch_size, p) =
     let rec loop (l : a u64 _) =
         inl rewards : ra u64 _ = am.empty
@@ -81,14 +91,15 @@ inl neural_handler extractor (schema : schema _ _ _) p (data : ra _ _) =
         schema.value.pickle (extractor (player_state,game_state,pid)) (0, $"!value_data[!num_action,:]")
         data |> am.iter (schema.action.pickle >> fun x => $"!action_mask[!num_action,!x] = 0")
 
-    inl x : obj = 
+    inl x : obj =
         inl f x = $"torch.from_numpy(!x)" : obj
         p (f policy_data, f value_data, f action_mask)
     inl action_probs, sample_probs, sample_indices, update : obj * obj * obj * (obj * obj -> obj) = $"!x[0]", $"!x[1]", $"!x[2]", $"!x[3]"
     inl cs : a u64 _ = am.init num_actions fun b =>
         inl a : i64 = $"!sample_indices[!b]"
         log_prob_from {policy= $"!action_probs[!b,!a]"; sample= $"!sample_probs[!b,!a]"}, schema.action.unpickle a
-    inl update (rewards' : a u64 r2) : a u64 r2 =
+    
+    cs, fun (rewards' : a u64 r2) : a u64 r2 =>
         inl rewards, regret_probs : a _ _ * a _ _ = create num_actions, create num_actions
         am.generic.iteri2 (fun num_action reward (player_state,game_state,pid,actions) =>
             inl regret_prob =
@@ -103,4 +114,3 @@ inl neural_handler extractor (schema : schema _ _ _) p (data : ra _ _) =
             inl x = update (f rewards, f regret_probs)
             $"!x.squeeze(-1).numpy()"
         am.generic.map2 (fun a (_,_,pid,_) => if pid = 0 then r2 a else r2 -a) rewards data
-    cs, update
