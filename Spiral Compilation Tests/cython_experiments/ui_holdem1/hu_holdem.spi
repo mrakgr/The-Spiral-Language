@@ -25,10 +25,10 @@ inl game (stack : i32) = // Stack size should be at least 2.
 
     inl rec betting ~is_init ~(p1,p2 : players) community_cards next = join
         inl betting (p1,p2) = betting false (p1,p2) community_cards next
-        inl next (p1,p2 : players) = next (if p1.id = 0 then p1,p2 else p2,p1)
+        let next (p1,p2 : players) = next (if p1.id = 0 then p1,p2 else p2,p1)
         if p1.pot = stack then next (p1,p2)
         else
-            inl is_fold = not (is_init || p1.pot = p2.pot)
+            inl is_fold = p1.pot <> p2.pot
             inl amount_call = max p1.pot p2.pot
             inl amount_min_raise = amount_call + max 1 (amount_call - min p1.pot p2.pot)
             inl s = p1,p2,(a community_cards : a u64 _)

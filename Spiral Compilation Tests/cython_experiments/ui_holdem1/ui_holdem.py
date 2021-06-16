@@ -1,4 +1,5 @@
 from kivy.uix.gridlayout import GridLayout
+from kivy.uix.layout import Layout
 from kivy.uix.popup import Popup
 from kivy.uix.button import Button
 from kivy.uix.label import Label
@@ -6,31 +7,33 @@ from kivy.uix.widget import Widget
 from kivy.uix.boxlayout import BoxLayout
 from kivy.uix.floatlayout import FloatLayout
 from kivy.uix.scrollview import ScrollView
+from kivy.uix.accordion import Accordion
 from kivy.core.window import Window
 from kivy.properties import NumericProperty, StringProperty, ObjectProperty, DictProperty, BooleanProperty
-from kivy.app import runTouchApp
+from kivy.app import App
 from kivy.lang import Builder
 from collections import namedtuple
 
 class Stack(Label):
     chips = NumericProperty(0)
 
-init_data = namedtuple("TableData",['my_stack','my_pot','my_card','op_stack','op_pot','op_card','community_card'])(0,0,'  ',0,0,'  ','')
+init_data = {'my_stack': 0,'my_pot': 0,'my_card': '  ','op_stack': 0,'op_pot': 0,'op_card': '  ','community_card': ''}
 class Table(FloatLayout):
     data = ObjectProperty(init_data)
 
-init_actions = namedtuple("Actions",['call','fold','raise_','raise_min','raise_max'])(False,False,False,0,0)
+init_actions = {'call': False,'fold': False,'raise_to': False,'raise_min': 3,'raise_max': 5}
 class Actions(BoxLayout):
     actions = ObjectProperty(init_actions)
 
-init_top = namedtuple("TopData",['trace','actions','table_data'])('',init_actions,init_data)
-class Top(BoxLayout):
+init_top = {'trace': '','actions': init_actions,'table_data': init_data}
+class Top(FloatLayout):
     data = ObjectProperty(init_top)
+
+    def set_data(self,x): 
+        self.data = x
 
 class Action(Button):
     action = ObjectProperty(False)
-    def on_press(self): 
-        if self.action: self.action()
 
 class ShowB(Button):
     shown = BooleanProperty(False)
@@ -48,8 +51,10 @@ Builder.load_string('''
     size_hint: None, None
     size: self.texture_size
 
-<SwitchCard@ShowB+CardDef>
+<SwitchCard@ShowB+CardDef>:
+    markup: True
 <Card@Label+CardDef>
+    markup: True
 
 <Stack>:
     canvas:
@@ -66,23 +71,31 @@ Builder.load_string('''
             width: 2
             rectangle: self.x, self.y, self.width, self.height
     Card:
-        text: root.data.my_card
+        text: root.data['my_card']
         pos_hint: {'x': 0.075, 'y': 0.075}
     SwitchCard:
         shown: False
-        text: root.data.op_card if self.shown else '  '
+        text: root.data['op_card'] if self.shown else '  '
         pos_hint: {'right': 0.925, 'top': 0.925}
     Card:
         id: community_card
-        text: root.data.community_card
+        text: root.data['community_card']
         pos_hint: {'center_x': 0.5, 'center_y': 0.5}
+    Stack: # My Stack
+        chips: root.data['my_stack']
+        text: str(self.chips)
+        pos_hint: {'center_x': 0.5, 'y': 0.075}
     Stack: # My Pot
-        chips: root.data.my_pot
+        chips: root.data['my_pot']
         text: str(self.chips)
         pos_hint: {'center_x': 0.5}
         top: community_card.y - dp(10)
+    Stack: # Opponent Stack
+        chips: root.data['op_stack']
+        text: str(self.chips)
+        pos_hint: {'center_x': 0.5, 'top': 0.925}
     Stack: # Opponent Pot
-        chips: root.data.op_pot
+        chips: root.data['op_pot']
         text: str(self.chips)
         pos_hint: {'center_x': 0.5}
         y: community_card.top + dp(10)
@@ -96,57 +109,97 @@ Builder.load_string('''
         Line:
             rectangle: self.x, self.y, self.width, self.height
     Action:
-        action: root.actions.fold
+        action: root.actions['fold']
         text: 'Fold'
         size_hint_x: 0.3
+        on_press: self.action()
     Action:
-        action: root.actions.call
+        action: root.actions['call']
         text: 'Call'
         size_hint_x: 0.3
+        on_press: self.action()
     Action:
-        action: root.actions.raise_
+        action: root.actions['raise_to']
         text: 'Raise ' + str(round(slider.value))
         size_hint_x: 0.6
+        on_press: self.action(round(slider.value))
     Slider:
         id: slider
-        min: 2
-        max: 210
+        min: root.actions['raise_min']
+        max: root.actions['raise_max']
         step: 1
-        value: 5
+        value: root.actions['raise_min']
 
 <Top>:
-    orientation: 'vertical'
-    BoxLayout:
-        padding: dp(20), dp(20)
-        spacing: dp(10)
-        BoxLayout:
-            orientation: 'vertical'
-            spacing: dp(10)
-            Table:
-                data: root.data.table_data
-            Actions:
-                actions: root.data.actions
-                size_hint_y: 0.15
-        ScrollView:
-            canvas:
-                Line:
-                    rectangle: self.x, self.y, self.width, self.height
-            size_hint_x: 0.3
-            Label:
-                size_hint: None,None
-                size: self.texture_size
-                font_size: sp(18)
-                text: root.data.trace
-    Button:
-        text: 'Start Game'
-        font_size: sp(50)
-        size_hint_y: 0.15
-        on_press: root.start_game() # Should be monkey patched.
+    Accordion:
+        orientation: 'vertical'
+        min_space: dp(30)
+        AccordionItem:
+            min_space: self.parent.min_space
+            collapse: False
+            title: 'Game'
+            BoxLayout:
+                orientation: 'vertical'
+                BoxLayout:
+                    padding: dp(20), dp(20)
+                    spacing: dp(10)
+                    BoxLayout:
+                        orientation: 'vertical'
+                        spacing: dp(10)
+                        Table:
+                            data: root.data['table_data']
+                        Actions:
+                            actions: root.data['actions']
+                            size_hint_y: 0.15
+                    ScrollView:
+                        canvas:
+                            Line:
+                                rectangle: self.x, self.y, self.width, self.height
+                        size_hint_x: 0.3
+                        Label:
+                            size_hint: None,None
+                            size: self.texture_size
+                            font_size: sp(18)
+                            markup: True
+                            text: root.data['trace']
+                Button:
+                    text: 'Start Game'
+                    font_size: sp(50)
+                    size_hint_y: 0.15
+                    on_press: root.start_game(round(init_stack_size.value),0 if is_p1.active else 1,root.set_data) # start_game should be monkey patched.
+        AccordionItem:
+            min_space: self.parent.min_space
+            title: 'Settings'
+            BoxLayout:
+                orientation: 'vertical'
+                size_hint_y: 0.25
+                BoxLayout:
+                    Label:
+                        text: 'Start in first position:'
+                        size_hint_x: 0.4
+                    CheckBox:
+                        id: is_p1
+                        active: True
+                BoxLayout:
+                    Label:
+                        text: 'Initial Stack Size(' + str(round(init_stack_size.value)) + '):'
+                        size_hint_x: 0.4
+                    Slider:
+                        id: init_stack_size
+                        min: 2
+                        max: 100
+                        step: 1
+                        value: 5
 ''')
 
-def start_game(root,runner):
-    root.start_game = runner
-    runTouchApp(root)
-
 if __name__ == '__main__':
-    runTouchApp(Top())
+    import numpy as np
+    import pyximport
+    pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
+    from create_args import main
+
+    app = App()
+    app.root = Top()
+    app.title = "HU Holdem Poker"
+    app.root.start_game = main()
+    app.run()

@@ -10,4 +10,7 @@ modules:
     nodes-
     train
     hand_scorer
-    hu_holdem 
+    hu_holdem
+    agent/
+        uniform
+    create_args 

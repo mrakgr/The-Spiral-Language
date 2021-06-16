@@ -7,3 +7,5 @@ inl join' (sep : string) (l : ra _ string) : string = $"!sep.join(!l)"
 inl pop forall dim el. (l : ra dim el) (i : dim) : el = $"!l.pop(!i)"
 // Appends to an array.
 inl add forall dim el. (l : ra dim el) (x : el) : () = $"!l.append(!x)"
+// Cleards the array.
+inl clear forall dim el. (l : ra dim el) : () = $"!l.clear()"

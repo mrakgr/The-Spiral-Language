@@ -1,3 +1,7 @@
+WIP
+
+* Added `clear` to the `rm` module.
+
 2.0.88 (6/15/2021)
 
 * I was too hasty in fixing the codegen bug and introduced a performance bug instead. Now it should be fixed properly.
