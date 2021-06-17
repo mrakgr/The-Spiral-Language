@@ -1,5 +1,6 @@
 inl main () (stack,human_pid,set : i32 * u8 * _) : () =
     open hand_scorer
+
     let show_card (x : card) : string =
         inl suit,rank = suit x, rank x
         inl rank =
@@ -18,12 +19,29 @@ inl main () (stack,human_pid,set : i32 * u8 * _) : () =
             | _ => "[color=ffff00]" // spade
         $"f'{!suit}{!rank}[/color]'"
 
+    let show_score (hand_score x) =
+        match x.score with
+        | 1 => "high card"
+        | 2 => "pair"
+        | 3 => "two pair"
+        | 4 => "triple"
+        | 5 => "straight"
+        | 6 => "flush"
+        | 7 => "full house"
+        | 8 => "four of a kind"
+        | 9 => "straight flush"
+        | _ => failwith "Invalid card score."
+
+    let show_complete_hand (c1,c2,c3,c4,c5) : string =
+        inl c1,c2,c3,c4,c5 = show_card c1, show_card c2, show_card c3, show_card c4, show_card c5
+        $"f'{!c1}{!c2}{!c3}{!c4}{!c5}'"
+
     let show_hand (c1,c2) : string =
         inl c1,c2 = show_card c1, show_card c2
         $"f'{!c1}{!c2}'"
 
     open hu_holdem
-    let show_trace (l : list (observation i8 action)) =
+    let show_trace' (l : list (observation i8 action)) =
         inl lines : ra u64 string = am.empty
         inl cards : ra u64 string = am.empty
         let add_card_if_not_empty () =
@@ -34,7 +52,7 @@ inl main () (stack,human_pid,set : i32 * u8 * _) : () =
             | (Observation: x) :: xs => rm.add cards (show_card x) . loop true xs
             | (Action: x) :: xs => 
                 add_card_if_not_empty()
-                inl prefix = if is_first then "Player One " else "Player Two "
+                inl prefix = if is_first then "Player One" else "Player Two"
                 match x with
                 | Fold => $"f'{!prefix} folds.'"
                 | Call => $"f'{!prefix} calls.'"
@@ -43,14 +61,38 @@ inl main () (stack,human_pid,set : i32 * u8 * _) : () =
                 loop (not is_first) xs
             | Nil => add_card_if_not_empty ()
         loop true (listm.rev l)
-        rm.join' "\n" lines
+        lines
+    inl show_trace l = rm.join' "\n" (show_trace' l)
+    let show_terminal (p1,p2,(c,is_showdown) : {hand : i8 * i8; id : u8; pot : i32} * {hand : i8 * i8; id : u8; pot : i32} * _) reward (l : ra u64 string) =
+        inl prefix pid = if pid = 0u8 then "Player One" else "Player Two"
+        let hand pid h =
+            inl p = prefix pid
+            inl score = score (h, index c 0, index c 1, index c 2, index c 3, index c 4)
+            inl s = show_score score
+            inl h = show_complete_hand score.hand
+            rm.add l $"f'{!p} shows {!s} {!h}'"
+        let reward pid =
+            inl p = prefix pid
+            inl r = !!reward pid
+            inl chips = abs r
+            if r < 0 then $"f'{!p} losses {!chips} chips.'"
+            elif r = 0 then $"f'{!p} ties.'"
+            else $"f'{!p} gains {!chips} chips.'"
+            |> rm.add l 
+        inl p1,p2 = if p1.id = 0 then p1,p2 else p2,p1
+        if is_showdown then
+            hand 0 p1.hand
+            hand 1 p2.hand
+        reward 0
+        reward 1
+        rm.join' "\n" l
     
-    inl p : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i32} * {hand : i8 * i8; id : u8; pot : i32} * a u64 i8) * u8 * a u64 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) = 
+    inl p : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i32} * {hand : i8 * i8; id : u8; pot : i32} * a u64 i8 * bool) * u8 * a u64 action) -> ra u64 (log_prob * action) * (a u64 r2 -> _) = 
         agent.uniform.policy
     let rec loop game =
         match train.vs_human game human_pid p with
-        | Terminal: player_state, (p1,p2,community_card), reward =>
-            inl trace = show_trace (pl2_observations player_state human_pid)
+        | Terminal: player_state, (p1,p2,(community_card,is_showdown)), reward =>
+            inl trace = show_trace' (pl2_observations player_state human_pid) |> show_terminal (p1,p2,(community_card,is_showdown)) reward
             inl actions = record {
                 call = $"False" : obj
                 fold = $"False" : obj
@@ -70,7 +112,7 @@ inl main () (stack,human_pid,set : i32 * u8 * _) : () =
                 community_card = community_card |> am.generic.map show_card |> rm.join' ""
                 }
             set (record {trace actions table_data})
-        | Action: player_state, (p1,p2,community_card), pid, actions, next =>
+        | Action: player_state, (p1,p2,(community_card,_)), pid, actions, next =>
             inl trace = show_trace (pl2_observations player_state human_pid)
             inl actions = 
                 inl raise_max = 

@@ -12,6 +12,7 @@ from kivy.core.window import Window
 from kivy.properties import NumericProperty, StringProperty, ObjectProperty, DictProperty, BooleanProperty
 from kivy.app import App
 from kivy.lang import Builder
+from kivy.metrics import dp
 from collections import namedtuple
 
 class Stack(Label):
@@ -155,7 +156,7 @@ Builder.load_string('''
                         canvas:
                             Line:
                                 rectangle: self.x, self.y, self.width, self.height
-                        size_hint_x: 0.3
+                        size_hint_x: 0.5
                         Label:
                             size_hint: None,None
                             size: self.texture_size
@@ -193,13 +194,19 @@ Builder.load_string('''
 ''')
 
 if __name__ == '__main__':
+    from kivy.core.window import Window
+    Window.left = dp(120)
+    Window.top = dp(40)
+    Window.size = dp(1000), dp(600)
+
+    app = App()
+    app.root = Top()
+    app.title = "HU Holdem Poker"
+    
     import numpy as np
     import pyximport
     pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
     from create_args import main
 
-    app = App()
-    app.root = Top()
-    app.title = "HU Holdem Poker"
     app.root.start_game = main()
     app.run()

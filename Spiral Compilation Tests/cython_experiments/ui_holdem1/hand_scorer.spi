@@ -10,7 +10,7 @@ inl rank card : rank = card % 13
 inl full (suit:rank:) : card = suit * 13 + rank
 inl has_card' (hand:) v = ((hand : hand) &&& (1 <<< i32 (full v))) <> 0
 inl has_card x v : u8 = if has_card' x v then 1 else 0
-inl any_suit x (rank:) = inl f suit = has_card' x (suit:rank:) in f 0 && f 1 && f 2 && f 3
+inl any_suit x (rank:) = inl f suit = has_card' x (suit:rank:) in f 0 || f 1 || f 2 || f 3
 inl count_suits x (rank:) = inl f suit = has_card x (suit:rank:) in f 0 + f 1 + f 2 + f 3
 
 nominal hand_score = {score : i8; hand : card * card * card * card * card}
@@ -42,7 +42,7 @@ inl NumRanks = 13i8
 inl find_suits hand (rank:) =
     let rec loop (xs, (i : i8)) suit =
         if suit < NumSuits then
-            loop (if has_card' hand (suit:rank:) then update4 xs suit (full (suit:rank:)),i+1 else xs,i) (suit+1)
+            loop (if has_card' hand (suit:rank:) then update4 xs i (full (suit:rank:)),i+1 else xs,i) (suit+1)
         else xs
     loop ((-1, -1, -1, -1), 0) 0
 
@@ -64,9 +64,12 @@ inl score hand =
             elif 0 <= rank then
                 let rec add_suits suit (c,s : _ * u8) =
                     if suit < NumSuits then
-                        if has_card' hand (suit:rank:) then add_suits (suit+1) (update5 c s (full (suit:rank:)), s+1)
+                        if has_card' hand (suit:rank:) then 
+                            inl c,s = update5 c s (full (suit:rank:)), s+1
+                            if s < 5 then add_suits (suit+1) (c,s)
+                            else c
                         else add_suits (suit+1) (c,s)
-                    else c
+                    else loop (rank-1) (c,s)
                 add_suits 0 state
             else fst state
         loop (NumRanks-1) ((-1, -1, -1, -1, -1), 0)
@@ -154,7 +157,7 @@ inl score hand =
                     let rec loop_pair rank' =
                         if rank = rank' then loop_pair (rank'-1)
                         elif 0 <= rank' then
-                            if count_suits hand (rank:rank') <= 2 then
+                            if 2 <= count_suits hand (rank:rank') then
                                 inl c4,c5,_ = find_suits hand (rank:rank')
                                 hand_score {score=Score.full_house; hand=c1,c2,c3,c4,c5}
                             else loop_pair (rank'-1)
