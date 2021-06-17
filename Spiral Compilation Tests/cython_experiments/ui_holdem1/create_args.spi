@@ -129,7 +129,7 @@ inl main () (stack,human_pid,set : i32 * u8 * _) : () =
                     raise_min raise_max
                     call = fun () => next (Log_prob_one,Call) |> loop
                     fold = fun () => next (Log_prob_one,Fold) |> loop
-                    raise_to = fun raiseTo => next (Log_prob_one,(RaiseTo:)) |> loop
+                    raise_to = if raise_min = 0 then $"False" else fun raiseTo => next (Log_prob_one,(RaiseTo:)) |> loop
                     }
             inl p1,p2 = if human_pid = p1.id then p1,p2 else p2,p1
             inl table_data = record {

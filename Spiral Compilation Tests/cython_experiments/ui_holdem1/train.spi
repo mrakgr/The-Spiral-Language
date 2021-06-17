@@ -11,7 +11,7 @@ inl vs_human game human_pid p =
             if pid = human_pid then g
             else
                 inl cs,_ = p (am.singleton (player_state,game_state,pid,actions))
-                next (index cs 0)
+                loop (next (index cs 0))
     loop game
 
 inl vs_self game (batch_size, p) =

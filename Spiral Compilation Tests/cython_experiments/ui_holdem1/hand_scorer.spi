@@ -137,16 +137,11 @@ inl score hand =
             loop (NumRanks-1) ((-1, -1, -1, -1, -1), 0)
         let rec find_suit rank (q0,q1,q2,q3 as state) =
             if 0 <= rank then
-                inl state =
-                    if has_card' hand (suit:0 rank:) then q0+1, q1, q2, q3
-                    elif has_card' hand (suit:1 rank:) then q0, q1+1, q2, q3
-                    elif has_card' hand (suit:2 rank:) then q0, q1, q2+1, q3
-                    elif has_card' hand (suit:3 rank:) then q0, q1, q2, q3+1
-                    else state
-                match state with
+                inl f suit = has_card hand (suit:rank:)
+                match q0 + f 0, q1 + f 1, q2 + f 2, q3 + f 3 with
                 | 5u8,_,_,_ => find_hand 0 | _,5u8,_,_ => find_hand 1
                 | _,_,5u8,_ => find_hand 2 | _,_,_,5u8 => find_hand 3
-                | _ => find_suit (rank-1) state
+                | state => find_suit (rank-1) state
             else straight()
         find_suit (NumRanks-1) (0,0,0,0)
     inl full_house() = 

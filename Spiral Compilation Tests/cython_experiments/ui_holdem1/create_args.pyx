@@ -1385,6 +1385,23 @@ cdef class Closure21():
     cdef signed long v2
     cdef object v3
     def __init__(self, v0, unsigned char v1, signed long v2, v3): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3
+    def __call__(self, signed long v4):
+        cdef object v0 = self.v0
+        cdef unsigned char v1 = self.v1
+        cdef signed long v2 = self.v2
+        cdef object v3 = self.v3
+        cdef US0 v5
+        cdef UH1 v6
+        v5 = US0_2(v4)
+        v6 = v3((<float>0.000000), (<float>0.000000), v5)
+        del v5
+        method45(v0, v1, v2, v6)
+cdef class Closure22():
+    cdef object v0
+    cdef unsigned char v1
+    cdef signed long v2
+    cdef object v3
+    def __init__(self, v0, unsigned char v1, signed long v2, v3): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3
     def __call__(self):
         cdef object v0 = self.v0
         cdef unsigned char v1 = self.v1
@@ -1396,7 +1413,7 @@ cdef class Closure21():
         v5 = v3((<float>0.000000), (<float>0.000000), v4)
         del v4
         method45(v0, v1, v2, v5)
-cdef class Closure22():
+cdef class Closure23():
     cdef object v0
     cdef unsigned char v1
     cdef signed long v2
@@ -1413,23 +1430,6 @@ cdef class Closure22():
         v5 = v3((<float>0.000000), (<float>0.000000), v4)
         del v4
         method45(v0, v1, v2, v5)
-cdef class Closure23():
-    cdef object v0
-    cdef unsigned char v1
-    cdef signed long v2
-    cdef object v3
-    def __init__(self, v0, unsigned char v1, signed long v2, v3): self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3
-    def __call__(self, signed long v4):
-        cdef object v0 = self.v0
-        cdef unsigned char v1 = self.v1
-        cdef signed long v2 = self.v2
-        cdef object v3 = self.v3
-        cdef US0 v5
-        cdef UH1 v6
-        v5 = US0_2(v4)
-        v6 = v3((<float>0.000000), (<float>0.000000), v5)
-        del v5
-        method45(v0, v1, v2, v6)
 cdef class Closure0():
     def __init__(self): pass
     def __call__(self, signed long v0, unsigned char v1, v2):
@@ -3130,70 +3130,70 @@ cdef Tuple0 method18(unsigned long long v0, signed char v1, unsigned char v2, un
     cdef unsigned long long v9
     cdef bint v10
     cdef bint v11
-    cdef unsigned char v46
-    cdef unsigned char v47
-    cdef unsigned char v48
-    cdef unsigned char v49
     cdef unsigned char v12
-    cdef signed char v13
-    cdef signed long v14
-    cdef unsigned long long v15
+    cdef unsigned char v13
+    cdef signed char v14
+    cdef signed long v15
     cdef unsigned long long v16
-    cdef bint v17
+    cdef unsigned long long v17
     cdef bint v18
-    cdef unsigned char v19
-    cdef signed char v20
-    cdef signed long v21
-    cdef unsigned long long v22
-    cdef unsigned long long v23
-    cdef bint v24
-    cdef bint v25
-    cdef unsigned char v26
-    cdef signed char v27
-    cdef signed long v28
-    cdef unsigned long long v29
-    cdef unsigned long long v30
-    cdef bint v31
-    cdef bint v32
-    cdef unsigned char v33
-    cdef bint v50
-    cdef signed char v51
-    cdef signed char v52
-    cdef signed char v53
+    cdef bint v19
+    cdef unsigned char v20
+    cdef unsigned char v21
+    cdef signed char v22
+    cdef signed long v23
+    cdef unsigned long long v24
+    cdef unsigned long long v25
+    cdef bint v26
+    cdef bint v27
+    cdef unsigned char v28
+    cdef unsigned char v29
+    cdef signed char v30
+    cdef signed long v31
+    cdef unsigned long long v32
+    cdef unsigned long long v33
+    cdef bint v34
+    cdef bint v35
+    cdef unsigned char v36
+    cdef unsigned char v37
+    cdef bint v38
+    cdef signed char v39
+    cdef signed char v40
+    cdef signed char v41
+    cdef signed char v42
+    cdef signed char v43
+    cdef signed char v44
+    cdef signed char v45
+    cdef unsigned char v46
+    cdef bint v53
     cdef signed char v54
     cdef signed char v55
     cdef signed char v56
     cdef signed char v57
-    cdef unsigned char v58
-    cdef bint v65
-    cdef signed char v66
-    cdef signed char v67
-    cdef signed char v68
+    cdef signed char v58
+    cdef signed char v59
+    cdef signed char v60
+    cdef unsigned char v61
+    cdef bint v68
     cdef signed char v69
     cdef signed char v70
     cdef signed char v71
     cdef signed char v72
-    cdef unsigned char v73
-    cdef bint v80
-    cdef signed char v81
-    cdef signed char v82
-    cdef signed char v83
+    cdef signed char v73
+    cdef signed char v74
+    cdef signed char v75
+    cdef unsigned char v76
+    cdef bint v83
     cdef signed char v84
     cdef signed char v85
     cdef signed char v86
     cdef signed char v87
-    cdef unsigned char v88
-    cdef bint v95
-    cdef signed char v96
-    cdef signed char v97
+    cdef signed char v88
+    cdef signed char v89
+    cdef signed char v90
+    cdef unsigned char v91
     cdef signed char v98
-    cdef signed char v99
-    cdef signed char v100
-    cdef signed char v101
-    cdef signed char v102
-    cdef unsigned char v103
-    cdef signed char v110
-    cdef signed char v141
+    cdef signed char v129
     v6 = (<signed char>0) <= v1
     if v6:
         v7 = <signed long>v1
@@ -3202,93 +3202,96 @@ cdef Tuple0 method18(unsigned long long v0, signed char v1, unsigned char v2, un
         v10 = v9 == (<unsigned long long>0)
         v11 = v10 != 1
         if v11:
-            v12 = v2 + (<unsigned char>1)
-            v46, v47, v48, v49 = v12, v3, v4, v5
+            v12 = (<unsigned char>1)
         else:
-            v13 = (<signed char>13) + v1
-            v14 = <signed long>v13
-            v15 = (<unsigned long long>1) << v14
-            v16 = v0 & v15
-            v17 = v16 == (<unsigned long long>0)
-            v18 = v17 != 1
-            if v18:
-                v19 = v3 + (<unsigned char>1)
-                v46, v47, v48, v49 = v2, v19, v4, v5
-            else:
-                v20 = (<signed char>26) + v1
-                v21 = <signed long>v20
-                v22 = (<unsigned long long>1) << v21
-                v23 = v0 & v22
-                v24 = v23 == (<unsigned long long>0)
-                v25 = v24 != 1
-                if v25:
-                    v26 = v4 + (<unsigned char>1)
-                    v46, v47, v48, v49 = v2, v3, v26, v5
-                else:
-                    v27 = (<signed char>39) + v1
-                    v28 = <signed long>v27
-                    v29 = (<unsigned long long>1) << v28
-                    v30 = v0 & v29
-                    v31 = v30 == (<unsigned long long>0)
-                    v32 = v31 != 1
-                    if v32:
-                        v33 = v5 + (<unsigned char>1)
-                        v46, v47, v48, v49 = v2, v3, v4, v33
-                    else:
-                        v46, v47, v48, v49 = v2, v3, v4, v5
-        v50 = (<unsigned char>5) == v46
-        if v50:
-            v51 = (<signed char>0)
-            v52 = (<signed char>12)
-            v53 = (<signed char>-1)
-            v54 = (<signed char>-1)
-            v55 = (<signed char>-1)
-            v56 = (<signed char>-1)
-            v57 = (<signed char>-1)
-            v58 = (<unsigned char>0)
-            return method19(v0, v51, v52, v53, v54, v55, v56, v57, v58)
+            v12 = (<unsigned char>0)
+        v13 = v5 + v12
+        v14 = (<signed char>13) + v1
+        v15 = <signed long>v14
+        v16 = (<unsigned long long>1) << v15
+        v17 = v0 & v16
+        v18 = v17 == (<unsigned long long>0)
+        v19 = v18 != 1
+        if v19:
+            v20 = (<unsigned char>1)
         else:
-            v65 = (<unsigned char>5) == v47
-            if v65:
-                v66 = (<signed char>1)
-                v67 = (<signed char>12)
-                v68 = (<signed char>-1)
-                v69 = (<signed char>-1)
-                v70 = (<signed char>-1)
-                v71 = (<signed char>-1)
-                v72 = (<signed char>-1)
-                v73 = (<unsigned char>0)
-                return method19(v0, v66, v67, v68, v69, v70, v71, v72, v73)
+            v20 = (<unsigned char>0)
+        v21 = v4 + v20
+        v22 = (<signed char>26) + v1
+        v23 = <signed long>v22
+        v24 = (<unsigned long long>1) << v23
+        v25 = v0 & v24
+        v26 = v25 == (<unsigned long long>0)
+        v27 = v26 != 1
+        if v27:
+            v28 = (<unsigned char>1)
+        else:
+            v28 = (<unsigned char>0)
+        v29 = v3 + v28
+        v30 = (<signed char>39) + v1
+        v31 = <signed long>v30
+        v32 = (<unsigned long long>1) << v31
+        v33 = v0 & v32
+        v34 = v33 == (<unsigned long long>0)
+        v35 = v34 != 1
+        if v35:
+            v36 = (<unsigned char>1)
+        else:
+            v36 = (<unsigned char>0)
+        v37 = v2 + v36
+        v38 = (<unsigned char>5) == v13
+        if v38:
+            v39 = (<signed char>0)
+            v40 = (<signed char>12)
+            v41 = (<signed char>-1)
+            v42 = (<signed char>-1)
+            v43 = (<signed char>-1)
+            v44 = (<signed char>-1)
+            v45 = (<signed char>-1)
+            v46 = (<unsigned char>0)
+            return method19(v0, v39, v40, v41, v42, v43, v44, v45, v46)
+        else:
+            v53 = (<unsigned char>5) == v21
+            if v53:
+                v54 = (<signed char>1)
+                v55 = (<signed char>12)
+                v56 = (<signed char>-1)
+                v57 = (<signed char>-1)
+                v58 = (<signed char>-1)
+                v59 = (<signed char>-1)
+                v60 = (<signed char>-1)
+                v61 = (<unsigned char>0)
+                return method19(v0, v54, v55, v56, v57, v58, v59, v60, v61)
             else:
-                v80 = (<unsigned char>5) == v48
-                if v80:
-                    v81 = (<signed char>2)
-                    v82 = (<signed char>12)
-                    v83 = (<signed char>-1)
-                    v84 = (<signed char>-1)
-                    v85 = (<signed char>-1)
-                    v86 = (<signed char>-1)
-                    v87 = (<signed char>-1)
-                    v88 = (<unsigned char>0)
-                    return method19(v0, v81, v82, v83, v84, v85, v86, v87, v88)
+                v68 = (<unsigned char>5) == v29
+                if v68:
+                    v69 = (<signed char>2)
+                    v70 = (<signed char>12)
+                    v71 = (<signed char>-1)
+                    v72 = (<signed char>-1)
+                    v73 = (<signed char>-1)
+                    v74 = (<signed char>-1)
+                    v75 = (<signed char>-1)
+                    v76 = (<unsigned char>0)
+                    return method19(v0, v69, v70, v71, v72, v73, v74, v75, v76)
                 else:
-                    v95 = (<unsigned char>5) == v49
-                    if v95:
-                        v96 = (<signed char>3)
-                        v97 = (<signed char>12)
-                        v98 = (<signed char>-1)
-                        v99 = (<signed char>-1)
-                        v100 = (<signed char>-1)
-                        v101 = (<signed char>-1)
-                        v102 = (<signed char>-1)
-                        v103 = (<unsigned char>0)
-                        return method19(v0, v96, v97, v98, v99, v100, v101, v102, v103)
+                    v83 = (<unsigned char>5) == v37
+                    if v83:
+                        v84 = (<signed char>3)
+                        v85 = (<signed char>12)
+                        v86 = (<signed char>-1)
+                        v87 = (<signed char>-1)
+                        v88 = (<signed char>-1)
+                        v89 = (<signed char>-1)
+                        v90 = (<signed char>-1)
+                        v91 = (<unsigned char>0)
+                        return method19(v0, v84, v85, v86, v87, v88, v89, v90, v91)
                     else:
-                        v110 = v1 - (<signed char>1)
-                        return method18(v0, v110, v46, v47, v48, v49)
+                        v98 = v1 - (<signed char>1)
+                        return method18(v0, v98, v37, v29, v21, v13)
     else:
-        v141 = (<signed char>8)
-        return method20(v0, v141)
+        v129 = (<signed char>8)
+        return method20(v0, v129)
 cdef Tuple0 method17(unsigned long long v0, signed char v1, signed char v2, signed char v3, signed char v4, signed char v5):
     cdef bint v6
     cdef signed char v7
@@ -3411,7 +3414,7 @@ cdef Tuple0 method17(unsigned long long v0, signed char v1, signed char v2, sign
             v71 = (<unsigned char>0)
             v72 = (<unsigned char>0)
             v73 = (<unsigned char>0)
-            return method18(v0, v69, v70, v71, v72, v73)
+            return method18(v0, v69, v73, v72, v71, v70)
 cdef Tuple0 method15(unsigned long long v0, signed char v1):
     cdef bint v2
     cdef signed long v3
@@ -3529,7 +3532,7 @@ cdef Tuple0 method15(unsigned long long v0, signed char v1):
         v66 = (<unsigned char>0)
         v67 = (<unsigned char>0)
         v68 = (<unsigned char>0)
-        return method18(v0, v64, v65, v66, v67, v68)
+        return method18(v0, v64, v68, v67, v66, v65)
 cdef Tuple0 method12(unsigned long long v0, signed char v1):
     cdef bint v2
     cdef signed long v3
@@ -4797,30 +4800,33 @@ cdef UH1 method46(unsigned char v0, UH1 v1):
     cdef float v57
     cdef US0 v58
     cdef Tuple4 tmp21
-    cdef float v61
+    cdef UH1 v59
     cdef float v62
-    cdef float v64
+    cdef float v63
     cdef float v65
-    cdef float v67
+    cdef float v66
     cdef float v68
-    cdef signed char v69
+    cdef float v69
     cdef signed char v70
-    cdef unsigned char v71
-    cdef signed long v72
-    cdef signed char v73
+    cdef signed char v71
+    cdef unsigned char v72
+    cdef signed long v73
     cdef signed char v74
-    cdef unsigned char v75
-    cdef signed long v76
-    cdef bint v78
-    cdef float v79
+    cdef signed char v75
+    cdef unsigned char v76
+    cdef signed long v77
+    cdef bint v79
+    cdef float v80
     if v1.tag == 0: # action_
         v2 = (<UH1_0>v1).v0; v3 = (<UH1_0>v1).v1; v4 = (<UH1_0>v1).v2; v5 = (<UH1_0>v1).v3; v6 = (<UH1_0>v1).v4; v7 = (<UH1_0>v1).v5; v8 = (<UH1_0>v1).v6; v9 = (<UH1_0>v1).v7; v10 = (<UH1_0>v1).v8; v11 = (<UH1_0>v1).v9; v12 = (<UH1_0>v1).v10; v13 = (<UH1_0>v1).v11; v14 = (<UH1_0>v1).v12; v15 = (<UH1_0>v1).v13; v16 = (<UH1_0>v1).v14; v17 = (<UH1_0>v1).v15; v18 = (<UH1_0>v1).v16; v19 = (<UH1_0>v1).v17; v20 = (<UH1_0>v1).v18; v21 = (<UH1_0>v1).v19; v22 = (<UH1_0>v1).v20
         v23 = v20 == v0
         if v23:
+            del v4; del v7; del v18; del v21; del v22
             return v1
         else:
             v24 = [None]*(<unsigned long long>1)
             v24[(<unsigned long long>0)] = Tuple3(v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15, v16, v17, v18, v19, v20, v21)
+            del v4; del v7; del v18; del v21
             v25 = len(v24)
             v26 = [None]*v25
             v27 = Mut1((<unsigned long long>0))
@@ -4846,9 +4852,11 @@ cdef UH1 method46(unsigned char v0, UH1 v1):
             v56, v57, v58 = tmp21.v0, tmp21.v1, tmp21.v2
             del tmp21
             del v26
-            return v22(v56, v57, v58)
+            v59 = v22(v56, v57, v58)
+            del v22; del v58
+            return method46(v0, v59)
     elif v1.tag == 1: # terminal_
-        v61 = (<UH1_1>v1).v0; v62 = (<UH1_1>v1).v1; v64 = (<UH1_1>v1).v3; v65 = (<UH1_1>v1).v4; v67 = (<UH1_1>v1).v6; v68 = (<UH1_1>v1).v7; v69 = (<UH1_1>v1).v8; v70 = (<UH1_1>v1).v9; v71 = (<UH1_1>v1).v10; v72 = (<UH1_1>v1).v11; v73 = (<UH1_1>v1).v12; v74 = (<UH1_1>v1).v13; v75 = (<UH1_1>v1).v14; v76 = (<UH1_1>v1).v15; v78 = (<UH1_1>v1).v17; v79 = (<UH1_1>v1).v18
+        v62 = (<UH1_1>v1).v0; v63 = (<UH1_1>v1).v1; v65 = (<UH1_1>v1).v3; v66 = (<UH1_1>v1).v4; v68 = (<UH1_1>v1).v6; v69 = (<UH1_1>v1).v7; v70 = (<UH1_1>v1).v8; v71 = (<UH1_1>v1).v9; v72 = (<UH1_1>v1).v10; v73 = (<UH1_1>v1).v11; v74 = (<UH1_1>v1).v12; v75 = (<UH1_1>v1).v13; v76 = (<UH1_1>v1).v14; v77 = (<UH1_1>v1).v15; v79 = (<UH1_1>v1).v17; v80 = (<UH1_1>v1).v18
         return v1
 cdef UH0 method49(UH0 v0, UH0 v1):
     cdef US1 v2
@@ -5198,85 +5206,86 @@ cdef void method45(v0, unsigned char v1, signed long v2, UH1 v3) except *:
     cdef bint v48
     cdef unsigned long long v51
     cdef signed long v52
-    cdef object v53
-    cdef object v54
-    cdef object v55
+    cdef bint v53
     cdef object v56
-    cdef bint v57
-    cdef signed char v58
-    cdef signed char v59
-    cdef unsigned char v60
-    cdef signed long v61
+    cdef object v57
+    cdef object v58
+    cdef object v59
+    cdef bint v60
+    cdef signed char v61
     cdef signed char v62
-    cdef signed char v63
-    cdef unsigned char v64
-    cdef signed long v65
-    cdef signed long v66
-    cdef str v67
+    cdef unsigned char v63
+    cdef signed long v64
+    cdef signed char v65
+    cdef signed char v66
+    cdef unsigned char v67
     cdef signed long v68
-    cdef str v69
-    cdef unsigned long long v70
-    cdef list v71
-    cdef Mut1 v72
-    cdef unsigned long long v74
-    cdef signed char v75
-    cdef str v76
+    cdef signed long v69
+    cdef str v70
+    cdef signed long v71
+    cdef str v72
+    cdef unsigned long long v73
+    cdef list v74
+    cdef Mut1 v75
     cdef unsigned long long v77
-    cdef str v78
-    cdef object v79
-    cdef object v80
-    cdef float v81
-    cdef float v82
-    cdef UH0 v83
+    cdef signed char v78
+    cdef str v79
+    cdef unsigned long long v80
+    cdef str v81
+    cdef object v82
+    cdef object v83
     cdef float v84
     cdef float v85
     cdef UH0 v86
     cdef float v87
     cdef float v88
-    cdef signed char v89
-    cdef signed char v90
-    cdef unsigned char v91
-    cdef signed long v92
+    cdef UH0 v89
+    cdef float v90
+    cdef float v91
+    cdef signed char v92
     cdef signed char v93
-    cdef signed char v94
-    cdef unsigned char v95
-    cdef signed long v96
-    cdef numpy.ndarray[signed char,ndim=1] v97
-    cdef bint v98
-    cdef float v99
-    cdef bint v100
-    cdef UH0 v101
-    cdef list v102
-    cdef str v103
-    cdef object v104
-    cdef object v105
-    cdef object v106
+    cdef unsigned char v94
+    cdef signed long v95
+    cdef signed char v96
+    cdef signed char v97
+    cdef unsigned char v98
+    cdef signed long v99
+    cdef numpy.ndarray[signed char,ndim=1] v100
+    cdef bint v101
+    cdef float v102
+    cdef bint v103
+    cdef UH0 v104
+    cdef list v105
+    cdef str v106
     cdef object v107
-    cdef float v109
-    cdef signed long v110
-    cdef bint v111
-    cdef signed char v112
-    cdef signed char v113
-    cdef unsigned char v114
-    cdef signed long v115
+    cdef object v108
+    cdef object v109
+    cdef object v110
+    cdef float v112
+    cdef signed long v113
+    cdef bint v114
+    cdef signed char v115
     cdef signed char v116
-    cdef signed char v117
-    cdef unsigned char v118
-    cdef signed long v119
-    cdef signed long v120
-    cdef str v121
+    cdef unsigned char v117
+    cdef signed long v118
+    cdef signed char v119
+    cdef signed char v120
+    cdef unsigned char v121
     cdef signed long v122
-    cdef str v123
-    cdef unsigned long long v124
-    cdef list v125
-    cdef Mut1 v126
-    cdef unsigned long long v128
-    cdef signed char v129
-    cdef str v130
+    cdef signed long v123
+    cdef str v124
+    cdef signed long v125
+    cdef str v126
+    cdef unsigned long long v127
+    cdef list v128
+    cdef Mut1 v129
     cdef unsigned long long v131
-    cdef str v132
-    cdef object v133
-    cdef object v134
+    cdef signed char v132
+    cdef str v133
+    cdef unsigned long long v134
+    cdef str v135
+    cdef object v136
+    cdef object v137
     v4 = method46(v1, v3)
     if v4.tag == 0: # action_
         v5 = (<UH1_0>v4).v0; v6 = (<UH1_0>v4).v1; v7 = (<UH1_0>v4).v2; v8 = (<UH1_0>v4).v3; v9 = (<UH1_0>v4).v4; v10 = (<UH1_0>v4).v5; v11 = (<UH1_0>v4).v6; v12 = (<UH1_0>v4).v7; v13 = (<UH1_0>v4).v8; v14 = (<UH1_0>v4).v9; v15 = (<UH1_0>v4).v10; v16 = (<UH1_0>v4).v11; v17 = (<UH1_0>v4).v12; v18 = (<UH1_0>v4).v13; v19 = (<UH1_0>v4).v14; v20 = (<UH1_0>v4).v15; v21 = (<UH1_0>v4).v16; v22 = (<UH1_0>v4).v17; v23 = (<UH1_0>v4).v18; v24 = (<UH1_0>v4).v19; v25 = (<UH1_0>v4).v20
@@ -5336,91 +5345,95 @@ cdef void method45(v0, unsigned char v1, signed long v2, UH1 v3) except *:
         del v24
         v52 = v42.v1
         del v42
-        v53 = Closure21(v0, v1, v2, v25)
-        v54 = Closure22(v0, v1, v2, v25)
-        v55 = Closure23(v0, v1, v2, v25)
+        v53 = v52 == (<signed long>0)
+        if v53:
+            v56 = False
+        else:
+            v56 = Closure21(v0, v1, v2, v25)
+        v57 = Closure22(v0, v1, v2, v25)
+        v58 = Closure23(v0, v1, v2, v25)
         del v25
-        v56 = {'call': v53, 'fold': v54, 'raise_max': v41, 'raise_min': v52, 'raise_to': v55}
-        del v53; del v54; del v55
-        v57 = v1 == v15
-        if v57:
-            v58, v59, v60, v61, v62, v63, v64, v65 = v13, v14, v15, v16, v17, v18, v19, v20
+        v59 = {'call': v57, 'fold': v58, 'raise_max': v41, 'raise_min': v52, 'raise_to': v56}
+        del v56; del v57; del v58
+        v60 = v1 == v15
+        if v60:
+            v61, v62, v63, v64, v65, v66, v67, v68 = v13, v14, v15, v16, v17, v18, v19, v20
         else:
-            v58, v59, v60, v61, v62, v63, v64, v65 = v17, v18, v19, v20, v13, v14, v15, v16
-        v66 = v2 - v61
-        v67 = method54(v59, v58)
-        v68 = v2 - v65
-        v69 = method54(v63, v62)
-        v70 = len(v21)
-        v71 = [None]*v70
-        v72 = Mut1((<unsigned long long>0))
-        while method47(v70, v72):
-            v74 = v72.v0
-            v75 = v21[v74]
-            v76 = method52(v75)
-            v71[v74] = v76
-            del v76
-            v77 = v74 + (<unsigned long long>1)
-            v72.v0 = v77
+            v61, v62, v63, v64, v65, v66, v67, v68 = v17, v18, v19, v20, v13, v14, v15, v16
+        v69 = v2 - v64
+        v70 = method54(v62, v61)
+        v71 = v2 - v68
+        v72 = method54(v66, v65)
+        v73 = len(v21)
+        v74 = [None]*v73
+        v75 = Mut1((<unsigned long long>0))
+        while method47(v73, v75):
+            v77 = v75.v0
+            v78 = v21[v77]
+            v79 = method52(v78)
+            v74[v77] = v79
+            del v79
+            v80 = v77 + (<unsigned long long>1)
+            v75.v0 = v80
         del v21
-        del v72
-        v78 = "".join(v71)
-        del v71
-        v79 = {'community_card': v78, 'my_card': v67, 'my_pot': v61, 'my_stack': v66, 'op_card': v69, 'op_pot': v65, 'op_stack': v68}
-        del v67; del v69; del v78
-        v80 = {'actions': v56, 'table_data': v79, 'trace': v29}
-        del v29; del v56; del v79
-        v0(v80)
+        del v75
+        v81 = "".join(v74)
+        del v74
+        v82 = {'community_card': v81, 'my_card': v70, 'my_pot': v64, 'my_stack': v69, 'op_card': v72, 'op_pot': v68, 'op_stack': v71}
+        del v70; del v72; del v81
+        v83 = {'actions': v59, 'table_data': v82, 'trace': v29}
+        del v29; del v59; del v82
+        v0(v83)
     elif v4.tag == 1: # terminal_
-        v81 = (<UH1_1>v4).v0; v82 = (<UH1_1>v4).v1; v83 = (<UH1_1>v4).v2; v84 = (<UH1_1>v4).v3; v85 = (<UH1_1>v4).v4; v86 = (<UH1_1>v4).v5; v87 = (<UH1_1>v4).v6; v88 = (<UH1_1>v4).v7; v89 = (<UH1_1>v4).v8; v90 = (<UH1_1>v4).v9; v91 = (<UH1_1>v4).v10; v92 = (<UH1_1>v4).v11; v93 = (<UH1_1>v4).v12; v94 = (<UH1_1>v4).v13; v95 = (<UH1_1>v4).v14; v96 = (<UH1_1>v4).v15; v97 = (<UH1_1>v4).v16; v98 = (<UH1_1>v4).v17; v99 = (<UH1_1>v4).v18
-        v100 = v1 == (<unsigned char>0)
-        if v100:
-            v101 = v83
+        v84 = (<UH1_1>v4).v0; v85 = (<UH1_1>v4).v1; v86 = (<UH1_1>v4).v2; v87 = (<UH1_1>v4).v3; v88 = (<UH1_1>v4).v4; v89 = (<UH1_1>v4).v5; v90 = (<UH1_1>v4).v6; v91 = (<UH1_1>v4).v7; v92 = (<UH1_1>v4).v8; v93 = (<UH1_1>v4).v9; v94 = (<UH1_1>v4).v10; v95 = (<UH1_1>v4).v11; v96 = (<UH1_1>v4).v12; v97 = (<UH1_1>v4).v13; v98 = (<UH1_1>v4).v14; v99 = (<UH1_1>v4).v15; v100 = (<UH1_1>v4).v16; v101 = (<UH1_1>v4).v17; v102 = (<UH1_1>v4).v18
+        v103 = v1 == (<unsigned char>0)
+        if v103:
+            v104 = v86
         else:
-            v101 = v86
-        del v83; del v86
-        v102 = method48(v101)
-        del v101
-        v103 = method55(v98, v97, v93, v94, v95, v96, v89, v90, v91, v92, v99, v102)
-        del v102
-        v104 = False
-        v105 = False
-        v106 = False
-        v107 = {'call': v104, 'fold': v105, 'raise_max': (<signed long>0), 'raise_min': (<signed long>0), 'raise_to': v106}
-        del v104; del v105; del v106
-        if v100:
-            v109 = v99
+            v104 = v89
+        del v86; del v89
+        v105 = method48(v104)
+        del v104
+        v106 = method55(v101, v100, v96, v97, v98, v99, v92, v93, v94, v95, v102, v105)
+        del v105
+        v107 = False
+        v108 = False
+        v109 = False
+        v110 = {'call': v107, 'fold': v108, 'raise_max': (<signed long>0), 'raise_min': (<signed long>0), 'raise_to': v109}
+        del v107; del v108; del v109
+        if v103:
+            v112 = v102
         else:
-            v109 = -v99
-        v110 = round(v109)
-        v111 = v1 == v91
-        if v111:
-            v112, v113, v114, v115, v116, v117, v118, v119 = v89, v90, v91, v92, v93, v94, v95, v96
+            v112 = -v102
+        v113 = round(v112)
+        v114 = v1 == v94
+        if v114:
+            v115, v116, v117, v118, v119, v120, v121, v122 = v92, v93, v94, v95, v96, v97, v98, v99
         else:
-            v112, v113, v114, v115, v116, v117, v118, v119 = v93, v94, v95, v96, v89, v90, v91, v92
-        v120 = v2 + v110
-        v121 = method54(v113, v112)
-        v122 = v2 - v110
-        v123 = method54(v117, v116)
-        v124 = len(v97)
-        v125 = [None]*v124
-        v126 = Mut1((<unsigned long long>0))
-        while method47(v124, v126):
-            v128 = v126.v0
-            v129 = v97[v128]
-            v130 = method52(v129)
-            v125[v128] = v130
-            del v130
-            v131 = v128 + (<unsigned long long>1)
-            v126.v0 = v131
-        del v97
-        del v126
-        v132 = "".join(v125)
-        del v125
-        v133 = {'community_card': v132, 'my_card': v121, 'my_pot': (<signed long>0), 'my_stack': v120, 'op_card': v123, 'op_pot': (<signed long>0), 'op_stack': v122}
-        del v121; del v123; del v132
-        v134 = {'actions': v107, 'table_data': v133, 'trace': v103}
-        del v103; del v107; del v133
-        v0(v134)
+            v115, v116, v117, v118, v119, v120, v121, v122 = v96, v97, v98, v99, v92, v93, v94, v95
+        v123 = v2 + v113
+        v124 = method54(v116, v115)
+        v125 = v2 - v113
+        v126 = method54(v120, v119)
+        v127 = len(v100)
+        v128 = [None]*v127
+        v129 = Mut1((<unsigned long long>0))
+        while method47(v127, v129):
+            v131 = v129.v0
+            v132 = v100[v131]
+            v133 = method52(v132)
+            v128[v131] = v133
+            del v133
+            v134 = v131 + (<unsigned long long>1)
+            v129.v0 = v134
+        del v100
+        del v129
+        v135 = "".join(v128)
+        del v128
+        v136 = {'community_card': v135, 'my_card': v124, 'my_pot': (<signed long>0), 'my_stack': v123, 'op_card': v126, 'op_pot': (<signed long>0), 'op_stack': v125}
+        del v124; del v126; del v135
+        v137 = {'actions': v110, 'table_data': v136, 'trace': v106}
+        del v106; del v110; del v136
+        v0(v137)
 cpdef object main():
     return Closure0()
