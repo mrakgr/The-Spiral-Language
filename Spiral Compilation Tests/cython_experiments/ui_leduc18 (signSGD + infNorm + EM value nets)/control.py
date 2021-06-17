@@ -47,7 +47,7 @@ def belief_tabulate(state_probs : Tensor,head : Tensor,action_indices : Tensor,a
 
     def calculate():
         values = head_weighted_values / head_value_weights # [action_dim,state_dim]
-        def state_probs_grad(): # Prediction errors modulate the state probabilities. The cool part is the centering.
+        def state_probs_grad(): # Prediction errors modulate the state probabilities.
             prediction_values_for_state = values[action_indices,:] # [batch_dim,state_dim]
             prediction_errors = torch.abs(at_action_value - prediction_values_for_state) # [batch_dim,state_dim]
             return at_action_weight * prediction_errors # [batch_dim,state_dim]
