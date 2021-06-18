@@ -89,7 +89,7 @@ def model_evaluate(value : Module,head : Tensor,policy : Module,is_update_head :
             # value.count += 1
             state_probs.backward(x)
         if is_update_policy: action_probs.backward(action_probs_grad())
-        return reward
+        return reward, state_probs
     return action_probs, sample_probs, sample_indices, update
 
 def neural_create_agent(size,mid=64):
@@ -98,7 +98,7 @@ def neural_create_agent(size,mid=64):
     value = torch.nn.Sequential(
         torch.nn.Linear(size.value,mid),
         torch.nn.ReLU(),
-        torch.nn.LayerNorm(mid,elementwise_affine=False),
+        torch.nn.LayerNorm(mid),
         torch.nn.Linear(mid,mid)
         )
     # value.l2 = torch.zeros(())
@@ -107,7 +107,7 @@ def neural_create_agent(size,mid=64):
     policy = torch.nn.Sequential(
         torch.nn.Linear(size.policy,mid),
         torch.nn.ReLU(),
-        torch.nn.LayerNorm(mid,elementwise_affine=False),
+        torch.nn.LayerNorm(mid),
         torch.nn.Linear(mid,size.action)
         )
     head = torch.zeros(size.action*2,mid)
@@ -120,7 +120,7 @@ def run(vs_self,vs_one,neural,uniform_player,tabular): # old NN vs old tabular
     with open('dump/agent_435.obj','rb') as f: agents = pickle.load(f)
     tabular_agent_old = agents['average']
 
-    with open('dump/nn_agent_900.obj','rb') as f: agents = pickle.load(f)
+    with open('dump/nn_agent_800.obj','rb') as f: agents = pickle.load(f)
     value, policy, head = agents
 
     def tabular_player(is_update_head=False,is_update_policy=False,epsilon=0,tabular_agent=tabular_agent_old): 
@@ -143,13 +143,13 @@ def create_nn_agent(vs_self,vs_one,neural,uniform_player,tabular): # self play N
     def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=2 ** -2): 
         return neural.handler(partial(model_evaluate,value,head,policy,is_update_head,is_update_value,is_update_policy,epsilon))
 
-    def run(policy_lr,is_avg=False):
+    def run(is_avg=False):
         nonlocal head,heada,t 
         for a in range(3):
             vs_self(batch_size,neural_player(True,False,False,2 ** -2))
         vs_self(batch_size,neural_player(False,True,True,2 ** -2))
         optimize([value],learning_rate=2 ** -6)
-        optimize([policy],learning_rate=policy_lr)
+        optimize([policy],learning_rate=2 ** -9)
         head *= head_decay
 
         if is_avg:
@@ -163,22 +163,19 @@ def create_nn_agent(vs_self,vs_one,neural,uniform_player,tabular): # self play N
                         avg(ap,bp)
                 avg(heada,head)
 
-    def train(policy_lr,n):
-        print('Training.')
-        for a in range(n):
-            run(policy_lr=policy_lr)
-            if (a + 1) % 25 == 0: print(a+1)
-    def avg(policy_lr,m):
-        print('Averaging.')
-        for a in range(m):
-            run(policy_lr,True)
-            if (a + 1) % 25 == 0: 
-                print(a+1)
-                r : np.ndarray = vs_self(batch_size * 2 ** 4,neural_player())
-                print(f'The mean reward vs_self is {r.mean()}')
-    n,m=600,300
-    train(2 ** -9,n)
-    avg(2 ** -9,m)
+    n = 500
+    m = 300
+    print('Training.')
+    for a in range(n):
+        run()
+        if (a + 1) % 25 == 0: print(a)
+    print('Averaging.')
+    for a in range(m):
+        run(True)
+        if (a + 1) % 30 == 0: 
+            print(a)
+            r : np.ndarray = vs_self(batch_size * 2 ** 4,neural_player())
+            print(f'The mean reward vs_self is {r.mean()}')
     with open(f"dump/nn_agent_{n+m}.obj",'wb') as f: pickle.dump((value,policy,head),f)
 
 if __name__ == '__main__':
@@ -186,7 +183,4 @@ if __name__ == '__main__':
     import pyximport
     pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
     from create_args import main
-    create_nn_agent(**main())
-    run(**main())
-    run(**main())
     run(**main())
