@@ -97,7 +97,7 @@ def neural_create_agent(size,mid=64):
     # policy = torch.nn.Linear(neural.size.policy,neural.size.action)
     value = torch.nn.Sequential(
         torch.nn.Linear(size.value,mid),
-        torch.nn.ReLU(),
+        torch.nn.ReLU(inplace=True),
         torch.nn.LayerNorm(mid,elementwise_affine=False),
         torch.nn.Linear(mid,mid)
         )
@@ -106,34 +106,68 @@ def neural_create_agent(size,mid=64):
     # value.count = torch.zeros(())
     policy = torch.nn.Sequential(
         torch.nn.Linear(size.policy,mid),
-        torch.nn.ReLU(),
+        torch.nn.ReLU(inplace=True),
         torch.nn.LayerNorm(mid,elementwise_affine=False),
         torch.nn.Linear(mid,size.action)
         )
     head = torch.zeros(size.action*2,mid)
     return value, policy, head
 
-def run(vs_self,vs_one,neural,uniform_player,tabular): # old NN vs old tabular
+def run(i_tabular,i_nn,vs_self,vs_one,neural,uniform_player,tabular): # old NN vs old tabular
+    batch_size = 2 ** 10
+    with open(f'dump/agent_{i_tabular}_avg.obj','rb') as f: tabular_agent_old = pickle.load(f)
+
+    def r(name,value,policy,head):
+        def tabular_player(is_update_head=False,is_update_policy=False,epsilon=0,tabular_agent=tabular_agent_old): 
+            return tabular.create_policy(tabular_agent,is_update_head,is_update_policy,epsilon)
+
+        def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
+            return neural.handler(partial(model_evaluate,value,head,policy,is_update_head,is_update_value,is_update_policy,epsilon))
+
+        r : np.ndarray = vs_one(batch_size * 2 ** 8,neural_player(),tabular_player())
+        print(f'The mean is {r.mean()} for the {name} player.')
+    with open(f'dump/nn_agent_{i_nn}.obj','rb') as f: r('regular',*pickle.load(f))
+    with open(f'dump/nn_agent_{i_nn}_avg.obj','rb') as f: r('average',*pickle.load(f))
+
+def create_tabular_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular):
     batch_size = 2 ** 10
     head_decay = 2 ** -2
 
-    with open('dump/agent_435.obj','rb') as f: agents = pickle.load(f)
-    tabular_agent_old = agents['average']
+    tabular_agent = tabular.create_agent()
+    tabular_avg_agent = tabular.create_agent()
+    def tabular_player(is_update_head=False,is_update_policy=False,epsilon=0.0,agent=tabular_agent): 
+        return tabular.create_policy(agent,is_update_head,is_update_policy,epsilon)
 
-    with open('dump/nn_agent_900.obj','rb') as f: agents = pickle.load(f)
-    value, policy, head = agents
+    def run(is_avg : bool = False):
+        tabular.head_multiply_(tabular_agent,head_decay)
+        for a in range(3):
+            vs_self(batch_size,tabular_player(True,False,2 ** -2,agent=tabular_agent))
+        vs_self(batch_size,tabular_player(False,True,2 ** -2,agent=tabular_agent))
+        tabular.optimize(tabular_agent)
+        if is_avg: tabular.average(tabular_avg_agent,tabular_agent)
 
-    def tabular_player(is_update_head=False,is_update_policy=False,epsilon=0,tabular_agent=tabular_agent_old): 
-        return tabular.create_policy(tabular_agent,is_update_head,is_update_policy,epsilon)
+    def train():
+        print('Training the tabular agent.')
+        for a in range(n):
+            run()
+            if (a + 1) % 30 == 0: print(a+1)
 
-    def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
-        return neural.handler(partial(model_evaluate,value,head,policy,is_update_head,is_update_value,is_update_policy,epsilon))
+    def avg():
+        print('Averaging the tabular agent.')
+        for a in range(m):
+            run(True)
+            if (a + 1) % 30 == 0: 
+                print(a+1)
+                r : np.ndarray = vs_self(batch_size * 2 ** 4,tabular_player(agent=tabular_agent))
+                print(f'The mean reward is {r.mean()} for the regular agent.')
+                r : np.ndarray = vs_self(batch_size * 2 ** 4,tabular_player(agent=tabular_avg_agent))
+                print(f'The mean reward is {r.mean()} for the average agent.')
+    train()
+    avg()
+    with open(f"dump/agent_{n + m}.obj",'wb') as f: pickle.dump(tabular_agent,f)
+    with open(f"dump/agent_{n + m}_avg.obj",'wb') as f: pickle.dump(tabular_avg_agent,f)
 
-    r : np.ndarray = vs_one(batch_size * 2 ** 8,neural_player(),tabular_player())
-    print(f'The mean is {r.mean()}')
-
-# The code for the tabular player is buried in the 6/9/2021 commit.
-def create_nn_agent(vs_self,vs_one,neural,uniform_player,tabular): # self play NN
+def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self play NN
     batch_size = 2 ** 10
     head_decay = 2 ** -2
 
@@ -153,7 +187,6 @@ def create_nn_agent(vs_self,vs_one,neural,uniform_player,tabular): # self play N
         head *= head_decay
 
         if is_avg:
-            t += 1
             with torch.no_grad():
                 def avg(ap,bp):
                     ap *= (t-1) / t
@@ -162,31 +195,43 @@ def create_nn_agent(vs_self,vs_one,neural,uniform_player,tabular): # self play N
                     for ap,bp in zip(am.parameters(),bm.parameters()):
                         avg(ap,bp)
                 avg(heada,head)
+                t += 1
 
     def train(policy_lr,n):
-        print('Training.')
+        print('Training the NN agent.')
         for a in range(n):
             run(policy_lr=policy_lr)
             if (a + 1) % 25 == 0: print(a+1)
     def avg(policy_lr,m):
-        print('Averaging.')
+        print('Averaging the NN agent.')
         for a in range(m):
             run(policy_lr,True)
             if (a + 1) % 25 == 0: 
                 print(a+1)
-                r : np.ndarray = vs_self(batch_size * 2 ** 4,neural_player())
-                print(f'The mean reward vs_self is {r.mean()}')
-    n,m=600,300
-    train(2 ** -9,n)
-    avg(2 ** -9,m)
+                # r : np.ndarray = vs_self(batch_size * 2 ** 4,neural_player())
+                # print(f'The mean reward vs_self is {r.mean()}')
+    train(2 ** -8,n)
+    avg(2 ** -8,m)
     with open(f"dump/nn_agent_{n+m}.obj",'wb') as f: pickle.dump((value,policy,head),f)
+    with open(f"dump/nn_agent_{n+m}_avg.obj",'wb') as f: pickle.dump((valuea,policya,heada),f)
+    avg(2 ** -8,m)
+    with open(f"dump/nn_agent_{n+2*m}.obj",'wb') as f: pickle.dump((value,policy,head),f)
+    with open(f"dump/nn_agent_{n+2*m}_avg.obj",'wb') as f: pickle.dump((valuea,policya,heada),f)
+    avg(2 ** -8,m)
+    with open(f"dump/nn_agent_{n+3*m}.obj",'wb') as f: pickle.dump((value,policy,head),f)
+    with open(f"dump/nn_agent_{n+3*m}_avg.obj",'wb') as f: pickle.dump((valuea,policya,heada),f)
 
 if __name__ == '__main__':
     import numpy as np
     import pyximport
     pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
     from create_args import main
-    create_nn_agent(**main())
-    run(**main())
-    run(**main())
-    run(**main())
+    args = main()
+    n,m=600,303
+    for _ in range(5):
+        # create_tabular_agent(n//2,m//2,**args)
+        create_nn_agent(n,m,**args)
+        run(451,n+m,**args)
+        run(451,n+2*m,**args)
+        run(451,n+3*m,**args)
+        print("----")
