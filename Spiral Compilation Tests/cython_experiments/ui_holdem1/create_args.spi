@@ -87,11 +87,10 @@ inl main () (stack,human_pid,set : i32 * u8 * _) : () =
         reward 1
         rm.join' "\n" l
     
-    inl p : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i32} * {hand : i8 * i8; id : u8; pot : i32} * a u64 i8 * bool) * u8 * a u64 action) -> ra u64 (log_prob * action) * (a u64 r2 -> _) = 
-        agent.uniform.policy
+    inl p : _-> a _ _ * (a u64 r2 -> _) = agent.uniform.policy
     let rec loop game =
         match train.vs_human game human_pid p with
-        | Terminal: player_state, (p1,p2,(community_card,is_showdown)), reward =>
+        | Terminal: player_state, (p1,p2,(community_card,stack,is_showdown)), reward =>
             inl trace = show_trace' (pl2_observations player_state human_pid) |> show_terminal (p1,p2,(community_card,is_showdown)) reward
             inl actions = record {
                 call = $"False" : obj
@@ -112,7 +111,7 @@ inl main () (stack,human_pid,set : i32 * u8 * _) : () =
                 community_card = community_card |> am.generic.map show_card |> rm.join' ""
                 }
             set (record {trace actions table_data})
-        | Action: player_state, (p1,p2,(community_card,_)), pid, actions, next =>
+        | Action: player_state, (p1,p2,(community_card,stack,_)), pid, actions, next =>
             inl trace = show_trace (pl2_observations player_state human_pid)
             inl actions = 
                 inl raise_max = 

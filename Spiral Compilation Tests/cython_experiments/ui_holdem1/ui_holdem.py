@@ -41,6 +41,7 @@ class ShowB(Button):
     def on_press(self): self.shown = not self.shown
 
 Builder.load_string('''
+#:import math math
 <CardDef@Widget>:
     canvas:
         Line:
@@ -56,6 +57,9 @@ Builder.load_string('''
     markup: True
 <Card@Label+CardDef>
     markup: True
+
+<PowTwoSlider@Slider>:
+    pow_value: round(2 ** self.value)
 
 <Stack>:
     canvas:
@@ -167,7 +171,10 @@ Builder.load_string('''
                     text: 'Start Game'
                     font_size: sp(50)
                     size_hint_y: 0.15
-                    on_press: root.start_game(round(init_stack_size.value),0 if is_p1.active else 1,root.set_data) # start_game should be monkey patched.
+                    on_press: 
+                        b = 0 if is_p1.active else 1
+                        is_p1.active = is_p1.active == False
+                        root.start_game(init_stack_size.pow_value,b,root.set_data) # start_game should be monkey patched.
         AccordionItem:
             min_space: self.parent.min_space
             title: 'Settings'
@@ -183,14 +190,13 @@ Builder.load_string('''
                         active: True
                 BoxLayout:
                     Label:
-                        text: 'Initial Stack Size(' + str(round(init_stack_size.value)) + '):'
+                        text: 'Initial Stack Size(' + str(init_stack_size.pow_value) + '):'
                         size_hint_x: 0.4
-                    Slider:
+                    PowTwoSlider:
                         id: init_stack_size
-                        min: 2
-                        max: 100
-                        step: 1
-                        value: 5
+                        min: math.log2(3)
+                        max: math.log2(100)
+                        value: math.log2(50)
 ''')
 
 if __name__ == '__main__':

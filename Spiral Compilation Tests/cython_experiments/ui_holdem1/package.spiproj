@@ -13,4 +13,5 @@ modules:
     hu_holdem
     agent/
         uniform
+        neural
     create_args 
