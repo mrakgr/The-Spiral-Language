@@ -1,6 +1,6 @@
-import collections
 import numpy
 cimport numpy
+import collections
 import torch
 cimport libc.math
 ctypedef signed long US0
@@ -4105,7 +4105,6 @@ cpdef object main():
     cdef object v49
     cdef object v50
     cdef object v51
-    pass # import collections
     v0 = 0
     v1 = 2
     v2 = numpy.empty(2,dtype=numpy.int32)

@@ -1,7 +1,7 @@
 open hu_holdem
 
 union oaction = OStreetOver | OFold | OCall | ORaiseTo: st
-inl holdem_obs_to_array (l : list (observation card action)) : a u64 oaction =
+inl holdem_obs_to_array (l : list (observation card action)) : a st oaction =
     l |> listm.fold (fun (s,is_round_over) => function
         | Observation: x => s, true
         | Action: x => 
@@ -14,7 +14,7 @@ inl holdem_obs_to_array (l : list (observation card action)) : a u64 oaction =
 inl suit_rank x = hand_scorer.suit x, hand_scorer.rank x
 inl full (suit,rank) = hand_scorer.full (suit:rank:)
 
-inl holdem_extractor' ((player_state : pl2 card action),(p1,p2,community_card,stack,is_showdown : player * player * a st _ * i32 * bool),pid) = 
+inl holdem_extractor' ((player_state : pl2 card action),(p1,p2,community_card,stack,is_showdown : player * player * a st _ * st * bool),pid) = 
     assert (p1.id = pid) "Expected p1.id to match the pid."
     inl cards : a _ _ = am.init (2 + length community_card) fun i =>
         if i = 0 then fst p1.hand
@@ -22,7 +22,7 @@ inl holdem_extractor' ((player_state : pl2 card action),(p1,p2,community_card,st
         else index community_card (i-2)
     ((stack, p1.pot, p2.pot, cards), pl2_observations player_state pid), p2.hand
 
-inl holdem_extractor x = inl (a,b),c = holdem_extractor' x in a,holdem_obs_to_array b,c
+inl holdem_extractor x = inl (a,b),c = holdem_extractor' x in (a,holdem_obs_to_array b),c
 
 inl holdem_schema () =
     inl stack_size = 50
@@ -42,3 +42,13 @@ inl holdem_schema () =
         inl raiseTo = wrap (in:(+) -3 out:(+) 3) (int (stack_size-3)) // RaiseTo (3..stack_size) - RaiseTo (0,1,2)
         alt {fold=Unit; call=Unit; raiseTo=int 100} : pu action
     schema {policy value action}
+
+inl holdem_cython_schema () =
+    inl schema = holdem_schema()
+    inl handler = train.neural_handler holdem_extractor schema
+    inl size =
+        inl policy = serialization.dense.array.size schema.policy
+        inl value = serialization.dense.array.size schema.value
+        inl action = serialization.sparse.int.size schema.action
+        namedtuple "Size" {action policy value}
+    namedtuple "Neural" {handler size}

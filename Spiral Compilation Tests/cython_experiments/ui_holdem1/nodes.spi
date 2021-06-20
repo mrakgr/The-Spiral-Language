@@ -43,9 +43,9 @@ inl draw forall (ar : * -> * -> *) {index; length} dim {number} el. pid (dist : 
 
 union rec node state obs act =
     | Terminal: pl2 obs act * state * r2
-    | Action: pl2 obs act * state * u8 * a u64 act * (log_prob * act -> node state obs act)
+    | Action: pl2 obs act * state * u8 * a st act * (log_prob * act -> node state obs act)
 
-inl action forall game_state obs act. (state : game_state) pid (dist : a u64 act) (f : act -> pl2 obs act -> node game_state obs act) (pl2 (chance_prob,p1,p2) as p) = 
+inl action forall game_state obs act. (state : game_state) pid (dist : a st act) (f : act -> pl2 obs act -> node game_state obs act) (pl2 (chance_prob,p1,p2) as p) = 
     Action: p, state, pid, dist, fun (_,a as cs) => 
         let f (b : pl2 obs act) : node game_state obs act = real real_core.unbox a (fun _ => f a b)
         if pid = 0 then f (pl2 (chance_prob,apply_changes p1 cs,apply_action p2 a))

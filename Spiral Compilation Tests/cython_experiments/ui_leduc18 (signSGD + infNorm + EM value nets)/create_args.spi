@@ -1,5 +1,4 @@
 inl main () =
-    !!!!Import("collections")
     open leduc
     inl vs_self : u64 * (ra u64 (pl2 card action * leduc_state * u8 * a u64 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2)) -> a u64 r2 =
         train.vs_self leduc.game()

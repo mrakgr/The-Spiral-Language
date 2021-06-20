@@ -1,9 +1,3 @@
-nominal schema present future actions = {
-    policy : serialization.dense.array.pu present
-    value : serialization.dense.array.pu (present * future)
-    action : serialization.sparse.int.pu actions
-    }
-
 inl vs_human game human_pid p =
     let rec loop = function
         | Terminal: _ as g => g
@@ -27,16 +21,16 @@ inl vs_self game (batch_size, p) =
                 rm.add nexts next
             | Terminal: x => 
                 rm.add rewards (i, x)
-        inl rewards_actions =
+        inl rewards_actions : a _ _ =
             if 0 < length data then
-                inl cs,update = p data
+                inl (cs : a _ _),update = p data
                 am.generic.map2 (<|) nexts cs |> loop |> update
             else am.empty
         inl rewards_all : a _ r2 = create (length l)
         am.generic.iter2 (set rewards_all) actions_indices rewards_actions
         am.iter (fun (i,_,_,r) => set rewards_all i r) rewards
         rewards_all
-    loop (am.init batch_size fun _ => game pl2_init)
+    loop (am.init batch_size fun _ => game () pl2_init)
 
 inl vs_one game (batch_size, p1, p2) =
     let rec loop (l : a u64 _) =
@@ -61,13 +55,13 @@ inl vs_one game (batch_size, p1, p2) =
                 rm.add rewards (i, x)
         inl rewards_actions =
             if 0 < length pids then
-                inl p1_cs,p1_update = p1 p1_data
-                inl p2_cs,p2_update = p2 p2_data
+                inl (p1_cs : a _ _),p1_update = p1 p1_data
+                inl (p2_cs : a _ _),p2_update = p2 p2_data
                 inl p1_results = am.generic.map2 (<|) p1_nexts p1_cs
                 inl p2_results = am.generic.map2 (<|) p2_nexts p2_cs
                 inl rs = loop (am.append p1_results p2_results)
-                inl p1_rs = am.slice (from:0 nearTo:length p1_cs) rs |> p1_update
-                inl p2_rs = am.sliceFrom (length p1_cs) rs |> p2_update
+                inl p1_rs : a u64 _ = am.slice (from:0 nearTo:length p1_cs) rs |> p1_update
+                inl p2_rs : a u64 _ = am.sliceFrom (length p1_cs) rs |> p2_update
                 am.mapFold (fun (p1_i,p2_i) i => if i = 0 then index p1_rs p1_i,p1_i+1,p2_i else index p2_rs p2_i,p1_i,p2_i+1)
                     (0,0) pids |> fst
             else am.empty
@@ -75,10 +69,13 @@ inl vs_one game (batch_size, p1, p2) =
         am.generic.iter2 (set rewards_all) actions_indices rewards_actions
         am.iter (fun (i,_,_,r) => set rewards_all i r) rewards
         rewards_all
-    loop (am.init batch_size fun _ => game pl2_init)
+    loop (am.init batch_size fun _ => game () pl2_init)
 
 type a2 x = $"numpy.ndarray[`x,ndim=2]"
-inl neural_handler extractor (schema : schema _ _ _) p (data : ra _ _) =
+
+// The neural model is intended to be created on the Python side and partially applied as the `policy_value_action_eval` argument. 
+// `extractor` and `schema` are applied on the Spiral side before being passed as a function. 
+inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (data : ra _ (_ * _ * u8 * a st _)) =
     !!!!Import("torch")
     inl policy_size = serialization.dense.array.size schema.policy
     inl value_size = serialization.dense.array.size schema.value
@@ -93,7 +90,7 @@ inl neural_handler extractor (schema : schema _ _ _) p (data : ra _ _) =
 
     inl x : obj =
         inl f x = $"torch.from_numpy(!x)" : obj
-        p (f policy_data, f value_data, f action_mask)
+        policy_value_action_eval (f policy_data, f value_data, f action_mask)
     inl action_probs, sample_probs, sample_indices, update : obj * obj * obj * (obj * obj -> obj) = $"!x[0]", $"!x[1]", $"!x[2]", $"!x[3]"
     inl cs : a u64 _ = am.init num_actions fun b =>
         inl a : st = $"!sample_indices[!b]"

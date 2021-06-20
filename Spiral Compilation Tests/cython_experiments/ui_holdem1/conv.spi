@@ -6,4 +6,3 @@ inl i32 forall t {number}. (x : t) : i32 = $"<`i32>!x"
 inl conv_num forall a {number} b {number}. (x : a) : b = $"<`b>!x"
 inl conv_int forall a {int} b {int}. (x : a) : b = $"<`b>!x"
 inl round forall a {number} b {int}. (x : a) : b = $"round(!x)"
-type st = i16

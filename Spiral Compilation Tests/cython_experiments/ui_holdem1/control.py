@@ -71,10 +71,11 @@ def model_evaluate(value : Module,head : Tensor,policy : Module,is_update_head :
         is_update_policy : bool,epsilon : float,policy_data : Tensor,value_data : Tensor,action_mask : Tensor):
     action_raw = torch.masked_fill(policy(policy_data),action_mask,float('-inf'))
     action_probs : Tensor = torch.softmax(action_raw,-1)
-    action_mask_inv = torch.logical_not(action_mask)
     # Interpolates action probs with an uniform noise distribution for actions that aren't masked out.
     sample_probs = action_probs.detach() * (1 - epsilon)
-    if 0 < epsilon: sample_probs += action_mask_inv / (action_mask_inv.sum(-1,keepdim=True) * (1 / epsilon)) 
+    if 0 < epsilon: 
+        action_mask_inv = torch.logical_not(action_mask)
+        sample_probs += action_mask_inv / (action_mask_inv.sum(-1,keepdim=True) * (1 / epsilon)) 
     sample_indices = torch.distributions.Categorical(sample_probs).sample()
     def update(rewards : Tensor, regret_probs : Tensor):
         state_probs : Tensor = torch.softmax(value(value_data),-1)
@@ -82,28 +83,18 @@ def model_evaluate(value : Module,head : Tensor,policy : Module,is_update_head :
         state_probs_grad, action_fun = calculate()
         reward, action_probs_grad = action_fun(action_probs.detach(),sample_probs)
         if is_update_head: update_head()
-        if is_update_value: 
-            x = state_probs_grad()
-            # value.l2 += (state_probs.detach() * (x.square() / regret_probs)).sum() / x.numel()
-            # value.l1 += (state_probs.detach() * x).sum() / x.numel()
-            # value.count += 1
-            state_probs.backward(x)
+        if is_update_value: state_probs.backward(state_probs_grad())
         if is_update_policy: action_probs.backward(action_probs_grad())
         return reward
     return action_probs, sample_probs, sample_indices, update
 
 def neural_create_model(size,mid=64):
-    # value = torch.nn.Linear(neural.size.value,mid)
-    # policy = torch.nn.Linear(neural.size.policy,neural.size.action)
     value = torch.nn.Sequential(
         torch.nn.Linear(size.value,mid),
         torch.nn.ReLU(inplace=True),
         torch.nn.LayerNorm(mid,elementwise_affine=False),
         torch.nn.Linear(mid,mid)
         )
-    # value.l2 = torch.zeros(())
-    # value.l1 = torch.zeros(())
-    # value.count = torch.zeros(())
     policy = torch.nn.Sequential(
         torch.nn.Linear(size.policy,mid),
         torch.nn.ReLU(inplace=True),
@@ -129,45 +120,7 @@ def run(i_tabular,i_nn,vs_self,vs_one,neural,uniform_player,tabular): # old NN v
     with open(f'dump/nn_agent_{i_nn}.obj','rb') as f: r('regular',*pickle.load(f))
     with open(f'dump/nn_agent_{i_nn}_avg.obj','rb') as f: r('average',*pickle.load(f))
 
-def create_tabular_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular):
-    batch_size = 2 ** 10
-    head_decay = 2 ** -2
-
-    tabular_agent = tabular.create_agent()
-    tabular_avg_agent = tabular.create_agent()
-    def tabular_player(is_update_head=False,is_update_policy=False,epsilon=0.0,agent=tabular_agent): 
-        return tabular.create_policy(agent,is_update_head,is_update_policy,epsilon)
-
-    def run(is_avg : bool = False):
-        tabular.head_multiply_(tabular_agent,head_decay)
-        for a in range(3):
-            vs_self(batch_size,tabular_player(True,False,2 ** -2,agent=tabular_agent))
-        vs_self(batch_size,tabular_player(False,True,2 ** -2,agent=tabular_agent))
-        tabular.optimize(tabular_agent)
-        if is_avg: tabular.average(tabular_avg_agent,tabular_agent)
-
-    def train():
-        print('Training the tabular agent.')
-        for a in range(n):
-            run()
-            if (a + 1) % 30 == 0: print(a+1)
-
-    def avg():
-        print('Averaging the tabular agent.')
-        for a in range(m):
-            run(True)
-            if (a + 1) % 30 == 0: 
-                print(a+1)
-                r : np.ndarray = vs_self(batch_size * 2 ** 4,tabular_player(agent=tabular_agent))
-                print(f'The mean reward is {r.mean()} for the regular agent.')
-                r : np.ndarray = vs_self(batch_size * 2 ** 4,tabular_player(agent=tabular_avg_agent))
-                print(f'The mean reward is {r.mean()} for the average agent.')
-    train()
-    avg()
-    with open(f"dump/agent_{n + m}.obj",'wb') as f: pickle.dump(tabular_agent,f)
-    with open(f"dump/agent_{n + m}_avg.obj",'wb') as f: pickle.dump(tabular_avg_agent,f)
-
-def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self play NN
+def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player): # self play NN
     batch_size = 2 ** 10
     head_decay = 2 ** -2
 
@@ -227,11 +180,11 @@ if __name__ == '__main__':
     pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
     from create_args import main
     args = main()
-    n,m=600,303
-    for _ in range(5):
-        # create_tabular_agent(n//2,m//2,**args)
-        create_nn_agent(n,m,**args)
-        run(451,n+m,**args)
-        run(451,n+2*m,**args)
-        run(451,n+3*m,**args)
-        print("----")
+    # n,m=600,303
+    # for _ in range(5):
+    #     # create_tabular_agent(n//2,m//2,**args)
+    #     create_nn_agent(n,m,**args)
+    #     run(451,n+m,**args)
+    #     run(451,n+2*m,**args)
+    #     run(451,n+3*m,**args)
+    #     print("----")

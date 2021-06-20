@@ -1,5 +1,6 @@
 packages: |core2-
 modules:
+    types-
     conv-
     serialization/
         dense/
