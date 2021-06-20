@@ -1,4 +1,4 @@
-inl main () (stack,human_pid,set : i32 * u8 * _) : () =
+inl main () (stack,human_pid,set : st * u8 * _) : () =
     open hand_scorer
 
     let show_card (x : card) : string =
@@ -63,7 +63,7 @@ inl main () (stack,human_pid,set : i32 * u8 * _) : () =
         loop true (listm.rev l)
         lines
     inl show_trace l = rm.join' "\n" (show_trace' l)
-    let show_terminal (p1,p2,(c,is_showdown) : {hand : i8 * i8; id : u8; pot : i32} * {hand : i8 * i8; id : u8; pot : i32} * _) reward (l : ra u64 string) =
+    let show_terminal (p1,p2,(c,is_showdown) : {hand : i8 * i8; id : u8; pot : _} * {hand : i8 * i8; id : u8; pot : _} * _) reward (l : ra u64 string) =
         inl prefix pid = if pid = 0u8 then "Player One" else "Player Two"
         let hand pid h =
             inl p = prefix pid
@@ -90,28 +90,28 @@ inl main () (stack,human_pid,set : i32 * u8 * _) : () =
     inl p : _-> a _ _ * (a u64 r2 -> _) = agent.uniform.policy
     let rec loop game =
         match train.vs_human game human_pid p with
-        | Terminal: player_state, (p1,p2,(community_card,stack,is_showdown)), reward =>
+        | Terminal: player_state, (p1,p2,(community_card,is_showdown)), reward =>
             inl trace = show_trace' (pl2_observations player_state human_pid) |> show_terminal (p1,p2,(community_card,is_showdown)) reward
             inl actions = record {
                 call = $"False" : obj
                 fold = $"False" : obj
                 raise_to = $"False" : obj
-                raise_min = 0i32
-                raise_max = 0i32
+                raise_min = 0 : st
+                raise_max = 0 : st
                 }
-            inl r : i32 = !!reward human_pid |> fun x => $"round(!x)"
+            inl r = !!reward human_pid |> round
             inl p1,p2 = if human_pid = p1.id then p1,p2 else p2,p1
             inl table_data = record {
                 my_stack = stack + r
-                my_pot = 0i32
+                my_pot = 0 : st
                 my_card = show_hand p1.hand
                 op_stack = stack - r
-                op_pot = 0i32
+                op_pot = 0 : st
                 op_card = show_hand p2.hand
                 community_card = community_card |> am.generic.map show_card |> rm.join' ""
                 }
             set (record {trace actions table_data})
-        | Action: player_state, (p1,p2,(community_card,stack,_)), pid, actions, next =>
+        | Action: player_state, (p1,p2,(community_card,_)), pid, actions, next =>
             inl trace = show_trace (pl2_observations player_state human_pid)
             inl actions = 
                 inl raise_max = 

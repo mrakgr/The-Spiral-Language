@@ -1,7 +1,7 @@
-union action = Fold | Call | RaiseTo: i32
+union action = Fold | Call | RaiseTo: st
 
 type card = hand_scorer.card
-type player = {hand : card * card; id : u8; pot : i32}
+type player = {hand : card * card; id : u8; pot : st}
 type players = player * player
 nominal holdem_state = players * (card * card * card) * card * card
 
@@ -10,16 +10,16 @@ let score ((c1,c2),c3,c4,c5,c6,c7) =
     0 |> f c1 |> f c2 |> f c3 |> f c4 |> f c5 |> f c6 |> f c7
     |> fun hand => hand_scorer.score (hand:)
 
-inl game (stack : i32) = // Stack size should be at least 2.
+inl game stack = // Stack size should be at least 2.
     inl deck : a u64 card = $"numpy.arange(0,52,dtype=numpy.int8)"
     $"numpy.random.shuffle(!deck)"
 
-    inl actions : a i32 action = am.init stack fun i =>
+    inl actions : a _ _ = am.init stack fun i =>
         if i = 0 then Fold
         elif i = 1 then Call
         else RaiseTo: stack - i + 2
 
-    inl actions is_fold (amount_call : i32) (amount_min_raise : i32) : a u64 action =
+    inl actions is_fold amount_call amount_min_raise : a u64 action =
         inl start : i32 = if is_fold then 0 else 1
         inl min_raise = min stack amount_min_raise + if stack = amount_call then 1 else 0
         $"!actions[!start:3+!stack-!min_raise]"
@@ -32,7 +32,7 @@ inl game (stack : i32) = // Stack size should be at least 2.
             inl is_fold = p1.pot <> p2.pot
             inl amount_call = max p1.pot p2.pot
             inl amount_min_raise = amount_call + max 1 (amount_call - min p1.pot p2.pot)
-            inl s = p1,p2,(a community_cards : a u64 _), stack, false // This bool is_showdown.
+            inl s = p1,p2,(a community_cards : a st _), false // This bool is_showdown.
             action s p1.id (actions is_fold amount_call amount_min_raise) function
             | Fold => terminal s (r2 <| f32 if p1.id = 0 then -p1.pot else p1.pot)
             | Call =>
@@ -40,13 +40,13 @@ inl game (stack : i32) = // Stack size should be at least 2.
                 if is_init then betting (p2,{p1 with pot=p2.pot}) else next (p1,p2)
             | RaiseTo: pot =>  betting (p2,{p1 with pot})
 
-    inl pot = 1i32
+    inl pot = 1
     inl id = 0u8
     draw (Some: id) deck fun (c1, deck) =>
     draw (Some: id) deck fun (c2, deck) =>
     inl p1 = {pot id hand = c1,c2}
 
-    inl pot = 2i32
+    inl pot = 2
     inl id = 1u8
     draw (Some: id) deck fun (c1, deck) =>
     draw (Some: id) deck fun (c2, deck) =>
@@ -61,7 +61,7 @@ inl game (stack : i32) = // Stack size should be at least 2.
     betting true (p1,p2) ;[c3;c4;c5;c6] fun p1,p2 => // Turn
     draw None deck fun c7, deck =>
     betting true (p1,p2) ;[c3;c4;c5;c6;c7] fun p1,p2 => // River
-    inl done = terminal (p1,p2,a ;[c3;c4;c5;c6;c7], stack, true) << r2 << f32
+    inl done = terminal (p1,p2,a ;[c3;c4;c5;c6;c7], true) << r2 << f32
     inl b = comp (score (p1.hand,c3,c4,c5,c6,c7)) (score (p2.hand,c3,c4,c5,c6,c7))
     if eq_is b then done 0
     elif gt_is b then done p1.pot

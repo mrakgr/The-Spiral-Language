@@ -96,7 +96,7 @@ inl neural_handler extractor (schema : schema _ _ _) p (data : ra _ _) =
         p (f policy_data, f value_data, f action_mask)
     inl action_probs, sample_probs, sample_indices, update : obj * obj * obj * (obj * obj -> obj) = $"!x[0]", $"!x[1]", $"!x[2]", $"!x[3]"
     inl cs : a u64 _ = am.init num_actions fun b =>
-        inl a : i64 = $"!sample_indices[!b]"
+        inl a : st = $"!sample_indices[!b]"
         log_prob_from {policy= $"!action_probs[!b,!a]"; sample= $"!sample_probs[!b,!a]"}, schema.action.unpickle a
     
     cs, fun (rewards' : a u64 r2) : a u64 r2 =>

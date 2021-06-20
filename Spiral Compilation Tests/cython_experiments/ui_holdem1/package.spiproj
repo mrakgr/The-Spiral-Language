@@ -1,11 +1,12 @@
 packages: |core2-
 modules:
-    utils-
+    conv-
     serialization/
         dense/
             array
         sparse/
             int
+    utils-
     sampling
     nodes-
     train
@@ -13,5 +14,5 @@ modules:
     hu_holdem
     agent/
         uniform
-        neural
+        neural_ff
     create_args 
