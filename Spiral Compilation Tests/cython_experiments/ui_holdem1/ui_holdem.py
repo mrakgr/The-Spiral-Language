@@ -15,6 +15,8 @@ from kivy.app import App
 from kivy.lang import Builder
 from kivy.metrics import dp
 from collections import namedtuple
+from belief import model_evaluate
+import pickle
 
 class Stack(Label):
     chips = NumericProperty(0)
@@ -200,15 +202,9 @@ Builder.load_string('''
                         value: math.log2(50)
 ''')
 
-def run(i_nn,vs_self,vs_one,neural,uniform_player,tabular): # old NN vs old tabular
-    def r(name,value,policy,head):
-        def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
-            return neural.handler(partial(model_evaluate,value,head,policy,is_update_head,is_update_value,is_update_policy,epsilon))
-
-        r : np.ndarray = vs_one(batch_size * 2 ** 8,neural_player(),tabular_player())
-        print(f'The mean is {r.mean()} for the {name} player.')
-    with open(f'dump/nn_agent_{i_nn}.obj','rb') as f: r('regular',*pickle.load(f))
-    with open(f'dump/nn_agent_{i_nn}_avg.obj','rb') as f: r('average',*pickle.load(f))
+def load_neural(path,neural):
+    with open(path,'rb') as f: 
+        return neural.handler(partial(model_evaluate,*pickle.load(f),False,False,False,0.0))
 
 if __name__ == '__main__':
     from kivy.core.window import Window
@@ -224,6 +220,12 @@ if __name__ == '__main__':
     import pyximport
     pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
     from create_args import main
+    args = main()
 
-    app.root.start_game = main()['ui']
+    ui = args['ui']
+    train = args['train']
+    uniform_player = train['uniform_player']
+    neural_player = load_neural('dump/nn_agent_2.nnavg',train['neural'])
+
+    app.root.start_game = ui(neural_player)
     app.run()

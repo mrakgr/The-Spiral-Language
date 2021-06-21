@@ -1,6 +1,11 @@
-import torch
-x = torch.tensor([0,0,1],dtype=torch.float,requires_grad=True)
-b = torch.tensor([0,2,2],dtype=torch.float)
-o = torch.softmax(x,-1)
-o.backward(b)
-x.grad
+import logging
+logging.basicConfig(
+    filename='example.log',
+    level=logging.DEBUG,
+    datefmt='%m/%d/%Y %I:%M:%S %p',
+    format='%(asctime)s %(message)s'
+    )
+logging.debug('This message should go to the log file')
+logging.info('So should this')
+logging.warning('And this, too')
+logging.error('And non-ASCII stuff, too, like')
