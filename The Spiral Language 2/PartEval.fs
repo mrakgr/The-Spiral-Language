@@ -1933,6 +1933,7 @@ let peval (env : TopEnv) (x : E) =
             | _,a -> raise_type_error s "Expected a string as input to failwith.\nGot: %s" (show_data a)
         | EOp(_,FailWith,_) -> raise_type_error s "Malformed FailWith"
         | EOp(_,ErrorType,[a]) -> term s a |> show_data |> raise_type_error s
+        | EOp(_,PrintStatic,[EType(_,a)]) -> printfn "%s" (ty s a |> show_ty); DB
         | EOp(_,PrintStatic,[a]) -> printfn "%s" (term s a |> show_data); DB
         | EOp(_,PrintRaw,[a]) -> printfn "%A" (Printable.eval(Choice1Of2(a,id))); DB
         | EOp(_,UnionTag,[a]) ->

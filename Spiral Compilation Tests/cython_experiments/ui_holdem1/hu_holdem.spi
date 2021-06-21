@@ -32,7 +32,7 @@ inl game stack () = // Stack size should be at least 2.
             inl is_fold = p1.pot <> p2.pot
             inl amount_call = max p1.pot p2.pot
             inl amount_min_raise = amount_call + max 1 (amount_call - min p1.pot p2.pot)
-            inl s = p1,p2,(a community_cards : a st _), false // This bool is_showdown.
+            inl s = p1,p2,(a community_cards : a st _), stack, false // This bool is_showdown.
             action s p1.id (actions is_fold amount_call amount_min_raise) function
             | Fold => terminal s (r2 <| f32 if p1.id = 0 then -p1.pot else p1.pot)
             | Call =>
@@ -61,7 +61,7 @@ inl game stack () = // Stack size should be at least 2.
     betting true (p1,p2) ;[c3;c4;c5;c6] fun p1,p2 => // Turn
     draw None deck fun c7, deck =>
     betting true (p1,p2) ;[c3;c4;c5;c6;c7] fun p1,p2 => // River
-    inl done = terminal (p1,p2,a ;[c3;c4;c5;c6;c7], true) << r2 << f32
+    inl done = terminal (p1,p2,a ;[c3;c4;c5;c6;c7], stack, true) << r2 << f32
     inl b = comp (score (p1.hand,c3,c4,c5,c6,c7)) (score (p2.hand,c3,c4,c5,c6,c7))
     if eq_is b then done 0
     elif gt_is b then done p1.pot

@@ -1,3 +1,4 @@
+from functools import partial
 from kivy.uix.gridlayout import GridLayout
 from kivy.uix.layout import Layout
 from kivy.uix.popup import Popup
@@ -198,6 +199,16 @@ Builder.load_string('''
                         max: math.log2(100)
                         value: math.log2(50)
 ''')
+
+def run(i_nn,vs_self,vs_one,neural,uniform_player,tabular): # old NN vs old tabular
+    def r(name,value,policy,head):
+        def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
+            return neural.handler(partial(model_evaluate,value,head,policy,is_update_head,is_update_value,is_update_policy,epsilon))
+
+        r : np.ndarray = vs_one(batch_size * 2 ** 8,neural_player(),tabular_player())
+        print(f'The mean is {r.mean()} for the {name} player.')
+    with open(f'dump/nn_agent_{i_nn}.obj','rb') as f: r('regular',*pickle.load(f))
+    with open(f'dump/nn_agent_{i_nn}_avg.obj','rb') as f: r('average',*pickle.load(f))
 
 if __name__ == '__main__':
     from kivy.core.window import Window

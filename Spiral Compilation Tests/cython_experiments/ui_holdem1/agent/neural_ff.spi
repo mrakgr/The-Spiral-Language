@@ -15,12 +15,7 @@ inl suit_rank x = hand_scorer.suit x, hand_scorer.rank x
 inl full (suit,rank) = hand_scorer.full (suit:rank:)
 
 inl holdem_extractor' ((player_state : pl2 card action),(p1,p2,community_card,stack,is_showdown : player * player * a st _ * st * bool),pid) = 
-    assert (p1.id = pid) "Expected p1.id to match the pid."
-    inl cards : a _ _ = am.init (2 + length community_card) fun i =>
-        if i = 0 then fst p1.hand
-        elif i = 1 then snd p1.hand
-        else index community_card (i-2)
-    ((stack, p1.pot, p2.pot, cards), pl2_observations player_state pid), p2.hand
+    ((stack, p1.pot, p2.pot, p1.hand, community_card), pl2_observations player_state pid), p2.hand
 
 inl holdem_extractor x = inl (a,b),c = holdem_extractor' x in (a,holdem_obs_to_array b),c
 
@@ -32,15 +27,16 @@ inl holdem_schema () =
         open serialization.dense.array
         inl stack : pu st = bin_int field_size
         inl card = wrap (in:suit_rank out:full) (int 4 ** int 13)
+        inl hand = card ** card
         inl policy =
-            inl oaction = alt {oStreetOver=Unit; oFold=Unit; oCall=Unit; oRaiseTo=stack} : pu oaction
-            (stack ** stack ** stack ** array 7 card) ** array trace_length oaction
-        inl value = policy ** (card ** card)
+            inl oaction = alt {oStreetOver=Unit; oFold=Unit; oCall=Unit; oRaiseTo_=stack} : pu oaction
+            (stack ** stack ** stack ** hand ** array 5 card) ** array trace_length oaction
+        inl value = policy ** hand
         policy,value
     inl action =
         open serialization.sparse.int
         inl raiseTo = wrap (in:(+) -3 out:(+) 3) (int (stack_size-3)) // RaiseTo (3..stack_size) - RaiseTo (0,1,2)
-        alt {fold=Unit; call=Unit; raiseTo=int 100} : pu action
+        alt {fold=Unit; call=Unit; raiseTo_=int 100} : pu action
     schema {policy value action}
 
 inl holdem_cython_schema () =

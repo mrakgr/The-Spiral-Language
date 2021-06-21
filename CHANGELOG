@@ -1,6 +1,7 @@
 WIP
 
 * Added `clear` to the `rm` module.
+* Extended the PrintStatic op so it can print raw types.
 
 2.0.88 (6/15/2021)
 

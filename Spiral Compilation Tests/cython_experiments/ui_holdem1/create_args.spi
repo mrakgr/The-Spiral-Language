@@ -1,4 +1,4 @@
-inl ui_fun player_op (stack,human_pid,set : st * u8 * _) : () =
+inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (stack,human_pid,set : st * u8 * _) : () =
     open hand_scorer
 
     let show_card (x : card) : string =
@@ -89,7 +89,7 @@ inl ui_fun player_op (stack,human_pid,set : st * u8 * _) : () =
     
     let rec loop game =
         match train.vs_human game human_pid player_op with
-        | Terminal: player_state, (p1,p2,(community_card,is_showdown)), reward =>
+        | Terminal: player_state, (p1,p2,(community_card,stack,is_showdown)), reward =>
             inl trace = show_trace' (pl2_observations player_state human_pid) |> show_terminal (p1,p2,(community_card,is_showdown)) reward
             inl actions = record {
                 call = $"False" : obj
@@ -143,9 +143,9 @@ inl ui_fun player_op (stack,human_pid,set : st * u8 * _) : () =
     loop (game stack () pl2_init)
 
 inl main () =
-    inl vs_self = train.vs_self (hu_holdem.game 50)
-    inl vs_one = train.vs_one (hu_holdem.game 50)
-    inl uniform_player = agent.uniform.policy
+    open hu_holdem
+    inl vs_self = train.vs_self (game 50)
+    inl vs_one = train.vs_one (game 50)
+    inl uniform_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * a i16 i8 * i16 * bool) * u8 * a i16 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) = agent.uniform.policy
     inl neural = agent.neural_ff.holdem_cython_schema()
-    inl ui = ui_fun uniform_player
-    record {vs_self vs_one uniform_player neural ui}
+    record {ui train = record {vs_self vs_one uniform_player neural}}

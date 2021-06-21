@@ -55,13 +55,13 @@ inl vs_one game (batch_size, p1, p2) =
                 rm.add rewards (i, x)
         inl rewards_actions =
             if 0 < length pids then
-                inl (p1_cs : a _ _),p1_update = p1 p1_data
-                inl (p2_cs : a _ _),p2_update = p2 p2_data
+                inl p1_cs,p1_update : a _ _ * (a u64 r2 -> a u64 r2) = p1 p1_data
+                inl p2_cs,p2_update : a _ _ * (a u64 r2 -> a u64 r2) = p2 p2_data
                 inl p1_results = am.generic.map2 (<|) p1_nexts p1_cs
                 inl p2_results = am.generic.map2 (<|) p2_nexts p2_cs
                 inl rs = loop (am.append p1_results p2_results)
-                inl p1_rs : a u64 _ = am.slice (from:0 nearTo:length p1_cs) rs |> p1_update
-                inl p2_rs : a u64 _ = am.sliceFrom (length p1_cs) rs |> p2_update
+                inl p1_rs = p1_update $"!rs[:!p1_cs]"
+                inl p2_rs = p2_update $"!rs[!p1_cs:]"
                 am.mapFold (fun (p1_i,p2_i) i => if i = 0 then index p1_rs p1_i,p1_i+1,p2_i else index p2_rs p2_i,p1_i,p2_i+1)
                     (0,0) pids |> fst
             else am.empty
