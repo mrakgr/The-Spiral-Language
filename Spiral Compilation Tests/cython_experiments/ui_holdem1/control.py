@@ -1,4 +1,3 @@
-import pickle
 import logging
 import torch
 import torch.nn
@@ -7,25 +6,35 @@ import numpy as np
 from torch.optim.swa_utils import AveragedModel
 from belief import SignSGD,Head,model_evaluate
 
-def neural_create_model(size,mid=64):
+def neural_create_model(size,size_mid=256,size_head=128):
     value = torch.nn.Sequential(
-        torch.nn.Linear(size.value,mid),
+        torch.nn.Linear(size.value,size_mid),
         torch.nn.ReLU(inplace=True),
-        torch.nn.LayerNorm(mid,elementwise_affine=False),
-        torch.nn.Linear(mid,mid)
+
+        torch.nn.LayerNorm(size_mid,elementwise_affine=False),
+        torch.nn.Linear(size_mid,size_mid),
+        torch.nn.ReLU(inplace=True),
+
+        torch.nn.LayerNorm(size_mid,elementwise_affine=False),
+        torch.nn.Linear(size_mid,size_head)
         )
     policy = torch.nn.Sequential(
-        torch.nn.Linear(size.policy,mid),
+        torch.nn.Linear(size.policy,size_mid),
         torch.nn.ReLU(inplace=True),
-        torch.nn.LayerNorm(mid,elementwise_affine=False),
-        torch.nn.Linear(mid,size.action)
+
+        torch.nn.LayerNorm(size_mid,elementwise_affine=False),
+        torch.nn.Linear(size_mid,size_mid),
+        torch.nn.ReLU(inplace=True),
+        
+        torch.nn.LayerNorm(size_mid,elementwise_affine=False),
+        torch.nn.Linear(size_mid,size.action)
         )
-    head = Head(size.action,mid)
-    return value, policy, head
+    head = Head(size.action,size_head)
+    return value.cuda(), policy.cuda(), head.cuda()
 
 def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player): # self play NN
     batch_size = 2 ** 10
-    head_decay = 2 ** -2
+    head_decay = 1.0 - 2 ** -1
 
     value, policy, head = neural_create_model(neural.size)
     opt = SignSGD([
@@ -39,44 +48,47 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player): # self play NN
     def run(is_avg=False):
         nonlocal head,heada
         opt.zero_grad(True)
-        head *= head_decay
-        vs_self(batch_size,neural_player(True,True,True,2 ** -2))
+        head.decay(head_decay)
+        # vs_self(batch_size,neural_player(True,True,True,2 ** -2))
+        r = vs_one(batch_size,neural_player(True,True,True,2 ** -2),uniform_player)
+        # r = vs_one(batch_size,neural_player(False,False,False,0),uniform_player)
+        logging.info(f"The reward vs the uniform is {r.mean()}")
         opt.step()
 
         if is_avg: valuea.update_parameters(value); policya.update_parameters(policy); heada.update_parameters(head)
 
     def train(n):
-        logging.info('Training the NN agent.')
-        for a in range(n):
-            run()
-            if (a + 1) % 25 == 0: logging.info(a+1)
+        if 0 < n:
+            logging.info('Training the NN agent.')
+            for a in range(n): run()
     def avg(m):
-        logging.info('Averaging the NN agent.')
-        for a in range(m):
-            run(True)
-            if (a + 1) % 25 == 0: 
-                logging.info(a+1)
-                # r : np.ndarray = vs_self(batch_size * 2 ** 4,neural_player())
-                # logging.info(f'The mean reward vs_self is {r.mean()}')
+        if 0 < m:
+            logging.info('Averaging the NN agent.')
+            for a in range(m): run(True)
+    logging.info("** TRAINING START **")
     train(n); avg(m)
-    with open(f"dump/nn_agent_{n+m}.nnreg",'wb') as f: pickle.dump((value,policy,head),f)
-    with open(f"dump/nn_agent_{n+m}.nnavg",'wb') as f: pickle.dump((valuea,policya,heada),f)
+    with open(f"dump/nn_agent_{n+m}.nnreg",'wb') as f: torch.save((value,policy,head),f)
+    with open(f"dump/nn_agent_{n+m}.nnavg",'wb') as f: torch.save((valuea.module,policya.module,heada.module),f)
+    logging.info("** TRAINING DONE **")
 
 if __name__ == '__main__':
-    print("Running...")
-    logging.basicConfig(
-        filename='dump/example.log',
-        level=logging.DEBUG,
-        datefmt='%m/%d/%Y %I:%M:%S %p',
-        format='%(asctime)s %(message)s'
-        )
-
     import numpy as np
     import pyximport
     pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
     from create_args import main
     args = main()['train']
-    n,m=1,1
+    n,m=1000,0
+
+    log_path = 'dump/training.log'
+    logging.basicConfig(
+        filename=log_path,
+        level=logging.DEBUG,
+        datefmt='%m/%d/%Y %I:%M:%S %p',
+        format='%(asctime)s %(message)s'
+        )
+
+    print("Running...")
+    print(f"The details of training are in: {log_path}")
     create_nn_agent(n,m,**args)
     # for _ in range(5):
     #     # create_tabular_agent(n//2,m//2,**args)

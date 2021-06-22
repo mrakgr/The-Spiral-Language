@@ -220,7 +220,7 @@ cdef class Closure2():
         del v5
         v51 = v2(v49, v50)
         del v49; del v50
-        v52 = v51.squeeze(-1).numpy()
+        v52 = v51.squeeze(-1).cpu().numpy()
         del v51
         v53 = len(v52)
         v54 = len(v0)
@@ -404,29 +404,30 @@ cdef class Closure1():
         cdef object v154
         cdef object v155
         cdef object v156
-        cdef numpy.ndarray[object,ndim=1] v157
-        cdef Mut0 v158
-        cdef unsigned long long v160
-        cdef signed short v161
-        cdef float v162
+        cdef object v157
+        cdef numpy.ndarray[object,ndim=1] v158
+        cdef Mut0 v159
+        cdef unsigned long long v161
+        cdef signed short v162
         cdef float v163
         cdef float v164
         cdef float v165
-        cdef bint v166
-        cdef US1 v185
+        cdef float v166
         cdef bint v167
+        cdef US1 v186
         cdef bint v168
-        cdef bint v170
-        cdef signed short v171
-        cdef bint v172
+        cdef bint v169
+        cdef bint v171
+        cdef signed short v172
         cdef bint v173
-        cdef bint v175
-        cdef signed short v176
-        cdef bint v177
-        cdef bint v179
+        cdef bint v174
+        cdef bint v176
+        cdef signed short v177
+        cdef bint v178
         cdef bint v180
-        cdef unsigned long long v186
-        cdef object v187
+        cdef bint v181
+        cdef unsigned long long v187
+        cdef object v188
         pass # import torch
         v2 = len(v1)
         v3 = numpy.zeros((v2,(<signed short>693)),dtype=numpy.float32)
@@ -678,70 +679,72 @@ cdef class Closure1():
         del v4
         v150 = torch.from_numpy(v3)
         del v3
-        v151 = torch.from_numpy(v5)
+        v151 = v5.view('bool')
         del v5
-        v152 = v0(v149, v150, v151)
-        del v149; del v150; del v151
-        v153 = v152[0]
-        v154 = v152[1]
-        v155 = v152[2]
-        v156 = v152[3]
-        del v152
-        v157 = numpy.empty(v2,dtype=object)
-        v158 = Mut0((<unsigned long long>0))
-        while method0(v2, v158):
-            v160 = v158.v0
-            v161 = v155[v160]
-            v162 = v153[v160,v161]
-            v163 = v154[v160,v161]
-            v164 = libc.math.log(v163)
-            v165 = libc.math.log(v162)
-            v166 = v161 < (<signed short>1)
-            if v166:
-                v167 = v161 == (<signed short>0)
-                v168 = v167 == 0
-                if v168:
+        v152 = torch.from_numpy(v151)
+        del v151
+        v153 = v0(v149, v150, v152)
+        del v149; del v150; del v152
+        v154 = v153[0]
+        v155 = v153[1]
+        v156 = v153[2]
+        v157 = v153[3]
+        del v153
+        v158 = numpy.empty(v2,dtype=object)
+        v159 = Mut0((<unsigned long long>0))
+        while method0(v2, v159):
+            v161 = v159.v0
+            v162 = v156[v161]
+            v163 = v154[v161,v162]
+            v164 = v155[v161,v162]
+            v165 = libc.math.log(v164)
+            v166 = libc.math.log(v163)
+            v167 = v162 < (<signed short>1)
+            if v167:
+                v168 = v162 == (<signed short>0)
+                v169 = v168 == 0
+                if v169:
                     raise Exception("The unit index should be 0.")
                 else:
                     pass
-                v185 = US1_0()
+                v186 = US1_0()
             else:
-                v170 = v161 < (<signed short>2)
-                if v170:
-                    v171 = v161 - (<signed short>1)
-                    v172 = v171 == (<signed short>0)
-                    v173 = v172 == 0
-                    if v173:
+                v171 = v162 < (<signed short>2)
+                if v171:
+                    v172 = v162 - (<signed short>1)
+                    v173 = v172 == (<signed short>0)
+                    v174 = v173 == 0
+                    if v174:
                         raise Exception("The unit index should be 0.")
                     else:
                         pass
-                    v185 = US1_1()
+                    v186 = US1_1()
                 else:
-                    v175 = v161 < (<signed short>102)
-                    if v175:
-                        v176 = v161 - (<signed short>2)
-                        v177 = (<signed short>0) <= v176
-                        if v177:
-                            v179 = v176 < (<signed short>100)
+                    v176 = v162 < (<signed short>102)
+                    if v176:
+                        v177 = v162 - (<signed short>2)
+                        v178 = (<signed short>0) <= v177
+                        if v178:
+                            v180 = v177 < (<signed short>100)
                         else:
-                            v179 = 0
-                        v180 = v179 == 0
-                        if v180:
+                            v180 = 0
+                        v181 = v180 == 0
+                        if v181:
                             raise Exception("The index should be less than size.")
                         else:
                             pass
-                        v185 = US1_2(v176)
+                        v186 = US1_2(v177)
                     else:
                         raise Exception("Unpickling of an union failed.")
-            v157[v160] = Tuple2(v165, v164, v185)
-            del v185
-            v186 = v160 + (<unsigned long long>1)
-            v158.v0 = v186
-        del v153; del v154; del v155
-        del v158
-        v187 = Closure2(v1, v2, v156)
-        del v156
-        return Tuple3(v157, v187)
+            v158[v161] = Tuple2(v166, v165, v186)
+            del v186
+            v187 = v161 + (<unsigned long long>1)
+            v159.v0 = v187
+        del v154; del v155; del v156
+        del v159
+        v188 = Closure2(v1, v2, v157)
+        del v157
+        return Tuple3(v158, v188)
 cdef class Closure0():
     def __init__(self): pass
     def __call__(self, v0):
@@ -7498,6 +7501,7 @@ cdef numpy.ndarray[float,ndim=1] method53(v0, v1, numpy.ndarray[object,ndim=1] v
             del v77
             v78 = v72 + (<unsigned long long>1)
             v70.v0 = v78
+        del v61
         del v70
         v79 = len(v8)
         v80 = len(v63)
@@ -7544,11 +7548,11 @@ cdef numpy.ndarray[float,ndim=1] method53(v0, v1, numpy.ndarray[object,ndim=1] v
         del v97
         v106 = method53(v0, v1, v96)
         del v96
-        v107 = v106[:v61]
+        v107 = v106[:v66]
         v108 = v62(v107)
         del v62; del v107
-        v109 = v106[v61:]
-        del v61; del v106
+        v109 = v106[v66:]
+        del v106
         v110 = v64(v109)
         del v64; del v109
         v111 = len(v9)

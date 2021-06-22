@@ -16,7 +16,7 @@ from kivy.lang import Builder
 from kivy.metrics import dp
 from collections import namedtuple
 from belief import model_evaluate
-import pickle
+import torch
 
 class Stack(Label):
     chips = NumericProperty(0)
@@ -176,7 +176,7 @@ Builder.load_string('''
                     size_hint_y: 0.15
                     on_press: 
                         b = 0 if is_p1.active else 1
-                        is_p1.active = is_p1.active == False
+                        is_p1.active = is_p1.active == False if is_toggle_player.active else is_p1.active
                         root.start_game(init_stack_size.pow_value,b,root.set_data) # start_game should be monkey patched.
         AccordionItem:
             min_space: self.parent.min_space
@@ -184,6 +184,13 @@ Builder.load_string('''
             BoxLayout:
                 orientation: 'vertical'
                 size_hint_y: 0.25
+                BoxLayout:
+                    Label:
+                        text: 'Toggle position on new game:'
+                        size_hint_x: 0.4
+                    CheckBox:
+                        id: is_toggle_player
+                        active: True
                 BoxLayout:
                     Label:
                         text: 'Start in first position:'
@@ -204,7 +211,7 @@ Builder.load_string('''
 
 def load_neural(path,neural):
     with open(path,'rb') as f: 
-        return neural.handler(partial(model_evaluate,*pickle.load(f),False,False,False,0.0))
+        return neural.handler(partial(model_evaluate,*torch.load(f),False,False,False,0.0))
 
 if __name__ == '__main__':
     from kivy.core.window import Window
@@ -225,7 +232,7 @@ if __name__ == '__main__':
     ui = args['ui']
     train = args['train']
     uniform_player = train['uniform_player']
-    neural_player = load_neural('dump/nn_agent_2.nnavg',train['neural'])
+    neural_player = load_neural('dump/nn_agent_1000.nnreg',train['neural'])
 
     app.root.start_game = ui(neural_player)
     app.run()

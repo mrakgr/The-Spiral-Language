@@ -10,6 +10,8 @@ class Head(torch.nn.Module):
     def __init__(self,size_action,size_state):
         super(Head, self).__init__()
         self.head = torch.nn.parameter.Parameter(torch.zeros(size_action*2,size_state),requires_grad=False)
+    
+    def decay(self,factor): self.head *= factor
 
 class SignSGD(Optimizer):
     @torch.no_grad()
@@ -58,6 +60,7 @@ def belief_tabulate(state_probs : Tensor,head : Tensor,action_indices : Tensor,a
 
 def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : bool,is_update_value : bool,
         is_update_policy : bool,epsilon : float,policy_data : Tensor,value_data : Tensor,action_mask : Tensor):
+    policy_data, value_data, action_mask = policy_data.cuda(), value_data.cuda(), action_mask.cuda()
     action_raw = torch.masked_fill(policy(policy_data),action_mask,float('-inf'))
     action_probs : Tensor = torch.softmax(action_raw,-1)
     # Interpolates action probs with an uniform noise distribution for actions that aren't masked out.
@@ -67,6 +70,7 @@ def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : b
         sample_probs += action_mask_inv / (action_mask_inv.sum(-1,keepdim=True) * (1 / epsilon)) 
     sample_indices = torch.distributions.Categorical(sample_probs).sample()
     def update(rewards : Tensor, regret_probs : Tensor):
+        rewards, regret_probs = rewards.cuda(), regret_probs.cuda()
         state_probs : Tensor = torch.softmax(value(value_data),-1)
         update_head, calculate = belief_tabulate(state_probs.detach(),head.head.data,sample_indices,rewards,regret_probs)
         state_probs_grad, action_fun = calculate()
@@ -75,4 +79,4 @@ def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : b
         if is_update_value: state_probs.backward(state_probs_grad())
         if is_update_policy: action_probs.backward(action_probs_grad())
         return reward
-    return action_probs, sample_probs, sample_indices, update
+    return action_probs.cpu(), sample_probs.cpu(), sample_indices.cpu(), update
