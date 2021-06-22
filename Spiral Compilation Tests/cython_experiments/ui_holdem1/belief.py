@@ -5,18 +5,21 @@ import torch.nn
 import torch.linalg
 from torch.functional import Tensor
 from torch.nn import Module
+from torch.optim import Optimizer
+from torch.optim.swa_utils import AveragedModel
 
-def signSGD(moduleList : list,learning_rate : float = 2 ** -7):
-    assert (0 <= learning_rate)
-    with torch.no_grad():
-        for module in moduleList:
-            infNorm = torch.scalar_tensor(0)
-            paramGroup = [x for x in module.parameters() if x.grad is not None]
-            for x in paramGroup: infNorm = torch.max(infNorm,torch.linalg.norm(x.grad.flatten(),ord=float('inf')))
-            for x in paramGroup: # The scalars operations are grouped for efficiency.
-                if torch.is_nonzero(infNorm):
-                    x -= learning_rate * torch.sign(x.grad)
-                    x.grad = None
+class Head(torch.nn.Module):
+    def __init__(self,size_action,size_state):
+        super(Head, self).__init__()
+        self.head = torch.nn.parameter.Parameter(torch.zeros(size_action*2,size_state),requires_grad=False)
+
+class signSGD(Optimizer):
+    @torch.no_grad()
+    def step(self):
+        for gr in self.param_groups:
+            for x in gr['params']:
+                if not x.grad is None:
+                    x -= gr['lr'] * torch.sign(x.grad)
 
 def belief_tabulate(state_probs : Tensor,head : Tensor,action_indices : Tensor,at_action_value : Tensor,at_action_weight : Tensor):
     # state_probs[batch_dim,state_dim]
@@ -55,7 +58,7 @@ def belief_tabulate(state_probs : Tensor,head : Tensor,action_indices : Tensor,a
         return state_probs_grad, action_fun
     return update_head, calculate
 
-def model_evaluate(value : Module,policy : Module,head : Tensor,is_update_head : bool,is_update_value : bool,
+def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : bool,is_update_value : bool,
         is_update_policy : bool,epsilon : float,policy_data : Tensor,value_data : Tensor,action_mask : Tensor):
     action_raw = torch.masked_fill(policy(policy_data),action_mask,float('-inf'))
     action_probs : Tensor = torch.softmax(action_raw,-1)
@@ -67,7 +70,7 @@ def model_evaluate(value : Module,policy : Module,head : Tensor,is_update_head :
     sample_indices = torch.distributions.Categorical(sample_probs).sample()
     def update(rewards : Tensor, regret_probs : Tensor):
         state_probs : Tensor = torch.softmax(value(value_data),-1)
-        update_head, calculate = belief_tabulate(state_probs.detach(),head,sample_indices,rewards,regret_probs)
+        update_head, calculate = belief_tabulate(state_probs.detach(),head.head.data,sample_indices,rewards,regret_probs)
         state_probs_grad, action_fun = calculate()
         reward, action_probs_grad = action_fun(action_probs.detach(),sample_probs)
         if is_update_head: update_head()

@@ -140,7 +140,11 @@ def create_tabular_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular):
 
     def run(is_avg : bool = False):
         tabular.head_multiply_(tabular_agent,head_decay)
-        for a in range(3):
+        # 6/22/2021: I do not want to bother testing it right now, but since it works for neural agent training
+        # removing this for loop and updating both the value and the policy at once like...
+        # vs_self(batch_size,tabular_player(True,True,2 ** -2,agent=tabular_agent))
+        # ...should improve computation time by 4x without degrading the agent performance.
+        for a in range(3): 
             vs_self(batch_size,tabular_player(True,False,2 ** -2,agent=tabular_agent))
         vs_self(batch_size,tabular_player(False,True,2 ** -2,agent=tabular_agent))
         tabular.optimize(tabular_agent)
@@ -179,9 +183,9 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
 
     def run(policy_lr,is_avg=False):
         nonlocal head,heada,t 
-        for a in range(3):
-            vs_self(batch_size,neural_player(True,False,False,2 ** -2))
-        vs_self(batch_size,neural_player(False,True,True,2 ** -2))
+        # for a in range(3):
+        #     vs_self(batch_size,neural_player(True,False,False,2 ** -2))
+        vs_self(batch_size,neural_player(True,True,True,2 ** -2))
         optimize([value],learning_rate=2 ** -6)
         optimize([policy],learning_rate=policy_lr)
         head *= head_decay

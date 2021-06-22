@@ -66,6 +66,19 @@
 
 // The algorithm in `control.py` preserves that property when the goal is to learn value functions.
 
+// Update (6/22/2021): As it turns out updating the critic, actor and the critic head all at once
+// improves computation time by 4x without degrading the final performance. I am impressed.
+// Compared to the `Actor-Critic Policy Optimization in Partially Observable Multiagent Environments`
+// paper, my method here gives better final performance while being over a 100 times faster to train.
+// In that paper they update the critic 128 times before updating the actor once.
+
+// I haven't bothered testing this until now, but since I am preping for Holdem, I realized that
+// I really should since if it worked, it could reduce the time it takes to train an agent from a
+// month to a week. One hyperparam I still haven't bothered tuning at all is the head decay.
+
+// A batch of 1024 is enough to cover all of the Leduc's states so I haven't bothered, but for Holdem
+// and bigger games 2 ** -2 might be too strong of a decay.
+
 packages: |core2-
 modules:
     serialization/

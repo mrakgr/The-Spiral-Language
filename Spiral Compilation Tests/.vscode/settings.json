@@ -1,3 +1,5 @@
 {
-    "python.pythonPath": "C:\\Users\\Marko\\anaconda3\\python.exe"
+    "python.pythonPath": "C:\\Users\\Marko\\anaconda3\\python.exe",
+    "python.autoComplete.extraPaths": ["./cython_experiments/ui_holdem1"]
+    
 }
