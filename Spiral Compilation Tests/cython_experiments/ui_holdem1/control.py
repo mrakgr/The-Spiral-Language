@@ -1,15 +1,9 @@
 import pickle
+import logging
 import torch
-import torch.distributions
-import torch.optim
 import torch.nn
-import torch.linalg
-from torch.functional import Tensor
-from torch.nn import Module
 from functools import partial
-from collections import namedtuple
 import numpy as np
-from copy import deepcopy
 from torch.optim.swa_utils import AveragedModel
 from belief import SignSGD,Head,model_evaluate
 
@@ -34,46 +28,49 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player): # self play NN
     head_decay = 2 ** -2
 
     value, policy, head = neural_create_model(neural.size)
-    opt : torch.optim.Optimizer = SignSGD([
+    opt = SignSGD([
         {'params': value.parameters(), 'lr': 2 ** -6},
         {'params': policy.parameters()}
         ],{'lr': 2 ** -8})
     valuea, policya, heada = AveragedModel(value), AveragedModel(policy), AveragedModel(head)
-    t = 1
     def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=2 ** -2): 
         return neural.handler(partial(model_evaluate,value,policy,head,is_update_head,is_update_value,is_update_policy,epsilon))
 
     def run(is_avg=False):
-        nonlocal head,heada,t 
-        vs_self(batch_size,neural_player(True,True,True,2 ** -2))
-        opt.step()
+        nonlocal head,heada
         opt.zero_grad(True)
         head *= head_decay
+        vs_self(batch_size,neural_player(True,True,True,2 ** -2))
+        opt.step()
 
-        if is_avg:
-            valuea.update_parameters(value)
-            policya.update_parameters(policy)
-            heada.update_parameters(head)
+        if is_avg: valuea.update_parameters(value); policya.update_parameters(policy); heada.update_parameters(head)
 
     def train(n):
-        print('Training the NN agent.')
+        logging.info('Training the NN agent.')
         for a in range(n):
             run()
-            if (a + 1) % 25 == 0: print(a+1)
+            if (a + 1) % 25 == 0: logging.info(a+1)
     def avg(m):
-        print('Averaging the NN agent.')
+        logging.info('Averaging the NN agent.')
         for a in range(m):
             run(True)
             if (a + 1) % 25 == 0: 
-                print(a+1)
+                logging.info(a+1)
                 # r : np.ndarray = vs_self(batch_size * 2 ** 4,neural_player())
-                # print(f'The mean reward vs_self is {r.mean()}')
-    train(n)
-    avg(m)
+                # logging.info(f'The mean reward vs_self is {r.mean()}')
+    train(n); avg(m)
     with open(f"dump/nn_agent_{n+m}.nnreg",'wb') as f: pickle.dump((value,policy,head),f)
     with open(f"dump/nn_agent_{n+m}.nnavg",'wb') as f: pickle.dump((valuea,policya,heada),f)
 
 if __name__ == '__main__':
+    print("Running...")
+    logging.basicConfig(
+        filename='dump/example.log',
+        level=logging.DEBUG,
+        datefmt='%m/%d/%Y %I:%M:%S %p',
+        format='%(asctime)s %(message)s'
+        )
+
     import numpy as np
     import pyximport
     pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
@@ -86,4 +83,5 @@ if __name__ == '__main__':
     #     run(451,n+m,**args)
     #     run(451,n+2*m,**args)
     #     run(451,n+3*m,**args)
-    #     print("----")
+    #     logging.info("----")
+    print("Done.")

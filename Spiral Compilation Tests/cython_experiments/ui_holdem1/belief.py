@@ -2,18 +2,16 @@ import torch
 import torch.distributions
 import torch.optim
 import torch.nn
-import torch.linalg
 from torch.functional import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
-from torch.optim.swa_utils import AveragedModel
 
 class Head(torch.nn.Module):
     def __init__(self,size_action,size_state):
         super(Head, self).__init__()
         self.head = torch.nn.parameter.Parameter(torch.zeros(size_action*2,size_state),requires_grad=False)
 
-class signSGD(Optimizer):
+class SignSGD(Optimizer):
     @torch.no_grad()
     def step(self):
         for gr in self.param_groups:
