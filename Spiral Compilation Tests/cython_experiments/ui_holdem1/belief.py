@@ -59,18 +59,22 @@ def belief_tabulate(state_probs : Tensor,head : Tensor,action_indices : Tensor,a
     return update_head, calculate
 
 def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : bool,is_update_value : bool,
-        is_update_policy : bool,epsilon : float,policy_data : Tensor,value_data : Tensor,action_mask : Tensor):
-    policy_data, value_data, action_mask = policy_data.cuda(), value_data.cuda(), action_mask.cuda()
+        is_update_policy : bool,epsilon : float,policy_data_size : Tensor,value_data : Tensor,action_mask : Tensor):
+    value_data, action_mask = value_data.cuda(), action_mask.cuda()
+    policy_data = value_data[:,:policy_data_size]
     action_raw = torch.masked_fill(policy(policy_data),action_mask,float('-inf'))
     action_probs : Tensor = torch.softmax(action_raw,-1)
-    # Interpolates action probs with an uniform noise distribution for actions that aren't masked out.
-    sample_probs = action_probs.detach() * (1 - epsilon)
     if 0 < epsilon: 
+        # Interpolates action probs with an uniform noise distribution for actions that aren't masked out.
+        sample_probs = action_probs.detach() * (1 - epsilon)
         action_mask_inv = torch.logical_not(action_mask)
         sample_probs += action_mask_inv / (action_mask_inv.sum(-1,keepdim=True) * (1 / epsilon)) 
+    else:
+        sample_probs = action_probs.detach()
     sample_indices = torch.distributions.Categorical(sample_probs).sample()
-    def update(rewards : Tensor, regret_probs : Tensor):
-        rewards, regret_probs = rewards.cuda(), regret_probs.cuda()
+    def update(rewards_and_regret_probs : Tensor):
+        rewards_and_regret_probs = torch.from_numpy(rewards_and_regret_probs).cuda().view(2,-1,1)
+        rewards, regret_probs = rewards_and_regret_probs[0,:,:], rewards_and_regret_probs[1,:,:]
         state_probs : Tensor = torch.softmax(value(value_data),-1)
         update_head, calculate = belief_tabulate(state_probs.detach(),head.head.data,sample_indices,rewards,regret_probs)
         state_probs_grad, action_fun = calculate()
@@ -78,5 +82,5 @@ def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : b
         if is_update_head: update_head()
         if is_update_value: state_probs.backward(state_probs_grad())
         if is_update_policy: action_probs.backward(action_probs_grad())
-        return reward
-    return action_probs.cpu(), sample_probs.cpu(), sample_indices.cpu(), update
+        return reward.squeeze(-1).cpu().numpy()
+    return action_probs.detach().cpu().numpy(), epsilon, sample_indices.cpu().numpy(), update

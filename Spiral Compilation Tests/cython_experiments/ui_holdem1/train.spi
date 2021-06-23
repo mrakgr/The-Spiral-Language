@@ -83,32 +83,34 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
     inl action_size = serialization.sparse.int.size schema.action
     inl num_actions = length data
     inl value_data : a2 f32 = $"numpy.zeros((!num_actions,!value_size),dtype=numpy.float32)"
-    inl policy_data : a2 f32 = $"!value_data[:,:!policy_size]"
     inl action_mask : a2 i8 = $"numpy.ones((!num_actions,!action_size),dtype=numpy.int8)"
-    data |> am.iteri fun num_action (player_state,game_state,pid,data) =>
+    data |> am.iteri fun num_action (player_state,game_state,pid,actions) =>
         schema.value.pickle (extractor (player_state,game_state,pid)) (0, $"!value_data[!num_action,:]")
-        data |> am.iter (schema.action.pickle >> fun x => $"!action_mask[!num_action,!x] = 0")
+        actions |> am.iter (schema.action.pickle >> fun x => $"!action_mask[!num_action,!x] = 0")
 
     inl x : obj =
         inl f x = $"torch.from_numpy(!x)" : obj
-        policy_value_action_eval (f policy_data, f value_data, f ($"!action_mask.view('bool')" : obj))
-    inl action_probs, sample_probs, sample_indices, update : obj * obj * obj * (obj * obj -> obj) = $"!x[0]", $"!x[1]", $"!x[2]", $"!x[3]"
+        policy_value_action_eval (policy_size, f value_data, f ($"!action_mask.view('bool')" : obj))
+    inl action_probs, epsilon, sample_indices, update : a2 f32 * f32 * a u64 i64 * (a u64 f32 -> a u64 f32) = 
+        $"!x[0]", $"!x[1]", $"!x[2]", $"!x[3]"
     inl cs : a u64 _ = am.init num_actions fun b =>
-        inl a : st = $"!sample_indices[!b]"
-        log_prob_from {policy= $"!action_probs[!b,!a]"; sample= $"!sample_probs[!b,!a]"}, schema.action.unpickle a
+        inl a = index sample_indices b
+        inl policy = $"!action_probs[!b,!a]"
+        inl num_actions_at_index = index data b |> fun _,_,_,actions => length actions |> f32
+        inl sample = epsilon / num_actions_at_index + (1 - epsilon) * policy
+        log_prob_from {policy sample}, schema.action.unpickle (conv_int a)
     
     cs, fun (rewards' : a u64 r2) : a u64 r2 =>
-        inl rewards, regret_probs : a _ _ * a _ _ = create num_actions, create num_actions
+        inl rewards_and_regret_probs : a _ _ = create (2*num_actions)
         am.generic.iteri2 (fun num_action reward (player_state,game_state,pid,actions) =>
+            inl reward = !!reward pid
+            set rewards_and_regret_probs num_action reward
+
             inl regret_prob =
                 inl prob = pl2_probs player_state pid
                 inl env_prob = prob.chance +@ prob.op
                 exp (-prob.self.sample + (env_prob.policy - env_prob.sample))
-            set regret_probs num_action regret_prob
-            set rewards num_action (!!reward pid)
+            set rewards_and_regret_probs (num_actions+num_action) regret_prob
             ) rewards' data
-        inl rewards : a _ _ = 
-            inl f x = $"torch.from_numpy(numpy.expand_dims(!x,-1))"
-            inl x = update (f rewards, f regret_probs)
-            $"!x.squeeze(-1).cpu().numpy()"
+        inl rewards = update rewards_and_regret_probs
         am.generic.map2 (fun a (_,_,pid,_) => if pid = 0 then r2 a else r2 -a) rewards data

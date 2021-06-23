@@ -1,4 +1,6 @@
 import logging
+import time
+import timeit
 import torch
 import torch.nn
 from functools import partial
@@ -66,10 +68,13 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player): # self play NN
             logging.info('Averaging the NN agent.')
             for a in range(m): run(True)
     logging.info("** TRAINING START **")
+    t1 = time.perf_counter()
     train(n); avg(m)
     with open(f"dump/nn_agent_{n+m}.nnreg",'wb') as f: torch.save((value,policy,head),f)
     with open(f"dump/nn_agent_{n+m}.nnavg",'wb') as f: torch.save((valuea.module,policya.module,heada.module),f)
     logging.info("** TRAINING DONE **")
+    t2 = time.perf_counter()
+    logging.info(f"TIME ELAPSED: {t2-t1:0.4f}")
 
 if __name__ == '__main__':
     import numpy as np
@@ -77,7 +82,7 @@ if __name__ == '__main__':
     pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
     from create_args import main
     args = main()['train']
-    n,m=1000,0
+    n,m=30,0
 
     log_path = 'dump/training.log'
     logging.basicConfig(
@@ -89,7 +94,8 @@ if __name__ == '__main__':
 
     print("Running...")
     print(f"The details of training are in: {log_path}")
-    create_nn_agent(n,m,**args)
+    print(timeit.timeit(lambda: create_nn_agent(n,m,**args), number=10))
+    
     # for _ in range(5):
     #     # create_tabular_agent(n//2,m//2,**args)
     #     run(451,n+m,**args)
