@@ -94,7 +94,8 @@ if __name__ == '__main__':
 
     print("Running...")
     print(f"The details of training are in: {log_path}")
-    print(timeit.timeit(lambda: create_nn_agent(n,m,**args), number=10))
+    for _ in range(5):
+        print(timeit.timeit(lambda: create_nn_agent(n,m,**args), number=10))
     
     # for _ in range(5):
     #     # create_tabular_agent(n//2,m//2,**args)
