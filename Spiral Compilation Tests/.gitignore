@@ -1,5 +1,5 @@
-.nnreg
-.nnavg
+*.nnreg
+*.nnavg
 .fake
 .ionide
 *.pyd
