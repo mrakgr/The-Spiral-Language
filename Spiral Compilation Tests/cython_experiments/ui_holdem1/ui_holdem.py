@@ -232,7 +232,7 @@ if __name__ == '__main__':
     ui = args['ui']
     train = args['train']
     uniform_player = train['uniform_player']
-    neural_player = load_neural('dump/nn_agent_1000.nnreg',train['neural'])
+    neural_player = load_neural('dump copy/nn_agent_3000.nnreg',train['neural'])
 
     app.root.start_game = ui(neural_player)
     app.run()
