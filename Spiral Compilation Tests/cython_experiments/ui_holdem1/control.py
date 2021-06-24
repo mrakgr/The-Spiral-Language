@@ -36,7 +36,8 @@ def neural_create_model(size,size_mid=256,size_head=128):
 
 def create_nn_agent(iter_train,iter_avg,iter_chk,vs_self,vs_one,neural,uniform_player): # self play NN
     assert ((iter_train + iter_avg) % iter_chk == 0)
-    batch_size = 2 ** 10
+    batch_size = 2 ** 14
+    favg_iter = 100
     head_decay = 1.0 - 2 ** -2
 
     value, policy, head = neural_create_model(neural.size)
@@ -45,19 +46,27 @@ def create_nn_agent(iter_train,iter_avg,iter_chk,vs_self,vs_one,neural,uniform_p
         {'params': policy.parameters()}
         ],{'lr': 2 ** -8})
 
-    def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(iter_chk, t + 1)
-    valuea, policya, heada = AveragedModel(value,avg_fn=avg_fn), AveragedModel(policy,avg_fn=avg_fn), AveragedModel(head,avg_fn=avg_fn)
-    def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
+    def make_avg(max_t):
+        def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(max_t, t + 1)
+        return AveragedModel(value,avg_fn=avg_fn), AveragedModel(policy,avg_fn=avg_fn), AveragedModel(head,avg_fn=avg_fn)
+
+    valuea, policya, heada = make_avg(iter_chk) # The slow average
+    # valuefa, policyfa, headfa = make_avg(favg_iter) # The fast average
+
+    def neural_player(value,policy,head,is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
         return neural.handler(partial(model_evaluate,value,policy,head,is_update_head,is_update_value,is_update_policy,epsilon))
 
     def run(is_avg=False):
         nonlocal head,heada
         opt.zero_grad(True)
         head.decay(head_decay)
-        vs_self(batch_size,neural_player(True,True,True,2 ** -2))
-        # r = vs_one(batch_size,neural_player(True,True,True,2 ** -2),uniform_player)
-        # logging.info(f"The reward vs the uniform is {r.mean()}")
+        pl = neural_player(value,policy,head,True,True,True,2 ** -2)
+        for _ in range(2 ** 3): vs_self(50)(batch_size,pl)
+        # plfa = neural_player(valuefa.module,policyfa.module,headfa.module)
+        # vs_one(batch_size // 2,pl,plfa)
+        # vs_one(batch_size // 2,plfa,pl)
         opt.step()
+        # valuefa.update_parameters(value); policyfa.update_parameters(policy); headfa.update_parameters(head)
 
         if is_avg: valuea.update_parameters(value); policya.update_parameters(policy); heada.update_parameters(head)
 
@@ -94,12 +103,5 @@ if __name__ == '__main__':
 
     print("Running...")
     print(f"The details of training are in: {log_path}")
-    create_nn_agent(2_000,30_000,2_000,**args)
-    
-    # for _ in range(5):
-    #     # create_tabular_agent(n//2,m//2,**args)
-    #     run(451,n+m,**args)
-    #     run(451,n+2*m,**args)
-    #     run(451,n+3*m,**args)
-    #     logging.info("----")
+    create_nn_agent(2_000 // 4,30_000 // 4,2_000 // 4,**args)
     print("Done.")

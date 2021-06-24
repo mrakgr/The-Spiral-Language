@@ -12,7 +12,8 @@ class Head(torch.nn.Module):
         super(Head, self).__init__()
         self.head = torch.nn.parameter.Parameter(torch.zeros(size_action*2,size_state),requires_grad=False)
     
-    def decay(self,factor): self.head *= factor
+    def decay(self,factor): 
+        if factor != 1.0: self.head *= factor
 
 class SignSGD(Optimizer):
     @torch.no_grad()

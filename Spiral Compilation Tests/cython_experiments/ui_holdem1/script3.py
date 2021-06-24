@@ -1,6 +1,9 @@
-import time
+import torch
+import torch.nn
+from torch.optim.swa_utils import AveragedModel
 
-a = time.perf_counter()
-time.sleep(2)
-b = time.perf_counter()
-print(f'{b-a:0.4f}')
+a = torch.nn.Linear(2,2,False)
+b = AveragedModel(a)
+b.requires_grad_(False)
+a.weight.requires_grad
+b.module.weight.requires_grad

@@ -144,8 +144,8 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (stack,human_p
 
 inl main () =
     open hu_holdem
-    inl vs_self = train.vs_self (game 50)
-    inl vs_one = train.vs_one (game 50)
+    inl vs_self stack = train.vs_self (game stack)
+    inl vs_one stack = train.vs_one (game stack)
     inl uniform_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * a i16 i8 * i16 * bool) * u8 * a i16 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) = agent.uniform.policy
     inl neural = agent.neural_ff.holdem_cython_schema()
     record {ui train = record {vs_self vs_one uniform_player neural}}
