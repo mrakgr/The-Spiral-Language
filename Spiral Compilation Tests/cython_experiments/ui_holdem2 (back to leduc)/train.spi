@@ -86,8 +86,8 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
     inl action_mask : a2 i8 = $"numpy.ones((!num_actions,!action_size),dtype=numpy.int8)"
     data |> am.iteri fun num_action (player_state,game_state,pid,actions) =>
         inl x = extractor (player_state,game_state,pid)
-        open serialization.dense.array
-        assert (deserialize schema.value (serialize schema.value x) = x) "!!!!"
+        // open serialization.dense.array
+        // assert (deserialize schema.value (serialize schema.value x) = x) "!!!!"
         schema.value.pickle x (0, $"!value_data[!num_action,:]")
         actions |> am.iter (schema.action.pickle >> fun x => $"!action_mask[!num_action,!x] = 0")
 

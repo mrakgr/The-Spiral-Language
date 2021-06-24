@@ -31,6 +31,7 @@ inl Game =
         callOnly = a ;[Call]
         }
     inl deckInit = a ;[King; Queen; Jack; King; Queen; Jack]
+    $"numpy.random.shuffle(!deckInit)"
 
     inl pot = 1i32
     inl id = 0u8

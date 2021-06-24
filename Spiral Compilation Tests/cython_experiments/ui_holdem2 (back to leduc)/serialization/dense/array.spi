@@ -61,11 +61,11 @@ inl bin_int forall t {number;int}. size : pu t =
             |> fun x => x - 1, if 0 < x then 1 else 0
         }
 
-inl array' forall t. is_part_of_union size (pu el : pu t) : pu (a st t) =
+// When used in an union should be wrapped in an option, and have their empty elements be None.
+inl array forall t. size (pu el : pu t) : pu (a st t) =
     pu {size = size * el.size
         pickle = fun x (i,s : state) =>
             if size < length x then failwith "The given array is too large."
-            if is_part_of_union && 0 = length x then failwith "The given array must be non-empty when a part of an union."
             am.iteri (fun idx x => el.pickle x (i + idx * el.size,s)) x
         unpickle = fun (~from,s : state) => join
             inl tmp : a _ _ = create size
@@ -80,10 +80,8 @@ inl array' forall t. is_part_of_union size (pu el : pu t) : pu (a st t) =
                         if c' <> 0 then failwith "Expected an inactive subsequence in the array unpickler."
                         c
                     ) 0
-            am.init c (index tmp), if 0 < c then 1 else 0
+            am.init c (index tmp), 1
         }
-
-inl array x  = array' false x
 
 inl pair (pu a') (pu b') =
     pu {size = a'.size + b'.size

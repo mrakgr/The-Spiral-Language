@@ -144,10 +144,10 @@ if __name__ == '__main__':
     from create_args_leduc import main
     args = main()
     n,m=600,303
-    for _ in range(5):
-        # create_tabular_agent(n//2,m//2,**args)
-        create_nn_agent(n,m,**args)
-        run(451,n+m,**args)
-        run(451,n+2*m,**args)
-        run(451,n+3*m,**args)
-        print("----")
+    # for _ in range(5):
+    create_tabular_agent(n//2,m//2,**args)
+    create_nn_agent(n,m,**args)
+    run(451,n+m,**args)
+    run(451,n+2*m,**args)
+    run(451,n+3*m,**args)
+    print("----")
