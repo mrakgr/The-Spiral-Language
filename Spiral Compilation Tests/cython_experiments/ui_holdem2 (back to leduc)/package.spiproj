@@ -1,0 +1,28 @@
+// I made a lot of changes in ui_holdem1 in order to adapt the algorithm for Holdem, but even the simplest agents aren't 
+// getting trained properly which makes me suspect that I might have introduced errors.
+
+// What I will do here is take the code from ui_holdem1 and see if it still works on the ui_leduc18 game.
+
+packages: |core2-
+modules:
+    types-
+    conv-
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    sampling
+    nodes-
+    train
+    hand_scorer
+    hu_holdem
+    leduc
+    agent/
+        uniform
+        tabular
+        neural_ff_holdem
+        neural_ff_leduc
+    create_args_leduc
+    create_args_holdem

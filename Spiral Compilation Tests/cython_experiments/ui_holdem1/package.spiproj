@@ -1,3 +1,7 @@
+// I am not off to a good start here. The algorithm does not work at all on Holdem.
+// No matter how I train, I just get aggrodonks out of the process.
+// I did a lot of optimization work which might have introduced bugs.
+
 packages: |core2-
 modules:
     types-
