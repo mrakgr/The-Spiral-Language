@@ -61,27 +61,32 @@ inl bin_int forall t {number;int}. size : pu t =
             |> fun x => x - 1, if 0 < x then 1 else 0
         }
 
-// When used in an union should be wrapped in an option, and have their empty elements be None.
 inl array forall t. size (pu el : pu t) : pu (a st t) =
-    pu {size = size * el.size
-        pickle = fun x (i,s : state) =>
-            if size < length x then failwith "The given array is too large."
-            am.iteri (fun idx x => el.pickle x (i + idx * el.size,s)) x
-        unpickle = fun (~from,s : state) => join
-            inl tmp : a _ _ = create size
-            inl c = 
-                loop.for (from:0 nearTo:size) (fun i c =>
-                    inl from = from + i * el.size
-                    inl x, c' = el.unpickle (from,s)
-                    if i = c then
-                        if c' = 1 then set tmp i x
-                        c + c'
-                    else
-                        if c' <> 0 then failwith "Expected an inactive subsequence in the array unpickler."
-                        c
-                    ) 0
-            am.init c (index tmp), 1
-        }
+    inl unpickle (~from,s : state) : a _ _ * _ =
+        inl tmp : a _ _ = create size
+        inl c = 
+            inl c = index s from
+            if c = 1 || c = 0 then conv_num c else failwith "Unpickle failure. The array emptiness flag should be 1 or 0."
+        inl c' = 
+            inl from = from + 1
+            loop.for (from:0 nearTo:size) (fun i c =>
+                inl from = from + i * el.size
+                inl x, c' = el.unpickle (from,s)
+                if i = c then
+                    if c' = 1 then set tmp i x
+                    c + c'
+                else
+                    if c' <> 0 then failwith "Unpickle failure. Expected an inactive subsequence in the array unpickler."
+                    c
+                ) 0
+        if c = 1 && 0 < c' then failwith "Unpickle failure. Empty arrays should not have active elements."
+        am.init c' (index tmp), min 1 (c + c')
+    inl pickle x (i,s : state) =
+        if size < length x then failwith "Pickle failure. The given array is too large."
+        if length x = 0 then set s i 1
+        inl i = i + 1
+        am.iteri (fun idx x => el.pickle x (i + idx * el.size,s)) x
+    pu { pickle unpickle size = size * el.size + 1 }
 
 inl pair (pu a') (pu b') =
     pu {size = a'.size + b'.size
@@ -116,9 +121,6 @@ inl alt forall t r. (l : r) : pu t =
     inl offsets, size = real
         open real_core
         record_foldl (fun (state:(m,s) key:value:) => inl (pu p) = value in {m with $key=s}, s + p.size) ({},zero) l
-    inl pickle (m : t) (i,s : state) : () = real
-        open real_core
-        unbox m (fun (k,v) => inl (pu p) = l k in p.pickle v (i + offsets k,s))
     inl unpickle (i,s : state) : t * st = real
         open real_core
         inl x = 
@@ -137,6 +139,9 @@ inl alt forall t r. (l : r) : pu t =
                 ) () x
         if one < c then failwith `(()) "Unpickling failure. Only a single case of an union type should be active at most."
         case, c
+    inl pickle (m : t) (i,s : state) : () = real
+        open real_core
+        unbox m (fun (k,v) => inl (pu p) = l k in p.pickle v (i + offsets k,s))
     pu {size pickle unpickle}
     
 inl option forall t. (a : pu t) : pu (option t) = alt { some_ = a; none = Unit }

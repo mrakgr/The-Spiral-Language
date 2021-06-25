@@ -145,9 +145,10 @@ if __name__ == '__main__':
     args = main()
     n,m=600,303
     # for _ in range(5):
-    create_tabular_agent(n//2,m//2,**args)
-    create_nn_agent(n,m,**args)
-    run(451,n+m,**args)
-    run(451,n+2*m,**args)
-    run(451,n+3*m,**args)
+    # create_tabular_agent(n//2,m//2,**args)
+    # create_nn_agent(n,m,**args)
+    create_nn_agent(1,0,**args)
+    # run(451,n+m,**args)
+    # run(451,n+2*m,**args)
+    # run(451,n+3*m,**args)
     print("----")
