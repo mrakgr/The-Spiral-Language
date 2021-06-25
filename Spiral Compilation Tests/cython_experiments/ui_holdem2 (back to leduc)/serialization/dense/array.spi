@@ -19,7 +19,7 @@ inl int forall t {number;int}. size : pu t =
     pu {size
         pickle = fun x (i,s : state) =>
             if 0 <= x && conv_int x < size then set s (i + conv_int x) 1
-            else failwith "Value out of bounds."
+            else failwith $"f'Pickle failure. Int value out of bounds. Got: {!x} Size: {!size}'"
         unpickle = fun (from,s : state) =>
             inl ~(from,nearTo) = from, from+size
             join
@@ -51,7 +51,7 @@ inl bin_int forall t {number;int}. size : pu t =
                     set s (i + conv_int i') (f32 (x / q))
                     x % q
                     ) (x + 1) |> ignore
-            else failwith "Value out of bounds."
+            else failwith $"f'Pickle failure. Bin int value out of bounds. Got: {!x} Size: {!size}'"
         unpickle = fun ~(from,s : state) => join
             loop.for (from: 0 nearTo: size) (fun i' w =>
                 inl x = index s (from + i')

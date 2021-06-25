@@ -9,6 +9,10 @@ from torch.optim.swa_utils import AveragedModel
 from belief import SignSGD,Head,model_evaluate
 
 def neural_create_model(size,size_mid=256,size_head=128):
+    def Zero(a,b):
+        x = torch.nn.Linear(a,b)
+        with torch.no_grad(): x.weight.fill_(0.0); x.bias.fill_(0.0)
+        return x
     value = torch.nn.Sequential(
         torch.nn.Linear(size.value,size_mid),
         torch.nn.ReLU(inplace=True),
@@ -18,8 +22,10 @@ def neural_create_model(size,size_mid=256,size_head=128):
         torch.nn.ReLU(inplace=True),
 
         torch.nn.LayerNorm(size_mid,elementwise_affine=False),
-        torch.nn.Linear(size_mid,size_head)
+        torch.nn.Linear(size_mid,size.action * size_head)
         )
+    value.square_l2 = torch.scalar_tensor(0.0).cuda()
+    value.t = 0
     policy = torch.nn.Sequential(
         torch.nn.Linear(size.policy,size_mid),
         torch.nn.ReLU(inplace=True),
@@ -29,7 +35,7 @@ def neural_create_model(size,size_mid=256,size_head=128):
         torch.nn.ReLU(inplace=True),
         
         torch.nn.LayerNorm(size_mid,elementwise_affine=False),
-        torch.nn.Linear(size_mid,size.action)
+        Zero(size_mid,size.action)
         )
     head = Head(size.action,size_head)
     return value.cuda(), policy.cuda(), head.cuda()
@@ -37,13 +43,13 @@ def neural_create_model(size,size_mid=256,size_head=128):
 def create_nn_agent(iter_train,iter_avg,iter_chk,iter_static,vs_self,vs_one,neural,uniform_player): # self play NN
     assert ((iter_train + iter_avg) % iter_chk == 0)
     batch_size = 2 ** 10
-    head_decay = 2 ** -2
+    head_decay = 1.0
 
     value, policy, head = neural_create_model(neural.size)
     opt = SignSGD([
-        {'params': value.parameters(), 'lr': 2 ** -6},
+        {'params': value.parameters(), 'lr': 2 ** -10},
         {'params': policy.parameters()}
-        ],{'lr': 2 ** -8})
+        ],{'lr': 2 ** -12})
 
     def make_avg(max_t):
         def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(max_t, t + 1)
@@ -56,16 +62,20 @@ def create_nn_agent(iter_train,iter_avg,iter_chk,iter_static,vs_self,vs_one,neur
 
     def run(is_avg=False):
         nonlocal head,heada
-        pl = neural_player(value,policy,head,True,True,True,2 ** -2)
-        plc = neural_player(deepcopy(value),deepcopy(policy),deepcopy(head))
+        pl = neural_player(value,policy,head,True,True,False,2 ** -2)
+        # plc = neural_player(deepcopy(value),deepcopy(policy),deepcopy(head))
+        plc = uniform_player
         logging.info('Training vs static.')
         head.decay(head_decay)
         for _ in range(iter_static):
             opt.zero_grad(True)
-            r1 = vs_one(10)(batch_size // 2,pl,plc)
-            r2 = vs_one(10)(batch_size // 2,plc,pl)
-            logging.info(f"The mean is {(r1.mean()-r2.mean()) / 2}")
+            r1 = vs_one(10)(batch_size * 8,pl,plc)
+            r2 = vs_one(10)(batch_size * 8,plc,pl)
+            logging.debug(f"The l2 loss of the value grads is {torch.sqrt(value.square_l2 / value.t)}")
+            # logging.info(f"The mean is {(r1.mean()-r2.mean()) / 2}")
             opt.step()
+            value.square_l2.fill_(0.0)
+            value.t = 0
 
         if is_avg: valuea.update_parameters(value); policya.update_parameters(policy); heada.update_parameters(head)
 

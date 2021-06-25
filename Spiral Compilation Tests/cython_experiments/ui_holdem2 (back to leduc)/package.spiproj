@@ -22,7 +22,7 @@ modules:
     agent/
         uniform
         tabular
-        neural_ff_holdem
         neural_ff_leduc
+        neural_ff_holdem
     create_args_leduc
     create_args_holdem

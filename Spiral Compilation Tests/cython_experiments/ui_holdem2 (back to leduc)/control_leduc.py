@@ -17,7 +17,7 @@ def neural_create_model(size,mid=64):
         torch.nn.Linear(size.value,mid),
         torch.nn.ReLU(inplace=True),
         torch.nn.LayerNorm(mid,elementwise_affine=False),
-        torch.nn.Linear(mid,mid)
+        torch.nn.Linear(mid,size.action * mid)
         )
     # value.l2 = torch.zeros(())
     # value.l1 = torch.zeros(())
@@ -111,7 +111,6 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
         head.decay(head_decay)
 
         if is_avg: valuea.update_parameters(value); policya.update_parameters(policy); heada.update_parameters(head)
-            
 
     def train(policy_lr,n):
         print('Training the NN agent.')
@@ -144,11 +143,10 @@ if __name__ == '__main__':
     from create_args_leduc import main
     args = main()
     n,m=600,303
-    # for _ in range(5):
-    # create_tabular_agent(n//2,m//2,**args)
-    # create_nn_agent(n,m,**args)
-    create_nn_agent(1,0,**args)
-    # run(451,n+m,**args)
-    # run(451,n+2*m,**args)
-    # run(451,n+3*m,**args)
-    print("----")
+    for _ in range(5):
+        create_tabular_agent(n//2,m//2,**args)
+        create_nn_agent(n,m,**args)
+        run(451,n+m,**args)
+        run(451,n+2*m,**args)
+        run(451,n+3*m,**args)
+        print("----")

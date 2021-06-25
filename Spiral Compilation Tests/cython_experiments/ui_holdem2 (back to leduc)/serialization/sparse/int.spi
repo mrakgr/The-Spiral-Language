@@ -13,15 +13,17 @@ inl Unit =
 
 inl int size : pu el =
     pu {size
-        pickle = fun x => assert (0 <= x && x < size) "Value out of bounds." . x
-        unpickle = fun i => assert (0 <= i && i < size) "The index should be less than size." . i
+        pickle = fun x => 
+            if (0 <= x && x < size) = false then failwith $"f'Pickle failure. Int value out of bounds. Got: {!x} Size: {!size}'"
+            x
+        unpickle = fun i => assert (0 <= i && i < size) "Unpickle failure. The index should be less than size." . i
         }
 
 inl array forall t. size (pu el : pu t) : pu (a u64 t) =
     inl fullSize = loop.for (from:0 nearTo: size) (fun i s => s * el.size) 1
     pu {size = fullSize
         pickle = fun x =>
-            assert (size = length x) "The array must match the given size."
+            assert (size = length x) "Pickle failure. The array must match the given size."
             am.foldBack (fun x (s,dim) => el.pickle x * dim, s * dim) x (0,1) |> fst
         unpickle = fun i => 
             inl ar = create size
@@ -74,7 +76,7 @@ inl alt forall t r. (l : r) : pu t =
             inl {from nearTo} = offsets k
             if i < nearTo then nominal_create `t (k,p.unpickle (i - from))
             else next()
-            ) `r (fun _ => failwith `t "Unpickling of an union failed.") ()
+            ) `r (fun _ => failwith `t "Unpickle failure. Unpickling of an union failed.") ()
     pu {size pickle unpickle}
     
 inl option forall t. (a : pu t) : pu (option t) = alt { some_ = a; none = Unit }

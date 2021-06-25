@@ -20,7 +20,7 @@ inl holdem_extractor' ((player_state : pl2 card action),(p1,p2,community_card,st
 inl holdem_extractor x = inl (a,b),c = holdem_extractor' x in (a,holdem_obs_to_array b),c
 
 inl holdem_schema () =
-    inl stack_size = 50
+    inl stack_size = 10 + 1 // Don't forget the extra 1 at the end.
     inl field_size = 6 // Can represent 2 ** field_size - 1 binary values in the serializer.
     inl trace_length = stack_size + 8 // RaiseTo (3..stack_size) - RaiseTo (0,1,2) + 3 OStreetOver + 4 Check + 4 Call.
     inl policy,value =
@@ -35,8 +35,9 @@ inl holdem_schema () =
         policy,value
     inl action =
         open serialization.sparse.int
-        inl raiseTo = wrap (in:(+) -3 out:(+) 3) (int (stack_size-3)) // RaiseTo (3..stack_size) - RaiseTo (0,1,2)
-        alt {fold=Unit; call=Unit; raiseTo_=int 100} : pu action
+        alt {fold=Unit; call=Unit; 
+            raiseTo_ = wrap (in:(+) -3 out:(+) 3) (int (stack_size-3)) // RaiseTo (3..stack_size) - RaiseTo (0,1,2)
+            } : pu action
     schema {policy value action}
 
 inl holdem_cython_schema () =

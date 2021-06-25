@@ -1,6 +1,7 @@
+import logging
 from functools import partial
 import torch
-import torch.distributions
+from torch.distributions import Categorical
 import torch.optim
 import torch.nn
 from torch.functional import Tensor
@@ -48,7 +49,10 @@ def belief_tabulate(state_probs : Tensor,head : Tensor,action_indices : Tensor,a
         def action_fun(action_probs : Tensor, sample_probs : Tensor): # Implements the VR MC-CFR update. Could be easily adapted to train an ensemble of actors.
             # policy_probs[batch_dim,action_dim]
             # sample_probs[batch_dim,action_dim]
+
+            # TODO: This one is broken. Fix it tomorrow.
             prediction_values_for_action = state_probs.mm(values.t()) # [batch_dim,action_dim]
+            
             at_action_sample_probs = torch.gather(sample_probs,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
             at_action_prediction_value = torch.gather(prediction_values_for_action,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
             at_action_prediction_adjustment = (at_action_value - at_action_prediction_value).div_(at_action_sample_probs) # [batch_dim,1]
@@ -73,16 +77,31 @@ def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : b
         sample_probs += action_mask_inv / (action_mask_inv.sum(-1,keepdim=True) * (1 / epsilon)) 
     else:
         sample_probs = action_probs.detach()
-    sample_indices = torch.distributions.Categorical(sample_probs).sample()
+    sample_indices = Categorical(sample_probs).sample()
     def update(rewards_and_regret_probs : Tensor):
         rewards_and_regret_probs = torch.from_numpy(rewards_and_regret_probs).cuda().view(2,-1,1)
         rewards, regret_probs = rewards_and_regret_probs[0,:,:], rewards_and_regret_probs[1,:,:]
-        state_probs : Tensor = torch.softmax(value(value_data),-1)
+        action_state_probs : Tensor = torch.softmax(value(value_data).view(len(rewards),sample_probs.shape[1],-1),-1)
+        state_probs = action_state_probs[torch.arange(len(action_state_probs)),sample_indices]
         update_head, calculate = belief_tabulate(state_probs.detach(),head.head.data,sample_indices,rewards,regret_probs)
         state_probs_grad, action_fun = calculate()
         reward, action_probs_grad = action_fun(action_probs.detach(),sample_probs)
         if is_update_head: update_head()
-        if is_update_value: state_probs.backward(state_probs_grad())
-        if is_update_policy: action_probs.backward(action_probs_grad())
+        if is_update_value: 
+            g = state_probs_grad()
+            value.square_l2 += (state_probs.detach() * (g.square() / regret_probs)).mean(-1).sum()
+            value.t += g.shape[0]
+            state_probs.backward(g)
+        if is_update_policy: 
+            # n = 5
+            g = action_probs_grad()
+            # torch.set_printoptions(profile="full")
+            # logging.debug(f'action_probs (first {n-1})')
+            # logging.debug(action_probs[:n,:])
+            # logging.debug('action_probs_entropy (mean)')
+            # logging.debug(Categorical(action_probs).entropy().mean())
+            # logging.debug(f'action_probs_grad (first {n-1})')
+            # logging.debug(g[:n,:])
+            action_probs.backward(g)
         return reward.squeeze(-1).cpu().numpy()
     return action_probs.detach().cpu().numpy(), epsilon, sample_indices.cpu().numpy(), update
