@@ -44,7 +44,8 @@ def belief_tabulate(state_probs : Tensor,head : Tensor,action_indices : Tensor,a
         def state_probs_grad(): # Prediction errors modulate the state probabilities.
             prediction_values_for_state = values[action_indices,:] # [batch_dim,state_dim]
             prediction_errors = torch.abs_(at_action_value - prediction_values_for_state) # [batch_dim,state_dim]
-            return prediction_errors.mul_(at_action_weight) # [batch_dim,state_dim]
+            # TODO: return prediction_errors.mul_(at_action_weight) # [batch_dim,state_dim]
+            return prediction_errors
 
         def action_fun(action_probs : Tensor, sample_probs : Tensor): # Implements the VR MC-CFR update. Could be easily adapted to train an ensemble of actors.
             # policy_probs[batch_dim,action_dim]
@@ -89,7 +90,19 @@ def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : b
         if is_update_head: update_head()
         if is_update_value: 
             g = state_probs_grad()
-            value.square_l2 += (state_probs.detach() * (g.square() / regret_probs)).mean(-1).sum()
+            torch.set_printoptions(profile="full",sci_mode=False)
+            n = 20
+            logging.debug(f'entropy (first {n-1})')
+            ent = Categorical(state_probs).entropy()
+            logging.debug(ent[:n])
+            logging.debug(f'entropy (mean)')
+            logging.debug(ent.mean())
+            l1 = (state_probs.detach() * g).sum(-1)
+            logging.debug(f'l1 (first {n-1})')
+            logging.debug(l1[:n])
+            logging.debug(f'l1 (mean)')
+            logging.debug(l1.mean())
+            value.square_l2 += (state_probs.detach() * (g.square() / regret_probs)).sum(-1).sum()
             value.t += g.shape[0]
             state_probs.backward(g)
         if is_update_policy: 

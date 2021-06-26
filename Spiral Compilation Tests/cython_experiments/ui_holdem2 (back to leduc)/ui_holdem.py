@@ -226,13 +226,13 @@ if __name__ == '__main__':
     import numpy as np
     import pyximport
     pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
-    from create_args import main
+    from create_args_holdem import main
     args = main()
 
     ui = args['ui']
     train = args['train']
     uniform_player = train['uniform_player']
-    neural_player = load_neural('dump/nn_agent_9.nnreg',train['neural'])
+    # neural_player = load_neural('dump/nn_agent_9.nnreg',train['neural'])
 
-    app.root.start_game = ui(neural_player)
+    app.root.start_game = ui(uniform_player)
     app.run()

@@ -67,7 +67,7 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (stack,human_p
         inl prefix pid = if pid = 0u8 then "Player One" else "Player Two"
         let hand pid h =
             inl p = prefix pid
-            inl score = score (h, index c 0, index c 1, index c 2, index c 3, index c 4)
+            inl score = score h c
             inl s = show_score score
             inl h = show_complete_hand score.hand
             rm.add l $"f'{!p} shows {!s} {!h}'"
@@ -140,12 +140,12 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (stack,human_p
                 community_card = community_card |> am.generic.map show_card |> rm.join' ""
                 }
             set (record {trace actions table_data})
-    loop (game stack () pl2_init)
+    loop (game true stack () pl2_init)
 
 inl main () =
     open hu_holdem
-    inl vs_self stack = train.vs_self (game stack)
-    inl vs_one stack = train.vs_one (game stack)
+    inl vs_self stack = train.vs_self (game true stack)
+    inl vs_one stack = train.vs_one (game true stack)
     inl uniform_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * a i16 i8 * i16 * bool) * u8 * a i16 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) = agent.uniform.policy
     inl neural = agent.neural_ff_holdem.holdem_cython_schema()
     record {ui train = record {vs_self vs_one uniform_player neural}}

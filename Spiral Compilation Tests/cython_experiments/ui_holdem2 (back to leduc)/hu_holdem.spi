@@ -5,12 +5,12 @@ type player = {hand : card * card; id : u8; pot : st}
 type players = player * player
 nominal holdem_state = players * (card * card * card) * card * card
 
-let score ((c1,c2),c3,c4,c5,c6,c7) =
+let score (c1,c2) cs =
     inl f (c : i8) (h : hand_scorer.hand) = h ||| (1 <<< i32 c)
-    0 |> f c1 |> f c2 |> f c3 |> f c4 |> f c5 |> f c6 |> f c7
+    0 |> f c1 |> f c2 |> am.foldBack f cs
     |> fun hand => hand_scorer.score (hand:)
 
-inl game stack () = // Stack size should be at least 2.
+inl game is_flop_only stack () = // Stack size should be at least 2.
     inl deck : a st card = $"numpy.arange(0,52,dtype=numpy.int8)"
     $"numpy.random.shuffle(!deck)"
 
@@ -32,7 +32,7 @@ inl game stack () = // Stack size should be at least 2.
             inl is_fold = p1.pot <> p2.pot
             inl amount_call = max p1.pot p2.pot
             inl amount_min_raise = amount_call + max 1 (amount_call - min p1.pot p2.pot)
-            inl s = p1,p2,(a community_cards : a st _), stack, false // This bool is_showdown.
+            inl s = p1,p2,(community_cards : a st _), stack, false // This bool is_showdown.
             action s p1.id (actions is_fold amount_call amount_min_raise) function
             | Fold => terminal s (r2 <| f32 if p1.id = 0 then -p1.pot else p1.pot)
             | Call =>
@@ -51,18 +51,28 @@ inl game stack () = // Stack size should be at least 2.
     draw (Some: id) deck fun (c1, deck) =>
     draw (Some: id) deck fun (c2, deck) =>
     inl p2 = {pot id hand = c1,c2}
-    
-    betting true (p1,p2) ;[] fun p1,p2 => // Preflop
-    draw None deck fun c3, deck =>
-    draw None deck fun c4, deck =>
-    draw None deck fun c5, deck =>
-    betting true (p1,p2) ;[c3;c4;c5] fun p1,p2 => // Flop
-    draw None deck fun c6, deck =>
-    betting true (p1,p2) ;[c3;c4;c5;c6] fun p1,p2 => // Turn
-    draw None deck fun c7, deck =>
-    betting true (p1,p2) ;[c3;c4;c5;c6;c7] fun p1,p2 => // River
-    inl done = terminal (p1,p2,a ;[c3;c4;c5;c6;c7], stack, true) << r2 << f32
-    inl b = comp (score (p1.hand,c3,c4,c5,c6,c7)) (score (p2.hand,c3,c4,c5,c6,c7))
-    if eq_is b then done 0
-    elif gt_is b then done p1.pot
-    else done -p1.pot
+
+    let showdown cs (p1,p2 : players) =
+        inl done = terminal (p1,p2,cs, stack, true) << r2 << f32
+        inl b = comp (score p1.hand cs) (score p2.hand cs)
+        if eq_is b then done 0
+        elif gt_is b then done p1.pot
+        else done -p1.pot
+
+    if is_flop_only then
+        draw None deck fun c3, deck =>
+        draw None deck fun c4, deck =>
+        draw None deck fun c5, deck =>
+        inl cs = a ;[c3;c4;c5]
+        betting true (p1,p2) cs (showdown cs) // Flop
+    else    
+        betting true (p1,p2) (a ;[]) fun p1,p2 => // Preflop
+        draw None deck fun c3, deck =>
+        draw None deck fun c4, deck =>
+        draw None deck fun c5, deck =>
+        betting true (p1,p2) (a ;[c3;c4;c5]) fun p1,p2 => // Flop
+        draw None deck fun c6, deck =>
+        betting true (p1,p2) (a ;[c3;c4;c5;c6]) fun p1,p2 => // Turn
+        draw None deck fun c7, deck =>
+        inl cs = a ;[c3;c4;c5;c6;c7]
+        betting true (p1,p2) cs (showdown cs) // River
