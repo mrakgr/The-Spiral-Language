@@ -2,7 +2,7 @@ from copy import deepcopy
 import logging
 import time
 import torch
-from torch.nn import Linear
+from torch.nn import Linear,LazyLinear
 from torch.nn.functional import normalize
 from functools import partial
 import numpy as np
@@ -16,18 +16,30 @@ class ResidualInfNormedTrip(InfNormedTrip):
     def __init__(self,size): super().__init__(size,size)
     def forward(self,x): return super().forward(x) + x
 
+class DenseInfNormedTrip(torch.nn.LazyLinear):
+    def forward(self,x): 
+        y = normalize(super().forward(x) ** 3,p=float('inf'),dim=-1)
+        return torch.stack((y,x),1).view(x.shape[0],-1)
+
 def neural_create_model(size,size_mid=256,size_head=128):
     def Zero(a,b):
         x = torch.nn.Linear(a,b)
         with torch.no_grad(): x.weight.fill_(0.0); x.bias.fill_(0.0)
         return x
     # value = torch.nn.Linear(size.value,size.action * size_head)
+    # value = torch.nn.Sequential(
+    #     InfNormedTrip(size.value,size_mid),
+    #     ResidualInfNormedTrip(size_mid),
+    #     ResidualInfNormedTrip(size_mid),
+    #     ResidualInfNormedTrip(size_mid),
+    #     Linear(size_mid,size.action * size_head)
+    #     )
     value = torch.nn.Sequential(
-        InfNormedTrip(size.value,size_mid),
-        ResidualInfNormedTrip(size_mid),
-        ResidualInfNormedTrip(size_mid),
-        ResidualInfNormedTrip(size_mid),
-        Linear(size_mid,size.action * size_head)
+        DenseInfNormedTrip(size_mid // 2),
+        DenseInfNormedTrip(size_mid // 2),
+        DenseInfNormedTrip(size_mid // 2),
+        DenseInfNormedTrip(size_mid // 2),
+        LazyLinear(size.action * size_head)
         )
     value.square_l2 = torch.scalar_tensor(0.0).cuda()
     value.t = torch.scalar_tensor(0.0).cuda()
