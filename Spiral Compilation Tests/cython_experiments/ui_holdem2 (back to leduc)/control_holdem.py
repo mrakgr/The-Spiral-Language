@@ -2,31 +2,35 @@ from copy import deepcopy
 import logging
 import time
 import torch
-import torch.nn
+from torch.nn import Linear
+from torch.nn.functional import normalize
 from functools import partial
 import numpy as np
 from torch.optim.swa_utils import AveragedModel
 from belief import SignSGD,Head,model_evaluate
+
+class InfNormedTrip(torch.nn.Linear):
+    def forward(self,x): return normalize(super().forward(x) ** 3,p=float('inf'),dim=-1)
+
+class ResidualInfNormedTrip(InfNormedTrip):
+    def __init__(self,size): super().__init__(size,size)
+    def forward(self,x): return super().forward(x) + x
 
 def neural_create_model(size,size_mid=256,size_head=128):
     def Zero(a,b):
         x = torch.nn.Linear(a,b)
         with torch.no_grad(): x.weight.fill_(0.0); x.bias.fill_(0.0)
         return x
-    value = torch.nn.Linear(size.value,size.action * size_head)
-    # value = torch.nn.Sequential(
-    #     torch.nn.Linear(size.value,size_mid),
-    #     torch.nn.ReLU(inplace=True),
-
-    #     torch.nn.LayerNorm(size_mid,elementwise_affine=False),
-    #     torch.nn.Linear(size_mid,size_mid),
-    #     torch.nn.ReLU(inplace=True),
-
-    #     torch.nn.LayerNorm(size_mid,elementwise_affine=False),
-    #     torch.nn.Linear(size_mid,size.action * size_head)
-    #     )
+    # value = torch.nn.Linear(size.value,size.action * size_head)
+    value = torch.nn.Sequential(
+        InfNormedTrip(size.value,size_mid),
+        ResidualInfNormedTrip(size_mid),
+        ResidualInfNormedTrip(size_mid),
+        ResidualInfNormedTrip(size_mid),
+        Linear(size_mid,size.action * size_head)
+        )
     value.square_l2 = torch.scalar_tensor(0.0).cuda()
-    value.t = 0
+    value.t = torch.scalar_tensor(0.0).cuda()
     policy = Zero(size.policy,size.action)
     # policy = torch.nn.Sequential(
     #     torch.nn.Linear(size.policy,size_mid),
@@ -42,14 +46,14 @@ def neural_create_model(size,size_mid=256,size_head=128):
     head = Head(size.action,size_head)
     return value.cuda(), policy.cuda(), head.cuda()
 
-def create_nn_agent(iter_train,iter_avg,iter_chk,iter_static,vs_self,vs_one,neural,uniform_player): # self play NN
+def create_nn_agent(iter_train,iter_avg,iter_chk,iter_static,vs_self,vs_one,neural,uniform_player,callbot_player): # self play NN
     assert ((iter_train + iter_avg) % iter_chk == 0)
     batch_size = 2 ** 10
     head_decay = 0.5
 
     value, policy, head = neural_create_model(neural.size)
     opt = SignSGD([
-        {'params': value.parameters(), 'lr': 2 ** -5},
+        {'params': value.parameters(), 'lr': 2 ** -10},
         {'params': policy.parameters()}
         ],{'lr': 2 ** -12})
 
@@ -66,14 +70,15 @@ def create_nn_agent(iter_train,iter_avg,iter_chk,iter_static,vs_self,vs_one,neur
         nonlocal head,heada
         pl = neural_player(value,policy,head,True,True,False,2 ** -2)
         # plc = neural_player(deepcopy(value),deepcopy(policy),deepcopy(head))
-        plc = uniform_player
+        # plc = uniform_player
+        plc = callbot_player
         logging.info('Training vs static.')
         head.decay(head_decay)
         for _ in range(iter_static):
             opt.zero_grad(True)
             r1 = vs_one(10)(batch_size // 2,pl,plc)
             r2 = vs_one(10)(batch_size // 2,plc,pl)
-            logging.debug(f"The l2 loss of the value grads is {torch.sqrt(value.square_l2 / value.t)}")
+            logging.debug(f"The l2 loss value prediction error is {torch.sqrt(value.square_l2 / value.t)}")
             # logging.info(f"The mean is {(r1.mean()-r2.mean()) / 2}")
             opt.step()
             value.square_l2.fill_(0.0)
@@ -88,9 +93,9 @@ def create_nn_agent(iter_train,iter_avg,iter_chk,iter_static,vs_self,vs_one,neur
         is_avg = iter_train < i
         run(is_avg)
         if i % iter_chk == 0: 
-            with open(f"dump/nn_agent_{i}.nnreg",'wb') as f: torch.save((value,policy,head),f)
+            with open(f"dump holdem/nn_agent_{i}.nnreg",'wb') as f: torch.save((value,policy,head),f)
             if is_avg:
-                with open(f"dump/nn_agent_{i}.nnavg",'wb') as f: torch.save((valuea.module,policya.module,heada.module),f)
+                with open(f"dump holdem/nn_agent_{i}.nnavg",'wb') as f: torch.save((valuea.module,policya.module,heada.module),f)
             logging.info(f'Checkpoint {i}')
 
     logging.info("** TRAINING DONE **")
@@ -104,7 +109,7 @@ if __name__ == '__main__':
     from create_args_holdem import main
     args = main()['train']
 
-    log_path = 'dump/training.log'
+    log_path = 'dump holdem/training.log'
     logging.basicConfig(
         filename=log_path,
         level=logging.DEBUG,
@@ -114,5 +119,5 @@ if __name__ == '__main__':
 
     print("Running...")
     print(f"The details of training are in: {log_path}")
-    create_nn_agent(5,0,1,40,**args)
+    create_nn_agent(150,0,1,40,**args)
     print("Done.")

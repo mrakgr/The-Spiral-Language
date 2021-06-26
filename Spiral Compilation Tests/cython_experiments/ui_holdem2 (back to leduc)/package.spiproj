@@ -21,6 +21,7 @@ modules:
     leduc
     agent/
         uniform
+        holdem_callbot
         tabular
         neural_ff_leduc
         neural_ff_holdem

@@ -19,9 +19,6 @@ def neural_create_model(size,mid=64):
         torch.nn.LayerNorm(mid,elementwise_affine=False),
         torch.nn.Linear(mid,size.action * mid)
         )
-    # value.l2 = torch.zeros(())
-    # value.l1 = torch.zeros(())
-    # value.count = torch.zeros(())
     policy = torch.nn.Sequential(
         torch.nn.Linear(size.policy,mid),
         torch.nn.ReLU(inplace=True),
@@ -33,7 +30,7 @@ def neural_create_model(size,mid=64):
 
 def run(i_tabular,i_nn,vs_self,vs_one,neural,uniform_player,tabular): # old NN vs old tabular
     batch_size = 2 ** 10
-    with open(f'dump/agent_{i_tabular}_avg.obj','rb') as f: tabular_agent_old = pickle.load(f)
+    with open(f'dump leduc/agent_{i_tabular}_avg.obj','rb') as f: tabular_agent_old = pickle.load(f)
 
     def r(name,value,policy,head):
         def tabular_player(is_update_head=False,is_update_policy=False,epsilon=0.0,tabular_agent=tabular_agent_old): 
@@ -44,8 +41,8 @@ def run(i_tabular,i_nn,vs_self,vs_one,neural,uniform_player,tabular): # old NN v
 
         r : np.ndarray = vs_one(batch_size * 2 ** 8,neural_player(),tabular_player())
         print(f'The mean is {r.mean()} for the {name} player.')
-    with open(f'dump/nn_agent_{i_nn}.obj','rb') as f: r('regular',*pickle.load(f))
-    with open(f'dump/nn_agent_{i_nn}_avg.obj','rb') as f: r('average',*pickle.load(f))
+    with open(f'dump leduc/nn_agent_{i_nn}.obj','rb') as f: r('regular',*pickle.load(f))
+    with open(f'dump leduc/nn_agent_{i_nn}_avg.obj','rb') as f: r('average',*pickle.load(f))
 
 def create_tabular_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular):
     batch_size = 2 ** 10
@@ -86,8 +83,8 @@ def create_tabular_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular):
                 print(f'The mean reward is {r.mean()} for the average agent.')
     train()
     avg()
-    with open(f"dump/agent_{n + m}.obj",'wb') as f: pickle.dump(tabular_agent,f)
-    with open(f"dump/agent_{n + m}_avg.obj",'wb') as f: pickle.dump(tabular_avg_agent,f)
+    with open(f"dump leduc/agent_{n + m}.obj",'wb') as f: pickle.dump(tabular_agent,f)
+    with open(f"dump leduc/agent_{n + m}_avg.obj",'wb') as f: pickle.dump(tabular_avg_agent,f)
 
 def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self play NN
     batch_size = 2 ** 10
@@ -103,7 +100,7 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
     def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=2 ** -2): 
         return neural.handler(partial(model_evaluate,value,policy,head,is_update_head,is_update_value,is_update_policy,epsilon))
 
-    def run(policy_lr,is_avg=False):
+    def run(is_avg=False):
         nonlocal head,heada,t 
         opt.zero_grad(True)
         vs_self(batch_size,neural_player(True,True,True,2 ** -2))
@@ -112,29 +109,24 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
 
         if is_avg: valuea.update_parameters(value); policya.update_parameters(policy); heada.update_parameters(head)
 
-    def train(policy_lr,n):
+    def train(n):
         print('Training the NN agent.')
         for a in range(n):
-            run(policy_lr=policy_lr)
+            run()
             if (a + 1) % 25 == 0: print(a+1)
-    def avg(policy_lr,m):
+    def avg(m):
         print('Averaging the NN agent.')
         for a in range(m):
-            run(policy_lr,True)
+            run(True)
             if (a + 1) % 25 == 0: 
                 print(a+1)
                 # r : np.ndarray = vs_self(batch_size * 2 ** 4,neural_player())
                 # print(f'The mean reward vs_self is {r.mean()}')
-    train(2 ** -8,n)
-    avg(2 ** -8,m)
+    train(n); avg(m)
     def dump(i):
-        with open(f"dump/nn_agent_{i}.obj",'wb') as f: pickle.dump((value,policy,head),f)
-        with open(f"dump/nn_agent_{i}_avg.obj",'wb') as f: pickle.dump((valuea.module,policya.module,heada.module),f)
-    dump(n+m)
-    avg(2 ** -8,m)
-    dump(n+2*m)
-    avg(2 ** -8,m)
-    dump(n+3*m)
+        with open(f"dump leduc/nn_agent_{i}.obj",'wb') as f: pickle.dump((value,policy,head),f)
+        with open(f"dump leduc/nn_agent_{i}_avg.obj",'wb') as f: pickle.dump((valuea.module,policya.module,heada.module),f)
+    dump(n+m); avg(m); dump(n+2*m); avg(m); dump(n+3*m)
 
 if __name__ == '__main__':
     import numpy as np
@@ -142,11 +134,11 @@ if __name__ == '__main__':
     pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
     from create_args_leduc import main
     args = main()
-    n,m=600,303
+    n,m=300,150
+    # create_tabular_agent(n,m,**args)
     for _ in range(5):
-        create_tabular_agent(n//2,m//2,**args)
         create_nn_agent(n,m,**args)
-        run(451,n+m,**args)
-        run(451,n+2*m,**args)
-        run(451,n+3*m,**args)
+        run(n+m,n+m,**args)
+        run(n+m,n+2*m,**args)
+        run(n+m,n+3*m,**args)
         print("----")
