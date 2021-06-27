@@ -7,6 +7,7 @@ import torch.nn
 from torch.functional import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
+from torch.nn.functional import normalize
 
 class Head(torch.nn.Module):
     def __init__(self,size_action,size_state):
@@ -17,12 +18,47 @@ class Head(torch.nn.Module):
         if factor != 1.0: self.head *= factor
 
 class SignSGD(Optimizer):
+    """
+    Does a step in the direction of the sign of the gradient.
+    """
+    def __init__(self,params,default=dict(lr=2 ** -10,momentum=0.9)):
+        super().__init__(params,default)
+
     @torch.no_grad()
     def step(self):
         for gr in self.param_groups:
             for x in gr['params']:
                 if not x.grad is None:
-                    x -= gr['lr'] * torch.sign(x.grad)
+                    momentum, lr = gr['momentum'], gr['lr']
+                    if momentum == 0.0:
+                        x -= lr * torch.sign(x.grad)
+                    else:
+                        x_state = self.state.get(x)
+                        if x_state is None: x_state = {}; self.state[x] = x_state
+                        m = x_state.get('momentum_params')
+                        if m is None: m = torch.zeros_like(x); x_state['momentum_params'] = m
+                        m += (x.grad - m) * (1 - momentum)
+                        x -= lr * torch.sign(m)
+
+def inf_trip(x : Tensor): 
+    o = x ** 3
+    return o / o.norm(p=float('inf'),dim=-1,keepdim=True)
+def abs_trip(x : Tensor):
+    o = (x ** 3).abs()
+    return o / o.sum(dim=-1,keepdim=True)
+def normed_square(x : Tensor):
+    o = x.square()
+    return o / o.sum(dim=-1,keepdim=True)
+
+class InfTrip(torch.nn.Linear):
+    def forward(self,x): return inf_trip(super().forward(x))
+
+class ResInfTrip(InfTrip):
+    def __init__(self,size): super().__init__(size,size)
+    def forward(self,x): return super().forward(x) + x
+
+class DenseInfTrip(torch.nn.Linear):
+    def forward(self,x): return torch.cat((inf_trip(x),x),1)
 
 def belief_tabulate(action_state_probs : Tensor, state_probs : Tensor,head : Tensor,action_indices : Tensor,at_action_value : Tensor,at_action_weight : Tensor):
     # action_state_probs[batch_dim,action_dim,state_dim]
@@ -71,8 +107,10 @@ def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : b
         is_update_policy : bool,epsilon : float,policy_data_size : Tensor,value_data : Tensor,action_mask : Tensor):
     value_data, action_mask = value_data.cuda(), action_mask.cuda()
     policy_data = value_data[:,:policy_data_size]
-    action_raw = torch.masked_fill(policy(policy_data),action_mask,float('-inf'))
-    action_probs : Tensor = torch.softmax(action_raw,-1)
+    # action_raw = torch.masked_fill(policy(policy_data),action_mask,float('-inf'))
+    # action_probs : Tensor = torch.softmax(action_raw,-1)
+    action_raw = torch.masked_fill(policy(policy_data),action_mask,0.0)
+    action_probs : Tensor = normed_square(action_raw)
     if 0 < epsilon: 
         # Interpolates action probs with an uniform noise distribution for actions that aren't masked out.
         sample_probs = action_probs.detach() * (1 - epsilon)
@@ -84,9 +122,7 @@ def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : b
     def update(rewards_and_regret_probs : Tensor):
         rewards_and_regret_probs = torch.from_numpy(rewards_and_regret_probs).cuda().view(2,-1,1)
         rewards, regret_probs = rewards_and_regret_probs[0,:,:], rewards_and_regret_probs[1,:,:]
-        o : Tensor = value(value_data).view(len(rewards),sample_probs.shape[1],-1)
-        abs_ooo = (o ** 3).abs()
-        action_state_probs : Tensor = abs_ooo / abs_ooo.sum(-1,keepdim=True)
+        action_state_probs : Tensor = normed_square(value(value_data).view(len(rewards),sample_probs.shape[1],-1))
         state_probs = action_state_probs[torch.arange(len(action_state_probs)),sample_indices]
         update_head, calculate = belief_tabulate(action_state_probs.detach(),state_probs.detach(),head.head.data,sample_indices,rewards,regret_probs)
         state_probs_grad, action_fun = calculate()
@@ -94,19 +130,11 @@ def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : b
         if is_update_head: update_head()
         if is_update_value: 
             g,pred_ers = state_probs_grad()
-            value.square_l2 += (pred_ers.square() * regret_probs).sum()
-            value.t += regret_probs.sum()
+            # value.square_l2 += (pred_ers.square() * regret_probs).sum()
+            # value.t += regret_probs.sum()
             state_probs.backward(g)
         if is_update_policy: 
-            # n = 5
             g = action_probs_grad()
-            # torch.set_printoptions(profile="full")
-            # logging.debug(f'action_probs (first {n-1})')
-            # logging.debug(action_probs[:n,:])
-            # logging.debug('action_probs_entropy (mean)')
-            # logging.debug(Categorical(action_probs).entropy().mean())
-            # logging.debug(f'action_probs_grad (first {n-1})')
-            # logging.debug(g[:n,:])
             action_probs.backward(g)
         return reward.squeeze(-1).cpu().numpy()
     return action_probs.detach().cpu().numpy(), epsilon, sample_indices.cpu().numpy(), update

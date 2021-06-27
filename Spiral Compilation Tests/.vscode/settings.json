@@ -1,9 +1,9 @@
 {
     "python.pythonPath": "C:\\Users\\Marko\\anaconda3\\python.exe",
     "python.autoComplete.extraPaths": [
-        "./cython_experiments/ui_holdem1"
+        "./cython_experiments/ui_holdem2 (back to leduc)"
     ],
     "python.analysis.extraPaths": [
-        "./cython_experiments/ui_holdem1"
+        "./cython_experiments/ui_holdem2 (back to leduc)"
     ]
 }

@@ -2,30 +2,23 @@ import pickle
 import torch
 import torch.distributions
 import torch.optim
-import torch.nn
+from torch.nn import Linear
 import torch.linalg
 from functools import partial
 import numpy as np
-from copy import deepcopy
-from belief import SignSGD,Head,model_evaluate
+from belief import SignSGD,Head,model_evaluate,InfTrip
 from torch.optim.swa_utils import AveragedModel
 
-def neural_create_model(size,mid=64):
-    # value = torch.nn.Linear(neural.size.value,mid)
-    # policy = torch.nn.Linear(neural.size.policy,neural.size.action)
+def neural_create_model(size,size_mid=64,size_head=64):
     value = torch.nn.Sequential(
-        torch.nn.Linear(size.value,mid),
-        torch.nn.ReLU(inplace=True),
-        torch.nn.LayerNorm(mid,elementwise_affine=False),
-        torch.nn.Linear(mid,size.action * mid)
+        InfTrip(size.value,size_mid),
+        Linear(size_mid,size.action * size_head)
         )
     policy = torch.nn.Sequential(
-        torch.nn.Linear(size.policy,mid),
-        torch.nn.ReLU(inplace=True),
-        torch.nn.LayerNorm(mid,elementwise_affine=False),
-        torch.nn.Linear(mid,size.action)
+        InfTrip(size.policy,size_mid),
+        Linear(size_mid,size.action)
         )
-    head = Head(size.action,mid)
+    head = Head(size.action,size_mid)
     return value.cuda(), policy.cuda(), head.cuda()
 
 def run(i_tabular,i_nn,vs_self,vs_one,neural,uniform_player,tabular): # old NN vs old tabular
@@ -136,9 +129,10 @@ if __name__ == '__main__':
     args = main()
     n,m=300,150
     # create_tabular_agent(n,m,**args)
+    ag = n + m
     for _ in range(5):
         create_nn_agent(n,m,**args)
-        run(n+m,n+m,**args)
-        run(n+m,n+2*m,**args)
-        run(n+m,n+3*m,**args)
+        run(ag,n+m,**args)
+        run(ag,n+2*m,**args)
+        run(ag,n+3*m,**args)
         print("----")

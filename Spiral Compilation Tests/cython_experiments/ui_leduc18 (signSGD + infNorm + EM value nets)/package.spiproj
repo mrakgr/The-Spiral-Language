@@ -79,6 +79,17 @@
 // A batch of 1024 is enough to cover all of the Leduc's states so I haven't bothered, but for Holdem
 // and bigger games 2 ** -2 might be too strong of a decay.
 
+// Update (6/27/2021): Testing the architecture here on Holdem made me realize it is absolute garbage
+// at optimizing the value function. On flop poker vs callbot, it cannot learn a thing. The only reason
+// it works on Leduc at all because the game is so small. Not just the NN architecture, I changed the
+// the `belief_tabulate` and `model_evaluate` functions significantly as well. Adding momentum to
+// signSGD helps significantly as well.
+
+// Due to all the changes I would not recommend using this project as a reference, I have a lot better 
+// stuff in ui_holdem2. There is an updated Leduc test there. That having said, it takes a very large 
+// number of iterations to become competent at hand reading. There might be even better architectures 
+// out there; I get the sense that vanilla nets are not the right thing for the job.
+
 packages: |core2-
 modules:
     serialization/

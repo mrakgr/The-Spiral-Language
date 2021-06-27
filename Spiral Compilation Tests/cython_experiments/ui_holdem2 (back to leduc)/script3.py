@@ -1,6 +1,5 @@
 import torch
-from torch.nn.functional import softsign,tanh
-
-q = torch.rand(3,5)
-w = torch.rand(3,5)
-torch.stack((q,w),1).reshape(3,-1)
+action_state_probs = torch.rand(2,3,5)
+values = torch.rand(3,5)
+torch.einsum('bas,as->ba',action_state_probs,values)
+(action_state_probs * values.unsqueeze(0)).sum(2)
