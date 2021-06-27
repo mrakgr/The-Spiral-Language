@@ -21,7 +21,7 @@ def neural_create_model(size,size_mid=64,size_head=64):
     head = Head(size.action,size_mid)
     return value.cuda(), policy.cuda(), head.cuda()
 
-def run(i_tabular,i_nn,vs_self,vs_one,neural,uniform_player,tabular): # old NN vs old tabular
+def evaluate_vs_tabular(i_tabular,i_nn,vs_self,vs_one,neural,uniform_player,tabular): # old NN vs old tabular
     batch_size = 2 ** 10
     with open(f'dump leduc/agent_{i_tabular}_avg.obj','rb') as f: tabular_agent_old = pickle.load(f)
 
@@ -87,7 +87,7 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
     opt = SignSGD([
         dict(params=value.parameters(),lr=2 ** -6),
         dict(params=policy.parameters(),lr=2 ** -8)
-        ],momentum=0)
+        ],momentum=0) # Momentum works worse than vanilla signSGD on Leduc. On lower batch sizes I don't see any improvement either.
     valuea, policya, heada = AveragedModel(value), AveragedModel(policy), AveragedModel(head)
     def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=2 ** -2): 
         return neural.handler(partial(model_evaluate,value,policy,head,is_update_head,is_update_value,is_update_policy,epsilon))
@@ -105,13 +105,13 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
         print('Training the NN agent.')
         for a in range(n):
             run()
-            if (a + 1) % 25 == 0: print(a+1)
+            # if (a + 1) % 25 == 0: print(a+1)
     def avg(m):
         print('Averaging the NN agent.')
         for a in range(m):
             run(True)
-            if (a + 1) % 25 == 0: 
-                print(a+1)
+            # if (a + 1) % 25 == 0: 
+            #     print(a+1)
                 # r : np.ndarray = vs_self(batch_size * 2 ** 4,neural_player())
                 # print(f'The mean reward vs_self is {r.mean()}')
     train(n); avg(m)
@@ -131,7 +131,7 @@ if __name__ == '__main__':
     ag = n + m
     for _ in range(5):
         create_nn_agent(n,m,**args)
-        run(ag,n+m,**args)
-        run(ag,n+2*m,**args)
-        run(ag,n+3*m,**args)
+        evaluate_vs_tabular(ag,n+m,**args)
+        evaluate_vs_tabular(ag,n+2*m,**args)
+        evaluate_vs_tabular(ag,n+3*m,**args)
         print("----")

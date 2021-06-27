@@ -21,7 +21,7 @@ class SignSGD(Optimizer):
     """
     Does a step in the direction of the sign of the gradient.
     """
-    def __init__(self,params,lr=2 ** -10,momentum=0.9):
+    def __init__(self,params,lr=2 ** -10,momentum=0.0):
         super().__init__(params,dict(lr=lr,momentum=momentum))
 
     @torch.no_grad()
@@ -130,8 +130,8 @@ def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : b
         if is_update_head: update_head()
         if is_update_value: 
             g,pred_ers = state_probs_grad()
-            # value.square_l2 += (pred_ers.square() * regret_probs).sum()
-            # value.t += regret_probs.sum()
+            value.square_l2 += (pred_ers.square() * regret_probs).sum()
+            value.t += regret_probs.sum()
             state_probs.backward(g)
         if is_update_policy: 
             g = action_probs_grad()

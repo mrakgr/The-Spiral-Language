@@ -83,7 +83,8 @@
 // at optimizing the value function. On flop poker vs callbot, it cannot learn a thing. The only reason
 // it works on Leduc at all because the game is so small. Not just the NN architecture, I changed the
 // the `belief_tabulate` and `model_evaluate` functions significantly as well. Adding momentum to
-// signSGD helps significantly as well.
+// signSGD helps significantly as well. (Edit: I tried it on Leduc and it works far worse than vanilla.
+// What a disappointment, it seems it only helps vs static players.)
 
 // Due to all the changes I would not recommend using this project as a reference, I have a lot better 
 // stuff in ui_holdem2. There is an updated Leduc test there. That having said, it takes a very large 
