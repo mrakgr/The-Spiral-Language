@@ -85,16 +85,15 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
 
     value, policy, head = neural_create_model(neural.size)
     opt = SignSGD([
-        {'params': value.parameters(), 'lr': 2 ** -6},
-        {'params': policy.parameters()}
-        ],{'lr': 2 ** -8})
+        dict(params=value.parameters(),lr=2 ** -6),
+        dict(params=policy.parameters(),lr=2 ** -8)
+        ],momentum=0)
     valuea, policya, heada = AveragedModel(value), AveragedModel(policy), AveragedModel(head)
-    t = 1
     def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=2 ** -2): 
         return neural.handler(partial(model_evaluate,value,policy,head,is_update_head,is_update_value,is_update_policy,epsilon))
 
     def run(is_avg=False):
-        nonlocal head,heada,t 
+        nonlocal head,heada
         opt.zero_grad(True)
         vs_self(batch_size,neural_player(True,True,True,2 ** -2))
         opt.step()

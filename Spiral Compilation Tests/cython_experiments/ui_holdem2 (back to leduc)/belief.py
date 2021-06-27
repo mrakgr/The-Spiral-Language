@@ -21,8 +21,8 @@ class SignSGD(Optimizer):
     """
     Does a step in the direction of the sign of the gradient.
     """
-    def __init__(self,params,default=dict(lr=2 ** -10,momentum=0.9)):
-        super().__init__(params,default)
+    def __init__(self,params,lr=2 ** -10,momentum=0.9):
+        super().__init__(params,dict(lr=lr,momentum=momentum))
 
     @torch.no_grad()
     def step(self):
