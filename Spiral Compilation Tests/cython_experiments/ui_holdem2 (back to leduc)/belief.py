@@ -89,7 +89,6 @@ def belief_tabulate(action_state_probs : Tensor, state_probs : Tensor,head : Ten
             # policy_probs[batch_dim,action_dim]
             # sample_probs[batch_dim,action_dim]
 
-            # prediction_values_for_action = state_probs.mm(values.t()) # [batch_dim,action_dim]
             prediction_values_for_action = torch.einsum('bas,as->ba',action_state_probs,values) # [batch_dim,action_dim]
             at_action_prediction_value = torch.gather(prediction_values_for_action,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
             
@@ -107,8 +106,6 @@ def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : b
         is_update_policy : bool,epsilon : float,policy_data_size : Tensor,value_data : Tensor,action_mask : Tensor):
     value_data, action_mask = value_data.cuda(), action_mask.cuda()
     policy_data = value_data[:,:policy_data_size]
-    # action_raw = torch.masked_fill(policy(policy_data),action_mask,float('-inf'))
-    # action_probs : Tensor = torch.softmax(action_raw,-1)
     action_raw = torch.masked_fill(policy(policy_data),action_mask,0.0)
     action_probs : Tensor = normed_square(action_raw)
     if 0 < epsilon: 
@@ -130,8 +127,8 @@ def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : b
         if is_update_head: update_head()
         if is_update_value: 
             g,pred_ers = state_probs_grad()
-            value.square_l2 += (pred_ers.square() * regret_probs).sum()
-            value.t += regret_probs.sum()
+            # value.square_l2 += (pred_ers.square() * regret_probs).sum()
+            # value.t += regret_probs.sum()
             state_probs.backward(g)
         if is_update_policy: 
             g = action_probs_grad()
