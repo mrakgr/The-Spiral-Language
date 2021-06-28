@@ -1,0 +1,35 @@
+06/28/2021 06:42:21 PM ** TRAINING START **
+06/28/2021 06:42:21 PM Training vs static_self.
+06/28/2021 06:47:26 PM Checkpoint 1
+06/28/2021 06:47:26 PM ** TRAINING DONE **
+06/28/2021 06:47:26 PM TIME ELAPSED: 304.4968
+06/28/2021 06:47:26 PM ** EVALUATION START **
+06/28/2021 06:47:28 PM The mean for nn_agent_1_static_self_momo.nnreg vs init.nnreg is -0.11500851809978485
+06/28/2021 06:47:28 PM Done with the evaluation. Printing in tabular format.
+06/28/2021 06:47:28 PM nn_agent_1_static_self_momo.nnreg vs nn_agent_1_static_self_momo.nnreg: 0.0
+06/28/2021 06:47:28 PM nn_agent_1_static_self_momo.nnreg vs init.nnreg: -0.11500851809978485
+06/28/2021 06:47:28 PM init.nnreg vs nn_agent_1_static_self_momo.nnreg: 0.11500851809978485
+06/28/2021 06:47:28 PM init.nnreg vs init.nnreg: 0.0
+06/28/2021 06:47:28 PM ** EVALUATION DONE **
+06/28/2021 06:47:28 PM TIME ELAPSED: 1.8697
+06/28/2021 06:51:52 PM ** TRAINING START **
+06/28/2021 06:51:52 PM Training vs static_self.
+06/28/2021 06:56:46 PM Checkpoint 1
+06/28/2021 06:56:46 PM ** TRAINING DONE **
+06/28/2021 06:56:46 PM TIME ELAPSED: 294.0706
+06/28/2021 06:56:46 PM ** EVALUATION START **
+06/28/2021 06:56:48 PM The mean for nn_agent_1_static_self_no_momo.nnreg vs nn_agent_1_static_self_momo.nnreg is 0.24500522017478943
+06/28/2021 06:56:50 PM The mean for nn_agent_1_static_self_no_momo.nnreg vs init.nnreg is 0.07838137447834015
+06/28/2021 06:56:52 PM The mean for nn_agent_1_static_self_momo.nnreg vs init.nnreg is -0.07449859380722046
+06/28/2021 06:56:52 PM Done with the evaluation. Printing in tabular format.
+06/28/2021 06:56:52 PM nn_agent_1_static_self_no_momo.nnreg vs nn_agent_1_static_self_no_momo.nnreg: 0.0
+06/28/2021 06:56:52 PM nn_agent_1_static_self_no_momo.nnreg vs nn_agent_1_static_self_momo.nnreg: 0.24500522017478943
+06/28/2021 06:56:52 PM nn_agent_1_static_self_no_momo.nnreg vs init.nnreg: 0.07838137447834015
+06/28/2021 06:56:52 PM nn_agent_1_static_self_momo.nnreg vs nn_agent_1_static_self_no_momo.nnreg: -0.24500522017478943
+06/28/2021 06:56:52 PM nn_agent_1_static_self_momo.nnreg vs nn_agent_1_static_self_momo.nnreg: 0.0
+06/28/2021 06:56:52 PM nn_agent_1_static_self_momo.nnreg vs init.nnreg: -0.07449859380722046
+06/28/2021 06:56:52 PM init.nnreg vs nn_agent_1_static_self_no_momo.nnreg: -0.07838137447834015
+06/28/2021 06:56:52 PM init.nnreg vs nn_agent_1_static_self_momo.nnreg: 0.07449859380722046
+06/28/2021 06:56:52 PM init.nnreg vs init.nnreg: 0.0
+06/28/2021 06:56:52 PM ** EVALUATION DONE **
+06/28/2021 06:56:52 PM TIME ELAPSED: 5.4417

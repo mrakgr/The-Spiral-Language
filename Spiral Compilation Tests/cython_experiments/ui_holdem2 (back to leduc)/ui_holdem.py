@@ -233,7 +233,7 @@ if __name__ == '__main__':
     train = args['train']
     uniform_player = train['uniform_player']
     callbot_player = train['callbot_player']
-    neural_player = load_neural('dump holdem/nn_agent_2.nnreg',train['neural'])
+    neural_player = load_neural('dump holdem/nn_agent_360_self_no_momo.nnavg',train['neural'])
 
     app.root.start_game = ui(neural_player)
     app.run()
