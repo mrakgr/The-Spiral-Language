@@ -47,10 +47,11 @@ def normed_square(x : Tensor):
     o = x.square()
     return o / o.sum(dim=-1,keepdim=True)
 
-class InfCube(torch.nn.Linear):
+# TODO: Rename these to Cube.
+class InfTrip(torch.nn.Linear):
     def forward(self,x): return inf_cube(super().forward(x))
 
-class ResInfCube(InfCube):
+class ResInfTrip(InfTrip):
     def __init__(self,size): super().__init__(size,size)
     def forward(self,x): return super().forward(x) + x
 

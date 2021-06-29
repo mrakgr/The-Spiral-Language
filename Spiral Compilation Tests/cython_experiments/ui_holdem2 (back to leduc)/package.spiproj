@@ -3,6 +3,20 @@
 
 // What I will do here is take the code from ui_holdem1 and see if it still works on the ui_leduc18 game.
 
+// Update (6/29/2021): Success. I made a significant number of changes to the learning algorithm and now the network is
+// getting trained properly. The reason why the players weren't training is because the value function was not learning
+// anything and the issues stemmed from the NN architecture to the algorithm itself. Right now, I have a pretty good
+// Flop poker player here.
+
+// I am ready for the second crack at Holdem. While it is training, let me do the review. I need to note down all the
+// improvements that I made.
+
+// ...
+
+// Done. Apart from the array serializer change, I've documented the changes as a part of the July PL monthly update.
+// A draft of it is in the commit at the current date. From here, I won't be touching this project anymore. It is time
+// to move on to ui_holdem3.
+
 packages: |core2-
 modules:
     types-

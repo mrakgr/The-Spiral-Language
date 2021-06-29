@@ -3,53 +3,57 @@ import logging
 import time
 import torch
 from torch.nn import Linear
-from torch.nn.functional import normalize
 from functools import partial
 import numpy as np
 from torch.optim.swa_utils import AveragedModel
-from belief import SignSGD,Head,model_evaluate,InfCube,ResInfCube
+from belief import SignSGD,Head,model_evaluate,InfTrip,ResInfTrip
 
-def neural_create_model(size,size_mid=512,size_head=128):
+def neural_create_model(size,size_mid=512,size_head=256):
     value = torch.nn.Sequential(
-        InfCube(size.value,size_mid),
-        ResInfCube(size_mid),
-        ResInfCube(size_mid),
-        ResInfCube(size_mid),
-        ResInfCube(size_mid),
-        ResInfCube(size_mid),
+        InfTrip(size.value,size_mid),
+        ResInfTrip(size_mid),
+        ResInfTrip(size_mid),
+        ResInfTrip(size_mid),
+        ResInfTrip(size_mid),
+        ResInfTrip(size_mid),
         Linear(size_mid,size.action * size_head)
         )
     value.square_l2 = torch.scalar_tensor(0.0).cuda()
     value.t = torch.scalar_tensor(0.0).cuda()
     policy = torch.nn.Sequential(
-        InfCube(size.policy,size_mid),
-        ResInfCube(size_mid),
-        ResInfCube(size_mid),
-        ResInfCube(size_mid),
-        ResInfCube(size_mid),
-        ResInfCube(size_mid),
+        InfTrip(size.policy,size_mid),
+        ResInfTrip(size_mid),
+        ResInfTrip(size_mid),
+        ResInfTrip(size_mid),
+        ResInfTrip(size_mid),
+        ResInfTrip(size_mid),
         Linear(size_mid,size.action)
         )
     head = Head(size.action,size_head)
     return value.cuda(), policy.cuda(), head.cuda()
 
-def create_nn_agent(mode,momo,postfix,iter_train,iter_avg,iter_chk,iter_static,vs_self,vs_one,neural,uniform_player,callbot_player): # self play NN
+def create_nn_agent(iter_train,iter_avg,iter_chk,iter_sub,vs_self,vs_one,neural,uniform_player,callbot_player,resume_from=None,mode='self'):
     assert ((iter_train + iter_avg) % iter_chk == 0)
     batch_size = 2 ** 10
     head_decay = 0.5
 
-    # value, policy, head = neural_create_model(neural.size)
-    with open("dump holdem/init.nnreg",'rb') as f: value, policy, head = torch.load(f)
+    if resume_from is None: 
+        value, policy, head = neural_create_model(neural.size)
+        j = resume_from
+    else: 
+        with open(f"dump holdem/nn_agent_{resume_from}_{mode}.nnreg",'rb') as f: 
+            value, policy, head = torch.load(f)
+            j = 0
     opt = SignSGD([
         dict(params=value.parameters(),lr=2 ** -8),
         dict(params=policy.parameters(),lr=2 ** -10),
-        ],momentum=momo)
+        ])
 
     def make_avg(max_t):
         def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(max_t, t + 1)
         return AveragedModel(value,avg_fn=avg_fn), AveragedModel(policy,avg_fn=avg_fn), AveragedModel(head,avg_fn=avg_fn)
 
-    valuea, policya, heada = make_avg(iter_chk*iter_static)
+    if 0 < iter_avg: valuea, policya, heada = make_avg(iter_chk*iter_sub)
 
     def neural_player(value,policy,head,is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
         return neural.handler(partial(model_evaluate,value,policy,head,is_update_head,is_update_value,is_update_policy,epsilon))
@@ -59,7 +63,7 @@ def create_nn_agent(mode,momo,postfix,iter_train,iter_avg,iter_chk,iter_static,v
         pl = neural_player(value,policy,head,True,True,True,2 ** -2)
         def vs_opponent(plc):
             head.decay(head_decay)
-            for i in range(iter_static):
+            for i in range(iter_sub):
                 opt.zero_grad(True)
                 r1 = vs_one(10)(batch_size // 2,pl,plc)
                 r2 = vs_one(10)(batch_size // 2,plc,pl)
@@ -70,18 +74,17 @@ def create_nn_agent(mode,momo,postfix,iter_train,iter_avg,iter_chk,iter_static,v
                 opt.step()
 
         logging.info(f'Training vs {mode}.')
-        if mode == 'static_self': vs_opponent(neural_player(deepcopy(value),deepcopy(policy),deepcopy(head)))
+        if mode == 'exploit':
+            assert (iter_train == 1 and iter_avg == 0 and iter_chk == 1)
+            vs_opponent(neural_player(deepcopy(value),deepcopy(policy),deepcopy(head)))
         elif mode == 'uniform': vs_opponent(uniform_player)
         elif mode == 'callbot': vs_opponent(callbot_player)
         elif mode == 'self':
             head.decay(head_decay)
-            for i in range(iter_static):
+            for i in range(iter_sub):
                 opt.zero_grad(True)
                 vs_self(10)(batch_size,pl)
                 opt.step()
-        elif mode == 'average':
-            assert (iter_train == 0)
-            vs_opponent(neural_player(valuea.module,policya.module,heada.module))
         else: raise Exception(f"Unexpected mode {mode}")
 
         if is_avg: valuea.update_parameters(value); policya.update_parameters(policy); heada.update_parameters(head)
@@ -89,13 +92,13 @@ def create_nn_agent(mode,momo,postfix,iter_train,iter_avg,iter_chk,iter_static,v
     logging.info("** TRAINING START **")
     t1 = time.perf_counter()
 
-    for i in range(1,iter_train+iter_avg+1):
+    for i in range(j+1,iter_train+iter_avg+1):
         is_avg = iter_train < i
         run(is_avg)
         if i % iter_chk == 0: 
-            with open(f"dump holdem/nn_agent_{i}_{mode}_{postfix}.nnreg",'wb') as f: torch.save((value,policy,head),f)
+            with open(f"dump holdem/nn_agent_{i}_{mode}.nnreg",'wb') as f: torch.save((value,policy,head),f)
             if is_avg:
-                with open(f"dump holdem/nn_agent_{i}_{mode}_{postfix}.nnavg",'wb') as f: torch.save((valuea.module,policya.module,heada.module),f)
+                with open(f"dump holdem/nn_agent_{i}_{mode}.nnavg",'wb') as f: torch.save((valuea.module,policya.module,heada.module),f)
             logging.info(f'Checkpoint {i}')
 
     logging.info("** TRAINING DONE **")
@@ -136,35 +139,15 @@ if __name__ == '__main__':
     pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
     from create_args_holdem import main
     args = main()['train']
-    def train():
-        log_path = 'dump holdem/training.log'
-        logging.basicConfig(
-            filename=log_path,
-            level=logging.DEBUG,
-            datefmt='%m/%d/%Y %I:%M:%S %p',
-            format='%(asctime)s %(message)s'
-            )
+    log_path = 'dump holdem/training.log'
+    logging.basicConfig(
+        filename=log_path,
+        level=logging.DEBUG,
+        datefmt='%m/%d/%Y %I:%M:%S %p',
+        format='%(asctime)s %(message)s'
+        )
 
-        # ['static_self','self','average','callbot','uniform'] # modes
-        
-        create_nn_agent('static_self',0.0,'no_momo',1,0,1,2000,**args)
+    create_nn_agent(1000,1000,10,40,**args,resume_from=1000)
 
-    def eval():
-        log_path = 'dump holdem/eval.log'
-        logging.basicConfig(
-            filename=log_path,
-            level=logging.DEBUG,
-            datefmt='%m/%d/%Y %I:%M:%S %p',
-            format='%(asctime)s %(message)s'
-            )
-        players = [
-            f'nn_agent_{i}_{mode}_{momo}.nnreg' 
-            for momo in ['no_momo','momo']
-            for mode in ['static_self'] 
-            for i in [1]
-            ]
-        players.append('init.nnreg')
-        competitive_eval(players,**args)
-
-    train()
-    eval()
+    players = [f'nn_agent_{i}_self.nnavg' for i in range(1050,2001,50)]
+    competitive_eval(players,**args)
