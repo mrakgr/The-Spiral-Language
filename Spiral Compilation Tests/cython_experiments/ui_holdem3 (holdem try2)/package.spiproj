@@ -1,3 +1,14 @@
+// 6/30/2021: Things are not going well. I did a 20h training run with the architecture that worked well for me on Flop poker,
+// but on Holdem I just get an aggrodonk. This is an indication that the variance of Holdem is too high for the value function
+// to learn how to read hands. And this is despite me messing up and training with 10x smaller stacks that I intended to.
+
+// Right now I am in the same situation as when I finished Leduc, tried Holdem and found it to not work. I managed to get it to
+// work on Flop thanks to the many changes and thought it might work on Holdem, but it feels out of reach again.
+
+// This is not going to work. I have no choice but to ramp up my attempt and bring in unsupervised learning. Maybe it would learn
+// something if I let it train for 10 days instead of 1, but I can't risk it. Therefore, I have to have some measure of learning
+// separate from reward based optimization that I am doing here.
+
 packages: |core2-
 modules:
     types-

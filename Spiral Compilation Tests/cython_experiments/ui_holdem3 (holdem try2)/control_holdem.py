@@ -32,18 +32,18 @@ def neural_create_model(size,size_mid=512,size_head=256):
     head = Head(size.action,size_head)
     return value.cuda(), policy.cuda(), head.cuda()
 
-def create_nn_agent(iter_train,iter_avg,iter_chk,iter_sub,vs_self,vs_one,neural,uniform_player,callbot_player,resume_from=None,mode='self'):
+def create_nn_agent(iter_train,iter_avg,iter_chk,iter_sub,vs_self,vs_one,neural,uniform_player,callbot_player,stack_size=10,resume_from=None,mode='self'):
     assert ((iter_train + iter_avg) % iter_chk == 0)
     batch_size = 2 ** 10
     head_decay = 0.5
 
     if resume_from is None: 
         value, policy, head = neural_create_model(neural.size)
-        j = resume_from
+        j = 0
     else: 
-        with open(f"dump holdem/nn_agent_{resume_from}_{mode}.nnreg",'rb') as f: 
+        with open(f"dump holdem/nn_agent_{resume_from}_self.nnreg",'rb') as f: 
             value, policy, head = torch.load(f)
-            j = 0
+            j = resume_from
     opt = SignSGD([
         dict(params=value.parameters(),lr=2 ** -8),
         dict(params=policy.parameters(),lr=2 ** -10),
@@ -65,8 +65,8 @@ def create_nn_agent(iter_train,iter_avg,iter_chk,iter_sub,vs_self,vs_one,neural,
             head.decay(head_decay)
             for i in range(iter_sub):
                 opt.zero_grad(True)
-                r1 = vs_one(10)(batch_size // 2,pl,plc)
-                r2 = vs_one(10)(batch_size // 2,plc,pl)
+                r1 = vs_one(stack_size)(batch_size // 2,pl,plc)
+                r2 = vs_one(stack_size)(batch_size // 2,plc,pl)
                 # logging.info(f"The mean is {(r1.mean()-r2.mean()) / 2}")
                 # logging.debug(f"The l2 loss value prediction error is {torch.sqrt(value.square_l2 / value.t)}")
                 # value.square_l2.fill_(0.0)
@@ -83,7 +83,7 @@ def create_nn_agent(iter_train,iter_avg,iter_chk,iter_sub,vs_self,vs_one,neural,
             head.decay(head_decay)
             for i in range(iter_sub):
                 opt.zero_grad(True)
-                vs_self(10)(batch_size,pl)
+                vs_self(stack_size)(batch_size,pl)
                 opt.step()
         else: raise Exception(f"Unexpected mode {mode}")
 
@@ -92,21 +92,21 @@ def create_nn_agent(iter_train,iter_avg,iter_chk,iter_sub,vs_self,vs_one,neural,
     logging.info("** TRAINING START **")
     t1 = time.perf_counter()
 
-    for i in range(j+1,iter_train+iter_avg+1):
+    for i in range(1,iter_train+iter_avg+1):
         is_avg = iter_train < i
         run(is_avg)
         if i % iter_chk == 0: 
-            with open(f"dump holdem/nn_agent_{i}_{mode}.nnreg",'wb') as f: torch.save((value,policy,head),f)
+            with open(f"dump holdem/nn_agent_{j+i}_{mode}.nnreg",'wb') as f: torch.save((value,policy,head),f)
             if is_avg:
-                with open(f"dump holdem/nn_agent_{i}_{mode}.nnavg",'wb') as f: torch.save((valuea.module,policya.module,heada.module),f)
-            logging.info(f'Checkpoint {i}')
+                with open(f"dump holdem/nn_agent_{j+i}_{mode}.nnavg",'wb') as f: torch.save((valuea.module,policya.module,heada.module),f)
+            logging.info(f'Checkpoint {j+i}')
 
     logging.info("** TRAINING DONE **")
     t2 = time.perf_counter()
     logging.info(f"TIME ELAPSED: {t2-t1:0.4f}")
 
-def competitive_eval(players,vs_self,vs_one,neural,uniform_player,callbot_player):
-    batch_size = 2 ** 14
+def competitive_eval(players,vs_self,vs_one,neural,uniform_player,callbot_player,stack_size=10):
+    batch_size = 2 ** 10
     def neural_player(value,policy,head,is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
         return neural.handler(partial(model_evaluate,value,policy,head,is_update_head,is_update_value,is_update_policy,epsilon))
     logging.info("** EVALUATION START **")
@@ -119,9 +119,12 @@ def competitive_eval(players,vs_self,vs_one,neural,uniform_player,callbot_player
             if x is None:
                 with open(f"dump holdem/{a}",'rb') as f: pla = neural_player(*torch.load(f))
                 with open(f"dump holdem/{b}",'rb') as f: plb = neural_player(*torch.load(f))
-                r1 = vs_one(10)(batch_size // 2,pla,plb)
-                r2 = vs_one(10)(batch_size // 2,plb,pla)
-                r = (r1.sum()-r2.sum()) / batch_size
+                n = 2 ** 4
+                r = 0.0
+                for _ in range(n):
+                    r += vs_one(stack_size)(batch_size // 2,pla,plb).sum()
+                    r -= vs_one(stack_size)(batch_size // 2,plb,pla).sum()
+                r /= batch_size * n
                 logging.info(f"The mean for {a} vs {b} is {r}")
                 d[a,b] = r; d[b,a] = -r
     logging.info("Done with the evaluation. Printing in tabular format.")
@@ -147,7 +150,10 @@ if __name__ == '__main__':
         format='%(asctime)s %(message)s'
         )
 
-    create_nn_agent(1000,1000,10,40,**args,resume_from=1000)
+    # create_nn_agent(1000,1000,10,40,**args,resume_from=1000)
+    # players = [f'nn_agent_{i}_self.nnavg' for i in range(1050,2001,50)]
 
-    players = [f'nn_agent_{i}_self.nnavg' for i in range(1050,2001,50)]
+    create_nn_agent(1,0,1,4000,**args,resume_from=2000,mode='exploit')
+    players = ['nn_agent_2000_self.nnavg', 'nn_agent_2001_exploit.nnreg']
+
     competitive_eval(players,**args)

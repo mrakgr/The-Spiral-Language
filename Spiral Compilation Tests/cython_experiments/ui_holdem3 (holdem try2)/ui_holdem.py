@@ -206,7 +206,7 @@ Builder.load_string('''
                         id: init_stack_size
                         min: math.log2(3)
                         max: math.log2(100)
-                        value: math.log2(100)
+                        value: math.log2(10)
 ''')
 
 def load_neural(path,neural):
@@ -233,7 +233,7 @@ if __name__ == '__main__':
     train = args['train']
     uniform_player = train['uniform_player']
     callbot_player = train['callbot_player']
-    # neural_player = load_neural('dump holdem/nn_agent_360_self_no_momo.nnavg',train['neural'])
+    neural_player = load_neural('dump holdem/nn_agent_2000_self.nnavg',train['neural'])
 
-    app.root.start_game = ui(callbot_player)
+    app.root.start_game = ui(neural_player)
     app.run()
