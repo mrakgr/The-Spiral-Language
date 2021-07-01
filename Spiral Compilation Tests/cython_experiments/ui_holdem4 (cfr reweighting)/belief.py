@@ -95,7 +95,9 @@ def belief_tabulate(action_state_probs : Tensor, state_probs : Tensor,head : Ten
             prediction_values_for_action.scatter_add_(-1,action_indices.unsqueeze(-1),at_action_prediction_adjustment)
             reward = (action_probs * prediction_values_for_action).sum(-1,keepdim=True) # [batch_dim,1]
             # No need to center the gradients being passed into a probability vector's backward pass. Softmax for example, centers them on its own.
-            def probs_grad(): return torch.neg_(prediction_values_for_action.mul_(regret_probs)) # [batch_dim,action_dim]
+            def probs_grad(): 
+                return torch.neg_(prediction_values_for_action) # [batch_dim,action_dim]
+                # return torch.neg_(prediction_values_for_action.mul_(regret_probs)) # [batch_dim,action_dim]
             return reward, probs_grad
         return state_probs_grad, action_fun
     return update_head, calculate
