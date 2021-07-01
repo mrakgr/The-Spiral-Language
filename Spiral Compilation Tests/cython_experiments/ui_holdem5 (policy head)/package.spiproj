@@ -29,3 +29,4 @@ modules:
         neural_ff_holdem
     create_args_leduc
     create_args_holdem
+    qwe

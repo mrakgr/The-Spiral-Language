@@ -1,7 +1,12 @@
 WIP
 
+* 
+
+2.0.89 (7/1/2021)
+
 * Added `clear` to the `rm` module.
 * Extended the PrintStatic op so it can print raw types.
+* Adjusted the F# and the Cython codegen so that the floats get printed without loss of precision.
 
 2.0.88 (6/15/2021)
 

@@ -173,12 +173,12 @@ let lit = function
         if x = infinityf then "(<float>float('inf'))"
         elif x = -infinityf then "(<float>float('-inf'))"
         elif Single.IsNaN x then "(<float>float())"
-        else sprintf "(<float>%f)" x
+        else sprintf "(<float>%s)" (x.ToString("R"))
     | LitFloat64 x ->
         if x = infinity then "(<double>float('inf'))"
         elif x = -infinity then "(<double>float('-inf'))"
         elif Double.IsNaN x then "(<double>float())"
-        else sprintf "(<double>%f)" x
+        else sprintf "(<double>%s)" (x.ToString("R"))
     | LitString x -> 
         let strb = StringBuilder(x.Length+2)
         strb.Append '"' |> ignore

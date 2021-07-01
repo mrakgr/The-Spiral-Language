@@ -22,12 +22,12 @@ let lit = function
         if x = infinityf then "infinityf"
         elif x = -infinityf then "-infinityf"
         elif Single.IsNaN x then "nanf"
-        else sprintf "%ff" x
+        else sprintf "%sf" (x.ToString("R"))
     | LitFloat64 x ->
         if x = infinity then "infinity"
         elif x = -infinity then "-infinity"
         elif Double.IsNaN x then "nan"
-        else sprintf "%f" x
+        else x.ToString("R")
     | LitString x -> 
         let strb = StringBuilder(x.Length+2)
         strb.Append '"' |> ignore

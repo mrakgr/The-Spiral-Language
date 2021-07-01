@@ -1,0 +1,4 @@
+inl main() : bool = 
+    inl q,w = dyn 2f32, dyn -149
+    inl x = 2 ** -149 = q ** w
+    x
