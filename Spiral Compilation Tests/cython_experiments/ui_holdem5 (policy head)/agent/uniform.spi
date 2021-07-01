@@ -1,0 +1,4 @@
+inl policy (l : ra u64 _) =
+    inl x : a _ _ = l |> am.generic.map fun player_state, game_state, pid, actions => 
+        log_prob_from_sample (1 / f32 (length actions)), sampling.sample actions
+    x, (id : a u64 r2 -> _)
