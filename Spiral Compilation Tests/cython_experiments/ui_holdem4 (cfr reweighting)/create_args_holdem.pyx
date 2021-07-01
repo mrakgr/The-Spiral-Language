@@ -145,44 +145,50 @@ cdef class Closure3():
         cdef float v45
         cdef float v46
         cdef float v47
-        cdef unsigned long long v48
-        cdef unsigned long long v49
-        cdef numpy.ndarray[float,ndim=1] v50
-        cdef unsigned long long v51
+        cdef float v48
+        cdef float v49
+        cdef float v50
+        cdef float v51
         cdef unsigned long long v52
-        cdef bint v53
-        cdef bint v54
-        cdef numpy.ndarray[float,ndim=1] v55
-        cdef Mut0 v56
+        cdef unsigned long long v53
+        cdef unsigned long long v54
+        cdef unsigned long long v55
+        cdef numpy.ndarray[float,ndim=1] v56
+        cdef unsigned long long v57
         cdef unsigned long long v58
-        cdef float v59
-        cdef float v60
-        cdef float v61
-        cdef UH0 v62
-        cdef float v63
-        cdef float v64
-        cdef UH0 v65
+        cdef bint v59
+        cdef bint v60
+        cdef numpy.ndarray[float,ndim=1] v61
+        cdef Mut0 v62
+        cdef unsigned long long v64
+        cdef float v65
         cdef float v66
         cdef float v67
-        cdef signed char v68
-        cdef signed char v69
-        cdef unsigned char v70
-        cdef signed short v71
-        cdef signed char v72
-        cdef signed char v73
-        cdef unsigned char v74
-        cdef signed short v75
-        cdef numpy.ndarray[signed char,ndim=1] v76
+        cdef UH0 v68
+        cdef float v69
+        cdef float v70
+        cdef UH0 v71
+        cdef float v72
+        cdef float v73
+        cdef signed char v74
+        cdef signed char v75
+        cdef unsigned char v76
         cdef signed short v77
-        cdef bint v78
-        cdef unsigned char v79
-        cdef numpy.ndarray[object,ndim=1] v80
+        cdef signed char v78
+        cdef signed char v79
+        cdef unsigned char v80
+        cdef signed short v81
+        cdef numpy.ndarray[signed char,ndim=1] v82
+        cdef signed short v83
+        cdef bint v84
+        cdef unsigned char v85
+        cdef numpy.ndarray[object,ndim=1] v86
         cdef Tuple1 tmp8
-        cdef bint v81
-        cdef float v83
-        cdef float v82
-        cdef unsigned long long v84
-        v4 = (<unsigned long long>2) * v1
+        cdef bint v87
+        cdef float v89
+        cdef float v88
+        cdef unsigned long long v90
+        v4 = (<unsigned long long>3) * v1
         v5 = numpy.empty(v4,dtype=numpy.float32)
         v6 = len(v3)
         v7 = len(v0)
@@ -216,42 +222,49 @@ cdef class Closure3():
             v45 = v43 - v42
             v46 = v44 + v45
             v47 = libc.math.exp(v46)
-            v48 = v1 + v12
-            v5[v48] = v47
-            v49 = v12 + (<unsigned long long>1)
-            v10.v0 = v49
+            v48 = v39 + v42
+            v49 = v38 + v43
+            v50 = v49 - v48
+            v51 = libc.math.exp(v50)
+            v52 = v1 + v12
+            v5[v52] = v47
+            v53 = (<unsigned long long>2) * v1
+            v54 = v53 + v12
+            v5[v54] = v51
+            v55 = v12 + (<unsigned long long>1)
+            v10.v0 = v55
         del v10
-        v50 = v2(v5)
+        v56 = v2(v5)
         del v5
-        v51 = len(v50)
-        v52 = len(v0)
-        v53 = v51 == v52
-        v54 = v53 == 0
-        if v54:
+        v57 = len(v56)
+        v58 = len(v0)
+        v59 = v57 == v58
+        v60 = v59 == 0
+        if v60:
             raise Exception("The length of the two arrays has to the same.")
         else:
             pass
-        v55 = numpy.empty(v51,dtype=numpy.float32)
-        v56 = Mut0((<unsigned long long>0))
-        while method0(v51, v56):
-            v58 = v56.v0
-            v59 = v50[v58]
-            tmp8 = v0[v58]
-            v60, v61, v62, v63, v64, v65, v66, v67, v68, v69, v70, v71, v72, v73, v74, v75, v76, v77, v78, v79, v80 = tmp8.v0, tmp8.v1, tmp8.v2, tmp8.v3, tmp8.v4, tmp8.v5, tmp8.v6, tmp8.v7, tmp8.v8, tmp8.v9, tmp8.v10, tmp8.v11, tmp8.v12, tmp8.v13, tmp8.v14, tmp8.v15, tmp8.v16, tmp8.v17, tmp8.v18, tmp8.v19, tmp8.v20
+        v61 = numpy.empty(v57,dtype=numpy.float32)
+        v62 = Mut0((<unsigned long long>0))
+        while method0(v57, v62):
+            v64 = v62.v0
+            v65 = v56[v64]
+            tmp8 = v0[v64]
+            v66, v67, v68, v69, v70, v71, v72, v73, v74, v75, v76, v77, v78, v79, v80, v81, v82, v83, v84, v85, v86 = tmp8.v0, tmp8.v1, tmp8.v2, tmp8.v3, tmp8.v4, tmp8.v5, tmp8.v6, tmp8.v7, tmp8.v8, tmp8.v9, tmp8.v10, tmp8.v11, tmp8.v12, tmp8.v13, tmp8.v14, tmp8.v15, tmp8.v16, tmp8.v17, tmp8.v18, tmp8.v19, tmp8.v20
             del tmp8
-            del v62; del v65; del v76; del v80
-            v81 = v79 == (<unsigned char>0)
-            if v81:
-                v83 = v59
+            del v68; del v71; del v82; del v86
+            v87 = v85 == (<unsigned char>0)
+            if v87:
+                v89 = v65
             else:
-                v82 = -v59
-                v83 = v82
-            v55[v58] = v83
-            v84 = v58 + (<unsigned long long>1)
-            v56.v0 = v84
-        del v50
+                v88 = -v65
+                v89 = v88
+            v61[v64] = v89
+            v90 = v64 + (<unsigned long long>1)
+            v62.v0 = v90
         del v56
-        return v55
+        del v62
+        return v61
 cdef class Closure1():
     cdef object v0
     def __init__(self, v0): self.v0 = v0

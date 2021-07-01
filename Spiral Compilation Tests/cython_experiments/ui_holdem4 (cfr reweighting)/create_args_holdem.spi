@@ -1,0 +1,152 @@
+inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (stack,human_pid,set : st * u8 * _) : () =
+    open hand_scorer
+
+    let show_card (x : card) : string =
+        inl suit,rank = suit x, rank x
+        inl rank =
+            match rank with
+            | 12 => 'A'
+            | 11 => 'K'
+            | 10 => 'Q'
+            | 9 => 'J'
+            | 8 => 'T'
+            | _ => $"str(2 + !rank)"
+        inl suit =
+            match suit with
+            | 0 => "[color=ff0000]" // heart
+            | 1 => "[color=00ff00]" // club
+            | 2 => "[color=0000ff]" // diamond
+            | _ => "[color=ffff00]" // spade
+        $"f'{!suit}{!rank}[/color]'"
+
+    let show_score (hand_score x) =
+        match x.score with
+        | 1 => "high card"
+        | 2 => "pair"
+        | 3 => "two pair"
+        | 4 => "triple"
+        | 5 => "straight"
+        | 6 => "flush"
+        | 7 => "full house"
+        | 8 => "four of a kind"
+        | 9 => "straight flush"
+        | _ => failwith "Invalid card score."
+
+    let show_complete_hand (c1,c2,c3,c4,c5) : string =
+        inl c1,c2,c3,c4,c5 = show_card c1, show_card c2, show_card c3, show_card c4, show_card c5
+        $"f'{!c1}{!c2}{!c3}{!c4}{!c5}'"
+
+    let show_hand (c1,c2) : string =
+        inl c1,c2 = show_card c1, show_card c2
+        $"f'{!c1}{!c2}'"
+
+    open hu_holdem
+    let show_trace' (l : list (observation i8 action)) =
+        inl lines : ra u64 string = am.empty
+        inl cards : ra u64 string = am.empty
+        let add_card_if_not_empty () =
+            if 0 < length cards then 
+                rm.add lines (rm.join' "" cards)
+                rm.clear cards
+        let rec loop is_first = function
+            | (Observation: x) :: xs => rm.add cards (show_card x) . loop true xs
+            | (Action: x) :: xs => 
+                add_card_if_not_empty()
+                inl prefix = if is_first then "Player One" else "Player Two"
+                match x with
+                | Fold => $"f'{!prefix} folds.'"
+                | Call => $"f'{!prefix} calls.'"
+                | RaiseTo: x => $"f'{!prefix} raises to {!x}.'"
+                |> rm.add lines
+                loop (not is_first) xs
+            | Nil => add_card_if_not_empty ()
+        loop true (listm.rev l)
+        lines
+    inl show_trace l = rm.join' "\n" (show_trace' l)
+    let show_terminal (p1,p2,(c,is_showdown) : {hand : i8 * i8; id : u8; pot : _} * {hand : i8 * i8; id : u8; pot : _} * _) reward (l : ra u64 string) =
+        inl prefix pid = if pid = 0u8 then "Player One" else "Player Two"
+        let hand pid h =
+            inl p = prefix pid
+            inl score = score h c
+            inl s = show_score score
+            inl h = show_complete_hand score.hand
+            rm.add l $"f'{!p} shows {!s} {!h}'"
+        let reward pid =
+            inl p = prefix pid
+            inl r = !!reward pid
+            inl chips = abs r
+            if r < 0 then $"f'{!p} losses {!chips} chips.'"
+            elif r = 0 then $"f'{!p} ties.'"
+            else $"f'{!p} gains {!chips} chips.'"
+            |> rm.add l 
+        inl p1,p2 = if p1.id = 0 then p1,p2 else p2,p1
+        if is_showdown then
+            hand 0 p1.hand
+            hand 1 p2.hand
+        reward 0
+        reward 1
+        rm.join' "\n" l
+    
+    let rec loop game =
+        match train.vs_human game human_pid player_op with
+        | Terminal: player_state, (p1,p2,(community_card,stack,is_showdown)), reward =>
+            inl trace = show_trace' (pl2_observations player_state human_pid) |> show_terminal (p1,p2,(community_card,is_showdown)) reward
+            inl actions = record {
+                call = $"False" : obj
+                fold = $"False" : obj
+                raise_to = $"False" : obj
+                raise_min = 0 : st
+                raise_max = 0 : st
+                }
+            inl r = !!reward human_pid |> round
+            inl p1,p2 = if human_pid = p1.id then p1,p2 else p2,p1
+            inl table_data = record {
+                my_stack = stack + r
+                my_pot = 0 : st
+                my_card = show_hand p1.hand
+                op_stack = stack - r
+                op_pot = 0 : st
+                op_card = show_hand p2.hand
+                community_card = community_card |> am.generic.map show_card |> rm.join' ""
+                }
+            set (record {trace actions table_data})
+        | Action: player_state, (p1,p2,(community_card,_)), pid, actions, next =>
+            inl trace = show_trace (pl2_observations player_state human_pid)
+            inl actions = 
+                inl raise_max = 
+                    am.fold (fun s => function
+                        | Call | Fold => s
+                        | RaiseTo: x => max s x
+                        ) 0 actions
+                inl raise_min = 
+                    am.fold (fun s => function
+                        | Call | Fold => s
+                        | RaiseTo: x => min s x
+                        ) raise_max actions
+                record {
+                    raise_min raise_max
+                    call = fun () => next (Log_prob_one,Call) |> loop
+                    fold = fun () => next (Log_prob_one,Fold) |> loop
+                    raise_to = if raise_min = 0 then $"False" else fun raiseTo => next (Log_prob_one,(RaiseTo:)) |> loop
+                    }
+            inl p1,p2 = if human_pid = p1.id then p1,p2 else p2,p1
+            inl table_data = record {
+                my_stack = stack - p1.pot
+                my_pot = p1.pot
+                my_card = show_hand p1.hand
+                op_stack = stack - p2.pot
+                op_pot = p2.pot
+                op_card = show_hand p2.hand
+                community_card = community_card |> am.generic.map show_card |> rm.join' ""
+                }
+            set (record {trace actions table_data})
+    loop (game false stack () pl2_init)
+
+inl main () =
+    open hu_holdem
+    inl vs_self stack = train.vs_self (game false stack)
+    inl vs_one stack = train.vs_one (game false stack)
+    inl uniform_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * a i16 i8 * i16 * bool) * u8 * a i16 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) = agent.uniform.policy
+    inl callbot_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * a i16 i8 * i16 * bool) * u8 * a i16 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) = agent.holdem_callbot.policy
+    inl neural = agent.neural_ff_holdem.holdem_cython_schema()
+    record {ui train = record {vs_self vs_one uniform_player callbot_player neural}}

@@ -9,6 +9,16 @@
 // something if I let it train for 10 days instead of 1, but I can't risk it. Therefore, I have to have some measure of learning
 // separate from reward based optimization that I am doing here.
 
+// Update(7/1/2021): Actually, before I rashly move to transformers, I need to investigate the variance of the CFR updates.
+// The reason why it is not training is probably not because of MLPs, but because CFR's reweighting does not mix with gradient
+// based optimization.
+
+// First I'll check out how the value function optimizes against the callbot and do ablation from there.
+
+// Success. Removing the CFR reweighting from the body significantly improves the performance of the value net.
+// And keeping it in the head helps as well. But rather than getting rid of it completely, it might be better to make
+// the weighting on-policy. Let me copy this project and I will make some drastic changes.
+
 packages: |core2-
 modules:
     types-
