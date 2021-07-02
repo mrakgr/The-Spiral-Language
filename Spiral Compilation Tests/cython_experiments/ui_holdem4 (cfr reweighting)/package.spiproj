@@ -5,6 +5,22 @@
 
 // Once I make these changes, hopefully the net should be roboust enough handle Holdem.
 
+// Update(7/2/2021): It turns out regular AC formulations are a form of CFR, and they work better than dividing by the current
+// self sample probability unlike in the tabular case. I thought a bit of how I would do the tabular policy updates, but unlike
+// for the value function, I cannot think of anything that I would expect to work that the backprop updates.
+
+// It turns out just changing the weighting scheme is enough to improve the performance tremendously.
+
+// I've also removed multiple support for actions in the value net. Thanks to this, once I move to having many actions
+// the memory use will be a lot more efficient. I haven't observed any degradation in performance from doing this.
+
+// I've gone through all over it, but the architecture and the algorithm is more vanilla than I expected it would be. At this 
+// point I do not think there will be any changes to the algorithm itself. The code in `belief.py` should be solid. I am going to
+// use this to train a competent HU player.
+
+// I've reached my limit with this current approach here. To go even further I am going to have to research transformers and
+// try to fit unsupervised learning into the mix.
+
 packages: |core2-
 modules:
     types-

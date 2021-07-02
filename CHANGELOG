@@ -1,6 +1,10 @@
-WIP
+2.0.90 (7/2/2021)
 
-* 
+* Fixed a bug in array `filter` and `choose`.
+
+2.0.90 (7/2/2021)
+
+* Fixed a variable shadowing bug when filling in the type annotation of default values in patterns.
 
 2.0.89 (7/1/2021)
 

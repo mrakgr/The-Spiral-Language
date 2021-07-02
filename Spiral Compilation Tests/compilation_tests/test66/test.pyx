@@ -1,11 +1,19 @@
-cdef str method0(bint v0):
+cpdef str main():
+    cdef unsigned char v0
     cdef bint v1
-    v1 = 1 == v0
+    cdef bint v2
+    cdef bint v3
+    v0 = (<unsigned char>0)
+    v1 = (<unsigned char>0) == v0
     if v1:
-        return "asd"
-    else:
         return "qwe"
-cpdef str main() except *:
-    cdef bint v0
-    v0 = 1
-    return method0(v0)
+    else:
+        v2 = (<unsigned char>1) == v0
+        if v2:
+            return "asd"
+        else:
+            v3 = (<unsigned char>2) == v0
+            if v3:
+                return "asd"
+            else:
+                return "zxc"

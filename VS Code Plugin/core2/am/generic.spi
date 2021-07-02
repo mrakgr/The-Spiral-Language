@@ -36,7 +36,7 @@ inl filter forall (ar : * -> * -> *) {create; set; index; length} dim {number} e
     inl ar' : ar _ _ = create nearTo
     for (from:0 nearTo:) (fun i count => 
         inl x = index ar i
-        if f x then set ar' i x . count + 1 else count
+        if f x then set ar' count x . count + 1 else count
         ) 0
     |> fun nearTo => init nearTo (index ar')
 // Picks out the elements from the array.
@@ -46,7 +46,7 @@ inl choose forall (ar : * -> * -> *) {create; set; index; length} dim {number} e
     for (from:0 nearTo:) (fun i count =>
         inl x = index ar i
         match f x with
-        | Some: x => set ar' i x . count + 1 
+        | Some: x => set ar' count x . count + 1 
         | None => count
         ) 0
     |> fun nearTo => init nearTo (index ar')

@@ -1,4 +1,7 @@
-// union rec t y = 
-//     | A: x
-
-// inl w () = A: "true"
+// Does pattern matching literals work?
+inl main () =
+    inl ~x = 0
+    match x with
+    | 0u8 => "qwe"
+    | 1 | 2 => "asd"
+    | _ => "zxc"

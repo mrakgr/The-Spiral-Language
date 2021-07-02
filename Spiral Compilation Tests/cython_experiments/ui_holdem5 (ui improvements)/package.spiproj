@@ -1,0 +1,35 @@
+// I need to make some improvement to the ui like adding fractional pot betting buttons.
+// I also need to change the game. Turbo SNGs have 10/20 blinds and 1000 starting stacks.
+// This means there are 10x times as many possible raises than I expected.
+// The blinds can increase and that is not the same thing as the stacks decreasing.
+
+// What I am going to do is make a restricted game of holdem that allows only a certain set
+// of possible actions. Training with 1k possible actions right off the bat would just be too hard.
+// If I want to get something good, I need to set up a curriculum.
+
+// Once this I'll be able to make my third and hopefully success attempt at training a Holdem agent.
+
+packages: |core2-
+modules:
+    types-
+    conv-
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    sampling
+    nodes-
+    train
+    hand_scorer
+    hu_holdem
+    leduc
+    agent/
+        uniform
+        holdem_callbot
+        tabular
+        neural_ff_leduc
+        neural_ff_holdem
+    create_args_leduc
+    create_args_holdem

@@ -732,7 +732,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 let l = l |> List.map (function RawMacroTermVar(r,x) -> RawMacroTermVar(r,f x) | x -> x )
                 RawAnnot(r,RawMacro(r,l),annot r x)
             | RawArray(r,a) -> RawAnnot(r,RawArray(r,List.map f a),annot r x)
-        and pattern rec_term x =
+        and pattern rec_term x' =
             let mutable rec_term = rec_term
             let rec f = function
                 | PatFilledDefaultValue _ -> failwith "Compiler error: PatDefaultValueFilled should not appear in fill."
@@ -750,11 +750,11 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     PatRecordMembers(r,a)
                 | PatOr(r,a,b) -> PatOr(r,f a,f b)
                 | PatAnd(r,a,b) -> PatAnd(r,f a,f b)
-                | PatDefaultValue(r,a) -> PatFilledDefaultValue(r,a,annot r x)
+                | PatDefaultValue(r,a) as x -> PatFilledDefaultValue(r,a,annot r x)
                 | PatWhen(r,a,b) -> PatWhen(r,f a,term rec_term b)
                 | PatNominal(r,a,b) -> PatNominal(r,a,f b)
                 | PatArray(r,a) -> PatArray(r,List.map f a)
-            rec_term, f x
+            rec_term, f x'
 
         let x = fill_foralls r rec_term expr
         assert (0 = errors.Count)
