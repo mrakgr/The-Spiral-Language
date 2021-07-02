@@ -12,7 +12,7 @@ from torch.optim.swa_utils import AveragedModel
 def neural_create_model(size,size_mid=64,size_head=64):
     value = torch.nn.Sequential(
         InfCube(size.value,size_mid),
-        Linear(size_mid,size.action * size_head)
+        Linear(size_mid,size_head)
         )
     policy = torch.nn.Sequential(
         InfCube(size.policy,size_mid),
@@ -127,8 +127,8 @@ if __name__ == '__main__':
     from create_args_leduc import main
     args = main()
     n,m=300,150
-    # create_tabular_agent(n,m,**args)
     ag = n + m
+    # create_tabular_agent(n,m,**args)
     for _ in range(5):
         create_nn_agent(n,m,**args)
         evaluate_vs_tabular(ag,n+m,**args)

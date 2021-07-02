@@ -129,52 +129,44 @@ cdef class Closure3():
         cdef float v35
         cdef float v36
         cdef float v37
-        cdef float v38
+        cdef unsigned long long v38
         cdef float v39
         cdef float v40
         cdef float v41
         cdef float v42
-        cdef float v43
-        cdef float v44
-        cdef float v45
-        cdef float v46
-        cdef float v47
-        cdef unsigned long long v48
-        cdef unsigned long long v49
-        cdef unsigned long long v50
-        cdef unsigned long long v51
-        cdef numpy.ndarray[float,ndim=1] v52
-        cdef unsigned long long v53
-        cdef unsigned long long v54
-        cdef bint v55
-        cdef bint v56
-        cdef numpy.ndarray[float,ndim=1] v57
-        cdef Mut0 v58
-        cdef unsigned long long v60
+        cdef unsigned long long v43
+        cdef numpy.ndarray[float,ndim=1] v44
+        cdef unsigned long long v45
+        cdef unsigned long long v46
+        cdef bint v47
+        cdef bint v48
+        cdef numpy.ndarray[float,ndim=1] v49
+        cdef Mut0 v50
+        cdef unsigned long long v52
+        cdef float v53
+        cdef float v54
+        cdef float v55
+        cdef UH0 v56
+        cdef float v57
+        cdef float v58
+        cdef UH0 v59
+        cdef float v60
         cdef float v61
-        cdef float v62
-        cdef float v63
-        cdef UH0 v64
-        cdef float v65
-        cdef float v66
-        cdef UH0 v67
-        cdef float v68
-        cdef float v69
-        cdef US2 v70
-        cdef unsigned char v71
-        cdef signed long v72
-        cdef US2 v73
-        cdef unsigned char v74
-        cdef signed long v75
-        cdef US3 v76
-        cdef unsigned char v77
-        cdef numpy.ndarray[signed long,ndim=1] v78
+        cdef US2 v62
+        cdef unsigned char v63
+        cdef signed long v64
+        cdef US2 v65
+        cdef unsigned char v66
+        cdef signed long v67
+        cdef US3 v68
+        cdef unsigned char v69
+        cdef numpy.ndarray[signed long,ndim=1] v70
         cdef Tuple1 tmp8
-        cdef bint v79
-        cdef float v81
-        cdef float v80
-        cdef unsigned long long v82
-        v4 = (<unsigned long long>3) * v1
+        cdef bint v71
+        cdef float v73
+        cdef float v72
+        cdef unsigned long long v74
+        v4 = (<unsigned long long>2) * v1
         v5 = numpy.empty(v4,dtype=numpy.float32)
         v6 = len(v3)
         v7 = len(v0)
@@ -202,55 +194,46 @@ cdef class Closure3():
                 v34, v35, v36, v37 = v17, v18, v20, v21
             else:
                 v34, v35, v36, v37 = v20, v21, v17, v18
-            v38 = v15 + v37
-            v39 = v14 + v36
-            v40 = -v35
-            v41 = v39 - v38
-            v42 = v40 + v41
-            v43 = libc.math.exp(v42)
-            v44 = v35 + v38
-            v45 = v34 + v39
-            v46 = v45 - v44
-            v47 = libc.math.exp(v46)
-            v48 = v1 + v12
-            v5[v48] = v43
-            v49 = (<unsigned long long>2) * v1
-            v50 = v49 + v12
-            v5[v50] = v47
-            v51 = v12 + (<unsigned long long>1)
-            v10.v0 = v51
+            v38 = v1 + v12
+            v39 = v15 + v37
+            v40 = v14 + v36
+            v41 = v40 - v39
+            v42 = libc.math.exp(v41)
+            v5[v38] = v42
+            v43 = v12 + (<unsigned long long>1)
+            v10.v0 = v43
         del v10
-        v52 = v2(v5)
+        v44 = v2(v5)
         del v5
-        v53 = len(v52)
-        v54 = len(v0)
-        v55 = v53 == v54
-        v56 = v55 == 0
-        if v56:
+        v45 = len(v44)
+        v46 = len(v0)
+        v47 = v45 == v46
+        v48 = v47 == 0
+        if v48:
             raise Exception("The length of the two arrays has to the same.")
         else:
             pass
-        v57 = numpy.empty(v53,dtype=numpy.float32)
-        v58 = Mut0((<unsigned long long>0))
-        while method0(v53, v58):
-            v60 = v58.v0
-            v61 = v52[v60]
-            tmp8 = v0[v60]
-            v62, v63, v64, v65, v66, v67, v68, v69, v70, v71, v72, v73, v74, v75, v76, v77, v78 = tmp8.v0, tmp8.v1, tmp8.v2, tmp8.v3, tmp8.v4, tmp8.v5, tmp8.v6, tmp8.v7, tmp8.v8, tmp8.v9, tmp8.v10, tmp8.v11, tmp8.v12, tmp8.v13, tmp8.v14, tmp8.v15, tmp8.v16
+        v49 = numpy.empty(v45,dtype=numpy.float32)
+        v50 = Mut0((<unsigned long long>0))
+        while method0(v45, v50):
+            v52 = v50.v0
+            v53 = v44[v52]
+            tmp8 = v0[v52]
+            v54, v55, v56, v57, v58, v59, v60, v61, v62, v63, v64, v65, v66, v67, v68, v69, v70 = tmp8.v0, tmp8.v1, tmp8.v2, tmp8.v3, tmp8.v4, tmp8.v5, tmp8.v6, tmp8.v7, tmp8.v8, tmp8.v9, tmp8.v10, tmp8.v11, tmp8.v12, tmp8.v13, tmp8.v14, tmp8.v15, tmp8.v16
             del tmp8
-            del v64; del v67; del v76; del v78
-            v79 = v77 == (<unsigned char>0)
-            if v79:
-                v81 = v61
+            del v56; del v59; del v68; del v70
+            v71 = v69 == (<unsigned char>0)
+            if v71:
+                v73 = v53
             else:
-                v80 = -v61
-                v81 = v80
-            v57[v60] = v81
-            v82 = v60 + (<unsigned long long>1)
-            v58.v0 = v82
-        del v52
-        del v58
-        return v57
+                v72 = -v53
+                v73 = v72
+            v49[v52] = v73
+            v74 = v52 + (<unsigned long long>1)
+            v50.v0 = v74
+        del v44
+        del v50
+        return v49
 cdef class Closure1():
     cdef object v0
     def __init__(self, v0): self.v0 = v0
@@ -424,7 +407,7 @@ cdef class Closure1():
                     pass
                 v38 = v36 == (<signed short>0)
                 if v38:
-                    v35[(<signed short>0)] = (<float>1.000000)
+                    v35[(<signed short>0)] = (<float>1)
                 else:
                     pass
                 v39 = Mut1((<signed short>0))
@@ -436,13 +419,13 @@ cdef class Closure1():
                     v44 = v41 * (<signed short>16)
                     v45 = (<signed short>1) + v44
                     if v42 == 0: # jack
-                        v35[v45] = (<float>1.000000)
+                        v35[v45] = (<float>1)
                     elif v42 == 1: # king
                         v46 = v45 + (<signed short>1)
-                        v35[v46] = (<float>1.000000)
+                        v35[v46] = (<float>1)
                     elif v42 == 2: # queen
                         v47 = v45 + (<signed short>2)
-                        v35[v47] = (<float>1.000000)
+                        v35[v47] = (<float>1)
                     v48 = v45 + (<signed short>3)
                     tmp3 = len(v43)
                     if <signed short>tmp3 != tmp3: raise Exception("The conversion to signed short failed.")
@@ -454,7 +437,7 @@ cdef class Closure1():
                         pass
                     v51 = v49 == (<signed short>0)
                     if v51:
-                        v35[v48] = (<float>1.000000)
+                        v35[v48] = (<float>1)
                     else:
                         pass
                     v52 = v48 + (<signed short>1)
@@ -465,13 +448,13 @@ cdef class Closure1():
                         v57 = v55 * (<signed short>3)
                         v58 = v52 + v57
                         if v56 == 0: # call
-                            v35[v58] = (<float>1.000000)
+                            v35[v58] = (<float>1)
                         elif v56 == 1: # fold
                             v59 = v58 + (<signed short>1)
-                            v35[v59] = (<float>1.000000)
+                            v35[v59] = (<float>1)
                         elif v56 == 2: # raise
                             v60 = v58 + (<signed short>2)
-                            v35[v60] = (<float>1.000000)
+                            v35[v60] = (<float>1)
                         v61 = v55 + (<signed short>1)
                         v53.v0 = v61
                     del v43
@@ -481,11 +464,11 @@ cdef class Closure1():
                 del v34
                 del v39
                 if v33 == 0: # jack
-                    v35[(<signed short>33)] = (<float>1.000000)
+                    v35[(<signed short>33)] = (<float>1)
                 elif v33 == 1: # king
-                    v35[(<signed short>34)] = (<float>1.000000)
+                    v35[(<signed short>34)] = (<float>1)
                 elif v33 == 2: # queen
-                    v35[(<signed short>35)] = (<float>1.000000)
+                    v35[(<signed short>35)] = (<float>1)
                 del v35
                 tmp4 = len(v29)
                 if <signed short>tmp4 != tmp4: raise Exception("The conversion to signed short failed.")
@@ -537,7 +520,7 @@ cdef class Closure1():
                 del v101
                 v103 = <float>v102
                 v104 = v76 / v103
-                v105 = (<float>1.000000) - v76
+                v105 = (<float>1) - v76
                 v106 = v105 * v84
                 v107 = v104 + v106
                 v108 = libc.math.log(v107)
@@ -862,12 +845,12 @@ cdef class Closure8():
                 v51 = v49.v0
                 v52 = v38[v51]
                 v53 = v37[v51]
-                v54 = v53 == (<float>0.000000)
+                v54 = v53 == (<float>0)
                 v55 = v54 != 1
                 if v55:
                     v57 = v52 / v53
                 else:
-                    v57 = (<float>0.000000)
+                    v57 = (<float>0)
                 v58 = v41 == v51
                 if v58:
                     v59 = v43 - v57
@@ -908,7 +891,7 @@ cdef class Closure8():
                 raise Exception("The length of the two arrays has to the same.")
             else:
                 pass
-            v80 = Mut4((<signed long long>0), (<float>0.000000))
+            v80 = Mut4((<signed long long>0), (<float>0))
             while method21(v76, v80):
                 v82 = v80.v0
                 v83 = v80.v1
@@ -1211,14 +1194,14 @@ cdef class Closure7():
                 v57.v1 = v62
             v64 = v57.v1
             del v57
-            v65 = v64 == (<float>0.000000)
+            v65 = v64 == (<float>0)
             if v65:
                 v66 = <float>v54
-                v67 = (<float>1.000000) / v66
-                v69, v70 = v67, (<float>0.000000)
+                v67 = (<float>1) / v66
+                v69, v70 = v67, (<float>0)
             else:
-                v68 = (<float>1.000000) / v64
-                v69, v70 = (<float>0.000000), v68
+                v68 = (<float>1) / v64
+                v69, v70 = (<float>0), v68
             v71 = numpy.empty(v54,dtype=numpy.float32)
             v72 = Mut5((<signed long long>0))
             while method22(v54, v72):
@@ -1240,7 +1223,7 @@ cdef class Closure7():
                 v84 = v71[v83]
                 v85 = <float>v48
                 v86 = v0 / v85
-                v87 = (<float>1.000000) - v0
+                v87 = (<float>1) - v0
                 v88 = v87 * v84
                 v89 = v86 + v88
                 v80[v83] = v89
@@ -1322,7 +1305,7 @@ cdef class Closure11():
             del v8; del v11; del v20
             v23 = len(v22)
             v24 = <float>v23
-            v25 = (<float>1.000000) / v24
+            v25 = (<float>1) / v24
             v26 = libc.math.log(v25)
             v27 = numpy.random.choice(v22)
             del v22
@@ -1830,22 +1813,22 @@ cdef class Closure12():
             v26[0] = v20; v26[1] = v21; v26[2] = v22; v26[3] = v23; v26[4] = v24; v26[5] = v25
             numpy.random.shuffle(v26)
             v27 = UH0_1()
-            v28 = (<float>0.000000)
-            v29 = (<float>0.000000)
+            v28 = (<float>0)
+            v29 = (<float>0)
             v30 = UH0_1()
-            v31 = (<float>0.000000)
-            v32 = (<float>0.000000)
+            v31 = (<float>0)
+            v32 = (<float>0)
             v33 = v26[(<unsigned long long>0)]
             v34 = len(v26)
             v35 = <float>v34
-            v36 = (<float>1.000000) / v35
+            v36 = (<float>1) / v35
             v37 = libc.math.log(v36)
             v38 = v26[1:]
             del v26
             v39 = v38[(<unsigned long long>0)]
             v40 = len(v38)
             v41 = <float>v40
-            v42 = (<float>1.000000) / v41
+            v42 = (<float>1) / v41
             v43 = libc.math.log(v42)
             v44 = v43 + v37
             v45 = v38[1:]
@@ -1954,22 +1937,22 @@ cdef class Closure18():
             v25[0] = v19; v25[1] = v20; v25[2] = v21; v25[3] = v22; v25[4] = v23; v25[5] = v24
             numpy.random.shuffle(v25)
             v26 = UH0_1()
-            v27 = (<float>0.000000)
-            v28 = (<float>0.000000)
+            v27 = (<float>0)
+            v28 = (<float>0)
             v29 = UH0_1()
-            v30 = (<float>0.000000)
-            v31 = (<float>0.000000)
+            v30 = (<float>0)
+            v31 = (<float>0)
             v32 = v25[(<unsigned long long>0)]
             v33 = len(v25)
             v34 = <float>v33
-            v35 = (<float>1.000000) / v34
+            v35 = (<float>1) / v34
             v36 = libc.math.log(v35)
             v37 = v25[1:]
             del v25
             v38 = v37[(<unsigned long long>0)]
             v39 = len(v37)
             v40 = <float>v39
-            v41 = (<float>1.000000) / v40
+            v41 = (<float>1) / v40
             v42 = libc.math.log(v41)
             v43 = v42 + v36
             v44 = v37[1:]
@@ -2840,14 +2823,14 @@ cdef void method12(Mut2 v0, Mut2 v1) except *:
                 v25.v1 = v30
             v32 = v25.v1
             del v25
-            v33 = v32 == (<float>0.000000)
+            v33 = v32 == (<float>0)
             if v33:
                 v34 = <float>v18
-                v35 = (<float>1.000000) / v34
-                v37, v38 = v35, (<float>0.000000)
+                v35 = (<float>1) / v34
+                v37, v38 = v35, (<float>0)
             else:
-                v36 = (<float>1.000000) / v32
-                v37, v38 = (<float>0.000000), v36
+                v36 = (<float>1) / v32
+                v37, v38 = (<float>0), v36
             v39 = numpy.empty(v18,dtype=numpy.float32)
             v40 = Mut5((<signed long long>0))
             while method22(v18, v40):
@@ -3070,12 +3053,12 @@ cdef void method32(Mut2 v0) except *:
                 v21 = v15[v20]
                 v22 = v16[v20]
                 v23 = v21 + v22
-                v24 = (<float>0.000000) >= v23
+                v24 = (<float>0) >= v23
                 if v24:
-                    v25 = (<float>0.000000)
+                    v25 = (<float>0)
                 else:
                     v25 = v23
-                v16[v20] = (<float>0.000000)
+                v16[v20] = (<float>0)
                 v15[v20] = v25
                 v26 = v20 + (<signed long long>1)
                 v18.v0 = v26
@@ -3396,7 +3379,7 @@ cdef UH3 method40(Heap0 v0, numpy.ndarray[signed long,ndim=1] v1, signed long v2
         v24 = v1[(<unsigned long long>0)]
         v25 = len(v1)
         v26 = <float>v25
-        v27 = (<float>1.000000) / v26
+        v27 = (<float>1) / v26
         v28 = libc.math.log(v27)
         v29 = v28 + v10
         v30 = v0.v2
@@ -3490,7 +3473,7 @@ cdef UH3 method35(Heap0 v0, numpy.ndarray[signed long,ndim=1] v1, signed long v2
         v23 = v1[(<unsigned long long>0)]
         v24 = len(v1)
         v25 = <float>v24
-        v26 = (<float>1.000000) / v25
+        v26 = (<float>1) / v25
         v27 = libc.math.log(v26)
         v28 = v27 + v9
         v29 = v0.v2

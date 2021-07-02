@@ -1,2 +1,0 @@
-// Controls the type of the stack. Since I am noting going to train anywhere close to 16kbb deep, i16 should be fine.
-type st = i16

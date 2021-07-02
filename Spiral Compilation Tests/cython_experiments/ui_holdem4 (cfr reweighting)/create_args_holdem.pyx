@@ -139,56 +139,48 @@ cdef class Closure3():
         cdef float v39
         cdef float v40
         cdef float v41
-        cdef float v42
+        cdef unsigned long long v42
         cdef float v43
         cdef float v44
         cdef float v45
         cdef float v46
-        cdef float v47
-        cdef float v48
-        cdef float v49
-        cdef float v50
-        cdef float v51
-        cdef unsigned long long v52
-        cdef unsigned long long v53
-        cdef unsigned long long v54
-        cdef unsigned long long v55
-        cdef numpy.ndarray[float,ndim=1] v56
-        cdef unsigned long long v57
-        cdef unsigned long long v58
-        cdef bint v59
-        cdef bint v60
-        cdef numpy.ndarray[float,ndim=1] v61
-        cdef Mut0 v62
-        cdef unsigned long long v64
+        cdef unsigned long long v47
+        cdef numpy.ndarray[float,ndim=1] v48
+        cdef unsigned long long v49
+        cdef unsigned long long v50
+        cdef bint v51
+        cdef bint v52
+        cdef numpy.ndarray[float,ndim=1] v53
+        cdef Mut0 v54
+        cdef unsigned long long v56
+        cdef float v57
+        cdef float v58
+        cdef float v59
+        cdef UH0 v60
+        cdef float v61
+        cdef float v62
+        cdef UH0 v63
+        cdef float v64
         cdef float v65
-        cdef float v66
-        cdef float v67
-        cdef UH0 v68
-        cdef float v69
-        cdef float v70
-        cdef UH0 v71
-        cdef float v72
-        cdef float v73
-        cdef signed char v74
-        cdef signed char v75
-        cdef unsigned char v76
-        cdef signed short v77
-        cdef signed char v78
-        cdef signed char v79
-        cdef unsigned char v80
-        cdef signed short v81
-        cdef numpy.ndarray[signed char,ndim=1] v82
-        cdef signed short v83
-        cdef bint v84
-        cdef unsigned char v85
-        cdef numpy.ndarray[object,ndim=1] v86
+        cdef signed char v66
+        cdef signed char v67
+        cdef unsigned char v68
+        cdef signed short v69
+        cdef signed char v70
+        cdef signed char v71
+        cdef unsigned char v72
+        cdef signed short v73
+        cdef numpy.ndarray[signed char,ndim=1] v74
+        cdef signed short v75
+        cdef bint v76
+        cdef unsigned char v77
+        cdef numpy.ndarray[object,ndim=1] v78
         cdef Tuple1 tmp8
-        cdef bint v87
-        cdef float v89
-        cdef float v88
-        cdef unsigned long long v90
-        v4 = (<unsigned long long>3) * v1
+        cdef bint v79
+        cdef float v81
+        cdef float v80
+        cdef unsigned long long v82
+        v4 = (<unsigned long long>2) * v1
         v5 = numpy.empty(v4,dtype=numpy.float32)
         v6 = len(v3)
         v7 = len(v0)
@@ -216,55 +208,46 @@ cdef class Closure3():
                 v38, v39, v40, v41 = v17, v18, v20, v21
             else:
                 v38, v39, v40, v41 = v20, v21, v17, v18
-            v42 = v15 + v41
-            v43 = v14 + v40
-            v44 = -v39
-            v45 = v43 - v42
-            v46 = v44 + v45
-            v47 = libc.math.exp(v46)
-            v48 = v39 + v42
-            v49 = v38 + v43
-            v50 = v49 - v48
-            v51 = libc.math.exp(v50)
-            v52 = v1 + v12
-            v5[v52] = v47
-            v53 = (<unsigned long long>2) * v1
-            v54 = v53 + v12
-            v5[v54] = v51
-            v55 = v12 + (<unsigned long long>1)
-            v10.v0 = v55
+            v42 = v1 + v12
+            v43 = v15 + v41
+            v44 = v14 + v40
+            v45 = v44 - v43
+            v46 = libc.math.exp(v45)
+            v5[v42] = v46
+            v47 = v12 + (<unsigned long long>1)
+            v10.v0 = v47
         del v10
-        v56 = v2(v5)
+        v48 = v2(v5)
         del v5
-        v57 = len(v56)
-        v58 = len(v0)
-        v59 = v57 == v58
-        v60 = v59 == 0
-        if v60:
+        v49 = len(v48)
+        v50 = len(v0)
+        v51 = v49 == v50
+        v52 = v51 == 0
+        if v52:
             raise Exception("The length of the two arrays has to the same.")
         else:
             pass
-        v61 = numpy.empty(v57,dtype=numpy.float32)
-        v62 = Mut0((<unsigned long long>0))
-        while method0(v57, v62):
-            v64 = v62.v0
-            v65 = v56[v64]
-            tmp8 = v0[v64]
-            v66, v67, v68, v69, v70, v71, v72, v73, v74, v75, v76, v77, v78, v79, v80, v81, v82, v83, v84, v85, v86 = tmp8.v0, tmp8.v1, tmp8.v2, tmp8.v3, tmp8.v4, tmp8.v5, tmp8.v6, tmp8.v7, tmp8.v8, tmp8.v9, tmp8.v10, tmp8.v11, tmp8.v12, tmp8.v13, tmp8.v14, tmp8.v15, tmp8.v16, tmp8.v17, tmp8.v18, tmp8.v19, tmp8.v20
+        v53 = numpy.empty(v49,dtype=numpy.float32)
+        v54 = Mut0((<unsigned long long>0))
+        while method0(v49, v54):
+            v56 = v54.v0
+            v57 = v48[v56]
+            tmp8 = v0[v56]
+            v58, v59, v60, v61, v62, v63, v64, v65, v66, v67, v68, v69, v70, v71, v72, v73, v74, v75, v76, v77, v78 = tmp8.v0, tmp8.v1, tmp8.v2, tmp8.v3, tmp8.v4, tmp8.v5, tmp8.v6, tmp8.v7, tmp8.v8, tmp8.v9, tmp8.v10, tmp8.v11, tmp8.v12, tmp8.v13, tmp8.v14, tmp8.v15, tmp8.v16, tmp8.v17, tmp8.v18, tmp8.v19, tmp8.v20
             del tmp8
-            del v68; del v71; del v82; del v86
-            v87 = v85 == (<unsigned char>0)
-            if v87:
-                v89 = v65
+            del v60; del v63; del v74; del v78
+            v79 = v77 == (<unsigned char>0)
+            if v79:
+                v81 = v57
             else:
-                v88 = -v65
-                v89 = v88
-            v61[v64] = v89
-            v90 = v64 + (<unsigned long long>1)
-            v62.v0 = v90
-        del v56
-        del v62
-        return v61
+                v80 = -v57
+                v81 = v80
+            v53[v56] = v81
+            v82 = v56 + (<unsigned long long>1)
+            v54.v0 = v82
+        del v48
+        del v54
+        return v53
 cdef class Closure1():
     cdef object v0
     def __init__(self, v0): self.v0 = v0
@@ -534,7 +517,7 @@ cdef class Closure1():
                 if v50:
                     v51 = <signed short>v45
                     v52 = (<signed short>12) + v51
-                    v41[v52] = (<float>1.000000)
+                    v41[v52] = (<float>1)
                 else:
                     v53 = f'Pickle failure. Int value out of bounds. Got: {v45} Size: {(<signed short>4)}'
                     raise Exception(v53)
@@ -547,7 +530,7 @@ cdef class Closure1():
                 if v57:
                     v58 = <signed short>v46
                     v59 = (<signed short>16) + v58
-                    v41[v59] = (<float>1.000000)
+                    v41[v59] = (<float>1)
                 else:
                     v60 = f'Pickle failure. Int value out of bounds. Got: {v46} Size: {(<signed short>13)}'
                     raise Exception(v60)
@@ -562,7 +545,7 @@ cdef class Closure1():
                 if v66:
                     v67 = <signed short>v61
                     v68 = (<signed short>29) + v67
-                    v41[v68] = (<float>1.000000)
+                    v41[v68] = (<float>1)
                 else:
                     v69 = f'Pickle failure. Int value out of bounds. Got: {v61} Size: {(<signed short>4)}'
                     raise Exception(v69)
@@ -575,7 +558,7 @@ cdef class Closure1():
                 if v73:
                     v74 = <signed short>v62
                     v75 = (<signed short>33) + v74
-                    v41[v75] = (<float>1.000000)
+                    v41[v75] = (<float>1)
                 else:
                     v76 = f'Pickle failure. Int value out of bounds. Got: {v62} Size: {(<signed short>13)}'
                     raise Exception(v76)
@@ -589,7 +572,7 @@ cdef class Closure1():
                     pass
                 v79 = v77 == (<signed short>0)
                 if v79:
-                    v41[(<signed short>46)] = (<float>1.000000)
+                    v41[(<signed short>46)] = (<float>1)
                 else:
                     pass
                 v80 = Mut1((<signed short>0))
@@ -609,7 +592,7 @@ cdef class Closure1():
                     if v91:
                         v92 = <signed short>v86
                         v93 = v85 + v92
-                        v41[v93] = (<float>1.000000)
+                        v41[v93] = (<float>1)
                     else:
                         v94 = f'Pickle failure. Int value out of bounds. Got: {v86} Size: {(<signed short>4)}'
                         raise Exception(v94)
@@ -623,7 +606,7 @@ cdef class Closure1():
                     if v99:
                         v100 = <signed short>v87
                         v101 = v95 + v100
-                        v41[v101] = (<float>1.000000)
+                        v41[v101] = (<float>1)
                     else:
                         v102 = f'Pickle failure. Int value out of bounds. Got: {v87} Size: {(<signed short>13)}'
                         raise Exception(v102)
@@ -641,7 +624,7 @@ cdef class Closure1():
                     pass
                 v106 = v104 == (<signed short>0)
                 if v106:
-                    v41[(<signed short>132)] = (<float>1.000000)
+                    v41[(<signed short>132)] = (<float>1)
                 else:
                     pass
                 v107 = Mut1((<signed short>0))
@@ -651,17 +634,17 @@ cdef class Closure1():
                     v111 = v109 * (<signed short>7)
                     v112 = (<signed short>133) + v111
                     if v110.tag == 0: # oCall
-                        v41[v112] = (<float>1.000000)
+                        v41[v112] = (<float>1)
                     elif v110.tag == 1: # oFold
                         v113 = v112 + (<signed short>1)
-                        v41[v113] = (<float>1.000000)
+                        v41[v113] = (<float>1)
                     elif v110.tag == 2: # oRaiseTo_
                         v114 = (<US2_2>v110).v0
                         v115 = v112 + (<signed short>2)
                         method5(v114, v41, v115)
                     elif v110.tag == 3: # oStreetOver
                         v116 = v112 + (<signed short>6)
-                        v41[v116] = (<float>1.000000)
+                        v41[v116] = (<float>1)
                     del v110
                     v117 = v109 + (<signed short>1)
                     v107.v0 = v117
@@ -678,7 +661,7 @@ cdef class Closure1():
                 if v123:
                     v124 = <signed short>v118
                     v125 = (<signed short>266) + v124
-                    v41[v125] = (<float>1.000000)
+                    v41[v125] = (<float>1)
                 else:
                     v126 = f'Pickle failure. Int value out of bounds. Got: {v118} Size: {(<signed short>4)}'
                     raise Exception(v126)
@@ -691,7 +674,7 @@ cdef class Closure1():
                 if v130:
                     v131 = <signed short>v119
                     v132 = (<signed short>270) + v131
-                    v41[v132] = (<float>1.000000)
+                    v41[v132] = (<float>1)
                 else:
                     v133 = f'Pickle failure. Int value out of bounds. Got: {v119} Size: {(<signed short>13)}'
                     raise Exception(v133)
@@ -706,7 +689,7 @@ cdef class Closure1():
                 if v139:
                     v140 = <signed short>v134
                     v141 = (<signed short>283) + v140
-                    v41[v141] = (<float>1.000000)
+                    v41[v141] = (<float>1)
                 else:
                     v142 = f'Pickle failure. Int value out of bounds. Got: {v134} Size: {(<signed short>4)}'
                     raise Exception(v142)
@@ -719,7 +702,7 @@ cdef class Closure1():
                 if v146:
                     v147 = <signed short>v135
                     v148 = (<signed short>287) + v147
-                    v41[v148] = (<float>1.000000)
+                    v41[v148] = (<float>1)
                 else:
                     v149 = f'Pickle failure. Int value out of bounds. Got: {v135} Size: {(<signed short>13)}'
                     raise Exception(v149)
@@ -788,7 +771,7 @@ cdef class Closure1():
                 del v200
                 v202 = <float>v201
                 v203 = v171 / v202
-                v204 = (<float>1.000000) - v171
+                v204 = (<float>1) - v171
                 v205 = v204 * v179
                 v206 = v203 + v205
                 v207 = libc.math.log(v206)
@@ -887,7 +870,7 @@ cdef class Closure4():
             del tmp9
             del v8; del v11; del v22; del v26
             v27 = US1_0()
-            v2[v5] = Tuple3((<float>0.000000), (<float>0.000000), v27)
+            v2[v5] = Tuple3((<float>0), (<float>0), v27)
             del v27
             v28 = v5 + (<unsigned long long>1)
             v3.v0 = v28
@@ -944,7 +927,7 @@ cdef class Closure5():
             if <signed short>tmp11 != tmp11: raise Exception("The conversion to signed short failed.")
             v27 = <signed short>tmp11
             v28 = <float>v27
-            v29 = (<float>1.000000) / v28
+            v29 = (<float>1) / v28
             v30 = libc.math.log(v29)
             v31 = numpy.random.choice(v26)
             del v26
@@ -1322,7 +1305,7 @@ cdef class Closure10():
         if <signed short>tmp20 != tmp20: raise Exception("The conversion to signed short failed.")
         v24 = <signed short>tmp20
         v25 = <float>v24
-        v26 = (<float>1.000000) / v25
+        v26 = (<float>1) / v25
         v27 = libc.math.log(v26)
         v28 = v27 + v16
         v29 = v27 + v15
@@ -1646,7 +1629,7 @@ cdef class Closure9():
         if <signed short>tmp19 != tmp19: raise Exception("The conversion to signed short failed.")
         v23 = <signed short>tmp19
         v24 = <float>v23
-        v25 = (<float>1.000000) / v24
+        v25 = (<float>1) / v24
         v26 = libc.math.log(v25)
         v27 = v26 + v15
         v28 = v26 + v14
@@ -1981,7 +1964,7 @@ cdef class Closure8():
         if <signed short>tmp16 != tmp16: raise Exception("The conversion to signed short failed.")
         v20 = <signed short>tmp16
         v21 = <float>v20
-        v22 = (<float>1.000000) / v21
+        v22 = (<float>1) / v21
         v23 = libc.math.log(v22)
         v24 = v23 + v12
         v25 = v23 + v11
@@ -1991,7 +1974,7 @@ cdef class Closure8():
         if <signed short>tmp17 != tmp17: raise Exception("The conversion to signed short failed.")
         v28 = <signed short>tmp17
         v29 = <float>v28
-        v30 = (<float>1.000000) / v29
+        v30 = (<float>1) / v29
         v31 = libc.math.log(v30)
         v32 = v31 + v24
         v33 = v31 + v25
@@ -2002,7 +1985,7 @@ cdef class Closure8():
         if <signed short>tmp18 != tmp18: raise Exception("The conversion to signed short failed.")
         v36 = <signed short>tmp18
         v37 = <float>v36
-        v38 = (<float>1.000000) / v37
+        v38 = (<float>1) / v37
         v39 = libc.math.log(v38)
         v40 = v39 + v32
         v41 = v39 + v33
@@ -2381,17 +2364,17 @@ cdef class Closure7():
                 v10.v0 = v22
             del v10
             v23 = UH0_1()
-            v24 = (<float>0.000000)
-            v25 = (<float>0.000000)
+            v24 = (<float>0)
+            v25 = (<float>0)
             v26 = UH0_1()
-            v27 = (<float>0.000000)
-            v28 = (<float>0.000000)
+            v27 = (<float>0)
+            v28 = (<float>0)
             v29 = v8[(<signed short>0)]
             tmp12 = len(v8)
             if <signed short>tmp12 != tmp12: raise Exception("The conversion to signed short failed.")
             v30 = <signed short>tmp12
             v31 = <float>v30
-            v32 = (<float>1.000000) / v31
+            v32 = (<float>1) / v31
             v33 = libc.math.log(v32)
             v34 = v8[1:]
             del v8
@@ -2400,7 +2383,7 @@ cdef class Closure7():
             if <signed short>tmp13 != tmp13: raise Exception("The conversion to signed short failed.")
             v36 = <signed short>tmp13
             v37 = <float>v36
-            v38 = (<float>1.000000) / v37
+            v38 = (<float>1) / v37
             v39 = libc.math.log(v38)
             v40 = v39 + v33
             v41 = v34[1:]
@@ -2410,7 +2393,7 @@ cdef class Closure7():
             if <signed short>tmp14 != tmp14: raise Exception("The conversion to signed short failed.")
             v43 = <signed short>tmp14
             v44 = <float>v43
-            v45 = (<float>1.000000) / v44
+            v45 = (<float>1) / v44
             v46 = libc.math.log(v45)
             v47 = v46 + v40
             v48 = v41[1:]
@@ -2420,7 +2403,7 @@ cdef class Closure7():
             if <signed short>tmp15 != tmp15: raise Exception("The conversion to signed short failed.")
             v50 = <signed short>tmp15
             v51 = <float>v50
-            v52 = (<float>1.000000) / v51
+            v52 = (<float>1) / v51
             v53 = libc.math.log(v52)
             v54 = v53 + v47
             v55 = v48[1:]
@@ -2557,17 +2540,17 @@ cdef class Closure29():
                 v9.v0 = v21
             del v9
             v22 = UH0_1()
-            v23 = (<float>0.000000)
-            v24 = (<float>0.000000)
+            v23 = (<float>0)
+            v24 = (<float>0)
             v25 = UH0_1()
-            v26 = (<float>0.000000)
-            v27 = (<float>0.000000)
+            v26 = (<float>0)
+            v27 = (<float>0)
             v28 = v7[(<signed short>0)]
             tmp45 = len(v7)
             if <signed short>tmp45 != tmp45: raise Exception("The conversion to signed short failed.")
             v29 = <signed short>tmp45
             v30 = <float>v29
-            v31 = (<float>1.000000) / v30
+            v31 = (<float>1) / v30
             v32 = libc.math.log(v31)
             v33 = v7[1:]
             del v7
@@ -2576,7 +2559,7 @@ cdef class Closure29():
             if <signed short>tmp46 != tmp46: raise Exception("The conversion to signed short failed.")
             v35 = <signed short>tmp46
             v36 = <float>v35
-            v37 = (<float>1.000000) / v36
+            v37 = (<float>1) / v36
             v38 = libc.math.log(v37)
             v39 = v38 + v32
             v40 = v33[1:]
@@ -2586,7 +2569,7 @@ cdef class Closure29():
             if <signed short>tmp47 != tmp47: raise Exception("The conversion to signed short failed.")
             v42 = <signed short>tmp47
             v43 = <float>v42
-            v44 = (<float>1.000000) / v43
+            v44 = (<float>1) / v43
             v45 = libc.math.log(v44)
             v46 = v45 + v39
             v47 = v40[1:]
@@ -2596,7 +2579,7 @@ cdef class Closure29():
             if <signed short>tmp48 != tmp48: raise Exception("The conversion to signed short failed.")
             v49 = <signed short>tmp48
             v50 = <float>v49
-            v51 = (<float>1.000000) / v50
+            v51 = (<float>1) / v50
             v52 = libc.math.log(v51)
             v53 = v52 + v46
             v54 = v47[1:]
@@ -2654,7 +2637,7 @@ cdef class Closure32():
         cdef US1 v6
         cdef UH2 v7
         v6 = US1_2(v5)
-        v7 = v4((<float>0.000000), (<float>0.000000), v6)
+        v7 = v4((<float>0), (<float>0), v6)
         del v6
         method57(v0, v1, v2, v3, v7)
 cdef class Closure33():
@@ -2673,7 +2656,7 @@ cdef class Closure33():
         cdef US1 v5
         cdef UH2 v6
         v5 = US1_0()
-        v6 = v4((<float>0.000000), (<float>0.000000), v5)
+        v6 = v4((<float>0), (<float>0), v5)
         del v5
         method57(v0, v1, v2, v3, v6)
 cdef class Closure34():
@@ -2692,7 +2675,7 @@ cdef class Closure34():
         cdef US1 v5
         cdef UH2 v6
         v5 = US1_1()
-        v6 = v4((<float>0.000000), (<float>0.000000), v5)
+        v6 = v4((<float>0), (<float>0), v5)
         del v5
         method57(v0, v1, v2, v3, v6)
 cdef class Closure31():
@@ -2786,17 +2769,17 @@ cdef class Closure31():
             v6.v0 = v18
         del v6
         v19 = UH0_1()
-        v20 = (<float>0.000000)
-        v21 = (<float>0.000000)
+        v20 = (<float>0)
+        v21 = (<float>0)
         v22 = UH0_1()
-        v23 = (<float>0.000000)
-        v24 = (<float>0.000000)
+        v23 = (<float>0)
+        v24 = (<float>0)
         v25 = v4[(<signed short>0)]
         tmp52 = len(v4)
         if <signed short>tmp52 != tmp52: raise Exception("The conversion to signed short failed.")
         v26 = <signed short>tmp52
         v27 = <float>v26
-        v28 = (<float>1.000000) / v27
+        v28 = (<float>1) / v27
         v29 = libc.math.log(v28)
         v30 = v4[1:]
         del v4
@@ -2805,7 +2788,7 @@ cdef class Closure31():
         if <signed short>tmp53 != tmp53: raise Exception("The conversion to signed short failed.")
         v32 = <signed short>tmp53
         v33 = <float>v32
-        v34 = (<float>1.000000) / v33
+        v34 = (<float>1) / v33
         v35 = libc.math.log(v34)
         v36 = v35 + v29
         v37 = v30[1:]
@@ -2815,7 +2798,7 @@ cdef class Closure31():
         if <signed short>tmp54 != tmp54: raise Exception("The conversion to signed short failed.")
         v39 = <signed short>tmp54
         v40 = <float>v39
-        v41 = (<float>1.000000) / v40
+        v41 = (<float>1) / v40
         v42 = libc.math.log(v41)
         v43 = v42 + v36
         v44 = v37[1:]
@@ -2825,7 +2808,7 @@ cdef class Closure31():
         if <signed short>tmp55 != tmp55: raise Exception("The conversion to signed short failed.")
         v46 = <signed short>tmp55
         v47 = <float>v46
-        v48 = (<float>1.000000) / v47
+        v48 = (<float>1) / v47
         v49 = libc.math.log(v48)
         v50 = v49 + v43
         v51 = v44[1:]
@@ -6884,11 +6867,11 @@ cdef void method70(float v0, list v1, unsigned char v2) except *:
         v9 = v6
     else:
         v9 = v7
-    v10 = v6 < (<float>0.000000)
+    v10 = v6 < (<float>0)
     if v10:
         v16 = f'{v4} losses {v9} chips.'
     else:
-        v12 = v6 == (<float>0.000000)
+        v12 = v6 == (<float>0)
         if v12:
             v16 = f'{v4} ties.'
         else:
