@@ -9,6 +9,42 @@
 
 // Once this I'll be able to make my third and hopefully success attempt at training a Holdem agent.
 
+// Update(7/3/2021): The value function diverged and the run failed. I said the algorithm is complete,
+// but everytime I encounter hardship I get inspiration.
+
+// Let me try a simplified way of calculating the prediction values that I've found to work just as well
+// in the tabular regime, but might work better in NN land. I am also going to stop using vs_self
+// since the reweighting caused by that might be exacerbating the variance.
+
+// ...
+
+// It works just as well as the previous method against the callbot. See the commit for more details.
+// I give up on the current approach to RL. I've pushed it as hard as I could, but it is not scaling at all.
+
+// I thought I was being rash in my decision to move to transformers a few days ago and talked myself out of it. 
+// I had to try this because if the variance is too high with MLPs here, I knew it would be too high with transformers 
+// as well. So not only do I need a new architecture, but a new approach to RL. I am going to try replicating the decision
+// transformer work, look into upside down RL, and sprinkle in the new GAN duality gap training method along the way
+// for the sake of sequence prediction learning.
+
+// ...
+
+// Let me try replacing signSGD with the infinity norm normalization SGD. I'll try this last experiment.
+
+// No, it does not work. In fact, it just made me realize that the value function is barely optimizing. The perceived improvement
+// over signSGD is just signSGD shaking off its initial instability. It is not like in Flop poker where the algorithm itself
+// was broken and I managed to fix it. What Holdem is telling me that my approach itself is flawed.
+
+// I knew it would not work for big games, but it seems that I've significantly misjudged just what 'big' is for these algorithms.
+// I need a break. I know it will take me a while, maybe a few months to come up with my next attempt. I'll want to play with
+// supervised learning tasks and GANs in order to get a sense for them before trying out RL again. But after that is done, I'll
+// be sure to make it right.
+
+// The method here might still be useful if I could feed good features learned by the unsupervised methods, but I won't hold out
+// hope in making it work as it is.
+
+// The game itself, the serializer and the training harness will definitely be useful.
+
 packages: |core2-
 modules:
     types-

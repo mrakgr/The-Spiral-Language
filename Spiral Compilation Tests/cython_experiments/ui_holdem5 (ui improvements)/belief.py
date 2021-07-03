@@ -14,28 +14,49 @@ class Head(torch.nn.Module):
     def decay(self,factor): 
         if factor != 1.0: self.head *= factor
 
-class SignSGD(Optimizer):
+class InfNormSGD(Optimizer):
     """
-    Does a step in the direction of the sign of the gradient.
+    SGD with infinity norm normalization.
     """
-    def __init__(self,params,lr=2 ** -10,momentum=0.0):
-        super().__init__(params,dict(lr=lr,momentum=momentum))
+    def __init__(self,params,lr=2 ** -10):
+        super().__init__(params,dict(lr=lr))
 
     @torch.no_grad()
     def step(self):
         for gr in self.param_groups:
-            for x in gr['params']:
+            lr = gr['lr']
+            infNorm = torch.scalar_tensor(0.0,device='cuda')
+            for x in gr['params']: 
                 if not x.grad is None:
-                    momentum, lr = gr['momentum'], gr['lr']
-                    if momentum == 0.0:
-                        x -= lr * torch.sign(x.grad)
-                    else:
-                        x_state = self.state.get(x)
-                        if x_state is None: x_state = {}; self.state[x] = x_state
-                        m = x_state.get('momentum_params')
-                        if m is None: m = torch.zeros_like(x); x_state['momentum_params'] = m
-                        m += (x.grad - m) * (1 - momentum)
-                        x -= lr * torch.sign(m)
+                    infNorm = torch.max(infNorm,torch.linalg.norm(x.grad.flatten(),ord=float('inf')))
+            if torch.is_nonzero(infNorm):
+                lr = lr / infNorm
+                for x in gr['params']:
+                    if not x.grad is None:
+                        x -= lr * x.grad
+    
+# class SignSGD(Optimizer):
+#     """
+#     Does a step in the direction of the sign of the gradient.
+#     """
+#     def __init__(self,params,lr=2 ** -10,momentum=0.0):
+#         super().__init__(params,dict(lr=lr,momentum=momentum))
+
+#     @torch.no_grad()
+#     def step(self):
+#         for gr in self.param_groups:
+#             for x in gr['params']:
+#                 if not x.grad is None:
+#                     momentum, lr = gr['momentum'], gr['lr']
+#                     if momentum == 0.0:
+#                         x -= lr * torch.sign(x.grad)
+#                     else:
+#                         x_state = self.state.get(x)
+#                         if x_state is None: x_state = {}; self.state[x] = x_state
+#                         m = x_state.get('momentum_params')
+#                         if m is None: m = torch.zeros_like(x); x_state['momentum_params'] = m
+#                         m += (x.grad - m) * (1 - momentum)
+#                         x -= lr * torch.sign(m)
 
 def inf_cube(x : Tensor): 
     o = x ** 3
@@ -86,11 +107,7 @@ def belief_tabulate(state_probs : Tensor,head : Tensor,action_indices : Tensor,r
             # sample_probs[batch_dim,action_dim]
 
             prediction_values_for_action = state_probs.mm(values.t()) # [batch_dim,action_dim]
-            at_action_prediction_value = torch.gather(prediction_values_for_action,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
-            
-            at_action_sample_probs = torch.gather(sample_probs,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
-            at_action_prediction_adjustment = (rewards - at_action_prediction_value).div_(at_action_sample_probs) # [batch_dim,1]
-            prediction_values_for_action.scatter_add_(-1,action_indices.unsqueeze(-1),at_action_prediction_adjustment)
+            prediction_values_for_action.scatter_(-1,action_indices.unsqueeze(-1),rewards)
             reward = (action_probs * prediction_values_for_action).sum(-1,keepdim=True) # [batch_dim,1]
             # No need to center the gradients being passed into a probability vector's backward pass. Softmax for example, centers them on its own.
             def probs_grad(): return torch.neg_(prediction_values_for_action.mul_(env_probs)) # [batch_dim,action_dim]
@@ -122,8 +139,8 @@ def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : b
         if is_update_head: update_head()
         if is_update_value: 
             g,pred_ers = state_probs_grad()
-            # value.square_l2 += (pred_ers.square() * env_probs).sum()
-            # value.t += env_probs.sum()
+            value.square_l2 += (pred_ers.square() * env_probs).sum()
+            value.t += env_probs.sum()
             state_probs.backward(g)
         if is_update_policy:
             g = action_probs_grad()
