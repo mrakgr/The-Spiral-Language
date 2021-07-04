@@ -14,22 +14,14 @@ defaults = dict(restriction_level=0,is_flop=True,sb=1,bb=2,stack_size=10,schema_
 def neural_create_model(size,size_mid=512,size_head=256):
     value = torch.nn.Sequential(
         InfCube(size.value,size_mid),
-        ResInfCube(size_mid),
-        ResInfCube(size_mid),
-        ResInfCube(size_mid),
-        ResInfCube(size_mid),
-        ResInfCube(size_mid),
-        Linear(size_mid,size_head)
+        *[ResInfCube(size_mid) for _ in range(5)],
+        Linear(size_mid,size.action * size_head)
         )
     value.square_l2 = torch.scalar_tensor(0.0).cuda()
     value.t = torch.scalar_tensor(0.0).cuda()
     policy = torch.nn.Sequential(
         InfCube(size.policy,size_mid),
-        ResInfCube(size_mid),
-        ResInfCube(size_mid),
-        ResInfCube(size_mid),
-        ResInfCube(size_mid),
-        ResInfCube(size_mid),
+        *[ResInfCube(size_mid) for _ in range(5)],
         Linear(size_mid,size.action)
         )
     head = Head(size.action,size_head)

@@ -1,0 +1,1933 @@
+06/28/2021 04:49:29 PM ** EVALUATION START **
+06/28/2021 04:49:29 PM Done with the evaluation. Printing in tabular format.
+06/28/2021 04:49:29 PM nn_agent_260_no_momo vs nn_agent_260_no_momo: 0.0
+06/28/2021 04:51:47 PM ** EVALUATION START **
+06/28/2021 04:51:50 PM The mean for nn_agent_260_no_momo vs nn_agent_280_no_momo is -0.09569871425628662
+06/28/2021 04:51:51 PM The mean for nn_agent_260_no_momo vs nn_agent_300_no_momo is -0.20054391026496887
+06/28/2021 04:51:53 PM The mean for nn_agent_260_no_momo vs nn_agent_320_no_momo is -0.204229936003685
+06/28/2021 04:51:54 PM The mean for nn_agent_260_no_momo vs nn_agent_340_no_momo is -0.2657008171081543
+06/28/2021 04:51:56 PM The mean for nn_agent_260_no_momo vs nn_agent_360_no_momo is -0.3343254625797272
+06/28/2021 04:51:57 PM The mean for nn_agent_260_no_momo vs nn_agent_260_self_no_momo is -0.2465592920780182
+06/28/2021 04:51:59 PM The mean for nn_agent_260_no_momo vs nn_agent_280_self_no_momo is -0.3261290192604065
+06/28/2021 04:52:01 PM The mean for nn_agent_260_no_momo vs nn_agent_300_self_no_momo is -0.2832646369934082
+06/28/2021 04:52:02 PM The mean for nn_agent_260_no_momo vs nn_agent_320_self_no_momo is -0.3462620675563812
+06/28/2021 04:52:04 PM The mean for nn_agent_260_no_momo vs nn_agent_340_self_no_momo is -0.3718366324901581
+06/28/2021 04:52:05 PM The mean for nn_agent_260_no_momo vs nn_agent_360_self_no_momo is -0.3787519037723541
+06/28/2021 04:52:07 PM The mean for nn_agent_260_no_momo vs nn_agent_260_average_no_momo is -0.42049041390419006
+06/28/2021 04:52:08 PM The mean for nn_agent_260_no_momo vs nn_agent_280_average_no_momo is -0.40673592686653137
+06/28/2021 04:52:10 PM The mean for nn_agent_260_no_momo vs nn_agent_300_average_no_momo is -0.3633338510990143
+06/28/2021 04:52:12 PM The mean for nn_agent_260_no_momo vs nn_agent_320_average_no_momo is -0.4998273253440857
+06/28/2021 04:52:14 PM The mean for nn_agent_260_no_momo vs nn_agent_340_average_no_momo is -0.3938913643360138
+06/28/2021 04:52:15 PM The mean for nn_agent_260_no_momo vs nn_agent_360_average_no_momo is -0.3108745515346527
+06/28/2021 04:52:17 PM The mean for nn_agent_260_no_momo vs nn_agent_260_momo is -0.6117361187934875
+06/28/2021 04:52:18 PM The mean for nn_agent_260_no_momo vs nn_agent_280_momo is -0.6256666779518127
+06/28/2021 04:52:20 PM The mean for nn_agent_260_no_momo vs nn_agent_300_momo is -0.6631797552108765
+06/28/2021 04:52:21 PM The mean for nn_agent_260_no_momo vs nn_agent_320_momo is -0.5825161933898926
+06/28/2021 04:52:23 PM The mean for nn_agent_260_no_momo vs nn_agent_340_momo is -0.5934733748435974
+06/28/2021 04:52:24 PM The mean for nn_agent_260_no_momo vs nn_agent_360_momo is -0.6472786664962769
+06/28/2021 04:52:26 PM The mean for nn_agent_260_no_momo vs nn_agent_260_self_momo is -0.6121410131454468
+06/28/2021 04:52:28 PM The mean for nn_agent_260_no_momo vs nn_agent_280_self_momo is -0.634642481803894
+06/28/2021 04:52:29 PM The mean for nn_agent_260_no_momo vs nn_agent_300_self_momo is -0.5920124053955078
+06/28/2021 04:52:31 PM The mean for nn_agent_260_no_momo vs nn_agent_320_self_momo is -0.6007692217826843
+06/28/2021 04:52:32 PM The mean for nn_agent_260_no_momo vs nn_agent_340_self_momo is -0.5807271599769592
+06/28/2021 04:52:34 PM The mean for nn_agent_260_no_momo vs nn_agent_360_self_momo is -0.5021383166313171
+06/28/2021 04:52:35 PM The mean for nn_agent_260_no_momo vs nn_agent_260_average_momo is 0.0881456583738327
+06/28/2021 04:52:37 PM The mean for nn_agent_260_no_momo vs nn_agent_280_average_momo is 0.03402034938335419
+06/28/2021 04:52:38 PM The mean for nn_agent_260_no_momo vs nn_agent_300_average_momo is -0.004996168427169323
+06/28/2021 04:52:40 PM The mean for nn_agent_260_no_momo vs nn_agent_320_average_momo is 0.11160507053136826
+06/28/2021 04:52:41 PM The mean for nn_agent_260_no_momo vs nn_agent_340_average_momo is 0.07880791276693344
+06/28/2021 04:52:43 PM The mean for nn_agent_260_no_momo vs nn_agent_360_average_momo is 0.04734732210636139
+06/28/2021 04:52:44 PM The mean for nn_agent_280_no_momo vs nn_agent_300_no_momo is -0.10907135903835297
+06/28/2021 04:52:46 PM The mean for nn_agent_280_no_momo vs nn_agent_320_no_momo is -0.1808459758758545
+06/28/2021 04:52:47 PM The mean for nn_agent_280_no_momo vs nn_agent_340_no_momo is -0.24529197812080383
+06/28/2021 04:52:49 PM The mean for nn_agent_280_no_momo vs nn_agent_360_no_momo is -0.2571273446083069
+06/28/2021 04:52:50 PM The mean for nn_agent_280_no_momo vs nn_agent_260_self_no_momo is -0.27497515082359314
+06/28/2021 04:52:52 PM The mean for nn_agent_280_no_momo vs nn_agent_280_self_no_momo is -0.29993581771850586
+06/28/2021 04:52:53 PM The mean for nn_agent_280_no_momo vs nn_agent_300_self_no_momo is -0.32880038022994995
+06/28/2021 04:52:55 PM The mean for nn_agent_280_no_momo vs nn_agent_320_self_no_momo is -0.30917882919311523
+06/28/2021 04:52:56 PM The mean for nn_agent_280_no_momo vs nn_agent_340_self_no_momo is -0.3722558319568634
+06/28/2021 04:52:58 PM The mean for nn_agent_280_no_momo vs nn_agent_360_self_no_momo is -0.40936434268951416
+06/28/2021 04:52:59 PM The mean for nn_agent_280_no_momo vs nn_agent_260_average_no_momo is -0.2891245484352112
+06/28/2021 04:53:01 PM The mean for nn_agent_280_no_momo vs nn_agent_280_average_no_momo is -0.28889644145965576
+06/28/2021 04:53:02 PM The mean for nn_agent_280_no_momo vs nn_agent_300_average_no_momo is -0.4070124626159668
+06/28/2021 04:53:04 PM The mean for nn_agent_280_no_momo vs nn_agent_320_average_no_momo is -0.4461360573768616
+06/28/2021 04:53:06 PM The mean for nn_agent_280_no_momo vs nn_agent_340_average_no_momo is -0.3858183026313782
+06/28/2021 04:53:07 PM The mean for nn_agent_280_no_momo vs nn_agent_360_average_no_momo is -0.2562529444694519
+06/28/2021 04:53:09 PM The mean for nn_agent_280_no_momo vs nn_agent_260_momo is -0.550457775592804
+06/28/2021 04:53:10 PM The mean for nn_agent_280_no_momo vs nn_agent_280_momo is -0.6244850158691406
+06/28/2021 04:53:12 PM The mean for nn_agent_280_no_momo vs nn_agent_300_momo is -0.583141565322876
+06/28/2021 04:53:13 PM The mean for nn_agent_280_no_momo vs nn_agent_320_momo is -0.5784320831298828
+06/28/2021 04:53:15 PM The mean for nn_agent_280_no_momo vs nn_agent_340_momo is -0.5581257343292236
+06/28/2021 04:53:16 PM The mean for nn_agent_280_no_momo vs nn_agent_360_momo is -0.6050583720207214
+06/28/2021 04:53:18 PM The mean for nn_agent_280_no_momo vs nn_agent_260_self_momo is -0.5526161193847656
+06/28/2021 04:53:19 PM The mean for nn_agent_280_no_momo vs nn_agent_280_self_momo is -0.6038949489593506
+06/28/2021 04:53:21 PM The mean for nn_agent_280_no_momo vs nn_agent_300_self_momo is -0.5637291669845581
+06/28/2021 04:53:22 PM The mean for nn_agent_280_no_momo vs nn_agent_320_self_momo is -0.5741435885429382
+06/28/2021 04:53:24 PM The mean for nn_agent_280_no_momo vs nn_agent_340_self_momo is -0.5223751664161682
+06/28/2021 04:53:25 PM The mean for nn_agent_280_no_momo vs nn_agent_360_self_momo is -0.48039740324020386
+06/28/2021 04:53:27 PM The mean for nn_agent_280_no_momo vs nn_agent_260_average_momo is 0.28411197662353516
+06/28/2021 04:53:29 PM The mean for nn_agent_280_no_momo vs nn_agent_280_average_momo is 0.12393570691347122
+06/28/2021 04:53:30 PM The mean for nn_agent_280_no_momo vs nn_agent_300_average_momo is 0.21411453187465668
+06/28/2021 04:53:32 PM The mean for nn_agent_280_no_momo vs nn_agent_320_average_momo is 0.12116158753633499
+06/28/2021 04:53:33 PM The mean for nn_agent_280_no_momo vs nn_agent_340_average_momo is 0.15547135472297668
+06/28/2021 04:53:35 PM The mean for nn_agent_280_no_momo vs nn_agent_360_average_momo is 0.12074274569749832
+06/28/2021 04:53:36 PM The mean for nn_agent_300_no_momo vs nn_agent_320_no_momo is -0.0626378282904625
+06/28/2021 04:53:37 PM The mean for nn_agent_300_no_momo vs nn_agent_340_no_momo is -0.18418514728546143
+06/28/2021 04:53:39 PM The mean for nn_agent_300_no_momo vs nn_agent_360_no_momo is -0.2318936288356781
+06/28/2021 04:53:40 PM The mean for nn_agent_300_no_momo vs nn_agent_260_self_no_momo is -0.2298099398612976
+06/28/2021 04:53:42 PM The mean for nn_agent_300_no_momo vs nn_agent_280_self_no_momo is -0.3324132561683655
+06/28/2021 04:53:43 PM The mean for nn_agent_300_no_momo vs nn_agent_300_self_no_momo is -0.2791144847869873
+06/28/2021 04:53:45 PM The mean for nn_agent_300_no_momo vs nn_agent_320_self_no_momo is -0.31428197026252747
+06/28/2021 04:53:47 PM The mean for nn_agent_300_no_momo vs nn_agent_340_self_no_momo is -0.30823519825935364
+06/28/2021 04:53:48 PM The mean for nn_agent_300_no_momo vs nn_agent_360_self_no_momo is -0.33892571926116943
+06/28/2021 04:53:49 PM The mean for nn_agent_300_no_momo vs nn_agent_260_average_no_momo is -0.1974334865808487
+06/28/2021 04:53:51 PM The mean for nn_agent_300_no_momo vs nn_agent_280_average_no_momo is -0.2458433210849762
+06/28/2021 04:53:53 PM The mean for nn_agent_300_no_momo vs nn_agent_300_average_no_momo is -0.2886066734790802
+06/28/2021 04:53:54 PM The mean for nn_agent_300_no_momo vs nn_agent_320_average_no_momo is -0.2751050591468811
+06/28/2021 04:53:56 PM The mean for nn_agent_300_no_momo vs nn_agent_340_average_no_momo is -0.19599837064743042
+06/28/2021 04:53:58 PM The mean for nn_agent_300_no_momo vs nn_agent_360_average_no_momo is -0.24038033187389374
+06/28/2021 04:53:59 PM The mean for nn_agent_300_no_momo vs nn_agent_260_momo is -0.5673566460609436
+06/28/2021 04:54:01 PM The mean for nn_agent_300_no_momo vs nn_agent_280_momo is -0.5316073894500732
+06/28/2021 04:54:02 PM The mean for nn_agent_300_no_momo vs nn_agent_300_momo is -0.5705897808074951
+06/28/2021 04:54:04 PM The mean for nn_agent_300_no_momo vs nn_agent_320_momo is -0.48056963086128235
+06/28/2021 04:54:05 PM The mean for nn_agent_300_no_momo vs nn_agent_340_momo is -0.6061719059944153
+06/28/2021 04:54:07 PM The mean for nn_agent_300_no_momo vs nn_agent_360_momo is -0.512620210647583
+06/28/2021 04:54:08 PM The mean for nn_agent_300_no_momo vs nn_agent_260_self_momo is -0.5344268083572388
+06/28/2021 04:54:10 PM The mean for nn_agent_300_no_momo vs nn_agent_280_self_momo is -0.5497076511383057
+06/28/2021 04:54:11 PM The mean for nn_agent_300_no_momo vs nn_agent_300_self_momo is -0.5191218852996826
+06/28/2021 04:54:13 PM The mean for nn_agent_300_no_momo vs nn_agent_320_self_momo is -0.5672900676727295
+06/28/2021 04:54:14 PM The mean for nn_agent_300_no_momo vs nn_agent_340_self_momo is -0.4399394392967224
+06/28/2021 04:54:16 PM The mean for nn_agent_300_no_momo vs nn_agent_360_self_momo is -0.47599196434020996
+06/28/2021 04:54:18 PM The mean for nn_agent_300_no_momo vs nn_agent_260_average_momo is 0.2608761191368103
+06/28/2021 04:54:19 PM The mean for nn_agent_300_no_momo vs nn_agent_280_average_momo is 0.2059839367866516
+06/28/2021 04:54:21 PM The mean for nn_agent_300_no_momo vs nn_agent_300_average_momo is 0.20759347081184387
+06/28/2021 04:54:22 PM The mean for nn_agent_300_no_momo vs nn_agent_320_average_momo is 0.15155574679374695
+06/28/2021 04:54:24 PM The mean for nn_agent_300_no_momo vs nn_agent_340_average_momo is 0.13387340307235718
+06/28/2021 04:54:25 PM The mean for nn_agent_300_no_momo vs nn_agent_360_average_momo is 0.14909081161022186
+06/28/2021 04:54:27 PM The mean for nn_agent_320_no_momo vs nn_agent_340_no_momo is 0.008218387141823769
+06/28/2021 04:54:28 PM The mean for nn_agent_320_no_momo vs nn_agent_360_no_momo is -0.07793814688920975
+06/28/2021 04:54:30 PM The mean for nn_agent_320_no_momo vs nn_agent_260_self_no_momo is -0.2165805846452713
+06/28/2021 04:54:31 PM The mean for nn_agent_320_no_momo vs nn_agent_280_self_no_momo is -0.3211365342140198
+06/28/2021 04:54:33 PM The mean for nn_agent_320_no_momo vs nn_agent_300_self_no_momo is -0.28828105330467224
+06/28/2021 04:54:34 PM The mean for nn_agent_320_no_momo vs nn_agent_320_self_no_momo is -0.2651578187942505
+06/28/2021 04:54:36 PM The mean for nn_agent_320_no_momo vs nn_agent_340_self_no_momo is -0.3570587635040283
+06/28/2021 04:54:37 PM The mean for nn_agent_320_no_momo vs nn_agent_360_self_no_momo is -0.36339133977890015
+06/28/2021 04:54:39 PM The mean for nn_agent_320_no_momo vs nn_agent_260_average_no_momo is -0.09513859450817108
+06/28/2021 04:54:41 PM The mean for nn_agent_320_no_momo vs nn_agent_280_average_no_momo is -0.17585419118404388
+06/28/2021 04:54:42 PM The mean for nn_agent_320_no_momo vs nn_agent_300_average_no_momo is -0.26154354214668274
+06/28/2021 04:54:44 PM The mean for nn_agent_320_no_momo vs nn_agent_320_average_no_momo is -0.19589190185070038
+06/28/2021 04:54:46 PM The mean for nn_agent_320_no_momo vs nn_agent_340_average_no_momo is -0.14821334183216095
+06/28/2021 04:54:47 PM The mean for nn_agent_320_no_momo vs nn_agent_360_average_no_momo is 0.006371356546878815
+06/28/2021 04:54:49 PM The mean for nn_agent_320_no_momo vs nn_agent_260_momo is -0.4760722517967224
+06/28/2021 04:54:50 PM The mean for nn_agent_320_no_momo vs nn_agent_280_momo is -0.5606511235237122
+06/28/2021 04:54:52 PM The mean for nn_agent_320_no_momo vs nn_agent_300_momo is -0.574306845664978
+06/28/2021 04:54:53 PM The mean for nn_agent_320_no_momo vs nn_agent_320_momo is -0.4592934548854828
+06/28/2021 04:54:55 PM The mean for nn_agent_320_no_momo vs nn_agent_340_momo is -0.4705948829650879
+06/28/2021 04:54:56 PM The mean for nn_agent_320_no_momo vs nn_agent_360_momo is -0.5467762351036072
+06/28/2021 04:54:58 PM The mean for nn_agent_320_no_momo vs nn_agent_260_self_momo is -0.5620477199554443
+06/28/2021 04:54:59 PM The mean for nn_agent_320_no_momo vs nn_agent_280_self_momo is -0.48944759368896484
+06/28/2021 04:55:01 PM The mean for nn_agent_320_no_momo vs nn_agent_300_self_momo is -0.5677914023399353
+06/28/2021 04:55:02 PM The mean for nn_agent_320_no_momo vs nn_agent_320_self_momo is -0.5397983193397522
+06/28/2021 04:55:04 PM The mean for nn_agent_320_no_momo vs nn_agent_340_self_momo is -0.5769937634468079
+06/28/2021 04:55:05 PM The mean for nn_agent_320_no_momo vs nn_agent_360_self_momo is -0.45031604170799255
+06/28/2021 04:55:07 PM The mean for nn_agent_320_no_momo vs nn_agent_260_average_momo is 0.3649361729621887
+06/28/2021 04:55:09 PM The mean for nn_agent_320_no_momo vs nn_agent_280_average_momo is 0.21854880452156067
+06/28/2021 04:55:10 PM The mean for nn_agent_320_no_momo vs nn_agent_300_average_momo is 0.2226034700870514
+06/28/2021 04:55:12 PM The mean for nn_agent_320_no_momo vs nn_agent_320_average_momo is 0.31180012226104736
+06/28/2021 04:55:13 PM The mean for nn_agent_320_no_momo vs nn_agent_340_average_momo is 0.24071353673934937
+06/28/2021 04:55:15 PM The mean for nn_agent_320_no_momo vs nn_agent_360_average_momo is 0.23511910438537598
+06/28/2021 04:55:16 PM The mean for nn_agent_340_no_momo vs nn_agent_360_no_momo is -0.038535550236701965
+06/28/2021 04:55:18 PM The mean for nn_agent_340_no_momo vs nn_agent_260_self_no_momo is -0.2169131487607956
+06/28/2021 04:55:19 PM The mean for nn_agent_340_no_momo vs nn_agent_280_self_no_momo is -0.293729305267334
+06/28/2021 04:55:21 PM The mean for nn_agent_340_no_momo vs nn_agent_300_self_no_momo is -0.2968631982803345
+06/28/2021 04:55:23 PM The mean for nn_agent_340_no_momo vs nn_agent_320_self_no_momo is -0.346671462059021
+06/28/2021 04:55:24 PM The mean for nn_agent_340_no_momo vs nn_agent_340_self_no_momo is -0.3477307856082916
+06/28/2021 04:55:26 PM The mean for nn_agent_340_no_momo vs nn_agent_360_self_no_momo is -0.31982994079589844
+06/28/2021 04:55:27 PM The mean for nn_agent_340_no_momo vs nn_agent_260_average_no_momo is -0.09114182740449905
+06/28/2021 04:55:29 PM The mean for nn_agent_340_no_momo vs nn_agent_280_average_no_momo is -0.018116315826773643
+06/28/2021 04:55:30 PM The mean for nn_agent_340_no_momo vs nn_agent_300_average_no_momo is -0.1715952455997467
+06/28/2021 04:55:32 PM The mean for nn_agent_340_no_momo vs nn_agent_320_average_no_momo is -0.12371625006198883
+06/28/2021 04:55:34 PM The mean for nn_agent_340_no_momo vs nn_agent_340_average_no_momo is -0.03393447399139404
+06/28/2021 04:55:35 PM The mean for nn_agent_340_no_momo vs nn_agent_360_average_no_momo is 0.08394977450370789
+06/28/2021 04:55:37 PM The mean for nn_agent_340_no_momo vs nn_agent_260_momo is -0.43122878670692444
+06/28/2021 04:55:38 PM The mean for nn_agent_340_no_momo vs nn_agent_280_momo is -0.5197286605834961
+06/28/2021 04:55:40 PM The mean for nn_agent_340_no_momo vs nn_agent_300_momo is -0.47827857732772827
+06/28/2021 04:55:41 PM The mean for nn_agent_340_no_momo vs nn_agent_320_momo is -0.46692338585853577
+06/28/2021 04:55:43 PM The mean for nn_agent_340_no_momo vs nn_agent_340_momo is -0.41198837757110596
+06/28/2021 04:55:45 PM The mean for nn_agent_340_no_momo vs nn_agent_360_momo is -0.4868212044239044
+06/28/2021 04:55:46 PM The mean for nn_agent_340_no_momo vs nn_agent_260_self_momo is -0.5207312107086182
+06/28/2021 04:55:48 PM The mean for nn_agent_340_no_momo vs nn_agent_280_self_momo is -0.5409125089645386
+06/28/2021 04:55:49 PM The mean for nn_agent_340_no_momo vs nn_agent_300_self_momo is -0.4837339222431183
+06/28/2021 04:55:51 PM The mean for nn_agent_340_no_momo vs nn_agent_320_self_momo is -0.4687889516353607
+06/28/2021 04:55:52 PM The mean for nn_agent_340_no_momo vs nn_agent_340_self_momo is -0.4630885720252991
+06/28/2021 04:55:54 PM The mean for nn_agent_340_no_momo vs nn_agent_360_self_momo is -0.4447525441646576
+06/28/2021 04:55:55 PM The mean for nn_agent_340_no_momo vs nn_agent_260_average_momo is 0.4641973376274109
+06/28/2021 04:55:57 PM The mean for nn_agent_340_no_momo vs nn_agent_280_average_momo is 0.3267069458961487
+06/28/2021 04:55:58 PM The mean for nn_agent_340_no_momo vs nn_agent_300_average_momo is 0.3273929953575134
+06/28/2021 04:56:00 PM The mean for nn_agent_340_no_momo vs nn_agent_320_average_momo is 0.25141164660453796
+06/28/2021 04:56:02 PM The mean for nn_agent_340_no_momo vs nn_agent_340_average_momo is 0.22922170162200928
+06/28/2021 04:56:03 PM The mean for nn_agent_340_no_momo vs nn_agent_360_average_momo is 0.33343368768692017
+06/28/2021 04:56:05 PM The mean for nn_agent_360_no_momo vs nn_agent_260_self_no_momo is -0.18801328539848328
+06/28/2021 04:56:06 PM The mean for nn_agent_360_no_momo vs nn_agent_280_self_no_momo is -0.287993848323822
+06/28/2021 04:56:08 PM The mean for nn_agent_360_no_momo vs nn_agent_300_self_no_momo is -0.3116120398044586
+06/28/2021 04:56:09 PM The mean for nn_agent_360_no_momo vs nn_agent_320_self_no_momo is -0.33097225427627563
+06/28/2021 04:56:11 PM The mean for nn_agent_360_no_momo vs nn_agent_340_self_no_momo is -0.3651086091995239
+06/28/2021 04:56:12 PM The mean for nn_agent_360_no_momo vs nn_agent_360_self_no_momo is -0.32982349395751953
+06/28/2021 04:56:14 PM The mean for nn_agent_360_no_momo vs nn_agent_260_average_no_momo is 0.01949353888630867
+06/28/2021 04:56:16 PM The mean for nn_agent_360_no_momo vs nn_agent_280_average_no_momo is 0.02048918977379799
+06/28/2021 04:56:17 PM The mean for nn_agent_360_no_momo vs nn_agent_300_average_no_momo is -0.010989007540047169
+06/28/2021 04:56:19 PM The mean for nn_agent_360_no_momo vs nn_agent_320_average_no_momo is 0.03810524567961693
+06/28/2021 04:56:21 PM The mean for nn_agent_360_no_momo vs nn_agent_340_average_no_momo is -0.07826033979654312
+06/28/2021 04:56:23 PM The mean for nn_agent_360_no_momo vs nn_agent_360_average_no_momo is 0.06869633495807648
+06/28/2021 04:56:24 PM The mean for nn_agent_360_no_momo vs nn_agent_260_momo is -0.40884366631507874
+06/28/2021 04:56:26 PM The mean for nn_agent_360_no_momo vs nn_agent_280_momo is -0.45582520961761475
+06/28/2021 04:56:27 PM The mean for nn_agent_360_no_momo vs nn_agent_300_momo is -0.420616090297699
+06/28/2021 04:56:29 PM The mean for nn_agent_360_no_momo vs nn_agent_320_momo is -0.48899611830711365
+06/28/2021 04:56:30 PM The mean for nn_agent_360_no_momo vs nn_agent_340_momo is -0.5072982907295227
+06/28/2021 04:56:32 PM The mean for nn_agent_360_no_momo vs nn_agent_360_momo is -0.48657673597335815
+06/28/2021 04:56:33 PM The mean for nn_agent_360_no_momo vs nn_agent_260_self_momo is -0.43701034784317017
+06/28/2021 04:56:35 PM The mean for nn_agent_360_no_momo vs nn_agent_280_self_momo is -0.4283871352672577
+06/28/2021 04:56:36 PM The mean for nn_agent_360_no_momo vs nn_agent_300_self_momo is -0.4452565908432007
+06/28/2021 04:56:38 PM The mean for nn_agent_360_no_momo vs nn_agent_320_self_momo is -0.41112324595451355
+06/28/2021 04:56:40 PM The mean for nn_agent_360_no_momo vs nn_agent_340_self_momo is -0.4423748850822449
+06/28/2021 04:56:41 PM The mean for nn_agent_360_no_momo vs nn_agent_360_self_momo is -0.3969072699546814
+06/28/2021 04:56:43 PM The mean for nn_agent_360_no_momo vs nn_agent_260_average_momo is 0.4544771909713745
+06/28/2021 04:56:44 PM The mean for nn_agent_360_no_momo vs nn_agent_280_average_momo is 0.4871027171611786
+06/28/2021 04:56:46 PM The mean for nn_agent_360_no_momo vs nn_agent_300_average_momo is 0.4151310324668884
+06/28/2021 04:56:47 PM The mean for nn_agent_360_no_momo vs nn_agent_320_average_momo is 0.38213056325912476
+06/28/2021 04:56:49 PM The mean for nn_agent_360_no_momo vs nn_agent_340_average_momo is 0.2939850986003876
+06/28/2021 04:56:51 PM The mean for nn_agent_360_no_momo vs nn_agent_360_average_momo is 0.30600225925445557
+06/28/2021 04:56:52 PM The mean for nn_agent_260_self_no_momo vs nn_agent_280_self_no_momo is -0.010005641728639603
+06/28/2021 04:56:54 PM The mean for nn_agent_260_self_no_momo vs nn_agent_300_self_no_momo is -0.005091188475489616
+06/28/2021 04:56:55 PM The mean for nn_agent_260_self_no_momo vs nn_agent_320_self_no_momo is -0.01089947298169136
+06/28/2021 04:56:57 PM The mean for nn_agent_260_self_no_momo vs nn_agent_340_self_no_momo is -0.01136026531457901
+06/28/2021 04:56:58 PM The mean for nn_agent_260_self_no_momo vs nn_agent_360_self_no_momo is -0.04102757200598717
+06/28/2021 04:57:00 PM The mean for nn_agent_260_self_no_momo vs nn_agent_260_average_no_momo is 0.23991261422634125
+06/28/2021 04:57:01 PM The mean for nn_agent_260_self_no_momo vs nn_agent_280_average_no_momo is 0.2711091637611389
+06/28/2021 04:57:03 PM The mean for nn_agent_260_self_no_momo vs nn_agent_300_average_no_momo is 0.3038805425167084
+06/28/2021 04:57:05 PM The mean for nn_agent_260_self_no_momo vs nn_agent_320_average_no_momo is 0.32353562116622925
+06/28/2021 04:57:07 PM The mean for nn_agent_260_self_no_momo vs nn_agent_340_average_no_momo is 0.3787127137184143
+06/28/2021 04:57:09 PM The mean for nn_agent_260_self_no_momo vs nn_agent_360_average_no_momo is 0.32747596502304077
+06/28/2021 04:57:10 PM The mean for nn_agent_260_self_no_momo vs nn_agent_260_momo is 0.1805029809474945
+06/28/2021 04:57:12 PM The mean for nn_agent_260_self_no_momo vs nn_agent_280_momo is 0.11192278563976288
+06/28/2021 04:57:13 PM The mean for nn_agent_260_self_no_momo vs nn_agent_300_momo is 0.18348664045333862
+06/28/2021 04:57:15 PM The mean for nn_agent_260_self_no_momo vs nn_agent_320_momo is 0.18187618255615234
+06/28/2021 04:57:17 PM The mean for nn_agent_260_self_no_momo vs nn_agent_340_momo is 0.1669337898492813
+06/28/2021 04:57:18 PM The mean for nn_agent_260_self_no_momo vs nn_agent_360_momo is 0.1591636836528778
+06/28/2021 04:57:20 PM The mean for nn_agent_260_self_no_momo vs nn_agent_260_self_momo is 0.0871511846780777
+06/28/2021 04:57:21 PM The mean for nn_agent_260_self_no_momo vs nn_agent_280_self_momo is 0.0932445153594017
+06/28/2021 04:57:23 PM The mean for nn_agent_260_self_no_momo vs nn_agent_300_self_momo is 0.08317821472883224
+06/28/2021 04:57:25 PM The mean for nn_agent_260_self_no_momo vs nn_agent_320_self_momo is 0.058660440146923065
+06/28/2021 04:57:26 PM The mean for nn_agent_260_self_no_momo vs nn_agent_340_self_momo is 0.07643195986747742
+06/28/2021 04:57:28 PM The mean for nn_agent_260_self_no_momo vs nn_agent_360_self_momo is 0.032990895211696625
+06/28/2021 04:57:29 PM The mean for nn_agent_260_self_no_momo vs nn_agent_260_average_momo is 0.371285617351532
+06/28/2021 04:57:31 PM The mean for nn_agent_260_self_no_momo vs nn_agent_280_average_momo is 0.3198128342628479
+06/28/2021 04:57:33 PM The mean for nn_agent_260_self_no_momo vs nn_agent_300_average_momo is 0.3498022258281708
+06/28/2021 04:57:34 PM The mean for nn_agent_260_self_no_momo vs nn_agent_320_average_momo is 0.3482588231563568
+06/28/2021 04:57:36 PM The mean for nn_agent_260_self_no_momo vs nn_agent_340_average_momo is 0.3929908871650696
+06/28/2021 04:57:37 PM The mean for nn_agent_260_self_no_momo vs nn_agent_360_average_momo is 0.30014580488204956
+06/28/2021 04:57:39 PM The mean for nn_agent_280_self_no_momo vs nn_agent_300_self_no_momo is -0.02687222510576248
+06/28/2021 04:57:40 PM The mean for nn_agent_280_self_no_momo vs nn_agent_320_self_no_momo is -0.008340626955032349
+06/28/2021 04:57:42 PM The mean for nn_agent_280_self_no_momo vs nn_agent_340_self_no_momo is -0.024647198617458344
+06/28/2021 04:57:44 PM The mean for nn_agent_280_self_no_momo vs nn_agent_360_self_no_momo is -0.03675297647714615
+06/28/2021 04:57:45 PM The mean for nn_agent_280_self_no_momo vs nn_agent_260_average_no_momo is 0.2576938271522522
+06/28/2021 04:57:47 PM The mean for nn_agent_280_self_no_momo vs nn_agent_280_average_no_momo is 0.2496393918991089
+06/28/2021 04:57:49 PM The mean for nn_agent_280_self_no_momo vs nn_agent_300_average_no_momo is 0.3373922109603882
+06/28/2021 04:57:50 PM The mean for nn_agent_280_self_no_momo vs nn_agent_320_average_no_momo is 0.34936845302581787
+06/28/2021 04:57:52 PM The mean for nn_agent_280_self_no_momo vs nn_agent_340_average_no_momo is 0.4898372292518616
+06/28/2021 04:57:54 PM The mean for nn_agent_280_self_no_momo vs nn_agent_360_average_no_momo is 0.4812164306640625
+06/28/2021 04:57:55 PM The mean for nn_agent_280_self_no_momo vs nn_agent_260_momo is 0.18210460245609283
+06/28/2021 04:57:57 PM The mean for nn_agent_280_self_no_momo vs nn_agent_280_momo is 0.14135679602622986
+06/28/2021 04:57:59 PM The mean for nn_agent_280_self_no_momo vs nn_agent_300_momo is 0.1767350435256958
+06/28/2021 04:58:00 PM The mean for nn_agent_280_self_no_momo vs nn_agent_320_momo is 0.1558147519826889
+06/28/2021 04:58:02 PM The mean for nn_agent_280_self_no_momo vs nn_agent_340_momo is 0.22570864856243134
+06/28/2021 04:58:03 PM The mean for nn_agent_280_self_no_momo vs nn_agent_360_momo is 0.16053348779678345
+06/28/2021 04:58:05 PM The mean for nn_agent_280_self_no_momo vs nn_agent_260_self_momo is 0.1464269608259201
+06/28/2021 04:58:06 PM The mean for nn_agent_280_self_no_momo vs nn_agent_280_self_momo is 0.12408464401960373
+06/28/2021 04:58:08 PM The mean for nn_agent_280_self_no_momo vs nn_agent_300_self_momo is 0.0847819522023201
+06/28/2021 04:58:09 PM The mean for nn_agent_280_self_no_momo vs nn_agent_320_self_momo is 0.09542155265808105
+06/28/2021 04:58:11 PM The mean for nn_agent_280_self_no_momo vs nn_agent_340_self_momo is 0.04754767566919327
+06/28/2021 04:58:13 PM The mean for nn_agent_280_self_no_momo vs nn_agent_360_self_momo is 0.07970791310071945
+06/28/2021 04:58:14 PM The mean for nn_agent_280_self_no_momo vs nn_agent_260_average_momo is 0.37344449758529663
+06/28/2021 04:58:16 PM The mean for nn_agent_280_self_no_momo vs nn_agent_280_average_momo is 0.4208260774612427
+06/28/2021 04:58:17 PM The mean for nn_agent_280_self_no_momo vs nn_agent_300_average_momo is 0.3732008934020996
+06/28/2021 04:58:19 PM The mean for nn_agent_280_self_no_momo vs nn_agent_320_average_momo is 0.3619377315044403
+06/28/2021 04:58:21 PM The mean for nn_agent_280_self_no_momo vs nn_agent_340_average_momo is 0.3831663131713867
+06/28/2021 04:58:22 PM The mean for nn_agent_280_self_no_momo vs nn_agent_360_average_momo is 0.3436359167098999
+06/28/2021 04:58:24 PM The mean for nn_agent_300_self_no_momo vs nn_agent_320_self_no_momo is 0.016354180872440338
+06/28/2021 04:58:25 PM The mean for nn_agent_300_self_no_momo vs nn_agent_340_self_no_momo is 0.0004625832661986351
+06/28/2021 04:58:27 PM The mean for nn_agent_300_self_no_momo vs nn_agent_360_self_no_momo is -0.03461173176765442
+06/28/2021 04:58:28 PM The mean for nn_agent_300_self_no_momo vs nn_agent_260_average_no_momo is 0.2427441030740738
+06/28/2021 04:58:30 PM The mean for nn_agent_300_self_no_momo vs nn_agent_280_average_no_momo is 0.2747637629508972
+06/28/2021 04:58:32 PM The mean for nn_agent_300_self_no_momo vs nn_agent_300_average_no_momo is 0.34572115540504456
+06/28/2021 04:58:34 PM The mean for nn_agent_300_self_no_momo vs nn_agent_320_average_no_momo is 0.3681422472000122
+06/28/2021 04:58:35 PM The mean for nn_agent_300_self_no_momo vs nn_agent_340_average_no_momo is 0.40720224380493164
+06/28/2021 04:58:37 PM The mean for nn_agent_300_self_no_momo vs nn_agent_360_average_no_momo is 0.48782646656036377
+06/28/2021 04:58:39 PM The mean for nn_agent_300_self_no_momo vs nn_agent_260_momo is 0.19955319166183472
+06/28/2021 04:58:40 PM The mean for nn_agent_300_self_no_momo vs nn_agent_280_momo is 0.20267915725708008
+06/28/2021 04:58:42 PM The mean for nn_agent_300_self_no_momo vs nn_agent_300_momo is 0.14486266672611237
+06/28/2021 04:58:43 PM The mean for nn_agent_300_self_no_momo vs nn_agent_320_momo is 0.228179469704628
+06/28/2021 04:58:45 PM The mean for nn_agent_300_self_no_momo vs nn_agent_340_momo is 0.16739864647388458
+06/28/2021 04:58:46 PM The mean for nn_agent_300_self_no_momo vs nn_agent_360_momo is 0.24764138460159302
+06/28/2021 04:58:48 PM The mean for nn_agent_300_self_no_momo vs nn_agent_260_self_momo is 0.160602867603302
+06/28/2021 04:58:50 PM The mean for nn_agent_300_self_no_momo vs nn_agent_280_self_momo is 0.1227630227804184
+06/28/2021 04:58:51 PM The mean for nn_agent_300_self_no_momo vs nn_agent_300_self_momo is 0.15588968992233276
+06/28/2021 04:58:53 PM The mean for nn_agent_300_self_no_momo vs nn_agent_320_self_momo is 0.1076456606388092
+06/28/2021 04:58:54 PM The mean for nn_agent_300_self_no_momo vs nn_agent_340_self_momo is 0.0647280141711235
+06/28/2021 04:58:56 PM The mean for nn_agent_300_self_no_momo vs nn_agent_360_self_momo is 0.0540536530315876
+06/28/2021 04:58:58 PM The mean for nn_agent_300_self_no_momo vs nn_agent_260_average_momo is 0.3866691291332245
+06/28/2021 04:58:59 PM The mean for nn_agent_300_self_no_momo vs nn_agent_280_average_momo is 0.4309353232383728
+06/28/2021 04:59:01 PM The mean for nn_agent_300_self_no_momo vs nn_agent_300_average_momo is 0.3687512278556824
+06/28/2021 04:59:02 PM The mean for nn_agent_300_self_no_momo vs nn_agent_320_average_momo is 0.35593757033348083
+06/28/2021 04:59:04 PM The mean for nn_agent_300_self_no_momo vs nn_agent_340_average_momo is 0.3876223564147949
+06/28/2021 04:59:06 PM The mean for nn_agent_300_self_no_momo vs nn_agent_360_average_momo is 0.35777729749679565
+06/28/2021 04:59:07 PM The mean for nn_agent_320_self_no_momo vs nn_agent_340_self_no_momo is -0.00853600725531578
+06/28/2021 04:59:09 PM The mean for nn_agent_320_self_no_momo vs nn_agent_360_self_no_momo is -0.03687991946935654
+06/28/2021 04:59:10 PM The mean for nn_agent_320_self_no_momo vs nn_agent_260_average_no_momo is 0.30320343375205994
+06/28/2021 04:59:12 PM The mean for nn_agent_320_self_no_momo vs nn_agent_280_average_no_momo is 0.3132202625274658
+06/28/2021 04:59:14 PM The mean for nn_agent_320_self_no_momo vs nn_agent_300_average_no_momo is 0.3514541983604431
+06/28/2021 04:59:15 PM The mean for nn_agent_320_self_no_momo vs nn_agent_320_average_no_momo is 0.45541447401046753
+06/28/2021 04:59:17 PM The mean for nn_agent_320_self_no_momo vs nn_agent_340_average_no_momo is 0.45784974098205566
+06/28/2021 04:59:19 PM The mean for nn_agent_320_self_no_momo vs nn_agent_360_average_no_momo is 0.483481764793396
+06/28/2021 04:59:21 PM The mean for nn_agent_320_self_no_momo vs nn_agent_260_momo is 0.21988917887210846
+06/28/2021 04:59:22 PM The mean for nn_agent_320_self_no_momo vs nn_agent_280_momo is 0.19949769973754883
+06/28/2021 04:59:24 PM The mean for nn_agent_320_self_no_momo vs nn_agent_300_momo is 0.2675763666629791
+06/28/2021 04:59:26 PM The mean for nn_agent_320_self_no_momo vs nn_agent_320_momo is 0.2227885127067566
+06/28/2021 04:59:27 PM The mean for nn_agent_320_self_no_momo vs nn_agent_340_momo is 0.19776567816734314
+06/28/2021 04:59:29 PM The mean for nn_agent_320_self_no_momo vs nn_agent_360_momo is 0.18878448009490967
+06/28/2021 04:59:30 PM The mean for nn_agent_320_self_no_momo vs nn_agent_260_self_momo is 0.1786101758480072
+06/28/2021 04:59:32 PM The mean for nn_agent_320_self_no_momo vs nn_agent_280_self_momo is 0.0781610831618309
+06/28/2021 04:59:33 PM The mean for nn_agent_320_self_no_momo vs nn_agent_300_self_momo is 0.12673422694206238
+06/28/2021 04:59:35 PM The mean for nn_agent_320_self_no_momo vs nn_agent_320_self_momo is 0.12458329647779465
+06/28/2021 04:59:36 PM The mean for nn_agent_320_self_no_momo vs nn_agent_340_self_momo is 0.13275742530822754
+06/28/2021 04:59:38 PM The mean for nn_agent_320_self_no_momo vs nn_agent_360_self_momo is 0.057739514857530594
+06/28/2021 04:59:40 PM The mean for nn_agent_320_self_no_momo vs nn_agent_260_average_momo is 0.43347346782684326
+06/28/2021 04:59:41 PM The mean for nn_agent_320_self_no_momo vs nn_agent_280_average_momo is 0.4036177396774292
+06/28/2021 04:59:43 PM The mean for nn_agent_320_self_no_momo vs nn_agent_300_average_momo is 0.3942508101463318
+06/28/2021 04:59:44 PM The mean for nn_agent_320_self_no_momo vs nn_agent_320_average_momo is 0.39637869596481323
+06/28/2021 04:59:46 PM The mean for nn_agent_320_self_no_momo vs nn_agent_340_average_momo is 0.42506086826324463
+06/28/2021 04:59:48 PM The mean for nn_agent_320_self_no_momo vs nn_agent_360_average_momo is 0.3424036502838135
+06/28/2021 04:59:49 PM The mean for nn_agent_340_self_no_momo vs nn_agent_360_self_no_momo is -0.03960413113236427
+06/28/2021 04:59:51 PM The mean for nn_agent_340_self_no_momo vs nn_agent_260_average_no_momo is 0.29611146450042725
+06/28/2021 04:59:52 PM The mean for nn_agent_340_self_no_momo vs nn_agent_280_average_no_momo is 0.29890450835227966
+06/28/2021 04:59:54 PM The mean for nn_agent_340_self_no_momo vs nn_agent_300_average_no_momo is 0.30810093879699707
+06/28/2021 04:59:56 PM The mean for nn_agent_340_self_no_momo vs nn_agent_320_average_no_momo is 0.3698189854621887
+06/28/2021 04:59:58 PM The mean for nn_agent_340_self_no_momo vs nn_agent_340_average_no_momo is 0.4945891201496124
+06/28/2021 04:59:59 PM The mean for nn_agent_340_self_no_momo vs nn_agent_360_average_no_momo is 0.45112353563308716
+06/28/2021 05:00:01 PM The mean for nn_agent_340_self_no_momo vs nn_agent_260_momo is 0.17517560720443726
+06/28/2021 05:00:03 PM The mean for nn_agent_340_self_no_momo vs nn_agent_280_momo is 0.1514565348625183
+06/28/2021 05:00:04 PM The mean for nn_agent_340_self_no_momo vs nn_agent_300_momo is 0.19610586762428284
+06/28/2021 05:00:06 PM The mean for nn_agent_340_self_no_momo vs nn_agent_320_momo is 0.208733469247818
+06/28/2021 05:00:07 PM The mean for nn_agent_340_self_no_momo vs nn_agent_340_momo is 0.1930909901857376
+06/28/2021 05:00:09 PM The mean for nn_agent_340_self_no_momo vs nn_agent_360_momo is 0.2475224733352661
+06/28/2021 05:00:10 PM The mean for nn_agent_340_self_no_momo vs nn_agent_260_self_momo is 0.19006003439426422
+06/28/2021 05:00:12 PM The mean for nn_agent_340_self_no_momo vs nn_agent_280_self_momo is 0.15689297020435333
+06/28/2021 05:00:13 PM The mean for nn_agent_340_self_no_momo vs nn_agent_300_self_momo is 0.12619711458683014
+06/28/2021 05:00:15 PM The mean for nn_agent_340_self_no_momo vs nn_agent_320_self_momo is 0.14277777075767517
+06/28/2021 05:00:17 PM The mean for nn_agent_340_self_no_momo vs nn_agent_340_self_momo is 0.0942976251244545
+06/28/2021 05:00:18 PM The mean for nn_agent_340_self_no_momo vs nn_agent_360_self_momo is 0.04629584029316902
+06/28/2021 05:00:20 PM The mean for nn_agent_340_self_no_momo vs nn_agent_260_average_momo is 0.4572586715221405
+06/28/2021 05:00:21 PM The mean for nn_agent_340_self_no_momo vs nn_agent_280_average_momo is 0.400940477848053
+06/28/2021 05:00:23 PM The mean for nn_agent_340_self_no_momo vs nn_agent_300_average_momo is 0.37016424536705017
+06/28/2021 05:00:24 PM The mean for nn_agent_340_self_no_momo vs nn_agent_320_average_momo is 0.4327663779258728
+06/28/2021 05:00:26 PM The mean for nn_agent_340_self_no_momo vs nn_agent_340_average_momo is 0.4494002163410187
+06/28/2021 05:00:28 PM The mean for nn_agent_340_self_no_momo vs nn_agent_360_average_momo is 0.4132992923259735
+06/28/2021 05:00:29 PM The mean for nn_agent_360_self_no_momo vs nn_agent_260_average_no_momo is 0.2855157256126404
+06/28/2021 05:00:31 PM The mean for nn_agent_360_self_no_momo vs nn_agent_280_average_no_momo is 0.32988491654396057
+06/28/2021 05:00:33 PM The mean for nn_agent_360_self_no_momo vs nn_agent_300_average_no_momo is 0.303240567445755
+06/28/2021 05:00:34 PM The mean for nn_agent_360_self_no_momo vs nn_agent_320_average_no_momo is 0.3723466396331787
+06/28/2021 05:00:36 PM The mean for nn_agent_360_self_no_momo vs nn_agent_340_average_no_momo is 0.4496670365333557
+06/28/2021 05:00:38 PM The mean for nn_agent_360_self_no_momo vs nn_agent_360_average_no_momo is 0.4781930446624756
+06/28/2021 05:00:40 PM The mean for nn_agent_360_self_no_momo vs nn_agent_260_momo is 0.21902650594711304
+06/28/2021 05:00:41 PM The mean for nn_agent_360_self_no_momo vs nn_agent_280_momo is 0.23378300666809082
+06/28/2021 05:00:43 PM The mean for nn_agent_360_self_no_momo vs nn_agent_300_momo is 0.25509536266326904
+06/28/2021 05:00:44 PM The mean for nn_agent_360_self_no_momo vs nn_agent_320_momo is 0.23990455269813538
+06/28/2021 05:00:46 PM The mean for nn_agent_360_self_no_momo vs nn_agent_340_momo is 0.2355811893939972
+06/28/2021 05:00:48 PM The mean for nn_agent_360_self_no_momo vs nn_agent_360_momo is 0.22494344413280487
+06/28/2021 05:00:49 PM The mean for nn_agent_360_self_no_momo vs nn_agent_260_self_momo is 0.11635828763246536
+06/28/2021 05:00:51 PM The mean for nn_agent_360_self_no_momo vs nn_agent_280_self_momo is 0.14686191082000732
+06/28/2021 05:00:53 PM The mean for nn_agent_360_self_no_momo vs nn_agent_300_self_momo is 0.1972709596157074
+06/28/2021 05:00:54 PM The mean for nn_agent_360_self_no_momo vs nn_agent_320_self_momo is 0.13530294597148895
+06/28/2021 05:00:56 PM The mean for nn_agent_360_self_no_momo vs nn_agent_340_self_momo is 0.11790809035301208
+06/28/2021 05:00:58 PM The mean for nn_agent_360_self_no_momo vs nn_agent_360_self_momo is 0.08493760228157043
+06/28/2021 05:00:59 PM The mean for nn_agent_360_self_no_momo vs nn_agent_260_average_momo is 0.3828592300415039
+06/28/2021 05:01:01 PM The mean for nn_agent_360_self_no_momo vs nn_agent_280_average_momo is 0.41083216667175293
+06/28/2021 05:01:02 PM The mean for nn_agent_360_self_no_momo vs nn_agent_300_average_momo is 0.4419783353805542
+06/28/2021 05:01:04 PM The mean for nn_agent_360_self_no_momo vs nn_agent_320_average_momo is 0.3803265690803528
+06/28/2021 05:01:06 PM The mean for nn_agent_360_self_no_momo vs nn_agent_340_average_momo is 0.4326510727405548
+06/28/2021 05:01:07 PM The mean for nn_agent_360_self_no_momo vs nn_agent_360_average_momo is 0.367900550365448
+06/28/2021 05:01:09 PM The mean for nn_agent_260_average_no_momo vs nn_agent_280_average_no_momo is -0.1597222238779068
+06/28/2021 05:01:11 PM The mean for nn_agent_260_average_no_momo vs nn_agent_300_average_no_momo is -0.3105826675891876
+06/28/2021 05:01:12 PM The mean for nn_agent_260_average_no_momo vs nn_agent_320_average_no_momo is -0.5031195878982544
+06/28/2021 05:01:14 PM The mean for nn_agent_260_average_no_momo vs nn_agent_340_average_no_momo is -0.7274647951126099
+06/28/2021 05:01:16 PM The mean for nn_agent_260_average_no_momo vs nn_agent_360_average_no_momo is -0.7891073226928711
+06/28/2021 05:01:18 PM The mean for nn_agent_260_average_no_momo vs nn_agent_260_momo is -0.5330653190612793
+06/28/2021 05:01:19 PM The mean for nn_agent_260_average_no_momo vs nn_agent_280_momo is -0.48418980836868286
+06/28/2021 05:01:21 PM The mean for nn_agent_260_average_no_momo vs nn_agent_300_momo is -0.4891783893108368
+06/28/2021 05:01:23 PM The mean for nn_agent_260_average_no_momo vs nn_agent_320_momo is -0.4374693036079407
+06/28/2021 05:01:24 PM The mean for nn_agent_260_average_no_momo vs nn_agent_340_momo is -0.4744087755680084
+06/28/2021 05:01:26 PM The mean for nn_agent_260_average_no_momo vs nn_agent_360_momo is -0.43717432022094727
+06/28/2021 05:01:27 PM The mean for nn_agent_260_average_no_momo vs nn_agent_260_self_momo is -0.4037313759326935
+06/28/2021 05:01:29 PM The mean for nn_agent_260_average_no_momo vs nn_agent_280_self_momo is -0.418597549200058
+06/28/2021 05:01:31 PM The mean for nn_agent_260_average_no_momo vs nn_agent_300_self_momo is -0.4864901006221771
+06/28/2021 05:01:32 PM The mean for nn_agent_260_average_no_momo vs nn_agent_320_self_momo is -0.4550972580909729
+06/28/2021 05:01:34 PM The mean for nn_agent_260_average_no_momo vs nn_agent_340_self_momo is -0.4188729226589203
+06/28/2021 05:01:35 PM The mean for nn_agent_260_average_no_momo vs nn_agent_360_self_momo is -0.42527639865875244
+06/28/2021 05:01:37 PM The mean for nn_agent_260_average_no_momo vs nn_agent_260_average_momo is 0.2696031928062439
+06/28/2021 05:01:39 PM The mean for nn_agent_260_average_no_momo vs nn_agent_280_average_momo is 0.17065805196762085
+06/28/2021 05:01:40 PM The mean for nn_agent_260_average_no_momo vs nn_agent_300_average_momo is 0.019825875759124756
+06/28/2021 05:01:42 PM The mean for nn_agent_260_average_no_momo vs nn_agent_320_average_momo is -0.06112457811832428
+06/28/2021 05:01:44 PM The mean for nn_agent_260_average_no_momo vs nn_agent_340_average_momo is 0.02309487760066986
+06/28/2021 05:01:45 PM The mean for nn_agent_260_average_no_momo vs nn_agent_360_average_momo is -0.06293687224388123
+06/28/2021 05:01:47 PM The mean for nn_agent_280_average_no_momo vs nn_agent_300_average_no_momo is -0.20084992051124573
+06/28/2021 05:01:49 PM The mean for nn_agent_280_average_no_momo vs nn_agent_320_average_no_momo is -0.4521939158439636
+06/28/2021 05:01:51 PM The mean for nn_agent_280_average_no_momo vs nn_agent_340_average_no_momo is -0.6162794232368469
+06/28/2021 05:01:53 PM The mean for nn_agent_280_average_no_momo vs nn_agent_360_average_no_momo is -0.7009989619255066
+06/28/2021 05:01:55 PM The mean for nn_agent_280_average_no_momo vs nn_agent_260_momo is -0.5733655095100403
+06/28/2021 05:01:56 PM The mean for nn_agent_280_average_no_momo vs nn_agent_280_momo is -0.5017446279525757
+06/28/2021 05:01:58 PM The mean for nn_agent_280_average_no_momo vs nn_agent_300_momo is -0.4025212526321411
+06/28/2021 05:02:00 PM The mean for nn_agent_280_average_no_momo vs nn_agent_320_momo is -0.41391128301620483
+06/28/2021 05:02:01 PM The mean for nn_agent_280_average_no_momo vs nn_agent_340_momo is -0.4784095287322998
+06/28/2021 05:02:03 PM The mean for nn_agent_280_average_no_momo vs nn_agent_360_momo is -0.3721475899219513
+06/28/2021 05:02:04 PM The mean for nn_agent_280_average_no_momo vs nn_agent_260_self_momo is -0.47444987297058105
+06/28/2021 05:02:06 PM The mean for nn_agent_280_average_no_momo vs nn_agent_280_self_momo is -0.5342826247215271
+06/28/2021 05:02:08 PM The mean for nn_agent_280_average_no_momo vs nn_agent_300_self_momo is -0.48246753215789795
+06/28/2021 05:02:09 PM The mean for nn_agent_280_average_no_momo vs nn_agent_320_self_momo is -0.5212895274162292
+06/28/2021 05:02:11 PM The mean for nn_agent_280_average_no_momo vs nn_agent_340_self_momo is -0.43415483832359314
+06/28/2021 05:02:13 PM The mean for nn_agent_280_average_no_momo vs nn_agent_360_self_momo is -0.44525548815727234
+06/28/2021 05:02:14 PM The mean for nn_agent_280_average_no_momo vs nn_agent_260_average_momo is 0.2735205590724945
+06/28/2021 05:02:16 PM The mean for nn_agent_280_average_no_momo vs nn_agent_280_average_momo is 0.18277648091316223
+06/28/2021 05:02:18 PM The mean for nn_agent_280_average_no_momo vs nn_agent_300_average_momo is 0.05678364634513855
+06/28/2021 05:02:20 PM The mean for nn_agent_280_average_no_momo vs nn_agent_320_average_momo is -0.037706151604652405
+06/28/2021 05:02:21 PM The mean for nn_agent_280_average_no_momo vs nn_agent_340_average_momo is -0.08750441670417786
+06/28/2021 05:02:23 PM The mean for nn_agent_280_average_no_momo vs nn_agent_360_average_momo is -0.05122995376586914
+06/28/2021 05:02:25 PM The mean for nn_agent_300_average_no_momo vs nn_agent_320_average_no_momo is -0.20769712328910828
+06/28/2021 05:02:27 PM The mean for nn_agent_300_average_no_momo vs nn_agent_340_average_no_momo is -0.3483085632324219
+06/28/2021 05:02:29 PM The mean for nn_agent_300_average_no_momo vs nn_agent_360_average_no_momo is -0.5866929292678833
+06/28/2021 05:02:31 PM The mean for nn_agent_300_average_no_momo vs nn_agent_260_momo is -0.5702471733093262
+06/28/2021 05:02:33 PM The mean for nn_agent_300_average_no_momo vs nn_agent_280_momo is -0.5827590823173523
+06/28/2021 05:02:35 PM The mean for nn_agent_300_average_no_momo vs nn_agent_300_momo is -0.4622161090373993
+06/28/2021 05:02:36 PM The mean for nn_agent_300_average_no_momo vs nn_agent_320_momo is -0.4185856580734253
+06/28/2021 05:02:38 PM The mean for nn_agent_300_average_no_momo vs nn_agent_340_momo is -0.5615472793579102
+06/28/2021 05:02:40 PM The mean for nn_agent_300_average_no_momo vs nn_agent_360_momo is -0.42727693915367126
+06/28/2021 05:02:41 PM The mean for nn_agent_300_average_no_momo vs nn_agent_260_self_momo is -0.49966704845428467
+06/28/2021 05:02:43 PM The mean for nn_agent_300_average_no_momo vs nn_agent_280_self_momo is -0.47113037109375
+06/28/2021 05:02:45 PM The mean for nn_agent_300_average_no_momo vs nn_agent_300_self_momo is -0.46421873569488525
+06/28/2021 05:02:47 PM The mean for nn_agent_300_average_no_momo vs nn_agent_320_self_momo is -0.5325026512145996
+06/28/2021 05:02:48 PM The mean for nn_agent_300_average_no_momo vs nn_agent_340_self_momo is -0.53327476978302
+06/28/2021 05:02:50 PM The mean for nn_agent_300_average_no_momo vs nn_agent_360_self_momo is -0.4669729471206665
+06/28/2021 05:02:52 PM The mean for nn_agent_300_average_no_momo vs nn_agent_260_average_momo is 0.26972299814224243
+06/28/2021 05:02:54 PM The mean for nn_agent_300_average_no_momo vs nn_agent_280_average_momo is 0.21154077351093292
+06/28/2021 05:02:55 PM The mean for nn_agent_300_average_no_momo vs nn_agent_300_average_momo is 0.03338494896888733
+06/28/2021 05:02:57 PM The mean for nn_agent_300_average_no_momo vs nn_agent_320_average_momo is -0.025237709283828735
+06/28/2021 05:02:59 PM The mean for nn_agent_300_average_no_momo vs nn_agent_340_average_momo is -0.13769039511680603
+06/28/2021 05:03:01 PM The mean for nn_agent_300_average_no_momo vs nn_agent_360_average_momo is -0.040562570095062256
+06/28/2021 05:03:03 PM The mean for nn_agent_320_average_no_momo vs nn_agent_340_average_no_momo is -0.13761556148529053
+06/28/2021 05:03:05 PM The mean for nn_agent_320_average_no_momo vs nn_agent_360_average_no_momo is -0.341327041387558
+06/28/2021 05:03:07 PM The mean for nn_agent_320_average_no_momo vs nn_agent_260_momo is -0.5907086730003357
+06/28/2021 05:03:08 PM The mean for nn_agent_320_average_no_momo vs nn_agent_280_momo is -0.6407881379127502
+06/28/2021 05:03:10 PM The mean for nn_agent_320_average_no_momo vs nn_agent_300_momo is -0.5760564804077148
+06/28/2021 05:03:12 PM The mean for nn_agent_320_average_no_momo vs nn_agent_320_momo is -0.4828561842441559
+06/28/2021 05:03:13 PM The mean for nn_agent_320_average_no_momo vs nn_agent_340_momo is -0.5088330507278442
+06/28/2021 05:03:15 PM The mean for nn_agent_320_average_no_momo vs nn_agent_360_momo is -0.5485483407974243
+06/28/2021 05:03:17 PM The mean for nn_agent_320_average_no_momo vs nn_agent_260_self_momo is -0.544107973575592
+06/28/2021 05:03:19 PM The mean for nn_agent_320_average_no_momo vs nn_agent_280_self_momo is -0.6253535151481628
+06/28/2021 05:03:20 PM The mean for nn_agent_320_average_no_momo vs nn_agent_300_self_momo is -0.539436936378479
+06/28/2021 05:03:22 PM The mean for nn_agent_320_average_no_momo vs nn_agent_320_self_momo is -0.5983573794364929
+06/28/2021 05:03:24 PM The mean for nn_agent_320_average_no_momo vs nn_agent_340_self_momo is -0.6168491244316101
+06/28/2021 05:03:26 PM The mean for nn_agent_320_average_no_momo vs nn_agent_360_self_momo is -0.5203865766525269
+06/28/2021 05:03:28 PM The mean for nn_agent_320_average_no_momo vs nn_agent_260_average_momo is 0.32471752166748047
+06/28/2021 05:03:29 PM The mean for nn_agent_320_average_no_momo vs nn_agent_280_average_momo is 0.18789629638195038
+06/28/2021 05:03:31 PM The mean for nn_agent_320_average_no_momo vs nn_agent_300_average_momo is 0.05130702257156372
+06/28/2021 05:03:33 PM The mean for nn_agent_320_average_no_momo vs nn_agent_320_average_momo is -0.036738693714141846
+06/28/2021 05:03:35 PM The mean for nn_agent_320_average_no_momo vs nn_agent_340_average_momo is -0.026196300983428955
+06/28/2021 05:03:37 PM The mean for nn_agent_320_average_no_momo vs nn_agent_360_average_momo is -0.12931115925312042
+06/28/2021 05:03:39 PM The mean for nn_agent_340_average_no_momo vs nn_agent_360_average_no_momo is -0.1949893832206726
+06/28/2021 05:03:41 PM The mean for nn_agent_340_average_no_momo vs nn_agent_260_momo is -0.6946730017662048
+06/28/2021 05:03:43 PM The mean for nn_agent_340_average_no_momo vs nn_agent_280_momo is -0.6801261901855469
+06/28/2021 05:03:44 PM The mean for nn_agent_340_average_no_momo vs nn_agent_300_momo is -0.6622521877288818
+06/28/2021 05:03:46 PM The mean for nn_agent_340_average_no_momo vs nn_agent_320_momo is -0.5909886360168457
+06/28/2021 05:03:48 PM The mean for nn_agent_340_average_no_momo vs nn_agent_340_momo is -0.6064811944961548
+06/28/2021 05:03:50 PM The mean for nn_agent_340_average_no_momo vs nn_agent_360_momo is -0.6208515763282776
+06/28/2021 05:03:52 PM The mean for nn_agent_340_average_no_momo vs nn_agent_260_self_momo is -0.6573848724365234
+06/28/2021 05:03:53 PM The mean for nn_agent_340_average_no_momo vs nn_agent_280_self_momo is -0.6676126718521118
+06/28/2021 05:03:55 PM The mean for nn_agent_340_average_no_momo vs nn_agent_300_self_momo is -0.6001173257827759
+06/28/2021 05:03:57 PM The mean for nn_agent_340_average_no_momo vs nn_agent_320_self_momo is -0.5757555961608887
+06/28/2021 05:03:59 PM The mean for nn_agent_340_average_no_momo vs nn_agent_340_self_momo is -0.6411958932876587
+06/28/2021 05:04:01 PM The mean for nn_agent_340_average_no_momo vs nn_agent_360_self_momo is -0.6471822261810303
+06/28/2021 05:04:02 PM The mean for nn_agent_340_average_no_momo vs nn_agent_260_average_momo is 0.27680402994155884
+06/28/2021 05:04:04 PM The mean for nn_agent_340_average_no_momo vs nn_agent_280_average_momo is 0.18801501393318176
+06/28/2021 05:04:06 PM The mean for nn_agent_340_average_no_momo vs nn_agent_300_average_momo is 0.15044692158699036
+06/28/2021 05:04:08 PM The mean for nn_agent_340_average_no_momo vs nn_agent_320_average_momo is 0.011814415454864502
+06/28/2021 05:04:10 PM The mean for nn_agent_340_average_no_momo vs nn_agent_340_average_momo is -0.03263828158378601
+06/28/2021 05:04:12 PM The mean for nn_agent_340_average_no_momo vs nn_agent_360_average_momo is -0.06157594919204712
+06/28/2021 05:04:14 PM The mean for nn_agent_360_average_no_momo vs nn_agent_260_momo is -0.754435122013092
+06/28/2021 05:04:15 PM The mean for nn_agent_360_average_no_momo vs nn_agent_280_momo is -0.7701622247695923
+06/28/2021 05:04:17 PM The mean for nn_agent_360_average_no_momo vs nn_agent_300_momo is -0.7127046585083008
+06/28/2021 05:04:19 PM The mean for nn_agent_360_average_no_momo vs nn_agent_320_momo is -0.6805400848388672
+06/28/2021 05:04:21 PM The mean for nn_agent_360_average_no_momo vs nn_agent_340_momo is -0.6307513117790222
+06/28/2021 05:04:23 PM The mean for nn_agent_360_average_no_momo vs nn_agent_360_momo is -0.697090744972229
+06/28/2021 05:04:25 PM The mean for nn_agent_360_average_no_momo vs nn_agent_260_self_momo is -0.6596563458442688
+06/28/2021 05:04:27 PM The mean for nn_agent_360_average_no_momo vs nn_agent_280_self_momo is -0.6619517207145691
+06/28/2021 05:04:29 PM The mean for nn_agent_360_average_no_momo vs nn_agent_300_self_momo is -0.7403099536895752
+06/28/2021 05:04:30 PM The mean for nn_agent_360_average_no_momo vs nn_agent_320_self_momo is -0.7391217350959778
+06/28/2021 05:04:32 PM The mean for nn_agent_360_average_no_momo vs nn_agent_340_self_momo is -0.7899448871612549
+06/28/2021 05:04:34 PM The mean for nn_agent_360_average_no_momo vs nn_agent_360_self_momo is -0.7419919371604919
+06/28/2021 05:04:36 PM The mean for nn_agent_360_average_no_momo vs nn_agent_260_average_momo is 0.3630242645740509
+06/28/2021 05:04:38 PM The mean for nn_agent_360_average_no_momo vs nn_agent_280_average_momo is 0.26834696531295776
+06/28/2021 05:04:40 PM The mean for nn_agent_360_average_no_momo vs nn_agent_300_average_momo is 0.011027559638023376
+06/28/2021 05:04:42 PM The mean for nn_agent_360_average_no_momo vs nn_agent_320_average_momo is 0.0637136697769165
+06/28/2021 05:04:44 PM The mean for nn_agent_360_average_no_momo vs nn_agent_340_average_momo is -0.10878248512744904
+06/28/2021 05:04:46 PM The mean for nn_agent_360_average_no_momo vs nn_agent_360_average_momo is -0.12775735557079315
+06/28/2021 05:04:48 PM The mean for nn_agent_260_momo vs nn_agent_280_momo is -0.03152235597372055
+06/28/2021 05:04:49 PM The mean for nn_agent_260_momo vs nn_agent_300_momo is -0.06614207476377487
+06/28/2021 05:04:51 PM The mean for nn_agent_260_momo vs nn_agent_320_momo is -0.08988210558891296
+06/28/2021 05:04:53 PM The mean for nn_agent_260_momo vs nn_agent_340_momo is -0.08127942681312561
+06/28/2021 05:04:54 PM The mean for nn_agent_260_momo vs nn_agent_360_momo is -0.06929295510053635
+06/28/2021 05:04:56 PM The mean for nn_agent_260_momo vs nn_agent_260_self_momo is -0.01740218698978424
+06/28/2021 05:04:58 PM The mean for nn_agent_260_momo vs nn_agent_280_self_momo is -0.12790164351463318
+06/28/2021 05:04:59 PM The mean for nn_agent_260_momo vs nn_agent_300_self_momo is -0.07746127992868423
+06/28/2021 05:05:01 PM The mean for nn_agent_260_momo vs nn_agent_320_self_momo is -0.1471613198518753
+06/28/2021 05:05:02 PM The mean for nn_agent_260_momo vs nn_agent_340_self_momo is -0.22858558595180511
+06/28/2021 05:05:04 PM The mean for nn_agent_260_momo vs nn_agent_360_self_momo is -0.22260445356369019
+06/28/2021 05:05:05 PM The mean for nn_agent_260_momo vs nn_agent_260_average_momo is 0.7920933365821838
+06/28/2021 05:05:07 PM The mean for nn_agent_260_momo vs nn_agent_280_average_momo is 0.8022792339324951
+06/28/2021 05:05:09 PM The mean for nn_agent_260_momo vs nn_agent_300_average_momo is 0.7788532972335815
+06/28/2021 05:05:10 PM The mean for nn_agent_260_momo vs nn_agent_320_average_momo is 0.7413089871406555
+06/28/2021 05:05:12 PM The mean for nn_agent_260_momo vs nn_agent_340_average_momo is 0.699446439743042
+06/28/2021 05:05:14 PM The mean for nn_agent_260_momo vs nn_agent_360_average_momo is 0.7215361595153809
+06/28/2021 05:05:15 PM The mean for nn_agent_280_momo vs nn_agent_300_momo is -0.014089170843362808
+06/28/2021 05:05:17 PM The mean for nn_agent_280_momo vs nn_agent_320_momo is -0.01975608430802822
+06/28/2021 05:05:18 PM The mean for nn_agent_280_momo vs nn_agent_340_momo is -0.060259509831666946
+06/28/2021 05:05:20 PM The mean for nn_agent_280_momo vs nn_agent_360_momo is -0.06954877078533173
+06/28/2021 05:05:22 PM The mean for nn_agent_280_momo vs nn_agent_260_self_momo is -0.07029647380113602
+06/28/2021 05:05:23 PM The mean for nn_agent_280_momo vs nn_agent_280_self_momo is -0.11650928854942322
+06/28/2021 05:05:25 PM The mean for nn_agent_280_momo vs nn_agent_300_self_momo is -0.17401401698589325
+06/28/2021 05:05:26 PM The mean for nn_agent_280_momo vs nn_agent_320_self_momo is -0.14440062642097473
+06/28/2021 05:05:28 PM The mean for nn_agent_280_momo vs nn_agent_340_self_momo is -0.10261672735214233
+06/28/2021 05:05:29 PM The mean for nn_agent_280_momo vs nn_agent_360_self_momo is -0.18034832179546356
+06/28/2021 05:05:31 PM The mean for nn_agent_280_momo vs nn_agent_260_average_momo is 0.7810391783714294
+06/28/2021 05:05:33 PM The mean for nn_agent_280_momo vs nn_agent_280_average_momo is 0.8374138474464417
+06/28/2021 05:05:34 PM The mean for nn_agent_280_momo vs nn_agent_300_average_momo is 0.8182579874992371
+06/28/2021 05:05:36 PM The mean for nn_agent_280_momo vs nn_agent_320_average_momo is 0.7779068946838379
+06/28/2021 05:05:37 PM The mean for nn_agent_280_momo vs nn_agent_340_average_momo is 0.7138792872428894
+06/28/2021 05:05:39 PM The mean for nn_agent_280_momo vs nn_agent_360_average_momo is 0.8122261762619019
+06/28/2021 05:05:41 PM The mean for nn_agent_300_momo vs nn_agent_320_momo is -0.038851357996463776
+06/28/2021 05:05:42 PM The mean for nn_agent_300_momo vs nn_agent_340_momo is -0.03683990612626076
+06/28/2021 05:05:44 PM The mean for nn_agent_300_momo vs nn_agent_360_momo is -0.035275332629680634
+06/28/2021 05:05:45 PM The mean for nn_agent_300_momo vs nn_agent_260_self_momo is -0.019312448799610138
+06/28/2021 05:05:47 PM The mean for nn_agent_300_momo vs nn_agent_280_self_momo is -0.1106412410736084
+06/28/2021 05:05:48 PM The mean for nn_agent_300_momo vs nn_agent_300_self_momo is -0.103761687874794
+06/28/2021 05:05:50 PM The mean for nn_agent_300_momo vs nn_agent_320_self_momo is -0.10844507813453674
+06/28/2021 05:05:52 PM The mean for nn_agent_300_momo vs nn_agent_340_self_momo is -0.1542404592037201
+06/28/2021 05:05:53 PM The mean for nn_agent_300_momo vs nn_agent_360_self_momo is -0.23661759495735168
+06/28/2021 05:05:55 PM The mean for nn_agent_300_momo vs nn_agent_260_average_momo is 0.8489952087402344
+06/28/2021 05:05:56 PM The mean for nn_agent_300_momo vs nn_agent_280_average_momo is 0.7232814431190491
+06/28/2021 05:05:58 PM The mean for nn_agent_300_momo vs nn_agent_300_average_momo is 0.7889298796653748
+06/28/2021 05:06:00 PM The mean for nn_agent_300_momo vs nn_agent_320_average_momo is 0.7608108520507812
+06/28/2021 05:06:01 PM The mean for nn_agent_300_momo vs nn_agent_340_average_momo is 0.7976623177528381
+06/28/2021 05:06:03 PM The mean for nn_agent_300_momo vs nn_agent_360_average_momo is 0.7758718729019165
+06/28/2021 05:06:04 PM The mean for nn_agent_320_momo vs nn_agent_340_momo is -0.07293619215488434
+06/28/2021 05:06:06 PM The mean for nn_agent_320_momo vs nn_agent_360_momo is -0.04568133503198624
+06/28/2021 05:06:08 PM The mean for nn_agent_320_momo vs nn_agent_260_self_momo is -0.052611492574214935
+06/28/2021 05:06:09 PM The mean for nn_agent_320_momo vs nn_agent_280_self_momo is -0.0675186812877655
+06/28/2021 05:06:11 PM The mean for nn_agent_320_momo vs nn_agent_300_self_momo is -0.1461726725101471
+06/28/2021 05:06:13 PM The mean for nn_agent_320_momo vs nn_agent_320_self_momo is -0.14450021088123322
+06/28/2021 05:06:14 PM The mean for nn_agent_320_momo vs nn_agent_340_self_momo is -0.13845524191856384
+06/28/2021 05:06:16 PM The mean for nn_agent_320_momo vs nn_agent_360_self_momo is -0.17700618505477905
+06/28/2021 05:06:18 PM The mean for nn_agent_320_momo vs nn_agent_260_average_momo is 0.7706832885742188
+06/28/2021 05:06:19 PM The mean for nn_agent_320_momo vs nn_agent_280_average_momo is 0.7476526498794556
+06/28/2021 05:06:21 PM The mean for nn_agent_320_momo vs nn_agent_300_average_momo is 0.8158782124519348
+06/28/2021 05:06:22 PM The mean for nn_agent_320_momo vs nn_agent_320_average_momo is 0.7405709028244019
+06/28/2021 05:06:24 PM The mean for nn_agent_320_momo vs nn_agent_340_average_momo is 0.7173715233802795
+06/28/2021 05:06:26 PM The mean for nn_agent_320_momo vs nn_agent_360_average_momo is 0.7112270593643188
+06/28/2021 05:06:27 PM The mean for nn_agent_340_momo vs nn_agent_360_momo is 0.015120044350624084
+06/28/2021 05:06:29 PM The mean for nn_agent_340_momo vs nn_agent_260_self_momo is 0.029061611741781235
+06/28/2021 05:06:30 PM The mean for nn_agent_340_momo vs nn_agent_280_self_momo is -0.03614899888634682
+06/28/2021 05:06:32 PM The mean for nn_agent_340_momo vs nn_agent_300_self_momo is -0.09384219348430634
+06/28/2021 05:06:33 PM The mean for nn_agent_340_momo vs nn_agent_320_self_momo is -0.10115349292755127
+06/28/2021 05:06:35 PM The mean for nn_agent_340_momo vs nn_agent_340_self_momo is -0.1473923772573471
+06/28/2021 05:06:37 PM The mean for nn_agent_340_momo vs nn_agent_360_self_momo is -0.1897248923778534
+06/28/2021 05:06:38 PM The mean for nn_agent_340_momo vs nn_agent_260_average_momo is 0.7846672534942627
+06/28/2021 05:06:40 PM The mean for nn_agent_340_momo vs nn_agent_280_average_momo is 0.8249615430831909
+06/28/2021 05:06:42 PM The mean for nn_agent_340_momo vs nn_agent_300_average_momo is 0.7799724340438843
+06/28/2021 05:06:43 PM The mean for nn_agent_340_momo vs nn_agent_320_average_momo is 0.6922116279602051
+06/28/2021 05:06:45 PM The mean for nn_agent_340_momo vs nn_agent_340_average_momo is 0.8224228620529175
+06/28/2021 05:06:46 PM The mean for nn_agent_340_momo vs nn_agent_360_average_momo is 0.7019674777984619
+06/28/2021 05:06:48 PM The mean for nn_agent_360_momo vs nn_agent_260_self_momo is -0.047427866607904434
+06/28/2021 05:06:50 PM The mean for nn_agent_360_momo vs nn_agent_280_self_momo is -0.03451884165406227
+06/28/2021 05:06:51 PM The mean for nn_agent_360_momo vs nn_agent_300_self_momo is -0.07682318985462189
+06/28/2021 05:06:53 PM The mean for nn_agent_360_momo vs nn_agent_320_self_momo is -0.1632125973701477
+06/28/2021 05:06:54 PM The mean for nn_agent_360_momo vs nn_agent_340_self_momo is -0.12943045794963837
+06/28/2021 05:06:56 PM The mean for nn_agent_360_momo vs nn_agent_360_self_momo is -0.14331206679344177
+06/28/2021 05:06:58 PM The mean for nn_agent_360_momo vs nn_agent_260_average_momo is 0.7724906206130981
+06/28/2021 05:06:59 PM The mean for nn_agent_360_momo vs nn_agent_280_average_momo is 0.7935044765472412
+06/28/2021 05:07:01 PM The mean for nn_agent_360_momo vs nn_agent_300_average_momo is 0.7375338673591614
+06/28/2021 05:07:02 PM The mean for nn_agent_360_momo vs nn_agent_320_average_momo is 0.7100075483322144
+06/28/2021 05:07:04 PM The mean for nn_agent_360_momo vs nn_agent_340_average_momo is 0.7404357194900513
+06/28/2021 05:07:06 PM The mean for nn_agent_360_momo vs nn_agent_360_average_momo is 0.7226253747940063
+06/28/2021 05:07:07 PM The mean for nn_agent_260_self_momo vs nn_agent_280_self_momo is 0.0007243398576974869
+06/28/2021 05:07:09 PM The mean for nn_agent_260_self_momo vs nn_agent_300_self_momo is -0.05660078302025795
+06/28/2021 05:07:10 PM The mean for nn_agent_260_self_momo vs nn_agent_320_self_momo is -0.09062521904706955
+06/28/2021 05:07:12 PM The mean for nn_agent_260_self_momo vs nn_agent_340_self_momo is -0.11091430485248566
+06/28/2021 05:07:13 PM The mean for nn_agent_260_self_momo vs nn_agent_360_self_momo is -0.15421423316001892
+06/28/2021 05:07:15 PM The mean for nn_agent_260_self_momo vs nn_agent_260_average_momo is 0.7223714590072632
+06/28/2021 05:07:17 PM The mean for nn_agent_260_self_momo vs nn_agent_280_average_momo is 0.6885189414024353
+06/28/2021 05:07:19 PM The mean for nn_agent_260_self_momo vs nn_agent_300_average_momo is 0.6915165185928345
+06/28/2021 05:07:20 PM The mean for nn_agent_260_self_momo vs nn_agent_320_average_momo is 0.6158179044723511
+06/28/2021 05:07:22 PM The mean for nn_agent_260_self_momo vs nn_agent_340_average_momo is 0.6717432737350464
+06/28/2021 05:07:24 PM The mean for nn_agent_260_self_momo vs nn_agent_360_average_momo is 0.6057698726654053
+06/28/2021 05:07:25 PM The mean for nn_agent_280_self_momo vs nn_agent_300_self_momo is -0.021482691168785095
+06/28/2021 05:07:27 PM The mean for nn_agent_280_self_momo vs nn_agent_320_self_momo is -0.014185503125190735
+06/28/2021 05:07:28 PM The mean for nn_agent_280_self_momo vs nn_agent_340_self_momo is -0.12118501961231232
+06/28/2021 05:07:30 PM The mean for nn_agent_280_self_momo vs nn_agent_360_self_momo is -0.14313504099845886
+06/28/2021 05:07:32 PM The mean for nn_agent_280_self_momo vs nn_agent_260_average_momo is 0.6642788052558899
+06/28/2021 05:07:33 PM The mean for nn_agent_280_self_momo vs nn_agent_280_average_momo is 0.7110649347305298
+06/28/2021 05:07:35 PM The mean for nn_agent_280_self_momo vs nn_agent_300_average_momo is 0.666289210319519
+06/28/2021 05:07:37 PM The mean for nn_agent_280_self_momo vs nn_agent_320_average_momo is 0.6479353904724121
+06/28/2021 05:07:38 PM The mean for nn_agent_280_self_momo vs nn_agent_340_average_momo is 0.6912992596626282
+06/28/2021 05:07:40 PM The mean for nn_agent_280_self_momo vs nn_agent_360_average_momo is 0.6526477932929993
+06/28/2021 05:07:41 PM The mean for nn_agent_300_self_momo vs nn_agent_320_self_momo is -0.017841992899775505
+06/28/2021 05:07:43 PM The mean for nn_agent_300_self_momo vs nn_agent_340_self_momo is -0.09265422075986862
+06/28/2021 05:07:45 PM The mean for nn_agent_300_self_momo vs nn_agent_360_self_momo is -0.0580417662858963
+06/28/2021 05:07:46 PM The mean for nn_agent_300_self_momo vs nn_agent_260_average_momo is 0.7386840581893921
+06/28/2021 05:07:48 PM The mean for nn_agent_300_self_momo vs nn_agent_280_average_momo is 0.7302886843681335
+06/28/2021 05:07:50 PM The mean for nn_agent_300_self_momo vs nn_agent_300_average_momo is 0.7064476013183594
+06/28/2021 05:07:51 PM The mean for nn_agent_300_self_momo vs nn_agent_320_average_momo is 0.7371860146522522
+06/28/2021 05:07:53 PM The mean for nn_agent_300_self_momo vs nn_agent_340_average_momo is 0.6494940519332886
+06/28/2021 05:07:55 PM The mean for nn_agent_300_self_momo vs nn_agent_360_average_momo is 0.5989633798599243
+06/28/2021 05:07:56 PM The mean for nn_agent_320_self_momo vs nn_agent_340_self_momo is -0.007236907258629799
+06/28/2021 05:07:58 PM The mean for nn_agent_320_self_momo vs nn_agent_360_self_momo is -0.04938819259405136
+06/28/2021 05:08:00 PM The mean for nn_agent_320_self_momo vs nn_agent_260_average_momo is 0.716823935508728
+06/28/2021 05:08:01 PM The mean for nn_agent_320_self_momo vs nn_agent_280_average_momo is 0.6212077140808105
+06/28/2021 05:08:03 PM The mean for nn_agent_320_self_momo vs nn_agent_300_average_momo is 0.6287480592727661
+06/28/2021 05:08:05 PM The mean for nn_agent_320_self_momo vs nn_agent_320_average_momo is 0.6968926191329956
+06/28/2021 05:08:06 PM The mean for nn_agent_320_self_momo vs nn_agent_340_average_momo is 0.6815990209579468
+06/28/2021 05:08:08 PM The mean for nn_agent_320_self_momo vs nn_agent_360_average_momo is 0.5283045768737793
+06/28/2021 05:08:10 PM The mean for nn_agent_340_self_momo vs nn_agent_360_self_momo is -0.06596103310585022
+06/28/2021 05:08:11 PM The mean for nn_agent_340_self_momo vs nn_agent_260_average_momo is 0.6818026304244995
+06/28/2021 05:08:13 PM The mean for nn_agent_340_self_momo vs nn_agent_280_average_momo is 0.6874710321426392
+06/28/2021 05:08:15 PM The mean for nn_agent_340_self_momo vs nn_agent_300_average_momo is 0.65643310546875
+06/28/2021 05:08:16 PM The mean for nn_agent_340_self_momo vs nn_agent_320_average_momo is 0.6214096546173096
+06/28/2021 05:08:18 PM The mean for nn_agent_340_self_momo vs nn_agent_340_average_momo is 0.6706272959709167
+06/28/2021 05:08:20 PM The mean for nn_agent_340_self_momo vs nn_agent_360_average_momo is 0.6276488304138184
+06/28/2021 05:08:21 PM The mean for nn_agent_360_self_momo vs nn_agent_260_average_momo is 0.7390941381454468
+06/28/2021 05:08:23 PM The mean for nn_agent_360_self_momo vs nn_agent_280_average_momo is 0.6607365608215332
+06/28/2021 05:08:25 PM The mean for nn_agent_360_self_momo vs nn_agent_300_average_momo is 0.6462465524673462
+06/28/2021 05:08:26 PM The mean for nn_agent_360_self_momo vs nn_agent_320_average_momo is 0.6365914344787598
+06/28/2021 05:08:28 PM The mean for nn_agent_360_self_momo vs nn_agent_340_average_momo is 0.6235685348510742
+06/28/2021 05:08:30 PM The mean for nn_agent_360_self_momo vs nn_agent_360_average_momo is 0.5972371697425842
+06/28/2021 05:08:32 PM The mean for nn_agent_260_average_momo vs nn_agent_280_average_momo is -0.09495221078395844
+06/28/2021 05:08:33 PM The mean for nn_agent_260_average_momo vs nn_agent_300_average_momo is -0.17220404744148254
+06/28/2021 05:08:35 PM The mean for nn_agent_260_average_momo vs nn_agent_320_average_momo is -0.24737465381622314
+06/28/2021 05:08:37 PM The mean for nn_agent_260_average_momo vs nn_agent_340_average_momo is -0.3099428117275238
+06/28/2021 05:08:38 PM The mean for nn_agent_260_average_momo vs nn_agent_360_average_momo is -0.3028506934642792
+06/28/2021 05:08:40 PM The mean for nn_agent_280_average_momo vs nn_agent_300_average_momo is -0.04768072068691254
+06/28/2021 05:08:42 PM The mean for nn_agent_280_average_momo vs nn_agent_320_average_momo is -0.09980319440364838
+06/28/2021 05:08:43 PM The mean for nn_agent_280_average_momo vs nn_agent_340_average_momo is -0.15041667222976685
+06/28/2021 05:08:45 PM The mean for nn_agent_280_average_momo vs nn_agent_360_average_momo is -0.16352111101150513
+06/28/2021 05:08:47 PM The mean for nn_agent_300_average_momo vs nn_agent_320_average_momo is -0.09590110927820206
+06/28/2021 05:08:48 PM The mean for nn_agent_300_average_momo vs nn_agent_340_average_momo is -0.1150936558842659
+06/28/2021 05:08:50 PM The mean for nn_agent_300_average_momo vs nn_agent_360_average_momo is -0.11414705961942673
+06/28/2021 05:08:52 PM The mean for nn_agent_320_average_momo vs nn_agent_340_average_momo is -0.08227972686290741
+06/28/2021 05:08:53 PM The mean for nn_agent_320_average_momo vs nn_agent_360_average_momo is -0.21089284121990204
+06/28/2021 05:08:55 PM The mean for nn_agent_340_average_momo vs nn_agent_360_average_momo is -0.06843787431716919
+06/28/2021 05:08:55 PM Done with the evaluation. Printing in tabular format.
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_260_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_280_no_momo: -0.09569871425628662
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_300_no_momo: -0.20054391026496887
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_320_no_momo: -0.204229936003685
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_340_no_momo: -0.2657008171081543
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_360_no_momo: -0.3343254625797272
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_260_self_no_momo: -0.2465592920780182
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_280_self_no_momo: -0.3261290192604065
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_300_self_no_momo: -0.2832646369934082
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_320_self_no_momo: -0.3462620675563812
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_340_self_no_momo: -0.3718366324901581
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_360_self_no_momo: -0.3787519037723541
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_260_average_no_momo: -0.42049041390419006
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_280_average_no_momo: -0.40673592686653137
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_300_average_no_momo: -0.3633338510990143
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_320_average_no_momo: -0.4998273253440857
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_340_average_no_momo: -0.3938913643360138
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_360_average_no_momo: -0.3108745515346527
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_260_momo: -0.6117361187934875
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_280_momo: -0.6256666779518127
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_300_momo: -0.6631797552108765
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_320_momo: -0.5825161933898926
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_340_momo: -0.5934733748435974
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_360_momo: -0.6472786664962769
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_260_self_momo: -0.6121410131454468
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_280_self_momo: -0.634642481803894
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_300_self_momo: -0.5920124053955078
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_320_self_momo: -0.6007692217826843
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_340_self_momo: -0.5807271599769592
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_360_self_momo: -0.5021383166313171
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_260_average_momo: 0.0881456583738327
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_280_average_momo: 0.03402034938335419
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_300_average_momo: -0.004996168427169323
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_320_average_momo: 0.11160507053136826
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_340_average_momo: 0.07880791276693344
+06/28/2021 05:08:55 PM nn_agent_260_no_momo vs nn_agent_360_average_momo: 0.04734732210636139
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_260_no_momo: 0.09569871425628662
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_280_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_300_no_momo: -0.10907135903835297
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_320_no_momo: -0.1808459758758545
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_340_no_momo: -0.24529197812080383
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_360_no_momo: -0.2571273446083069
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_260_self_no_momo: -0.27497515082359314
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_280_self_no_momo: -0.29993581771850586
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_300_self_no_momo: -0.32880038022994995
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_320_self_no_momo: -0.30917882919311523
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_340_self_no_momo: -0.3722558319568634
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_360_self_no_momo: -0.40936434268951416
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_260_average_no_momo: -0.2891245484352112
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_280_average_no_momo: -0.28889644145965576
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_300_average_no_momo: -0.4070124626159668
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_320_average_no_momo: -0.4461360573768616
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_340_average_no_momo: -0.3858183026313782
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_360_average_no_momo: -0.2562529444694519
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_260_momo: -0.550457775592804
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_280_momo: -0.6244850158691406
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_300_momo: -0.583141565322876
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_320_momo: -0.5784320831298828
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_340_momo: -0.5581257343292236
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_360_momo: -0.6050583720207214
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_260_self_momo: -0.5526161193847656
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_280_self_momo: -0.6038949489593506
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_300_self_momo: -0.5637291669845581
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_320_self_momo: -0.5741435885429382
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_340_self_momo: -0.5223751664161682
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_360_self_momo: -0.48039740324020386
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_260_average_momo: 0.28411197662353516
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_280_average_momo: 0.12393570691347122
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_300_average_momo: 0.21411453187465668
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_320_average_momo: 0.12116158753633499
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_340_average_momo: 0.15547135472297668
+06/28/2021 05:08:55 PM nn_agent_280_no_momo vs nn_agent_360_average_momo: 0.12074274569749832
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_260_no_momo: 0.20054391026496887
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_280_no_momo: 0.10907135903835297
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_300_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_320_no_momo: -0.0626378282904625
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_340_no_momo: -0.18418514728546143
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_360_no_momo: -0.2318936288356781
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_260_self_no_momo: -0.2298099398612976
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_280_self_no_momo: -0.3324132561683655
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_300_self_no_momo: -0.2791144847869873
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_320_self_no_momo: -0.31428197026252747
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_340_self_no_momo: -0.30823519825935364
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_360_self_no_momo: -0.33892571926116943
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_260_average_no_momo: -0.1974334865808487
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_280_average_no_momo: -0.2458433210849762
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_300_average_no_momo: -0.2886066734790802
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_320_average_no_momo: -0.2751050591468811
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_340_average_no_momo: -0.19599837064743042
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_360_average_no_momo: -0.24038033187389374
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_260_momo: -0.5673566460609436
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_280_momo: -0.5316073894500732
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_300_momo: -0.5705897808074951
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_320_momo: -0.48056963086128235
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_340_momo: -0.6061719059944153
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_360_momo: -0.512620210647583
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_260_self_momo: -0.5344268083572388
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_280_self_momo: -0.5497076511383057
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_300_self_momo: -0.5191218852996826
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_320_self_momo: -0.5672900676727295
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_340_self_momo: -0.4399394392967224
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_360_self_momo: -0.47599196434020996
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_260_average_momo: 0.2608761191368103
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_280_average_momo: 0.2059839367866516
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_300_average_momo: 0.20759347081184387
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_320_average_momo: 0.15155574679374695
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_340_average_momo: 0.13387340307235718
+06/28/2021 05:08:55 PM nn_agent_300_no_momo vs nn_agent_360_average_momo: 0.14909081161022186
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_260_no_momo: 0.204229936003685
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_280_no_momo: 0.1808459758758545
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_300_no_momo: 0.0626378282904625
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_320_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_340_no_momo: 0.008218387141823769
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_360_no_momo: -0.07793814688920975
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_260_self_no_momo: -0.2165805846452713
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_280_self_no_momo: -0.3211365342140198
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_300_self_no_momo: -0.28828105330467224
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_320_self_no_momo: -0.2651578187942505
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_340_self_no_momo: -0.3570587635040283
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_360_self_no_momo: -0.36339133977890015
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_260_average_no_momo: -0.09513859450817108
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_280_average_no_momo: -0.17585419118404388
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_300_average_no_momo: -0.26154354214668274
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_320_average_no_momo: -0.19589190185070038
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_340_average_no_momo: -0.14821334183216095
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_360_average_no_momo: 0.006371356546878815
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_260_momo: -0.4760722517967224
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_280_momo: -0.5606511235237122
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_300_momo: -0.574306845664978
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_320_momo: -0.4592934548854828
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_340_momo: -0.4705948829650879
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_360_momo: -0.5467762351036072
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_260_self_momo: -0.5620477199554443
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_280_self_momo: -0.48944759368896484
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_300_self_momo: -0.5677914023399353
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_320_self_momo: -0.5397983193397522
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_340_self_momo: -0.5769937634468079
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_360_self_momo: -0.45031604170799255
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_260_average_momo: 0.3649361729621887
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_280_average_momo: 0.21854880452156067
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_300_average_momo: 0.2226034700870514
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_320_average_momo: 0.31180012226104736
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_340_average_momo: 0.24071353673934937
+06/28/2021 05:08:55 PM nn_agent_320_no_momo vs nn_agent_360_average_momo: 0.23511910438537598
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_260_no_momo: 0.2657008171081543
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_280_no_momo: 0.24529197812080383
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_300_no_momo: 0.18418514728546143
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_320_no_momo: -0.008218387141823769
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_340_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_360_no_momo: -0.038535550236701965
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_260_self_no_momo: -0.2169131487607956
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_280_self_no_momo: -0.293729305267334
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_300_self_no_momo: -0.2968631982803345
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_320_self_no_momo: -0.346671462059021
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_340_self_no_momo: -0.3477307856082916
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_360_self_no_momo: -0.31982994079589844
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_260_average_no_momo: -0.09114182740449905
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_280_average_no_momo: -0.018116315826773643
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_300_average_no_momo: -0.1715952455997467
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_320_average_no_momo: -0.12371625006198883
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_340_average_no_momo: -0.03393447399139404
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_360_average_no_momo: 0.08394977450370789
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_260_momo: -0.43122878670692444
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_280_momo: -0.5197286605834961
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_300_momo: -0.47827857732772827
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_320_momo: -0.46692338585853577
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_340_momo: -0.41198837757110596
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_360_momo: -0.4868212044239044
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_260_self_momo: -0.5207312107086182
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_280_self_momo: -0.5409125089645386
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_300_self_momo: -0.4837339222431183
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_320_self_momo: -0.4687889516353607
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_340_self_momo: -0.4630885720252991
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_360_self_momo: -0.4447525441646576
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_260_average_momo: 0.4641973376274109
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_280_average_momo: 0.3267069458961487
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_300_average_momo: 0.3273929953575134
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_320_average_momo: 0.25141164660453796
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_340_average_momo: 0.22922170162200928
+06/28/2021 05:08:55 PM nn_agent_340_no_momo vs nn_agent_360_average_momo: 0.33343368768692017
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_260_no_momo: 0.3343254625797272
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_280_no_momo: 0.2571273446083069
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_300_no_momo: 0.2318936288356781
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_320_no_momo: 0.07793814688920975
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_340_no_momo: 0.038535550236701965
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_360_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_260_self_no_momo: -0.18801328539848328
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_280_self_no_momo: -0.287993848323822
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_300_self_no_momo: -0.3116120398044586
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_320_self_no_momo: -0.33097225427627563
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_340_self_no_momo: -0.3651086091995239
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_360_self_no_momo: -0.32982349395751953
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_260_average_no_momo: 0.01949353888630867
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_280_average_no_momo: 0.02048918977379799
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_300_average_no_momo: -0.010989007540047169
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_320_average_no_momo: 0.03810524567961693
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_340_average_no_momo: -0.07826033979654312
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_360_average_no_momo: 0.06869633495807648
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_260_momo: -0.40884366631507874
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_280_momo: -0.45582520961761475
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_300_momo: -0.420616090297699
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_320_momo: -0.48899611830711365
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_340_momo: -0.5072982907295227
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_360_momo: -0.48657673597335815
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_260_self_momo: -0.43701034784317017
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_280_self_momo: -0.4283871352672577
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_300_self_momo: -0.4452565908432007
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_320_self_momo: -0.41112324595451355
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_340_self_momo: -0.4423748850822449
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_360_self_momo: -0.3969072699546814
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_260_average_momo: 0.4544771909713745
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_280_average_momo: 0.4871027171611786
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_300_average_momo: 0.4151310324668884
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_320_average_momo: 0.38213056325912476
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_340_average_momo: 0.2939850986003876
+06/28/2021 05:08:55 PM nn_agent_360_no_momo vs nn_agent_360_average_momo: 0.30600225925445557
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_260_no_momo: 0.2465592920780182
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_280_no_momo: 0.27497515082359314
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_300_no_momo: 0.2298099398612976
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_320_no_momo: 0.2165805846452713
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_340_no_momo: 0.2169131487607956
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_360_no_momo: 0.18801328539848328
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_260_self_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_280_self_no_momo: -0.010005641728639603
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_300_self_no_momo: -0.005091188475489616
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_320_self_no_momo: -0.01089947298169136
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_340_self_no_momo: -0.01136026531457901
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_360_self_no_momo: -0.04102757200598717
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_260_average_no_momo: 0.23991261422634125
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_280_average_no_momo: 0.2711091637611389
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_300_average_no_momo: 0.3038805425167084
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_320_average_no_momo: 0.32353562116622925
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_340_average_no_momo: 0.3787127137184143
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_360_average_no_momo: 0.32747596502304077
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_260_momo: 0.1805029809474945
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_280_momo: 0.11192278563976288
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_300_momo: 0.18348664045333862
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_320_momo: 0.18187618255615234
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_340_momo: 0.1669337898492813
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_360_momo: 0.1591636836528778
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_260_self_momo: 0.0871511846780777
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_280_self_momo: 0.0932445153594017
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_300_self_momo: 0.08317821472883224
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_320_self_momo: 0.058660440146923065
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_340_self_momo: 0.07643195986747742
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_360_self_momo: 0.032990895211696625
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_260_average_momo: 0.371285617351532
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_280_average_momo: 0.3198128342628479
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_300_average_momo: 0.3498022258281708
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_320_average_momo: 0.3482588231563568
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_340_average_momo: 0.3929908871650696
+06/28/2021 05:08:55 PM nn_agent_260_self_no_momo vs nn_agent_360_average_momo: 0.30014580488204956
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_260_no_momo: 0.3261290192604065
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_280_no_momo: 0.29993581771850586
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_300_no_momo: 0.3324132561683655
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_320_no_momo: 0.3211365342140198
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_340_no_momo: 0.293729305267334
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_360_no_momo: 0.287993848323822
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_260_self_no_momo: 0.010005641728639603
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_280_self_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_300_self_no_momo: -0.02687222510576248
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_320_self_no_momo: -0.008340626955032349
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_340_self_no_momo: -0.024647198617458344
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_360_self_no_momo: -0.03675297647714615
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_260_average_no_momo: 0.2576938271522522
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_280_average_no_momo: 0.2496393918991089
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_300_average_no_momo: 0.3373922109603882
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_320_average_no_momo: 0.34936845302581787
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_340_average_no_momo: 0.4898372292518616
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_360_average_no_momo: 0.4812164306640625
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_260_momo: 0.18210460245609283
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_280_momo: 0.14135679602622986
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_300_momo: 0.1767350435256958
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_320_momo: 0.1558147519826889
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_340_momo: 0.22570864856243134
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_360_momo: 0.16053348779678345
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_260_self_momo: 0.1464269608259201
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_280_self_momo: 0.12408464401960373
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_300_self_momo: 0.0847819522023201
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_320_self_momo: 0.09542155265808105
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_340_self_momo: 0.04754767566919327
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_360_self_momo: 0.07970791310071945
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_260_average_momo: 0.37344449758529663
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_280_average_momo: 0.4208260774612427
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_300_average_momo: 0.3732008934020996
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_320_average_momo: 0.3619377315044403
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_340_average_momo: 0.3831663131713867
+06/28/2021 05:08:55 PM nn_agent_280_self_no_momo vs nn_agent_360_average_momo: 0.3436359167098999
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_260_no_momo: 0.2832646369934082
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_280_no_momo: 0.32880038022994995
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_300_no_momo: 0.2791144847869873
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_320_no_momo: 0.28828105330467224
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_340_no_momo: 0.2968631982803345
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_360_no_momo: 0.3116120398044586
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_260_self_no_momo: 0.005091188475489616
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_280_self_no_momo: 0.02687222510576248
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_300_self_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_320_self_no_momo: 0.016354180872440338
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_340_self_no_momo: 0.0004625832661986351
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_360_self_no_momo: -0.03461173176765442
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_260_average_no_momo: 0.2427441030740738
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_280_average_no_momo: 0.2747637629508972
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_300_average_no_momo: 0.34572115540504456
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_320_average_no_momo: 0.3681422472000122
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_340_average_no_momo: 0.40720224380493164
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_360_average_no_momo: 0.48782646656036377
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_260_momo: 0.19955319166183472
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_280_momo: 0.20267915725708008
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_300_momo: 0.14486266672611237
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_320_momo: 0.228179469704628
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_340_momo: 0.16739864647388458
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_360_momo: 0.24764138460159302
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_260_self_momo: 0.160602867603302
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_280_self_momo: 0.1227630227804184
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_300_self_momo: 0.15588968992233276
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_320_self_momo: 0.1076456606388092
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_340_self_momo: 0.0647280141711235
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_360_self_momo: 0.0540536530315876
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_260_average_momo: 0.3866691291332245
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_280_average_momo: 0.4309353232383728
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_300_average_momo: 0.3687512278556824
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_320_average_momo: 0.35593757033348083
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_340_average_momo: 0.3876223564147949
+06/28/2021 05:08:55 PM nn_agent_300_self_no_momo vs nn_agent_360_average_momo: 0.35777729749679565
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_260_no_momo: 0.3462620675563812
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_280_no_momo: 0.30917882919311523
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_300_no_momo: 0.31428197026252747
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_320_no_momo: 0.2651578187942505
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_340_no_momo: 0.346671462059021
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_360_no_momo: 0.33097225427627563
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_260_self_no_momo: 0.01089947298169136
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_280_self_no_momo: 0.008340626955032349
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_300_self_no_momo: -0.016354180872440338
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_320_self_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_340_self_no_momo: -0.00853600725531578
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_360_self_no_momo: -0.03687991946935654
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_260_average_no_momo: 0.30320343375205994
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_280_average_no_momo: 0.3132202625274658
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_300_average_no_momo: 0.3514541983604431
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_320_average_no_momo: 0.45541447401046753
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_340_average_no_momo: 0.45784974098205566
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_360_average_no_momo: 0.483481764793396
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_260_momo: 0.21988917887210846
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_280_momo: 0.19949769973754883
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_300_momo: 0.2675763666629791
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_320_momo: 0.2227885127067566
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_340_momo: 0.19776567816734314
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_360_momo: 0.18878448009490967
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_260_self_momo: 0.1786101758480072
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_280_self_momo: 0.0781610831618309
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_300_self_momo: 0.12673422694206238
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_320_self_momo: 0.12458329647779465
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_340_self_momo: 0.13275742530822754
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_360_self_momo: 0.057739514857530594
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_260_average_momo: 0.43347346782684326
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_280_average_momo: 0.4036177396774292
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_300_average_momo: 0.3942508101463318
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_320_average_momo: 0.39637869596481323
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_340_average_momo: 0.42506086826324463
+06/28/2021 05:08:55 PM nn_agent_320_self_no_momo vs nn_agent_360_average_momo: 0.3424036502838135
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_260_no_momo: 0.3718366324901581
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_280_no_momo: 0.3722558319568634
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_300_no_momo: 0.30823519825935364
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_320_no_momo: 0.3570587635040283
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_340_no_momo: 0.3477307856082916
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_360_no_momo: 0.3651086091995239
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_260_self_no_momo: 0.01136026531457901
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_280_self_no_momo: 0.024647198617458344
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_300_self_no_momo: -0.0004625832661986351
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_320_self_no_momo: 0.00853600725531578
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_340_self_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_360_self_no_momo: -0.03960413113236427
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_260_average_no_momo: 0.29611146450042725
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_280_average_no_momo: 0.29890450835227966
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_300_average_no_momo: 0.30810093879699707
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_320_average_no_momo: 0.3698189854621887
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_340_average_no_momo: 0.4945891201496124
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_360_average_no_momo: 0.45112353563308716
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_260_momo: 0.17517560720443726
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_280_momo: 0.1514565348625183
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_300_momo: 0.19610586762428284
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_320_momo: 0.208733469247818
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_340_momo: 0.1930909901857376
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_360_momo: 0.2475224733352661
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_260_self_momo: 0.19006003439426422
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_280_self_momo: 0.15689297020435333
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_300_self_momo: 0.12619711458683014
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_320_self_momo: 0.14277777075767517
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_340_self_momo: 0.0942976251244545
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_360_self_momo: 0.04629584029316902
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_260_average_momo: 0.4572586715221405
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_280_average_momo: 0.400940477848053
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_300_average_momo: 0.37016424536705017
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_320_average_momo: 0.4327663779258728
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_340_average_momo: 0.4494002163410187
+06/28/2021 05:08:55 PM nn_agent_340_self_no_momo vs nn_agent_360_average_momo: 0.4132992923259735
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_260_no_momo: 0.3787519037723541
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_280_no_momo: 0.40936434268951416
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_300_no_momo: 0.33892571926116943
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_320_no_momo: 0.36339133977890015
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_340_no_momo: 0.31982994079589844
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_360_no_momo: 0.32982349395751953
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_260_self_no_momo: 0.04102757200598717
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_280_self_no_momo: 0.03675297647714615
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_300_self_no_momo: 0.03461173176765442
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_320_self_no_momo: 0.03687991946935654
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_340_self_no_momo: 0.03960413113236427
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_360_self_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_260_average_no_momo: 0.2855157256126404
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_280_average_no_momo: 0.32988491654396057
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_300_average_no_momo: 0.303240567445755
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_320_average_no_momo: 0.3723466396331787
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_340_average_no_momo: 0.4496670365333557
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_360_average_no_momo: 0.4781930446624756
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_260_momo: 0.21902650594711304
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_280_momo: 0.23378300666809082
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_300_momo: 0.25509536266326904
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_320_momo: 0.23990455269813538
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_340_momo: 0.2355811893939972
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_360_momo: 0.22494344413280487
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_260_self_momo: 0.11635828763246536
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_280_self_momo: 0.14686191082000732
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_300_self_momo: 0.1972709596157074
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_320_self_momo: 0.13530294597148895
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_340_self_momo: 0.11790809035301208
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_360_self_momo: 0.08493760228157043
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_260_average_momo: 0.3828592300415039
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_280_average_momo: 0.41083216667175293
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_300_average_momo: 0.4419783353805542
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_320_average_momo: 0.3803265690803528
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_340_average_momo: 0.4326510727405548
+06/28/2021 05:08:55 PM nn_agent_360_self_no_momo vs nn_agent_360_average_momo: 0.367900550365448
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_260_no_momo: 0.42049041390419006
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_280_no_momo: 0.2891245484352112
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_300_no_momo: 0.1974334865808487
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_320_no_momo: 0.09513859450817108
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_340_no_momo: 0.09114182740449905
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_360_no_momo: -0.01949353888630867
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_260_self_no_momo: -0.23991261422634125
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_280_self_no_momo: -0.2576938271522522
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_300_self_no_momo: -0.2427441030740738
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_320_self_no_momo: -0.30320343375205994
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_340_self_no_momo: -0.29611146450042725
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_360_self_no_momo: -0.2855157256126404
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_260_average_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_280_average_no_momo: -0.1597222238779068
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_300_average_no_momo: -0.3105826675891876
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_320_average_no_momo: -0.5031195878982544
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_340_average_no_momo: -0.7274647951126099
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_360_average_no_momo: -0.7891073226928711
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_260_momo: -0.5330653190612793
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_280_momo: -0.48418980836868286
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_300_momo: -0.4891783893108368
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_320_momo: -0.4374693036079407
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_340_momo: -0.4744087755680084
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_360_momo: -0.43717432022094727
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_260_self_momo: -0.4037313759326935
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_280_self_momo: -0.418597549200058
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_300_self_momo: -0.4864901006221771
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_320_self_momo: -0.4550972580909729
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_340_self_momo: -0.4188729226589203
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_360_self_momo: -0.42527639865875244
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_260_average_momo: 0.2696031928062439
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_280_average_momo: 0.17065805196762085
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_300_average_momo: 0.019825875759124756
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_320_average_momo: -0.06112457811832428
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_340_average_momo: 0.02309487760066986
+06/28/2021 05:08:55 PM nn_agent_260_average_no_momo vs nn_agent_360_average_momo: -0.06293687224388123
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_260_no_momo: 0.40673592686653137
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_280_no_momo: 0.28889644145965576
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_300_no_momo: 0.2458433210849762
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_320_no_momo: 0.17585419118404388
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_340_no_momo: 0.018116315826773643
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_360_no_momo: -0.02048918977379799
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_260_self_no_momo: -0.2711091637611389
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_280_self_no_momo: -0.2496393918991089
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_300_self_no_momo: -0.2747637629508972
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_320_self_no_momo: -0.3132202625274658
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_340_self_no_momo: -0.29890450835227966
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_360_self_no_momo: -0.32988491654396057
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_260_average_no_momo: 0.1597222238779068
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_280_average_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_300_average_no_momo: -0.20084992051124573
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_320_average_no_momo: -0.4521939158439636
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_340_average_no_momo: -0.6162794232368469
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_360_average_no_momo: -0.7009989619255066
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_260_momo: -0.5733655095100403
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_280_momo: -0.5017446279525757
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_300_momo: -0.4025212526321411
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_320_momo: -0.41391128301620483
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_340_momo: -0.4784095287322998
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_360_momo: -0.3721475899219513
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_260_self_momo: -0.47444987297058105
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_280_self_momo: -0.5342826247215271
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_300_self_momo: -0.48246753215789795
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_320_self_momo: -0.5212895274162292
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_340_self_momo: -0.43415483832359314
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_360_self_momo: -0.44525548815727234
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_260_average_momo: 0.2735205590724945
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_280_average_momo: 0.18277648091316223
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_300_average_momo: 0.05678364634513855
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_320_average_momo: -0.037706151604652405
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_340_average_momo: -0.08750441670417786
+06/28/2021 05:08:55 PM nn_agent_280_average_no_momo vs nn_agent_360_average_momo: -0.05122995376586914
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_260_no_momo: 0.3633338510990143
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_280_no_momo: 0.4070124626159668
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_300_no_momo: 0.2886066734790802
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_320_no_momo: 0.26154354214668274
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_340_no_momo: 0.1715952455997467
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_360_no_momo: 0.010989007540047169
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_260_self_no_momo: -0.3038805425167084
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_280_self_no_momo: -0.3373922109603882
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_300_self_no_momo: -0.34572115540504456
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_320_self_no_momo: -0.3514541983604431
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_340_self_no_momo: -0.30810093879699707
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_360_self_no_momo: -0.303240567445755
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_260_average_no_momo: 0.3105826675891876
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_280_average_no_momo: 0.20084992051124573
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_300_average_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_320_average_no_momo: -0.20769712328910828
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_340_average_no_momo: -0.3483085632324219
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_360_average_no_momo: -0.5866929292678833
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_260_momo: -0.5702471733093262
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_280_momo: -0.5827590823173523
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_300_momo: -0.4622161090373993
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_320_momo: -0.4185856580734253
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_340_momo: -0.5615472793579102
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_360_momo: -0.42727693915367126
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_260_self_momo: -0.49966704845428467
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_280_self_momo: -0.47113037109375
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_300_self_momo: -0.46421873569488525
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_320_self_momo: -0.5325026512145996
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_340_self_momo: -0.53327476978302
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_360_self_momo: -0.4669729471206665
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_260_average_momo: 0.26972299814224243
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_280_average_momo: 0.21154077351093292
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_300_average_momo: 0.03338494896888733
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_320_average_momo: -0.025237709283828735
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_340_average_momo: -0.13769039511680603
+06/28/2021 05:08:55 PM nn_agent_300_average_no_momo vs nn_agent_360_average_momo: -0.040562570095062256
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_260_no_momo: 0.4998273253440857
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_280_no_momo: 0.4461360573768616
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_300_no_momo: 0.2751050591468811
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_320_no_momo: 0.19589190185070038
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_340_no_momo: 0.12371625006198883
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_360_no_momo: -0.03810524567961693
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_260_self_no_momo: -0.32353562116622925
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_280_self_no_momo: -0.34936845302581787
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_300_self_no_momo: -0.3681422472000122
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_320_self_no_momo: -0.45541447401046753
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_340_self_no_momo: -0.3698189854621887
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_360_self_no_momo: -0.3723466396331787
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_260_average_no_momo: 0.5031195878982544
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_280_average_no_momo: 0.4521939158439636
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_300_average_no_momo: 0.20769712328910828
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_320_average_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_340_average_no_momo: -0.13761556148529053
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_360_average_no_momo: -0.341327041387558
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_260_momo: -0.5907086730003357
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_280_momo: -0.6407881379127502
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_300_momo: -0.5760564804077148
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_320_momo: -0.4828561842441559
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_340_momo: -0.5088330507278442
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_360_momo: -0.5485483407974243
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_260_self_momo: -0.544107973575592
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_280_self_momo: -0.6253535151481628
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_300_self_momo: -0.539436936378479
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_320_self_momo: -0.5983573794364929
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_340_self_momo: -0.6168491244316101
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_360_self_momo: -0.5203865766525269
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_260_average_momo: 0.32471752166748047
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_280_average_momo: 0.18789629638195038
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_300_average_momo: 0.05130702257156372
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_320_average_momo: -0.036738693714141846
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_340_average_momo: -0.026196300983428955
+06/28/2021 05:08:55 PM nn_agent_320_average_no_momo vs nn_agent_360_average_momo: -0.12931115925312042
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_260_no_momo: 0.3938913643360138
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_280_no_momo: 0.3858183026313782
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_300_no_momo: 0.19599837064743042
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_320_no_momo: 0.14821334183216095
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_340_no_momo: 0.03393447399139404
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_360_no_momo: 0.07826033979654312
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_260_self_no_momo: -0.3787127137184143
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_280_self_no_momo: -0.4898372292518616
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_300_self_no_momo: -0.40720224380493164
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_320_self_no_momo: -0.45784974098205566
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_340_self_no_momo: -0.4945891201496124
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_360_self_no_momo: -0.4496670365333557
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_260_average_no_momo: 0.7274647951126099
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_280_average_no_momo: 0.6162794232368469
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_300_average_no_momo: 0.3483085632324219
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_320_average_no_momo: 0.13761556148529053
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_340_average_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_360_average_no_momo: -0.1949893832206726
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_260_momo: -0.6946730017662048
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_280_momo: -0.6801261901855469
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_300_momo: -0.6622521877288818
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_320_momo: -0.5909886360168457
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_340_momo: -0.6064811944961548
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_360_momo: -0.6208515763282776
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_260_self_momo: -0.6573848724365234
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_280_self_momo: -0.6676126718521118
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_300_self_momo: -0.6001173257827759
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_320_self_momo: -0.5757555961608887
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_340_self_momo: -0.6411958932876587
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_360_self_momo: -0.6471822261810303
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_260_average_momo: 0.27680402994155884
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_280_average_momo: 0.18801501393318176
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_300_average_momo: 0.15044692158699036
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_320_average_momo: 0.011814415454864502
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_340_average_momo: -0.03263828158378601
+06/28/2021 05:08:55 PM nn_agent_340_average_no_momo vs nn_agent_360_average_momo: -0.06157594919204712
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_260_no_momo: 0.3108745515346527
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_280_no_momo: 0.2562529444694519
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_300_no_momo: 0.24038033187389374
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_320_no_momo: -0.006371356546878815
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_340_no_momo: -0.08394977450370789
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_360_no_momo: -0.06869633495807648
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_260_self_no_momo: -0.32747596502304077
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_280_self_no_momo: -0.4812164306640625
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_300_self_no_momo: -0.48782646656036377
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_320_self_no_momo: -0.483481764793396
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_340_self_no_momo: -0.45112353563308716
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_360_self_no_momo: -0.4781930446624756
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_260_average_no_momo: 0.7891073226928711
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_280_average_no_momo: 0.7009989619255066
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_300_average_no_momo: 0.5866929292678833
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_320_average_no_momo: 0.341327041387558
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_340_average_no_momo: 0.1949893832206726
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_360_average_no_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_260_momo: -0.754435122013092
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_280_momo: -0.7701622247695923
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_300_momo: -0.7127046585083008
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_320_momo: -0.6805400848388672
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_340_momo: -0.6307513117790222
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_360_momo: -0.697090744972229
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_260_self_momo: -0.6596563458442688
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_280_self_momo: -0.6619517207145691
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_300_self_momo: -0.7403099536895752
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_320_self_momo: -0.7391217350959778
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_340_self_momo: -0.7899448871612549
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_360_self_momo: -0.7419919371604919
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_260_average_momo: 0.3630242645740509
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_280_average_momo: 0.26834696531295776
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_300_average_momo: 0.011027559638023376
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_320_average_momo: 0.0637136697769165
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_340_average_momo: -0.10878248512744904
+06/28/2021 05:08:55 PM nn_agent_360_average_no_momo vs nn_agent_360_average_momo: -0.12775735557079315
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_260_no_momo: 0.6117361187934875
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_280_no_momo: 0.550457775592804
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_300_no_momo: 0.5673566460609436
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_320_no_momo: 0.4760722517967224
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_340_no_momo: 0.43122878670692444
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_360_no_momo: 0.40884366631507874
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_260_self_no_momo: -0.1805029809474945
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_280_self_no_momo: -0.18210460245609283
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_300_self_no_momo: -0.19955319166183472
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_320_self_no_momo: -0.21988917887210846
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_340_self_no_momo: -0.17517560720443726
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_360_self_no_momo: -0.21902650594711304
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_260_average_no_momo: 0.5330653190612793
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_280_average_no_momo: 0.5733655095100403
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_300_average_no_momo: 0.5702471733093262
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_320_average_no_momo: 0.5907086730003357
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_340_average_no_momo: 0.6946730017662048
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_360_average_no_momo: 0.754435122013092
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_260_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_280_momo: -0.03152235597372055
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_300_momo: -0.06614207476377487
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_320_momo: -0.08988210558891296
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_340_momo: -0.08127942681312561
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_360_momo: -0.06929295510053635
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_260_self_momo: -0.01740218698978424
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_280_self_momo: -0.12790164351463318
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_300_self_momo: -0.07746127992868423
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_320_self_momo: -0.1471613198518753
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_340_self_momo: -0.22858558595180511
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_360_self_momo: -0.22260445356369019
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_260_average_momo: 0.7920933365821838
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_280_average_momo: 0.8022792339324951
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_300_average_momo: 0.7788532972335815
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_320_average_momo: 0.7413089871406555
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_340_average_momo: 0.699446439743042
+06/28/2021 05:08:55 PM nn_agent_260_momo vs nn_agent_360_average_momo: 0.7215361595153809
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_260_no_momo: 0.6256666779518127
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_280_no_momo: 0.6244850158691406
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_300_no_momo: 0.5316073894500732
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_320_no_momo: 0.5606511235237122
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_340_no_momo: 0.5197286605834961
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_360_no_momo: 0.45582520961761475
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_260_self_no_momo: -0.11192278563976288
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_280_self_no_momo: -0.14135679602622986
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_300_self_no_momo: -0.20267915725708008
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_320_self_no_momo: -0.19949769973754883
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_340_self_no_momo: -0.1514565348625183
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_360_self_no_momo: -0.23378300666809082
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_260_average_no_momo: 0.48418980836868286
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_280_average_no_momo: 0.5017446279525757
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_300_average_no_momo: 0.5827590823173523
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_320_average_no_momo: 0.6407881379127502
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_340_average_no_momo: 0.6801261901855469
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_360_average_no_momo: 0.7701622247695923
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_260_momo: 0.03152235597372055
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_280_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_300_momo: -0.014089170843362808
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_320_momo: -0.01975608430802822
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_340_momo: -0.060259509831666946
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_360_momo: -0.06954877078533173
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_260_self_momo: -0.07029647380113602
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_280_self_momo: -0.11650928854942322
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_300_self_momo: -0.17401401698589325
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_320_self_momo: -0.14440062642097473
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_340_self_momo: -0.10261672735214233
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_360_self_momo: -0.18034832179546356
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_260_average_momo: 0.7810391783714294
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_280_average_momo: 0.8374138474464417
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_300_average_momo: 0.8182579874992371
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_320_average_momo: 0.7779068946838379
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_340_average_momo: 0.7138792872428894
+06/28/2021 05:08:55 PM nn_agent_280_momo vs nn_agent_360_average_momo: 0.8122261762619019
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_260_no_momo: 0.6631797552108765
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_280_no_momo: 0.583141565322876
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_300_no_momo: 0.5705897808074951
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_320_no_momo: 0.574306845664978
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_340_no_momo: 0.47827857732772827
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_360_no_momo: 0.420616090297699
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_260_self_no_momo: -0.18348664045333862
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_280_self_no_momo: -0.1767350435256958
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_300_self_no_momo: -0.14486266672611237
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_320_self_no_momo: -0.2675763666629791
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_340_self_no_momo: -0.19610586762428284
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_360_self_no_momo: -0.25509536266326904
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_260_average_no_momo: 0.4891783893108368
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_280_average_no_momo: 0.4025212526321411
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_300_average_no_momo: 0.4622161090373993
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_320_average_no_momo: 0.5760564804077148
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_340_average_no_momo: 0.6622521877288818
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_360_average_no_momo: 0.7127046585083008
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_260_momo: 0.06614207476377487
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_280_momo: 0.014089170843362808
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_300_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_320_momo: -0.038851357996463776
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_340_momo: -0.03683990612626076
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_360_momo: -0.035275332629680634
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_260_self_momo: -0.019312448799610138
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_280_self_momo: -0.1106412410736084
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_300_self_momo: -0.103761687874794
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_320_self_momo: -0.10844507813453674
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_340_self_momo: -0.1542404592037201
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_360_self_momo: -0.23661759495735168
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_260_average_momo: 0.8489952087402344
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_280_average_momo: 0.7232814431190491
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_300_average_momo: 0.7889298796653748
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_320_average_momo: 0.7608108520507812
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_340_average_momo: 0.7976623177528381
+06/28/2021 05:08:55 PM nn_agent_300_momo vs nn_agent_360_average_momo: 0.7758718729019165
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_260_no_momo: 0.5825161933898926
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_280_no_momo: 0.5784320831298828
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_300_no_momo: 0.48056963086128235
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_320_no_momo: 0.4592934548854828
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_340_no_momo: 0.46692338585853577
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_360_no_momo: 0.48899611830711365
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_260_self_no_momo: -0.18187618255615234
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_280_self_no_momo: -0.1558147519826889
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_300_self_no_momo: -0.228179469704628
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_320_self_no_momo: -0.2227885127067566
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_340_self_no_momo: -0.208733469247818
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_360_self_no_momo: -0.23990455269813538
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_260_average_no_momo: 0.4374693036079407
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_280_average_no_momo: 0.41391128301620483
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_300_average_no_momo: 0.4185856580734253
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_320_average_no_momo: 0.4828561842441559
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_340_average_no_momo: 0.5909886360168457
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_360_average_no_momo: 0.6805400848388672
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_260_momo: 0.08988210558891296
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_280_momo: 0.01975608430802822
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_300_momo: 0.038851357996463776
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_320_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_340_momo: -0.07293619215488434
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_360_momo: -0.04568133503198624
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_260_self_momo: -0.052611492574214935
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_280_self_momo: -0.0675186812877655
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_300_self_momo: -0.1461726725101471
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_320_self_momo: -0.14450021088123322
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_340_self_momo: -0.13845524191856384
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_360_self_momo: -0.17700618505477905
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_260_average_momo: 0.7706832885742188
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_280_average_momo: 0.7476526498794556
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_300_average_momo: 0.8158782124519348
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_320_average_momo: 0.7405709028244019
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_340_average_momo: 0.7173715233802795
+06/28/2021 05:08:55 PM nn_agent_320_momo vs nn_agent_360_average_momo: 0.7112270593643188
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_260_no_momo: 0.5934733748435974
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_280_no_momo: 0.5581257343292236
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_300_no_momo: 0.6061719059944153
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_320_no_momo: 0.4705948829650879
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_340_no_momo: 0.41198837757110596
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_360_no_momo: 0.5072982907295227
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_260_self_no_momo: -0.1669337898492813
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_280_self_no_momo: -0.22570864856243134
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_300_self_no_momo: -0.16739864647388458
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_320_self_no_momo: -0.19776567816734314
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_340_self_no_momo: -0.1930909901857376
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_360_self_no_momo: -0.2355811893939972
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_260_average_no_momo: 0.4744087755680084
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_280_average_no_momo: 0.4784095287322998
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_300_average_no_momo: 0.5615472793579102
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_320_average_no_momo: 0.5088330507278442
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_340_average_no_momo: 0.6064811944961548
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_360_average_no_momo: 0.6307513117790222
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_260_momo: 0.08127942681312561
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_280_momo: 0.060259509831666946
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_300_momo: 0.03683990612626076
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_320_momo: 0.07293619215488434
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_340_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_360_momo: 0.015120044350624084
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_260_self_momo: 0.029061611741781235
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_280_self_momo: -0.03614899888634682
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_300_self_momo: -0.09384219348430634
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_320_self_momo: -0.10115349292755127
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_340_self_momo: -0.1473923772573471
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_360_self_momo: -0.1897248923778534
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_260_average_momo: 0.7846672534942627
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_280_average_momo: 0.8249615430831909
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_300_average_momo: 0.7799724340438843
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_320_average_momo: 0.6922116279602051
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_340_average_momo: 0.8224228620529175
+06/28/2021 05:08:55 PM nn_agent_340_momo vs nn_agent_360_average_momo: 0.7019674777984619
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_260_no_momo: 0.6472786664962769
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_280_no_momo: 0.6050583720207214
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_300_no_momo: 0.512620210647583
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_320_no_momo: 0.5467762351036072
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_340_no_momo: 0.4868212044239044
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_360_no_momo: 0.48657673597335815
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_260_self_no_momo: -0.1591636836528778
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_280_self_no_momo: -0.16053348779678345
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_300_self_no_momo: -0.24764138460159302
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_320_self_no_momo: -0.18878448009490967
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_340_self_no_momo: -0.2475224733352661
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_360_self_no_momo: -0.22494344413280487
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_260_average_no_momo: 0.43717432022094727
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_280_average_no_momo: 0.3721475899219513
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_300_average_no_momo: 0.42727693915367126
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_320_average_no_momo: 0.5485483407974243
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_340_average_no_momo: 0.6208515763282776
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_360_average_no_momo: 0.697090744972229
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_260_momo: 0.06929295510053635
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_280_momo: 0.06954877078533173
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_300_momo: 0.035275332629680634
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_320_momo: 0.04568133503198624
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_340_momo: -0.015120044350624084
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_360_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_260_self_momo: -0.047427866607904434
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_280_self_momo: -0.03451884165406227
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_300_self_momo: -0.07682318985462189
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_320_self_momo: -0.1632125973701477
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_340_self_momo: -0.12943045794963837
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_360_self_momo: -0.14331206679344177
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_260_average_momo: 0.7724906206130981
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_280_average_momo: 0.7935044765472412
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_300_average_momo: 0.7375338673591614
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_320_average_momo: 0.7100075483322144
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_340_average_momo: 0.7404357194900513
+06/28/2021 05:08:55 PM nn_agent_360_momo vs nn_agent_360_average_momo: 0.7226253747940063
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_260_no_momo: 0.6121410131454468
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_280_no_momo: 0.5526161193847656
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_300_no_momo: 0.5344268083572388
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_320_no_momo: 0.5620477199554443
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_340_no_momo: 0.5207312107086182
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_360_no_momo: 0.43701034784317017
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_260_self_no_momo: -0.0871511846780777
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_280_self_no_momo: -0.1464269608259201
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_300_self_no_momo: -0.160602867603302
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_320_self_no_momo: -0.1786101758480072
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_340_self_no_momo: -0.19006003439426422
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_360_self_no_momo: -0.11635828763246536
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_260_average_no_momo: 0.4037313759326935
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_280_average_no_momo: 0.47444987297058105
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_300_average_no_momo: 0.49966704845428467
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_320_average_no_momo: 0.544107973575592
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_340_average_no_momo: 0.6573848724365234
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_360_average_no_momo: 0.6596563458442688
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_260_momo: 0.01740218698978424
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_280_momo: 0.07029647380113602
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_300_momo: 0.019312448799610138
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_320_momo: 0.052611492574214935
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_340_momo: -0.029061611741781235
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_360_momo: 0.047427866607904434
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_260_self_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_280_self_momo: 0.0007243398576974869
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_300_self_momo: -0.05660078302025795
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_320_self_momo: -0.09062521904706955
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_340_self_momo: -0.11091430485248566
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_360_self_momo: -0.15421423316001892
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_260_average_momo: 0.7223714590072632
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_280_average_momo: 0.6885189414024353
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_300_average_momo: 0.6915165185928345
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_320_average_momo: 0.6158179044723511
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_340_average_momo: 0.6717432737350464
+06/28/2021 05:08:55 PM nn_agent_260_self_momo vs nn_agent_360_average_momo: 0.6057698726654053
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_260_no_momo: 0.634642481803894
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_280_no_momo: 0.6038949489593506
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_300_no_momo: 0.5497076511383057
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_320_no_momo: 0.48944759368896484
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_340_no_momo: 0.5409125089645386
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_360_no_momo: 0.4283871352672577
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_260_self_no_momo: -0.0932445153594017
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_280_self_no_momo: -0.12408464401960373
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_300_self_no_momo: -0.1227630227804184
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_320_self_no_momo: -0.0781610831618309
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_340_self_no_momo: -0.15689297020435333
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_360_self_no_momo: -0.14686191082000732
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_260_average_no_momo: 0.418597549200058
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_280_average_no_momo: 0.5342826247215271
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_300_average_no_momo: 0.47113037109375
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_320_average_no_momo: 0.6253535151481628
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_340_average_no_momo: 0.6676126718521118
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_360_average_no_momo: 0.6619517207145691
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_260_momo: 0.12790164351463318
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_280_momo: 0.11650928854942322
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_300_momo: 0.1106412410736084
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_320_momo: 0.0675186812877655
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_340_momo: 0.03614899888634682
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_360_momo: 0.03451884165406227
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_260_self_momo: -0.0007243398576974869
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_280_self_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_300_self_momo: -0.021482691168785095
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_320_self_momo: -0.014185503125190735
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_340_self_momo: -0.12118501961231232
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_360_self_momo: -0.14313504099845886
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_260_average_momo: 0.6642788052558899
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_280_average_momo: 0.7110649347305298
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_300_average_momo: 0.666289210319519
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_320_average_momo: 0.6479353904724121
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_340_average_momo: 0.6912992596626282
+06/28/2021 05:08:55 PM nn_agent_280_self_momo vs nn_agent_360_average_momo: 0.6526477932929993
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_260_no_momo: 0.5920124053955078
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_280_no_momo: 0.5637291669845581
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_300_no_momo: 0.5191218852996826
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_320_no_momo: 0.5677914023399353
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_340_no_momo: 0.4837339222431183
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_360_no_momo: 0.4452565908432007
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_260_self_no_momo: -0.08317821472883224
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_280_self_no_momo: -0.0847819522023201
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_300_self_no_momo: -0.15588968992233276
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_320_self_no_momo: -0.12673422694206238
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_340_self_no_momo: -0.12619711458683014
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_360_self_no_momo: -0.1972709596157074
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_260_average_no_momo: 0.4864901006221771
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_280_average_no_momo: 0.48246753215789795
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_300_average_no_momo: 0.46421873569488525
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_320_average_no_momo: 0.539436936378479
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_340_average_no_momo: 0.6001173257827759
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_360_average_no_momo: 0.7403099536895752
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_260_momo: 0.07746127992868423
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_280_momo: 0.17401401698589325
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_300_momo: 0.103761687874794
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_320_momo: 0.1461726725101471
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_340_momo: 0.09384219348430634
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_360_momo: 0.07682318985462189
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_260_self_momo: 0.05660078302025795
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_280_self_momo: 0.021482691168785095
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_300_self_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_320_self_momo: -0.017841992899775505
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_340_self_momo: -0.09265422075986862
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_360_self_momo: -0.0580417662858963
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_260_average_momo: 0.7386840581893921
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_280_average_momo: 0.7302886843681335
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_300_average_momo: 0.7064476013183594
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_320_average_momo: 0.7371860146522522
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_340_average_momo: 0.6494940519332886
+06/28/2021 05:08:55 PM nn_agent_300_self_momo vs nn_agent_360_average_momo: 0.5989633798599243
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_260_no_momo: 0.6007692217826843
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_280_no_momo: 0.5741435885429382
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_300_no_momo: 0.5672900676727295
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_320_no_momo: 0.5397983193397522
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_340_no_momo: 0.4687889516353607
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_360_no_momo: 0.41112324595451355
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_260_self_no_momo: -0.058660440146923065
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_280_self_no_momo: -0.09542155265808105
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_300_self_no_momo: -0.1076456606388092
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_320_self_no_momo: -0.12458329647779465
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_340_self_no_momo: -0.14277777075767517
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_360_self_no_momo: -0.13530294597148895
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_260_average_no_momo: 0.4550972580909729
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_280_average_no_momo: 0.5212895274162292
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_300_average_no_momo: 0.5325026512145996
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_320_average_no_momo: 0.5983573794364929
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_340_average_no_momo: 0.5757555961608887
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_360_average_no_momo: 0.7391217350959778
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_260_momo: 0.1471613198518753
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_280_momo: 0.14440062642097473
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_300_momo: 0.10844507813453674
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_320_momo: 0.14450021088123322
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_340_momo: 0.10115349292755127
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_360_momo: 0.1632125973701477
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_260_self_momo: 0.09062521904706955
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_280_self_momo: 0.014185503125190735
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_300_self_momo: 0.017841992899775505
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_320_self_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_340_self_momo: -0.007236907258629799
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_360_self_momo: -0.04938819259405136
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_260_average_momo: 0.716823935508728
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_280_average_momo: 0.6212077140808105
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_300_average_momo: 0.6287480592727661
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_320_average_momo: 0.6968926191329956
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_340_average_momo: 0.6815990209579468
+06/28/2021 05:08:55 PM nn_agent_320_self_momo vs nn_agent_360_average_momo: 0.5283045768737793
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_260_no_momo: 0.5807271599769592
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_280_no_momo: 0.5223751664161682
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_300_no_momo: 0.4399394392967224
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_320_no_momo: 0.5769937634468079
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_340_no_momo: 0.4630885720252991
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_360_no_momo: 0.4423748850822449
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_260_self_no_momo: -0.07643195986747742
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_280_self_no_momo: -0.04754767566919327
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_300_self_no_momo: -0.0647280141711235
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_320_self_no_momo: -0.13275742530822754
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_340_self_no_momo: -0.0942976251244545
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_360_self_no_momo: -0.11790809035301208
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_260_average_no_momo: 0.4188729226589203
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_280_average_no_momo: 0.43415483832359314
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_300_average_no_momo: 0.53327476978302
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_320_average_no_momo: 0.6168491244316101
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_340_average_no_momo: 0.6411958932876587
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_360_average_no_momo: 0.7899448871612549
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_260_momo: 0.22858558595180511
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_280_momo: 0.10261672735214233
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_300_momo: 0.1542404592037201
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_320_momo: 0.13845524191856384
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_340_momo: 0.1473923772573471
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_360_momo: 0.12943045794963837
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_260_self_momo: 0.11091430485248566
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_280_self_momo: 0.12118501961231232
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_300_self_momo: 0.09265422075986862
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_320_self_momo: 0.007236907258629799
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_340_self_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_360_self_momo: -0.06596103310585022
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_260_average_momo: 0.6818026304244995
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_280_average_momo: 0.6874710321426392
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_300_average_momo: 0.65643310546875
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_320_average_momo: 0.6214096546173096
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_340_average_momo: 0.6706272959709167
+06/28/2021 05:08:55 PM nn_agent_340_self_momo vs nn_agent_360_average_momo: 0.6276488304138184
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_260_no_momo: 0.5021383166313171
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_280_no_momo: 0.48039740324020386
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_300_no_momo: 0.47599196434020996
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_320_no_momo: 0.45031604170799255
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_340_no_momo: 0.4447525441646576
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_360_no_momo: 0.3969072699546814
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_260_self_no_momo: -0.032990895211696625
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_280_self_no_momo: -0.07970791310071945
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_300_self_no_momo: -0.0540536530315876
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_320_self_no_momo: -0.057739514857530594
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_340_self_no_momo: -0.04629584029316902
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_360_self_no_momo: -0.08493760228157043
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_260_average_no_momo: 0.42527639865875244
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_280_average_no_momo: 0.44525548815727234
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_300_average_no_momo: 0.4669729471206665
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_320_average_no_momo: 0.5203865766525269
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_340_average_no_momo: 0.6471822261810303
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_360_average_no_momo: 0.7419919371604919
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_260_momo: 0.22260445356369019
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_280_momo: 0.18034832179546356
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_300_momo: 0.23661759495735168
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_320_momo: 0.17700618505477905
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_340_momo: 0.1897248923778534
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_360_momo: 0.14331206679344177
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_260_self_momo: 0.15421423316001892
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_280_self_momo: 0.14313504099845886
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_300_self_momo: 0.0580417662858963
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_320_self_momo: 0.04938819259405136
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_340_self_momo: 0.06596103310585022
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_360_self_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_260_average_momo: 0.7390941381454468
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_280_average_momo: 0.6607365608215332
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_300_average_momo: 0.6462465524673462
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_320_average_momo: 0.6365914344787598
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_340_average_momo: 0.6235685348510742
+06/28/2021 05:08:55 PM nn_agent_360_self_momo vs nn_agent_360_average_momo: 0.5972371697425842
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_260_no_momo: -0.0881456583738327
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_280_no_momo: -0.28411197662353516
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_300_no_momo: -0.2608761191368103
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_320_no_momo: -0.3649361729621887
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_340_no_momo: -0.4641973376274109
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_360_no_momo: -0.4544771909713745
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_260_self_no_momo: -0.371285617351532
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_280_self_no_momo: -0.37344449758529663
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_300_self_no_momo: -0.3866691291332245
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_320_self_no_momo: -0.43347346782684326
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_340_self_no_momo: -0.4572586715221405
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_360_self_no_momo: -0.3828592300415039
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_260_average_no_momo: -0.2696031928062439
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_280_average_no_momo: -0.2735205590724945
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_300_average_no_momo: -0.26972299814224243
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_320_average_no_momo: -0.32471752166748047
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_340_average_no_momo: -0.27680402994155884
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_360_average_no_momo: -0.3630242645740509
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_260_momo: -0.7920933365821838
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_280_momo: -0.7810391783714294
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_300_momo: -0.8489952087402344
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_320_momo: -0.7706832885742188
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_340_momo: -0.7846672534942627
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_360_momo: -0.7724906206130981
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_260_self_momo: -0.7223714590072632
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_280_self_momo: -0.6642788052558899
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_300_self_momo: -0.7386840581893921
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_320_self_momo: -0.716823935508728
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_340_self_momo: -0.6818026304244995
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_360_self_momo: -0.7390941381454468
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_260_average_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_280_average_momo: -0.09495221078395844
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_300_average_momo: -0.17220404744148254
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_320_average_momo: -0.24737465381622314
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_340_average_momo: -0.3099428117275238
+06/28/2021 05:08:55 PM nn_agent_260_average_momo vs nn_agent_360_average_momo: -0.3028506934642792
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_260_no_momo: -0.03402034938335419
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_280_no_momo: -0.12393570691347122
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_300_no_momo: -0.2059839367866516
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_320_no_momo: -0.21854880452156067
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_340_no_momo: -0.3267069458961487
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_360_no_momo: -0.4871027171611786
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_260_self_no_momo: -0.3198128342628479
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_280_self_no_momo: -0.4208260774612427
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_300_self_no_momo: -0.4309353232383728
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_320_self_no_momo: -0.4036177396774292
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_340_self_no_momo: -0.400940477848053
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_360_self_no_momo: -0.41083216667175293
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_260_average_no_momo: -0.17065805196762085
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_280_average_no_momo: -0.18277648091316223
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_300_average_no_momo: -0.21154077351093292
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_320_average_no_momo: -0.18789629638195038
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_340_average_no_momo: -0.18801501393318176
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_360_average_no_momo: -0.26834696531295776
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_260_momo: -0.8022792339324951
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_280_momo: -0.8374138474464417
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_300_momo: -0.7232814431190491
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_320_momo: -0.7476526498794556
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_340_momo: -0.8249615430831909
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_360_momo: -0.7935044765472412
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_260_self_momo: -0.6885189414024353
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_280_self_momo: -0.7110649347305298
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_300_self_momo: -0.7302886843681335
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_320_self_momo: -0.6212077140808105
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_340_self_momo: -0.6874710321426392
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_360_self_momo: -0.6607365608215332
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_260_average_momo: 0.09495221078395844
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_280_average_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_300_average_momo: -0.04768072068691254
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_320_average_momo: -0.09980319440364838
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_340_average_momo: -0.15041667222976685
+06/28/2021 05:08:55 PM nn_agent_280_average_momo vs nn_agent_360_average_momo: -0.16352111101150513
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_260_no_momo: 0.004996168427169323
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_280_no_momo: -0.21411453187465668
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_300_no_momo: -0.20759347081184387
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_320_no_momo: -0.2226034700870514
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_340_no_momo: -0.3273929953575134
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_360_no_momo: -0.4151310324668884
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_260_self_no_momo: -0.3498022258281708
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_280_self_no_momo: -0.3732008934020996
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_300_self_no_momo: -0.3687512278556824
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_320_self_no_momo: -0.3942508101463318
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_340_self_no_momo: -0.37016424536705017
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_360_self_no_momo: -0.4419783353805542
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_260_average_no_momo: -0.019825875759124756
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_280_average_no_momo: -0.05678364634513855
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_300_average_no_momo: -0.03338494896888733
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_320_average_no_momo: -0.05130702257156372
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_340_average_no_momo: -0.15044692158699036
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_360_average_no_momo: -0.011027559638023376
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_260_momo: -0.7788532972335815
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_280_momo: -0.8182579874992371
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_300_momo: -0.7889298796653748
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_320_momo: -0.8158782124519348
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_340_momo: -0.7799724340438843
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_360_momo: -0.7375338673591614
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_260_self_momo: -0.6915165185928345
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_280_self_momo: -0.666289210319519
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_300_self_momo: -0.7064476013183594
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_320_self_momo: -0.6287480592727661
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_340_self_momo: -0.65643310546875
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_360_self_momo: -0.6462465524673462
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_260_average_momo: 0.17220404744148254
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_280_average_momo: 0.04768072068691254
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_300_average_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_320_average_momo: -0.09590110927820206
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_340_average_momo: -0.1150936558842659
+06/28/2021 05:08:55 PM nn_agent_300_average_momo vs nn_agent_360_average_momo: -0.11414705961942673
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_260_no_momo: -0.11160507053136826
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_280_no_momo: -0.12116158753633499
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_300_no_momo: -0.15155574679374695
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_320_no_momo: -0.31180012226104736
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_340_no_momo: -0.25141164660453796
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_360_no_momo: -0.38213056325912476
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_260_self_no_momo: -0.3482588231563568
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_280_self_no_momo: -0.3619377315044403
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_300_self_no_momo: -0.35593757033348083
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_320_self_no_momo: -0.39637869596481323
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_340_self_no_momo: -0.4327663779258728
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_360_self_no_momo: -0.3803265690803528
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_260_average_no_momo: 0.06112457811832428
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_280_average_no_momo: 0.037706151604652405
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_300_average_no_momo: 0.025237709283828735
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_320_average_no_momo: 0.036738693714141846
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_340_average_no_momo: -0.011814415454864502
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_360_average_no_momo: -0.0637136697769165
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_260_momo: -0.7413089871406555
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_280_momo: -0.7779068946838379
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_300_momo: -0.7608108520507812
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_320_momo: -0.7405709028244019
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_340_momo: -0.6922116279602051
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_360_momo: -0.7100075483322144
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_260_self_momo: -0.6158179044723511
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_280_self_momo: -0.6479353904724121
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_300_self_momo: -0.7371860146522522
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_320_self_momo: -0.6968926191329956
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_340_self_momo: -0.6214096546173096
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_360_self_momo: -0.6365914344787598
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_260_average_momo: 0.24737465381622314
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_280_average_momo: 0.09980319440364838
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_300_average_momo: 0.09590110927820206
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_320_average_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_340_average_momo: -0.08227972686290741
+06/28/2021 05:08:55 PM nn_agent_320_average_momo vs nn_agent_360_average_momo: -0.21089284121990204
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_260_no_momo: -0.07880791276693344
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_280_no_momo: -0.15547135472297668
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_300_no_momo: -0.13387340307235718
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_320_no_momo: -0.24071353673934937
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_340_no_momo: -0.22922170162200928
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_360_no_momo: -0.2939850986003876
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_260_self_no_momo: -0.3929908871650696
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_280_self_no_momo: -0.3831663131713867
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_300_self_no_momo: -0.3876223564147949
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_320_self_no_momo: -0.42506086826324463
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_340_self_no_momo: -0.4494002163410187
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_360_self_no_momo: -0.4326510727405548
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_260_average_no_momo: -0.02309487760066986
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_280_average_no_momo: 0.08750441670417786
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_300_average_no_momo: 0.13769039511680603
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_320_average_no_momo: 0.026196300983428955
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_340_average_no_momo: 0.03263828158378601
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_360_average_no_momo: 0.10878248512744904
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_260_momo: -0.699446439743042
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_280_momo: -0.7138792872428894
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_300_momo: -0.7976623177528381
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_320_momo: -0.7173715233802795
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_340_momo: -0.8224228620529175
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_360_momo: -0.7404357194900513
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_260_self_momo: -0.6717432737350464
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_280_self_momo: -0.6912992596626282
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_300_self_momo: -0.6494940519332886
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_320_self_momo: -0.6815990209579468
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_340_self_momo: -0.6706272959709167
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_360_self_momo: -0.6235685348510742
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_260_average_momo: 0.3099428117275238
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_280_average_momo: 0.15041667222976685
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_300_average_momo: 0.1150936558842659
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_320_average_momo: 0.08227972686290741
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_340_average_momo: 0.0
+06/28/2021 05:08:55 PM nn_agent_340_average_momo vs nn_agent_360_average_momo: -0.06843787431716919
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_260_no_momo: -0.04734732210636139
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_280_no_momo: -0.12074274569749832
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_300_no_momo: -0.14909081161022186
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_320_no_momo: -0.23511910438537598
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_340_no_momo: -0.33343368768692017
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_360_no_momo: -0.30600225925445557
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_260_self_no_momo: -0.30014580488204956
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_280_self_no_momo: -0.3436359167098999
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_300_self_no_momo: -0.35777729749679565
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_320_self_no_momo: -0.3424036502838135
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_340_self_no_momo: -0.4132992923259735
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_360_self_no_momo: -0.367900550365448
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_260_average_no_momo: 0.06293687224388123
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_280_average_no_momo: 0.05122995376586914
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_300_average_no_momo: 0.040562570095062256
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_320_average_no_momo: 0.12931115925312042
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_340_average_no_momo: 0.06157594919204712
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_360_average_no_momo: 0.12775735557079315
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_260_momo: -0.7215361595153809
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_280_momo: -0.8122261762619019
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_300_momo: -0.7758718729019165
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_320_momo: -0.7112270593643188
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_340_momo: -0.7019674777984619
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_360_momo: -0.7226253747940063
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_260_self_momo: -0.6057698726654053
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_280_self_momo: -0.6526477932929993
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_300_self_momo: -0.5989633798599243
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_320_self_momo: -0.5283045768737793
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_340_self_momo: -0.6276488304138184
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_360_self_momo: -0.5972371697425842
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_260_average_momo: 0.3028506934642792
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_280_average_momo: 0.16352111101150513
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_300_average_momo: 0.11414705961942673
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_320_average_momo: 0.21089284121990204
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_340_average_momo: 0.06843787431716919
+06/28/2021 05:08:55 PM nn_agent_360_average_momo vs nn_agent_360_average_momo: 0.0
+06/28/2021 05:08:55 PM ** EVALUATION DONE **
+06/28/2021 05:08:55 PM TIME ELAPSED: 1028.5710
