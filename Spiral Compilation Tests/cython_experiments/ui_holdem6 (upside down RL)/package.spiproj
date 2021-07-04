@@ -1,0 +1,31 @@
+// The fight resumes. I am giving up on deep RL, but not on making the agents. Mapping rewards to actions is a very recent
+// invention, and I need to research it. I won't use it directly like in the `Training Agents using Upside-Down Reinforcement 
+// Learning` paper, but I will instead make it a source of self supervised learning.
+
+// There are too many things that need doing, so before I move onto the main thing, I need to do some ablation studies.
+// First, how does replacing the importance sampling version of the value update compare with reward substitution.
+
+packages: |core2-
+modules:
+    types-
+    conv-
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    sampling
+    nodes-
+    train
+    hand_scorer
+    hu_holdem
+    leduc
+    agent/
+        uniform
+        holdem_callbot
+        tabular
+        neural_ff_leduc
+        neural_ff_holdem
+    create_args_leduc
+    create_args_holdem

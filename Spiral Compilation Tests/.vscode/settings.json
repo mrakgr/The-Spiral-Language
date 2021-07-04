@@ -1,9 +1,9 @@
 {
     "python.pythonPath": "C:\\Users\\Marko\\anaconda3\\python.exe",
     "python.autoComplete.extraPaths": [
-        "./cython_experiments/ui_holdem5 (ui improvements)"
+        "./cython_experiments/ui_holdem6 (upside down RL)"
     ],
     "python.analysis.extraPaths": [
-        "./cython_experiments/ui_holdem5 (ui improvements)"
+        "./cython_experiments/ui_holdem6 (upside down RL)"
     ]
 }
