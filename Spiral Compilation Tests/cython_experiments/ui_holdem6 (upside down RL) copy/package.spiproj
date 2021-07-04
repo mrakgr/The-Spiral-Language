@@ -9,11 +9,6 @@
 // fundamentally broken everything. Not only do I have to track this problem down, but I also need to consider that this might
 // be the reason why Holdem is not training.
 
-// Update: That problem was using the InfNormSGD optimizer by accident. I took the chance to test it thoroughly and found it 
-// performed very poorly compared to SignSGD vs the Flop callbot. I thought it might be the case that it could make more precise 
-// modifications and get better performance, but if it does not work against the call bot I shouldn't expect anything from it 
-// anywhere else.
-
 packages: |core2-
 modules:
     types-

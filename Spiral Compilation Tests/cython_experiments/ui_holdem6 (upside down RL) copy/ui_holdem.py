@@ -177,7 +177,11 @@ Builder.load_string('''
                     on_press: 
                         b = 0 if is_p1.active else 1
                         is_p1.active = is_p1.active == False if is_toggle_player.active else is_p1.active
-                        root.start_game(init_stack_size.pow_value,b,root.set_data) # start_game should be monkey patched.
+                        if rl_0.active: restriction_level = 0
+                        elif rl_1.active: restriction_level = 1
+                        elif rl_2.active: restriction_level = 2
+                        else: raise Exception('One of the restriction level buttons should be active.')
+                        root.start_game(restriction_level,is_flop.active,sb.pow_value,bb.pow_value,stack_size.pow_value,b,root.set_data) # start_game should be monkey patched.
         AccordionItem:
             min_space: self.parent.min_space
             title: 'Settings'
@@ -200,13 +204,56 @@ Builder.load_string('''
                         active: True
                 BoxLayout:
                     Label:
-                        text: 'Initial Stack Size(' + str(init_stack_size.pow_value) + '):'
+                        text: 'Small Blind(' + str(sb.pow_value) + '):'
                         size_hint_x: 0.4
                     PowTwoSlider:
-                        id: init_stack_size
-                        min: math.log2(3)
-                        max: math.log2(100)
+                        id: sb
+                        min: 0
+                        max: math.log2(bb.pow_value)
                         value: math.log2(10)
+                BoxLayout:
+                    Label:
+                        text: 'Big Blind(' + str(bb.pow_value) + '):'
+                        size_hint_x: 0.4
+                    PowTwoSlider:
+                        id: bb
+                        min: math.log2(sb.pow_value)
+                        max: math.log2(1000)
+                        value: math.log2(20)
+                BoxLayout:
+                    Label:
+                        text: 'Stack Size(' + str(stack_size.pow_value) + '):'
+                        size_hint_x: 0.4
+                    PowTwoSlider:
+                        id: stack_size
+                        min: math.log2(1)
+                        max: math.log2(1000)
+                        value: math.log2(1000)
+                BoxLayout:
+                    Label:
+                        text: 'Is Flop:'
+                        size_hint_x: 0.4
+                    CheckBox:
+                        id: is_flop
+                BoxLayout:
+                    Label:
+                        text: 'Restriction Level'
+                    Label:
+                        text: 'All'
+                    CheckBox:
+                        group: 'rl'
+                        id: rl_0
+                    Label:
+                        text: 'Divisible by BB'
+                    CheckBox:
+                        group: 'rl'
+                        id: rl_1
+                    Label:
+                        text: 'Few Pot Related'
+                    CheckBox:
+                        group: 'rl'
+                        id: rl_2
+                        active: True
 ''')
 
 def load_neural(path,neural):
@@ -233,7 +280,7 @@ if __name__ == '__main__':
     train = args['train']
     uniform_player = train['uniform_player']
     callbot_player = train['callbot_player']
-    neural_player = load_neural('dump holdem/nn_agent_360_self_no_momo.nnavg',train['neural'])
+    # neural_player = load_neural('dump holdem/nn_agent_2000_self.nnavg',train['neural'])
 
-    app.root.start_game = ui(neural_player)
+    app.root.start_game = ui(callbot_player)
     app.run()

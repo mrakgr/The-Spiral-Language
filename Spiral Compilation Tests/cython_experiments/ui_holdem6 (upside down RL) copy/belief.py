@@ -57,20 +57,20 @@ class ResInfCube(InfCube):
 class DenseInfCube(torch.nn.Linear):
     def forward(self,x): return torch.cat((inf_cube(x),x),1)
 
-def belief_tabulate(action_state_probs : Tensor, state_probs : Tensor,head : Tensor,action_indices : Tensor,at_action_value : Tensor,at_action_weight : Tensor):
+def belief_tabulate(action_state_probs : Tensor,state_probs : Tensor,head : Tensor,action_indices : Tensor,rewards : Tensor,regret_probs : Tensor):
     # action_state_probs[batch_dim,action_dim,state_dim]
     # state_probs[batch_dim,state_dim]; state_probs = action_state_probs[torch.arange(len(action_state_probs)),action_indices]
     # head[action_dim*2,state_dim]
     # action_indices[batch_dim] : map (action_dim -> batch_dim)
-    # at_action_value[batch_dim,1]
-    # at_action_weight[batch_dim,1]
+    # rewards[batch_dim,1]
+    # regret_probs[batch_dim,1]
     num_actions = head.shape[0]//2
     head_weighted_values = head[:num_actions,:] # [action_dim,state_dim]
     head_value_weights = head[num_actions:,:] # [action_dim,state_dim]
 
     def update_head(): # Weighted moving average update. Works well with probabilistic vectors and weighted updates that CFR requires.
-        state_weights = at_action_weight * state_probs # [batch_dim,state_dim]
-        head_weighted_values.index_add_(0,action_indices,at_action_value * state_weights)
+        state_weights = regret_probs * state_probs # [batch_dim,state_dim]
+        head_weighted_values.index_add_(0,action_indices,rewards * state_weights)
         head_value_weights.index_add_(0,action_indices,state_weights)
 
     def calculate():
@@ -78,23 +78,24 @@ def belief_tabulate(action_state_probs : Tensor, state_probs : Tensor,head : Ten
         def state_probs_grad(): # The backprop derived rule.
             prediction_values_for_state = values[action_indices,:] # [batch_dim,state_dim]
             at_action_prediction_value = (state_probs * prediction_values_for_state).sum(-1,keepdim=True) # [batch_dim,1]
-            prediction_errors = at_action_prediction_value - at_action_value # [batch_dim,1]
-            g = (prediction_errors * at_action_weight) * prediction_values_for_state # [batch_dim,state_dim]
-            return g, prediction_errors 
+            prediction_errors = at_action_prediction_value - rewards # [batch_dim,1]
+            g = (prediction_errors * regret_probs) * prediction_values_for_state # [batch_dim,state_dim]
+            return g, prediction_errors
 
         def action_fun(action_probs : Tensor, sample_probs : Tensor): # Implements the VR MC-CFR update. Could be easily adapted to train an ensemble of actors.
-            # policy_probs[batch_dim,action_dim]
+            # action_probs[batch_dim,action_dim]
             # sample_probs[batch_dim,action_dim]
 
+            # prediction_values_for_action = state_probs.mm(values.t()) # [batch_dim,action_dim]
             prediction_values_for_action = torch.einsum('bas,as->ba',action_state_probs,values) # [batch_dim,action_dim]
             at_action_prediction_value = torch.gather(prediction_values_for_action,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
             
             at_action_sample_probs = torch.gather(sample_probs,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
-            at_action_prediction_adjustment = (at_action_value - at_action_prediction_value).div_(at_action_sample_probs) # [batch_dim,1]
+            at_action_prediction_adjustment = (rewards - at_action_prediction_value).div_(at_action_sample_probs) # [batch_dim,1]
             prediction_values_for_action.scatter_add_(-1,action_indices.unsqueeze(-1),at_action_prediction_adjustment)
             reward = (action_probs * prediction_values_for_action).sum(-1,keepdim=True) # [batch_dim,1]
             # No need to center the gradients being passed into a probability vector's backward pass. Softmax for example, centers them on its own.
-            def probs_grad(): return torch.neg_(prediction_values_for_action.mul_(at_action_weight)) # [batch_dim,action_dim]
+            def probs_grad(): return torch.neg_(prediction_values_for_action.mul_(regret_probs)) # [batch_dim,action_dim]
             return reward, probs_grad
         return state_probs_grad, action_fun
     return update_head, calculate
@@ -124,10 +125,11 @@ def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : b
         if is_update_head: update_head()
         if is_update_value: 
             g,pred_ers = state_probs_grad()
-            value.square_l2 += (pred_ers.square() * regret_probs).sum()
-            value.t += regret_probs.sum()
+            if hasattr(value,'t'): 
+                value.square_l2 += (pred_ers.square() * regret_probs).sum()
+                value.t += regret_probs.sum()
             state_probs.backward(g)
-        if is_update_policy: 
+        if is_update_policy:
             g = action_probs_grad()
             action_probs.backward(g)
         return reward.squeeze(-1).cpu().numpy()

@@ -14,27 +14,6 @@ class Head(torch.nn.Module):
     def decay(self,factor): 
         if factor != 1.0: self.head *= factor
 
-class InfNormSGD(Optimizer):
-    """
-    Normalizes the layers using the infinity norm.
-    """
-    def __init__(self,params,lr=2 ** -10):
-        super().__init__(params,dict(lr=lr))
-
-    @torch.no_grad()
-    def step(self):
-        for gr in self.param_groups:
-            lr = gr['lr']
-            infNorm = torch.scalar_tensor(0.0,device='cuda')
-            for x in gr['params']: 
-                if not x.grad is None:
-                    infNorm = torch.max(infNorm,torch.linalg.norm(x.grad.flatten(),ord=float('inf')))
-            if torch.is_nonzero(infNorm):
-                lr = lr / infNorm
-                for x in gr['params']:
-                    if not x.grad is None:
-                        x -= lr * x.grad
-    
 class SignSGD(Optimizer):
     """
     Does a step in the direction of the sign of the gradient.
@@ -78,9 +57,8 @@ class ResInfCube(InfCube):
 class DenseInfCube(torch.nn.Linear):
     def forward(self,x): return torch.cat((inf_cube(x),x),1)
 
-def belief_tabulate(action_state_probs : Tensor,state_probs : Tensor,head : Tensor,action_indices : Tensor,rewards : Tensor,regret_probs : Tensor):
-    # action_state_probs[batch_dim,action_dim,state_dim]
-    # state_probs[batch_dim,state_dim]; state_probs = action_state_probs[torch.arange(len(action_state_probs)),action_indices]
+def belief_tabulate(state_probs : Tensor,head : Tensor,action_indices : Tensor,rewards : Tensor,regret_probs : Tensor):
+    # state_probs[batch_dim,state_dim]
     # head[action_dim*2,state_dim]
     # action_indices[batch_dim] : map (action_dim -> batch_dim)
     # rewards[batch_dim,1]
@@ -107,8 +85,7 @@ def belief_tabulate(action_state_probs : Tensor,state_probs : Tensor,head : Tens
             # action_probs[batch_dim,action_dim]
             # sample_probs[batch_dim,action_dim]
 
-            # prediction_values_for_action = state_probs.mm(values.t()) # [batch_dim,action_dim]
-            prediction_values_for_action = torch.einsum('bas,as->ba',action_state_probs,values) # [batch_dim,action_dim]
+            prediction_values_for_action = state_probs.mm(values.t()) # [batch_dim,action_dim]
             at_action_prediction_value = torch.gather(prediction_values_for_action,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
             
             at_action_sample_probs = torch.gather(sample_probs,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
@@ -138,9 +115,8 @@ def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : b
     def update(rewards_and_regret_probs : Tensor):
         rewards_and_regret_probs = torch.from_numpy(rewards_and_regret_probs).cuda().view(2,-1,1)
         rewards, regret_probs = rewards_and_regret_probs[0,:,:], rewards_and_regret_probs[1,:,:]
-        action_state_probs : Tensor = normed_square(value(value_data).view(len(rewards),sample_probs.shape[1],-1))
-        state_probs = action_state_probs[torch.arange(len(action_state_probs)),sample_indices]
-        update_head, calculate = belief_tabulate(action_state_probs.detach(),state_probs.detach(),head.head.data,sample_indices,rewards,regret_probs)
+        state_probs : Tensor = normed_square(value(value_data))
+        update_head, calculate = belief_tabulate(state_probs.detach(),head.head.data,sample_indices,rewards,regret_probs)
         state_probs_grad, action_fun = calculate()
         reward, action_probs_grad = action_fun(action_probs.detach(),sample_probs)
         if is_update_head: update_head()

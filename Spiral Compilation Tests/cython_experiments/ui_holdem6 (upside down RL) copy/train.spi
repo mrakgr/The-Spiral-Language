@@ -102,16 +102,17 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
         log_prob_from {policy sample}, schema.action.unpickle (conv_int a)
     
     cs, fun (rewards' : a u64 r2) : a u64 r2 =>
-        inl rewards_and_regret_probs : a _ _ = create (2*num_actions)
+        inl rewards_and_env_probs : a _ _ = create (2*num_actions)
         am.generic.iteri2 (fun num_action reward (player_state,game_state,pid,actions) =>
             inl reward = !!reward pid
-            set rewards_and_regret_probs num_action reward
+            set rewards_and_env_probs num_action reward
 
             inl regret_prob =
                 inl prob = pl2_probs player_state pid
-                inl env_prob = prob.chance +@ prob.op
-                exp (-prob.self.sample + (env_prob.policy - env_prob.sample))
-            set rewards_and_regret_probs (num_actions+num_action) regret_prob
+                inl prob_env = prob.chance +@ prob.op
+                exp (-prob.self.sample + (prob_env.policy - prob_env.sample))
+                // @@prob_env // Works better, but I can't fully justify it yet.
+            set rewards_and_env_probs (num_actions + num_action) regret_prob
             ) rewards' data
-        inl rewards = update rewards_and_regret_probs
+        inl rewards = update rewards_and_env_probs
         am.generic.map2 (fun a (_,_,pid,_) => if pid = 0 then r2 a else r2 -a) rewards data

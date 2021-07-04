@@ -15,7 +15,7 @@ def neural_create_model(size,size_mid=512,size_head=256):
     value = torch.nn.Sequential(
         InfCube(size.value,size_mid),
         *[ResInfCube(size_mid) for _ in range(5)],
-        Linear(size_mid,size_head)
+        Linear(size_mid,size.action * size_head)
         )
     value.square_l2 = torch.scalar_tensor(0.0).cuda()
     value.t = torch.scalar_tensor(0.0).cuda()

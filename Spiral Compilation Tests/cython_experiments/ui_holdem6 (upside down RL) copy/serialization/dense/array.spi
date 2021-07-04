@@ -34,6 +34,31 @@ inl int forall t {number;int}. size : pu t =
                 conv_int (case - from), c
         }
 
+// Allows negative ints. Should not be used in arrays or unions.
+inl bin_sint forall t {number;int}. size : pu t =
+    assert (1 <= size && size <= 63) "The field size has to be in the [1,63] range."
+    pu {size
+        pickle = fun ~x ~(i,s : state) => join
+            inl max_x = 
+                inl q = 1 <<< (i32 size - 1)
+                q + (q - 1)
+            inl x = i64 x
+            if -max_x <= x && x < max_x then
+                loop.for (from: 0 nearTo: size) (fun i' x =>
+                    inl q = 1 <<< i32 (size - i' - 1)
+                    set s (i + conv_int i') (f32 (x / q))
+                    x % q
+                    ) x |> ignore
+            else failwith $"f'Pickle failure. Bin sint value out of bounds. Got: {!x} Size: {!size}'"
+        unpickle = fun ~(from,s : state) => join
+            loop.for (from: 0 nearTo: size) (fun i' w =>
+                inl x = index s (from + i')
+                if x = 0 || x = 1 then w + (conv_num x <<< i32 (size - i' - 1))
+                else failwith "Unpickling failure. The int type must either be active or inactive."
+                ) 0
+            |> fun x => x, 1
+        }
+
 // Unlike int which stores the value as a one-hot vector, this one stores it as a binary value.
 // The value 0 is stored as 1, 1 as 2 and so on. During unpickling the zero vector is considered inactive.
 // The max value is taken up by that inactive vactor. Hence the actual capacity is
@@ -43,7 +68,7 @@ inl bin_int forall t {number;int}. size : pu t =
     pu {size
         pickle = fun ~x ~(i,s : state) => join
             inl max_x = 
-                inl q = 1u64 <<< (i32 size - 1)
+                inl q = 1 <<< (i32 size - 1)
                 q + (q - 1)
             if 0 <= x && u64 x < max_x then
                 loop.for (from: 0 nearTo: size) (fun i' x =>
