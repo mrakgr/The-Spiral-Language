@@ -3,7 +3,7 @@
 // Learning` paper, but I will instead make it a source of self supervised learning.
 
 // There are too many things that need doing, so before I move onto the main thing, I need to do some ablation studies.
-// First, how does replacing the importance sampling version of the value update compare with reward substitution.
+// First, how does replacing the importance sampling version of the value update compare with reward substitution. (Edit: Badly.)
 
 // Update: It seems along the way I lost the ability to train on Flop. Whatever changes I introduced, some of them must have
 // fundamentally broken everything. Not only do I have to track this problem down, but I also need to consider that this might
