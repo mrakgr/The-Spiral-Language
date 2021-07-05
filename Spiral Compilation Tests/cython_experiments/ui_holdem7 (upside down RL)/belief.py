@@ -103,7 +103,7 @@ def model_evaluate(
         rewards, regret_probs, hindsight_data = data[:l].unsqueeze(-1), data[l:l+l].unsqueeze(-1), data[l+l:].view(l,-1)
 
         hindsight_basis = hindsight_rep(torch.cat((present_basis,hindsight_data),-1))
-        predicted_actions = normed_square(action_pred(present_basis + hindsight_basis))
+        predicted_actions = normed_square(action_pred(present_basis + hindsight_basis).masked_fill(action_mask,0.0))
 
         update_head, calculate = belief_tabulate(present_basis.detach(),critic,sample_indices,rewards,regret_probs)
         reward, action_probs_grad = calculate(action_probs.detach(),sample_probs.detach())
