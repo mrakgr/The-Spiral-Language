@@ -1,5 +1,6 @@
 import torch
 from torch.distributions import Categorical
+from torch.nn.parameter import Parameter
 import torch.optim
 import torch.nn
 from torch.functional import Tensor
@@ -9,8 +10,6 @@ from torch.optim import Optimizer
 class SignSGD(Optimizer):
     """
     Does a step in the direction of the sign of the gradient.
-
-    A learning rate of None adds (not subtracts) the gradient directly without taking the sign. 
     """
     def __init__(self,params,lr=2 ** -10,momentum_decay=0.0,weight_decay=1.0):
         super().__init__(params,dict(lr=lr,momentum_decay=momentum_decay,weight_decay=weight_decay))
@@ -22,26 +21,23 @@ class SignSGD(Optimizer):
             for x in gr['params']:
                 if weight_decay != 1.0: x *= weight_decay
                 if x.grad is not None:
-                    if lr is None: # Special case for the Head.
-                        x += x.grad
-                    else: # For regular NN parameters.
-                        if momentum_decay == 0.0: # Self play works better without momentum.
-                            x -= lr * torch.sign(x.grad)
-                        else:
-                            x_state = self.state.get(x)
-                            if x_state is None: x_state = {}; self.state[x] = x_state
-                            m = x_state.get('momentum_params')
-                            if m is None: m = torch.zeros_like(x); x_state['momentum_params'] = m
-                            m *= momentum_decay; m += x.grad
-                            x -= lr * torch.sign(m)
+                    if momentum_decay == 0.0: # Self play works better without momentum.
+                        x -= lr * torch.sign(x.grad)
+                    else:
+                        x_state = self.state.get(x)
+                        if x_state is None: x_state = {}; self.state[x] = x_state
+                        m = x_state.get('momentum_params')
+                        if m is None: m = torch.zeros_like(x); x_state['momentum_params'] = m
+                        m *= momentum_decay; m += x.grad
+                        x -= lr * torch.sign(m)
 
 class Head(torch.nn.Module):
     def __init__(self,size_action,size_state):
         super(Head, self).__init__()
-        self.head = torch.nn.parameter.Parameter(torch.zeros(size_action*2,size_state),requires_grad=False)
-    
-    def decay(self,factor): 
-        if factor != 1.0: self.head *= factor
+        self.head_weighted_value = Parameter(torch.zeros(size_action,size_state),requires_grad=False)
+        self.head_weight = Parameter(torch.zeros(size_action,size_state),requires_grad=False)
+
+    def value(self): return torch.nan_to_num_(self.head_weighted_value / self.head_weight)
 
 def inf_cube(x : Tensor): 
     o = x ** 3
