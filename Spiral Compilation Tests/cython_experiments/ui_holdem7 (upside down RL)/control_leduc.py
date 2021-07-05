@@ -81,7 +81,7 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
     opt = SignSGD([
         dict(params=value.parameters(),lr=2 ** -6),
         dict(params=policy.parameters(),lr=2 ** -8)
-        ],momentum=0) # Momentum works worse than vanilla signSGD on Leduc. On lower batch sizes I don't see any improvement either.
+        ]) # Momentum works worse than vanilla signSGD on Leduc. On lower batch sizes I don't see any improvement either.
     valuea, policya, heada = AveragedModel(value), AveragedModel(policy), AveragedModel(head)
     def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=2 ** -2): 
         return neural.handler(partial(model_evaluate,value,policy,head,is_update_head,is_update_value,is_update_policy,epsilon))

@@ -6,6 +6,35 @@ from torch.functional import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
 
+class SignSGD(Optimizer):
+    """
+    Does a step in the direction of the sign of the gradient.
+
+    A learning rate of None adds (not subtracts) the gradient directly without taking the sign. 
+    """
+    def __init__(self,params,lr=2 ** -10,momentum_decay=0.0,weight_decay=1.0):
+        super().__init__(params,dict(lr=lr,momentum_decay=momentum_decay,weight_decay=weight_decay))
+
+    @torch.no_grad()
+    def step(self):
+        for gr in self.param_groups:
+            momentum_decay, lr, weight_decay = gr['momentum_decay'], gr['lr'], gr['weight_decay']
+            for x in gr['params']:
+                if weight_decay != 1.0: x *= weight_decay
+                if x.grad is not None:
+                    if lr is None: # Special case for the Head.
+                        x += x.grad
+                    else: # For regular NN parameters.
+                        if momentum_decay == 0.0: # Self play works better without momentum.
+                            x -= lr * torch.sign(x.grad)
+                        else:
+                            x_state = self.state.get(x)
+                            if x_state is None: x_state = {}; self.state[x] = x_state
+                            m = x_state.get('momentum_params')
+                            if m is None: m = torch.zeros_like(x); x_state['momentum_params'] = m
+                            m *= momentum_decay; m += x.grad
+                            x -= lr * torch.sign(m)
+
 class Head(torch.nn.Module):
     def __init__(self,size_action,size_state):
         super(Head, self).__init__()
@@ -13,29 +42,6 @@ class Head(torch.nn.Module):
     
     def decay(self,factor): 
         if factor != 1.0: self.head *= factor
-
-class SignSGD(Optimizer):
-    """
-    Does a step in the direction of the sign of the gradient.
-    """
-    def __init__(self,params,lr=2 ** -10,momentum=0.0):
-        super().__init__(params,dict(lr=lr,momentum=momentum))
-
-    @torch.no_grad()
-    def step(self):
-        for gr in self.param_groups:
-            for x in gr['params']:
-                if not x.grad is None:
-                    momentum, lr = gr['momentum'], gr['lr']
-                    if momentum == 0.0:
-                        x -= lr * torch.sign(x.grad)
-                    else:
-                        x_state = self.state.get(x)
-                        if x_state is None: x_state = {}; self.state[x] = x_state
-                        m = x_state.get('momentum_params')
-                        if m is None: m = torch.zeros_like(x); x_state['momentum_params'] = m
-                        m += (x.grad - m) * (1 - momentum)
-                        x -= lr * torch.sign(m)
 
 def inf_cube(x : Tensor): 
     o = x ** 3
@@ -57,9 +63,8 @@ class ResInfCube(InfCube):
 class DenseInfCube(torch.nn.Linear):
     def forward(self,x): return torch.cat((inf_cube(x),x),1)
 
-def belief_tabulate(action_state_probs : Tensor,state_probs : Tensor,head : Tensor,action_indices : Tensor,rewards : Tensor,regret_probs : Tensor):
-    # action_state_probs[batch_dim,action_dim,state_dim]
-    # state_probs[batch_dim,state_dim]; state_probs = action_state_probs[torch.arange(len(action_state_probs)),action_indices]
+def belief_tabulate(state_probs : Tensor,head : Tensor,action_indices : Tensor,rewards : Tensor,regret_probs : Tensor):
+    # state_probs[batch_dim,state_dim]
     # head[action_dim*2,state_dim]
     # action_indices[batch_dim] : map (action_dim -> batch_dim)
     # rewards[batch_dim,1]
@@ -86,8 +91,7 @@ def belief_tabulate(action_state_probs : Tensor,state_probs : Tensor,head : Tens
             # action_probs[batch_dim,action_dim]
             # sample_probs[batch_dim,action_dim]
 
-            # prediction_values_for_action = state_probs.mm(values.t()) # [batch_dim,action_dim]
-            prediction_values_for_action = torch.einsum('bas,as->ba',action_state_probs,values) # [batch_dim,action_dim]
+            prediction_values_for_action = state_probs.mm(values.t()) # [batch_dim,action_dim]
             at_action_prediction_value = torch.gather(prediction_values_for_action,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
             
             at_action_sample_probs = torch.gather(sample_probs,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
@@ -117,9 +121,8 @@ def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : b
     def update(rewards_and_regret_probs : Tensor):
         rewards_and_regret_probs = torch.from_numpy(rewards_and_regret_probs).cuda().view(2,-1,1)
         rewards, regret_probs = rewards_and_regret_probs[0,:,:], rewards_and_regret_probs[1,:,:]
-        action_state_probs : Tensor = normed_square(value(value_data).view(len(rewards),sample_probs.shape[1],-1))
-        state_probs = action_state_probs[torch.arange(len(action_state_probs)),sample_indices]
-        update_head, calculate = belief_tabulate(action_state_probs.detach(),state_probs.detach(),head.head.data,sample_indices,rewards,regret_probs)
+        state_probs : Tensor = normed_square(value(value_data))
+        update_head, calculate = belief_tabulate(state_probs.detach(),head.head.data,sample_indices,rewards,regret_probs)
         state_probs_grad, action_fun = calculate()
         reward, action_probs_grad = action_fun(action_probs.detach(),sample_probs)
         if is_update_head: update_head()
