@@ -34,31 +34,6 @@ inl int forall t {number;int}. size : pu t =
                 conv_int (case - from), c
         }
 
-// Allows negative ints. Should not be used in arrays or unions.
-inl bin_sint forall t {number;int}. size : pu t =
-    assert (1 <= size && size <= 63) "The field size has to be in the [1,63] range."
-    pu {size
-        pickle = fun ~x ~(i,s : state) => join
-            inl max_x = 
-                inl q = 1 <<< (i32 size - 1)
-                q + (q - 1)
-            inl x = i64 x
-            if -max_x <= x && x < max_x then
-                loop.for (from: 0 nearTo: size) (fun i' x =>
-                    inl q = 1 <<< i32 (size - i' - 1)
-                    set s (i + conv_int i') (f32 (x / q))
-                    x % q
-                    ) x |> ignore
-            else failwith $"f'Pickle failure. Bin sint value out of bounds. Got: {!x} Size: {!size}'"
-        unpickle = fun ~(from,s : state) => join
-            loop.for (from: 0 nearTo: size) (fun i' w =>
-                inl x = index s (from + i')
-                if x = 0 || x = 1 then w + (conv_num x <<< i32 (size - i' - 1))
-                else failwith "Unpickling failure. The int type must either be active or inactive."
-                ) 0
-            |> fun x => x, 1
-        }
-
 // Unlike int which stores the value as a one-hot vector, this one stores it as a binary value.
 // The value 0 is stored as 1, 1 as 2 and so on. During unpickling the zero vector is considered inactive.
 // The max value is taken up by that inactive vactor. Hence the actual capacity is
@@ -70,7 +45,7 @@ inl bin_int forall t {number;int}. size : pu t =
             inl max_x = 
                 inl q = 1 <<< (i32 size - 1)
                 q + (q - 1)
-            if 0 <= x && u64 x < max_x then
+            if 0 <= x && x < max_x then
                 loop.for (from: 0 nearTo: size) (fun i' x =>
                     inl q = 1 <<< i32 (size - i' - 1)
                     set s (i + conv_int i') (f32 (x / q))
@@ -84,6 +59,44 @@ inl bin_int forall t {number;int}. size : pu t =
                 else failwith "Unpickling failure. The int type must either be active or inactive."
                 ) 0
             |> fun x => x - 1, if 0 < x then 1 else 0
+        }
+
+// Can store 2 ** (size+1) - 1 values. Allows unsigned ints.
+inl bin_sint forall t {number;int;sint}. size : pu t =
+    assert (1 <= size && size <= 63) "The field size has to be in the [1,63] range."
+    pu {size=1+2*size
+        pickle = fun ~x ~(i,s : state) => join
+            set s i 1
+            inl i = i+1
+            inl max_x = 
+                inl q = 1 <<< (i32 size - 1)
+                q + (q - 1)
+            inl i,x = if x < 0 then i+size, -x else i, x
+            if -max_x <= x && x <= max_x then
+                loop.for (from: 0 nearTo: size) (fun i' x =>
+                    inl q = 1 <<< i32 (size - i' - 1)
+                    set s (i + conv_int i') (f32 (x / q))
+                    x % q
+                    ) x |> ignore
+            else failwith $"f'Pickle failure. Bin int value out of bounds. Got: {!x} Size: {!size}'"
+        unpickle = fun ~(from,s : state) => join
+            inl c = index s from
+            inl from = from+1
+            if c = 1 then
+                inl read from =
+                    loop.for (from: 0 nearTo: size) (fun i' w =>
+                        inl x = index s (from + i')
+                        if x = 0 || x = 1 then w + (conv_num x <<< i32 (size - i' - 1))
+                        else failwith "Unpickling failure. The int type must either be active or inactive."
+                        ) 0
+                inl a,b = read from, read (from+size)
+                inl c = conv_num c
+                if a <> 0 && b <> 0 then failwith "Unpickling failure. Only a single side of an active int should be active."
+                elif a <> 0 then a,c
+                elif b <> 0 then -b,c
+                else 0,c
+            elif c = 0 then 0,conv_num c
+            else failwith "Unpickling failure. The int type's flag must either be active or inactive."
         }
 
 inl array forall t. size (pu el : pu t) : pu (a st t) =

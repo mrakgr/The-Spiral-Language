@@ -102,13 +102,13 @@ def model_evaluate(
         l = present_basis.shape[0]
         rewards, regret_probs, hindsight_data = data[:l].unsqueeze(-1), data[l:l+l].unsqueeze(-1), data[l+l:].view(l,-1)
 
-        hindsight_basis = hindsight_rep(torch.cat((present_basis,hindsight_data),-1))
-        predicted_actions = normed_square(action_pred(present_basis + hindsight_basis).masked_fill(action_mask,0.0))
-
         update_head, calculate = belief_tabulate(present_basis.detach(),critic,sample_indices,rewards,regret_probs)
         reward, action_probs_grad = calculate(action_probs.detach(),sample_probs.detach())
         if is_update_head: update_head()
         if is_update_policy: action_probs.backward(action_probs_grad())
-        if is_update_pred: Categorical(predicted_actions).log_prob(sample_indices).backward()
+        if is_update_pred: 
+            hindsight_basis = hindsight_rep(torch.cat((present_basis,hindsight_data),-1))
+            predicted_actions = normed_square(action_pred(present_basis + hindsight_basis).masked_fill(action_mask,0.0))
+            Categorical(predicted_actions).log_prob(sample_indices).backward()
         return reward.squeeze(-1).cpu().numpy()
     return action_probs.detach().cpu().numpy(), sample_probs.detach().cpu().numpy(), sample_indices.cpu().numpy(), update

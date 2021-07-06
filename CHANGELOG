@@ -1,3 +1,7 @@
+2.0.92 (7/6/2021)
+
+* Added the signed int (sint) constraint into the language.
+
 2.0.91 (7/2/2021)
 
 * Fixed a bug in array `filter` and `choose`.

@@ -12,6 +12,7 @@ type TT =
 type Constraint =
     | CNumber
     | CInt
+    | CSInt
     | CFloat
     | CSymbol
     | CPrim
@@ -195,6 +196,7 @@ let prototype_init_forall_kind = function
 let rec constraint_name (env : TopEnv) = function
     | CNumber -> "number"
     | CInt -> "int"
+    | CSInt -> "sint"
     | CSymbol -> "symbol"
     | CFloat -> "float"
     | CPrim -> "prim"
@@ -354,6 +356,7 @@ let type_apply_split x =
 let rec constraint_process (env : TopEnv) = function
     | CSymbol, TySymbol _, []
     | CInt, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T), []
+    | CSInt, TyPrim (Int8T | Int16T | Int32T | Int64T), []
     | CFloat, TyPrim (Float32T | Float64T), []
     | CPrim, TyPrim _, []
     | CRecord, TyRecord _, []
@@ -1624,6 +1627,7 @@ let top_env_default : TopEnv =
             [
             "number", CNumber
             "int", CInt
+            "sint", CSInt
             "float", CFloat
             "prim", CPrim
             "record", CRecord

@@ -10,31 +10,36 @@ inl vs_human game human_pid p =
 
 inl vs_self game (batch_size, p) =
     let rec loop (l : a u64 _) =
-        inl rewards : ra u64 _ = am.empty
+        inl rewards_critic : ra u64 _ = am.empty
+        inl rewards_true : ra u64 _ = am.empty
         inl actions_indices : ra u64 _ = am.empty
         inl data : ra u64 _ = am.empty
         inl nexts : ra u64 _ = am.empty
         l |> am.iteri fun i => function
-            | Action: player_state,game_state,pid,actions,next => 
+            | Action: player_state,game_state,pid,actions,next =>
                 rm.add actions_indices i
                 rm.add data (player_state,game_state,pid,actions)
                 rm.add nexts next
-            | Terminal: x => 
-                rm.add rewards (i, x)
-        inl rewards_actions : a _ _ =
+            | Terminal: _,_,r => 
+                rm.add rewards_critic (i, r)
+                rm.add rewards_true (i, r)
+        inl rewards_actions_critic, rewards_actions_true : a _ _ * a _ _ =
             if 0 < length data then
                 inl (cs : a _ _),update = p data
                 am.generic.map2 (<|) nexts cs |> loop |> update
-            else am.empty
-        inl rewards_all : a _ r2 = create (length l)
-        am.generic.iter2 (set rewards_all) actions_indices rewards_actions
-        am.iter (fun (i,_,_,r) => set rewards_all i r) rewards
-        rewards_all
+            else am.empty, am.empty
+        inl rewards_all_critic, rewards_all_true : a _ r2 * a _ r2 = create (length l), create (length l)
+        am.generic.iter2 (set rewards_all_critic) actions_indices rewards_actions_critic
+        am.iter (fun (i,r) => set rewards_all_critic i r) rewards_critic
+        am.generic.iter2 (set rewards_all_true) actions_indices rewards_actions_true
+        am.iter (fun (i,r) => set rewards_all_true i r) rewards_true
+        rewards_all_critic, rewards_all_true
     loop (am.init batch_size fun _ => game () pl2_init)
 
 inl vs_one game (batch_size, p1, p2) =
     let rec loop (l : a u64 _) =
-        inl rewards : ra u64 _ = am.empty
+        inl rewards_critic : ra u64 _ = am.empty
+        inl rewards_true : ra u64 _ = am.empty
         inl actions_indices : ra u64 _ = am.empty
         inl p1_data : ra u64 _ = am.empty
         inl p2_data : ra u64 _ = am.empty
@@ -51,25 +56,30 @@ inl vs_one game (batch_size, p1, p2) =
                     rm.add p2_data (player_state,game_state,pid,actions)
                     rm.add p2_nexts next
                 rm.add pids pid
-            | Terminal: x =>
-                rm.add rewards (i, x)
-        inl rewards_actions =
+            | Terminal: _,_,r =>
+                rm.add rewards_critic (i,r)
+                rm.add rewards_true (i,r)
+        inl rewards_actions_critic, rewards_actions_true =
             if 0 < length pids then
-                inl p1_cs,p1_update : a _ _ * (a u64 r2 -> a u64 r2) = p1 p1_data
-                inl p2_cs,p2_update : a _ _ * (a u64 r2 -> a u64 r2) = p2 p2_data
+                inl p1_cs,p1_update : a _ _ * (a u64 r2 -> a u64 r2 * a u64 r2) = p1 p1_data
+                inl p2_cs,p2_update : a _ _ * (a u64 r2 -> a u64 r2 * a u64 r2) = p2 p2_data
                 inl p1_results = am.generic.map2 (<|) p1_nexts p1_cs
                 inl p2_results = am.generic.map2 (<|) p2_nexts p2_cs
                 inl rs = loop (am.append p1_results p2_results)
                 inl len = length p1_cs
-                inl p1_rs = p1_update $"!rs[:!len]"
-                inl p2_rs = p2_update $"!rs[!len:]"
-                am.mapFold (fun (p1_i,p2_i) i => if i = 0 then index p1_rs p1_i,p1_i+1,p2_i else index p2_rs p2_i,p1_i,p2_i+1)
+                inl p1_rs_critic, p1_rs_true = p1_update $"!rs[:!len]"
+                inl p2_rs_critic, p2_rs_true = p2_update $"!rs[!len:]"
+                am.mapFold (fun (p1_i,p2_i) i => if i = 0 then index p1_rs_critic p1_i,p1_i+1,p2_i else index p2_rs_critic p2_i,p1_i,p2_i+1)
+                    (0,0) pids |> fst,
+                am.mapFold (fun (p1_i,p2_i) i => if i = 0 then index p1_rs_true p1_i,p1_i+1,p2_i else index p2_rs_true p2_i,p1_i,p2_i+1)
                     (0,0) pids |> fst
-            else am.empty
-        inl rewards_all : a _ r2 = create (length l)
-        am.generic.iter2 (set rewards_all) actions_indices rewards_actions
-        am.iter (fun (i,_,_,r) => set rewards_all i r) rewards
-        rewards_all
+            else am.empty, am.empty
+        inl rewards_all_critic, rewards_all_true : a _ r2 * a _ r2 = create (length l), create (length l)
+        am.generic.iter2 (set rewards_all_critic) actions_indices rewards_actions_critic
+        am.iter (fun (i,r) => set rewards_all_critic i r) rewards_critic
+        am.generic.iter2 (set rewards_all_true) actions_indices rewards_actions_true
+        am.iter (fun (i,r) => set rewards_all_true i r) rewards_true
+        rewards_all_critic, rewards_all_true
     loop (am.init batch_size fun _ => game () pl2_init)
 
 type a2 x = $"numpy.ndarray[`x,ndim=2]"
@@ -79,14 +89,14 @@ type a2 x = $"numpy.ndarray[`x,ndim=2]"
 inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (data : ra _ (_ * _ * u8 * a st _)) =
     if length data = 0 then am.empty, id else
     !!!!Import("torch")
-    inl policy_size = serialization.dense.array.size schema.policy
-    inl value_size = serialization.dense.array.size schema.value
+    inl present_size = serialization.dense.array.size schema.present
+    inl future_size = serialization.dense.array.size schema.future
     inl action_size = serialization.sparse.int.size schema.action
     inl num_actions = length data
-    inl value_data : a2 f32 = $"numpy.zeros((!num_actions,!value_size),dtype=numpy.float32)"
+    inl present_data : a2 f32 = $"numpy.zeros((!num_actions,!present_size),dtype=numpy.float32)"
     inl action_mask : a2 i8 = $"numpy.ones((!num_actions,!action_size),dtype=numpy.int8)"
     data |> am.iteri fun num_action (player_state,game_state,pid,actions) =>
-        schema.value.pickle (extractor (player_state,game_state,pid)) (0, $"!value_data[!num_action,:]")
+        schema.present.pickle (extractor (player_state,game_state,pid)) (0, $"!present_data[!num_action,:]")
         actions |> am.iter (schema.action.pickle >> fun x => $"!action_mask[!num_action,!x] = 0")
 
     inl x : obj =
