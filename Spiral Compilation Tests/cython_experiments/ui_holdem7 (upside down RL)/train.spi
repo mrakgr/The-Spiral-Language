@@ -8,33 +8,35 @@ inl vs_human game human_pid p =
                 loop (next (index cs 0))
     loop game
 
-inl vs_self game (batch_size, p) =
-    let rec loop (l : a u64 _) =
-        inl rewards_critic : ra u64 _ = am.empty
-        inl rewards_true : ra u64 _ = am.empty
-        inl actions_indices : ra u64 _ = am.empty
-        inl data : ra u64 _ = am.empty
-        inl nexts : ra u64 _ = am.empty
-        l |> am.iteri fun i => function
-            | Action: player_state,game_state,pid,actions,next =>
-                rm.add actions_indices i
-                rm.add data (player_state,game_state,pid,actions)
-                rm.add nexts next
-            | Terminal: _,_,r => 
-                rm.add rewards_critic (i, r)
-                rm.add rewards_true (i, r)
-        inl rewards_actions_critic, rewards_actions_true : a _ _ * a _ _ =
-            if 0 < length data then
-                inl (cs : a _ _),update = p data
-                am.generic.map2 (<|) nexts cs |> loop |> update
-            else am.empty, am.empty
-        inl rewards_all_critic, rewards_all_true : a _ r2 * a _ r2 = create (length l), create (length l)
-        am.generic.iter2 (set rewards_all_critic) actions_indices rewards_actions_critic
-        am.iter (fun (i,r) => set rewards_all_critic i r) rewards_critic
-        am.generic.iter2 (set rewards_all_true) actions_indices rewards_actions_true
-        am.iter (fun (i,r) => set rewards_all_true i r) rewards_true
-        rewards_all_critic, rewards_all_true
-    loop (am.init batch_size fun _ => game () pl2_init)
+// `vs_self` is commented out to remind myself that neural training should not be mixed with sampling.
+
+// inl vs_self game (batch_size, p) =
+//     let rec loop (l : a u64 _) =
+//         inl rewards_critic : ra u64 _ = am.empty
+//         inl rewards_true : ra u64 _ = am.empty
+//         inl actions_indices : ra u64 _ = am.empty
+//         inl data : ra u64 _ = am.empty
+//         inl nexts : ra u64 _ = am.empty
+//         l |> am.iteri fun i => function
+//             | Action: player_state,game_state,pid,actions,next =>
+//                 rm.add actions_indices i
+//                 rm.add data (player_state,game_state,pid,actions)
+//                 rm.add nexts next
+//             | Terminal: _,_,r => 
+//                 rm.add rewards_critic (i, r)
+//                 rm.add rewards_true (i, r)
+//         inl rewards_actions_critic, rewards_actions_true : a _ _ * a _ _ =
+//             if 0 < length data then
+//                 inl (cs : a _ _),update = p data
+//                 am.generic.map2 (<|) nexts cs |> loop |> update
+//             else am.empty, am.empty
+//         inl rewards_all_critic, rewards_all_true : a _ r2 * a _ r2 = create (length l), create (length l)
+//         am.generic.iter2 (set rewards_all_critic) actions_indices rewards_actions_critic
+//         am.iter (fun (i,r) => set rewards_all_critic i r) rewards_critic
+//         am.generic.iter2 (set rewards_all_true) actions_indices rewards_actions_true
+//         am.iter (fun (i,r) => set rewards_all_true i r) rewards_true
+//         rewards_all_critic, rewards_all_true
+//     loop (am.init batch_size fun _ => game () pl2_init)
 
 inl vs_one game (batch_size, p1, p2) =
     let rec loop (l : a u64 _) =
@@ -61,14 +63,16 @@ inl vs_one game (batch_size, p1, p2) =
                 rm.add rewards_true (i,r)
         inl rewards_actions_critic, rewards_actions_true =
             if 0 < length pids then
-                inl p1_cs,p1_update : a _ _ * (a u64 r2 -> a u64 r2 * a u64 r2) = p1 p1_data
-                inl p2_cs,p2_update : a _ _ * (a u64 r2 -> a u64 r2 * a u64 r2) = p2 p2_data
+                inl p1_cs,p1_update : a _ _ * (a u64 r2 * a u64 r2 -> a u64 r2 * a u64 r2) = p1 p1_data
+                inl p2_cs,p2_update : a _ _ * (a u64 r2 * a u64 r2 -> a u64 r2 * a u64 r2) = p2 p2_data
                 inl p1_results = am.generic.map2 (<|) p1_nexts p1_cs
                 inl p2_results = am.generic.map2 (<|) p2_nexts p2_cs
-                inl rs = loop (am.append p1_results p2_results)
+                inl rs_critic, rs_true = loop (am.append p1_results p2_results)
                 inl len = length p1_cs
-                inl p1_rs_critic, p1_rs_true = p1_update $"!rs[:!len]"
-                inl p2_rs_critic, p2_rs_true = p2_update $"!rs[!len:]"
+                inl slice_from forall d t. (x : a d t) (i : d) : a d t = $"!x[!i:]"
+                inl slice_near_to forall d t. (x : a d t) (i : d) : a d t = $"!x[:!i]"
+                inl p1_rs_critic, p1_rs_true = p1_update (slice_near_to rs_critic len, slice_near_to rs_true len)
+                inl p2_rs_critic, p2_rs_true = p2_update (slice_from rs_critic len, slice_from rs_true len)
                 am.mapFold (fun (p1_i,p2_i) i => if i = 0 then index p1_rs_critic p1_i,p1_i+1,p2_i else index p2_rs_critic p2_i,p1_i,p2_i+1)
                     (0,0) pids |> fst,
                 am.mapFold (fun (p1_i,p2_i) i => if i = 0 then index p1_rs_true p1_i,p1_i+1,p2_i else index p2_rs_true p2_i,p1_i,p2_i+1)
@@ -86,7 +90,7 @@ type a2 x = $"numpy.ndarray[`x,ndim=2]"
 
 // The neural model is intended to be created on the Python side and partially applied as the `policy_value_action_eval` argument. 
 // `extractor` and `schema` are applied on the Spiral side before being passed as a function. 
-inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (data : ra _ (_ * _ * u8 * a st _)) =
+inl neural_handler (present_ex, future_ex) (schema : schema _ _ _) policy_value_action_eval (data : ra _ (_ * _ * u8 * a st _)) =
     if length data = 0 then am.empty, id else
     !!!!Import("torch")
     inl present_size = serialization.dense.array.size schema.present
@@ -96,33 +100,37 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
     inl present_data : a2 f32 = $"numpy.zeros((!num_actions,!present_size),dtype=numpy.float32)"
     inl action_mask : a2 i8 = $"numpy.ones((!num_actions,!action_size),dtype=numpy.int8)"
     data |> am.iteri fun num_action (player_state,game_state,pid,actions) =>
-        schema.present.pickle (extractor (player_state,game_state,pid)) (0, $"!present_data[!num_action,:]")
+        schema.present.pickle (present_ex (player_state,game_state,pid)) (0, $"!present_data[!num_action,:]")
         actions |> am.iter (schema.action.pickle >> fun x => $"!action_mask[!num_action,!x] = 0")
 
-    inl x : obj =
-        inl f x = $"torch.from_numpy(!x)" : obj
-        policy_value_action_eval (policy_size, f value_data, f ($"!action_mask.view('bool')" : obj))
-    inl action_probs, epsilon, sample_indices, update : a2 f32 * f32 * a u64 i64 * (a u64 f32 -> a u64 f32) = 
+    inl from_numpy x = $"torch.from_numpy(!x)" : obj
+    inl x : obj = policy_value_action_eval (from_numpy present_data, from_numpy ($"!action_mask.view('bool')" : obj))
+    inl action_probs, sample_probs, sample_indices, update : a2 f32 * obj * a u64 i64 * (obj -> a u64 f32) = 
         $"!x[0]", $"!x[1]", $"!x[2]", $"!x[3]"
-    inl cs : a u64 _ = am.init num_actions fun b =>
-        inl a = index sample_indices b
-        inl policy = $"!action_probs[!b,!a]"
-        inl num_actions_at_index = index data b |> fun _,_,_,actions => length actions |> f32
-        inl sample = epsilon / num_actions_at_index + (1 - epsilon) * policy
-        log_prob_from {policy sample}, schema.action.unpickle (conv_int a)
+    inl cs : a u64 _ = 
+        inl f get = am.init num_actions fun b =>
+            inl a = index sample_indices b
+            inl policy, sample = get b a
+            log_prob_from {policy sample}, join schema.action.unpickle (conv_int a)
+        if $"sample_probs is None" then f (fun b a => inl x = $"!action_probs[!b,!a]" in x,x)
+        else 
+            inl sample_probs : a2 f32 = $"!sample_probs"
+            f (fun b a => $"!action_probs[!b,!a]", $"!sample_probs[!b,!a]")
     
-    cs, fun (rewards' : a u64 r2) : a u64 r2 =>
-        inl rewards_and_env_probs : a _ _ = create (2*num_actions)
+    cs, fun (rewards_critic, rewards_true : a u64 r2 * a u64 r2) : a u64 r2 * a u64 r2 =>
+        inl update_data : a _ _ = create (2*num_actions + num_actions * u64 action_size)
         am.generic.iteri2 (fun num_action reward (player_state,game_state,pid,actions) =>
             inl reward = !!reward pid
-            set rewards_and_env_probs num_action reward
+            set update_data num_action reward
 
             inl regret_prob =
                 inl prob = pl2_probs player_state pid
                 inl prob_env = prob.chance +@ prob.op
                 exp (-prob.self.sample + (prob_env.policy - prob_env.sample))
                 // @@prob_env // Works better, but I can't fully justify it yet.
-            set rewards_and_env_probs (num_actions + num_action) regret_prob
-            ) rewards' data
-        inl rewards = update rewards_and_env_probs
-        am.generic.map2 (fun a (_,_,pid,_) => if pid = 0 then r2 a else r2 -a) rewards data
+            set update_data (num_actions + num_action) regret_prob
+
+            schema.future.pickle (future_ex (index rewards_true num_action,player_state,game_state,pid)) (2 * num_actions + u64 action_size * num_action, update_data)
+            ) rewards_critic data
+        inl rewards = update (from_numpy update_data)
+        am.generic.map2 (fun a (_,_,pid,_) => if pid = 0 then r2 a else r2 -a) rewards data, rewards_true

@@ -86,13 +86,13 @@ inl policy forall present future. extractor ((agent : agent_dict present future)
         set pids i_batch pid
 
         log_prob_from {policy=index action_prob i_action; sample=index sample_prob i_action}, index actions (u64 i_action)
-    l, fun (at_action_reward : a u64 r2) =>
+    l, fun (at_action_reward, true_reward : a u64 r2 * a u64 r2) =>
         inl at_action_value = am.map2 (~!!) at_action_reward pids
         inl update_head, action_fun = belief_tabulate slots action_indices at_action_value at_action_weight
         inl corrected_values,update_policy = action_fun action_probs sample_probs
         if is_update_head then update_head()
         if is_update_policy then update_policy()
-        am.map2 (fun x pid => if pid = 0 then r2 x else r2 -x) corrected_values pids
+        am.map2 (fun x pid => if pid = 0 then r2 x else r2 -x) corrected_values pids, true_reward
 
 // Decays multiplies the head values by the specified scalar factor.
 inl head_multiply_ ((agent : agent_dict _ _), w) =

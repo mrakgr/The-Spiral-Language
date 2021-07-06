@@ -1,10 +1,10 @@
-type st = st
+type dt = u64
 type at = f32
-type state = st * a st at
-nominal pu a = {
-    pickle : a -> state -> ()
-    size : st
-    unpickle : state -> a * st
+type state = dt * a dt at
+nominal pu t = {
+    pickle : t -> state -> ()
+    size : dt
+    unpickle : state -> t * dt
     }
 
 inl Unit = pu {
@@ -61,7 +61,7 @@ inl bin_int forall t {number;int}. size : pu t =
             |> fun x => x - 1, if 0 < x then 1 else 0
         }
 
-// Can store 2 ** (size+1) - 1 values. Allows unsigned ints.
+// Can store 2 ** (size+1) - 1 values. Allows negative ints.
 inl bin_sint forall t {number;int;sint}. size : pu t =
     assert (1 <= size && size <= 63) "The field size has to be in the [1,63] range."
     pu {size=1+2*size
@@ -82,24 +82,21 @@ inl bin_sint forall t {number;int;sint}. size : pu t =
         unpickle = fun ~(from,s : state) => join
             inl c = index s from
             inl from = from+1
-            if c = 1 then
-                inl read from =
-                    loop.for (from: 0 nearTo: size) (fun i' w =>
-                        inl x = index s (from + i')
-                        if x = 0 || x = 1 then w + (conv_num x <<< i32 (size - i' - 1))
-                        else failwith "Unpickling failure. The int type must either be active or inactive."
-                        ) 0
-                inl a,b = read from, read (from+size)
-                inl c = conv_num c
-                if a <> 0 && b <> 0 then failwith "Unpickling failure. Only a single side of an active int should be active."
-                elif a <> 0 then a,c
-                elif b <> 0 then -b,c
-                else 0,c
-            elif c = 0 then 0,conv_num c
-            else failwith "Unpickling failure. The int type's flag must either be active or inactive."
+            inl read from =
+                loop.for (from: 0 nearTo: size) (fun i' w =>
+                    inl x = index s (from + i')
+                    if x = 0 || x = 1 then w + (conv_num x <<< i32 (size - i' - 1))
+                    else failwith "Unpickling failure. The int type must either be active or inactive."
+                    ) 0
+            inl a,b = read from, read (from+size)
+            if c <> 0 && c <> 1 then failwith "Unpickling failure. The int type's flag must either be active or inactive."
+            inl c = conv_num c
+            if c = 1 && a <> 0 && b <> 0 then failwith "Unpickling failure. Only a single side of an active int should be active."
+            if c = 0 && (a <> 0 || b <> 0) then failwith "Unpickling failure. The int positive and negative fields must be inactive."
+            if a <> 0 then a, c else -b, c
         }
 
-inl array forall t. size (pu el : pu t) : pu (a st t) =
+inl array forall t. size (pu el : pu t) : pu (a dt t) =
     inl unpickle (~from,s : state) : a _ _ * _ =
         inl tmp : a _ _ = create size
         inl c = 
@@ -145,8 +142,8 @@ inl wrap (in:a out:b) (pu p) =
         }
 
 inl alt forall t r. (l : r) : pu t = 
-    inl zero = 0 : st
-    inl one = 1 : st
+    inl zero = 0 : dt
+    inl one = 1 : dt
     inl _ = real // Typechecking.
         open real_core
         union_to_record `t forall r'. =>
@@ -159,7 +156,7 @@ inl alt forall t r. (l : r) : pu t =
     inl offsets, size = real
         open real_core
         record_foldl (fun (state:(m,s) key:value:) => inl (pu p) = value in {m with $key=s}, s + p.size) ({},zero) l
-    inl unpickle (i,s : state) : t * st = real
+    inl unpickle (i,s : state) : t * dt = real
         open real_core
         inl x = 
             record_type_map (fun k => forall v. =>
@@ -187,7 +184,7 @@ inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { ok_ = a; 
 
 inl size (pu p) = p.size
 
-nominal binary_array t = a st at
+nominal binary_array t = a dt at
 inl serialize forall t. (pu p : pu t) ~(x : t) : binary_array t =
     inl ar = create p.size
     loop.for' (from:0 nearTo: length ar) (fun i => set ar i 0)

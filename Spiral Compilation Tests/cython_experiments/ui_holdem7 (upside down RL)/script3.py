@@ -1,10 +1,5 @@
 import torch
+import torch.nn
 import torch.optim
-q = torch.rand(2)
-opt = torch.optim.SGD([q],lr=1.0)
-
-q.grad = torch.tensor([1,2],dtype=torch.float)
-opt.step()
-q.grad
-opt.zero_grad(True)
-
+q = torch.nn.Linear(4,4,False)
+q.requires_grad_()

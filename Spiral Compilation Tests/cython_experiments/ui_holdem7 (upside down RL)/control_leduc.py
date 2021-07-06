@@ -11,34 +11,33 @@ from belief import SignSGD,Head,model_evaluate,InfCube
 from torch.optim.swa_utils import AveragedModel
 
 def neural_create_model(size,size_mid=64,size_head=64):
-    value = torch.nn.Sequential(
-        InfCube(size.value,size_mid),
+    present_rep = torch.nn.Sequential(
+        InfCube(size.present,size_mid),
         Linear(size_mid,size_head)
         )
-    policy = torch.nn.Sequential(
-        InfCube(size.policy,size_mid),
-        Linear(size_mid,size.action)
-        )
-    head = Head(size.action,size_mid)
-    return value.cuda(), policy.cuda(), head.cuda()
+    future_rep = Linear(size_head+size.future,size_mid,False) # The bias is false because the rewards serializer always puts an 1 to indicate that the reward is active.
+    action_pred = Linear(size_head,size_mid)
+    actor = Linear(size_mid,size.action)
+    critic = Head(size_mid,size.action)
+    return present_rep.cuda(), future_rep.cuda(), action_pred.cuda(), actor.cuda(), critic.cuda()
 
-def evaluate_vs_tabular(i_tabular,i_nn,vs_self,vs_one,neural,uniform_player,tabular): # old NN vs old tabular
+def evaluate_vs_tabular(i_tabular,i_nn,vs_one,neural,tabular): # old NN vs old tabular
     batch_size = 2 ** 10
     with open(f'dump leduc/agent_{i_tabular}_avg.obj','rb') as f: tabular_agent_old = pickle.load(f)
 
-    def r(name,value,policy,head):
+    def r(name, present_rep, future_rep, action_pred, actor, critic):
         def tabular_player(is_update_head=False,is_update_policy=False,epsilon=0.0,tabular_agent=tabular_agent_old): 
             return tabular.create_policy(tabular_agent,is_update_head,is_update_policy,epsilon)
 
-        def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
-            return neural.handler(partial(model_evaluate,value,policy,head,is_update_head,is_update_value,is_update_policy,epsilon))
+        def neural_player(is_update_pred : bool = False,is_update_critic : bool = False,is_update_actor : bool = False): 
+            return neural.handler(partial(model_evaluate,present_rep,future_rep,action_pred,actor,critic,None,is_update_pred,is_update_critic,is_update_actor))
 
         r : np.ndarray = vs_one(batch_size * 2 ** 8,neural_player(),tabular_player())
         logging.info(f'The mean is {r.mean()} for the {name} player.')
-    with open(f'dump leduc/nn_agent_{i_nn}.obj','rb') as f: r('regular',*torch.load(f))
-    with open(f'dump leduc/nn_agent_{i_nn}_avg.obj','rb') as f: r('average',*torch.load(f))
+    with open(f'dump leduc/nn_agent_{i_nn}.nnreg','rb') as f: r('regular',*torch.load(f))
+    with open(f'dump leduc/nn_agent_{i_nn}.nnavg','rb') as f: r('average',*torch.load(f))
 
-def create_tabular_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular):
+def create_tabular_agent(n,m,vs_self,tabular):
     batch_size = 2 ** 10
     head_decay = 2 ** -2
 
@@ -49,8 +48,7 @@ def create_tabular_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular):
 
     def run(is_avg : bool = False):
         tabular.head_multiply_(tabular_agent,head_decay)
-        for a in range(1): 
-            vs_self(batch_size,tabular_player(True,False,2 ** -2,agent=tabular_agent))
+        vs_self(batch_size,tabular_player(True,False,2 ** -2,agent=tabular_agent))
         vs_self(batch_size,tabular_player(False,True,2 ** -2,agent=tabular_agent))
         tabular.optimize(tabular_agent)
         if is_avg: tabular.average(tabular_avg_agent,tabular_agent)
@@ -73,39 +71,34 @@ def create_tabular_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular):
     with open(f"dump leduc/agent_{n + m}.obj",'wb') as f: pickle.dump(tabular_agent,f)
     with open(f"dump leduc/agent_{n + m}_avg.obj",'wb') as f: pickle.dump(tabular_avg_agent,f)
 
-def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self play NN
+def create_nn_agent(num_iter,num_chk,avg_window,vs_one,neural): # self play NN
+    assert (num_iter % num_chk == 0)
     batch_size = 2 ** 10
-    head_decay = 2 ** -2
 
-    value, policy, head = neural_create_model(neural.size)
+    present_rep, future_rep, action_pred, actor, critic = neural_create_model(neural.size)
     opt = SignSGD([
-        dict(params=value.parameters(),lr=2 ** -6),
-        dict(params=policy.parameters(),lr=2 ** -8)
-        ],momentum_decay=0.0) # Momentum works worse than vanilla signSGD on Leduc. On lower batch sizes I don't see any improvement either.
-    valuea, policya, heada = AveragedModel(value), AveragedModel(policy), AveragedModel(head)
-    def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=2 ** -2): 
-        return neural.handler(partial(model_evaluate,value,policy,head,is_update_head,is_update_value,is_update_policy,epsilon))
+        dict(params=present_rep.parameters()),
+        dict(params=future_rep.parameters()),
+        dict(params=action_pred.parameters()),
+        dict(params=actor.parameters()),
+        dict(params=critic.parameters(),weight_decay=0.5),
+        ],lr=2 ** -6)
+    def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(avg_window, t + 1)
+    present_repa, future_repa, action_preda, actora, critica = AveragedModel(present_rep,avg_fn), AveragedModel(future_rep,avg_fn), AveragedModel(action_pred,avg_fn), AveragedModel(actor,avg_fn), AveragedModel(critic,avg_fn)
+    def neural_player(is_update_pred : bool = False,is_update_critic : bool = False,is_update_actor : bool = False,is_explorative : bool = False): 
+        return neural.handler(partial(model_evaluate,present_rep,future_rep,action_pred,actor,critic,actora.module if is_explorative else None,is_update_pred,is_update_critic,is_update_actor))
 
-    def run(is_avg=False):
-        nonlocal head,heada
+    pla,plb = neural_player(True,True,True,True),neural_player()
+    for a in range(1,1+num_iter):
         opt.zero_grad(True)
-        vs_self(batch_size,neural_player(True,True,True,2 ** -2))
+        vs_one(batch_size//2,pla,plb)
+        vs_one(batch_size//2,plb,pla)
         opt.step()
-        head.decay(head_decay)
 
-        if is_avg: valuea.update_parameters(value); policya.update_parameters(policy); heada.update_parameters(head)
-
-    def train(n):
-        logging.info('Training the NN agent.')
-        for a in range(n): run()
-    def avg(m):
-        logging.info('Averaging the NN agent.')
-        for a in range(m): run(True)
-    train(n); avg(m)
-    def dump(i):
-        with open(f"dump leduc/nn_agent_{i}.obj",'wb') as f: torch.save((value,policy,head),f)
-        with open(f"dump leduc/nn_agent_{i}_avg.obj",'wb') as f: torch.save((valuea.module,policya.module,heada.module),f)
-    dump(n+m); avg(m); dump(n+2*m); avg(m); dump(n+3*m)
+        present_repa.update_parameters(present_rep); future_repa.update_parameters(future_rep); action_preda.update_parameters(action_pred); actora.update_parameters(actor); critica.update_parameters(critic)
+        if a % num_chk == 0:
+            with open(f"dump leduc/nn_agent_{a}.nnreg",'wb') as f: torch.save((present_rep, future_rep, action_pred, actor, critic),f)
+            with open(f"dump leduc/nn_agent_{a}.nnavg",'wb') as f: torch.save((present_repa.module, future_repa.module, action_preda.module, actora.module, critica.module),f)
 
 if __name__ == '__main__':
     import numpy as np

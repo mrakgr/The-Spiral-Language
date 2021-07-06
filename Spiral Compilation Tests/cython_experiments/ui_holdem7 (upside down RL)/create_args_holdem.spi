@@ -144,9 +144,8 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (restriction,i
 
 inl main () =
     open hu_holdem
-    inl vs_self x = train.vs_self (game x)
     inl vs_one x = train.vs_one (game x)
-    inl uniform_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * a i16 i8 * i16 * bool) * u8 * a i16 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) = agent.uniform.policy
-    inl callbot_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * a i16 i8 * i16 * bool) * u8 * a i16 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) = agent.holdem_callbot.policy
+    inl uniform_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * a i16 i8 * i16 * bool) * u8 * a i16 action) -> a u64 (log_prob * action) * _ = agent.uniform.policy
+    inl callbot_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * a i16 i8 * i16 * bool) * u8 * a i16 action) -> a u64 (log_prob * action) * _ = agent.holdem_callbot.policy
     inl neural = agent.neural_ff_holdem.holdem_cython_schema
-    record {ui train = record {vs_self vs_one uniform_player callbot_player neural}}
+    record {ui train = record {vs_one uniform_player callbot_player neural}}
