@@ -85,7 +85,7 @@ def create_nn_agent(num_iter,avg_window,vs_self,vs_one,tabular,neural,uniform_pl
     def neural_player(is_update_pred : bool = False,is_update_critic : bool = False,is_update_actor : bool = False,is_explorative : bool = False):
         return neural.handler(partial(model_evaluate,present_rep,future_rep,action_pred,actor,critic,actora.module if is_explorative else None,is_update_pred,is_update_critic,is_update_actor))
 
-    pla,plb = neural_player(False,False,True,False),neural_player()
+    pla,plb = neural_player(True,False,True,False),neural_player()
     for a in range(1,1+num_iter):
         opt.zero_grad(True)
         vs_one(batch_size//2,pla,plb)

@@ -36,5 +36,5 @@ modules:
         tabular
         neural_ff_leduc
         neural_ff_holdem
-    create_args_leduc
+    create_args_leduc_
     create_args_holdem

@@ -95,7 +95,7 @@ def model_evaluate(
         is_update_pred : bool, is_update_critic : bool,is_update_actor : bool,
         present_data : Tensor,action_mask : Tensor):
     present_basis, action_mask = normed_square(present_rep(present_data.cuda())), action_mask.cuda()
-    action_probs : Tensor = normed_square(actor(present_basis).masked_fill(action_mask,0.0))
+    action_probs : Tensor = normed_square(actor(present_basis.detach()).masked_fill(action_mask,0.0))
     sample_probs : Tensor = action_probs if avg_actor is None else normed_square_(avg_actor(present_basis.detach()).masked_fill_(action_mask,0.0))
     sample_indices = Categorical(sample_probs).sample()
     def update(data : Tensor):
