@@ -1,6 +1,6 @@
 inl main () =
     open leduc
-    // inl vs_self = train.vs_self leduc.game
+    inl vs_self = train.vs_self leduc.game
     inl vs_one = train.vs_one leduc.game
     inl neural =
         open agent.neural_ff_leduc
@@ -23,4 +23,4 @@ inl main () =
         inl head_multiply_ : agent.tabular.agent_dict (list (observation card action)) card * _ -> _ = agent.tabular.head_multiply_
         namedtuple "Tabular" {create_policy create_agent head_multiply_ optimize average}
 
-    record {vs_one neural uniform_player tabular}
+    record {vs_self vs_one neural uniform_player tabular}

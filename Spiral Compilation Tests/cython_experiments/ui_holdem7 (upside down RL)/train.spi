@@ -8,35 +8,34 @@ inl vs_human game human_pid p =
                 loop (next (index cs 0))
     loop game
 
-// `vs_self` is commented out to remind myself that neural training should not be mixed with sampling.
-
-// inl vs_self game (batch_size, p) =
-//     let rec loop (l : a u64 _) =
-//         inl rewards_critic : ra u64 _ = am.empty
-//         inl rewards_true : ra u64 _ = am.empty
-//         inl actions_indices : ra u64 _ = am.empty
-//         inl data : ra u64 _ = am.empty
-//         inl nexts : ra u64 _ = am.empty
-//         l |> am.iteri fun i => function
-//             | Action: player_state,game_state,pid,actions,next =>
-//                 rm.add actions_indices i
-//                 rm.add data (player_state,game_state,pid,actions)
-//                 rm.add nexts next
-//             | Terminal: _,_,r => 
-//                 rm.add rewards_critic (i, r)
-//                 rm.add rewards_true (i, r)
-//         inl rewards_actions_critic, rewards_actions_true : a _ _ * a _ _ =
-//             if 0 < length data then
-//                 inl (cs : a _ _),update = p data
-//                 am.generic.map2 (<|) nexts cs |> loop |> update
-//             else am.empty, am.empty
-//         inl rewards_all_critic, rewards_all_true : a _ r2 * a _ r2 = create (length l), create (length l)
-//         am.generic.iter2 (set rewards_all_critic) actions_indices rewards_actions_critic
-//         am.iter (fun (i,r) => set rewards_all_critic i r) rewards_critic
-//         am.generic.iter2 (set rewards_all_true) actions_indices rewards_actions_true
-//         am.iter (fun (i,r) => set rewards_all_true i r) rewards_true
-//         rewards_all_critic, rewards_all_true
-//     loop (am.init batch_size fun _ => game () pl2_init)
+// Should not be used to train the action predictor.
+inl vs_self game (batch_size, p) =
+    let rec loop (l : a u64 _) =
+        inl rewards_critic : ra u64 _ = am.empty
+        inl rewards_true : ra u64 _ = am.empty
+        inl actions_indices : ra u64 _ = am.empty
+        inl data : ra u64 _ = am.empty
+        inl nexts : ra u64 _ = am.empty
+        l |> am.iteri fun i => function
+            | Action: player_state,game_state,pid,actions,next =>
+                rm.add actions_indices i
+                rm.add data (player_state,game_state,pid,actions)
+                rm.add nexts next
+            | Terminal: _,_,r => 
+                rm.add rewards_critic (i, r)
+                rm.add rewards_true (i, r)
+        inl rewards_actions_critic, rewards_actions_true : a _ _ * a _ _ =
+            if 0 < length data then
+                inl (cs : a _ _),update = p data
+                am.generic.map2 (<|) nexts cs |> loop |> update
+            else am.empty, am.empty
+        inl rewards_all_critic, rewards_all_true : a _ r2 * a _ r2 = create (length l), create (length l)
+        am.generic.iter2 (set rewards_all_critic) actions_indices rewards_actions_critic
+        am.iter (fun (i,r) => set rewards_all_critic i r) rewards_critic
+        am.generic.iter2 (set rewards_all_true) actions_indices rewards_actions_true
+        am.iter (fun (i,r) => set rewards_all_true i r) rewards_true
+        rewards_all_critic, rewards_all_true
+    loop (am.init batch_size fun _ => game () pl2_init) |> fst
 
 inl vs_one game (batch_size, p1, p2) =
     let rec loop (l : a u64 _) =
@@ -84,7 +83,7 @@ inl vs_one game (batch_size, p1, p2) =
         am.generic.iter2 (set rewards_all_true) actions_indices rewards_actions_true
         am.iter (fun (i,r) => set rewards_all_true i r) rewards_true
         rewards_all_critic, rewards_all_true
-    loop (am.init batch_size fun _ => game () pl2_init)
+    loop (am.init batch_size fun _ => game () pl2_init) |> fst
 
 type a2 x = $"numpy.ndarray[`x,ndim=2]"
 
@@ -112,13 +111,14 @@ inl neural_handler (present_ex, future_ex) (schema : schema _ _ _) policy_value_
             inl a = index sample_indices b
             inl policy, sample = get b a
             log_prob_from {policy sample}, join schema.action.unpickle (conv_int a)
-        if $"sample_probs is None" then f (fun b a => inl x = $"!action_probs[!b,!a]" in x,x)
+        if $"!sample_probs is None" then f (fun b a => inl x = $"!action_probs[!b,!a]" in x,x)
         else 
             inl sample_probs : a2 f32 = $"!sample_probs"
             f (fun b a => $"!action_probs[!b,!a]", $"!sample_probs[!b,!a]")
     
     cs, fun (rewards_critic, rewards_true : a u64 r2 * a u64 r2) : a u64 r2 * a u64 r2 =>
-        inl update_data : a _ _ = create (2*num_actions + num_actions * u64 action_size)
+        inl update_data_size = 2*num_actions + num_actions * future_size
+        inl update_data : a _ _ = $"numpy.zeros(!update_data_size,dtype=numpy.float32)"
         am.generic.iteri2 (fun num_action reward (player_state,game_state,pid,actions) =>
             inl reward = !!reward pid
             set update_data num_action reward
@@ -130,7 +130,7 @@ inl neural_handler (present_ex, future_ex) (schema : schema _ _ _) policy_value_
                 // @@prob_env // Works better, but I can't fully justify it yet.
             set update_data (num_actions + num_action) regret_prob
 
-            schema.future.pickle (future_ex (index rewards_true num_action,player_state,game_state,pid)) (2 * num_actions + u64 action_size * num_action, update_data)
+            schema.future.pickle (future_ex (index rewards_true num_action,player_state,game_state,pid)) (2 * num_actions + future_size * num_action, update_data)
             ) rewards_critic data
         inl rewards = update (from_numpy update_data)
         am.generic.map2 (fun a (_,_,pid,_) => if pid = 0 then r2 a else r2 -a) rewards data, rewards_true

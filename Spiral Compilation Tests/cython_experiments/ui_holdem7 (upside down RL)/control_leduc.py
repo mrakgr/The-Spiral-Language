@@ -15,13 +15,13 @@ def neural_create_model(size,size_mid=64,size_head=64):
         InfCube(size.present,size_mid),
         Linear(size_mid,size_head)
         )
-    future_rep = Linear(size_head+size.future,size_mid,False) # The bias is false because the rewards serializer always puts an 1 to indicate that the reward is active.
-    action_pred = Linear(size_head,size_mid)
+    future_rep = Linear(size_head+size.future,size_head,False) # The bias is false because the rewards serializer always puts an 1 to indicate that the reward is active.
+    action_pred = Linear(size_head,size.action)
     actor = Linear(size_mid,size.action)
     critic = Head(size_mid,size.action)
     return present_rep.cuda(), future_rep.cuda(), action_pred.cuda(), actor.cuda(), critic.cuda()
 
-def evaluate_vs_tabular(i_tabular,i_nn,vs_one,neural,tabular): # old NN vs old tabular
+def evaluate_vs_tabular(i_tabular,i_nn,vs_self,vs_one,neural,tabular,uniform_player): # old NN vs old tabular
     batch_size = 2 ** 10
     with open(f'dump leduc/agent_{i_tabular}_avg.obj','rb') as f: tabular_agent_old = pickle.load(f)
 
@@ -37,7 +37,7 @@ def evaluate_vs_tabular(i_tabular,i_nn,vs_one,neural,tabular): # old NN vs old t
     with open(f'dump leduc/nn_agent_{i_nn}.nnreg','rb') as f: r('regular',*torch.load(f))
     with open(f'dump leduc/nn_agent_{i_nn}.nnavg','rb') as f: r('average',*torch.load(f))
 
-def create_tabular_agent(n,m,vs_self,tabular):
+def create_tabular_agent(n,m,vs_self,vs_one,tabular,neural,uniform_player):
     batch_size = 2 ** 10
     head_decay = 2 ** -2
 
@@ -71,8 +71,8 @@ def create_tabular_agent(n,m,vs_self,tabular):
     with open(f"dump leduc/agent_{n + m}.obj",'wb') as f: pickle.dump(tabular_agent,f)
     with open(f"dump leduc/agent_{n + m}_avg.obj",'wb') as f: pickle.dump(tabular_avg_agent,f)
 
-def create_nn_agent(num_iter,num_chk,avg_window,vs_one,neural): # self play NN
-    assert (num_iter % num_chk == 0)
+def create_nn_agent(num_iter,avg_window,vs_self,vs_one,tabular,neural,uniform_player): # self play NN
+    assert (num_iter % avg_window == 0)
     batch_size = 2 ** 10
 
     present_rep, future_rep, action_pred, actor, critic = neural_create_model(neural.size)
@@ -84,11 +84,11 @@ def create_nn_agent(num_iter,num_chk,avg_window,vs_one,neural): # self play NN
         dict(params=critic.parameters(),weight_decay=0.5),
         ],lr=2 ** -6)
     def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(avg_window, t + 1)
-    present_repa, future_repa, action_preda, actora, critica = AveragedModel(present_rep,avg_fn), AveragedModel(future_rep,avg_fn), AveragedModel(action_pred,avg_fn), AveragedModel(actor,avg_fn), AveragedModel(critic,avg_fn)
-    def neural_player(is_update_pred : bool = False,is_update_critic : bool = False,is_update_actor : bool = False,is_explorative : bool = False): 
-        return neural.handler(partial(model_evaluate,present_rep,future_rep,action_pred,actor,critic,actora.module if is_explorative else None,is_update_pred,is_update_critic,is_update_actor))
+    present_repa, future_repa, action_preda, actora, critica = AveragedModel(present_rep,avg_fn=avg_fn), AveragedModel(future_rep,avg_fn=avg_fn), AveragedModel(action_pred,avg_fn=avg_fn), AveragedModel(actor,avg_fn=avg_fn), AveragedModel(critic,avg_fn=avg_fn)
+    def neural_player(is_update_pred : bool = False,is_update_critic : bool = False,is_update_actor : bool = False): 
+        return neural.handler(partial(model_evaluate,present_rep,future_rep,action_pred,actor,critic,actora.module if is_update_pred or is_update_actor else None,is_update_pred,is_update_critic,is_update_actor))
 
-    pla,plb = neural_player(True,True,True,True),neural_player()
+    pla,plb = neural_player(True,True,True),neural_player()
     for a in range(1,1+num_iter):
         opt.zero_grad(True)
         vs_one(batch_size//2,pla,plb)
@@ -96,7 +96,7 @@ def create_nn_agent(num_iter,num_chk,avg_window,vs_one,neural): # self play NN
         opt.step()
 
         present_repa.update_parameters(present_rep); future_repa.update_parameters(future_rep); action_preda.update_parameters(action_pred); actora.update_parameters(actor); critica.update_parameters(critic)
-        if a % num_chk == 0:
+        if a % avg_window == 0:
             with open(f"dump leduc/nn_agent_{a}.nnreg",'wb') as f: torch.save((present_rep, future_rep, action_pred, actor, critic),f)
             with open(f"dump leduc/nn_agent_{a}.nnavg",'wb') as f: torch.save((present_repa.module, future_repa.module, action_preda.module, actora.module, critica.module),f)
 
@@ -116,14 +116,14 @@ if __name__ == '__main__':
         )
 
     logging.info("** TRAINING START **")
-    n,m = 300,150
-    ag = n + m
-    # create_tabular_agent(n,m,**args)
+    n,m = 300,100
+    ag = n + 2*m
+    create_tabular_agent(n,2*m,**args)
     for _ in range(5):
-        create_nn_agent(n,m,**args)
+        create_nn_agent(n+2*m,m,**args)
+        evaluate_vs_tabular(ag,n,**args)
         evaluate_vs_tabular(ag,n+m,**args)
         evaluate_vs_tabular(ag,n+2*m,**args)
-        evaluate_vs_tabular(ag,n+3*m,**args)
         logging.info("----")
 
     logging.info("** TRAINING DONE **")
