@@ -1,5 +1,15 @@
 // I've backed up the prep since I'll have to change a lot of things. Here I'll actually implement upside down RL.
 
+// Update(7/8/2021): It is a failure. UDRL cannot be used as a source of good features for the linear critic and actor on top.
+// It actually works quite worse than giving them features passed through a random net. See the commit for more info.
+
+// I do not have much choice here. I'll bring in the transformers next and use a curriculum to first train the agents on something 
+// like River poker so they learn hand reading before letting them play on the full game. That is 100% guranteed to let me meet
+// my goal. The task of doing it fully end-to-end will have to wait for later. I'll master unsupervised training of the transformers
+// for that purpose. The duality gap method for training GAN transformers will give me what I want.
+
+// Before I can tap into that, I need to actually master transformers first. Time to finally tackle that.
+
 packages: |core2-
 modules:
     types-

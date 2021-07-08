@@ -19,7 +19,7 @@ def neural_create_model(size,size_mid=64,size_head=64):
         InfCube(size.policy,size_mid),
         Linear(size_mid,size.action)
         )
-    head = Head(size.action,size_mid)
+    head = Head(size_mid,size.action)
     return value.cuda(), policy.cuda(), head.cuda()
 
 def evaluate_vs_tabular(i_tabular,i_nn,vs_self,vs_one,neural,uniform_player,tabular): # old NN vs old tabular
@@ -75,23 +75,21 @@ def create_tabular_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular):
 
 def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self play NN
     batch_size = 2 ** 10
-    head_decay = 2 ** -2
-
     value, policy, head = neural_create_model(neural.size)
     opt = SignSGD([
+        dict(params=head.parameters(),lr=0,weight_decay=0.5),
         dict(params=value.parameters(),lr=2 ** -6),
         dict(params=policy.parameters(),lr=2 ** -8)
-        ],momentum=0) # Momentum works worse than vanilla signSGD on Leduc. On lower batch sizes I don't see any improvement either.
+        ]) # Momentum works worse than vanilla signSGD on Leduc. On lower batch sizes I don't see any improvement either.
     valuea, policya, heada = AveragedModel(value), AveragedModel(policy), AveragedModel(head)
     def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
         return neural.handler(partial(model_evaluate,value,policy,head,is_update_head,is_update_value,is_update_policy,epsilon))
 
     def run(is_avg=False):
         nonlocal head,heada
-        opt.zero_grad(True)
-        vs_self(batch_size,neural_player(False,False,True,0.0))
+        vs_self(batch_size,neural_player(True,True,True,2 ** -2))
         opt.step()
-        head.decay(head_decay)
+        opt.zero_grad(True)
 
         if is_avg: valuea.update_parameters(value); policya.update_parameters(policy); heada.update_parameters(head)
 

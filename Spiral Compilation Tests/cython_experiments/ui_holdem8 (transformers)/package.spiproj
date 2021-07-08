@@ -1,0 +1,31 @@
+// So much for giving up on deep RL. I guess I will be using it after all. With upside down RL being a flop, the only two challenges
+// left are transformers and their unsupervised learning. I'll tackle transformer architectures for the first time in this project.
+
+// Maybe, just maybe the transformers on their own will be enough to crack Holdem, but if that fails, I'll use a curriculum of 
+// training the agents on River poker so they can learn to read hands and then setting them loose on the full game. That will
+// definitely work, though it is not as elegant as doing it all end to end.
+
+packages: |core2-
+modules:
+    types-
+    conv-
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    sampling
+    nodes-
+    train
+    hand_scorer
+    hu_holdem
+    leduc
+    agent/
+        uniform
+        holdem_callbot
+        tabular
+        neural_ff_leduc
+        neural_ff_holdem
+    create_args_leduc
+    create_args_holdem

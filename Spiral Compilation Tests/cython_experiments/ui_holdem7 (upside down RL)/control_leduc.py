@@ -85,12 +85,15 @@ def create_nn_agent(num_iter,avg_window,vs_self,vs_one,tabular,neural,uniform_pl
     def neural_player(is_update_pred : bool = False,is_update_critic : bool = False,is_update_actor : bool = False,is_explorative : bool = False):
         return neural.handler(partial(model_evaluate,present_rep,future_rep,action_pred,actor,critic,actora.module if is_explorative else None,is_update_pred,is_update_critic,is_update_actor))
 
-    pla,plb = neural_player(False,False,True,False),neural_player()
-    for a in range(1,1+num_iter):
+    def run(pla,plb):
         opt.zero_grad(True)
         vs_one(batch_size//2,pla,plb)
         vs_one(batch_size//2,plb,pla)
         opt.step()
+    for a in range(1,1+num_iter):
+        for _ in range(2): run(neural_player(False,True,True,False),neural_player())
+        run(neural_player(True,False,False,False),neural_player())
+        # run(neural_player(True,True,True,False),neural_player())
 
         present_repa.update_parameters(present_rep); future_repa.update_parameters(future_rep); action_preda.update_parameters(action_pred); actora.update_parameters(actor); critica.update_parameters(critic)
         if a % avg_window == 0:

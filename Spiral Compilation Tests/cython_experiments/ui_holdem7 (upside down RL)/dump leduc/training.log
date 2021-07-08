@@ -117,3 +117,90 @@
 07/07/2021 05:04:26 PM The mean is -0.14773069322109222 for the average player.
 07/07/2021 05:04:26 PM ----
 07/07/2021 05:04:26 PM ** TRAINING DONE **
+07/08/2021 09:08:26 AM ** TRAINING START **
+07/08/2021 09:11:10 AM ** TRAINING START **
+07/08/2021 09:12:17 AM ** TRAINING START **
+07/08/2021 09:12:17 AM Training the tabular agent.
+07/08/2021 09:14:36 AM Averaging the tabular agent.
+07/08/2021 09:14:54 AM The mean reward is -0.11939779669046402 for the regular agent.
+07/08/2021 09:14:58 AM The mean reward is -0.10111506283283234 for the average agent.
+07/08/2021 09:15:16 AM The mean reward is -0.08284451067447662 for the regular agent.
+07/08/2021 09:15:20 AM The mean reward is -0.10442536324262619 for the average agent.
+07/08/2021 09:15:38 AM The mean reward is -0.0902905985713005 for the regular agent.
+07/08/2021 09:15:42 AM The mean reward is -0.0946374386548996 for the average agent.
+07/08/2021 09:16:00 AM The mean reward is -0.08957543969154358 for the regular agent.
+07/08/2021 09:16:04 AM The mean reward is -0.07874530553817749 for the average agent.
+07/08/2021 09:16:21 AM The mean reward is -0.013992931693792343 for the regular agent.
+07/08/2021 09:16:25 AM The mean reward is -0.0875859260559082 for the average agent.
+07/08/2021 09:24:03 AM The mean is -0.19828183948993683 for the regular player.
+07/08/2021 09:24:50 AM The mean is -0.18872210383415222 for the average player.
+07/08/2021 09:25:37 AM The mean is -0.19439691305160522 for the regular player.
+07/08/2021 09:26:21 AM The mean is -0.1603112369775772 for the average player.
+07/08/2021 09:27:08 AM The mean is -0.18650206923484802 for the regular player.
+07/08/2021 09:27:51 AM The mean is -0.15008871257305145 for the average player.
+07/08/2021 09:27:51 AM ----
+07/08/2021 09:34:07 AM ** TRAINING START **
+07/08/2021 09:39:34 AM The mean is -0.1927872896194458 for the regular player.
+07/08/2021 09:40:13 AM The mean is -0.19920013844966888 for the average player.
+07/08/2021 09:40:54 AM The mean is -0.20884853601455688 for the regular player.
+07/08/2021 09:41:34 AM The mean is -0.13922818005084991 for the average player.
+07/08/2021 09:42:17 AM The mean is -0.1790562868118286 for the regular player.
+07/08/2021 09:42:59 AM The mean is -0.14137062430381775 for the average player.
+07/08/2021 09:42:59 AM ----
+07/08/2021 09:48:30 AM The mean is -0.198076993227005 for the regular player.
+07/08/2021 09:49:11 AM The mean is -0.20771490037441254 for the average player.
+07/08/2021 09:49:51 AM The mean is -0.31994959712028503 for the regular player.
+07/08/2021 09:50:31 AM The mean is -0.1743772178888321 for the average player.
+07/08/2021 09:51:11 AM The mean is -0.14154185354709625 for the regular player.
+07/08/2021 09:51:50 AM The mean is -0.17494790256023407 for the average player.
+07/08/2021 09:51:50 AM ----
+07/08/2021 09:57:14 AM The mean is -0.1457071304321289 for the regular player.
+07/08/2021 09:57:57 AM The mean is -0.1692066341638565 for the average player.
+07/08/2021 09:58:40 AM The mean is -0.35860687494277954 for the regular player.
+07/08/2021 09:59:24 AM The mean is -0.10813431441783905 for the average player.
+07/08/2021 10:00:06 AM The mean is -0.17177021503448486 for the regular player.
+07/08/2021 10:00:49 AM The mean is -0.14682020246982574 for the average player.
+07/08/2021 10:00:49 AM ----
+07/08/2021 10:02:55 AM ** TRAINING START **
+07/08/2021 10:07:02 AM The mean is -0.2781195044517517 for the regular player.
+07/08/2021 10:07:44 AM The mean is -0.20408380031585693 for the average player.
+07/08/2021 10:08:27 AM The mean is -0.32868364453315735 for the regular player.
+07/08/2021 10:09:07 AM The mean is -0.19642628729343414 for the average player.
+07/08/2021 10:09:50 AM The mean is -0.23410622775554657 for the regular player.
+07/08/2021 10:10:31 AM The mean is -0.2565908133983612 for the average player.
+07/08/2021 10:10:31 AM ----
+07/08/2021 10:14:37 AM The mean is -0.18264272809028625 for the regular player.
+07/08/2021 10:15:22 AM The mean is -0.20579838752746582 for the average player.
+07/08/2021 10:16:01 AM The mean is -0.19247187674045563 for the regular player.
+07/08/2021 10:16:45 AM The mean is -0.15848298370838165 for the average player.
+07/08/2021 10:17:28 AM The mean is -0.32041019201278687 for the regular player.
+07/08/2021 10:18:05 AM The mean is -0.17703400552272797 for the average player.
+07/08/2021 10:18:05 AM ----
+07/08/2021 10:21:57 AM ** TRAINING START **
+07/08/2021 10:23:35 AM ** TRAINING START **
+07/08/2021 10:28:45 AM The mean is -0.5070276856422424 for the regular player.
+07/08/2021 10:29:27 AM The mean is -0.49590274691581726 for the average player.
+07/08/2021 10:30:11 AM The mean is -0.5553973317146301 for the regular player.
+07/08/2021 10:30:55 AM The mean is -0.5028824806213379 for the average player.
+07/08/2021 10:31:35 AM The mean is -0.4186183512210846 for the regular player.
+07/08/2021 10:32:18 AM The mean is -0.6036033034324646 for the average player.
+07/08/2021 10:32:18 AM ----
+07/08/2021 10:37:33 AM The mean is -0.4974822700023651 for the regular player.
+07/08/2021 10:38:15 AM The mean is -0.5448490381240845 for the average player.
+07/08/2021 10:38:55 AM The mean is -0.5039814710617065 for the regular player.
+07/08/2021 10:39:36 AM The mean is -0.5149045586585999 for the average player.
+07/08/2021 10:40:15 AM The mean is -0.47765105962753296 for the regular player.
+07/08/2021 10:40:55 AM The mean is -0.4519011378288269 for the average player.
+07/08/2021 10:40:55 AM ----
+07/08/2021 10:46:06 AM The mean is -0.4784087538719177 for the regular player.
+07/08/2021 10:46:48 AM The mean is -0.5303425192832947 for the average player.
+07/08/2021 10:47:36 AM The mean is -0.95585036277771 for the regular player.
+07/08/2021 10:48:17 AM The mean is -0.47160762548446655 for the average player.
+07/08/2021 10:53:25 AM ** TRAINING START **
+07/08/2021 10:58:54 AM The mean is -0.6290525197982788 for the regular player.
+07/08/2021 10:59:45 AM The mean is -0.7911471128463745 for the average player.
+07/08/2021 11:00:32 AM The mean is -0.8489574790000916 for the regular player.
+07/08/2021 11:01:12 AM The mean is -0.5818972587585449 for the average player.
+07/08/2021 11:01:51 AM The mean is -0.479217529296875 for the regular player.
+07/08/2021 11:02:30 AM The mean is -0.46858304738998413 for the average player.
+07/08/2021 11:02:30 AM ----
