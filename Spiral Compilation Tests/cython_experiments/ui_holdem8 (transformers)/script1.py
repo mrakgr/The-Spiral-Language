@@ -1,8 +1,43 @@
 import torch
-from torch.nn import TransformerDecoderLayer, TransformerEncoderLayer
+import torch.nn
+from einops import rearrange, repeat, reduce
+from einops.layers.torch import Rearrange
 
-dec = TransformerDecoderLayer(16,1,16,dropout=0,batch_first=True)
-q = torch.rand(1,1,3)
-m = torch.rand(1,1) < 0
+class Rotary(torch.nn.Module):
+    def __init__(self, dim, base=10000):
+        super().__init__()
+        inv_freq = 1. / (base ** (torch.arange(0, dim, 2).float() / dim))
+        self.register_buffer('inv_freq', inv_freq)
+        self.seq_len_cached = None
+        self.cos_cached = None
+        self.sin_cached = None
 
-dec.forward()
+    def forward(self, x, seq_dim=1):
+        seq_len = x.shape[seq_dim]
+        if seq_len != self.seq_len_cached:
+            self.seq_len_cached = seq_len
+            t = torch.arange(x.shape[seq_dim], device=x.device).type_as(self.inv_freq)
+            freqs = torch.einsum('i,j->ij', t, self.inv_freq)
+            emb = torch.cat((freqs, freqs), dim=-1).to(x.device)
+            self.cos_cached = emb.cos()[:, None, None, :]
+            self.sin_cached = emb.sin()[:, None, None, :]
+        return self.cos_cached, self.sin_cached
+
+
+# rotary pos emb helpers:
+
+def rotate_half(x):
+    x1, x2 = x[..., :x.shape[-1] // 2], x[..., x.shape[-1] // 2:]
+    return torch.cat((-x2, x1), dim=-1)
+
+@torch.jit.script
+def apply_rotary_pos_emb(q, k, cos, sin):
+    return (q * cos) + (rotate_half(q) * sin), (k * cos) + (rotate_half(k) * sin)
+
+x = torch.rand(3,6)
+r = Rotary(6)
+s,c = r.forward(x,0)
+c.shape
+
+q = torch.rand(1,5)
+torch.cat((q,q),dim=0).t().flatten()
