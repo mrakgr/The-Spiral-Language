@@ -12,6 +12,7 @@ inl gt_is (order x) : bool = !!!!EQ(x, 1i32)
 prototype hashable a : a -> i32
 
 union option a = Some: a | None
+union choice2 a b = C1of2: a | C2of2: b
 union result a b = Ok: a | Error: b
 union rec list a = Nil | Cons: a * list a
 // Concatenates an element to the head of a list.

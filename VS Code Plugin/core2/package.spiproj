@@ -4,6 +4,7 @@ modules:
     limit_min
     real_core*
     core-
+    limit
     loop
     loopw
     am/

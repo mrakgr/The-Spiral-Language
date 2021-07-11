@@ -171,6 +171,7 @@ inl alt forall t r. (l : r) : pu t =
     
 inl option forall t. (a : pu t) : pu (option t) = alt { some_ = a; none = Unit }
 inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { ok_ = a; error_ = b }
+inl (++) forall t y. (a : pu t) (b : pu y) : pu (choice2 t y) = alt { c1of2_ = a; c2of2_ = b }
 
 inl size (pu p) = p.size
 

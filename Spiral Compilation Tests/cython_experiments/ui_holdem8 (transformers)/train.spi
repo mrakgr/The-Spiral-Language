@@ -75,6 +75,7 @@ inl vs_one game (batch_size, p1, p2) =
     loop (am.init batch_size fun _ => game () pl2_init)
 
 type a2 x = $"numpy.ndarray[`x,ndim=2]"
+type a3 x = $"numpy.ndarray[`x,ndim=3]"
 
 // The neural model is intended to be created on the Python side and partially applied as the `policy_value_action_eval` argument. 
 // `extractor` and `schema` are applied on the Spiral side before being passed as a function. 
@@ -84,18 +85,43 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
     inl policy_size = serialization.dense.array.size schema.policy
     inl value_size = serialization.dense.array.size schema.value
     inl action_size = serialization.sparse.int.size schema.action
-    inl num_actions = length data
-    inl value_data : a2 f32 = $"numpy.zeros((!num_actions,!value_size),dtype=numpy.float32)"
-    inl action_mask : a2 i8 = $"numpy.ones((!num_actions,!action_size),dtype=numpy.int8)"
-    data |> am.iteri fun num_action (player_state,game_state,pid,actions) =>
-        schema.value.pickle (extractor (player_state,game_state,pid)) (0, $"!value_data[!num_action,:]")
-        actions |> am.iter (schema.action.pickle >> fun x => $"!action_mask[!num_action,!x] = 0")
+    inl batch_size = length data
+    inl policy_seq_size, future_seq_size = 
+        am.fold (fun (s1,s2) (player_state,game_state,pid,actions) => 
+            inl a,b = extractor (player_state,game_state,pid)
+            max s1 (listm.length a), max s2 (listm.length b)
+            ) (0u64, 0u64) data
+    inl value_seq_size = policy_seq_size + future_seq_size
+    inl policy_data : a3 f32 = $"numpy.zeros((!batch_size,!policy_seq_size,!policy_size),dtype=numpy.float32)"
+    inl policy_mask : a2 i8 = $"numpy.zeros((!batch_size,!policy_seq_size),dtype=numpy.int8)"
+    inl value_data : a3 f32 = $"numpy.zeros((!batch_size,!value_seq_size,!value_size),dtype=numpy.float32)"
+    inl value_mask : a2 i8 = $"numpy.zeros((!batch_size,!value_seq_size),dtype=numpy.int8)"
+    inl action_mask : a2 i8 = $"numpy.ones((!batch_size,!action_size),dtype=numpy.int8)"
+    data |> am.iteri fun i_batch (player_state,game_state,pid,actions) =>
+        inl present, future = extractor (player_state,game_state,pid)
+        inl i_seq = 
+            listm.fold (fun i_seq x =>
+                inl f forall t. (x : a3 t) : a st t = $"!x[!i_batch,!i_seq,:]"
+                schema.policy.pickle x (0, f policy_data)
+                schema.value.pickle (C1of2: x) (0, f value_data)
+                i_seq + 1
+                ) 0u64 present
+        loop.for' (from:i_seq nearTo: policy_seq_size) fun i_seq => $"!policy_mask[!i_batch,!i_seq,:] = True"
+        inl i_seq = 
+            listm.fold (fun i_seq x =>
+                inl f forall t. (x : a3 t) : a st t = $"!x[!i_batch,!i_seq,:]"
+                schema.value.pickle (C2of2: x) (0, f value_data)
+                i_seq + 1
+                ) i_seq future
+        loop.for' (from:i_seq nearTo: value_seq_size) fun i_seq => $"!value_mask[!i_batch,!i_seq,:] = True"
+        actions |> am.iter (schema.action.pickle >> fun x => $"!action_mask[!i_batch,!x] = 0")
 
     inl from_numpy x = $"torch.from_numpy(!x)" : obj
+    inl from_numpy_as_bool x = from_numpy ($"!x.view('bool')" : obj)
     inl action_probs, epsilon, sample_indices, update : a2 f32 * f32 * a u64 i64 * (obj -> a u64 f32) = 
-        inl x : obj = policy_value_action_eval (policy_size, from_numpy value_data, from_numpy ($"!action_mask.view('bool')" : obj))
+        inl x : obj = policy_value_action_eval (from_numpy policy_data, from_numpy_as_bool policy_mask, from_numpy value_data, from_numpy_as_bool value_mask, from_numpy_as_bool action_mask)
         $"!x[0]", $"!x[1]", $"!x[2]", $"!x[3]"
-    inl cs : a u64 _ = am.init num_actions fun b =>
+    inl cs : a u64 _ = am.init batch_size fun b =>
         inl a = index sample_indices b
         inl policy = $"!action_probs[!b,!a]"
         inl num_actions_at_index = index data b |> fun _,_,_,actions => length actions |> f32
@@ -103,7 +129,7 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
         log_prob_from {policy sample}, schema.action.unpickle (conv_int a)
     
     cs, fun (rewards' : a u64 r2) : a u64 r2 =>
-        inl rewards_and_env_probs : a _ _ = create (2*num_actions)
+        inl rewards_and_env_probs : a _ _ = create (2*batch_size)
         am.generic.iteri2 (fun num_action reward (player_state,game_state,pid,actions) =>
             inl reward = !!reward pid
             set rewards_and_env_probs num_action reward
@@ -113,7 +139,7 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
                 inl prob_env = prob.chance +@ prob.op
                 exp (-prob.self.sample + (prob_env.policy - prob_env.sample))
                 // @@prob_env // Works better, but I can't fully justify it yet.
-            set rewards_and_env_probs (num_actions + num_action) regret_prob
+            set rewards_and_env_probs (batch_size + num_action) regret_prob
             ) rewards' data
         inl rewards = update (from_numpy rewards_and_env_probs)
         am.generic.map2 (fun a (_,_,pid,_) => if pid = 0 then r2 a else r2 -a) rewards data

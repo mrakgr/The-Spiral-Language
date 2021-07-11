@@ -25,7 +25,7 @@ modules:
         uniform
         holdem_callbot
         tabular
-        neural_ff_leduc
-        neural_ff_holdem
+        neural_leduc
+        neural_holdem
     create_args_leduc
     create_args_holdem

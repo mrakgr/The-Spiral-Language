@@ -1,3 +1,7 @@
+WIP
+
+* Added the `limit` module to core2. I'll get rid of `limit_min` and `limit_max` modules later.
+
 2.0.92 (7/6/2021)
 
 * Added the signed int (sint) constraint into the language.
