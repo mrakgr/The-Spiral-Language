@@ -11,8 +11,10 @@ inl schema () =
         alt {fold=Unit; call=Unit; raise=Unit} : pu action
     schema {policy value action}
 
-inl extractor ((player_state : pl2 card action),(leduc_state (p1,p2,_)),pid) =
+inl extractor' ((player_state : pl2 card action),(leduc_state (p1,p2,_)),pid) =
     assert (p1.id = pid) "Should hold." // TODO: Remove this assert once sure it holds.
-    pl2_observations player_state pid, [p2.card]
+    pl2_observations player_state pid, p2.card
+
+inl extractor x = inl a,b = extractor' x in a,[b]
 
 // The actual player is done on the Python side. These are the serialization helpers for it.

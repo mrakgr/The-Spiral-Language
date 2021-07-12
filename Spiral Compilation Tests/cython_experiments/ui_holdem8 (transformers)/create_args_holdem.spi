@@ -41,7 +41,7 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (restriction,i
         $"f'{!c1}{!c2}'"
 
     open hu_holdem
-    let show_trace' (l : list (observation i8 action)) =
+    let show_trace' (l : list (choice2 i8 action)) =
         inl lines : ra u64 string = am.empty
         inl cards : ra u64 string = am.empty
         let add_card_if_not_empty () =
@@ -49,8 +49,8 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (restriction,i
                 rm.add lines (rm.join' "" cards)
                 rm.clear cards
         let rec loop is_first = function
-            | (Observation: x) :: xs => rm.add cards (show_card x) . loop true xs
-            | (Action: x) :: xs => 
+            | (C1of2: x) :: xs => rm.add cards (show_card x) . loop true xs
+            | (C2of2: x) :: xs => 
                 add_card_if_not_empty()
                 inl prefix = if is_first then "Player One" else "Player Two"
                 match x with
@@ -148,5 +148,5 @@ inl main () =
     inl vs_one x = train.vs_one (game x)
     inl uniform_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * a i16 i8 * i16 * bool) * u8 * a i16 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) = agent.uniform.policy
     inl callbot_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * a i16 i8 * i16 * bool) * u8 * a i16 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) = agent.holdem_callbot.policy
-    inl neural = agent.neural_ff_holdem.holdem_cython_schema
+    inl neural stack_size = train.neural agent.neural_holdem.extractor (agent.neural_holdem.schema stack_size)
     record {ui train = record {vs_self vs_one uniform_player callbot_player neural}}

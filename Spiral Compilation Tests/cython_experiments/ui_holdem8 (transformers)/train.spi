@@ -143,3 +143,12 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
             ) rewards' data
         inl rewards = update (from_numpy rewards_and_env_probs)
         am.generic.map2 (fun a (_,_,pid,_) => if pid = 0 then r2 a else r2 -a) rewards data
+
+inl neural extractor schema =
+    inl handler = neural_handler extractor schema
+    inl size =
+        inl policy = serialization.dense.array.size schema.policy
+        inl value = serialization.dense.array.size schema.value
+        inl action = serialization.sparse.int.size schema.action
+        namedtuple "Size" {action policy value}
+    namedtuple "Neural" {handler size}
