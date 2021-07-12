@@ -1,5 +1,6 @@
 import torch
 from torch.distributions import Categorical
+from torch.nn.modules.linear import Linear
 import torch.optim
 import torch.nn
 from torch.functional import Tensor
@@ -98,25 +99,26 @@ def belief_tabulate(state_probs : Tensor,head : Head,action_indices : Tensor,rew
         return state_probs_grad, action_fun
     return update_head, calculate
 
-def model_evaluate(value : Module,policy : Module,head : Head,is_update_head : bool,is_update_value : bool,
-        is_update_policy : bool,epsilon : float,policy_data_size : Tensor,value_data : Tensor,action_mask : Tensor):
-    value_data, action_mask = value_data.cuda(), action_mask.cuda()
-    policy_data = value_data[:,:policy_data_size]
-    action_raw = torch.masked_fill(policy(policy_data),action_mask,0.0)
-    action_probs : Tensor = normed_square(action_raw)
+def model_evaluate(
+        value : Module,value_head : Head,policy : Module,policy_head : Linear,
+        is_update_head : bool,is_update_value : bool,is_update_policy : bool,epsilon : float,
+        policy_data : Tensor,policy_mask : Tensor,value_data : Tensor,value_mask : Tensor,action_mask : Tensor
+        ):
+    policy_data, policy_mask, value_data, value_mask, action_mask = policy_data.cuda(), policy_mask.cuda(), value_data.cuda(), value_mask.cuda(), action_mask.cuda()
+    action_probs : Tensor = normed_square(torch.masked_fill(policy_head(policy(policy_data,mask=policy_mask).mean(-2)),action_mask,0.0))
     if 0 < epsilon: 
         # Interpolates action probs with an uniform noise distribution for actions that aren't masked out.
         sample_probs = action_probs.detach() * (1 - epsilon)
         action_mask_inv = torch.logical_not(action_mask)
-        sample_probs += action_mask_inv / (action_mask_inv.sum(-1,keepdim=True) * (1 / epsilon)) 
+        sample_probs += action_mask_inv / (action_mask_inv.sum(-1,keepdim=True) / epsilon)
     else:
         sample_probs = action_probs.detach()
     sample_indices = Categorical(sample_probs).sample()
     def update(rewards_and_regret_probs : Tensor):
         rewards_and_regret_probs = rewards_and_regret_probs.cuda().view(2,-1,1)
         rewards, regret_probs = rewards_and_regret_probs[0,:,:], rewards_and_regret_probs[1,:,:]
-        state_probs : Tensor = normed_square(value(value_data))
-        update_head, calculate = belief_tabulate(state_probs.detach(),head,sample_indices,rewards,regret_probs)
+        state_probs : Tensor = normed_square(value(value_data,mask=value_mask).mean(-2))
+        update_head, calculate = belief_tabulate(state_probs.detach(),value_head,sample_indices,rewards,regret_probs)
         state_probs_grad, action_fun = calculate()
         reward, action_probs_grad = action_fun(action_probs.detach(),sample_probs)
         if is_update_head: update_head()

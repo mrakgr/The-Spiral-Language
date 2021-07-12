@@ -100,20 +100,20 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
     data |> am.iteri fun i_batch (player_state,game_state,pid,actions) =>
         inl present, future = extractor (player_state,game_state,pid)
         inl i_seq = 
-            listm.fold (fun i_seq x =>
+            listm.foldBack (fun x i_seq =>
                 inl f forall t. (x : a3 t) : a st t = $"!x[!i_batch,!i_seq,:]"
                 schema.policy.pickle x (0, f policy_data)
                 schema.value.pickle (C1of2: x) (0, f value_data)
                 i_seq + 1
-                ) 0u64 present
-        loop.for' (from:i_seq nearTo: policy_seq_size) fun i_seq => $"!policy_mask[!i_batch,!i_seq,:] = True"
+                ) present 0u64
+        loop.for' (from:i_seq nearTo: policy_seq_size) fun i_seq => $"!policy_mask[!i_batch,!i_seq] = 1"
         inl i_seq = 
             listm.fold (fun i_seq x =>
                 inl f forall t. (x : a3 t) : a st t = $"!x[!i_batch,!i_seq,:]"
                 schema.value.pickle (C2of2: x) (0, f value_data)
                 i_seq + 1
                 ) i_seq future
-        loop.for' (from:i_seq nearTo: value_seq_size) fun i_seq => $"!value_mask[!i_batch,!i_seq,:] = True"
+        loop.for' (from:i_seq nearTo: value_seq_size) fun i_seq => $"!value_mask[!i_batch,!i_seq] = 1"
         actions |> am.iter (schema.action.pickle >> fun x => $"!action_mask[!i_batch,!x] = 0")
 
     inl from_numpy x = $"torch.from_numpy(!x)" : obj

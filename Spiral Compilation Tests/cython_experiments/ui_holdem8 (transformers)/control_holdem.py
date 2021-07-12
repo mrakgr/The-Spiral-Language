@@ -7,61 +7,59 @@ from functools import partial
 import numpy as np
 from torch.optim.swa_utils import AveragedModel
 from belief import SignSGD,Head,model_evaluate,InfCube,ResInfCube
+from x_transformers import ContinuousTransformerWrapper, Encoder
 
-# defaults = dict(restriction_level=2,is_flop=False,sb=10,bb=20,stack_size=1000,schema_bb=20,schema_stack_size=1000) # Holdem
-defaults = dict(restriction_level=0,is_flop=True,sb=1,bb=2,stack_size=10,schema_bb=2,schema_stack_size=10) # Flop
+# defaults = dict(restriction_level=2,is_flop=False,sb=10,bb=20,stack_size=1000,schema_stack_size=1000) # Holdem
+defaults = dict(restriction_level=0,is_flop=True,sb=1,bb=2,stack_size=10,schema_stack_size=10) # Flop
 
 def neural_create_model(size,size_mid=512,size_head=256):
-    value = torch.nn.Sequential(
-        InfCube(size.value,size_mid),
-        *[ResInfCube(size_mid) for _ in range(5)],
-        Linear(size_mid,size_head)
+    value = ContinuousTransformerWrapper(
+        max_seq_len=128, dim_in=size.value,
+        attn_layers=Encoder(dim=size_mid, depth=5, heads=5, gate_residual=True)
         )
     value.square_l2 = torch.scalar_tensor(0.0).cuda()
     value.t = torch.scalar_tensor(0.0).cuda()
-    policy = torch.nn.Sequential(
-        InfCube(size.policy,size_mid),
-        *[ResInfCube(size_mid) for _ in range(5)],
-        Linear(size_mid,size.action)
+    value_head = Head(size_mid,size.action)
+    policy = ContinuousTransformerWrapper(
+        max_seq_len=128, dim_in=size.policy,
+        attn_layers=Encoder(dim=size_mid, depth=5, heads=5, gate_residual=True)
         )
-    head = Head(size_head,size.action)
-    return value.cuda(), policy.cuda(), head.cuda()
+    policy_head = Linear(size_mid,size.action)
+    return value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
+
+def neural_player(neural_applied,value,policy,head,is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
+    return neural_applied.handler(partial(model_evaluate,value,policy,head,is_update_head,is_update_value,is_update_policy,epsilon))
 
 def create_nn_agent(
         iter_train,iter_avg,iter_chk,iter_sub,iter_batch,vs_self,vs_one,neural,uniform_player,callbot_player,
-        restriction_level=defaults['restriction_level'],is_flop=defaults['is_flop'],sb=defaults['sb'],bb=defaults['bb'],stack_size=defaults['stack_size'],schema_bb=defaults['schema_bb'],schema_stack_size=defaults['schema_stack_size'],
+        restriction_level=defaults['restriction_level'],is_flop=defaults['is_flop'],sb=defaults['sb'],bb=defaults['bb'],stack_size=defaults['stack_size'],schema_stack_size=defaults['schema_stack_size'],
         resume_from=None,mode='self'
         ):
-    neural_applied = neural(schema_bb,schema_stack_size)
+    neural_applied = neural(schema_stack_size)
     assert ((iter_train + iter_avg) % iter_chk == 0)
     batch_size = 2 ** 10
-    head_decay = 0.5
 
     if resume_from is None: 
-        value, policy, head = neural_create_model(neural_applied.size)
+        modules = neural_create_model(neural_applied.size)
         i_resume = 0
     else: 
         with open(f"dump holdem/nn_agent_{resume_from}_self.nnreg",'rb') as f: 
-            value, policy, head = torch.load(f)
+            modules = torch.load(f)
             i_resume = resume_from
+    value, value_head, policy, policy_head = modules
     opt = SignSGD([
-        dict(params=head.parameters(),lr=0,weight_decay=1 - 1 / iter_sub),
-        dict(params=value.parameters(),lr=2 ** -8),
+        dict(params=value.parameters(),lr=2 ** -10),
+        dict(params=value_head.parameters(),lr=0,weight_decay=1 - 1 / iter_sub),
         dict(params=policy.parameters(),lr=2 ** -10),
+        dict(params=policy_head.parameters(),lr=2 ** -10),
         ])
 
-    def make_avg(max_t):
-        def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(max_t, t + 1)
-        return AveragedModel(value,avg_fn=avg_fn), AveragedModel(policy,avg_fn=avg_fn), AveragedModel(head,avg_fn=avg_fn)
-
-    if 0 < iter_avg: valuea, policya, heada = make_avg(iter_chk*iter_sub)
-
-    def neural_player(value,policy,head,is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
-        return neural_applied.handler(partial(model_evaluate,value,policy,head,is_update_head,is_update_value,is_update_policy,epsilon))
+    max_t = iter_chk*iter_sub
+    def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(max_t, t + 1)
+    if 0 < iter_avg: avg_modules = list(map(lambda x: AveragedModel(x,avg_fn),modules))
 
     def run(is_avg=False):
-        nonlocal head,heada
-        pl = neural_player(value,policy,head,is_update_head=True,is_update_value=True,is_update_policy=False,epsilon=2 ** -2)
+        pl = neural_player(neural_applied,*modules,is_update_head=True,is_update_value=True,is_update_policy=False,epsilon=2 ** -2)
         def vs_opponent(plc):
             for _ in range(iter_sub):
                 opt.zero_grad(True)
@@ -79,7 +77,7 @@ def create_nn_agent(
         logging.info(f'Training vs {mode}.')
         if mode == 'exploit':
             assert (iter_train == 1 and iter_avg == 0 and iter_chk == 1)
-            vs_opponent(neural_player(deepcopy(value),deepcopy(policy),deepcopy(head)))
+            vs_opponent(neural_player(neural_applied,*map(deepcopy,modules)))
         elif mode == 'uniform': vs_opponent(uniform_player)
         elif mode == 'callbot': vs_opponent(callbot_player)
         elif mode == 'self':
@@ -89,7 +87,8 @@ def create_nn_agent(
                 opt.step()
         else: raise Exception(f"Unexpected mode {mode}")
 
-        if is_avg: valuea.update_parameters(value); policya.update_parameters(policy); heada.update_parameters(head)
+        if is_avg: 
+            for avg_x,x in zip(avg_modules,modules): avg_x.update_parameters(x)
 
     logging.info("** TRAINING START **")
     t1 = time.perf_counter()
@@ -98,9 +97,9 @@ def create_nn_agent(
         is_avg = iter_train < i
         run(is_avg)
         if i % iter_chk == 0: 
-            with open(f"dump holdem/nn_agent_{i_resume+i}_{mode}.nnreg",'wb') as f: torch.save((value,policy,head),f)
+            with open(f"dump holdem/nn_agent_{i_resume+i}_{mode}.nnreg",'wb') as f: torch.save(modules,f)
             if is_avg:
-                with open(f"dump holdem/nn_agent_{i_resume+i}_{mode}.nnavg",'wb') as f: torch.save((valuea.module,policya.module,heada.module),f)
+                with open(f"dump holdem/nn_agent_{i_resume+i}_{mode}.nnavg",'wb') as f: torch.save(list(map(lambda x: x.module,avg_modules)),f)
             logging.info(f'Checkpoint {i_resume+i}')
 
     logging.info("** TRAINING DONE **")
@@ -114,8 +113,6 @@ def competitive_eval(
     neural_applied = neural(schema_bb,schema_stack_size)
     
     batch_size = 2 ** 10
-    def neural_player(value,policy,head,is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
-        return neural_applied.handler(partial(model_evaluate,value,policy,head,is_update_head,is_update_value,is_update_policy,epsilon))
     logging.info("** EVALUATION START **")
     t1 = time.perf_counter()
     d = {}
@@ -124,8 +121,8 @@ def competitive_eval(
         for b in players:
             x = d.get((a,b))
             if x is None:
-                with open(f"dump holdem/{a}",'rb') as f: pla = neural_player(*torch.load(f))
-                with open(f"dump holdem/{b}",'rb') as f: plb = neural_player(*torch.load(f))
+                with open(f"dump holdem/{a}",'rb') as f: pla = neural_player(neural_applied,*torch.load(f))
+                with open(f"dump holdem/{b}",'rb') as f: plb = neural_player(neural_applied,*torch.load(f))
                 n = 2 ** 3
                 r = 0.0
                 for _ in range(n):

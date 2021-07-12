@@ -9,34 +9,40 @@ from functools import partial
 import numpy as np
 from belief import SignSGD,Head,model_evaluate,InfCube
 from torch.optim.swa_utils import AveragedModel
+from x_transformers import ContinuousTransformerWrapper, Encoder
 
-def neural_create_model(size,size_mid=64,size_head=64):
-    value = torch.nn.Sequential(
-        InfCube(size.value,size_mid),
-        Linear(size_mid,size_head)
+def neural_create_model(size,size_mid=64):
+    value = ContinuousTransformerWrapper(
+        max_seq_len=32, dim_in=size.value,
+        attn_layers=Encoder(dim=size_mid, depth=2, heads=2, gate_residual=True)
         )
-    policy = torch.nn.Sequential(
-        InfCube(size.policy,size_mid),
-        Linear(size_mid,size.action)
+    value_head = Head(size_mid,size.action)
+    policy = ContinuousTransformerWrapper(
+        max_seq_len=32, dim_in=size.policy,
+        attn_layers=Encoder(dim=size_mid, depth=2, heads=2, gate_residual=True)
         )
-    head = Head(size_mid,size.action)
-    return value.cuda(), policy.cuda(), head.cuda()
+    policy_head = Linear(size_mid,size.action)
+    return value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
+
+def neural_player(neural,value,value_head,policy,policy_head,is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
+    return neural.handler(partial(model_evaluate,value,value_head,policy,policy_head,is_update_head,is_update_value,is_update_policy,epsilon))
 
 def evaluate_vs_tabular(i_tabular,i_nn,vs_self,vs_one,neural,uniform_player,tabular): # old NN vs old tabular
     batch_size = 2 ** 10
     with open(f'dump leduc/agent_{i_tabular}_avg.obj','rb') as f: tabular_agent_old = pickle.load(f)
 
-    def r(name,value,policy,head):
+    def r(name,modules):
         def tabular_player(is_update_head=False,is_update_policy=False,epsilon=0.0,tabular_agent=tabular_agent_old): 
             return tabular.create_policy(tabular_agent,is_update_head,is_update_policy,epsilon)
 
-        def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
-            return neural.handler(partial(model_evaluate,value,policy,head,is_update_head,is_update_value,is_update_policy,epsilon))
-
-        r : np.ndarray = vs_one(batch_size * 2 ** 8,neural_player(),tabular_player())
-        logging.info(f'The mean is {r.mean()} for the {name} player.')
-    with open(f'dump leduc/nn_agent_{i_nn}.obj','rb') as f: r('regular',*torch.load(f))
-    with open(f'dump leduc/nn_agent_{i_nn}_avg.obj','rb') as f: r('average',*torch.load(f))
+        r = 0
+        n = 2 ** 8
+        for _ in range(n):
+            r += vs_one(batch_size,neural_player(neural,*modules),tabular_player()).sum()
+        r /= batch_size * n
+        logging.info(f'The mean is {r} for the {name} player.')
+    with open(f'dump leduc/nn_agent_{i_nn}.nnreg','rb') as f: r('regular',torch.load(f))
+    with open(f'dump leduc/nn_agent_{i_nn}.nnavg','rb') as f: r('average',torch.load(f))
 
 def create_tabular_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular):
     batch_size = 2 ** 10
@@ -75,23 +81,23 @@ def create_tabular_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular):
 
 def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self play NN
     batch_size = 2 ** 10
-    value, policy, head = neural_create_model(neural.size)
+    modules = neural_create_model(neural.size)
+    avg_modules = list(map(AveragedModel,modules))
+    value, value_head, policy, policy_head = modules
     opt = SignSGD([
-        dict(params=head.parameters(),lr=0,weight_decay=0.5),
-        dict(params=value.parameters(),lr=2 ** -6),
-        dict(params=policy.parameters(),lr=2 ** -8)
+        dict(params=value.parameters(),lr=2 ** -10),
+        dict(params=value_head.parameters(),lr=0,weight_decay=0.5),
+        dict(params=policy.parameters(),lr=2 ** -10),
+        dict(params=policy_head.parameters(),lr=2 ** -10)
         ]) # Momentum works worse than vanilla signSGD on Leduc. On lower batch sizes I don't see any improvement either.
-    valuea, policya, heada = AveragedModel(value), AveragedModel(policy), AveragedModel(head)
-    def neural_player(is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
-        return neural.handler(partial(model_evaluate,value,policy,head,is_update_head,is_update_value,is_update_policy,epsilon))
 
     def run(is_avg=False):
-        nonlocal head,heada
-        vs_self(batch_size,neural_player(True,True,True,2 ** -2))
+        vs_self(batch_size,neural_player(neural,*modules,True,True,True,2 ** -2))
         opt.step()
         opt.zero_grad(True)
 
-        if is_avg: valuea.update_parameters(value); policya.update_parameters(policy); heada.update_parameters(head)
+        if is_avg:
+            for avg_x,x in zip(avg_modules,modules): avg_x.update_parameters(x)
 
     def train(n):
         logging.info('Training the NN agent.')
@@ -101,8 +107,8 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
         for a in range(m): run(True)
     train(n); avg(m)
     def dump(i):
-        with open(f"dump leduc/nn_agent_{i}.obj",'wb') as f: torch.save((value,policy,head),f)
-        with open(f"dump leduc/nn_agent_{i}_avg.obj",'wb') as f: torch.save((valuea.module,policya.module,heada.module),f)
+        with open(f"dump leduc/nn_agent_{i}.nnreg",'wb') as f: torch.save(modules,f)
+        with open(f"dump leduc/nn_agent_{i}.nnavg",'wb') as f: torch.save(list(map(lambda x: x.module,avg_modules)),f)
     dump(n+m); avg(m); dump(n+2*m); avg(m); dump(n+3*m)
 
 if __name__ == '__main__':
@@ -123,7 +129,7 @@ if __name__ == '__main__':
     logging.info("** TRAINING START **")
     n,m = 300,150
     ag = n + m
-    # create_tabular_agent(n,m,**args)
+    create_tabular_agent(n,m,**args)
     for _ in range(5):
         create_nn_agent(n,m,**args)
         evaluate_vs_tabular(ag,n+m,**args)

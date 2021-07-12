@@ -1994,53 +1994,54 @@ cdef bint method2(unsigned long long v0, Mut1 v1) except *:
 cdef unsigned long long method3(numpy.ndarray[float,ndim=3] v0, numpy.ndarray[float,ndim=3] v1, unsigned long long v2, UH0 v3, unsigned long long v4) except *:
     cdef US0 v5
     cdef UH0 v6
-    cdef numpy.ndarray[float,ndim=1] v7
-    cdef US1 v8
-    cdef US2 v9
-    cdef numpy.ndarray[float,ndim=1] v10
-    cdef US1 v11
-    cdef US2 v12
-    cdef unsigned long long v13
+    cdef unsigned long long v7
+    cdef numpy.ndarray[float,ndim=1] v8
+    cdef US1 v9
+    cdef US2 v10
+    cdef numpy.ndarray[float,ndim=1] v11
+    cdef US1 v12
+    cdef US2 v13
     if v3.tag == 0: # cons_
         v5 = (<UH0_0>v3).v0; v6 = (<UH0_0>v3).v1
-        v7 = v0[v2,v4,:]
+        v7 = method3(v0, v1, v2, v6, v4)
+        del v6
+        v8 = v0[v2,v7,:]
         if v5.tag == 0: # c1of2_
-            v8 = (<US0_0>v5).v0
-            if v8 == 0: # jack
-                v7[(<signed short>0)] = (<float>1)
-            elif v8 == 1: # king
-                v7[(<signed short>1)] = (<float>1)
-            elif v8 == 2: # queen
-                v7[(<signed short>2)] = (<float>1)
+            v9 = (<US0_0>v5).v0
+            if v9 == 0: # jack
+                v8[(<signed short>0)] = (<float>1)
+            elif v9 == 1: # king
+                v8[(<signed short>1)] = (<float>1)
+            elif v9 == 2: # queen
+                v8[(<signed short>2)] = (<float>1)
         elif v5.tag == 1: # c2of2_
-            v9 = (<US0_1>v5).v0
-            if v9 == 0: # call
-                v7[(<signed short>3)] = (<float>1)
-            elif v9 == 1: # fold
-                v7[(<signed short>4)] = (<float>1)
-            elif v9 == 2: # raise
-                v7[(<signed short>5)] = (<float>1)
-        del v7
-        v10 = v1[v2,v4,:]
+            v10 = (<US0_1>v5).v0
+            if v10 == 0: # call
+                v8[(<signed short>3)] = (<float>1)
+            elif v10 == 1: # fold
+                v8[(<signed short>4)] = (<float>1)
+            elif v10 == 2: # raise
+                v8[(<signed short>5)] = (<float>1)
+        del v8
+        v11 = v1[v2,v7,:]
         if v5.tag == 0: # c1of2_
-            v11 = (<US0_0>v5).v0
-            if v11 == 0: # jack
-                v10[(<signed short>0)] = (<float>1)
-            elif v11 == 1: # king
-                v10[(<signed short>1)] = (<float>1)
-            elif v11 == 2: # queen
-                v10[(<signed short>2)] = (<float>1)
+            v12 = (<US0_0>v5).v0
+            if v12 == 0: # jack
+                v11[(<signed short>0)] = (<float>1)
+            elif v12 == 1: # king
+                v11[(<signed short>1)] = (<float>1)
+            elif v12 == 2: # queen
+                v11[(<signed short>2)] = (<float>1)
         elif v5.tag == 1: # c2of2_
-            v12 = (<US0_1>v5).v0
-            if v12 == 0: # call
-                v10[(<signed short>3)] = (<float>1)
-            elif v12 == 1: # fold
-                v10[(<signed short>4)] = (<float>1)
-            elif v12 == 2: # raise
-                v10[(<signed short>5)] = (<float>1)
-        del v5; del v10
-        v13 = v4 + (<unsigned long long>1)
-        return method3(v0, v1, v2, v6, v13)
+            v13 = (<US0_1>v5).v0
+            if v13 == 0: # call
+                v11[(<signed short>3)] = (<float>1)
+            elif v13 == 1: # fold
+                v11[(<signed short>4)] = (<float>1)
+            elif v13 == 2: # raise
+                v11[(<signed short>5)] = (<float>1)
+        del v5; del v11
+        return v7 + (<unsigned long long>1)
     elif v3.tag == 1: # nil
         return v4
 cdef void method4(unsigned long long v0, numpy.ndarray[signed char,ndim=2] v1, unsigned long long v2, unsigned long long v3) except *:
@@ -2049,7 +2050,7 @@ cdef void method4(unsigned long long v0, numpy.ndarray[signed char,ndim=2] v1, u
     v4 = v3 < v0
     if v4:
         v5 = v3 + (<unsigned long long>1)
-        v1[v2,v3,:] = True
+        v1[v2,v3] = 1
         method4(v0, v1, v2, v5)
     else:
         pass
@@ -2059,7 +2060,7 @@ cdef void method5(unsigned long long v0, numpy.ndarray[signed char,ndim=2] v1, u
     v4 = v3 < v0
     if v4:
         v5 = v3 + (<unsigned long long>1)
-        v1[v2,v3,:] = True
+        v1[v2,v3] = 1
         method5(v0, v1, v2, v5)
     else:
         pass

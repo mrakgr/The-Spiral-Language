@@ -1,25 +1,17 @@
-import torch
-import torch.nn.functional as F
-from x_transformers import ContinuousTransformerWrapper, Decoder, Encoder, XTransformer
-from einops import rearrange
+# import torch
+# from x_transformers import ContinuousTransformerWrapper, Encoder
 
-model = ContinuousTransformerWrapper(
-    max_seq_len=128,
-    attn_layers = Decoder(
-        dim = 32,
-        depth = 2,
-        heads = 1,
-        gate_residual = True,
-        rotary_pos_emb = True,
-        cross_attend = True
-    )
-)
+# model = ContinuousTransformerWrapper(
+#     max_seq_len=128, dim_in=10,
+#     attn_layers=Encoder(dim=32, depth=1, heads=1, gate_residual=True)
+#     )
+# avg_model = torch.optim.swa_utils.AveragedModel(model)
+# with open("asd.nnavg",'wb') as f: torch.save(map(lambda x: x.module,[avg_model]),f)
 
-q = torch.rand(1,20,32)
-w = torch.rand(1,10,32)
-model.forward(q) == model.forward(q,context=w)
+def f(x):
+    print(x)
+    return x+x
 
-i,j = 10,9
-r = torch.arange(i)
-mask = rearrange(r, 'i -> () () i ()') < rearrange(r, 'j -> () () () j')
-mask = F.pad(mask, (j - i, 0), value = False)
+q = map(f,[1,2,3])
+def g(a,b,c): print(a,b,c)
+g(*q)
