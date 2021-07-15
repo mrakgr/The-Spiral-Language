@@ -1,17 +1,21 @@
-# import torch
-# from x_transformers import ContinuousTransformerWrapper, Encoder
+from math import sqrt
+import torch
+from torch import Tensor
+from torch.nn import Module,Linear
+from torch.nn.init import xavier_normal_
+from torch.nn.parameter import Parameter
 
-# model = ContinuousTransformerWrapper(
-#     max_seq_len=128, dim_in=10,
-#     attn_layers=Encoder(dim=32, depth=1, heads=1, gate_residual=True)
-#     )
-# avg_model = torch.optim.swa_utils.AveragedModel(model)
-# with open("asd.nnavg",'wb') as f: torch.save(map(lambda x: x.module,[avg_model]),f)
+class Attention(Module):
+    def __init__(self,dim_in,dim_v,dim_qk=None):
+        super().__init__()
+        dim_proj = dim_v if dim_qk is None else dim_qk
+        self.q, self.k, self.v = Linear(dim_in,dim_proj,bias=False), Linear(dim_in,dim_proj,bias=False), Linear(dim_in,dim_v)
 
-def f(x):
-    print(x)
-    return x+x
+    def forward(self,x,mask=None):
+        q,k,v = self.q.forward(x), self.k.forward(x), self.v.forward(x)
+        dz, dk, da = k.shape
+        z : Tensor = torch.einsum('zqa,zka->zqk',q,k) / sqrt(da)
+        if mask is not None:
+            z = z.masked_fill(torch.logical_or(mask.view(dz,dk,1),mask.view(dz,1,dk)),float('-inf'))
+        return torch.einsum('zqk,zka->zqa',z.softmax(-1).nan_to_num(),v)
 
-q = map(f,[1,2,3])
-def g(a,b,c): print(a,b,c)
-g(*q)
