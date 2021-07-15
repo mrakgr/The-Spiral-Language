@@ -41,15 +41,15 @@ class Head(torch.nn.Module):
     @property
     def values(self): return torch.nan_to_num_(self.weighted_values / self.weights)
 
-def inf_cube(x : Tensor): 
+def inf_cube(x : Tensor) -> Tensor: 
     o = x ** 3
-    return o / o.norm(p=float('inf'),dim=-1,keepdim=True)
-def normed_abs_cube(x : Tensor):
+    return o / o.norm(p=float('inf'),dim=-1,keepdim=True).clamp_min(1e-38)
+def normed_abs_cube(x : Tensor) -> Tensor:
     o = (x ** 3).abs()
-    return o / o.sum(dim=-1,keepdim=True)
-def normed_square(x : Tensor):
+    return o / o.sum(dim=-1,keepdim=True).clamp_min(1e-38)
+def normed_square(x : Tensor) -> Tensor:
     o = x.square()
-    return o / o.sum(dim=-1,keepdim=True)
+    return o / o.sum(dim=-1,keepdim=True).clamp_min(1e-38)
 
 class InfCube(torch.nn.Linear):
     def forward(self,x): return inf_cube(super().forward(x))
