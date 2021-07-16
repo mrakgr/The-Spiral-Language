@@ -138,7 +138,6 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
                 inl prob = pl2_probs player_state pid
                 inl prob_env = prob.chance +@ prob.op
                 exp (-prob.self.sample + (prob_env.policy - prob_env.sample))
-                // @@prob_env // Works better, but I can't fully justify it yet.
             set rewards_and_env_probs (batch_size + num_action) regret_prob
             ) rewards' data
         inl rewards = update (from_numpy rewards_and_env_probs)

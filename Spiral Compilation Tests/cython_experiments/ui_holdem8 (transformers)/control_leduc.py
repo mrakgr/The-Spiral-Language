@@ -3,24 +3,19 @@ import logging
 import torch
 import torch.distributions
 import torch.optim
-from torch.nn import Linear
+from torch.nn import Linear,Sequential
 import torch.linalg
 from functools import partial
 import numpy as np
-from belief import SignSGD,Head,model_evaluate,InfCube
+from belief import SignSGD,Head,model_evaluate,InfCube,AttentionList,FakeAttention
 from torch.optim.swa_utils import AveragedModel
-from x_transformers import ContinuousTransformerWrapper, Encoder
 
 def neural_create_model(size,size_mid=64):
-    value = ContinuousTransformerWrapper(
-        max_seq_len=32, dim_in=size.value,
-        attn_layers=Encoder(dim=size_mid, depth=2, heads=2, gate_residual=True)
-        )
+    # value = FakeAttention(size.value,size_mid)
+    # policy = FakeAttention(size.policy,size_mid)
+    value = AttentionList(size_mid,depth=3,num_heads=1,initial=InfCube(size.value,size_mid))
+    policy = AttentionList(size_mid,depth=3,num_heads=1,initial=InfCube(size.policy,size_mid))
     value_head = Head(size_mid,size.action)
-    policy = ContinuousTransformerWrapper(
-        max_seq_len=32, dim_in=size.policy,
-        attn_layers=Encoder(dim=size_mid, depth=2, heads=2, gate_residual=True)
-        )
     policy_head = Linear(size_mid,size.action)
     return value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
 
@@ -129,7 +124,7 @@ if __name__ == '__main__':
     logging.info("** TRAINING START **")
     n,m = 300,150
     ag = n + m
-    create_tabular_agent(n,m,**args)
+    # create_tabular_agent(n,m,**args)
     for _ in range(5):
         create_nn_agent(n,m,**args)
         evaluate_vs_tabular(ag,n+m,**args)

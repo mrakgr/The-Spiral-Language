@@ -1,12 +1,17 @@
+from functools import reduce
+from math import sqrt
 import torch
 from torch.distributions import Categorical
-from torch.nn.modules.linear import Linear
+from torch.nn.modules.container import ModuleList
+from torch.nn.modules.linear import Identity, Linear
 import torch.optim
 import torch.nn
 from torch.functional import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
 from torch.nn.parameter import Parameter
+from torch.nn.init import xavier_normal_
+from torch.nn.functional import pad
 
 class SignSGD(Optimizer):
     """
@@ -32,7 +37,7 @@ class SignSGD(Optimizer):
                         m *= momentum_decay; m += x.grad
                         x -= torch.sign(m).mul_(lr)
 
-class Head(torch.nn.Module):
+class Head(Module):
     def __init__(self,size_state,size_action):
         super(Head, self).__init__()
         self.weighted_values = Parameter(torch.zeros(size_action,size_state),requires_grad=False)
@@ -41,25 +46,101 @@ class Head(torch.nn.Module):
     @property
     def values(self): return torch.nan_to_num_(self.weighted_values / self.weights)
 
-def inf_cube(x : Tensor) -> Tensor: 
+def inf_cube(x : Tensor,dim=-1) -> Tensor: 
     o = x ** 3
-    return o / o.norm(p=float('inf'),dim=-1,keepdim=True).clamp_min(1e-38)
-def normed_abs_cube(x : Tensor) -> Tensor:
+    return o / o.norm(p=float('inf'),dim=dim,keepdim=True).clamp_min(1e-38)
+def normed_abs_cube(x : Tensor,dim=-1) -> Tensor:
     o = (x ** 3).abs()
-    return o / o.sum(dim=-1,keepdim=True).clamp_min(1e-38)
-def normed_square(x : Tensor) -> Tensor:
+    return o / o.sum(dim=dim,keepdim=True).clamp_min(1e-38)
+def normed_square(x : Tensor,dim=-1) -> Tensor:
     o = x.square()
-    return o / o.sum(dim=-1,keepdim=True).clamp_min(1e-38)
+    return o / o.sum(dim=dim,keepdim=True).clamp_min(1e-38)
 
-class InfCube(torch.nn.Linear):
+class InfCube(Linear):
     def forward(self,x): return inf_cube(super().forward(x))
 
 class ResInfCube(InfCube):
     def __init__(self,size): super().__init__(size,size)
     def forward(self,x): return super().forward(x) + x
 
-class DenseInfCube(torch.nn.Linear):
+class DenseInfCube(Linear):
     def forward(self,x): return torch.cat((inf_cube(x),x),1)
+
+class Rotary(Module):
+    def __init__(self,dim_in):
+        super().__init__()
+        self.dim_in = dim_in
+        self.freq = Parameter(torch.empty(dim_in),requires_grad=False)
+        freq = 10000 ** torch.arange(0, -1, -2 / dim_in, dtype=torch.float)
+        torch.cat((freq, freq[:freq.shape[0] - self.dim_in % 2]),out=self.freq) # Doing it like this to avoid memory fragmentation when initing the embedding.
+
+    def pos_emb(self,dim_seq):
+        i = torch.arange(dim_seq, dtype=self.freq.dtype, device=self.freq.device)
+        return (i.view(-1,1) * self.freq.view(1,-1)).view(1,dim_seq,1,self.dim_in)
+
+    def rotate_half(self,x : Tensor):
+        x1, x2 = x.chunk(2,-1)
+        return torch.cat((-x2, x1), dim = -1)
+
+    def forward(self,x):
+        assert x.dim() == 4, f"Expected the number of tensor dimensions to be 4: batch, seq, head, el. Got: {x.shape}"
+        emb = self.pos_emb(x.shape[1])
+        return x * emb.cos() + self.rotate_half(x) * emb.sin()
+
+class Attention(Module):
+    def __init__(self,dim_in,dim_out,num_heads=1,dim_qk=128):
+        super().__init__()
+        self.dim_in, self.dim_qk, self.num_heads, self.dim_out = dim_in, dim_qk, num_heads, dim_out
+        self.proj_in = Parameter(torch.empty((dim_in,num_heads,dim_qk*2+dim_out)))
+        for x in torch.split(self.proj_in,[self.dim_qk,self.dim_qk,self.dim_out],-1): xavier_normal_(x)
+        self.v_bias = Parameter(torch.zeros(num_heads,dim_out))
+        self.proj_out = Parameter(xavier_normal_(torch.empty((num_heads,dim_out,dim_out))))
+        self.proj_out_bias = Parameter(torch.zeros(dim_out))
+        self.rotary = Rotary(dim_qk)
+
+    def forward(self,x,mask=None):
+        q,k,v = torch.split(torch.einsum('zki,iho->zkho',x,self.proj_in),[self.dim_qk,self.dim_qk,self.dim_out],-1)
+        dz, dk, dh, da = k.shape
+        q,k = self.rotary(q), self.rotary(k)
+        seq_weights : Tensor = torch.einsum('zqha,zkha->zqkh',q,k) / sqrt(da)
+        # if mask is not None:
+        #     seq_weights = seq_weights.masked_fill(torch.logical_or(mask.view(dz,dk,1,1),mask.view(dz,1,dk,1)),float('-inf'))
+        # o = torch.einsum('zqkh,zkhx->zqhx',seq_weights.softmax(-2).nan_to_num(),v + self.v_bias.view(1,1,dh,self.dim_out))
+        if mask is not None:
+            seq_weights = seq_weights.masked_fill(torch.logical_or(mask.view(dz,dk,1,1),mask.view(dz,1,dk,1)),0.0)
+        o = torch.einsum('zqkh,zkhx->zqhx',normed_square(seq_weights,-2),v + self.v_bias.view(1,1,dh,self.dim_out))
+        return inf_cube(torch.einsum('zqhx,hxy->zqy',inf_cube(o),self.proj_out) + self.proj_out_bias.view(1,1,self.dim_out))
+
+class ResAttention(Attention):
+    def __init__(self,dim_out,num_heads=1,dim_qk=128):
+        super().__init__(dim_out,dim_out,num_heads,dim_qk)
+
+    def forward(self,x,mask=None):
+        y = super().forward(x,mask)
+        return (x + y) / 2
+
+class AttentionList(Module):
+    def __init__(self,dim_out,depth=1,num_heads=1,dim_qk=128,initial=Identity()):
+        super().__init__()
+        self.initial = initial
+        self.layers = ModuleList([ResAttention(dim_out,num_heads,dim_qk) for _ in range(depth)])
+
+    def forward(self,x,mask=None):
+        return reduce(lambda x,lay:lay(x,mask),self.layers,self.initial(x))
+
+class FakeAttention(Module): # For testing that the attention inputs work as well as on MLPs.
+    def __init__(self,dim_in,dim_out,dim_seq=20):
+        super().__init__()
+        self.dim_in = dim_in
+        self.dim_seq = dim_seq
+        self.l = InfCube(dim_in*dim_seq,dim_out)
+
+    def forward(self,x : Tensor,mask=None):
+        dz,dk,da = x.shape
+        assert (dk < self.dim_seq)
+        assert (da == self.dim_in)
+        x = pad(x.flip(1).view(dz,dk*da),(0,(self.dim_seq-dk)*da))
+        return self.l.forward(x).unsqueeze(1)
 
 def belief_tabulate(state_probs : Tensor,head : Head,action_indices : Tensor,rewards : Tensor,regret_probs : Tensor):
     # state_probs[batch_dim,state_dim]
@@ -105,7 +186,7 @@ def model_evaluate(
         policy_data : Tensor,policy_mask : Tensor,value_data : Tensor,value_mask : Tensor,action_mask : Tensor
         ):
     policy_data, policy_mask, value_data, value_mask, action_mask = policy_data.cuda(), policy_mask.cuda(), value_data.cuda(), value_mask.cuda(), action_mask.cuda()
-    action_probs : Tensor = normed_square(torch.masked_fill(policy_head(policy(policy_data,mask=policy_mask).mean(-2)),action_mask,0.0))
+    action_probs : Tensor = normed_square(torch.masked_fill(policy_head(policy(policy_data,mask=policy_mask)[:,0]),action_mask,0.0))
     if 0 < epsilon: 
         # Interpolates action probs with an uniform noise distribution for actions that aren't masked out.
         sample_probs = action_probs.detach() * (1 - epsilon)
@@ -117,7 +198,7 @@ def model_evaluate(
     def update(rewards_and_regret_probs : Tensor):
         rewards_and_regret_probs = rewards_and_regret_probs.cuda().view(2,-1,1)
         rewards, regret_probs = rewards_and_regret_probs[0,:,:], rewards_and_regret_probs[1,:,:]
-        state_probs : Tensor = normed_square(value(value_data,mask=value_mask).mean(-2))
+        state_probs : Tensor = normed_square(value(value_data,mask=value_mask)[:,0])
         update_head, calculate = belief_tabulate(state_probs.detach(),value_head,sample_indices,rewards,regret_probs)
         state_probs_grad, action_fun = calculate()
         reward, action_probs_grad = action_fun(action_probs.detach(),sample_probs)
