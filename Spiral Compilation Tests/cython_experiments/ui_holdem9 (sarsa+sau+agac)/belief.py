@@ -14,10 +14,14 @@ class Head(Module):
     def __init__(self,size_state,size_action):
         super(Head, self).__init__()
         self.weighted_values = Parameter(torch.zeros(size_action,size_state),requires_grad=False)
+        self.weighted_variance = Parameter(torch.zeros(size_action,size_state),requires_grad=False)
         self.weights = Parameter(torch.zeros(size_action,size_state),requires_grad=False)
 
     @property
     def values(self): return torch.nan_to_num_(self.weighted_values / self.weights)
+
+    @property
+    def variance(self,values : Tensor): return torch.nan_to_num_((self.weighted_variance / self.weights).sub_(values.square()))
 
 class SignSGD(Optimizer):
     """
@@ -37,7 +41,7 @@ class SignSGD(Optimizer):
             if item_limit < float('inf'):
                 head : Head = gr['head']
                 f = (item_limit / head.weights.sum()).clamp_max_(1.0)
-                head.weights *= f; head.weighted_values *= f
+                head.weights *= f; head.weighted_values *= f; head.weighted_variance *= f
 
             for x in gr['params']:
                 if weight_decay != 1.0: x *= weight_decay
@@ -136,42 +140,53 @@ class EncoderList(Module):
         def rotary(x): return self.rotary(x,*emb)
         return reduce(lambda x,lay:lay(x,rotary,mask),self.layers,self.initial(x,mask) if self.initial is not None else x)
 
-def belief_tabulate(state_probs : Tensor,head : Head,action_indices : Tensor,rewards : Tensor,regret_probs : Tensor):
-    # state_probs[batch_dim,state_dim]
+def belief_tabulate(value_probs : Tensor,variance_probs : Tensor,head : Head,action_indices : Tensor,rewards : Tensor,regret_probs : Tensor):
+    # value_probs[batch_dim,state_dim]
+    # variance_probs[batch_dim,state_dim]
     # head[action_dim*2,state_dim]
     # action_indices[batch_dim] : map (action_dim -> batch_dim)
     # rewards[batch_dim,1]
     # regret_probs[batch_dim,1]
 
     def update_head(): # Weighted moving average update. Works well with probabilistic vectors and weighted updates that CFR requires.
-        state_weights = regret_probs * state_probs # [batch_dim,state_dim]
-        head.weighted_values .index_add_(0,action_indices,rewards * state_weights)
+        state_weights = regret_probs * value_probs # [batch_dim,state_dim]
+        head.weighted_values.index_add_(0,action_indices,rewards * state_weights)
+        head.weighted_variance.index_add_(0,action_indices,rewards.square() * state_weights)
         head.weights.index_add_(0,action_indices,state_weights)
 
     def calculate():
         values = head.values # [action_dim,state_dim]
-        def state_probs_grad(): # The backprop derived rule.
-            prediction_values_for_state = values[action_indices,:] # [batch_dim,state_dim]
-            at_action_prediction_value = (state_probs * prediction_values_for_state).sum(-1,keepdim=True) # [batch_dim,1]
-            prediction_errors = at_action_prediction_value - rewards # [batch_dim,1]
-            g = (prediction_errors * regret_probs) * prediction_values_for_state # [batch_dim,state_dim]
+        variance = head.variance(values) # [action_dim,state_dim]
+        def value_probs_grad(): # The backprop derived rule.
+            prediction_for_state = values[action_indices,:] # [batch_dim,state_dim]
+            at_action_prediction = (value_probs * prediction_for_state).sum(-1,keepdim=True) # [batch_dim,1]
+            prediction_errors = at_action_prediction.sub_(rewards) # [batch_dim,1]
+            g = (prediction_errors * regret_probs) * prediction_for_state # [batch_dim,state_dim]
             return g, prediction_errors
 
-        def action_fun(action_probs : Tensor, sample_probs : Tensor): # Implements the VR MC-CFR update. Could be easily adapted to train an ensemble of actors.
+        def variance_probs_grad(): # Gradients for the variance prediction. In order to make the scale similar to values, the sqrt is used.
+            prediction_for_state = variance[action_indices,:] # [batch_dim,state_dim]
+            at_action_prediction = (variance_probs * prediction_for_state).sum(-1,keepdim=True) # [batch_dim,1]
+            prediction_errors = at_action_prediction.sub_(rewards.square()) # [batch_dim,1]
+            g = (prediction_errors.abs().mul_(regret_probs) * prediction_for_state).sqrt_().mul_(prediction_errors.sign()) # [batch_dim,state_dim]
+            return g, prediction_errors
+
+        def action_fun(action_probs : Tensor, sample_probs : Tensor,is_sarsa : bool): # Implements the VR MC-CFR update. Could be easily adapted to train an ensemble of actors.
             # action_probs[batch_dim,action_dim]
             # sample_probs[batch_dim,action_dim]
 
-            prediction_values_for_action = state_probs.mm(values.t()) # [batch_dim,action_dim]
-            at_action_prediction_value = torch.gather(prediction_values_for_action,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
-            
-            at_action_sample_probs = torch.gather(sample_probs,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
-            at_action_prediction_adjustment = (rewards - at_action_prediction_value).div_(at_action_sample_probs) # [batch_dim,1]
-            prediction_values_for_action.scatter_add_(-1,action_indices.unsqueeze(-1),at_action_prediction_adjustment)
+            prediction_values_for_action = value_probs.mm(values.t()) # [batch_dim,action_dim]
+            if is_sarsa == False: # Do the unbiased variance reducing MC-CFR correction on the rewards. Otherwise they will be the self-estimated SARSA value.
+                at_action_prediction_value = torch.gather(prediction_values_for_action,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
+                
+                at_action_sample_probs = torch.gather(sample_probs,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
+                at_action_prediction_adjustment = (rewards - at_action_prediction_value).div_(at_action_sample_probs) # [batch_dim,1]
+                prediction_values_for_action.scatter_add_(-1,action_indices.unsqueeze(-1),at_action_prediction_adjustment)
             reward = (action_probs * prediction_values_for_action).sum(-1,keepdim=True) # [batch_dim,1]
             # No need to center the gradients being passed into a probability vector's backward pass. Softmax for example, centers them on its own.
             def probs_grad(): return torch.neg_(prediction_values_for_action.mul_(regret_probs)) # [batch_dim,action_dim]
             return reward, probs_grad
-        return state_probs_grad, action_fun
+        return value_probs_grad, variance_probs_grad, action_fun
     return update_head, calculate
 
 def model_evaluate(

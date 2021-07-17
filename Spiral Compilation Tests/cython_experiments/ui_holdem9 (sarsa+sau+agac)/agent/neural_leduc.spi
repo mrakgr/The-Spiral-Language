@@ -1,0 +1,20 @@
+open leduc
+inl schema () =
+    inl policy, value =
+        open serialization.dense.array
+        inl card = alt {king=Unit; queen=Unit; jack=Unit} : pu card
+        inl action = alt {fold=Unit; call=Unit; raise=Unit} : pu action
+        inl policy = card ++ action
+        policy, policy ++ card
+    inl action =
+        open serialization.sparse.int
+        alt {fold=Unit; call=Unit; raise=Unit} : pu action
+    schema {policy value action}
+
+inl extractor' ((player_state : pl2 card action),(leduc_state (p1,p2,_)),pid) =
+    assert (p1.id = pid) "Should hold." // TODO: Remove this assert once sure it holds.
+    pl2_observations player_state pid, p2.card
+
+inl extractor x = inl a,b = extractor' x in a,[b]
+
+// The actual player is done on the Python side. These are the serialization helpers for it.

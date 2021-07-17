@@ -5,6 +5,31 @@
 // training the agents on River poker so they can learn to read hands and then setting them loose on the full game. That will
 // definitely work, though it is not as elegant as doing it all end to end.
 
+// Update(7/17/2021): The pre-canned transformer that I've imported from the x_transformer library works horrible. After some effort, 
+// I managed to succeed in making my own architecture which works much better than the existing ones. I am quite pleased with how
+// it came out. I pared down the encoder to the bare essentials, and then the improvements that I did were right on the mark.
+
+// That having said, I had overly inflated expectations of what the transformers would be capable of. Testing them on Leduc and
+// vs the Flop callbot shows that they perform as well as an MLP. I thought that maybe the transformer architecture would improve
+// the ability to hand read, but that is not so. I can't expect this to work on full Holdem better than an MLP.
+
+// I guess they are worth using since they make learning on sequential data easier.
+
+// I am decently sure that I did nothing wrong in my use of x_transformers. I doubt there is a problem with the library either.
+// Instead, the more likely explanation is that just like for regular MLPs, the architectures that work in SL are badly affected by
+// the variance of RL. My own innovations are much more roboust. So there is some value to paving your own way.
+
+// With this I am done with transformers. For getting the agent to work on full Holdem, I had some very good ideas in the past
+// couple of days that will ensure that my next attempt will result in the absolute state of the art RL architecture.
+
+// For reducing the variance there is just no other choice, but to reach for TD methods. It is clear to me now. Although VR MCCFR
+// works in the tabular regime, the recursive and shared state of NNs requires a softer touch. For all I know, the semi-tabular
+// updates that I've invented might obliviate the need for various kinds of hacks such as target nets. I am quite sure that
+// what causes even linear nets to diverge (Baird's counter example) becomes inapplicable to the kinds of updates I am doing.
+
+// It is worth trying out. What is really going to make the agent state of the art are my exploration ideas. I am going to combine
+// the ideas from the SAU paper and the AGAC paper to crack open exploration on top of reducing variance.
+
 packages: |core2-
 modules:
     types-

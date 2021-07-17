@@ -1,9 +1,9 @@
 {
     "python.pythonPath": "C:\\Users\\Marko\\anaconda3\\python.exe",
     "python.autoComplete.extraPaths": [
-        "./cython_experiments/ui_holdem8 (transformers)"
+        "./cython_experiments/ui_holdem9 (sarsa+sau+agac)"
     ],
     "python.analysis.extraPaths": [
-        "./cython_experiments/ui_holdem8 (transformers)"
+        "./cython_experiments/ui_holdem9 (sarsa+sau+agac)"
     ]
 }

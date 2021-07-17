@@ -1,4 +1,4 @@
 import torch
 
-q = torch.rand(3,5)
-q.flip(0)
+q = torch.eye(3)
+torch.einsum('ab,ab->ab',q,q)
