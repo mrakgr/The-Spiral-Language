@@ -20,7 +20,6 @@ class Head(Module):
     @property
     def values(self): return torch.nan_to_num_(self.weighted_values / self.weights)
 
-    @property
     def variance(self,values : Tensor): return torch.nan_to_num_((self.weighted_variance / self.weights).sub_(values.square()))
 
 class SignSGD(Optimizer):
@@ -168,7 +167,7 @@ def belief_tabulate(value_probs : Tensor,variance_probs : Tensor,head : Head,act
             prediction_for_state = variance[action_indices,:] # [batch_dim,state_dim]
             at_action_prediction = (variance_probs * prediction_for_state).sum(-1,keepdim=True) # [batch_dim,1]
             prediction_errors = at_action_prediction.sub_(rewards.square()) # [batch_dim,1]
-            g = (prediction_errors.abs().mul_(regret_probs) * prediction_for_state).sqrt_().mul_(prediction_errors.sign()) # [batch_dim,state_dim]
+            g = (prediction_errors.abs() * prediction_for_state).sqrt_().mul_(prediction_errors.sign().mul_(regret_probs)) # [batch_dim,state_dim]
             return g, prediction_errors
 
         def action_fun(action_probs : Tensor, sample_probs : Tensor,is_sarsa : bool): # Implements the VR MC-CFR update. Could be easily adapted to train an ensemble of actors.

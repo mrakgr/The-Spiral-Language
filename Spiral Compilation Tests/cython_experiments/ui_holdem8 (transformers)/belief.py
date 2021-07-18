@@ -52,15 +52,12 @@ class SignSGD(Optimizer):
                         m *= momentum_decay; m += x.grad
                         x -= torch.sign(m).mul_(lr)
 
-def inf_cube(x : Tensor,dim=-1) -> Tensor: 
-    o = x ** 3
-    return o / o.norm(p=float('inf'),dim=dim,keepdim=True).clamp_min(1e-38)
-def normed_abs_cube(x : Tensor,dim=-1) -> Tensor:
-    o = (x ** 3).abs()
-    return o / o.sum(dim=dim,keepdim=True).clamp_min(1e-38)
-def normed_square(x : Tensor,dim=-1) -> Tensor:
-    o = x.square()
-    return o / o.sum(dim=dim,keepdim=True).clamp_min(1e-38)
+def normed(o : Tensor,dim= -1): return o / o.sum(dim=dim,keepdim=True).clamp_min(1e-38)
+def normed_abs(x : Tensor,dim=- 1): return normed(x.abs(),dim)
+def normed_abs_cube(x : Tensor,dim= -1): return normed((x ** 3).abs(),dim)
+def normed_square(x : Tensor,dim= -1): return normed(x.square(),dim)
+def inf(o : Tensor,dim= -1) -> Tensor: return o / o.norm(p=float('inf'),dim=dim,keepdim=True).clamp_min(1e-38)
+def inf_cube(x : Tensor,dim= -1): return inf(x ** 3,dim)
 
 class InfCube(Linear):
     def forward(self,x): return inf_cube(super().forward(x))
@@ -92,13 +89,45 @@ class Rotary(Module):
     def forward(self,x,emb_cos,emb_sin):
         return x * emb_cos + self.rotate_half(x) * emb_sin
 
+class TopEncoderBase(Module):
+    def __init__(self,dim_in,dim_head=2 ** 3,dim_emb=2 ** 5):
+        super().__init__()
+        self.dim_in, self.dim_head, self.dim_emb = dim_in, dim_head, dim_emb
+        self.proj_q = Linear(dim_in,dim_head*dim_emb)
+        self.proj_kv = Linear(dim_in,2*dim_head*dim_emb)
+
+    def forward(self,x,rotary,mask=None) -> Tensor:
+        dz,dk,_ = x.shape; dh,de = self.dim_head,self.dim_emb
+        kv : Tensor = self.proj_kv(x).view(dz,dk,2,dh,de)
+        q,k,v = self.proj_q(x[:,0]).view(dz,dh,de), rotary(kv[:,:,0]), normed_square(kv[:,:,1])
+        seq_weights : Tensor = torch.einsum('zhe,zkhe->zkh',q,k)
+        if mask is not None:
+            seq_weights = seq_weights.masked_fill(mask.view(dz,dk,1),0.0)
+        return torch.einsum('zkh,zkhe->zhe',normed_square(seq_weights,-2),v).reshape(dz,dh*de)
+
+class TopEncoder(TopEncoderBase):
+    def __init__(self,dim_in,dim_head=2 ** 3,dim_emb=2 ** 5):
+        super().__init__(dim_in,dim_head,dim_emb)
+        self.rotary = Rotary(dim_emb)
+
+    def forward(self,x,mask=None):
+        emb = self.rotary.make_emb(x.shape[1])
+        return super().forward(x,lambda x: self.rotary(x,*emb),mask)
+
+class ResTopEncoderBase(TopEncoderBase):
+    def __init__(self,dim_head=2 ** 3,dim_emb=2 ** 5):
+        super().__init__(dim_head*dim_emb,dim_head,dim_emb)
+
+    def forward(self,x,rotary,mask=None):
+        return x[:,0] + super().forward(x,rotary,mask)
+
 class EncoderBase(Module):
     def __init__(self,dim_in,dim_head=2 ** 3,dim_emb=2 ** 5):
         super().__init__()
         self.dim_in, self.dim_head, self.dim_emb = dim_in, dim_head, dim_emb
         self.proj_in = Linear(dim_in,3*dim_head*dim_emb)
 
-    def forward(self,x,rotary,mask=None):
+    def forward(self,x,rotary,mask=None) -> Tensor:
         dz,dk,_ = x.shape; dh,de = self.dim_head,self.dim_emb
         qkv : Tensor = self.proj_in(x).view(dz,dk,3,dh,de)
         q,k,v = rotary(qkv[:,:,0]), rotary(qkv[:,:,1]), inf_cube(qkv[:,:,2])
@@ -116,25 +145,26 @@ class Encoder(EncoderBase):
         emb = self.rotary.make_emb(x.shape[1])
         return super().forward(x,lambda x: self.rotary(x,*emb),mask)
 
-class Res(Module):
-    def __init__(self,layer):
-        super().__init__()
-        self.layer = layer
+class ResEncoderBase(EncoderBase):
+    def __init__(self,dim_head=2 ** 3,dim_emb=2 ** 5):
+        super().__init__(dim_head*dim_emb,dim_head,dim_emb)
 
-    def forward(self,x,*args,**kwargs):
-        return x + self.layer(x,*args,**kwargs)
+    def forward(self,x,rotary,mask=None):
+        return x + super().forward(x,rotary,mask)
 
 class EncoderList(Module):
-    def __init__(self,depth,dim_head=2 ** 3,dim_emb=2 ** 5,initial=None):
+    def __init__(self,depth,dim_head=2 ** 3,dim_emb=2 ** 5,dim_in=None,dim_out=None):
         super().__init__()
         self.rotary = Rotary(dim_emb)
-        self.initial = initial
-        self.layers = ModuleList([Res(EncoderBase(dim_head*dim_emb,dim_head,dim_emb)) for _ in range(depth)])
-
+        self.initial = EncoderBase(dim_in,dim_head,dim_emb) if dim_in is not None else None
+        self.layers = ModuleList([ResEncoderBase(dim_head*dim_emb,dim_head,dim_emb) for _ in range(depth)])
+        self.top = TopEncoderBase(dim_head*dim_emb,dim_head,dim_emb)
+        
     def forward(self,x,mask=None):
         emb = self.rotary.make_emb(x.shape[1])
         def rotary(x): return self.rotary(x,*emb)
-        return reduce(lambda x,lay:lay(x,rotary,mask),self.layers,self.initial(x,mask) if self.initial is not None else x)
+        x = reduce(lambda x,lay:lay(x,rotary,mask),self.layers,self.initial(x,rotary,mask) if self.initial is not None else x)
+        return self.top(x,rotary,mask)
 
 def belief_tabulate(state_probs : Tensor,head : Head,action_indices : Tensor,rewards : Tensor,regret_probs : Tensor):
     # state_probs[batch_dim,state_dim]
@@ -180,7 +210,7 @@ def model_evaluate(
         policy_data : Tensor,policy_mask : Tensor,value_data : Tensor,value_mask : Tensor,action_mask : Tensor
         ):
     policy_data, policy_mask, value_data, value_mask, action_mask = policy_data.cuda(), policy_mask.cuda(), value_data.cuda(), value_mask.cuda(), action_mask.cuda()
-    action_probs : Tensor = normed_square(torch.masked_fill(policy_head(policy(policy_data,mask=policy_mask)[:,0]),action_mask,0.0))
+    action_probs = normed_square(torch.masked_fill(policy_head(normed(policy(policy_data,mask=policy_mask))),action_mask,0.0))
     if 0 < epsilon: 
         # Interpolates action probs with an uniform noise distribution for actions that aren't masked out.
         sample_probs = action_probs.detach() * (1 - epsilon)
@@ -192,7 +222,7 @@ def model_evaluate(
     def update(rewards_and_regret_probs : Tensor):
         rewards_and_regret_probs = rewards_and_regret_probs.cuda().view(2,-1,1)
         rewards, regret_probs = rewards_and_regret_probs[0,:,:], rewards_and_regret_probs[1,:,:]
-        state_probs : Tensor = normed_square(value(value_data,mask=value_mask)[:,0])
+        state_probs : Tensor = normed(value(value_data,mask=value_mask))
         update_head, calculate = belief_tabulate(state_probs.detach(),value_head,sample_indices,rewards,regret_probs)
         state_probs_grad, action_fun = calculate()
         reward, action_probs_grad = action_fun(action_probs.detach(),sample_probs)
