@@ -11,7 +11,7 @@ from belief import SignSGD,Head,model_evaluate,EncoderList
 # defaults = dict(restriction_level=2,is_flop=False,sb=10,bb=20,stack_size=1000,schema_stack_size=1000) # Holdem
 defaults = dict(restriction_level=0,is_flop=True,sb=1,bb=2,stack_size=10,schema_stack_size=10) # Flop
 
-def neural_create_model(size,dim_head=2 ** 3,dim_emb=2 ** 6):
+def neural_create_model(size,dim_head=2 ** 4,dim_emb=2 ** 5):
     value = EncoderList(5,dim_head,dim_emb,size.value)
     value.square_l2 = torch.scalar_tensor(0.0).cuda()
     value.t = torch.scalar_tensor(0.0).cuda()

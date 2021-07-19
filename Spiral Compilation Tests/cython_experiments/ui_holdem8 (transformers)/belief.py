@@ -103,7 +103,7 @@ class TopEncoderBase(Module):
         seq_weights : Tensor = torch.einsum('zhe,zkhe->zkh',q,k)
         if mask is not None:
             seq_weights = seq_weights.masked_fill(mask.view(dz,dk,1),0.0)
-        return torch.einsum('zkh,zkhe->zhe',normed_square(seq_weights,-2),v).reshape(dz,dh*de)
+        return normed(torch.einsum('zkh,zkhe->zhe',normed_square(seq_weights,-2),v).reshape(dz,dh*de))
 
 class TopEncoder(TopEncoderBase):
     def __init__(self,dim_in,dim_head=2 ** 3,dim_emb=2 ** 5):
@@ -113,13 +113,6 @@ class TopEncoder(TopEncoderBase):
     def forward(self,x,mask=None):
         emb = self.rotary.make_emb(x.shape[1])
         return super().forward(x,lambda x: self.rotary(x,*emb),mask)
-
-class ResTopEncoderBase(TopEncoderBase):
-    def __init__(self,dim_head=2 ** 3,dim_emb=2 ** 5):
-        super().__init__(dim_head*dim_emb,dim_head,dim_emb)
-
-    def forward(self,x,rotary,mask=None):
-        return x[:,0] + super().forward(x,rotary,mask)
 
 class EncoderBase(Module):
     def __init__(self,dim_in,dim_head=2 ** 3,dim_emb=2 ** 5):
@@ -153,12 +146,12 @@ class ResEncoderBase(EncoderBase):
         return x + super().forward(x,rotary,mask)
 
 class EncoderList(Module):
-    def __init__(self,depth,dim_head=2 ** 3,dim_emb=2 ** 5,dim_in=None,dim_out=None):
+    def __init__(self,depth,dim_head=2 ** 3,dim_emb=2 ** 5,dim_in=None,dim_top_head=None):
         super().__init__()
         self.rotary = Rotary(dim_emb)
         self.initial = EncoderBase(dim_in,dim_head,dim_emb) if dim_in is not None else None
-        self.layers = ModuleList([ResEncoderBase(dim_head*dim_emb,dim_head,dim_emb) for _ in range(depth)])
-        self.top = TopEncoderBase(dim_head*dim_emb,dim_head,dim_emb)
+        self.layers = ModuleList([ResEncoderBase(dim_head,dim_emb) for _ in range(depth)])
+        self.top = TopEncoderBase(dim_head*dim_emb,dim_head if dim_top_head is None else dim_top_head,dim_emb)
         
     def forward(self,x,mask=None):
         emb = self.rotary.make_emb(x.shape[1])
@@ -210,7 +203,7 @@ def model_evaluate(
         policy_data : Tensor,policy_mask : Tensor,value_data : Tensor,value_mask : Tensor,action_mask : Tensor
         ):
     policy_data, policy_mask, value_data, value_mask, action_mask = policy_data.cuda(), policy_mask.cuda(), value_data.cuda(), value_mask.cuda(), action_mask.cuda()
-    action_probs = normed_square(torch.masked_fill(policy_head(normed(policy(policy_data,mask=policy_mask))),action_mask,0.0))
+    action_probs = normed_square(torch.masked_fill(policy_head(policy(policy_data,mask=policy_mask)),action_mask,0.0))
     if 0 < epsilon: 
         # Interpolates action probs with an uniform noise distribution for actions that aren't masked out.
         sample_probs = action_probs.detach() * (1 - epsilon)
@@ -222,7 +215,7 @@ def model_evaluate(
     def update(rewards_and_regret_probs : Tensor):
         rewards_and_regret_probs = rewards_and_regret_probs.cuda().view(2,-1,1)
         rewards, regret_probs = rewards_and_regret_probs[0,:,:], rewards_and_regret_probs[1,:,:]
-        state_probs : Tensor = normed(value(value_data,mask=value_mask))
+        state_probs : Tensor = value(value_data,mask=value_mask)
         update_head, calculate = belief_tabulate(state_probs.detach(),value_head,sample_indices,rewards,regret_probs)
         state_probs_grad, action_fun = calculate()
         reward, action_probs_grad = action_fun(action_probs.detach(),sample_probs)

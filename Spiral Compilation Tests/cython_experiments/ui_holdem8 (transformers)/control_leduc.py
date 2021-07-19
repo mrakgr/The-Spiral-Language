@@ -22,6 +22,7 @@ def neural_player(neural,modules,is_update_head=False,is_update_value=False,is_u
 
 def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self play NN
     batch_size = 2 ** 10
+    iter_batch = 2 ** 0
     modules = neural_create_model(neural.size)
     def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(m, t + 1)
     avg_modules = list(map(lambda x: AveragedModel(x,avg_fn=avg_fn),modules))
@@ -34,7 +35,8 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
         ],lr=2 ** -10) # Momentum works worse than vanilla signSGD on Leduc. On lower batch sizes I don't see any improvement either.
 
     def run(is_avg=False):
-        vs_self(batch_size,neural_player(neural,modules,True,True,True,2 ** -2))
+        for _ in range(iter_batch):
+            vs_self(batch_size,neural_player(neural,modules,True,True,True,2 ** -2))
         opt.step()
         opt.zero_grad(True)
 

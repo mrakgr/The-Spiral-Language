@@ -30,6 +30,24 @@
 // It is worth trying out. What is really going to make the agent state of the art are my exploration ideas. I am going to combine
 // the ideas from the SAU paper and the AGAC paper to crack open exploration on top of reducing variance.
 
+// Update(7/19/2021): Did some more manual architecture search. At first my efforts made things worse. It turns out what I 
+// stumbled on two days ago is quite good. The two heads love it when an ensemble of head inputs get fed to them instead of being 
+// preprocessed by a feedforward layer. But it is unecessary to do an inf cube and then normed square in the model evaluate. I've 
+// made a specialized `TopEncoder` just for the top layer which just does a normed square and then normalizes across the heads. It 
+// does just a single query for efficiency.
+
+// Increasing the number of heads past 2 ** 4 seems to make the training significantly slower. Given how fast the evaluation is,
+// for some reason the backwards pass is where the friction lies. The heads are important for stability - the variance of training
+// is significantly reduced when they are many, but the emb dimension can't be traded off for them. For Leduc, 2 ** 5 is good.
+// Going to 2 ** 4 seems to introduce some instability.
+
+// With the 2 ** 4 heads and 2 ** 5 emb, the stability of the training is as good as for an MLP. The training times are 2x worse
+// though. I'll have to make a decision whether I want to go back to MLPs or stick with transformers. I'll stick with them for now,
+// as it would take effort to bring back MLPs.
+
+// At any rate, the architecture here is quite viable. As soon as the run I am doing now finishes I'll leave this project as it is.
+// The details on my experiments can be found in the commit.
+
 packages: |core2-
 modules:
     types-
