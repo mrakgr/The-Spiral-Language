@@ -949,3 +949,98 @@
 07/19/2021 03:15:46 PM ** TRAINING START **
 07/19/2021 03:15:47 PM Training the NN agent.
 07/19/2021 03:17:00 PM ** TRAINING START **
+07/19/2021 05:55:23 PM ** TRAINING START **
+07/19/2021 05:55:25 PM Training the NN agent.
+07/19/2021 05:58:11 PM Averaging the NN agent.
+07/19/2021 05:59:36 PM Averaging the NN agent.
+07/19/2021 06:00:59 PM Averaging the NN agent.
+07/19/2021 06:03:22 PM The mean is -0.35365316276147496 for the regular player.
+07/19/2021 06:04:20 PM The mean is -0.38570937054464594 for the average player.
+07/19/2021 06:05:11 PM The mean is -0.27212645152030746 for the regular player.
+07/19/2021 06:06:05 PM The mean is -0.588578230002895 for the average player.
+07/19/2021 06:06:57 PM The mean is -0.12723163775808644 for the regular player.
+07/19/2021 06:07:45 PM The mean is -0.5102913740556687 for the average player.
+07/19/2021 06:07:45 PM ----
+07/19/2021 06:07:45 PM Training the NN agent.
+07/19/2021 06:09:38 PM ** TRAINING START **
+07/19/2021 06:09:40 PM Training the NN agent.
+07/19/2021 06:12:23 PM Averaging the NN agent.
+07/19/2021 06:13:44 PM Averaging the NN agent.
+07/19/2021 06:15:05 PM Averaging the NN agent.
+07/19/2021 06:17:23 PM The mean is -0.2708733972540358 for the regular player.
+07/19/2021 06:18:23 PM The mean is -0.3896940303093288 for the average player.
+07/19/2021 06:19:12 PM The mean is -0.17442081372792018 for the regular player.
+07/19/2021 06:20:17 PM The mean is -0.3192996218058397 for the average player.
+07/19/2021 06:21:18 PM The mean is -0.4345698902325239 for the regular player.
+07/19/2021 06:22:47 PM ** TRAINING START **
+07/19/2021 06:22:48 PM Training the NN agent.
+07/19/2021 06:25:20 PM Averaging the NN agent.
+07/19/2021 06:26:36 PM Averaging the NN agent.
+07/19/2021 06:27:49 PM Averaging the NN agent.
+07/19/2021 06:29:54 PM The mean is -0.1820726906953496 for the regular player.
+07/19/2021 06:30:51 PM The mean is -0.17108697287767427 for the average player.
+07/19/2021 06:31:47 PM The mean is -0.24140793654078152 for the regular player.
+07/19/2021 06:32:38 PM The mean is -0.121071798093908 for the average player.
+07/19/2021 06:33:32 PM The mean is -0.20129090716363862 for the regular player.
+07/19/2021 06:34:23 PM The mean is -0.1386528633775015 for the average player.
+07/19/2021 06:34:23 PM ----
+07/19/2021 06:34:23 PM Training the NN agent.
+07/19/2021 06:37:05 PM Averaging the NN agent.
+07/19/2021 06:38:27 PM Averaging the NN agent.
+07/19/2021 06:39:49 PM Averaging the NN agent.
+07/19/2021 06:42:35 PM ** TRAINING START **
+07/19/2021 06:42:37 PM Training the NN agent.
+07/19/2021 06:45:16 PM Averaging the NN agent.
+07/19/2021 06:46:34 PM Averaging the NN agent.
+07/19/2021 06:47:48 PM Averaging the NN agent.
+07/19/2021 06:49:56 PM The mean is -0.2581272281386191 for the regular player.
+07/19/2021 06:50:48 PM The mean is -0.10233911366231041 for the average player.
+07/19/2021 06:51:42 PM The mean is -0.1401238107791869 for the regular player.
+07/19/2021 06:52:36 PM The mean is -0.1135397009566077 for the average player.
+07/19/2021 06:53:29 PM The mean is -0.23223017984855687 for the regular player.
+07/19/2021 06:54:24 PM The mean is -0.12879848937154748 for the average player.
+07/19/2021 06:54:24 PM ----
+07/19/2021 06:54:24 PM Training the NN agent.
+07/19/2021 06:56:59 PM Averaging the NN agent.
+07/19/2021 06:58:19 PM Averaging the NN agent.
+07/19/2021 06:59:38 PM Averaging the NN agent.
+07/19/2021 07:01:47 PM The mean is -0.24596331658904091 for the regular player.
+07/19/2021 07:02:39 PM The mean is -0.14438108917238424 for the average player.
+07/19/2021 07:03:29 PM The mean is -0.15969111089361832 for the regular player.
+07/19/2021 07:04:20 PM The mean is -0.12818647003587103 for the average player.
+07/19/2021 07:05:09 PM The mean is -0.10527892812388018 for the regular player.
+07/19/2021 07:06:00 PM The mean is -0.09033581596668228 for the average player.
+07/19/2021 07:06:00 PM ----
+07/19/2021 07:06:00 PM Training the NN agent.
+07/19/2021 07:08:39 PM Averaging the NN agent.
+07/19/2021 07:09:57 PM Averaging the NN agent.
+07/19/2021 07:11:14 PM Averaging the NN agent.
+07/19/2021 07:13:18 PM The mean is -0.5471152495592833 for the regular player.
+07/19/2021 07:14:05 PM The mean is -0.11934724165985244 for the average player.
+07/19/2021 07:14:54 PM The mean is -0.21013399735966232 for the regular player.
+07/19/2021 07:15:46 PM The mean is -0.16099570366350235 for the average player.
+07/19/2021 07:16:34 PM The mean is -0.12600270511757117 for the regular player.
+07/19/2021 07:17:22 PM The mean is -0.1072379707620712 for the average player.
+07/19/2021 07:17:22 PM ----
+07/19/2021 07:17:22 PM Training the NN agent.
+07/19/2021 07:19:58 PM Averaging the NN agent.
+07/19/2021 07:21:17 PM Averaging the NN agent.
+07/19/2021 07:22:35 PM Averaging the NN agent.
+07/19/2021 07:24:47 PM The mean is -0.19157142665062565 for the regular player.
+07/19/2021 07:25:47 PM The mean is -0.15796663416404044 for the average player.
+07/19/2021 07:29:01 PM ** TRAINING START **
+07/19/2021 07:29:02 PM Training the NN agent.
+07/19/2021 07:31:32 PM Averaging the NN agent.
+07/19/2021 07:32:53 PM Averaging the NN agent.
+07/19/2021 07:34:17 PM Averaging the NN agent.
+07/19/2021 07:36:28 PM The mean is -0.1897756239231967 for the regular player.
+07/19/2021 07:37:17 PM The mean is -0.1145432529538084 for the average player.
+07/19/2021 07:38:13 PM The mean is -0.17564453016530024 for the regular player.
+07/19/2021 07:39:10 PM The mean is -0.14235294342506677 for the average player.
+07/19/2021 07:39:59 PM The mean is -0.13272551956833922 for the regular player.
+07/19/2021 07:40:49 PM The mean is -0.08651456488587428 for the average player.
+07/19/2021 07:40:49 PM ----
+07/19/2021 07:40:49 PM Training the NN agent.
+07/19/2021 07:43:16 PM Averaging the NN agent.
+07/19/2021 07:44:33 PM Averaging the NN agent.
+07/19/2021 07:45:43 PM Averaging the NN agent.
