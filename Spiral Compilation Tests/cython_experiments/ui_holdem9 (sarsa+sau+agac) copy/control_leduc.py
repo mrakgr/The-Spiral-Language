@@ -42,7 +42,7 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
     opt = SignSGD([
         dict(params=[],head=[value_head,normalizer],item_limit=2 ** 10),
         dict(params=params_of(value,action_predictor)),
-        dict(params=params_of(policy,policy_head))
+        # dict(params=params_of(policy,policy_head)),
         ],lr=2 ** -10) # Momentum works worse than vanilla signSGD on Leduc. On lower batch sizes I don't see any improvement either.
 
     def run(is_avg=False):
@@ -154,9 +154,9 @@ if __name__ == '__main__':
     # create_tabular_agent(n,m,**args)
     for _ in range(1):
         create_nn_agent(n,m,**args)
-        evaluate_vs_tabular(ag,n+m,**args)
-        evaluate_vs_tabular(ag,n+2*m,**args)
-        evaluate_vs_tabular(ag,n+3*m,**args)
+        # evaluate_vs_tabular(ag,n+m,**args)
+        # evaluate_vs_tabular(ag,n+2*m,**args)
+        # evaluate_vs_tabular(ag,n+3*m,**args)
         logging.info("----")
 
     logging.info("** TRAINING DONE **")

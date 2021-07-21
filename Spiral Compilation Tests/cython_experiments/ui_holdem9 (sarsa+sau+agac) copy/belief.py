@@ -178,13 +178,13 @@ def belief_tabulate(value_probs : Tensor,variance_probs : Tensor,head : Head,act
         weights = regret_probs * value_probs # [batch_dim,state_dim]
         head.weighted_values.index_add_(0,action_indices,rewards * weights)
         head.weights_values.index_add_(0,action_indices,weights)
-        weights = regret_probs * variance_probs # [batch_dim,state_dim]
-        head.weighted_variance.index_add_(0,action_indices,rewards.square() * weights)
-        head.weights_variance.index_add_(0,action_indices,weights)
+        # weights = regret_probs * variance_probs # [batch_dim,state_dim]
+        # head.weighted_variance.index_add_(0,action_indices,rewards.square() * weights)
+        # head.weights_variance.index_add_(0,action_indices,weights)
 
     def calculate():
         values = head.values # [action_dim,state_dim]
-        variance = head.variance(values) # [action_dim,state_dim]
+        # variance = head.variance(values) # [action_dim,state_dim]
         def value_probs_grad(): # The backprop derived rule.
             prediction_for_state = values[action_indices,:] # [batch_dim,state_dim]
             at_action_prediction = (value_probs * prediction_for_state).sum(-1,keepdim=True) # [batch_dim,1]
@@ -193,23 +193,24 @@ def belief_tabulate(value_probs : Tensor,variance_probs : Tensor,head : Head,act
             return g, prediction_errors
 
         def variance_probs_grad(): # Gradients for the variance prediction. In order to make the scale similar to values, the sqrt is used.
-            prediction_for_state = variance[action_indices,:] # [batch_dim,state_dim]
-            at_action_prediction = (variance_probs * prediction_for_state).sum(-1,keepdim=True) # [batch_dim,1]
-            prediction_errors = at_action_prediction.sub_(rewards.square()) # [batch_dim,1]
-            g = (prediction_errors.abs() * prediction_for_state).sqrt_().mul_(prediction_errors.sign().mul_(regret_probs)) # [batch_dim,state_dim]
-            return g, prediction_errors
+            return None, None
+            # prediction_for_state = variance[action_indices,:] # [batch_dim,state_dim]
+            # at_action_prediction = (variance_probs * prediction_for_state).sum(-1,keepdim=True) # [batch_dim,1]
+            # prediction_errors = at_action_prediction.sub_(rewards.square()) # [batch_dim,1]
+            # g = (prediction_errors.abs() * prediction_for_state).sqrt_().mul_(prediction_errors.sign().mul_(regret_probs)) # [batch_dim,state_dim]
+            # return g, prediction_errors
 
         def action_fun(action_probs : Tensor, sample_probs : Tensor,is_sarsa : bool): # Implements the VR MC-CFR update. Could be easily adapted to train an ensemble of actors.
             # action_probs[batch_dim,action_dim]
             # sample_probs[batch_dim,action_dim]
 
             prediction_values_for_action = value_probs.mm(values.t()) # [batch_dim,action_dim]
-            if is_sarsa == False: # Do the unbiased variance reducing MC-CFR correction on the rewards. Otherwise they will be the self-estimated SARSA value.
-                at_action_prediction_value = torch.gather(prediction_values_for_action,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
+            # if is_sarsa == False: # Do the unbiased variance reducing MC-CFR correction on the rewards. Otherwise they will be the self-estimated SARSA value.
+            #     at_action_prediction_value = torch.gather(prediction_values_for_action,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
                 
-                at_action_sample_probs = torch.gather(sample_probs,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
-                at_action_prediction_adjustment = (rewards - at_action_prediction_value).div_(at_action_sample_probs) # [batch_dim,1]
-                prediction_values_for_action.scatter_add_(-1,action_indices.unsqueeze(-1),at_action_prediction_adjustment)
+            #     at_action_sample_probs = torch.gather(sample_probs,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
+            #     at_action_prediction_adjustment = (rewards - at_action_prediction_value).div_(at_action_sample_probs) # [batch_dim,1]
+            #     prediction_values_for_action.scatter_add_(-1,action_indices.unsqueeze(-1),at_action_prediction_adjustment)
             reward = (action_probs * prediction_values_for_action).sum(-1,keepdim=True) # [batch_dim,1]
             # No need to center the gradients being passed into a probability vector's backward pass. Softmax for example, centers them on its own.
             def probs_grad(): return torch.neg_(prediction_values_for_action.mul_(regret_probs)) # [batch_dim,action_dim]
@@ -241,26 +242,30 @@ class SplitGradNormalizer(Module):
 
 def split3(x : Tensor):
     assert x.shape[-1] % 3 == 0, "Expected the dimension to be divisible by 3."
-    a,b,c = x.chunk(3,-1)
+    a,b,c = x.detach().chunk(3,-1)
     def bck(grads : list,regret_probs : Tensor,normalizer : SplitGradNormalizer):
-        normalizer.update(grads,regret_probs)
-        x.backward(torch.cat(normalizer.normalize(grads),-1))
-    return a.detach(),b.detach(),c.detach(),bck
+        # normalizer.update(grads,regret_probs)
+        # x.backward(torch.cat(normalizer.normalize(grads),-1))
+        a,b,c = grads
+        x.backward(torch.cat([torch.zeros_like(b),b,torch.zeros_like(b)],-1))
+    return a,b,c,bck
 
 def actions_sample(ap_probs : Tensor, value_probs : Tensor, variance_probs : Tensor, value_head : Head, action_predictor : Linear, action_mask : Tensor):
     """
     Samples actions based on the value function rather than the actual policy.
     """
-    head_values = value_head.values
-    values = value_probs.mm(head_values.t())
-    variance = variance_probs.mm(value_head.variance(head_values).t())
-    ap_probs = ap_probs.detach().requires_grad_()
-    ap = normed_square(action_predictor(ap_probs))
-    actions_allowed = action_mask.shape[1] - action_mask.sum(-1,keepdim=True)
-    sample_indices = torch.masked_fill(torch.normal(values,variance.div_(actions_allowed).div_(ap).sqrt_()),action_mask,float('-inf')).argmax(-1)
+    # head_values = value_head.values
+    # values = value_probs.mm(head_values.t())
+    # variance = variance_probs.mm(value_head.variance(head_values).t())
+    # ap_probs = ap_probs.detach().requires_grad_()
+    # ap = normed_square(action_predictor(ap_probs))
+    # actions_allowed = action_mask.shape[1] - action_mask.sum(-1,keepdim=True)
+    # sample_indices = torch.masked_fill(torch.normal(values,variance.div_(actions_allowed).div_(ap).sqrt_()),action_mask,float('-inf')).argmax(-1)
+    sample_indices = torch.masked_fill(torch.normal(0.0,1.0,action_mask.shape,device='cuda'),action_mask,float('-inf')).argmax(-1)
     def grad(regret_probs : Tensor):
-        Categorical(ap).log_prob(sample_indices).backward(-regret_probs.squeeze(-1))
-        return ap_probs.grad
+        # Categorical(ap).log_prob(sample_indices).backward(-regret_probs.squeeze(-1))
+        # return ap_probs.grad
+        pass
     return sample_indices, grad
 
 def model_explore(
@@ -280,14 +285,14 @@ def model_explore(
         value_probs_grad, variance_probs_grad, action_fun = calculate()
         reward, action_probs_grad = action_fun(action_probs.detach(),torch.ones_like(action_probs.detach()),True)
         if is_update_value: 
-            ap_grad = ap_bck(regret_probs)
+            # ap_grad = ap_bck(regret_probs)
             value_grad,value_pred_ers = value_probs_grad()
-            variance_grad,variance_pred_ers = variance_probs_grad()
+            # variance_grad,variance_pred_ers = variance_probs_grad()
             if hasattr(value,'t'): 
                 value.value_square_sum += (value_pred_ers.square() * regret_probs).sum()
-                value.variance_abs_sum += (variance_pred_ers.abs() * regret_probs).sum()
+                # value.variance_abs_sum += (variance_pred_ers.abs() * regret_probs).sum()
                 value.t += regret_probs.sum()
-            value_bck([ap_grad,value_grad,variance_grad],regret_probs,normalizer)
+            value_bck([None,value_grad,None],regret_probs,normalizer)
         if is_update_policy:
             g = action_probs_grad()
             action_probs.backward(g)

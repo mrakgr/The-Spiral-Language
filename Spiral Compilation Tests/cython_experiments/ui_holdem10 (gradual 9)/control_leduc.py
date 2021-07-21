@@ -7,60 +7,41 @@ from torch.nn import Linear
 import torch.linalg
 from functools import partial
 import numpy as np
-from belief import SignSGD,Head,model_explore,model_exploit,EncoderList,SplitGradNormalizer
+from belief import SignSGD,Head,model_evaluate,model_explore,EncoderList
 from torch.optim.swa_utils import AveragedModel
 
 def neural_create_model(size,dim_head=2 ** 2,dim_emb=2 ** 5):
-    value = EncoderList(0,dim_head,dim_emb,size.value,dim_head*3)
-    value.value_square_sum = torch.scalar_tensor(0.0).cuda()
-    value.variance_abs_sum = torch.scalar_tensor(0.0).cuda()
+    value = EncoderList(0,dim_head,dim_emb,size.value)
+    value.square_l2 = torch.scalar_tensor(0.0).cuda()
     value.t = torch.scalar_tensor(0.0).cuda()
     value_head = Head(dim_head*dim_emb,size.action)
-    action_predictor = Linear(dim_head*dim_emb,size.action)
-    normalizer = SplitGradNormalizer(3)
     policy = EncoderList(0,dim_head,dim_emb,size.policy)
     policy_head = Linear(dim_head*dim_emb,size.action)
-    return value.cuda(), value_head.cuda(), action_predictor.cuda(), normalizer.cuda(), policy.cuda(), policy_head.cuda()
+    return value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
 
-def neural_player_explore(neural,modules,is_update_value : bool,is_update_policy : bool):
-    return neural.handler(partial(model_explore,*modules,is_update_value,is_update_policy))
-
-def neural_player_exploit(neural,modules):
-    return neural.handler(partial(model_exploit,*modules))
-
-def params_of(*modules): 
-    for x in modules: 
-        for y in x.parameters():
-            yield y
+def neural_player(neural,modules,is_sarsa=False,is_update_head=False,is_update_value=False,is_update_policy=False): 
+    return neural.handler(partial(model_explore if is_sarsa else model_evaluate,*modules,is_update_head,is_update_value,is_update_policy))
 
 def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self play NN
     batch_size = 2 ** 9
+    iter_batch = 2 ** 0
     modules = neural_create_model(neural.size)
     def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(m, t + 1)
     avg_modules = list(map(lambda x: AveragedModel(x,avg_fn=avg_fn),modules))
-    value, value_head, action_predictor, normalizer, policy, policy_head = modules
+    value, value_head, policy, policy_head = modules
     opt = SignSGD([
-        dict(params=[],head=[value_head,normalizer],item_limit=2 ** 10),
-        dict(params=params_of(value,action_predictor)),
-        dict(params=params_of(policy,policy_head))
+        dict(params=value.parameters()),
+        dict(params=[],head=value_head,item_limit=2 ** 10),
+        dict(params=policy.parameters()),
+        dict(params=policy_head.parameters())
         ],lr=2 ** -10) # Momentum works worse than vanilla signSGD on Leduc. On lower batch sizes I don't see any improvement either.
 
     def run(is_avg=False):
-        pla = neural_player_explore(neural,modules,True,False)
-        plb = neural_player_exploit(neural,modules)
-        # for _ in range(10):
-        vs_one(batch_size,pla,plb)
-        vs_one(batch_size,plb,pla)
-
-        # pla = neural_player_explore(neural,modules,False,True)
-        # plb = neural_player_exploit(neural,modules)
-        # vs_one(batch_size,pla,plb)
-        # vs_one(batch_size,plb,pla)
-
-        logging.debug(f"The l2 loss value prediction error is {torch.sqrt(value.value_square_sum / value.t)}")
-        logging.debug(f"The l2 loss variance prediction error is {torch.sqrt(value.variance_abs_sum / value.t)}")
-        value.value_square_sum.fill_(0.0)
-        value.variance_abs_sum.fill_(0.0)
+        pla, plb = neural_player(neural,modules,True,True,True), neural_player(neural,modules)
+        for _ in range(iter_batch): vs_one(batch_size,pla,plb); vs_one(batch_size,plb,pla)
+        
+        logging.debug(f"The l2 loss value prediction error is {torch.sqrt(value.square_l2 / value.t)}")
+        value.square_l2.fill_(0.0)
         value.t.fill_(0.0)
 
         opt.step()
@@ -92,7 +73,7 @@ def evaluate_vs_tabular(i_tabular,i_nn,vs_self,vs_one,neural,uniform_player,tabu
         r = 0
         n = 2 ** 8
         for _ in range(n):
-            r += vs_one(batch_size,neural_player_exploit(neural,modules),tabular_player()).sum()
+            r += vs_one(batch_size,neural_player(neural,modules),tabular_player()).sum()
         r /= batch_size * n
         logging.info(f'The mean is {r} for the {name} player.')
     with open(f'dump leduc/nn_agent_{i_nn}.nnreg','rb') as f: r('regular',torch.load(f))
@@ -152,11 +133,11 @@ if __name__ == '__main__':
     n,m = 300,150
     ag = n + m
     # create_tabular_agent(n,m,**args)
-    for _ in range(1):
+    for _ in range(5):
         create_nn_agent(n,m,**args)
-        evaluate_vs_tabular(ag,n+m,**args)
-        evaluate_vs_tabular(ag,n+2*m,**args)
-        evaluate_vs_tabular(ag,n+3*m,**args)
+        # evaluate_vs_tabular(ag,n+m,**args)
+        # evaluate_vs_tabular(ag,n+2*m,**args)
+        # evaluate_vs_tabular(ag,n+3*m,**args)
         logging.info("----")
 
     logging.info("** TRAINING DONE **")
