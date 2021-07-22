@@ -1,0 +1,34 @@
+// Thing keep going from bad to worse. I did not expect that SARSA would not work. Nor that my
+// original update would work better on Flop vs callbot. Because of that I do not see a point in
+// trying to run it on Leduc.
+
+// I'll try training the value function end to end with gradients here and see if it makes a 
+// difference. But this is the approach I specifically made the semi tabular updates to avoid.
+// It would require reward scaling, be sensitive to reward variance and other such nastiness.
+
+// Still, I have to be disciplined and make this test.
+
+packages: |core2-
+modules:
+    types-
+    conv-
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    sampling
+    nodes-
+    train
+    hand_scorer
+    hu_holdem
+    leduc
+    agent/
+        uniform
+        holdem_callbot
+        tabular
+        neural_leduc
+        neural_holdem
+    create_args_leduc
+    create_args_holdem

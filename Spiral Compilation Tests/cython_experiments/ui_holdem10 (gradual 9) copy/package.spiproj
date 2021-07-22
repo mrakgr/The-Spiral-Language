@@ -1,0 +1,32 @@
+// ui_holdem9 is giving me trouble, so let me gradually transform 8 into that form.
+// The goal is to get the value function to converge to zero on Leduc. Something is wrong with 9 and I have absolutely no idea what.
+// Even on Flop vs callbot it lost the ability to improve. One my changes broke the system, but I have no idea what because going
+// from 8 to 9 I made so many changes.
+
+// I believe in the algorithm itself, but the implementation will need debugging. RL is tough, so it is best to do things step by
+// step. Right now 9 has all the pieces, but it is sketch at best. I'll copy them into this as I go along.
+
+packages: |core2-
+modules:
+    types-
+    conv-
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    sampling
+    nodes-
+    train
+    hand_scorer
+    hu_holdem
+    leduc
+    agent/
+        uniform
+        holdem_callbot
+        tabular
+        neural_leduc
+        neural_holdem
+    create_args_leduc
+    create_args_holdem
