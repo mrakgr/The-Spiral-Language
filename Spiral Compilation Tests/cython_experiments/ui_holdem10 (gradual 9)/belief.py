@@ -168,7 +168,7 @@ def belief_tabulate(state_probs : Tensor,head : Head,action_indices : Tensor,rew
 
     def update_head(): # Weighted moving average update. Works well with probabilistic vectors and weighted updates that CFR requires.
         state_weights = regret_probs * state_probs # [batch_dim,state_dim]
-        head.weighted_values .index_add_(0,action_indices,rewards * state_weights)
+        head.weighted_values.index_add_(0,action_indices,rewards * state_weights)
         head.weights.index_add_(0,action_indices,state_weights)
 
     def calculate():

@@ -7,20 +7,20 @@ from torch.nn import Linear
 import torch.linalg
 from functools import partial
 import numpy as np
-from belief import SignSGD,Head,model_evaluate,model_explore,EncoderList
+from belief import SignSGD,model_eval,model_explore,model_exploit,EncoderList
 from torch.optim.swa_utils import AveragedModel
 
-def neural_create_model(size,dim_head=2 ** 2,dim_emb=2 ** 5):
+def neural_create_model(size,dim_head=2 ** 4,dim_emb=2 ** 5):
     value = EncoderList(0,dim_head,dim_emb,size.value)
     value.square_l2 = torch.scalar_tensor(0.0).cuda()
     value.t = torch.scalar_tensor(0.0).cuda()
-    value_head = Head(dim_head*dim_emb,size.action)
+    value_head = Linear(dim_head*dim_emb,size.action)
     policy = EncoderList(0,dim_head,dim_emb,size.policy)
     policy_head = Linear(dim_head*dim_emb,size.action)
     return value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
 
-def neural_player(neural,modules,is_sarsa=False,is_update_head=False,is_update_value=False,is_update_policy=False): 
-    return neural.handler(partial(model_explore if is_sarsa else model_evaluate,*modules,is_update_head,is_update_value,is_update_policy))
+def neural_player(neural,modules,model_fun=model_eval,is_update_value=False,is_update_policy=False): 
+    return neural.handler(partial(model_fun,*modules,is_update_value,is_update_policy))
 
 def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self play NN
     batch_size = 2 ** 9
@@ -31,21 +31,29 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
     value, value_head, policy, policy_head = modules
     opt = SignSGD([
         dict(params=value.parameters()),
-        dict(params=[],head=value_head,item_limit=2 ** 10),
+        dict(params=value_head.parameters(),lr=2 ** -5),
         dict(params=policy.parameters()),
         dict(params=policy_head.parameters())
         ],lr=2 ** -10) # Momentum works worse than vanilla signSGD on Leduc. On lower batch sizes I don't see any improvement either.
 
-    def run(is_avg=False):
-        pla, plb = neural_player(neural,modules,True,True,True), neural_player(neural,modules)
+    def eval(pla,plb):
         for _ in range(iter_batch): vs_one(batch_size,pla,plb); vs_one(batch_size,plb,pla)
-        
+        opt.step()
+        opt.zero_grad(True)
+
+    def run(is_avg=False):
+        static = neural_player(neural,modules,model_exploit)
+        for _ in range(10):
+            eval(neural_player(neural,modules,model_exploit,True,False),static)
+        eval(neural_player(neural,modules,model_exploit,False,True),static)
+        # update_value = neural_player(neural,modules,model_explore,True)
+        # update_policy = neural_player(neural,modules,model_explore,False,True)
+        # for _ in range(5): eval(update_value,static)
+        # eval(update_policy,static)
+
         logging.debug(f"The l2 loss value prediction error is {torch.sqrt(value.square_l2 / value.t)}")
         value.square_l2.fill_(0.0)
         value.t.fill_(0.0)
-
-        opt.step()
-        opt.zero_grad(True)
 
         if is_avg:
             for avg_x,x in zip(avg_modules,modules): avg_x.update_parameters(x)
@@ -133,11 +141,11 @@ if __name__ == '__main__':
     n,m = 300,150
     ag = n + m
     # create_tabular_agent(n,m,**args)
-    for _ in range(5):
+    for _ in range(1):
         create_nn_agent(n,m,**args)
-        # evaluate_vs_tabular(ag,n+m,**args)
-        # evaluate_vs_tabular(ag,n+2*m,**args)
-        # evaluate_vs_tabular(ag,n+3*m,**args)
+        evaluate_vs_tabular(ag,n+m,**args)
+        evaluate_vs_tabular(ag,n+2*m,**args)
+        evaluate_vs_tabular(ag,n+3*m,**args)
         logging.info("----")
 
     logging.info("** TRAINING DONE **")

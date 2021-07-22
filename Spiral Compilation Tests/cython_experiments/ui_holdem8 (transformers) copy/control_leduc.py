@@ -7,23 +7,21 @@ from torch.nn import Linear
 import torch.linalg
 from functools import partial
 import numpy as np
-from belief import SignSGD,Head,model_evaluate,model_explore,EncoderList
+from belief import SignSGD,Head,model_evaluate,EncoderList
 from torch.optim.swa_utils import AveragedModel
 
-def neural_create_model(size,dim_head=2 ** 2,dim_emb=2 ** 5):
+def neural_create_model(size,dim_head=2 ** 4,dim_emb=2 ** 5):
     value = EncoderList(0,dim_head,dim_emb,size.value)
-    value.square_l2 = torch.scalar_tensor(0.0).cuda()
-    value.t = torch.scalar_tensor(0.0).cuda()
     value_head = Head(dim_head*dim_emb,size.action)
     policy = EncoderList(0,dim_head,dim_emb,size.policy)
     policy_head = Linear(dim_head*dim_emb,size.action)
     return value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
 
-def neural_player(neural,modules,is_sarsa=False,is_update_head=False,is_update_value=False,is_update_policy=False): 
-    return neural.handler(partial(model_explore if is_sarsa else model_evaluate,*modules,is_update_head,is_update_value,is_update_policy))
+def neural_player(neural,modules,is_passthrough=True,is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
+    return neural.handler(partial(model_evaluate,*modules,is_passthrough,is_update_head,is_update_value,is_update_policy,epsilon))
 
 def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self play NN
-    batch_size = 2 ** 9
+    batch_size = 2 ** 10
     iter_batch = 2 ** 0
     modules = neural_create_model(neural.size)
     def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(m, t + 1)
@@ -37,14 +35,10 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
         ],lr=2 ** -10) # Momentum works worse than vanilla signSGD on Leduc. On lower batch sizes I don't see any improvement either.
 
     def run(is_avg=False):
-        pla, plb = neural_player(neural,modules,True,True,True), neural_player(neural,modules)
-        for _ in range(iter_batch): vs_one(batch_size,pla,plb); vs_one(batch_size,plb,pla)
+        for _ in range(iter_batch):
+            vs_self(batch_size,neural_player(neural,modules,False,True,True,True,0.0))
         opt.step()
         opt.zero_grad(True)
-        
-        logging.debug(f"The l2 loss value prediction error is {torch.sqrt(value.square_l2 / value.t)}")
-        value.square_l2.fill_(0.0)
-        value.t.fill_(0.0)
 
         if is_avg:
             for avg_x,x in zip(avg_modules,modules): avg_x.update_parameters(x)
@@ -117,7 +111,7 @@ if __name__ == '__main__':
     import numpy as np
     import pyximport
     pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
-    from create_args_leduc import main
+    from create_args_leduc2 import main
     args = main()
 
     log_path = 'dump leduc/training.log'
@@ -134,9 +128,9 @@ if __name__ == '__main__':
     # create_tabular_agent(n,m,**args)
     for _ in range(5):
         create_nn_agent(n,m,**args)
-        # evaluate_vs_tabular(ag,n+m,**args)
-        # evaluate_vs_tabular(ag,n+2*m,**args)
-        # evaluate_vs_tabular(ag,n+3*m,**args)
+        evaluate_vs_tabular(ag,n+m,**args)
+        evaluate_vs_tabular(ag,n+2*m,**args)
+        evaluate_vs_tabular(ag,n+3*m,**args)
         logging.info("----")
 
     logging.info("** TRAINING DONE **")
