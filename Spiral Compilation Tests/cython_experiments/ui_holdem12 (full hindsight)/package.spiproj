@@ -1,0 +1,29 @@
+// Even with SARSA, the value function cannot train vs the callbot. This is shocking.
+// What I'll do next is get rid of all the partial observability. I'll put in the full hindsight information.
+
+// Update: Not enough on Holdem. I'll try doing distributional RL next.
+
+packages: |core2-
+modules:
+    types-
+    conv-
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    sampling
+    nodes-
+    train
+    hand_scorer
+    hu_holdem
+    leduc
+    agent/
+        uniform
+        holdem_callbot
+        tabular
+        neural_leduc
+        neural_holdem
+    create_args_leduc3
+    create_args_holdem3

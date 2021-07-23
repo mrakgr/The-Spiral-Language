@@ -1,0 +1,93 @@
+// The Leduc poker game in CPS'd form.
+union action = Fold | Call | Raise
+union card = King | Queen | Jack
+
+type player = {card : card; id : u8; pot : i32}
+type players = player * player
+nominal leduc_state = player * player * bool * card
+
+inl compare_hands (community_card : card) (p1,p2 : players) =
+    let tag = function King => 2i32 | Queen => 1 | Jack => 0
+    inl community_card = tag community_card
+    inl a = tag p1.card, community_card
+    inl b = tag p2.card, community_card
+    inl is_pair (a,b) = a = b
+    if is_pair a && is_pair b then comp (fst a) (fst b)
+    elif is_pair a then GT
+    elif is_pair b then LT
+    else 
+        inl order (a,b) = if a > b then a,b else b,a
+        inl a,b = order a, order b
+        inl x = comp (fst a) (fst b)
+        if eq_is x then comp (snd a) (snd b) else x
+
+inl raiseBy amount (p1,p2 : players) = p2.pot + amount
+
+inl Game =
+    inl actions = heap {
+        init = a ;[Call;Raise]
+        full = a ;[Fold;Call;Raise]
+        noRaise = a ;[Fold;Call]
+        callOnly = a ;[Call]
+        }
+    inl deck = a ;[King; Queen; Jack; King; Queen; Jack]
+    $"numpy.random.shuffle(!deck)"
+
+    inl pot = 1i32
+    inl id = 0u8
+    draw deck fun (card, deck : card * a u64 card) =>
+    notify (Some: id) card fun _ =>
+    inl p1 = {card id pot}
+
+    inl id = 1u8
+    draw deck fun card, deck =>
+    notify (Some: id) card fun _ =>
+    inl p2 = {card id pot}
+
+    sample deck fun community_card =>
+
+    inl action (p1,p2,is_show_community_card) = action (leduc_state (p1,p2,is_show_community_card,community_card))
+    inl terminal ((p1 : player),(p2 : player),is_show_community_card) (i,r) = 
+        inl r = if i = 0 then r else -r
+        inl p1,p2 =
+            inl p (x : player) = {x with pot#=(+) (if x.id = 0 then r else -r)}
+            inl p1, p2 = p p1, p p2
+            if p1.id = 0 then p1,p2 else p2,p1
+        terminal (leduc_state (p1,p2,is_show_community_card,community_card)) (r2 (f32 r))
+
+    let actions_from_state (p1,p2 : players) (raises_left : i32) =
+        if 0 < raises_left && p1.pot = p2.pot then actions.init
+        elif 0 < raises_left then actions.full
+        elif 0 = raises_left && p1.pot = p2.pot then actions.callOnly
+        elif 0 = raises_left then actions.noRaise
+        else failwith "invalid action state"
+    
+    inl rec round_two ~(raises_left : i32) ~(p1,p2 : players) =
+        inl s = p1,p2,true
+        action s p1.id (actions_from_state (p1,p2) raises_left) function
+        | Fold => terminal s (p2.id, p1.pot)
+        | Call => 
+            inl p1 = {p1 with pot=p2.pot}
+            inl s = p1,p2,true
+            let x = compare_hands community_card (p1,p2)
+            terminal s if gt_is x then p1.id, p2.pot elif lt_is x then p2.id, p1.pot else p1.id, 0i32
+        | Raise => round_two (raises_left-1) (p2,{p1 with pot=raiseBy 4 (p1,p2)})
+    inl round_two_init ~(p1,p2 : players) =
+        notify None community_card fun _ =>
+        action (p1,p2,true) p1.id actions.init function
+        | Fold => failwith "impossible 2"
+        | Call => round_two 2 (p2,p1)
+        | Raise => round_two 1 (p2,{p1 with pot=raiseBy 4 (p1,p2)})
+    inl rec round_one ~(raises_left : i32) ~(p1,p2 : players) =
+        inl s = p1,p2,false
+        action s p1.id (actions_from_state (p1,p2) raises_left) function
+        | Fold => terminal s (p2.id, p1.pot)
+        | Call =>
+            inl p1 = {p1 with pot=p2.pot}
+            round_two_init (if p1.id = 0 then p1,p2 else p2,p1)
+        | Raise => round_one (raises_left-1) (p2,{p1 with pot=raiseBy 2 (p1,p2)})
+
+    action (p1,p2,false) p1.id actions.init function
+    | Fold => failwith "impossible 1"
+    | Call => round_one 2 (p2,p1)
+    | Raise => round_one 1 (p2,{p1 with pot=raiseBy 2 (p1,p2)})

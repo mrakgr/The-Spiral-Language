@@ -118,15 +118,12 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
 
     inl from_numpy x = $"torch.from_numpy(!x)" : obj
     inl from_numpy_as_bool x = from_numpy ($"!x.view('bool')" : obj)
-    inl action_probs, epsilon, sample_indices, update : a2 f32 * f32 * a u64 i64 * (obj -> a u64 f32) = 
+    inl action_probs, sample_indices, update : a2 f32 * a u64 i64 * (obj -> a u64 f32) = 
         inl x : obj = policy_value_action_eval (from_numpy policy_data, from_numpy_as_bool policy_mask, from_numpy value_data, from_numpy_as_bool value_mask, from_numpy_as_bool action_mask)
-        $"!x[0]", $"!x[1]", $"!x[2]", $"!x[3]"
+        $"!x[0]", $"!x[1]", $"!x[2]"
     inl cs : a u64 _ = am.init batch_size fun b =>
         inl a = index sample_indices b
-        inl policy = $"!action_probs[!b,!a]"
-        inl num_actions_at_index = index data b |> fun _,_,_,actions => length actions |> f32
-        inl sample = epsilon / num_actions_at_index + (1 - epsilon) * policy
-        log_prob_from {policy sample}, schema.action.unpickle (conv_int a)
+        log_prob_from_sample (if $"!action_probs is None" then 1.0 else $"!action_probs[!b,!a]"), schema.action.unpickle (conv_int a)
     
     cs, fun (rewards' : a u64 r2) : a u64 r2 =>
         inl rewards_and_env_probs : a _ _ = create (2*batch_size)
@@ -137,8 +134,7 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
             inl regret_prob =
                 inl prob = pl2_probs player_state pid
                 inl prob_env = prob.chance +@ prob.op
-                // exp (-prob.self.sample + (prob_env.policy - prob_env.sample))
-                @@prob_env
+                exp (-prob.self.sample + (prob_env.policy - prob_env.sample))
             set rewards_and_env_probs (batch_size + num_action) regret_prob
             ) rewards' data
         inl rewards = update (from_numpy rewards_and_env_probs)

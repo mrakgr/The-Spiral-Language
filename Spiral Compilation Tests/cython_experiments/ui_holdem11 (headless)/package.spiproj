@@ -7,7 +7,6 @@
 // It would require reward scaling, be sensitive to reward variance and other such nastiness.
 
 // Still, I have to be disciplined and make this test.
-
 packages: |core2-
 modules:
     types-

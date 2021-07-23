@@ -8,10 +8,10 @@ import numpy as np
 from torch.optim.swa_utils import AveragedModel
 from belief import SignSGD,Head,model_evaluate,EncoderList
 
-# defaults = dict(restriction_level=2,is_flop=False,sb=10,bb=20,stack_size=1000,schema_stack_size=1000) # Holdem
-defaults = dict(restriction_level=0,is_flop=True,sb=1,bb=2,stack_size=10,schema_stack_size=10) # Flop
+defaults = dict(restriction_level=2,is_flop=False,sb=10,bb=20,stack_size=1000,schema_stack_size=1000) # Holdem
+# defaults = dict(restriction_level=0,is_flop=True,sb=1,bb=2,stack_size=10,schema_stack_size=10) # Flop
 
-def neural_create_model(size,dim_head=2 ** 4,dim_emb=2 ** 5):
+def neural_create_model(size,dim_head=2 ** 3,dim_emb=2 ** 5):
     value = EncoderList(5,dim_head,dim_emb,size.value)
     value.square_l2 = torch.scalar_tensor(0.0).cuda()
     value.t = torch.scalar_tensor(0.0).cuda()
@@ -20,8 +20,8 @@ def neural_create_model(size,dim_head=2 ** 4,dim_emb=2 ** 5):
     policy_head = Linear(dim_head*dim_emb,size.action)
     return value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
 
-def neural_player(neural,modules,is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
-    return neural.handler(partial(model_evaluate,*modules,is_update_head,is_update_value,is_update_policy,epsilon))
+def neural_player(neural,modules,is_passthrough=True,is_update_head=False,is_update_value=False,is_update_policy=False,epsilon=0.0): 
+    return neural.handler(partial(model_evaluate,*modules,is_passthrough,is_update_head,is_update_value,is_update_policy,epsilon))
 
 def create_nn_agent(
         iter_train,iter_avg,iter_chk,iter_sub,iter_batch,vs_self,vs_one,neural,uniform_player,callbot_player,
@@ -52,10 +52,9 @@ def create_nn_agent(
     if 0 < iter_avg: avg_modules = list(map(lambda x: AveragedModel(x,avg_fn),modules))
 
     def run(is_avg=False):
-        pl = neural_player(neural_applied,modules,is_update_head=True,is_update_value=True,is_update_policy=False,epsilon=2 ** -2)
+        pl = neural_player(neural_applied,modules,is_passthrough=False,is_update_head=True,is_update_value=True,is_update_policy=False,epsilon=0.0)
         def vs_opponent(plc):
             for _ in range(iter_sub):
-                opt.zero_grad(True)
                 r = 0.0
                 for _ in range(iter_batch):
                     r += vs_one(restriction_level,is_flop,sb,bb,stack_size)(batch_size // 2,pl,plc).sum()
@@ -63,9 +62,12 @@ def create_nn_agent(
                 r /= batch_size * iter_batch
                 # logging.info(f"The mean is {r}")
                 logging.debug(f"The l2 loss value prediction error is {torch.sqrt(value.square_l2 / value.t)}")
+                
                 value.square_l2.fill_(0.0)
                 value.t.fill_(0.0)
+
                 opt.step()
+                opt.zero_grad(True)
 
         logging.info(f'Training vs {mode}.')
         if mode == 'exploit':
@@ -137,7 +139,7 @@ if __name__ == '__main__':
     import numpy as np
     import pyximport
     pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
-    from create_args_holdem import main
+    from create_args_holdem2 import main
     args = main()['train']
     log_path = 'dump holdem/training.log'
     logging.basicConfig(
@@ -147,7 +149,7 @@ if __name__ == '__main__':
         format='%(asctime)s %(message)s'
         )
 
-    create_nn_agent(20,0,10,40,1,**args,mode='callbot')
+    create_nn_agent(60,0,10,40,1,**args,mode='callbot')
     # players = [f'nn_agent_{i}_self.nnavg' for i in range(10,151,10)]
     # players = ['nn_agent_120_self.nnavg','nn_agent_130_self.nnavg']
     # competitive_eval(players,**args)

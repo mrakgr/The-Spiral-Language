@@ -1,6 +1,9 @@
 // The VR MCCFR correction makes the results unrealistically positive in the SARSA tests so I am
 // checking what effect passing rewards has on the final score here.
 
+// Update: Let me also try out the transformers on full Holdem. I neglected to test that out.
+// Works even worse than before if that is possible.
+
 packages: |core2-
 modules:
     types-

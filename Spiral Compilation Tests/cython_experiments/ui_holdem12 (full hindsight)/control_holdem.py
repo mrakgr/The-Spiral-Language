@@ -138,7 +138,7 @@ if __name__ == '__main__':
     import numpy as np
     import pyximport
     pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
-    from create_args_holdem import main
+    from create_args_holdem3 import main
     args = main()['train']
     log_path = 'dump holdem/training.log'
     logging.basicConfig(

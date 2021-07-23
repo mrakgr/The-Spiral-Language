@@ -1,0 +1,20 @@
+open leduc
+type present = list (choice2 card action)
+type future = list (choice2 card card)
+type agent_dict = agent.tabular.agent_dict present future
+inl main () =
+    inl vs_self = train.vs_self leduc.game
+    inl vs_one = train.vs_one leduc.game
+    inl neural = train.neural agent.neural_leduc.extractor agent.neural_leduc.schema()
+    inl uniform_player : ra u64 (pl2 card action * leduc_state * u8 * a u64 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) =
+        agent.uniform.policy
+    inl tabular =
+        inl create_policy : agent_dict * bool * bool * f32 -> ra u64 (pl2 card action * leduc_state * u8 * a u64 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) =
+            agent.tabular.policy agent.neural_leduc.extractor
+        inl create_agent () : agent_dict = dictm.empty
+        inl optimize : agent_dict -> () = agent.tabular.optimize
+        inl average : agent_dict * agent_dict -> () = agent.tabular.average
+        inl head_multiply_ : agent_dict * _ -> _ = agent.tabular.head_multiply_
+        namedtuple "Tabular" {create_policy create_agent head_multiply_ optimize average}
+
+    record {vs_self vs_one neural uniform_player tabular}
