@@ -1,0 +1,42 @@
+// I'll try categorical distributional RL here. Holdem pretty much killed the semi tabular update idea. It does not work
+// when propagating TD values. I got fooled by it working on Flop. I honetly thought I had something great with them, so
+// the method failing completely blindsided me.
+
+// Trying to make regular deep SARSA work was pretty much an act of desperation. I'll wipe projects 9,10,11,12 once I
+// get the current idea working. I am quite sure that categorical DRL is in fact what I need to make poker work. In the papers,
+// it seems to lag other methods, but that is just a surface reading. It has strong roboustness properties that none of the 
+// other methods do, and is not sensitive to reward scaling. In contrast even the state of the art MMD still has the same
+// as regular Q learning. I'd need to specificaly set the learning rate of the value head to match the reward scale if
+// I was using those regression style methods.
+
+// In fact, that I tried making my own semi tabular method instead of using categorical DRL is an especially stupid move on my
+// part. I've been aware of the algorithm years ago when the paper came out, but I haven't studied it deeply enough and ended up
+// with an understanding that was too shallow to properly judge the algorithm's potential. This caused me to go in the wrong
+// direction. Hopefully categorical DRL should make the value function trainable on Holdem. I'll be surprised if it did not.
+
+// The last few weeks were so bad, it was just one failed idea after another.
+
+packages: |core2-
+modules:
+    types-
+    conv-
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    sampling
+    nodes-
+    train
+    hand_scorer
+    hu_holdem
+    leduc
+    agent/
+        uniform
+        holdem_callbot
+        tabular
+        neural_leduc
+        neural_holdem
+    create_args_leduc4
+    create_args_holdem4
