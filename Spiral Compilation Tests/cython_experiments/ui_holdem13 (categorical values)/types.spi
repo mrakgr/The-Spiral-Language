@@ -3,3 +3,6 @@ type st = i16
 
 type a2 x = $"numpy.ndarray[`x,ndim=2]"
 type a3 x = $"numpy.ndarray[`x,ndim=3]"
+
+// Is supposed to represent a PyTorch tensor.
+nominal tensor = obj

@@ -29,6 +29,7 @@ modules:
     sampling
     nodes-
     train
+    train_cat
     hand_scorer
     hu_holdem
     leduc
