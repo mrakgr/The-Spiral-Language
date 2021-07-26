@@ -1,4 +1,4 @@
-from math import exp, trunc
+from math import exp, log
 import torch
 from torch.functional import Tensor
 
@@ -20,16 +20,12 @@ class GeoCatTensor:
         """
         The support for the probability vector.
         """
-        x = torch.linspace(-1,1,self.probs.shape[-1],dtype=self.probs.dtype,device=self.probs.device)
+        x = torch.linspace(-log(self.max + 1),log(self.max + 1),self.probs.shape[-1],dtype=self.probs.dtype,device=self.probs.device)
         db,da = self.probs.shape
-        x = x.sign().mul_(torch.exp_(x.abs()) - 1).mul_(self.max / (exp(1.0) - 1.0))
-        return x.repeat(db,1)
+        return (x.sign() * (torch.exp(x.abs()) - 1)).repeat(db,1)
 
     def bins(self,tz : Tensor):
-        b = tz.mul((exp(1.0) - 1.0) / self.max).abs_().add_(1.0).log_().mul_(self.half_dim)
-        b[:,:self.half_dim].neg_()
-        b += self.half_dim
-
+        b = tz.sign() * ((tz.abs() + 1).log() * (self.half_dim / log(self.max + 1))) + self.half_dim
         l,u = torch.floor(b).long(), torch.ceil(b).long()
         sup = self.support
         tzl, tzu = sup.gather(-1,l), sup.gather(-1,u)
@@ -45,9 +41,12 @@ class GeoCatTensor:
         m.scatter_add_(-1,u,self.probs*(1-credit))
         return m
 
-q = torch.rand(1,5)
+q = torch.rand(1,1001)
 q /= q.sum(-1,keepdim=True)
-x = GeoCatTensor(10,q)
+x = GeoCatTensor(1000000,q)
 
-print(x.probs)
-print(x.add_mult(1.0,0.5))
+torch.set_printoptions(sci_mode=False,edgeitems=2345678)
+print(x.support)
+# print(x.probs)
+# print(x.add_mult(1.0,0.5))
+# x.add_mult(1.0,0.0)
