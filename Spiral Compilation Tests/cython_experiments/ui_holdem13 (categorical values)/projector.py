@@ -63,6 +63,12 @@ class Projector(Module):
         x[:,self.half_dim] = 1.0
         return self.add(x,r.view(da,1))
 
+    def mean(self,probs : Tensor): 
+        """
+        Returns the mean value of the probability vector based on the projector support.
+        """
+        return probs.mv(self.support)
+
 class ExpProjector(Projector):
     """
     Creates a symmetric exponential basis in the [-max,max] range. On a chart of y=exp(x) imagine the right side cutting of at log(max), translated by -1 so it touches the x-axis at 0 and having an image of it rotated around the center.

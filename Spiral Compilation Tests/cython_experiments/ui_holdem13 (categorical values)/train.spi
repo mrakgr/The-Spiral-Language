@@ -10,7 +10,8 @@ inl vs_human game human_pid p =
 
 inl vs_self game (batch_size, p) =
     let rec loop (l : a u64 _) =
-        inl rewards : ra u64 _ = am.empty
+        inl rewards_indices : ra u64 _ = am.empty
+        inl rewards_terminal : ra u64 r2 = am.empty
         inl actions_indices : ra u64 _ = am.empty
         inl data : ra u64 _ = am.empty
         inl nexts : ra u64 _ = am.empty
@@ -19,8 +20,9 @@ inl vs_self game (batch_size, p) =
                 rm.add actions_indices i
                 rm.add data (player_state,game_state,pid,actions)
                 rm.add nexts next
-            | Terminal: x => 
-                rm.add rewards (i, x)
+            | Terminal: _,_,x =>
+                rm.add rewards_indices i
+                rm.add rewards_terminal x
         inl rewards_actions : a _ _ =
             if 0 < length data then
                 inl (cs : a _ _),update = p data
@@ -28,13 +30,14 @@ inl vs_self game (batch_size, p) =
             else am.empty
         inl rewards_all : a _ r2 = create (length l)
         am.generic.iter2 (set rewards_all) actions_indices rewards_actions
-        am.iter (fun (i,_,_,r) => set rewards_all i r) rewards
+        am.iter2 (set rewards_all) rewards_indices rewards_terminal
         rewards_all
     loop (am.init batch_size fun _ => game () pl2_init)
 
 inl vs_one game (batch_size, p1, p2) =
     let rec loop (l : a u64 _) =
-        inl rewards : ra u64 _ = am.empty
+        inl rewards_indices : ra u64 _ = am.empty
+        inl rewards_terminal : ra u64 r2 = am.empty
         inl actions_indices : ra u64 _ = am.empty
         inl p1_data : ra u64 _ = am.empty
         inl p2_data : ra u64 _ = am.empty
@@ -51,8 +54,9 @@ inl vs_one game (batch_size, p1, p2) =
                     rm.add p2_data (player_state,game_state,pid,actions)
                     rm.add p2_nexts next
                 rm.add pids pid
-            | Terminal: x =>
-                rm.add rewards (i, x)
+            | Terminal: _,_,x =>
+                rm.add rewards_indices i
+                rm.add rewards_terminal x
         inl rewards_actions =
             if 0 < length pids then
                 inl p1_cs,p1_update : a _ _ * (a u64 r2 -> a u64 r2) = p1 p1_data
@@ -70,7 +74,7 @@ inl vs_one game (batch_size, p1, p2) =
             else am.empty
         inl rewards_all : a _ r2 = create (length l)
         am.generic.iter2 (set rewards_all) actions_indices rewards_actions
-        am.iter (fun (i,_,_,r) => set rewards_all i r) rewards
+        am.iter2 (set rewards_all) rewards_indices rewards_terminal
         rewards_all
     loop (am.init batch_size fun _ => game () pl2_init)
 
@@ -115,15 +119,15 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
 
     inl from_numpy x = $"torch.from_numpy(!x)" : tensor
     inl from_numpy_as_bool x = from_numpy ($"!x.view('bool')" : obj)
-    inl action_probs, sample_indices, update : a2 f32 * a u64 i64 * (tensor -> a u64 f32) = 
+    inl action_probs, sample_indices, update : a2 f32 * a u64 i64 * (tensor -> a u64 r2) = 
         inl x : obj = policy_value_action_eval (from_numpy policy_data, from_numpy_as_bool policy_mask, from_numpy value_data, from_numpy_as_bool value_mask, from_numpy_as_bool action_mask)
         $"!x[0]", $"!x[1]", $"!x[2]"
     inl cs : a u64 _ = am.init batch_size fun b =>
         inl a = index sample_indices b
         log_prob_from_sample (if $"!action_probs is None" then 1.0 else $"!action_probs[!b,!a]"), schema.action.unpickle (conv_int a)
     
-    cs, fun (rewards' : a u64 r2) : a u64 r2 =>
-        inl rewards_and_env_probs_and_pids : a _ _ = create (2*batch_size)
+    cs, fun (rewards : a u64 r2) : a u64 r2 =>
+        inl rewards_and_env_probs_and_pids : a _ _ = create (3*batch_size)
         am.generic.iteri2 (fun num_action (r2 reward) (player_state,game_state,pid,actions) =>
             set rewards_and_env_probs_and_pids num_action reward
 
@@ -133,9 +137,8 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
                 exp (-prob.self.sample + (prob_env.policy - prob_env.sample))
             set rewards_and_env_probs_and_pids (batch_size + num_action) regret_prob
             set rewards_and_env_probs_and_pids (2 * batch_size + num_action) (if pid = 0 then 1 else -1)
-            ) rewards' data
-        inl rewards = update (from_numpy rewards_and_env_probs)
-        am.generic.map2 (fun a (_,_,pid,_) => if pid = 0 then r2 a else r2 -a) rewards data
+            ) rewards data
+        update (from_numpy rewards_and_env_probs_and_pids)
 
 inl neural extractor schema =
     inl handler = neural_handler extractor schema

@@ -1,4 +1,5 @@
 // The functions here propagate rewards as categorical probability vectors.
+
 inl vs_self (combine, to_cat, empty) game (batch_size, p) =
     let rec loop (l : a u64 _) =
         inl rewards_indices : ra u64 _ = am.empty
@@ -121,12 +122,3 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
             set regret_probs_and_pids (batch_size + num_action) (if pid = 0 then 1 else -1)
             ) data
         update (rewards, from_numpy regret_probs_and_pids)
-
-inl neural extractor schema =
-    inl handler = neural_handler extractor schema
-    inl size =
-        inl policy = serialization.dense.array.size schema.policy
-        inl value = serialization.dense.array.size schema.value
-        inl action = serialization.sparse.int.size schema.action
-        namedtuple "Size" {action policy value}
-    namedtuple "Neural" {handler size}
