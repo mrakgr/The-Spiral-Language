@@ -1,6 +1,6 @@
 // The functions here propagate rewards as categorical probability vectors.
 
-inl vs_self (combine, to_cat, empty) game (batch_size, p) =
+inl vs_self (combine, to_cat, empty : _ * (_ -> tensor) * _) game (batch_size, p) =
     let rec loop (l : a u64 _) =
         inl rewards_indices : ra u64 _ = am.empty
         inl rewards_terminal : ra u64 r2 = am.empty
@@ -17,13 +17,13 @@ inl vs_self (combine, to_cat, empty) game (batch_size, p) =
                 rm.add rewards_terminal x
         inl rewards_actions =
             if 0 < length data then
-                inl (cs : a _ _),update = p data
+                inl (cs : a _ _),(update : tensor -> tensor) = p data
                 am.generic.map2 (<|) nexts cs |> loop |> update
             else empty
         combine (actions_indices, rewards_actions, rewards_indices, to_cat rewards_terminal)
     loop (am.init batch_size fun _ => game () pl2_init)
 
-inl vs_one (combine, to_cat, empty) game (batch_size, p1, p2) =
+inl vs_one (combine, to_cat, empty : _ * (_ -> tensor) * _) game (batch_size, p1, p2) =
     let rec loop (l : a u64 _) =
         inl rewards_indices : ra u64 _ = am.empty
         inl rewards_terminal : ra u64 r2 = am.empty
@@ -62,63 +62,3 @@ inl vs_one (combine, to_cat, empty) game (batch_size, p1, p2) =
             else empty, empty
         combine (p1_actions_indices, p1_rewards_actions, p2_actions_indices, p2_rewards_actions, rewards_indices, to_cat rewards_terminal)
     loop (am.init batch_size fun _ => game () pl2_init)
-
-// The neural model is intended to be created on the Python side and partially applied as the `policy_value_action_eval` argument. 
-// `extractor` and `schema` are applied on the Spiral side before being passed as a function. 
-inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (data : ra _ (_ * _ * u8 * a st _)) =
-    if length data = 0 then am.empty, id else
-    !!!!Import("torch")
-    inl policy_size = serialization.dense.array.size schema.policy
-    inl value_size = serialization.dense.array.size schema.value
-    inl action_size = serialization.sparse.int.size schema.action
-    inl batch_size = length data
-    inl policy_seq_size, future_seq_size = 
-        am.fold (fun (s1,s2) (player_state,game_state,pid,actions) => 
-            inl a,b = extractor (player_state,game_state,pid)
-            max s1 (listm.length a), max s2 (listm.length b)
-            ) (0u64, 0u64) data
-    inl value_seq_size = policy_seq_size + future_seq_size
-    inl policy_data : a3 f32 = $"numpy.zeros((!batch_size,!policy_seq_size,!policy_size),dtype=numpy.float32)"
-    inl policy_mask : a2 i8 = $"numpy.zeros((!batch_size,!policy_seq_size),dtype=numpy.int8)"
-    inl value_data : a3 f32 = $"numpy.zeros((!batch_size,!value_seq_size,!value_size),dtype=numpy.float32)"
-    inl value_mask : a2 i8 = $"numpy.zeros((!batch_size,!value_seq_size),dtype=numpy.int8)"
-    inl action_mask : a2 i8 = $"numpy.ones((!batch_size,!action_size),dtype=numpy.int8)"
-    data |> am.iteri fun i_batch (player_state,game_state,pid,actions) =>
-        inl present, future = extractor (player_state,game_state,pid)
-        inl i_seq = 
-            listm.foldBack (fun x i_seq =>
-                inl f forall t. (x : a3 t) : a st t = $"!x[!i_batch,!i_seq,:]"
-                schema.policy.pickle x (0, f policy_data)
-                schema.value.pickle (C1of2: x) (0, f value_data)
-                i_seq + 1
-                ) present 0u64
-        loop.for' (from:i_seq nearTo: policy_seq_size) fun i_seq => $"!policy_mask[!i_batch,!i_seq] = 1"
-        inl i_seq = 
-            listm.fold (fun i_seq x =>
-                inl f forall t. (x : a3 t) : a st t = $"!x[!i_batch,!i_seq,:]"
-                schema.value.pickle (C2of2: x) (0, f value_data)
-                i_seq + 1
-                ) i_seq future
-        loop.for' (from:i_seq nearTo: value_seq_size) fun i_seq => $"!value_mask[!i_batch,!i_seq] = 1"
-        actions |> am.iter (schema.action.pickle >> fun x => $"!action_mask[!i_batch,!x] = 0")
-
-    inl from_numpy x = $"torch.from_numpy(!x)" : tensor
-    inl from_numpy_as_bool x = from_numpy ($"!x.view('bool')" : obj)
-    inl action_probs, sample_indices, update : a2 f32 * a u64 i64 * (tensor * tensor -> tensor) = 
-        inl x : obj = policy_value_action_eval (from_numpy policy_data, from_numpy_as_bool policy_mask, from_numpy value_data, from_numpy_as_bool value_mask, from_numpy_as_bool action_mask)
-        $"!x[0]", $"!x[1]", $"!x[2]"
-    inl cs : a u64 _ = am.init batch_size fun b =>
-        inl a = index sample_indices b
-        log_prob_from_sample (if $"!action_probs is None" then 1.0 else $"!action_probs[!b,!a]"), schema.action.unpickle (conv_int a)
-    
-    cs, fun (rewards : tensor) : tensor =>
-        inl regret_probs_and_pids : a _ _ = create (2*batch_size)
-        am.generic.iteri (fun num_action (player_state,game_state,pid,actions) =>
-            inl regret_prob =
-                inl prob = pl2_probs player_state pid
-                inl prob_env = prob.chance +@ prob.op
-                exp (-prob.self.sample + (prob_env.policy - prob_env.sample))
-            set regret_probs_and_pids num_action regret_prob
-            set regret_probs_and_pids (batch_size + num_action) (if pid = 0 then 1 else -1)
-            ) data
-        update (rewards, from_numpy regret_probs_and_pids)

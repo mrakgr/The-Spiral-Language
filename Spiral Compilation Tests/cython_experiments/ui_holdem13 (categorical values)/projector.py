@@ -54,14 +54,31 @@ class Projector(Module):
         m.scatter_add_(-1,u,probs*(1-credit))
         return m
 
-    def one_hot(self,r : Tensor):
+    def to_cat(self,r,device='cuda'):
         """
-        Creates the categorical eqivalent of a scalar float vector.
+        Creates the categorical eqivalent of a scalar float Numpy vector.
         """
         da, = r.shape
-        x = torch.zeros(da,self.num_supports)
+        x = torch.zeros(da,self.num_supports,device=device)
         x[:,self.half_dim] = 1.0
         return self.add(x,r.view(da,1))
+
+    def combine(self,*args):
+        """
+        Args are supposed to be index list/PyTorch tensor flattened pairs.
+        """
+        assert 1 < len(args), 'Expected two args at least.'
+        assert len(args) % 2 == 0, 'Expected an even number of args.'
+        c = 0
+        for i in range(0,len(args),2): c += len(args[i+1])
+        x = torch.empty(c,self.num_supports,dtype=args[1].dtype,device=args[1].device)
+        for i in range(0,len(args),2): 
+            a, b = args[i], args[i+1]
+            assert len(a) == len(b), 'Expected the pairs to have the same outer dimension.'
+            x[a] = b
+        return x
+
+    def empty(self,device='cuda'): return torch.empty(0,self.num_supports,device=device)
 
     def mean(self,probs : Tensor): 
         """
@@ -99,14 +116,3 @@ class LinearProjector(Projector):
         b = (tz + self.max) * ((self.num_supports - 1) / (2 * self.max))
         l, u = torch.floor(b).long(), torch.ceil(b).long()
         return l, u - b, u
-
-n = 21
-p = LinearProjector(10,n)
-r = torch.rand(2) * 20 - 10
-print(r)
-print(p.one_hot(r))
-# q /= q.sum(-1,keepdim=True)
-# print(q)
-# print(p.support)
-# print(p.add_mult(q,1.0,0.5))
-# p.add_mult(q,1.0,0.5)

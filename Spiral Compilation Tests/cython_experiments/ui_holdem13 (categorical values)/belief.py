@@ -12,7 +12,32 @@ from torch.functional import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
 from torch.nn.parameter import Parameter
-from projector import LinearProjector
+from projector import Projector
+from torch.nn.init import xavier_normal_
+
+class Head(Module):
+    """
+    During the forward pass it takes a random convex combination of heads before doing the multiplication. This is similar to the 
+    REM algorithm from the 'An Optimistic Perspective on Offline Reinforcement Learning' except here I am using it with categorical
+    probability vectors.
+
+    Unlike for a linear layer, the output is a 3d (batch, action, support) tensor.
+    """
+    def __init__(self,dim_input,dim_action,dim_support,dim_head=8):
+        super().__init__()
+        self.dim_head, self.dim_action, self.dim_support = dim_head, dim_action, dim_support
+        self.weight = Parameter(xavier_normal_(torch.empty(dim_action*dim_support,dim_input,dim_head)))
+        self.bias = Parameter(torch.zeros(dim_action*dim_support,dim_head))
+        
+    def forward(self,x : Tensor):
+        if self.training:
+            combination = torch.rand(self.dim_head)
+            combination /= combination.sum(-1,keepdim=True)
+            weight = torch.einsum('oih,h->oi',self.weight,combination)
+            bias = torch.einsum('oh,h->o',self.bias,combination)
+        else:
+            weight, bias = self.weight.mean(-1), self.bias.mean(-1)
+        return linear(x,weight,bias).view(-1,self.dim_action,self.dim_support)
 
 class SignSGD(Optimizer):
     """
@@ -146,114 +171,86 @@ class EncoderList(Module):
         x = reduce(lambda x,lay:lay(x,rotary,mask),self.layers,self.initial(x,rotary,mask) if self.initial is not None else x)
         return self.top(x,rotary,mask)
 
-class PowDivergence(Function):
+class CatPow(Function):
     """
-    Numerically stable eqivalent of KL for powers.
+    Numerically stable alternative of log_softmax for (categorical) powers.
     """
 
     @staticmethod
-    def forward(ctx,q : Tensor,e : int or float):
+    def forward(ctx,q : Tensor,e : int or float,dim=-1):
         assert isinstance(e,float) or isinstance(e,int), "Expected the exponent to be a constant float or integer."
         qp = q.pow(e)
-        qpsum = qp.sum(-1)
-        ctx.save_for_backward(q,qpsum,e)
+        qpsum = qp.sum(dim,keepdim=True)
+        ctx.save_for_backward(q,qpsum,e,dim)
         return (qp / qpsum).pow(1/e)
 
     @staticmethod
     def backward(ctx, g_qn):
-        q,qpsum,e = ctx.saved_tensors
+        q,qpsum,e,dim = ctx.saved_tensors
         if ctx.needs_input_grad[0]:
-            return (g_qn - q.pow(e-1) * ((g_qn * q).sum(-1) / qpsum)) / qpsum.pow(1/e)
-        return None
+            return (g_qn - q.pow(e-1) * ((g_qn * q).sum(dim,keepdim=True) / qpsum)) / qpsum.pow(1/e)
 
-pow_divergence = PowDivergence().apply
-
-# def belief_tabulate(prediction_values_for_action : Tensor,action_indices : Tensor,rewards : Tensor,regret_probs : Tensor,pids : Tensor,action_probs : Tensor,is_sarsa : bool):
-#     # action_indices[batch_dim] : map (action_dim -> batch_dim)
-#     # rewards[batch_dim,1]
-#     # regret_probs[batch_dim,1]
-#     # action_probs[batch_dim,action_dim]
-#     # sample_probs[batch_dim,action_dim]
-#     if is_sarsa == False:
-#         at_action_prediction_value = torch.gather(prediction_values_for_action,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
-#         at_action_sample_probs = torch.gather(action_probs,-1,action_indices.unsqueeze(-1)) # [batch_dim,1]
-#         at_action_prediction_adjustment = (rewards - at_action_prediction_value).div_(at_action_sample_probs) # [batch_dim,1]
-#         prediction_values_for_action = prediction_values_for_action.scatter_add(-1,action_indices.unsqueeze(-1),at_action_prediction_adjustment)
-#     reward = (action_probs * prediction_values_for_action).sum(-1,keepdim=True) # [batch_dim,1]
-#     # No need to center the gradients being passed into a probability vector's backward pass. Softmax for example, centers them on its own.
-#     def probs_grad(): return prediction_values_for_action * -(regret_probs * pids) # [batch_dim,action_dim]
-#     return reward, probs_grad
+catpow = CatPow().apply
 
 def model_explore(
-        proj : LinearProjector, value : Module, value_head, value_head_alt, policy : Module,policy_head : Linear,
-        is_update_value : bool,is_update_policy : bool,
-        policy_data : Tensor,policy_mask : Tensor,value_data : Tensor,value_mask : Tensor,action_mask : Tensor
+        proj : Projector, value : Module, value_head : Head, policy : Module,policy_head : Linear,
+        is_update_value : bool, is_update_policy : bool,
+        policy_data : Tensor, policy_mask : Tensor, value_data : Tensor, value_mask : Tensor, action_mask : Tensor, pids : Tensor
         ):
     """
-    Does SARSA.
+    Does SARSA with categorical distributions. Uses epistemic uncertainty between two value heads for exploration. 
+    The exploration probabilities do not affect the policy and sample probability in the training loop and are assumed to be 1.
     """
-    policy_data, policy_mask, value_data, value_mask, action_mask = policy_data.cuda(), policy_mask.cuda(), value_data.cuda(), value_mask.cuda(), action_mask.cuda()
+    value_data, value_mask, action_mask, pids = value_data.cuda(), value_mask.cuda(), action_mask.cuda(), pids.cuda().view(-1,1)
     value_raw : Tensor = value(value_data,mask=value_mask)
-    value_head_raw = linear(value_raw,*value_head)
-    values = proj.mean(value_head_raw.softmax(-1))
-    values_alt = proj.mean(linear(value_raw,*value_head_alt).softmax(-1))
-    sample_indices = torch.masked_fill(torch.normal(values,(values - values_alt).abs()),action_mask,float('-inf')).argmax(-1)
-    def update(rewards : Tensor, regret_probs_and_pids : Tensor):
-        regret_probs_and_pids = regret_probs_and_pids.cuda().view(2,-1,1)
-        regret_probs, pids = regret_probs_and_pids[0,:,:], regret_probs_and_pids[1,:,:]
+    value_head_raw = value_head.forward(value_raw)
+    value_probs = value_head_raw.softmax(-1).detach()
+    values = proj.mean(value_probs)
+    sample_indices = torch.masked_fill(torch.normal(values * pids,(values - proj.mean(value_head.forward(value_raw).softmax(-1)).detach()).abs()),action_mask,float('-inf')).argmax(-1)
+    def update(rewards : Tensor, regret_probs : Tensor):
+        nonlocal policy_data, policy_mask
+        policy_data, policy_mask = policy_data.cuda(), policy_mask.cuda()
         action_probs = normed_square(torch.masked_fill(policy_head(policy(policy_data,mask=policy_mask)),action_mask,0.0))
-        reward, action_probs_grad = belief_tabulate(prediction_values_for_action.detach(),sample_indices,rewards,regret_probs,action_probs.detach(),True)
-        if is_update_value: 
-            at_action_prediction_value = torch.gather(prediction_values_for_action,-1,sample_indices.unsqueeze(-1)) # [batch_dim,1]
-            square_prediction_ers = ((rewards - at_action_prediction_value).square() * regret_probs).sum()
-            if hasattr(value,'t'): 
-                value.square_l2 += square_prediction_ers
+        if is_update_value or is_update_policy:
+            regret_probs = regret_probs.cuda().view(-1,1)
+        if is_update_value:
+            def index_selected_actions(x : Tensor): return x[torch.arange(0,action_probs.shape[0]),sample_indices]
+            if hasattr(value,'t'):
+                value.square_l2 += ((index_selected_actions(values) - proj.mean(rewards)).square() * regret_probs).sum()
                 value.t += regret_probs.sum()
-            square_prediction_ers.backward()
+            index_selected_actions(value_head_raw).log_softmax(-1).backward(rewards * -regret_probs)
         if is_update_policy:
-            action_probs.backward(action_probs_grad())
-        return reward.squeeze(-1).cpu().numpy()
+            action_probs.backward(values * -(pids * regret_probs))
+        return torch.einsum('bav,ba->bv',value_probs,action_probs.detach())
     return None, sample_indices.cpu().numpy(), update
 
 def model_exploit(
-        value : Module,value_head : Linear,policy : Module,policy_head : Linear,
-        is_update_value : bool,is_update_policy : bool,
-        policy_data : Tensor,policy_mask : Tensor,value_data : Tensor,value_mask : Tensor,action_mask : Tensor
+        proj : Projector, value : Module, value_head : Head, policy : Module,policy_head : Linear,
+        is_update_value : bool, is_update_policy : bool,
+        policy_data : Tensor, policy_mask : Tensor, value_data : Tensor, value_mask : Tensor, action_mask : Tensor, pids : Tensor
         ):
     """
-    Does the unbiased VR MCCFR correction.
-    """
-    policy_data, policy_mask, value_data, value_mask, action_mask = policy_data.cuda(), policy_mask.cuda(), value_data.cuda(), value_mask.cuda(), action_mask.cuda()
-    action_probs = normed_square(torch.masked_fill(policy_head(policy(policy_data,mask=policy_mask)),action_mask,0.0))
-    sample_indices = Categorical(action_probs).sample()
-    def update(rewards_and_regret_probs : Tensor):
-        rewards_and_regret_probs = rewards_and_regret_probs.cuda().view(2,-1,1)
-        rewards, regret_probs = rewards_and_regret_probs[0,:,:], rewards_and_regret_probs[1,:,:]
-        prediction_values_for_action : Tensor = value_head(value(value_data,mask=value_mask))
-        reward, action_probs_grad = belief_tabulate(prediction_values_for_action.detach(),sample_indices,rewards,regret_probs,action_probs.detach(),False)
-        if is_update_value: 
-            at_action_prediction_value = torch.gather(prediction_values_for_action,-1,sample_indices.unsqueeze(-1)) # [batch_dim,1]
-            square_prediction_ers = ((rewards - at_action_prediction_value).square() * regret_probs).sum()
-            if hasattr(value,'t'): 
-                value.square_l2 += square_prediction_ers
-                value.t += regret_probs.sum()
-            square_prediction_ers.backward()
-        if is_update_policy:
-            action_probs.backward(action_probs_grad())
-        return reward.squeeze(-1).cpu().numpy()
-    return action_probs.detach().cpu().numpy(), sample_indices.cpu().numpy(), update
-
-def model_eval(
-        value : Module,value_head : Linear,policy : Module,policy_head : Linear,
-        is_update_value : bool,is_update_policy : bool,
-        policy_data : Tensor,policy_mask : Tensor,value_data : Tensor,value_mask : Tensor,action_mask : Tensor
-        ):
-    """
-    Propagates rewards directly as they are given. 'is_update_value' and 'is_update_policy' aren't used here.
+    Does MC value propagation. Uses the actual policy for exploration.
     """
     policy_data, policy_mask, action_mask = policy_data.cuda(), policy_mask.cuda(), action_mask.cuda()
     action_probs = normed_square(torch.masked_fill(policy_head(policy(policy_data,mask=policy_mask)),action_mask,0.0))
     sample_indices = Categorical(action_probs).sample()
-    def update(rewards_and_regret_probs : Tensor): # Passes on the rewards.
-        return rewards_and_regret_probs.chunk(2)[0].numpy()
+    def update(rewards : Tensor, regret_probs : Tensor): # As long as training is not done, it can be used to propagate scalar reward arrays as well.
+        if is_update_value or is_update_policy:
+            nonlocal value_data, value_mask, pids
+            value_data, value_mask, pids = value_data.cuda(), value_mask.cuda(), pids.cuda().view(-1,1)
+            regret_probs = regret_probs.cuda().view(-1,1)
+            value_raw : Tensor = value(value_data,mask=value_mask)
+            value_head_raw = value_head.forward(value_raw)
+            value_probs = value_head_raw.softmax(-1).detach()
+            values = proj.mean(value_probs)
+            if is_update_value:
+                def index_selected_actions(x : Tensor): return x[torch.arange(0,values.shape[0]),sample_indices]
+                if hasattr(value,'t'):
+                    value.square_l2 += ((index_selected_actions(values) - proj.mean(rewards)).square() * regret_probs).sum()
+                    value.t += regret_probs.sum()
+                index_selected_actions(value_head_raw).log_softmax(-1).backward(rewards * -regret_probs)
+            if is_update_policy:
+                action_probs.backward(values * -(pids * regret_probs))
+        return rewards
     return action_probs.detach().cpu().numpy(), sample_indices.cpu().numpy(), update
