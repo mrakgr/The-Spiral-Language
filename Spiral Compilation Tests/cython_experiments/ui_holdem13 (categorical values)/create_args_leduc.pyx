@@ -690,7 +690,6 @@ cdef class Closure14():
         cdef float v37
         cdef unsigned long long v38
         cdef object v39
-        cdef object v40
         v4 = numpy.empty(v1,dtype=numpy.float32)
         v5 = len(v0)
         v6 = Mut0((<unsigned long long>0))
@@ -715,10 +714,9 @@ cdef class Closure14():
             v38 = v8 + (<unsigned long long>1)
             v6.v0 = v38
         del v6
-        v39 = torch.from_numpy(v3)
-        v40 = torch.from_numpy(v4)
+        v39 = torch.from_numpy(v4)
         del v4
-        return v2(v39, v40)
+        return v2(v3, v39)
 cdef class Closure12():
     cdef object v0
     def __init__(self, v0): self.v0 = v0

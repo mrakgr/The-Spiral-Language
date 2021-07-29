@@ -7,7 +7,7 @@ from torch.nn import Linear
 import torch.linalg
 from functools import partial
 import numpy as np
-from belief import SignSGD,model_eval,model_explore,model_exploit,EncoderList,Head
+from belief import SignSGD,model_explore,model_exploit,EncoderList,Head
 from torch.optim.swa_utils import AveragedModel
 
 from projector import LinearProjector
@@ -20,7 +20,7 @@ def neural_create_model(size,dim_head=2 ** 4,dim_emb=2 ** 5):
     policy_head = Linear(dim_head*dim_emb,size.action)
     return proj.cuda(), value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
 
-def neural_player(neural,modules,model_fun=model_eval,is_update_value=False,is_update_policy=False): 
+def neural_player(neural,modules,model_fun=model_exploit,is_update_value=False,is_update_policy=False): 
     return neural.handler(partial(model_fun,*modules,is_update_value,is_update_policy))
 
 def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self play NN
@@ -31,11 +31,15 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
     avg_modules = [AveragedModel(x,avg_fn=avg_fn) for x in modules]
     proj, value, value_head, policy, policy_head = modules
     vs_self, vs_one = vs_self.cat(proj.combine,proj.to_cat,proj.empty), vs_one.cat(proj.combine,proj.to_cat,proj.empty)
-    opt = SignSGD([dict(params=x.parameters()) for x in modules],lr=2 ** -10) # Momentum works worse than vanilla signSGD on Leduc. On lower batch sizes I don't see any improvement either.
+    opt = SignSGD([
+        dict(params=x.parameters()) for x in modules
+        ],lr=2 ** -6) # Momentum works worse than vanilla signSGD on Leduc. On lower batch sizes I don't see any improvement either.
 
     def run(is_avg=False):
         for _ in range(5):
-            vs_self(neural_player(neural,modules,model_explore,True,False))
+            vs_self(batch_size,neural_player(neural,modules,model_explore,True,False))
+            opt.step()
+            opt.zero_grad(True)
 
         logging.debug(f"The l2 loss value prediction error is {value_head.mse_and_clear}")
 
@@ -124,12 +128,12 @@ if __name__ == '__main__':
     logging.info("** TRAINING START **")
     n,m = 300,150
     ag = n + m
-    create_tabular_agent(n,m,**args)
+    # create_tabular_agent(n,m,**args)
     for _ in range(1):
         create_nn_agent(n,m,**args)
-        evaluate_vs_tabular(ag,n+m,**args)
-        evaluate_vs_tabular(ag,n+2*m,**args)
-        evaluate_vs_tabular(ag,n+3*m,**args)
+        # evaluate_vs_tabular(ag,n+m,**args)
+        # evaluate_vs_tabular(ag,n+2*m,**args)
+        # evaluate_vs_tabular(ag,n+3*m,**args)
         logging.info("----")
 
     logging.info("** TRAINING DONE **")

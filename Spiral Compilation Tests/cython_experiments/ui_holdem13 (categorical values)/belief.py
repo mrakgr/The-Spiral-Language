@@ -1,6 +1,7 @@
 from functools import reduce
 
 import torch
+from torch._C import device
 from torch.autograd.function import Function
 from torch.distributions import Categorical
 from torch.nn.modules.container import ModuleList
@@ -27,7 +28,7 @@ class Head(Module):
         super().__init__()
         self.track_errors = track_errors
         self.dim_head, self.dim_action, self.dim_support = dim_head, dim_action, dim_support
-        self.weight = Parameter(xavier_normal_(torch.empty(dim_action*dim_support,dim_input,dim_head)))
+        self.weight = Parameter(torch.randn(dim_action*dim_support,dim_input,dim_head))
         self.bias = Parameter(torch.zeros(dim_action*dim_support,dim_head))
         self.square_error = Parameter(torch.scalar_tensor(0.0),requires_grad=False)
         self.square_error_count = Parameter(torch.scalar_tensor(0.0),requires_grad=False)
@@ -39,8 +40,10 @@ class Head(Module):
     def mse_and_clear(self): x = self.mse; self.mse_clear(); return x
         
     def forward(self,x : Tensor):
-        if self.training:
-            combination = torch.rand(self.dim_head)
+        if self.dim_head == 1:
+            weight, bias = self.weight.squeeze(-1), self.bias.squeeze(-1)
+        elif self.training:
+            combination = torch.rand(self.dim_head,device=x.device)
             combination /= combination.sum(-1,keepdim=True)
             weight = torch.einsum('oih,h->oi',self.weight,combination)
             bias = torch.einsum('oh,h->o',self.bias,combination)
@@ -190,14 +193,18 @@ class CatPow(Function):
         assert isinstance(e,float) or isinstance(e,int), "Expected the exponent to be a constant float or integer."
         qp = q.pow(e)
         qpsum = qp.sum(dim,keepdim=True)
-        ctx.save_for_backward(q,qpsum,e,dim)
+        ctx.e = e
+        ctx.dim = dim
+        ctx.save_for_backward(q,qpsum)
         return (qp / qpsum).pow(1/e)
 
     @staticmethod
     def backward(ctx, g_qn):
-        q,qpsum,e,dim = ctx.saved_tensors
+        q,qpsum = ctx.saved_tensors
+        g_q = None
         if ctx.needs_input_grad[0]:
-            return (g_qn - q.pow(e-1) * ((g_qn * q).sum(dim,keepdim=True) / qpsum)) / qpsum.pow(1/e)
+            g_q = (g_qn - q.pow(ctx.e-1) * ((g_qn * q).sum(ctx.dim,keepdim=True) / qpsum)) / qpsum.pow(1/ctx.e)
+        return g_q, None
 
 catpow = CatPow().apply
 
@@ -213,9 +220,11 @@ def model_explore(
     value_data, value_mask, action_mask, pids = value_data.cuda(), value_mask.cuda(), action_mask.cuda(), pids.cuda().view(-1,1)
     value_raw : Tensor = value(value_data,mask=value_mask)
     value_head_raw = value_head.forward(value_raw)
-    value_probs = value_head_raw.softmax(-1).detach()
+    value_probs = torch.softmax(value_head_raw,-1).detach()
     values = proj.mean(value_probs)
-    sample_indices = torch.masked_fill(torch.normal(values * pids,(values - proj.mean(value_head.forward(value_raw).softmax(-1)).detach()).abs()),action_mask,float('-inf')).argmax(-1)
+    # sample_indices = torch.masked_fill(torch.normal(values * pids,(values - proj.mean(value_head.forward(value_raw).normed_square(-1)).detach()).abs()),action_mask,float('-inf')).argmax(-1)
+    sample_indices = torch.masked_fill(torch.normal(0.0,1.0,action_mask.shape,device='cuda'),action_mask,float('-inf')).argmax(-1)
+    # sample_indices = torch.zeros(len(action_mask),dtype=torch.int64,device='cuda')
     def update(rewards : Tensor, regret_probs : Tensor):
         nonlocal policy_data, policy_mask
         policy_data, policy_mask = policy_data.cuda(), policy_mask.cuda()
@@ -225,11 +234,12 @@ def model_explore(
         if is_update_value:
             def index_selected_actions(x : Tensor): return x[torch.arange(0,action_probs.shape[0]),sample_indices]
             if value_head.track_errors:
-                value_head.square_error += ((index_selected_actions(values) - proj.mean(rewards)).square() * regret_probs).sum()
+                value_head.square_error += ((index_selected_actions(values) - proj.mean(rewards)).square().unsqueeze(-1) * regret_probs).sum()
                 value_head.square_error_count += regret_probs.sum()
-            index_selected_actions(value_head_raw).log_softmax(-1).backward(rewards * -regret_probs)
+            torch.log_softmax(index_selected_actions(value_head_raw),-1).backward(rewards * -regret_probs)
         if is_update_policy:
             action_probs.backward(values * -(pids * regret_probs))
+        value_probs[torch.arange(0,action_probs.shape[0]),sample_indices] = rewards # Mixing in the MC return for the selected action.
         return torch.einsum('bav,ba->bv',value_probs,action_probs.detach())
     return None, sample_indices.cpu().numpy(), update
 
@@ -256,7 +266,7 @@ def model_exploit(
             if is_update_value:
                 def index_selected_actions(x : Tensor): return x[torch.arange(0,values.shape[0]),sample_indices]
                 if value_head.track_errors:
-                    value_head.square_error += ((index_selected_actions(values) - proj.mean(rewards)).square() * regret_probs).sum()
+                    value_head.square_error += ((index_selected_actions(values) - proj.mean(rewards)).square().unsqueeze(-1) * regret_probs).sum()
                     value_head.square_error_count += regret_probs.sum()
                 index_selected_actions(value_head_raw).log_softmax(-1).backward(rewards * -regret_probs)
             if is_update_policy:

@@ -2,8 +2,8 @@
 
 inl vs_self game (combine, to_cat, empty : _ * (_ -> tensor) * _) (batch_size, p) =
     let rec loop (l : a u64 _) =
-        inl rewards_indices : ra u64 _ = am.empty
-        inl rewards_terminal : ra u64 r2 = am.empty
+        inl terminal_indices : ra u64 _ = am.empty
+        inl terminal_rewards : ra u64 r2 = am.empty
         inl actions_indices : ra u64 _ = am.empty
         inl data : ra u64 _ = am.empty
         inl nexts : ra u64 _ = am.empty
@@ -13,20 +13,20 @@ inl vs_self game (combine, to_cat, empty : _ * (_ -> tensor) * _) (batch_size, p
                 rm.add data (player_state,game_state,pid,actions)
                 rm.add nexts next
             | Terminal: _,_,x =>
-                rm.add rewards_indices i
-                rm.add rewards_terminal x
-        inl rewards_actions =
+                rm.add terminal_indices i
+                rm.add terminal_rewards x
+        inl actions_rewards =
             if 0 < length data then
                 inl (cs : a _ _),(update : tensor -> tensor) = p data
                 am.generic.map2 (<|) nexts cs |> loop |> update
             else empty
-        combine (actions_indices, rewards_actions, rewards_indices, to_cat rewards_terminal)
+        combine (actions_indices, actions_rewards, terminal_indices, to_cat terminal_rewards)
     loop (am.init batch_size fun _ => game pl2_init)
 
 inl vs_one game (combine, to_cat, empty : _ * (_ -> tensor) * _) (batch_size, p1, p2) =
     let rec loop (l : a u64 _) =
-        inl rewards_indices : ra u64 _ = am.empty
-        inl rewards_terminal : ra u64 r2 = am.empty
+        inl terminal_indices : ra u64 _ = am.empty
+        inl terminal_rewards : ra u64 r2 = am.empty
         inl p1_actions_indices : ra u64 _ = am.empty
         inl p2_actions_indices : ra u64 _ = am.empty
         inl p1_data : ra u64 _ = am.empty
@@ -46,9 +46,9 @@ inl vs_one game (combine, to_cat, empty : _ * (_ -> tensor) * _) (batch_size, p1
                     rm.add p2_nexts next
                 rm.add pids pid
             | Terminal: _,_,x =>
-                rm.add rewards_indices i
-                rm.add rewards_terminal x
-        inl p1_rewards_actions, p2_rewards_actions =
+                rm.add terminal_indices i
+                rm.add terminal_rewards x
+        inl p1_actions_rewards, p2_actions_rewards =
             if 0 < length pids then
                 inl p1_cs,p1_update : a _ _ * (tensor -> tensor) = p1 p1_data
                 inl p2_cs,p2_update : a _ _ * (tensor -> tensor) = p2 p2_data
@@ -60,5 +60,5 @@ inl vs_one game (combine, to_cat, empty : _ * (_ -> tensor) * _) (batch_size, p1
                 inl slice_near_to forall t. (x : t) (i : u64) : t = $"!x[:!i]"
                 p1_update (slice_near_to rs len), p2_update (slice_from rs len)
             else empty, empty
-        combine (p1_actions_indices, p1_rewards_actions, p2_actions_indices, p2_rewards_actions, rewards_indices, to_cat rewards_terminal)
+        combine (p1_actions_indices, p1_actions_rewards, p2_actions_indices, p2_actions_rewards, terminal_indices, to_cat terminal_rewards)
     loop (am.init batch_size fun _ => game pl2_init)

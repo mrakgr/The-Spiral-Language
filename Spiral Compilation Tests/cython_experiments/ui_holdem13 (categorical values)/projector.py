@@ -59,14 +59,13 @@ class Projector(Module):
         """
         Creates the categorical eqivalent of a scalar float Numpy vector.
         """
-        da, = r.shape
-        x = torch.zeros(da,self.num_supports,device=self.support.device,dtype=self.support.dtype)
+        x = torch.zeros(len(r),self.num_supports,device=self.support.device,dtype=self.support.dtype)
         x[:,self.half_dim] = 1.0
-        return self.add(x,r.view(da,1))
+        return self.add(x,torch.tensor(r,device=self.support.device).view(len(r),1))
 
     def combine(self,*args):
         """
-        Args are supposed to be index list/PyTorch tensor flattened pairs.
+        Combines the args into a single tensor. Args are supposed to be index list/PyTorch tensor flattened pairs.
         """
         assert len(args) % 2 == 0, 'Expected an even number of args.'
         c = 0
@@ -78,6 +77,7 @@ class Projector(Module):
             x[a] = b
         return x
 
+    @property
     def empty(self): 
         """
         Returns a tensor of size zero that has the number of supports the projector has.
@@ -88,7 +88,7 @@ class Projector(Module):
         """
         Returns the mean value of the probability vector based on the projector support.
         """
-        return probs.mv(self.support)
+        return (probs @ self.support).squeeze(-1)
 
 class ExpProjector(Projector):
     """
