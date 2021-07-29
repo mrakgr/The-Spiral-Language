@@ -1,6 +1,6 @@
 // The functions here propagate rewards as categorical probability vectors.
 
-inl vs_self (combine, to_cat, empty : _ * (_ -> tensor) * _) game (batch_size, p) =
+inl vs_self game (combine, to_cat, empty : _ * (_ -> tensor) * _) (batch_size, p) =
     let rec loop (l : a u64 _) =
         inl rewards_indices : ra u64 _ = am.empty
         inl rewards_terminal : ra u64 r2 = am.empty
@@ -21,9 +21,9 @@ inl vs_self (combine, to_cat, empty : _ * (_ -> tensor) * _) game (batch_size, p
                 am.generic.map2 (<|) nexts cs |> loop |> update
             else empty
         combine (actions_indices, rewards_actions, rewards_indices, to_cat rewards_terminal)
-    loop (am.init batch_size fun _ => game () pl2_init)
+    loop (am.init batch_size fun _ => game pl2_init)
 
-inl vs_one (combine, to_cat, empty : _ * (_ -> tensor) * _) game (batch_size, p1, p2) =
+inl vs_one game (combine, to_cat, empty : _ * (_ -> tensor) * _) (batch_size, p1, p2) =
     let rec loop (l : a u64 _) =
         inl rewards_indices : ra u64 _ = am.empty
         inl rewards_terminal : ra u64 r2 = am.empty
@@ -61,4 +61,4 @@ inl vs_one (combine, to_cat, empty : _ * (_ -> tensor) * _) game (batch_size, p1
                 p1_update (slice_near_to rs len), p2_update (slice_from rs len)
             else empty, empty
         combine (p1_actions_indices, p1_rewards_actions, p2_actions_indices, p2_rewards_actions, rewards_indices, to_cat rewards_terminal)
-    loop (am.init batch_size fun _ => game () pl2_init)
+    loop (am.init batch_size fun _ => game pl2_init)

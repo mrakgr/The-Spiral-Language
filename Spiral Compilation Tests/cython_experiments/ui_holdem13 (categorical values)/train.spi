@@ -32,7 +32,7 @@ inl vs_self game (batch_size, p) =
         am.generic.iter2 (set rewards_all) actions_indices rewards_actions
         am.iter2 (set rewards_all) rewards_indices rewards_terminal
         rewards_all
-    loop (am.init batch_size fun _ => game () pl2_init)
+    loop (am.init batch_size fun _ => game pl2_init)
 
 inl vs_one game (batch_size, p1, p2) =
     let rec loop (l : a u64 _) =
@@ -76,7 +76,7 @@ inl vs_one game (batch_size, p1, p2) =
         am.generic.iter2 (set rewards_all) actions_indices rewards_actions
         am.iter2 (set rewards_all) rewards_indices rewards_terminal
         rewards_all
-    loop (am.init batch_size fun _ => game () pl2_init)
+    loop (am.init batch_size fun _ => game pl2_init)
 
 // The neural model is intended to be created on the Python side and partially applied as the `policy_value_action_eval` argument. 
 // `extractor` and `schema` are applied on the Spiral side before being passed as a function. 

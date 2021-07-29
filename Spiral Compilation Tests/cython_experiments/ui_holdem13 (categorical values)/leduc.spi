@@ -91,3 +91,5 @@ inl Game =
     | Fold => failwith "impossible 1"
     | Call => round_one 2 (p2,p1)
     | Raise => round_one 1 (p2,{p1 with pot=raiseBy 2 (p1,p2)})
+
+let game x = game () x

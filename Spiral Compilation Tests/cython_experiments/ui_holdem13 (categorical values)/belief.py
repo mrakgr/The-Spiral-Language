@@ -23,11 +23,20 @@ class Head(Module):
 
     Unlike for a linear layer, the output is a 3d (batch, action, support) tensor.
     """
-    def __init__(self,dim_input,dim_action,dim_support,dim_head=8):
+    def __init__(self,dim_input,dim_action,dim_support,dim_head=8,track_errors=False):
         super().__init__()
+        self.track_errors = track_errors
         self.dim_head, self.dim_action, self.dim_support = dim_head, dim_action, dim_support
         self.weight = Parameter(xavier_normal_(torch.empty(dim_action*dim_support,dim_input,dim_head)))
         self.bias = Parameter(torch.zeros(dim_action*dim_support,dim_head))
+        self.square_error = Parameter(torch.scalar_tensor(0.0),requires_grad=False)
+        self.square_error_count = Parameter(torch.scalar_tensor(0.0),requires_grad=False)
+
+    def mse_clear(self): self.square_error.fill_(0.0); self.square_error_count.fill_(0.0)
+    @property 
+    def mse(self): return (self.square_error / self.square_error_count).sqrt_()
+    @property
+    def mse_and_clear(self): x = self.mse; self.mse_clear(); return x
         
     def forward(self,x : Tensor):
         if self.training:
@@ -215,9 +224,9 @@ def model_explore(
             regret_probs = regret_probs.cuda().view(-1,1)
         if is_update_value:
             def index_selected_actions(x : Tensor): return x[torch.arange(0,action_probs.shape[0]),sample_indices]
-            if hasattr(value,'t'):
-                value.square_l2 += ((index_selected_actions(values) - proj.mean(rewards)).square() * regret_probs).sum()
-                value.t += regret_probs.sum()
+            if value_head.track_errors:
+                value_head.square_error += ((index_selected_actions(values) - proj.mean(rewards)).square() * regret_probs).sum()
+                value_head.square_error_count += regret_probs.sum()
             index_selected_actions(value_head_raw).log_softmax(-1).backward(rewards * -regret_probs)
         if is_update_policy:
             action_probs.backward(values * -(pids * regret_probs))
@@ -246,9 +255,9 @@ def model_exploit(
             values = proj.mean(value_probs)
             if is_update_value:
                 def index_selected_actions(x : Tensor): return x[torch.arange(0,values.shape[0]),sample_indices]
-                if hasattr(value,'t'):
-                    value.square_l2 += ((index_selected_actions(values) - proj.mean(rewards)).square() * regret_probs).sum()
-                    value.t += regret_probs.sum()
+                if value_head.track_errors:
+                    value_head.square_error += ((index_selected_actions(values) - proj.mean(rewards)).square() * regret_probs).sum()
+                    value_head.square_error_count += regret_probs.sum()
                 index_selected_actions(value_head_raw).log_softmax(-1).backward(rewards * -regret_probs)
             if is_update_policy:
                 action_probs.backward(values * -(pids * regret_probs))

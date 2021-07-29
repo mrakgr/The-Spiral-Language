@@ -10,7 +10,7 @@ let score (c1,c2) cs =
     0 |> f c1 |> f c2 |> am.foldBack f cs
     |> fun hand => hand_scorer.score (hand:)
 
-inl game (restriction,is_flop_only,sb,bb,stack) () = // Stack size should be at least 2.
+inl game (restriction,is_flop_only,sb,bb,stack) =
     inl deck : a st card = $"numpy.arange(0,52,dtype=numpy.int8)"
     $"numpy.random.shuffle(!deck)"
 
@@ -96,3 +96,5 @@ inl game (restriction,is_flop_only,sb,bb,stack) () = // Stack size should be at 
         betting true (p1,p2) (cs,4) fun p1,p2 => // Turn
         notify None c7 fun _ =>
         betting true (p1,p2) (cs,5) (showdown cs) // River
+
+let game a b = game a b

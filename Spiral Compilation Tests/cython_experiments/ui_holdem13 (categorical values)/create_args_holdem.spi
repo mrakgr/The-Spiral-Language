@@ -140,12 +140,13 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (restriction,i
                 community_card = community_card |> am.generic.map show_card |> rm.join' ""
                 }
             set (record {trace actions table_data})
-    loop (game (restriction,is_flop,sb,bb,stack) () pl2_init)
+    loop (game (restriction,is_flop,sb,bb,stack) pl2_init)
 
 inl main () =
     open hu_holdem
-    inl vs_self x = train.vs_self (game x)
-    inl vs_one x = train.vs_one (game x)
+    // `exp`ected and `cat`egorical
+    inl vs_self x = namedtuple "VsSelf" {exp=train.vs_self (game x); cat=train_cat.vs_self (game x)}
+    inl vs_one x = namedtuple "VsOne" {exp=train.vs_one (game x); cat=train_cat.vs_one (game x)}
     inl uniform_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * (a st i8 * st) * i16 * bool) * u8 * a i16 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) = agent.uniform.policy
     inl callbot_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * (a st i8 * st) * i16 * bool) * u8 * a i16 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) = agent.holdem_callbot.policy
     inl neural stack_size = train.neural agent.neural_holdem.extractor (agent.neural_holdem.schema stack_size)
