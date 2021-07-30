@@ -7,7 +7,7 @@ inl main () =
     inl vs_self = namedtuple "VsSelf" {exp=train.vs_self leduc.game; cat=train_cat.vs_self leduc.game}
     inl vs_one = namedtuple "VsOne" {exp=train.vs_one leduc.game; cat=train_cat.vs_one leduc.game}
     inl neural = train.neural agent.neural_leduc.extractor agent.neural_leduc.schema()
-    inl uniform_player : ra u64 (pl2 card action * leduc_state * u8 * a u64 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) =
+    inl uniform_player : ra u64 (pl2 card action * leduc_state * u8 * a u64 action) -> a u64 (log_prob * action) * _ =
         agent.uniform.policy
     inl tabular =
         inl create_policy : agent_dict * bool * bool * f32 -> ra u64 (pl2 card action * leduc_state * u8 * a u64 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) =

@@ -6,21 +6,22 @@ from torch.nn import Linear
 from functools import partial
 import numpy as np
 from torch.optim.swa_utils import AveragedModel
-from belief import SignSGD,model_eval,model_explore,model_exploit,EncoderList
+from belief import SignSGD,model_explore,model_exploit,EncoderList,Head
 
-defaults = dict(restriction_level=2,is_flop=False,sb=10,bb=20,stack_size=1000,schema_stack_size=1000) # Holdem
+defaults = dict(restriction_level=2,is_flop=False,sb=1,bb=2,stack_size=100,schema_stack_size=100) # Holdem
 # defaults = dict(restriction_level=0,is_flop=True,sb=1,bb=2,stack_size=10,schema_stack_size=10) # Flop
 
+from projector import LinearProjector
+
 def neural_create_model(size,dim_head=2 ** 4,dim_emb=2 ** 5):
+    proj = LinearProjector(defaults['stack_size'],defaults['stack_size']*2+1)
     value = EncoderList(5,dim_head,dim_emb,size.value)
-    value.square_l2 = torch.scalar_tensor(0.0).cuda()
-    value.t = torch.scalar_tensor(0.0).cuda()
-    value_head = Linear(dim_head*dim_emb,size.action)
+    value_head = Head(dim_head*dim_emb,size.action,defaults['stack_size']*2+1,8,True)
     policy = EncoderList(5,dim_head,dim_emb,size.policy)
     policy_head = Linear(dim_head*dim_emb,size.action)
-    return value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
+    return proj.cuda(), value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
 
-def neural_player(neural,modules,model_fun=model_eval,is_update_value=False,is_update_policy=False): 
+def neural_player(neural,modules,model_fun=model_exploit,is_update_value=False,is_update_policy=False): 
     return neural.handler(partial(model_fun,*modules,is_update_value,is_update_policy))
 
 def create_nn_agent(
@@ -39,15 +40,11 @@ def create_nn_agent(
         with open(f"dump holdem/nn_agent_{resume_from}_{mode}.nnreg",'rb') as f: 
             modules = torch.load(f)
             i_resume = resume_from
-    value, value_head, policy, policy_head = modules
-    value.square_l2.requires_grad_(False) # For some reason requires_grad for these ends up being true after loading from file.
-    value.t.requires_grad_(False)
+    proj, value, value_head, policy, policy_head = modules
+    vs_self, vs_one = vs_self(restriction_level,is_flop,sb,bb,stack_size).cat(proj.combine,proj.to_cat,proj.empty), vs_one(restriction_level,is_flop,sb,bb,stack_size).cat(proj.combine,proj.to_cat,proj.empty)
     opt = SignSGD([
-        dict(params=value.parameters(),lr=2 ** -10),
-        dict(params=value_head.parameters(),lr=2 ** -1),
-        dict(params=policy.parameters(),lr=2 ** -10),
-        dict(params=policy_head.parameters(),lr=2 ** -10)
-        ])
+        dict(params=x.parameters()) for x in modules
+        ],lr=2 ** -7)
     max_t = iter_chk*iter_sub
     def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(max_t, t + 1)
     if 0 < iter_avg: avg_modules = list(map(lambda x: AveragedModel(x,avg_fn),modules))
@@ -56,17 +53,15 @@ def create_nn_agent(
         pl = neural_player(neural_applied,modules,model_fun=model_explore,is_update_value=True,is_update_policy=False)
         def vs_opponent(plc):
             for _ in range(iter_sub):
-                opt.zero_grad(True)
                 r = 0.0
                 for _ in range(iter_batch):
-                    r += vs_one(restriction_level,is_flop,sb,bb,stack_size)(batch_size // 2,pl,plc).sum()
-                    r -= vs_one(restriction_level,is_flop,sb,bb,stack_size)(batch_size // 2,plc,pl).sum()
+                    r += vs_one(batch_size // 2,pl,plc).sum()
+                    r -= vs_one(batch_size // 2,plc,pl).sum()
                 r /= batch_size * iter_batch
                 # logging.info(f"The mean is {r}")
-                logging.debug(f"The l2 loss value prediction error is {torch.sqrt(value.square_l2 / value.t)}")
-                value.square_l2.fill_(0.0)
-                value.t.fill_(0.0)
+                logging.debug(f"The l2 loss value prediction error is {value_head.mse_and_clear}")
                 opt.step()
+                opt.zero_grad(True)
 
         logging.info(f'Training vs {mode}.')
         if mode == 'exploit':
@@ -138,7 +133,7 @@ if __name__ == '__main__':
     import numpy as np
     import pyximport
     pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
-    from create_args_holdem4 import main
+    from create_args_holdem import main
     args = main()['train']
     log_path = 'dump holdem/training.log'
     logging.basicConfig(

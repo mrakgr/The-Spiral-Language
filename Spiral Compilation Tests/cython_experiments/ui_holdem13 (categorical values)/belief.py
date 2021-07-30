@@ -1,4 +1,5 @@
 from functools import reduce
+from math import sqrt
 
 import torch
 from torch._C import device
@@ -28,10 +29,11 @@ class Head(Module):
         super().__init__()
         self.track_errors = track_errors
         self.dim_head, self.dim_action, self.dim_support = dim_head, dim_action, dim_support
-        self.weight = Parameter(torch.randn(dim_action*dim_support,dim_input,dim_head))
+        self.weight = Parameter(xavier_normal_(torch.empty(dim_action*dim_support,dim_input,dim_head),sqrt(dim_head)))
         self.bias = Parameter(torch.zeros(dim_action*dim_support,dim_head))
-        self.square_error = Parameter(torch.scalar_tensor(0.0),requires_grad=False)
-        self.square_error_count = Parameter(torch.scalar_tensor(0.0),requires_grad=False)
+        if track_errors:
+            self.square_error = Parameter(torch.scalar_tensor(0.0),requires_grad=False)
+            self.square_error_count = Parameter(torch.scalar_tensor(0.0),requires_grad=False)
 
     def mse_clear(self): self.square_error.fill_(0.0); self.square_error_count.fill_(0.0)
     @property 
@@ -123,11 +125,11 @@ class TopEncoderBase(Module):
     def forward(self,x,rotary,mask=None) -> Tensor:
         dz,dk,_ = x.shape; dh,de = self.dim_head,self.dim_emb
         kv : Tensor = self.proj_kv(x).view(dz,dk,2,dh,de)
-        q,k,v = self.proj_q(x[:,0]).view(dz,dh,de), rotary(kv[:,:,0]), normed_square(kv[:,:,1])
+        q,k,v = self.proj_q(x[:,0]).view(dz,dh,de), rotary(kv[:,:,0]), inf_cube(kv[:,:,1])
         seq_weights : Tensor = torch.einsum('zhe,zkhe->zkh',q,k)
         if mask is not None:
             seq_weights = seq_weights.masked_fill(mask.view(dz,dk,1),0.0)
-        return normed(torch.einsum('zkh,zkhe->zhe',normed_square(seq_weights,-2),v).reshape(dz,dh*de))
+        return torch.einsum('zkh,zkhe->zhe',normed_square(seq_weights,-2),v).reshape(dz,dh*de)
 
 class TopEncoder(TopEncoderBase):
     def __init__(self,dim_in,dim_head=2 ** 3,dim_emb=2 ** 5):
@@ -208,39 +210,46 @@ class CatPow(Function):
 
 catpow = CatPow().apply
 
+def sample_value_probs(proj : Projector, value_probs : Tensor):
+    sample_indices = Categorical(value_probs).sample()
+    return proj.support[sample_indices.flatten()].view(sample_indices.shape)
+
 def model_explore(
         proj : Projector, value : Module, value_head : Head, policy : Module,policy_head : Linear,
         is_update_value : bool, is_update_policy : bool,
         policy_data : Tensor, policy_mask : Tensor, value_data : Tensor, value_mask : Tensor, action_mask : Tensor, pids : Tensor
         ):
     """
-    Does SARSA with categorical distributions. Uses epistemic uncertainty between two value heads for exploration. 
-    The exploration probabilities do not affect the policy and sample probability in the training loop and are assumed to be 1.
+    Does SARSA with categorical distributions.
     """
-    value_data, value_mask, action_mask, pids = value_data.cuda(), value_mask.cuda(), action_mask.cuda(), pids.cuda().view(-1,1)
-    value_raw : Tensor = value(value_data,mask=value_mask)
-    value_head_raw = value_head.forward(value_raw)
-    value_probs = torch.softmax(value_head_raw,-1).detach()
-    values = proj.mean(value_probs)
-    # sample_indices = torch.masked_fill(torch.normal(values * pids,(values - proj.mean(value_head.forward(value_raw).normed_square(-1)).detach()).abs()),action_mask,float('-inf')).argmax(-1)
-    sample_indices = torch.masked_fill(torch.normal(0.0,1.0,action_mask.shape,device='cuda'),action_mask,float('-inf')).argmax(-1)
-    # sample_indices = torch.zeros(len(action_mask),dtype=torch.int64,device='cuda')
+    sample_indices = torch.masked_fill(torch.normal(0.0,1.0,action_mask.shape),action_mask,float('-inf')).argmax(-1)
     def update(rewards : Tensor, regret_probs : Tensor):
-        nonlocal policy_data, policy_mask
+        nonlocal value_data, value_mask, policy_data, policy_mask, action_mask, pids, sample_indices
+        sample_indices = sample_indices.cuda()
+        value_data, value_mask, action_mask, pids = value_data.cuda(), value_mask.cuda(), action_mask.cuda(), pids.cuda().view(-1,1)
+        value_raw : Tensor = value(value_data,mask=value_mask)
+        value_head_raw = value_head.forward(value_raw)
+        value_probs = torch.softmax(value_head_raw,-1)
+        value_probs_detached = value_probs.detach()
+        # sample_indices = torch.masked_fill(sample_value_probs(proj,value_probs),action_mask,float('-inf')).argmax(-1)
+
         policy_data, policy_mask = policy_data.cuda(), policy_mask.cuda()
         action_probs = normed_square(torch.masked_fill(policy_head(policy(policy_data,mask=policy_mask)),action_mask,0.0))
+        values = proj.mean(value_probs_detached)
         if is_update_value or is_update_policy:
             regret_probs = regret_probs.cuda().view(-1,1)
         if is_update_value:
             def index_selected_actions(x : Tensor): return x[torch.arange(0,action_probs.shape[0]),sample_indices]
             if value_head.track_errors:
-                value_head.square_error += ((index_selected_actions(values) - proj.mean(rewards)).square().unsqueeze(-1) * regret_probs).sum()
+                value_head.square_error += (((index_selected_actions(values) - proj.mean(rewards)) * rewards.sum(-1)).square().unsqueeze(-1) * regret_probs).sum()
                 value_head.square_error_count += regret_probs.sum()
-            torch.log_softmax(index_selected_actions(value_head_raw),-1).backward(rewards * -regret_probs)
+            index_selected_actions(value_head_raw).log_softmax(-1).backward(rewards * -regret_probs)
+            # index_selected_actions(value_probs).log().backward(rewards * -regret_probs)
         if is_update_policy:
             action_probs.backward(values * -(pids * regret_probs))
-        value_probs[torch.arange(0,action_probs.shape[0]),sample_indices] = rewards # Mixing in the MC return for the selected action.
-        return torch.einsum('bav,ba->bv',value_probs,action_probs.detach())
+        # value_probs_detached[torch.arange(0,action_probs.shape[0]),sample_indices] = rewards # Mixing in the MC return for the selected action.
+        # return torch.einsum('bav,ba->bv',value_probs_detached,action_probs.detach())
+        return torch.zeros_like(rewards) # Only trains on the last step.
     return None, sample_indices.cpu().numpy(), update
 
 def model_exploit(

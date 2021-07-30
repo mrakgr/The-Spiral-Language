@@ -33,13 +33,15 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
     vs_self, vs_one = vs_self.cat(proj.combine,proj.to_cat,proj.empty), vs_one.cat(proj.combine,proj.to_cat,proj.empty)
     opt = SignSGD([
         dict(params=x.parameters()) for x in modules
-        ],lr=2 ** -6) # Momentum works worse than vanilla signSGD on Leduc. On lower batch sizes I don't see any improvement either.
+        ],lr=2 ** -7) # Momentum works worse than vanilla signSGD on Leduc. On lower batch sizes I don't see any improvement either.
+
+    def eval(pl):
+        vs_self(batch_size,pl)
+        opt.step(); opt.zero_grad(True)
 
     def run(is_avg=False):
-        for _ in range(5):
-            vs_self(batch_size,neural_player(neural,modules,model_explore,True,False))
-            opt.step()
-            opt.zero_grad(True)
+        for _ in range(5): eval(neural_player(neural,modules,model_explore,True,False))
+        eval(neural_player(neural,modules,model_explore,False,True))
 
         logging.debug(f"The l2 loss value prediction error is {value_head.mse_and_clear}")
 
@@ -129,11 +131,11 @@ if __name__ == '__main__':
     n,m = 300,150
     ag = n + m
     # create_tabular_agent(n,m,**args)
-    for _ in range(1):
+    for _ in range(5):
         create_nn_agent(n,m,**args)
-        # evaluate_vs_tabular(ag,n+m,**args)
-        # evaluate_vs_tabular(ag,n+2*m,**args)
-        # evaluate_vs_tabular(ag,n+3*m,**args)
+        evaluate_vs_tabular(ag,n+m,**args)
+        evaluate_vs_tabular(ag,n+2*m,**args)
+        evaluate_vs_tabular(ag,n+3*m,**args)
         logging.info("----")
 
     logging.info("** TRAINING DONE **")
