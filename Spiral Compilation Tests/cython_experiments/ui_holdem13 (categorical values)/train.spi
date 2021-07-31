@@ -98,7 +98,7 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
     inl value_data : a3 f32 = $"numpy.zeros((!batch_size,!value_seq_size,!value_size),dtype=numpy.float32)"
     inl value_mask : a2 i8 = $"numpy.zeros((!batch_size,!value_seq_size),dtype=numpy.int8)"
     inl action_mask : a2 i8 = $"numpy.ones((!batch_size,!action_size),dtype=numpy.int8)"
-    inl pids : a u64 _ = create batch_size
+    inl pids : a u64 f32 = create batch_size
     data |> am.iteri fun i_batch (player_state,game_state,pid,actions) =>
         inl present, future = extractor (player_state,game_state,pid)
         inl i_seq = 
@@ -117,7 +117,7 @@ inl neural_handler extractor (schema : schema _ _ _) policy_value_action_eval (d
                 ) i_seq future
         loop.for' (from:i_seq nearTo: value_seq_size) fun i_seq => $"!value_mask[!i_batch,!i_seq] = 1"
         actions |> am.iter (schema.action.pickle >> fun x => $"!action_mask[!i_batch,!x] = 0")
-        set pids i_batch pid
+        set pids i_batch (if pid = 0 then 1 else -1)
 
     inl from_numpy x = $"torch.from_numpy(!x)" : tensor
     inl from_numpy_as_bool x = from_numpy ($"!x.view('bool')" : obj)

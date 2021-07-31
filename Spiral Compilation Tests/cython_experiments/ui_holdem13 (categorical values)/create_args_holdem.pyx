@@ -314,7 +314,7 @@ cdef class Closure4():
         cdef numpy.ndarray[float,ndim=3] v79
         cdef numpy.ndarray[signed char,ndim=2] v80
         cdef numpy.ndarray[signed char,ndim=2] v81
-        cdef numpy.ndarray[unsigned char,ndim=1] v82
+        cdef numpy.ndarray[float,ndim=1] v82
         cdef unsigned long long v83
         cdef Mut0 v84
         cdef unsigned long long v86
@@ -414,8 +414,8 @@ cdef class Closure4():
         cdef bint v183
         cdef str v184
         cdef signed short v187
-        cdef unsigned long long v188
-        cdef object v189
+        cdef float v188
+        cdef unsigned long long v189
         cdef object v190
         cdef object v191
         cdef object v192
@@ -425,33 +425,34 @@ cdef class Closure4():
         cdef object v196
         cdef object v197
         cdef object v198
-        cdef numpy.ndarray[float,ndim=2] v199
-        cdef numpy.ndarray[signed long long,ndim=1] v200
-        cdef object v201
-        cdef numpy.ndarray[object,ndim=1] v202
-        cdef Mut0 v203
-        cdef unsigned long long v205
-        cdef signed long long v206
-        cdef bint v207
-        cdef float v209
+        cdef object v199
+        cdef numpy.ndarray[float,ndim=2] v200
+        cdef numpy.ndarray[signed long long,ndim=1] v201
+        cdef object v202
+        cdef numpy.ndarray[object,ndim=1] v203
+        cdef Mut0 v204
+        cdef unsigned long long v206
+        cdef signed long long v207
+        cdef bint v208
         cdef float v210
-        cdef signed short v211
-        cdef bint v212
-        cdef US1 v232
+        cdef float v211
+        cdef signed short v212
         cdef bint v213
+        cdef US1 v233
         cdef bint v214
-        cdef bint v216
-        cdef signed short v217
-        cdef bint v218
+        cdef bint v215
+        cdef bint v217
+        cdef signed short v218
         cdef bint v219
-        cdef bint v221
-        cdef signed short v222
-        cdef bint v223
-        cdef bint v225
+        cdef bint v220
+        cdef bint v222
+        cdef signed short v223
+        cdef bint v224
         cdef bint v226
-        cdef signed short v227
-        cdef unsigned long long v233
-        cdef object v234
+        cdef bint v227
+        cdef signed short v228
+        cdef unsigned long long v234
+        cdef object v235
         v8 = len(v7)
         v9 = v8 == (<unsigned long long>0)
         if v9:
@@ -543,7 +544,7 @@ cdef class Closure4():
             v79 = numpy.zeros((v12,v76,v5),dtype=numpy.float32)
             v80 = numpy.zeros((v12,v76),dtype=numpy.int8)
             v81 = numpy.ones((v12,v1),dtype=numpy.int8)
-            v82 = numpy.empty(v12,dtype=numpy.uint8)
+            v82 = numpy.empty(v12,dtype=numpy.float32)
             v83 = len(v7)
             v84 = Mut0((<unsigned long long>0))
             while method0(v83, v84):
@@ -698,93 +699,97 @@ cdef class Closure4():
                     v174.v0 = v187
                 del v108
                 del v174
-                v82[v86] = v107
-                v188 = v86 + (<unsigned long long>1)
-                v84.v0 = v188
-            del v84
-            v189 = torch.from_numpy(v77)
-            del v77
-            v190 = v78.view('bool')
-            del v78
-            v191 = torch.from_numpy(v190)
-            del v190
-            v192 = torch.from_numpy(v79)
-            del v79
-            v193 = v80.view('bool')
-            del v80
-            v194 = torch.from_numpy(v193)
-            del v193
-            v195 = v81.view('bool')
-            del v81
-            v196 = torch.from_numpy(v195)
-            del v195
-            v197 = torch.from_numpy(v82)
-            del v82
-            v198 = v6(v189, v191, v192, v194, v196, v197)
-            del v189; del v191; del v192; del v194; del v196; del v197
-            v199 = v198[0]
-            v200 = v198[1]
-            v201 = v198[2]
-            del v198
-            v202 = numpy.empty(v12,dtype=object)
-            v203 = Mut0((<unsigned long long>0))
-            while method0(v12, v203):
-                v205 = v203.v0
-                v206 = v200[v205]
-                v207 = v199 is None
-                if v207:
-                    v209 = (<float>1)
+                if v110:
+                    v188 = (<float>1)
                 else:
-                    v209 = v199[v205,v206]
-                v210 = libc.math.log(v209)
-                v211 = <signed short>v206
-                v212 = v211 < (<signed short>1)
-                if v212:
-                    v213 = v211 == (<signed short>0)
-                    v214 = v213 == 0
-                    if v214:
+                    v188 = (<float>-1)
+                v82[v86] = v188
+                v189 = v86 + (<unsigned long long>1)
+                v84.v0 = v189
+            del v84
+            v190 = torch.from_numpy(v77)
+            del v77
+            v191 = v78.view('bool')
+            del v78
+            v192 = torch.from_numpy(v191)
+            del v191
+            v193 = torch.from_numpy(v79)
+            del v79
+            v194 = v80.view('bool')
+            del v80
+            v195 = torch.from_numpy(v194)
+            del v194
+            v196 = v81.view('bool')
+            del v81
+            v197 = torch.from_numpy(v196)
+            del v196
+            v198 = torch.from_numpy(v82)
+            del v82
+            v199 = v6(v190, v192, v193, v195, v197, v198)
+            del v190; del v192; del v193; del v195; del v197; del v198
+            v200 = v199[0]
+            v201 = v199[1]
+            v202 = v199[2]
+            del v199
+            v203 = numpy.empty(v12,dtype=object)
+            v204 = Mut0((<unsigned long long>0))
+            while method0(v12, v204):
+                v206 = v204.v0
+                v207 = v201[v206]
+                v208 = v200 is None
+                if v208:
+                    v210 = (<float>1)
+                else:
+                    v210 = v200[v206,v207]
+                v211 = libc.math.log(v210)
+                v212 = <signed short>v207
+                v213 = v212 < (<signed short>1)
+                if v213:
+                    v214 = v212 == (<signed short>0)
+                    v215 = v214 == 0
+                    if v215:
                         raise Exception("The unit index should be 0.")
                     else:
                         pass
-                    v232 = US1_0()
+                    v233 = US1_0()
                 else:
-                    v216 = v211 < (<signed short>2)
-                    if v216:
-                        v217 = v211 - (<signed short>1)
-                        v218 = v217 == (<signed short>0)
-                        v219 = v218 == 0
-                        if v219:
+                    v217 = v212 < (<signed short>2)
+                    if v217:
+                        v218 = v212 - (<signed short>1)
+                        v219 = v218 == (<signed short>0)
+                        v220 = v219 == 0
+                        if v220:
                             raise Exception("The unit index should be 0.")
                         else:
                             pass
-                        v232 = US1_1()
+                        v233 = US1_1()
                     else:
-                        v221 = v211 < v1
-                        if v221:
-                            v222 = v211 - (<signed short>2)
-                            v223 = (<signed short>0) <= v222
-                            if v223:
-                                v225 = v222 < v0
+                        v222 = v212 < v1
+                        if v222:
+                            v223 = v212 - (<signed short>2)
+                            v224 = (<signed short>0) <= v223
+                            if v224:
+                                v226 = v223 < v0
                             else:
-                                v225 = 0
-                            v226 = v225 == 0
-                            if v226:
+                                v226 = 0
+                            v227 = v226 == 0
+                            if v227:
                                 raise Exception("Unpickle failure. The index should be less than size.")
                             else:
                                 pass
-                            v227 = (<signed short>2) + v222
-                            v232 = US1_2(v227)
+                            v228 = (<signed short>2) + v223
+                            v233 = US1_2(v228)
                         else:
                             raise Exception("Unpickle failure. Unpickling of an union failed.")
-                v202[v205] = Tuple1(v210, v210, v232)
-                del v232
-                v233 = v205 + (<unsigned long long>1)
-                v203.v0 = v233
-            del v199; del v200
-            del v203
-            v234 = Closure5(v7, v12, v201)
-            del v201
-            return Tuple2(v202, v234)
+                v203[v206] = Tuple1(v211, v211, v233)
+                del v233
+                v234 = v206 + (<unsigned long long>1)
+                v204.v0 = v234
+            del v200; del v201
+            del v204
+            v235 = Closure5(v7, v12, v202)
+            del v202
+            return Tuple2(v203, v235)
 cdef class Closure3():
     cdef signed short v0
     cdef signed short v1

@@ -1,5 +1,6 @@
 from functools import reduce
 from math import sqrt
+from typing import Callable, Tuple
 
 import torch
 from torch._C import device
@@ -187,28 +188,29 @@ class EncoderList(Module):
 
 class CatPow(Function):
     """
-    Numerically stable alternative of log_softmax for (categorical) powers.
+    Numerically stable alternative of log_softmax for absolute normalized powers.
     """
 
     @staticmethod
-    def forward(ctx,q : Tensor,e : int or float,dim=-1):
+    def forward(ctx,qinit : Tensor,e : int or float,dim=-1):
         assert isinstance(e,float) or isinstance(e,int), "Expected the exponent to be a constant float or integer."
+        q = qinit.abs()
         qp = q.pow(e)
         qpsum = qp.sum(dim,keepdim=True)
-        ctx.e = e
-        ctx.dim = dim
-        ctx.save_for_backward(q,qpsum)
+        ctx.e, ctx.dim = e, dim
+        ctx.save_for_backward(qinit,q,qpsum)
         return (qp / qpsum).pow(1/e)
 
     @staticmethod
     def backward(ctx, g_qn):
-        q,qpsum = ctx.saved_tensors
+        qinit,q,qpsum = ctx.saved_tensors
+        e,dim = ctx.e, ctx.dim
         g_q = None
         if ctx.needs_input_grad[0]:
-            g_q = (g_qn - q.pow(ctx.e-1) * ((g_qn * q).sum(ctx.dim,keepdim=True) / qpsum)) / qpsum.pow(1/ctx.e)
+            g_q = qinit.sign().mul_(g_qn - (q if e == 2 else q.pow(e-1)) * ((g_qn * q).sum(dim,keepdim=True) / qpsum)).div_(qpsum.pow(1/e))
         return g_q, None
 
-catpow = CatPow().apply
+catpow : Callable[[Tensor,int],Tensor] = CatPow().apply
 
 def sample_value_probs(proj : Projector, value_probs : Tensor):
     sample_indices = Categorical(value_probs).sample()
@@ -229,13 +231,11 @@ def model_explore(
         value_data, value_mask, action_mask, pids = value_data.cuda(), value_mask.cuda(), action_mask.cuda(), pids.cuda().view(-1,1)
         value_raw : Tensor = value(value_data,mask=value_mask)
         value_head_raw = value_head.forward(value_raw)
-        value_probs = torch.softmax(value_head_raw,-1)
-        value_probs_detached = value_probs.detach()
-        # sample_indices = torch.masked_fill(sample_value_probs(proj,value_probs),action_mask,float('-inf')).argmax(-1)
+        value_probs = normed_square(value_head_raw).detach()
 
         policy_data, policy_mask = policy_data.cuda(), policy_mask.cuda()
         action_probs = normed_square(torch.masked_fill(policy_head(policy(policy_data,mask=policy_mask)),action_mask,0.0))
-        values = proj.mean(value_probs_detached)
+        values = proj.mean(value_probs)
         if is_update_value or is_update_policy:
             regret_probs = regret_probs.cuda().view(-1,1)
         if is_update_value:
@@ -243,13 +243,12 @@ def model_explore(
             if value_head.track_errors:
                 value_head.square_error += (((index_selected_actions(values) - proj.mean(rewards)) * rewards.sum(-1)).square().unsqueeze(-1) * regret_probs).sum()
                 value_head.square_error_count += regret_probs.sum()
-            index_selected_actions(value_head_raw).log_softmax(-1).backward(rewards * -regret_probs)
-            # index_selected_actions(value_probs).log().backward(rewards * -regret_probs)
+            ((catpow(index_selected_actions(value_head_raw),2) - rewards.sqrt()).abs().pow(3) * regret_probs).sum().backward()
+            # ((normed_square(index_selected_actions(value_head_raw)).sqrt() - rewards.sqrt()).abs().pow(3) * regret_probs).sum().backward() # These two are eqivalent apart from catpow being well defined when distribution probs are 0.
         if is_update_policy:
             action_probs.backward(values * -(pids * regret_probs))
-        # value_probs_detached[torch.arange(0,action_probs.shape[0]),sample_indices] = rewards # Mixing in the MC return for the selected action.
-        # return torch.einsum('bav,ba->bv',value_probs_detached,action_probs.detach())
-        return torch.zeros_like(rewards) # Only trains on the last step.
+        return torch.einsum('bav,ba->bv',value_probs,action_probs.detach())
+        # return torch.zeros_like(rewards) # Only trains on the last step.
     return None, sample_indices.cpu().numpy(), update
 
 def model_exploit(
@@ -274,10 +273,11 @@ def model_exploit(
             values = proj.mean(value_probs)
             if is_update_value:
                 def index_selected_actions(x : Tensor): return x[torch.arange(0,values.shape[0]),sample_indices]
-                if value_head.track_errors:
-                    value_head.square_error += ((index_selected_actions(values) - proj.mean(rewards)).square().unsqueeze(-1) * regret_probs).sum()
-                    value_head.square_error_count += regret_probs.sum()
-                index_selected_actions(value_head_raw).log_softmax(-1).backward(rewards * -regret_probs)
+            if value_head.track_errors:
+                value_head.square_error += (((index_selected_actions(values) - proj.mean(rewards)) * rewards.sum(-1)).square().unsqueeze(-1) * regret_probs).sum()
+                value_head.square_error_count += regret_probs.sum()
+            ((catpow(index_selected_actions(value_head_raw),2) - rewards.sqrt()).abs().pow(3) * regret_probs).sum().backward()
+            # ((normed_square(index_selected_actions(value_head_raw)).sqrt() - rewards.sqrt()).abs().pow(3) * regret_probs).sum().backward() # These two are eqivalent apart from catpow being well defined when distribution probs are 0.
             if is_update_policy:
                 action_probs.backward(values * -(pids * regret_probs))
         return rewards

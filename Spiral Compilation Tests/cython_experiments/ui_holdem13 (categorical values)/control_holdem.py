@@ -16,7 +16,7 @@ from projector import LinearProjector
 def neural_create_model(size,dim_head=2 ** 4,dim_emb=2 ** 5):
     proj = LinearProjector(defaults['stack_size'],defaults['stack_size']*2+1)
     value = EncoderList(5,dim_head,dim_emb,size.value)
-    value_head = Head(dim_head*dim_emb,size.action,defaults['stack_size']*2+1,8,True)
+    value_head = Head(dim_head*dim_emb,size.action,defaults['stack_size']*2+1,1,True)
     policy = EncoderList(5,dim_head,dim_emb,size.policy)
     policy_head = Linear(dim_head*dim_emb,size.action)
     return proj.cuda(), value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
@@ -44,7 +44,7 @@ def create_nn_agent(
     vs_self, vs_one = vs_self(restriction_level,is_flop,sb,bb,stack_size).cat(proj.combine,proj.to_cat,proj.empty), vs_one(restriction_level,is_flop,sb,bb,stack_size).cat(proj.combine,proj.to_cat,proj.empty)
     opt = SignSGD([
         dict(params=x.parameters()) for x in modules
-        ],lr=2 ** -7)
+        ],lr=2 ** -8)
     max_t = iter_chk*iter_sub
     def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(max_t, t + 1)
     if 0 < iter_avg: avg_modules = list(map(lambda x: AveragedModel(x,avg_fn),modules))
@@ -53,12 +53,9 @@ def create_nn_agent(
         pl = neural_player(neural_applied,modules,model_fun=model_explore,is_update_value=True,is_update_policy=False)
         def vs_opponent(plc):
             for _ in range(iter_sub):
-                r = 0.0
                 for _ in range(iter_batch):
-                    r += vs_one(batch_size // 2,pl,plc).sum()
-                    r -= vs_one(batch_size // 2,plc,pl).sum()
-                r /= batch_size * iter_batch
-                # logging.info(f"The mean is {r}")
+                    vs_one(batch_size // 2,pl,plc).sum()
+                    vs_one(batch_size // 2,plc,pl).sum()
                 logging.debug(f"The l2 loss value prediction error is {value_head.mse_and_clear}")
                 opt.step()
                 opt.zero_grad(True)

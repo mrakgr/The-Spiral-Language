@@ -15,7 +15,7 @@ from projector import LinearProjector
 def neural_create_model(size,dim_head=2 ** 4,dim_emb=2 ** 5):
     proj = LinearProjector(13,27)
     value = EncoderList(0,dim_head,dim_emb,size.value)
-    value_head = Head(dim_head*dim_emb,size.action,27,8,True)
+    value_head = Head(dim_head*dim_emb,size.action,27,1,True)
     policy = EncoderList(0,dim_head,dim_emb,size.policy)
     policy_head = Linear(dim_head*dim_emb,size.action)
     return proj.cuda(), value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
