@@ -1,0 +1,47 @@
+// The program in ui_leduc14 was a complete success. It took it 1h and 15m to get off the ground, but once it did in never stopped
+// improving on full Holdem. But all is not perfect. The trouble is that the game I trained it on is 1/2(100) while the real HU
+// SNGs on stars have 10x bigger blinds and starting stack. The game is similar, but it has 10x the number of possible bets.
+
+// I did a few quick calculations and realized that what I have will not scale at all to that game, not unless I am willing to
+// accept approximation error and lower the input sizes and the dimension of value probs. Even then, the computations would be
+// dominated by the ones in the final layer due to the sheer number of possible actions. It is quite nasty.
+
+// I thought of a way to drastically lower those costs without reducing the size of inputs or the dimension of the value probs.
+// Instead of predicting a value for every action, I'll have the actions be a part of the input to the head. That will allow me
+// to train on a small subset of possible actions at any given moment. I'll have the net select from a set of fold, call, a few
+// standard raises and a few random raises. This will allow it to explore the complete space of actions at any given time without
+// breaking computational budget.
+
+// Keeping the current method and outright restricting the actions is out of the question due to being exploitable in real life.
+// If the net is trained against an opponent which has a narrow range of possible moves it won't be ready when moved to a domain
+// where the opponents are unrestricted.
+
+// Once I implement the ideas here, the methods will be scalable to arbitrary poker variants. It will allow me to train the agent
+// and complete the first part of my quest. I'll clean it all up here, implement the new action selection scheme, test out the 
+// curriculum learning ideas and train the thing.
+
+packages: |core2-
+modules:
+    types-
+    conv-
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    sampling
+    nodes-
+    train
+    train_cat
+    hand_scorer
+    hu_holdem
+    leduc
+    agent/
+        uniform
+        holdem_callbot
+        tabular
+        neural_leduc
+        neural_holdem
+    create_args_leduc
+    create_args_holdem

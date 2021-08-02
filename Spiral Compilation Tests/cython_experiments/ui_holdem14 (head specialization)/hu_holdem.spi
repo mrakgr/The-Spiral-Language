@@ -1,0 +1,100 @@
+union action = Fold | Call | RaiseTo: st
+
+type card = hand_scorer.card
+type player = {hand : card * card; id : u8; pot : st}
+type players = player * player
+// nominal holdem_state = players * (card * card * card) * card * card
+
+let score (c1,c2) cs =
+    inl f (c : i8) (h : hand_scorer.hand) = h ||| (1 <<< i32 c)
+    0 |> f c1 |> f c2 |> am.foldBack f cs
+    |> fun hand => hand_scorer.score (hand:)
+
+inl game (restriction,is_flop_only,sb,bb,stack) =
+    inl deck : a st card = $"numpy.arange(0,52,dtype=numpy.int8)"
+    $"numpy.random.shuffle(!deck)"
+
+    inl actions : a _ _ = am.init stack fun i =>
+        if i = 0 then Fold
+        elif i = 1 then Call
+        else RaiseTo: stack - i + 2
+
+    inl actions is_fold amount_call amount_min_raise : a st action =
+        inl start : st = if is_fold then 0 else 1
+        inl min_raise = min stack amount_min_raise + if stack = amount_call then 1 else 0
+        inl x = $"!actions[!start:3+!stack-!min_raise]"
+        inl is_allowed is_bb x =
+            inl is_allowed_pot x = 
+                inl pot = 2 * amount_call
+                inl x = x - amount_call
+                x = pot/4 || x = pot/2 || x = pot*3/4 || x = pot || x = pot*3/2 || x = pot*2
+            x = stack || x = amount_min_raise || if is_bb then x % bb = 0 else is_allowed_pot x
+        match restriction with
+        | 0u8 => x
+        | 1 | 2 => am.filter (function Fold | Call => true | RaiseTo: x => is_allowed (restriction = 1) x) x
+        | _ => failwith "Invalid action restriction level."
+
+    inl rec betting ~is_init ~(p1,p2 : players) (community_cards : a st card * st) next = join
+        inl betting (p1,p2) = betting false (p1,p2) community_cards next
+        let next (p1,p2 : players) = next (if p1.id = 0 then p1,p2 else p2,p1)
+        if p1.pot = stack then next (p1,p2)
+        else
+            inl is_fold = p1.pot <> p2.pot
+            inl amount_call = max p1.pot p2.pot
+            inl amount_min_raise = amount_call + max bb (amount_call - min p1.pot p2.pot)
+            inl s = p1, p2, community_cards, stack, false // This bool is_showdown.
+            action s p1.id (actions is_fold amount_call amount_min_raise) function
+            | Fold => terminal s (r2 <| f32 if p1.id = 0 then -p1.pot else p1.pot)
+            | Call =>
+                inl p1 = {p1 with pot=p2.pot}
+                if is_init then betting (p2,{p1 with pot=p2.pot}) else next (p1,p2)
+            | RaiseTo: pot =>  betting (p2,{p1 with pot})
+
+    inl pot = min sb stack
+    inl id = 0u8
+    draw deck fun (c1, deck) =>
+    notify (Some: id) c1 fun () =>
+    draw deck fun (c2, deck) =>
+    notify (Some: id) c2 fun () =>
+    inl p1 = {pot id hand = c1,c2}
+
+    inl pot = min bb stack
+    inl id = 1u8
+    draw deck fun (c1, deck) =>
+    notify (Some: id) c1 fun () =>
+    draw deck fun (c2, deck) =>
+    notify (Some: id) c2 fun () =>
+    inl p2 = {pot id hand = c1,c2}
+
+    draw deck fun c3, deck =>
+    draw deck fun c4, deck =>
+    draw deck fun c5, deck =>
+    draw deck fun c6, deck =>
+    draw deck fun c7, deck =>
+
+    let showdown cs (p1,p2 : players) =
+        inl done = terminal (p1,p2,(cs,0),stack,true) << r2 << f32
+        inl b = comp (score p1.hand cs) (score p2.hand cs)
+        if eq_is b then done 0
+        elif gt_is b then done p1.pot
+        else done -p1.pot
+
+    if is_flop_only then
+        inl cs = a ;[c3;c4;c5]
+        notify None c3 fun _ =>
+        notify None c4 fun _ =>
+        notify None c5 fun _ =>
+        betting true (p1,p2) (cs,0) (showdown cs) // Flop
+    else    
+        inl cs = a ;[c3;c4;c5;c6;c7]
+        betting true (p1,p2) (cs,0) fun p1,p2 => // Preflop
+        notify None c3 fun _ =>
+        notify None c4 fun _ =>
+        notify None c5 fun _ =>
+        betting true (p1,p2) (cs,3) fun p1,p2 => // Flop
+        notify None c6 fun _ =>
+        betting true (p1,p2) (cs,4) fun p1,p2 => // Turn
+        notify None c7 fun _ =>
+        betting true (p1,p2) (cs,5) (showdown cs) // River
+
+let game a b = game a b
