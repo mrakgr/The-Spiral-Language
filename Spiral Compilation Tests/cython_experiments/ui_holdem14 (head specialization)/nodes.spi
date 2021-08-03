@@ -40,13 +40,13 @@ inl draw forall (ar : * -> * -> *) {index; length} dim {number} el. (dist : ar d
     inl p = chance_prob +@ log_prob_from_sample (1 / f32 (length dist))
     f (x, $"!dist[1:]" : el * ar dim el) (pl2 (p,p1,p2))
 
-union rec node state obs act =
+union rec node state obs (actions : * -> *) act =
     | Terminal: pl2 obs act * state * r2
-    | Action: pl2 obs act * state * u8 * a st act * (log_prob * act -> node state obs act)
+    | Action: pl2 obs act * state * pid * actions act * (log_prob * act -> node state obs actions act)
 
-inl action forall game_state obs act. (state : game_state) pid (dist : a st act) (f : act -> pl2 obs act -> node game_state obs act) (pl2 (chance_prob,p1,p2) as p) = 
+inl action forall game_state obs (actions : * -> *) act. (state : game_state) pid (dist : actions act) (f : act -> pl2 obs act -> node game_state obs actions act) (pl2 (chance_prob,p1,p2) as p) = 
     Action: p, state, pid, dist, fun (_,a as cs) => 
-        let f (b : pl2 obs act) : node game_state obs act = real real_core.unbox a (fun _ => f a b)
+        let f (b : pl2 obs act) : node game_state obs actions act = real real_core.unbox a (fun _ => f a b)
         if pid = 0 then f (pl2 (chance_prob,apply_changes p1 cs,apply_action p2 a))
         else f (pl2 (chance_prob,apply_action p1 a,apply_changes p2 cs))
 inl terminal state r p = Terminal: p, state, r
