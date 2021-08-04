@@ -6,12 +6,18 @@ inl main () =
     // `exp`ected and `cat`egorical
     inl vs_self = namedtuple "VsSelf" {exp=train.vs_self leduc.game; cat=train_cat.vs_self leduc.game}
     inl vs_one = namedtuple "VsOne" {exp=train.vs_one leduc.game; cat=train_cat.vs_one leduc.game}
-    inl neural = train.neural agent.neural_leduc.extractor agent.neural_leduc.schema()
-    inl uniform_player : ra u64 (pl2 card action * leduc_state * u8 * a u64 action) -> a u64 (log_prob * action) * _ =
-        agent.uniform.policy
+    inl selector (leduc_actions {is_fold is_raise} : actions) : a st action =
+        inl x : ra st _ = am.empty
+        if is_fold then rm.add x Fold
+        rm.add x Call
+        if is_raise then rm.add x Raise
+        $"numpy.array(!x,copy=False)"
+    inl neural = train.neural agent.neural_leduc.extractor agent.neural_leduc.schema() (3,selector)
+    inl uniform_player : ra u64 (pl2 card action * leduc_state * pid * actions) -> a u64 (log_prob * action) * (obj -> obj) =
+        agent.uniform.policy selector
     inl tabular =
-        inl create_policy : agent_dict * bool * bool * f32 -> ra u64 (pl2 card action * leduc_state * u8 * a u64 action) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) =
-            agent.tabular.policy agent.neural_leduc.extractor
+        inl create_policy : agent_dict * bool * bool * f32 -> ra u64 (pl2 card action * leduc_state * u8 * actions) -> a u64 (log_prob * action) * (a u64 r2 -> a u64 r2) =
+            agent.tabular.policy agent.neural_leduc.extractor selector
         inl create_agent () : agent_dict = dictm.empty
         inl optimize : agent_dict -> () = agent.tabular.optimize
         inl average : agent_dict * agent_dict -> () = agent.tabular.average

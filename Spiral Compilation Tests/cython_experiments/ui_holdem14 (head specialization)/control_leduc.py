@@ -7,7 +7,7 @@ from torch.nn import Linear
 import torch.linalg
 from functools import partial
 import numpy as np
-from belief import SignSGD,model_explore,model_exploit,EncoderList,Head
+from belief import SignSGD,model_explore,model_exploit,EncoderList,Merge,SquareErrorTracker
 from torch.optim.swa_utils import AveragedModel
 
 from projector import LinearProjector
@@ -15,13 +15,13 @@ from projector import LinearProjector
 def neural_create_model(size,dim_head=2 ** 4,dim_emb=2 ** 5):
     proj = LinearProjector(13,27)
     value = EncoderList(0,dim_head,dim_emb,size.value)
-    value_head = Head(dim_head*dim_emb,size.action,27,1,True)
+    value_head = Merge(Linear(dim_head*dim_emb+size.action,27))
     policy = EncoderList(0,dim_head,dim_emb,size.policy)
-    policy_head = Linear(dim_head*dim_emb,size.action)
+    policy_head = Merge(Linear(dim_head*dim_emb+size.action,1))
     return proj.cuda(), value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
 
-def neural_player(neural,modules,model_fun=model_exploit,is_update_value=False,is_update_policy=False): 
-    return neural.handler(partial(model_fun,*modules,is_update_value,is_update_policy))
+def neural_player(neural,tracker,modules,model_fun=model_exploit,is_update_value=False,is_update_policy=False): 
+    return neural.handler(partial(model_fun,tracker,*modules,is_update_value,is_update_policy))
 
 def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self play NN
     batch_size = 2 ** 10
@@ -29,6 +29,7 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
     modules = neural_create_model(neural.size)
     def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(m, t + 1)
     avg_modules = [AveragedModel(x,avg_fn=avg_fn) for x in modules]
+    tracker = SquareErrorTracker()
     proj, value, value_head, policy, policy_head = modules
     vs_self, vs_one = vs_self.cat(proj.combine,proj.to_cat,proj.empty), vs_one.cat(proj.combine,proj.to_cat,proj.empty)
     opt = SignSGD([
@@ -40,10 +41,10 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
         opt.step(); opt.zero_grad(True)
 
     def run(is_avg=False):
-        for _ in range(5): eval(neural_player(neural,modules,model_explore,True,False))
-        eval(neural_player(neural,modules,model_explore,False,True))
+        for _ in range(5): eval(neural_player(neural,tracker,modules,model_explore,True,False))
+        eval(neural_player(neural,tracker,modules,model_explore,False,True))
 
-        logging.debug(f"The l2 loss value prediction error is {value_head.mse_and_clear}")
+        logging.debug(f"The l2 loss value prediction error is {tracker.mse_and_clear}")
 
         if is_avg:
             for avg_x,x in zip(avg_modules,modules): avg_x.update_parameters(x)
@@ -71,7 +72,7 @@ def evaluate_vs_tabular(i_tabular,i_nn,vs_self,vs_one,neural,uniform_player,tabu
         r = 0
         n = 2 ** 8
         for _ in range(n):
-            r += vs_one.exp(batch_size,neural_player(neural,modules),tabular_player()).sum()
+            r += vs_one.exp(batch_size,neural_player(neural,None,modules),tabular_player()).sum()
         r /= batch_size * n
         logging.info(f'The mean is {r} for the {name} player.')
     with open(f'dump leduc/nn_agent_{i_nn}.nnreg','rb') as f: r('regular',torch.load(f))

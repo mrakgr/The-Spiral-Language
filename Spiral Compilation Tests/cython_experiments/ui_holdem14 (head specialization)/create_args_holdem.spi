@@ -1,4 +1,4 @@
-inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (restriction,is_flop,sb,bb,stack,human_pid,set) : () =
+inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (game_mode,sb,bb,stack,human_pid,set) : () =
     open hand_scorer
 
     let show_card (x : card) : string =
@@ -110,24 +110,14 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (restriction,i
                 community_card = community_card |> am.generic.map show_card |> rm.join' ""
                 }
             set (record {trace actions table_data})
-        | Action: player_state, (p1,p2,((community_card,n),_)), pid, actions, next =>
+        | Action: player_state, (p1,p2,((community_card,n),_)), pid, (hu_actions {is_fold is_raise raise_min raise_max} : actions), next =>
             inl trace = show_trace (pl2_observations player_state human_pid)
             inl actions = 
-                inl raise_max = 
-                    am.fold (fun s => function
-                        | Call | Fold => s
-                        | RaiseTo: x => max s x
-                        ) 0 actions
-                inl raise_min = 
-                    am.fold (fun s => function
-                        | Call | Fold => s
-                        | RaiseTo: x => min s x
-                        ) raise_max actions
                 record {
                     raise_min raise_max
                     call = fun () => next (Log_prob_one,Call) |> loop
                     fold = fun () => next (Log_prob_one,Fold) |> loop
-                    raise_to = if raise_min = 0 then $"False" else fun raiseTo => next (Log_prob_one,(RaiseTo:)) |> loop
+                    raise_to = if is_raise then fun raiseTo => next (Log_prob_one,(RaiseTo:)) |> loop else $"False"
                     }
             inl p1,p2 = if human_pid = p1.id then p1,p2 else p2,p1
             inl table_data = record {
@@ -140,14 +130,43 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (restriction,i
                 community_card = community_card |> am.generic.map show_card |> rm.join' ""
                 }
             set (record {trace actions table_data})
-    loop (game (restriction,is_flop,sb,bb,stack) pl2_init)
+    loop (game (game_mode,sb,bb,stack) pl2_init)
 
 inl main () =
     open hu_holdem
     // `exp`ected and `cat`egorical
     inl vs_self x= namedtuple "VsSelf" {exp=train.vs_self (game x); cat=train_cat.vs_self (game x)}
     inl vs_one x = namedtuple "VsOne" {exp=train.vs_one (game x); cat=train_cat.vs_one (game x)}
-    inl uniform_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * (a st i8 * st) * i16 * bool) * u8 * a i16 action) -> a u64 (log_prob * action) * _ = agent.uniform.policy
-    inl callbot_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * (a st i8 * st) * i16 * bool) * u8 * a i16 action) -> a u64 (log_prob * action) * _ = agent.holdem_callbot.policy
-    inl neural stack_size = train.neural agent.neural_holdem.extractor (agent.neural_holdem.schema stack_size)
+    inl uniform_selector (hu_actions {is_fold is_raise raise_min raise_max} : actions) : a st action =
+        inl x : ra st _ = am.empty
+        if is_fold then rm.add x Fold
+        rm.add x Call
+        if is_raise then loopw.for' (from: raise_min nearTo: raise_max) (fun i => rm.add x (RaiseTo: i))
+        $"numpy.array(!x,copy=False)"
+    inl uniform_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * (a st i8 * st) * i16 * bool) * pid * actions) -> a u64 (log_prob * action) * _ = agent.uniform.policy uniform_selector
+    inl callbot_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * (a st i8 * st) * i16 * bool) * pid * actions) -> a u64 (log_prob * action) * _ = agent.holdem_callbot.policy
+    inl num_actions = 32 // Should be at least 2.
+    inl neural_selector (hu_actions {is_fold is_raise call=call' raise_min raise_max} : actions) : a st action =
+        inl h : dictm.dict st () = dictm.empty
+        inl x : ra st _ = am.empty
+        if is_fold then rm.add x Fold
+        rm.add x Call
+        if is_raise then 
+            inl num_actions = min num_actions (length x + 1 + raise_max - raise_min)
+            inl add v = if length x < num_actions && raise_min <= v && v <= raise_max && dictm.tryAdd h v () then rm.add x (RaiseTo: v)
+            add raise_min . add raise_max
+            inl _ = // Add pot sized bets
+                inl pot = 2 * call'
+                inl add x = add (call' + x)
+                add (pot/4) . add (pot/2) . add (pot*3/4) . add pot
+                add (pot*5/4) . add (pot*3/2) . add (pot*7/4) . add (pot*2)
+                add (pot*9/4) . add (pot*5/2) . add (pot*11/4) . add (pot*3)
+            // Sampling from log space ensures that smaller bets get better coverage.
+            inl log_min, log_max = log (conv_num raise_min), log (conv_num raise_max)
+            inl d = log_max - log_min
+            inl scale (r : f32) = round (exp (r * d + log_min)) : st
+            loopw.while (fun _ => length x < num_actions) (fun _ => add (scale $"numpy.random.rand()"))
+
+        $"numpy.array(!x,copy=False)"
+    inl neural stack_size = train.neural agent.neural_holdem.extractor (agent.neural_holdem.schema stack_size) (num_actions, neural_selector)
     record {ui train = record {vs_self vs_one uniform_player callbot_player neural}}
