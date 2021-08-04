@@ -152,20 +152,22 @@ inl main () =
         if is_fold then rm.add x Fold
         rm.add x Call
         if is_raise then 
-            inl num_actions = min num_actions (length x + 1 + raise_max - raise_min)
-            inl add v = if length x < num_actions && raise_min <= v && v <= raise_max && dictm.tryAdd h v () then rm.add x (RaiseTo: v)
-            add raise_min . add raise_max
-            inl _ = // Add pot sized bets
-                inl pot = 2 * call'
-                inl add x = add (call' + x)
-                add (pot/4) . add (pot/2) . add (pot*3/4) . add pot
-                add (pot*5/4) . add (pot*3/2) . add (pot*7/4) . add (pot*2)
-                add (pot*9/4) . add (pot*5/2) . add (pot*11/4) . add (pot*3)
-            // Sampling from log space ensures that smaller bets get better coverage.
-            inl log_min, log_max = log (conv_num raise_min), log (conv_num raise_max)
-            inl d = log_max - log_min
-            inl scale (r : f32) = round (exp (r * d + log_min)) : st
-            loopw.while (fun _ => length x < num_actions) (fun _ => add (scale $"numpy.random.rand()"))
+            if length x + 1 + raise_max - raise_min <= num_actions then
+                loopw.for' (from: raise_min nearTo: 1 + raise_max) (fun v => rm.add x (RaiseTo: v))
+            else
+                inl add v = if length x < num_actions && raise_min <= v && v <= raise_max && dictm.tryAdd h v () then rm.add x (RaiseTo: v)
+                add raise_min . add raise_max
+                inl _ = // Add pot sized bets
+                    inl pot = 2 * call'
+                    inl add x = add (call' + x)
+                    add (pot/4) . add (pot/2) . add (pot*3/4) . add pot
+                    add (pot*5/4) . add (pot*3/2) . add (pot*7/4) . add (pot*2)
+                    add (pot*9/4) . add (pot*5/2) . add (pot*11/4) . add (pot*3)
+                // Sampling from log space ensures that smaller bets get better coverage.
+                inl log_min, log_max = log (conv_num raise_min), log (conv_num raise_max)
+                inl d = log_max - log_min
+                inl scale (r : f32) = round (exp (r * d + log_min)) : st
+                loopw.while (fun _ => length x < num_actions) (fun _ => add (scale $"numpy.random.rand()"))
 
         $"numpy.array(!x,copy=False)"
     inl neural stack_size = train.neural agent.neural_holdem.extractor (agent.neural_holdem.schema stack_size) (num_actions, neural_selector)
