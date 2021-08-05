@@ -1,7 +1,3 @@
-inl q() =
-    inl (F: x) = x
-    F: 2
-
 inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (game_mode,sb,bb,stack,human_pid,set) : () =
     open hand_scorer
 

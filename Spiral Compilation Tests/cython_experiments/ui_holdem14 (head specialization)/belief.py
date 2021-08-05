@@ -195,7 +195,7 @@ def sample_value_probs(proj : Projector, value_probs : Tensor):
     sample_indices = Categorical(value_probs).sample()
     return proj.support[sample_indices.flatten()].view(sample_indices.shape)
 
-class Merge(Module):
+class Head(Module):
     def __init__(self,dim_action : int,dim_in : int,dim_out : int,num_submodules : int = 1):
         super().__init__()
         self.dim_action = dim_action

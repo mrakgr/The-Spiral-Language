@@ -8,7 +8,7 @@ from torch.nn import Linear
 import torch.linalg
 from functools import partial
 import numpy as np
-from belief import InfCube, SignSGD,model_explore,model_exploit,EncoderList,Merge,SquareErrorTracker
+from belief import InfCube, SignSGD,model_explore,model_exploit,EncoderList,Head,SquareErrorTracker
 from torch.optim.swa_utils import AveragedModel
 
 from projector import LinearProjector
@@ -16,9 +16,9 @@ from projector import LinearProjector
 def neural_create_model(size,dim_head=2 ** 4,dim_emb=2 ** 5):
     proj = LinearProjector(13,27)
     value = EncoderList(0,dim_head,dim_emb,size.value)
-    value_head = Merge(size.action,dim_head*dim_emb,27)
+    value_head = Head(size.action,dim_head*dim_emb,27)
     policy = EncoderList(0,dim_head,dim_emb,size.policy)
-    policy_head = Merge(size.action,dim_head*dim_emb,1)
+    policy_head = Head(size.action,dim_head*dim_emb,1)
     return proj.cuda(), value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
 
 def neural_player(neural,tracker,modules,model_fun=model_exploit,is_update_value=False,is_update_policy=False): 

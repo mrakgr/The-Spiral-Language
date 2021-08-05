@@ -6,7 +6,7 @@ from torch.nn import Linear
 from functools import partial
 import numpy as np
 from torch.optim.swa_utils import AveragedModel
-from belief import SignSGD, SquareErrorTracker,model_explore,model_exploit,EncoderList,Merge
+from belief import SignSGD, SquareErrorTracker,model_explore,model_exploit,EncoderList,Head
 
 # defaults = dict(game_mode=0,sb=10,bb=20,stack_size=1000,schema_stack_size=1000) # Holdem
 defaults = dict(game_mode=2,sb=10,bb=20,stack_size=1000,schema_stack_size=1000) # River
@@ -16,9 +16,9 @@ from projector import LinearProjector
 def neural_create_model(size,dim_head=2 ** 4,dim_emb=2 ** 5):
     proj = LinearProjector(defaults['schema_stack_size'],defaults['schema_stack_size']*2+1)
     value = EncoderList(5,dim_head,dim_emb,size.value)
-    value_head = Merge(size.action,dim_head*dim_emb,defaults['schema_stack_size']*2+1)
+    value_head = Head(size.action,dim_head*dim_emb,defaults['schema_stack_size']*2+1)
     policy = EncoderList(5,dim_head,dim_emb,size.policy)
-    policy_head = Merge(size.action,dim_head*dim_emb,1)
+    policy_head = Head(size.action,dim_head*dim_emb,1)
     return proj.cuda(), value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
 
 def neural_player(neural,tracker,modules,model_fun=model_exploit,is_update_value=False,is_update_policy=False): 
