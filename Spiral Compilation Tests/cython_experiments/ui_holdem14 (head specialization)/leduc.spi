@@ -50,7 +50,6 @@ inl Game =
             if p1.id = 0 then p1,p2 else p2,p1
         terminal (leduc_state (p1,p2,is_show_community_card,community_card)) (r2 (f32 r))
 
-    inl actions_init : actions = leduc_actions {is_fold = false; is_raise = true}
     let actions_from_state (p1,p2 : players) (raises_left : i32) : actions = 
         leduc_actions {is_fold = p1.pot <> p2.pot; is_raise = 0 < raises_left}
     
@@ -66,7 +65,7 @@ inl Game =
         | Raise => round_two (raises_left-1) (p2,{p1 with pot=raiseBy 4 (p1,p2)})
     inl round_two_init ~(p1,p2 : players) =
         notify None community_card fun _ =>
-        action (p1,p2,true) p1.id actions_init function
+        action (p1,p2,true) p1.id (actions_from_state (p1,p2) 2) function
         | Fold => failwith "impossible 2"
         | Call => round_two 2 (p2,p1)
         | Raise => round_two 1 (p2,{p1 with pot=raiseBy 4 (p1,p2)})
@@ -79,7 +78,7 @@ inl Game =
             round_two_init (if p1.id = 0 then p1,p2 else p2,p1)
         | Raise => round_one (raises_left-1) (p2,{p1 with pot=raiseBy 2 (p1,p2)})
 
-    action (p1,p2,false) p1.id actions_init function
+    action (p1,p2,false) p1.id (actions_from_state (p1,p2) 2) function
     | Fold => failwith "impossible 1"
     | Call => round_one 2 (p2,p1)
     | Raise => round_one 1 (p2,{p1 with pot=raiseBy 2 (p1,p2)})

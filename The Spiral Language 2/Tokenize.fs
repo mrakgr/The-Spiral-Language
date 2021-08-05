@@ -72,7 +72,6 @@ type SemanticTokenLegend =
 type SpiralToken =
     | TokVar of string * SemanticTokenLegend
     | TokSymbol of string * SemanticTokenLegend
-    | TokSymbolPaired of string * SemanticTokenLegend
     | TokOperator of string * SemanticTokenLegend
     | TokUnaryOperator of string * SemanticTokenLegend
     | TokValue of Literal
@@ -89,7 +88,7 @@ type SpiralToken =
     | TokMacroTypeVar of string
 
 let token_groups = function
-    | TokUnaryOperator(_,r) | TokOperator(_,r) | TokVar(_,r) | TokSymbol(_,r) | TokSymbolPaired(_,r) -> r
+    | TokUnaryOperator(_,r) | TokOperator(_,r) | TokVar(_,r) | TokSymbol(_,r) -> r
     | TokValue (LitChar _) | TokStringOpen | TokStringClose | TokText _ | TokMacroOpen | TokMacroClose | TokValue(LitString _) -> SemanticTokenLegend.string
     | TokComment _ -> SemanticTokenLegend.comment
     | TokKeyword _ -> SemanticTokenLegend.keyword
@@ -125,9 +124,9 @@ let is_separator_char c = is_prefix_separator_char c || is_parenth_close c
 
 let var (s: Tokenizer) = 
     let from = s.from
-    let ok x = ({from=from; nearTo=s.from}, x)
-    let body x = 
-        if skip ':' s then TokSymbolPaired(x,SemanticTokenLegend.symbol) |> ok
+    let ok x = Ok ({from=from; nearTo=s.from}, x)
+    let body x _ = 
+        if skip ':' s then error_char from ": is not allowed directly after a var."
         else
             let f x = TokKeyword(x)
             match x with
@@ -151,7 +150,7 @@ let var (s: Tokenizer) =
             | x -> TokVar(x,SemanticTokenLegend.variable)
             |> ok
 
-    (many1Satisfy2L is_var_char_starting is_var_char "variable" |>> body .>> spaces) s
+    (many1Satisfy2L is_var_char_starting is_var_char "variable" >>= body .>> spaces) s
 
 let number (s: Tokenizer) = 
     let from = s.from

@@ -24,7 +24,7 @@ inl game (game_mode,sb,bb,stack) =
     $"numpy.random.shuffle(!deck)"
 
     inl actions is_fold call amount_min_raise : actions =
-        inl is_raise = stack = call
+        inl is_raise = call < stack
         inl raise_min, raise_max = min stack amount_min_raise, stack
         hu_actions {is_fold is_raise call raise_min raise_max stack}
 
@@ -99,5 +99,7 @@ inl game (game_mode,sb,bb,stack) =
         notify None c6 fun _ =>
         notify None c7 fun _ =>
         betting true (p1,p2) (cs,5) (showdown cs) // River
+    | _ =>
+        failwith "Unknown game mode."
 
 let game a b = game a b

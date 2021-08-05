@@ -928,7 +928,6 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawAnnot(_,RawDefaultLit(r,a),b) -> EDefaultLit(p r,a,ty env b)
         | RawB r -> EB(p r)
         | RawV(r,a) -> v_term env a
-        | RawBigV(r,a) -> EApply(p r,v_term env a,EB(p r))
         | RawLit(r,a) -> ELit(p r,a)
         | RawSymbol(r,a) -> ESymbol(p r,a)
         | RawType(r,a) -> EType(p r,ty env a)

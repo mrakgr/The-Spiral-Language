@@ -238,7 +238,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
     let rec cterm constraints term ty x =
         match x with
         | RawSymbol _ | RawDefaultLit _ | RawLit _ | RawB _ -> ()
-        | RawBigV(a,b) | RawV(a,b) -> check_term term (a,b)
+        | RawV(a,b) -> check_term term (a,b)
         | RawType(_,x) -> ctype constraints term ty x
         | RawMatch(_,body,l) -> cterm constraints term ty body; List.iter (fun (a,b) -> cterm constraints (cpattern constraints term ty a) ty b) l
         | RawFun(_,l) -> List.iter (fun (a,b) -> cterm constraints (cpattern constraints term ty a) ty b) l
@@ -492,18 +492,7 @@ let show_t (env : TopEnv) x =
             p 0 (sprintf "%s => %s" a (f -1 b))
         | TyArray a -> p 30 (sprintf "array %s" (f 30 a))
         | TyApply(a,b,_) -> p 30 (sprintf "%s %s" (f 29 a) (f 30 b))
-        | TyPair(a,b) -> 
-            match visit_t a, visit_t b with
-            | TySymbol a, b when 0 < a.Length && System.Char.IsLower(a,0) && a.[a.Length-1] = '_' -> 
-                let show (s,a) = sprintf "%s: %s" s (f 15 a)
-                let rec loop (a,b) = 
-                    match a,b with
-                    | s :: [], a -> [show (s,a)]
-                    | s :: s', TyPair(a,b) -> show (s,a) :: loop (s',b)
-                    | s, a -> [show (String.concat "_" s, a)]
-                p 15 (loop (a.Split('_',System.StringSplitOptions.RemoveEmptyEntries) |> (fun x -> x.[0] <- to_upper x.[0]; Array.toList x), b) |> String.concat " ")
-            | TySymbol a, TyB when 0 < a.Length && System.Char.IsLower(a,0) -> to_upper a
-            | a,b -> p 25 (sprintf "%s * %s" (f 25 a) (f 24 b))
+        | TyPair(a,b) -> p 25 (sprintf "%s * %s" (f 25 a) (f 24 b))
         | TyFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
         | TyModule l | TyRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
         | TyUnion(l,_) -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "| ")
@@ -683,7 +672,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | RawFilledForall _ | RawMissingBody _ | RawTypecase _ | RawType _ as x -> failwithf "Compiler error: These cases should not appear in fill. It is intended to be called on top level statements only.\nGot: %A" x
             | RawSymbol _ | RawB _ | RawLit _ | RawOp _ -> x
             | RawReal(_,x) -> x
-            | RawBigV(r,a) -> f (RawApply(r,RawV(r,a),RawB r))
             | RawV(r,n) ->
                 match type_apply_args.TryGetValue(n) with
                 | true, type_apply_args ->
@@ -968,7 +956,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         match x with
         | RawB r -> unify r s TyB
         | RawV(r,a) -> rawv (r,a) (unify r s)
-        | RawBigV(r,a) -> rawv (r,a) (unify r (TyFun(TyB,s)))
         | RawDefaultLit(r,_) -> hover_types.Add(r,(s,"")); annotations.Add(x,(r,s)); unify r s (fresh_subst_var scope (Set.singleton CNumber) KindType)
         | RawLit(r,a) -> unify r s (lit a)
         | RawSymbol(r,x) -> unify r s (TySymbol x)

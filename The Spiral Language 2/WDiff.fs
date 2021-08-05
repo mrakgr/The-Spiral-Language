@@ -78,7 +78,6 @@ let semantic_updates_apply (block : LineTokens) updates =
                 match x with
                 | TokVar(a,_) -> TokVar(a,l)
                 | TokSymbol(a,_) -> TokSymbol(a,l)
-                | TokSymbolPaired(a,_) -> TokSymbolPaired(a,l)
                 | TokOperator(a,_) -> TokOperator(a,l)
                 | TokUnaryOperator(a,_) -> TokUnaryOperator(a,l)
                 | x -> failwithf "Compiler error: Cannot change the semantic legend for the %A token." x

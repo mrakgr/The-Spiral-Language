@@ -98,7 +98,7 @@ inl neural_handler forall (actions : * -> *) act.
     inl policy_mask : a2 i8 = $"numpy.zeros((!batch_size,!policy_seq_size),dtype=numpy.int8)"
     inl value_data : a3 f32 = $"numpy.zeros((!batch_size,!value_seq_size,!value_size),dtype=numpy.float32)"
     inl value_mask : a2 i8 = $"numpy.zeros((!batch_size,!value_seq_size),dtype=numpy.int8)"
-    inl action_data : a3 f32 = $"numpy.zeros((!batch_size,!max_actions,!action_size),dtype=numpy.int8)"
+    inl action_data : a3 f32 = $"numpy.zeros((!batch_size,!max_actions,!action_size),dtype=numpy.float32)"
     inl action_mask : a2 i8 = $"numpy.ones((!batch_size,!max_actions),dtype=numpy.int8)"
     inl action_selected : a u64 (a st act) = create batch_size
     inl pids : a u64 f32 = create batch_size
@@ -135,7 +135,7 @@ inl neural_handler forall (actions : * -> *) act.
                 from_numpy policy_data, from_numpy_as_bool policy_mask, 
                 from_numpy value_data, from_numpy_as_bool value_mask, 
                 from_numpy pids, 
-                from_numpy action_data, from_numpy action_mask
+                from_numpy action_data, from_numpy_as_bool action_mask
                 )
         $"!x[0]", $"!x[1]", $"!x[2]"
     inl cs : a u64 _ = am.init batch_size fun b =>

@@ -246,7 +246,6 @@ and Pattern =
 and RawExpr =
     | RawB of VSCRange
     | RawV of VSCRange * VarString
-    | RawBigV of VSCRange * VarString // RawApply(V a,RawB) This case is needed for the sake of having correct hover info.
     | RawLit of VSCRange * Literal
     | RawDefaultLit of VSCRange * string
     | RawSymbol of VSCRange * SymbolString
@@ -329,7 +328,6 @@ let range_of_expr = function
     | RawMissingBody r
     | RawMacro(r,_)
     | RawV(r,_)
-    | RawBigV(r,_)
     | RawLit(r,_)
     | RawDefaultLit(r,_)
     | RawSymbol(r,_)
@@ -435,7 +433,7 @@ let read_text d =
 
 let read_macro_var d =
     try_current d <| function
-        | p, TokMacroTermVar x -> skip d; Ok(RawMacroTermVar(p,if Char.IsUpper(x,0) then RawBigV(p,x) else RawV(p,x)))
+        | p, TokMacroTermVar x -> skip d; Ok(RawMacroTermVar(p,RawV(p,x)))
         | p, TokMacroTypeVar x -> skip d; Ok(RawMacroTypeVar(p,RawTVar(p,x)))
         | p,_ -> Error [p, ExpectedMacroVar]
 
@@ -510,6 +508,16 @@ let read_big_var d =
         | p, TokVar(t',r) when Char.IsUpper(t',0) -> skip d; Ok(p,t')
         | p, _ -> Error [p, ExpectedBigVar]
 
+let read_var_as_symbol d =
+    try_current d <| function
+        | p, TokVar(t',_) -> update_semantic d SemanticTokenLegend.symbol; skip d; Ok t'
+        | p, _ -> Error [p, ExpectedVar]
+
+let read_big_var_as_symbol d =
+    try_current d <| function
+        | p, TokVar(t',_) when Char.IsUpper(t',0) -> update_semantic d SemanticTokenLegend.symbol; skip d; Ok t'
+        | p, _ -> Error [p, ExpectedBigVar]
+
 let read_small_var d =
     try_current d <| function
         | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> skip d; Ok t'
@@ -520,12 +528,22 @@ let read_small_var' d =
         | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> skip d; Ok(p,t')
         | p, _ -> Error [p, ExpectedSmallVar]
 
-let read_type_var d =
+let read_big_type_var d =
+    try_current d <| function
+        | p, TokVar(t',r) when Char.IsUpper(t',0) -> update_semantic d SemanticTokenLegend.type_variable; skip d; Ok(t')
+        | p, _ -> Error [p, ExpectedSmallVar]
+
+let read_big_type_var' d =
+    try_current d <| function
+        | p, TokVar(t',r) when Char.IsUpper(t',0) -> update_semantic d SemanticTokenLegend.type_variable; skip d; Ok(p,t')
+        | p, _ -> Error [p, ExpectedSmallVar]
+
+let read_small_type_var d =
     try_current d <| function
         | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> update_semantic d SemanticTokenLegend.type_variable; skip d; Ok(t')
         | p, _ -> Error [p, ExpectedSmallVar]
 
-let read_type_var' d =
+let read_small_type_var' d =
     try_current d <| function
         | p, TokVar(t',r) when Char.IsUpper(t',0) = false -> update_semantic d SemanticTokenLegend.type_variable; skip d; Ok(p,t')
         | p, _ -> Error [p, ExpectedSmallVar]
@@ -534,19 +552,6 @@ let read_value d =
     try_current d <| function
         | p, TokValue t' -> skip d; Ok(p,t')
         | p, _ -> Error [p, ExpectedLit]
-
-let read_symbol_paired d =
-    try_current d <| function
-        | p, TokSymbolPaired(t',r) -> skip d; Ok(p,t')
-        | p, _ -> Error [p, ExpectedSymbolPaired]
-
-let read_symbol_paired' d =
-    try_current d <| function
-        | p, TokSymbolPaired(t',_) -> let r = update_semantic d in skip d; Ok(p,t',r)
-        | p, _ -> Error [p, ExpectedSymbolPaired]
-
-let to_lower (x : string) = Char.ToLower(x.[0]).ToString() + x.[1..]
-let to_upper (x : string) = Char.ToUpper(x.[0]).ToString() + x.[1..]
 
 let read_symbol d =
     try_current d <| function
@@ -583,7 +588,7 @@ let duplicates er x =
 
 let inline indent i op next d = if op i (col d) then next d else Error []
 
-let record_var d = (read_var <|> rounds read_op) d
+let record_var d = (read_var_as_symbol <|> rounds read_op) d
 
 let patterns_validate pats = 
     let pos = Collections.Generic.Dictionary(HashIdentity.Reference)
@@ -636,7 +641,7 @@ let join_point = function
     | RawJoinPoint _ as x -> x 
     | x -> RawJoinPoint(range_of_expr x, x)
 
-// Some places need unique string refs, so this is to keep the compiler from interning static strings.
+/// Some places need unique string refs, so this is to keep the compiler from interning static strings.
 let unintern a b = sprintf "%s%c" a b
 
 let rec let_join_point = function
@@ -655,10 +660,6 @@ let let_join_point' = function
     | x -> x
 
 let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
-    let name, pats =
-        match name with
-        | PatUnbox(_,PatPair(_,PatSymbol(r,name), pat)) -> PatVar(r,name), pat :: pats
-        | _ -> name, pats
     match is_rec, name, foralls, pats with
     | false, _, [], [] -> 
         match patterns_validate [name] with
@@ -679,8 +680,8 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
     | true, _, _, _ -> Error [range_of_pattern name, ExpectedVarOrOpAsNameOfRecStatement]
     | false, _, _, _ -> Error [range_of_pattern name, ExpectedSinglePatternWhenStatementNameIsNorVarOrOp]
 
-let ho_var d : Result<HoVar,_> = range ((read_type_var |>> fun x -> x, RawKindWildcard) <|> rounds ((read_type_var .>> skip_op ":") .>>. kind)) d
-let forall_var d : Result<TypeVar,_> = (ho_var .>>. (curlies (sepBy (read_type_var' <|> rounds read_op_type) (skip_op ";")) <|>% [])) d
+let ho_var d : Result<HoVar,_> = range ((read_small_type_var |>> fun x -> x, RawKindWildcard) <|> rounds ((read_small_type_var .>> skip_op ":") .>>. kind)) d
+let forall_var d : Result<TypeVar,_> = (ho_var .>>. (curlies (sepBy (read_small_type_var' <|> rounds read_op_type) (skip_op ";")) <|>% [])) d
 let forall d = 
     (skip_keyword SpecForall >>. many1 forall_var .>> skip_op "." 
     >>= fun x _ -> duplicates DuplicateForallVar (List.map (fun ((r,(a,_)),_) -> r,a) x) |> function [] -> Ok x | er -> Error er) d
@@ -868,23 +869,20 @@ let inline read_default_value on_top on_bot d =
             else bottom_up_number (p,t') |> Result.map on_bot
         | p, _ -> Error [p, ExpectedLit]
 let read_string = tuple3 skip_string_open ((read_text |>> snd) <|>% "") skip_string_close
-let pat_var d =
-    (read_var' |>> fun (r,a,re) ->
-        if Char.IsUpper(a,0) then 
-            re SemanticTokenLegend.symbol
-            PatUnbox(r,PatPair(r,PatSymbol(r,to_lower a), PatB r))
-        else PatVar(r,a)
-        ) d
+let pat_var d = (read_small_var' |>> PatVar) d
 let rec root_pattern_nominal d =
-    (read_var' >>= fun (r,a,re) _ ->
+    ((read_var' .>>. opt root_pattern_var) |>> fun ((r,a,re),b) ->
         if Char.IsUpper(a,0) then 
             re SemanticTokenLegend.symbol
-            Ok(PatUnbox(r,PatPair(r,PatSymbol(r,to_lower a), PatB r)))
+            let b = match b with Some b -> b | None -> PatB r
+            PatUnbox(r,PatPair(r,PatSymbol(r,a),b))
         else 
-            ((root_pattern_var |>> fun b ->
+            match b with
+            | Some b ->
                 re SemanticTokenLegend.type_variable
                 PatNominal(r +. range_of_pattern b,(r,a),b)
-                ) <|>% PatVar(r,a)) d
+            | None ->
+                PatVar(r,a)
         ) d
 and root_pattern_wildcard d = (skip_keyword' SpecWildcard |>> PatE) d
 and root_pattern_dyn d = (range (skip_unary_op "~" >>. root_pattern_var) |>> PatDyn) d
@@ -907,7 +905,7 @@ and root_pattern s =
         let pat_value = (read_value |>> PatValue) <|> (read_default_value PatDefaultValue PatValue)
         let pat_string = read_string |>> (fun (a,x,b) -> PatValue(a +. b,LitString x))
         let pat_symbol = read_symbol |>> PatSymbol
-        let pat_array = skip_unary_op ";" >>. range (squares (sepBy root_pattern_type (skip_op ";"))) |>> (fun (r,x) -> PatArray(r,x))
+        let pat_array = skip_unary_op ";" >>. range (squares (sepBy root_pattern_type (skip_op ";"))) |>> fun (r,x) -> PatArray(r,x)
         let pat_list = 
             squares (sepBy root_pattern_type (skip_op ";"))
             |>> fun x -> List.foldBack pat_list_pair x (PatUnbox(range_empty,PatPair(range_empty,PatSymbol(range_empty,"nil"),PatB range_empty)))
@@ -918,20 +916,7 @@ and root_pattern s =
     let pat_and = sepBy1 body (skip_op "&") |>> List.reduce (fun a b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b))
     let pat_pair = pat_pair pat_and
     let pat_cons = sepBy1 pat_pair (skip_op "::") |>> List.reduceBack pat_list_pair
-    let pat_symbol_paired = 
-        let next = pat_cons
-        (many1 (read_symbol_paired' .>>. opt next) |>> fun l ->
-            let l,is_upper = match l with ((r,a,re),b) :: l' -> ((r,to_lower a,re),b) :: l', Char.IsUpper(a,0) | _ -> [], true
-            let f ((r,a,re),b) = (r, a), Option.defaultWith (fun () -> re SemanticTokenLegend.variable; PatVar(r,a)) b
-            match l |> List.map f |> List.unzip with
-            | ((r,_) :: _ as k), v ->
-                (PatSymbol(r,symbol_paired_concat k) :: v)
-                |> List.reduceBack (fun a b -> PatPair(range_of_pattern a +. range_of_pattern b,a,b))
-                |> fun l -> if is_upper then PatUnbox(range_of_pattern l,l) else l
-            | _ -> failwith "Compiler error: Should be at least one key in symbol_paired_process_pattern"
-            )
-        <|> next
-    let pat_or = sepBy1 pat_symbol_paired (skip_op "|") |>> List.reduce (fun a b -> PatOr(range_of_pattern a +. range_of_pattern b,a,b))
+    let pat_or = sepBy1 pat_cons (skip_op "|") |>> List.reduce (fun a b -> PatOr(range_of_pattern a +. range_of_pattern b,a,b))
     let pat_as = pat_or .>>. (opt (skip_keyword SpecAs >>. pat_or )) |>> function a, Some b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b) | a, None -> a
     pat_as s
 and root_pattern_when d = (root_pattern .>>. (opt (skip_keyword SpecWhen >>. root_term)) |>> function a, Some b -> PatWhen(range_of_pattern a +. range_of_expr b,a,b) | a, None -> a) d
@@ -940,6 +925,12 @@ and root_pattern_var d =
     (pat_var + root_pattern_wildcard + root_pattern_dyn + root_pattern_rounds + root_pattern_record) d
 and root_pattern_pair d = pat_pair root_pattern_var d
 and root_type_annot d = root_type {root_type_defaults with allow_term=d.is_top_down=false; allow_wildcard=d.is_top_down} d
+and root_type_record is_union (flags : RootTypeFlags) d =
+    (range (curlies (sepBy ((range (if is_union then read_big_var_as_symbol else record_var) .>> skip_op ":") .>>. root_type flags) (optional (skip_op ";"))))
+    >>= fun (r,x) _ ->
+        x |> List.map fst |> duplicates (if is_union then DuplicateUnionKey else DuplicateRecordTypeVar)
+        |> function [] -> Ok(RawTRecord(r,x |> List.map (fun ((_,n),x) -> n,x) |> Map.ofList)) | er -> Error er
+        ) d
 and root_type (flags : RootTypeFlags) d =
     let next = root_type flags
     let cases d =
@@ -947,20 +938,11 @@ and root_type (flags : RootTypeFlags) d =
         // This metavar case only occurs in typecase during the bottom-up segment. It should not be confused with metavars during top-down type inference.
         let metavar d = if flags.allow_metavars then (skip_unary_op "~" >>. read_var' |>> fun (a,b,r) -> r SemanticTokenLegend.type_variable; RawTMetaVar(a,b)) d else Error []
         let term d = if flags.allow_term then (range (skip_unary_op "`" >>. ((read_var'' |>> RawV) <|> rounds root_term)) |>> RawTTerm) {d with is_top_down=false} else Error []
-        let record =
-            range (curlies (sepBy ((range record_var .>> skip_op ":") .>>. next) (optional (skip_op ";"))))
-            >>= fun (r,x) _ ->
-                x |> List.map fst |> duplicates DuplicateRecordTypeVar
-                |> function [] -> Ok(RawTRecord(r,x |> List.map (fun ((_,n),x) -> n,x) |> Map.ofList)) | er -> Error er
         let symbol = read_symbol |>> RawTSymbol
-    
+        let record = root_type_record false flags
         let var = read_var' |>> fun (o,x,r) ->
-            if Char.IsUpper(x,0) then
-                r SemanticTokenLegend.symbol
-                RawTPair(o,RawTSymbol(o,to_lower x), RawTB o)
-            else
-                r SemanticTokenLegend.type_variable
-                RawTVar(o, x)
+            r SemanticTokenLegend.type_variable
+            RawTVar(o, x)
         let rounds =
             range (rounds ((next |>> fun x _ -> x) <|>% RawTB))
             |>> fun (r,x) -> x r
@@ -974,25 +956,12 @@ and root_type (flags : RootTypeFlags) d =
     
     let pairs = sepBy1 apply (skip_op "*") |>> List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b))
     let functions = sepBy1 pairs (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(range_of_texpr a +. range_of_texpr b,a,b))
-    let symbol_paired d = 
-        let next = functions
-        ((many1 (indent (col d) (<=) read_symbol_paired .>>. next) >>= fun l _ ->
-            match List.unzip l with
-            | [], _ -> failwith "Compiler error: Single item expected."
-            | (r,x) :: k', v ->
-                if Char.IsUpper(x,0) then
-                    List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b)) 
-                        (RawTSymbol(r,symbol_paired_concat ((r,to_lower x) :: k')) :: v) |> Ok
-                else
-                    Error [r, SymbolPairedShouldStartWithUppercaseInTypeScope]
-            )
-        <|> next) d
-    symbol_paired d
+    functions d
 
 and root_term d =
     let rec expressions d =
         let next = root_term
-        let case_var = read_var' |>> fun (r,x,leg) -> if Char.IsUpper(x,0) then leg SemanticTokenLegend.symbol; RawBigV(r, to_lower x) else RawV(r,x)
+        let case_var = read_var' |>> fun (r,x,leg) -> RawV(r,x)
         let case_rounds = 
             range (rounds ((((read_op' |>> RawV) <|> next) |>> fun x _ -> x) <|>% RawB))
             |>> fun (r,x) -> x r
@@ -1092,8 +1061,8 @@ and root_term d =
             if d.is_top_down then
                 List.foldBack (fun a b -> 
                     let r = range_of_expr a
-                    RawApply(r,RawV(range_empty,unintern "cons" '_'),RawPair(r,a,b))
-                    ) l (RawBigV(range_empty,unintern "ni" 'l')) |> Ok
+                    RawApply(r,RawV(range_empty,unintern "Con" 's'),RawPair(r,a,b))
+                    ) l (RawV(range_empty,unintern "Ni" 'l')) |> Ok
             else
                 Error [r, ListLiteralsNotAllowedInBottomUp]
 
@@ -1115,7 +1084,7 @@ and root_term d =
         let next = application_tight
         let f = 
             read_unary_op' >>= fun (o,a) d ->
-                let type_expr d = ((read_type_var' |>> RawTVar) <|> (rounds (fun d -> root_type {root_type_defaults with allow_term=true} d))) d
+                let type_expr d = ((read_small_type_var' |>> RawTVar) <|> (rounds (fun d -> root_type {root_type_defaults with allow_term=true} d))) d
                 match a with
                 | ";" -> (range (squares sequence_body) |>> fun (r,x) -> RawArray(r,x)) d
                 | "!!!!" -> 
@@ -1156,26 +1125,8 @@ and root_term d =
             (fun a -> function Some b -> RawAnnot(range_of_expr a +. range_of_texpr b,a,b) | _ -> a)
             d
 
-    let symbol_paired d =
-        let next = operators
-        ((many1 (indent (col d) (<=) read_symbol_paired' .>>. opt next) |>> fun l ->
-            let l,is_upper =
-                match l with
-                | ((r,a,re),b) :: l' -> ((r,to_lower a,re),b) :: l', Char.IsUpper(a,0)
-                | [] -> [], false
-            let f ((r,a,re),b) = (r, a), Option.defaultWith (fun () -> re SemanticTokenLegend.variable; RawV(r,a)) b
-            match l |> List.map f |> List.unzip with
-            | (r,x) :: k', v ->
-                let name = r, symbol_paired_concat ((r,to_lower x) :: k')
-                let body = List.reduceBack (fun a b -> RawPair(range_of_expr a +. range_of_expr b,a,b)) v
-                if is_upper then RawApply(r +. range_of_expr body, RawV name, body)
-                else RawPair(r +. range_of_expr body, RawSymbol name, body)
-            | _ -> failwith "Compiler error: Should be at least one key in symbol_paired_process_pattern"
-            )
-        <|> next) d
-
     let statements d =
-        let next = symbol_paired
+        let next = operators
         let inl_or_let =
             (inl_or_let root_term root_pattern_pair root_type_annot .>>. many (and_inl_or_let root_term root_pattern_pair root_type_annot))
             >>= fun x _ -> 
@@ -1247,48 +1198,40 @@ let top_inl_or_let_process comments is_top_down = function
 let top_inl_or_let d = ((comments .>>. inl_or_let root_term root_pattern_pair root_type_annot) >>= fun (comments,x) d -> top_inl_or_let_process comments d.is_top_down x) d
 
 let process_union (r,(layout,n,a,b)) _ =
-    match duplicates DuplicateUnionKey (List.map (fun (r,(a,_)) -> r,a) b) with
-    | [] ->
-        let r' = List.map fst b |> List.reduce (+.)
-        let b = List.map snd b
+    match b with
+    | RawTRecord(r',b) ->
         match layout with
-        | UHeap -> Ok(TopNominalRec(r,n,a,RawTUnion(r',Map.ofList b,layout)))
-        | UStack -> Ok(TopNominal(r,n,a,RawTUnion(r',Map.ofList b,layout)))
-    | er -> Error er
+        | UHeap -> Ok(TopNominalRec(r,n,a,RawTUnion(r',b,layout)))
+        | UStack -> Ok(TopNominal(r,n,a,RawTUnion(r',b,layout)))
+    | _ -> failwith "Compiler error: Expected a type record in process_union."
 
-let union_clauses d =
-    let process_clause x _ =
-        match x with
-        | RawTPair(r,RawTSymbol(_,a),b) -> Ok(r,(a,b))
-        | _ -> Error [range_of_texpr x, ExpectedPairedSymbolInUnion]
-    let bar = bar (col d)
-    (optional bar >>. sepBy1 (root_type root_type_defaults >>= process_clause) bar) d
-let top_union d = ((range (tuple4 (skip_keyword SpecUnion >>. ((skip_keyword SpecRec >>% UHeap) <|>% UStack)) read_type_var' (many ho_var .>> skip_op "=") union_clauses)) >>= process_union) d
+let union_clauses d = root_type_record true root_type_defaults d // TODO: Do this properly tomorrow.
+let top_union d = ((range (tuple4 (skip_keyword SpecUnion >>. ((skip_keyword SpecRec >>% UHeap) <|>% UStack)) read_small_type_var' (many ho_var .>> skip_op "=") union_clauses)) >>= process_union) d
 let top_nominal d = 
-    (range (tuple3 (skip_keyword SpecNominal >>. read_type_var') (many ho_var .>> skip_op "=") (root_type {root_type_defaults with allow_term=true}))
+    (range (tuple3 (skip_keyword SpecNominal >>. read_small_type_var') (many ho_var .>> skip_op "=") (root_type {root_type_defaults with allow_term=true}))
     |>> fun (r,(n,a,b)) -> TopNominal(r,n,a,b)) d
 
 let inline type_forall next d = (pipe2 (forall <|>% []) next (List.foldBack (fun x s -> RawTForall(range_of_typevar x +. range_of_texpr s,x,s)))) d 
 let top_prototype d = 
     (range 
         (tuple4
-            (skip_keyword SpecPrototype >>. (read_small_var' <|> rounds read_op')) read_type_var' (many forall_var) 
+            (skip_keyword SpecPrototype >>. (read_small_var' <|> rounds read_op')) read_small_type_var' (many forall_var) 
             (skip_op ":" >>. type_forall (root_type root_type_defaults)))
     |>> fun (r,(a,b,c,d)) -> TopPrototype(r,a,b,c,d)) d
 let top_instance d =
     (range
-        (tuple4 (skip_keyword SpecInstance >>. (read_small_var' <|> rounds read_op')) read_type_var' (many forall_var) (skip_op "=" >>. root_term))
+        (tuple4 (skip_keyword SpecInstance >>. (read_small_var' <|> rounds read_op')) read_small_type_var' (many forall_var) (skip_op "=" >>. root_term))
     >>= fun (r,(prototype_name, nominal_name, nominal_foralls, body)) _ ->
             Ok(TopInstance(r,prototype_name,nominal_name,nominal_foralls,body))
             ) d
-let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_type_var') (many ho_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)) d
+let top_type d = (range (tuple3 (skip_keyword SpecType >>. read_small_type_var') (many ho_var) (skip_op "=" >>. root_type root_type_defaults)) |>> fun (r,(a,b,c)) -> TopType(r,a,b,c)) d
 
 let top_and_inl_or_let d = 
     (comments .>>. restore 1 (range (and_inl_or_let root_term root_pattern_pair root_type_annot)) 
     >>= fun (comments,(r,x)) d -> top_inl_or_let_process comments d.is_top_down x |> Result.map (fun x -> TopAnd(r,x))) d
 
 let inline top_and f = restore 1 (range (skip_keyword SpecAnd >>. f)) |>> TopAnd
-let top_and_union d = top_and ((range (tuple4 (skip_keyword SpecUnion >>% UHeap) read_type_var' (many ho_var .>> skip_op "=") union_clauses)) >>= process_union) d
+let top_and_union d = top_and ((range (tuple4 (skip_keyword SpecUnion >>% UHeap) read_small_type_var' (many ho_var .>> skip_op "=") union_clauses)) >>= process_union) d
 let top_open d = (module_open |>> fun (r,(name,acs)) -> TopOpen(r,name,acs)) d
 
 let top_statement s =

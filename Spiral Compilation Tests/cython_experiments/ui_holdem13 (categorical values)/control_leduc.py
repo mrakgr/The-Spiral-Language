@@ -41,7 +41,7 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
 
     def run(is_avg=False):
         for _ in range(5): eval(neural_player(neural,modules,model_explore,True,False))
-        eval(neural_player(neural,modules,model_explore,False,True))
+        # eval(neural_player(neural,modules,model_explore,False,True))
 
         logging.debug(f"The l2 loss value prediction error is {value_head.mse_and_clear}")
 
@@ -131,11 +131,11 @@ if __name__ == '__main__':
     n,m = 300,150
     ag = n + m
     # create_tabular_agent(n,m,**args)
-    for _ in range(5):
+    for _ in range(1):
         create_nn_agent(n,m,**args)
-        evaluate_vs_tabular(ag,n+m,**args)
-        evaluate_vs_tabular(ag,n+2*m,**args)
-        evaluate_vs_tabular(ag,n+3*m,**args)
+        # evaluate_vs_tabular(ag,n+m,**args)
+        # evaluate_vs_tabular(ag,n+2*m,**args)
+        # evaluate_vs_tabular(ag,n+3*m,**args)
         logging.info("----")
 
     logging.info("** TRAINING DONE **")

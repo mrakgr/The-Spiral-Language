@@ -2,12 +2,13 @@ import pickle
 import logging
 import torch
 import torch.distributions
+from torch.nn.modules.container import Sequential
 import torch.optim
 from torch.nn import Linear
 import torch.linalg
 from functools import partial
 import numpy as np
-from belief import SignSGD,model_explore,model_exploit,EncoderList,Merge,SquareErrorTracker
+from belief import InfCube, SignSGD,model_explore,model_exploit,EncoderList,Merge,SquareErrorTracker
 from torch.optim.swa_utils import AveragedModel
 
 from projector import LinearProjector
@@ -15,9 +16,9 @@ from projector import LinearProjector
 def neural_create_model(size,dim_head=2 ** 4,dim_emb=2 ** 5):
     proj = LinearProjector(13,27)
     value = EncoderList(0,dim_head,dim_emb,size.value)
-    value_head = Merge(Linear(dim_head*dim_emb+size.action,27))
+    value_head = Merge(size.action,dim_head*dim_emb,27)
     policy = EncoderList(0,dim_head,dim_emb,size.policy)
-    policy_head = Merge(Linear(dim_head*dim_emb+size.action,1))
+    policy_head = Merge(size.action,dim_head*dim_emb,1)
     return proj.cuda(), value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
 
 def neural_player(neural,tracker,modules,model_fun=model_exploit,is_update_value=False,is_update_policy=False): 
@@ -29,7 +30,7 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
     modules = neural_create_model(neural.size)
     def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(m, t + 1)
     avg_modules = [AveragedModel(x,avg_fn=avg_fn) for x in modules]
-    tracker = SquareErrorTracker()
+    tracker = SquareErrorTracker().cuda()
     proj, value, value_head, policy, policy_head = modules
     vs_self, vs_one = vs_self.cat(proj.combine,proj.to_cat,proj.empty), vs_one.cat(proj.combine,proj.to_cat,proj.empty)
     opt = SignSGD([
@@ -42,7 +43,7 @@ def create_nn_agent(n,m,vs_self,vs_one,neural,uniform_player,tabular): # self pl
 
     def run(is_avg=False):
         for _ in range(5): eval(neural_player(neural,tracker,modules,model_explore,True,False))
-        eval(neural_player(neural,tracker,modules,model_explore,False,True))
+        # eval(neural_player(neural,tracker,modules,model_explore,False,True))
 
         logging.debug(f"The l2 loss value prediction error is {tracker.mse_and_clear}")
 
@@ -132,11 +133,11 @@ if __name__ == '__main__':
     n,m = 300,150
     ag = n + m
     # create_tabular_agent(n,m,**args)
-    for _ in range(5):
+    for _ in range(1):
         create_nn_agent(n,m,**args)
-        evaluate_vs_tabular(ag,n+m,**args)
-        evaluate_vs_tabular(ag,n+2*m,**args)
-        evaluate_vs_tabular(ag,n+3*m,**args)
+        # evaluate_vs_tabular(ag,n+m,**args)
+        # evaluate_vs_tabular(ag,n+2*m,**args)
+        # evaluate_vs_tabular(ag,n+3*m,**args)
         logging.info("----")
 
     logging.info("** TRAINING DONE **")

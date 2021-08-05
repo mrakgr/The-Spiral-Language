@@ -5,7 +5,7 @@ from typing import Callable, Tuple
 import torch
 from torch.autograd.function import Function
 from torch.distributions import Categorical
-from torch.nn.modules.container import ModuleList
+from torch.nn.modules.container import ModuleList, Sequential
 from torch.nn.modules.linear import Linear
 import torch.optim
 import torch.nn
@@ -196,14 +196,22 @@ def sample_value_probs(proj : Projector, value_probs : Tensor):
     return proj.support[sample_indices.flatten()].view(sample_indices.shape)
 
 class Merge(Module):
-    def __init__(self,sub : Module):
+    def __init__(self,dim_action : int,dim_in : int,dim_out : int,num_submodules : int = 1):
         super().__init__()
-        self.sub = sub
+        self.dim_action = dim_action
+        self.dim_input = dim_in
+        self.dim_out = dim_out
+        self.initial = InfCube(dim_action+dim_in,dim_in)
+        self.middle = Sequential(*[ResInfCube(dim_in) for i in range(num_submodules)])
+        self.out = Linear(dim_in,dim_out)
 
     def forward(self, action_data : Tensor, data : Tensor):
         dz,db,dl = action_data.shape
         dz,dr = data.shape
-        return self.sub(torch.cat([action_data,data.expand(dz,db,dr)],-1)).squeeze(-1)
+        assert self.dim_action == dl, f"Got: {self.dim_action} and {dl}"
+        assert self.dim_input == dr, f"Got: {self.dim_input} and {dr}"
+        data = data.unsqueeze(1).expand(dz,db,dr)
+        return self.out(self.middle(self.initial(torch.cat([action_data,data],-1)) + data)).squeeze(-1)
 
 def model_explore(
         ers : SquareErrorTracker or None,
@@ -214,13 +222,13 @@ def model_explore(
         action_data : Tensor, action_mask : Tensor
         ):
     """
-    Does SARSA with categorical distributions.
+    Does critic training with categorical distributions.
     """
     sample_indices = torch.masked_fill(torch.normal(0.0,1.0,action_mask.shape),action_mask,float('-inf')).argmax(-1)
     def update(rewards : Tensor):
         nonlocal value_data, value_mask, policy_data, policy_mask, pids, action_data, action_mask, sample_indices
         sample_indices = sample_indices.cuda()
-        value_data, value_mask, pids, action_data, action_data, action_mask = value_data.cuda(), value_mask.cuda(), pids.cuda().view(-1,1), action_data.cuda(), action_mask.cuda()
+        value_data, value_mask, pids, action_data, action_mask = value_data.cuda(), value_mask.cuda(), pids.cuda().view(-1,1), action_data.cuda(), action_mask.cuda()
         value_raw : Tensor = value(value_data,mask=value_mask)
         value_head_raw : Tensor = value_head.forward(action_data,value_raw)
         value_probs = normed_square(value_head_raw).detach()

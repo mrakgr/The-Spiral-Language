@@ -281,15 +281,6 @@ let show_ty x =
         let p = p prec
         match x with
         | YB -> "()"
-        | YPair(YSymbol a, b) when 0 < a.Length && System.Char.IsLower(a,0) && a.[a.Length-1] = '_' -> 
-            let show (s,a) = sprintf "%s: %s" s (f 15 a)
-            let rec loop (a,b) = 
-                match a,b with
-                | s :: [], a -> [show (s,a)]
-                | s :: s', YPair(a,b) -> show (s,a) :: loop (s',b)
-                | s, a -> [show (String.concat "_" s, a)]
-            p 15 (loop (a.Split('_',System.StringSplitOptions.RemoveEmptyEntries) |> (fun x -> x.[0] <- to_upper x.[0]; Array.toList x), b) |> String.concat " ")
-        | YPair(YSymbol a, YB) when 0 < a.Length && System.Char.IsLower(a,0) -> to_upper a
         | YPair(a,b) -> p 25 (sprintf "%s * %s" (f 25 a) (f 24 b))
         | YSymbol x -> sprintf ".%s" x
         | YTypeFunction _ -> p 0 (sprintf "? => ?")
@@ -310,15 +301,6 @@ let show_data x =
         let p = p prec
         match x with
         | DB -> "()"
-        | DPair(DSymbol a, b) when 0 < a.Length && System.Char.IsLower(a,0) && a.[a.Length-1] = '_' -> 
-            let show (s,a) = sprintf "%s: %s" s (f 15 a)
-            let rec loop (a,b) = 
-                match a,b with
-                | s :: [], a -> [show (s,a)]
-                | s :: s', DPair(a,b) -> show (s,a) :: loop (s',b)
-                | s, a -> [show (String.concat "_" s, a)]
-            p 15 (loop (a.Split('_',System.StringSplitOptions.RemoveEmptyEntries) |> (fun x -> x.[0] <- to_upper x.[0]; Array.toList x), b) |> String.concat " ")
-        | DPair(DSymbol a, DB) when 0 < a.Length && System.Char.IsLower(a,0) -> to_upper a
         | DPair(a,b) -> p 25 (sprintf "%s, %s" (f 25 a) (f 24 b))
         | DSymbol x -> sprintf ".%s" x
         | DFunction _ -> p 20 "? -> ?"
