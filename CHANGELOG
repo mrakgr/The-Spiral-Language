@@ -1,6 +1,19 @@
-WIP
+WIP - 2.1.0
 
-* Added the `limit` module to core2. I'll get rid of `limit_min` and `limit_max` modules later.
+* Major change: Removed the symbol paired pattern and related renamings for it from the language due to it being an eyesore and causing confusion.
+* Major change: The union pattern syntax is now like F#'s. The argument to the union can be ommitted in which case it is assumed to be wildcard. `| Some => ...` is the same as `| Some _ => ...`.
+* Minor change: Removed the record paired symbol application that I haven't used even once.
+* Minor change: Removed core and replaced it with core2.
+* Minor change: Instead of the paired symbol pattern, the Record ops now use records. The same goes for core functions in general.
+* Patch: Added the `limit` module and removed `limit_min` and `limit_max` modules from core.
+
+This update does not add anything to the language and just gets rid of the low quality experimental syntax. It only increased the complexity of the language and just made the implementation more difficult along with causing ambiguity for the user. Now the variables you type are the variables that are under the hood. No more spurious renaming. The paired symbol pattern would have made some sense if I was doing programming in the bottom up where records are leaky, but I am doing so little programming in that part that it does not matter.
+
+The record symbol application was already broken as it is due to the inference engine not being able to fill in the type variables during module application. Along with it not being used, it is prime material for the chopping block.
+
+The design of Spiral should be fairly vanilla now and that is good. I've been comparing the ease of use of Spiral to F# and Python, and the extra bit of complexity the paired symbol pattern introduced pushed Spiral into negative. Writing Spiral code should feel smoother now. Later on, not having to deal with this complexity will make it easier to implement autocomplete and renaming.
+
+Fixing the library and the project I am working on is easy, but what will I do about the docs? Being the only user does not give me much incentive to work on it, so I'll leave a note that the symbol paired pattern no longer works in the news.
 
 2.0.92 (7/6/2021)
 

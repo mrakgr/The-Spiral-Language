@@ -661,10 +661,6 @@ let peval (env : TopEnv) (x : E) =
                 match Map.tryFind b a with
                 | Some a -> a
                 | None -> raise_type_error s <| sprintf "Cannot find the key %s inside the record." b
-            | DRecord a, DPair(DSymbol b,b') ->
-                match Map.tryFind b a with
-                | Some a -> apply s (a, b')
-                | None -> raise_type_error s <| sprintf "Cannot find the key %s inside the record." b
             | DFunction(body,_,gl_term,gl_ty,sz_term,sz_ty), b ->
                 let s : LangEnv = 
                     {s with

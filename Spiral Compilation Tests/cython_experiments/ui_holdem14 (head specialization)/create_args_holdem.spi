@@ -147,7 +147,7 @@ inl main () =
     inl uniform_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * (a st i8 * st) * i16 * bool) * pid * actions) -> a u64 (log_prob * action) * _ = agent.uniform.policy uniform_selector
     inl callbot_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * (a st i8 * st) * i16 * bool) * pid * actions) -> a u64 (log_prob * action) * _ = agent.holdem_callbot.policy
     inl num_actions = 16 // Should be at least 2.
-    inl neural_selector (hu_actions {is_fold is_raise call=call' raise_min raise_max} : actions) : a st action =
+    inl neural_selector (hu_actions {is_fold is_raise call raise_min raise_max} : actions) : a st action =
         inl h : dictm.dict st () = dictm.empty
         inl x : ra st _ = am.empty
         if is_fold then rm.add x Fold
@@ -159,8 +159,8 @@ inl main () =
                 inl add v = if length x < num_actions && raise_min <= v && v <= raise_max && dictm.tryAdd h v () then rm.add x (RaiseTo v)
                 add raise_min . add raise_max
                 inl _ = // Add pot sized bets
-                    inl pot = 2 * call'
-                    inl add x = add (call' + x)
+                    inl pot = 2 * call
+                    inl add x = add (call + x)
                     add (pot/4) . add (pot/2) . add (pot*3/4) . add pot
                     // add (pot*5/4) . add (pot*3/2) . add (pot*7/4) . add (pot*2)
                     // add (pot*9/4) . add (pot*5/2) . add (pot*11/4) . add (pot*3)

@@ -213,8 +213,6 @@ class Head(Module):
         data = data.unsqueeze(1).expand(dz,db,dr)
         return self.out(self.middle(self.initial(torch.cat([action_data,data],-1)) + data)).squeeze(-1)
 
-Merge = Head # TODO: Temporary workaround to allow me to load a saved module. Remove later.
-
 def model_explore(
         ers : SquareErrorTracker or None,
         proj : Projector, value : Module, value_head : Module, policy : Module, policy_head : Module,

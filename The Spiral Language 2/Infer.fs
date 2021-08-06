@@ -81,8 +81,8 @@ type TypeError =
     | RealFunctionInTopDown
     | ModuleMustBeImmediatelyApplied
     | MissingRecordFieldsInPattern of T * string list
-    | CasePatternNotFoundForType of GlobalId
-    | CasePatternNotFound
+    | CasePatternNotFoundForType of GlobalId * string
+    | CasePatternNotFound of string
     | CannotInferCasePatternFromTermInEnv of T
     | NominalInPatternUnbox of GlobalId
     | TypeInEnvIsNotNominal of T
@@ -526,8 +526,8 @@ let show_type_error (env : TopEnv) x =
     | ExpectedSymbolInRecordWith a -> sprintf "Expected a symbol.\nGot: %s" (f a)
     | RealFunctionInTopDown -> sprintf "Real segment functions are forbidden in the top-down segment."
     | MissingRecordFieldsInPattern(a,b) -> sprintf "The record is missing the following fields: %s.\nGot: %s" (String.concat ", " b) (f a)
-    | CasePatternNotFoundForType i -> sprintf "%s does not have this case." (show_nominal env i)
-    | CasePatternNotFound -> "Cannot find a function with the same name as this case in the environment."
+    | CasePatternNotFoundForType(i,n) -> sprintf "%s does not have the %s case." (show_nominal env i) n
+    | CasePatternNotFound n -> sprintf "Cannot find a function with the same name as the %s case in the environment." n
     | CannotInferCasePatternFromTermInEnv a -> sprintf "Cannot infer the higher order type that has this case from the following type.\nGot: %s" (f a)
     | NominalInPatternUnbox i -> sprintf "Expected an union type, but %s is a nominal." (show_nominal env i)
     | TypeInEnvIsNotNominal a -> sprintf "Expected a nominal type.\nGot: %s" (f a)
@@ -889,23 +889,12 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         try loop' [] (got, expected)
         with :? TypeErrorException as e -> errors.AddRange e.Data0
 
-    let rec apply_record r s l x =
-        let f = apply_record r s
+    let apply_record r s l x =
         match visit_t x with
         | TySymbol x ->
             match Map.tryFind x l with
             | Some x -> unify r s x
             | None -> errors.Add(r,RecordIndexFailed x)
-        | TyPair(a, b) ->
-            match visit_t a with
-            | TySymbol x ->
-                match Map.tryFind x l with
-                | Some a -> 
-                    match visit_t a with
-                    | TyRecord l -> f l b
-                    | a -> unify r a (TyFun(b,s))
-                | None -> errors.Add(r,RecordIndexFailed x)
-            | _ -> errors.Add(r,ExpectedSymbolAsRecordKey x)
         | x -> errors.Add(r,ExpectedSymbolAsRecordKey x)
 
     let assert_bound_vars env a =
@@ -1362,7 +1351,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         unify r s x
                         match Map.tryFind name cases with
                         | Some v -> f (subst m v) a
-                        | None -> errors.Add(r,CasePatternNotFoundForType i); f (fresh_var scope) a
+                        | None -> errors.Add(r,CasePatternNotFoundForType(i,name)); f (fresh_var scope) a
                     | _ -> errors.Add(r,NominalInPatternUnbox i); f (fresh_var scope) a
                 match term_subst s |> ho_index with
                 | ValueSome i -> assume i
@@ -1372,7 +1361,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         match term_subst x |> ho_fun with
                         | ValueSome i -> assume i
                         | ValueNone -> errors.Add(r,CannotInferCasePatternFromTermInEnv x); f (fresh_var scope) a
-                    | None -> errors.Add(r,CasePatternNotFound); f (fresh_var scope) a
+                    | None -> errors.Add(r,CasePatternNotFound name); f (fresh_var scope) a
             | PatUnbox _ -> failwith "Compiler error: Malformed PatUnbox."
             | PatNominal(_,(r,name),a) ->
                 match v_ty env name with
