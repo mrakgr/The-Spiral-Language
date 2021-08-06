@@ -8,6 +8,7 @@
 - [2/27/2021](#2272021)
 - [3/17/2021](#3172021)
 - [4/13/2021](#4132021)
+- [8/6/2021](#862021)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
     - [Getting Spiral](#getting-spiral)
@@ -118,6 +119,14 @@ I've done a redesign of the core library and named it `core2` that now comes bun
 The new arrays have the dimension parameter, and there are extremely generic array operations in `am.generic` module now which I use to implement the more restricted ones in the `am` (array module) module itself. In the new core, the array types are `a 'dim 'el` where `dim` is the dimension type and `el` is the usual element. 
 
 I wracked my brain whether to go down this route, because adding an extra type arg to primitive arrays would complicate things a lot for beginners and make the type inference harder for the compiler thereby making annotations necessary in places where they wouldn't be otherwise, but I had to yield to in the end. Ultimately, the biggest problem is that Spiral has to support multiple backends. On the .NET side, arrays have signed 32-bit indexing, create and length. The Cython side? Unsigned 64-bit. This is a huge headache and who knows what other backends in the future might need.
+
+# 8/6/2021
+
+Spiral v2.1 is out. It has no new features, instead I've removed the paired symbol pattern and related rewritings for it in order to streamline the language and its implementation. See the [changelog](https://github.com/mrakgr/The-Spiral-Language/blob/5e5ae92705d9cfac43a94c09d3c83fbef6254777/CHANGELOG#L1) for more details.
+
+Unfortunate consequence is that the documentation is broken and would take a few days to fix. The examples here work for the latest v2.0 version. I did some rewrites via textual search, but then I realized that I'd have to adjust the array examples for the new `core` package, so I'll leave it like this for now.
+
+Aside from that, after all the bugfixing since the initial release, Spiral is no longer alpha and is quite stable. There are no new features planned, and neither will there be feature removals. Editor support improvements could be done if I find sponsors for Spiral. Removing the experimental syntax will make a lot easier to implement autocomplete and partial forms of renaming which should cover >99% of renaming needs. On the top of my journal there are almost 20 bullet points that need doing.
 
 # The Spiral Language
 

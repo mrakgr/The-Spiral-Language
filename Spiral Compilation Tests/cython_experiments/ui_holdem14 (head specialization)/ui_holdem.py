@@ -15,7 +15,7 @@ from kivy.app import App
 from kivy.lang import Builder
 from kivy.metrics import dp
 from collections import namedtuple
-from belief import model_evaluate
+from belief import model_exploit
 import torch
 
 class Stack(Label):
@@ -177,11 +177,11 @@ Builder.load_string('''
                     on_press: 
                         b = 0 if is_p1.active else 1
                         is_p1.active = is_p1.active == False if is_toggle_player.active else is_p1.active
-                        if rl_0.active: restriction_level = 0
-                        elif rl_1.active: restriction_level = 1
-                        elif rl_2.active: restriction_level = 2
-                        else: raise Exception('One of the restriction level buttons should be active.')
-                        root.start_game(restriction_level,is_flop.active,sb.pow_value,bb.pow_value,stack_size.pow_value,b,root.set_data) # start_game should be monkey patched.
+                        if gm_holdem.active: game_mode = 0
+                        elif gm_flop.active: game_mode = 1
+                        elif gm_river.active: game_mode = 2
+                        else: raise Exception('One of the game mode buttons should be active.')
+                        root.start_game(game_mode,sb.pow_value,bb.pow_value,stack_size.pow_value,b,root.set_data) # start_game should be monkey patched.
         AccordionItem:
             min_space: self.parent.min_space
             title: 'Settings'
@@ -231,34 +231,28 @@ Builder.load_string('''
                         value: math.log2(1000)
                 BoxLayout:
                     Label:
-                        text: 'Is Flop:'
-                        size_hint_x: 0.4
-                    CheckBox:
-                        id: is_flop
-                BoxLayout:
+                        text: 'Game Mode'
                     Label:
-                        text: 'Restriction Level'
-                    Label:
-                        text: 'All'
+                        text: 'Holdem'
                     CheckBox:
-                        group: 'rl'
-                        id: rl_0
+                        group: 'gm'
+                        id: gm_holdem
                     Label:
-                        text: 'Divisible by BB'
+                        text: 'Flop'
                     CheckBox:
-                        group: 'rl'
-                        id: rl_1
+                        group: 'gm'
+                        id: gm_flop
                     Label:
-                        text: 'Few Pot Related'
+                        text: 'River'
                     CheckBox:
-                        group: 'rl'
-                        id: rl_2
+                        group: 'gm'
+                        id: gm_river
                         active: True
 ''')
 
 def load_neural(path,neural):
     with open(path,'rb') as f: 
-        return neural.handler(partial(model_evaluate,*torch.load(f),False,False,False,0.0))
+        return neural.handler(partial(model_exploit,None,*torch.load(f),False,False))
 
 if __name__ == '__main__':
     from kivy.core.window import Window
@@ -273,7 +267,7 @@ if __name__ == '__main__':
     import numpy as np
     import pyximport
     pyximport.install(language_level=3,setup_args={"include_dirs":np.get_include()})
-    from create_args_holdem4 import main
+    from create_args_holdem import main
     args = main()
 
     ui = args['ui']

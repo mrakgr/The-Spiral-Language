@@ -45,11 +45,11 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (game_mode,sb,
         inl lines : ra u64 string = am.empty
         inl cards : ra u64 string = am.empty
         let add_card_if_not_empty () =
-            if 0 < length cards then 
+            if 0 < length cards then
                 rm.add lines (rm.join' "" cards)
                 rm.clear cards
         let rec loop is_first = function
-            | C1of2 x :: xs => 
+            | C1of2 x :: xs =>
                 rm.add cards (show_card x) . loop true xs
             | C2of2 x :: xs => 
                 add_card_if_not_empty()
@@ -116,8 +116,8 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (game_mode,sb,
             inl actions = 
                 record {
                     raise_min raise_max
+                    fold = if is_fold then fun () => next (log_prob_one(),Fold) |> loop else $"False"
                     call = fun () => next (log_prob_one(),Call) |> loop
-                    fold = fun () => next (log_prob_one(),Fold) |> loop
                     raise_to = if is_raise then fun v => next (log_prob_one(),RaiseTo v) |> loop else $"False"
                     }
             inl p1,p2 = if human_pid = p1.id then p1,p2 else p2,p1
