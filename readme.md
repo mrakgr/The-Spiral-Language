@@ -126,7 +126,7 @@ Spiral v2.1 is out. It has no new features, instead I've removed the paired symb
 
 Unfortunate consequence is that the documentation is broken and would take a few days to fix. The examples here work for the latest v2.0 version. I did some rewrites via textual search, but then I realized that I'd have to adjust the array examples for the new `core` package, so I'll leave it like this for now.
 
-Aside from that, after all the bugfixing since the initial release, Spiral is no longer alpha and is quite stable. There are no new features planned, and neither will there be feature removals. Editor support improvements could be done if I find sponsors for Spiral. Removing the experimental syntax will make a lot easier to implement autocomplete and partial forms of renaming which should cover >99% of renaming needs. On the top of my journal there are almost 20 bullet points that need doing.
+Aside from that, after all the bugfixing since the initial release, Spiral is no longer alpha and is quite stable. There are no new features planned, and neither will there be feature removals. Editor support improvements could be done if I find sponsors for Spiral. Removing the experimental syntax will make a lot easier to implement autocomplete and partial forms of renaming which should cover >99% of renaming needs. On the top of my journal there are almost 20 bullet points that need doing, most related to editor support and general usability. The language is good enough to comfortably program in now and has all the fundamentals of a modern language, but with some directed effort could be a lot better.
 
 # The Spiral Language
 
