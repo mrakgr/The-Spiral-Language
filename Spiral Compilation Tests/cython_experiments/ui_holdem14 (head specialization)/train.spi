@@ -1,7 +1,7 @@
 inl vs_human game human_pid p =
     let rec loop = function
-        | Terminal: _ as g => g
-        | Action: player_state,game_state,pid,actions,next as g => 
+        | Terminal as g => g
+        | Action(player_state,game_state,pid,actions,next) as g => 
             if pid = human_pid then g
             else
                 inl cs,_ = p (am.singleton (player_state,game_state,pid,actions))
@@ -16,11 +16,11 @@ inl vs_self game (batch_size, p) =
         inl data : ra u64 _ = am.empty
         inl nexts : ra u64 _ = am.empty
         l |> am.iteri fun i => function
-            | Action: player_state,game_state,pid,actions,next => 
+            | Action (player_state,game_state,pid,actions,next) =>
                 rm.add actions_indices i
                 rm.add data (player_state,game_state,pid,actions)
                 rm.add nexts next
-            | Terminal: _,_,x =>
+            | Terminal (_,_,x) =>
                 rm.add terminal_indices i
                 rm.add terminal_rewards x
         inl actions_rewards : a _ _ =
@@ -45,7 +45,7 @@ inl vs_one game (batch_size, p1, p2) =
         inl p2_nexts : ra u64 _ = am.empty
         inl pids : ra u64 _ = am.empty
         l |> am.iteri fun i => function
-            | Action: player_state,game_state,pid,actions,next =>
+            | Action (player_state,game_state,pid,actions,next) =>
                 rm.add actions_indices i
                 if pid = 0 then
                     rm.add p1_data (player_state,game_state,pid,actions)
@@ -54,7 +54,7 @@ inl vs_one game (batch_size, p1, p2) =
                     rm.add p2_data (player_state,game_state,pid,actions)
                     rm.add p2_nexts next
                 rm.add pids pid
-            | Terminal: _,_,x =>
+            | Terminal (_,_,x) =>
                 rm.add terminal_indices i
                 rm.add terminal_rewards x
         inl actions_rewards =
@@ -108,17 +108,17 @@ inl neural_handler forall (actions : * -> *) act.
             listm.foldBack (fun x i_seq =>
                 inl f forall y. (x : a3 y) : a st y = $"!x[!i_batch,!i_seq]"
                 schema.policy.pickle x (0, f policy_data)
-                schema.value.pickle (C1of2: x) (0, f value_data)
+                schema.value.pickle (C1of2 x) (0, f value_data)
                 i_seq + 1
                 ) present 0u64
-        loop.for' (from:i_seq nearTo: policy_seq_size) fun i_seq => $"!policy_mask[!i_batch,!i_seq] = 1"
+        loop.for' {from=i_seq; nearTo=policy_seq_size} fun i_seq => $"!policy_mask[!i_batch,!i_seq] = 1"
         inl i_seq = 
             listm.fold (fun i_seq x =>
                 inl f forall y. (x : a3 y) : a st y = $"!x[!i_batch,!i_seq]"
-                schema.value.pickle (C2of2: x) (0, f value_data)
+                schema.value.pickle (C2of2 x) (0, f value_data)
                 i_seq + 1
                 ) i_seq future
-        loop.for' (from:i_seq nearTo: value_seq_size) fun i_seq => $"!value_mask[!i_batch,!i_seq] = 1"
+        loop.for' {from=i_seq; nearTo=value_seq_size} fun i_seq => $"!value_mask[!i_batch,!i_seq] = 1"
         inl acts = action_selector actions
         set action_selected i_batch acts
         acts |> am.iteri (fun i_act act =>

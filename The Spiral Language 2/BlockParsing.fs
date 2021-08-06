@@ -811,8 +811,6 @@ let root_type_defaults = {
     allow_wildcard = false
     }
 
-let range_empty = {|line=0; character=0|}, {|line=0; character=0|}
-
 let default_float = Float64T
 let default_int = UInt32T
 let bottom_up_number (r : VSCRange,x : string) =
@@ -874,7 +872,7 @@ let rec root_pattern_nominal d =
     ((read_var' .>>. opt root_pattern_var) |>> fun ((r,a,re),b) ->
         if Char.IsUpper(a,0) then 
             re SemanticTokenLegend.symbol
-            let b = match b with Some b -> b | None -> PatB r
+            let b = match b with Some b -> b | None -> PatE r
             PatUnbox(r,PatPair(r,PatSymbol(r,a),b))
         else 
             match b with
@@ -900,22 +898,22 @@ and root_pattern_rounds d =
     (range (rounds ((((read_op' |>> PatVar) <|> root_pattern_type) |>> fun x _ -> x) <|>% PatB))
     |>> fun (r,x) -> x r) d
 and root_pattern s =
-    let pat_list_pair a b = PatUnbox(range_empty,PatPair(range_empty,PatSymbol(range_empty,"cons_"),PatPair(range_empty,a,b)))
+    let pat_list_pair r a b = PatUnbox(r,PatPair(r,PatSymbol(r,"Cons"),PatPair(r,a,b)))
     let body s = 
         let pat_value = (read_value |>> PatValue) <|> (read_default_value PatDefaultValue PatValue)
         let pat_string = read_string |>> (fun (a,x,b) -> PatValue(a +. b,LitString x))
         let pat_symbol = read_symbol |>> PatSymbol
         let pat_array = skip_unary_op ";" >>. range (squares (sepBy root_pattern_type (skip_op ";"))) |>> fun (r,x) -> PatArray(r,x)
         let pat_list = 
-            squares (sepBy root_pattern_type (skip_op ";"))
-            |>> fun x -> List.foldBack pat_list_pair x (PatUnbox(range_empty,PatPair(range_empty,PatSymbol(range_empty,"nil"),PatB range_empty)))
+            range (squares (sepBy root_pattern_type (skip_op ";")))
+            |>> fun (r,x) -> List.foldBack (pat_list_pair r) x (PatUnbox(r,PatPair(r,PatSymbol(r,"Nil"),PatB r)))
         let (+) = alt (index s)
         (root_pattern_rounds + root_pattern_nominal + root_pattern_wildcard + root_pattern_dyn + pat_value + pat_string 
         + root_pattern_record + pat_symbol + pat_array + pat_list) s
 
     let pat_and = sepBy1 body (skip_op "&") |>> List.reduce (fun a b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b))
     let pat_pair = pat_pair pat_and
-    let pat_cons = sepBy1 pat_pair (skip_op "::") |>> List.reduceBack pat_list_pair
+    let pat_cons = range (sepBy1 pat_pair (skip_op "::")) |>> fun (r,x) -> List.reduceBack (pat_list_pair r) x
     let pat_or = sepBy1 pat_cons (skip_op "|") |>> List.reduce (fun a b -> PatOr(range_of_pattern a +. range_of_pattern b,a,b))
     let pat_as = pat_or .>>. (opt (skip_keyword SpecAs >>. pat_or )) |>> function a, Some b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b) | a, None -> a
     pat_as s
@@ -925,11 +923,20 @@ and root_pattern_var d =
     (pat_var + root_pattern_wildcard + root_pattern_dyn + root_pattern_rounds + root_pattern_record) d
 and root_pattern_pair d = pat_pair root_pattern_var d
 and root_type_annot d = root_type {root_type_defaults with allow_term=d.is_top_down=false; allow_wildcard=d.is_top_down} d
-and root_type_record is_union (flags : RootTypeFlags) d =
-    (range (curlies (sepBy ((range (if is_union then read_big_var_as_symbol else record_var) .>> skip_op ":") .>>. root_type flags) (optional (skip_op ";"))))
+and root_type_record (flags : RootTypeFlags) d =
+    (range (curlies (sepBy ((range record_var .>> skip_op ":") .>>. root_type flags) (optional (skip_op ";"))))
     >>= fun (r,x) _ ->
-        x |> List.map fst |> duplicates (if is_union then DuplicateUnionKey else DuplicateRecordTypeVar)
+        x |> List.map fst |> duplicates DuplicateRecordTypeVar
         |> function [] -> Ok(RawTRecord(r,x |> List.map (fun ((_,n),x) -> n,x) |> Map.ofList)) | er -> Error er
+        ) d
+and root_type_union (flags : RootTypeFlags) d =
+    let bar = bar (col d)
+    (range (optional bar >>. sepBy1 (range read_big_var_as_symbol .>>. opt (skip_op ":" >>. root_type flags)) bar)
+    >>= fun (r,x) _ ->
+        x |> List.map fst |> duplicates DuplicateUnionKey
+        |> function 
+            | [] -> Ok(r,x |> List.map (fun ((r,n),x) -> n, match x with Some x -> x | None -> RawTB r) |> Map.ofList)
+            | er -> Error er
         ) d
 and root_type (flags : RootTypeFlags) d =
     let next = root_type flags
@@ -939,7 +946,7 @@ and root_type (flags : RootTypeFlags) d =
         let metavar d = if flags.allow_metavars then (skip_unary_op "~" >>. read_var' |>> fun (a,b,r) -> r SemanticTokenLegend.type_variable; RawTMetaVar(a,b)) d else Error []
         let term d = if flags.allow_term then (range (skip_unary_op "`" >>. ((read_var'' |>> RawV) <|> rounds root_term)) |>> RawTTerm) {d with is_top_down=false} else Error []
         let symbol = read_symbol |>> RawTSymbol
-        let record = root_type_record false flags
+        let record = root_type_record flags
         let var = read_var' |>> fun (o,x,r) ->
             r SemanticTokenLegend.type_variable
             RawTVar(o, x)
@@ -1061,8 +1068,8 @@ and root_term d =
             if d.is_top_down then
                 List.foldBack (fun a b -> 
                     let r = range_of_expr a
-                    RawApply(r,RawV(range_empty,unintern "Con" 's'),RawPair(r,a,b))
-                    ) l (RawV(range_empty,unintern "Ni" 'l')) |> Ok
+                    RawApply(r,RawV(r,unintern "Con" 's'),RawPair(r,a,b))
+                    ) l (RawV(r,unintern "Ni" 'l')) |> Ok
             else
                 Error [r, ListLiteralsNotAllowedInBottomUp]
 
@@ -1197,15 +1204,12 @@ let top_inl_or_let_process comments is_top_down = function
     | (_,x,_),_ -> Error [range_of_pattern x, ExpectedVarOrOpAsNameOfGlobalStatement]
 let top_inl_or_let d = ((comments .>>. inl_or_let root_term root_pattern_pair root_type_annot) >>= fun (comments,x) d -> top_inl_or_let_process comments d.is_top_down x) d
 
-let process_union (r,(layout,n,a,b)) _ =
-    match b with
-    | RawTRecord(r',b) ->
-        match layout with
-        | UHeap -> Ok(TopNominalRec(r,n,a,RawTUnion(r',b,layout)))
-        | UStack -> Ok(TopNominal(r,n,a,RawTUnion(r',b,layout)))
-    | _ -> failwith "Compiler error: Expected a type record in process_union."
+let process_union (r,(layout,n,a,(r',b))) _ =
+    match layout with
+    | UHeap -> Ok(TopNominalRec(r,n,a,RawTUnion(r',b,layout)))
+    | UStack -> Ok(TopNominal(r,n,a,RawTUnion(r',b,layout)))
 
-let union_clauses d = root_type_record true root_type_defaults d // TODO: Do this properly tomorrow.
+let union_clauses d = root_type_union root_type_defaults d
 let top_union d = ((range (tuple4 (skip_keyword SpecUnion >>. ((skip_keyword SpecRec >>% UHeap) <|>% UStack)) read_small_type_var' (many ho_var .>> skip_op "=") union_clauses)) >>= process_union) d
 let top_nominal d = 
     (range (tuple3 (skip_keyword SpecNominal >>. read_small_type_var') (many ho_var .>> skip_op "=") (root_type {root_type_defaults with allow_term=true}))

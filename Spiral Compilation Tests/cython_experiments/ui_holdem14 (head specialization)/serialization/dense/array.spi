@@ -7,7 +7,7 @@ nominal pu a = {
     unpickle : state -> a * st
     }
 
-inl Unit = pu {
+inl unit() = pu {
     size = 1
     pickle = fun () (i,s) => set s i 1
     unpickle = fun (i,s) => 
@@ -24,7 +24,7 @@ inl int forall t {number;int}. size : pu t =
             inl ~(from,nearTo) = from, from+size
             join
                 inl case,c =
-                    loop.for (from:nearTo:) (fun i (case,c) =>
+                    loop.for {from nearTo} (fun i (case,c) =>
                         inl x = index s i
                         if x = 0 then case,c
                         elif x = 1 then i,c+1
@@ -44,14 +44,14 @@ inl bin_sint forall t {number;int}. size : pu t =
                 q + (q - 1)
             inl x = i64 x
             if -max_x <= x && x < max_x then
-                loop.for (from: 0 nearTo: size) (fun i' x =>
+                loop.for {from=0; nearTo=size} (fun i' x =>
                     inl q = 1 <<< i32 (size - i' - 1)
                     set s (i + conv_int i') (f32 (x / q))
                     x % q
                     ) x |> ignore
             else failwith $"f'Pickle failure. Bin sint value out of bounds. Got: {!x} Size: {!size}'"
         unpickle = fun ~(from,s : state) => join
-            loop.for (from: 0 nearTo: size) (fun i' w =>
+            loop.for {from=0; nearTo=size} (fun i' w =>
                 inl x = index s (from + i')
                 if x = 0 || x = 1 then w + (conv_num x <<< i32 (size - i' - 1))
                 else failwith "Unpickling failure. The int type must either be active or inactive."
@@ -71,14 +71,14 @@ inl bin_int forall t {number;int}. size : pu t =
                 inl q = 1 <<< (i32 size - 1)
                 q + (q - 1)
             if 0 <= x && u64 x < max_x then
-                loop.for (from: 0 nearTo: size) (fun i' x =>
+                loop.for {from=0; nearTo=size} (fun i' x =>
                     inl q = 1 <<< i32 (size - i' - 1)
                     set s (i + conv_int i') (f32 (x / q))
                     x % q
                     ) (x + 1) |> ignore
             else failwith $"f'Pickle failure. Bin int value out of bounds. Got: {!x} Size: {!size}'"
         unpickle = fun ~(from,s : state) => join
-            loop.for (from: 0 nearTo: size) (fun i' w =>
+            loop.for {from=0; nearTo=size} (fun i' w =>
                 inl x = index s (from + i')
                 if x = 0 || x = 1 then w + (conv_num x <<< i32 (size - i' - 1))
                 else failwith "Unpickling failure. The int type must either be active or inactive."
@@ -94,7 +94,7 @@ inl array forall t. size (pu el : pu t) : pu (a st t) =
             if c = 1 || c = 0 then conv_num c else failwith "Unpickle failure. The array emptiness flag should be 1 or 0."
         inl c' = 
             inl from = from + 1
-            loop.for (from:0 nearTo:size) (fun i c =>
+            loop.for {from=0; nearTo=size} (fun i c =>
                 inl from = from + i * el.size
                 inl x, c' = el.unpickle (from,s)
                 if i = c then
@@ -125,7 +125,7 @@ inl pair (pu a') (pu b') =
         }
 inl (**) a b = pair a b
 
-inl wrap (in:a out:b) (pu p) =
+inl wrap {inp=a out=b} (pu p) =
     pu {size = p.size
         pickle = fun x state => p.pickle (a x) state
         unpickle = fun state => inl x,c = p.unpickle state in b x,c
@@ -145,7 +145,7 @@ inl alt forall t r. (l : r) : pu t =
             ) `r
     inl offsets, size = real
         open real_core
-        record_foldl (fun (state:(m,s) key:value:) => inl (pu p) = value in {m with $key=s}, s + p.size) ({},zero) l
+        record_foldl (fun {state=(m,s) key value} => inl (pu p) = value in {m with $key=s}, s + p.size) ({},zero) l
     inl unpickle (i,s : state) : t * st = real
         open real_core
         inl x = 
@@ -155,7 +155,7 @@ inl alt forall t r. (l : r) : pu t =
                 nominal_create `t (k,x), c
                 ) `r
         inl case, c =
-            record_foldl (fun (state:key:value:) => 
+            record_foldl (fun {state key value} => 
                 match state with
                 | () => value
                 | (case,c) =>
@@ -169,16 +169,16 @@ inl alt forall t r. (l : r) : pu t =
         unbox m (fun (k,v) => inl (pu p) = l k in p.pickle v (i + offsets k,s))
     pu {size pickle unpickle}
     
-inl option forall t. (a : pu t) : pu (option t) = alt { some_ = a; none = Unit }
-inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { ok_ = a; error_ = b }
-inl (++) forall t y. (a : pu t) (b : pu y) : pu (choice2 t y) = alt { c1of2_ = a; c2of2_ = b }
+inl option forall t. (a : pu t) : pu (option t) = alt { Some = a; None = unit() }
+inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { Ok = a; Error = b }
+inl (++) forall t y. (a : pu t) (b : pu y) : pu (choice2 t y) = alt { C1of2 = a; C2of2 = b }
 
 inl size (pu p) = p.size
 
 nominal binary_array t = a st at
 inl serialize forall t. (pu p : pu t) ~(x : t) : binary_array t =
     inl ar = create p.size
-    loop.for' (from:0 nearTo: length ar) (fun i => set ar i 0)
+    loop.for' {from=0; nearTo=length ar} (fun i => set ar i 0)
     p.pickle x (0,ar)
     binary_array ar
 

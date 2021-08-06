@@ -20,7 +20,7 @@
 // and complete the first part of my quest. I'll clean it all up here, implement the new action selection scheme, test out the 
 // curriculum learning ideas and train the thing.
 
-packages: |core2-
+packages: |core-
 modules:
     types-
     conv-

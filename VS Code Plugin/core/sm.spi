@@ -5,4 +5,4 @@ inl index (str : string) (i : u64): char = !!!!StringIndex(str,i)
 // Returns the length of the string.
 inl length forall t {int}. (str : string): t = !!!!StringLength(`t,str)
 // Slice the string between the two points.
-inl slice (str : string) (from: (a : u64) to: (b : u64)) = !!!!StringSlice(str,a,b)
+inl slice (str : string) {from=(a : u64) to=(b : u64)} = !!!!StringSlice(str,a,b)

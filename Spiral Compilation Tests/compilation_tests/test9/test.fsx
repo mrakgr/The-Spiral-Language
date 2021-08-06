@@ -15,6 +15,6 @@ and method1 () : (int32 -> (struct (float * float32 * float) -> (string -> struc
 and method0 () : (string -> struct (int32 * int32 * float * float32 * float)) =
     let v0 : (int32 -> (struct (float * float32 * float) -> (string -> struct (int32 * int32 * float * float32 * float)))) = method1()
     let v1 : (struct (float * float32 * float) -> (string -> struct (int32 * int32 * float * float32 * float))) = v0 2
-    v1 struct (2.200000, 3.000000f, 4.500000)
+    v1 struct (2.2, 3f, 4.5)
 let v0 : (string -> struct (int32 * int32 * float * float32 * float)) = method0()
 v0 "qwe"

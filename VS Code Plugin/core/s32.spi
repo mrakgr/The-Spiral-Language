@@ -1,8 +1,0 @@
-// The 32-bit string module.
-
-// Indexes into the string.
-inl index (str : string) (i : u32): char = !!!!StringIndex(str,i)
-// Returns the length of the string.
-inl length (str : string): u32 = !!!!StringLength(`u32,str)
-// Slice the string between the two points.
-inl slice (str : string) (from: (a : u32) to: (b : u32)) = !!!!StringSlice(str,a,b)

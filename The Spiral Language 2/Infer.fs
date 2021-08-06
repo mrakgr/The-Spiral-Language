@@ -1394,7 +1394,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let nominal_term r i tt name vars v =
         let constructor body =
             let t,_ = List.fold (fun (a,k) b -> let k = trim_kind k in TyApply(a,TyVar b,k),k) (TyNominal i,tt) vars
-            List.foldBack (fun var ty -> TyForall(var,ty)) vars (TyFun(body,t))
+            let x = match body with TyB -> t | _ -> TyFun(body,t)
+            List.foldBack (fun var ty -> TyForall(var,ty)) vars x
         match v with
         | TyUnion(l,_) -> Map.fold (fun s name v -> Map.add name (constructor v) s) Map.empty l
         | _ -> Map.add name (constructor v) Map.empty

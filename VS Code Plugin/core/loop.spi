@@ -1,11 +1,11 @@
 // Folds over the range in an upwards direction.
-inl for (from: nearTo:) body state =
+inl for {from nearTo} body state =
     let rec loop i s = if i < nearTo then loop (i+1) (body i s) else s
     loop from state
 // Folds over the range in an upwards direction. Stateless version.
-inl for' (from: nearTo:) body = for (from:nearTo:) (fun i () => body i) ()
+inl for' {from nearTo} body = for {from nearTo} (fun i () => body i) ()
 
 // Folds over the range in an downwards direction.
-inl forDown (nearFrom:to:) body state = for (from: to nearTo: nearFrom) (fun i => body (nearFrom-1-i)) state
+inl forDown {nearFrom to} body state = for {from=to; nearTo=nearFrom} (fun i => body ((to-i)+nearFrom-1)) state
 // Folds over the range in an downwards direction. Stateless version.
-inl forDown' (nearFrom:to:) body = forDown (nearFrom:to:) (fun i () => body i) ()
+inl forDown' {nearFrom to} body = forDown {nearFrom to} (fun i () => body i) ()

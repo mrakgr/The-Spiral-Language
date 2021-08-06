@@ -25,11 +25,11 @@ inl resize (dict_funs funs) (dictg x) = join
     inl table = x.table
     inl table_length' = grow_length (length table)
     inl table' = am.init table_length' (fun _ => funs.bucket_empty())
-    loop.for' (from: 0 nearTo: length table) (fun i =>
+    loop.for' {from=0; nearTo=length table} (fun i =>
         inl bucket = index table i
-        loop.for' (from: 0 nearTo: funs.bucket_length bucket) (fun i =>
+        loop.for' {from=0; nearTo=funs.bucket_length bucket} (fun i =>
             inl a = funs.bucket_index bucket i
-            inl hkey = match a.hkey with Some: hkey => hkey | None => hash_cython a.key
+            inl hkey = match a.hkey with Some hkey => hkey | None => hash_cython a.key
             inl bucket' = index table' (hkey % table_length')
             funs.bucket_add bucket' {a with hkey}
             )
@@ -46,7 +46,7 @@ inl atKey (dict_funs funs) (dictg x) key {on_succ on_fail} =
     let rec loop i =
         if i < funs.bucket_length bucket then
             inl x' = funs.bucket_index bucket i
-            inl are_hkey_eq = match x'.hkey with Some: hkey' => hkey = hkey' | None => true
+            inl are_hkey_eq = match x'.hkey with Some hkey' => hkey = hkey' | None => true
             if are_hkey_eq && key = x'.key then
                 on_succ x'.value {
                     set = fun value => funs.bucket_set bucket i {x' with value}

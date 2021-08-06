@@ -14,8 +14,8 @@ inl compare_hands (community_card : card) (p1,p2 : players) =
     inl b = tag p2.card, community_card
     inl is_pair (a,b) = a = b
     if is_pair a && is_pair b then comp (fst a) (fst b)
-    elif is_pair a then GT
-    elif is_pair b then LT
+    elif is_pair a then gt()
+    elif is_pair b then lt()
     else 
         inl order (a,b) = if a > b then a,b else b,a
         inl a,b = order a, order b
@@ -24,19 +24,19 @@ inl compare_hands (community_card : card) (p1,p2 : players) =
 
 inl raiseBy amount (p1,p2 : players) = p2.pot + amount
 
-inl Game =
+inl game() =
     inl deck = a ;[King; Queen; Jack; King; Queen; Jack]
     $"numpy.random.shuffle(!deck)"
 
     inl pot = 1i32
     inl id = 0u8
     draw deck fun (card, deck : card * a u64 card) =>
-    notify (Some: id) card fun _ =>
+    notify (Some id) card fun _ =>
     inl p1 = {card id pot}
 
     inl id = 1u8
     draw deck fun card, deck =>
-    notify (Some: id) card fun _ =>
+    notify (Some id) card fun _ =>
     inl p2 = {card id pot}
 
     sample deck fun community_card =>

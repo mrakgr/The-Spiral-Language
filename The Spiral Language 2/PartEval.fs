@@ -867,6 +867,9 @@ let peval (env : TopEnv) (x : E) =
                 | x -> raise_type_error s <| sprintf "Expected an int convertible to an i32.\nGot: %s" (show_lit x)
             with :? OverflowException -> raise_type_error s <| sprintf "The literal cannot be converted to an i32 as it is either too small or to big.\nGot: %s" (show_lit x)
 
+        let record2 (a,b) (a',b') = DRecord(Map.empty |> Map.add a b |> Map.add a' b')
+        let record3 (a,b) (a',b') (a'',b'') = DRecord(Map.empty |> Map.add a b |> Map.add a' b' |> Map.add a'' b'')
+
         match x with
         | EPatternRef _ -> failwith "Compiler error: EPatternRef should have been eliminated during the prepass."
         | EB _ -> DB
@@ -1313,13 +1316,13 @@ let peval (env : TopEnv) (x : E) =
             | a -> raise_type_error s <| sprintf "Expected an array.\nGot: %s" (show_data a)
         | EOp(_,RecordMap,[a;b]) ->
             match term2 s a b with
-            | a, DRecord l -> Map.map (fun k v -> apply s (a, DPair(DSymbol "key_value_", DPair(DSymbol k,v)))) l |> DRecord
+            | a, DRecord l -> Map.map (fun k v -> apply s (a, record2 ("key", DSymbol k) ("value", v))) l |> DRecord
             | _, b -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data b)
         | EOp(_,RecordIter,[a;b]) ->
             match term2 s a b with
             | a, DRecord l -> 
                 Map.iter (fun k v -> 
-                    match apply s (a, DPair(DSymbol "key_value_", DPair(DSymbol k,v))) with
+                    match apply s (a, record2 ("key", DSymbol k) ("value", v)) with
                     | DB -> ()
                     | x -> raise_type_error s <| sprintf "Expected an unit value.\nGot: %s" (show_data x)
                     ) l 
@@ -1329,7 +1332,7 @@ let peval (env : TopEnv) (x : E) =
             match term2 s a b with
             | a, DRecord l ->
                 Map.filter (fun k v ->
-                    match apply s (a, DPair(DSymbol "key_value_", DPair(DSymbol k,v))) with
+                    match apply s (a, record2 ("key", DSymbol k) ("value", v)) with
                     | DLit(LitBool x) -> x
                     | x -> raise_type_error s <| sprintf "Expected a bool literal.\nGot: %s" (show_data x)
                     ) l
@@ -1337,11 +1340,11 @@ let peval (env : TopEnv) (x : E) =
             | _, b -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data b)
         | EOp(_,RecordFoldL,[a;b;c]) ->
             match term3 s a b c with
-            | a, state, DRecord l -> Map.fold (fun state k v -> apply s (a, DPair(DSymbol "state_key_value_", DPair(state, DPair(DSymbol k,v))))) state l
+            | a, state, DRecord l -> Map.fold (fun state k v -> apply s (a, record3 ("state", state) ("key", DSymbol k) ("value", v))) state l
             | _, _, r -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data r)
         | EOp(_,RecordFoldR,[a;b;c]) ->
             match term3 s a b c with
-            | a, state, DRecord l -> Map.foldBack (fun k v state -> apply s (a, DPair(DSymbol "state_key_value_", DPair(state, DPair(DSymbol k,v))))) l state
+            | a, state, DRecord l -> Map.foldBack (fun k v state -> apply s (a, record3 ("state", state) ("key", DSymbol k) ("value", v))) l state
             | _, r, _ -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data r)
         | EOp(_,RecordLength,[a]) ->
             match term s a with

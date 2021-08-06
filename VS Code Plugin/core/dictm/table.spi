@@ -4,7 +4,7 @@ nominal caching_bucket key value = ra u64 {key : key; value : value; hkey : u64}
 
 inl caching_funs forall key value. = 
     dict_funs {
-        bucket_index = fun (caching_bucket a) i => inl x = index a i in {x with hkey#=some_}
+        bucket_index = fun (caching_bucket a) i => inl x = index a i in {x with hkey#=Some}
         bucket_add = fun (caching_bucket a) x => rm.add a x
         bucket_length = fun (caching_bucket a) => length a
         bucket_remove = fun (caching_bucket a) i => ignore (rm.pop a i)

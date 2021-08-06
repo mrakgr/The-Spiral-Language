@@ -17,7 +17,7 @@ inl atKey forall key value ret. (x : dict key value) key cont : ret =
     | a u64 (caching_bucket _ _) => run `caching_bucket (caching_funs `key `value) (dictg `caching_bucket `key `value x)
     | a u64 (pure_bucket _ _) => run `pure_bucket (pure_funs `key `value) (dictg `pure_bucket `key `value x)
 
-inl EmptyDef = {size = 7u64; limit = 3u64}
+inl emptyDef() = {size = 7u64; limit = 3u64}
 let empty' forall key value. {size limit} : dict key value = dict <| mut {
     table = real
         typecase `(real_dict.bucket_type `key `value) with ~bucket =>
@@ -55,7 +55,7 @@ let tryAdd x key value =
 // Tries finding a value of the specified key in the dictionary.
 let tryFind x key =
     atKey x key {
-        on_succ=fun value _ => Some: value
+        on_succ=fun value _ => Some value
         on_fail=fun _ => None
         }
 
@@ -110,10 +110,10 @@ let create total_size =
     let rec loop (x : {size : _; limit : _}) =
         if grow_needs total_size x then loop {x with size#=grow_length; limit#=grow_limit}
         else x
-    empty' (loop EmptyDef)
+    empty' (loop emptyDef())
 
 // Creates an empty dictionary.
-inl empty forall key value. : dict key value = empty' EmptyDef
+inl empty forall key value. : dict key value = empty' emptyDef()
 
 // Sets a key value pair to the dictionary. Replaces the existing value if present.
 let set x key value =

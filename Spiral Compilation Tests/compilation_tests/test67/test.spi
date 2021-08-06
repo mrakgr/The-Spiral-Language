@@ -1,0 +1,9 @@
+// Does inference work correctly for choice unions?
+
+inl main() =
+    inl ~x = C1of2 "qwe"
+    match x with
+    | C1of2 x => "a"
+    | C2of2 y => 
+        inl q = y + 2u32
+        "b"

@@ -1016,7 +1016,14 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         let t,i = l |> List.fold (fun (nom,i) _ -> TApply(r,nom,TV i), i+1) (nom,0)
         let rec wrap_foralls i x = if 0 < i then let i = i-1 in wrap_foralls i (EForall(r,i,x)) else process_term x
         match body with
-        | RawTUnion(_,l,_) -> Map.fold (fun term name _ -> Map.add name (wrap_foralls i (EFun(r,0,ENominal(r,EPair(r, ESymbol(r,name), EV 0),t),Some t))) term) term l
+        | RawTUnion(_,l,_) -> 
+            Map.fold (fun term name body ->
+                let body =
+                    match body with
+                    | RawTB _ -> ENominal(r,EPair(r, ESymbol(r,name), EB r),t)
+                    | _ -> EFun(r,0,ENominal(r,EPair(r, ESymbol(r,name), EV 0),t),Some t)
+                Map.add name (wrap_foralls i body) term
+                ) term l
         | _ -> Map.add name (wrap_foralls i (EFun(r,0,ENominal(r,EV 0,t),Some t))) term
 
     {|

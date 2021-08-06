@@ -8,33 +8,33 @@ inl singleton x = inl ar = create 1 in set ar 0 x . ar
 // Initializes array using the given function.
 inl init nearTo f = 
     inl ar = create nearTo
-    for' (from: 0 nearTo:) (fun i => set ar i (f i))
+    for' {from=0; nearTo} (fun i => set ar i (f i))
     ar
 // Applies a function to each element of the array, threading an accumulator argument through the computation. 
 // If the input function is f and the elements are i0...iN then computes f (... (f s i0)...) iN
-inl fold f s ar = for (from: 0 nearTo: length ar) (fun i s => f s (index ar i)) s
+inl fold f s ar = for {from=0; nearTo= length ar} (fun i s => f s (index ar i)) s
 // Applies a function to each element of the two arrays, threading an accumulator argument through the computation.
-inl fold2 f s ar1 ar2 = for (from: 0 nearTo: assert_len ar1 ar2) (fun i s => f s (index ar1 i) (index ar2 i)) s
+inl fold2 f s ar1 ar2 = for {from=0; nearTo=assert_len ar1 ar2} (fun i s => f s (index ar1 i) (index ar2 i)) s
 // Similar to fold with the intial state as the first element of the array.
 inl reduce f ar =
     inl nearTo = length ar
     if nearTo = 0 then failwith "The array must be greater than 0."
-    for (from: 1 nearTo:) (fun i s => f s (index ar i)) (index ar 0)
+    for {from=1; nearTo} (fun i s => f s (index ar i)) (index ar 0)
 // Same as fold from the other direction.
-inl foldBack f ar s = forDown (nearFrom: length ar to:0) (fun i s => f (index ar i) s) s
+inl foldBack f ar s = forDown {nearFrom=length ar; to=0} (fun i s => f (index ar i) s) s
 // Maps an array.
 inl map f ar = init (length ar) (fun i => f (index ar i))
 // Maps an array. Provides the index as the first argument.
 inl mapi f ar = init (length ar) (fun i => f i (index ar i))
 // Iterates over an array.
-inl iter f ar = for' (from: 0 nearTo: length ar) (index ar >> f)
+inl iter f ar = for' {from=0; nearTo=length ar} (index ar >> f)
 // Iterates over an array. Provides the index as the first argument.
-inl iteri f ar = for' (from: 0 nearTo: length ar) (fun i => f i (index ar i))
+inl iteri f ar = for' {from=0; nearTo=length ar} (fun i => f i (index ar i))
 // Filters the elements of an array using the function.
 inl filter forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. f (ar : ar dim el) =
     inl nearTo = length ar
     inl ar' : ar _ _ = create nearTo
-    for (from:0 nearTo:) (fun i count => 
+    for {from=0; nearTo} (fun i count => 
         inl x = index ar i
         if f x then set ar' count x . count + 1 else count
         ) 0
@@ -43,10 +43,10 @@ inl filter forall (ar : * -> * -> *) {create; set; index; length} dim {number} e
 inl choose forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. f (ar : ar dim el) =
     inl nearTo = length ar
     inl ar' : ar _ _ = create nearTo
-    for (from:0 nearTo:) (fun i count =>
+    for {from=0; nearTo} (fun i count =>
         inl x = index ar i
         match f x with
-        | Some: x => set ar' count x . count + 1 
+        | Some x => set ar' count x . count + 1 
         | None => count
         ) 0
     |> fun nearTo => init nearTo (index ar')
@@ -67,37 +67,37 @@ inl findIndex f x =
         else failwith "The true applicant does not exist."
     loop 0
 // Slices an array between a range.
-inl slice (from:nearTo:) x = init (nearTo-from) (fun i => index x (i+from))
+inl slice {from nearTo} x = init (nearTo-from) (fun i => index x (i+from))
 // Slices an array from the start of a range.
-inl sliceFrom from x = slice (from:nearTo:length x) x
+inl sliceFrom from x = slice {from nearTo=length x} x
 // Applies the mapping function to each element of the two arrays producing a new array with the result of the applications.
 inl map2 f a b = init (assert_len a b) (fun i => f (index a i) (index b i))
 // Applies the mapping function to each element of the two arrays producing a new array with the result of the applications. Provides the index as the first argument.
 inl mapi2 f a b = init (assert_len a b) (fun i => f i (index a i) (index b i))
 // Iterates over two arrays.
-inl iter2 f a b = for' (from: 0 nearTo: assert_len a b) (fun i => f (index a i) (index b i))
+inl iter2 f a b = for' {from=0; nearTo=assert_len a b} (fun i => f (index a i) (index b i))
 // Iterates over two arrays. Provides the index as the first argument.
-inl iteri2 f a b = for' (from: 0 nearTo: assert_len a b) (fun i => f i (index a i) (index b i))
+inl iteri2 f a b = for' {from=0; nearTo=assert_len a b} (fun i => f i (index a i) (index b i))
 // Applies the mapping function to each element of the three arrays producing a new array with the result of the applications.
 inl map3 f a b c = init (assert_len2 a b c) (fun i => f (index a i) (index b i) (index c i))
 // Applies the mapping function to each element of the three arrays producing a new array with the result of the applications. Provides the index as the first argument.
 inl mapi3 f a b c = init (assert_len2 a b c) (fun i => f i (index a i) (index b i) (index c i))
 // Iterates over three arrays.
-inl iter3 f a b c = for' (from: 0 nearTo: assert_len2 a b c) (fun i => f (index a i) (index b i) (index c i))
+inl iter3 f a b c = for' {from=0; nearTo=assert_len2 a b c} (fun i => f (index a i) (index b i) (index c i))
 // Iterates over three arrays. Provides the index as the first argument.
-inl iteri3 f a b c = for' (from: 0 nearTo: assert_len2 a b c) (fun i => f i (index a i) (index b i) (index c i))
+inl iteri3 f a b c = for' {from=0; nearTo=assert_len2 a b c} (fun i => f i (index a i) (index b i) (index c i))
 // Applies the mapping function to each element of the four arrays producing a new array with the result of the applications.
 inl map4 f a b c d = init (assert_len3 a b c d) (fun i => f (index a i) (index b i) (index c i) (index d i))
 // Applies the mapping function to each element of the four arrays producing a new array with the result of the applications. Provides the index as the first argument.
 inl mapi4 f a b c d = init (assert_len3 a b c d) (fun i => f i (index a i) (index b i) (index c i) (index d i))
 // Iterates over four arrays.
-inl iter4 f a b c d = for' (from: 0 nearTo: assert_len3 a b c d) (fun i => f (index a i) (index b i) (index c i) (index d i))
+inl iter4 f a b c d = for' {from=0; nearTo=assert_len3 a b c d} (fun i => f (index a i) (index b i) (index c i) (index d i))
 // Iterates over four arrays. Provides the index as the first argument.
-inl iteri4 f a b c d = for' (from: 0 nearTo: assert_len3 a b c d) (fun i => f i (index a i) (index b i) (index c i) (index d i))
+inl iteri4 f a b c d = for' {from=0; nearTo=assert_len3 a b c d} (fun i => f i (index a i) (index b i) (index c i) (index d i))
 // Initializes the array while threading the state through the loop.
 inl initFold nearTo f s =
     inl ar = create nearTo
-    ar, for (from: 0 nearTo:) (fun i s => 
+    ar, for {from=0; nearTo} (fun i s => 
         inl a,b = f s i
         set ar i a
         b
@@ -129,7 +129,7 @@ inl exists2 f x1 x2 =
 // Removes the element at index.
 inl removeAtIndex i dist = init (length dist-1) (fun i' => index dist (if i <= i' then i'+1 else i'))
 // Does an inplace map of the array.
-inl mapInplace f temp = for' (from:0 nearTo: length temp) (fun i => set temp i (f i (index temp i)))
+inl mapInplace f temp = for' {from=0; nearTo=length temp} (fun i => set temp i (f i (index temp i)))
 
 // Generic equable function that data structures other than regular arrays can reuse.
 inl generic_equable x1 x2 =
@@ -140,14 +140,14 @@ inl generic_equable x1 x2 =
 
 // Generic comparable function that data structures other than regular arrays can reuse.
 inl generic_comparable x1 x2 =
-    if length x1 < length x2 then LT
-    elif length x1 > length x2 then GT
+    if length x1 < length x2 then lt()
+    elif length x1 > length x2 then gt()
     else
         let rec loop i = 
             if i < length x1 then 
                 inl x = comp (index x1 i) (index x2 i)
                 if eq_is x then loop (i+1) else x 
-            else EQ
+            else eq()
         loop 0
 
 instance equable a dim {number} t = generic_equable

@@ -141,7 +141,7 @@ if __name__ == '__main__':
         format='%(asctime)s %(message)s'
         )
 
-    create_nn_agent(1000,0,10,40,1,**args,**defaults,mode='callbot',resume_from=200)
+    create_nn_agent(1000,0,10,40,1,**args,**defaults,mode='callbot',resume_from=240)
     # players = [f'nn_agent_{i}_self.nnavg' for i in range(10,151,10)]
     # players = ['nn_agent_120_self.nnavg','nn_agent_130_self.nnavg']
     # competitive_eval(players,**args,**defaults)

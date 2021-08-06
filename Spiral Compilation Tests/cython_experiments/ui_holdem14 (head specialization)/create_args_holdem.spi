@@ -49,14 +49,15 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (game_mode,sb,
                 rm.add lines (rm.join' "" cards)
                 rm.clear cards
         let rec loop is_first = function
-            | (C1of2: x) :: xs => rm.add cards (show_card x) . loop true xs
-            | (C2of2: x) :: xs => 
+            | C1of2 x :: xs => 
+                rm.add cards (show_card x) . loop true xs
+            | C2of2 x :: xs => 
                 add_card_if_not_empty()
                 inl prefix = if is_first then "Player One" else "Player Two"
                 match x with
                 | Fold => $"f'{!prefix} folds.'"
                 | Call => $"f'{!prefix} calls.'"
-                | RaiseTo: x => $"f'{!prefix} raises to {!x}.'"
+                | RaiseTo x => $"f'{!prefix} raises to {!x}.'"
                 |> rm.add lines
                 loop (not is_first) xs
             | Nil => add_card_if_not_empty ()
@@ -89,7 +90,7 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (game_mode,sb,
     
     let rec loop game =
         match train.vs_human game human_pid player_op with
-        | Terminal: player_state, (p1,p2,((community_card,n),stack,is_showdown)), reward =>
+        | Terminal (player_state, (p1,p2,((community_card,n),stack,is_showdown)), reward) =>
             inl trace = show_trace' (pl2_observations player_state human_pid) |> show_terminal (p1,p2,(community_card,is_showdown)) reward
             inl actions = record {
                 call = $"False" : obj
@@ -110,14 +111,14 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (game_mode,sb,
                 community_card = community_card |> am.generic.map show_card |> rm.join' ""
                 }
             set (record {trace actions table_data})
-        | Action: player_state, (p1,p2,((community_card,n),_)), pid, (hu_actions {is_fold is_raise raise_min raise_max} : actions), next =>
+        | Action (player_state, (p1,p2,((community_card,n),_)), pid, (hu_actions {is_fold is_raise raise_min raise_max} : actions), next) =>
             inl trace = show_trace (pl2_observations player_state human_pid)
             inl actions = 
                 record {
                     raise_min raise_max
-                    call = fun () => next (Log_prob_one,Call) |> loop
-                    fold = fun () => next (Log_prob_one,Fold) |> loop
-                    raise_to = if is_raise then fun raiseTo => next (Log_prob_one,(RaiseTo:)) |> loop else $"False"
+                    call = fun () => next (log_prob_one(),Call) |> loop
+                    fold = fun () => next (log_prob_one(),Fold) |> loop
+                    raise_to = if is_raise then fun v => next (log_prob_one(),RaiseTo v) |> loop else $"False"
                     }
             inl p1,p2 = if human_pid = p1.id then p1,p2 else p2,p1
             inl table_data = record {
@@ -141,7 +142,7 @@ inl main () =
         inl x : ra st _ = am.empty
         if is_fold then rm.add x Fold
         rm.add x Call
-        if is_raise then loopw.for' (from: raise_min nearTo: raise_max) (fun i => rm.add x (RaiseTo: i))
+        if is_raise then loopw.for' {from=raise_min; nearTo=raise_max} (fun i => rm.add x (RaiseTo i))
         $"numpy.array(!x,copy=False)"
     inl uniform_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * (a st i8 * st) * i16 * bool) * pid * actions) -> a u64 (log_prob * action) * _ = agent.uniform.policy uniform_selector
     inl callbot_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * (a st i8 * st) * i16 * bool) * pid * actions) -> a u64 (log_prob * action) * _ = agent.holdem_callbot.policy
@@ -153,9 +154,9 @@ inl main () =
         rm.add x Call
         if is_raise then
             if length x + 1 + raise_max - raise_min <= num_actions then
-                loopw.for' (from: raise_min nearTo: 1 + raise_max) (fun v => rm.add x (RaiseTo: v))
+                loopw.for' {from=raise_min; nearTo=1 + raise_max} (fun v => rm.add x (RaiseTo v))
             else
-                inl add v = if length x < num_actions && raise_min <= v && v <= raise_max && dictm.tryAdd h v () then rm.add x (RaiseTo: v)
+                inl add v = if length x < num_actions && raise_min <= v && v <= raise_max && dictm.tryAdd h v () then rm.add x (RaiseTo v)
                 add raise_min . add raise_max
                 inl _ = // Add pot sized bets
                     inl pot = 2 * call'
