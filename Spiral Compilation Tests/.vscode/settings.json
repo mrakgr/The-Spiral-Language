@@ -1,9 +1,9 @@
 {
     "python.pythonPath": "C:\\Users\\Marko\\anaconda3\\python.exe",
     "python.autoComplete.extraPaths": [
-        "./cython_experiments/ui_holdem14 (head specialization)"
+        "./cython_experiments/ui_holdem15 (inbuilt hand ranking)"
     ],
     "python.analysis.extraPaths": [
-        "./cython_experiments/ui_holdem14 (head specialization)"
+        "./cython_experiments/ui_holdem15 (inbuilt hand ranking)"
     ]
 }

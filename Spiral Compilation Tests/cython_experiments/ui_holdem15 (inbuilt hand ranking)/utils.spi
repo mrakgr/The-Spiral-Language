@@ -1,0 +1,43 @@
+// ---
+
+// The sample and the policy probability.
+nominal log_prob = {sample : f32; policy : f32}
+
+// During enumeration the sample probability is 1.
+inl log_prob_from_policy x = log_prob {sample=log 1; policy=log x}
+// When the sample and policy are the same.
+inl log_prob_from_sample x = log_prob {sample=log x; policy=log x}
+// When the sample and the policy differ.
+inl log_prob_from {sample policy} = log_prob {sample=log sample; policy=log policy}
+inl (+@) (log_prob a) (log_prob b) = log_prob {sample=a.sample+b.sample; policy=a.policy+b.policy}
+inl (-@) (log_prob a) (log_prob b) = log_prob {sample=a.sample-b.sample; policy=a.policy-b.policy}
+inl (~@@) (log_prob {sample policy}) = exp (policy - sample)
+// log 1 = 0
+inl log_prob_one() = log_prob {sample=0; policy=0}
+
+// ---
+
+nominal r2 = f32
+inl (+!) (r2 a) (r2 b) = r2 (a+b)
+inl (-!) (r2 a) (r2 b) = r2 (a-b)
+inl (*!) (r2 a) b = r2 (a*b)
+inl (/!) (r2 a) b = r2 (a/b)
+inl (~!!) (r2 a) i = if i = 0 then a else -a
+
+// ---
+
+nominal wval = {val : r2; weight : f32}
+inl (+,) (wval a) (wval b) = wval {val=a.val+!b.val; weight=a.weight+b.weight}
+inl (-,) (wval a) (wval b) = wval {val=a.val-!b.val; weight=a.weight-b.weight}
+inl (*,) (wval a) b = wval {val=a.val*!b; weight=a.weight*b}
+inl (/,) (wval a) b = wval {val=a.val/!b; weight=a.weight/b}
+inl (~,) (wval {val weight}) = if weight = 0 then r2 0 else val /! weight
+inl wval val weight = wval {val=val*!weight; weight=weight}
+
+// ---
+
+nominal schema present future actions = {
+    policy : serialization.dense.array.pu present
+    value : serialization.dense.array.pu (choice2 present future)
+    action : serialization.dense.array.pu actions
+    }

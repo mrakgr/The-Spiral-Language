@@ -1,0 +1,20 @@
+open hu_holdem
+
+inl suit_rank x = hand_scorer.suit x, hand_scorer.rank x
+inl full (suit,rank) = hand_scorer.full {suit rank}
+
+inl schema (stack_size : st) =
+    inl stack_size = stack_size + 1 // Don't forget the extra 1 at the end to represent the max pot size.
+    inl field_size = !!!!Import("math") . $"math.ceil(math.log2(!stack_size))" // The field size needs to be 1 bigger if the stack size is max value for that particular integer power due to the way the serializer works.
+    open serialization.dense.array
+    inl stack : pu st = bin_int field_size
+    inl card = wrap {inp=suit_rank; out=full} (int 4 ** int 13)
+    inl action = alt {Fold=unit(); Call=unit(); RaiseTo=stack} : pu action
+    inl policy = card ++ action
+    inl value = policy ++ (card ++ card)
+    schema {policy value action}
+
+inl extractor ((player_state : pl2 card action),(p1,p2,(table_cards,n),stack,is_showdown : player * player * (a st card * st) * st * bool),(pid : u8)) = 
+    inl c1,c2 = p2.hand
+    inl hidden_cards : a st card = $"!table_cards[!n:]"
+    pl2_observations player_state pid, listm.append [C1of2 c2; C1of2 c1] (am.map C2of2 hidden_cards |> am.toList)

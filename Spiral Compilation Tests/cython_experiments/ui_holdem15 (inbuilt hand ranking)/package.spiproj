@@ -1,0 +1,34 @@
+// I'll finish it with this. I have no more ideas for how to improve the NN architecture itself. It certainly won't be easy to
+// exceed what I have here. And yet, 10/20(1000) games where the task is just to learn the River vs the callbot is bringing the 
+// net to its knees. Despite an entire day of learning, it cannot deal with what is essentailly a bandit problem with all hindsight 
+// information given up front.
+
+// I've had the insight that maybe I really should not be forcing the net to learn hand reading up front. Passing in the hand score
+// as a feature would make the task a lot easier for the net. Since it is struggling so much, why don't I do it? It should reduce
+// the task complexity to just about where it is tractable on the GPU.
+
+packages: |core-
+modules:
+    types-
+    conv-
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    sampling
+    nodes-
+    train
+    train_cat
+    hand_scorer
+    hu_holdem
+    leduc
+    agent/
+        uniform
+        holdem_callbot
+        tabular
+        neural_leduc
+        neural_holdem
+    create_args_leduc
+    create_args_holdem
