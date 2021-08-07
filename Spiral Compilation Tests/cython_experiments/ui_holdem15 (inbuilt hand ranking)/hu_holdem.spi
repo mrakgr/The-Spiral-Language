@@ -14,10 +14,9 @@ nominal hu_actions act = {
     }
 type actions = hu_actions action
 
-let score (c1,c2) cs =
-    inl f (c : i8) (h : hand_scorer.hand) = h ||| (1 <<< i32 c)
-    0 |> f c1 |> f c2 |> am.foldBack f cs
-    |> fun hand => hand_scorer.score {hand}
+inl score_fold (c : i8) (h : hand_scorer.hand) = h ||| (1 <<< i32 c)
+let score_table cs = 0 |> am.foldBack score_fold cs |> fun hand => hand_scorer.score {hand}
+let score (c1,c2) cs = 0 |> score_fold c1 |> score_fold c2 |> am.foldBack score_fold cs |> fun hand => hand_scorer.score {hand}
 
 inl game (game_mode,sb,bb,stack) =
     inl deck : a st card = $"numpy.arange(0,52,dtype=numpy.int8)"

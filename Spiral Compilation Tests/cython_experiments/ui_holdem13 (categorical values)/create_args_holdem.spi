@@ -49,14 +49,14 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (restriction,i
                 rm.add lines (rm.join' "" cards)
                 rm.clear cards
         let rec loop is_first = function
-            | (C1of2: x) :: xs => rm.add cards (show_card x) . loop true xs
-            | (C2of2: x) :: xs => 
+            | C1of2 x :: xs => rm.add cards (show_card x) . loop true xs
+            | C2of2 x :: xs => 
                 add_card_if_not_empty()
                 inl prefix = if is_first then "Player One" else "Player Two"
                 match x with
                 | Fold => $"f'{!prefix} folds.'"
                 | Call => $"f'{!prefix} calls.'"
-                | RaiseTo: x => $"f'{!prefix} raises to {!x}.'"
+                | RaiseTo x => $"f'{!prefix} raises to {!x}.'"
                 |> rm.add lines
                 loop (not is_first) xs
             | Nil => add_card_if_not_empty ()
@@ -89,7 +89,7 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (restriction,i
     
     let rec loop game =
         match train.vs_human game human_pid player_op with
-        | Terminal: player_state, (p1,p2,((community_card,n),stack,is_showdown)), reward =>
+        | Terminal (player_state, (p1,p2,((community_card,n),stack,is_showdown)), reward )=>
             inl trace = show_trace' (pl2_observations player_state human_pid) |> show_terminal (p1,p2,(community_card,is_showdown)) reward
             inl actions = record {
                 call = $"False" : obj
@@ -110,24 +110,24 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (restriction,i
                 community_card = community_card |> am.generic.map show_card |> rm.join' ""
                 }
             set (record {trace actions table_data})
-        | Action: player_state, (p1,p2,((community_card,n),_)), pid, actions, next =>
+        | Action (player_state, (p1,p2,((community_card,n),_)), pid, actions, next) =>
             inl trace = show_trace (pl2_observations player_state human_pid)
             inl actions = 
                 inl raise_max = 
                     am.fold (fun s => function
                         | Call | Fold => s
-                        | RaiseTo: x => max s x
+                        | RaiseTo x => max s x
                         ) 0 actions
                 inl raise_min = 
                     am.fold (fun s => function
                         | Call | Fold => s
-                        | RaiseTo: x => min s x
+                        | RaiseTo x => min s x
                         ) raise_max actions
                 record {
                     raise_min raise_max
-                    call = fun () => next (Log_prob_one,Call) |> loop
-                    fold = fun () => next (Log_prob_one,Fold) |> loop
-                    raise_to = if raise_min = 0 then $"False" else fun raiseTo => next (Log_prob_one,(RaiseTo:)) |> loop
+                    fold = fun () => next (log_prob_one(),Fold) |> loop
+                    call = fun () => next (log_prob_one(),Call) |> loop
+                    raise_to = if raise_min = 0 then $"False" else fun v => next (log_prob_one(),RaiseTo v) |> loop
                     }
             inl p1,p2 = if human_pid = p1.id then p1,p2 else p2,p1
             inl table_data = record {

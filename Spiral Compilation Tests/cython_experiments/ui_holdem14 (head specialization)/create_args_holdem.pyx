@@ -3684,7 +3684,7 @@ cdef Tuple3 method32(unsigned long long v0, signed char v1, signed char v2):
             else:
                 v78 = v1
             v79 = v8 + v78
-            return Tuple3(v60, v65, v70, v75, v79, (<signed char>9))
+            return Tuple3(v60, v65, v70, v75, v79, (<signed char>8))
         else:
             v80 = v2 + (<signed char>1)
             return method32(v0, v1, v80)
@@ -3881,7 +3881,7 @@ cdef Tuple3 method40(unsigned long long v0, signed char v1, signed char v2, sign
         v41, v42, v43, v44, v45, v46 = v3, v4, v5, v6, v7, v8
     v47 = v46 == (<unsigned char>5)
     if v47:
-        return Tuple3(v41, v42, v43, v44, v45, (<signed char>6))
+        return Tuple3(v41, v42, v43, v44, v45, (<signed char>5))
     else:
         v48 = v2 - (<signed char>1)
         return method40(v0, v1, v48, v41, v42, v43, v44, v45, v46)
@@ -4177,7 +4177,7 @@ cdef Tuple3 method47(unsigned long long v0, signed char v1):
             tmp34 = method34(v0, v1, v44, v45, v46, v47, v48, v49, v50)
             v51, v52, v53, v54, v55 = tmp34.v0, tmp34.v1, tmp34.v2, tmp34.v3, tmp34.v4
             del tmp34
-            return Tuple3(v40, v41, v51, v52, v53, (<signed char>2))
+            return Tuple3(v40, v41, v51, v52, v53, (<signed char>1))
         else:
             v56 = v1 - (<signed char>1)
             return method47(v0, v56)
@@ -4192,7 +4192,7 @@ cdef Tuple3 method47(unsigned long long v0, signed char v1):
         tmp35 = method48(v0, v69, v70, v71, v72, v73, v74, v75)
         v76, v77, v78, v79, v80 = tmp35.v0, tmp35.v1, tmp35.v2, tmp35.v3, tmp35.v4
         del tmp35
-        return Tuple3(v76, v77, v78, v79, v80, (<signed char>1))
+        return Tuple3(v76, v77, v78, v79, v80, (<signed char>0))
 cdef Tuple3 method44(unsigned long long v0, signed char v1, signed char v2, signed char v3, signed char v4):
     cdef bint v5
     cdef signed char v6
@@ -4324,7 +4324,7 @@ cdef Tuple3 method44(unsigned long long v0, signed char v1, signed char v2, sign
                 tmp32 = method45(v0, v1, v4, v55, v56, v57, v58, v59, v60, v61)
                 v62, v63, v64, v65, v66 = tmp32.v0, tmp32.v1, tmp32.v2, tmp32.v3, tmp32.v4
                 del tmp32
-                return Tuple3(v3, v2, v51, v52, v62, (<signed char>3))
+                return Tuple3(v3, v2, v51, v52, v62, (<signed char>2))
             else:
                 v67 = v4 - (<signed char>1)
                 return method44(v0, v1, v2, v3, v67)
@@ -4565,7 +4565,7 @@ cdef Tuple3 method42(unsigned long long v0, signed char v1):
             tmp29 = method34(v0, v1, v44, v45, v46, v47, v48, v49, v50)
             v51, v52, v53, v54, v55 = tmp29.v0, tmp29.v1, tmp29.v2, tmp29.v3, tmp29.v4
             del tmp29
-            return Tuple3(v40, v41, v42, v51, v52, (<signed char>4))
+            return Tuple3(v40, v41, v42, v51, v52, (<signed char>3))
         else:
             v56 = v1 - (<signed char>1)
             return method42(v0, v56)
@@ -5048,7 +5048,7 @@ cdef Tuple3 method41(unsigned long long v0, signed char v1):
             tmp27 = method37(v0, v212, v217, v213, v214, v215, v216, v218)
             v219, v220, v221, v222 = tmp27.v0, tmp27.v1, tmp27.v2, tmp27.v3
             del tmp27
-            return Tuple3(v164, v178, v192, v206, v219, (<signed char>5))
+            return Tuple3(v164, v178, v192, v206, v219, (<signed char>4))
         else:
             v223 = v1 - (<signed char>1)
             return method41(v0, v223)
@@ -5336,7 +5336,7 @@ cdef Tuple3 method38(unsigned long long v0, signed char v1, signed char v2, sign
                 tmp22 = method37(v0, v5, v50, v46, v47, v48, v49, v51)
                 v52, v53, v54, v55 = tmp22.v0, tmp22.v1, tmp22.v2, tmp22.v3
                 del tmp22
-                return Tuple3(v4, v3, v2, v52, v53, (<signed char>7))
+                return Tuple3(v4, v3, v2, v52, v53, (<signed char>6))
             else:
                 v56 = v5 - (<signed char>1)
                 return method38(v0, v1, v2, v3, v4, v56)
@@ -5569,7 +5569,7 @@ cdef Tuple3 method33(unsigned long long v0, signed char v1):
             tmp20 = method34(v0, v1, v34, v35, v36, v37, v38, v39, v40)
             v41, v42, v43, v44, v45 = tmp20.v0, tmp20.v1, tmp20.v2, tmp20.v3, tmp20.v4
             del tmp20
-            return Tuple3(v1, v9, v17, v25, v41, (<signed char>8))
+            return Tuple3(v1, v9, v17, v25, v41, (<signed char>7))
         else:
             v46 = v1 - (<signed char>1)
             return method33(v0, v46)
@@ -7986,39 +7986,39 @@ cdef str method84(signed char v0, signed char v1, signed char v2, signed char v3
     cdef bint v12
     cdef bint v13
     cdef bint v14
-    v6 = (<signed char>1) == v5
+    v6 = (<signed char>0) == v5
     if v6:
         return "high card"
     else:
-        v7 = (<signed char>2) == v5
+        v7 = (<signed char>1) == v5
         if v7:
             return "pair"
         else:
-            v8 = (<signed char>3) == v5
+            v8 = (<signed char>2) == v5
             if v8:
                 return "two pair"
             else:
-                v9 = (<signed char>4) == v5
+                v9 = (<signed char>3) == v5
                 if v9:
                     return "triple"
                 else:
-                    v10 = (<signed char>5) == v5
+                    v10 = (<signed char>4) == v5
                     if v10:
                         return "straight"
                     else:
-                        v11 = (<signed char>6) == v5
+                        v11 = (<signed char>5) == v5
                         if v11:
                             return "flush"
                         else:
-                            v12 = (<signed char>7) == v5
+                            v12 = (<signed char>6) == v5
                             if v12:
                                 return "full house"
                             else:
-                                v13 = (<signed char>8) == v5
+                                v13 = (<signed char>7) == v5
                                 if v13:
                                     return "four of a kind"
                                 else:
-                                    v14 = (<signed char>9) == v5
+                                    v14 = (<signed char>8) == v5
                                     if v14:
                                         return "straight flush"
                                     else:

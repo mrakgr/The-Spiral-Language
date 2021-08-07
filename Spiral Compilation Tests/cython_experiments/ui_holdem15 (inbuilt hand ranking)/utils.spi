@@ -36,8 +36,8 @@ inl wval val weight = wval {val=val*!weight; weight=weight}
 
 // ---
 
-nominal schema present future actions = {
-    policy : serialization.dense.array.pu present
-    value : serialization.dense.array.pu (choice2 present future)
-    action : serialization.dense.array.pu actions
+nominal schema policy value action = {
+    policy : serialization.dense.array.pu policy
+    value : serialization.dense.array.pu value
+    action : serialization.dense.array.pu action
     }

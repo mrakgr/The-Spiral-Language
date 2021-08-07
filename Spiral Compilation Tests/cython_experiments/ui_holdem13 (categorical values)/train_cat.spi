@@ -8,11 +8,11 @@ inl vs_self game (combine, to_cat, empty : _ * (_ -> tensor) * _) (batch_size, p
         inl data : ra u64 _ = am.empty
         inl nexts : ra u64 _ = am.empty
         l |> am.iteri fun i => function
-            | Action: player_state,game_state,pid,actions,next => 
+            | Action (player_state,game_state,pid,actions,next) => 
                 rm.add actions_indices i
                 rm.add data (player_state,game_state,pid,actions)
                 rm.add nexts next
-            | Terminal: _,_,x =>
+            | Terminal (_,_,x) =>
                 rm.add terminal_indices i
                 rm.add terminal_rewards x
         inl actions_rewards =
@@ -35,7 +35,7 @@ inl vs_one game (combine, to_cat, empty : _ * (_ -> tensor) * _) (batch_size, p1
         inl p2_nexts : ra u64 _ = am.empty
         inl pids : ra u64 _ = am.empty
         l |> am.iteri fun i => function
-            | Action: player_state,game_state,pid,actions,next =>
+            | Action (player_state,game_state,pid,actions,next) =>
                 if pid = 0 then
                     rm.add p1_actions_indices i
                     rm.add p1_data (player_state,game_state,pid,actions)
@@ -45,7 +45,7 @@ inl vs_one game (combine, to_cat, empty : _ * (_ -> tensor) * _) (batch_size, p1
                     rm.add p2_data (player_state,game_state,pid,actions)
                     rm.add p2_nexts next
                 rm.add pids pid
-            | Terminal: _,_,x =>
+            | Terminal (_,_,x) =>
                 rm.add terminal_indices i
                 rm.add terminal_rewards x
         inl p1_actions_rewards, p2_actions_rewards =

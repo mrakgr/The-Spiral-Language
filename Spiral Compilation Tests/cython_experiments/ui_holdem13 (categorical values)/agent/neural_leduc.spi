@@ -2,16 +2,16 @@ open leduc
 inl schema () =
     inl policy, value =
         open serialization.dense.array
-        inl card = alt {king=Unit; queen=Unit; jack=Unit} : pu card
-        inl action = alt {fold=Unit; call=Unit; raise=Unit} : pu action
+        inl card = alt {King=unit(); Queen=unit(); Jack=unit()} : pu card
+        inl action = alt {Fold=unit(); Call=unit(); Raise=unit()} : pu action
         inl policy = card ++ action
         policy, policy ++ (card ++ card)
     inl action =
         open serialization.sparse.int
-        alt {fold=Unit; call=Unit; raise=Unit} : pu action
+        alt {Fold=unit(); Call=unit(); Raise=unit()} : pu action
     schema {policy value action}
 
 inl extractor ((player_state : pl2 card action),(leduc_state (p1,p2,(is_show,com_card))),pid) =
-    pl2_observations player_state pid, (C1of2: p2.card) :: if is_show then [] else [(C2of2: com_card)]
+    pl2_observations player_state pid, (C1of2 p2.card) :: if is_show then [] else [C2of2 com_card]
 
 // The actual player is done on the Python side. These are the serialization helpers for it.

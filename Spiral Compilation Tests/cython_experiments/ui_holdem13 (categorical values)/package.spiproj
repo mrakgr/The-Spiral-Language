@@ -16,7 +16,7 @@
 
 // The last few weeks were so bad, it was just one failed idea after another.
 
-packages: |core2-
+packages: |core-
 modules:
     types-
     conv-

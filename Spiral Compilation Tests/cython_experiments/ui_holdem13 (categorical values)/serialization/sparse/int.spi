@@ -5,7 +5,7 @@ nominal pu a = {
     unpickle : el -> a
     }
 
-inl Unit =
+inl unit() =
     pu {size = 1
         pickle = fun () => 0
         unpickle = fun i => assert (i = 0) "The unit index should be 0." . ()
@@ -20,14 +20,14 @@ inl int size : pu el =
         }
 
 inl array forall t. size (pu el : pu t) : pu (a u64 t) =
-    inl fullSize = loop.for (from:0 nearTo: size) (fun i s => s * el.size) 1
+    inl fullSize = loop.for {from=0; nearTo=size} (fun i s => s * el.size) 1
     pu {size = fullSize
         pickle = fun x =>
             assert (size = length x) "Pickle failure. The array must match the given size."
             am.foldBack (fun x (s,dim) => el.pickle x * dim, s * dim) x (0,1) |> fst
         unpickle = fun i => 
             inl ar = create size
-            loop.for (from: 0 nearTo: size) (fun idx (size,i) =>
+            loop.for {from=0; nearTo=size} (fun idx (size,i) =>
                 inl size = size / el.size
                 set ar idx (el.unpickle (i / size))
                 size, i % size
@@ -42,7 +42,7 @@ inl pair (pu a') (pu b') =
         }
 inl (**) a b = pair a b
 
-inl wrap (in: a out: b) (pu p) =
+inl wrap {inp=a out=b} (pu p) =
     pu {size = p.size
         pickle = fun x => p.pickle (a x)
         unpickle = fun i => b (p.unpickle i)
@@ -61,7 +61,7 @@ inl alt forall t r. (l : r) : pu t =
             ) `r
     inl offsets, size = real
         open real_core
-        record_foldl (fun (state:(m,from) key:value:) => 
+        record_foldl (fun {state=(m,from) key value} => 
             inl (pu p) = value
             inl nearTo = from + p.size
             {m with $key={from nearTo}}, nearTo
@@ -79,8 +79,8 @@ inl alt forall t r. (l : r) : pu t =
             ) `r (fun _ => failwith `t "Unpickle failure. Unpickling of an union failed.") ()
     pu {size pickle unpickle}
     
-inl option forall t. (a : pu t) : pu (option t) = alt { some_ = a; none = Unit }
-inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { ok_ = a; error_ = b }
+inl option forall t. (a : pu t) : pu (option t) = alt { Some = a; None = unit() }
+inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { Ok = a; Error = b }
 
 inl size (pu p) = p.size
 

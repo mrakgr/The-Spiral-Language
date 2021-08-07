@@ -1,7 +1,5 @@
 open leduc
-type present = list (choice2 card action)
-type future = list (choice2 card card)
-type agent_dict = agent.tabular.agent_dict present future
+type agent_dict = agent.tabular.agent_dict (list (choice2 card action)) (list agent.neural_leduc.value)
 inl main () =
     // `exp`ected and `cat`egorical
     inl vs_self = namedtuple "VsSelf" {exp=train.vs_self leduc.game; cat=train_cat.vs_self leduc.game}

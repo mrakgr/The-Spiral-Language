@@ -104,21 +104,14 @@ inl neural_handler forall (actions : * -> *) act.
     inl pids : a u64 f32 = create batch_size
     data |> am.iteri fun i_batch (player_state,game_state,pid,actions) =>
         inl present, future = extractor (player_state,game_state,pid)
-        inl i_seq = 
-            listm.foldBack (fun x i_seq =>
-                inl f forall y. (x : a3 y) : a st y = $"!x[!i_batch,!i_seq]"
-                schema.policy.pickle x (0, f policy_data)
-                schema.value.pickle (C1of2 x) (0, f value_data)
-                i_seq + 1
-                ) present 0u64
+        inl f forall y. (x : a3 y) (i_seq : u64) : a st y = $"!x[!i_batch,!i_seq]"
+
+        inl i_seq = listm.foldBack (fun x i_seq => schema.policy.pickle x (0, f policy_data i_seq) . i_seq + 1) present 0
         loop.for' {from=i_seq; nearTo=policy_seq_size} fun i_seq => $"!policy_mask[!i_batch,!i_seq] = 1"
-        inl i_seq = 
-            listm.fold (fun i_seq x =>
-                inl f forall y. (x : a3 y) : a st y = $"!x[!i_batch,!i_seq]"
-                schema.value.pickle (C2of2 x) (0, f value_data)
-                i_seq + 1
-                ) i_seq future
+
+        inl i_seq = listm.fold (fun i_seq x => schema.value.pickle x (0, f value_data i_seq) . i_seq + 1) 0 future
         loop.for' {from=i_seq; nearTo=value_seq_size} fun i_seq => $"!value_mask[!i_batch,!i_seq] = 1"
+        
         inl acts = action_selector actions
         set action_selected i_batch acts
         acts |> am.iteri (fun i_act act =>

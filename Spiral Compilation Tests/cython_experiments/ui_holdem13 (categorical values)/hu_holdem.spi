@@ -1,4 +1,4 @@
-union action = Fold | Call | RaiseTo: st
+union action = Fold | Call | RaiseTo : st
 
 type card = hand_scorer.card
 type player = {hand : card * card; id : u8; pot : st}
@@ -8,7 +8,7 @@ type players = player * player
 let score (c1,c2) cs =
     inl f (c : i8) (h : hand_scorer.hand) = h ||| (1 <<< i32 c)
     0 |> f c1 |> f c2 |> am.foldBack f cs
-    |> fun hand => hand_scorer.score (hand:)
+    |> fun hand => hand_scorer.score {hand}
 
 inl game (restriction,is_flop_only,sb,bb,stack) =
     inl deck : a st card = $"numpy.arange(0,52,dtype=numpy.int8)"
@@ -17,7 +17,7 @@ inl game (restriction,is_flop_only,sb,bb,stack) =
     inl actions : a _ _ = am.init stack fun i =>
         if i = 0 then Fold
         elif i = 1 then Call
-        else RaiseTo: stack - i + 2
+        else RaiseTo (stack - i + 2)
 
     inl actions is_fold amount_call amount_min_raise : a st action =
         inl start : st = if is_fold then 0 else 1
@@ -31,7 +31,7 @@ inl game (restriction,is_flop_only,sb,bb,stack) =
             x = stack || x = amount_min_raise || if is_bb then x % bb = 0 else is_allowed_pot x
         match restriction with
         | 0u8 => x
-        | 1 | 2 => am.filter (function Fold | Call => true | RaiseTo: x => is_allowed (restriction = 1) x) x
+        | 1 | 2 => am.filter (function Fold | Call => true | RaiseTo x => is_allowed (restriction = 1) x) x
         | _ => failwith "Invalid action restriction level."
 
     inl rec betting ~is_init ~(p1,p2 : players) (community_cards : a st card * st) next = join
@@ -48,22 +48,22 @@ inl game (restriction,is_flop_only,sb,bb,stack) =
             | Call =>
                 inl p1 = {p1 with pot=p2.pot}
                 if is_init then betting (p2,{p1 with pot=p2.pot}) else next (p1,p2)
-            | RaiseTo: pot =>  betting (p2,{p1 with pot})
+            | RaiseTo pot =>  betting (p2,{p1 with pot})
 
     inl pot = min sb stack
     inl id = 0u8
     draw deck fun (c1, deck) =>
-    notify (Some: id) c1 fun () =>
+    notify (Some id) c1 fun () =>
     draw deck fun (c2, deck) =>
-    notify (Some: id) c2 fun () =>
+    notify (Some id) c2 fun () =>
     inl p1 = {pot id hand = c1,c2}
 
     inl pot = min bb stack
     inl id = 1u8
     draw deck fun (c1, deck) =>
-    notify (Some: id) c1 fun () =>
+    notify (Some id) c1 fun () =>
     draw deck fun (c2, deck) =>
-    notify (Some: id) c2 fun () =>
+    notify (Some id) c2 fun () =>
     inl p2 = {pot id hand = c1,c2}
 
     draw deck fun c3, deck =>

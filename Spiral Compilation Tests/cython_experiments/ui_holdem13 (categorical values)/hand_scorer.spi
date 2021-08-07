@@ -7,27 +7,27 @@ type rank = i8
 inl suit card : suit = card / 13
 inl rank card : rank = card % 13
 
-inl full (suit:rank:) : card = suit * 13 + rank
-inl has_card' (hand:) v = ((hand : hand) &&& (1 <<< i32 (full v))) <> 0
+inl full {suit rank} : card = suit * 13 + rank
+inl has_card' {hand} v = ((hand : hand) &&& (1 <<< i32 (full v))) <> 0
 inl has_card x v : u8 = if has_card' x v then 1 else 0
-inl any_suit x (rank:) = inl f suit = has_card' x (suit:rank:) in f 0 || f 1 || f 2 || f 3
-inl count_suits x (rank:) = inl f suit = has_card x (suit:rank:) in f 0 + f 1 + f 2 + f 3
+inl any_suit x {rank} = inl f suit = has_card' x {suit rank} in f 0 || f 1 || f 2 || f 3
+inl count_suits x {rank} = inl f suit = has_card x {suit rank} in f 0 + f 1 + f 2 + f 3
 
 nominal hand_score = {score : i8; hand : card * card * card * card * card}
 instance comparable hand_score = fun a b => 
     inl f (hand_score {score hand=c0,c1,c2,c3,c4}) = score, rank c0, rank c1, rank c2, rank c3, rank c4
     comp (f a) (f b)
 
-inl Score = {
-    high_card = 1i8
-    pair = 2i8
-    two_pair = 3i8
-    triple = 4i8
-    straight = 5i8
-    flush = 6i8
-    full_house = 7i8
-    four_of_a_kind = 8i8
-    straight_flush = 9i8
+inl score() = {
+    high_card = 0i8
+    pair = 1i8
+    two_pair = 2i8
+    triple = 3i8
+    straight = 4i8
+    flush = 5i8
+    full_house = 6i8
+    four_of_a_kind = 7i8
+    straight_flush = 8i8
     }
 
 inl update4 (x1,x2,x3,x4) (i : i8) v =
@@ -36,13 +36,13 @@ inl update4 (x1,x2,x3,x4) (i : i8) v =
     elif i = 2 then x1,x2,v,x4
     else x1,x2,x3,v
 
-inl NumSuits = 4i8
-inl NumRanks = 13i8
+inl numSuits() = 4i8
+inl numRanks() = 13i8
 
-inl find_suits hand (rank:) =
+inl find_suits hand {rank} =
     let rec loop (xs, (i : i8)) suit =
-        if suit < NumSuits then
-            loop (if has_card' hand (suit:rank:) then update4 xs i (full (suit:rank:)),i+1 else xs,i) (suit+1)
+        if suit < numSuits() then
+            loop (if has_card' hand {suit rank} then update4 xs i (full {suit rank}),i+1 else xs,i) (suit+1)
         else xs
     loop ((-1, -1, -1, -1), 0) 0
 
@@ -55,7 +55,7 @@ inl update5 (x1,x2,x3,x4,x5) (i : u8) v =
 
 inl straigth_rank rank i = // Since ace is both -1 and 12, it corrects for the former.
     inl rank = rank + i
-    if rank < 0 then rank + NumRanks else rank
+    if rank < 0 then rank + numRanks() else rank
 
 inl score hand =
     inl high_card_template cond =
@@ -63,127 +63,127 @@ inl score hand =
             if cond rank then loop (rank-1) state
             elif 0 <= rank then
                 let rec add_suits suit (c,s : _ * u8) =
-                    if suit < NumSuits then
-                        if has_card' hand (suit:rank:) then 
-                            inl c,s = update5 c s (full (suit:rank:)), s+1
+                    if suit < numSuits() then
+                        if has_card' hand {suit rank} then 
+                            inl c,s = update5 c s (full {suit rank}), s+1
                             if s < 5 then add_suits (suit+1) (c,s)
                             else c
                         else add_suits (suit+1) (c,s)
                     else loop (rank-1) (c,s)
                 add_suits 0 state
             else fst state
-        loop (NumRanks-1) ((-1, -1, -1, -1, -1), 0)
+        loop (numRanks()-1) ((-1, -1, -1, -1, -1), 0)
     inl high_card2 rank rank' = high_card_template (fun x => x = rank || x = rank')
     inl high_card1 rank = high_card_template (fun x => x = rank)
-    inl high_card() = hand_score {score=Score.high_card; hand=high_card_template (fun _ => false)}
+    inl high_card() = hand_score {score=score().high_card; hand=high_card_template (fun _ => false)}
     inl pair() = 
         let rec loop_pair rank =
             if 0 <= rank then
-                if count_suits hand (rank:) = 2 then
-                    inl c1,c2,_ = find_suits hand (rank:)
+                if count_suits hand {rank} = 2 then
+                    inl c1,c2,_ = find_suits hand {rank}
                     inl c3,c4,c5,_ = high_card1 rank
-                    hand_score {score=Score.pair; hand=c1,c2,c3,c4,c5}
+                    hand_score {score=score().pair; hand=c1,c2,c3,c4,c5}
                 else loop_pair (rank-1)
             else high_card()
-        loop_pair (NumRanks-1)
+        loop_pair (numRanks()-1)
     inl two_pair() = 
         let rec loop_pair' rank =
             if 0 <= rank then
-                if count_suits hand (rank:) = 2 then
-                    inl c1,c2,_ = find_suits hand (rank:)
+                if count_suits hand {rank} = 2 then
+                    inl c1,c2,_ = find_suits hand {rank}
                     let rec loop_pair rank' =
                         if rank = rank' then loop_pair (rank'-1)
                         elif 0 <= rank' then
-                            if count_suits hand (rank:rank') = 2 then
-                                inl c3,c4,_ = find_suits hand (rank:rank')
+                            if count_suits hand {rank=rank'} = 2 then
+                                inl c3,c4,_ = find_suits hand {rank=rank'}
                                 inl c5,_ = high_card2 rank rank'
-                                hand_score {score=Score.two_pair; hand=c1,c2,c3,c4,c5}
+                                hand_score {score=score().two_pair; hand=c1,c2,c3,c4,c5}
                             else loop_pair (rank'-1)
                         else pair()
-                    loop_pair (NumRanks-1)
+                    loop_pair (numRanks()-1)
                 else loop_pair' (rank-1)
             else pair()
-        loop_pair' (NumRanks-1)
+        loop_pair' (numRanks()-1)
     inl triple() =
         let rec loop_triple rank =
             if 0 <= rank then
-                if count_suits hand (rank:) = 3 then
-                    inl c1,c2,c3,_ = find_suits hand (rank:)
+                if count_suits hand {rank} = 3 then
+                    inl c1,c2,c3,_ = find_suits hand {rank}
                     inl c4,c5,_ = high_card1 rank
-                    hand_score {score=Score.triple; hand=c1,c2,c3,c4,c5}
+                    hand_score {score=score().triple; hand=c1,c2,c3,c4,c5}
                 else loop_triple (rank-1)
             else two_pair()
-        loop_triple (NumRanks-1)
+        loop_triple (numRanks()-1)
     inl straight() =
         let rec loop rank =
             if -1 <= rank then 
                 inl is_straight =
-                    inl f i = any_suit hand (rank:straigth_rank rank i)
+                    inl f i = any_suit hand {rank=straigth_rank rank i}
                     f 4 && f 3 && f 2 && f 1 && f 0
                 if is_straight then
-                    inl f i = fst (find_suits hand (rank: straigth_rank rank i))
-                    hand_score {score = Score.straight; hand = f 4, f 3, f 2, f 1, f 0}
+                    inl f i = fst (find_suits hand {rank=straigth_rank rank i})
+                    hand_score {score = score().straight; hand = f 4, f 3, f 2, f 1, f 0}
                 else loop (rank-1)
             else triple()
-        loop (NumRanks-5)
+        loop (numRanks()-5)
     inl flush() =
         inl find_hand ~suit =
             let rec loop rank (h,c as state) =
                 inl (h,c as state) =
-                    if has_card' hand (suit:rank:) then update5 h c (full (suit:rank:)),c+1
+                    if has_card' hand {suit rank} then update5 h c (full {suit rank}),c+1
                     else state
-                if c = 5 then hand_score {score=Score.flush; hand=h}
+                if c = 5 then hand_score {score=score().flush; hand=h}
                 else loop (rank-1) state
-            loop (NumRanks-1) ((-1, -1, -1, -1, -1), 0)
+            loop (numRanks()-1) ((-1, -1, -1, -1, -1), 0)
         let rec find_suit rank (q0,q1,q2,q3 as state) =
             if 0 <= rank then
-                inl f suit = has_card hand (suit:rank:)
+                inl f suit = has_card hand {suit rank}
                 match q0 + f 0, q1 + f 1, q2 + f 2, q3 + f 3 with
                 | 5u8,_,_,_ => find_hand 0 | _,5u8,_,_ => find_hand 1
                 | _,_,5u8,_ => find_hand 2 | _,_,_,5u8 => find_hand 3
                 | state => find_suit (rank-1) state
             else straight()
-        find_suit (NumRanks-1) (0,0,0,0)
+        find_suit (numRanks()-1) (0,0,0,0)
     inl full_house() = 
         let rec loop_triple rank =
             if 0 <= rank then
-                if count_suits hand (rank:) = 3 then
-                    inl c1,c2,c3,_ = find_suits hand (rank:)
+                if count_suits hand {rank} = 3 then
+                    inl c1,c2,c3,_ = find_suits hand {rank}
                     let rec loop_pair rank' =
                         if rank = rank' then loop_pair (rank'-1)
                         elif 0 <= rank' then
-                            if 2 <= count_suits hand (rank:rank') then
-                                inl c4,c5,_ = find_suits hand (rank:rank')
-                                hand_score {score=Score.full_house; hand=c1,c2,c3,c4,c5}
+                            if 2 <= count_suits hand {rank=rank'} then
+                                inl c4,c5,_ = find_suits hand {rank=rank'}
+                                hand_score {score=score().full_house; hand=c1,c2,c3,c4,c5}
                             else loop_pair (rank'-1)
                         else flush()
-                    loop_pair (NumRanks-1)
+                    loop_pair (numRanks()-1)
                 else loop_triple (rank-1)
             else flush()
-        loop_triple (NumRanks-1)
+        loop_triple (numRanks()-1)
     inl four_of_a_kind() =
         let rec loop_ranks rank =
             if 0 <= rank then
-                if count_suits hand (rank:) = 4 then 
-                    inl f suit = full (suit:rank:)
-                    hand_score {score=Score.four_of_a_kind; hand=f 0, f 1, f 2, f 3, fst (high_card1 rank)}
+                if count_suits hand {rank} = 4 then 
+                    inl f suit = full {suit rank}
+                    hand_score {score=score().four_of_a_kind; hand=f 0, f 1, f 2, f 3, fst (high_card1 rank)}
                 else loop_ranks (rank-1)
             else full_house()
-        loop_ranks (NumRanks-1)
+        loop_ranks (numRanks()-1)
     inl straight_flush() =
         let rec loop_ranks (rank : i8) =
             if -1 <= rank then
                 let rec loop_suits suit =
-                    if suit < NumSuits then
+                    if suit < numSuits() then
                         inl is_straight_flush =
-                            inl f i = has_card' hand (suit:rank:straigth_rank rank i)
+                            inl f i = has_card' hand {suit rank=straigth_rank rank i}
                             f 4 && f 3 && f 2 && f 1 && f 0
                         if is_straight_flush then
-                            inl f i = full (suit:rank:straigth_rank rank i)
-                            hand_score {score=Score.straight_flush; hand=f 4, f 3, f 2, f 1, f 0}
+                            inl f i = full {suit rank=straigth_rank rank i}
+                            hand_score {score=score().straight_flush; hand=f 4, f 3, f 2, f 1, f 0}
                         else loop_suits (suit+1)
                     else loop_ranks (rank-1)
                 loop_suits 0
             else four_of_a_kind()
-        loop_ranks (NumRanks-5)
+        loop_ranks (numRanks()-5)
     straight_flush()

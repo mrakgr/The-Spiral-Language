@@ -9,7 +9,8 @@ from torch.optim.swa_utils import AveragedModel
 from belief import SignSGD, SquareErrorTracker,model_explore,model_exploit,EncoderList,Head
 
 # defaults = dict(game_mode=0,sb=10,bb=20,stack_size=1000,schema_stack_size=1000) # Holdem
-defaults = dict(game_mode=2,sb=10,bb=20,stack_size=1000,schema_stack_size=1000) # River
+# defaults = dict(game_mode=2,sb=10,bb=20,stack_size=1000,schema_stack_size=1000) # River
+defaults = dict(game_mode=1,sb=1,bb=2,stack_size=10,schema_stack_size=10) # River
 
 from projector import LinearProjector
 
@@ -141,7 +142,7 @@ if __name__ == '__main__':
         format='%(asctime)s %(message)s'
         )
 
-    create_nn_agent(1000,0,10,40,1,**args,**defaults,mode='callbot',resume_from=240)
+    create_nn_agent(30,0,10,40,1,**args,**defaults,mode='callbot')
     # players = [f'nn_agent_{i}_self.nnavg' for i in range(10,151,10)]
     # players = ['nn_agent_120_self.nnavg','nn_agent_130_self.nnavg']
     # competitive_eval(players,**args,**defaults)

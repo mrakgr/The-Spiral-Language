@@ -9,28 +9,28 @@ cdef class Mut0:
     def __init__(self, unsigned long long v0): self.v0 = v0
 cdef class US1:
     cdef readonly signed long tag
-cdef class US1_0(US1): # call
+cdef class US1_0(US1): # Call
     def __init__(self): self.tag = 0
-cdef class US1_1(US1): # fold
+cdef class US1_1(US1): # Fold
     def __init__(self): self.tag = 1
-cdef class US1_2(US1): # raiseTo_
+cdef class US1_2(US1): # RaiseTo
     cdef readonly signed short v0
     def __init__(self, signed short v0): self.tag = 2; self.v0 = v0
 cdef class US0:
     cdef readonly signed long tag
-cdef class US0_0(US0): # c1of2_
+cdef class US0_0(US0): # C1of2
     cdef readonly signed char v0
     def __init__(self, signed char v0): self.tag = 0; self.v0 = v0
-cdef class US0_1(US0): # c2of2_
+cdef class US0_1(US0): # C2of2
     cdef readonly US1 v0
     def __init__(self, US1 v0): self.tag = 1; self.v0 = v0
 cdef class UH0:
     cdef readonly signed long tag
-cdef class UH0_0(UH0): # cons_
+cdef class UH0_0(UH0): # Cons
     cdef readonly US0 v0
     cdef readonly UH0 v1
     def __init__(self, US0 v0, UH0 v1): self.tag = 0; self.v0 = v0; self.v1 = v1
-cdef class UH0_1(UH0): # nil
+cdef class UH0_1(UH0): # Nil
     def __init__(self): self.tag = 1
 cdef class Tuple0:
     cdef readonly float v0
@@ -129,19 +129,19 @@ cdef class Mut2:
     def __init__(self, signed short v0): self.v0 = v0
 cdef class US2:
     cdef readonly signed long tag
-cdef class US2_0(US2): # c1of2_
+cdef class US2_0(US2): # C1of2
     cdef readonly signed char v0
     def __init__(self, signed char v0): self.tag = 0; self.v0 = v0
-cdef class US2_1(US2): # c2of2_
+cdef class US2_1(US2): # C2of2
     cdef readonly signed char v0
     def __init__(self, signed char v0): self.tag = 1; self.v0 = v0
 cdef class UH1:
     cdef readonly signed long tag
-cdef class UH1_0(UH1): # cons_
+cdef class UH1_0(UH1): # Cons
     cdef readonly US2 v0
     cdef readonly UH1 v1
     def __init__(self, US2 v0, UH1 v1): self.tag = 0; self.v0 = v0; self.v1 = v1
-cdef class UH1_1(UH1): # nil
+cdef class UH1_1(UH1): # Nil
     def __init__(self): self.tag = 1
 cdef class Mut3:
     cdef public signed short v0
@@ -674,11 +674,11 @@ cdef class Closure4():
                 while method2(v173, v174):
                     v176 = v174.v0
                     v177 = v108[v176]
-                    if v177.tag == 0: # call
+                    if v177.tag == 0: # Call
                         v186 = (<signed short>0)
-                    elif v177.tag == 1: # fold
+                    elif v177.tag == 1: # Fold
                         v186 = (<signed short>1)
-                    elif v177.tag == 2: # raiseTo_
+                    elif v177.tag == 2: # RaiseTo
                         v178 = (<US1_2>v177).v0
                         v179 = (<signed short>-2) + v178
                         v180 = (<signed short>0) <= v179
@@ -906,7 +906,7 @@ cdef class Closure6():
         return Tuple2(v2, v34)
 cdef class UH2:
     cdef readonly signed long tag
-cdef class UH2_0(UH2): # action_
+cdef class UH2_0(UH2): # Action
     cdef readonly float v0
     cdef readonly float v1
     cdef readonly UH0 v2
@@ -931,7 +931,7 @@ cdef class UH2_0(UH2): # action_
     cdef readonly object v21
     cdef readonly object v22
     def __init__(self, float v0, float v1, UH0 v2, float v3, float v4, UH0 v5, float v6, float v7, signed char v8, signed char v9, unsigned char v10, signed short v11, signed char v12, signed char v13, unsigned char v14, signed short v15, v16, signed short v17, signed short v18, bint v19, unsigned char v20, v21, v22): self.tag = 0; self.v0 = v0; self.v1 = v1; self.v2 = v2; self.v3 = v3; self.v4 = v4; self.v5 = v5; self.v6 = v6; self.v7 = v7; self.v8 = v8; self.v9 = v9; self.v10 = v10; self.v11 = v11; self.v12 = v12; self.v13 = v13; self.v14 = v14; self.v15 = v15; self.v16 = v16; self.v17 = v17; self.v18 = v18; self.v19 = v19; self.v20 = v20; self.v21 = v21; self.v22 = v22
-cdef class UH2_1(UH2): # terminal_
+cdef class UH2_1(UH2): # Terminal
     cdef readonly float v0
     cdef readonly float v1
     cdef readonly UH0 v2
@@ -2806,20 +2806,20 @@ cdef bint method3(signed short v0, Mut3 v1) except *:
 cdef unsigned long long method4(UH0 v0, unsigned long long v1) except *:
     cdef UH0 v3
     cdef unsigned long long v4
-    if v0.tag == 0: # cons_
+    if v0.tag == 0: # Cons
         v3 = (<UH0_0>v0).v1
         v4 = v1 + (<unsigned long long>1)
         return method4(v3, v4)
-    elif v0.tag == 1: # nil
+    elif v0.tag == 1: # Nil
         return v1
 cdef unsigned long long method5(UH1 v0, unsigned long long v1) except *:
     cdef UH1 v3
     cdef unsigned long long v4
-    if v0.tag == 0: # cons_
+    if v0.tag == 0: # Cons
         v3 = (<UH1_0>v0).v1
         v4 = v1 + (<unsigned long long>1)
         return method5(v3, v4)
-    elif v0.tag == 1: # nil
+    elif v0.tag == 1: # Nil
         return v1
 cdef signed short method8(signed short v0, numpy.ndarray[float,ndim=1] v1, signed short v2, signed short v3, signed short v4) except *:
     cdef bint v5
@@ -2920,12 +2920,12 @@ cdef unsigned long long method6(signed short v0, signed short v1, signed short v
     cdef US1 v51
     cdef signed short v52
     cdef signed short v53
-    if v9.tag == 0: # cons_
+    if v9.tag == 0: # Cons
         v11 = (<UH0_0>v9).v0; v12 = (<UH0_0>v9).v1
         v13 = method6(v0, v1, v2, v3, v4, v5, v6, v7, v8, v12, v10)
         del v12
         v14 = v6[v8,v13,:]
-        if v11.tag == 0: # c1of2_
+        if v11.tag == 0: # C1of2
             v15 = (<US0_0>v11).v0
             v16 = v15 // (<signed char>13)
             v17 = v15 % (<signed char>13)
@@ -2954,20 +2954,20 @@ cdef unsigned long long method6(signed short v0, signed short v1, signed short v
             else:
                 v30 = f'Pickle failure. Int value out of bounds. Got: {v17} Size: {(<signed short>13)}'
                 raise Exception(v30)
-        elif v11.tag == 1: # c2of2_
+        elif v11.tag == 1: # C2of2
             v31 = (<US0_1>v11).v0
-            if v31.tag == 0: # call
+            if v31.tag == 0: # Call
                 v14[(<signed short>17)] = (<float>1)
-            elif v31.tag == 1: # fold
+            elif v31.tag == 1: # Fold
                 v14[(<signed short>18)] = (<float>1)
-            elif v31.tag == 2: # raiseTo_
+            elif v31.tag == 2: # RaiseTo
                 v32 = (<US1_2>v31).v0
                 v33 = (<signed short>19)
                 method7(v2, v32, v14, v33)
             del v31
         del v14
         v34 = v7[v8,v13,:]
-        if v11.tag == 0: # c1of2_
+        if v11.tag == 0: # C1of2
             v35 = (<US0_0>v11).v0
             v36 = v35 // (<signed char>13)
             v37 = v35 % (<signed char>13)
@@ -2996,20 +2996,20 @@ cdef unsigned long long method6(signed short v0, signed short v1, signed short v
             else:
                 v50 = f'Pickle failure. Int value out of bounds. Got: {v37} Size: {(<signed short>13)}'
                 raise Exception(v50)
-        elif v11.tag == 1: # c2of2_
+        elif v11.tag == 1: # C2of2
             v51 = (<US0_1>v11).v0
-            if v51.tag == 0: # call
+            if v51.tag == 0: # Call
                 v34[(<signed short>17)] = (<float>1)
-            elif v51.tag == 1: # fold
+            elif v51.tag == 1: # Fold
                 v34[(<signed short>18)] = (<float>1)
-            elif v51.tag == 2: # raiseTo_
+            elif v51.tag == 2: # RaiseTo
                 v52 = (<US1_2>v51).v0
                 v53 = (<signed short>19)
                 method7(v2, v52, v34, v53)
             del v51
         del v11; del v34
         return v13 + (<unsigned long long>1)
-    elif v9.tag == 1: # nil
+    elif v9.tag == 1: # Nil
         return v10
 cdef void method9(unsigned long long v0, numpy.ndarray[signed char,ndim=2] v1, unsigned long long v2, unsigned long long v3) except *:
     cdef bint v4
@@ -3059,10 +3059,10 @@ cdef unsigned long long method10(signed short v0, signed short v1, signed short 
     cdef signed short v48
     cdef str v49
     cdef unsigned long long v50
-    if v8.tag == 0: # cons_
+    if v8.tag == 0: # Cons
         v10 = (<UH1_0>v8).v0; v11 = (<UH1_0>v8).v1
         v12 = v6[v7,v9,:]
-        if v10.tag == 0: # c1of2_
+        if v10.tag == 0: # C1of2
             v13 = (<US2_0>v10).v0
             v14 = v13 // (<signed char>13)
             v15 = v13 % (<signed char>13)
@@ -3093,7 +3093,7 @@ cdef unsigned long long method10(signed short v0, signed short v1, signed short 
             else:
                 v30 = f'Pickle failure. Int value out of bounds. Got: {v15} Size: {(<signed short>13)}'
                 raise Exception(v30)
-        elif v10.tag == 1: # c2of2_
+        elif v10.tag == 1: # C2of2
             v31 = (<US2_1>v10).v0
             v32 = v4 + (<signed short>17)
             v33 = v31 // (<signed char>13)
@@ -3128,7 +3128,7 @@ cdef unsigned long long method10(signed short v0, signed short v1, signed short 
         del v10; del v12
         v50 = v9 + (<unsigned long long>1)
         return method10(v0, v1, v2, v3, v4, v5, v6, v7, v11, v50)
-    elif v8.tag == 1: # nil
+    elif v8.tag == 1: # Nil
         return v9
 cdef void method11(unsigned long long v0, numpy.ndarray[signed char,ndim=2] v1, unsigned long long v2, unsigned long long v3) except *:
     cdef bint v4
@@ -3317,7 +3317,7 @@ cdef Tuple3 method19(unsigned long long v0, signed char v1, signed char v2):
             else:
                 v78 = v1
             v79 = v8 + v78
-            return Tuple3(v60, v65, v70, v75, v79, (<signed char>9))
+            return Tuple3(v60, v65, v70, v75, v79, (<signed char>8))
         else:
             v80 = v2 + (<signed char>1)
             return method19(v0, v1, v80)
@@ -3514,7 +3514,7 @@ cdef Tuple3 method27(unsigned long long v0, signed char v1, signed char v2, sign
         v41, v42, v43, v44, v45, v46 = v3, v4, v5, v6, v7, v8
     v47 = v46 == (<unsigned char>5)
     if v47:
-        return Tuple3(v41, v42, v43, v44, v45, (<signed char>6))
+        return Tuple3(v41, v42, v43, v44, v45, (<signed char>5))
     else:
         v48 = v2 - (<signed char>1)
         return method27(v0, v1, v48, v41, v42, v43, v44, v45, v46)
@@ -3810,7 +3810,7 @@ cdef Tuple3 method34(unsigned long long v0, signed char v1):
             tmp35 = method21(v0, v1, v44, v45, v46, v47, v48, v49, v50)
             v51, v52, v53, v54, v55 = tmp35.v0, tmp35.v1, tmp35.v2, tmp35.v3, tmp35.v4
             del tmp35
-            return Tuple3(v40, v41, v51, v52, v53, (<signed char>2))
+            return Tuple3(v40, v41, v51, v52, v53, (<signed char>1))
         else:
             v56 = v1 - (<signed char>1)
             return method34(v0, v56)
@@ -3825,7 +3825,7 @@ cdef Tuple3 method34(unsigned long long v0, signed char v1):
         tmp36 = method35(v0, v69, v70, v71, v72, v73, v74, v75)
         v76, v77, v78, v79, v80 = tmp36.v0, tmp36.v1, tmp36.v2, tmp36.v3, tmp36.v4
         del tmp36
-        return Tuple3(v76, v77, v78, v79, v80, (<signed char>1))
+        return Tuple3(v76, v77, v78, v79, v80, (<signed char>0))
 cdef Tuple3 method31(unsigned long long v0, signed char v1, signed char v2, signed char v3, signed char v4):
     cdef bint v5
     cdef signed char v6
@@ -3957,7 +3957,7 @@ cdef Tuple3 method31(unsigned long long v0, signed char v1, signed char v2, sign
                 tmp33 = method32(v0, v1, v4, v55, v56, v57, v58, v59, v60, v61)
                 v62, v63, v64, v65, v66 = tmp33.v0, tmp33.v1, tmp33.v2, tmp33.v3, tmp33.v4
                 del tmp33
-                return Tuple3(v3, v2, v51, v52, v62, (<signed char>3))
+                return Tuple3(v3, v2, v51, v52, v62, (<signed char>2))
             else:
                 v67 = v4 - (<signed char>1)
                 return method31(v0, v1, v2, v3, v67)
@@ -4198,7 +4198,7 @@ cdef Tuple3 method29(unsigned long long v0, signed char v1):
             tmp30 = method21(v0, v1, v44, v45, v46, v47, v48, v49, v50)
             v51, v52, v53, v54, v55 = tmp30.v0, tmp30.v1, tmp30.v2, tmp30.v3, tmp30.v4
             del tmp30
-            return Tuple3(v40, v41, v42, v51, v52, (<signed char>4))
+            return Tuple3(v40, v41, v42, v51, v52, (<signed char>3))
         else:
             v56 = v1 - (<signed char>1)
             return method29(v0, v56)
@@ -4681,7 +4681,7 @@ cdef Tuple3 method28(unsigned long long v0, signed char v1):
             tmp28 = method24(v0, v212, v217, v213, v214, v215, v216, v218)
             v219, v220, v221, v222 = tmp28.v0, tmp28.v1, tmp28.v2, tmp28.v3
             del tmp28
-            return Tuple3(v164, v178, v192, v206, v219, (<signed char>5))
+            return Tuple3(v164, v178, v192, v206, v219, (<signed char>4))
         else:
             v223 = v1 - (<signed char>1)
             return method28(v0, v223)
@@ -4969,7 +4969,7 @@ cdef Tuple3 method25(unsigned long long v0, signed char v1, signed char v2, sign
                 tmp23 = method24(v0, v5, v50, v46, v47, v48, v49, v51)
                 v52, v53, v54, v55 = tmp23.v0, tmp23.v1, tmp23.v2, tmp23.v3
                 del tmp23
-                return Tuple3(v4, v3, v2, v52, v53, (<signed char>7))
+                return Tuple3(v4, v3, v2, v52, v53, (<signed char>6))
             else:
                 v56 = v5 - (<signed char>1)
                 return method25(v0, v1, v2, v3, v4, v56)
@@ -5202,7 +5202,7 @@ cdef Tuple3 method20(unsigned long long v0, signed char v1):
             tmp21 = method21(v0, v1, v34, v35, v36, v37, v38, v39, v40)
             v41, v42, v43, v44, v45 = tmp21.v0, tmp21.v1, tmp21.v2, tmp21.v3, tmp21.v4
             del tmp21
-            return Tuple3(v1, v9, v17, v25, v41, (<signed char>8))
+            return Tuple3(v1, v9, v17, v25, v41, (<signed char>7))
         else:
             v46 = v1 - (<signed char>1)
             return method20(v0, v46)
@@ -5471,14 +5471,14 @@ cdef UH2 method41(bint v0, signed char v1, signed char v2, unsigned char v3, sig
     cdef signed short v32
     cdef bint v33
     cdef object v34
-    if v13.tag == 0: # call
+    if v13.tag == 0: # Call
         if v0:
             v22 = 0
             v25 = method39(v8, v9, v10, v11, v22, v5, v6, v7, v4, v1, v2, v3, v12)
         else:
             v25 = method40(v8, v12, v1, v2, v3, v4, v5, v6, v7)
         return v25(v14, v15, v16, v17, v18, v19, v20, v21)
-    elif v13.tag == 1: # fold
+    elif v13.tag == 1: # Fold
         v27 = v7 == (<unsigned char>0)
         if v27:
             v29 = -v4
@@ -5486,7 +5486,7 @@ cdef UH2 method41(bint v0, signed char v1, signed char v2, unsigned char v3, sig
             v29 = v4
         v30 = <float>v29
         return UH2_1(v14, v15, v16, v17, v18, v19, v20, v21, v5, v6, v7, v4, v1, v2, v3, v4, v12, (<signed short>0), v8, 0, v30)
-    elif v13.tag == 2: # raiseTo_
+    elif v13.tag == 2: # RaiseTo
         v32 = (<US1_2>v13).v0
         v33 = 0
         v34 = method13(v8, v9, v10, v11, v33, v5, v6, v7, v32, v1, v2, v3, v4, v12)
@@ -5615,11 +5615,11 @@ cdef object method39(signed short v0, signed short v1, unsigned char v2, numpy.n
                     v32 = v30.v0
                     v33 = v30.v1
                     v34 = v25[v32]
-                    if v34.tag == 0: # call
+                    if v34.tag == 0: # Call
                         v63 = 1
-                    elif v34.tag == 1: # fold
+                    elif v34.tag == 1: # Fold
                         v63 = 1
-                    elif v34.tag == 2: # raiseTo_
+                    elif v34.tag == 2: # RaiseTo
                         v35 = (<US1_2>v34).v0
                         v36 = v2 == (<unsigned char>1)
                         v37 = v35 == v0
@@ -5699,11 +5699,11 @@ cdef object method39(signed short v0, signed short v1, unsigned char v2, numpy.n
                         v79 = v77.v0
                         v80 = v77.v1
                         v81 = v25[v79]
-                        if v81.tag == 0: # call
+                        if v81.tag == 0: # Call
                             v110 = 1
-                        elif v81.tag == 1: # fold
+                        elif v81.tag == 1: # Fold
                             v110 = 1
-                        elif v81.tag == 2: # raiseTo_
+                        elif v81.tag == 2: # RaiseTo
                             v82 = (<US1_2>v81).v0
                             v83 = v2 == (<unsigned char>1)
                             v84 = v82 == v0
@@ -5784,14 +5784,14 @@ cdef UH2 method38(bint v0, signed char v1, signed char v2, unsigned char v3, sig
     cdef signed short v33
     cdef bint v34
     cdef object v35
-    if v14.tag == 0: # call
+    if v14.tag == 0: # Call
         if v0:
             v23 = 0
             v26 = method39(v9, v10, v11, v12, v23, v5, v6, v7, v4, v1, v2, v3, v13)
         else:
             v26 = method40(v9, v13, v1, v2, v3, v4, v5, v6, v7)
         return v26(v15, v16, v17, v18, v19, v20, v21, v22)
-    elif v14.tag == 1: # fold
+    elif v14.tag == 1: # Fold
         v28 = v7 == (<unsigned char>0)
         if v28:
             v30 = -v8
@@ -5799,7 +5799,7 @@ cdef UH2 method38(bint v0, signed char v1, signed char v2, unsigned char v3, sig
             v30 = v8
         v31 = <float>v30
         return UH2_1(v15, v16, v17, v18, v19, v20, v21, v22, v5, v6, v7, v8, v1, v2, v3, v4, v13, (<signed short>0), v9, 0, v31)
-    elif v14.tag == 2: # raiseTo_
+    elif v14.tag == 2: # RaiseTo
         v33 = (<US1_2>v14).v0
         v34 = 0
         v35 = method13(v9, v10, v11, v12, v34, v5, v6, v7, v33, v1, v2, v3, v4, v13)
@@ -5949,11 +5949,11 @@ cdef object method13(signed short v0, signed short v1, unsigned char v2, numpy.n
                     v39 = v37.v0
                     v40 = v37.v1
                     v41 = v32[v39]
-                    if v41.tag == 0: # call
+                    if v41.tag == 0: # Call
                         v70 = 1
-                    elif v41.tag == 1: # fold
+                    elif v41.tag == 1: # Fold
                         v70 = 1
-                    elif v41.tag == 2: # raiseTo_
+                    elif v41.tag == 2: # RaiseTo
                         v42 = (<US1_2>v41).v0
                         v43 = v2 == (<unsigned char>1)
                         v44 = v42 == v0
@@ -6033,11 +6033,11 @@ cdef object method13(signed short v0, signed short v1, unsigned char v2, numpy.n
                         v86 = v84.v0
                         v87 = v84.v1
                         v88 = v32[v86]
-                        if v88.tag == 0: # call
+                        if v88.tag == 0: # Call
                             v117 = 1
-                        elif v88.tag == 1: # fold
+                        elif v88.tag == 1: # Fold
                             v117 = 1
-                        elif v88.tag == 2: # raiseTo_
+                        elif v88.tag == 2: # RaiseTo
                             v89 = (<US1_2>v88).v0
                             v90 = v2 == (<unsigned char>1)
                             v91 = v89 == v0
@@ -6118,14 +6118,14 @@ cdef UH2 method51(bint v0, signed char v1, signed char v2, unsigned char v3, sig
     cdef signed short v32
     cdef bint v33
     cdef object v34
-    if v13.tag == 0: # call
+    if v13.tag == 0: # Call
         if v0:
             v22 = 0
             v25 = method50(v8, v9, v10, v11, v22, v5, v6, v7, v4, v1, v2, v3, v12)
         else:
             v25 = method40(v8, v12, v1, v2, v3, v4, v5, v6, v7)
         return v25(v14, v15, v16, v17, v18, v19, v20, v21)
-    elif v13.tag == 1: # fold
+    elif v13.tag == 1: # Fold
         v27 = v7 == (<unsigned char>0)
         if v27:
             v29 = -v4
@@ -6133,7 +6133,7 @@ cdef UH2 method51(bint v0, signed char v1, signed char v2, unsigned char v3, sig
             v29 = v4
         v30 = <float>v29
         return UH2_1(v14, v15, v16, v17, v18, v19, v20, v21, v5, v6, v7, v4, v1, v2, v3, v4, v12, (<signed short>5), v8, 0, v30)
-    elif v13.tag == 2: # raiseTo_
+    elif v13.tag == 2: # RaiseTo
         v32 = (<US1_2>v13).v0
         v33 = 0
         v34 = method48(v8, v9, v10, v11, v33, v5, v6, v7, v32, v1, v2, v3, v4, v12)
@@ -6262,11 +6262,11 @@ cdef object method50(signed short v0, signed short v1, unsigned char v2, numpy.n
                     v32 = v30.v0
                     v33 = v30.v1
                     v34 = v25[v32]
-                    if v34.tag == 0: # call
+                    if v34.tag == 0: # Call
                         v63 = 1
-                    elif v34.tag == 1: # fold
+                    elif v34.tag == 1: # Fold
                         v63 = 1
-                    elif v34.tag == 2: # raiseTo_
+                    elif v34.tag == 2: # RaiseTo
                         v35 = (<US1_2>v34).v0
                         v36 = v2 == (<unsigned char>1)
                         v37 = v35 == v0
@@ -6346,11 +6346,11 @@ cdef object method50(signed short v0, signed short v1, unsigned char v2, numpy.n
                         v79 = v77.v0
                         v80 = v77.v1
                         v81 = v25[v79]
-                        if v81.tag == 0: # call
+                        if v81.tag == 0: # Call
                             v110 = 1
-                        elif v81.tag == 1: # fold
+                        elif v81.tag == 1: # Fold
                             v110 = 1
-                        elif v81.tag == 2: # raiseTo_
+                        elif v81.tag == 2: # RaiseTo
                             v82 = (<US1_2>v81).v0
                             v83 = v2 == (<unsigned char>1)
                             v84 = v82 == v0
@@ -6431,14 +6431,14 @@ cdef UH2 method49(bint v0, signed char v1, signed char v2, unsigned char v3, sig
     cdef signed short v33
     cdef bint v34
     cdef object v35
-    if v14.tag == 0: # call
+    if v14.tag == 0: # Call
         if v0:
             v23 = 0
             v26 = method50(v9, v10, v11, v12, v23, v5, v6, v7, v4, v1, v2, v3, v13)
         else:
             v26 = method40(v9, v13, v1, v2, v3, v4, v5, v6, v7)
         return v26(v15, v16, v17, v18, v19, v20, v21, v22)
-    elif v14.tag == 1: # fold
+    elif v14.tag == 1: # Fold
         v28 = v7 == (<unsigned char>0)
         if v28:
             v30 = -v8
@@ -6446,7 +6446,7 @@ cdef UH2 method49(bint v0, signed char v1, signed char v2, unsigned char v3, sig
             v30 = v8
         v31 = <float>v30
         return UH2_1(v15, v16, v17, v18, v19, v20, v21, v22, v5, v6, v7, v8, v1, v2, v3, v4, v13, (<signed short>5), v9, 0, v31)
-    elif v14.tag == 2: # raiseTo_
+    elif v14.tag == 2: # RaiseTo
         v33 = (<US1_2>v14).v0
         v34 = 0
         v35 = method48(v9, v10, v11, v12, v34, v5, v6, v7, v33, v1, v2, v3, v4, v13)
@@ -6596,11 +6596,11 @@ cdef object method48(signed short v0, signed short v1, unsigned char v2, numpy.n
                     v39 = v37.v0
                     v40 = v37.v1
                     v41 = v32[v39]
-                    if v41.tag == 0: # call
+                    if v41.tag == 0: # Call
                         v70 = 1
-                    elif v41.tag == 1: # fold
+                    elif v41.tag == 1: # Fold
                         v70 = 1
-                    elif v41.tag == 2: # raiseTo_
+                    elif v41.tag == 2: # RaiseTo
                         v42 = (<US1_2>v41).v0
                         v43 = v2 == (<unsigned char>1)
                         v44 = v42 == v0
@@ -6680,11 +6680,11 @@ cdef object method48(signed short v0, signed short v1, unsigned char v2, numpy.n
                         v86 = v84.v0
                         v87 = v84.v1
                         v88 = v32[v86]
-                        if v88.tag == 0: # call
+                        if v88.tag == 0: # Call
                             v117 = 1
-                        elif v88.tag == 1: # fold
+                        elif v88.tag == 1: # Fold
                             v117 = 1
-                        elif v88.tag == 2: # raiseTo_
+                        elif v88.tag == 2: # RaiseTo
                             v89 = (<US1_2>v88).v0
                             v90 = v2 == (<unsigned char>1)
                             v91 = v89 == v0
@@ -6797,14 +6797,14 @@ cdef UH2 method55(bint v0, signed char v1, signed char v2, unsigned char v3, sig
     cdef signed short v33
     cdef bint v34
     cdef object v35
-    if v14.tag == 0: # call
+    if v14.tag == 0: # Call
         if v0:
             v23 = 0
             v26 = method53(v8, v9, v10, v11, v23, v5, v6, v7, v4, v1, v2, v3, v12, v13)
         else:
             v26 = method54(v8, v9, v10, v11, v13, v12, v1, v2, v3, v4, v5, v6, v7)
         return v26(v15, v16, v17, v18, v19, v20, v21, v22)
-    elif v14.tag == 1: # fold
+    elif v14.tag == 1: # Fold
         v28 = v7 == (<unsigned char>0)
         if v28:
             v30 = -v4
@@ -6812,7 +6812,7 @@ cdef UH2 method55(bint v0, signed char v1, signed char v2, unsigned char v3, sig
             v30 = v4
         v31 = <float>v30
         return UH2_1(v15, v16, v17, v18, v19, v20, v21, v22, v5, v6, v7, v4, v1, v2, v3, v4, v12, (<signed short>4), v8, 0, v31)
-    elif v14.tag == 2: # raiseTo_
+    elif v14.tag == 2: # RaiseTo
         v33 = (<US1_2>v14).v0
         v34 = 0
         v35 = method46(v8, v9, v10, v11, v34, v5, v6, v7, v33, v1, v2, v3, v4, v12, v13)
@@ -6941,11 +6941,11 @@ cdef object method53(signed short v0, signed short v1, unsigned char v2, numpy.n
                     v33 = v31.v0
                     v34 = v31.v1
                     v35 = v26[v33]
-                    if v35.tag == 0: # call
+                    if v35.tag == 0: # Call
                         v64 = 1
-                    elif v35.tag == 1: # fold
+                    elif v35.tag == 1: # Fold
                         v64 = 1
-                    elif v35.tag == 2: # raiseTo_
+                    elif v35.tag == 2: # RaiseTo
                         v36 = (<US1_2>v35).v0
                         v37 = v2 == (<unsigned char>1)
                         v38 = v36 == v0
@@ -7025,11 +7025,11 @@ cdef object method53(signed short v0, signed short v1, unsigned char v2, numpy.n
                         v80 = v78.v0
                         v81 = v78.v1
                         v82 = v26[v80]
-                        if v82.tag == 0: # call
+                        if v82.tag == 0: # Call
                             v111 = 1
-                        elif v82.tag == 1: # fold
+                        elif v82.tag == 1: # Fold
                             v111 = 1
-                        elif v82.tag == 2: # raiseTo_
+                        elif v82.tag == 2: # RaiseTo
                             v83 = (<US1_2>v82).v0
                             v84 = v2 == (<unsigned char>1)
                             v85 = v83 == v0
@@ -7110,14 +7110,14 @@ cdef UH2 method52(bint v0, signed char v1, signed char v2, unsigned char v3, sig
     cdef signed short v34
     cdef bint v35
     cdef object v36
-    if v15.tag == 0: # call
+    if v15.tag == 0: # Call
         if v0:
             v24 = 0
             v27 = method53(v9, v10, v11, v12, v24, v5, v6, v7, v4, v1, v2, v3, v13, v14)
         else:
             v27 = method54(v9, v10, v11, v12, v14, v13, v1, v2, v3, v4, v5, v6, v7)
         return v27(v16, v17, v18, v19, v20, v21, v22, v23)
-    elif v15.tag == 1: # fold
+    elif v15.tag == 1: # Fold
         v29 = v7 == (<unsigned char>0)
         if v29:
             v31 = -v8
@@ -7125,7 +7125,7 @@ cdef UH2 method52(bint v0, signed char v1, signed char v2, unsigned char v3, sig
             v31 = v8
         v32 = <float>v31
         return UH2_1(v16, v17, v18, v19, v20, v21, v22, v23, v5, v6, v7, v8, v1, v2, v3, v4, v13, (<signed short>4), v9, 0, v32)
-    elif v15.tag == 2: # raiseTo_
+    elif v15.tag == 2: # RaiseTo
         v34 = (<US1_2>v15).v0
         v35 = 0
         v36 = method46(v9, v10, v11, v12, v35, v5, v6, v7, v34, v1, v2, v3, v4, v13, v14)
@@ -7275,11 +7275,11 @@ cdef object method46(signed short v0, signed short v1, unsigned char v2, numpy.n
                     v40 = v38.v0
                     v41 = v38.v1
                     v42 = v33[v40]
-                    if v42.tag == 0: # call
+                    if v42.tag == 0: # Call
                         v71 = 1
-                    elif v42.tag == 1: # fold
+                    elif v42.tag == 1: # Fold
                         v71 = 1
-                    elif v42.tag == 2: # raiseTo_
+                    elif v42.tag == 2: # RaiseTo
                         v43 = (<US1_2>v42).v0
                         v44 = v2 == (<unsigned char>1)
                         v45 = v43 == v0
@@ -7359,11 +7359,11 @@ cdef object method46(signed short v0, signed short v1, unsigned char v2, numpy.n
                         v87 = v85.v0
                         v88 = v85.v1
                         v89 = v33[v87]
-                        if v89.tag == 0: # call
+                        if v89.tag == 0: # Call
                             v118 = 1
-                        elif v89.tag == 1: # fold
+                        elif v89.tag == 1: # Fold
                             v118 = 1
-                        elif v89.tag == 2: # raiseTo_
+                        elif v89.tag == 2: # RaiseTo
                             v90 = (<US1_2>v89).v0
                             v91 = v2 == (<unsigned char>1)
                             v92 = v90 == v0
@@ -7476,14 +7476,14 @@ cdef UH2 method59(bint v0, signed char v1, signed char v2, unsigned char v3, sig
     cdef signed short v34
     cdef bint v35
     cdef object v36
-    if v15.tag == 0: # call
+    if v15.tag == 0: # Call
         if v0:
             v24 = 0
             v27 = method57(v8, v9, v10, v11, v24, v5, v6, v7, v4, v1, v2, v3, v12, v13, v14)
         else:
             v27 = method58(v8, v9, v10, v11, v13, v14, v12, v1, v2, v3, v4, v5, v6, v7)
         return v27(v16, v17, v18, v19, v20, v21, v22, v23)
-    elif v15.tag == 1: # fold
+    elif v15.tag == 1: # Fold
         v29 = v7 == (<unsigned char>0)
         if v29:
             v31 = -v4
@@ -7491,7 +7491,7 @@ cdef UH2 method59(bint v0, signed char v1, signed char v2, unsigned char v3, sig
             v31 = v4
         v32 = <float>v31
         return UH2_1(v16, v17, v18, v19, v20, v21, v22, v23, v5, v6, v7, v4, v1, v2, v3, v4, v12, (<signed short>3), v8, 0, v32)
-    elif v15.tag == 2: # raiseTo_
+    elif v15.tag == 2: # RaiseTo
         v34 = (<US1_2>v15).v0
         v35 = 0
         v36 = method44(v8, v9, v10, v11, v35, v5, v6, v7, v34, v1, v2, v3, v4, v12, v13, v14)
@@ -7620,11 +7620,11 @@ cdef object method57(signed short v0, signed short v1, unsigned char v2, numpy.n
                     v34 = v32.v0
                     v35 = v32.v1
                     v36 = v27[v34]
-                    if v36.tag == 0: # call
+                    if v36.tag == 0: # Call
                         v65 = 1
-                    elif v36.tag == 1: # fold
+                    elif v36.tag == 1: # Fold
                         v65 = 1
-                    elif v36.tag == 2: # raiseTo_
+                    elif v36.tag == 2: # RaiseTo
                         v37 = (<US1_2>v36).v0
                         v38 = v2 == (<unsigned char>1)
                         v39 = v37 == v0
@@ -7704,11 +7704,11 @@ cdef object method57(signed short v0, signed short v1, unsigned char v2, numpy.n
                         v81 = v79.v0
                         v82 = v79.v1
                         v83 = v27[v81]
-                        if v83.tag == 0: # call
+                        if v83.tag == 0: # Call
                             v112 = 1
-                        elif v83.tag == 1: # fold
+                        elif v83.tag == 1: # Fold
                             v112 = 1
-                        elif v83.tag == 2: # raiseTo_
+                        elif v83.tag == 2: # RaiseTo
                             v84 = (<US1_2>v83).v0
                             v85 = v2 == (<unsigned char>1)
                             v86 = v84 == v0
@@ -7789,14 +7789,14 @@ cdef UH2 method56(bint v0, signed char v1, signed char v2, unsigned char v3, sig
     cdef signed short v35
     cdef bint v36
     cdef object v37
-    if v16.tag == 0: # call
+    if v16.tag == 0: # Call
         if v0:
             v25 = 0
             v28 = method57(v9, v10, v11, v12, v25, v5, v6, v7, v4, v1, v2, v3, v13, v14, v15)
         else:
             v28 = method58(v9, v10, v11, v12, v14, v15, v13, v1, v2, v3, v4, v5, v6, v7)
         return v28(v17, v18, v19, v20, v21, v22, v23, v24)
-    elif v16.tag == 1: # fold
+    elif v16.tag == 1: # Fold
         v30 = v7 == (<unsigned char>0)
         if v30:
             v32 = -v8
@@ -7804,7 +7804,7 @@ cdef UH2 method56(bint v0, signed char v1, signed char v2, unsigned char v3, sig
             v32 = v8
         v33 = <float>v32
         return UH2_1(v17, v18, v19, v20, v21, v22, v23, v24, v5, v6, v7, v8, v1, v2, v3, v4, v13, (<signed short>3), v9, 0, v33)
-    elif v16.tag == 2: # raiseTo_
+    elif v16.tag == 2: # RaiseTo
         v35 = (<US1_2>v16).v0
         v36 = 0
         v37 = method44(v9, v10, v11, v12, v36, v5, v6, v7, v35, v1, v2, v3, v4, v13, v14, v15)
@@ -7954,11 +7954,11 @@ cdef object method44(signed short v0, signed short v1, unsigned char v2, numpy.n
                     v41 = v39.v0
                     v42 = v39.v1
                     v43 = v34[v41]
-                    if v43.tag == 0: # call
+                    if v43.tag == 0: # Call
                         v72 = 1
-                    elif v43.tag == 1: # fold
+                    elif v43.tag == 1: # Fold
                         v72 = 1
-                    elif v43.tag == 2: # raiseTo_
+                    elif v43.tag == 2: # RaiseTo
                         v44 = (<US1_2>v43).v0
                         v45 = v2 == (<unsigned char>1)
                         v46 = v44 == v0
@@ -8038,11 +8038,11 @@ cdef object method44(signed short v0, signed short v1, unsigned char v2, numpy.n
                         v88 = v86.v0
                         v89 = v86.v1
                         v90 = v34[v88]
-                        if v90.tag == 0: # call
+                        if v90.tag == 0: # Call
                             v119 = 1
-                        elif v90.tag == 1: # fold
+                        elif v90.tag == 1: # Fold
                             v119 = 1
-                        elif v90.tag == 2: # raiseTo_
+                        elif v90.tag == 2: # RaiseTo
                             v91 = (<US1_2>v90).v0
                             v92 = v2 == (<unsigned char>1)
                             v93 = v91 == v0
@@ -8155,14 +8155,14 @@ cdef UH2 method63(bint v0, signed char v1, signed char v2, unsigned char v3, sig
     cdef signed short v37
     cdef bint v38
     cdef object v39
-    if v18.tag == 0: # call
+    if v18.tag == 0: # Call
         if v0:
             v27 = 0
             v30 = method61(v8, v9, v10, v11, v27, v5, v6, v7, v4, v1, v2, v3, v12, v13, v14, v15, v16, v17)
         else:
             v30 = method62(v8, v9, v10, v11, v13, v14, v15, v16, v17, v12, v1, v2, v3, v4, v5, v6, v7)
         return v30(v19, v20, v21, v22, v23, v24, v25, v26)
-    elif v18.tag == 1: # fold
+    elif v18.tag == 1: # Fold
         v32 = v7 == (<unsigned char>0)
         if v32:
             v34 = -v4
@@ -8170,7 +8170,7 @@ cdef UH2 method63(bint v0, signed char v1, signed char v2, unsigned char v3, sig
             v34 = v4
         v35 = <float>v34
         return UH2_1(v19, v20, v21, v22, v23, v24, v25, v26, v5, v6, v7, v4, v1, v2, v3, v4, v12, (<signed short>0), v8, 0, v35)
-    elif v18.tag == 2: # raiseTo_
+    elif v18.tag == 2: # RaiseTo
         v37 = (<US1_2>v18).v0
         v38 = 0
         v39 = method42(v8, v9, v10, v11, v38, v5, v6, v7, v37, v1, v2, v3, v4, v12, v13, v14, v15, v16, v17)
@@ -8299,11 +8299,11 @@ cdef object method61(signed short v0, signed short v1, unsigned char v2, numpy.n
                     v37 = v35.v0
                     v38 = v35.v1
                     v39 = v30[v37]
-                    if v39.tag == 0: # call
+                    if v39.tag == 0: # Call
                         v68 = 1
-                    elif v39.tag == 1: # fold
+                    elif v39.tag == 1: # Fold
                         v68 = 1
-                    elif v39.tag == 2: # raiseTo_
+                    elif v39.tag == 2: # RaiseTo
                         v40 = (<US1_2>v39).v0
                         v41 = v2 == (<unsigned char>1)
                         v42 = v40 == v0
@@ -8383,11 +8383,11 @@ cdef object method61(signed short v0, signed short v1, unsigned char v2, numpy.n
                         v84 = v82.v0
                         v85 = v82.v1
                         v86 = v30[v84]
-                        if v86.tag == 0: # call
+                        if v86.tag == 0: # Call
                             v115 = 1
-                        elif v86.tag == 1: # fold
+                        elif v86.tag == 1: # Fold
                             v115 = 1
-                        elif v86.tag == 2: # raiseTo_
+                        elif v86.tag == 2: # RaiseTo
                             v87 = (<US1_2>v86).v0
                             v88 = v2 == (<unsigned char>1)
                             v89 = v87 == v0
@@ -8468,14 +8468,14 @@ cdef UH2 method60(bint v0, signed char v1, signed char v2, unsigned char v3, sig
     cdef signed short v38
     cdef bint v39
     cdef object v40
-    if v19.tag == 0: # call
+    if v19.tag == 0: # Call
         if v0:
             v28 = 0
             v31 = method61(v9, v10, v11, v12, v28, v5, v6, v7, v4, v1, v2, v3, v13, v14, v15, v16, v17, v18)
         else:
             v31 = method62(v9, v10, v11, v12, v14, v15, v16, v17, v18, v13, v1, v2, v3, v4, v5, v6, v7)
         return v31(v20, v21, v22, v23, v24, v25, v26, v27)
-    elif v19.tag == 1: # fold
+    elif v19.tag == 1: # Fold
         v33 = v7 == (<unsigned char>0)
         if v33:
             v35 = -v8
@@ -8483,7 +8483,7 @@ cdef UH2 method60(bint v0, signed char v1, signed char v2, unsigned char v3, sig
             v35 = v8
         v36 = <float>v35
         return UH2_1(v20, v21, v22, v23, v24, v25, v26, v27, v5, v6, v7, v8, v1, v2, v3, v4, v13, (<signed short>0), v9, 0, v36)
-    elif v19.tag == 2: # raiseTo_
+    elif v19.tag == 2: # RaiseTo
         v38 = (<US1_2>v19).v0
         v39 = 0
         v40 = method42(v9, v10, v11, v12, v39, v5, v6, v7, v38, v1, v2, v3, v4, v13, v14, v15, v16, v17, v18)
@@ -8633,11 +8633,11 @@ cdef object method42(signed short v0, signed short v1, unsigned char v2, numpy.n
                     v44 = v42.v0
                     v45 = v42.v1
                     v46 = v37[v44]
-                    if v46.tag == 0: # call
+                    if v46.tag == 0: # Call
                         v75 = 1
-                    elif v46.tag == 1: # fold
+                    elif v46.tag == 1: # Fold
                         v75 = 1
-                    elif v46.tag == 2: # raiseTo_
+                    elif v46.tag == 2: # RaiseTo
                         v47 = (<US1_2>v46).v0
                         v48 = v2 == (<unsigned char>1)
                         v49 = v47 == v0
@@ -8717,11 +8717,11 @@ cdef object method42(signed short v0, signed short v1, unsigned char v2, numpy.n
                         v91 = v89.v0
                         v92 = v89.v1
                         v93 = v37[v91]
-                        if v93.tag == 0: # call
+                        if v93.tag == 0: # Call
                             v122 = 1
-                        elif v93.tag == 1: # fold
+                        elif v93.tag == 1: # Fold
                             v122 = 1
-                        elif v93.tag == 2: # raiseTo_
+                        elif v93.tag == 2: # RaiseTo
                             v94 = (<US1_2>v93).v0
                             v95 = v2 == (<unsigned char>1)
                             v96 = v94 == v0
@@ -9186,7 +9186,7 @@ cdef object method64(v0, v1, v2, v3, v4, numpy.ndarray[object,ndim=1] v5):
     while method0(v15, v16):
         v18 = v16.v0
         v19 = v5[v18]
-        if v19.tag == 0: # action_
+        if v19.tag == 0: # Action
             v20 = (<UH2_0>v19).v0; v21 = (<UH2_0>v19).v1; v22 = (<UH2_0>v19).v2; v23 = (<UH2_0>v19).v3; v24 = (<UH2_0>v19).v4; v25 = (<UH2_0>v19).v5; v26 = (<UH2_0>v19).v6; v27 = (<UH2_0>v19).v7; v28 = (<UH2_0>v19).v8; v29 = (<UH2_0>v19).v9; v30 = (<UH2_0>v19).v10; v31 = (<UH2_0>v19).v11; v32 = (<UH2_0>v19).v12; v33 = (<UH2_0>v19).v13; v34 = (<UH2_0>v19).v14; v35 = (<UH2_0>v19).v15; v36 = (<UH2_0>v19).v16; v37 = (<UH2_0>v19).v17; v38 = (<UH2_0>v19).v18; v39 = (<UH2_0>v19).v19; v40 = (<UH2_0>v19).v20; v41 = (<UH2_0>v19).v21; v42 = (<UH2_0>v19).v22
             v43 = v40 == (<unsigned char>0)
             if v43:
@@ -9199,7 +9199,7 @@ cdef object method64(v0, v1, v2, v3, v4, numpy.ndarray[object,ndim=1] v5):
                 v13.append(v42)
             del v22; del v25; del v36; del v41; del v42
             v14.append(v40)
-        elif v19.tag == 1: # terminal_
+        elif v19.tag == 1: # Terminal
             v44 = (<UH2_1>v19).v0; v45 = (<UH2_1>v19).v1; v47 = (<UH2_1>v19).v3; v48 = (<UH2_1>v19).v4; v50 = (<UH2_1>v19).v6; v51 = (<UH2_1>v19).v7; v52 = (<UH2_1>v19).v8; v53 = (<UH2_1>v19).v9; v54 = (<UH2_1>v19).v10; v55 = (<UH2_1>v19).v11; v56 = (<UH2_1>v19).v12; v57 = (<UH2_1>v19).v13; v58 = (<UH2_1>v19).v14; v59 = (<UH2_1>v19).v15; v61 = (<UH2_1>v19).v17; v62 = (<UH2_1>v19).v18; v63 = (<UH2_1>v19).v19; v64 = (<UH2_1>v19).v20
             v6.append(v18)
             v7.append(v64)
@@ -9459,7 +9459,7 @@ cdef numpy.ndarray[float,ndim=1] method65(v0, v1, numpy.ndarray[object,ndim=1] v
     while method0(v11, v12):
         v14 = v12.v0
         v15 = v2[v14]
-        if v15.tag == 0: # action_
+        if v15.tag == 0: # Action
             v16 = (<UH2_0>v15).v0; v17 = (<UH2_0>v15).v1; v18 = (<UH2_0>v15).v2; v19 = (<UH2_0>v15).v3; v20 = (<UH2_0>v15).v4; v21 = (<UH2_0>v15).v5; v22 = (<UH2_0>v15).v6; v23 = (<UH2_0>v15).v7; v24 = (<UH2_0>v15).v8; v25 = (<UH2_0>v15).v9; v26 = (<UH2_0>v15).v10; v27 = (<UH2_0>v15).v11; v28 = (<UH2_0>v15).v12; v29 = (<UH2_0>v15).v13; v30 = (<UH2_0>v15).v14; v31 = (<UH2_0>v15).v15; v32 = (<UH2_0>v15).v16; v33 = (<UH2_0>v15).v17; v34 = (<UH2_0>v15).v18; v35 = (<UH2_0>v15).v19; v36 = (<UH2_0>v15).v20; v37 = (<UH2_0>v15).v21; v38 = (<UH2_0>v15).v22
             v5.append(v14)
             v39 = v36 == (<unsigned char>0)
@@ -9471,7 +9471,7 @@ cdef numpy.ndarray[float,ndim=1] method65(v0, v1, numpy.ndarray[object,ndim=1] v
                 v9.append(v38)
             del v18; del v21; del v32; del v37; del v38
             v10.append(v36)
-        elif v15.tag == 1: # terminal_
+        elif v15.tag == 1: # Terminal
             v40 = (<UH2_1>v15).v0; v41 = (<UH2_1>v15).v1; v43 = (<UH2_1>v15).v3; v44 = (<UH2_1>v15).v4; v46 = (<UH2_1>v15).v6; v47 = (<UH2_1>v15).v7; v48 = (<UH2_1>v15).v8; v49 = (<UH2_1>v15).v9; v50 = (<UH2_1>v15).v10; v51 = (<UH2_1>v15).v11; v52 = (<UH2_1>v15).v12; v53 = (<UH2_1>v15).v13; v54 = (<UH2_1>v15).v14; v55 = (<UH2_1>v15).v15; v57 = (<UH2_1>v15).v17; v58 = (<UH2_1>v15).v18; v59 = (<UH2_1>v15).v19; v60 = (<UH2_1>v15).v20
             v3.append(v14)
             v4.append(v60)
@@ -9715,14 +9715,14 @@ cdef object method66(v0, v1, v2, v3, numpy.ndarray[object,ndim=1] v4):
     while method0(v10, v11):
         v13 = v11.v0
         v14 = v4[v13]
-        if v14.tag == 0: # action_
+        if v14.tag == 0: # Action
             v15 = (<UH2_0>v14).v0; v16 = (<UH2_0>v14).v1; v17 = (<UH2_0>v14).v2; v18 = (<UH2_0>v14).v3; v19 = (<UH2_0>v14).v4; v20 = (<UH2_0>v14).v5; v21 = (<UH2_0>v14).v6; v22 = (<UH2_0>v14).v7; v23 = (<UH2_0>v14).v8; v24 = (<UH2_0>v14).v9; v25 = (<UH2_0>v14).v10; v26 = (<UH2_0>v14).v11; v27 = (<UH2_0>v14).v12; v28 = (<UH2_0>v14).v13; v29 = (<UH2_0>v14).v14; v30 = (<UH2_0>v14).v15; v31 = (<UH2_0>v14).v16; v32 = (<UH2_0>v14).v17; v33 = (<UH2_0>v14).v18; v34 = (<UH2_0>v14).v19; v35 = (<UH2_0>v14).v20; v36 = (<UH2_0>v14).v21; v37 = (<UH2_0>v14).v22
             v7.append(v13)
             v8.append(Tuple0(v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31, v32, v33, v34, v35, v36))
             del v17; del v20; del v31; del v36
             v9.append(v37)
             del v37
-        elif v14.tag == 1: # terminal_
+        elif v14.tag == 1: # Terminal
             v38 = (<UH2_1>v14).v0; v39 = (<UH2_1>v14).v1; v41 = (<UH2_1>v14).v3; v42 = (<UH2_1>v14).v4; v44 = (<UH2_1>v14).v6; v45 = (<UH2_1>v14).v7; v46 = (<UH2_1>v14).v8; v47 = (<UH2_1>v14).v9; v48 = (<UH2_1>v14).v10; v49 = (<UH2_1>v14).v11; v50 = (<UH2_1>v14).v12; v51 = (<UH2_1>v14).v13; v52 = (<UH2_1>v14).v14; v53 = (<UH2_1>v14).v15; v55 = (<UH2_1>v14).v17; v56 = (<UH2_1>v14).v18; v57 = (<UH2_1>v14).v19; v58 = (<UH2_1>v14).v20
             v5.append(v13)
             v6.append(v58)
@@ -9873,14 +9873,14 @@ cdef numpy.ndarray[float,ndim=1] method67(v0, numpy.ndarray[object,ndim=1] v1):
     while method0(v7, v8):
         v10 = v8.v0
         v11 = v1[v10]
-        if v11.tag == 0: # action_
+        if v11.tag == 0: # Action
             v12 = (<UH2_0>v11).v0; v13 = (<UH2_0>v11).v1; v14 = (<UH2_0>v11).v2; v15 = (<UH2_0>v11).v3; v16 = (<UH2_0>v11).v4; v17 = (<UH2_0>v11).v5; v18 = (<UH2_0>v11).v6; v19 = (<UH2_0>v11).v7; v20 = (<UH2_0>v11).v8; v21 = (<UH2_0>v11).v9; v22 = (<UH2_0>v11).v10; v23 = (<UH2_0>v11).v11; v24 = (<UH2_0>v11).v12; v25 = (<UH2_0>v11).v13; v26 = (<UH2_0>v11).v14; v27 = (<UH2_0>v11).v15; v28 = (<UH2_0>v11).v16; v29 = (<UH2_0>v11).v17; v30 = (<UH2_0>v11).v18; v31 = (<UH2_0>v11).v19; v32 = (<UH2_0>v11).v20; v33 = (<UH2_0>v11).v21; v34 = (<UH2_0>v11).v22
             v4.append(v10)
             v5.append(Tuple0(v12, v13, v14, v15, v16, v17, v18, v19, v20, v21, v22, v23, v24, v25, v26, v27, v28, v29, v30, v31, v32, v33))
             del v14; del v17; del v28; del v33
             v6.append(v34)
             del v34
-        elif v11.tag == 1: # terminal_
+        elif v11.tag == 1: # Terminal
             v35 = (<UH2_1>v11).v0; v36 = (<UH2_1>v11).v1; v38 = (<UH2_1>v11).v3; v39 = (<UH2_1>v11).v4; v41 = (<UH2_1>v11).v6; v42 = (<UH2_1>v11).v7; v43 = (<UH2_1>v11).v8; v44 = (<UH2_1>v11).v9; v45 = (<UH2_1>v11).v10; v46 = (<UH2_1>v11).v11; v47 = (<UH2_1>v11).v12; v48 = (<UH2_1>v11).v13; v49 = (<UH2_1>v11).v14; v50 = (<UH2_1>v11).v15; v52 = (<UH2_1>v11).v17; v53 = (<UH2_1>v11).v18; v54 = (<UH2_1>v11).v19; v55 = (<UH2_1>v11).v20
             v2.append(v10)
             v3.append(v55)
@@ -10017,7 +10017,7 @@ cdef UH2 method69(unsigned char v0, v1, UH2 v2):
     cdef signed short v54
     cdef bint v55
     cdef float v56
-    if v2.tag == 0: # action_
+    if v2.tag == 0: # Action
         v3 = (<UH2_0>v2).v0; v4 = (<UH2_0>v2).v1; v5 = (<UH2_0>v2).v2; v6 = (<UH2_0>v2).v3; v7 = (<UH2_0>v2).v4; v8 = (<UH2_0>v2).v5; v9 = (<UH2_0>v2).v6; v10 = (<UH2_0>v2).v7; v11 = (<UH2_0>v2).v8; v12 = (<UH2_0>v2).v9; v13 = (<UH2_0>v2).v10; v14 = (<UH2_0>v2).v11; v15 = (<UH2_0>v2).v12; v16 = (<UH2_0>v2).v13; v17 = (<UH2_0>v2).v14; v18 = (<UH2_0>v2).v15; v19 = (<UH2_0>v2).v16; v20 = (<UH2_0>v2).v17; v21 = (<UH2_0>v2).v18; v22 = (<UH2_0>v2).v19; v23 = (<UH2_0>v2).v20; v24 = (<UH2_0>v2).v21; v25 = (<UH2_0>v2).v22
         v26 = v23 == v0
         if v26:
@@ -10038,19 +10038,19 @@ cdef UH2 method69(unsigned char v0, v1, UH2 v2):
             v33 = v25(v30, v31, v32)
             del v25; del v32
             return method69(v0, v1, v33)
-    elif v2.tag == 1: # terminal_
+    elif v2.tag == 1: # Terminal
         v36 = (<UH2_1>v2).v0; v37 = (<UH2_1>v2).v1; v39 = (<UH2_1>v2).v3; v40 = (<UH2_1>v2).v4; v42 = (<UH2_1>v2).v6; v43 = (<UH2_1>v2).v7; v44 = (<UH2_1>v2).v8; v45 = (<UH2_1>v2).v9; v46 = (<UH2_1>v2).v10; v47 = (<UH2_1>v2).v11; v48 = (<UH2_1>v2).v12; v49 = (<UH2_1>v2).v13; v50 = (<UH2_1>v2).v14; v51 = (<UH2_1>v2).v15; v53 = (<UH2_1>v2).v17; v54 = (<UH2_1>v2).v18; v55 = (<UH2_1>v2).v19; v56 = (<UH2_1>v2).v20
         return v2
 cdef UH0 method71(UH0 v0, UH0 v1):
     cdef US0 v2
     cdef UH0 v3
     cdef UH0 v4
-    if v0.tag == 0: # cons_
+    if v0.tag == 0: # Cons
         v2 = (<UH0_0>v0).v0; v3 = (<UH0_0>v0).v1
         v4 = UH0_0(v2, v1)
         del v2
         return method71(v3, v4)
-    elif v0.tag == 1: # nil
+    elif v0.tag == 1: # Nil
         return v1
 cdef str method73(signed char v0):
     cdef signed char v1
@@ -10126,27 +10126,27 @@ cdef void method72(list v0, list v1, bint v2, UH0 v3) except *:
     cdef str v15
     cdef signed short v13
     cdef bint v16
-    if v3.tag == 0: # cons_
+    if v3.tag == 0: # Cons
         v4 = (<UH0_0>v3).v0; v5 = (<UH0_0>v3).v1
-        if v4.tag == 0: # c1of2_
+        if v4.tag == 0: # C1of2
             v6 = (<US0_0>v4).v0
             v7 = method73(v6)
             v1.append(v7)
             del v7
             v8 = 1
             method72(v0, v1, v8, v5)
-        elif v4.tag == 1: # c2of2_
+        elif v4.tag == 1: # C2of2
             v9 = (<US0_1>v4).v0
             method74(v0, v1)
             if v2:
                 v10 = "Player One"
             else:
                 v10 = "Player Two"
-            if v9.tag == 0: # call
+            if v9.tag == 0: # Call
                 v15 = f'{v10} calls.'
-            elif v9.tag == 1: # fold
+            elif v9.tag == 1: # Fold
                 v15 = f'{v10} folds.'
-            elif v9.tag == 2: # raiseTo_
+            elif v9.tag == 2: # RaiseTo
                 v13 = (<US1_2>v9).v0
                 v15 = f'{v10} raises to {v13}.'
             del v9; del v10
@@ -10154,7 +10154,7 @@ cdef void method72(list v0, list v1, bint v2, UH0 v3) except *:
             del v15
             v16 = v2 == 0
             method72(v0, v1, v16, v5)
-    elif v3.tag == 1: # nil
+    elif v3.tag == 1: # Nil
         method74(v0, v1)
 cdef list method70(UH0 v0):
     cdef list v1
@@ -10463,7 +10463,7 @@ cdef void method68(v0, v1, unsigned char v2, signed short v3, UH2 v4) except *:
     cdef object v141
     cdef object v142
     v5 = method69(v2, v0, v4)
-    if v5.tag == 0: # action_
+    if v5.tag == 0: # Action
         v6 = (<UH2_0>v5).v0; v7 = (<UH2_0>v5).v1; v8 = (<UH2_0>v5).v2; v9 = (<UH2_0>v5).v3; v10 = (<UH2_0>v5).v4; v11 = (<UH2_0>v5).v5; v12 = (<UH2_0>v5).v6; v13 = (<UH2_0>v5).v7; v14 = (<UH2_0>v5).v8; v15 = (<UH2_0>v5).v9; v16 = (<UH2_0>v5).v10; v17 = (<UH2_0>v5).v11; v18 = (<UH2_0>v5).v12; v19 = (<UH2_0>v5).v13; v20 = (<UH2_0>v5).v14; v21 = (<UH2_0>v5).v15; v22 = (<UH2_0>v5).v16; v23 = (<UH2_0>v5).v17; v24 = (<UH2_0>v5).v18; v25 = (<UH2_0>v5).v19; v26 = (<UH2_0>v5).v20; v27 = (<UH2_0>v5).v21; v28 = (<UH2_0>v5).v22
         v29 = v2 == (<unsigned char>0)
         if v29:
@@ -10483,11 +10483,11 @@ cdef void method68(v0, v1, unsigned char v2, signed short v3, UH2 v4) except *:
             v36 = v34.v0
             v37 = v34.v1
             v38 = v27[v36]
-            if v38.tag == 0: # call
+            if v38.tag == 0: # Call
                 v42 = v37
-            elif v38.tag == 1: # fold
+            elif v38.tag == 1: # Fold
                 v42 = v37
-            elif v38.tag == 2: # raiseTo_
+            elif v38.tag == 2: # RaiseTo
                 v39 = (<US1_2>v38).v0
                 v40 = v37 >= v39
                 if v40:
@@ -10505,11 +10505,11 @@ cdef void method68(v0, v1, unsigned char v2, signed short v3, UH2 v4) except *:
             v47 = v45.v0
             v48 = v45.v1
             v49 = v27[v47]
-            if v49.tag == 0: # call
+            if v49.tag == 0: # Call
                 v53 = v48
-            elif v49.tag == 1: # fold
+            elif v49.tag == 1: # Fold
                 v53 = v48
-            elif v49.tag == 2: # raiseTo_
+            elif v49.tag == 2: # RaiseTo
                 v50 = (<US1_2>v49).v0
                 v51 = v48 < v50
                 if v51:
@@ -10564,7 +10564,7 @@ cdef void method68(v0, v1, unsigned char v2, signed short v3, UH2 v4) except *:
         v86 = {'actions': v62, 'table_data': v85, 'trace': v32}
         del v32; del v62; del v85
         v1(v86)
-    elif v5.tag == 1: # terminal_
+    elif v5.tag == 1: # Terminal
         v87 = (<UH2_1>v5).v0; v88 = (<UH2_1>v5).v1; v89 = (<UH2_1>v5).v2; v90 = (<UH2_1>v5).v3; v91 = (<UH2_1>v5).v4; v92 = (<UH2_1>v5).v5; v93 = (<UH2_1>v5).v6; v94 = (<UH2_1>v5).v7; v95 = (<UH2_1>v5).v8; v96 = (<UH2_1>v5).v9; v97 = (<UH2_1>v5).v10; v98 = (<UH2_1>v5).v11; v99 = (<UH2_1>v5).v12; v100 = (<UH2_1>v5).v13; v101 = (<UH2_1>v5).v14; v102 = (<UH2_1>v5).v15; v103 = (<UH2_1>v5).v16; v104 = (<UH2_1>v5).v17; v105 = (<UH2_1>v5).v18; v106 = (<UH2_1>v5).v19; v107 = (<UH2_1>v5).v20
         v108 = v2 == (<unsigned char>0)
         if v108:
