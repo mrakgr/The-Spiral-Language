@@ -1,4 +1,10 @@
-WIP - 2.1.0
+WIP - 2.1.2
+
+2.1.1
+
+* The type hover inside a list has been fixed. I introduced a regression while doing 2.1.0.
+
+2.1.0
 
 * Major change: Removed the symbol paired pattern and related renamings for it from the language due to it being an eyesore and causing confusion.
 * Major change: The union pattern syntax is now like F#'s. The argument to the union can be ommitted in which case it is assumed to be wildcard. `| Some => ...` is the same as `| Some _ => ...`.

@@ -906,7 +906,7 @@ and root_pattern s =
         let pat_array = skip_unary_op ";" >>. range (squares (sepBy root_pattern_type (skip_op ";"))) |>> fun (r,x) -> PatArray(r,x)
         let pat_list = 
             range (squares (sepBy root_pattern_type (skip_op ";")))
-            |>> fun (r,x) -> List.foldBack (pat_list_pair r) x (PatUnbox(r,PatPair(r,PatSymbol(r,"Nil"),PatB r)))
+            |>> fun ((r,_),x) -> let r = r,r in List.foldBack (pat_list_pair r) x (PatUnbox(r,PatPair(r,PatSymbol(r,"Nil"),PatB r)))
         let (+) = alt (index s)
         (root_pattern_rounds + root_pattern_nominal + root_pattern_wildcard + root_pattern_dyn + pat_value + pat_string 
         + root_pattern_record + pat_symbol + pat_array + pat_list) s
@@ -1066,8 +1066,8 @@ and root_term d =
         let case_symbol = read_symbol |>> RawSymbol
         let case_list = range (squares sequence_body) >>= fun (r,l) d -> 
             if d.is_top_down then
+                let r = fst r, fst r
                 List.foldBack (fun a b -> 
-                    let r = range_of_expr a
                     RawApply(r,RawV(r,unintern "Con" 's'),RawPair(r,a,b))
                     ) l (RawV(r,unintern "Ni" 'l')) |> Ok
             else

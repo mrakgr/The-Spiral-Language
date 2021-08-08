@@ -88,12 +88,11 @@ inl neural_handler forall (actions : * -> *) act.
     inl value_size = serialization.dense.array.size schema.value
     inl action_size = serialization.dense.array.size schema.action
     inl batch_size = length data
-    inl policy_seq_size, future_seq_size = 
+    inl policy_seq_size, value_seq_size = 
         am.fold (fun (s1,s2) (player_state,game_state,pid,actions) => 
             inl a,b = extractor (player_state,game_state,pid)
             max s1 (listm.length a), max s2 (listm.length b)
             ) (0u64, 0u64) data
-    inl value_seq_size = policy_seq_size + future_seq_size
     inl policy_data : a3 f32 = $"numpy.zeros((!batch_size,!policy_seq_size,!policy_size),dtype=numpy.float32)"
     inl policy_mask : a2 i8 = $"numpy.zeros((!batch_size,!policy_seq_size),dtype=numpy.int8)"
     inl value_data : a3 f32 = $"numpy.zeros((!batch_size,!value_seq_size,!value_size),dtype=numpy.float32)"
@@ -103,13 +102,13 @@ inl neural_handler forall (actions : * -> *) act.
     inl action_selected : a u64 (a st act) = create batch_size
     inl pids : a u64 f32 = create batch_size
     data |> am.iteri fun i_batch (player_state,game_state,pid,actions) =>
-        inl present, future = extractor (player_state,game_state,pid)
+        inl policy, value = extractor (player_state,game_state,pid)
         inl f forall y. (x : a3 y) (i_seq : u64) : a st y = $"!x[!i_batch,!i_seq]"
 
-        inl i_seq = listm.foldBack (fun x i_seq => schema.policy.pickle x (0, f policy_data i_seq) . i_seq + 1) present 0
+        inl i_seq = listm.fold (fun i_seq x => schema.policy.pickle x (0, f policy_data i_seq) . i_seq + 1) 0 policy
         loop.for' {from=i_seq; nearTo=policy_seq_size} fun i_seq => $"!policy_mask[!i_batch,!i_seq] = 1"
 
-        inl i_seq = listm.fold (fun i_seq x => schema.value.pickle x (0, f value_data i_seq) . i_seq + 1) 0 future
+        inl i_seq = listm.fold (fun i_seq x => schema.value.pickle x (0, f value_data i_seq) . i_seq + 1) 0 value
         loop.for' {from=i_seq; nearTo=value_seq_size} fun i_seq => $"!value_mask[!i_batch,!i_seq] = 1"
         
         inl acts = action_selector actions

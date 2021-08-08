@@ -16,9 +16,9 @@ from projector import LinearProjector
 
 def neural_create_model(size,dim_head=2 ** 4,dim_emb=2 ** 5):
     proj = LinearProjector(defaults['schema_stack_size'],defaults['schema_stack_size']*2+1)
-    value = EncoderList(5,dim_head,dim_emb,size.value)
+    value = EncoderList(0,dim_head,dim_emb,size.value)
     value_head = Head(size.action,dim_head*dim_emb,defaults['schema_stack_size']*2+1)
-    policy = EncoderList(5,dim_head,dim_emb,size.policy)
+    policy = EncoderList(0,dim_head,dim_emb,size.policy)
     policy_head = Head(size.action,dim_head*dim_emb,1)
     return proj.cuda(), value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
 
@@ -142,7 +142,7 @@ if __name__ == '__main__':
         format='%(asctime)s %(message)s'
         )
 
-    create_nn_agent(200,0,10,40,2,**args,**defaults,mode='callbot')
+    create_nn_agent(30,0,10,40,2,**args,**defaults,mode='callbot')
     # players = [f'nn_agent_{i}_self.nnavg' for i in range(10,151,10)]
     # players = ['nn_agent_120_self.nnavg','nn_agent_130_self.nnavg']
     # competitive_eval(players,**args,**defaults)

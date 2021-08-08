@@ -1,21 +1,16 @@
 from functools import reduce
-from math import sqrt
-from typing import Callable, Tuple
 
 import torch
-from torch.autograd.function import Function
 from torch.distributions import Categorical
-from torch.nn.modules.container import ModuleList, Sequential
+from torch.nn.modules.container import ModuleList
 from torch.nn.modules.linear import Linear
 import torch.optim
 import torch.nn
-from torch.nn.functional import linear
 from torch.functional import Tensor
 from torch.nn import Module
 from torch.optim import Optimizer
 from torch.nn.parameter import Parameter
 from projector import Projector
-from torch.nn.init import xavier_normal_
 
 class SquareErrorTracker(Module):
     def __init__(self):
@@ -165,44 +160,18 @@ class EncoderList(Module):
         x = reduce(lambda x,lay: lay(x,rotary,mask), self.layers,self.initial(x,rotary,mask) if self.initial is not None else x)
         return self.top(x,rotary,mask)
 
-class CatPow(Function):
-    """
-    Numerically stable alternative of log_softmax for absolute normalized powers.
-    """
-
-    @staticmethod
-    def forward(ctx,qinit : Tensor,e : int or float,dim=-1):
-        assert isinstance(e,float) or isinstance(e,int), "Expected the exponent to be a constant float or integer."
-        q = qinit.abs()
-        qp = q.pow(e)
-        qpsum = qp.sum(dim,keepdim=True)
-        ctx.e, ctx.dim = e, dim
-        ctx.save_for_backward(qinit,q,qpsum)
-        return (qp / qpsum).pow(1/e)
-
-    @staticmethod
-    def backward(ctx, g_qn):
-        qinit,q,qpsum = ctx.saved_tensors
-        e,dim = ctx.e, ctx.dim
-        g_q = None
-        if ctx.needs_input_grad[0]:
-            g_q = qinit.sign().mul_(g_qn - (q if e == 2 else q.pow(e-1)) * ((g_qn * q).sum(dim,keepdim=True) / qpsum)).div_(qpsum.pow(1/e))
-        return g_q, None
-
-catpow : Callable[[Tensor,int],Tensor] = CatPow().apply
-
 def sample_value_probs(proj : Projector, value_probs : Tensor):
     sample_indices = Categorical(value_probs).sample()
     return proj.support[sample_indices.flatten()].view(sample_indices.shape)
 
 class Head(Module):
-    def __init__(self,dim_action : int,dim_in : int,dim_out : int,num_submodules : int = 1):
+    def __init__(self,dim_action : int,dim_in : int,dim_out : int,num_submodules : int = 3):
         super().__init__()
         self.dim_action = dim_action
         self.dim_input = dim_in
         self.dim_out = dim_out
-        self.initial = InfCube(dim_action+dim_in,dim_in)
-        self.middle = Sequential(*[ResInfCube(dim_in) for i in range(num_submodules)])
+        self.initial = Linear(dim_action+dim_in,dim_in)
+        self.middle = ModuleList([Linear(dim_in,dim_in) for i in range(num_submodules)])
         self.out = Linear(dim_in,dim_out)
 
     def forward(self, action_data : Tensor, data : Tensor):
@@ -211,7 +180,9 @@ class Head(Module):
         assert self.dim_action == dl, f"Got: {self.dim_action} and {dl}"
         assert self.dim_input == dr, f"Got: {self.dim_input} and {dr}"
         data = data.unsqueeze(1).expand(dz,db,dr)
-        return self.out(self.middle(self.initial(torch.cat([action_data,data],-1)) + data)).squeeze(-1)
+        def f(x : Tensor): return inf_cube(x)
+        data = f(self.initial(torch.cat([action_data,data],-1))) + data
+        return self.out(reduce(lambda s,x: s + f(x(s)),self.middle,data)).squeeze(-1)
 
 def model_explore(
         ers : SquareErrorTracker or None,
@@ -231,16 +202,16 @@ def model_explore(
         value_data, value_mask, pids, action_data, action_mask = value_data.cuda(), value_mask.cuda(), pids.cuda().view(-1,1), action_data.cuda(), action_mask.cuda()
         value_raw : Tensor = value(value_data,mask=value_mask)
         value_head_raw : Tensor = value_head.forward(action_data,value_raw)
-        value_probs = normed_square(value_head_raw).detach()
+        value_probs = torch.softmax(value_head_raw,-1).detach()
 
         policy_data, policy_mask = policy_data.cuda(), policy_mask.cuda()
-        action_probs = normed_square(torch.masked_fill(policy_head(action_data,policy(policy_data,mask=policy_mask)),action_mask,0.0))
+        action_probs = torch.masked_fill(policy_head(action_data,policy(policy_data,mask=policy_mask)),action_mask,float('-inf')).softmax(-1)
 
         if is_update_value or is_update_policy:
             values = proj.mean(value_probs)
             def index_selected_actions(x : Tensor): return x[torch.arange(0,len(sample_indices)),sample_indices]
             if ers: ers.add(index_selected_actions(values),proj.mean(rewards))
-            if is_update_value: (catpow(index_selected_actions(value_head_raw),2) - rewards.sqrt()).abs().pow(3).sum().backward()
+            if is_update_value: index_selected_actions(value_head_raw).log_softmax(-1).backward(-rewards)
             if is_update_policy: action_probs.backward(values * -pids)
 
         return torch.einsum('bav,ba->bv',value_probs,action_probs.detach())
@@ -258,7 +229,7 @@ def model_exploit(
     Does MC value propagation. Uses the actual policy for exploration.
     """
     policy_data, policy_mask, action_data, action_mask = policy_data.cuda(), policy_mask.cuda(), action_data.cuda(), action_mask.cuda()
-    def calc_action_probs(): return normed_square(torch.masked_fill(policy_head(action_data,policy(policy_data,mask=policy_mask)),action_mask,0.0))
+    def calc_action_probs(): return torch.masked_fill(policy_head(action_data,policy(policy_data,mask=policy_mask)),action_mask,float('-inf')).softmax(-1)
     action_probs = calc_action_probs()
     sample_indices = Categorical(action_probs).sample()
     def update(rewards : Tensor): # As long as training is not done, it can be used to propagate scalar reward arrays as well.
@@ -267,12 +238,12 @@ def model_exploit(
             value_data, value_mask, pids = value_data.cuda(), value_mask.cuda(), pids.cuda().view(-1,1)
             value_raw : Tensor = value(value_data,mask=value_mask)
             value_head_raw : Tensor = value_head.forward(action_data,value_raw)
-            value_probs = normed_square(value_head_raw).detach()
+            value_probs = torch.softmax(value_head_raw,-1).detach()
             values = proj.mean(value_probs)
 
             def index_selected_actions(x : Tensor): return x[torch.arange(0,len(sample_indices)),sample_indices]
             if ers: ers.add(index_selected_actions(values),proj.mean(rewards))
-            if is_update_value: (catpow(index_selected_actions(value_head_raw),2) - rewards.sqrt()).abs().pow(3).sum().backward()
+            if is_update_value: index_selected_actions(value_head_raw).log_softmax(-1).backward(-rewards)
             if is_update_policy: calc_action_probs().backward(values * -pids)
         return rewards
     return action_probs.detach().cpu().numpy(), sample_indices.cpu().numpy(), update

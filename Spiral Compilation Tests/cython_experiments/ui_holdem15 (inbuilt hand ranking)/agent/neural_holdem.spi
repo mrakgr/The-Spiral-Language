@@ -16,38 +16,44 @@ union value =
     | VCardOpponent : i8
     | VScoreSelf : i8
     | VScoreOpponent : i8
-    // | VOrder : order
+    | VOrder : order
 
 inl schema (stack_size : st) =
     inl stack_size = stack_size + 1 // Don't forget the extra 1 at the end to represent the max pot size.
     inl field_size = !!!!Import("math") . $"math.ceil(math.log2(!stack_size))" // The field size needs to be 1 bigger if the stack size is max value for that particular integer power due to the way the serializer works.
     open serialization.dense.array
-    inl stack : pu st = bin_int field_size
     inl card = wrap {inp=suit_rank; out=full} (int 4 ** int 13)
+    inl stack = bin_int field_size : pu st
     inl action = alt {Fold=unit(); Call=unit(); RaiseTo=stack} : pu action
     inl score : pu i8 = int 9
     inl order = wrap {inp=fun (order i) => i+1; out=fun i => order (i-1)} (int 3)
     inl policy : pu policy = alt { PAction = action; PCardPresent = card; PScoreSelf = score; PScoreTable = score }
-    inl value : pu value = alt { VAction = action; VCardPresent = card; VCardFuture = card; VCardOpponent = card; VScoreSelf = score; VScoreOpponent = score} // ; VOrder = order }
+    inl value : pu value = alt { VAction = action; VCardPresent = card; VCardFuture = card; VCardOpponent = card; VScoreSelf = score; VScoreOpponent = score; VOrder = order }
     schema {policy value action}
 
 inl extractor ((player_state : pl2 card action),(p1,p2,(all_cards,n),stack,is_showdown : player * player * (a st card * st) * st * bool),(pid : pid)) = 
     inl table_cards : a st card = $"!all_cards[:!n]"
     inl hidden_cards : a st card = $"!all_cards[!n:]"
     inl l = pl2_observations player_state pid
-    inl policy = 
-        [
-        PScoreSelf (score p1.hand table_cards).score; PScoreTable (score_table table_cards).score
-        ] |> listm.foldBack (fun x l =>
-            (match x with C2of2 x => PAction x | C1of2 x => PCardPresent x) :: l
-            ) l 
-    inl value =
-        inl c1,c2 = p2.hand
-        [
-        VCardOpponent c1; VCardOpponent c2
-        VScoreSelf (score p1.hand all_cards).score; VScoreOpponent (score p2.hand all_cards).score
-        ] |> am.foldBack (fun a b => VCardFuture a :: b) hidden_cards 
+    inl policy = [PScoreSelf 0]
+    // inl policy =
+    //     [
+    //     PScoreSelf (score p1.hand table_cards).score; PScoreTable (score_table table_cards).score
+    //     ] |> listm.foldBack (fun x l =>
+    //         (match x with C2of2 x => PAction x | C1of2 x => PCardPresent x) :: l
+    //         ) l
+    inl value = 
+        [VOrder (comp (score p1.hand all_cards) (score p2.hand all_cards))]
         |> listm.foldBack (fun x l =>
-            (match x with C2of2 x => VAction x | C1of2 x => VCardPresent x) :: l
+            (match x with C2of2 x => VAction x :: l | _ => l)
             ) l
+    // inl value =
+    //     inl c1,c2 = p2.hand
+    //     [
+    //     VCardOpponent c1; VCardOpponent c2
+    //     VScoreSelf (score p1.hand all_cards).score; VScoreOpponent (score p2.hand all_cards).score
+    //     ] |> am.foldBack (fun a b => VCardFuture a :: b) hidden_cards 
+    //     |> listm.foldBack (fun x l =>
+    //         (match x with C2of2 x => VAction x | C1of2 x => VCardPresent x) :: l
+    //         ) l
     policy, value
