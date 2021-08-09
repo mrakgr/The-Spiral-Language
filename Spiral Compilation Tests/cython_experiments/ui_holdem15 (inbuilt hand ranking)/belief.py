@@ -165,7 +165,7 @@ def sample_value_probs(proj : Projector, value_probs : Tensor):
     return proj.support[sample_indices.flatten()].view(sample_indices.shape)
 
 class Head(Module):
-    def __init__(self,dim_action : int,dim_in : int,dim_out : int,num_submodules : int = 3):
+    def __init__(self,dim_action : int,dim_in : int,dim_out : int,num_submodules : int = 2):
         super().__init__()
         self.dim_action = dim_action
         self.dim_input = dim_in

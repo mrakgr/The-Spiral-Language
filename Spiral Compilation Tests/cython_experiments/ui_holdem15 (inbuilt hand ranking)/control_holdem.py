@@ -8,17 +8,17 @@ import numpy as np
 from torch.optim.swa_utils import AveragedModel
 from belief import SignSGD, SquareErrorTracker,model_explore,model_exploit,EncoderList,Head
 
-# defaults = dict(game_mode=0,sb=10,bb=20,stack_size=1000,schema_stack_size=1000) # Holdem
+defaults = dict(game_mode=0,sb=10,bb=20,stack_size=1000,schema_stack_size=1000) # Holdem
 # defaults = dict(game_mode=2,sb=10,bb=20,stack_size=1000,schema_stack_size=1000) # River
-defaults = dict(game_mode=2,sb=10,bb=20,stack_size=1000,schema_stack_size=1000)
+# defaults = dict(game_mode=2,sb=10,bb=20,stack_size=1000,schema_stack_size=1000)
 
 from projector import LinearProjector
 
 def neural_create_model(size,dim_head=2 ** 4,dim_emb=2 ** 5):
     proj = LinearProjector(defaults['schema_stack_size'],defaults['schema_stack_size']*2+1)
-    value = EncoderList(0,dim_head,dim_emb,size.value)
+    value = EncoderList(5,dim_head,dim_emb,size.value)
     value_head = Head(size.action,dim_head*dim_emb,defaults['schema_stack_size']*2+1)
-    policy = EncoderList(0,dim_head,dim_emb,size.policy)
+    policy = EncoderList(5,dim_head,dim_emb,size.policy)
     policy_head = Head(size.action,dim_head*dim_emb,1)
     return proj.cuda(), value.cuda(), value_head.cuda(), policy.cuda(), policy_head.cuda()
 
@@ -32,7 +32,7 @@ def create_nn_agent(
         ):
     neural_applied = neural(schema_stack_size)
     assert ((iter_train + iter_avg) % iter_chk == 0)
-    batch_size = 2 ** 9
+    batch_size = 2 ** 10
 
     if resume_from is None: 
         modules = neural_create_model(neural_applied.size)
@@ -44,16 +44,16 @@ def create_nn_agent(
     proj, value, value_head, policy, policy_head = modules
     tracker = SquareErrorTracker().cuda()
     vs_self, vs_one = vs_self(game_mode,sb,bb,stack_size).cat(proj.combine,proj.to_cat,proj.empty), vs_one(game_mode,sb,bb,stack_size).cat(proj.combine,proj.to_cat,proj.empty)
-    opt = SignSGD([
-        dict(params=x.parameters()) for x in modules
-        ],lr=2 ** -8)
+    opt_value = SignSGD([dict(params=x.parameters()) for x in [value,value_head]],lr=2 ** -8)
+    opt_policy = SignSGD([dict(params=x.parameters()) for x in [policy,policy_head]],lr=2 ** -8)
+    opt = SignSGD([dict(params=x.parameters()) for x in modules],lr=2 ** -8)
     max_t = iter_chk*iter_sub
     def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(max_t, t + 1)
     if 0 < iter_avg: avg_modules = [AveragedModel(x,avg_fn) for x in modules]
 
     def run(is_avg=False):
-        pl = neural_player(neural_applied,tracker,modules,model_fun=model_explore,is_update_value=True,is_update_policy=False)
         def vs_opponent(plc):
+            pl = neural_player(neural_applied,tracker,modules,model_fun=model_explore,is_update_value=True,is_update_policy=False)
             for _ in range(iter_sub):
                 for _ in range(iter_batch):
                     vs_one(batch_size // 2,pl,plc)
@@ -69,10 +69,15 @@ def create_nn_agent(
         elif mode == 'uniform': vs_opponent(uniform_player)
         elif mode == 'callbot': vs_opponent(callbot_player)
         elif mode == 'self':
+            pl = neural_player(neural_applied,tracker,modules,model_fun=model_explore,is_update_value=True,is_update_policy=True)
             for i in range(iter_sub):
+                for _ in range(iter_batch): 
+                    vs_self(game_mode,sb,bb,stack_size)(batch_size,pl)
+                    opt_value.step()
+                opt_policy.step()
                 opt.zero_grad(True)
-                for _ in range(iter_batch): vs_self(game_mode,sb,bb,stack_size)(batch_size,pl)
-                opt.step()
+                logging.debug(f"The l2 loss value prediction error is {tracker.mse_and_clear}")
+
         else: raise Exception(f"Unexpected mode {mode}")
 
         if is_avg: 
@@ -142,7 +147,7 @@ if __name__ == '__main__':
         format='%(asctime)s %(message)s'
         )
 
-    create_nn_agent(30,0,10,40,2,**args,**defaults,mode='callbot')
+    create_nn_agent(200,0,10,40,5,**args,**defaults,mode='callbot')
     # players = [f'nn_agent_{i}_self.nnavg' for i in range(10,151,10)]
     # players = ['nn_agent_120_self.nnavg','nn_agent_130_self.nnavg']
     # competitive_eval(players,**args,**defaults)

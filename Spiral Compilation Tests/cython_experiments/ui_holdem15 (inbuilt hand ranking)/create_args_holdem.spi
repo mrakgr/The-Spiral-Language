@@ -153,7 +153,9 @@ inl main () =
         if is_fold then rm.add x Fold
         rm.add x Call
         if is_raise then
-            if length x + 1 + raise_max - raise_min <= num_actions then
+            inl raises_left = num_actions - length x
+            inl num_raises = 1 + raise_max - raise_min
+            if num_raises <= raises_left then
                 loopw.for' {from=raise_min; nearTo=1 + raise_max} (fun v => rm.add x (RaiseTo v))
             else
                 inl add v = if length x < num_actions && raise_min <= v && v <= raise_max && dictm.tryAdd h v () then rm.add x (RaiseTo v)
@@ -165,17 +167,17 @@ inl main () =
                     // add (pot*5/4) . add (pot*3/2) . add (pot*7/4) . add (pot*2)
                     // add (pot*9/4) . add (pot*5/2) . add (pot*11/4) . add (pot*3)
                 
-                // Sampling in linear space gives an uniform distribution over the bets.
-                inl min, max = conv_num raise_min, conv_num raise_max
-                inl d = max - min
-                inl scale (r : f32) : st = round (r * d + min)
-
-                // // Sampling in log space ensures that smaller bets get better coverage.
-                // inl log_min, log_max = log (conv_num raise_min), log (conv_num raise_max)
-                // inl d = log_max - log_min
-                // inl scale (r : f32) : st = round (exp (r * d + log_min))
-
-                loopw.while (fun _ => length x < num_actions) (fun _ => add (scale $"numpy.random.rand()"))
+                inl fin (scale : f32 -> st) = loopw.while (fun _ => length x < num_actions) (fun _ => add (scale $"numpy.random.rand()"))
+                if num_raises * 3 <= raises_left then
+                    // Sampling in linear space gives an uniform distribution over the bets.
+                    inl min, max = conv_num raise_min, conv_num raise_max
+                    inl d = max - min
+                    fin (fun r => round (r * d + min))
+                else
+                    // Sampling in log space ensures that smaller bets get better coverage.
+                    inl log_min, log_max = log (conv_num raise_min), log (conv_num raise_max)
+                    inl d = log_max - log_min
+                    fin (fun r => round (exp (r * d + log_min)))
 
         $"numpy.array(!x,copy=False)"
     inl neural stack_size = train.neural agent.neural_holdem.extractor (agent.neural_holdem.schema stack_size) (num_actions, neural_selector)
