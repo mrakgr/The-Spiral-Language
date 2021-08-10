@@ -32,7 +32,7 @@ def create_nn_agent(
         ):
     neural_applied = neural(schema_stack_size)
     assert ((iter_train + iter_avg) % iter_chk == 0)
-    batch_size = 2 ** 10
+    batch_size = 2 ** 9
 
     if resume_from is None: 
         modules = neural_create_model(neural_applied.size)
@@ -58,9 +58,9 @@ def create_nn_agent(
                 for _ in range(iter_batch):
                     vs_one(batch_size // 2,pl,plc)
                     vs_one(batch_size // 2,plc,pl)
+                    opt_value.step()
+                    opt_value.zero_grad(True)
                 logging.debug(f"The l2 loss value prediction error is {tracker.mse_and_clear}")
-                opt.step()
-                opt.zero_grad(True)
 
         logging.info(f'Training vs {mode}.')
         if mode == 'exploit':
@@ -72,10 +72,11 @@ def create_nn_agent(
             pl = neural_player(neural_applied,tracker,modules,model_fun=model_explore,is_update_value=True,is_update_policy=True)
             for i in range(iter_sub):
                 for _ in range(iter_batch): 
-                    vs_self(game_mode,sb,bb,stack_size)(batch_size,pl)
+                    vs_self(batch_size,pl)
                     opt_value.step()
+                    opt_value.zero_grad(True)
                 opt_policy.step()
-                opt.zero_grad(True)
+                opt_policy.zero_grad(True)
                 logging.debug(f"The l2 loss value prediction error is {tracker.mse_and_clear}")
 
         else: raise Exception(f"Unexpected mode {mode}")
@@ -147,7 +148,7 @@ if __name__ == '__main__':
         format='%(asctime)s %(message)s'
         )
 
-    create_nn_agent(200,0,10,40,5,**args,**defaults,mode='callbot')
+    create_nn_agent(50,0,10,40,5,**args,**defaults,mode='self',resume_from=50)
     # players = [f'nn_agent_{i}_self.nnavg' for i in range(10,151,10)]
     # players = ['nn_agent_120_self.nnavg','nn_agent_130_self.nnavg']
     # competitive_eval(players,**args,**defaults)

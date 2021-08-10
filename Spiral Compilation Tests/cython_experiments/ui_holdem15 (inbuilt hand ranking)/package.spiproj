@@ -32,3 +32,4 @@ modules:
         neural_holdem
     create_args_leduc
     create_args_holdem
+    hand_scorer2
