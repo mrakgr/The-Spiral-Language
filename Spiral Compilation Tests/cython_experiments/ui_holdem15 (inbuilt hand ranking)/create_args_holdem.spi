@@ -1,5 +1,5 @@
 inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (game_mode,sb,bb,stack,human_pid,set) : () =
-    open hand_scorer
+    open hand_scorer2
 
     let show_card (x : card) : string =
         inl suit,rank = suit x, rank x
@@ -19,8 +19,8 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (game_mode,sb,
             | _ => "[color=ffff00]" // spade
         $"f'{!suit}{!rank}[/color]'"
 
-    let show_score (hand_score x) =
-        match x.score with
+    let show_score x =
+        match (hand' x).score with
         | 0 => "high card"
         | 1 => "pair"
         | 2 => "two pair"
@@ -68,9 +68,9 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (game_mode,sb,
         inl prefix pid = if pid = 0u8 then "Player One" else "Player Two"
         let hand pid h =
             inl p = prefix pid
-            inl score = score h c
+            inl score = score2 h c
             inl s = show_score score
-            inl h = show_complete_hand score.hand
+            inl h = show_complete_hand (hand' score).hand
             rm.add l $"f'{!p} shows {!s} {!h}'"
         let reward pid =
             inl p = prefix pid
@@ -108,7 +108,7 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (game_mode,sb,
                 op_stack = stack - r
                 op_pot = 0 : st
                 op_card = show_hand p2.hand
-                community_card = community_card |> am.generic.map show_card |> rm.join' ""
+                community_card = ($"!community_card[:!n]" : a st _) |> am.generic.map show_card |> rm.join' ""
                 }
             set (record {trace actions table_data})
         | Action (player_state, (p1,p2,((community_card,n),_)), pid, (hu_actions {is_fold is_raise raise_min raise_max} : actions), next) =>
@@ -128,7 +128,7 @@ inl ui (player_op : ra u64 _ -> a u64 _ * (a u64 r2 -> a u64 r2)) (game_mode,sb,
                 op_stack = stack - p2.pot
                 op_pot = p2.pot
                 op_card = show_hand p2.hand
-                community_card = community_card |> am.generic.map show_card |> rm.join' ""
+                community_card = ($"!community_card[:!n]" : a st _) |> am.generic.map show_card |> rm.join' ""
                 }
             set (record {trace actions table_data})
     loop (game (game_mode,sb,bb,stack) pl2_init)
@@ -180,5 +180,5 @@ inl main () =
                     fin (fun r => round (exp (r * d + log_min)))
 
         $"numpy.array(!x,copy=False)"
-    inl neural stack_size = train.neural agent.neural_holdem.extractor (agent.neural_holdem.schema stack_size) (num_actions, neural_selector)
+    inl neural = train.neural agent.neural_holdem.extractor agent.neural_holdem.schema() (num_actions, neural_selector)
     record {ui train = record {vs_self vs_one uniform_player callbot_player neural}}

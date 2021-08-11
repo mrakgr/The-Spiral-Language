@@ -6,37 +6,36 @@ inl full (suit,rank) = hand_scorer.full {suit rank}
 union policy =
     | PAction : action
     | PCardPresent : i8  
-    | PInfo : {score_self : i8; score_table : i8}
+    | PInfo : {score_self : i8; score_table : i8; stack_size : st}
 
 union value =
     | VPolicy : policy
     | VCardFuture : i8
     | VCardOpponent : i8
-    | VInfo : {score_self : i8; score_op : i8; order : order}
+    | VInfo : {score_self : i8; score_op : i8; order : order} // These scores also have future cards included in their calculation.
 
-inl schema (stack_size : st) =
-    inl stack_size = stack_size + 1 // Don't forget the extra 1 at the end to represent the max pot size.
-    inl field_size = !!!!Import("math") . $"math.ceil(math.log2(!stack_size))" // The field size needs to be 1 bigger if the stack size is max value for that particular integer power due to the way the serializer works.
+inl schema () =
+    inl field_size = 16
     open serialization.dense.array
     inl card = wrap {inp=suit_rank; out=full} (int 4 ** int 13)
     inl stack = bin_int field_size : pu st
     inl action = alt {Fold=unit(); Call=unit(); RaiseTo=stack} : pu action
     inl score : pu i8 = int 9
     inl order = wrap {inp=fun (order i) => i+1; out=fun i => order (i-1)} (int 3)
-    inl pinfo = wrap {inp=fun {score_self score_table} => score_self,score_table; out=fun (score_self,score_table) => {score_self score_table}} (score ** score)
+    inl pinfo = wrap {inp=fun {score_self score_table stack_size} => score_self,score_table,stack_size; out=fun (score_self,score_table,stack_size) => {score_self score_table stack_size}} (score ** score ** stack)
     inl vinfo = wrap {inp=fun {score_self score_op order} => score_self, score_op, order; out=fun (score_self, score_op, order) => {score_self score_op order}} (score ** score ** order)
     inl policy : pu policy = alt { PAction = action; PCardPresent = card; PInfo = pinfo }
     inl value : pu value = alt { VPolicy = policy; VCardFuture = card; VCardOpponent = card; VInfo = vinfo}
     schema {policy value action}
 
-inl extractor ((player_state : pl2 card action),(p1,p2,(all_cards,n),stack,is_showdown : player * player * (a st card * st) * st * bool),(pid : pid)) = 
+inl extractor ((player_state : pl2 card action),(p1,p2,(all_cards,n),stack_size,is_showdown : player * player * (a st card * st) * st * bool),(pid : pid)) = 
     inl table_cards : a st card = $"!all_cards[:!n]"
     inl hidden_cards : a st card = $"!all_cards[!n:]"
     inl l = pl2_observations player_state pid
     inl policy =
         listm.foldBack (fun x l =>
             (match x with C2of2 x => PAction x | C1of2 x => PCardPresent x) :: l
-            ) l [PInfo {score_self=(score p1.hand table_cards).score; score_table=(score_table table_cards).score}]
+            ) l [PInfo {score_self=(score p1.hand table_cards).score; score_table=(score_table table_cards).score; stack_size}]
     inl value =
         inl c1,c2 = p2.hand
         [

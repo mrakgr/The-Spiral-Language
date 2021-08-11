@@ -22,6 +22,7 @@ modules:
     train
     train_cat
     hand_scorer
+    hand_scorer2
     hu_holdem
     leduc
     agent/
@@ -32,4 +33,3 @@ modules:
         neural_holdem
     create_args_leduc
     create_args_holdem
-    hand_scorer2

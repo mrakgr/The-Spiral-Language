@@ -17,6 +17,7 @@ type actions = hu_actions action
 inl score_fold (c : i8) (h : hand_scorer.hand) = h ||| (1 <<< i32 c)
 let score_table cs = 0 |> am.foldBack score_fold cs |> fun hand => hand_scorer.score {hand}
 let score (c1,c2) cs = 0 |> score_fold c1 |> score_fold c2 |> am.foldBack score_fold cs |> fun hand => hand_scorer.score {hand}
+let score2 (c1,c2) cs = 0 |> score_fold c1 |> score_fold c2 |> am.foldBack score_fold cs |> hand_scorer2.score
 
 inl game (game_mode,sb,bb,stack) =
     inl deck : a st card = $"numpy.arange(0,52,dtype=numpy.int8)"
@@ -65,9 +66,19 @@ inl game (game_mode,sb,bb,stack) =
     draw deck fun c6, deck =>
     draw deck fun c7, deck =>
 
-    let showdown cs (p1,p2 : players) =
-        inl done = terminal (p1,p2,(cs,0),stack,true) << r2 << f32
-        inl b = comp (score p1.hand cs) (score p2.hand cs)
+    let showdown (cs : a st _) (p1,p2 : players) =
+        inl done = terminal (p1,p2,(cs,length cs),stack,true) << r2 << f32
+        inl b' = comp (score p1.hand cs) (score p2.hand cs)
+        inl b = comp (score2 p1.hand cs) (score2 p2.hand cs)
+        if b <> b' then
+            inl s1,s2 = score p1.hand cs, score p2.hand cs
+            inl s1',s2' = hand_scorer2.hand' (score2 p1.hand cs), hand_scorer2.hand' (score2 p2.hand cs)
+            open hand_scorer
+            inl f (hand_score {score hand=c1,c2,c3,c4,c5}) = 
+                inl x = ;[score;c1;c2;c3;c4;c5]
+                $"print(!x)" : ()
+            $"print(!cs)" . f s1 . f s2 . f s1' . f s2'
+            failwith "The two hand rankers should have same comparison result."
         if eq_is b then done 0
         elif gt_is b then done p1.pot
         else done -p1.pot

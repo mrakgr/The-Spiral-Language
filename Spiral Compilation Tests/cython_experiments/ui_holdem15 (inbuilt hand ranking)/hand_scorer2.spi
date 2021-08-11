@@ -13,11 +13,10 @@ nominal score_hand = u64
 inl score (score_hand x) : i8 = conv_int (x >>> 32)
 inl hand (score_hand x) : u32 = conv_int x
 inl hand' x : hand_scorer.hand_score =
-    inl f a = a/13,a%13
-    inl g (a,b) = a/13,a%13,b
-    inl c1,c2,c3,c4,c5 = hand x |> f |> g |> g |> g
-    hand_scorer.hand_score {score=score x; hand=conv_int c1,conv_int c2,conv_int c3,conv_int c4,conv_int c5}
-inl score_hand {score hand} = score_hand (conv_int ((score : i8) <<< 32) ||| conv_int (hand : u32))
+    inl f a = a >>> 6,conv_int (a &&& 63)
+    inl g (a,b) = a >>> 6,conv_int (a &&& 63),b
+    hand_scorer.hand_score {score=score x; hand=hand x |> f |> g |> g |> g |> fun a,b => conv_int a,b}
+inl score_hand {score hand} = score_hand ((conv_int (score : i8) <<< 32) ||| conv_int (hand : u32))
 
 let score (suit_ranks : hand) =
     inl score = {
@@ -36,11 +35,9 @@ let score (suit_ranks : hand) =
     inl numRanks = 13i8
 
     inl full {suit rank} : card = suit * 13 + rank
-    inl update (x : {suit : i8; rank : i8}) (hand : u32) = conv_int x.rank * 13 + hand
+    inl update (x : {suit : i8; rank : i8}) (hand : u32) = (hand <<< 6) + conv_int x.rank
     inl has_card v : u8 = conv_int (suit_ranks >>> i32 (full v)) &&& 1
     inl has_card' v : bool = to_bool (has_card v)
-    inl any_suit x {rank} = inl f suit = has_card {suit rank} in to_bool (f 0 ||| f 1 ||| f 2 ||| f 3)
-    inl count_suits x {rank} = inl f suit = has_card {suit rank} in f 0 + f 1 + f 2 + f 3
 
     inl fold_hand f =
         for {from=0; nearTo=numRanks} fun rank =>
@@ -50,11 +47,11 @@ let score (suit_ranks : hand) =
         inl add (is_add : u8) (i : u8) (buckets : u16) = buckets + (conv_int is_add <<< i32 (4 * i))
         inl buckets = fold_hand (fun x => add (has_card x) (conv_int x.suit)) 0
         fun (i : i8): i8 => conv_int (buckets >>> i32 (4 * i)) &&& 15
-    
+
     inl ranks =
-        inl add (is_add : u8) (i : u8) (buckets : u16) = buckets + (conv_int is_add <<< i32 (2 * i))
+        inl add (is_add : u8) (i : u8) (buckets : u64) = buckets + (conv_int is_add <<< i32 (3 * i))
         inl buckets = fold_hand (fun x => add (has_card x) (conv_int x.rank)) 0
-        fun (i : i8): i8 => conv_int (buckets >>> i32 (2 * i)) &&& 3
+        fun (i : i8): i8 => conv_int (buckets >>> i32 (3 * i)) &&& 7
 
     inl straigth_rank (rank : i8) (i : i8) = // Since the ace is both -1 and 12, it corrects for the former.
         inl rank = rank + i
@@ -167,7 +164,6 @@ let score (suit_ranks : hand) =
         let rec loop_ranks rank =
             if 0 <= rank then
                 if ranks rank = 4 then
-                    inl f suit = full {suit rank}
                     score_hand {score=score.four_of_a_kind; hand=0 |> update_ranks rank 4 |> update_all [rank] 1}
                 else loop_ranks (rank-1)
             else full_house()
