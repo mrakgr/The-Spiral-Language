@@ -236,6 +236,7 @@ Builder.load_string('''
                     CheckBox:
                         group: 'gm'
                         id: gm_holdem
+                        active: True
                     Label:
                         text: 'Flop'
                     CheckBox:
@@ -246,7 +247,6 @@ Builder.load_string('''
                     CheckBox:
                         group: 'gm'
                         id: gm_river
-                        active: True
 ''')
 
 def load_neural(path,neural):
@@ -273,7 +273,7 @@ if __name__ == '__main__':
     train = args['train']
     uniform_player = train['uniform_player']
     callbot_player = train['callbot_player']
-    neural_player = load_neural('dump holdem/nn_agent_2.nnreg',train['neural'])
+    neural_player = load_neural('dump holdem/nn_agent_8.nnreg',train['neural'])
 
     app.root.start_game = ui(neural_player)
     app.run()

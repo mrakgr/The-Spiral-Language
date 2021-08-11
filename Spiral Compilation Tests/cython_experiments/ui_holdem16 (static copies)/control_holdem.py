@@ -47,7 +47,7 @@ def create_nn_agent(
     def avg_fn(avg_p, p, t): return avg_p + (p - avg_p) / min(max_t, t + 1)
     if 0 < iter_avg: avg_modules = [AveragedModel(x,avg_fn) for x in modules]
 
-    def copy_modules(): return neural_player(neural,None,deepcopy(x).requires_grad_(False) for x in modules)
+    def copy_modules(): return neural_player(neural,None,(deepcopy(x).requires_grad_(False) for x in modules))
     oldies = [copy_modules()] * num_copies
 
     def run(is_avg=False):
@@ -100,4 +100,4 @@ if __name__ == '__main__':
         format='%(asctime)s %(message)s'
         )
 
-    create_nn_agent(30,0,1,40,1,**args,**defaults)
+    create_nn_agent(30,0,1,40,1,**args,**defaults,resume_from=3)
