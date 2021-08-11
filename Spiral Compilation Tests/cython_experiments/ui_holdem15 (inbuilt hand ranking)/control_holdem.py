@@ -8,7 +8,7 @@ import numpy as np
 from torch.optim.swa_utils import AveragedModel
 from belief import SignSGD, SquareErrorTracker,model_explore,model_exploit,EncoderList,Head
 
-defaults = dict(game_mode=1,sb=10,bb=20,max_stack_size=1000)
+defaults = dict(game_mode=2,sb=10,bb=20,max_stack_size=1000)
 
 from projector import LinearProjector
 

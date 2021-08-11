@@ -22,7 +22,6 @@ modules:
     train
     train_cat
     hand_scorer
-    hand_scorer2
     hu_holdem
     leduc
     agent/

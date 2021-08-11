@@ -1,0 +1,8 @@
+// As the uniform player is too wild, I've used the callbot on flop poker as a training target
+// for the value function.
+
+inl policy (l : ra u64 _) =
+    open hu_holdem
+    inl x : a _ _ = l |> am.generic.map fun player_state, game_state, pid, actions => 
+        log_prob_from_sample 1, Call
+    x, (id : obj -> _)

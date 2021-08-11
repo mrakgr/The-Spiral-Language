@@ -1,0 +1,64 @@
+// The functions here propagate rewards as categorical probability vectors.
+
+inl vs_self game (combine, to_cat, empty : _ * (_ -> tensor) * _) (batch_size, p) =
+    let rec loop (l : a u64 _) =
+        inl terminal_indices : ra u64 _ = am.empty
+        inl terminal_rewards : ra u64 r2 = am.empty
+        inl actions_indices : ra u64 _ = am.empty
+        inl data : ra u64 _ = am.empty
+        inl nexts : ra u64 _ = am.empty
+        l |> am.iteri fun i => function
+            | Action (player_state,game_state,pid,actions,next) =>
+                rm.add actions_indices i
+                rm.add data (player_state,game_state,pid,actions)
+                rm.add nexts next
+            | Terminal (_,_,x) =>
+                rm.add terminal_indices i
+                rm.add terminal_rewards x
+        inl actions_rewards =
+            if 0 < length data then
+                inl (cs : a _ _),(update : tensor -> tensor) = p data
+                am.generic.map2 (<|) nexts cs |> loop |> update
+            else empty
+        combine (actions_indices, actions_rewards, terminal_indices, to_cat terminal_rewards)
+    loop (am.init batch_size fun _ => game pl2_init)
+
+inl vs_one game (combine, to_cat, empty : _ * (_ -> tensor) * _) (batch_size, p1, p2) =
+    let rec loop (l : a u64 _) =
+        inl terminal_indices : ra u64 _ = am.empty
+        inl terminal_rewards : ra u64 r2 = am.empty
+        inl p1_actions_indices : ra u64 _ = am.empty
+        inl p2_actions_indices : ra u64 _ = am.empty
+        inl p1_data : ra u64 _ = am.empty
+        inl p2_data : ra u64 _ = am.empty
+        inl p1_nexts : ra u64 _ = am.empty
+        inl p2_nexts : ra u64 _ = am.empty
+        inl pids : ra u64 _ = am.empty
+        l |> am.iteri fun i => function
+            | Action (player_state,game_state,pid,actions,next) =>
+                if pid = 0 then
+                    rm.add p1_actions_indices i
+                    rm.add p1_data (player_state,game_state,pid,actions)
+                    rm.add p1_nexts next
+                else
+                    rm.add p2_actions_indices i
+                    rm.add p2_data (player_state,game_state,pid,actions)
+                    rm.add p2_nexts next
+                rm.add pids pid
+            | Terminal (_,_,x) =>
+                rm.add terminal_indices i
+                rm.add terminal_rewards x
+        inl p1_actions_rewards, p2_actions_rewards =
+            if 0 < length pids then
+                inl p1_cs,p1_update : a _ _ * (tensor -> tensor) = p1 p1_data
+                inl p2_cs,p2_update : a _ _ * (tensor -> tensor) = p2 p2_data
+                inl p1_results = am.generic.map2 (<|) p1_nexts p1_cs
+                inl p2_results = am.generic.map2 (<|) p2_nexts p2_cs
+                inl rs = loop (am.append p1_results p2_results)
+                inl len = length p1_cs
+                inl slice_from forall t. (x : t) (i : u64) : t = $"!x[!i:]"
+                inl slice_near_to forall t. (x : t) (i : u64) : t = $"!x[:!i]"
+                p1_update (slice_near_to rs len), p2_update (slice_from rs len)
+            else empty, empty
+        combine (p1_actions_indices, p1_actions_rewards, p2_actions_indices, p2_actions_rewards, terminal_indices, to_cat terminal_rewards)
+    loop (am.init batch_size fun _ => game pl2_init)

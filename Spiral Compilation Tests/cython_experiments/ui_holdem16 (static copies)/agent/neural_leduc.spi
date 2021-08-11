@@ -1,0 +1,26 @@
+open leduc
+
+union value =
+    | VAction : action
+    | VCardPresent : card
+    | VCardFuture : card
+    | VCardOpponent : card
+
+inl schema () =
+    open serialization.dense.array
+    inl card = alt {King=unit(); Queen=unit(); Jack=unit()} : pu card
+    inl action = alt {Fold=unit(); Call=unit(); Raise=unit()} : pu action
+    inl policy = card ++ action
+    inl value : pu value = alt {VAction=action; VCardPresent=card; VCardFuture=card; VCardOpponent=card}
+    schema {policy value action}
+
+inl extractor ((player_state : pl2 card action),(leduc_state (p1,p2,(is_show,com_card))),pid) =
+    inl policy = pl2_observations player_state pid
+    inl value =
+        VCardOpponent p2.card :: if is_show then [] else [VCardFuture com_card]
+        |> listm.foldBack (fun x l =>
+            (match x with C2of2 x => VAction x | C1of2 x => VCardPresent x) :: l
+            ) policy
+    policy, value
+
+// The actual player is done on the Python side. These are the serialization helpers for it.

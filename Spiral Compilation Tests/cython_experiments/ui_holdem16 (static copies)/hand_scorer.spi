@@ -8,17 +8,10 @@ type rank = i8
 
 inl suit card : suit = card / 13
 inl rank card : rank = card % 13
+inl full {suit rank} : card = suit * 13 + rank
 
-nominal score_hand = u64
-inl score (score_hand x) : i8 = conv_int (x >>> 32)
-inl hand (score_hand x) : u32 = conv_int x
-inl hand' x : hand_scorer.hand_score =
-    inl f a = a >>> 6,conv_int (a &&& 63)
-    inl g (a,b) = a >>> 6,conv_int (a &&& 63),b
-    hand_scorer.hand_score {score=score x; hand=hand x |> f |> g |> g |> g |> fun a,b => conv_int a,b}
-inl score_hand {score hand} = score_hand ((conv_int (score : i8) <<< 32) ||| conv_int (hand : u32))
-
-let score (suit_ranks : hand) =
+inl score is_full ~(suit_ranks : hand) = join
+    inl score_hand {score hand} : u64 = (conv_int (score : i8) <<< 32) ||| conv_int (hand : u32)
     inl score = {
         high_card = 0i8
         pair = 1i8
@@ -34,8 +27,7 @@ let score (suit_ranks : hand) =
     inl numSuits = 4i8
     inl numRanks = 13i8
 
-    inl full {suit rank} : card = suit * 13 + rank
-    inl update (x : {suit : i8; rank : i8}) (hand : u32) = (hand <<< 6) + conv_int x.rank
+    inl update (x : {suit : i8; rank : i8}) (hand : u32) = (hand <<< 6) + conv_int if is_full then full x else x.rank
     inl has_card v : u8 = conv_int (suit_ranks >>> i32 (full v)) &&& 1
     inl has_card' v : bool = to_bool (has_card v)
 
@@ -187,3 +179,16 @@ let score (suit_ranks : hand) =
         if 0 < hand then score_hand {score=score.straight_flush; hand}
         else four_of_a_kind()
     straight_flush()
+
+inl decompress {score_hand=(x : u64)} : {score : i8; hand : card * card * card * card * card} =
+    inl (score : i8) = conv_int (x >>> 32)
+    inl (hand : u32) = conv_int x 
+    inl f (a : u32) : u32 * card = a >>> 6,conv_int (a &&& 63)
+    inl g (a,b : u32 * _) : u32 * card * _ = a >>> 6,conv_int (a &&& 63),b
+    {score=score; hand=hand |> f |> g |> g |> g |> fun a,b => conv_int a,b}
+
+// Get the hand score along with the actual hand.
+let score' rank_suits = decompress {score_hand=score true rank_suits}
+
+// Gets the hand score along with the hand ranks compressed into an u64.
+inl score rank_suits = {score_hand=score false rank_suits}

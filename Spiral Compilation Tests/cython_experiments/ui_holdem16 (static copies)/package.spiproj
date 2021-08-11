@@ -1,0 +1,37 @@
+// I could not finish it by adding the hindsight information. That having said, the challenge of making the value function
+// trainable has been dealt with. Now I just need to find a way to train the policy. I have the same issue as last time
+// where the agent converges to an aggrodonk. Given the small batch sizes, the optimization process is simply too unstable.
+
+// The way I will defeat this challenge is by having the net train against static copies of itself. Not just a single static
+// copy, but multiple past iterations. I tried this before while trying the Flop agent, and it did not work better than regular
+// self play, but that was a special case. Holdem is large enough that the stability benefits of making the enviroment
+// stable are needed.
+
+// The minimax optimization that is going on here needs stable and careful steps. Leduc works because it is small, and Flop
+// worked because it had short sequences and MC. Hodlem is beyond the threeshold where such tricks would be applicable.
+
+packages: |core-
+modules:
+    types-
+    conv-
+    serialization/
+        dense/
+            array
+        sparse/
+            int
+    utils-
+    sampling
+    nodes-
+    train
+    train_cat
+    hand_scorer
+    hu_holdem
+    leduc
+    agent/
+        uniform
+        holdem_callbot
+        tabular
+        neural_leduc
+        neural_holdem
+    create_args_leduc
+    create_args_holdem
