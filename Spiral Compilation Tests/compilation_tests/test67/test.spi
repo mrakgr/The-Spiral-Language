@@ -1,7 +1,6 @@
-// Does option work with unit types?
+// Does the nominal modules indexing pattern work?
 
 inl main() =
-    inl ~x = Some()
+    inl ~x = nom.q 3
     match x with
-    | Some x => x
-    | None () => ()
+    | nom.q x => x+1

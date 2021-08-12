@@ -271,9 +271,8 @@ if __name__ == '__main__':
 
     ui = args['ui']
     train = args['train']
-    uniform_player = train['uniform_player']
-    callbot_player = train['callbot_player']
-    neural_player = load_neural('dump holdem/nn_agent_8.nnreg',train['neural'])
+    player = train['player']
+    neural_player = load_neural('dump holdem/nn_agent_19.nnreg',train['neural'])
 
     app.root.start_game = ui(neural_player)
     app.run()

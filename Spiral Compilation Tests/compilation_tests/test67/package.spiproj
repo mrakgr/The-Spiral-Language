@@ -1,2 +1,4 @@
 packages: |core-
-modules: test
+modules: 
+    nom 
+    test

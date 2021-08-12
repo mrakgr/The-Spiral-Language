@@ -136,7 +136,7 @@ and fold_offset_pattern offset x =
     | PatValue(r,a) -> PatValue(g r,a)
     | PatDefaultValue(r,a) -> PatDefaultValue(g r,a)
     | PatWhen(r,a,b) -> PatWhen(g r,f a,term b)
-    | PatNominal(r,a,b) -> PatNominal(g r,g' a,f b)
+    | PatNominal(r,a,b,c) -> PatNominal(g r,g' a,List.map g' b,f c)
     | PatArray(r,a) -> PatArray(g r,List.map f a)
 
 let bundle_blocks (blocks : TopStatement Block list) =

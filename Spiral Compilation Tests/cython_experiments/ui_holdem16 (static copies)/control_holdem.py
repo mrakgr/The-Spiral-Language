@@ -24,7 +24,7 @@ def neural_player(neural,tracker,modules,model_fun=model_exploit,is_update_value
     return neural.handler(partial(model_fun,tracker,*modules,is_update_value,is_update_policy))
 
 def create_nn_agent(
-        iter_train,iter_avg,iter_chk,iter_sub,iter_batch,vs_self,vs_one,neural,uniform_player,callbot_player,
+        iter_train,iter_avg,iter_chk,iter_sub,iter_batch,vs_self,vs_one,neural,player,
         game_mode,sb,bb,max_stack_size,
         resume_from=None, num_copies=10
         ):
@@ -48,27 +48,27 @@ def create_nn_agent(
     if 0 < iter_avg: avg_modules = [AveragedModel(x,avg_fn) for x in modules]
 
     def copy_modules(): return neural_player(neural,None,(deepcopy(x).requires_grad_(False) for x in modules))
-    oldies = [copy_modules()] * num_copies
+    oldies = [player.callbot, player.aggrodonk, neural_player(neural,None,torch.load(open("dump holdem/weak tag.nnreg",'rb')))]
 
     def run(is_avg=False):
         for i_sub in range(iter_sub):
             pla = neural_player(neural,tracker,modules,model_explore,True,False)
             for plb in oldies:
                 for i_batch in range(iter_batch): vs_one(batch_size,pla,plb); vs_one(batch_size,plb,pla)
-                opt_value.step(); opt_value.zero_grad(True)
+            opt_value.step(); opt_value.zero_grad(True)
 
-            pla = neural_player(neural,tracker,modules,model_explore,True,True)
-            for plb in oldies:
-                for i_batch in range(iter_batch): vs_one(batch_size,pla,plb); vs_one(batch_size,plb,pla)
-            for opt in (opt_policy,opt_value): opt.step(); opt.zero_grad(True)
+            # pla = neural_player(neural,tracker,modules,model_explore,True,True)
+            # for plb in oldies:
+            #     for i_batch in range(iter_batch): vs_one(batch_size,pla,plb); vs_one(batch_size,plb,pla)
+            # for opt in (opt_policy,opt_value): opt.step(); opt.zero_grad(True)
 
             logging.debug(f"Value prediction MSE: {tracker.mse_and_clear}")
 
-            oldies.pop(0)
-            oldies.append(copy_modules())
-
             if is_avg: 
                 for avg_x,x in zip(avg_modules,modules): avg_x.update_parameters(x)
+
+        # oldies.append(copy_modules())
+        # if num_copies <= len(oldies): oldies.pop(0)
 
     logging.info("** TRAINING START **")
     t1 = time.perf_counter()
@@ -100,4 +100,4 @@ if __name__ == '__main__':
         format='%(asctime)s %(message)s'
         )
 
-    create_nn_agent(30,0,1,40,1,**args,**defaults,resume_from=3)
+    create_nn_agent(30,0,1,40,10,**args,**defaults,resume_from=0)

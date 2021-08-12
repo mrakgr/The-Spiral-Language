@@ -143,8 +143,18 @@ inl main () =
         rm.add x Call
         if is_raise then loopw.for' {from=raise_min; nearTo=raise_max} (fun i => rm.add x (RaiseTo i))
         $"numpy.array(!x,copy=False)"
-    inl uniform_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * (a st i8 * st) * i16 * bool) * pid * actions) -> a u64 (log_prob * action) * _ = agent.uniform.policy uniform_selector
-    inl callbot_player : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * (a st i8 * st) * i16 * bool) * pid * actions) -> a u64 (log_prob * action) * _ = agent.holdem_callbot.policy
+    inl uniform : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * (a st i8 * st) * i16 * bool) * pid * actions) -> a u64 (log_prob * action) * _ = agent.uniform.policy uniform_selector
+    inl aggrodonk_selector (hu_actions {is_fold is_raise raise_min raise_max} : actions) : a st action =
+        inl x : ra st _ = am.empty
+        rm.add x Call
+        if is_raise then 
+            // Sampling in log space ensures that smaller bets get better coverage.
+            inl log_min, log_max = log (conv_num raise_min), log (conv_num raise_max)
+            inl d = log_max - log_min
+            rm.add x (RaiseTo (round (exp (($"numpy.random.rand()" : f32) * d + log_min))))
+        $"numpy.array(!x,copy=False)"
+    inl aggrodonk : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * (a st i8 * st) * i16 * bool) * pid * actions) -> a u64 (log_prob * action) * _ = agent.uniform.policy aggrodonk_selector
+    inl callbot : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * (a st i8 * st) * i16 * bool) * pid * actions) -> a u64 (log_prob * action) * _ = agent.holdem_callbot.policy
     inl num_actions = 16 // Should be at least 2.
     inl neural_selector (hu_actions {is_fold is_raise call raise_min raise_max} : actions) : a st action =
         inl h : dictm.dict st () = dictm.empty
@@ -180,4 +190,4 @@ inl main () =
 
         $"numpy.array(!x,copy=False)"
     inl neural = train.neural agent.neural_holdem.extractor agent.neural_holdem.schema() (num_actions, neural_selector)
-    record {ui train = record {vs_self vs_one uniform_player callbot_player neural}}
+    record {ui train = record {vs_self vs_one neural player=namedtuple "StaticPlayers" {callbot aggrodonk uniform}}}

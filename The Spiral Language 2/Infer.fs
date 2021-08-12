@@ -76,6 +76,7 @@ type TypeError =
     | ExpectedRecordAsResultOfIndex of T
     | RecordIndexFailed of string
     | ModuleIndexFailed of string
+    | ExpectedModule of T
     | ExpectedSymbol' of T
     | ExpectedSymbolInRecordWith of T
     | RealFunctionInTopDown
@@ -314,7 +315,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
             | PatAnd(_,a,b) | PatOr(_,a,b) -> loop (loop term a) b
             | PatAnnot(_,a,b) -> ctype constraints term ty b; f a
             | PatWhen(_,a,b) -> let r = f a in cterm constraints r ty b; r
-            | PatNominal(_,(r,a),b) -> check_ty ty (r,a); f b
+            | PatNominal(_,(r,a),_,b) -> check_ty ty (r,a); f b
             | PatArray(_,a) -> List.fold loop term a
         loop term x
 
@@ -523,6 +524,7 @@ let show_type_error (env : TopEnv) x =
     | ExpectedRecordAsResultOfIndex a -> sprintf "Expected a record as result of index.\nGot: %s" (f a)
     | RecordIndexFailed a -> sprintf "The record does not have the key: %s" a
     | ModuleIndexFailed a -> sprintf "The module does not have the key: %s" a
+    | ExpectedModule a -> sprintf "Expected a module.\nGot: %s" (f a)
     | ExpectedSymbolInRecordWith a -> sprintf "Expected a symbol.\nGot: %s" (f a)
     | RealFunctionInTopDown -> sprintf "Real segment functions are forbidden in the top-down segment."
     | MissingRecordFieldsInPattern(a,b) -> sprintf "The record is missing the following fields: %s.\nGot: %s" (String.concat ", " b) (f a)
@@ -743,7 +745,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | PatAnd(r,a,b) -> PatAnd(r,f a,f b)
                 | PatDefaultValue(r,a) as x -> PatFilledDefaultValue(r,a,annot r x)
                 | PatWhen(r,a,b) -> PatWhen(r,f a,term rec_term b)
-                | PatNominal(r,a,b) -> PatNominal(r,a,f b)
+                | PatNominal(r,a,b,c) -> PatNominal(r,a,b,f c)
                 | PatArray(r,a) -> PatArray(r,List.map f a)
             rec_term, f x'
 
@@ -1363,16 +1365,27 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         | ValueNone -> errors.Add(r,CannotInferCasePatternFromTermInEnv x); f (fresh_var scope) a
                     | None -> errors.Add(r,CasePatternNotFound name); f (fresh_var scope) a
             | PatUnbox _ -> failwith "Compiler error: Malformed PatUnbox."
-            | PatNominal(_,(r,name),a) ->
+            | PatNominal(_,(r,name),l,a) ->
                 match v_ty env name with
                 | Some x -> 
-                    match ho_index x with
-                    | ValueSome i ->
-                        let n = top_env.nominals.[i]
-                        match n.body with
-                        | TyUnion _ -> errors.Add(r,UnionInPatternNominal i); f (fresh_var scope) a
-                        | _ -> let x,m = ho_make i n.vars in unify r s x; f (subst m n.body) a
-                    | ValueNone -> errors.Add(r,TypeInEnvIsNotNominal x); f (fresh_var scope) a
+                    let rec loop r x = function
+                        | (r,name) :: l ->
+                            match x with
+                            | TyModule x ->
+                                match Map.tryFind name x with
+                                | Some x -> loop r x l
+                                | None -> errors.Add(r,ModuleIndexFailed name); f (fresh_var scope) a
+                            | _ ->
+                                errors.Add(r,ExpectedModule x); f (fresh_var scope) a
+                        | [] ->
+                            match ho_index x with
+                            | ValueSome i ->
+                                let n = top_env.nominals.[i]
+                                match n.body with
+                                | TyUnion _ -> errors.Add(r,UnionInPatternNominal i); f (fresh_var scope) a
+                                | _ -> let x,m = ho_make i n.vars in unify r s x; f (subst m n.body) a
+                            | ValueNone -> errors.Add(r,TypeInEnvIsNotNominal x); f (fresh_var scope) a
+                    loop r x l
                 | _ -> errors.Add(r,UnboundVariable); f (fresh_var scope) a
             | PatArray(r,a) ->
                 let v = fresh_var scope

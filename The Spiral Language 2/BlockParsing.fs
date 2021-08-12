@@ -240,7 +240,7 @@ and Pattern =
     | PatValue of VSCRange * Literal
     | PatDefaultValue of VSCRange * VarString
     | PatWhen of VSCRange * Pattern * RawExpr
-    | PatNominal of VSCRange * (VSCRange * VarString) * Pattern
+    | PatNominal of VSCRange * (VSCRange * VarString) *  (VSCRange * VarString) list * Pattern
     | PatArray of VSCRange * Pattern list
     | PatFilledDefaultValue of VSCRange * VarString * RawTExpr // Filled in by the inferencer.
 and RawExpr =
@@ -319,7 +319,7 @@ let range_of_pattern = function
     | PatAnd(r,_,_)
     | PatWhen(r,_,_)
     | PatFilledDefaultValue(r,_,_)
-    | PatNominal(r,_,_) -> r
+    | PatNominal(r,_,_,_) -> r
 let range_of_pat_record_member = function
     | PatRecordMembersSymbol((r,_),x)
     | PatRecordMembersInjectVar((r,_),x) -> r +. range_of_pattern x
@@ -606,7 +606,7 @@ let patterns_validate pats =
         | PatVar(r,x) -> 
             pos.Add(x,r)
             Set.singleton x
-        | PatDyn(_,p) | PatAnnot (_,p,_) | PatNominal(_,_,p) | PatUnbox(_,p) | PatWhen(_,p,_) -> loop p
+        | PatDyn(_,p) | PatAnnot (_,p,_) | PatNominal(_,_,_,p) | PatUnbox(_,p) | PatWhen(_,p,_) -> loop p
         | PatRecordMembers(_,items) ->
             let symbols = Collections.Generic.HashSet()
             let injects = Collections.Generic.HashSet()
@@ -868,20 +868,33 @@ let inline read_default_value on_top on_bot d =
         | p, _ -> Error [p, ExpectedLit]
 let read_string = tuple3 skip_string_open ((read_text |>> snd) <|>% "") skip_string_close
 let pat_var d = (read_small_var' |>> PatVar) d
-let rec root_pattern_nominal d =
-    ((read_var' .>>. opt root_pattern_var) |>> fun ((r,a,re),b) ->
-        if Char.IsUpper(a,0) then 
-            re SemanticTokenLegend.symbol
-            let b = match b with Some b -> b | None -> PatE r
-            PatUnbox(r,PatPair(r,PatSymbol(r,a),b))
+let rec root_pattern_var_nominal_union s =
+    (read_var' >>= fun (r,a,re) s ->
+        if Char.IsUpper(a,0) then
+            (opt root_pattern_var |>> fun b ->
+                re SemanticTokenLegend.symbol
+                let b = match b with Some b -> b | None -> PatE r
+                PatUnbox(r,PatPair(r,PatSymbol(r,a),b))
+                ) s
         else 
-            match b with
-            | Some b ->
-                re SemanticTokenLegend.type_variable
-                PatNominal(r +. range_of_pattern b,(r,a),b)
-            | None ->
-                PatVar(r,a)
-        ) d
+            (many (expr_tight read_symbol) >>= fun syms s ->
+                match syms with
+                | [] ->
+                    (opt root_pattern_var |>> fun b ->
+                        match b with
+                        | Some b ->
+                            re SemanticTokenLegend.type_variable
+                            PatNominal(r +. range_of_pattern b,(r,a),syms,b)
+                        | None ->
+                            PatVar(r,a)
+                        ) s
+                | _ ->
+                    (root_pattern_var |>> fun b ->
+                        re SemanticTokenLegend.type_variable
+                        PatNominal(r +. range_of_pattern b,(r,a),syms,b)
+                        ) s
+                ) s
+        ) s
 and root_pattern_wildcard d = (skip_keyword' SpecWildcard |>> PatE) d
 and root_pattern_dyn d = (range (skip_unary_op "~" >>. root_pattern_var) |>> PatDyn) d
 and root_pattern_record d = 
@@ -908,7 +921,7 @@ and root_pattern s =
             range (squares (sepBy root_pattern_type (skip_op ";")))
             |>> fun ((r,_),x) -> let r = r,r in List.foldBack (pat_list_pair r) x (PatUnbox(r,PatPair(r,PatSymbol(r,"Nil"),PatB r)))
         let (+) = alt (index s)
-        (root_pattern_rounds + root_pattern_nominal + root_pattern_wildcard + root_pattern_dyn + pat_value + pat_string 
+        (root_pattern_rounds + root_pattern_var_nominal_union + root_pattern_wildcard + root_pattern_dyn + pat_value + pat_string 
         + root_pattern_record + pat_symbol + pat_array + pat_list) s
 
     let pat_and = sepBy1 body (skip_op "&") |>> List.reduce (fun a b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b))

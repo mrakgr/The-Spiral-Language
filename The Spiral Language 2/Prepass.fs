@@ -859,7 +859,10 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                 | PatAnd(r,a,b) -> let on_fail = EPatternMemo on_fail in cp id a (cp id b on_succ on_fail) on_fail
                 | PatValue(r,x) -> ELitTest(p r,x,id,on_succ,on_fail)
                 | PatWhen(r,p',e) -> pat_ref_term' e (fun e -> cp id p' (EIfThenElse(p r, e, on_succ, on_fail)) on_fail)
-                | PatNominal(r,(_,a),b) -> let id', on_succ = step b on_succ in ENominalTest(p r,v_ty env a,id,id',on_succ,on_fail)
+                | PatNominal(r,(_,a),l,b) -> 
+                    let id', on_succ = step b on_succ
+                    let a = List.fold (fun s (r',x) -> TApply(p (r +. r'),s,TSymbol(p r',x))) (v_ty env a) l
+                    ENominalTest(p r,a,id,id',on_succ,on_fail)
                 | PatFilledDefaultValue(r,a,b) -> EDefaultLitTest(p r,a,pat_ref_ty b,id,on_succ,on_fail)
                 | PatDyn(r,a) -> let id' = patvar() in ELet(p r,id',EOp(p r,Dyn,[EV id]),cp id' a on_succ on_fail)
                 | PatUnbox(r,a) -> let id' = patvar() in EUnbox(p r,id',EV id,cp id' a on_succ on_fail)
