@@ -1,7 +1,7 @@
 {
 	"name": "spiral-lang-vscode",
 	"displayName": "The Spiral Language",
-	"version": "2.1.2",
+	"version": "2.1.3",
 	"description": "VS Code editor support plugin + the Spiral language compiler.",
 	"repository": {
 		"url": "https://github.com/mrakgr/The-Spiral-Language"
@@ -9,7 +9,7 @@
 	"publisher": "mrakgr",
 	"author": "Marko Grdinić",
 	"engines": {
-		"vscode": "^1.44.0"
+		"vscode": "^1.59.0"
 	},
 	"main": "out/index.js",
 	"activationEvents": [
@@ -106,6 +106,11 @@
 				"id": "unescaped_char",
 				"superType": "member",
 				"description": "Unescaped character."
+			},
+			{
+				"id": "number_suffix",
+				"superType": "keyword",
+				"description": "The suffix for a number."
 			}
 		]
 	},

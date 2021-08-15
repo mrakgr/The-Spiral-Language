@@ -68,6 +68,7 @@ type SemanticTokenLegend =
     | type_variable = 9
     | escaped_char = 10
     | unescaped_char = 11
+    | number_suffix = 12
 
 type SpiralToken =
     | TokVar of string * SemanticTokenLegend
@@ -75,6 +76,7 @@ type SpiralToken =
     | TokOperator of string * SemanticTokenLegend
     | TokUnaryOperator of string * SemanticTokenLegend
     | TokValue of Literal
+    | TokValueSuffix
     | TokDefaultValue of string
     | TokComment of string
     | TokKeyword of TokenKeyword
@@ -98,6 +100,7 @@ let token_groups = function
     | TokEscapedChar _ -> SemanticTokenLegend.escaped_char
     | TokUnescapedChar _ -> SemanticTokenLegend.unescaped_char
     | TokValue _ | TokDefaultValue _ -> SemanticTokenLegend.number
+    | TokValueSuffix -> SemanticTokenLegend.number_suffix
 
 let is_small_var_char_starting c = Char.IsLower c || c = '_'
 let is_var_char c = Char.IsLetterOrDigit c || c = '_' || c = '''
@@ -154,7 +157,6 @@ let var (s: Tokenizer) =
 
 let number (s: Tokenizer) = 
     let from = s.from
-    let ok x = ({from=from; nearTo=s.from}, x) |> Ok
 
     let parser (s: Tokenizer) = 
         if peek s = '-' && Char.IsDigit (peek' s 1) && is_prefix_separator_char (peek' s -1) then 
@@ -167,10 +169,11 @@ let number (s: Tokenizer) =
                 | (a,None) -> a)
     
     let followedBySuffix x (s: Tokenizer) =
+        let from' = s.from
         let inline safe_parse string_to_val val_to_lit val_dsc =
-            if (let x = peek s in is_separator_char x || is_operator_char x) then 
+            if (let x = peek s in is_separator_char x || is_operator_char x) then
                 match string_to_val x with
-                | true, x -> val_to_lit x |> TokValue |> ok
+                | true, x -> Ok [{from=from; nearTo=from'}, TokValue(val_to_lit x); {from=from'; nearTo=s.from}, TokValueSuffix]
                 | false, _ -> Error [{from=from; nearTo=s.from}, (sprintf "The string %s cannot be safely parsed as %s." x val_dsc)]
             else error_char s.from "separator"
         let skip c = skip c s
@@ -190,7 +193,7 @@ let number (s: Tokenizer) =
             if skip '3' && skip '2' then safe_parse Single.TryParse LitFloat32 "f32"
             elif skip '6' && skip '4' then safe_parse Double.TryParse LitFloat64 "f64"
             else error_char s.from "32 or 64"
-        else TokDefaultValue x |> ok
+        else Ok [{from=from; nearTo=s.from}, TokDefaultValue x]
 
     (parser >>= followedBySuffix .>> spaces) s
 
@@ -286,7 +289,11 @@ let macro' s =
         let f = f s.from
         let rec loop (str : StringBuilder) =
             let l () = if 0 < str.Length then f (TokText(str.ToString())) :: l else l
-            let var b = var b (l ())
+            let var b = 
+                inc s
+                let c = if b then '`' else '!'
+                if peek s = c then inc s; loop (str.Append(c))
+                else var b (l ())
             match peek s with
             | x when x = eol -> error_char s.from "character or \""
             | '`' -> var true 
@@ -298,7 +305,7 @@ let macro' s =
     and var is_type l =
         let f = f s.from
         let text x _ = text (f (if is_type then TokMacroTypeVar x else TokMacroTermVar x) :: l)
-        inc s; (many1Satisfy2L is_var_char_starting is_var_char "variable" >>= text) s
+        (many1Satisfy2L is_var_char_starting is_var_char "variable" >>= text) s
     match peek s, peek' s 1 with
     | '$', '"' -> let f = f s.from in inc' 2 s; text [f TokMacroOpen]
     | _ -> error_char s.from "$\""
@@ -318,7 +325,7 @@ let eol s = if peek s = eol then Ok [] else Error [range_char (index s), "end of
 let token s =
     let i = s.from
     let inline (+) a b = alt i a b
-    (string_quoted + macro + ((var + symbol + number + string_raw + char_quoted + brackets + comment + operator) |>> fun x -> [x])) s
+    (string_quoted + macro + number + ((var + symbol + string_raw + char_quoted + brackets + comment + operator) |>> fun x -> [x])) s
 
 type LineToken = Range * SpiralToken
 type LineComment = Range * string

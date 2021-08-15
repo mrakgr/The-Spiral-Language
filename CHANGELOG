@@ -1,4 +1,16 @@
-WIP - 2.1.3
+WIP - 2.1.4
+
+2.1.3
+
+User experience improvements.
+
+* Literal suffixes are colored as keywords instead of numbers. This makes it easier to distinguish them from the actual number.
+* !! and `` are valid syntax in macros.
+* Module entries get printed on a separate lines instead of like records.
+* Unapplied modules show up on hover.
+* The result of a record application shows up when hovering over the symbol.
+* Function comments show up on module hover.
+* Comments get printed similarly to in Python. Newlines are erased, and empty lines are instead printed as newlines.
 
 2.1.2
 

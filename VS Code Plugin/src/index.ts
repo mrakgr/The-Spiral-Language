@@ -264,7 +264,7 @@ export const activate = async (ctx: ExtensionContext) => {
 
     const spiralFilePattern = {pattern: '**/*.{spi,spir}'}
     const spiralProjFilePattern = {pattern: '**/package.spiproj'}
-    const spiralTokenLegend = ['variable','symbol','string','number','operator','unary_operator','comment','keyword','parenthesis','type_variable','escaped_char','unescaped_char']
+    const spiralTokenLegend = ['variable','symbol','string','number','operator','unary_operator','comment','keyword','parenthesis','type_variable','escaped_char','unescaped_char','number_suffix']
     ctx.subscriptions.push(
         new Disposable(() => { serverStop(() => {}); serverStop = () => {throw "Plugin has been exited already."} } ),
         errorsProject, errorsTokenization, errorsParse, errorsType,

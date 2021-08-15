@@ -550,7 +550,13 @@ let read_small_type_var' d =
 
 let read_value d =
     try_current d <| function
-        | p, TokValue t' -> skip d; Ok(p,t')
+        | p, TokValue t' -> 
+            skip d
+            if d.Index < d.tokens.Length then 
+                match snd d.tokens.[d.Index] with 
+                | TokValueSuffix -> skip d 
+                | _ -> ()
+            Ok(p,t')
         | p, _ -> Error [p, ExpectedLit]
 
 let read_symbol d =
@@ -1190,11 +1196,13 @@ let comments (s : Env) =
     let rec loop line d =
         if 0 <= line then 
             match s.comments.[line] with
-            | Some(r,text) -> loop (line-1) (text :: d)
+            | Some(r,text) -> 
+                let text = text.TrimEnd()
+                loop (line-1) ((if text = "" then "\n" else text + " ") :: d)
             | _ -> d
         else d
     loop (line_near_to-1) []
-    |> String.concat "\n"
+    |> String.concat ""
     |> fun x -> Ok(x.TrimEnd())
 
 type Comments = string
