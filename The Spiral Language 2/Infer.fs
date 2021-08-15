@@ -470,11 +470,14 @@ let show_t (env : TopEnv) x =
     let rec f prec x =
         let p = p prec
         match x with
-        | TyComment(com,a) -> sprintf "\n%s\n--- %s\n" com (f prec a)
-        | TyMetavar(_,{contents=Some x}) -> f prec x
+        | TyComment(_,x) | TyMetavar(_,{contents=Some x}) -> f prec x
         | TyMetavar _ -> "?"
         | TyVar a -> a.name
-        | TyNominal i -> show_nominal env i
+        | TyNominal i -> 
+            match Map.tryFind i env.nominals_aux with
+            | Some x when prec < 0 -> sprintf "(%s : %s)" x.name (show_kind x.kind)
+            | Some x -> x.name
+            | _ -> "?"
         | TyB -> "()"
         | TyPrim x -> show_primt x
         | TySymbol x -> sprintf ".%s" x
@@ -499,7 +502,14 @@ let show_t (env : TopEnv) x =
         | TyPair(a,b) -> p 25 (sprintf "%s * %s" (f 25 a) (f 24 b))
         | TyFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
         | TyModule l -> 
-            if prec = -2 then l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "\n"
+            if prec = -2 then 
+                l |> Map.toList |> List.map (fun (k,v) -> 
+                    let a,b = k, f -1 v
+                    match v with
+                    | TyComment(com,_) -> sprintf "%s : %s\n---\n%s\n---\n" a b com
+                    | _ -> sprintf "%s : %s" a b
+                    )
+                |> String.concat "\n"
             else "module"
         | TyRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
         | TyUnion(l,_) -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "| ")
@@ -1225,7 +1235,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | RawFun(r,_) -> errors.Add(r, ExpectedSinglePattern); TyFun(fresh_var scope, fresh_var scope)
         | RawJoinPoint(_, RawAnnot(_,_,t)) | RawAnnot(_,_,t) -> f t
         | x -> errors.Add(range_of_expr x,ExpectedAnnotation); fresh_var scope
-    and ty scope (env : Env) s x =
+    and ty scope env s x = ty' scope false env s x
+    and ty' scope is_in_left_apply (env : Env) s x =
         let f s x = ty scope env s x
         match x with
         | RawTWildcard r -> hover_types.Add(r,(s,""))
@@ -1233,8 +1244,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let v = fresh_var scope
             unify r s (TyArray v)
             f v a
-        | RawTVar(r,x) -> 
+        | RawTVar(r,x) ->
             match v_ty env x with
+            | Some (TyModule _ & m) when is_in_left_apply = false -> hover_types.Add(r,(m,"")); errors.Add(r,ModuleMustBeImmediatelyApplied)
             | Some x -> hover_types.Add(r,(x,"")); unify r s x
             | None -> errors.Add(r, UnboundVariable)
         | RawTB r -> unify r s TyB
@@ -1244,11 +1256,11 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let q,w = fresh_var scope, fresh_var scope
             unify r s (TyPair(q,w))
             f q a; f w b
-        | RawTFun(r,a,b) -> 
+        | RawTFun(r,a,b) ->
             let q,w = fresh_var scope, fresh_var scope
             unify r s (TyFun(q,w))
             f q a; f w b
-        | RawTRecord(r,l) -> 
+        | RawTRecord(r,l) ->
             let l' = Map.map (fun _ _ -> fresh_var scope) l
             unify r s (TyRecord l')
             Map.iter (fun k s -> f s l.[k]) l'
@@ -1262,13 +1274,25 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             ty scope {env with ty = Map.add a.name (TyVar a) env.ty} body_var b
             unify r s (TyForall(a, body_var))
         | RawTApply(r,a',b) ->
-            let f' k x = let v = fresh_var' scope k in f v x; visit_t v
-            match f' (fresh_kind ()) a' with
+            let f' b k x = let v = fresh_var' scope k in ty' scope b env v x; visit_t v
+            match f' true (fresh_kind ()) a' with
             | TyModule l -> 
-                match f' KindType b with
+                match f' false KindType b with
                 | TySymbol x ->
                     match Map.tryFind x l with
-                    | Some x -> unify r s x
+                    | Some (TyModule _ as a) ->
+                        match b with 
+                        | RawTSymbol(r,_) -> hover_types.Add(r,(a,""))
+                        | _ -> ()
+                        if is_in_left_apply then unify r s a
+                        else errors.Add(r,ModuleMustBeImmediatelyApplied)
+                    | Some a -> 
+                        match b with 
+                        | RawTSymbol(r,_) -> 
+                            let com = match a with TyComment(com,_) -> com | _ -> ""
+                            hover_types.Add(r,(a,com))
+                        | _ -> ()
+                        unify r s a
                     | None -> errors.Add(r,ModuleIndexFailed x)
                 | b -> errors.Add(r,ExpectedSymbolAsRecordKey b)
             | TyInl(a,body) -> let v = fresh_var' scope a.kind in f v b; unify r s (subst [a,v] body)
@@ -1466,7 +1490,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 ) top_env_empty l
         if 0 = errors.Count then psucc (fun () -> FNominalRec l'), AInclude x
         else pfail, AInclude top_env_empty
-    | BundlePrototype(q,(r,name),(w,var_init),vars',expr) ->
+    | BundlePrototype(com,r,(r',name),(w,var_init),vars',expr) ->
         let i = at_tag top_env'.prototypes_next_tag
         let cons = CPrototype i
         let v = {scope=0; constraints=Set.singleton cons; name=var_init; kind=List.foldBack (fun ((_,(_,k)),_) s -> KindFun(typevar k, s)) vars' KindType}
@@ -1475,15 +1499,15 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let v = fresh_var scope
         ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
         let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
-        if 0 = errors.Count && (assert_foralls_used r body; 0 = errors.Count) then
+        if 0 = errors.Count && (assert_foralls_used r' body; 0 = errors.Count) then
             let x =
                 { top_env_empty with
                     prototypes_next_tag = i.tag + 1
                     prototypes = Map.add i {|name=name; signature=body|} Map.empty
-                    term = Map.add name body Map.empty
+                    term = Map.add name (if com <> "" then TyComment(com,body) else body) Map.empty
                     constraints = Map.add name (C cons) Map.empty
                     }
-            psucc (fun () -> FPrototype(q,(r,name),(w,var_init),vars',expr)), AInclude x
+            psucc (fun () -> FPrototype(r,(r',name),(w,var_init),vars',expr)), AInclude x
         else pfail, AInclude top_env_empty
     | BundleInl(com,q,(_,name as w),a,true) ->
         let env = inl scope {term=Map.empty; ty=Map.empty; constraints=Map.empty} (w,a)

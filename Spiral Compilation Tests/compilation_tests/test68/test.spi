@@ -1,0 +1,5 @@
+// Does the nominal show up in hover correctlY?
+
+inl main () =
+    inl q = a.t () : a.t ()
+    ()

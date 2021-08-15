@@ -1214,7 +1214,7 @@ type [<ReferenceEquality>] TopStatement =
     | TopNominal of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
     | TopNominalRec of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
     | TopType of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
-    | TopPrototype of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawTExpr
+    | TopPrototype of Comments * VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawTExpr
     | TopInstance of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawExpr
     | TopOpen of VSCRange * (VSCRange * VarString) * (VSCRange * SymbolString) list
 
@@ -1239,10 +1239,10 @@ let top_nominal d =
 let inline type_forall next d = (pipe2 (forall <|>% []) next (List.foldBack (fun x s -> RawTForall(range_of_typevar x +. range_of_texpr s,x,s)))) d 
 let top_prototype d = 
     (range 
-        (tuple4
+        (tuple5 comments
             (skip_keyword SpecPrototype >>. (read_small_var' <|> rounds read_op')) read_small_type_var' (many forall_var) 
             (skip_op ":" >>. type_forall (root_type root_type_defaults)))
-    |>> fun (r,(a,b,c,d)) -> TopPrototype(r,a,b,c,d)) d
+    |>> fun (r,(com,a,b,c,d)) -> TopPrototype(com,r,a,b,c,d)) d
 let top_instance d =
     (range
         (tuple4 (skip_keyword SpecInstance >>. (read_small_var' <|> rounds read_op')) read_small_type_var' (many forall_var) (skip_op "=" >>. root_term))
