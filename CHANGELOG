@@ -1,6 +1,10 @@
-WIP - 2.1.5
+WIP - 2.1.6
 
-2.1.4 (8/15/2015)
+2.1.5 (8/17/2021)
+
+* Fixed the type inference of mutually recursive unions.
+
+2.1.4 (8/15/2021)
 
 Finishing what I started yesterday.
 

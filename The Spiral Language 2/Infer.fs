@@ -94,6 +94,7 @@ type TypeError =
     | RecursiveAnnotationHasMetavars of T
     | ValueRestriction of T
     | DuplicateRecInlName
+    | DuplicateKeyInRecUnion
     | ExpectedConstraintInsteadOfModule
     | InstanceNotFound of prototype: GlobalId * instance: GlobalId
     | ExpectedPrototypeConstraint of Constraint
@@ -556,6 +557,7 @@ let show_type_error (env : TopEnv) x =
     | RecursiveAnnotationHasMetavars a -> sprintf "Recursive functions with foralls must not have metavars.\nGot: %s" (f a)
     | ValueRestriction a -> sprintf "Metavars that are not part of the enclosing function's signature are not allowed. They need to be values.\nGot: %s" (f a)
     | DuplicateRecInlName -> "Shadowing of functions by the members of the same mutually recursive block is not allowed."
+    | DuplicateKeyInRecUnion -> "Mutually recursive unions should not have overlapping keys."
     | ExpectedConstraintInsteadOfModule -> sprintf "Expected a constraint instead of module."
     | InstanceNotFound(prot,ins) -> sprintf "The higher order type instance %s does not have the prototype %s." (show_nominal env ins) env.prototypes.[prot].name
     | ExpectedPrototypeConstraint a -> sprintf "Expected a prototype constraint.\nGot: %s" (constraint_name env a)
@@ -1446,10 +1448,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let top_env_nominal s r (i : GlobalId) tt name vars v =
         { s with
             nominals_next_tag = max s.nominals_next_tag i.tag + 1
-            nominals_aux = Map.add i {|kind=tt; name=name|} Map.empty
-            nominals = Map.add i {|vars=vars; body=v|} Map.empty
-            term = nominal_term r i tt name vars v
-            ty = Map.add name (TyNominal i) Map.empty
+            nominals_aux = Map.add i {|kind=tt; name=name|} s.nominals_aux
+            nominals = Map.add i {|vars=vars; body=v|} s.nominals
+            term = Map.foldBack Map.add (nominal_term r i tt name vars v) s.term
+            ty = Map.add name (TyNominal i) s.ty
             }
 
     let scope = 0
@@ -1471,6 +1473,13 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         if 0 = errors.Count then psucc (fun () -> FNominal(q,(r,name),vars',expr)), AInclude(top_env_nominal top_env_empty r (at_tag top_env'.nominals_next_tag) tt name vars v)
         else pfail, AInclude top_env_empty
     | BundleNominalRec l' ->
+        let _ = // Checks that mutually recursive unions do not have duplicates.
+            let h = HashSet()
+            l' |> List.iter (fun (_,_,_,x) ->
+                match x with
+                | RawTUnion(_,l,_) -> l |> Map.iter (fun k v -> if h.Add k = false then errors.Add(range_of_texpr v,DuplicateKeyInRecUnion))
+                | _ -> ()
+                )
         let l,_ =
             List.mapFold (fun i (_,name,vars,body) ->
                 let l,env = hovars vars
