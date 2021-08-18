@@ -29,7 +29,7 @@
             - [Loop Unrolling](#loop-unrolling)
             - [Compiler Crashing](#compiler-crashing)
             - [Print Static](#print-static)
-        - [Type Inference](#type-inference)
+        - [Type Inference In Bottom-Up Style](#type-inference-in-bottom-up-style)
         - [Real Nominals](#real-nominals)
         - [Serialization (Binary)](#serialization-binary)
             - [Pickler Combinators](#pickler-combinators)
@@ -202,7 +202,7 @@ packages: core-
 modules: a
 ```
 
-The way to compile a module is to have it open in the editor and then use `Spiral: Build File` from the command palette. In VS Code, the easiest way to bring it up is to press F1. It also keyed to Ctrl + Shift + P by default.
+The way to compile a module is to have it open in the editor and then use `Spiral: Build File` from the command palette. In VS Code, the easiest way to bring it up is to press F1. It is also keyed to Ctrl + Shift + P by default. I recommend keying the Spiral build file command to something like Ctrl + F1 to make it more convenient to use.
 
 Here is an example module `a.spi`:
 
@@ -249,7 +249,6 @@ inl main () =
     inl y = 2
     x + y
 ```
-
 ```fs
 3
 ```
@@ -262,7 +261,6 @@ inl main () =
     inl y = 2
     x + y
 ```
-
 ```fs
 3.000000
 ```
@@ -275,7 +273,6 @@ inl main () : u16 =
     inl y = 2
     x + y
 ```
-
 ```fs
 3us
 ```
@@ -288,7 +285,6 @@ inl main () =
     inl y = 2
     x + y
 ```
-
 ```fs
 3L
 ```
@@ -307,7 +303,6 @@ inl main () =
     inl y = 2
     x + y
 ```
-
 ```fs
 let v0 : int64 = 1L
 v0 + 2L
@@ -321,7 +316,6 @@ inl main () =
     inl ~y = 2
     x + y
 ```
-
 ```fs
 let v0 : int64 = 1L
 let v1 : int64 = 2L
@@ -343,7 +337,6 @@ inl main () =
     inl y = 2
     add x y
 ```
-
 ```fs
 3
 ```
@@ -357,7 +350,6 @@ inl main () =
     inl y = 2
     add x y
 ```
-
 ```fs
 let v0 : int32 = 1
 let v1 : int32 = 2
@@ -370,8 +362,7 @@ Here is an example that performs several additions.
 inl add ~a ~b : i32 = a + b
 inl main () = add 1 2, add 3 4, add 5 6
 ```
-
-```
+```fs
 let v0 : int32 = 1
 let v1 : int32 = 2
 let v2 : int32 = v0 + v1
@@ -392,7 +383,6 @@ The above example is trivial, but for larger functions it would be better if the
 inl add ~a ~b : i32 = join a + b
 inl main () = add 1 2, add 3 4, add 5 6
 ```
-
 ```fs
 let rec method0 (v0 : int32, v1 : int32) : int32 =
     v0 + v1
@@ -621,7 +611,6 @@ inl main () =
     inl ~y = 2
     f (fun () => add x y)
 ```
-
 ```fs
 let rec closure0 (v0 : int32, v1 : int32) () : int32 =
     v0 + v1
@@ -749,7 +738,6 @@ Here is the same example, except with a record.
 ```
 inl main () = join {a=1i32; b=2i32; c=3i32}
 ```
-
 ```fs
 let rec method0 () : struct (int32 * int32 * int32) =
     struct (1, 2, 3)
@@ -1369,16 +1357,21 @@ This is the memory tradeoff between heap allocation and code size.
 
 This tradeoff is a very real phenomenon that users often unwittingly make, and it explains most of the performance difference between different languages.
 
-Dynamic languages are all the way on the heap allocation side of the axis. Their primitives and data structures are all heap allocated **by default**. **By default** should mean, unless the optimizer gets to them. But dynamic languages tend to have very flexible semantics that frequently inhibits that.
+Dynamic languages are all the way on the heap allocation side of the axis. Their primitives and data structures are all heap allocated **by default**. **By default** should imply unless the optimizer gets to them. But dynamic languages tend to have very flexible semantics that frequently inhibits that.
 
 For dynamic languages with good optimizers like Javascript for example, it is well known that to get optimized code in it the way to do it is to write it as if it had a static type system. That is why semi-dynamic languages like .NET ones, which have a dynamic runtime and GC and heap allocate by default, but static type systems generally have better performance than dynamic ones.
 
 Spiral does stack allocation by default for all its primitives (except strings) and errs on the side of too much inlining, but this tradeoff does occur internally as well.
 
 ```
-inl map f = arrayi32.map f
+inl init nearTo f : a i32 _ = 
+    inl ar = create nearTo
+    loop.for' {from=0; nearTo} (fun i => set ar i (f i))
+    ar
+inl map f ar = init (length ar) (fun i => f (index ar i))
+
 inl main () =
-    arrayi32.init 10 id
+    init 10 id
     |> map ((+) 2)
     |> map ((*) 10)
     |> map ((/) 2)
@@ -1390,94 +1383,87 @@ let rec method0 (v0 : (int32 []), v1 : int32) : unit =
     let v2 : bool = v1 < 10
     if v2 then
         let v3 : int32 = v1 + 1
-        v0.[v1] <- v1
+        v0.[int v1] <- v1
         method0(v0, v3)
-    else
-        ()
 and method1 (v0 : int32, v1 : (int32 []), v2 : (int32 []), v3 : int32) : unit =
     let v4 : bool = v3 < v0
     if v4 then
         let v5 : int32 = v3 + 1
-        let v6 : int32 = v1.[v3]
+        let v6 : int32 = v1.[int v3]
         let v7 : int32 = 2 + v6
-        v2.[v3] <- v7
+        v2.[int v3] <- v7
         method1(v0, v1, v2, v5)
-    else
-        ()
 and method2 (v0 : int32, v1 : (int32 []), v2 : (int32 []), v3 : int32) : unit =
     let v4 : bool = v3 < v0
     if v4 then
         let v5 : int32 = v3 + 1
-        let v6 : int32 = v1.[v3]
+        let v6 : int32 = v1.[int v3]
         let v7 : int32 = 10 * v6
-        v2.[v3] <- v7
+        v2.[int v3] <- v7
         method2(v0, v1, v2, v5)
-    else
-        ()
 and method3 (v0 : int32, v1 : (int32 []), v2 : (int32 []), v3 : int32) : unit =
     let v4 : bool = v3 < v0
     if v4 then
         let v5 : int32 = v3 + 1
-        let v6 : int32 = v1.[v3]
+        let v6 : int32 = v1.[int v3]
         let v7 : int32 = 2 / v6
-        v2.[v3] <- v7
+        v2.[int v3] <- v7
         method3(v0, v1, v2, v5)
-    else
-        ()
 and method4 (v0 : int32, v1 : (int32 []), v2 : (int32 []), v3 : int32) : unit =
     let v4 : bool = v3 < v0
     if v4 then
         let v5 : int32 = v3 + 1
-        let v6 : int32 = v1.[v3]
+        let v6 : int32 = v1.[int v3]
         let v7 : int32 = 5 - v6
-        v2.[v3] <- v7
+        v2.[int v3] <- v7
         method4(v0, v1, v2, v5)
-    else
-        ()
 and method5 (v0 : int32, v1 : (int32 []), v2 : (int32 []), v3 : int32) : unit =
     let v4 : bool = v3 < v0
     if v4 then
         let v5 : int32 = v3 + 1
-        let v6 : int32 = v1.[v3]
+        let v6 : int32 = v1.[int v3]
         let v7 : int32 = 4 % v6
-        v2.[v3] <- v7
+        v2.[int v3] <- v7
         method5(v0, v1, v2, v5)
-    else
-        ()
-let v0 : (int32 []) = Array.zeroCreate<int32> 10
+let v0 : (int32 []) = Array.zeroCreate<int32> (10)
 let v1 : int32 = 0
 method0(v0, v1)
 let v2 : int32 = v0.Length
-let v3 : (int32 []) = Array.zeroCreate<int32> v2
+let v3 : (int32 []) = Array.zeroCreate<int32> (v2)
 let v4 : int32 = 0
 method1(v2, v0, v3, v4)
 let v5 : int32 = v3.Length
-let v6 : (int32 []) = Array.zeroCreate<int32> v5
+let v6 : (int32 []) = Array.zeroCreate<int32> (v5)
 let v7 : int32 = 0
 method2(v5, v3, v6, v7)
 let v8 : int32 = v6.Length
-let v9 : (int32 []) = Array.zeroCreate<int32> v8
+let v9 : (int32 []) = Array.zeroCreate<int32> (v8)
 let v10 : int32 = 0
 method3(v8, v6, v9, v10)
 let v11 : int32 = v9.Length
-let v12 : (int32 []) = Array.zeroCreate<int32> v11
+let v12 : (int32 []) = Array.zeroCreate<int32> (v11)
 let v13 : int32 = 0
 method4(v11, v9, v12, v13)
 let v14 : int32 = v12.Length
-let v15 : (int32 []) = Array.zeroCreate<int32> v14
+let v15 : (int32 []) = Array.zeroCreate<int32> (v14)
 let v16 : int32 = 0
 method5(v14, v12, v15, v16)
 v15
 ```
 
-The above program demonstrate how a bunch of maps get compiled to separate loops. In total, the output comes to 82 lines of code. But there is a lot of duplicate code in the loops.
+The above program demonstrate how a bunch of maps get compiled to separate loops. In total, the output comes to 70 lines of code. But there is a lot of duplicate code in the loops.
 
 It is easy to lower the resulting output size by doing more heap allocation at runtime. All it takes is a single character change. Instead of inlining the function, the following example passes them as closures at runtime.
 
 ```
-inl map ~f = array.map f
+inl init nearTo f : a i32 _ = 
+    inl ar = create nearTo
+    loop.for' {from=0; nearTo} (fun i => set ar i (f i))
+    ar
+inl map ~f ar = init (length ar) (fun i => f (index ar i))
+
 inl main () =
-    array.init 10 id
+    init 10 id
     |> map ((+) 2)
     |> map ((*) 10)
     |> map ((/) 2)
@@ -1489,22 +1475,18 @@ let rec method0 (v0 : (int32 []), v1 : int32) : unit =
     let v2 : bool = v1 < 10
     if v2 then
         let v3 : int32 = v1 + 1
-        v0.[v1] <- v1
+        v0.[int v1] <- v1
         method0(v0, v3)
-    else
-        ()
 and closure0 () (v0 : int32) : int32 =
     2 + v0
 and method1 (v0 : int32, v1 : (int32 -> int32), v2 : (int32 []), v3 : (int32 []), v4 : int32) : unit =
     let v5 : bool = v4 < v0
     if v5 then
         let v6 : int32 = v4 + 1
-        let v7 : int32 = v2.[v4]
+        let v7 : int32 = v2.[int v4]
         let v8 : int32 = v1 v7
-        v3.[v4] <- v8
+        v3.[int v4] <- v8
         method1(v0, v1, v2, v3, v6)
-    else
-        ()
 and closure1 () (v0 : int32) : int32 =
     10 * v0
 and closure2 () (v0 : int32) : int32 =
@@ -1513,40 +1495,40 @@ and closure3 () (v0 : int32) : int32 =
     5 - v0
 and closure4 () (v0 : int32) : int32 =
     4 % v0
-let v0 : (int32 []) = Array.zeroCreate<int32> 10
+let v0 : (int32 []) = Array.zeroCreate<int32> (10)
 let v1 : int32 = 0
 method0(v0, v1)
 let v2 : (int32 -> int32) = closure0()
 let v3 : int32 = v0.Length
-let v4 : (int32 []) = Array.zeroCreate<int32> v3
+let v4 : (int32 []) = Array.zeroCreate<int32> (v3)
 let v5 : int32 = 0
 method1(v3, v2, v0, v4, v5)
 let v6 : (int32 -> int32) = closure1()
 let v7 : int32 = v4.Length
-let v8 : (int32 []) = Array.zeroCreate<int32> v7
+let v8 : (int32 []) = Array.zeroCreate<int32> (v7)
 let v9 : int32 = 0
 method1(v7, v6, v4, v8, v9)
 let v10 : (int32 -> int32) = closure2()
 let v11 : int32 = v8.Length
-let v12 : (int32 []) = Array.zeroCreate<int32> v11
+let v12 : (int32 []) = Array.zeroCreate<int32> (v11)
 let v13 : int32 = 0
 method1(v11, v10, v8, v12, v13)
 let v14 : (int32 -> int32) = closure3()
 let v15 : int32 = v12.Length
-let v16 : (int32 []) = Array.zeroCreate<int32> v15
+let v16 : (int32 []) = Array.zeroCreate<int32> (v15)
 let v17 : int32 = 0
 method1(v15, v14, v12, v16, v17)
 let v18 : (int32 -> int32) = closure4()
 let v19 : int32 = v16.Length
-let v20 : (int32 []) = Array.zeroCreate<int32> v19
+let v20 : (int32 []) = Array.zeroCreate<int32> (v19)
 let v21 : int32 = 0
 method1(v19, v18, v16, v20, v21)
 v20
 ```
 
-With the change, the output is 25 lines shorter then the previous one. It comes down to 57 lines.
+With the change, the output is 17 lines shorter then the previous one. It comes down to 53 lines.
 
-The expense paid in lines of code is almost a third less, but now the resulting program would allocate closures on the heap. This along with the loop now requiring virtual calls to apply the closure would make the resulting program slower to execute that the first one. The first one's loops since they have the operations inlined directly might get vectorized and made even faster because of that.
+The expense paid in lines of code is a quarter less, but now the resulting program would allocate closures on the heap. This along with the loop now requiring virtual calls to apply the closure would make the resulting program slower to execute that the first one. The first one's loops since they have the operations inlined directly might get vectorized and made even faster because of that.
 
 It is not the case that performance is maximized by being all the way on the right side of the axis - too much inlining and specialization can hurt performance, but in general the place to look for the optimized spot would be best done by starting from there.
 
@@ -1645,7 +1627,7 @@ Got: i32
 Expected: f32
 ```
 
-The way the annotations have to be provided is fairly dumb - anybody seriously using closures will most likely do it from the top-down segment which will fill in the annotations automatically. Here is a more complex with two nested functions.
+The way the annotations have to be provided is fairly dumb - anybody seriously using closures will most likely do it from the top-down segment which will fill in the annotations automatically. Here is a more complex example with two nested functions.
 
 ```
 inl main () =
@@ -1794,7 +1776,7 @@ inl main () =
 
 This is one of the program examples that I tried wrapping my head around from a top-down perspective and in the end gave up. How could this be typed top-down? Bottom-up it is quite clear, but even the most advanced top-down type systems to date cannot cover this particular example.
 
-Spiral's top-down type inferencer is 1.5k LOC, while Haskell's is over 70k making it 10x the size of the entire Spiral compiler, so it clearly cannot compare in terms of sophistication. And the bottom-up cannot compete with top-down type inferring languages in terms of ease of use and ergonomics. But together the two sides can achieve amazing synergy and get the best of both worlds.
+Spiral's top-down type inferencer is 1.5k LOC, while Haskell's is over 70k making it 10x the size of the entire Spiral compiler, so it clearly cannot compare in terms of sophistication. And a language that does bottom-up partial evaluation cannot compete with the top-down type inferring languages in terms of ease of use and ergonomics. But together the two sides can achieve amazing synergy and get the best of both worlds.
 
 It is not just the shape of the data that can be matched on. As long as the values are known at compile time, it is possible to use some tricks from dependently typed languages. In the top-down segment the following would give a type error because the branches are different. During the bottom-up segment the type checking is deferred until the last moment and the compilation succeeds because there is enough information to completely ignore one of the branches.
 
@@ -1886,13 +1868,11 @@ inl main () =
     assert_less_than_ten (dyn 11)
 ```
 ```fs
-let v0 : int32 = 11
-let v1 : bool = v0 < 10
+let v0 : uint32 = 11u
+let v1 : bool = v0 < 10u
 let v2 : bool = v1 = false
 if v2 then
     failwith<unit> "The argument must be less than 10."
-else
-    ()
 ```
 
 It could be done using macros if absolutely necessary, but otherwise right now Spiral does not have any exception catching mechanisms. It might have in the future, but right now catching exceptions goes beyond the immediate scope of what the language is intended for.
@@ -1992,7 +1972,7 @@ Server bound to: tcp://*:13805 & tcp://*:13806
 
 The `print_static` statements get executed as a part of partial evaluation. When the codebase gets bigger they are good for ensuring whether the partial evaluator is tracing a particular segment. They might be good for experimentation to get a better sense for how the system works. Sprinkling `print_static` statements can be useful for narrowing down the locations of stack overflow errors.
 
-### Type Inference
+### Type Inference In Bottom-Up Style
 
 The top-down segment does a great service to the user by doing type inference and filling in the annotations for functions and join points where necessary. It might be surprising to that it is actually possible to do inference in a bottom-up fashion programmatically.
 

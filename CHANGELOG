@@ -1,4 +1,10 @@
-WIP - 2.1.6
+WIP - 2.1.7
+
+2.1.6 (8/18/2021)
+
+* Fsharp codegen fix. I was surprised to find the F# compiler not accepting empty records as valid types.
+* Indexing into unit record fields no longer produces useless `()`s in generated code so it looks nicer.
+* Simplified the way 32 bit arrays are created in generated code.
 
 2.1.5 (8/17/2021)
 

@@ -181,18 +181,17 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         let layout_index i x =
             x |> Array.map (fun (L(i',_)) -> sprintf "v%i.l%i" i i')
             |> String.concat ", "
-            |> function "" -> "()" | x -> x
-            |> simple
+            |> function "" -> () | x -> simple x
         let length (a,b) =
             match a with
-            | YPrim UInt8T -> sprintf "Convert.ToByte %s.Length" (tup b)
-            | YPrim UInt16T -> sprintf "Convert.ToUInt16 %s.Length" (tup b)
-            | YPrim UInt32T -> sprintf "Convert.ToUInt32 %s.Length" (tup b)
-            | YPrim UInt64T -> sprintf "Convert.ToUInt64 %s.Length" (tup b)
-            | YPrim Int8T -> sprintf "Convert.ToSByte %s.Length" (tup b)
-            | YPrim Int16T -> sprintf "Convert.ToInt16 %s.Length" (tup b)
+            | YPrim UInt8T -> sprintf "System.Convert.ToByte %s.Length" (tup b)
+            | YPrim UInt16T -> sprintf "System.Convert.ToUInt16 %s.Length" (tup b)
+            | YPrim UInt32T -> sprintf "System.Convert.ToUInt32 %s.Length" (tup b)
+            | YPrim UInt64T -> sprintf "System.Convert.ToUInt64 %s.Length" (tup b)
+            | YPrim Int8T -> sprintf "System.Convert.ToSByte %s.Length" (tup b)
+            | YPrim Int16T -> sprintf "System.Convert.ToInt16 %s.Length" (tup b)
             | YPrim Int32T -> sprintf "%s.Length" (tup b)
-            | YPrim Int64T -> sprintf "Convert.ToInt64 %s.Length" (tup b)
+            | YPrim Int64T -> sprintf "System.Convert.ToInt64 %s.Length" (tup b)
             | _ -> raise_codegen_error "Compiler error: Expected an int in length"
             |> simple
         match a with
@@ -257,8 +256,12 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | UHeap -> sprintf "UH%i_%i%s" (uheap c.cases).tag i vars
             | UStack -> sprintf "US%i_%i%s" (ustack c.cases).tag i vars
             |> simple
-        | TyLayoutToHeap(a,b) -> sprintf "{%s} : Heap%i" (layout_vars a) (heap b).tag |> simple
-        | TyLayoutToHeapMutable(a,b) -> sprintf "{%s} : Mut%i" (layout_vars a) (mut b).tag |> simple
+        | TyLayoutToHeap(a,b) -> 
+            let a = layout_vars a
+            simple (if a = "" then sprintf "Heap%i()" (heap b).tag else sprintf "{%s} : Heap%i" a (heap b).tag)
+        | TyLayoutToHeapMutable(a,b) ->
+            let a = layout_vars a
+            simple (if a = "" then sprintf "Mut%i()" (mut b).tag else sprintf "{%s} : Mut%i" a (mut b).tag)
         | TyLayoutIndexAll(L(i,(a,lay))) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i
         | TyLayoutIndexByKey(L(i,(a,lay)),key) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
@@ -267,7 +270,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s (sprintf "v%i.l%i <- %s" i i' (show_w b))
                 ) (data_free_vars a) (data_term_vars c)
         | TyArrayLiteral(a,b) -> simple <| sprintf "[|%s|]" (List.map tup b |> String.concat "; ")
-        | TyArrayCreate(a,b) -> simple (sprintf "Array.zeroCreate<%s> (System.Convert.ToInt32(%s))" (tup_ty a) (tup b))
+        | TyArrayCreate(a,b) ->
+            match b with
+            | DLit(LitInt32 _) | DV(L(_,YPrim Int32T)) -> simple (sprintf "Array.zeroCreate<%s> (%s)" (tup_ty a) (tup b))
+            | _ -> simple (sprintf "Array.zeroCreate<%s> (System.Convert.ToInt32(%s))" (tup_ty a) (tup b))
         | TyArrayLength(a,b) -> length (a,b)
         | TyStringLength(a,b) -> length (a,b)
         | TyFailwith(a,b) -> simple (sprintf "failwith<%s> %s" (tup_ty a) (tup b))
@@ -323,10 +329,14 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> simple
     and heap : _ -> LayoutRec = layout (fun s x ->
-        line s (sprintf "Heap%i = {%s}" x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "l%i : %s" i (tyv t)) |> String.concat "; "))
+        let b = x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "l%i : %s" i (tyv t)) |> String.concat "; "
+        if b = "" then line s (sprintf "Heap%i() = class end" x.tag)
+        else line s (sprintf "Heap%i = {%s}" x.tag b)
         )
     and mut : _ -> LayoutRec = layout (fun s x ->
-        line s (sprintf "Mut%i = {%s}" x.tag (x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "mutable l%i : %s" i (tyv t)) |> String.concat "; "))
+        let b = x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "mutable l%i : %s" i (tyv t)) |> String.concat "; "
+        if b = "" then line s (sprintf "Mut%i() = class end" x.tag)
+        else line s (sprintf "Mut%i = {%s}" x.tag b)
         )
     and uheap : _ -> UnionRec = union (fun s x ->
         line s (sprintf "UH%i =" x.tag)
