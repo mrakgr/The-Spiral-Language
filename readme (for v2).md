@@ -23,6 +23,7 @@
             - [Unions](#unions)
         - [Prototypes](#prototypes)
     - [Heap Allocation vs Code Size](#heap-allocation-vs-code-size)
+    - [Notes On Arrays](#notes-on-arrays)
     - [Bottom-Up Segment](#bottom-up-segment)
         - [Functions](#functions-1)
         - [Branching](#branching)
@@ -30,7 +31,7 @@
             - [Compiler Crashing](#compiler-crashing)
             - [Print Static](#print-static)
         - [Type Inference In Bottom-Up Style](#type-inference-in-bottom-up-style)
-        - [Real Nominals](#real-nominals)
+        - [Real Nominals And Inverse Arrays](#real-nominals-and-inverse-arrays)
         - [Serialization (Binary)](#serialization-binary)
             - [Pickler Combinators](#pickler-combinators)
                 - [Pickling Union Types](#pickling-union-types)
@@ -1557,6 +1558,94 @@ As if it were a force of nature, there is an inexorable pull towards admitting t
 
 The way to performantly compile dependently typed languages is a mystery to me. Whereas the simpler type system of Spiral has great synergy with the partial evaluator and is easy to compile.
 
+## Notes On Arrays
+
+Arrays in Spiral are more complicated than I wanted them to be. The reason for that is that different backends have different ways of indexing into them. The .NET arrays which F# uses are built in at the IL level and use `i32` dimensions. The Cython backend uses Numpy tensors as arrays under the hood and those can be indexed in using ints of arbitrary type. It was hell dealing with discrepancies of different backends, and to resolve the issue, I defined a type over a generic array type in the core library.
+
+```
+// Array with a dimension.
+nominal a dim a = array a
+```
+
+Here are the generic `create`, `index`, `set` and `length` prototypes that can be used on it.
+
+```
+// Creates an array.
+prototype create ar dim el : dim -> ar dim el
+// Indexes into an array.
+prototype index ar dim el : ar dim el -> dim -> el
+// Sets the value of an array at the specified index.
+prototype set ar dim el : ar dim el -> dim -> el -> ()
+// Returns the length of an array.
+prototype length ar dim el : ar dim el -> dim
+```
+
+This gives an uniform interface over them and the Cython lists. Here is an example of their use.
+
+```
+inl main () = 
+    inl x : a u64 (i32 * i32 * i32) = create 10
+    set x 5 (1,2,3)
+    index x 5
+```
+```fs
+let v0 : (struct (int32 * int32 * int32) []) = Array.zeroCreate<struct (int32 * int32 * int32)> (System.Convert.ToInt32(10UL))
+v0.[int 5UL] <- struct (1, 2, 3)
+v0.[int 5UL]
+```
+
+In the F# backend if a value larger than 2 ** 31 is passed to `create`, an exception gets raised even if they are nominally `u64` in their dimension type.
+
+The `am` module of the core library has various array combinator functions which also work on Cython lists. They are all implemented in `am.generic`. Here is how map is implemented for example.
+
+```
+// Maps an array.
+inl map f ar = init (length ar) (fun i => f (index ar i))
+```
+
+This has the extremely generic signature of `forall 'a 'b ('c : * -> * -> *) {index; length} 'd {number} ('e : * -> * -> *) {create; set}. ('a -> 'b) -> 'c 'd 'a -> 'e 'd 'b`. Having such a generic signature actually gives trouble to the type inferencer and necessitates the use of type annotations everywhere. Though the `am.generic` functions can be useful when you want to map from an Numpy array to a Cython list for example, the `am` function itself has more restricted and commonly used definitions.
+
+```
+// Maps an array.
+inl map forall (ar : * -> * -> *) {index; length; create; set} dim {number} el el'. : _ -> ar dim el -> ar dim el' = map
+```
+
+Here is how map is defined in the `am` module.
+
+```
+inl main () : a u64 (i32 * i32 * i32) = 
+    am.init 10 fun x => 5,4,3
+    |> am.map fun a,b,c => c,b,a
+```
+```
+type Mut0 = {mutable l0 : uint64}
+let rec method0 (v0 : Mut0) : bool =
+    let v1 : uint64 = v0.l0
+    v1 < 10UL
+and method1 (v0 : uint64, v1 : Mut0) : bool =
+    let v2 : uint64 = v1.l0
+    v2 < v0
+let v0 : (struct (int32 * int32 * int32) []) = Array.zeroCreate<struct (int32 * int32 * int32)> (System.Convert.ToInt32(10UL))
+let v1 : Mut0 = {l0 = 0UL} : Mut0
+while method0(v1) do
+    let v3 : uint64 = v1.l0
+    v0.[int v3] <- struct (5, 4, 3)
+    let v4 : uint64 = v3 + 1UL
+    v1.l0 <- v4
+let v5 : uint64 = System.Convert.ToUInt64 v0.Length
+let v6 : (struct (int32 * int32 * int32) []) = Array.zeroCreate<struct (int32 * int32 * int32)> (System.Convert.ToInt32(v5))
+let v7 : Mut0 = {l0 = 0UL} : Mut0
+while method1(v5, v7) do
+    let v9 : uint64 = v7.l0
+    let struct (v10 : int32, v11 : int32, v12 : int32) = v0.[int v9]
+    v6.[int v9] <- struct (v12, v11, v10)
+    let v13 : uint64 = v9 + 1UL
+    v7.l0 <- v13
+v6
+```
+
+Here it is in practice. To avoid the heap allocation associated with imperative loops, I'd have prefered to have used tail recursive loops instead, but those play badly with Cython's reference counting and kept overflowing.
+
 ## Bottom-Up Segment
 
 The partial evaluator for Spiral v0.09 originally started off as a type system. I only realized that I was working on a partial evaluator after a few months. In 2016 while working on an ML library I got stuck on how exactly to propagate information to Cuda kernels. If the deep learning wave of the 2010s did not need GPUs, F# would have been entirely sufficient as a language, but it was just not powerful enough and I blamed the type system.
@@ -1765,10 +1854,10 @@ I am thinking whether this could be done with typeclasses in Haskell, and I thin
 open real_core
 inl main () =
     inl rec f = function
-        | (a,b) => f a + f b
-        | {} as x => record_foldl (fun (state:key:value:) => state + f value) 0 x
+        | a,b => f a + f b
+        | {} as x => record_foldl (fun {state key value} => state + f value) 0 x
         | _ => 1
-    f (1,2,3,{q=(4,5); w=(6,7)})
+    f (1,2,3,{q=4,5; w=6,7})
 ```
 ```fs
 7
@@ -2027,17 +2116,24 @@ When doing bottom-up programming implementing identity as `inl id x = x` is a na
 A good example are the various array function like `map`.
 
 ```
-inl map f ar = init (length ar) (fun i => f (index ar i))
+type array el = a i32 el
+inl init nearTo f : array _ = 
+    inl ar = create nearTo
+    loop.for' {from=0; nearTo} (fun i => set ar i (f i))
+    ar
+inl map f (ar : array _) = init (length ar) (fun i => f (index ar i))
 ```
 
-Here is how it is implemented in the core library. Its type is `forall 'a 'b. ('a -> 'b) -> array 'a -> array 'b`. How would such a function be callable from the bottom-up segment assuming we only had the unannotated `f` and the array?
+For the purpose of the next example, this is how I will implement it in the `arraym` module.
 
-First, it is necessary to extract the element from the array itself. The `typecase` construct allows matching on a type, but its body can be opened into the term scope. The `?` is meant to be seen as pseudo-code in the following examples.
+The type of map is `forall 'a 'b. ('a -> 'b) -> array 'a -> array 'b`. How would such a function be callable from the bottom-up segment assuming we only had the unannotated `f` and the array?
+
+First, it is necessary to extract the element from the array itself. The `typecase` construct allows matching on a type, but its body can be opened into the term scope. The `?` is meant to be seen as a hole to be filled by the user in the following pseudo-code examples.
 
 ```
 inl map f ar =
     typecase `ar with
-    | array ~a => array.map `a ? f ar
+    | arraym.array ~a => arraym.map `a ? f ar
 ```
 
 Here we are matching on the type of `ar`, and `~a` is the metavar to which the array's element gets bound to. Unlike in regular pattern matching it is possible to use repeat metavars to do equality checking. `~t * ~t` for example would test whether the both sides of a pair unify to the same type.
@@ -2049,15 +2145,15 @@ We need a type, so we must open the type scope.
 ```
 inl map f ar =
     typecase `ar with
-    | array ~a => array.map `a `(?) f ar
+    | arraym.array ~a => arraym.map `a `(?) f ar
 ```
 
-We don't actually have any convenient data structure to extract `b` from, but we can get it by running `b`. For that we need to use `f`, so we should open the term scope again.
+We don't actually have any convenient data structure to extract `b` from, but we can get it by running `f`. For that we need to use `f`, so we should open the term scope again.
 
 ```
 inl map f ar =
     typecase `ar with
-    | array ~a => array.map `a `(`(f ?)) f ar
+    | arraym.array ~a => arraym.map `a `(`(f ?)) f ar
 ```
 
 We can't apply `f` with `a` here because that is a type and `f` wants a term. What we can do is turn it into a term however using the double grave unary operator.
@@ -2065,7 +2161,7 @@ We can't apply `f` with `a` here because that is a type and `f` wants a term. Wh
 ```
 inl map f ar =
     typecase `ar with
-    | array ~a => array.map `a `(`(f ``a)) f ar
+    | arraym.array ~a => arraym.map `a `(`(f ``a)) f ar
 ```
 
 It creates a term out of a type. This is fine, since the code in the type scope will not get generated. If you try using that operator on the term level and the code with the `TypeToVar` op gets passed into the code generator you will get a trace + type error during code generation.
@@ -2077,10 +2173,10 @@ Here is the full example.
 ```
 inl map f ar =
     typecase `ar with
-    | array ~a => array.map `a `(`(f ``a)) f ar
+    | arraym.array ~el => arraym.map `el `(`(f ``el)) f ar
 
 inl main () =
-    inl x = array.init `i32 10 (fun x => x)
+    inl x = arraym.init `i32 10 (fun x => x)
     map (fun x => x,x) x
 ```
 ```fs
@@ -2088,30 +2184,26 @@ let rec method0 (v0 : (int32 []), v1 : int32) : unit =
     let v2 : bool = v1 < 10
     if v2 then
         let v3 : int32 = v1 + 1
-        v0.[v1] <- v1
+        v0.[int v1] <- v1
         method0(v0, v3)
-    else
-        ()
 and method1 (v0 : int32, v1 : (int32 []), v2 : (struct (int32 * int32) []), v3 : int32) : unit =
     let v4 : bool = v3 < v0
     if v4 then
         let v5 : int32 = v3 + 1
-        let v6 : int32 = v1.[v3]
-        v2.[v3] <- struct (v6, v6)
+        let v6 : int32 = v1.[int v3]
+        v2.[int v3] <- struct (v6, v6)
         method1(v0, v1, v2, v5)
-    else
-        ()
-let v0 : (int32 []) = Array.zeroCreate<int32> 10
+let v0 : (int32 []) = Array.zeroCreate<int32> (10)
 let v1 : int32 = 0
 method0(v0, v1)
-let v2 : int32 = v0.Length
-let v3 : (struct (int32 * int32) []) = Array.zeroCreate<struct (int32 * int32)> v2
-let v4 : int32 = 0
-method1(v2, v0, v3, v4)
-v3
+let v3 : int32 = v0.Length
+let v4 : (struct (int32 * int32) []) = Array.zeroCreate<struct (int32 * int32)> (v3)
+let v5 : int32 = 0
+method1(v3, v0, v4, v5)
+v4
 ```
 
-I had to implement `array.map` similarly to this in old Spiral. The reason why doing inferring the type is needed is because the output array needs its type to be known ahead of time. It is not possible to do something like set it to some metavariable and unify it with its first use because of join points. In order to do their specialization, they need to have concrete terms ahead of time.
+I had to implement `map` similarly to this in old Spiral. The reason why doing inferring the type is needed is because the output array needs its type to be known ahead of time. It is not possible to do something like set it to some metavariable and unify it with its first use because of join points. In order to do their specialization, they need to have concrete terms ahead of time.
 
 This general approach to type inference is what I followed in the old Spiral. I went into it far further than this; I experimented with all sorts of tricks there. For one Cuda kernel for example, I was raising an exception with the thrown type and catching it. I had special ops just to do that.
 
@@ -2142,10 +2234,10 @@ To demonstrate why consider the previous example again.
 ```
 inl map f ar =
     typecase `ar with
-    | array ~a => array.map `a `(`(f ``a)) f ar
+    | arraym.array ~el => arraym.map `el `(`(f ``el)) f ar
 ```
 
-The part here where `f` is applied here is not free. Having to evaluate it twice, once to infer its return type, and once to actually generate its code, will in fact take twice as much time during compilation than just having to do it once.
+The part here where `f` is applied in order to extract its type is not free. Having to evaluate it twice, once to infer its return type, and once to actually generate its code, will in fact take twice as much time during compilation than just having to do it once.
 
 It is possible to reduce this cost by wrapping `f` in a join point.
 
@@ -2162,13 +2254,13 @@ I do not like this. Spiral is all about giving the user guarantees - for when fu
 
 Bottom-up programming just does not scale well to large codebases. It is very useful when you need all the power a statically typed programming language can give you, but most of the time you don't and would rather have instant editor feedback instead. When I first discovered all these bottom-up type inference techniques I felt very clever for breaking new ground, but using them where top-down type inference would suffice is just a waste of time.
 
-### Real Nominals
+### Real Nominals And Inverse Arrays
 
 I previously mentioned that very few things can go past language boundaries. One of the structures that can was an array of primitives. The trouble is that the regular arrays gets compiled to tuples. Consider the following top-down program.
 
 ```
 inl main () =
-    inl x : array (i32 * i32 * i32) = array.create 10
+    inl x : a u64 (i32 * i32 * i32) = create 10
     ()
 ```
 ```fs
@@ -2188,16 +2280,16 @@ modules:
     real_array_inv*
     array_inv_type-
     array_inv
-    a
+    main
 ```
 
 Let us move to the contents of the `real_array_inv.spir` file. Before the inverse array can be indexed and set, it needs to be created. Given a type like `i32 * i32` and a size argument, we need to compile it down to something like...
 
 ```
-array.create `i32 10, array.create `i32 10
+create `a `i32 `i32 10, create `a `i32 `i32 10
 ```
 
-The resulting type of this term would be `array i32 * array i32`.
+The resulting type of this term would be `a i32 i32 * a i32 i32`.
 
 In other words, for a given type, we need to map over it and turn each element into an array. The bottom-up segment is necessary for this. In non-primitive type systems, it is easy to take some type `'a` and apply a function to it. Going in the constructive direction, it is then easy to get data structures like arrays of `a`, or sets of `a`, or dictionaries whose values are `a`.
 

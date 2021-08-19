@@ -1,6 +1,3 @@
-open real_core
 inl main () =
-    inl rec loop f i = 
-        if lit_is i = false then error_type "Expected i to be a literal."
-        if 0 < i then f i . loop f (i-1) else ()
-    loop (fun i => $"// line !i" : ()) 5
+    inl x : a u64 (i32 * i32 * i32) = am.create 10
+    ()

@@ -818,7 +818,7 @@ let root_type_defaults = {
     }
 
 let default_float = Float64T
-let default_int = UInt32T
+let default_int = Int32T
 let bottom_up_number (r : VSCRange,x : string) =
     let inline f string_to_val val_to_lit val_dsc =
         match string_to_val x with

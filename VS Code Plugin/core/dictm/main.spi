@@ -1,5 +1,5 @@
 nominal dict key value = mut {
-    table : a u64 `(real_dict.bucket_type `key `value)
+    table : a u64 `(realm.bucket_type `key `value)
     total_size : u64
     limit : u64
     }
@@ -20,7 +20,7 @@ inl atKey forall key value ret. (x : dict key value) key cont : ret =
 inl emptyDef() = {size = 7u64; limit = 3u64}
 let empty' forall key value. {size limit} : dict key value = dict <| mut {
     table = real
-        typecase `(real_dict.bucket_type `key `value) with ~bucket =>
+        typecase `(realm.bucket_type `key `value) with ~bucket =>
         am.init `a `u64 `bucket size (fun _ =>
             open table
             typecase bucket with

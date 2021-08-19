@@ -9,6 +9,9 @@ modules:
         utils-
         generic
         main-
+    iam/
+        realm*
+        main-
     rm
     sm
     listm
@@ -16,6 +19,6 @@ modules:
     dictm/
         generic
         table
-        real_dict*
+        realm*
         main- 
     monad

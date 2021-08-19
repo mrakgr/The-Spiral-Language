@@ -1,5 +1,8 @@
 WIP - 2.1.7
 
+* Default int for the real segment is i32 again.
+* Added the `iam` (inverse array) module to the core library.
+
 2.1.6 (8/18/2021)
 
 * Fsharp codegen fix. I was surprised to find the F# compiler not accepting empty records as valid types.

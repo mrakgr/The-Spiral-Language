@@ -1,0 +1,6 @@
+open realm
+nominal inv (ar : * -> * -> *) dim el = `(create' `ar `el ``dim)
+instance create inv ar = fun size => inv (real create' `ar `el size)
+instance index inv ar = fun (inv ar) i => real index' ar i
+instance set inv ar = fun (inv ar) i v => real set' ar i v
+instance length inv ar = fun (inv ar) => real length' `dim ar
