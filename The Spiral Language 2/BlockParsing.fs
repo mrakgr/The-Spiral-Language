@@ -70,15 +70,15 @@ type Op =
     | RecordMap
     | RecordIter
     | RecordFilter
-    | RecordFoldL
-    | RecordFoldR
+    | RecordFold
+    | RecordFoldBack
     | RecordLength
 
     // Record Type
     | RecordTypeMap
     | RecordTypeIter
-    | RecordTypeFoldL
-    | RecordTypeFoldR
+    | RecordTypeFold
+    | RecordTypeFoldBack
     | RecordTypeLength
     | RecordTypeTryFind
 

@@ -1334,11 +1334,11 @@ let peval (env : TopEnv) (x : E) =
                     ) l
                 |> DRecord
             | _, b -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data b)
-        | EOp(_,RecordFoldL,[a;b;c]) ->
+        | EOp(_,RecordFold,[a;b;c]) ->
             match term3 s a b c with
             | a, state, DRecord l -> Map.fold (fun state k v -> apply s (a, record3 ("state", state) ("key", DSymbol k) ("value", v))) state l
             | _, _, r -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data r)
-        | EOp(_,RecordFoldR,[a;b;c]) ->
+        | EOp(_,RecordFoldBack,[a;b;c]) ->
             match term3 s a b c with
             | a, state, DRecord l -> Map.foldBack (fun k v state -> apply s (a, record3 ("state", state) ("key", DSymbol k) ("value", v))) l state
             | _, r, _ -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data r)
@@ -1357,10 +1357,10 @@ let peval (env : TopEnv) (x : E) =
                 | x -> raise_type_error s <| sprintf "Expected an unit value.\nGot: %s" (show_data x)
                 ) l 
             DB
-        | EOp(_,RecordTypeFoldL,[f;state;EType(_,x)]) ->
+        | EOp(_,RecordTypeFold,[f;state;EType(_,x)]) ->
             let f,state,l = term s f, term s state, ty_record s x
             Map.fold (fun state k v -> type_apply s (apply s ((apply s (f, state), DSymbol k))) v) state l
-        | EOp(_,RecordTypeFoldR,[f;state;EType(_,x)]) ->
+        | EOp(_,RecordTypeFoldBack,[f;state;EType(_,x)]) ->
             let f,state,l = term s f, term s state, ty_record s x
             Map.foldBack (fun k v state -> apply s ((type_apply s (apply s (f, DSymbol k)) v), state)) l state 
         | EOp(_,RecordTypeLength,[EType(_,a)]) ->

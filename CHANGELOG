@@ -2,6 +2,7 @@ WIP - 2.1.7
 
 * Default int for the real segment is i32 again.
 * Added the `iam` (inverse array) module to the core library.
+* Change record_foldl and record_foldr, to record_fold and record_fold_back so they match F#'s naming rather than Haskell's. Ditto for record_type.
 
 2.1.6 (8/18/2021)
 
@@ -11,7 +12,7 @@ WIP - 2.1.7
 
 2.1.5 (8/17/2021)
 
-* Fixed the type inference of mutually recursive unions.
+* Fixed the crash bug during type inference of mutually recursive unions.
 
 2.1.4 (8/15/2021)
 

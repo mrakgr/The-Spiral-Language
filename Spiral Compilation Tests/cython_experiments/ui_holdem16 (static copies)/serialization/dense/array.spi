@@ -145,7 +145,7 @@ inl alt forall t r. (l : r) : pu t =
             ) `r
     inl offsets, size = real
         open real_core
-        record_foldl (fun {state=(m,s) key value} => inl (pu p) = value in {m with $key=s}, s + p.size) ({},zero) l
+        record_fold (fun {state=(m,s) key value} => inl (pu p) = value in {m with $key=s}, s + p.size) ({},zero) l
     inl unpickle (i,s : state) : t * st = real
         open real_core
         inl x = 
@@ -155,7 +155,7 @@ inl alt forall t r. (l : r) : pu t =
                 nominal_create `t (k,x), c
                 ) `r
         inl case, c =
-            record_foldl (fun {state key value} => 
+            record_fold (fun {state key value} => 
                 match state with
                 | () => value
                 | (case,c) =>

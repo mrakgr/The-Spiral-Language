@@ -1,3 +1,4 @@
+// The Spiral core library.
 modules:
     base-
     limit
@@ -9,16 +10,16 @@ modules:
         utils-
         generic
         main-
-    iam/
-        realm*
-        main-
+    iam_real*
+    iam- 
     rm
     sm
     listm
     optionm
-    dictm/
+    dictm_utils/
         generic
         table
         realm*
-        main- 
+    dictm_type-
+    dictm 
     monad

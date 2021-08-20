@@ -61,7 +61,7 @@ inl alt forall t r. (l : r) : pu t =
             ) `r
     inl offsets, size = real
         open real_core
-        record_foldl (fun {state=(m,from) key value} => 
+        record_fold (fun {state=(m,from) key value} => 
             inl (pu p) = value
             inl nearTo = from + p.size
             {m with $key={from nearTo}}, nearTo
@@ -71,7 +71,7 @@ inl alt forall t r. (l : r) : pu t =
         unbox m (fun (k,v) => inl (pu p) = l k in offsets k .from + p.pickle v)
     inl unpickle (i : el) : t = real
         open real_core
-        record_type_foldr (fun k => forall v. => fun next _ =>
+        record_type_fold_back (fun k => forall v. => fun next _ =>
             inl (pu p) = l k 
             inl {from nearTo} = offsets k
             if i < nearTo then nominal_create `t (k,p.unpickle (i - from))

@@ -1,0 +1,6 @@
+open dictm_utils
+nominal dict key value = mut {
+    table : a u64 `(realm.bucket_type `key `value)
+    total_size : u64
+    limit : u64
+    }

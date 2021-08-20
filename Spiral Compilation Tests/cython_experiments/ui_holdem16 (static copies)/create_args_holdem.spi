@@ -157,7 +157,7 @@ inl main () =
     inl callbot : ra u64 (pl2 i8 action * ({hand : i8 * i8; id : u8; pot : i16} * {hand : i8 * i8; id : u8; pot : i16} * (a st i8 * st) * i16 * bool) * pid * actions) -> a u64 (log_prob * action) * _ = agent.holdem_callbot.policy
     inl num_actions = 16 // Should be at least 2.
     inl neural_selector (hu_actions {is_fold is_raise call raise_min raise_max} : actions) : a st action =
-        inl h : dictm.dict st () = dictm.empty
+        inl h : dict st () = dictm.empty
         inl x : ra st _ = am.empty
         if is_fold then rm.add x Fold
         rm.add x Call

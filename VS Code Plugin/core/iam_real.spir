@@ -25,7 +25,7 @@ inl length' forall dim. ar =
     inl g a b = match a with None => b() | _ => a
     inl rec f = function
         | a, b => g (f a) (fun _ => f b)
-        | {} as ar => record_foldl (fun {state value} => g state (fun _ => f value)) (None `dim) ar
+        | {} as ar => record_fold (fun {state value} => g state (fun _ => f value)) (None `dim) ar
         | ar => typecase `ar with ~ar ~dim ~el => Some `dim (length `ar `dim `el ar)
     match f ar with 
     | None => error_type "Cannot get the length of an inverse array with no fields." 

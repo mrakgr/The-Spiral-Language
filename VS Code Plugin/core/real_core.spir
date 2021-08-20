@@ -141,9 +141,9 @@ inl record_iter f a = !!!!RecordIter(f,a)
 // Filters a record at compile time.
 inl record_filter f a = !!!!RecordFilter(f,a)
 // Folds over a record left to right.
-inl record_foldl f s a = !!!!RecordFoldL(f,s,a)
+inl record_fold f s a = !!!!RecordFold(f,s,a)
 // Folds over a record right to left.
-inl record_foldr f a s = !!!!RecordFoldR(f,s,a)
+inl record_fold_back f a s = !!!!RecordFoldBack(f,s,a)
 // Returns the record's length as i32.
 inl record_length m = !!!!RecordLength(m)
 
@@ -152,9 +152,9 @@ inl record_type_map f = forall a. => !!!!RecordTypeMap(f, `a)
 // Iterates over a type record.
 inl record_type_iter f = forall a. => !!!!RecordTypeIter(f, `a)
 // Folds over a type record left to right.
-inl record_type_foldl f s = forall a. => !!!!RecordTypeFoldL(f,s, `a)
+inl record_type_fold f s = forall a. => !!!!RecordTypeFold(f,s, `a)
 // Folds over a type record right to left.
-inl record_type_foldr f = forall a. s => !!!!RecordTypeFoldR(f,s, `a)
+inl record_type_fold_back f = forall a. s => !!!!RecordTypeFoldBack(f,s, `a)
 // Returns the type record's length as i32.
 inl record_type_length forall m. = !!!!RecordTypeLength(`m)
 // Tries indexing into a type record at the specified key. Passes the value into the success branch if it finds it.
@@ -177,7 +177,7 @@ inl nominal_type_is forall x. = !!!!NominalTypeIs(`x)
 inl rec (=) a b =
     match a, b with
     | (a, a'), (b, b') => a = b && a' = b'
-    | {} & a, {} & b => record_foldr (fun {state=next key value} res => res && match b with { $key=value'} => next (value = value')) a id true
+    | {} & a, {} & b => record_fold_back (fun {state=next key value} res => res && match b with { $key=value'} => next (value = value')) a id true
     | (), () => true
     | a, b => 
         if symbol_is a then true
@@ -225,7 +225,7 @@ inl rec comp a b =
         inl x = comp a b 
         if eq_is x then comp a' b' else x
     | {} & a, {} & b => 
-        record_foldr (fun {state=next key value} res => 
+        record_fold_back (fun {state=next key value} res => 
             if eq_is res then match b with { $key=value'} => next (comp value value') else res
             ) a id eq()
     | (), () => eq()
@@ -253,7 +253,7 @@ inl comp a b = if `(`(a)) `= `(`(b)) then comp a b else error_type "The variable
 inl hash_template prim tag_conv zero one max_half seed x = 
     inl rec f = function
         | (a, a') => f a * seed + f a'
-        | {} & a => inl s,_ = record_foldr (fun {state=(s,seed') key value} => s + value * seed', seed * seed') a (zero, one) in s
+        | {} & a => inl s,_ = record_fold_back (fun {state=(s,seed') key value} => s + value * seed', seed * seed') a (zero, one) in s
         | () => zero
         | a => 
             if symbol_is a then zero

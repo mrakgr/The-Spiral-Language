@@ -1,3 +1,3 @@
 inl main () =
-    inl x : iam.inv a i32 (i32 * i32) = am.init 10 (fun x => x,x)
-    x |> am.map (fun a,b => a*2,b+2)
+    inl x : inv a i32 {a : i32; b : i32} = am.init 10 (fun x => {a=x; b=x})
+    x |> am.map (fun {a b} => a*2,b+3,a-2*b)

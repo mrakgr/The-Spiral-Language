@@ -1,4 +1,6 @@
-open realm
+// The inverse array module.
+
+open iam_real
 nominal inv (ar : * -> * -> *) dim el = `(create' `ar `el ``dim)
 instance create inv ar = fun size => inv (real create' `ar `el size)
 instance index inv ar = fun (inv ar) i => real index' ar i

@@ -1,10 +1,4 @@
-nominal dict key value = mut {
-    table : a u64 `(realm.bucket_type `key `value)
-    total_size : u64
-    limit : u64
-    }
-type t key value = dict key value
-
+open dictm_utils
 // Iterates over the dictionary and passes the value to on_succ if it finds a key match otherwise it calls on_fail.
 // The callback arguments can be used to set, remove and add relevant value to the dictionary.
 inl atKey forall key value ret. (x : dict key value) key cont : ret =

@@ -25,7 +25,7 @@ inl belief_tabulate slots (action_indices : a u64 st) (at_action_value : a u64 f
         rewards, update_policy
     update_head, action_fun
 
-type agent_dict present future = dictm.dict present {head : dictm.dict future {weighted_value : a st f32; weight : a st f32}; policy : {current : a st f32; grad : a st f32}}
+type agent_dict present future = dict present {head : dict future {weighted_value : a st f32; weight : a st f32}; policy : {current : a st f32; grad : a st f32}}
 inl optimize (agent : agent_dict _ _) =
     dictm.fold (fun () (k,{head policy={current grad}}) =>
         am.mapInplace (fun i x => inl x = max 0 (x + index grad i) in set grad i 0 . x) current
