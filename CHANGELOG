@@ -1,12 +1,16 @@
-WIP - 2.1.7
+WIP - 2.1.8
+
+2.1.7 (8/21/2021)
 
 * Default int for the real segment is i32 again.
 * Added the `iam` (inverse array) module to the core library.
-* Change record_foldl and record_foldr, to record_fold and record_fold_back so they match F#'s naming rather than Haskell's. Ditto for record_type.
+* Change record_foldl and record_foldr, to record_fold and record_fold_back so they match F#'s naming scheme rather than Haskell's. Ditto for record_type.
 
 2.1.6 (8/18/2021)
 
-* Fsharp codegen fix. I was surprised to find the F# compiler not accepting empty records as valid types.
+Fsharp codegen fixes.
+
+* I was surprised to find the F# compiler not accepting empty records as valid types.
 * Indexing into unit record fields no longer produces useless `()`s in generated code so it looks nicer.
 * Simplified the way 32 bit arrays are created in generated code.
 
