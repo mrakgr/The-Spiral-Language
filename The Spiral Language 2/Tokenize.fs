@@ -290,9 +290,8 @@ let macro' s =
         let rec loop (str : StringBuilder) =
             let l () = if 0 < str.Length then f (TokText(str.ToString())) :: l else l
             let var b = 
-                inc s
                 let c = if b then '`' else '!'
-                if peek s = c then inc s; loop (str.Append(c))
+                if peek' s 1 = c then inc' 2 s; loop (str.Append(c))
                 else var b (l ())
             match peek s with
             | x when x = eol -> error_char s.from "character or \""
@@ -305,7 +304,7 @@ let macro' s =
     and var is_type l =
         let f = f s.from
         let text x _ = text (f (if is_type then TokMacroTypeVar x else TokMacroTermVar x) :: l)
-        (many1Satisfy2L is_var_char_starting is_var_char "variable" >>= text) s
+        inc s; (many1Satisfy2L is_var_char_starting is_var_char "variable" >>= text) s
     match peek s, peek' s 1 with
     | '$', '"' -> let f = f s.from in inc' 2 s; text [f TokMacroOpen]
     | _ -> error_char s.from "$\""
