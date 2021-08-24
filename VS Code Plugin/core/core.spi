@@ -82,6 +82,8 @@ inl exp forall t {float}. (x : t) : t = !!!!Exp(x)
 inl tanh forall t {float}. (x : t) : t = !!!!Tanh(x)
 // Square root.
 inl sqrt forall t {float}. (x : t) : t = !!!!Sqrt(x)
+// Unsafe conversion.
+inl conv forall a {number} b {number}. (x : a) : b = !!!!Conv(`b, x)
 
 // Creates a heap mutable layout type.
 inl mut forall t. (x : t): mut t = !!!!LayoutToHeapMutable(x)

@@ -103,7 +103,7 @@ let nullable_vars_of (x : TypedBind []) =
         | TyMacro l -> List.fold (fun s -> function CMTerm d -> s + tags d | _ -> s) Set.empty l
         | TyArrayLiteral(_,l) | TyOp(_,l) -> List.fold (fun s x -> s + tags x) Set.empty l
         | TyLayoutToHeap(x,_) | TyLayoutToHeapMutable(x,_)
-        | TyUnionBox(_,x,_) | TyFailwith(_,x) | TyArrayCreate(_,x) | TyArrayLength(_,x) | TyStringLength(_,x) -> tags x
+        | TyUnionBox(_,x,_) | TyFailwith(_,x) | TyConv(_,x) | TyArrayCreate(_,x) | TyArrayLength(_,x) | TyStringLength(_,x) -> tags x
         | TyWhile(cond, body) -> nulls.[body] <- Set.empty; jp cond + binds Set.empty Set.empty body
         | TyLayoutIndexAll(L(i,_)) | TyLayoutIndexByKey(L(i,_),_) -> Set.singleton i
         | TyLayoutHeapMutableSet(L(i,_),_,d) -> Set.singleton i + tags d
@@ -546,6 +546,7 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
             | _ -> raise_codegen_error "Compiler error: Expected a single var or a non-void return in array literal creation."
         | TyArrayCreate(a,b) -> return' $"numpy.empty({tup b},dtype={numpy_ty a})" 
         | TyFailwith _ -> failwith "Taken care in the outer level."
+        | TyConv(a,b) -> return' $"<{tyv a}>{tup b}"
         | TyArrayLength(a,b) -> length (a,b)
         | TyStringLength(a,b) -> length (a,b)
         | TyOp(op,l) ->

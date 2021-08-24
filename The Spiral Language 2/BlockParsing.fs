@@ -111,6 +111,7 @@ type Op =
     | Exp
     | Sqrt
     | NanIs
+    | Conv
 
     // Infinity
     | Infinity

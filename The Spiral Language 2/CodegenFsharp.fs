@@ -277,6 +277,21 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | TyArrayLength(a,b) -> length (a,b)
         | TyStringLength(a,b) -> length (a,b)
         | TyFailwith(a,b) -> simple (sprintf "failwith<%s> %s" (tup_ty a) (tup b))
+        | TyConv(a,b) ->
+            let b = tup b
+            match a with
+            | YPrim Int8T -> $"int8 {b}"
+            | YPrim Int16T -> $"int16 {b}"
+            | YPrim Int32T -> $"int32 {b}"
+            | YPrim Int64T -> $"int64 {b}"
+            | YPrim UInt8T -> $"uint8 {b}"
+            | YPrim UInt16T -> $"uint16 {b}"
+            | YPrim UInt32T -> $"uint32 {b}"
+            | YPrim UInt64T -> $"uint64 {b}"
+            | YPrim Float32T -> $"float32 {b}"
+            | YPrim Float64T -> $"float {b}"
+            | _ -> raise_codegen_error $"Compiler error: Unexpected type in Conv. Got: {show_ty a}"
+            |> simple
         | TyOp(op,l) ->
             match op, l with
             | Apply,[a;b] -> sprintf "%s %s" (tup a) (tup b)
@@ -302,9 +317,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | GTE, [a;b] -> sprintf "%s >= %s" (tup a) (tup b)
             | BoolAnd, [a;b] -> sprintf "%s && %s" (tup a) (tup b)
             | BoolOr, [a;b] -> sprintf "%s || %s" (tup a) (tup b)
-            | BitwiseAnd, [a;b] -> sprintf "%s & %s" (tup a) (tup b)
-            | BitwiseOr, [a;b] -> sprintf "%s | %s" (tup a) (tup b)
-            | BitwiseXor, [a;b] -> sprintf "%s ^ %s" (tup a) (tup b)
+            | BitwiseAnd, [a;b] -> sprintf "%s &&& %s" (tup a) (tup b)
+            | BitwiseOr, [a;b] -> sprintf "%s ||| %s" (tup a) (tup b)
+            | BitwiseXor, [a;b] -> sprintf "%s ^^^ %s" (tup a) (tup b)
 
             | ShiftLeft, [a;b] -> sprintf "%s <<< %s" (tup a) (tup b)
             | ShiftRight, [a;b] -> sprintf "%s >>> %s" (tup a) (tup b)

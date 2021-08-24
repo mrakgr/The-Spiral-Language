@@ -1,4 +1,12 @@
-WIP - 2.1.10
+WIP - 2.1.12
+
+2.1.11 (8/24/2021)
+
+* Fixed the broken bitwise ops in the F# codegen.
+
+2.1.10 (8/24/2021)
+
+* Added the Conv op.
 
 2.1.9 (8/22/2021)
 
@@ -18,8 +26,8 @@ WIP - 2.1.10
 
 Fsharp codegen fixes.
 
-* I was surprised to find the F# compiler not accepting empty records as valid types.
-* Indexing into unit record fields no longer produces useless `()`s in generated code so it looks nicer.
+* I was surprised to find the F# compiler not accepting empty records as valid types. Fixed.
+* Indexing into unit record fields no longer produces useless `()`s in the generated code so it looks nicer.
 * Simplified the way 32 bit arrays are created in generated code.
 
 2.1.5 (8/17/2021)

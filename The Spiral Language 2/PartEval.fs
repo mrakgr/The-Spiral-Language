@@ -113,6 +113,7 @@ and TypedOp =
     | TyLayoutIndexByKey of L<Tag,Ty * Layout> * string
     | TyLayoutHeapMutableSet of L<Tag,Ty> * string list * Data
     | TyFailwith of Ty * Data
+    | TyConv of Ty * Data
     | TyArrayLiteral of Ty * Data list
     | TyArrayCreate of Ty * Data
     | TyArrayLength of Ty * Data
@@ -1813,6 +1814,45 @@ let peval (env : TopEnv) (x : E) =
                 let a_ty = data_to_ty s a
                 if is_float a_ty then push_op s Sqrt a a_ty
                 else raise_type_error s <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
+        | EOp(_,Conv,[EType(_,typ);a]) ->
+            let typ = ty s typ
+            let a = term s a
+            let at = data_to_ty s a
+            if typ = at then a
+            else
+                let inline conv_lit x =
+                    match typ with
+                    | YPrim Int8T -> int8 x |> LitInt8
+                    | YPrim Int16T -> int16 x |> LitInt16
+                    | YPrim Int32T -> int32 x |> LitInt32
+                    | YPrim Int64T -> int64 x |> LitInt64
+                    | YPrim UInt8T -> uint8 x |> LitUInt8
+                    | YPrim UInt16T -> uint16 x |> LitUInt16
+                    | YPrim UInt32T -> uint32 x |> LitUInt32
+                    | YPrim UInt64T -> uint64 x |> LitUInt64
+                    | YPrim Float32T -> float32 x |> LitFloat32
+                    | YPrim Float64T -> float x |> LitFloat64
+                    | _ -> raise_type_error s <| sprintf "Cannot convert the literal to the following type: %s" (show_ty typ)
+                    |> DLit
+                match a with
+                | DLit (LitInt8 a) -> conv_lit a
+                | DLit (LitInt16 a) -> conv_lit a
+                | DLit (LitInt32 a) -> conv_lit a
+                | DLit (LitInt64 a) -> conv_lit a
+                | DLit (LitUInt8 a) -> conv_lit a
+                | DLit (LitUInt16 a) -> conv_lit a
+                | DLit (LitUInt32 a) -> conv_lit a
+                | DLit (LitUInt64 a) -> conv_lit a
+                | DLit (LitFloat32 a) -> conv_lit a
+                | DLit (LitFloat64 a) -> conv_lit a
+                | _ ->
+                    let is_convertible_primt x =
+                        match x with
+                        | YPrim BoolT | YPrim CharT | YPrim StringT -> false
+                        | YPrim _ -> true
+                        | _ -> false
+                    if is_convertible_primt at && is_convertible_primt typ then push_typedop s (TyConv(typ,a)) typ
+                    else raise_type_error s <| sprintf "Cannot convert %s to the following type: %s" (show_data a) (show_ty typ)
         | EOp(_,NanIs,[a]) ->
             let a = term s a
             match data_to_ty s a with
