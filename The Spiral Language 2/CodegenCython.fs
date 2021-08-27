@@ -335,7 +335,7 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
         else ""
 
     let rec tyv = function
-        | YUnion a -> 
+        | YUnion a ->
             match a.Item.layout with
             | UHeap -> sprintf "UH%i" (uheap a).tag
             | UStack -> sprintf "US%i" (ustack a).tag
@@ -348,8 +348,8 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
             // Cython arrays have various restrictions. The inability to give more precise types to container elements will result in runtime typechecks.
             // https://github.com/cython/cython/issues/3995
             let a =
-                match env.ty_to_data a |> data_free_vars with 
-                | [|L(_,x)|] -> 
+                match env.ty_to_data a |> data_free_vars with
+                | [|L(_,x)|] ->
                     match x with
                     | YPrim x -> prim x
                     | YUnion x -> if x.Item.is_degenerate then "signed long" else "object"
