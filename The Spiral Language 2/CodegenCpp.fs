@@ -183,7 +183,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         let complex f =
             match ret with
             | BindsTailEnd -> f (indent s) ret
-            | BindsLocal ret -> f (indent s) (BindsComplex ret)
+            | BindsLocal ret -> 
+                ret |> Array.map (fun (L(i,t)) -> sprintf "%s v%i" (tyv t) i) |> String.concat ", " |> sprintf "%s;" |> line s
+                f (indent s) (BindsComplex ret)
             | BindsComplex _ -> f (indent s) ret
         let layout_vars a =
             let f i x =
