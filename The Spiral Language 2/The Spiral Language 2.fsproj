@@ -42,6 +42,7 @@
     <Compile Include="CodegenFsharp.fs" />
     <Compile Include="CodegenCython.fs" />
     <Compile Include="CodegenCpp.fs" />
+    <Compile Include="CodegenC.fs" />
     <Compile Include="WDiff.fs" />
     <Compile Include="WDiffPrepass.fs" />
     <Compile Include="SpiProj.fs" />
