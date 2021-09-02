@@ -180,7 +180,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         match data_term_vars x with
         | [||] -> ""
         | [|x|] -> show_w x
-        | x -> Array.map show_w x |> String.concat ", " |> sprintf "create_tuple%i(%s)" (tuple_term_vars x).tag
+        | x -> Array.map show_w x |> String.concat ", " |> sprintf "create_Tuple%i(%s)" (tuple_term_vars x).tag
     and tup_ty x =
         let vars = env.ty_to_data x |> data_free_vars
         match Array.map (fun (L(_,x)) -> tyv x) vars with
@@ -192,30 +192,12 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let args = args b
             match a with
             | JPMethod(a,b) -> sprintf "method%i(%s)" (method (a,b)).tag args
-            | JPClosure(a,b) -> sprintf "create_closure%i(%s)" (closure (a,b)).tag args
+            | JPClosure(a,b) -> sprintf "create_Closure%i(%s)" (closure (a,b)).tag args
         let simple x = return' s ret x
-        let layout_vars a =
-            let f i x =
-                match x with
-                | WV(L(i',_)) -> sprintf "l%i = v%i" i i'
-                | WLit x -> sprintf "l%i = %s" i (lit x)
-            a |> data_term_vars |> Array.mapi f |> String.concat "; "
         let layout_index i x =
-            x |> Array.map (fun (L(i',_)) -> sprintf "v%i.l%i" i i')
+            x |> Array.map (fun (L(i',_)) -> sprintf "v%i->l%i" i i')
             |> String.concat ", "
             |> function "" -> () | x -> simple x
-        let length (a,b) =
-            match a with
-            | YPrim UInt8T -> sprintf "System.Convert.ToByte %s.Length" (tup b)
-            | YPrim UInt16T -> sprintf "System.Convert.ToUInt16 %s.Length" (tup b)
-            | YPrim UInt32T -> sprintf "System.Convert.ToUInt32 %s.Length" (tup b)
-            | YPrim UInt64T -> sprintf "System.Convert.ToUInt64 %s.Length" (tup b)
-            | YPrim Int8T -> sprintf "System.Convert.ToSByte %s.Length" (tup b)
-            | YPrim Int16T -> sprintf "System.Convert.ToInt16 %s.Length" (tup b)
-            | YPrim Int32T -> sprintf "%s.Length" (tup b)
-            | YPrim Int64T -> sprintf "System.Convert.ToInt64 %s.Length" (tup b)
-            | _ -> raise_codegen_error "Compiler error: Expected an int in length"
-            |> simple
         match a with
         | TyMacro a -> a |> List.map (function CMText x -> x | CMTerm x -> tup x | CMType x -> tup_ty x) |> String.concat "" |> simple
         | TyIf(cond,tr,fl) ->
@@ -230,58 +212,74 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             binds (indent s) ret b
             line s "}"
         | TyIntSwitch(i,on_succ,on_fail) ->
-            line s (sprintf "switch (v%i.tag) {" i)
+            line s (sprintf "switch (v%i) {" i)
             Array.iteri (fun i x ->
                 line s (sprintf "case %i:" i)
-                binds (indent s) ret x
-                line (indent s) "break;"
+                let s = indent s
+                binds s ret x
+                match ret with 
+                | BindsLocal _ -> line s "break;"
+                | BindsTailEnd -> ()
                 ) on_succ
             line s "default:"
             binds (indent s) ret on_fail
             line s "}"
-        | TyUnionUnbox([L(i_tag,_)],x,on_succs,on_fail) ->
+        | TyUnionUnbox(is,x,on_succs,on_fail) ->
             let case_tags = x.Item.tags
             let accessor = match x.Item.layout with UHeap -> "->" | UStack -> "."
-            line s (sprintf "switch (v%i%stag) {" i_tag accessor)
+            let i_label_fail, i_label_exit = tmp(), tmp()
+            match is with
+            | [L(i_tag,_)] ->
+                line s (sprintf "switch (v%i%stag) {" i_tag accessor)
+            | L(i_tag,_) :: l' ->
+                let i_head = tmp()
+                line s $"int tmp{i_head} = v{i_tag}{accessor}tag;"
+                let cond = 
+                    let l = $"tmp{i_head}"
+                    let l' = l' |> List.map (fun (L(i_tag,_)) -> $"v{i_tag}{accessor}tag")
+                    List.pairwise (l :: l')
+                    |> List.map (fun (a,b) -> $"{a} != {b}")
+                    |> String.concat " || "
+                line s $"if ({cond}) goto MatchFail{i_label_fail};"
+                line s (sprintf "switch (tmp%i) {" i_head)
+            | [] -> raise_codegen_error "Compiler error: Expected at least one case in TyUnionUnbox."
             Map.iter (fun k (a,b) ->
                 let i_case = case_tags.[k]
                 line s (sprintf "case %i: // %s" i_case k)
                 let s = indent s
-                match a with
-                | [a] ->
+                List.iter2 (fun (L(i_tag,_)) a ->
                     let vars = data_free_vars a
                     if 0 < vars.Length then
                         let i = tmp()
                         line s $"struct Tuple{(tuple_tyv vars).tag} tmp{i} = v{i_tag}{accessor}data.case{i_case};"
-                        vars |> Array.mapi (fun i_sub (L(i_var,_)) ->
-                            $"v{i_var} = tmp{i}.v{i_sub};"
+                        vars |> Array.mapi (fun i_sub (L(i_var,t)) ->
+                            $"{tyv t} v{i_var} = tmp{i}.v{i_sub};"
                             )
                         |> String.concat " " |> line s
-                | _ -> failwith "Compiler error. Expected only a single list."
-                binds (indent s) ret b
+                    ) is a
+                binds s ret b
+                match ret with 
+                | BindsLocal _ -> line s $"goto MatchExit{i_label_exit};"
+                | BindsTailEnd -> ()
                 ) on_succs
+            line s "}"
             on_fail |> Option.iter (fun b ->
-                line s "default:"
+                line s $"MatchFail{i_label_fail}: ;"
                 binds (indent s) ret b
                 )
-            line s "}"
+            match ret with 
+            | BindsLocal _ -> line s $"MatchExit{i_label_exit}: ;"
+            | BindsTailEnd -> ()
         | TyUnionBox(a,b,c) ->
             let c = c.Item
             let i = c.tags.[a]
-            let vars =
-                match data_term_vars b with
-                | [||] -> ""
-                | x -> Array.map show_w x |> String.concat ", " |> sprintf "(%s)"
+            let vars = data_term_vars b |> Array.map show_w |> String.concat ", "
             match c.layout with
-            | UHeap -> sprintf "UH%i_%i%s" (uheap c.cases).tag i vars
-            | UStack -> sprintf "US%i_%i%s" (ustack c.cases).tag i vars
+            | UHeap -> sprintf "create_UH%i_%i(%s)" (uheap c.cases).tag i vars
+            | UStack -> sprintf "create_US%i_%i(%s)" (ustack c.cases).tag i vars
             |> simple
-        | TyLayoutToHeap(a,b) -> 
-            let a = layout_vars a
-            simple (if a = "" then sprintf "Heap%i()" (heap b).tag else sprintf "{%s} : Heap%i" a (heap b).tag)
-        | TyLayoutToHeapMutable(a,b) ->
-            let a = layout_vars a
-            simple (if a = "" then sprintf "Mut%i()" (mut b).tag else sprintf "{%s} : Mut%i" a (mut b).tag)
+        | TyLayoutToHeap(a,b) -> simple $"create_Heap{(heap b).tag}({args (data_free_vars a)})"
+        | TyLayoutToHeapMutable(a,b) -> simple $"create_Mut{(mut b).tag}({args (data_free_vars a)})"
         | TyLayoutIndexAll(L(i,(a,lay))) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i
         | TyLayoutIndexByKey(L(i,(a,lay)),key) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
@@ -289,7 +287,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             Array.iter2 (fun (L(i',_)) b ->
                 line s (sprintf "v%i.l%i <- %s" i i' (show_w b))
                 ) (data_free_vars a) (data_term_vars c)
-        | TyArrayLiteral(a,b) -> simple <| sprintf "[|%s|]" (List.map tup b |> String.concat "; ")
+        | TyArrayLiteral(a,b) -> simple <| sprintf "{%s}" (List.map tup b |> String.concat ", ")
         | TyArrayCreate(a,b) ->
             match b with
             | DLit(LitInt32 _) | DV(L(_,YPrim Int32T)) -> simple (sprintf "Array.zeroCreate<%s> (%s)" (tup_ty a) (tup b))
