@@ -51,7 +51,7 @@ let lit = function
         | '\r' -> @"\r"
         | x -> string x
         |> sprintf "'%s'"
-    | LitBool x -> if x then "true" else "false"
+    | LitBool x -> if x then "1" else "0"
 
 let prim = function
     | Int8T -> "int8_t"
@@ -194,10 +194,13 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | JPMethod(a,b) -> sprintf "method%i(%s)" (method (a,b)).tag args
             | JPClosure(a,b) -> sprintf "create_Closure%i(%s)" (closure (a,b)).tag args
         let simple x = return' s ret x
-        let layout_index i x =
-            x |> Array.map (fun (L(i',_)) -> sprintf "v%i->l%i" i i')
-            |> String.concat ", "
-            |> function "" -> () | x -> simple x
+        let layout_index free_vars i_v =
+            let v = free_vars |> Array.map (fun (L(i_free_var,_)) -> sprintf "v%i->l%i" i_v i_free_var)
+            match ret with
+            | BindsTailEnd when 0 < v.Length -> let v = String.concat ", " v in $"return create_Tuple{(tuple_tyv free_vars).tag}({v});"
+            | BindsTailEnd -> ""
+            | BindsLocal x -> Array.map2 (fun (L(i,_)) x -> $"v{i} = {x};") x v |> String.concat " "
+            |> line s 
         match a with
         | TyMacro a -> a |> List.map (function CMText x -> x | CMTerm x -> tup x | CMType x -> tup_ty x) |> String.concat "" |> simple
         | TyIf(cond,tr,fl) ->
@@ -280,46 +283,53 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             |> simple
         | TyLayoutToHeap(a,b) -> simple $"create_Heap{(heap b).tag}({args (data_free_vars a)})"
         | TyLayoutToHeapMutable(a,b) -> simple $"create_Mut{(mut b).tag}({args (data_free_vars a)})"
-        | TyLayoutIndexAll(L(i,(a,lay))) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i
-        | TyLayoutIndexByKey(L(i,(a,lay)),key) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i
+        | TyLayoutIndexAll(L(i_v,(a,lay))) -> layout_index (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars i_v
+        | TyLayoutIndexByKey(L(i_v,(a,lay)),key) -> layout_index (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] i_v
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
             let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
-            Array.iter2 (fun (L(i',_)) b ->
-                line s (sprintf "v%i.l%i <- %s" i i' (show_w b))
+            Array.map2 (fun (L(i',_)) b ->
+                sprintf "v%i->l%i = %s;" i i' (show_w b)
                 ) (data_free_vars a) (data_term_vars c)
-        | TyArrayLiteral(a,b) -> simple <| sprintf "{%s}" (List.map tup b |> String.concat ", ")
-        | TyArrayCreate(a,b) ->
-            match b with
-            | DLit(LitInt32 _) | DV(L(_,YPrim Int32T)) -> simple (sprintf "Array.zeroCreate<%s> (%s)" (tup_ty a) (tup b))
-            | _ -> simple (sprintf "Array.zeroCreate<%s> (System.Convert.ToInt32(%s))" (tup_ty a) (tup b))
-        | TyArrayLength(a,b) -> length (a,b)
-        | TyStringLength(a,b) -> length (a,b)
-        | TyFailwith(a,b) -> simple (sprintf "failwith<%s> %s" (tup_ty a) (tup b))
+            |> String.concat " " |> line s
+        | TyArrayCreate(a,b) -> simple (sprintf "create_Array%i(%s)" (array a).tag (tup b))
+        | TyArrayLiteral(a,b) ->
+            let i_tag = (array a).tag
+            if List.isEmpty b then simple $"create_Array{i_tag}(0)"
+            else 
+                let i_tmp = tmp()
+                line s $"Array{i_tag} tmp{i_tmp} = create_Array{i_tag}({List.length b});"
+                b |> List.mapi (fun i x -> $"tmp{i_tmp}.buffer[{i}] = {tup x};") |> String.concat " " |> line s
+                simple $"tmp{i_tmp}"
+        | TyArrayLength(a,b) -> simple $"{b}->length"
+        | TyStringLength(a,b) -> simple $"strlen({tup b})" // TODO: Replace this with a proper string.
+        | TyFailwith(a,b) -> line s $"puts({tup b});"; line s $"exit(-1);"
         | TyConv(a,b) ->
             let b = tup b
+            let er() = raise_codegen_error $"Compiler error: Unexpected type in Conv. Got: {show_ty a}"
             match a with
-            | YPrim Int8T -> $"int8 {b}"
-            | YPrim Int16T -> $"int16 {b}"
-            | YPrim Int32T -> $"int32 {b}"
-            | YPrim Int64T -> $"int64 {b}"
-            | YPrim UInt8T -> $"uint8 {b}"
-            | YPrim UInt16T -> $"uint16 {b}"
-            | YPrim UInt32T -> $"uint32 {b}"
-            | YPrim UInt64T -> $"uint64 {b}"
-            | YPrim Float32T -> $"float32 {b}"
-            | YPrim Float64T -> $"float {b}"
-            | _ -> raise_codegen_error $"Compiler error: Unexpected type in Conv. Got: {show_ty a}"
+            | YPrim a' ->
+                match a' with
+                | Int8T | Int16T | Int32T | Int64T 
+                | UInt8T | UInt16T | UInt32T | UInt64T 
+                | Float32T | Float64T -> $"({prim a'}){b}"
+                | _ -> er()
+            | _ -> er()
             |> simple
         | TyOp(op,l) ->
             match op, l with
-            | Apply,[a;b] -> sprintf "%s %s" (tup a) (tup b)
+            | Apply,[a;b] -> sprintf "%s->funptr(%s)" (tup a) (tup b)
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
-            | StringIndex, [a;b] -> sprintf "%s.[int %s]" (tup a) (tup b)
-            | StringSlice, [a;b;c] -> sprintf "%s.[int %s..int %s]" (tup a) (tup b) (tup c)
-            | ArrayIndex, [a;b] -> sprintf "%s.[int %s]" (tup a) (tup b)
-            | ArrayIndexSet, [a;b;c] -> sprintf "%s.[int %s] <- %s" (tup a) (tup b) (tup c) 
-
+            | StringIndex, [a;b] -> sprintf "%s[%s]" (tup a) (tup b) // TODO: Do the string operation properly.
+            | StringSlice, [a;b;c] -> raise_codegen_error "Compiler error: StringSlice not implemented yet."
+            | ArrayIndex, [a;b] -> 
+                match a with
+                | DV(L(_,YArray t)) -> sprintf "index_Array%i(%s,%s)" ((array t).tag) (tup a) (tup b)
+                | _ -> raise_codegen_error "Compiler error: Expected an array in ArrayIndex."
+            | ArrayIndexSet, [a;b;c] -> 
+                match a with
+                | DV(L(_,YArray t)) -> sprintf "set_Array%i(%s,%s,%s)" ((array t).tag) (tup a) (tup b) (tup c) 
+                | _ -> raise_codegen_error "Compiler error: Expected an array in ArrayIndex."
             // Math
             | Add, [a;b] -> sprintf "%s + %s" (tup a) (tup b)
             | Sub, [a;b] -> sprintf "%s - %s" (tup a) (tup b)
@@ -335,30 +345,39 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | GTE, [a;b] -> sprintf "%s >= %s" (tup a) (tup b)
             | BoolAnd, [a;b] -> sprintf "%s && %s" (tup a) (tup b)
             | BoolOr, [a;b] -> sprintf "%s || %s" (tup a) (tup b)
-            | BitwiseAnd, [a;b] -> sprintf "%s &&& %s" (tup a) (tup b)
-            | BitwiseOr, [a;b] -> sprintf "%s ||| %s" (tup a) (tup b)
-            | BitwiseXor, [a;b] -> sprintf "%s ^^^ %s" (tup a) (tup b)
+            | BitwiseAnd, [a;b] -> sprintf "%s & %s" (tup a) (tup b)
+            | BitwiseOr, [a;b] -> sprintf "%s | %s" (tup a) (tup b)
+            | BitwiseXor, [a;b] -> sprintf "%s ^ %s" (tup a) (tup b)
 
-            | ShiftLeft, [a;b] -> sprintf "%s <<< %s" (tup a) (tup b)
-            | ShiftRight, [a;b] -> sprintf "%s >>> %s" (tup a) (tup b)
+            | ShiftLeft, [a;b] -> sprintf "%s << %s" (tup a) (tup b)
+            | ShiftRight, [a;b] -> sprintf "%s >> %s" (tup a) (tup b)
 
             | Neg, [x] -> sprintf " -%s" (tup x)
-            | Log, [x] -> sprintf "log %s" (tup x)
-            | Exp, [x] -> sprintf "exp %s" (tup x)
-            | Tanh, [x] -> sprintf "tanh %s" (tup x)
-            | Sqrt, [x] -> sprintf "sqrt %s" (tup x)
-            | NanIs, [x] -> 
+            | Log, [x] -> 
                 match x with
-                | DLit(LitFloat32 _) | DV(L(_,YPrim Float32T)) -> sprintf "System.Single.IsNaN(%s)" (tup x)
-                | DLit(LitFloat64 _) | DV(L(_,YPrim Float64T)) -> sprintf "System.Double.IsNaN(%s)" (tup x)
-                | _ -> raise_codegen_error "Compiler error: Invalid type in NanIs."
-            | UnionTag, [DV(L(i,YUnion h))] -> 
-                let ty =
-                    let h = h.Item
-                    match h.layout with
-                    | UHeap -> sprintf "UH%i" (uheap h.cases).tag
-                    | UStack -> sprintf "US%i" (ustack h.cases).tag
-                sprintf "(fst (Reflection.FSharpValue.GetUnionFields(v%i, typeof<%s>))).Tag" i ty // TODO: Stopgap measure for now. Replace this with something more efficient.
+                | DV(L(_,YPrim Float32T)) | DLit (LitFloat32 _) -> sprintf "logf(%s)" (tup x)
+                | DV(L(_,YPrim Float64T)) | DLit (LitFloat64 _) -> sprintf "log(%s)" (tup x)
+                | _ -> raise_codegen_error "Compiler error: Expected a float."
+            | Exp, [x] ->
+                match x with
+                | DV(L(_,YPrim Float32T)) | DLit (LitFloat32 _) -> sprintf "expf(%s)" (tup x)
+                | DV(L(_,YPrim Float64T)) | DLit (LitFloat64 _) -> sprintf "exp(%s)" (tup x)
+                | _ -> raise_codegen_error "Compiler error: Expected a float."
+            | Tanh, [x] -> 
+                match x with
+                | DV(L(_,YPrim Float32T)) | DLit (LitFloat32 _) -> sprintf "tanhf(%s)" (tup x)
+                | DV(L(_,YPrim Float64T)) | DLit (LitFloat64 _) -> sprintf "tanh(%s)" (tup x)
+                | _ -> raise_codegen_error "Compiler error: Expected a float."
+            | Sqrt, [x] ->
+                match x with
+                | DV(L(_,YPrim Float32T)) | DLit (LitFloat32 _) -> sprintf "sqrtf(%s)" (tup x)
+                | DV(L(_,YPrim Float64T)) | DLit (LitFloat64 _) -> sprintf "sqrt(%s)" (tup x)
+                | _ -> raise_codegen_error "Compiler error: Expected a float."
+            | NanIs, [x] -> sprintf "isnan(%s)" (tup x)
+            | UnionTag, [DV(L(i,YUnion h))] ->
+                match h.Item.layout with
+                | UHeap -> $"v{i}->tag"
+                | UStack -> $"v{i}.tag"
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> simple
     and heap : _ -> LayoutRec = layout (fun s x ->
