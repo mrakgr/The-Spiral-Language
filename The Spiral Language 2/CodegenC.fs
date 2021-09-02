@@ -64,7 +64,7 @@ let prim = function
     | UInt64T -> "uint64_t"
     | Float32T -> "float"
     | Float64T -> "double"
-    | BoolT -> "bool"
+    | BoolT -> "_Bool"
     | StringT -> "char *" // TODO: I'll make this a proper reference type once I get everything else done.
     | CharT -> "char"
 
