@@ -233,9 +233,9 @@ export const activate = async (ctx: ExtensionContext) => {
                          }
                         else { const _ : never = msg }
                     } catch (e) {
-                        if (e.errno === 11) { } // If the error is a timeout just repeat.
+                        if ((e as any).errno === 11) { } // If the error is a timeout just repeat.
                         else { 
-                            window.showErrorMessage(`Spiral: Fatal error in the subscriber socket. Aborting...\nMessage: ${e.message}`)
+                            window.showErrorMessage(`Spiral: Fatal error in the subscriber socket. Aborting...\nMessage: ${(e as any).message}`)
                             isProcessing = false
                         }
                     }
