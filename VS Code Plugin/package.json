@@ -38,8 +38,7 @@
 					"type": "string",
 					"enum": [
 						"Fsharp",
-						"Cython",
-						"C++"
+						"Cython"
 					],
 					"default": "Fsharp",
 					"description": "The code generator to use when the file is built."
