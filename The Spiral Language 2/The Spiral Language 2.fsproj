@@ -41,7 +41,9 @@
     <Compile Include="CodegenUtils.fs" />
     <Compile Include="CodegenFsharp.fs" />
     <Compile Include="CodegenCython.fs" />
-    <Compile Include="CodegenCpp.fs" />
+    <Compile Include="CodegenCpp.fs.bak" />
+    <Compile Include="CodegenC.fs.bak" />
+    <Content Include="CodeGenCuda.old" />
     <Compile Include="CodegenC.fs" />
     <Compile Include="WDiff.fs" />
     <Compile Include="WDiffPrepass.fs" />
@@ -50,6 +52,8 @@
     <Compile Include="ServerUtils.fs" />
     <Compile Include="Supervisor.fs" />
   </ItemGroup>
+
+  <ItemGroup />
 
   <ItemGroup>
     <PackageReference Include="FParsec" Version="1.1.1" />

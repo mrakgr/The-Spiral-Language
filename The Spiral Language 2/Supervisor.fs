@@ -372,6 +372,7 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                             | "Fsharp" -> BuildOk(Codegen.Fsharp.codegen b a, "fsx")
                             | "Cython*" -> BuildOk(Codegen.Cython.codegen true b a, "pyx")
                             | "Cython" -> BuildOk(Codegen.Cython.codegen false b a, "pyx")
+                            | "C" -> BuildOk(Codegen.C.codegen b a, "pyx")
                             //| "C++" -> BuildOk(Codegen.Cpp.codegen b a, "cpp")
                             | _ -> BuildFatalError $"Cannot recognize the backend: {backend}"
                         with

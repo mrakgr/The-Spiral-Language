@@ -135,8 +135,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
     and args_tys x = x |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (tup_ty t)) |> String.concat ", "
     and binds (s : CodegenEnv) (x : TypedBind []) =
-        Array.iter (fun x ->
-            match x with
+        Array.iter (function
             | TyLet(d,trace,a) -> try op s (Some d) a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             | TyLocalReturnOp(trace,a,_) -> try op s None a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             | TyLocalReturnData(d,trace) -> try line s (tup d) with :? CodegenError as e -> raise_codegen_error' trace e.Data0
