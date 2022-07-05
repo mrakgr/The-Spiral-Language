@@ -49,6 +49,7 @@ let lit = function
         | '\n' -> @"\n"
         | '\t' -> @"\t"
         | '\r' -> @"\r"
+        | '\\' -> @"\\"
         | x -> string x
         |> sprintf "'%s'"
     | LitBool x -> if x then "true" else "false"

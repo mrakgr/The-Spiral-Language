@@ -200,6 +200,7 @@ let lit = function
         | '\n' -> @"\n"
         | '\t' -> @"\t"
         | '\r' -> @"\r"
+        | '\\' -> @"\\"
         | x -> string x
         |> sprintf "'%s'"
     | LitBool x -> if x then "1" else "0"
