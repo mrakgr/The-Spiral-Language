@@ -75,6 +75,15 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | WV i' -> $"v{i} = v{i'};"
             ) a b |> String.concat " "
 
+    let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
+    let args' b = data_term_vars b |> Array.map show_w |> String.concat ", "
+
+    let tmp =
+        let mutable i = 0
+        fun () -> let x = i in i <- i + 1; x
+
+    let tyvs_to_tys (x : TyV []) = Array.map (fun (L(i,t)) -> t) x
+
     let rec binds (defs : CodegenEnv) (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
         Array.iter (function
             | TyLet(d,trace,a) ->
@@ -88,13 +97,19 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | TyLocalReturnData(d,trace) ->
                 try match ret with
                     | BindsLocal l -> line s (tup_destruct (l,data_term_vars d))
-                    | BindsTailEnd -> line s $"return {tup d};"
+                    | BindsTailEnd -> line s $"return {tup_data d};"
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             ) stmts
-    and tup x =
-        let x = data_term_vars x
-        let args = Array.map show_w x |> String.concat ", " 
-        if 1 < args.Length then sprintf "Tuple%i(%s)" ((tup' (term_vars_to_tys x)).tag) args else args
+    and tup_term_vars x = 
+        let args = Array.map show_w x |> String.concat ", "
+        if 1 < args.Length then sprintf "Tuple%i(%s)" (tup' (term_vars_to_tys x)).tag args else args
+    and tup_data x = tup_term_vars (data_term_vars x)
+    and tup_tyvs (x : TyV []) = Array.map WV x |> tup_term_vars
+    and tup_ty_tyvs (x : TyV []) =
+        match tyvs_to_tys x with
+        | [||] -> "void"
+        | [|x|] -> tyv x
+        | x -> sprintf "struct Tuple%i" (tup' x).tag
     and tyv = function
         | YUnion a ->
             match a.Item.layout with
@@ -102,7 +117,12 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | UStack -> sprintf "struct US%i" (ustack a).tag
         | YLayout(a,Heap) -> sprintf "struct * Heap%i" (heap a).tag
         | YLayout(a,HeapMutable) -> sprintf "struct * Mut%i" (mut a).tag
-        | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a) |> String.concat ""
+        | YMacro a -> 
+            let f x =
+                match env.ty_to_data x |> data_free_vars |> Array.map (fun (L(_,x)) -> tyv x) with
+                | [||] -> "void"
+                | x -> String.concat ", " x
+            a |> List.map (function Text a -> a | Type a -> f a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> sprintf "struct * Array%i" (carray a).tag
         | YFun(a,b) -> sprintf "struct * Fun%i" (cfun (a,b)).tag
@@ -121,10 +141,156 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | BoolT -> "_Bool"
         | StringT -> cstring
         | CharT -> cchar
-    and tup_ty x =
-        match env.ty_to_data x |> data_free_vars |> Array.map (fun (L(_,x)) -> tyv x) with
-        | [||] -> "void"
-        | x -> String.concat ", " x
+    and op defs s (ret : BindsReturn) a =
+        let return' (x : string) =
+            match ret with
+            | BindsTailEnd -> line s $"return {x};"
+            | BindsLocal [||] -> line s $"{x};"
+            | BindsLocal [|L(i,_)|] -> line s $"v{i} = {x};"
+            | BindsLocal ret ->
+                let tmp_i = tmp()
+                line defs $"{tup_ty_tyvs ret} tmp{tmp_i};"
+                line s $"tmp{tmp_i} = {x};"
+                Array.mapi (fun i (L(i',_)) -> $"v{i'} = tmp{tmp_i}.v{i};") ret |> String.concat " "
+                |> line s
+        let jp (a,b) =
+            let args = args b
+            match a with
+            | JPMethod(a,b) -> sprintf "method%i(%s)" (method (a,b)).tag args
+            | JPClosure(a,b) -> sprintf "Closure%i(%s)" (closure (a,b)).tag args
+        let layout_index (x'_i : int) (x' : TyV []) =
+            let gs = Array.map (fun (L(i',_)) -> $"v{x'_i}->v{i'}") x'
+            match ret with
+            | BindsTailEnd -> 
+                let gs = String.concat ", " gs
+                let x = tyvs_to_tys x'
+                if x.Length <= 1 then $"return {gs};" else $"return Tuple{(tup' x).tag}({gs});" 
+            | BindsLocal x -> Array.map2 (fun (L(i,_)) g -> $"v{i} = {g};") x gs |> String.concat " "
+            |> line s
+        let length (_,b) = return' $"{tup_data b}->len;"
+        match a with
+        | TyMacro a ->
+            a |> List.map (function
+                | CMText x -> x
+                | CMTerm x -> tup_data x
+                | CMType x -> env.ty_to_data x |> data_free_vars |> tup_ty_tyvs
+                ) |> String.concat "" |> return'
+        | TyIf(cond,tr,fl) ->
+            line s (sprintf "if (%s){" (tup_data cond))
+            binds defs (indent s) ret tr
+            line s "else {"
+            binds defs (indent s) ret fl
+            line s "}"
+        | TyJoinPoint(a,args) -> return' (jp (a, args))
+        | TyWhile(a,b) ->
+            line s (sprintf "while (%s){" (jp a))
+            binds defs (indent s) (BindsLocal [||]) b
+            line s "}"
+        | TyIntSwitch(v_i,on_succ,on_fail) ->
+            line s (sprintf "switch (v%i) {" v_i) // TODO: Check the C switch syntax.
+            Array.iteri (fun i x ->
+                line s (sprintf "case %i:" i)
+                binds defs (indent s) ret x
+                line (indent s) "break;"
+                ) on_succ
+            line s "default:"
+            binds defs (indent s) ret on_fail
+            line s "}"
+        | TyUnionUnbox(is,x,on_succs,on_fail) ->
+            let case_tags = x.Item.tags
+            let dot_tag = if x.Item.is_degenerate then "" else ".tag"
+            let head = List.head is |> fun (L(i,_)) -> $"v{i}{dot_tag}"
+            List.pairwise is
+            |> List.map (fun (L(i,_), L(i',_)) -> $"v{i}{dot_tag} == v{i'}{dot_tag}")
+            |> String.concat " && "
+            |> function "" -> head | x -> $"{x} ? {head} : -1"
+            |> sprintf "switch (%s) {" |> line s
+            Map.iter (fun k (a,b) ->
+                let union_i = case_tags.[k]
+                line s $"case {union_i}:"
+                List.iter2 (fun (L(data_i,_)) a ->
+                    data_free_vars a |> Array.mapi (fun field_i (L(v_i,t)) ->
+                        $"{tyv t} v{v_i} = v{data_i}).case{union_i}.v{field_i};"
+                        )
+                    |> String.concat " " |> line (indent s)
+                    ) is a
+                binds defs (indent s) ret b
+                line s "break;"
+                ) on_succs
+            on_fail |> Option.iter (fun b ->
+                line s "default: "
+                binds defs (indent s) ret b
+                )
+        | TyUnionBox(a,b,c') ->
+            let c = c'.Item
+            let i = c.tags.[a]
+            if c.is_degenerate then return' (sprintf "%i" i)
+            else
+                let vars = args' b
+                match c.layout with
+                | UHeap -> sprintf "UH%i_%i(%s)" (uheap c').tag i vars
+                | UStack -> sprintf "US%i_%i(%s)" (ustack c').tag i vars
+                |> return'
+        | TyLayoutToHeap(a,b) -> sprintf "Heap%i(%s)" (heap b).tag (args' a) |> return'
+        | TyLayoutToHeapMutable(a,b) -> sprintf "Mut%i(%s)" (mut b).tag (args' a) |> return'
+        | TyLayoutIndexAll(L(i,(a,lay))) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i
+        | TyLayoutIndexByKey(L(i,(a,lay)),key) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i
+        | TyLayoutHeapMutableSet(L(i,t),b,c) ->
+            let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
+            Array.iter2 (fun (L(i',_)) b -> line s $"v{i}->v{i'} = {show_w b}") (data_free_vars a) (data_term_vars c)
+        | TyArrayLiteral(a,b) -> List.map tup_data b |> String.concat ", " |> sprintf "{%s}" |> line s
+        | TyArrayCreate(a,b) -> line s $"malloc(sizeof<{tyv a}> * {tup_data b});"
+        | TyFailwith(a,b) -> line s "exit(-1;)"
+        | TyConv(a,b) -> return' $"({tyv a}){tup_data b}"
+        | TyArrayLength(a,b) -> length (a,b)
+        | TyStringLength(a,b) -> length (a,b)
+        | TyOp(op,l) ->
+            let tup = tup_data
+            match op, l with
+            | Apply,[a;b] -> $"{tup a}({args' b})"
+            | Dyn,[a] -> tup a
+            | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
+            | StringIndex, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
+            | StringSlice, [a;b;c] -> sprintf "string_slice(%s,%s,%s)" (tup a) (tup b) (tup c)
+            | ArrayIndex, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
+            | ArrayIndexSet, [a;b;c] -> 
+                match tup c with
+                | "pass" as c -> c
+                | c -> sprintf "%s[%s] = %s" (tup a) (tup b) c
+            // Math
+            | Add, [a;b] -> sprintf "%s + %s" (tup a) (tup b)
+            | Sub, [a;b] -> sprintf "%s - %s" (tup a) (tup b)
+            | Mult, [a;b] -> sprintf "%s * %s" (tup a) (tup b)
+            | Div, [a;b] -> sprintf "%s / %s" (tup a) (tup b)
+            | Mod, [a;b] -> sprintf "%s %% %s" (tup a) (tup b)
+            | Pow, [a;b] -> sprintf "pow(%s,%s)" (tup a) (tup b)
+            | LT, [a;b] -> sprintf "%s < %s" (tup a) (tup b)
+            | LTE, [a;b] -> sprintf "%s <= %s" (tup a) (tup b)
+            | EQ, [a;b] -> sprintf "%s == %s" (tup a) (tup b)
+            | NEQ, [a;b] -> sprintf "%s != %s" (tup a) (tup b)
+            | GT, [a;b] -> sprintf "%s > %s" (tup a) (tup b)
+            | GTE, [a;b] -> sprintf "%s >= %s" (tup a) (tup b)
+            | BoolAnd, [a;b] -> sprintf "%s && %s" (tup a) (tup b)
+            | BoolOr, [a;b] -> sprintf "%s || %s" (tup a) (tup b)
+            | BitwiseAnd, [a;b] -> sprintf "%s & %s" (tup a) (tup b)
+            | BitwiseOr, [a;b] -> sprintf "%s | %s" (tup a) (tup b)
+            | BitwiseXor, [a;b] -> sprintf "%s ^ %s" (tup a) (tup b)
+
+            | ShiftLeft, [a;b] -> sprintf "%s << %s" (tup a) (tup b)
+            | ShiftRight, [a;b] -> sprintf "%s >> %s" (tup a) (tup b)
+
+            | Neg, [x] -> sprintf "-%s" (tup x)
+            | Log, [x] -> sprintf "log(%s)" (tup x)
+            | Exp, [x] -> sprintf "exp(%s)" (tup x)
+            | Tanh, [x] -> sprintf "tanh(%s)" (tup x)
+            | Sqrt, [x] -> sprintf "sqrt(%s)" (tup x)
+            | NanIs, [x] -> sprintf "isnan(%s)" (tup x)
+            | UnionTag, [DUnion(_,l) | DV(L(_,YUnion l)) as x] -> 
+                let dot_tag = if l.Item.is_degenerate then "" else ".tag"
+                sprintf "%s%s" (tup x) dot_tag
+            | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
+            |> return'
+    and tup' x = failwith "" // TODO
 
     let main_defs = StringBuilder()
     let main_s = StringBuilder()
