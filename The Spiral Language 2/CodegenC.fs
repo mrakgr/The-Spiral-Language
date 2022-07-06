@@ -13,70 +13,89 @@ type BindsReturn =
     | BindsTailEnd
     | BindsLocal of TyV []
 
-let cchar = "char"
-let cstring = $"{cchar} *" // I'll leave it as this for now. Later when I do ref counting I'll replace it with something else.
-
-let lit = function
-    | LitInt8 x -> sprintf "%i" x
-    | LitInt16 x -> sprintf "%i" x
-    | LitInt32 x -> sprintf "%il" x
-    | LitInt64 x -> sprintf "%ill" x
-    | LitUInt8 x -> sprintf "%iu" x
-    | LitUInt16 x -> sprintf "%iu" x
-    | LitUInt32 x -> sprintf "%iul" x
-    | LitUInt64 x -> sprintf "%iull" x
-    | LitFloat32 x -> 
-        if x = infinityf then "HUGE_VALF"
-        elif x = -infinityf then "-HUGE_VALF"
-        elif Single.IsNaN x then "NAN"
-        else x.ToString("R") |> sprintf "%sf"
-    | LitFloat64 x ->
-        if x = infinity then "HUGE_VAL"
-        elif x = -infinity then "-HUGE_VAL"
-        elif Double.IsNaN x then "NAN"
-        else x.ToString("R") 
-    | LitString x ->
-        let strb = StringBuilder(x.Length+2)
-        strb.Append '"' |> ignore
-        String.iter (function
-            | '"' -> strb.Append "\\\"" 
-            | '\b' -> strb.Append @"\b"
-            | '\t' -> strb.Append @"\t"
-            | '\n' -> strb.Append @"\n"
-            | '\r' -> strb.Append @"\r"
-            | '\\' -> strb.Append @"\\"
-            | x -> strb.Append x
-            >> ignore 
-            ) x
-        strb.Append '"' |> ignore
-        strb.ToString()
-    | LitChar x -> 
-        match x with
-        | '\b' -> @"\b"
-        | '\n' -> @"\n"
-        | '\t' -> @"\t"
-        | '\r' -> @"\r"
-        | '\\' -> @"\\"
-        | x -> string x
-        |> sprintf "'%s'"
-    | LitBool x -> if x then "1" else "0"
-
 let term_vars_to_tys x = x |> Array.map (function WV(L(_,t)) -> t | WLit x -> YPrim (lit_to_primitive_type x))
+
+type UnionRec = {tag : int; free_vars : Map<string, TyV[]>; is_degenerate : bool}
+type LayoutRec = {tag : int; data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>}
+type MethodRec = {tag : int; free_vars : L<Tag,Ty>[]; range : Ty; body : TypedBind[]}
+type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain : Ty; domain_args : TyV[]; range : Ty; body : TypedBind[]}
+type TupleRec = {tag : int; tys : Ty []}
+
+let prim = function
+    | Int8T -> "int8_t"
+    | Int16T -> "int16_t"
+    | Int32T -> "int32_t"
+    | Int64T -> "int64_t"
+    | UInt8T -> "uint8_t"
+    | UInt16T -> "uint16_t"
+    | UInt32T -> "uint32_t"
+    | UInt64T -> "uint64_t"
+    | Float32T -> "float"
+    | Float64T -> "double"
+    | BoolT -> "_Bool"
+    | CharT -> "char"
+    | StringT -> "struct * String"
 
 let codegen (env : PartEvalResult) (x : TypedBind []) =
     let types = ResizeArray()
     let functions = ResizeArray()
 
-    let show_w = function WV(L(i,_)) -> sprintf "v%i" i | WLit a -> lit a
-    let tup_destruct (a,b) =
-        Array.map2 (fun (L(i,_)) b -> 
-            match b with
-            | WLit b -> $"v{i} = {lit b};"
-            | WV i' -> $"v{i} = v{i'};"
-            ) a b |> String.concat " "
+    let print show r =
+        let s_typ = {text=StringBuilder(); indent=0}
+        let s_fun = {text=StringBuilder(); indent=0}
+        show s_typ s_fun r
+        let f (a : _ ResizeArray) (b : CodegenEnv) = 
+            let text = b.text.ToString()
+            if text <> "" then a.Add(text)
+        f types s_typ
+        f functions s_fun
+
+    let layout show =
+        let dict' = Dictionary(HashIdentity.Structural)
+        let dict = Dictionary(HashIdentity.Reference)
+        let f x : LayoutRec = 
+            let x = env.ty_to_data x
+            let a, b =
+                match x with
+                | DRecord a -> let a = Map.map (fun _ -> data_free_vars) a in a |> Map.toArray |> Array.collect snd, a
+                | _ -> data_free_vars x, Map.empty
+            {data=x; free_vars=a; free_vars_by_key=b; tag=dict'.Count}
+        fun x ->
+            let mutable dirty = false
+            let r = Utils.memoize dict (Utils.memoize dict' (fun x -> dirty <- true; f x)) x
+            if dirty then print show r
+            r
+
+    let union show =
+        let dict = Dictionary(HashIdentity.Reference)
+        let f (a : Union) : UnionRec = 
+            let free_vars = a.Item.cases |> Map.map (fun _ -> env.ty_to_data >> data_free_vars)
+            {free_vars=free_vars; tag=dict.Count; is_degenerate=a.Item.is_degenerate}
+        fun x ->
+            let mutable dirty = false
+            let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
+            if dirty then print show r
+            r
+
+    let jp is_type f show =
+        let dict = Dictionary(HashIdentity.Structural)
+        let f x = f (x, dict.Count)
+        fun x ->
+            let mutable dirty = false
+            let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
+            if dirty then print show r
+            r
+
+    let tuple show =
+        let dict = Dictionary(HashIdentity.Structural)
+        let f x = {tag=dict.Count; tys=x}
+        fun x ->
+            let mutable dirty = false
+            let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
+            if dirty then print show r
+            r
 
     let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
-    let args' b = data_term_vars b |> Array.map show_w |> String.concat ", "
 
     let tmp =
         let mutable i = 0
@@ -85,6 +104,12 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     let tyvs_to_tys (x : TyV []) = Array.map (fun (L(i,t)) -> t) x
 
     let rec binds (defs : CodegenEnv) (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
+        let tup_destruct (a,b) =
+            Array.map2 (fun (L(i,_)) b -> 
+                match b with
+                | WLit b -> $"v{i} = {lit b};"
+                | WV i' -> $"v{i} = v{i'};"
+                ) a b |> String.concat " "
         Array.iter (function
             | TyLet(d,trace,a) ->
                 try let d = data_free_vars d
@@ -100,6 +125,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     | BindsTailEnd -> line s $"return {tup_data d};"
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             ) stmts
+    and show_w = function WV(L(i,_)) -> sprintf "v%i" i | WLit a -> lit a
+    and args' b = data_term_vars b |> Array.map show_w |> String.concat ", "
     and tup_term_vars x = 
         let args = Array.map show_w x |> String.concat ", "
         if 1 < args.Length then sprintf "Tuple%i(%s)" (tup' (term_vars_to_tys x)).tag args else args
@@ -127,20 +154,50 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | YArray a -> sprintf "struct * Array%i" (carray a).tag
         | YFun(a,b) -> sprintf "struct * Fun%i" (cfun (a,b)).tag
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
-    and prim = function
-        | Int8T -> "int8_t"
-        | Int16T -> "int16_t"
-        | Int32T -> "int32_t"
-        | Int64T -> "int64_t"
-        | UInt8T -> "uint8_t"
-        | UInt16T -> "uint16_t"
-        | UInt32T -> "uint32_t"
-        | UInt64T -> "uint64_t"
-        | Float32T -> "float"
-        | Float64T -> "double"
-        | BoolT -> "_Bool"
-        | StringT -> cstring
-        | CharT -> cchar
+    and lit = function
+        | LitInt8 x -> sprintf "%i" x
+        | LitInt16 x -> sprintf "%i" x
+        | LitInt32 x -> sprintf "%il" x
+        | LitInt64 x -> sprintf "%ill" x
+        | LitUInt8 x -> sprintf "%iu" x
+        | LitUInt16 x -> sprintf "%iu" x
+        | LitUInt32 x -> sprintf "%iul" x
+        | LitUInt64 x -> sprintf "%iull" x
+        | LitFloat32 x -> 
+            if x = infinityf then "HUGE_VALF"
+            elif x = -infinityf then "-HUGE_VALF"
+            elif Single.IsNaN x then "NAN"
+            else x.ToString("R") |> sprintf "%sf"
+        | LitFloat64 x ->
+            if x = infinity then "HUGE_VAL"
+            elif x = -infinity then "-HUGE_VAL"
+            elif Double.IsNaN x then "NAN"
+            else x.ToString("R") 
+        | LitString x -> cstring_lit x
+            //let strb = StringBuilder(x.Length+2)
+            //strb.Append '"' |> ignore
+            //String.iter (function
+            //    | '"' -> strb.Append "\\\"" 
+            //    | '\b' -> strb.Append @"\b"
+            //    | '\t' -> strb.Append @"\t"
+            //    | '\n' -> strb.Append @"\n"
+            //    | '\r' -> strb.Append @"\r"
+            //    | '\\' -> strb.Append @"\\"
+            //    | x -> strb.Append x
+            //    >> ignore 
+            //    ) x
+            //strb.Append '"' |> ignore
+            //strb.ToString()
+        | LitChar x -> 
+            match x with
+            | '\b' -> @"\b"
+            | '\n' -> @"\n"
+            | '\t' -> @"\t"
+            | '\r' -> @"\r"
+            | '\\' -> @"\\"
+            | x -> string x
+            |> sprintf "'%s'"
+        | LitBool x -> if x then "1" else "0"
     and op defs s (ret : BindsReturn) a =
         let return' (x : string) =
             match ret with
@@ -167,7 +224,6 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 if x.Length <= 1 then $"return {gs};" else $"return Tuple{(tup' x).tag}({gs});" 
             | BindsLocal x -> Array.map2 (fun (L(i,_)) g -> $"v{i} = {g};") x gs |> String.concat " "
             |> line s
-        let length (_,b) = return' $"{tup_data b}->len;"
         match a with
         | TyMacro a ->
             a |> List.map (function
@@ -221,6 +277,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s "default: "
                 binds defs (indent s) ret b
                 )
+            line s "}"
         | TyUnionBox(a,b,c') ->
             let c = c'.Item
             let i = c.tags.[a]
@@ -238,25 +295,24 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
             let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
             Array.iter2 (fun (L(i',_)) b -> line s $"v{i}->v{i'} = {show_w b}") (data_free_vars a) (data_term_vars c)
-        | TyArrayLiteral(a,b) -> List.map tup_data b |> String.concat ", " |> sprintf "{%s}" |> line s
-        | TyArrayCreate(a,b) -> line s $"malloc(sizeof<{tyv a}> * {tup_data b});"
-        | TyFailwith(a,b) -> line s "exit(-1;)"
+        | TyArrayLiteral(a,b) -> carray_literal a b
+        | TyArrayCreate(a,b) -> carray_create a b
+        | TyFailwith(a,b) -> line s "exit(-1);"
         | TyConv(a,b) -> return' $"({tyv a}){tup_data b}"
-        | TyArrayLength(a,b) -> length (a,b)
-        | TyStringLength(a,b) -> length (a,b)
+        | TyArrayLength(_,b) | TyStringLength(_,b) -> return' $"{tup_data b}->len;"
         | TyOp(op,l) ->
             let tup = tup_data
             match op, l with
             | Apply,[a;b] -> $"{tup a}({args' b})"
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
-            | StringIndex, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
-            | StringSlice, [a;b;c] -> sprintf "string_slice(%s,%s,%s)" (tup a) (tup b) (tup c)
-            | ArrayIndex, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
+            | StringIndex, [a;b] -> sprintf "%s->ptr[%s]" (tup a) (tup b)
+            | StringSlice, [a;b;c] -> raise_codegen_error "String slice is not supported natively in the C backend. Use a library implementation instead."
+            | ArrayIndex, [a;b] -> sprintf "%s->ptr[%s]" (tup a) (tup b)
             | ArrayIndexSet, [a;b;c] -> 
                 match tup c with
-                | "pass" as c -> c
-                | c -> sprintf "%s[%s] = %s" (tup a) (tup b) c
+                | "" as c -> c
+                | c -> sprintf "%s->ptr[%s] = %s" (tup a) (tup b) c
             // Math
             | Add, [a;b] -> sprintf "%s + %s" (tup a) (tup b)
             | Sub, [a;b] -> sprintf "%s - %s" (tup a) (tup b)
@@ -290,7 +346,19 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 sprintf "%s%s" (tup x) dot_tag
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> return'
-    and tup' x = failwith "" // TODO
+    and tup' x = 
+        tuple (fun s_typ s_fun x ->
+            let name = sprintf "Tuple%i" x.tag
+            line s_typ (sprintf "struct %s{" name)
+            let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} v{i}")
+            args |> Array.iter (fun x -> line (indent s_typ) $"{x};")
+            line s_typ "};"
+            line s_fun (sprintf "static inline struct %s %s(%s){" name name (String.concat ", " args))
+            line (indent s_fun) $"struct {name} x;"
+            Array.init args.Length (fun i -> $"x.v{i} = v{i};") |> String.concat " " |> line (indent s_fun) 
+            line (indent s_fun) $"return x;"
+            line s_fun "}"
+            ) x
 
     let main_defs = StringBuilder()
     let main_s = StringBuilder()
