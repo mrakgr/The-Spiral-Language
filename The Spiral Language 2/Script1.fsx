@@ -1,1 +1,1 @@
-﻿([] : int list) |> List.pairwise
+﻿["a";""] |> String.concat ","

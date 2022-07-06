@@ -72,7 +72,7 @@ let prim = function
 type UnionRec = {free_vars : Map<string, TyV[]>; tag : int}
 type LayoutRec = {data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>; tag : int}
 type MethodRec = {tag : int; free_vars : L<Tag,Ty>[]; range : Ty; body : TypedBind[]}
-type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain : TyV[]; range : Ty; body : TypedBind[]}
+type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain_args : TyV[]; range : Ty; body : TypedBind[]}
 
 let codegen (env : PartEvalResult) (x : TypedBind []) =
     let types = ResizeArray()
@@ -84,9 +84,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         let text = s.text.ToString()
         if is_type then types.Add(text) else functions.Add(text)
 
-    let layout show =
-        let dict' = Dictionary(HashIdentity.Structural)
-        let dict = Dictionary(HashIdentity.Reference)
+    let layout (dict' : Dictionary<_,_>) (dict : Dictionary<_,_>) show =
         let f x : LayoutRec = 
             let x = env.ty_to_data x
             let a, b =
@@ -99,6 +97,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let r = Utils.memoize dict (Utils.memoize dict' (fun x -> dirty <- true; f x)) x
             if dirty then print true show r
             r
+
+    let heap' = layout (Dictionary(HashIdentity.Structural)) (Dictionary(HashIdentity.Reference))
+    let mut' = layout (Dictionary(HashIdentity.Structural)) (Dictionary(HashIdentity.Reference))
 
     let union show =
         let dict = Dictionary(HashIdentity.Reference)
@@ -343,12 +344,12 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 sprintf "(fst (Reflection.FSharpValue.GetUnionFields(v%i, typeof<%s>))).Tag" i ty // TODO: Stopgap measure for now. Replace this with something more efficient.
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> simple
-    and heap : _ -> LayoutRec = layout (fun s x ->
+    and heap : _ -> LayoutRec = heap' (fun s x ->
         let b = x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "l%i : %s" i (tyv t)) |> String.concat "; "
         if b = "" then line s (sprintf "Heap%i() = class end" x.tag)
         else line s (sprintf "Heap%i = {%s}" x.tag b)
         )
-    and mut : _ -> LayoutRec = layout (fun s x ->
+    and mut : _ -> LayoutRec = mut' (fun s x ->
         let b = x.free_vars |> Array.map (fun (L(i,t)) -> sprintf "mutable l%i : %s" i (tyv t)) |> String.concat "; "
         if b = "" then line s (sprintf "Mut%i() = class end" x.tag)
         else line s (sprintf "Mut%i = {%s}" x.tag b)
@@ -385,11 +386,11 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and closure : _ -> ClosureRec =
         jp (fun ((jp_body,key & (C(args,_,domain,range))),i) ->
             match (fst env.join_point_closure.[jp_body]).[key] with
-            | Some(domain_args, body) -> {tag=i; free_vars=rdata_free_vars args; domain=data_free_vars domain_args; range=range; body=body}
+            | Some(domain_args, body) -> {tag=i; free_vars=rdata_free_vars args; domain_args=data_free_vars domain_args; range=range; body=body}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s x ->
             let domain = 
-                match x.domain |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (tyv t)) with
+                match x.domain_args |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (tyv t)) with
                 | [||] -> "()"
                 | [|x|] -> sprintf "(%s)" x
                 | x -> String.concat ", " x |> sprintf "struct (%s)"

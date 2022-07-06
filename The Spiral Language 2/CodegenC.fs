@@ -20,6 +20,7 @@ type LayoutRec = {tag : int; data : Data; free_vars : TyV[]; free_vars_by_key : 
 type MethodRec = {tag : int; free_vars : L<Tag,Ty>[]; range : Ty; body : TypedBind[]}
 type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain : Ty; domain_args : TyV[]; range : Ty; body : TypedBind[]}
 type TupleRec = {tag : int; tys : Ty []}
+type CFunRec = {tag : int; domain_args_ty : Ty[]; range : Ty}
 
 let prim = function
     | Int8T -> "int8_t"
@@ -34,7 +35,7 @@ let prim = function
     | Float64T -> "double"
     | BoolT -> "_Bool"
     | CharT -> "char"
-    | StringT -> "struct * String"
+    | StringT -> "struct String *"
 
 let codegen (env : PartEvalResult) (x : TypedBind []) =
     let types = ResizeArray()
@@ -50,9 +51,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         f types s_typ
         f functions s_fun
 
-    let layout show =
-        let dict' = Dictionary(HashIdentity.Structural)
-        let dict = Dictionary(HashIdentity.Reference)
+    let layout (dict' : Dictionary<_,_>) (dict : Dictionary<_,_>) show =
         let f x : LayoutRec = 
             let x = env.ty_to_data x
             let a, b =
@@ -65,6 +64,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let r = Utils.memoize dict (Utils.memoize dict' (fun x -> dirty <- true; f x)) x
             if dirty then print show r
             r
+    let heap' = layout (Dictionary(HashIdentity.Structural)) (Dictionary(HashIdentity.Reference))
+    let mut' = layout (Dictionary(HashIdentity.Structural)) (Dictionary(HashIdentity.Reference))
 
     let union show =
         let dict = Dictionary(HashIdentity.Reference)
@@ -77,7 +78,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             if dirty then print show r
             r
 
-    let jp is_type f show =
+    let jp f show =
         let dict = Dictionary(HashIdentity.Structural)
         let f x = f (x, dict.Count)
         fun x ->
@@ -89,6 +90,15 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     let tuple show =
         let dict = Dictionary(HashIdentity.Structural)
         let f x = {tag=dict.Count; tys=x}
+        fun x ->
+            let mutable dirty = false
+            let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
+            if dirty then print show r
+            r
+
+    let cfun' show =
+        let dict = Dictionary(HashIdentity.Structural)
+        let f (a : Ty, b : Ty) = {tag=dict.Count; domain_args_ty=a |> env.ty_to_data |> data_free_vars |> Array.map (fun (L(_,t)) -> t); range=b}
         fun x ->
             let mutable dirty = false
             let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
@@ -125,9 +135,13 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     | BindsTailEnd -> line s $"return {tup_data d};"
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             ) stmts
+    and binds' (defs : CodegenEnv) (x : TypedBind []) =
+        let s = {defs with text = StringBuilder()}
+        binds defs s BindsTailEnd x
+        defs.text.Append(s.text) |> ignore
     and show_w = function WV(L(i,_)) -> sprintf "v%i" i | WLit a -> lit a
     and args' b = data_term_vars b |> Array.map show_w |> String.concat ", "
-    and tup_term_vars x = 
+    and tup_term_vars x =
         let args = Array.map show_w x |> String.concat ", "
         if 1 < args.Length then sprintf "Tuple%i(%s)" (tup' (term_vars_to_tys x)).tag args else args
     and tup_data x = tup_term_vars (data_term_vars x)
@@ -137,22 +151,23 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | [||] -> "void"
         | [|x|] -> tyv x
         | x -> sprintf "struct Tuple%i" (tup' x).tag
+    and tup_ty x = env.ty_to_data x |> data_free_vars |> tup_ty_tyvs
     and tyv = function
         | YUnion a ->
             match a.Item.layout with
-            | UHeap -> sprintf "struct * UH%i" (uheap a).tag
+            | UHeap -> sprintf "struct UH%i *" (uheap a).tag
             | UStack -> sprintf "struct US%i" (ustack a).tag
-        | YLayout(a,Heap) -> sprintf "struct * Heap%i" (heap a).tag
-        | YLayout(a,HeapMutable) -> sprintf "struct * Mut%i" (mut a).tag
-        | YMacro a -> 
+        | YLayout(a,Heap) -> sprintf "struct Heap%i *" (heap a).tag
+        | YLayout(a,HeapMutable) -> sprintf "struct Mut%i *" (mut a).tag
+        | YMacro a ->
             let f x =
                 match env.ty_to_data x |> data_free_vars |> Array.map (fun (L(_,x)) -> tyv x) with
                 | [||] -> "void"
                 | x -> String.concat ", " x
             a |> List.map (function Text a -> a | Type a -> f a) |> String.concat ""
         | YPrim a -> prim a
-        | YArray a -> sprintf "struct * Array%i" (carray a).tag
-        | YFun(a,b) -> sprintf "struct * Fun%i" (cfun (a,b)).tag
+        | YArray a -> sprintf "struct Array%i *" (carray a).tag
+        | YFun(a,b) -> sprintf "struct Fun%i *" (cfun (a,b)).tag
         | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
     and lit = function
         | LitInt8 x -> sprintf "%i" x
@@ -243,7 +258,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             binds defs (indent s) (BindsLocal [||]) b
             line s "}"
         | TyIntSwitch(v_i,on_succ,on_fail) ->
-            line s (sprintf "switch (v%i) {" v_i) // TODO: Check the C switch syntax.
+            line s (sprintf "switch (v%i) {" v_i)
             Array.iteri (fun i x ->
                 line s (sprintf "case %i:" i)
                 binds defs (indent s) ret x
@@ -303,7 +318,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | TyOp(op,l) ->
             let tup = tup_data
             match op, l with
-            | Apply,[a;b] -> $"{tup a}({args' b})"
+            | Apply,[a;b] -> 
+                match tup a, args' b with
+                | a, "" -> $"{a}->fptr({a}->env)"
+                | a, b -> $"{a}->fptr({a}->env, {b})"
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
             | StringIndex, [a;b] -> sprintf "%s->ptr[%s]" (tup a) (tup b)
@@ -346,7 +364,68 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 sprintf "%s%s" (tup x) dot_tag
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> return'
-    and tup' x = 
+    and method x : MethodRec =
+        jp (fun ((jp_body,key & (C(args,_))),i) ->
+            match (fst env.join_point_method.[jp_body]).[key] with
+            | Some a, Some range -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a}
+            | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+            ) (fun s_typ s_fun x ->
+            let q = tup_ty x.range
+            let args = x.free_vars |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
+            line s_fun (sprintf "%s method%i({args_tys x.free_vars}){" q x.tag)
+            binds' (indent s_fun) x.body
+            line s_fun "}"
+            ) x
+    and closure x : ClosureRec =
+        jp (fun ((jp_body,key & (C(args,_,domain,range))),i) ->
+            match (fst env.join_point_closure.[jp_body]).[key] with
+            | Some(domain_args, body) -> {tag=i; free_vars=rdata_free_vars args; domain=domain; domain_args=data_free_vars domain_args; range=range; body=body}
+            | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+            ) (fun s_typ s_fun x ->
+            
+            let i = x.tag
+            line s_typ (sprintf "struct ClosureEnv%i{" i)
+            let free_vars = x.free_vars |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}")
+            free_vars |> Array.iter (fun x -> line (indent s_typ) $"{x};")
+            line s_typ "};"
+            
+            line s_typ (sprintf "struct Closure%i{" i)
+            line (indent s_typ) $"struct ClosureEnv{i} * env;"
+            let range = tup_ty x.range
+            match x.domain_args |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat ", " with
+            | "" -> $"{range} (*fptr)(struct ClosureEnv{i} *);"
+            | domain_args_ty -> $"{range} (*fptr)(struct ClosureEnv{i} *, {domain_args_ty});"
+            |> line (indent s_typ)
+            line s_typ "};"
+            
+            match x.domain_args |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}") |> String.concat ", " with
+            | "" -> sprintf "%s ClosureMethod%i(struct ClosureEnv%i * env){" range i i
+            | domain_args -> sprintf "%s ClosureMethod%i(struct ClosureEnv%i * env, %s){" range i i domain_args
+            |> line s_fun
+            x.domain_args |> Array.map (fun (L(i,t)) -> $"v{i} = env->v{i};") |> String.concat " " |> line (indent s_fun)
+            binds' (indent s_fun) x.body
+            line s_fun "}"
+
+            line s_fun (sprintf "struct Closure%i * Closure%i(%s){" i i (String.concat ", " free_vars))
+            line (indent s_fun) $"struct ClosureEnv{i} * env = malloc(sizeof(struct ClosureEnv));"
+            x.free_vars |> Array.map (fun (L(i,_)) -> $"env->v{i} = v{i};")  |> String.concat " " |> line (indent s_fun)
+            line (indent s_fun) $"struct Closure{i} * x = malloc(sizeof(struct Closure));"
+            line (indent s_fun) $"x->env = env; x->fptr = ClosureMethod{i};"
+            line (indent s_fun) $"return x;"
+            line s_fun "}"
+            ) x
+    and cfun x : CFunRec =
+        cfun' (fun s_typ s_fun x ->
+            line s_typ (sprintf "struct Fun%i{" x.tag)
+            line (indent s_typ) $"void * env;"
+            let range = tup_ty x.range
+            match x.domain_args_ty |> Array.map (fun t -> tyv t) |> String.concat ", " with
+            | "" -> $"{range} (*fptr)(void *);"
+            | domain_args_ty -> $"{range} (*fptr)(void *, {domain_args_ty});"
+            |> line (indent s_typ)
+            line s_typ "};"
+            ) x
+    and tup' x : TupleRec = 
         tuple (fun s_typ s_fun x ->
             let name = sprintf "Tuple%i" x.tag
             line s_typ (sprintf "struct %s{" name)
@@ -355,10 +434,25 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s_typ "};"
             line s_fun (sprintf "static inline struct %s %s(%s){" name name (String.concat ", " args))
             line (indent s_fun) $"struct {name} x;"
-            Array.init args.Length (fun i -> $"x.v{i} = v{i};") |> String.concat " " |> line (indent s_fun) 
+            Array.init args.Length (fun i -> $"x.v{i} = v{i};") |> String.concat " " |> line (indent s_fun)
             line (indent s_fun) $"return x;"
             line s_fun "}"
             ) x
+    and layout_tmpl heap' name x : LayoutRec =
+        heap' (fun s_typ s_fun (x : LayoutRec) ->
+            let name = sprintf "%s%i" name x.tag
+            line s_typ (sprintf "struct %s{" name)
+            let args = x.free_vars |> Array.map (fun (L(i,x)) -> $"{tyv x} v{i}")
+            args |> Array.iter (fun x -> line (indent s_typ) $"{x};")
+            line s_typ "};"
+            line s_fun (sprintf "static inline struct %s * %s(%s){" name name (String.concat ", " args))
+            line (indent s_fun) $"struct {name} * x = malloc(sizeof(struct {name}));"
+            Array.init args.Length (fun i -> $"x->v{i} = v{i};") |> String.concat " " |> line (indent s_fun)
+            line (indent s_fun) $"return x;"
+            line s_fun "}"
+            ) x
+    and heap x : LayoutRec = layout_tmpl heap' "Heap" x
+    and mut x : LayoutRec = layout_tmpl mut' "Mut" x
 
     let main_defs = StringBuilder()
     let main_s = StringBuilder()
