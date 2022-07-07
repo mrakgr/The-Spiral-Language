@@ -69,8 +69,8 @@ let prim = function
     | StringT -> "string"
     | CharT -> "char"
 
-type UnionRec = {free_vars : Map<string, TyV[]>; tag : int}
-type LayoutRec = {data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>; tag : int}
+type UnionRec = {tag : int; free_vars : Map<string, TyV[]>}
+type LayoutRec = {tag : int; data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>}
 type MethodRec = {tag : int; free_vars : L<Tag,Ty>[]; range : Ty; body : TypedBind[]}
 type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain_args : TyV[]; range : Ty; body : TypedBind[]}
 
