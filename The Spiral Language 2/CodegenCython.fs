@@ -173,12 +173,12 @@ let lit = function
         if x = infinityf then "(<float>float('inf'))"
         elif x = -infinityf then "(<float>float('-inf'))"
         elif Single.IsNaN x then "(<float>float())"
-        else sprintf "(<float>%s)" (x.ToString("R"))
+        else sprintf "(<float>%s)" (x.ToString("R") |> add_dec_point)
     | LitFloat64 x ->
         if x = infinity then "(<double>float('inf'))"
         elif x = -infinity then "(<double>float('-inf'))"
         elif Double.IsNaN x then "(<double>float())"
-        else sprintf "(<double>%s)" (x.ToString("R"))
+        else sprintf "(<double>%s)" (x.ToString("R") |> add_dec_point)
     | LitString x -> 
         let strb = StringBuilder(x.Length+2)
         strb.Append '"' |> ignore
@@ -233,7 +233,9 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
         let text = s.text.ToString()
         if is_type then types.Add(text) else functions.Add(text)
 
-    let layout (dict' : Dictionary<_,_>) (dict : Dictionary<_,_>) show =
+    let layout show =
+        let dict' = Dictionary(HashIdentity.Structural)
+        let dict = Dictionary(HashIdentity.Reference)
         let f x : LayoutRec = 
             let x = env.ty_to_data x
             let a, b =
@@ -246,8 +248,6 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
             let r = Utils.memoize dict (Utils.memoize dict' (fun x -> dirty <- true; f x)) x
             if dirty then print true show r
             r
-    let heap' = layout (Dictionary(HashIdentity.Structural)) (Dictionary(HashIdentity.Reference))
-    let mut' = layout (Dictionary(HashIdentity.Structural)) (Dictionary(HashIdentity.Reference))
 
     let union show =
         let dict = Dictionary(HashIdentity.Reference)
@@ -626,8 +626,8 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
         let args = tys |> Array.mapi arg_show |> String.concat ", " |> with_self
         let body = Array.init tys.Length (fun i -> $"self.v{i} = v{i}") |> String.concat "; " |> pass_if_empty
         line s (sprintf "def __init__(%s): %s" args body)
-    and heap : _ -> LayoutRec = heap' (fun s x -> layout_template "Heap" "readonly " s x.tag (tyv_type_show x.free_vars)) // TODO: Bug. Can't tell the difference between the two types.
-    and mut : _ -> LayoutRec = mut' (fun s x -> layout_template "Mut" "public " s x.tag (tyv_type_show x.free_vars))
+    and heap : _ -> LayoutRec = layout (fun s x -> layout_template "Heap" "readonly " s x.tag (tyv_type_show x.free_vars)) // TODO: Bug. Can't tell the difference between the two types.
+    and mut : _ -> LayoutRec = layout (fun s x -> layout_template "Mut" "public " s x.tag (tyv_type_show x.free_vars))
     and tup' : _ -> TupleRec = tuple (fun s x -> layout_template "Tuple" "readonly " s x.tag x.tys)
     and union_template (prefix : string) s (x : UnionRec) = 
         if x.is_degenerate then 
