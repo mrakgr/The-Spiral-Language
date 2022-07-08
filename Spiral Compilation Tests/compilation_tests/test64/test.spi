@@ -1,6 +1,6 @@
 // Is the type annotation getting propagated correctly into a record?
 
-inl Nodes = 
+inl nodes () = 
     {
     action=fun p1 => 
         inl q = p1.observations

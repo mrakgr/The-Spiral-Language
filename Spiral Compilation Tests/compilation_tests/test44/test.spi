@@ -9,4 +9,7 @@ inl main () =
     let b = "a" :: "b" :: Nil
     let c = true :: Nil
     f a b c
-    |> listm.iter (fun (a,b,c) => $"print(!a, !b, !c)")
+    |> listm.iter (fun (a,b,c) => 
+        // $"print(!a, !b, !c)"
+        $"printf(\"%i %s %i\\n\",!a, !b->ptr, (int) !c)"
+        )

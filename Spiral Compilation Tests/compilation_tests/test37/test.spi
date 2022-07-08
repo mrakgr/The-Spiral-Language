@@ -1,6 +1,6 @@
 // Does the basic union type work?
 inl main () =
-    inl ~x = Some: 3
+    inl ~x = Some 3
     match x with
-    | Some: x => x
+    | Some x => x
     | None => 0i64

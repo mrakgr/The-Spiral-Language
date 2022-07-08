@@ -1,8 +1,8 @@
 // Do the nested patterns work?
-inl main() : () =
-    match dyn ((1,2) :: (4,5) :: (5,6) :: Nil) : _ (i32 * i32) with
-    | Nil => "No elements", 0
-    | Cons: (q,w),Nil => "One element.", q+w
-    | Cons: (q,w),(Cons:(e,r),Nil) => "Two elements.",q+w+e+r
-    | Cons: (q,w),(Cons:(e,r),(Cons:(t,y),l)) => "At least three elements.",q+w+e+r+t+y
-    |> fun (a,b) => $"print(!a,!b)"
+inl main() : i32 =
+    match dyn ((1,2) :: (4,5) :: (5,6) :: []) : _ (i32 * i32) with
+    | [] => "No elements", 0
+    | (q,w) :: [] => "One element.", q+w
+    | (q,w) :: (e,r) :: [] => "Two elements.",q+w+e+r
+    | (q,w) :: (e,r) :: (t,y) :: l => "At least three elements.",q+w+e+r+t+y
+    |> fun (a,b) => $"printf(\"%s\\n%i\\n\",!a->ptr,!b)"

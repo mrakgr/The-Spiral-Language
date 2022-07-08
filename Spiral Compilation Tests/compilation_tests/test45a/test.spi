@@ -1,0 +1,4 @@
+// Do void arrays work?
+inl main () =
+    inl field : a u64 _ = am.init 1 fun b => ()
+    ()

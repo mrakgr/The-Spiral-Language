@@ -328,14 +328,14 @@ and method1 (v0 : ((US0 []) []), v1 : uint64, v2 : uint64) : UH0 =
 and method5 (v0 : UH0) : unit =
     match v0 with
     | UH0_0(v1, v2) -> (* Cons *)
-        print(v1)
+        printf("%s\n",v1->ptr)
         method5(v2)
     | UH0_1 -> (* Nil *)
         ()
 let v0 : uint64 = 4UL
 let v1 : uint64 = 2UL
 let v2 : uint64 = 3UL
-print("Initing")
+printf("%s\n","Initing")
 let v3 : ((US0 []) []) = Array.zeroCreate<(US0 [])> (System.Convert.ToInt32(v0))
 let v4 : Mut0 = {l0 = 0UL} : Mut0
 while method0(v0, v4) do
@@ -361,9 +361,9 @@ while method0(v0, v4) do
     v3.[int v6] <- v7
     let v18 : uint64 = v6 + 1UL
     v4.l0 <- v18
-print("Starting")
+printf("%s\n","Starting")
 let v19 : uint64 = 0UL
 let v20 : uint64 = 0UL
 let v21 : UH0 = method1(v3, v19, v20)
-print("Printing")
+printf("%s\n","Printing")
 method5(v21)

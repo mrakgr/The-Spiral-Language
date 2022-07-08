@@ -1,8 +1,8 @@
 // Does structural comparison for union types work?
-union t = A: i32 | B: f64
+union t = A : i32 | B : f64
 inl union_test () =
-    inl a = A: 1
-    inl b = B: 3
+    inl a = A 1
+    inl b = B 3
     $"# // Static, Static"
     inl _ = dyn (comp a b)
     $"# // Dyn, Static"
