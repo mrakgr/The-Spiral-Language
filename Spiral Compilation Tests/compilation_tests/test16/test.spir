@@ -2,5 +2,5 @@
 open real_core
 inl main _ =
     inl m = {a=1;b=2;c=3}
-    inl m' = record_map (fun (key:value:) => value * 2) m
-    dyn (m', record_foldl (fun (state:key:value:) => state + value) 0 m')
+    inl m' = record_map (fun {key value} => value * 2) m
+    dyn (m', record_fold (fun {state key value} => state + value) 0 m')

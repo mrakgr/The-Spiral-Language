@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <None Include="Script1.fsx" />
+    <Compile Include="CodegenC - Lexical.fs.bak" />
     <Compile Include="PersistentVectorExtensions.fs" />
     <Compile Include="HopacExtensions.fs" />
     <Compile Include="HashConsing.fs" />
@@ -49,8 +50,6 @@
     <Compile Include="ServerUtils.fs" />
     <Compile Include="Supervisor.fs" />
   </ItemGroup>
-
-  <ItemGroup />
 
   <ItemGroup>
     <PackageReference Include="FParsec" Version="1.1.1" />
