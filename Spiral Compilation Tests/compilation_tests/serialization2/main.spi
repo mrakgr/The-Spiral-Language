@@ -1,9 +1,9 @@
 open pickle
-nominal serialized a = array u8
+nominal serialized t = a i32 u8
 
 inl serialize forall t. (x : t) : serialized t =
     inl size = size x
-    inl ar = a32.create size
+    inl ar = create size
     inl i = mut 0
     pickle x (i,ar)
     assert (*i = size) "The size of the array does not correspond to the amount being pickled."
@@ -12,9 +12,11 @@ inl serialize forall t. (x : t) : serialized t =
 inl deserialize forall t. (serialized x : serialized t) : t =
     inl i = mut 0
     inl r = unpickle (i,x)
-    assert (*i = a32.length x) "The size of the array does not correspond to the amount being unpickled."
+    assert (*i = length x) "The size of the array does not correspond to the amount being unpickled."
     r
 
-inl test x = assert (x = deserialize (serialize x)) "Serialization and deserialization should result in the same result."
+inl test x = assert (x = deserialize (serialize x)) "Serialization and deserialization should have the same result as the original."
 
-inl main () : () = join test(dyn (1i32,2i32,({q=1i32;w="a";e='z'} :: {q=2;w="s";e='x'} :: Nil)))
+inl main () : () = 
+    // test (dyn {q=1i32; w="a"; e='z'})
+    test(dyn (1i32,2i32,({q=1i32;w="a";e='z'} :: {q=2;w="s";e='x'} :: Nil)))

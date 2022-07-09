@@ -25,6 +25,23 @@ type ArrayRec = {tag : int; ty : Ty}
 type CFunRec = {tag : int; domain_args_ty : Ty[]; range : Ty}
 
 let size_t = UInt32T
+
+let lit_string x =
+    let strb = StringBuilder(String.length x + 2)
+    strb.Append '"' |> ignore
+    String.iter (function
+        | '"' -> strb.Append "\\\"" 
+        | '\b' -> strb.Append @"\b"
+        | '\t' -> strb.Append @"\t"
+        | '\n' -> strb.Append @"\n"
+        | '\r' -> strb.Append @"\r"
+        | '\\' -> strb.Append @"\\"
+        | x -> strb.Append x
+        >> ignore 
+        ) x
+    strb.Append '"' |> ignore
+    strb.ToString()
+
 let codegen (env : PartEvalResult) (x : TypedBind []) =
     let imports = ResizeArray()
     let types = ResizeArray()
@@ -214,21 +231,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             else x.ToString("R") |> add_dec_point
         | LitString x ->
             cstring()
-            let strb = StringBuilder(x.Length+2)
-            strb.Append '"' |> ignore
-            String.iter (function
-                | '"' -> strb.Append "\\\"" 
-                | '\b' -> strb.Append @"\b"
-                | '\t' -> strb.Append @"\t"
-                | '\n' -> strb.Append @"\n"
-                | '\r' -> strb.Append @"\r"
-                | '\\' -> strb.Append @"\\"
-                | x -> strb.Append x
-                >> ignore 
-                ) x
-            strb.Append '"' |> ignore
-            strb.ToString()
-            |> sprintf "StringLit(%i, %s)" x.Length
+            lit_string x |> sprintf "StringLit(%i, %s)" x.Length
         | LitChar x -> 
             match x with
             | '\b' -> @"\b"
@@ -349,8 +352,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             $"ArrayLit{(carray a).tag}({b.Length},({tup_ty a} []){b})" |> return'
         | TyArrayCreate(a,b) -> $"ArrayCreate{(carray a).tag}({tup_data b})" |> return'
         | TyFailwith(a,b) -> 
-            let fmt = "%s\\\n"
-            line s ($"fprintf(stderr, \"{fmt}\", {tup_data b})")
+            let fmt = @"%s\n"
+            match b with DLit (LitString b) -> lit_string b | _ -> $"{tup_data b}->ptr" 
+            |> fun b -> line s $"fprintf(stderr, \"{fmt}\", {b})"
             line s "exit(EXIT_FAILURE);" // TODO: Print out the error traces as well.
         | TyConv(a,b) -> return' $"({tyv a}){tup_data b}"
         | TyArrayLength(_,b) | TyStringLength(_,b) -> return' $"{tup_data b}->len;"

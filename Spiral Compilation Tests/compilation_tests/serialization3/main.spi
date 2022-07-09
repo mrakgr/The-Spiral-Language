@@ -1,35 +1,35 @@
 open pickle
-nominal serialized a = array f32
+nominal serialized t = a i32 f32
 
 inl serialize forall t. (pu p : pu t) (x : t) : serialized t =
-    inl ar = a32.create p.size
+    inl ar = create p.size
     p.pickle x (0,ar)
     $"printfn \"%A\" !ar"
     serialized ar
 
 inl deserialize forall t. (pu p : pu t) (serialized x : serialized t) : t =
     match p.unpickle (0,x) with
-    | Some: x => x
+    | Some x => x
     | _ => failwith "Invalid format."
 
 inl test scheme x = assert (x = deserialize scheme (serialize scheme x)) "Serialization and deserialization should result in the same result."
 inl test_int () =
-    inl scheme = I32 5
+    inl scheme = i32 5
     inl ~x = 4
     test scheme x
 
 inl (**) a b = pair a b
 inl test_pairs () =
-    inl scheme = I32 5 ** I32 3 ** I32 3
+    inl scheme = i32 5 ** i32 3 ** i32 3
     inl ~x = 4,2,2
     test scheme x
 inl test_option () =
-    inl scheme = I32 5 ** I32 3 ** I32 3 ** option (I32 1)
-    inl ~x = 4,2,2,(Some: 0)
+    inl scheme = i32 5 ** i32 3 ** i32 3 ** option (i32 1)
+    inl ~x = 4,2,2,Some 0
     test scheme x
 
 union action =
-    | Raise: i32 // `Raise: 0` would be a raise of 1 in the actual game.
+    | Raise : i32 // `Raise: 0` would be a raise of 1 in the actual game.
     | Call
     | NoAction
 type rank = i32
@@ -43,12 +43,12 @@ type player_view = {
     prev_action : action
     }
 
-inl Action : pu action = alt {raise_=I32 4; call=Unit; noAction=Unit}
-inl Card = I32 13 ** I32 4
+inl action () : pu action = alt {Raise=i32 4; Call=unit(); NoAction=unit()}
+inl card () = i32 13 ** i32 4
 inl playerView max_stack : pu player_view = 
     inl a (stack_self,stack_opp,pot,hand,prev_action) = {stack_self stack_opp pot hand prev_action}
     inl b {stack_self stack_opp pot hand prev_action} = (stack_self,stack_opp,pot,hand,prev_action)
-    wrap (a,b) (I32 max_stack ** I32 max_stack ** I32 max_stack ** (Card ** Card) ** Action)
+    wrap (a,b) (i32 max_stack ** i32 max_stack ** i32 max_stack ** (card() ** card()) ** action())
 
 inl test_view max_stack = 
     inl scheme = playerView (max_stack+1)

@@ -1,30 +1,30 @@
-type state = u32 * array f32
+type state = u32 * a u32 f32
 nominal pu a = {
     pickle : a -> state -> ()
     size : u32
     unpickle : state -> a * u32
     }
 
-inl Unit =
+inl unit() =
     pu {
-        size = 1u32
-        pickle = fun () (i,s) => a32.set s i 1
+        size = 1
+        pickle = fun () (i,s) => set s i 1
         unpickle = fun (i,s) => 
-            inl x = a32.index s i
+            inl x = index s i
             (), if x = 1 then 1 elif x = 0 then 0 else failwith "Unpickling failure. The unit type should always be either be active or inactive."
         }
 
-inl U32 (size : u32) : pu u32 =
+inl u32 (size : u32) : pu u32 =
     pu { size
         pickle = fun x (i,s : state) =>
-            if 0 <= x && x < size then a32.set s (i + x) 1
+            if 0 <= x && x < size then set s (i + x) 1
             else failwith "Value out of bounds."
         unpickle = fun (from,s : state) =>
             inl ~(from,nearTo) = from, from+size
             join
                 inl case,c =
-                    loop.for (from:nearTo:) (fun i (case,c) =>
-                        inl x = a32.index s i
+                    loop.for {from nearTo} (fun i (case,c) =>
+                        inl x = index s i
                         if x = 0 then case,c
                         elif x = 1 then i,c+1
                         else failwith "Unpickling failure. The int type must either be active or inactive."
@@ -62,7 +62,7 @@ inl alt forall t r. (l : r) : pu t =
             ) `r
     inl offsets, size = real
         open real_core
-        record_foldl (fun (state:(m,s) key:value:) => inl (pu p) = value in {m with $key=s}, s + p.size) ({},0u32) l
+        record_fold (fun {state=(m,s) key value} => inl (pu p) = value in {m with $key=s}, s + p.size) ({},0u32) l
     inl pickle (m : t) (i,s : state) : () = real
         open real_core
         unbox m (fun (k,v) => inl (pu p) = l k in p.pickle v (i + offsets k,s))
@@ -75,7 +75,7 @@ inl alt forall t r. (l : r) : pu t =
                 nominal_create `t (k,x), c
                 ) `r
         inl case, c =
-            record_foldl (fun (state:key:value:) => 
+            record_fold (fun {state key value} => 
                 match state with
                 | () => value
                 | (case,c) =>
@@ -86,5 +86,5 @@ inl alt forall t r. (l : r) : pu t =
         case, c
     pu {size pickle unpickle}
     
-inl option forall t. (a : pu t) : pu (option t) = alt { some_ = a; none = Unit }
-inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { ok_ = a; error_ = b }
+inl option forall t. (a : pu t) : pu (option t) = alt { Some = a; None = unit() }
+inl result forall t y. (a : pu t) (b : pu y) : pu (result t y) = alt { Ok = a; Error = b }

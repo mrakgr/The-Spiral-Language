@@ -7,18 +7,18 @@ nominal parser a = string -> env -> result a (list string) * env
 nominal cps_parser r a = string -> env -> cont (a * env) (list string * env) (r * env)
 inl run_cps (cps_parser a) str i on = a str i on
 inl run (parser x) str i = x str i
-inl conv (cps_parser a) = parser fun str i => a str i { on_succ=fun ok,i => (Ok:),i; on_fail=fun error,i => (Error:),i}
+inl conv (cps_parser a) = parser fun str i => a str i { on_succ=fun ok,i => Ok ok,i; on_fail=fun error,i => Error error,i}
 
 instance (>>=) cps_parser r = fun (cps_parser a) f => cps_parser fun str i ({on_succ on_fail} & on) =>
     a str i { on_fail on_succ = fun a,i => run_cps (f a) str i on }
 
 instance (>>=) parser = fun (parser a) f => parser fun str i =>
     match a str i with
-    | (Ok: a), i => run (f a) str i
-    | (Error: l), i => (Error: l), i
+    | Ok a, i => run (f a) str i
+    | Error l, i => Error l, i
 
 instance on_succ cps_parser r = fun ok => cps_parser fun _ i {on_succ} => on_succ (ok,i)
-instance on_succ parser = fun ok => parser fun _ i => (Ok:), i
+instance on_succ parser = fun ok => parser fun _ i => Ok ok, i
 
 inl (.<<.) a b =
     a >>= fun a =>
@@ -36,66 +36,66 @@ inl (.<<) a b =
     b >>= fun b =>
     on_succ a
 
-inl EOL : char = $"System.Char.MaxValue"
+inl eol () : char = $"System.Char.MaxValue"
 inl peek' offset = cps_parser fun str i {on_succ} =>
     inl i' = i + offset
-    if 0 <= i' && i' < s32.length str then on_succ (s32.index str i', i)
-    else on_succ (EOL, i)
-inl Peek = peek' 0
+    if 0 <= i' && i' < sm.length str then on_succ (sm.index str i', i)
+    else on_succ (eol(), i)
+inl peek () = peek' 0
 
 inl skip' index = cps_parser fun str i {on_succ} => on_succ ((),i+index)
-inl Skip = skip' 1
+inl skip() = skip' 1
 
 inl on_fail er = cps_parser fun str i {on_fail} => on_fail (listm.singleton er, i)
-inl AnyChar' = 
-    Peek >>= fun c =>
-    if c <> EOL then Skip >>. on_succ c
+inl anyChar' () = 
+    peek() >>= fun c =>
+    if c <> eol() then skip() >>. on_succ c
     else on_fail "Out of bounds."
 
-inl AnyChar' = cps_parser fun str i {on_succ on_fail} =>
-    run_cps Peek str i { on_fail
-        on_succ=fun c,i => if c <> EOL then on_succ (s32.index str i, i+1) else on_fail (listm.singleton "Out of bounds.", i)
+inl anyChar' () = cps_parser fun str i {on_succ on_fail} =>
+    run_cps peek() str i { on_fail
+        on_succ=fun c,i => if c <> eol() then on_succ (sm.index str i, i+1) else on_fail (listm.singleton "Out of bounds.", i)
     }
 
-inl AnyChar = conv AnyChar'
+inl anyChar() = conv anyChar'()
 
 inl char_to_string (x : char): string = $"string !x"
 inl char_to_digit (x : char): u32 = $"uint32 !x - uint32 '0'"
 
 inl char' x = cps_parser fun str i {on_succ on_fail} =>
-    run_cps AnyChar' str i {
-        on_succ = fun ok, i => if x = ok then (Ok:), i else (Error: listm.singleton (char_to_string ok)), i
-        on_fail = fun error, i => (Error:), i
+    run_cps anyChar'() str i {
+        on_succ = fun ok, i => if x = ok then Ok ok, i else (Error (listm.singleton (char_to_string ok))), i
+        on_fail = fun error, i => Error error, i
     }
 inl char x = conv (char' x)
 
 inl is_digit x = 0 <= x && x <= 9
-inl Digit = parser fun str i =>
-    run_cps AnyChar' str i {
+inl digit () = parser fun str i =>
+    run_cps anyChar'() str i {
         on_succ = fun ok, i => 
             inl ok = char_to_digit ok
-            if is_digit ok then (Ok:), i else (Error: listm.singleton "digit"), i
-        on_fail = fun error, i => (Error:), i
+            if is_digit ok then Ok ok, i else Error (listm.singleton "digit"), i
+        on_fail = fun error, i => Error error, i
     }
 
-inl U32 = parser fun str i =>
+inl u32() = parser fun str i =>
     let rec loop i was_parsed s =
-        match run Digit str i with
-        | (Ok: c), i => 
+        match run digit() str i with
+        | Ok c, i => 
             inl s' = s * 10 + c
             if s <= 214_748_364 && 0 <= s' then loop i true s'
-            else (Error: listm.singleton "The number is too large to be parsed as 32 bit int."), i
-        | (Error: _), i => 
-            if was_parsed then (Ok: s), i 
-            else (Error: listm.singleton "i32"), i
+            else Error (listm.singleton "The number is too large to be parsed as 32 bit int."), i
+        | Error _, i => 
+            if was_parsed then Ok s, i 
+            else Error (listm.singleton "i32"), i
     loop i false 0
 
-inl Spaces = parser fun str i =>
-    inl f i = 0 <= i && i < s32.length str && (inl x = s32.index str i in x = ' ' || x = '\n')
-    let rec loop i = if f i then loop (i+1) else (Ok: ()), i
+inl spaces () = parser fun str i =>
+    inl f i = 0 <= i && i < sm.length str && (inl x = sm.index str i in x = ' ' || x = '\n')
+    let rec loop i = if f i then loop (i+1) else (Ok ()), i
     loop i
 
-inl Parse3Ints = U32 .<<. U32 .<<. U32
+inl parse3Ints () = u32() .<<. u32() .<<. u32()
 
 inl (.<<.) a b =
     a >>= fun a =>
@@ -113,18 +113,11 @@ inl (.<<) a b =
     b >>= fun b =>
     on_succ a
 
-inl EOL : char = $"System.Char.MaxValue"
-inl peek' index = cps_parser fun str i {on_succ} =>
-    if i + index <= 0 && i + index < s32.length str then on_succ (s32.index str i, i)
-    else on_succ (EOL, i)
-inl Peek = peek' 0
 
-inl skip' index = cps_parser fun str i {on_succ} => on_succ ((),i+index)
-inl Skip = skip' 1
 
 inl writeline (x : string): () = $"System.Console.WriteLine(!x)"
-inl Readline : string = $"System.Console.ReadLine()"
-inl Readall : string = $"System.Console.OpenStandardInput() |> fun x -> new System.IO.StreamReader(x) |> fun x -> let v = x.ReadToEnd() in x.Dispose(); v"
+inl readline () : string = $"System.Console.ReadLine()"
+inl readall () : string = $"System.Console.OpenStandardInput() |> fun x -> new System.IO.StreamReader(x) |> fun x -> let v = x.ReadToEnd() in x.Dispose(); v"
 
 union player = First | Second
 
@@ -135,7 +128,7 @@ inl eq_player = function // TODO: Replace this with `=` when it is capable of ha
 inl game_of_stones' n =
     inl max_n = 100
     if max_n < n then failwith "The max input has been exceeded."
-    inl solutions = a32.init (max_n+1) (fun _ => None)
+    inl solutions : a u32 _ = am.init (max_n+1) (fun _ => None)
     let rec solve player opposing_player n =
         inl take amount on_fail () = 
             if n >= amount && eq_player (solve opposing_player player (n-amount), player) then player
@@ -145,24 +138,24 @@ inl game_of_stones' n =
 
         match player with
         | First => 
-            match a32.index solutions n with
-            | None => inl x = run() in a32.set solutions n (Some: x) . x
-            | Some: x => x
+            match index solutions n with
+            | None => inl x = run() in set solutions n (Some x) . x
+            | Some x => x
         | Second => run()
     solve First Second n
 
 inl main () =
     inl show = function First => "First" | Second => "Second"
     inl p =
-        (U32 .<< Spaces) >>= fun nearTo =>
+        (u32() .<< spaces()) >>= fun nearTo =>
             let rec loop i =
-                if i < nearTo then (U32 .<< Spaces) >>= (game_of_stones' >> show >> writeline >> fun () => loop (i+1))
+                if i < nearTo then (u32() .<< spaces()) >>= (game_of_stones' >> show >> writeline >> fun () => loop (i+1))
                 else on_succ ()
             loop 0
     // let example = Readall
     let ~example = "8 1 2 3 4 5 6 7 10"
     match run p example 0 with
-    | (Error: ers), i => 
+    | Error ers, i => 
         $"printfn \"Parsing failed at position %i\" !i"
         $"printfn \"Errors:\""
         listm.iter (fun er => $"printfn \"%s\" !er") ers
