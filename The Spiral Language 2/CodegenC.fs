@@ -9,6 +9,52 @@ open System
 open System.Text
 open System.Collections.Generic
 
+let is_heap = function
+    | YUnion a when a.Item.layout = UHeap -> true
+    | YLayout(_,_) | YArray _ | YFun(_,_) -> true
+    | a -> false
+
+let refc_used_vars (x : TypedBind []) =
+    let g : Dictionary<TypedBind, Tag Set> = Dictionary(HashIdentity.Reference)
+    let fv' x = x |> Array.map (fun (L(i,_)) -> i) |> Set
+    let fv x = x |> data_free_vars |> fv'
+    let jp (x : JoinPointCall) = snd x |> fv'
+    let rec binds x =
+        Array.foldBack (fun k vs ->
+            match k with
+            | TyLet(d,_,o) -> vs + op o - fv d
+            | TyLocalReturnOp(_,o,_) -> vs + op o
+            | TyLocalReturnData(d,_) -> vs + fv d
+            |> fun vs -> g.Add(k,vs); vs
+            ) x Set.empty
+    and op (x : TypedOp) : Tag Set =
+        match x with
+        | TyMacro l -> List.fold (fun s -> function CMTerm d -> s + fv d | _ -> s) Set.empty l
+        | TyArrayLiteral(_,l) | TyOp(_,l) -> List.fold (fun s x -> s + fv x) Set.empty l
+        | TyLayoutToHeap(x,_) | TyLayoutToHeapMutable(x,_)
+        | TyUnionBox(_,x,_) | TyFailwith(_,x) | TyConv(_,x) | TyArrayCreate(_,x) | TyArrayLength(_,x) | TyStringLength(_,x) -> fv x
+        | TyWhile(cond,body) -> jp cond + binds body
+        | TyLayoutIndexAll(L(i,_)) | TyLayoutIndexByKey(L(i,_),_) -> Set.singleton i
+        | TyLayoutHeapMutableSet(L(i,_),_,d) -> Set.singleton i + fv d
+        | TyJoinPoint x -> jp x
+        | TyIf(cond,tr',fl') -> fv cond + binds tr' + binds fl'
+        | TyUnionUnbox(vs,_,on_succs',on_fail') ->
+            let vs = vs |> List.map (fun (L(i,_)) -> i) |> Set
+            let on_fail = 
+                match on_fail' with
+                | Some x -> binds x
+                | None -> Set.empty
+            Map.fold (fun s k (lets,body) -> 
+                let lets = List.fold (fun s x -> s + fv x) Set.empty lets
+                s + (binds body - lets)
+                ) (vs + on_fail) on_succs'
+        | TyIntSwitch(tag,on_succs',on_fail') ->
+            let vs = Set.singleton tag
+            let on_fail = binds on_fail'
+            Array.fold (fun s body -> s + binds body) (vs + on_fail) on_succs'
+    g
+
+
 type BindsReturn =
     | BindsTailEnd
     | BindsLocal of TyV []
@@ -350,7 +396,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | TyArrayLiteral(a,b) -> 
             let b = b |> List.map tup_data |> String.concat "," |> sprintf "{%s}"
             $"ArrayLit{(carray a).tag}({b.Length},({tup_ty a} []){b})" |> return'
-        | TyArrayCreate(a,b) -> $"ArrayCreate{(carray a).tag}({tup_data b})" |> return'
+        | TyArrayCreate(a,b) -> 
+            let is_heap : bool = a |> env.ty_to_data |> data_free_vars |> Array.exists (fun (L(_,t)) -> is_heap t)
+            $"ArrayCreate{(carray a).tag}({tup_data b},{is_heap})" |> return'
         | TyFailwith(a,b) -> 
             let fmt = @"%s\n"
             match b with DLit (LitString b) -> lit_string b | _ -> $"{tup_data b}->ptr" 
@@ -564,12 +612,12 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             if ptr_t <> "void" then line (indent s_typ) $"{ptr_t} ptr[];" // flexible array member
             line s_typ (sprintf "} Array%i;" i)
 
-            line s_fun (sprintf "Array%i * ArrayCreate%i(%s size){" i i size_t)
+            line s_fun (sprintf "Array%i * ArrayCreate%i(%s size, bool init_at_zero){" i i size_t)
             let _ =
                 let s_fun = indent s_fun
                 match ptr_t with
                 | "void" -> line s_fun $"Array{i} * x = malloc(sizeof(Array{i}));"
-                | _ -> line s_fun $"Array{i} * x = malloc(sizeof(Array{i}) + sizeof({ptr_t}) * size);"
+                | _ -> line s_fun $"Array{i} * x = (init_at_zero ? calloc : malloc)(sizeof(Array{i}) + sizeof({ptr_t}) * size);"
                 line s_fun $"x->len = size;"
                 line s_fun "return x;"
             line s_fun "}"
@@ -577,7 +625,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s_fun (sprintf "Array%i * ArrayLit%i(%s size, %s * ptr){" i i size_t ptr_t)
             let _ =
                 let s_fun = indent s_fun
-                line s_fun $"Array{i} * x = ArrayCreate{i}(size);"
+                line s_fun $"Array{i} * x = ArrayCreate{i}(size,false);"
                 if ptr_t <> "void" then line s_fun $"memcpy(x->ptr, ptr, sizeof({ptr_t}) * size);"
                 line s_fun "return x;"
             line s_fun "}"
