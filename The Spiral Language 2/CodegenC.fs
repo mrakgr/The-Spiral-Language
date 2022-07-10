@@ -216,6 +216,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
 
     let tyvs_to_tys (x : TyV []) = Array.map (fun (L(i,t)) -> t) x
 
+    // Hacky way of forcing the string literals to have the correct ref counts.
+    let refc_correct_string_lit (x : string) = x.Replace("StringLit(0","StringLit(1")
+
     let rec binds (decref_vars : Dictionary<TypedBind, TyV Set>) (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
         let tup_destruct (a,b) =
             Array.map2 (fun (L(i,_)) b -> 
@@ -323,7 +326,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             else x.ToString("R") |> add_dec_point
         | LitString x ->
             cstring()
-            lit_string x |> sprintf "StringLit(%i, %s)" x.Length
+            lit_string x |> sprintf "StringLit(0, %i, %s)" x.Length
         | LitChar x -> 
             match x with
             | '\b' -> @"\b"
@@ -442,13 +445,13 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             if decrefs.Length <> 0 then
                 decrefs |> String.concat " " |> line s
                 data_free_vars c |> refc_print_increfs |> String.concat " " |> line s
-            Array.map2 (fun (L(i',_)) b -> $"v{i}->v{i'} = {show_w b};") a' (data_term_vars c) |> String.concat " " |> line s
+            Array.map2 (fun (L(i',_)) b -> $"v{i}->v{i'} = {show_w b};") a' (data_term_vars c) |> String.concat " " |> refc_correct_string_lit |> line s
         | TyArrayLiteral(a,b) -> 
             let b = b |> List.map tup_data |> String.concat "," |> sprintf "{%s}"
-            $"ArrayLit{(carray a).tag}({b.Length},({tup_ty a} []){b})" |> return'
+            $"ArrayLit{(carray a).tag}(0, {b.Length}, ({tup_ty a} []){b})" |> return'
         | TyArrayCreate(a,b) -> 
             let is_heap : bool = a |> env.ty_to_data |> data_free_vars |> Array.exists (fun (L(_,t)) -> is_heap t)
-            $"ArrayCreate{(carray a).tag}({tup_data b},{is_heap})" |> return'
+            $"ArrayCreate{(carray a).tag}(0, {tup_data b},{is_heap})" |> return'
         | TyFailwith(a,b) -> 
             let fmt = @"%s\n"
             match b with DLit (LitString b) -> lit_string b | _ -> $"{tup_data b}->ptr" 
@@ -486,7 +489,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                         line s $"{tup_ty_tyvs tyvs} tmp{tmp_i} = {a'}->ptr[{b'}];"
                         decrefs |> String.concat " " |> line s
                         data_free_vars c |> refc_print_increfs |> String.concat " " |> line s
-                    sprintf "%s->ptr[%s] = %s" a' b' c'
+                    sprintf "%s->ptr[%s] = %s" a' b' (refc_correct_string_lit c')
             // Math
             | Add, [a;b] -> sprintf "%s + %s" (tup_data a) (tup_data b)
             | Sub, [a;b] -> sprintf "%s - %s" (tup_data a) (tup_data b)
@@ -541,20 +544,24 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s_typ s_fun x ->
             
-            let i = x.tag
-            line s_typ "typedef struct {"
+            let i, range = x.tag, tup_ty x.range
             let free_vars = x.free_vars |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}")
+
+            line s_typ "typedef struct {"
             free_vars |> Array.iter (fun x -> line (indent s_typ) $"{x};")
             line s_typ (sprintf "} ClosureEnv%i;" i)
             
             line s_typ (sprintf "typedef struct Closure%i Closure%i;" i i)
             line s_typ (sprintf "struct Closure%i {" i)
-            let range = tup_ty x.range
-            match x.domain_args |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat ", " with
-            | "" -> $"{range} (*fptr)(Closure{i} *);"
-            | domain_args_ty -> $"{range} (*fptr)(Closure{i} *, {domain_args_ty});"
-            |> line (indent s_typ)
-            line (indent s_typ) $"ClosureEnv{i} env[];"
+            let _ =
+                let s_typ = indent s_typ
+                line s_typ $"int refc;"
+                line s_typ $"void (*refc_decref)(Closure{i} *);"
+                match x.domain_args |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat ", " with
+                | "" -> $"{range} (*fptr)(Closure{i} *);"
+                | domain_args_ty -> $"{range} (*fptr)(Closure{i} *, {domain_args_ty});"
+                |> line s_typ
+                line s_typ $"ClosureEnv{i} env[];"
             line s_typ "};"
             
             match x.domain_args |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}") |> String.concat ", " with
@@ -583,42 +590,53 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             )
     and cfun : _ -> CFunRec =
         cfun' (fun s_typ s_fun x ->
-            let i = x.tag
+            let i, range = x.tag, tup_ty x.range
             line s_typ $"typedef struct Fun{i} Fun{i};"
             line s_typ (sprintf "struct Fun%i{" i)
-            let range = tup_ty x.range
-            match x.domain_args_ty |> Array.map (fun t -> tyv t) |> String.concat ", " with
-            | "" -> $"{range} (*fptr)(Fun{i} *);"
-            | domain_args_ty -> $"{range} (*fptr)(Fun{i} *, {domain_args_ty});"
-            |> line (indent s_typ)
+            let _ =
+                let s_typ = indent s_typ
+                line s_typ $"int refc;"
+                line s_typ $"void (*refc_decref)(Fun{i} *);"
+                match x.domain_args_ty |> Array.map (fun t -> tyv t) |> String.concat ", " with
+                | "" -> $"{range} (*fptr)(Fun{i} *);"
+                | domain_args_ty -> $"{range} (*fptr)(Fun{i} *, {domain_args_ty});"
+                |> line s_typ
             line s_typ "};"
             )
     and tup' : _ -> TupleRec = 
         tuple (fun s_typ s_fun x ->
             let name = sprintf "Tuple%i" x.tag
-            line s_typ "typedef struct {"
             let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} v{i}")
+            line s_typ "typedef struct {"
             args |> Array.iter (fun x -> line (indent s_typ) $"{x};")
             line s_typ (sprintf "} %s;" name)
 
             line s_fun (sprintf "static inline %s TupleCreate%i(%s){" name x.tag (String.concat ", " args))
-            line (indent s_fun) $"{name} x;"
-            Array.init args.Length (fun i -> $"x.v{i} = v{i};") |> String.concat " " |> line (indent s_fun)
-            line (indent s_fun) $"return x;"
+            let _ =
+                let s_fun = indent s_fun
+                line s_fun $"{name} x;"
+                Array.init args.Length (fun i -> $"x.v{i} = v{i};") |> String.concat " " |> line s_fun
+                line s_fun $"return x;"
             line s_fun "}"
             )
     and layout_tmpl name : _ -> LayoutRec =
         layout (fun s_typ s_fun (x : LayoutRec) ->
             let name' = sprintf "%s%i" name x.tag
-            line s_typ "typedef struct {"
             let args = x.free_vars |> Array.map (fun (L(i,x)) -> $"{tyv x} v{i}")
-            args |> Array.iter (fun x -> line (indent s_typ) $"{x};")
+
+            line s_typ "typedef struct {"
+            let _ =
+                let s_typ = indent s_typ
+                line s_typ "int refc;"
+                args |> Array.iter (fun x -> line s_typ $"{x};")
             line s_typ (sprintf "} %s;" name')
 
             line s_fun (sprintf "static inline %s * %s(%s){" name' (sprintf "%sCreate%i" name x.tag) (String.concat ", " args))
-            line (indent s_fun) $"{name'} * x = malloc(sizeof({name'}));"
-            Array.init args.Length (fun i -> $"x->v{i} = v{i};") |> String.concat " " |> line (indent s_fun)
-            line (indent s_fun) $"return x;"
+            let _ =
+                let s_fun = indent s_fun
+                line s_fun $"{name'} * x = malloc(sizeof({name'}));"
+                Array.init args.Length (fun i -> $"x->v{i} = v{i};") |> String.concat " " |> line (indent s_fun)
+                line s_fun $"return x;"
             line s_fun "}"
             )
     and heap : _ -> LayoutRec = layout_tmpl "Heap"
@@ -633,6 +651,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s_typ (sprintf "struct UH%i {" x.tag)
             let _ =
                 let s_typ = indent s_typ
+                match is_stack with
+                | true -> ()
+                | false -> line s_typ "int refc;"
                 line s_typ "int tag;"
                 line s_typ "union {"
                 let _ =
@@ -673,13 +694,17 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         carray' (fun s_typ s_fun x ->
             let i, size_t, ptr_t = x.tag, prim size_t, tup_ty_tyvs x.tyvs
             line s_typ "typedef struct {"
-            line (indent s_typ) $"{size_t} len;"
-            if ptr_t <> "void" then line (indent s_typ) $"{ptr_t} ptr[];" // flexible array member
+            let _ =
+                let s_typ = indent s_typ
+                line s_typ "int refc;"
+                line s_typ $"{size_t} len;"
+                if ptr_t <> "void" then line s_typ $"{ptr_t} ptr[];" // flexible array member
             line s_typ (sprintf "} Array%i;" i)
 
-            line s_fun (sprintf "Array%i * ArrayCreate%i(%s size, bool init_at_zero){" i i size_t)
+            line s_fun (sprintf "Array%i * ArrayCreate%i(int refc, %s size, bool init_at_zero){" i i size_t)
             let _ =
                 let s_fun = indent s_fun
+                line s_fun $"x->refc = refc;"
                 match ptr_t with
                 | "void" -> line s_fun $"Array{i} * x = malloc(sizeof(Array{i}));"
                 | _ -> line s_fun $"Array{i} * x = (init_at_zero ? calloc : malloc)(sizeof(Array{i}) + sizeof({ptr_t}) * size);"
@@ -687,10 +712,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s_fun "return x;"
             line s_fun "}"
 
-            line s_fun (sprintf "Array%i * ArrayLit%i(%s size, %s * ptr){" i i size_t ptr_t)
+            line s_fun (sprintf "Array%i * ArrayLit%i(int refc, %s size, %s * ptr){" i i size_t ptr_t)
             let _ =
                 let s_fun = indent s_fun
-                line s_fun $"Array{i} * x = ArrayCreate{i}(size,false);"
+                line s_fun $"Array{i} * x = ArrayCreate{i}(refc, size,f alse);"
                 if ptr_t <> "void" then line s_fun $"memcpy(x->ptr, ptr, sizeof({ptr_t}) * size);"
                 line s_fun "return x;"
             line s_fun "}"
@@ -701,8 +726,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let size_t, ptr_t, tag = prim size_t, tyv char, (carray char).tag
             line s_typ $"typedef Array{tag} String;"
 
-            line s_fun (sprintf "static inline String * StringLit(%s size, %s * ptr){" size_t ptr_t)
-            line (indent s_fun) $"return ArrayLit{tag}(size, ptr);"
+            line s_fun (sprintf "static inline String * StringLit(int refc, %s size, %s * ptr){" size_t ptr_t)
+            line (indent s_fun) $"return ArrayLit{tag}(refc, size, ptr);"
             line s_fun "}"
             )
 
