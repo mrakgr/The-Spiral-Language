@@ -9,16 +9,16 @@ open System
 open System.Text
 open System.Collections.Generic
 
+let line x s = if s <> "" then x.text.Append(' ', x.indent).AppendLine s |> ignore
 let is_heap = function
     | YUnion a when a.Item.layout = UHeap -> true
-    | YLayout(_,_) | YArray _ | YFun(_,_) -> true
+    | YPrim StringT | YLayout(_,_) | YArray _ | YFun(_,_) -> true
     | a -> false
 
 let refc_used_vars (x : TypedBind []) =
-    let g : Dictionary<TypedBind, Tag Set> = Dictionary(HashIdentity.Reference)
-    let fv' x = x |> Array.map (fun (L(i,_)) -> i) |> Set
-    let fv x = x |> data_free_vars |> fv'
-    let jp (x : JoinPointCall) = snd x |> fv'
+    let g : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
+    let fv x = x |> data_free_vars |> Set
+    let jp (x : JoinPointCall) = snd x |> Set
     let rec binds x =
         Array.foldBack (fun k vs ->
             match k with
@@ -27,19 +27,19 @@ let refc_used_vars (x : TypedBind []) =
             | TyLocalReturnData(d,_) -> vs + fv d
             |> fun vs -> g.Add(k,vs); vs
             ) x Set.empty
-    and op (x : TypedOp) : Tag Set =
+    and op (x : TypedOp) : TyV Set =
         match x with
         | TyMacro l -> List.fold (fun s -> function CMTerm d -> s + fv d | _ -> s) Set.empty l
         | TyArrayLiteral(_,l) | TyOp(_,l) -> List.fold (fun s x -> s + fv x) Set.empty l
         | TyLayoutToHeap(x,_) | TyLayoutToHeapMutable(x,_)
         | TyUnionBox(_,x,_) | TyFailwith(_,x) | TyConv(_,x) | TyArrayCreate(_,x) | TyArrayLength(_,x) | TyStringLength(_,x) -> fv x
         | TyWhile(cond,body) -> jp cond + binds body
-        | TyLayoutIndexAll(L(i,_)) | TyLayoutIndexByKey(L(i,_),_) -> Set.singleton i
-        | TyLayoutHeapMutableSet(L(i,_),_,d) -> Set.singleton i + fv d
+        | TyLayoutIndexAll(i) | TyLayoutIndexByKey(i,_) -> Set.singleton i
+        | TyLayoutHeapMutableSet(i,_,d) -> Set.singleton i + fv d
         | TyJoinPoint x -> jp x
         | TyIf(cond,tr',fl') -> fv cond + binds tr' + binds fl'
         | TyUnionUnbox(vs,_,on_succs',on_fail') ->
-            let vs = vs |> List.map (fun (L(i,_)) -> i) |> Set
+            let vs = vs |> Set
             let on_fail = 
                 match on_fail' with
                 | Some x -> binds x
@@ -54,6 +54,34 @@ let refc_used_vars (x : TypedBind []) =
             Array.fold (fun s body -> s + binds body) (vs + on_fail) on_succs'
     g
 
+let refc_decref_vars (free_vars : TyV Set) (x : TypedBind []) =
+    let used_vars = refc_used_vars x
+    let g : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
+    let fv x = x |> data_free_vars |> Set
+    let rec binds (vs : TyV Set) x =
+        Array.fold (fun vs k ->
+            let decref_vars = vs - used_vars.[k]
+            g.Add(k,decref_vars)
+            let r = vs - decref_vars
+            match k with
+            | TyLet(d,_,o) -> op Set.empty o; r + fv d
+            | TyLocalReturnOp(_,o,_) -> op vs o; r
+            | TyLocalReturnData(_,_) -> r
+            ) vs x
+        |> ignore
+    and op vs (x : TypedOp) : unit =
+        match x with
+        | TyMacro _ | TyArrayLiteral _ | TyOp _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _ | TyUnionBox _ | TyFailwith _ | TyConv _ | TyArrayCreate _ 
+        | TyArrayLength _ | TyStringLength _ | TyLayoutIndexAll _ | TyLayoutIndexByKey _ | TyLayoutHeapMutableSet _ | TyJoinPoint _ -> ()
+        | TyWhile(_,body) -> binds vs body
+        | TyIf(_,tr',fl') -> binds vs tr'; binds vs fl'
+        | TyUnionUnbox(_,_,on_succs',on_fail') ->
+            Map.iter (fun k (lets,body) -> binds vs body) on_succs'
+            Option.iter (binds vs) on_fail'
+        | TyIntSwitch(_,on_succs',on_fail') ->
+            Array.iter (binds vs) on_succs'
+            binds vs on_fail'
+    g
 
 type BindsReturn =
     | BindsTailEnd
@@ -188,22 +216,33 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
 
     let tyvs_to_tys (x : TyV []) = Array.map (fun (L(i,t)) -> t) x
 
-    let rec binds (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
+    let rec binds (decref_vars : Dictionary<TypedBind, TyV Set>) (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
         let tup_destruct (a,b) =
             Array.map2 (fun (L(i,_)) b -> 
                 match b with
                 | WLit b -> $"v{i} = {lit b};"
                 | WV (L(i',_)) -> $"v{i} = v{i'};"
                 ) a b |> String.concat " "
-        Array.iter (function
+        let print_decrefs x =
+            decref_vars.[x] |> Set.toArray |> Array.choose (fun (L(i,t)) -> 
+                match t with
+                | YUnion a when a.Item.layout = UHeap -> Some $"UHDecref{(uheap a).tag}(v{i});"
+                | YArray t -> Some $"ArrayDecref{(carray t).tag}(v{i});" 
+                | YFun(a,b) -> Some $"FunDecref{(cfun (a,b)).tag}(v{i});"
+                | YPrim StringT -> Some $"StringDecref(v{i});" 
+                | a -> None
+                )
+            |> String.concat " " |> line s
+        Array.iter (fun x ->
+            print_decrefs x
+            match x with
             | TyLet(d,trace,a) ->
                 try let d = data_free_vars d
-                    if d.Length <> 0 then
-                        Array.map (fun (L(i,t)) -> $"{tyv t} v{i};") d |> String.concat " " |> line s
-                    op s (BindsLocal d) a
+                    Array.map (fun (L(i,t)) -> $"{tyv t} v{i};") d |> String.concat " " |> line s
+                    op decref_vars s (BindsLocal d) a
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             | TyLocalReturnOp(trace,a,_) ->
-                try op s ret a
+                try op decref_vars s ret a
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             | TyLocalReturnData(d,trace) ->
                 try match ret with
@@ -211,7 +250,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     | BindsTailEnd -> line s $"return {tup_data d};"
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             ) stmts
-    and binds' (s : CodegenEnv) (x : TypedBind []) = binds s BindsTailEnd x
+    and binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = binds (refc_decref_vars (Set args) x) s BindsTailEnd x
     and show_w = function WV(L(i,_)) -> sprintf "v%i" i | WLit a -> lit a
     and args' b = data_term_vars b |> Array.map show_w |> String.concat ", "
     and tup_term_vars x =
@@ -288,7 +327,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | x -> string x
             |> sprintf "'%s'"
         | LitBool x -> if x then "true" else "false" // true and false are defined in stddef.h
-    and op s (ret : BindsReturn) a =
+    and op decref_vars s (ret : BindsReturn) a =
+        let binds a b = binds decref_vars a b
         let return' (x : string) =
             match ret with
             | BindsTailEnd -> line s $"return {x};"
@@ -312,8 +352,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 if x.Length <= 1 then $"return {gs};" else $"return Tuple{(tup' x).tag}({gs});" 
                 |> line s
             | BindsLocal x -> 
-                Array.map2 (fun (L(i,_)) g -> $"v{i} = {g};") x gs |> String.concat " "
-                |> function "" -> () | x -> line s x
+                Array.map2 (fun (L(i,_)) g -> $"v{i} = {g};") x gs |> String.concat " " |> line s
         match a with
         | TyMacro a ->
             a |> List.map (function
@@ -332,7 +371,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s (sprintf "while (%s){" (jp a))
             binds (indent s) (BindsLocal [||]) b
             line s "}"
-        | TyIntSwitch(v_i,on_succ,on_fail) ->
+        | TyIntSwitch(L(v_i,_),on_succ,on_fail) ->
             line s (sprintf "switch (v%i) {" v_i)
             let _ =
                 let s = indent s
@@ -362,11 +401,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     line s (sprintf "case %i: { // %s" union_i k)
                     List.iter2 (fun (L(data_i,_)) a ->
                         let a = data_free_vars a
-                        if a.Length <> 0 then
-                            Array.mapi (fun field_i (L(v_i,t)) ->
-                                $"{tyv t} v{v_i} = v{data_i}{acs}case{union_i}.v{field_i};"
-                                ) a
-                            |> String.concat " " |> line (indent s)
+                        Array.mapi (fun field_i (L(v_i,t)) ->
+                            $"{tyv t} v{v_i} = v{data_i}{acs}case{union_i}.v{field_i};"
+                            ) a
+                        |> String.concat " " |> line (indent s)
                         ) is a
                     binds (indent s) ret b
                     line (indent s) "break;"
@@ -388,8 +426,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             |> return'
         | TyLayoutToHeap(a,b) -> sprintf "HeapCreate%i(%s)" (heap b).tag (args' a) |> return'
         | TyLayoutToHeapMutable(a,b) -> sprintf "MutCreate%i(%s)" (mut b).tag (args' a) |> return'
-        | TyLayoutIndexAll(L(i,(a,lay))) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i
-        | TyLayoutIndexByKey(L(i,(a,lay)),key) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i
+        | TyLayoutIndexAll(x) -> match x with L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i | _ -> failwith "Compiler error: Expected the TyV in layout index to be a layout type."
+        | TyLayoutIndexByKey(x,key) -> match x with L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i | _ -> failwith "Compiler error: Expected the TyV in layout index by key to be a layout type."
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
             let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
             Array.iter2 (fun (L(i',_)) b -> line s $"v{i}->v{i'} = {show_w b};") (data_free_vars a) (data_term_vars c)
@@ -415,8 +453,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | CImport,[DLit (LitString x)] -> cimport x; $"// #include \"{x}\""
             | Apply,[a;b] -> 
                 match tup_data a, args' b with
-                | a, "" -> $"{a}->fptr({a}->env)"
-                | a, b -> $"{a}->fptr({a}->env, {b})"
+                | a, "" -> $"{a}->fptr({a})"
+                | a, b -> $"{a}->fptr({a}, {b})"
             | Dyn,[a] -> tup_data a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
             | StringIndex, [a;b] -> sprintf "%s->ptr[%s]" (tup_data a) (tup_data b)
@@ -473,7 +511,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let q = tup_ty x.range
             let args = x.free_vars |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
             line s_fun (sprintf "%s method%i(%s){" q x.tag args)
-            binds' (indent s_fun) x.body
+            binds_start x.free_vars (indent s_fun) x.body
             line s_fun "}"
             )
     and closure : _ -> ClosureRec =
@@ -489,44 +527,51 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             free_vars |> Array.iter (fun x -> line (indent s_typ) $"{x};")
             line s_typ (sprintf "} ClosureEnv%i;" i)
             
-            line s_typ "typedef struct {"
+            line s_typ (sprintf "typedef struct Closure%i Closure%i;" i i)
+            line s_typ (sprintf "struct Closure%i {" i)
             let range = tup_ty x.range
             match x.domain_args |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat ", " with
-            | "" -> $"{range} (*fptr)(ClosureEnv{i} *);"
-            | domain_args_ty -> $"{range} (*fptr)(ClosureEnv{i} *, {domain_args_ty});"
+            | "" -> $"{range} (*fptr)(Closure{i} *);"
+            | domain_args_ty -> $"{range} (*fptr)(Closure{i} *, {domain_args_ty});"
             |> line (indent s_typ)
             line (indent s_typ) $"ClosureEnv{i} env[];"
-            line s_typ (sprintf "} Closure%i;" i)
+            line s_typ "};"
             
             match x.domain_args |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}") |> String.concat ", " with
-            | "" -> sprintf "%s ClosureMethod%i(ClosureEnv%i * env){" range i i
-            | domain_args -> sprintf "%s ClosureMethod%i(ClosureEnv%i * env, %s){" range i i domain_args
+            | "" -> sprintf "%s ClosureMethod%i(Closure%i * self){" range i i
+            | domain_args -> sprintf "%s ClosureMethod%i(Closure%i * self, %s){" range i i domain_args
             |> line s_fun
-            if x.free_vars.Length <> 0 then
-                x.free_vars |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i} = env->v{i};") |> String.concat " " |> line (indent s_fun)
-            binds' (indent s_fun) x.body
+            let _ =
+                let s_fun = indent s_fun
+                if x.free_vars.Length <> 0 then
+                    line s_fun $"ClosureEnv{i} * env = self-> env;"
+                    x.free_vars |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i} = env->v{i};") |> String.concat " " |> line s_fun
+                binds_start x.domain_args s_fun x.body
             line s_fun "}"
 
             let fun_tag = (cfun (x.domain,x.range)).tag
             line s_fun (sprintf "Fun%i * ClosureCreate%i(%s){" fun_tag i (String.concat ", " free_vars))
-            line (indent s_fun) $"Closure{i} * x = malloc(sizeof(Closure{i}) + sizeof(ClosureEnv{i}));"
-            if x.free_vars.Length <> 0 then
-                line (indent s_fun) $"ClosureEnv{i} * env = x->env;"
-                x.free_vars |> Array.map (fun (L(i,_)) -> $"env->v{i} = v{i};")  |> String.concat " " |> line (indent s_fun)
-            line (indent s_fun) $"x->fptr = ClosureMethod{i};"
-            line (indent s_fun) $"return (Fun{fun_tag} *) x;"
+            let _ =
+                let s_fun = indent s_fun
+                line s_fun $"Closure{i} * x = malloc(sizeof(Closure{i}) + sizeof(ClosureEnv{i}));"
+                if x.free_vars.Length <> 0 then
+                    line s_fun $"ClosureEnv{i} * env = x->env;"
+                    x.free_vars |> Array.map (fun (L(i,_)) -> $"env->v{i} = v{i};")  |> String.concat " " |> line s_fun
+                line s_fun $"x->fptr = ClosureMethod{i};"
+                line s_fun $"return (Fun{fun_tag} *) x;"
             line s_fun "}"
             )
     and cfun : _ -> CFunRec =
         cfun' (fun s_typ s_fun x ->
-            line s_typ "typedef struct {"
+            let i = x.tag
+            line s_typ $"typedef struct Fun{i} Fun{i};"
+            line s_typ (sprintf "struct Fun%i{" i)
             let range = tup_ty x.range
             match x.domain_args_ty |> Array.map (fun t -> tyv t) |> String.concat ", " with
-            | "" -> $"{range} (*fptr)(char *);"
-            | domain_args_ty -> $"{range} (*fptr)(char *, {domain_args_ty});"
+            | "" -> $"{range} (*fptr)(Fun{i} *);"
+            | domain_args_ty -> $"{range} (*fptr)(Fun{i} *, {domain_args_ty});"
             |> line (indent s_typ)
-            line (indent s_typ) $"char env[];" // `void env[]` is invalid so `char env[]` is replacing it
-            line s_typ (sprintf "} Fun%i;" x.tag)
+            line s_typ "};"
             )
     and tup' : _ -> TupleRec = 
         tuple (fun s_typ s_fun x ->
@@ -641,21 +686,25 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s_fun "}"
             )
 
-    import "stdbool.h"
-    import "stdint.h"
-    import "stdio.h"
-    import "stdlib.h"
-    import "string.h"
-    import "math.h"
+    match binds_last_data x |> data_term_vars |> term_vars_to_tys with
+    | [|YPrim Int32T|] ->
+        import "stdbool.h"
+        import "stdint.h"
+        import "stdio.h"
+        import "stdlib.h"
+        import "string.h"
+        import "math.h"
 
-    let main_defs = {text=StringBuilder(); indent=0}
-    line main_defs (sprintf "%s main(){" (binds_last_data x |> data_term_vars |> term_vars_to_tys |> tup_ty_tyvs'))
-    binds' (indent main_defs) x
-    line main_defs "}"
+        let main_defs = {text=StringBuilder(); indent=0}
+        line main_defs (sprintf "%s main(){" (prim Int32T))
+        binds_start [||] (indent main_defs) x
+        line main_defs "}"
 
-    let program = StringBuilder()
+        let program = StringBuilder()
 
-    imports |> Seq.iter (fun x -> program.AppendLine(x) |> ignore)
-    types |> Seq.iter (fun x -> program.Append(x) |> ignore)
-    functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
-    program.Append(main_defs.text).ToString()
+        imports |> Seq.iter (fun x -> program.AppendLine(x) |> ignore)
+        types |> Seq.iter (fun x -> program.Append(x) |> ignore)
+        functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
+        program.Append(main_defs.text).ToString()
+    | _ ->
+        raise_codegen_error "The return type of main in the C backend should be a 32-bit int."

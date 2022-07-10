@@ -138,7 +138,7 @@ let nullable_vars_of (x : TypedBind []) =
                 let on_fail = match on_fail' with Some body -> binds_reg body | _ -> Set.empty
                 let all = Map.fold (fun s _ v -> s + fst v) on_fail on_succs
                 vs + all
-        | TyIntSwitch(tag,on_succs',on_fail') ->
+        | TyIntSwitch(L(tag,_),on_succs',on_fail') ->
             if reqs_tco.Contains(x) then
                 let on_succs = Array.map binds_tco on_succs'
                 let on_fail = binds_tco on_fail'
@@ -468,7 +468,7 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
         | TyWhile(a,b) ->
             line s (sprintf "while %s:" (jp a))
             binds nulls defs (indent s) (BindsLocal [||]) b
-        | TyIntSwitch(v_i,on_succ,on_fail) ->
+        | TyIntSwitch(L(v_i,_),on_succ,on_fail) ->
             Array.iteri (fun i x ->
                 if i = 0 then line s $"if v{v_i} == {i}:"
                 else line s $"elif v{v_i} == {i}:"
@@ -524,8 +524,8 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
                 |> return'
         | TyLayoutToHeap(a,b) -> sprintf "Heap%i(%s)" (heap b).tag (args' a) |> return'
         | TyLayoutToHeapMutable(a,b) -> sprintf "Mut%i(%s)" (mut b).tag (args' a) |> return'
-        | TyLayoutIndexAll(L(i,(a,lay))) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i
-        | TyLayoutIndexByKey(L(i,(a,lay)),key) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i
+        | TyLayoutIndexAll(x) -> match x with L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i | _ -> failwith "Compiler error: Expected the TyV in layout index to be a layout type."
+        | TyLayoutIndexByKey(x,key) -> match x with L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i | _ -> failwith "Compiler error: Expected the TyV in layout index by key to be a layout type."
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
             let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
             Array.iter2 (fun (L(i',_)) b -> line s $"v{i}.v{i'} = {show_w b}") (data_free_vars a) (data_term_vars c)

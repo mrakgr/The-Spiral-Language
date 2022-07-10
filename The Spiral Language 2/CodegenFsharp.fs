@@ -210,7 +210,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             complex <| fun s ->
             line s (sprintf "while %s do" (jp a))
             binds (indent s) b
-        | TyIntSwitch(i,on_succ,on_fail) ->
+        | TyIntSwitch(L(i,_),on_succ,on_fail) ->
             complex <| fun s ->
             line s (sprintf "match v%i with" i)
             Array.iteri (fun i x ->
@@ -262,8 +262,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | TyLayoutToHeapMutable(a,b) ->
             let a = layout_vars a
             simple (if a = "" then sprintf "Mut%i()" (mut b).tag else sprintf "{%s} : Mut%i" a (mut b).tag)
-        | TyLayoutIndexAll(L(i,(a,lay))) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i
-        | TyLayoutIndexByKey(L(i,(a,lay)),key) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i
+        | TyLayoutIndexAll(x) -> match x with L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i | _ -> failwith "Compiler error: Expected the TyV in layout index to be a layout type."
+        | TyLayoutIndexByKey(x,key) -> match x with L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i | _ -> failwith "Compiler error: Expected the TyV in layout index by key to be a layout type."
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
             let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
             Array.iter2 (fun (L(i',_)) b ->

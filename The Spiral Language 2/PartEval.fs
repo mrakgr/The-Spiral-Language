@@ -106,12 +106,12 @@ and TypedOp =
     | TyOp of Op * Data list
     | TyUnionBox of string * Data * Union
     | TyUnionUnbox of TyV list * Union * Map<string,Data list * TypedBind []> * TypedBind [] option
-    | TyIntSwitch of Tag * TypedBind [] [] * TypedBind []
+    | TyIntSwitch of TyV * TypedBind [] [] * TypedBind []
     | TyLayoutToHeap of Data * Ty
     | TyLayoutToHeapMutable of Data * Ty
-    | TyLayoutIndexAll of L<Tag,Ty * Layout>
-    | TyLayoutIndexByKey of L<Tag,Ty * Layout> * string
-    | TyLayoutHeapMutableSet of L<Tag,Ty> * string list * Data
+    | TyLayoutIndexAll of TyV
+    | TyLayoutIndexByKey of TyV * string
+    | TyLayoutHeapMutableSet of TyV * string list * Data
     | TyFailwith of Ty * Data
     | TyConv of Ty * Data
     | TyArrayLiteral of Ty * Data list
@@ -240,6 +240,7 @@ let seq_apply (d: LangEnv) end_dat =
     let inline end_ () = d.seq.Add(TyLocalReturnData(end_dat,d.trace))
     if d.seq.Count > 0 then
         match d.seq.[d.seq.Count-1] with
+        | TyLet(_,_,TyWhile _) -> end_() // This special case is to enable decref insertion in the C backend.
         | TyLet(end_dat',a,b) when Object.ReferenceEquals(end_dat,end_dat') -> d.seq.[d.seq.Count-1] <- TyLocalReturnOp(a,b,end_dat')
         | _ -> end_()
     else end_()
@@ -678,8 +679,8 @@ let peval (env : TopEnv) (x : E) =
                 let b_ty = data_to_ty s b
                 if domain = b_ty then push_binop_no_rewrite s Apply (a, b) range
                 else raise_type_error s <| sprintf "Cannot apply an argument of type %s to a function of type: %s" (show_ty b_ty) (show_ty a_ty)
-            | DV(L(i,YLayout(ty,layout))) as a, DSymbol b -> 
-                let key = TyLayoutIndexByKey(L(i,(ty,layout)), b)
+            | DV(L(i,YLayout(ty,layout)) as tyv) as a, DSymbol b -> 
+                let key = TyLayoutIndexByKey(tyv, b)
                 let ret_ty = 
                     match ty with
                     | YRecord r ->
@@ -1089,7 +1090,7 @@ let peval (env : TopEnv) (x : E) =
                         type_apply s (apply s (on_succ, DSymbol k)) v
                     else raise_type_error s <| sprintf "Invalid tag %i." i
                 match term s a with
-                | DV(L(i,YPrim Int32T)) as a -> 
+                | DV(L(i,YPrim Int32T) as tyv) as a -> 
                     let key = TyOp(UnionTag,[a])
                     match cse_tryfind s key with
                     | Some(DLit(LitInt32 i)) -> lit i
@@ -1109,7 +1110,7 @@ let peval (env : TopEnv) (x : E) =
                                 if on_fail_ty <> r_ty then raise_type_error s <| sprintf "Return type of the success case does not match the failure one.\nGot: %s\nExpected: %s" (show_ty r_ty) (show_ty on_fail_ty)
                                 seq_apply s r
                                 ) h.tag_cases
-                        push_typedop_no_rewrite s (TyIntSwitch(i,on_succ,on_fail)) on_fail_ty
+                        push_typedop_no_rewrite s (TyIntSwitch(tyv,on_succ,on_fail)) on_fail_ty
                 | DLit(LitInt32 i) -> lit i
                 | a -> raise_type_error s <| sprintf "Expected an i32.\nGot: %s" (show_data a)
             | _ -> raise_type_error s <| sprintf "Expected an union type.\nGot: %s" (show_ty t)
@@ -1214,14 +1215,13 @@ let peval (env : TopEnv) (x : E) =
             push_typedop_no_rewrite s key (YLayout(ty,HeapMutable))
         | EOp(_,LayoutIndex,[a]) -> 
             match term s a with
-            | DV(L(i,YLayout(ty,layout))) as a -> 
-                let v = L(i,(ty,layout))
+            | DV(L(i,YLayout(ty,layout)) as tyv) as a -> 
                 match layout with
-                | HeapMutable -> push_typedop_no_rewrite s (TyLayoutIndexAll v) ty
+                | HeapMutable -> push_typedop_no_rewrite s (TyLayoutIndexAll tyv) ty
                 | Heap -> 
                     match ty with
-                    | YRecord l -> DRecord(Map.map (fun b ty -> push_typedop s (TyLayoutIndexByKey(v,b)) ty) l)
-                    | _ -> push_typedop s (TyLayoutIndexAll v) ty
+                    | YRecord l -> DRecord(Map.map (fun b ty -> push_typedop s (TyLayoutIndexByKey(tyv,b)) ty) l)
+                    | _ -> push_typedop s (TyLayoutIndexAll tyv) ty
             | a -> raise_type_error s <| sprintf "Expected a layout type.\nGot: %s" (show_data a)
         | EOp(_,TypeToVar,[EType(_,a)]) -> push_typedop_no_rewrite s (TyOp(TypeToVar,[])) (ty s a)
         | EOp(_,TypeToSymbol,[EType(_,a)]) -> 
