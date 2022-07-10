@@ -283,8 +283,8 @@ let codegen is_except_star (env : PartEvalResult) (x : TypedBind []) =
     let args' b = data_term_vars b |> Array.map show_w |> String.concat ", "
 
     let tmp =
-        let mutable i = 0
-        fun () -> let x = i in i <- i + 1; x
+        let mutable i = 0u
+        fun () -> let x = i in i <- i + 1u; x
 
     let import =
         let has_added = HashSet()
