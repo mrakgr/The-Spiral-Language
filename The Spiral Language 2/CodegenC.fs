@@ -54,6 +54,7 @@ let refc_used_vars (x : TypedBind []) =
             let vs = Set.singleton tag
             let on_fail = binds on_fail'
             Array.fold (fun s body -> s + binds body) (vs + on_fail) on_succs'
+    binds x |> ignore
     g
 
 let refc_decref_vars (free_vars : TyV Set) (x : TypedBind []) =
@@ -83,6 +84,7 @@ let refc_decref_vars (free_vars : TyV Set) (x : TypedBind []) =
         | TyIntSwitch(_,on_succs',on_fail') ->
             Array.iter (binds vs) on_succs'
             binds vs on_fail'
+    binds free_vars x
     g
 
 type BindsReturn =
@@ -249,7 +251,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | YUnion a -> 
                 match a.Item.layout with
                 | UHeap -> Some $"UHRefc{(uheap a).tag}({f (i,t)}, {c});"
-                | UStack -> Some $"USRefc{(ustack a).tag}(&{f (i,t)}, {c});"
+                | UStack -> Some $"USRefc{(ustack a).tag}(&({f (i,t)}), {c});"
             | YArray t -> Some $"ArrayRefc{(carray t).tag}({f (i,t)}, {c});" 
             | YFun(a,b) -> Some $"{f (i,t)}->refc_fptr({f (i,t)}, {c});"
             | YPrim StringT -> Some $"StringRefc({f (i,t)}, {c});" 
@@ -347,8 +349,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 let tmp_i = tmp()
                 line s $"{tup_ty_tyvs ret} tmp{tmp_i} = {x};"
                 Array.mapi (fun i (L(i',_)) -> $"v{i'} = tmp{tmp_i}.v{i};") ret |> line' s
-        let jp (a,b) =
-            let args = args b
+        let jp (a,b') =
+            let args = args b'
             match a with
             | JPMethod(a,b) -> sprintf "method%i(%s)" (method (a,b)).tag args
             | JPClosure(a,b) -> sprintf "ClosureCreate%i(%s)" (closure (a,b)).tag args
@@ -357,8 +359,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             match ret with
             | BindsTailEnd -> 
                 let gs = String.concat ", " gs
-                let x = tyvs_to_tys x'
-                if x.Length <= 1 then $"return {gs};" else $"return Tuple{(tup x).tag}({gs});" 
+                let tys = tyvs_to_tys x'
+                if tys.Length <= 1 then $"return {gs};" else $"return Tuple{(tup tys).tag}({gs});" 
                 |> line s
             | BindsLocal x -> 
                 Array.map2 (fun (L(i,_)) g -> $"v{i} = {g};") x gs |> line' s
@@ -376,7 +378,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             binds (indent s) ret fl
             line s "}"
         | TyJoinPoint(a,args) -> return' (jp (a, args))
-        | TyWhile(a,b) ->
+        | TyWhile(a,b) -> // Should never be in last position so the vars used in it can be decref'd on the following statement. Check PartEval.seq_apply.
             line s (sprintf "while (%s){" (jp a))
             binds (indent s) (BindsLocal [||]) b
             line s "}"
@@ -440,7 +442,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
             let q = mut t // `mut t` is correct here, peval strips the YLayout.
             let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") q.data b 
-            Array.map2 (fun (L(i',_)) b -> $"Assign{assign (tyvs_to_tys q.free_vars)}(&v{i}->v{i'}, {show_w b});") (data_free_vars a) (data_term_vars c) |> line' s
+            Array.map2 (fun (L(i',_)) b -> $"&v{i}->v{i'}, {show_w b}") (data_free_vars a) (data_term_vars c) |> String.concat ", " 
+            |> sprintf "AssignMut%i(%s)" (assign_mut (tyvs_to_tys q.free_vars)).tag |> line s
         | TyArrayLiteral(a,b) -> 
             let b = b |> List.map tup_data |> String.concat "," |> sprintf "{%s}"
             $"ArrayLit{(carray a).tag}({b.Length}, ({tup_ty a} []){b})" |> return'
@@ -461,8 +464,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             match op, l with
             | Import,[DLit (LitString x)] -> import x; $"// #include <{x}>"
             | CImport,[DLit (LitString x)] -> cimport x; $"// #include \"{x}\""
-            | Apply,[a;b] -> 
-                match tup_data a, args' b with
+            | Apply,[a;b'] -> 
+                match tup_data a, args' b' with
                 | a, "" -> $"{a}->fptr({a})"
                 | a, b -> $"{a}->fptr({a}, {b})"
             | Dyn,[a] -> tup_data a
@@ -477,7 +480,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 let a',b',c' = tup_data a, tup_data b, tup_data c
                 match c' with
                 | "" -> "/* void array set */"
-                | _ -> $"Assign{assign (tyvs_to_tys (carray t).tyvs)}({a'}->ptr+{b'}, {c'})"
+                | _ -> $"AssignArray{(assign_array (tyvs_to_tys (carray t).tyvs)).tag}({a'}->ptr+{b'}, {c'})"
             // Math
             | Add, [a;b] -> sprintf "%s + %s" (tup_data a) (tup_data b)
             | Sub, [a;b] -> sprintf "%s - %s" (tup_data a) (tup_data b)
@@ -556,7 +559,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s_typ $"ClosureEnv{i} env[];"
             line s_typ "};"
 
-            line s_fun (sprintf "void ClosureRefcBody%i(Closure%i * x, int c){" i i)
+            line s_fun (sprintf "static inline void ClosureRefcBody%i(Closure%i * x, int c){" i i)
             let _ =
                 let s_fun = indent s_fun
                 let decrefs = x.free_vars |> refc_change (fun i -> $"env.v{i}") "-1"
@@ -581,13 +584,13 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s_fun "}"
             
             match x.domain_args |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}") |> String.concat ", " with
-            | "" -> sprintf "%s ClosureMethod%i(Closure%i * self){" range i i
-            | domain_args -> sprintf "%s ClosureMethod%i(Closure%i * self, %s){" range i i domain_args
+            | "" -> sprintf "%s ClosureMethod%i(Closure%i * x){" range i i
+            | domain_args -> sprintf "%s ClosureMethod%i(Closure%i * x, %s){" range i i domain_args
             |> line s_fun
             let _ =
                 let s_fun = indent s_fun
                 if x.free_vars.Length <> 0 then
-                    line s_fun $"ClosureEnv{i} * env = self->env;"
+                    line s_fun $"ClosureEnv{i} * env = x->env;"
                     x.free_vars |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i} = env->v{i};") |> line' s_fun
                 binds_start x.domain_args s_fun x.body
             line s_fun "}"
@@ -615,7 +618,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let _ =
                 let s_typ = indent s_typ
                 line s_typ $"int refc;"
-                line s_typ $"void (*refc_refc)(Fun{i} *, int);"
+                line s_typ $"void (*refc_fptr)(Fun{i} *, int);"
                 match x.domain_args_ty |> Array.map (fun t -> tyv t) |> String.concat ", " with
                 | "" -> $"{range} (*fptr)(Fun{i} *);"
                 | domain_args_ty -> $"{range} (*fptr)(Fun{i} *, {domain_args_ty});"
@@ -638,22 +641,34 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s_fun $"return x;"
             line s_fun "}"
             )
-    and assign : _ -> TupleRec = 
+    and assign_mut : _ -> TupleRec = 
         tuple (fun s_typ s_fun x ->
-            let tyvs, T = Array.mapi (fun i t -> L(i,t)) x.tys, tup_ty_tys x.tys
-            line s_fun (sprintf "static inline void Assign%i(%s * a, %s b){" x.tag T T)
+            let tyvs = Array.mapi (fun i t -> L(i,t)) x.tys
+            let args = Array.mapi (fun i t -> let t = tyv t in $"{t} * a{i}, {t} b{i}") x.tys |> String.concat ", "
+            line s_fun (sprintf "static inline void AssignMut%i(%s){" x.tag args)
             let _ =
                 let s_fun = indent s_fun
-                match x.tys with
+                refc_change (fun i -> $"b{i}") "1" tyvs |> line' s_fun
+                refc_change (fun i -> $"*a{i}") "-1" tyvs |> line' s_fun
+                Array.init tyvs.Length (fun i -> $"*a{i} = b{i};") |> line' s_fun
+            line s_fun "}"
+            )
+    and assign_array : _ -> TupleRec = 
+        tuple (fun s_typ s_fun x ->
+            let tyvs, T = Array.mapi (fun i t -> L(i,t)) x.tys, tup_ty_tys x.tys
+            line s_fun (sprintf "static inline void AssignArray%i(%s * a, %s b){" x.tag T T)
+            let _ =
+                let s_fun = indent s_fun
+                match tyvs with
                 | [||] -> raise_codegen_error "Compiler error: Void types not allowed in assign."
                 | [|t|] -> 
+                    refc_change (fun i -> "b") "1" tyvs |> line' s_fun
                     refc_change (fun i -> "*a") "-1" tyvs |> line' s_fun
                     $"*a = b;" |> line s_fun
-                    refc_change (fun i -> "b") "1" tyvs |> line' s_fun
                 | _ ->
+                    refc_change (fun i -> $"b.v{i}") "1" tyvs |> line' s_fun
                     refc_change (fun i -> $"a->v{i}") "-1" tyvs |> line' s_fun
                     $"*a = b;" |> line s_fun
-                    refc_change (fun i -> $"b.v{i}") "1" tyvs |> line' s_fun
             line s_fun "}"
             )
     and layout_tmpl name : _ -> LayoutRec =

@@ -4,6 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-void main(){
-    return ;
+int32_t main(){
+    return 0l;
 }

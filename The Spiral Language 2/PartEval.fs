@@ -240,8 +240,7 @@ let seq_apply (d: LangEnv) end_dat =
     let inline end_ () = d.seq.Add(TyLocalReturnData(end_dat,d.trace))
     if d.seq.Count > 0 then
         match d.seq.[d.seq.Count-1] with
-        | TyLet(_,_,TyWhile _) -> end_() // This special case is to enable decref insertion in the C backend.
-        | TyLet(end_dat',a,b) when Object.ReferenceEquals(end_dat,end_dat') -> d.seq.[d.seq.Count-1] <- TyLocalReturnOp(a,b,end_dat')
+        | TyLet(end_dat',a,TyJoinPoint _ & b) -> d.seq.[d.seq.Count-1] <- TyLocalReturnOp(a,b,end_dat')
         | _ -> end_()
     else end_()
     d.seq.ToArray()
@@ -526,7 +525,7 @@ let peval (env : TopEnv) (x : E) =
                 | DNominal(DUnion(DPair(DSymbol k,v),b),b') -> dirty <- true; push_typedop_no_rewrite s (TyUnionBox(k,f v,b)) b'
                 | DUnion _ -> raise_type_error s "Compiler error: Malformed union"
                 | DNominal(a,b) -> DNominal(f a,b)
-                | DLit v as x -> if do_lit then dirty <- true; push_op_no_rewrite s Dyn x (lit_to_ty v) else x // TODO: Since strings are heap allocated, it might be worth it to consider them separate from other literals much like union types.
+                | DLit v as x -> if do_lit then dirty <- true; push_op_no_rewrite s Dyn x (lit_to_ty v) else x
                 | DFunction(body,Some annot,term',ty',sz_term,sz_ty) -> dirty <- true; closure_convert s (body,annot,term',ty',sz_term,sz_ty) |> fst
                 | DFunction(_,None,_,_,_,_) -> raise_type_error s "Cannot convert a function that is not annotated into a type."
                 | DForall _ -> raise_type_error s "Cannot convert a forall into a type."
