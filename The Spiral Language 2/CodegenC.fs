@@ -10,10 +10,12 @@ open System.Text
 open System.Collections.Generic
 
 let line x s = if s <> "" then x.text.Append(' ', x.indent).AppendLine s |> ignore
+let line' x s = line x (String.concat " " s)
 let is_heap = function
     | YUnion a when a.Item.layout = UHeap -> true
     | YPrim StringT | YLayout _ | YArray _ | YFun _ -> true
     | a -> false
+let is_string = function DV(L(_,YPrim StringT)) | DLit(LitString _) -> true | _ -> false
 
 let refc_used_vars (x : TypedBind []) =
     let g : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
@@ -222,22 +224,22 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 match b with
                 | WLit b -> $"v{i} = {lit b};"
                 | WV (L(i',_)) -> $"v{i} = v{i'};"
-                ) a b |> String.concat " "
+                ) a b
         Array.iter (fun x ->
-            decref_vars.[x] |> Set.toArray |> refc_dec |> String.concat " " |> line s
+            decref_vars.[x] |> Set.toArray |> refc_dec |> line' s
             match x with
             | TyLet(d,trace,a) ->
                 try let d = data_free_vars d
-                    Array.map (fun (L(i,t)) -> $"{tyv t} v{i};") d |> String.concat " " |> line s
+                    Array.map (fun (L(i,t)) -> $"{tyv t} v{i};") d |> line' s
                     op decref_vars s (BindsLocal d) a
-                    refc_inc d |> String.concat " " |> line s
+                    refc_inc d |> line' s
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             | TyLocalReturnOp(trace,a,_) ->
                 try op decref_vars s ret a
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             | TyLocalReturnData(d,trace) ->
                 try match ret with
-                    | BindsLocal l -> line s (tup_destruct (l,data_term_vars d))
+                    | BindsLocal l -> line' s (tup_destruct (l,data_term_vars d))
                     | BindsTailEnd -> line s $"return {tup_data d};"
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             ) stmts
@@ -263,14 +265,13 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and args' b = data_term_vars b |> Array.map show_w |> String.concat ", "
     and tup_term_vars x =
         let args = Array.map show_w x |> String.concat ", "
-        if 1 < x.Length then sprintf "TupleCreate%i(%s)" (tup' (term_vars_to_tys x)).tag args else args
+        if 1 < x.Length then sprintf "TupleCreate%i(%s)" (tup (term_vars_to_tys x)).tag args else args
     and tup_data x = tup_term_vars (data_term_vars x)
-    and tup_tyvs (x : TyV []) = Array.map WV x |> tup_term_vars
-    and tup_ty_tyvs' = function
+    and tup_ty_tys = function
         | [||] -> "void"
         | [|x|] -> tyv x
-        | x -> sprintf "Tuple%i" (tup' x).tag
-    and tup_ty_tyvs (x : TyV []) = tup_ty_tyvs' (tyvs_to_tys x)
+        | x -> sprintf "Tuple%i" (tup x).tag
+    and tup_ty_tyvs (x : TyV []) = tup_ty_tys (tyvs_to_tys x)
     and tup_ty x = env.ty_to_data x |> data_free_vars |> tup_ty_tyvs
     and tyv = function
         | YUnion a ->
@@ -345,7 +346,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | BindsLocal ret ->
                 let tmp_i = tmp()
                 line s $"{tup_ty_tyvs ret} tmp{tmp_i} = {x};"
-                Array.mapi (fun i (L(i',_)) -> $"v{i'} = tmp{tmp_i}.v{i};") ret |> String.concat " " |> line s
+                Array.mapi (fun i (L(i',_)) -> $"v{i'} = tmp{tmp_i}.v{i};") ret |> line' s
         let jp (a,b) =
             let args = args b
             match a with
@@ -357,10 +358,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | BindsTailEnd -> 
                 let gs = String.concat ", " gs
                 let x = tyvs_to_tys x'
-                if x.Length <= 1 then $"return {gs};" else $"return Tuple{(tup' x).tag}({gs});" 
+                if x.Length <= 1 then $"return {gs};" else $"return Tuple{(tup x).tag}({gs});" 
                 |> line s
             | BindsLocal x -> 
-                Array.map2 (fun (L(i,_)) g -> $"v{i} = {g};") x gs |> String.concat " " |> line s
+                Array.map2 (fun (L(i,_)) g -> $"v{i} = {g};") x gs |> line' s
         match a with
         | TyMacro a ->
             a |> List.map (function
@@ -412,7 +413,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                         Array.mapi (fun field_i (L(v_i,t)) ->
                             $"{tyv t} v{v_i} = v{data_i}{acs}case{union_i}.v{field_i};"
                             ) a
-                        |> String.concat " " |> line (indent s)
+                        |> line' (indent s)
                         ) is a
                     binds (indent s) ret b
                     line (indent s) "break;"
@@ -437,13 +438,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | TyLayoutIndexAll(x) -> match x with L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i | _ -> failwith "Compiler error: Expected the TyV in layout index to be a layout type."
         | TyLayoutIndexByKey(x,key) -> match x with L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i | _ -> failwith "Compiler error: Expected the TyV in layout index by key to be a layout type."
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
-            let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b // `mut t` is correct here, peval strips the YLayout.
-            let a' = data_free_vars a
-            let decrefs = refc_change (fun i' -> $"v{i}->v{i'}") "-1" a'
-            if decrefs.Length <> 0 then
-                decrefs |> String.concat " " |> line s
-                data_free_vars c |> refc_inc |> String.concat " " |> line s
-            Array.map2 (fun (L(i',_)) b -> $"v{i}->v{i'} = {show_w b};") a' (data_term_vars c) |> String.concat " " |> line s
+            let q = mut t // `mut t` is correct here, peval strips the YLayout.
+            let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") q.data b 
+            Array.map2 (fun (L(i',_)) b -> $"Assign{assign (tyvs_to_tys q.free_vars)}(&v{i}->v{i'}, {show_w b});") (data_free_vars a) (data_term_vars c) |> line' s
         | TyArrayLiteral(a,b) -> 
             let b = b |> List.map tup_data |> String.concat "," |> sprintf "{%s}"
             $"ArrayLit{(carray a).tag}({b.Length}, ({tup_ty a} []){b})" |> return'
@@ -480,14 +477,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 let a',b',c' = tup_data a, tup_data b, tup_data c
                 match c' with
                 | "" -> "/* void array set */"
-                | _ -> 
-                    let tmp_i, tyvs = tmp(), (carray t).tyvs
-                    let decrefs = refc_change (fun i -> $"tmp{tmp_i}.v{i};") "-1" tyvs
-                    if decrefs.Length <> 0 then
-                        line s $"{tup_ty_tyvs tyvs} tmp{tmp_i} = {a'}->ptr[{b'}];"
-                        decrefs |> String.concat " " |> line s
-                        data_free_vars c |> refc_inc |> String.concat " " |> line s
-                    sprintf "%s->ptr[%s] = %s" a' b' c'
+                | _ -> $"Assign{assign (tyvs_to_tys (carray t).tyvs)}({a'}->ptr+{b'}, {c'})"
             // Math
             | Add, [a;b] -> sprintf "%s + %s" (tup_data a) (tup_data b)
             | Sub, [a;b] -> sprintf "%s - %s" (tup_data a) (tup_data b)
@@ -497,6 +487,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | Pow, [a;b] -> sprintf "pow%s(%s,%s)" (float_suffix a) (tup_data a) (tup_data b)
             | LT, [a;b] -> sprintf "%s < %s" (tup_data a) (tup_data b)
             | LTE, [a;b] -> sprintf "%s <= %s" (tup_data a) (tup_data b)
+            | EQ, [a;b] when is_string a -> sprintf "strcmp(%s, %s) == 0" (tup_data a) (tup_data b) // TODO: Optimize string structural comparison in the real_core
+            | NEQ, [a;b] when is_string a -> sprintf "strcmp(%s, %s) != 0" (tup_data a) (tup_data b)
+            | GT, [a;b] when is_string a -> sprintf "strcmp(%s, %s) > 0" (tup_data a) (tup_data b)
+            | GTE, [a;b] when is_string a -> sprintf "strcmp(%s, %s) >= 0" (tup_data a) (tup_data b)
             | EQ, [a;b] -> sprintf "%s == %s" (tup_data a) (tup_data b)
             | NEQ, [a;b] -> sprintf "%s != %s" (tup_data a) (tup_data b)
             | GT, [a;b] -> sprintf "%s > %s" (tup_data a) (tup_data b)
@@ -562,6 +556,15 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s_typ $"ClosureEnv{i} env[];"
             line s_typ "};"
 
+            line s_fun (sprintf "void ClosureRefcBody%i(Closure%i * x, int c){" i i)
+            let _ =
+                let s_fun = indent s_fun
+                let decrefs = x.free_vars |> refc_change (fun i -> $"env.v{i}") "-1"
+                if decrefs.Length <> 0 then
+                    line s_fun $"ClosureEnv{i} env = x->env[0];"
+                    decrefs |> line' s_fun
+            line s_fun "}"
+
             line s_fun (sprintf "void ClosureRefc%i(Closure%i * x, int c){" i i)
             let _ =
                 let s_fun = indent s_fun
@@ -571,10 +574,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     line s_fun "if ((x->refc += c) == 0) {"
                     let _ =
                         let s_fun = indent s_fun
-                        let decrefs = x.free_vars |> refc_change (fun i -> $"env.v{i}") "-1"
-                        if decrefs.Length <> 0 then
-                            line s_fun $"ClosureEnv{i} env = x->env[0];"
-                            decrefs |> String.concat " " |> line s_fun
+                        line s_fun $"ClosureRefcBody{i}(x, -1);"
+                        line s_fun "free(x);"
                     line s_fun "}"
                 line s_fun "}"
             line s_fun "}"
@@ -587,7 +588,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 let s_fun = indent s_fun
                 if x.free_vars.Length <> 0 then
                     line s_fun $"ClosureEnv{i} * env = self->env;"
-                    x.free_vars |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i} = env->v{i};") |> String.concat " " |> line s_fun
+                    x.free_vars |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i} = env->v{i};") |> line' s_fun
                 binds_start x.domain_args s_fun x.body
             line s_fun "}"
 
@@ -598,10 +599,11 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s_fun $"Closure{i} * x = malloc(sizeof(Closure{i}) + sizeof(ClosureEnv{i}));"
                 line s_fun "x->refc = 0;"
                 line s_fun $"x->refc_fptr = ClosurRefc{i};"
+                line s_fun $"x->fptr = ClosureMethod{i};"
                 if x.free_vars.Length <> 0 then
                     line s_fun $"ClosureEnv{i} * env = x->env;"
-                    x.free_vars |> Array.map (fun (L(i,_)) -> $"env->v{i} = v{i};")  |> String.concat " " |> line s_fun
-                line s_fun $"x->fptr = ClosureMethod{i};"
+                    x.free_vars |> Array.map (fun (L(i,_)) -> $"env->v{i} = v{i};")  |> line' s_fun
+                    line s_fun $"ClosureRefcBody{i}(x,1);"
                 line s_fun $"return (Fun{fun_tag} *) x;"
             line s_fun "}"
             )
@@ -620,7 +622,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 |> line s_typ
             line s_typ "};"
             )
-    and tup' : _ -> TupleRec = 
+    and tup : _ -> TupleRec = 
         tuple (fun s_typ s_fun x ->
             let name = sprintf "Tuple%i" x.tag
             let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} v{i}")
@@ -632,13 +634,32 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let _ =
                 let s_fun = indent s_fun
                 line s_fun $"{name} x;"
-                Array.init args.Length (fun i -> $"x.v{i} = v{i};") |> String.concat " " |> line s_fun
+                Array.init args.Length (fun i -> $"x.v{i} = v{i};") |> line' s_fun
                 line s_fun $"return x;"
+            line s_fun "}"
+            )
+    and assign : _ -> TupleRec = 
+        tuple (fun s_typ s_fun x ->
+            let tyvs, T = Array.mapi (fun i t -> L(i,t)) x.tys, tup_ty_tys x.tys
+            line s_fun (sprintf "static inline void Assign%i(%s * a, %s b){" x.tag T T)
+            let _ =
+                let s_fun = indent s_fun
+                match x.tys with
+                | [||] -> raise_codegen_error "Compiler error: Void types not allowed in assign."
+                | [|t|] -> 
+                    refc_change (fun i -> "*a") "-1" tyvs |> line' s_fun
+                    $"*a = b;" |> line s_fun
+                    refc_change (fun i -> "b") "1" tyvs |> line' s_fun
+                | _ ->
+                    refc_change (fun i -> $"a->v{i}") "-1" tyvs |> line' s_fun
+                    $"*a = b;" |> line s_fun
+                    refc_change (fun i -> $"b.v{i}") "1" tyvs |> line' s_fun
             line s_fun "}"
             )
     and layout_tmpl name : _ -> LayoutRec =
         layout (fun s_typ s_fun (x : LayoutRec) ->
-            let name' = sprintf "%s%i" name x.tag
+            let i = x.tag
+            let name' = sprintf "%s%i" name i
             let args = x.free_vars |> Array.map (fun (L(i,x)) -> $"{tyv x} v{i}")
 
             line s_typ "typedef struct {"
@@ -648,7 +669,17 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 Array.iter (fun x -> line s_typ $"{x};") args
             line s_typ (sprintf "} %s;" name')
 
-            line s_fun (sprintf "void %sRefc%i(%s * x, int c){" name x.tag name')
+            line s_fun (sprintf "static inline void %sRefcBody%i(%s * x, int c){" name i name')
+            let _ =
+                let s_fun = indent s_fun
+                let decref_vars = ResizeArray()
+                let decrefs = x.free_vars |> refc_change' (fun (i,t) -> decref_vars.Add($"{tyv t} z{i} = x->v{i};"); $"z{i}") "-1" 
+                if decrefs.Length <> 0 then
+                    decref_vars |> line' s_fun 
+                    decrefs |> line' s_fun
+            line s_fun "}"
+
+            line s_fun (sprintf "void %sRefc%i(%s * x, int c){" name i name')
             let _ =
                 let s_fun = indent s_fun
                 line s_fun "if (x != NULL) {"
@@ -657,21 +688,19 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     line s_fun "if ((x->refc += c) == 0) {"
                     let _ =
                         let s_fun = indent s_fun
-                        let decref_vars = ResizeArray()
-                        let decrefs = x.free_vars |> refc_change' (fun (i,t) -> decref_vars.Add($"{tyv t} z{i} = x->v{i};"); $"z{i}") "-1" 
-                        if decrefs.Length <> 0 then
-                            decref_vars |> String.concat " " |> line s_fun 
-                            decrefs |> String.concat " " |> line s_fun
+                        line s_fun $"{name}RefcBody{i}(x, -1);"
+                        line s_fun "free(x);"
                     line s_fun "}"
                 line s_fun "}"
             line s_fun "}"
 
-            line s_fun (sprintf "%s * %sCreate%i(%s){" name' name x.tag (String.concat ", " args))
+            line s_fun (sprintf "%s * %sCreate%i(%s){" name' name i (String.concat ", " args))
             let _ =
                 let s_fun = indent s_fun
                 line s_fun $"{name'} * x = malloc(sizeof({name'}));"
                 line s_fun "x->refc = 0;"
-                Array.init args.Length (fun i -> $"x->v{i} = v{i};") |> String.concat " " |> line (indent s_fun)
+                Array.init args.Length (fun i -> $"x->v{i} = v{i};") |> line' (indent s_fun)
+                line s_fun $"{name}RefcBody{i}(x, 1);"
                 line s_fun $"return x;"
             line s_fun "}"
             )
@@ -717,7 +746,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     line s_fun (sprintf "case %i: {" tag)
                     let _ =
                         let s_fun = indent s_fun
-                        v |> refc_change (fun i -> $"x.case{tag}.v{i}") "c" |> String.concat " " |> line s_fun
+                        v |> refc_change (fun i -> $"x.case{tag}.v{i}") "c" |> line' s_fun
                     line s_fun "}"
                     ) x.free_vars
                 line s_fun "}"
@@ -736,7 +765,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     let _ =
                         let s_fun = indent s_fun
                         line s_fun "if ((x->refc += c) == 0) {"
-                        line (indent s_fun) $"UHRefcBody{i}(*x, -1);"
+                        let _ =
+                            let s_fun = indent s_fun
+                            line s_fun $"UHRefcBody{i}(*x, -1);"
+                            line s_fun "free(x);"
                         line s_fun "}"
                     line s_fun "}"
                 line s_fun "}"
@@ -748,14 +780,19 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 | false -> line s_fun (sprintf "UH%i * UH%i_%i(%s) { // %s" i i tag args k)
                 let _ =
                     let s_fun = indent s_fun
-                    let acs = 
-                        match is_stack with
-                        | true  -> line s_fun $"US{i} x;"; "."
-                        | false -> line s_fun $"UH{i} * x = malloc(sizeof(UH{i}));"; "->"
-                    line s_fun $"x{acs}tag = {tag};"
+                    match is_stack with
+                    | true  -> line s_fun $"US{i} x;"
+                    | false -> line s_fun $"UH{i} x;"
+                    line s_fun $"x.tag = {tag};"
                     if 0 < v.Length then
-                        v |> Array.map (fun (L(i,t)) -> $"x{acs}case{tag}.v{i} = v{i};") |> String.concat " " |> line s_fun
-                    line s_fun "return x;"
+                        v |> Array.map (fun (L(i,t)) -> $"x.case{tag}.v{i} = v{i};") |> line' s_fun
+                    match is_stack with
+                    | true  ->
+                        line s_fun $"USRefcBody{i}(x,1);"
+                        line s_fun "return x;"
+                    | false -> 
+                        line s_fun $"UHRefcBody{i}(x,1);"
+                        line s_fun $"return memcpy(malloc(sizeof(UH{i})),&x,sizeof(UH{i}));"
                 line s_fun (sprintf "}")
                 ) x.free_vars
             )
@@ -772,6 +809,19 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 if ptr_t <> "void" then line s_typ $"{ptr_t} ptr[];" // flexible array member
             line s_typ (sprintf "} Array%i;" i)
 
+            line s_fun (sprintf "static inline void ArrayRefcBody%i(Array%i * x, int c){" i i)
+            let _ =
+                let s_fun = indent s_fun
+                let decrefs = x.tyvs |> refc_change (fun i -> $"v->v{i}") "c"
+                if decrefs.Length <> 0 then
+                    line s_fun (sprintf "for (%s i=0; i < x->len; i++){" size_t)
+                    let _ =
+                        let s_fun = indent s_fun
+                        line s_fun $"{ptr_t} v = x->ptr[i];"
+                        decrefs |> line' s_fun
+                    line s_fun "}"
+            line s_fun "}"
+
             line s_fun (sprintf "void ArrayRefc%i(Array%i * x, int c){" i i)
             let _ =
                 let s_fun = indent s_fun
@@ -781,14 +831,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     line s_fun "if ((x->refc += c) == 0) {"
                     let _ =
                         let s_fun = indent s_fun
-                        let decrefs = x.tyvs |> refc_change (fun i -> $"v->v{i}") "-1"
-                        if decrefs.Length <> 0 then
-                            line s_fun (sprintf "for (%s i=0; i < x->len; i++){" size_t)
-                            let _ =
-                                let s_fun = indent s_fun
-                                line s_fun $"ptr_t v = x->ptr[i];"
-                                decrefs |> String.concat " " |> line s_fun
-                            line s_fun "}"
+                        line s_fun $"ArrayRefcBody{i}(x, -1);"
+                        line s_fun "free(x);"
                     line s_fun "}"
                 line s_fun "}"
             line s_fun "}"
@@ -800,7 +844,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 match ptr_t with
                 | "void" -> line s_fun $"Array{i} * x = malloc(sizeof(Array{i}));"
                 | _ -> line s_fun $"Array{i} * x = (init_at_zero ? calloc : malloc)(sizeof(Array{i}) + sizeof({ptr_t}) * size);"
-                line s_fun $"x->len = size;"
+                line s_fun "x->len = size;"
                 line s_fun "return x;"
             line s_fun "}"
 
@@ -808,7 +852,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let _ =
                 let s_fun = indent s_fun
                 line s_fun $"Array{i} * x = ArrayCreate{i}(size, false);"
-                if ptr_t <> "void" then line s_fun $"memcpy(x->ptr, ptr, sizeof({ptr_t}) * size);"
+                if ptr_t <> "void" then 
+                    line s_fun $"memcpy(x->ptr, ptr, sizeof({ptr_t}) * size);"
+                    line s_fun $"ArrayRefcBody(x,1);"
                 line s_fun "return x;"
             line s_fun "}"
             )
