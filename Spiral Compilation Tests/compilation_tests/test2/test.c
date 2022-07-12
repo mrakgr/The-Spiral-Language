@@ -4,6 +4,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 int32_t main(){
-    return 2l;
+    int32_t v0;
+    v0 = 2l;
+    return v0;
 }

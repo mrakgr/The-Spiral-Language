@@ -242,9 +242,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | TyLocalReturnData(d,trace) ->
                 try match ret with
                     | BindsLocal l -> line' s (tup_destruct (l,data_term_vars d))
-                    | BindsTailEnd -> 
-                        data_free_vars d |> refc_suppr |> line' s
-                        line s $"return {tup_data d};"
+                    | BindsTailEnd -> refc_suppr_data d |> line' s; line s $"return {tup_data d};"
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             ) stmts
     and refc_change' (f : int * Ty -> string) (c : string) (x : TyV []) : string [] =
@@ -265,6 +263,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and refc_incr x : string [] = refc_change (fun i -> $"v{i}") "REFC_INCR" x
     and refc_decr x : string [] = refc_change (fun i -> $"v{i}") "REFC_DECR" x
     and refc_suppr (x : TyV []) : string [] = refc_change (fun i -> $"v{i}") "REFC_SUPPR" x
+    and refc_suppr_data x : string [] = refc_suppr (data_free_vars x)
     and binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = 
         refc_incr args |> line' s
         binds (refc_decref_vars (Set args) x) s BindsTailEnd x
@@ -347,23 +346,18 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         let binds a b = binds decref_vars a b
         let return' (x : string) =
             match ret with
-            | BindsTailEnd -> line s $"return {x};"
             | BindsLocal [||] -> line s $"{x};"
             | BindsLocal [|L(i,_)|] -> line s $"v{i} = {x};"
             | BindsLocal ret ->
                 let tmp_i = tmp()
                 line s $"{tup_ty_tyvs ret} tmp{tmp_i} = {x};"
                 Array.mapi (fun i (L(i',_)) -> $"v{i'} = tmp{tmp_i}.v{i};") ret |> line' s
+            | BindsTailEnd -> line s $"return {x};"
         let layout_index (x'_i : int) (x' : TyV []) =
             let gs = Array.map (fun (L(i',_)) -> $"v{x'_i}->v{i'}") x'
             match ret with
-            | BindsTailEnd -> 
-                let gs = String.concat ", " gs
-                let tys = tyvs_to_tys x'
-                if tys.Length <= 1 then $"return {gs};" else $"return Tuple{(tup tys).tag}({gs});" 
-                |> line s
-            | BindsLocal x -> 
-                Array.map2 (fun (L(i,_)) g -> $"v{i} = {g};") x gs |> line' s
+            | BindsLocal x -> Array.map2 (fun (L(i,_)) g -> $"v{i} = {g};") x gs |> line' s
+            | BindsTailEnd -> raise_codegen_error "Compiler error: Layout index should never come in end position."
         let jp (a,b') =
             let args = args b'
             match ret with
@@ -372,6 +366,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             match a with
             | JPMethod(a,b) -> sprintf "method%i(%s)" (method (a,b)).tag args
             | JPClosure(a,b) -> sprintf "ClosureCreate%i(%s)" (closure (a,b)).tag args
+        let refc_suppr_data_if_tailend x =
+            match ret with
+            | BindsTailEnd -> refc_suppr_data x
+            | BindsLocal _ -> [||]
         match a with
         | TyMacro a ->
             a |> List.map (function
@@ -436,6 +434,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     )
             line s "}"
         | TyUnionBox(a,b,c') ->
+            refc_suppr_data_if_tailend b |> line' s
             let c = c'.Item
             let i = c.tags.[a]
             let vars = args' b
@@ -443,17 +442,18 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | UHeap -> sprintf "UH%i_%i(%s)" (uheap c').tag i vars
             | UStack -> sprintf "US%i_%i(%s)" (ustack c').tag i vars
             |> return'
-        | TyLayoutToHeap(a,b) -> sprintf "HeapCreate%i(%s)" (heap b).tag (args' a) |> return'
-        | TyLayoutToHeapMutable(a,b) -> sprintf "MutCreate%i(%s)" (mut b).tag (args' a) |> return'
+        | TyLayoutToHeap(a,b) -> refc_suppr_data_if_tailend a |> line' s; sprintf "HeapCreate%i(%s)" (heap b).tag (args' a) |> return'
+        | TyLayoutToHeapMutable(a,b) -> refc_suppr_data_if_tailend a |> line' s; sprintf "MutCreate%i(%s)" (mut b).tag (args' a) |> return'
         | TyLayoutIndexAll(x) -> match x with L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars |> layout_index i | _ -> failwith "Compiler error: Expected the TyV in layout index to be a layout type."
         | TyLayoutIndexByKey(x,key) -> match x with L(i,YLayout(a,lay)) -> (match lay with Heap -> heap a | HeapMutable -> mut a).free_vars_by_key.[key] |> layout_index i | _ -> failwith "Compiler error: Expected the TyV in layout index by key to be a layout type."
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
             let q = mut t // `mut t` is correct here, peval strips the YLayout.
             let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") q.data b 
             Array.map2 (fun (L(i',_)) b -> $"&v{i}->v{i'}, {show_w b}") (data_free_vars a) (data_term_vars c) |> String.concat ", " 
-            |> sprintf "AssignMut%i(%s)" (assign_mut (tyvs_to_tys q.free_vars)).tag |> line s
-        | TyArrayLiteral(a,b) -> 
-            let b = b |> List.map tup_data |> String.concat "," |> sprintf "{%s}"
+            |> sprintf "AssignMut%i(%s)" (assign_mut (tyvs_to_tys q.free_vars)).tag |> return'
+        | TyArrayLiteral(a,b) ->
+            Seq.collect refc_suppr_data_if_tailend b |> line' s
+            let b = List.map tup_data b |> String.concat "," |> sprintf "{%s}"
             $"ArrayLit{(carray a).tag}({b.Length}, ({tup_ty a} []){b})" |> return'
         | TyArrayCreate(a,b) -> 
             let is_heap : bool = a |> env.ty_to_data |> data_free_vars |> Array.exists (fun (L(_,t)) -> is_heap t)
@@ -615,7 +615,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 if x.free_vars.Length <> 0 then
                     line s_fun $"ClosureEnv{i} * env = x->env;"
                     x.free_vars |> Array.map (fun (L(i,_)) -> $"env->v{i} = v{i};")  |> line' s_fun
-                    line s_fun $"ClosureRefcBody{i}(x,REFC_INCR);"
+                    line s_fun $"ClosureRefcBody{i}(x, REFC_INCR);"
                 line s_fun $"return (Fun{fun_tag} *) x;"
             line s_fun "}"
             )
@@ -814,10 +814,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                         v |> Array.map (fun (L(i,t)) -> $"x.case{tag}.v{i} = v{i};") |> line' s_fun
                     match is_stack with
                     | true  ->
-                        line s_fun $"USRefcBody{i}(x,REFC_INCR);"
+                        line s_fun $"USRefcBody{i}(x, REFC_INCR);"
                         line s_fun "return x;"
                     | false -> 
-                        line s_fun $"UHRefcBody{i}(x,REFC_INCR);"
+                        line s_fun $"UHRefcBody{i}(x, REFC_INCR);"
                         line s_fun $"return memcpy(malloc(sizeof(UH{i})),&x,sizeof(UH{i}));"
                 line s_fun (sprintf "}")
                 ) x.free_vars
@@ -881,7 +881,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s_fun $"Array{i} * x = ArrayCreate{i}(size, false);"
                 if ptr_t <> "void" then 
                     line s_fun $"memcpy(x->ptr, ptr, sizeof({ptr_t}) * size);"
-                    line s_fun $"ArrayRefcBody{i}(x,REFC_INCR);"
+                    line s_fun $"ArrayRefcBody{i}(x, REFC_INCR);"
                 line s_fun "return x;"
             line s_fun "}"
             )
@@ -908,7 +908,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         import "stdlib.h"
         import "string.h"
         import "math.h"
-        types.Add("typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;")
+        types.Add("typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;\n")
 
         let main_defs = {text=StringBuilder(); indent=0}
         line main_defs (sprintf "%s main(){" (prim Int32T))

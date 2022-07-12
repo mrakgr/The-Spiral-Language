@@ -240,7 +240,7 @@ let seq_apply (d: LangEnv) end_dat =
     let inline end_ () = d.seq.Add(TyLocalReturnData(end_dat,d.trace))
     if d.seq.Count > 0 then
         match d.seq.[d.seq.Count-1] with
-        | TyLet(end_dat',a,(TyJoinPoint _ | TyIf _ | TyIntSwitch _ | TyUnionUnbox _) & b) -> d.seq.[d.seq.Count-1] <- TyLocalReturnOp(a,b,end_dat')
+        | TyLet(end_dat',a,(TyJoinPoint _ | TyIf _ | TyIntSwitch _ | TyUnionUnbox _ | TyUnionBox _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _ | TyArrayLiteral _ | TyArrayCreate _ | TyFailwith _) & b) -> d.seq.[d.seq.Count-1] <- TyLocalReturnOp(a,b,end_dat')
         | _ -> end_()
     else end_()
     d.seq.ToArray()
