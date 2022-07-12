@@ -660,7 +660,6 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 | "" -> $"{range} (*fptr)(Fun{i} *);"
                 | domain_args_ty -> $"{range} (*fptr)(Fun{i} *, {domain_args_ty});"
                 |> line s_typ
-                line s_typ "void * env;"
             line s_typ "};"
             )
     and tup : _ -> TupleRec = 
