@@ -117,17 +117,17 @@ void ArrayRefc1(Array1 * x, REFC_FLAG q){
         }
     }
 }
-Array1 * ArrayCreate1(uint32_t size, bool init_at_zero){
-    size = sizeof(Array1) + sizeof(US0) * size;
+Array1 * ArrayCreate1(uint32_t len, bool init_at_zero){
+    uint32_t size = sizeof(Array1) + sizeof(US0) * len;
     Array1 * x = malloc(size);
     if (init_at_zero) { memset(x,0,size); }
     x->refc = 0;
-    x->len = size;
+    x->len = len;
     return x;
 }
-Array1 * ArrayLit1(uint32_t size, US0 * ptr){
-    Array1 * x = ArrayCreate1(size, false);
-    memcpy(x->ptr, ptr, sizeof(US0) * size);
+Array1 * ArrayLit1(uint32_t len, US0 * ptr){
+    Array1 * x = ArrayCreate1(len, false);
+    memcpy(x->ptr, ptr, sizeof(US0) * len);
     ArrayRefcBody1(x, REFC_INCR);
     return x;
 }
@@ -146,17 +146,17 @@ void ArrayRefc0(Array0 * x, REFC_FLAG q){
         }
     }
 }
-Array0 * ArrayCreate0(uint32_t size, bool init_at_zero){
-    size = sizeof(Array0) + sizeof(Array1 *) * size;
+Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
+    uint32_t size = sizeof(Array0) + sizeof(Array1 *) * len;
     Array0 * x = malloc(size);
     if (init_at_zero) { memset(x,0,size); }
     x->refc = 0;
-    x->len = size;
+    x->len = len;
     return x;
 }
-Array0 * ArrayLit0(uint32_t size, Array1 * * ptr){
-    Array0 * x = ArrayCreate0(size, false);
-    memcpy(x->ptr, ptr, sizeof(Array1 *) * size);
+Array0 * ArrayLit0(uint32_t len, Array1 * * ptr){
+    Array0 * x = ArrayCreate0(len, false);
+    memcpy(x->ptr, ptr, sizeof(Array1 *) * len);
     ArrayRefcBody0(x, REFC_INCR);
     return x;
 }
@@ -211,17 +211,17 @@ void ArrayRefc2(Array2 * x, REFC_FLAG q){
         }
     }
 }
-Array2 * ArrayCreate2(uint32_t size, bool init_at_zero){
-    size = sizeof(Array2) + sizeof(char) * size;
+Array2 * ArrayCreate2(uint32_t len, bool init_at_zero){
+    uint32_t size = sizeof(Array2) + sizeof(char) * len;
     Array2 * x = malloc(size);
     if (init_at_zero) { memset(x,0,size); }
     x->refc = 0;
-    x->len = size;
+    x->len = len;
     return x;
 }
-Array2 * ArrayLit2(uint32_t size, char * ptr){
-    Array2 * x = ArrayCreate2(size, false);
-    memcpy(x->ptr, ptr, sizeof(char) * size);
+Array2 * ArrayLit2(uint32_t len, char * ptr){
+    Array2 * x = ArrayCreate2(len, false);
+    memcpy(x->ptr, ptr, sizeof(char) * len);
     ArrayRefcBody2(x, REFC_INCR);
     return x;
 }
@@ -272,17 +272,17 @@ void ArrayRefc4(Array4 * x, REFC_FLAG q){
         }
     }
 }
-Array4 * ArrayCreate4(uint32_t size, bool init_at_zero){
-    size = sizeof(Array4) + sizeof(bool) * size;
+Array4 * ArrayCreate4(uint32_t len, bool init_at_zero){
+    uint32_t size = sizeof(Array4) + sizeof(bool) * len;
     Array4 * x = malloc(size);
     if (init_at_zero) { memset(x,0,size); }
     x->refc = 0;
-    x->len = size;
+    x->len = len;
     return x;
 }
-Array4 * ArrayLit4(uint32_t size, bool * ptr){
-    Array4 * x = ArrayCreate4(size, false);
-    memcpy(x->ptr, ptr, sizeof(bool) * size);
+Array4 * ArrayLit4(uint32_t len, bool * ptr){
+    Array4 * x = ArrayCreate4(len, false);
+    memcpy(x->ptr, ptr, sizeof(bool) * len);
     ArrayRefcBody4(x, REFC_INCR);
     return x;
 }
@@ -301,17 +301,17 @@ void ArrayRefc3(Array3 * x, REFC_FLAG q){
         }
     }
 }
-Array3 * ArrayCreate3(uint32_t size, bool init_at_zero){
-    size = sizeof(Array3) + sizeof(Array4 *) * size;
+Array3 * ArrayCreate3(uint32_t len, bool init_at_zero){
+    uint32_t size = sizeof(Array3) + sizeof(Array4 *) * len;
     Array3 * x = malloc(size);
     if (init_at_zero) { memset(x,0,size); }
     x->refc = 0;
-    x->len = size;
+    x->len = len;
     return x;
 }
-Array3 * ArrayLit3(uint32_t size, Array4 * * ptr){
-    Array3 * x = ArrayCreate3(size, false);
-    memcpy(x->ptr, ptr, sizeof(Array4 *) * size);
+Array3 * ArrayLit3(uint32_t len, Array4 * * ptr){
+    Array3 * x = ArrayCreate3(len, false);
+    memcpy(x->ptr, ptr, sizeof(Array4 *) * len);
     ArrayRefcBody3(x, REFC_INCR);
     return x;
 }
@@ -387,17 +387,17 @@ void ArrayRefc5(Array5 * x, REFC_FLAG q){
         }
     }
 }
-Array5 * ArrayCreate5(uint32_t size, bool init_at_zero){
-    size = sizeof(Array5) + sizeof(Tuple0) * size;
+Array5 * ArrayCreate5(uint32_t len, bool init_at_zero){
+    uint32_t size = sizeof(Array5) + sizeof(Tuple0) * len;
     Array5 * x = malloc(size);
     if (init_at_zero) { memset(x,0,size); }
     x->refc = 0;
-    x->len = size;
+    x->len = len;
     return x;
 }
-Array5 * ArrayLit5(uint32_t size, Tuple0 * ptr){
-    Array5 * x = ArrayCreate5(size, false);
-    memcpy(x->ptr, ptr, sizeof(Tuple0) * size);
+Array5 * ArrayLit5(uint32_t len, Tuple0 * ptr){
+    Array5 * x = ArrayCreate5(len, false);
+    memcpy(x->ptr, ptr, sizeof(Tuple0) * len);
     ArrayRefcBody5(x, REFC_INCR);
     return x;
 }
@@ -421,17 +421,17 @@ void ArrayRefc6(Array6 * x, REFC_FLAG q){
         }
     }
 }
-Array6 * ArrayCreate6(uint32_t size, bool init_at_zero){
-    size = sizeof(Array6) + sizeof(Array5 *) * size;
+Array6 * ArrayCreate6(uint32_t len, bool init_at_zero){
+    uint32_t size = sizeof(Array6) + sizeof(Array5 *) * len;
     Array6 * x = malloc(size);
     if (init_at_zero) { memset(x,0,size); }
     x->refc = 0;
-    x->len = size;
+    x->len = len;
     return x;
 }
-Array6 * ArrayLit6(uint32_t size, Array5 * * ptr){
-    Array6 * x = ArrayCreate6(size, false);
-    memcpy(x->ptr, ptr, sizeof(Array5 *) * size);
+Array6 * ArrayLit6(uint32_t len, Array5 * * ptr){
+    Array6 * x = ArrayCreate6(len, false);
+    memcpy(x->ptr, ptr, sizeof(Array5 *) * len);
     ArrayRefcBody6(x, REFC_INCR);
     return x;
 }
@@ -500,7 +500,7 @@ UH0 * method4(UH0 * v0, UH0 * v1){
 UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
     ArrayRefc3(v0, REFC_INCR); ArrayRefc0(v1, REFC_INCR); MutRefc1(v2, REFC_INCR); ArrayRefc5(v3, REFC_INCR);
     uint64_t v4;
-    v4 = v3->len;;
+    v4 = v3->len;
     Array6 * v5;
     v5 = ArrayCreate6(v4, true);
     ArrayRefc6(v5, REFC_INCR);
@@ -521,7 +521,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
         bool v22;
         if (v13){
             uint64_t v14;
-            v14 = v1->len;;
+            v14 = v1->len;
             bool v15;
             v15 = v12 < v14;
             if (v15){
@@ -532,7 +532,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
                 v17 = 0ull <= v10;
                 if (v17){
                     uint64_t v18;
-                    v18 = v16->len;;
+                    v18 = v16->len;
                     ArrayRefc1(v16, REFC_DECR);
                     bool v19;
                     v19 = v10 < v18;
@@ -597,7 +597,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
             Array4 * v32;
             v32 = v0->ptr[v12];
             ArrayRefc4(v32, REFC_INCR);
-            AssignArray2(v32->ptr+v10, true);
+            AssignArray2(&(v32->ptr[v10]), true);
             ArrayRefc4(v32, REFC_DECR);
             v33 = true;
         } else {
@@ -610,7 +610,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
         bool v44;
         if (v35){
             uint64_t v36;
-            v36 = v1->len;;
+            v36 = v1->len;
             bool v37;
             v37 = v34 < v36;
             if (v37){
@@ -621,7 +621,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
                 v39 = 0ull <= v10;
                 if (v39){
                     uint64_t v40;
-                    v40 = v38->len;;
+                    v40 = v38->len;
                     ArrayRefc1(v38, REFC_DECR);
                     bool v41;
                     v41 = v10 < v40;
@@ -686,7 +686,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
             Array4 * v54;
             v54 = v0->ptr[v34];
             ArrayRefc4(v54, REFC_INCR);
-            AssignArray2(v54->ptr+v10, true);
+            AssignArray2(&(v54->ptr[v10]), true);
             ArrayRefc4(v54, REFC_DECR);
             v55 = true;
         } else {
@@ -699,7 +699,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
         bool v66;
         if (v57){
             uint64_t v58;
-            v58 = v1->len;;
+            v58 = v1->len;
             bool v59;
             v59 = v9 < v58;
             if (v59){
@@ -710,7 +710,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
                 v61 = 0ull <= v56;
                 if (v61){
                     uint64_t v62;
-                    v62 = v60->len;;
+                    v62 = v60->len;
                     ArrayRefc1(v60, REFC_DECR);
                     bool v63;
                     v63 = v56 < v62;
@@ -775,7 +775,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
             Array4 * v76;
             v76 = v0->ptr[v9];
             ArrayRefc4(v76, REFC_INCR);
-            AssignArray2(v76->ptr+v56, true);
+            AssignArray2(&(v76->ptr[v56]), true);
             ArrayRefc4(v76, REFC_DECR);
             v77 = true;
         } else {
@@ -786,7 +786,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
         bool v87;
         if (v57){
             uint64_t v79;
-            v79 = v1->len;;
+            v79 = v1->len;
             bool v80;
             v80 = v9 < v79;
             if (v80){
@@ -797,7 +797,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
                 v82 = 0ull <= v78;
                 if (v82){
                     uint64_t v83;
-                    v83 = v81->len;;
+                    v83 = v81->len;
                     ArrayRefc1(v81, REFC_DECR);
                     bool v84;
                     v84 = v78 < v83;
@@ -862,7 +862,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
             Array4 * v97;
             v97 = v0->ptr[v9];
             ArrayRefc4(v97, REFC_INCR);
-            AssignArray2(v97->ptr+v78, true);
+            AssignArray2(&(v97->ptr[v78]), true);
             ArrayRefc4(v97, REFC_DECR);
             v98 = true;
         } else {
@@ -906,7 +906,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
             UH0 * v107;
             v107 = UH0_0(StringLit(2, "UP"), v11);
             UHRefc0(v107, REFC_INCR);
-            AssignArray4(v106->ptr+0ull, TupleCreate0(v12, v10, v107));
+            AssignArray4(&(v106->ptr[0ull]), TupleCreate0(v12, v10, v107));
             UHRefc0(v107, REFC_DECR);
             v108 = 1ull;
         } else {
@@ -917,7 +917,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
             UH0 * v109;
             v109 = UH0_0(StringLit(4, "DOWN"), v11);
             UHRefc0(v109, REFC_INCR);
-            AssignArray4(v106->ptr+v108, TupleCreate0(v34, v10, v109));
+            AssignArray4(&(v106->ptr[v108]), TupleCreate0(v34, v10, v109));
             UHRefc0(v109, REFC_DECR);
             uint64_t v110;
             v110 = v108 + 1ull;
@@ -930,7 +930,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
             UH0 * v112;
             v112 = UH0_0(StringLit(4, "LEFT"), v11);
             UHRefc0(v112, REFC_INCR);
-            AssignArray4(v106->ptr+v111, TupleCreate0(v9, v56, v112));
+            AssignArray4(&(v106->ptr[v111]), TupleCreate0(v9, v56, v112));
             UHRefc0(v112, REFC_DECR);
             uint64_t v113;
             v113 = v111 + 1ull;
@@ -943,7 +943,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
             UH0 * v115;
             v115 = UH0_0(StringLit(5, "RIGHT"), v11);
             UHRefc0(v115, REFC_INCR);
-            AssignArray4(v106->ptr+v114, TupleCreate0(v9, v78, v115));
+            AssignArray4(&(v106->ptr[v114]), TupleCreate0(v9, v78, v115));
             UHRefc0(v115, REFC_DECR);
             uint64_t v116;
             v116 = v114 + 1ull;
@@ -952,7 +952,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
             v117 = v114;
         }
         UHRefc0(v11, REFC_DECR);
-        AssignArray5(v5->ptr+v8, v106);
+        AssignArray5(&(v5->ptr[v8]), v106);
         ArrayRefc5(v106, REFC_DECR);
         uint64_t v118;
         v118 = v8 + 1ull;
@@ -961,7 +961,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
     ArrayRefc5(v3, REFC_DECR);
     MutRefc0(v6, REFC_DECR);
     uint64_t v119;
-    v119 = v5->len;;
+    v119 = v5->len;
     Mut2 * v120;
     v120 = MutCreate2(0ull, 0ull);
     MutRefc2(v120, REFC_INCR);
@@ -974,7 +974,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
         v124 = v5->ptr[v122];
         ArrayRefc5(v124, REFC_INCR);
         uint64_t v125;
-        v125 = v124->len;;
+        v125 = v124->len;
         ArrayRefc5(v124, REFC_DECR);
         uint64_t v126;
         v126 = v123 + v125;
@@ -1000,7 +1000,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
         v134 = v5->ptr[v132];
         ArrayRefc5(v134, REFC_INCR);
         uint64_t v135;
-        v135 = v134->len;;
+        v135 = v134->len;
         Mut2 * v136;
         v136 = MutCreate2(0ull, v133);
         MutRefc2(v136, REFC_INCR);
@@ -1013,7 +1013,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
             Tuple0 tmp1 = v134->ptr[v138];
             v140 = tmp1.v0; v141 = tmp1.v1; v142 = tmp1.v2;
             UHRefc0(v142, REFC_INCR);
-            AssignArray4(v129->ptr+v139, TupleCreate0(v140, v141, v142));
+            AssignArray4(&(v129->ptr[v139]), TupleCreate0(v140, v141, v142));
             UHRefc0(v142, REFC_DECR);
             uint64_t v143;
             v143 = v139 + 1ull;
@@ -1057,9 +1057,8 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
 }
 UH0 * method1(Array0 * v0, uint64_t v1, uint64_t v2){
     ArrayRefc0(v0, REFC_INCR);
-    printf("%s\n","qwe");
     uint64_t v3;
-    v3 = v0->len;;
+    v3 = v0->len;
     Array3 * v4;
     v4 = ArrayCreate3(v3, true);
     ArrayRefc3(v4, REFC_INCR);
@@ -1073,7 +1072,7 @@ UH0 * method1(Array0 * v0, uint64_t v1, uint64_t v2){
         v8 = v0->ptr[v7];
         ArrayRefc1(v8, REFC_INCR);
         uint64_t v9;
-        v9 = v8->len;;
+        v9 = v8->len;
         ArrayRefc1(v8, REFC_DECR);
         Array4 * v10;
         v10 = ArrayCreate4(v9, false);
@@ -1084,20 +1083,19 @@ UH0 * method1(Array0 * v0, uint64_t v1, uint64_t v2){
         while (method0(v9, v11)){
             uint64_t v13;
             v13 = v11->v0;
-            AssignArray2(v10->ptr+v13, false);
+            AssignArray2(&(v10->ptr[v13]), false);
             uint64_t v14;
             v14 = v13 + 1ull;
             AssignMut0(&(v11->v0), v14);
         }
         MutRefc0(v11, REFC_DECR);
-        AssignArray3(v4->ptr+v7, v10);
+        AssignArray3(&(v4->ptr[v7]), v10);
         ArrayRefc4(v10, REFC_DECR);
         uint64_t v15;
         v15 = v7 + 1ull;
         AssignMut0(&(v5->v0), v15);
     }
     MutRefc0(v5, REFC_DECR);
-    printf("%s\n","asd");
     US1 v16;
     v16 = US1_0();
     USRefc1(&(v16), REFC_INCR);
@@ -1111,7 +1109,7 @@ UH0 * method1(Array0 * v0, uint64_t v1, uint64_t v2){
     UH0 * v19;
     v19 = UH0_1();
     UHRefc0(v19, REFC_INCR);
-    AssignArray4(v18->ptr+0ull, TupleCreate0(v1, v2, v19));
+    AssignArray4(&(v18->ptr[0ull]), TupleCreate0(v1, v2, v19));
     UHRefc0(v19, REFC_DECR);
     ArrayRefc3(v4, REFC_SUPPR); ArrayRefc0(v0, REFC_SUPPR); MutRefc1(v17, REFC_SUPPR); ArrayRefc5(v18, REFC_SUPPR);
     return method2(v4, v0, v17, v18);
@@ -1177,14 +1175,14 @@ int32_t main(){
                 v16 = US0_0();
             }
             USRefc0(&(v16), REFC_INCR);
-            AssignArray0(v7->ptr+v10, v16);
+            AssignArray0(&(v7->ptr[v10]), v16);
             USRefc0(&(v16), REFC_DECR);
             uint64_t v17;
             v17 = v10 + 1ull;
             AssignMut0(&(v8->v0), v17);
         }
         MutRefc0(v8, REFC_DECR);
-        AssignArray1(v3->ptr+v6, v7);
+        AssignArray1(&(v3->ptr[v6]), v7);
         ArrayRefc1(v7, REFC_DECR);
         uint64_t v18;
         v18 = v6 + 1ull;

@@ -16,8 +16,9 @@ typedef struct {
 typedef struct Fun0 Fun0;
 struct Fun0{
     int refc;
-    void (*refc_fptr)(Fun0 *, int);
+    void (*refc_fptr)(Fun0 *, REFC_FLAG);
     int32_t (*fptr)(Fun0 *, US0);
+    void * env;
 };
 typedef struct {
     int32_t v0;
@@ -25,9 +26,9 @@ typedef struct {
 typedef struct Closure0 Closure0;
 struct Closure0 {
     int refc;
-    void (*refc_fptr)(Closure0 *, int);
+    void (*refc_fptr)(Closure0 *, REFC_FLAG);
     int32_t (*fptr)(Closure0 *, US0);
-    ClosureEnv0 env[];
+    ClosureEnv0 * env;
 };
 static inline void USRefcBody0(US0 x, REFC_FLAG q){
     switch (x.tag) {
@@ -79,12 +80,13 @@ int32_t ClosureMethod0(Closure0 * x, US0 v1){
     }
 }
 Fun0 * ClosureCreate0(int32_t v0){
-    Closure0 * x = malloc(sizeof(Closure0) + sizeof(ClosureEnv0));
+    Closure0 * x = malloc(sizeof(Closure0));
     x->refc = 0;
     x->refc_fptr = ClosureRefc0;
     x->fptr = ClosureMethod0;
-    ClosureEnv0 * env = x->env;
+    ClosureEnv0 * env = malloc(sizeof(ClosureEnv0));
     env->v0 = v0;
+    x->env = env;
     ClosureRefcBody0(x, REFC_INCR);
     return (Fun0 *) x;
 }

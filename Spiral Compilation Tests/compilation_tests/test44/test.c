@@ -98,17 +98,17 @@ void ArrayRefc0(Array0 * x, REFC_FLAG q){
         }
     }
 }
-Array0 * ArrayCreate0(uint32_t size, bool init_at_zero){
-    size = sizeof(Array0) + sizeof(char) * size;
+Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
+    uint32_t size = sizeof(Array0) + sizeof(char) * len;
     Array0 * x = malloc(size);
     if (init_at_zero) { memset(x,0,size); }
     x->refc = 0;
-    x->len = size;
+    x->len = len;
     return x;
 }
-Array0 * ArrayLit0(uint32_t size, char * ptr){
-    Array0 * x = ArrayCreate0(size, false);
-    memcpy(x->ptr, ptr, sizeof(char) * size);
+Array0 * ArrayLit0(uint32_t len, char * ptr){
+    Array0 * x = ArrayCreate0(len, false);
+    memcpy(x->ptr, ptr, sizeof(char) * len);
     ArrayRefcBody0(x, REFC_INCR);
     return x;
 }

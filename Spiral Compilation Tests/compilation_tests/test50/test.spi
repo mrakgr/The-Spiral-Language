@@ -12,4 +12,4 @@ inl main () =
         inl ~a = y (1,2)
         inl b = y (3,4)
         dyn (comp a b)
-    ()
+    0i32

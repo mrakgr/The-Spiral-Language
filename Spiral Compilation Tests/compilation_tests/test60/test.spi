@@ -2,7 +2,9 @@
 union t =
     | A : string * string * string
 
-inl main() =
+inl main() : i32 =
     inl ~x = A ("qwe", "asd", "zxc")
     match x with
-    | A (a,b,c) => a
+    | A (a,b,c) => 
+        inl ~q = 5i32
+        sm.length a

@@ -24,16 +24,16 @@ void ArrayRefc0(Array0 * x, REFC_FLAG q){
         }
     }
 }
-Array0 * ArrayCreate0(uint32_t size, bool init_at_zero){
-    size = sizeof(Array0);
+Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
+    uint32_t size = sizeof(Array0);
     Array0 * x = malloc(size);
     if (init_at_zero) { memset(x,0,size); }
     x->refc = 0;
-    x->len = size;
+    x->len = len;
     return x;
 }
-Array0 * ArrayLit0(uint32_t size, void * ptr){
-    Array0 * x = ArrayCreate0(size, false);
+Array0 * ArrayLit0(uint32_t len, void * ptr){
+    Array0 * x = ArrayCreate0(len, false);
     return x;
 }
 static inline void MutRefcBody0(Mut0 * x, REFC_FLAG q){
@@ -79,7 +79,7 @@ int32_t main(){
         /* void array set */;
         uint64_t v4;
         v4 = v3 + 1ull;
-        AssignMut0(&v1->v0, v4);
+        AssignMut0(&(v1->v0), v4);
     }
     ArrayRefc0(v0, REFC_DECR);
     MutRefc0(v1, REFC_DECR);

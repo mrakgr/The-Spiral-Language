@@ -27,10 +27,9 @@ struct UH0 {
 };
 static inline void UHRefcBody1(UH1 x, REFC_FLAG q){
     switch (x.tag) {
-        case 0: {
-        }
         case 1: {
             UHRefc0(x.case1.v0, q);
+            break;
         }
     }
 }
@@ -58,10 +57,9 @@ UH1 * UH1_1(UH0 * v0) { // AW
 }
 static inline void UHRefcBody0(UH0 x, REFC_FLAG q){
     switch (x.tag) {
-        case 0: {
-        }
         case 1: {
             UHRefc1(x.case1.v0, q);
+            break;
         }
     }
 }

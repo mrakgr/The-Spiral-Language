@@ -5,5 +5,5 @@ inl main () =
         typecase t with
         | f64 => 1
         | i32 => 11
-        | {q : _} => true
+        | {q : _} => 5
         | i32 * f64 => "zxc"

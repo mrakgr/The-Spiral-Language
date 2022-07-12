@@ -20,11 +20,5 @@ int32_t main(){
     } else {
         v4 = false;
     }
-    bool v5;
-    v5 = true == v4;
-    if (v5){
-        return 1l;
-    } else {
-        return 0l;
-    }
+    return 0l;
 }

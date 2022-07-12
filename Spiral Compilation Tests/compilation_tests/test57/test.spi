@@ -8,5 +8,6 @@ inl main () =
     // $"# // set 1 - note how record fields can be omitted in the real segment"
     real set `(bool * string * i32 * {q : bool; w : bool}) x 1 (false, "zxc", -2i32, {w=false})
     // $"# // index 0"
-    index x 0
+    inl _ = index x 0
+    0i32
     

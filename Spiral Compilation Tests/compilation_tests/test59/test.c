@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 int32_t method2(int32_t v0, int32_t v1){
     bool v2;
     v2 = 0l < v1;
@@ -37,7 +38,9 @@ int32_t method3(int32_t v0, int32_t v1, int32_t v2){
         v8 = v5 == v7;
         bool v10;
         if (v8){
-            v10 = v2 < v5;
+            bool v9;
+            v9 = v2 < v5;
+            v10 = v9;
         } else {
             v10 = false;
         }
@@ -68,7 +71,9 @@ int32_t method1(int32_t v0, int32_t v1){
         v7 = v4 == v6;
         bool v9;
         if (v7){
-            v9 = v1 < v4;
+            bool v8;
+            v8 = v1 < v4;
+            v9 = v8;
         } else {
             v9 = false;
         }

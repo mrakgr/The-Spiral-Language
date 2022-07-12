@@ -24,3 +24,4 @@ inl main () =
     union_test ()
     $"# // Union rec test"
     union_rec_test ()
+    0i32

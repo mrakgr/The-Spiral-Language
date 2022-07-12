@@ -160,3 +160,4 @@ inl main () =
         $"printfn \"Errors:\""
         listm.iter (fun er => $"printfn \"%s\" !er") ers
     | _ => ()
+    0i32
