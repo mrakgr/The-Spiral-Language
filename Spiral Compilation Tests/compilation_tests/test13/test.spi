@@ -4,3 +4,4 @@ inl main () =
         | a,b,c as q when a < 10 => q
         | _ => 0,0,0
     dyn (f (1i32,2i32,3i32))
+    |> fun a,b,c => a+b+c

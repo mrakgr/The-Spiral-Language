@@ -1,4 +1,5 @@
 // Does the CSE work as expected?
 inl main () =
     inl ~a,b = 2,3
-    (a+b)*(a+b) : f64
+    inl ~_ = (a+b)*(a+b) : f64
+    0i32

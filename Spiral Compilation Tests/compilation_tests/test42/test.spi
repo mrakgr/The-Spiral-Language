@@ -18,4 +18,5 @@ inl main() =
     // $"// static"
     inl ~x = g c
     // $"// dynamic"
-    g (Mult (dyn c, V 2))
+    inl ~_ = g (Mult (dyn c, V 2))
+    0i32

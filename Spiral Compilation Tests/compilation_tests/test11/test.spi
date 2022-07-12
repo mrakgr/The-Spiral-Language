@@ -5,4 +5,5 @@ inl main () =
         inl y = 3.4f64
         inl z = "123"
         {x y z}
-    dyn (m.x, m.y, m.z)
+    inl _ = dyn (m.x, m.y, m.z)
+    0i32

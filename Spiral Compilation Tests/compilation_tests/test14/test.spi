@@ -13,4 +13,5 @@ inl main () =
             | _ => "unknown"
         h, x
 
-    dyn (f 0i32, f 1i32, f false, f true, f "asd", f 1i8, f 5.5f64, f 5f64)
+    inl _ = dyn (f 0i32, f 1i32, f false, f true, f "asd", f 1i8, f 5.5f64, f 5f64)
+    0i32

@@ -4,5 +4,5 @@ inl main _ =
     inl k = .q
     inl m = { $k = { b = 2 }}
 
-    {m$k with a = 1}
-    |> dyn
+    inl ~_ = {m$k with a = 1}
+    0i32

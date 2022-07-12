@@ -4,79 +4,94 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct {
+    int refc;
     uint32_t len;
     char ptr[];
 } Array0;
 typedef Array0 String;
-typedef struct {
-    String * v0;
-    int32_t v1;
-    String * v2;
-    int32_t v3;
-    String * v4;
-    bool v5;
-    String * v6;
-    bool v7;
-    String * v8;
-    String * v9;
-    String * v10;
-    int8_t v11;
-    String * v12;
-    double v13;
-    String * v14;
-    double v15;
-} Tuple0;
-Array0 * ArrayCreate0(uint32_t size){
-    Array0 * x = malloc(sizeof(Array0) + sizeof(char) * size);
+static inline void ArrayRefcBody0(Array0 * x, REFC_FLAG q){
+}
+void ArrayRefc0(Array0 * x, REFC_FLAG q){
+    if (x != NULL) {
+        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
+        if (!(q & REFC_SUPPR) && refc == 0) {
+            ArrayRefcBody0(x, REFC_DECR);
+            free(x);
+        }
+    }
+}
+Array0 * ArrayCreate0(uint32_t size, bool init_at_zero){
+    size = sizeof(Array0) + sizeof(char) * size;
+    Array0 * x = malloc(size);
+    if (init_at_zero) { memset(x,0,size); }
+    x->refc = 0;
     x->len = size;
     return x;
 }
 Array0 * ArrayLit0(uint32_t size, char * ptr){
-    Array0 * x = ArrayCreate0(size);
+    Array0 * x = ArrayCreate0(size, false);
     memcpy(x->ptr, ptr, sizeof(char) * size);
+    ArrayRefcBody0(x, REFC_INCR);
     return x;
+}
+static inline void StringRefc(String * x, REFC_FLAG q){
+    return ArrayRefc0(x, q);
 }
 static inline String * StringLit(uint32_t size, char * ptr){
     return ArrayLit0(size, ptr);
 }
-static inline Tuple0 TupleCreate0(String * v0, int32_t v1, String * v2, int32_t v3, String * v4, bool v5, String * v6, bool v7, String * v8, String * v9, String * v10, int8_t v11, String * v12, double v13, String * v14, double v15){
-    Tuple0 x;
-    x.v0 = v0; x.v1 = v1; x.v2 = v2; x.v3 = v3; x.v4 = v4; x.v5 = v5; x.v6 = v6; x.v7 = v7; x.v8 = v8; x.v9 = v9; x.v10 = v10; x.v11 = v11; x.v12 = v12; x.v13 = v13; x.v14 = v14; x.v15 = v15;
-    return x;
-}
-Tuple0 main(){
+int32_t main(){
     String * v0;
     v0 = StringLit(1, "0");
+    StringRefc(v0, REFC_INCR);
+    StringRefc(v0, REFC_DECR);
     int32_t v1;
     v1 = 0l;
     String * v2;
     v2 = StringLit(1, "1");
+    StringRefc(v2, REFC_INCR);
+    StringRefc(v2, REFC_DECR);
     int32_t v3;
     v3 = 1l;
     String * v4;
     v4 = StringLit(5, "false");
+    StringRefc(v4, REFC_INCR);
+    StringRefc(v4, REFC_DECR);
     bool v5;
     v5 = false;
     String * v6;
     v6 = StringLit(4, "true");
+    StringRefc(v6, REFC_INCR);
+    StringRefc(v6, REFC_DECR);
     bool v7;
     v7 = true;
     String * v8;
     v8 = StringLit(3, "asd");
+    StringRefc(v8, REFC_INCR);
+    StringRefc(v8, REFC_DECR);
     String * v9;
     v9 = StringLit(3, "asd");
+    StringRefc(v9, REFC_INCR);
+    StringRefc(v9, REFC_DECR);
     String * v10;
     v10 = StringLit(3, "1i8");
+    StringRefc(v10, REFC_INCR);
+    StringRefc(v10, REFC_DECR);
     int8_t v11;
     v11 = 1;
     String * v12;
     v12 = StringLit(3, "5.5");
+    StringRefc(v12, REFC_INCR);
+    StringRefc(v12, REFC_DECR);
     double v13;
     v13 = 5.5;
     String * v14;
     v14 = StringLit(7, "unknown");
+    StringRefc(v14, REFC_INCR);
+    StringRefc(v14, REFC_DECR);
     double v15;
     v15 = 5.0;
-    return TupleCreate0(v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15);
+    return 0l;
 }

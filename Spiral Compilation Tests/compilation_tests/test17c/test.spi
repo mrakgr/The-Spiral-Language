@@ -1,0 +1,7 @@
+// Do mutually recursive types compile correctly?
+union rec a = AQ | AW : b
+and union b = BQ | BW : a
+
+inl main () = 
+    inl ~_ = AW <| BW <| AW <| BQ
+    0i32

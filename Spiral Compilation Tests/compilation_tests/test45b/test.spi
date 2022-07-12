@@ -2,10 +2,12 @@
 union cell = Princess | Empty
 
 let save_the_princess (field : a u64 (a u64 _)) mario_pos : list string =
+    $"printf(\"%s\\n\",\"qwe\")"
     inl cells_visited : a u64 (a u64 _) = 
         am.init (length field) (fun b =>
             am.init (length (index field b)) (fun _ => false)
             )
+    $"printf(\"%s\\n\",\"asd\")"
     inl index' ar (b,a) = index (index ar b) a
     inl set' ar (b,a) v = set (index ar b) a v
     inl is_in_range (b,a),_ = 0 <= b && b < length field && (inl x = index field b in 0 <= a && a < length x)
@@ -62,3 +64,4 @@ inl main () =
     // |> listm.iter (fun x => $"printfn \"%s\" !x")
     // listm.iter (fun x => $"print(!x)") x
     listm.iter (fun x => $"printf(\"%s\\n\",!x->ptr)") x
+    0i32

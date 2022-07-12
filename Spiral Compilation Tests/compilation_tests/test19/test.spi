@@ -3,7 +3,8 @@ inl main () =
     inl f {name p={x y}} = name,(x,y)
     inl x = { name = "Coord" }
 
-    f {x with 
-        p = { x = 1i64
-              y = 2i8 }}
-    |> dyn
+    inl ~_ =
+        f {x with 
+            p = { x = 1i64
+                y = 2i8 }}
+    0i32

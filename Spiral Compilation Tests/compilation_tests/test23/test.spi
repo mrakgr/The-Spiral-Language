@@ -9,4 +9,5 @@ inl main () =
     $"// let v2 = false"
     inl _ = dyn (if x then false else x)
     $"// v0  = false"
-    dyn (if x then false else true)
+    inl _ = dyn (if x then false else true)
+    0i32

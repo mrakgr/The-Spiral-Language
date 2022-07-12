@@ -1,0 +1,4 @@
+// Do mutually recursive functions compile correctly?
+let rec f s x = if x = 0 then s else g s (x-1)
+and let g s x = if x = 0 then s else f s (x-1)
+inl main () = f 123i32 10u64

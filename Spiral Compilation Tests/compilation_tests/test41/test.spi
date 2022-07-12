@@ -5,4 +5,4 @@ inl main() : i32 =
     | (q,w) :: [] => "One element.", q+w
     | (q,w) :: (e,r) :: [] => "Two elements.",q+w+e+r
     | (q,w) :: (e,r) :: (t,y) :: l => "At least three elements.",q+w+e+r+t+y
-    |> fun (a,b) => $"printf(\"%s\\n%i\\n\",!a->ptr,!b)"
+    |> fun (a,b) => $"printf(\"%s\\n%i\\n\",!a->ptr,!b)" . 0i32

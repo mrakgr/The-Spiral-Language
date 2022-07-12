@@ -4,8 +4,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct UH0 UH0;
 struct UH0 {
+    int refc;
     int tag;
     union {
         struct {
@@ -16,30 +18,68 @@ struct UH0 {
     };
 };
 typedef struct {
+    int refc;
     uint32_t len;
     char ptr[];
 } Array0;
 typedef Array0 String;
+static inline void UHRefcBody0(UH0 x, REFC_FLAG q){
+    switch (x.tag) {
+        case 0: {
+            UHRefc0(x.case0.v2, q);
+            break;
+        }
+    }
+}
+void UHRefc0(UH0 * x, REFC_FLAG q){
+    if (x != NULL) {
+        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
+        if (!(q & REFC_SUPPR) && refc == 0) {
+            UHRefcBody0(*x, REFC_DECR);
+            free(x);
+        }
+    }
+}
 UH0 * UH0_0(int32_t v0, int32_t v1, UH0 * v2) { // Cons
-    UH0 * x = malloc(sizeof(UH0));
-    x->tag = 0;
-    x->case0.v0 = v0; x->case0.v1 = v1; x->case0.v2 = v2;
-    return x;
+    UH0 x;
+    x.tag = 0;
+    x.case0.v0 = v0; x.case0.v1 = v1; x.case0.v2 = v2;
+    UHRefcBody0(x, REFC_INCR);
+    return memcpy(malloc(sizeof(UH0)),&x,sizeof(UH0));
 }
 UH0 * UH0_1() { // Nil
-    UH0 * x = malloc(sizeof(UH0));
-    x->tag = 1;
-    return x;
+    UH0 x;
+    x.tag = 1;
+    UHRefcBody0(x, REFC_INCR);
+    return memcpy(malloc(sizeof(UH0)),&x,sizeof(UH0));
 }
-Array0 * ArrayCreate0(uint32_t size){
-    Array0 * x = malloc(sizeof(Array0) + sizeof(char) * size);
+static inline void ArrayRefcBody0(Array0 * x, REFC_FLAG q){
+}
+void ArrayRefc0(Array0 * x, REFC_FLAG q){
+    if (x != NULL) {
+        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
+        if (!(q & REFC_SUPPR) && refc == 0) {
+            ArrayRefcBody0(x, REFC_DECR);
+            free(x);
+        }
+    }
+}
+Array0 * ArrayCreate0(uint32_t size, bool init_at_zero){
+    size = sizeof(Array0) + sizeof(char) * size;
+    Array0 * x = malloc(size);
+    if (init_at_zero) { memset(x,0,size); }
+    x->refc = 0;
     x->len = size;
     return x;
 }
 Array0 * ArrayLit0(uint32_t size, char * ptr){
-    Array0 * x = ArrayCreate0(size);
+    Array0 * x = ArrayCreate0(size, false);
     memcpy(x->ptr, ptr, sizeof(char) * size);
+    ArrayRefcBody0(x, REFC_INCR);
     return x;
+}
+static inline void StringRefc(String * x, REFC_FLAG q){
+    return ArrayRefc0(x, q);
 }
 static inline String * StringLit(uint32_t size, char * ptr){
     return ArrayLit0(size, ptr);
@@ -59,12 +99,19 @@ int32_t main(){
     v5 = 6l;
     UH0 * v6;
     v6 = UH0_1();
+    UHRefc0(v6, REFC_INCR);
     UH0 * v7;
     v7 = UH0_0(v4, v5, v6);
+    UHRefc0(v7, REFC_INCR);
+    UHRefc0(v6, REFC_DECR);
     UH0 * v8;
     v8 = UH0_0(v2, v3, v7);
+    UHRefc0(v8, REFC_INCR);
+    UHRefc0(v7, REFC_DECR);
     UH0 * v9;
     v9 = UH0_0(v0, v1, v8);
+    UHRefc0(v9, REFC_INCR);
+    UHRefc0(v8, REFC_DECR);
     String * v32; int32_t v33;
     switch (v9->tag) {
         case 0: { // Cons
@@ -115,5 +162,9 @@ int32_t main(){
             break;
         }
     }
-    return printf("%s\n%i\n",v32->ptr,v33);
+    StringRefc(v32, REFC_INCR);
+    UHRefc0(v9, REFC_DECR);
+    printf("%s\n%i\n",v32->ptr,v33);
+    StringRefc(v32, REFC_DECR);
+    return 0l;
 }

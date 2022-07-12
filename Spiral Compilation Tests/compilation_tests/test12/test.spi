@@ -4,4 +4,4 @@ inl main () =
     inl x = 2 * 22 .+ 33
 
     inl f op a b = op a b
-    f (*) 2 x |> dyn : i64
+    f (*) 2 x |> dyn : i32

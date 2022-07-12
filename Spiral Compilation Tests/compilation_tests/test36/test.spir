@@ -1,5 +1,5 @@
 // Does the let statement work?
 open real_core
 inl main _ =
-    let f (x : i64) = x
-    f 3i64
+    let f (x : i32) = x
+    f 3

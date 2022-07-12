@@ -6,4 +6,4 @@ inl main () = real
         }
     inl f i {$i=x} = x
     let ~x = f .a m, f .b m
-    x
+    0i32

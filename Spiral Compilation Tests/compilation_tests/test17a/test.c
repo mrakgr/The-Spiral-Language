@@ -4,19 +4,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-int64_t method0(int64_t v0, int64_t v1){
+typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
+int32_t method0(int32_t v0, int32_t v1){
     bool v2;
     v2 = true;
     if (v2){
         return method0(v1, v0);
     } else {
-        return v0 + v1;
+        int32_t v4;
+        v4 = v0 + v1;
+        return v4;
     }
 }
-int64_t main(){
-    int64_t v0;
-    v0 = 1ll;
-    int64_t v1;
-    v1 = 2ll;
+int32_t main(){
+    int32_t v0;
+    v0 = 1l;
+    int32_t v1;
+    v1 = 2l;
     return method0(v0, v1);
 }

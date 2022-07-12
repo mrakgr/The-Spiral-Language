@@ -85,8 +85,10 @@ void ArrayRefc0(Array0 * x, REFC_FLAG q){
     }
 }
 Array0 * ArrayCreate0(uint32_t size, bool init_at_zero){
+    size = sizeof(Array0) + sizeof(char) * size;
+    Array0 * x = malloc(size);
+    if (init_at_zero) { memset(x,0,size); }
     x->refc = 0;
-    Array0 * x = (init_at_zero ? calloc : malloc)(sizeof(Array0) + sizeof(char) * size);
     x->len = size;
     return x;
 }
@@ -126,7 +128,7 @@ Tuple0 ClosureMethod2(Closure2 * x, String * v4){
 Fun0 * ClosureCreate2(int32_t v0, double v1, float v2, double v3){
     Closure2 * x = malloc(sizeof(Closure2) + sizeof(ClosureEnv2));
     x->refc = 0;
-    x->refc_fptr = ClosurRefc2;
+    x->refc_fptr = ClosureRefc2;
     x->fptr = ClosureMethod2;
     ClosureEnv2 * env = x->env;
     env->v0 = v0; env->v1 = v1; env->v2 = v2; env->v3 = v3;
@@ -155,7 +157,7 @@ Fun0 * ClosureMethod1(Closure1 * x, double v1, float v2, double v3){
 Fun2 * ClosureCreate1(int32_t v0){
     Closure1 * x = malloc(sizeof(Closure1) + sizeof(ClosureEnv1));
     x->refc = 0;
-    x->refc_fptr = ClosurRefc1;
+    x->refc_fptr = ClosureRefc1;
     x->fptr = ClosureMethod1;
     ClosureEnv1 * env = x->env;
     env->v0 = v0;
@@ -182,7 +184,7 @@ Fun2 * ClosureMethod0(Closure0 * x, int32_t v0){
 Fun1 * ClosureCreate0(){
     Closure0 * x = malloc(sizeof(Closure0) + sizeof(ClosureEnv0));
     x->refc = 0;
-    x->refc_fptr = ClosurRefc0;
+    x->refc_fptr = ClosureRefc0;
     x->fptr = ClosureMethod0;
     return (Fun1 *) x;
 }

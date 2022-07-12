@@ -8,4 +8,5 @@ inl main _ =
         |> f .b 456
         |> fun {a b c} => a,b
         |> dyn
-    x,"qwe"
+    inl ~_ = x,"qwe"
+    0i32

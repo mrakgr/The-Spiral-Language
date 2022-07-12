@@ -1,1 +1,1 @@
-﻿compare "a" "b"
+﻿$"{true}"

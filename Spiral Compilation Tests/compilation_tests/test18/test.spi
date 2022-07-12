@@ -8,4 +8,4 @@ inl main () =
         c=3
         }
 
-    dyn (f {x with a = 4}) : i64
+    dyn (f {x with a = 4}) : i32

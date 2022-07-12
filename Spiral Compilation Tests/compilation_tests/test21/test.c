@@ -4,19 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-typedef struct {
-    float v0;
-    float v1;
-} Tuple0;
-static inline Tuple0 TupleCreate0(float v0, float v1){
-    Tuple0 x;
-    x.v0 = v0; x.v1 = v1;
-    return x;
-}
-Tuple0 main(){
+typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
+int32_t main(){
     float v0;
     v0 = 6.0f;
     float v1;
     v1 = 4.0f;
-    return TupleCreate0(v0, v1);
+    return 0l;
 }

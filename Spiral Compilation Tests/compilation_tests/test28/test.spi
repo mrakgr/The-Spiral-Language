@@ -6,4 +6,5 @@ inl main () =
     inl g = function
         | .Bye => "Bye"
 
-    dyn (g f.Hello)
+    inl ~_ = dyn (g f.Hello)
+    0i32
