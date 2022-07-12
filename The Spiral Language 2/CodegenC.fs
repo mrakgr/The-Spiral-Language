@@ -59,8 +59,9 @@ let refc_used_vars (x : TypedBind []) =
     binds x |> ignore
     g
 
-let refc_decref_vars (free_vars : TyV Set) (x : TypedBind []) =
+let refc_prepass (free_vars : TyV Set) (x : TypedBind []) =
     let used_vars = refc_used_vars x
+    let is_suppr = HashSet(HashIdentity.Reference) // TODO
     let g : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
     let fv x = x |> data_free_vars |> Set
     let rec binds (vs : TyV Set) x =
@@ -290,7 +291,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and refc_suppr_data x : string [] = refc_suppr (data_free_vars x)
     and binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = 
         refc_incr args |> line' s
-        binds (refc_decref_vars (Set args) x) s BindsTailEnd x
+        binds (refc_prepass (Set args) x) s BindsTailEnd x
     and show_w = function WV(L(i,_)) -> sprintf "v%i" i | WLit a -> lit a
     and args' b = data_term_vars b |> Array.map show_w |> String.concat ", "
     and tup_term_vars x =
@@ -591,7 +592,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 | "" -> $"{range} (*fptr)(Closure{i} *);"
                 | domain_args_ty -> $"{range} (*fptr)(Closure{i} *, {domain_args_ty});"
                 |> line s_typ
-                line s_typ $"ClosureEnv{i} * env;"
+                line s_typ $"ClosureEnv{i} env[];"
             line s_typ "};"
 
             line s_fun (sprintf "static inline void ClosureRefcBody%i(Closure%i * x, REFC_FLAG q){" i i)
@@ -635,14 +636,13 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s_fun (sprintf "Fun%i * ClosureCreate%i(%s){" fun_tag i (String.concat ", " free_vars))
             let _ =
                 let s_fun = indent s_fun
-                line s_fun $"Closure{i} * x = malloc(sizeof(Closure{i}));"
-                line s_fun "x->refc = 0;"
+                line s_fun $"Closure{i} * x = malloc(sizeof(Closure{i}) + sizeof(ClosureEnv{i}));"
+                line s_fun "x->refc = 1;"
                 line s_fun $"x->refc_fptr = ClosureRefc{i};"
                 line s_fun $"x->fptr = ClosureMethod{i};"
                 if x.free_vars.Length <> 0 then
-                    line s_fun $"ClosureEnv{i} * env = malloc(sizeof(ClosureEnv{i}));"
+                    line s_fun $"ClosureEnv{i} * env = x->env;"
                     x.free_vars |> Array.map (fun (L(i,_)) -> $"env->v{i} = v{i};")  |> line' s_fun
-                    line s_fun "x->env = env;"
                     line s_fun $"ClosureRefcBody{i}(x, REFC_INCR);"
                 line s_fun $"return (Fun{fun_tag} *) x;"
             line s_fun "}"
@@ -752,7 +752,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let _ =
                 let s_fun = indent s_fun
                 line s_fun $"{name'} * x = malloc(sizeof({name'}));"
-                line s_fun "x->refc = 0;"
+                line s_fun "x->refc = 1;"
                 Array.init args.Length (fun i -> $"x->v{i} = v{i};") |> line' (indent s_fun)
                 line s_fun $"{name}RefcBody{i}(x, REFC_INCR);"
                 line s_fun $"return x;"
@@ -833,25 +833,29 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
 
             map_iteri (fun tag k v -> 
                 let args = v |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}") |> String.concat ", "
-                match is_stack with
-                | true  -> line s_fun (sprintf "US%i US%i_%i(%s) { // %s" i i tag args k)
-                | false -> line s_fun (sprintf "UH%i * UH%i_%i(%s) { // %s" i i tag args k)
-                let _ =
-                    let s_fun = indent s_fun
-                    match is_stack with
-                    | true  -> line s_fun $"US{i} x;"
-                    | false -> line s_fun $"UH{i} x;"
-                    line s_fun $"x.tag = {tag};"
-                    if 0 < v.Length then
-                        v |> Array.map (fun (L(i,t)) -> $"x.case{tag}.v{i} = v{i};") |> line' s_fun
-                    match is_stack with
-                    | true  ->
+                if is_stack then
+                    line s_fun (sprintf "US%i US%i_%i(%s) { // %s" i i tag args k)
+                    let _ =
+                        let s_fun = indent s_fun
+                        line s_fun $"US{i} x;"
+                        line s_fun $"x.tag = {tag};"
+                        if 0 < v.Length then
+                            v |> Array.map (fun (L(i,t)) -> $"x.case{tag}.v{i} = v{i};") |> line' s_fun
                         line s_fun $"USRefcBody{i}(x, REFC_INCR);"
                         line s_fun "return x;"
-                    | false -> 
+                    line s_fun "}"
+                else
+                    line s_fun (sprintf "UH%i * UH%i_%i(%s) { // %s" i i tag args k)
+                    let _ =
+                        let s_fun = indent s_fun
+                        line s_fun $"UH{i} x;"
+                        line s_fun $"x.tag = {tag};"
+                        line s_fun "x.refc = 1;"
+                        if 0 < v.Length then
+                            v |> Array.map (fun (L(i,t)) -> $"x.case{tag}.v{i} = v{i};") |> line' s_fun
                         line s_fun $"UHRefcBody{i}(x, REFC_INCR);"
                         line s_fun $"return memcpy(malloc(sizeof(UH{i})),&x,sizeof(UH{i}));"
-                line s_fun (sprintf "}")
+                    line s_fun "}"
                 ) x.free_vars
             )
     and ustack : _ -> UnionRec = union_tmpl true
@@ -904,7 +908,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 | _ -> line s_fun $"{len_t} size = sizeof(Array{i}) + sizeof({ptr_t}) * len;"
                 line s_fun $"Array{i} * x = malloc(size);"
                 line s_fun "if (init_at_zero) { memset(x,0,size); }"
-                line s_fun "x->refc = 0;"
+                line s_fun "x->refc = 1;"
                 line s_fun "x->len = len;"
                 line s_fun "return x;"
             line s_fun "}"
