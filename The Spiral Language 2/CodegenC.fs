@@ -59,19 +59,29 @@ let refc_used_vars (x : TypedBind []) =
     binds x |> ignore
     g
 
+type RefcVars = {decref : Dictionary<TypedBind,TyV Set>; is_suppr : TyV HashSet}
 let refc_prepass (free_vars : TyV Set) (x : TypedBind []) =
     let used_vars = refc_used_vars x
-    let is_suppr = HashSet(HashIdentity.Reference) // TODO
+    let is_suppr = HashSet(HashIdentity.Reference)
     let g : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
     let fv x = x |> data_free_vars |> Set
     let rec binds (vs : TyV Set) x =
         Array.fold (fun vs k ->
-            let decref_vars = vs - used_vars.[k]
+            let used_vars = used_vars.[k]
+            let decref_vars = vs - used_vars
             g.Add(k,decref_vars)
             let r = vs - decref_vars
             match k with
             | TyLet(d,_,o) -> op Set.empty o; r + fv d
-            | TyLocalReturnOp(_,o,_) -> op r o; r
+            | TyLocalReturnOp(_,o,_) -> 
+                match o with
+                | TyJoinPoint _ | TyArrayLiteral _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _ | TyUnionBox _  -> 
+                    let suppr_vars = Set.intersect vs used_vars
+                    g.Add(k,suppr_vars)
+                    Set.iter (is_suppr.Add >> ignore) suppr_vars
+                | _ -> ()
+                op r o
+                r
             | TyLocalReturnData(_,_) -> r
             ) vs x
         |> ignore
@@ -88,7 +98,7 @@ let refc_prepass (free_vars : TyV Set) (x : TypedBind []) =
             Array.iter (binds vs) on_succs'
             binds vs on_fail'
     binds free_vars x
-    g
+    {decref=g; is_suppr=is_suppr}
 
 type BindsReturn =
     | BindsTailEnd
@@ -226,7 +236,17 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
 
     let tyvs_to_tys (x : TyV []) = Array.map (fun (L(i,t)) -> t) x
 
-    let rec binds (decref_vars : Dictionary<TypedBind, TyV Set>) (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
+    let refc_incdec_eliminate (vars : RefcVars) next_typedbind let_vars =
+        let mutable decref_vars_on_next = vars.decref.[next_typedbind]
+        let incref_vars = ResizeArray()
+        Array.iter (fun v ->
+            if Set.contains v decref_vars_on_next then decref_vars_on_next <- Set.remove v decref_vars_on_next
+            else incref_vars.Add v
+            ) let_vars
+        vars.decref.[next_typedbind] <- decref_vars_on_next
+        incref_vars.ToArray()
+
+    let rec binds (vars : RefcVars) (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
         let tup_destruct (a,b) =
             Array.map2 (fun (L(i,_)) b -> 
                 match b with
@@ -234,38 +254,24 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 | WV (L(i',_)) -> $"v{i} = v{i'};"
                 ) a b
         Array.iteri (fun i x ->
-            decref_vars.[x] |> Set.toArray |> refc_decr |> line' s
+            let _ =
+                let decref_vars, suppr_vars = ResizeArray(), ResizeArray()
+                vars.decref.[x] |> Set.iter (fun x -> if vars.is_suppr.Contains x then suppr_vars.Add x else decref_vars.Add x)
+                refc_decr (decref_vars.ToArray()) |> line' s; refc_suppr (suppr_vars.ToArray()) |> line' s
             match x with
             | TyLet(d,trace,a) ->
                 try let d = data_free_vars d
                     Array.map (fun (L(i,t)) -> $"{tyv t} v{i};") d |> line' s
-                    op decref_vars s (BindsLocal d) a
-
+                    op vars s (BindsLocal d) a
                     match a with
-                    | TyLayoutIndexAll _ | TyLayoutIndexByKey _ | TyOp(ArrayIndex,_) ->
-                        let h = stmts.[i+1]
-                        let mutable decref_vars_on_next = decref_vars.[h]
-                        let incref_vars = ResizeArray()
-                        Array.iter (fun v ->
-                            if Set.contains v decref_vars_on_next then decref_vars_on_next <- Set.remove v decref_vars_on_next
-                            else incref_vars.Add v
-                            ) d
-                        decref_vars.[h] <- decref_vars_on_next
-                        incref_vars.ToArray()
-                    | _ ->
-                        d
-                    |> refc_incr |> line' s
+                    | TyLayoutIndexAll _ | TyLayoutIndexByKey _ | TyOp(ArrayIndex,_) -> refc_incdec_eliminate vars stmts.[i+1] d |> refc_incr |> line' s
+                    | _ -> ()
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             | TyLocalReturnOp(trace,a,_) ->
-                try match a with
-                    | TyUnionBox(_,v,_) | TyLayoutToHeap(v,_) | TyLayoutToHeapMutable(v,_) -> refc_suppr_data v |> line' s
-                    | TyArrayLiteral(_,vs) -> Seq.collect refc_suppr_data vs |> line' s
-                    | _ -> ()
-                    op decref_vars s ret a
+                try op vars s ret a
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             | TyLocalReturnData(d,trace) ->
-                try refc_suppr_data d |> line' s
-                    match ret with
+                try match ret with
                     | BindsLocal l -> line' s (tup_destruct (l,data_term_vars d))
                     | BindsTailEnd -> line s $"return {tup_data d};"
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
@@ -367,8 +373,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | x -> string x
             |> sprintf "'%s'"
         | LitBool x -> if x then "true" else "false" // true and false are defined in stddef.h
-    and op decref_vars s (ret : BindsReturn) a =
-        let binds a b = binds decref_vars a b
+    and op (vars : RefcVars) s (ret : BindsReturn) a =
+        let binds a b = binds vars a b
         let return' (x : string) =
             match ret with
             | BindsLocal [||] -> line s $"{x};"
@@ -439,20 +445,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     let union_i = case_tags.[k]
                     line s (sprintf "case %i: { // %s" union_i k)
                     List.iter2 (fun (L(data_i,_)) a ->
-                        let h = Array.head b
-                        let mutable decref_vars_on_next = decref_vars.[h]
-                        let incref_vars, unboxed_vars = ResizeArray(), ResizeArray()
-                        Array.iteri (fun field_i (L(v_i,t) as v) ->
-                            if Set.contains v decref_vars_on_next then decref_vars_on_next <- Set.remove v decref_vars_on_next
-                            else 
-                                unboxed_vars.Add $"{tyv t} v{v_i} = v{data_i}{acs}case{union_i}.v{field_i};"
-                                incref_vars.Add v
-                            ) (data_free_vars a)
-                        decref_vars.[h] <- decref_vars_on_next
-
-                        let s = indent s
-                        line' s unboxed_vars
-                        refc_incr (incref_vars.ToArray()) |> line' s
+                        let a, s = data_free_vars a, indent s
+                        Array.mapi (fun field_i (L(v_i,t)) -> $"{tyv t} v{v_i} = v{data_i}{acs}case{union_i}.v{field_i};") a |> line' s
+                        refc_incdec_eliminate vars (Array.head b) a |> refc_incr |> line' s
                         ) is a
                     binds (indent s) ret b
                     line (indent s) "break;"

@@ -235,7 +235,7 @@ let lit_to_primitive_type = function
     | LitChar _ -> CharT
 
 let lit_to_ty x = lit_to_primitive_type x |> YPrim
-let is_tco_compatible = function TyJoinPoint _ | TyIf _ | TyIntSwitch _ | TyUnionUnbox _ | TyUnionBox _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _ | TyArrayLiteral _ | TyArrayCreate _ | TyFailwith _ -> true | _ -> false
+let is_tco_compatible = function TyIf _ | TyIntSwitch _ | TyUnionUnbox _ | TyJoinPoint _ | TyUnionBox _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _ | TyArrayLiteral _ | TyArrayCreate _ | TyFailwith _ -> true | _ -> false
 
 let seq_apply (d: LangEnv) end_dat =
     let inline end_ () = d.seq.Add(TyLocalReturnData(end_dat,d.trace))
