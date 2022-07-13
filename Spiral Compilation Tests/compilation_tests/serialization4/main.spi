@@ -42,4 +42,4 @@ inl test_view max_stack =
     inl ~x = {stack_self=max_stack/2; stack_opp=max_stack/2; pot=max_stack; hand=(0,1),(12,3); prev_action=NoAction}
     test scheme x
 
-inl main () : () = join test_view 10
+inl main () = join test_view 10 . 0i32

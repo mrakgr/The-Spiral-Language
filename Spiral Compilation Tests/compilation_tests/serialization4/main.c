@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct {
     int tag;
     union {
@@ -13,6 +14,7 @@ typedef struct {
     };
 } US0;
 typedef struct {
+    int refc;
     uint32_t len;
     float ptr[];
 } Array0;
@@ -20,31 +22,59 @@ typedef struct {
     uint32_t v0;
     uint32_t v1;
 } Tuple0;
+static inline void USRefcBody0(US0 x, REFC_FLAG q){
+    switch (x.tag) {
+    }
+}
+void USRefc0(US0 * x, REFC_FLAG q){
+    USRefcBody0(*x, q);
+}
 US0 US0_0() { // Call
     US0 x;
     x.tag = 0;
+    USRefcBody0(x, REFC_INCR);
     return x;
 }
 US0 US0_1() { // NoAction
     US0 x;
     x.tag = 1;
+    USRefcBody0(x, REFC_INCR);
     return x;
 }
 US0 US0_2(uint32_t v0) { // Raise
     US0 x;
     x.tag = 2;
     x.case2.v0 = v0;
+    USRefcBody0(x, REFC_INCR);
     return x;
 }
-Array0 * ArrayCreate0(uint32_t size){
-    Array0 * x = malloc(sizeof(Array0) + sizeof(float) * size);
-    x->len = size;
+static inline void ArrayRefcBody0(Array0 * x, REFC_FLAG q){
+}
+void ArrayRefc0(Array0 * x, REFC_FLAG q){
+    if (x != NULL) {
+        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
+        if (!(q & REFC_SUPPR) && refc == 0) {
+            ArrayRefcBody0(x, REFC_DECR);
+            free(x);
+        }
+    }
+}
+Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
+    uint32_t size = sizeof(Array0) + sizeof(float) * len;
+    Array0 * x = malloc(size);
+    if (init_at_zero) { memset(x,0,size); }
+    x->refc = 1;
+    x->len = len;
     return x;
 }
-Array0 * ArrayLit0(uint32_t size, float * ptr){
-    Array0 * x = ArrayCreate0(size);
-    memcpy(x->ptr, ptr, sizeof(float) * size);
+Array0 * ArrayLit0(uint32_t len, float * ptr){
+    Array0 * x = ArrayCreate0(len, false);
+    memcpy(x->ptr, ptr, sizeof(float) * len);
+    ArrayRefcBody0(x, REFC_INCR);
     return x;
+}
+static inline void AssignArray0(float * a, float b){
+    *a = b;
 }
 static inline Tuple0 TupleCreate0(uint32_t v0, uint32_t v1){
     Tuple0 x;
@@ -52,6 +82,7 @@ static inline Tuple0 TupleCreate0(uint32_t v0, uint32_t v1){
     return x;
 }
 Tuple0 method2(uint32_t v0, Array0 * v1, uint32_t v2, uint32_t v3, uint32_t v4){
+    ArrayRefc0(v1, REFC_INCR);
     bool v5;
     v5 = v2 < v0;
     if (v5){
@@ -76,12 +107,15 @@ Tuple0 method2(uint32_t v0, Array0 * v1, uint32_t v2, uint32_t v3, uint32_t v4){
                 exit(EXIT_FAILURE);
             }
         }
+        ArrayRefc0(v1, REFC_SUPPR);
         return method2(v0, v1, v6, v15, v16);
     } else {
+        ArrayRefc0(v1, REFC_DECR);
         return TupleCreate0(v3, v4);
     }
 }
 Tuple0 method1(Array0 * v0, uint32_t v1, uint32_t v2){
+    ArrayRefc0(v0, REFC_INCR);
     uint32_t v3;
     v3 = 0ul;
     uint32_t v4;
@@ -89,19 +123,19 @@ Tuple0 method1(Array0 * v0, uint32_t v1, uint32_t v2){
     uint32_t v5; uint32_t v6;
     Tuple0 tmp0 = method2(v1, v0, v2, v3, v4);
     v5 = tmp0.v0; v6 = tmp0.v1;
+    ArrayRefc0(v0, REFC_DECR);
     bool v7;
     v7 = 1ul < v6;
     if (v7){
         fprintf(stderr, "%s\n", "Unpickling failure. Too many active indices in the one-hot vector.")
         exit(EXIT_FAILURE);
     } else {
-        
     }
     uint32_t v8;
     v8 = v5 - v2;
     return TupleCreate0(v8, v6);
 }
-void method0(){
+int32_t method0(){
     uint32_t v0;
     v0 = 0ul;
     uint32_t v1;
@@ -119,17 +153,19 @@ void method0(){
     uint32_t v7;
     v7 = 5ul;
     Array0 * v8;
-    v8 = ArrayCreate0(73ul);
+    v8 = ArrayCreate0(73ul, false);
     bool v9;
     v9 = 0ul <= v7;
     bool v11;
     if (v9){
-        v11 = v7 < 11ul;
+        bool v10;
+        v10 = v7 < 11ul;
+        v11 = v10;
     } else {
         v11 = false;
     }
     if (v11){
-        v8->ptr[v7] = 1.0f;
+        AssignArray0(&(v8->ptr[v7]), 1.0f);
     } else {
         fprintf(stderr, "%s\n", "Value out of bounds.")
         exit(EXIT_FAILURE);
@@ -138,14 +174,16 @@ void method0(){
     v12 = 0ul <= v6;
     bool v14;
     if (v12){
-        v14 = v6 < 11ul;
+        bool v13;
+        v13 = v6 < 11ul;
+        v14 = v13;
     } else {
         v14 = false;
     }
     if (v14){
         uint32_t v15;
         v15 = 11ul + v6;
-        v8->ptr[v15] = 1.0f;
+        AssignArray0(&(v8->ptr[v15]), 1.0f);
     } else {
         fprintf(stderr, "%s\n", "Value out of bounds.")
         exit(EXIT_FAILURE);
@@ -154,14 +192,16 @@ void method0(){
     v16 = 0ul <= v4;
     bool v18;
     if (v16){
-        v18 = v4 < 11ul;
+        bool v17;
+        v17 = v4 < 11ul;
+        v18 = v17;
     } else {
         v18 = false;
     }
     if (v18){
         uint32_t v19;
         v19 = 22ul + v4;
-        v8->ptr[v19] = 1.0f;
+        AssignArray0(&(v8->ptr[v19]), 1.0f);
     } else {
         fprintf(stderr, "%s\n", "Value out of bounds.")
         exit(EXIT_FAILURE);
@@ -170,14 +210,16 @@ void method0(){
     v20 = 0ul <= v0;
     bool v22;
     if (v20){
-        v22 = v0 < 13ul;
+        bool v21;
+        v21 = v0 < 13ul;
+        v22 = v21;
     } else {
         v22 = false;
     }
     if (v22){
         uint32_t v23;
         v23 = 33ul + v0;
-        v8->ptr[v23] = 1.0f;
+        AssignArray0(&(v8->ptr[v23]), 1.0f);
     } else {
         fprintf(stderr, "%s\n", "Value out of bounds.")
         exit(EXIT_FAILURE);
@@ -186,14 +228,16 @@ void method0(){
     v24 = 0ul <= v1;
     bool v26;
     if (v24){
-        v26 = v1 < 4ul;
+        bool v25;
+        v25 = v1 < 4ul;
+        v26 = v25;
     } else {
         v26 = false;
     }
     if (v26){
         uint32_t v27;
         v27 = 46ul + v1;
-        v8->ptr[v27] = 1.0f;
+        AssignArray0(&(v8->ptr[v27]), 1.0f);
     } else {
         fprintf(stderr, "%s\n", "Value out of bounds.")
         exit(EXIT_FAILURE);
@@ -202,14 +246,16 @@ void method0(){
     v28 = 0ul <= v2;
     bool v30;
     if (v28){
-        v30 = v2 < 13ul;
+        bool v29;
+        v29 = v2 < 13ul;
+        v30 = v29;
     } else {
         v30 = false;
     }
     if (v30){
         uint32_t v31;
         v31 = 50ul + v2;
-        v8->ptr[v31] = 1.0f;
+        AssignArray0(&(v8->ptr[v31]), 1.0f);
     } else {
         fprintf(stderr, "%s\n", "Value out of bounds.")
         exit(EXIT_FAILURE);
@@ -218,25 +264,27 @@ void method0(){
     v32 = 0ul <= v3;
     bool v34;
     if (v32){
-        v34 = v3 < 4ul;
+        bool v33;
+        v33 = v3 < 4ul;
+        v34 = v33;
     } else {
         v34 = false;
     }
     if (v34){
         uint32_t v35;
         v35 = 63ul + v3;
-        v8->ptr[v35] = 1.0f;
+        AssignArray0(&(v8->ptr[v35]), 1.0f);
     } else {
         fprintf(stderr, "%s\n", "Value out of bounds.")
         exit(EXIT_FAILURE);
     }
     switch (v5.tag) {
         case 0: { // Call
-            v8->ptr[67ul] = 1.0f;
+            AssignArray0(&(v8->ptr[67ul]), 1.0f);
             break;
         }
         case 1: { // NoAction
-            v8->ptr[68ul] = 1.0f;
+            AssignArray0(&(v8->ptr[68ul]), 1.0f);
             break;
         }
         case 2: { // Raise
@@ -245,14 +293,16 @@ void method0(){
             v37 = 0ul <= v36;
             bool v39;
             if (v37){
-                v39 = v36 < 4ul;
+                bool v38;
+                v38 = v36 < 4ul;
+                v39 = v38;
             } else {
                 v39 = false;
             }
             if (v39){
                 uint32_t v40;
                 v40 = 69ul + v36;
-                v8->ptr[v40] = 1.0f;
+                AssignArray0(&(v8->ptr[v40]), 1.0f);
             } else {
                 fprintf(stderr, "%s\n", "Value out of bounds.")
                 exit(EXIT_FAILURE);
@@ -304,7 +354,6 @@ void method0(){
         fprintf(stderr, "%s\n", "Unpickling failure. Two sides of a pair should either all be active or inactive.")
         exit(EXIT_FAILURE);
     } else {
-        
     }
     uint32_t v63;
     v63 = v61 / 2ul;
@@ -330,7 +379,6 @@ void method0(){
         fprintf(stderr, "%s\n", "Unpickling failure. Two sides of a pair should either all be active or inactive.")
         exit(EXIT_FAILURE);
     } else {
-        
     }
     uint32_t v74;
     v74 = v72 / 2ul;
@@ -342,7 +390,6 @@ void method0(){
         fprintf(stderr, "%s\n", "Unpickling failure. Two sides of a pair should either all be active or inactive.")
         exit(EXIT_FAILURE);
     } else {
-        
     }
     uint32_t v77;
     v77 = v75 / 2ul;
@@ -387,6 +434,7 @@ void method0(){
     uint32_t v92; uint32_t v93;
     Tuple0 tmp8 = method1(v8, v91, v90);
     v92 = tmp8.v0; v93 = tmp8.v1;
+    ArrayRefc0(v8, REFC_DECR);
     bool v94;
     v94 = v89 == 1ul;
     US0 v97;
@@ -405,6 +453,7 @@ void method0(){
     } else {
         v101 = v97;
     }
+    USRefc0(&(v97), REFC_DECR);
     uint32_t v102;
     v102 = v98 + v93;
     bool v103;
@@ -413,7 +462,6 @@ void method0(){
         fprintf(stderr, "%s\n", "Unpickling failure. Only a single case of an union type should be active at most.")
         exit(EXIT_FAILURE);
     } else {
-        
     }
     uint32_t v104;
     v104 = v77 + v102;
@@ -423,7 +471,6 @@ void method0(){
         fprintf(stderr, "%s\n", "Unpickling failure. Two sides of a pair should either all be active or inactive.")
         exit(EXIT_FAILURE);
     } else {
-        
     }
     uint32_t v106;
     v106 = v104 / 2ul;
@@ -435,7 +482,6 @@ void method0(){
         fprintf(stderr, "%s\n", "Unpickling failure. Two sides of a pair should either all be active or inactive.")
         exit(EXIT_FAILURE);
     } else {
-        
     }
     uint32_t v109;
     v109 = v107 / 2ul;
@@ -447,7 +493,6 @@ void method0(){
         fprintf(stderr, "%s\n", "Unpickling failure. Two sides of a pair should either all be active or inactive.")
         exit(EXIT_FAILURE);
     } else {
-        
     }
     uint32_t v112;
     v112 = v110 / 2ul;
@@ -459,7 +504,6 @@ void method0(){
         fprintf(stderr, "%s\n", "Unpickling failure. Two sides of a pair should either all be active or inactive.")
         exit(EXIT_FAILURE);
     } else {
-        
     }
     uint32_t v115;
     v115 = v113 / 2ul;
@@ -471,13 +515,14 @@ void method0(){
         fprintf(stderr, "%s\n", "Invalid format.")
         exit(EXIT_FAILURE);
     } else {
-        
     }
     bool v118;
     v118 = v0 == v55;
     bool v120;
     if (v118){
-        v120 = v1 == v59;
+        bool v119;
+        v119 = v1 == v59;
+        v120 = v119;
     } else {
         v120 = false;
     }
@@ -486,7 +531,9 @@ void method0(){
         bool v121;
         v121 = v2 == v66;
         if (v121){
-            v124 = v3 == v70;
+            bool v122;
+            v122 = v3 == v70;
+            v124 = v122;
         } else {
             v124 = false;
         }
@@ -511,7 +558,9 @@ void method0(){
                 case 2: { // Raise
                     uint32_t v126 = v5.case2.v0;
                     uint32_t v127 = v101.case2.v0;
-                    v129 = v126 == v127;
+                    bool v128;
+                    v128 = v126 == v127;
+                    v129 = v128;
                     break;
                 }
                 default: {
@@ -522,7 +571,9 @@ void method0(){
                 bool v130;
                 v130 = v6 == v47;
                 if (v130){
-                    v135 = v7 == v43;
+                    bool v131;
+                    v131 = v7 == v43;
+                    v135 = v131;
                 } else {
                     v135 = false;
                 }
@@ -535,15 +586,16 @@ void method0(){
     } else {
         v135 = false;
     }
+    USRefc0(&(v5), REFC_DECR); USRefc0(&(v101), REFC_DECR);
     bool v136;
     v136 = v135 == false;
     if (v136){
         fprintf(stderr, "%s\n", "Serialization and deserialization should result in the same result.")
         exit(EXIT_FAILURE);
     } else {
-        return ;
     }
+    return 0l;
 }
-void main(){
+int32_t main(){
     return method0();
 }

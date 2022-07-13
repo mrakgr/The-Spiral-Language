@@ -4,8 +4,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-int64_t main(){
+typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
+int32_t main(){
     int8_t v0;
     v0 = 1;
-    return (int64_t)v0;
+    int32_t v1;
+    v1 = (int32_t)v0;
+    return v1;
 }

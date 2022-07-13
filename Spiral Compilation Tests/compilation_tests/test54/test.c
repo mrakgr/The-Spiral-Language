@@ -23,15 +23,14 @@ void HeapRefc0(Heap0 * x, REFC_FLAG q){
 }
 Heap0 * HeapCreate0(int32_t v0, int32_t v1){
     Heap0 * x = malloc(sizeof(Heap0));
-    x->refc = 0;
-        x->v0 = v0; x->v1 = v1;
+    x->refc = 1;
+    x->v0 = v0; x->v1 = v1;
     HeapRefcBody0(x, REFC_INCR);
     return x;
 }
 int32_t main(){
     Heap0 * v0;
     v0 = HeapCreate0(1l, 2l);
-    HeapRefc0(v0, REFC_INCR);
     int32_t v1;
     v1 = v0->v0;
     int32_t v2;

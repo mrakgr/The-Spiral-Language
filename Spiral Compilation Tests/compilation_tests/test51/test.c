@@ -6,7 +6,9 @@
 #include <math.h>
 typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct UH0 UH0;
+void UHRefc0(UH0 * x, REFC_FLAG q);
 typedef struct UH1 UH1;
+void UHRefc1(UH1 * x, REFC_FLAG q);
 typedef struct {
     int tag;
     union {
@@ -79,6 +81,7 @@ void UHRefc0(UH0 * x, REFC_FLAG q){
 UH0 * UH0_0(int32_t v0, UH0 * v1) { // Cons
     UH0 x;
     x.tag = 0;
+    x.refc = 1;
     x.case0.v0 = v0; x.case0.v1 = v1;
     UHRefcBody0(x, REFC_INCR);
     return memcpy(malloc(sizeof(UH0)),&x,sizeof(UH0));
@@ -86,6 +89,7 @@ UH0 * UH0_0(int32_t v0, UH0 * v1) { // Cons
 UH0 * UH0_1() { // Nil
     UH0 x;
     x.tag = 1;
+    x.refc = 1;
     UHRefcBody0(x, REFC_INCR);
     return memcpy(malloc(sizeof(UH0)),&x,sizeof(UH0));
 }
@@ -109,6 +113,7 @@ void UHRefc1(UH1 * x, REFC_FLAG q){
 UH1 * UH1_0(double v0, UH1 * v1) { // Cons
     UH1 x;
     x.tag = 0;
+    x.refc = 1;
     x.case0.v0 = v0; x.case0.v1 = v1;
     UHRefcBody1(x, REFC_INCR);
     return memcpy(malloc(sizeof(UH1)),&x,sizeof(UH1));
@@ -116,6 +121,7 @@ UH1 * UH1_0(double v0, UH1 * v1) { // Cons
 UH1 * UH1_1() { // Nil
     UH1 x;
     x.tag = 1;
+    x.refc = 1;
     UHRefcBody1(x, REFC_INCR);
     return memcpy(malloc(sizeof(UH1)),&x,sizeof(UH1));
 }
@@ -124,6 +130,7 @@ uint64_t method0(UH0 * v0){
     switch (v0->tag) {
         case 0: { // Cons
             int32_t v1 = v0->case0.v0; UH0 * v2 = v0->case0.v1;
+            UHRefc0(v2, REFC_INCR);
             UHRefc0(v0, REFC_DECR);
             uint64_t v3;
             v3 = hash(v1);
@@ -131,6 +138,7 @@ uint64_t method0(UH0 * v0){
             v4 = v3 * 9973ull;
             uint64_t v5;
             v5 = method0(v2);
+            UHRefc0(v2, REFC_DECR);
             uint64_t v6;
             v6 = v4 + v5;
             uint64_t v7;
@@ -164,6 +172,7 @@ uint64_t method1(UH1 * v0){
     switch (v0->tag) {
         case 0: { // Cons
             double v1 = v0->case0.v0; UH1 * v2 = v0->case0.v1;
+            UHRefc1(v2, REFC_INCR);
             UHRefc1(v0, REFC_DECR);
             uint64_t v3;
             v3 = hash(v1);
@@ -171,6 +180,7 @@ uint64_t method1(UH1 * v0){
             v4 = v3 * 9973ull;
             uint64_t v5;
             v5 = method1(v2);
+            UHRefc1(v2, REFC_DECR);
             uint64_t v6;
             v6 = v4 + v5;
             uint64_t v7;
@@ -228,7 +238,6 @@ int32_t main(){
     v14 = 1l;
     US0 v15;
     v15 = US0_0(v14);
-    USRefc0(&(v15), REFC_INCR);
     uint64_t v30;
     switch (v15.tag) {
         case 0: { // A
@@ -271,7 +280,6 @@ int32_t main(){
     v31 = 3.0;
     US0 v32;
     v32 = US0_1(v31);
-    USRefc0(&(v32), REFC_INCR);
     uint64_t v47;
     switch (v32.tag) {
         case 0: { // A
@@ -314,10 +322,8 @@ int32_t main(){
     v48 = 3l;
     UH0 * v49;
     v49 = UH0_1();
-    UHRefc0(v49, REFC_INCR);
     UH0 * v50;
     v50 = UH0_0(v48, v49);
-    UHRefc0(v50, REFC_INCR);
     UHRefc0(v49, REFC_DECR);
     double v51;
     v51 = 2.0;
@@ -325,14 +331,11 @@ int32_t main(){
     v52 = 3.0;
     UH1 * v53;
     v53 = UH1_1();
-    UHRefc1(v53, REFC_INCR);
     UH1 * v54;
     v54 = UH1_0(v52, v53);
-    UHRefc1(v54, REFC_INCR);
     UHRefc1(v53, REFC_DECR);
     UH1 * v55;
     v55 = UH1_0(v51, v54);
-    UHRefc1(v55, REFC_INCR);
     UHRefc1(v54, REFC_DECR);
     uint64_t v58;
     v58 = hash(1l);

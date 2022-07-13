@@ -2,6 +2,7 @@
 
 - [Support Spiral](#support-spiral)
 - [News](#news)
+- [7/13/2022](#7132022)
 - [8/21/2021](#8212021)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
@@ -42,6 +43,12 @@
 [Link](https://opencollective.com/spiral-collective).
 
 # News
+
+# 7/13/2022
+
+Created the C backend for Spiral and updated the language to v2.2.0. I regret not doing this last year, so I decided to finally do it. Compared to the F#, or the Cython backend, the C one is not too useful because C does not have any worthwhile libraries to take advantage of. But it is going to serve a prototype for AI chip C backends, and I needed to do it in order to get a grasp on reference counting. I did pretty well at that. I have gone through the testing suite, but it isn't too thorough or designed to catch memory errors, so for the time being it might be worth putting the programs produced by it through [Cee Studio](https://www.cee.studio/). Consider it in beta right now. From here on out, the best kind of test would be to use it in the real world.
+
+When I get some novel hardware it is going to be easy to adapt it to them. Until then, I won't bother using it for anything in particular.
 
 # 8/21/2021
 

@@ -2,4 +2,4 @@
 
 inl main () =
     inl q = a.t () : a.t ()
-    ()
+    0i32

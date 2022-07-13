@@ -4,44 +4,75 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct {
+    int refc;
     uint32_t len;
     char ptr[];
 } Array0;
 typedef Array0 String;
-Array0 * ArrayCreate0(uint32_t size){
-    Array0 * x = malloc(sizeof(Array0) + sizeof(char) * size);
-    x->len = size;
+static inline void ArrayRefcBody0(Array0 * x, REFC_FLAG q){
+}
+void ArrayRefc0(Array0 * x, REFC_FLAG q){
+    if (x != NULL) {
+        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
+        if (!(q & REFC_SUPPR) && refc == 0) {
+            ArrayRefcBody0(x, REFC_DECR);
+            free(x);
+        }
+    }
+}
+Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
+    uint32_t size = sizeof(Array0) + sizeof(char) * len;
+    Array0 * x = malloc(size);
+    if (init_at_zero) { memset(x,0,size); }
+    x->refc = 1;
+    x->len = len;
     return x;
 }
-Array0 * ArrayLit0(uint32_t size, char * ptr){
-    Array0 * x = ArrayCreate0(size);
-    memcpy(x->ptr, ptr, sizeof(char) * size);
+Array0 * ArrayLit0(uint32_t len, char * ptr){
+    Array0 * x = ArrayCreate0(len, false);
+    memcpy(x->ptr, ptr, sizeof(char) * len);
+    ArrayRefcBody0(x, REFC_INCR);
     return x;
 }
-static inline String * StringLit(uint32_t size, char * ptr){
-    return ArrayLit0(size, ptr);
+static inline void StringRefc(String * x, REFC_FLAG q){
+    return ArrayRefc0(x, q);
 }
-String * main(){
+static inline String * StringLit(uint32_t len, char * ptr){
+    return ArrayLit0(len, ptr);
+}
+int32_t main(){
     uint8_t v0;
     v0 = 0u;
     bool v1;
     v1 = 0u == v0;
+    String * v10;
     if (v1){
-        return StringLit(3, "qwe");
+        String * v2;
+        v2 = StringLit(4, "qwe");
+        v10 = v2;
     } else {
-        bool v2;
-        v2 = 1u == v0;
-        if (v2){
-            return StringLit(3, "asd");
+        bool v3;
+        v3 = 1u == v0;
+        if (v3){
+            String * v4;
+            v4 = StringLit(4, "asd");
+            v10 = v4;
         } else {
-            bool v3;
-            v3 = 2u == v0;
-            if (v3){
-                return StringLit(3, "asd");
+            bool v5;
+            v5 = 2u == v0;
+            if (v5){
+                String * v6;
+                v6 = StringLit(4, "asd");
+                v10 = v6;
             } else {
-                return StringLit(3, "zxc");
+                String * v7;
+                v7 = StringLit(4, "zxc");
+                v10 = v7;
             }
         }
     }
+    StringRefc(v10, REFC_DECR);
+    return 0l;
 }

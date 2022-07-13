@@ -72,11 +72,11 @@ US0 US0_0(String * v0, String * v1, String * v2) { // A
 }
 int32_t main(){
     String * v0;
-    v0 = StringLit(3, "qwe");
+    v0 = StringLit(4, "qwe");
     String * v1;
-    v1 = StringLit(3, "asd");
+    v1 = StringLit(4, "asd");
     String * v2;
-    v2 = StringLit(3, "zxc");
+    v2 = StringLit(4, "zxc");
     US0 v3;
     v3 = US0_0(v0, v1, v2);
     StringRefc(v0, REFC_DECR); StringRefc(v1, REFC_DECR); StringRefc(v2, REFC_DECR);

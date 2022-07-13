@@ -4,25 +4,42 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct {
+    int refc;
     uint32_t len;
     int32_t ptr[];
 } Array0;
-Array0 * ArrayCreate0(uint32_t size){
-    Array0 * x = malloc(sizeof(Array0) + sizeof(int32_t) * size);
-    x->len = size;
+static inline void ArrayRefcBody0(Array0 * x, REFC_FLAG q){
+}
+void ArrayRefc0(Array0 * x, REFC_FLAG q){
+    if (x != NULL) {
+        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
+        if (!(q & REFC_SUPPR) && refc == 0) {
+            ArrayRefcBody0(x, REFC_DECR);
+            free(x);
+        }
+    }
+}
+Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
+    uint32_t size = sizeof(Array0) + sizeof(int32_t) * len;
+    Array0 * x = malloc(size);
+    if (init_at_zero) { memset(x,0,size); }
+    x->refc = 1;
+    x->len = len;
     return x;
 }
-Array0 * ArrayLit0(uint32_t size, int32_t * ptr){
-    Array0 * x = ArrayCreate0(size);
-    memcpy(x->ptr, ptr, sizeof(int32_t) * size);
+Array0 * ArrayLit0(uint32_t len, int32_t * ptr){
+    Array0 * x = ArrayCreate0(len, false);
+    memcpy(x->ptr, ptr, sizeof(int32_t) * len);
+    ArrayRefcBody0(x, REFC_INCR);
     return x;
 }
 int32_t main(){
     Array0 * v0;
-    v0 = ArrayLit0(10,(int32_t []){1l,2l,3l});
+    v0 = ArrayLit0(3, (int32_t []){1l,2l,3l});
     uint64_t v1;
-    v1 = v0->len;;
+    v1 = v0->len;
     bool v2;
     v2 = v1 == 3ull;
     if (v2){
@@ -32,9 +49,12 @@ int32_t main(){
         v4 = v0->ptr[1l];
         int32_t v5;
         v5 = v0->ptr[2l];
+        ArrayRefc0(v0, REFC_DECR);
         int32_t v6;
         v6 = v3 + v4;
-        return v6 + v5;
+        int32_t v7;
+        v7 = v6 + v5;
+        return v7;
     } else {
         bool v8;
         v8 = v1 == 2ull;
@@ -43,13 +63,20 @@ int32_t main(){
             v9 = v0->ptr[0l];
             int32_t v10;
             v10 = v0->ptr[1l];
-            return v9 + v10;
+            ArrayRefc0(v0, REFC_DECR);
+            int32_t v11;
+            v11 = v9 + v10;
+            return v11;
         } else {
             bool v12;
             v12 = v1 == 1ull;
             if (v12){
-                return v0->ptr[0l];
+                int32_t v13;
+                v13 = v0->ptr[0l];
+                ArrayRefc0(v0, REFC_DECR);
+                return v13;
             } else {
+                ArrayRefc0(v0, REFC_DECR);
                 return 0l;
             }
         }

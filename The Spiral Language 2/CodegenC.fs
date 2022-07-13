@@ -475,9 +475,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") q.data b 
             Array.map2 (fun (L(i',_)) b -> $"&(v{i}->v{i'}), {show_w b}") (data_free_vars a) (data_term_vars c) |> String.concat ", " 
             |> sprintf "AssignMut%i(%s)" (assign_mut (tyvs_to_tys q.free_vars)).tag |> return'
-        | TyArrayLiteral(a,b) ->
-            let b = List.map tup_data b |> String.concat "," |> sprintf "{%s}"
-            $"ArrayLit{(carray a).tag}({b.Length}, ({tup_ty a} []){b})" |> return'
+        | TyArrayLiteral(a,b') ->
+            let b = List.map tup_data b' |> String.concat "," |> sprintf "{%s}"
+            $"ArrayLit{(carray a).tag}({b'.Length}, ({tup_ty a} []){b})" |> return'
         | TyArrayCreate(a,b) -> 
             let is_heap : string = is_heap a |> sprintf "%b"
             $"ArrayCreate{(carray a).tag}({tup_data b}, {is_heap})" |> return'

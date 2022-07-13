@@ -37,4 +37,4 @@ inl test_big () =
     inl scheme = pair i32() (pair i32() (list (record_qwe (pair i32() (pair string() char())))))
     inl ~x = 1,2,({q=1;w="a";e='z'} :: {q=2;w="s";e='x'} :: Nil)
     test scheme x
-inl main () : () = join test_big()
+inl main () = join test_big() . 0i32
