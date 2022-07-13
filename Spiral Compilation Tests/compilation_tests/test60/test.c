@@ -36,7 +36,7 @@ Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
     uint32_t size = sizeof(Array0) + sizeof(char) * len;
     Array0 * x = malloc(size);
     if (init_at_zero) { memset(x,0,size); }
-    x->refc = 0;
+    x->refc = 1;
     x->len = len;
     return x;
 }
@@ -73,20 +73,16 @@ US0 US0_0(String * v0, String * v1, String * v2) { // A
 int32_t main(){
     String * v0;
     v0 = StringLit(3, "qwe");
-    StringRefc(v0, REFC_INCR);
     String * v1;
     v1 = StringLit(3, "asd");
-    StringRefc(v1, REFC_INCR);
     String * v2;
     v2 = StringLit(3, "zxc");
-    StringRefc(v2, REFC_INCR);
     US0 v3;
     v3 = US0_0(v0, v1, v2);
-    USRefc0(&(v3), REFC_INCR);
     StringRefc(v0, REFC_DECR); StringRefc(v1, REFC_DECR); StringRefc(v2, REFC_DECR);
     switch (v3.tag) {
         case 0: { // A
-            String * v4 = v3.case0.v0;
+            String * v4 = v3.case0.v0; String * v5 = v3.case0.v1; String * v6 = v3.case0.v2;
             StringRefc(v4, REFC_INCR);
             USRefc0(&(v3), REFC_DECR);
             int32_t v7;

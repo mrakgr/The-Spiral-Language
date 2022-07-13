@@ -32,13 +32,10 @@ US0 US0_1() { // B
 int32_t main(){
     US0 v0;
     v0 = US0_1();
-    USRefc0(&(v0), REFC_INCR);
     US0 v1;
     v1 = US0_1();
-    USRefc0(&(v1), REFC_INCR);
     US0 v2;
     v2 = US0_1();
-    USRefc0(&(v2), REFC_INCR);
     switch (v0.tag) {
         case 0: { // A
             USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR);
@@ -49,20 +46,20 @@ int32_t main(){
             USRefc0(&(v0), REFC_DECR);
             switch (v1.tag) {
                 case 0: { // A
-                    USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR);
+                    USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR);
                     return 2l;
                     break;
                 }
                 case 1: { // B
-                    USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR);
+                    USRefc0(&(v1), REFC_DECR);
                     switch (v2.tag) {
                         case 0: { // A
-                            USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR);
+                            USRefc0(&(v2), REFC_DECR);
                             return 3l;
                             break;
                         }
                         case 1: { // B
-                            USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR);
+                            USRefc0(&(v2), REFC_DECR);
                             return 4l;
                             break;
                         }

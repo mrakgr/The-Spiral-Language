@@ -6,6 +6,7 @@
 #include <math.h>
 typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct UH0 UH0;
+void UHRefc0(UH0 * x, REFC_FLAG q);
 typedef struct {
     int tag;
     union {
@@ -68,6 +69,7 @@ void UHRefc0(UH0 * x, REFC_FLAG q){
 UH0 * UH0_0(int32_t v0, UH0 * v1) { // Cons
     UH0 x;
     x.tag = 0;
+    x.refc = 1;
     x.case0.v0 = v0; x.case0.v1 = v1;
     UHRefcBody0(x, REFC_INCR);
     return memcpy(malloc(sizeof(UH0)),&x,sizeof(UH0));
@@ -75,6 +77,7 @@ UH0 * UH0_0(int32_t v0, UH0 * v1) { // Cons
 UH0 * UH0_1() { // Nil
     UH0 x;
     x.tag = 1;
+    x.refc = 1;
     UHRefcBody0(x, REFC_INCR);
     return memcpy(malloc(sizeof(UH0)),&x,sizeof(UH0));
 }
@@ -83,14 +86,17 @@ bool method0(UH0 * v0, UH0 * v1){
     switch (v1->tag == v0->tag ? v1->tag : -1) {
         case 0: { // Cons
             int32_t v2 = v1->case0.v0; UH0 * v3 = v1->case0.v1;
+            UHRefc0(v3, REFC_INCR);
             int32_t v4 = v0->case0.v0; UH0 * v5 = v0->case0.v1;
+            UHRefc0(v5, REFC_INCR);
             UHRefc0(v0, REFC_DECR); UHRefc0(v1, REFC_DECR);
             bool v6;
             v6 = v2 == v4;
             if (v6){
-                UHRefc0(v5, REFC_SUPPR); UHRefc0(v3, REFC_SUPPR);
+                UHRefc0(v3, REFC_SUPPR); UHRefc0(v5, REFC_SUPPR);
                 return method0(v5, v3);
             } else {
+                UHRefc0(v3, REFC_DECR); UHRefc0(v5, REFC_DECR);
                 return false;
             }
             break;
@@ -116,7 +122,6 @@ int32_t main(){
     v4 = 1l;
     US0 v5;
     v5 = US0_0(v4);
-    USRefc0(&(v5), REFC_INCR);
     bool v9;
     switch (v5.tag) {
         case 1: { // B
@@ -136,7 +141,6 @@ int32_t main(){
     v10 = 3.0;
     US0 v11;
     v11 = US0_1(v10);
-    USRefc0(&(v11), REFC_INCR);
     bool v16;
     switch (v11.tag) {
         case 0: { // A
@@ -156,12 +160,10 @@ int32_t main(){
     v17 = 1l;
     US0 v18;
     v18 = US0_0(v17);
-    USRefc0(&(v18), REFC_INCR);
     double v19;
     v19 = 3.0;
     US0 v20;
     v20 = US0_1(v19);
-    USRefc0(&(v20), REFC_INCR);
     bool v27;
     switch (v18.tag == v20.tag ? v18.tag : -1) {
         case 0: { // A
@@ -190,10 +192,8 @@ int32_t main(){
     v28 = 3l;
     UH0 * v29;
     v29 = UH0_1();
-    UHRefc0(v29, REFC_INCR);
     UH0 * v30;
     v30 = UH0_0(v28, v29);
-    UHRefc0(v30, REFC_INCR);
     UHRefc0(v29, REFC_DECR);
     int32_t v31;
     v31 = 2l;
@@ -201,24 +201,24 @@ int32_t main(){
     v32 = 3l;
     UH0 * v33;
     v33 = UH0_1();
-    UHRefc0(v33, REFC_INCR);
     UH0 * v34;
     v34 = UH0_0(v32, v33);
-    UHRefc0(v34, REFC_INCR);
     UHRefc0(v33, REFC_DECR);
     UH0 * v35;
     v35 = UH0_0(v31, v34);
-    UHRefc0(v35, REFC_INCR);
     UHRefc0(v34, REFC_DECR);
     bool v47;
     switch (v35->tag) {
         case 0: { // Cons
             int32_t v42 = v35->case0.v0; UH0 * v43 = v35->case0.v1;
+            UHRefc0(v43, REFC_INCR);
             bool v44;
             v44 = 2l == v42;
             if (v44){
+                UHRefc0(v43, REFC_SUPPR);
                 v47 = method0(v43, v30);
             } else {
+                UHRefc0(v43, REFC_DECR);
                 v47 = false;
             }
             break;

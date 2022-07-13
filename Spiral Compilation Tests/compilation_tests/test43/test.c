@@ -6,6 +6,7 @@
 #include <math.h>
 typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct UH0 UH0;
+void UHRefc0(UH0 * x, REFC_FLAG q);
 struct UH0 {
     int refc;
     int tag;
@@ -36,6 +37,7 @@ void UHRefc0(UH0 * x, REFC_FLAG q){
 UH0 * UH0_0(int32_t v0, UH0 * v1) { // Cons
     UH0 x;
     x.tag = 0;
+    x.refc = 1;
     x.case0.v0 = v0; x.case0.v1 = v1;
     UHRefcBody0(x, REFC_INCR);
     return memcpy(malloc(sizeof(UH0)),&x,sizeof(UH0));
@@ -43,6 +45,7 @@ UH0 * UH0_0(int32_t v0, UH0 * v1) { // Cons
 UH0 * UH0_1() { // Nil
     UH0 x;
     x.tag = 1;
+    x.refc = 1;
     UHRefcBody0(x, REFC_INCR);
     return memcpy(malloc(sizeof(UH0)),&x,sizeof(UH0));
 }
@@ -51,6 +54,7 @@ int32_t method0(UH0 * v0, int32_t v1){
     switch (v0->tag) {
         case 0: { // Cons
             int32_t v2 = v0->case0.v0; UH0 * v3 = v0->case0.v1;
+            UHRefc0(v3, REFC_INCR);
             UHRefc0(v0, REFC_DECR);
             int32_t v4;
             v4 = v1 + v2;
@@ -74,18 +78,14 @@ int32_t main(){
     v2 = 3l;
     UH0 * v3;
     v3 = UH0_1();
-    UHRefc0(v3, REFC_INCR);
     UH0 * v4;
     v4 = UH0_0(v2, v3);
-    UHRefc0(v4, REFC_INCR);
     UHRefc0(v3, REFC_DECR);
     UH0 * v5;
     v5 = UH0_0(v1, v4);
-    UHRefc0(v5, REFC_INCR);
     UHRefc0(v4, REFC_DECR);
     UH0 * v6;
     v6 = UH0_0(v0, v5);
-    UHRefc0(v6, REFC_INCR);
     UHRefc0(v5, REFC_DECR);
     int32_t v7;
     v7 = 0l;

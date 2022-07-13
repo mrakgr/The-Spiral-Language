@@ -26,7 +26,7 @@ Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
     uint32_t size = sizeof(Array0) + sizeof(char) * len;
     Array0 * x = malloc(size);
     if (init_at_zero) { memset(x,0,size); }
-    x->refc = 0;
+    x->refc = 1;
     x->len = len;
     return x;
 }
@@ -45,7 +45,6 @@ static inline String * StringLit(uint32_t len, char * ptr){
 int32_t main(){
     String * v0;
     v0 = StringLit(5, "Coord");
-    StringRefc(v0, REFC_INCR);
     StringRefc(v0, REFC_DECR);
     int64_t v1;
     v1 = 1ll;

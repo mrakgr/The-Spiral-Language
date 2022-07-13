@@ -526,7 +526,7 @@ let peval (env : TopEnv) (x : E) =
                 | DNominal(DUnion(DPair(DSymbol k,v),b),b') -> dirty <- true; push_typedop_no_rewrite s (TyUnionBox(k,f v,b)) b'
                 | DUnion _ -> raise_type_error s "Compiler error: Malformed union"
                 | DNominal(a,b) -> DNominal(f a,b)
-                | DLit (LitString _ as v) -> push_op_no_rewrite s Dyn x (lit_to_ty v)
+                | DLit (LitString _ as v) -> dirty <- true; push_op s Dyn x (lit_to_ty v)
                 | DLit v as x -> if do_lit then dirty <- true; push_op_no_rewrite s Dyn x (lit_to_ty v) else x
                 | DFunction(body,Some annot,term',ty',sz_term,sz_ty) -> dirty <- true; closure_convert s (body,annot,term',ty',sz_term,sz_ty) |> fst
                 | DFunction(_,None,_,_,_,_) -> raise_type_error s "Cannot convert a function that is not annotated into a type."

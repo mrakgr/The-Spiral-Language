@@ -11,12 +11,14 @@ open System.Collections.Generic
 
 let line x s = if s <> "" then x.text.Append(' ', x.indent).AppendLine s |> ignore
 let line' x s = line x (String.concat " " s)
-let rec is_heap = function
+
+let rec is_heap = function // TODO: Deal with the nominal case.
     | YUnion a -> a.Item.layout = UHeap || Array.exists (snd >> is_heap) a.Item.tag_cases
     | YPrim StringT | YLayout _ | YArray _ | YFun _ -> true
+    | YPrim _ -> false
     | YPair(a,b) -> is_heap a || is_heap b
     | YRecord l -> Map.exists (fun k v -> is_heap v) l
-    | a -> false
+    | _ -> true
 let is_string = function DV(L(_,YPrim StringT)) | DLit(LitString _) -> true | _ -> false
 
 let refc_used_vars (x : TypedBind []) =
@@ -59,10 +61,10 @@ let refc_used_vars (x : TypedBind []) =
     binds x |> ignore
     g
 
-type RefcVars = {decref : Dictionary<TypedBind,TyV Set>; is_suppr : TyV HashSet}
+type RefcVars = {decref : Dictionary<TypedBind,TyV Set>; is_suppr : Dictionary<TypedBind,TyV Set>}
 let refc_prepass (free_vars : TyV Set) (x : TypedBind []) =
     let used_vars = refc_used_vars x
-    let is_suppr = HashSet(HashIdentity.Reference)
+    let is_suppr : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
     let g : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
     let fv x = x |> data_free_vars |> Set
     let rec binds (vs : TyV Set) x =
@@ -77,8 +79,8 @@ let refc_prepass (free_vars : TyV Set) (x : TypedBind []) =
                 match o with
                 | TyJoinPoint _ | TyArrayLiteral _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _ | TyUnionBox _  -> 
                     let suppr_vars = Set.intersect vs used_vars
-                    g.Add(k,suppr_vars)
-                    Set.iter (is_suppr.Add >> ignore) suppr_vars
+                    g.[k] <- decref_vars + suppr_vars
+                    is_suppr.Add(k, suppr_vars)
                 | _ -> ()
                 op r o
                 r
@@ -135,7 +137,7 @@ let lit_string x =
 
 let codegen (env : PartEvalResult) (x : TypedBind []) =
     let imports = ResizeArray()
-    let types_fwd = ResizeArray()
+    let fwd_dcls = ResizeArray()
     let types = ResizeArray()
     let functions = ResizeArray()
 
@@ -147,7 +149,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         let f (a : _ ResizeArray) (b : CodegenEnv) = 
             let text = b.text.ToString()
             if text <> "" then a.Add(text)
-        f types_fwd s_typ_fwd
+        f fwd_dcls s_typ_fwd
         f types s_typ
         f functions s_fun
 
@@ -256,7 +258,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         Array.iteri (fun i x ->
             let _ =
                 let decref_vars, suppr_vars = ResizeArray(), ResizeArray()
-                vars.decref.[x] |> Set.iter (fun x -> if vars.is_suppr.Contains x then suppr_vars.Add x else decref_vars.Add x)
+                let is_suppr = match vars.is_suppr.TryGetValue(x) with true,x -> x | _ -> Set.empty
+                vars.decref.[x] |> Set.iter (fun x -> if is_suppr.Contains x then suppr_vars.Add x else decref_vars.Add x)
                 refc_decr (decref_vars.ToArray()) |> line' s; refc_suppr (suppr_vars.ToArray()) |> line' s
             match x with
             | TyLet(d,trace,a) ->
@@ -294,7 +297,6 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and refc_incr x : string [] = refc_change (fun i -> $"v{i}") "REFC_INCR" x
     and refc_decr x : string [] = refc_change (fun i -> $"v{i}") "REFC_DECR" x
     and refc_suppr (x : TyV []) : string [] = refc_change (fun i -> $"v{i}") "REFC_SUPPR" x
-    and refc_suppr_data x : string [] = refc_suppr (data_free_vars x)
     and binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = 
         refc_incr args |> line' s
         binds (refc_prepass (Set args) x) s BindsTailEnd x
@@ -362,7 +364,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             else x.ToString("R") |> add_dec_point
         | LitString x ->
             cstring()
-            lit_string x |> sprintf "StringLit(%i, %s)" x.Length
+            lit_string x |> sprintf "StringLit(%i, %s)" (x.Length + 1)
         | LitChar x -> 
             match x with
             | '\b' -> @"\b"
@@ -391,9 +393,6 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | BindsTailEnd -> raise_codegen_error "Compiler error: Layout index should never come in end position."
         let jp (a,b') =
             let args = args b'
-            match ret with
-            | BindsTailEnd -> refc_suppr b' |> line' s
-            | BindsLocal _ -> ()
             match a with
             | JPMethod(a,b) -> sprintf "method%i(%s)" (method (a,b)).tag args
             | JPClosure(a,b) -> sprintf "ClosureCreate%i(%s)" (closure (a,b)).tag args
@@ -747,7 +746,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 let s_fun = indent s_fun
                 line s_fun $"{name'} * x = malloc(sizeof({name'}));"
                 line s_fun "x->refc = 1;"
-                Array.init args.Length (fun i -> $"x->v{i} = v{i};") |> line' (indent s_fun)
+                Array.init args.Length (fun i -> $"x->v{i} = v{i};") |> line' s_fun
                 line s_fun $"{name}RefcBody{i}(x, REFC_INCR);"
                 line s_fun $"return x;"
             line s_fun "}"
@@ -756,12 +755,12 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and mut : _ -> LayoutRec = layout_tmpl "Mut"
     and union_tmpl is_stack : Union -> UnionRec = 
         let inline map_iteri f x = Map.fold (fun i k v -> f i k v; i+1) 0 x |> ignore
-        union (fun s_typ_fwd s_typ s_fun x ->
+        union (fun s_fwd s_typ s_fun x ->
             let i = x.tag
             match is_stack with
             | true  -> line s_typ "typedef struct {"
             | false -> 
-                line s_typ_fwd (sprintf "typedef struct UH%i UH%i;" i i)
+                line s_fwd (sprintf "typedef struct UH%i UH%i;" i i)
                 line s_typ (sprintf "struct UH%i {" i)
             let _ =
                 let s_typ = indent s_typ
@@ -809,6 +808,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line (indent s_fun) $"USRefcBody{i}(*x, q);"
                 line s_fun "}"
             | false -> 
+                line s_fwd (sprintf "void UHRefc%i(UH%i * x, REFC_FLAG q);" i i)
                 line s_fun (sprintf "void UHRefc%i(UH%i * x, REFC_FLAG q){" i i)
                 let _ =
                     let s_fun = indent s_fun
@@ -940,7 +940,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         import "stdlib.h"
         import "string.h"
         import "math.h"
-        types_fwd.Add("typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;\n")
+        fwd_dcls.Add("typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;\n")
 
         let main_defs = {text=StringBuilder(); indent=0}
         line main_defs (sprintf "%s main(){" (prim Int32T))
@@ -950,7 +950,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         let program = StringBuilder()
 
         imports |> Seq.iter (fun x -> program.AppendLine(x) |> ignore)
-        types_fwd |> Seq.iter (fun x -> program.Append(x) |> ignore)
+        fwd_dcls |> Seq.iter (fun x -> program.Append(x) |> ignore)
         types |> Seq.iter (fun x -> program.Append(x) |> ignore)
         functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
         program.Append(main_defs.text).ToString()

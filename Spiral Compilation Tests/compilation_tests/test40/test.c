@@ -43,17 +43,12 @@ static inline Tuple0 TupleCreate0(US0 v0, US0 v1, US0 v2, US0 v3){
 Tuple0 method0(){
     US0 v0;
     v0 = US0_0();
-    USRefc0(&(v0), REFC_INCR);
     US0 v1;
     v1 = US0_0();
-    USRefc0(&(v1), REFC_INCR);
     US0 v2;
     v2 = US0_0();
-    USRefc0(&(v2), REFC_INCR);
     US0 v3;
     v3 = US0_0();
-    USRefc0(&(v3), REFC_INCR);
-    USRefc0(&(v0), REFC_SUPPR); USRefc0(&(v1), REFC_SUPPR); USRefc0(&(v2), REFC_SUPPR); USRefc0(&(v3), REFC_SUPPR);
     return TupleCreate0(v0, v1, v2, v3);
 }
 int32_t method1(){
@@ -72,29 +67,28 @@ int32_t main(){
     US0 v0; US0 v1; US0 v2; US0 v3;
     Tuple0 tmp0 = method0();
     v0 = tmp0.v0; v1 = tmp0.v1; v2 = tmp0.v2; v3 = tmp0.v3;
-    USRefc0(&(v0), REFC_INCR); USRefc0(&(v1), REFC_INCR); USRefc0(&(v2), REFC_INCR); USRefc0(&(v3), REFC_INCR);
     switch (v0.tag) {
         case 0: { // A
             USRefc0(&(v0), REFC_DECR);
             switch (v1.tag) {
                 case 0: { // A
-                    USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR); USRefc0(&(v3), REFC_DECR);
+                    USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR); USRefc0(&(v3), REFC_DECR);
                     return method1();
                     break;
                 }
                 case 1: { // B
-                    USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR);
+                    USRefc0(&(v1), REFC_DECR);
                     switch (v2.tag) {
                         case 0: { // A
-                            USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR);
+                            USRefc0(&(v2), REFC_DECR);
                             switch (v3.tag) {
                                 case 0: { // A
-                                    USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR); USRefc0(&(v3), REFC_DECR);
+                                    USRefc0(&(v3), REFC_DECR);
                                     return method2();
                                     break;
                                 }
                                 case 1: { // B
-                                    USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR); USRefc0(&(v3), REFC_DECR);
+                                    USRefc0(&(v3), REFC_DECR);
                                     return method3();
                                     break;
                                 }
@@ -102,7 +96,7 @@ int32_t main(){
                             break;
                         }
                         case 1: { // B
-                            USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR); USRefc0(&(v3), REFC_DECR);
+                            USRefc0(&(v2), REFC_DECR); USRefc0(&(v3), REFC_DECR);
                             return method4();
                             break;
                         }
@@ -116,15 +110,15 @@ int32_t main(){
             USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR);
             switch (v2.tag) {
                 case 0: { // A
-                    USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR);
+                    USRefc0(&(v2), REFC_DECR);
                     switch (v3.tag) {
                         case 0: { // A
-                            USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR); USRefc0(&(v3), REFC_DECR);
+                            USRefc0(&(v3), REFC_DECR);
                             return method2();
                             break;
                         }
                         case 1: { // B
-                            USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR); USRefc0(&(v3), REFC_DECR);
+                            USRefc0(&(v3), REFC_DECR);
                             return method4();
                             break;
                         }
@@ -132,7 +126,7 @@ int32_t main(){
                     break;
                 }
                 case 1: { // B
-                    USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR); USRefc0(&(v3), REFC_DECR);
+                    USRefc0(&(v2), REFC_DECR); USRefc0(&(v3), REFC_DECR);
                     return method4();
                     break;
                 }

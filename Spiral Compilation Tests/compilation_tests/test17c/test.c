@@ -45,12 +45,14 @@ void UHRefc1(UH1 * x, REFC_FLAG q){
 UH1 * UH1_0() { // AQ
     UH1 x;
     x.tag = 0;
+    x.refc = 1;
     UHRefcBody1(x, REFC_INCR);
     return memcpy(malloc(sizeof(UH1)),&x,sizeof(UH1));
 }
 UH1 * UH1_1(UH0 * v0) { // AW
     UH1 x;
     x.tag = 1;
+    x.refc = 1;
     x.case1.v0 = v0;
     UHRefcBody1(x, REFC_INCR);
     return memcpy(malloc(sizeof(UH1)),&x,sizeof(UH1));
@@ -75,12 +77,14 @@ void UHRefc0(UH0 * x, REFC_FLAG q){
 UH0 * UH0_0() { // BQ
     UH0 x;
     x.tag = 0;
+    x.refc = 1;
     UHRefcBody0(x, REFC_INCR);
     return memcpy(malloc(sizeof(UH0)),&x,sizeof(UH0));
 }
 UH0 * UH0_1(UH1 * v0) { // BW
     UH0 x;
     x.tag = 1;
+    x.refc = 1;
     x.case1.v0 = v0;
     UHRefcBody0(x, REFC_INCR);
     return memcpy(malloc(sizeof(UH0)),&x,sizeof(UH0));
@@ -88,18 +92,14 @@ UH0 * UH0_1(UH1 * v0) { // BW
 int32_t main(){
     UH0 * v0;
     v0 = UH0_0();
-    UHRefc0(v0, REFC_INCR);
     UH1 * v1;
     v1 = UH1_1(v0);
-    UHRefc1(v1, REFC_INCR);
     UHRefc0(v0, REFC_DECR);
     UH0 * v2;
     v2 = UH0_1(v1);
-    UHRefc0(v2, REFC_INCR);
     UHRefc1(v1, REFC_DECR);
     UH1 * v3;
     v3 = UH1_1(v2);
-    UHRefc1(v3, REFC_INCR);
     UHRefc0(v2, REFC_DECR); UHRefc1(v3, REFC_DECR);
     return 0l;
 }

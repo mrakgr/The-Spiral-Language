@@ -38,7 +38,6 @@ int32_t main(){
     v0 = 3l;
     US0 v1;
     v1 = US0_1(v0);
-    USRefc0(&(v1), REFC_INCR);
     switch (v1.tag) {
         case 0: { // None
             USRefc0(&(v1), REFC_DECR);

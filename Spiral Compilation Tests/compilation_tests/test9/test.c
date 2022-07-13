@@ -23,21 +23,18 @@ struct Fun0{
     int refc;
     void (*refc_fptr)(Fun0 *, REFC_FLAG);
     Tuple0 (*fptr)(Fun0 *, String *);
-    void * env;
 };
 typedef struct Fun2 Fun2;
 struct Fun2{
     int refc;
     void (*refc_fptr)(Fun2 *, REFC_FLAG);
     Fun0 * (*fptr)(Fun2 *, double, float, double);
-    void * env;
 };
 typedef struct Fun1 Fun1;
 struct Fun1{
     int refc;
     void (*refc_fptr)(Fun1 *, REFC_FLAG);
     Fun2 * (*fptr)(Fun1 *, int32_t);
-    void * env;
 };
 typedef struct {
     int32_t v0;
@@ -50,7 +47,7 @@ struct Closure2 {
     int refc;
     void (*refc_fptr)(Closure2 *, REFC_FLAG);
     Tuple0 (*fptr)(Closure2 *, String *);
-    ClosureEnv2 * env;
+    ClosureEnv2 env[];
 };
 typedef struct {
     int32_t v0;
@@ -60,7 +57,7 @@ struct Closure1 {
     int refc;
     void (*refc_fptr)(Closure1 *, REFC_FLAG);
     Fun0 * (*fptr)(Closure1 *, double, float, double);
-    ClosureEnv1 * env;
+    ClosureEnv1 env[];
 };
 typedef struct {
 } ClosureEnv0;
@@ -69,7 +66,7 @@ struct Closure0 {
     int refc;
     void (*refc_fptr)(Closure0 *, REFC_FLAG);
     Fun2 * (*fptr)(Closure0 *, int32_t);
-    ClosureEnv0 * env;
+    ClosureEnv0 env[];
 };
 static inline Tuple0 TupleCreate0(int32_t v0, int32_t v1, double v2, float v3, double v4){
     Tuple0 x;
@@ -91,7 +88,7 @@ Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
     uint32_t size = sizeof(Array0) + sizeof(char) * len;
     Array0 * x = malloc(size);
     if (init_at_zero) { memset(x,0,size); }
-    x->refc = 0;
+    x->refc = 1;
     x->len = len;
     return x;
 }
@@ -129,13 +126,12 @@ Tuple0 ClosureMethod2(Closure2 * x, String * v4){
     return method4(v0, v1, v2, v3);
 }
 Fun0 * ClosureCreate2(int32_t v0, double v1, float v2, double v3){
-    Closure2 * x = malloc(sizeof(Closure2));
-    x->refc = 0;
+    Closure2 * x = malloc(sizeof(Closure2) + sizeof(ClosureEnv2));
+    x->refc = 1;
     x->refc_fptr = ClosureRefc2;
     x->fptr = ClosureMethod2;
-    ClosureEnv2 * env = malloc(sizeof(ClosureEnv2));
+    ClosureEnv2 * env = x->env;
     env->v0 = v0; env->v1 = v1; env->v2 = v2; env->v3 = v3;
-    x->env = env;
     ClosureRefcBody2(x, REFC_INCR);
     return (Fun0 *) x;
 }
@@ -159,13 +155,12 @@ Fun0 * ClosureMethod1(Closure1 * x, double v1, float v2, double v3){
     return method3(v0, v1, v2, v3);
 }
 Fun2 * ClosureCreate1(int32_t v0){
-    Closure1 * x = malloc(sizeof(Closure1));
-    x->refc = 0;
+    Closure1 * x = malloc(sizeof(Closure1) + sizeof(ClosureEnv1));
+    x->refc = 1;
     x->refc_fptr = ClosureRefc1;
     x->fptr = ClosureMethod1;
-    ClosureEnv1 * env = malloc(sizeof(ClosureEnv1));
+    ClosureEnv1 * env = x->env;
     env->v0 = v0;
-    x->env = env;
     ClosureRefcBody1(x, REFC_INCR);
     return (Fun2 *) x;
 }
@@ -187,8 +182,8 @@ Fun2 * ClosureMethod0(Closure0 * x, int32_t v0){
     return method2(v0);
 }
 Fun1 * ClosureCreate0(){
-    Closure0 * x = malloc(sizeof(Closure0));
-    x->refc = 0;
+    Closure0 * x = malloc(sizeof(Closure0) + sizeof(ClosureEnv0));
+    x->refc = 1;
     x->refc_fptr = ClosureRefc0;
     x->fptr = ClosureMethod0;
     return (Fun1 *) x;
@@ -199,27 +194,24 @@ Fun1 * method1(){
 Fun0 * method0(){
     Fun1 * v0;
     v0 = method1();
-    v0->refc_fptr(v0, REFC_INCR);
     Fun2 * v1;
     v1 = v0->fptr(v0, 2l);
-    v1->refc_fptr(v1, REFC_INCR);
     v0->refc_fptr(v0, REFC_DECR);
     Fun0 * v2;
     v2 = v1->fptr(v1, 2.2, 3.0f, 4.5);
-    v2->refc_fptr(v2, REFC_INCR);
     v1->refc_fptr(v1, REFC_DECR);
-    v2->refc_fptr(v2, REFC_SUPPR);
     return v2;
 }
 int32_t main(){
     Fun0 * v0;
     v0 = method0();
-    v0->refc_fptr(v0, REFC_INCR);
-    int32_t v1; int32_t v2; double v3; float v4; double v5;
-    Tuple0 tmp0 = v0->fptr(v0, StringLit(3, "qwe"));
-    v1 = tmp0.v0; v2 = tmp0.v1; v3 = tmp0.v2; v4 = tmp0.v3; v5 = tmp0.v4;
-    v0->refc_fptr(v0, REFC_DECR);
-    int32_t v6;
-    v6 = v1 + v2;
-    return v6;
+    String * v1;
+    v1 = StringLit(3, "qwe");
+    int32_t v2; int32_t v3; double v4; float v5; double v6;
+    Tuple0 tmp0 = v0->fptr(v0, v1);
+    v2 = tmp0.v0; v3 = tmp0.v1; v4 = tmp0.v2; v5 = tmp0.v3; v6 = tmp0.v4;
+    v0->refc_fptr(v0, REFC_DECR); StringRefc(v1, REFC_DECR);
+    int32_t v7;
+    v7 = v2 + v3;
+    return v7;
 }

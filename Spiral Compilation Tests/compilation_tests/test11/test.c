@@ -26,7 +26,7 @@ Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
     uint32_t size = sizeof(Array0) + sizeof(char) * len;
     Array0 * x = malloc(size);
     if (init_at_zero) { memset(x,0,size); }
-    x->refc = 0;
+    x->refc = 1;
     x->len = len;
     return x;
 }
@@ -49,7 +49,6 @@ int32_t main(){
     v1 = 3.4;
     String * v2;
     v2 = StringLit(3, "123");
-    StringRefc(v2, REFC_INCR);
     StringRefc(v2, REFC_DECR);
     return 0l;
 }

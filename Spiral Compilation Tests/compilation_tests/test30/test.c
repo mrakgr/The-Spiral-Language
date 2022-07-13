@@ -26,7 +26,7 @@ Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
     uint32_t size = sizeof(Array0) + sizeof(char) * len;
     Array0 * x = malloc(size);
     if (init_at_zero) { memset(x,0,size); }
-    x->refc = 0;
+    x->refc = 1;
     x->len = len;
     return x;
 }
@@ -39,8 +39,8 @@ Array0 * ArrayLit0(uint32_t len, char * ptr){
 static inline void StringRefc(String * x, REFC_FLAG q){
     return ArrayRefc0(x, q);
 }
-static inline String * StringLit(uint32_t size, char * ptr){
-    return ArrayLit0(size, ptr);
+static inline String * StringLit(uint32_t len, char * ptr){
+    return ArrayLit0(len, ptr);
 }
 int32_t main(){
     int32_t v0;
@@ -49,7 +49,6 @@ int32_t main(){
     v1 = 456l;
     String * v2;
     v2 = StringLit(3, "qwe");
-    StringRefc(v2, REFC_INCR);
     StringRefc(v2, REFC_DECR);
     return 0l;
 }

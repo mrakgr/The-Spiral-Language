@@ -28,7 +28,7 @@ Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
     uint32_t size = sizeof(Array0);
     Array0 * x = malloc(size);
     if (init_at_zero) { memset(x,0,size); }
-    x->refc = 0;
+    x->refc = 1;
     x->len = len;
     return x;
 }
@@ -49,7 +49,7 @@ void MutRefc0(Mut0 * x, REFC_FLAG q){
 }
 Mut0 * MutCreate0(uint64_t v0){
     Mut0 * x = malloc(sizeof(Mut0));
-    x->refc = 0;
+    x->refc = 1;
         x->v0 = v0;
     MutRefcBody0(x, REFC_INCR);
     return x;
@@ -69,10 +69,8 @@ static inline void AssignMut0(uint64_t * a0, uint64_t b0){
 int32_t main(){
     Array0 * v0;
     v0 = ArrayCreate0(1ull, false);
-    ArrayRefc0(v0, REFC_INCR);
     Mut0 * v1;
     v1 = MutCreate0(0ull);
-    MutRefc0(v1, REFC_INCR);
     while (method0(v1)){
         uint64_t v3;
         v3 = v1->v0;
