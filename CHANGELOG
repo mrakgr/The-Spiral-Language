@@ -1,4 +1,13 @@
-WIP - 2.1.12
+2.2.1 (7/15/2022)
+
+* Fixed the string length bug in C backend. The null character was being counted incorrectly.
+
+2.2.0 (7/13/2022)
+
+Created the C backend for Spiral.
+
+* This involved making some changes in `seq_apply` in the partial evaluator module which will affect the other codegens, so the resulting code will be more verbose.
+* Since it creates extra statements for strings, the Cython backend will be a bit slower too.
 
 2.1.11 (8/24/2021)
 

@@ -486,7 +486,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s $"fprintf(stderr, \"{fmt}\", {string_in_op b})"
             line s "exit(EXIT_FAILURE);" // TODO: Print out the error traces as well.
         | TyConv(a,b) -> return' $"({tyv a}){tup_data b}"
-        | TyArrayLength(_,b) | TyStringLength(_,b) -> return' $"{tup_data b}->len"
+        | TyArrayLength(_,b) -> return' $"{tup_data b}->len"
+        | TyStringLength(_,b) -> return' $"{tup_data b}->len-1"
         | TyOp(op,l) ->
             let float_suffix = function
                 | DV(L(_,YPrim Float32T)) | DLit(LitFloat32 _) -> "f"

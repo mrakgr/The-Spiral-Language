@@ -1,4 +1,4 @@
 inl main () =
-    inl ~x = 1i8
-    conv x : i32
+    inl ~x = "qwe"
+    sm.length x : i32
 
