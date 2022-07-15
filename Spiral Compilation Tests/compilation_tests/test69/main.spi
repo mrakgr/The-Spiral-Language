@@ -1,0 +1,5 @@
+// Does the string length work?
+inl main () =
+    inl ~x = "qwe"
+    sm.length x : i32
+
