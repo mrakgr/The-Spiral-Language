@@ -12,8 +12,8 @@ struct UH0 {
     int tag;
     union {
         struct {
-            int32_t v0;
             UH0 * v1;
+            int32_t v0;
         } case0; // Cons
     };
 };

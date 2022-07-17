@@ -85,9 +85,9 @@ typedef struct {
     uint32_t v0;
 } Mut0;
 typedef struct {
-    uint32_t v0;
-    uint32_t v1;
     String * v2;
+    uint32_t v1;
+    uint32_t v0;
 } ClosureEnv1;
 typedef struct Closure1 Closure1;
 struct Closure1 {
@@ -225,7 +225,7 @@ Tuple0 method0(String * v0, uint32_t v1, bool v2, uint32_t v3){
     bool v7;
     if (v4){
         uint32_t v5;
-        v5 = v0->len;
+        v5 = v0->len-1;
         bool v6;
         v6 = v1 < v5;
         v7 = v6;
@@ -347,8 +347,7 @@ Tuple0 method0(String * v0, uint32_t v1, bool v2, uint32_t v3){
     switch (v53.tag) {
         case 0: { // Error
             UH0 * v55 = v53.case0.v0;
-            USRefc0(&(v53), REFC_DECR);
-            StringRefc(v0, REFC_SUPPR);
+            StringRefc(v0, REFC_DECR); USRefc0(&(v53), REFC_DECR);
             if (v2){
                 US0 v56;
                 v56 = US0_1(v3);
@@ -391,7 +390,7 @@ Tuple0 method0(String * v0, uint32_t v1, bool v2, uint32_t v3){
                 StringRefc(v0, REFC_SUPPR);
                 return method0(v0, v54, v69, v65);
             } else {
-                StringRefc(v0, REFC_SUPPR);
+                StringRefc(v0, REFC_DECR);
                 String * v72;
                 v72 = StringLit(52, "The number is too large to be parsed as 32 bit int.");
                 UH0 * v73;
@@ -444,7 +443,7 @@ Tuple1 method1(String * v0, uint32_t v1){
     bool v10;
     if (v2){
         uint32_t v3;
-        v3 = v0->len;
+        v3 = v0->len-1;
         bool v4;
         v4 = v1 < v3;
         if (v4){
@@ -471,7 +470,7 @@ Tuple1 method1(String * v0, uint32_t v1){
         StringRefc(v0, REFC_SUPPR);
         return method1(v0, v11);
     } else {
-        StringRefc(v0, REFC_SUPPR);
+        StringRefc(v0, REFC_DECR);
         US1 v14;
         v14 = US1_1();
         return TupleCreate1(v14, v1);

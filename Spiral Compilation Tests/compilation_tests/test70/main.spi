@@ -1,0 +1,9 @@
+// Do the env fields get ordered from largest to smallest?.
+
+inl main () =
+    inl x = join 'a',2f32,3i64
+    inl f () = x
+    inl ~_ = f
+    inl _ = heap x
+    0i32
+

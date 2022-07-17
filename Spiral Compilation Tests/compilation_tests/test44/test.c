@@ -18,8 +18,8 @@ struct UH0 {
     int tag;
     union {
         struct {
-            int32_t v0;
             UH0 * v1;
+            int32_t v0;
         } case0; // Cons
     };
 };
@@ -44,8 +44,8 @@ struct UH2 {
     int tag;
     union {
         struct {
-            bool v0;
             UH2 * v1;
+            bool v0;
         } case0; // Cons
     };
 };
@@ -54,10 +54,10 @@ struct UH3 {
     int tag;
     union {
         struct {
-            int32_t v0;
             String * v1;
-            bool v2;
             UH3 * v3;
+            int32_t v0;
+            bool v2;
         } case0; // Cons
     };
 };
@@ -235,8 +235,7 @@ UH3 * method3(int32_t v0, String * v1, UH2 * v2, UH3 * v3){
             break;
         }
         case 1: { // Nil
-            UHRefc2(v2, REFC_DECR);
-            StringRefc(v1, REFC_SUPPR);
+            StringRefc(v1, REFC_DECR); UHRefc2(v2, REFC_DECR);
             return v3;
             break;
         }

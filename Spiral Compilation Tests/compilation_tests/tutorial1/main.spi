@@ -1,4 +1,4 @@
 inl main () =
-    inl ~x = "qwe"
-    sm.length x : i32
+    inl _ = join 'a', 2f32, 3i64
+    0i32
 

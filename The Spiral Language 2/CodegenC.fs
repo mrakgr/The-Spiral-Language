@@ -9,6 +9,12 @@ open System
 open System.Text
 open System.Collections.Generic
 
+let sizeof_tyv = function
+    | YPrim (Int64T | UInt64T | Float64T) -> 8
+    | YPrim (Int32T | UInt32T | Float32T) -> 4
+    | YPrim (Int16T | UInt16T) -> 2
+    | YPrim (Int8T | UInt8T | CharT | BoolT) -> 1
+    | _ -> 8
 let line x s = if s <> "" then x.text.Append(' ', x.indent).AppendLine s |> ignore
 let line' x s = line x (String.concat " " s)
 
@@ -551,6 +557,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 |> sprintf "%s%s" (tup_data x)
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> return'
+    and print_ordered_args s v = // Unlike C# for example, C keeps the struct fields in input order. To reduce padding, it is best to order the fields from largest to smallest.
+        v |> Array.sortWith (fun (L(_,t)) (L(_,t')) -> -compare (sizeof_tyv t) (sizeof_tyv t'))
+        |> Array.iter (fun (L(i,x)) -> line s $"{tyv x} v{i};")
     and method : _ -> MethodRec =
         jp (fun ((jp_body,key & (C(args,_))),i) ->
             match (fst env.join_point_method.[jp_body]).[key] with
@@ -571,10 +580,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             ) (fun _ s_typ s_fun x ->
             
             let i, range = x.tag, tup_ty x.range
-            let free_vars = x.free_vars |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}")
 
             line s_typ "typedef struct {"
-            free_vars |> Array.iter (fun x -> line (indent s_typ) $"{x};")
+            print_ordered_args (indent s_typ) x.free_vars
             line s_typ (sprintf "} ClosureEnv%i;" i)
             
             line s_typ (sprintf "typedef struct Closure%i Closure%i;" i i)
@@ -628,6 +636,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s_fun "}"
 
             let fun_tag = (cfun (x.domain,x.range)).tag
+            let free_vars = x.free_vars |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}")
             line s_fun (sprintf "Fun%i * ClosureCreate%i(%s){" fun_tag i (String.concat ", " free_vars))
             let _ =
                 let s_fun = indent s_fun
@@ -660,11 +669,11 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and tup : _ -> TupleRec = 
         tuple (fun _ s_typ s_fun x ->
             let name = sprintf "Tuple%i" x.tag
-            let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} v{i}")
             line s_typ "typedef struct {"
-            args |> Array.iter (fun x -> line (indent s_typ) $"{x};")
+            x.tys |> Array.mapi (fun i x -> L(i,x)) |> print_ordered_args (indent s_typ)
             line s_typ (sprintf "} %s;" name)
 
+            let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} v{i}")
             line s_fun (sprintf "static inline %s TupleCreate%i(%s){" name x.tag (String.concat ", " args))
             let _ =
                 let s_fun = indent s_fun
@@ -707,13 +716,12 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         layout (fun _ s_typ s_fun (x : LayoutRec) ->
             let i = x.tag
             let name' = sprintf "%s%i" name i
-            let args = x.free_vars |> Array.map (fun (L(i,x)) -> $"{tyv x} v{i}")
 
             line s_typ "typedef struct {"
             let _ =
                 let s_typ = indent s_typ
                 line s_typ "int refc;"
-                Array.iter (fun x -> line s_typ $"{x};") args
+                print_ordered_args s_typ x.free_vars
             line s_typ (sprintf "} %s;" name')
 
             line s_fun (sprintf "static inline void %sRefcBody%i(%s * x, REFC_FLAG q){" name i name')
@@ -742,6 +750,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s_fun "}"
             line s_fun "}"
 
+            let args = x.free_vars |> Array.map (fun (L(i,x)) -> $"{tyv x} v{i}")
             line s_fun (sprintf "%s * %sCreate%i(%s){" name' name i (String.concat ", " args))
             let _ =
                 let s_fun = indent s_fun
@@ -775,7 +784,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     map_iteri (fun tag k v -> 
                         if Array.isEmpty v = false then
                             line s_typ "struct {"
-                            v |> Array.iter (fun (L(i,t)) -> line (indent s_typ) $"{tyv t} v{i};")
+                            print_ordered_args (indent s_typ) v
                             line s_typ (sprintf "} case%i; // %s" tag k)
                         ) x.free_vars
                 line s_typ "};"

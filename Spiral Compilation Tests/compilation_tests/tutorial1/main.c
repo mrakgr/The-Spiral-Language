@@ -6,47 +6,21 @@
 #include <math.h>
 typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct {
-    int refc;
-    uint32_t len;
-    char ptr[];
-} Array0;
-typedef Array0 String;
-static inline void ArrayRefcBody0(Array0 * x, REFC_FLAG q){
-}
-void ArrayRefc0(Array0 * x, REFC_FLAG q){
-    if (x != NULL) {
-        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
-        if (!(q & REFC_SUPPR) && refc == 0) {
-            ArrayRefcBody0(x, REFC_DECR);
-            free(x);
-        }
-    }
-}
-Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
-    uint32_t size = sizeof(Array0) + sizeof(char) * len;
-    Array0 * x = malloc(size);
-    if (init_at_zero) { memset(x,0,size); }
-    x->refc = 1;
-    x->len = len;
+    int64_t v2;
+    float v1;
+    char v0;
+} Tuple0;
+static inline Tuple0 TupleCreate0(char v0, float v1, int64_t v2){
+    Tuple0 x;
+    x.v0 = v0; x.v1 = v1; x.v2 = v2;
     return x;
 }
-Array0 * ArrayLit0(uint32_t len, char * ptr){
-    Array0 * x = ArrayCreate0(len, false);
-    memcpy(x->ptr, ptr, sizeof(char) * len);
-    ArrayRefcBody0(x, REFC_INCR);
-    return x;
-}
-static inline void StringRefc(String * x, REFC_FLAG q){
-    return ArrayRefc0(x, q);
-}
-static inline String * StringLit(uint32_t len, char * ptr){
-    return ArrayLit0(len, ptr);
+Tuple0 method0(){
+    return TupleCreate0('a', 2.0f, 3ll);
 }
 int32_t main(){
-    String * v0;
-    v0 = StringLit(4, "qwe");
-    int32_t v1;
-    v1 = v0->len-1;
-    StringRefc(v0, REFC_DECR);
-    return v1;
+    char v0; float v1; int64_t v2;
+    Tuple0 tmp0 = method0();
+    v0 = tmp0.v0; v1 = tmp0.v1; v2 = tmp0.v2;
+    return 0l;
 }
