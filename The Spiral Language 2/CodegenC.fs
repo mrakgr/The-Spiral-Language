@@ -550,7 +550,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | Tanh, [x] -> sprintf "tanh%s(%s)" (float_suffix x) (tup_data x)
             | Sqrt, [x] -> sprintf "sqrt%s(%s)" (float_suffix x) (tup_data x)
             | NanIs, [x] -> sprintf "isnan(%s)" (tup_data x)
-            | UnionTag, [DUnion(_,l) | DV(L(_,YUnion l)) as x] -> 
+            | UnionTag, [DV(L(_,YUnion l)) as x] -> 
                 match l.Item.layout with
                 | UHeap -> "->tag"
                 | UStack -> ".tag"
