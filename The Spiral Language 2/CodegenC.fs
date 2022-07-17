@@ -550,11 +550,11 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | Tanh, [x] -> sprintf "tanh%s(%s)" (float_suffix x) (tup_data x)
             | Sqrt, [x] -> sprintf "sqrt%s(%s)" (float_suffix x) (tup_data x)
             | NanIs, [x] -> sprintf "isnan(%s)" (tup_data x)
-            | UnionTag, [DV(L(_,YUnion l)) as x] -> 
+            | UnionTag, [DV(L(i,YUnion l)) as x] -> 
                 match l.Item.layout with
                 | UHeap -> "->tag"
                 | UStack -> ".tag"
-                |> sprintf "%s%s" (tup_data x)
+                |> sprintf "v%i%s" i
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> return'
     and print_ordered_args s v = // Unlike C# for example, C keeps the struct fields in input order. To reduce padding, it is best to order the fields from largest to smallest.
