@@ -285,18 +285,18 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     | BindsTailEnd -> line s $"return {tup_data d};"
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             ) stmts
-    and refc_change' (f : int * Ty -> string) (c : string) (x : TyV []) : string [] =
-        Array.choose (fun (L(i,t)) -> 
-            match t with
-            | YUnion a -> 
-                match a.Item.layout with
-                | UHeap -> Some $"UHRefc{(uheap a).tag}({f (i,t)}, {c});"
-                | UStack -> Some $"USRefc{(ustack a).tag}(&({f (i,t)}), {c});"
-            | YArray t -> Some $"ArrayRefc{(carray t).tag}({f (i,t)}, {c});" 
-            | YFun(a,b) -> Some $"{f (i,t)}->refc_fptr({f (i,t)}, {c});"
-            | YPrim StringT -> Some $"StringRefc({f (i,t)}, {c});" 
-            | YLayout(a,Heap) -> Some $"HeapRefc{(heap a).tag}({f (i,t)}, {c});"
-            | YLayout(a,HeapMutable) -> Some $"MutRefc{(mut a).tag}({f (i,t)}, {c});"
+    and refc_change' (f : int * Ty -> string) (refc_flag : string) (x : TyV []) : string [] =
+        Array.choose (fun (L(i,t')) -> 
+            match t' with
+            | YUnion t -> 
+                match t.Item.layout with
+                | UHeap -> Some $"UHRefc{(uheap t).tag}({f (i,t')}, {refc_flag});"
+                | UStack -> Some $"USRefc{(ustack t).tag}(&({f (i,t')}), {refc_flag});"
+            | YArray t -> Some $"ArrayRefc{(carray t).tag}({f (i,t')}, {refc_flag});" 
+            | YFun(a,b) -> Some $"{f (i,t')}->refc_fptr({f (i,t')}, {refc_flag});"
+            | YPrim StringT -> Some $"StringRefc({f (i,t')}, {refc_flag});" 
+            | YLayout(a,Heap) -> Some $"HeapRefc{(heap a).tag}({f (i,t')}, {refc_flag});"
+            | YLayout(a,HeapMutable) -> Some $"MutRefc{(mut a).tag}({f (i,t')}, {refc_flag});"
             | a -> None
             ) x
     and refc_change f c x = refc_change' (fun (i,t) -> f i) c x

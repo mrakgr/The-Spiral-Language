@@ -1,3 +1,7 @@
+2.2.3 (7/22/2022)
+
+* Fixed a C backend bug related to arrays.
+
 2.2.2 (7/17/2022)
 
 * Ordered the fields from largest to smallest in tuple, closure and layout structs.

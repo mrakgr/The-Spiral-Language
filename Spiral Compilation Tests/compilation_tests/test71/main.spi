@@ -1,3 +1,5 @@
+// Do array void types work in a layout type?
 inl main () =
     inl x : heap (a i32 ()) = heap (create 1)
     0i32
+
