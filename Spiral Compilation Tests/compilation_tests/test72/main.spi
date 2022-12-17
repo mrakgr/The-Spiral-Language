@@ -1,3 +1,5 @@
+// Does the heap object ref counted correctly?
+
 inl main () =
     inl ~a = true
     inl b = heap true

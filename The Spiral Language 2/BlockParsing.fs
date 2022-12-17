@@ -144,6 +144,7 @@ type Op =
     | PrintRaw
     | ErrorType
     | NominalStrip
+    | Indent
 
 type PatternCompilationErrors =
     | DisjointOrPatternVar

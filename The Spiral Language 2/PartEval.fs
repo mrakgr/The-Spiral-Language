@@ -119,6 +119,7 @@ and TypedOp =
     | TyArrayLength of Ty * Data
     | TyStringLength of Ty * Data
     | TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
+    | TyIndent of TypedBind []
     | TyWhile of cond: JoinPointCall * TypedBind []
     | TyJoinPoint of JoinPointCall
 
@@ -235,7 +236,9 @@ let lit_to_primitive_type = function
     | LitChar _ -> CharT
 
 let lit_to_ty x = lit_to_primitive_type x |> YPrim
-let is_tco_compatible = function TyIf _ | TyIntSwitch _ | TyUnionUnbox _ | TyJoinPoint _ | TyUnionBox _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _ | TyArrayLiteral _ | TyArrayCreate _ | TyFailwith _ -> true | _ -> false
+let is_tco_compatible = function 
+    | TyIndent _ | TyIf _ | TyIntSwitch _ | TyUnionUnbox _ | TyJoinPoint _ | TyUnionBox _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _ | TyArrayLiteral _ | TyArrayCreate _ | TyFailwith _ -> true 
+    | _ -> false
 
 let seq_apply (d: LangEnv) end_dat =
     let inline end_ () = d.seq.Add(TyLocalReturnData(end_dat,d.trace))
@@ -1020,6 +1023,9 @@ let peval (env : TopEnv) (x : E) =
                 | YApply(a,b) -> type_apply s (loop a) b
                 | b -> raise_type_error s <| sprintf "Expected a nominal or a deferred type apply.\nGot: %s" (show_ty b)
             loop (ty s b)
+        | EOp(r,Indent,[on_succ]) -> 
+            let tr,ret_ty = term_scope'' s on_succ
+            push_typedop_no_rewrite s (TyIndent(tr)) ret_ty
         | EOp(r,NominalCreate,[a;EType(_,b)]) | ENominal(r,a,b) -> enominal (r,a,b)
         | EUnbox(r,id,a,on_succ) -> eunbox (fun s a -> store_term s id a; term s on_succ) r a
         | EOp(r,Unbox,[a;on_succ]) -> let on_succ = term s on_succ in eunbox (fun s a -> apply s (on_succ,a)) r a
