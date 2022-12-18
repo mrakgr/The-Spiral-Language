@@ -6,14 +6,15 @@
 #include <math.h>
 typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct UH0 UH0;
+void UHRefc0(UH0 * x, REFC_FLAG q);
 struct UH0 {
     int refc;
     int tag;
     union {
         struct {
-            int32_t v0;
-            int32_t v1;
             UH0 * v2;
+            int32_t v1;
+            int32_t v0;
         } case0; // Cons
     };
 };
@@ -123,7 +124,8 @@ int32_t main(){
                     switch (v15->tag) {
                         case 0: { // Cons
                             int32_t v16 = v15->case0.v0; int32_t v17 = v15->case0.v1; UH0 * v18 = v15->case0.v2;
-                            UHRefc0(v15, REFC_DECR);
+                            UHRefc0(v18, REFC_INCR);
+                            UHRefc0(v15, REFC_DECR); UHRefc0(v18, REFC_DECR);
                             int32_t v19;
                             v19 = v10 + v11;
                             int32_t v20;
@@ -135,7 +137,7 @@ int32_t main(){
                             int32_t v23;
                             v23 = v22 + v17;
                             String * v24;
-                            v24 = StringLit(24, "At least three elements.");
+                            v24 = StringLit(25, "At least three elements.");
                             v36 = v24; v37 = v23;
                             break;
                         }
@@ -148,7 +150,7 @@ int32_t main(){
                             int32_t v27;
                             v27 = v26 + v14;
                             String * v28;
-                            v28 = StringLit(13, "Two elements.");
+                            v28 = StringLit(14, "Two elements.");
                             v36 = v28; v37 = v27;
                             break;
                         }
@@ -160,7 +162,7 @@ int32_t main(){
                     int32_t v31;
                     v31 = v10 + v11;
                     String * v32;
-                    v32 = StringLit(12, "One element.");
+                    v32 = StringLit(13, "One element.");
                     v36 = v32; v37 = v31;
                     break;
                 }
@@ -169,7 +171,7 @@ int32_t main(){
         }
         case 1: { // Nil
             String * v35;
-            v35 = StringLit(11, "No elements");
+            v35 = StringLit(12, "No elements");
             v36 = v35; v37 = 0l;
             break;
         }

@@ -618,6 +618,7 @@ US3 method4(Array1 * v0, US3 v1, US3 v2, uint32_t v3){
                     }
                     US3 v22;
                     if (v9){
+                        USRefc3(&(v1), REFC_INCR);
                         v22 = v1;
                     } else {
                         bool v10;
@@ -644,6 +645,7 @@ US3 method4(Array1 * v0, US3 v1, US3 v2, uint32_t v3){
                             v14 = false;
                         }
                         if (v14){
+                            USRefc3(&(v1), REFC_INCR);
                             v22 = v1;
                         } else {
                             bool v15;
@@ -670,8 +672,10 @@ US3 method4(Array1 * v0, US3 v1, US3 v2, uint32_t v3){
                                 v19 = false;
                             }
                             if (v19){
+                                USRefc3(&(v1), REFC_INCR);
                                 v22 = v1;
                             } else {
+                                USRefc3(&(v2), REFC_INCR);
                                 v22 = v2;
                             }
                         }
@@ -950,8 +954,6 @@ void ClosureRefc0(Closure0 * x, REFC_FLAG q){
 Fun1 * ClosureMethod0(Closure0 * x, String * v2){
     ClosureEnv0 * env = x->env;
     uint32_t v0 = env->v0; uint32_t v1 = env->v1;
-    StringRefc(v2, REFC_INCR);
-    StringRefc(v2, REFC_SUPPR);
     return ClosureCreate1(v0, v1, v2);
 }
 Fun0 * ClosureCreate0(uint32_t v0, uint32_t v1){

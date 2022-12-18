@@ -89,7 +89,8 @@ let refc_prepass (new_vars : TyV Set) (x : TypedBind []) =
     let add (d : Dictionary<TypedBind, TyV Set>) k x = if Set.isEmpty x then () else d.Add(k,x)
     let add' (d : Dictionary<TypedBind, TyV Set * bool>) k x = if Set.isEmpty (fst x) then () else d.Add(k,x)
     let fv x = x |> data_free_vars |> Set
-    let rec binds (new_vars : TyV Set) (increfed_vars : TyV Set) (k : TypedBind []) =
+    let no_new = Set.empty, false
+    let rec binds new_vars (increfed_vars : TyV Set) (k : TypedBind []) =
         Array.fold (fun ((new_vars, is_in_container as new_vars'),increfed_vars) k ->
             add' g_incr k new_vars'
             let increfed_vars = new_vars + increfed_vars
@@ -104,33 +105,33 @@ let refc_prepass (new_vars : TyV Set) (x : TypedBind []) =
                 let new_vars = fv d
                 match o with
                 | TyLayoutIndexAll _ | TyLayoutIndexByKey _ | TyOp(ArrayIndex,_) -> (new_vars, true), r
-                | _ -> (Set.empty, false), r + new_vars
+                | _ -> no_new, r + new_vars
             | TyLocalReturnOp(_,o,_) -> 
                 op r o
                 match o with
                 | TyJoinPoint _ | TyArrayLiteral _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _ | TyUnionBox _  -> add g_suppr k (Set.intersect increfed_vars used_vars)
                 | _ -> ()
-                (Set.empty, false), r
+                no_new, r
             | TyLocalReturnData(_,_) ->
                 add' g_incr k (used_vars - increfed_vars, false)
-                (Set.empty, false), r
-            ) ((new_vars, false), increfed_vars) k
+                no_new, r
+            ) (new_vars, increfed_vars) k
         |> ignore
     and op increfed_vars (x : TypedOp) : unit =
         match x with
         | TyLayoutIndexAll _ | TyLayoutIndexByKey _ | TyMacro _ | TyArrayLiteral _ | TyOp _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _ 
         | TyUnionBox _ | TyFailwith _ | TyConv _ | TyArrayCreate _ | TyArrayLength _ | TyStringLength _ | TyLayoutHeapMutableSet _ | TyJoinPoint _ -> ()
-        | TyWhile(_,body) -> binds Set.empty increfed_vars body
-        | TyIf(_,tr',fl') -> binds Set.empty increfed_vars tr'; binds Set.empty increfed_vars fl'
+        | TyWhile(_,body) -> binds no_new increfed_vars body
+        | TyIf(_,tr',fl') -> binds no_new increfed_vars tr'; binds no_new increfed_vars fl'
         | TyUnionUnbox(_,_,on_succs',on_fail') ->
             Map.iter (fun _ (lets,body) -> 
-                binds (List.fold (fun s x -> s + fv x) Set.empty lets) increfed_vars body
+                binds (List.fold (fun s x -> s + fv x) Set.empty lets, true) increfed_vars body
                 ) on_succs'
-            Option.iter (binds Set.empty increfed_vars) on_fail'
+            Option.iter (binds no_new increfed_vars) on_fail'
         | TyIntSwitch(_,on_succs',on_fail') ->
-            Array.iter (binds Set.empty increfed_vars) on_succs'
-            binds Set.empty increfed_vars on_fail'
-    binds new_vars Set.empty x
+            Array.iter (binds no_new increfed_vars) on_succs'
+            binds no_new increfed_vars on_fail'
+    binds (new_vars, false) Set.empty x
     
     incref_cancellation()
 

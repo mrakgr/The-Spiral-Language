@@ -48,7 +48,7 @@ int32_t main(){
     int32_t v1;
     v1 = 456l;
     String * v2;
-    v2 = StringLit(3, "qwe");
+    v2 = StringLit(4, "qwe");
     StringRefc(v2, REFC_DECR);
     return 0l;
 }
