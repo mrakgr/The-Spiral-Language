@@ -49,5 +49,6 @@ int32_t main(){
         HeapRefc0(v1, REFC_INCR);
         v3 = v1;
     }
+    HeapRefc0(v1, REFC_DECR); HeapRefc0(v3, REFC_DECR);
     return 0l;
 }

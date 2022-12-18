@@ -6,7 +6,9 @@
 #include <math.h>
 typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct UH1 UH1;
+void UHRefc1(UH1 * x, REFC_FLAG q);
 typedef struct UH0 UH0;
+void UHRefc0(UH0 * x, REFC_FLAG q);
 struct UH1 {
     int refc;
     int tag;

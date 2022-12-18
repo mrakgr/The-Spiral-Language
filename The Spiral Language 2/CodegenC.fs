@@ -49,7 +49,6 @@ let refc_used_vars (x : TypedBind []) =
         | TyLayoutIndexAll(i) | TyLayoutIndexByKey(i,_) -> Set.singleton i
         | TyLayoutHeapMutableSet(i,_,d) -> Set.singleton i + fv d
         | TyJoinPoint x -> jp x
-        | TyIndent(tr') -> binds tr'
         | TyIf(cond,tr',fl') -> fv cond + binds tr' + binds fl'
         | TyUnionUnbox(vs,_,on_succs',on_fail') ->
             let vs = vs |> Set
@@ -71,23 +70,21 @@ let refc_used_vars (x : TypedBind []) =
 type RefcVars = {g_suppr : Dictionary<TypedBind,TyV Set>; g_decr : Dictionary<TypedBind,TyV Set>; g_incr : Dictionary<TypedBind,TyV Set>}
 let refc_prepass (new_vars : TyV Set) (x : TypedBind []) =
     let used_vars = refc_used_vars x
-    let g_suppr : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
-    let g_decr : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
     let g_incr : Dictionary<TypedBind, TyV Set * bool> = Dictionary(HashIdentity.Reference)
+    let g_decr : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
+    let g_suppr : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
 
     let incref_cancellation () =
-        let g_suppr' : Dictionary<TypedBind, TyV Set> = Dictionary(g_suppr.Count, HashIdentity.Reference)
-        let g_decr' : Dictionary<TypedBind, TyV Set> = Dictionary(g_decr.Count, HashIdentity.Reference)
         let g_incr' : Dictionary<TypedBind, TyV Set> = Dictionary(g_incr.Count, HashIdentity.Reference)
         for KeyValue(k,(incr,is_in_container)) in g_incr do
             let f (g : Dictionary<_,_>) = match g.TryGetValue(k) with true, x -> x | _ -> Set.empty
             let decr, suppr = f g_decr, f g_suppr
-            let g a b = a - b, b - a
+            let g a b = let r = Set.intersect a b in a - r, b - r
             let incr, decr = if is_in_container then g incr decr else incr, decr
             let incr, suppr = g incr suppr
-            let add (d : Dictionary<TypedBind, TyV Set>) x = if Set.isEmpty x then () else d.[k] <- x
-            add g_incr' incr; add g_decr' decr; add g_suppr' suppr
-        {g_incr=g_incr'; g_decr=g_decr'; g_suppr=g_suppr'}
+            let add (d : Dictionary<TypedBind, TyV Set>) x = if Set.isEmpty x then ignore (d.Remove(k)) else d.[k] <- x
+            add g_incr' incr; add g_decr decr; add g_suppr suppr
+        {g_incr=g_incr'; g_decr=g_decr; g_suppr=g_suppr}
 
     let add (d : Dictionary<TypedBind, TyV Set>) k x = if Set.isEmpty x then () else d.Add(k,x)
     let add' (d : Dictionary<TypedBind, TyV Set * bool>) k x = if Set.isEmpty (fst x) then () else d.Add(k,x)
@@ -124,7 +121,6 @@ let refc_prepass (new_vars : TyV Set) (x : TypedBind []) =
         | TyLayoutIndexAll _ | TyLayoutIndexByKey _ | TyMacro _ | TyArrayLiteral _ | TyOp _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _ 
         | TyUnionBox _ | TyFailwith _ | TyConv _ | TyArrayCreate _ | TyArrayLength _ | TyStringLength _ | TyLayoutHeapMutableSet _ | TyJoinPoint _ -> ()
         | TyWhile(_,body) -> binds Set.empty increfed_vars body
-        | TyIndent(tr') -> binds Set.empty increfed_vars tr'
         | TyIf(_,tr',fl') -> binds Set.empty increfed_vars tr'; binds Set.empty increfed_vars fl'
         | TyUnionUnbox(_,_,on_succs',on_fail') ->
             Map.iter (fun _ (lets,body) -> 
@@ -423,8 +419,6 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 | CMTerm x -> tup_data x
                 | CMType x -> tup_ty x
                 ) |> String.concat "" |> return'
-        | TyIndent(tr) ->
-            binds (indent s) ret tr
         | TyIf(cond,tr,fl) ->
             line s (sprintf "if (%s){" (tup_data cond))
             binds (indent s) ret tr

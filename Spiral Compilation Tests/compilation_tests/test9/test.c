@@ -6,11 +6,11 @@
 #include <math.h>
 typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct {
+    double v2;
+    double v4;
     int32_t v0;
     int32_t v1;
-    double v2;
     float v3;
-    double v4;
 } Tuple0;
 typedef struct {
     int refc;
@@ -37,10 +37,10 @@ struct Fun1{
     Fun2 * (*fptr)(Fun1 *, int32_t);
 };
 typedef struct {
-    int32_t v0;
     double v1;
-    float v2;
     double v3;
+    int32_t v0;
+    float v2;
 } ClosureEnv2;
 typedef struct Closure2 Closure2;
 struct Closure2 {
@@ -206,7 +206,7 @@ int32_t main(){
     Fun0 * v0;
     v0 = method0();
     String * v1;
-    v1 = StringLit(3, "qwe");
+    v1 = StringLit(4, "qwe");
     int32_t v2; int32_t v3; double v4; float v5; double v6;
     Tuple0 tmp0 = v0->fptr(v0, v1);
     v2 = tmp0.v0; v3 = tmp0.v1; v4 = tmp0.v2; v5 = tmp0.v3; v6 = tmp0.v4;

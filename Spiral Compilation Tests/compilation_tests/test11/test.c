@@ -48,7 +48,7 @@ int32_t main(){
     double v1;
     v1 = 3.4;
     String * v2;
-    v2 = StringLit(3, "123");
+    v2 = StringLit(4, "123");
     StringRefc(v2, REFC_DECR);
     return 0l;
 }

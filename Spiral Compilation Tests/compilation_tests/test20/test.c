@@ -44,7 +44,7 @@ static inline String * StringLit(uint32_t len, char * ptr){
 }
 int32_t main(){
     String * v0;
-    v0 = StringLit(5, "Coord");
+    v0 = StringLit(6, "Coord");
     StringRefc(v0, REFC_DECR);
     int32_t v1;
     v1 = 1l;

@@ -196,9 +196,6 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             |> simple
         match a with
         | TyMacro a -> a |> List.map (function CMText x -> x | CMTerm x -> tup x | CMType x -> tup_ty x) |> String.concat "" |> simple
-        | TyIndent(tr) ->
-            complex <| fun s ->
-            binds (indent s) tr
         | TyIf(cond,tr,fl) ->
             complex <| fun s ->
             line s (sprintf "if %s then" (tup cond))
