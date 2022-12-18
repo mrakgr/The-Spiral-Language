@@ -75,24 +75,21 @@ let refc_prepass (new_vars : TyV Set) (x : TypedBind []) =
     let g_decr : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
     let g_incr : Dictionary<TypedBind, TyV Set * bool> = Dictionary(HashIdentity.Reference)
 
-    let add (d : Dictionary<TypedBind, TyV Set>) k x = if Set.isEmpty x then () else d.Add(k,x)
     let incref_cancellation () =
-        let g_suppr' : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
-        let g_decr' : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
-        let g_incr' : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
-        g_incr |> Seq.iter (fun kv ->
-            let add (d : Dictionary<TypedBind, TyV Set>) x = if Set.isEmpty x then () else d.Add(kv.Key,x)
-            let f (g : Dictionary<_,_>) = match g.TryGetValue(kv.Key) with true, x -> x | _ -> Set.empty
-            let decr = f g_decr
-            let suppr = f g_suppr
-            let incr, is_in_container = kv.Value
+        let g_suppr' : Dictionary<TypedBind, TyV Set> = Dictionary(g_suppr.Count, HashIdentity.Reference)
+        let g_decr' : Dictionary<TypedBind, TyV Set> = Dictionary(g_decr.Count, HashIdentity.Reference)
+        let g_incr' : Dictionary<TypedBind, TyV Set> = Dictionary(g_incr.Count, HashIdentity.Reference)
+        for KeyValue(k,(incr,is_in_container)) in g_incr do
+            let f (g : Dictionary<_,_>) = match g.TryGetValue(k) with true, x -> x | _ -> Set.empty
+            let decr, suppr = f g_decr, f g_suppr
             let g a b = a - b, b - a
-            let incr, suppr = g incr suppr
             let incr, decr = if is_in_container then g incr decr else incr, decr
-            add g_incr' incr; add g_suppr' suppr; add g_decr' decr
-            )
-        {g_decr=g_decr'; g_suppr=g_suppr'; g_incr=g_incr'}
+            let incr, suppr = g incr suppr
+            let add (d : Dictionary<TypedBind, TyV Set>) x = if Set.isEmpty x then () else d.[k] <- x
+            add g_incr' incr; add g_decr' decr; add g_suppr' suppr
+        {g_incr=g_incr'; g_decr=g_decr'; g_suppr=g_suppr'}
 
+    let add (d : Dictionary<TypedBind, TyV Set>) k x = if Set.isEmpty x then () else d.Add(k,x)
     let add' (d : Dictionary<TypedBind, TyV Set * bool>) k x = if Set.isEmpty (fst x) then () else d.Add(k,x)
     let fv x = x |> data_free_vars |> Set
     let rec binds (new_vars : TyV Set) (increfed_vars : TyV Set) (k : TypedBind []) =

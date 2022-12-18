@@ -1,3 +1,4 @@
-﻿let a = 2
-let b = 1
-b &&& b
+﻿open System.Collections.Generic
+let a = Dictionary()
+a.Add("qwe",true)
+a.Remove("qwe")
