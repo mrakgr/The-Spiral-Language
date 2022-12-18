@@ -88,7 +88,7 @@ int32_t main(){
             int32_t v7;
             v7 = 5l;
             int32_t v8;
-            v8 = v4->len;
+            v8 = v4->len-1;
             StringRefc(v4, REFC_DECR);
             return v8;
             break;

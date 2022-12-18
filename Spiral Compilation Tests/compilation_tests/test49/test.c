@@ -23,8 +23,8 @@ struct UH0 {
     int tag;
     union {
         struct {
-            int32_t v0;
             UH0 * v1;
+            int32_t v0;
         } case0; // Cons
     };
 };
@@ -86,9 +86,8 @@ int32_t method0(UH0 * v0, UH0 * v1){
     switch (v1->tag == v0->tag ? v1->tag : -1) {
         case 0: { // Cons
             int32_t v2 = v1->case0.v0; UH0 * v3 = v1->case0.v1;
-            UHRefc0(v3, REFC_INCR);
             int32_t v4 = v0->case0.v0; UH0 * v5 = v0->case0.v1;
-            UHRefc0(v5, REFC_INCR);
+            UHRefc0(v3, REFC_INCR); UHRefc0(v5, REFC_INCR);
             UHRefc0(v0, REFC_DECR); UHRefc0(v1, REFC_DECR);
             bool v6;
             v6 = v2 < v4;
