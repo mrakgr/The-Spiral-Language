@@ -13,4 +13,4 @@ inl main () =
         // $"print(!a, !b, !c)"
         $"printf(\"%i %s %i\\n\",!a, !b->ptr, (int) !c)"
         )
-    0i32    
+    0i32

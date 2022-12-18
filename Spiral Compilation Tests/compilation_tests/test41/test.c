@@ -124,8 +124,7 @@ int32_t main(){
                     switch (v15->tag) {
                         case 0: { // Cons
                             int32_t v16 = v15->case0.v0; int32_t v17 = v15->case0.v1; UH0 * v18 = v15->case0.v2;
-                            UHRefc0(v18, REFC_INCR);
-                            UHRefc0(v15, REFC_DECR); UHRefc0(v18, REFC_DECR);
+                            UHRefc0(v15, REFC_DECR);
                             int32_t v19;
                             v19 = v10 + v11;
                             int32_t v20;
