@@ -10,6 +10,9 @@ open System
 open System.Text
 open System.Collections.Generic
 
+// Note (12/18/2022): The del insertion analysis function in the Cython backend are trash. The right way to do it is the way the C backend does it.
+// The Python backend will borrow from it instead.
+
 // In order to have block scoped variables, the Cython backend does del insertion.
 // TCO support is not complete yet.
 // https://github.com/cython/cython/issues/3999

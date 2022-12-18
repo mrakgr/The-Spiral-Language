@@ -39,7 +39,8 @@
 					"enum": [
 						"Fsharp",
 						"Cython",
-						"C"
+						"C",
+						"Python"
 					],
 					"default": "Fsharp",
 					"description": "The code generator to use when the file is built."

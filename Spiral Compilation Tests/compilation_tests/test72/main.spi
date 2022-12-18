@@ -1,4 +1,4 @@
-// Does the heap object ref counted correctly?
+// Is the heap object ref counted correctly?
 
 inl main () =
     inl ~a = true

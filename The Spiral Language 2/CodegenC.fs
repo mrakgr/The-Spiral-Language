@@ -68,7 +68,7 @@ let refc_used_vars (x : TypedBind []) =
     g
 
 type RefcVars = {g_suppr : Dictionary<TypedBind,TyV Set>; g_decr : Dictionary<TypedBind,TyV Set>; g_incr : Dictionary<TypedBind,TyV Set>}
-let refc_prepass (new_vars : TyV Set) (x : TypedBind []) =
+let refc_prepass' incref_canc (new_vars : TyV Set) (x : TypedBind []) =
     let used_vars = refc_used_vars x
     let g_incr : Dictionary<TypedBind, TyV Set * bool> = Dictionary(HashIdentity.Reference)
     let g_decr : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
@@ -133,7 +133,10 @@ let refc_prepass (new_vars : TyV Set) (x : TypedBind []) =
             binds no_new increfed_vars on_fail'
     binds (new_vars, false) Set.empty x
     
-    incref_cancellation()
+    if incref_canc then incref_cancellation()
+    else {g_incr=g_incr |> Seq.map (fun (KeyValue(k,(v,_))) -> KeyValuePair(k,v)) |> Dictionary; g_decr=g_decr; g_suppr=g_suppr}
+
+let refc_prepass new_vars x = refc_prepass' true new_vars x
 
 type BindsReturn =
     | BindsTailEnd
