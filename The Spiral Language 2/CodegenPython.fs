@@ -231,7 +231,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | TyConv(a,b) -> return' $"{tyv a}({tup_data b})"
         | TyArrayLength(a,b) | TyStringLength(a,b) -> length (a,b)
         | TyOp(op,l) ->
-            let tup = tup_data
+            let tup = tup_data;
             match op, l with
             | Import,[DLit (LitString x)] -> import x; ""
             | ToCythonRecord,[DRecord x] -> Map.foldBack (fun k v l -> $"'{k}': {tup v}" :: l) x [] |> String.concat ", " |> sprintf "{%s}"
@@ -240,7 +240,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 let field_names = Map.foldBack (fun k v l -> $"'{k}'" :: l) x [] |> String.concat ", "
                 let args = Map.foldBack (fun k v l -> tup v :: l) x [] |> String.concat ", "
                 $"collections.namedtuple({tup n},[{field_names}])({args})"
-            | Apply,[a;b] -> $"{tup a}({tup_data' b})"
+            | Apply,[a;b] -> $"{tup a}({tup b})"
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
             | StringIndex, [a;b] -> sprintf "%s[%s]" (tup a) (tup b)
