@@ -179,7 +179,6 @@ let print_decref s_fun name_fun type_arg name_decref =
     let _ =
         let s_fun = indent s_fun
         line s_fun (sprintf "if (x != NULL && --(x->refc) == 0) { %s(x); free(x); }" name_decref)
-        line s_fun "}"
     line s_fun "}"
 
 let codegen (env : PartEvalResult) (x : TypedBind []) =
@@ -315,27 +314,26 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and refc_change' (f : int * Ty -> string) (refc_flag : REFC) (x : TyV []) : string [] =
         Array.choose (fun (L(i,t')) -> 
             let v = i,t'
-            match refc_flag with
-            | REFC_INCR -> 
-                match t' with
-                | YUnion t when t.Item.layout = UStack -> Some $"USIncref{(ustack t).tag}(&({f v}));"
-                | _ -> Some $"{f v}->refc++;"
-            | REFC_SUPPR -> 
-                match t' with
-                | YUnion t when t.Item.layout = UStack -> Some $"USSuppref{(ustack t).tag}(&({f v}));"
-                | _ -> Some $"{f v}->refc--;"
-            | REFC_DECR ->
-                match t' with
-                | YUnion t -> 
-                    match t.Item.layout with
-                    | UStack -> Some $"USDecref{(ustack t).tag}(&({f v}));"
-                    | UHeap -> Some $"UHDecref{(uheap t).tag}({f v});"
-                | YArray t -> Some $"ArrayDecref{(carray t).tag}({f v});" 
-                | YFun(a,b) -> Some $"{f v}->decref_fptr({f v});"
-                | YPrim StringT -> Some $"StringDecref({f v});" 
-                | YLayout(a,Heap) -> Some $"HeapDecref{(heap a).tag}({f v});"
-                | YLayout(a,HeapMutable) -> Some $"MutDecref{(mut a).tag}({f v});"
-                | a -> None
+            let inline g decref =
+                match refc_flag with
+                | REFC_INCR -> Some $"{f v}->refc++;"
+                | REFC_DECR -> Some (decref())
+                | REFC_SUPPR -> Some $"{f v}->refc--;"
+            match t' with
+            | YUnion t -> 
+                match t.Item.layout with
+                | UStack -> 
+                    match refc_flag with
+                    | REFC_INCR -> Some $"USIncref{(ustack t).tag}(&({f v}));"
+                    | REFC_DECR -> Some $"USDecref{(ustack t).tag}(&({f v}));"
+                    | REFC_SUPPR -> Some $"USSuppref{(ustack t).tag}(&({f v}));"
+                | UHeap -> g (fun () -> $"UHDecref{(uheap t).tag}({f v});")
+            | YArray t -> g (fun () -> $"ArrayDecref{(carray t).tag}({f v});")
+            | YFun(a,b) -> g (fun () ->  $"{f v}->decref_fptr({f v});")
+            | YPrim StringT -> g (fun () ->  $"StringDecref({f v});" )
+            | YLayout(a,Heap) -> g (fun () ->  $"HeapDecref{(heap a).tag}({f v});")
+            | YLayout(a,HeapMutable) -> g (fun () ->  $"MutDecref{(mut a).tag}({f v});")
+            | _ -> None
             ) x
     and refc_change f c x = refc_change' (fun (i,t) -> f i) c x
     and refc_incr x : string [] = refc_change (fun i -> $"v{i}") REFC_INCR x
