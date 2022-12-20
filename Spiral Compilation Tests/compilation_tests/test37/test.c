@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct {
     int tag;
     union {
@@ -13,24 +12,30 @@ typedef struct {
         } case1; // Some
     };
 } US0;
-static inline void USRefcBody0(US0 x, REFC_FLAG q){
-    switch (x.tag) {
+static inline void USIncrefBody0(US0 * x){
+    switch (x->tag) {
     }
 }
-void USRefc0(US0 * x, REFC_FLAG q){
-    USRefcBody0(*x, q);
+static inline void USDecrefBody0(US0 * x){
+    switch (x->tag) {
+    }
 }
+static inline void USSupprefBody0(US0 * x){
+    switch (x->tag) {
+    }
+}
+void USIncref0(US0 * x){ USIncrefBody0(x); }
+void USDecref0(US0 * x){ USDecrefBody0(x); }
+void USSuppref0(US0 * x){ USSupprefBody0(x); }
 US0 US0_0() { // None
     US0 x;
     x.tag = 0;
-    USRefcBody0(x, REFC_INCR);
     return x;
 }
 US0 US0_1(int32_t v0) { // Some
     US0 x;
     x.tag = 1;
     x.case1.v0 = v0;
-    USRefcBody0(x, REFC_INCR);
     return x;
 }
 int32_t main(){
@@ -40,13 +45,13 @@ int32_t main(){
     v1 = US0_1(v0);
     switch (v1.tag) {
         case 0: { // None
-            USRefc0(&(v1), REFC_DECR);
+            USDecref0(&(v1));
             return 0l;
             break;
         }
         case 1: { // Some
             int32_t v2 = v1.case1.v0;
-            USRefc0(&(v1), REFC_DECR);
+            USDecref0(&(v1));
             return v2;
             break;
         }

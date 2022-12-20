@@ -1,8 +1,8 @@
 // Does the partial evaluator optimize unused match cases?
-union t = A | B
+union t = A : heap i32 * mut (heap u64) | B : heap f64
 inl main () =
-    inl ~a, ~b, ~c = B, B, B
-    match a,b,c with
+    inl ~a, ~b, ~c = B (heap 5), B (heap 2), B (heap 1)
+    match (join a,b,c) with
     | A, _, _ => 1i32
     | _, A, _ => 2
     | _, _, A => 3

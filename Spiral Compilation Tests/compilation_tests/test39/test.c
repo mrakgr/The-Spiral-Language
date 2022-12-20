@@ -4,62 +4,197 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
+typedef struct {
+    int refc;
+    double v0;
+} Heap0;
+typedef struct {
+    int refc;
+    int32_t v0;
+} Heap1;
+typedef struct {
+    int refc;
+    uint64_t v0;
+} Heap2;
+typedef struct {
+    int refc;
+    Heap2 * v0;
+} Mut0;
 typedef struct {
     int tag;
     union {
+        struct {
+            Heap1 * v0;
+            Mut0 * v1;
+        } case0; // A
+        struct {
+            Heap0 * v0;
+        } case1; // B
     };
 } US0;
-static inline void USRefcBody0(US0 x, REFC_FLAG q){
-    switch (x.tag) {
+typedef struct {
+    US0 v0;
+    US0 v1;
+    US0 v2;
+} Tuple0;
+static inline void HeapDecrefBody0(Heap0 * x){
+}
+void HeapDecref0(Heap0 * x){
+    if (x != NULL && --(x->refc) == 0) { HeapDecrefBody0(x); free(x); }
+}
+Heap0 * HeapCreate0(double v0){
+    Heap0 * x = malloc(sizeof(Heap0));
+    x->refc = 1;
+    x->v0 = v0;
+    return x;
+}
+static inline void HeapDecrefBody1(Heap1 * x){
+}
+void HeapDecref1(Heap1 * x){
+    if (x != NULL && --(x->refc) == 0) { HeapDecrefBody1(x); free(x); }
+}
+Heap1 * HeapCreate1(int32_t v0){
+    Heap1 * x = malloc(sizeof(Heap1));
+    x->refc = 1;
+    x->v0 = v0;
+    return x;
+}
+static inline void HeapDecrefBody2(Heap2 * x){
+}
+void HeapDecref2(Heap2 * x){
+    if (x != NULL && --(x->refc) == 0) { HeapDecrefBody2(x); free(x); }
+}
+Heap2 * HeapCreate2(uint64_t v0){
+    Heap2 * x = malloc(sizeof(Heap2));
+    x->refc = 1;
+    x->v0 = v0;
+    return x;
+}
+static inline void MutDecrefBody0(Mut0 * x){
+    HeapDecref2(x->v0);
+}
+void MutDecref0(Mut0 * x){
+    if (x != NULL && --(x->refc) == 0) { MutDecrefBody0(x); free(x); }
+}
+Mut0 * MutCreate0(Heap2 * v0){
+    Mut0 * x = malloc(sizeof(Mut0));
+    x->refc = 1;
+    x->v0 = v0;
+    v0->refc++;
+    return x;
+}
+static inline void USIncrefBody0(US0 * x){
+    switch (x->tag) {
+        case 0: {
+            x->case0.v0->refc++; x->case0.v1->refc++;
+            break;
+        }
+        case 1: {
+            x->case1.v0->refc++;
+            break;
+        }
     }
 }
-void USRefc0(US0 * x, REFC_FLAG q){
-    USRefcBody0(*x, q);
+static inline void USDecrefBody0(US0 * x){
+    switch (x->tag) {
+        case 0: {
+            HeapDecref1(x->case0.v0); MutDecref0(x->case0.v1);
+            break;
+        }
+        case 1: {
+            HeapDecref0(x->case1.v0);
+            break;
+        }
+    }
 }
-US0 US0_0() { // A
+static inline void USSupprefBody0(US0 * x){
+    switch (x->tag) {
+        case 0: {
+            x->case0.v0->refc--; x->case0.v1->refc--;
+            break;
+        }
+        case 1: {
+            x->case1.v0->refc--;
+            break;
+        }
+    }
+}
+void USIncref0(US0 * x){ USIncrefBody0(x); }
+void USDecref0(US0 * x){ USDecrefBody0(x); }
+void USSuppref0(US0 * x){ USSupprefBody0(x); }
+US0 US0_0(Heap1 * v0, Mut0 * v1) { // A
     US0 x;
     x.tag = 0;
-    USRefcBody0(x, REFC_INCR);
+    x.case0.v0 = v0; x.case0.v1 = v1;
+    v0->refc++; v1->refc++;
     return x;
 }
-US0 US0_1() { // B
+US0 US0_1(Heap0 * v0) { // B
     US0 x;
     x.tag = 1;
-    USRefcBody0(x, REFC_INCR);
+    x.case1.v0 = v0;
+    v0->refc++;
     return x;
 }
+static inline Tuple0 TupleCreate0(US0 v0, US0 v1, US0 v2){
+    Tuple0 x;
+    x.v0 = v0; x.v1 = v1; x.v2 = v2;
+    return x;
+}
+Tuple0 method0(US0 v0, US0 v1, US0 v2){
+    USIncref0(&(v0)); USIncref0(&(v1)); USIncref0(&(v2));
+    return TupleCreate0(v2, v1, v0);
+}
 int32_t main(){
-    US0 v0;
-    v0 = US0_1();
-    US0 v1;
-    v1 = US0_1();
-    US0 v2;
-    v2 = US0_1();
-    switch (v0.tag) {
+    Heap0 * v0;
+    v0 = HeapCreate0(5.0);
+    Heap0 * v1;
+    v1 = HeapCreate0(2.0);
+    Heap0 * v2;
+    v2 = HeapCreate0(1.0);
+    US0 v3;
+    v3 = US0_1(v0);
+    HeapDecref0(v0);
+    US0 v4;
+    v4 = US0_1(v1);
+    HeapDecref0(v1);
+    US0 v5;
+    v5 = US0_1(v2);
+    HeapDecref0(v2);
+    US0 v6; US0 v7; US0 v8;
+    Tuple0 tmp0 = method0(v5, v4, v3);
+    v6 = tmp0.v0; v7 = tmp0.v1; v8 = tmp0.v2;
+    USDecref0(&(v3)); USDecref0(&(v4)); USDecref0(&(v5));
+    switch (v6.tag) {
         case 0: { // A
-            USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR);
+            Heap1 * v9 = v6.case0.v0; Mut0 * v10 = v6.case0.v1;
+            USDecref0(&(v6)); USDecref0(&(v7)); USDecref0(&(v8));
             return 1l;
             break;
         }
         case 1: { // B
-            USRefc0(&(v0), REFC_DECR);
-            switch (v1.tag) {
+            Heap0 * v11 = v6.case1.v0;
+            USDecref0(&(v6));
+            switch (v7.tag) {
                 case 0: { // A
-                    USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR);
+                    Heap1 * v12 = v7.case0.v0; Mut0 * v13 = v7.case0.v1;
+                    USDecref0(&(v7)); USDecref0(&(v8));
                     return 2l;
                     break;
                 }
                 case 1: { // B
-                    USRefc0(&(v1), REFC_DECR);
-                    switch (v2.tag) {
+                    Heap0 * v14 = v7.case1.v0;
+                    USDecref0(&(v7));
+                    switch (v8.tag) {
                         case 0: { // A
-                            USRefc0(&(v2), REFC_DECR);
+                            Heap1 * v15 = v8.case0.v0; Mut0 * v16 = v8.case0.v1;
+                            USDecref0(&(v8));
                             return 3l;
                             break;
                         }
                         case 1: { // B
-                            USRefc0(&(v2), REFC_DECR);
+                            Heap0 * v17 = v8.case1.v0;
+                            USDecref0(&(v8));
                             return 4l;
                             break;
                         }
