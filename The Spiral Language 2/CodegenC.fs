@@ -9,6 +9,8 @@ open System
 open System.Text
 open System.Collections.Generic
 
+type REFC = REFC_INCR | REFC_DECR | REFC_SUPPR
+
 let sizeof_tyv = function
     | YPrim (Int64T | UInt64T | Float64T) -> 8
     | YPrim (Int32T | UInt32T | Float32T) -> 4
@@ -18,13 +20,14 @@ let sizeof_tyv = function
 let line x s = if s <> "" then x.text.Append(' ', x.indent).AppendLine s |> ignore
 let line' x s = line x (String.concat " " s)
 
-let rec is_heap = function // TODO: Deal with the nominal case.
-    | YUnion a -> a.Item.layout = UHeap || Array.exists (snd >> is_heap) a.Item.tag_cases
-    | YPrim StringT | YLayout _ | YArray _ | YFun _ -> true
-    | YPrim _ -> false
-    | YPair(a,b) -> is_heap a || is_heap b
-    | YRecord l -> Map.exists (fun _ -> is_heap) l
-    | _ -> true
+let rec is_heap f x = 
+    Array.exists (fun (L(i,t)) -> 
+        match t with
+        | YUnion a when a.Item.layout = UStack -> Array.exists (snd >> f >> is_heap f) a.Item.tag_cases
+        | YPrim StringT -> true
+        | YPrim _ -> false
+        | _ -> true
+        ) x
 let is_string = function DV(L(_,YPrim StringT)) | DLit(LitString _) -> true | _ -> false
 
 let refc_used_vars (x : TypedBind []) =
@@ -171,6 +174,14 @@ let lit_string x =
     strb.Append '"' |> ignore
     strb.ToString()
 
+let print_decref s_fun name_fun type_arg name_decref =
+    line s_fun (sprintf "void %s(%s * x){" name_fun type_arg)
+    let _ =
+        let s_fun = indent s_fun
+        line s_fun (sprintf "if (x != NULL && --(x->refc) == 0) { %s(x); free(x); }" name_decref)
+        line s_fun "}"
+    line s_fun "}"
+
 let codegen (env : PartEvalResult) (x : TypedBind []) =
     let imports = ResizeArray()
     let fwd_dcls = ResizeArray()
@@ -301,24 +312,35 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     | BindsTailEnd -> line s $"return {tup_data d};"
                 with :? CodegenError as e -> raise_codegen_error' trace e.Data0
             ) stmts
-    and refc_change' (f : int * Ty -> string) (refc_flag : string) (x : TyV []) : string [] =
+    and refc_change' (f : int * Ty -> string) (refc_flag : REFC) (x : TyV []) : string [] =
         Array.choose (fun (L(i,t')) -> 
-            match t' with
-            | YUnion t -> 
-                match t.Item.layout with
-                | UHeap -> Some $"UHRefc{(uheap t).tag}({f (i,t')}, {refc_flag});"
-                | UStack -> Some $"USRefc{(ustack t).tag}(&({f (i,t')}), {refc_flag});"
-            | YArray t -> Some $"ArrayRefc{(carray t).tag}({f (i,t')}, {refc_flag});" 
-            | YFun(a,b) -> Some $"{f (i,t')}->refc_fptr({f (i,t')}, {refc_flag});"
-            | YPrim StringT -> Some $"StringRefc({f (i,t')}, {refc_flag});" 
-            | YLayout(a,Heap) -> Some $"HeapRefc{(heap a).tag}({f (i,t')}, {refc_flag});"
-            | YLayout(a,HeapMutable) -> Some $"MutRefc{(mut a).tag}({f (i,t')}, {refc_flag});"
-            | a -> None
+            let v = i,t'
+            match refc_flag with
+            | REFC_INCR -> 
+                match t' with
+                | YUnion t when t.Item.layout = UStack -> Some $"USIncref{(ustack t).tag}(&({f v}));"
+                | _ -> Some $"{f v}->refc++;"
+            | REFC_SUPPR -> 
+                match t' with
+                | YUnion t when t.Item.layout = UStack -> Some $"USSuppref{(ustack t).tag}(&({f v}));"
+                | _ -> Some $"{f v}->refc--;"
+            | REFC_DECR ->
+                match t' with
+                | YUnion t -> 
+                    match t.Item.layout with
+                    | UStack -> Some $"USDecref{(ustack t).tag}(&({f v}));"
+                    | UHeap -> Some $"UHDecref{(uheap t).tag}({f v});"
+                | YArray t -> Some $"ArrayDecref{(carray t).tag}({f v});" 
+                | YFun(a,b) -> Some $"{f v}->decref_fptr({f v});"
+                | YPrim StringT -> Some $"StringDecref({f v});" 
+                | YLayout(a,Heap) -> Some $"HeapDecref{(heap a).tag}({f v});"
+                | YLayout(a,HeapMutable) -> Some $"MutDecref{(mut a).tag}({f v});"
+                | a -> None
             ) x
     and refc_change f c x = refc_change' (fun (i,t) -> f i) c x
-    and refc_incr x : string [] = refc_change (fun i -> $"v{i}") "REFC_INCR" x
-    and refc_decr x : string [] = refc_change (fun i -> $"v{i}") "REFC_DECR" x
-    and refc_suppr (x : TyV []) : string [] = refc_change (fun i -> $"v{i}") "REFC_SUPPR" x
+    and refc_incr x : string [] = refc_change (fun i -> $"v{i}") REFC_INCR x
+    and refc_decr x : string [] = refc_change (fun i -> $"v{i}") REFC_DECR x
+    and refc_suppr (x : TyV []) : string [] = refc_change (fun i -> $"v{i}") REFC_SUPPR x
     and show_w = function WV(L(i,_)) -> sprintf "v%i" i | WLit a -> lit a
     and args' b = data_term_vars b |> Array.map show_w |> String.concat ", "
     and tup_term_vars x =
@@ -497,8 +519,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let b = List.map tup_data b' |> String.concat "," |> sprintf "{%s}"
             $"ArrayLit{(carray a).tag}({b'.Length}, ({tup_ty a} []){b})" |> return'
         | TyArrayCreate(a,b) -> 
-            let is_heap : string = is_heap a |> sprintf "%b"
-            $"ArrayCreate{(carray a).tag}({tup_data b}, {is_heap})" |> return'
+            let a = carray a
+            let is_heap : string = is_heap (env.ty_to_data >> data_free_vars) a.tyvs |> sprintf "%b"
+            $"ArrayCreate{a.tag}({tup_data b}, {is_heap})" |> return'
         | TyFailwith(a,b) -> 
             let fmt = @"%s\n"
             line s $"fprintf(stderr, \"{fmt}\", {string_in_op b})"
@@ -592,48 +615,26 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             ) (fun _ s_typ s_fun x ->
             
             let i, range = x.tag, tup_ty x.range
-
-            line s_typ "typedef struct {"
-            print_ordered_args (indent s_typ) x.free_vars
-            line s_typ (sprintf "} ClosureEnv%i;" i)
-            
             line s_typ (sprintf "typedef struct Closure%i Closure%i;" i i)
             line s_typ (sprintf "struct Closure%i {" i)
             let _ =
                 let s_typ = indent s_typ
                 line s_typ $"int refc;"
-                line s_typ $"void (*refc_fptr)(Closure{i} *, REFC_FLAG);"
+                line s_typ $"void (*decref_fptr)(Closure{i} *);"
                 match x.domain_args |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat ", " with
                 | "" -> $"{range} (*fptr)(Closure{i} *);"
                 | domain_args_ty -> $"{range} (*fptr)(Closure{i} *, {domain_args_ty});"
                 |> line s_typ
-                line s_typ $"ClosureEnv{i} env[];"
+                print_ordered_args (indent s_typ) x.free_vars
             line s_typ "};"
 
-            line s_fun (sprintf "static inline void ClosureRefcBody%i(Closure%i * x, REFC_FLAG q){" i i)
+            line s_fun (sprintf "static inline void ClosureDecrefBody%i(Closure%i * x){" i i)
             let _ =
                 let s_fun = indent s_fun
-                let refcs = x.free_vars |> refc_change (fun i -> $"env.v{i}") "q"
-                if refcs.Length <> 0 then
-                    line s_fun $"ClosureEnv{i} env = x->env[0];"
-                    refcs |> line' s_fun
+                x.free_vars |> refc_change (fun i -> $"x->v{i}") REFC_DECR |> line' s_fun
             line s_fun "}"
 
-            line s_fun (sprintf "void ClosureRefc%i(Closure%i * x, REFC_FLAG q){" i i)
-            let _ =
-                let s_fun = indent s_fun
-                line s_fun "if (x != NULL) {"
-                let _ =
-                    let s_fun = indent s_fun
-                    line s_fun "int refc = (x->refc += q & REFC_INCR ? 1 : -1);"
-                    line s_fun "if (!(q & REFC_SUPPR) && refc == 0) {"
-                    let _ =
-                        let s_fun = indent s_fun
-                        line s_fun $"ClosureRefcBody{i}(x, REFC_DECR);"
-                        line s_fun "free(x);"
-                    line s_fun "}"
-                line s_fun "}"
-            line s_fun "}"
+            print_decref s_fun $"ClosureDecref{i}" $"Closure{i}" $"ClosureDecrefBody{i}"
             
             match x.domain_args |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}") |> String.concat ", " with
             | "" -> sprintf "%s ClosureMethod%i(Closure%i * x){" range i i
@@ -641,9 +642,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             |> line s_fun
             let _ =
                 let s_fun = indent s_fun
-                if x.free_vars.Length <> 0 then
-                    line s_fun $"ClosureEnv{i} * env = x->env;"
-                    x.free_vars |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i} = env->v{i};") |> line' s_fun
+                x.free_vars |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i} = x->v{i};") |> line' s_fun
                 binds_start x.domain_args s_fun x.body
             line s_fun "}"
 
@@ -652,14 +651,12 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s_fun (sprintf "Fun%i * ClosureCreate%i(%s){" fun_tag i (String.concat ", " free_vars))
             let _ =
                 let s_fun = indent s_fun
-                line s_fun $"Closure{i} * x = malloc(sizeof(Closure{i}) + sizeof(ClosureEnv{i}));"
+                line s_fun $"Closure{i} * x = malloc(sizeof(Closure{i}));"
                 line s_fun "x->refc = 1;"
-                line s_fun $"x->refc_fptr = ClosureRefc{i};"
+                line s_fun $"x->decref_fptr = ClosureDecref{i};"
                 line s_fun $"x->fptr = ClosureMethod{i};"
-                if x.free_vars.Length <> 0 then
-                    line s_fun $"ClosureEnv{i} * env = x->env;"
-                    x.free_vars |> Array.map (fun (L(i,_)) -> $"env->v{i} = v{i};")  |> line' s_fun
-                    line s_fun $"ClosureRefcBody{i}(x, REFC_INCR);"
+                x.free_vars |> Array.map (fun (L(i,_)) -> $"x->v{i} = v{i};")  |> line' s_fun
+                refc_incr x.free_vars |> line' s_fun
                 line s_fun $"return (Fun{fun_tag} *) x;"
             line s_fun "}"
             )
@@ -671,7 +668,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let _ =
                 let s_typ = indent s_typ
                 line s_typ $"int refc;"
-                line s_typ $"void (*refc_fptr)(Fun{i} *, REFC_FLAG);"
+                line s_typ $"void (*decref_fptr)(Fun{i} *);"
                 match x.domain_args_ty |> Array.map (fun t -> tyv t) |> String.concat ", " with
                 | "" -> $"{range} (*fptr)(Fun{i} *);"
                 | domain_args_ty -> $"{range} (*fptr)(Fun{i} *, {domain_args_ty});"
@@ -701,8 +698,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s_fun (sprintf "static inline void AssignMut%i(%s){" x.tag args)
             let _ =
                 let s_fun = indent s_fun
-                refc_change (fun i -> $"b{i}") "REFC_INCR" tyvs |> line' s_fun
-                refc_change (fun i -> $"*a{i}") "REFC_DECR" tyvs |> line' s_fun
+                refc_change (fun i -> $"b{i}") REFC_INCR tyvs |> line' s_fun
+                refc_change (fun i -> $"*a{i}") REFC_DECR tyvs |> line' s_fun
                 Array.init tyvs.Length (fun i -> $"*a{i} = b{i};") |> line' s_fun
             line s_fun "}"
             )
@@ -715,12 +712,12 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 match tyvs with
                 | [||] -> raise_codegen_error "Compiler error: Void types not allowed in assign."
                 | [|t|] -> 
-                    refc_change (fun i -> "b") "REFC_INCR" tyvs |> line' s_fun
-                    refc_change (fun i -> "*a") "REFC_DECR" tyvs |> line' s_fun
+                    refc_change (fun i -> "b") REFC_INCR tyvs |> line' s_fun
+                    refc_change (fun i -> "*a") REFC_DECR tyvs |> line' s_fun
                     $"*a = b;" |> line s_fun
                 | _ ->
-                    refc_change (fun i -> $"b.v{i}") "REFC_INCR" tyvs |> line' s_fun
-                    refc_change (fun i -> $"a->v{i}") "REFC_DECR" tyvs |> line' s_fun
+                    refc_change (fun i -> $"b.v{i}") REFC_INCR tyvs |> line' s_fun
+                    refc_change (fun i -> $"a->v{i}") REFC_DECR tyvs |> line' s_fun
                     $"*a = b;" |> line s_fun
             line s_fun "}"
             )
@@ -736,31 +733,13 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 print_ordered_args s_typ x.free_vars
             line s_typ (sprintf "} %s;" name')
 
-            line s_fun (sprintf "static inline void %sRefcBody%i(%s * x, REFC_FLAG q){" name i name')
+            line s_fun (sprintf "static inline void %sDecrefBody%i(%s * x){" name i name')
             let _ =
                 let s_fun = indent s_fun
-                let refc_vars = ResizeArray()
-                let refcs = x.free_vars |> refc_change' (fun (i,t) -> refc_vars.Add($"{tyv t} z{i} = x->v{i};"); $"z{i}") "q" 
-                if refcs.Length <> 0 then
-                    refc_vars |> line' s_fun 
-                    refcs |> line' s_fun
+                x.free_vars |> refc_change (fun i -> $"x->v{i}") REFC_DECR |> line' s_fun
             line s_fun "}"
 
-            line s_fun (sprintf "void %sRefc%i(%s * x, REFC_FLAG q){" name i name')
-            let _ =
-                let s_fun = indent s_fun
-                line s_fun "if (x != NULL) {"
-                let _ =
-                    let s_fun = indent s_fun
-                    line s_fun "int refc = (x->refc += q & REFC_INCR ? 1 : -1);"
-                    line s_fun "if (!(q & REFC_SUPPR) && refc == 0) {"
-                    let _ =
-                        let s_fun = indent s_fun
-                        line s_fun $"{name}RefcBody{i}(x, REFC_DECR);"
-                        line s_fun "free(x);"
-                    line s_fun "}"
-                line s_fun "}"
-            line s_fun "}"
+            print_decref s_fun $"{name}Decref{i}" name' $"{name}DecrefBody{i}"
 
             let args = x.free_vars |> Array.map (fun (L(i,x)) -> $"{tyv x} v{i}")
             line s_fun (sprintf "%s * %sCreate%i(%s){" name' name i (String.concat ", " args))
@@ -769,7 +748,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s_fun $"{name'} * x = malloc(sizeof({name'}));"
                 line s_fun "x->refc = 1;"
                 Array.init args.Length (fun i -> $"x->v{i} = v{i};") |> line' s_fun
-                line s_fun $"{name}RefcBody{i}(x, REFC_INCR);"
+                x.free_vars |> refc_incr |> line' s_fun
                 line s_fun $"return x;"
             line s_fun "}"
             )
@@ -804,49 +783,41 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | true  -> line s_typ (sprintf "} US%i;" i)
             | false -> line s_typ "};"
 
-            match is_stack with
-            | true  -> line s_fun (sprintf "static inline void USRefcBody%i(US%i x, REFC_FLAG q){" i i)
-            | false -> line s_fun (sprintf "static inline void UHRefcBody%i(UH%i x, REFC_FLAG q){" i i)
-            let _ =
-                let s_fun = indent s_fun
-                line s_fun "switch (x.tag) {"
-                map_iteri (fun tag k v -> 
-                    let s_fun = indent s_fun
-                    let refc = v |> refc_change (fun i -> $"x.case{tag}.v{i}") "q"
-                    if refc.Length <> 0 then
-                        line s_fun (sprintf "case %i: {" tag)
-                        let _ =
-                            let s_fun = indent s_fun
-                            refc |> line' s_fun
-                            line s_fun "break;"
-                        line s_fun "}"
-                    ) x.free_vars
-                line s_fun "}"
-            line s_fun "}"
-
-            match is_stack with
-            | true  -> 
-                line s_fun (sprintf "void USRefc%i(US%i * x, REFC_FLAG q){" i i)
-                line (indent s_fun) $"USRefcBody{i}(*x, q);"
-                line s_fun "}"
-            | false -> 
-                line s_fwd (sprintf "void UHRefc%i(UH%i * x, REFC_FLAG q);" i i)
-                line s_fun (sprintf "void UHRefc%i(UH%i * x, REFC_FLAG q){" i i)
+            let print_refc name typ q =
+                line s_fun (sprintf "static inline void %s(%s * x){" name typ)
                 let _ =
                     let s_fun = indent s_fun
-                    line s_fun "if (x != NULL) {"
-                    let _ =
+                    line s_fun "switch (x->tag) {"
+                    map_iteri (fun tag k v -> 
                         let s_fun = indent s_fun
-                        line s_fun "int refc = (x->refc += q & REFC_INCR ? 1 : -1);"
-                        line s_fun "if (!(q & REFC_SUPPR) && refc == 0) {"
-                        let _ =
-                            let s_fun = indent s_fun
-                            line s_fun $"UHRefcBody{i}(*x, REFC_DECR);"
-                            line s_fun "free(x);"
-                        line s_fun "}"
+                        let refc = v |> refc_change (fun i -> $"x->case{tag}->v{i}") q
+                        if refc.Length <> 0 then
+                            line s_fun (sprintf "case %i: {" tag)
+                            let _ =
+                                let s_fun = indent s_fun
+                                refc |> line' s_fun
+                                line s_fun "break;"
+                            line s_fun "}"
+                        ) x.free_vars
                     line s_fun "}"
                 line s_fun "}"
 
+            match is_stack with
+            | true  -> 
+                print_refc $"USIncrefBody{i}" $"US{i}" REFC_INCR
+                print_refc $"USDecrefBody{i}" $"US{i}" REFC_DECR
+                print_refc $"USSupprefBody{i}" $"US{i}" REFC_SUPPR
+            | false -> print_refc $"UHDecrefBody{i}" $"UH{i}" REFC_DECR
+
+            match is_stack with
+            | true  -> 
+                line s_fun (sprintf "void USIncref%i(US%i * x){ USIncrefBody%i(x); }" i i i)
+                line s_fun (sprintf "void USDecref%i(US%i * x){ USDecrefBody%i(x); }" i i i)
+                line s_fun (sprintf "void USSuppref%i(US%i * x){ USSupprefBody%i(x); }" i i i)
+            | false -> 
+                line s_fwd (sprintf "void UHDecref%i(UH%i * x);" i i)
+                print_decref s_fun $"UHDecref{i}" $"UH{i}" $"UHDecrefBody{i}"
+            
             map_iteri (fun tag k v -> 
                 let args = v |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}") |> String.concat ", "
                 if is_stack then
@@ -855,22 +826,22 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                         let s_fun = indent s_fun
                         line s_fun $"US{i} x;"
                         line s_fun $"x.tag = {tag};"
-                        if 0 < v.Length then
+                        if v.Length <> 0 then
                             v |> Array.map (fun (L(i,t)) -> $"x.case{tag}.v{i} = v{i};") |> line' s_fun
-                        line s_fun $"USRefcBody{i}(x, REFC_INCR);"
+                        v |> refc_incr |> line' s_fun
                         line s_fun "return x;"
                     line s_fun "}"
                 else
                     line s_fun (sprintf "UH%i * UH%i_%i(%s) { // %s" i i tag args k)
                     let _ =
                         let s_fun = indent s_fun
-                        line s_fun $"UH{i} x;"
-                        line s_fun $"x.tag = {tag};"
-                        line s_fun "x.refc = 1;"
-                        if 0 < v.Length then
-                            v |> Array.map (fun (L(i,t)) -> $"x.case{tag}.v{i} = v{i};") |> line' s_fun
-                        line s_fun $"UHRefcBody{i}(x, REFC_INCR);"
-                        line s_fun $"return memcpy(malloc(sizeof(UH{i})),&x,sizeof(UH{i}));"
+                        line s_fun $"UH{i} x = malloc(sizeof(UH{i}));"
+                        line s_fun $"x->tag = {tag};"
+                        line s_fun "x->refc = 1;"
+                        if v.Length <> 0 then
+                            v |> Array.map (fun (L(i,t)) -> $"x.case{tag}->v{i} = v{i};") |> line' s_fun
+                        v |> refc_incr |> line' s_fun
+                        line s_fun $"return x;"
                     line s_fun "}"
                 ) x.free_vars
             )
@@ -887,35 +858,27 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 if ptr_t <> "void" then line s_typ $"{ptr_t} ptr[];" // flexible array member
             line s_typ (sprintf "} Array%i;" i)
 
-            line s_fun (sprintf "static inline void ArrayRefcBody%i(Array%i * x, REFC_FLAG q){" i i)
-            let _ =
-                let s_fun = indent s_fun
-                let refcs = x.tyvs |> refc_change (fun i -> if 1 < x.tyvs.Length then $"v.v{i}" else "v") "q"
+
+            let print_body s_fun q =
+                let refcs = x.tyvs |> refc_change (fun i -> if 1 < x.tyvs.Length then $"v.v{i}" else "v") q
                 if refcs.Length <> 0 then
-                    line s_fun (sprintf "for (%s i=0; i < x->len; i++){" len_t)
+                    line s_fun (sprintf "for (%s i=0; i < len; i++){" len_t)
                     let _ =
                         let s_fun = indent s_fun
-                        line s_fun $"{ptr_t} v = x->ptr[i];"
+                        line s_fun $"{ptr_t} v = ptr[i];"
                         refcs |> line' s_fun
                     line s_fun "}"
-            line s_fun "}"
 
-            line s_fun (sprintf "void ArrayRefc%i(Array%i * x, REFC_FLAG q){" i i)
+            line s_fun (sprintf "static inline void ArrayDecrefBody%i(Array%i * x){" i i)
             let _ =
                 let s_fun = indent s_fun
-                line s_fun "if (x != NULL) {"
-                let _ =
-                    let s_fun = indent s_fun
-                    line s_fun "int refc = (x->refc += q & REFC_INCR ? 1 : -1);"
-                    line s_fun "if (!(q & REFC_SUPPR) && refc == 0) {"
-                    let _ =
-                        let s_fun = indent s_fun
-                        line s_fun $"ArrayRefcBody{i}(x, REFC_DECR);"
-                        line s_fun "free(x);"
-                    line s_fun "}"
-                line s_fun "}"
+                line s_fun $"{len_t} len = x->len;"
+                line s_fun $"{ptr_t} ptr = x->ptr;"
+                print_body s_fun REFC_DECR
             line s_fun "}"
 
+            print_decref s_fun $"ArrayDecref{i}" $"Array{i}" $"ArrayDecrefBody{i}"
+            
             line s_fun (sprintf "Array%i * ArrayCreate%i(%s len, bool init_at_zero){" i i len_t)
             let _ =
                 let s_fun = indent s_fun
@@ -935,7 +898,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s_fun $"Array{i} * x = ArrayCreate{i}(len, false);"
                 if ptr_t <> "void" then 
                     line s_fun $"memcpy(x->ptr, ptr, sizeof({ptr_t}) * len);"
-                    line s_fun $"ArrayRefcBody{i}(x, REFC_INCR);"
+                    print_body (indent s_fun) REFC_INCR
                 line s_fun "return x;"
             line s_fun "}"
             )
@@ -945,8 +908,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             let size_t, ptr_t, tag = prim size_t, tyv char, (carray char).tag
             line s_typ $"typedef Array{tag} String;"
 
-            line s_fun "static inline void StringRefc(String * x, REFC_FLAG q){"
-            line (indent s_fun) $"return ArrayRefc{tag}(x, q);"
+            line s_fun "static inline void StringDecref(String * x){"
+            line (indent s_fun) $"return ArrayDecref{tag}(x);"
             line s_fun "}"
 
             line s_fun (sprintf "static inline String * StringLit(%s len, %s * ptr){" size_t ptr_t)
@@ -962,7 +925,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         import "stdlib.h"
         import "string.h"
         import "math.h"
-        fwd_dcls.Add("typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;\n")
+        
 
         let main_defs = {text=StringBuilder(); indent=0}
         line main_defs (sprintf "%s main(){" (prim Int32T))
