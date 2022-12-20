@@ -790,7 +790,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     line s_fun "switch (x->tag) {"
                     map_iteri (fun tag k v -> 
                         let s_fun = indent s_fun
-                        let refc = v |> refc_change (fun i -> $"x->case{tag}->v{i}") q
+                        let refc = v |> refc_change (fun i -> $"x->case{tag}.v{i}") q
                         if refc.Length <> 0 then
                             line s_fun (sprintf "case %i: {" tag)
                             let _ =
@@ -839,7 +839,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                         line s_fun $"x->tag = {tag};"
                         line s_fun "x->refc = 1;"
                         if v.Length <> 0 then
-                            v |> Array.map (fun (L(i,t)) -> $"x.case{tag}->v{i} = v{i};") |> line' s_fun
+                            v |> Array.map (fun (L(i,t)) -> $"x->case{tag}.v{i} = v{i};") |> line' s_fun
                         v |> refc_incr |> line' s_fun
                         line s_fun $"return x;"
                     line s_fun "}"
