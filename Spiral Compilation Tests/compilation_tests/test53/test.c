@@ -4,28 +4,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct {
     int refc;
     int32_t v0;
     int32_t v1;
 } Mut0;
-static inline void MutRefcBody0(Mut0 * x, REFC_FLAG q){
+static inline void MutDecrefBody0(Mut0 * x){
 }
-void MutRefc0(Mut0 * x, REFC_FLAG q){
-    if (x != NULL) {
-        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
-        if (!(q & REFC_SUPPR) && refc == 0) {
-            MutRefcBody0(x, REFC_DECR);
-            free(x);
-        }
-    }
+void MutDecref0(Mut0 * x){
+    if (x != NULL && --(x->refc) == 0) { MutDecrefBody0(x); free(x); }
 }
 Mut0 * MutCreate0(int32_t v0, int32_t v1){
     Mut0 * x = malloc(sizeof(Mut0));
     x->refc = 1;
     x->v0 = v0; x->v1 = v1;
-    MutRefcBody0(x, REFC_INCR);
     return x;
 }
 static inline void AssignMut0(int32_t * a0, int32_t b0, int32_t * a1, int32_t b1){
@@ -35,6 +27,6 @@ int32_t main(){
     Mut0 * v0;
     v0 = MutCreate0(1l, 2l);
     AssignMut0(&(v0->v0), 3l, &(v0->v1), 4l);
-    MutRefc0(v0, REFC_DECR);
+    MutDecref0(v0);
     return 0l;
 }

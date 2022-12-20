@@ -1,3 +1,8 @@
+2.2.5/2.2.6 (12/20/2022)
+
+* Some more work on ref counting part of the C backend. The semantics have changed - trying to read from unitialized arrays will cause null pointer fault now.
+* Accidentally published as 2.2.6 on OVSX, so I'll skip a patch version next time. 2.2.6 is the same as 2.2.5.
+
 2.2.4 (12/18/2022)
 
 * Redesigned how ref counting works in the C backend. Fixed a bug related to increfing not happing at the ends of if branches.

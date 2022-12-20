@@ -4,23 +4,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct {
     int refc;
     uint32_t len;
     char ptr[];
 } Array0;
 typedef Array0 String;
-static inline void ArrayRefcBody0(Array0 * x, REFC_FLAG q){
+static inline void ArrayDecrefBody0(Array0 * x){
 }
-void ArrayRefc0(Array0 * x, REFC_FLAG q){
-    if (x != NULL) {
-        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
-        if (!(q & REFC_SUPPR) && refc == 0) {
-            ArrayRefcBody0(x, REFC_DECR);
-            free(x);
-        }
-    }
+void ArrayDecref0(Array0 * x){
+    if (x != NULL && --(x->refc) == 0) { ArrayDecrefBody0(x); free(x); }
 }
 Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
     uint32_t size = sizeof(Array0) + sizeof(char) * len;
@@ -33,11 +26,10 @@ Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
 Array0 * ArrayLit0(uint32_t len, char * ptr){
     Array0 * x = ArrayCreate0(len, false);
     memcpy(x->ptr, ptr, sizeof(char) * len);
-    ArrayRefcBody0(x, REFC_INCR);
     return x;
 }
-static inline void StringRefc(String * x, REFC_FLAG q){
-    return ArrayRefc0(x, q);
+static inline void StringDecref(String * x){
+    return ArrayDecref0(x);
 }
 static inline String * StringLit(uint32_t len, char * ptr){
     return ArrayLit0(len, ptr);
@@ -73,6 +65,6 @@ int32_t main(){
             }
         }
     }
-    StringRefc(v10, REFC_DECR);
+    StringDecref(v10);
     return 0l;
 }

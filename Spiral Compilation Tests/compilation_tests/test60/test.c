@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct {
     int refc;
     uint32_t len;
@@ -21,16 +20,10 @@ typedef struct {
         } case0; // A
     };
 } US0;
-static inline void ArrayRefcBody0(Array0 * x, REFC_FLAG q){
+static inline void ArrayDecrefBody0(Array0 * x){
 }
-void ArrayRefc0(Array0 * x, REFC_FLAG q){
-    if (x != NULL) {
-        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
-        if (!(q & REFC_SUPPR) && refc == 0) {
-            ArrayRefcBody0(x, REFC_DECR);
-            free(x);
-        }
-    }
+void ArrayDecref0(Array0 * x){
+    if (x != NULL && --(x->refc) == 0) { ArrayDecrefBody0(x); free(x); }
 }
 Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
     uint32_t size = sizeof(Array0) + sizeof(char) * len;
@@ -43,31 +36,46 @@ Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
 Array0 * ArrayLit0(uint32_t len, char * ptr){
     Array0 * x = ArrayCreate0(len, false);
     memcpy(x->ptr, ptr, sizeof(char) * len);
-    ArrayRefcBody0(x, REFC_INCR);
     return x;
 }
-static inline void StringRefc(String * x, REFC_FLAG q){
-    return ArrayRefc0(x, q);
+static inline void StringDecref(String * x){
+    return ArrayDecref0(x);
 }
 static inline String * StringLit(uint32_t len, char * ptr){
     return ArrayLit0(len, ptr);
 }
-static inline void USRefcBody0(US0 x, REFC_FLAG q){
-    switch (x.tag) {
+static inline void USIncrefBody0(US0 * x){
+    switch (x->tag) {
         case 0: {
-            StringRefc(x.case0.v0, q); StringRefc(x.case0.v1, q); StringRefc(x.case0.v2, q);
+            x->case0.v0->refc++; x->case0.v1->refc++; x->case0.v2->refc++;
             break;
         }
     }
 }
-void USRefc0(US0 * x, REFC_FLAG q){
-    USRefcBody0(*x, q);
+static inline void USDecrefBody0(US0 * x){
+    switch (x->tag) {
+        case 0: {
+            StringDecref(x->case0.v0); StringDecref(x->case0.v1); StringDecref(x->case0.v2);
+            break;
+        }
+    }
 }
+static inline void USSupprefBody0(US0 * x){
+    switch (x->tag) {
+        case 0: {
+            x->case0.v0->refc--; x->case0.v1->refc--; x->case0.v2->refc--;
+            break;
+        }
+    }
+}
+void USIncref0(US0 * x){ USIncrefBody0(x); }
+void USDecref0(US0 * x){ USDecrefBody0(x); }
+void USSuppref0(US0 * x){ USSupprefBody0(x); }
 US0 US0_0(String * v0, String * v1, String * v2) { // A
     US0 x;
     x.tag = 0;
     x.case0.v0 = v0; x.case0.v1 = v1; x.case0.v2 = v2;
-    USRefcBody0(x, REFC_INCR);
+    v0->refc++; v1->refc++; v2->refc++;
     return x;
 }
 int32_t main(){
@@ -79,17 +87,17 @@ int32_t main(){
     v2 = StringLit(4, "zxc");
     US0 v3;
     v3 = US0_0(v0, v1, v2);
-    StringRefc(v0, REFC_DECR); StringRefc(v1, REFC_DECR); StringRefc(v2, REFC_DECR);
+    StringDecref(v0); StringDecref(v1); StringDecref(v2);
     switch (v3.tag) {
         case 0: { // A
             String * v4 = v3.case0.v0; String * v5 = v3.case0.v1; String * v6 = v3.case0.v2;
-            StringRefc(v4, REFC_INCR);
-            USRefc0(&(v3), REFC_DECR);
+            v4->refc++;
+            USDecref0(&(v3));
             int32_t v7;
             v7 = 5l;
             int32_t v8;
             v8 = v4->len-1;
-            StringRefc(v4, REFC_DECR);
+            StringDecref(v4);
             return v8;
             break;
         }

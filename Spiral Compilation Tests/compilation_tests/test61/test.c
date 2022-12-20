@@ -4,22 +4,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct {
     int refc;
     uint32_t len;
     int32_t ptr[];
 } Array0;
-static inline void ArrayRefcBody0(Array0 * x, REFC_FLAG q){
+static inline void ArrayDecrefBody0(Array0 * x){
 }
-void ArrayRefc0(Array0 * x, REFC_FLAG q){
-    if (x != NULL) {
-        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
-        if (!(q & REFC_SUPPR) && refc == 0) {
-            ArrayRefcBody0(x, REFC_DECR);
-            free(x);
-        }
-    }
+void ArrayDecref0(Array0 * x){
+    if (x != NULL && --(x->refc) == 0) { ArrayDecrefBody0(x); free(x); }
 }
 Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
     uint32_t size = sizeof(Array0) + sizeof(int32_t) * len;
@@ -32,7 +25,6 @@ Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
 Array0 * ArrayLit0(uint32_t len, int32_t * ptr){
     Array0 * x = ArrayCreate0(len, false);
     memcpy(x->ptr, ptr, sizeof(int32_t) * len);
-    ArrayRefcBody0(x, REFC_INCR);
     return x;
 }
 int32_t main(){
@@ -49,7 +41,7 @@ int32_t main(){
         v4 = v0->ptr[1l];
         int32_t v5;
         v5 = v0->ptr[2l];
-        ArrayRefc0(v0, REFC_DECR);
+        ArrayDecref0(v0);
         int32_t v6;
         v6 = v3 + v4;
         int32_t v7;
@@ -63,7 +55,7 @@ int32_t main(){
             v9 = v0->ptr[0l];
             int32_t v10;
             v10 = v0->ptr[1l];
-            ArrayRefc0(v0, REFC_DECR);
+            ArrayDecref0(v0);
             int32_t v11;
             v11 = v9 + v10;
             return v11;
@@ -73,10 +65,10 @@ int32_t main(){
             if (v12){
                 int32_t v13;
                 v13 = v0->ptr[0l];
-                ArrayRefc0(v0, REFC_DECR);
+                ArrayDecref0(v0);
                 return v13;
             } else {
-                ArrayRefc0(v0, REFC_DECR);
+                ArrayDecref0(v0);
                 return 0l;
             }
         }
