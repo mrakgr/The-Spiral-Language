@@ -623,7 +623,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 | "" -> $"{range} (*fptr)(Closure{i} *);"
                 | domain_args_ty -> $"{range} (*fptr)(Closure{i} *, {domain_args_ty});"
                 |> line s_typ
-                print_ordered_args (indent s_typ) x.free_vars
+                print_ordered_args s_typ x.free_vars
             line s_typ "};"
 
             line s_fun (sprintf "static inline void ClosureDecrefBody%i(Closure%i * x){" i i)
@@ -857,9 +857,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s_typ (sprintf "} Array%i;" i)
 
 
-            let print_body s_fun q =
+            let print_body p s_fun q =
                 let refcs = x.tyvs |> refc_change (fun i -> if 1 < x.tyvs.Length then $"v.v{i}" else "v") q
                 if refcs.Length <> 0 then
+                    p()
                     line s_fun (sprintf "for (%s i=0; i < len; i++){" len_t)
                     let _ =
                         let s_fun = indent s_fun
@@ -870,9 +871,10 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s_fun (sprintf "static inline void ArrayDecrefBody%i(Array%i * x){" i i)
             let _ =
                 let s_fun = indent s_fun
-                line s_fun $"{len_t} len = x->len;"
-                line s_fun $"{ptr_t} ptr = x->ptr;"
-                print_body s_fun REFC_DECR
+                print_body (fun () ->
+                    line s_fun $"{len_t} len = x->len;"
+                    line s_fun $"{ptr_t} * ptr = x->ptr;"
+                    ) s_fun REFC_DECR
             line s_fun "}"
 
             print_decref s_fun $"ArrayDecref{i}" $"Array{i}" $"ArrayDecrefBody{i}"
@@ -896,7 +898,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s_fun $"Array{i} * x = ArrayCreate{i}(len, false);"
                 if ptr_t <> "void" then 
                     line s_fun $"memcpy(x->ptr, ptr, sizeof({ptr_t}) * len);"
-                    print_body (indent s_fun) REFC_INCR
+                    print_body (fun () -> ()) (indent s_fun) REFC_INCR
                 line s_fun "return x;"
             line s_fun "}"
             )
