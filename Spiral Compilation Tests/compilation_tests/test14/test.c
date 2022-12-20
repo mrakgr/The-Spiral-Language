@@ -4,23 +4,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct {
     int refc;
     uint32_t len;
     char ptr[];
 } Array0;
 typedef Array0 String;
-static inline void ArrayRefcBody0(Array0 * x, REFC_FLAG q){
+static inline void ArrayDecrefBody0(Array0 * x){
 }
-void ArrayRefc0(Array0 * x, REFC_FLAG q){
-    if (x != NULL) {
-        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
-        if (!(q & REFC_SUPPR) && refc == 0) {
-            ArrayRefcBody0(x, REFC_DECR);
-            free(x);
-        }
-    }
+void ArrayDecref0(Array0 * x){
+    if (x != NULL && --(x->refc) == 0) { ArrayDecrefBody0(x); free(x); }
 }
 Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
     uint32_t size = sizeof(Array0) + sizeof(char) * len;
@@ -33,11 +26,10 @@ Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
 Array0 * ArrayLit0(uint32_t len, char * ptr){
     Array0 * x = ArrayCreate0(len, false);
     memcpy(x->ptr, ptr, sizeof(char) * len);
-    ArrayRefcBody0(x, REFC_INCR);
     return x;
 }
-static inline void StringRefc(String * x, REFC_FLAG q){
-    return ArrayRefc0(x, q);
+static inline void StringDecref(String * x){
+    return ArrayDecref0(x);
 }
 static inline String * StringLit(uint32_t len, char * ptr){
     return ArrayLit0(len, ptr);
@@ -45,40 +37,40 @@ static inline String * StringLit(uint32_t len, char * ptr){
 int32_t main(){
     String * v0;
     v0 = StringLit(2, "0");
-    StringRefc(v0, REFC_DECR);
+    StringDecref(v0);
     int32_t v1;
     v1 = 0l;
     String * v2;
     v2 = StringLit(2, "1");
-    StringRefc(v2, REFC_DECR);
+    StringDecref(v2);
     int32_t v3;
     v3 = 1l;
     String * v4;
     v4 = StringLit(6, "false");
-    StringRefc(v4, REFC_DECR);
+    StringDecref(v4);
     bool v5;
     v5 = false;
     String * v6;
     v6 = StringLit(5, "true");
-    StringRefc(v6, REFC_DECR);
+    StringDecref(v6);
     bool v7;
     v7 = true;
     String * v8;
     v8 = StringLit(4, "asd");
-    StringRefc(v8, REFC_DECR);
+    StringDecref(v8);
     String * v9;
     v9 = StringLit(4, "1i8");
-    StringRefc(v9, REFC_DECR);
+    StringDecref(v9);
     int8_t v10;
     v10 = 1;
     String * v11;
     v11 = StringLit(4, "5.5");
-    StringRefc(v11, REFC_DECR);
+    StringDecref(v11);
     double v12;
     v12 = 5.5;
     String * v13;
     v13 = StringLit(8, "unknown");
-    StringRefc(v13, REFC_DECR);
+    StringDecref(v13);
     double v14;
     v14 = 5.0;
     return 0l;

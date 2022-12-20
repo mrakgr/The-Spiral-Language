@@ -833,7 +833,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                     line s_fun (sprintf "UH%i * UH%i_%i(%s) { // %s" i i tag args k)
                     let _ =
                         let s_fun = indent s_fun
-                        line s_fun $"UH{i} x = malloc(sizeof(UH{i}));"
+                        line s_fun $"UH{i} * x = malloc(sizeof(UH{i}));"
                         line s_fun $"x->tag = {tag};"
                         line s_fun "x->refc = 1;"
                         if v.Length <> 0 then
