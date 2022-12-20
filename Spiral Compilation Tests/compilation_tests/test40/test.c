@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct {
     int tag;
     union {
@@ -16,23 +15,29 @@ typedef struct {
     US0 v2;
     US0 v3;
 } Tuple0;
-static inline void USRefcBody0(US0 x, REFC_FLAG q){
-    switch (x.tag) {
+static inline void USIncrefBody0(US0 * x){
+    switch (x->tag) {
     }
 }
-void USRefc0(US0 * x, REFC_FLAG q){
-    USRefcBody0(*x, q);
+static inline void USDecrefBody0(US0 * x){
+    switch (x->tag) {
+    }
 }
+static inline void USSupprefBody0(US0 * x){
+    switch (x->tag) {
+    }
+}
+void USIncref0(US0 * x){ USIncrefBody0(x); }
+void USDecref0(US0 * x){ USDecrefBody0(x); }
+void USSuppref0(US0 * x){ USSupprefBody0(x); }
 US0 US0_0() { // A
     US0 x;
     x.tag = 0;
-    USRefcBody0(x, REFC_INCR);
     return x;
 }
 US0 US0_1() { // B
     US0 x;
     x.tag = 1;
-    USRefcBody0(x, REFC_INCR);
     return x;
 }
 static inline Tuple0 TupleCreate0(US0 v0, US0 v1, US0 v2, US0 v3){
@@ -69,26 +74,26 @@ int32_t main(){
     v0 = tmp0.v0; v1 = tmp0.v1; v2 = tmp0.v2; v3 = tmp0.v3;
     switch (v0.tag) {
         case 0: { // A
-            USRefc0(&(v0), REFC_DECR);
+            USDecref0(&(v0));
             switch (v1.tag) {
                 case 0: { // A
-                    USRefc0(&(v1), REFC_DECR); USRefc0(&(v2), REFC_DECR); USRefc0(&(v3), REFC_DECR);
+                    USDecref0(&(v1)); USDecref0(&(v2)); USDecref0(&(v3));
                     return method1();
                     break;
                 }
                 case 1: { // B
-                    USRefc0(&(v1), REFC_DECR);
+                    USDecref0(&(v1));
                     switch (v2.tag) {
                         case 0: { // A
-                            USRefc0(&(v2), REFC_DECR);
+                            USDecref0(&(v2));
                             switch (v3.tag) {
                                 case 0: { // A
-                                    USRefc0(&(v3), REFC_DECR);
+                                    USDecref0(&(v3));
                                     return method2();
                                     break;
                                 }
                                 case 1: { // B
-                                    USRefc0(&(v3), REFC_DECR);
+                                    USDecref0(&(v3));
                                     return method3();
                                     break;
                                 }
@@ -96,7 +101,7 @@ int32_t main(){
                             break;
                         }
                         case 1: { // B
-                            USRefc0(&(v2), REFC_DECR); USRefc0(&(v3), REFC_DECR);
+                            USDecref0(&(v2)); USDecref0(&(v3));
                             return method4();
                             break;
                         }
@@ -107,18 +112,18 @@ int32_t main(){
             break;
         }
         case 1: { // B
-            USRefc0(&(v0), REFC_DECR); USRefc0(&(v1), REFC_DECR);
+            USDecref0(&(v0)); USDecref0(&(v1));
             switch (v2.tag) {
                 case 0: { // A
-                    USRefc0(&(v2), REFC_DECR);
+                    USDecref0(&(v2));
                     switch (v3.tag) {
                         case 0: { // A
-                            USRefc0(&(v3), REFC_DECR);
+                            USDecref0(&(v3));
                             return method2();
                             break;
                         }
                         case 1: { // B
-                            USRefc0(&(v3), REFC_DECR);
+                            USDecref0(&(v3));
                             return method4();
                             break;
                         }
@@ -126,7 +131,7 @@ int32_t main(){
                     break;
                 }
                 case 1: { // B
-                    USRefc0(&(v2), REFC_DECR); USRefc0(&(v3), REFC_DECR);
+                    USDecref0(&(v2)); USDecref0(&(v3));
                     return method4();
                     break;
                 }

@@ -4,9 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct UH0 UH0;
-void UHRefc0(UH0 * x, REFC_FLAG q);
+void UHDecref0(UH0 * x);
 struct UH0 {
     int refc;
     int tag;
@@ -24,48 +23,35 @@ typedef struct {
     char ptr[];
 } Array0;
 typedef Array0 String;
-static inline void UHRefcBody0(UH0 x, REFC_FLAG q){
-    switch (x.tag) {
+static inline void UHDecrefBody0(UH0 * x){
+    switch (x->tag) {
         case 0: {
-            UHRefc0(x.case0.v2, q);
+            UHDecref0(x->case0.v2);
             break;
         }
     }
 }
-void UHRefc0(UH0 * x, REFC_FLAG q){
-    if (x != NULL) {
-        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
-        if (!(q & REFC_SUPPR) && refc == 0) {
-            UHRefcBody0(*x, REFC_DECR);
-            free(x);
-        }
-    }
+void UHDecref0(UH0 * x){
+    if (x != NULL && --(x->refc) == 0) { UHDecrefBody0(x); free(x); }
 }
 UH0 * UH0_0(int32_t v0, int32_t v1, UH0 * v2) { // Cons
-    UH0 x;
-    x.tag = 0;
-    x.refc = 1;
-    x.case0.v0 = v0; x.case0.v1 = v1; x.case0.v2 = v2;
-    UHRefcBody0(x, REFC_INCR);
-    return memcpy(malloc(sizeof(UH0)),&x,sizeof(UH0));
+    UH0 * x = malloc(sizeof(UH0));
+    x->tag = 0;
+    x->refc = 1;
+    x->case0.v0 = v0; x->case0.v1 = v1; x->case0.v2 = v2;
+    v2->refc++;
+    return x;
 }
 UH0 * UH0_1() { // Nil
-    UH0 x;
-    x.tag = 1;
-    x.refc = 1;
-    UHRefcBody0(x, REFC_INCR);
-    return memcpy(malloc(sizeof(UH0)),&x,sizeof(UH0));
+    UH0 * x = malloc(sizeof(UH0));
+    x->tag = 1;
+    x->refc = 1;
+    return x;
 }
-static inline void ArrayRefcBody0(Array0 * x, REFC_FLAG q){
+static inline void ArrayDecrefBody0(Array0 * x){
 }
-void ArrayRefc0(Array0 * x, REFC_FLAG q){
-    if (x != NULL) {
-        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
-        if (!(q & REFC_SUPPR) && refc == 0) {
-            ArrayRefcBody0(x, REFC_DECR);
-            free(x);
-        }
-    }
+void ArrayDecref0(Array0 * x){
+    if (x != NULL && --(x->refc) == 0) { ArrayDecrefBody0(x); free(x); }
 }
 Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
     uint32_t size = sizeof(Array0) + sizeof(char) * len;
@@ -78,11 +64,10 @@ Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
 Array0 * ArrayLit0(uint32_t len, char * ptr){
     Array0 * x = ArrayCreate0(len, false);
     memcpy(x->ptr, ptr, sizeof(char) * len);
-    ArrayRefcBody0(x, REFC_INCR);
     return x;
 }
-static inline void StringRefc(String * x, REFC_FLAG q){
-    return ArrayRefc0(x, q);
+static inline void StringDecref(String * x){
+    return ArrayDecref0(x);
 }
 static inline String * StringLit(uint32_t len, char * ptr){
     return ArrayLit0(len, ptr);
@@ -104,27 +89,27 @@ int32_t main(){
     v6 = UH0_1();
     UH0 * v7;
     v7 = UH0_0(v4, v5, v6);
-    UHRefc0(v6, REFC_DECR);
+    UHDecref0(v6);
     UH0 * v8;
     v8 = UH0_0(v2, v3, v7);
-    UHRefc0(v7, REFC_DECR);
+    UHDecref0(v7);
     UH0 * v9;
     v9 = UH0_0(v0, v1, v8);
-    UHRefc0(v8, REFC_DECR);
+    UHDecref0(v8);
     String * v36; int32_t v37;
     switch (v9->tag) {
         case 0: { // Cons
             int32_t v10 = v9->case0.v0; int32_t v11 = v9->case0.v1; UH0 * v12 = v9->case0.v2;
-            UHRefc0(v12, REFC_INCR);
+            v12->refc++;
             switch (v12->tag) {
                 case 0: { // Cons
                     int32_t v13 = v12->case0.v0; int32_t v14 = v12->case0.v1; UH0 * v15 = v12->case0.v2;
-                    UHRefc0(v15, REFC_INCR);
-                    UHRefc0(v12, REFC_DECR);
+                    v15->refc++;
+                    UHDecref0(v12);
                     switch (v15->tag) {
                         case 0: { // Cons
                             int32_t v16 = v15->case0.v0; int32_t v17 = v15->case0.v1; UH0 * v18 = v15->case0.v2;
-                            UHRefc0(v15, REFC_DECR);
+                            UHDecref0(v15);
                             int32_t v19;
                             v19 = v10 + v11;
                             int32_t v20;
@@ -141,7 +126,7 @@ int32_t main(){
                             break;
                         }
                         case 1: { // Nil
-                            UHRefc0(v15, REFC_DECR);
+                            UHDecref0(v15);
                             int32_t v25;
                             v25 = v10 + v11;
                             int32_t v26;
@@ -157,7 +142,7 @@ int32_t main(){
                     break;
                 }
                 case 1: { // Nil
-                    UHRefc0(v12, REFC_DECR);
+                    UHDecref0(v12);
                     int32_t v31;
                     v31 = v10 + v11;
                     String * v32;
@@ -175,8 +160,8 @@ int32_t main(){
             break;
         }
     }
-    UHRefc0(v9, REFC_DECR);
+    UHDecref0(v9);
     printf("%s\n%i\n",v36->ptr,v37);
-    StringRefc(v36, REFC_DECR);
+    StringDecref(v36);
     return 0l;
 }

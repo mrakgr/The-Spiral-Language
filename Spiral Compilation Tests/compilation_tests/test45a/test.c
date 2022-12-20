@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct {
     int refc;
     uint32_t len;
@@ -13,16 +12,10 @@ typedef struct {
     int refc;
     uint64_t v0;
 } Mut0;
-static inline void ArrayRefcBody0(Array0 * x, REFC_FLAG q){
+static inline void ArrayDecrefBody0(Array0 * x){
 }
-void ArrayRefc0(Array0 * x, REFC_FLAG q){
-    if (x != NULL) {
-        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
-        if (!(q & REFC_SUPPR) && refc == 0) {
-            ArrayRefcBody0(x, REFC_DECR);
-            free(x);
-        }
-    }
+void ArrayDecref0(Array0 * x){
+    if (x != NULL && --(x->refc) == 0) { ArrayDecrefBody0(x); free(x); }
 }
 Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
     uint32_t size = sizeof(Array0);
@@ -36,29 +29,22 @@ Array0 * ArrayLit0(uint32_t len, void * ptr){
     Array0 * x = ArrayCreate0(len, false);
     return x;
 }
-static inline void MutRefcBody0(Mut0 * x, REFC_FLAG q){
+static inline void MutDecrefBody0(Mut0 * x){
 }
-void MutRefc0(Mut0 * x, REFC_FLAG q){
-    if (x != NULL) {
-        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
-        if (!(q & REFC_SUPPR) && refc == 0) {
-            MutRefcBody0(x, REFC_DECR);
-            free(x);
-        }
-    }
+void MutDecref0(Mut0 * x){
+    if (x != NULL && --(x->refc) == 0) { MutDecrefBody0(x); free(x); }
 }
 Mut0 * MutCreate0(uint64_t v0){
     Mut0 * x = malloc(sizeof(Mut0));
     x->refc = 1;
     x->v0 = v0;
-    MutRefcBody0(x, REFC_INCR);
     return x;
 }
 bool method0(Mut0 * v0){
-    MutRefc0(v0, REFC_INCR);
+    v0->refc++;
     uint64_t v1;
     v1 = v0->v0;
-    MutRefc0(v0, REFC_DECR);
+    MutDecref0(v0);
     bool v2;
     v2 = v1 < 1ull;
     return v2;
@@ -68,7 +54,7 @@ static inline void AssignMut0(uint64_t * a0, uint64_t b0){
 }
 int32_t main(){
     Array0 * v0;
-    v0 = ArrayCreate0(1ull, true);
+    v0 = ArrayCreate0(1ull, false);
     Mut0 * v1;
     v1 = MutCreate0(0ull);
     while (method0(v1)){
@@ -79,7 +65,7 @@ int32_t main(){
         v4 = v3 + 1ull;
         AssignMut0(&(v1->v0), v4);
     }
-    ArrayRefc0(v0, REFC_DECR);
-    MutRefc0(v1, REFC_DECR);
+    ArrayDecref0(v0);
+    MutDecref0(v1);
     return 0l;
 }

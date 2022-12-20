@@ -4,15 +4,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-typedef enum {REFC_DECR, REFC_INCR, REFC_SUPPR} REFC_FLAG;
 typedef struct UH0 UH0;
-void UHRefc0(UH0 * x, REFC_FLAG q);
+void UHDecref0(UH0 * x);
 typedef struct UH1 UH1;
-void UHRefc1(UH1 * x, REFC_FLAG q);
+void UHDecref1(UH1 * x);
 typedef struct UH2 UH2;
-void UHRefc2(UH2 * x, REFC_FLAG q);
+void UHDecref2(UH2 * x);
 typedef struct UH3 UH3;
-void UHRefc3(UH3 * x, REFC_FLAG q);
+void UHDecref3(UH3 * x);
 struct UH0 {
     int refc;
     int tag;
@@ -61,48 +60,35 @@ struct UH3 {
         } case0; // Cons
     };
 };
-static inline void UHRefcBody0(UH0 x, REFC_FLAG q){
-    switch (x.tag) {
+static inline void UHDecrefBody0(UH0 * x){
+    switch (x->tag) {
         case 0: {
-            UHRefc0(x.case0.v1, q);
+            UHDecref0(x->case0.v1);
             break;
         }
     }
 }
-void UHRefc0(UH0 * x, REFC_FLAG q){
-    if (x != NULL) {
-        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
-        if (!(q & REFC_SUPPR) && refc == 0) {
-            UHRefcBody0(*x, REFC_DECR);
-            free(x);
-        }
-    }
+void UHDecref0(UH0 * x){
+    if (x != NULL && --(x->refc) == 0) { UHDecrefBody0(x); free(x); }
 }
 UH0 * UH0_0(int32_t v0, UH0 * v1) { // Cons
-    UH0 x;
-    x.tag = 0;
-    x.refc = 1;
-    x.case0.v0 = v0; x.case0.v1 = v1;
-    UHRefcBody0(x, REFC_INCR);
-    return memcpy(malloc(sizeof(UH0)),&x,sizeof(UH0));
+    UH0 * x = malloc(sizeof(UH0));
+    x->tag = 0;
+    x->refc = 1;
+    x->case0.v0 = v0; x->case0.v1 = v1;
+    v1->refc++;
+    return x;
 }
 UH0 * UH0_1() { // Nil
-    UH0 x;
-    x.tag = 1;
-    x.refc = 1;
-    UHRefcBody0(x, REFC_INCR);
-    return memcpy(malloc(sizeof(UH0)),&x,sizeof(UH0));
+    UH0 * x = malloc(sizeof(UH0));
+    x->tag = 1;
+    x->refc = 1;
+    return x;
 }
-static inline void ArrayRefcBody0(Array0 * x, REFC_FLAG q){
+static inline void ArrayDecrefBody0(Array0 * x){
 }
-void ArrayRefc0(Array0 * x, REFC_FLAG q){
-    if (x != NULL) {
-        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
-        if (!(q & REFC_SUPPR) && refc == 0) {
-            ArrayRefcBody0(x, REFC_DECR);
-            free(x);
-        }
-    }
+void ArrayDecref0(Array0 * x){
+    if (x != NULL && --(x->refc) == 0) { ArrayDecrefBody0(x); free(x); }
 }
 Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
     uint32_t size = sizeof(Array0) + sizeof(char) * len;
@@ -115,227 +101,205 @@ Array0 * ArrayCreate0(uint32_t len, bool init_at_zero){
 Array0 * ArrayLit0(uint32_t len, char * ptr){
     Array0 * x = ArrayCreate0(len, false);
     memcpy(x->ptr, ptr, sizeof(char) * len);
-    ArrayRefcBody0(x, REFC_INCR);
     return x;
 }
-static inline void StringRefc(String * x, REFC_FLAG q){
-    return ArrayRefc0(x, q);
+static inline void StringDecref(String * x){
+    return ArrayDecref0(x);
 }
 static inline String * StringLit(uint32_t len, char * ptr){
     return ArrayLit0(len, ptr);
 }
-static inline void UHRefcBody1(UH1 x, REFC_FLAG q){
-    switch (x.tag) {
+static inline void UHDecrefBody1(UH1 * x){
+    switch (x->tag) {
         case 0: {
-            StringRefc(x.case0.v0, q); UHRefc1(x.case0.v1, q);
+            StringDecref(x->case0.v0); UHDecref1(x->case0.v1);
             break;
         }
     }
 }
-void UHRefc1(UH1 * x, REFC_FLAG q){
-    if (x != NULL) {
-        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
-        if (!(q & REFC_SUPPR) && refc == 0) {
-            UHRefcBody1(*x, REFC_DECR);
-            free(x);
-        }
-    }
+void UHDecref1(UH1 * x){
+    if (x != NULL && --(x->refc) == 0) { UHDecrefBody1(x); free(x); }
 }
 UH1 * UH1_0(String * v0, UH1 * v1) { // Cons
-    UH1 x;
-    x.tag = 0;
-    x.refc = 1;
-    x.case0.v0 = v0; x.case0.v1 = v1;
-    UHRefcBody1(x, REFC_INCR);
-    return memcpy(malloc(sizeof(UH1)),&x,sizeof(UH1));
+    UH1 * x = malloc(sizeof(UH1));
+    x->tag = 0;
+    x->refc = 1;
+    x->case0.v0 = v0; x->case0.v1 = v1;
+    v0->refc++; v1->refc++;
+    return x;
 }
 UH1 * UH1_1() { // Nil
-    UH1 x;
-    x.tag = 1;
-    x.refc = 1;
-    UHRefcBody1(x, REFC_INCR);
-    return memcpy(malloc(sizeof(UH1)),&x,sizeof(UH1));
+    UH1 * x = malloc(sizeof(UH1));
+    x->tag = 1;
+    x->refc = 1;
+    return x;
 }
-static inline void UHRefcBody2(UH2 x, REFC_FLAG q){
-    switch (x.tag) {
+static inline void UHDecrefBody2(UH2 * x){
+    switch (x->tag) {
         case 0: {
-            UHRefc2(x.case0.v1, q);
+            UHDecref2(x->case0.v1);
             break;
         }
     }
 }
-void UHRefc2(UH2 * x, REFC_FLAG q){
-    if (x != NULL) {
-        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
-        if (!(q & REFC_SUPPR) && refc == 0) {
-            UHRefcBody2(*x, REFC_DECR);
-            free(x);
-        }
-    }
+void UHDecref2(UH2 * x){
+    if (x != NULL && --(x->refc) == 0) { UHDecrefBody2(x); free(x); }
 }
 UH2 * UH2_0(bool v0, UH2 * v1) { // Cons
-    UH2 x;
-    x.tag = 0;
-    x.refc = 1;
-    x.case0.v0 = v0; x.case0.v1 = v1;
-    UHRefcBody2(x, REFC_INCR);
-    return memcpy(malloc(sizeof(UH2)),&x,sizeof(UH2));
+    UH2 * x = malloc(sizeof(UH2));
+    x->tag = 0;
+    x->refc = 1;
+    x->case0.v0 = v0; x->case0.v1 = v1;
+    v1->refc++;
+    return x;
 }
 UH2 * UH2_1() { // Nil
-    UH2 x;
-    x.tag = 1;
-    x.refc = 1;
-    UHRefcBody2(x, REFC_INCR);
-    return memcpy(malloc(sizeof(UH2)),&x,sizeof(UH2));
+    UH2 * x = malloc(sizeof(UH2));
+    x->tag = 1;
+    x->refc = 1;
+    return x;
 }
-static inline void UHRefcBody3(UH3 x, REFC_FLAG q){
-    switch (x.tag) {
+static inline void UHDecrefBody3(UH3 * x){
+    switch (x->tag) {
         case 0: {
-            StringRefc(x.case0.v1, q); UHRefc3(x.case0.v3, q);
+            StringDecref(x->case0.v1); UHDecref3(x->case0.v3);
             break;
         }
     }
 }
-void UHRefc3(UH3 * x, REFC_FLAG q){
-    if (x != NULL) {
-        int refc = (x->refc += q & REFC_INCR ? 1 : -1);
-        if (!(q & REFC_SUPPR) && refc == 0) {
-            UHRefcBody3(*x, REFC_DECR);
-            free(x);
-        }
-    }
+void UHDecref3(UH3 * x){
+    if (x != NULL && --(x->refc) == 0) { UHDecrefBody3(x); free(x); }
 }
 UH3 * UH3_0(int32_t v0, String * v1, bool v2, UH3 * v3) { // Cons
-    UH3 x;
-    x.tag = 0;
-    x.refc = 1;
-    x.case0.v0 = v0; x.case0.v1 = v1; x.case0.v2 = v2; x.case0.v3 = v3;
-    UHRefcBody3(x, REFC_INCR);
-    return memcpy(malloc(sizeof(UH3)),&x,sizeof(UH3));
+    UH3 * x = malloc(sizeof(UH3));
+    x->tag = 0;
+    x->refc = 1;
+    x->case0.v0 = v0; x->case0.v1 = v1; x->case0.v2 = v2; x->case0.v3 = v3;
+    v1->refc++; v3->refc++;
+    return x;
 }
 UH3 * UH3_1() { // Nil
-    UH3 x;
-    x.tag = 1;
-    x.refc = 1;
-    UHRefcBody3(x, REFC_INCR);
-    return memcpy(malloc(sizeof(UH3)),&x,sizeof(UH3));
+    UH3 * x = malloc(sizeof(UH3));
+    x->tag = 1;
+    x->refc = 1;
+    return x;
 }
 UH3 * method3(int32_t v0, String * v1, UH2 * v2, UH3 * v3){
-    StringRefc(v1, REFC_INCR); UHRefc2(v2, REFC_INCR); UHRefc3(v3, REFC_INCR);
+    v1->refc++; v2->refc++; v3->refc++;
     switch (v2->tag) {
         case 0: { // Cons
             bool v4 = v2->case0.v0; UH2 * v5 = v2->case0.v1;
-            UHRefc2(v5, REFC_INCR);
-            UHRefc2(v2, REFC_DECR);
+            v5->refc++;
+            UHDecref2(v2);
             UH3 * v6;
             v6 = method3(v0, v1, v5, v3);
-            UHRefc3(v3, REFC_DECR); UHRefc2(v5, REFC_DECR);
-            StringRefc(v1, REFC_SUPPR); UHRefc3(v6, REFC_SUPPR);
+            UHDecref3(v3); UHDecref2(v5);
+            v1->refc--; v6->refc--;
             return UH3_0(v0, v1, v4, v6);
             break;
         }
         case 1: { // Nil
-            StringRefc(v1, REFC_DECR); UHRefc2(v2, REFC_DECR);
+            StringDecref(v1); UHDecref2(v2);
             return v3;
             break;
         }
     }
 }
 UH3 * method4(UH3 * v0, UH3 * v1){
-    UHRefc3(v0, REFC_INCR); UHRefc3(v1, REFC_INCR);
+    v0->refc++; v1->refc++;
     switch (v0->tag) {
         case 0: { // Cons
             int32_t v2 = v0->case0.v0; String * v3 = v0->case0.v1; bool v4 = v0->case0.v2; UH3 * v5 = v0->case0.v3;
-            StringRefc(v3, REFC_INCR); UHRefc3(v5, REFC_INCR);
-            UHRefc3(v0, REFC_DECR);
+            v3->refc++; v5->refc++;
+            UHDecref3(v0);
             UH3 * v6;
             v6 = method4(v5, v1);
-            UHRefc3(v1, REFC_DECR); UHRefc3(v5, REFC_DECR);
-            StringRefc(v3, REFC_SUPPR); UHRefc3(v6, REFC_SUPPR);
+            UHDecref3(v1); UHDecref3(v5);
+            v3->refc--; v6->refc--;
             return UH3_0(v2, v3, v4, v6);
             break;
         }
         case 1: { // Nil
-            UHRefc3(v0, REFC_DECR);
+            UHDecref3(v0);
             return v1;
             break;
         }
     }
 }
 UH3 * method2(UH2 * v0, int32_t v1, UH1 * v2, UH3 * v3){
-    UHRefc2(v0, REFC_INCR); UHRefc1(v2, REFC_INCR); UHRefc3(v3, REFC_INCR);
+    v0->refc++; v2->refc++; v3->refc++;
     switch (v2->tag) {
         case 0: { // Cons
             String * v4 = v2->case0.v0; UH1 * v5 = v2->case0.v1;
-            StringRefc(v4, REFC_INCR); UHRefc1(v5, REFC_INCR);
-            UHRefc1(v2, REFC_DECR);
+            v4->refc++; v5->refc++;
+            UHDecref1(v2);
             UH3 * v6;
             v6 = method2(v0, v1, v5, v3);
-            UHRefc3(v3, REFC_DECR); UHRefc1(v5, REFC_DECR);
+            UHDecref3(v3); UHDecref1(v5);
             UH3 * v7;
             v7 = UH3_1();
             UH3 * v8;
             v8 = method3(v1, v4, v0, v7);
-            UHRefc2(v0, REFC_DECR); StringRefc(v4, REFC_DECR); UHRefc3(v7, REFC_DECR);
-            UHRefc3(v6, REFC_SUPPR); UHRefc3(v8, REFC_SUPPR);
+            UHDecref2(v0); StringDecref(v4); UHDecref3(v7);
+            v6->refc--; v8->refc--;
             return method4(v8, v6);
             break;
         }
         case 1: { // Nil
-            UHRefc2(v0, REFC_DECR); UHRefc1(v2, REFC_DECR);
+            UHDecref2(v0); UHDecref1(v2);
             return v3;
             break;
         }
     }
 }
 UH3 * method1(UH1 * v0, UH2 * v1, UH0 * v2, UH3 * v3){
-    UHRefc1(v0, REFC_INCR); UHRefc2(v1, REFC_INCR); UHRefc0(v2, REFC_INCR); UHRefc3(v3, REFC_INCR);
+    v0->refc++; v1->refc++; v2->refc++; v3->refc++;
     switch (v2->tag) {
         case 0: { // Cons
             int32_t v4 = v2->case0.v0; UH0 * v5 = v2->case0.v1;
-            UHRefc0(v5, REFC_INCR);
-            UHRefc0(v2, REFC_DECR);
+            v5->refc++;
+            UHDecref0(v2);
             UH3 * v6;
             v6 = method1(v0, v1, v5, v3);
-            UHRefc3(v3, REFC_DECR); UHRefc0(v5, REFC_DECR);
+            UHDecref3(v3); UHDecref0(v5);
             UH3 * v7;
             v7 = UH3_1();
             UH3 * v8;
             v8 = method2(v1, v4, v0, v7);
-            UHRefc1(v0, REFC_DECR); UHRefc2(v1, REFC_DECR); UHRefc3(v7, REFC_DECR);
-            UHRefc3(v6, REFC_SUPPR); UHRefc3(v8, REFC_SUPPR);
+            UHDecref1(v0); UHDecref2(v1); UHDecref3(v7);
+            v6->refc--; v8->refc--;
             return method4(v8, v6);
             break;
         }
         case 1: { // Nil
-            UHRefc1(v0, REFC_DECR); UHRefc2(v1, REFC_DECR); UHRefc0(v2, REFC_DECR);
+            UHDecref1(v0); UHDecref2(v1); UHDecref0(v2);
             return v3;
             break;
         }
     }
 }
 UH3 * method0(UH0 * v0, UH1 * v1, UH2 * v2){
-    UHRefc0(v0, REFC_INCR); UHRefc1(v1, REFC_INCR); UHRefc2(v2, REFC_INCR);
+    v0->refc++; v1->refc++; v2->refc++;
     UH3 * v3;
     v3 = UH3_1();
-    UHRefc0(v0, REFC_SUPPR); UHRefc1(v1, REFC_SUPPR); UHRefc2(v2, REFC_SUPPR); UHRefc3(v3, REFC_SUPPR);
+    v0->refc--; v1->refc--; v2->refc--; v3->refc--;
     return method1(v1, v2, v0, v3);
 }
 void method5(UH3 * v0){
-    UHRefc3(v0, REFC_INCR);
+    v0->refc++;
     switch (v0->tag) {
         case 0: { // Cons
             int32_t v1 = v0->case0.v0; String * v2 = v0->case0.v1; bool v3 = v0->case0.v2; UH3 * v4 = v0->case0.v3;
-            StringRefc(v2, REFC_INCR); UHRefc3(v4, REFC_INCR);
-            UHRefc3(v0, REFC_DECR);
+            v2->refc++; v4->refc++;
+            UHDecref3(v0);
             printf("%i %s %i\n",v1, v2->ptr, (int) v3);
-            StringRefc(v2, REFC_DECR);
-            UHRefc3(v4, REFC_SUPPR);
+            StringDecref(v2);
+            v4->refc--;
             return method5(v4);
             break;
         }
         case 1: { // Nil
-            UHRefc3(v0, REFC_DECR);
+            UHDecref3(v0);
             return ;
             break;
         }
@@ -352,13 +316,13 @@ int32_t main(){
     v3 = UH0_1();
     UH0 * v4;
     v4 = UH0_0(v2, v3);
-    UHRefc0(v3, REFC_DECR);
+    UHDecref0(v3);
     UH0 * v5;
     v5 = UH0_0(v1, v4);
-    UHRefc0(v4, REFC_DECR);
+    UHDecref0(v4);
     UH0 * v6;
     v6 = UH0_0(v0, v5);
-    UHRefc0(v5, REFC_DECR);
+    UHDecref0(v5);
     String * v7;
     v7 = StringLit(2, "a");
     String * v8;
@@ -367,21 +331,21 @@ int32_t main(){
     v9 = UH1_1();
     UH1 * v10;
     v10 = UH1_0(v8, v9);
-    StringRefc(v8, REFC_DECR); UHRefc1(v9, REFC_DECR);
+    StringDecref(v8); UHDecref1(v9);
     UH1 * v11;
     v11 = UH1_0(v7, v10);
-    StringRefc(v7, REFC_DECR); UHRefc1(v10, REFC_DECR);
+    StringDecref(v7); UHDecref1(v10);
     bool v12;
     v12 = true;
     UH2 * v13;
     v13 = UH2_1();
     UH2 * v14;
     v14 = UH2_0(v12, v13);
-    UHRefc2(v13, REFC_DECR);
+    UHDecref2(v13);
     UH3 * v15;
     v15 = method0(v6, v11, v14);
-    UHRefc0(v6, REFC_DECR); UHRefc1(v11, REFC_DECR); UHRefc2(v14, REFC_DECR);
+    UHDecref0(v6); UHDecref1(v11); UHDecref2(v14);
     method5(v15);
-    UHRefc3(v15, REFC_DECR);
+    UHDecref3(v15);
     return 0l;
 }
