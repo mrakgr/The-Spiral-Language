@@ -12,8 +12,5 @@ inl largest_palindrome_product () : i32 =
             )
         ) 0
 
-inl main () = 
-    inl x = largest_palindrome_product ()
-    $"printf(\"%i\\n\",!x)"
-    0i32
+inl main () = largest_palindrome_product ()
     

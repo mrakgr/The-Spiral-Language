@@ -35,16 +35,14 @@ static inline String * StringLit(uint32_t len, char * ptr){
     return ArrayLit0(len, ptr);
 }
 String * method0(bool v0){
-    bool v1;
-    v1 = true == v0;
-    if (v1){
-        String * v2;
-        v2 = StringLit(4, "asd");
-        return v2;
+    if (v0){
+        String * v1;
+        v1 = StringLit(4, "asd");
+        return v1;
     } else {
-        String * v3;
-        v3 = StringLit(4, "qwe");
-        return v3;
+        String * v2;
+        v2 = StringLit(4, "qwe");
+        return v2;
     }
 }
 int32_t main(){

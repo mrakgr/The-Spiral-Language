@@ -1,3 +1,9 @@
+2.3.0 (12/21/2022)
+
+Created the Python backend for Spiral.
+
+* Optimized the EQ and NEQ case in the partial evaluator.
+
 2.2.7 (12/21/2022)
 
 * Added minor unused var optimization in union unboxing.

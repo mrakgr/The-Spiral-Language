@@ -18,6 +18,7 @@ let sizeof_tyv = function
     | YPrim (Int16T | UInt16T) -> 2
     | YPrim (Int8T | UInt8T | CharT | BoolT) -> 1
     | _ -> 8
+let order_args v = v |> Array.sortWith (fun (L(_,t)) (L(_,t')) -> compare (sizeof_tyv t') (sizeof_tyv t))
 let line x s = if s <> "" then x.text.Append(' ', x.indent).AppendLine s |> ignore
 let line' x s = line x (String.concat " " s)
 
@@ -588,8 +589,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | _ -> raise_codegen_error <| sprintf "Compiler error: %A with %i args not supported" op l.Length
             |> return'
     and print_ordered_args s v = // Unlike C# for example, C keeps the struct fields in input order. To reduce padding, it is best to order the fields from largest to smallest.
-        v |> Array.sortWith (fun (L(_,t)) (L(_,t')) -> -compare (sizeof_tyv t) (sizeof_tyv t'))
-        |> Array.iter (fun (L(i,x)) -> line s $"{tyv x} v{i};")
+        order_args v |> Array.iter (fun (L(i,x)) -> line s $"{tyv x} v{i};")
     and method : _ -> MethodRec =
         jp (fun ((jp_body,key & (C(args,_))),i) ->
             match (fst env.join_point_method.[jp_body]).[key] with

@@ -7,4 +7,4 @@ inl main () =
                     fun d => join a,b,c
         tes 1i32 2i32 (2.2f64,3f32,4.5f64)
     tes' 10i32 "qwe"
-    |> fun a,b,_ => a+b
+    |> fun a,b,_ => a + b

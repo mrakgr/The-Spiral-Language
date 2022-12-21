@@ -759,13 +759,15 @@ let peval (env : TopEnv) (x : E) =
                 | a, b -> raise_type_error s <| sprintf "The two literals must be equal in type.\nGot: %s and %s" (show_lit a) (show_lit b)
             | DV(L(a,a_ty)), DV(L(b,_)) when a = b && is_non_float_primitive a_ty -> LitBool true |> DLit
             | a, b ->
-                let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
+                let a_ty, b_ty = data_to_ty s a, data_to_ty s b
                 if a_ty = b_ty then
-                    if is_primitive a_ty then push_binop s EQ (a,b) (YPrim BoolT)
-                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
+                    match a, b with
+                    | DLit (LitBool true), x | x, DLit (LitBool true) -> x
+                    | _ ->
+                        if is_primitive a_ty then push_binop s EQ (a,b) (YPrim BoolT)
+                        else raise_type_error s <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
                 else
                     raise_type_error s <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)    
-
         let default_lit s (a : string) b =
             let inline f string_to_val val_to_lit val_dsc =
                 match string_to_val a with
@@ -1650,8 +1652,11 @@ let peval (env : TopEnv) (x : E) =
             | a, b ->
                 let a_ty, b_ty = data_to_ty s a, data_to_ty s b 
                 if a_ty = b_ty then
-                    if is_primitive a_ty then push_binop s NEQ (a,b) (YPrim BoolT)
-                    else raise_type_error s <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
+                    match a, b with
+                    | DLit (LitBool false), x | x, DLit (LitBool false) -> x
+                    | _ ->
+                        if is_primitive a_ty then push_binop s NEQ (a,b) (YPrim BoolT)
+                        else raise_type_error s <| sprintf "The type of the two arguments needs to be a primitive type.\nGot: %s" (show_ty a_ty)
                 else
                     raise_type_error s <| sprintf "The two sides need to have the same primitive types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
         | EOp(_,BitwiseAnd,[a;b]) -> 

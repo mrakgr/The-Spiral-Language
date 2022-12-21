@@ -110,11 +110,8 @@ bool method0(UH0 * v0, UH0 * v1){
     }
 }
 int32_t main(){
-    // Union test;
-    # // Static, Static;
     bool v3;
     v3 = false;
-    # // Dyn, Static;
     int32_t v4;
     v4 = 1l;
     US0 v5;
@@ -133,7 +130,6 @@ int32_t main(){
         }
     }
     USDecref0(&(v5));
-    # // Static, Dyn;
     double v10;
     v10 = 3.0;
     US0 v11;
@@ -152,7 +148,6 @@ int32_t main(){
         }
     }
     USDecref0(&(v11));
-    # // Dyn, Dyn;
     int32_t v17;
     v17 = 1l;
     US0 v18;
@@ -184,7 +179,6 @@ int32_t main(){
         }
     }
     USDecref0(&(v18)); USDecref0(&(v20));
-    // Union rec test;
     int32_t v28;
     v28 = 3l;
     UH0 * v29;

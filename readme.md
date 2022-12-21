@@ -2,6 +2,7 @@
 
 - [Support Spiral](#support-spiral)
 - [News](#news)
+- [12/21/2022](#12212022)
 - [7/13/2022](#7132022)
 - [8/21/2021](#8212021)
 - [The Spiral Language](#the-spiral-language)
@@ -43,6 +44,10 @@
 [Link](https://opencollective.com/spiral-collective).
 
 # News
+
+# 12/21/2022
+
+Created the Python backend. Updated the language to v2.3.0. The next step will be to fuse the Python and the C backends. Currently I am working on an UPMEM backend Python + C for Spiral, and having a prototype Python and C backends is the first step towards making it.
 
 # 7/13/2022
 

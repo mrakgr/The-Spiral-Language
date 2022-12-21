@@ -1,13 +1,1 @@
-inl main () =
-    inl ~a = true
-    inl b = heap true
-    inl _ =
-        if a then
-            join
-                inl _ = ()
-                join 
-                    inl _ = ()
-                    join  b
-        else
-            b
-    0i32
+inl main () = join (1i32,2i32),3i32

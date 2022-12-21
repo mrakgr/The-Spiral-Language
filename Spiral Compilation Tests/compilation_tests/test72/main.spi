@@ -3,7 +3,7 @@
 inl main () =
     inl ~a = true
     inl b = heap true
-    inl _ =
+    inl q =
         if a then
             join 
                 inl _ = ()

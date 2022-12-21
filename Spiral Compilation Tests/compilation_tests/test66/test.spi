@@ -1,7 +1,7 @@
 // Does pattern matching literals work?
 inl main () =
     inl ~x = 0
-    inl _ =
+    inl q =
         match x with
         | 0u8 => "qwe"
         | 1 | 2 => "asd"
