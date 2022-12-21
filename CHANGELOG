@@ -1,3 +1,7 @@
+2.2.7 (12/21/2022)
+
+* Added minor unused var optimization in union unboxing.
+
 2.2.5/2.2.6 (12/20/2022)
 
 * Some more work on ref counting part of the C backend. The semantics have changed - trying to read from unitialized arrays will cause null pointer fault now.

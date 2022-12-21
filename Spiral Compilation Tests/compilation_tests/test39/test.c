@@ -167,33 +167,27 @@ int32_t main(){
     USDecref0(&(v3)); USDecref0(&(v4)); USDecref0(&(v5));
     switch (v6.tag) {
         case 0: { // A
-            Heap1 * v9 = v6.case0.v0; Mut0 * v10 = v6.case0.v1;
             USDecref0(&(v6)); USDecref0(&(v7)); USDecref0(&(v8));
             return 1l;
             break;
         }
         case 1: { // B
-            Heap0 * v11 = v6.case1.v0;
             USDecref0(&(v6));
             switch (v7.tag) {
                 case 0: { // A
-                    Heap1 * v12 = v7.case0.v0; Mut0 * v13 = v7.case0.v1;
                     USDecref0(&(v7)); USDecref0(&(v8));
                     return 2l;
                     break;
                 }
                 case 1: { // B
-                    Heap0 * v14 = v7.case1.v0;
                     USDecref0(&(v7));
                     switch (v8.tag) {
                         case 0: { // A
-                            Heap1 * v15 = v8.case0.v0; Mut0 * v16 = v8.case0.v1;
                             USDecref0(&(v8));
                             return 3l;
                             break;
                         }
                         case 1: { // B
-                            Heap0 * v17 = v8.case1.v0;
                             USDecref0(&(v8));
                             return 4l;
                             break;

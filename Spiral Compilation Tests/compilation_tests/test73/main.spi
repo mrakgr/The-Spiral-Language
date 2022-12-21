@@ -1,0 +1,7 @@
+// Do the tuples get destructured correctly in arrays?
+
+inl main () =
+    inl a : a i32 (i64 * i64) = create 1
+    set a 0 (1,2)
+    inl _ = index a 0
+    0i32

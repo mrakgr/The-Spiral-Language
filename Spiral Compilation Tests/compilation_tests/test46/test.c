@@ -334,7 +334,6 @@ Tuple0 method0(String * v0, uint32_t v1, bool v2, uint32_t v3){
     }
     switch (v53.tag) {
         case 0: { // Error
-            UH0 * v55 = v53.case0.v0;
             StringDecref(v0); USDecref0(&(v53));
             if (v2){
                 US0 v56;

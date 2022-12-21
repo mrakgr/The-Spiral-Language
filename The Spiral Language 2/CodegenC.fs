@@ -1,6 +1,7 @@
 ﻿module Spiral.Codegen.C
 
 open Spiral
+open Spiral.Utils
 open Spiral.Tokenize
 open Spiral.BlockParsing
 open Spiral.PartEval.Main
@@ -70,24 +71,19 @@ let refc_used_vars (x : TypedBind []) =
     binds x |> ignore
     g
 
-type RefcVars = {g_suppr : Dictionary<TypedBind,TyV Set>; g_decr : Dictionary<TypedBind,TyV Set>; g_incr : Dictionary<TypedBind,TyV Set>}
-let refc_prepass' incref_canc (new_vars : TyV Set) (x : TypedBind []) =
+type RefcVars = {g_incr : Dictionary<TypedBind,TyV Set * bool>; g_decr : Dictionary<TypedBind,TyV Set>; g_suppr : Dictionary<TypedBind,TyV Set>}
+
+let incref_cancel (incr,is_in_container) decr suppr =
+    let g a b = let r = Set.intersect a b in a - r, b - r
+    let incr, decr = if is_in_container then g incr decr else incr, decr
+    let incr, suppr = g incr suppr
+    {|incr=incr; decr=decr; suppr=suppr|}
+    
+let refc_prepass (new_vars : TyV Set) (x : TypedBind []) =
     let used_vars = refc_used_vars x
     let g_incr : Dictionary<TypedBind, TyV Set * bool> = Dictionary(HashIdentity.Reference)
     let g_decr : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
     let g_suppr : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
-
-    let incref_cancellation () =
-        let g_incr' : Dictionary<TypedBind, TyV Set> = Dictionary(g_incr.Count, HashIdentity.Reference)
-        for KeyValue(k,(incr,is_in_container)) in g_incr do
-            let f (g : Dictionary<_,_>) = match g.TryGetValue(k) with true, x -> x | _ -> Set.empty
-            let decr, suppr = f g_decr, f g_suppr
-            let g a b = let r = Set.intersect a b in a - r, b - r
-            let incr, decr = if is_in_container then g incr decr else incr, decr
-            let incr, suppr = g incr suppr
-            let add (d : Dictionary<TypedBind, TyV Set>) x = if Set.isEmpty x then ignore (d.Remove(k)) else d.[k] <- x
-            add g_incr' incr; add g_decr decr; add g_suppr suppr
-        {g_incr=g_incr'; g_decr=g_decr; g_suppr=g_suppr}
 
     let add (d : Dictionary<TypedBind, TyV Set>) k x = if Set.isEmpty x then () else d.Add(k,x)
     let add' (d : Dictionary<TypedBind, TyV Set * bool>) k x = if Set.isEmpty (fst x) then () else d.Add(k,x)
@@ -136,10 +132,7 @@ let refc_prepass' incref_canc (new_vars : TyV Set) (x : TypedBind []) =
             binds no_new increfed_vars on_fail'
     binds (new_vars, false) Set.empty x
     
-    if incref_canc then incref_cancellation()
-    else {g_incr=g_incr |> Seq.map (fun (KeyValue(k,(v,_))) -> KeyValuePair(k,v)) |> Dictionary; g_decr=g_decr; g_suppr=g_suppr}
-
-let refc_prepass new_vars x = refc_prepass' true new_vars x
+    {g_incr=g_incr; g_decr=g_decr; g_suppr=g_suppr}
 
 type BindsReturn =
     | BindsTailEnd
@@ -294,8 +287,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 ) a b
         Array.iter (fun x ->
             let _ =
-                let f (g : Dictionary<_,_>) = match g.TryGetValue(x) with true, x -> Seq.toArray x | _ -> [||]
-                refc_incr (f vars.g_incr) |> line' s; refc_decr (f vars.g_decr) |> line' s; refc_suppr (f vars.g_suppr) |> line' s
+                let q = incref_cancel (get_default vars.g_incr x (fun () -> Set.empty, false)) (get_default vars.g_decr x (fun () -> Set.empty)) (get_default vars.g_suppr x (fun () -> Set.empty))
+                refc_incr (Set.toArray q.incr) |> line' s; refc_decr (Set.toArray q.decr) |> line' s; refc_suppr (Set.toArray q.suppr) |> line' s
             match x with
             | TyLet(d,trace,a) ->
                 try let d = data_free_vars d
@@ -426,9 +419,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 Array.mapi (fun i (L(i',_)) -> $"v{i'} = tmp{tmp_i}.v{i};") ret |> line' s
             | BindsTailEnd -> line s $"return {x};"
         let layout_index (x'_i : int) (x' : TyV []) =
-            let gs = Array.map (fun (L(i',_)) -> $"v{x'_i}->v{i'}") x'
             match ret with
-            | BindsLocal x -> Array.map2 (fun (L(i,_)) g -> $"v{i} = {g};") x gs |> line' s
+            | BindsLocal x -> Array.map2 (fun (L(i,_)) (L(i',_)) -> $"v{i} = v{x'_i}->v{i'};") x x' |> line' s
             | BindsTailEnd -> raise_codegen_error "Compiler error: Layout index should never come in end position."
         let jp (a,b') =
             let args = args b'
@@ -481,10 +473,15 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 let s = indent s
                 Map.iter (fun k (a,b) ->
                     let union_i = case_tags.[k]
+                    let decr = get_default vars.g_decr (Array.head b) (fun () -> Set.empty)
                     line s (sprintf "case %i: { // %s" union_i k)
                     List.iter2 (fun (L(data_i,_)) a ->
                         let a, s = data_free_vars a, indent s
-                        Array.mapi (fun field_i (L(v_i,t)) -> $"{tyv t} v{v_i} = v{data_i}{acs}case{union_i}.v{field_i};") a |> line' s
+                        let qs = ResizeArray(a.Length)
+                        Array.iteri (fun field_i (L(v_i,t) as v) -> 
+                            if Set.contains v decr = false then qs.Add $"{tyv t} v{v_i} = v{data_i}{acs}case{union_i}.v{field_i};"
+                            ) a 
+                        line' s qs
                         ) is a
                     binds (indent s) ret b
                     line (indent s) "break;"

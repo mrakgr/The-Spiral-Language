@@ -1,5 +1,5 @@
 ﻿module Spiral.BlockParsing
-let f p d = let x = p d in printfn "%A" x; x
+//let f p d = let x = p d in printfn "%A" x; x
 
 open System
 open VSCTypes

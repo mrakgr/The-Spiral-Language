@@ -90,7 +90,7 @@ int32_t main(){
     StringDecref(v0); StringDecref(v1); StringDecref(v2);
     switch (v3.tag) {
         case 0: { // A
-            String * v4 = v3.case0.v0; String * v5 = v3.case0.v1; String * v6 = v3.case0.v2;
+            String * v4 = v3.case0.v0;
             v4->refc++;
             USDecref0(&(v3));
             int32_t v7;

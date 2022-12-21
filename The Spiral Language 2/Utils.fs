@@ -3,6 +3,10 @@
 open System.Collections.Generic
 open System.Runtime.CompilerServices
 
+let inline get_default (memo_dict: Dictionary<_,_>) k def =
+    match memo_dict.TryGetValue k with
+    | true, v -> v
+    | false, _ -> def()
 let inline memoize' (memo_dict: ConditionalWeakTable<_,_>) f k =
     match memo_dict.TryGetValue k with
     | true, v -> v
