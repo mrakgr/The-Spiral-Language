@@ -649,8 +649,8 @@ let patterns_validate pats =
         ) Set.empty pats |> ignore
     errors |> Seq.toList
 
-let join_point = function
-    | RawJoinPoint _ as x -> x 
+let join_point = function // Removes nested join points.
+    | RawJoinPoint(_,None,_) as x -> x 
     | x -> RawJoinPoint(range_of_expr x, None, x)
 let join_point_backend (a,b) = RawJoinPoint(range_of_expr b, Some a, b)
 

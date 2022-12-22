@@ -11,6 +11,7 @@ open System.Text
 open System.Collections.Generic
 
 type REFC = REFC_INCR | REFC_DECR | REFC_SUPPR
+type CBackendType = Prototypal | UPMEM_C_Kernel of TyV []
 
 let sizeof_tyv = function
     | YPrim (Int64T | UInt64T | Float64T) -> 8
@@ -176,7 +177,7 @@ let print_decref s_fun name_fun type_arg name_decref =
         line s_fun (sprintf "if (x != NULL && --(x->refc) == 0) { %s(x); free(x); }" name_decref)
     line s_fun "}"
 
-let codegen (env : PartEvalResult) (x : TypedBind []) =
+let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind []) =
     let imports = ResizeArray()
     let fwd_dcls = ResizeArray()
     let types = ResizeArray()
@@ -927,6 +928,12 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         
 
         let main_defs = {text=StringBuilder(); indent=0}
+        match backend_type with
+        | Prototypal | UPMEM_C_Kernel [||] -> ()
+        | UPMEM_C_Kernel args -> 
+            for L(i,t) in args do line main_defs $"__host {tyv t} v{i}"    
+            line main_defs ""
+
         line main_defs (sprintf "%s main(){" (prim Int32T))
         binds_start [||] (indent main_defs) x
         line main_defs "}"
@@ -940,3 +947,5 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         program.Append(main_defs.text).ToString()
     | _ ->
         raise_codegen_error "The return type of main in the C backend should be a 32-bit int."
+
+let codegen (env : PartEvalResult) (x : TypedBind []) = codegen' Prototypal env x

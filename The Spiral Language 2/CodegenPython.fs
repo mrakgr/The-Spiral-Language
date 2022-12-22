@@ -10,6 +10,8 @@ open System
 open System.Text
 open System.Collections.Generic
 
+type PythonBackendType = Prototypal | UPMEM_Python_Host
+
 let lit = function
     | LitInt8 x -> sprintf "%i" x
     | LitInt16 x -> sprintf "%i" x
@@ -89,7 +91,7 @@ type BindsReturn =
 
 let line x s = if s <> "" then x.text.Append(' ', x.indent).AppendLine s |> ignore
 
-let codegen (env : PartEvalResult) (x : TypedBind []) =
+let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
     let globals = ResizeArray()
     let fwd_dcls = ResizeArray()
     let types = ResizeArray()
@@ -225,7 +227,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s "else:"
             binds g_decr (indent s) ret fl
         | TyJoinPoint(a,args) -> return' (jp (a, args))
-        | TyBackend _ -> raise_codegen_error "The C backend does not support nesting of other backends."
+        | TyBackend(a,b,c) -> return' (backend_handler (a,b,c))
         | TyWhile(a,b) ->
             line s (sprintf "while %s:" (jp a))
             binds g_decr (indent s) (BindsLocal [||]) b
@@ -416,3 +418,31 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     types |> Seq.iter (fun x -> program.Append(x) |> ignore)
     functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
     program.Append(main).ToString()
+
+let codegen backend_type env x = 
+    match backend_type with
+    | Prototypal -> codegen' (fun _ -> raise_codegen_error "The Python backend does not support nesting of other backends.") env x
+    | UPMEM_Python_Host ->
+        let upmem_c_kernels = StringBuilder()
+        let upmem_add_kernel (name : string) (code : string) =
+            upmem_c_kernels.AppendLine($"{name} = \"\"\"")
+                .Append(code)
+                .AppendLine("\"\"\"") |> ignore
+            ()
+        let g = Dictionary(HashIdentity.Structural)
+        let python_code =
+            codegen' (fun (jp_body,key,(r',backend_name)) ->
+                match backend_name with
+                | "UPMEM_C_Kernel" -> 
+                    Utils.memoize g (fun (jp_body,key & (C(args,_))) ->
+                        let name = $"upmem{g.Count}"
+                        let args = rdata_free_vars args
+                        match (fst env.join_point_method.[jp_body]).[key] with
+                        | Some a, Some _ -> upmem_add_kernel name (C.codegen' (C.UPMEM_C_Kernel args) env a)
+                        | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+                        name
+                        ) (jp_body,key)
+                | x -> raise_codegen_error $"The UPMEM Python Host backend does not support the {x} backend."
+                ) env x
+
+        upmem_c_kernels.Append(python_code).ToString()
