@@ -1,1 +1,6 @@
-inl main () = join (1i32,2i32),3i32
+inl main () = 
+    inl x = join_backend UPMEM_C
+        0i32
+
+
+    join join (1i32,2i32),3i32

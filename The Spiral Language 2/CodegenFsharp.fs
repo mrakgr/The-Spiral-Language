@@ -206,6 +206,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s "else"
                 binds (indent s) fl
         | TyJoinPoint(a,args) -> simple (jp (a, args))
+        | TyBackend _ -> raise_codegen_error "The F# backend does not support nesting other backends."
         | TyWhile(a,b) ->
             complex <| fun s ->
             line s (sprintf "while %s do" (jp a))

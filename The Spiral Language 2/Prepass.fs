@@ -35,8 +35,8 @@ and [<ReferenceEquality>] E =
     | ERecursiveForall' of Range * Scope * Id * E ref
     | ERecursive of E ref // For global mutually recursive functions
     | EPatternRef of E ref
-    | EJoinPoint of Range * E * T option * backend: string
-    | EJoinPoint' of Range * Scope * E * T option * backend: string
+    | EJoinPoint of Range * E * T option * backend: (Range * string) option
+    | EJoinPoint' of Range * Scope * E * T option * backend: (Range * string) option
     | EB of Range
     | EV of Id
     | ELit of Range * Tokenize.Literal
@@ -124,11 +124,11 @@ module Printable =
         | ERecursiveFun' of Scope * Id * PE * PT option
         | ERecursiveForall' of Scope * Id * PE
         | ERecursive of PE
-        | EJoinPoint' of Scope * PE * PT option
+        | EJoinPoint of PE * PT option * string option
+        | EJoinPoint' of Scope * PE * PT option * string option
         | EArray of PE list * PT
         | EFun of Id * PE * PT option
         | EForall of Id * PE
-        | EJoinPoint of PE * PT option
         | EB
         | EV of Id
         | ELit of Tokenize.Literal
@@ -211,10 +211,10 @@ module Printable =
                 else
                     let r = if recs.Add(r) then term r else EOmmitedRecursive
                     ERecursive r
-            | E.EJoinPoint'(_,a,b,c) -> EJoinPoint'(a,term b,Option.map ty c)
+            | E.EJoinPoint(_,a,b,d) -> EJoinPoint(term a,Option.map ty b,Option.map snd d)
+            | E.EJoinPoint'(_,a,b,c,d) -> EJoinPoint'(a,term b,Option.map ty c,Option.map snd d)
             | E.EFun(_,a,b,c) -> EFun(a,term b,Option.map ty c)
             | E.EForall(_,a,b) -> EForall(a,term b)
-            | E.EJoinPoint(_,a,b) -> EJoinPoint(term a,Option.map ty b)
             | E.EB _ -> EB
             | E.EV i -> EV i
             | E.ELit(_,a) -> ELit(a)
@@ -382,7 +382,7 @@ let propagate x =
         | EArray(_,a,b) -> List.fold (fun s x -> s + term x) (ty b) a
         | ENominal(_,a,b) | EAnnot(_,a,b) | ETypeApply(_,a,b) -> term a + ty b
         | EForall(_,i,a) -> scope x (term a -. i)
-        | EJoinPoint(_,a,t) -> scope x (match t with Some t -> term a + ty t | None -> term a)
+        | EJoinPoint(_,a,t,_) -> scope x (match t with Some t -> term a + ty t | None -> term a)
         | EFun(_,i,a,t) -> scope x (match t with Some t -> term a - i + ty t | None -> term a - i)
         | ERecBlock(_,l,on_succ) ->
             let s = List.fold (fun s (_,body) -> s + term body) (term on_succ) l
@@ -474,7 +474,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | EForall' _ | EFun' _ | ERecursiveForall' _ | ERecursiveFun' _ | ERecursive _ | EJoinPoint' _ | EModule _ | EV _ | ESymbol _ | ELit _ | EB _ -> ()
         | EPatternRef a -> f !a
         | EDefaultLit(_,_,a) | EPrototypeApply(_,_,a) | EType(_,a) | ETypePatternMiss a -> ty env a
-        | EJoinPoint(_,a,b) | EFun(_,_,a,b) -> subst env x; f a; Option.iter (ty env) b
+        | EJoinPoint(_,a,b,_) | EFun(_,_,a,b) -> subst env x; f a; Option.iter (ty env) b
         | EForall(_,_,a) -> subst env x; f a
         | ERecBlock(r,a,b) ->
             let env = 
@@ -581,9 +581,9 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
             let pat, env = adj_ty env pat
             assert (scope.ty.free_vars.Length = pat)
             EForall'(r,scope,pat,term env_rec env body)
-        | EJoinPoint(r,body,t) ->
+        | EJoinPoint(r,body,t,q) ->
             let scope, env = scope env x 
-            EJoinPoint'(r,scope,term env_rec env body,Option.map (g env) t)
+            EJoinPoint'(r,scope,term env_rec env body,Option.map (g env) t,q)
         | EV i when 0 <= i -> EV env.term.var.[i]
         | EV i -> env_rec.[i] env
         | EDefaultLit(r,a,b) -> EDefaultLit(r,a,g env b)
@@ -971,8 +971,8 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                 | RawRecordWithoutInjectVar(r,a) -> WVar(p r,v_term env a))
             ERecordWith(p r,a,b,c)
         | RawOp(r,a,b) -> EOp(p r,a,List.map f b)
-        | RawJoinPoint(r,a) -> EJoinPoint(p r,f a,None)
-        | RawAnnot(_,RawJoinPoint(r,a),b) -> EJoinPoint(p r,f a,Some (ty env b))
+        | RawJoinPoint(r,q,a) -> EJoinPoint(p r,f a,None,Option.map (fun (r',w) -> p r',w) q)
+        | RawAnnot(_,RawJoinPoint(r,q,a),b) -> EJoinPoint(p r,f a,Some (ty env b),Option.map (fun (r',w) -> p r',w) q)
         | RawOpen (_,a,l,on_succ) -> term (module_open top_env env a l) on_succ
         | RawApply(r,a,b) ->
             let rec loop = function

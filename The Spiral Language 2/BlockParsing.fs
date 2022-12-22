@@ -257,7 +257,7 @@ and RawExpr =
     | RawRecBlock of VSCRange * ((VSCRange * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
     | RawRecordWith of VSCRange * RawExpr list * RawRecordWith list * RawRecordWithout list
     | RawOp of VSCRange * Op * RawExpr list
-    | RawJoinPoint of VSCRange * RawExpr
+    | RawJoinPoint of VSCRange * backend: (VSCRange * string) option * RawExpr
     | RawAnnot of VSCRange * RawExpr * RawTExpr
     | RawTypecase of VSCRange * RawTExpr * (RawTExpr * RawExpr) list
     | RawOpen of VSCRange * (VSCRange * VarString) * (VSCRange * SymbolString) list * on_succ: RawExpr
@@ -333,7 +333,7 @@ let range_of_expr = function
     | RawDefaultLit(r,_)
     | RawSymbol(r,_)
     | RawType(r,_)
-    | RawJoinPoint(r,_)
+    | RawJoinPoint(r,_,_)
     | RawArray(r,_)
     | RawMatch(r,_,_)
     | RawFun(r,_)
@@ -501,12 +501,12 @@ let read_var' d =
 
 let read_var'' d =
     try_current d <| function
-        | p, TokVar(t',r) -> skip d; Ok(p,t')
+        | p, TokVar(t',_) -> skip d; Ok(p,t')
         | p, _ -> Error [p, ExpectedVar]
 
 let read_big_var d =
     try_current d <| function
-        | p, TokVar(t',r) when Char.IsUpper(t',0) -> skip d; Ok(p,t')
+        | p, TokVar(t',_) when Char.IsUpper(t',0) -> skip d; Ok(p,t')
         | p, _ -> Error [p, ExpectedBigVar]
 
 let read_var_as_symbol d =
@@ -517,6 +517,11 @@ let read_var_as_symbol d =
 let read_big_var_as_symbol d =
     try_current d <| function
         | p, TokVar(t',_) when Char.IsUpper(t',0) -> update_semantic d SemanticTokenLegend.symbol; skip d; Ok t'
+        | p, _ -> Error [p, ExpectedBigVar]
+
+let read_big_var_as_keyword d =
+    try_current d <| function
+        | p, TokVar(t',_) when Char.IsUpper(t',0) -> update_semantic d SemanticTokenLegend.keyword; skip d; Ok(p,t')
         | p, _ -> Error [p, ExpectedBigVar]
 
 let read_small_var d =
@@ -646,7 +651,8 @@ let patterns_validate pats =
 
 let join_point = function
     | RawJoinPoint _ as x -> x 
-    | x -> RawJoinPoint(range_of_expr x, x)
+    | x -> RawJoinPoint(range_of_expr x, None, x)
+let join_point_backend (a,b) = RawJoinPoint(range_of_expr b, Some a, b)
 
 /// Some places need unique string refs, so this is to keep the compiler from interning static strings.
 let unintern a b = sprintf "%s%c" a b
@@ -988,7 +994,7 @@ and root_type (flags : RootTypeFlags) d =
 and root_term d =
     let rec expressions d =
         let next = root_term
-        let case_var = read_var' |>> fun (r,x,leg) -> RawV(r,x)
+        let case_var = read_var'' |>> RawV
         let case_rounds = 
             range (rounds ((((read_op' |>> RawV) <|> next) |>> fun x _ -> x) <|>% RawB))
             |>> fun (r,x) -> x r
@@ -1082,6 +1088,7 @@ and root_term d =
                 ] |> List.concat |> function [] -> Ok(RawRecordWith x) | er -> Error er
 
         let case_join_point = skip_keyword SpecJoin >>. next |>> join_point
+        let case_join_point_backend = skip_keyword SpecJoinBackend >>. (read_big_var_as_keyword .>>. next) |>> join_point_backend
         let case_real = skip_keyword SpecReal >>. (fun d -> next {d with is_top_down=false}) |>> fun x -> RawReal(range_of_expr x,x)
         let case_symbol = read_symbol |>> RawSymbol
         let case_list = range (squares sequence_body) >>= fun (r,l) d -> 
@@ -1098,7 +1105,7 @@ and root_term d =
 
         let (+) = alt (index d)
 
-        (case_value + case_default_value + case_var + case_join_point + case_real + case_symbol
+        (case_value + case_default_value + case_var + case_join_point + case_join_point_backend + case_real + case_symbol
         + case_typecase + case_match + case_typecase + case_rounds + case_list + case_record
         + case_if_then_else + case_fun + case_forall + case_string + case_macro) d
 
@@ -1312,6 +1319,7 @@ let show_parser_error = function
         | SpecElif -> "elif"
         | SpecElse -> "else"
         | SpecJoin -> "join"
+        | SpecJoinBackend -> "join_backend"
         | SpecType -> "type"
         | SpecNominal -> "nominal"
         | SpecReal -> "real"

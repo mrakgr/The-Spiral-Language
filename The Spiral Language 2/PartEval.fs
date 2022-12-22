@@ -122,7 +122,7 @@ and TypedOp =
     | TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
     | TyWhile of cond: JoinPointCall * TypedBind []
     | TyJoinPoint of JoinPointCall
-    | TyBackend of E * ConsedNode<RData [] * Ty []> * backend: string
+    | TyBackend of E * ConsedNode<RData [] * Ty []> * backend: (Range * string)
 
 type LangEnv = {
     trace : Trace
@@ -921,8 +921,9 @@ let peval (env : TopEnv) (x : E) =
                     annot |> Option.iter (fun annot -> if annot <> ty then raise_type_error s <| sprintf "The annotation of the join point does not match its body's type.Got: %s\nExpected: %s" (show_ty ty) (show_ty annot))
                     ty
 
-            if backend = null then push_typedop_no_rewrite s (TyJoinPoint(JPMethod(body,join_point_key),call_args)) ret_ty
-            else 
+            match backend with
+            | None -> push_typedop_no_rewrite s (TyJoinPoint(JPMethod(body,join_point_key),call_args)) ret_ty
+            | Some backend ->
                 let method_name = push_typedop_no_rewrite s (TyBackend(body,join_point_key,backend)) (YPrim StringT)
                 let call_args = Array.foldBack (fun v s -> DPair(DV v,s)) call_args DB
                 DPair(method_name, call_args)

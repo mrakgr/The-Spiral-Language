@@ -100,6 +100,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         fun x -> if has_added.Add(x) then globals.Add x
 
     let import x = global' $"import {x}"
+    let from x = global' $"from {x}"
 
     let print is_type show r =
         let s = {text=StringBuilder(); indent=0}
@@ -224,6 +225,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             line s "else:"
             binds g_decr (indent s) ret fl
         | TyJoinPoint(a,args) -> return' (jp (a, args))
+        | TyBackend _ -> raise_codegen_error "The C backend does not support nesting of other backends."
         | TyWhile(a,b) ->
             line s (sprintf "while %s:" (jp a))
             binds g_decr (indent s) (BindsLocal [||]) b
@@ -395,8 +397,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             )
 
     import "numpy as np"
-    globals.Add "from dataclasses import dataclass"
-    globals.Add "from typing import NamedTuple, Union, Callable, Tuple"
+    from "dataclasses import dataclass"
+    from "typing import NamedTuple, Union, Callable, Tuple"
     globals.Add "i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str"
     globals.Add ""
 

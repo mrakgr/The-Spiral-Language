@@ -28,6 +28,7 @@ type TokenKeyword =
     | SpecElif
     | SpecElse
     | SpecJoin
+    | SpecJoinBackend
     | SpecType
     | SpecNominal
     | SpecReal
@@ -144,9 +145,9 @@ let var (s: Tokenizer) =
             | "inb" -> f SpecInb | "rec" -> f SpecRec
             | "if" -> f SpecIf | "then" -> f SpecThen
             | "elif" -> f SpecElif | "else" -> f SpecElse
-            | "join" -> f SpecJoin | "type" -> f SpecType 
-            | "nominal" -> f SpecNominal | "real" -> f SpecReal
-            | "union" -> f SpecUnion
+            | "join" -> f SpecJoin | "join_backend" -> f SpecJoinBackend
+            | "type" -> f SpecType | "nominal" -> f SpecNominal 
+            | "real" -> f SpecReal | "union" -> f SpecUnion
             | "open" -> f SpecOpen | "_" -> f SpecWildcard
             | "prototype" -> f SpecPrototype | "instance" -> f SpecInstance
             | "true" -> TokValue(LitBool true) | "false" -> TokValue(LitBool false)

@@ -54,6 +54,7 @@ let refc_used_vars (x : TypedBind []) =
         | TyLayoutIndexAll(i) | TyLayoutIndexByKey(i,_) -> Set.singleton i
         | TyLayoutHeapMutableSet(i,_,d) -> Set.singleton i + fv d
         | TyJoinPoint x -> jp x
+        | TyBackend(_,_,_) -> Set.empty
         | TyIf(cond,tr',fl') -> fv cond + binds tr' + binds fl'
         | TyUnionUnbox(vs,_,on_succs',on_fail') ->
             let vs = vs |> Set
@@ -119,8 +120,8 @@ let refc_prepass (new_vars : TyV Set) (x : TypedBind []) =
         |> ignore
     and op increfed_vars (x : TypedOp) : unit =
         match x with
-        | TyLayoutIndexAll _ | TyLayoutIndexByKey _ | TyMacro _ | TyArrayLiteral _ | TyOp _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _ 
-        | TyUnionBox _ | TyFailwith _ | TyConv _ | TyArrayCreate _ | TyArrayLength _ | TyStringLength _ | TyLayoutHeapMutableSet _ | TyJoinPoint _ -> ()
+        | TyLayoutIndexAll _ | TyLayoutIndexByKey _ | TyMacro _ | TyArrayLiteral _ | TyOp _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _ | TyUnionBox _ 
+        | TyFailwith _ | TyConv _ | TyArrayCreate _ | TyArrayLength _ | TyStringLength _ | TyLayoutHeapMutableSet _ | TyJoinPoint _ | TyBackend _ -> ()
         | TyWhile(_,body) -> binds no_new increfed_vars body
         | TyIf(_,tr',fl') -> binds no_new increfed_vars tr'; binds no_new increfed_vars fl'
         | TyUnionUnbox(_,_,on_succs',on_fail') ->
@@ -443,6 +444,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             binds (indent s) ret fl
             line s "}"
         | TyJoinPoint(a,args) -> return' (jp (a, args))
+        | TyBackend _ -> raise_codegen_error "The C backend does not support nesting of other backends."
         | TyWhile(a,b) ->
             line s (sprintf "while (%s){" (jp a))
             binds (indent s) (BindsLocal [||]) b

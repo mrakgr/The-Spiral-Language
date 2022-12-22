@@ -38,17 +38,11 @@
 					"type": "string",
 					"enum": [
 						"Fsharp",
-						"Cython",
 						"C",
 						"Python"
 					],
 					"default": "Fsharp",
 					"description": "The code generator to use when the file is built."
-				},
-				"spiral.generateExceptStar": {
-					"type": "boolean",
-					"default": false,
-					"description": "Cython backend specific setting. Specifies whether to generate `except *` on every cdef. Specify true to enable standard Python exception behavior."
 				}
 			}
 		},

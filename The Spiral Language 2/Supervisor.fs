@@ -370,10 +370,9 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                         try let (a,_),b = PartEval.Main.peval {prototypes_instances=prototypes_instances; nominals=nominals} main
                             match backend with
                             | "Fsharp" -> BuildOk(Codegen.Fsharp.codegen b a, "fsx")
-                            | "Cython*" -> BuildOk(Codegen.Cython.codegen true b a, "pyx")
-                            | "Cython" -> BuildOk(Codegen.Cython.codegen false b a, "pyx")
                             | "C" -> BuildOk(Codegen.C.codegen b a, "c")
                             | "Python" -> BuildOk(Codegen.Python.codegen b a, "py")
+                            | "Cython*" | "Cython" -> BuildFatalError "The Cython backend has been replaced by the Python one in v2.4.0 of Spiral. Please use an earlier version to access it." // Date: 12/22/2022
                             | _ -> BuildFatalError $"Cannot recognize the backend: {backend}"
                         with
                             | :? PartEval.Main.TypeError as e -> BuildErrorTrace(show_trace s e.Data0 e.Data1)
