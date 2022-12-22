@@ -27,16 +27,16 @@ and PatRecordMember =
     | Symbol of (Range * string) * Id
     | Var of (Range * E) * Id
 and [<ReferenceEquality>] E =
+    | EFun of Range * Id * E * T option
     | EFun' of Range * Scope * Id * E * T option
+    | EForall of Range * Id * E
     | EForall' of Range * Scope * Id * E
     | ERecursiveFun' of Range * Scope * Id * E ref * T option
     | ERecursiveForall' of Range * Scope * Id * E ref
     | ERecursive of E ref // For global mutually recursive functions
     | EPatternRef of E ref
-    | EJoinPoint' of Range * Scope * E * T option
-    | EFun of Range * Id * E * T option
-    | EForall of Range * Id * E
-    | EJoinPoint of Range * E * T option
+    | EJoinPoint of Range * E * T option * backend: string
+    | EJoinPoint' of Range * Scope * E * T option * backend: string
     | EB of Range
     | EV of Id
     | ELit of Range * Tokenize.Literal

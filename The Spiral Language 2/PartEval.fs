@@ -88,6 +88,7 @@ type Trace = Range list
 type JoinPointKey = 
     | JPMethod of E * ConsedNode<RData [] * Ty []>
     | JPClosure of E * ConsedNode<RData [] * Ty [] * Ty * Ty>
+    
 
 type JoinPointCall = JoinPointKey * TyV []
 
@@ -121,6 +122,7 @@ and TypedOp =
     | TyIf of cond: Data * tr: TypedBind [] * fl: TypedBind []
     | TyWhile of cond: JoinPointCall * TypedBind []
     | TyJoinPoint of JoinPointCall
+    | TyBackend of E * ConsedNode<RData [] * Ty []> * backend: string
 
 type LangEnv = {
     trace : Trace
@@ -888,7 +890,7 @@ let peval (env : TopEnv) (x : E) =
         | ERecursive a -> term s !a
         | ERecBlock _ -> failwith "Compiler error: Recursive blocks should be inlined and eliminated during the prepass."
         | EJoinPoint _ -> failwith "Compiler error: Raw join points should be transformed during the prepass."
-        | EJoinPoint'(r,scope,body,annot) ->
+        | EJoinPoint'(r,scope,body,annot,backend) ->
             let env_global_type = Array.map (vt s) scope.ty.free_vars
             let env_global_term = Array.map (v s) scope.term.free_vars
 
@@ -919,7 +921,11 @@ let peval (env : TopEnv) (x : E) =
                     annot |> Option.iter (fun annot -> if annot <> ty then raise_type_error s <| sprintf "The annotation of the join point does not match its body's type.Got: %s\nExpected: %s" (show_ty ty) (show_ty annot))
                     ty
 
-            push_typedop_no_rewrite s (TyJoinPoint(JPMethod(body,join_point_key),call_args)) ret_ty
+            if backend = null then push_typedop_no_rewrite s (TyJoinPoint(JPMethod(body,join_point_key),call_args)) ret_ty
+            else 
+                let method_name = push_typedop_no_rewrite s (TyBackend(body,join_point_key,backend)) (YPrim StringT)
+                let call_args = Array.foldBack (fun v s -> DPair(DV v,s)) call_args DB
+                DPair(method_name, call_args)
         | EDefaultLit(r,a,b) -> let s = add_trace s r in default_lit s a (ty s b) |> DLit
         | EType(r,_) -> raise_type_error (add_trace s r) "Raw types are not allowed on the term level."
         | EApply(r,a,b) -> let s = add_trace s r in apply s (term s a, term s b)
