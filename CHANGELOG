@@ -1,3 +1,9 @@
+2.3.1 (WIP)
+
+Created the UPMEM: Python + C backend for Spiral.
+
+* Macros can now be started with an apostrophe. For example: $'qwe' is the same as $"qwe".
+
 2.3.0 (12/21/2022)
 
 Created the Python backend for Spiral.

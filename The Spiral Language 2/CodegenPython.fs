@@ -203,12 +203,10 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         | [|x|] -> x
         | x -> String.concat ", " x |> sprintf "Tuple[%s]"
     and op g_decr s (ret : BindsReturn) a =
-        let return' x =
+        let return' (x : string) =
             match ret with
-            | BindsTailEnd -> sprintf "return %s" x
-            | BindsLocal [||] -> x
-            | BindsLocal ret -> sprintf "%s = %s" (args ret) x
-            |> line s
+            | BindsTailEnd -> line s $"return {x}"
+            | BindsLocal ret -> line s (if ret.Length = 0 then x else sprintf "%s = %s" (args ret) x)
         let jp (a,b) =
             let args = args b
             match a with
@@ -287,9 +285,9 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         | TyArrayLength(a,b) | TyStringLength(a,b) -> length (a,b)
         | TyOp(op,l) ->
             match op, l with
-            | Import,[DLit (LitString x)] -> import x; ""
-            | ToCythonRecord,[DRecord x] -> Map.foldBack (fun k v l -> $"'{k}': {tup_data v}" :: l) x [] |> String.concat ", " |> sprintf "{%s}"
-            | ToCythonNamedTuple,[n;DRecord x] -> 
+            | Global,[DLit (LitString x)] -> global' x; ""
+            | ToPythonRecord,[DRecord x] -> Map.foldBack (fun k v l -> $"'{k}': {tup_data v}" :: l) x [] |> String.concat ", " |> sprintf "{%s}"
+            | ToPythonNamedTuple,[n;DRecord x] -> 
                 import "collections"
                 let field_names = Map.foldBack (fun k v l -> $"'{k}'" :: l) x [] |> String.concat ", "
                 let args = Map.foldBack (fun k v l -> tup_data v :: l) x [] |> String.concat ", "

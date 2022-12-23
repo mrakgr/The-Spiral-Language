@@ -286,28 +286,29 @@ let string_quoted s = (string_quoted' .>> spaces) s
 let macro' s =
     let inline f from x = {from=from; nearTo=s.from}, x
     let close l = let f = f s.from in inc s; List.rev (f TokMacroClose :: l) |> Ok
-    let rec text l =
+    let rec text close_char l =
         let f = f s.from
         let rec loop (str : StringBuilder) =
             let l () = if 0 < str.Length then f (TokText(str.ToString())) :: l else l
             let var b = 
                 let c = if b then '`' else '!'
                 if peek' s 1 = c then inc' 2 s; loop (str.Append(c))
-                else var b (l ())
+                else var close_char b (l ())
             match peek s with
             | x when x = eol -> error_char s.from "character or \""
             | '`' -> var true 
             | '!' -> var false
-            | '\\' -> special_char (l ()) text s
-            | '"' -> close (l ())
+            | '\\' -> special_char (l ()) (text close_char) s
+            | x when x = close_char -> close (l ())
             | x -> inc s; loop (str.Append(x))
         loop (StringBuilder())
-    and var is_type l =
+    and var close_char is_type l =
         let f = f s.from
-        let text x _ = text (f (if is_type then TokMacroTypeVar x else TokMacroTermVar x) :: l)
+        let text x _ = text close_char (f (if is_type then TokMacroTypeVar x else TokMacroTermVar x) :: l)
         inc s; (many1Satisfy2L is_var_char_starting is_var_char "variable" >>= text) s
     match peek s, peek' s 1 with
-    | '$', '"' -> let f = f s.from in inc' 2 s; text [f TokMacroOpen]
+    | '$', '"' -> let f = f s.from in inc' 2 s; text '"' [f TokMacroOpen]
+    | '$', ''' -> let f = f s.from in inc' 2 s; text ''' [f TokMacroOpen]
     | _ -> error_char s.from "$\""
 let macro s = (macro' .>> spaces) s
 

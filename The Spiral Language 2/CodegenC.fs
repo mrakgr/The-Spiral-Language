@@ -178,7 +178,7 @@ let print_decref s_fun name_fun type_arg name_decref =
     line s_fun "}"
 
 let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind []) =
-    let imports = ResizeArray()
+    let globals = ResizeArray()
     let fwd_dcls = ResizeArray()
     let types = ResizeArray()
     let functions = ResizeArray()
@@ -270,13 +270,12 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
         let mutable i = 0u
         fun () -> let x = i in i <- i + 1u; x
 
-    let import =
+    let global' =
         let has_added = HashSet()
-        fun x -> if has_added.Add(x) then imports.Add $"#include <{x}>"
+        fun x -> if has_added.Add(x) then globals.Add x
 
-    let cimport =
-        let has_added = HashSet()
-        fun x -> if has_added.Add(x) then imports.Add $"#include \"{x}\""
+    let import x = global' $"#include <{x}>"
+    let import' x = global' $"#include \"{x}\""
 
     let tyvs_to_tys (x : TyV []) = Array.map (fun (L(i,t)) -> t) x
 
@@ -544,8 +543,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
                 | DV(L(_,YPrim Float32T)) | DLit(LitFloat32 _) -> "f"
                 | _ -> ""
             match op, l with
-            | Import,[DLit (LitString x)] -> import x; $"// #include <{x}>"
-            | CImport,[DLit (LitString x)] -> cimport x; $"// #include \"{x}\""
+            | Global,[DLit (LitString x)] -> global' x; ""
             | Apply,[a;b'] -> 
                 match tup_data a, args' b' with
                 | a, "" -> $"{a}->fptr({a})"
@@ -941,9 +939,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
         let main_defs = {text=StringBuilder(); indent=0}
         match backend_type with
         | Prototypal | UPMEM_C_Kernel [||] -> ()
-        | UPMEM_C_Kernel args -> 
-            for L(i,t) in args do line main_defs $"__host {tyv t} v{i}"    
-            line main_defs ""
+        | UPMEM_C_Kernel args -> for L(i,t) in args do line main_defs $"__host {tyv t} v{i}"    
 
         line main_defs (sprintf "%s main(){" (prim Int32T))
         binds_start [||] (indent main_defs) x
@@ -951,7 +947,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
 
         let program = StringBuilder()
 
-        imports |> Seq.iter (fun x -> program.AppendLine(x) |> ignore)
+        globals |> Seq.iter (fun x -> program.AppendLine(x) |> ignore)
         fwd_dcls |> Seq.iter (fun x -> program.Append(x) |> ignore)
         types |> Seq.iter (fun x -> program.Append(x) |> ignore)
         functions |> Seq.iter (fun x -> program.Append(x) |> ignore)

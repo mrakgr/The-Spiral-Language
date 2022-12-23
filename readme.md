@@ -705,6 +705,8 @@ This is not as nice as having direct interop with .NET that F# gives you. If one
 
 The F# one is a bit less than 400 lines of code, and macros give us access to all the .NET libraries right away. The situation would be the same if Spiral were compiling to Cuda, Java, Python or anything else.
 
+New in v2.3.1: Macros can now be started with an apostrophe. For example: $'qwe' is the same as $"qwe".
+
 ### Layout types
 
 F# would say that `let id x = x` is just a function, and according to the previous section, Spiral would contribute to the conversation by saying: 'No, no, this is a function with a dyn pattern on its argument and a join point wrapped around its body.' It shows a more nuanced way of thinking by pointing out a reasonable decomposition for a function into several orthogonal concepts.

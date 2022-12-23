@@ -19,13 +19,12 @@ type PrimitiveType =
 type Layout = Heap | HeapMutable
 
 type Op =
-    // Cython imports
-    | Import
-    | CImport
+    // imports
+    | Global
 
-    // Cython
-    | ToCythonRecord
-    | ToCythonNamedTuple
+    // Python
+    | ToPythonRecord
+    | ToPythonNamedTuple
 
     // Closure application
     | Apply
@@ -144,6 +143,9 @@ type Op =
     | PrintRaw
     | ErrorType
     | NominalStrip
+    
+    // Serialization helpers
+    | VarTag
 
 type PatternCompilationErrors =
     | DisjointOrPatternVar
@@ -650,7 +652,7 @@ let patterns_validate pats =
     errors |> Seq.toList
 
 let join_point = function // Removes nested join points.
-    | RawJoinPoint(_,None,_) as x -> x 
+    | RawJoinPoint _ as x -> x 
     | x -> RawJoinPoint(range_of_expr x, None, x)
 let join_point_backend (a,b) = RawJoinPoint(range_of_expr b, Some a, b)
 

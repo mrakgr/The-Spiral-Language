@@ -1,0 +1,10 @@
+// Does the add kernel compile?
+
+inl main () = 
+    inl add ~a ~b = join_backend UPMEM_C_Kernel 
+        ignore (a + b)
+        0i32
+
+    ignore (add 2i32 1)
+    ignore (add 2u64 5)
+    ignore (add 2.5f32 4.4)
