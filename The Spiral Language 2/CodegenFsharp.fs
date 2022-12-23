@@ -137,9 +137,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and args_tys x = x |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (tup_ty t)) |> String.concat ", "
     and binds (s : CodegenEnv) (x : TypedBind []) =
         Array.iter (function
-            | TyLet(d,trace,a) -> try op s (Some d) a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
-            | TyLocalReturnOp(trace,a,_) -> try op s None a with :? CodegenError as e -> raise_codegen_error' trace e.Data0
-            | TyLocalReturnData(d,trace) -> try line s (tup d) with :? CodegenError as e -> raise_codegen_error' trace e.Data0
+            | TyLet(d,trace,a) -> try op s (Some d) a with :? CodegenError as e -> raise_codegen_error' trace (e.Data0,e.Data1)
+            | TyLocalReturnOp(trace,a,_) -> try op s None a with :? CodegenError as e -> raise_codegen_error' trace (e.Data0,e.Data1)
+            | TyLocalReturnData(d,trace) -> try line s (tup d) with :? CodegenError as e -> raise_codegen_error' trace (e.Data0,e.Data1)
             ) x
     and tup x =
         match data_term_vars x with
@@ -206,7 +206,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
                 line s "else"
                 binds (indent s) fl
         | TyJoinPoint(a,args) -> simple (jp (a, args))
-        | TyBackend _ -> raise_codegen_error "The F# backend does not support nesting other backends."
+        | TyBackend(_,_,(r,_)) -> raise_codegen_error_backend r "The F# backend does not support nesting other backends."
         | TyWhile(a,b) ->
             complex <| fun s ->
             line s (sprintf "while %s do" (jp a))

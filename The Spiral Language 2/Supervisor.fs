@@ -372,11 +372,12 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                             | "Fsharp" -> BuildOk(Codegen.Fsharp.codegen b a, "fsx")
                             | "C" -> BuildOk(Codegen.C.codegen b a, "c")
                             | "Python" -> BuildOk(Codegen.Python.codegen b a, "py")
+                            | "UPMEM: Python + C" -> BuildOk(Codegen.Python.codegen_upmem_python_host b a, "py")
                             | "Cython*" | "Cython" -> BuildFatalError "The Cython backend has been replaced by the Python one in v2.4.0 of Spiral. Please use an earlier version to access it." // Date: 12/22/2022
                             | _ -> BuildFatalError $"Cannot recognize the backend: {backend}"
                         with
                             | :? PartEval.Main.TypeError as e -> BuildErrorTrace(show_trace s e.Data0 e.Data1)
-                            | :? CodegenUtils.CodegenError as e -> BuildFatalError(e.Data0)
+                            | :? CodegenUtils.CodegenError as e -> BuildFatalError(e.Data1)
                             | :? CodegenUtils.CodegenErrorWithPos as e -> BuildErrorTrace(show_trace s e.Data0 e.Data1)
                     | None -> BuildFatalError $"Cannot find `main` in file {Path.GetFileNameWithoutExtension file}."
                     |> handle_build_result

@@ -39,7 +39,8 @@
 					"enum": [
 						"Fsharp",
 						"C",
-						"Python"
+						"Python",
+						"UPMEM: Python + C"
 					],
 					"default": "Fsharp",
 					"description": "The code generator to use when the file is built."

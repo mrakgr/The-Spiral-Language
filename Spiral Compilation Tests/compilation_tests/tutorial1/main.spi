@@ -1,6 +1,6 @@
 inl main () = 
-    inl x = join_backend UPMEM_C
+    inl _ = join_backend UPMEM_C_Kernel 
+        inl x = $"int v$[1]" : $"int *"
         0i32
 
-
-    join join (1i32,2i32),3i32
+    0i32

@@ -91,7 +91,7 @@ type BindsReturn =
 
 let line x s = if s <> "" then x.text.Append(' ', x.indent).AppendLine s |> ignore
 
-let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
+let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
     let globals = ResizeArray()
     let fwd_dcls = ResizeArray()
     let types = ResizeArray()
@@ -162,15 +162,15 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             match x with
             | TyLet(d,trace,a) ->
                 try op g_decr s (BindsLocal (data_free_vars d)) a
-                with :? CodegenError as e -> raise_codegen_error' trace e.Data0
+                with :? CodegenError as e -> raise_codegen_error' trace (e.Data0,e.Data1)
             | TyLocalReturnOp(trace,a,_) ->
                 try op g_decr s ret a
-                with :? CodegenError as e -> raise_codegen_error' trace e.Data0
+                with :? CodegenError as e -> raise_codegen_error' trace (e.Data0,e.Data1)
             | TyLocalReturnData(d,trace) ->
                 try match ret with
                     | BindsLocal l -> tup_destruct (l, d) 
                     | BindsTailEnd -> line s $"return {tup_data' d}"
-                with :? CodegenError as e -> raise_codegen_error' trace e.Data0
+                with :? CodegenError as e -> raise_codegen_error' trace (e.Data0,e.Data1)
             ) stmts
         if s.text.Length = s_len then line s "pass"
     and tup_data' x = 
@@ -361,18 +361,18 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         line s $"US{x.tag} = {cases}"
         )
     and heap : _ -> LayoutRec = layout (fun s x -> 
-            line s $"class Heap{x.tag}(NamedTuple):"
-            let s = indent s
-            if x.free_vars.Length = 0 then line s "pass" 
-            else x.free_vars |> Array.iter (fun (L(i,t)) -> line s $"v{i} : {tyv t}")
-            )
+        line s $"class Heap{x.tag}(NamedTuple):"
+        let s = indent s
+        if x.free_vars.Length = 0 then line s "pass" 
+        else x.free_vars |> Array.iter (fun (L(i,t)) -> line s $"v{i} : {tyv t}")
+        )
     and mut : _ -> LayoutRec = layout (fun s x -> 
-            line s "@dataclass"
-            line s $"class Mut{x.tag}:"
-            let s = indent s
-            if x.free_vars.Length = 0 then line s "pass" 
-            else x.free_vars |> Array.iter (fun (L(i,t)) -> line s $"v{i} : {tyv t}")
-            )
+        line s "@dataclass"
+        line s $"class Mut{x.tag}:"
+        let s = indent s
+        if x.free_vars.Length = 0 then line s "pass" 
+        else x.free_vars |> Array.iter (fun (L(i,t)) -> line s $"v{i} : {tyv t}")
+        )
     and method : _ -> MethodRec =
         jp false (fun ((jp_body,key & (C(args,_))),i) ->
             match (fst env.join_point_method.[jp_body]).[key] with
@@ -419,9 +419,9 @@ let codegen' backend_handler (env : PartEvalResult) (x : TypedBind []) =
     functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
     program.Append(main).ToString()
 
-let codegen backend_type env x = 
+let codegen' backend_type env x = 
     match backend_type with
-    | Prototypal -> codegen' (fun _ -> raise_codegen_error "The Python backend does not support nesting of other backends.") env x
+    | Prototypal -> codegen'' (fun (_,_,(r,_)) -> raise_codegen_error_backend r "The Python backend does not support nesting of other backends.") env x
     | UPMEM_Python_Host ->
         let upmem_c_kernels = StringBuilder()
         let upmem_add_kernel (name : string) (code : string) =
@@ -431,7 +431,7 @@ let codegen backend_type env x =
             ()
         let g = Dictionary(HashIdentity.Structural)
         let python_code =
-            codegen' (fun (jp_body,key,(r',backend_name)) ->
+            codegen'' (fun (jp_body,key,(r',backend_name)) ->
                 match backend_name with
                 | "UPMEM_C_Kernel" -> 
                     Utils.memoize g (fun (jp_body,key & (C(args,_))) ->
@@ -442,7 +442,10 @@ let codegen backend_type env x =
                         | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
                         name
                         ) (jp_body,key)
-                | x -> raise_codegen_error $"The UPMEM Python Host backend does not support the {x} backend."
+                | x -> raise_codegen_error_backend r' $"The UPMEM Python Host backend does not support the {x} backend."
                 ) env x
 
         upmem_c_kernels.Append(python_code).ToString()
+
+let codegen_upmem_python_host env x = codegen' UPMEM_Python_Host env x
+let codegen env x = codegen' Prototypal env x

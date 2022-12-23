@@ -281,6 +281,14 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
     let tyvs_to_tys (x : TyV []) = Array.map (fun (L(i,t)) -> t) x
 
     let rec binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = binds (refc_prepass (Set args) x) s BindsTailEnd x
+    and return_local s ret (x : string) = 
+        match ret with
+        | [||] -> line s $"{x};"
+        | [|L(i,_)|] -> line s $"v{i} = {x};"
+        | ret ->
+            let tmp_i = tmp()
+            line s $"{tup_ty_tyvs ret} tmp{tmp_i} = {x};"
+            Array.mapi (fun i (L(i',_)) -> $"v{i'} = tmp{tmp_i}.v{i};") ret |> line' s
     and binds (vars : RefcVars) (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
         let tup_destruct (a,b) =
             Array.map2 (fun (L(i,_)) b -> 
@@ -295,17 +303,30 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
             match x with
             | TyLet(d,trace,a) ->
                 try let d = data_free_vars d
-                    Array.map (fun (L(i,t)) -> $"{tyv t} v{i};") d |> line' s
-                    op vars s (BindsLocal d) a
-                with :? CodegenError as e -> raise_codegen_error' trace e.Data0
+                    let decl_vars = Array.map (fun (L(i,t)) -> $"{tyv t} v{i};") d
+                    match a with
+                    | TyMacro a ->
+                        let m = a |> List.map (function CMText x -> x | CMTerm x -> tup_data x | CMType x -> tup_ty x) |> String.concat ""
+                        let i' = m.IndexOf("v$")
+                        if i' = -1 then // Special case for declaring uninitialized arrays.
+                            decl_vars |> line' s
+                            return_local s d m 
+                        else
+                            match d with
+                            | [|L(i,_)|] -> line s (StringBuilder(m).Remove(i',2).Insert(i',$"v{i}").Append(';').ToString())
+                            | _ -> raise_codegen_error "The special v$ macro requires a local binding with a single free variable."
+                    | _ ->
+                        decl_vars |> line' s
+                        op vars s (BindsLocal d) a
+                with :? CodegenError as e -> raise_codegen_error' trace (e.Data0, e.Data1)
             | TyLocalReturnOp(trace,a,_) ->
                 try op vars s ret a
-                with :? CodegenError as e -> raise_codegen_error' trace e.Data0
+                with :? CodegenError as e -> raise_codegen_error' trace (e.Data0, e.Data1)
             | TyLocalReturnData(d,trace) ->
                 try match ret with
                     | BindsLocal l -> line' s (tup_destruct (l,data_term_vars d))
                     | BindsTailEnd -> line s $"return {tup_data d};"
-                with :? CodegenError as e -> raise_codegen_error' trace e.Data0
+                with :? CodegenError as e -> raise_codegen_error' trace (e.Data0, e.Data1)
             ) stmts
     and refc_change' (f : int * Ty -> string) (refc_flag : REFC) (x : TyV []) : string [] =
         Array.choose (fun (L(i,t')) -> 
@@ -414,12 +435,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
         let binds a b = binds vars a b
         let return' (x : string) =
             match ret with
-            | BindsLocal [||] -> line s $"{x};"
-            | BindsLocal [|L(i,_)|] -> line s $"v{i} = {x};"
-            | BindsLocal ret ->
-                let tmp_i = tmp()
-                line s $"{tup_ty_tyvs ret} tmp{tmp_i} = {x};"
-                Array.mapi (fun i (L(i',_)) -> $"v{i'} = tmp{tmp_i}.v{i};") ret |> line' s
+            | BindsLocal ret -> return_local s ret x
             | BindsTailEnd -> line s $"return {x};"
         let layout_index (x'_i : int) (x' : TyV []) =
             match ret with
@@ -432,12 +448,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
             | JPClosure(a,b) -> sprintf "ClosureCreate%i(%s)" (closure (a,b)).tag args
         let string_in_op = function DLit (LitString b) -> lit_string b | b -> $"{tup_data b}->ptr"
         match a with
-        | TyMacro a ->
-            a |> List.map (function
-                | CMText x -> x
-                | CMTerm x -> tup_data x
-                | CMType x -> tup_ty x
-                ) |> String.concat "" |> return'
+        | TyMacro _ -> raise_codegen_error "Macros are supposed to be taken care of in the `binds` function."
         | TyIf(cond,tr,fl) ->
             line s (sprintf "if (%s){" (tup_data cond))
             binds (indent s) ret tr
@@ -445,7 +456,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
             binds (indent s) ret fl
             line s "}"
         | TyJoinPoint(a,args) -> return' (jp (a, args))
-        | TyBackend _ -> raise_codegen_error "The C backend does not support nesting of other backends."
+        | TyBackend(_,_,(r,_)) -> raise_codegen_error_backend r "The C backend does not support nesting of other backends."
         | TyWhile(a,b) ->
             line s (sprintf "while (%s){" (jp a))
             binds (indent s) (BindsLocal [||]) b

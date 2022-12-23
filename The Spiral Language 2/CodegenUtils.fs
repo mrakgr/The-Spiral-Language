@@ -13,7 +13,8 @@ let line x s = x.text.Append(' ', x.indent).AppendLine s |> ignore
 let indent x = {x with indent=x.indent+4}
 let add_dec_point (x : string) = if x.IndexOf('.') = -1 then x + ".0" else x
 
-exception CodegenError of string
+exception CodegenError of PartEval.Prepass.Range option * string
 exception CodegenErrorWithPos of Trace * string
-let raise_codegen_error x = raise (CodegenError x)
-let raise_codegen_error' trace x = raise (CodegenErrorWithPos(trace,x))
+let raise_codegen_error x = raise (CodegenError (None,x))
+let raise_codegen_error_backend r x = raise (CodegenError (Some r,x))
+let raise_codegen_error' trace (r,x) = raise (CodegenErrorWithPos(Option.fold (fun s x -> x :: s) trace r,x))
