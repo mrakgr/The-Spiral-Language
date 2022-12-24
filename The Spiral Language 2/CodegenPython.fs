@@ -206,6 +206,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         let return' (x : string) =
             match ret with
             | BindsTailEnd -> line s $"return {x}"
+            | BindsLocal _ when x = "" -> ()
             | BindsLocal ret -> line s (if ret.Length = 0 then x else sprintf "%s = %s" (args ret) x)
         let jp (a,b) =
             let args = args b

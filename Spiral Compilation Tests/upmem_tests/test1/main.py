@@ -10,6 +10,8 @@ int32_t main(){
     return 0l;
 }
 """
+
+from dpu import DpuSet
 import numpy as np
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
