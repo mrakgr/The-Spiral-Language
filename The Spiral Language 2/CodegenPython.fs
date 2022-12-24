@@ -423,18 +423,18 @@ let codegen' backend_type env x =
     | Prototypal -> codegen'' (fun (_,_,(r,_)) -> raise_codegen_error_backend r "The Python backend does not support nesting of other backends.") env x
     | UPMEM_Python_Host ->
         let upmem_c_kernels = StringBuilder()
+        upmem_c_kernels.AppendLine("kernels = {") |> ignore
         let upmem_add_kernel (name : string) (code : string) =
-            upmem_c_kernels.AppendLine($"{name} = \"\"\"")
+            upmem_c_kernels.AppendLine($"   {name}: r\"\"\"")
                 .Append(code)
                 .AppendLine("\"\"\"") |> ignore
-            ()
         let g = Dictionary(HashIdentity.Structural)
         let python_code =
             codegen'' (fun (jp_body,key,(r',backend_name)) ->
                 match backend_name with
                 | "UPMEM_C_Kernel" -> 
                     Utils.memoize g (fun (jp_body,key & (C(args,_))) ->
-                        let name = $"upmem{g.Count}"
+                        let name = $"'k{g.Count}'"
                         let args = rdata_free_vars args
                         match (fst env.join_point_method.[jp_body]).[key] with
                         | Some a, Some _ -> upmem_add_kernel name (C.codegen' (C.UPMEM_C_Kernel args) env a)
@@ -444,7 +444,10 @@ let codegen' backend_type env x =
                 | x -> raise_codegen_error_backend r' $"The UPMEM Python Host backend does not support the {x} backend."
                 ) env x
 
-        upmem_c_kernels.Append(python_code).ToString()
+        upmem_c_kernels
+            .AppendLine("}")
+            .AppendLine("from dpu import DpuSet")
+            .Append(python_code).ToString()
 
 let codegen_upmem_python_host env x = codegen' UPMEM_Python_Host env x
 let codegen env x = codegen' Prototypal env x

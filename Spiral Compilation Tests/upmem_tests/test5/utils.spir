@@ -6,16 +6,16 @@ inl dpu_pack dpu vars =
         | (a,b) => 
             inl i = !!!!VarTag(a)
             typecase `a with
-            | i8 => $"!dpu.v!i = struct.pack('b',!a)" : ()
-            | i16 => $"!dpu.v!i = struct.pack('h',!a)" : ()
-            | i32 => $"!dpu.v!i = struct.pack('l',!a)" : ()
-            | i64 => $"!dpu.v!i = struct.pack('q',!a)" : ()
-            | u8 => $"!dpu.v!i = struct.pack('B',!a)" : ()
-            | u16 => $"!dpu.v!i = struct.pack('H',!a)" : ()
-            | u32 => $"!dpu.v!i = struct.pack('L',!a)" : ()
-            | u64 => $"!dpu.v!i = struct.pack('Q',!a)" : ()
-            | f32 => $"!dpu.v!i = struct.pack('f',!a)" : ()
-            | f64 => $"!dpu.v!i = struct.pack('d',!a)" : ()
+            | i8 => $"!dpu.v!i = bytearray(struct.pack('b',!a))" : ()
+            | i16 => $"!dpu.v!i = bytearray(struct.pack('h',!a))" : ()
+            | i32 => $"!dpu.v!i = bytearray(struct.pack('i',!a))" : ()
+            | i64 => $"!dpu.v!i = bytearray(struct.pack('q',!a))" : ()
+            | u8 => $"!dpu.v!i = bytearray(struct.pack('B',!a))" : ()
+            | u16 => $"!dpu.v!i = bytearray(struct.pack('H',!a))" : ()
+            | u32 => $"!dpu.v!i = bytearray(struct.pack('I',!a))" : ()
+            | u64 => $"!dpu.v!i = bytearray(struct.pack('Q',!a))" : ()
+            | f32 => $"!dpu.v!i = bytearray(struct.pack('f',!a))" : ()
+            | f64 => $"!dpu.v!i = bytearray(struct.pack('d',!a))" : ()
             loop b
     loop vars
 

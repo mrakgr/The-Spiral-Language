@@ -1,10 +1,8 @@
-upmem0 = """
+upmem0 = r"""
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <math.h>
 __host int32_t v0
 __host int32_t v1
 int32_t main(){
@@ -13,13 +11,11 @@ int32_t main(){
     return 0l;
 }
 """
-upmem1 = """
+upmem1 = r"""
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <math.h>
 __host uint64_t v0
 __host uint64_t v1
 int32_t main(){
@@ -28,13 +24,11 @@ int32_t main(){
     return 0l;
 }
 """
-upmem2 = """
+upmem2 = r"""
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <math.h>
 __host float v0
 __host float v1
 int32_t main(){
@@ -43,6 +37,7 @@ int32_t main(){
     return 0l;
 }
 """
+from dpu import DpuSet
 import numpy as np
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple

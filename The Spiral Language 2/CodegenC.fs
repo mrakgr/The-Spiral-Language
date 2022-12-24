@@ -570,10 +570,10 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
             | Pow, [a;b] -> sprintf "pow%s(%s,%s)" (float_suffix a) (tup_data a) (tup_data b)
             | LT, [a;b] -> sprintf "%s < %s" (tup_data a) (tup_data b)
             | LTE, [a;b] -> sprintf "%s <= %s" (tup_data a) (tup_data b)
-            | EQ, [a;b] when is_string a -> sprintf "strcmp(%s->ptr, %s->ptr) == 0" (string_in_op a) (string_in_op b) // TODO: Optimize string structural comparison in the real_core
-            | NEQ, [a;b] when is_string a -> sprintf "strcmp(%s->ptr, %s->ptr) != 0" (string_in_op a) (string_in_op b)
-            | GT, [a;b] when is_string a -> sprintf "strcmp(%s->ptr, %s->ptr) > 0" (string_in_op a) (string_in_op b)
-            | GTE, [a;b] when is_string a -> sprintf "strcmp(%s->ptr, %s->ptr) >= 0" (string_in_op a) (string_in_op b)
+            | EQ, [a;b] when is_string a -> import "string.h"; sprintf "strcmp(%s->ptr, %s->ptr) == 0" (string_in_op a) (string_in_op b) // TODO: Optimize string structural comparison in the real_core
+            | NEQ, [a;b] when is_string a -> import "string.h"; sprintf "strcmp(%s->ptr, %s->ptr) != 0" (string_in_op a) (string_in_op b)
+            | GT, [a;b] when is_string a -> import "string.h"; sprintf "strcmp(%s->ptr, %s->ptr) > 0" (string_in_op a) (string_in_op b)
+            | GTE, [a;b] when is_string a -> import "string.h"; sprintf "strcmp(%s->ptr, %s->ptr) >= 0" (string_in_op a) (string_in_op b)
             | EQ, [a;b] -> sprintf "%s == %s" (tup_data a) (tup_data b)
             | NEQ, [a;b] -> sprintf "%s != %s" (tup_data a) (tup_data b)
             | GT, [a;b] -> sprintf "%s > %s" (tup_data a) (tup_data b)
@@ -588,11 +588,11 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
             | ShiftRight, [a;b] -> sprintf "%s >> %s" (tup_data a) (tup_data b)
 
             | Neg, [x] -> sprintf "-%s" (tup_data x)
-            | Log, [x] -> sprintf "log%s(%s)" (float_suffix x) (tup_data x)
-            | Exp, [x] -> sprintf "exp%s(%s)" (float_suffix x) (tup_data x)
-            | Tanh, [x] -> sprintf "tanh%s(%s)" (float_suffix x) (tup_data x)
-            | Sqrt, [x] -> sprintf "sqrt%s(%s)" (float_suffix x) (tup_data x)
-            | NanIs, [x] -> sprintf "isnan(%s)" (tup_data x)
+            | Log, [x] -> import "math.h"; sprintf "log%s(%s)" (float_suffix x) (tup_data x)
+            | Exp, [x] -> import "math.h"; sprintf "exp%s(%s)" (float_suffix x) (tup_data x)
+            | Tanh, [x] -> import "math.h"; sprintf "tanh%s(%s)" (float_suffix x) (tup_data x)
+            | Sqrt, [x] -> import "math.h"; sprintf "sqrt%s(%s)" (float_suffix x) (tup_data x)
+            | NanIs, [x] -> import "math.h"; sprintf "isnan(%s)" (tup_data x)
             | UnionTag, [DV(L(i,YUnion l)) as x] -> 
                 match l.Item.layout with
                 | UHeap -> "->tag"
@@ -932,14 +932,11 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
         import "stdint.h"
         import "stdio.h"
         import "stdlib.h"
-        import "string.h"
-        import "math.h"
-        
 
         let main_defs = {text=StringBuilder(); indent=0}
         match backend_type with
         | Prototypal | UPMEM_C_Kernel [||] -> ()
-        | UPMEM_C_Kernel args -> for L(i,t) in args do line main_defs $"__host {tyv t} v{i}"    
+        | UPMEM_C_Kernel args -> for L(i,t) in args do line main_defs $"__host {tyv t} v{i};"
 
         line main_defs (sprintf "%s main(){" (prim Int32T))
         binds_start [||] (indent main_defs) x

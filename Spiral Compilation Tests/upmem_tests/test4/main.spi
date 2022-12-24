@@ -1,25 +1,20 @@
-// Does the variable transfer work?
-
-open utils
+// Does the most basic kernel run succesfully?
 
 inl main () = 
-    inl _ = $"" : i64
-    0i32
-    // global "from dpu import DpuSet"
-    // global "from io import StringIO"
-    // global "from sys import stdout"
-    // global "import struct"
+    global "import os"
+    global "from io import StringIO"
+    global "from sys import stdout"
+    global "import struct"
 
-    // let f (a,b,c,d) = join_backend UPMEM_C_Kernel 
-    //     inl q : i32 = a + b + c + d
-    //     inl w = a * b * c * d
-    //     $"!a = !q"
-    //     $"!b = !w"
-    //     0i32
-    // inl program, vars = f (1,2,3,4)
-    // inl dpu = $"DpuSet(nr_dpus=1, c_source=StringIO(!program))" : $"DpuSet"
-    // real dpu_pack dpu vars
-    // $"!dpu.exec(log=stdout)"
-    // inl q,w,_ : i32 * i32 * _ = real dpu_unpack dpu vars
-    // $"print(!q,!w)"
-    // ()
+    let f = join_backend UPMEM_C_Kernel
+        0i32
+    inl kernel_name, vars = f
+    inl file_name = $"f'kernels/{!kernel_name}'" : string
+    $"if not os.path.exists('kernels'): os.mkdir('kernels')"
+    inl file = $"open(f'{!file_name}.c','w')" : $"object"
+    $"!file.write(kernels[!kernel_name])"
+    $"os.system(f'dpu-upmem-dpurte-clang -o {!file_name}.dpu {!file_name}.c')"
+
+    inl dpu = $"DpuSet(nr_dpus=1, binary=f'{!file_name}.dpu')" : $"DpuSet"
+    $"!dpu.exec()" // Note: Putting in log=stdout and not using a printf inside the kernel results in an error.
+    ()
