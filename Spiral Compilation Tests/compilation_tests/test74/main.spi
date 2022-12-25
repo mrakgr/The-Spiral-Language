@@ -1,0 +1,8 @@
+// Is the following pattern being compiled efficiently?
+
+union qwe = A | B | C | D | E
+
+inl main () =
+    match dyn (A, B) with
+    | A, A => 0i32
+    | _ => 1i32
