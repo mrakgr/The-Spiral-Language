@@ -65,7 +65,7 @@ and [<ReferenceEquality>] E =
     | ENominal of Range * E * T
     // Regular pattern matching
     | ELet of Range * Id * E * E
-    | EUnbox of Range * Id * E * E
+    | EUnbox of Range * symbol: string * Id * body: E * on_succ: E * on_fail: E
     | EPairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
     | ESymbolTest of Range * string * bind: Id * on_succ: E * on_fail: E
     | ERecordTest of Range * PatRecordMember list * bind: Id * on_succ: E * on_fail: E
@@ -156,7 +156,7 @@ module Printable =
         | ENominal of PE * PT
         // Regular pattern matching
         | ELet of Id * PE * PE
-        | EUnbox of Id * PE * PE
+        | EUnbox of Id * string * PE * PE * PE
         | EPairTest of bind: Id * pat1: Id * pat2: Id * on_succ: PE * on_fail: PE
         | ESymbolTest of string * bind: Id * on_succ: PE * on_fail: PE
         | ERecordTest of PPatRecordMember list * bind: Id * on_succ: PE * on_fail: PE
@@ -260,7 +260,7 @@ module Printable =
             | E.ENominal(_,a,b) -> ENominal(term a,ty b)
             // Regular pattern matching
             | E.ELet(_,a,b,c) -> ELet(a,term b,term c)
-            | E.EUnbox(_,a,b,c) -> EUnbox(a,term b,term c)
+            | E.EUnbox(_,q,a,b,c,d) -> EUnbox(a,q,term b,term c,term d)
             | E.EPairTest(_,a,b,c,d,e) -> EPairTest(a,b,c,term d,term e)
             | E.ESymbolTest(_,a,b,c,d) -> ESymbolTest(a,b,term c,term d)
             | E.ERecordTest(_,a,b,c,d) ->
@@ -405,7 +405,8 @@ let propagate x =
         | EMacro(_,a,b) -> List.fold (fun s -> function MType x -> s + ty x | MTerm x -> s + term x | MText _ -> s) (ty b) a
         | EPatternMemo a -> Utils.memoize dict term a
         // Regular pattern matching
-        | ELet(_,bind,body,on_succ) | EUnbox(_,bind,body,on_succ) -> term on_succ - bind + term body
+        | ELet(_,bind,body,on_succ) -> term on_succ - bind + term body
+        | EUnbox(_,_,bind,body,on_succ,on_fail) -> term on_succ - bind + term body + term on_fail
         | EPairTest(_,bind,pat1,pat2,on_succ,on_fail) -> singleton_term bind + (term on_succ - pat1 - pat2) + term on_fail
         | ESymbolTest(_,_,bind,on_succ,on_fail) 
         | EUnitTest(_,bind,on_succ,on_fail) 
@@ -506,9 +507,9 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | EPatternMiss a | EReal(_,a) -> f a
         | EArray(_,a,b) -> List.iter f a; ty env b
         | EUnitTest(_,_,a,b) | ESymbolTest(_,_,_,a,b) | EPairTest(_,_,_,_,a,b) | ELitTest(_,_,_,a,b)
-        | ELet(_,_,a,b) | EUnbox(_,_,a,b) | EIfThen(_,a,b) | EPair(_,a,b) | ESeq(_,a,b) | EApply(_,a,b) -> f a; f b
+        | ELet(_,_,a,b) | EIfThen(_,a,b) | EPair(_,a,b) | ESeq(_,a,b) | EApply(_,a,b) -> f a; f b
         | EHeapMutableSet(_,a,b,c) -> f a; List.iter (snd >> f) b; f c
-        | EIfThenElse(_,a,b,c) -> f a; f b; f c
+        | EUnbox(_,_,_,a,b,c) | EIfThenElse(_,a,b,c) -> f a; f b; f c
         | EMacro(_,a,b) ->
             a |> List.iter (function MType a -> ty env a | MTerm a -> f a | MText _ -> ())
             ty env b
@@ -659,11 +660,12 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
             let pat,env = adj_term env pat
             let on_succ = term env_rec env on_succ
             ELet(r,pat,body,on_succ)
-        | EUnbox(r,pat,body,on_succ) ->
+        | EUnbox(r,q,pat,body,on_succ,on_fail) ->
             let body = term env_rec env body
             let pat,env = adj_term env pat
             let on_succ = term env_rec env on_succ
-            EUnbox(r,pat,body,on_succ)
+            let on_fail = term env_rec env on_fail
+            EUnbox(r,q,pat,body,on_succ,on_fail)
         | EPairTest(r,i,pat1,pat2,on_succ,on_fail) -> 
             let on_fail = term env_rec env on_fail
             let i = env.term.var.[i]
@@ -865,7 +867,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                     ENominalTest(p r,a,id,id',on_succ,on_fail)
                 | PatFilledDefaultValue(r,a,b) -> EDefaultLitTest(p r,a,pat_ref_ty b,id,on_succ,on_fail)
                 | PatDyn(r,a) -> let id' = patvar() in ELet(p r,id',EOp(p r,Dyn,[EV id]),cp id' a on_succ on_fail)
-                | PatUnbox(r,a) -> let id' = patvar() in EUnbox(p r,id',EV id,cp id' a on_succ on_fail)
+                | PatUnbox(r,q,a) -> let id' = patvar() in EUnbox(p r,q,id',EV id,cp id' a on_succ on_fail,on_fail)
             (pat_refs_term, pat_refs_ty), pat_ref_term' on_succ (fun on_succ -> cp id pat on_succ (EPatternMemo on_fail))
 
         let l, e = List.mapFoldBack loop clauses (EPatternMiss(EV id))

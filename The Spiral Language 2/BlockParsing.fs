@@ -233,7 +233,7 @@ and Pattern =
     | PatE of VSCRange
     | PatVar of VSCRange * VarString
     | PatDyn of VSCRange * Pattern
-    | PatUnbox of VSCRange * Pattern
+    | PatUnbox of VSCRange * symbol: string * Pattern
     | PatAnnot of VSCRange * Pattern * RawTExpr
     | PatPair of VSCRange * Pattern * Pattern
     | PatSymbol of VSCRange * string
@@ -310,7 +310,7 @@ let range_of_pattern = function
     | PatE r
     | PatVar(r,_)
     | PatDyn(r,_)
-    | PatUnbox(r,_)
+    | PatUnbox(r,_,_)
     | PatSymbol(r,_)
     | PatValue(r,_)
     | PatDefaultValue(r,_)
@@ -620,7 +620,7 @@ let patterns_validate pats =
         | PatVar(r,x) -> 
             pos.Add(x,r)
             Set.singleton x
-        | PatDyn(_,p) | PatAnnot (_,p,_) | PatNominal(_,_,_,p) | PatUnbox(_,p) | PatWhen(_,p,_) -> loop p
+        | PatDyn(_,p) | PatAnnot (_,p,_) | PatNominal(_,_,_,p) | PatUnbox(_,_,p) | PatWhen(_,p,_) -> loop p
         | PatRecordMembers(_,items) ->
             let symbols = Collections.Generic.HashSet()
             let injects = Collections.Generic.HashSet()
@@ -889,7 +889,7 @@ let rec root_pattern_var_nominal_union s =
             (opt root_pattern_var |>> fun b ->
                 re SemanticTokenLegend.symbol
                 let b = match b with Some b -> b | None -> PatE r
-                PatUnbox(r,PatPair(r,PatSymbol(r,a),b))
+                PatUnbox(r,a,b)
                 ) s
         else 
             (many (expr_tight read_symbol) >>= fun syms s ->
@@ -926,7 +926,7 @@ and root_pattern_rounds d =
     (range (rounds ((((read_op' |>> PatVar) <|> root_pattern_type) |>> fun x _ -> x) <|>% PatB))
     |>> fun (r,x) -> x r) d
 and root_pattern s =
-    let pat_list_pair r a b = PatUnbox(r,PatPair(r,PatSymbol(r,"Cons"),PatPair(r,a,b)))
+    let pat_list_pair r a b = PatUnbox(r,"Cons",PatPair(r,a,b))
     let body s = 
         let pat_value = (read_value |>> PatValue) <|> (read_default_value PatDefaultValue PatValue)
         let pat_string = read_string |>> (fun (a,x,b) -> PatValue(a +. b,LitString x))
@@ -934,7 +934,7 @@ and root_pattern s =
         let pat_array = skip_unary_op ";" >>. range (squares (sepBy root_pattern_type (skip_op ";"))) |>> fun (r,x) -> PatArray(r,x)
         let pat_list = 
             range (squares (sepBy root_pattern_type (skip_op ";")))
-            |>> fun ((r,_),x) -> let r = r,r in List.foldBack (pat_list_pair r) x (PatUnbox(r,PatPair(r,PatSymbol(r,"Nil"),PatB r)))
+            |>> fun ((r,_),x) -> let r = r,r in List.foldBack (pat_list_pair r) x (PatUnbox(r,"Nil",PatB r))
         let (+) = alt (index s)
         (root_pattern_rounds + root_pattern_var_nominal_union + root_pattern_wildcard + root_pattern_dyn + pat_value + pat_string 
         + root_pattern_record + pat_symbol + pat_array + pat_list) s

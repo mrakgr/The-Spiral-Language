@@ -308,7 +308,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
             | PatVar(_,b) -> 
                 //if is_first.Add b then () // TODO: I am doing it like this so I can reuse this code later for variable highlighting.
                 Set.add b term
-            | PatDyn(_,x) | PatUnbox(_,x) -> f x
+            | PatDyn(_,x) | PatUnbox(_,_,x) -> f x
             | PatPair(_,a,b) -> loop (f a) b
             | PatRecordMembers(_,l) ->
                 List.fold (fun s -> function
@@ -749,7 +749,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | PatValue _ | PatSymbol _ | PatE _ | PatB _ as x -> x
                 | PatVar(r,name) as x -> rec_term <- Map.remove name rec_term; x
                 | PatDyn(r,a) -> PatDyn(r,f a)
-                | PatUnbox(r,a) -> PatUnbox(r,f a)
+                | PatUnbox(r,q,a) -> PatUnbox(r,q,f a)
                 | PatAnnot(_,a,_) -> f a
                 | PatPair(r,a,b) -> PatPair(r,f a,f b)
                 | PatRecordMembers(r,a) ->
@@ -1388,12 +1388,12 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                             ) env l
                     unify r s (l |> Map |> TyRecord)
                     env
-            | PatUnbox(r,PatPair(_,PatSymbol(r',name), a)) ->
+            | PatUnbox(r,name,a) ->
                 let assume i =
                     let n = top_env.nominals.[i]
                     match n.body with
                     | TyUnion(cases,_) ->
-                        hover_types.Add(r',(s,""))
+                        hover_types.Add(r,(s,""))
                         let x,m = ho_make i n.vars
                         unify r s x
                         match Map.tryFind name cases with
@@ -1409,7 +1409,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         | ValueSome i -> assume i
                         | ValueNone -> errors.Add(r,CannotInferCasePatternFromTermInEnv x); f (fresh_var scope) a
                     | None -> errors.Add(r,CasePatternNotFound name); f (fresh_var scope) a
-            | PatUnbox _ -> failwith "Compiler error: Malformed PatUnbox."
             | PatNominal(_,(r,name),l,a) ->
                 match v_ty env name with
                 | Some x -> 

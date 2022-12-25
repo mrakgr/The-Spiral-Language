@@ -1,6 +1,3 @@
-kernels = {
-}
-from dpu import DpuSet
 import numpy as np
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
@@ -18,8 +15,8 @@ class US0_4(NamedTuple): # E
     tag = 4
 US0 = Union[US0_0, US0_1, US0_2, US0_3, US0_4]
 def main():
-    v0 = US0_0()
-    v1 = US0_1()
+    v0 = US0_1()
+    v1 = US0_2()
     match v0:
         case US0_0(): # A
             del v0
@@ -32,24 +29,24 @@ def main():
                     return 1
                 case US0_2(): # C
                     del v1
-                    return 1
-                case US0_3(): # D
+                    return 3
+                case other:
                     del v1
-                    return 1
-                case US0_4(): # E
-                    del v1
-                    return 1
+                    return -1
         case US0_1(): # B
+            del v0
+            match v1:
+                case US0_0(): # A
+                    del v1
+                    return 2
+                case US0_2(): # C
+                    del v1
+                    return 4
+                case other:
+                    del v1
+                    return -1
+        case other:
             del v0, v1
-            return 1
-        case US0_2(): # C
-            del v0, v1
-            return 1
-        case US0_3(): # D
-            del v0, v1
-            return 1
-        case US0_4(): # E
-            del v0, v1
-            return 1
+            return -1
 
 if __name__ == '__main__': print(main())

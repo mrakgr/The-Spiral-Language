@@ -121,7 +121,7 @@ and fold_offset_pattern offset x =
     | PatE r -> PatE(g r)
     | PatVar(r,a) -> PatVar(g r,a)
     | PatDyn(r,a) -> PatDyn(g r,f a)
-    | PatUnbox(r,a) -> PatUnbox(g r,f a)
+    | PatUnbox(r,q,a) -> PatUnbox(g r,q,f a)
     | PatAnnot(r,a,b) -> PatAnnot(g r,f a,ty b)
     | PatPair(r,a,b) -> PatPair(g r,f a,f b)
     | PatSymbol(r,a) -> PatSymbol(g r,a)

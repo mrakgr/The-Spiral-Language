@@ -124,10 +124,12 @@ and TypedOp =
     | TyJoinPoint of JoinPointCall
     | TyBackend of E * ConsedNode<RData [] * Ty []> * backend: (Range * string)
 
+type UnionRewrite = UnionData of string * Data | UnionBlockers of string Set
 type LangEnv = {
     trace : Trace
     seq : ResizeArray<TypedBind>
     cse : Dictionary<TypedOp, Data> list
+    unions : Map<TyV, UnionRewrite>
     i : int ref
     env_global_type : Ty []
     env_global_term : Data []
@@ -474,6 +476,7 @@ let peval (env : TopEnv) (x : E) =
         trace = s.trace
         seq = ResizeArray()
         cse = [Dictionary(HashIdentity.Structural)]
+        unions = Map.empty
         i = ref 0
         env_global_type = gl_ty
         env_global_term = gl_term
@@ -584,6 +587,7 @@ let peval (env : TopEnv) (x : E) =
                     trace = r :: s.trace
                     seq = ResizeArray()
                     cse = [Dictionary(HashIdentity.Structural)]
+                    unions = Map.empty
                     i = ref 0
                     env_global_type = env_global_type
                     env_global_term = env_global_term
@@ -804,31 +808,6 @@ let peval (env : TopEnv) (x : E) =
             assert (free_vars.term.free_vars.Length = i)
             DFunction(body,annot,Array.map (v s) free_vars.term.free_vars,Array.map (vt s) free_vars.ty.free_vars,free_vars.term.stack_size,free_vars.ty.stack_size)
 
-        let inline eunbox run r a =
-            let s = add_trace s r
-            match term s a with
-            | DNominal(DUnion(a,_),_) -> run s a 
-            | DNominal(DV(L(_,YUnion h) & i) & a,_) ->
-                let key = TyOp(Unbox,[a])
-                match cse_tryfind s key with
-                | Some a -> run s a
-                | None ->
-                    let mutable case_ty = None
-                    let cases =
-                        Map.map (fun k v ->
-                            let s = {s with cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
-                            let a = DPair(DSymbol k,ty_to_data s v)
-                            cse_add s key a
-                            let x = run s a |> dyn false s
-                            let x_ty' = data_to_ty s x
-                            match case_ty with
-                            | Some x_ty -> if x_ty' <> x_ty then raise_type_error s <| sprintf "One union case for key %s has a different return that the previous one.\nGot: %s\nExpected: %s" k (show_ty x_ty') (show_ty x_ty)
-                            | None -> case_ty <- Some x_ty'
-                            [a], seq_apply s x
-                            ) h.Item.cases
-                    push_typedop_no_rewrite s (TyUnionUnbox([i],h,cases,None)) (Option.get case_ty)
-            | a -> raise_type_error s <| sprintf "Expected an union type.\nGot: %s" (show_data a)
-
         let enominal (r,a,b) =
             let a = term s a
             let b = ty s b
@@ -907,6 +886,7 @@ let peval (env : TopEnv) (x : E) =
                         trace = r :: s.trace
                         seq = ResizeArray()
                         cse = [Dictionary(HashIdentity.Structural)]
+                        unions = Map.empty
                         i = ref 0
                         env_global_type = env_global_type
                         env_global_term = env_global_term
@@ -1032,8 +1012,66 @@ let peval (env : TopEnv) (x : E) =
                 | b -> raise_type_error s <| sprintf "Expected a nominal or a deferred type apply.\nGot: %s" (show_ty b)
             loop (ty s b)
         | EOp(r,NominalCreate,[a;EType(_,b)]) | ENominal(r,a,b) -> enominal (r,a,b)
-        | EUnbox(r,id,a,on_succ) -> eunbox (fun s a -> store_term s id a; term s on_succ) r a
-        | EOp(r,Unbox,[a;on_succ]) -> let on_succ = term s on_succ in eunbox (fun s a -> apply s (on_succ,a)) r a
+        | EUnbox(r,k,id,a,on_succ,on_fail) ->
+            let s = add_trace s r
+            let run s a = store_term s id a; term s on_succ
+            match term s a with
+            | DNominal(DUnion(a,_),_) -> run s a 
+            | DNominal(DV(L(_,YUnion h) & i) & a,_) ->
+                let body blk = 
+                    match Map.tryFind k h.Item.cases with
+                    | Some v when Set.contains k blk = false ->
+                        let on_succ, ret_ty = 
+                            let a = ty_to_data s v
+                            let s = {s with unions = Map.add i (UnionData (k,a)) s.unions; cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
+                            let x = run s a |> dyn false s
+                            Map.add k ([a], (seq_apply s x)) Map.empty, data_to_ty s x
+                        let on_succ,on_fails = 
+                            let blk = Set.add k blk
+                            if blk.Count = h.Item.cases.Count then on_succ, None // Have to do this otherwise it would have hit EPatternMiss
+                            else
+                                let on_fails, ret_ty' = term_scope {s with unions = Map.add i (UnionBlockers blk) s.unions} on_fail
+                                if ret_ty <> ret_ty' then raise_type_error s $"The types of two branches of an union unbox do not match.\nGot: {show_ty ret_ty}\nAnd: {show_ty ret_ty'}"
+                                match on_fails with
+                                | [|TyLocalReturnOp(_,TyUnionUnbox([i'],_,on_succ',on_fail'),_)|] when i = i' -> Map.foldBack Map.add on_succ' on_succ , on_fail'
+                                | _ -> on_succ, Some on_fails
+                        push_typedop_no_rewrite s (TyUnionUnbox([i],h,on_succ,on_fails)) ret_ty
+                    | _ -> term s on_fail
+                match Map.tryFind i s.unions with
+                | Some (UnionData (k',a)) -> if k = k' then run s a else term s on_fail
+                | Some (UnionBlockers blk) -> body blk
+                | None -> body Set.empty
+            | _ -> term s on_fail
+        | EOp(r,Unbox,[a;on_succ]) -> 
+            let s = add_trace s r
+            let on_succ = term s on_succ
+            let run s a = apply s (on_succ,a)
+            match term s a with
+            | DNominal(DUnion(a,_),_) -> run s a 
+            | DNominal(DV(L(_,YUnion h) & i) & a,_) ->
+                let body blk = 
+                    let cases, case_ty =
+                        Map.fold (fun (m, case_ty) k v ->
+                            if Set.contains k blk = false then
+                                let a = ty_to_data s v
+                                let s = {s with unions = Map.add i (UnionData (k,a)) s.unions; cse = Dictionary(HashIdentity.Structural) :: s.cse; seq = ResizeArray()}
+                                let x = run s (DPair(DSymbol k, a)) |> dyn false s
+                                let x_ty' = data_to_ty s x
+                                let case_ty = 
+                                    match case_ty with
+                                    | Some x_ty when x_ty' <> x_ty -> raise_type_error s <| sprintf "One union case for key %s has a different return that the previous one.\nGot: %s\nExpected: %s" k (show_ty x_ty') (show_ty x_ty)
+                                    | Some _ -> case_ty
+                                    | None -> Some x_ty'
+                                Map.add k ([a], seq_apply s x) m, case_ty
+                            else
+                                m, case_ty
+                            ) (Map.empty,None) h.Item.cases
+                    push_typedop_no_rewrite s (TyUnionUnbox([i],h,cases,None)) (Option.get case_ty)
+                match Map.tryFind i s.unions with
+                | Some (UnionData (k,a)) -> run s (DPair(DSymbol k, a))
+                | Some (UnionBlockers blk) -> body blk
+                | None -> body Set.empty
+            | a -> raise_type_error s <| sprintf "Expected an union type.\nGot: %s" (show_data a)
         | EOp(r,Unbox2,[a;b;on_succ;on_fail]) ->
             let s = add_trace s r
             let on_succ = term s on_succ
@@ -2004,6 +2042,7 @@ let peval (env : TopEnv) (x : E) =
         trace = []
         seq = null
         cse = []
+        unions = Map.empty
         i = ref 0
         env_global_type = [||]
         env_global_term = [||]

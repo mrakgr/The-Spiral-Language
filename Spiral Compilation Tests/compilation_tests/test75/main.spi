@@ -1,0 +1,12 @@
+// Is the following pattern being compiled correctly?
+
+inl main () =
+    inl ~x = Some 1i32
+    inl ~_ =
+        real
+            open real_core
+            match dyn (1,2) with
+            | Some x => x
+            | None => 0i32
+            | (a,b) => a+b
+    ()
