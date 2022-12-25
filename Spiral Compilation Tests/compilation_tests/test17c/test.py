@@ -1,4 +1,4 @@
-from numpy import ndarray
+import numpy as np
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
@@ -6,13 +6,11 @@ i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = str
 UH0 = Union["UH0_0", "UH0_1"]
 UH1 = Union["UH1_0", "UH1_1"]
 class UH1_0(NamedTuple): # AQ
-    pass
     tag = 0
 class UH1_1(NamedTuple): # AW
     v0 : UH0
     tag = 1
 class UH0_0(NamedTuple): # BQ
-    pass
     tag = 0
 class UH0_1(NamedTuple): # BW
     v0 : UH1

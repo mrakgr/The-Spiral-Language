@@ -101,10 +101,10 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
             v28 = v27[v10]
             del v27
             match v28:
-                case US0_0(): # Empty
-                    v29 = False
                 case US0_1(): # Princess
                     v29 = True
+                case _:
+                    v29 = False
             del v28
             if v29:
                 v30 = "UP"
@@ -165,10 +165,10 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
             v51 = v50[v10]
             del v50
             match v51:
-                case US0_0(): # Empty
-                    v52 = False
                 case US0_1(): # Princess
                     v52 = True
+                case _:
+                    v52 = False
             del v51
             if v52:
                 v53 = "DOWN"
@@ -228,10 +228,10 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
             v74 = v73[v58]
             del v73
             match v74:
-                case US0_0(): # Empty
-                    v75 = False
                 case US0_1(): # Princess
                     v75 = True
+                case _:
+                    v75 = False
             del v74
             if v75:
                 v76 = "LEFT"
@@ -291,10 +291,10 @@ def method2(v0 : np.ndarray, v1 : np.ndarray, v2 : Mut1, v3 : np.ndarray) -> UH0
             v96 = v95[v81]
             del v95
             match v96:
-                case US0_0(): # Empty
-                    v97 = False
                 case US0_1(): # Princess
                     v97 = True
+                case _:
+                    v97 = False
             del v96
             if v97:
                 v98 = "RIGHT"

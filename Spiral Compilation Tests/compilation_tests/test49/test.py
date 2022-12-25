@@ -43,7 +43,7 @@ def method0(v0 : UH0, v1 : UH0) -> i32:
         case UH0_1(), UH0_1(): # Nil
             del v0, v1
             return 0
-        case other:
+        case _:
             v13 = v1.tag
             del v1
             v14 = v0.tag
@@ -87,7 +87,7 @@ def main():
                 else:
                     del v9
                     v17 = 0
-        case other:
+        case _:
             v12 = v5.tag
             v13 = v12 < 1
             if v13:
@@ -124,7 +124,7 @@ def main():
                 else:
                     del v24
                     v32 = 0
-        case other:
+        case _:
             v27 = v19.tag
             v28 = 0 < v27
             if v28:
@@ -179,7 +179,7 @@ def main():
                 else:
                     del v46
                     v55 = 0
-        case other:
+        case _:
             v49 = v34.tag
             v50 = v36.tag
             v51 = v49 < v50
@@ -230,7 +230,7 @@ def main():
             else:
                 del v71, v76
                 v84 = v75
-        case other:
+        case _:
             v79 = v63.tag
             v80 = 0 < v79
             if v80:

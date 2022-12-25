@@ -1,4 +1,4 @@
-from numpy import ndarray
+import numpy as np
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
@@ -26,47 +26,47 @@ def main():
     v9 = UH0_0(v0, v1, v8)
     del v0, v1, v8
     match v9:
-        case UH0_0(v10, v11, v12): # Cons
-            match v12:
-                case UH0_0(v13, v14, v15): # Cons
-                    del v12
-                    match v15:
-                        case UH0_0(v16, v17, _): # Cons
-                            del v15
-                            v19 = v10 + v11
-                            del v10, v11
-                            v20 = v19 + v13
-                            del v13, v19
-                            v21 = v20 + v14
-                            del v14, v20
-                            v22 = v21 + v16
-                            del v16, v21
-                            v23 = v22 + v17
-                            del v17, v22
-                            v24 = "At least three elements."
-                            v36, v37 = v24, v23
+        case UH0_0(v11, v12, v13): # Cons
+            match v13:
+                case UH0_0(v16, v17, v18): # Cons
+                    del v13
+                    match v18:
+                        case UH0_0(v23, v24, _): # Cons
+                            del v18
+                            v26 = v11 + v12
+                            del v11, v12
+                            v27 = v26 + v16
+                            del v16, v26
+                            v28 = v27 + v17
+                            del v17, v27
+                            v29 = v28 + v23
+                            del v23, v28
+                            v30 = v29 + v24
+                            del v24, v29
+                            v31 = "At least three elements."
+                            v42, v43 = v31, v30
                         case UH0_1(): # Nil
-                            del v15
-                            v25 = v10 + v11
-                            del v10, v11
-                            v26 = v25 + v13
-                            del v13, v25
-                            v27 = v26 + v14
-                            del v14, v26
-                            v28 = "Two elements."
-                            v36, v37 = v28, v27
+                            del v18
+                            v19 = v11 + v12
+                            del v11, v12
+                            v20 = v19 + v16
+                            del v16, v19
+                            v21 = v20 + v17
+                            del v17, v20
+                            v22 = "Two elements."
+                            v42, v43 = v22, v21
                 case UH0_1(): # Nil
-                    del v12
-                    v31 = v10 + v11
-                    del v10, v11
-                    v32 = "One element."
-                    v36, v37 = v32, v31
+                    del v13
+                    v14 = v11 + v12
+                    del v11, v12
+                    v15 = "One element."
+                    v42, v43 = v15, v14
         case UH0_1(): # Nil
-            v35 = "No elements"
-            v36, v37 = v35, 0
+            v10 = "No elements"
+            v42, v43 = v10, 0
     del v9
-    printf("%s\n%i\n",v36->ptr,v37)
-    del v36, v37
+    printf("%s\n%i\n",v42->ptr,v43)
+    del v42, v43
     return 0
 
 if __name__ == '__main__': print(main())

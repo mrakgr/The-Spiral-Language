@@ -32,7 +32,7 @@ def method0(v0 : UH0, v1 : UH0) -> bool:
         case UH0_1(), UH0_1(): # Nil
             del v0, v1
             return True
-        case other:
+        case _:
             del v0, v1
             return False
 def main():
@@ -46,7 +46,7 @@ def main():
             v8 = v7 == 3.0
             del v7
             v9 = v8
-        case other:
+        case _:
             v9 = False
     del v5, v9
     v10 = 3.0
@@ -57,7 +57,7 @@ def main():
             v15 = 1 == v14
             del v14
             v16 = v15
-        case other:
+        case _:
             v16 = False
     del v11, v16
     v17 = 1
@@ -75,7 +75,7 @@ def main():
             v26 = v24 == v25
             del v24, v25
             v27 = v26
-        case other:
+        case _:
             v27 = False
     del v18, v20, v27
     v28 = 3
@@ -99,7 +99,7 @@ def main():
             else:
                 del v43, v44
                 v47 = False
-        case other:
+        case _:
             v47 = False
     del v30, v35, v47
     return 0

@@ -1,4 +1,4 @@
-from numpy import ndarray
+import numpy as np
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
@@ -17,27 +17,27 @@ class UH0_2(NamedTuple): # V
     tag = 2
 def method0(v0 : UH0) -> f32:
     match v0:
-        case UH0_0(v1, v2): # Add
+        case UH0_0(v2, v3): # Add
             del v0
-            v3 = method0(v1)
-            del v1
             v4 = method0(v2)
             del v2
-            v5 = v3 + v4
-            del v3, v4
-            return v5
-        case UH0_1(v6, v7): # Mult
+            v5 = method0(v3)
+            del v3
+            v6 = v4 + v5
+            del v4, v5
+            return v6
+        case UH0_1(v7, v8): # Mult
             del v0
-            v8 = method0(v6)
-            del v6
             v9 = method0(v7)
             del v7
-            v10 = v8 * v9
-            del v8, v9
-            return v10
-        case UH0_2(v11): # V
-            del v0
+            v10 = method0(v8)
+            del v8
+            v11 = v9 * v10
+            del v9, v10
             return v11
+        case UH0_2(v1): # V
+            del v0
+            return v1
 def main():
     v0 = 21.0
     del v0

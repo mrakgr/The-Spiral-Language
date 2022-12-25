@@ -1,4 +1,4 @@
-from numpy import ndarray
+import numpy as np
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
@@ -38,19 +38,19 @@ def main():
         case US0_0(_, _): # A
             del v6, v7, v8
             return 1
-        case US0_1(_): # B
+        case _:
             del v6
             match v7:
                 case US0_0(_, _): # A
                     del v7, v8
                     return 2
-                case US0_1(_): # B
+                case _:
                     del v7
                     match v8:
                         case US0_0(_, _): # A
                             del v8
                             return 3
-                        case US0_1(_): # B
+                        case _:
                             del v8
                             return 4
 

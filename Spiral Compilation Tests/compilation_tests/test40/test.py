@@ -1,4 +1,4 @@
-from numpy import ndarray
+import numpy as np
 from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
@@ -31,22 +31,29 @@ def main():
                 case US0_0(): # A
                     del v1, v2, v3
                     return method1()
-                case US0_1(): # B
-                    del v1
+                case _:
                     match v2:
                         case US0_0(): # A
                             del v2
                             match v3:
                                 case US0_0(): # A
-                                    del v3
+                                    del v1, v3
                                     return method2()
-                                case US0_1(): # B
-                                    del v3
-                                    return method3()
-                        case US0_1(): # B
+                                case _:
+                                    match v1:
+                                        case US0_1(): # B
+                                            del v1
+                                            match v3:
+                                                case US0_1(): # B
+                                                    del v3
+                                                    return method3()
+                        case _:
                             del v2, v3
-                            return method4()
-        case US0_1(): # B
+                            match v1:
+                                case US0_1(): # B
+                                    del v1
+                                    return method4()
+        case _:
             del v0, v1
             match v2:
                 case US0_0(): # A
@@ -55,10 +62,10 @@ def main():
                         case US0_0(): # A
                             del v3
                             return method2()
-                        case US0_1(): # B
+                        case _:
                             del v3
                             return method4()
-                case US0_1(): # B
+                case _:
                     del v2, v3
                     return method4()
 

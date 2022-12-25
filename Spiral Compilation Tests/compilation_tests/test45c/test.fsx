@@ -12,10 +12,12 @@ and Mut1 = {mutable l0 : US1}
 and Mut2 = {mutable l0 : uint64; mutable l1 : uint64}
 let rec method0 (v0 : uint64, v1 : Mut0) : bool =
     let v2 : uint64 = v1.l0
-    v2 < v0
+    let v3 : bool = v2 < v0
+    v3
 and method3 (v0 : uint64, v1 : Mut2) : bool =
     let v2 : uint64 = v1.l0
-    v2 < v0
+    let v3 : bool = v2 < v0
+    v3
 and method4 (v0 : UH0, v1 : UH0) : UH0 =
     match v0 with
     | UH0_0(v2, v3) -> (* Cons *)
@@ -41,7 +43,8 @@ and method2 (v0 : ((bool []) []), v1 : ((US0 []) []), v2 : Mut1, v3 : (struct (u
                     let v17 : bool = 0UL <= v10
                     if v17 then
                         let v18 : uint64 = System.Convert.ToUInt64 v16.Length
-                        v10 < v18
+                        let v19 : bool = v10 < v18
+                        v19
                     else
                         false
                 else
@@ -52,255 +55,281 @@ and method2 (v0 : ((bool []) []), v1 : ((US0 []) []), v2 : Mut1, v3 : (struct (u
             if v22 then
                 let v23 : (bool []) = v0.[int v12]
                 let v24 : bool = v23.[int v10]
-                v24 = false
+                let v25 : bool = v24 = false
+                v25
             else
                 false
-        let v33 : bool =
+        let v34 : bool =
             if v26 then
                 let v27 : (US0 []) = v1.[int v12]
                 let v28 : US0 = v27.[int v10]
                 let v29 : bool =
                     match v28 with
-                    | US0_0 -> (* Empty *)
-                        false
                     | US0_1 -> (* Princess *)
                         true
+                    | _ ->
+                        false
                 if v29 then
-                    let v30 : UH0 = UH0_0("UP", v11)
-                    let v31 : US1 = US1_1(v30)
-                    v2.l0 <- v31
-                let v32 : (bool []) = v0.[int v12]
-                v32.[int v10] <- true
+                    let v30 : string = "UP"
+                    let v31 : UH0 = UH0_0(v30, v11)
+                    let v32 : US1 = US1_1(v31)
+                    v2.l0 <- v32
+                    ()
+                let v33 : (bool []) = v0.[int v12]
+                v33.[int v10] <- true
                 true
             else
                 false
-        let v34 : uint64 = v9 + 1UL
-        let v35 : bool = 0UL <= v34
-        let v44 : bool =
-            if v35 then
-                let v36 : uint64 = System.Convert.ToUInt64 v1.Length
-                let v37 : bool = v34 < v36
-                if v37 then
-                    let v38 : (US0 []) = v1.[int v34]
-                    let v39 : bool = 0UL <= v10
-                    if v39 then
-                        let v40 : uint64 = System.Convert.ToUInt64 v38.Length
-                        v10 < v40
+        let v35 : uint64 = v9 + 1UL
+        let v36 : bool = 0UL <= v35
+        let v45 : bool =
+            if v36 then
+                let v37 : uint64 = System.Convert.ToUInt64 v1.Length
+                let v38 : bool = v35 < v37
+                if v38 then
+                    let v39 : (US0 []) = v1.[int v35]
+                    let v40 : bool = 0UL <= v10
+                    if v40 then
+                        let v41 : uint64 = System.Convert.ToUInt64 v39.Length
+                        let v42 : bool = v10 < v41
+                        v42
                     else
                         false
                 else
                     false
             else
                 false
-        let v48 : bool =
-            if v44 then
-                let v45 : (bool []) = v0.[int v34]
-                let v46 : bool = v45.[int v10]
-                v46 = false
+        let v49 : bool =
+            if v45 then
+                let v46 : (bool []) = v0.[int v35]
+                let v47 : bool = v46.[int v10]
+                let v48 : bool = v47 = false
+                v48
             else
                 false
-        let v55 : bool =
-            if v48 then
-                let v49 : (US0 []) = v1.[int v34]
-                let v50 : US0 = v49.[int v10]
-                let v51 : bool =
-                    match v50 with
-                    | US0_0 -> (* Empty *)
-                        false
+        let v57 : bool =
+            if v49 then
+                let v50 : (US0 []) = v1.[int v35]
+                let v51 : US0 = v50.[int v10]
+                let v52 : bool =
+                    match v51 with
                     | US0_1 -> (* Princess *)
                         true
-                if v51 then
-                    let v52 : UH0 = UH0_0("DOWN", v11)
-                    let v53 : US1 = US1_1(v52)
-                    v2.l0 <- v53
-                let v54 : (bool []) = v0.[int v34]
-                v54.[int v10] <- true
+                    | _ ->
+                        false
+                if v52 then
+                    let v53 : string = "DOWN"
+                    let v54 : UH0 = UH0_0(v53, v11)
+                    let v55 : US1 = US1_1(v54)
+                    v2.l0 <- v55
+                    ()
+                let v56 : (bool []) = v0.[int v35]
+                v56.[int v10] <- true
                 true
             else
                 false
-        let v56 : uint64 = v10 - 1UL
-        let v57 : bool = 0UL <= v9
-        let v66 : bool =
-            if v57 then
-                let v58 : uint64 = System.Convert.ToUInt64 v1.Length
-                let v59 : bool = v9 < v58
-                if v59 then
-                    let v60 : (US0 []) = v1.[int v9]
-                    let v61 : bool = 0UL <= v56
-                    if v61 then
-                        let v62 : uint64 = System.Convert.ToUInt64 v60.Length
-                        v56 < v62
+        let v58 : uint64 = v10 - 1UL
+        let v59 : bool = 0UL <= v9
+        let v68 : bool =
+            if v59 then
+                let v60 : uint64 = System.Convert.ToUInt64 v1.Length
+                let v61 : bool = v9 < v60
+                if v61 then
+                    let v62 : (US0 []) = v1.[int v9]
+                    let v63 : bool = 0UL <= v58
+                    if v63 then
+                        let v64 : uint64 = System.Convert.ToUInt64 v62.Length
+                        let v65 : bool = v58 < v64
+                        v65
                     else
                         false
                 else
                     false
             else
                 false
-        let v70 : bool =
-            if v66 then
-                let v67 : (bool []) = v0.[int v9]
-                let v68 : bool = v67.[int v56]
-                v68 = false
+        let v72 : bool =
+            if v68 then
+                let v69 : (bool []) = v0.[int v9]
+                let v70 : bool = v69.[int v58]
+                let v71 : bool = v70 = false
+                v71
             else
                 false
-        let v77 : bool =
-            if v70 then
-                let v71 : (US0 []) = v1.[int v9]
-                let v72 : US0 = v71.[int v56]
-                let v73 : bool =
-                    match v72 with
-                    | US0_0 -> (* Empty *)
-                        false
+        let v80 : bool =
+            if v72 then
+                let v73 : (US0 []) = v1.[int v9]
+                let v74 : US0 = v73.[int v58]
+                let v75 : bool =
+                    match v74 with
                     | US0_1 -> (* Princess *)
                         true
-                if v73 then
-                    let v74 : UH0 = UH0_0("LEFT", v11)
-                    let v75 : US1 = US1_1(v74)
-                    v2.l0 <- v75
-                let v76 : (bool []) = v0.[int v9]
-                v76.[int v56] <- true
+                    | _ ->
+                        false
+                if v75 then
+                    let v76 : string = "LEFT"
+                    let v77 : UH0 = UH0_0(v76, v11)
+                    let v78 : US1 = US1_1(v77)
+                    v2.l0 <- v78
+                    ()
+                let v79 : (bool []) = v0.[int v9]
+                v79.[int v58] <- true
                 true
             else
                 false
-        let v78 : uint64 = v10 + 1UL
-        let v87 : bool =
-            if v57 then
-                let v79 : uint64 = System.Convert.ToUInt64 v1.Length
-                let v80 : bool = v9 < v79
-                if v80 then
-                    let v81 : (US0 []) = v1.[int v9]
-                    let v82 : bool = 0UL <= v78
-                    if v82 then
-                        let v83 : uint64 = System.Convert.ToUInt64 v81.Length
-                        v78 < v83
+        let v81 : uint64 = v10 + 1UL
+        let v90 : bool =
+            if v59 then
+                let v82 : uint64 = System.Convert.ToUInt64 v1.Length
+                let v83 : bool = v9 < v82
+                if v83 then
+                    let v84 : (US0 []) = v1.[int v9]
+                    let v85 : bool = 0UL <= v81
+                    if v85 then
+                        let v86 : uint64 = System.Convert.ToUInt64 v84.Length
+                        let v87 : bool = v81 < v86
+                        v87
                     else
                         false
                 else
                     false
             else
                 false
-        let v91 : bool =
-            if v87 then
-                let v88 : (bool []) = v0.[int v9]
-                let v89 : bool = v88.[int v78]
-                v89 = false
+        let v94 : bool =
+            if v90 then
+                let v91 : (bool []) = v0.[int v9]
+                let v92 : bool = v91.[int v81]
+                let v93 : bool = v92 = false
+                v93
             else
                 false
-        let v98 : bool =
-            if v91 then
-                let v92 : (US0 []) = v1.[int v9]
-                let v93 : US0 = v92.[int v78]
-                let v94 : bool =
-                    match v93 with
-                    | US0_0 -> (* Empty *)
-                        false
+        let v102 : bool =
+            if v94 then
+                let v95 : (US0 []) = v1.[int v9]
+                let v96 : US0 = v95.[int v81]
+                let v97 : bool =
+                    match v96 with
                     | US0_1 -> (* Princess *)
                         true
-                if v94 then
-                    let v95 : UH0 = UH0_0("RIGHT", v11)
-                    let v96 : US1 = US1_1(v95)
-                    v2.l0 <- v96
-                let v97 : (bool []) = v0.[int v9]
-                v97.[int v78] <- true
+                    | _ ->
+                        false
+                if v97 then
+                    let v98 : string = "RIGHT"
+                    let v99 : UH0 = UH0_0(v98, v11)
+                    let v100 : US1 = US1_1(v99)
+                    v2.l0 <- v100
+                    ()
+                let v101 : (bool []) = v0.[int v9]
+                v101.[int v81] <- true
                 true
             else
                 false
-        let v99 : uint64 =
-            if v33 then
+        let v103 : uint64 =
+            if v34 then
                 1UL
             else
                 0UL
-        let v100 : uint64 =
-            if v55 then
-                1UL
-            else
-                0UL
-        let v101 : uint64 = v99 + v100
-        let v102 : uint64 =
-            if v77 then
-                1UL
-            else
-                0UL
-        let v103 : uint64 = v101 + v102
         let v104 : uint64 =
-            if v98 then
+            if v57 then
                 1UL
             else
                 0UL
         let v105 : uint64 = v103 + v104
-        let v106 : (struct (uint64 * uint64 * UH0) []) = Array.zeroCreate<struct (uint64 * uint64 * UH0)> (System.Convert.ToInt32(v105))
-        let v108 : uint64 =
-            if v33 then
-                let v107 : UH0 = UH0_0("UP", v11)
-                v106.[int 0UL] <- struct (v12, v10, v107)
+        let v106 : uint64 =
+            if v80 then
                 1UL
             else
                 0UL
-        let v111 : uint64 =
-            if v55 then
-                let v109 : UH0 = UH0_0("DOWN", v11)
-                v106.[int v108] <- struct (v34, v10, v109)
-                v108 + 1UL
+        let v107 : uint64 = v105 + v106
+        let v108 : uint64 =
+            if v102 then
+                1UL
             else
-                v108
-        let v114 : uint64 =
-            if v77 then
-                let v112 : UH0 = UH0_0("LEFT", v11)
-                v106.[int v111] <- struct (v9, v56, v112)
-                v111 + 1UL
+                0UL
+        let v109 : uint64 = v107 + v108
+        let v110 : (struct (uint64 * uint64 * UH0) []) = Array.zeroCreate<struct (uint64 * uint64 * UH0)> (System.Convert.ToInt32(v109))
+        let v113 : uint64 =
+            if v34 then
+                let v111 : string = "UP"
+                let v112 : UH0 = UH0_0(v111, v11)
+                v110.[int 0UL] <- struct (v12, v10, v112)
+                1UL
             else
-                v111
+                0UL
         let v117 : uint64 =
-            if v98 then
-                let v115 : UH0 = UH0_0("RIGHT", v11)
-                v106.[int v114] <- struct (v9, v78, v115)
-                v114 + 1UL
+            if v57 then
+                let v114 : string = "DOWN"
+                let v115 : UH0 = UH0_0(v114, v11)
+                v110.[int v113] <- struct (v35, v10, v115)
+                let v116 : uint64 = v113 + 1UL
+                v116
             else
-                v114
-        v5.[int v8] <- v106
-        let v118 : uint64 = v8 + 1UL
-        v6.l0 <- v118
-    let v119 : uint64 = System.Convert.ToUInt64 v5.Length
-    let v120 : Mut2 = {l0 = 0UL; l1 = 0UL} : Mut2
-    while method3(v119, v120) do
-        let v122 : uint64 = v120.l0
-        let v123 : uint64 = v120.l1
-        let v124 : (struct (uint64 * uint64 * UH0) []) = v5.[int v122]
-        let v125 : uint64 = System.Convert.ToUInt64 v124.Length
-        let v126 : uint64 = v123 + v125
-        let v127 : uint64 = v122 + 1UL
-        v120.l0 <- v127
-        v120.l1 <- v126
-    let v128 : uint64 = v120.l1
-    let v129 : (struct (uint64 * uint64 * UH0) []) = Array.zeroCreate<struct (uint64 * uint64 * UH0)> (System.Convert.ToInt32(v128))
-    let v130 : Mut2 = {l0 = 0UL; l1 = 0UL} : Mut2
-    while method3(v119, v130) do
-        let v132 : uint64 = v130.l0
-        let v133 : uint64 = v130.l1
-        let v134 : (struct (uint64 * uint64 * UH0) []) = v5.[int v132]
-        let v135 : uint64 = System.Convert.ToUInt64 v134.Length
-        let v136 : Mut2 = {l0 = 0UL; l1 = v133} : Mut2
-        while method3(v135, v136) do
-            let v138 : uint64 = v136.l0
-            let v139 : uint64 = v136.l1
-            let struct (v140 : uint64, v141 : uint64, v142 : UH0) = v134.[int v138]
-            v129.[int v139] <- struct (v140, v141, v142)
-            let v143 : uint64 = v139 + 1UL
-            let v144 : uint64 = v138 + 1UL
-            v136.l0 <- v144
-            v136.l1 <- v143
-        let v145 : uint64 = v136.l1
-        let v146 : uint64 = v132 + 1UL
-        v130.l0 <- v146
-        v130.l1 <- v145
-    let v147 : uint64 = v130.l1
-    let v148 : US1 = v2.l0
-    match v148 with
+                v113
+        let v121 : uint64 =
+            if v80 then
+                let v118 : string = "LEFT"
+                let v119 : UH0 = UH0_0(v118, v11)
+                v110.[int v117] <- struct (v9, v58, v119)
+                let v120 : uint64 = v117 + 1UL
+                v120
+            else
+                v117
+        let v125 : uint64 =
+            if v102 then
+                let v122 : string = "RIGHT"
+                let v123 : UH0 = UH0_0(v122, v11)
+                v110.[int v121] <- struct (v9, v81, v123)
+                let v124 : uint64 = v121 + 1UL
+                v124
+            else
+                v121
+        v5.[int v8] <- v110
+        let v126 : uint64 = v8 + 1UL
+        v6.l0 <- v126
+        ()
+    let v127 : uint64 = System.Convert.ToUInt64 v5.Length
+    let v128 : Mut2 = {l0 = 0UL; l1 = 0UL} : Mut2
+    while method3(v127, v128) do
+        let v130 : uint64 = v128.l0
+        let v131 : uint64 = v128.l1
+        let v132 : (struct (uint64 * uint64 * UH0) []) = v5.[int v130]
+        let v133 : uint64 = System.Convert.ToUInt64 v132.Length
+        let v134 : uint64 = v131 + v133
+        let v135 : uint64 = v130 + 1UL
+        v128.l0 <- v135
+        v128.l1 <- v134
+        ()
+    let v136 : uint64 = v128.l1
+    let v137 : (struct (uint64 * uint64 * UH0) []) = Array.zeroCreate<struct (uint64 * uint64 * UH0)> (System.Convert.ToInt32(v136))
+    let v138 : Mut2 = {l0 = 0UL; l1 = 0UL} : Mut2
+    while method3(v127, v138) do
+        let v140 : uint64 = v138.l0
+        let v141 : uint64 = v138.l1
+        let v142 : (struct (uint64 * uint64 * UH0) []) = v5.[int v140]
+        let v143 : uint64 = System.Convert.ToUInt64 v142.Length
+        let v144 : Mut2 = {l0 = 0UL; l1 = v141} : Mut2
+        while method3(v143, v144) do
+            let v146 : uint64 = v144.l0
+            let v147 : uint64 = v144.l1
+            let struct (v148 : uint64, v149 : uint64, v150 : UH0) = v142.[int v146]
+            v137.[int v147] <- struct (v148, v149, v150)
+            let v151 : uint64 = v147 + 1UL
+            let v152 : uint64 = v146 + 1UL
+            v144.l0 <- v152
+            v144.l1 <- v151
+            ()
+        let v153 : uint64 = v144.l1
+        let v154 : uint64 = v140 + 1UL
+        v138.l0 <- v154
+        v138.l1 <- v153
+        ()
+    let v155 : uint64 = v138.l1
+    let v156 : US1 = v2.l0
+    match v156 with
     | US1_0 -> (* None *)
-        method2(v0, v1, v2, v129)
-    | US1_1(v150) -> (* Some *)
-        let v151 : UH0 = UH0_1
-        method4(v150, v151)
+        method2(v0, v1, v2, v137)
+    | US1_1(v158) -> (* Some *)
+        let v159 : UH0 = UH0_1
+        method4(v158, v159)
 and method1 (v0 : ((US0 []) []), v1 : uint64, v2 : uint64) : UH0 =
     let v3 : uint64 = System.Convert.ToUInt64 v0.Length
     let v4 : ((bool []) []) = Array.zeroCreate<(bool [])> (System.Convert.ToInt32(v3))
@@ -316,9 +345,11 @@ and method1 (v0 : ((US0 []) []), v1 : uint64, v2 : uint64) : UH0 =
             v10.[int v13] <- false
             let v14 : uint64 = v13 + 1UL
             v11.l0 <- v14
+            ()
         v4.[int v7] <- v10
         let v15 : uint64 = v7 + 1UL
         v5.l0 <- v15
+        ()
     let v16 : US1 = US1_0
     let v17 : Mut1 = {l0 = v16} : Mut1
     let v18 : (struct (uint64 * uint64 * UH0) []) = Array.zeroCreate<struct (uint64 * uint64 * UH0)> (System.Convert.ToInt32(1UL))
@@ -328,14 +359,14 @@ and method1 (v0 : ((US0 []) []), v1 : uint64, v2 : uint64) : UH0 =
 and method5 (v0 : UH0) : unit =
     match v0 with
     | UH0_0(v1, v2) -> (* Cons *)
-        printf("%s\n",v1->ptr)
+        print(v1)
         method5(v2)
     | UH0_1 -> (* Nil *)
         ()
 let v0 : uint64 = 4UL
 let v1 : uint64 = 2UL
 let v2 : uint64 = 3UL
-printf("%s\n","Initing")
+print("Initing")
 let v3 : ((US0 []) []) = Array.zeroCreate<(US0 [])> (System.Convert.ToInt32(v0))
 let v4 : Mut0 = {l0 = 0UL} : Mut0
 while method0(v0, v4) do
@@ -347,7 +378,8 @@ while method0(v0, v4) do
         let v11 : bool = v6 = v1
         let v13 : bool =
             if v11 then
-                v10 = v2
+                let v12 : bool = v10 = v2
+                v12
             else
                 false
         let v16 : US0 =
@@ -358,12 +390,15 @@ while method0(v0, v4) do
         v7.[int v10] <- v16
         let v17 : uint64 = v10 + 1UL
         v8.l0 <- v17
+        ()
     v3.[int v6] <- v7
     let v18 : uint64 = v6 + 1UL
     v4.l0 <- v18
-printf("%s\n","Starting")
+    ()
+print("Starting")
 let v19 : uint64 = 0UL
 let v20 : uint64 = 0UL
 let v21 : UH0 = method1(v3, v19, v20)
-printf("%s\n","Printing")
+print("Printing")
 method5(v21)
+0
