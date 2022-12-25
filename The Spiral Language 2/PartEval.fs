@@ -1138,10 +1138,10 @@ let peval (env : TopEnv) (x : E) =
                     if 0 <= i && i < h.tag_cases.Length then
                         let k,v = h.tag_cases.[i]
                         type_apply s (apply s (on_succ, DSymbol k)) v
-                    else raise_type_error s <| sprintf "Invalid tag %i." i
+                    else raise_type_error s $"Invalid tag 0 <= {i} < {h.tag_cases.Length} in UnionUntag."
                 match term s a with
                 | DV(L(i,YPrim Int32T) as tyv) as a -> 
-                    let key = TyOp(UnionTag,[a])
+                    let key = TyOp(UnionUntag,[a])
                     match cse_tryfind s key with
                     | Some(DLit(LitInt32 i)) -> lit i
                     | Some _ -> failwith "Compiler error: Expected an 32-bit int."
@@ -1152,7 +1152,7 @@ let peval (env : TopEnv) (x : E) =
                             seq_apply s r, data_to_ty s r
                         let on_succ =
                             Array.mapi (fun i (k,v) ->
-                                let cse = Dictionary()
+                                let cse = Dictionary(HashIdentity.Structural)
                                 cse.Add(key,DLit(LitInt32 i))
                                 let s = {s with cse = cse :: s.cse; seq = ResizeArray()}
                                 let r = type_apply s (apply s (on_succ, DSymbol k)) v |> dyn false s
@@ -2013,11 +2013,10 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,UnionTag,[a]) ->
             let eval k (h : Union) = h.Item.tags.[k] |> LitInt32 |> DLit
             match term s a with
-            | DNominal(DV(L(_,YUnion h)) & a, _) ->
-                match cse_tryfind s (TyOp(Unbox,[a])) with
-                | Some (DPair(DSymbol k, _)) -> eval k h
-                | Some _ -> raise_type_error s "Compiler error: Expected a symbol/value pair."
-                | None -> push_op_no_rewrite s UnionTag a (YPrim Int32T)
+            | DNominal(DV(L(_,YUnion h) & v) & a, _) ->
+                match Map.tryFind v s.unions with
+                | Some (UnionData (k,_)) -> eval k h
+                | _ -> push_op s UnionTag a (YPrim Int32T)
             | DNominal(DUnion(DPair(DSymbol k,_),h), _) -> eval k h
             | a -> raise_type_error s <| sprintf "Expected an union.\nGot: %s" (show_data a)
         | EOp(_,Global & op,[a]) ->

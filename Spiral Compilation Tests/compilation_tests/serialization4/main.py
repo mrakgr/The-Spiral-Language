@@ -369,7 +369,7 @@ def method0() -> i32:
                     v128 = v126 == v127
                     del v126, v127
                     v129 = v128
-                case other:
+                case _:
                     v129 = False
             if v129:
                 del v129
