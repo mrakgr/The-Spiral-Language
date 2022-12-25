@@ -983,7 +983,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | RawOp(_,_,l) -> List.iter (assert_bound_vars env) l
         | RawJoinPoint(r,None,a) -> annotations.Add(x,(r,s)); f s a
         | RawJoinPoint(r,Some _,a) -> 
-            unify r s (TyPair(TyPrim StringT, TySymbol "tuple_of_free_vars"))
+            unify r s (TyPair(TyPrim Int32T, TySymbol "tuple_of_free_vars"))
 
             let s = fresh_var scope
             annotations.Add(x,(r,s))

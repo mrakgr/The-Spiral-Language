@@ -30,7 +30,7 @@ def main():
                 case US0_2(): # C
                     del v1
                     return 3
-                case other:
+                case _:
                     del v1
                     return -1
         case US0_1(): # B
@@ -42,10 +42,10 @@ def main():
                 case US0_2(): # C
                     del v1
                     return 4
-                case other:
+                case _:
                     del v1
                     return -1
-        case other:
+        case _:
             del v0, v1
             return -1
 

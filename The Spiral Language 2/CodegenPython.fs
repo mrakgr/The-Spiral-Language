@@ -261,7 +261,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
                 binds g_decr (indent s) ret b
                 ) on_succs
             on_fail |> Option.iter (fun b ->
-                line s "case other:"
+                line s "case _:"
                 binds g_decr (indent s) ret b
                 )
         | TyUnionBox(a,b,c') ->
@@ -423,29 +423,28 @@ let codegen' backend_type env x =
     | Prototypal -> codegen'' (fun (_,_,(r,_)) -> raise_codegen_error_backend r "The Python backend does not support nesting of other backends.") env x
     | UPMEM_Python_Host ->
         let upmem_c_kernels = StringBuilder()
-        upmem_c_kernels.AppendLine("kernels = {") |> ignore
-        let upmem_add_kernel (name : string) (code : string) =
-            upmem_c_kernels.AppendLine($"   {name}: r\"\"\"")
+        upmem_c_kernels.AppendLine("kernels = [") |> ignore
+        let upmem_add_kernel (code : string) =
+            upmem_c_kernels.AppendLine($"   r\"\"\"")
                 .Append(code)
-                .AppendLine("\"\"\"") |> ignore
+                .AppendLine("\"\"\",") |> ignore
         let g = Dictionary(HashIdentity.Structural)
         let python_code =
             codegen'' (fun (jp_body,key,(r',backend_name)) ->
                 match backend_name with
                 | "UPMEM_C_Kernel" -> 
                     Utils.memoize g (fun (jp_body,key & (C(args,_))) ->
-                        let name = $"'k{g.Count}'"
                         let args = rdata_free_vars args
                         match (fst env.join_point_method.[jp_body]).[key] with
-                        | Some a, Some _ -> upmem_add_kernel name (C.codegen' (C.UPMEM_C_Kernel args) env a)
+                        | Some a, Some _ -> upmem_add_kernel (C.codegen' (C.UPMEM_C_Kernel args) env a)
                         | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
-                        name
+                        string g.Count
                         ) (jp_body,key)
                 | x -> raise_codegen_error_backend r' $"The UPMEM Python Host backend does not support the {x} backend."
                 ) env x
 
         upmem_c_kernels
-            .AppendLine("}")
+            .AppendLine("]")
             .AppendLine("from dpu import DpuSet")
             .Append(python_code).ToString()
 

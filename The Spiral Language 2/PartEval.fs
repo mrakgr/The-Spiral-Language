@@ -904,7 +904,7 @@ let peval (env : TopEnv) (x : E) =
             match backend with
             | None -> push_typedop_no_rewrite s (TyJoinPoint(JPMethod(body,join_point_key),call_args)) ret_ty
             | Some backend ->
-                let method_name = push_typedop_no_rewrite s (TyBackend(body,join_point_key,backend)) (YPrim StringT)
+                let method_name = push_typedop_no_rewrite s (TyBackend(body,join_point_key,backend)) (YPrim Int32T)
                 let call_args = Array.foldBack (fun v s -> DPair(DV v,s)) call_args DB
                 DPair(method_name, call_args)
         | EDefaultLit(r,a,b) -> let s = add_trace s r in default_lit s a (ty s b) |> DLit
@@ -1016,8 +1016,8 @@ let peval (env : TopEnv) (x : E) =
             let s = add_trace s r
             let run s a = store_term s id a; term s on_succ
             match term s a with
-            | DNominal(DUnion(a,_),_) -> run s a 
-            | DNominal(DV(L(_,YUnion h) & i) & a,_) ->
+            | DNominal(DUnion(DPair(DSymbol k',a),_),_) -> if k = k' then run s a else term s on_fail
+            | DNominal(DV(L(_,YUnion h) & i),_) ->
                 let body blk = 
                     match Map.tryFind k h.Item.cases with
                     | Some v when Set.contains k blk = false ->
