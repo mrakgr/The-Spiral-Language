@@ -256,7 +256,7 @@ and RawExpr =
     | RawMatch of VSCRange * body: RawExpr * (Pattern * RawExpr) list
     | RawFun of VSCRange * (Pattern * RawExpr) list
     | RawForall of VSCRange * TypeVar * RawExpr
-    | RawRecBlock of VSCRange * ((VSCRange * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawInl or RawForall.
+    | RawRecBlock of VSCRange * ((VSCRange * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawFun or RawForall.
     | RawRecordWith of VSCRange * RawExpr list * RawRecordWith list * RawRecordWithout list
     | RawOp of VSCRange * Op * RawExpr list
     | RawJoinPoint of VSCRange * backend: (VSCRange * string) option * RawExpr
