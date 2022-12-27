@@ -16,13 +16,6 @@ inl main () =
 
     inl ~_ = true, false, true
 
-    // let f (a,b,c,d) =
-    //     inl ~q : i32 = a + b - c - d
-    //     inl ~w = a * b * c * d
-    //     0i32
-
-    // f (1,2,3,4)
-
     let f (a,b,c,d) = join_backend UPMEM_C_Kernel 
         inl q : i32 = a + b - c - d
         inl w = a * b * c * d
@@ -31,9 +24,9 @@ inl main () =
         0i32
     inl kernel_i, vars = f (1,2,3,4)
     compile_kernel kernel_i
-    inl dpu = $"DpuSet(nr_dpus=1, binary=f'kernels/g{!kernel_i}.dpu')" : $"DpuSet"
+    inl dpu = $"DpuSet(nr_dpus=1, binary=f'kernels/g{!kernel_i}.dpu', profile='backend=simulator')" : $"DpuSet"
     real dpu_pack dpu vars
     $"!dpu.exec()" // Note: Putting in log=stdout and not using a printf inside the kernel results in an error.
-    inl q,w,_ : i32 * i32 * _ = real dpu_unpack dpu vars
-    $"print(!q,!w)"
+    inl x : i32 * i32 * _ = real dpu_unpack dpu vars
+    $"print(!x)"
     ()

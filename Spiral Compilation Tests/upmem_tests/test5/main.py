@@ -72,11 +72,10 @@ def main():
     v9 = v8.v0.int32()
     v10 = v8.v1.int32()
     v11 = v8.v2.int32()
-    del v11
     v12 = v8.v3.int32()
-    del v8, v12
-    print(v9,v10)
-    del v9, v10
+    del v8
+    print((v9, v10, v11, v12))
+    del v9, v10, v11, v12
     return 
 
 if __name__ == '__main__': print(main())

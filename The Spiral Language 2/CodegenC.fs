@@ -170,18 +170,24 @@ let lit_string x =
     strb.Append '"' |> ignore
     strb.ToString()
 
-let print_decref s_fun name_fun type_arg name_decref =
-    line s_fun (sprintf "void %s(%s * x){" name_fun type_arg)
-    let _ =
-        let s_fun = indent s_fun
-        line s_fun (sprintf "if (x != NULL && --(x->refc) == 0) { %s(x); free(x); }" name_decref)
-    line s_fun "}"
 
 let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind []) =
     let globals = ResizeArray()
     let fwd_dcls = ResizeArray()
     let types = ResizeArray()
     let functions = ResizeArray()
+
+    let malloc, free =
+        match backend_type with
+        | Prototypal -> "malloc", "free"
+        | UPMEM_C_Kernel _ -> "buddy_alloc", "buddy_free"
+
+    let print_decref s_fun name_fun type_arg name_decref =
+        line s_fun (sprintf "void %s(%s * x){" name_fun type_arg)
+        let _ =
+            let s_fun = indent s_fun
+            line s_fun (sprintf "if (x != NULL && --(x->refc) == 0) { %s(x); %s(x); }" name_decref free)
+        line s_fun "}"
 
     let print show r =
         let s_typ_fwd = {text=StringBuilder(); indent=0}
@@ -658,7 +664,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
             line s_fun (sprintf "Fun%i * ClosureCreate%i(%s){" fun_tag i (String.concat ", " free_vars))
             let _ =
                 let s_fun = indent s_fun
-                line s_fun $"Closure{i} * x = malloc(sizeof(Closure{i}));"
+                line s_fun $"Closure{i} * x = {malloc}(sizeof(Closure{i}));"
                 line s_fun "x->refc = 1;"
                 line s_fun $"x->decref_fptr = ClosureDecref{i};"
                 line s_fun $"x->fptr = ClosureMethod{i};"
@@ -752,7 +758,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
             line s_fun (sprintf "%s * %sCreate%i(%s){" name' name i (String.concat ", " args))
             let _ =
                 let s_fun = indent s_fun
-                line s_fun $"{name'} * x = malloc(sizeof({name'}));"
+                line s_fun $"{name'} * x = {malloc}(sizeof({name'}));"
                 line s_fun "x->refc = 1;"
                 Array.init args.Length (fun i -> $"x->v{i} = v{i};") |> line' s_fun
                 x.free_vars |> refc_incr |> line' s_fun
@@ -842,7 +848,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
                     line s_fun (sprintf "UH%i * UH%i_%i(%s) { // %s" i i tag args k)
                     let _ =
                         let s_fun = indent s_fun
-                        line s_fun $"UH{i} * x = malloc(sizeof(UH{i}));"
+                        line s_fun $"UH{i} * x = {malloc}(sizeof(UH{i}));"
                         line s_fun $"x->tag = {tag};"
                         line s_fun "x->refc = 1;"
                         if v.Length <> 0 then
@@ -894,7 +900,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
                 match ptr_t with
                 | "void" -> line s_fun $"{len_t} size = sizeof(Array{i});"
                 | _ -> line s_fun $"{len_t} size = sizeof(Array{i}) + sizeof({ptr_t}) * len;"
-                line s_fun $"Array{i} * x = malloc(size);"
+                line s_fun $"Array{i} * x = {malloc}(size);"
                 line s_fun "if (init_at_zero) { memset(x,0,size); }"
                 line s_fun "x->refc = 1;"
                 line s_fun "x->len = len;"
