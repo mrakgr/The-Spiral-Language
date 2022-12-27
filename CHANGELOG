@@ -1,9 +1,10 @@
-2.3.1 (WIP)
+2.3.1 (12/27/2022)
 
-Created the UPMEM: Python + C backend for Spiral.
+Created the UPMEM: Python + C backend for Spiral. Removed the Cython backend. The efficiency of compiled union patterns has been largely improved. 
 
+* A bug where union and regular patterns couldn't be mixed has been fixed.
 * Macros can now be started with an apostrophe. For example: $'qwe' is the same as $"qwe".
-* The efficiency of compiled union patterns has been largely improved. Also along the way, a bug where union and regular patterns couldn't be mixed has been fixed.
+* Various minor under the hood improvements.
 
 2.3.0 (12/21/2022)
 
