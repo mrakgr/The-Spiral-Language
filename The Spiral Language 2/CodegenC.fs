@@ -538,12 +538,12 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
         | TyConv(a,b) -> return' $"({tyv a}){tup_data b}"
         | TyArrayLength(_,b) -> return' $"{tup_data b}->len"
         | TyStringLength(_,b) -> return' $"{tup_data b}->len-1"
+        | TyOp(Global,[DLit (LitString x)]) -> global' x
         | TyOp(op,l) ->
             let float_suffix = function
                 | DV(L(_,YPrim Float32T)) | DLit(LitFloat32 _) -> "f"
                 | _ -> ""
             match op, l with
-            | Global,[DLit (LitString x)] -> global' x; ""
             | Apply,[a;b'] -> 
                 match tup_data a, args' b' with
                 | a, "" -> $"{a}->fptr({a})"

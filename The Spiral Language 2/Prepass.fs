@@ -6,7 +6,7 @@ open Spiral.Infer
 type Id = int32
 type ScopeEnv = {|free_vars : int []; stack_size : int|}
 type Scope = {term : ScopeEnv; ty : ScopeEnv}
-type Range = { path : string; range : VSCRange }
+type Range = {path : string; range : VSCRange}
 
 type Macro =
     | MText of string
@@ -346,6 +346,7 @@ open System.Collections.Generic
 type PropagatedVarsEnv = {|vars : Set<int>; range : (int * int) option|}
 type PropagatedVars = {term : PropagatedVarsEnv; ty : PropagatedVarsEnv}
 
+// Attaches scopes to all the nodes.
 let propagate x =
     let dict = Dictionary(HashIdentity.Reference)
     let (+*) a b = 
@@ -478,6 +479,8 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | EJoinPoint(_,a,b,_) | EFun(_,_,a,b) -> subst env x; f a; Option.iter (ty env) b
         | EForall(_,_,a) -> subst env x; f a
         | ERecBlock(r,a,b) ->
+            // Goes over all the functions in a recursive block, resolving them.
+            // The reason why this is sound is because the outer blocks are progressively resolved as they go in.
             let env = 
                 let l =
                     List.fold (fun s (id,body) ->
@@ -536,7 +539,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
     | Choice1Of2 x -> term Map.empty x
     | Choice2Of2 x -> ty Map.empty x
 
-type LowerSubEnv = {|var : Map<int,int>; adj : int option|}
+type LowerSubEnv = {|var : Map<int,int>; adj : int|}
 type LowerEnv = {term : LowerSubEnv; ty : LowerSubEnv }
 type LowerEnvRec = Map<int,LowerEnv -> E>
 let lower (scope : Dictionary<obj,PropagatedVars>) x =
@@ -544,14 +547,14 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
     let scope (env : LowerEnv) x =
         let v = scope.[x]
         let fv v env = v |> Set.toArray |> Array.map (fun i -> Map.find i env)
-        let sz = function Some(min,max) -> max - min + 1 | None -> 0
+        let sz = function Some(min',max') -> max' - min' + 1 | None -> 0
         let scope : Scope = {
             term = {|free_vars = fv v.term.vars env.term.var; stack_size = sz v.term.range|}
             ty = {|free_vars = fv v.ty.vars env.ty.var; stack_size = sz v.ty.range|}
             }
 
         let vars v = Set.fold (fun (s,i) x -> Map.add x i s,i+1) (Map.empty, 0) v |> fst
-        let adj len range = Option.map (fun (min,_) -> len - min) range
+        let adj len = function Some(min',_) -> len - min' | None -> 0
         let env : LowerEnv = {
             term = {|var = vars v.term.vars; adj = adj scope.term.free_vars.Length v.term.range|}
             ty = {|var = vars v.ty.vars; adj = adj scope.ty.free_vars.Length v.ty.range|}
@@ -560,10 +563,10 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         scope, env
 
     let adj_term (env : LowerEnv) i = 
-        let i' = i + env.term.adj.Value
+        let i' = i + env.term.adj
         i', {env with term = {|env.term with var = Map.add i i' env.term.var|}}
     let adj_ty (env : LowerEnv) i =
-        let i' = i + env.ty.adj.Value
+        let i' = i + env.ty.adj
         i', {env with ty = {|env.ty with var = Map.add i i' env.ty.var|}}
 
     let rec term (env_rec : LowerEnvRec) (env : LowerEnv) x = 
@@ -662,9 +665,9 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
             ELet(r,pat,body,on_succ)
         | EUnbox(r,q,pat,body,on_succ,on_fail) ->
             let body = term env_rec env body
+            let on_fail = term env_rec env on_fail
             let pat,env = adj_term env pat
             let on_succ = term env_rec env on_succ
-            let on_fail = term env_rec env on_fail
             EUnbox(r,q,pat,body,on_succ,on_fail)
         | EPairTest(r,i,pat1,pat2,on_succ,on_fail) -> 
             let on_fail = term env_rec env on_fail
@@ -742,8 +745,8 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | TArray(a) -> TArray(f a)
         | TLayout(a,b) -> TLayout(f a,b)
     let env : LowerEnv = {
-        term = {|var = Map.empty; adj = None|}
-        ty = {|var = Map.empty; adj = None|}
+        term = {|var = Map.empty; adj = 0|}
+        ty = {|var = Map.empty; adj = 0|}
         }
     match x with
     | Choice1Of2(x,ret) -> ret (term Map.empty env x)
@@ -790,32 +793,34 @@ let module_open (top_env : PrepassTopEnv) env a l =
     term = {|env.term with env = Map.foldBack Map.add a env.term.env|}
     ty = {|env.ty with env = Map.foldBack Map.add b env.ty.env|}
     }
+
 let prepass package_id module_id path (top_env : PrepassTopEnv) =
     let p r = {path=path; range=r}
     let at_tag i = { package_id = package_id; module_id = module_id; tag = i }
     let v_term (env : Env) x = Map.tryFind x env.term.env |> Option.defaultWith (fun () -> top_env.term.[x])
     let v_ty (env : Env) x =  Map.tryFind x env.ty.env |> Option.defaultWith (fun () -> top_env.ty.[x])
     
+    // The functions in this block are basically renaming string id to int ids, in addition to pattern compilation.
     let rec compile_pattern (id : Id) (env : Env) (clauses : (Pattern * RawExpr) list) =
         let mutable var_count = env.term.i
         let patvar () = let x = var_count in var_count <- var_count+1; x
-        let loop (pat, on_succ) on_fail = 
+        let loop (pat, on_succ) on_fail =
             let mutable dict = Map.empty
             let pat_refs_term = ResizeArray()
-            let pat_ref_term x = let re = ref Unchecked.defaultof<_> in pat_refs_term.Add(x,dict,re); EPatternRef re
-            let pat_ref_term' x k = 
-                let re = ref Unchecked.defaultof<_> 
+            //let pat_ref_term x = let re = ref Unchecked.defaultof<_> in pat_refs_term.Add(x,dict,re); EPatternRef re
+            let pat_ref_term' x k =
+                let re = ref Unchecked.defaultof<_>
                 let r = k (EPatternRef re)
                 pat_refs_term.Add(x,dict,re)
                 r
             let pat_refs_ty = ResizeArray()
             let pat_ref_ty x = let re = ref Unchecked.defaultof<_> in pat_refs_ty.Add(x,dict,re); TPatternRef re
             let rec cp id pat on_succ on_fail =
-                let v x = 
+                let v x =
                     match Map.tryFind x dict with
                     | Some x -> x
                     | None -> let v = patvar() in dict <- Map.add x v dict; v
-                let step pat on_succ = 
+                let step pat on_succ =
                     match pat with
                     | PatVar(_,x) -> v x, on_succ
                     | _ -> let id = patvar() in id, cp id pat on_succ on_fail
@@ -825,7 +830,10 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                 | PatB r -> EUnitTest(p r,id,on_succ,on_fail)
                 | PatVar(r,a) -> ELet(p r,v a,EV id,on_succ)
                 | PatAnnot(r,a,b) -> EAnnotTest(p r,pat_ref_ty b,id,cp id a on_succ on_fail,on_fail)
-                | PatPair(r,a,b) ->
+                | PatPair(r,a,b) -> 
+                    // Evaling the b then a causes the call args to be rotated in join points during peval. 
+                    // This is not a problem, but it might be surprising if you aren't aware why that is happening.
+                    // Swapping the next two statements would fix it for pairs.
                     let b,on_succ = step b on_succ
                     let a,on_succ = step a on_succ
                     EPairTest(p r,id,a,b,on_succ,on_fail)
@@ -871,13 +879,12 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
             (pat_refs_term, pat_refs_ty), pat_ref_term' on_succ (fun on_succ -> cp id pat on_succ (EPatternMemo on_fail))
 
         let l, e = List.mapFoldBack loop clauses (EPatternMiss(EV id))
-        l |> List.iter (fun (terms,tys) ->
+        l |> List.iter (fun (terms,tys) -> // The reason I am not evaling it in place is because of the var count. I need to deal with the patterns first before replacing the strings in the body.
             let env dict = {env with term = {|env.term with i=var_count; env=dict |> Map.fold (fun s k v -> Map.add k (EV v) s) env.term.env|} }
             terms |> Seq.iter (fun (a,dict,b) -> b := term (env dict) a)
             tys |> Seq.iter (fun (a,dict,b) -> b := ty (env dict) a)
             )
         e
-
     and pattern_match (env : Env) r body clauses =
         match clauses with
         | [PatVar(_,x), on_succ] ->

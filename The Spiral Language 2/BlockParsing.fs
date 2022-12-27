@@ -1172,7 +1172,7 @@ and root_term d =
                 | x, xs ->
                     let l = x :: xs |> List.map (function 
                         | (r,PatVar(o,name),body),true -> r, ((o,name), body)
-                        | _ -> failwith "Compiler error: Recursive inl/let statements should always have PatVar or PatOperator for names and should always be recursive."
+                        | _ -> failwith "Compiler error: Recursive inl/let statements should always have PatVar for names and should always be recursive."
                         )
                     let r = l |> List.map fst |> List.reduce (+.)
                     l |> List.map (snd >> fst) 

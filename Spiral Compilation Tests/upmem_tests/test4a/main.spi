@@ -1,0 +1,22 @@
+// Does the most basic kernel run succesfully?
+
+inl main () = 
+    global "import os"
+    global "from io import StringIO"
+    global "from sys import stdout"
+    global "import struct"
+
+    let f = join_backend UPMEM_C_Kernel 
+        $'printf("Size of a pointer is %i.\\n", sizeof(int *))'
+        $'printf("Size of a mram pointer is %i.\\n", sizeof(__mram int *))'
+        0i32
+    inl kernel_i, vars = f
+    inl file_name = $"f'kernels/g{!kernel_i}'" : string
+    $"if not os.path.exists('kernels'): os.mkdir('kernels')"
+    inl file = $"open(f'{!file_name}.c','w')" : $"object"
+    $"!file.write(kernels[!kernel_i])"
+    $"if os.system(f'dpu-upmem-dpurte-clang -o {!file_name}.dpu {!file_name}.c') \!= 0: raise Exception('Compilation failed.')"
+
+    inl dpu = $"DpuSet(nr_dpus=1, binary=f'{!file_name}.dpu')" : $"DpuSet"
+    $"!dpu.exec(log=stdout)" // Note: Putting in log=stdout and not using a printf inside the kernel results in an error.
+    ()

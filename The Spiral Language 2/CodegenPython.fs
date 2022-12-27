@@ -206,7 +206,6 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         let return' (x : string) =
             match ret with
             | BindsTailEnd -> line s $"return {x}"
-            | BindsLocal _ when x = "" -> ()
             | BindsLocal ret -> line s (if ret.Length = 0 then x else sprintf "%s = %s" (args ret) x)
         let jp (a,b) =
             let args = args b
@@ -284,9 +283,9 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         | TyFailwith(a,b) -> line s $"raise Exception({tup_data' b})"
         | TyConv(a,b) -> return' $"{tyv a}({tup_data b})"
         | TyArrayLength(a,b) | TyStringLength(a,b) -> length (a,b)
+        | TyOp(Global,[DLit (LitString x)]) -> global' x
         | TyOp(op,l) ->
             match op, l with
-            | Global,[DLit (LitString x)] -> global' x; ""
             | ToPythonRecord,[DRecord x] -> Map.foldBack (fun k v l -> $"'{k}': {tup_data v}" :: l) x [] |> String.concat ", " |> sprintf "{%s}"
             | ToPythonNamedTuple,[n;DRecord x] -> 
                 import "collections"

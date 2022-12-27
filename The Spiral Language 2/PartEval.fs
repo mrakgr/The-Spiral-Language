@@ -1101,22 +1101,24 @@ let peval (env : TopEnv) (x : E) =
                 else apply s (on_fail, DB)
             | DNominal(DV(L(_,YUnion h)),_), DNominal(DUnion(_,h'),_) | DNominal(DUnion(_,h),_), DNominal(DV(L(_,YUnion h')),_) when h <> h' ->
                 raise_type_error s <| sprintf "The two variables have different union types.\nGot: %s\nGot: %s" (show_ty (YUnion h)) (show_ty (YUnion h'))
-            | DNominal(DUnion(a,_),_), DNominal(DV(L(_,YUnion h) & i),_) ->
-                let k,a = key_value a
-                let v = h.Item.cases.[k]
-                let case_on_succ =
-                    let s = s'()
-                    let a' = ty_to_data s v
-                    [a'], run s (on_succ, DPair(DSymbol k, DPair(a, a')))
-                push_typedop_no_rewrite s (TyUnionUnbox([i],h,Map.add k case_on_succ Map.empty,Some (case_on_fail()))) (Option.get case_ty)
             | DNominal(DV(L(_,YUnion h) & i),_), DNominal(DUnion(a',_),_) ->
                 let k,a' = key_value a'
                 let v = h.Item.cases.[k]
                 let case_on_succ =
                     let s = s'()
                     let a = ty_to_data s v
+                    let s = {s with unions = Map.add i (UnionData (k,a)) s.unions}
                     [a], run s (on_succ, DPair(DSymbol k, DPair(a, a')))
                 push_typedop_no_rewrite s (TyUnionUnbox([i],h,Map.add k case_on_succ Map.empty,Some (case_on_fail()))) (Option.get case_ty)
+            | DNominal(DUnion(a,_),_), DNominal(DV(L(_,YUnion h) & i'),_) ->
+                let k,a = key_value a
+                let v = h.Item.cases.[k]
+                let case_on_succ =
+                    let s = s'()
+                    let a' = ty_to_data s v
+                    let s = {s with unions = Map.add i' (UnionData (k,a')) s.unions}
+                    [a'], run s (on_succ, DPair(DSymbol k, DPair(a, a')))
+                push_typedop_no_rewrite s (TyUnionUnbox([i'],h,Map.add k case_on_succ Map.empty,Some (case_on_fail()))) (Option.get case_ty)
             | DNominal(DV(L(_,YUnion h & t)),_), DNominal(DV(L(_,YUnion h' & t')),_) when h <> h' -> 
                 raise_type_error s <| sprintf "The two variables have different union types.\nGot: %s\nGot: %s" (show_ty t) (show_ty t')
             | DNominal(DV(L(_,YUnion h) & i),_), DNominal(DV(L(_,YUnion _) & i'),_) ->
@@ -1124,6 +1126,11 @@ let peval (env : TopEnv) (x : E) =
                     Map.map (fun k v ->
                         let s = s'()
                         let a,a' = ty_to_data s v, ty_to_data s v
+                        let s = {s with unions = 
+                                            let u = s.unions 
+                                            let u = Map.add i (UnionData (k,a)) u
+                                            Map.add i' (UnionData (k,a')) u
+                                            }
                         [a;a'], run s (on_succ, DPair(DSymbol k, DPair(a, a')))
                         ) h.Item.cases
                 push_typedop_no_rewrite s (TyUnionUnbox([i;i'],h,cases_on_succ,Some (case_on_fail()))) (Option.get case_ty)

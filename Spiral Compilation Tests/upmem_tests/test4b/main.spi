@@ -1,0 +1,25 @@
+// Does the most basic kernel run succesfully?
+
+inl main () = 
+    global "import os"
+    global "from io import StringIO"
+    global "from sys import stdout"
+    global "import struct"
+
+    let f = join_backend UPMEM_C_Kernel 
+        global "#include <mram.h>"
+        global "__mram_noinit uint8_t t[1024*1024*64];"
+        // global "__mram_noinit uint8_t t1[1024*1024*64];"
+        inl q = $"__dma_aligned uint8_t v$[512]" : $"uint8_t *"
+        $"mram_read(t, !q, sizeof(!q))"
+        0i32
+    inl kernel_i, vars = f
+    inl file_name = $"f'kernels/g{!kernel_i}'" : string
+    $"if not os.path.exists('kernels'): os.mkdir('kernels')"
+    inl file = $"open(f'{!file_name}.c','w')" : $"object"
+    $"!file.write(kernels[!kernel_i])"
+    $"if os.system(f'dpu-upmem-dpurte-clang -o {!file_name}.dpu {!file_name}.c') \!= 0: raise Exception('Compilation failed.')"
+
+    inl dpu = $"DpuSet(nr_dpus=1, binary=f'{!file_name}.dpu')" : $"DpuSet"
+    $"!dpu.exec()" // Note: Putting in log=stdout and not using a printf inside the kernel results in an error.
+    ()

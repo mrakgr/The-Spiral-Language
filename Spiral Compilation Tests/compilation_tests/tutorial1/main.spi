@@ -1,6 +1,5 @@
 inl main () = 
-    inl _ = join_backend UPMEM_C_Kernel 
-        inl x = $"int v$[1]" : $"int *"
-        0i32
-
-    0i32
+    inl ~x = true
+    match x with
+    | true => 0i32
+    | false => 1i32

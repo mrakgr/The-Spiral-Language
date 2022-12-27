@@ -1,0 +1,5 @@
+// Do regular join points work?
+
+// Note that the way pattern compiler in the prepass works will end up rotating the arguments in the join point.
+let f (a, b, c, d) = (a + b) * c / d
+inl main () : i32 = f (1,2,3,4)

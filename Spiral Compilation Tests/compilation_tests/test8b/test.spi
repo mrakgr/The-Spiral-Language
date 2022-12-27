@@ -1,0 +1,17 @@
+// Does nested recursion work?
+inl main () = 
+    inl q = true
+    let rec f x = 
+        inl w = false
+        inl e = true
+        let rec ff x = if true then gg x else g x
+        and let gg x = if false then ff x else f x
+        ff x || gg x
+    and let g x = 
+        inl w = false
+        inl e = true
+        let rec ff x = if true then gg x else g x
+        and let gg x = if false then ff x else f x
+        ff x || gg x
+    
+    f false && g true

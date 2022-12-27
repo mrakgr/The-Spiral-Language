@@ -1,10 +1,9 @@
 open real_core
 
 inl dpu_pack dpu vars =
-    inl rec loop = function
+    inl rec loop i = function
         | () => ()
         | (a,b) => 
-            inl i = !!!!VarTag(a)
             typecase `a with
             | i8 => $"!dpu.v!i = bytearray(struct.pack('b',!a))" : ()
             | i16 => $"!dpu.v!i = bytearray(struct.pack('h',!a))" : ()
@@ -16,15 +15,14 @@ inl dpu_pack dpu vars =
             | u64 => $"!dpu.v!i = bytearray(struct.pack('Q',!a))" : ()
             | f32 => $"!dpu.v!i = bytearray(struct.pack('f',!a))" : ()
             | f64 => $"!dpu.v!i = bytearray(struct.pack('d',!a))" : ()
-            loop b
-    loop vars
+            loop (i+1) b
+    loop 0 vars
 
 inl dpu_unpack dpu vars = 
-    inl rec loop = function
+    inl rec loop i = function
         | () => ()
         | (a,b) => 
-            inl r = 
-                inl i = !!!!VarTag(a)
+            inl r =
                 typecase `a with
                 | i8 => $"!dpu.v!i.int8()" : `a
                 | i16 => $"!dpu.v!i.int8()" : `a
@@ -37,6 +35,6 @@ inl dpu_unpack dpu vars =
                 | f32 => $"!dpu.v!i.float32()" : `a
                 | f64 => $"!dpu.v!i.float64()" : `a
 
-            r, loop b
-    loop vars
+            r, loop (i+1) b
+    loop 0 vars
         

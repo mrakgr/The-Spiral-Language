@@ -2,11 +2,11 @@
 
 open utils
 
-let compile_kernel (kernel_name : string) =
+let compile_kernel (kernel_i : i32) =
     $"if not os.path.exists('kernels'): os.mkdir('kernels')"
-    inl file = $"open(f'kernels/{!kernel_name}.c','w')" : $"object"
-    $"!file.write(kernels[!kernel_name])"
-    $"os.system(f'dpu-upmem-dpurte-clang -o kernels/{!kernel_name}.dpu kernels/{!kernel_name}.c')"
+    inl file = $"open(f'kernels/g{!kernel_i}.c','w')" : $"object"
+    $"!file.write(kernels[!kernel_i])"
+    $"if os.system(f'dpu-upmem-dpurte-clang -o kernels/g{!kernel_i}.dpu kernels/g{!kernel_i}.c') \!= 0: raise Exception('Compilation failed.')"
 
 inl main () =
     global "import os"
@@ -14,15 +14,24 @@ inl main () =
     global "from sys import stdout"
     global "import struct"
 
+    inl ~_ = true, false, true
+
+    // let f (a,b,c,d) =
+    //     inl ~q : i32 = a + b - c - d
+    //     inl ~w = a * b * c * d
+    //     0i32
+
+    // f (1,2,3,4)
+
     let f (a,b,c,d) = join_backend UPMEM_C_Kernel 
-        inl q : i32 = a + b + c + d
+        inl q : i32 = a + b - c - d
         inl w = a * b * c * d
         $"!a = !q"
         $"!b = !w"
         0i32
-    inl kernel_name, vars = f (1,2,3,4)
-    compile_kernel kernel_name
-    inl dpu = $"DpuSet(nr_dpus=1, binary=f'kernels/{!kernel_name}.dpu')" : $"DpuSet"
+    inl kernel_i, vars = f (1,2,3,4)
+    compile_kernel kernel_i
+    inl dpu = $"DpuSet(nr_dpus=1, binary=f'kernels/g{!kernel_i}.dpu')" : $"DpuSet"
     real dpu_pack dpu vars
     $"!dpu.exec()" // Note: Putting in log=stdout and not using a printf inside the kernel results in an error.
     inl q,w,_ : i32 * i32 * _ = real dpu_unpack dpu vars
