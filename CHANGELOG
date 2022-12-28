@@ -1,5 +1,6 @@
 2.3.2 (WIP)
 
+* Fixed a critical bug in Infer regarding how recursive inl statements are annotated.
 * The UPMEM C backend will now use `buddy_alloc` and `buddy_free` instead of the standard C `malloc` and `free`.
 
 2.3.1 (12/27/2022)
