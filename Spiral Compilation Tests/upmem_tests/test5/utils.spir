@@ -25,11 +25,11 @@ inl dpu_unpack dpu vars =
             inl r =
                 typecase `a with
                 | i8 => $"!dpu.v!i.int8()" : `a
-                | i16 => $"!dpu.v!i.int8()" : `a
+                | i16 => $"!dpu.v!i.int16()" : `a
                 | i32 => $"!dpu.v!i.int32()" : `a
                 | i64 => $"!dpu.v!i.int64()" : `a
                 | u8 => $"!dpu.v!i.uint8()" : `a
-                | u16 => $"!dpu.v!i.uint8()" : `a
+                | u16 => $"!dpu.v!i.uint16()" : `a
                 | u32 => $"!dpu.v!i.uint32()" : `a
                 | u64 => $"!dpu.v!i.uint64()" : `a
                 | f32 => $"!dpu.v!i.float32()" : `a

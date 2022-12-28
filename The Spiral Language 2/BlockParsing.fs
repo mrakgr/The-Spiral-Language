@@ -146,6 +146,7 @@ type Op =
     
     // Serialization helpers
     | VarTag
+    | TagToSymbol
 
 type PatternCompilationErrors =
     | DisjointOrPatternVar

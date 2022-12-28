@@ -2042,6 +2042,10 @@ let peval (env : TopEnv) (x : E) =
             match term s a with
             | DV(L(i,_)) -> DLit (LitInt32 i)
             | a -> raise_type_error s $"Expected a runtime variable.\nGot: {show_data a}"
+        | EOp(_,TagToSymbol,[a]) ->
+            match term s a with
+            | DLit (LitInt32 i) -> DSymbol (string i)
+            | a -> raise_type_error s $"Expected an i32 literal.\nGot: {show_data a}"
         | EOp(_,op,a) -> raise_type_error s <| sprintf "Compiler error: %A with %i args not implemented" op (List.length a)
 
     let s : LangEnv = {

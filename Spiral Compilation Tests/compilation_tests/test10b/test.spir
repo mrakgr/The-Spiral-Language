@@ -1,0 +1,5 @@
+// Does the typecase match empty records?
+
+inl main () = 
+    typecase {a : i32} with
+    | {} => 0

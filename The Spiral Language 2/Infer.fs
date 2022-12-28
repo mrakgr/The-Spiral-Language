@@ -600,19 +600,6 @@ let lit = function
     | LitString _ -> TyPrim StringT
     | LitChar _ -> TyPrim CharT
 
-let rec strip_fun_pat x = 
-    x |> List.map (function
-        | PatAnnot(_,x,_), body -> x, strip_annotations body
-        | PatDyn(r,PatAnnot(_,x,_)),body -> PatDyn(r,x), strip_annotations body
-        | x -> x
-        )
-
-and strip_annotations = function
-    | RawFun(r,l) -> RawFun(r,strip_fun_pat l)
-    | RawJoinPoint(r,q,RawAnnot(_,x,_)) -> RawJoinPoint(r,q,x)
-    | RawAnnot(_,x,_) -> x
-    | x -> x
-
 let hovars (x : HoVar list) = 
     List.mapFold (fun s (_,(n,t)) -> 
         let v = {scope=0; kind=typevar t; name=n; constraints=Set.empty}
@@ -1192,15 +1179,14 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     and rec_block scope env l' =
         let scope = scope + 1
         let has_foralls = List.exists (function (_,RawForall _) -> true | _ -> false) l'
-        if has_foralls then
-            let i = errors.Count
-            let l,m =
+        let l,m =
+            if has_foralls then
                 List.mapFold (fun s ((r,name),body) ->
                     let vars,body = foralls_get body
                     vars |> List.iter (fun x -> if Map.containsKey (typevar_name x) env.ty then errors.Add(range_of_typevar x,ShadowedForall))
                     let vars, env_ty = typevars scope env vars
                     let body_var = term_annotations scope {env with ty = env_ty} body
-                    let term env = term scope {env with ty = env_ty} body_var (strip_annotations body)
+                    let term env = term scope {env with ty = env_ty} body_var body
                     let gen env : Env = 
                         let t = generalize r scope vars body_var
                         generalized_statements.Add(body,t)
@@ -1209,11 +1195,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     hover_types.Add(r,(ty,""))
                     (term, gen), Map.add name ty s
                     ) env.term l'
-                
-            if errors.Count = i then let env = {env with term = m} in l |> List.iter (fun (term,_) -> term env); env
-            else List.fold (fun env (_,gen) -> gen env) env l
-        else 
-            let l, m = 
+            else 
                 List.mapFold (fun s ((r,name),body) -> 
                     let body_var = fresh_var scope
                     let term env = term scope env body_var body
@@ -1224,10 +1206,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         {env with term = Map.add name t env.term}
                     (term, gen), Map.add name body_var s
                     ) env.term l'
-            let _ =
-                let env = {env with term=m}
-                List.iter (fun (term, _) -> term env) l
-            List.fold (fun env (_,gen) -> gen env) env l
+        let _ =
+            let env = {env with term = m}
+            List.iter (fun (term, _) -> term env) l
+        List.fold (fun env (_, gen) -> gen env) env l
     and term_annotations scope env x =
         let f t = 
             let i = errors.Count

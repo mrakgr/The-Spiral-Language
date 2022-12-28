@@ -1,0 +1,8 @@
+// Do global recursive statements infer properly when they have foralls?
+
+inl bar forall q. (a : q) : q =
+    inl rec foo forall t. (a : t) : t = a
+    foo a
+
+
+inl main () = bar true

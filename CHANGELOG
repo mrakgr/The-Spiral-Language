@@ -27,7 +27,7 @@ Created the Python backend for Spiral.
 
 2.2.4 (12/18/2022)
 
-* Redesigned how ref counting works in the C backend. Fixed a bug related to increfing not happing at the ends of if branches.
+* Redesigned how ref counting works in the C backend. Fixed a bug related to increfing not happening at the ends of if branches.
 
 2.2.3 (7/22/2022)
 
