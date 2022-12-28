@@ -8,17 +8,20 @@ let compile_kernel (kernel_i : i32) =
     $"!file.write(kernels[!kernel_i])"
     $"if os.system(f'dpu-upmem-dpurte-clang -o kernels/g{!kernel_i}.dpu kernels/g{!kernel_i}.c') \!= 0: raise Exception('Compilation failed.')"
 
-let rec qwe () : () = ()
-inl assign forall t. (a : t) (b : t) : () = ()
+inl assign forall t. (a : t) (b : t) : () = real assign a b
 
-inl scalar_map forall a b. (f : a -> b) (in' : a) : b = join
-    inl out : b = real default `b
-    inl kernel_i, vars = join_backend UPMEM_C_Kernel assign out (f in')
+inl run forall a. (f : () -> i32) (out : a) : a = join
+    inl kernel_i, vars = join_backend UPMEM_C_Kernel f()
     compile_kernel kernel_i
     inl dpu = $"DpuSet(nr_dpus=1, binary=f'kernels/g{!kernel_i}.dpu', profile='backend=simulator')" : $"DpuSet"
     inl m = real dpu_pack dpu vars
     $"!dpu.exec()" // Note: Putting in log=stdout and not using a printf inside the kernel results in an error.
     real dpu_unpack dpu m out
+
+inl scalar_map_inp forall a b. (f : a -> b) ~(in' : a) ~(out : b) : b = join
+    run (fun () => assign out (f in') . 0i32) out
+
+inl scalar_map forall a b. (f : a -> b) ~(in' : a) = scalar_map_inp f in' (real default `b)
 
 inl main () =
     global "import os"
@@ -28,4 +31,15 @@ inl main () =
 
     inl x : i32 = scalar_map (fun (a,b) => a+b) (1,2)
     $"print(!x)"
+
+    inl x : i32 = scalar_map (fun (a,b,c) => a+b-c) (1,2,3)
+    $"print(!x)"
+
+    inl x : i32 = scalar_map (fun (a,b,c,d) => (a+b)*d/c) (1,2,3,4)
+    $"print(!x)"
+
+    inl ~q = 1,2,3 // Make sure the arguments are dyn'd before passing them into the function otherwise it won't work.
+    inl x : i32 = scalar_map_inp (fun (a,b,c) => a-b-c) q (fst q)
+    $"print(!x)"
+
     ()

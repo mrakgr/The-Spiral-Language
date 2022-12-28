@@ -124,6 +124,7 @@ type Op =
     | HeapUnionIs
     | LayoutIs
     | NominalIs
+    | FunctionIs
     | PrototypeHas
 
     // Static Type Is
@@ -147,6 +148,8 @@ type Op =
     // Serialization helpers
     | VarTag
     | TagToSymbol
+    | FunctionTermSlotsGet
+    | FunctionTermSlotsSet
 
 type PatternCompilationErrors =
     | DisjointOrPatternVar

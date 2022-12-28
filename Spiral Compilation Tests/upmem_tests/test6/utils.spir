@@ -41,9 +41,8 @@ inl dpu_unpack dpu s vars =
             | f32 => $"!dpu.v!i.float32()" : `a
             | f64 => $"!dpu.v!i.float64()" : `a
 
-    loop 0 vars
+    loop vars
 
-// For unpacking regular structures. Requires the record returned by dpu_pack.
 inl default forall t. : t = 
     inl rec loop forall t. = 
         typecase t with

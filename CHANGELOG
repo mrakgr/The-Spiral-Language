@@ -1,4 +1,8 @@
-2.3.2 (WIP)
+2.3.3 (12/28/2022)
+
+* Added some new serialization ops to core_real. `FunctionTermSlotsSet`, `FunctionTermSlotsGet` and `FunctionIs`.
+
+2.3.2 (12/28/2022)
 
 * Fixed a critical bug in Infer regarding how recursive inl statements are annotated.
 * The UPMEM C backend will now use `buddy_alloc` and `buddy_free` instead of the standard C `malloc` and `free`.

@@ -1,0 +1,104 @@
+open real_core
+open types
+
+inl roundup a b = (a + (b - 1)) / b * b
+
+inl rec dpu_convert_arrays slots =
+    inl rec loop s = function
+        | () => (), s
+        | (a,b) => 
+            inl a,s = loop s a
+            inl b,s = loop s b
+            (a,b), s
+        | {} & a =>
+            record_fold (fun {state=(m,s) key value} => 
+                inl a,s = loop s value
+                {m with $key=a}, s
+                ) ({}, s) a
+        | a when function_is a => dpu_convert a
+        | a =>
+            typecase `a with
+            | a ~dim ~t =>
+                inl len = length `a `dim `t a
+                inl a = upmem_kernel_array {s with len}
+                a, {s with offset#=fun o => roundup (o + len) 8; tag#=(+) 1}
+            | _ =>
+                a, {s with tag#=(+) 1}
+    loop {tag=0i32; offset=0u32} slots |> fst
+
+and inl dpu_convert f = function_term_slots_get f |> dpu_convert_arrays |> function_term_slots_set f
+
+// Is intentended for iterating over back join point args.
+// Returns a record values linked to renamed vars.
+inl dpu_pack dpu vars =
+    inl rec loop s i = function
+        | () => s
+        | (a,b) => 
+            inl k,offset =
+                match a with 
+                | upmem_kernel_array {tag offset len} => 
+                    $"!dpu.copy('buffer',bytearray(!a),offset=!offset)" : () // TODO: Remember to match the size.
+                    !!!!TagToSymbol(tag), offset
+                | _ =>
+                    typecase `a with
+                    | i8 =>  $"!dpu.v!i = bytearray(struct.pack('b',!a))" : ()
+                    | i16 => $"!dpu.v!i = bytearray(struct.pack('h',!a))" : ()
+                    | i32 => $"!dpu.v!i = bytearray(struct.pack('i',!a))" : ()
+                    | i64 => $"!dpu.v!i = bytearray(struct.pack('q',!a))" : ()
+                    | u8 =>  $"!dpu.v!i = bytearray(struct.pack('B',!a))" : ()
+                    | u16 => $"!dpu.v!i = bytearray(struct.pack('H',!a))" : ()
+                    | u32 => $"!dpu.v!i = bytearray(struct.pack('I',!a))" : ()
+                    | u64 => $"!dpu.v!i = bytearray(struct.pack('Q',!a))" : ()
+                    | f32 => $"!dpu.v!i = bytearray(struct.pack('f',!a))" : ()
+                    | f64 => $"!dpu.v!i = bytearray(struct.pack('d',!a))" : ()
+                    !!!!TagToSymbol(!!!!VarTag(a)), ()
+            loop {s with $k=i,offset} (i + 1) b 
+    loop {} 0 vars
+
+// For unpacking regular structures. Requires the record returned by dpu_pack.
+inl dpu_unpack dpu s vars = 
+    inl rec loop = function
+        | () => ()
+        | {} as x => record_map (fun {key value} => loop value) x
+        | (a,b) => loop a, loop b
+        | a =>
+            inl i,offset = s !!!!TagToSymbol(!!!!VarTag(a))
+            typecase `a with
+            | i8 =>  $"!dpu.v!i.int8()" : `a
+            | i16 => $"!dpu.v!i.int16()" : `a
+            | i32 => $"!dpu.v!i.int32()" : `a
+            | i64 => $"!dpu.v!i.int64()" : `a
+            | u8 =>  $"!dpu.v!i.uint8()" : `a
+            | u16 => $"!dpu.v!i.uint16()" : `a
+            | u32 => $"!dpu.v!i.uint32()" : `a
+            | u64 => $"!dpu.v!i.uint64()" : `a
+            | f32 => $"!dpu.v!i.float32()" : `a
+            | f64 => $"!dpu.v!i.float64()" : `a
+            | a _ _ => ($"!dpu.copy(!a,'buffer',len(!a),offset=!offset)" : ()) . a // TODO: This is incorrect, but nevermind it for now.
+    loop vars
+
+inl default forall t. (len : u32) : t = 
+    inl rec loop forall t. = 
+        typecase t with
+        | ~a * ~b => loop `a, loop `b
+        | {} => record_type_map (fun k => forall v. => loop `v) `t
+        | i8  => $"0" : t
+        | i16 => $"0" : t
+        | i32 => $"0" : t
+        | i64 => $"0" : t
+        | u8  => $"0" : t
+        | u16 => $"0" : t
+        | u32 => $"0" : t
+        | u64 => $"0" : t
+        | f32 => $"0.0" : t
+        | f32 => $"0.0" : t
+        | a ~dim ~t => create `a `dim `t len
+    loop `t
+
+inl rec assign a b = real
+    assert (`(`(a)) `= `(`(b))) "The two types should be equal."
+    match a,b with
+    | (), () => ()
+    | {}, {} => record_iter (fun {key value} => assign value (b key)) a
+    | (a,b), (a',b') => assign a a' . assign b b'
+    | a,b when prim_is a && prim_is b => $"!a = !b" : ()

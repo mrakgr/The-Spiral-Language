@@ -1957,6 +1957,10 @@ let peval (env : TopEnv) (x : E) =
             match term s a with
             | DNominal(_, _) -> DLit (LitBool true)
             | _ -> DLit (LitBool false)
+        | EOp(_,FunctionIs,[a]) ->
+            match term s a with
+            | DFunction _ | DV(L(_,YFun _)) -> DLit (LitBool true)
+            | _ -> DLit (LitBool false)
         | EOp(_,PrimTypeIs,[EType(_,a)]) ->
             match ty s a with
             | YPrim _ -> DLit (LitBool true)
@@ -2046,6 +2050,27 @@ let peval (env : TopEnv) (x : E) =
             match term s a with
             | DLit (LitInt32 i) -> DSymbol (string i)
             | a -> raise_type_error s $"Expected an i32 literal.\nGot: {show_data a}"
+        | EOp(_,FunctionTermSlotsGet,[a]) ->
+            match term s a with
+            | DFunction(_,_,free_vars,_,_,_) -> Array.foldBack (fun x s -> DPair(x,s)) free_vars DB
+            | DV(L(_,YFun _)) -> raise_type_error s $"Expected a compile time function. Got a runtime one."
+            | a -> raise_type_error s $"Expected a compile time function.\nGot: {show_data a}"
+        | EOp(_,FunctionTermSlotsSet,[a;b]) ->
+            match term s a, term s b with
+            | DFunction(q1,q2,free_vars,q4,q5,a6), b -> 
+                let free_vars = 
+                    let mutable b = b
+                    Array.init free_vars.Length (fun _ -> 
+                        match b with
+                        | DPair(q,w) -> b <- w; q
+                        | DB -> raise_type_error s "Unexpected end of the tuple to be set."
+                        | _ -> raise_type_error s $"Expected a pair.\nGot: {show_data b}"
+                        ) 
+                match b with
+                | DB -> DFunction(q1,q2,free_vars,q4,q5,a6)
+                | _ -> raise_type_error s $"Expected an unit end of the tuple.\nGot: {show_data b}"
+            | DV(L(_,YFun _)), _ -> raise_type_error s $"Expected a compile time function. Got a runtime one."
+            | a, _ -> raise_type_error s $"Expected a compile time function.\nGot: {show_data a}"
         | EOp(_,op,a) -> raise_type_error s <| sprintf "Compiler error: %A with %i args not implemented" op (List.length a)
 
     let s : LangEnv = {

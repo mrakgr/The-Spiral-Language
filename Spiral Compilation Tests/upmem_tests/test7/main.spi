@@ -1,0 +1,28 @@
+// Does the array map work?
+
+open utils_real
+open utils
+
+inl scalar_map_inp forall a b. (f : a -> b) ~(in' : a) ~(out : b) : b = join
+    run (fun () => assign out (f in') . 0i32) out
+
+inl scalar_map forall a b. (f : a -> b) ~(in' : a) = scalar_map_inp f in' (real default `b)
+
+inl array_map forall a b. (f : a -> b) (in' : a) (out : b) : b = join
+    inl kernel_i, vars = join_backend UPMEM_C_Kernel assign out (f in') . 0i32
+    compile_kernel kernel_i
+    inl dpu = $"DpuSet(nr_dpus=1, binary=f'kernels/g{!kernel_i}.dpu', profile='backend=simulator')" : $"DpuSet"
+    inl m = real dpu_pack dpu vars
+    $"!dpu.exec()" // Note: Putting in log=stdout and not using a printf inside the kernel results in an error.
+    real dpu_unpack dpu m out
+
+inl main () =
+    global "import os"
+    global "from io import StringIO"
+    global "from sys import stdout"
+    global "import struct"
+
+    inl x = 1i32
+    $"print(!x)"
+
+    ()
