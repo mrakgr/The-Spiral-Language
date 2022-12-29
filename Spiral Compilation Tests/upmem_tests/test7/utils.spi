@@ -8,11 +8,12 @@ let compile_kernel (kernel_i : i32) =
 
 inl assign forall t. (a : t) (b : t) : () = real assign a b
 
-inl run forall a. (f : () -> i32) (out : a) : a = join // TODO
-    inl f : () -> i32 = real dpu_convert f
-    inl kernel_i, vars = join_backend UPMEM_C_Kernel f()
+inl run forall a. (f : () -> i32) (out : a) : a = join
+    inl f, arrays : (() -> i32) * _ = real dpu_arrays f
+    inl kernel_i, call_args = join_backend UPMEM_C_Kernel f()
     compile_kernel kernel_i
     inl dpu = $"DpuSet(nr_dpus=1, binary=f'kernels/g{!kernel_i}.dpu', profile='backend=simulator')" : $"DpuSet"
-    inl m = real dpu_pack dpu vars
+    inl vars = real dpu_pack dpu call_args
+    real dpu_arrays_transfer dpu arrays
     $"!dpu.exec()" // Note: Putting in log=stdout and not using a printf inside the kernel results in an error.
-    real dpu_unpack dpu m out
+    real dpu_unpack dpu {arrays vars} out

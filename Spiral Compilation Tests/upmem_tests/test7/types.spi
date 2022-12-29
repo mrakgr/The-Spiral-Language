@@ -1,2 +1,2 @@
 type py_array t = a u64 t
-nominal upmem_kernel_array t = {tag : i32; len : u32;  offset : u32}
+nominal upmem_kernel_array t = {len : u32;  offset : u32}

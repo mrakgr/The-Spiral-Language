@@ -2044,12 +2044,8 @@ let peval (env : TopEnv) (x : E) =
             | n, a -> raise_type_error s $"Expected a pair of string and record.\nGot: {show_data n}\nAnd: {show_data a}"
         | EOp(_,VarTag,[a]) ->
             match term s a with
-            | DV(L(i,_)) -> DLit (LitInt32 i)
+            | DNominal(DV(L(i,_)), _) | DV(L(i,_)) -> DLit (LitInt32 i)
             | a -> raise_type_error s $"Expected a runtime variable.\nGot: {show_data a}"
-        | EOp(_,TagToSymbol,[a]) ->
-            match term s a with
-            | DLit (LitInt32 i) -> DSymbol (string i)
-            | a -> raise_type_error s $"Expected an i32 literal.\nGot: {show_data a}"
         | EOp(_,FunctionTermSlotsGet,[a]) ->
             match term s a with
             | DFunction(_,_,free_vars,_,_,_) -> Array.foldBack (fun x s -> DPair(x,s)) free_vars DB

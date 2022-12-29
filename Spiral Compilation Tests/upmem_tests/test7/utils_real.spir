@@ -3,7 +3,10 @@ open types
 
 inl roundup a b = (a + (b - 1)) / b * b
 
-inl rec dpu_convert_arrays slots =
+inl dpu_push_array dpu a offset = $"!dpu.copy('buffer',bytearray(!a),offset=!offset)" : () // TODO: Remember to match the size.
+inl dpu_pull_array dpu a offset = $"!dpu.copy(!a,'buffer',offset=!offset)" : () // TODO: This is incorrect, but nevermind it for now.
+
+inl dpu_arrays f =
     inl rec loop s = function
         | () => (), s
         | (a,b) => 
@@ -15,44 +18,44 @@ inl rec dpu_convert_arrays slots =
                 inl a,s = loop s value
                 {m with $key=a}, s
                 ) ({}, s) a
-        | a when function_is a => dpu_convert a
+        | a when function_is a => case_fun s a
         | a =>
             typecase `a with
             | a ~dim ~t =>
-                inl len = length `a `dim `t a
-                inl a = upmem_kernel_array {s with len}
-                a, {s with offset#=fun o => roundup (o + len) 8; tag#=(+) 1}
+                inl len, k, offset = length `a `dim `t a, !!!!TagToSymbol(!!!!VarTag(a)), s.offset
+                inl a = upmem_kernel_array {len offset}
+                a, {s with offset#=fun o => roundup (o + len) 8; arrays#=fun ar => {ar with $k={var=a; offset}}}
             | _ =>
-                a, {s with tag#=(+) 1}
-    loop {tag=0i32; offset=0u32} slots |> fst
+                a, s
+    and inl case_fun s f =
+        inl a,s = function_term_slots_get f |> loop s
+        function_term_slots_set f a, s
 
-and inl dpu_convert f = function_term_slots_get f |> dpu_convert_arrays |> function_term_slots_set f
+    inl a,b = case_fun {offset=0u32; arrays={}} f
+    a,b.arrays
+
+inl dpu_arrays_transfer dpu arrays = record_iter (fun {key value={var offset}} => dpu_push_array dpu var offset) arrays
 
 // Is intentended for iterating over back join point args.
 // Returns a record values linked to renamed vars.
 inl dpu_pack dpu vars =
     inl rec loop s i = function
         | () => s
-        | (a,b) => 
-            inl k,offset =
-                match a with 
-                | upmem_kernel_array {tag offset len} => 
-                    $"!dpu.copy('buffer',bytearray(!a),offset=!offset)" : () // TODO: Remember to match the size.
-                    !!!!TagToSymbol(tag), offset
-                | _ =>
-                    typecase `a with
-                    | i8 =>  $"!dpu.v!i = bytearray(struct.pack('b',!a))" : ()
-                    | i16 => $"!dpu.v!i = bytearray(struct.pack('h',!a))" : ()
-                    | i32 => $"!dpu.v!i = bytearray(struct.pack('i',!a))" : ()
-                    | i64 => $"!dpu.v!i = bytearray(struct.pack('q',!a))" : ()
-                    | u8 =>  $"!dpu.v!i = bytearray(struct.pack('B',!a))" : ()
-                    | u16 => $"!dpu.v!i = bytearray(struct.pack('H',!a))" : ()
-                    | u32 => $"!dpu.v!i = bytearray(struct.pack('I',!a))" : ()
-                    | u64 => $"!dpu.v!i = bytearray(struct.pack('Q',!a))" : ()
-                    | f32 => $"!dpu.v!i = bytearray(struct.pack('f',!a))" : ()
-                    | f64 => $"!dpu.v!i = bytearray(struct.pack('d',!a))" : ()
-                    !!!!TagToSymbol(!!!!VarTag(a)), ()
-            loop {s with $k=i,offset} (i + 1) b 
+        | (a,b) =>
+            inl k =
+                typecase `a with
+                | i8 =>  $"!dpu.v!i = bytearray(struct.pack('b',!a))" : ()
+                | i16 => $"!dpu.v!i = bytearray(struct.pack('h',!a))" : ()
+                | i32 => $"!dpu.v!i = bytearray(struct.pack('i',!a))" : ()
+                | i64 => $"!dpu.v!i = bytearray(struct.pack('q',!a))" : ()
+                | u8 =>  $"!dpu.v!i = bytearray(struct.pack('B',!a))" : ()
+                | u16 => $"!dpu.v!i = bytearray(struct.pack('H',!a))" : ()
+                | u32 => $"!dpu.v!i = bytearray(struct.pack('I',!a))" : ()
+                | u64 => $"!dpu.v!i = bytearray(struct.pack('Q',!a))" : ()
+                | f32 => $"!dpu.v!i = bytearray(struct.pack('f',!a))" : ()
+                | f64 => $"!dpu.v!i = bytearray(struct.pack('d',!a))" : ()
+                !!!!TagToSymbol(!!!!VarTag(a))
+            loop {s with $k=i} (i + 1) b 
     loop {} 0 vars
 
 // For unpacking regular structures. Requires the record returned by dpu_pack.
@@ -61,20 +64,23 @@ inl dpu_unpack dpu s vars =
         | () => ()
         | {} as x => record_map (fun {key value} => loop value) x
         | (a,b) => loop a, loop b
-        | a =>
-            inl i,offset = s !!!!TagToSymbol(!!!!VarTag(a))
-            typecase `a with
-            | i8 =>  $"!dpu.v!i.int8()" : `a
-            | i16 => $"!dpu.v!i.int16()" : `a
-            | i32 => $"!dpu.v!i.int32()" : `a
-            | i64 => $"!dpu.v!i.int64()" : `a
-            | u8 =>  $"!dpu.v!i.uint8()" : `a
-            | u16 => $"!dpu.v!i.uint16()" : `a
-            | u32 => $"!dpu.v!i.uint32()" : `a
-            | u64 => $"!dpu.v!i.uint64()" : `a
-            | f32 => $"!dpu.v!i.float32()" : `a
-            | f64 => $"!dpu.v!i.float64()" : `a
-            | a _ _ => ($"!dpu.copy(!a,'buffer',len(!a),offset=!offset)" : ()) . a // TODO: This is incorrect, but nevermind it for now.
+        | a _ as a =>
+            inl offset = s.arrays !!!!TagToSymbol(!!!!VarTag(a))
+            dpu_pull_array dpu a offset
+            a
+        | a => typecase `a with ~t =>
+            inl i = s.vars !!!!TagToSymbol(!!!!VarTag(a))
+            typecase t with
+            | i8 =>  $"!dpu.v!i.int8()" : t
+            | i16 => $"!dpu.v!i.int16()" : t
+            | i32 => $"!dpu.v!i.int32()" : t
+            | i64 => $"!dpu.v!i.int64()" : t
+            | u8 =>  $"!dpu.v!i.uint8()" : t
+            | u16 => $"!dpu.v!i.uint16()" : t
+            | u32 => $"!dpu.v!i.uint32()" : t
+            | u64 => $"!dpu.v!i.uint64()" : t
+            | f32 => $"!dpu.v!i.float32()" : t
+            | f64 => $"!dpu.v!i.float64()" : t
     loop vars
 
 inl default forall t. (len : u32) : t = 

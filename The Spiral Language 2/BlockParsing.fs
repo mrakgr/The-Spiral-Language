@@ -147,7 +147,7 @@ type Op =
     
     // Serialization helpers
     | VarTag
-    | TagToSymbol
+    | SymbolToTag
     | FunctionTermSlotsGet
     | FunctionTermSlotsSet
 
