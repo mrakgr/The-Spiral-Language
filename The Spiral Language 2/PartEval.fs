@@ -2046,6 +2046,10 @@ let peval (env : TopEnv) (x : E) =
             match term s a with
             | DNominal(DV(L(i,_)), _) | DV(L(i,_)) -> DLit (LitInt32 i)
             | a -> raise_type_error s $"Expected a runtime variable.\nGot: {show_data a}"
+        | EOp(_,TagToSymbol,[a]) ->
+            match term s a with
+            | DLit (LitInt32 i) -> DSymbol (string i)
+            | a -> raise_type_error s $"Expected an i32 literal.\nGot: {show_data a}"
         | EOp(_,FunctionTermSlotsGet,[a]) ->
             match term s a with
             | DFunction(_,_,free_vars,_,_,_) -> Array.foldBack (fun x s -> DPair(x,s)) free_vars DB
@@ -2054,8 +2058,8 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,FunctionTermSlotsSet,[a;b]) ->
             match term s a, term s b with
             | DFunction(q1,q2,free_vars,q4,q5,a6), b -> 
+                let mutable b = b
                 let free_vars = 
-                    let mutable b = b
                     Array.init free_vars.Length (fun _ -> 
                         match b with
                         | DPair(q,w) -> b <- w; q

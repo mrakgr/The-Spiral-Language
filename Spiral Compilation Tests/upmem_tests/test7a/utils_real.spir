@@ -1,15 +1,23 @@
+open upmem
 open real_core
-open types
 
-inl roundup a b = (a + (b - 1)) / b * b
+inl roundup a b = (a + (b - 1u32)) / b * b
 
-inl dpu_push_array dpu a offset = $"!dpu.copy('buffer',bytearray(!a),offset=!offset)" : () // TODO: Remember to match the size.
-inl dpu_pull_array dpu a offset = $"!dpu.copy(!a,'buffer',offset=!offset)" : () // TODO: This is incorrect, but nevermind it for now.
+// TODO: These two have too much copying. I wonder if there is a way to expose the underlying numpy buffer?
+
+let dpu_push_array dpu a ~offset =
+    assert ($"!a.nbytes % 8 == 0" : bool) "The input array has to be divisible by 8"
+    $"!dpu.copy('buffer',bytearray(!a),offset=!offset)" : ()
+let dpu_pull_array dpu a ~offset =
+    assert ($"!a.nbytes % 8 == 0" : bool) "The input array has to be divisible by 8"
+    inl v = $"bytearray(!a.nbytes)" : $"bytearray"
+    $"!dpu.copy(!v,'buffer',offset=!offset)" : ()
+    $"np.copyto(!a,np.frombuffer(!v,dtype=!a.dtype))" : ()
 
 inl dpu_arrays f =
     inl rec loop s = function
         | () => (), s
-        | (a,b) => 
+        | (a,b) =>
             inl a,s = loop s a
             inl b,s = loop s b
             (a,b), s
@@ -22,13 +30,12 @@ inl dpu_arrays f =
         | a =>
             typecase `a with
             | a ~dim ~t =>
-                inl len, k, offset = length `a `dim `t a, !!!!TagToSymbol(!!!!VarTag(a)), s.offset
-                inl a = upmem_kernel_array {len offset}
-                a, {s with offset#=fun o => roundup (o + len) 8; arrays#=fun ar => {ar with $k={var=a; offset}}}
+                inl len, k, offset = ($"!a.nbytes" : u32), !!!!TagToSymbol(!!!!VarTag(a)), s.offset
+                upmem_kernel_array `t {len offset}, {s with offset#=fun o => roundup (o + len) 8u32; arrays#=fun ar => {ar with $k={var=a; offset}}}
             | _ =>
                 a, s
     and inl case_fun s f =
-        inl a,s = function_term_slots_get f |> loop s
+        inl a,s = loop s (function_term_slots_get f)
         function_term_slots_set f a, s
 
     inl a,b = case_fun {offset=0u32; arrays={}} f
@@ -65,7 +72,7 @@ inl dpu_unpack dpu s vars =
         | {} as x => record_map (fun {key value} => loop value) x
         | (a,b) => loop a, loop b
         | a _ as a =>
-            inl offset = s.arrays !!!!TagToSymbol(!!!!VarTag(a))
+            inl {offset} = s.arrays !!!!TagToSymbol(!!!!VarTag(a))
             dpu_pull_array dpu a offset
             a
         | a => typecase `a with ~t =>

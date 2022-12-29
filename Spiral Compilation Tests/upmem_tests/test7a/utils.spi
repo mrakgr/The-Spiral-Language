@@ -8,7 +8,7 @@ let compile_kernel (kernel_i : i32) =
 
 inl assign forall t. (a : t) (b : t) : () = real assign a b
 
-inl run forall a. (f : () -> i32) (out : a) : a = join
+inl run forall a. (out : a) (f : () -> i32) : a = join
     inl f, arrays : (() -> i32) * _ = real dpu_arrays f
     inl kernel_i, call_args = join_backend UPMEM_C_Kernel f()
     compile_kernel kernel_i

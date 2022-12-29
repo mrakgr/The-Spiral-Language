@@ -1,0 +1,24 @@
+// Does passing the arrays into the kernel work?
+
+open upmem
+open utils_real
+open utils
+
+inl arange (len : u64) : py_array i32 = $"np.arange(0,!len,dtype=np.int32)"
+
+inl main () =
+    global "import os"
+    global "from io import StringIO"
+    global "from sys import stdout"
+    global "import struct"
+
+    inl a,b,c = arange 16, arange 16, arange 16
+    $"print(!a)"
+    inl a = run a fun () =>
+        global "__mram_noinit uint8_t buffer[1024*1024*64];"
+        inl i = 3
+        set a i (index b i + index c i)
+        0
+    $"print(!a)"
+
+    ()

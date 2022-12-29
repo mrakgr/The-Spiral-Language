@@ -1,6 +1,7 @@
-2.3.4 (WIP)
+2.3.4 (12/29/2022)
 
 * Extended VarTag so it reaches into the nominal.
+* Fixed `FunctionTermSlotsGet`.
 
 2.3.3 (12/28/2022)
 

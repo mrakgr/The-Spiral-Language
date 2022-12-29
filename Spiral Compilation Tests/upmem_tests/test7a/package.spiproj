@@ -1,6 +1,6 @@
 packages: |core-
 modules:
-    types
+    upmem
     utils_real*
     utils
     main
