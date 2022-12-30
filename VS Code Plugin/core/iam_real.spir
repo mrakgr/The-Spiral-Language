@@ -14,12 +14,14 @@ inl index' ar i =
         | ar => typecase `ar with ~ar ~dim ~el => index `ar `dim `el ar i
     f ar
 
-inl set' ar i v =
+inl iter2 f a b =
     inl rec f = function
         | (a, b), (va,vb) => f (a, va) . f (b, vb)
         | ({} & ar, {} & v) => record_iter (fun {key value} => f (ar key, value)) v
-        | ar,v => typecase `ar with ~ar ~dim ~el => set `ar `dim `el ar i v
-    f (ar,v)
+        | ar,v => f ar v
+    f a b
+
+inl set' ar i v = iter2 (fun ar v => typecase `ar with ~ar ~dim ~el => set `ar `dim `el ar i v) ar v
 
 inl length' forall dim. ar =
     inl g a b = match a with None => b() | _ => a

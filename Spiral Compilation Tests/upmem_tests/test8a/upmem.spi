@@ -1,0 +1,41 @@
+type dim = u32
+type py_array t = a dim t
+nominal upmem_kernel_array dim t = {len : dim;  offset : dim}
+nominal global_array_ptr dim t = $"__mram_ptr `t *"
+
+inl at_upmem forall dim t. (upmem_kernel_array {len offset} : _ dim t) : global_array_ptr dim t = $"(__mram_ptr `t *) (buffer + !offset)"
+instance index upmem_kernel_array = fun (upmem_kernel_array {len offset} as a) i => inl a = at_upmem a in $"!a[!i]"
+instance set upmem_kernel_array = fun (upmem_kernel_array {len offset} as a) i x => inl a = at_upmem a in $"!a[!i] = !x"
+instance length upmem_kernel_array = fun (upmem_kernel_array {len offset}) : dim => len
+
+nominal array_ptr dim t = $"`t *"
+
+instance create array_ptr = fun block_size =>
+    assert (lit_is block_size) "The block size should be a compile time literal."
+    $"__dma_aligned `el v$[!block_size]"
+instance index array_ptr = fun a i => $"!a[!i]"
+instance set array_ptr = fun a i x => $"!a[!i] = !x"
+
+// Does type lying.
+inl at forall dim t. (a : a dim t) : global_array_ptr dim t = real 
+    match a with 
+    | upmem_kernel_array _ => at_upmem `t a
+
+inl mram_read' forall dim {number} t. (src : a dim t) (dst : array_ptr dim t) {from nearTo} =
+    inl size : dim = nearTo - from
+    inl src = at src
+    $"mram_read(!src + !from,!dst,!size * sizeof(`t))" : ()
+
+inl mram_write' forall dim {number} t. (src : array_ptr dim t) (dst : a dim t) {from nearTo} =
+    inl size : dim = nearTo - from
+    inl dst = at dst
+    $"mram_write(!src,!dst + !from,!size * sizeof(`t))" : ()
+
+open inv
+inl mram_read forall dim {number} t. (src : inv_array a dim t) (dst : inv_array array_ptr dim t) r : () =
+    inl f (a : a dim t) (b : array_ptr dim t) = mram_read' a b r
+    real iam_real.iter2 f src dst
+
+inl mram_write forall dim {number} t. (src : inv_array array_ptr dim t) (dst : inv_array a dim t) r : () =
+    inl f (a : array_ptr dim t) (b : a dim t) = mram_write' a b r
+    real iam_real.iter2 f src dst

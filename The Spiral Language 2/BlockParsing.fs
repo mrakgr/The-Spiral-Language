@@ -150,6 +150,7 @@ type Op =
     | TagToSymbol
     | FunctionTermSlotsGet
     | FunctionTermSlotsSet
+    | SizeOf
 
 type PatternCompilationErrors =
     | DisjointOrPatternVar

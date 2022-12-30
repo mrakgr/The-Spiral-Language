@@ -1,0 +1,19 @@
+open utils_real
+
+let compile_kernel (kernel_i : i32) =
+    $"if not os.path.exists('kernels'): os.mkdir('kernels')"
+    inl file = $"open(f'kernels/g{!kernel_i}.c','w')" : $"object"
+    $"!file.write(kernels[!kernel_i])"
+    $"if os.system(f'dpu-upmem-dpurte-clang -o kernels/g{!kernel_i}.dpu kernels/g{!kernel_i}.c') \!= 0: raise Exception('Compilation failed.')"
+
+inl assign forall t. (a : t) (b : t) : () = real assign a b
+
+inl run forall a. (out : a) (f : () -> i32) : a = join
+    inl f, arrays : (() -> i32) * _ = real dpu_arrays f
+    inl kernel_i, call_args = join_backend UPMEM_C_Kernel f()
+    compile_kernel kernel_i
+    inl dpu = $"DpuSet(nr_dpus=1, binary=f'kernels/g{!kernel_i}.dpu', profile='backend=simulator')" : $"DpuSet"
+    inl vars = real dpu_pack dpu call_args
+    real dpu_arrays_transfer dpu arrays
+    $"!dpu.exec()" // Note: Putting in log=stdout and not using a printf inside the kernel results in an error.
+    real dpu_unpack dpu {arrays vars} out

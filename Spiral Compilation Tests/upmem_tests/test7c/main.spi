@@ -1,0 +1,38 @@
+// Does the buffered MRAM read work?
+
+open upmem
+open upmem_loop
+open utils_real
+open utils
+
+inl arange (len : dim) : py_array i32 = $"np.arange(0,!len,dtype=np.int32)"
+
+inl main () =
+    global "import os"
+    global "from io import StringIO"
+    global "from sys import stdout"
+    global "import struct"
+
+    inl test_size = 64
+    inl a,b,c = arange test_size, arange test_size, arange test_size
+    $"print(!a)"
+    inl a = run a fun () =>
+        global "#include <mram.h>"
+        global "__mram_noinit uint8_t buffer[1024*1024*64];"
+        inl block_size = 8 // Values less that 8 freeze the terminal when I try to run this. Maybe the min byte size needs to be 32.
+        inl buf_a = local_ptr block_size
+        inl buf_b = local_ptr block_size
+        inl buf_c = local_ptr block_size
+        inl len = length a
+        forBy {from=0; nearTo=len; by=block_size} fun from =>
+            inl nearTo = min len (from + block_size)
+            mram_read b buf_b {from nearTo}
+            mram_read c buf_c {from nearTo}
+            for {from=0; nearTo=nearTo - from} fun i =>
+                inl x = ptr_index buf_b i + ptr_index buf_c i
+                ptr_set buf_a i x
+            mram_write buf_a a {from nearTo}
+        0
+    $"print(!a)"
+
+    ()

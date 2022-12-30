@@ -1,0 +1,47 @@
+type dim = u32
+type py_array t = a dim t
+nominal upmem_kernel_array t = {len : dim;  offset : dim}
+nominal global_array_ptr t = $"__mram_ptr `t *"
+
+inl at_upmem forall t. (upmem_kernel_array {len offset} : _ t) : global_array_ptr t = $"(__mram_ptr `t *) (buffer + !offset)"
+inl index_upmem forall t. (upmem_kernel_array {len offset} as a : _ t) (i : dim) : t = inl a = at_upmem a in $"!a[!i]"
+inl set_upmem forall t. (upmem_kernel_array {len offset} as a : _ t) (i : dim) (x : t) : () = inl a = at_upmem a in $"!a[!i] = !x"
+inl length_upmem forall t. (upmem_kernel_array {len offset} : _ t) : dim = len
+
+inl at forall t. (a : py_array t) : global_array_ptr t = real 
+    match a with 
+    | upmem_kernel_array _ => at_upmem `t a
+
+inl index forall t. (a : py_array t) (i : dim) : t = real 
+    match a with
+    | upmem_kernel_array _ => index_upmem `t a i
+    | _ => typecase `a with ~ar ~dim ~t => index `ar `dim `t a i
+
+inl set forall t. (a : py_array t) (i : dim) (x : t) : () = real 
+    match a with
+    | upmem_kernel_array _ => set_upmem `t a i x
+    | _ => typecase `a with ~ar ~dim ~t => set `ar `dim `t a i x
+
+inl length forall t. (a : py_array t) : dim = real 
+    match a with
+    | upmem_kernel_array _ => length_upmem `t a
+    | _ => typecase `a with ~ar ~dim ~t => length `ar `dim `t a
+
+nominal array_ptr t = $"`t *"
+
+inl ptr_index forall t. (a : array_ptr t) (i : dim) : t = $"!a[!i]"
+inl ptr_set forall t. (a : array_ptr t) (i : dim) (x : t) : () = $"!a[!i] = !x"
+
+inl local_ptr forall t. (block_size : dim) : array_ptr t = 
+    assert (lit_is block_size) "The block size should be a compile time literal."
+    $"__dma_aligned `t v$[!block_size]"
+
+inl mram_read forall t. (src : py_array t) (dst : array_ptr t) {from nearTo} =
+    inl size : dim = nearTo - from
+    inl src = at src
+    $"mram_read(!src + !from,!dst,!size * sizeof(`t))" : ()
+
+inl mram_write forall t. (src : array_ptr t) (dst : py_array t) {from nearTo} =
+    inl size : dim = nearTo - from
+    inl dst = at dst
+    $"mram_write(!src,!dst + !from,!size * sizeof(`t))" : ()

@@ -2071,6 +2071,13 @@ let peval (env : TopEnv) (x : E) =
                 | _ -> raise_type_error s $"Expected an unit end of the tuple.\nGot: {show_data b}"
             | DV(L(_,YFun _)), _ -> raise_type_error s $"Expected a compile time function. Got a runtime one."
             | a, _ -> raise_type_error s $"Expected a compile time function.\nGot: {show_data a}"
+        | EOp(_,SizeOf,[EType(_,a)]) ->
+            match ty s a with
+            | YPrim (Int8T | UInt8T) -> DLit (LitInt32 1)
+            | YPrim (Int16T | UInt16T) -> DLit (LitInt32 2)
+            | YPrim (Int32T | UInt32T | Float32T) -> DLit (LitInt32 4)
+            | YPrim (Int64T | UInt64T | Float64T) -> DLit (LitInt32 8)
+            | a -> raise_type_error s $"Expected an int or a float type.\nGot: {show_ty a}"
         | EOp(_,op,a) -> raise_type_error s <| sprintf "Compiler error: %A with %i args not implemented" op (List.length a)
 
     let s : LangEnv = {

@@ -1,0 +1,7 @@
+packages: |core-
+modules:
+    upmem
+    upmem_loop
+    utils_real*
+    utils
+    main

@@ -1,0 +1,6 @@
+open iam_real
+nominal inv_array (ar : * -> * -> *) dim el = {len : dim; arrays : `(create' `ar `el ``dim)}
+instance create inv_array ar = fun len => inv_array {len arrays=real create' `ar `el length}
+instance index inv_array ar = fun (inv_array {arrays=ar}) i => real index' ar i
+instance set inv_array ar = fun (inv_array {arrays=ar}) i v => real set' ar i v
+instance length inv_array ar = fun (inv_array {len}) => len

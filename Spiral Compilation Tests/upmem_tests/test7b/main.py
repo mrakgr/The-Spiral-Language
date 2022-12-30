@@ -5,19 +5,28 @@ kernels = [
 #include <stdio.h>
 #include <stdlib.h>
 __mram_noinit uint8_t buffer[1024*1024*64];
+bool method0(uint32_t v0, uint32_t v1){
+    bool v2;
+    v2 = v1 < v0;
+    return v2;
+}
 __host uint32_t v0;
 __host uint32_t v1;
 __host uint32_t v2;
 __host uint32_t v3;
 __host uint32_t v4;
 int32_t main(){
-    int32_t v5;
-    v5 = ((__mram_ptr int32_t *) (buffer + v2))[3u];
-    int32_t v6;
-    v6 = ((__mram_ptr int32_t *) (buffer + 0u))[3u];
-    int32_t v7;
-    v7 = v5 + v6;
-    ((__mram_ptr int32_t *) (buffer + v4))[3u] = v7;
+    uint32_t v5 = 0u;
+    while (method0(v3, v5)){
+        int32_t v7;
+        v7 = ((__mram_ptr int32_t *) (buffer + v2))[v5];
+        int32_t v8;
+        v8 = ((__mram_ptr int32_t *) (buffer + 0u))[v5];
+        int32_t v9;
+        v9 = v7 + v8;
+        ((__mram_ptr int32_t *) (buffer + v4))[v5] = v9;
+        v5 += 1u;
+    }
     return 0;
 }
 """,
@@ -119,9 +128,9 @@ def method0(v0 : np.ndarray, v1 : np.ndarray, v2 : np.ndarray) -> np.ndarray:
     del v13, v21
     return v0
 def main():
-    v0 = np.arange(0,16,dtype=np.int32)
-    v1 = np.arange(0,16,dtype=np.int32)
-    v2 = np.arange(0,16,dtype=np.int32)
+    v0 = np.arange(0,64,dtype=np.int32)
+    v1 = np.arange(0,64,dtype=np.int32)
+    v2 = np.arange(0,64,dtype=np.int32)
     print(v0)
     v3 = method0(v0, v2, v1)
     del v0, v1, v2

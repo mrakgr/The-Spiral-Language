@@ -1,3 +1,4 @@
+open inv
 open upmem
 open real_core
 
@@ -29,10 +30,14 @@ inl dpu_arrays f =
         | a when function_is a => case_fun s a
         | a =>
             typecase `a with
+            | inv_array ~ar ~dim ~el => 
+                inl (inv_array {len arrays}) = a
+                inl arrays,s = loop {s with len} arrays
+                inv_array `upmem_kernel_array `dim `el {len arrays}, {s without len}
             | a ~dim ~t =>
                 inl k, offset = !!!!TagToSymbol(!!!!VarTag(a)), s.offset
-                inl len = $"len(!a)" : dim
-                inl nbytes = $"!a.nbytes" : dim
+                inl len = match s with {len} => len | _ => $"len(!a)" : dim
+                inl nbytes = len * conv `dim (sizeof `t)
                 upmem_kernel_array `t {offset len}, {s with offset#=fun o => roundup (o + nbytes) 8u32; arrays#=fun ar => {ar with $k={var=a; offset}}}
             | _ =>
                 a, s
@@ -73,6 +78,9 @@ inl dpu_unpack dpu s vars =
         | () => ()
         | {} as x => record_map (fun {key value} => loop value) x
         | (a,b) => loop a, loop b
+        | inv_array {len arrays} as a => 
+            typecase `a with
+            | inv_array ~ar ~dim ~el => inv_array `ar `dim `el {len arrays = loop arrays}
         | a _ as a =>
             inl {offset} = s.arrays !!!!TagToSymbol(!!!!VarTag(a))
             dpu_pull_array dpu a offset
@@ -92,7 +100,7 @@ inl dpu_unpack dpu s vars =
             | f64 => $"!dpu.v!i.float64()" : t
     loop vars
 
-inl default forall t. (len : u32) : t = 
+inl default forall dim t. (len : dim) : t = 
     inl rec loop forall t. = 
         typecase t with
         | ~a * ~b => loop `a, loop `b
@@ -107,7 +115,7 @@ inl default forall t. (len : u32) : t =
         | u64 => $"0" : t
         | f32 => $"0.0" : t
         | f32 => $"0.0" : t
-        | a ~dim ~t => create `a `dim `t len
+        | ~a dim ~t => create `a `dim `t len
     loop `t
 
 inl rec assign a b = real

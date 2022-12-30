@@ -1,0 +1,26 @@
+type dim = u32
+type py_array t = a dim t
+nominal upmem_kernel_array t = {len : dim;  offset : dim}
+
+inl index_upmem forall t. (upmem_kernel_array {len offset} : _ t) (i : dim) : t =
+    $"((__mram_ptr `t *) (buffer + !offset))[!i]"
+
+inl set_upmem forall t. (upmem_kernel_array {len offset} : _ t) (i : dim) (x : t) : () =
+    $"((__mram_ptr `t *) (buffer + !offset))[!i] = !x"
+
+inl length_upmem forall t. (upmem_kernel_array {len offset} : _ t) : dim = len
+
+inl index forall t. (a : py_array t) (i : dim) : t = real 
+    match a with
+    | upmem_kernel_array _ => index_upmem `t a i
+    | _ => typecase `a with ~ar ~dim ~t => index `ar `dim `t a i
+
+inl set forall t. (a : py_array t) (i : dim) (x : t) : () = real 
+    match a with
+    | upmem_kernel_array _ => set_upmem `t a i x
+    | _ => typecase `a with ~ar ~dim ~t => set `ar `dim `t a i x
+
+inl length forall t. (a : py_array t) : dim = real 
+    match a with
+    | upmem_kernel_array _ => length_upmem `t a
+    | _ => typecase `a with ~ar ~dim ~t => length `ar `dim `t a
