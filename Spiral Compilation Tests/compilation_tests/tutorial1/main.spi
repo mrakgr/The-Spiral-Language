@@ -1,16 +1,6 @@
-nominal a = {x : i32}
-nominal b = {y : i32}
-
-prototype qwe t : t -> i32
-instance qwe a = fun (a {x}) => x
-instance qwe b = fun (b {y}) => y
-
-nominal q a = a
-instance qwe q w {qwe} = fun (q x) => real 
-    typecase `x with
-    | ~t => qwe `t x
-
 inl main () = 
-    inl x : q b = real q `a (a {x=1})
-    qwe x
+    inl x : inv a u64 f32 = create 1
+    inl y = index x 0
+    set x 0 y
+    ()
     
