@@ -151,6 +151,7 @@ type Op =
     | FunctionTermSlotsGet
     | FunctionTermSlotsSet
     | SizeOf
+    | FreeVars
 
 type PatternCompilationErrors =
     | DisjointOrPatternVar

@@ -1,0 +1,27 @@
+open utils_real
+
+let compile_kernel (kernel_i : i32) =
+    $"if not os.path.exists('kernels'): os.mkdir('kernels')"
+    inl file = $"open(f'kernels/g{!kernel_i}.c','w')" : $"object"
+    $"!file.write(kernels[!kernel_i])"
+    $"if os.system(f'dpu-upmem-dpurte-clang -o kernels/g{!kernel_i}.dpu kernels/g{!kernel_i}.c') \!= 0: raise Exception('Compilation failed.')"
+
+inl run forall a b. (input : a) (output : b) (f : a -> b -> i32) : () = join
+    real if has_free_vars f then real_core.error_type "The body of the kernel function in this version of `run` should not have any free variables. Pass them in through input and output instead."
+    inl input, in_s : a * _ = real dpu_arrays 0u32 input
+    inl output', out_s : b * _ = real dpu_arrays in_s.offset output
+    inl kernel_i, _ = join_backend UPMEM_C_Kernel f input output'
+    compile_kernel kernel_i
+    inl dpu = $"DpuSet(nr_dpus=1, binary=f'kernels/g{!kernel_i}.dpu', profile='backend=simulator')" : $"DpuSet"
+    inl vars = real dpu_pack dpu (real_core.free_vars input)
+    real dpu_arrays_transfer dpu in_s.arrays
+    $"!dpu.exec()" // Note: Putting in log=stdout and not using a printf inside the kernel results in an error.
+    real dpu_unpack dpu {arrays=out_s.arrays; vars} output
+    
+inl assign forall t. (a : t) (b : t) : () = real assign a b
+
+open upmem
+open inv
+inl arange (len : dim) : inv_array a dim i32 = 
+    inl arrays : a u32 i32 = $"np.arange(0,!len,dtype=np.int32)"
+    real inv_array `a `u32 `i32 {len arrays}

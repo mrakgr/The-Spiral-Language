@@ -1,11 +1,18 @@
 open real_core
-inl create' forall ar el. size =
+
+inl infer_templ forall el. g =
     inl rec f forall el. =
         typecase el with
         | ~a * ~b => f `a, f `b
         | {} => record_type_map (fun k => f) `el
-        | _ => create `ar `(`size) `el size
+        | _ => g `el
     f `el
+
+// Is only supposed to be used for inference.
+inl infer forall ar dim el. = infer_templ `el (forall el. => ``(ar dim el))
+
+// Creates an inverse form arrays.
+inl create' forall ar el. size = infer_templ `el (forall el. => create `ar `(`size) `el size)
 
 inl index' ar i =
     inl rec f = function
@@ -14,12 +21,12 @@ inl index' ar i =
         | ar => typecase `ar with ~ar ~dim ~el => index `ar `dim `el ar i
     f ar
 
-inl iter2 f a b =
+inl iter2 g a b =
     inl rec f = function
         | (a, b), (va,vb) => f (a, va) . f (b, vb)
         | ({} & ar, {} & v) => record_iter (fun {key value} => f (ar key, value)) v
-        | ar,v => f ar v
-    f a b
+        | ar,v => g ar v
+    f (a, b)
 
 inl set' ar i v = iter2 (fun ar v => typecase `ar with ~ar ~dim ~el => set `ar `dim `el ar i v) ar v
 

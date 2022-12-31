@@ -407,11 +407,11 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
     and lit = function
         | LitInt8 x -> sprintf "%i" x
         | LitInt16 x -> sprintf "%i" x
-        | LitInt32 x -> sprintf "%i" x
+        | LitInt32 x -> sprintf "%il" x
         | LitInt64 x -> sprintf "%ill" x
         | LitUInt8 x -> sprintf "%iu" x
         | LitUInt16 x -> sprintf "%iu" x
-        | LitUInt32 x -> sprintf "%iu" x
+        | LitUInt32 x -> sprintf "%iul" x
         | LitUInt64 x -> sprintf "%iull" x
         | LitFloat32 x -> 
             if x = infinityf then "HUGE_VALF" // nan/inf macros are defined in math.h

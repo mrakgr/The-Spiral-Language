@@ -76,28 +76,25 @@ inl dpu_pack dpu vars =
 inl dpu_unpack dpu s vars = 
     inl rec loop = function
         | () => ()
-        | {} as x => record_map (fun {key value} => loop value) x
-        | (a,b) => loop a, loop b
-        | inv_array {len arrays} as a => 
-            typecase `a with
-            | inv_array ~ar ~dim ~el => inv_array `ar `dim `el {len arrays = loop arrays}
+        | {} as x => record_iter (fun {key value} => loop value) x
+        | (a,b) => loop a . loop b
+        | inv_array {len arrays} as a => loop arrays
         | a _ as a =>
             inl {offset} = s.arrays !!!!TagToSymbol(!!!!VarTag(a))
             dpu_pull_array dpu a offset
-            a
         | a => typecase `a with ~t =>
             inl i = s.vars !!!!TagToSymbol(!!!!VarTag(a))
             typecase t with
-            | i8 =>  $"!dpu.v!i.int8()" : t
-            | i16 => $"!dpu.v!i.int16()" : t
-            | i32 => $"!dpu.v!i.int32()" : t
-            | i64 => $"!dpu.v!i.int64()" : t
-            | u8 =>  $"!dpu.v!i.uint8()" : t
-            | u16 => $"!dpu.v!i.uint16()" : t
-            | u32 => $"!dpu.v!i.uint32()" : t
-            | u64 => $"!dpu.v!i.uint64()" : t
-            | f32 => $"!dpu.v!i.float32()" : t
-            | f64 => $"!dpu.v!i.float64()" : t
+            | i8 =>  $"!a = !dpu.v!i.int8()" : ()
+            | i16 => $"!a = !dpu.v!i.int16()" : ()
+            | i32 => $"!a = !dpu.v!i.int32()" : ()
+            | i64 => $"!a = !dpu.v!i.int64()" : ()
+            | u8 =>  $"!a = !dpu.v!i.uint8()" : ()
+            | u16 => $"!a = !dpu.v!i.uint16()" : ()
+            | u32 => $"!a = !dpu.v!i.uint32()" : ()
+            | u64 => $"!a = !dpu.v!i.uint64()" : ()
+            | f32 => $"!a = !dpu.v!i.float32()" : ()
+            | f64 => $"!a = !dpu.v!i.float64()" : ()
     loop vars
 
 inl default forall dim t. (len : dim) : t = 

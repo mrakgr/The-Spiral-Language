@@ -30,6 +30,8 @@ inl exp x = !!!!Exp(x)
 inl tanh x = !!!!Tanh(x)
 // Square root.
 inl sqrt x = !!!!Sqrt(x)
+// Unsafe conversion.
+inl conv forall b. x = !!!!Conv(`b, x)
 
 // Applies the first argument to the second.
 inl (|>) a b = b a
@@ -182,6 +184,8 @@ inl nominal_type_is forall x. = !!!!NominalTypeIs(`x)
 inl function_term_slots_get a = !!!!FunctionTermSlotsGet(a)
 // Immutably replaces the term slots field array by the tuple.
 inl function_term_slots_set a b = !!!!FunctionTermSlotsSet(a,b)
+// Gets the free vars of a term as a tuple.
+inl free_vars x = !!!!FreeVars(x)
 
 // Structural polymorphic equality for every type in the language (apart from functions.)
 inl rec (=) a b =

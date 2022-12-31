@@ -1007,7 +1007,10 @@ let peval (env : TopEnv) (x : E) =
             push_typedop_no_rewrite s (TyMacro(a)) (ty s b)
         | EPrototypeApply(_,prot_id,b) ->
             let rec loop = function
-                | YNominal b -> term s env.prototypes_instances.[prot_id,b.node.id]
+                | YNominal b -> 
+                    match env.prototypes_instances.TryGetValue((prot_id,b.node.id)) with
+                    | true,x -> term s x
+                    | _ -> raise_type_error s "An instance of the prototype being applied could be found in the dictionary."
                 | YApply(a,b) -> type_apply s (loop a) b
                 | b -> raise_type_error s <| sprintf "Expected a nominal or a deferred type apply.\nGot: %s" (show_ty b)
             loop (ty s b)
@@ -2078,6 +2081,9 @@ let peval (env : TopEnv) (x : E) =
             | YPrim (Int32T | UInt32T | Float32T) -> DLit (LitInt32 4)
             | YPrim (Int64T | UInt64T | Float64T) -> DLit (LitInt32 8)
             | a -> raise_type_error s $"Expected an int or a float type.\nGot: {show_ty a}"
+        | EOp(_,FreeVars,[a]) ->
+            let x = term s a |> data_free_vars
+            Array.foldBack (fun x s -> DPair(DV x,s)) x DB
         | EOp(_,op,a) -> raise_type_error s <| sprintf "Compiler error: %A with %i args not implemented" op (List.length a)
 
     let s : LangEnv = {

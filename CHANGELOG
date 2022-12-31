@@ -1,6 +1,9 @@
 2.3.5 (WIP)
 
-* Added SizeOf to the language.
+* Added the SizeOf op to the language.
+* Modified the way Int32 and UInt32 literals are printed back to how they were before.
+* Added a check when applying prototype instances.
+* Added the FreeVars op to the language
 
 2.3.4 (12/29/2022)
 

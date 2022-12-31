@@ -1,4 +1,4 @@
-// Does the inverse array map work?
+// Does the inverse array kernel work?
 
 open inv
 open upmem
@@ -6,7 +6,9 @@ open upmem_loop
 open utils_real
 open utils
 
-inl arange (len : dim) : inv_array a u32 i32 = inv_array {len arrays = $"np.arange(0,!len,dtype=np.int32)"}
+inl arange (len : dim) : inv_array a u32 i32 = 
+    inl arrays : a u32 i32 = $"np.arange(0,!len,dtype=np.int32)"
+    real inv_array `a `u32 `i32 {len arrays}
 
 inl main () =
     global "import os"
@@ -17,6 +19,7 @@ inl main () =
     inl test_size = 64
     inl a,b,c = arange test_size, arange test_size, arange test_size
     $"print(!a)"
+    
     inl a = run a fun () =>
         global "#include <mram.h>"
         global "__mram_noinit uint8_t buffer[1024*1024*64];"

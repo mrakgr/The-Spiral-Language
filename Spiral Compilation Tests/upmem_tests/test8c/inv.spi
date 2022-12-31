@@ -1,0 +1,15 @@
+open iam_real
+nominal inv_array (ar : * -> * -> *) dim el = {len : dim; arrays : `(infer `ar `dim `el)}
+instance create inv_array ar = fun len => inv_array {len arrays=real create' `ar `el len}
+instance index inv_array ar = fun (inv_array {arrays}) i => real index' arrays i
+instance set inv_array ar = fun (inv_array {arrays}) i v => real set' arrays i v
+instance length inv_array ar = fun (inv_array {len}) => len
+
+// Zips two inverse arrays. Apart from length checking, all the work is done at compile time.
+inl zip forall (ar : * -> * -> *) dim a b. (a : inv_array ar dim a) (b : inv_array ar dim b) : inv_array ar dim (a * b) =
+    assert (length a = length b) "The two arrays have to be that same length for zipping to work."
+    real inv_array `ar `dim `(a * b) {len=a.len; arrays=a.arrays,b.arrays}
+    
+// Should only be used to rearrange internal fields.
+inl rezip forall (ar : * -> * -> *) dim a b. (f : a -> b) (a : inv_array ar dim a) : inv_array ar dim b =
+    real inv_array `ar `dim `(a * b) {len=a.len; arrays=f a.arrays}

@@ -34,9 +34,11 @@ inl mram_write' forall dim {number} t. (src : array_ptr dim t) (dst : a dim t) {
 
 open inv
 inl mram_read forall dim {number} t. (src : inv_array a dim t) (dst : inv_array array_ptr dim t) r : () =
-    inl f (a : a dim t) (b : array_ptr dim t) = mram_read' a b r
-    real iam_real.iter2 f src.arrays dst.arrays
+    real iam_real.iter2 (fun a b => 
+        typecase `a with _ ~t => mram_read' `dim `t a b r
+        ) src.arrays dst.arrays
 
 inl mram_write forall dim {number} t. (src : inv_array array_ptr dim t) (dst : inv_array a dim t) r : () =
-    inl f (a : array_ptr dim t) (b : a dim t) = mram_write' a b r
-    real iam_real.iter2 f src.arrays dst.arrays
+    real iam_real.iter2 (fun a b => 
+        typecase `a with _ ~t => mram_write' `dim `t a b r
+        ) src.arrays dst.arrays

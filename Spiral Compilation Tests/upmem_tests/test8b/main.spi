@@ -1,0 +1,41 @@
+// Does the inverse array map work?
+
+open inv
+open upmem
+open upmem_loop
+open utils_real
+open utils
+
+inl map_inp f input output =
+    run output fun () =>
+        global "#include <mram.h>"
+        global "__mram_noinit uint8_t buffer[1024*1024*64];"
+        inl block_size = 8 // Values less that 8 freeze the terminal when I try to run this. Maybe the min byte size needs to be 32.
+        inl buf_in = create block_size
+        inl buf_out = create block_size
+        inl len = length input
+        forBy {from=0; nearTo=len; by=block_size} fun from =>
+            inl nearTo = min len (from + block_size)
+            mram_read input buf_in {from nearTo}
+            for {from=0; nearTo=nearTo - from} fun i => 
+                set buf_out i (f (index buf_in i))
+            mram_write buf_out output {from nearTo}
+        0
+
+inl map f input = inl output = create (length input) in map_inp f input output . output
+
+inl main () =
+    global "import os"
+    global "from io import StringIO"
+    global "from sys import stdout"
+    global "import struct"
+
+    inl test_size = 64
+    inl input = 
+        zip (arange test_size)
+        <| zip (arange test_size)
+        <| arange test_size
+    $"print(!input)"
+    inl output = map (fun a,b,c => a+b+c+10) input
+    $"print(!output)"
+    ()
