@@ -1,3 +1,7 @@
+2.3.7 (WIP)
+
+* Grammar fix to the v$ macro error message, as well as a small efficiency improvement in string building.
+
 2.3.6 (1/1/2023)
 
 * Expanded the v$ macro in the C backend a bit.

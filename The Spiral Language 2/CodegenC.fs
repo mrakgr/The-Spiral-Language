@@ -319,11 +319,11 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
                         else
                             if d.Length = q.Length-1 then
                                 let w = StringBuilder(m.Length+8)
-                                let tag (L(i,_)) = $"v{i}"
-                                Array.iteri (fun i v -> w.Append(q.[i]).Append(tag v) |> ignore) d
+                                let tag (L(i,_)) = i : int
+                                Array.iteri (fun i v -> w.Append(q.[i]).Append('v').Append(tag v) |> ignore) d
                                 w.Append(q.[d.Length]).Append(';').ToString() |> line s
                             else
-                                raise_codegen_error "The special v$ macro requires the same number of free vars in its binding as they are v$ in the code."
+                                raise_codegen_error "The special v$ macro requires the same number of free vars in its binding as there are v$ in the code."
                     | _ ->
                         decl_vars |> line' s
                         op vars s (BindsLocal d) a
