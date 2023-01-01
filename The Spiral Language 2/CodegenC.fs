@@ -312,14 +312,18 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
                     match a with
                     | TyMacro a ->
                         let m = a |> List.map (function CMText x -> x | CMTerm x -> tup_data x | CMType x -> tup_ty x) |> String.concat ""
-                        let i' = m.IndexOf("v$")
-                        if i' = -1 then // Special case for declaring uninitialized arrays.
+                        let q = m.Split("v$")
+                        if q.Length = 1 then 
                             decl_vars |> line' s
                             return_local s d m 
                         else
-                            match d with
-                            | [|L(i,_)|] -> line s (StringBuilder(m).Remove(i',2).Insert(i',$"v{i}").Append(';').ToString())
-                            | _ -> raise_codegen_error "The special v$ macro requires a local binding with a single free variable."
+                            if d.Length = q.Length-1 then
+                                let w = StringBuilder(m.Length+8)
+                                let tag (L(i,_)) = $"v{i}"
+                                Array.iteri (fun i v -> w.Append(q.[i]).Append(tag v) |> ignore) d
+                                w.Append(q.[d.Length]).Append(';').ToString() |> line s
+                            else
+                                raise_codegen_error "The special v$ macro requires the same number of free vars in its binding as they are v$ in the code."
                     | _ ->
                         decl_vars |> line' s
                         op vars s (BindsLocal d) a

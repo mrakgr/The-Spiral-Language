@@ -1,1 +1,1 @@
-﻿ 
+﻿"asd v$ qwe v$ zxc".Split("v$")

@@ -1,3 +1,7 @@
+2.3.6 (1/1/2023)
+
+* Expanded the v$ macro in the C backend a bit.
+
 2.3.5 (12/31/2022)
 
 * Added the SizeOf op to the language.
