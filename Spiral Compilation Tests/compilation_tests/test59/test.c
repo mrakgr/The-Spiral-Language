@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 int32_t method2(int32_t v0, int32_t v1){
     bool v2;
     v2 = 0l < v1;
@@ -105,8 +104,5 @@ int32_t main(){
     v0 = 100l;
     int32_t v1;
     v1 = 0l;
-    int32_t v2;
-    v2 = method0(v0, v1);
-    printf("%i\n",v2);
-    return 0l;
+    return method0(v0, v1);
 }
