@@ -3,7 +3,7 @@ nominal serialized t = a u32 f32
 
 inl serialize forall t. (pu p : pu t) (x : t) : serialized t =
     inl ar = create p.size
-    $"!ar[:] = 0"
+    // $"!ar[:] = 0"
     p.pickle x (0,ar)
     // $"printfn \"%A\" !ar"
     serialized ar

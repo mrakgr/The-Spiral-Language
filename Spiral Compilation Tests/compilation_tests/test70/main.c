@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 typedef struct {
     int64_t v2;
     float v1;
@@ -45,6 +44,7 @@ void ClosureDecref0(Closure0 * x){
 }
 Tuple0 ClosureMethod0(Closure0 * x){
     char v0 = x->v0; float v1 = x->v1; int64_t v2 = x->v2;
+    ClosureDecref0(x);
     return TupleCreate0(v0, v1, v2);
 }
 Fun0 * ClosureCreate0(char v0, float v1, int64_t v2){

@@ -564,7 +564,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
             $"ArrayCreate{a.tag}({tup_data b}, {is_heap})" |> return'
         | TyFailwith(a,b) -> 
             let fmt = @"%s\n"
-            line s $"fprintf(stderr, \"{fmt}\", {string_in_op b})"
+            line s $"fprintf(stderr, \"{fmt}\", {string_in_op b});"
             line s "exit(EXIT_FAILURE);" // TODO: Print out the error traces as well.
         | TyConv(a,b) -> return' $"({tyv a}){tup_data b}"
         | TyApply(L(i,_),b) -> 

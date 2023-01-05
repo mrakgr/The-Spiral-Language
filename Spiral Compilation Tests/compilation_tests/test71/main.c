@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 typedef struct {
     int refc;
     uint32_t len;
@@ -39,12 +38,12 @@ Heap0 * HeapCreate0(Array0 * v0){
     Heap0 * x = malloc(sizeof(Heap0));
     x->refc = 1;
     x->v0 = v0;
-    v0->refc++;
     return x;
 }
 int32_t main(){
     Array0 * v0;
     v0 = ArrayCreate0(1l, false);
+    v0->refc++;
     Heap0 * v1;
     v1 = HeapCreate0(v0);
     ArrayDecref0(v0); HeapDecref0(v1);

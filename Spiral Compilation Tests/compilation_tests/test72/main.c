@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 typedef struct {
     int refc;
     bool v0;
@@ -20,7 +19,6 @@ Heap0 * HeapCreate0(bool v0){
     return x;
 }
 Heap0 * method2(Heap0 * v0){
-    v0->refc++;
     return v0;
 }
 Heap0 * method1(Heap0 * v0){
@@ -36,6 +34,7 @@ int32_t main(){
     v1 = HeapCreate0(true);
     Heap0 * v3;
     if (v0){
+        v1->refc++;
         v3 = method0(v1);
     } else {
         v1->refc++;

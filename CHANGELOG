@@ -1,6 +1,9 @@
-2.3.7 (WIP)
+2.3.7 (1/5/2023)
+
+Another significant redesign of the C ref counting backend. Tail recursive loops will be maximally efficient. Will be suitable for multithreaded code if atomics are brought in. Also the old version was broken when duplicate variables are passed into closure calls.
 
 * Grammar fix to the v$ macro error message, as well as a small efficiency improvement in string building.
+* Fixed the missing semicolon in the TyFailwith case.
 
 2.3.6 (1/1/2023)
 
