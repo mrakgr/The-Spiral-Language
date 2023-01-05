@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 typedef struct {
     int refc;
     uint32_t len;
@@ -40,11 +39,9 @@ Mut0 * MutCreate0(uint64_t v0){
     x->v0 = v0;
     return x;
 }
-bool method0(Mut0 * v0){
-    v0->refc++;
+bool method_while0(Mut0 * v0){
     uint64_t v1;
     v1 = v0->v0;
-    MutDecref0(v0);
     bool v2;
     v2 = v1 < 1ull;
     return v2;
@@ -57,7 +54,7 @@ int32_t main(){
     v0 = ArrayCreate0(1ull, false);
     Mut0 * v1;
     v1 = MutCreate0(0ull);
-    while (method0(v1)){
+    while (method_while0(v1)){
         uint64_t v3;
         v3 = v1->v0;
         /* void array set */;

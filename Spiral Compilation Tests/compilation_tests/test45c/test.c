@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 typedef struct UH0 UH0;
 void UHDecref0(UH0 * x);
 typedef struct {
@@ -91,13 +90,8 @@ static inline void USDecrefBody0(US0 * x){
     switch (x->tag) {
     }
 }
-static inline void USSupprefBody0(US0 * x){
-    switch (x->tag) {
-    }
-}
 void USIncref0(US0 * x){ USIncrefBody0(x); }
 void USDecref0(US0 * x){ USDecrefBody0(x); }
-void USSuppref0(US0 * x){ USSupprefBody0(x); }
 US0 US0_0() { // Empty
     US0 x;
     x.tag = 0;
@@ -175,11 +169,9 @@ Mut0 * MutCreate0(uint64_t v0){
     x->v0 = v0;
     return x;
 }
-bool method0(uint64_t v0, Mut0 * v1){
-    v1->refc++;
+bool method_while0(uint64_t v0, Mut0 * v1){
     uint64_t v2;
     v2 = v1->v0;
-    MutDecref0(v1);
     bool v3;
     v3 = v2 < v0;
     return v3;
@@ -237,7 +229,6 @@ UH0 * UH0_0(String * v0, UH0 * v1) { // Cons
     x->tag = 0;
     x->refc = 1;
     x->case0.v0 = v0; x->case0.v1 = v1;
-    v0->refc++; v1->refc++;
     return x;
 }
 UH0 * UH0_1() { // Nil
@@ -316,17 +307,8 @@ static inline void USDecrefBody1(US1 * x){
         }
     }
 }
-static inline void USSupprefBody1(US1 * x){
-    switch (x->tag) {
-        case 1: {
-            x->case1.v0->refc--;
-            break;
-        }
-    }
-}
 void USIncref1(US1 * x){ USIncrefBody1(x); }
 void USDecref1(US1 * x){ USDecrefBody1(x); }
-void USSuppref1(US1 * x){ USSupprefBody1(x); }
 US1 US1_0() { // None
     US1 x;
     x.tag = 0;
@@ -336,7 +318,6 @@ US1 US1_1(UH0 * v0) { // Some
     US1 x;
     x.tag = 1;
     x.case1.v0 = v0;
-    v0->refc++;
     return x;
 }
 static inline void MutDecrefBody1(Mut1 * x){
@@ -349,7 +330,6 @@ Mut1 * MutCreate1(US1 v0){
     Mut1 * x = malloc(sizeof(Mut1));
     x->refc = 1;
     x->v0 = v0;
-    USIncref1(&(v0));
     return x;
 }
 static inline Tuple0 TupleCreate0(uint64_t v0, uint64_t v1, UH0 * v2){
@@ -439,11 +419,9 @@ Mut2 * MutCreate2(uint64_t v0, uint64_t v1){
     x->v0 = v0; x->v1 = v1;
     return x;
 }
-bool method3(uint64_t v0, Mut2 * v1){
-    v1->refc++;
+bool method_while1(uint64_t v0, Mut2 * v1){
     uint64_t v2;
     v2 = v1->v0;
-    MutDecref2(v1);
     bool v3;
     v3 = v2 < v0;
     return v3;
@@ -451,18 +429,16 @@ bool method3(uint64_t v0, Mut2 * v1){
 static inline void AssignMut2(uint64_t * a0, uint64_t b0, uint64_t * a1, uint64_t b1){
     *a0 = b0; *a1 = b1;
 }
-UH0 * method4(UH0 * v0, UH0 * v1){
-    v0->refc++; v1->refc++;
+UH0 * method2(UH0 * v0, UH0 * v1){
     switch (v0->tag) {
         case 0: { // Cons
             String * v2 = v0->case0.v0; UH0 * v3 = v0->case0.v1;
-            v2->refc++; v3->refc++;
+            v1->refc++; v2->refc += 2; v3->refc++;
             UHDecref0(v0);
             UH0 * v4;
             v4 = UH0_0(v2, v1);
             UHDecref0(v1); StringDecref(v2);
-            v3->refc--; v4->refc--;
-            return method4(v3, v4);
+            return method2(v3, v4);
             break;
         }
         case 1: { // Nil
@@ -472,15 +448,14 @@ UH0 * method4(UH0 * v0, UH0 * v1){
         }
     }
 }
-UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
-    v0->refc++; v1->refc++; v2->refc++; v3->refc++;
+UH0 * method1(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
     uint64_t v4;
     v4 = v3->len;
     Array6 * v5;
     v5 = ArrayCreate6(v4, true);
     Mut0 * v6;
     v6 = MutCreate0(0ull);
-    while (method0(v4, v6)){
+    while (method_while0(v4, v6)){
         uint64_t v8;
         v8 = v6->v0;
         uint64_t v9; uint64_t v10; UH0 * v11;
@@ -545,21 +520,22 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
             ArrayDecref1(v27);
             bool v29;
             switch (v28.tag) {
-                case 0: { // Empty
-                    v29 = false;
-                    break;
-                }
                 case 1: { // Princess
                     v29 = true;
                     break;
+                }
+                default: {
+                    v29 = false;
                 }
             }
             USDecref0(&(v28));
             if (v29){
                 String * v30;
                 v30 = StringLit(3, "UP");
+                v11->refc++; v30->refc++;
                 UH0 * v31;
                 v31 = UH0_0(v30, v11);
+                v31->refc++;
                 StringDecref(v30);
                 US1 v32;
                 v32 = US1_1(v31);
@@ -635,21 +611,22 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
             ArrayDecref1(v50);
             bool v52;
             switch (v51.tag) {
-                case 0: { // Empty
-                    v52 = false;
-                    break;
-                }
                 case 1: { // Princess
                     v52 = true;
                     break;
+                }
+                default: {
+                    v52 = false;
                 }
             }
             USDecref0(&(v51));
             if (v52){
                 String * v53;
                 v53 = StringLit(5, "DOWN");
+                v11->refc++; v53->refc++;
                 UH0 * v54;
                 v54 = UH0_0(v53, v11);
+                v54->refc++;
                 StringDecref(v53);
                 US1 v55;
                 v55 = US1_1(v54);
@@ -725,21 +702,22 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
             ArrayDecref1(v73);
             bool v75;
             switch (v74.tag) {
-                case 0: { // Empty
-                    v75 = false;
-                    break;
-                }
                 case 1: { // Princess
                     v75 = true;
                     break;
+                }
+                default: {
+                    v75 = false;
                 }
             }
             USDecref0(&(v74));
             if (v75){
                 String * v76;
                 v76 = StringLit(5, "LEFT");
+                v11->refc++; v76->refc++;
                 UH0 * v77;
                 v77 = UH0_0(v76, v11);
+                v77->refc++;
                 StringDecref(v76);
                 US1 v78;
                 v78 = US1_1(v77);
@@ -813,21 +791,22 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
             ArrayDecref1(v95);
             bool v97;
             switch (v96.tag) {
-                case 0: { // Empty
-                    v97 = false;
-                    break;
-                }
                 case 1: { // Princess
                     v97 = true;
                     break;
+                }
+                default: {
+                    v97 = false;
                 }
             }
             USDecref0(&(v96));
             if (v97){
                 String * v98;
                 v98 = StringLit(6, "RIGHT");
+                v11->refc++; v98->refc++;
                 UH0 * v99;
                 v99 = UH0_0(v98, v11);
+                v99->refc++;
                 StringDecref(v98);
                 US1 v100;
                 v100 = US1_1(v99);
@@ -881,6 +860,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
         if (v34){
             String * v111;
             v111 = StringLit(3, "UP");
+            v11->refc++; v111->refc++;
             UH0 * v112;
             v112 = UH0_0(v111, v11);
             StringDecref(v111);
@@ -894,6 +874,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
         if (v57){
             String * v114;
             v114 = StringLit(5, "DOWN");
+            v11->refc++; v114->refc++;
             UH0 * v115;
             v115 = UH0_0(v114, v11);
             StringDecref(v114);
@@ -909,6 +890,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
         if (v80){
             String * v118;
             v118 = StringLit(5, "LEFT");
+            v11->refc++; v118->refc++;
             UH0 * v119;
             v119 = UH0_0(v118, v11);
             StringDecref(v118);
@@ -924,6 +906,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
         if (v102){
             String * v122;
             v122 = StringLit(6, "RIGHT");
+            v11->refc++; v122->refc++;
             UH0 * v123;
             v123 = UH0_0(v122, v11);
             StringDecref(v122);
@@ -948,7 +931,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
     v127 = v5->len;
     Mut2 * v128;
     v128 = MutCreate2(0ull, 0ull);
-    while (method3(v127, v128)){
+    while (method_while1(v127, v128)){
         uint64_t v130;
         v130 = v128->v0;
         uint64_t v131;
@@ -972,7 +955,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
     v137 = ArrayCreate5(v136, true);
     Mut2 * v138;
     v138 = MutCreate2(0ull, 0ull);
-    while (method3(v127, v138)){
+    while (method_while1(v127, v138)){
         uint64_t v140;
         v140 = v138->v0;
         uint64_t v141;
@@ -984,7 +967,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
         v143 = v142->len;
         Mut2 * v144;
         v144 = MutCreate2(0ull, v141);
-        while (method3(v143, v144)){
+        while (method_while1(v143, v144)){
             uint64_t v146;
             v146 = v144->v0;
             uint64_t v147;
@@ -1019,8 +1002,7 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
     switch (v156.tag) {
         case 0: { // None
             USDecref1(&(v156));
-            v0->refc--; v1->refc--; v2->refc--; v137->refc--;
-            return method2(v0, v1, v2, v137);
+            return method1(v0, v1, v2, v137);
             break;
         }
         case 1: { // Some
@@ -1029,21 +1011,19 @@ UH0 * method2(Array3 * v0, Array0 * v1, Mut1 * v2, Array5 * v3){
             ArrayDecref3(v0); ArrayDecref0(v1); MutDecref1(v2); ArrayDecref5(v137); USDecref1(&(v156));
             UH0 * v159;
             v159 = UH0_1();
-            v158->refc--; v159->refc--;
-            return method4(v158, v159);
+            return method2(v158, v159);
             break;
         }
     }
 }
-UH0 * method1(Array0 * v0, uint64_t v1, uint64_t v2){
-    v0->refc++;
+UH0 * method0(Array0 * v0, uint64_t v1, uint64_t v2){
     uint64_t v3;
     v3 = v0->len;
     Array3 * v4;
     v4 = ArrayCreate3(v3, true);
     Mut0 * v5;
     v5 = MutCreate0(0ull);
-    while (method0(v3, v5)){
+    while (method_while0(v3, v5)){
         uint64_t v7;
         v7 = v5->v0;
         Array1 * v8;
@@ -1056,7 +1036,7 @@ UH0 * method1(Array0 * v0, uint64_t v1, uint64_t v2){
         v10 = ArrayCreate4(v9, false);
         Mut0 * v11;
         v11 = MutCreate0(0ull);
-        while (method0(v9, v11)){
+        while (method_while0(v9, v11)){
             uint64_t v13;
             v13 = v11->v0;
             AssignArray2(&(v10->ptr[v13]), false);
@@ -1074,6 +1054,7 @@ UH0 * method1(Array0 * v0, uint64_t v1, uint64_t v2){
     MutDecref0(v5);
     US1 v16;
     v16 = US1_0();
+    USIncref1(&(v16));
     Mut1 * v17;
     v17 = MutCreate1(v16);
     USDecref1(&(v16));
@@ -1083,11 +1064,9 @@ UH0 * method1(Array0 * v0, uint64_t v1, uint64_t v2){
     v19 = UH0_1();
     AssignArray4(&(v18->ptr[0ull]), TupleCreate0(v1, v2, v19));
     UHDecref0(v19);
-    v0->refc--; v4->refc--; v17->refc--; v18->refc--;
-    return method2(v4, v0, v17, v18);
+    return method1(v4, v0, v17, v18);
 }
-void method5(UH0 * v0){
-    v0->refc++;
+void method3(UH0 * v0){
     switch (v0->tag) {
         case 0: { // Cons
             String * v1 = v0->case0.v0; UH0 * v2 = v0->case0.v1;
@@ -1095,8 +1074,7 @@ void method5(UH0 * v0){
             UHDecref0(v0);
             printf("%s\n",v1->ptr);
             StringDecref(v1);
-            v2->refc--;
-            return method5(v2);
+            return method3(v2);
             break;
         }
         case 1: { // Nil
@@ -1118,14 +1096,14 @@ int32_t main(){
     v3 = ArrayCreate0(v0, true);
     Mut0 * v4;
     v4 = MutCreate0(0ull);
-    while (method0(v0, v4)){
+    while (method_while0(v0, v4)){
         uint64_t v6;
         v6 = v4->v0;
         Array1 * v7;
         v7 = ArrayCreate1(v0, false);
         Mut0 * v8;
         v8 = MutCreate0(0ull);
-        while (method0(v0, v8)){
+        while (method_while0(v0, v8)){
             uint64_t v10;
             v10 = v8->v0;
             bool v11;
@@ -1163,11 +1141,13 @@ int32_t main(){
     v19 = 0ull;
     uint64_t v20;
     v20 = 0ull;
+    v3->refc++;
     UH0 * v21;
-    v21 = method1(v3, v19, v20);
+    v21 = method0(v3, v19, v20);
     ArrayDecref0(v3);
     printf("%s\n","Printing");
-    method5(v21);
+    v21->refc++;
+    method3(v21);
     UHDecref0(v21);
     return 0l;
 }

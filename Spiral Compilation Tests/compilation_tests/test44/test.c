@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 typedef struct UH0 UH0;
 void UHDecref0(UH0 * x);
 typedef struct UH1 UH1;
@@ -76,7 +75,6 @@ UH0 * UH0_0(int32_t v0, UH0 * v1) { // Cons
     x->tag = 0;
     x->refc = 1;
     x->case0.v0 = v0; x->case0.v1 = v1;
-    v1->refc++;
     return x;
 }
 UH0 * UH0_1() { // Nil
@@ -125,7 +123,6 @@ UH1 * UH1_0(String * v0, UH1 * v1) { // Cons
     x->tag = 0;
     x->refc = 1;
     x->case0.v0 = v0; x->case0.v1 = v1;
-    v0->refc++; v1->refc++;
     return x;
 }
 UH1 * UH1_1() { // Nil
@@ -150,7 +147,6 @@ UH2 * UH2_0(bool v0, UH2 * v1) { // Cons
     x->tag = 0;
     x->refc = 1;
     x->case0.v0 = v0; x->case0.v1 = v1;
-    v1->refc++;
     return x;
 }
 UH2 * UH2_1() { // Nil
@@ -175,7 +171,6 @@ UH3 * UH3_0(int32_t v0, String * v1, bool v2, UH3 * v3) { // Cons
     x->tag = 0;
     x->refc = 1;
     x->case0.v0 = v0; x->case0.v1 = v1; x->case0.v2 = v2; x->case0.v3 = v3;
-    v1->refc++; v3->refc++;
     return x;
 }
 UH3 * UH3_1() { // Nil
@@ -185,16 +180,14 @@ UH3 * UH3_1() { // Nil
     return x;
 }
 UH3 * method3(int32_t v0, String * v1, UH2 * v2, UH3 * v3){
-    v1->refc++; v2->refc++; v3->refc++;
     switch (v2->tag) {
         case 0: { // Cons
             bool v4 = v2->case0.v0; UH2 * v5 = v2->case0.v1;
-            v5->refc++;
+            v1->refc++; v3->refc++; v5->refc += 2;
             UHDecref2(v2);
             UH3 * v6;
             v6 = method3(v0, v1, v5, v3);
             UHDecref3(v3); UHDecref2(v5);
-            v1->refc--; v6->refc--;
             return UH3_0(v0, v1, v4, v6);
             break;
         }
@@ -206,16 +199,14 @@ UH3 * method3(int32_t v0, String * v1, UH2 * v2, UH3 * v3){
     }
 }
 UH3 * method4(UH3 * v0, UH3 * v1){
-    v0->refc++; v1->refc++;
     switch (v0->tag) {
         case 0: { // Cons
             int32_t v2 = v0->case0.v0; String * v3 = v0->case0.v1; bool v4 = v0->case0.v2; UH3 * v5 = v0->case0.v3;
-            v3->refc++; v5->refc++;
+            v1->refc++; v3->refc++; v5->refc += 2;
             UHDecref3(v0);
             UH3 * v6;
             v6 = method4(v5, v1);
             UHDecref3(v1); UHDecref3(v5);
-            v3->refc--; v6->refc--;
             return UH3_0(v2, v3, v4, v6);
             break;
         }
@@ -227,21 +218,20 @@ UH3 * method4(UH3 * v0, UH3 * v1){
     }
 }
 UH3 * method2(UH2 * v0, int32_t v1, UH1 * v2, UH3 * v3){
-    v0->refc++; v2->refc++; v3->refc++;
     switch (v2->tag) {
         case 0: { // Cons
             String * v4 = v2->case0.v0; UH1 * v5 = v2->case0.v1;
-            v4->refc++; v5->refc++;
+            v0->refc++; v3->refc++; v4->refc++; v5->refc += 2;
             UHDecref1(v2);
             UH3 * v6;
             v6 = method2(v0, v1, v5, v3);
             UHDecref3(v3); UHDecref1(v5);
             UH3 * v7;
             v7 = UH3_1();
+            v0->refc++; v4->refc++; v7->refc++;
             UH3 * v8;
             v8 = method3(v1, v4, v0, v7);
             UHDecref2(v0); StringDecref(v4); UHDecref3(v7);
-            v6->refc--; v8->refc--;
             return method4(v8, v6);
             break;
         }
@@ -253,21 +243,20 @@ UH3 * method2(UH2 * v0, int32_t v1, UH1 * v2, UH3 * v3){
     }
 }
 UH3 * method1(UH1 * v0, UH2 * v1, UH0 * v2, UH3 * v3){
-    v0->refc++; v1->refc++; v2->refc++; v3->refc++;
     switch (v2->tag) {
         case 0: { // Cons
             int32_t v4 = v2->case0.v0; UH0 * v5 = v2->case0.v1;
-            v5->refc++;
+            v0->refc++; v1->refc++; v3->refc++; v5->refc += 2;
             UHDecref0(v2);
             UH3 * v6;
             v6 = method1(v0, v1, v5, v3);
             UHDecref3(v3); UHDecref0(v5);
             UH3 * v7;
             v7 = UH3_1();
+            v0->refc++; v1->refc++; v7->refc++;
             UH3 * v8;
             v8 = method2(v1, v4, v0, v7);
             UHDecref1(v0); UHDecref2(v1); UHDecref3(v7);
-            v6->refc--; v8->refc--;
             return method4(v8, v6);
             break;
         }
@@ -279,14 +268,11 @@ UH3 * method1(UH1 * v0, UH2 * v1, UH0 * v2, UH3 * v3){
     }
 }
 UH3 * method0(UH0 * v0, UH1 * v1, UH2 * v2){
-    v0->refc++; v1->refc++; v2->refc++;
     UH3 * v3;
     v3 = UH3_1();
-    v0->refc--; v1->refc--; v2->refc--; v3->refc--;
     return method1(v1, v2, v0, v3);
 }
 void method5(UH3 * v0){
-    v0->refc++;
     switch (v0->tag) {
         case 0: { // Cons
             int32_t v1 = v0->case0.v0; String * v2 = v0->case0.v1; bool v3 = v0->case0.v2; UH3 * v4 = v0->case0.v3;
@@ -294,7 +280,6 @@ void method5(UH3 * v0){
             UHDecref3(v0);
             printf("%i %s %i\n",v1, v2->ptr, (int) v3);
             StringDecref(v2);
-            v4->refc--;
             return method5(v4);
             break;
         }
@@ -314,11 +299,14 @@ int32_t main(){
     v2 = 3l;
     UH0 * v3;
     v3 = UH0_1();
+    v3->refc++;
     UH0 * v4;
     v4 = UH0_0(v2, v3);
+    v4->refc++;
     UHDecref0(v3);
     UH0 * v5;
     v5 = UH0_0(v1, v4);
+    v5->refc++;
     UHDecref0(v4);
     UH0 * v6;
     v6 = UH0_0(v0, v5);
@@ -329,8 +317,10 @@ int32_t main(){
     v8 = StringLit(2, "b");
     UH1 * v9;
     v9 = UH1_1();
+    v8->refc++; v9->refc++;
     UH1 * v10;
     v10 = UH1_0(v8, v9);
+    v7->refc++; v10->refc++;
     StringDecref(v8); UHDecref1(v9);
     UH1 * v11;
     v11 = UH1_0(v7, v10);
@@ -339,11 +329,14 @@ int32_t main(){
     v12 = true;
     UH2 * v13;
     v13 = UH2_1();
+    v13->refc++;
     UH2 * v14;
     v14 = UH2_0(v12, v13);
+    v6->refc++; v11->refc++; v14->refc++;
     UHDecref2(v13);
     UH3 * v15;
     v15 = method0(v6, v11, v14);
+    v15->refc++;
     UHDecref0(v6); UHDecref1(v11); UHDecref2(v14);
     method5(v15);
     UHDecref3(v15);

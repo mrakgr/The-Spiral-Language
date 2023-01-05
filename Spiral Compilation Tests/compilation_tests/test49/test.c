@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 typedef struct UH0 UH0;
 void UHDecref0(UH0 * x);
 typedef struct {
@@ -35,13 +34,8 @@ static inline void USDecrefBody0(US0 * x){
     switch (x->tag) {
     }
 }
-static inline void USSupprefBody0(US0 * x){
-    switch (x->tag) {
-    }
-}
 void USIncref0(US0 * x){ USIncrefBody0(x); }
 void USDecref0(US0 * x){ USDecrefBody0(x); }
-void USSuppref0(US0 * x){ USSupprefBody0(x); }
 US0 US0_0(int32_t v0) { // A
     US0 x;
     x.tag = 0;
@@ -70,7 +64,6 @@ UH0 * UH0_0(int32_t v0, UH0 * v1) { // Cons
     x->tag = 0;
     x->refc = 1;
     x->case0.v0 = v0; x->case0.v1 = v1;
-    v1->refc++;
     return x;
 }
 UH0 * UH0_1() { // Nil
@@ -80,7 +73,6 @@ UH0 * UH0_1() { // Nil
     return x;
 }
 int32_t method0(UH0 * v0, UH0 * v1){
-    v0->refc++; v1->refc++;
     switch (v1->tag == v0->tag ? v1->tag : -1) {
         case 0: { // Cons
             int32_t v2 = v1->case0.v0; UH0 * v3 = v1->case0.v1;
@@ -104,7 +96,6 @@ int32_t method0(UH0 * v0, UH0 * v1){
             bool v10;
             v10 = v9 == 0l;
             if (v10){
-                v3->refc--; v5->refc--;
                 return method0(v5, v3);
             } else {
                 UHDecref0(v3); UHDecref0(v5);
@@ -304,6 +295,7 @@ int32_t main(){
     v56 = 3l;
     UH0 * v57;
     v57 = UH0_1();
+    v57->refc++;
     UH0 * v58;
     v58 = UH0_0(v56, v57);
     UHDecref0(v57);
@@ -313,8 +305,10 @@ int32_t main(){
     v60 = 3l;
     UH0 * v61;
     v61 = UH0_1();
+    v61->refc++;
     UH0 * v62;
     v62 = UH0_0(v60, v61);
+    v62->refc++;
     UHDecref0(v61);
     UH0 * v63;
     v63 = UH0_0(v59, v62);
@@ -341,7 +335,7 @@ int32_t main(){
             bool v76;
             v76 = v75 == 0l;
             if (v76){
-                v71->refc--;
+                v58->refc++;
                 v84 = method0(v71, v58);
             } else {
                 UHDecref0(v71);

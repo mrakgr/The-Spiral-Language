@@ -484,7 +484,11 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
         | TyJoinPoint(a,args) -> return' (jp (a, args))
         | TyBackend(_,_,(r,_)) -> raise_codegen_error_backend r "The C backend does not support nesting of other backends."
         | TyWhile(a,b) ->
-            line s (sprintf "while (%s){" (jp a))
+            let cond =
+                match a with
+                | JPMethod(a,b),b' -> sprintf "method_while%i(%s)" (method_while (a,b)).tag (args b')
+                | _ -> raise_codegen_error "Expected a regular method rather than closure create in the while conditional."
+            line s (sprintf "while (%s){" cond)
             binds (indent s) (BindsLocal [||]) b
             line s "}"
         | TyIntSwitch(L(v_i,_),on_succ,on_fail) ->
@@ -630,18 +634,20 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
             |> return'
     and print_ordered_args s v = // Unlike C# for example, C keeps the struct fields in input order. To reduce padding, it is best to order the fields from largest to smallest.
         order_args v |> Array.iter (fun (L(i,x)) -> line s $"{tyv x} v{i};")
-    and method : _ -> MethodRec =
+    and method_templ is_while fun_name : _ -> MethodRec =
         jp (fun ((jp_body,key & (C(args,_))),i) ->
             match (fst env.join_point_method.[jp_body]).[key] with
             | Some a, Some range -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun _ s_typ s_fun x ->
-            let q = tup_ty x.range
+            let ret_ty = tup_ty x.range
             let args = x.free_vars |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
-            line s_fun (sprintf "%s method%i(%s){" q x.tag args)
-            binds_start x.free_vars (indent s_fun) x.body
+            line s_fun (sprintf "%s %s%i(%s){" ret_ty fun_name x.tag args)
+            binds_start (if is_while then [||] else x.free_vars) (indent s_fun) x.body
             line s_fun "}"
             )
+    and method_while : _ -> MethodRec = method_templ true "method_while"
+    and method : _ -> MethodRec = method_templ false "method"
     and closure : _ -> ClosureRec =
         jp (fun ((jp_body,key & (C(args,_,domain,range))),i) ->
             match (fst env.join_point_closure.[jp_body]).[key] with
@@ -906,7 +912,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
                 print_body (fun () ->
                     line s_fun $"{len_t} len = x->len;"
                     line s_fun $"{ptr_t} * ptr = x->ptr;"
-                    ) s_fun 1
+                    ) s_fun -1
             line s_fun "}"
 
             print_decref s_fun $"ArrayDecref{i}" $"Array{i}" $"ArrayDecrefBody{i}"

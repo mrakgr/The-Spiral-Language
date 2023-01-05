@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 typedef struct UH0 UH0;
 void UHDecref0(UH0 * x);
 typedef struct {
@@ -152,7 +151,6 @@ UH0 * UH0_0(String * v0, UH0 * v1) { // Cons
     x->tag = 0;
     x->refc = 1;
     x->case0.v0 = v0; x->case0.v1 = v1;
-    v0->refc++; v1->refc++;
     return x;
 }
 UH0 * UH0_1() { // Nil
@@ -177,22 +175,12 @@ static inline void USDecrefBody0(US0 * x){
         }
     }
 }
-static inline void USSupprefBody0(US0 * x){
-    switch (x->tag) {
-        case 0: {
-            x->case0.v0->refc--;
-            break;
-        }
-    }
-}
 void USIncref0(US0 * x){ USIncrefBody0(x); }
 void USDecref0(US0 * x){ USDecrefBody0(x); }
-void USSuppref0(US0 * x){ USSupprefBody0(x); }
 US0 US0_0(UH0 * v0) { // Error
     US0 x;
     x.tag = 0;
     x.case0.v0 = v0;
-    v0->refc++;
     return x;
 }
 US0 US0_1(uint32_t v0) { // Ok
@@ -207,7 +195,6 @@ static inline Tuple0 TupleCreate0(US0 v0, uint32_t v1){
     return x;
 }
 Tuple0 method0(String * v0, uint32_t v1, bool v2, uint32_t v3){
-    v0->refc++;
     bool v4;
     v4 = 0ul <= v1;
     bool v7;
@@ -254,8 +241,10 @@ Tuple0 method0(String * v0, uint32_t v1, bool v2, uint32_t v3){
                 v18 = StringLit(6, "digit");
                 UH0 * v19;
                 v19 = UH0_1();
+                v18->refc++; v19->refc++;
                 UH0 * v20;
                 v20 = UH0_0(v18, v19);
+                v20->refc++;
                 StringDecref(v18); UHDecref0(v19);
                 US0 v21;
                 v21 = US0_0(v20);
@@ -267,8 +256,10 @@ Tuple0 method0(String * v0, uint32_t v1, bool v2, uint32_t v3){
             v24 = StringLit(15, "Out of bounds.");
             UH0 * v25;
             v25 = UH0_1();
+            v24->refc++; v25->refc++;
             UH0 * v26;
             v26 = UH0_0(v24, v25);
+            v26->refc++;
             StringDecref(v24); UHDecref0(v25);
             US0 v27;
             v27 = US0_0(v26);
@@ -310,8 +301,10 @@ Tuple0 method0(String * v0, uint32_t v1, bool v2, uint32_t v3){
                 v41 = StringLit(6, "digit");
                 UH0 * v42;
                 v42 = UH0_1();
+                v41->refc++; v42->refc++;
                 UH0 * v43;
                 v43 = UH0_0(v41, v42);
+                v43->refc++;
                 StringDecref(v41); UHDecref0(v42);
                 US0 v44;
                 v44 = US0_0(v43);
@@ -323,8 +316,10 @@ Tuple0 method0(String * v0, uint32_t v1, bool v2, uint32_t v3){
             v47 = StringLit(15, "Out of bounds.");
             UH0 * v48;
             v48 = UH0_1();
+            v47->refc++; v48->refc++;
             UH0 * v49;
             v49 = UH0_0(v47, v48);
+            v49->refc++;
             StringDecref(v47); UHDecref0(v48);
             US0 v50;
             v50 = US0_0(v49);
@@ -336,59 +331,62 @@ Tuple0 method0(String * v0, uint32_t v1, bool v2, uint32_t v3){
         case 0: { // Error
             StringDecref(v0); USDecref0(&(v53));
             if (v2){
-                US0 v56;
-                v56 = US0_1(v3);
-                return TupleCreate0(v56, v54);
+                US0 v71;
+                v71 = US0_1(v3);
+                return TupleCreate0(v71, v54);
             } else {
-                String * v57;
-                v57 = StringLit(4, "i32");
-                UH0 * v58;
-                v58 = UH0_1();
-                UH0 * v59;
-                v59 = UH0_0(v57, v58);
-                StringDecref(v57); UHDecref0(v58);
-                US0 v60;
-                v60 = US0_0(v59);
-                UHDecref0(v59);
-                return TupleCreate0(v60, v54);
-            }
-            break;
-        }
-        case 1: { // Ok
-            uint32_t v63 = v53.case1.v0;
-            USDecref0(&(v53));
-            uint32_t v64;
-            v64 = v3 * 10ul;
-            uint32_t v65;
-            v65 = v64 + v63;
-            bool v66;
-            v66 = v3 <= 214748364ul;
-            bool v68;
-            if (v66){
-                bool v67;
-                v67 = 0ul <= v65;
-                v68 = v67;
-            } else {
-                v68 = false;
-            }
-            if (v68){
-                bool v69;
-                v69 = true;
-                v0->refc--;
-                return method0(v0, v54, v69, v65);
-            } else {
-                StringDecref(v0);
                 String * v72;
-                v72 = StringLit(52, "The number is too large to be parsed as 32 bit int.");
+                v72 = StringLit(4, "i32");
                 UH0 * v73;
                 v73 = UH0_1();
+                v72->refc++; v73->refc++;
                 UH0 * v74;
                 v74 = UH0_0(v72, v73);
+                v74->refc++;
                 StringDecref(v72); UHDecref0(v73);
                 US0 v75;
                 v75 = US0_0(v74);
                 UHDecref0(v74);
                 return TupleCreate0(v75, v54);
+            }
+            break;
+        }
+        case 1: { // Ok
+            uint32_t v55 = v53.case1.v0;
+            USDecref0(&(v53));
+            uint32_t v56;
+            v56 = v3 * 10ul;
+            uint32_t v57;
+            v57 = v56 + v55;
+            bool v58;
+            v58 = v3 <= 214748364ul;
+            bool v60;
+            if (v58){
+                bool v59;
+                v59 = 0ul <= v57;
+                v60 = v59;
+            } else {
+                v60 = false;
+            }
+            if (v60){
+                bool v61;
+                v61 = true;
+                return method0(v0, v54, v61, v57);
+            } else {
+                StringDecref(v0);
+                String * v64;
+                v64 = StringLit(52, "The number is too large to be parsed as 32 bit int.");
+                UH0 * v65;
+                v65 = UH0_1();
+                v64->refc++; v65->refc++;
+                UH0 * v66;
+                v66 = UH0_0(v64, v65);
+                v66->refc++;
+                StringDecref(v64); UHDecref0(v65);
+                US0 v67;
+                v67 = US0_0(v66);
+                UHDecref0(v66);
+                return TupleCreate0(v67, v54);
             }
             break;
         }
@@ -410,22 +408,12 @@ static inline void USDecrefBody1(US1 * x){
         }
     }
 }
-static inline void USSupprefBody1(US1 * x){
-    switch (x->tag) {
-        case 0: {
-            x->case0.v0->refc--;
-            break;
-        }
-    }
-}
 void USIncref1(US1 * x){ USIncrefBody1(x); }
 void USDecref1(US1 * x){ USDecrefBody1(x); }
-void USSuppref1(US1 * x){ USSupprefBody1(x); }
 US1 US1_0(UH0 * v0) { // Error
     US1 x;
     x.tag = 0;
     x.case0.v0 = v0;
-    v0->refc++;
     return x;
 }
 US1 US1_1() { // Ok
@@ -439,7 +427,6 @@ static inline Tuple1 TupleCreate1(US1 v0, uint32_t v1){
     return x;
 }
 Tuple1 method1(String * v0, uint32_t v1){
-    v0->refc++;
     bool v2;
     v2 = 0ul <= v1;
     bool v10;
@@ -469,7 +456,6 @@ Tuple1 method1(String * v0, uint32_t v1){
     if (v10){
         uint32_t v11;
         v11 = v1 + 1ul;
-        v0->refc--;
         return method1(v0, v11);
     } else {
         StringDecref(v0);
@@ -486,13 +472,8 @@ static inline void USDecrefBody3(US3 * x){
     switch (x->tag) {
     }
 }
-static inline void USSupprefBody3(US3 * x){
-    switch (x->tag) {
-    }
-}
 void USIncref3(US3 * x){ USIncrefBody3(x); }
 void USDecref3(US3 * x){ USDecrefBody3(x); }
-void USSuppref3(US3 * x){ USSupprefBody3(x); }
 US3 US3_0() { // First
     US3 x;
     x.tag = 0;
@@ -519,17 +500,8 @@ static inline void USDecrefBody2(US2 * x){
         }
     }
 }
-static inline void USSupprefBody2(US2 * x){
-    switch (x->tag) {
-        case 1: {
-            USSuppref3(&(x->case1.v0));
-            break;
-        }
-    }
-}
 void USIncref2(US2 * x){ USIncrefBody2(x); }
 void USDecref2(US2 * x){ USDecrefBody2(x); }
-void USSuppref2(US2 * x){ USSupprefBody2(x); }
 US2 US2_0() { // None
     US2 x;
     x.tag = 0;
@@ -539,7 +511,6 @@ US2 US2_1(US3 v0) { // Some
     US2 x;
     x.tag = 1;
     x.case1.v0 = v0;
-    USIncref3(&(v0));
     return x;
 }
 static inline void ArrayDecrefBody1(Array1 * x){
@@ -581,11 +552,9 @@ Mut0 * MutCreate0(uint32_t v0){
     x->v0 = v0;
     return x;
 }
-bool method3(Mut0 * v0){
-    v0->refc++;
+bool method_while0(Mut0 * v0){
     uint32_t v1;
     v1 = v0->v0;
-    MutDecref0(v0);
     bool v2;
     v2 = v1 < 101ul;
     return v2;
@@ -598,8 +567,7 @@ static inline void AssignArray0(US2 * a, US2 b){
 static inline void AssignMut0(uint32_t * a0, uint32_t b0){
     *a0 = b0;
 }
-US3 method4(Array1 * v0, US3 v1, US3 v2, uint32_t v3){
-    v0->refc++; USIncref3(&(v1)); USIncref3(&(v2));
+US3 method3(Array1 * v0, US3 v1, US3 v2, uint32_t v3){
     switch (v1.tag) {
         case 0: { // First
             US2 v4;
@@ -610,189 +578,196 @@ US3 method4(Array1 * v0, US3 v1, US3 v2, uint32_t v3){
                     USDecref2(&(v4));
                     bool v5;
                     v5 = v3 >= 2ul;
-                    bool v9;
+                    bool v10;
                     if (v5){
                         uint32_t v6;
                         v6 = v3 - 2ul;
+                        v0->refc++; USIncref3(&(v1)); USIncref3(&(v2));
                         US3 v7;
-                        v7 = method4(v0, v2, v1, v6);
+                        v7 = method3(v0, v2, v1, v6);
                         switch (v7.tag) {
                             case 0: { // First
                                 USDecref3(&(v7));
-                                v9 = true;
+                                v10 = true;
                                 break;
                             }
                             case 1: { // Second
                                 USDecref3(&(v7));
-                                v9 = false;
+                                v10 = false;
                                 break;
                             }
                         }
                     } else {
-                        v9 = false;
+                        v10 = false;
                     }
-                    US3 v22;
-                    if (v9){
+                    US3 v25;
+                    if (v10){
                         USIncref3(&(v1));
-                        v22 = v1;
+                        v25 = v1;
                     } else {
-                        bool v10;
-                        v10 = v3 >= 3ul;
-                        bool v14;
-                        if (v10){
-                            uint32_t v11;
-                            v11 = v3 - 3ul;
-                            US3 v12;
-                            v12 = method4(v0, v2, v1, v11);
-                            switch (v12.tag) {
+                        bool v11;
+                        v11 = v3 >= 3ul;
+                        bool v16;
+                        if (v11){
+                            uint32_t v12;
+                            v12 = v3 - 3ul;
+                            v0->refc++; USIncref3(&(v1)); USIncref3(&(v2));
+                            US3 v13;
+                            v13 = method3(v0, v2, v1, v12);
+                            switch (v13.tag) {
                                 case 0: { // First
-                                    USDecref3(&(v12));
-                                    v14 = true;
+                                    USDecref3(&(v13));
+                                    v16 = true;
                                     break;
                                 }
                                 case 1: { // Second
-                                    USDecref3(&(v12));
-                                    v14 = false;
+                                    USDecref3(&(v13));
+                                    v16 = false;
                                     break;
                                 }
                             }
                         } else {
-                            v14 = false;
+                            v16 = false;
                         }
-                        if (v14){
+                        if (v16){
                             USIncref3(&(v1));
-                            v22 = v1;
+                            v25 = v1;
                         } else {
-                            bool v15;
-                            v15 = v3 >= 5ul;
-                            bool v19;
-                            if (v15){
-                                uint32_t v16;
-                                v16 = v3 - 5ul;
-                                US3 v17;
-                                v17 = method4(v0, v2, v1, v16);
-                                switch (v17.tag) {
+                            bool v17;
+                            v17 = v3 >= 5ul;
+                            bool v22;
+                            if (v17){
+                                uint32_t v18;
+                                v18 = v3 - 5ul;
+                                v0->refc++; USIncref3(&(v1)); USIncref3(&(v2));
+                                US3 v19;
+                                v19 = method3(v0, v2, v1, v18);
+                                switch (v19.tag) {
                                     case 0: { // First
-                                        USDecref3(&(v17));
-                                        v19 = true;
+                                        USDecref3(&(v19));
+                                        v22 = true;
                                         break;
                                     }
                                     case 1: { // Second
-                                        USDecref3(&(v17));
-                                        v19 = false;
+                                        USDecref3(&(v19));
+                                        v22 = false;
                                         break;
                                     }
                                 }
                             } else {
-                                v19 = false;
+                                v22 = false;
                             }
-                            if (v19){
+                            if (v22){
                                 USIncref3(&(v1));
-                                v22 = v1;
+                                v25 = v1;
                             } else {
                                 USIncref3(&(v2));
-                                v22 = v2;
+                                v25 = v2;
                             }
                         }
                     }
+                    USIncref3(&(v25));
                     USDecref3(&(v1)); USDecref3(&(v2));
-                    US2 v23;
-                    v23 = US2_1(v22);
-                    AssignArray0(&(v0->ptr[v3]), v23);
-                    ArrayDecref1(v0); USDecref2(&(v23));
-                    return v22;
+                    US2 v26;
+                    v26 = US2_1(v25);
+                    AssignArray0(&(v0->ptr[v3]), v26);
+                    ArrayDecref1(v0); USDecref2(&(v26));
+                    return v25;
                     break;
                 }
                 case 1: { // Some
-                    US3 v24 = v4.case1.v0;
-                    USIncref3(&(v24));
+                    US3 v27 = v4.case1.v0;
+                    USIncref3(&(v27));
                     ArrayDecref1(v0); USDecref3(&(v1)); USDecref3(&(v2)); USDecref2(&(v4));
-                    return v24;
+                    return v27;
                     break;
                 }
             }
             break;
         }
         case 1: { // Second
-            bool v26;
-            v26 = v3 >= 2ul;
             bool v30;
-            if (v26){
-                uint32_t v27;
-                v27 = v3 - 2ul;
-                US3 v28;
-                v28 = method4(v0, v2, v1, v27);
-                switch (v28.tag) {
+            v30 = v3 >= 2ul;
+            bool v35;
+            if (v30){
+                uint32_t v31;
+                v31 = v3 - 2ul;
+                v0->refc++; USIncref3(&(v1)); USIncref3(&(v2));
+                US3 v32;
+                v32 = method3(v0, v2, v1, v31);
+                switch (v32.tag) {
                     case 0: { // First
-                        USDecref3(&(v28));
-                        v30 = false;
+                        USDecref3(&(v32));
+                        v35 = false;
                         break;
                     }
                     case 1: { // Second
-                        USDecref3(&(v28));
-                        v30 = true;
+                        USDecref3(&(v32));
+                        v35 = true;
                         break;
                     }
                 }
             } else {
-                v30 = false;
+                v35 = false;
             }
-            if (v30){
+            if (v35){
                 ArrayDecref1(v0); USDecref3(&(v2));
                 return v1;
             } else {
-                bool v31;
-                v31 = v3 >= 3ul;
-                bool v35;
-                if (v31){
-                    uint32_t v32;
-                    v32 = v3 - 3ul;
-                    US3 v33;
-                    v33 = method4(v0, v2, v1, v32);
-                    switch (v33.tag) {
+                bool v36;
+                v36 = v3 >= 3ul;
+                bool v41;
+                if (v36){
+                    uint32_t v37;
+                    v37 = v3 - 3ul;
+                    v0->refc++; USIncref3(&(v1)); USIncref3(&(v2));
+                    US3 v38;
+                    v38 = method3(v0, v2, v1, v37);
+                    switch (v38.tag) {
                         case 0: { // First
-                            USDecref3(&(v33));
-                            v35 = false;
+                            USDecref3(&(v38));
+                            v41 = false;
                             break;
                         }
                         case 1: { // Second
-                            USDecref3(&(v33));
-                            v35 = true;
+                            USDecref3(&(v38));
+                            v41 = true;
                             break;
                         }
                     }
                 } else {
-                    v35 = false;
+                    v41 = false;
                 }
-                if (v35){
+                if (v41){
                     ArrayDecref1(v0); USDecref3(&(v2));
                     return v1;
                 } else {
-                    bool v36;
-                    v36 = v3 >= 5ul;
-                    bool v40;
-                    if (v36){
-                        uint32_t v37;
-                        v37 = v3 - 5ul;
-                        US3 v38;
-                        v38 = method4(v0, v2, v1, v37);
-                        switch (v38.tag) {
+                    bool v42;
+                    v42 = v3 >= 5ul;
+                    bool v47;
+                    if (v42){
+                        uint32_t v43;
+                        v43 = v3 - 5ul;
+                        v0->refc++; USIncref3(&(v1)); USIncref3(&(v2));
+                        US3 v44;
+                        v44 = method3(v0, v2, v1, v43);
+                        switch (v44.tag) {
                             case 0: { // First
-                                USDecref3(&(v38));
-                                v40 = false;
+                                USDecref3(&(v44));
+                                v47 = false;
                                 break;
                             }
                             case 1: { // Second
-                                USDecref3(&(v38));
-                                v40 = true;
+                                USDecref3(&(v44));
+                                v47 = true;
                                 break;
                             }
                         }
                     } else {
-                        v40 = false;
+                        v47 = false;
                     }
                     ArrayDecref1(v0);
-                    if (v40){
+                    if (v47){
                         USDecref3(&(v2));
                         return v1;
                     } else {
@@ -813,45 +788,48 @@ void ClosureDecref1(Closure1 * x){
 }
 Tuple1 ClosureMethod1(Closure1 * x, uint32_t v3){
     uint32_t v0 = x->v0; uint32_t v1 = x->v1; String * v2 = x->v2;
+    ClosureDecref1(x);
     bool v4;
     v4 = false;
     uint32_t v5;
     v5 = 0ul;
+    v2->refc++;
     US0 v6; uint32_t v7;
     Tuple0 tmp2 = method0(v2, v3, v4, v5);
     v6 = tmp2.v0; v7 = tmp2.v1;
-    US0 v18; uint32_t v19;
+    US0 v22; uint32_t v23;
     switch (v6.tag) {
         case 0: { // Error
-            UH0 * v8 = v6.case0.v0;
-            v8->refc++;
-            US0 v9;
-            v9 = US0_0(v8);
-            UHDecref0(v8);
-            v18 = v9; v19 = v7;
+            UH0 * v18 = v6.case0.v0;
+            v18->refc += 2;
+            US0 v19;
+            v19 = US0_0(v18);
+            UHDecref0(v18);
+            v22 = v19; v23 = v7;
             break;
         }
         case 1: { // Ok
-            uint32_t v10 = v6.case1.v0;
-            US1 v11; uint32_t v12;
+            uint32_t v8 = v6.case1.v0;
+            v2->refc++;
+            US1 v9; uint32_t v10;
             Tuple1 tmp3 = method1(v2, v7);
-            v11 = tmp3.v0; v12 = tmp3.v1;
-            switch (v11.tag) {
+            v9 = tmp3.v0; v10 = tmp3.v1;
+            switch (v9.tag) {
                 case 0: { // Error
-                    UH0 * v13 = v11.case0.v0;
-                    v13->refc++;
-                    USDecref1(&(v11));
-                    US0 v14;
-                    v14 = US0_0(v13);
-                    UHDecref0(v13);
-                    v18 = v14; v19 = v12;
+                    UH0 * v12 = v9.case0.v0;
+                    v12->refc += 2;
+                    USDecref1(&(v9));
+                    US0 v13;
+                    v13 = US0_0(v12);
+                    UHDecref0(v12);
+                    v22 = v13; v23 = v10;
                     break;
                 }
                 case 1: { // Ok
-                    USDecref1(&(v11));
-                    US0 v15;
-                    v15 = US0_1(v10);
-                    v18 = v15; v19 = v12;
+                    USDecref1(&(v9));
+                    US0 v11;
+                    v11 = US0_1(v8);
+                    v22 = v11; v23 = v10;
                     break;
                 }
             }
@@ -859,80 +837,78 @@ Tuple1 ClosureMethod1(Closure1 * x, uint32_t v3){
         }
     }
     USDecref0(&(v6));
-    switch (v18.tag) {
+    switch (v22.tag) {
         case 0: { // Error
-            UH0 * v20 = v18.case0.v0;
-            v20->refc++;
-            USDecref0(&(v18));
-            US1 v21;
-            v21 = US1_0(v20);
-            UHDecref0(v20);
-            return TupleCreate1(v21, v19);
+            UH0 * v44 = v22.case0.v0;
+            v44->refc += 2;
+            USDecref0(&(v22));
+            US1 v45;
+            v45 = US1_0(v44);
+            UHDecref0(v44);
+            return TupleCreate1(v45, v23);
             break;
         }
         case 1: { // Ok
-            uint32_t v22 = v18.case1.v0;
-            USDecref0(&(v18));
-            bool v23;
-            v23 = 100ul < v22;
-            if (v23){
+            uint32_t v24 = v22.case1.v0;
+            USDecref0(&(v22));
+            bool v25;
+            v25 = 100ul < v24;
+            if (v25){
                 fprintf(stderr, "%s\n", "The max input has been exceeded.")
                 exit(EXIT_FAILURE);
             } else {
             }
-            Array1 * v24;
-            v24 = ArrayCreate1(101ul, false);
-            Mut0 * v25;
-            v25 = MutCreate0(0ul);
-            while (method3(v25)){
-                uint32_t v27;
-                v27 = v25->v0;
-                US2 v28;
-                v28 = US2_0();
-                AssignArray0(&(v24->ptr[v27]), v28);
-                USDecref2(&(v28));
+            Array1 * v26;
+            v26 = ArrayCreate1(101ul, false);
+            Mut0 * v27;
+            v27 = MutCreate0(0ul);
+            while (method_while0(v27)){
                 uint32_t v29;
-                v29 = v27 + 1ul;
-                AssignMut0(&(v25->v0), v29);
+                v29 = v27->v0;
+                US2 v30;
+                v30 = US2_0();
+                AssignArray0(&(v26->ptr[v29]), v30);
+                USDecref2(&(v30));
+                uint32_t v31;
+                v31 = v29 + 1ul;
+                AssignMut0(&(v27->v0), v31);
             }
-            MutDecref0(v25);
-            US3 v30;
-            v30 = US3_0();
-            US3 v31;
-            v31 = US3_1();
+            MutDecref0(v27);
             US3 v32;
-            v32 = method4(v24, v30, v31, v22);
-            ArrayDecref1(v24); USDecref3(&(v30)); USDecref3(&(v31));
-            String * v35;
-            switch (v32.tag) {
+            v32 = US3_0();
+            US3 v33;
+            v33 = US3_1();
+            v26->refc++; USIncref3(&(v32)); USIncref3(&(v33));
+            US3 v34;
+            v34 = method3(v26, v32, v33, v24);
+            ArrayDecref1(v26); USDecref3(&(v32)); USDecref3(&(v33));
+            String * v38;
+            switch (v34.tag) {
                 case 0: { // First
-                    String * v33;
-                    v33 = StringLit(6, "First");
-                    v35 = v33;
+                    String * v35;
+                    v35 = StringLit(6, "First");
+                    v38 = v35;
                     break;
                 }
                 case 1: { // Second
-                    String * v34;
-                    v34 = StringLit(7, "Second");
-                    v35 = v34;
+                    String * v36;
+                    v36 = StringLit(7, "Second");
+                    v38 = v36;
                     break;
                 }
             }
-            USDecref3(&(v32));
-            System.Console.WriteLine(v35);
-            StringDecref(v35);
-            uint32_t v36;
-            v36 = v1 + 1ul;
-            Fun0 * v37;
-            v37 = method2(v0, v36);
-            Fun1 * v38;
-            v38 = v37->fptr(v37, v2);
-            v37->decref_fptr(v37);
-            US1 v39; uint32_t v40;
-            Tuple1 tmp4 = v38->fptr(v38, v19);
-            v39 = tmp4.v0; v40 = tmp4.v1;
-            v38->decref_fptr(v38);
-            return TupleCreate1(v39, v40);
+            USDecref3(&(v34));
+            System.Console.WriteLine(v38);
+            StringDecref(v38);
+            uint32_t v39;
+            v39 = v1 + 1ul;
+            Fun0 * v40;
+            v40 = method2(v0, v39);
+            v2->refc++; v40->refc++;
+            Fun1 * v41;
+            v41 = v40->fptr(v40, v2);
+            v40->decref_fptr(v40);
+            return v41->fptr(v41, v23);
             break;
         }
     }
@@ -943,7 +919,6 @@ Fun1 * ClosureCreate1(uint32_t v0, uint32_t v1, String * v2){
     x->decref_fptr = ClosureDecref1;
     x->fptr = ClosureMethod1;
     x->v0 = v0; x->v1 = v1; x->v2 = v2;
-    v2->refc++;
     return (Fun1 *) x;
 }
 static inline void ClosureDecrefBody0(Closure0 * x){
@@ -953,6 +928,7 @@ void ClosureDecref0(Closure0 * x){
 }
 Fun1 * ClosureMethod0(Closure0 * x, String * v2){
     uint32_t v0 = x->v0; uint32_t v1 = x->v1;
+    ClosureDecref0(x);
     return ClosureCreate1(v0, v1, v2);
 }
 Fun0 * ClosureCreate0(uint32_t v0, uint32_t v1){
@@ -969,6 +945,7 @@ void ClosureDecref3(Closure3 * x){
     if (x != NULL && --(x->refc) == 0) { ClosureDecrefBody3(x); free(x); }
 }
 Tuple1 ClosureMethod3(Closure3 * x, uint32_t v0){
+    ClosureDecref3(x);
     US1 v1;
     v1 = US1_1();
     return TupleCreate1(v1, v0);
@@ -986,7 +963,7 @@ void ClosureDecref2(Closure2 * x){
     if (x != NULL && --(x->refc) == 0) { ClosureDecrefBody2(x); free(x); }
 }
 Fun1 * ClosureMethod2(Closure2 * x, String * v0){
-    v0->refc++;
+    ClosureDecref2(x);
     StringDecref(v0);
     return ClosureCreate3();
 }
@@ -1010,8 +987,7 @@ Fun0 * method2(uint32_t v0, uint32_t v1){
         return v4;
     }
 }
-void method5(UH0 * v0){
-    v0->refc++;
+void method4(UH0 * v0){
     switch (v0->tag) {
         case 0: { // Cons
             String * v1 = v0->case0.v0; UH0 * v2 = v0->case0.v1;
@@ -1019,8 +995,7 @@ void method5(UH0 * v0){
             UHDecref0(v0);
             printfn "%s" v1;
             StringDecref(v1);
-            v2->refc--;
-            return method5(v2);
+            return method4(v2);
             break;
         }
         case 1: { // Nil
@@ -1039,41 +1014,43 @@ int32_t main(){
     v2 = false;
     uint32_t v3;
     v3 = 0ul;
+    v0->refc++;
     US0 v4; uint32_t v5;
     Tuple0 tmp0 = method0(v0, v1, v2, v3);
     v4 = tmp0.v0; v5 = tmp0.v1;
-    US0 v16; uint32_t v17;
+    US0 v20; uint32_t v21;
     switch (v4.tag) {
         case 0: { // Error
-            UH0 * v6 = v4.case0.v0;
-            v6->refc++;
-            US0 v7;
-            v7 = US0_0(v6);
-            UHDecref0(v6);
-            v16 = v7; v17 = v5;
+            UH0 * v16 = v4.case0.v0;
+            v16->refc += 2;
+            US0 v17;
+            v17 = US0_0(v16);
+            UHDecref0(v16);
+            v20 = v17; v21 = v5;
             break;
         }
         case 1: { // Ok
-            uint32_t v8 = v4.case1.v0;
-            US1 v9; uint32_t v10;
+            uint32_t v6 = v4.case1.v0;
+            v0->refc++;
+            US1 v7; uint32_t v8;
             Tuple1 tmp1 = method1(v0, v5);
-            v9 = tmp1.v0; v10 = tmp1.v1;
-            switch (v9.tag) {
+            v7 = tmp1.v0; v8 = tmp1.v1;
+            switch (v7.tag) {
                 case 0: { // Error
-                    UH0 * v11 = v9.case0.v0;
-                    v11->refc++;
-                    USDecref1(&(v9));
-                    US0 v12;
-                    v12 = US0_0(v11);
-                    UHDecref0(v11);
-                    v16 = v12; v17 = v10;
+                    UH0 * v10 = v7.case0.v0;
+                    v10->refc += 2;
+                    USDecref1(&(v7));
+                    US0 v11;
+                    v11 = US0_0(v10);
+                    UHDecref0(v10);
+                    v20 = v11; v21 = v8;
                     break;
                 }
                 case 1: { // Ok
-                    USDecref1(&(v9));
-                    US0 v13;
-                    v13 = US0_1(v8);
-                    v16 = v13; v17 = v10;
+                    USDecref1(&(v7));
+                    US0 v9;
+                    v9 = US0_1(v6);
+                    v20 = v9; v21 = v8;
                     break;
                 }
             }
@@ -1081,49 +1058,45 @@ int32_t main(){
         }
     }
     USDecref0(&(v4));
-    US1 v26; uint32_t v27;
-    switch (v16.tag) {
+    US1 v32; uint32_t v33;
+    switch (v20.tag) {
         case 0: { // Error
-            UH0 * v18 = v16.case0.v0;
-            v18->refc++;
-            US1 v19;
-            v19 = US1_0(v18);
-            UHDecref0(v18);
-            v26 = v19; v27 = v17;
+            UH0 * v28 = v20.case0.v0;
+            v28->refc += 2;
+            US1 v29;
+            v29 = US1_0(v28);
+            UHDecref0(v28);
+            v32 = v29; v33 = v21;
             break;
         }
         case 1: { // Ok
-            uint32_t v20 = v16.case1.v0;
-            uint32_t v21;
-            v21 = 0ul;
-            Fun0 * v22;
-            v22 = method2(v20, v21);
-            Fun1 * v23;
-            v23 = v22->fptr(v22, v0);
-            v22->decref_fptr(v22);
-            US1 v24; uint32_t v25;
-            Tuple1 tmp5 = v23->fptr(v23, v17);
-            v24 = tmp5.v0; v25 = tmp5.v1;
-            v23->decref_fptr(v23);
-            v26 = v24; v27 = v25;
+            uint32_t v22 = v20.case1.v0;
+            uint32_t v23;
+            v23 = 0ul;
+            Fun0 * v24;
+            v24 = method2(v22, v23);
+            v0->refc++; v24->refc++;
+            Fun1 * v25;
+            v25 = v24->fptr(v24, v0);
+            v24->decref_fptr(v24);
+            Tuple1 tmp4 = v25->fptr(v25, v21);
+            v32 = tmp4.v0; v33 = tmp4.v1;
             break;
         }
     }
-    StringDecref(v0); USDecref0(&(v16));
-    switch (v26.tag) {
+    StringDecref(v0); USDecref0(&(v20));
+    switch (v32.tag) {
         case 0: { // Error
-            UH0 * v28 = v26.case0.v0;
-            v28->refc++;
-            printfn "Parsing failed at position %i" v27;
+            UH0 * v34 = v32.case0.v0;
+            v34->refc++;
+            printfn "Parsing failed at position %i" v33;
             printfn "Errors:";
-            v28->refc--;
-            method5(v28);
+            method4(v34);
             break;
         }
-        case 1: { // Ok
-            break;
+        default: {
         }
     }
-    USDecref1(&(v26));
+    USDecref1(&(v32));
     return 0l;
 }
