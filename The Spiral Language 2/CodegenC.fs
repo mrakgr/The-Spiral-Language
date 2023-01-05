@@ -10,7 +10,6 @@ open System
 open System.Text
 open System.Collections.Generic
 
-type REFC = REFC_INCR | REFC_DECR
 type CBackendType = Prototypal | UPMEM_C_Kernel of TyV []
 
 let sizeof_tyv = function
@@ -33,8 +32,25 @@ let rec is_heap f x =
         ) x
 let is_string = function DV(L(_,YPrim StringT)) | DLit(LitString _) -> true | _ -> false
 
+let varc_add x i v =
+    let c = Option.defaultValue 0 (Map.tryFind x v) + i
+    if c = 0 then Map.remove x v else Map.add x c v
+let varc_union a b = Map.foldBack varc_add a b
+let varc_data call_data =
+    let mutable v = Map.empty
+    let rec f = function
+        | DPair(a,b) -> f a; f b
+        | DForall(_,a,_,_,_) | DFunction(_,_,a,_,_,_) -> Array.iter f a
+        | DRecord l -> Map.iter (fun _ -> f) l
+        | DV x -> v <- varc_add x 1 v
+        | DUnion(a,_) | DNominal(a,_) -> f a
+        | DLit _ | DSymbol _ | DB -> ()
+    f call_data
+    v
+let varc_set x i = Set.fold (fun s v -> Map.add v i s) Map.empty x
+
 let refc_used_vars (x : TypedBind []) =
-    let g : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
+    let g_bind : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
     let fv x = x |> data_free_vars |> Set
     let jp (x : JoinPointCall) = snd x |> Set
     let rec binds x =
@@ -43,7 +59,7 @@ let refc_used_vars (x : TypedBind []) =
             | TyLet(d,_,o) -> vs + op o - fv d
             | TyLocalReturnOp(_,o,_) -> vs + op o
             | TyLocalReturnData(d,_) -> vs + fv d
-            |> fun vs -> g.Add(k,vs); vs
+            |> fun vs -> g_bind.Add(k,vs); vs
             ) x Set.empty
     and op (x : TypedOp) : TyV Set =
         match x with
@@ -72,18 +88,19 @@ let refc_used_vars (x : TypedBind []) =
             let on_fail = binds on_fail'
             Array.fold (fun s body -> s + binds body) (vs + on_fail) on_succs'
     binds x |> ignore
-    g
+    g_bind
 
-type RefcVars = {g_incr : Dictionary<TypedBind,TyV Set>; g_decr : Dictionary<TypedBind,TyV Set>}
+type RefcVars = {g_incr : Dictionary<TypedBind,TyV Set>; g_decr : Dictionary<TypedBind,TyV Set>; g_op : Dictionary<TypedBind,Map<TyV, int>>; g_op_decr : Dictionary<TypedBind,TyV Set>}
 
-let incref_cancel incr decr = let r = Set.intersect incr decr in incr - r, decr - r
-    
 let refc_prepass (new_vars : TyV Set) (increfed_vars : TyV Set) (x : TypedBind []) =
     let used_vars = refc_used_vars x
     let g_incr : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
     let g_decr : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
+    let g_op : Dictionary<TypedBind, _> = Dictionary(HashIdentity.Reference)
+    let g_op_decr : Dictionary<TypedBind, TyV Set> = Dictionary(HashIdentity.Reference)
 
     let add (d : Dictionary<TypedBind, TyV Set>) k x = if Set.isEmpty x then () else d.Add(k,x)
+    let add' (d : Dictionary<TypedBind, Map<TyV,int>>) k x = if Map.isEmpty x then () else d.Add(k,x)
     let fv x = x |> data_free_vars |> Set
     let rec binds (new_vars : TyV Set) (increfed_vars : TyV Set) (k : TypedBind []) =
         Array.fold (fun (new_vars, increfed_vars) k ->
@@ -96,25 +113,30 @@ let refc_prepass (new_vars : TyV Set) (increfed_vars : TyV Set) (x : TypedBind [
             let r = increfed_vars - decref_vars
             match k with
             | TyLet(d,_,o) ->
-                op (k,used_vars) Set.empty o
+                op k Set.empty o
                 let new_vars = fv d
                 match o with
                 | TyLayoutIndexAll _ | TyLayoutIndexByKey _ | TyOp(ArrayIndex,_) -> new_vars, r
                 | _ -> Set.empty, r + new_vars
             | TyLocalReturnOp(_,o,_) -> 
-                op (k,used_vars) r o
+                op k r o
                 Set.empty, r
-            | TyLocalReturnData(_,_) ->
-                add g_incr k (used_vars - increfed_vars)
+            | TyLocalReturnData(d,_) ->
+                add' g_op k (varc_data d)
+                add g_op_decr k r
                 Set.empty, r
             ) (new_vars, increfed_vars) k
         |> ignore
-    and op (k,used_vars) increfed_vars (x : TypedOp) : unit =
+    and op k increfed_vars (x : TypedOp) : unit =
+        let fun_call q = add' g_op k q; add g_op_decr k increfed_vars
         match x with
-        | TyApply _ | TyJoinPoint _ | TyArrayLiteral _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _ | TyUnionBox _  -> add g_incr k (used_vars - increfed_vars)
+        | TyApply(a,b) -> varc_add a 1 (varc_data b) |> fun_call
+        | TyJoinPoint(_,x) -> Array.fold (fun s x -> varc_add x 1 s) Map.empty x |> fun_call
+        | TyArrayLiteral(_,x) -> List.fold (fun s x -> varc_union s (varc_data x)) Map.empty x |> fun_call
+        | TyUnionBox(_,x,_) | TyLayoutToHeapMutable(x,_) | TyLayoutToHeap(x,_) -> varc_data x |> fun_call
         | TyLayoutIndexAll _ | TyLayoutIndexByKey _ | TyMacro _ | TyOp _ | TyFailwith _ | TyConv _ 
         | TyArrayCreate _ | TyArrayLength _ | TyStringLength _ | TyLayoutHeapMutableSet _ | TyBackend _ -> ()
-        | TyWhile(_,body) -> binds Set.empty increfed_vars body
+        | TyWhile(_,body) -> binds Set.empty Set.empty body
         | TyIf(_,tr',fl') -> binds Set.empty increfed_vars tr'; binds Set.empty increfed_vars fl'
         | TyUnionUnbox(_,_,on_succs',on_fail') ->
             Map.iter (fun _ (lets,body) -> 
@@ -126,7 +148,7 @@ let refc_prepass (new_vars : TyV Set) (increfed_vars : TyV Set) (x : TypedBind [
             binds Set.empty increfed_vars on_fail'
     binds new_vars increfed_vars x
     
-    {g_incr=g_incr; g_decr=g_decr}
+    {g_incr=g_incr; g_op=g_op; g_decr=g_decr; g_op_decr=g_op_decr}
 
 type BindsReturn =
     | BindsTailEnd
@@ -294,8 +316,11 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
                 ) a b
         Array.iter (fun x ->
             let _ =
-                let incr, decr = incref_cancel (get_default vars.g_incr x (fun () -> Set.empty)) (get_default vars.g_decr x (fun () -> Set.empty))
-                refc_incr (Set.toArray incr) |> line' s; refc_decr (Set.toArray decr) |> line' s
+                let f k = get_default k x (fun () -> Set.empty)
+                let f' k = get_default k x (fun () -> Map.empty)
+                let incr, decr, op, op_decr = varc_set (f vars.g_incr) 1, varc_set (f vars.g_decr) -1, f' vars.g_op, varc_set (f vars.g_op_decr) -1
+                let incr, decr = varc_union incr decr |> varc_union op |> varc_union op_decr |> Map.partition (fun _ v -> 0 < v)
+                refc_varc incr |> line' s; refc_varc decr |> line' s
             match x with
             | TyLet(d,trace,a) ->
                 try let d = data_free_vars d
@@ -328,31 +353,35 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
                     | BindsTailEnd -> line s $"return {tup_data d};"
                 with :? CodegenError as e -> raise_codegen_error' trace (e.Data0, e.Data1)
             ) stmts
-    and refc_change' (f : int * Ty -> string) (refc_flag : REFC) (x : TyV []) : string [] =
-        Array.choose (fun (L(i,t')) -> 
-            let v = i,t'
-            let inline g decref =
-                match refc_flag with
-                | REFC_INCR -> Some $"{f v}->refc++;"
-                | REFC_DECR -> Some (decref())
-            match t' with
-            | YUnion t -> 
-                match t.Item.layout with
-                | UStack -> 
-                    match refc_flag with
-                    | REFC_INCR -> Some $"USIncref{(ustack t).tag}(&({f v}));"
-                    | REFC_DECR -> Some $"USDecref{(ustack t).tag}(&({f v}));"
-                | UHeap -> g (fun () -> $"UHDecref{(uheap t).tag}({f v});")
-            | YArray t -> g (fun () -> $"ArrayDecref{(carray t).tag}({f v});")
-            | YFun(a,b) -> g (fun () ->  $"{f v}->decref_fptr({f v});")
-            | YPrim StringT -> g (fun () ->  $"StringDecref({f v});" )
-            | YLayout(a,Heap) -> g (fun () ->  $"HeapDecref{(heap a).tag}({f v});")
-            | YLayout(a,HeapMutable) -> g (fun () ->  $"MutDecref{(mut a).tag}({f v});")
-            | _ -> None
-            ) x
+    and refc_change'' (f : int * Ty -> string) count (L(i,t')) =
+        let v = i,t'
+        let inline g decref =
+            if count = -1 then Some (decref())
+            elif count = 1 then Some $"{f v}->refc++;"
+            elif 1 < count then Some $"{f v}->refc += {count};"
+            else raise_codegen_error $"Compiler error: Invalid count in refc_change''. Got: {count}"
+        match t' with
+        | YUnion t -> 
+            match t.Item.layout with
+            | UStack -> 
+                if count = -1 then Some $"USDecref{(ustack t).tag}(&({f v}));"
+                elif 0 < count then Some (String.replicate count $"USIncref{(ustack t).tag}(&({f v}));")
+                else raise_codegen_error $"Compiler error: Invalid count in refc_change''. UStack case. Got: {count}"
+            | UHeap -> g (fun () -> $"UHDecref{(uheap t).tag}({f v});")
+        | YArray t -> g (fun () -> $"ArrayDecref{(carray t).tag}({f v});")
+        | YFun(a,b) -> g (fun () ->  $"{f v}->decref_fptr({f v});")
+        | YPrim StringT -> g (fun () ->  $"StringDecref({f v});" )
+        | YLayout(a,Heap) -> g (fun () ->  $"HeapDecref{(heap a).tag}({f v});")
+        | YLayout(a,HeapMutable) -> g (fun () ->  $"MutDecref{(mut a).tag}({f v});")
+        | _ -> None
+    and refc_change' (f : int * Ty -> string) count (x : TyV []) : string [] = Array.choose (refc_change'' f count) x
     and refc_change f c x = refc_change' (fun (i,t) -> f i) c x
-    and refc_incr x : string [] = refc_change (fun i -> $"v{i}") REFC_INCR x
-    and refc_decr x : string [] = refc_change (fun i -> $"v{i}") REFC_DECR x
+    and refc_varc x = 
+        let ar = ResizeArray(Map.count x)
+        Map.iter (fun k v -> refc_change'' (fun (i,_) -> $"v{i}") v k |> Option.iter ar.Add) x
+        ar
+    //and refc_incr x : string [] = refc_change (fun i -> $"v{i}") 1 x
+    //and refc_decr x : string [] = refc_change (fun i -> $"v{i}") -1 x
     and show_w = function WV(L(i,_)) -> sprintf "v%i" i | WLit a -> lit a
     and args' b = data_term_vars b |> Array.map show_w |> String.concat ", "
     and tup_term_vars x =
@@ -637,7 +666,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
             line s_fun (sprintf "static inline void ClosureDecrefBody%i(Closure%i * x){" i i)
             let _ =
                 let s_fun = indent s_fun
-                x.free_vars |> refc_change (fun i -> $"x->v{i}") REFC_DECR |> line' s_fun
+                x.free_vars |> refc_change (fun i -> $"x->v{i}") -1 |> line' s_fun
             line s_fun "}"
 
             print_decref s_fun $"ClosureDecref{i}" $"Closure{i}" $"ClosureDecrefBody{i}"
@@ -704,8 +733,8 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
             line s_fun (sprintf "static inline void AssignMut%i(%s){" x.tag args)
             let _ =
                 let s_fun = indent s_fun
-                refc_change (fun i -> $"b{i}") REFC_INCR tyvs |> line' s_fun
-                refc_change (fun i -> $"*a{i}") REFC_DECR tyvs |> line' s_fun
+                refc_change (fun i -> $"b{i}") 1 tyvs |> line' s_fun
+                refc_change (fun i -> $"*a{i}") -1 tyvs |> line' s_fun
                 Array.init tyvs.Length (fun i -> $"*a{i} = b{i};") |> line' s_fun
             line s_fun "}"
             )
@@ -718,12 +747,12 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
                 match tyvs with
                 | [||] -> raise_codegen_error "Compiler error: Void types not allowed in assign."
                 | [|t|] -> 
-                    refc_change (fun i -> "b") REFC_INCR tyvs |> line' s_fun
-                    refc_change (fun i -> "*a") REFC_DECR tyvs |> line' s_fun
+                    refc_change (fun i -> "b") 1 tyvs |> line' s_fun
+                    refc_change (fun i -> "*a") -1 tyvs |> line' s_fun
                     $"*a = b;" |> line s_fun
                 | _ ->
-                    refc_change (fun i -> $"b.v{i}") REFC_INCR tyvs |> line' s_fun
-                    refc_change (fun i -> $"a->v{i}") REFC_DECR tyvs |> line' s_fun
+                    refc_change (fun i -> $"b.v{i}") 1 tyvs |> line' s_fun
+                    refc_change (fun i -> $"a->v{i}") -1 tyvs |> line' s_fun
                     $"*a = b;" |> line s_fun
             line s_fun "}"
             )
@@ -742,7 +771,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
             line s_fun (sprintf "static inline void %sDecrefBody%i(%s * x){" name i name')
             let _ =
                 let s_fun = indent s_fun
-                x.free_vars |> refc_change (fun i -> $"x->v{i}") REFC_DECR |> line' s_fun
+                x.free_vars |> refc_change (fun i -> $"x->v{i}") -1 |> line' s_fun
             line s_fun "}"
 
             print_decref s_fun $"{name}Decref{i}" name' $"{name}DecrefBody{i}"
@@ -809,9 +838,9 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
 
             match is_stack with
             | true  -> 
-                print_refc $"USIncrefBody{i}" $"US{i}" REFC_INCR
-                print_refc $"USDecrefBody{i}" $"US{i}" REFC_DECR
-            | false -> print_refc $"UHDecrefBody{i}" $"UH{i}" REFC_DECR
+                print_refc $"USIncrefBody{i}" $"US{i}" 1
+                print_refc $"USDecrefBody{i}" $"US{i}" -1
+            | false -> print_refc $"UHDecrefBody{i}" $"UH{i}" -1
 
             match is_stack with
             | true  -> 
@@ -877,7 +906,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
                 print_body (fun () ->
                     line s_fun $"{len_t} len = x->len;"
                     line s_fun $"{ptr_t} * ptr = x->ptr;"
-                    ) s_fun REFC_DECR
+                    ) s_fun 1
             line s_fun "}"
 
             print_decref s_fun $"ArrayDecref{i}" $"Array{i}" $"ArrayDecrefBody{i}"
@@ -901,7 +930,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
                 line s_fun $"Array{i} * x = ArrayCreate{i}(len, false);"
                 if ptr_t <> "void" then 
                     line s_fun $"memcpy(x->ptr, ptr, sizeof({ptr_t}) * len);"
-                    print_body (fun () -> ()) (indent s_fun) REFC_INCR
+                    print_body (fun () -> ()) (indent s_fun) 1
                 line s_fun "return x;"
             line s_fun "}"
             )

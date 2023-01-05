@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 typedef struct {
     int tag;
     union {
@@ -20,13 +19,8 @@ static inline void USDecrefBody0(US0 * x){
     switch (x->tag) {
     }
 }
-static inline void USSupprefBody0(US0 * x){
-    switch (x->tag) {
-    }
-}
 void USIncref0(US0 * x){ USIncrefBody0(x); }
 void USDecref0(US0 * x){ USDecrefBody0(x); }
-void USSuppref0(US0 * x){ USSupprefBody0(x); }
 US0 US0_0() { // None
     US0 x;
     x.tag = 0;

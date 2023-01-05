@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 typedef struct {
     int refc;
     double v0;
@@ -80,7 +79,6 @@ Mut0 * MutCreate0(Heap2 * v0){
     Mut0 * x = malloc(sizeof(Mut0));
     x->refc = 1;
     x->v0 = v0;
-    v0->refc++;
     return x;
 }
 static inline void USIncrefBody0(US0 * x){
@@ -107,33 +105,18 @@ static inline void USDecrefBody0(US0 * x){
         }
     }
 }
-static inline void USSupprefBody0(US0 * x){
-    switch (x->tag) {
-        case 0: {
-            x->case0.v0->refc--; x->case0.v1->refc--;
-            break;
-        }
-        case 1: {
-            x->case1.v0->refc--;
-            break;
-        }
-    }
-}
 void USIncref0(US0 * x){ USIncrefBody0(x); }
 void USDecref0(US0 * x){ USDecrefBody0(x); }
-void USSuppref0(US0 * x){ USSupprefBody0(x); }
 US0 US0_0(Heap1 * v0, Mut0 * v1) { // A
     US0 x;
     x.tag = 0;
     x.case0.v0 = v0; x.case0.v1 = v1;
-    v0->refc++; v1->refc++;
     return x;
 }
 US0 US0_1(Heap0 * v0) { // B
     US0 x;
     x.tag = 1;
     x.case1.v0 = v0;
-    v0->refc++;
     return x;
 }
 static inline Tuple0 TupleCreate0(US0 v0, US0 v1, US0 v2){
@@ -142,7 +125,6 @@ static inline Tuple0 TupleCreate0(US0 v0, US0 v1, US0 v2){
     return x;
 }
 Tuple0 method0(US0 v0, US0 v1, US0 v2){
-    USIncref0(&(v0)); USIncref0(&(v1)); USIncref0(&(v2));
     return TupleCreate0(v2, v1, v0);
 }
 int32_t main(){
@@ -152,14 +134,18 @@ int32_t main(){
     v1 = HeapCreate0(2.0);
     Heap0 * v2;
     v2 = HeapCreate0(1.0);
+    v0->refc++;
     US0 v3;
     v3 = US0_1(v0);
+    v1->refc++;
     HeapDecref0(v0);
     US0 v4;
     v4 = US0_1(v1);
+    v2->refc++;
     HeapDecref0(v1);
     US0 v5;
     v5 = US0_1(v2);
+    USIncref0(&(v3)); USIncref0(&(v4)); USIncref0(&(v5));
     HeapDecref0(v2);
     US0 v6; US0 v7; US0 v8;
     Tuple0 tmp0 = method0(v5, v4, v3);
@@ -171,7 +157,7 @@ int32_t main(){
             return 1l;
             break;
         }
-        case 1: { // B
+        default: {
             USDecref0(&(v6));
             switch (v7.tag) {
                 case 0: { // A
@@ -179,7 +165,7 @@ int32_t main(){
                     return 2l;
                     break;
                 }
-                case 1: { // B
+                default: {
                     USDecref0(&(v7));
                     switch (v8.tag) {
                         case 0: { // A
@@ -187,16 +173,13 @@ int32_t main(){
                             return 3l;
                             break;
                         }
-                        case 1: { // B
+                        default: {
                             USDecref0(&(v8));
                             return 4l;
-                            break;
                         }
                     }
-                    break;
                 }
             }
-            break;
         }
     }
 }

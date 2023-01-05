@@ -1,5 +1,5 @@
 // Does missing an argument and returning a closure compile correctly?
 open optionm
 inl main () = 
-    inl ~_ = defaultWith (dyn 0i32)
-    0i32
+    inl ~f = defaultWith (dyn 0i32)
+    f None

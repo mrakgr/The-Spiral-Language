@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 typedef struct {
     int tag;
     union {
@@ -23,13 +22,8 @@ static inline void USDecrefBody0(US0 * x){
     switch (x->tag) {
     }
 }
-static inline void USSupprefBody0(US0 * x){
-    switch (x->tag) {
-    }
-}
 void USIncref0(US0 * x){ USIncrefBody0(x); }
 void USDecref0(US0 * x){ USDecrefBody0(x); }
-void USSuppref0(US0 * x){ USSupprefBody0(x); }
 US0 US0_0() { // A
     US0 x;
     x.tag = 0;
@@ -81,37 +75,50 @@ int32_t main(){
                     return method1();
                     break;
                 }
-                case 1: { // B
-                    USDecref0(&(v1));
+                default: {
                     switch (v2.tag) {
                         case 0: { // A
                             USDecref0(&(v2));
                             switch (v3.tag) {
                                 case 0: { // A
-                                    USDecref0(&(v3));
+                                    USDecref0(&(v1)); USDecref0(&(v3));
                                     return method2();
                                     break;
                                 }
-                                case 1: { // B
-                                    USDecref0(&(v3));
-                                    return method3();
-                                    break;
+                                default: {
+                                    switch (v1.tag) {
+                                        case 1: { // B
+                                            USDecref0(&(v1));
+                                            switch (v3.tag) {
+                                                case 1: { // B
+                                                    USDecref0(&(v3));
+                                                    return method3();
+                                                    break;
+                                                }
+                                            }
+                                            break;
+                                        }
+                                    }
                                 }
                             }
                             break;
                         }
-                        case 1: { // B
+                        default: {
                             USDecref0(&(v2)); USDecref0(&(v3));
-                            return method4();
-                            break;
+                            switch (v1.tag) {
+                                case 1: { // B
+                                    USDecref0(&(v1));
+                                    return method4();
+                                    break;
+                                }
+                            }
                         }
                     }
-                    break;
                 }
             }
             break;
         }
-        case 1: { // B
+        default: {
             USDecref0(&(v0)); USDecref0(&(v1));
             switch (v2.tag) {
                 case 0: { // A
@@ -122,21 +129,18 @@ int32_t main(){
                             return method2();
                             break;
                         }
-                        case 1: { // B
+                        default: {
                             USDecref0(&(v3));
                             return method4();
-                            break;
                         }
                     }
                     break;
                 }
-                case 1: { // B
+                default: {
                     USDecref0(&(v2)); USDecref0(&(v3));
                     return method4();
-                    break;
                 }
             }
-            break;
         }
     }
 }
