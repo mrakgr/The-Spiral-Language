@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 typedef struct {
     double v2;
     double v4;
@@ -97,7 +96,7 @@ void ClosureDecref2(Closure2 * x){
 }
 Tuple0 ClosureMethod2(Closure2 * x, String * v4){
     int32_t v0 = x->v0; double v1 = x->v1; float v2 = x->v2; double v3 = x->v3;
-    v4->refc++;
+    ClosureDecref2(x);
     StringDecref(v4);
     return method4(v0, v1, v2, v3);
 }
@@ -119,6 +118,7 @@ void ClosureDecref1(Closure1 * x){
 }
 Fun0 * ClosureMethod1(Closure1 * x, double v1, float v2, double v3){
     int32_t v0 = x->v0;
+    ClosureDecref1(x);
     return method3(v0, v1, v2, v3);
 }
 Fun2 * ClosureCreate1(int32_t v0){
@@ -138,6 +138,7 @@ void ClosureDecref0(Closure0 * x){
     if (x != NULL && --(x->refc) == 0) { ClosureDecrefBody0(x); free(x); }
 }
 Fun2 * ClosureMethod0(Closure0 * x, int32_t v0){
+    ClosureDecref0(x);
     return method2(v0);
 }
 Fun1 * ClosureCreate0(){
@@ -153,19 +154,18 @@ Fun1 * method1(){
 Fun0 * method0(){
     Fun1 * v0;
     v0 = method1();
+    v0->refc++;
     Fun2 * v1;
     v1 = v0->fptr(v0, 2l);
     v0->decref_fptr(v0);
-    Fun0 * v2;
-    v2 = v1->fptr(v1, 2.2, 3.0f, 4.5);
-    v1->decref_fptr(v1);
-    return v2;
+    return v1->fptr(v1, 2.2, 3.0f, 4.5);
 }
 int32_t main(){
     Fun0 * v0;
     v0 = method0();
     String * v1;
     v1 = StringLit(4, "qwe");
+    v0->refc++; v1->refc++;
     int32_t v2; int32_t v3; double v4; float v5; double v6;
     Tuple0 tmp0 = v0->fptr(v0, v1);
     v2 = tmp0.v0; v3 = tmp0.v1; v4 = tmp0.v2; v5 = tmp0.v3; v6 = tmp0.v4;

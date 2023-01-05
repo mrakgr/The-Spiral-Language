@@ -293,9 +293,9 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | YPrim Float64T -> $"float {b}"
             | _ -> raise_codegen_error $"Compiler error: Unexpected type in Conv. Got: {show_ty a}"
             |> simple
+        | TyApply(L(i,_),b) -> sprintf "v%i %s" i (tup b) |> simple
         | TyOp(op,l) ->
             match op, l with
-            | Apply,[a;b] -> sprintf "%s %s" (tup a) (tup b)
             | Dyn,[a] -> tup a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
             | StringIndex, [a;b] -> sprintf "%s.[int %s]" (tup a) (tup b)

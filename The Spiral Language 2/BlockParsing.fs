@@ -26,9 +26,6 @@ type Op =
     | ToPythonRecord
     | ToPythonNamedTuple
 
-    // Closure application
-    | Apply
-
     // Branching
     | While
 

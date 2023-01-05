@@ -114,6 +114,7 @@ and TypedOp =
     | TyLayoutIndexByKey of TyV * string
     | TyLayoutHeapMutableSet of TyV * string list * Data
     | TyFailwith of Ty * Data
+    | TyApply of TyV * Data
     | TyConv of Ty * Data
     | TyArrayLiteral of Ty * Data list
     | TyArrayCreate of Ty * Data
@@ -240,7 +241,7 @@ let lit_to_primitive_type = function
 
 let lit_to_ty x = lit_to_primitive_type x |> YPrim
 let is_tco_compatible = function 
-    | TyIf _ | TyIntSwitch _ | TyUnionUnbox _ | TyJoinPoint _ | TyUnionBox _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _ | TyArrayLiteral _ | TyArrayCreate _ | TyFailwith _ -> true 
+    | TyIf _ | TyIntSwitch _ | TyUnionUnbox _ | TyJoinPoint _ | TyUnionBox _ | TyLayoutToHeap _ | TyLayoutToHeapMutable _ | TyArrayLiteral _ | TyArrayCreate _ | TyFailwith _ | TyApply _ -> true 
     | _ -> false
 
 let seq_apply (d: LangEnv) end_dat =
@@ -683,10 +684,10 @@ let peval (env : TopEnv) (x : E) =
                 s.env_stack_term.[0] <- b
                 term s body
             | DForall _, _ -> raise_type_error s "Cannot apply a forall with a term."
-            | DV(L(_,YFun(domain,range) & a_ty)) & a, b ->
+            | DV(L(_,YFun(domain,range) & a_ty) & a), b ->
                 let b = dyn false s b
                 let b_ty = data_to_ty s b
-                if domain = b_ty then push_binop_no_rewrite s Apply (a, b) range
+                if domain = b_ty then push_typedop_no_rewrite s (TyApply(a,b)) range
                 else raise_type_error s <| sprintf "Cannot apply an argument of type %s to a function of type: %s" (show_ty b_ty) (show_ty a_ty)
             | DV(L(i,YLayout(ty,layout)) as tyv) as a, DSymbol b -> 
                 let key = TyLayoutIndexByKey(tyv, b)

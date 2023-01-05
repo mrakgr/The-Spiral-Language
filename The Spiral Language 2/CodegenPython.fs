@@ -147,7 +147,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             r
 
     let numpy_ty x = env.ty_to_data x |> data_free_vars |> numpy_ty
-    let rec binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = binds (Codegen.C.refc_prepass (Set args) x).g_decr s BindsTailEnd x
+    let rec binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = binds (Codegen.C.refc_prepass Set.empty (Set args) x).g_decr s BindsTailEnd x
     and binds g_decr (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
         let s_len = s.text.Length
         let tup_destruct (a,b) =
@@ -282,6 +282,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         | TyArrayCreate(a,b) -> return' $"np.empty({tup_data b},dtype={numpy_ty a})" 
         | TyFailwith(a,b) -> line s $"raise Exception({tup_data' b})"
         | TyConv(a,b) -> return' $"{tyv a}({tup_data b})"
+        | TyApply(L(i,_),b) -> return' $"v{i}({tup_data' b})"
         | TyArrayLength(a,b) | TyStringLength(a,b) -> length (a,b)
         | TyOp(Global,[DLit (LitString x)]) -> global' x
         | TyOp(op,l) ->
@@ -292,7 +293,6 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
                 let field_names = Map.foldBack (fun k v l -> $"'{k}'" :: l) x [] |> String.concat ", "
                 let args = Map.foldBack (fun k v l -> tup_data v :: l) x [] |> String.concat ", "
                 $"collections.namedtuple({tup_data n},[{field_names}])({args})"
-            | Apply,[a;b] -> $"{tup_data a}({tup_data' b})"
             | Dyn,[a] -> tup_data a
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
             | StringIndex, [a;b] -> sprintf "%s[%s]" (tup_data a) (tup_data b)
