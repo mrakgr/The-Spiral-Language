@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 int32_t method0(int32_t v0, int32_t v1){
     bool v2;
     v2 = true;

@@ -3,7 +3,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 typedef struct UH1 UH1;
 void UHDecref1(UH1 * x);
 typedef struct UH0 UH0;
@@ -48,7 +47,6 @@ UH1 * UH1_1(UH0 * v0) { // AW
     x->tag = 1;
     x->refc = 1;
     x->case1.v0 = v0;
-    v0->refc++;
     return x;
 }
 static inline void UHDecrefBody0(UH0 * x){
@@ -73,17 +71,19 @@ UH0 * UH0_1(UH1 * v0) { // BW
     x->tag = 1;
     x->refc = 1;
     x->case1.v0 = v0;
-    v0->refc++;
     return x;
 }
 int32_t main(){
     UH0 * v0;
     v0 = UH0_0();
+    v0->refc++;
     UH1 * v1;
     v1 = UH1_1(v0);
+    v1->refc++;
     UHDecref0(v0);
     UH0 * v2;
     v2 = UH0_1(v1);
+    v2->refc++;
     UHDecref1(v1);
     UH1 * v3;
     v3 = UH1_1(v2);
