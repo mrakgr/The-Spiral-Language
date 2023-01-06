@@ -9,7 +9,7 @@ inl main () =
                 inl _ = ()
                 join 
                     inl _ = ()
-                    join  b
+                    join  b, b
         else
-            b
+            b, b
     0i32
