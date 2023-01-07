@@ -2,6 +2,7 @@
 
 - [Support Spiral](#support-spiral)
 - [News](#news)
+- [1/7/2023](#172023)
 - [12/21/2022](#12212022)
 - [7/13/2022](#7132022)
 - [8/21/2021](#8212021)
@@ -14,7 +15,7 @@
         - [Compilation](#compilation)
         - [Basics](#basics)
         - [Join points](#join-points)
-            - [TODO - Join points and language interop](#todo---join-points-and-language-interop)
+            - [Join points and language interop](#join-points-and-language-interop)
         - [Functions](#functions)
         - [What triggers dyning?](#what-triggers-dyning)
         - [Macros](#macros)
@@ -34,7 +35,6 @@
             - [Print Static](#print-static)
         - [Type Inference In Bottom-Up Style](#type-inference-in-bottom-up-style)
         - [Real Nominals And Inverse Arrays](#real-nominals-and-inverse-arrays)
-    - [Notes on the Cython backend](#notes-on-the-cython-backend)
     - [Known Bugs](#known-bugs)
 
 <!-- /TOC -->
@@ -44,6 +44,10 @@
 [Link](https://opencollective.com/spiral-collective).
 
 # News
+
+# 1/7/2023
+
+I finally have an example of how Spiral can be used to program a novel piece of hardware. [This article](https://github.com/mrakgr/PIM-Programming-In-Spiral-UPMEM-Demo) and the examples within should demonstrate what Spiral can do on the UPMEM device. Spiral is currently at v2.3.7. I've replaced the Cython backend with a Python one, did a host of improvement on the language, and now it should be rock solid. If anyone in the AI/PIM business wants to program in a super efficient, high level functional language instead of C, don't hesitate to get in touch. These backends are quick and easy to make for me.
 
 # 12/21/2022
 
@@ -489,7 +493,9 @@ These examples cover the essence of join points. All they do is specialize the b
 
 While the essence of their functionality is easy to understand, these examples are just scratching the surface of their usefulness. If it was just performance, they would not be useless, but they would not be enough to motivate me to make a language with them as one of the most essential features.
 
-#### TODO - Join points and language interop
+#### Join points and language interop
+
+**New in v2.3.7:** In Jan 2023, I finally have a [demo](https://github.com/mrakgr/PIM-Programming-In-Spiral-UPMEM-Demo) that shows what I wanted to do here. The following of the section here was written in early 2021.
 
 It is a pity I cannot demonstrate this benefit at the moment as Spiral as I haven't gotten access to an AI chip in order to make a backend for it yet, but it is worth describing how it used to work in the previous version.
 
@@ -2438,16 +2444,6 @@ v6
 ```
 
 F# has value structs so maybe this functionality on its own is not a big deal. It would certainly be advantageous in the Cython backend which allocates composite types on the heap, but in the old Spiral what I've particularly found this functionality useful for is getting arrays past language boundaries. Different languages, F# and C for example, have structs of different sizes and it is hard to keep them straight. Primitive types on the other hand are much easier to pass around.
-
-## Notes on the Cython backend
-
-The Cython backend supports all the features of Spiral such as union types. Since it compiles to C, tail call optimization is supported as well. That having said, right now (1/30/2021) tuples are heap allocated, stack (non-recursive) union types are heap allocated and primitive arrays are compiled to Numpy arrays which only support base objects and primitives as data types.
-
-Though Spiral compiled code will be blazing fast compared to regular Python, it would be even better if the [wishlist](https://github.com/cython/cython/issues/3992) items are fulfilled.
-
-If you run into trouble trying to `cimport numpy` on Windows check out this [SO post](https://stackoverflow.com/questions/14657375/cython-fatal-error-numpy-arrayobject-h-no-such-file-or-directory).
-
-To produce import and cimport statements inside Spiral code, the `Import` and `CImport` ops can be used.
 
 ## Known Bugs
 
