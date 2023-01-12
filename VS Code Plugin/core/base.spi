@@ -21,13 +21,13 @@ inl (::) a b = Cons (a,b)
 // Array with a dimension.
 nominal a dim a = array a
 // Creates an array.
-prototype create ar dim el : dim -> ar dim el
+prototype create ar dim {number; int} el : dim -> ar dim el
 // Indexes into an array.
-prototype index ar dim el : ar dim el -> dim -> el
+prototype index ar dim {number; int} el : ar dim el -> dim -> el
 // Sets the value of an array at the specified index.
-prototype set ar dim el : ar dim el -> dim -> el -> ()
+prototype set ar dim {number; int} el : ar dim el -> dim -> el -> ()
 // Returns the length of an array.
-prototype length ar dim el : ar dim el -> dim
+prototype length ar dim {number; int} el : ar dim el -> dim
 
 instance create a = fun size => a !!!!ArrayCreate(`el,size)
 instance index a = fun (a ar) i => !!!!ArrayIndex(ar,i)

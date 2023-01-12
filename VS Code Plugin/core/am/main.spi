@@ -2,85 +2,85 @@
 open generic
 
 // Creates an empty array.
-inl empty forall (ar : * -> * -> *) {create} dim {number} el. : ar dim el = empty
+inl empty forall (ar : * -> * -> *) {create} dim {number; int} el. : ar dim el = empty
 // Creates an array with a single element.
-inl singleton forall (ar : * -> * -> *) {create; set} dim {number} el. : el -> ar dim el = singleton
+inl singleton forall (ar : * -> * -> *) {create; set} dim {number; int} el. : el -> ar dim el = singleton
 // Initializes array using the given function.
-inl init forall (ar : * -> * -> *) {create; set} dim {number} el. : dim -> (dim -> el) -> ar dim el = init
+inl init forall (ar : * -> * -> *) {create; set} dim {number; int} el. : dim -> (dim -> el) -> ar dim el = init
 // Applies a function to each element of the array, threading an accumulator argument through the computation. 
 // If the input function is f and the elements are i0...iN then computes f (... (f s i0)...) iN
-inl fold forall (ar : * -> * -> *) {index; length} dim {number} el s. : _ -> _ -> ar dim el -> s = fold
+inl fold forall (ar : * -> * -> *) {index; length} dim {number; int} el s. : _ -> _ -> ar dim el -> s = fold
 // Applies a function to each element of the two arrays, threading an accumulator argument through the computation.
-inl fold2 forall (ar : * -> * -> *) {index; length} dim {number} s. : _ -> _ -> ar dim _ -> ar dim _ -> s = fold2
+inl fold2 forall (ar : * -> * -> *) {index; length} dim {number; int} s. : _ -> _ -> ar dim _ -> ar dim _ -> s = fold2
 // Similar to fold with the intial state as the first element of the array.
-inl reduce forall (ar : * -> * -> *) {index; length} dim {number} el. : _ -> ar dim el -> el = reduce
+inl reduce forall (ar : * -> * -> *) {index; length} dim {number; int} el. : _ -> ar dim el -> el = reduce
 // Same as fold from the other direction.
-inl foldBack forall (ar : * -> * -> *) {index; length} dim {number} el s. : _ -> ar dim el -> _ -> s = foldBack
+inl foldBack forall (ar : * -> * -> *) {index; length} dim {number; int} el s. : _ -> ar dim el -> _ -> s = foldBack
 // Maps an array.
-inl map forall (ar : * -> * -> *) {index; length; create; set} dim {number} el el'. : _ -> ar dim el -> ar dim el' = map
+inl map forall (ar : * -> * -> *) {index; length; create; set} dim {number; int} el el'. : _ -> ar dim el -> ar dim el' = map
 // Maps an array. Provides the index as the first argument.
-inl mapi forall (ar : * -> * -> *) {index; length; create; set} dim {number} el el'. : _ -> ar dim el -> ar dim el' = mapi
+inl mapi forall (ar : * -> * -> *) {index; length; create; set} dim {number; int} el el'. : _ -> ar dim el -> ar dim el' = mapi
 // Iterates over an array.
-inl iter forall (ar : * -> * -> *) {index; length; create; set} dim {number} el. : _ -> ar dim el -> _ = iter
+inl iter forall (ar : * -> * -> *) {index; length; create; set} dim {number; int} el. : _ -> ar dim el -> _ = iter
 // Iterates over an array. Provides the index as the first argument.
-inl iteri forall (ar : * -> * -> *) {index; length; create; set} dim {number} el. : _ -> ar dim el -> _ = iteri
+inl iteri forall (ar : * -> * -> *) {index; length; create; set} dim {number; int} el. : _ -> ar dim el -> _ = iteri
 // Iterates over two arrays.
-inl iter2 forall (ar : * -> * -> *) {index; length; create; set} dim {number}. : _ -> ar dim _ -> ar dim _ -> _ = iter2
+inl iter2 forall (ar : * -> * -> *) {index; length; create; set} dim {number; int}. : _ -> ar dim _ -> ar dim _ -> _ = iter2
 // Iterates over two arrays. Provides the index as the first argument.
-inl iteri2 forall (ar : * -> * -> *) {index; length; create; set} dim {number}. : _ -> ar dim _ -> ar dim _ -> _ = iteri2
+inl iteri2 forall (ar : * -> * -> *) {index; length; create; set} dim {number; int}. : _ -> ar dim _ -> ar dim _ -> _ = iteri2
 // Iterates over three arrays.
-inl iter3 forall (ar : * -> * -> *) {index; length; create; set} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> _ = iter3
+inl iter3 forall (ar : * -> * -> *) {index; length; create; set} dim {number; int}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> _ = iter3
 // Iterates over three arrays. Provides the index as the first argument.
-inl iteri3 forall (ar : * -> * -> *) {index; length; create; set} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> _ = iteri3
+inl iteri3 forall (ar : * -> * -> *) {index; length; create; set} dim {number; int}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> _ = iteri3
 // Iterates over four arrays.
-inl iter4 forall (ar : * -> * -> *) {index; length; create; set} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ -> _ = iter4
+inl iter4 forall (ar : * -> * -> *) {index; length; create; set} dim {number; int}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ -> _ = iter4
 // Iterates over four arrays. Provides the index as the first argument.
-inl iteri4 forall (ar : * -> * -> *) {index; length; create; set} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ -> _ = iteri4
+inl iteri4 forall (ar : * -> * -> *) {index; length; create; set} dim {number; int}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ -> _ = iteri4
 // Filters the elements of an array using the function.
-inl filter forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. : _ -> ar dim el -> ar dim el = filter
+inl filter forall (ar : * -> * -> *) {create; set; index; length} dim {number; int} el. : _ -> ar dim el -> ar dim el = filter
 // Picks out the elements from the array.
-inl choose forall (ar : * -> * -> *) {create; set; index; length} dim {number} el el'. : _ -> ar dim el -> ar dim el' = choose
+inl choose forall (ar : * -> * -> *) {create; set; index; length} dim {number; int} el el'. : _ -> ar dim el -> ar dim el' = choose
 // Concatenates an array of arrays.
-inl concat' forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. : _ dim (ar dim el) -> ar dim el = concat
+inl concat' forall (ar : * -> * -> *) {create; set; index; length} dim {number; int} el. : _ dim (ar dim el) -> ar dim el = concat
 // Concatenates an array of arrays.
-inl concat forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. : ar dim (_ dim el) -> ar dim el = concat
+inl concat forall (ar : * -> * -> *) {create; set; index; length} dim {number; int} el. : ar dim (_ dim el) -> ar dim el = concat
 // Appends two arrays.
-inl append forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. : ar dim el -> ar dim el -> ar dim el = append
+inl append forall (ar : * -> * -> *) {create; set; index; length} dim {number; int} el. : ar dim el -> ar dim el -> ar dim el = append
 // Finds the index of the true applicant.
-inl findIndex forall (ar : * -> * -> *) {index; length} dim {number} el. : _ -> ar dim el -> dim = findIndex
+inl findIndex forall (ar : * -> * -> *) {index; length} dim {number; int} el. : _ -> ar dim el -> dim = findIndex
 // Slices an array between a range.
-inl slice forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. : _ -> ar dim el -> ar dim el = slice
+inl slice forall (ar : * -> * -> *) {create; set; index; length} dim {number; int} el. : _ -> ar dim el -> ar dim el = slice
 // Slices an array from the start of a range.
-inl sliceFrom forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. : _ -> ar dim el -> ar dim el = sliceFrom
+inl sliceFrom forall (ar : * -> * -> *) {create; set; index; length} dim {number; int} el. : _ -> ar dim el -> ar dim el = sliceFrom
 // Applies the mapping function to each element of the two arrays producing a new array with the result of the applications.
-inl map2 forall (ar : * -> * -> *) {create; set; index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ = map2
+inl map2 forall (ar : * -> * -> *) {create; set; index; length} dim {number; int}. : _ -> ar dim _ -> ar dim _ -> ar dim _ = map2
 // Applies the mapping function to each element of the two arrays producing a new array with the result of the applications. Provides the index as the first argument.
-inl mapi2 forall (ar : * -> * -> *) {create; set; index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ = mapi2
+inl mapi2 forall (ar : * -> * -> *) {create; set; index; length} dim {number; int}. : _ -> ar dim _ -> ar dim _ -> ar dim _ = mapi2
 // Applies the mapping function to each element of the three arrays producing a new array with the result of the applications.
-inl map3 forall (ar : * -> * -> *) {create; set; index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ = map3
+inl map3 forall (ar : * -> * -> *) {create; set; index; length} dim {number; int}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ = map3
 // Applies the mapping function to each element of the three arrays producing a new array with the result of the applications. Provides the index as the first argument.
-inl mapi3 forall (ar : * -> * -> *) {create; set; index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ = mapi3
+inl mapi3 forall (ar : * -> * -> *) {create; set; index; length} dim {number; int}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ = mapi3
 // Applies the mapping function to each element of the four arrays producing a new array with the result of the applications.
-inl map4 forall (ar : * -> * -> *) {create; set; index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ = map4
+inl map4 forall (ar : * -> * -> *) {create; set; index; length} dim {number; int}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ = map4
 // Applies the mapping function to each element of the four arrays producing a new array with the result of the applications. Provides the index as the first argument.
-inl mapi4 forall (ar : * -> * -> *) {create; set; index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ = mapi4
+inl mapi4 forall (ar : * -> * -> *) {create; set; index; length} dim {number; int}. : _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ -> ar dim _ = mapi4
 // Initializes the array while threading the state through the loop.
-inl initFold forall (ar : * -> * -> *) {create; set} dim {number} el s. : _ -> _ -> _ -> ar dim el * s = initFold
+inl initFold forall (ar : * -> * -> *) {create; set} dim {number; int} el s. : _ -> _ -> _ -> ar dim el * s = initFold
 // Folds over the array while producing the residual array resulting from that operation.
-inl mapFold forall (ar : * -> * -> *) {create; set; index; length} dim {number} el s. : _ -> _ -> ar dim _ -> ar dim el * s = mapFold
+inl mapFold forall (ar : * -> * -> *) {create; set; index; length} dim {number; int} el s. : _ -> _ -> ar dim _ -> ar dim el * s = mapFold
 // Folds over the two arrays while producing the residual array resulting from that operation.
-inl mapFold2 forall (ar : * -> * -> *) {create; set; index; length} dim {number} el s. : _ -> _ -> ar dim _ -> ar dim _ -> ar dim el * s = mapFold2
+inl mapFold2 forall (ar : * -> * -> *) {create; set; index; length} dim {number; int} el s. : _ -> _ -> ar dim _ -> ar dim _ -> ar dim el * s = mapFold2
 // Converts the array to an list.
-inl toList forall (ar : * -> * -> *) {index; length} dim {number} el. : ar dim el -> list el = toList
+inl toList forall (ar : * -> * -> *) {index; length} dim {number; int} el. : ar dim el -> list el = toList
 // Returns true if the applying the checker function to every element of the array returns true.
-inl forall' forall (ar : * -> * -> *) {index; length} dim {number} el. : _ -> ar dim el -> bool = forall'
+inl forall' forall (ar : * -> * -> *) {index; length} dim {number; int} el. : _ -> ar dim el -> bool = forall'
 // Returns true if the applying the checker function to every element pair of the two arrays returns true.
-inl forall2 forall (ar : * -> * -> *) {index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> bool = forall2
+inl forall2 forall (ar : * -> * -> *) {index; length} dim {number; int}. : _ -> ar dim _ -> ar dim _ -> bool = forall2
 // Returns true if the applying the checker function to every element of the array returns true.
-inl exists forall (ar : * -> * -> *) {index; length} dim {number} el. : _ -> ar dim el -> bool = exists
+inl exists forall (ar : * -> * -> *) {index; length} dim {number; int} el. : _ -> ar dim el -> bool = exists
 // Returns true if the applying the checker function to every element pair of the two arrays returns true.
-inl exists2 forall (ar : * -> * -> *) {index; length} dim {number}. : _ -> ar dim _ -> ar dim _ -> bool = exists2
+inl exists2 forall (ar : * -> * -> *) {index; length} dim {number; int}. : _ -> ar dim _ -> ar dim _ -> bool = exists2
 // Removes the element at index.
-inl removeAtIndex forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. : dim -> ar dim el -> ar dim el = removeAtIndex
+inl removeAtIndex forall (ar : * -> * -> *) {create; set; index; length} dim {number; int} el. : dim -> ar dim el -> ar dim el = removeAtIndex
 // Does an inplace map of the array.
-inl mapInplace forall (ar : * -> * -> *) {index; set; length} dim {number} el. : _ -> ar dim el -> () = mapInplace
+inl mapInplace forall (ar : * -> * -> *) {index; set; length} dim {number; int} el. : _ -> ar dim el -> () = mapInplace

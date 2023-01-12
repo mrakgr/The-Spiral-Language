@@ -197,6 +197,7 @@ type ParserErrors =
     | UnknownError
     | DuplicateRecordTypeVar
     | DuplicateForallVar
+    | DuplicateConstraint
     | DuplicateTermRecordSymbol
     | DuplicateTermRecordInjection
     | DuplicateRecFunctionName
@@ -702,7 +703,11 @@ let ho_var d : Result<HoVar,_> = range ((read_small_type_var |>> fun x -> x, Raw
 let forall_var d : Result<TypeVar,_> = (ho_var .>>. (curlies (sepBy (read_small_type_var' <|> rounds read_op_type) (skip_op ";")) <|>% [])) d
 let forall d = 
     (skip_keyword SpecForall >>. many1 forall_var .>> skip_op "." 
-    >>= fun x _ -> duplicates DuplicateForallVar (List.map (fun ((r,(a,_)),_) -> r,a) x) |> function [] -> Ok x | er -> Error er) d
+    >>= fun q _ -> 
+        let x' = q |> List.collect (fun (_,l) -> duplicates DuplicateConstraint l)
+        let x = q |> List.map (fun ((r,(a,_)),_) -> r,a) |> duplicates DuplicateForallVar
+        match List.append x x' with [] -> Ok q | er -> Error er
+        ) d
 
 let inline annotated_body sep exp ty =
     pipe2 (opt (skip_op ":" >>. ty))
@@ -1374,6 +1379,7 @@ let show_parser_error = function
     | UnknownError -> "Compiler error: Parsing failed at this position with no error message and without consuming all the tokens in a block."
     | DuplicateRecordTypeVar -> "Duplicate record type variable."
     | DuplicateForallVar -> "Duplicate forall variable."
+    | DuplicateConstraint -> "Duplicate constraint."
     | InvalidPattern DuplicateRecordSymbol
     | DuplicateTermRecordSymbol -> "Duplicate record symbol."
     | InvalidPattern DuplicateRecordInjection

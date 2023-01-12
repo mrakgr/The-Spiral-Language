@@ -1,3 +1,9 @@
+2.3.8 (WIP)
+
+* Added the `uint` constraint to the language.
+* Added duplicate constraint checking in the parser.
+* Changed the type signatures of the array functions in the core library so that the `dim` type variable has the {number; int} constraint instead of just {number}.
+
 2.3.7 (1/5/2023)
 
 Another significant redesign of the C ref counting backend. Tail recursive loops will be maximally efficient. Will be suitable for multithreaded code if atomics are brought in. Also the old version was broken when duplicate variables are passed into closure calls.

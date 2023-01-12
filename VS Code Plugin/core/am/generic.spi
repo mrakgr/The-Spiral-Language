@@ -2,7 +2,7 @@
 open loopw
 
 // Creates an empty array.
-inl empty forall (ar : * -> * -> *) {create} dim {number} el. : ar dim el = create 0
+inl empty forall (ar : * -> * -> *) {create} dim {number; int} el. : ar dim el = create 0
 // Creates an array with a single element.
 inl singleton x = inl ar = create 1 in set ar 0 x . ar
 // Initializes array using the given function.
@@ -31,7 +31,7 @@ inl iter f ar = for' {from=0; nearTo=length ar} (index ar >> f)
 // Iterates over an array. Provides the index as the first argument.
 inl iteri f ar = for' {from=0; nearTo=length ar} (fun i => f i (index ar i))
 // Filters the elements of an array using the function.
-inl filter forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. f (ar : ar dim el) =
+inl filter forall (ar : * -> * -> *) {create; set; index; length} dim {number; int} el. f (ar : ar dim el) =
     inl nearTo = length ar
     inl ar' : ar _ _ = create nearTo
     for {from=0; nearTo} (fun i count => 
@@ -40,7 +40,7 @@ inl filter forall (ar : * -> * -> *) {create; set; index; length} dim {number} e
         ) 0
     |> fun nearTo => init nearTo (index ar')
 // Picks out the elements from the array.
-inl choose forall (ar : * -> * -> *) {create; set; index; length} dim {number} el. f (ar : ar dim el) =
+inl choose forall (ar : * -> * -> *) {create; set; index; length} dim {number; int} el. f (ar : ar dim el) =
     inl nearTo = length ar
     inl ar' : ar _ _ = create nearTo
     for {from=0; nearTo} (fun i count =>
@@ -150,5 +150,5 @@ inl generic_comparable x1 x2 =
             else eq()
         loop 0
 
-instance equable a dim {number} t = generic_equable
-instance comparable a dim {number} t = generic_comparable
+instance equable a dim {number; int} t = generic_equable
+instance comparable a dim {number; int} t = generic_comparable

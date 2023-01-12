@@ -10,12 +10,13 @@ type TT =
     | KindMetavar of TT option ref'
 
 type Constraint =
-    | CNumber
-    | CInt
+    | CUInt
     | CSInt
+    | CInt
     | CFloat
-    | CSymbol
+    | CNumber
     | CPrim
+    | CSymbol
     | CRecord
     | CPrototype of GlobalId
 
@@ -40,7 +41,7 @@ type TM =
 
 and T =
     | TyB
-    | TyPrim of BlockParsing.PrimitiveType
+    | TyPrim of PrimitiveType
     | TySymbol of string
     | TyPair of T * T
     | TyRecord of Map<string, T>
@@ -195,13 +196,29 @@ let prototype_init_forall_kind = function
     | TyForall(a,_) -> a.kind
     | _ -> failwith "Compiler error: The prototype should have at least one forall."
 
+let show_primt = function
+    | UInt8T -> "u8"
+    | UInt16T -> "u16"
+    | UInt32T -> "u32"
+    | UInt64T -> "u64"
+    | Int8T -> "i8"
+    | Int16T -> "i16"
+    | Int32T -> "i32"
+    | Int64T -> "i64"
+    | Float32T -> "f32"
+    | Float64T -> "f64"
+    | BoolT -> "bool"
+    | StringT -> "string"
+    | CharT -> "char"
+
 let rec constraint_name (env : TopEnv) = function
-    | CNumber -> "number"
-    | CInt -> "int"
     | CSInt -> "sint"
-    | CSymbol -> "symbol"
+    | CUInt -> "uint"
+    | CInt -> "int"
     | CFloat -> "float"
+    | CNumber -> "number"
     | CPrim -> "prim"
+    | CSymbol -> "symbol"
     | CRecord -> "record"
     | CPrototype i -> env.prototypes.[i].name
 
@@ -358,18 +375,19 @@ let type_apply_split x =
     loop [] x
 
 let rec constraint_process (env : TopEnv) = function
-    | CSymbol, TySymbol _, []
-    | CInt, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T), []
+    | CUInt, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T), []
     | CSInt, TyPrim (Int8T | Int16T | Int32T | Int64T), []
+    | CInt, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T), []
     | CFloat, TyPrim (Float32T | Float64T), []
+    | CNumber, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T | Float32T | Float64T), []
     | CPrim, TyPrim _, []
-    | CRecord, TyRecord _, []
-    | CNumber, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T | Float32T | Float64T), [] -> []
+    | CSymbol, TySymbol _, []
+    | CRecord, TyRecord _, [] -> []
     | CPrototype prot, TyNominal ins, x' ->
         match Map.tryFind (prot,ins) env.prototypes_instances with
-        | Some cons -> 
+        | Some cons ->
             let rec loop ers = function
-                | con :: con', x :: x' -> 
+                | con :: con', x :: x' ->
                     let b,b' = type_apply_split x
                     loop (List.append (constraints_process env (con,b,b')) ers) (con',x')
                 | [], _ -> ers
@@ -380,7 +398,7 @@ let rec constraint_process (env : TopEnv) = function
     | con, TyMetavar(x,_), _ -> x.constraints <- Set.add con x.constraints; []
     | con, TyVar v & x, _ -> if Set.contains con v.constraints then [] else [ConstraintError(con,x)]
     | con, x, _ -> [ConstraintError(con,x)]
-and constraints_process env (con,b,b') = 
+and constraints_process env (con,b,b') =
     match b with
     | TyVar b -> if con.IsSubsetOf b.constraints = false then [ForallVarConstraintError(b.name,con,b.constraints)] else []
     | b -> Set.fold (fun ers con -> List.append (constraint_process env (con,b,b')) ers) [] con
@@ -431,21 +449,6 @@ let rec has_metavars x =
     | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a || f b
     | TyUnion(l,_) | TyRecord l -> Map.exists (fun _ -> f) l
     | TyMacro a -> List.exists (function TMVar x -> has_metavars x | _ -> false) a
-
-let show_primt = function
-    | UInt8T -> "u8"
-    | UInt16T -> "u16"
-    | UInt32T -> "u32"
-    | UInt64T -> "u64"
-    | Int8T -> "i8"
-    | Int16T -> "i16"
-    | Int32T -> "i32"
-    | Int64T -> "i64"
-    | Float32T -> "f32"
-    | Float64T -> "f64"
-    | BoolT -> "bool"
-    | StringT -> "string"
-    | CharT -> "char"
 
 let p prec prec' x = if prec < prec' then x else sprintf "(%s)" x
 let show_kind x =
@@ -817,9 +820,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let f x s = TyForall(x,s)
         replace_metavars body
         let x = Seq.foldBack f generalized_metavars body |> List.foldBack f forall_vars |> term_subst
-        match forall_vars with
-        | [] -> x
-        | _ -> assert_foralls_used r x; x
+        if List.isEmpty forall_vars = false then assert_foralls_used r x
+        x
 
     let inline unify_kind' er r got expected =
         let rec loop (a'',b'') =
@@ -916,6 +918,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let v env top_env a = Map.tryFind a env |> Option.orElseWith (fun () -> Map.tryFind a top_env) 
     let v_term env a = v env.term top_env.term a |> Option.map (function TyComment(com,x) -> com, visit_t x | x -> "", visit_t x)
     let v_ty env a = v env.ty top_env.ty a 
+
     let typevar_to_var scope cons (((_,(name,kind)),constraints) : TypeVar) : Var = 
         let rec typevar = function
             | RawKindWildcard | RawKindStar -> KindType
@@ -1648,10 +1651,11 @@ let top_env_default : TopEnv =
         ty = Map.ofList base_types
         constraints =
             [
-            "number", CNumber
-            "int", CInt
+            "uint", CUInt
             "sint", CSInt
+            "int", CInt
             "float", CFloat
+            "number", CNumber
             "prim", CPrim
             "record", CRecord
             "symbol", CSymbol
