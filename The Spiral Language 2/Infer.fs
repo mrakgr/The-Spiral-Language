@@ -114,7 +114,6 @@ type TypeError =
     | OrphanInstance
     | ShadowedInstance
     | UnusedForall of string list
-    | CannotPropagateConstraintsToUnappliedTypeVars of T list * Constraint Set list
 
 let shorten' x link next = let x = next x in link.contents' <- Some x; x
 let rec visit_tt = function
@@ -390,9 +389,7 @@ let rec constraint_process (env : TopEnv) = function
                 | con :: con', x :: x' ->
                     let b,b' = type_apply_split x
                     loop (List.append (constraints_process env (con,b,b')) ers) (con',x')
-                | [], _ -> ers
-                | con, [] when List.forall Set.isEmpty con -> ers
-                | _, [] -> CannotPropagateConstraintsToUnappliedTypeVars(x',cons) :: ers
+                | _ -> ers
             loop [] (cons,x')
         | None -> [InstanceNotFound(prot,ins)]
     | con, TyMetavar(x,_), _ -> x.constraints <- Set.add con x.constraints; []
@@ -579,10 +576,6 @@ let show_type_error (env : TopEnv) x =
     | ShadowedInstance -> "The instance cannot be defined twice."
     | UnusedForall [x] -> sprintf "The forall variable %s is unused in the function's type signature." x
     | UnusedForall vars -> sprintf "The forall variables %s are unused in the function's type signature." (vars |> String.concat ", ")
-    | CannotPropagateConstraintsToUnappliedTypeVars(a,b) -> 
-        sprintf "Cannot propagate constraints to missing type variables.\nVars: %s\nConstraints: %s" 
-            (List.map f a |> String.concat ", ") 
-            (List.map (show_constraints env) b |> String.concat ", ")
 
 let loc_env (x : TopEnv) = {term=x.term; ty=x.ty; constraints=x.constraints}
 let names_of vars = List.map (fun x -> x.name) vars |> Set
