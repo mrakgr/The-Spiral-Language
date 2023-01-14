@@ -1,0 +1,13 @@
+// Do the prototype contraints get propagated correctly? This test should give an error.
+
+prototype pw q w {number} e {number} r {number} : q w e r -> ()
+nominal nw t1 t2 t3 = t1 * t2 * t3
+instance pw nw = fun _ => ()
+
+prototype pq q w {pw} e {int} r {int} : q w e r -> ()
+nominal nq t1 t2 t3 = t1 * t2 * t3
+instance pq nq = fun _ => ()
+
+inl foo () =
+    inl y : nq (nw f32 f32 bool) i32 i32 = real ()
+    pq y

@@ -1570,9 +1570,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     ) Map.empty (List.zip vars (List.take vars_expected ins_kind.args))
             let ins_constraints = ins_vars |> List.map (function TyVar x -> x.constraints | _ -> failwith "impossible")
             let ins_core, _ = List.fold (fun (a,k) (b : T) -> let k = trim_kind k in TyApply(a,b,k),k) (TyNominal ins_id,ins_kind') ins_vars
-            let env_ty, prot_body =
+            let prot_constraints, env_ty, prot_body =
                 match foralls_ty_get prototype.signature with
                 | (prot_core :: prot_foralls), prot_body ->
+                    prot_foralls |> List.map (fun x -> x.constraints),
                     List.fold (fun ty x ->
                         assert_instance_forall_does_not_shadow_prototype_forall x.name
                         Map.add x.name (TyVar x) ty) env_ty prot_foralls,
@@ -1586,10 +1587,11 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             assert_orphan_shadow_check prot_id ins_id
             assert_orphan_instance_check prot_id ins_id
             guard <| fun () ->
-            top_env <- {top_env with prototypes_instances = Map.add (prot_id,ins_id) ins_constraints top_env.prototypes_instances}
+            let constraints = List.append ins_constraints prot_constraints
+            top_env <- {top_env with prototypes_instances = Map.add (prot_id,ins_id) constraints top_env.prototypes_instances}
             term scope {term=Map.empty; ty=env_ty; constraints=Map.empty} prot_body body
             (if 0 = errors.Count then psucc (fun () -> FInstance(r,(fst prot, prot_id),(fst ins, ins_id),fill r Map.empty body)) else pfail),
-            AInclude {top_env_empty with prototypes_instances = Map.add (prot_id,ins_id) ins_constraints Map.empty}
+            AInclude {top_env_empty with prototypes_instances = Map.add (prot_id,ins_id) constraints Map.empty}
             
         let fake _ = fail
         let check_ins on_succ =

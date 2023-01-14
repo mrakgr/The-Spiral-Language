@@ -1,6 +1,1 @@
-inl main () = 
-    inl x : inv a u64 f32 = create 1
-    inl y = index x 0
-    set x 0 y
-    0i32
-    
+inl main () = 0i32

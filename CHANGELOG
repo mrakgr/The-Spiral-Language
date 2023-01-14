@@ -1,9 +1,10 @@
-2.3.8 (WIP)
+2.3.8 (1/14/2023)
 
 * Added the `uint` constraint to the language.
 * Added duplicate constraint checking in the parser.
 * Changed the type signatures of the array functions in the core library so that the `dim` type variable has the {number; int} constraint instead of just {number}.
 * Removed the unapplied typevar check in the constraint processor.
+* Fixed an error where the nested contraints were not propagated fully.
 
 2.3.7 (1/5/2023)
 
