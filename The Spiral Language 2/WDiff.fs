@@ -276,7 +276,7 @@ type PackageEnv = {
     nominals_aux : Map<PackageId,Map<GlobalId, {|name : string; kind : TT|}>>
     nominals : Map<PackageId,Map<GlobalId, {|vars : Var list; body : T|}>>
     prototypes_instances : Map<PackageId,Map<GlobalId * GlobalId, Constraint Set list>>
-    prototypes : Map<PackageId,Map<GlobalId, {|name : string; signature: T|}>>
+    prototypes : Map<PackageId,Map<GlobalId, {|name : string; signature : T; kind : TT|}>>
     ty : Map<string,T>
     term : Map<string,T>
     constraints : Map<string,ConstraintOrModule>

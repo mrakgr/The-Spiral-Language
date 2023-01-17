@@ -823,13 +823,13 @@ let inline pat_pair next =
     |>> List.reduceBack (fun a b -> PatPair(range_of_pattern a +. range_of_pattern b,a,b))
 
 type RootTypeFlags = {
-    allow_metavars : bool
+    allow_typecase_metavars : bool
     allow_term : bool
     allow_wildcard : bool
     }
 
 let root_type_defaults = {
-    allow_metavars = false
+    allow_typecase_metavars = false
     allow_term = false
     allow_wildcard = false
     }
@@ -979,7 +979,7 @@ and root_type (flags : RootTypeFlags) d =
     let cases d =
         let wildcard d = if flags.allow_wildcard then (skip_keyword' SpecWildcard |>> RawTWildcard) d else Error []
         // This metavar case only occurs in typecase during the bottom-up segment. It should not be confused with metavars during top-down type inference.
-        let metavar d = if flags.allow_metavars then (skip_unary_op "~" >>. read_var' |>> fun (a,b,r) -> r SemanticTokenLegend.type_variable; RawTMetaVar(a,b)) d else Error []
+        let metavar d = if flags.allow_typecase_metavars then (skip_unary_op "~" >>. read_var' |>> fun (a,b,r) -> r SemanticTokenLegend.type_variable; RawTMetaVar(a,b)) d else Error []
         let term d = if flags.allow_term then (range (skip_unary_op "`" >>. ((read_var'' |>> RawV) <|> rounds root_term)) |>> RawTTerm) {d with is_top_down=false} else Error []
         let symbol = read_symbol |>> RawTSymbol
         let record = root_type_record flags
@@ -1055,7 +1055,7 @@ and root_term d =
         let case_typecase d =
             let clauses d = 
                 let bar = bar (col d)
-                let typecase = root_type {root_type_defaults with allow_metavars=true; allow_wildcard=true} >>= typecase_validate
+                let typecase = root_type {root_type_defaults with allow_typecase_metavars=true; allow_wildcard=true} >>= typecase_validate
                 (optional bar >>. sepBy1 (typecase .>>. (skip_op "=>" >>. next)) bar) d
 
             if d.is_top_down then Error [] else

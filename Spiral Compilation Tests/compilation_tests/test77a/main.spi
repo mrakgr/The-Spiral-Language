@@ -4,10 +4,10 @@ prototype pw q : q -> ()
 nominal nw t1 t2 t3 = t1 * t2 * t3
 instance pw nw w {int} e {int} r {int} = fun _ => ()
 
-prototype pq q (w : * -> * -> *) {pw} e {float} r {float} : q w e r -> ()
-nominal nq (t1 : * -> * -> *) t2 t3 = t1 t2 t3
+prototype pq q w {pw} e {float} r {float} : q w e r -> ()
+nominal nq t1 t2 t3 = t1 * t2 * t3
 instance pq nq = fun _ => ()
 
 inl foo () =
-    inl y : nq (nw u32) f32 f32 = real ()
+    inl y : nq (nw u32 u32 i32 i32) f32 f32 = real ()
     pq y

@@ -61,6 +61,7 @@ and T =
 
 type TypeError =
     | KindError of TT * TT
+    | KindErrorInConstraint of TT * TT
     | ExpectedSymbolAsRecordKey of T
     | ExpectedSymbolAsModuleKey of T
     | UnboundVariable
@@ -90,6 +91,8 @@ type TypeError =
     | TypeInEnvIsNotNominal of T
     | UnionInPatternNominal of GlobalId
     | ConstraintError of Constraint * T
+    | PrototypeConstraintCannotPropagateToMetavar of GlobalId * T
+    | PrototypeConstraintCannotPropagateToVar of GlobalId * T
     | ExpectedAnnotation
     | ExpectedSinglePattern
     | RecursiveAnnotationHasMetavars of T
@@ -114,23 +117,26 @@ type TypeError =
     | OrphanInstance
     | ShadowedInstance
     | UnusedForall of string list
+    | CompilerError of string
 
-let shorten' x link next = let x = next x in link.contents' <- Some x; x
+let inline shorten'<'a> (x : 'a) link next = 
+    let x' : 'a = next x
+    if System.Object.ReferenceEquals(x,x') = false then link.contents' <- Some x'
+    x'
 let rec visit_tt = function
     | KindMetavar({contents'=Some x} & link) -> shorten' x link visit_tt
     | a -> a
 
-let shorten x link next = let x = next x in link := Some x; x
+let inline shorten<'a> (x : 'a) link next = 
+    let x' : 'a = next x 
+    if System.Object.ReferenceEquals(x,x') = false then link := Some x'
+    x'
 let rec visit_t = function
     | TyComment(_,a) -> visit_t a
     | TyMetavar(_,{contents=Some x} & link) -> shorten x link visit_t
     | a -> a
 
 exception TypeErrorException of (VSCRange * TypeError) list
-
-let rec typevar = function
-    | RawKindWildcard | RawKindStar -> KindType
-    | RawKindFun(a,b) -> KindFun(typevar a, typevar b)
 
 let rec metavars = function
     | RawTFilledNominal _ | RawTMacro _ | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ -> Set.empty
@@ -145,7 +151,7 @@ type TopEnv = {
     nominals : Map<GlobalId, {|vars : Var list; body : T|}>
     prototypes_next_tag : int
     prototypes_instances : Map<GlobalId * GlobalId, Constraint Set list>
-    prototypes : Map<GlobalId, {|name : string; signature: T|}>
+    prototypes : Map<GlobalId, {|name : string; signature: T; kind : TT|}>
     ty : Map<string,T>
     term : Map<string,T>
     constraints : Map<string,ConstraintOrModule>
@@ -211,15 +217,14 @@ let show_primt = function
     | CharT -> "char"
 
 let rec constraint_name (env : TopEnv) = function
-    | CSInt -> "sint"
-    | CUInt -> "uint"
-    | CInt -> "int"
-    | CFloat -> "float"
-    | CNumber -> "number"
-    | CPrim -> "prim"
-    | CSymbol -> "symbol"
-    | CRecord -> "record"
+    | CSInt -> "sint" | CUInt -> "uint" | CInt -> "int"
+    | CFloat -> "float" | CNumber -> "number" | CPrim -> "prim"
+    | CSymbol -> "symbol" | CRecord -> "record"
     | CPrototype i -> env.prototypes.[i].name
+
+let rec constraint_kind (env : TopEnv) = function
+    | CSInt | CUInt | CInt | CFloat | CNumber | CPrim | CSymbol | CRecord -> KindType
+    | CPrototype i -> env.prototypes.[i].kind
 
 let rec tt (env : TopEnv) = function
     | TyComment(_,x) | TyMetavar(_,{contents=Some x}) -> tt env x
@@ -373,33 +378,6 @@ let type_apply_split x =
         | x -> x, s
     loop [] x
 
-let rec constraint_process (env : TopEnv) = function
-    | CUInt, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T), []
-    | CSInt, TyPrim (Int8T | Int16T | Int32T | Int64T), []
-    | CInt, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T), []
-    | CFloat, TyPrim (Float32T | Float64T), []
-    | CNumber, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T | Float32T | Float64T), []
-    | CPrim, TyPrim _, []
-    | CSymbol, TySymbol _, []
-    | CRecord, TyRecord _, [] -> []
-    | CPrototype prot, TyNominal ins, x' ->
-        match Map.tryFind (prot,ins) env.prototypes_instances with
-        | Some cons ->
-            let rec loop ers = function
-                | con :: con', x :: x' ->
-                    let b,b' = type_apply_split x
-                    loop (List.append (constraints_process env (con,b,b')) ers) (con',x')
-                | _ -> ers
-            loop [] (cons,x')
-        | None -> [InstanceNotFound(prot,ins)]
-    | con, TyMetavar(x,_), _ -> x.constraints <- Set.add con x.constraints; []
-    | con, TyVar v & x, _ -> if Set.contains con v.constraints then [] else [ConstraintError(con,x)]
-    | con, x, _ -> [ConstraintError(con,x)]
-and constraints_process env (con,b,b') =
-    match b with
-    | TyVar b -> if con.IsSubsetOf b.constraints = false then [ForallVarConstraintError(b.name,con,b.constraints)] else []
-    | b -> Set.fold (fun ers con -> List.append (constraint_process env (con,b,b')) ers) [] con
-
 let rec kind_subst = function
     | KindMetavar ({contents'=Some x} & link) -> shorten' x link kind_subst
     | KindMetavar _ | KindType as x -> x
@@ -432,10 +410,10 @@ let rec foralls_ty_get = function
     | b -> [], b
 
 let rec kind_force = function
-    | KindMetavar ({contents'=Some x} & link) -> shorten' x link kind_subst
+    | KindMetavar ({contents'=Some x} & link) -> shorten' x link kind_force
     | KindMetavar link -> let x = KindType in link.contents' <- Some x; x
     | KindType as x -> x
-    | KindFun(a,b) -> KindFun(kind_subst a,kind_subst b)
+    | KindFun(a,b) -> KindFun(kind_force a,kind_force b)
 
 let rec has_metavars x =
     let f = has_metavars
@@ -526,6 +504,7 @@ let show_type_error (env : TopEnv) x =
     | ModuleMustBeImmediatelyApplied -> "Module must be immediately applied."
     | ExpectedSymbol' a -> sprintf "Expected a symbol.\nGot: %s" (f a)
     | KindError(a,b) -> sprintf "Kind unification failure.\nGot:      %s\nExpected: %s" (show_kind a) (show_kind b)
+    | KindErrorInConstraint(a,b) -> sprintf "Kind unification failure when propagating them from constraints.\nGot:      %s\nExpected: %s" (show_kind a) (show_kind b)
     | TermError(a,b) -> sprintf "Unification failure.\nGot:      %s\nExpected: %s" (f a) (f b)
     | ExpectedSymbolAsRecordKey a -> sprintf "Expected symbol as a record key.\nGot: %s" (f a)
     | ExpectedSymbolAsModuleKey a -> sprintf "Expected symbol as a module key.\nGot: %s" (f a)
@@ -560,6 +539,8 @@ let show_type_error (env : TopEnv) x =
     | ExpectedConstraintInsteadOfModule -> sprintf "Expected a constraint instead of module."
     | InstanceNotFound(prot,ins) -> sprintf "The higher order type instance %s does not have the prototype %s." (show_nominal env ins) env.prototypes.[prot].name
     | ExpectedPrototypeConstraint a -> sprintf "Expected a prototype constraint.\nGot: %s" (constraint_name env a)
+    | PrototypeConstraintCannotPropagateToVar(a,b) -> sprintf "Cannot propagate the %s prototype constraint to the applied type variable as the kinds would not match.\nGot: %s" env.prototypes.[a].name (f b)
+    | PrototypeConstraintCannotPropagateToMetavar(a,b) -> sprintf "Cannot propagate the %s prototype constraint to the metavariable as the kinds would not match.\nGot: %s" env.prototypes.[a].name (f b)
     | ExpectedPrototypeInsteadOfModule -> "Expected a prototype instead of module."
     | ExpectedHigherOrder a -> sprintf "Expected a higher order type.\nGot: %s" (f a)
     | InstanceArityError(prot,ins) -> sprintf "The arity of the instance must be greater or equal to that of the prototype.\nInstance arity:  %i\nPrototype arity: %i" ins prot
@@ -576,6 +557,7 @@ let show_type_error (env : TopEnv) x =
     | ShadowedInstance -> "The instance cannot be defined twice."
     | UnusedForall [x] -> sprintf "The forall variable %s is unused in the function's type signature." x
     | UnusedForall vars -> sprintf "The forall variables %s are unused in the function's type signature." (vars |> String.concat ", ")
+    | CompilerError x -> x
 
 let loc_env (x : TopEnv) = {term=x.term; ty=x.ty; constraints=x.constraints}
 let names_of vars = List.map (fun x -> x.name) vars |> Set
@@ -595,12 +577,6 @@ let lit = function
     | LitBool _ -> TyPrim BoolT
     | LitString _ -> TyPrim StringT
     | LitChar _ -> TyPrim CharT
-
-let hovars (x : HoVar list) = 
-    List.mapFold (fun s (_,(n,t)) -> 
-        let v = {scope=0; kind=typevar t; name=n; constraints=Set.empty}
-        v, Map.add n (TyVar v) s
-        ) Map.empty x
 
 let autogen_name (i : int) = let x = char i + 'a' in if 'z' < x then sprintf "'%i" i else sprintf "'%c" x
 let trim_kind = function KindFun(_,k) -> k | _ -> failwith "impossible"
@@ -830,6 +806,42 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let unify_kind got expected = unify_kind' KindError r got expected
         let er () = raise (TypeErrorException [r, TermError(got, expected)])
 
+        let rec constraint_process (con : Constraint Set) b =
+            let unify_kind got expected = unify_kind' KindErrorInConstraint r got expected
+            let body = function
+                | CUInt, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T)
+                | CSInt, TyPrim (Int8T | Int16T | Int32T | Int64T)
+                | CInt, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T)
+                | CFloat, TyPrim (Float32T | Float64T)
+                | CNumber, TyPrim (UInt8T | UInt16T | UInt32T | UInt64T | Int8T | Int16T | Int32T | Int64T | Float32T | Float64T)
+                | CPrim, TyPrim _
+                | CSymbol, TySymbol _
+                | CRecord, TyRecord _ -> []
+                | con, TyMetavar(x,_) -> x.constraints <- Set.add con x.constraints; []
+                | con, TyVar v & x -> if Set.contains con v.constraints then [] else [ConstraintError(con,x)]
+                | CPrototype prot & con, x ->
+                    match type_apply_split x with
+                    | TyNominal ins, x' ->
+                        match Map.tryFind (prot,ins) top_env.prototypes_instances with
+                        | Some cons -> 
+                            try List.fold2 (fun ers con x -> List.append (constraint_process con (visit_t x)) ers) [] cons x'
+                            with :? System.ArgumentException -> [] // This case can occur due when kind application overflows in a previous expression.
+                        | None -> [InstanceNotFound(prot,ins)]
+                    | TyMetavar _ & x, _ -> [PrototypeConstraintCannotPropagateToMetavar(prot,x)]
+                    | TyVar _ & x, _ -> [PrototypeConstraintCannotPropagateToVar(prot,x)]
+                    | _ -> [ConstraintError(con,x)]
+                | con, x -> [ConstraintError(con,x)]
+
+            match b with
+            | TyMetavar(x,_) -> x.constraints <- Set.union con x.constraints; []
+            | TyVar b -> if con.IsSubsetOf b.constraints = false then [ForallVarConstraintError(b.name,con,b.constraints)] else []
+            | b -> 
+                let b_kind = tt top_env b 
+                Set.fold (fun ers con -> 
+                    unify_kind b_kind (constraint_kind top_env con)
+                    List.append (body (con,b)) ers
+                    ) [] con
+
         // Does occurs checking.
         // Does scope checking in forall vars.
         let rec validate_unification i x =
@@ -844,8 +856,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyMetavar(x,_) -> if i = x then er() elif i.scope < x.scope then x.scope <- i.scope
             | TyLayout(a,_) -> f a
 
-        let rec loop' extras (a'',b'') = 
-            let loop x = loop' [] x
+        let rec loop (a'',b'') = 
             let record l l' =
                 let a,b = Map.toArray l, Map.toArray l'
                 if a.Length <> b.Length then er ()
@@ -861,13 +872,12 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyMetavar(a,link), b | b, TyMetavar(a,link) ->
                 validate_unification a b
                 unify_kind a.kind (tt top_env b)
-                let b',b'' = type_apply_split b
-                match constraints_process top_env (a.constraints,b',b'' @ extras) with
+                match constraint_process a.constraints b with
                 | [] -> link := Some b
                 | constraint_errors -> raise (TypeErrorException (List.map (fun x -> r,x) constraint_errors))
             | TyVar a, TyVar b when a = b -> ()
             | TyPair(a,a'), TyPair(b,b') | TyFun(a,a'), TyFun(b,b') -> loop (a,b); loop (a',b')
-            | TyApply(a,a',_), TyApply(b,b',_) -> loop (a',b'); loop' (a' :: extras) (a,b)
+            | TyApply(a,a',_), TyApply(b,b',_) -> loop (a',b'); loop (a,b)
             | TyUnion(l,q), TyUnion(l',q') -> if q = q' then record l l' else raise (TypeErrorException [r,UnionTypesMustHaveTheSameLayout])
             | TyRecord a, TyRecord a' -> record a a'
             | TyNominal i, TyNominal i' when i = i' -> ()
@@ -887,7 +897,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyLayout(a,a'), TyLayout(b,b') when a' = b' -> loop (a,b)
             | _ -> er ()
 
-        try loop' [] (got, expected)
+        try loop (got, expected)
         with :? TypeErrorException as e -> errors.AddRange e.Data0
 
     let apply_record r s l x =
@@ -914,16 +924,19 @@ let infer package_id module_id (top_env' : TopEnv) expr =
 
     let typevar_to_var scope cons (((_,(name,kind)),constraints) : TypeVar) : Var = 
         let rec typevar = function
-            | RawKindWildcard | RawKindStar -> KindType
+            | RawKindWildcard -> fresh_kind()
+            | RawKindStar -> KindType
             | RawKindFun(a,b) -> KindFun(typevar a, typevar b)
+        let kind = typevar kind
         let cons =
             constraints |> List.choose (fun (r,x) ->
                 match v_cons cons x with
                 | Some (M _) -> errors.Add(r,ExpectedConstraintInsteadOfModule); None
-                | Some (C x) -> Some x
+                | Some (C x) -> unify_kind r kind (constraint_kind top_env x); Some x
                 | None -> errors.Add(r,UnboundVariable); None
                 ) |> Set.ofList
-        {scope=scope; constraints=cons; kind=typevar kind; name=name}
+
+        {scope=scope; constraints=cons; kind=kind_force kind; name=name}
 
     let typevars scope env (l : TypeVar list) =
         List.mapFold (fun s x ->
@@ -1436,6 +1449,15 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             ty = Map.add name (TyNominal i) s.ty
             }
 
+    let rec typevar = function
+        | RawKindWildcard | RawKindStar -> KindType
+        | RawKindFun(a,b) -> KindFun(typevar a, typevar b)
+    let hovars (x : HoVar list) = 
+        List.mapFold (fun s (_,(n,t)) -> 
+            let v = {scope=0; kind=typevar t; name=n; constraints=Set.empty}
+            v, Map.add n (TyVar v) s
+            ) Map.empty x
+
     let scope = 0
     match expr with
     | BundleType(q,(r,name),vars',expr) ->
@@ -1484,9 +1506,12 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     | BundlePrototype(com,r,(r',name),(w,var_init),vars',expr) ->
         let i = at_tag top_env'.prototypes_next_tag
         let cons = CPrototype i
-        let v = {scope=0; constraints=Set.singleton cons; name=var_init; kind=List.foldBack (fun ((_,(_,k)),_) s -> KindFun(typevar k, s)) vars' KindType}
-        let vars,env_ty = typevars scope {term=Map.empty; constraints=Map.empty; ty=Map.add var_init (TyVar v) Map.empty} vars'
-        let vars = v :: vars
+        let scope = 0
+        let vars,env_ty = typevars scope {term=Map.empty; constraints=Map.empty; ty=Map.empty} vars'
+        let kind = List.foldBack (fun (k : Var) s -> KindFun(k.kind,s)) vars KindType
+        let v' = {scope=scope; constraints=Set.singleton cons; name=var_init; kind=kind}
+        let env_ty = Map.add var_init (TyVar v') env_ty
+        let vars = v' :: vars
         let v = fresh_var scope
         ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
         let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
@@ -1494,7 +1519,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let x =
                 { top_env_empty with
                     prototypes_next_tag = i.tag + 1
-                    prototypes = Map.add i {|name=name; signature=body|} Map.empty
+                    prototypes = Map.add i {|name=name; signature=body; kind=v'.kind|} Map.empty
                     term = Map.add name (if com <> "" then TyComment(com,body) else body) Map.empty
                     constraints = Map.add name (C cons) Map.empty
                     }
@@ -1570,10 +1595,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     ) Map.empty (List.zip vars (List.take vars_expected ins_kind.args))
             let ins_constraints = ins_vars |> List.map (function TyVar x -> x.constraints | _ -> failwith "impossible")
             let ins_core, _ = List.fold (fun (a,k) (b : T) -> let k = trim_kind k in TyApply(a,b,k),k) (TyNominal ins_id,ins_kind') ins_vars
-            let prot_constraints, env_ty, prot_body =
+            let env_ty, prot_body =
                 match foralls_ty_get prototype.signature with
                 | (prot_core :: prot_foralls), prot_body ->
-                    prot_foralls |> List.map (fun x -> x.constraints),
                     List.fold (fun ty x ->
                         assert_instance_forall_does_not_shadow_prototype_forall x.name
                         Map.add x.name (TyVar x) ty) env_ty prot_foralls,
@@ -1587,11 +1611,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             assert_orphan_shadow_check prot_id ins_id
             assert_orphan_instance_check prot_id ins_id
             guard <| fun () ->
-            let constraints = List.append ins_constraints prot_constraints
-            top_env <- {top_env with prototypes_instances = Map.add (prot_id,ins_id) constraints top_env.prototypes_instances}
+            top_env <- {top_env with prototypes_instances = Map.add (prot_id,ins_id) ins_constraints top_env.prototypes_instances}
             term scope {term=Map.empty; ty=env_ty; constraints=Map.empty} prot_body body
             (if 0 = errors.Count then psucc (fun () -> FInstance(r,(fst prot, prot_id),(fst ins, ins_id),fill r Map.empty body)) else pfail),
-            AInclude {top_env_empty with prototypes_instances = Map.add (prot_id,ins_id) constraints Map.empty}
+            AInclude {top_env_empty with prototypes_instances = Map.add (prot_id,ins_id) ins_constraints Map.empty}
             
         let fake _ = fail
         let check_ins on_succ =
