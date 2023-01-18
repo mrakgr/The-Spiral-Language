@@ -539,8 +539,8 @@ let show_type_error (env : TopEnv) x =
     | ExpectedConstraintInsteadOfModule -> sprintf "Expected a constraint instead of module."
     | InstanceNotFound(prot,ins) -> sprintf "The higher order type instance %s does not have the prototype %s." (show_nominal env ins) env.prototypes.[prot].name
     | ExpectedPrototypeConstraint a -> sprintf "Expected a prototype constraint.\nGot: %s" (constraint_name env a)
+    | PrototypeConstraintCannotPropagateToMetavar(a,b) -> sprintf "Cannot propagate the %s prototype constraint to the applied metavariable as the kinds would not match. If this is not intended to be a type var, provide a type annotation to a concrete type.\nGot: %s" env.prototypes.[a].name (f b)
     | PrototypeConstraintCannotPropagateToVar(a,b) -> sprintf "Cannot propagate the %s prototype constraint to the applied type variable as the kinds would not match.\nGot: %s" env.prototypes.[a].name (f b)
-    | PrototypeConstraintCannotPropagateToMetavar(a,b) -> sprintf "Cannot propagate the %s prototype constraint to the metavariable as the kinds would not match.\nGot: %s" env.prototypes.[a].name (f b)
     | ExpectedPrototypeInsteadOfModule -> "Expected a prototype instead of module."
     | ExpectedHigherOrder a -> sprintf "Expected a higher order type.\nGot: %s" (f a)
     | InstanceArityError(prot,ins) -> sprintf "The arity of the instance must be greater or equal to that of the prototype.\nInstance arity:  %i\nPrototype arity: %i" ins prot
@@ -818,7 +818,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | CSymbol, TySymbol _
                 | CRecord, TyRecord _ -> []
                 | con, TyMetavar(x,_) -> x.constraints <- Set.add con x.constraints; []
-                | con, TyVar v & x -> if Set.contains con v.constraints then [] else [ConstraintError(con,x)]
                 | CPrototype prot & con, x ->
                     match type_apply_split x with
                     | TyNominal ins, x' ->
@@ -833,7 +832,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | con, x -> [ConstraintError(con,x)]
 
             match b with
-            | TyMetavar(x,_) -> x.constraints <- Set.union con x.constraints; []
             | TyVar b -> if con.IsSubsetOf b.constraints = false then [ForallVarConstraintError(b.name,con,b.constraints)] else []
             | b -> 
                 let b_kind = tt top_env b 

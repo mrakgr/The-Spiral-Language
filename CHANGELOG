@@ -1,3 +1,7 @@
+2.3.10 (1/18/2023)
+
+* Fixed a bug in constraint process where kind checking was not being done for nested metavars.
+
 2.3.9 (1/17/2023)
 
 * The constraints have kinds now.
