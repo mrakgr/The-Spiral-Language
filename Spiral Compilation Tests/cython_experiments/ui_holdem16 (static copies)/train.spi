@@ -83,7 +83,7 @@ inl neural_handler forall (actions : * -> *) act.
         policy_value_action_eval // Applied on the Python side.
         (data : ra _ (_ * _ * pid * actions act)) = // Applied on the Spiral side.
     if length data = 0 then am.empty, id else
-    !!!!Import("torch")
+    !!!!Global("import torch")
     inl policy_size = serialization.dense.array.size schema.policy
     inl value_size = serialization.dense.array.size schema.value
     inl action_size = serialization.dense.array.size schema.action

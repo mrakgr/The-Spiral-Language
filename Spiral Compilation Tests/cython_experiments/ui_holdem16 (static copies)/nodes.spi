@@ -35,7 +35,7 @@ inl sample dist f (pl2 (chance_prob,p1,p2)) =
     f x (pl2 (p,p1,p2))
 
 // Indexes the first element of a shuffled array. Returns a view without it.
-inl draw forall (ar : * -> * -> *) {index; length} dim {number} el. (dist : ar dim el) f (pl2 (chance_prob,p1,p2)) =
+inl draw forall (ar : * -> * -> *) {index; length} dim {number; int} el. (dist : ar dim el) f (pl2 (chance_prob,p1,p2)) =
     inl x = index dist 0
     inl p = chance_prob +@ log_prob_from_sample (1 / f32 (length dist))
     f (x, $"!dist[1:]" : el * ar dim el) (pl2 (p,p1,p2))
