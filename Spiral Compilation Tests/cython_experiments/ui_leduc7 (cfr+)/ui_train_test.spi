@@ -1,5 +1,5 @@
 inl play p1 : () =
-    !!!!Import("ui_leduc")
+    !!!!Global("import ui_leduc")
     inl root : obj = $"ui_leduc.Top()"
     let human_dispatch (((p1,p2,card : leduc.game_state),observations),(dist : a u64 _),(next : _ -> ())) : () =
         {
@@ -23,7 +23,7 @@ inl play p1 : () =
                 my_pot = p1.pot 
                 op_card = show_card p2.card 
                 op_pot = p2.pot 
-                community_card = match card with Some: c => show_card c  | None => ' '
+                community_card = match card with Some c => show_card c | None => ' '
                 }
         } |> record |> fun r => $"!root.data = !r"
     inl p2 = agent.human.funs human_dispatch

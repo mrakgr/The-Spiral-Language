@@ -1,4 +1,4 @@
-packages: |core2-
+packages: |core-
 modules:
     utils-
     log_probm
