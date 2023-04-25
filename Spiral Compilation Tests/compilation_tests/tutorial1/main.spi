@@ -1,1 +1,8 @@
-inl main () = 0i32
+inl main () =
+    let f x = x
+    real
+        open real_core
+        typecase `f with
+        | ~q =>
+            !!!!PrintStatic(`q)
+    ()
