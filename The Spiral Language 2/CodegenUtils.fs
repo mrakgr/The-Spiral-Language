@@ -9,7 +9,7 @@ type CodegenEnv =
     indent : int
     }
 
-let line x s = x.text.Append(' ', x.indent).AppendLine s |> ignore
+let line x (s : string) = x.text.Append(' ', x.indent).AppendLine s |> ignore
 let indent x = {x with indent=x.indent+4}
 let add_dec_point (x : string) = if x.IndexOf('.') = -1 then x + ".0" else x
 

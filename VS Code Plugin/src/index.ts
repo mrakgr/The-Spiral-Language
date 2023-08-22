@@ -1,17 +1,37 @@
-import * as fs from "fs"
 import * as path from "path"
-import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, tasks, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider, WorkspaceEdit, FileDeleteEvent, ProcessExecution, FileRenameEvent, FileWillDeleteEvent, FileWillRenameEvent } from "vscode"
-import * as zmq from "zeromq"
+import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider, WorkspaceEdit, FileDeleteEvent, ProcessExecution, FileRenameEvent, FileWillDeleteEvent, FileWillRenameEvent } from "vscode"
+import {HubConnectionBuilder, LogLevel} from "@microsoft/signalr"
+
+class SerialDisposable implements Disposable {
+    f : () => any
+
+    constructor(public callOnDispose: () => any) {
+        this.f = callOnDispose
+    }
+
+    assign(callOnDispose: () => any) {
+        this.f()
+        this.f = callOnDispose;
+    }
+
+    dispose() {
+        this.f(); 
+        this.f = () => {}
+    }
+}
 
 const port : number = workspace.getConfiguration("spiral").get("port") || 13805
+const hub = new HubConnectionBuilder()
+    .withUrl(`http://localhost:${port}/api`)
+    .configureLogging(LogLevel.Error)
+    .build()
+
 const requestRun = async (prev : Promise<string | null>, file: any): Promise<string | null> => {
     await prev // Waiting on the previous request is so they get ordered properly. Otherwise, messages might fill up and fire in arbitrary order.
-    const sock = new zmq.Request()
-    const uriServer = `tcp://localhost:${port}`
-    sock.connect(uriServer)
-    await sock.send(JSON.stringify(file))
-    const [x] = await sock.receive()
-    sock.disconnect(uriServer)
+    const msg = JSON.stringify(file)
+    window.showInformationMessage(`Sending message: ${msg}`)
+    const x = await hub.invoke("ClientToServerMsg",msg)
+    window.showInformationMessage(`Done sending the message: ${x}`)
     return x ? x.toString() : null
 }
 let prev_request : Promise<string | null> = new Promise(resolve => resolve(null))
@@ -45,7 +65,6 @@ const spiDeleteReq = async (uris: string []): Promise<void> => requestJSON({ Fil
 const spiTokenRangeReq = async (uri: string, range : Range): Promise<number []> => requestJSON({ FileTokenRange: { uri, range } })
 const spiHoverAtReq = async (uri: string, pos : Position): Promise<string | null> => request({ HoverAt: { uri, pos } })
 const spiBuildFileReq = async (uri: string, backend : string): Promise<void> => requestJSON({ BuildFile: {uri, backend} })
-const spiPingReq = async (): Promise<void> => requestJSON({ Ping: true })
 
 const range = (x : VSCRange) => new Range(x[0].line, x[0].character, x[1].line, x[1].character)
 
@@ -70,8 +89,24 @@ const projectCodeActionTitle = (x : ProjectCodeAction): string => {
     throw "Case match failed"
     }
 
-type SpiralAction = {range : Range; action : CodeAction}
-type RenamedUri = {newUri : Uri; oldUri : Uri}
+function sleep(ms : number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function start() {
+    let isConnected = false
+    while (!isConnected) {
+        try {
+            await hub.start();
+            window.showInformationMessage("SignalR Connected.");
+            isConnected = true;
+        } catch (err : any) {
+            window.showErrorMessage(err.toString());
+            sleep(500)
+        }
+    }
+};
+
 
 export const activate = async (ctx: ExtensionContext) => {
     // console.log("Spiral plugin is active.")
@@ -201,72 +236,49 @@ export const activate = async (ctx: ExtensionContext) => {
         }
     }
 
-    let serverStop = (next : () => void) => {next()}
-    const startServer = (hideFromUser: boolean) => {
-        serverStop(() => {
-            const terminal = window.createTerminal({name: "Spiral Server", hideFromUser})
-            const compiler_path = path.join(__dirname,"../compiler/Spiral.dll")
-            terminal.sendText(`dotnet "${compiler_path}" port=${port}`)
-            let isProcessing = true;
-            (async () => {
-                const sock = new zmq.Subscriber()
-                sock.subscribe()
-                sock.receiveTimeout = 2000
-                const uriClient = `tcp://localhost:${port+1}`
-                await sock.connect(uriClient)
-                while (isProcessing) {
-                    try {
-                        const [x] = await sock.receive()
-                        const msg: ClientRes = JSON.parse(x.toString())
-                        if ("PackageErrors" in msg) { errorsSet(errorsProject, Uri.parse(msg.PackageErrors.uri,true), msg.PackageErrors.errors) }
-                        else if ("TokenizerErrors" in msg) { errorsSet(errorsTokenization, Uri.parse(msg.TokenizerErrors.uri,true), msg.TokenizerErrors.errors) }
-                        else if ("ParserErrors" in msg) { errorsSet(errorsParse, Uri.parse(msg.ParserErrors.uri,true), msg.ParserErrors.errors) }
-                        else if ("TypeErrors" in msg) { errorsSet(errorsType, Uri.parse(msg.TypeErrors.uri,true), msg.TypeErrors.errors) }
-                        else if ("FatalError" in msg) { window.showErrorMessage(msg.FatalError) }
-                        else if ("TracedError" in msg) { 
-                            const max0 = (x : number) => 0 <= x ? x : 0
-                            const {trace, message} = msg.TracedError
-                            const traceLength : number | undefined = workspace.getConfiguration("spiral").get("errorTraceMaxLength")
-                            const from = max0(trace.length-(traceLength === undefined ? 5 : max0(traceLength)))
-                            trace.push(message)
-                            window.showErrorMessage(trace.slice(from).join(""))
-                         }
-                        else { const _ : never = msg }
-                    } catch (e) {
-                        if ((e as any).errno === 11) { } // If the error is a timeout just repeat.
-                        else { 
-                            window.showErrorMessage(`Spiral: Fatal error in the subscriber socket. Aborting...\nMessage: ${(e as any).message}`)
-                            isProcessing = false
-                        }
-                    }
-                }
-                await sock.disconnect(uriClient)
-            })();
-            
-            const pingLater = (ms : number) => {
-                const ping = () => {
-                    if (isProcessing) {spiPingReq(); pingLater(ms)}
-                }
-                setTimeout(ping, ms)
+    const serverToClientMsgHandler = (x : any) => {
+        const msg: ClientRes = JSON.parse(x.toString())
+        if ("PackageErrors" in msg) { errorsSet(errorsProject, Uri.parse(msg.PackageErrors.uri,true), msg.PackageErrors.errors) }
+        else if ("TokenizerErrors" in msg) { errorsSet(errorsTokenization, Uri.parse(msg.TokenizerErrors.uri,true), msg.TokenizerErrors.errors) }
+        else if ("ParserErrors" in msg) { errorsSet(errorsParse, Uri.parse(msg.ParserErrors.uri,true), msg.ParserErrors.errors) }
+        else if ("TypeErrors" in msg) { errorsSet(errorsType, Uri.parse(msg.TypeErrors.uri,true), msg.TypeErrors.errors) }
+        else if ("FatalError" in msg) { window.showErrorMessage(msg.FatalError) }
+        else if ("TracedError" in msg) { 
+            const max0 = (x : number) => 0 <= x ? x : 0
+            const {trace, message} = msg.TracedError
+            const traceLength : number | undefined = workspace.getConfiguration("spiral").get("errorTraceMaxLength")
+            const from = max0(trace.length-(traceLength === undefined ? 5 : max0(traceLength)))
+            trace.push(message)
+            window.showErrorMessage(trace.slice(from).join(""))
             }
-            pingLater(1000)
-    
-            workspace.textDocuments.forEach(onDocOpen)
-            // Restarting the server needs some time to work properly. 500ms works for me.
-            serverStop = (next) => {
-                prev_request = new Promise(resolve => resolve(null));
-                terminal.dispose(); isProcessing = false; setTimeout(next,500)
-                }
+        else { const _ : never = msg }
+    }
+
+    const serverDisposables = new SerialDisposable(() => {})
+
+    const startServer = async (hideFromUser: boolean) => {
+        const terminal = window.createTerminal({name: "Spiral Server", hideFromUser})
+        const compiler_path = path.join(__dirname,"../compiler/Spiral.dll")
+        terminal.sendText(`dotnet "${compiler_path}" port=${port}`)
+        await start()
+
+        hub.on("ServerToClientMsg",serverToClientMsgHandler)
+        workspace.textDocuments.forEach(onDocOpen)
+
+        serverDisposables.assign(() => {
+            prev_request = new Promise(resolve => resolve(null))
+            terminal.dispose()
+            hub.stop()
         })
     }
 
-    startServer(workspace.getConfiguration("spiral").get("hideTerminal") || false)
+    await startServer(workspace.getConfiguration("spiral").get("hideTerminal") || false)
 
     const spiralFilePattern = {pattern: '**/*.{spi,spir}'}
     const spiralProjFilePattern = {pattern: '**/package.spiproj'}
     const spiralTokenLegend = ['variable','symbol','string','number','operator','unary_operator','comment','keyword','parenthesis','type_variable','escaped_char','unescaped_char','number_suffix']
     ctx.subscriptions.push(
-        new Disposable(() => { serverStop(() => {}); serverStop = () => {throw "Plugin has been exited already."} } ),
+        serverDisposables,
         errorsProject, errorsTokenization, errorsParse, errorsType,
         workspace.onDidOpenTextDocument(onDocOpen),
         workspace.onDidChangeTextDocument(onDocChange),
@@ -286,8 +298,8 @@ export const activate = async (ctx: ExtensionContext) => {
                 }})
         }),
         commands.registerCommand("runClosure", x => { x() }),
-        commands.registerCommand("startServer", () => { startServer(false) }),
-        commands.registerCommand("startServerHidden", () => { startServer(true) }),
+        commands.registerCommand("startServer", () => startServer(false) ),
+        commands.registerCommand("startServerHidden", () => startServer(true) ),
         languages.registerDocumentLinkProvider(spiralProjFilePattern,new SpiralProjectLinks()),
         languages.registerCodeActionsProvider(spiralProjFilePattern,new SpiralProjectCodeActions())
     )

@@ -1,0 +1,18 @@
+let load_data_from_file () =
+    inl fp : $"FILE *" = $'fopen("sd0/Signaloid/example-loadDistFromFile/example.csd", "r")'
+    if $"!fp == NULL" then
+        $'fprintf(stderr, "Could not open sd0/Signaloid/example-loadDistFromFile/example.csd.\\n")'
+        $'exit(EXIT_FAILURE)'
+    inl ~(a,b) = 0f64, 0f64
+    $'fscanf(!fp, "%lf, %lf\\n", &!a, &!b)'
+    a,b
+
+inl main() =
+    inl a,b = load_data_from_file()
+    
+    $'printf("a = %lf\\n", !a)'
+    $'printf("b = %lf\\n", !b)'
+
+    inl c = (a+b)/(a-b)
+    $'printf("c = %lf\\n", !c)'
+    0i32

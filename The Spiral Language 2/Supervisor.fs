@@ -425,7 +425,6 @@ type ClientReq =
     | FileTokenRange of {|uri : string; range : VSCRange|}
     | HoverAt of {|uri : string; pos : VSCPos|}
     | BuildFile of {|uri : string; backend : string|}
-    | Ping of bool
 
 type ClientErrorsRes =
     | FatalError of string
@@ -435,37 +434,17 @@ type ClientErrorsRes =
     | ParserErrors of {|uri : string; errors : RString list|}
     | TypeErrors of {|uri : string; errors : RString list|}
 
+open Microsoft.AspNetCore.SignalR
 open FSharp.Json
-open NetMQ
-open NetMQ.Sockets
 
-let [<EntryPoint>] main args =
-    let env_def = {|
-        port = 13805
-        |}
-    let env = (env_def, args) ||> Array.fold (fun s x -> 
-        match x.Split('=') with
-        | [|"port"; x|] -> {|s with port = Int32.Parse(x)|}
-        | _ -> failwithf "Invalid command line argument received when starting up the server.\nGot: %A" x
-        )
-    let uri_server = sprintf "tcp://*:%i" env.port
-    let uri_client = sprintf "tcp://*:%i" (env.port+1)
-    use poller = new NetMQPoller()
-    use server = new RouterSocket()
-    poller.Add(server)
-    server.Options.ReceiveHighWatermark <- System.Int32.MaxValue
-    server.Bind(uri_server)
-
-    use queue_server = new NetMQQueue<NetMQMessage>()
-    poller.Add(queue_server)
-
-    use queue_client = new NetMQQueue<ClientErrorsRes>()
-    poller.Add(queue_client)
+type SpiralHub() =
+    inherit Hub()
 
     let error_ch_create msg =
         let x = Ch()
-        Hopac.server (Job.forever (Ch.take x >>- (msg >> queue_client.Enqueue)))
+        //Hopac.server (Job.forever (Ch.take x >>= (msg >> fun (x : ClientErrorsRes) -> Hopac.Job.awaitUnitTask (this.Clients.All.SendCoreAsync("ServerToClientMsg",[|x|])))))
         x
+
     let errors : SupervisorErrorSources = {
         fatal = error_ch_create FatalError
         package = error_ch_create PackageErrors
@@ -476,36 +455,19 @@ let [<EntryPoint>] main args =
         }
     let supervisor = Ch()
     let atten = Ch()
-    Hopac.server (attention_server errors atten)
-    Hopac.start (supervisor_server atten errors supervisor)
 
-    let mutable time = DateTimeOffset.Now
-    #if !DEBUG 
-    let timer = NetMQTimer(2000)
-    poller.Add(timer)
-    timer.EnableAndReset()
-    use __ = timer.Elapsed.Subscribe(fun _ ->
-        if TimeSpan.FromSeconds(2.0) < DateTimeOffset.Now - time then poller.Stop()
-        )
-    #endif
+    do Hopac.server (attention_server errors atten)
+    do Hopac.start (supervisor_server atten errors supervisor)
 
-    use __ = server.ReceiveReady.Subscribe(fun s ->
-        let msg = server.ReceiveMultipartMessage(3)
-        let address = msg.Pop()
-        msg.Pop() |> ignore
-        let x = Json.deserialize(Text.Encoding.Default.GetString(msg.Pop().Buffer))
-        let push_back (x : obj) = 
-            match x with
-            | :? Option<string> as x -> 
-                match x with
-                | Some x -> msg.Push(x)
-                | None -> msg.PushEmptyFrame()
-            | _ -> msg.Push(Json.serialize x)
-            msg.PushEmptyFrame(); msg.Push(address)
-        let send_back x = push_back x; server.SendMultipartMessage(msg)
-        let send_back_via_queue x = push_back x; queue_server.Enqueue(msg)
-        let job_null job = Hopac.start job; send_back null
-        let job_val job = let res = IVar() in Hopac.start (job res >>=. IVar.read res >>- send_back_via_queue)
+    member this.ClientToServerMsg (x : string) =
+        let job_null job = Hopac.start job; task { return null }
+        let serialize x = 
+            let q = if box x <> null then Json.serialize x else null
+            printfn "%s" q
+            q
+        let job_val job = let res = IVar() in Hopac.queueAsTask (job res >>=. IVar.read res >>- serialize)
+        let x = Json.deserialize x
+        printfn "%A" x
         match x with
         | ProjectFileOpen x -> job_null (supervisor *<+ SupervisorReq.ProjectFileOpen x)
         | ProjectFileChange x -> job_null (supervisor *<+ SupervisorReq.ProjectFileChange x)
@@ -518,20 +480,37 @@ let [<EntryPoint>] main args =
         | FileTokenRange x -> job_val (fun res -> supervisor *<+ SupervisorReq.FileTokenRange(x,res))
         | HoverAt x -> job_val (fun res -> supervisor *<+ SupervisorReq.HoverAt(x,res))
         | BuildFile x -> job_null (supervisor *<+ SupervisorReq.BuildFile x)
-        | Ping _ -> send_back null
-        time <- DateTimeOffset.Now
+
+open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.Hosting
+open Microsoft.Extensions.DependencyInjection
+
+let [<EntryPoint>] main args =
+    let env_def = {|
+        port = 13805
+        |}
+    let env = (env_def, args) ||> Array.fold (fun s x -> 
+        match x.Split('=') with
+        | [|"port"; x|] -> {|s with port = Int32.Parse(x)|}
+        | _ -> failwithf "Invalid command line argument received when starting up the server.\nGot: %A" x
         )
 
-    use client = new PublisherSocket()
-    client.Bind(uri_client)
 
-    printfn "Server bound to: %s & %s" uri_server uri_client
+    let uri_server = $"http://localhost:{env.port}"
+    printfn "Server bound to: %s" uri_server
 
-    use __ = queue_client.ReceiveReady.Subscribe(fun x -> 
-        x.Queue.Dequeue() |> Json.serialize |> client.SendFrame
-        )
-
-    use __ = queue_server.ReceiveReady.Subscribe(fun x -> x.Queue.Dequeue() |> server.SendMultipartMessage)
-    //Hopac.start (Job.foreverServer (Utils.print_ch >>- printfn "%s"))
-    poller.Run()
+    let builder = WebApplication.CreateBuilder()
+    builder.Services
+        .AddCors()
+        .AddSignalR(fun x -> x.EnableDetailedErrors <- true) |> ignore
+    builder.WebHost.UseUrls [|uri_server|] |> ignore
+    let app = builder.Build()
+    app.UseCors(fun x ->
+        x.SetIsOriginAllowed(fun _ -> true)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials() |> ignore
+        ) |> ignore
+    app.MapHub<SpiralHub>("api") |> ignore
+    app.Run()
     0
