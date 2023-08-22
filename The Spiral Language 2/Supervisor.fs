@@ -437,7 +437,7 @@ type ClientErrorsRes =
 open Microsoft.AspNetCore.SignalR
 open FSharp.Json
 
-type SpiralHub() =
+type SpiralHub() = 
     inherit Hub()
 
     let error_ch_create msg =
