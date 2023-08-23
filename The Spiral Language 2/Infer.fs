@@ -459,7 +459,7 @@ let show_t (env : TopEnv) x =
             | Some x -> x.name
             | _ -> "?"
         | TyB -> "()"
-        | TyLit x -> Tokenize.show_lit x
+        | TyLit x -> $"`{Tokenize.show_lit x}"
         | TyPrim x -> show_primt x
         | TySymbol x -> sprintf ".%s" x
         | TyForall _ -> 

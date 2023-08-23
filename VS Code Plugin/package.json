@@ -12,9 +12,6 @@
 		"vscode": "^1.81.0"
 	},
 	"main": "out/index.js",
-	"activationEvents": [
-		"onLanguage:spiral"
-	],
 	"contributes": {
 		"configuration": {
 			"title": "Spiral Configuration",

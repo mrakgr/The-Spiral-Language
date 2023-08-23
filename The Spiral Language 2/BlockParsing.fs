@@ -37,6 +37,8 @@ type Op =
     // Type
     | TypeToVar
     | TypeToSymbol
+    | TypeLitToLit
+    | LitToTypeLit
 
     // Closure conversion
     | Dyn
@@ -1011,6 +1013,7 @@ and root_term d =
     let rec expressions d =
         let next = root_term
         let case_var = read_var'' |>> RawV
+        let case_value = read_value |>> RawLit
         let case_rounds = 
             range (rounds ((((read_op' |>> RawV) <|> next) |>> fun x _ -> x) <|>% RawB))
             |>> fun (r,x) -> x r
@@ -1031,7 +1034,6 @@ and root_term d =
                         |> List.foldBack (fun a body -> RawForall(range_of_typevar a +. range_of_expr body,a,body)) foralls |> Ok
                     | ers -> Error ers) d
 
-        let case_value = read_value |>> RawLit
         let case_default_value = read_default_value RawDefaultLit RawLit
         let case_if_then_else d = 
             let i = col d
@@ -1134,7 +1136,12 @@ and root_term d =
         let next = application_tight
         let f = 
             read_unary_op' >>= fun (o,a) d ->
-                let type_expr d = ((read_small_type_var' |>> RawTVar) <|> (rounds (fun d -> root_type {root_type_defaults with allow_term=true} d))) d
+                let type_expr d = 
+                    choice [|
+                        read_small_type_var' |>> RawTVar
+                        read_value |>> RawTLit
+                        rounds (root_type {root_type_defaults with allow_term=true})
+                        |] d
                 match a with
                 | ";" -> (range (squares sequence_body) |>> fun (r,x) -> RawArray(r,x)) d
                 | "!!!!" -> 
@@ -1144,6 +1151,19 @@ and root_term d =
                         | true, op' -> Ok(RawOp(r,op',b))
                         | false, _ -> Error [ra,InbuiltOpNotFound]) d
                 | "`" -> if d.is_top_down then Error [] else (range type_expr |>> RawType) d
+                | "`@" -> 
+                    if d.is_top_down then Error [] else 
+                        let term_expr d =
+                            choice [|
+                                read_var'' |>> RawV
+                                read_value |>> RawLit
+                                read_default_value RawDefaultLit RawLit
+                                rounds root_term
+                                |] d
+                        (range term_expr |>> fun (r,x) -> 
+                            let r' = o +. r 
+                            RawType(r', RawTTerm(r',RawOp(r',LitToTypeLit,[x])))
+                            ) d
                 | "``" -> if d.is_top_down then Error [] else (range type_expr |>> fun (r,x) -> RawOp(o +. r,TypeToVar,[RawType(r,x)])) d
                 | _ -> (next |>> fun b -> RawApply(o +. range_of_expr b,RawV(o, "~" + a),b)) d
         (f <|> next) d

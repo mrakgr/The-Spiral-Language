@@ -274,8 +274,6 @@ let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
 let show_primt = Infer.show_primt
 let p = Infer.p
 
-
-
 let show_layout_type = Infer.show_layout_type
 
 let show_ty x =
@@ -283,7 +281,7 @@ let show_ty x =
         let p = p prec
         match x with
         | YB -> "()"
-        | YLit x -> show_lit x
+        | YLit x -> $"`{show_lit x}"
         | YPair(a,b) -> p 25 (sprintf "%s * %s" (f 25 a) (f 24 b))
         | YSymbol x -> sprintf ".%s" x
         | YTypeFunction _ -> p 0 (sprintf "? => ?")
@@ -1289,10 +1287,20 @@ let peval (env : TopEnv) (x : E) =
                     | _ -> push_typedop s (TyLayoutIndexAll tyv) ty
             | a -> raise_type_error s <| sprintf "Expected a layout type.\nGot: %s" (show_data a)
         | EOp(_,TypeToVar,[EType(_,a)]) -> push_typedop_no_rewrite s (TyOp(TypeToVar,[])) (ty s a)
+        | EOp(_,LitToTypeLit,[a]) -> 
+            match term s a with
+            | DLit x -> DTLit x
+            | DSymbol x -> DSymbol x
+            | a -> raise_type_error s <| sprintf "Expected a symbol or a type literal.\nGot: %s" (show_data a)
         | EOp(_,TypeToSymbol,[EType(_,a)]) -> 
             match ty s a with
             | YSymbol a -> DSymbol a
             | a -> raise_type_error s <| sprintf "Expected a symbol.\nGot: %s" (show_ty a)
+        | EOp(_,TypeLitToLit,[EType(_,a)]) -> 
+            match ty s a with
+            | YLit a -> DLit a
+            | YSymbol a -> DSymbol a
+            | a -> raise_type_error s <| sprintf "Expected a type literal or a symbol.\nGot: %s" (show_ty a)
         | EOp(_,(TypeToVar | TypeToSymbol),[a]) -> raise_type_error s "Expected a type."
         | EOp(_,Dyn,[a]) -> term s a |> dyn true s
         | EOp(_,StringLength,[EType(_,t);a]) ->
