@@ -2,6 +2,7 @@ type t = {a : i32}
 
 // Does the core package load correctly?
 inl main () =
-    inl ~a = 1
+    inl ~a = 1i32
     inl ~b = 2
+    inl qwe = .asd
     a + b : i32

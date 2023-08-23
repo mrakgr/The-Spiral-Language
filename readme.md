@@ -45,10 +45,6 @@
 
 # News
 
-# 7/21/2023
-
-Note, it seems that the Spiral langauge server is broken with the latest version of VS Code. It works for me with the [February version](https://code.visualstudio.com/updates/v1_76), so for now just get that. I'll get around to figuring out what the problem is at some point, I'll probably just replace ZeroMQ with SignalR to simplify the codebase.
-
 # 1/7/2023
 
 I finally have an example of how Spiral can be used to program a novel piece of hardware. [This article](https://github.com/mrakgr/PIM-Programming-In-Spiral-UPMEM-Demo) and the examples within should demonstrate what Spiral can do on the UPMEM device. Spiral is currently at v2.3.7. I've replaced the Cython backend with a Python one, did a host of improvement on the language, and now it should be rock solid. If anyone in the AI/PIM business wants to program in a super efficient, high level functional language instead of C, don't hesitate to get in touch. These backends are quick and easy to make for me.
