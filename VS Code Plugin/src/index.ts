@@ -248,24 +248,26 @@ export const activate = async (ctx: ExtensionContext) => {
 
     const serverDisposables = new SerialDisposable(() => {})
 
-    const startServer = async (hideFromUser: boolean) => {
-        const terminal = window.createTerminal({name: "Spiral Server", hideFromUser})
-        const compiler_path = path.join(__dirname,"../compiler/Spiral.dll")
-        terminal.sendText(`dotnet "${compiler_path}" port=${port}`)
-        await hubStart()
-
-        hub.on("ServerToClientMsg",serverToClientMsgHandler)
-        workspace.textDocuments.forEach(onDocOpen)
-
+    const startServer = async (hideFromUser: boolean, isRestart : boolean = false) => {
         serverDisposables.assign(() => {
             prev_request = new Promise(resolve => resolve(null))
             terminal.dispose()
             hub.stop()
             errorsProject.clear(); errorsTokenization.clear(); errorsParse.clear(); errorsType.clear()
         })
+
+
+        const terminal = window.createTerminal({name: "Spiral Server", hideFromUser})
+        const compiler_path = path.join(__dirname,"../compiler/Spiral.dll")
+        if (isRestart) { await sleep(1000) }
+        terminal.sendText(`dotnet "${compiler_path}" port=${port}`)
+        await hubStart()
+
+        hub.on("ServerToClientMsg",serverToClientMsgHandler)
+        workspace.textDocuments.forEach(onDocOpen)
     }
 
-    await startServer(workspace.getConfiguration("spiral").get("hideTerminal") || false)
+    await startServer(workspace.getConfiguration("spiral").get("hideTerminal") || false, false)
 
     const spiralFilePattern = {pattern: '**/*.{spi,spir}'}
     const spiralProjFilePattern = {pattern: '**/package.spiproj'}
@@ -291,8 +293,8 @@ export const activate = async (ctx: ExtensionContext) => {
                 }})
         }),
         commands.registerCommand("runClosure", x => x() ),
-        commands.registerCommand("startServer", () => startServer(false) ),
-        commands.registerCommand("startServerHidden", () => startServer(true) ),
+        commands.registerCommand("startServer", () => startServer(false, true) ),
+        commands.registerCommand("startServerHidden", () => startServer(true, true) ),
         languages.registerDocumentLinkProvider(spiralProjFilePattern,new SpiralProjectLinks()),
         languages.registerCodeActionsProvider(spiralProjFilePattern,new SpiralProjectCodeActions())
     )
