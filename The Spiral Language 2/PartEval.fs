@@ -36,11 +36,12 @@ type H<'a when 'a : equality>(x : 'a) =
 
 type StackSize = int
 type Nominal = {|body : T; id : GlobalId; name : string|} ConsedNode // TODO: When doing incremental compilation, make the `body` field a weak reference.
-type Macro = Text of string | Type of Ty
+type Macro = Text of string | Type of Ty | TypeLit of Ty
 and Ty =
     | YB
-    | YPair of Ty * Ty
+    | YLit of Literal
     | YSymbol of string
+    | YPair of Ty * Ty
     | YTypeFunction of body : T * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
     | YRecord of Map<string, Ty>
     | YPrim of PrimitiveType
@@ -54,8 +55,9 @@ and Ty =
     | YMetavar of Id
 and Data =
     | DB
-    | DPair of Data * Data
     | DSymbol of string
+    | DTLit of Literal
+    | DPair of Data * Data
     | DFunction of body : E * annot : T option * term : Data [] * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
     | DForall of body : E * term : Data [] * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
     | DRecord of Map<string, Data>
@@ -80,6 +82,7 @@ type RData =
     | ReForall of ConsedNode<E * RData [] * Ty []>
     | ReRecord of ConsedNode<Map<string, RData>>
     | ReLit of Tokenize.Literal
+    | ReTLit of Tokenize.Literal
     | ReUnion of ConsedNode<RData * Union>
     | ReNominal of ConsedNode<RData * Ty>
     | ReV of ConsedNode<Tag * Ty>
@@ -94,8 +97,9 @@ type JoinPointCall = JoinPointKey * TyV []
 
 type CodeMacro =
     | CMText of string
-    | CMType of Ty
     | CMTerm of Data
+    | CMType of Ty
+    | CMTypeLit of Ty
 
 type TypedBind =
     | TyLet of Data * Trace * TypedOp
@@ -156,6 +160,7 @@ let data_to_rdata (hc : HashConsTable) call_data =
             | DRecord l -> ReRecord(hc(Map.map (fun _ -> f) l))
             | DV(L(_,ty) as t) -> call_args.Add t; ReV(hc (call_args.Count-1,ty))
             | DLit a -> ReLit a
+            | DTLit a -> ReTLit a
             | DUnion(a,b) -> ReUnion(hc(f a,b))
             | DNominal(a,b) -> ReNominal(hc(f a,b))
             | DB -> ReB
@@ -177,7 +182,7 @@ let rename_global_term (s : LangEnv) =
             | DV(L(_,ty)) -> let x = DV(L(!s.i,ty)) in incr s.i; x
             | DUnion(a,b) -> DUnion(f a,b)
             | DNominal(a,b) -> DNominal(f a,b)
-            | DSymbol _ | DLit _ | DB as x -> x
+            | DSymbol _ | DLit _ | DTLit _ | DB as x -> x
             ) x
     {s with env_global_term = Array.map f s.env_global_term}
 
@@ -192,7 +197,7 @@ let data_free_vars call_data =
             | DRecord l -> Map.iter (fun _ -> f) l
             | DV(L _ as t) -> free_vars.Add t
             | DUnion(a,_) | DNominal(a,_) -> f a
-            | DSymbol _ | DLit _ | DB -> ()
+            | DSymbol _ | DLit _ | DTLit _ | DB -> ()
     f call_data
     free_vars.ToArray()
 
@@ -207,7 +212,7 @@ let rdata_free_vars call_data =
         | ReRecord(C'(l,tag)) -> if m.Add tag then Map.iter (fun _ -> g) l
         | ReV(C'((a,b),tag)) -> if m.Add tag then free_vars.Add(L(a,b))
         | ReUnion(C'((a,_),tag)) | ReNominal(C'((a,_),tag)) -> if m.Add tag then g a
-        | ReSymbol _ | ReLit _ | ReB -> ()
+        | ReSymbol _ | ReLit _ | ReTLit _ | ReB -> ()
     Array.iter g call_data
     free_vars.ToArray()
 
@@ -220,7 +225,7 @@ let data_term_vars call_data =
         | DLit x -> term_vars.Add(WLit x)
         | DV x -> term_vars.Add(WV x)
         | DUnion(a,_) | DNominal(a,_) -> f a
-        | DSymbol _ | DB -> ()
+        | DSymbol _ | DTLit _ | DB -> ()
     f call_data
     term_vars.ToArray()
 
@@ -269,20 +274,7 @@ let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
 let show_primt = Infer.show_primt
 let p = Infer.p
 
-let show_lit = function
-    | LitUInt8 x -> sprintf "%iu8" x
-    | LitUInt16 x -> sprintf "%iu16" x
-    | LitUInt32 x -> sprintf "%iu32" x
-    | LitUInt64 x -> sprintf "%iu64" x
-    | LitInt8 x -> sprintf "%ii8" x
-    | LitInt16 x -> sprintf "%ii16" x
-    | LitInt32 x -> sprintf "%ii32" x
-    | LitInt64 x -> sprintf "%ii64" x
-    | LitFloat32 x -> sprintf "%ff32" x
-    | LitFloat64 x -> sprintf "%ff64" x
-    | LitBool x -> sprintf "%b" x
-    | LitString x -> sprintf "%s" x
-    | LitChar x -> sprintf "%c" x
+
 
 let show_layout_type = Infer.show_layout_type
 
@@ -291,6 +283,7 @@ let show_ty x =
         let p = p prec
         match x with
         | YB -> "()"
+        | YLit x -> show_lit x
         | YPair(a,b) -> p 25 (sprintf "%s * %s" (f 25 a) (f 24 b))
         | YSymbol x -> sprintf ".%s" x
         | YTypeFunction _ -> p 0 (sprintf "? => ?")
@@ -299,7 +292,7 @@ let show_ty x =
         | YPrim x -> show_primt x
         | YArray a -> p 30 (sprintf "array %s" (f 30 a))
         | YFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
-        | YMacro a -> p 30 (List.map (function Type a -> f -1 a | Text a -> a) a |> String.concat "")
+        | YMacro a -> p 30 (List.map (function TypeLit a | Type a -> f -1 a | Text a -> a) a |> String.concat "")
         | YApply(a,b) -> p 30 (sprintf "%s %s" (f 29 a) (f 30 b))
         | YLayout(a,b) -> p 30 (sprintf "%s %s" (show_layout_type b) (f 30 a))
         | YNominal x -> x.node.name
@@ -317,6 +310,7 @@ let show_data x =
         | DForall _ -> p 0 "forall ?. ?"
         | DRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
         | DLit a -> show_lit a
+        | DTLit a -> $"`{show_lit a}"
         | DV(L(_,ty)) -> show_ty ty
         | DUnion(a,_) -> f prec a
         | DNominal(a,b) -> p 0 (sprintf "%s : %s" (f 0 a) (show_ty b))
@@ -437,6 +431,10 @@ type PartEvalResult = {
     ty_to_data : Ty -> Data
     }
 
+let assert_ty_lit s = function
+    | YSymbol _ | YLit _ as x -> x
+    | x -> raise_type_error s <| sprintf "Expected a type literal or a symbol.\nGot: %s" (show_ty x)
+
 let peval (env : TopEnv) (x : E) =
     let join_point_method = Dictionary(HashIdentity.Reference)
     let join_point_closure = Dictionary(HashIdentity.Reference)
@@ -451,8 +449,9 @@ let peval (env : TopEnv) (x : E) =
         | YRecord l -> DRecord(Map.map (fun _ -> f) l)
         | YUnion _ | YLayout _ | YPrim _ | YArray _ | YFun _ | YMacro _ as x -> let r = DV(L(!s.i,x)) in incr s.i; r
         | YNominal _ | YApply _ as a -> DNominal(nominal_apply s a |> ty_to_data s, a)
-        | YTypeFunction _ -> raise_type_error s "Cannot turn a type function to a runtime variable."
-        | YMetavar _ -> raise_type_error s "Compiler error: Cannot turn a metavar to a runtime variable."
+        | YLit x -> DTLit x
+        | YTypeFunction _ -> raise_type_error s "Cannot turn a type function into a runtime variable."
+        | YMetavar _ -> raise_type_error s "Compiler error: Cannot turn a metavar into a runtime variable."
     and push_typedop_no_rewrite d op ret_ty =
         let ret = ty_to_data d ret_ty
         d.seq.Add(TyLet(ret,d.trace,op))
@@ -518,6 +517,7 @@ let peval (env : TopEnv) (x : E) =
                 | DUnion(_,a) -> YUnion a
                 | DNominal(_,a) | DV(L(_,a)) -> a
                 | DLit x -> lit_to_ty x
+                | DTLit x -> YLit x
                 | DB -> YB
                 | DFunction(body,Some annot,gl_term,gl_ty,sz_term,sz_ty) -> ty (closure_env s (body,annot,gl_term,gl_ty,sz_term,sz_ty)) annot
                 | DFunction(_,None,_,_,_,_) -> raise_type_error s "Cannot convert a function that is not annotated into a type."
@@ -530,7 +530,7 @@ let peval (env : TopEnv) (x : E) =
         let rec f x =
             Utils.memoize m (function
                 | DPair(a,b) -> DPair(f a, f b)
-                | DB | DV _ | DSymbol _ as a -> a
+                | DB | DV _ | DTLit _ | DSymbol _ as a -> a
                 | DRecord l -> DRecord(Map.map (fun _ -> f) l)
                 | DNominal(DUnion(DPair(DSymbol k,v),b),b') -> dirty <- true; push_typedop_no_rewrite s (TyUnionBox(k,f v,b)) b'
                 | DUnion _ -> raise_type_error s "Compiler error: Malformed union"
@@ -602,6 +602,7 @@ let peval (env : TopEnv) (x : E) =
                 dict.[join_point_key] <- Some ret_ty
                 ret_ty
         | TB _ -> YB
+        | TLit(_,x) -> YLit x
         | TV i -> vt s i
         | TPair(_,a,b) -> YPair(ty s a, ty s b)
         | TFun(_,a,b) -> YFun(ty s a, ty s b)
@@ -646,7 +647,9 @@ let peval (env : TopEnv) (x : E) =
             | a -> raise_type_error s <| sprintf "Expected a record, nominal or a type function. Or a metavar when in typecase.\nGot: %s" (show_ty a)
         | TPrim a -> YPrim a
         | TTerm(_,a) -> term_scope s a |> snd
-        | TMacro(r,a) -> let s = add_trace s r in YMacro(a |> List.map (function TMText a -> Text a | TMType a -> Type(ty s a)))
+        | TMacro(r,a) -> 
+            let s = add_trace s r
+            YMacro(a |> List.map (function TMText a -> Text a | TMType a -> Type(ty s a) | TMLitType a -> TypeLit(ty s a |> assert_ty_lit s)))
         | TNominal i -> YNominal env.nominals.[i]
         | TArray a -> YArray(ty s a)
         | TLayout(a,b) -> YLayout(ty s a,b)
@@ -1005,7 +1008,7 @@ let peval (env : TopEnv) (x : E) =
             else raise_type_error s <| sprintf "The two side do not have the same type.\nGot: %s\nExpected: %s" (show_ty a_ty) (show_ty c_ty)
         | EMacro(r,a,b) ->
             let s = add_trace s r
-            let a = a |> List.map (function MText x -> CMText x | MTerm x -> CMTerm(term s x |> dyn false s) | MType x -> CMType(ty s x))
+            let a = a |> List.map (function MText x -> CMText x | MTerm x -> CMTerm(term s x |> dyn false s) | MType x -> CMType(ty s x) | MLitType x -> CMTypeLit(ty s x |> assert_ty_lit s))
             push_typedop_no_rewrite s (TyMacro(a)) (ty s b)
         | EPrototypeApply(_,prot_id,b) ->
             let rec loop = function

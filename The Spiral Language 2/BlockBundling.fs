@@ -41,6 +41,7 @@ let rec fold_offset_ty offset x =
     let g = add_offset offset
     match x with
     | RawTWildcard r -> RawTWildcard(g r)
+    | RawTLit(r,a) -> RawTLit(g r, a)
     | RawTB r -> RawTB(g r)
     | RawTMetaVar(r,a) -> RawTMetaVar(g r,a)
     | RawTVar(r,a) -> RawTVar(g r,a)
@@ -63,6 +64,7 @@ and fold_offset_macro offset a =
         | RawMacroText(r,a) -> RawMacroText(g r,a)
         | RawMacroTermVar(r,a) -> RawMacroTermVar(g r,fold_offset_term offset a)
         | RawMacroTypeVar(r,a) -> RawMacroTypeVar(g r,fold_offset_ty offset a)
+        | RawMacroTypeLitVar(r,a) -> RawMacroTypeLitVar(g r,fold_offset_ty offset a)
         ) a
 and fold_offset_term offset x = 
     let f = fold_offset_term offset

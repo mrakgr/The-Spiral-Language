@@ -10,11 +10,13 @@ type Range = {path : string; range : VSCRange}
 
 type Macro =
     | MText of string
-    | MType of T
     | MTerm of E
+    | MType of T
+    | MLitType of T
 and TypeMacro =
     | TMText of string
     | TMType of T
+    | TMLitType of T
 and RecordWith =
     | RSymbol of (Range * string) * E
     | RSymbolModify of (Range * string) * E
@@ -83,6 +85,7 @@ and [<ReferenceEquality>] T =
     | TJoinPoint of Range * T
     | TPatternRef of T ref
     | TB of Range
+    | TLit of Range * Tokenize.Literal
     | TV of Id
     | TPair of Range * T * T
     | TFun of Range * T * T
@@ -102,11 +105,13 @@ and [<ReferenceEquality>] T =
 module Printable =
     type PMacro =
         | MText of string
-        | MType of PT
         | MTerm of PE
+        | MType of PT
+        | MLitType of PT
     and PTypeMacro =
         | TMText of string
         | TMType of PT
+        | TMLitType of PT
     and PRecordWith =
         | RSymbol of string * PE
         | RSymbolModify of string * PE
@@ -173,6 +178,7 @@ module Printable =
         | TJoinPoint' of Scope * PT
         | TJoinPoint of PT
         | TB
+        | TLit of Tokenize.Literal
         | TV of Id
         | TMetaV of Id
         | TPair of PT * PT
@@ -251,8 +257,9 @@ module Printable =
             | E.EMacro(_,a,b) ->
                 let a = a |> List.map (function
                     | Macro.MText a -> MText a
-                    | Macro.MType a -> MType(ty a)
                     | Macro.MTerm a -> MTerm(term a)
+                    | Macro.MType a -> MType(ty a)
+                    | Macro.MLitType a -> MLitType(ty a)
                     )
                 EMacro(a,ty b)
             | E.EPrototypeApply(_,a,b) -> EPrototypeApply(a,ty b)
@@ -281,6 +288,7 @@ module Printable =
             | T.TJoinPoint'(_,a,b) -> TJoinPoint'(a,ty b)
             | T.TJoinPoint(_,a) -> TJoinPoint(ty a)
             | T.TB _ -> TB
+            | T.TLit(_,x) -> TLit x
             | T.TV a -> TV a
             | T.TMetaV a -> TMetaV a
             | T.TPair(_,a,b) -> TPair(ty a,ty b)
@@ -296,6 +304,7 @@ module Printable =
                 let a = a |> List.map (function
                     | TypeMacro.TMText a -> TMText a
                     | TypeMacro.TMType a -> TMType(ty a)
+                    | TypeMacro.TMLitType a -> TMLitType(ty a)
                     )
                 TMacro(a)
             | T.TNominal a -> TNominal a
@@ -403,7 +412,7 @@ let propagate x =
         | EHeapMutableSet(_,a,b,c) -> term a + List.fold (fun s (_,a) -> s + term a) empty b + term c
         | EIfThenElse(_,a,b,c) -> term a + term b + term c
         | EPatternMiss a | EReal(_,a) -> term a
-        | EMacro(_,a,b) -> List.fold (fun s -> function MType x -> s + ty x | MTerm x -> s + term x | MText _ -> s) (ty b) a
+        | EMacro(_,a,b) -> List.fold (fun s -> function MLitType x | MType x -> s + ty x | MTerm x -> s + term x | MText _ -> s) (ty b) a
         | EPatternMemo a -> Utils.memoize dict term a
         // Regular pattern matching
         | ELet(_,bind,body,on_succ) -> term on_succ - bind + term body
@@ -430,14 +439,14 @@ let propagate x =
                 s + a + b
                 ) (ty a) b
     and ty = function
-        | TJoinPoint' _ | TArrow' _ | TSymbol _ | TPrim _ | TNominal _ | TB _ -> empty
+        | TJoinPoint' _ | TArrow' _ | TSymbol _ | TPrim _ | TNominal _ | TLit _ | TB _ -> empty
         | TPatternRef a -> ty !a
         | TV i -> singleton_ty i
         | TMetaV i -> {empty with ty = {|empty.ty with range = Some(i,i)|} }
         | TApply(_,a,b) | TPair(_,a,b) | TFun(_,a,b) -> ty a + ty b
         | TUnion(_,(a,_)) | TRecord(_,a) | TModule a -> Map.fold (fun s k v -> s + ty v) empty a
         | TTerm(_,a) -> term a
-        | TMacro(_,a) -> a |> List.fold (fun s -> function TMText _ -> s | TMType x -> s + ty x) empty
+        | TMacro(_,a) -> a |> List.fold (fun s -> function TMText _ -> s | TMLitType x | TMType x -> s + ty x) empty
         | TArrow(i,a) as x -> scope x (ty a -. i)
         | TJoinPoint(_,a) as x -> scope x (ty a)
         | TArray(a) | TLayout(a,_) -> ty a
@@ -514,7 +523,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | EHeapMutableSet(_,a,b,c) -> f a; List.iter (snd >> f) b; f c
         | EUnbox(_,_,_,a,b,c) | EIfThenElse(_,a,b,c) -> f a; f b; f c
         | EMacro(_,a,b) ->
-            a |> List.iter (function MType a -> ty env a | MTerm a -> f a | MText _ -> ())
+            a |> List.iter (function MLitType a | MType a -> ty env a | MTerm a -> f a | MText _ -> ())
             ty env b
         | EPatternMemo a -> Utils.memoize dict f a
         | ERecordTest(_,l,_,a,b) -> 
@@ -526,13 +535,13 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
     and ty (env : ResolveEnv) x = 
         let f = ty env
         match x with
-        | TJoinPoint' _ | TArrow' _ | TNominal _ | TPrim _ | TSymbol _ | TV _ | TMetaV _ | TB _ -> ()
+        | TJoinPoint' _ | TArrow' _ | TNominal _ | TPrim _ | TSymbol _ | TV _ | TMetaV _ | TLit _ | TB _ -> ()
         | TPatternRef a -> f !a
         | TArrow(_,a) -> subst env x; f a
         | TApply(_,a,b) | TFun(_,a,b) | TPair(_,a,b) -> f a; f b
         | TRecord(_,a) | TModule a | TUnion(_,(a,_)) -> Map.iter (fun _ -> f) a
         | TTerm(_,a) -> term env a
-        | TMacro(_,a) -> a |> List.iter (function TMText _ -> () | TMType a -> f a)
+        | TMacro(_,a) -> a |> List.iter (function TMText _ -> () | TMLitType a | TMType a -> f a)
         | TJoinPoint(_,a) | TLayout(a,_) | TArray(a) -> f a
 
     match x with
@@ -651,6 +660,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EMacro(r,a,b) -> 
             let a = a |> List.map (function
                 | MText _ as x -> x
+                | MLitType a -> MLitType(g env a)
                 | MType a -> MType(g env a)
                 | MTerm a -> MTerm(f a)
                 )
@@ -719,7 +729,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         let f = ty' case_tmetav env_rec env
         match x with
         | TMetaV i -> case_tmetav i
-        | TJoinPoint' _ | TArrow' _ | TNominal  _ | TPrim _ | TSymbol _ | TB _ as x -> x
+        | TJoinPoint' _ | TArrow' _ | TNominal  _ | TPrim _ | TSymbol _ | TLit _ | TB _ as x -> x
         | TPatternRef a -> f !a
         | TJoinPoint(r,a) as x ->
             let scope, env = scope env x 
@@ -740,6 +750,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
             let a = a |> List.map (function 
                 | TMText _ as x -> x
                 | TMType a -> TMType(f a)
+                | TMLitType a -> TMLitType(f a)
                 )
             TMacro(r,a)
         | TArray(a) -> TArray(f a)
@@ -909,6 +920,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawTWildcard _ -> case_metavar None
         | RawTForall _ -> failwith "Compiler error: Foralls are not allowed at the type level."
         | RawTB r -> TB (p r)
+        | RawTLit (r, x) -> TLit(p r,x)
         | RawTVar(r,a) -> v_ty env a
         | RawTPair(r,a,b) -> TPair(p r,f a,f b)
         | RawTFun(r,a,b) -> TFun(p r,f a,f b)
@@ -928,6 +940,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
             let f = function 
                 | RawMacroText(r,a) -> TMText a
                 | RawMacroTypeVar(r,a) -> TMType(f a)
+                | RawMacroTypeLitVar(r,a) -> TMLitType(f a)
                 | RawMacroTermVar _ -> failwith "Compiler error: Term vars should not appear on the type level."
             TMacro(p r,List.map f l)
         | RawTArray(r,a) -> TArray(f a)
@@ -1008,6 +1021,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                 | RawMacroText(r,a) -> MText a
                 | RawMacroTermVar(r,a) -> MTerm(f a)
                 | RawMacroTypeVar(r,a) -> MType(ty env a)
+                | RawMacroTypeLitVar(r,a) -> MLitType(ty env a)
                 )
             EMacro(p r,a,ty env b)
         | RawMissingBody _ -> failwith "Compiler error: The missing body cases should have been validated."

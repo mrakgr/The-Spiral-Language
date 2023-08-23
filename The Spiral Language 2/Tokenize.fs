@@ -89,6 +89,7 @@ type SpiralToken =
     | TokMacroOpen | TokMacroClose
     | TokMacroTermVar of string
     | TokMacroTypeVar of string
+    | TokMacroTypeLitVar of string
 
 let token_groups = function
     | TokUnaryOperator(_,r) | TokOperator(_,r) | TokVar(_,r) | TokSymbol(_,r) -> r
@@ -97,11 +98,27 @@ let token_groups = function
     | TokKeyword _ -> SemanticTokenLegend.keyword
     | TokParenthesis _ -> SemanticTokenLegend.parenthesis
     | TokMacroTypeVar _ -> SemanticTokenLegend.type_variable
+    | TokMacroTypeLitVar _ -> SemanticTokenLegend.type_variable
     | TokMacroTermVar _ -> SemanticTokenLegend.variable
     | TokEscapedChar _ -> SemanticTokenLegend.escaped_char
     | TokUnescapedChar _ -> SemanticTokenLegend.unescaped_char
     | TokValue _ | TokDefaultValue _ -> SemanticTokenLegend.number
     | TokValueSuffix -> SemanticTokenLegend.number_suffix
+
+let show_lit = function
+    | LitUInt8 x -> sprintf "%iu8" x
+    | LitUInt16 x -> sprintf "%iu16" x
+    | LitUInt32 x -> sprintf "%iu32" x
+    | LitUInt64 x -> sprintf "%iu64" x
+    | LitInt8 x -> sprintf "%ii8" x
+    | LitInt16 x -> sprintf "%ii16" x
+    | LitInt32 x -> sprintf "%ii32" x
+    | LitInt64 x -> sprintf "%ii64" x
+    | LitFloat32 x -> sprintf "%ff32" x
+    | LitFloat64 x -> sprintf "%ff64" x
+    | LitBool x -> sprintf "%b" x
+    | LitString x -> sprintf "%s" x
+    | LitChar x -> sprintf "%c" x
 
 let is_small_var_char_starting c = Char.IsLower c || c = '_'
 let is_var_char c = Char.IsLetterOrDigit c || c = '_' || c = '''
@@ -283,6 +300,11 @@ let string_quoted' s =
     | _ -> error_char s.from "\""
 let string_quoted s = (string_quoted' .>> spaces) s
 
+type MacroEnum =
+    | MTerm
+    | MType
+    | MTypeLit
+
 let macro' s =
     let inline f from x = {from=from; nearTo=s.from}, x
     let close l = let f = f s.from in inc s; List.rev (f TokMacroClose :: l) |> Ok
@@ -291,20 +313,26 @@ let macro' s =
         let rec loop (str : StringBuilder) =
             let l () = if 0 < str.Length then f (TokText(str.ToString())) :: l else l
             let var b = 
-                let c = if b then '`' else '!'
+                let c = 
+                    match b with
+                    | MTerm -> '!'
+                    | MType -> '`'
+                    | MTypeLit -> '@'
+                    
                 if peek' s 1 = c then inc' 2 s; loop (str.Append(c))
                 else var close_char b (l ())
             match peek s with
             | x when x = eol -> error_char s.from "character or \""
-            | '`' -> var true 
-            | '!' -> var false
+            | '`' -> var MType 
+            | '!' -> var MTerm
+            | '@' -> var MTypeLit
             | '\\' -> special_char (l ()) (text close_char) s
             | x when x = close_char -> close (l ())
             | x -> inc s; loop (str.Append(x))
         loop (StringBuilder())
     and var close_char is_type l =
         let f = f s.from
-        let text x _ = text close_char (f (if is_type then TokMacroTypeVar x else TokMacroTermVar x) :: l)
+        let text x _ = text close_char (f (match is_type with MType -> TokMacroTypeVar x | MTerm -> TokMacroTermVar x | MTypeLit -> TokMacroTypeLitVar x) :: l)
         inc s; (many1Satisfy2L is_var_char_starting is_var_char "variable" >>= text) s
     match peek s, peek' s 1 with
     | '$', '"' -> let f = f s.from in inc' 2 s; text '"' [f TokMacroOpen]

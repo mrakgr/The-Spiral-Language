@@ -44,7 +44,7 @@ let varc_data call_data =
         | DRecord l -> Map.iter (fun _ -> f) l
         | DV x -> v <- varc_add x 1 v
         | DUnion(a,_) | DNominal(a,_) -> f a
-        | DLit _ | DSymbol _ | DB -> ()
+        | DLit _ | DTLit _ | DSymbol _ | DB -> ()
     f call_data
     v
 let varc_set x i = Set.fold (fun s v -> Map.add v i s) Map.empty x
@@ -182,7 +182,6 @@ let lit_string x =
         ) x
     strb.Append '"' |> ignore
     strb.ToString()
-
 
 let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind []) =
     let globals = ResizeArray()
@@ -327,7 +326,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
                     let decl_vars = Array.map (fun (L(i,t)) -> $"{tyv t} v{i};") d
                     match a with
                     | TyMacro a ->
-                        let m = a |> List.map (function CMText x -> x | CMTerm x -> tup_data x | CMType x -> tup_ty x) |> String.concat ""
+                        let m = a |> List.map (function CMText x -> x | CMTerm x -> tup_data x | CMType x -> tup_ty x | CMTypeLit x -> type_lit x) |> String.concat ""
                         let q = m.Split("v$")
                         if q.Length = 1 then 
                             decl_vars |> line' s
@@ -406,7 +405,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
                 match env.ty_to_data x |> data_free_vars |> Array.map (fun (L(_,x)) -> tyv x) with
                 | [||] -> "void"
                 | x -> String.concat ", " x
-            a |> List.map (function Text a -> a | Type a -> f a) |> String.concat ""
+            a |> List.map (function Text a -> a | Type a -> f a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> sprintf "Array%i *" (carray a).tag
         | YFun(a,b) -> sprintf "Fun%i *" (cfun (a,b)).tag
@@ -457,6 +456,10 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
             | x -> string x
             |> sprintf "'%s'"
         | LitBool x -> if x then "true" else "false" // true and false are defined in stddef.h
+    and type_lit = function
+        | YLit x -> lit x
+        | YSymbol x -> x
+        | x -> raise_codegen_error "Compiler error: Expecting a type literal in the macro." 
     and op (vars : RefcVars) s (ret : BindsReturn) a =
         let binds a b = binds vars a b
         let return' (x : string) =

@@ -38,9 +38,11 @@ type [<ReferenceEquality>] MVar = {
 type TM =
     | TMText of string
     | TMVar of T
+    | TMLitVar of T
 
 and T =
     | TyB
+    | TyLit of Tokenize.Literal
     | TyPrim of PrimitiveType
     | TySymbol of string
     | TyPair of T * T
@@ -139,7 +141,7 @@ let rec visit_t = function
 exception TypeErrorException of (VSCRange * TypeError) list
 
 let rec metavars = function
-    | RawTFilledNominal _ | RawTMacro _ | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ -> Set.empty
+    | RawTFilledNominal _ | RawTMacro _ | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTLit _ | RawTB _ | RawTSymbol _ -> Set.empty
     | RawTMetaVar(_,a) -> Set.singleton a
     | RawTArray(_,a) | RawTLayout(_,a,_) | RawTForall(_,_,a) -> metavars a
     | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> metavars a + metavars b
@@ -230,7 +232,7 @@ let rec tt (env : TopEnv) = function
     | TyComment(_,x) | TyMetavar(_,{contents=Some x}) -> tt env x
     | TyNominal i -> env.nominals_aux.[i].kind
     | TyApply(_,_,x) | TyMetavar({kind=x},_) | TyVar({kind=x}) -> x
-    | TyUnion _ | TyLayout _ | TyMacro _ | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyModule _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
+    | TyLit _ | TyUnion _ | TyLayout _ | TyMacro _ | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyModule _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
     | TyInl(v,a) -> KindFun(v.kind,tt env a)
 
 let module_open (hover_types : ResizeArray<VSCRange * (T * Comments)>) (top_env : Env) (r : VSCRange) b l =
@@ -308,11 +310,11 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
         List.iter (function
             | RawMacroText _ -> ()
             | RawMacroTermVar(r,a) -> cterm constraints term ty a
-            | RawMacroTypeVar(r,a) -> ctype constraints term ty a
+            | RawMacroTypeVar(r,a) | RawMacroTypeLitVar(r,a) -> ctype constraints term ty a
             ) a
     and ctype constraints term ty x =
         match x with
-        | RawTFilledNominal(_,_) | RawTPrim _ | RawTWildcard _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
+        | RawTFilledNominal(_,_) | RawTPrim _ | RawTWildcard _ | RawTLit _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
         | RawTVar(a,b) -> check_ty ty (a,b)
         | RawTArray(_,a) | RawTLayout(_,a,_) -> ctype constraints term ty a
         | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> ctype constraints term ty a; ctype constraints term ty b
@@ -357,7 +359,7 @@ let rec subst (m : (Var * T) list) x =
     match x with
     | TyComment(_,x)
     | TyMetavar(_,{contents=Some x}) -> f x // Don't do path shortening here.
-    | TyMetavar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> x
+    | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> x
     | TyPair(a,b) -> TyPair(f a, f b)
     | TyRecord a -> TyRecord(Map.map (fun _ -> f) a)
     | TyModule a -> TyModule(Map.map (fun _ -> f) a)
@@ -387,7 +389,7 @@ let rec term_subst x =
     let f = term_subst
     match x with
     | TyMetavar(_,{contents=Some x} & link) -> shorten x link f
-    | TyMetavar _ | TyVar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ as x -> x
+    | TyMetavar _ | TyVar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ as x -> x
     | TyComment(a,b) -> TyComment(a,f b)
     | TyPair(a,b) -> TyPair(f a, f b)
     | TyRecord a -> TyRecord(Map.map (fun _ -> f) a)
@@ -419,7 +421,7 @@ let rec has_metavars x =
     let f = has_metavars
     match visit_t x with
     | TyMetavar _ -> true
-    | TyVar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ | TyModule _ -> false
+    | TyVar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ | TyModule _ -> false
     | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
     | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a || f b
     | TyUnion(l,_) | TyRecord l -> Map.exists (fun _ -> f) l
@@ -457,6 +459,7 @@ let show_t (env : TopEnv) x =
             | Some x -> x.name
             | _ -> "?"
         | TyB -> "()"
+        | TyLit x -> Tokenize.show_lit x
         | TyPrim x -> show_primt x
         | TySymbol x -> sprintf ".%s" x
         | TyForall _ -> 
@@ -491,7 +494,7 @@ let show_t (env : TopEnv) x =
             else "module"
         | TyRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
         | TyUnion(l,_) -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "| ")
-        | TyMacro a -> p 30 (List.map (function TMVar a -> f -1 a | TMText a -> a) a |> String.concat "")
+        | TyMacro a -> p 30 (List.map (function TMLitVar a | TMVar a -> f -1 a | TMText a -> a) a |> String.concat "")
         | TyLayout(a,b) -> p 30 (sprintf "%s %s" (show_layout_type b) (f 30 a))
 
     f -2 x
@@ -625,6 +628,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | TyMetavar _  | TyForall _  | TyInl _  | TyModule _ as x -> failwithf "Compiler error: These cases should not appear in fill.\nGot: %A" x
                 | TyComment(_,x) -> f x
                 | TyB -> RawTB r
+                | TyLit x -> RawTLit(r,x)
                 | TyPrim x -> RawTPrim(r,x)
                 | TySymbol x -> RawTSymbol(r,x)
                 | TyPair(a,b) -> RawTPair(r,f a,f b)
@@ -635,7 +639,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | TyUnion(a,b) -> RawTUnion(r,Map.map (fun _ -> f) a,b)
                 | TyApply(a,b,_) -> RawTApply(r,f a,f b)
                 | TyVar a -> RawTVar(r,a.name)
-                | TyMacro l -> l |> List.map (function TMText x -> RawMacroText(r,x) | TMVar x -> RawMacroTypeVar(r,f x)) |> fun l -> RawTMacro(r,l)
+                | TyMacro l -> l |> List.map (function TMText x -> RawMacroText(r,x) | TMVar x -> RawMacroTypeVar(r,f x) | TMLitVar x -> RawMacroTypeLitVar(r,f x)) |> fun l -> RawTMacro(r,l)
                 | TyLayout(a,b) -> RawTLayout(r,f a,b)
             f expr
         let annot r x = t_to_rawtexpr r (snd annotations.[x])
@@ -753,11 +757,11 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyForall(v,a) -> h.Add v |> ignore; f a
             | TyVar v -> h.Remove v |> ignore
             | TyMetavar _ -> failwith "Compiler error: Metavars should not appear here."
-            | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> ()
+            | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
             | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b) -> f a; f b
             | TyUnion(a,_) | TyRecord a -> Map.iter (fun _ -> f) a
             | TyComment(_,a) | TyLayout(a,_) | TyInl(_,a) | TyArray a -> f a
-            | TyMacro a -> List.iter (function TMVar a -> f a | TMText _ -> ()) a
+            | TyMacro a -> List.iter (function TMLitVar a | TMVar a -> f a | TMText _ -> ()) a
             | TyModule _ -> ()
         f x
         if 0 < h.Count then
@@ -779,11 +783,11 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 replace_metavars v
             // This scheme with the HashSet is so generalize works for mutually recursive statements.
             | TyVar v -> if scope = v.scope && h.Add(v) then generalized_metavars.Add(v)
-            | TyMetavar _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> ()
+            | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
             | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b) -> f a; f b
             | TyUnion(a,_) | TyRecord a -> Map.iter (fun _ -> f) a
             | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
-            | TyMacro a -> List.iter (function TMVar a -> f a | TMText _ -> ()) a
+            | TyMacro a -> List.iter (function TMLitVar a | TMVar a -> f a | TMText _ -> ()) a
             | TyModule _ -> ()
 
         let f x s = TyForall(x,s)
@@ -845,8 +849,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let rec validate_unification i x =
             let f = validate_unification i
             match visit_t x with
-            | TyModule _ | TyNominal _ | TyB | TyPrim _ | TySymbol _ -> ()
-            | TyMacro a -> a |> List.iter (function TMText _ -> () | TMVar a -> f a)
+            | TyModule _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
+            | TyMacro a -> a |> List.iter (function TMText _ -> () | TMLitVar a | TMVar a -> f a)
             | TyComment(_,a) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
             | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a; f b
             | TyUnion(l,_) | TyRecord l -> Map.iter (fun _ -> f) l
@@ -1142,7 +1146,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             List.iter (function
                 | RawMacroText _ -> ()
                 | RawMacroTermVar(_,a) -> term scope env (fresh_var scope) a
-                | RawMacroTypeVar(_,a) -> ty scope env (fresh_var scope) a
+                | RawMacroTypeVar(_,a) | RawMacroTypeLitVar(_,a) -> ty scope env (fresh_var scope) a
                 ) a
         | RawHeapMutableSet(r,a,b,c) ->
             unify r s TyB
@@ -1246,6 +1250,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | Some x -> hover_types.Add(r,(x,"")); unify r s x
             | None -> errors.Add(r, UnboundVariable)
         | RawTB r -> unify r s TyB
+        | RawTLit(r,x) -> unify r s (TyLit x)
         | RawTSymbol(r,x) -> unify r s (TySymbol x)
         | RawTPrim(r,x) -> unify r s (TyPrim x)
         | RawTPair(r,a,b) -> 
@@ -1302,8 +1307,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | RawTMacro(r,a) ->
             List.map (function
                 | RawMacroText(_,a) -> TMText a
-                | RawMacroTypeVar(r,a) -> let v = fresh_var scope in f v a; TMVar v
                 | RawMacroTermVar _ -> failwith "Compiler error: Term vars should never appear at the type level."
+                | RawMacroTypeVar(r,a) | RawMacroTypeLitVar(r,a) -> let v = fresh_var scope in f v a; TMVar v
                 ) a
             |> TyMacro |> unify r s
         | RawTLayout(r,a,b) -> 

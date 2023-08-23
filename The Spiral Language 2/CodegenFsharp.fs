@@ -69,6 +69,11 @@ let prim = function
     | StringT -> "string"
     | CharT -> "char"
 
+let type_lit = function
+    | YLit x -> lit x
+    | YSymbol x -> x
+    | x -> raise_codegen_error "Compiler error: Expecting a type literal in the macro." 
+
 type UnionRec = {tag : int; free_vars : Map<string, TyV[]>}
 type LayoutRec = {tag : int; data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>}
 type MethodRec = {tag : int; free_vars : L<Tag,Ty>[]; range : Ty; body : TypedBind[]}
@@ -129,7 +134,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | UStack -> sprintf "US%i" (ustack a.cases).tag
         | YLayout(a,Heap) -> sprintf "Heap%i" (heap a).tag
         | YLayout(a,HeapMutable) -> sprintf "Mut%i" (mut a).tag
-        | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a) |> String.concat ""
+        | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> sprintf "(%s [])" (tup_ty a)
         | YFun(a,b) -> sprintf "(%s -> %s)" (tup_ty a) (tup_ty b)
@@ -195,7 +200,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | _ -> raise_codegen_error "Compiler error: Expected an int in length"
             |> simple
         match a with
-        | TyMacro a -> a |> List.map (function CMText x -> x | CMTerm x -> tup x | CMType x -> tup_ty x) |> String.concat "" |> simple
+        | TyMacro a -> a |> List.map (function CMText x -> x | CMTerm x -> tup x | CMType x -> tup_ty x | CMTypeLit x -> type_lit x) |> String.concat "" |> simple
         | TyIf(cond,tr,fl) ->
             complex <| fun s ->
             line s (sprintf "if %s then" (tup cond))

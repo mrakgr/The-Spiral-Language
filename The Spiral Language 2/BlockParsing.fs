@@ -162,7 +162,7 @@ type ParserErrors =
     | ExpectedKeyword of TokenKeyword
     | ExpectedStringOpen | ExpectedStringClose
     | ExpectedMacroOpen | ExpectedMacroClose
-    | ExpectedMacroTypeVar | ExpectedMacroVar
+    | ExpectedMacroVar | ExpectedMacroTypeVar | ExpectedMacroTypeLitVar 
     | ExpectedText | ExpectedEscapedChar | ExpectedUnescapedChar
     | ExpectedOperator'
     | ExpectedOperator of string
@@ -219,8 +219,9 @@ type HoVar = VSCRange * (VarString * RawKindExpr)
 type TypeVar = HoVar * (VSCRange * VarString) list
 type RawMacro =
     | RawMacroText of VSCRange * string
-    | RawMacroTypeVar of VSCRange * RawTExpr
     | RawMacroTermVar of VSCRange * RawExpr
+    | RawMacroTypeVar of VSCRange * RawTExpr
+    | RawMacroTypeLitVar of VSCRange * RawTExpr
 and RawRecordWith =
     | RawRecordWithSymbol of (VSCRange * SymbolString) * RawExpr
     | RawRecordWithSymbolModify of (VSCRange * SymbolString) * RawExpr
@@ -282,6 +283,7 @@ and RawTExpr =
     | RawTWildcard of VSCRange
     | RawTB of VSCRange
     | RawTMetaVar of VSCRange * VarString
+    | RawTLit of VSCRange * Literal
     | RawTVar of VSCRange * VarString
     | RawTPair of VSCRange * RawTExpr * RawTExpr
     | RawTFun of VSCRange * RawTExpr * RawTExpr
@@ -362,6 +364,7 @@ let range_of_expr = function
 let range_of_texpr = function
     | RawTWildcard r
     | RawTB r
+    | RawTLit(r,_)
     | RawTMacro(r,_)
     | RawTMetaVar(r,_)
     | RawTVar(r,_)
@@ -442,11 +445,13 @@ let read_macro_var d =
     try_current d <| function
         | p, TokMacroTermVar x -> skip d; Ok(RawMacroTermVar(p,RawV(p,x)))
         | p, TokMacroTypeVar x -> skip d; Ok(RawMacroTypeVar(p,RawTVar(p,x)))
+        | p, TokMacroTypeLitVar x -> skip d; Ok(RawMacroTypeLitVar(p,RawTVar(p,x)))
         | p,_ -> Error [p, ExpectedMacroVar]
 
 let read_macro_type_var d =
     try_current d <| function
         | p, TokMacroTypeVar x -> skip d; Ok(RawMacroTypeVar(p,RawTVar(p,x)))
+        | p, TokMacroTypeLitVar x -> skip d; Ok(RawMacroTypeLitVar(p,RawTVar(p,x)))
         | p,_ -> Error [p, ExpectedMacroTypeVar]
 
 let skip_keyword t d =
@@ -864,7 +869,7 @@ let typecase_validate x _ =
     let errors = ResizeArray()
     let rec f = function
         | RawTFilledNominal _ | RawTTerm _ | RawTForall _ -> failwith "Compiler error: This case is not supposed to appear in typecase."
-        | RawTPrim _ | RawTSymbol _ | RawTB _ | RawTWildcard _ -> ()
+        | RawTLit _ | RawTPrim _ | RawTSymbol _ | RawTB _ | RawTWildcard _ -> ()
         | RawTMetaVar(r,a) -> if vars.Contains(a) then errors.Add(r,MetavarShadowedByVar) else metavars.Add(a) |> ignore
         | RawTVar(r,a) -> if metavars.Contains(a) then errors.Add(r,VarShadowedByMetavar) else vars.Add(a) |> ignore
         | RawTApply(_,a,b) | RawTFun(_,a,b) | RawTPair(_,a,b) -> f a; f b
@@ -983,6 +988,7 @@ and root_type (flags : RootTypeFlags) d =
         let term d = if flags.allow_term then (range (skip_unary_op "`" >>. ((read_var'' |>> RawV) <|> rounds root_term)) |>> RawTTerm) {d with is_top_down=false} else Error []
         let symbol = read_symbol |>> RawTSymbol
         let record = root_type_record flags
+        let lit = read_value |>> RawTLit
         let var = read_var' |>> fun (o,x,r) ->
             r SemanticTokenLegend.type_variable
             RawTVar(o, x)
@@ -991,7 +997,7 @@ and root_type (flags : RootTypeFlags) d =
             |>> fun (r,x) -> x r
         let macro = pipe3 skip_macro_open (many ((read_text |>> RawMacroText) <|> read_macro_type_var)) skip_macro_close (fun a l b -> RawTMacro(a +. b, l))
         let (+) = alt (index d)
-        (rounds + wildcard + term + metavar + var + record + symbol + macro) d
+        (rounds + lit + wildcard + term + metavar + var + record + symbol + macro) d
 
     let fold_applies a b = List.fold (fun a b -> RawTApply(range_of_texpr a +. range_of_texpr b,a,b)) a b
     let apply_tight d = pipe2 cases (many (expr_tight cases)) fold_applies d
@@ -1300,8 +1306,9 @@ let show_parser_error = function
     | ExpectedPairedSymbolInUnion -> "The union clause should be pair whose left side is a symbol."
     | ExpectedEscapedChar -> "escaped character"
     | ExpectedUnescapedChar -> "unescaped character"
-    | ExpectedMacroTypeVar -> "type variable"
     | ExpectedMacroVar -> "variable"
+    | ExpectedMacroTypeVar -> "type variable"
+    | ExpectedMacroTypeLitVar -> "type literal variable"
     | ExpectedText -> "text"
     | ExpectedMacroOpen -> "$\""
     | ExpectedStringOpen -> "\""

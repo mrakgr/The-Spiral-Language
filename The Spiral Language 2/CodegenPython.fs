@@ -57,6 +57,11 @@ let lit = function
         |> sprintf "'%s'"
     | LitBool x -> if x then "True" else "False"
 
+let type_lit = function
+    | YLit x -> lit x
+    | YSymbol x -> x
+    | x -> raise_codegen_error "Compiler error: Expecting a type literal in the macro." 
+
 let show_w = function WV(L(i,_)) -> sprintf "v%i" i | WLit a -> lit a
 let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
 let prim x = Infer.show_primt x
@@ -190,7 +195,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             | UStack -> sprintf "US%i" (ustack a).tag
         | YLayout(a,Heap) -> sprintf "Heap%i" (heap a).tag
         | YLayout(a,HeapMutable) -> sprintf "Mut%i" (mut a).tag
-        | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a) |> String.concat ""
+        | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> "np.ndarray"
         | YFun(a,b) -> 
@@ -218,7 +223,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             |> return'
         let length (a,b) = return' $"len({tup_data b})"
         match a with
-        | TyMacro a -> a |> List.map (function CMText x -> x | CMTerm x -> tup_data x | CMType x -> tup_ty x) |> String.concat "" |> return'
+        | TyMacro a -> a |> List.map (function CMText x -> x | CMTerm x -> tup_data x | CMType x -> tup_ty x | CMTypeLit a -> type_lit a) |> String.concat "" |> return'
         | TyIf(cond,tr,fl) ->
             line s (sprintf "if %s:" (tup_data cond))
             binds g_decr (indent s) ret tr
