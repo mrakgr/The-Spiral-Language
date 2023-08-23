@@ -1,3 +1,5 @@
+type t = {a : i32}
+
 // Does the core package load correctly?
 inl main () =
     inl ~a = 1

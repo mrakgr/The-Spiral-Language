@@ -22,16 +22,29 @@ class SerialDisposable implements Disposable {
 
 const port : number = workspace.getConfiguration("spiral").get("port") || 13805
 const hub = new HubConnectionBuilder()
-    .withUrl(`http://localhost:${port}/api`)
+    .withUrl(`http://localhost:${port}`)
     .configureLogging(LogLevel.Error)
     .build()
+
+function sleep(ms : number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function hubStart() {
+    while (true) {
+        try {
+            await hub.start();
+            return
+        } catch (err : any) {
+            await sleep(500)
+        }
+    }
+}
 
 const requestRun = async (prev : Promise<string | null>, file: any): Promise<string | null> => {
     await prev // Waiting on the previous request is so they get ordered properly. Otherwise, messages might fill up and fire in arbitrary order.
     const msg = JSON.stringify(file)
-    window.showInformationMessage(`Sending message: ${msg}`)
     const x = await hub.invoke("ClientToServerMsg",msg)
-    window.showInformationMessage(`Done sending the message: ${x}`)
     return x ? x.toString() : null
 }
 let prev_request : Promise<string | null> = new Promise(resolve => resolve(null))
@@ -89,28 +102,7 @@ const projectCodeActionTitle = (x : ProjectCodeAction): string => {
     throw "Case match failed"
     }
 
-function sleep(ms : number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-async function start() {
-    let isConnected = false
-    while (!isConnected) {
-        try {
-            await hub.start();
-            window.showInformationMessage("SignalR Connected.");
-            isConnected = true;
-        } catch (err : any) {
-            window.showErrorMessage(err.toString());
-            sleep(500)
-        }
-    }
-};
-
-
 export const activate = async (ctx: ExtensionContext) => {
-    // console.log("Spiral plugin is active.")
-
     const errorsProject = languages.createDiagnosticCollection()
     const errorsTokenization = languages.createDiagnosticCollection()
     const errorsParse = languages.createDiagnosticCollection()
@@ -260,7 +252,7 @@ export const activate = async (ctx: ExtensionContext) => {
         const terminal = window.createTerminal({name: "Spiral Server", hideFromUser})
         const compiler_path = path.join(__dirname,"../compiler/Spiral.dll")
         terminal.sendText(`dotnet "${compiler_path}" port=${port}`)
-        await start()
+        await hubStart()
 
         hub.on("ServerToClientMsg",serverToClientMsgHandler)
         workspace.textDocuments.forEach(onDocOpen)
@@ -269,6 +261,7 @@ export const activate = async (ctx: ExtensionContext) => {
             prev_request = new Promise(resolve => resolve(null))
             terminal.dispose()
             hub.stop()
+            errorsProject.clear(); errorsTokenization.clear(); errorsParse.clear(); errorsType.clear()
         })
     }
 
@@ -297,7 +290,7 @@ export const activate = async (ctx: ExtensionContext) => {
                     }
                 }})
         }),
-        commands.registerCommand("runClosure", x => { x() }),
+        commands.registerCommand("runClosure", x => x() ),
         commands.registerCommand("startServer", () => startServer(false) ),
         commands.registerCommand("startServerHidden", () => startServer(true) ),
         languages.registerDocumentLinkProvider(spiralProjFilePattern,new SpiralProjectLinks()),

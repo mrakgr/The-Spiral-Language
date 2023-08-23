@@ -437,38 +437,25 @@ type ClientErrorsRes =
 open Microsoft.AspNetCore.SignalR
 open FSharp.Json
 
-type SpiralHub() = 
+type Supervisor = {
+    supervisor_ch : SupervisorReq Ch
+    }
+
+type SpiralHub(supervisor : Supervisor) =
     inherit Hub()
 
-    let error_ch_create msg =
-        let x = Ch()
-        //Hopac.server (Job.forever (Ch.take x >>= (msg >> fun (x : ClientErrorsRes) -> Hopac.Job.awaitUnitTask (this.Clients.All.SendCoreAsync("ServerToClientMsg",[|x|])))))
-        x
-
-    let errors : SupervisorErrorSources = {
-        fatal = error_ch_create FatalError
-        package = error_ch_create PackageErrors
-        tokenizer = error_ch_create TokenizerErrors
-        parser = error_ch_create ParserErrors
-        typer = error_ch_create TypeErrors
-        traced = error_ch_create TracedError
-        }
-    let supervisor = Ch()
-    let atten = Ch()
-
-    do Hopac.server (attention_server errors atten)
-    do Hopac.start (supervisor_server atten errors supervisor)
-
-    member this.ClientToServerMsg (x : string) =
+    member _.ClientToServerMsg (x : string) =
         let job_null job = Hopac.start job; task { return null }
-        let serialize x = 
-            let q = if box x <> null then Json.serialize x else null
-            printfn "%s" q
-            q
+        
+        let serialize (x : obj) = 
+            match x with
+            | null -> null
+            | :? Option<string> as x -> x.Value
+            | _ -> Json.serialize x
+
         let job_val job = let res = IVar() in Hopac.queueAsTask (job res >>=. IVar.read res >>- serialize)
-        let x = Json.deserialize x
-        printfn "%A" x
-        match x with
+        let supervisor = supervisor.supervisor_ch
+        match Json.deserialize x with
         | ProjectFileOpen x -> job_null (supervisor *<+ SupervisorReq.ProjectFileOpen x)
         | ProjectFileChange x -> job_null (supervisor *<+ SupervisorReq.ProjectFileChange x)
         | ProjectCodeActionExecute x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectCodeActionExecute(x,res))
@@ -496,6 +483,7 @@ let [<EntryPoint>] main args =
         )
 
 
+
     let uri_server = $"http://localhost:{env.port}"
     printfn "Server bound to: %s" uri_server
 
@@ -503,6 +491,32 @@ let [<EntryPoint>] main args =
     builder.Services
         .AddCors()
         .AddSignalR(fun x -> x.EnableDetailedErrors <- true) |> ignore
+        
+    builder.Services
+        .AddSingleton<Supervisor>(fun s ->
+            let hub = s.GetService<IHubContext<SpiralHub>>()
+            let broadcast x = hub.Clients.All.SendCoreAsync("ServerToClientMsg",[|Json.serialize x|])
+
+            let error_ch_create msg =
+                let x = Ch()
+                Hopac.server (Job.forever (Ch.take x >>= (msg >> fun (x : ClientErrorsRes) -> Hopac.Job.awaitUnitTask (broadcast x))))
+                x
+
+            let errors : SupervisorErrorSources = {
+                fatal = error_ch_create FatalError
+                package = error_ch_create PackageErrors
+                tokenizer = error_ch_create TokenizerErrors
+                parser = error_ch_create ParserErrors
+                typer = error_ch_create TypeErrors
+                traced = error_ch_create TracedError
+                }
+            let supervisor = Ch()
+            let atten = Ch()
+
+            do Hopac.server (attention_server errors atten)
+            do Hopac.start (supervisor_server atten errors supervisor)
+            {supervisor_ch=supervisor}
+            ) |> ignore
     builder.WebHost.UseUrls [|uri_server|] |> ignore
     let app = builder.Build()
     app.UseCors(fun x ->
@@ -511,6 +525,6 @@ let [<EntryPoint>] main args =
             .AllowAnyMethod()
             .AllowCredentials() |> ignore
         ) |> ignore
-    app.MapHub<SpiralHub>("api") |> ignore
+    app.MapHub<SpiralHub>("") |> ignore
     app.Run()
     0
