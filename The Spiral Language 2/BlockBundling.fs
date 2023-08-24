@@ -97,7 +97,7 @@ and fold_offset_term offset x =
                 )
         RawRecordWith(g r, List.map f a,b,c)
     | RawOp(r,a,b) -> RawOp(g r,a,List.map f b)
-    | RawJoinPoint(r,q,a) -> RawJoinPoint(g r,Option.map (fun (r',w) -> g r',w) q,f a)
+    | RawJoinPoint(r,q,a,b) -> RawJoinPoint(g r,Option.map (fun (r',w) -> g r',w) q,f a,b)
     | RawAnnot(r,a,b) -> RawAnnot(g r,f a,ty b)
     | RawTypecase(r,a,b) -> RawTypecase(g r,ty a,List.map (fun (a,b) -> ty a,f b) b)
     | RawOpen(r,a,b,c) -> RawOpen(g r,add_offset_hovar offset a,add_offset_hovar_list offset b,f c)

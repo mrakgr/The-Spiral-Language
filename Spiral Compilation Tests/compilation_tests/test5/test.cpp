@@ -21,7 +21,7 @@ int32_t method4(){
 int32_t method5(){
     return 2l;
 }
-int32_t main(){
+void main(){
     f0();
     g1();
     h2();
@@ -32,5 +32,5 @@ int32_t main(){
     v1 = method5();
     int32_t v2;
     v2 = v0 + v1;
-    return v2;
+    return ;
 }

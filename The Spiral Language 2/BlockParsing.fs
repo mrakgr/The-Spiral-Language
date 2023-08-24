@@ -266,7 +266,7 @@ and RawExpr =
     | RawRecBlock of VSCRange * ((VSCRange * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawFun or RawForall.
     | RawRecordWith of VSCRange * RawExpr list * RawRecordWith list * RawRecordWithout list
     | RawOp of VSCRange * Op * RawExpr list
-    | RawJoinPoint of VSCRange * backend: (VSCRange * string) option * RawExpr
+    | RawJoinPoint of VSCRange * backend: (VSCRange * string) option * RawExpr * name: string option
     | RawAnnot of VSCRange * RawExpr * RawTExpr
     | RawTypecase of VSCRange * RawTExpr * (RawTExpr * RawExpr) list
     | RawOpen of VSCRange * (VSCRange * VarString) * (VSCRange * SymbolString) list * on_succ: RawExpr
@@ -343,7 +343,7 @@ let range_of_expr = function
     | RawDefaultLit(r,_)
     | RawSymbol(r,_)
     | RawType(r,_)
-    | RawJoinPoint(r,_,_)
+    | RawJoinPoint(r,_,_,_)
     | RawArray(r,_)
     | RawMatch(r,_,_)
     | RawFun(r,_)
@@ -662,41 +662,41 @@ let patterns_validate pats =
         ) Set.empty pats |> ignore
     errors |> Seq.toList
 
-let join_point = function // Removes nested join points.
-    | RawJoinPoint _ as x -> x 
-    | x -> RawJoinPoint(range_of_expr x, None, x)
-let join_point_backend (a,b) = RawJoinPoint(range_of_expr b, Some a, b)
+let join_point name = function // Has the effect of removing nested join points due to not duplicating them.
+    | RawJoinPoint(a,b,c,_) -> RawJoinPoint(a,b,c,name)
+    | x -> RawJoinPoint(range_of_expr x, None, x, name)
+let join_point_backend (a,b) = RawJoinPoint(range_of_expr b, Some a, b, None)
 
 /// Some places need unique string refs, so this is to keep the compiler from interning static strings.
 let unintern a b = sprintf "%s%c" a b
 
-let rec let_join_point = function
-    | RawForall(r,a,b) -> RawForall(r,a,let_join_point b)
-    | RawFun(r,[a,b]) -> RawFun(r,[PatDyn(range_of_pattern a, a), let_join_point b])
+let rec let_join_point name = function
+    | RawForall(r,a,b) -> RawForall(r,a,let_join_point name b)
+    | RawFun(r,[a,b]) -> RawFun(r,[PatDyn(range_of_pattern a, a), let_join_point name b])
     | RawFun(r,l) -> 
         let empty = fst r, fst r
         let n = unintern " ar" 'g'
         let a = PatDyn(empty,PatVar(empty,n))
         let b = RawMatch(empty,RawV(empty,n),List.map (fun (a,b) -> PatDyn(range_of_pattern a, a),b) l)
-        RawFun(r,[a,join_point b])
-    | x -> join_point x
+        RawFun(r,[a,join_point name b])
+    | x -> join_point name x
 
-let let_join_point' = function
-    | RawForall _ | RawFun _ as x -> let_join_point x
+let let_join_point' name = function
+    | RawForall _ | RawFun _ as x -> let_join_point name x
     | x -> x
 
 let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
     match is_rec, name, foralls, pats with
     | false, _, [], [] -> 
         match patterns_validate [name] with
-        | [] -> Ok((r,name,(if is_let then let_join_point' body else body)),is_rec)
+        | [] -> Ok((r,name,(if is_let then let_join_point' (match name with PatVar(_,name) -> Some name | _ -> None) body else body)),is_rec)
         | ers -> Error ers
-    | _, PatVar _, _, _ -> 
+    | _, PatVar(_,name'), _, _ -> 
         match patterns_validate (if is_rec then name :: pats else pats) with
         | [] -> 
             let body = 
                 let dyn_if_let x = if is_let then PatDyn(range_of_pattern x, x) else x
-                (if is_let then let_join_point body else body)
+                (if is_let then let_join_point (Some name') body else body)
                 |> List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[dyn_if_let pat,body])) pats
                 |> List.foldBack (fun typevar body -> RawForall(range_of_typevar typevar +. range_of_expr body,typevar,body)) foralls
             match is_rec, body with
@@ -990,7 +990,7 @@ and root_type (flags : RootTypeFlags) d =
         let term d = if flags.allow_term then (range (skip_unary_op "`" >>. ((read_var'' |>> RawV) <|> rounds root_term)) |>> RawTTerm) {d with is_top_down=false} else Error []
         let symbol = read_symbol |>> RawTSymbol
         let record = root_type_record flags
-        let lit = read_value |>> RawTLit
+        let lit = (read_value |>> RawTLit) <|> (read_string |>> fun (a,b,c) -> RawTLit(a +. c, LitString b))
         let var = read_var' |>> fun (o,x,r) ->
             r SemanticTokenLegend.type_variable
             RawTVar(o, x)
@@ -1105,7 +1105,7 @@ and root_term d =
                 withouts |> List.choose (function RawRecordWithoutInjectVar(a,b) -> Some(a,b) | _ -> None) |> duplicates DuplicateTermRecordInjection
                 ] |> List.concat |> function [] -> Ok(RawRecordWith x) | er -> Error er
 
-        let case_join_point = skip_keyword SpecJoin >>. next |>> join_point
+        let case_join_point = skip_keyword SpecJoin >>. next |>> join_point None
         let case_join_point_backend = skip_keyword SpecJoinBackend >>. (read_big_var_as_keyword .>>. next) |>> join_point_backend
         let case_real = skip_keyword SpecReal >>. (fun d -> next {d with is_top_down=false}) |>> fun x -> RawReal(range_of_expr x,x)
         let case_symbol = read_symbol |>> RawSymbol
@@ -1140,7 +1140,16 @@ and root_term d =
                     choice [|
                         read_small_type_var' |>> RawTVar
                         read_value |>> RawTLit
+                        read_string |>> fun (a,b,c) -> RawTLit(a +. c, LitString b)
                         rounds (root_type {root_type_defaults with allow_term=true})
+                        |] d
+                let term_expr d =
+                    choice [|
+                        read_var'' |>> RawV
+                        read_value |>> RawLit
+                        read_default_value RawDefaultLit RawLit
+                        read_string |>> fun (a,b,c) -> RawLit(a +. c, LitString b)
+                        rounds root_term
                         |] d
                 match a with
                 | ";" -> (range (squares sequence_body) |>> fun (r,x) -> RawArray(r,x)) d
@@ -1153,13 +1162,6 @@ and root_term d =
                 | "`" -> if d.is_top_down then Error [] else (range type_expr |>> RawType) d
                 | "`@" -> 
                     if d.is_top_down then Error [] else 
-                        let term_expr d =
-                            choice [|
-                                read_var'' |>> RawV
-                                read_value |>> RawLit
-                                read_default_value RawDefaultLit RawLit
-                                rounds root_term
-                                |] d
                         (range term_expr |>> fun (r,x) -> 
                             let r' = o +. r 
                             RawType(r', RawTTerm(r',RawOp(r',LitToTypeLit,[x])))

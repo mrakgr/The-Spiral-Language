@@ -382,7 +382,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
     and method : _ -> MethodRec =
         jp (fun ((jp_body,key & (C(args,_))),i) ->
             match (fst env.join_point_method.[jp_body]).[key] with
-            | Some a, Some range -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a}
+            | Some a, Some range, _ -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s x ->
             line s (sprintf "method%i (%s) : %s =" x.tag (args_tys x.free_vars) (tup_ty x.range))

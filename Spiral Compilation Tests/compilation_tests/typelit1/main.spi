@@ -1,0 +1,15 @@
+nominal static_array dim el = $"array<@dim,`el>"
+
+let f forall dim el. (x : static_array dim el) =
+    inl q = x
+    ()
+
+inl main () = 
+    global "template <int dim, typename el> struct array { el ar[dim]; };"
+
+    real 
+        inl f forall t. = ()
+        f `@"qwe"
+        typecase "qwe" * (f32 * i32) with
+        | ~dim * ~el => f `dim `el ($"array<@dim,`el> v$" : static_array dim el)
+    0i32

@@ -1,8 +1,16 @@
-2.4.1 (1/18/2023)
+2.4.3 (1/24/2023)
+
+* Created the HLS C++ backend.
+
+2.4.2 (1/24/2023)
+
+* Finished adding the type level literals to the language.
+
+2.4.1 (1/23/2023)
 
 * Added a 1s sleep when restarting the server using a command.
 
-2.4.0 (1/18/2023)
+2.4.0 (1/23/2023)
 
 * Replaced ZeroMQ with SignalR in the language server. Now it is compatible with the latest VS version.
 

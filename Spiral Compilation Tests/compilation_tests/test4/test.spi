@@ -1,11 +1,5 @@
-type t = {a : i32}
-
 // Does the core package load correctly?
 inl main () =
-    inl a = 1i32
+    inl a = 1
     inl b = 2
-    inl f forall t. : t = !!!!TypeLitToLit(`t)
-    inl c = a+b
-    inl qwe = real f `@(c)
-    !!!!PrintStatic(qwe)
     a + b : i32

@@ -424,7 +424,7 @@ let store_term (s : LangEnv) i v = s.env_stack_term.[i-s.env_global_term.Length]
 let store_ty (s : LangEnv) i v = s.env_stack_type.[i-s.env_global_type.Length] <- v
 
 type PartEvalResult = {
-    join_point_method : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty []>,TypedBind [] option * Ty option> * HashConsTable>
+    join_point_method : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty []>,TypedBind [] option * Ty option * string option> * HashConsTable>
     join_point_closure : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty [] * Ty * Ty>,(Data * TypedBind []) option> * HashConsTable>
     ty_to_data : Ty -> Data
     }
@@ -872,7 +872,7 @@ let peval (env : TopEnv) (x : E) =
         | ERecursive a -> term s !a
         | ERecBlock _ -> failwith "Compiler error: Recursive blocks should be inlined and eliminated during the prepass."
         | EJoinPoint _ -> failwith "Compiler error: Raw join points should be transformed during the prepass."
-        | EJoinPoint'(r,scope,body,annot,backend) ->
+        | EJoinPoint'(r,scope,body,annot,backend,jp_name) ->
             let env_global_type = Array.map (vt s) scope.ty.free_vars
             let env_global_term = Array.map (v s) scope.term.free_vars
 
@@ -882,8 +882,8 @@ let peval (env : TopEnv) (x : E) =
 
             let ret_ty =
                 match dict.TryGetValue(join_point_key) with
-                | true, (_, Some ret_ty) -> ret_ty
-                | true, (_, None) -> raise_type_error (add_trace s r) "Recursive join points must be annotated."
+                | true, (_, Some ret_ty, _) -> ret_ty
+                | true, (_, None, _) -> raise_type_error (add_trace s r) "Recursive join points must be annotated."
                 | false, _ ->
                     let s : LangEnv = {
                         trace = r :: s.trace
@@ -898,9 +898,9 @@ let peval (env : TopEnv) (x : E) =
                         }
                     let s = rename_global_term s
                     let annot = Option.map (ty s) annot
-                    dict.[join_point_key] <- (None, annot)
+                    dict.[join_point_key] <- (None, annot, jp_name)
                     let seq,ty = term_scope'' s body
-                    dict.[join_point_key] <- (Some seq, Some ty)
+                    dict.[join_point_key] <- (Some seq, Some ty, jp_name)
                     annot |> Option.iter (fun annot -> if annot <> ty then raise_type_error s <| sprintf "The annotation of the join point does not match its body's type.Got: %s\nExpected: %s" (show_ty ty) (show_ty annot))
                     ty
 

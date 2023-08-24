@@ -1,5 +1,12 @@
+let f () = ()
+let g () = ()
+let h () = ()
+let i () = ()
+
 // Do the join points work?
 inl main () =
     inl a () = join 1
     inl b () = join 2
-    a () + b () : i32
+    f () . g () . h () . i ()
+    inl ~_ = a () + b () : i32
+    ()

@@ -379,7 +379,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
     and method : _ -> MethodRec =
         jp false (fun ((jp_body,key & (C(args,_))),i) ->
             match (fst env.join_point_method.[jp_body]).[key] with
-            | Some a, Some range -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a}
+            | Some a, Some range, _ -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s x ->
             let method_args = x.free_vars |> Array.map (fun (L(i,t)) -> $"v{i} : {tyv t}") |> String.concat ", "
@@ -440,7 +440,7 @@ let codegen' backend_type env x =
                     Utils.memoize g (fun (jp_body,key & (C(args,_))) ->
                         let args = rdata_free_vars args
                         match (fst env.join_point_method.[jp_body]).[key] with
-                        | Some a, Some _ -> upmem_add_kernel (C.codegen' (C.UPMEM_C_Kernel args) env a)
+                        | Some a, Some _, _ -> upmem_add_kernel (C.codegen' (C.UPMEM_C_Kernel args) env a)
                         | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
                         string g.Count
                         ) (jp_body,key)

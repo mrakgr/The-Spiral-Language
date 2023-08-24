@@ -284,7 +284,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
                 ) b
             List.iter (function RawRecordWithoutSymbol _ -> () | RawRecordWithoutInjectVar (a,b) -> check_term term (a,b)) c
         | RawOp(_,_,l) -> List.iter (cterm constraints term ty) l
-        | RawReal(_,x) | RawJoinPoint(_,_,x) -> cterm constraints term ty x
+        | RawReal(_,x) | RawJoinPoint(_,_,x,_) -> cterm constraints term ty x
         | RawAnnot(_,RawMacro(_,a),b) -> cmacro constraints term ty a; ctype constraints term ty b
         | RawMacro(r,a) -> errors.Add(r,MacroIsMissingAnnotation); cmacro constraints term ty a
         | RawAnnot(_,RawArray(_,a),b) -> List.iter (cterm constraints term ty) a; ctype constraints term ty b
@@ -684,7 +684,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     | RawRecordWithInjectVarModify(a,b) -> RawRecordWithInjectVarModify(a,f b)
                     )
                 RawRecordWith(r,List.map f a,b,c)
-            | RawJoinPoint(r,q,a) -> RawAnnot(r,RawJoinPoint(r,q,f a),annot r x)
+            | RawJoinPoint(r,q,a,b) -> RawAnnot(r,RawJoinPoint(r,q,f a,b),annot r x)
             | RawAnnot(r,a,_) -> f a
             | RawOpen(r,a,b,c) ->
                 let f = function TyModule s -> s | _ -> failwith "Compiler error: Module open should always succeed in fill."
@@ -979,8 +979,8 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | RawSeq(_,a,b) -> f TyB a; f s b
         | RawReal(_,a) -> assert_bound_vars env a
         | RawOp(_,_,l) -> List.iter (assert_bound_vars env) l
-        | RawJoinPoint(r,None,a) -> annotations.Add(x,(r,s)); f s a
-        | RawJoinPoint(r,Some _,a) -> 
+        | RawJoinPoint(r,None,a,_) -> annotations.Add(x,(r,s)); f s a
+        | RawJoinPoint(r,Some _,a,_) -> 
             unify r s (TyPair(TyPrim Int32T, TySymbol "tuple_of_free_vars"))
 
             let s = fresh_var scope
@@ -1233,7 +1233,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | RawFun(_,[(PatAnnot(_,_,t) | PatDyn(_,PatAnnot(_,_,t))),body]) -> TyFun(f t, term_annotations scope env body)
         | RawFun(_,[pat,body]) -> errors.Add(range_of_pattern pat, ExpectedAnnotation); TyFun(fresh_var scope, term_annotations scope env body)
         | RawFun(r,_) -> errors.Add(r, ExpectedSinglePattern); TyFun(fresh_var scope, fresh_var scope)
-        | RawJoinPoint(_,_,RawAnnot(_,_,t)) | RawAnnot(_,_,t) -> f t
+        | RawJoinPoint(_,_,RawAnnot(_,_,t),_) | RawAnnot(_,_,t) -> f t
         | x -> errors.Add(range_of_expr x,ExpectedAnnotation); fresh_var scope
     and ty scope env s x = ty' scope false env s x
     and ty' scope is_in_left_apply (env : Env) s x =

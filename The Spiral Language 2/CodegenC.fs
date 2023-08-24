@@ -159,7 +159,7 @@ let binds_last_data x = x |> Array.last |> function TyLocalReturnData(x,_) | TyL
 
 type UnionRec = {tag : int; free_vars : Map<string, TyV[]>}
 type LayoutRec = {tag : int; data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>}
-type MethodRec = {tag : int; free_vars : L<Tag,Ty>[]; range : Ty; body : TypedBind[]}
+type MethodRec = {tag : int; free_vars : L<Tag,Ty>[]; range : Ty; body : TypedBind[]; name : string option}
 type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain : Ty; domain_args : TyV[]; range : Ty; body : TypedBind[]}
 type TupleRec = {tag : int; tys : Ty []}
 type ArrayRec = {tag : int; ty : Ty; tyvs : TyV[]}
@@ -400,16 +400,11 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
             | UHeap -> sprintf "UH%i *" (uheap a).tag
         | YLayout(a,Heap) -> sprintf "Heap%i *" (heap a).tag
         | YLayout(a,HeapMutable) -> sprintf "Mut%i *" (mut a).tag
-        | YMacro a ->
-            let f x =
-                match env.ty_to_data x |> data_free_vars |> Array.map (fun (L(_,x)) -> tyv x) with
-                | [||] -> "void"
-                | x -> String.concat ", " x
-            a |> List.map (function Text a -> a | Type a -> f a | TypeLit a -> type_lit a) |> String.concat ""
+        | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> sprintf "Array%i *" (carray a).tag
         | YFun(a,b) -> sprintf "Fun%i *" (cfun (a,b)).tag
-        | a -> raise_codegen_error (sprintf "Compiler error: Type not supported in the codegen.\nGot: %A" a) // TODO: Fix the bug cauing this to trigger in the save the princess test. 
+        | a -> raise_codegen_error (sprintf "Compiler error: Type not supported in the codegen.\nGot: %A" a)
     and prim = function
         | Int8T -> "int8_t" 
         | Int16T -> "int16_t"
@@ -473,7 +468,9 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
         let jp (a,b') =
             let args = args b'
             match a with
-            | JPMethod(a,b) -> sprintf "method%i(%s)" (method (a,b)).tag args
+            | JPMethod(a,b) -> 
+                let x = method (a,b)
+                sprintf "%s%i(%s)" (Option.defaultValue "method" x.name) x.tag args
             | JPClosure(a,b) -> sprintf "ClosureCreate%i(%s)" (closure (a,b)).tag args
         let string_in_op = function DLit (LitString b) -> lit_string b | b -> $"{tup_data b}->ptr"
         match a with
@@ -640,11 +637,12 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
     and method_templ is_while fun_name : _ -> MethodRec =
         jp (fun ((jp_body,key & (C(args,_))),i) ->
             match (fst env.join_point_method.[jp_body]).[key] with
-            | Some a, Some range -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a}
+            | Some a, Some range, name -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a; name=name}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun _ s_typ s_fun x ->
             let ret_ty = tup_ty x.range
             let args = x.free_vars |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
+            let fun_name = Option.defaultValue fun_name x.name
             line s_fun (sprintf "%s %s%i(%s){" ret_ty fun_name x.tag args)
             binds_start (if is_while then [||] else x.free_vars) (indent s_fun) x.body
             line s_fun "}"
@@ -713,7 +711,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
                 let s_typ = indent s_typ
                 line s_typ $"int refc;"
                 line s_typ $"void (*decref_fptr)(Fun{i} *);"
-                match x.domain_args_ty |> Array.map (fun t -> tyv t) |> String.concat ", " with
+                match x.domain_args_ty |> Array.map tyv |> String.concat ", " with
                 | "" -> $"{range} (*fptr)(Fun{i} *);"
                 | domain_args_ty -> $"{range} (*fptr)(Fun{i} *, {domain_args_ty});"
                 |> line s_typ
