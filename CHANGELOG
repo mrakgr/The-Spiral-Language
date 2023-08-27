@@ -1,3 +1,9 @@
+2.4.4 (WIP)
+
+* Loosened the restriction on returning void in the HLS C++ backend.
+* Also added the printing of the array type.
+* Lightened up the imports in the C++ backend it doesn't need many of the C backend ones.
+
 2.4.3 (1/24/2023)
 
 * Created the HLS C++ backend.

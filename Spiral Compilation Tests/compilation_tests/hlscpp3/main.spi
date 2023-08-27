@@ -1,0 +1,5 @@
+// The statically type arrays video.
+
+inl main () =
+    global "#include <iostream>"
+    0i32

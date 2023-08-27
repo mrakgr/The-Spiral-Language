@@ -1,0 +1,32 @@
+// The returning arrays from functions video.
+
+inl for n f =
+    inl ~i = 0
+    loopw.while (fun () => i < n) (fun () => f i . $"!i++")
+
+inl init n f =
+    inl ar : a _ _ = create n
+    for n (fun i => set ar i (f i))
+    ar
+
+
+
+let primary() =
+    inl n = 8i64
+    inl map f (ar : a _ _) = init n (fun i => index ar i |> f)
+
+    inl ar = init n ((+) 1)
+    inl ar =
+        ar
+        |> map (fun x => x + 10)
+        |> map (fun x => x * 2)
+
+    for n (fun i =>
+        inl v = index ar i
+        $"std::cout << !v << std::endl"
+        )
+    ()
+
+inl main () = 
+    global "#include <iostream>"
+    primary() 

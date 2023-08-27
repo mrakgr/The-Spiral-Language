@@ -2,6 +2,7 @@
 
 - [Support Spiral](#support-spiral)
 - [News](#news)
+- [8/27/2023](#8272023)
 - [1/7/2023](#172023)
 - [12/21/2022](#12212022)
 - [7/13/2022](#7132022)
@@ -44,6 +45,10 @@
 [Link](https://opencollective.com/spiral-collective).
 
 # News
+
+# 8/27/2023
+
+At this point in time, I am convinced that AI chips are vaporware. But I discovered FPGAs have quite an interesting programming model, so I am going to give them a try in the [Staged Functional Programming In Spiral](https://www.youtube.com/playlist?list=PL04PGV4cTuIVP50-B_1scXUUMn8qEBbSs) playlist. Check it out!
 
 # 1/7/2023
 

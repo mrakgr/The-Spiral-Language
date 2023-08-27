@@ -161,10 +161,12 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                             else
                                 raise_codegen_error "The special v$ macro requires the same number of free vars in its binding as there are v$ in the code."
                     | TyArrayLiteral(a,b') -> 
+                        let inits = List.map tup_data b' |> String.concat "," |> sprintf "{%s}"
                         match d with
-                        | [|L(i,YArray t)|] -> 
-                            let inits = List.map tup_data b' |> String.concat "," |> sprintf "{%s}"
+                        | [|L(i,YArray t)|] -> // For the regular arrays.
                             line s $"%s{tyv t} v{i}[] = %s{inits};"
+                        //| [|L(i,t)|] -> // TODO: For overloaded arrays. Structs with a single field that are arrays can be initialized like this in C++.
+                        //    line s $"%s{tyv t} v{i} = %s{inits};"
                         | _ ->
                             raise_codegen_error "Compiler error: Expected a single variable on the left side of an array literal op."
                     | TyArrayCreate(a,b) ->  
@@ -175,8 +177,8 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                                 | DLit x -> lit x
                                 | _ -> raise_codegen_error "Array sizes need to be statically known in the HLS C++ backend."
                             line s $"%s{tyv t} v{i}[{size}];"
-                        | _ ->
-                            raise_codegen_error "Compiler error: Expected a single variable on the left side of an array create op."
+                        //| [|L(i,t)|] -> line s $"%s{tyv t} v{i};" // TODO: Put in overloaded arrays later.
+                        | _ -> raise_codegen_error "Compiler error: Expected a single variable on the left side of an array create op."
                     | _ ->
                         decl_vars |> line' s
                         op s (BindsLocal d) a
@@ -222,10 +224,10 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
         | UInt8T -> "uint8_t"
         | UInt16T -> "uint16_t"
         | UInt32T -> "uint32_t"
-        | UInt64T -> "uint64_t" // are defined in stdint.h
+        | UInt64T -> "uint64_t" // are defined in cstdint
         | Float32T -> "float"
         | Float64T -> "double"
-        | BoolT -> "bool" // is defined in stdbool.h
+        | BoolT -> "bool" // part of c++ standard
         | CharT -> "char"
         | StringT -> "char *"
     and lit = function
@@ -503,29 +505,22 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             )
     and uheap _ : UnionRec = raise_codegen_error "Recursive unions aren't allowed in the HLS C++ backend due to them needing to be heap allocated."
 
+    import "cstdint"
 
-    match binds_last_data x |> data_term_vars |> term_vars_to_tys with
-    | [||] ->
-        import "stdbool.h"
-        import "stdint.h"
-        import "stdio.h"
-        import "stdlib.h"
-        import "string.h" // for memcpy
+    global' "template <int dim, typename el> struct array { el v[dim]; };"
 
-        let main_defs = {text=StringBuilder(); indent=0}
+    let main_defs = {text=StringBuilder(); indent=0}
 
-        line main_defs (sprintf "void main(){")
-        binds_start (indent main_defs) x
-        line main_defs "}"
+    line main_defs (sprintf "%s main(){" (binds_last_data x |> data_term_vars |> term_vars_to_tys |> tup_ty_tys))
+    binds_start (indent main_defs) x
+    line main_defs "}"
 
-        let program = StringBuilder()
+    let program = StringBuilder()
 
-        globals |> Seq.iter (fun x -> program.AppendLine(x) |> ignore)
-        fwd_dcls |> Seq.iter (fun x -> program.Append(x) |> ignore)
-        types |> Seq.iter (fun x -> program.Append(x) |> ignore)
-        functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
-        program.Append(main_defs.text).ToString()
-    | _ ->
-        raise_codegen_error "The return type of main in the HLS C++ backend should be an void type."
+    globals |> Seq.iter (fun x -> program.AppendLine(x) |> ignore)
+    fwd_dcls |> Seq.iter (fun x -> program.Append(x) |> ignore)
+    types |> Seq.iter (fun x -> program.Append(x) |> ignore)
+    functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
+    program.Append(main_defs.text).ToString()
 
 let codegen (env : PartEvalResult) (x : TypedBind []) = codegen' env x
