@@ -1,8 +1,5 @@
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cstdint>
+template <int dim, typename el> struct array { el v[dim]; };
 #include <iostream>
 bool method1(int64_t v0){
     bool v1;

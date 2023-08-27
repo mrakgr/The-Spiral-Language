@@ -1,0 +1,27 @@
+// The array template module. Generic functions for array like structures.
+open loop
+
+// Creates an empty array.
+inl create forall dim el. : sa dim el = $"array<@dim,`el> v$"
+// Indexes into an array.
+inl index forall dim el. (ar : sa dim el) (i : sa_dim) : el = $"!ar.v[!i]"
+// Sets the value of an array at the specified index.
+inl set forall dim el. (ar : sa dim el) (i : sa_dim) (v : el) : () = $"!ar.v[!i] = !v"
+// Returns the length of an array.
+inl length forall dim el. (ar : sa dim el) : sa_dim = real real_core.type_lit_to_lit `dim : sa_dim
+
+// Initializes array using the given function.
+inl init forall dim el. f : sa dim el = 
+    inl ar = create
+    for' {from=0; nearTo=length ar} (fun i => set ar i (f i))
+    ar
+
+
+// Maps an array.
+inl map forall dim. f (ar : sa dim _) : sa dim _ = init (fun i => index ar i |> f)
+// Maps an array. Provides the index as the first argument.
+inl map forall dim. f (ar : sa dim _) : sa dim _ = init (fun i => index ar i |> f i)
+// Iterates over an array.
+inl iter f ar = for' {from=0; nearTo=length ar} (index ar >> f)
+// Iterates over an array. Provides the index as the first argument.
+inl iteri f ar = for' {from=0; nearTo=length ar} (fun i => f i (index ar i))
