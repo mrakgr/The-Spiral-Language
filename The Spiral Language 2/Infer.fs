@@ -756,8 +756,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let rec f = function
             | TyForall(v,a) -> h.Add v |> ignore; f a
             | TyVar v -> h.Remove v |> ignore
-            | TyMetavar _ -> failwith "Compiler error: Metavars should not appear here."
-            | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
+            | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
             | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b) -> f a; f b
             | TyUnion(a,_) | TyRecord a -> Map.iter (fun _ -> f) a
             | TyComment(_,a) | TyLayout(a,_) | TyInl(_,a) | TyArray a -> f a
