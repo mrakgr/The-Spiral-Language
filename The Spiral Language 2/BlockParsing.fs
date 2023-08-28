@@ -889,13 +889,15 @@ let inline expr_tight next (d: Env) =
         if r.line = r'.line && r.character = r'.character then next d else Error []
     else Error []
 
-let inline read_default_value on_top on_bot d =
+let inline read_default_value' f d =
     try_current d <| function
-        | p, TokDefaultValue t' -> 
-            skip d
-            if d.is_top_down then Ok(on_top (p,t'))
-            else bottom_up_number (p,t') |> Result.map on_bot
+        | p, TokDefaultValue t' -> skip d; f (p,t')
         | p, _ -> Error [p, ExpectedLit]
+let inline read_default_value on_top on_bot d =
+    read_default_value' (fun (p,t') ->
+        if d.is_top_down then Ok(on_top (p,t'))
+        else bottom_up_number (p,t') |> Result.map on_bot
+        ) d
 let read_string = tuple3 skip_string_open ((read_text |>> snd) <|>% "") skip_string_close
 let pat_var d = (read_small_var' |>> PatVar) d
 let rec root_pattern_var_nominal_union s =
@@ -991,6 +993,7 @@ and root_type (flags : RootTypeFlags) d =
         let symbol = read_symbol |>> RawTSymbol
         let record = root_type_record flags
         let lit = (read_value |>> RawTLit) <|> (read_string |>> fun (a,b,c) -> RawTLit(a +. c, LitString b))
+        let lit_default = read_default_value' (bottom_up_number >> Result.map RawTLit)
         let var = read_var' |>> fun (o,x,r) ->
             r SemanticTokenLegend.type_variable
             RawTVar(o, x)
@@ -999,7 +1002,7 @@ and root_type (flags : RootTypeFlags) d =
             |>> fun (r,x) -> x r
         let macro = pipe3 skip_macro_open (many ((read_text |>> RawMacroText) <|> read_macro_type_var)) skip_macro_close (fun a l b -> RawTMacro(a +. b, l))
         let (+) = alt (index d)
-        (rounds + lit + wildcard + term + metavar + var + record + symbol + macro) d
+        (rounds + lit + lit_default + wildcard + term + metavar + var + record + symbol + macro) d
 
     let fold_applies a b = List.fold (fun a b -> RawTApply(range_of_texpr a +. range_of_texpr b,a,b)) a b
     let apply_tight d = pipe2 cases (many (expr_tight cases)) fold_applies d

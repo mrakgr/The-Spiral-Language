@@ -3,6 +3,7 @@
 * Loosened the restriction on returning void in the HLS C++ backend.
 * Also added the printing of the array type.
 * Lightened up the imports in the C++ backend it doesn't need many of the C backend ones.
+* Extended the type parser so it parser default literals.
 
 2.4.3 (1/24/2023)
 

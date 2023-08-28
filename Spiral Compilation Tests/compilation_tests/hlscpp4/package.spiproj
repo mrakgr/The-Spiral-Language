@@ -1,0 +1,12 @@
+packages: |core-
+
+modules:
+    corehls/
+        default-
+        base-
+        limit
+        real_core*
+        core-
+        loop
+        sam
+    main
