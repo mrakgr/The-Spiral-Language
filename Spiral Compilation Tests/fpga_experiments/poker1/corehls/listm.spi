@@ -1,0 +1,35 @@
+// Creates a list with a single element.
+inl singleton x = Cons (x, Nil)
+// Applies a function to each element of the list, threading an accumulator argument through the computation. If the input function is f and the elements are i0...iN then computes f (... (f s i0)...) iN
+inl fold f s l =
+    inl rec body s = function Cons(x,x') => loop (f s x) x' | Nil => s
+    and inl loop s l =
+        if var_is l then inl ~s = s in join body s l
+        else body s l 
+    loop s l
+// Folds the list from the end to the beginning.
+inl foldBack f l s =
+    inl rec body s = function Cons(x,x') => f x (loop s x') | Nil => s
+    and inl loop s l =
+        if var_is l then inl ~s = s in join body s l
+        else body s l 
+    loop s l
+// Reverses a list.
+inl rev l = fold (fun s x => Cons(x,s)) Nil l
+// Appends two lists.
+inl append a b = foldBack (::) a b
+// Concatenates a list of lists.
+inl concat l = foldBack append l Nil
+// Maps a list.
+inl map f l = foldBack (fun x s => f x :: s) l Nil
+// Iterates over the list.
+inl iter f l = fold (fun () x => f x) () l
+// Iterates over the list from the Back.
+inl iterBack f l = foldBack (fun x () => f x) l ()
+// Returns the length of the list.
+inl length l = fold (fun s _ => s + 1) 0 l
+// Coverts the list to an array.
+let toArray forall (ar : * -> * -> *) {create; set} dim {number; int} el. (l : list el) : ar dim el =
+    inl ar = create (length l)
+    inl _ = fold (fun i x => set ar i x . i+1) 0 l
+    ar

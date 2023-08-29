@@ -456,9 +456,7 @@ type SpiralHub(supervisor : Supervisor) =
 
         let job_val job = let res = IVar() in Hopac.queueAsTask (job res >>=. IVar.read res >>- serialize)
         let supervisor = supervisor.supervisor_ch
-        let x = Json.deserialize x
-        printfn "%A" x
-        match x with
+        match Json.deserialize x with
         | ProjectFileOpen x -> job_null (supervisor *<+ SupervisorReq.ProjectFileOpen x)
         | ProjectFileChange x -> job_null (supervisor *<+ SupervisorReq.ProjectFileChange x)
         | ProjectCodeActionExecute x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectCodeActionExecute(x,res))

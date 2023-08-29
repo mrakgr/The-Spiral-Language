@@ -1,3 +1,11 @@
+2.4.7 (8/29/2023)
+
+* Also, fixed the erronous package existence regression.
+
+2.4.6 (8/29/2023)
+
+* Removed the print statement left in by accident.
+
 2.4.5 (8/29/2023)
 
 * Fixed the issue where writing a module called 'con' would cause the language server to deadlock.

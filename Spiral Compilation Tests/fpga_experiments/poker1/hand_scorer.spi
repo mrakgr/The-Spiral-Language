@@ -1,4 +1,4 @@
-    
+open corehls    
 open loop
 
 // The hand is represented as a bitfield in an 64-bit integer.

@@ -244,7 +244,7 @@ let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (pdir, text) =
     let schema (pdir,text) = schema (pdir,text) |> fun x -> LoadPackage(pdir,Some (ss_from_result x))
     let load_package_from_disk packages pdir =
         task {
-            if File.Exists pdir then
+            if Directory.Exists pdir then
                 let! x = File.ReadAllTextAsync(spiproj_suffix pdir)
                 try return schema (pdir,x) with _ -> return LoadPackage(pdir,None)
             else return LoadPackage(pdir,None) // Ditto.
@@ -280,7 +280,6 @@ let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (pdir, text) =
                 | FileHierarchy.Directory(_,_,_,l) -> list l
                 | FileHierarchy.File(_,(_,path),_) -> load_module modules path
             and list l = List.iter loop l
-            printfn "%A" x.schema.modules
             list x.schema.modules
         | LoadPackage(pdir,None) -> packages <- Map.remove pdir packages; dirty_packages.Add(pdir) |> ignore; invalidate_parent packages (Directory.GetParent(pdir))
         | LoadModule(mdir,Some x) -> modules <- Map.add mdir x modules
