@@ -456,7 +456,9 @@ type SpiralHub(supervisor : Supervisor) =
 
         let job_val job = let res = IVar() in Hopac.queueAsTask (job res >>=. IVar.read res >>- serialize)
         let supervisor = supervisor.supervisor_ch
-        match Json.deserialize x with
+        let x = Json.deserialize x
+        printfn "%A" x
+        match x with
         | ProjectFileOpen x -> job_null (supervisor *<+ SupervisorReq.ProjectFileOpen x)
         | ProjectFileChange x -> job_null (supervisor *<+ SupervisorReq.ProjectFileChange x)
         | ProjectCodeActionExecute x -> job_val (fun res -> supervisor *<+ SupervisorReq.ProjectCodeActionExecute(x,res))
@@ -486,7 +488,6 @@ let [<EntryPoint>] main args =
 
 
     let uri_server = $"http://localhost:{env.port}"
-    printfn "Server bound to: %s" uri_server
 
     let builder = WebApplication.CreateBuilder()
     builder.Services

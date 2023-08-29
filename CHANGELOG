@@ -1,3 +1,7 @@
+2.4.5 (8/29/2023)
+
+* Fixed the issue where writing a module called 'con' would cause the language server to deadlock.
+
 2.4.4 (8/29/2023)
 
 * Loosened the restriction on returning void in the HLS C++ backend.

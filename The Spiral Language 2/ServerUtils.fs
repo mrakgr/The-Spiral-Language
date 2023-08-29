@@ -233,16 +233,22 @@ let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (pdir, text) =
         match Map.tryFind path modules with
         | Some _ -> ()
         | None ->
-            File.ReadAllTextAsync(path).ContinueWith(fun (x : _ Task) ->
-                try LoadModule(path,wdiff_module_init_all (is_top_down path) x.Result |> Some)
-                with e -> LoadModule(path,None)
-                ) |> queue.Enqueue
+            task {
+                if File.Exists path then
+                    try let! x = File.ReadAllTextAsync(path)
+                        return LoadModule(path,wdiff_module_init_all (is_top_down path) x |> Some)
+                    with _ -> return LoadModule(path,None)
+                else return LoadModule(path,None) // Note: We need this case otherwise 'con' might cause the file read to deadlock. https://superuser.com/questions/86999/why-cant-i-name-a-folder-or-file-con-in-windows
+            } |> queue.Enqueue
 
     let schema (pdir,text) = schema (pdir,text) |> fun x -> LoadPackage(pdir,Some (ss_from_result x))
     let load_package_from_disk packages pdir =
-        File.ReadAllTextAsync(spiproj_suffix pdir).ContinueWith(fun (x : _ Task) ->
-            try schema (pdir,x.Result) with e -> LoadPackage(pdir,None)
-            ) |> queue.Enqueue
+        task {
+            if File.Exists pdir then
+                let! x = File.ReadAllTextAsync(spiproj_suffix pdir)
+                try return schema (pdir,x) with _ -> return LoadPackage(pdir,None)
+            else return LoadPackage(pdir,None) // Ditto.
+        } |> queue.Enqueue
     let load_package_some (pdir,text) = schema (pdir,text) |> Task.FromResult |> queue.Enqueue
     let load_package_none packages pdir =
         match Map.tryFind pdir packages with
@@ -274,6 +280,7 @@ let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (pdir, text) =
                 | FileHierarchy.Directory(_,_,_,l) -> list l
                 | FileHierarchy.File(_,(_,path),_) -> load_module modules path
             and list l = List.iter loop l
+            printfn "%A" x.schema.modules
             list x.schema.modules
         | LoadPackage(pdir,None) -> packages <- Map.remove pdir packages; dirty_packages.Add(pdir) |> ignore; invalidate_parent packages (Directory.GetParent(pdir))
         | LoadModule(mdir,Some x) -> modules <- Map.add mdir x modules

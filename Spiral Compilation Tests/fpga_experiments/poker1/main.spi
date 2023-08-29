@@ -1,0 +1,9 @@
+// The poker hand ranker.
+
+open corehls
+
+inl main () =
+    // global "#include <iostream>"
+    open sam
+
+    0i32
