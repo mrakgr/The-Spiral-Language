@@ -32,10 +32,9 @@ inl fold f s ar = for {from=0; nearTo= length ar} (fun i s => f s (index ar i)) 
 // Applies a function to each element of the two arrays, threading an accumulator argument through the computation.
 inl fold2 forall dim. f s (ar1 : sa dim _) (ar2 : sa dim _) = for {from=0; nearTo=length ar1} (fun i s => f s (index ar1 i) (index ar2 i)) s
 
+// Reduces the array in a tree like fashion using the provided function.
 inl reduce forall dim el. (f : el -> el -> el) (ar : sa dim el) =
-    // I admit, I had to rehearse for this just once.
     inl step forall dim_full dim_half. (inp : sa dim_full el) (out : sa dim_half el) =
-        // Can't forget to check the bounds
         inl index i = 
             if i+1 < length inp then f (index inp i) (index inp (i+1))
             else index inp i

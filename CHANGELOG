@@ -1,4 +1,4 @@
-2.4.4 (WIP)
+2.4.4 (8/29/2023)
 
 * Loosened the restriction on returning void in the HLS C++ backend.
 * Also added the printing of the array type.
