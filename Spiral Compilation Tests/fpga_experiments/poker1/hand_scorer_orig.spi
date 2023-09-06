@@ -183,7 +183,7 @@ inl score is_full ~(suit_ranks : hand) = join
 
 inl decompress {score_hand=(x : u64)} : {score : i8; hand : card * card * card * card * card} =
     inl (score : i8) = conv_int (x >>> 32)
-    inl (hand : u32) = conv_int x
+    inl (hand : u32) = conv_int x 
     inl f (a : u32) : u32 * card = a >>> 6,conv_int (a &&& 63)
     inl g (a,b : u32 * _) : u32 * card * _ = a >>> 6,conv_int (a &&& 63),b
     {score=score; hand=hand |> f |> g |> g |> g |> fun a,b => conv_int a,b}

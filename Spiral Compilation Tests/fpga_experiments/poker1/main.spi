@@ -1,9 +1,28 @@
 // The poker hand ranker.
-
 open corehls
 
 inl main () =
-    // global "#include <iostream>"
-    open sam
+    global "#include <iostream>"
+    open hand_scorer
+    inl f x : u64 = 1 <<< conv_int (full x)
+    inl hand =
+        f {rank=0; suit=0}
+        ||| f {rank=1; suit=0}
+        ||| f {rank=2; suit=0}
+        ||| f {rank=3; suit=0}
+        ||| f {rank=4; suit=0}
+        ||| f {rank=5; suit=0}
+        ||| f {rank=6; suit=0}
+
+    inl {hand=c1,c2,c3,c4,c5 score} = score' hand
+
+    inl p msg x = inl x = i32 x in $'std::cout << !msg << !x << std::endl;'
+    
+    p "Score: " score
+    p "Card 1: " c1
+    p "Card 2: " c2
+    p "Card 3: " c3
+    p "Card 4: " c4
+    p "Card 5: " c5
 
     0i32

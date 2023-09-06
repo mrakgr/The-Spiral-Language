@@ -15,5 +15,6 @@ modules:
 
     
     conv-
+    hand_scorer_orig
     hand_scorer
     main

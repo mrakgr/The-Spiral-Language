@@ -37,6 +37,9 @@ type CFunRec = {tag : int; domain_args_ty : Ty[]; range : Ty}
 
 let size_t = UInt32T
 
+// Replaces the invalid symbols in Spiral method names for the C backend.
+let fix_method_name (x : string) = x.Replace(''','_')
+
 let lit_string x =
     let strb = StringBuilder(String.length x + 2)
     strb.Append '"' |> ignore
@@ -423,12 +426,13 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
     and method : _ -> MethodRec =
         jp (fun ((jp_body,key & (C(args,_))),i) ->
             match (fst env.join_point_method.[jp_body]).[key] with
-            | Some a, Some range, name -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a; name=name}
+            | Some a, Some range, name -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a; name=Option.map fix_method_name name}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
-            ) (fun _ s_typ s_fun x ->
+            ) (fun s_fwd s_typ s_fun x ->
             let ret_ty = tup_ty x.range
             let fun_name = Option.defaultValue "method" x.name
             let args = x.free_vars |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
+            line s_fwd (sprintf "%s %s%i(%s);" ret_ty fun_name x.tag args)
             line s_fun (sprintf "%s %s%i(%s){" ret_ty fun_name x.tag args)
             binds_start (indent s_fun) x.body
             line s_fun "}"
@@ -518,8 +522,8 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
     let program = StringBuilder()
 
     globals |> Seq.iter (fun x -> program.AppendLine(x) |> ignore)
-    fwd_dcls |> Seq.iter (fun x -> program.Append(x) |> ignore)
     types |> Seq.iter (fun x -> program.Append(x) |> ignore)
+    fwd_dcls |> Seq.iter (fun x -> program.Append(x) |> ignore)
     functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
     program.Append(main_defs.text).ToString()
 

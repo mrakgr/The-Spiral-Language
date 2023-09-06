@@ -1,3 +1,11 @@
+2.4.8 (9/6/2023)
+
+Minor HLS C++ backend bugfixes.
+
+* Fixed the invalid method names on the C backend.
+* Adjusted the backend so it forward generates the functions.
+* Moved forward declarations below the type declarations.
+
 2.4.7 (8/29/2023)
 
 * Also, fixed the erronous package existence regression.
