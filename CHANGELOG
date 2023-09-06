@@ -1,3 +1,9 @@
+2.4.9 (9/6/2023)
+
+Minor HLS C++ backend bugfixes.
+
+* String is now `const char *` instead of a `char *`
+
 2.4.8 (9/6/2023)
 
 Minor HLS C++ backend bugfixes.

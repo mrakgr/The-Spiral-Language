@@ -1,4 +1,5 @@
 // The poker hand ranker.
+// The stuff in this file is just for the test bench.
 open corehls
 
 inl main () =
@@ -8,11 +9,12 @@ inl main () =
     inl hand =
         f {rank=0; suit=0}
         ||| f {rank=1; suit=0}
-        ||| f {rank=2; suit=0}
-        ||| f {rank=3; suit=0}
-        ||| f {rank=4; suit=0}
-        ||| f {rank=5; suit=0}
-        ||| f {rank=6; suit=0}
+        ||| f {rank=2; suit=1}
+        ||| f {rank=3; suit=1}
+        ||| f {rank=4; suit=1}
+        ||| f {rank=5; suit=1}
+        ||| f {rank=6; suit=1}
+        ||| f {rank=7; suit=1}
 
     inl {hand=c1,c2,c3,c4,c5 score} = score' hand
 

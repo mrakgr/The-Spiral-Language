@@ -232,7 +232,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
         | Float64T -> "double"
         | BoolT -> "bool" // part of c++ standard
         | CharT -> "char"
-        | StringT -> "char *"
+        | StringT -> "const char *"
     and lit = function
         | LitInt8 x -> sprintf "%i" x
         | LitInt16 x -> sprintf "%i" x
