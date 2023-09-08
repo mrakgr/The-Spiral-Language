@@ -1317,7 +1317,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | RawTFilledNominal _ -> failwith "Compiler error: RawTNominal should be filled in by the inferencer."
         | RawTMetaVar _ -> failwith "Compiler error: This particular metavar is only for typecase's clauses. This happens during the bottom-up segment."
     and pattern scope env s a = 
-        let is_first = System.Collections.Generic.HashSet()
+        let is_first = System.Collections.Generic.HashSet() // This is here so the variables already in the env aren't being unified with new pattern vars.
         let ho_make (i : GlobalId) (l : Var list) =
             let h = TyNominal i
             let l' = List.map (fun (x : Var) -> x, fresh_subst_var scope x.constraints x.kind) l
@@ -1345,9 +1345,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | PatPair(r,a,b) ->
                 let q,w = fresh_var scope, fresh_var scope
                 unify r s (TyPair(q,w))
-                pattern scope (pattern scope env q a) w b
+                loop (loop env q a) w b
             | PatSymbol(r,a) -> unify r s (TySymbol a); env
-            | PatOr(_,a,b) | PatAnd(_,a,b) -> pattern scope (pattern scope env s a) s b
+            | PatOr(_,a,b) | PatAnd(_,a,b) -> loop (loop env s a) s b
             | PatValue(r,a) -> unify r s (lit a); env
             | PatDefaultValue(r,_) -> 
                 hover_types.Add(r,(s,""))
@@ -1372,12 +1372,12 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                             | None -> (fresh_var scope,b), a :: missing
                             ) l []
                     if List.isEmpty missing = false then errors.Add(r, MissingRecordFieldsInPattern(s, missing))
-                    List.fold (fun env (a,b) -> pattern scope env a b) env l
+                    List.fold (fun env (a,b) -> loop env a b) env l
                 | s ->
                     let l, env =
                         List.mapFold (fun env (a,b) -> 
                             let v = fresh_var scope
-                            (a, v), pattern scope env v b
+                            (a, v), loop env v b
                             ) env l
                     unify r s (l |> Map |> TyRecord)
                     env

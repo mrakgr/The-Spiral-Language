@@ -1,0 +1,15 @@
+union rec some_union t =
+    | A : i32
+    | B : f32
+    | C : string
+    | D : t
+
+inl main() =
+    let ~union' : _ char = C "qwe"
+    inl p x = $'printfn "%A" !x '
+    match union' with
+    | A x => p x
+    | B x => p x
+    | C x => p x
+    | D x => p x
+    ()

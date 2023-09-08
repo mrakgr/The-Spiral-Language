@@ -40,7 +40,7 @@ inl filter forall (ar : * -> * -> *) {create; set; index; length} dim {number; i
         ) 0
     |> fun nearTo => init nearTo (index ar')
 // Picks out the elements from the array.
-inl choose forall (ar : * -> * -> *) {create; set; index; length} dim {number; int} el. f (ar : ar dim el) =
+inl choose forall (ar : * -> * -> *) {create; set; index; length} dim {number; int} el el'. (f : el -> option el') (ar : ar dim el) =
     inl nearTo = length ar
     inl ar' : ar _ _ = create nearTo
     for {from=0; nearTo} (fun i count =>

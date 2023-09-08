@@ -1,0 +1,12 @@
+// Does the editor support for this work properly?
+
+union rec some_union t =
+    | A : t
+    | B : f32
+
+inl main() =
+    let ~union' = B 1
+    match union' with
+    | A x 
+    | B x => ()
+    ()
