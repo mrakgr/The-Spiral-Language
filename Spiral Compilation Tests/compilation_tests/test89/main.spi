@@ -1,0 +1,7 @@
+// Do unit nominals work?
+nominal pstring = ()
+
+inl main() : () =
+    inl t = pstring
+    !!!!PrintStatic(t) // Should print ()
+    ()

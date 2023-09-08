@@ -1,0 +1,9 @@
+// Is the return type of nominal functions correct?
+
+nominal pstring = .qwe
+nominal ps t = t
+
+inl main() : () =
+    inl f forall t. (x : t) : ps t = ps x
+    inl q = f pstring
+    ()

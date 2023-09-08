@@ -1,15 +1,18 @@
-union rec some_union t =
-    | A : i32
-    | B : f32
-    | C : string
-    | D : t
+prototype print t : t -> string
 
-inl main() =
-    let ~union' : _ char = C "qwe"
-    inl p x = $'printfn "%A" !x '
-    match union' with
-    | A x => p x
-    | B x => p x
-    | C x => p x
-    | D x => p x
+nominal pint32 = ()
+nominal pstring = ()
+nominal ppair a b = a * b
+
+instance print pint32 = fun _ => "int32"
+instance print pstring = fun _ => "string"
+instance print ppair a {print} b {print} = fun (ppair(a,b)) =>
+    inl a = print a
+    inl b = print b
+    $'!a + !b '
+
+inl main() : () =
+    inl (*.) a b = ppair(a,b)
+    inl q = pint32 *. pstring *. pstring
+    $'printfn "%s" !q '
     ()

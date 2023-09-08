@@ -1038,7 +1038,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         TArrow(id,on_succ env)
     let eval_type' env l body = List.foldBack eval_type l body env |> process_ty
 
-    let nominal_term term nom r name l body =
+    let nominal_term term nom r name l body bodyt =
         let t,i = l |> List.fold (fun (nom,i) _ -> TApply(r,nom,TV i), i+1) (nom,0)
         let rec wrap_foralls i x = if 0 < i then let i = i-1 in wrap_foralls i (EForall(r,i,x)) else process_term x
         match body with
@@ -1047,10 +1047,15 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                 let body =
                     match body with
                     | RawTB _ -> ENominal(r,EPair(r, ESymbol(r,name), EB r),t)
-                    | _ -> EFun(r,0,ENominal(r,EPair(r, ESymbol(r,name), EV 0),t),Some t)
+                    | _ -> EFun(r,0,ENominal(r,EPair(r, ESymbol(r,name), EV 0),t),Some(TFun(r,bodyt,t)))
                 Map.add name (wrap_foralls i body) term
                 ) term l
-        | _ -> Map.add name (wrap_foralls i (EFun(r,0,ENominal(r,EV 0,t),Some t))) term
+        | _ ->
+            let body =
+                match body with
+                | RawTB _ -> ENominal(r,EB r,t)
+                | _ -> EFun(r,0,ENominal(r,EV 0,t),Some(TFun(r,bodyt,t)))
+            Map.add name (wrap_foralls i body) term
 
     {|
     base_type = process_ty
@@ -1060,25 +1065,24 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | FNominal(r,(_,name),l,body) ->
             let i = at_tag top_env.nominals_next_tag
             let nom = TNominal i
-            let term = nominal_term Map.empty nom (p r) name l body
-            let body = eval_type' env l (fun env -> TJoinPoint(p (range_of_texpr body), ty env body))
+            let bodyt = eval_type' env l (fun env -> TJoinPoint(p (range_of_texpr body), ty env body))
+            let term = nominal_term Map.empty nom (p r) name l body bodyt
             let ty = Map.add name nom Map.empty
-            let nominals = Map.add i {|body=body; name=name|} Map.empty
+            let nominals = Map.add i {|body=bodyt; name=name|} Map.empty
             AInclude {top_env_empty with term = term; ty = ty; nominals = nominals; nominals_next_tag=i.tag+1}
         | FNominalRec l ->
-            let term,env,_ = 
-                List.fold (fun (term,env,i) (r,(_,name),l,body) -> 
-                    let nom = TNominal (at_tag i)
-                    let term = nominal_term term nom (p r) name l body
-                    term, add_ty env name nom, i+1
-                    ) (Map.empty, env, top_env.nominals_next_tag) l
-            let ty,nominals,i =
-                List.fold (fun (ty', nominals, i) (_,(_,name),l,body) -> 
+            let env,_ = 
+                List.fold (fun (env,i) (r,(_,name),l,body) -> 
+                    add_ty env name (TNominal (at_tag i)), i+1
+                    ) (env, top_env.nominals_next_tag) l
+            let term,ty,nominals,i =
+                List.fold (fun (term,ty', nominals, i) (r,(_,name),l,body) -> 
                     let at_tag_i = at_tag i
                     let nom = TNominal at_tag_i
-                    let body = eval_type' env l (fun env -> TJoinPoint(p (range_of_texpr body), ty env body))
-                    Map.add name nom ty', Map.add at_tag_i {|body=body; name=name|} nominals, i+1
-                    ) (Map.empty, Map.empty, top_env.nominals_next_tag) l
+                    let bodyt = eval_type' env l (fun env -> TJoinPoint(p (range_of_texpr body), ty env body))
+                    let term = nominal_term term nom (p r) name l body bodyt
+                    term,Map.add name nom ty', Map.add at_tag_i {|body=bodyt; name=name|} nominals, i+1
+                    ) (Map.empty, Map.empty, Map.empty, top_env.nominals_next_tag) l
             AInclude {top_env_empty with term = term; ty = ty; nominals = nominals; nominals_next_tag=i}
         | FInl(_,(_,name),body) -> AInclude {top_env_empty with term = Map.add name (term env body |> process_term) Map.empty}
         | FRecInl l ->

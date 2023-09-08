@@ -1,6 +1,11 @@
+2.4.11 (9/8/2023)
+
+* Fixed a bug in nominals with unit bodies.
+* Fixed the incorrect return type being assigned in nominal constructor functions.
+
 2.4.10 (9/8/2023)
 
-* Fixed an error when inferring the or cases in the type inferencer
+* Fixed an error when infering the or cases in the type inferencer.
 
 2.4.9 (9/6/2023)
 
