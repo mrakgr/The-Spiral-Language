@@ -25,6 +25,8 @@
         - [Symbols](#symbols)
             - [Records](#records)
             - [Unions](#unions)
+        - [Type Literals](#type-literals)
+            - [`v$` operator in macros](#v-operator-in-macros)
         - [Prototypes](#prototypes)
     - [Heap Allocation vs Code Size](#heap-allocation-vs-code-size)
     - [Notes On Arrays](#notes-on-arrays)
@@ -220,7 +222,7 @@ Here is an example module `a.spi`:
 inl main () = 1i32
 ```
 
-Using the build command will partially evaluate the `main` function. This will create `a.fsx` with the following residual program as output. The Cython backend is also an option, but the F# is the default one and produces nicer looking code so it will be used for the examples in this document.
+Using the build command will partially evaluate the `main` function. This will create `a.fsx` with the following residual program as output. The Python backend is also an option, but the F# is the default one and produces nicer looking code so it will be used for the examples in this document.
 
 ```fs
 1
@@ -663,9 +665,7 @@ Compared to other functional languages, Spiral has added complexity because of a
 
 ### Macros
 
-Given its syntactical resemblance to F# and given that it compiles to it, Spiral might seem like a .NET language, but that is not necessarily the case. The reason I picked F# as the compilation target is partly familiarity - up to that point F# was my primary language, and party platform specific reasons. JVM for example does not support tail call optimization (TCO). Neither do the various Javascript engines.
-
-Compiling to Python directly would just throw away too many of Spiral's innate performance advantages in addition to not having TCO. C compilers are pretty good these days, so they support TCO in most cases. The Cython backend does with some caveats - its reference counting strategy often runs counter to it and a properly designed RC implementation would not have those problems.
+Given its syntactical resemblance to F# and given that it compiles to it, Spiral might seem like a .NET language, but that is not necessarily the case. The reason I picked F# as the compilation target is partly familiarity - up to that point F# was my primary language, and party platform specific reasons. JVM for example does not support tail call optimization (TCO). Neither do the various Javascript engines. Neither does Python.
 
 Back in 2017 during the work on the first Spiral, I actually tried making Spiral a proper .NET language, but in the end realized that .NET is huge. It was really quite difficult to make progress in this direction, and to make matters worse, on the Cuda side I also needed a system to interface with its C++ libraries. I asked around and tried looking for ways of getting the types from C++ header files, but that quickly turned into a dead end as C++ was too complex as a language. Parsing C++ actually requires a full C++ compiler.
 
@@ -1223,7 +1223,75 @@ The distinction between recursive and non recursive unions also determines their
 
 However there are some backend specific caveats to this. F#'s struct unions are inefficient and are allocated as tuples on the stack. Meaning, rather than being compiled as true unions under the hood, the space each instance of an union type takes up at runtime is the sum of sizes of all the fields in every constructor instead of just one.
 
-The Cython backend compiles both recursive and non-recursive unions to heap allocated objects. This is due to its structures not being composable with the Python objects.
+### Type Literals
+
+As of Spiral 2.4.11. In order to support arrays with static dimension sizes in the HLS C++ backend, type level literals have been added to the language.
+
+```
+nominal static_array dim el = $"array<@dim,`el>"
+```
+
+A new macro splicing prefix operator `@` has been added to the language as well. What it will do is splice type level literals, as well as symbols into the macro and throw an error otherwise. It was necessary to add because otherwise the macro would not have passed in the variables properly.
+
+For turning literals to type literals, a new prefix operator has been added at the term level as well `!@`.
+
+```
+real 
+    inl f forall t. = ()
+    f `@"qwe"
+```
+
+Here is an example of it in use. You can also use `!@` to grab a variable from the term level. Symbols can also be passed into it that way as well.
+
+```
+real
+    inl x = .qwe
+    inl f forall t. = ()
+    f `@x
+```
+
+String, integers, floats and chars can all be type level literals. You can also write them out directly at the type level.
+
+```
+typecase 16 * (f32 * i32) with
+| ~dim * ~el => $"array<@dim,`el> v$" : static_array dim el
+```
+
+You can't do meaninful computation with them in the top down segment and they are intended to be used in the real segment instead. The top down segment's intent is to help you propagate them, and not much else.
+
+#### `v$` operator in macros
+
+In the C/C++ backends, `v$` can be used to declare arrays without needing to return them.
+
+```
+nominal static_array dim el = $"array<@dim,`el>"
+
+inl main () : () = real
+    inl _ =
+        typecase 16 * (f32 * i32) with
+        | ~dim * ~el => $"array<@dim,`el> v$" : static_array dim el
+    ()
+```
+
+```cpp
+#include <cstdint>
+template <int dim, typename el> struct array { el v[dim]; };
+typedef struct {
+    float v0;
+    int32_t v1;
+} Tuple0;
+static inline Tuple0 TupleCreate0(float v0, int32_t v1){
+    Tuple0 x;
+    x.v0 = v0; x.v1 = v1;
+    return x;
+}
+void main(){
+    array<16l,Tuple0> v0;
+    return ;
+}
+```
+
+The issue is that the array syntax is so awkward in C that in order to declare arrays, we need to fold he tags into them. Only in the C/C++ backends does the `v$` have special meaning. You can use multiple of them in the same macro. It requires the same number of free vars in its bindings as there are `v$`s in the macro.
 
 ### Prototypes
 
@@ -1573,7 +1641,7 @@ The way to performantly compile dependently typed languages is a mystery to me. 
 
 ## Notes On Arrays
 
-Arrays in Spiral are more complicated than I wanted them to be. The reason for that is that different backends have different ways of indexing into them. The .NET arrays which F# uses are built in at the IL level and use `i32` dimensions. The Cython backend uses Numpy tensors as arrays under the hood and those can be indexed in using ints of arbitrary type. It was hell dealing with discrepancies of different backends, and to resolve the issue, I defined a nominal over a generic array type in the core library.
+Arrays in Spiral are more complicated than I wanted them to be. The reason for that is that different backends have different ways of indexing into them. The .NET arrays which F# uses are built in at the IL level and use `i32` dimensions. The old Cython backend used Numpy tensors as arrays under the hood and those could be indexed in using ints of arbitrary type. It was hell dealing with discrepancies of different backends, and to resolve the issue, I defined a nominal over a generic array type in the core library.
 
 ```
 // Array with a dimension.
@@ -2448,7 +2516,7 @@ while method1(v5, v7) do
 v6
 ```
 
-F# has value structs so maybe this functionality on its own is not a big deal. It would certainly be advantageous in the Cython backend which allocates composite types on the heap, but in the old Spiral what I've particularly found this functionality useful for is getting arrays past language boundaries. Different languages, F# and C for example, have structs of different sizes and it is hard to keep them straight. Primitive types on the other hand are much easier to pass around.
+F# has value structs so maybe this functionality on its own is not a big deal. It certainly has been advantageous in the old Cython backend which allocated composite types on the heap, but in the old Spiral what I've particularly found this functionality useful for is getting arrays past language boundaries. Different languages, F# and C for example, have structs of different sizes and it is hard to keep them straight. Primitive types on the other hand are much easier to pass around.
 
 ## Known Bugs
 

@@ -1,18 +1,12 @@
-prototype print t : t -> string
+inl rec fold f s l =
+    inl body s l =
+        match l with
+        | x :: xs => fold f (f s x) xs
+        | [] => s
+    if var_is l then 
+        inl ~s = s
+        join body s l
+    else 
+        body s l
 
-nominal pint32 = ()
-nominal pstring = ()
-nominal ppair a b = a * b
-
-instance print pint32 = fun _ => "int32"
-instance print pstring = fun _ => "string"
-instance print ppair a {print} b {print} = fun (ppair(a,b)) =>
-    inl a = print a
-    inl b = print b
-    $'!a + !b '
-
-inl main() : () =
-    inl (*.) a b = ppair(a,b)
-    inl q = pint32 *. pstring *. pstring
-    $'printfn "%s" !q '
-    ()
+inl main() : i32 = fold (+) 0 (1 :: 2 :: 3 :: dyn [4;5;6])

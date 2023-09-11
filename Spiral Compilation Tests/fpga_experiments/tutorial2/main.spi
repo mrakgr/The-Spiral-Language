@@ -1,0 +1,10 @@
+nominal wrap_heap t = heap t
+nominal wrap_mut t = mut t
+
+inl main() : () =
+    inl t = {q="asd"; z={w=1i32; e='l'}}
+    inl t_heap = wrap_heap (heap t)
+    inl t_mut = (mut t)
+    inl _ = join t_heap.z.w
+    inl _ = join t_mut.z.w <- 5
+    ()
