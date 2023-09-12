@@ -1,0 +1,17 @@
+modules:
+    corehls/
+        default-
+        base-
+        limit
+        real_core*
+        core-
+        loop
+        sam
+        listm
+        optionm
+        monad
+
+    conv-
+    hand_scorer_orig
+    hand_scorer
+    main

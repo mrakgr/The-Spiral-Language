@@ -884,6 +884,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyNominal i, TyNominal i' when i = i' -> ()
             | TyB, TyB -> ()
             | TyPrim x, TyPrim x' when x = x' -> ()
+            | TyLit a, TyLit b when a = b -> ()
             | TySymbol x, TySymbol x' when x = x' -> ()
             | TyArray a, TyArray b -> loop (a,b)
             // Note: Unifying these two only makes sense if the expected is fully inferred already.

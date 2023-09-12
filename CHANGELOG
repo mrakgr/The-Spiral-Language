@@ -1,3 +1,7 @@
+2.4.12 (9/8/2023)
+
+* Added the missing case in unify for type literals.
+
 2.4.11 (9/8/2023)
 
 * Fixed a bug in nominals with unit bodies.

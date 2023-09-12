@@ -1,0 +1,20 @@
+open corehls
+
+type card = { suit : $"ap_uint<2>"; rank : $"ap_uint<4>" }
+prototype qwe x : forall t. x -> t
+
+type i_array (ar : * -> *) el = {
+    merge : ar el -> ar el -> ar el
+    }
+
+inl main() = 
+    global "#include <array>"
+    global "#include \"ap_int.h\""
+
+    inl _ : i_array (sa 5) i32 = {
+        merge = fun a b => a
+    }
+
+    inl ar : sa 5 card = sam.create
+    
+    ()
