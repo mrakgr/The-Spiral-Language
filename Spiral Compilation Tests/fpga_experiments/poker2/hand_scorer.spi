@@ -1,20 +1,98 @@
 open corehls
+open real_utils
+open hand_scorer_types
 
-type card = { suit : $"ap_uint<2>"; rank : $"ap_uint<4>" }
-prototype qwe x : forall t. x -> t
+union score =
+    | HighCard
+    | Pair
+    | TwoPair
+    | Triple
+    | Straight
+    | Flush
+    | FullHouse
+    | Quad
+    | StraightFlush
 
-type i_array (ar : * -> *) el = {
-    merge : ar el -> ar el -> ar el
-    }
+prototype filter_take ar dim el : forall dim'. (el -> bool) -> ar dim el -> option (ar dim' el)
+prototype try_straight ar dim el : ar dim el -> option (ar 5 el)
+prototype max_hand ar dim el : ar dim el -> ar dim el -> ar dim el
+prototype partition_topk_pair ar dim el : forall dim'. ar dim el -> option (ar dim' el * ar dim el)
+prototype take ar dim el : forall dim'. ar dim el -> ar dim' el
+prototype merge_hands ar dim el : forall dim' dim''. ar dim el -> ar dim' el -> ar dim'' el
 
-inl main() = 
-    global "#include <array>"
-    global "#include \"ap_int.h\""
+type hand_score (ar : * -> * -> *) dim = { score : ap 4; hand : ar dim card }
 
-    inl _ : i_array (sa 5) i32 = {
-        merge = fun a b => a
-    }
+inl eq forall dim. (a : ap dim) (b : ap dim) : bool = $"!a == !b"
+inl to_ap forall t {int} dim. (x : t) : ap dim = $"!x"
+inl compare_suit (n : u8) (x : card) = eq x.suit (to_ap n)
+inl list_max_hand l = // TODO: Make it a reduce.
+    listm.fold (fun s x =>
+        match s, x with
+        | Some s, Some x => Some (max_hand s x)
+        | None, x | x, None => x
+        | None, None => s
+        ) None l
 
-    inl ar : sa 5 card = sam.create
+inl score forall (ar : * -> * -> *) {filter_take; try_straight; max_hand; partition_topk_pair; take; merge_hands} dim. (hand : ar dim card) : hand_score ar 5 =
+    // TODO: The hand argument should be sorted by rank from highest to lowest.
+    inl high_card = take hand
+
+    inl pair = 
+        match partition_topk_pair hand with
+        | Some ((pair : _ 2 _), rest) => Some (merge_hands pair (take rest : _ 4 _))
+        | None => None
+
+    inl two_pair =
+        match partition_topk_pair hand with
+        | Some ((pair1 : _ 2 _), rest) => 
+            match partition_topk_pair rest with
+            | Some ((pair2 : _ 2 _), rest) => Some (merge_hands (merge_hands pair1 pair2 : _ 4 _) (take rest : _ 1 _))
+            | None => None
+        | None => None
+
+    inl triple = 
+        match partition_topk_pair hand with
+        | Some ((trip : _ 3 _), rest) => Some (merge_hands trip (take rest : _ 2 _))
+        | None => None
+
+    inl straight = try_straight hand
+
+    inl flush = listm.map (fun i => filter_take (compare_suit i) hand) [0;1;2;3] |> list_max_hand
+
+    inl full_house =
+        match partition_topk_pair hand with
+        | Some ((trip : _ 3 _), rest) => 
+            match partition_topk_pair rest with
+            | Some ((pair : _ 2 _), rest) => Some (merge_hands trip pair)
+            | None => None
+        | None => None
+
+    inl quad =
+        match partition_topk_pair hand with
+        | Some ((quad : _ 4 _), rest) => Some (merge_hands quad (take rest : _ 1 _))
+        | None => None
+
+    inl royal_flush =
+        inl straights_for_each_suit = 
+            listm.map (fun i => 
+                match filter_take (compare_suit i) hand with
+                | Some (q : _ 5 _) => try_straight q
+                | None => None
+                ) [0;1;2;3]
+        list_max_hand straights_for_each_suit
     
-    ()
+    inl rankings = [royal_flush; quad; full_house; flush; straight; triple; two_pair; pair]
+
+    inl to_score i = function
+        | Some hand => Some {score=to_ap i; hand}
+        | None => None
+    inl max_hand a b = 
+        match a,b with
+        | Some x, Some _ => Some x
+        | x, None | None, x => x
+        | None, None => a
+    listm.mapiBack (fun (i : u8) => to_score (i+1)) rankings
+    |> listm.fold max_hand None // TODO: Make it a reduce.
+    |> function
+    | Some s => s
+    | None => {score=to_ap 0u8; hand=high_card}

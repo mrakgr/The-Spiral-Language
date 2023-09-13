@@ -13,5 +13,7 @@ modules:
 
     conv-
     hand_scorer_orig
+    real_utils*
+    hand_scorer_types
     hand_scorer
     main

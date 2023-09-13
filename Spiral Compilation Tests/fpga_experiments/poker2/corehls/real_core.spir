@@ -235,6 +235,9 @@ inl type_to_symbol forall t. = !!!!TypeToSymbol(`t)
 // Converts a type literal or a symbol into their term equivalent representation.
 inl type_lit_to_lit forall t. = !!!!TypeLitToLit(`t)
 
+// Converts a literal or a symbol into their type equivalent representation.
+inl lit_to_type_lit x = !!!!LitToTypeLit(x)
+
 // Structural polymorphic comparison for every type in the language (apart from functions.)
 inl rec comp a b =
     match a, b with

@@ -19,8 +19,8 @@ union rec list a = Nil | Cons : a * list a
 inl (::) a b = Cons (a,b)
 
 
-// Statically sized array with a type literal for a dimension. Make sure to import <array>.
-nominal sa dim el = $"std::array<`el,@dim>"
+// Statically sized array with a type literal for a dimension.
+nominal sa dim el = $"array<@dim,`el>"
 
 // Puts a statement in the global scope.
 inl global (x : string) : () = !!!!Global(x)

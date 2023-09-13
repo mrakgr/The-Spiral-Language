@@ -1,0 +1,25 @@
+open corehls
+open real_utils
+
+nominal array1 dim el = sa dim el 
+nominal array2 dim el = $"std::array<`el,@dim>"
+nominal array3 dim el = $"hls::vector<`el,@dim>"
+nominal array4 dim el = `(
+    open real_core
+    inl dim = type_lit_to_lit `dim * sizeof_bit `el
+    ``(ap `(lit_to_type_lit dim))
+    )
+
+inl array4_create forall dim el. : array4 dim el = real
+    open real_core
+    typecase `(lit_to_type_lit (type_lit_to_lit `dim * sizeof_bit `card)) with 
+    | ~total_dim => array4 `dim `card ($"ap_uint<@total_dim> v$" : ap total_dim)
+
+
+inl main() = 
+    global "#include \"ap_int.h\""
+    inl ar : _ 5i32 card = array4_create
+    match ar with
+    | array4 x => ()
+    !!!!PrintStatic(ar)
+    ()
