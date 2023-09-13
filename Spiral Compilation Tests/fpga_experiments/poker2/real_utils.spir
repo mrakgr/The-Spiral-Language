@@ -1,4 +1,5 @@
-open corehls.real_core
+open corehls
+open real_core
 
 nominal ap dim = $"ap_uint<@dim>" // The arbitrary sized integer type. The dim here is the number of bits.
 nominal card = { suit : ap 2; rank : ap 4 }

@@ -21,9 +21,9 @@ inl map forall dim. f (ar : sa dim _) : sa dim _ = init (fun i => index ar i |> 
 // Maps an array. Provides the index as the first argument.
 inl mapi forall dim. f (ar : sa dim _) : sa dim _ = init (fun i => index ar i |> f i)
 // Iterates over an array.
-inl iter f ar = for' {from=0; nearTo=length ar} (index ar >> f)
+inl iter forall dim el. f (ar : sa dim el) = for' {from=0; nearTo=length ar} (index ar >> f)
 // Iterates over an array. Provides the index as the first argument.
-inl iteri f ar = for' {from=0; nearTo=length ar} (fun i => f i (index ar i))
+inl iteri forall dim el. f (ar : sa dim el) = for' {from=0; nearTo=length ar} (fun i => f i (index ar i))
 
 // Applies a function to each element of the array, threading an accumulator argument through the computation. 
 // If the input function is f and the elements are i0...iN then computes f (... (f s i0)...) iN
