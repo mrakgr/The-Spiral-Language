@@ -1506,7 +1506,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 ) top_env_empty l
         if 0 = errors.Count then psucc (fun () -> FNominalRec l'), AInclude x
         else pfail, AInclude top_env_empty
-    | BundlePrototype(com,r,(r',name),(w,var_init),vars',expr) ->
+    | BundlePrototype(com,r,(r',name),(w,var_init),vars',expr,is_top_down) ->
         let i = at_tag top_env'.prototypes_next_tag
         let cons = CPrototype i
         let scope = 0
@@ -1518,7 +1518,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let v = fresh_var scope
         ty scope {term=Map.empty; ty=env_ty; constraints=Map.empty} v expr
         let body = List.foldBack (fun a b -> TyForall(a,b)) vars (term_subst v)
-        if 0 = errors.Count && (assert_foralls_used r' body; 0 = errors.Count) then
+        if 0 = errors.Count && (not is_top_down || (assert_foralls_used r' body; 0 = errors.Count)) then
             let x =
                 { top_env_empty with
                     prototypes_next_tag = i.tag + 1

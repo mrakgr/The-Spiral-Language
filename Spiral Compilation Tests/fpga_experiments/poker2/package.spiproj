@@ -4,6 +4,7 @@ modules:
         base-
         limit
         real_core*
+        type_arith*
         core-
         loop
         sam
@@ -17,3 +18,4 @@ modules:
     hand_scorer_types
     hand_scorer
     main
+    

@@ -16,10 +16,10 @@ union score =
 prototype filter_take ar dim el : forall dim'. (el -> bool) -> ar dim el -> option (ar dim' el)
 prototype try_straight ar dim el : ar dim el -> option (ar 5 el)
 prototype max_hand ar dim el : ar dim el -> ar dim el -> ar dim el
-prototype partition_topk_pair ar dim el : forall dim'. ar dim el -> option (ar dim' el * ar dim el)
+prototype partition_topk_pair ar dim el : forall dim'. ar dim el -> option (ar dim' el * ar (sub dim dim') el)
 prototype take ar dim el : forall dim'. ar dim el -> ar dim' el
-prototype merge_hands ar dim el : forall dim' dim''. ar dim el -> ar dim' el -> ar dim'' el
-prototype merge_hands2 ar dim el : forall dim' dim'' dim'''. ar dim el -> ar dim' el -> ar dim'' el -> ar dim''' el
+prototype merge_hands ar dim el : forall dim'. ar dim el -> ar dim' el -> ar (add dim dim') el
+prototype merge_hands2 ar dim el : forall dim' dim''. ar dim el -> ar dim' el -> ar dim'' el -> ar (add (add dim dim') dim'') el
 
 instance filter_take sa = fun f ar => 
     real 

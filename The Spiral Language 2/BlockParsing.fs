@@ -1263,7 +1263,7 @@ type [<ReferenceEquality>] TopStatement =
     | TopNominal of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
     | TopNominalRec of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
     | TopType of VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr
-    | TopPrototype of Comments * VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawTExpr
+    | TopPrototype of Comments * VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawTExpr * is_top_down: bool
     | TopInstance of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawExpr
     | TopOpen of VSCRange * (VSCRange * VarString) * (VSCRange * SymbolString) list
 
@@ -1291,7 +1291,7 @@ let top_prototype d =
         (tuple5 comments
             (skip_keyword SpecPrototype >>. (read_small_var' <|> rounds read_op')) read_small_type_var' (many forall_var) 
             (skip_op ":" >>. type_forall (root_type root_type_defaults)))
-    |>> fun (r,(com,a,b,c,d)) -> TopPrototype(com,r,a,b,c,d)) d
+    >>= fun (r,(com,a,b,c,d)) env -> TopPrototype(com,r,a,b,c,d,env.is_top_down) |> Ok) d
 let top_instance d =
     (range
         (tuple4 (skip_keyword SpecInstance >>. (read_small_var' <|> rounds read_op')) read_small_type_var' (many forall_var) (skip_op "=" >>. root_term))

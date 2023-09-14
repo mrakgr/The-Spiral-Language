@@ -427,6 +427,7 @@ type PartEvalResult = {
     join_point_method : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty []>,TypedBind [] option * Ty option * string option> * HashConsTable>
     join_point_closure : Dictionary<E,Dictionary<ConsedNode<RData [] * Ty [] * Ty * Ty>,(Data * TypedBind []) option> * HashConsTable>
     ty_to_data : Ty -> Data
+    nominal_apply : Ty -> Ty
     }
 
 let assert_ty_lit s = function
@@ -1297,10 +1298,12 @@ let peval (env : TopEnv) (x : E) =
             | YSymbol a -> DSymbol a
             | a -> raise_type_error s <| sprintf "Expected a symbol.\nGot: %s" (show_ty a)
         | EOp(_,TypeLitToLit,[EType(_,a)]) -> 
-            match ty s a with
-            | YLit a -> DLit a
-            | YSymbol a -> DSymbol a
-            | a -> raise_type_error s <| sprintf "Expected a type literal or a symbol.\nGot: %s" (show_ty a)
+            let rec loop = function
+                | YLit a -> DLit a
+                | YSymbol a -> DSymbol a
+                | YNominal _ | YApply _ as a -> loop (nominal_apply s a)
+                | a -> raise_type_error s <| sprintf "Expected a type literal or a symbol.\nGot: %s" (show_ty a)
+            loop (ty s a)
         | EOp(_,(TypeToVar | TypeToSymbol),[a]) -> raise_type_error s "Expected a type."
         | EOp(_,Dyn,[a]) -> term s a |> dyn true s
         | EOp(_,StringLength,[EType(_,t);a]) ->
@@ -2111,8 +2114,9 @@ let peval (env : TopEnv) (x : E) =
         env_stack_term = [||]
         }
     let ty_to_data x = ty_to_data {s with i = ref 0} x
+    let nominal_apply x = nominal_apply {s with i = ref 0} x
 
     match x with
-    | EFun'(r,_,_,_,_) -> term_scope s (EApply(r,x,EB r)), {join_point_method=join_point_method; join_point_closure=join_point_closure; ty_to_data=ty_to_data}
+    | EFun'(r,_,_,_,_) -> term_scope s (EApply(r,x,EB r)), {join_point_method=join_point_method; join_point_closure=join_point_closure; ty_to_data=ty_to_data; nominal_apply=nominal_apply}
     | EForall' _ -> raise_type_error s "The main function should not have a forall."
     | _ -> raise_type_error s "Expected a function as the main."

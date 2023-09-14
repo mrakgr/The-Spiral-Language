@@ -117,3 +117,9 @@ inl print_static x : () = !!!!PrintStatic(x)
 inl var_is forall t. (x : t) : bool = real var_is x
 // Raises a type error during partial evaluation.
 inl error_type (msg : string) = real error_type msg
+
+// Statically sized array with a type literal for a dimension.
+nominal sa dim el = `(
+    typecase `(type_arith.resolve `dim) with
+    | ~dim => ``($"array<@dim,`el>")
+    )

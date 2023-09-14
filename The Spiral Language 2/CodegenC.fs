@@ -454,6 +454,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
     and type_lit = function
         | YLit x -> lit x
         | YSymbol x -> x
+        | YNominal _ | YApply _ as x -> type_lit (env.nominal_apply x)
         | x -> raise_codegen_error "Compiler error: Expecting a type literal in the macro." 
     and op (vars : RefcVars) s (ret : BindsReturn) a =
         let binds a b = binds vars a b
