@@ -1,6 +1,7 @@
-2.4.14-17 (9/14/2023)
+2.4.14-18 (9/14/2023)
 
 * Trying to get the ESBuild to work.
+* It only works if the node_modules folder is present in the extension. What a waste of time this was.
 
 2.4.13 (9/14/2023)
 
