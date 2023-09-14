@@ -125,8 +125,8 @@
 	"devDependencies": {
 		"@types/node": "^14.17.9",
 		"@types/vscode": "^1.81.0",
-		"typescript": "^4.3.5",
-		"esbuild": "^0.19.3"
+		"esbuild": "^0.19.3",
+		"typescript": "^4.3.5"
 	},
 	"dependencies": {
 		"@microsoft/signalr": "^7.0.10"
