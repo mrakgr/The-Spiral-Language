@@ -109,8 +109,6 @@ inl layout_is x = !!!!LayoutIs(x)
 inl nominal_is x = !!!!NominalIs(x)
 // Returns boolean whether the term is a function.
 inl function_is x = !!!!FunctionIs(x)
-// Strips the nominal wrapper from the value.
-inl nominal_strip x = !!!!NominalStrip(x)
 // Returns boolean whether the type has the relevant prototype.
 inl prototype_has forall t. prot = !!!!PrototypeHas(prot, `t)
 // Returns boolean whether the float is a Nan.
@@ -187,6 +185,37 @@ inl function_term_slots_set a b = !!!!FunctionTermSlotsSet(a,b)
 // Gets the free vars of a term as a tuple.
 inl free_vars x = !!!!FreeVars(x)
 
+// Returns the i32 tag of an union.
+inl union_tag x = !!!!UnionTag(x)
+
+// Takes in a tag and an union type and passes the key/value pair of the union at that tag into the success case.
+// When the tag is a runtime variable it iterates through all the cases in turn.
+inl union_untag forall t. x on_succ on_fail = !!!!UnionUntag(`t,x,on_succ,on_fail)
+
+// Converts an union type to a type record.
+inl union_to_record forall t. on_succ = !!!!UnionToRecord(`t,on_succ)
+
+// Strips the nominal wrapper from the value.
+inl nominal_strip x = !!!!NominalStrip(x)
+
+// Creates a nominal or an union type based on the input.
+inl nominal_create forall t. x = !!!!NominalCreate(x, `t)
+
+// Recreates a nominal. Is intended to be used to evaluate the type level artihmetic operations. Doesn't work on unions.
+inl nominal_recreate forall t. x = !!!!NominalCreate(!!!!NominalStrip(x), `t)
+
+// It unboxes an arbitrary union type. Passes the resulting key/value pair into success branch.
+inl unbox x on_succ = !!!!Unbox(x,on_succ)
+
+// Converts a type symbol to a term symbol.
+inl type_to_symbol forall t. = !!!!TypeToSymbol(`t)
+
+// Converts a type literal or a symbol into their term equivalent representation.
+inl type_lit_to_lit forall t. = !!!!TypeLitToLit(`t)
+
+// Converts a literal or a symbol into their type equivalent representation.
+inl lit_to_type_lit x = !!!!LitToTypeLit(x)
+
 // Structural polymorphic equality for every type in the language (apart from functions.)
 inl rec (=) a b =
     match a, b with
@@ -212,31 +241,6 @@ inl (=) a b = if `(`(a)) `= `(`(b)) then a = b else error_type "The variables co
 
 // Structural polymorphic inequality for every type in the language (apart from functions.)
 inl (<>) a b = (a = b) <> true
-
-// Returns the i32 tag of an union.
-inl union_tag x = !!!!UnionTag(x)
-
-// Takes in a tag and an union type and passes the key/value pair of the union at that tag into the success case.
-// When the tag is a runtime variable it iterates through all the cases in turn.
-inl union_untag forall t. x on_succ on_fail = !!!!UnionUntag(`t,x,on_succ,on_fail)
-
-// Converts an union type to a type record.
-inl union_to_record forall t. on_succ = !!!!UnionToRecord(`t,on_succ)
-
-// Creates a nominal or an union type based on the input.
-inl nominal_create forall t. x = !!!!NominalCreate(x, `t)
-
-// It unboxes an arbitrary union type. Passes the resulting key/value pair into success branch.
-inl unbox x on_succ = !!!!Unbox(x,on_succ)
-
-// Converts a type symbol to a term symbol.
-inl type_to_symbol forall t. = !!!!TypeToSymbol(`t)
-
-// Converts a type literal or a symbol into their term equivalent representation.
-inl type_lit_to_lit forall t. = !!!!TypeLitToLit(`t)
-
-// Converts a literal or a symbol into their type equivalent representation.
-inl lit_to_type_lit x = !!!!LitToTypeLit(x)
 
 // Structural polymorphic comparison for every type in the language (apart from functions.)
 inl rec comp a b =

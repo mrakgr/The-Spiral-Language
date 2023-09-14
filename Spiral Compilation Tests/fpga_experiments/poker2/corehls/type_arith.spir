@@ -1,15 +1,6 @@
 open real_core
-nominal add a b = ()
-nominal sub a b = ()
-nominal mult a b = ()
-nominal div a b = ()
 
-inl resolve forall t. : sa_dim =
-    inl rec loop forall t. =
-        typecase t with
-        | add ~a ~b => loop `a + loop `b
-        | sub ~a ~b => loop `a - loop `b
-        | sub ~a ~b => loop `a * loop `b
-        | sub ~a ~b => loop `a / loop `b
-        | _ => type_lit_to_lit `t
-    loop `t |> lit_to_type_lit
+nominal add a b = `(lit_to_type_lit (type_lit_to_lit `a + type_lit_to_lit `b))
+nominal sub a b = `(lit_to_type_lit (type_lit_to_lit `a - type_lit_to_lit `b))
+nominal mult a b = `(lit_to_type_lit (type_lit_to_lit `a * type_lit_to_lit `b))
+nominal div a b = `(lit_to_type_lit (type_lit_to_lit `a / type_lit_to_lit `b))

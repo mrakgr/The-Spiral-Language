@@ -7,7 +7,20 @@
         {
             "type": "extensionHost",
             "request": "launch",
-            "name": "Launch Extension",
+            "name": "ESBuild + Launch Extension",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}",
+                "${workspaceFolder}/../Spiral Compilation Tests"
+            ],
+            "outFiles": [
+                "${workspaceFolder}/dist/*.js"
+            ],
+            "preLaunchTask": "npm: build",
+        },
+        {
+            "type": "extensionHost",
+            "request": "launch",
+            "name": "TSC Watch + Launch Extension",
             "runtimeExecutable": "${execPath}",
             "args": [
                 "--extensionDevelopmentPath=${workspaceFolder}",

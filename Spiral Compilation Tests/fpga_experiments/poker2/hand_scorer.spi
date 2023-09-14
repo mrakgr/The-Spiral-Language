@@ -1,6 +1,6 @@
 open corehls
+open type_arith
 open real_utils
-open hand_scorer_types
 
 union score =
     | HighCard
@@ -38,17 +38,13 @@ instance filter_take sa = fun f ar =>
     else None
     
 instance merge_hands2 sa = fun ar ar' ar'' => 
-    real 
-        open real_core
-        inl f = type_lit_to_lit
-        if f `dim + f `dim' + f `dim'' <> f `dim''' then error_type "The merged hand dimensions for the input arrays should sum up to the output array's."
     open sam
     inl out = create
     inl f ar offset = (if 0 < length ar then iteri (fun i x => set out (offset + i) x) ar) . offset + length ar
     0 |> f ar |> f ar' |> f ar'' |> ignore
     out
 
-instance merge_hands sa = fun ar ar' => merge_hands2 ar ar' (sam.create : sa 0 _)
+instance merge_hands sa = fun ar ar' => merge_hands2 ar ar' (sam.create : _ 0 _) |> nominal_recreate
 
 type hand_score (ar : * -> * -> *) dim = { score : ap 4; hand : ar dim card }
 
@@ -69,20 +65,20 @@ inl score forall (ar : * -> * -> *) {filter_take; try_straight; max_hand; partit
 
     inl pair = 
         match partition_topk_pair hand with
-        | Some ((pair : _ 2 _), rest) => Some (merge_hands pair (take rest : _ 4 _))
+        | Some ((pair : _ 2 _), rest) => Some (merge_hands pair (take rest : _ 4 _) |> nominal_recreate)
         | None => None
 
     inl two_pair =
         match partition_topk_pair hand with
         | Some ((pair1 : _ 2 _), rest) => 
             match partition_topk_pair rest with
-            | Some ((pair2 : _ 2 _), rest) => Some (merge_hands2 pair1 pair2 (take rest : _ 1 _))
+            | Some ((pair2 : _ 2 _), rest) => Some (merge_hands2 pair1 pair2 (take rest : _ 1 _) |> nominal_recreate)
             | None => None
         | None => None
 
     inl triple = 
         match partition_topk_pair hand with
-        | Some ((trip : _ 3 _), rest) => Some (merge_hands trip (take rest : _ 2 _))
+        | Some ((trip : _ 3 _), rest) => Some (merge_hands trip (take rest : _ 2 _) |> nominal_recreate)
         | None => None
 
     inl straight = try_straight hand
@@ -93,13 +89,13 @@ inl score forall (ar : * -> * -> *) {filter_take; try_straight; max_hand; partit
         match partition_topk_pair hand with
         | Some ((trip : _ 3 _), rest) => 
             match partition_topk_pair rest with
-            | Some ((pair : _ 2 _), rest) => Some (merge_hands trip pair)
+            | Some ((pair : _ 2 _), rest) => Some (merge_hands trip pair |> nominal_recreate)
             | None => None
         | None => None
 
     inl quad =
         match partition_topk_pair hand with
-        | Some ((quad : _ 4 _), rest) => Some (merge_hands quad (take rest : _ 1 _))
+        | Some ((quad : _ 4 _), rest) => Some (merge_hands quad (take rest : _ 1 _) |> nominal_recreate)
         | None => None
 
     inl royal_flush =
@@ -126,3 +122,11 @@ inl score forall (ar : * -> * -> *) {filter_take; try_straight; max_hand; partit
     |> function
     | Some s => s
     | None => {score=to_ap 0u8; hand=high_card}
+
+inl main () =
+    open sam
+    inl ar = create : sa (mult 3 (add 2 3)) i32
+    inl ar' : sa 16 i32 = nominal_recreate ar
+    !!!!PrintStatic(ar')
+    ()
+    

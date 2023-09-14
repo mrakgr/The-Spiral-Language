@@ -281,7 +281,7 @@ let show_ty x =
         let p = p prec
         match x with
         | YB -> "()"
-        | YLit x -> $"`{show_lit x}"
+        | YLit x -> show_lit x
         | YPair(a,b) -> p 25 (sprintf "%s * %s" (f 25 a) (f 24 b))
         | YSymbol x -> sprintf ".%s" x
         | YTypeFunction _ -> p 0 (sprintf "? => ?")
@@ -430,10 +430,6 @@ type PartEvalResult = {
     nominal_apply : Ty -> Ty
     }
 
-let assert_ty_lit s = function
-    | YSymbol _ | YLit _ as x -> x
-    | x -> raise_type_error s <| sprintf "Expected a type literal or a symbol.\nGot: %s" (show_ty x)
-
 let peval (env : TopEnv) (x : E) =
     let join_point_method = Dictionary(HashIdentity.Reference)
     let join_point_closure = Dictionary(HashIdentity.Reference)
@@ -451,6 +447,10 @@ let peval (env : TopEnv) (x : E) =
         | YLit x -> DTLit x
         | YTypeFunction _ -> raise_type_error s "Cannot turn a type function into a runtime variable."
         | YMetavar _ -> raise_type_error s "Compiler error: Cannot turn a metavar into a runtime variable."
+    and assert_ty_lit s = function 
+        | YSymbol _ | YLit _ as x -> x
+        | YNominal _ | YApply _ as x -> nominal_apply s x |> assert_ty_lit s
+        | x -> raise_type_error s <| sprintf "Expected a type literal or a symbol.\nGot: %s" (show_ty x)
     and push_typedop_no_rewrite d op ret_ty =
         let ret = ty_to_data d ret_ty
         d.seq.Add(TyLet(ret,d.trace,op))

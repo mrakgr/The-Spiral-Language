@@ -17,13 +17,13 @@ type [<ReferenceEquality>] Bundle =
     | BundleNominalRec of (VSCRange * (VSCRange * VarString) * HoVar list * RawTExpr) list
     | BundleInl of Comments * VSCRange * (VSCRange * VarString) * RawExpr * is_top_down: bool
     | BundleRecInl of (Comments * VSCRange * (VSCRange * VarString) * RawExpr) list * is_top_down: bool
-    | BundlePrototype of Comments * VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawTExpr * is_top_down: bool
+    | BundlePrototype of Comments * VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawTExpr
     | BundleInstance of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) * TypeVar list * RawExpr
     | BundleOpen of VSCRange * (VSCRange * VarString) * (VSCRange * SymbolString) list
 
 let bundle_range = function
     | BundleType(r,_,_,_) | BundleNominal(r,_,_,_) | BundleInl(_,r,_,_,_) 
-    | BundlePrototype(_,r,_,_,_,_,_) | BundleInstance(r,_,_,_,_) | BundleOpen(r,_,_) -> r
+    | BundlePrototype(_,r,_,_,_,_) | BundleInstance(r,_,_,_,_) | BundleOpen(r,_,_) -> r
     | BundleNominalRec l -> List.head l |> fun (r,_,_,_) -> r
     | BundleRecInl(l,_) -> List.head l |> fun (_,r,_,_) -> r
 
@@ -158,7 +158,7 @@ let bundle_blocks (blocks : TopStatement Block list) =
             )
         |> BundleNominalRec |> Some
     | [{offset=i; block=TopInl(com,r,a,b,c)}] -> BundleInl(com, add_offset i r, add_offset_hovar i a, fold_offset_term i b, c) |> Some
-    | [{offset=i; block=TopPrototype(com,r,a,b,c,d,e)}] -> BundlePrototype(com,add_offset i r, add_offset_hovar i a, add_offset_hovar i b, add_offset_typevar_list i c, fold_offset_ty i d, e) |> Some
+    | [{offset=i; block=TopPrototype(com,r,a,b,c,d)}] -> BundlePrototype(com,add_offset i r, add_offset_hovar i a, add_offset_hovar i b, add_offset_typevar_list i c, fold_offset_ty i d) |> Some
     | [{offset=i; block=TopNominal(r,a,b,c)}] -> BundleNominal(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c) |> Some
     | [{offset=i; block=TopType(r,a,b,c)}] -> BundleType(add_offset i r, add_offset_hovar i a, add_offset_hovar_list i b, fold_offset_ty i c) |> Some
     | [{offset=i; block=TopInstance(r,a,b,c,d)}] -> BundleInstance(add_offset i r, add_offset_hovar i a, add_offset_hovar i b, add_offset_typevar_list i c, fold_offset_term i d) |> Some

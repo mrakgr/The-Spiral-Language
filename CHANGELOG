@@ -1,3 +1,12 @@
+2.4.13 (9/14/2023)
+
+Type level artithmetic support.
+
+* Adjusted the printing of type literals so backticks are being output in the infer and partial eval phases.
+* Modified TypeLitToLit op so it evaluates the nominal wrappers to literals. This allows the language to support type level arithmetic operations.
+* Did a similar thing for the HLS C++ backend. Now splicing type lits in macros will work correctly.
+* The other backends don't support it yet.
+
 2.4.12 (9/8/2023)
 
 * Added the missing case in unify for type literals.
