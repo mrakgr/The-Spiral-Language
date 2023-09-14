@@ -13,9 +13,9 @@
                 "${workspaceFolder}/../Spiral Compilation Tests"
             ],
             "outFiles": [
-                "${workspaceFolder}/dist/*.js"
+                "${workspaceFolder}/out/*.js"
             ],
-            "preLaunchTask": "npm: build",
+            "preLaunchTask": "npm: esbuild",
         },
         {
             "type": "extensionHost",

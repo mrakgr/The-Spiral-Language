@@ -22,11 +22,10 @@
 		},
 		{
 			"type": "npm",
-			"script": "build",
+			"script": "esbuild",
 			"group": "build",
 			"problemMatcher": [],
-			"label": "npm: build",
-			"detail": "node esbuild.mjs"
+			"label": "npm: esbuild"
 		}
 	]
 }
