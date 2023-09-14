@@ -27,6 +27,17 @@
                 "${workspaceFolder}/../Spiral Compilation Tests"
             ],
             "preLaunchTask": "tsc: watch - tsconfig.json"
+        },
+        {
+            "type": "extensionHost",
+            "request": "launch",
+            "name": "TSC Build + Launch Extension",
+            "runtimeExecutable": "${execPath}",
+            "args": [
+                "--extensionDevelopmentPath=${workspaceFolder}",
+                "${workspaceFolder}/../Spiral Compilation Tests"
+            ],
+            "preLaunchTask": "tsc: build - tsconfig.json"
         }
     ]
 }

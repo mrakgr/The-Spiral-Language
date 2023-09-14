@@ -1,3 +1,8 @@
+2.4.19 (9/14/2023)
+
+* Final bit of wrangling. I've removed ESBuild and Typescript as dependencies so they aren't getting packaged with the Spiral plugin anymore.
+* I won't bother trying to get the build systems to work anymore, I opened an issue on ESBuild as to why it is not bundling the `ws` package.
+
 2.4.14-18 (9/14/2023)
 
 * Trying to get the ESBuild to work.
