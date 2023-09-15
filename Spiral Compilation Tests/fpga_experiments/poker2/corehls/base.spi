@@ -1,13 +1,13 @@
 prototype equable a : a -> a -> bool
 
-nominal order = i32
+union order = Eq | Lt | Gt
 prototype comparable a : a -> a -> order
-inl eq() = order 0i32
-inl eq_is (order x) : bool = !!!!EQ(x, 0i32)
-inl lt() = order -1i32
-inl lt_is (order x) : bool = !!!!EQ(x, -1i32)
-inl gt() = order 1i32
-inl gt_is (order x) : bool = !!!!EQ(x, 1i32)
+inl eq() = Eq
+inl eq_is = function Eq => true | _ => false
+inl lt() = Lt
+inl lt_is = function Lt => true | _ => false
+inl gt() = Gt
+inl gt_is = function Gt => true | _ => false
 
 prototype hashable a : a -> i32
 

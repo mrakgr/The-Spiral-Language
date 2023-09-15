@@ -3,6 +3,12 @@ open real_core
 
 nominal ap dim = $"ap_uint<@dim>" // The arbitrary sized integer type. The dim here is the number of bits.
 nominal card = { suit : ap 2; rank : ap 4 }
+prototype suit t : t -> u8
+prototype rank t : t -> u8
+
+instance suit card = fun (card {suit}) => $"!suit"
+instance rank card = fun (card {rank}) => $"!rank"
+
 inl sizeof_bit forall t. =
     typecase t with
     | ap ~dim => type_lit_to_lit `dim

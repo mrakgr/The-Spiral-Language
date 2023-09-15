@@ -2,6 +2,8 @@ open corehls
 open type_arith
 open real_utils
 
+// TODO: Make the folds reductions whenever possible.
+
 union score =
     | HighCard
     | Pair
@@ -14,29 +16,90 @@ union score =
     | StraightFlush
 
 prototype filter_take ar dim el : forall dim'. (el -> bool) -> ar dim el -> option (ar dim' el)
-prototype try_straight ar dim el : ar dim el -> option (ar 5 el)
-prototype max_hand ar dim el : ar dim el -> ar dim el -> ar dim el
-prototype partition_topk_pair ar dim el : forall dim'. ar dim el -> option (ar dim' el * ar (sub dim dim') el)
+prototype try_straight ar dim el {rank} : ar dim el -> option (ar 5 el)
+prototype max_hand ar dim el {rank} : ar dim el -> ar dim el -> ar dim el
+prototype partition_topk_pair ar dim el {rank} : forall dim'. ar dim el -> option (ar dim' el * ar (sub dim dim') el)
 prototype take ar dim el : forall dim'. ar dim el -> ar dim' el
 prototype merge_hands ar dim el : forall dim'. ar dim el -> ar dim' el -> ar (add dim dim') el
 prototype merge_hands2 ar dim el : forall dim' dim''. ar dim el -> ar dim' el -> ar dim'' el -> ar (add (add dim dim') dim'') el
 
 instance filter_take sa = fun f ar => 
-    real 
-        open real_core
-        inl dim, dim' = type_lit_to_lit `dim, type_lit_to_lit `dim'
-        if dim' > dim then error_type "The output array in filter_take cannot be greater than the initial one."
     open sam
     inl ar' = create
-    inl ~i = 0
-    iter (fun x =>
-        if f x && i < length ar' then 
-            set ar' i x
-            $"!i++"
-        ) ar
+    inl i =
+        fold (fun i x =>
+            if f x && i < length ar' then set ar' i x . i+1 else i
+            ) 0 ar
     if i = length ar' then Some ar'
     else None
-    
+
+instance try_straight sa = fun inp =>
+    real
+        open real_core
+        if type_lit_to_lit `dim < 5 then error_type "The array passed into the try straight should be at least 5 in length."
+    open sam
+    inl out = create
+    inl i,target =
+        fold (fun (i,target as s) x =>
+            if i < length out then
+                if target = rank x - 1 then s
+                elif target = rank x then
+                    set out i x
+                    i+1, target-1
+                else
+                    0, 12
+            else s
+            ) (0, 12) inp
+    if i = 4 && target = -1 && rank (index inp 0) = 12 then set out i (index inp 0) . Some out // 5,4,3,2,A case.
+    elif i = 5 then Some out 
+    else None
+
+instance max_hand sa = fun a b =>
+    open sam
+    inl c =
+        fold2 (fun s a b =>
+            match s with
+            | Eq => comp (rank a) (rank b)
+            | _ => s
+            ) Eq a b
+    if gt_is c then a else b
+
+instance partition_topk_pair sa = fun inp =>
+    open sam
+    inl l,r = create, create
+    inl i, target =
+        fold (fun (i,target as s) x =>
+            if i < length l then
+                inl i, target =
+                    if target = rank x then i, target
+                    else 0, rank x
+                set l i x
+                i+1, target
+            else s
+            ) (0,12) inp
+    if i = length l then
+        inl f gap_size range =
+            open loop
+            for' range (fun i =>
+                set r i (index inp (gap_size + i))
+                )
+        f 0 {from=0; nearTo=i-length l} . f (length l) {from=i-length l; nearTo=length r}
+        Some (l,r)
+    else
+        None
+
+instance take sa = fun inp =>
+    real
+        open real_core
+        if type_lit_to_lit `dim > type_lit_to_lit `dim' then error_type "The output of array in take should less than or equal to the original array."
+    open loop
+    open sam
+    inl out = create
+    for' {from=0; nearTo=length out} (fun i =>
+        set out i (index inp i)
+        )
+    out
+
 instance merge_hands2 sa = fun ar ar' ar'' => 
     open sam
     inl out = create
@@ -51,7 +114,7 @@ type hand_score (ar : * -> * -> *) dim = { score : ap 4; hand : ar dim card }
 inl eq forall dim. (a : ap dim) (b : ap dim) : bool = $"!a == !b"
 inl to_ap forall t {int} dim. (x : t) : ap dim = $"!x"
 inl compare_suit (n : u8) (x : card) = eq x.suit (to_ap n)
-inl list_max_hand l = // TODO: Make it a reduce.
+inl list_max_hand l =
     listm.fold (fun s x =>
         match s, x with
         | Some s, Some x => Some (max_hand s x)
@@ -59,8 +122,17 @@ inl list_max_hand l = // TODO: Make it a reduce.
         | None, None => s
         ) None l
 
-inl score forall (ar : * -> * -> *) {filter_take; try_straight; max_hand; partition_topk_pair; take; merge_hands; merge_hands2} dim. (hand : ar dim card) : hand_score ar 5 =
-    // TODO: The hand argument should be sorted by rank from highest to lowest.
+prototype sort ar dim el {rank; suit} : ar dim el -> ()
+instance sort sa = fun ar =>
+    global "#include <algorithm>"
+    inl len = sam.length ar
+    inl comp (a : el) (b : el) : bool = rank a > rank b || (rank a = rank b && suit a < suit b)
+    $"std::sort(!ar,!ar+!len,!comp)"
+    ()
+
+inl score forall (ar : * -> * -> *) {sort; filter_take; try_straight; max_hand; partition_topk_pair; take; merge_hands; merge_hands2} dim. (hand : ar dim card) : hand_score ar 5 =
+    sort hand
+
     inl high_card = take hand
 
     inl pair = 
@@ -118,15 +190,15 @@ inl score forall (ar : * -> * -> *) {filter_take; try_straight; max_hand; partit
         | x, None | None, x => x
         | None, None => a
     listm.mapiBack (fun (i : u8) => to_score (i+1)) rankings
-    |> listm.fold max_hand None // TODO: Make it a reduce.
+    |> listm.fold max_hand None
     |> function
-    | Some s => s
-    | None => {score=to_ap 0u8; hand=high_card}
+        | Some s => s
+        | None => {score=to_ap 0u8; hand=high_card}
 
 inl main () =
     open sam
     inl ar = create : sa (mult 3 (add 2 3)) i32
-    inl ar' : sa 16 i32 = nominal_recreate ar
+    inl ar' : sa 15 i32 = nominal_recreate ar
     !!!!PrintStatic(ar')
     ()
     

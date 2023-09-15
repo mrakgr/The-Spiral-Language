@@ -1,26 +1,24 @@
 // As long as the conditional returns true, executes the body.
 inl while (cond : () -> bool) (body : () -> ()) : () = !!!!While((join cond()),(body()))
 
-// So many type troubles, sigh. I forgot how to program in Spiral myself.
-
-inl dup forall t. (x : t) : t = $"!x"
-inl set forall t. (a : t) (b : t) : () =  real 
+inl _dup forall t. (x : t) : t = $"!x"
+inl _set forall t. (a : t) (b : t) : () =  real 
     match real_core.free_vars a with 
     | () => () 
     | _ => $"!a = !b" : ()
 
 // Folds over the range. Compiles to a while loop.
 inl for {from nearTo} body state = 
-    inl i, state = dup (from, state)
-    while (fun _ => i < nearTo) fun _ => set state (body i state) . $"!i++"
+    inl i, state = _dup (from, state)
+    while (fun _ => i < nearTo) fun _ => _set state (body i state) . $"!i++"
     state
 // Folds over the range. Stateless version. Compiles to a while loop.
 inl for' {from nearTo} body = for {from nearTo} (fun i _ => body i) ()
 
 // Folds over the range in an downwards direction.
 inl forDown {nearFrom to} body state = 
-    inl i, state = dup (nearFrom, state)
-    while (fun _ => i > to) fun _ => $"!i--" . set state (body i state)
+    inl i, state = _dup (nearFrom, state)
+    while (fun _ => i > to) fun _ => $"!i--" . _set state (body i state)
     state
 
 // Folds over the range in an downwards direction. Stateless version.
