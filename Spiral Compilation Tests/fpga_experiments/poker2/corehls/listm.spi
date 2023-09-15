@@ -30,3 +30,17 @@ inl iter f l = fold (fun () x => f x) () l
 inl iterBack f l = foldBack (fun x () => f x) l ()
 // Returns the length of the list.
 inl length l = fold (fun s _ => s + 1) 0 l
+// Returns whether an element with a given conditional is true in the list.
+inl rec exists f l =
+    inl rec body = function Cons(x,x') => f x || loop x' | Nil => false
+    and inl loop l =
+        if var_is l then join body l
+        else body l 
+    loop l
+// Returns whether the conditional function is true for every element in the list.
+inl rec forall' f l =
+    inl rec body = function Cons(x,x') => f x && loop x' | Nil => true
+    and inl loop l =
+        if var_is l then join body l
+        else body l 
+    loop l

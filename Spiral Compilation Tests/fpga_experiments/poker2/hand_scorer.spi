@@ -3,19 +3,23 @@ open type_arith
 open real_utils
 
 // TODO: Make the folds reductions whenever possible.
+// TODO: Replace the use of ints in this module with ap. Will require extending the language with that type.
 
-union score =
-    | HighCard
-    | Pair
-    | TwoPair
-    | Triple
-    | Straight
-    | Flush
-    | FullHouse
-    | Quad
-    | StraightFlush
+// union score =
+//     | HighCard
+//     | Pair
+//     | TwoPair
+//     | Triple
+//     | Straight
+//     | Flush
+//     | FullHouse
+//     | Quad
+//     | StraightFlush
+
+
 
 prototype filter_take ar dim el : forall dim'. (el -> bool) -> ar dim el -> option (ar dim' el)
+prototype try_straight_flush_for_suit ar dim el {rank} : u8 -> ar dim el -> option (ar 5 el)
 prototype try_straight ar dim el {rank} : ar dim el -> option (ar 5 el)
 prototype max_hand ar dim el {rank} : ar dim el -> ar dim el -> ar dim el
 prototype partition_topk_pair ar dim el {rank} : forall dim'. ar dim el -> option (ar dim' el * ar (sub dim dim') el)
@@ -26,33 +30,44 @@ prototype merge_hands2 ar dim el : forall dim' dim''. ar dim el -> ar dim' el ->
 instance filter_take sa = fun f ar => 
     open sam
     inl ar' = create
-    inl i =
-        fold (fun i x =>
-            if f x && i < length ar' then set ar' i x . i+1 else i
-            ) 0 ar
+    inl i = fold (fun i x => if f x && i < length ar' then set ar' i x . i+1 else i) 0 ar
     if i = length ar' then Some ar'
     else None
 
-instance try_straight sa = fun inp =>
+union try_straight_config el = StraightFlush : u8 | Straight
+
+inl eq forall dim. (a : ap dim) (b : ap dim) : bool = $"!a == !b"
+inl to_ap forall t {int} dim. (x : t) : ap dim = $"!x"
+inl compare_suit forall el {suit}. (n : u8) (x : el) = eq (suit x) (to_ap n)
+
+inl sa_try_straight forall dim el {rank}. (config : try_straight_config el) (inp : sa dim el) =
     real
         open real_core
-        if type_lit_to_lit `dim < 5 then error_type "The array passed into the try straight should be at least 5 in length."
+        if type_lit_to_lit `dim < 5 then error_type "The array passed into the sa_try_straight should be at least 5 in length."
     open sam
     inl out = create
     inl i,target =
         fold (fun (i,target as s) x =>
-            if i < length out then
-                if target = rank x - 1 then s
-                elif target = rank x then
-                    set out i x
-                    i+1, target-1
-                else
-                    0, 12
+            inl check () = match config with 
+                | StraightFlush f => f x // Straight flush filters the hand by suit so it is impossible for there to be pairs in a sequence.
+                | Straight => not (target = rank x - 1) // Make sure the hand is not pair. On 8,7,6,6,5,4 - it should not restart the process on that middle pair.
+            if i < length out && check () then
+                inl i = if target = rank x then i else 0
+                set out i x
+                i+1, rank x - 1
             else s
             ) (0, 12) inp
-    if i = 4 && target = -1 && rank (index inp 0) = 12 then set out i (index inp 0) . Some out // 5,4,3,2,A case.
+
+    inl check_if_exists_and_assign () = match config with // Takes care of the 5,4,3,2,A pattern.
+        | StraightFlush f => listm.exists (index inp >> fun x => f x && rank x = 12 && (set out 4 x . true)) [0;1;2;3]
+        | Straight => inl x = index inp 0 in rank x = 12 && (set out 4 x . true)
+    if i = 4 && target = -1 && check_if_exists_and_assign() then Some out // 5,4,3,2,A case.
     elif i = 5 then Some out 
     else None
+
+
+instance try_straight_flush_for_suit sa = sa_try_straight << StraightFlush << compare_suit
+instance try_straight sa = sa_try_straight Straight
 
 instance max_hand sa = fun a b =>
     open sam
@@ -70,19 +85,14 @@ instance partition_topk_pair sa = fun inp =>
     inl i, target =
         fold (fun (i,target as s) x =>
             if i < length l then
-                inl i, target =
-                    if target = rank x then i, target
-                    else 0, rank x
+                inl i = if target = rank x then i else 0
                 set l i x
-                i+1, target
+                i+1, rank x
             else s
             ) (0,12) inp
     if i = length l then
-        inl f gap_size range =
-            open loop
-            for' range (fun i =>
-                set r i (index inp (gap_size + i))
-                )
+        // Copies the input into r while avoiding the elements in l.
+        inl f gap_size range = loop.for' range (fun i => set r i (index inp (gap_size + i)))
         f 0 {from=0; nearTo=i-length l} . f (length l) {from=i-length l; nearTo=length r}
         Some (l,r)
     else
@@ -95,9 +105,7 @@ instance take sa = fun inp =>
     open loop
     open sam
     inl out = create
-    for' {from=0; nearTo=length out} (fun i =>
-        set out i (index inp i)
-        )
+    for' {from=0; nearTo=length out} (fun i => set out i (index inp i))
     out
 
 instance merge_hands2 sa = fun ar ar' ar'' => 
@@ -109,11 +117,6 @@ instance merge_hands2 sa = fun ar ar' ar'' =>
 
 instance merge_hands sa = fun ar ar' => merge_hands2 ar ar' (sam.create : _ 0 _) |> nominal_recreate
 
-type hand_score (ar : * -> * -> *) dim = { score : ap 4; hand : ar dim card }
-
-inl eq forall dim. (a : ap dim) (b : ap dim) : bool = $"!a == !b"
-inl to_ap forall t {int} dim. (x : t) : ap dim = $"!x"
-inl compare_suit (n : u8) (x : card) = eq x.suit (to_ap n)
 inl list_max_hand l =
     listm.fold (fun s x =>
         match s, x with
@@ -121,6 +124,8 @@ inl list_max_hand l =
         | None, x | x, None => x
         | None, None => s
         ) None l
+
+type hand_score (ar : * -> * -> *) dim = { score : ap 4; hand : ar dim card }
 
 prototype sort ar dim el {rank; suit} : ar dim el -> ()
 instance sort sa = fun ar =>
@@ -130,7 +135,7 @@ instance sort sa = fun ar =>
     $"std::sort(!ar,!ar+!len,!comp)"
     ()
 
-inl score forall (ar : * -> * -> *) {sort; filter_take; try_straight; max_hand; partition_topk_pair; take; merge_hands; merge_hands2} dim. (hand : ar dim card) : hand_score ar 5 =
+inl score forall (ar : * -> * -> *) {sort; filter_take; try_straight_flush_for_suit; try_straight; max_hand; partition_topk_pair; take; merge_hands; merge_hands2} dim. (hand : ar dim card) : hand_score ar 5 =
     sort hand
 
     inl high_card = take hand
@@ -170,16 +175,9 @@ inl score forall (ar : * -> * -> *) {sort; filter_take; try_straight; max_hand; 
         | Some ((quad : _ 4 _), rest) => Some (merge_hands quad (take rest : _ 1 _) |> nominal_recreate)
         | None => None
 
-    inl royal_flush =
-        inl straights_for_each_suit = 
-            listm.map (fun i => 
-                match filter_take (compare_suit i) hand with
-                | Some (q : _ 5 _) => try_straight q
-                | None => None
-                ) [0;1;2;3]
-        list_max_hand straights_for_each_suit
+    inl straight_flush = listm.map (fun i => try_straight_flush_for_suit (compare_suit i) hand) [0;1;2;3] |> list_max_hand 
     
-    inl rankings = [royal_flush; quad; full_house; flush; straight; triple; two_pair; pair]
+    inl rankings = [straight_flush; quad; full_house; flush; straight; triple; two_pair; pair]
 
     inl to_score i = function
         | Some hand => Some {score=to_ap i; hand}
