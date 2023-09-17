@@ -20,5 +20,13 @@ inl (::) a b = Cons (a,b)
 
 // Statically sized array with a type literal for a dimension.
 nominal sa dim el = $"array<@dim,`el>"
+
+// Arbitrary precision unsigned type.
+nominal ap_uint dim = $"ap_uint<@dim>" // The arbitrary sized integer type. The dim here is the number of bits.
+
+instance equable ap_uint dim = fun a b => $"!a == !b"
+instance comparable ap_uint dim = fun a b => if $"!a > !b" then Gt elif $"!a < !b" then Lt else Eq
+instance hashable ap_uint dim = fun x => $"!x"
+
 // Puts a statement in the global scope.
 inl global (x : string) : () = !!!!Global(x)

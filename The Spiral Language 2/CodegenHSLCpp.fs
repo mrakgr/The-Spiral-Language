@@ -316,34 +316,38 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             let case_tags = x.Item.tags
             let acs = match x.Item.layout with UHeap -> "->" | UStack -> "."
             let head = List.head is |> fun (L(i,_)) -> $"v{i}{acs}tag"
+            let print_successes s =
+                line s $"switch ({head}) {{"
+                let _ =
+                    let s = indent s
+                    Map.iter (fun k (a,b) ->
+                        let union_i = case_tags.[k]
+                        line s (sprintf "case %i: { // %s" union_i k)
+                        List.iter2 (fun (L(data_i,_)) a ->
+                            let a, s = data_free_vars a, indent s
+                            let qs = ResizeArray(a.Length)
+                            Array.iteri (fun field_i (L(v_i,t) as v) -> 
+                                qs.Add $"{tyv t} v{v_i} = v{data_i}{acs}v.case{union_i}.v{field_i};"
+                                ) a 
+                            line' s qs
+                            ) is a
+                        binds (indent s) ret b
+                        line (indent s) "break;"
+                        line s "}"
+                        ) on_succs
+                line s "}"
             List.pairwise is
             |> List.map (fun (L(i,_), L(i',_)) -> $"v{i}{acs}tag == v{i'}{acs}tag")
             |> String.concat " && "
-            |> function "" -> head | x -> $"{x} ? {head} : -1"
-            |> sprintf "switch (%s) {" |> line s
-            let _ =
-                let s = indent s
-                Map.iter (fun k (a,b) ->
-                    let union_i = case_tags.[k]
-                    line s (sprintf "case %i: { // %s" union_i k)
-                    List.iter2 (fun (L(data_i,_)) a ->
-                        let a, s = data_free_vars a, indent s
-                        let qs = ResizeArray(a.Length)
-                        Array.iteri (fun field_i (L(v_i,t) as v) -> 
-                            qs.Add $"{tyv t} v{v_i} = v{data_i}{acs}case{union_i}.v{field_i};"
-                            ) a 
-                        line' s qs
-                        ) is a
-                    binds (indent s) ret b
-                    line (indent s) "break;"
+            |> function 
+                | "" -> 
+                    print_successes s
+                | x ->
+                    line s $"if ({x}) {{"
+                    print_successes (indent s)
+                    line s "} else {"
+                    on_fail |> Option.iter (binds (indent s) ret)
                     line s "}"
-                    ) on_succs
-                on_fail |> Option.iter (fun b ->
-                    line s "default: {"
-                    binds (indent s) ret b
-                    line s "}"
-                    )
-            line s "}"
         | TyUnionBox(a,b,c') ->
             let c = c'.Item
             let i = c.tags.[a]
@@ -477,11 +481,12 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
         let inline map_iteri f x = Map.fold (fun i k v -> f i k v; i+1) 0 x |> ignore
         union (fun s_fwd s_typ s_fun x ->
             let i = x.tag
-            line s_typ "typedef struct {"
+            line s_typ $"struct US{i} {{"
             let _ =
                 let s_typ = indent s_typ
-                line s_typ "int tag;"
-                line s_typ "union {"
+                let num_bits_needed_to_represent (x : int) = Numerics.BitOperations.Log2(x * 2 - 1 |> uint) |> max 1
+                line s_typ $"unsigned int tag : {num_bits_needed_to_represent x.free_vars.Count};"
+                line s_typ "union U {"
                 let _ =
                     let s_typ = indent s_typ
                     map_iteri (fun tag k v -> 
@@ -490,9 +495,39 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                             print_ordered_args (indent s_typ) v
                             line s_typ (sprintf "} case%i; // %s" tag k)
                         ) x.free_vars
-                line s_typ "};"
-            
-            line s_typ (sprintf "} US%i;" i)
+                    line s_typ "U() {}"
+                line s_typ "} v;"
+                line s_typ $"US{i}() {{}}"
+                let print_assignments () =
+                    let s_typ = indent s_typ
+                    line s_typ "this->tag = x.tag;"
+                    line s_typ "switch (x.tag) {"
+                    let _ =
+                        let s_typ = indent s_typ
+                        map_iteri (fun tag k v -> 
+                            if Array.length v <> 0 then
+                                line s_typ $"case {tag}: {{ this->v.case{tag} = x.v.case{tag}; break; }}"
+                            ) x.free_vars
+                    line s_typ "}"
+
+                line s_typ $"US{i}(const US{i} & x) {{"
+                print_assignments ()
+                line s_typ "}"
+
+                line s_typ $"US{i}(const US{i} && x) {{"
+                print_assignments ()
+                line s_typ "}"
+
+                line s_typ $"US{i} & operator=(US{i} & x) {{"
+                print_assignments()
+                line (indent s_typ) "return *this;"
+                line s_typ "}"
+                
+                line s_typ $"US{i} & operator=(US{i} && x) {{"
+                print_assignments()
+                line (indent s_typ) "return *this;"
+                line s_typ "}"
+            line s_typ "};"
 
             map_iteri (fun tag k v -> 
                 let args = v |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}") |> String.concat ", "
@@ -502,7 +537,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                     line s_fun $"US{i} x;"
                     line s_fun $"x.tag = {tag};"
                     if v.Length <> 0 then
-                        v |> Array.map (fun (L(i,t)) -> $"x.case{tag}.v{i} = v{i};") |> line' s_fun
+                        v |> Array.map (fun (L(i,t)) -> $"x.v.case{tag}.v{i} = v{i};") |> line' s_fun
                     line s_fun "return x;"
                 line s_fun "}"
                 ) x.free_vars
@@ -515,16 +550,21 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
 
     let main_defs = {text=StringBuilder(); indent=0}
 
-    line main_defs (sprintf "%s main(){" (binds_last_data x |> data_term_vars |> term_vars_to_tys |> tup_ty_tys))
+    line main_defs (sprintf "%s entry(){" (binds_last_data x |> data_term_vars |> term_vars_to_tys |> tup_ty_tys))
     binds_start (indent main_defs) x
     line main_defs "}"
 
     let program = StringBuilder()
 
+    program.AppendLine("#ifndef _ENTRY")
+        .AppendLine("#define _ENTRY") |> ignore
+
     globals |> Seq.iter (fun x -> program.AppendLine(x) |> ignore)
     types |> Seq.iter (fun x -> program.Append(x) |> ignore)
     fwd_dcls |> Seq.iter (fun x -> program.Append(x) |> ignore)
     functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
-    program.Append(main_defs.text).ToString()
+    program.Append(main_defs.text)
+        .AppendLine("#endif")
+        .ToString()
 
 let codegen (env : PartEvalResult) (x : TypedBind []) = codegen' env x

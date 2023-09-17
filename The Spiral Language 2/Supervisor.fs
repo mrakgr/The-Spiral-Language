@@ -372,7 +372,7 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                             | "Fsharp" -> BuildOk(Codegen.Fsharp.codegen b a, "fsx")
                             | "Python" -> BuildOk(Codegen.Python.codegen b a, "py")
                             | "C" -> BuildOk(Codegen.C.codegen b a, "c")
-                            | "HLS C++" -> BuildOk(Codegen.HLS.Cpp.codegen b a, "cpp")
+                            | "HLS C++" -> BuildOk(Codegen.HLS.Cpp.codegen b a, "hpp")
                             | "UPMEM: Python + C" -> BuildOk(Codegen.Python.codegen_upmem_python_host b a, "py")
                             | "Cython*" | "Cython" -> BuildFatalError "The Cython backend has been replaced by the Python one in v2.3.1 of Spiral. Please use an earlier version to access it." // Date: 12/27/2022
                             | _ -> BuildFatalError $"Cannot recognize the backend: {backend}"

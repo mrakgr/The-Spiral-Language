@@ -2,29 +2,50 @@
 // The stuff in this file is just for the test bench.
 open corehls
 
-inl main () =
-    // global "#include <iostream>"
-    // open hand_scorer
-    // inl f x : u64 = 1 <<< conv_int (full x)
-    // inl hand =
-    //     f {rank=0; suit=0}
-    //     ||| f {rank=1; suit=0}
-    //     ||| f {rank=2; suit=1}
-    //     ||| f {rank=3; suit=1}
-    //     ||| f {rank=4; suit=1}
-    //     ||| f {rank=5; suit=1}
-    //     ||| f {rank=6; suit=1}
-    //     ||| f {rank=7; suit=1}
+inl main () : i32 =
+    global "#include \"ap_int.h\""
+    global "#include <iostream>"
 
-    // inl {hand=c1,c2,c3,c4,c5 score} = score' hand
+    inl hand : list {rank : i8; suit : i8} = [
+        {rank=0; suit=0}
+        {rank=1; suit=0}
+        {rank=2; suit=1}
+        {rank=3; suit=1}
+        {rank=4; suit=1}
+        {rank=5; suit=1}
+        {rank=6; suit=1}
+        {rank=7; suit=1}
+        ]
 
-    // inl p msg x = inl x = i32 x in $'std::cout << !msg << !x << std::endl;'
-    
-    // p "Score: " score
-    // p "Card 1: " c1
-    // p "Card 2: " c2
-    // p "Card 3: " c3
-    // p "Card 4: " c4
-    // p "Card 5: " c5
+    // inl q = 
+    //     open hand_scorer_orig
+    //     inl f x = 1 <<< conv_int (full x)
+    //     inl {hand=c1,c2,c3,c4,c5 score} = score' (hand |> listm.map f |> listm.fold (|||) 0)
+    //     inl f x = {suit=suit x; rank=rank x}
+    //     {hand=f c1, f c2, f c3, f c4, f c5; score}
 
-    0i32
+    inl q' = 
+        open real_utils
+        open hand_scorer
+        open sam
+        inl ar : sa 8 _ = create
+        inl f {rank suit} = card {rank = #(conv_int rank); suit = #(conv_int suit)}
+        inl i = hand |> listm.fold (fun i x => set ar i (f x) . i + 1) 0
+        if i <> length ar then error_type "Invalid size in the array."
+        inl {hand score} = score ar
+        inl i8 (x : ap_uint _) : i8 = $"!x"
+        inl f i = index hand i |> fun (card {suit rank}) => {suit=i8 suit; rank=i8 rank}
+        {hand=f 0, f 1, f 2, f 3, f 4; score=i8 score}
+    0
+
+    // inl print_score_hand {score hand=c0,c1,c2,c3,c4} =
+    //     inl f {rank suit} : () = $'std::cout << "(" << (int) !rank << "," << (int) !suit << ") " '
+    //     $'std::cout << "Score: " << (int) !score '
+    //     $'std::cout << "Card: "' . f c0 . f c1 . f c2 . f c3 . f c4
+    //     $'std::cout << std::endl'
+
+    // if q <> q' then 
+    //     // print_score_hand q
+    //     // print_score_hand q'
+    //     -1 
+    // else 0

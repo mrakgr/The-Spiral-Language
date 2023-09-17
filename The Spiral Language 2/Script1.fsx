@@ -1,1 +1,1 @@
-﻿List.fold2 (fun s a b -> s) () [1;2] [1]
+﻿let x = 127y
