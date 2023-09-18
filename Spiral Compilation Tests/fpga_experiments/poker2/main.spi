@@ -7,14 +7,18 @@ nominal mt = $"std::mt19937"
 nominal uint_dist = $"std::uniform_int_distribution<`mt::result_type>"
 nominal byref t = $"`t &"
 
+type n = 5
+
 inl main () : i32 =
     global "#include <random>"
     global "#include \"ap_int.h\""
     global "#include <iostream>"
 
+    inl n = real real_core.type_lit_to_lit `n
+
     inl dev = $"`random_device v$" : random_device
     inl rng = $"`mt v$(!dev())" : mt
-    inl dist = $"`uint_dist v$(0,52)" : uint_dist
+    inl dist = $"`uint_dist v$(0,51)" : uint_dist // The dist takes an inclusive [a,b] range.
 
 
     loop.for {from=0u64; nearTo=10_000_000} (fun i num_errors =>
@@ -24,18 +28,20 @@ inl main () : i32 =
             inl get h i = h &&& (1 <<< i) <> 0
             inl set h i = h ||| (1 <<< i)
 
-            let rec loop ar (h : u64) (i : i32) =
-                if i > 0 then
-                    inl r : i8 = $"!dist(!rng)"
-                    if get h (i32 r) then loop ar h i
-                    else 
-                        sam.set ar (i-1) {rank = rank r; suit = suit r}
-                        loop ar (set h (i32 r)) (i-1)
-                else
-                    ar
+            let ar = sam.create : sa n _
+            inl ~h = 0u64
 
-            inl n = 13
-            listm.init n (sam.index (loop (sam.create : sa 13 _) 0 n))
+            loop.while (fun i => i > 0) (fun i =>
+                inl r : i8 = $"!dist(!rng)"
+                if get h (i32 r) then i
+                else 
+                    sam.set ar (i-1) {rank = rank r; suit = suit r}
+                    loop._set h (set h (i32 r))
+                    i-1
+                ) n
+            |> ignore
+
+            listm.init n (sam.index ar)
 
         inl hand : list {rank : i8; suit : i8} = make_hand()
 
@@ -50,7 +56,7 @@ inl main () : i32 =
             open real_utils
             open hand_scorer
             open sam
-            inl ar : sa 13 _ = create
+            inl ar : sa n _ = create
             inl f {rank suit} = card {rank = #(conv_int rank); suit = #(conv_int suit)}
             inl i = hand |> listm.fold (fun i x => set ar i (f x) . i + 1) 0
             if i <> length ar then error_type "Invalid size in the array."
@@ -66,6 +72,9 @@ inl main () : i32 =
             $'std::cout << std::endl'
 
         if q <> q' then 
+            hand |> listm.iter (fun {rank suit} => $'std::cout << "{rank = " << (int) !rank << "; suit = " << (int) !suit << "}; " ')
+            $'std::cout << std::endl'
+
             print_score_hand q
             print_score_hand q'
             num_errors + 1 

@@ -3,6 +3,7 @@ open type_arith
 open real_utils
 
 // TODO: Make the folds reductions whenever possible.
+// TODO: Use u8 indices in array folds.
 
 prototype filter_take ar dim el : forall dim'. (el -> bool) -> ar dim el -> option (ar dim' el)
 prototype try_straight_flush_for_suit ar dim el {suit; rank} : ap_uint 2 -> ar dim el -> option (ar 5 el)
@@ -70,18 +71,18 @@ instance max_hand sa = fun a b =>
 instance partition_topk_pair sa = fun inp =>
     open sam
     inl l,r = create, create
-    inl i, target =
-        fold (fun (i,target as s) x =>
+    inl pos, i, target =
+        foldi (fun i' (_,i,target as s) x =>
             if i < length l then
                 inl i = if target = rank x then i else 0
                 set l i x
-                i+1, rank x
+                i', i+1, rank x
             else s
-            ) (0, #12) inp
+            ) (0, 0, #12) inp
     if i = length l then
         // Copies the input into r while avoiding the elements in l.
         inl f gap_size range = loop.for' range (fun i => set r i (index inp (gap_size + i)))
-        f 0 {from=0; nearTo=i-length l} . f (length l) {from=i-length l; nearTo=length r}
+        f 0 {from=0; nearTo=pos+1-length l} . f (length l) {from=pos+1-length l; nearTo=length r}
         Some (l,r)
     else
         None

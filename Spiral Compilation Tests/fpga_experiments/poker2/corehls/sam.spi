@@ -29,6 +29,9 @@ inl iteri forall dim el. f (ar : sa dim el) = for' {from=0; nearTo=length ar} (f
 // If the input function is f and the elements are i0...iN then computes f (... (f s i0)...) iN
 inl fold f s ar = for {from=0; nearTo= length ar} (fun i s => f s (index ar i)) s
 
+// Same as fold, but also passes the array index into the body.
+inl foldi f s ar = for {from=0; nearTo= length ar} (fun i s => f i s (index ar i)) s
+
 // Applies a function to each element of the two arrays, threading an accumulator argument through the computation.
 inl fold2 forall dim. f s (ar1 : sa dim _) (ar2 : sa dim _) = for {from=0; nearTo=length ar1} (fun i s => f s (index ar1 i) (index ar2 i)) s
 
