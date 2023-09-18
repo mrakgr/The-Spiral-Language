@@ -4,18 +4,6 @@ open real_utils
 
 // TODO: Make the folds reductions whenever possible.
 
-// union score =
-//     | HighCard
-//     | Pair
-//     | TwoPair
-//     | Triple
-//     | Straight
-//     | Flush
-//     | FullHouse
-//     | Quad
-//     | StraightFlush
-
-
 prototype filter_take ar dim el : forall dim'. (el -> bool) -> ar dim el -> option (ar dim' el)
 prototype try_straight_flush_for_suit ar dim el {suit; rank} : ap_uint 2 -> ar dim el -> option (ar 5 el)
 prototype try_straight ar dim el {suit; rank} : ar dim el -> option (ar 5 el)
@@ -47,23 +35,15 @@ inl sa_try_straight forall dim el {suit; rank}. (config : try_straight_config el
     inl out = create
     inl i,target =
         fold (fun (i,target as s) x =>
-            // $'std::cout << !i << " " << !target << std::endl'
             inl check () = match config with 
                 | StraightFlush a => a = suit x // Skips the cards with a different suit.
                 | Straight => target <> rank x -. #1 // Skips the pairs.
             if i < length out && check () then
-                // $'std::cout << "In true." << std::endl'
                 inl i = if target = rank x then i else 0
                 set out i x
                 i+1, rank x -. #1
-            else 
-                // $'std::cout << "In false." << std::endl'
-                s
+            else s
             ) (0, #12) inp
-
-    // $'std::cout << "Done with loop." << std::endl'
-    // $'std::cout << !i << " " << !target << std::endl'
-    // $'std::cout << std::endl'
 
     inl check_if_exists_and_assign () = match config with // Takes care of the 5,4,3,2,A pattern.
         | StraightFlush a => listm.exists (index inp >> fun x => a = suit x && rank x = #12 && (set out 4 x . true)) [0;1;2;3]
@@ -193,11 +173,6 @@ let score forall (ar : * -> * -> *) {sort; filter_take; try_straight_flush_for_s
     inl straight_flush = listm.map (fun i => try_straight_flush_for_suit #i hand) [0;1;2;3] |> list_max_hand 
     
     inl rankings = [straight_flush; quad; full_house; flush; straight; triple; two_pair; pair]
-    // listm.iter (fun x =>
-    //     match x with
-    //     | Some _ => $'std::cout << "true" << std::endl'
-    //     | None => $'std::cout << "false" << std::endl'
-    //     ) rankings
 
     inl to_score score = function
         | Some hand => Some {score hand}

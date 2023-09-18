@@ -44,3 +44,12 @@ inl rec forall' f l =
         if var_is l then join body l
         else body l 
     loop l
+// Initializes the list given a count and the mapping function. If the counter is statically known, it will create a list whose length is known at compile time.
+inl init i f =
+    inl rec body s = 
+        if s < i then f s :: loop (s+1)
+        else []
+    and inl loop s =
+        if var_is i then inl ~s = s in join body s
+        else body s 
+    loop 0
