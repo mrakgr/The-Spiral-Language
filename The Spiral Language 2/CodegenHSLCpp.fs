@@ -31,7 +31,7 @@ let binds_last_data x = x |> Array.last |> function TyLocalReturnData(x,_) | TyL
 
 type UnionRec = {tag : int; free_vars : Map<string, TyV[]>}
 type MethodRec = {tag : int; free_vars : L<Tag,Ty>[]; range : Ty; body : TypedBind[]; name : string option}
-type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain : Ty; domain_args : TyV[]; range : Ty; body : TypedBind[]}
+type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain : Ty; range : Ty; body : TypedBind[]}
 type TupleRec = {tag : int; tys : Ty []}
 type CFunRec = {tag : int; domain_args_ty : Ty[]; range : Ty}
 
@@ -316,7 +316,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             let case_tags = x.Item.tags
             let acs = match x.Item.layout with UHeap -> "->" | UStack -> "."
             let head = List.head is |> fun (L(i,_)) -> $"v{i}{acs}tag"
-            let print_successes s =
+            let print_successes s on_fail =
                 line s $"switch ({head}) {{"
                 let _ =
                     let s = indent s
@@ -328,23 +328,26 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                             let qs = ResizeArray(a.Length)
                             Array.iteri (fun field_i (L(v_i,t) as v) -> 
                                 qs.Add $"{tyv t} v{v_i} = v{data_i}{acs}v.case{union_i}.v{field_i};"
-                                ) a 
+                                ) a
                             line' s qs
                             ) is a
                         binds (indent s) ret b
                         line (indent s) "break;"
                         line s "}"
                         ) on_succs
+                    line s "default: {"
+                    on_fail |> Option.iter (binds (indent s) ret)
+                    line s "}"
                 line s "}"
             List.pairwise is
             |> List.map (fun (L(i,_), L(i',_)) -> $"v{i}{acs}tag == v{i'}{acs}tag")
             |> String.concat " && "
             |> function 
                 | "" -> 
-                    print_successes s
+                    print_successes s on_fail
                 | x ->
                     line s $"if ({x}) {{"
-                    print_successes (indent s)
+                    print_successes (indent s) None
                     line s "} else {"
                     on_fail |> Option.iter (binds (indent s) ret)
                     line s "}"
@@ -366,8 +369,11 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
         | TyFailwith(a,b) -> raise_codegen_error "Failwith is not supported in the HLS C++ backend."
         | TyConv(a,b) -> return' $"({tyv a}){tup_data b}"
         | TyApply(L(i,_),b) -> 
-            //raise_codegen_error "Function pointer application is not supported in the HLS C++ backend."
-            $"v{i}({args' b})" |> return'
+            let rec loop = function
+                | DPair(a,b) -> tup_data a :: loop b
+                | a -> [tup_data a]
+            let args = loop b |> String.concat ", "
+            $"v{i}({args})" |> return'
         | TyArrayLength(_,b) -> raise_codegen_error "Array length is not supported in the HLS C++ backend as they are bare pointers."
         | TyStringLength(_,b) -> raise_codegen_error "String length is not supported in the HLS C++ backend."
         | TyOp(Global,[DLit (LitString x)]) -> global' x
@@ -446,12 +452,25 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             match (fst env.join_point_closure.[jp_body]).[key] with
             | Some(domain_args, body) -> 
                 let assert_empty x = if Array.isEmpty x then x else raise_codegen_error "The HLS C++ backend doesn't support closures due to them needing to be heap allocated, only function pointers. For them to be converted to pointers, the closures must not have any free variables in them."
-                {tag=i; free_vars=rdata_free_vars args |> assert_empty; domain=domain; domain_args=data_free_vars domain_args; range=range; body=body}
+                {tag=i; free_vars=rdata_free_vars args |> assert_empty; domain=domain; range=range; body=body}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun _ s_typ s_fun x ->
             let i, range = x.tag, tup_ty x.range
-            let domain_args = x.domain_args |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}") |> String.concat ", "
-            sprintf "%s ClosureMethod%i(%s){" range i domain_args |> line s_fun
+            let domain_args = 
+                let rec loop = function
+                    | YPair(a,b) -> a :: loop b
+                    | a -> [a]
+                let mutable count = 0
+                let assert_not_void = function [||] -> raise_codegen_error "Void arguments in closures are not allowed." | x -> x
+                let rename x = Array.map (fun (L(i,t)) -> let x = L(count,t) in count <- count+1; x) x
+                loop x.domain |> List.mapi (fun i x -> let n = env.ty_to_data x |> data_free_vars in i, tup_ty_tyvs n, n |> rename |> assert_not_void)
+
+            let args = domain_args |> List.map (fun (i,ty,_) -> $"{ty} tup{i}") |> String.concat ", "
+            $"{range} ClosureMethod{i}({args}){{" |> line s_fun
+            domain_args |> List.map (fun (i'',_,vars) ->
+                Array.mapi (fun i' (L(i,t)) -> $"{tyv t} v{i} = tup{i''}.v{i'}") vars
+                |> String.concat "; "
+                ) |> String.concat "; " |> line s_fun
             binds_start (indent s_fun) x.body
             line s_fun "}"
             )
