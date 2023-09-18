@@ -11,6 +11,10 @@ open System.Text
 open System.Collections.Generic
 
 let is_string = function DV(L(_,YPrim StringT)) | DLit(LitString _) -> true | _ -> false
+// The number of bits needed to represent an union type with an x number of cases.
+// Strictly speaking it should be x * 2 - 1, but we do it like this to give 1 bit of extra wiggle room for the 2,4,8,16 kinds of cases
+// because of how TyUnionUnbox is being compiled.
+let num_bits_needed_to_represent (x : int) = Numerics.BitOperations.Log2(x * 2 |> uint) |> max 1
 
 let sizeof_tyv = function
     | YPrim (Int64T | UInt64T | Float64T) -> 64
@@ -33,7 +37,7 @@ type UnionRec = {tag : int; free_vars : Map<string, TyV[]>}
 type MethodRec = {tag : int; free_vars : L<Tag,Ty>[]; range : Ty; body : TypedBind[]; name : string option}
 type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain : Ty; range : Ty; body : TypedBind[]}
 type TupleRec = {tag : int; tys : Ty []}
-type CFunRec = {tag : int; domain_args_ty : Ty[]; range : Ty}
+type CFunRec = {tag : int; domain : Ty; range : Ty}
 
 let size_t = UInt32T
 
@@ -105,7 +109,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
 
     let cfun' show =
         let dict = Dictionary(HashIdentity.Structural)
-        let f (a : Ty, b : Ty) = {tag=dict.Count; domain_args_ty=a |> env.ty_to_data |> data_free_vars |> Array.map (fun (L(_,t)) -> t); range=b}
+        let f (a : Ty, b : Ty) = {tag=dict.Count; domain=a; range=b}
         fun x ->
             let mutable dirty = false
             let r = Utils.memoize dict (fun x -> dirty <- true; f x) x
@@ -316,41 +320,34 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             let case_tags = x.Item.tags
             let acs = match x.Item.layout with UHeap -> "->" | UStack -> "."
             let head = List.head is |> fun (L(i,_)) -> $"v{i}{acs}tag"
-            let print_successes s on_fail =
-                line s $"switch ({head}) {{"
-                let _ =
-                    let s = indent s
-                    Map.iter (fun k (a,b) ->
-                        let union_i = case_tags.[k]
-                        line s (sprintf "case %i: { // %s" union_i k)
-                        List.iter2 (fun (L(data_i,_)) a ->
-                            let a, s = data_free_vars a, indent s
-                            let qs = ResizeArray(a.Length)
-                            Array.iteri (fun field_i (L(v_i,t) as v) -> 
-                                qs.Add $"{tyv t} v{v_i} = v{data_i}{acs}v.case{union_i}.v{field_i};"
-                                ) a
-                            line' s qs
-                            ) is a
-                        binds (indent s) ret b
-                        line (indent s) "break;"
-                        line s "}"
-                        ) on_succs
-                    line s "default: {"
-                    on_fail |> Option.iter (binds (indent s) ret)
-                    line s "}"
-                line s "}"
             List.pairwise is
             |> List.map (fun (L(i,_), L(i',_)) -> $"v{i}{acs}tag == v{i'}{acs}tag")
             |> String.concat " && "
-            |> function 
-                | "" -> 
-                    print_successes s on_fail
-                | x ->
-                    line s $"if ({x}) {{"
-                    print_successes (indent s) None
-                    line s "} else {"
-                    on_fail |> Option.iter (binds (indent s) ret)
+            |> function "" -> head | x -> $"{x} ? {head} : (ap_uint<%i{num_bits_needed_to_represent case_tags.Count}>) -1"
+            |> sprintf "switch (%s) {" |> line s
+            let _ =
+                let s = indent s
+                Map.iter (fun k (a,b) ->
+                    let union_i = case_tags.[k]
+                    line s (sprintf "case %i: { // %s" union_i k)
+                    List.iter2 (fun (L(data_i,_)) a ->
+                        let a, s = data_free_vars a, indent s
+                        let qs = ResizeArray(a.Length)
+                        Array.iteri (fun field_i (L(v_i,t) as v) -> 
+                            qs.Add $"{tyv t} v{v_i} = v{data_i}{acs}v.case{union_i}.v{field_i};"
+                            ) a 
+                        line' s qs
+                        ) is a
+                    binds (indent s) ret b
+                    line (indent s) "break;"
                     line s "}"
+                    ) on_succs
+                on_fail |> Option.iter (fun b ->
+                    line s "default: {"
+                    binds (indent s) ret b
+                    line s "}"
+                    )
+            line s "}"
         | TyUnionBox(a,b,c') ->
             let c = c'.Item
             let i = c.tags.[a]
@@ -447,6 +444,14 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             binds_start (indent s_fun) x.body
             line s_fun "}"
             )
+    and closure_args domain =
+        let rec loop = function
+            | YPair(a,b) -> a :: loop b
+            | a -> [a]
+        let mutable count = 0
+        let assert_not_void = function [||] -> raise_codegen_error "Void arguments in closures are not allowed." | x -> x
+        let rename x = Array.map (fun (L(i,t)) -> let x = L(count,t) in count <- count+1; x) x
+        loop domain |> List.mapi (fun i x -> let n = env.ty_to_data x |> data_free_vars in i, tup_ty_tyvs n, n |> rename |> assert_not_void)
     and closure : _ -> ClosureRec =
         jp (fun ((jp_body,key & (C(args,_,domain,range))),i) ->
             match (fst env.join_point_closure.[jp_body]).[key] with
@@ -456,28 +461,22 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun _ s_typ s_fun x ->
             let i, range = x.tag, tup_ty x.range
-            let domain_args = 
-                let rec loop = function
-                    | YPair(a,b) -> a :: loop b
-                    | a -> [a]
-                let mutable count = 0
-                let assert_not_void = function [||] -> raise_codegen_error "Void arguments in closures are not allowed." | x -> x
-                let rename x = Array.map (fun (L(i,t)) -> let x = L(count,t) in count <- count+1; x) x
-                loop x.domain |> List.mapi (fun i x -> let n = env.ty_to_data x |> data_free_vars in i, tup_ty_tyvs n, n |> rename |> assert_not_void)
-
-            let args = domain_args |> List.map (fun (i,ty,_) -> $"{ty} tup{i}") |> String.concat ", "
+            let closure_args = closure_args x.domain
+            let args = closure_args |> List.map (fun (i,ty,_) -> $"{ty} tup{i}") |> String.concat ", "
             $"{range} ClosureMethod{i}({args}){{" |> line s_fun
-            domain_args |> List.map (fun (i'',_,vars) ->
-                Array.mapi (fun i' (L(i,t)) -> $"{tyv t} v{i} = tup{i''}.v{i'}") vars
-                |> String.concat "; "
-                ) |> String.concat "; " |> line s_fun
-            binds_start (indent s_fun) x.body
+            let _ =
+                let s_fun = indent s_fun
+                closure_args |> List.map (fun (i'',_,vars) ->
+                    Array.mapi (fun i' (L(i,t)) -> $"{tyv t} v{i} = tup{i''}.v{i'};") vars
+                    |> String.concat " "
+                    ) |> String.concat " " |> line s_fun
+                binds_start s_fun x.body
             line s_fun "}"
             )
     and cfun : _ -> CFunRec =
         cfun' (fun _ s_typ s_fun x ->
             let i, range = x.tag, tup_ty x.range
-            let domain_args_ty = x.domain_args_ty |> Array.map tyv |> String.concat ", "
+            let domain_args_ty = closure_args x.domain |> List.map (fun (_,ty,_) -> ty) |> String.concat ", "
             line s_typ $"typedef %s{range} (* Fun%i{i})(%s{domain_args_ty});"
             )
     and tup : _ -> TupleRec = 
@@ -503,8 +502,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             line s_typ $"struct US{i} {{"
             let _ =
                 let s_typ = indent s_typ
-                let num_bits_needed_to_represent (x : int) = Numerics.BitOperations.Log2(x * 2 - 1 |> uint) |> max 1
-                line s_typ $"unsigned int tag : {num_bits_needed_to_represent x.free_vars.Count};"
+                line s_typ $"ap_uint<{num_bits_needed_to_represent x.free_vars.Count}> tag;"
                 line s_typ "union U {"
                 let _ =
                     let s_typ = indent s_typ
@@ -564,7 +562,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
     and uheap _ : UnionRec = raise_codegen_error "Recursive unions aren't allowed in the HLS C++ backend due to them needing to be heap allocated."
 
     import "cstdint"
-
+    import' "ap_int.h"
     global' "template <int dim, typename el> struct array { el v[dim]; };"
 
     let main_defs = {text=StringBuilder(); indent=0}

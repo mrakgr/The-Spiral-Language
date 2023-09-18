@@ -20,4 +20,6 @@ modules:
     hand_scorer
     main
     unions
+    sorts
+    
     

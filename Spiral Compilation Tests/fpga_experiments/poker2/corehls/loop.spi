@@ -2,10 +2,11 @@
 inl while (cond : () -> bool) (body : () -> ()) : () = !!!!While((join cond()),(body()))
 
 inl _dup forall t. (x : t) : t = $"!x"
-inl _set forall t. (a : t) (b : t) : () =  real 
-    match real_core.free_vars a with 
-    | () => () 
-    | _ => $"!a = !b" : ()
+inl _set forall t. (a : t) ~(b : t) : () =  real 
+    inl rec loop = function
+        | (a,a'),(b,b') => ($"!a = !b" : ()) . loop (a',b')
+        | (), () => ()
+    loop (real_core.free_vars a, real_core.free_vars b)
 
 // Folds over the range. Compiles to a while loop.
 inl for {from nearTo} body state = 
