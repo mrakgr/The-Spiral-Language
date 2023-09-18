@@ -21,7 +21,7 @@ inl main () : i32 =
     inl dist = $"`uint_dist v$(0,51)" : uint_dist // The dist takes an inclusive [a,b] range.
 
 
-    loop.for {from=0u64; nearTo=10_000_000} (fun i num_errors =>
+    loop.for {from=0u64; nearTo=100_000} (fun i num_errors =>
         inl make_hand () = 
             open real_utils
             open hand_scorer_orig

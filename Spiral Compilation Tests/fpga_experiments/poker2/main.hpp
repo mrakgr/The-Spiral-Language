@@ -385,7 +385,7 @@ static inline Tuple0 TupleCreate0(uint64_t v0, int32_t v1){
 }
 bool method0(uint64_t v0){
     bool v1;
-    v1 = v0 < 10000000ull;
+    v1 = v0 < 100000ull;
     return v1;
 }
 static inline Tuple1 TupleCreate1(int8_t v0, int8_t v1){

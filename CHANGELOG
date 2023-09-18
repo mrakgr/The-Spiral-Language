@@ -1,3 +1,8 @@
+2.4.20 (9/18/2023)
+
+* A significant number of changes related to how union types are compiled. The constructors/assignment operators will now get generated from them in the C++ backend.
+* Also changed the way closure arguments work. It should be much easier to use them for C++ interop.
+
 2.4.19 (9/14/2023)
 
 * Final bit of wrangling. I've removed ESBuild and Typescript as dependencies so they aren't getting packaged with the Spiral plugin anymore.
