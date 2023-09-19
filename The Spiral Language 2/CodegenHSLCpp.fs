@@ -474,17 +474,18 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             line s_fun "}"
             )
     and cfun : _ -> CFunRec =
-        cfun' (fun _ s_typ s_fun x ->
+        cfun' (fun s_fwd s_typ s_fun x ->
             let i, range = x.tag, tup_ty x.range
             let domain_args_ty = closure_args x.domain |> List.map (fun (_,ty,_) -> ty) |> String.concat ", "
-            line s_typ $"typedef %s{range} (* Fun%i{i})(%s{domain_args_ty});"
+            line s_fwd $"typedef %s{range} (* Fun%i{i})(%s{domain_args_ty});"
             )
     and tup : _ -> TupleRec = 
-        tuple (fun _ s_typ s_fun x ->
+        tuple (fun s_fwd s_typ s_fun x ->
             let name = sprintf "Tuple%i" x.tag
-            line s_typ "typedef struct {"
+            line s_fwd $"struct {name};"
+            line s_typ $"struct {name} {{"
             x.tys |> Array.mapi (fun i x -> L(i,x)) |> print_ordered_args (indent s_typ)
-            line s_typ (sprintf "} %s;" name)
+            line s_typ "};"
 
             let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} v{i}")
             line s_fun (sprintf "static inline %s TupleCreate%i(%s){" name x.tag (String.concat ", " args))
@@ -499,6 +500,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
         let inline map_iteri f x = Map.fold (fun i k v -> f i k v; i+1) 0 x |> ignore
         union (fun s_fwd s_typ s_fun x ->
             let i = x.tag
+            line s_fwd $"struct US{i};"
             line s_typ $"struct US{i} {{"
             let _ =
                 let s_typ = indent s_typ
@@ -562,26 +564,35 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
     and uheap _ : UnionRec = raise_codegen_error "Recursive unions aren't allowed in the HLS C++ backend due to them needing to be heap allocated."
 
     import "cstdint"
+    import "array"
     import' "ap_int.h"
-    global' "template <int dim, typename el> struct array { el v[dim]; };"
 
     let main_defs = {text=StringBuilder(); indent=0}
 
-    line main_defs (sprintf "%s entry(){" (binds_last_data x |> data_term_vars |> term_vars_to_tys |> tup_ty_tys))
+    let entry_ret_ty = binds_last_data x |> data_term_vars |> term_vars_to_tys |> tup_ty_tys
+    line main_defs $"{entry_ret_ty} entry() {{"
     binds_start (indent main_defs) x
     line main_defs "}"
 
-    let program = StringBuilder()
+    let hpp = StringBuilder()
+    hpp.AppendLine("#ifndef _ENTRY")
+       .AppendLine("#define _ENTRY") |> ignore
+    globals |> Seq.iter (fun x -> hpp.AppendLine(x) |> ignore)
+    fwd_dcls |> Seq.iter (fun x -> hpp.Append(x) |> ignore)
+    hpp.AppendLine($"{entry_ret_ty} entry();")
+        .AppendLine("#endif") |> ignore
 
-    program.AppendLine("#ifndef _ENTRY")
-        .AppendLine("#define _ENTRY") |> ignore
 
-    globals |> Seq.iter (fun x -> program.AppendLine(x) |> ignore)
-    types |> Seq.iter (fun x -> program.Append(x) |> ignore)
-    fwd_dcls |> Seq.iter (fun x -> program.Append(x) |> ignore)
-    functions |> Seq.iter (fun x -> program.Append(x) |> ignore)
-    program.Append(main_defs.text)
-        .AppendLine("#endif")
-        .ToString()
+    let cpp = StringBuilder()
+    globals |> Seq.iter (fun x -> cpp.AppendLine(x) |> ignore)
+    fwd_dcls |> Seq.iter (fun x -> cpp.Append(x) |> ignore)
+    types |> Seq.iter (fun x -> cpp.Append(x) |> ignore)
+    functions |> Seq.iter (fun x -> cpp.Append(x) |> ignore)
+    
+    cpp.Append(main_defs.text) |> ignore
+    [
+    {|code = cpp.ToString(); file_extension = "cpp"|}
+    {|code = hpp.ToString(); file_extension = "hpp"|}
+    ]
 
 let codegen (env : PartEvalResult) (x : TypedBind []) = codegen' env x

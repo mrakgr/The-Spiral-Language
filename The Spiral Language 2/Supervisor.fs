@@ -213,7 +213,7 @@ let show_trace s (x : PartEval.Main.Trace) (msg : string) =
     List.map (show_position s) (loop [] x), msg
 
 type BuildResult =
-    | BuildOk of code: string * file_extension : string
+    | BuildOk of {|code: string; file_extension : string|} list
     | BuildErrorTrace of string list * string
     | BuildFatalError of string
 
@@ -349,7 +349,11 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
             let backend = x.backend
             let file = file x.uri
             let handle_build_result = function
-                | BuildOk(x,ext) -> Job.fromUnitTask (fun () -> IO.File.WriteAllTextAsync(IO.Path.ChangeExtension(file,ext), x))
+                | BuildOk l -> 
+                    Job.fromUnitTask (fun () -> task {
+                        for x in l do 
+                            do! IO.File.WriteAllTextAsync(IO.Path.ChangeExtension(file,x.file_extension), x.code)
+                    })
                 | BuildFatalError x -> Ch.send errors.fatal x
                 | BuildErrorTrace(a,b) -> Ch.send errors.traced {|trace=a; message=b|}
             let file_build (s : SupervisorState) mid (tc : WDiff.ProjStateTC, prepass : WDiffPrepass.ProjStatePrepass) =
@@ -369,11 +373,11 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                             d
                         try let (a,_),b = PartEval.Main.peval {prototypes_instances=prototypes_instances; nominals=nominals} main
                             match backend with
-                            | "Fsharp" -> BuildOk(Codegen.Fsharp.codegen b a, "fsx")
-                            | "Python" -> BuildOk(Codegen.Python.codegen b a, "py")
-                            | "C" -> BuildOk(Codegen.C.codegen b a, "c")
-                            | "HLS C++" -> BuildOk(Codegen.HLS.Cpp.codegen b a, "hpp")
-                            | "UPMEM: Python + C" -> BuildOk(Codegen.Python.codegen_upmem_python_host b a, "py")
+                            | "Fsharp" -> BuildOk [{|code = Codegen.Fsharp.codegen b a; file_extension = "fsx"|}]
+                            | "Python" -> BuildOk [{|code = Codegen.Python.codegen b a; file_extension = "py"|}]
+                            | "C" -> BuildOk [{|code = Codegen.C.codegen b a; file_extension = "c"|}]
+                            | "HLS C++" -> BuildOk (Codegen.HLS.Cpp.codegen b a)
+                            | "UPMEM: Python + C" -> BuildOk [{|code = Codegen.Python.codegen_upmem_python_host b a; file_extension = "py"|}]
                             | "Cython*" | "Cython" -> BuildFatalError "The Cython backend has been replaced by the Python one in v2.3.1 of Spiral. Please use an earlier version to access it." // Date: 12/27/2022
                             | _ -> BuildFatalError $"Cannot recognize the backend: {backend}"
                         with
