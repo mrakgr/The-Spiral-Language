@@ -1,0 +1,63 @@
+// The poker hand ranker.
+// The stuff in this file is just for the test bench.
+open corehls
+
+nominal random_device = $"std::random_device"
+nominal mt = $"std::mt19937"
+nominal uint_dist = $"std::uniform_int_distribution<`mt::result_type>"
+nominal byref t = $"`t &"
+
+type n = 5
+
+inl main () : i32 =
+    global "#include <random>"
+    global "#include \"ap_int.h\""
+    global "#include <iostream>"
+
+    inl n = real real_core.type_lit_to_lit `n
+
+    inl dev = $"`random_device v$" : random_device
+    inl rng = $"`mt v$(!dev())" : mt
+    inl dist = $"`uint_dist v$(0,51)" : uint_dist // The dist takes an inclusive [a,b] range.
+
+
+    loop.for {from=0u64; nearTo=1} (fun i num_errors =>
+        inl make_hand () = 
+            open real_utils
+            open hand_scorer_orig
+            inl get h i = h &&& (1 <<< i) <> 0
+            inl set h i = h ||| (1 <<< i)
+
+            let ar = sam.create : sa n _
+            inl ~h = 0u64
+
+            loop.while (fun i => i > 0) (fun i =>
+                inl r : i8 = $"!dist(!rng)"
+                if get h (i32 r) then i
+                else 
+                    sam.set ar (i-1) {rank = rank r; suit = suit r}
+                    loop._set h (set h (i32 r))
+                    i-1
+                ) n
+            |> ignore
+
+            listm.init n (sam.index ar)
+
+        inl hand : list {rank : i8; suit : i8} = make_hand()
+
+        inl q' = 
+            open real_utils
+            open hand_scorer
+            open sam
+            inl ar : sa n _ = create
+            inl f {rank suit} = card {rank = #(conv_int rank); suit = #(conv_int suit)}
+            inl i = hand |> listm.fold (fun i x => set ar i (f x) . i + 1) 0
+            if i <> length ar then error_type "Invalid size in the array."
+            inl {hand score} = score ar
+            inl i8 (x : ap_uint _) : i8 = $"!x"
+            inl f i = index hand i |> fun (card {suit rank}) => {suit=i8 suit; rank=i8 rank}
+            {hand=f 0, f 1, f 2, f 3, f 4; score=i8 score}
+
+        0i32
+
+    ) 0
