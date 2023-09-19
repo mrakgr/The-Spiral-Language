@@ -1,0 +1,25 @@
+packages: |core-
+
+modules:
+    corehls/
+        default-
+        base-
+        limit
+        real_core*
+        type_arith*
+        core-
+        loop
+        sam
+        listm
+        optionm
+        monad
+
+    conv-
+    hand_scorer_orig
+    real_utils*
+    hand_scorer
+    main
+    unions
+    sorts
+    
+    
