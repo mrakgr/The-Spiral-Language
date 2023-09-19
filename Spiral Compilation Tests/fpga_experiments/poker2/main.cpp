@@ -1937,7 +1937,7 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
     }
     Fun0 v6;
     v6 = ClosureMethod0;
-    std::sort(v1.begin(),v1.end(),v6);
+    std::stable_sort(v1.begin(),v1.end(),v6);
     std::array<Tuple5,5l> v7;
     int32_t v8;
     v8 = 0l;
@@ -2021,7 +2021,7 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v65 = US1_0();
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,2l> v44 = v43.v.case1.v0; std::array<Tuple5,3l> v45 = v43.v.case1.v1;
             std::array<Tuple5,3l> v46;
             int32_t v47;
@@ -2056,7 +2056,6 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                 v57++;
             }
             v65 = US1_1(v52);
-            break;
         }
     }
     std::array<Tuple5,2l> v66;
@@ -2132,7 +2131,7 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v160 = US1_0();
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,2l> v98 = v97.v.case1.v0; std::array<Tuple5,3l> v99 = v97.v.case1.v1;
             std::array<Tuple5,2l> v100;
             std::array<Tuple5,1l> v101;
@@ -2206,7 +2205,7 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                     v160 = US1_0();
                     break;
                 }
-                case 1: { // Some
+                default: { // Some
                     std::array<Tuple5,2l> v132 = v131.v.case1.v0; std::array<Tuple5,1l> v133 = v131.v.case1.v1;
                     std::array<Tuple5,1l> v134;
                     int32_t v135;
@@ -2251,10 +2250,8 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                         v149++;
                     }
                     v160 = US1_1(v139);
-                    break;
                 }
             }
-            break;
         }
     }
     std::array<Tuple5,3l> v161;
@@ -2330,7 +2327,7 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v214 = US1_0();
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,3l> v193 = v192.v.case1.v0; std::array<Tuple5,2l> v194 = v192.v.case1.v1;
             std::array<Tuple5,2l> v195;
             int32_t v196;
@@ -2365,7 +2362,6 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                 v206++;
             }
             v214 = US1_1(v201);
-            break;
         }
     }
     std::array<Tuple5,5l> v215;
@@ -2629,14 +2625,14 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v342 = v301;
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,5l> v318 = v317.v.case1.v0;
             switch (v301.tag) {
                 case 0: { // None
                     v342 = v317;
                     break;
                 }
-                case 1: { // Some
+                default: { // Some
                     std::array<Tuple5,5l> v319 = v301.v.case1.v0;
                     US4 v320;
                     v320 = US4_0();
@@ -2692,10 +2688,8 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                         v337 = v319;
                     }
                     v342 = US1_1(v337);
-                    break;
                 }
             }
-            break;
         }
     }
     US1 v367;
@@ -2704,14 +2698,14 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v367 = v285;
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,5l> v343 = v342.v.case1.v0;
             switch (v285.tag) {
                 case 0: { // None
                     v367 = v342;
                     break;
                 }
-                case 1: { // Some
+                default: { // Some
                     std::array<Tuple5,5l> v344 = v285.v.case1.v0;
                     US4 v345;
                     v345 = US4_0();
@@ -2767,10 +2761,8 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                         v362 = v344;
                     }
                     v367 = US1_1(v362);
-                    break;
                 }
             }
-            break;
         }
     }
     US1 v392;
@@ -2779,14 +2771,14 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v392 = v269;
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,5l> v368 = v367.v.case1.v0;
             switch (v269.tag) {
                 case 0: { // None
                     v392 = v367;
                     break;
                 }
-                case 1: { // Some
+                default: { // Some
                     std::array<Tuple5,5l> v369 = v269.v.case1.v0;
                     US4 v370;
                     v370 = US4_0();
@@ -2842,10 +2834,8 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                         v387 = v369;
                     }
                     v392 = US1_1(v387);
-                    break;
                 }
             }
-            break;
         }
     }
     std::array<Tuple5,3l> v393;
@@ -2921,7 +2911,7 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v478 = US1_0();
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,3l> v425 = v424.v.case1.v0; std::array<Tuple5,2l> v426 = v424.v.case1.v1;
             std::array<Tuple5,2l> v427;
             std::array<Tuple5,0l> v428;
@@ -2995,7 +2985,7 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                     v478 = US1_0();
                     break;
                 }
-                case 1: { // Some
+                default: { // Some
                     std::array<Tuple5,2l> v459 = v458.v.case1.v0; std::array<Tuple5,0l> v460 = v458.v.case1.v1;
                     std::array<Tuple5,0l> v461;
                     std::array<Tuple5,5l> v462;
@@ -3020,10 +3010,8 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                         v467++;
                     }
                     v478 = US1_1(v462);
-                    break;
                 }
             }
-            break;
         }
     }
     std::array<Tuple5,4l> v479;
@@ -3099,7 +3087,7 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v532 = US1_0();
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,4l> v511 = v510.v.case1.v0; std::array<Tuple5,1l> v512 = v510.v.case1.v1;
             std::array<Tuple5,1l> v513;
             int32_t v514;
@@ -3134,7 +3122,6 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                 v524++;
             }
             v532 = US1_1(v519);
-            break;
         }
     }
     ap_uint<2l> v533;
@@ -3819,14 +3806,14 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v809 = v721;
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,5l> v785 = v784.v.case1.v0;
             switch (v721.tag) {
                 case 0: { // None
                     v809 = v784;
                     break;
                 }
-                case 1: { // Some
+                default: { // Some
                     std::array<Tuple5,5l> v786 = v721.v.case1.v0;
                     US4 v787;
                     v787 = US4_0();
@@ -3882,10 +3869,8 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                         v804 = v786;
                     }
                     v809 = US1_1(v804);
-                    break;
                 }
             }
-            break;
         }
     }
     US1 v834;
@@ -3894,14 +3879,14 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v834 = v658;
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,5l> v810 = v809.v.case1.v0;
             switch (v658.tag) {
                 case 0: { // None
                     v834 = v809;
                     break;
                 }
-                case 1: { // Some
+                default: { // Some
                     std::array<Tuple5,5l> v811 = v658.v.case1.v0;
                     US4 v812;
                     v812 = US4_0();
@@ -3957,10 +3942,8 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                         v829 = v811;
                     }
                     v834 = US1_1(v829);
-                    break;
                 }
             }
-            break;
         }
     }
     US1 v859;
@@ -3969,14 +3952,14 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v859 = v595;
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,5l> v835 = v834.v.case1.v0;
             switch (v595.tag) {
                 case 0: { // None
                     v859 = v834;
                     break;
                 }
-                case 1: { // Some
+                default: { // Some
                     std::array<Tuple5,5l> v836 = v595.v.case1.v0;
                     US4 v837;
                     v837 = US4_0();
@@ -4032,10 +4015,8 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                         v854 = v836;
                     }
                     v859 = US1_1(v854);
-                    break;
                 }
             }
-            break;
         }
     }
     ap_uint<4l> v860;
@@ -4046,10 +4027,9 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v865 = US7_0();
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,5l> v861 = v65.v.case1.v0;
             v865 = US7_1(v861, v860);
-            break;
         }
     }
     ap_uint<4l> v866;
@@ -4060,10 +4040,9 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v871 = US7_0();
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,5l> v867 = v160.v.case1.v0;
             v871 = US7_1(v867, v866);
-            break;
         }
     }
     ap_uint<4l> v872;
@@ -4074,10 +4053,9 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v877 = US7_0();
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,5l> v873 = v214.v.case1.v0;
             v877 = US7_1(v873, v872);
-            break;
         }
     }
     ap_uint<4l> v878;
@@ -4088,10 +4066,9 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v883 = US7_0();
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,5l> v879 = v253.v.case1.v0;
             v883 = US7_1(v879, v878);
-            break;
         }
     }
     ap_uint<4l> v884;
@@ -4102,10 +4079,9 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v889 = US7_0();
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,5l> v885 = v392.v.case1.v0;
             v889 = US7_1(v885, v884);
-            break;
         }
     }
     ap_uint<4l> v890;
@@ -4116,10 +4092,9 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v895 = US7_0();
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,5l> v891 = v478.v.case1.v0;
             v895 = US7_1(v891, v890);
-            break;
         }
     }
     ap_uint<4l> v896;
@@ -4130,10 +4105,9 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v901 = US7_0();
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,5l> v897 = v532.v.case1.v0;
             v901 = US7_1(v897, v896);
-            break;
         }
     }
     ap_uint<4l> v902;
@@ -4144,10 +4118,9 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             v907 = US7_0();
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,5l> v903 = v859.v.case1.v0;
             v907 = US7_1(v903, v902);
-            break;
         }
     }
     US7 v909;
@@ -4169,10 +4142,9 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                     v919 = v909;
                     break;
                 }
-                case 1: { // Some
+                default: { // Some
                     std::array<Tuple5,5l> v912 = v901.v.case1.v0; ap_uint<4l> v913 = v901.v.case1.v1;
                     v919 = US7_1(v910, v911);
-                    break;
                 }
             }
             break;
@@ -4185,9 +4157,8 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                 }
                 default: {
                     switch (v909.tag) {
-                        case 0: { // None
+                        default: { // None
                             v919 = v901;
-                            break;
                         }
                     }
                 }
@@ -4203,10 +4174,9 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                     v929 = v919;
                     break;
                 }
-                case 1: { // Some
+                default: { // Some
                     std::array<Tuple5,5l> v922 = v895.v.case1.v0; ap_uint<4l> v923 = v895.v.case1.v1;
                     v929 = US7_1(v920, v921);
-                    break;
                 }
             }
             break;
@@ -4219,9 +4189,8 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                 }
                 default: {
                     switch (v919.tag) {
-                        case 0: { // None
+                        default: { // None
                             v929 = v895;
-                            break;
                         }
                     }
                 }
@@ -4237,10 +4206,9 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                     v939 = v929;
                     break;
                 }
-                case 1: { // Some
+                default: { // Some
                     std::array<Tuple5,5l> v932 = v889.v.case1.v0; ap_uint<4l> v933 = v889.v.case1.v1;
                     v939 = US7_1(v930, v931);
-                    break;
                 }
             }
             break;
@@ -4253,9 +4221,8 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                 }
                 default: {
                     switch (v929.tag) {
-                        case 0: { // None
+                        default: { // None
                             v939 = v889;
-                            break;
                         }
                     }
                 }
@@ -4271,10 +4238,9 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                     v949 = v939;
                     break;
                 }
-                case 1: { // Some
+                default: { // Some
                     std::array<Tuple5,5l> v942 = v883.v.case1.v0; ap_uint<4l> v943 = v883.v.case1.v1;
                     v949 = US7_1(v940, v941);
-                    break;
                 }
             }
             break;
@@ -4287,9 +4253,8 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                 }
                 default: {
                     switch (v939.tag) {
-                        case 0: { // None
+                        default: { // None
                             v949 = v883;
-                            break;
                         }
                     }
                 }
@@ -4305,10 +4270,9 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                     v959 = v949;
                     break;
                 }
-                case 1: { // Some
+                default: { // Some
                     std::array<Tuple5,5l> v952 = v877.v.case1.v0; ap_uint<4l> v953 = v877.v.case1.v1;
                     v959 = US7_1(v950, v951);
-                    break;
                 }
             }
             break;
@@ -4321,9 +4285,8 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                 }
                 default: {
                     switch (v949.tag) {
-                        case 0: { // None
+                        default: { // None
                             v959 = v877;
-                            break;
                         }
                     }
                 }
@@ -4339,10 +4302,9 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                     v969 = v959;
                     break;
                 }
-                case 1: { // Some
+                default: { // Some
                     std::array<Tuple5,5l> v962 = v871.v.case1.v0; ap_uint<4l> v963 = v871.v.case1.v1;
                     v969 = US7_1(v960, v961);
-                    break;
                 }
             }
             break;
@@ -4355,9 +4317,8 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                 }
                 default: {
                     switch (v959.tag) {
-                        case 0: { // None
+                        default: { // None
                             v969 = v871;
-                            break;
                         }
                     }
                 }
@@ -4373,10 +4334,9 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                     v979 = v969;
                     break;
                 }
-                case 1: { // Some
+                default: { // Some
                     std::array<Tuple5,5l> v972 = v865.v.case1.v0; ap_uint<4l> v973 = v865.v.case1.v1;
                     v979 = US7_1(v970, v971);
-                    break;
                 }
             }
             break;
@@ -4389,9 +4349,8 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
                 }
                 default: {
                     switch (v969.tag) {
-                        case 0: { // None
+                        default: { // None
                             v979 = v865;
-                            break;
                         }
                     }
                 }
@@ -4405,10 +4364,9 @@ Tuple6 score25(std::array<Tuple5,5l> v0){
             return TupleCreate6(v7, v982);
             break;
         }
-        case 1: { // Some
+        default: { // Some
             std::array<Tuple5,5l> v980 = v979.v.case1.v0; ap_uint<4l> v981 = v979.v.case1.v1;
             return TupleCreate6(v980, v981);
-            break;
         }
     }
 }

@@ -327,9 +327,13 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             |> sprintf "switch (%s) {" |> line s
             let _ =
                 let s = indent s
-                Map.iter (fun k (a,b) ->
+                let _,on_succs = Map.foldBack (fun k v (is_last, m) -> false, Map.add k (is_last,v) m) on_succs (on_fail.IsNone, Map.empty)
+                Map.iter (fun k (is_last,(a,b)) ->
                     let union_i = case_tags.[k]
-                    line s (sprintf "case %i: { // %s" union_i k)
+
+                    if is_last then line s $"default: {{ // {k}"
+                    else line s $"case {union_i}: {{ // {k}"
+
                     List.iter2 (fun (L(data_i,_)) a ->
                         let a, s = data_free_vars a, indent s
                         let qs = ResizeArray(a.Length)
@@ -339,7 +343,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                         line' s qs
                         ) is a
                     binds (indent s) ret b
-                    line (indent s) "break;"
+                    if not is_last then line (indent s) "break;"
                     line s "}"
                     ) on_succs
                 on_fail |> Option.iter (fun b ->

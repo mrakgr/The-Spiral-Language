@@ -122,7 +122,7 @@ instance sort_inplace sa = fun ar =>
     open sam
     inl len = length ar
     inl comp (a,b : el * el) : bool = rank a >. rank b || (rank a = rank b && suit a <. suit b)
-    $"std::sort(!ar.begin(),!ar.end(),!comp)"
+    $"std::stable_sort(!ar.begin(),!ar.end(),!comp)"
 
 prototype sort ar dim el {suit; rank} : ar dim el -> ar dim el
 instance sort sa = fun ar =>
