@@ -471,7 +471,10 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             let _ =
                 let s_fun = indent s_fun
                 closure_args |> List.map (fun (i'',_,vars) ->
-                    Array.mapi (fun i' (L(i,t)) -> $"{tyv t} v{i} = tup{i''}.v{i'};") vars
+                    Array.mapi (fun i' (L(i,t)) -> 
+                        if vars.Length <> 1 then $"{tyv t} v{i} = tup{i''}.v{i'};"
+                        else $"{tyv t} v{i} = tup{i''};"
+                        ) vars
                     |> String.concat " "
                     ) |> String.concat " " |> line s_fun
                 binds_start s_fun x.body

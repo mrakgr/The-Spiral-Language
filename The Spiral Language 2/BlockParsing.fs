@@ -143,6 +143,7 @@ type Op =
     | PrintRaw
     | ErrorType
     | NominalStrip
+    | StringLitToSymbol
     
     // Serialization helpers
     | VarTag

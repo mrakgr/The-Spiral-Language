@@ -1293,6 +1293,10 @@ let peval (env : TopEnv) (x : E) =
             | DLit x -> DTLit x
             | DSymbol x -> DSymbol x
             | a -> raise_type_error s <| sprintf "Expected a symbol or a type literal.\nGot: %s" (show_data a)
+        | EOp(_,StringLitToSymbol,[a]) -> 
+            match term s a with
+            | DLit(LitString a) -> DSymbol a
+            | a -> raise_type_error s <| sprintf "Expected a string literal.\nGot: %s" (show_data a)
         | EOp(_,TypeToSymbol,[EType(_,a)]) -> 
             match ty s a with
             | YSymbol a -> DSymbol a

@@ -18,8 +18,9 @@ modules:
     hand_scorer_orig
     real_utils*
     hand_scorer
+    random
+    sort
     main
     unions
-    sorts
     
     

@@ -1,3 +1,7 @@
+2.4.22 (9/23/2023)
+
+* Added the StringLitToSymbol to the language and fixed the way closure args are printed for singleton vars.
+
 2.4.21 (9/19/2023)
 
 * Changed the way the unions are generated so the return type errors in the HLS C++ compiler are avoided.

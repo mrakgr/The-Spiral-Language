@@ -58,3 +58,15 @@ inl reduce forall dim el. (f : el -> el -> el) (ar : sa dim el) =
             index `dim_full `el inp 0
 
     unroll ar
+
+instance equable sa dim el = fun a b =>
+    loop.while (fun is_eq, i => is_eq && i < length a) (fun (is_eq, i) =>
+        index a i = index b i, i + 1
+        ) (true, 0)
+    |> fst
+    
+instance comparable sa dim el = fun a b =>
+    loop.while (fun is_eq, i => eq_is is_eq && i < length a) (fun (is_eq, i) =>
+        comp (index a i) (index b i), i + 1
+        ) (Eq, 0)
+    |> fst
