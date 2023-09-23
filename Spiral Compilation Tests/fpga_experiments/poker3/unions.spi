@@ -1,8 +1,0 @@
-open corehls
-
-inl main() =
-    open sam
-    global "#include \"ap_int.h\""
-    inl ~x = Some ($"0" : ap_uint 2)
-    inl ~y = (dyn None) = x
-    0i32

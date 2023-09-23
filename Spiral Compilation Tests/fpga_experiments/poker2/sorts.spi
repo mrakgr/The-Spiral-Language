@@ -1,21 +1,13 @@
 open corehls
 open real_utils
 
-inl (-.) forall dim. (a : ap_uint dim) (b : ap_uint dim) : ap_uint dim = $"!a - !b"
-inl (>.) forall dim. (a : ap_uint dim) (b : ap_uint dim) : bool = $"!a > !b"
-inl (<.) forall dim. (a : ap_uint dim) (b : ap_uint dim) : bool = $"!a < !b"
-inl (~#) forall dim. (x : u32) : ap_uint dim = $"!x"
-
-inl sort_inplace ar =
-    global "#include <algorithm>"
+inl merge_sort forall dim el. (inp : sa dim el) f : sa dim el =
     open sam
-    inl len = length ar
-    inl comp (a,b : card * card) : bool = rank a >. rank b || (rank a = rank b && suit a <. suit b)
-    $"std::sort(!ar.v,!ar.v+!len,!comp)"
-    ()
+    inl ~inp = map id inp
+    
+    inp
 
 inl main () =
     open sam
     inl ar = create : sa 8 card
-    sort_inplace ar
     0i32
