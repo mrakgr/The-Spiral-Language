@@ -13,4 +13,22 @@ inl make_dist (from, to : i32 * i32) : rng =
 
 inl get_int (rng (mt,dist)) : i32 = $"!dist(!mt)"
 
+let test_random() =
+    inl d = make_dist (0,100)
+    get_int d
 
+open corehls
+
+nominal lfsr dim = ap_uint dim
+
+inl rng forall dim. (rng : lfsr 128) : ap_uint dim * lfsr 128 =
+    
+    failwith ""
+
+
+inl main () =
+    global "#include <random>"
+    global "#include <iostream>"
+    inl r = test_random()
+    $"std::cout << !r << std::endl"
+    0i32

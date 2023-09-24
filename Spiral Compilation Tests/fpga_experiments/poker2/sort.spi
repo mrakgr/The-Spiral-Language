@@ -25,7 +25,7 @@ inl merge_sort' forall dim el. pragma1 pragma2 pragma3 (inp : sa dim el) f : sa 
         inl index = index switch
         inl set = set switch
 
-        loop.while (fun from => from <= length inp) (fun from =>
+        loop.while (fun from => from < length inp) (fun from =>
             insert_pragma pragma2
             inl add_by i x = min (x + by * i) (length inp)
             inl mid, nearTo = add_by 1 from, add_by 2 from
@@ -52,7 +52,7 @@ inl merge_sort' forall dim el. pragma1 pragma2 pragma3 (inp : sa dim el) f : sa 
     |> fun switch, _ => if not switch then out else inp
 
 inl merge_sort forall dim el. (inp : sa dim el) f : sa dim el = merge_sort' "" "" "" inp f
-inl merge_sort_inline forall dim el. (inp : sa dim el) f : sa dim el = merge_sort' "INLINE" "INLINE" "INLINE" inp f
+inl merge_sort_inline forall dim el. (inp : sa dim el) f : sa dim el = merge_sort' "INLINE" "INLINE" "" inp f
 
 inl cpp_stable_sort forall dim el {number}. (ar : sa dim el) f =
     global "#include <algorithm>"
