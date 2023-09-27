@@ -1,5 +1,7 @@
-﻿open System
-
-let num_bits_needed_to_represent (x : int) = Numerics.BitOperations.Log2(x * 2 |> uint) |> max 1
-List.init 20 (fun i -> let i = i+1 in i, num_bits_needed_to_represent i)
+﻿//let a = 285321827306898791209647125482703629360I
+let a = 258I
+let ar = a.ToByteArray(true,true)
+ar
+|> Array.chunkBySize 8
+|> Array.map (Array.map (fun x -> System.Convert.ToString(x,2).PadLeft(8,'0')) >> String.concat "")
 |> printfn "%A"

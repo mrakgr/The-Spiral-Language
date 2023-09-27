@@ -1,0 +1,32 @@
+prototype equable a : a -> a -> bool
+
+union order = Eq | Lt | Gt
+prototype comparable a : a -> a -> order
+inl eq() = Eq
+inl eq_is = function Eq => true | _ => false
+inl lt() = Lt
+inl lt_is = function Lt => true | _ => false
+inl gt() = Gt
+inl gt_is = function Gt => true | _ => false
+
+prototype hashable a : a -> i32
+
+union option a = Some : a | None
+union choice2 a b = C1of2 : a | C2of2 : b
+union result a b = Ok : a | Error : b
+union rec list a = Nil | Cons : a * list a
+// Concatenates an element to the head of a list.
+inl (::) a b = Cons (a,b)
+
+// Statically sized array with a type literal for a dimension.
+nominal sa dim el = $"std::array<`el,@dim>"
+
+// Arbitrary precision unsigned type.
+nominal ap_uint dim = $"ap_uint<@dim>" // The arbitrary sized integer type. The dim here is the number of bits.
+
+instance equable ap_uint dim = fun a b => $"!a == !b"
+instance comparable ap_uint dim = fun a b => if $"!a > !b" then Gt elif $"!a < !b" then Lt else Eq
+instance hashable ap_uint dim = fun x => $"!x"
+
+// Puts a statement in the global scope.
+inl global (x : string) : () = !!!!Global(x)

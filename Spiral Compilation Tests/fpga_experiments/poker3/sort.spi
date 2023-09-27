@@ -1,0 +1,97 @@
+open corehls
+open real_utils
+
+inl insert_pragma (x : string) : () = real
+    open real_core
+    match x with
+    | "" => ()
+    | _ =>
+        typecase `(string_lit_to_symbol x) with
+        | ~pragma => $"#pragma HLS @pragma" : ()
+
+
+inl merge_sort' forall dim el. pragma1 pragma2 pragma3 (inp : sa dim el) f : sa dim el =
+    open sam
+    inl ~inp = map id inp
+    
+    if length inp = 1 then map id inp else
+
+    inl ~out = create
+    inl index switch i = if switch then index inp i else index out i
+    inl set switch i v = if switch then set out i v else set inp i v
+
+    loop.while (fun (_, by) => by < length inp) (fun (switch, by) => 
+        insert_pragma pragma1
+        inl index = index switch
+        inl set = set switch
+
+        loop.while (fun from => from < length inp) (fun from =>
+            insert_pragma pragma2
+            inl add_by i x = min (x + by * i) (length inp)
+            inl mid, nearTo = add_by 1 from, add_by 2 from
+
+            loop.while (fun (_,_,c) => c < nearTo) (fun (i,i',c) =>
+                insert_pragma pragma3
+                inl x,i,i' =
+                    if i < mid && i' < nearTo then
+                        inl l,r = index i, index i'
+                        match f l r with
+                        | Gt => r, (i,i'+1)
+                        | _ => l, (i+1,i')
+                    elif i < mid then index i, (i+1, i')
+                    else index i', (i, i'+1)
+                set c x . (i, i', c+1)
+                ) (from,mid,from)
+            |> ignore
+            from + by * 2
+            ) 0
+        |> ignore
+        $'std::cout << "***\\n" '
+        not switch, by * 2
+        ) (true, 1)
+    |> fun switch, _ => if not switch then out else inp
+
+inl merge_sort forall dim el. (inp : sa dim el) f : sa dim el = merge_sort' "" "" "" inp f
+inl merge_sort_inline forall dim el. (inp : sa dim el) f : sa dim el = merge_sort' "INLINE" "INLINE" "" inp f
+
+inl cpp_stable_sort forall dim el {number}. (ar : sa dim el) f =
+    global "#include <algorithm>"
+    open sam
+    inl ar = map id ar
+    inl comp (a,b : el * el) : bool = f a b
+    $"std::stable_sort(!ar.begin(),!ar.end(),!comp)"
+    ar
+
+inl main () =
+    global "#include <random>"
+    global "#include <iostream>"
+    open sam
+
+    let try_size forall dim. (_ : dim) =
+        inl dist = random.make_dist(0,51)
+        loop.for {from=0i32; nearTo=1000} (fun _ (s : bool) =>
+            inl orig = init (fun _ => random.get_int dist) : sa dim i32
+            inl x = cpp_stable_sort orig (fun a b => a <= b)
+            inl x' = merge_sort_inline orig comp
+            if x = x' then true
+            else 
+                $'std::cout << "Error:\\n"'
+                iter (fun v => $"std::cout << !v << std::endl") orig
+                $'std::cout << "---\\n"'
+                iter (fun v => $"std::cout << !v << std::endl") x
+                $'std::cout << "---\\n"'
+                iter (fun v => $"std::cout << !v << std::endl") x'
+                false
+            && s
+            ) true
+        |> fun s =>
+            $'std::cout << "///\\n"'
+            s
+
+    inl rec loop (i : i32) =
+        if i < 100 then 
+            inl b = real try_size `@i ()
+            print_static i
+            b && loop (i+1)
+        else true
+    if loop 1 then 0i32 else 1

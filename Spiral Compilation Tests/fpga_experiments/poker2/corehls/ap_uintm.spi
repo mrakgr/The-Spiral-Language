@@ -1,0 +1,8 @@
+inl index forall dim. (x : ap_uint dim) (i : sa_dim) : ap_uint 1 = $"!x[!i]"
+inl set forall dim. (x : ap_uint dim) (i : sa_dim) (v : ap_uint 1) : () = $"!x[!i] = !v"
+inl and_ forall dim. (a : ap_uint dim) (b : ap_uint dim) : ap_uint dim = $"!a & !b"
+inl or forall dim. (a : ap_uint dim) (b : ap_uint dim) : ap_uint dim = $"!a | !b"
+inl xor forall dim. (a : ap_uint dim) (b : ap_uint dim) : ap_uint dim = $"!a ^ !b"
+inl shift_right forall dim. (x : ap_uint dim) (i : sa_dim) : ap_uint dim = $"!x >> !i"
+inl shift_left forall dim. (x : ap_uint dim) (i : sa_dim) : ap_uint dim = $"!x << !i"
+inl length forall dim. (x : ap_uint dim) : sa_dim = real open real_core in type_lit_to_lit `dim
