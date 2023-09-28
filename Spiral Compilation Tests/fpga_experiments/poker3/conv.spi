@@ -2,6 +2,7 @@
 inl f64 forall t {number}. (x : t) : f64 = $"(`f64)!x"
 inl f32 forall t {number}. (x : t) : f32 = $"(`f32)!x"
 inl u64 forall t {number}. (x : t) : u64 = $"(`u64)!x"
+inl u32 forall t {number}. (x : t) : u32 = $"(`u32)!x"
 inl i64 forall t {number}. (x : t) : i64 = $"(`i64)!x"
 inl i32 forall t {number}. (x : t) : i32 = $"(`i32)!x"
 inl conv_num forall a {number} b {number}. (x : a) : b = $"(`b)!x"

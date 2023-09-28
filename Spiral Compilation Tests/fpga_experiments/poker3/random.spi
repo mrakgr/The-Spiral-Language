@@ -21,7 +21,10 @@ open corehls
 
 nominal lfsr dim = ap_uint dim
 
-inl random_128 forall dim. (lfsr rng : lfsr 128) : ap_uint dim * lfsr 128 =
+inl pragma_pipeline (ii : i32) : () = $"#pragma HLS PIPELINE II=!ii"
+
+let random_ap forall dim. (lfsr rng : lfsr 128) : ap_uint dim * lfsr 128 =
+    pragma_pipeline 1
     open ap_uintm
     inl out = $"0"
     inl rng =
@@ -43,13 +46,27 @@ inl random_128 forall dim. (lfsr rng : lfsr 128) : ap_uint dim * lfsr 128 =
 
 inl default() : lfsr 128 = // 285321827306898791209647125482703629360
     open ap_uintm
-    inl a : ap_uint 128 = $"0b1101011010100110111111000010111101111111100001011011100001111110"
-    inl b : ap_uint 128 = $"0b1000001110011100000101101011010000000100101010110010110000110000"
-    lfsr (or (shift_left a 64) b)
+    inl a : ap_uint 64 = $"0b1101011010100110111111000010111101111111100001011011100001111110"
+    inl b : ap_uint 64 = $"0b1000001110011100000101101011010000000100101010110010110000110000"
+    lfsr (concat a b |> nominal_recreate)
+
+let random_f32 rng : f32 * lfsr 128 =
+    pragma_pipeline 1
+    global "#include <cstring>"
+    inl (frac : ap_uint 23), rng = random_ap rng
+    inl exp : ap_uint 8 = $"127"
+    inl sign : ap_uint 1 = $"0b0"
+    open ap_uintm
+    inl x : ap_uint 32 = concat sign (concat exp frac) |> nominal_recreate
+    inl x : u32 = $'static_cast<`u32>(!x)'
+    inl ~r : f32 = 0
+    $'static_assert(sizeof(`u32) == sizeof(`f32), "float has a weird size")'
+    $"std::memcpy(&!r,&!x,sizeof(`f32))"
+    r - 1, rng
 
 type n = 10
 type n2 = 1024
-inl main () =
+inl test1 () =
     global "#include <iostream>"
     global "#include <bitset>"
     open sam
@@ -57,7 +74,7 @@ inl main () =
 
     inl rng =
         loop.for {from=0i32; nearTo=1_000_000} (fun i rng =>
-            inl r, rng : ap_uint 10 * _ = random_128 rng
+            inl r, rng : ap_uint 10 * _ = random_ap rng
             inl i = $"(int) !r"
             set hist i (index hist i + 1)
             rng
@@ -68,3 +85,13 @@ inl main () =
     $'std::cout << "The sum is: " << !sum << std::endl'
     $'std::cout << "The rng is: " << !rng << std::endl'
     0i32
+
+inl main () =
+    global "#include <iostream>"
+    inl rng =
+        loop.for {from=0i32; nearTo=1_000} (fun i rng =>
+            inl r, rng = random_f32 rng
+            $'std::cout << !r << std::endl'
+            rng
+            ) default()
+    ()

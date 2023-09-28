@@ -1,3 +1,7 @@
+2.4.23 (9/28/2023)
+
+* #pragma statement do not produce a semicolon statement at the end anymore.
+
 2.4.22 (9/23/2023)
 
 * Added the StringLitToSymbol to the language and fixed the way closure args are printed for singleton vars.

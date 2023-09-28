@@ -155,18 +155,21 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                     match a with
                     | TyMacro a ->
                         let m = a |> List.map (function CMText x -> x | CMTerm x -> tup_data x | CMType x -> tup_ty x | CMTypeLit x -> type_lit x) |> String.concat ""
-                        let q = m.Split("v$")
-                        if q.Length = 1 then 
-                            decl_vars |> line' s
-                            return_local s d m 
+                        if m.StartsWith("#pragma") then
+                            line s m
                         else
-                            if d.Length = q.Length-1 then
-                                let w = StringBuilder(m.Length+8)
-                                let tag (L(i,_)) = i : int
-                                Array.iteri (fun i v -> w.Append(q.[i]).Append('v').Append(tag v) |> ignore) d
-                                w.Append(q.[d.Length]).Append(';').ToString() |> line s
+                            let q = m.Split("v$")
+                            if q.Length = 1 then 
+                                decl_vars |> line' s
+                                return_local s d m 
                             else
-                                raise_codegen_error "The special v$ macro requires the same number of free vars in its binding as there are v$ in the code."
+                                if d.Length = q.Length-1 then
+                                    let w = StringBuilder(m.Length+8)
+                                    let tag (L(i,_)) = i : int
+                                    Array.iteri (fun i v -> w.Append(q.[i]).Append('v').Append(tag v) |> ignore) d
+                                    w.Append(q.[d.Length]).Append(';').ToString() |> line s
+                                else
+                                    raise_codegen_error "The special v$ macro requires the same number of free vars in its binding as there are v$ in the code."
                     | TyArrayLiteral(a,b') -> 
                         let inits = List.map tup_data b' |> String.concat "," |> sprintf "{%s}"
                         match d with

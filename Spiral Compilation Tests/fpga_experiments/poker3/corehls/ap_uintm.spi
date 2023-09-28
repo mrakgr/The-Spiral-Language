@@ -5,4 +5,11 @@ inl or forall dim. (a : ap_uint dim) (b : ap_uint dim) : ap_uint dim = $"!a | !b
 inl xor forall dim. (a : ap_uint dim) (b : ap_uint dim) : ap_uint dim = $"!a ^ !b"
 inl shift_right forall dim. (x : ap_uint dim) (i : sa_dim) : ap_uint dim = $"!x >> !i"
 inl shift_left forall dim. (x : ap_uint dim) (i : sa_dim) : ap_uint dim = $"!x << !i"
+inl (|||) a b = or a b
+inl (^) a b = xor a b
+inl (<<<) a b = shift_left a b
+inl (>>>) a b = shift_right a b
 inl length forall dim. (x : ap_uint dim) : sa_dim = real open real_core in type_lit_to_lit `dim
+
+open type_arith
+inl concat forall dim_a dim_b. (a : ap_uint dim_a) (b : ap_uint dim_b) : ap_uint (add dim_a dim_b) = $"!a.concat(!b)"
