@@ -9,8 +9,7 @@ inl insert_pragma (x : string) : () = real
         typecase `(string_lit_to_symbol x) with
         | ~pragma => $"#pragma HLS @pragma" : ()
 
-
-inl merge_sort' forall dim el. pragma1 pragma2 pragma3 (inp : sa dim el) f : sa dim el =
+inl merge_sort' forall dim el. pragma1 pragma2 pragma3 f (inp : sa dim el) : sa dim el =
     open sam
     inl ~inp = map id inp
     
@@ -51,8 +50,8 @@ inl merge_sort' forall dim el. pragma1 pragma2 pragma3 (inp : sa dim el) f : sa 
         ) (true, 1)
     |> fun switch, _ => if not switch then out else inp
 
-inl merge_sort forall dim el. (inp : sa dim el) f : sa dim el = merge_sort' "" "" "" inp f
-inl merge_sort_inline forall dim el. (inp : sa dim el) f : sa dim el = merge_sort' "INLINE" "INLINE" "" inp f
+inl merge_sort forall dim el. f (inp : sa dim el) : sa dim el = merge_sort' "" "" "" f inp
+inl merge_sort_inline forall dim el. f (inp : sa dim el) : sa dim el = merge_sort' "INLINE" "INLINE" "" f inp
 
 inl cpp_stable_sort forall dim el {number}. (ar : sa dim el) f =
     global "#include <algorithm>"
@@ -72,7 +71,7 @@ inl main () =
         loop.for {from=0i32; nearTo=1000} (fun _ (s : bool) =>
             inl orig = init (fun _ => random.get_int dist) : sa dim i32
             inl x = cpp_stable_sort orig (fun a b => a <= b)
-            inl x' = merge_sort_inline orig comp
+            inl x' = merge_sort_inline comp orig
             if x = x' then true
             else 
                 $'std::cout << "Error:\\n"'

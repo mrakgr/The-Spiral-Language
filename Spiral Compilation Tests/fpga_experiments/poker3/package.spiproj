@@ -18,10 +18,8 @@ modules:
     conv-
     hand_scorer_orig
     real_utils*
-    hand_scorer
     random
-    sort
+    sortm
+    hand_scorer
     main
-    unions
-    
     

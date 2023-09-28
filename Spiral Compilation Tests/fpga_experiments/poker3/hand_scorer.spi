@@ -114,27 +114,25 @@ inl list_max_hand l =
         | None, None => s
         ) None l
 
-type hand_score (ar : * -> * -> *) dim = { score : ap_uint 4; hand : ar dim card }
+nominal hand_score (ar : * -> * -> *) dim = { score : ap_uint 4; hand : ar dim card }
+instance comparable hand_score ar dim = fun a b =>
+    match comp a.score b.score with
+    | Eq => comp a.hand b.hand
+    | x => x
 
-prototype sort_inplace ar dim el {rank; suit} : ar dim el -> ()
-instance sort_inplace sa = fun ar =>
-    global "#include <algorithm>"
-    open sam
-    inl comp (a,b : el * el) : bool = rank a >. rank b || (rank a = rank b && suit a <. suit b)
-    $"std::stable_sort(!ar.begin(),!ar.end(),!comp)"
+// inl hand_comp (a,b : card * card) : bool = rank a >. rank b || (rank a = rank b && suit a <. suit b)
 
 prototype sort ar dim el {suit; rank} : ar dim el -> ar dim el
-prototype clone ar dim el : ar dim el -> ar dim el
-instance clone sa = sam.map id
 instance sort sa = fun ar =>
-    inl ar = clone ar
-    sort_inplace ar
-    ar
+    sortm.merge_sort (fun a b =>
+        match comp (rank b) (rank a) with
+        | Eq => comp (suit a) (suit b)
+        | x => x
+        ) ar
 
-
-let score forall (ar : * -> * -> *) {clone; sort; filter_take; try_straight_flush_for_suit; try_straight; max_hand; partition_topk_pair; take; merge_hands; merge_hands2} dim. 
+let score forall (ar : * -> * -> *) {sort; filter_take; try_straight_flush_for_suit; try_straight; max_hand; partition_topk_pair; take; merge_hands; merge_hands2} dim. 
         (hand : ar dim card) : hand_score ar 5 =
-    inl hand = clone hand
+    inl hand = sort hand
 
     inl high_card = take hand
 
@@ -190,11 +188,79 @@ let score forall (ar : * -> * -> *) {clone; sort; filter_take; try_straight_flus
     |> function
         | Some s => s
         | None => {score= #0; hand=high_card}
+    |> hand_score
 
-inl main () =
-    open sam
-    inl ar = create : sa (mult 3 (add 2 3)) i32
-    inl ar' : sa 15 i32 = nominal_recreate ar
-    !!!!PrintStatic(ar')
-    ()
+open corehls
+
+type n = 7
+
+inl main () : i32 =
+    global "#include <random>"
+    global "#include \"ap_int.h\""
+    global "#include <iostream>"
+
+    inl n = real real_core.type_lit_to_lit `n
+
+    inl rng = random.make_dist (0,51)
+
+    loop.for {from=0u64; nearTo=100_000} (fun i num_errors =>
+        inl make_hand () = 
+            open real_utils
+            open hand_scorer_orig
+            inl get h i = h &&& (1 <<< i) <> 0
+            inl set h i = h ||| (1 <<< i)
+
+            let ar = sam.create : sa n _
+            inl ~h = 0u64
+
+            loop.while (fun i => i > 0) (fun i =>
+                inl r : i8 = random.get_int rng |> conv_int
+                if get h (i32 r) then i
+                else 
+                    sam.set ar (i-1) {rank = rank r; suit = suit r}
+                    loop._set h (set h (i32 r))
+                    i-1
+                ) n
+            |> ignore
+
+            listm.init n (sam.index ar)
+
+        inl hand : list {rank : i8; suit : i8} = make_hand()
+
+        inl q = 
+            open hand_scorer_orig
+            inl f x = 1 <<< conv_int (full x)
+            inl {hand=c1,c2,c3,c4,c5 score} = score' (hand |> listm.map f |> listm.fold (|||) 0)
+            inl f x = {suit=suit x; rank=rank x}
+            {hand=f c1, f c2, f c3, f c4, f c5; score}
+
+        inl q' = 
+            open real_utils
+            open sam
+            inl ar : sa n _ = create
+            inl f {rank suit} = card {rank = #(conv_int rank); suit = #(conv_int suit)}
+            inl i = hand |> listm.fold (fun i x => set ar i (f x) . i + 1) 0
+            if i <> length ar then error_type "Invalid size in the array."
+
+            inl (hand_score {hand score}) = score ar
+
+            inl i8 (x : ap_uint _) : i8 = $"!x"
+            inl f i = index hand i |> fun (card {suit rank}) => {suit=i8 suit; rank=i8 rank}
+            {hand=f 0, f 1, f 2, f 3, f 4; score=i8 score}
+
+        inl print_score_hand {score hand=c0,c1,c2,c3,c4} =
+            inl f {rank suit} : () = $'std::cout << "(" << (int) !rank << "," << (int) !suit << ") " '
+            $'std::cout << "Score: " << (int) !score << " " '
+            $'std::cout << "Card: "' . f c0 . f c1 . f c2 . f c3 . f c4
+            $'std::cout << std::endl'
+
+        if q <> q' then 
+            hand |> listm.iter (fun {rank suit} => $'std::cout << "{rank = " << (int) !rank << "; suit = " << (int) !suit << "}; " ')
+            $'std::cout << std::endl'
+
+            print_score_hand q
+            print_score_hand q'
+            num_errors + 1 
+        else num_errors
+    ) 0
     
