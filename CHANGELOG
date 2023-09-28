@@ -1,3 +1,10 @@
+2.4.24 (9/28/2023)
+
+* Added Pi, Sin and Cos operations to the language.
+* Added Sin and Cos to the HLS backend.
+* It now uses cmath instead of math.h as the math header file.
+* Also updated the core library so it uses them.
+
 2.4.23 (9/28/2023)
 
 * #pragma statement do not produce a semicolon statement at the end anymore.

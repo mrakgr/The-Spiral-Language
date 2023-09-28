@@ -1897,6 +1897,30 @@ let peval (env : TopEnv) (x : E) =
                 let a_ty = data_to_ty s a
                 if is_float a_ty then push_op s Sqrt a a_ty
                 else raise_type_error s <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
+        | EOp(_,Sin,[a]) ->
+            let inline op a = sin a
+            match term s a with
+            | DLit a ->
+                match a with
+                | LitFloat32 a -> op a |> nan_guardf32 |> LitFloat32 |> DLit
+                | LitFloat64 a -> op a |> nan_guardf64 |> LitFloat64 |> DLit
+                | _ -> raise_type_error s <| sprintf "The literal must be a float type.\nGot: %s" (show_lit a)
+            | a ->
+                let a_ty = data_to_ty s a
+                if is_float a_ty then push_op s Sin a a_ty
+                else raise_type_error s <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
+        | EOp(_,Cos,[a]) ->
+            let inline op a = cos a
+            match term s a with
+            | DLit a ->
+                match a with
+                | LitFloat32 a -> op a |> nan_guardf32 |> LitFloat32 |> DLit
+                | LitFloat64 a -> op a |> nan_guardf64 |> LitFloat64 |> DLit
+                | _ -> raise_type_error s <| sprintf "The literal must be a float type.\nGot: %s" (show_lit a)
+            | a ->
+                let a_ty = data_to_ty s a
+                if is_float a_ty then push_op s Cos a a_ty
+                else raise_type_error s <| sprintf "The argument must be a float type.\nGot: %s" (show_ty a_ty)
         | EOp(_,Conv,[EType(_,typ);a]) ->
             let typ = ty s typ
             let a = term s a
@@ -1945,6 +1969,11 @@ let peval (env : TopEnv) (x : E) =
             match ty s a with
             | YPrim Float32T -> DLit (LitFloat32 infinityf)
             | YPrim Float64T -> DLit (LitFloat64 infinity)
+            | a -> raise_type_error s "Expected a float.\nGot: %s" (show_ty a)
+        | EOp(_,Pi,[EType(_,a)]) -> 
+            match ty s a with
+            | YPrim Float32T -> DLit (LitFloat32 Single.Pi)
+            | YPrim Float64T -> DLit (LitFloat64 Double.Pi)
             | a -> raise_type_error s "Expected a float.\nGot: %s" (show_ty a)
         | EOp(_,LitIs,[a]) ->
             match term s a with

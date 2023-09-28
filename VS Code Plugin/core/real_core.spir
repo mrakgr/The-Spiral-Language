@@ -30,6 +30,10 @@ inl exp x = !!!!Exp(x)
 inl tanh x = !!!!Tanh(x)
 // Square root.
 inl sqrt x = !!!!Sqrt(x)
+// Sin
+inl sin x = !!!!Sin(x)
+// Cos
+inl cos x = !!!!Cos(x)
 // Unsafe conversion.
 inl conv forall b. x = !!!!Conv(`b, x)
 
@@ -59,6 +63,8 @@ inl (>=) a b = !!!!GTE(a,b)
 
 // 32/64-bit float infinity
 inl inf forall t. = !!!!Infinity(`t)
+// 32-64-bit pi
+inl pi forall t. = !!!!Pi(`t)
 // Unary negation.
 inl (~-) x = !!!!Neg(x)
 // Evaluates an term and throws away the result.

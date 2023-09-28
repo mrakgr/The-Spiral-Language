@@ -32,6 +32,8 @@ inl (<>) forall t {prim}. (a : t) (b : t) : bool = !!!!NEQ(a,b)
 
 // 32/64-bit float infinity
 inl inf forall t {float}. : t = !!!!Infinity(`t)
+// 32/64-bit pi
+inl pi forall t {float}. : t = !!!!Pi(`t)
 // Unary negation.
 inl (~-) forall t {number}. (x : t) : t = !!!!Neg(x)
 // Returns boolean whether the float is a Nan.
@@ -82,6 +84,10 @@ inl exp forall t {float}. (x : t) : t = !!!!Exp(x)
 inl tanh forall t {float}. (x : t) : t = !!!!Tanh(x)
 // Square root.
 inl sqrt forall t {float}. (x : t) : t = !!!!Sqrt(x)
+// Sin
+inl sin forall t {float}. (x : t) : t = !!!!Sin(x)
+// Cos
+inl cos forall t {float}. (x : t) : t = !!!!Cos(x)
 // Unsafe conversion.
 inl conv forall a {number} b {number}. (x : a) : b = !!!!Conv(`b, x)
 

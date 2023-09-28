@@ -107,12 +107,15 @@ type Op =
     | Tanh
     | Log
     | Exp
+    | Sin
+    | Cos
     | Sqrt
     | NanIs
     | Conv
 
     // Infinity
     | Infinity
+    | Pi
 
     // Static Is
     | LitIs

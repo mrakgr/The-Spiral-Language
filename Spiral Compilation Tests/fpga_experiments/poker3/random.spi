@@ -50,19 +50,34 @@ inl default() : lfsr 128 = // 285321827306898791209647125482703629360
     inl b : ap_uint 64 = $"0b1000001110011100000101101011010000000100101010110010110000110000"
     lfsr (concat a b |> nominal_recreate)
 
-let random_f32 rng : f32 * lfsr 128 =
+// When is_exclusive is true samples from: (0,1)
+// Otherwise it samples from: [0,1)
+let random_f32_template (is_exclusive : bool) rng : f32 * lfsr 128 =
     pragma_pipeline 1
     global "#include <cstring>"
-    inl (frac : ap_uint 23), rng = random_ap rng
+    open ap_uintm
+    inl (frac : ap_uint 23), rng = 
+        inl (frac : ap_uint 22), rng = random_ap rng
+        inl start, rng = if is_exclusive then ($"1" : ap_uint 1), rng else random_ap rng
+        concat frac start |> nominal_recreate, rng
+
     inl exp : ap_uint 8 = $"127"
     inl sign : ap_uint 1 = $"0b0"
-    open ap_uintm
     inl x : ap_uint 32 = concat sign (concat exp frac) |> nominal_recreate
     inl x : u32 = $'static_cast<`u32>(!x)'
     inl ~r : f32 = 0
     $'static_assert(sizeof(`u32) == sizeof(`f32), "float has a weird size")'
     $"std::memcpy(&!r,&!x,sizeof(`f32))"
     r - 1, rng
+
+inl random_uniform_f32 rng : f32 * lfsr 128 = random_f32_template false rng
+
+let random_gaussian_f32 {mean std} rng : f32 * lfsr 128 =
+    pragma_pipeline 1
+    inl u0,rng = random_f32_template true rng
+    inl u1,rng = random_f32_template false rng
+    // Both cos and sin can be used interchangeably here.
+    std * sqrt(-2.0 * log u0) * cos(2.0 * pi * u1) + mean, rng
 
 type n = 10
 type n2 = 1024
@@ -90,8 +105,8 @@ inl main () =
     global "#include <iostream>"
     inl rng =
         loop.for {from=0i32; nearTo=1_000} (fun i rng =>
-            inl r, rng = random_f32 rng
+            inl r, rng = random_gaussian_f32 {mean=0; std=1} rng
             $'std::cout << !r << std::endl'
             rng
             ) default()
-    ()
+    0i32
