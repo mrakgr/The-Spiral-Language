@@ -90,6 +90,8 @@ inl sin forall t {float}. (x : t) : t = !!!!Sin(x)
 inl cos forall t {float}. (x : t) : t = !!!!Cos(x)
 // Unsafe conversion.
 inl conv forall a {number} b {number}. (x : a) : b = !!!!Conv(`b, x)
+// Division with rounding up.
+inl divup forall t {number}. (a : t) (b : t) : t = real real_core.divup a b
 
 // Creates a heap mutable layout type.
 inl mut forall t. (x : t): mut t = !!!!LayoutToHeapMutable(x)
@@ -125,3 +127,4 @@ inl var_is forall t. (x : t) : bool = real var_is x
 inl error_type (msg : string) = real error_type msg
 // Converts a nominal to a different equivalent type. `sa (add 2 2) i32` to `sa 4 i32` for example. It will give an error if the type is not equivalent.
 inl nominal_recreate forall a b. (x : a): b = real nominal_recreate `b x
+

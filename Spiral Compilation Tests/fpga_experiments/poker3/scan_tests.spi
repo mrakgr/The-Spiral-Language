@@ -1,0 +1,31 @@
+open corehls
+open random
+
+inl test1 () =
+    global "#include <iostream>"
+    open ap_uintm
+    open random
+    inl ar : sa 10 i32 = sam.create
+    inl rng =
+        loop.for {from=0; nearTo=sam.length ar} (fun i rng => 
+            // inl x,rng = random_int {from=0; nearTo=30} rng
+            sam.set ar i i
+            rng
+            ) default()
+
+    inl r0,sum0 = sam.mapFold (fun s x => s, s + x) 0 ar
+    inl sum1 = sam.reduce (+) ar
+    $'std::cout << !sum0 << " " << !sum1 << std::endl'
+    $'std::cout << "---" << std::endl'
+    inl r1 = sam.scan_exclusive (+) 0 ar
+    inl r2 = sam.scan_inclusive (+) ar
+    loop.for' {from=0; nearTo=sam.length ar} (fun i =>
+        open sam
+        inl r0,r1,r2 = index r0 i, index r1 i, index r2 i
+        $'std::cout << !r0 << " " << !r1 << " " << !r2 << std::endl'
+        )
+    ()
+    
+inl main() =
+    test1()
+    0i32

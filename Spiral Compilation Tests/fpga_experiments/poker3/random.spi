@@ -21,10 +21,8 @@ open corehls
 
 nominal lfsr dim = ap_uint dim
 
-inl pragma_pipeline (ii : i32) : () = $"#pragma HLS PIPELINE II=!ii"
-
 let random_ap forall dim. (lfsr rng : lfsr 128) : ap_uint dim * lfsr 128 =
-    pragma_pipeline 1
+    pragma.pipeline {ii=1}
     open ap_uintm
     inl out = $"0"
     inl rng =
@@ -38,14 +36,6 @@ let random_ap forall dim. (lfsr rng : lfsr 128) : ap_uint dim * lfsr 128 =
             ) rng
     
     out, lfsr rng
-
-let random_ap_in_range forall dim. {from nearTo} rng : ap_uint dim * _ =
-    pragma_pipeline 1
-    open ap_uintm
-    open type_arith
-    inl l : ap_uint dim = nearTo -. from
-    inl (r : ap_uint (add dim 30)), rng = random_ap rng
-    r %. l +. from, rng
 
 // inl default() : lfsr 128 = 
 //     inl out = $"1"
@@ -61,7 +51,7 @@ inl default() : lfsr 128 = // 285321827306898791209647125482703629360
 // When is_exclusive is true samples from: (0,1)
 // Otherwise it samples from: [0,1)
 let random_f32_template (is_exclusive : bool) rng : f32 * lfsr 128 =
-    pragma_pipeline 1
+    pragma.pipeline {ii=1}
     global "#include <cstring>"
     open ap_uintm
     inl (frac : ap_uint 23), rng = 
@@ -78,41 +68,84 @@ let random_f32_template (is_exclusive : bool) rng : f32 * lfsr 128 =
     $"std::memcpy(&!r,&!x,sizeof(`f32))"
     r - 1, rng
 
+// Gets a random uniform number in the [0,1) range.
 inl random_uniform_f32 rng : f32 * lfsr 128 = random_f32_template false rng
 
 let random_gaussian_f32 {mean std} rng : f32 * lfsr 128 =
-    pragma_pipeline 1
-    inl u0,rng = random_f32_template true rng
-    inl u1,rng = random_f32_template false rng
+    pragma.pipeline {ii=1}
+    inl u0,rng = random_f32_template true rng // (0,1)
+    inl u1,rng = random_f32_template false rng // [0,1)
     // Both cos and sin can be used interchangeably here.
     std * sqrt(-2.0 * log u0) * cos(2.0 * pi * u1) + mean, rng
 
-let random_i32 {from nearTo} rng : i32 * lfsr 128 =
-    pragma_pipeline 1
-    inl (x : ap_uint 32), rng = random_ap rng
-    inl x : i32 = $'static_cast<`i32>(!x)'
-    x, rng
+let random_ap_in_range forall dim. {from nearTo} rng : ap_uint dim * _ =
+    pragma.pipeline {ii=1}
+    open ap_uintm
+    open type_arith
+    inl l : ap_uint dim = nearTo -. from
+    inl (r : ap_uint (add dim 30)), rng = random_ap rng
+    r %. l +. from, rng
 
-// Samples an index from an a mask array. Returns the first non masked index at the specified count.
-let sample forall dim dim'. (mask : ap_uint dim) rng =
-    pragma_pipeline 1
+let random_int {from=(from : int) nearTo=(nearTo : int)} rng : int * lfsr 128 =
+    pragma.pipeline {ii=1}
+    open ap_uintm
+    inl (x : ap_uint 32), rng = random_ap_in_range {from= #from; nearTo= #nearTo} rng
+    .#x, rng
+
+// Sampling without replacement from an uniform discrete distribution.
+// Takes in the mask and an RNG as the first two arguments.
+// Returns an updated mask and the RNG along with the randomly selected index.
+let sample_without forall dim dim'. (mask : ap_uint dim) rng =
+    pragma.pipeline {ii=1}
     open ap_uintm
     inl nearTo : u32 = loop.for {from=0; nearTo=length mask} (fun i s => if bool (index mask i) then s else s+1) 0
-    inl (c : ap_uint dim'),rng = random_ap_in_range {from= $"0"; nearTo= #nearTo} rng
+    inl (c : ap_uint dim'),rng = random_ap_in_range {from= @0; nearTo= #nearTo} rng
     inl (i : ap_uint dim'),_ =
         loop.for {from=0; nearTo=length mask} (fun i (_,c as state) =>
-            if c >. #0u32 then 
+            if c >. @0 then 
                 #i, if bool (index mask i) then c else dec c
             else state
-            ) (#0u32, inc c)
-    mask ||| ($"1" <<< i), i, rng
+            ) (@0, inc c)
+    {mask=mask ||| (@1 <<< i); index=i; rng}
+
+// Randomly samples an index of an action with replacement.
+// Takes in a unnormalized probability distribution as the first argument.
+// Returns the index of a randomly selected item inside it.
+// Clamps the negative values to 0.
+let sample_discrete' forall dim. (dist : sa dim float) rng =
+    pragma.pipeline {ii=1}
+    open sam
+    inl dist = 
+        inl dist = map (max 0) dist
+        inl dist = scan_inclusive (+) dist
+        inl sum = last dist
+        map (fun x => x / sum) dist
+    inl r,rng = random_uniform_f32 rng
+    inl i =
+        foldi (fun i s x =>
+            match s with
+            | None when r < x => Some i
+            | _ => s
+            ) None dist
+        |> optionm.defaultWith 0
+    i, rng
+
+// Randomly samples an action with replacement.
+// Takes in a unnormalized probability distribution as the first argument.
+// Returns the index of a randomly selected item inside it.
+// Clamps the negative values to 0.
+let sample_discrete forall dim el. (dist : sa dim (el * float)) rng =
+    pragma.pipeline {ii=1}
+    open sam
+    inl i,rng = sample_discrete' (map snd dist) rng
+    fst (index dist i), rng
 
 let draw_card (deck : ap_uint 52) rng =
-    pragma_pipeline 1
+    pragma.pipeline {ii=1}
     open real_utils
     open ap_uintm
-    inl deck,(i : ap_uint 6),rng = sample deck rng
-    inl card = card {rank = i %. $"13"; suit = i /. $"13"}
+    inl {mask=deck index=(i : ap_uint 6) rng} = sample_without deck rng
+    inl card = card {rank = i %. @13; suit = i /. @13}
     deck, card, rng
 
 type n = 10
@@ -157,7 +190,7 @@ inl test3 () =
                 loop.for r (fun _ (mask, rng : ap_uint 4 * _) => 
                     global "#include <bitset>"
                     open ap_uintm
-                    inl mask,(i : ap_uint 3),rng = sample mask rng
+                    inl {mask index=(i : ap_uint 3) rng} = sample_without mask rng
                     inl len = length mask
                     $'std::cout << std::bitset<!len>(!mask) << std::endl'
                     $'std::cout << !i << std::endl'
@@ -191,9 +224,22 @@ inl test4 () =
             ) default()
     ()
 
+inl test5 () =
+    global "#include <iostream>"
+    open sam
+    inl ar : sa 3 float = init (fun i => $"!i+1")
+    inl rng =
+        loop.for {from=0i32; nearTo=10_000} (fun i rng =>
+            inl r, rng = sample_discrete' ar rng
+            $'std::cout << !r << std::endl'
+            rng
+            ) default()
+    ()
+
 inl main() =
     // test1()
     // test2()
     // test3()
-    test4()
+    // test4()
+    test5()
     0i32

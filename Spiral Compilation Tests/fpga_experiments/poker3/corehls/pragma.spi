@@ -1,0 +1,6 @@
+inl pipeline {ii=(ii : int)} : () = $"#pragma HLS PIPELINE II=!ii"
+inl unroll' {factor} : () = 
+    match factor with
+    | Some (i : int) => $"#pragma HLS UNROLL factor=!i"
+    | None => $"#pragma HLS UNROLL"
+inl unroll () = unroll' {factor=None}

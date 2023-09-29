@@ -1,1 +1,2 @@
-type sa_dim = i32
+type int = i32
+type float = f32

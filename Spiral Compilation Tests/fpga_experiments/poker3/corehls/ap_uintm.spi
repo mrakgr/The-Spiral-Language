@@ -4,15 +4,15 @@ inl bool (x : ap_uint 1) : bool = $"!x"
 inl and_ forall dim. (a : ap_uint dim) (b : ap_uint dim) : ap_uint dim = $"!a & !b"
 inl or forall dim. (a : ap_uint dim) (b : ap_uint dim) : ap_uint dim = $"!a | !b"
 inl xor forall dim. (a : ap_uint dim) (b : ap_uint dim) : ap_uint dim = $"!a ^ !b"
-inl shift_right' forall dim. (x : ap_uint dim) (i : sa_dim) : ap_uint dim = $"!x >> !i"
-inl shift_left' forall dim. (x : ap_uint dim) (i : sa_dim) : ap_uint dim = $"!x << !i"
+inl shift_right' forall dim. (x : ap_uint dim) (i : int) : ap_uint dim = $"!x >> !i"
+inl shift_left' forall dim. (x : ap_uint dim) (i : int) : ap_uint dim = $"!x << !i"
 inl shift_right forall dim dim'. (x : ap_uint dim) (i : ap_uint dim') : ap_uint dim = $"!x >> !i"
 inl shift_left forall dim dim'. (x : ap_uint dim) (i : ap_uint dim') : ap_uint dim = $"!x << !i"
 inl (|||) a b = or a b
 inl (^^^) a b = xor a b
 inl (<<<) a b = shift_left a b
 inl (>>>) a b = shift_right a b
-inl length forall dim. (x : ap_uint dim) : sa_dim = real open real_core in type_lit_to_lit `dim
+inl length forall dim. (x : ap_uint dim) : int = real open real_core in type_lit_to_lit `dim
 
 inl (+.) forall dim. (a : ap_uint dim) (b : ap_uint dim) : ap_uint dim = $"!a + !b"
 inl (-.) forall dim. (a : ap_uint dim) (b : ap_uint dim) : ap_uint dim = $"!a - !b"
@@ -25,6 +25,7 @@ inl dec forall dim. (a : ap_uint dim) : ap_uint dim = $"!a - 1"
 
 inl (~##) forall dim dim'. (x : ap_uint dim) : ap_uint dim' = $"!x"
 inl (~#) forall dim el {int}. (x : el) : ap_uint dim = $"!x"
+inl (~@) forall dim. (x : int) : ap_uint dim = $"!x"
 inl (~.#) forall dim el {int}. (x : ap_uint dim) : el = $"!x"
 
 inl (<.) forall dim. (a : ap_uint dim) (b : ap_uint dim) : bool = $"!a < !b"

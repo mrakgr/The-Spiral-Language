@@ -4,11 +4,19 @@ open loop
 // Creates an empty array.
 inl create forall dim el. : sa dim el = $"std::array<`el,@dim> v$"
 // Indexes into an array.
-inl index forall dim el. (ar : sa dim el) (i : sa_dim) : el = $"!ar[!i]"
+inl index forall dim el. (ar : sa dim el) (i : int) : el = $"!ar[!i]"
 // Sets the value of an array at the specified index.
-inl set forall dim el. (ar : sa dim el) (i : sa_dim) (v : el) : () = $"!ar[!i] = !v"
+inl set forall dim el. (ar : sa dim el) (i : int) (v : el) : () = $"!ar[!i] = !v"
 // Returns the length of an array.
-inl length forall dim el. (ar : sa dim el) : sa_dim = real real_core.type_lit_to_lit `dim : sa_dim
+inl length forall dim el. (ar : sa dim el) : int = real real_core.type_lit_to_lit `dim : int
+// Gets the first element of an array.
+inl head forall dim el. (ar : sa dim el) : el =
+    if 0 < length ar then index ar 0
+    else error_type "The length of the array should be greater than 0."
+// Gets the last element of an array.
+inl last forall dim el. (ar : sa dim el) : el =
+    if 0 < length ar then index ar (length ar - 1)
+    else error_type "The length of the array should be greater than 0."
 
 // Initializes array using the given function.
 inl init forall dim el. f : sa dim el = 
@@ -27,37 +35,83 @@ inl iteri forall dim el. f (ar : sa dim el) = for' {from=0; nearTo=length ar} (f
 
 // Applies a function to each element of the array, threading an accumulator argument through the computation. 
 // If the input function is f and the elements are i0...iN then computes f (... (f s i0)...) iN
-inl fold f s ar = for {from=0; nearTo= length ar} (fun i s => f s (index ar i)) s
+inl fold f s ar = for {from=0; nearTo=length ar} (fun i s => f s (index ar i)) s
 
 // Same as fold, but also passes the array index into the body.
-inl foldi f s ar = for {from=0; nearTo= length ar} (fun i s => f i s (index ar i)) s
+inl foldi f s ar = for {from=0; nearTo=length ar} (fun i s => f i s (index ar i)) s
 
 // Applies a function to each element of the two arrays, threading an accumulator argument through the computation.
 inl fold2 forall dim. f s (ar1 : sa dim _) (ar2 : sa dim _) = for {from=0; nearTo=length ar1} (fun i s => f s (index ar1 i) (index ar2 i)) s
 
-// Reduces the array in a tree like fashion using the provided function.
-inl reduce forall dim el. (f : el -> el -> el) (ar : sa dim el) =
-    inl step forall dim_full dim_half. (inp : sa dim_full el) (out : sa dim_half el) =
-        inl index i = 
-            if i+1 < length inp then f (index inp i) (index inp (i+1))
-            else index inp i
-        for' {from=0; nearTo=length out} (fun i =>
-            set out i (index (i*2))
-            )
-    // Division with rounding up.
-    inl divup a b : sa_dim = (a+b-1)/2
-    inl rec unroll forall dim_full. (inp : sa dim_full el) : el = real
-        open real_core
-        inl full = type_lit_to_lit `dim_full
-        if full > 1 then
-            inl half = divup full 2
-            inl out = create `@half `el
-            step `@full `@half inp out
-            unroll `@half out
-        else
-            index `dim_full `el inp 0
+// Combines map and fold. Builds a new array whose elements are the results of applying the given function to each of the elements of the input array. The function is also used to accumulate a final value.
+inl mapFold forall state dim el result. (f : state -> el -> result * state) (s : state) (ar : sa dim el) : sa dim result * state = 
+    inl out = create
+    out, for {from=0; nearTo=length ar} (fun i s => 
+        inl x,s = f s (index ar i)
+        set out i x
+        s
+        ) s
 
-    unroll ar
+// The inclusive Hillis & Steele scan.
+inl scan_inclusive forall dim el. (f : el -> el -> el) (ar : sa dim el) =
+    while (fun inp,by => by < length inp) (fun inp,by =>
+        pragma.unroll()
+        inl out = create
+        for' {from=0; nearTo=length inp} (fun i =>
+            set out i (if 0 <= i - by then f (index inp (i-by)) (index inp i) else index inp i)
+            )
+        out, by * 2
+        ) (ar, 1)
+    |> fst
+
+// Reduces the array in a tree like fashion using the provided function.
+inl reduce forall dim_outer el. (f : el -> el -> el) (ar : sa dim_outer el) =
+    open type_arith
+
+    inl rec loop forall dim. (inp : sa dim el) : el =
+        if 1 < length inp then
+            inl out : sa (divup dim 2) el = create
+            for' {from=0; nearTo=length out} (fun i =>
+                inl v =
+                    inl i = i*2
+                    if i+1 < length inp then f (index inp i) (index inp (i+1))
+                    else index inp i
+                set out i v
+                )
+            loop out
+        else index inp 0
+
+    loop ar
+
+
+// The exclusive Bleloch scan
+inl scan_exclusive forall dim_outer el. (f : el -> el -> el) s (ar : sa dim_outer el) =
+    open type_arith
+
+    inl rec loop forall dim. (inp : sa dim el) : sa dim el =
+        if 1 < length inp then
+            inl out : sa (divup dim 2) el = create
+            for' {from=0; nearTo=length out} (fun i =>
+                inl v =
+                    inl i = i*2
+                    if i+1 < length inp then f (index inp i) (index inp (i+1))
+                    else index inp i
+                set out i v
+                )
+            inl out = loop out
+            for' {from=0; nearTo=length out} (fun i =>
+                inl s = index out i
+                inl i = i*2
+                if i+1 < length inp then
+                    set inp (i+1) (f (index inp i) s)
+                set inp i s
+                )
+            inp
+        else
+            set inp 0 s
+            inp
+
+    loop (map id ar)
 
 instance equable sa dim el = fun a b =>
     loop.while (fun is_eq, i => is_eq && i < length a) (fun (is_eq, i) =>
