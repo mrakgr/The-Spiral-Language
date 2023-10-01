@@ -21,23 +21,40 @@ union action = Fold | Call | RaiseTo : pot
 prototype ante env : pot -> player -> env -> player * env
 prototype betting env : player * player -> list card -> config -> env -> (player * player) * env
 prototype showdown env : player * player -> list card -> env -> pot * env
-prototype action env : player * player * pid -> list card -> config -> env -> action
+prototype action env : player * player * pid -> list card -> config -> env -> action * env
 
-nominal some_env = ()
+nominal random_player_env = {
+    deck : ap_uint 52
+    rng : random.lfsr 128
+    }
 
-instance action some_env = fun (pl0,pl1,pid) cards config env =>
-    
-    Fold
+instance action random_player_env = fun (pl0,pl1,pid) cards config (random_player_env env) =>
+    inl pot = max pl0.pot pl1.pot + pl1.pot
+    inl raise x = 
+        inl v = pot + x
+        RaiseTo v, if pl1.pot + config.bb <= v && v <= config.stack_size then 0.25 else 0
+    inl actions : _ 8 (_ * f32) = sam.fromList [
+        Fold, if pl0.pot < pl1.pot then 1 else 0
+        Call, 2
+        raise (pot / 4)
+        raise (pot / 3)
+        raise (pot / 2)
+        raise pot
+        raise (pot * 3 / 2)
+        RaiseTo config.stack_size, if pl0.pot < config.stack_size then 0.3 else 0
+        ]
+    inl a,rng = random.sample_discrete actions env.rng
+    a,random_player_env {env with rng}
 
-union betting = Init | TurnOf : pid | Done
+union betting = TurnOf : {pid : pid; call_skip : ap_uint 2} | Done
 
-instance betting some_env = fun (pl0,pl1) community_cards config env =>
+instance betting random_player_env = fun (pl0,pl1) community_cards config env =>
     inl call (player pl0, player pl1) = player {pl0 with pot #= max pl1.pot}
     // Clamps the raise between [pl1.pot + config.bb, config.stack_size]
     inl raise pot (player pl0, player pl1) = player {pl0 with pot #= max pot >> max (pl1.pot + config.bb) >> min config.stack_size}
     inl fold (player pl) = player {pl with hand = None}
-    inl {pl0 pl1 state} =
-        loop.while (fun {pl0 pl1 num_moves_left state} => num_moves_left > 0 && state <> Done) (fun {pl0 pl1 num_moves_left state} =>
+    inl {pl0 pl1 env} =
+        loop.while (fun {pl0 pl1 num_moves_left state env} => num_moves_left > 0 && state <> Done) (fun {pl0 pl1 num_moves_left state env} =>
             inl pl pid f = 
                 inl b = pid = pid0()
                 inl pl0,pl1,pid = if b then pl0, pl1, pid1() else pl1, pl0, pid0()
@@ -45,26 +62,23 @@ instance betting some_env = fun (pl0,pl1) community_cards config env =>
                 inl pl0,pl1 = if b then pl0,pl1 else pl1,pl0 // Swaps the players back into their original positions.
                 pl0,pl1,rest
 
-            inl pl0,pl1,state =
+            inl pl0,pl1,state,env =
                 match state with
-                | Init =>
-                    pl pid0() fun pl0,pl1,next_pid =>
-                    match action (pl0,pl1,next_pid) community_cards config env with
-                    | Fold => fold pl0, Done
-                    | Call => call (pl0, pl1), TurnOf next_pid
-                    | RaiseTo pot => raise pot (pl0,pl1), TurnOf next_pid
-                | TurnOf pid =>
-                    pl pid fun pl0,pl1,next_pid =>
-                    match action (pl0,pl1,next_pid) community_cards config env with
-                    | Fold => fold pl0, Done
-                    | Call => call (pl0, pl1), Done
-                    | RaiseTo pot => raise pot (pl0,pl1), TurnOf next_pid
-
-            {pl0 pl1 state num_moves_left=num_moves_left-1}
-            ) {pl0 pl1 num_moves_left = 11u8; state = Init}
+                | Done => pl0,pl1,Done,env
+                | TurnOf {pid call_skip} =>
+                    pl pid fun pl0,pl1,pid =>
+                    inl a,env = action (pl0,pl1,pid) community_cards config env
+                    inl x,state =
+                        match a with
+                        | Fold => fold pl0, Done
+                        | Call => open ap_uintm in call (pl0, pl1), if @0 <. call_skip then TurnOf {pid call_skip=dec call_skip} else Done
+                        | RaiseTo pot => open ap_uintm in raise pot (pl0,pl1), TurnOf {pid call_skip= @0}
+                    x,state,env
+            {pl0 pl1 state env num_moves_left=num_moves_left-1}
+            ) {pl0 pl1 env num_moves_left = 11u8; state = TurnOf {pid=pid0(); call_skip=open ap_uintm in if [pl0.pot; pl1.pot] = [config.bb; config.sb] then @2 else @1}}
     (pl0,pl1),env
 
-instance showdown some_env = fun (pl0,pl1) community_cards env =>
+instance showdown random_player_env = fun (pl0,pl1) community_cards env =>
     match pl0.hand, pl1.hand with
     | Some h0, Some h1 => 
         let score h0 = 
@@ -85,7 +99,13 @@ instance showdown some_env = fun (pl0,pl1) community_cards env =>
     | None, Some _ => -pl0.pot, env
     | None, None => 0, env
 
+instance ante random_player_env = fun pot (player pl0) env => player {pl0 with pot}, env
+instance draw random_player_env = fun (random_player_env {rng deck}) => 
+    inl card,deck,rng = random.draw_card deck rng
+    card, random_player_env {deck rng}
+
 inl game (config : config) ~env = join
+    pragma.pipeline {ii=1}
     inl draw_hidden pid =
         inl c1,env = draw env
         inl c2,env = draw env
@@ -104,18 +124,29 @@ inl game (config : config) ~env = join
     inl c0,env = draw env
     inl c1,env = draw env
     inl c2,env = draw env
-
     inl (pl0,pl1), env = betting (pl0,pl1) [c0;c1;c2] config env
 
     // Turn
     inl c3,env = draw env
-
     inl (pl0,pl1), env = betting (pl0,pl1) [c0;c1;c2;c3] config env
 
     // River
     inl c4,env = draw env
-
     inl (pl0,pl1), env = betting (pl0,pl1) [c0;c1;c2;c3;c4] config env
 
     // Showdown
     showdown (pl0,pl1) [c0;c1;c2;c3;c4] env
+
+inl game_loop config ~env = join
+    loop.for {from=0; nearTo=1_000_1000} (fun (i : i32) (r,env) =>
+        pragma.pipeline {ii=1}
+        inl r',env = game config env
+        r+r',env
+        ) (0,env)
+
+inl main() =
+    inl config = config { stack_size=100; bb=2; sb=1 }
+    inl env = random_player_env {rng = random.default(); deck= ap_uintm.(~@) 0}
+    inl r, env = game_loop config env
+    $'std::cout << !r << std::endl'
+    0i32

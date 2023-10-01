@@ -666,41 +666,43 @@ let patterns_validate pats =
         ) Set.empty pats |> ignore
     errors |> Seq.toList
 
-let join_point name = function // Has the effect of removing nested join points due to not duplicating them.
+let join_point is_let name = function // Has the effect of removing nested join points due to not duplicating them.
     | RawJoinPoint(a,b,c,_) -> RawJoinPoint(a,b,c,name)
-    | x -> RawJoinPoint(range_of_expr x, None, x, name)
+    | x -> if is_let then RawJoinPoint(range_of_expr x, None, x, name) else x
 let join_point_backend (a,b) = RawJoinPoint(range_of_expr b, Some a, b, None)
 
 /// Some places need unique string refs, so this is to keep the compiler from interning static strings.
 let unintern a b = sprintf "%s%c" a b
 
-let rec let_join_point name = function
-    | RawForall(r,a,b) -> RawForall(r,a,let_join_point name b)
-    | RawFun(r,[a,b]) -> RawFun(r,[PatDyn(range_of_pattern a, a), let_join_point name b])
+let rec adjust_join_point is_let name x =
+    let dyn_if_let a = if is_let then PatDyn(range_of_pattern a, a) else a
+    match x with
+    | RawForall(r,a,b) -> RawForall(r,a,adjust_join_point is_let name b)
+    | RawFun(r,[a,b]) -> RawFun(r,[dyn_if_let a, adjust_join_point is_let name b])
     | RawFun(r,l) -> 
         let empty = fst r, fst r
         let n = unintern " ar" 'g'
-        let a = PatDyn(empty,PatVar(empty,n))
-        let b = RawMatch(empty,RawV(empty,n),List.map (fun (a,b) -> PatDyn(range_of_pattern a, a),b) l)
-        RawFun(r,[a,join_point name b])
-    | x -> join_point name x
+        let a = PatVar(empty,n) |> dyn_if_let
+        let b = RawMatch(empty,RawV(empty,n),l)
+        RawFun(r,[a,join_point is_let name b])
+    | x -> join_point is_let name x
 
-let let_join_point' name = function
-    | RawForall _ | RawFun _ as x -> let_join_point name x
+let adjust_join_point' is_let name = function
+    | RawForall _ | RawFun _ as x -> adjust_join_point is_let name x
     | x -> x
 
 let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
     match is_rec, name, foralls, pats with
     | false, _, [], [] -> 
         match patterns_validate [name] with
-        | [] -> Ok((r,name,(if is_let then let_join_point' (match name with PatVar(_,name) -> Some name | _ -> None) body else body)),is_rec)
+        | [] -> Ok((r,name,adjust_join_point' is_let (match name with PatVar(_,name) -> Some name | _ -> None) body),is_rec)
         | ers -> Error ers
     | _, PatVar(_,name'), _, _ -> 
         match patterns_validate (if is_rec then name :: pats else pats) with
-        | [] -> 
-            let body = 
+        | [] ->
+            let body =
                 let dyn_if_let x = if is_let then PatDyn(range_of_pattern x, x) else x
-                (if is_let then let_join_point (Some name') body else body)
+                adjust_join_point is_let (Some name') body
                 |> List.foldBack (fun pat body -> RawFun(range_of_pattern pat +. range_of_expr body,[dyn_if_let pat,body])) pats
                 |> List.foldBack (fun typevar body -> RawForall(range_of_typevar typevar +. range_of_expr body,typevar,body)) foralls
             match is_rec, body with
@@ -1112,7 +1114,7 @@ and root_term d =
                 withouts |> List.choose (function RawRecordWithoutInjectVar(a,b) -> Some(a,b) | _ -> None) |> duplicates DuplicateTermRecordInjection
                 ] |> List.concat |> function [] -> Ok(RawRecordWith x) | er -> Error er
 
-        let case_join_point = skip_keyword SpecJoin >>. next |>> join_point None
+        let case_join_point = skip_keyword SpecJoin >>. next |>> join_point true None
         let case_join_point_backend = skip_keyword SpecJoinBackend >>. (read_big_var_as_keyword .>>. next) |>> join_point_backend
         let case_real = skip_keyword SpecReal >>. (fun d -> next {d with is_top_down=false}) |>> fun x -> RawReal(range_of_expr x,x)
         let case_symbol = read_symbol |>> RawSymbol

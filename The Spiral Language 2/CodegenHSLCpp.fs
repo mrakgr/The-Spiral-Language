@@ -285,7 +285,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             match a with
             | JPMethod(a,b) -> 
                 let x = method (a,b)
-                sprintf "%s%i(%s)" (Option.defaultValue "method" x.name) x.tag args
+                sprintf "%s%i(%s)" (Option.defaultValue "method_" x.name) x.tag args
             | JPClosure(a,b) -> sprintf "ClosureMethod%i" (closure (a,b)).tag
         match a with
         | TyMacro _ -> raise_codegen_error "Macros are supposed to be taken care of in the `binds` function."
@@ -300,7 +300,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
         | TyWhile(a,b) ->
             let cond =
                 match a with
-                | JPMethod(a,b),b' -> sprintf "method%i(%s)" (method (a,b)).tag (args b')
+                | JPMethod(a,b),b' -> sprintf "method_%i(%s)" (method (a,b)).tag (args b')
                 | _ -> raise_codegen_error "Expected a regular method rather than closure create in the while conditional."
             line s (sprintf "while (%s){" cond)
             binds (indent s) (BindsLocal [||]) b
@@ -443,7 +443,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s_fwd s_typ s_fun x ->
             let ret_ty = tup_ty x.range
-            let fun_name = Option.defaultValue "method" x.name
+            let fun_name = Option.defaultValue "method_" x.name
             let args = x.free_vars |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
             line s_fwd (sprintf "%s %s%i(%s);" ret_ty fun_name x.tag args)
             line s_fun (sprintf "%s %s%i(%s){" ret_ty fun_name x.tag args)

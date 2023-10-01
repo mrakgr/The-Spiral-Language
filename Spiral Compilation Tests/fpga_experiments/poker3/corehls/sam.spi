@@ -9,6 +9,19 @@ inl index forall dim el. (ar : sa dim el) (i : int) : el = $"!ar[!i]"
 inl set forall dim el. (ar : sa dim el) (i : int) (v : el) : () = $"!ar[!i] = !v"
 // Returns the length of an array.
 inl length forall dim el. (ar : sa dim el) : int = real real_core.type_lit_to_lit `dim : int
+
+instance equable sa dim el = fun a b =>
+    loop.while (fun is_eq, i => is_eq && i < length a) (fun (is_eq, i) =>
+        index a i = index b i, i + 1
+        ) (true, 0)
+    |> fst
+    
+instance comparable sa dim el = fun a b =>
+    loop.while (fun is_eq, i => eq_is is_eq && i < length a) (fun (is_eq, i) =>
+        comp (index a i) (index b i), i + 1
+        ) (Eq, 0)
+    |> fst
+
 // Gets the first element of an array.
 inl head forall dim el. (ar : sa dim el) : el =
     if 0 < length ar then index ar 0
@@ -113,14 +126,10 @@ inl scan_exclusive forall dim_outer el. (f : el -> el -> el) s (ar : sa dim_oute
 
     loop (map id ar)
 
-instance equable sa dim el = fun a b =>
-    loop.while (fun is_eq, i => is_eq && i < length a) (fun (is_eq, i) =>
-        index a i = index b i, i + 1
-        ) (true, 0)
-    |> fst
-    
-instance comparable sa dim el = fun a b =>
-    loop.while (fun is_eq, i => eq_is is_eq && i < length a) (fun (is_eq, i) =>
-        comp (index a i) (index b i), i + 1
-        ) (Eq, 0)
-    |> fst
+inl fromList forall dim el. (l : list el) : sa dim el =
+    inl out = create
+    inl i = listm.fold (fun i x => set out i x . i + 1) 0 l
+    print_static i
+    print_static (length out)
+    if i <> length out then error_type "The length of the list should match the output array dimension."
+    out

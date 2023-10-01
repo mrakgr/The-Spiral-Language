@@ -10,4 +10,4 @@ inl main () =
     inl b = f Sub 1 2 : i32
     inl c = f Mult 1 2 : i32
     inl a,b,c = dyn (a, b, c)
-    a+b+c
+    a,b,c

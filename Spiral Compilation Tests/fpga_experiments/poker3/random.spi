@@ -146,7 +146,7 @@ let draw_card (deck : ap_uint 52) rng =
     open ap_uintm
     inl {mask=deck index=(i : ap_uint 6) rng} = sample_without deck rng
     inl card = card {rank = i %. @13; suit = i /. @13}
-    deck, card, rng
+    card,deck,rng
 
 type n = 10
 type n2 = 1024
@@ -212,7 +212,7 @@ inl test4 () =
                     global "#include <bitset>"
                     open real_utils
                     open ap_uintm
-                    inl deck,(card {suit rank}),rng = draw_card deck rng
+                    inl (card {suit rank}),deck,rng = draw_card deck rng
                     inl len = length deck
                     $'std::cout << std::bitset<!len>(!deck) << std::endl'
                     $'std::cout << "Suit: " << !suit << " Rank: " << !rank << std::endl'

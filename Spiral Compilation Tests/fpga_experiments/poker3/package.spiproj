@@ -10,8 +10,8 @@ modules:
         core-
         pragma
         loop
-        sam
         listm
+        sam
         optionm
         monad
         ap_uintm
