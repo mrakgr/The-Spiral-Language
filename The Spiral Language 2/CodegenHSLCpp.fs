@@ -42,7 +42,7 @@ type CFunRec = {tag : int; domain : Ty; range : Ty}
 let size_t = UInt32T
 
 // Replaces the invalid symbols in Spiral method names for the C backend.
-let fix_method_name (x : string) = x.Replace(''','_')
+let fix_method_name (x : string) = x.Replace(''','_') + "_"
 
 let lit_string x =
     let strb = StringBuilder(String.length x + 2)
@@ -300,7 +300,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
         | TyWhile(a,b) ->
             let cond =
                 match a with
-                | JPMethod(a,b),b' -> sprintf "method_%i(%s)" (method (a,b)).tag (args b')
+                | JPMethod(a,b),b' -> sprintf "while_method_%i(%s)" (method_while (a,b)).tag (args b')
                 | _ -> raise_codegen_error "Expected a regular method rather than closure create in the while conditional."
             line s (sprintf "while (%s){" cond)
             binds (indent s) (BindsLocal [||]) b
@@ -436,20 +436,22 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             |> return'
     and print_ordered_args s v = // Unlike C# for example, C keeps the struct fields in input order. To reduce padding, it is best to order the fields from largest to smallest.
         order_args v |> Array.iter (fun (L(i,x)) -> line s $"{tyv x} v{i};")
-    and method : _ -> MethodRec =
+    and method_template is_while : _ -> MethodRec =
         jp (fun ((jp_body,key & (C(args,_))),i) ->
             match (fst env.join_point_method.[jp_body]).[key] with
             | Some a, Some range, name -> {tag=i; free_vars=rdata_free_vars args; range=range; body=a; name=Option.map fix_method_name name}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun s_fwd s_typ s_fun x ->
             let ret_ty = tup_ty x.range
-            let fun_name = Option.defaultValue "method_" x.name
+            let fun_name = Option.defaultValue (if is_while then "while_method_" else "method_") x.name
             let args = x.free_vars |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
-            line s_fwd (sprintf "%s %s%i(%s);" ret_ty fun_name x.tag args)
-            line s_fun (sprintf "%s %s%i(%s){" ret_ty fun_name x.tag args)
+            let inline_ = if is_while then "inline " else line s_fwd $"{ret_ty} {fun_name}{x.tag}({args});"; ""
+            line s_fun $"{inline_}{ret_ty} {fun_name}{x.tag}({args}){{"
             binds_start (indent s_fun) x.body
             line s_fun "}"
             )
+    and method : _ -> MethodRec = method_template false
+    and method_while : _ -> MethodRec = method_template true
     and closure_args domain =
         let rec loop = function
             | YPair(a,b) -> a :: loop b
@@ -497,7 +499,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             line s_typ "};"
 
             let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} v{i}")
-            line s_fun (sprintf "static inline %s TupleCreate%i(%s){" name x.tag (String.concat ", " args))
+            line s_fun (sprintf "inline %s TupleCreate%i(%s){" name x.tag (String.concat ", " args))
             let _ =
                 let s_fun = indent s_fun
                 line s_fun $"{name} x;"

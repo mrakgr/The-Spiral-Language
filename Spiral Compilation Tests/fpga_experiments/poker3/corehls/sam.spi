@@ -11,14 +11,18 @@ inl set forall dim el. (ar : sa dim el) (i : int) (v : el) : () = $"!ar[!i] = !v
 inl length forall dim el. (ar : sa dim el) : int = real real_core.type_lit_to_lit `dim : int
 
 instance equable sa dim el = fun a b =>
-    loop.while (fun is_eq, i => is_eq && i < length a) (fun (is_eq, i) =>
-        index a i = index b i, i + 1
+    loop.while (fun _, i => i < length a) (fun (is_eq, i) =>
+        is_eq && index a i = index b i, i + 1
         ) (true, 0)
     |> fst
     
 instance comparable sa dim el = fun a b =>
-    loop.while (fun is_eq, i => eq_is is_eq && i < length a) (fun (is_eq, i) =>
-        comp (index a i) (index b i), i + 1
+    loop.while (fun _, i => i < length a) (fun (is_eq, i) =>
+        inl is_eq = 
+            match is_eq with 
+            | Eq => comp (index a i) (index b i)
+            | _ => is_eq
+        is_eq, i + 1
         ) (Eq, 0)
     |> fst
 

@@ -45,7 +45,6 @@ inl merge_sort' forall dim el. pragma1 pragma2 pragma3 f (inp : sa dim el) : sa 
             from + by * 2
             ) 0
         |> ignore
-        $'std::cout << "***\\n" '
         not switch, by * 2
         ) (true, 1)
     |> fun switch, _ => if not switch then out else inp

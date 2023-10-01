@@ -28,6 +28,7 @@ nominal random_player_env = {
     rng : random.lfsr 128
     }
 
+instance ante random_player_env = fun pot (player pl0) env => player {pl0 with pot}, env
 instance action random_player_env = fun (pl0,pl1,pid) cards config (random_player_env env) =>
     inl pot = max pl0.pot pl1.pot + pl1.pot
     inl raise x = 
@@ -45,6 +46,10 @@ instance action random_player_env = fun (pl0,pl1,pid) cards config (random_playe
         ]
     inl a,rng = random.sample_discrete actions env.rng
     a,random_player_env {env with rng}
+
+instance draw random_player_env = fun (random_player_env {rng deck}) => 
+    inl card,deck,rng = random.draw_card deck rng
+    card, random_player_env {deck rng}
 
 union betting = TurnOf : {pid : pid; call_skip : ap_uint 2} | Done
 
@@ -90,6 +95,7 @@ instance showdown random_player_env = fun (pl0,pl1) community_cards env =>
             hand_scorer.score ar
         inl h0, h1 = score h0, score h1
         inl r =
+            $"// hello"
             match comp h0 h1 with
             | Gt => pl1.pot
             | Eq => 0
@@ -98,11 +104,6 @@ instance showdown random_player_env = fun (pl0,pl1) community_cards env =>
     | Some _, None => pl1.pot, env
     | None, Some _ => -pl0.pot, env
     | None, None => 0, env
-
-instance ante random_player_env = fun pot (player pl0) env => player {pl0 with pot}, env
-instance draw random_player_env = fun (random_player_env {rng deck}) => 
-    inl card,deck,rng = random.draw_card deck rng
-    card, random_player_env {deck rng}
 
 inl game (config : config) ~env = join
     pragma.pipeline {ii=1}
@@ -137,16 +138,19 @@ inl game (config : config) ~env = join
     // Showdown
     showdown (pl0,pl1) [c0;c1;c2;c3;c4] env
 
-inl game_loop config ~env = join
-    loop.for {from=0; nearTo=1_000_1000} (fun (i : i32) (r,env) =>
+inl game_loop config ~rng = join
+    loop.for {from=0; nearTo=1_000_000} (fun (i : i32) r =>
         pragma.pipeline {ii=1}
-        inl r',env = game config env
-        r+r',env
-        ) (0,env)
+        inl (_ : _ 128),rng' = random.random_ap rng
+        loop._set rng rng'
+        inl r',env = game config (random_player_env {rng deck=ap_uintm.(~@) 0})
+        // if i % 100 = 0 then $'std::cout << !i << std::endl'
+        r+r'
+        ) (0)
 
 inl main() =
+    global "#include <iostream>"
     inl config = config { stack_size=100; bb=2; sb=1 }
-    inl env = random_player_env {rng = random.default(); deck= ap_uintm.(~@) 0}
-    inl r, env = game_loop config env
+    inl r = game_loop config random.default()
     $'std::cout << !r << std::endl'
     0i32

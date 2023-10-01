@@ -2,9 +2,6 @@ open corehls
 open type_arith
 open real_utils
 
-// TODO: Make the folds reductions whenever possible.
-// TODO: Use u8 indices in array folds.
-
 prototype filter_take ar dim el : forall dim'. (el -> bool) -> ar dim el -> option (ar dim' el)
 prototype try_straight_flush_for_suit ar dim el {suit; rank} : ap_uint 2 -> ar dim el -> option (ar 5 el)
 prototype try_straight ar dim el {suit; rank} : ar dim el -> option (ar 5 el)
@@ -81,8 +78,10 @@ instance partition_topk_pair sa = fun inp =>
             ) (0, 0, #12) inp
     if i = length l then
         // Copies the input into r while avoiding the elements in l.
-        inl f gap_size range = loop.for' range (fun i => set r i (index inp (gap_size + i)))
-        f 0 {from=0; nearTo=pos+1-length l} . f (length l) {from=pos+1-length l; nearTo=length r}
+        loop.for' {from=0; nearTo=length r} (fun i =>
+            inl f gap_size = set r i (index inp (gap_size + i))
+            if i < pos+1-length l then f 0 else f (length l)
+            )
         Some (l,r)
     else
         None
@@ -132,6 +131,8 @@ instance sort sa = fun ar =>
 
 let score forall (ar : * -> * -> *) {sort; filter_take; try_straight_flush_for_suit; try_straight; max_hand; partition_topk_pair; take; merge_hands; merge_hands2} dim. 
         (hand : ar dim card) : hand_score ar 5 =
+    pragma.pipeline {ii=1}
+    
     inl hand = sort hand
 
     inl high_card = take hand

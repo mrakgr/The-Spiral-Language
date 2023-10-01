@@ -1,3 +1,10 @@
+2.4.25 (10/1/2023)
+
+* Changed the parser so the join point names are propagated better.
+* Fixed the join point naming in the HLS C++ backend.
+* Separate the while loop methods from the regular ones and made them inlineable.
+* Removed them and the tuple creation functions from the forward declarations.
+
 2.4.24 (9/28/2023)
 
 * Added Pi, Sin and Cos operations to the language.

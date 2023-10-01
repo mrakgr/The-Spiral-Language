@@ -4,62 +4,61 @@
 #include <random>
 #include <iostream>
 struct Tuple0;
-bool method0(uint64_t v0);
+bool while_method_0(uint64_t v0);
 struct Tuple1;
-bool method1(int32_t v0);
+bool while_method_1(int32_t v0);
 struct Tuple2;
 struct Tuple3;
-bool method4(int8_t v0);
-bool method5(int8_t v0);
+bool while_method_2(int8_t v0);
+bool while_method_3(int8_t v0);
 struct Tuple4;
-uint32_t loop_ranks7(uint64_t v0, int8_t v1, int8_t v2);
-uint32_t try_suit6(uint64_t v0, uint16_t v1, int8_t v2);
-uint32_t loop9(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4);
-uint32_t loop_suits11(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, int8_t v4, uint32_t v5);
-uint32_t loop_ranks10(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4);
-uint32_t loop_ranks15(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4);
-uint32_t try_suit14(uint64_t v0, uint16_t v1, int8_t v2);
-uint32_t loop_suits21(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, int8_t v4, int8_t v5, uint32_t v6);
-uint32_t loop_ranks20(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, int8_t v4, uint32_t v5);
-uint32_t loop_suits24(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4);
-uint32_t loop_ranks23(uint64_t v0, int8_t v1, int8_t v2, uint32_t v3);
-uint64_t loop_pair22(uint64_t v0, uint64_t v1, int8_t v2);
-uint64_t loop_pair19(uint64_t v0, uint64_t v1, int8_t v2, uint32_t v3, int8_t v4);
+uint32_t loop_ranks_3(uint64_t v0, int8_t v1, int8_t v2);
+uint32_t try_suit_2(uint64_t v0, uint16_t v1, int8_t v2);
+uint32_t loop_5(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4);
+uint32_t loop_suits_7(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, int8_t v4, uint32_t v5);
+uint32_t loop_ranks_6(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4);
+uint32_t loop_ranks_11(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4);
+uint32_t try_suit_10(uint64_t v0, uint16_t v1, int8_t v2);
+uint32_t loop_suits_17(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, int8_t v4, int8_t v5, uint32_t v6);
+uint32_t loop_ranks_16(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, int8_t v4, uint32_t v5);
+uint32_t loop_suits_20(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4);
+uint32_t loop_ranks_19(uint64_t v0, int8_t v1, int8_t v2, uint32_t v3);
 uint64_t loop_pair_18(uint64_t v0, uint64_t v1, int8_t v2);
-uint64_t loop_triple17(uint64_t v0, uint64_t v1, int8_t v2);
-uint64_t loop16(uint64_t v0, uint64_t v1, int8_t v2);
-uint64_t loop_pair13(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3, uint32_t v4, int8_t v5);
-uint64_t loop_triple12(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3);
-uint64_t loop_ranks8(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3);
-uint64_t method3(uint64_t v0);
-Tuple2 score_2(uint64_t v0);
+uint64_t loop_pair_15(uint64_t v0, uint64_t v1, int8_t v2, uint32_t v3, int8_t v4);
+uint64_t loop_pair__14(uint64_t v0, uint64_t v1, int8_t v2);
+uint64_t loop_triple_13(uint64_t v0, uint64_t v1, int8_t v2);
+uint64_t loop_12(uint64_t v0, uint64_t v1, int8_t v2);
+uint64_t loop_pair_9(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3, uint32_t v4, int8_t v5);
+uint64_t loop_triple_8(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3);
+uint64_t loop_ranks_4(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3);
+uint64_t score_1(uint64_t v0);
+Tuple2 score__0(uint64_t v0);
 struct Tuple5;
 struct Tuple6;
-bool method26(int32_t v0);
+bool while_method_4(int32_t v0);
 struct Tuple7;
-bool method27(std::array<Tuple5,7l> v0, bool v1, int32_t v2);
-bool method28(std::array<Tuple5,7l> v0, int32_t v1);
+bool while_method_5(std::array<Tuple5,7l> v0, bool v1, int32_t v2);
+bool while_method_6(std::array<Tuple5,7l> v0, int32_t v1);
 struct Tuple8;
-bool method29(int32_t v0, int32_t v1, int32_t v2, int32_t v3);
+bool while_method_7(int32_t v0, int32_t v1, int32_t v2, int32_t v3);
 struct US0;
-bool method30(int32_t v0);
+bool while_method_8(int32_t v0);
 struct Tuple9;
 struct US1;
-bool method31(int32_t v0, int32_t v1);
 struct US2;
-bool method32(int32_t v0);
-bool method33(int32_t v0);
+bool while_method_9(int32_t v0);
+bool while_method_10(int32_t v0);
 struct US3;
-bool method34(int32_t v0);
+bool while_method_11(int32_t v0);
 struct US4;
-bool method35(int32_t v0);
+bool while_method_12(int32_t v0);
 struct Tuple10;
 struct Tuple11;
 struct Tuple12;
 struct US5;
 struct US6;
 struct US7;
-Tuple6 score25(std::array<Tuple5,7l> v0);
+Tuple6 score_21(std::array<Tuple5,7l> v0);
 struct Tuple0 {
     uint64_t v0;
     int32_t v1;
@@ -412,7 +411,8 @@ static inline Tuple0 TupleCreate0(uint64_t v0, int32_t v1){
     x.v0 = v0; x.v1 = v1;
     return x;
 }
-bool method0(uint64_t v0){
+bool while_method_0(uint64_t v0){
+#pragma HLS INLINE
     bool v1;
     v1 = v0 < 100000ull;
     return v1;
@@ -422,7 +422,8 @@ static inline Tuple1 TupleCreate1(int8_t v0, int8_t v1){
     x.v0 = v0; x.v1 = v1;
     return x;
 }
-bool method1(int32_t v0){
+bool while_method_1(int32_t v0){
+#pragma HLS INLINE
     bool v1;
     v1 = v0 > 0l;
     return v1;
@@ -437,12 +438,14 @@ static inline Tuple3 TupleCreate3(int8_t v0, uint16_t v1){
     x.v0 = v0; x.v1 = v1;
     return x;
 }
-bool method4(int8_t v0){
+bool while_method_2(int8_t v0){
+#pragma HLS INLINE
     bool v1;
     v1 = v0 < 13;
     return v1;
 }
-bool method5(int8_t v0){
+bool while_method_3(int8_t v0){
+#pragma HLS INLINE
     bool v1;
     v1 = v0 < 4;
     return v1;
@@ -452,7 +455,7 @@ static inline Tuple4 TupleCreate4(int8_t v0, uint64_t v1){
     x.v0 = v0; x.v1 = v1;
     return x;
 }
-uint32_t loop_ranks7(uint64_t v0, int8_t v1, int8_t v2){
+uint32_t loop_ranks_3(uint64_t v0, int8_t v1, int8_t v2){
     bool v3;
     v3 = -1 <= v2;
     if (v3){
@@ -577,13 +580,13 @@ uint32_t loop_ranks7(uint64_t v0, int8_t v1, int8_t v2){
         } else {
             int8_t v58;
             v58 = v2 - 1;
-            return loop_ranks7(v0, v1, v58);
+            return loop_ranks_3(v0, v1, v58);
         }
     } else {
         return 0ul;
     }
 }
-uint32_t try_suit6(uint64_t v0, uint16_t v1, int8_t v2){
+uint32_t try_suit_2(uint64_t v0, uint16_t v1, int8_t v2){
     int8_t v3;
     v3 = 4 * v2;
     int32_t v4;
@@ -599,12 +602,12 @@ uint32_t try_suit6(uint64_t v0, uint16_t v1, int8_t v2){
     if (v8){
         int8_t v9;
         v9 = 8;
-        return loop_ranks7(v0, v2, v9);
+        return loop_ranks_3(v0, v2, v9);
     } else {
         return 0ul;
     }
 }
-uint32_t loop9(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4){
+uint32_t loop_5(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4){
     bool v5;
     v5 = v2 < 4;
     bool v7;
@@ -641,17 +644,17 @@ uint32_t loop9(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4){
             v18 = (uint32_t)v9;
             uint32_t v19;
             v19 = v17 + v18;
-            return loop9(v0, v1, v15, v16, v19);
+            return loop_5(v0, v1, v15, v16, v19);
         } else {
             int8_t v21;
             v21 = v2 + 1;
-            return loop9(v0, v1, v21, v3, v4);
+            return loop_5(v0, v1, v21, v3, v4);
         }
     } else {
         return v4;
     }
 }
-uint32_t loop_suits11(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, int8_t v4, uint32_t v5){
+uint32_t loop_suits_7(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, int8_t v4, uint32_t v5){
     bool v6;
     v6 = 0 < v4;
     if (v6){
@@ -683,22 +686,22 @@ uint32_t loop_suits11(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, int8_t v4, u
                 v18 = (uint32_t)v9;
                 uint32_t v19;
                 v19 = v17 + v18;
-                return loop_suits11(v0, v1, v2, v15, v16, v19);
+                return loop_suits_7(v0, v1, v2, v15, v16, v19);
             } else {
                 int8_t v21;
                 v21 = v3 + 1;
-                return loop_suits11(v0, v1, v2, v21, v4, v5);
+                return loop_suits_7(v0, v1, v2, v21, v4, v5);
             }
         } else {
             int8_t v24;
             v24 = v2 - 1;
-            return loop_ranks10(v0, v1, v24, v4, v5);
+            return loop_ranks_6(v0, v1, v24, v4, v5);
         }
     } else {
         return v5;
     }
 }
-uint32_t loop_ranks10(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4){
+uint32_t loop_ranks_6(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4){
     bool v5;
     v5 = 0 <= v2;
     if (v5){
@@ -707,17 +710,17 @@ uint32_t loop_ranks10(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4)
         if (v6){
             int8_t v7;
             v7 = v2 - 1;
-            return loop_ranks10(v0, v1, v7, v3, v4);
+            return loop_ranks_6(v0, v1, v7, v3, v4);
         } else {
             int8_t v9;
             v9 = 0;
-            return loop_suits11(v0, v1, v2, v9, v3, v4);
+            return loop_suits_7(v0, v1, v2, v9, v3, v4);
         }
     } else {
         return v4;
     }
 }
-uint32_t loop_ranks15(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4){
+uint32_t loop_ranks_11(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4){
     bool v5;
     v5 = 0 <= v2;
     bool v7;
@@ -754,17 +757,17 @@ uint32_t loop_ranks15(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4)
             v18 = (uint32_t)v9;
             uint32_t v19;
             v19 = v17 + v18;
-            return loop_ranks15(v0, v1, v15, v16, v19);
+            return loop_ranks_11(v0, v1, v15, v16, v19);
         } else {
             int8_t v21;
             v21 = v2 - 1;
-            return loop_ranks15(v0, v1, v21, v3, v4);
+            return loop_ranks_11(v0, v1, v21, v3, v4);
         }
     } else {
         return v4;
     }
 }
-uint32_t try_suit14(uint64_t v0, uint16_t v1, int8_t v2){
+uint32_t try_suit_10(uint64_t v0, uint16_t v1, int8_t v2){
     int8_t v3;
     v3 = 4 * v2;
     int32_t v4;
@@ -784,12 +787,12 @@ uint32_t try_suit14(uint64_t v0, uint16_t v1, int8_t v2){
         v10 = 5;
         uint32_t v11;
         v11 = 0ul;
-        return loop_ranks15(v0, v2, v9, v10, v11);
+        return loop_ranks_11(v0, v2, v9, v10, v11);
     } else {
         return 0ul;
     }
 }
-uint32_t loop_suits21(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, int8_t v4, int8_t v5, uint32_t v6){
+uint32_t loop_suits_17(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, int8_t v4, int8_t v5, uint32_t v6){
     bool v7;
     v7 = 0 < v5;
     if (v7){
@@ -821,22 +824,22 @@ uint32_t loop_suits21(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, int8_t v4, i
                 v19 = (uint32_t)v10;
                 uint32_t v20;
                 v20 = v18 + v19;
-                return loop_suits21(v0, v1, v2, v3, v16, v17, v20);
+                return loop_suits_17(v0, v1, v2, v3, v16, v17, v20);
             } else {
                 int8_t v22;
                 v22 = v4 + 1;
-                return loop_suits21(v0, v1, v2, v3, v22, v5, v6);
+                return loop_suits_17(v0, v1, v2, v3, v22, v5, v6);
             }
         } else {
             int8_t v25;
             v25 = v3 - 1;
-            return loop_ranks20(v0, v1, v2, v25, v5, v6);
+            return loop_ranks_16(v0, v1, v2, v25, v5, v6);
         }
     } else {
         return v6;
     }
 }
-uint32_t loop_ranks20(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, int8_t v4, uint32_t v5){
+uint32_t loop_ranks_16(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, int8_t v4, uint32_t v5){
     bool v6;
     v6 = 0 <= v3;
     if (v6){
@@ -853,17 +856,17 @@ uint32_t loop_ranks20(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, int8_t v4, u
         if (v9){
             int8_t v10;
             v10 = v3 - 1;
-            return loop_ranks20(v0, v1, v2, v10, v4, v5);
+            return loop_ranks_16(v0, v1, v2, v10, v4, v5);
         } else {
             int8_t v12;
             v12 = 0;
-            return loop_suits21(v0, v1, v2, v3, v12, v4, v5);
+            return loop_suits_17(v0, v1, v2, v3, v12, v4, v5);
         }
     } else {
         return v5;
     }
 }
-uint32_t loop_suits24(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4){
+uint32_t loop_suits_20(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4){
     bool v5;
     v5 = 0 < v3;
     if (v5){
@@ -895,152 +898,30 @@ uint32_t loop_suits24(uint64_t v0, int8_t v1, int8_t v2, int8_t v3, uint32_t v4)
                 v17 = (uint32_t)v8;
                 uint32_t v18;
                 v18 = v16 + v17;
-                return loop_suits24(v0, v1, v14, v15, v18);
+                return loop_suits_20(v0, v1, v14, v15, v18);
             } else {
                 int8_t v20;
                 v20 = v2 + 1;
-                return loop_suits24(v0, v1, v20, v3, v4);
+                return loop_suits_20(v0, v1, v20, v3, v4);
             }
         } else {
             int8_t v23;
             v23 = v1 - 1;
-            return loop_ranks23(v0, v23, v3, v4);
+            return loop_ranks_19(v0, v23, v3, v4);
         }
     } else {
         return v4;
     }
 }
-uint32_t loop_ranks23(uint64_t v0, int8_t v1, int8_t v2, uint32_t v3){
+uint32_t loop_ranks_19(uint64_t v0, int8_t v1, int8_t v2, uint32_t v3){
     bool v4;
     v4 = 0 <= v1;
     if (v4){
         int8_t v5;
         v5 = 0;
-        return loop_suits24(v0, v1, v5, v2, v3);
+        return loop_suits_20(v0, v1, v5, v2, v3);
     } else {
         return v3;
-    }
-}
-uint64_t loop_pair22(uint64_t v0, uint64_t v1, int8_t v2){
-    bool v3;
-    v3 = 0 <= v2;
-    if (v3){
-        int8_t v4;
-        v4 = 3 * v2;
-        int32_t v5;
-        v5 = (int32_t)v4;
-        uint64_t v6;
-        v6 = v0 >> v5;
-        int8_t v7;
-        v7 = (int8_t)v6;
-        int8_t v8;
-        v8 = v7 & 7;
-        bool v9;
-        v9 = v8 == 2;
-        if (v9){
-            int8_t v10;
-            v10 = 0;
-            int8_t v11;
-            v11 = 2;
-            uint32_t v12;
-            v12 = 0ul;
-            uint32_t v13;
-            v13 = loop9(v1, v2, v10, v11, v12);
-            int8_t v14;
-            v14 = 12;
-            int8_t v15;
-            v15 = 3;
-            uint32_t v16;
-            v16 = loop_ranks10(v1, v2, v14, v15, v13);
-            uint64_t v17;
-            v17 = (uint64_t)1;
-            uint64_t v18;
-            v18 = v17 << 32l;
-            uint64_t v19;
-            v19 = (uint64_t)v16;
-            uint64_t v20;
-            v20 = v18 | v19;
-            return v20;
-        } else {
-            int8_t v21;
-            v21 = v2 - 1;
-            return loop_pair22(v0, v1, v21);
-        }
-    } else {
-        int8_t v24;
-        v24 = 12;
-        int8_t v25;
-        v25 = 5;
-        uint32_t v26;
-        v26 = 0ul;
-        uint32_t v27;
-        v27 = loop_ranks23(v1, v24, v25, v26);
-        uint64_t v28;
-        v28 = (uint64_t)0;
-        uint64_t v29;
-        v29 = v28 << 32l;
-        uint64_t v30;
-        v30 = (uint64_t)v27;
-        uint64_t v31;
-        v31 = v29 | v30;
-        return v31;
-    }
-}
-uint64_t loop_pair19(uint64_t v0, uint64_t v1, int8_t v2, uint32_t v3, int8_t v4){
-    bool v5;
-    v5 = v2 == v4;
-    if (v5){
-        int8_t v6;
-        v6 = v4 - 1;
-        return loop_pair19(v0, v1, v2, v3, v6);
-    } else {
-        bool v8;
-        v8 = 0 <= v4;
-        if (v8){
-            int8_t v9;
-            v9 = 3 * v4;
-            int32_t v10;
-            v10 = (int32_t)v9;
-            uint64_t v11;
-            v11 = v0 >> v10;
-            int8_t v12;
-            v12 = (int8_t)v11;
-            int8_t v13;
-            v13 = v12 & 7;
-            bool v14;
-            v14 = v13 == 2;
-            if (v14){
-                int8_t v15;
-                v15 = 0;
-                int8_t v16;
-                v16 = 2;
-                uint32_t v17;
-                v17 = loop9(v1, v4, v15, v16, v3);
-                int8_t v18;
-                v18 = 12;
-                int8_t v19;
-                v19 = 1;
-                uint32_t v20;
-                v20 = loop_ranks20(v1, v2, v4, v18, v19, v17);
-                uint64_t v21;
-                v21 = (uint64_t)2;
-                uint64_t v22;
-                v22 = v21 << 32l;
-                uint64_t v23;
-                v23 = (uint64_t)v20;
-                uint64_t v24;
-                v24 = v22 | v23;
-                return v24;
-            } else {
-                int8_t v25;
-                v25 = v4 - 1;
-                return loop_pair19(v0, v1, v2, v3, v25);
-            }
-        } else {
-            int8_t v28;
-            v28 = 12;
-            return loop_pair22(v0, v1, v28);
-        }
     }
 }
 uint64_t loop_pair_18(uint64_t v0, uint64_t v1, int8_t v2){
@@ -1067,22 +948,144 @@ uint64_t loop_pair_18(uint64_t v0, uint64_t v1, int8_t v2){
             uint32_t v12;
             v12 = 0ul;
             uint32_t v13;
-            v13 = loop9(v1, v2, v10, v11, v12);
+            v13 = loop_5(v1, v2, v10, v11, v12);
             int8_t v14;
             v14 = 12;
-            return loop_pair19(v0, v1, v2, v13, v14);
+            int8_t v15;
+            v15 = 3;
+            uint32_t v16;
+            v16 = loop_ranks_6(v1, v2, v14, v15, v13);
+            uint64_t v17;
+            v17 = (uint64_t)1;
+            uint64_t v18;
+            v18 = v17 << 32l;
+            uint64_t v19;
+            v19 = (uint64_t)v16;
+            uint64_t v20;
+            v20 = v18 | v19;
+            return v20;
+        } else {
+            int8_t v21;
+            v21 = v2 - 1;
+            return loop_pair_18(v0, v1, v21);
+        }
+    } else {
+        int8_t v24;
+        v24 = 12;
+        int8_t v25;
+        v25 = 5;
+        uint32_t v26;
+        v26 = 0ul;
+        uint32_t v27;
+        v27 = loop_ranks_19(v1, v24, v25, v26);
+        uint64_t v28;
+        v28 = (uint64_t)0;
+        uint64_t v29;
+        v29 = v28 << 32l;
+        uint64_t v30;
+        v30 = (uint64_t)v27;
+        uint64_t v31;
+        v31 = v29 | v30;
+        return v31;
+    }
+}
+uint64_t loop_pair_15(uint64_t v0, uint64_t v1, int8_t v2, uint32_t v3, int8_t v4){
+    bool v5;
+    v5 = v2 == v4;
+    if (v5){
+        int8_t v6;
+        v6 = v4 - 1;
+        return loop_pair_15(v0, v1, v2, v3, v6);
+    } else {
+        bool v8;
+        v8 = 0 <= v4;
+        if (v8){
+            int8_t v9;
+            v9 = 3 * v4;
+            int32_t v10;
+            v10 = (int32_t)v9;
+            uint64_t v11;
+            v11 = v0 >> v10;
+            int8_t v12;
+            v12 = (int8_t)v11;
+            int8_t v13;
+            v13 = v12 & 7;
+            bool v14;
+            v14 = v13 == 2;
+            if (v14){
+                int8_t v15;
+                v15 = 0;
+                int8_t v16;
+                v16 = 2;
+                uint32_t v17;
+                v17 = loop_5(v1, v4, v15, v16, v3);
+                int8_t v18;
+                v18 = 12;
+                int8_t v19;
+                v19 = 1;
+                uint32_t v20;
+                v20 = loop_ranks_16(v1, v2, v4, v18, v19, v17);
+                uint64_t v21;
+                v21 = (uint64_t)2;
+                uint64_t v22;
+                v22 = v21 << 32l;
+                uint64_t v23;
+                v23 = (uint64_t)v20;
+                uint64_t v24;
+                v24 = v22 | v23;
+                return v24;
+            } else {
+                int8_t v25;
+                v25 = v4 - 1;
+                return loop_pair_15(v0, v1, v2, v3, v25);
+            }
+        } else {
+            int8_t v28;
+            v28 = 12;
+            return loop_pair_18(v0, v1, v28);
+        }
+    }
+}
+uint64_t loop_pair__14(uint64_t v0, uint64_t v1, int8_t v2){
+    bool v3;
+    v3 = 0 <= v2;
+    if (v3){
+        int8_t v4;
+        v4 = 3 * v2;
+        int32_t v5;
+        v5 = (int32_t)v4;
+        uint64_t v6;
+        v6 = v0 >> v5;
+        int8_t v7;
+        v7 = (int8_t)v6;
+        int8_t v8;
+        v8 = v7 & 7;
+        bool v9;
+        v9 = v8 == 2;
+        if (v9){
+            int8_t v10;
+            v10 = 0;
+            int8_t v11;
+            v11 = 2;
+            uint32_t v12;
+            v12 = 0ul;
+            uint32_t v13;
+            v13 = loop_5(v1, v2, v10, v11, v12);
+            int8_t v14;
+            v14 = 12;
+            return loop_pair_15(v0, v1, v2, v13, v14);
         } else {
             int8_t v16;
             v16 = v2 - 1;
-            return loop_pair_18(v0, v1, v16);
+            return loop_pair__14(v0, v1, v16);
         }
     } else {
         int8_t v19;
         v19 = 12;
-        return loop_pair22(v0, v1, v19);
+        return loop_pair_18(v0, v1, v19);
     }
 }
-uint64_t loop_triple17(uint64_t v0, uint64_t v1, int8_t v2){
+uint64_t loop_triple_13(uint64_t v0, uint64_t v1, int8_t v2){
     bool v3;
     v3 = 0 <= v2;
     if (v3){
@@ -1106,13 +1109,13 @@ uint64_t loop_triple17(uint64_t v0, uint64_t v1, int8_t v2){
             uint32_t v12;
             v12 = 0ul;
             uint32_t v13;
-            v13 = loop9(v1, v2, v10, v11, v12);
+            v13 = loop_5(v1, v2, v10, v11, v12);
             int8_t v14;
             v14 = 12;
             int8_t v15;
             v15 = 2;
             uint32_t v16;
-            v16 = loop_ranks10(v1, v2, v14, v15, v13);
+            v16 = loop_ranks_6(v1, v2, v14, v15, v13);
             uint64_t v17;
             v17 = (uint64_t)3;
             uint64_t v18;
@@ -1125,15 +1128,15 @@ uint64_t loop_triple17(uint64_t v0, uint64_t v1, int8_t v2){
         } else {
             int8_t v21;
             v21 = v2 - 1;
-            return loop_triple17(v0, v1, v21);
+            return loop_triple_13(v0, v1, v21);
         }
     } else {
         int8_t v24;
         v24 = 12;
-        return loop_pair_18(v0, v1, v24);
+        return loop_pair__14(v0, v1, v24);
     }
 }
-uint64_t loop16(uint64_t v0, uint64_t v1, int8_t v2){
+uint64_t loop_12(uint64_t v0, uint64_t v1, int8_t v2){
     bool v3;
     v3 = -1 <= v2;
     if (v3){
@@ -1263,25 +1266,25 @@ uint64_t loop16(uint64_t v0, uint64_t v1, int8_t v2){
             uint32_t v53;
             v53 = 0ul;
             uint32_t v54;
-            v54 = loop9(v1, v4, v51, v52, v53);
+            v54 = loop_5(v1, v4, v51, v52, v53);
             int8_t v55;
             v55 = 0;
             int8_t v56;
             v56 = 1;
             uint32_t v57;
-            v57 = loop9(v1, v12, v55, v56, v54);
+            v57 = loop_5(v1, v12, v55, v56, v54);
             int8_t v58;
             v58 = 0;
             int8_t v59;
             v59 = 1;
             uint32_t v60;
-            v60 = loop9(v1, v21, v58, v59, v57);
+            v60 = loop_5(v1, v21, v58, v59, v57);
             int8_t v61;
             v61 = 0;
             int8_t v62;
             v62 = 1;
             uint32_t v63;
-            v63 = loop9(v1, v30, v61, v62, v60);
+            v63 = loop_5(v1, v30, v61, v62, v60);
             int8_t v65;
             if (v39){
                 int8_t v64;
@@ -1295,7 +1298,7 @@ uint64_t loop16(uint64_t v0, uint64_t v1, int8_t v2){
             int8_t v67;
             v67 = 1;
             uint32_t v68;
-            v68 = loop9(v1, v65, v66, v67, v63);
+            v68 = loop_5(v1, v65, v66, v67, v63);
             uint64_t v69;
             v69 = (uint64_t)4;
             uint64_t v70;
@@ -1308,15 +1311,15 @@ uint64_t loop16(uint64_t v0, uint64_t v1, int8_t v2){
         } else {
             int8_t v73;
             v73 = v2 - 1;
-            return loop16(v0, v1, v73);
+            return loop_12(v0, v1, v73);
         }
     } else {
         int8_t v76;
         v76 = 12;
-        return loop_triple17(v0, v1, v76);
+        return loop_triple_13(v0, v1, v76);
     }
 }
-uint64_t loop_pair13(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3, uint32_t v4, int8_t v5){
+uint64_t loop_pair_9(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3, uint32_t v4, int8_t v5){
     bool v6;
     v6 = 0 <= v5;
     if (v6){
@@ -1325,7 +1328,7 @@ uint64_t loop_pair13(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3, uint32_t 
         if (v7){
             int8_t v8;
             v8 = v5 - 1;
-            return loop_pair13(v0, v1, v2, v3, v4, v8);
+            return loop_pair_9(v0, v1, v2, v3, v4, v8);
         } else {
             int8_t v10;
             v10 = 3 * v5;
@@ -1345,7 +1348,7 @@ uint64_t loop_pair13(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3, uint32_t 
                 int8_t v17;
                 v17 = 2;
                 uint32_t v18;
-                v18 = loop9(v1, v5, v16, v17, v4);
+                v18 = loop_5(v1, v5, v16, v17, v4);
                 uint64_t v19;
                 v19 = (uint64_t)6;
                 uint64_t v20;
@@ -1358,14 +1361,14 @@ uint64_t loop_pair13(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3, uint32_t 
             } else {
                 int8_t v23;
                 v23 = v5 - 1;
-                return loop_pair13(v0, v1, v2, v3, v4, v23);
+                return loop_pair_9(v0, v1, v2, v3, v4, v23);
             }
         }
     } else {
         int8_t v27;
         v27 = 0;
         uint32_t v28;
-        v28 = try_suit14(v1, v2, v27);
+        v28 = try_suit_10(v1, v2, v27);
         bool v29;
         v29 = v28 >= 0ul;
         uint32_t v30;
@@ -1377,7 +1380,7 @@ uint64_t loop_pair13(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3, uint32_t 
         int8_t v31;
         v31 = 1;
         uint32_t v32;
-        v32 = try_suit14(v1, v2, v31);
+        v32 = try_suit_10(v1, v2, v31);
         bool v33;
         v33 = v32 >= v30;
         uint32_t v34;
@@ -1389,7 +1392,7 @@ uint64_t loop_pair13(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3, uint32_t 
         int8_t v35;
         v35 = 2;
         uint32_t v36;
-        v36 = try_suit14(v1, v2, v35);
+        v36 = try_suit_10(v1, v2, v35);
         bool v37;
         v37 = v36 >= v34;
         uint32_t v38;
@@ -1401,7 +1404,7 @@ uint64_t loop_pair13(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3, uint32_t 
         int8_t v39;
         v39 = 3;
         uint32_t v40;
-        v40 = try_suit14(v1, v2, v39);
+        v40 = try_suit_10(v1, v2, v39);
         bool v41;
         v41 = v40 >= v38;
         uint32_t v42;
@@ -1425,11 +1428,11 @@ uint64_t loop_pair13(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3, uint32_t 
         } else {
             int8_t v48;
             v48 = 8;
-            return loop16(v0, v1, v48);
+            return loop_12(v0, v1, v48);
         }
     }
 }
-uint64_t loop_triple12(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3){
+uint64_t loop_triple_8(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3){
     bool v4;
     v4 = 0 <= v3;
     if (v4){
@@ -1453,20 +1456,20 @@ uint64_t loop_triple12(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3){
             uint32_t v13;
             v13 = 0ul;
             uint32_t v14;
-            v14 = loop9(v1, v3, v11, v12, v13);
+            v14 = loop_5(v1, v3, v11, v12, v13);
             int8_t v15;
             v15 = 12;
-            return loop_pair13(v0, v1, v2, v3, v14, v15);
+            return loop_pair_9(v0, v1, v2, v3, v14, v15);
         } else {
             int8_t v17;
             v17 = v3 - 1;
-            return loop_triple12(v0, v1, v2, v17);
+            return loop_triple_8(v0, v1, v2, v17);
         }
     } else {
         int8_t v20;
         v20 = 0;
         uint32_t v21;
-        v21 = try_suit14(v1, v2, v20);
+        v21 = try_suit_10(v1, v2, v20);
         bool v22;
         v22 = v21 >= 0ul;
         uint32_t v23;
@@ -1478,7 +1481,7 @@ uint64_t loop_triple12(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3){
         int8_t v24;
         v24 = 1;
         uint32_t v25;
-        v25 = try_suit14(v1, v2, v24);
+        v25 = try_suit_10(v1, v2, v24);
         bool v26;
         v26 = v25 >= v23;
         uint32_t v27;
@@ -1490,7 +1493,7 @@ uint64_t loop_triple12(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3){
         int8_t v28;
         v28 = 2;
         uint32_t v29;
-        v29 = try_suit14(v1, v2, v28);
+        v29 = try_suit_10(v1, v2, v28);
         bool v30;
         v30 = v29 >= v27;
         uint32_t v31;
@@ -1502,7 +1505,7 @@ uint64_t loop_triple12(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3){
         int8_t v32;
         v32 = 3;
         uint32_t v33;
-        v33 = try_suit14(v1, v2, v32);
+        v33 = try_suit_10(v1, v2, v32);
         bool v34;
         v34 = v33 >= v31;
         uint32_t v35;
@@ -1526,11 +1529,11 @@ uint64_t loop_triple12(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3){
         } else {
             int8_t v41;
             v41 = 8;
-            return loop16(v0, v1, v41);
+            return loop_12(v0, v1, v41);
         }
     }
 }
-uint64_t loop_ranks8(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3){
+uint64_t loop_ranks_4(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3){
     bool v4;
     v4 = 0 <= v3;
     if (v4){
@@ -1554,13 +1557,13 @@ uint64_t loop_ranks8(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3){
             uint32_t v13;
             v13 = 0ul;
             uint32_t v14;
-            v14 = loop9(v1, v3, v11, v12, v13);
+            v14 = loop_5(v1, v3, v11, v12, v13);
             int8_t v15;
             v15 = 12;
             int8_t v16;
             v16 = 1;
             uint32_t v17;
-            v17 = loop_ranks10(v1, v3, v15, v16, v14);
+            v17 = loop_ranks_6(v1, v3, v15, v16, v14);
             uint64_t v18;
             v18 = (uint64_t)7;
             uint64_t v19;
@@ -1573,23 +1576,23 @@ uint64_t loop_ranks8(uint64_t v0, uint64_t v1, uint16_t v2, int8_t v3){
         } else {
             int8_t v22;
             v22 = v3 - 1;
-            return loop_ranks8(v0, v1, v2, v22);
+            return loop_ranks_4(v0, v1, v2, v22);
         }
     } else {
         int8_t v25;
         v25 = 12;
-        return loop_triple12(v0, v1, v2, v25);
+        return loop_triple_8(v0, v1, v2, v25);
     }
 }
-uint64_t method3(uint64_t v0){
+uint64_t score_1(uint64_t v0){
     int8_t v1; uint16_t v2;
     Tuple3 tmp8 = TupleCreate3(0, 0u);
     v1 = tmp8.v0; v2 = tmp8.v1;
-    while (method4(v1)){
+    while (while_method_2(v1)){
         int8_t v4; uint16_t v5;
         Tuple3 tmp9 = TupleCreate3(0, v2);
         v4 = tmp9.v0; v5 = tmp9.v1;
-        while (method5(v4)){
+        while (while_method_3(v4)){
             int8_t v7;
             v7 = v4 * 13;
             int8_t v8;
@@ -1623,11 +1626,11 @@ uint64_t method3(uint64_t v0){
     int8_t v19; uint64_t v20;
     Tuple4 tmp10 = TupleCreate4(0, 0ull);
     v19 = tmp10.v0; v20 = tmp10.v1;
-    while (method4(v19)){
+    while (while_method_2(v19)){
         int8_t v22; uint64_t v23;
         Tuple4 tmp11 = TupleCreate4(0, v20);
         v22 = tmp11.v0; v23 = tmp11.v1;
-        while (method5(v22)){
+        while (while_method_3(v22)){
             int8_t v25;
             v25 = v22 * 13;
             int8_t v26;
@@ -1661,7 +1664,7 @@ uint64_t method3(uint64_t v0){
     int8_t v37;
     v37 = 0;
     uint32_t v38;
-    v38 = try_suit6(v0, v2, v37);
+    v38 = try_suit_2(v0, v2, v37);
     bool v39;
     v39 = v38 >= 0ul;
     uint32_t v40;
@@ -1673,7 +1676,7 @@ uint64_t method3(uint64_t v0){
     int8_t v41;
     v41 = 1;
     uint32_t v42;
-    v42 = try_suit6(v0, v2, v41);
+    v42 = try_suit_2(v0, v2, v41);
     bool v43;
     v43 = v42 >= v40;
     uint32_t v44;
@@ -1685,7 +1688,7 @@ uint64_t method3(uint64_t v0){
     int8_t v45;
     v45 = 2;
     uint32_t v46;
-    v46 = try_suit6(v0, v2, v45);
+    v46 = try_suit_2(v0, v2, v45);
     bool v47;
     v47 = v46 >= v44;
     uint32_t v48;
@@ -1697,7 +1700,7 @@ uint64_t method3(uint64_t v0){
     int8_t v49;
     v49 = 3;
     uint32_t v50;
-    v50 = try_suit6(v0, v2, v49);
+    v50 = try_suit_2(v0, v2, v49);
     bool v51;
     v51 = v50 >= v48;
     uint32_t v52;
@@ -1721,12 +1724,12 @@ uint64_t method3(uint64_t v0){
     } else {
         int8_t v58;
         v58 = 12;
-        return loop_ranks8(v20, v0, v2, v58);
+        return loop_ranks_4(v20, v0, v2, v58);
     }
 }
-Tuple2 score_2(uint64_t v0){
+Tuple2 score__0(uint64_t v0){
     uint64_t v1;
-    v1 = method3(v0);
+    v1 = score_1(v0);
     uint64_t v2;
     v2 = v1 >> 32l;
     int8_t v3;
@@ -1771,7 +1774,8 @@ static inline Tuple6 TupleCreate6(std::array<Tuple5,5l> v0, ap_uint<4l> v1){
     x.v0 = v0; x.v1 = v1;
     return x;
 }
-bool method26(int32_t v0){
+bool while_method_4(int32_t v0){
+#pragma HLS INLINE
     bool v1;
     v1 = v0 < 7l;
     return v1;
@@ -1781,12 +1785,14 @@ static inline Tuple7 TupleCreate7(bool v0, int32_t v1){
     x.v0 = v0; x.v1 = v1;
     return x;
 }
-bool method27(std::array<Tuple5,7l> v0, bool v1, int32_t v2){
+bool while_method_5(std::array<Tuple5,7l> v0, bool v1, int32_t v2){
+#pragma HLS INLINE
     bool v3;
     v3 = v2 < 7l;
     return v3;
 }
-bool method28(std::array<Tuple5,7l> v0, int32_t v1){
+bool while_method_6(std::array<Tuple5,7l> v0, int32_t v1){
+#pragma HLS INLINE
     bool v2;
     v2 = v1 < 7l;
     return v2;
@@ -1796,7 +1802,8 @@ static inline Tuple8 TupleCreate8(int32_t v0, int32_t v1, int32_t v2){
     x.v0 = v0; x.v1 = v1; x.v2 = v2;
     return x;
 }
-bool method29(int32_t v0, int32_t v1, int32_t v2, int32_t v3){
+bool while_method_7(int32_t v0, int32_t v1, int32_t v2, int32_t v3){
+#pragma HLS INLINE
     bool v4;
     v4 = v3 < v0;
     return v4;
@@ -1816,7 +1823,8 @@ US0 US0_2() { // Lt
     x.tag = 2;
     return x;
 }
-bool method30(int32_t v0){
+bool while_method_8(int32_t v0){
+#pragma HLS INLINE
     bool v1;
     v1 = v0 < 5l;
     return v1;
@@ -1837,11 +1845,6 @@ US1 US1_1(std::array<Tuple5,2l> v0, std::array<Tuple5,5l> v1) { // Some
     x.v.case1.v0 = v0; x.v.case1.v1 = v1;
     return x;
 }
-bool method31(int32_t v0, int32_t v1){
-    bool v2;
-    v2 = v1 < v0;
-    return v2;
-}
 US2 US2_0() { // None
     US2 x;
     x.tag = 0;
@@ -1853,12 +1856,14 @@ US2 US2_1(std::array<Tuple5,5l> v0) { // Some
     x.v.case1.v0 = v0;
     return x;
 }
-bool method32(int32_t v0){
+bool while_method_9(int32_t v0){
+#pragma HLS INLINE
     bool v1;
     v1 = v0 < 3l;
     return v1;
 }
-bool method33(int32_t v0){
+bool while_method_10(int32_t v0){
+#pragma HLS INLINE
     bool v1;
     v1 = v0 < 2l;
     return v1;
@@ -1874,7 +1879,8 @@ US3 US3_1(std::array<Tuple5,2l> v0, std::array<Tuple5,3l> v1) { // Some
     x.v.case1.v0 = v0; x.v.case1.v1 = v1;
     return x;
 }
-bool method34(int32_t v0){
+bool while_method_11(int32_t v0){
+#pragma HLS INLINE
     bool v1;
     v1 = v0 < 1l;
     return v1;
@@ -1890,7 +1896,8 @@ US4 US4_1(std::array<Tuple5,3l> v0, std::array<Tuple5,4l> v1) { // Some
     x.v.case1.v0 = v0; x.v.case1.v1 = v1;
     return x;
 }
-bool method35(int32_t v0){
+bool while_method_12(int32_t v0){
+#pragma HLS INLINE
     bool v1;
     v1 = v0 < 4l;
     return v1;
@@ -1943,11 +1950,12 @@ US7 US7_1(std::array<Tuple5,5l> v0, ap_uint<4l> v1) { // Some
     x.v.case1.v0 = v0; x.v.case1.v1 = v1;
     return x;
 }
-Tuple6 score25(std::array<Tuple5,7l> v0){
+Tuple6 score_21(std::array<Tuple5,7l> v0){
+    #pragma HLS PIPELINE II=1l
     std::array<Tuple5,7l> v1;
     int32_t v2;
     v2 = 0l;
-    while (method26(v2)){
+    while (while_method_4(v2)){
         ap_uint<4l> v4; ap_uint<2l> v5;
         Tuple5 tmp13 = v0[v2];
         v4 = tmp13.v0; v5 = tmp13.v1;
@@ -1958,10 +1966,10 @@ Tuple6 score25(std::array<Tuple5,7l> v0){
     bool v7; int32_t v8;
     Tuple7 tmp14 = TupleCreate7(true, 1l);
     v7 = tmp14.v0; v8 = tmp14.v1;
-    while (method27(v1, v7, v8)){
+    while (while_method_5(v1, v7, v8)){
         int32_t v10;
         v10 = 0l;
-        while (method28(v1, v10)){
+        while (while_method_6(v1, v10)){
             int32_t v12;
             v12 = v10 + v8;
             bool v13;
@@ -1987,7 +1995,7 @@ Tuple6 score25(std::array<Tuple5,7l> v0){
             int32_t v19; int32_t v20; int32_t v21;
             Tuple8 tmp15 = TupleCreate8(v10, v14, v10);
             v19 = tmp15.v0; v20 = tmp15.v1; v21 = tmp15.v2;
-            while (method29(v18, v19, v20, v21)){
+            while (while_method_7(v18, v19, v20, v21)){
                 bool v23;
                 v23 = v19 < v14;
                 bool v25;
@@ -2121,7 +2129,6 @@ Tuple6 score25(std::array<Tuple5,7l> v0){
             }
             v10 = v16;
         }
-        std::cout << "***\n" ;
         bool v82;
         v82 = v7 == false;
         int32_t v83;
@@ -2140,7 +2147,7 @@ Tuple6 score25(std::array<Tuple5,7l> v0){
     std::array<Tuple5,5l> v86;
     int32_t v87;
     v87 = 0l;
-    while (method30(v87)){
+    while (while_method_8(v87)){
         ap_uint<4l> v89; ap_uint<2l> v90;
         Tuple5 tmp24 = v85[v87];
         v89 = tmp24.v0; v90 = tmp24.v1;
@@ -2154,7 +2161,7 @@ Tuple6 score25(std::array<Tuple5,7l> v0){
     int32_t v94; int32_t v95; int32_t v96; ap_uint<4l> v97;
     Tuple9 tmp25 = TupleCreate9(0l, 0l, 0l, v93);
     v94 = tmp25.v0; v95 = tmp25.v1; v96 = tmp25.v2; v97 = tmp25.v3;
-    while (method26(v94)){
+    while (while_method_4(v94)){
         ap_uint<4l> v99; ap_uint<2l> v100;
         Tuple5 tmp26 = v85[v94];
         v99 = tmp26.v0; v100 = tmp26.v1;
@@ -2184,2392 +2191,2392 @@ Tuple6 score25(std::array<Tuple5,7l> v0){
     }
     bool v108;
     v108 = v96 == 2l;
-    US1 v122;
+    US1 v121;
     if (v108){
         int32_t v109;
-        v109 = v95 + 1l;
-        int32_t v110;
-        v110 = v109 - 2l;
-        int32_t v111;
-        v111 = 0l;
-        while (method31(v110, v111)){
-            ap_uint<4l> v113; ap_uint<2l> v114;
-            Tuple5 tmp27 = v85[v111];
-            v113 = tmp27.v0; v114 = tmp27.v1;
-            v92[v111] = TupleCreate5(v113, v114);
-            v111++;
+        v109 = 0l;
+        while (while_method_8(v109)){
+            int32_t v111;
+            v111 = v95 + 1l;
+            int32_t v112;
+            v112 = v111 - 2l;
+            bool v113;
+            v113 = v109 < v112;
+            if (v113){
+                ap_uint<4l> v114; ap_uint<2l> v115;
+                Tuple5 tmp27 = v85[v109];
+                v114 = tmp27.v0; v115 = tmp27.v1;
+                v92[v109] = TupleCreate5(v114, v115);
+            } else {
+                int32_t v116;
+                v116 = 2l + v109;
+                ap_uint<4l> v117; ap_uint<2l> v118;
+                Tuple5 tmp28 = v85[v116];
+                v117 = tmp28.v0; v118 = tmp28.v1;
+                v92[v109] = TupleCreate5(v117, v118);
+            }
+            v109++;
         }
-        int32_t v115;
-        v115 = v110;
-        while (method30(v115)){
-            int32_t v117;
-            v117 = 2l + v115;
-            ap_uint<4l> v118; ap_uint<2l> v119;
-            Tuple5 tmp28 = v85[v117];
-            v118 = tmp28.v0; v119 = tmp28.v1;
-            v92[v115] = TupleCreate5(v118, v119);
-            v115++;
-        }
-        v122 = US1_1(v91, v92);
+        v121 = US1_1(v91, v92);
     } else {
-        v122 = US1_0();
+        v121 = US1_0();
     }
-    US2 v144;
-    switch (v122.tag) {
+    US2 v143;
+    switch (v121.tag) {
         case 0: { // None
-            v144 = US2_0();
+            v143 = US2_0();
             break;
         }
         default: { // Some
-            std::array<Tuple5,2l> v123 = v122.v.case1.v0; std::array<Tuple5,5l> v124 = v122.v.case1.v1;
-            std::array<Tuple5,3l> v125;
-            int32_t v126;
-            v126 = 0l;
-            while (method32(v126)){
-                ap_uint<4l> v128; ap_uint<2l> v129;
-                Tuple5 tmp29 = v124[v126];
-                v128 = tmp29.v0; v129 = tmp29.v1;
-                v125[v126] = TupleCreate5(v128, v129);
-                v126++;
+            std::array<Tuple5,2l> v122 = v121.v.case1.v0; std::array<Tuple5,5l> v123 = v121.v.case1.v1;
+            std::array<Tuple5,3l> v124;
+            int32_t v125;
+            v125 = 0l;
+            while (while_method_9(v125)){
+                ap_uint<4l> v127; ap_uint<2l> v128;
+                Tuple5 tmp29 = v123[v125];
+                v127 = tmp29.v0; v128 = tmp29.v1;
+                v124[v125] = TupleCreate5(v127, v128);
+                v125++;
             }
-            std::array<Tuple5,0l> v130;
-            std::array<Tuple5,5l> v131;
-            int32_t v132;
-            v132 = 0l;
-            while (method33(v132)){
-                ap_uint<4l> v134; ap_uint<2l> v135;
-                Tuple5 tmp30 = v123[v132];
-                v134 = tmp30.v0; v135 = tmp30.v1;
-                v131[v132] = TupleCreate5(v134, v135);
-                v132++;
+            std::array<Tuple5,0l> v129;
+            std::array<Tuple5,5l> v130;
+            int32_t v131;
+            v131 = 0l;
+            while (while_method_10(v131)){
+                ap_uint<4l> v133; ap_uint<2l> v134;
+                Tuple5 tmp30 = v122[v131];
+                v133 = tmp30.v0; v134 = tmp30.v1;
+                v130[v131] = TupleCreate5(v133, v134);
+                v131++;
             }
-            int32_t v136;
-            v136 = 0l;
-            while (method32(v136)){
-                ap_uint<4l> v138; ap_uint<2l> v139;
-                Tuple5 tmp31 = v125[v136];
-                v138 = tmp31.v0; v139 = tmp31.v1;
-                int32_t v140;
-                v140 = 2l + v136;
-                v131[v140] = TupleCreate5(v138, v139);
-                v136++;
+            int32_t v135;
+            v135 = 0l;
+            while (while_method_9(v135)){
+                ap_uint<4l> v137; ap_uint<2l> v138;
+                Tuple5 tmp31 = v124[v135];
+                v137 = tmp31.v0; v138 = tmp31.v1;
+                int32_t v139;
+                v139 = 2l + v135;
+                v130[v139] = TupleCreate5(v137, v138);
+                v135++;
             }
-            v144 = US2_1(v131);
+            v143 = US2_1(v130);
         }
     }
-    std::array<Tuple5,2l> v145;
-    std::array<Tuple5,5l> v146;
-    ap_uint<4l> v147;
-    v147 = 12ul;
-    int32_t v148; int32_t v149; int32_t v150; ap_uint<4l> v151;
-    Tuple9 tmp32 = TupleCreate9(0l, 0l, 0l, v147);
-    v148 = tmp32.v0; v149 = tmp32.v1; v150 = tmp32.v2; v151 = tmp32.v3;
-    while (method26(v148)){
-        ap_uint<4l> v153; ap_uint<2l> v154;
-        Tuple5 tmp33 = v85[v148];
-        v153 = tmp33.v0; v154 = tmp33.v1;
-        bool v155;
-        v155 = v150 < 2l;
-        int32_t v159; int32_t v160; ap_uint<4l> v161;
-        if (v155){
-            bool v156;
-            v156 = v151 == v153;
-            int32_t v157;
-            if (v156){
-                v157 = v150;
+    std::array<Tuple5,2l> v144;
+    std::array<Tuple5,5l> v145;
+    ap_uint<4l> v146;
+    v146 = 12ul;
+    int32_t v147; int32_t v148; int32_t v149; ap_uint<4l> v150;
+    Tuple9 tmp32 = TupleCreate9(0l, 0l, 0l, v146);
+    v147 = tmp32.v0; v148 = tmp32.v1; v149 = tmp32.v2; v150 = tmp32.v3;
+    while (while_method_4(v147)){
+        ap_uint<4l> v152; ap_uint<2l> v153;
+        Tuple5 tmp33 = v85[v147];
+        v152 = tmp33.v0; v153 = tmp33.v1;
+        bool v154;
+        v154 = v149 < 2l;
+        int32_t v158; int32_t v159; ap_uint<4l> v160;
+        if (v154){
+            bool v155;
+            v155 = v150 == v152;
+            int32_t v156;
+            if (v155){
+                v156 = v149;
             } else {
-                v157 = 0l;
+                v156 = 0l;
             }
-            v145[v157] = TupleCreate5(v153, v154);
-            int32_t v158;
-            v158 = v157 + 1l;
-            v159 = v148; v160 = v158; v161 = v153;
+            v144[v156] = TupleCreate5(v152, v153);
+            int32_t v157;
+            v157 = v156 + 1l;
+            v158 = v147; v159 = v157; v160 = v152;
         } else {
-            v159 = v149; v160 = v150; v161 = v151;
+            v158 = v148; v159 = v149; v160 = v150;
         }
+        v148 = v158;
         v149 = v159;
         v150 = v160;
-        v151 = v161;
-        v148++;
+        v147++;
     }
-    bool v162;
-    v162 = v150 == 2l;
-    US1 v176;
-    if (v162){
-        int32_t v163;
-        v163 = v149 + 1l;
-        int32_t v164;
-        v164 = v163 - 2l;
-        int32_t v165;
-        v165 = 0l;
-        while (method31(v164, v165)){
-            ap_uint<4l> v167; ap_uint<2l> v168;
-            Tuple5 tmp34 = v85[v165];
-            v167 = tmp34.v0; v168 = tmp34.v1;
-            v146[v165] = TupleCreate5(v167, v168);
-            v165++;
+    bool v161;
+    v161 = v149 == 2l;
+    US1 v174;
+    if (v161){
+        int32_t v162;
+        v162 = 0l;
+        while (while_method_8(v162)){
+            int32_t v164;
+            v164 = v148 + 1l;
+            int32_t v165;
+            v165 = v164 - 2l;
+            bool v166;
+            v166 = v162 < v165;
+            if (v166){
+                ap_uint<4l> v167; ap_uint<2l> v168;
+                Tuple5 tmp34 = v85[v162];
+                v167 = tmp34.v0; v168 = tmp34.v1;
+                v145[v162] = TupleCreate5(v167, v168);
+            } else {
+                int32_t v169;
+                v169 = 2l + v162;
+                ap_uint<4l> v170; ap_uint<2l> v171;
+                Tuple5 tmp35 = v85[v169];
+                v170 = tmp35.v0; v171 = tmp35.v1;
+                v145[v162] = TupleCreate5(v170, v171);
+            }
+            v162++;
         }
-        int32_t v169;
-        v169 = v164;
-        while (method30(v169)){
-            int32_t v171;
-            v171 = 2l + v169;
-            ap_uint<4l> v172; ap_uint<2l> v173;
-            Tuple5 tmp35 = v85[v171];
-            v172 = tmp35.v0; v173 = tmp35.v1;
-            v146[v169] = TupleCreate5(v172, v173);
-            v169++;
-        }
-        v176 = US1_1(v145, v146);
+        v174 = US1_1(v144, v145);
     } else {
-        v176 = US1_0();
+        v174 = US1_0();
     }
-    US2 v239;
-    switch (v176.tag) {
+    US2 v236;
+    switch (v174.tag) {
         case 0: { // None
-            v239 = US2_0();
+            v236 = US2_0();
             break;
         }
         default: { // Some
-            std::array<Tuple5,2l> v177 = v176.v.case1.v0; std::array<Tuple5,5l> v178 = v176.v.case1.v1;
-            std::array<Tuple5,2l> v179;
-            std::array<Tuple5,3l> v180;
-            ap_uint<4l> v181;
-            v181 = 12ul;
-            int32_t v182; int32_t v183; int32_t v184; ap_uint<4l> v185;
-            Tuple9 tmp36 = TupleCreate9(0l, 0l, 0l, v181);
-            v182 = tmp36.v0; v183 = tmp36.v1; v184 = tmp36.v2; v185 = tmp36.v3;
-            while (method30(v182)){
-                ap_uint<4l> v187; ap_uint<2l> v188;
-                Tuple5 tmp37 = v178[v182];
-                v187 = tmp37.v0; v188 = tmp37.v1;
-                bool v189;
-                v189 = v184 < 2l;
-                int32_t v193; int32_t v194; ap_uint<4l> v195;
-                if (v189){
-                    bool v190;
-                    v190 = v185 == v187;
-                    int32_t v191;
-                    if (v190){
-                        v191 = v184;
+            std::array<Tuple5,2l> v175 = v174.v.case1.v0; std::array<Tuple5,5l> v176 = v174.v.case1.v1;
+            std::array<Tuple5,2l> v177;
+            std::array<Tuple5,3l> v178;
+            ap_uint<4l> v179;
+            v179 = 12ul;
+            int32_t v180; int32_t v181; int32_t v182; ap_uint<4l> v183;
+            Tuple9 tmp36 = TupleCreate9(0l, 0l, 0l, v179);
+            v180 = tmp36.v0; v181 = tmp36.v1; v182 = tmp36.v2; v183 = tmp36.v3;
+            while (while_method_8(v180)){
+                ap_uint<4l> v185; ap_uint<2l> v186;
+                Tuple5 tmp37 = v176[v180];
+                v185 = tmp37.v0; v186 = tmp37.v1;
+                bool v187;
+                v187 = v182 < 2l;
+                int32_t v191; int32_t v192; ap_uint<4l> v193;
+                if (v187){
+                    bool v188;
+                    v188 = v183 == v185;
+                    int32_t v189;
+                    if (v188){
+                        v189 = v182;
                     } else {
-                        v191 = 0l;
+                        v189 = 0l;
                     }
-                    v179[v191] = TupleCreate5(v187, v188);
-                    int32_t v192;
-                    v192 = v191 + 1l;
-                    v193 = v182; v194 = v192; v195 = v187;
+                    v177[v189] = TupleCreate5(v185, v186);
+                    int32_t v190;
+                    v190 = v189 + 1l;
+                    v191 = v180; v192 = v190; v193 = v185;
                 } else {
-                    v193 = v183; v194 = v184; v195 = v185;
+                    v191 = v181; v192 = v182; v193 = v183;
                 }
+                v181 = v191;
+                v182 = v192;
                 v183 = v193;
-                v184 = v194;
-                v185 = v195;
-                v182++;
+                v180++;
             }
-            bool v196;
-            v196 = v184 == 2l;
-            US3 v210;
-            if (v196){
-                int32_t v197;
-                v197 = v183 + 1l;
-                int32_t v198;
-                v198 = v197 - 2l;
-                int32_t v199;
-                v199 = 0l;
-                while (method31(v198, v199)){
-                    ap_uint<4l> v201; ap_uint<2l> v202;
-                    Tuple5 tmp38 = v178[v199];
-                    v201 = tmp38.v0; v202 = tmp38.v1;
-                    v180[v199] = TupleCreate5(v201, v202);
-                    v199++;
+            bool v194;
+            v194 = v182 == 2l;
+            US3 v207;
+            if (v194){
+                int32_t v195;
+                v195 = 0l;
+                while (while_method_9(v195)){
+                    int32_t v197;
+                    v197 = v181 + 1l;
+                    int32_t v198;
+                    v198 = v197 - 2l;
+                    bool v199;
+                    v199 = v195 < v198;
+                    if (v199){
+                        ap_uint<4l> v200; ap_uint<2l> v201;
+                        Tuple5 tmp38 = v176[v195];
+                        v200 = tmp38.v0; v201 = tmp38.v1;
+                        v178[v195] = TupleCreate5(v200, v201);
+                    } else {
+                        int32_t v202;
+                        v202 = 2l + v195;
+                        ap_uint<4l> v203; ap_uint<2l> v204;
+                        Tuple5 tmp39 = v176[v202];
+                        v203 = tmp39.v0; v204 = tmp39.v1;
+                        v178[v195] = TupleCreate5(v203, v204);
+                    }
+                    v195++;
                 }
-                int32_t v203;
-                v203 = v198;
-                while (method32(v203)){
-                    int32_t v205;
-                    v205 = 2l + v203;
-                    ap_uint<4l> v206; ap_uint<2l> v207;
-                    Tuple5 tmp39 = v178[v205];
-                    v206 = tmp39.v0; v207 = tmp39.v1;
-                    v180[v203] = TupleCreate5(v206, v207);
-                    v203++;
-                }
-                v210 = US3_1(v179, v180);
+                v207 = US3_1(v177, v178);
             } else {
-                v210 = US3_0();
+                v207 = US3_0();
             }
-            switch (v210.tag) {
+            switch (v207.tag) {
                 case 0: { // None
-                    v239 = US2_0();
+                    v236 = US2_0();
                     break;
                 }
                 default: { // Some
-                    std::array<Tuple5,2l> v211 = v210.v.case1.v0; std::array<Tuple5,3l> v212 = v210.v.case1.v1;
-                    std::array<Tuple5,1l> v213;
-                    int32_t v214;
-                    v214 = 0l;
-                    while (method34(v214)){
-                        ap_uint<4l> v216; ap_uint<2l> v217;
-                        Tuple5 tmp40 = v212[v214];
-                        v216 = tmp40.v0; v217 = tmp40.v1;
-                        v213[v214] = TupleCreate5(v216, v217);
-                        v214++;
+                    std::array<Tuple5,2l> v208 = v207.v.case1.v0; std::array<Tuple5,3l> v209 = v207.v.case1.v1;
+                    std::array<Tuple5,1l> v210;
+                    int32_t v211;
+                    v211 = 0l;
+                    while (while_method_11(v211)){
+                        ap_uint<4l> v213; ap_uint<2l> v214;
+                        Tuple5 tmp40 = v209[v211];
+                        v213 = tmp40.v0; v214 = tmp40.v1;
+                        v210[v211] = TupleCreate5(v213, v214);
+                        v211++;
                     }
-                    std::array<Tuple5,5l> v218;
-                    int32_t v219;
-                    v219 = 0l;
-                    while (method33(v219)){
-                        ap_uint<4l> v221; ap_uint<2l> v222;
-                        Tuple5 tmp41 = v177[v219];
-                        v221 = tmp41.v0; v222 = tmp41.v1;
-                        v218[v219] = TupleCreate5(v221, v222);
-                        v219++;
+                    std::array<Tuple5,5l> v215;
+                    int32_t v216;
+                    v216 = 0l;
+                    while (while_method_10(v216)){
+                        ap_uint<4l> v218; ap_uint<2l> v219;
+                        Tuple5 tmp41 = v175[v216];
+                        v218 = tmp41.v0; v219 = tmp41.v1;
+                        v215[v216] = TupleCreate5(v218, v219);
+                        v216++;
                     }
-                    int32_t v223;
-                    v223 = 0l;
-                    while (method33(v223)){
-                        ap_uint<4l> v225; ap_uint<2l> v226;
-                        Tuple5 tmp42 = v211[v223];
-                        v225 = tmp42.v0; v226 = tmp42.v1;
-                        int32_t v227;
-                        v227 = 2l + v223;
-                        v218[v227] = TupleCreate5(v225, v226);
-                        v223++;
+                    int32_t v220;
+                    v220 = 0l;
+                    while (while_method_10(v220)){
+                        ap_uint<4l> v222; ap_uint<2l> v223;
+                        Tuple5 tmp42 = v208[v220];
+                        v222 = tmp42.v0; v223 = tmp42.v1;
+                        int32_t v224;
+                        v224 = 2l + v220;
+                        v215[v224] = TupleCreate5(v222, v223);
+                        v220++;
                     }
-                    int32_t v228;
-                    v228 = 0l;
-                    while (method34(v228)){
-                        ap_uint<4l> v230; ap_uint<2l> v231;
-                        Tuple5 tmp43 = v213[v228];
-                        v230 = tmp43.v0; v231 = tmp43.v1;
-                        int32_t v232;
-                        v232 = 4l + v228;
-                        v218[v232] = TupleCreate5(v230, v231);
-                        v228++;
+                    int32_t v225;
+                    v225 = 0l;
+                    while (while_method_11(v225)){
+                        ap_uint<4l> v227; ap_uint<2l> v228;
+                        Tuple5 tmp43 = v210[v225];
+                        v227 = tmp43.v0; v228 = tmp43.v1;
+                        int32_t v229;
+                        v229 = 4l + v225;
+                        v215[v229] = TupleCreate5(v227, v228);
+                        v225++;
                     }
-                    v239 = US2_1(v218);
+                    v236 = US2_1(v215);
                 }
             }
         }
     }
-    std::array<Tuple5,3l> v240;
-    std::array<Tuple5,4l> v241;
-    ap_uint<4l> v242;
-    v242 = 12ul;
-    int32_t v243; int32_t v244; int32_t v245; ap_uint<4l> v246;
-    Tuple9 tmp44 = TupleCreate9(0l, 0l, 0l, v242);
-    v243 = tmp44.v0; v244 = tmp44.v1; v245 = tmp44.v2; v246 = tmp44.v3;
-    while (method26(v243)){
-        ap_uint<4l> v248; ap_uint<2l> v249;
-        Tuple5 tmp45 = v85[v243];
-        v248 = tmp45.v0; v249 = tmp45.v1;
-        bool v250;
-        v250 = v245 < 3l;
-        int32_t v254; int32_t v255; ap_uint<4l> v256;
-        if (v250){
-            bool v251;
-            v251 = v246 == v248;
-            int32_t v252;
-            if (v251){
-                v252 = v245;
+    std::array<Tuple5,3l> v237;
+    std::array<Tuple5,4l> v238;
+    ap_uint<4l> v239;
+    v239 = 12ul;
+    int32_t v240; int32_t v241; int32_t v242; ap_uint<4l> v243;
+    Tuple9 tmp44 = TupleCreate9(0l, 0l, 0l, v239);
+    v240 = tmp44.v0; v241 = tmp44.v1; v242 = tmp44.v2; v243 = tmp44.v3;
+    while (while_method_4(v240)){
+        ap_uint<4l> v245; ap_uint<2l> v246;
+        Tuple5 tmp45 = v85[v240];
+        v245 = tmp45.v0; v246 = tmp45.v1;
+        bool v247;
+        v247 = v242 < 3l;
+        int32_t v251; int32_t v252; ap_uint<4l> v253;
+        if (v247){
+            bool v248;
+            v248 = v243 == v245;
+            int32_t v249;
+            if (v248){
+                v249 = v242;
             } else {
-                v252 = 0l;
+                v249 = 0l;
             }
-            v240[v252] = TupleCreate5(v248, v249);
-            int32_t v253;
-            v253 = v252 + 1l;
-            v254 = v243; v255 = v253; v256 = v248;
+            v237[v249] = TupleCreate5(v245, v246);
+            int32_t v250;
+            v250 = v249 + 1l;
+            v251 = v240; v252 = v250; v253 = v245;
         } else {
-            v254 = v244; v255 = v245; v256 = v246;
+            v251 = v241; v252 = v242; v253 = v243;
         }
-        v244 = v254;
-        v245 = v255;
-        v246 = v256;
-        v243++;
+        v241 = v251;
+        v242 = v252;
+        v243 = v253;
+        v240++;
     }
-    bool v257;
-    v257 = v245 == 3l;
-    US4 v271;
-    if (v257){
-        int32_t v258;
-        v258 = v244 + 1l;
-        int32_t v259;
-        v259 = v258 - 3l;
-        int32_t v260;
-        v260 = 0l;
-        while (method31(v259, v260)){
-            ap_uint<4l> v262; ap_uint<2l> v263;
-            Tuple5 tmp46 = v85[v260];
-            v262 = tmp46.v0; v263 = tmp46.v1;
-            v241[v260] = TupleCreate5(v262, v263);
-            v260++;
+    bool v254;
+    v254 = v242 == 3l;
+    US4 v267;
+    if (v254){
+        int32_t v255;
+        v255 = 0l;
+        while (while_method_12(v255)){
+            int32_t v257;
+            v257 = v241 + 1l;
+            int32_t v258;
+            v258 = v257 - 3l;
+            bool v259;
+            v259 = v255 < v258;
+            if (v259){
+                ap_uint<4l> v260; ap_uint<2l> v261;
+                Tuple5 tmp46 = v85[v255];
+                v260 = tmp46.v0; v261 = tmp46.v1;
+                v238[v255] = TupleCreate5(v260, v261);
+            } else {
+                int32_t v262;
+                v262 = 3l + v255;
+                ap_uint<4l> v263; ap_uint<2l> v264;
+                Tuple5 tmp47 = v85[v262];
+                v263 = tmp47.v0; v264 = tmp47.v1;
+                v238[v255] = TupleCreate5(v263, v264);
+            }
+            v255++;
         }
-        int32_t v264;
-        v264 = v259;
-        while (method35(v264)){
-            int32_t v266;
-            v266 = 3l + v264;
-            ap_uint<4l> v267; ap_uint<2l> v268;
-            Tuple5 tmp47 = v85[v266];
-            v267 = tmp47.v0; v268 = tmp47.v1;
-            v241[v264] = TupleCreate5(v267, v268);
-            v264++;
-        }
-        v271 = US4_1(v240, v241);
+        v267 = US4_1(v237, v238);
     } else {
-        v271 = US4_0();
+        v267 = US4_0();
     }
-    US2 v293;
-    switch (v271.tag) {
+    US2 v289;
+    switch (v267.tag) {
         case 0: { // None
-            v293 = US2_0();
+            v289 = US2_0();
             break;
         }
         default: { // Some
-            std::array<Tuple5,3l> v272 = v271.v.case1.v0; std::array<Tuple5,4l> v273 = v271.v.case1.v1;
-            std::array<Tuple5,2l> v274;
-            int32_t v275;
-            v275 = 0l;
-            while (method33(v275)){
-                ap_uint<4l> v277; ap_uint<2l> v278;
-                Tuple5 tmp48 = v273[v275];
-                v277 = tmp48.v0; v278 = tmp48.v1;
-                v274[v275] = TupleCreate5(v277, v278);
-                v275++;
+            std::array<Tuple5,3l> v268 = v267.v.case1.v0; std::array<Tuple5,4l> v269 = v267.v.case1.v1;
+            std::array<Tuple5,2l> v270;
+            int32_t v271;
+            v271 = 0l;
+            while (while_method_10(v271)){
+                ap_uint<4l> v273; ap_uint<2l> v274;
+                Tuple5 tmp48 = v269[v271];
+                v273 = tmp48.v0; v274 = tmp48.v1;
+                v270[v271] = TupleCreate5(v273, v274);
+                v271++;
             }
-            std::array<Tuple5,0l> v279;
-            std::array<Tuple5,5l> v280;
+            std::array<Tuple5,0l> v275;
+            std::array<Tuple5,5l> v276;
+            int32_t v277;
+            v277 = 0l;
+            while (while_method_9(v277)){
+                ap_uint<4l> v279; ap_uint<2l> v280;
+                Tuple5 tmp49 = v268[v277];
+                v279 = tmp49.v0; v280 = tmp49.v1;
+                v276[v277] = TupleCreate5(v279, v280);
+                v277++;
+            }
             int32_t v281;
             v281 = 0l;
-            while (method32(v281)){
+            while (while_method_10(v281)){
                 ap_uint<4l> v283; ap_uint<2l> v284;
-                Tuple5 tmp49 = v272[v281];
-                v283 = tmp49.v0; v284 = tmp49.v1;
-                v280[v281] = TupleCreate5(v283, v284);
+                Tuple5 tmp50 = v270[v281];
+                v283 = tmp50.v0; v284 = tmp50.v1;
+                int32_t v285;
+                v285 = 3l + v281;
+                v276[v285] = TupleCreate5(v283, v284);
                 v281++;
             }
-            int32_t v285;
-            v285 = 0l;
-            while (method33(v285)){
-                ap_uint<4l> v287; ap_uint<2l> v288;
-                Tuple5 tmp50 = v274[v285];
-                v287 = tmp50.v0; v288 = tmp50.v1;
-                int32_t v289;
-                v289 = 3l + v285;
-                v280[v289] = TupleCreate5(v287, v288);
-                v285++;
-            }
-            v293 = US2_1(v280);
+            v289 = US2_1(v276);
         }
     }
-    std::array<Tuple5,5l> v294;
-    ap_uint<4l> v295;
-    v295 = 12ul;
-    int32_t v296; int32_t v297; ap_uint<4l> v298;
-    Tuple10 tmp51 = TupleCreate10(0l, 0l, v295);
-    v296 = tmp51.v0; v297 = tmp51.v1; v298 = tmp51.v2;
-    while (method26(v296)){
-        ap_uint<4l> v300; ap_uint<2l> v301;
-        Tuple5 tmp52 = v85[v296];
-        v300 = tmp52.v0; v301 = tmp52.v1;
-        bool v302;
-        v302 = v297 < 5l;
-        bool v307;
-        if (v302){
-            ap_uint<4l> v303;
-            v303 = 1ul;
-            ap_uint<4l> v304;
-            v304 = v300 - v303;
-            bool v305;
-            v305 = v298 == v304;
-            bool v306;
-            v306 = v305 != true;
-            v307 = v306;
+    std::array<Tuple5,5l> v290;
+    ap_uint<4l> v291;
+    v291 = 12ul;
+    int32_t v292; int32_t v293; ap_uint<4l> v294;
+    Tuple10 tmp51 = TupleCreate10(0l, 0l, v291);
+    v292 = tmp51.v0; v293 = tmp51.v1; v294 = tmp51.v2;
+    while (while_method_4(v292)){
+        ap_uint<4l> v296; ap_uint<2l> v297;
+        Tuple5 tmp52 = v85[v292];
+        v296 = tmp52.v0; v297 = tmp52.v1;
+        bool v298;
+        v298 = v293 < 5l;
+        bool v303;
+        if (v298){
+            ap_uint<4l> v299;
+            v299 = 1ul;
+            ap_uint<4l> v300;
+            v300 = v296 - v299;
+            bool v301;
+            v301 = v294 == v300;
+            bool v302;
+            v302 = v301 != true;
+            v303 = v302;
         } else {
-            v307 = false;
+            v303 = false;
         }
-        int32_t v313; ap_uint<4l> v314;
-        if (v307){
-            bool v308;
-            v308 = v298 == v300;
-            int32_t v309;
-            if (v308){
-                v309 = v297;
+        int32_t v309; ap_uint<4l> v310;
+        if (v303){
+            bool v304;
+            v304 = v294 == v296;
+            int32_t v305;
+            if (v304){
+                v305 = v293;
             } else {
-                v309 = 0l;
+                v305 = 0l;
             }
-            v294[v309] = TupleCreate5(v300, v301);
-            int32_t v310;
-            v310 = v309 + 1l;
-            ap_uint<4l> v311;
-            v311 = 1ul;
-            ap_uint<4l> v312;
-            v312 = v300 - v311;
-            v313 = v310; v314 = v312;
+            v290[v305] = TupleCreate5(v296, v297);
+            int32_t v306;
+            v306 = v305 + 1l;
+            ap_uint<4l> v307;
+            v307 = 1ul;
+            ap_uint<4l> v308;
+            v308 = v296 - v307;
+            v309 = v306; v310 = v308;
         } else {
-            v313 = v297; v314 = v298;
+            v309 = v293; v310 = v294;
         }
-        v297 = v313;
-        v298 = v314;
-        v296++;
+        v293 = v309;
+        v294 = v310;
+        v292++;
     }
-    bool v315;
-    v315 = v297 == 4l;
-    bool v326;
-    if (v315){
-        ap_uint<4l> v316;
-        v316 = 0ul;
-        ap_uint<4l> v317;
-        v317 = 1ul;
-        ap_uint<4l> v318;
-        v318 = v316 - v317;
-        bool v319;
-        v319 = v298 == v318;
-        if (v319){
-            ap_uint<4l> v320; ap_uint<2l> v321;
+    bool v311;
+    v311 = v293 == 4l;
+    bool v322;
+    if (v311){
+        ap_uint<4l> v312;
+        v312 = 0ul;
+        ap_uint<4l> v313;
+        v313 = 1ul;
+        ap_uint<4l> v314;
+        v314 = v312 - v313;
+        bool v315;
+        v315 = v294 == v314;
+        if (v315){
+            ap_uint<4l> v316; ap_uint<2l> v317;
             Tuple5 tmp53 = v85[0l];
-            v320 = tmp53.v0; v321 = tmp53.v1;
-            ap_uint<4l> v322;
-            v322 = 12ul;
-            bool v323;
-            v323 = v320 == v322;
-            if (v323){
-                v294[4l] = TupleCreate5(v320, v321);
-                v326 = true;
+            v316 = tmp53.v0; v317 = tmp53.v1;
+            ap_uint<4l> v318;
+            v318 = 12ul;
+            bool v319;
+            v319 = v316 == v318;
+            if (v319){
+                v290[4l] = TupleCreate5(v316, v317);
+                v322 = true;
             } else {
-                v326 = false;
+                v322 = false;
             }
         } else {
-            v326 = false;
+            v322 = false;
         }
     } else {
-        v326 = false;
+        v322 = false;
     }
-    US2 v332;
-    if (v326){
-        v332 = US2_1(v294);
+    US2 v328;
+    if (v322){
+        v328 = US2_1(v290);
     } else {
-        bool v328;
-        v328 = v297 == 5l;
-        if (v328){
-            v332 = US2_1(v294);
+        bool v324;
+        v324 = v293 == 5l;
+        if (v324){
+            v328 = US2_1(v290);
         } else {
-            v332 = US2_0();
+            v328 = US2_0();
         }
     }
-    std::array<Tuple5,5l> v333;
-    int32_t v334; int32_t v335;
+    std::array<Tuple5,5l> v329;
+    int32_t v330; int32_t v331;
     Tuple11 tmp54 = TupleCreate11(0l, 0l);
-    v334 = tmp54.v0; v335 = tmp54.v1;
-    while (method26(v334)){
-        ap_uint<4l> v337; ap_uint<2l> v338;
-        Tuple5 tmp55 = v85[v334];
-        v337 = tmp55.v0; v338 = tmp55.v1;
-        ap_uint<2l> v339;
-        v339 = 3ul;
-        bool v340;
-        v340 = v338 == v339;
-        bool v342;
-        if (v340){
-            bool v341;
-            v341 = v335 < 5l;
-            v342 = v341;
+    v330 = tmp54.v0; v331 = tmp54.v1;
+    while (while_method_4(v330)){
+        ap_uint<4l> v333; ap_uint<2l> v334;
+        Tuple5 tmp55 = v85[v330];
+        v333 = tmp55.v0; v334 = tmp55.v1;
+        ap_uint<2l> v335;
+        v335 = 3ul;
+        bool v336;
+        v336 = v334 == v335;
+        bool v338;
+        if (v336){
+            bool v337;
+            v337 = v331 < 5l;
+            v338 = v337;
         } else {
-            v342 = false;
+            v338 = false;
         }
-        int32_t v344;
-        if (v342){
-            v333[v335] = TupleCreate5(v337, v338);
-            int32_t v343;
-            v343 = v335 + 1l;
-            v344 = v343;
+        int32_t v340;
+        if (v338){
+            v329[v331] = TupleCreate5(v333, v334);
+            int32_t v339;
+            v339 = v331 + 1l;
+            v340 = v339;
         } else {
-            v344 = v335;
+            v340 = v331;
         }
-        v335 = v344;
-        v334++;
+        v331 = v340;
+        v330++;
     }
-    bool v345;
-    v345 = v335 == 5l;
-    US2 v348;
-    if (v345){
-        v348 = US2_1(v333);
+    bool v341;
+    v341 = v331 == 5l;
+    US2 v344;
+    if (v341){
+        v344 = US2_1(v329);
     } else {
-        v348 = US2_0();
+        v344 = US2_0();
     }
-    std::array<Tuple5,5l> v349;
-    int32_t v350; int32_t v351;
+    std::array<Tuple5,5l> v345;
+    int32_t v346; int32_t v347;
     Tuple11 tmp56 = TupleCreate11(0l, 0l);
-    v350 = tmp56.v0; v351 = tmp56.v1;
-    while (method26(v350)){
-        ap_uint<4l> v353; ap_uint<2l> v354;
-        Tuple5 tmp57 = v85[v350];
-        v353 = tmp57.v0; v354 = tmp57.v1;
-        ap_uint<2l> v355;
-        v355 = 2ul;
-        bool v356;
-        v356 = v354 == v355;
-        bool v358;
-        if (v356){
-            bool v357;
-            v357 = v351 < 5l;
-            v358 = v357;
+    v346 = tmp56.v0; v347 = tmp56.v1;
+    while (while_method_4(v346)){
+        ap_uint<4l> v349; ap_uint<2l> v350;
+        Tuple5 tmp57 = v85[v346];
+        v349 = tmp57.v0; v350 = tmp57.v1;
+        ap_uint<2l> v351;
+        v351 = 2ul;
+        bool v352;
+        v352 = v350 == v351;
+        bool v354;
+        if (v352){
+            bool v353;
+            v353 = v347 < 5l;
+            v354 = v353;
         } else {
-            v358 = false;
+            v354 = false;
         }
-        int32_t v360;
-        if (v358){
-            v349[v351] = TupleCreate5(v353, v354);
-            int32_t v359;
-            v359 = v351 + 1l;
-            v360 = v359;
+        int32_t v356;
+        if (v354){
+            v345[v347] = TupleCreate5(v349, v350);
+            int32_t v355;
+            v355 = v347 + 1l;
+            v356 = v355;
         } else {
-            v360 = v351;
+            v356 = v347;
         }
-        v351 = v360;
-        v350++;
+        v347 = v356;
+        v346++;
     }
-    bool v361;
-    v361 = v351 == 5l;
-    US2 v364;
-    if (v361){
-        v364 = US2_1(v349);
+    bool v357;
+    v357 = v347 == 5l;
+    US2 v360;
+    if (v357){
+        v360 = US2_1(v345);
     } else {
-        v364 = US2_0();
+        v360 = US2_0();
     }
-    std::array<Tuple5,5l> v365;
-    int32_t v366; int32_t v367;
+    std::array<Tuple5,5l> v361;
+    int32_t v362; int32_t v363;
     Tuple11 tmp58 = TupleCreate11(0l, 0l);
-    v366 = tmp58.v0; v367 = tmp58.v1;
-    while (method26(v366)){
-        ap_uint<4l> v369; ap_uint<2l> v370;
-        Tuple5 tmp59 = v85[v366];
-        v369 = tmp59.v0; v370 = tmp59.v1;
-        ap_uint<2l> v371;
-        v371 = 1ul;
-        bool v372;
-        v372 = v370 == v371;
-        bool v374;
-        if (v372){
-            bool v373;
-            v373 = v367 < 5l;
-            v374 = v373;
+    v362 = tmp58.v0; v363 = tmp58.v1;
+    while (while_method_4(v362)){
+        ap_uint<4l> v365; ap_uint<2l> v366;
+        Tuple5 tmp59 = v85[v362];
+        v365 = tmp59.v0; v366 = tmp59.v1;
+        ap_uint<2l> v367;
+        v367 = 1ul;
+        bool v368;
+        v368 = v366 == v367;
+        bool v370;
+        if (v368){
+            bool v369;
+            v369 = v363 < 5l;
+            v370 = v369;
         } else {
-            v374 = false;
+            v370 = false;
         }
-        int32_t v376;
-        if (v374){
-            v365[v367] = TupleCreate5(v369, v370);
-            int32_t v375;
-            v375 = v367 + 1l;
-            v376 = v375;
+        int32_t v372;
+        if (v370){
+            v361[v363] = TupleCreate5(v365, v366);
+            int32_t v371;
+            v371 = v363 + 1l;
+            v372 = v371;
         } else {
-            v376 = v367;
+            v372 = v363;
         }
-        v367 = v376;
-        v366++;
+        v363 = v372;
+        v362++;
     }
-    bool v377;
-    v377 = v367 == 5l;
-    US2 v380;
-    if (v377){
-        v380 = US2_1(v365);
+    bool v373;
+    v373 = v363 == 5l;
+    US2 v376;
+    if (v373){
+        v376 = US2_1(v361);
     } else {
-        v380 = US2_0();
+        v376 = US2_0();
     }
-    std::array<Tuple5,5l> v381;
-    int32_t v382; int32_t v383;
+    std::array<Tuple5,5l> v377;
+    int32_t v378; int32_t v379;
     Tuple11 tmp60 = TupleCreate11(0l, 0l);
-    v382 = tmp60.v0; v383 = tmp60.v1;
-    while (method26(v382)){
-        ap_uint<4l> v385; ap_uint<2l> v386;
-        Tuple5 tmp61 = v85[v382];
-        v385 = tmp61.v0; v386 = tmp61.v1;
-        ap_uint<2l> v387;
-        v387 = 0ul;
-        bool v388;
-        v388 = v386 == v387;
-        bool v390;
-        if (v388){
-            bool v389;
-            v389 = v383 < 5l;
-            v390 = v389;
+    v378 = tmp60.v0; v379 = tmp60.v1;
+    while (while_method_4(v378)){
+        ap_uint<4l> v381; ap_uint<2l> v382;
+        Tuple5 tmp61 = v85[v378];
+        v381 = tmp61.v0; v382 = tmp61.v1;
+        ap_uint<2l> v383;
+        v383 = 0ul;
+        bool v384;
+        v384 = v382 == v383;
+        bool v386;
+        if (v384){
+            bool v385;
+            v385 = v379 < 5l;
+            v386 = v385;
         } else {
-            v390 = false;
+            v386 = false;
         }
-        int32_t v392;
-        if (v390){
-            v381[v383] = TupleCreate5(v385, v386);
-            int32_t v391;
-            v391 = v383 + 1l;
-            v392 = v391;
+        int32_t v388;
+        if (v386){
+            v377[v379] = TupleCreate5(v381, v382);
+            int32_t v387;
+            v387 = v379 + 1l;
+            v388 = v387;
         } else {
-            v392 = v383;
+            v388 = v379;
         }
-        v383 = v392;
-        v382++;
+        v379 = v388;
+        v378++;
     }
-    bool v393;
-    v393 = v383 == 5l;
-    US2 v396;
-    if (v393){
-        v396 = US2_1(v381);
+    bool v389;
+    v389 = v379 == 5l;
+    US2 v392;
+    if (v389){
+        v392 = US2_1(v377);
     } else {
-        v396 = US2_0();
+        v392 = US2_0();
     }
-    US2 v421;
-    switch (v396.tag) {
+    US2 v417;
+    switch (v392.tag) {
         case 0: { // None
-            v421 = v380;
+            v417 = v376;
             break;
         }
         default: { // Some
-            std::array<Tuple5,5l> v397 = v396.v.case1.v0;
-            switch (v380.tag) {
+            std::array<Tuple5,5l> v393 = v392.v.case1.v0;
+            switch (v376.tag) {
                 case 0: { // None
-                    v421 = v396;
+                    v417 = v392;
                     break;
                 }
                 default: { // Some
-                    std::array<Tuple5,5l> v398 = v380.v.case1.v0;
-                    US0 v399;
-                    v399 = US0_0();
-                    int32_t v400; US0 v401;
-                    Tuple12 tmp62 = TupleCreate12(0l, v399);
-                    v400 = tmp62.v0; v401 = tmp62.v1;
-                    while (method30(v400)){
-                        ap_uint<4l> v403; ap_uint<2l> v404;
-                        Tuple5 tmp63 = v397[v400];
-                        v403 = tmp63.v0; v404 = tmp63.v1;
-                        ap_uint<4l> v405; ap_uint<2l> v406;
-                        Tuple5 tmp64 = v398[v400];
-                        v405 = tmp64.v0; v406 = tmp64.v1;
-                        US0 v414;
-                        switch (v401.tag) {
+                    std::array<Tuple5,5l> v394 = v376.v.case1.v0;
+                    US0 v395;
+                    v395 = US0_0();
+                    int32_t v396; US0 v397;
+                    Tuple12 tmp62 = TupleCreate12(0l, v395);
+                    v396 = tmp62.v0; v397 = tmp62.v1;
+                    while (while_method_8(v396)){
+                        ap_uint<4l> v399; ap_uint<2l> v400;
+                        Tuple5 tmp63 = v393[v396];
+                        v399 = tmp63.v0; v400 = tmp63.v1;
+                        ap_uint<4l> v401; ap_uint<2l> v402;
+                        Tuple5 tmp64 = v394[v396];
+                        v401 = tmp64.v0; v402 = tmp64.v1;
+                        US0 v410;
+                        switch (v397.tag) {
                             case 0: { // Eq
-                                bool v407;
-                                v407 = v403 > v405;
-                                if (v407){
-                                    v414 = US0_1();
+                                bool v403;
+                                v403 = v399 > v401;
+                                if (v403){
+                                    v410 = US0_1();
                                 } else {
-                                    bool v409;
-                                    v409 = v403 < v405;
-                                    if (v409){
-                                        v414 = US0_2();
+                                    bool v405;
+                                    v405 = v399 < v401;
+                                    if (v405){
+                                        v410 = US0_2();
                                     } else {
-                                        v414 = US0_0();
+                                        v410 = US0_0();
                                     }
                                 }
                                 break;
                             }
                             default: {
-                                v414 = v401;
+                                v410 = v397;
                             }
                         }
-                        v401 = v414;
-                        v400++;
+                        v397 = v410;
+                        v396++;
                     }
-                    bool v415;
-                    switch (v401.tag) {
+                    bool v411;
+                    switch (v397.tag) {
                         case 1: { // Gt
-                            v415 = true;
+                            v411 = true;
                             break;
                         }
                         default: {
-                            v415 = false;
+                            v411 = false;
                         }
                     }
-                    std::array<Tuple5,5l> v416;
-                    if (v415){
-                        v416 = v397;
+                    std::array<Tuple5,5l> v412;
+                    if (v411){
+                        v412 = v393;
                     } else {
-                        v416 = v398;
+                        v412 = v394;
                     }
-                    v421 = US2_1(v416);
+                    v417 = US2_1(v412);
                 }
             }
         }
     }
-    US2 v446;
-    switch (v421.tag) {
+    US2 v442;
+    switch (v417.tag) {
         case 0: { // None
-            v446 = v364;
+            v442 = v360;
             break;
         }
         default: { // Some
-            std::array<Tuple5,5l> v422 = v421.v.case1.v0;
-            switch (v364.tag) {
+            std::array<Tuple5,5l> v418 = v417.v.case1.v0;
+            switch (v360.tag) {
                 case 0: { // None
-                    v446 = v421;
+                    v442 = v417;
                     break;
                 }
                 default: { // Some
-                    std::array<Tuple5,5l> v423 = v364.v.case1.v0;
-                    US0 v424;
-                    v424 = US0_0();
-                    int32_t v425; US0 v426;
-                    Tuple12 tmp65 = TupleCreate12(0l, v424);
-                    v425 = tmp65.v0; v426 = tmp65.v1;
-                    while (method30(v425)){
-                        ap_uint<4l> v428; ap_uint<2l> v429;
-                        Tuple5 tmp66 = v422[v425];
-                        v428 = tmp66.v0; v429 = tmp66.v1;
-                        ap_uint<4l> v430; ap_uint<2l> v431;
-                        Tuple5 tmp67 = v423[v425];
-                        v430 = tmp67.v0; v431 = tmp67.v1;
-                        US0 v439;
-                        switch (v426.tag) {
+                    std::array<Tuple5,5l> v419 = v360.v.case1.v0;
+                    US0 v420;
+                    v420 = US0_0();
+                    int32_t v421; US0 v422;
+                    Tuple12 tmp65 = TupleCreate12(0l, v420);
+                    v421 = tmp65.v0; v422 = tmp65.v1;
+                    while (while_method_8(v421)){
+                        ap_uint<4l> v424; ap_uint<2l> v425;
+                        Tuple5 tmp66 = v418[v421];
+                        v424 = tmp66.v0; v425 = tmp66.v1;
+                        ap_uint<4l> v426; ap_uint<2l> v427;
+                        Tuple5 tmp67 = v419[v421];
+                        v426 = tmp67.v0; v427 = tmp67.v1;
+                        US0 v435;
+                        switch (v422.tag) {
                             case 0: { // Eq
-                                bool v432;
-                                v432 = v428 > v430;
-                                if (v432){
-                                    v439 = US0_1();
+                                bool v428;
+                                v428 = v424 > v426;
+                                if (v428){
+                                    v435 = US0_1();
                                 } else {
-                                    bool v434;
-                                    v434 = v428 < v430;
-                                    if (v434){
-                                        v439 = US0_2();
+                                    bool v430;
+                                    v430 = v424 < v426;
+                                    if (v430){
+                                        v435 = US0_2();
                                     } else {
-                                        v439 = US0_0();
+                                        v435 = US0_0();
                                     }
                                 }
                                 break;
                             }
                             default: {
-                                v439 = v426;
+                                v435 = v422;
                             }
                         }
-                        v426 = v439;
-                        v425++;
+                        v422 = v435;
+                        v421++;
                     }
-                    bool v440;
-                    switch (v426.tag) {
+                    bool v436;
+                    switch (v422.tag) {
                         case 1: { // Gt
-                            v440 = true;
+                            v436 = true;
                             break;
                         }
                         default: {
-                            v440 = false;
+                            v436 = false;
                         }
                     }
-                    std::array<Tuple5,5l> v441;
-                    if (v440){
-                        v441 = v422;
+                    std::array<Tuple5,5l> v437;
+                    if (v436){
+                        v437 = v418;
                     } else {
-                        v441 = v423;
+                        v437 = v419;
                     }
-                    v446 = US2_1(v441);
+                    v442 = US2_1(v437);
                 }
             }
         }
     }
-    US2 v471;
-    switch (v446.tag) {
+    US2 v467;
+    switch (v442.tag) {
         case 0: { // None
-            v471 = v348;
+            v467 = v344;
             break;
         }
         default: { // Some
-            std::array<Tuple5,5l> v447 = v446.v.case1.v0;
-            switch (v348.tag) {
+            std::array<Tuple5,5l> v443 = v442.v.case1.v0;
+            switch (v344.tag) {
                 case 0: { // None
-                    v471 = v446;
+                    v467 = v442;
                     break;
                 }
                 default: { // Some
-                    std::array<Tuple5,5l> v448 = v348.v.case1.v0;
-                    US0 v449;
-                    v449 = US0_0();
-                    int32_t v450; US0 v451;
-                    Tuple12 tmp68 = TupleCreate12(0l, v449);
-                    v450 = tmp68.v0; v451 = tmp68.v1;
-                    while (method30(v450)){
-                        ap_uint<4l> v453; ap_uint<2l> v454;
-                        Tuple5 tmp69 = v447[v450];
-                        v453 = tmp69.v0; v454 = tmp69.v1;
-                        ap_uint<4l> v455; ap_uint<2l> v456;
-                        Tuple5 tmp70 = v448[v450];
-                        v455 = tmp70.v0; v456 = tmp70.v1;
-                        US0 v464;
-                        switch (v451.tag) {
+                    std::array<Tuple5,5l> v444 = v344.v.case1.v0;
+                    US0 v445;
+                    v445 = US0_0();
+                    int32_t v446; US0 v447;
+                    Tuple12 tmp68 = TupleCreate12(0l, v445);
+                    v446 = tmp68.v0; v447 = tmp68.v1;
+                    while (while_method_8(v446)){
+                        ap_uint<4l> v449; ap_uint<2l> v450;
+                        Tuple5 tmp69 = v443[v446];
+                        v449 = tmp69.v0; v450 = tmp69.v1;
+                        ap_uint<4l> v451; ap_uint<2l> v452;
+                        Tuple5 tmp70 = v444[v446];
+                        v451 = tmp70.v0; v452 = tmp70.v1;
+                        US0 v460;
+                        switch (v447.tag) {
                             case 0: { // Eq
-                                bool v457;
-                                v457 = v453 > v455;
-                                if (v457){
-                                    v464 = US0_1();
+                                bool v453;
+                                v453 = v449 > v451;
+                                if (v453){
+                                    v460 = US0_1();
                                 } else {
-                                    bool v459;
-                                    v459 = v453 < v455;
-                                    if (v459){
-                                        v464 = US0_2();
+                                    bool v455;
+                                    v455 = v449 < v451;
+                                    if (v455){
+                                        v460 = US0_2();
                                     } else {
-                                        v464 = US0_0();
+                                        v460 = US0_0();
                                     }
                                 }
                                 break;
                             }
                             default: {
-                                v464 = v451;
+                                v460 = v447;
                             }
                         }
-                        v451 = v464;
-                        v450++;
+                        v447 = v460;
+                        v446++;
                     }
-                    bool v465;
-                    switch (v451.tag) {
+                    bool v461;
+                    switch (v447.tag) {
                         case 1: { // Gt
-                            v465 = true;
+                            v461 = true;
                             break;
                         }
                         default: {
-                            v465 = false;
+                            v461 = false;
                         }
                     }
-                    std::array<Tuple5,5l> v466;
-                    if (v465){
-                        v466 = v447;
+                    std::array<Tuple5,5l> v462;
+                    if (v461){
+                        v462 = v443;
                     } else {
-                        v466 = v448;
+                        v462 = v444;
                     }
-                    v471 = US2_1(v466);
+                    v467 = US2_1(v462);
                 }
             }
         }
     }
-    std::array<Tuple5,3l> v472;
-    std::array<Tuple5,4l> v473;
-    ap_uint<4l> v474;
-    v474 = 12ul;
-    int32_t v475; int32_t v476; int32_t v477; ap_uint<4l> v478;
-    Tuple9 tmp71 = TupleCreate9(0l, 0l, 0l, v474);
-    v475 = tmp71.v0; v476 = tmp71.v1; v477 = tmp71.v2; v478 = tmp71.v3;
-    while (method26(v475)){
-        ap_uint<4l> v480; ap_uint<2l> v481;
-        Tuple5 tmp72 = v85[v475];
-        v480 = tmp72.v0; v481 = tmp72.v1;
-        bool v482;
-        v482 = v477 < 3l;
-        int32_t v486; int32_t v487; ap_uint<4l> v488;
-        if (v482){
-            bool v483;
-            v483 = v478 == v480;
-            int32_t v484;
-            if (v483){
-                v484 = v477;
+    std::array<Tuple5,3l> v468;
+    std::array<Tuple5,4l> v469;
+    ap_uint<4l> v470;
+    v470 = 12ul;
+    int32_t v471; int32_t v472; int32_t v473; ap_uint<4l> v474;
+    Tuple9 tmp71 = TupleCreate9(0l, 0l, 0l, v470);
+    v471 = tmp71.v0; v472 = tmp71.v1; v473 = tmp71.v2; v474 = tmp71.v3;
+    while (while_method_4(v471)){
+        ap_uint<4l> v476; ap_uint<2l> v477;
+        Tuple5 tmp72 = v85[v471];
+        v476 = tmp72.v0; v477 = tmp72.v1;
+        bool v478;
+        v478 = v473 < 3l;
+        int32_t v482; int32_t v483; ap_uint<4l> v484;
+        if (v478){
+            bool v479;
+            v479 = v474 == v476;
+            int32_t v480;
+            if (v479){
+                v480 = v473;
             } else {
-                v484 = 0l;
+                v480 = 0l;
             }
-            v472[v484] = TupleCreate5(v480, v481);
-            int32_t v485;
-            v485 = v484 + 1l;
-            v486 = v475; v487 = v485; v488 = v480;
+            v468[v480] = TupleCreate5(v476, v477);
+            int32_t v481;
+            v481 = v480 + 1l;
+            v482 = v471; v483 = v481; v484 = v476;
         } else {
-            v486 = v476; v487 = v477; v488 = v478;
+            v482 = v472; v483 = v473; v484 = v474;
         }
-        v476 = v486;
-        v477 = v487;
-        v478 = v488;
-        v475++;
+        v472 = v482;
+        v473 = v483;
+        v474 = v484;
+        v471++;
     }
-    bool v489;
-    v489 = v477 == 3l;
-    US4 v503;
-    if (v489){
-        int32_t v490;
-        v490 = v476 + 1l;
-        int32_t v491;
-        v491 = v490 - 3l;
-        int32_t v492;
-        v492 = 0l;
-        while (method31(v491, v492)){
-            ap_uint<4l> v494; ap_uint<2l> v495;
-            Tuple5 tmp73 = v85[v492];
-            v494 = tmp73.v0; v495 = tmp73.v1;
-            v473[v492] = TupleCreate5(v494, v495);
-            v492++;
+    bool v485;
+    v485 = v473 == 3l;
+    US4 v498;
+    if (v485){
+        int32_t v486;
+        v486 = 0l;
+        while (while_method_12(v486)){
+            int32_t v488;
+            v488 = v472 + 1l;
+            int32_t v489;
+            v489 = v488 - 3l;
+            bool v490;
+            v490 = v486 < v489;
+            if (v490){
+                ap_uint<4l> v491; ap_uint<2l> v492;
+                Tuple5 tmp73 = v85[v486];
+                v491 = tmp73.v0; v492 = tmp73.v1;
+                v469[v486] = TupleCreate5(v491, v492);
+            } else {
+                int32_t v493;
+                v493 = 3l + v486;
+                ap_uint<4l> v494; ap_uint<2l> v495;
+                Tuple5 tmp74 = v85[v493];
+                v494 = tmp74.v0; v495 = tmp74.v1;
+                v469[v486] = TupleCreate5(v494, v495);
+            }
+            v486++;
         }
-        int32_t v496;
-        v496 = v491;
-        while (method35(v496)){
-            int32_t v498;
-            v498 = 3l + v496;
-            ap_uint<4l> v499; ap_uint<2l> v500;
-            Tuple5 tmp74 = v85[v498];
-            v499 = tmp74.v0; v500 = tmp74.v1;
-            v473[v496] = TupleCreate5(v499, v500);
-            v496++;
-        }
-        v503 = US4_1(v472, v473);
+        v498 = US4_1(v468, v469);
     } else {
-        v503 = US4_0();
+        v498 = US4_0();
     }
-    US2 v557;
-    switch (v503.tag) {
+    US2 v551;
+    switch (v498.tag) {
         case 0: { // None
-            v557 = US2_0();
+            v551 = US2_0();
             break;
         }
         default: { // Some
-            std::array<Tuple5,3l> v504 = v503.v.case1.v0; std::array<Tuple5,4l> v505 = v503.v.case1.v1;
-            std::array<Tuple5,2l> v506;
-            std::array<Tuple5,2l> v507;
-            ap_uint<4l> v508;
-            v508 = 12ul;
-            int32_t v509; int32_t v510; int32_t v511; ap_uint<4l> v512;
-            Tuple9 tmp75 = TupleCreate9(0l, 0l, 0l, v508);
-            v509 = tmp75.v0; v510 = tmp75.v1; v511 = tmp75.v2; v512 = tmp75.v3;
-            while (method35(v509)){
-                ap_uint<4l> v514; ap_uint<2l> v515;
-                Tuple5 tmp76 = v505[v509];
-                v514 = tmp76.v0; v515 = tmp76.v1;
-                bool v516;
-                v516 = v511 < 2l;
-                int32_t v520; int32_t v521; ap_uint<4l> v522;
-                if (v516){
-                    bool v517;
-                    v517 = v512 == v514;
-                    int32_t v518;
-                    if (v517){
-                        v518 = v511;
+            std::array<Tuple5,3l> v499 = v498.v.case1.v0; std::array<Tuple5,4l> v500 = v498.v.case1.v1;
+            std::array<Tuple5,2l> v501;
+            std::array<Tuple5,2l> v502;
+            ap_uint<4l> v503;
+            v503 = 12ul;
+            int32_t v504; int32_t v505; int32_t v506; ap_uint<4l> v507;
+            Tuple9 tmp75 = TupleCreate9(0l, 0l, 0l, v503);
+            v504 = tmp75.v0; v505 = tmp75.v1; v506 = tmp75.v2; v507 = tmp75.v3;
+            while (while_method_12(v504)){
+                ap_uint<4l> v509; ap_uint<2l> v510;
+                Tuple5 tmp76 = v500[v504];
+                v509 = tmp76.v0; v510 = tmp76.v1;
+                bool v511;
+                v511 = v506 < 2l;
+                int32_t v515; int32_t v516; ap_uint<4l> v517;
+                if (v511){
+                    bool v512;
+                    v512 = v507 == v509;
+                    int32_t v513;
+                    if (v512){
+                        v513 = v506;
                     } else {
-                        v518 = 0l;
+                        v513 = 0l;
                     }
-                    v506[v518] = TupleCreate5(v514, v515);
-                    int32_t v519;
-                    v519 = v518 + 1l;
-                    v520 = v509; v521 = v519; v522 = v514;
+                    v501[v513] = TupleCreate5(v509, v510);
+                    int32_t v514;
+                    v514 = v513 + 1l;
+                    v515 = v504; v516 = v514; v517 = v509;
                 } else {
-                    v520 = v510; v521 = v511; v522 = v512;
+                    v515 = v505; v516 = v506; v517 = v507;
                 }
-                v510 = v520;
-                v511 = v521;
-                v512 = v522;
-                v509++;
+                v505 = v515;
+                v506 = v516;
+                v507 = v517;
+                v504++;
             }
-            bool v523;
-            v523 = v511 == 2l;
-            US5 v537;
-            if (v523){
-                int32_t v524;
-                v524 = v510 + 1l;
-                int32_t v525;
-                v525 = v524 - 2l;
-                int32_t v526;
-                v526 = 0l;
-                while (method31(v525, v526)){
-                    ap_uint<4l> v528; ap_uint<2l> v529;
-                    Tuple5 tmp77 = v505[v526];
-                    v528 = tmp77.v0; v529 = tmp77.v1;
-                    v507[v526] = TupleCreate5(v528, v529);
-                    v526++;
+            bool v518;
+            v518 = v506 == 2l;
+            US5 v531;
+            if (v518){
+                int32_t v519;
+                v519 = 0l;
+                while (while_method_10(v519)){
+                    int32_t v521;
+                    v521 = v505 + 1l;
+                    int32_t v522;
+                    v522 = v521 - 2l;
+                    bool v523;
+                    v523 = v519 < v522;
+                    if (v523){
+                        ap_uint<4l> v524; ap_uint<2l> v525;
+                        Tuple5 tmp77 = v500[v519];
+                        v524 = tmp77.v0; v525 = tmp77.v1;
+                        v502[v519] = TupleCreate5(v524, v525);
+                    } else {
+                        int32_t v526;
+                        v526 = 2l + v519;
+                        ap_uint<4l> v527; ap_uint<2l> v528;
+                        Tuple5 tmp78 = v500[v526];
+                        v527 = tmp78.v0; v528 = tmp78.v1;
+                        v502[v519] = TupleCreate5(v527, v528);
+                    }
+                    v519++;
                 }
-                int32_t v530;
-                v530 = v525;
-                while (method33(v530)){
-                    int32_t v532;
-                    v532 = 2l + v530;
-                    ap_uint<4l> v533; ap_uint<2l> v534;
-                    Tuple5 tmp78 = v505[v532];
-                    v533 = tmp78.v0; v534 = tmp78.v1;
-                    v507[v530] = TupleCreate5(v533, v534);
-                    v530++;
-                }
-                v537 = US5_1(v506, v507);
+                v531 = US5_1(v501, v502);
             } else {
-                v537 = US5_0();
+                v531 = US5_0();
             }
-            switch (v537.tag) {
+            switch (v531.tag) {
                 case 0: { // None
-                    v557 = US2_0();
+                    v551 = US2_0();
                     break;
                 }
                 default: { // Some
-                    std::array<Tuple5,2l> v538 = v537.v.case1.v0; std::array<Tuple5,2l> v539 = v537.v.case1.v1;
-                    std::array<Tuple5,0l> v540;
-                    std::array<Tuple5,5l> v541;
-                    int32_t v542;
-                    v542 = 0l;
-                    while (method32(v542)){
-                        ap_uint<4l> v544; ap_uint<2l> v545;
-                        Tuple5 tmp79 = v504[v542];
-                        v544 = tmp79.v0; v545 = tmp79.v1;
-                        v541[v542] = TupleCreate5(v544, v545);
-                        v542++;
+                    std::array<Tuple5,2l> v532 = v531.v.case1.v0; std::array<Tuple5,2l> v533 = v531.v.case1.v1;
+                    std::array<Tuple5,0l> v534;
+                    std::array<Tuple5,5l> v535;
+                    int32_t v536;
+                    v536 = 0l;
+                    while (while_method_9(v536)){
+                        ap_uint<4l> v538; ap_uint<2l> v539;
+                        Tuple5 tmp79 = v499[v536];
+                        v538 = tmp79.v0; v539 = tmp79.v1;
+                        v535[v536] = TupleCreate5(v538, v539);
+                        v536++;
                     }
-                    int32_t v546;
-                    v546 = 0l;
-                    while (method33(v546)){
-                        ap_uint<4l> v548; ap_uint<2l> v549;
-                        Tuple5 tmp80 = v538[v546];
-                        v548 = tmp80.v0; v549 = tmp80.v1;
-                        int32_t v550;
-                        v550 = 3l + v546;
-                        v541[v550] = TupleCreate5(v548, v549);
-                        v546++;
+                    int32_t v540;
+                    v540 = 0l;
+                    while (while_method_10(v540)){
+                        ap_uint<4l> v542; ap_uint<2l> v543;
+                        Tuple5 tmp80 = v532[v540];
+                        v542 = tmp80.v0; v543 = tmp80.v1;
+                        int32_t v544;
+                        v544 = 3l + v540;
+                        v535[v544] = TupleCreate5(v542, v543);
+                        v540++;
                     }
-                    v557 = US2_1(v541);
+                    v551 = US2_1(v535);
                 }
             }
         }
     }
-    std::array<Tuple5,4l> v558;
-    std::array<Tuple5,3l> v559;
-    ap_uint<4l> v560;
-    v560 = 12ul;
-    int32_t v561; int32_t v562; int32_t v563; ap_uint<4l> v564;
-    Tuple9 tmp81 = TupleCreate9(0l, 0l, 0l, v560);
-    v561 = tmp81.v0; v562 = tmp81.v1; v563 = tmp81.v2; v564 = tmp81.v3;
-    while (method26(v561)){
-        ap_uint<4l> v566; ap_uint<2l> v567;
-        Tuple5 tmp82 = v85[v561];
-        v566 = tmp82.v0; v567 = tmp82.v1;
-        bool v568;
-        v568 = v563 < 4l;
-        int32_t v572; int32_t v573; ap_uint<4l> v574;
-        if (v568){
-            bool v569;
-            v569 = v564 == v566;
-            int32_t v570;
-            if (v569){
-                v570 = v563;
+    std::array<Tuple5,4l> v552;
+    std::array<Tuple5,3l> v553;
+    ap_uint<4l> v554;
+    v554 = 12ul;
+    int32_t v555; int32_t v556; int32_t v557; ap_uint<4l> v558;
+    Tuple9 tmp81 = TupleCreate9(0l, 0l, 0l, v554);
+    v555 = tmp81.v0; v556 = tmp81.v1; v557 = tmp81.v2; v558 = tmp81.v3;
+    while (while_method_4(v555)){
+        ap_uint<4l> v560; ap_uint<2l> v561;
+        Tuple5 tmp82 = v85[v555];
+        v560 = tmp82.v0; v561 = tmp82.v1;
+        bool v562;
+        v562 = v557 < 4l;
+        int32_t v566; int32_t v567; ap_uint<4l> v568;
+        if (v562){
+            bool v563;
+            v563 = v558 == v560;
+            int32_t v564;
+            if (v563){
+                v564 = v557;
             } else {
-                v570 = 0l;
+                v564 = 0l;
             }
-            v558[v570] = TupleCreate5(v566, v567);
-            int32_t v571;
-            v571 = v570 + 1l;
-            v572 = v561; v573 = v571; v574 = v566;
+            v552[v564] = TupleCreate5(v560, v561);
+            int32_t v565;
+            v565 = v564 + 1l;
+            v566 = v555; v567 = v565; v568 = v560;
         } else {
-            v572 = v562; v573 = v563; v574 = v564;
+            v566 = v556; v567 = v557; v568 = v558;
         }
-        v562 = v572;
-        v563 = v573;
-        v564 = v574;
-        v561++;
+        v556 = v566;
+        v557 = v567;
+        v558 = v568;
+        v555++;
     }
-    bool v575;
-    v575 = v563 == 4l;
-    US6 v589;
-    if (v575){
-        int32_t v576;
-        v576 = v562 + 1l;
-        int32_t v577;
-        v577 = v576 - 4l;
-        int32_t v578;
-        v578 = 0l;
-        while (method31(v577, v578)){
-            ap_uint<4l> v580; ap_uint<2l> v581;
-            Tuple5 tmp83 = v85[v578];
-            v580 = tmp83.v0; v581 = tmp83.v1;
-            v559[v578] = TupleCreate5(v580, v581);
-            v578++;
+    bool v569;
+    v569 = v557 == 4l;
+    US6 v582;
+    if (v569){
+        int32_t v570;
+        v570 = 0l;
+        while (while_method_9(v570)){
+            int32_t v572;
+            v572 = v556 + 1l;
+            int32_t v573;
+            v573 = v572 - 4l;
+            bool v574;
+            v574 = v570 < v573;
+            if (v574){
+                ap_uint<4l> v575; ap_uint<2l> v576;
+                Tuple5 tmp83 = v85[v570];
+                v575 = tmp83.v0; v576 = tmp83.v1;
+                v553[v570] = TupleCreate5(v575, v576);
+            } else {
+                int32_t v577;
+                v577 = 4l + v570;
+                ap_uint<4l> v578; ap_uint<2l> v579;
+                Tuple5 tmp84 = v85[v577];
+                v578 = tmp84.v0; v579 = tmp84.v1;
+                v553[v570] = TupleCreate5(v578, v579);
+            }
+            v570++;
         }
-        int32_t v582;
-        v582 = v577;
-        while (method32(v582)){
-            int32_t v584;
-            v584 = 4l + v582;
-            ap_uint<4l> v585; ap_uint<2l> v586;
-            Tuple5 tmp84 = v85[v584];
-            v585 = tmp84.v0; v586 = tmp84.v1;
-            v559[v582] = TupleCreate5(v585, v586);
-            v582++;
-        }
-        v589 = US6_1(v558, v559);
+        v582 = US6_1(v552, v553);
     } else {
-        v589 = US6_0();
+        v582 = US6_0();
     }
-    US2 v611;
-    switch (v589.tag) {
+    US2 v604;
+    switch (v582.tag) {
         case 0: { // None
-            v611 = US2_0();
+            v604 = US2_0();
             break;
         }
         default: { // Some
-            std::array<Tuple5,4l> v590 = v589.v.case1.v0; std::array<Tuple5,3l> v591 = v589.v.case1.v1;
-            std::array<Tuple5,1l> v592;
-            int32_t v593;
-            v593 = 0l;
-            while (method34(v593)){
-                ap_uint<4l> v595; ap_uint<2l> v596;
-                Tuple5 tmp85 = v591[v593];
-                v595 = tmp85.v0; v596 = tmp85.v1;
-                v592[v593] = TupleCreate5(v595, v596);
-                v593++;
+            std::array<Tuple5,4l> v583 = v582.v.case1.v0; std::array<Tuple5,3l> v584 = v582.v.case1.v1;
+            std::array<Tuple5,1l> v585;
+            int32_t v586;
+            v586 = 0l;
+            while (while_method_11(v586)){
+                ap_uint<4l> v588; ap_uint<2l> v589;
+                Tuple5 tmp85 = v584[v586];
+                v588 = tmp85.v0; v589 = tmp85.v1;
+                v585[v586] = TupleCreate5(v588, v589);
+                v586++;
             }
-            std::array<Tuple5,0l> v597;
-            std::array<Tuple5,5l> v598;
-            int32_t v599;
-            v599 = 0l;
-            while (method35(v599)){
-                ap_uint<4l> v601; ap_uint<2l> v602;
-                Tuple5 tmp86 = v590[v599];
-                v601 = tmp86.v0; v602 = tmp86.v1;
-                v598[v599] = TupleCreate5(v601, v602);
-                v599++;
+            std::array<Tuple5,0l> v590;
+            std::array<Tuple5,5l> v591;
+            int32_t v592;
+            v592 = 0l;
+            while (while_method_12(v592)){
+                ap_uint<4l> v594; ap_uint<2l> v595;
+                Tuple5 tmp86 = v583[v592];
+                v594 = tmp86.v0; v595 = tmp86.v1;
+                v591[v592] = TupleCreate5(v594, v595);
+                v592++;
             }
-            int32_t v603;
-            v603 = 0l;
-            while (method34(v603)){
-                ap_uint<4l> v605; ap_uint<2l> v606;
-                Tuple5 tmp87 = v592[v603];
-                v605 = tmp87.v0; v606 = tmp87.v1;
-                int32_t v607;
-                v607 = 4l + v603;
-                v598[v607] = TupleCreate5(v605, v606);
-                v603++;
+            int32_t v596;
+            v596 = 0l;
+            while (while_method_11(v596)){
+                ap_uint<4l> v598; ap_uint<2l> v599;
+                Tuple5 tmp87 = v585[v596];
+                v598 = tmp87.v0; v599 = tmp87.v1;
+                int32_t v600;
+                v600 = 4l + v596;
+                v591[v600] = TupleCreate5(v598, v599);
+                v596++;
             }
-            v611 = US2_1(v598);
+            v604 = US2_1(v591);
         }
     }
-    ap_uint<2l> v612;
-    v612 = 3ul;
-    std::array<Tuple5,5l> v613;
-    ap_uint<4l> v614;
-    v614 = 12ul;
-    int32_t v615; int32_t v616; ap_uint<4l> v617;
-    Tuple10 tmp88 = TupleCreate10(0l, 0l, v614);
-    v615 = tmp88.v0; v616 = tmp88.v1; v617 = tmp88.v2;
-    while (method26(v615)){
-        ap_uint<4l> v619; ap_uint<2l> v620;
-        Tuple5 tmp89 = v85[v615];
-        v619 = tmp89.v0; v620 = tmp89.v1;
-        bool v621;
-        v621 = v616 < 5l;
-        bool v623;
-        if (v621){
-            bool v622;
-            v622 = v612 == v620;
-            v623 = v622;
+    ap_uint<2l> v605;
+    v605 = 3ul;
+    std::array<Tuple5,5l> v606;
+    ap_uint<4l> v607;
+    v607 = 12ul;
+    int32_t v608; int32_t v609; ap_uint<4l> v610;
+    Tuple10 tmp88 = TupleCreate10(0l, 0l, v607);
+    v608 = tmp88.v0; v609 = tmp88.v1; v610 = tmp88.v2;
+    while (while_method_4(v608)){
+        ap_uint<4l> v612; ap_uint<2l> v613;
+        Tuple5 tmp89 = v85[v608];
+        v612 = tmp89.v0; v613 = tmp89.v1;
+        bool v614;
+        v614 = v609 < 5l;
+        bool v616;
+        if (v614){
+            bool v615;
+            v615 = v605 == v613;
+            v616 = v615;
         } else {
-            v623 = false;
+            v616 = false;
         }
-        int32_t v629; ap_uint<4l> v630;
-        if (v623){
-            bool v624;
-            v624 = v617 == v619;
-            int32_t v625;
-            if (v624){
-                v625 = v616;
+        int32_t v622; ap_uint<4l> v623;
+        if (v616){
+            bool v617;
+            v617 = v610 == v612;
+            int32_t v618;
+            if (v617){
+                v618 = v609;
             } else {
-                v625 = 0l;
+                v618 = 0l;
             }
-            v613[v625] = TupleCreate5(v619, v620);
-            int32_t v626;
-            v626 = v625 + 1l;
-            ap_uint<4l> v627;
-            v627 = 1ul;
-            ap_uint<4l> v628;
-            v628 = v619 - v627;
-            v629 = v626; v630 = v628;
+            v606[v618] = TupleCreate5(v612, v613);
+            int32_t v619;
+            v619 = v618 + 1l;
+            ap_uint<4l> v620;
+            v620 = 1ul;
+            ap_uint<4l> v621;
+            v621 = v612 - v620;
+            v622 = v619; v623 = v621;
         } else {
-            v629 = v616; v630 = v617;
+            v622 = v609; v623 = v610;
         }
-        v616 = v629;
-        v617 = v630;
-        v615++;
+        v609 = v622;
+        v610 = v623;
+        v608++;
     }
-    bool v631;
-    v631 = v616 == 4l;
-    bool v668;
-    if (v631){
-        ap_uint<4l> v632;
-        v632 = 0ul;
-        ap_uint<4l> v633;
-        v633 = 1ul;
-        ap_uint<4l> v634;
-        v634 = v632 - v633;
-        bool v635;
-        v635 = v617 == v634;
-        if (v635){
-            ap_uint<4l> v636; ap_uint<2l> v637;
+    bool v624;
+    v624 = v609 == 4l;
+    bool v661;
+    if (v624){
+        ap_uint<4l> v625;
+        v625 = 0ul;
+        ap_uint<4l> v626;
+        v626 = 1ul;
+        ap_uint<4l> v627;
+        v627 = v625 - v626;
+        bool v628;
+        v628 = v610 == v627;
+        if (v628){
+            ap_uint<4l> v629; ap_uint<2l> v630;
             Tuple5 tmp90 = v85[0l];
-            v636 = tmp90.v0; v637 = tmp90.v1;
-            bool v638;
-            v638 = v612 == v637;
-            bool v642;
-            if (v638){
-                ap_uint<4l> v639;
-                v639 = 12ul;
-                bool v640;
-                v640 = v636 == v639;
-                if (v640){
-                    v613[4l] = TupleCreate5(v636, v637);
-                    v642 = true;
+            v629 = tmp90.v0; v630 = tmp90.v1;
+            bool v631;
+            v631 = v605 == v630;
+            bool v635;
+            if (v631){
+                ap_uint<4l> v632;
+                v632 = 12ul;
+                bool v633;
+                v633 = v629 == v632;
+                if (v633){
+                    v606[4l] = TupleCreate5(v629, v630);
+                    v635 = true;
+                } else {
+                    v635 = false;
+                }
+            } else {
+                v635 = false;
+            }
+            if (v635){
+                v661 = true;
+            } else {
+                ap_uint<4l> v636; ap_uint<2l> v637;
+                Tuple5 tmp91 = v85[1l];
+                v636 = tmp91.v0; v637 = tmp91.v1;
+                bool v638;
+                v638 = v605 == v637;
+                bool v642;
+                if (v638){
+                    ap_uint<4l> v639;
+                    v639 = 12ul;
+                    bool v640;
+                    v640 = v636 == v639;
+                    if (v640){
+                        v606[4l] = TupleCreate5(v636, v637);
+                        v642 = true;
+                    } else {
+                        v642 = false;
+                    }
                 } else {
                     v642 = false;
                 }
-            } else {
-                v642 = false;
-            }
-            if (v642){
-                v668 = true;
-            } else {
-                ap_uint<4l> v643; ap_uint<2l> v644;
-                Tuple5 tmp91 = v85[1l];
-                v643 = tmp91.v0; v644 = tmp91.v1;
-                bool v645;
-                v645 = v612 == v644;
-                bool v649;
-                if (v645){
-                    ap_uint<4l> v646;
-                    v646 = 12ul;
-                    bool v647;
-                    v647 = v643 == v646;
-                    if (v647){
-                        v613[4l] = TupleCreate5(v643, v644);
-                        v649 = true;
+                if (v642){
+                    v661 = true;
+                } else {
+                    ap_uint<4l> v643; ap_uint<2l> v644;
+                    Tuple5 tmp92 = v85[2l];
+                    v643 = tmp92.v0; v644 = tmp92.v1;
+                    bool v645;
+                    v645 = v605 == v644;
+                    bool v649;
+                    if (v645){
+                        ap_uint<4l> v646;
+                        v646 = 12ul;
+                        bool v647;
+                        v647 = v643 == v646;
+                        if (v647){
+                            v606[4l] = TupleCreate5(v643, v644);
+                            v649 = true;
+                        } else {
+                            v649 = false;
+                        }
                     } else {
                         v649 = false;
                     }
-                } else {
-                    v649 = false;
-                }
-                if (v649){
-                    v668 = true;
-                } else {
-                    ap_uint<4l> v650; ap_uint<2l> v651;
-                    Tuple5 tmp92 = v85[2l];
-                    v650 = tmp92.v0; v651 = tmp92.v1;
-                    bool v652;
-                    v652 = v612 == v651;
-                    bool v656;
-                    if (v652){
-                        ap_uint<4l> v653;
-                        v653 = 12ul;
-                        bool v654;
-                        v654 = v650 == v653;
-                        if (v654){
-                            v613[4l] = TupleCreate5(v650, v651);
-                            v656 = true;
-                        } else {
-                            v656 = false;
-                        }
+                    if (v649){
+                        v661 = true;
                     } else {
-                        v656 = false;
-                    }
-                    if (v656){
-                        v668 = true;
-                    } else {
-                        ap_uint<4l> v657; ap_uint<2l> v658;
+                        ap_uint<4l> v650; ap_uint<2l> v651;
                         Tuple5 tmp93 = v85[3l];
-                        v657 = tmp93.v0; v658 = tmp93.v1;
-                        bool v659;
-                        v659 = v612 == v658;
-                        if (v659){
-                            ap_uint<4l> v660;
-                            v660 = 12ul;
-                            bool v661;
-                            v661 = v657 == v660;
-                            if (v661){
-                                v613[4l] = TupleCreate5(v657, v658);
-                                v668 = true;
+                        v650 = tmp93.v0; v651 = tmp93.v1;
+                        bool v652;
+                        v652 = v605 == v651;
+                        if (v652){
+                            ap_uint<4l> v653;
+                            v653 = 12ul;
+                            bool v654;
+                            v654 = v650 == v653;
+                            if (v654){
+                                v606[4l] = TupleCreate5(v650, v651);
+                                v661 = true;
                             } else {
-                                v668 = false;
+                                v661 = false;
                             }
                         } else {
-                            v668 = false;
+                            v661 = false;
                         }
                     }
                 }
             }
         } else {
-            v668 = false;
+            v661 = false;
         }
     } else {
-        v668 = false;
+        v661 = false;
     }
-    US2 v674;
-    if (v668){
-        v674 = US2_1(v613);
+    US2 v667;
+    if (v661){
+        v667 = US2_1(v606);
     } else {
-        bool v670;
-        v670 = v616 == 5l;
-        if (v670){
-            v674 = US2_1(v613);
+        bool v663;
+        v663 = v609 == 5l;
+        if (v663){
+            v667 = US2_1(v606);
         } else {
-            v674 = US2_0();
+            v667 = US2_0();
         }
     }
-    ap_uint<2l> v675;
-    v675 = 2ul;
-    std::array<Tuple5,5l> v676;
-    ap_uint<4l> v677;
-    v677 = 12ul;
-    int32_t v678; int32_t v679; ap_uint<4l> v680;
-    Tuple10 tmp94 = TupleCreate10(0l, 0l, v677);
-    v678 = tmp94.v0; v679 = tmp94.v1; v680 = tmp94.v2;
-    while (method26(v678)){
-        ap_uint<4l> v682; ap_uint<2l> v683;
-        Tuple5 tmp95 = v85[v678];
-        v682 = tmp95.v0; v683 = tmp95.v1;
-        bool v684;
-        v684 = v679 < 5l;
-        bool v686;
-        if (v684){
-            bool v685;
-            v685 = v675 == v683;
-            v686 = v685;
+    ap_uint<2l> v668;
+    v668 = 2ul;
+    std::array<Tuple5,5l> v669;
+    ap_uint<4l> v670;
+    v670 = 12ul;
+    int32_t v671; int32_t v672; ap_uint<4l> v673;
+    Tuple10 tmp94 = TupleCreate10(0l, 0l, v670);
+    v671 = tmp94.v0; v672 = tmp94.v1; v673 = tmp94.v2;
+    while (while_method_4(v671)){
+        ap_uint<4l> v675; ap_uint<2l> v676;
+        Tuple5 tmp95 = v85[v671];
+        v675 = tmp95.v0; v676 = tmp95.v1;
+        bool v677;
+        v677 = v672 < 5l;
+        bool v679;
+        if (v677){
+            bool v678;
+            v678 = v668 == v676;
+            v679 = v678;
         } else {
-            v686 = false;
+            v679 = false;
         }
-        int32_t v692; ap_uint<4l> v693;
-        if (v686){
-            bool v687;
-            v687 = v680 == v682;
-            int32_t v688;
-            if (v687){
-                v688 = v679;
+        int32_t v685; ap_uint<4l> v686;
+        if (v679){
+            bool v680;
+            v680 = v673 == v675;
+            int32_t v681;
+            if (v680){
+                v681 = v672;
             } else {
-                v688 = 0l;
+                v681 = 0l;
             }
-            v676[v688] = TupleCreate5(v682, v683);
-            int32_t v689;
-            v689 = v688 + 1l;
-            ap_uint<4l> v690;
-            v690 = 1ul;
-            ap_uint<4l> v691;
-            v691 = v682 - v690;
-            v692 = v689; v693 = v691;
+            v669[v681] = TupleCreate5(v675, v676);
+            int32_t v682;
+            v682 = v681 + 1l;
+            ap_uint<4l> v683;
+            v683 = 1ul;
+            ap_uint<4l> v684;
+            v684 = v675 - v683;
+            v685 = v682; v686 = v684;
         } else {
-            v692 = v679; v693 = v680;
+            v685 = v672; v686 = v673;
         }
-        v679 = v692;
-        v680 = v693;
-        v678++;
+        v672 = v685;
+        v673 = v686;
+        v671++;
     }
-    bool v694;
-    v694 = v679 == 4l;
-    bool v731;
-    if (v694){
-        ap_uint<4l> v695;
-        v695 = 0ul;
-        ap_uint<4l> v696;
-        v696 = 1ul;
-        ap_uint<4l> v697;
-        v697 = v695 - v696;
-        bool v698;
-        v698 = v680 == v697;
-        if (v698){
-            ap_uint<4l> v699; ap_uint<2l> v700;
+    bool v687;
+    v687 = v672 == 4l;
+    bool v724;
+    if (v687){
+        ap_uint<4l> v688;
+        v688 = 0ul;
+        ap_uint<4l> v689;
+        v689 = 1ul;
+        ap_uint<4l> v690;
+        v690 = v688 - v689;
+        bool v691;
+        v691 = v673 == v690;
+        if (v691){
+            ap_uint<4l> v692; ap_uint<2l> v693;
             Tuple5 tmp96 = v85[0l];
-            v699 = tmp96.v0; v700 = tmp96.v1;
-            bool v701;
-            v701 = v675 == v700;
-            bool v705;
-            if (v701){
-                ap_uint<4l> v702;
-                v702 = 12ul;
-                bool v703;
-                v703 = v699 == v702;
-                if (v703){
-                    v676[4l] = TupleCreate5(v699, v700);
-                    v705 = true;
+            v692 = tmp96.v0; v693 = tmp96.v1;
+            bool v694;
+            v694 = v668 == v693;
+            bool v698;
+            if (v694){
+                ap_uint<4l> v695;
+                v695 = 12ul;
+                bool v696;
+                v696 = v692 == v695;
+                if (v696){
+                    v669[4l] = TupleCreate5(v692, v693);
+                    v698 = true;
+                } else {
+                    v698 = false;
+                }
+            } else {
+                v698 = false;
+            }
+            if (v698){
+                v724 = true;
+            } else {
+                ap_uint<4l> v699; ap_uint<2l> v700;
+                Tuple5 tmp97 = v85[1l];
+                v699 = tmp97.v0; v700 = tmp97.v1;
+                bool v701;
+                v701 = v668 == v700;
+                bool v705;
+                if (v701){
+                    ap_uint<4l> v702;
+                    v702 = 12ul;
+                    bool v703;
+                    v703 = v699 == v702;
+                    if (v703){
+                        v669[4l] = TupleCreate5(v699, v700);
+                        v705 = true;
+                    } else {
+                        v705 = false;
+                    }
                 } else {
                     v705 = false;
                 }
-            } else {
-                v705 = false;
-            }
-            if (v705){
-                v731 = true;
-            } else {
-                ap_uint<4l> v706; ap_uint<2l> v707;
-                Tuple5 tmp97 = v85[1l];
-                v706 = tmp97.v0; v707 = tmp97.v1;
-                bool v708;
-                v708 = v675 == v707;
-                bool v712;
-                if (v708){
-                    ap_uint<4l> v709;
-                    v709 = 12ul;
-                    bool v710;
-                    v710 = v706 == v709;
-                    if (v710){
-                        v676[4l] = TupleCreate5(v706, v707);
-                        v712 = true;
+                if (v705){
+                    v724 = true;
+                } else {
+                    ap_uint<4l> v706; ap_uint<2l> v707;
+                    Tuple5 tmp98 = v85[2l];
+                    v706 = tmp98.v0; v707 = tmp98.v1;
+                    bool v708;
+                    v708 = v668 == v707;
+                    bool v712;
+                    if (v708){
+                        ap_uint<4l> v709;
+                        v709 = 12ul;
+                        bool v710;
+                        v710 = v706 == v709;
+                        if (v710){
+                            v669[4l] = TupleCreate5(v706, v707);
+                            v712 = true;
+                        } else {
+                            v712 = false;
+                        }
                     } else {
                         v712 = false;
                     }
-                } else {
-                    v712 = false;
-                }
-                if (v712){
-                    v731 = true;
-                } else {
-                    ap_uint<4l> v713; ap_uint<2l> v714;
-                    Tuple5 tmp98 = v85[2l];
-                    v713 = tmp98.v0; v714 = tmp98.v1;
-                    bool v715;
-                    v715 = v675 == v714;
-                    bool v719;
-                    if (v715){
-                        ap_uint<4l> v716;
-                        v716 = 12ul;
-                        bool v717;
-                        v717 = v713 == v716;
-                        if (v717){
-                            v676[4l] = TupleCreate5(v713, v714);
-                            v719 = true;
-                        } else {
-                            v719 = false;
-                        }
+                    if (v712){
+                        v724 = true;
                     } else {
-                        v719 = false;
-                    }
-                    if (v719){
-                        v731 = true;
-                    } else {
-                        ap_uint<4l> v720; ap_uint<2l> v721;
+                        ap_uint<4l> v713; ap_uint<2l> v714;
                         Tuple5 tmp99 = v85[3l];
-                        v720 = tmp99.v0; v721 = tmp99.v1;
-                        bool v722;
-                        v722 = v675 == v721;
-                        if (v722){
-                            ap_uint<4l> v723;
-                            v723 = 12ul;
-                            bool v724;
-                            v724 = v720 == v723;
-                            if (v724){
-                                v676[4l] = TupleCreate5(v720, v721);
-                                v731 = true;
+                        v713 = tmp99.v0; v714 = tmp99.v1;
+                        bool v715;
+                        v715 = v668 == v714;
+                        if (v715){
+                            ap_uint<4l> v716;
+                            v716 = 12ul;
+                            bool v717;
+                            v717 = v713 == v716;
+                            if (v717){
+                                v669[4l] = TupleCreate5(v713, v714);
+                                v724 = true;
                             } else {
-                                v731 = false;
+                                v724 = false;
                             }
                         } else {
-                            v731 = false;
+                            v724 = false;
                         }
                     }
                 }
             }
         } else {
-            v731 = false;
+            v724 = false;
         }
     } else {
-        v731 = false;
+        v724 = false;
     }
-    US2 v737;
-    if (v731){
-        v737 = US2_1(v676);
+    US2 v730;
+    if (v724){
+        v730 = US2_1(v669);
     } else {
-        bool v733;
-        v733 = v679 == 5l;
-        if (v733){
-            v737 = US2_1(v676);
+        bool v726;
+        v726 = v672 == 5l;
+        if (v726){
+            v730 = US2_1(v669);
         } else {
-            v737 = US2_0();
+            v730 = US2_0();
         }
     }
-    ap_uint<2l> v738;
-    v738 = 1ul;
-    std::array<Tuple5,5l> v739;
-    ap_uint<4l> v740;
-    v740 = 12ul;
-    int32_t v741; int32_t v742; ap_uint<4l> v743;
-    Tuple10 tmp100 = TupleCreate10(0l, 0l, v740);
-    v741 = tmp100.v0; v742 = tmp100.v1; v743 = tmp100.v2;
-    while (method26(v741)){
-        ap_uint<4l> v745; ap_uint<2l> v746;
-        Tuple5 tmp101 = v85[v741];
-        v745 = tmp101.v0; v746 = tmp101.v1;
-        bool v747;
-        v747 = v742 < 5l;
-        bool v749;
-        if (v747){
-            bool v748;
-            v748 = v738 == v746;
-            v749 = v748;
+    ap_uint<2l> v731;
+    v731 = 1ul;
+    std::array<Tuple5,5l> v732;
+    ap_uint<4l> v733;
+    v733 = 12ul;
+    int32_t v734; int32_t v735; ap_uint<4l> v736;
+    Tuple10 tmp100 = TupleCreate10(0l, 0l, v733);
+    v734 = tmp100.v0; v735 = tmp100.v1; v736 = tmp100.v2;
+    while (while_method_4(v734)){
+        ap_uint<4l> v738; ap_uint<2l> v739;
+        Tuple5 tmp101 = v85[v734];
+        v738 = tmp101.v0; v739 = tmp101.v1;
+        bool v740;
+        v740 = v735 < 5l;
+        bool v742;
+        if (v740){
+            bool v741;
+            v741 = v731 == v739;
+            v742 = v741;
         } else {
-            v749 = false;
+            v742 = false;
         }
-        int32_t v755; ap_uint<4l> v756;
-        if (v749){
-            bool v750;
-            v750 = v743 == v745;
-            int32_t v751;
-            if (v750){
-                v751 = v742;
+        int32_t v748; ap_uint<4l> v749;
+        if (v742){
+            bool v743;
+            v743 = v736 == v738;
+            int32_t v744;
+            if (v743){
+                v744 = v735;
             } else {
-                v751 = 0l;
+                v744 = 0l;
             }
-            v739[v751] = TupleCreate5(v745, v746);
-            int32_t v752;
-            v752 = v751 + 1l;
-            ap_uint<4l> v753;
-            v753 = 1ul;
-            ap_uint<4l> v754;
-            v754 = v745 - v753;
-            v755 = v752; v756 = v754;
+            v732[v744] = TupleCreate5(v738, v739);
+            int32_t v745;
+            v745 = v744 + 1l;
+            ap_uint<4l> v746;
+            v746 = 1ul;
+            ap_uint<4l> v747;
+            v747 = v738 - v746;
+            v748 = v745; v749 = v747;
         } else {
-            v755 = v742; v756 = v743;
+            v748 = v735; v749 = v736;
         }
-        v742 = v755;
-        v743 = v756;
-        v741++;
+        v735 = v748;
+        v736 = v749;
+        v734++;
     }
-    bool v757;
-    v757 = v742 == 4l;
-    bool v794;
-    if (v757){
-        ap_uint<4l> v758;
-        v758 = 0ul;
-        ap_uint<4l> v759;
-        v759 = 1ul;
-        ap_uint<4l> v760;
-        v760 = v758 - v759;
-        bool v761;
-        v761 = v743 == v760;
-        if (v761){
-            ap_uint<4l> v762; ap_uint<2l> v763;
+    bool v750;
+    v750 = v735 == 4l;
+    bool v787;
+    if (v750){
+        ap_uint<4l> v751;
+        v751 = 0ul;
+        ap_uint<4l> v752;
+        v752 = 1ul;
+        ap_uint<4l> v753;
+        v753 = v751 - v752;
+        bool v754;
+        v754 = v736 == v753;
+        if (v754){
+            ap_uint<4l> v755; ap_uint<2l> v756;
             Tuple5 tmp102 = v85[0l];
-            v762 = tmp102.v0; v763 = tmp102.v1;
-            bool v764;
-            v764 = v738 == v763;
-            bool v768;
-            if (v764){
-                ap_uint<4l> v765;
-                v765 = 12ul;
-                bool v766;
-                v766 = v762 == v765;
-                if (v766){
-                    v739[4l] = TupleCreate5(v762, v763);
-                    v768 = true;
+            v755 = tmp102.v0; v756 = tmp102.v1;
+            bool v757;
+            v757 = v731 == v756;
+            bool v761;
+            if (v757){
+                ap_uint<4l> v758;
+                v758 = 12ul;
+                bool v759;
+                v759 = v755 == v758;
+                if (v759){
+                    v732[4l] = TupleCreate5(v755, v756);
+                    v761 = true;
+                } else {
+                    v761 = false;
+                }
+            } else {
+                v761 = false;
+            }
+            if (v761){
+                v787 = true;
+            } else {
+                ap_uint<4l> v762; ap_uint<2l> v763;
+                Tuple5 tmp103 = v85[1l];
+                v762 = tmp103.v0; v763 = tmp103.v1;
+                bool v764;
+                v764 = v731 == v763;
+                bool v768;
+                if (v764){
+                    ap_uint<4l> v765;
+                    v765 = 12ul;
+                    bool v766;
+                    v766 = v762 == v765;
+                    if (v766){
+                        v732[4l] = TupleCreate5(v762, v763);
+                        v768 = true;
+                    } else {
+                        v768 = false;
+                    }
                 } else {
                     v768 = false;
                 }
-            } else {
-                v768 = false;
-            }
-            if (v768){
-                v794 = true;
-            } else {
-                ap_uint<4l> v769; ap_uint<2l> v770;
-                Tuple5 tmp103 = v85[1l];
-                v769 = tmp103.v0; v770 = tmp103.v1;
-                bool v771;
-                v771 = v738 == v770;
-                bool v775;
-                if (v771){
-                    ap_uint<4l> v772;
-                    v772 = 12ul;
-                    bool v773;
-                    v773 = v769 == v772;
-                    if (v773){
-                        v739[4l] = TupleCreate5(v769, v770);
-                        v775 = true;
+                if (v768){
+                    v787 = true;
+                } else {
+                    ap_uint<4l> v769; ap_uint<2l> v770;
+                    Tuple5 tmp104 = v85[2l];
+                    v769 = tmp104.v0; v770 = tmp104.v1;
+                    bool v771;
+                    v771 = v731 == v770;
+                    bool v775;
+                    if (v771){
+                        ap_uint<4l> v772;
+                        v772 = 12ul;
+                        bool v773;
+                        v773 = v769 == v772;
+                        if (v773){
+                            v732[4l] = TupleCreate5(v769, v770);
+                            v775 = true;
+                        } else {
+                            v775 = false;
+                        }
                     } else {
                         v775 = false;
                     }
-                } else {
-                    v775 = false;
-                }
-                if (v775){
-                    v794 = true;
-                } else {
-                    ap_uint<4l> v776; ap_uint<2l> v777;
-                    Tuple5 tmp104 = v85[2l];
-                    v776 = tmp104.v0; v777 = tmp104.v1;
-                    bool v778;
-                    v778 = v738 == v777;
-                    bool v782;
-                    if (v778){
-                        ap_uint<4l> v779;
-                        v779 = 12ul;
-                        bool v780;
-                        v780 = v776 == v779;
-                        if (v780){
-                            v739[4l] = TupleCreate5(v776, v777);
-                            v782 = true;
-                        } else {
-                            v782 = false;
-                        }
+                    if (v775){
+                        v787 = true;
                     } else {
-                        v782 = false;
-                    }
-                    if (v782){
-                        v794 = true;
-                    } else {
-                        ap_uint<4l> v783; ap_uint<2l> v784;
+                        ap_uint<4l> v776; ap_uint<2l> v777;
                         Tuple5 tmp105 = v85[3l];
-                        v783 = tmp105.v0; v784 = tmp105.v1;
-                        bool v785;
-                        v785 = v738 == v784;
-                        if (v785){
-                            ap_uint<4l> v786;
-                            v786 = 12ul;
-                            bool v787;
-                            v787 = v783 == v786;
-                            if (v787){
-                                v739[4l] = TupleCreate5(v783, v784);
-                                v794 = true;
+                        v776 = tmp105.v0; v777 = tmp105.v1;
+                        bool v778;
+                        v778 = v731 == v777;
+                        if (v778){
+                            ap_uint<4l> v779;
+                            v779 = 12ul;
+                            bool v780;
+                            v780 = v776 == v779;
+                            if (v780){
+                                v732[4l] = TupleCreate5(v776, v777);
+                                v787 = true;
                             } else {
-                                v794 = false;
+                                v787 = false;
                             }
                         } else {
-                            v794 = false;
+                            v787 = false;
                         }
                     }
                 }
             }
         } else {
-            v794 = false;
+            v787 = false;
         }
     } else {
-        v794 = false;
+        v787 = false;
     }
-    US2 v800;
-    if (v794){
-        v800 = US2_1(v739);
+    US2 v793;
+    if (v787){
+        v793 = US2_1(v732);
     } else {
-        bool v796;
-        v796 = v742 == 5l;
-        if (v796){
-            v800 = US2_1(v739);
+        bool v789;
+        v789 = v735 == 5l;
+        if (v789){
+            v793 = US2_1(v732);
         } else {
-            v800 = US2_0();
+            v793 = US2_0();
         }
     }
-    ap_uint<2l> v801;
-    v801 = 0ul;
-    std::array<Tuple5,5l> v802;
-    ap_uint<4l> v803;
-    v803 = 12ul;
-    int32_t v804; int32_t v805; ap_uint<4l> v806;
-    Tuple10 tmp106 = TupleCreate10(0l, 0l, v803);
-    v804 = tmp106.v0; v805 = tmp106.v1; v806 = tmp106.v2;
-    while (method26(v804)){
-        ap_uint<4l> v808; ap_uint<2l> v809;
-        Tuple5 tmp107 = v85[v804];
-        v808 = tmp107.v0; v809 = tmp107.v1;
-        bool v810;
-        v810 = v805 < 5l;
-        bool v812;
-        if (v810){
-            bool v811;
-            v811 = v801 == v809;
-            v812 = v811;
+    ap_uint<2l> v794;
+    v794 = 0ul;
+    std::array<Tuple5,5l> v795;
+    ap_uint<4l> v796;
+    v796 = 12ul;
+    int32_t v797; int32_t v798; ap_uint<4l> v799;
+    Tuple10 tmp106 = TupleCreate10(0l, 0l, v796);
+    v797 = tmp106.v0; v798 = tmp106.v1; v799 = tmp106.v2;
+    while (while_method_4(v797)){
+        ap_uint<4l> v801; ap_uint<2l> v802;
+        Tuple5 tmp107 = v85[v797];
+        v801 = tmp107.v0; v802 = tmp107.v1;
+        bool v803;
+        v803 = v798 < 5l;
+        bool v805;
+        if (v803){
+            bool v804;
+            v804 = v794 == v802;
+            v805 = v804;
         } else {
-            v812 = false;
+            v805 = false;
         }
-        int32_t v818; ap_uint<4l> v819;
-        if (v812){
-            bool v813;
-            v813 = v806 == v808;
-            int32_t v814;
-            if (v813){
-                v814 = v805;
+        int32_t v811; ap_uint<4l> v812;
+        if (v805){
+            bool v806;
+            v806 = v799 == v801;
+            int32_t v807;
+            if (v806){
+                v807 = v798;
             } else {
-                v814 = 0l;
+                v807 = 0l;
             }
-            v802[v814] = TupleCreate5(v808, v809);
-            int32_t v815;
-            v815 = v814 + 1l;
-            ap_uint<4l> v816;
-            v816 = 1ul;
-            ap_uint<4l> v817;
-            v817 = v808 - v816;
-            v818 = v815; v819 = v817;
+            v795[v807] = TupleCreate5(v801, v802);
+            int32_t v808;
+            v808 = v807 + 1l;
+            ap_uint<4l> v809;
+            v809 = 1ul;
+            ap_uint<4l> v810;
+            v810 = v801 - v809;
+            v811 = v808; v812 = v810;
         } else {
-            v818 = v805; v819 = v806;
+            v811 = v798; v812 = v799;
         }
-        v805 = v818;
-        v806 = v819;
-        v804++;
+        v798 = v811;
+        v799 = v812;
+        v797++;
     }
-    bool v820;
-    v820 = v805 == 4l;
-    bool v857;
-    if (v820){
-        ap_uint<4l> v821;
-        v821 = 0ul;
-        ap_uint<4l> v822;
-        v822 = 1ul;
-        ap_uint<4l> v823;
-        v823 = v821 - v822;
-        bool v824;
-        v824 = v806 == v823;
-        if (v824){
-            ap_uint<4l> v825; ap_uint<2l> v826;
+    bool v813;
+    v813 = v798 == 4l;
+    bool v850;
+    if (v813){
+        ap_uint<4l> v814;
+        v814 = 0ul;
+        ap_uint<4l> v815;
+        v815 = 1ul;
+        ap_uint<4l> v816;
+        v816 = v814 - v815;
+        bool v817;
+        v817 = v799 == v816;
+        if (v817){
+            ap_uint<4l> v818; ap_uint<2l> v819;
             Tuple5 tmp108 = v85[0l];
-            v825 = tmp108.v0; v826 = tmp108.v1;
-            bool v827;
-            v827 = v801 == v826;
-            bool v831;
-            if (v827){
-                ap_uint<4l> v828;
-                v828 = 12ul;
-                bool v829;
-                v829 = v825 == v828;
-                if (v829){
-                    v802[4l] = TupleCreate5(v825, v826);
-                    v831 = true;
+            v818 = tmp108.v0; v819 = tmp108.v1;
+            bool v820;
+            v820 = v794 == v819;
+            bool v824;
+            if (v820){
+                ap_uint<4l> v821;
+                v821 = 12ul;
+                bool v822;
+                v822 = v818 == v821;
+                if (v822){
+                    v795[4l] = TupleCreate5(v818, v819);
+                    v824 = true;
+                } else {
+                    v824 = false;
+                }
+            } else {
+                v824 = false;
+            }
+            if (v824){
+                v850 = true;
+            } else {
+                ap_uint<4l> v825; ap_uint<2l> v826;
+                Tuple5 tmp109 = v85[1l];
+                v825 = tmp109.v0; v826 = tmp109.v1;
+                bool v827;
+                v827 = v794 == v826;
+                bool v831;
+                if (v827){
+                    ap_uint<4l> v828;
+                    v828 = 12ul;
+                    bool v829;
+                    v829 = v825 == v828;
+                    if (v829){
+                        v795[4l] = TupleCreate5(v825, v826);
+                        v831 = true;
+                    } else {
+                        v831 = false;
+                    }
                 } else {
                     v831 = false;
                 }
-            } else {
-                v831 = false;
-            }
-            if (v831){
-                v857 = true;
-            } else {
-                ap_uint<4l> v832; ap_uint<2l> v833;
-                Tuple5 tmp109 = v85[1l];
-                v832 = tmp109.v0; v833 = tmp109.v1;
-                bool v834;
-                v834 = v801 == v833;
-                bool v838;
-                if (v834){
-                    ap_uint<4l> v835;
-                    v835 = 12ul;
-                    bool v836;
-                    v836 = v832 == v835;
-                    if (v836){
-                        v802[4l] = TupleCreate5(v832, v833);
-                        v838 = true;
+                if (v831){
+                    v850 = true;
+                } else {
+                    ap_uint<4l> v832; ap_uint<2l> v833;
+                    Tuple5 tmp110 = v85[2l];
+                    v832 = tmp110.v0; v833 = tmp110.v1;
+                    bool v834;
+                    v834 = v794 == v833;
+                    bool v838;
+                    if (v834){
+                        ap_uint<4l> v835;
+                        v835 = 12ul;
+                        bool v836;
+                        v836 = v832 == v835;
+                        if (v836){
+                            v795[4l] = TupleCreate5(v832, v833);
+                            v838 = true;
+                        } else {
+                            v838 = false;
+                        }
                     } else {
                         v838 = false;
                     }
-                } else {
-                    v838 = false;
-                }
-                if (v838){
-                    v857 = true;
-                } else {
-                    ap_uint<4l> v839; ap_uint<2l> v840;
-                    Tuple5 tmp110 = v85[2l];
-                    v839 = tmp110.v0; v840 = tmp110.v1;
-                    bool v841;
-                    v841 = v801 == v840;
-                    bool v845;
-                    if (v841){
-                        ap_uint<4l> v842;
-                        v842 = 12ul;
-                        bool v843;
-                        v843 = v839 == v842;
-                        if (v843){
-                            v802[4l] = TupleCreate5(v839, v840);
-                            v845 = true;
-                        } else {
-                            v845 = false;
-                        }
+                    if (v838){
+                        v850 = true;
                     } else {
-                        v845 = false;
-                    }
-                    if (v845){
-                        v857 = true;
-                    } else {
-                        ap_uint<4l> v846; ap_uint<2l> v847;
+                        ap_uint<4l> v839; ap_uint<2l> v840;
                         Tuple5 tmp111 = v85[3l];
-                        v846 = tmp111.v0; v847 = tmp111.v1;
-                        bool v848;
-                        v848 = v801 == v847;
-                        if (v848){
-                            ap_uint<4l> v849;
-                            v849 = 12ul;
-                            bool v850;
-                            v850 = v846 == v849;
-                            if (v850){
-                                v802[4l] = TupleCreate5(v846, v847);
-                                v857 = true;
+                        v839 = tmp111.v0; v840 = tmp111.v1;
+                        bool v841;
+                        v841 = v794 == v840;
+                        if (v841){
+                            ap_uint<4l> v842;
+                            v842 = 12ul;
+                            bool v843;
+                            v843 = v839 == v842;
+                            if (v843){
+                                v795[4l] = TupleCreate5(v839, v840);
+                                v850 = true;
                             } else {
-                                v857 = false;
+                                v850 = false;
                             }
                         } else {
-                            v857 = false;
+                            v850 = false;
                         }
                     }
                 }
             }
         } else {
-            v857 = false;
+            v850 = false;
         }
     } else {
-        v857 = false;
+        v850 = false;
     }
-    US2 v863;
-    if (v857){
-        v863 = US2_1(v802);
+    US2 v856;
+    if (v850){
+        v856 = US2_1(v795);
     } else {
-        bool v859;
-        v859 = v805 == 5l;
-        if (v859){
-            v863 = US2_1(v802);
+        bool v852;
+        v852 = v798 == 5l;
+        if (v852){
+            v856 = US2_1(v795);
         } else {
-            v863 = US2_0();
+            v856 = US2_0();
         }
     }
-    US2 v888;
-    switch (v863.tag) {
+    US2 v881;
+    switch (v856.tag) {
         case 0: { // None
-            v888 = v800;
+            v881 = v793;
             break;
         }
         default: { // Some
-            std::array<Tuple5,5l> v864 = v863.v.case1.v0;
-            switch (v800.tag) {
+            std::array<Tuple5,5l> v857 = v856.v.case1.v0;
+            switch (v793.tag) {
                 case 0: { // None
-                    v888 = v863;
+                    v881 = v856;
                     break;
                 }
                 default: { // Some
-                    std::array<Tuple5,5l> v865 = v800.v.case1.v0;
-                    US0 v866;
-                    v866 = US0_0();
-                    int32_t v867; US0 v868;
-                    Tuple12 tmp112 = TupleCreate12(0l, v866);
-                    v867 = tmp112.v0; v868 = tmp112.v1;
-                    while (method30(v867)){
-                        ap_uint<4l> v870; ap_uint<2l> v871;
-                        Tuple5 tmp113 = v864[v867];
-                        v870 = tmp113.v0; v871 = tmp113.v1;
-                        ap_uint<4l> v872; ap_uint<2l> v873;
-                        Tuple5 tmp114 = v865[v867];
-                        v872 = tmp114.v0; v873 = tmp114.v1;
-                        US0 v881;
-                        switch (v868.tag) {
+                    std::array<Tuple5,5l> v858 = v793.v.case1.v0;
+                    US0 v859;
+                    v859 = US0_0();
+                    int32_t v860; US0 v861;
+                    Tuple12 tmp112 = TupleCreate12(0l, v859);
+                    v860 = tmp112.v0; v861 = tmp112.v1;
+                    while (while_method_8(v860)){
+                        ap_uint<4l> v863; ap_uint<2l> v864;
+                        Tuple5 tmp113 = v857[v860];
+                        v863 = tmp113.v0; v864 = tmp113.v1;
+                        ap_uint<4l> v865; ap_uint<2l> v866;
+                        Tuple5 tmp114 = v858[v860];
+                        v865 = tmp114.v0; v866 = tmp114.v1;
+                        US0 v874;
+                        switch (v861.tag) {
                             case 0: { // Eq
-                                bool v874;
-                                v874 = v870 > v872;
-                                if (v874){
-                                    v881 = US0_1();
+                                bool v867;
+                                v867 = v863 > v865;
+                                if (v867){
+                                    v874 = US0_1();
                                 } else {
-                                    bool v876;
-                                    v876 = v870 < v872;
-                                    if (v876){
-                                        v881 = US0_2();
+                                    bool v869;
+                                    v869 = v863 < v865;
+                                    if (v869){
+                                        v874 = US0_2();
                                     } else {
-                                        v881 = US0_0();
+                                        v874 = US0_0();
                                     }
                                 }
                                 break;
                             }
                             default: {
-                                v881 = v868;
+                                v874 = v861;
                             }
                         }
-                        v868 = v881;
-                        v867++;
+                        v861 = v874;
+                        v860++;
                     }
-                    bool v882;
-                    switch (v868.tag) {
+                    bool v875;
+                    switch (v861.tag) {
                         case 1: { // Gt
-                            v882 = true;
+                            v875 = true;
                             break;
                         }
                         default: {
-                            v882 = false;
+                            v875 = false;
                         }
                     }
-                    std::array<Tuple5,5l> v883;
-                    if (v882){
-                        v883 = v864;
+                    std::array<Tuple5,5l> v876;
+                    if (v875){
+                        v876 = v857;
                     } else {
-                        v883 = v865;
+                        v876 = v858;
                     }
-                    v888 = US2_1(v883);
+                    v881 = US2_1(v876);
                 }
             }
         }
     }
-    US2 v913;
-    switch (v888.tag) {
+    US2 v906;
+    switch (v881.tag) {
         case 0: { // None
-            v913 = v737;
+            v906 = v730;
             break;
         }
         default: { // Some
-            std::array<Tuple5,5l> v889 = v888.v.case1.v0;
-            switch (v737.tag) {
+            std::array<Tuple5,5l> v882 = v881.v.case1.v0;
+            switch (v730.tag) {
                 case 0: { // None
-                    v913 = v888;
+                    v906 = v881;
                     break;
                 }
                 default: { // Some
-                    std::array<Tuple5,5l> v890 = v737.v.case1.v0;
-                    US0 v891;
-                    v891 = US0_0();
-                    int32_t v892; US0 v893;
-                    Tuple12 tmp115 = TupleCreate12(0l, v891);
-                    v892 = tmp115.v0; v893 = tmp115.v1;
-                    while (method30(v892)){
-                        ap_uint<4l> v895; ap_uint<2l> v896;
-                        Tuple5 tmp116 = v889[v892];
-                        v895 = tmp116.v0; v896 = tmp116.v1;
-                        ap_uint<4l> v897; ap_uint<2l> v898;
-                        Tuple5 tmp117 = v890[v892];
-                        v897 = tmp117.v0; v898 = tmp117.v1;
-                        US0 v906;
-                        switch (v893.tag) {
+                    std::array<Tuple5,5l> v883 = v730.v.case1.v0;
+                    US0 v884;
+                    v884 = US0_0();
+                    int32_t v885; US0 v886;
+                    Tuple12 tmp115 = TupleCreate12(0l, v884);
+                    v885 = tmp115.v0; v886 = tmp115.v1;
+                    while (while_method_8(v885)){
+                        ap_uint<4l> v888; ap_uint<2l> v889;
+                        Tuple5 tmp116 = v882[v885];
+                        v888 = tmp116.v0; v889 = tmp116.v1;
+                        ap_uint<4l> v890; ap_uint<2l> v891;
+                        Tuple5 tmp117 = v883[v885];
+                        v890 = tmp117.v0; v891 = tmp117.v1;
+                        US0 v899;
+                        switch (v886.tag) {
                             case 0: { // Eq
-                                bool v899;
-                                v899 = v895 > v897;
-                                if (v899){
-                                    v906 = US0_1();
+                                bool v892;
+                                v892 = v888 > v890;
+                                if (v892){
+                                    v899 = US0_1();
                                 } else {
-                                    bool v901;
-                                    v901 = v895 < v897;
-                                    if (v901){
-                                        v906 = US0_2();
+                                    bool v894;
+                                    v894 = v888 < v890;
+                                    if (v894){
+                                        v899 = US0_2();
                                     } else {
-                                        v906 = US0_0();
+                                        v899 = US0_0();
                                     }
                                 }
                                 break;
                             }
                             default: {
-                                v906 = v893;
+                                v899 = v886;
                             }
                         }
-                        v893 = v906;
-                        v892++;
+                        v886 = v899;
+                        v885++;
                     }
-                    bool v907;
-                    switch (v893.tag) {
+                    bool v900;
+                    switch (v886.tag) {
                         case 1: { // Gt
-                            v907 = true;
+                            v900 = true;
                             break;
                         }
                         default: {
-                            v907 = false;
+                            v900 = false;
                         }
                     }
-                    std::array<Tuple5,5l> v908;
-                    if (v907){
-                        v908 = v889;
+                    std::array<Tuple5,5l> v901;
+                    if (v900){
+                        v901 = v882;
                     } else {
-                        v908 = v890;
+                        v901 = v883;
                     }
-                    v913 = US2_1(v908);
+                    v906 = US2_1(v901);
                 }
             }
         }
     }
-    US2 v938;
-    switch (v913.tag) {
+    US2 v931;
+    switch (v906.tag) {
         case 0: { // None
-            v938 = v674;
+            v931 = v667;
             break;
         }
         default: { // Some
-            std::array<Tuple5,5l> v914 = v913.v.case1.v0;
-            switch (v674.tag) {
+            std::array<Tuple5,5l> v907 = v906.v.case1.v0;
+            switch (v667.tag) {
                 case 0: { // None
-                    v938 = v913;
+                    v931 = v906;
                     break;
                 }
                 default: { // Some
-                    std::array<Tuple5,5l> v915 = v674.v.case1.v0;
-                    US0 v916;
-                    v916 = US0_0();
-                    int32_t v917; US0 v918;
-                    Tuple12 tmp118 = TupleCreate12(0l, v916);
-                    v917 = tmp118.v0; v918 = tmp118.v1;
-                    while (method30(v917)){
-                        ap_uint<4l> v920; ap_uint<2l> v921;
-                        Tuple5 tmp119 = v914[v917];
-                        v920 = tmp119.v0; v921 = tmp119.v1;
-                        ap_uint<4l> v922; ap_uint<2l> v923;
-                        Tuple5 tmp120 = v915[v917];
-                        v922 = tmp120.v0; v923 = tmp120.v1;
-                        US0 v931;
-                        switch (v918.tag) {
+                    std::array<Tuple5,5l> v908 = v667.v.case1.v0;
+                    US0 v909;
+                    v909 = US0_0();
+                    int32_t v910; US0 v911;
+                    Tuple12 tmp118 = TupleCreate12(0l, v909);
+                    v910 = tmp118.v0; v911 = tmp118.v1;
+                    while (while_method_8(v910)){
+                        ap_uint<4l> v913; ap_uint<2l> v914;
+                        Tuple5 tmp119 = v907[v910];
+                        v913 = tmp119.v0; v914 = tmp119.v1;
+                        ap_uint<4l> v915; ap_uint<2l> v916;
+                        Tuple5 tmp120 = v908[v910];
+                        v915 = tmp120.v0; v916 = tmp120.v1;
+                        US0 v924;
+                        switch (v911.tag) {
                             case 0: { // Eq
-                                bool v924;
-                                v924 = v920 > v922;
-                                if (v924){
-                                    v931 = US0_1();
+                                bool v917;
+                                v917 = v913 > v915;
+                                if (v917){
+                                    v924 = US0_1();
                                 } else {
-                                    bool v926;
-                                    v926 = v920 < v922;
-                                    if (v926){
-                                        v931 = US0_2();
+                                    bool v919;
+                                    v919 = v913 < v915;
+                                    if (v919){
+                                        v924 = US0_2();
                                     } else {
-                                        v931 = US0_0();
+                                        v924 = US0_0();
                                     }
                                 }
                                 break;
                             }
                             default: {
-                                v931 = v918;
+                                v924 = v911;
                             }
                         }
-                        v918 = v931;
-                        v917++;
+                        v911 = v924;
+                        v910++;
                     }
-                    bool v932;
-                    switch (v918.tag) {
+                    bool v925;
+                    switch (v911.tag) {
                         case 1: { // Gt
-                            v932 = true;
+                            v925 = true;
                             break;
                         }
                         default: {
-                            v932 = false;
+                            v925 = false;
                         }
                     }
-                    std::array<Tuple5,5l> v933;
-                    if (v932){
-                        v933 = v914;
+                    std::array<Tuple5,5l> v926;
+                    if (v925){
+                        v926 = v907;
                     } else {
-                        v933 = v915;
+                        v926 = v908;
                     }
-                    v938 = US2_1(v933);
+                    v931 = US2_1(v926);
                 }
             }
         }
     }
-    ap_uint<4l> v939;
-    v939 = 1ul;
-    US7 v944;
-    switch (v144.tag) {
+    ap_uint<4l> v932;
+    v932 = 1ul;
+    US7 v937;
+    switch (v143.tag) {
         case 0: { // None
-            v944 = US7_0();
+            v937 = US7_0();
             break;
         }
         default: { // Some
-            std::array<Tuple5,5l> v940 = v144.v.case1.v0;
-            v944 = US7_1(v940, v939);
+            std::array<Tuple5,5l> v933 = v143.v.case1.v0;
+            v937 = US7_1(v933, v932);
         }
     }
-    ap_uint<4l> v945;
-    v945 = 2ul;
-    US7 v950;
-    switch (v239.tag) {
+    ap_uint<4l> v938;
+    v938 = 2ul;
+    US7 v943;
+    switch (v236.tag) {
         case 0: { // None
-            v950 = US7_0();
+            v943 = US7_0();
             break;
         }
         default: { // Some
-            std::array<Tuple5,5l> v946 = v239.v.case1.v0;
-            v950 = US7_1(v946, v945);
+            std::array<Tuple5,5l> v939 = v236.v.case1.v0;
+            v943 = US7_1(v939, v938);
         }
     }
-    ap_uint<4l> v951;
-    v951 = 3ul;
-    US7 v956;
-    switch (v293.tag) {
+    ap_uint<4l> v944;
+    v944 = 3ul;
+    US7 v949;
+    switch (v289.tag) {
         case 0: { // None
-            v956 = US7_0();
+            v949 = US7_0();
             break;
         }
         default: { // Some
-            std::array<Tuple5,5l> v952 = v293.v.case1.v0;
-            v956 = US7_1(v952, v951);
+            std::array<Tuple5,5l> v945 = v289.v.case1.v0;
+            v949 = US7_1(v945, v944);
         }
     }
-    ap_uint<4l> v957;
-    v957 = 4ul;
-    US7 v962;
-    switch (v332.tag) {
+    ap_uint<4l> v950;
+    v950 = 4ul;
+    US7 v955;
+    switch (v328.tag) {
         case 0: { // None
-            v962 = US7_0();
+            v955 = US7_0();
             break;
         }
         default: { // Some
-            std::array<Tuple5,5l> v958 = v332.v.case1.v0;
-            v962 = US7_1(v958, v957);
+            std::array<Tuple5,5l> v951 = v328.v.case1.v0;
+            v955 = US7_1(v951, v950);
         }
     }
-    ap_uint<4l> v963;
-    v963 = 5ul;
-    US7 v968;
-    switch (v471.tag) {
+    ap_uint<4l> v956;
+    v956 = 5ul;
+    US7 v961;
+    switch (v467.tag) {
         case 0: { // None
-            v968 = US7_0();
+            v961 = US7_0();
             break;
         }
         default: { // Some
-            std::array<Tuple5,5l> v964 = v471.v.case1.v0;
-            v968 = US7_1(v964, v963);
+            std::array<Tuple5,5l> v957 = v467.v.case1.v0;
+            v961 = US7_1(v957, v956);
         }
     }
-    ap_uint<4l> v969;
-    v969 = 6ul;
-    US7 v974;
-    switch (v557.tag) {
+    ap_uint<4l> v962;
+    v962 = 6ul;
+    US7 v967;
+    switch (v551.tag) {
         case 0: { // None
-            v974 = US7_0();
+            v967 = US7_0();
             break;
         }
         default: { // Some
-            std::array<Tuple5,5l> v970 = v557.v.case1.v0;
-            v974 = US7_1(v970, v969);
+            std::array<Tuple5,5l> v963 = v551.v.case1.v0;
+            v967 = US7_1(v963, v962);
         }
     }
-    ap_uint<4l> v975;
-    v975 = 7ul;
-    US7 v980;
-    switch (v611.tag) {
+    ap_uint<4l> v968;
+    v968 = 7ul;
+    US7 v973;
+    switch (v604.tag) {
         case 0: { // None
-            v980 = US7_0();
+            v973 = US7_0();
             break;
         }
         default: { // Some
-            std::array<Tuple5,5l> v976 = v611.v.case1.v0;
-            v980 = US7_1(v976, v975);
+            std::array<Tuple5,5l> v969 = v604.v.case1.v0;
+            v973 = US7_1(v969, v968);
         }
     }
-    ap_uint<4l> v981;
-    v981 = 8ul;
-    US7 v986;
-    switch (v938.tag) {
+    ap_uint<4l> v974;
+    v974 = 8ul;
+    US7 v979;
+    switch (v931.tag) {
         case 0: { // None
-            v986 = US7_0();
+            v979 = US7_0();
             break;
         }
         default: { // Some
-            std::array<Tuple5,5l> v982 = v938.v.case1.v0;
-            v986 = US7_1(v982, v981);
+            std::array<Tuple5,5l> v975 = v931.v.case1.v0;
+            v979 = US7_1(v975, v974);
         }
     }
-    US7 v988;
-    switch (v986.tag) {
+    US7 v981;
+    switch (v979.tag) {
         case 0: { // None
-            v988 = US7_0();
+            v981 = US7_0();
             break;
         }
         default: {
-            v988 = v986;
+            v981 = v979;
         }
     }
-    US7 v998;
-    switch (v988.tag) {
+    US7 v991;
+    switch (v981.tag) {
         case 1: { // Some
-            std::array<Tuple5,5l> v989 = v988.v.case1.v0; ap_uint<4l> v990 = v988.v.case1.v1;
-            switch (v980.tag) {
+            std::array<Tuple5,5l> v982 = v981.v.case1.v0; ap_uint<4l> v983 = v981.v.case1.v1;
+            switch (v973.tag) {
                 case 0: { // None
-                    v998 = v988;
+                    v991 = v981;
                     break;
                 }
                 default: { // Some
-                    std::array<Tuple5,5l> v991 = v980.v.case1.v0; ap_uint<4l> v992 = v980.v.case1.v1;
-                    v998 = US7_1(v989, v990);
+                    std::array<Tuple5,5l> v984 = v973.v.case1.v0; ap_uint<4l> v985 = v973.v.case1.v1;
+                    v991 = US7_1(v982, v983);
                 }
             }
             break;
         }
         default: {
-            switch (v980.tag) {
+            switch (v973.tag) {
                 case 0: { // None
-                    v998 = v988;
+                    v991 = v981;
                     break;
                 }
                 default: {
-                    switch (v988.tag) {
+                    switch (v981.tag) {
                         default: { // None
-                            v998 = v980;
+                            v991 = v973;
                         }
                     }
                 }
             }
         }
     }
-    US7 v1008;
-    switch (v998.tag) {
+    US7 v1001;
+    switch (v991.tag) {
         case 1: { // Some
-            std::array<Tuple5,5l> v999 = v998.v.case1.v0; ap_uint<4l> v1000 = v998.v.case1.v1;
-            switch (v974.tag) {
+            std::array<Tuple5,5l> v992 = v991.v.case1.v0; ap_uint<4l> v993 = v991.v.case1.v1;
+            switch (v967.tag) {
                 case 0: { // None
-                    v1008 = v998;
+                    v1001 = v991;
                     break;
                 }
                 default: { // Some
-                    std::array<Tuple5,5l> v1001 = v974.v.case1.v0; ap_uint<4l> v1002 = v974.v.case1.v1;
-                    v1008 = US7_1(v999, v1000);
+                    std::array<Tuple5,5l> v994 = v967.v.case1.v0; ap_uint<4l> v995 = v967.v.case1.v1;
+                    v1001 = US7_1(v992, v993);
                 }
             }
             break;
         }
         default: {
-            switch (v974.tag) {
+            switch (v967.tag) {
                 case 0: { // None
-                    v1008 = v998;
+                    v1001 = v991;
                     break;
                 }
                 default: {
-                    switch (v998.tag) {
+                    switch (v991.tag) {
                         default: { // None
-                            v1008 = v974;
+                            v1001 = v967;
                         }
                     }
                 }
             }
         }
     }
-    US7 v1018;
-    switch (v1008.tag) {
+    US7 v1011;
+    switch (v1001.tag) {
         case 1: { // Some
-            std::array<Tuple5,5l> v1009 = v1008.v.case1.v0; ap_uint<4l> v1010 = v1008.v.case1.v1;
-            switch (v968.tag) {
+            std::array<Tuple5,5l> v1002 = v1001.v.case1.v0; ap_uint<4l> v1003 = v1001.v.case1.v1;
+            switch (v961.tag) {
                 case 0: { // None
-                    v1018 = v1008;
+                    v1011 = v1001;
                     break;
                 }
                 default: { // Some
-                    std::array<Tuple5,5l> v1011 = v968.v.case1.v0; ap_uint<4l> v1012 = v968.v.case1.v1;
-                    v1018 = US7_1(v1009, v1010);
+                    std::array<Tuple5,5l> v1004 = v961.v.case1.v0; ap_uint<4l> v1005 = v961.v.case1.v1;
+                    v1011 = US7_1(v1002, v1003);
                 }
             }
             break;
         }
         default: {
-            switch (v968.tag) {
+            switch (v961.tag) {
                 case 0: { // None
-                    v1018 = v1008;
+                    v1011 = v1001;
                     break;
                 }
                 default: {
-                    switch (v1008.tag) {
+                    switch (v1001.tag) {
                         default: { // None
-                            v1018 = v968;
+                            v1011 = v961;
                         }
                     }
                 }
             }
         }
     }
-    US7 v1028;
-    switch (v1018.tag) {
+    US7 v1021;
+    switch (v1011.tag) {
         case 1: { // Some
-            std::array<Tuple5,5l> v1019 = v1018.v.case1.v0; ap_uint<4l> v1020 = v1018.v.case1.v1;
-            switch (v962.tag) {
+            std::array<Tuple5,5l> v1012 = v1011.v.case1.v0; ap_uint<4l> v1013 = v1011.v.case1.v1;
+            switch (v955.tag) {
                 case 0: { // None
-                    v1028 = v1018;
+                    v1021 = v1011;
                     break;
                 }
                 default: { // Some
-                    std::array<Tuple5,5l> v1021 = v962.v.case1.v0; ap_uint<4l> v1022 = v962.v.case1.v1;
-                    v1028 = US7_1(v1019, v1020);
+                    std::array<Tuple5,5l> v1014 = v955.v.case1.v0; ap_uint<4l> v1015 = v955.v.case1.v1;
+                    v1021 = US7_1(v1012, v1013);
                 }
             }
             break;
         }
         default: {
-            switch (v962.tag) {
+            switch (v955.tag) {
                 case 0: { // None
-                    v1028 = v1018;
+                    v1021 = v1011;
                     break;
                 }
                 default: {
-                    switch (v1018.tag) {
+                    switch (v1011.tag) {
                         default: { // None
-                            v1028 = v962;
+                            v1021 = v955;
                         }
                     }
                 }
             }
         }
     }
-    US7 v1038;
-    switch (v1028.tag) {
+    US7 v1031;
+    switch (v1021.tag) {
         case 1: { // Some
-            std::array<Tuple5,5l> v1029 = v1028.v.case1.v0; ap_uint<4l> v1030 = v1028.v.case1.v1;
-            switch (v956.tag) {
+            std::array<Tuple5,5l> v1022 = v1021.v.case1.v0; ap_uint<4l> v1023 = v1021.v.case1.v1;
+            switch (v949.tag) {
                 case 0: { // None
-                    v1038 = v1028;
+                    v1031 = v1021;
                     break;
                 }
                 default: { // Some
-                    std::array<Tuple5,5l> v1031 = v956.v.case1.v0; ap_uint<4l> v1032 = v956.v.case1.v1;
-                    v1038 = US7_1(v1029, v1030);
+                    std::array<Tuple5,5l> v1024 = v949.v.case1.v0; ap_uint<4l> v1025 = v949.v.case1.v1;
+                    v1031 = US7_1(v1022, v1023);
                 }
             }
             break;
         }
         default: {
-            switch (v956.tag) {
+            switch (v949.tag) {
                 case 0: { // None
-                    v1038 = v1028;
+                    v1031 = v1021;
                     break;
                 }
                 default: {
-                    switch (v1028.tag) {
+                    switch (v1021.tag) {
                         default: { // None
-                            v1038 = v956;
+                            v1031 = v949;
                         }
                     }
                 }
             }
         }
     }
-    US7 v1048;
-    switch (v1038.tag) {
+    US7 v1041;
+    switch (v1031.tag) {
         case 1: { // Some
-            std::array<Tuple5,5l> v1039 = v1038.v.case1.v0; ap_uint<4l> v1040 = v1038.v.case1.v1;
-            switch (v950.tag) {
+            std::array<Tuple5,5l> v1032 = v1031.v.case1.v0; ap_uint<4l> v1033 = v1031.v.case1.v1;
+            switch (v943.tag) {
                 case 0: { // None
-                    v1048 = v1038;
+                    v1041 = v1031;
                     break;
                 }
                 default: { // Some
-                    std::array<Tuple5,5l> v1041 = v950.v.case1.v0; ap_uint<4l> v1042 = v950.v.case1.v1;
-                    v1048 = US7_1(v1039, v1040);
+                    std::array<Tuple5,5l> v1034 = v943.v.case1.v0; ap_uint<4l> v1035 = v943.v.case1.v1;
+                    v1041 = US7_1(v1032, v1033);
                 }
             }
             break;
         }
         default: {
-            switch (v950.tag) {
+            switch (v943.tag) {
                 case 0: { // None
-                    v1048 = v1038;
+                    v1041 = v1031;
                     break;
                 }
                 default: {
-                    switch (v1038.tag) {
+                    switch (v1031.tag) {
                         default: { // None
-                            v1048 = v950;
+                            v1041 = v943;
                         }
                     }
                 }
             }
         }
     }
-    US7 v1058;
-    switch (v1048.tag) {
+    US7 v1051;
+    switch (v1041.tag) {
         case 1: { // Some
-            std::array<Tuple5,5l> v1049 = v1048.v.case1.v0; ap_uint<4l> v1050 = v1048.v.case1.v1;
-            switch (v944.tag) {
+            std::array<Tuple5,5l> v1042 = v1041.v.case1.v0; ap_uint<4l> v1043 = v1041.v.case1.v1;
+            switch (v937.tag) {
                 case 0: { // None
-                    v1058 = v1048;
+                    v1051 = v1041;
                     break;
                 }
                 default: { // Some
-                    std::array<Tuple5,5l> v1051 = v944.v.case1.v0; ap_uint<4l> v1052 = v944.v.case1.v1;
-                    v1058 = US7_1(v1049, v1050);
+                    std::array<Tuple5,5l> v1044 = v937.v.case1.v0; ap_uint<4l> v1045 = v937.v.case1.v1;
+                    v1051 = US7_1(v1042, v1043);
                 }
             }
             break;
         }
         default: {
-            switch (v944.tag) {
+            switch (v937.tag) {
                 case 0: { // None
-                    v1058 = v1048;
+                    v1051 = v1041;
                     break;
                 }
                 default: {
-                    switch (v1048.tag) {
+                    switch (v1041.tag) {
                         default: { // None
-                            v1058 = v944;
+                            v1051 = v937;
                         }
                     }
                 }
             }
         }
     }
-    std::array<Tuple5,5l> v1064; ap_uint<4l> v1065;
-    switch (v1058.tag) {
+    std::array<Tuple5,5l> v1057; ap_uint<4l> v1058;
+    switch (v1051.tag) {
         case 0: { // None
-            ap_uint<4l> v1061;
-            v1061 = 0ul;
-            v1064 = v86; v1065 = v1061;
+            ap_uint<4l> v1054;
+            v1054 = 0ul;
+            v1057 = v86; v1058 = v1054;
             break;
         }
         default: { // Some
-            std::array<Tuple5,5l> v1059 = v1058.v.case1.v0; ap_uint<4l> v1060 = v1058.v.case1.v1;
-            v1064 = v1059; v1065 = v1060;
+            std::array<Tuple5,5l> v1052 = v1051.v.case1.v0; ap_uint<4l> v1053 = v1051.v.case1.v1;
+            v1057 = v1052; v1058 = v1053;
         }
     }
-    return TupleCreate6(v1064, v1065);
+    return TupleCreate6(v1057, v1058);
 }
 int32_t entry() {
     std::random_device v0;
@@ -4578,13 +4585,13 @@ int32_t entry() {
     uint64_t v3; int32_t v4;
     Tuple0 tmp0 = TupleCreate0(0ull, 0l);
     v3 = tmp0.v0; v4 = tmp0.v1;
-    while (method0(v3)){
+    while (while_method_0(v3)){
         std::array<Tuple1,7l> v6;
         uint64_t v7;
         v7 = 0ull;
         int32_t v8;
         v8 = 7l;
-        while (method1(v8)){
+        while (while_method_1(v8)){
             int32_t v10;
             v10 = v2(v1);
             int8_t v11;
@@ -4713,7 +4720,7 @@ int32_t entry() {
         uint64_t v72;
         v72 = v71 | v41;
         int8_t v73; int8_t v74; int8_t v75; int8_t v76; int8_t v77; int8_t v78;
-        Tuple2 tmp12 = score_2(v72);
+        Tuple2 tmp12 = score__0(v72);
         v73 = tmp12.v0; v74 = tmp12.v1; v75 = tmp12.v2; v76 = tmp12.v3; v77 = tmp12.v4; v78 = tmp12.v5;
         int8_t v79;
         v79 = v73 / 13;
@@ -4800,7 +4807,7 @@ int32_t entry() {
         v117 = v116;
         v89[6l] = TupleCreate5(v115, v117);
         std::array<Tuple5,5l> v118; ap_uint<4l> v119;
-        Tuple6 tmp121 = score25(v89);
+        Tuple6 tmp121 = score_21(v89);
         v118 = tmp121.v0; v119 = tmp121.v1;
         ap_uint<4l> v120; ap_uint<2l> v121;
         Tuple5 tmp122 = v118[0l];
