@@ -1,3 +1,7 @@
+2.5.0 (WIP)
+
+* Replaced the HLC C++ backend with a Cuda C++ one.
+
 2.4.25 (10/1/2023)
 
 * Changed the parser so the join point names are propagated better.

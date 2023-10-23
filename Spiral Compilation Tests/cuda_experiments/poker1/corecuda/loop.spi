@@ -1,0 +1,34 @@
+// As long as the conditional returns true, executes the body.
+inl while' (cond : () -> bool) (body : () -> ()) : () = !!!!While((join cond()),(body()))
+
+// Used to break out of a C style loop.
+inl break() = $"break"
+
+inl _dup forall t. (x : t) : t = $"!x"
+inl _set forall t. (a : t) ~(b : t) : () =  real 
+    inl rec loop = function
+        | (a,a'),(b,b') => ($"!a = !b" : ()) . loop (a',b')
+        | (), () => ()
+    loop (real_core.free_vars a, real_core.free_vars b)
+
+inl while cond body state =
+    inl state = _dup state
+    while' (fun _ => cond state) fun _ => _set state (body state)
+    state
+
+// Folds over the range. Compiles to a while loop.
+inl for {from nearTo} body state = 
+    inl i, state = _dup (from, state)
+    while' (fun _ => i < nearTo) fun _ => _set state (body i state) . $"!i++"
+    state
+// Folds over the range. Stateless version. Compiles to a while loop.
+inl for' {from nearTo} body = for {from nearTo} (fun i _ => body i) ()
+
+// Folds over the range in an downwards direction.
+inl forDown {nearFrom to} body state = 
+    inl i, state = _dup (nearFrom, state)
+    while' (fun _ => i > to) fun _ => $"!i--" . _set state (body i state)
+    state
+
+// Folds over the range in an downwards direction. Stateless version.
+inl forDown' {nearFrom to} body = forDown {nearFrom to} (fun i () => body i) ()

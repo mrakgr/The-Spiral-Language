@@ -41,7 +41,7 @@
     <Compile Include="CodegenUtils.fs" />
     <Compile Include="CodegenFsharp.fs" />
     <Compile Include="CodegenC.fs" />
-    <Compile Include="CodegenHSLCpp.fs" />
+    <Compile Include="CodegenCudaCpp.fs" />
     <Compile Include="CodegenPython.fs" />
     <Compile Include="WDiff.fs" />
     <Compile Include="WDiffPrepass.fs" />

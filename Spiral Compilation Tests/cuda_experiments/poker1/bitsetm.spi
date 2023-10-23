@@ -1,0 +1,14 @@
+open corecuda
+
+nominal bitset dim = $"std::bitset<@dim>"
+
+inl index forall dim. (x : ref (bitset dim)) (i : int) : bool = $"!x[!i]"
+inl set forall dim. (x : ref (bitset dim)) (i : int) (v : bool) : () = $"!x.set(!i,!v)"
+
+inl zero forall dim. () : ref (bitset dim) = ref $"std::bitset<@dim> v$"
+inl count forall dim. (x : ref (bitset dim)) : int = $"!x.count()"
+inl length forall dim. (x : ref (bitset dim)) : int =  real real_core.type_lit_to_lit `dim : int
+
+inl globals() =
+    global "#include <bitset>"
+    ()

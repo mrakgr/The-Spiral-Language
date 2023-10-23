@@ -42,7 +42,7 @@
 						"Python",
 						"C",
 						"UPMEM: Python + C",
-						"HLS C++"
+						"Cuda C++"
 					],
 					"default": "Fsharp",
 					"description": "The code generator to use when the file is built."

@@ -1,0 +1,18 @@
+open corecuda
+
+type card_t = u8
+
+inl globals() = global "struct Card { uint8_t rank : 4; uint8_t suit : 2; };"
+
+nominal card = $"Card"
+inl card {suit=(suit : card_t) rank=(rank : card_t)} : card = $"{!rank, !suit}"
+
+prototype suit t : t -> card_t
+prototype rank t : t -> card_t
+
+instance suit card = fun x => $"!x.suit"
+instance rank card = fun x => $"!x.rank"
+
+instance equable card = fun a b => rank a = rank b
+instance comparable card = fun a b => comp (rank a) (rank b)
+

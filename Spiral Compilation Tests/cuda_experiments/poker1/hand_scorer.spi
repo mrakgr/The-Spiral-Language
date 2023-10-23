@@ -1,9 +1,9 @@
-open corehls
+open corecuda
 open type_arith
-open real_utils
+open cardm
 
 prototype filter_take ar dim el : forall dim'. (el -> bool) -> ar dim el -> option (ar dim' el)
-prototype try_straight_flush_for_suit ar dim el {suit; rank} : ap_uint 2 -> ar dim el -> option (ar 5 el)
+prototype try_straight_flush_for_suit ar dim el {suit; rank} : card_t -> ar dim el -> option (ar 5 el)
 prototype try_straight ar dim el {suit; rank} : ar dim el -> option (ar 5 el)
 prototype max_hand ar dim el {rank} : ar dim el -> ar dim el -> ar dim el
 prototype partition_topk_pair ar dim el {rank} : forall dim'. ar dim el -> option (ar dim' el * ar (sub dim dim') el)
@@ -18,12 +18,7 @@ instance filter_take sa = fun f ar =>
     if i = length ar' then Some ar'
     else None
 
-union try_straight_config el = StraightFlush : ap_uint 2 | Straight
-
-inl (-.) forall dim. (a : ap_uint dim) (b : ap_uint dim) : ap_uint dim = $"!a - !b"
-inl (>.) forall dim. (a : ap_uint dim) (b : ap_uint dim) : bool = $"!a > !b"
-inl (<.) forall dim. (a : ap_uint dim) (b : ap_uint dim) : bool = $"!a < !b"
-inl (~#) forall dim. (x : u32) : ap_uint dim = $"!x"
+union try_straight_config el = StraightFlush : card_t | Straight
 
 inl sa_try_straight forall dim el {suit; rank}. (config : try_straight_config el) (inp : sa dim el) =
     real
@@ -35,19 +30,21 @@ inl sa_try_straight forall dim el {suit; rank}. (config : try_straight_config el
         fold (fun (i,target as s) x =>
             inl check () = match config with 
                 | StraightFlush a => a = suit x // Skips the cards with a different suit.
-                | Straight => target <> rank x -. #1 // Skips the pairs.
-            if i < length out && check () then
-                inl i = if target = rank x then i else 0
-                set out i x
-                i+1, rank x -. #1
-            else s
-            ) (0, #12) inp
+                | Straight => target <> rank x - 1 // Skips the pairs.
+            if i < length out then
+                if check () then
+                    inl i = if target = rank x then i else 0
+                    set out i x
+                    i+1, rank x - 1
+                else s
+            else loop.break()
+            ) (0, 12) inp
 
     inl check_if_exists_and_assign () = match config with // Takes care of the 5,4,3,2,A pattern.
-        | StraightFlush a => listm.exists (index inp >> fun x => a = suit x && rank x = #12 && (set out 4 x . true)) [0;1;2;3]
-        | Straight => inl x = index inp 0 in rank x = #12 && (set out 4 x . true)
+        | StraightFlush a => listm.exists (index inp >> fun x => a = suit x && rank x = 12 && (set out 4 x . true)) [0;1;2;3]
+        | Straight => inl x = index inp 0 in rank x = 12 && (set out 4 x . true)
     // For an unsigned 4 bit value, its overflow below zero would put it at 15, but who knows whether the types will change, so it is best to do it like 0-1.
-    if i = 4 && target = (#0 -. #1) && check_if_exists_and_assign() then Some out // 5,4,3,2,A case.
+    if i = 4 && target+1 = 0 && check_if_exists_and_assign() then Some out // 5,4,3,2,A case.
     elif i = 5 then Some out 
     else None
 
@@ -61,7 +58,7 @@ instance max_hand sa = fun a b =>
         fold2 (fun s a b =>
             match s with
             | Eq => comp (rank a) (rank b)
-            | _ => s
+            | _ => loop.break()
             ) Eq a b
     if gt_is c then a else b
 
@@ -74,8 +71,8 @@ instance partition_topk_pair sa = fun inp =>
                 inl i = if target = rank x then i else 0
                 set l i x
                 i', i+1, rank x
-            else s
-            ) (0, 0, #12) inp
+            else loop.break()
+            ) (0, 0, 12) inp
     if i = length l then
         // Copies the input into r while avoiding the elements in l.
         loop.for' {from=0; nearTo=length r} (fun i =>
@@ -113,25 +110,17 @@ inl list_max_hand l =
         | None, None => s
         ) None l
 
-nominal hand_score (ar : * -> * -> *) dim = { score : ap_uint 4; hand : ar dim card }
+nominal hand_score (ar : * -> * -> *) dim = { score : i8; hand : ar dim card }
 instance comparable hand_score ar dim = fun a b =>
     match comp a.score b.score with
     | Eq => comp a.hand b.hand
     | x => x
 
-// inl hand_comp (a,b : card * card) : bool = rank a >. rank b || (rank a = rank b && suit a <. suit b)
-
 prototype sort ar dim el {suit; rank} : ar dim el -> ar dim el
-instance sort sa = fun ar =>
-    sortm.merge_sort (fun a b =>
-        match comp (rank b) (rank a) with
-        | Eq => comp (suit a) (suit b)
-        | x => x
-        ) ar
+instance sort sa = sortm.sort (fun a b => rank a > rank b || (rank a = rank b && suit a < suit b))
 
 let score forall (ar : * -> * -> *) {sort; filter_take; try_straight_flush_for_suit; try_straight; max_hand; partition_topk_pair; take; merge_hands; merge_hands2} dim. 
         (hand : ar dim card) : hand_score ar 5 =
-    pragma.pipeline {ii=1}
     inl hand = sort hand
     inl high_card = take hand
     inl pair = 
@@ -150,7 +139,7 @@ let score forall (ar : * -> * -> *) {sort; filter_take; try_straight_flush_for_s
         | Some ((trip : _ 3 _), rest) => Some (merge_hands trip (take rest : _ 2 _) |> nominal_recreate)
         | None => None
     inl straight = try_straight hand
-    inl flush = listm.map (fun i => filter_take (fun a => suit a = #i) hand) [0;1;2;3] |> list_max_hand
+    inl flush = listm.map (fun i => filter_take (fun a => suit a = i) hand) [0;1;2;3] |> list_max_hand
     inl full_house =
         match partition_topk_pair hand with
         | Some ((trip : _ 3 _), rest) => 
@@ -162,7 +151,7 @@ let score forall (ar : * -> * -> *) {sort; filter_take; try_straight_flush_for_s
         match partition_topk_pair hand with
         | Some ((quad : _ 4 _), rest) => Some (merge_hands quad (take rest : _ 1 _) |> nominal_recreate)
         | None => None
-    inl straight_flush = listm.map (fun i => try_straight_flush_for_suit #i hand) [0;1;2;3] |> list_max_hand 
+    inl straight_flush = listm.map (fun i => try_straight_flush_for_suit i hand) [0;1;2;3] |> list_max_hand 
     inl rankings = [straight_flush; quad; full_house; flush; straight; triple; two_pair; pair]
     inl to_score score = function
         | Some hand => Some {score hand}
@@ -172,29 +161,27 @@ let score forall (ar : * -> * -> *) {sort; filter_take; try_straight_flush_for_s
         | Some x, Some _ => Some x
         | x, None | None, x => x
         | None, None => a
-    listm.mapiBack (fun i => to_score #(i+1)) rankings
+    listm.mapiBack (fun i => to_score (i+1)) rankings
     |> listm.fold max_hand None
     |> function
         | Some s => s
-        | None => {score= #0; hand=high_card}
+        | None => {score=0; hand=high_card}
     |> hand_score
-
-open corehls
 
 type n = 7
 
 inl main () : i32 =
     global "#include <random>"
-    global "#include \"ap_int.h\""
     global "#include <iostream>"
+    cardm.globals()
 
     inl n = real real_core.type_lit_to_lit `n
 
-    inl rng = random.make_dist (0,51)
+    inl engine = random.create_mt19937()
+    inl dist = random.create_uniform_int_dist {from=0; to=51}
 
     loop.for {from=0u64; nearTo=100_000} (fun i num_errors =>
         inl make_hand () = 
-            open real_utils
             open hand_scorer_orig
             inl get h i = h &&& (1 <<< i) <> 0
             inl set h i = h ||| (1 <<< i)
@@ -203,7 +190,7 @@ inl main () : i32 =
             inl ~h = 0u64
 
             loop.while (fun i => i > 0) (fun i =>
-                inl r : i8 = random.get_int rng |> conv_int
+                inl r : i8 = random.generate_int engine dist |> conv_int
                 if get h (i32 r) then i
                 else 
                     sam.set ar (i-1) {rank = rank r; suit = suit r}
@@ -224,18 +211,16 @@ inl main () : i32 =
             {hand=f c1, f c2, f c3, f c4, f c5; score}
 
         inl q' = 
-            open real_utils
             open sam
             inl ar : sa n _ = create
-            inl f {rank suit} = card {rank = #(conv_int rank); suit = #(conv_int suit)}
+            inl f {rank suit} = card {rank = conv_int rank; suit = conv_int suit}
             inl i = hand |> listm.fold (fun i x => set ar i (f x) . i + 1) 0
             if i <> length ar then error_type "Invalid size in the array."
 
             inl (hand_score {hand score}) = score ar
 
-            inl i8 (x : ap_uint _) : i8 = $"!x"
-            inl f i = index hand i |> fun (card {suit rank}) => {suit=i8 suit; rank=i8 rank}
-            {hand=f 0, f 1, f 2, f 3, f 4; score=i8 score}
+            inl f i = index hand i |> fun card => {suit=suit card |> conv; rank=rank card |> conv}
+            {hand=f 0, f 1, f 2, f 3, f 4; score=score}
 
         inl print_score_hand {score hand=c0,c1,c2,c3,c4} =
             inl f {rank suit} : () = $'std::cout << "(" << (int) !rank << "," << (int) !suit << ") " '
@@ -251,5 +236,9 @@ inl main () : i32 =
             print_score_hand q'
             num_errors + 1 
         else num_errors
-    ) 0
+        ) 0
+    |> fun num_errors =>
+        $'std::cout << "The number of errors is: " << !num_errors << std::endl'
+        num_errors
+
     

@@ -1,4 +1,4 @@
-﻿module Spiral.Codegen.HLS.Cpp
+﻿module Spiral.Codegen.Cuda.Cpp
 
 open Spiral
 open Spiral.Utils
@@ -12,8 +12,9 @@ open System.Collections.Generic
 
 let is_string = function DV(L(_,YPrim StringT)) | DLit(LitString _) -> true | _ -> false
 // The number of bits needed to represent an union type with an x number of cases.
-// Strictly speaking it should be x * 2 - 1, but we do it like this to give 1 bit of extra wiggle room for the 2,4,8,16 kinds of cases
-// because of how TyUnionUnbox is being compiled.
+// Strictly speaking it should be x * 2 - 1, but we do it like this to give 1 bit of extra wiggle room for the 2,4,8,16 (pow of 2) cases
+// because of how TyUnionUnbox is being compiled. For those particular cases we need to have the -1 to have an extra bit of information.
+// Note: This was how it was compiled in the HLS backend, but in the Cuda C++ one the tag field should get padded up to its full value either way.
 let num_bits_needed_to_represent (x : int) = Numerics.BitOperations.Log2(x * 2 |> uint) |> max 1
 
 let sizeof_tyv = function
@@ -147,7 +148,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                 | WLit b -> $"v{i} = {lit b};"
                 | WV (L(i',_)) -> $"v{i} = v{i'};"
                 ) a b
-        Array.iter (fun x ->
+        Array.forall (fun x ->
             match x with
             | TyLet(d,trace,a) ->
                 try let d = data_free_vars d
@@ -155,19 +156,25 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                     match a with
                     | TyMacro a ->
                         let m = a |> List.map (function CMText x -> x | CMTerm x -> tup_data x | CMType x -> tup_ty x | CMTypeLit x -> type_lit x) |> String.concat ""
-                        if m.StartsWith("#pragma") then
+                        if m.StartsWith("#pragma") then 
                             line s m
+                            true
+                        elif m = "break" then
+                            line s "break;"
+                            false
                         else
                             let q = m.Split("v$")
                             if q.Length = 1 then 
                                 decl_vars |> line' s
                                 return_local s d m 
+                                true
                             else
                                 if d.Length = q.Length-1 then
                                     let w = StringBuilder(m.Length+8)
                                     let tag (L(i,_)) = i : int
                                     Array.iteri (fun i v -> w.Append(q.[i]).Append('v').Append(tag v) |> ignore) d
                                     w.Append(q.[d.Length]).Append(';').ToString() |> line s
+                                    true
                                 else
                                     raise_codegen_error "The special v$ macro requires the same number of free vars in its binding as there are v$ in the code."
                     | TyArrayLiteral(a,b') -> 
@@ -175,6 +182,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                         match d with
                         | [|L(i,YArray t)|] -> // For the regular arrays.
                             line s $"%s{tyv t} v{i}[] = %s{inits};"
+                            true
                         //| [|L(i,t)|] -> // TODO: For overloaded arrays. Structs with a single field that are arrays can be initialized like this in C++.
                         //    line s $"%s{tyv t} v{i} = %s{inits};"
                         | _ ->
@@ -187,26 +195,31 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                                 | DLit x -> lit x
                                 | _ -> raise_codegen_error "Array sizes need to be statically known in the HLS C++ backend."
                             line s $"%s{tyv t} v{i}[{size}];"
+                            true
                         //| [|L(i,t)|] -> line s $"%s{tyv t} v{i};" // TODO: Put in overloaded arrays later.
                         | _ -> raise_codegen_error "Compiler error: Expected a single variable on the left side of an array create op."
                     | _ ->
                         decl_vars |> line' s
                         op s (BindsLocal d) a
+                        true
                 with :? CodegenError as e -> raise_codegen_error' trace (e.Data0, e.Data1)
             | TyLocalReturnOp(trace,a,_) ->
                 try op s ret a
+                    true
                 with :? CodegenError as e -> raise_codegen_error' trace (e.Data0, e.Data1)
             | TyLocalReturnData(d,trace) ->
                 try match ret with
                     | BindsLocal l -> line' s (tup_destruct (l,data_term_vars d))
                     | BindsTailEnd -> line s $"return {tup_data d};"
+                    true
                 with :? CodegenError as e -> raise_codegen_error' trace (e.Data0, e.Data1)
             ) stmts
+        |> ignore
     and show_w = function WV(L(i,_)) -> sprintf "v%i" i | WLit a -> lit a
     and args' b = data_term_vars b |> Array.map show_w |> String.concat ", "
     and tup_term_vars x =
         let args = Array.map show_w x |> String.concat ", "
-        if 1 < x.Length then sprintf "TupleCreate%i(%s)" (tup (term_vars_to_tys x)).tag args else args
+        if 1 < x.Length then sprintf "Tuple%i(%s)" (tup (term_vars_to_tys x)).tag args else args
     and tup_data x = tup_term_vars (data_term_vars x)
     and tup_ty_tys = function
         | [||] -> "void"
@@ -326,7 +339,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             List.pairwise is
             |> List.map (fun (L(i,_), L(i',_)) -> $"v{i}{acs}tag == v{i'}{acs}tag")
             |> String.concat " && "
-            |> function "" -> head | x -> $"{x} ? {head} : (ap_uint<%i{num_bits_needed_to_represent case_tags.Count}>) -1"
+            |> function "" -> head | x -> $"{x} ? {head} : -1"
             |> sprintf "switch (%s) {" |> line s
             let _ =
                 let s = indent s
@@ -496,16 +509,14 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             line s_fwd $"struct {name};"
             line s_typ $"struct {name} {{"
             x.tys |> Array.mapi (fun i x -> L(i,x)) |> print_ordered_args (indent s_typ)
+
+            let concat x = String.concat ", " x
+            let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} t{i}")
+            let con_init = x.tys |> Array.mapi (fun i x -> $"v{i}(t{i})")
+            line (indent s_typ) $"{name}({concat args}) : {concat con_init} {{}}" 
+
             line s_typ "};"
 
-            let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} v{i}")
-            line s_fun (sprintf "inline %s TupleCreate%i(%s){" name x.tag (String.concat ", " args))
-            let _ =
-                let s_fun = indent s_fun
-                line s_fun $"{name} x;"
-                Array.init args.Length (fun i -> $"x.v{i} = v{i};") |> line' s_fun
-                line s_fun $"return x;"
-            line s_fun "}"
             )
     and ustack : _ -> UnionRec =
         let inline map_iteri f x = Map.fold (fun i k v -> f i k v; i+1) 0 x |> ignore
@@ -515,7 +526,6 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             line s_typ $"struct US{i} {{"
             let _ =
                 let s_typ = indent s_typ
-                line s_typ $"ap_uint<{num_bits_needed_to_represent x.free_vars.Count}> tag;"
                 line s_typ "union U {"
                 let _ =
                     let s_typ = indent s_typ
@@ -527,6 +537,12 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                         ) x.free_vars
                     line s_typ "U() {}"
                 line s_typ "} v;"
+
+                // Tag
+                let num_bits = num_bits_needed_to_represent x.free_vars.Count
+                if num_bits > 8 then raise_codegen_error "Too many union cases! Cannot have a union case type with more than 8 bits."
+                line s_typ $"char tag : {num_bits};"
+
                 line s_typ $"US{i}() {{}}"
                 let print_assignments () =
                     let s_typ = indent s_typ
@@ -574,36 +590,31 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             )
     and uheap _ : UnionRec = raise_codegen_error "Recursive unions aren't allowed in the HLS C++ backend due to them needing to be heap allocated."
 
+    global' "#pragma warning(disable: 4101 4065 4060)"
+    global' "// Add these as extra argument to the compiler to suppress the rest:"
+    global' "// --diag-suppress 186 --diag-suppress 177"
     import "cstdint"
     import "array"
-    import' "ap_int.h"
 
     let main_defs = {text=StringBuilder(); indent=0}
 
-    let entry_ret_ty = binds_last_data x |> data_term_vars |> term_vars_to_tys |> tup_ty_tys
-    line main_defs $"{entry_ret_ty} entry() {{"
-    binds_start (indent main_defs) x
-    line main_defs "}"
+    match binds_last_data x |> data_term_vars |> term_vars_to_tys with
+    | [|YPrim Int32T|] ->
+        line main_defs $"{prim Int32T} main() {{"
+        binds_start (indent main_defs) x
+        line main_defs "}"
 
-    let hpp = StringBuilder()
-    hpp.AppendLine("#ifndef _ENTRY")
-       .AppendLine("#define _ENTRY") |> ignore
-    globals |> Seq.iter (fun x -> hpp.AppendLine(x) |> ignore)
-    fwd_dcls |> Seq.iter (fun x -> hpp.Append(x) |> ignore)
-    hpp.AppendLine($"{entry_ret_ty} entry();")
-        .AppendLine("#endif") |> ignore
-
-
-    let cpp = StringBuilder()
-    globals |> Seq.iter (fun x -> cpp.AppendLine(x) |> ignore)
-    fwd_dcls |> Seq.iter (fun x -> cpp.Append(x) |> ignore)
-    types |> Seq.iter (fun x -> cpp.Append(x) |> ignore)
-    functions |> Seq.iter (fun x -> cpp.Append(x) |> ignore)
+        let cpp = StringBuilder()
+        globals |> Seq.iter (fun x -> cpp.AppendLine(x) |> ignore)
+        fwd_dcls |> Seq.iter (fun x -> cpp.Append(x) |> ignore)
+        types |> Seq.iter (fun x -> cpp.Append(x) |> ignore)
+        functions |> Seq.iter (fun x -> cpp.Append(x) |> ignore)
     
-    cpp.Append(main_defs.text) |> ignore
-    [
-    {|code = cpp.ToString(); file_extension = "cpp"|}
-    {|code = hpp.ToString(); file_extension = "hpp"|}
-    ]
+        cpp.Append(main_defs.text) |> ignore
+        [
+        {|code = cpp.ToString(); file_extension = "cu"|}
+        ]
+    | _ ->
+        raise_codegen_error "The return type of main in the C backend should be a 32-bit int."
 
 let codegen (env : PartEvalResult) (x : TypedBind []) = codegen' env x
