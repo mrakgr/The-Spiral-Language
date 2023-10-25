@@ -136,9 +136,9 @@ inl game (config : config) ~env = join
 inl game_loop config = join
     inl rng = random.create_mt19937()
 
-    loop.for {from=0; nearTo=1_000_000} (fun (i : i32) r =>
+    loop.for {from=0; nearTo=10_000_000} (fun (i : i32) r =>
         inl r' = game config (random_player_env {rng deck=bitsetm.zero()})
-        // if i % 100 = 0 then $'std::cout << !i << std::endl'
+        if i % 10000 = 0 then $'std::cout << !i << std::endl'
         r+r'
         ) (0)
 

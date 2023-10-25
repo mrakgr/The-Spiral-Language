@@ -33,14 +33,17 @@ let random_gaussian_f32 {mean std} rng : f32 =
     // Both cos and sin can be used interchangeably here.
     std * sqrt(-2.0 * log u0) * cos(2.0 * pi * u1) + mean
 
-let random_int range (rng : ref mt19937) : int = generate_int rng (create_uniform_int_dist range)
+let random_int range (rng : ref mt19937) : int = 
+    // inl {from to} = range
+    // $'std::cout << !from << " " << !to << std::endl'
+    generate_int rng (create_uniform_int_dist range)
 
 // Sampling without replacement from an uniform discrete distribution.
 // Takes in the mask and an RNG as the first two arguments.
 // Returns an updated mask and the RNG along with the randomly selected index.
 let sample_without forall dim. (mask : ref (bitsetm.bitset dim)) rng =
     inl nearTo : int = bitsetm.count mask
-    inl c = bitsetm.length mask - random_int {from=0; to=nearTo-1} rng
+    inl c = random_int {from=0; to=bitsetm.length mask - nearTo - 1} rng
     inl (i : int),_ =
         loop.for {from=0; nearTo=bitsetm.length mask} (fun i (_,c as state) =>
             if c > 0 then 

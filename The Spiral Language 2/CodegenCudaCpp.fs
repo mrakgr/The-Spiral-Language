@@ -162,6 +162,9 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                         elif m = "break" then
                             line s "break;"
                             false
+                        elif m.StartsWith("return") then
+                            line s $"{m};"
+                            false
                         else
                             let q = m.Split("v$")
                             if q.Length = 1 then 
@@ -514,6 +517,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} t{i}")
             let con_init = x.tys |> Array.mapi (fun i x -> $"v{i}(t{i})")
             line (indent s_typ) $"{name}({concat args}) : {concat con_init} {{}}" 
+            line (indent s_typ) $"{name}() = default;" 
 
             line s_typ "};"
 
@@ -526,7 +530,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             line s_typ $"struct US{i} {{"
             let _ =
                 let s_typ = indent s_typ
-                line s_typ "union U {"
+                line s_typ "union {"
                 let _ =
                     let s_typ = indent s_typ
                     map_iteri (fun tag k v -> 
@@ -535,44 +539,12 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                             print_ordered_args (indent s_typ) v
                             line s_typ (sprintf "} case%i; // %s" tag k)
                         ) x.free_vars
-                    line s_typ "U() {}"
                 line s_typ "} v;"
 
                 // Tag
                 let num_bits = num_bits_needed_to_represent x.free_vars.Count
                 if num_bits > 8 then raise_codegen_error "Too many union cases! Cannot have a union case type with more than 8 bits."
                 line s_typ $"char tag : {num_bits};"
-
-                line s_typ $"US{i}() {{}}"
-                let print_assignments () =
-                    let s_typ = indent s_typ
-                    line s_typ "this->tag = x.tag;"
-                    line s_typ "switch (x.tag) {"
-                    let _ =
-                        let s_typ = indent s_typ
-                        map_iteri (fun tag k v -> 
-                            if Array.length v <> 0 then
-                                line s_typ $"case {tag}: {{ this->v.case{tag} = x.v.case{tag}; break; }}"
-                            ) x.free_vars
-                    line s_typ "}"
-
-                line s_typ $"US{i}(const US{i} & x) {{"
-                print_assignments ()
-                line s_typ "}"
-
-                line s_typ $"US{i}(const US{i} && x) {{"
-                print_assignments ()
-                line s_typ "}"
-
-                line s_typ $"US{i} & operator=(US{i} & x) {{"
-                print_assignments()
-                line (indent s_typ) "return *this;"
-                line s_typ "}"
-                
-                line s_typ $"US{i} & operator=(US{i} && x) {{"
-                print_assignments()
-                line (indent s_typ) "return *this;"
-                line s_typ "}"
             line s_typ "};"
 
             map_iteri (fun tag k v -> 
@@ -592,7 +564,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
 
     global' "#pragma warning(disable: 4101 4065 4060)"
     global' "// Add these as extra argument to the compiler to suppress the rest:"
-    global' "// --diag-suppress 186 --diag-suppress 177"
+    global' "// --diag-suppress 186 --diag-suppress 177 --diag-suppress 550"
     import "cstdint"
     import "array"
 

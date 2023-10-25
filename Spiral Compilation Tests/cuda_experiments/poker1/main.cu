@@ -1,6 +1,6 @@
 #pragma warning(disable: 4101 4065 4060)
 // Add these as extra argument to the compiler to suppress the rest:
-// --diag-suppress 186 --diag-suppress 177
+// --diag-suppress 186 --diag-suppress 177 --diag-suppress 550
 #include <cstdint>
 #include <array>
 #include <iostream>
@@ -42,92 +42,39 @@ struct US11;
 Tuple5 score_9(std::array<Card,7l> v0);
 Tuple5 score_8(Card v0, Card v1, Card v2, Card v3, Card v4, Card v5, Card v6);
 struct Tuple10;
+US8 method_10(std::array<Card,5l> v0, std::array<Card,5l> v1);
 int16_t game_1(std::bitset<52l> & v0, std::mt19937 & v1);
 int16_t game_loop_0();
 struct Tuple0 {
     int32_t v0;
     int16_t v1;
     Tuple0(int32_t t0, int16_t t1) : v0(t0), v1(t1) {}
+    Tuple0() = default;
 };
 struct Tuple1 {
     int32_t v0;
     int32_t v1;
     int32_t v2;
     Tuple1(int32_t t0, int32_t t1, int32_t t2) : v0(t0), v1(t1), v2(t2) {}
+    Tuple1() = default;
 };
 struct US0 {
-    union U {
+    union {
         struct {
             Card v0;
             Card v1;
         } case1; // Some
-        U() {}
     } v;
     char tag : 2;
-    US0() {}
-    US0(const US0 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US0(const US0 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US0 & operator=(US0 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
-    US0 & operator=(US0 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
 };
 struct US1 {
-    union U {
+    union {
         struct {
             int8_t v0;
             int8_t v1;
         } case1; // TurnOf
-        U() {}
     } v;
     char tag : 2;
-    US1() {}
-    US1(const US1 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US1(const US1 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US1 & operator=(US1 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
-    US1 & operator=(US1 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
 };
 struct Tuple2 {
     US0 v1;
@@ -137,93 +84,41 @@ struct Tuple2 {
     int16_t v4;
     uint8_t v0;
     Tuple2(uint8_t t0, US0 t1, int16_t t2, US0 t3, int16_t t4, US1 t5) : v0(t0), v1(t1), v2(t2), v3(t3), v4(t4), v5(t5) {}
+    Tuple2() = default;
 };
 struct US2 {
-    union U {
+    union {
         struct {
             int16_t v0;
         } case2; // RaiseTo
-        U() {}
     } v;
     char tag : 2;
-    US2() {}
-    US2(const US2 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 2: { this->v.case2 = x.v.case2; break; }
-        }
-    }
-    US2(const US2 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 2: { this->v.case2 = x.v.case2; break; }
-        }
-    }
-    US2 & operator=(US2 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 2: { this->v.case2 = x.v.case2; break; }
-        }
-        return *this;
-    }
-    US2 & operator=(US2 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 2: { this->v.case2 = x.v.case2; break; }
-        }
-        return *this;
-    }
 };
 struct Tuple3 {
     US2 v0;
     float v1;
     Tuple3(US2 t0, float t1) : v0(t0), v1(t1) {}
+    Tuple3() = default;
 };
 struct US3 {
-    union U {
+    union {
         struct {
             int32_t v0;
         } case1; // Some
-        U() {}
     } v;
     char tag : 2;
-    US3() {}
-    US3(const US3 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US3(const US3 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US3 & operator=(US3 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
-    US3 & operator=(US3 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
 };
 struct Tuple4 {
     US3 v1;
     int32_t v0;
     Tuple4(int32_t t0, US3 t1) : v0(t0), v1(t1) {}
+    Tuple4() = default;
 };
 struct Tuple5 {
     std::array<Card,5l> v0;
     int8_t v1;
     Tuple5(std::array<Card,5l> t0, int8_t t1) : v0(t0), v1(t1) {}
+    Tuple5() = default;
 };
 struct Tuple6 {
     int32_t v0;
@@ -231,318 +126,103 @@ struct Tuple6 {
     int32_t v2;
     uint8_t v3;
     Tuple6(int32_t t0, int32_t t1, int32_t t2, uint8_t t3) : v0(t0), v1(t1), v2(t2), v3(t3) {}
+    Tuple6() = default;
 };
 struct US4 {
-    union U {
+    union {
         struct {
             std::array<Card,2l> v0;
             std::array<Card,5l> v1;
         } case1; // Some
-        U() {}
     } v;
     char tag : 2;
-    US4() {}
-    US4(const US4 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US4(const US4 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US4 & operator=(US4 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
-    US4 & operator=(US4 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
 };
 struct US5 {
-    union U {
+    union {
         struct {
             std::array<Card,5l> v0;
         } case1; // Some
-        U() {}
     } v;
     char tag : 2;
-    US5() {}
-    US5(const US5 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US5(const US5 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US5 & operator=(US5 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
-    US5 & operator=(US5 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
 };
 struct US6 {
-    union U {
+    union {
         struct {
             std::array<Card,2l> v0;
             std::array<Card,3l> v1;
         } case1; // Some
-        U() {}
     } v;
     char tag : 2;
-    US6() {}
-    US6(const US6 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US6(const US6 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US6 & operator=(US6 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
-    US6 & operator=(US6 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
 };
 struct US7 {
-    union U {
+    union {
         struct {
             std::array<Card,3l> v0;
             std::array<Card,4l> v1;
         } case1; // Some
-        U() {}
     } v;
     char tag : 2;
-    US7() {}
-    US7(const US7 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US7(const US7 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US7 & operator=(US7 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
-    US7 & operator=(US7 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
 };
 struct Tuple7 {
     int32_t v0;
     int32_t v1;
     uint8_t v2;
     Tuple7(int32_t t0, int32_t t1, uint8_t t2) : v0(t0), v1(t1), v2(t2) {}
+    Tuple7() = default;
 };
 struct Tuple8 {
     int32_t v0;
     int32_t v1;
     Tuple8(int32_t t0, int32_t t1) : v0(t0), v1(t1) {}
+    Tuple8() = default;
 };
 struct US8 {
-    union U {
-        U() {}
+    union {
     } v;
     char tag : 2;
-    US8() {}
-    US8(const US8 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-        }
-    }
-    US8(const US8 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-        }
-    }
-    US8 & operator=(US8 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-        }
-        return *this;
-    }
-    US8 & operator=(US8 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-        }
-        return *this;
-    }
 };
 struct Tuple9 {
     US8 v1;
     int32_t v0;
     Tuple9(int32_t t0, US8 t1) : v0(t0), v1(t1) {}
+    Tuple9() = default;
 };
 struct US9 {
-    union U {
+    union {
         struct {
             std::array<Card,2l> v0;
             std::array<Card,2l> v1;
         } case1; // Some
-        U() {}
     } v;
     char tag : 2;
-    US9() {}
-    US9(const US9 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US9(const US9 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US9 & operator=(US9 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
-    US9 & operator=(US9 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
 };
 struct US10 {
-    union U {
+    union {
         struct {
             std::array<Card,4l> v0;
             std::array<Card,3l> v1;
         } case1; // Some
-        U() {}
     } v;
     char tag : 2;
-    US10() {}
-    US10(const US10 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US10(const US10 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US10 & operator=(US10 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
-    US10 & operator=(US10 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
 };
 struct US11 {
-    union U {
+    union {
         struct {
             std::array<Card,5l> v0;
             int8_t v1;
         } case1; // Some
-        U() {}
     } v;
     char tag : 2;
-    US11() {}
-    US11(const US11 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US11(const US11 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-    }
-    US11 & operator=(US11 & x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
-    US11 & operator=(US11 && x) {
-        this->tag = x.tag;
-        switch (x.tag) {
-            case 1: { this->v.case1 = x.v.case1; break; }
-        }
-        return *this;
-    }
 };
 struct Tuple10 {
     US8 v0;
     int32_t v1;
     Tuple10(US8 t0, int32_t t1) : v0(t0), v1(t1) {}
+    Tuple10() = default;
 };
 inline bool while_method_0(int32_t v0){
     bool v1;
-    v1 = v0 < 1000000l;
+    v1 = v0 < 10000000l;
     return v1;
 }
 int32_t random_int_4(int32_t v0, int32_t v1, std::mt19937 & v2){
@@ -560,13 +240,13 @@ int32_t sample_without_3(std::bitset<52l> & v0, std::mt19937 & v1){
     int32_t v2;
     v2 = v0.count();
     int32_t v3;
-    v3 = v2 - 1l;
+    v3 = 52l - v2;
     int32_t v4;
-    v4 = 0l;
+    v4 = v3 - 1l;
     int32_t v5;
-    v5 = random_int_4(v4, v3, v1);
+    v5 = 0l;
     int32_t v6;
-    v6 = 52l - v5;
+    v6 = random_int_4(v5, v4, v1);
     int32_t v7;
     v7 = v6 + 1l;
     int32_t v8; int32_t v9; int32_t v10;
@@ -3381,6 +3061,53 @@ inline bool while_method_12(std::array<Card,5l> v0, US8 v1, int32_t v2){
     v3 = v2 < 5l;
     return v3;
 }
+US8 method_10(std::array<Card,5l> v0, std::array<Card,5l> v1){
+    US8 v2;
+    v2 = US8_0();
+    US8 v3; int32_t v4;
+    Tuple10 tmp33 = Tuple10(v2, 0l);
+    v3 = tmp33.v0; v4 = tmp33.v1;
+    while (while_method_12(v0, v3, v4)){
+        US8 v20; int32_t v21;
+        switch (v3.tag) {
+            case 0: { // Eq
+                Card v6;
+                v6 = v0[v4];
+                Card v7;
+                v7 = v1[v4];
+                uint8_t v8;
+                v8 = v6.rank;
+                uint8_t v9;
+                v9 = v7.rank;
+                bool v10;
+                v10 = v8 < v9;
+                US8 v16;
+                if (v10){
+                    v16 = US8_2();
+                } else {
+                    bool v12;
+                    v12 = v8 > v9;
+                    if (v12){
+                        v16 = US8_1();
+                    } else {
+                        v16 = US8_0();
+                    }
+                }
+                int32_t v17;
+                v17 = v4 + 1l;
+                v20 = v16; v21 = v17;
+                break;
+            }
+            default: {
+                // hello;
+                return v3;
+            }
+        }
+        v3 = v20;
+        v4 = v21;
+    }
+    return v3;
+}
 int16_t game_1(std::bitset<52l> & v0, std::mt19937 & v1){
     Card v2;
     v2 = draw_card_2(v0, v1);
@@ -4500,10 +4227,10 @@ int16_t game_1(std::bitset<52l> & v0, std::mt19937 & v1){
                     break;
                 }
                 default: { // Some
-                    Card v539 = v395.v.case1.v0; Card v540 = v395.v.case1.v1;
-                    int16_t v541;
-                    v541 = -v394;
-                    return v541;
+                    Card v520 = v395.v.case1.v0; Card v521 = v395.v.case1.v1;
+                    int16_t v522;
+                    v522 = -v394;
+                    return v522;
                 }
             }
             break;
@@ -4537,60 +4264,17 @@ int16_t game_1(std::bitset<52l> & v0, std::mt19937 & v1){
                             v511 = US8_0();
                         }
                     }
-                    US8 v532;
+                    US8 v513;
                     switch (v511.tag) {
                         case 0: { // Eq
-                            US8 v512;
-                            v512 = US8_0();
-                            US8 v513; int32_t v514;
-                            Tuple10 tmp33 = Tuple10(v512, 0l);
-                            v513 = tmp33.v0; v514 = tmp33.v1;
-                            while (while_method_12(v501, v513, v514)){
-                                US8 v530; int32_t v531;
-                                switch (v513.tag) {
-                                    case 0: { // Eq
-                                        Card v516;
-                                        v516 = v501[v514];
-                                        Card v517;
-                                        v517 = v503[v514];
-                                        uint8_t v518;
-                                        v518 = v516.rank;
-                                        uint8_t v519;
-                                        v519 = v517.rank;
-                                        bool v520;
-                                        v520 = v518 < v519;
-                                        US8 v526;
-                                        if (v520){
-                                            v526 = US8_2();
-                                        } else {
-                                            bool v522;
-                                            v522 = v518 > v519;
-                                            if (v522){
-                                                v526 = US8_1();
-                                            } else {
-                                                v526 = US8_0();
-                                            }
-                                        }
-                                        int32_t v527;
-                                        v527 = v514 + 1l;
-                                        v530 = v526; v531 = v527;
-                                        break;
-                                    }
-                                    default: {
-                                        break;
-                                    }
-                                }
-                                v513 = v530;
-                                v514 = v531;
-                            }
-                            v532 = v513;
+                            v513 = method_10(v501, v503);
                             break;
                         }
                         default: {
-                            v532 = v511;
+                            v513 = v511;
                         }
                     }
-                    switch (v532.tag) {
+                    switch (v513.tag) {
                         case 0: { // Eq
                             return 0;
                             break;
@@ -4600,9 +4284,9 @@ int16_t game_1(std::bitset<52l> & v0, std::mt19937 & v1){
                             break;
                         }
                         default: { // Lt
-                            int16_t v533;
-                            v533 = -v394;
-                            return v533;
+                            int16_t v514;
+                            v514 = -v394;
+                            return v514;
                         }
                     }
                 }
@@ -4622,9 +4306,17 @@ int16_t game_loop_0(){
         std::bitset<52l> & v7 = v6;
         int16_t v8;
         v8 = game_1(v7, v2);
-        int16_t v9;
-        v9 = v4 + v8;
-        v4 = v9;
+        int32_t v9;
+        v9 = v3 % 10000l;
+        bool v10;
+        v10 = v9 == 0l;
+        if (v10){
+            std::cout << v3 << std::endl;
+        } else {
+        }
+        int16_t v11;
+        v11 = v4 + v8;
+        v4 = v11;
         v3++;
     }
     return v4;
