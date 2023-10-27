@@ -3104,7 +3104,7 @@ US8 method_10(std::array<Card,5l> v0, std::array<Card,5l> v1){
             }
         }
         v3 = v20;
-        v4 = v21;
+        v4 = v21;~
     }
     return v3;
 }

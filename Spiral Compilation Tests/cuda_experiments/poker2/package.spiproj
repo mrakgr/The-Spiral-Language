@@ -1,0 +1,26 @@
+packages: |core-
+
+modules:
+    corecuda/
+        default-
+        base-
+        limit
+        real_core*
+        type_arith*
+        core-
+        loop
+        listm
+        sam
+        optionm
+        monad
+        
+    conv-
+    hand_scorer_orig
+    cardm
+    bitsetm
+    random
+    sortm
+    hand_scorer
+    scan_tests
+    main
+    
