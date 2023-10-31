@@ -1,0 +1,6 @@
+// Statically sized array with a type literal for a dimension.
+nominal sa dim el = $"std::array<`el,@dim>"
+
+// Base reference type
+nominal ref t = $"`t &"
+inl ref forall t. (x : t) : ref t = $"`t & v$ = !x"

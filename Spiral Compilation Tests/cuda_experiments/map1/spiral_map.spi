@@ -1,0 +1,9 @@
+open corecuda
+open loop
+
+inl map f l = ()
+    
+
+inl main() =
+    inl l = ;[1;2;3;4] : array i32
+    ()  

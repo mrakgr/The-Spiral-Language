@@ -6,3 +6,4 @@ print(x_gpu)
 
 device = cp.cuda.Device()
 print(device)
+

@@ -1,0 +1,94 @@
+open corecuda
+nominal random_device = $"std::random_device"
+nominal mt19937 = $"std::mt19937"
+nominal uniform_int_distribution = $"std::uniform_int_distribution<`int>"
+nominal uniform_real_distribution = $"std::uniform_real_distribution<`float>"
+
+inl create_mt19937 () : ref mt19937 =
+    inl rd : random_device = $"`random_device v$"
+    ref $"`mt19937 v$(!rd())"
+
+inl generate_int (engine : ref mt19937) (dist : uniform_int_distribution) : int = $"!dist(!engine)"
+inl generate_float (engine : ref mt19937) (dist : uniform_real_distribution) : float = $"!dist(!engine)"
+
+inl create_uniform_int_dist {from=(from : int) to=(to : int)} : uniform_int_distribution = $"`uniform_int_distribution v$(!from, !to)"
+inl create_uniform_real_dist {from=(from : float) nearTo=(nearTo : float)} : uniform_real_distribution = $"`uniform_real_distribution v$(!from, !nearTo)"
+
+// When is_exclusive is true samples from: (0,1)
+// Otherwise it samples from: [0,1)
+let random_f32_template (is_exclusive : bool) rng : float =
+    global "#include <cmath>"
+    global "#include <limits>"
+    inl from = 0
+    inl dist = create_uniform_real_dist {from=if is_exclusive then $"std::nextafter(!from, std::numeric_limits<`float>::max())" else from; nearTo=1}
+    generate_float rng dist
+    
+
+// Gets a random uniform number in the [0,1) range.
+inl random_uniform_f32 rng : f32 = random_f32_template false rng
+
+let random_gaussian_f32 {mean std} rng : f32 =
+    inl u0 = random_f32_template true rng // (0,1)
+    inl u1 = random_f32_template false rng // [0,1)
+    // Both cos and sin can be used interchangeably here.
+    std * sqrt(-2.0 * log u0) * cos(2.0 * pi * u1) + mean
+
+let random_int range (rng : ref mt19937) : int = 
+    // inl {from to} = range
+    // $'std::cout << !from << " " << !to << std::endl'
+    generate_int rng (create_uniform_int_dist range)
+
+// Sampling without replacement from an uniform discrete distribution.
+// Takes in the mask and an RNG as the first two arguments.
+// Returns an updated mask and the RNG along with the randomly selected index.
+let sample_without forall dim. (mask : ref (bitsetm.bitset dim)) rng =
+    inl nearTo : int = bitsetm.count mask
+    inl c = random_int {from=0; to=bitsetm.length mask - nearTo - 1} rng
+    inl (i : int),_ =
+        loop.for {from=0; nearTo=bitsetm.length mask} (fun i (_,c as state) =>
+            if c > 0 then 
+                i, if bitsetm.index mask i then c else c-1
+            else loop.break()
+            ) (0, c+1)
+    bitsetm.set mask i true // TODO: Should be immutable.
+    i
+
+// Randomly samples an index of an action with replacement.
+// Takes in a unnormalized probability distribution as the first argument.
+// Returns the index of a randomly selected item inside it.
+// Clamps the negative values to 0.
+let sample_discrete' forall dim. (dist : sa dim float) rng =
+    open sam
+    inl dist = 
+        inl dist = map (max 0) dist
+        inl dist = scan_inclusive (+) dist
+        inl sum = last dist
+        map (fun x => x / sum) dist
+    inl r = random_uniform_f32 rng
+    inl i =
+        foldi (fun i s x =>
+            match s with
+            | None when r < x => Some i
+            | _ => s
+            ) None dist
+        |> optionm.defaultWith 0
+    i
+
+
+// Randomly samples an action with replacement.
+// Takes in a unnormalized probability distribution as the first argument.
+// Returns the index of a randomly selected item inside it.
+// Clamps the negative values to 0.
+let sample_discrete forall dim el. (dist : sa dim (el * float)) rng =
+    open sam
+    inl i = sample_discrete' (map snd dist) rng
+    fst (index dist i)
+
+let draw_card (deck : ref (bitsetm.bitset 52)) rng =
+    open cardm
+    inl index = sample_without deck rng
+    card {rank = index % 13 |> conv; suit = index / 13 |> conv}
+
+inl globals() =
+    global "#include <random>"
+    ()
