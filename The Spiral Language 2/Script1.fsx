@@ -1,1 +1,7 @@
-﻿let l = {0 .. 1023} |> Seq.sum
+﻿open System.Text
+
+
+
+let x = "Arg"
+System.Object.ReferenceEquals(x, unintern x)
+|> printfn "%b"

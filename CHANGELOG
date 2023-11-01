@@ -1,6 +1,7 @@
 2.5.0 (WIP)
 
 * Replaced the HLC C++ backend with a Cuda C++ one.
+* The inbuilt arrays have been renamed to array_base and the array literals are now automatically wrapped in an `array` call.
 
 2.4.25 (10/1/2023)
 

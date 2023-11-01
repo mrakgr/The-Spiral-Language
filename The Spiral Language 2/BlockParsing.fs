@@ -213,6 +213,7 @@ type ParserErrors =
     | MetavarShadowedByVar
     | VarShadowedByMetavar
     | ListLiteralsNotAllowedInBottomUp
+    | ArrayLiteralsNotAllowedInBottomUp
 
 type RawKindExpr =
     | RawKindWildcard
@@ -672,7 +673,7 @@ let join_point is_let name = function // Has the effect of removing nested join 
 let join_point_backend (a,b) = RawJoinPoint(range_of_expr b, Some a, b, None)
 
 /// Some places need unique string refs, so this is to keep the compiler from interning static strings.
-let unintern a b = sprintf "%s%c" a b
+let unintern (x : string) = Text.StringBuilder(x).ToString()
 
 let rec adjust_join_point is_let name x =
     let dyn_if_let a = if is_let then PatDyn(range_of_pattern a, a) else a
@@ -681,7 +682,7 @@ let rec adjust_join_point is_let name x =
     | RawFun(r,[a,b]) -> RawFun(r,[dyn_if_let a, adjust_join_point is_let name b])
     | RawFun(r,l) -> 
         let empty = fst r, fst r
-        let n = unintern " ar" 'g'
+        let n = unintern " arg"
         let a = PatVar(empty,n) |> dyn_if_let
         let b = RawMatch(empty,RawV(empty,n),l)
         RawFun(r,[a,join_point is_let name b])
@@ -1122,8 +1123,8 @@ and root_term d =
             if d.is_top_down then
                 let r = fst r, fst r
                 List.foldBack (fun a b -> 
-                    RawApply(r,RawV(r,unintern "Con" 's'),RawPair(r,a,b))
-                    ) l (RawV(r,unintern "Ni" 'l')) |> Ok
+                    RawApply(r,RawV(r,unintern "Cons"),RawPair(r,a,b))
+                    ) l (RawV(r,unintern "Nil")) |> Ok
             else
                 Error [r, ListLiteralsNotAllowedInBottomUp]
 
@@ -1161,7 +1162,9 @@ and root_term d =
                         rounds root_term
                         |] d
                 match a with
-                | ";" -> (range (squares sequence_body) |>> fun (r,x) -> RawArray(r,x)) d
+                | ";" -> 
+                    if d.is_top_down then (range (squares sequence_body) |>> fun (r,x) -> RawApply(o,RawV(o,unintern "array"), RawArray(o,x))) d
+                    else Error [o, ArrayLiteralsNotAllowedInBottomUp]
                 | "!!!!" -> 
                     (range (read_big_var .>>. (rounds (sepBy1 (fun d -> unary_op {d with is_top_down=false}) (skip_op ","))))
                     >>= fun (r,((ra,a), b)) _ ->
@@ -1426,3 +1429,4 @@ let show_parser_error = function
     | BottomUpNumberParseError (x, val_dsc) -> sprintf "The string %s cannot be safely parsed as %s." x val_dsc
     | DuplicateUnionKey -> "Duplicate union keys are not allowed."
     | ListLiteralsNotAllowedInBottomUp -> "List literals are not allowed in the bottom-up segment."
+    | ArrayLiteralsNotAllowedInBottomUp -> "Array literals are not allowed in the bottom-up segment."

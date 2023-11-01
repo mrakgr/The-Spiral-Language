@@ -288,7 +288,7 @@ let show_ty x =
         | YRecord l -> sprintf "{%s}" (l |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat "; ")
         | YUnion l -> sprintf "{%s}" (l.Item.cases |> Map.toList |> List.map (fun (k,v) -> sprintf "%s : %s" k (f -1 v)) |> String.concat " | ")
         | YPrim x -> show_primt x
-        | YArray a -> p 30 (sprintf "array %s" (f 30 a))
+        | YArray a -> p 30 (sprintf "array_base %s" (f 30 a))
         | YFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
         | YMacro a -> p 30 (List.map (function TypeLit a | Type a -> f -1 a | Text a -> a) a |> String.concat "")
         | YApply(a,b) -> p 30 (sprintf "%s %s" (f 29 a) (f 30 b))

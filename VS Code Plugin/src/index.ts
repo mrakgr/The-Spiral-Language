@@ -13,7 +13,7 @@ class SerialDisposable implements Disposable {
         this.f()
         this.f = callOnDispose;
     }
-
+ 
     dispose() {
         this.f(); 
         this.f = () => {}

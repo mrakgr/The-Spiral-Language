@@ -20,3 +20,19 @@ inl (::) a b = Cons (a,b)
 
 // Puts a statement in the global scope.
 inl global (x : string) : () = !!!!Global(x)
+
+nominal array t = array_base t
+
+// Creates an array.
+prototype create ar el : int -> ar el
+// Indexes into an array.
+prototype index ar el : ar el -> int -> el
+// Sets the value of an array at the specified index.
+prototype set ar el : ar el -> int -> el -> ()
+// Returns the length of an array.
+prototype length ar el : ar el -> int
+
+instance create array = fun size => !!!!ArrayCreate(`el,size)
+instance index array = fun ar i => !!!!ArrayIndex(ar,i)
+instance set array = fun ar i v => !!!!ArrayIndexSet(ar,i,v)
+instance length array = fun ar => !!!!ArrayLength(`int,ar)

@@ -104,7 +104,7 @@ Statically typed and with a lightweight, very powerful type system giving it exp
 
 ## Getting Spiral
 
-The language is published on the VS Code marketplace. Getting it is just a matter of installing the **The Spiral Language** plugin. This will install both the VS Code editor plugin and the compiler itself. The compiler itself requires the [.NET Core 3.1 SDK](https://dotnet.microsoft.com/download/dotnet-core/3.1) and is portable across platforms. The language server uses TCP to communicate with the editor so allow it in the firewall.
+The language is published on the VS Code marketplace. Getting it is just a matter of installing the **The Spiral Language** plugin. This will install both the VS Code editor plugin and the compiler itself. The compiler itself requires the [.NET Core 7 SDK](https://dotnet.microsoft.com/download/dotnet-core/7.0) and is portable across platforms. The language server uses a websocket connection to communicate with the editor so allow it in the firewall.
 
 ## Status in 8/17/2021
 

@@ -66,7 +66,7 @@ type TypeError =
     | KindErrorInConstraint of TT * TT
     | ExpectedSymbolAsRecordKey of T
     | ExpectedSymbolAsModuleKey of T
-    | UnboundVariable
+    | UnboundVariable of string
     | UnboundModule
     | ModuleIndexFailedInOpen
     | TermError of T * T
@@ -256,13 +256,13 @@ let module_open (hover_types : ResizeArray<VSCRange * (T * Comments)>) (top_env 
 
 let validate_bound_vars (top_env : Env) constraints term ty x =
     let errors = ResizeArray()
-    let check_term term (a,b) = if Set.contains b term = false && Map.containsKey b top_env.term = false then errors.Add(a,UnboundVariable)
-    let check_ty ty (a,b) = if Set.contains b ty = false && Map.containsKey b top_env.ty = false then errors.Add(a,UnboundVariable)
+    let check_term term (a,b) = if Set.contains b term = false && Map.containsKey b top_env.term = false then errors.Add(a,UnboundVariable b)
+    let check_ty ty (a,b) = if Set.contains b ty = false && Map.containsKey b top_env.ty = false then errors.Add(a,UnboundVariable b)
     let check_cons constraints (a,b) = 
         match Map.tryFind b constraints |> Option.orElseWith (fun () -> Map.tryFind b top_env.constraints) with
         | Some (C _) -> ()
         | Some (M _) -> errors.Add(a,ExpectedConstraintInsteadOfModule)
-        | None -> errors.Add(a,UnboundVariable)
+        | None -> errors.Add(a,UnboundVariable b)
     let rec cterm constraints term ty x =
         match x with
         | RawSymbol _ | RawDefaultLit _ | RawLit _ | RawB _ -> ()
@@ -478,7 +478,7 @@ let show_t (env : TopEnv) x =
                 loop x
             let a = List.map show_var a |> String.concat " "
             p 0 (sprintf "%s => %s" a (f -1 b))
-        | TyArray a -> p 30 (sprintf "array %s" (f 30 a))
+        | TyArray a -> p 30 (sprintf "array_base %s" (f 30 a))
         | TyApply(a,b,_) -> p 30 (sprintf "%s %s" (f 29 a) (f 30 b))
         | TyPair(a,b) -> p 25 (sprintf "%s * %s" (f 25 a) (f 24 b))
         | TyFun(a,b) -> p 20 (sprintf "%s -> %s" (f 20 a) (f 19 b))
@@ -511,7 +511,7 @@ let show_type_error (env : TopEnv) x =
     | TermError(a,b) -> sprintf "Unification failure.\nGot:      %s\nExpected: %s" (f a) (f b)
     | ExpectedSymbolAsRecordKey a -> sprintf "Expected symbol as a record key.\nGot: %s" (f a)
     | ExpectedSymbolAsModuleKey a -> sprintf "Expected symbol as a module key.\nGot: %s" (f a)
-    | UnboundVariable -> sprintf "Unbound variable."
+    | UnboundVariable x -> sprintf "Unbound variable: %s." x
     | UnboundModule -> sprintf "Unbound module."
     | ModuleIndexFailedInOpen -> sprintf "Module does not have a submodule with that key."
     | ForallVarScopeError(a,_,_) -> sprintf "Tried to unify the forall variable %s with a metavar outside its scope." a
@@ -935,7 +935,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 match v_cons cons x with
                 | Some (M _) -> errors.Add(r,ExpectedConstraintInsteadOfModule); None
                 | Some (C x) -> unify_kind r kind (constraint_kind top_env x); Some x
-                | None -> errors.Add(r,UnboundVariable); None
+                | None -> errors.Add(r,UnboundVariable x); None
                 ) |> Set.ofList
 
         {scope=scope; constraints=cons; kind=kind_force kind; name=name}
@@ -953,7 +953,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let f'' x = let v = fresh_var scope in term' scope true env v x; visit_t v
         let inline rawv (r,name) =
             match v_term env name with
-            | None -> errors.Add(r,UnboundVariable)
+            | None -> errors.Add(r,UnboundVariable name)
             | Some (_,TySymbol "<real>") -> errors.Add(r,RealFunctionInTopDown)
             | Some (com,TyModule _ & m) when is_in_left_apply = false -> 
                 hover_types.Add(r,(m,com))
@@ -1043,7 +1043,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         match v_term env a with
                         | Some (com, TySymbol a & x) -> hover_types.Add(r,(x,com)); {|range=r; symbol = a|} :: l, Set.add a s
                         | Some (_,x) -> errors.Add(r, ExpectedSymbolAsRecordKey x); state
-                        | None -> errors.Add(r, UnboundVariable); state
+                        | None -> errors.Add(r, UnboundVariable a); state
                     ) withouts ([],Set.empty)
             let withs,_ =
                 List.foldBack (fun x (l,s as state) ->
@@ -1053,7 +1053,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         match v_term env a with
                         | Some (com, TySymbol a & x) -> hover_types.Add(r,(x,com)); next ((r,a),b)
                         | Some (_, x) -> errors.Add(r, ExpectedSymbolAsRecordKey x); f' b |> ignore; state
-                        | None -> errors.Add(r, UnboundVariable); f' b |> ignore; state
+                        | None -> errors.Add(r, UnboundVariable a); f' b |> ignore; state
                     match x with
                     | RawRecordWithSymbol(a,b) -> with_symbol (a,b)
                     | RawRecordWithSymbolModify(a,b) -> with_symbol_modify (a,b)
@@ -1248,7 +1248,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             match v_ty env x with
             | Some (TyModule _ & m) when is_in_left_apply = false -> hover_types.Add(r,(m,"")); errors.Add(r,ModuleMustBeImmediatelyApplied)
             | Some x -> hover_types.Add(r,(x,"")); unify r s x
-            | None -> errors.Add(r, UnboundVariable)
+            | None -> errors.Add(r, UnboundVariable x)
         | RawTB r -> unify r s TyB
         | RawTLit(r,x) -> unify r s (TyLit x)
         | RawTSymbol(r,x) -> unify r s (TySymbol x)
@@ -1362,7 +1362,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                             match v_term env a with
                             | Some (com,TySymbol a & x) -> hover_types.Add(r,(x,com)); Some (a,b)
                             | Some (_,x) -> errors.Add(r, ExpectedSymbolAsRecordKey x); None
-                            | None -> errors.Add(r, UnboundVariable); None
+                            | None -> errors.Add(r, UnboundVariable a); None
                         ) l
                 match visit_t s with
                 | TyRecord l' as s ->
@@ -1424,7 +1424,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                                 | _ -> let x,m = ho_make i n.vars in unify r s x; f (subst m n.body) a
                             | ValueNone -> errors.Add(r,TypeInEnvIsNotNominal x); f (fresh_var scope) a
                     loop r x l
-                | _ -> errors.Add(r,UnboundVariable); f (fresh_var scope) a
+                | _ -> errors.Add(r,UnboundVariable name); f (fresh_var scope) a
             | PatArray(r,a) ->
                 let v = fresh_var scope
                 unify r s (TyArray v)
@@ -1622,11 +1622,11 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let fake _ = fail
         let check_ins on_succ =
             match Map.tryFind (snd ins) top_env.ty with
-            | None -> errors.Add(fst ins, UnboundVariable); fail
+            | None -> errors.Add(fst ins, UnboundVariable (snd ins)); fail
             | Some(TyNominal i') -> on_succ i'
             | Some x -> errors.Add(fst ins, ExpectedHigherOrder x); fail
         match Map.tryFind (snd prot) top_env.constraints with
-        | None -> errors.Add(fst prot, UnboundVariable); check_ins fake
+        | None -> errors.Add(fst prot, UnboundVariable (snd prot)); check_ins fake
         | Some(C (CPrototype i)) -> check_ins (body i)
         | Some(C x) -> errors.Add(fst prot, ExpectedPrototypeConstraint x); check_ins fake
         | Some(M _) -> errors.Add(fst prot, ExpectedPrototypeInsteadOfModule); check_ins fake
@@ -1661,7 +1661,7 @@ let base_types =
     "string", TyPrim StringT
     "bool", TyPrim BoolT
     "char", TyPrim CharT
-    "array", inl (fun x -> TyArray(TyVar x))
+    "array_base", inl (fun x -> TyArray(TyVar x))
     "heap", inl (fun x -> TyLayout(TyVar x,Layout.Heap))
     "mut", inl (fun x -> TyLayout(TyVar x,Layout.HeapMutable))
     ]

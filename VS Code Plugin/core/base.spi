@@ -19,7 +19,7 @@ union rec list a = Nil | Cons : a * list a
 inl (::) a b = Cons (a,b)
 
 // Array with a dimension.
-nominal a dim a = array a
+nominal a dim a = array_base a
 // Creates an array.
 prototype create ar dim {int} el : dim -> ar dim el
 // Indexes into an array.

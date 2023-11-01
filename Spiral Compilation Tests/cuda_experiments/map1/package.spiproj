@@ -1,7 +1,8 @@
-packages: |core-
+// packages: |core-
 
 modules:
     corebase/
+        default-
         base-
         limit
         real_core*
@@ -11,23 +12,24 @@ modules:
         listm
         optionm
         monad
+        arraym
 
     corepython/
-        default-    
-
-    corecuda/
         default-
-        base-
-        sam
+
+    // corecuda/
+    //     default-
+    //     base-
+    //     sam
         
-    conv-
-    hand_scorer_orig
-    cardm
-    bitsetm
-    random
-    sortm
-    hand_scorer
-    scan_tests
-    main
+    // conv-
+    // hand_scorer_orig
+    // cardm
+    // bitsetm
+    // random
+    // sortm
+    // hand_scorer
+    // scan_tests
+    // main
     spiral_map
     

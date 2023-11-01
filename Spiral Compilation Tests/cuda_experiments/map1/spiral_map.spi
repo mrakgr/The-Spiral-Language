@@ -1,9 +1,10 @@
-open corecuda
-open loop
+// open corecuda
+// open loop
 
 inl map f l = ()
     
+nominal array t = array_base t
 
 inl main() =
-    inl l = ;[1;2;3;4] : array i32
-    ()  
+    inl (array l) = ;[1;2;3;4] : _ f64
+    ()
