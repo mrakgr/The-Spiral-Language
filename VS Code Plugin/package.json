@@ -42,6 +42,7 @@
 						"Python",
 						"C",
 						"UPMEM: Python + C",
+						"Python + Cuda",
 						"Cuda C++"
 					],
 					"default": "Fsharp",

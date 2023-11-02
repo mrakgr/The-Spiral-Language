@@ -1,4 +1,5 @@
 // The array template module. Generic functions for array like structures.
+open corebase
 open loop
 
 // Creates an empty array.

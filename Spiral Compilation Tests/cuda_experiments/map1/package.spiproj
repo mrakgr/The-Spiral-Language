@@ -17,10 +17,10 @@ modules:
     corepython/
         default-
 
-    // corecuda/
-    //     default-
-    //     base-
-    //     sam
+    corecuda/
+        default-
+        base-
+        sam
         
     // conv-
     // hand_scorer_orig
@@ -32,4 +32,6 @@ modules:
     // scan_tests
     // main
     spiral_map
+    cuda_hello
+    
     

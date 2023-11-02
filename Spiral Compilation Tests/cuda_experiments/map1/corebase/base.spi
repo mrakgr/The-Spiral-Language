@@ -32,7 +32,7 @@ prototype set ar el : ar el -> int -> el -> ()
 // Returns the length of an array.
 prototype length ar el : ar el -> int
 
-instance create array = fun size => !!!!ArrayCreate(`el,size)
-instance index array = fun ar i => !!!!ArrayIndex(ar,i)
-instance set array = fun ar i v => !!!!ArrayIndexSet(ar,i,v)
-instance length array = fun ar => !!!!ArrayLength(`int,ar)
+instance create array = fun size => array !!!!ArrayCreate(`el,size)
+instance index array = fun (array ar) i => !!!!ArrayIndex(ar,i)
+instance set array = fun (array ar) i v => !!!!ArrayIndexSet(ar,i,v)
+instance length array = fun (array ar) => !!!!ArrayLength(`int,ar)

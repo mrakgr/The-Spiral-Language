@@ -10,7 +10,7 @@ open System
 open System.Text
 open System.Collections.Generic
 
-type PythonBackendType = Prototypal | UPMEM_Python_Host
+type PythonBackendType = Prototypal | UPMEM_Python_Host | Cuda
 
 let lit = function
     | LitInt8 x -> sprintf "%i" x
@@ -425,6 +425,34 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
 let codegen' backend_type env x = 
     match backend_type with
     | Prototypal -> codegen'' (fun (_,_,(r,_)) -> raise_codegen_error_backend r "The Python backend does not support nesting of other backends.") env x
+    | Cuda ->
+        let cuda_kernels = StringBuilder().AppendLine("kernel = \"\"\"")
+        let g = Dictionary(HashIdentity.Structural)
+        let globals, fwd_dcls, types, functions, main_defs as ars = ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray()
+        let codegen = Cuda.CppDevice.codegen ars env
+        let python_code =
+            codegen'' (fun (jp_body,key,(r',backend_name)) ->
+                match backend_name with
+                | "Cuda" -> 
+                    Utils.memoize g (fun (jp_body,key & (C(args,_))) ->
+                        let args = rdata_free_vars args
+                        match (fst env.join_point_method.[jp_body]).[key] with
+                        | Some a, Some _, _ -> codegen args a
+                        | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
+                        string g.Count
+                        ) (jp_body,key)
+                | x -> raise_codegen_error_backend r' $"The Python + Cuda backend does not support the {x} backend."
+                ) env x
+
+        globals |> Seq.iter (fun x -> cuda_kernels.AppendLine(x) |> ignore)
+        fwd_dcls |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
+        types |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
+        functions |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
+        main_defs |> Seq.iter (fun x -> cuda_kernels.Append(x) |> ignore)
+
+        cuda_kernels
+            .AppendLine("\"\"\"")
+            .Append(python_code).ToString()
     | UPMEM_Python_Host ->
         let upmem_c_kernels = StringBuilder()
         upmem_c_kernels.AppendLine("kernels = [") |> ignore
@@ -453,4 +481,5 @@ let codegen' backend_type env x =
             .Append(python_code).ToString()
 
 let codegen_upmem_python_host env x = codegen' UPMEM_Python_Host env x
+let codegen_cuda env x = codegen' Cuda env x
 let codegen env x = codegen' Prototypal env x

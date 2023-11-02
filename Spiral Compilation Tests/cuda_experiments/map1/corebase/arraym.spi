@@ -161,7 +161,8 @@ inl exists2 forall (ar : * -> *) {index; length} a b. f (x1 : ar a) (x2 : ar b) 
 inl removeAtIndex forall (ar : * -> *) {index; length; create; set} el. i (dist : ar el) : ar el = 
     init (length dist-1) (fun i' => index dist (if i <= i' then i'+1 else i'))
 // Does an inplace map of the array.
-inl mapInplace forall (ar : * -> *) {index; set; length} el. f (temp : ar el) = for' {from=0; nearTo=length temp} (fun i => set temp i (f i (index temp i)))
+inl mapInplace forall (ar : * -> *) {index; set; length} el. f (temp : ar el) = 
+    for' {from=0; nearTo=length temp} (fun i => set temp i (f i (index temp i)))
 
 // Generic equable function that data structures other than regular arrays can reuse.
 inl generic_equable x1 x2 =

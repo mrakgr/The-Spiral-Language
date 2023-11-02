@@ -1,0 +1,8 @@
+// Does the basic kernel compile?
+
+inl main () = 
+    inl a,b = join_backend Cuda
+        inl x = $"int v$[1]" : $"int *"
+        ()
+
+    a
