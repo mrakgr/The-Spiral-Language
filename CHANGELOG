@@ -4,6 +4,8 @@
 
 2.5.0 (11/3/2023)
 
+Implemented the Python + Cuda backend.
+
 * Replaced the HLC C++ backend with a Cuda C++ one.
 * The inbuilt arrays have been renamed to array_base and the array literals are now automatically wrapped in an `array` call.
 * Removed the UPMEM backend.
