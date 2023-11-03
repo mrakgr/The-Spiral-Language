@@ -191,7 +191,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                             let size =
                                 match b with
                                 | DLit x -> lit x
-                                | _ -> raise_codegen_error "Array sizes need to be statically known in the HLS C++ backend."
+                                | _ -> raise_codegen_error "Array sizes need to be statically known in the Cuda C++ backend."
                             line s $"%s{tyv t} v{i}[{size}];"
                             true
                         //| [|L(i,t)|] -> line s $"%s{tyv t} v{i};" // TODO: Put in overloaded arrays later.
@@ -230,8 +230,8 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             match a.Item.layout with
             | UStack -> sprintf "US%i" (ustack a).tag
             | UHeap -> sprintf "UH%i *" (uheap a).tag
-        | YLayout(a,Heap) -> raise_codegen_error "Heap layout types aren't supported in the HLS C++ backend due to them needing to be heap allocated."
-        | YLayout(a,HeapMutable) -> raise_codegen_error "Heap mutable layout types aren't supported in the HLS C++ backend due to them needing to be heap allocated."
+        | YLayout(a,Heap) -> raise_codegen_error "Heap layout types aren't supported in the Cuda C++ backend due to them needing to be heap allocated."
+        | YLayout(a,HeapMutable) -> raise_codegen_error "Heap mutable layout types aren't supported in the Cuda C++ backend due to them needing to be heap allocated."
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
         | YArray a -> sprintf "%s *" (tup_ty a)
@@ -374,14 +374,14 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             | UHeap -> sprintf "UH%i_%i(%s)" (uheap c').tag i vars
             | UStack -> sprintf "US%i_%i(%s)" (ustack c').tag i vars
             |> return'
-        | TyLayoutToHeap(a,b) -> raise_codegen_error "Cannot create a heap layout type in the HLS C++ backend due to them needing to be heap allocated."
-        | TyLayoutToHeapMutable(a,b) -> raise_codegen_error "Cannot create a heap mutable layout type in the HLS C++ backend due to them needing to be heap allocated."
+        | TyLayoutToHeap(a,b) -> raise_codegen_error "Cannot create a heap layout type in the Cuda C++ backend due to them needing to be heap allocated."
+        | TyLayoutToHeapMutable(a,b) -> raise_codegen_error "Cannot create a heap mutable layout type in the Cuda C++ backend due to them needing to be heap allocated."
         | TyLayoutIndexAll _ 
-        | TyLayoutIndexByKey _ -> raise_codegen_error "Cannot index into a layout type in the HLS C++ backend due to them needing to be heap allocated."
-        | TyLayoutHeapMutableSet(L(i,t),b,c) -> raise_codegen_error "Cannot set a value into a layout type in the HLS C++ backend due to them needing to be heap allocated."
+        | TyLayoutIndexByKey _ -> raise_codegen_error "Cannot index into a layout type in the Cuda C++ backend due to them needing to be heap allocated."
+        | TyLayoutHeapMutableSet(L(i,t),b,c) -> raise_codegen_error "Cannot set a value into a layout type in the Cuda C++ backend due to them needing to be heap allocated."
         | TyArrayLiteral(a,b') -> raise_codegen_error "Compiler error: TyArrayLiteral should have been taken care of in TyLet."
         | TyArrayCreate(a,b) ->  raise_codegen_error "Compiler error: TyArrayCreate should have been taken care of in TyLet."
-        | TyFailwith(a,b) -> raise_codegen_error "Failwith is not supported in the HLS C++ backend."
+        | TyFailwith(a,b) -> raise_codegen_error "Failwith is not supported in the Cuda C++ backend."
         | TyConv(a,b) -> return' $"({tyv a}){tup_data b}"
         | TyApply(L(i,_),b) -> 
             let rec loop = function
@@ -389,8 +389,8 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 | a -> [tup_data a]
             let args = loop b |> String.concat ", "
             $"v{i}({args})" |> return'
-        | TyArrayLength(_,b) -> raise_codegen_error "Array length is not supported in the HLS C++ backend as they are bare pointers."
-        | TyStringLength(_,b) -> raise_codegen_error "String length is not supported in the HLS C++ backend."
+        | TyArrayLength(_,b) -> raise_codegen_error "Array length is not supported in the Cuda C++ backend as they are bare pointers."
+        | TyStringLength(_,b) -> raise_codegen_error "String length is not supported in the Cuda C++ backend."
         | TyOp(Global,[DLit (LitString x)]) -> global' x
         | TyOp(op,l) ->
             match op, l with
@@ -416,7 +416,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             | Pow, [a;b] -> sprintf "pow(%s,%s)" (tup_data a) (tup_data b)
             | LT, [a;b] -> sprintf "%s < %s" (tup_data a) (tup_data b)
             | LTE, [a;b] -> sprintf "%s <= %s" (tup_data a) (tup_data b)
-            | EQ, [a;b] | NEQ, [a;b] | GT, [a;b] | GTE, [a;b] when is_string a -> raise_codegen_error "String comparison operations are not supported in the HLS C++ backend."
+            | EQ, [a;b] | NEQ, [a;b] | GT, [a;b] | GTE, [a;b] when is_string a -> raise_codegen_error "String comparison operations are not supported in the Cuda C++ backend."
             | EQ, [a;b] -> sprintf "%s == %s" (tup_data a) (tup_data b)
             | NEQ, [a;b] -> sprintf "%s != %s" (tup_data a) (tup_data b)
             | GT, [a;b] -> sprintf "%s > %s" (tup_data a) (tup_data b)
@@ -475,7 +475,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
         jp (fun ((jp_body,key & (C(args,_,domain,range))),i) ->
             match (fst env.join_point_closure.[jp_body]).[key] with
             | Some(domain_args, body) -> 
-                let assert_empty x = if Array.isEmpty x then x else raise_codegen_error "The HLS C++ backend doesn't support closures due to them needing to be heap allocated, only function pointers. For them to be converted to pointers, the closures must not have any free variables in them."
+                let assert_empty x = if Array.isEmpty x then x else raise_codegen_error "The Cuda C++ backend doesn't support closures due to them needing to be heap allocated, only function pointers. For them to be converted to pointers, the closures must not have any free variables in them."
                 {tag=i; free_vars=rdata_free_vars args |> assert_empty; domain=domain; range=range; body=body}
             | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
             ) (fun _ s_typ s_fun x ->
@@ -555,7 +555,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 line s_fun "}"
                 ) x.free_vars
             )
-    and uheap _ : UnionRec = raise_codegen_error "Recursive unions aren't allowed in the HLS C++ backend due to them needing to be heap allocated."
+    and uheap _ : UnionRec = raise_codegen_error "Recursive unions aren't allowed in the Cuda C++ backend due to them needing to be heap allocated."
 
     global' "#pragma warning(disable: 4101 4065 4060)"
     global' "// Add these as extra argument to the compiler to suppress the rest:"
@@ -563,12 +563,13 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
     import "cstdint"
     import "array"
 
-    let main_defs' = {text=StringBuilder(); indent=0}
 
     fun vs (x : TypedBind []) ->
         match binds_last_data x |> data_term_vars |> term_vars_to_tys with
         | [||] ->
-            line main_defs' $"extern \"C\" __global__ void entry%i{main_defs.Count}(%s{args vs}) {{"
+            let main_defs' = {text=StringBuilder(); indent=0}
+            let args = vs |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
+            line main_defs' $"extern \"C\" __global__ void entry%i{main_defs.Count}(%s{args}) {{"
             binds_start (indent main_defs') x
             line main_defs' "}"
             main_defs.Add(main_defs'.text.ToString())

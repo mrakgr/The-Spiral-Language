@@ -1,0 +1,33 @@
+// Does mapping an array with more than a single thread into a separate output array work with tuple types?
+
+open corebase
+
+inl grid_range () : int = $"gridDim.x * blockDim.x"
+inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+
+inl main () = 
+    inl map forall (array : * -> *) {length; index; set}. f (inp : array _) (out : array _) = 
+        join_backend Cuda 
+            loop.forBy {from=linear_id(); nearTo=length inp; by=grid_range()} (fun i () =>
+                set out i (index inp i |> f)
+                ) ()
+
+    open inv_arraym
+    inl x1 = ;[1f32;3;5]
+    inl x2 = ;[2;4;6]
+    inl x3 = ;[3;5;7]
+    inl x4 = ;[4;6;8]
+    inl inp = zip x1 <| zip x2 <| zip x3 x4
+    inl out = create (length inp)
+    inl kernel_i, vars = map (fun (a,b,c,d) => a*b+c*d) inp out
+
+    inl module : $'cp.RawModule' = $'cp.RawModule(code=kernel, backend="nvcc")'
+    inl gridDim_x = 4i32
+    inl blockDim_x = 128i32
+    real
+        match vars with
+        | () => $'!module.get_function(f"entry{!kernel_i}")((!gridDim_x,),(!blockDim_x,),())' : ()
+        | _,_ => $'!module.get_function(f"entry{!kernel_i}")((!gridDim_x,),(!blockDim_x,),!vars)' : ()
+        | _ => $'!module.get_function(f"entry{!kernel_i}")((!gridDim_x,),(!blockDim_x,),(!vars,))' : ()
+    
+    out

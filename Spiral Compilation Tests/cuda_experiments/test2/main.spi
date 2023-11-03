@@ -1,0 +1,10 @@
+// Do multiple kernels compile?
+
+inl main () = 
+    inl f (x : i32) = join_backend Cuda
+        inl _ = $"int v$[!x]" : $"int *"
+        ()
+
+    ignore (f 1)
+    ignore (f 2)
+    ignore (f 3)

@@ -10,7 +10,7 @@ open System
 open System.Text
 open System.Collections.Generic
 
-type PythonBackendType = Prototypal | UPMEM_Python_Host | Cuda
+type PythonBackendType = Cuda
 
 let lit = function
     | LitInt8 x -> sprintf "%i" x
@@ -65,25 +65,27 @@ let type_lit = function
 let show_w = function WV(L(i,_)) -> sprintf "v%i" i | WLit a -> lit a
 let args x = x |> Array.map (fun (L(i,_)) -> sprintf "v%i" i) |> String.concat ", "
 let prim x = Infer.show_primt x
-let numpy_ty = function
+let cupy_ty x =
+    let er () = raise_codegen_error "Only stack allocated primitive types (i8,i16,i32,i64 and u8,u16,u32,u64 and f32,f64 and bool) are allowed in CuPy arrays."
+    match x with
     | [|L(_,x)|] ->
         match x with
         | YPrim x ->
             match x with
-            | Int8T -> "np.int8"
-            | Int16T -> "np.int16"
-            | Int32T -> "np.int32"
-            | Int64T -> "np.int64"
-            | UInt8T -> "np.uint8"
-            | UInt16T -> "np.uint16"
-            | UInt32T -> "np.uint32"
-            | UInt64T -> "np.uint64"
-            | Float32T -> "np.float32"
-            | Float64T -> "np.float64"
-            | BoolT -> "np.int8"
-            | _ -> "object"
-        | _ -> "object"
-    | _ -> "object"
+            | Int8T -> "cp.int8"
+            | Int16T -> "cp.int16"
+            | Int32T -> "cp.int32"
+            | Int64T -> "cp.int64"
+            | UInt8T -> "cp.uint8"
+            | UInt16T -> "cp.uint16"
+            | UInt32T -> "cp.uint32"
+            | UInt64T -> "cp.uint64"
+            | Float32T -> "cp.float32"
+            | Float64T -> "cp.float64"
+            | BoolT -> "cp.int8"
+            | _ -> er()
+        | _ -> er()
+    | _ -> er()
 
 type UnionRec = {tag : int; free_vars : Map<string, TyV[]>}
 type LayoutRec = {tag : int; data : Data; free_vars : TyV[]; free_vars_by_key : Map<string, TyV[]>}
@@ -151,7 +153,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             if dirty then print is_type show r
             r
 
-    let numpy_ty x = env.ty_to_data x |> data_free_vars |> numpy_ty
+    let cupy_ty x = env.ty_to_data x |> data_free_vars |> cupy_ty
     let rec binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = binds (Codegen.C.refc_prepass Set.empty (Set args) x).g_decr s BindsTailEnd x
     and binds g_decr (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
         let s_len = s.text.Length
@@ -197,7 +199,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         | YLayout(a,HeapMutable) -> sprintf "Mut%i" (mut a).tag
         | YMacro a -> a |> List.map (function Text a -> a | Type a -> tup_ty a | TypeLit a -> type_lit a) |> String.concat ""
         | YPrim a -> prim a
-        | YArray a -> "np.ndarray"
+        | YArray a -> "cp.ndarray"
         | YFun(a,b) -> 
             let a = env.ty_to_data a |> data_free_vars |> Array.map (fun (L(_,t)) -> tyv t) |> String.concat ", "
             $"Callable[[{a}], {tup_ty b}]"
@@ -283,8 +285,8 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         | TyLayoutHeapMutableSet(L(i,t),b,c) ->
             let a = List.fold (fun s k -> match s with DRecord l -> l.[k] | _ -> raise_codegen_error "Compiler error: Expected a record.") (mut t).data b
             Array.iter2 (fun (L(i',_)) b -> line s $"v{i}.v{i'} = {show_w b}") (data_free_vars a) (data_term_vars c)
-        | TyArrayLiteral(a,b) -> return' <| sprintf "np.array([%s],dtype=%s)" (List.map tup_data' b |> String.concat ", ") (numpy_ty a)
-        | TyArrayCreate(a,b) -> return' $"np.empty({tup_data b},dtype={numpy_ty a})" 
+        | TyArrayLiteral(a,b) -> return' <| sprintf "cp.array([%s],dtype=%s)" (List.map tup_data' b |> String.concat ", ") (cupy_ty a)
+        | TyArrayCreate(a,b) -> return' $"cp.empty({tup_data b},dtype={cupy_ty a})" 
         | TyFailwith(a,b) -> line s $"raise Exception({tup_data' b})"
         | TyConv(a,b) -> return' $"{tyv a}({tup_data b})"
         | TyApply(L(i,_),b) -> return' $"v{i}({tup_data' b})"
@@ -401,7 +403,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             line s "return inner"
             )
 
-    import "numpy as np"
+    import "cupy as cp"
     from "dataclasses import dataclass"
     from "typing import NamedTuple, Union, Callable, Tuple"
     globals.Add "i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str"
@@ -424,9 +426,8 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
 
 let codegen' backend_type env x = 
     match backend_type with
-    | Prototypal -> codegen'' (fun (_,_,(r,_)) -> raise_codegen_error_backend r "The Python backend does not support nesting of other backends.") env x
     | Cuda ->
-        let cuda_kernels = StringBuilder().AppendLine("kernel = \"\"\"")
+        let cuda_kernels = StringBuilder().AppendLine("kernel = r\"\"\"")
         let g = Dictionary(HashIdentity.Structural)
         let globals, fwd_dcls, types, functions, main_defs as ars = ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray(), ResizeArray()
         let codegen = Cuda.CppDevice.codegen ars env
@@ -453,33 +454,5 @@ let codegen' backend_type env x =
         cuda_kernels
             .AppendLine("\"\"\"")
             .Append(python_code).ToString()
-    | UPMEM_Python_Host ->
-        let upmem_c_kernels = StringBuilder()
-        upmem_c_kernels.AppendLine("kernels = [") |> ignore
-        let upmem_add_kernel (code : string) =
-            upmem_c_kernels.AppendLine($"   r\"\"\"")
-                .Append(code)
-                .AppendLine("\"\"\",") |> ignore
-        let g = Dictionary(HashIdentity.Structural)
-        let python_code =
-            codegen'' (fun (jp_body,key,(r',backend_name)) ->
-                match backend_name with
-                | "UPMEM_C_Kernel" -> 
-                    Utils.memoize g (fun (jp_body,key & (C(args,_))) ->
-                        let args = rdata_free_vars args
-                        match (fst env.join_point_method.[jp_body]).[key] with
-                        | Some a, Some _, _ -> upmem_add_kernel (C.codegen' (C.UPMEM_C_Kernel args) env a)
-                        | _ -> raise_codegen_error "Compiler error: The method dictionary is malformed"
-                        string g.Count
-                        ) (jp_body,key)
-                | x -> raise_codegen_error_backend r' $"The UPMEM Python Host backend does not support the {x} backend."
-                ) env x
 
-        upmem_c_kernels
-            .AppendLine("]")
-            .AppendLine("from dpu import DpuSet")
-            .Append(python_code).ToString()
-
-let codegen_upmem_python_host env x = codegen' UPMEM_Python_Host env x
 let codegen_cuda env x = codegen' Cuda env x
-let codegen env x = codegen' Prototypal env x

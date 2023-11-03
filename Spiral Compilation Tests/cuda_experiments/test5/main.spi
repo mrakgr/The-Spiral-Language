@@ -1,0 +1,19 @@
+// Does the variable transfer work?
+
+inl main () = 
+    let f (a,b,c,d) = join_backend Cuda 
+        inl q : i32 = a + b - c - d
+        inl w = a * b * c * d
+        $"!a = !q"
+        $"!b = !w"
+        ()
+    inl kernel_i, vars = f (1,2,3,4)
+
+    inl module : $'cp.RawModule' = $'cp.RawModule(code=kernel, backend="nvcc")'
+    real
+        match vars with
+        | () => $'!module.get_function(f"entry{!kernel_i}")((1,),(1,),())' : ()
+        | _,_ => $'!module.get_function(f"entry{!kernel_i}")((1,),(1,),!vars)' : ()
+        | _ => $'!module.get_function(f"entry{!kernel_i}")((1,),(1,),(!vars,))' : ()
+    
+    "Done"

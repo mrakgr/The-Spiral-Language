@@ -1,9 +1,0 @@
-open corebase
-
-inl f () =
-    $'printf("Hello from the GPU)"'
-    ()
-    
-inl main() =
-    
-    ()

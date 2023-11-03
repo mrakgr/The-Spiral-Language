@@ -1,0 +1,40 @@
+open real_core
+
+inl dpu_pack dpu vars =
+    inl rec loop i = function
+        | () => ()
+        | (a,b) => 
+            typecase `a with
+            | i8 => $"!dpu.v!i = bytearray(struct.pack('b',!a))" : ()
+            | i16 => $"!dpu.v!i = bytearray(struct.pack('h',!a))" : ()
+            | i32 => $"!dpu.v!i = bytearray(struct.pack('i',!a))" : ()
+            | i64 => $"!dpu.v!i = bytearray(struct.pack('q',!a))" : ()
+            | u8 => $"!dpu.v!i = bytearray(struct.pack('B',!a))" : ()
+            | u16 => $"!dpu.v!i = bytearray(struct.pack('H',!a))" : ()
+            | u32 => $"!dpu.v!i = bytearray(struct.pack('I',!a))" : ()
+            | u64 => $"!dpu.v!i = bytearray(struct.pack('Q',!a))" : ()
+            | f32 => $"!dpu.v!i = bytearray(struct.pack('f',!a))" : ()
+            | f64 => $"!dpu.v!i = bytearray(struct.pack('d',!a))" : ()
+            loop (i+1) b
+    loop 0 vars
+
+inl dpu_unpack dpu vars = 
+    inl rec loop i = function
+        | () => ()
+        | (a,b) => 
+            inl r =
+                typecase `a with
+                | i8 => $"!dpu.v!i.int8()" : `a
+                | i16 => $"!dpu.v!i.int16()" : `a
+                | i32 => $"!dpu.v!i.int32()" : `a
+                | i64 => $"!dpu.v!i.int64()" : `a
+                | u8 => $"!dpu.v!i.uint8()" : `a
+                | u16 => $"!dpu.v!i.uint16()" : `a
+                | u32 => $"!dpu.v!i.uint32()" : `a
+                | u64 => $"!dpu.v!i.uint64()" : `a
+                | f32 => $"!dpu.v!i.float32()" : `a
+                | f64 => $"!dpu.v!i.float64()" : `a
+
+            r, loop (i+1) b
+    loop 0 vars
+        

@@ -374,11 +374,11 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                         try let (a,_),b = PartEval.Main.peval {prototypes_instances=prototypes_instances; nominals=nominals} main
                             match backend with
                             | "Fsharp" -> BuildOk [{|code = Codegen.Fsharp.codegen b a; file_extension = "fsx"|}]
-                            | "Python" -> BuildOk [{|code = Codegen.Python.codegen b a; file_extension = "py"|}]
                             | "C" -> BuildOk [{|code = Codegen.C.codegen b a; file_extension = "c"|}]
                             | "Cuda C++" -> BuildOk (Codegen.Cuda.Cpp.codegen b a)
                             | "Python + Cuda" -> BuildOk [{|code = Codegen.Python.codegen_cuda b a; file_extension = "py"|}]
-                            | "UPMEM: Python + C" -> BuildOk [{|code = Codegen.Python.codegen_upmem_python_host b a; file_extension = "py"|}]
+                            | "Python" -> BuildFatalError "The prototype Python backend has been replaced by the Python + Cuda one in v2.5.0 of Spiral. Please use an earlier version to access it." // Date: 11/3/2023
+                            | "UPMEM: Python + C" -> BuildFatalError "The UPMEM Python + C backend has been replaced by the Python + Cuda one in v2.5.0 of Spiral. Please use an earlier version to access it." // Date: 11/3/2023
                             | "HLS C++" -> BuildFatalError "The HLS C++ backend has been replaced by the Cuda one in v2.5.0 of Spiral. Please use an earlier version to access it." // Date: 10/17/2023
                             | "Cython*" | "Cython" -> BuildFatalError "The Cython backend has been replaced by the Python one in v2.3.1 of Spiral. Please use an earlier version to access it." // Date: 12/27/2022
                             | _ -> BuildFatalError $"Cannot recognize the backend: {backend}"

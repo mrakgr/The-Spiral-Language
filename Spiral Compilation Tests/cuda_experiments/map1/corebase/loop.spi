@@ -10,25 +10,32 @@ inl _set forall t. (a : t) ~(b : t) : () =  real
         | (a,a'),(b,b') => ($"!a = !b" : ()) . loop (a',b')
         | (), () => ()
     loop (real_core.free_vars a, real_core.free_vars b)
+inl _add forall t. (x : t) (by : t) : () = $'!x += !by '
+inl _sub forall t. (x : t) (by : t) : () = $'!x -= !by '
 
+// An imperative while loop.
 inl while cond body state =
     inl state = _dup state
     while' (fun _ => cond state) fun _ => _set state (body state)
     state
 
 // Folds over the range. Compiles to a while loop.
-inl for {from nearTo} body state = 
+inl forBy {from nearTo by} body state = 
     inl i, state = _dup (from, state)
-    while' (fun _ => i < nearTo) fun _ => _set state (body i state) . $"!i += 1"
+    while' (fun _ => i < nearTo) fun _ => _set state (body i state) . _add i by
     state
+// Folds over the range. Compiles to a while loop.
+inl for {from nearTo} body state = forBy {from nearTo by=1} body state
 // Folds over the range. Stateless version. Compiles to a while loop.
-inl for' {from nearTo} body = for {from nearTo} (fun i _ => body i) ()
+inl for' r body = for r (fun i _ => body i) ()
+
 
 // Folds over the range in an downwards direction.
-inl forDown {nearFrom to} body state = 
+inl forDownBy {nearFrom to by} body state = 
     inl i, state = _dup (nearFrom, state)
-    while' (fun _ => i > to) fun _ => $"!i -= 1" . _set state (body i state)
+    while' (fun _ => i > to) fun _ => _sub i by . _set state (body i state)
     state
-
+// Folds over the range in an downwards direction.
+inl forDown {nearFrom to} body state = forDownBy {nearFrom to by=1} body state
 // Folds over the range in an downwards direction. Stateless version.
-inl forDown' {nearFrom to} body = forDown {nearFrom to} (fun i () => body i) ()
+inl forDown' r body = forDown r (fun i () => body i) ()

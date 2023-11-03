@@ -1,0 +1,16 @@
+// Does the most basic kernel run succesfully?
+
+inl main () = 
+    let f = join_backend Cuda 
+        $'printf("Size of a pointer is %i.\\n", sizeof(int *))'
+        ()
+    inl kernel_i, vars = f
+
+    inl module : $'cp.RawModule' = $'cp.RawModule(code=kernel, backend="nvcc")'
+    real
+        match vars with
+        | () => $'!module.get_function(f"entry{!kernel_i}")((1,),(1,),())' : ()
+        | _,_ => $'!module.get_function(f"entry{!kernel_i}")((1,),(1,),!vars)' : ()
+        | _ => $'!module.get_function(f"entry{!kernel_i}")((1,),(1,),(!vars,))' : ()
+    
+    "Done"
