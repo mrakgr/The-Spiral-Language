@@ -1,2 +1,2 @@
-type int = i64
-type float = f64
+type int = u32
+type float = f32

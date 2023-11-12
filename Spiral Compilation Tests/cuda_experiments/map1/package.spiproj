@@ -20,9 +20,10 @@ modules:
         default-
 
     corecuda/
-        default-
         base-
         sam
+        inv_array_kernels
+        
         
     // conv-
     // hand_scorer_orig
@@ -40,4 +41,6 @@ modules:
         test8
         test9a
         test9b
+        test10
+
 

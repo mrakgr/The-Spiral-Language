@@ -20,3 +20,11 @@ inl rezip forall (ar : * -> *) a b. (f : a -> b) (a : inv_array ar a) : inv_arra
 inl array forall t. (x : array_base t) : inv_array array t = 
     inl x = array x
     inv_array {len=length x; arrays=real x}
+
+// Assert the array length. If they are the same, substitutes it with the given length in the resulting array.
+// Useful when then given length is known at compile time and the array length is known at runtime.
+// In that case, the resulting array will have the length given at compile time.
+inl assert_len forall (ar : * -> *) a. (len : int) (inv_array {len=len' arrays} & a : inv_array ar a) : inv_array ar a =
+    assert (len = len') "Expected the length of the array to be the specified amount."
+    inv_array {len arrays}
+    
