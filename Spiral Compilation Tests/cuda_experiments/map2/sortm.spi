@@ -1,0 +1,10 @@
+open corecuda
+
+inl sort forall dim el. f (ar : sa dim el) =
+    global "#include <algorithm>"
+    open sam
+    inl ar = map id ar
+    inl comp (a,b : el * el) : bool = f a b
+    $"std::sort(!ar.begin(),!ar.end(),!comp)"
+    ar
+

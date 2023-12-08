@@ -1,0 +1,46 @@
+packages: |core-
+
+modules:
+    corebase/
+        default-
+        base-
+        limit
+        real_core*
+        type_arith*
+        core-
+        loop
+        listm
+        optionm
+        monad
+        arraym
+        inv_array_utils*
+        inv_arraym
+
+    corepython/
+        default-
+
+    corecuda/
+        base-
+        sam
+        inv_array_kernels
+        
+        
+    // conv-
+    // hand_scorer_orig
+    // cardm
+    // bitsetm
+    // random
+    // sortm
+    // hand_scorer
+    // scan_tests
+    // main
+    spiral_map
+    cuda_tests/
+        test6
+        test7
+        test8
+        test9a
+        test9b
+        test10
+
+

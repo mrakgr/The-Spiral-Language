@@ -1,0 +1,2 @@
+type int = u32
+type float = f32

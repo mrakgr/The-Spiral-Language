@@ -1,0 +1,13 @@
+// Factoring out the run.
+
+open corebase
+inl main () = 
+    open inv_arraym
+    inl x1 = ;[1f32;3;5]
+    inl x2 = ;[2;4;6]
+    inl x3 = ;[3;5;7]
+    inl x4 = ;[4;6;8]
+    inl inp = assert_len 3 <| zip x1 <| zip x2 <| zip x3 x4
+
+    open corecuda.inv_array_kernels
+    map (fun a,b,c,d => a*b + c*d, a*d - b*c) inp

@@ -1,0 +1,29 @@
+// Does mapping an array work with more than a single thread?
+
+open corebase
+
+inl grid_range () : int = $"gridDim.x * blockDim.x"
+inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+
+inl main () = 
+    inl map f (a : array f32) = 
+        inl len = length a
+        join_backend Cuda 
+            loop.forBy {from=linear_id(); nearTo=len; by=grid_range()} (fun i () =>
+                set a i (index a i |> f)
+                ) ()
+            ()
+
+    inl a = ;[1;2;3;4;5]
+    inl kernel_i, vars = map ((+) 100) a
+
+    inl module : $'cp.RawModule' = $'cp.RawModule(code=kernel, backend="nvcc")'
+    inl gridDim_x = 4i32
+    inl blockDim_x = 128i32
+    real
+        match vars with
+        | () => $'!module.get_function(f"entry{!kernel_i}")((!gridDim_x,),(!blockDim_x,),())' : ()
+        | _,_ => $'!module.get_function(f"entry{!kernel_i}")((!gridDim_x,),(!blockDim_x,),!vars)' : ()
+        | _ => $'!module.get_function(f"entry{!kernel_i}")((!gridDim_x,),(!blockDim_x,),(!vars,))' : ()
+    
+    a
