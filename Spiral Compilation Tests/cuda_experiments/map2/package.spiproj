@@ -25,22 +25,23 @@ modules:
         inv_array_kernels
         
         
+    cardm
+    hand_scorer
+
     // conv-
     // hand_scorer_orig
-    // cardm
     // bitsetm
     // random
     // sortm
-    // hand_scorer
     // scan_tests
     // main
-    spiral_map
-    cuda_tests/
-        test6
-        test7
-        test8
-        test9a
-        test9b
-        test10
+    // spiral_map
+    // cuda_tests/
+    //     test6
+    //     test7
+    //     test8
+    //     test9a
+    //     test9b
+    //     test10
 
 
