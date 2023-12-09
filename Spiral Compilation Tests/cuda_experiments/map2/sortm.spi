@@ -1,3 +1,4 @@
+open corebase
 open corecuda
 
 inl sort forall dim el. f (ar : sa dim el) =
@@ -5,6 +6,16 @@ inl sort forall dim el. f (ar : sa dim el) =
     open sam
     inl ar = map id ar
     inl comp (a,b : el * el) : bool = f a b
-    $"std::sort(!ar.begin(),!ar.end(),!comp)"
+    $"std::sort(&!ar.v[0],&!ar.v[@dim],!comp)"
     ar
 
+inl main() = 
+    run 1 1 (fun () =>
+        inl x : sa 4 f32 = sam.fromList [1;3;2;4]
+        inl x = sort (<) x
+        sam.iter (fun x =>
+            $'printf("%f\\n", !x)'
+            ) x
+        ()
+        )
+    ()

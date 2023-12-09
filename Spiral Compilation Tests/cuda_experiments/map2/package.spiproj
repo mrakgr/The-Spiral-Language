@@ -25,6 +25,7 @@ modules:
         inv_array_kernels
         
         
+    sortm
     cardm
     hand_scorer
 
@@ -32,7 +33,6 @@ modules:
     // hand_scorer_orig
     // bitsetm
     // random
-    // sortm
     // scan_tests
     // main
     // spiral_map
