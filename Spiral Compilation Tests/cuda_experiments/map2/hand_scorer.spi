@@ -118,7 +118,12 @@ instance comparable hand_score ar dim = fun a b =>
     | x => x
 
 prototype sort ar dim el {suit; rank} : ar dim el -> ar dim el
-instance sort sa = sortm.sort (fun a b => rank a > rank b || (rank a = rank b && suit a < suit b))
+instance sort sa =
+    sortm.merge_sort (fun a b =>
+        match comp (rank b) (rank a) with
+        | Eq => comp (suit a) (suit b)
+        | x => x
+        )
 
 let score forall (ar : * -> * -> *) {sort; filter_take; try_straight_flush_for_suit; try_straight; max_hand; partition_topk_pair; take; merge_hands; merge_hands2} dim. 
         (hand : ar dim card) : hand_score ar 5 =

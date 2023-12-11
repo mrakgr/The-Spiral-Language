@@ -511,8 +511,8 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             let concat x = String.concat ", " x
             let args = x.tys |> Array.mapi (fun i x -> $"{tyv x} t{i}")
             let con_init = x.tys |> Array.mapi (fun i x -> $"v{i}(t{i})")
-            line (indent s_typ) $"{name}({concat args}) : {concat con_init} {{}}" 
-            line (indent s_typ) $"{name}() = default;" 
+            line (indent s_typ) $"__device__ {name}({concat args}) : {concat con_init} {{}}" 
+            line (indent s_typ) $"__device__ {name}() = default;" 
 
             line s_typ "};"
 
@@ -544,7 +544,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
 
             map_iteri (fun tag k v -> 
                 let args = v |> Array.map (fun (L(i,t)) -> $"{tyv t} v{i}") |> String.concat ", "
-                line s_fun (sprintf "US%i US%i_%i(%s) { // %s" i i tag args k)
+                line s_fun (sprintf "__device__ US%i US%i_%i(%s) { // %s" i i tag args k)
                 let _ =
                     let s_fun = indent s_fun
                     line s_fun $"US{i} x;"

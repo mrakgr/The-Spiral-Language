@@ -1,3 +1,7 @@
+2.5.2 (11/3/2023)
+
+* Fixed some of the compilation bugs in the Cuda backend. Now tuple and union types should be usable. 
+
 2.5.1 (11/3/2023)
 
 * Removed the Python backend.
