@@ -1,0 +1,285 @@
+// Raises a type error during partial evaluation.
+inl error_type x = !!!!ErrorType(x)
+// Prints a term at compile time.
+inl print_static x = !!!!PrintStatic(x)
+// Pushes the term to runtime.
+inl dyn x = !!!!Dyn(x)
+// Indexes the layout type.
+inl (~*) x = !!!!LayoutIndex(x)
+// Indexes the layout type.
+inl (~!) x = !!!!LayoutIndex(x)
+
+// Binary addition.
+inl (+) a b = !!!!Add(a,b)
+// Binary subtraction.
+inl (-) a b = !!!!Sub(a,b)
+// Binary multiplication.
+inl (*) a b = !!!!Mult(a,b)
+// Binary power.
+inl (**) a b = !!!!Pow(a,b)
+// Binary division.
+inl (/) a b = !!!!Div(a,b)
+// Binary modulo.
+inl (%) a b = !!!!Mod(a,b)
+
+// Natural Logarithm.
+inl log x = !!!!Log(x)
+// Exponent.
+inl exp x = !!!!Exp(x)
+// Hyperbolic tangent. 
+inl tanh x = !!!!Tanh(x)
+// Square root.
+inl sqrt x = !!!!Sqrt(x)
+// Sin
+inl sin x = !!!!Sin(x)
+// Cos
+inl cos x = !!!!Cos(x)
+// Unsafe conversion.
+inl conv forall b. x = !!!!Conv(`b, x)
+// Division with rounding up.
+inl divup a b = (a + b - conv `(`a) 1) / conv `(`a) 2
+
+// Applies the first argument to the second.
+inl (|>) a b = b a
+// Applies the second argument to the first.
+inl (<|) a b = a b
+// Applies the third argument to the first and then the result of that to the second.
+inl (>>) a b x = b (a x)
+// Applies the third argument to the second and then the result of that to the first.
+inl (<<) a b x = a (b x)
+
+// Binary less-than-or-equals.
+inl (<=) a b = !!!!LTE(a,b)
+// Binary less-than.
+inl (<) a b = !!!!LT(a,b)
+// Binary equals.
+inl (=) a b = !!!!EQ(a,b)
+// Binary type equals.
+inl (`=) forall a b. = !!!!TypeEq(`a, `b)
+// Binary unequals.
+inl (<>) a b = !!!!NEQ(a,b)
+// Binary greater-than.
+inl (>) a b = !!!!GT(a,b)
+// Binary greater-than-or-equals.
+inl (>=) a b = !!!!GTE(a,b)
+
+// 32/64-bit float infinity
+inl inf forall t. = !!!!Infinity(`t)
+// 32-64-bit pi
+inl pi forall t. = !!!!Pi(`t)
+// Unary negation.
+inl (~-) x = !!!!Neg(x)
+// Evaluates an term and throws away the result.
+inl ignore x = ()
+// Returns an term after evaluating it.
+inl id x = x
+// Throws away the second argument and returns the first.
+inl const x () = x
+// Applies the unit to the function.
+inl unconst x = x()
+// Boolean negation.
+inl not x = x = false
+// Gets the first elements of a pair.	
+inl fst (a,b) = a
+// Gets the second element of a pair.	
+inl snd (a,b) = b
+
+// Size of a float or an int type. Returns a i32 literal.
+inl sizeof forall a {number}. = !!!!SizeOf(`a)
+
+// Bitwise and.
+inl (&&&) a b = !!!!BitwiseAnd(a,b)
+// Bitwise or.
+inl (|||) a b = !!!!BitwiseOr(a,b)
+// Bitwise xor.
+inl (^^^) a b = !!!!BitwiseXor(a,b)
+
+// Shift left.
+inl (<<<) a b = !!!!ShiftLeft(a,b)
+// Shift right.
+inl (>>>) a b = !!!!ShiftRight(a,b)
+
+// Returns boolean whether the term is a literal.
+inl lit_is x = !!!!LitIs(x)
+// Returns boolean whether the term is a primitive type.
+inl prim_is x = !!!!PrimIs(x)
+// Returns boolean whether the term is a symbol.
+inl symbol_is x = !!!!SymbolIs(x)
+// Returns boolean whether the term is a runtime variable.
+inl var_is x = !!!!VarIs(x)
+// Returns boolean whether the term is an union.
+inl union_is x = !!!!UnionIs(x)
+// Returns boolean whether the term is a heap allocated union.
+inl heap_union_is x = !!!!HeapUnionIs(x)
+// Returns boolean whether the term is a layout type.
+inl layout_is x = !!!!LayoutIs(x)
+// Returns boolean whether the term is a nominal type.
+inl nominal_is x = !!!!NominalIs(x)
+// Returns boolean whether the term is a function.
+inl function_is x = !!!!FunctionIs(x)
+// Returns boolean whether the type has the relevant prototype.
+inl prototype_has forall t. prot = !!!!PrototypeHas(prot, `t)
+// Returns boolean whether the float is a Nan.
+inl nan_is x = !!!!NanIs(x)
+
+// Raises an exception at runtime.
+inl failwith forall t. msg = !!!!FailWith(`t,msg)
+// Asserts an term. If the conditional and the message are literals it raises a type error instead.
+inl assert c msg = 
+    if c = false then 
+        if lit_is c && lit_is msg then error_type msg
+        else failwith `(()) msg
+// Returns the maximum of the two terms.
+inl max a b = if a >= b then a else b
+// Returns the minimum of the two terms.
+inl min a b = if a < b then a else b
+// Returns the absolute value.
+inl abs x = max x -x
+// The template for lit_min and lit_max.
+inl lit_comp op a b =
+    if lit_is a && lit_is b then op a b
+    elif lit_is a then a
+    elif lit_is b then b
+    else error_type "a or b needs to be a literal"
+
+// Returns the compile time expressible maximum of the two terms.
+inl lit_max x = lit_comp max x
+// Returns the compile time expressible minimum of the two terms.
+inl lit_min x = lit_comp min x
+
+// Maps over a record.
+inl record_map f a = !!!!RecordMap(f,a)
+// Iterates over a record.
+inl record_iter f a = !!!!RecordIter(f,a)
+// Filters a record at compile time.
+inl record_filter f a = !!!!RecordFilter(f,a)
+// Folds over a record left to right.
+inl record_fold f s a = !!!!RecordFold(f,s,a)
+// Folds over a record right to left.
+inl record_fold_back f a s = !!!!RecordFoldBack(f,s,a)
+// Returns the record's length as i32.
+inl record_length m = !!!!RecordLength(m)
+
+// Maps over a type record.
+inl record_type_map f = forall a. => !!!!RecordTypeMap(f, `a)
+// Iterates over a type record.
+inl record_type_iter f = forall a. => !!!!RecordTypeIter(f, `a)
+// Folds over a type record left to right.
+inl record_type_fold f s = forall a. => !!!!RecordTypeFold(f,s, `a)
+// Folds over a type record right to left.
+inl record_type_fold_back f = forall a. s => !!!!RecordTypeFoldBack(f,s, `a)
+// Returns the type record's length as i32.
+inl record_type_length forall m. = !!!!RecordTypeLength(`m)
+// Tries indexing into a type record at the specified key. Passes the value into the success branch if it finds it.
+inl record_type_try_find forall a. k on_succ on_fail = !!!!RecordTypeTryFind(`a,k,on_succ,on_fail)
+
+// Returns boolean whether the type is a primitive type.
+inl prim_type_is forall x. = !!!!PrimTypeIs(`x)
+// Returns boolean whether the type is a symbol.
+inl symbol_type_is forall x. = !!!!SymbolTypeIs(`x)
+// Returns boolean whether the type is an union.
+inl union_type_is forall x. = !!!!UnionTypeIs(`x)
+// Returns boolean whether the type is a heap allocated union.
+inl heap_union_type_is forall x. = !!!!HeapUnionTypeIs(`x)
+// Returns boolean whether the type is a layout type.
+inl layout_type_is forall x. = !!!!LayoutTypeIs(`x)
+// Returns boolean whether the type is a nominal type.
+inl nominal_type_is forall x. = !!!!NominalTypeIs(`x)
+
+// Converts the term slots array of a compile time function into a tuple.
+inl function_term_slots_get a = !!!!FunctionTermSlotsGet(a)
+// Immutably replaces the term slots field array by the tuple.
+inl function_term_slots_set a b = !!!!FunctionTermSlotsSet(a,b)
+// Gets the free vars of a term as a tuple.
+inl free_vars x = !!!!FreeVars(x)
+
+// Returns the i32 tag of an union.
+inl union_tag x = !!!!UnionTag(x)
+
+// Takes in a tag and an union type and passes the key/value pair of the union at that tag into the success case.
+// When the tag is a runtime variable it iterates through all the cases in turn.
+inl union_untag forall t. x on_succ on_fail = !!!!UnionUntag(`t,x,on_succ,on_fail)
+
+// Converts an union type to a type record.
+inl union_to_record forall t. on_succ = !!!!UnionToRecord(`t,on_succ)
+
+// Strips the nominal wrapper from the value.
+inl nominal_strip x = !!!!NominalStrip(x)
+
+// Creates a nominal or an union type based on the input.
+inl nominal_create forall t. x = !!!!NominalCreate(x, `t)
+
+// Converts a nominal to a different equivalent type. `sa (add 2 2) i32` to `sa 4 i32` for example. It will give an error if the type is not equivalent.
+inl nominal_recreate forall t. x = !!!!NominalCreate(!!!!NominalStrip(x), `t)
+
+// It unboxes an arbitrary union type. Passes the resulting key/value pair into success branch.
+inl unbox x on_succ = !!!!Unbox(x,on_succ)
+
+// Converts a type symbol to a term symbol.
+inl type_to_symbol forall t. = !!!!TypeToSymbol(`t)
+
+// Converts a string literal to a symbol.
+inl string_lit_to_symbol x = !!!!StringLitToSymbol(x)
+
+// Converts a type literal or a symbol into their term equivalent representation.
+inl type_lit_to_lit forall t. = !!!!TypeLitToLit(`t)
+
+// Converts a literal or a symbol into their type equivalent representation.
+inl lit_to_type_lit x = !!!!LitToTypeLit(x)
+
+// Structural polymorphic equality for every type in the language (apart from functions.)
+inl rec (=) a b =
+    match a, b with
+    | (a, a'), (b, b') => a = b && a' = b'
+    | {} & a, {} & b => record_fold_back (fun {state=next key value} res => res && match b with { $key=value'} => next (value = value')) a id true
+    | (), () => true
+    | a, b => 
+        if symbol_is a then true
+        elif layout_is a then *a = *b
+        elif union_is a then
+            inl body () = 
+                if prototype_has `(`a) equable then equable `(`a) a b
+                else !!!!Unbox2(a,b,(fun (_,a,b) => a = b),(fun () => false))
+            if heap_union_is a && var_is a && var_is b then (join body()) : bool 
+            else body()
+        elif nominal_is a then
+            if prototype_has `(`a) equable then equable `(`a) a b
+            else nominal_strip a = nominal_strip b
+        else !!!!EQ(a,b)
+
+// Structural polymorphic equality for every type in the language (apart from functions.)
+inl (=) a b = if `(`(a)) `= `(`(b)) then a = b else error_type "The variables compared for equality have to have the same type."
+
+// Structural polymorphic inequality for every type in the language (apart from functions.)
+inl (<>) a b = (a = b) <> true
+
+// Structural polymorphic comparison for every type in the language (apart from functions.)
+inl rec comp a b =
+    match a, b with
+    | (a, a'), (b, b') => 
+        inl x = comp a b 
+        if eq_is x then comp a' b' else x
+    | {} & a, {} & b => 
+        record_fold_back (fun {state=next key value} res => 
+            if eq_is res then match b with { $key=value'} => next (comp value value') else res
+            ) a id eq()
+    | (), () => eq()
+    | a, b => 
+        if symbol_is a then eq()
+        elif layout_is a then comp *a *b
+        elif union_is a then
+            inl body () = 
+                if prototype_has `(`a) comparable then comparable `(`a) a b
+                else !!!!Unbox2(a,b,(fun (_,a,b) => comp a b),(fun () => comp (union_tag a) (union_tag b)))
+            if heap_union_is a && var_is a && var_is b then (join body()) : order 
+            else body()
+        elif nominal_is a then
+            if prototype_has `(`a) comparable then comparable `(`a) a b
+            else comp (nominal_strip a) (nominal_strip b)
+        else 
+            if !!!!LT(a,b) then lt()
+            elif !!!!GT(a,b) then gt()
+            else eq()
+
+// Structural polymorphic comparison for every type in the language (apart from functions.)
+inl comp a b = if `(`(a)) `= `(`(b)) then comp a b else error_type "The variables compared have to have the same type."

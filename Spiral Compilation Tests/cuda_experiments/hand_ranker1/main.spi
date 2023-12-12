@@ -1,0 +1,154 @@
+open corecuda
+open cardm
+
+type pid = i8
+
+prototype draw env : env -> card
+
+type pot = i16
+nominal player = {hand : option (card * card); pot : pot}
+
+nominal config = {
+    stack_size : pot
+    sb : pot
+    bb : pot
+    }
+
+union action = Fold | Call | RaiseTo : pot
+
+prototype ante env : pot -> player -> env -> player
+prototype betting env : player * player -> list card -> config -> env -> (player * player)
+prototype showdown env : player * player -> list card -> env -> pot
+prototype action env : player * player * pid -> list card -> config -> env -> action
+
+nominal random_player_env = {
+    deck : ref (bitsetm.bitset 52)
+    rng : ref random.mt19937
+    }
+
+instance ante random_player_env = fun pot (player pl0) env => player {pl0 with pot}
+instance action random_player_env = fun (pl0,pl1,pid) cards config (random_player_env env) =>
+    inl pot = max pl0.pot pl1.pot + pl1.pot
+    inl raise x = 
+        inl v = pot + x
+        RaiseTo v, if pl1.pot + config.bb <= v && v <= config.stack_size then 0.25 else 0
+    inl actions : _ 8 (_ * f32) = sam.fromList [
+        Fold, if pl0.pot < pl1.pot then 1 else 0
+        Call, 2
+        raise (pot / 4)
+        raise (pot / 3)
+        raise (pot / 2)
+        raise pot
+        raise (pot * 3 / 2)
+        RaiseTo config.stack_size, if pl0.pot < config.stack_size then 0.3 else 0
+        ]
+    random.sample_discrete actions env.rng
+
+instance draw random_player_env = fun (random_player_env {rng deck}) => 
+    inl card = random.draw_card deck rng
+    card
+
+union betting = TurnOf : {pid : pid; call_skip : i8} | Done
+
+instance betting random_player_env = fun (pl0,pl1) community_cards config env =>
+    inl call (player pl0, player pl1) = player {pl0 with pot #= max pl1.pot}
+    // Clamps the raise between [pl1.pot + config.bb, config.stack_size]
+    inl raise pot (player pl0, player pl1) = player {pl0 with pot #= max pot >> max (pl1.pot + config.bb) >> min config.stack_size}
+    inl fold (player pl) = player {pl with hand = None}
+    inl {pl0 pl1} =
+        loop.while (fun {pl0 pl1 num_moves_left state} => num_moves_left > 0 && state <> Done) (fun {pl0 pl1 num_moves_left state} =>
+            inl pl pid f = 
+                inl b = pid = 0
+                inl pl0,pl1,pid = if b then pl0, pl1, 1 else pl1, pl0, 0
+                inl pl0,rest = f (pl0,pl1,pid)
+                inl pl0,pl1 = if b then pl0,pl1 else pl1,pl0 // Swaps the players back into their original positions.
+                pl0,pl1,rest
+
+            inl pl0,pl1,state =
+                match state with
+                | Done => pl0,pl1,Done
+                | TurnOf {pid call_skip} =>
+                    pl pid fun pl0,pl1,pid =>
+                    inl a = action (pl0,pl1,pid) community_cards config env
+                    inl x,state =
+                        match a with
+                        | Fold => fold pl0, Done
+                        | Call => call (pl0, pl1), if 0 < call_skip then TurnOf {pid call_skip=call_skip-1} else Done
+                        | RaiseTo pot => raise pot (pl0,pl1), TurnOf {pid call_skip=0}
+                    x,state
+            {pl0 pl1 state num_moves_left=num_moves_left-1}
+            ) {pl0 pl1 num_moves_left = 11u8; state = TurnOf {pid=0; call_skip=if [pl0.pot; pl1.pot] = [config.bb; config.sb] then 2 else 1}}
+    (pl0,pl1)
+
+instance showdown random_player_env = fun (pl0,pl1) community_cards env =>
+    match pl0.hand, pl1.hand with
+    | Some h0, Some h1 => 
+        let score h0 = 
+            inl ar : sa 7 card = sam.create
+            inl f i x = sam.set ar i x . i+1
+            inl i = listm.fold f 0 [fst h0; snd h0]
+            inl i = listm.fold f i community_cards
+            if i <> sam.length ar then error_type "The length of the array needs to be the same as the length community cards"
+            hand_scorer.score ar
+        inl h0, h1 = score h0, score h1
+        inl r =
+            match comp h0 h1 with
+            | Gt => pl1.pot
+            | Eq => 0
+            | Lt => -pl0.pot
+        r
+    | Some _, None => pl1.pot
+    | None, Some _ => -pl0.pot
+    | None, None => 0
+
+inl game (config : config) ~env = join
+    inl draw_hidden () =
+        inl c1 = draw env
+        inl c2 = draw env
+        player {hand = Some (c1,c2); pot = 0}, env
+
+    // Preflop
+    inl pl0,env = draw_hidden ()
+    inl pl1,env = draw_hidden ()
+    
+    inl pl0 = ante config.bb pl0 env
+    inl pl1 = ante config.sb pl1 env
+
+    inl (pl0,pl1) = betting (pl0,pl1) [] config env
+
+    // Flop
+    inl c0 = draw env
+    inl c1 = draw env
+    inl c2 = draw env
+    inl (pl0,pl1) = betting (pl0,pl1) [c0;c1;c2] config env
+
+    // Turn
+    inl c3 = draw env
+    inl (pl0,pl1) = betting (pl0,pl1) [c0;c1;c2;c3] config env
+
+    // River
+    inl c4 = draw env
+    inl (pl0,pl1) = betting (pl0,pl1) [c0;c1;c2;c3;c4] config env
+
+    // Showdown
+    showdown (pl0,pl1) [c0;c1;c2;c3;c4] env
+
+inl game_loop config = join
+    inl rng = random.create_mt19937()
+
+    loop.for {from=0; nearTo=10_000_000} (fun (i : i32) r =>
+        inl r' = game config (random_player_env {rng deck=bitsetm.zero()})
+        if i % 10000 = 0 then $'std::cout << !i << std::endl'
+        r+r'
+        ) (0)
+
+inl main() =
+    global "#include <iostream>"
+    random.globals()
+    bitsetm.globals()
+    cardm.globals()
+    
+    inl config = config { stack_size=100; bb=2; sb=1 }
+    inl r = game_loop config
+    $'std::cout << !r << std::endl'
+    0i32

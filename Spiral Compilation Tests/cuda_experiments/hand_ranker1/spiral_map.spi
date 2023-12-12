@@ -1,0 +1,18 @@
+open corebase
+
+// open corecuda
+// open loop
+
+inl map forall (ar : * -> *) {create; length; set; index} a b. f (inp : ar a) : ar b =
+    open loop
+    inl out = create (length inp)
+    for' {from=0; nearTo=length inp} (fun i => set out i (f (index inp i)))
+    out
+    
+inl main() =
+    inl l = ;[1;2;3;4] : _ f64
+    inl f = (*) 2
+    inl print x = $'print(!x)' : ()
+    print (join map f l)
+    print (join arraym.map f l)
+    ()

@@ -1,0 +1,20 @@
+// Does mapping a scalar work.
+
+open corebase
+
+inl main () = 
+    inl scalar_map f (a : array f32) = join_backend Cuda 
+        set a 0 (index a 0 |> f)
+        ()
+
+    inl a = ;[1;2;3;4;5]
+    inl kernel_i, vars = scalar_map ((+) 100) a
+
+    inl module : $'cp.RawModule' = $'cp.RawModule(code=kernel, backend="nvcc")'
+    real
+        match vars with
+        | () => $'!module.get_function(f"entry{!kernel_i}")((1,),(1,),())' : ()
+        | _,_ => $'!module.get_function(f"entry{!kernel_i}")((1,),(1,),!vars)' : ()
+        | _ => $'!module.get_function(f"entry{!kernel_i}")((1,),(1,),(!vars,))' : ()
+    
+    a

@@ -1,0 +1,24 @@
+// Does mapping an array work.
+
+open corebase
+
+inl main () = 
+    inl map f (a : array f32) = 
+        inl len = length a
+        join_backend Cuda 
+            loop.for' {from=0; nearTo=len} (fun i =>
+                set a i (index a i |> f)
+                )
+            ()
+
+    inl a = ;[1;2;3;4;5]
+    inl kernel_i, vars = map ((+) 100) a
+
+    inl module : $'cp.RawModule' = $'cp.RawModule(code=kernel, backend="nvcc")'
+    real
+        match vars with
+        | () => $'!module.get_function(f"entry{!kernel_i}")((1,),(1,),())' : ()
+        | _,_ => $'!module.get_function(f"entry{!kernel_i}")((1,),(1,),!vars)' : ()
+        | _ => $'!module.get_function(f"entry{!kernel_i}")((1,),(1,),(!vars,))' : ()
+    
+    a

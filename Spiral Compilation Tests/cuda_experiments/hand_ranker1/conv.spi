@@ -1,0 +1,9 @@
+// Cython only. Converts a number to a float.
+inl f64 forall t {number}. (x : t) : f64 = conv x
+inl f32 forall t {number}. (x : t) : f32 = conv x
+inl u64 forall t {number}. (x : t) : u64 = conv x
+inl u32 forall t {number}. (x : t) : u32 = conv x
+inl i64 forall t {number}. (x : t) : i64 = conv x
+inl i32 forall t {number}. (x : t) : i32 = conv x
+inl conv_int forall a {int} b {int}. (x : a) : b = real conv `a `b x
+inl to_bool forall a {int}. (x : a) : bool = $"(`bool)!x"

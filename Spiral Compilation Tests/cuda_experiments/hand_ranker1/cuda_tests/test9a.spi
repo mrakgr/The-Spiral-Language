@@ -1,0 +1,29 @@
+// Does mapping an array with more than a single thread into a separate output array work?
+
+open corebase
+
+inl grid_range () : int = $"gridDim.x * blockDim.x"
+inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+
+inl main () = 
+    inl map f (inp : array _) (out : array _) = 
+        inl len = length inp
+        join_backend Cuda 
+            loop.forBy {from=linear_id(); nearTo=len; by=grid_range()} (fun i () =>
+                set out i (index inp i |> f)
+                ) ()
+
+    inl inp = ;[1f32;2;3;4;5;6]
+    inl out = create (length inp)
+    inl kernel_i, vars = map ((+) 100) inp out
+
+    inl module : $'cp.RawModule' = $'cp.RawModule(code=kernel, backend="nvcc")'
+    inl gridDim_x = 4i32
+    inl blockDim_x = 128i32
+    real
+        match vars with
+        | () => $'!module.get_function(f"entry{!kernel_i}")((!gridDim_x,),(!blockDim_x,),())' : ()
+        | _,_ => $'!module.get_function(f"entry{!kernel_i}")((!gridDim_x,),(!blockDim_x,),!vars)' : ()
+        | _ => $'!module.get_function(f"entry{!kernel_i}")((!gridDim_x,),(!blockDim_x,),(!vars,))' : ()
+    
+    out

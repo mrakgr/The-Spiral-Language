@@ -1,0 +1,2 @@
+type int = i64
+type float = f64
