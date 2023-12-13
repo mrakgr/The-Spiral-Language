@@ -1,3 +1,4 @@
+open corebase
 open corecuda
 
 nominal bitset dim = $"std::bitset<@dim>"

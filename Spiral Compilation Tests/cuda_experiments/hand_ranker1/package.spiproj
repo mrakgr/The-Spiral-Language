@@ -27,12 +27,13 @@ modules:
         
     sortm
     cardm
+    bitsetm
+    random
     hand_scorer
+    hand_scorer_cuda
 
     // conv-
     // hand_scorer_orig
-    // bitsetm
-    // random
     // scan_tests
     // main
     // spiral_map
