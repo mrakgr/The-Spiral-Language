@@ -7,6 +7,11 @@ nominal sa dim el = $"array<`el,@dim>"
 nominal ref t = $"`t &"
 inl ref forall t. (x : t) : ref t = $"`t & v$ = !x"
 
+// Base pointer type
+nominal ptr t = $'`t *'
+inl ptr forall t. (x : t) : ptr t = $"`t * v$ = &!x"
+inl (~*) forall t. (x : ptr t) : t = $"`t v$ = *!x"
+
 type dim3 = {x : int; y : int; z : int}
 
 // Executes the lambda on the GPU device.

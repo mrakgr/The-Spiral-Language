@@ -1,0 +1,48 @@
+open corebase
+open corecuda
+
+inl globals() =
+    global "#include <curand_kernel.h>"
+
+nominal philox_state = $'curandStatePhilox4_32_10_t'
+
+prototype init' s : {seed : u64; subsequence : u64; offset : u64} -> ptr s -> ()
+prototype u32 s : ptr s -> u32
+prototype uniform s : ptr s -> f32
+prototype normal s : ptr s -> f32
+prototype log_normal s : {mean : f32; stddev : f32} -> ptr s -> f32
+prototype poisson s : {lambda : f32} -> ptr s -> u32
+prototype skipahead s : {steps : u64} -> ptr s -> ()
+prototype skipahead_sequence s : {steps : u64} -> ptr s -> ()
+
+instance init' philox_state = fun {seed subsequence offset} s => $'curand_init(!seed,!subsequence,!offset,!s)'
+inl init forall s {init'}. args : ptr s =
+    inl s = ptr $"`s v$"
+    init' args s
+    s
+
+instance u32 philox_state = fun s => $"curand(!s)"
+instance uniform philox_state = fun s => $"curand_uniform(!s)"
+instance normal philox_state = fun s => $"curand_normal(!s)"
+instance log_normal philox_state = fun {mean stddev} s => $"curand_log_normal(!s,!mean,!stddev)"
+instance poisson philox_state = fun {lambda} s => $"curand_poisson(!s,!lambda)"
+instance skipahead philox_state = fun {steps} s => $"skipahead(!steps,!s)"
+instance skipahead_sequence philox_state = fun {steps} s => $"skipahead_sequence(!steps,!s)"
+
+inl main() =
+    open inv_arraym
+    inl out : inv_array array f32 = create 512
+    inl grid_range () : int = $"gridDim.x * blockDim.x"
+    inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+
+    inl blocks = 2
+    inl grids = divup (length out) blocks
+    run grids blocks (fun () =>
+        globals()
+        inl from = linear_id()
+        inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
+        loop.forBy {from nearTo=length out; by=grid_range()} (fun i () =>
+            set out i (normal x)
+            ) ()
+        )
+    out
