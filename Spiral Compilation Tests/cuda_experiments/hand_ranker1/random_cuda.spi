@@ -30,18 +30,45 @@ inl u32_4 (s : philox_state) : u32 * u32 * u32 * u32=
 
 // The unbiased int range sampler. The prototype code is taken from:
 // https://www.pcg-random.org/posts/bounded-rands.html
-inl uint_range forall t {number; int; uint}. clz rand {from nearTo} s =
-    inl range : t = nearTo - from
-    $"assert(!range \!= 0)"
-    inl range = range - 1
-    inl mask = limit.max >>> clz (range ||| 1)
-    let rec loop () =
-        inl r = rand s &&& mask
-        if r <= range then r else loop()
-    loop() + from
+// inl uint_range forall t {number; int; uint}. clz rand {from nearTo} s =
+//     inl range : t = nearTo - from
+//     $"assert(!range \!= 0)"
+//     inl range = range - 1
+//     inl mask = limit.max >>> clz (range ||| 1)
+//     let rec loop () =
+//         inl r = rand s &&& mask
+//         if r <= range then r else loop()
+//     loop() + from
 
-inl u32_range range s : u32 = uint_range (fun x => $"__clz(!x)") u32 range s
-inl u64_range range s : u64 = uint_range (fun x => $"__clzll(!x)") u64 range s
+// inl u32_range range s : u32 = uint_range (fun x => $"__clz(!x)") u32 range s
+// inl u64_range range s : u64 = uint_range (fun x => $"__clzll(!x)") u64 range s
+
+// The division version of the unbiased sampler. Should be faster when the constants are known
+// than the bitmask one.
+// inl uint_range forall t {number; uint} . rand {from nearTo} s =
+//     inl range : t = nearTo - from
+//     // calculates divisor = 2**32 / range
+//     inl divisor = (0 - range) / range + 1
+//     if divisor = 0 then 0 // overflow, is 2 ** 32
+//     else
+//         let rec loop() =
+//             inl r = rand s / divisor
+//             if r < range then r else loop()
+//         loop()
+//     + from
+
+// The modulo version of the unbiased sampler. Faster than the divison based one according to the
+// article.
+inl uint_range forall t {number; uint} . rand {from nearTo} s =
+    inl range : t = nearTo - from
+    // calculates 2**32 % range
+    inl bottom = (0 - range) % range
+    let rec loop() =
+        inl r = rand s
+        if r >= bottom then r else loop()
+    loop() % range + from
+inl u32_range range s : u32 = uint_range u32 range s
+inl u64_range range s : u64 = uint_range u64 range s
 
 instance uniform philox_state = fun s => $"curand_uniform(!s)"
 instance normal philox_state = fun s => $"curand_normal(!s)"
