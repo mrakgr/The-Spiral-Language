@@ -6,12 +6,26 @@ kernel = r"""
 #include <array>
 template <typename el, int dim> struct array { el v[dim]; };
 #include <curand_kernel.h>
+uint32_t loop_0(curandStatePhilox4_32_10_t * v0, uint32_t v1);
 __device__ inline bool while_method_0(int32_t v0){
     bool v1;
     v1 = v0 < 512l;
     return v1;
 }
-extern "C" __global__ void entry0(float * v0) {
+__device__ uint32_t loop_0(curandStatePhilox4_32_10_t * v0, uint32_t v1){
+    uint32_t v2;
+    v2 = curand(v0);
+    uint32_t v3;
+    v3 = v2 & v1;
+    bool v4;
+    v4 = v3 <= 51ul;
+    if (v4){
+        return v3;
+    } else {
+        return loop_0(v0, v1);
+    }
+}
+extern "C" __global__ void entry0(uint32_t * v0) {
     int32_t v1;
     v1 = threadIdx.x + blockIdx.x * blockDim.x;
     uint64_t v2;
@@ -24,9 +38,14 @@ extern "C" __global__ void entry0(float * v0) {
     int32_t v6;
     v6 = v1;
     while (while_method_0(v6)){
-        float v8;
-        v8 = curand_normal(v4);
-        v0[v6] = v8;
+        assert(52ul != 0);
+        int32_t v8;
+        v8 = __clz(51ul);
+        uint32_t v9;
+        v9 = 4294967295ul >> v8;
+        uint32_t v10;
+        v10 = loop_0(v4, v9);
+        v0[v6] = v10;
         v6 += v5 ;
     }
     return ;
@@ -39,9 +58,9 @@ i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = str
 
 raw_module = cp.RawModule(code=kernel, backend="nvcc")
 def main():
-    v0 = cp.empty(512,dtype=cp.float32)
+    v0 = cp.empty(512,dtype=cp.uint32)
     v1 = 0
-    raw_module.get_function(f"entry{v1}")((256, 1, 1),(2, 1, 1),v0)
+    raw_module.get_function(f"entry{v1}")((263, 1, 1),(16, 1, 1),v0)
     del v1
     return v0, 512
 

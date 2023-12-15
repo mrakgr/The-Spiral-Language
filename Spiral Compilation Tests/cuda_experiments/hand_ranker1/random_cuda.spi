@@ -22,6 +22,27 @@ inl init forall s {init'}. args : ptr s =
     s
 
 instance u32 philox_state = fun s => $"curand(!s)"
+
+inl u64 x : u64 = conv (u32 x) <<< 32 ||| conv (u32 x)
+inl u32_4 (s : philox_state) : u32 * u32 * u32 * u32= 
+    inl x : $"uint4" = $"curand4(!s)"
+    $"!x.x", $"!x.y", $"!x.z", $"!x.w"
+
+// The unbiased int range sampler. The prototype code is taken from:
+// https://www.pcg-random.org/posts/bounded-rands.html
+inl uint_range forall t {number; int; uint}. clz rand {from nearTo} s =
+    inl range : t = nearTo - from
+    $"assert(!range \!= 0)"
+    inl range = range - 1
+    inl mask = limit.max >>> clz (range ||| 1)
+    let rec loop () =
+        inl r = rand s &&& mask
+        if r <= range then r else loop()
+    loop() + from
+
+inl u32_range range s : u32 = uint_range (fun x => $"__clz(!x)") u32 range s
+inl u64_range range s : u64 = uint_range (fun x => $"__clzll(!x)") u64 range s
+
 instance uniform philox_state = fun s => $"curand_uniform(!s)"
 instance normal philox_state = fun s => $"curand_normal(!s)"
 instance log_normal philox_state = fun {mean stddev} s => $"curand_log_normal(!s,!mean,!stddev)"
@@ -29,7 +50,7 @@ instance poisson philox_state = fun {lambda} s => $"curand_poisson(!s,!lambda)"
 instance skipahead philox_state = fun {steps} s => $"skipahead(!steps,!s)"
 instance skipahead_sequence philox_state = fun {steps} s => $"skipahead_sequence(!steps,!s)"
 
-inl main() =
+inl test1() =
     open inv_arraym
     inl out : inv_array array f32 = create 512
     inl grid_range () : int = $"gridDim.x * blockDim.x"
@@ -43,6 +64,24 @@ inl main() =
         inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
         loop.forBy {from nearTo=length out; by=grid_range()} (fun i () =>
             set out i (normal x)
+            ) ()
+        )
+    out
+
+inl main() =
+    open inv_arraym
+    inl out : inv_array array u32 = create 512
+    inl grid_range () : int = $"gridDim.x * blockDim.x"
+    inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+
+    inl blocks = 16
+    inl grids = divup (length out) blocks
+    run grids blocks (fun () =>
+        globals()
+        inl from = linear_id()
+        inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
+        loop.forBy {from nearTo=length out; by=grid_range()} (fun i () =>
+            set out i (u32_range {from=0; nearTo=52} x)
             ) ()
         )
     out
