@@ -1797,6 +1797,24 @@ let peval (env : TopEnv) (x : E) =
                     else raise_type_error s <| sprintf "The type of the two arguments needs to be a int type.\nGot: %s" (show_ty a_ty)
                 else
                     raise_type_error s <| sprintf "The two sides need to have the same int types.\nGot: %s and %s." (show_ty a_ty) (show_ty b_ty)
+        | EOp(_,BitwiseComplement,[a]) ->
+            let inline op a = ~~~a
+            match term s a with
+            | DLit a ->
+                match a with
+                | LitInt8 a -> op a |> LitInt8 |> DLit
+                | LitInt16 a -> op a |> LitInt16 |> DLit
+                | LitInt32 a -> op a |> LitInt32 |> DLit
+                | LitInt64 a -> op a |> LitInt64 |> DLit
+                | LitUInt8 a -> op a |> LitUInt8 |> DLit
+                | LitUInt16 a -> op a |> LitUInt16 |> DLit
+                | LitUInt32 a -> op a |> LitUInt32 |> DLit
+                | LitUInt64 a -> op a |> LitUInt64 |> DLit
+                | a -> raise_type_error s <| sprintf "The literal must be an int.\nGot: %s" (show_lit a)
+            | a ->
+                let a_ty = data_to_ty s a
+                if is_any_int a_ty then push_op s BitwiseComplement a a_ty
+                else raise_type_error s <| sprintf "The type of the two arguments needs to be a int type.\nGot: %s" (show_ty a_ty)
         | EOp(_,ShiftLeft,[a;b]) -> 
             let inline op a b = a <<< b
             match term2 s a b with

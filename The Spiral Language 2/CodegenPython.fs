@@ -328,6 +328,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             | BitwiseAnd, [a;b] -> sprintf "%s & %s" (tup_data a) (tup_data b)
             | BitwiseOr, [a;b] -> sprintf "%s | %s" (tup_data a) (tup_data b)
             | BitwiseXor, [a;b] -> sprintf "%s ^ %s" (tup_data a) (tup_data b)
+            | BitwiseComplement, [a] -> sprintf "~%s" (tup_data a)
 
             | ShiftLeft, [a;b] -> sprintf "%s << %s" (tup_data a) (tup_data b)
             | ShiftRight, [a;b] -> sprintf "%s >> %s" (tup_data a) (tup_data b)

@@ -99,6 +99,7 @@ type Op =
     | BitwiseAnd
     | BitwiseOr
     | BitwiseXor
+    | BitwiseComplement
     | ShiftLeft
     | ShiftRight
 

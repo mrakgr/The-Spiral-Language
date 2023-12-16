@@ -70,6 +70,8 @@ inl (&&&) forall t {int}. (a : t) (b : t) : t = !!!!BitwiseAnd(a,b)
 inl (|||) forall t {int}. (a : t) (b : t) : t = !!!!BitwiseOr(a,b)
 // Bitwise xor.
 inl (^^^) forall t {int}. (a : t) (b : t) : t = !!!!BitwiseXor(a,b)
+// Bitwise complement.
+inl (~~~~) forall t {int}. (a : t) : t = !!!!BitwiseComplement(a)
 
 // Shift left.
 inl (<<<) forall t {int}. (a : t) (b : i32) : t = !!!!ShiftLeft(a,b)

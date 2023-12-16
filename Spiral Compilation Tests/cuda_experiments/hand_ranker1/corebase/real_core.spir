@@ -93,6 +93,8 @@ inl (&&&) a b = !!!!BitwiseAnd(a,b)
 inl (|||) a b = !!!!BitwiseOr(a,b)
 // Bitwise xor.
 inl (^^^) a b = !!!!BitwiseXor(a,b)
+// Bitwise complement.
+inl (~~~~) a = !!!!BitwiseComplement(a)
 
 // Shift left.
 inl (<<<) a b = !!!!ShiftLeft(a,b)

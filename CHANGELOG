@@ -1,3 +1,7 @@
+2.5.3 (12/16/2023)
+
+* Added bitwise complement unary operator to the language.
+
 2.5.2 (11/3/2023)
 
 * Fixed some of the compilation bugs in the Cuda backend. Now tuple and union types should be usable. 

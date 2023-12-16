@@ -326,6 +326,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             | BitwiseAnd, [a;b] -> sprintf "%s &&& %s" (tup a) (tup b)
             | BitwiseOr, [a;b] -> sprintf "%s ||| %s" (tup a) (tup b)
             | BitwiseXor, [a;b] -> sprintf "%s ^^^ %s" (tup a) (tup b)
+            | BitwiseComplement, [a] -> sprintf "~~~%s" (tup a)
 
             | ShiftLeft, [a;b] -> sprintf "%s <<< %s" (tup a) (tup b)
             | ShiftRight, [a;b] -> sprintf "%s >>> %s" (tup a) (tup b)

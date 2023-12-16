@@ -87,6 +87,8 @@ inl sample_masked_bit (a,b : u32 * u32) (i : u32) =
     inl a_popc = popc a
     if i < a_popc then fns a i else fns b (i - a_popc) + 32
 
+inl sample_masked_bit_u64 (x : u64) i = sample_masked_bit (conv x, conv (x >>> 32)) i
+
 inl test1() =
     open inv_arraym
     inl out : inv_array array f32 = create 512
@@ -105,7 +107,7 @@ inl test1() =
         )
     out
 
-inl main() =
+inl test2() =
     open inv_arraym
     inl out : inv_array array u32 = create 512
     inl grid_range () : int = $"gridDim.x * blockDim.x"
@@ -122,3 +124,44 @@ inl main() =
             ) ()
         )
     out
+
+inl test3() =
+    inl popc_u64 (x : u64) : u64 = $"__popcll(!x)"
+    inl popc_u32 (x : u32) : u32 = $"__popc(!x)"
+    inl sample mask c =
+        loop.for {from=0; nearTo=64u32} (fun i (_,c as state) =>
+            if c > 0 then 
+                i, if mask &&& (1 <<< conv i) = 0 then c else c-1
+            else state
+            ) (0, c+1)
+        |> fst
+
+    open inv_arraym
+    inl out : inv_array array _ = create (1028*16)
+    inl grid_range () : int = $"gridDim.x * blockDim.x"
+    inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+
+    inl blocks = 64
+    inl grids = divup (length out) blocks
+    run grids blocks (fun () =>
+        globals()
+        inl from = linear_id()
+        inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
+        loop.forBy {from nearTo=length out; by=grid_range()} (fun i () =>
+            inl r = u64 x
+            if popc_u64 r > 0 then
+                inl base = u32_range {from=0; nearTo=popc_u64 r |> conv} x
+                inl i = base |> sample_masked_bit_u64 r
+                inl i' = base |> sample r
+                // inl x = r &&& ~~~(1 <<< conv i)
+                i - i'
+            else
+                0
+            |> set out i
+            ) ()
+        )
+    inl out = out.arrays
+    $"print(cp.sum(!out))"
+    ()
+
+inl main() = test3()
