@@ -23,10 +23,16 @@ __device__ inline bool while_method_0(int32_t v0){
 __device__ uint32_t loop_0(curandStatePhilox4_32_10_t * v0, uint32_t v1){
     uint32_t v2;
     v2 = curand(v0);
-    bool v3;
-    v3 = v2 >= v1;
-    if (v3){
-        return v2;
+    uint32_t v3;
+    v3 = v2 % v1;
+    uint32_t v4;
+    v4 = v2 - v3;
+    uint32_t v5;
+    v5 = 0ul - v1;
+    bool v6;
+    v6 = v4 <= v5;
+    if (v6){
+        return v3;
     } else {
         return loop_0(v0, v1);
     }
@@ -65,85 +71,87 @@ extern "C" __global__ void entry0(uint32_t * v0) {
         v14 = __popcll(v13);
         bool v15;
         v15 = v14 > 0ull;
-        uint32_t v47;
+        uint32_t v48;
         if (v15){
             uint64_t v16;
             v16 = __popcll(v13);
             uint32_t v17;
             v17 = (uint32_t)v16;
             uint32_t v18;
-            v18 = 0ul - v17;
+            v18 = loop_0(v4, v17);
             uint32_t v19;
-            v19 = v18 % v17;
-            uint32_t v20;
-            v20 = loop_0(v4, v19);
+            v19 = (uint32_t)v13;
+            uint64_t v20;
+            v20 = v13 >> 32l;
             uint32_t v21;
-            v21 = v20 % v17;
+            v21 = (uint32_t)v20;
             uint32_t v22;
-            v22 = (uint32_t)v13;
-            uint64_t v23;
-            v23 = v13 >> 32l;
-            uint32_t v24;
-            v24 = (uint32_t)v23;
-            uint32_t v25;
-            v25 = __popc(v22);
-            bool v26;
-            v26 = v21 < v25;
-            uint32_t v31;
-            if (v26){
-                uint32_t v27;
-                v27 = __fns(v22,0,v21+1);
-                v31 = v27;
-            } else {
-                uint32_t v28;
-                v28 = v21 - v25;
-                uint32_t v29;
-                v29 = __fns(v24,0,v28+1);
-                uint32_t v30;
-                v30 = v29 + 32ul;
-                v31 = v30;
-            }
+            v22 = __popc(v19);
+            bool v23;
+            v23 = v18 < v22;
             uint32_t v32;
-            v32 = v21 + 1ul;
-            uint32_t v33; uint32_t v34; uint32_t v35;
-            Tuple0 tmp0 = Tuple0(0ul, 0ul, v32);
-            v33 = tmp0.v0; v34 = tmp0.v1; v35 = tmp0.v2;
-            while (while_method_1(v33)){
-                bool v37;
-                v37 = v35 > 0ul;
-                uint32_t v44; uint32_t v45;
-                if (v37){
-                    int32_t v38;
-                    v38 = (int32_t)v33;
-                    uint64_t v39;
-                    v39 = 1ull << v38;
-                    uint64_t v40;
-                    v40 = v13 & v39;
-                    bool v41;
-                    v41 = v40 == 0ull;
-                    uint32_t v43;
-                    if (v41){
-                        v43 = v35;
-                    } else {
-                        uint32_t v42;
-                        v42 = v35 - 1ul;
-                        v43 = v42;
-                    }
-                    v44 = v33; v45 = v43;
-                } else {
-                    v44 = v34; v45 = v35;
-                }
-                v34 = v44;
-                v35 = v45;
-                v33 += 1ul ;
+            if (v23){
+                int32_t v24;
+                v24 = (int32_t)v18;
+                int32_t v25;
+                v25 = v24 + 1l;
+                uint32_t v26;
+                v26 = __fns(v19,0ul,v25);
+                v32 = v26;
+            } else {
+                uint32_t v27;
+                v27 = v18 - v22;
+                int32_t v28;
+                v28 = (int32_t)v27;
+                int32_t v29;
+                v29 = v28 + 1l;
+                uint32_t v30;
+                v30 = __fns(v21,0ul,v29);
+                uint32_t v31;
+                v31 = v30 + 32ul;
+                v32 = v31;
             }
-            uint32_t v46;
-            v46 = v31 - v34;
-            v47 = v46;
+            uint32_t v33;
+            v33 = v18 + 1ul;
+            uint32_t v34; uint32_t v35; uint32_t v36;
+            Tuple0 tmp0 = Tuple0(0ul, 0ul, v33);
+            v34 = tmp0.v0; v35 = tmp0.v1; v36 = tmp0.v2;
+            while (while_method_1(v34)){
+                bool v38;
+                v38 = v36 > 0ul;
+                uint32_t v45; uint32_t v46;
+                if (v38){
+                    int32_t v39;
+                    v39 = (int32_t)v34;
+                    uint64_t v40;
+                    v40 = 1ull << v39;
+                    uint64_t v41;
+                    v41 = v13 & v40;
+                    bool v42;
+                    v42 = v41 == 0ull;
+                    uint32_t v44;
+                    if (v42){
+                        v44 = v36;
+                    } else {
+                        uint32_t v43;
+                        v43 = v36 - 1ul;
+                        v44 = v43;
+                    }
+                    v45 = v34; v46 = v44;
+                } else {
+                    v45 = v35; v46 = v36;
+                }
+                v35 = v45;
+                v36 = v46;
+                v34 += 1ul ;
+            }
+            uint32_t v47;
+            v47 = v32 - v35;
+            v48 = v47;
         } else {
-            v47 = 0ul;
+            v48 = 0ul;
         }
-        v0[v6] = v47;
+        v0[v6] = v48;
         v6 += v5 ;
     }
     return ;

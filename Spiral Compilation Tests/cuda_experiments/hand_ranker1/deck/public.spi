@@ -1,0 +1,11 @@
+open corebase
+open corecuda
+
+inl draw_card s (deck d) =
+    open intrinsic
+    open random_cuda
+    open deck_utils
+    inl base = u32_range (intrinsic.popc_u64 d |> conv) s
+    inl i = sample_masked_bit_u64 d (conv base)
+    i, toggle (deck d) (conv i)
+

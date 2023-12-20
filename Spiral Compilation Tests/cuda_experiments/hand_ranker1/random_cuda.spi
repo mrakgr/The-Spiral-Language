@@ -61,15 +61,26 @@ inl u32_4 (s : philox_state) : u32 * u32 * u32 * u32=
 //     + from
 
 // The modulo version of the unbiased sampler. Faster than the divison based one according to the
-// article.
-inl uint_range forall t {number; uint} . rand {from nearTo} s =
-    inl range : t = nearTo - from
-    // calculates 2**32 % range
-    inl bottom = (0 - range) % range
-    let rec loop() =
-        inl r = rand s
-        if r >= bottom then r else loop()
-    loop() % range + from
+// article. As GPUs don't support 64-bit arithmetic in hardware, but emulate them using sequences of
+// 32 bit instructructions, I won't be implementing the integer sampling that requires 64-bit 
+// multiplcation as most likely it'd be slower than these.
+inl uint_range rand range s =
+    if lit_is range then
+        // calculates 2**32 % range
+        inl bottom = (0 - range) % range
+        let rec loop() =
+            inl r = rand s
+            if r >= bottom then r else loop()
+        loop() % range
+    else
+        let rec loop() =
+            inl r = rand s
+            inl x = r % range
+            // r - x puts results in a value that is at the bottom of the bucket.
+            // when that value is in a bucket higher than the topmost one, it gets
+            // rejected.
+            if r - x <= 0 - range then x else loop()
+        loop()
 inl u32_range range s : u32 = uint_range u32 range s
 inl u64_range range s : u64 = uint_range u64 range s
 
@@ -81,10 +92,9 @@ instance skipahead philox_state = fun {steps} s => $"skipahead(!steps,!s)"
 instance skipahead_sequence philox_state = fun {steps} s => $"skipahead_sequence(!steps,!s)"
 
 // Gets the position of the i-th (starting at 0) set bit in a pair of u32 masks.
-inl sample_masked_bit (a,b : u32 * u32) (i : u32) =
-    inl popc (x : u32) : u32 = $"__popc(!x)"
-    inl fns (mask : u32) (offset : u32) : u32 = $"__fns(!mask,0,!offset+1)"
-    inl a_popc = popc a
+inl sample_masked_bit (a,b : u32 * u32) (i : i32) =
+    inl fns (mask : u32) (offset : i32) : u32 = intrinsic.fns mask 0 (conv offset + 1)
+    inl a_popc = intrinsic.popc_u32 a
     if i < a_popc then fns a i else fns b (i - a_popc) + 32
 
 inl sample_masked_bit_u64 (x : u64) i = sample_masked_bit (conv x, conv (x >>> 32)) i
@@ -120,14 +130,30 @@ inl test2() =
         inl from = linear_id()
         inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
         loop.forBy {from nearTo=length out; by=grid_range()} (fun i () =>
-            set out i (u32_range {from=0; nearTo=52} x)
+            set out i (u32_range 52 x)
+            ) ()
+        )
+    out
+    
+inl test2_1() =
+    open inv_arraym
+    inl out : inv_array array u32 = create 512
+    inl grid_range () : int = $"gridDim.x * blockDim.x"
+    inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+
+    inl blocks = 16
+    inl grids = divup (length out) blocks
+    run grids blocks (fun () =>
+        globals()
+        inl from = linear_id()
+        inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
+        loop.forBy {from nearTo=length out; by=grid_range()} (fun i () =>
+            set out i (u32_range (dyn 52) x)
             ) ()
         )
     out
 
 inl test3() =
-    inl popc_u64 (x : u64) : u64 = $"__popcll(!x)"
-    inl popc_u32 (x : u32) : u32 = $"__popc(!x)"
     inl sample mask c =
         loop.for {from=0; nearTo=64u32} (fun i (_,c as state) =>
             if c > 0 then 
@@ -149,10 +175,10 @@ inl test3() =
         inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
         loop.forBy {from nearTo=length out; by=grid_range()} (fun i () =>
             inl r = u64 x
-            if popc_u64 r > 0 then
-                inl base = u32_range {from=0; nearTo=popc_u64 r |> conv} x
-                inl i = base |> sample_masked_bit_u64 r
-                inl i' = base |> sample r
+            if intrinsic.popc_u64 r > 0 then
+                inl base = u32_range (intrinsic.popc_u64 r |> conv) x
+                inl i = sample_masked_bit_u64 r (conv base)
+                inl i' = sample r base
                 // inl x = r &&& ~~~(1 <<< conv i)
                 i - i'
             else

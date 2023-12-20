@@ -21,7 +21,8 @@ modules:
 
     corecuda/
         base-
-        sam
+        intrinsic
+        sam 
         inv_array_kernels
         
         
@@ -30,6 +31,12 @@ modules:
     bitsetm
     random
     random_cuda
+
+    deck/
+        type- 
+        deck_utils
+        public-
+        deck_test
     hand_scorer
     hand_scorer_cuda
 
