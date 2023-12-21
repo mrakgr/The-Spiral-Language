@@ -148,6 +148,7 @@ type Op =
     | ErrorType
     | NominalStrip
     | StringLitToSymbol
+    | SymbolToString
     
     // Serialization helpers
     | VarTag

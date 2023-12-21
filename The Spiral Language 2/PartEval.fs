@@ -1297,6 +1297,10 @@ let peval (env : TopEnv) (x : E) =
             match term s a with
             | DLit(LitString a) -> DSymbol a
             | a -> raise_type_error s <| sprintf "Expected a string literal.\nGot: %s" (show_data a)
+        | EOp(_,SymbolToString,[a]) -> 
+            match term s a with
+            | DSymbol a -> DLit (LitString a)
+            | a -> raise_type_error s <| sprintf "Expected a symbol.\nGot: %s" (show_data a)
         | EOp(_,TypeToSymbol,[EType(_,a)]) -> 
             match ty s a with
             | YSymbol a -> DSymbol a

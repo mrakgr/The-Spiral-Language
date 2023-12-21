@@ -107,6 +107,9 @@ inl (~!) forall t. (x : heap t): t = !!!!LayoutIndex(x)
 // Returns the absolute value.
 inl abs x = max x -x
 
+// Converts a symbol to a string literal.
+inl symbol_to_string forall t {symbol}. (x : t) : string = !!!!SymbolToString(x)
+
 open real_core
 // Structural polymorphic equality for every type in the language (apart from functions.)
 inl (=) forall t. (a : t) (b : t) : bool = real a = b

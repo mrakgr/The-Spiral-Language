@@ -8,24 +8,39 @@ inl prim x = real
     | (x : string) => "%s", x
     | (x : char) => "%c", x
 
-inl rec printf l : () = real
+inl rec write l : () = real
+    inl array_limit = 100
     open real_core
-    inl p = function
-        // | () => ()
-        | a,b => $"printf(!a,!b)" : ()
-        // | a => $"printf(!a)" : ()
+    inl p (a,b) = $"printf(!a,!b)" : ()
     
-    match l with
+    match l with // According to Bing it shouldn't matter whether these are %d or %lld in printf.
     | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
     | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
     | (x : f32) | (x : f64) => p ("%f", x)
     | (x : string) => p ("%s", x)
     | (x : char) => p ("%c", x)
-    | (a,b) => printf a . printf b
+    | (a,b) => write a . write b
     | {} as x =>
         record_fold_back (fun {state=(separator, state) key value} => 
-            "; ", (type_lit_to_lit `@key," = ", value, separator, state)
+            "; ", (symbol_to_string key," = ", value, separator, state)
             ) a ((), ())
-        |> fun _,x => printf ('{', x, '}')
+        |> fun _,x => write ('{', x, '}')
     | () => ()
-    | _ => error_type "Unsupported type."
+    | x when symbol_is x => write (symbol_to_string x)
+    | x => 
+        typecase `x with
+        | sa ~dim _ =>
+            write "["
+            open sam
+            loop.for {from=0; nearTo=max array_limit (length x)} (fun i =>
+                write (index x i)
+                if i + 1 < length x then write ", "
+                )
+            if length x > array_limit then write ", ..."
+            write "]"
+        | _ => error_type "Unsupported type."
+
+inl write_nl l =
+    write l
+    $'printf("\\n")'
+    ()
