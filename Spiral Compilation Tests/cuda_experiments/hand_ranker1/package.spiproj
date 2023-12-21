@@ -24,7 +24,7 @@ modules:
         intrinsic
         sam 
         inv_array_kernels
-        
+        console 
         
     sortm
     cardm

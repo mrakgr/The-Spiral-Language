@@ -1,0 +1,31 @@
+open corebase
+
+inl prim x = real
+    match x with
+    | (x : i8) | (x : i16) | (x : i32) | (x : i64) => "%d", x
+    | (x : u8) | (x : u16) | (x : u32) | (x : u64) => "%u", x
+    | (x : f32) | (x : f64) => "%f", x
+    | (x : string) => "%s", x
+    | (x : char) => "%c", x
+
+inl rec printf l : () = real
+    open real_core
+    inl p = function
+        // | () => ()
+        | a,b => $"printf(!a,!b)" : ()
+        // | a => $"printf(!a)" : ()
+    
+    match l with
+    | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
+    | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
+    | (x : f32) | (x : f64) => p ("%f", x)
+    | (x : string) => p ("%s", x)
+    | (x : char) => p ("%c", x)
+    | (a,b) => printf a . printf b
+    | {} as x =>
+        record_fold_back (fun {state=(separator, state) key value} => 
+            "; ", (type_lit_to_lit `@key," = ", value, separator, state)
+            ) a ((), ())
+        |> fun _,x => printf ('{', x, '}')
+    | () => ()
+    | _ => error_type "Unsupported type."
