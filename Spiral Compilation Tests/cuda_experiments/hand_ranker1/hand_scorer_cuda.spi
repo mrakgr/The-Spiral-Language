@@ -162,3 +162,29 @@ let score forall (ar : * -> * -> *) {sort; filter_take; try_straight_flush_for_s
         | [] =>
             {score=0; hand=high_card()}
     hand_score (final_rank_of rankings)
+
+inl test1() =
+    open inv_arraym
+    open deck
+    open random_cuda
+    inl out : inv_array array u8 = create 52
+    inl grid_range () : int = $"gridDim.x * blockDim.x"
+    inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+
+    inl blocks = 1
+    inl grids = 1 // divup (length out) blocks
+    run grids blocks (fun () =>
+        globals()
+        inl from = linear_id()
+        inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
+        loop.forBy {from nearTo=length out; by=grid_range()} (fun i deck =>
+            inl v, deck = draw_card x deck
+            set out i (cardm.full v)
+            deck
+            ) deck_utils.create()
+        |> ignore
+        )
+    inl x = out.arrays
+    $'print(!x.sum())'
+    $'print(cp.arange(0,52).sum())'
+    out

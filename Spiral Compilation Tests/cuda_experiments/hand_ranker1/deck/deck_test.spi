@@ -4,7 +4,7 @@ open corecuda
 inl test1() =
     open inv_arraym
     open random_cuda
-    inl out : inv_array array u32 = create 52
+    inl out : inv_array array u8 = create 52
     inl grid_range () : int = $"gridDim.x * blockDim.x"
     inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
 
@@ -22,7 +22,7 @@ inl test1() =
                 $'printf("%d\\n", !c)'
                 ()
             inl v,deck = draw_card x deck
-            set out i v
+            set out i (cardm.full v)
             deck
             ) deck_utils.create()
         |> ignore
