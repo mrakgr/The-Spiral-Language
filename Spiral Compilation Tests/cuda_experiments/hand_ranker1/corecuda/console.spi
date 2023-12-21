@@ -32,7 +32,7 @@ inl rec write l : () = real
         | sa ~dim _ =>
             write "["
             open sam
-            loop.for {from=0; nearTo=max array_limit (length x)} (fun i =>
+            loop.for {from=0; nearTo=min array_limit (length x)} (fun i =>
                 write (index x i)
                 if i + 1 < length x then write ", "
                 )
@@ -40,7 +40,7 @@ inl rec write l : () = real
             write "]"
         | _ => error_type "Unsupported type."
 
-inl write_nl l =
+inl write_ln l =
     write l
     $'printf("\\n")'
     ()

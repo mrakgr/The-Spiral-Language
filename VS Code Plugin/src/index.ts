@@ -1,6 +1,6 @@
 import * as path from "path"
 import { window, ExtensionContext, languages, workspace, DiagnosticCollection, TextDocument, Diagnostic, DiagnosticSeverity, Position, Range, TextDocumentContentChangeEvent, SemanticTokens, SemanticTokensLegend, DocumentSemanticTokensProvider, EventEmitter, SemanticTokensBuilder, DocumentRangeSemanticTokensProvider, SemanticTokensEdits, TextDocumentChangeEvent, SemanticTokensEdit, Uri, CancellationToken, CancellationTokenSource, Disposable, HoverProvider, Hover, MarkdownString, commands, DocumentLinkProvider, DocumentLink, CodeAction, CodeActionProvider, WorkspaceEdit, FileDeleteEvent, ProcessExecution, FileRenameEvent, FileWillDeleteEvent, FileWillRenameEvent } from "vscode"
-import {HubConnectionBuilder, LogLevel} from "@microsoft/signalr"
+import {HubConnectionBuilder, HubConnectionState, LogLevel} from "@microsoft/signalr"
 
 class SerialDisposable implements Disposable {
     f : () => any
@@ -30,8 +30,8 @@ function sleep(ms : number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function hubStart() {
-    while (true) {
+async function hubStart(max_attempts=3) {
+    while (max_attempts-- > 0) {
         try {
             await hub.start();
             return
@@ -39,11 +39,18 @@ async function hubStart() {
             await sleep(500)
         }
     }
+    throw Error("Max connection attempts elapsed. Spiral VS Code Client has failed to connect to the Spiral server.")
 }
 
 const requestRun = async (prev : Promise<string | null>, file: any): Promise<string | null> => {
     await prev // Waiting on the previous request is so they get ordered properly. Otherwise, messages might fill up and fire in arbitrary order.
     const msg = JSON.stringify(file)
+    if (hub.state === HubConnectionState.Disconnected) {
+        // TODO: Sometimes when the computer goes to sleep and comes back on the connection will break.
+        // I'll have to test out whether just calling hubStart() would be enough.
+        // hubStart();
+        throw Error("The client is not connected to the server. Please try restarting the Spiral server in the command palette (F1).")
+    }
     const x = await hub.invoke("ClientToServerMsg",msg)
     return x ? x.toString() : null
 }
