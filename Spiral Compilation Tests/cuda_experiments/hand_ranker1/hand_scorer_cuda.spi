@@ -103,13 +103,6 @@ instance merge_hands2 sa = fun ar ar' ar'' =>
 
 instance merge_hands sa = fun ar ar' => merge_hands2 ar ar' (sam.create : _ 0 _) |> nominal_recreate
 
-
-nominal hand_score (ar : * -> * -> *) dim = { score : i8; hand : ar dim card }
-instance comparable hand_score ar dim = fun a b =>
-    match comp a.score b.score with
-    | Eq => comp a.hand b.hand
-    | x => x
-
 prototype sort ar dim el {suit; rank} : ar dim el -> ar dim el
 instance sort sa =
     sortm.merge_sort (fun a b =>
@@ -126,8 +119,8 @@ inl max_hand s x =
 inl list_max_hand l = listm.fold max_hand None l
 inl list_fold_max_hand l = listm.fold (fun s x => max_hand s x()) None l
 
-let score forall (ar : * -> * -> *) {sort; filter_take; try_straight_flush_for_suit; try_straight; max_hand; partition_topk_pair; take; merge_hands; merge_hands2} dim. 
-        (hand : ar dim card) : hand_score ar 5 =
+open hand_score
+let score forall dim. (hand : sa dim card) : hand_score =
     open monad
     inl (>>=.) a b = optionm.map b a
     
@@ -164,10 +157,8 @@ let score forall (ar : * -> * -> *) {sort; filter_take; try_straight_flush_for_s
     hand_score (final_rank_of rankings)
 
 inl test1() =
-    open inv_arraym
     open deck
     open random_cuda
-    inl out : inv_array array u8 = create 52
     inl grid_range () : int = $"gridDim.x * blockDim.x"
     inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
 
@@ -177,14 +168,17 @@ inl test1() =
         globals()
         inl from = linear_id()
         inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
-        loop.forBy {from nearTo=length out; by=grid_range()} (fun i deck =>
-            inl v, deck = draw_card x deck
-            set out i (cardm.full v)
-            deck
-            ) deck_utils.create()
-        |> ignore
+        loop.forBy' {from nearTo=50; by=grid_range()} (fun i deck =>
+            open sam
+            inl ar : sa 7 card = create
+            loop.for {from=0; nearTo=length ar} (fun i deck =>
+                inl v, deck = draw_card x deck
+                set ar i v
+                deck
+                ) deck_utils.create()
+            |> ignore
+            console.write_ln ar
+            )
         )
-    inl x = out.arrays
-    $'print(!x.sum())'
-    $'print(cp.arange(0,52).sum())'
-    out
+
+inl main() = test1()

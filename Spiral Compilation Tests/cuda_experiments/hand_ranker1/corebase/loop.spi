@@ -25,6 +25,8 @@ inl forBy {from nearTo by} body state =
     while' (fun _ => i < nearTo) fun _ => _set state (body i state) . _add i by
     state
 // Folds over the range. Compiles to a while loop.
+inl forBy' range body = forBy range body ()
+// Folds over the range. Compiles to a while loop.
 inl for {from nearTo} body state = forBy {from nearTo by=1} body state
 // Folds over the range. Stateless version. Compiles to a while loop.
 inl for' r body = for r (fun i _ => body i) ()

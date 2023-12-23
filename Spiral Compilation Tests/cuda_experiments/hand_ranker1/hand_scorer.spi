@@ -111,12 +111,6 @@ inl list_max_hand l =
         | None, None => s
         ) None l
 
-nominal hand_score (ar : * -> * -> *) dim = { score : i8; hand : ar dim card }
-instance comparable hand_score ar dim = fun a b =>
-    match comp a.score b.score with
-    | Eq => comp a.hand b.hand
-    | x => x
-
 prototype sort ar dim el {suit; rank} : ar dim el -> ar dim el
 instance sort sa =
     sortm.merge_sort (fun a b =>
@@ -125,8 +119,8 @@ instance sort sa =
         | x => x
         )
 
-let score forall (ar : * -> * -> *) {sort; filter_take; try_straight_flush_for_suit; try_straight; max_hand; partition_topk_pair; take; merge_hands; merge_hands2} dim. 
-        (hand : ar dim card) : hand_score ar 5 =
+open hand_score
+let score forall dim. (hand : sa dim card) : hand_score =
     inl hand = sort hand
     inl high_card = take hand
     inl pair = 

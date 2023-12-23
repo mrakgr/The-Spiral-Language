@@ -37,6 +37,7 @@ modules:
         deck_utils
         public-
         deck_test
+    hand_score
     hand_scorer
     hand_scorer_cuda
 
