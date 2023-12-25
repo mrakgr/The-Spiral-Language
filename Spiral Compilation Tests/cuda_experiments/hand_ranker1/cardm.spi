@@ -1,3 +1,4 @@
+open corebase
 open corecuda
 
 type card_t = u8
@@ -15,8 +16,8 @@ instance suit card = fun x => $"!x.suit"
 instance rank card = fun x => $"!x.rank"
 instance full card = fun x => $"!x.suit * 13 + !x.rank"
 
-instance equable card = fun a b => rank a = rank b
-instance comparable card = fun a b => comp (rank a) (rank b)
+instance equable card = fun a b => full a = full b
+instance comparable card = fun a b => comp (full a) (full b)
 
 open console
 instance printable card = fun card =>

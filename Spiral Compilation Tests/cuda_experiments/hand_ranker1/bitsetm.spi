@@ -1,6 +1,6 @@
 open corebase
 open corecuda
-
+open cardm
 nominal bitset dim = $"std::bitset<@dim>"
 
 inl index forall dim. (x : ref (bitset dim)) (i : int) : bool = $"!x[!i]"

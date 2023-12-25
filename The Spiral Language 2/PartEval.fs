@@ -1426,7 +1426,7 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,RecordFoldBack,[a;b;c]) ->
             match term3 s a b c with
             | a, state, DRecord l -> Map.foldBack (fun k v state -> apply s (a, record3 ("state", state) ("key", DSymbol k) ("value", v))) l state
-            | _, r, _ -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data r)
+            | _, _, r -> raise_type_error s <| sprintf "Expected a record.\nGot: %s" (show_data r)
         | EOp(_,RecordLength,[a]) ->
             match term s a with
             | DRecord l -> Map.count l |> LitInt32 |> DLit

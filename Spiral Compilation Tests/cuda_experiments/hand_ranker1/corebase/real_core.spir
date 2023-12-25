@@ -248,6 +248,9 @@ inl rec (=) a b =
             if heap_union_is a && var_is a && var_is b then (join body()) : bool 
             else body()
         elif nominal_is a then
+            print_static "In nominal_is."
+            !!!!PrintStatic(`(`a))
+            print_static (prototype_has `(`a) equable)
             if prototype_has `(`a) equable then equable `(`a) a b
             else nominal_strip a = nominal_strip b
         else !!!!EQ(a,b)

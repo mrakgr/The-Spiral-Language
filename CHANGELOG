@@ -1,3 +1,7 @@
+2.5.5 (12/25/2023)
+
+* FIxed a minor error in the error printing for RecordFoldBack.
+
 2.5.4 (12/21/2023)
 
 * Added the SymbolToString op to the language.

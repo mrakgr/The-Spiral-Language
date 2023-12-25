@@ -147,7 +147,7 @@ let score forall dim. (hand : sa dim card) : hand_score =
         merge_hands quad (take rest : _ 1 _) |> nominal_recreate
     inl straight_flush() = listm.map (fun i () => try_straight_flush_for_suit i hand) [0;1;2;3] |> list_fold_max_hand
     inl rankings = [8, straight_flush; 7, quad; 6, full_house; 5, flush; 4, straight; 3, triple; 2, two_pair; 1, pair]
-    let rec final_rank_of = function
+    inl rec final_rank_of = function
         | (score,x) :: xs =>
             match x() with
             | Some hand => {hand score}
@@ -156,6 +156,7 @@ let score forall dim. (hand : sa dim card) : hand_score =
             {score=0; hand=high_card()}
     hand_score (final_rank_of rankings)
 
+// open cardm
 inl test1() =
     open deck
     open random_cuda
@@ -168,7 +169,7 @@ inl test1() =
         globals()
         inl from = linear_id()
         inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
-        loop.forBy' {from nearTo=50; by=grid_range()} (fun i deck =>
+        loop.forBy' {from nearTo=1_000_000; by=grid_range()} (fun i deck =>
             open sam
             inl ar : sa 7 card = create
             loop.for {from=0; nearTo=length ar} (fun i deck =>
@@ -177,7 +178,15 @@ inl test1() =
                 deck
                 ) deck_utils.create()
             |> ignore
-            console.write_ln ar
+            inl x = score ar
+            inl x' = hand_scorer.score ar
+            // console.write_ln ar
+            // console.write_ln x
+            // console.write_ln x'
+            // console.write_ln (x = x')
+            if x <> x' then 
+                console.write_ln "error"
+            ()
             )
         )
 

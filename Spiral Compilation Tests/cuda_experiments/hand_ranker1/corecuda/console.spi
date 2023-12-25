@@ -31,18 +31,19 @@ and inl write forall t. (x : t) : () = real
         | (x : f32) | (x : f64) => p ("%f", x)
         | (x : string) => p ("%s", x)
         | (x : char) => p ("%c", x)
+        | (x : bool) => p ("%s", if x then "true" else "false")
         | (a,b) => write a . write b
         | {} as x =>
             record_fold_back (fun {state=(separator, state) key value} => 
                 "; ", (symbol_to_string key," = ", value, separator, state)
-                ) a ((), ())
+                ) x ((), ())
             |> fun _,x => write ('{', x, '}')
         | () => ()
         | x when symbol_is x => write (symbol_to_string x)
         | x => 
             typecase `x with
             | sa ~dim ~el => write_sa `dim `el x
-            | t =>
+            | ~t =>
                 if prototype_has `t printable then printable `t x
                 else error_type "Unsupported type."
             
