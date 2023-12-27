@@ -1,6 +1,10 @@
+2.5.6 (12/27/2023)
+
+* Made some changes that should hopefully make reconnects in the vs code extension client work even after the connection has been broken for a prolonged amount of time, such as when the computer goes to sleep.
+
 2.5.5 (12/25/2023)
 
-* FIxed a minor error in the error printing for RecordFoldBack.
+* Fixed a minor error in the error printing for RecordFoldBack.
 
 2.5.4 (12/21/2023)
 
