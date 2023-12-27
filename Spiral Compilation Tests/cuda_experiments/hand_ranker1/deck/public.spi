@@ -5,7 +5,7 @@ open cardm
 // Draws a single card from a deck.
 let draw_card rng deck : card * deck =
     open intrinsic
-    open random_cuda
+    open random
     open deck_utils
     inl d = conv_u64 deck
     inl base = u32_range (intrinsic.popc_u64 d |> conv) rng

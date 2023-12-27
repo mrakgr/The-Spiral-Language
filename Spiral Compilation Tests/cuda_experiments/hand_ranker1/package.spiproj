@@ -28,9 +28,7 @@ modules:
         
     sortm
     cardm
-    bitsetm
     random
-    random_cuda
 
     deck/
         type- 
@@ -38,20 +36,8 @@ modules:
         public-
         deck_test
     hand_score
+    hand_scorer_old
     hand_scorer
-    hand_scorer_cuda
 
-    // conv-
-    // hand_scorer_orig
-    // scan_tests
     // main
-    spiral_map
-    cuda_tests/
-        test6
-        test7
-        test8
-        test9a
-        test9b
-        test10
-
-
+    
