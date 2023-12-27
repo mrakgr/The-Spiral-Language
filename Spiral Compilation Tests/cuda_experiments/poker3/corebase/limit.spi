@@ -1,0 +1,25 @@
+inl max forall t{number}. : t = real
+    typecase t with
+    | i8 => 127i8
+    | i16 => 32767i16
+    | i32 => 2147483647i32
+    | i64 => 9223372036854775807i64
+    | u8 => 255u8
+    | u16 => 65535u16
+    | u32 => 4294967295u32
+    | u64 => 18446744073709551615u64
+    | f32 => !!!!Infinity(`f32)
+    | f64 => !!!!Infinity(`f64)
+
+inl min forall t{number}. : t = real
+    typecase t with
+    | i8 => -128i8
+    | i16 => -32768i16
+    | i32 => -2147483648i32
+    | i64 => -9223372036854775808i64
+    | u8 => 0u8
+    | u16 => 0u16
+    | u32 => 0u32
+    | u64 => 0u64
+    | f32 => !!!!Neg(!!!!Infinity(`f32))
+    | f64 => !!!!Neg(!!!!Infinity(`f64))

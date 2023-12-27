@@ -4,30 +4,30 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        {
-            "type": "extensionHost",
-            "request": "launch",
-            "name": "ESBuild + Launch Extension",
-            "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}",
-                "${workspaceFolder}/../Spiral Compilation Tests"
-            ],
-            "outFiles": [
-                "${workspaceFolder}/out/*.js"
-            ],
-            // "preLaunchTask": "npm: esbuild",
-        },
-        {
-            "type": "extensionHost",
-            "request": "launch",
-            "name": "TSC Watch + Launch Extension",
-            "runtimeExecutable": "${execPath}",
-            "args": [
-                "--extensionDevelopmentPath=${workspaceFolder}",
-                "${workspaceFolder}/../Spiral Compilation Tests"
-            ],
-            "preLaunchTask": "tsc: watch - tsconfig.json"
-        },
+        // {
+        //     "type": "extensionHost",
+        //     "request": "launch",
+        //     "name": "ESBuild + Launch Extension",
+        //     "args": [
+        //         "--extensionDevelopmentPath=${workspaceFolder}",
+        //         "${workspaceFolder}/../Spiral Compilation Tests"
+        //     ],
+        //     "outFiles": [
+        //         "${workspaceFolder}/out/*.js"
+        //     ],
+        //     "preLaunchTask": "npm: esbuild",
+        // },
+        // {
+        //     "type": "extensionHost",
+        //     "request": "launch",
+        //     "name": "TSC Watch + Launch Extension",
+        //     "runtimeExecutable": "${execPath}",
+        //     "args": [
+        //         "--extensionDevelopmentPath=${workspaceFolder}",
+        //         "${workspaceFolder}/../Spiral Compilation Tests"
+        //     ],
+        //     "preLaunchTask": "tsc: watch - tsconfig.json"
+        // },
         {
             "type": "extensionHost",
             "request": "launch",

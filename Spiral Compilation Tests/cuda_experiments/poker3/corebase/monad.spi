@@ -1,0 +1,8 @@
+prototype (>>=) m a : forall b. m a -> (a -> m b) -> m b
+prototype on_succ m a : a -> m a
+
+instance (>>=) list = fun x f => listm.foldBack (fun x l => listm.append (f x) l) x Nil
+instance on_succ list = fun x => x :: Nil
+
+instance (>>=) option = optionm.bind
+instance on_succ option = Some

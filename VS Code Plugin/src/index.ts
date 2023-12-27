@@ -21,22 +21,26 @@ class SerialDisposable implements Disposable {
 }
 
 const port : number = workspace.getConfiguration("spiral").get("port") || 13805
+const hubTimeout = 1000
 const hub = new HubConnectionBuilder()
     .withUrl(`http://localhost:${port}`)
     .configureLogging(LogLevel.Error)
+    .withAutomaticReconnect({
+        nextRetryDelayInMilliseconds: x => hubTimeout
+    })
     .build()
 
 function sleep(ms : number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function hubStart(max_attempts=3) {
-    while (max_attempts-- > 0) {
+async function hubStart() {
+    while (true) {
         try {
             await hub.start();
             return
         } catch (err : any) {
-            await sleep(500)
+            await sleep(hubTimeout)
         }
     }
     throw Error("Max connection attempts elapsed. Spiral VS Code Client has failed to connect to the Spiral server.")
@@ -45,12 +49,6 @@ async function hubStart(max_attempts=3) {
 const requestRun = async (prev : Promise<string | null>, file: any): Promise<string | null> => {
     await prev // Waiting on the previous request is so they get ordered properly. Otherwise, messages might fill up and fire in arbitrary order.
     const msg = JSON.stringify(file)
-    if (hub.state === HubConnectionState.Disconnected) {
-        // TODO: Sometimes when the computer goes to sleep and comes back on the connection will break.
-        // I'll have to test out whether just calling hubStart() would be enough.
-        // hubStart();
-        throw Error("The client is not connected to the server. Please try restarting the Spiral server in the command palette (F1).")
-    }
     const x = await hub.invoke("ClientToServerMsg",msg)
     return x ? x.toString() : null
 }
@@ -259,7 +257,6 @@ export const activate = async (ctx: ExtensionContext) => {
         serverDisposables.assign(() => {
             prev_request = new Promise(resolve => resolve(null))
             terminal.dispose()
-            hub.stop()
             errorsProject.clear(); errorsTokenization.clear(); errorsParse.clear(); errorsType.clear()
         })
 
@@ -268,13 +265,15 @@ export const activate = async (ctx: ExtensionContext) => {
         const compiler_path = path.join(__dirname,"../compiler/Spiral.dll")
         if (isRestart) { await sleep(1000) }
         terminal.sendText(`dotnet "${compiler_path}" port=${port}`)
-        await hubStart()
-
-        hub.on("ServerToClientMsg",serverToClientMsgHandler)
-        workspace.textDocuments.forEach(onDocOpen)
     }
-
+    
     await startServer(workspace.getConfiguration("spiral").get("hideTerminal") || false, false)
+    await hubStart()
+    hub.on("ServerToClientMsg",serverToClientMsgHandler)
+    hub.onreconnected(() => {
+        workspace.textDocuments.forEach(onDocOpen)
+    })
+    workspace.textDocuments.forEach(onDocOpen)
 
     const spiralFilePattern = {pattern: '**/*.{spi,spir}'}
     const spiralProjFilePattern = {pattern: '**/package.spiproj'}
@@ -302,6 +301,7 @@ export const activate = async (ctx: ExtensionContext) => {
         commands.registerCommand("runClosure", x => x() ),
         commands.registerCommand("startServer", () => startServer(false, true) ),
         commands.registerCommand("startServerHidden", () => startServer(true, true) ),
+        commands.registerCommand("showConnectionStatus", () => window.showInformationMessage(JSON.stringify(hub.connectionId)) ),
         languages.registerDocumentLinkProvider(spiralProjFilePattern,new SpiralProjectLinks()),
         languages.registerCodeActionsProvider(spiralProjFilePattern,new SpiralProjectCodeActions())
     )

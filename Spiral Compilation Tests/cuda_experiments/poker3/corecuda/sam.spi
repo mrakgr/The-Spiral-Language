@@ -1,0 +1,138 @@
+// The array template module. Generic functions for array like structures.
+open corebase
+open loop
+
+// Creates an empty array.
+inl create forall dim el. : sa dim el = $"array<`el,@dim> v$"
+// Indexes into an array.
+inl index forall dim el. (ar : sa dim el) (i : int) : el = $"!ar.v[!i]"
+// Sets the value of an array at the specified index.
+inl set forall dim el. (ar : sa dim el) (i : int) (v : el) : () = $"!ar.v[!i] = !v"
+// Returns the length of an array.
+inl length forall dim el. (ar : sa dim el) : int = real real_core.type_lit_to_lit `dim : int
+
+instance equable sa dim el = fun a b =>
+    while (fun _, i => i < length a) (fun (is_eq, i) =>
+        if is_eq then index a i = index b i, i + 1
+        else break()
+        ) (true, 0)
+    |> fst
+    
+instance comparable sa dim el = fun a b => join
+    while (fun _, i => i < length a) (fun (is_eq, i) =>
+        match is_eq with 
+        | Eq => comp (index a i) (index b i), i + 1
+        | _ => 
+            $"// hello"
+            $"return !is_eq"
+        ) (Eq, 0)
+    |> fst
+
+// Gets the first element of an array.
+inl head forall dim el. (ar : sa dim el) : el =
+    if 0 < length ar then index ar 0
+    else error_type "The length of the array should be greater than 0."
+// Gets the last element of an array.
+inl last forall dim el. (ar : sa dim el) : el =
+    if 0 < length ar then index ar (length ar - 1)
+    else error_type "The length of the array should be greater than 0."
+
+// Initializes array using the given function.
+inl init forall dim el. f : sa dim el = 
+    inl ar = create
+    for' {from=0; nearTo=length ar} (fun i => set ar i (f i))
+    ar
+
+// Maps an array.
+inl map forall dim. f (ar : sa dim _) : sa dim _ = init (fun i => index ar i |> f)
+// Maps an array. Provides the index as the first argument.
+inl mapi forall dim. f (ar : sa dim _) : sa dim _ = init (fun i => index ar i |> f i)
+// Iterates over an array.
+inl iter forall dim el. f (ar : sa dim el) = for' {from=0; nearTo=length ar} (index ar >> f)
+// Iterates over an array. Provides the index as the first argument.
+inl iteri forall dim el. f (ar : sa dim el) = for' {from=0; nearTo=length ar} (fun i => f i (index ar i))
+
+// Applies a function to each element of the array, threading an accumulator argument through the computation. 
+// If the input function is f and the elements are i0...iN then computes f (... (f s i0)...) iN
+inl fold f s ar = for {from=0; nearTo=length ar} (fun i s => f s (index ar i)) s
+
+// Same as fold, but also passes the array index into the body.
+inl foldi f s ar = for {from=0; nearTo=length ar} (fun i s => f i s (index ar i)) s
+
+// Applies a function to each element of the two arrays, threading an accumulator argument through the computation.
+inl fold2 forall dim. f s (ar1 : sa dim _) (ar2 : sa dim _) = for {from=0; nearTo=length ar1} (fun i s => f s (index ar1 i) (index ar2 i)) s
+
+// Combines map and fold. Builds a new array whose elements are the results of applying the given function to each of the elements of the input array. The function is also used to accumulate a final value.
+inl mapFold forall state dim el result. (f : state -> el -> result * state) (s : state) (ar : sa dim el) : sa dim result * state = 
+    inl out = create
+    out, for {from=0; nearTo=length ar} (fun i s => 
+        inl x,s = f s (index ar i)
+        set out i x
+        s
+        ) s
+
+// The inclusive Hillis & Steele scan.
+inl scan_inclusive forall dim el. (f : el -> el -> el) (ar : sa dim el) =
+    inl ar = map id ar
+    while (fun by => by < length ar) (fun by =>
+        forDown' {nearFrom=length ar; to=by} (fun i =>
+            set ar i (f (index ar (i-by)) (index ar i))
+            )
+        by * 2
+        ) 1 |> ignore
+    ar
+    
+// Reduces the array in a tree like fashion using the provided function.
+inl reduce forall dim_outer el. (f : el -> el -> el) (ar : sa dim_outer el) =
+    open type_arith
+
+    inl rec loop forall dim. (inp : sa dim el) : el =
+        if 1 < length inp then
+            inl out : sa (divup dim 2) el = create
+            for' {from=0; nearTo=length out} (fun i =>
+                inl v =
+                    inl i = i*2
+                    if i+1 < length inp then f (index inp i) (index inp (i+1))
+                    else index inp i
+                set out i v
+                )
+            loop out
+        else index inp 0
+
+    loop ar
+
+
+// The exclusive Bleloch scan
+inl scan_exclusive forall dim_outer el. (f : el -> el -> el) s (ar : sa dim_outer el) =
+    open type_arith
+
+    inl rec loop forall dim. (inp : sa dim el) : sa dim el =
+        if 1 < length inp then
+            inl out : sa (divup dim 2) el = create
+            for' {from=0; nearTo=length out} (fun i =>
+                inl v =
+                    inl i = i*2
+                    if i+1 < length inp then f (index inp i) (index inp (i+1))
+                    else index inp i
+                set out i v
+                )
+            inl out = loop out
+            for' {from=0; nearTo=length out} (fun i =>
+                inl s = index out i
+                inl i = i*2
+                if i+1 < length inp then
+                    set inp (i+1) (f (index inp i) s)
+                set inp i s
+                )
+            inp
+        else
+            set inp 0 s
+            inp
+
+    loop (map id ar)
+
+inl fromList forall dim el. (l : list el) : sa dim el =
+    inl out = create
+    inl i = listm.fold (fun i x => set out i x . i + 1) 0 l
+    if i <> length out then error_type "The length of the list should match the output array dimension."
+    out
