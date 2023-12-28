@@ -109,13 +109,12 @@ let sample_discrete' forall dim. (dist : sa dim float) rng =
     inl dist = scan_inclusive (+) dist
     inl sum = last dist
     inl r = uniform rng * sum
-    foldi (fun i s x =>
-        match s with // Note: Since the CUDA random number generators are (0,1] rather than [0,1) <= is used instead.
-        | None when r <= x => Some i
-        | Some _ => loop.break()
-        ) None dist
-    |> optionm.defaultWith (length dist - 1)
-
+    let rec loop i = // TODO: don't forget to make sure that this loop is valid 
+        if i < length dist then // Note: Since the CUDA random number generators are (0,1] rather than [0,1) <= is used instead.
+            if r <= index dist i then i
+            else loop (i + 1)
+        else length dist - 1
+    loop 0
 // Randomly samples an action with replacement.
 // Takes in a unnormalized probability distribution as the first argument.
 // Returns the index of a randomly selected item inside it.

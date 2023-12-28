@@ -169,7 +169,7 @@ inl test1() =
         globals()
         inl from = linear_id()
         inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
-        loop.forBy' {from nearTo=1_000_000; by=grid_range()} (fun i deck =>
+        loop.forBy' {from nearTo=1_000_000; by=grid_range()} (fun i =>
             inl (ar : sa 7 card), _ = draw_cards x deck_utils.create()
             inl x = score ar
             inl x' = hand_scorer_old.score ar

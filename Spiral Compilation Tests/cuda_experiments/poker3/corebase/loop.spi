@@ -16,20 +16,20 @@ inl _sub forall t. (x : t) (by : t) : () = $'!x -= !by '
 // An imperative while loop.
 inl while cond body state =
     inl state = _dup state
-    while' (fun _ => cond state) fun _ => _set state (body state)
+    while' (fun () => cond state) fun () => _set state (body state)
     state
 
 // Folds over the range. Compiles to a while loop.
 inl forBy {from nearTo by} body state = 
     inl i, state = _dup (from, state)
-    while' (fun _ => i < nearTo) fun _ => _set state (body i state) . _add i by
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
     state
 // Folds over the range. Compiles to a while loop.
-inl forBy' range body = forBy range body ()
+inl forBy' range body = forBy range (fun i () => body i) ()
 // Folds over the range. Compiles to a while loop.
 inl for {from nearTo} body state = forBy {from nearTo by=1} body state
 // Folds over the range. Stateless version. Compiles to a while loop.
-inl for' r body = for r (fun i _ => body i) ()
+inl for' r body = for r (fun i () => body i) ()
 
 
 // Folds over the range in an downwards direction.

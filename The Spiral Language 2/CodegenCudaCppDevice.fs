@@ -457,7 +457,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             let ret_ty = tup_ty x.range
             let fun_name = Option.defaultValue (if is_while then "while_method_" else "method_") x.name
             let args = x.free_vars |> Array.mapi (fun i (L(_,x)) -> $"{tyv x} v{i}") |> String.concat ", "
-            let inline_ = if is_while then "inline " else line s_fwd $"{ret_ty} {fun_name}{x.tag}({args});"; ""
+            let inline_ = if is_while then "inline " else line s_fwd $"__device__ {ret_ty} {fun_name}{x.tag}({args});"; ""
             line s_fun $"__device__ {inline_}{ret_ty} {fun_name}{x.tag}({args}){{"
             binds_start (indent s_fun) x.body
             line s_fun "}"

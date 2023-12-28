@@ -23,7 +23,7 @@ prototype showdown env : player * player -> list card -> env -> pot
 prototype action env : player * player * pid -> list card -> config -> env -> action
 
 nominal random_player_env = {
-    deck : deck.deck
+    deck : ptr deck.deck
     rng : ptr random.philox_state
     }
 
@@ -45,8 +45,9 @@ instance action random_player_env = fun (pl0,pl1,pid) cards config (random_playe
         ]
     random.sample_discrete actions env.rng
 
-instance draw random_player_env = fun (random_player_env {rng deck}) => 
-    inl card = random.draw_card deck rng
+instance draw random_player_env = fun (random_player_env {rng deck=d}) => 
+    inl card,d' = deck.draw_card rng *d
+    d <-. d'
     card
 
 union betting = TurnOf : {pid : pid; call_skip : i8} | Done
@@ -135,21 +136,32 @@ inl game (config : config) ~env = join
     showdown (pl0,pl1) [c0;c1;c2;c3;c4] env
 
 inl game_loop config = join
-    inl rng = random.create_mt19937()
+    open random
+    inl grid_range () : int = $"gridDim.x * blockDim.x"
+    inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
 
-    loop.for {from=0; nearTo=10_000_000} (fun (i : i32) r =>
-        inl r' = game config (random_player_env {rng deck=bitsetm.zero()})
-        if i % 10000 = 0 then $'std::cout << !i << std::endl'
-        r+r'
+    inl rng : _ philox_state = init {seed=conv (linear_id()); subsequence=0; offset=0}
+
+    loop.for {from=0; nearTo=100_000} (fun (i : i32) r =>
+        inl r' = game config (random_player_env {rng deck=ptr deck.deck_utils.create()})
+        if i % 1_000 = 0 then console.write_ln i
+        r + r'
         ) (0)
 
-inl main() =
-    global "#include <iostream>"
+inl game_entry() =
     random.globals()
-    bitsetm.globals()
     cardm.globals()
     
     inl config = config { stack_size=100; bb=2; sb=1 }
     inl r = game_loop config
-    $'std::cout << !r << std::endl'
-    0i32
+    console.write_ln r
+
+inl main() =
+    inl grid_range () : int = $"gridDim.x * blockDim.x"
+    inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+
+    inl blocks = 1
+    inl grids = 1 // divup (length out) blocks
+    run grids blocks (fun () =>
+        game_entry()
+        )
