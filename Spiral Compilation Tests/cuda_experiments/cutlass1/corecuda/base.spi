@@ -1,0 +1,35 @@
+open corebase
+
+// Statically sized array with a type literal for a dimension.
+nominal sa dim el = $"array<`el,@dim>"
+
+// Base reference type
+nominal ref t = $"`t &"
+inl ref forall t. (x : t) : ref t = $"`t & v$ = !x"
+
+// Base pointer type
+nominal ptr t = $'`t *'
+inl ptr forall t. (~x : t) : ptr t = $"`t * v$ = &!x"
+// Sets the pointer to a specified value.
+inl (<-.) forall t. (x : ptr t) (v : t) : () = $"*!x = !v"
+inl (~*) forall t. (x : ptr t) : t = $"`t v$ = *!x"
+
+type dim3 = {x : int; y : int; z : int}
+
+// Executes the lambda on the GPU device.
+inl run' (gridDim : dim3) (blockDim : dim3) f =
+    // Global statements only get executed once.
+    global "raw_module = cp.RawModule(code=kernel, backend=\"nvcc\")"
+    inl kernel_i, vars = join_backend Cuda 
+        global "template <typename el, int dim> struct array { el v[dim]; };"
+        f ()
+        ()
+    real
+        match vars with
+        | () => $'raw_module.get_function(f"entry{!kernel_i}")(!gridDim,!blockDim,())' : ()
+        | _,_ => $'raw_module.get_function(f"entry{!kernel_i}")(!gridDim,!blockDim,!vars)' : ()
+        | _ => $'raw_module.get_function(f"entry{!kernel_i}")(!gridDim,!blockDim,(!vars,))' : ()
+    ()
+    
+// Executes the lambda on the GPU device.
+inl run gridDim_x blockDim_x = run' {z=1; y=1; x=gridDim_x} {z=1; y=1; x=blockDim_x}
