@@ -1,0 +1,13 @@
+open corebase
+open corecuda
+
+inl main() =
+    inl grid_range () : int = $"gridDim.x * blockDim.x"
+    inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+
+    inl blocks = 1
+    inl grids = 1 // divup (length out) blocks
+    run grids blocks (fun () =>
+        global "#include <include/cutlass/cutlass.h>"
+        ()
+        )

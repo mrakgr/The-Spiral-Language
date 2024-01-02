@@ -38,4 +38,8 @@ modules:
     hand_scorer
 
     main
+
+    cutlass/
+        test1
+        
     
