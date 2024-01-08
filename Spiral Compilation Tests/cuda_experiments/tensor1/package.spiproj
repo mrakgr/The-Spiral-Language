@@ -38,3 +38,7 @@ modules:
     hand_scorer
 
     main
+
+    tensor/
+        utils*
+        type-

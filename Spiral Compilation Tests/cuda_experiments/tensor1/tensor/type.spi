@@ -1,0 +1,54 @@
+open corebase
+
+nominal tensor_body dim el = {
+    array : array el
+    stride : dim
+    offset : int
+    }
+
+open inv_array_utils
+
+nominal tensor dim el = {
+    bodies : `(infer `(tensor_body dim) `el)
+    dim : dim
+    }
+
+inl create forall dim el. (dim : dim) : tensor dim el = 
+    inl len, stride = real
+        open real_core
+        inl rec loop = function
+            | a,b =>
+                inl b,s = loop b
+                a*b,b,s
+            | x =>
+                x, conv `(`x) 1
+        loop dim
+    tensor {dim bodies=real create' `(tensor_body dim) `el stride}
+
+instance create tensor dim = fun dim => tensor {dim arrays=real create' `ar `el len}
+instance index tensor ar = fun (tensor {arrays}) i => real index' arrays i
+instance set tensor ar = fun (tensor {arrays}) i v => real set' arrays i v
+instance length tensor ar = fun (tensor {len}) => len
+
+inl fromArray forall t. (x : array t) : inv_array array t = inv_array {len = length x; arrays = real x}
+
+// Zips two inverse arrays. Apart from length checking, all the work is done at compile time.
+inl zip forall (ar : * -> *) a b. (a : inv_array ar a) (b : inv_array ar b) : inv_array ar (a * b) =
+    assert (length a = length b) "The two arrays have to be that same length for zipping to work."
+    inv_array {len=a.len; arrays=real a.arrays,b.arrays}
+    
+// Should only be used to rearrange internal fields.
+inl rezip forall (ar : * -> *) a b. (f : a -> b) (a : inv_array ar a) : inv_array ar b =
+    inv_array {len=a.len; arrays=real f a.arrays}
+
+inl array forall t. (x : array_base t) : inv_array array t = 
+    inl x = array x
+    inv_array {len=length x; arrays=real x}
+
+// Assert the array length. If they are the same, substitutes it with the given length in the resulting array.
+// Useful when then given length is known at compile time and the array length is known at runtime.
+// In that case, the resulting array will have the length given at compile time.
+inl assert_len forall (ar : * -> *) a. (len : int) (inv_array {len=len' arrays} & a : inv_array ar a) : inv_array ar a =
+    assert (len = len') "Expected the length of the array to be the specified amount."
+    inv_array {len arrays}
+    
