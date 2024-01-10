@@ -26,3 +26,21 @@ inl iter2 set ar v =
         | ({} & ar, {} & v) => record_iter (fun {key value} => f (ar key, value)) v
         | ar,v => set ar v
     f (ar, v)
+
+inl assert_index (i, s) = // This could be made concise, but I want the generated code to come out clean.
+    if lit_is i && lit_is s then
+        if not (0 <= i && i < s ) then
+            error_type "Tensor index out of bounds (detected at compile-time.)"
+    else
+        backend_switch {
+            python = fun () => $"assert 0 <= !i < !s, 'Tensor range check'" : ()
+            cuda = fun () => $"assert(0 <= !i && !i < !s (* Tensor range check *))" : ()
+        }
+
+inl rec assert_indices = function
+    | (s,s'),(i,i') => assert_index (i, s) . assert_indices (s', i')
+    | s, i => assert_index (i, s)
+
+inl rec calculate_offset = function
+    | (s,s'),(i,i') => s * i + calculate_offset (s', i')
+    | s, i => s * i

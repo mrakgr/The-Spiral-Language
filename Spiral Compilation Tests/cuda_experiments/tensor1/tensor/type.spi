@@ -12,15 +12,14 @@ nominal tensor dim el = {
     dim : dim
     }
 
+inl fromArray forall t. (x : array t) : tensor int t = tensor {dim = length x; bodies = real tensor_body `int `t {array = x; stride = 1; offset = 0}}
+
 inl create forall dim el. (dim : dim) : tensor dim el = 
     inl len, stride = real
         open real_core
         inl rec loop = function
-            | a,b =>
-                inl b,s = loop b
-                a*b,b,s
-            | x =>
-                x, conv `(`x) 1
+            | a,b => inl b,s = loop b in a*b, b, s
+            | x => x, 1
         loop dim
     inl create_body forall t. : tensor_body dim t = tensor_body {
         array = create len
@@ -30,58 +29,43 @@ inl create forall dim el. (dim : dim) : tensor dim el =
     tensor {dim bodies=real infer_templ `el create_body}
 
 inl index forall dim el. (tensor {bodies dim} : tensor dim el) (i : dim) : el = real 
+    assert_indices (dim, i)
     iter (fun (tensor_body {array stride offset}) =>
-        inl dim_asserts =
-            open real_core
-            inl assert (i, s) = // This could be made more concise, but I want the generated code to come out clean.
-                if lit_is i && lit_is s then
-                    if not (0 <= i && i < s ) then
-                        error_type "Tensor index out of bounds (detected at compile-time.)"
-                else
-                    backend_switch {
-                        python = fun () => $"assert 0 <= !i < !s, 'Tensor range check'" : ()
-                        cuda = fun () => $"assert(0 <= !i && !i < !s (* Tensor range check *))" : ()
-                    }
-            inl rec loop = function
-                | (s,s'),(i,i') => 
-                    assert (i, s)
-                    loop (s', i')
-                | s, i =>
-                    assert (i, s)
-            loop (dim, i)
-
-        inl offset =
-            inl rec loop = function
-                | (s,s'),(i,i') => s * i + loop (s', i')
-                | s, i => s * i
-            offset + loop stride i
         typecase `array with
-        | ~ar ~el => index `ar `el offset
+        | ~ar ~el => index `ar `el (offset + calculate_offset (stride, i))
         ) bodies
 
-instance index tensor ar = fun (tensor {arrays}) i => real index' arrays i
-instance set tensor ar = fun (tensor {arrays}) i v => real set' arrays i v
-instance length tensor ar = fun (tensor {len}) => len
+inl set forall dim el. (tensor {bodies dim} : tensor dim el) (i : dim) (v : el) : () = real 
+    assert_indices (dim, i)
+    iter2 (fun (tensor_body {array stride offset}) v =>
+        typecase `array with
+        | ~ar ~el => set `ar `el (offset + calculate_offset (stride, i)) v
+        ) bodies v
 
-inl fromArray forall t. (x : array t) : inv_array array t = inv_array {len = length x; arrays = real x}
+inl length forall dim el. (tensor {dim} : tensor dim el) : int = real
+    let rec loop = function
+        | (a,b) => a * loop b
+        | x => x
+    loop dim
 
-// Zips two inverse arrays. Apart from length checking, all the work is done at compile time.
-inl zip forall (ar : * -> *) a b. (a : inv_array ar a) (b : inv_array ar b) : inv_array ar (a * b) =
-    assert (length a = length b) "The two arrays have to be that same length for zipping to work."
-    inv_array {len=a.len; arrays=real a.arrays,b.arrays}
+// Zips two tensors. Apart from dimension checking, all the work is done at compile time.
+inl zip forall dim a b. (a : tensor dim a) (b : tensor dim b) : tensor dim (a * b) =
+    assert (a.dim = b.dim) "The two tensors have to have the same dimensions for zipping to work."
+    tensor {dim = a.dim; bodies = real a.bodies, b.bodies}
     
 // Should only be used to rearrange internal fields.
-inl rezip forall (ar : * -> *) a b. (f : a -> b) (a : inv_array ar a) : inv_array ar b =
-    inv_array {len=a.len; arrays=real f a.arrays}
+inl rezip forall dim a b. (f : a -> b) (a : tensor dim a) : tensor dim b =
+    tensor {dim = a.dim; bodies=real f a.bodies}
 
-inl array forall t. (x : array_base t) : inv_array array t = 
-    inl x = array x
-    inv_array {len=length x; arrays=real x}
+// Overloads the ;[] array constructor.
+inl array forall t. (x : array_base t) : tensor int t = 
+    inl array = array x
+    tensor {dim = corebase.length array; bodies=real tensor_body `int `t {array stride=1; offset=0} }
 
 // Assert the array length. If they are the same, substitutes it with the given length in the resulting array.
 // Useful when then given length is known at compile time and the array length is known at runtime.
 // In that case, the resulting array will have the length given at compile time.
-inl assert_len forall (ar : * -> *) a. (len : int) (inv_array {len=len' arrays} & a : inv_array ar a) : inv_array ar a =
-    assert (len = len') "Expected the length of the array to be the specified amount."
-    inv_array {len arrays}
+inl assert_len forall dim el. (dim : dim) (tensor {dim=dim' bodies} : tensor dim el) : tensor dim el =
+    assert (dim = dim') "Expected the length of the array to be the specified amount."
+    tensor {dim bodies}
     
