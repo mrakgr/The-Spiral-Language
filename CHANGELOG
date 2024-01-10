@@ -1,3 +1,7 @@
+2.5.8 (1/10/2024)
+
+* Implemented BackendSwitch. Now it should be possible to write backend polymorphic code.
+
 2.5.7 (12/28/2023)
 
 * Fixed an error in the CUDA back end, where the method forward declarations weren't printed with the __device__ annotation. 

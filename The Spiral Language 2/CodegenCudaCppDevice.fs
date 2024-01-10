@@ -308,6 +308,11 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             line s "}"
         | TyJoinPoint(a,args) -> return' (jp (a, args))
         | TyBackend(_,_,(r,_)) -> raise_codegen_error_backend r "The C backend does not support nesting of other backends."
+        | TyBackendSwitch m ->
+            let backend = "Cuda"
+            match Map.tryFind backend m with
+            | Some b -> binds s ret b
+            | None -> raise_codegen_error $"Cannot find the backend \"{backend}\" in the TyBackendSwitch."
         | TyWhile(a,b) ->
             let cond =
                 match a with

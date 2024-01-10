@@ -1,12 +1,11 @@
 open corebase
+open utils
 
 nominal tensor_body dim el = {
     array : array el
     stride : dim
     offset : int
     }
-
-open inv_array_utils
 
 nominal tensor dim el = {
     bodies : `(infer `(tensor_body dim) `el)
@@ -23,9 +22,43 @@ inl create forall dim el. (dim : dim) : tensor dim el =
             | x =>
                 x, conv `(`x) 1
         loop dim
-    tensor {dim bodies=real create' `(tensor_body dim) `el stride}
+    inl create_body forall t. : tensor_body dim t = tensor_body {
+        array = create len
+        offset = 0
+        stride 
+        }
+    tensor {dim bodies=real infer_templ `el create_body}
 
-instance create tensor dim = fun dim => tensor {dim arrays=real create' `ar `el len}
+inl index forall dim el. (tensor {bodies dim} : tensor dim el) (i : dim) : el = real 
+    iter (fun (tensor_body {array stride offset}) =>
+        inl dim_asserts =
+            open real_core
+            inl assert (i, s) = // This could be made more concise, but I want the generated code to come out clean.
+                if lit_is i && lit_is s then
+                    if not (0 <= i && i < s ) then
+                        error_type "Tensor index out of bounds (detected at compile-time.)"
+                else
+                    backend_switch {
+                        python = fun () => $"assert 0 <= !i < !s, 'Tensor range check'" : ()
+                        cuda = fun () => $"assert(0 <= !i && !i < !s (* Tensor range check *))" : ()
+                    }
+            inl rec loop = function
+                | (s,s'),(i,i') => 
+                    assert (i, s)
+                    loop (s', i')
+                | s, i =>
+                    assert (i, s)
+            loop (dim, i)
+
+        inl offset =
+            inl rec loop = function
+                | (s,s'),(i,i') => s * i + loop (s', i')
+                | s, i => s * i
+            offset + loop stride i
+        typecase `array with
+        | ~ar ~el => index `ar `el offset
+        ) bodies
+
 instance index tensor ar = fun (tensor {arrays}) i => real index' arrays i
 instance set tensor ar = fun (tensor {arrays}) i v => real set' arrays i v
 instance length tensor ar = fun (tensor {len}) => len

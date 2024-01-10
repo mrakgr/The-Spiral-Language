@@ -154,7 +154,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             r
 
     let cupy_ty x = env.ty_to_data x |> data_free_vars |> cupy_ty
-    let rec binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = binds (Codegen.C.refc_prepass Set.empty (Set args) x).g_decr s BindsTailEnd x
+    let rec binds_start (args : TyV []) (s : CodegenEnv) (x : TypedBind []) = binds (Codegen.C.refc_prepass "Python" Set.empty (Set args) x).g_decr s BindsTailEnd x
     and binds g_decr (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
         let s_len = s.text.Length
         let tup_destruct (a,b) =
@@ -270,6 +270,11 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
                 line s "case _:"
                 binds g_decr (indent s) ret b
                 )
+        | TyBackendSwitch m ->
+            let backend = "Python"
+            match Map.tryFind backend m with
+            | Some b -> binds g_decr s ret b
+            | None -> raise_codegen_error $"Cannot find the backend \"{backend}\" in the TyBackendSwitch."
         | TyUnionBox(a,b,c') ->
             let c = c'.Item
             let i = c.tags.[a]

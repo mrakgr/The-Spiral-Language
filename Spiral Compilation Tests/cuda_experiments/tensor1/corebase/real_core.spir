@@ -131,6 +131,8 @@ inl assert c msg =
     if c = false then 
         if lit_is c && lit_is msg then error_type msg
         else failwith `(()) msg
+// Backend switch for Python/Cuda.
+inl backend_switch x = !!!!BackendSwitch(("Cuda", x.cuda()), ("Python", x.python()))
 // Returns the maximum of the two terms.
 inl max a b = if a >= b then a else b
 // Returns the minimum of the two terms.

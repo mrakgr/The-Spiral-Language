@@ -109,6 +109,7 @@ type TypedBind =
 and TypedOp = 
     | TyMacro of CodeMacro list
     | TyOp of Op * Data list
+    | TyBackendSwitch of Map<string, TypedBind []>
     | TyUnionBox of string * Data * Union
     | TyUnionUnbox of TyV list * Union * Map<string,Data list * TypedBind []> * TypedBind [] option
     | TyIntSwitch of TyV * TypedBind [] [] * TypedBind []
@@ -1257,6 +1258,18 @@ let peval (env : TopEnv) (x : E) =
             let mutable r = Unchecked.defaultof<_>
             if List.exists (fun (a',b) -> is_unify (a,ty s a') && (r <- term s b; true)) b 
             then r else raise_type_error s <| sprintf "Typecase miss.\nGot: %s" (show_ty a)
+        | EOp(_,BackendSwitch,l) ->
+            let mutable ty = None
+            let m = (Map.empty, l) ||> List.fold (fun m -> function
+                | EPair(r,ELit(_,LitString backend),b) -> 
+                    let body,ty' = term_scope s b
+                    match ty with
+                    | Some ty -> if ty <> ty' then raise_type_error s $"The return type of backend {backend} does not match that of the rest.\nGot: {show_ty ty'}\nExpected: {show_ty ty}"
+                    | None -> ty <- Some ty'
+                    Map.add backend body m
+                | _ -> raise_type_error s "BackendSwitch should be a list of (string literal,body) pairs."
+                )
+            push_typedop s (TyBackendSwitch m) ty.Value
         | EOp(_,While,[cond;body]) -> 
             match term_scope s cond with
             | [|TyLocalReturnOp(_,TyJoinPoint cond,_)|], ty ->
