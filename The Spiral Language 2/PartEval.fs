@@ -217,6 +217,18 @@ let rdata_free_vars call_data =
     Array.iter g call_data
     free_vars.ToArray()
 
+let data_term_vars' call_data =
+    let term_vars = ResizeArray(64)
+    let rec f = function
+        | DPair(a,b) -> f a; f b
+        | DForall(_,a,_,_,_) | DFunction(_,_,a,_,_,_) -> Array.iter f a
+        | DRecord l -> Map.iter (fun _ -> f) l
+        | DLit _ | DV _ as x -> term_vars.Add(x)
+        | DUnion(a,_) | DNominal(a,_) -> f a
+        | DSymbol _ | DTLit _ | DB -> ()
+    f call_data
+    term_vars.ToArray()
+
 let data_term_vars call_data =
     let term_vars = ResizeArray(64)
     let rec f = function
@@ -1270,6 +1282,11 @@ let peval (env : TopEnv) (x : E) =
                 | _ -> raise_type_error s "BackendSwitch should be a list of (string literal,body) pairs."
                 )
             push_typedop s (TyBackendSwitch m) ty.Value
+        | EOp(_,UsesOriginalTermVars,[a;b]) ->
+            let a = term s a |> data_term_vars'
+            let b = term s b |> data_term_vars'
+            let c = a.Length = b.Length && HashSet(a,HashIdentity.Reference).SetEquals(b)
+            DLit(LitBool c)
         | EOp(_,While,[cond;body]) -> 
             match term_scope s cond with
             | [|TyLocalReturnOp(_,TyJoinPoint cond,_)|], ty ->

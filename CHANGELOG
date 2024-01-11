@@ -1,6 +1,7 @@
-2.5.8 (1/10/2024)
+2.5.8 (WIP)
 
 * Implemented BackendSwitch. Now it should be possible to write backend polymorphic code.
+* Implemented UsesOriginalTermVars. This is used for extra security in tensor reordering operations.
 
 2.5.7 (12/28/2023)
 

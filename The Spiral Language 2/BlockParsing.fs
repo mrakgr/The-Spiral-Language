@@ -21,6 +21,9 @@ type Op =
     // Backend branching
     | BackendSwitch
 
+    // Reordering check
+    | UsesOriginalTermVars
+
     // imports
     | Global
 

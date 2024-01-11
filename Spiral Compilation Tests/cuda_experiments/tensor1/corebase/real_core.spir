@@ -126,13 +126,23 @@ inl nan_is x = !!!!NanIs(x)
 
 // Raises an exception at runtime.
 inl failwith forall t. msg = !!!!FailWith(`t,msg)
+// Backend switch for Python/Cuda.
+inl backend_switch x = !!!!BackendSwitch(("Cuda", x.cuda()), ("Python", x.python()))
 // Asserts an term. If the conditional and the message are literals it raises a type error instead.
 inl assert c msg = 
     if c = false then 
         if lit_is c && lit_is msg then error_type msg
-        else failwith `(()) msg
-// Backend switch for Python/Cuda.
-inl backend_switch x = !!!!BackendSwitch(("Cuda", x.cuda()), ("Python", x.python()))
+        else 
+            backend_switch {
+                python = fun () => $"assert !c, !msg" : ()
+                cuda = fun () => $"assert(!c (* !msg *))" : ()
+                }
+// Gathers the term variables from the two arguments, that is literals and runtime variables, places them in a set and compares the two using references equality.
+inl uses_original_term_vars a b = !!!!UsesOriginalTermVars(a,b)
+// Asserts that the two arguments have the same term variables under reference equalty when placed in a set. Also, asserts that the lengths match to not get fooled by duplicates.
+inl assert_term_vars_are_equal a b =
+    if uses_original_term_vars a b then b
+    else error_type "The two arguments have to have the same term variables under reference equalty when placed in a set."
 // Returns the maximum of the two terms.
 inl max a b = if a >= b then a else b
 // Returns the minimum of the two terms.

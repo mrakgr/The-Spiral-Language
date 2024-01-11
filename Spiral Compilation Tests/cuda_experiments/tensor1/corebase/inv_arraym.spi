@@ -13,9 +13,9 @@ inl zip forall (ar : * -> *) a b. (a : inv_array ar a) (b : inv_array ar b) : in
     assert (length a = length b) "The two arrays have to be the same length for zipping to work."
     inv_array {len=a.len; arrays=real a.arrays,b.arrays}
     
-// Should only be used to rearrange internal fields.
+// Should only be used to rearrange internal fields. Is a compile time operation.
 inl rezip forall (ar : * -> *) a b. (f : a -> b) (a : inv_array ar a) : inv_array ar b =
-    inv_array {len=a.len; arrays=real f a.arrays}
+    inv_array {len=a.len; arrays=real open real_core in f a.bodies |> assert_term_vars_are_equal a.bodies}
 
 // Overloads the ;[] array constructor.
 inl array forall t. (x : array_base t) : inv_array array t = 
