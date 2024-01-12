@@ -43,7 +43,7 @@ inl ignore x = ()
 // Returns an term after evaluating it.
 inl id x = x
 // Throws away the second argument and returns the first.
-inl const x () = x
+inl const x _ = x
 // Applies the unit to the function.
 inl unconst x = x()
 // Boolean negation.

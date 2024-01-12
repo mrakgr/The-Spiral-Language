@@ -103,3 +103,11 @@ inl assert_indices i = iter2 assert_index i
 inl assert_indices_view i = iter3 assert_index_view i
 inl calculate_offset a = foldBack2 (fun a b s => a * b + s) a
 
+inl calculate_stride_len dim = mapFoldBack (fun x s => s, x * s) dim 1
+
+inl assert_stride_contiguous dim stride =
+    foldBack2 (fun dim stride expected_stride => 
+        assert (expected_stride = stride) "The tensor must be contiguous in order to be flattened."
+        dim * stride
+        ) dim stride 1
+    |> const 1
