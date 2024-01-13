@@ -298,6 +298,7 @@ and RawTExpr =
     | RawTB of VSCRange
     | RawTMetaVar of VSCRange * VarString
     | RawTLit of VSCRange * Literal
+    | RawTDefLit of VSCRange * string
     | RawTVar of VSCRange * VarString
     | RawTPair of VSCRange * RawTExpr * RawTExpr
     | RawTFun of VSCRange * RawTExpr * RawTExpr
@@ -379,6 +380,7 @@ let range_of_texpr = function
     | RawTWildcard r
     | RawTB r
     | RawTLit(r,_)
+    | RawTDefLit(r,_)
     | RawTMacro(r,_)
     | RawTMetaVar(r,_)
     | RawTVar(r,_)
@@ -855,37 +857,13 @@ let root_type_defaults = {
     allow_wildcard = false
     }
 
-let default_float = Float64T
-let default_int = Int32T
-let bottom_up_number (r : VSCRange,x : string) =
-    let inline f string_to_val val_to_lit val_dsc =
-        match string_to_val x with
-        | true, x -> Ok(r, val_to_lit x)
-        | false, _ -> Error [r, BottomUpNumberParseError(x,val_dsc)]
-    if x.Contains '.' then
-        match default_float with
-        | Float32T -> f Single.TryParse LitFloat32 "f32"
-        | Float64T -> f Double.TryParse LitFloat64 "f64"
-        | x -> failwithf "Compiler error: Invalid default float type. Got: %A" x
-    else
-        match default_int with
-        | Int8T -> f SByte.TryParse LitInt8 "i8"
-        | Int16T -> f Int16.TryParse LitInt16 "i16"
-        | Int32T -> f Int32.TryParse LitInt32 "i32"
-        | Int64T -> f Int64.TryParse LitInt64 "i64"
-        | UInt8T -> f Byte.TryParse LitUInt8 "u8"
-        | UInt16T -> f UInt16.TryParse LitUInt16 "u16"
-        | UInt32T -> f UInt32.TryParse LitUInt32 "u32"
-        | UInt64T -> f UInt64.TryParse LitUInt64 "u64"
-        | x -> failwithf "Compiler error: Invalid default int type. Got: %A" x
-
 let typecase_validate x _ =
     let metavars = Collections.Generic.HashSet()    
     let vars = Collections.Generic.HashSet()
     let errors = ResizeArray()
     let rec f = function
         | RawTFilledNominal _ | RawTTerm _ | RawTForall _ -> failwith "Compiler error: This case is not supposed to appear in typecase."
-        | RawTLit _ | RawTPrim _ | RawTSymbol _ | RawTB _ | RawTWildcard _ -> ()
+        | RawTLit _ | RawTDefLit _ | RawTPrim _ | RawTSymbol _ | RawTB _ | RawTWildcard _ -> ()
         | RawTMetaVar(r,a) -> if vars.Contains(a) then errors.Add(r,MetavarShadowedByVar) else metavars.Add(a) |> ignore
         | RawTVar(r,a) -> if metavars.Contains(a) then errors.Add(r,VarShadowedByMetavar) else vars.Add(a) |> ignore
         | RawTApply(_,a,b) | RawTFun(_,a,b) | RawTPair(_,a,b) -> f a; f b
@@ -910,7 +888,7 @@ let inline read_default_value' f d =
 let inline read_default_value on_top on_bot d =
     read_default_value' (fun (p,t') ->
         if d.is_top_down then Ok(on_top (p,t'))
-        else bottom_up_number (p,t') |> Result.map on_bot
+        else Ok(on_bot (p,t'))
         ) d
 let read_string = tuple3 skip_string_open ((read_text |>> snd) <|>% "") skip_string_close
 let pat_var d = (read_small_var' |>> PatVar) d
@@ -959,7 +937,7 @@ and root_pattern_rounds d =
 and root_pattern s =
     let pat_list_pair r a b = PatUnbox(r,"Cons",PatPair(r,a,b))
     let body s = 
-        let pat_value = (read_value |>> PatValue) <|> (read_default_value PatDefaultValue PatValue)
+        let pat_value = (read_value |>> PatValue) <|> (read_default_value PatDefaultValue PatDefaultValue)
         let pat_string = read_string |>> (fun (a,x,b) -> PatValue(a +. b,LitString x))
         let pat_symbol = read_symbol |>> PatSymbol
         let pat_array = skip_unary_op ";" >>. range (squares (sepBy root_pattern_type (skip_op ";"))) |>> fun (r,x) -> PatArray(r,x)
@@ -1007,7 +985,7 @@ and root_type (flags : RootTypeFlags) d =
         let symbol = read_symbol |>> RawTSymbol
         let record = root_type_record flags
         let lit = (read_value |>> RawTLit) <|> (read_string |>> fun (a,b,c) -> RawTLit(a +. c, LitString b))
-        let lit_default = read_default_value' (bottom_up_number >> Result.map RawTLit)
+        let lit_default = read_default_value' (RawTDefLit >> Ok)
         let var = read_var' |>> fun (o,x,r) ->
             r SemanticTokenLegend.type_variable
             RawTVar(o, x)
@@ -1051,7 +1029,7 @@ and root_term d =
                         |> List.foldBack (fun a body -> RawForall(range_of_typevar a +. range_of_expr body,a,body)) foralls |> Ok
                     | ers -> Error ers) d
 
-        let case_default_value = read_default_value RawDefaultLit RawLit
+        let case_default_value = read_default_value RawDefaultLit RawDefaultLit
         let case_if_then_else d = 
             let i = col d
             let inline f' keyword = range (skip_keyword keyword >>. next)
@@ -1164,7 +1142,7 @@ and root_term d =
                     choice [|
                         read_var'' |>> RawV
                         read_value |>> RawLit
-                        read_default_value RawDefaultLit RawLit
+                        read_default_value RawDefaultLit RawDefaultLit
                         read_string |>> fun (a,b,c) -> RawLit(a +. c, LitString b)
                         rounds root_term
                         |] d

@@ -42,6 +42,7 @@ let rec fold_offset_ty offset x =
     match x with
     | RawTWildcard r -> RawTWildcard(g r)
     | RawTLit(r,a) -> RawTLit(g r, a)
+    | RawTDefLit(r,a) -> RawTDefLit(g r, a)
     | RawTB r -> RawTB(g r)
     | RawTMetaVar(r,a) -> RawTMetaVar(g r,a)
     | RawTVar(r,a) -> RawTVar(g r,a)

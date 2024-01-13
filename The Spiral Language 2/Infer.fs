@@ -68,6 +68,7 @@ type TypeError =
     | ExpectedSymbolAsModuleKey of T
     | UnboundVariable of string
     | UnboundModule
+    | UnboundDefaultType of string
     | ModuleIndexFailedInOpen
     | TermError of T * T
     | ForallVarScopeError of string * T * T
@@ -141,7 +142,7 @@ let rec visit_t = function
 exception TypeErrorException of (VSCRange * TypeError) list
 
 let rec metavars = function
-    | RawTFilledNominal _ | RawTMacro _ | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTLit _ | RawTB _ | RawTSymbol _ -> Set.empty
+    | RawTFilledNominal _ | RawTMacro _ | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTLit _ | RawTDefLit _ | RawTB _ | RawTSymbol _ -> Set.empty
     | RawTMetaVar(_,a) -> Set.singleton a
     | RawTArray(_,a) | RawTLayout(_,a,_) | RawTForall(_,_,a) -> metavars a
     | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> metavars a + metavars b
@@ -258,6 +259,9 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
     let errors = ResizeArray()
     let check_term term (a,b) = if Set.contains b term = false && Map.containsKey b top_env.term = false then errors.Add(a,UnboundVariable b)
     let check_ty ty (a,b) = if Set.contains b ty = false && Map.containsKey b top_env.ty = false then errors.Add(a,UnboundVariable b)
+    let check_ty_def ty a = 
+        let f b = if Set.contains b ty = false && Map.containsKey b top_env.ty = false then errors.Add(a,UnboundDefaultType b)
+        f "int"; f "float"
     let check_cons constraints (a,b) = 
         match Map.tryFind b constraints |> Option.orElseWith (fun () -> Map.tryFind b top_env.constraints) with
         | Some (C _) -> ()
@@ -265,7 +269,8 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
         | None -> errors.Add(a,UnboundVariable b)
     let rec cterm constraints term ty x =
         match x with
-        | RawSymbol _ | RawDefaultLit _ | RawLit _ | RawB _ -> ()
+        | RawSymbol _ | RawLit _ | RawB _ -> ()
+        | RawDefaultLit(a,_) -> check_ty_def ty a
         | RawV(a,b) -> check_term term (a,b)
         | RawType(_,x) -> ctype constraints term ty x
         | RawMatch(_,body,l) -> cterm constraints term ty body; List.iter (fun (a,b) -> cterm constraints (cpattern constraints term ty a) ty b) l
@@ -315,6 +320,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
     and ctype constraints term ty x =
         match x with
         | RawTFilledNominal(_,_) | RawTPrim _ | RawTWildcard _ | RawTLit _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
+        | RawTDefLit(a,_) -> check_ty_def ty a
         | RawTVar(a,b) -> check_ty ty (a,b)
         | RawTArray(_,a) | RawTLayout(_,a,_) -> ctype constraints term ty a
         | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> ctype constraints term ty a; ctype constraints term ty b
@@ -327,7 +333,8 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
         let rec loop term x = 
             let f = loop term
             match x with
-            | PatDefaultValue _ | PatFilledDefaultValue _ | PatValue _ | PatSymbol _ | PatB _ | PatE _ -> term
+            | PatFilledDefaultValue _ | PatValue _ | PatSymbol _ | PatB _ | PatE _ -> term
+            | PatDefaultValue(r,_) -> check_ty_def ty r; term
             | PatVar(_,b) -> 
                 //if is_first.Add b then () // TODO: I am doing it like this so I can reuse this code later for variable highlighting.
                 Set.add b term
@@ -513,6 +520,7 @@ let show_type_error (env : TopEnv) x =
     | ExpectedSymbolAsModuleKey a -> sprintf "Expected symbol as a module key.\nGot: %s" (f a)
     | UnboundVariable x -> sprintf "Unbound variable: %s." x
     | UnboundModule -> sprintf "Unbound module."
+    | UnboundDefaultType x -> sprintf "Unbound default type: %s" x
     | ModuleIndexFailedInOpen -> sprintf "Module does not have a submodule with that key."
     | ForallVarScopeError(a,_,_) -> sprintf "Tried to unify the forall variable %s with a metavar outside its scope." a
     | ForallVarConstraintError(n,a,b) -> sprintf "Metavariable's constraints must be a subset of the forall var %s's.\nGot: %s\nExpected: %s" n (show_constraints env a) (show_constraints env b)
@@ -1251,6 +1259,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | None -> errors.Add(r, UnboundVariable x)
         | RawTB r -> unify r s TyB
         | RawTLit(r,x) -> unify r s (TyLit x)
+        | RawTDefLit(r,x) -> unify r s (TyLit x)
         | RawTSymbol(r,x) -> unify r s (TySymbol x)
         | RawTPrim(r,x) -> unify r s (TyPrim x)
         | RawTPair(r,a,b) -> 
