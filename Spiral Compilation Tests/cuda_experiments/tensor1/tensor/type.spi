@@ -12,8 +12,13 @@ nominal tensor dim el = {
     dim : dim
     }
 
+// Create a tensor from an array.
 inl fromArray forall t. (x : array t) : tensor int t = tensor {dim = length x; bodies = real tensor_body `int `t {array = x; stride = 1; offset = 0}}
 
+// Overloads the ;[] array constructor.
+inl array forall t. (x : array_base t) : tensor int t = fromArray (array x)
+
+// Create a tensor of the specified dimensions. The elements of the dimension should be ints.
 inl create forall dim el. (dim : dim) : tensor dim el = 
     inl stride, len = real calculate_stride_len dim
     inl create_body forall t. : tensor_body dim t = tensor_body {
@@ -23,6 +28,7 @@ inl create forall dim el. (dim : dim) : tensor dim el =
         }
     tensor {dim bodies=real infer_templ `el create_body}
 
+// Indexes into an tensor.
 inl index forall dim el. (tensor {bodies dim} : tensor dim el) (i : dim) : el = real 
     assert_indices i dim
     map (fun (tensor_body {array stride offset}) =>
@@ -30,6 +36,7 @@ inl index forall dim el. (tensor {bodies dim} : tensor dim el) (i : dim) : el = 
         | ~ar ~el => index `ar `el (calculate_offset stride i offset)
         ) bodies
 
+// Sets the tensor at the specified index to a given value.
 inl set forall dim el. (tensor {bodies dim} : tensor dim el) (i : dim) (v : el) : () = real 
     assert_indices i dim
     iter2 (fun (tensor_body {array stride offset}) v =>
@@ -37,20 +44,19 @@ inl set forall dim el. (tensor {bodies dim} : tensor dim el) (i : dim) (v : el) 
         | ~ar ~el => set `ar `el (calculate_offset stride i offset) v
         ) bodies v
 
-inl length forall dim el. (tensor {dim} : tensor dim el) : int = real
-    open real_core
-    foldBack (*) dim 1
+// Returns the number of elements in the tensor.
+inl length forall dim el. (tensor {dim} : tensor dim el) : int = real open real_core in foldBack (*) dim 1
 
 // Zips two tensors. Apart from dimension checking, all the work is done at compile time.
 inl zip forall dim a b. (a : tensor dim a) (b : tensor dim b) : tensor dim (a * b) =
     assert (a.dim = b.dim) "The two tensors have to have the same dimensions for zipping to work."
     tensor {dim = a.dim; bodies = real a.bodies, b.bodies}
 
-// Should only be used to rearrange internal fields. Is a compile time operation.
+// Rearranges the elements of the tensor. Should only be used to rearrange internal fields and do not change them. Is a compile time operation.
 inl rezip forall dim a b. (f : a -> b) (a : tensor dim a) : tensor dim b =
     tensor {dim = a.dim; bodies=real open real_core in f a.bodies |> assert_term_vars_are_equal a.bodies}
 
-// Should only be used to rearrange internal fields. Is a compile time operation.
+// Rearranges that dimensions of the tensor. Should only be used to rearrange internal fields and do not change them. Is a compile time operation.
 inl reorder forall a b el. (f : a -> b) (a : tensor a el) : tensor b el = tensor {
     dim = f a.dim |> assert_term_vars_are_equal a.dim
     bodies = real
@@ -60,6 +66,7 @@ inl reorder forall a b el. (f : a -> b) (a : tensor a el) : tensor b el = tensor
             ) a.bodies
     }
 
+// The template function for tensor application.
 inl apply_templ forall dim a b el. (fst : dim -> a) (snd : dim -> b) (tensor {bodies dim} : tensor dim el) (i : a) : tensor b el = real
     assert_indices i (fst dim)
     tensor `b `el {
@@ -74,9 +81,13 @@ inl apply_templ forall dim a b el. (fst : dim -> a) (snd : dim -> b) (tensor {bo
                     }
                 ) bodies
         }
-inl apply_left forall a b el. : tensor (a * b) el -> a -> tensor b el = apply_templ fst snd
-inl apply_right forall a b el. : tensor (a * b) el -> b -> tensor a el = apply_templ snd fst
 
+// Increments the tensor offset by the specified index for the first dimension.
+inl apply forall a b el. : tensor (a * b) el -> a -> tensor b el = apply_templ fst snd
+// Increments the tensor offset by the specified index for the second dimension.
+inl apply_snd forall a b el. : tensor (a * b) el -> b -> tensor a el = apply_templ snd fst
+
+// The template function for the tensor view.
 inl view_templ forall dim dim' el. (f : dim -> dim') (g : dim -> dim' -> dim) (tensor {bodies dim} : tensor dim el) (i : {from : dim'; nearTo : dim'}) : tensor dim el = real
     assert_indices_view i.from i.nearTo (f dim)
     tensor `dim `el {
@@ -90,10 +101,14 @@ inl view_templ forall dim dim' el. (f : dim -> dim') (g : dim -> dim' -> dim) (t
                 ) bodies
         }
 
+// Takes a slice of the tensor given the range.
 inl view forall dim el. : tensor dim el -> {from : dim; nearTo : dim} -> tensor dim el = view_templ id (fun dim dim' => dim')
-inl view_left forall a b el. : tensor (a * b) el -> {from : a; nearTo : a} -> tensor (a * b) el = view_templ fst (fun dim dim' => dim', snd dim)
-inl view_right forall a b el. : tensor (a * b) el -> {from : b; nearTo : b} -> tensor (a * b) el = view_templ snd (fun dim dim' => fst dim, dim')
+// Takes a slice of the tensor given the range for the first dimension.
+inl view_fst forall a b el. : tensor (a * b) el -> {from : a; nearTo : a} -> tensor (a * b) el = view_templ fst (fun dim dim' => dim', snd dim)
+// Takes a slice of the tensor given the range for the second dimension.
+inl view_snd forall a b el. : tensor (a * b) el -> {from : b; nearTo : b} -> tensor (a * b) el = view_templ snd (fun dim dim' => fst dim, dim')
 
+// The template function for the tensor split.
 inl split_templ forall dim dim' el. (f : dim -> dim') view (t : tensor dim el ) (i : list dim') : list (tensor dim el) =
     inl zero : dim' = real open real_core in infer_templ `dim (forall d. => conv `d 0)
     inl add (a : dim') (b : dim') : dim' = real open real_core in map2 (+) a b
@@ -102,10 +117,14 @@ inl split_templ forall dim dim' el. (f : dim -> dim') view (t : tensor dim el ) 
     assert (dim = f t.dim) "The size of tensor dimension being split must equal the sum of the arguments."
     listm.map (view t) i
 
+// Splits the tensor given a list of sizes. The list of sizes must sum up to the tensor dimension.
 inl split forall dim el. : tensor dim el -> list dim -> list (tensor dim el) = split_templ id view
-inl split_left forall a b el. : tensor (a * b) el -> list a -> list (tensor (a * b) el) = split_templ fst view_left
-inl split_right forall a b el. : tensor (a * b) el -> list b -> list (tensor (a * b) el) = split_templ snd view_right
+// Splits the tensor given a list of sizes for the first dimension. The list of sizes must sum up to the tensor dimension.
+inl split_fst forall a b el. : tensor (a * b) el -> list a -> list (tensor (a * b) el) = split_templ fst view_fst
+// Splits the tensor given a list of sizes for the second dimension. The list of sizes must sum up to the tensor dimension.
+inl split_snd forall a b el. : tensor (a * b) el -> list b -> list (tensor (a * b) el) = split_templ snd view_snd
 
+// Flattens the tensor into a single dimension. For this to work, the tensor must be contiguous.
 inl flatten forall dim el. (tensor {dim bodies} : tensor dim el) : tensor int el = tensor {
     dim = real open real_core in foldBack (*) dim 1
     bodies = real
@@ -115,6 +134,7 @@ inl flatten forall dim el. (tensor {dim bodies} : tensor dim el) : tensor int el
             ) bodies
     }
 
+// Reshaves the tensor dimensions. For this to work, the tensor must be contiguous.
 inl reshape forall dim dim' el. (x : tensor dim el) (dim' : dim') : tensor dim' el = 
     inl stride, _ = real calculate_stride_len dim'
     inl (tensor {bodies dim}) = flatten x
@@ -126,11 +146,6 @@ inl reshape forall dim dim' el. (x : tensor dim el) (dim' : dim') : tensor dim' 
                 | tensor_body dim ~el => tensor_body `dim' `el {r with stride }
                 ) bodies
         }
-
-// Overloads the ;[] array constructor.
-inl array forall t. (x : array_base t) : tensor int t = 
-    inl array = array x
-    tensor {dim = corebase.length array; bodies=real tensor_body `int `t {array stride=1; offset=0} }
 
 // Assert the array length. If they are the same, substitutes it with the given length in the resulting array.
 // Useful when then given length is known at compile time and the array length is known at runtime.
