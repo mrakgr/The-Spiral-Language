@@ -477,7 +477,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
                 | None -> {|s with term=Set.add x s.term|}
             else {|s with term=Set.add x s.term|}
         let fv = Set.fold f {|term=Set.empty; ty=Set.empty|} x.term.vars
-        {x with term = {|x.term with vars = fv.term|}; ty = {|x.ty with vars = Set.union fv.ty x.ty.vars|} }
+        {term = {|x.term with vars = fv.term|}; ty = {|x.ty with vars = Set.union fv.ty x.ty.vars|} }
     let subst env (x : obj) = match scope.TryGetValue(x) with true, v -> scope.[x] <- subst' env v | _ -> ()
     let rec term (env : ResolveEnv) x =
         let f = term env
@@ -502,7 +502,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
                 scope.[body] <- 
                     let x = env.[id]
                     let v = scope.[body]
-                    {v with term = {|v.term with vars = x.term |}; ty = {|v.ty with vars=x.ty|} }
+                    {term = {|v.term with vars = x.term |}; ty = {|v.ty with vars=x.ty|} }
                 term env body
                 )
             term env b

@@ -388,7 +388,7 @@ let wdiff_proj_init (funs_packages : ProjPackageFuns<'file,'package>) (funs_file
     { package_id = package_id; packages = packages; files = files; result = result}
 
 let wdiff_proj_packages (funs : ProjPackageFuns<_,'a>) (state : 'a ProjPackagesState) x =
-    if state.packages = x then state else {state with packages = x; result = funs.unions x }
+    if state.packages = x then state else {packages = x; result = funs.unions x }
 
 let wdiff_proj_update_packages funs_packages funs_files (state : ProjState<'a,'b,'state>) x =
     let packages = wdiff_proj_packages funs_packages state.packages x

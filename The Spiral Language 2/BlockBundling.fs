@@ -204,7 +204,7 @@ let wdiff_block_bundle (state : BlockBundleState) (l : ParserState) : BlockBundl
         let fl () = (o',{bundle=bundle_blocks o'; errors=Seq.toList s.errors}), next empty
         if Promise.Now.isFulfilled s.state then
             match Promise.Now.get s.state with
-            | Cons((o,q),xs) when o = o' -> (o,{bundle=q.bundle; errors=Seq.toList s.errors}), next {s with state=xs; tmp=[]; errors=[]}
+            | Cons((o,q),xs) when o = o' -> (o,{bundle=q.bundle; errors=Seq.toList s.errors}), next {state=xs; tmp=[]; errors=[]}
             | _ -> fl ()
         else fl ()
         |> Cons |> Promise.Now.withValue
