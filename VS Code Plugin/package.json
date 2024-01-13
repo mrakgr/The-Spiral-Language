@@ -28,7 +28,7 @@
 				"spiral.port": {
 					"type": "integer",
 					"default": 13805,
-					"description": "The HTTP port the editor communicates with a the server. The plugin needs to be restarted for this change to take effect."
+					"description": "The HTTP port the editor communicates with a the server. VS Code needs to be restarted for this change to take effect."
 				},
 				"spiral.errorTraceMaxLength": {
 					"type": "integer",
@@ -45,6 +45,31 @@
 					],
 					"default": "Fsharp",
 					"description": "The code generator to use when the file is built."
+				},
+				"spiral.default_int": {
+					"type": "string",
+					"enum": [
+						"i8",
+						"i16",
+						"i32",
+						"i64",
+
+						"u8",
+						"u16",
+						"u32",
+						"u64"
+					],
+					"default": "i32",
+					"description": "What the type and bottom-up integer literals without specified suffixes get parsed as. Also determines, the type level `int` at the start of the program. Changes to this property require a language server restart."
+				},
+				"spiral.default_float": {
+					"type": "string",
+					"enum": [
+						"f32",
+						"f64"
+					],
+					"default": "f64",
+					"description": "What the type and bottom-up float literals without specified suffixes get parsed as. Also determines, the type level `float` at the start of the program. Changes to this property require a language server restart."
 				}
 			}
 		},

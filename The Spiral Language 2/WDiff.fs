@@ -85,7 +85,7 @@ let semantic_updates_apply (block : LineTokens) updates =
         PersistentVector.updateNth c.row c.col x block
         ) block updates
 
-let parse_block is_top_down (block : LineTokens) =
+let parse_block default_env is_top_down (block : LineTokens) =
     let comments, cords_tokens = 
         Array.init block.Length (fun line ->
             let x = block.[line]
@@ -103,29 +103,30 @@ let parse_block is_top_down (block : LineTokens) =
     let env : Env = {
         tokens_cords = cords; semantic_updates = semantic_updates
         comments = comments; tokens = tokens; i = ref 0; is_top_down = is_top_down
+        default_env = default_env
         }
     {result=parse env; semantic_tokens=semantic_updates_apply block semantic_updates}
 
 let wdiff_parse_init is_top_down : ParserState = {is_top_down=is_top_down; blocks=[]}
-let wdiff_parse (state : ParserState) (unparsed_blocks : LineTokens Block list) =
+let wdiff_parse default_env (state : ParserState) (unparsed_blocks : LineTokens Block list) =
     let dict = Dictionary(HashIdentity.Reference)
     // Offset should be ignored when memoizing the results of parsing.
     List.iter (fun (a,b) -> dict.Add(a,b.block)) state.blocks
     let blocks = unparsed_blocks |> List.map (fun x -> 
-        x.block, {block=Utils.memoize dict (fun a -> Hopac.memo(Job.thunk <| fun () -> (parse_block state.is_top_down) a)) x.block; offset=x.offset}
+        x.block, {block=Utils.memoize dict (fun a -> Hopac.memo(Job.thunk <| fun () -> (parse_block default_env state.is_top_down) a)) x.block; offset=x.offset}
         )  
     {state with blocks = blocks }
 
 type ModuleState = { tokenizer : TokenizerState; bundler : BlockBundleState; parser : ParserState }
 let wdiff_module_init is_top_down = {tokenizer = wdiff_tokenizer_init; bundler = wdiff_block_bundle_init; parser = wdiff_parse_init is_top_down}
-let wdiff_module_body state tokenizer =
+let wdiff_module_body default_env state tokenizer =
     if state.tokenizer = tokenizer then state else
-    let parser = wdiff_parse state.parser tokenizer.blocks
+    let parser = wdiff_parse default_env state.parser tokenizer.blocks
     let bundler = wdiff_block_bundle state.bundler parser
     {tokenizer=tokenizer; parser=parser; bundler=bundler}
-let wdiff_module_edit (state : ModuleState) x = wdiff_tokenizer_edit state.tokenizer x |> Result.map (wdiff_module_body state)
-let wdiff_module_all state x = wdiff_tokenizer_all state.tokenizer x |> wdiff_module_body state
-let wdiff_module_init_all is_top_down x = wdiff_module_all (wdiff_module_init is_top_down) x
+let wdiff_module_edit default_env (state : ModuleState) x = wdiff_tokenizer_edit state.tokenizer x |> Result.map (wdiff_module_body default_env state)
+let wdiff_module_all default_env state x = wdiff_tokenizer_all state.tokenizer x |> wdiff_module_body default_env state
+let wdiff_module_init_all default_env is_top_down x = wdiff_module_all default_env (wdiff_module_init is_top_down) x
 
 type [<ReferenceEquality>] FileState<'input,'result,'state> = { input : 'input; result : 'result; state : 'state }
 type FileFuns<'a,'b,'state> =
@@ -191,7 +192,7 @@ type ProjFileFuns<'a,'state> =
     abstract member file : string option * 'state * 'a -> 'a * 'state
     abstract member union : 'state * 'state -> 'state
     abstract member in_module : string * 'state -> 'state
-    abstract member default' : 'state
+    abstract member default' : Startup.DefaultEnv -> 'state
     abstract member empty : 'state
 
 type [<ReferenceEquality>] ProjFilesState<'a,'state> = {
@@ -268,7 +269,7 @@ let funs_proj_file_tc = {new ProjFileFuns<TypecheckerState,TypecheckerStatePropa
         x,env
     member _.union(small,big) = small >>=* fun small -> big >>- fun big -> fst small || fst big, union (snd small) (snd big)
     member _.in_module(name,small) = small >>-* fun (has_error,env) -> has_error, in_module name env
-    member _.default' = Promise.Now.withValue (false,top_env_default)
+    member _.default' default_env = Promise.Now.withValue (false,top_env_default default_env)
     member _.empty = Promise.Now.withValue (false,top_env_empty)
     }
 
@@ -331,7 +332,9 @@ let package_env_empty = {
     constraints = Map.empty
     }
 
-let package_env_default = {package_env_empty with ty = top_env_default.ty; term = top_env_default.term; constraints = top_env_default.constraints}
+let package_env_default default_env = 
+    let x = top_env_default default_env
+    {package_env_empty with ty = x.ty; term = x.term; constraints = x.constraints}
 
 type ProjPackagesState<'a> = {
     packages : (string option * 'a) list
@@ -348,18 +351,18 @@ type ProjStateTC = ProjState<TypecheckerState,TypecheckerStatePropagated,Typeche
 type ProjEnvTC = Map<PackageId,ProjStateTC>
 
 type ProjPackageFuns<'file,'package> =
-    abstract member unions : (string option * 'package) list -> 'package
+    abstract member unions : Startup.DefaultEnv -> (string option * 'package) list -> 'package
     abstract member union : 'package * 'package -> 'package
     abstract member in_module : string * 'package -> 'package
     abstract member package_to_file : 'package -> 'file
     abstract member add_file_to_package : PackageId * 'file * 'package -> 'package
-    abstract member default' : 'package
+    abstract member default' : Startup.DefaultEnv -> 'package
     abstract member empty : 'package
 
 let funs_proj_package_tc = {new ProjPackageFuns<TypecheckerStatePropagated,TypecheckerStateTop> with
-    member funs.unions l = 
+    member funs.unions default_env l = 
         let f = function Some name, small -> funs.in_module(name,small) | None, small -> small
-        List.fold (fun big x -> funs.union(f x,big)) funs.default' l
+        List.fold (fun big x -> funs.union(f x,big)) (funs.default' default_env) l
     member _.union(small,big) = 
         Job.delay <| fun () ->
             Hopac.queueIgnore big
@@ -373,25 +376,25 @@ let funs_proj_package_tc = {new ProjPackageFuns<TypecheckerStatePropagated,Typec
         a >>=* fun (has_error,env) ->
         b >>-* fun (has_error',env') ->
         has_error || has_error', add_file_to_package pid env env'
-    member _.default' = Promise.Now.withValue (false, package_env_default)
+    member _.default' default_env = Promise.Now.withValue (false, package_env_default default_env)
     member _.empty = Promise.Now.withValue (false, package_env_empty)
     }
 
-let wdiff_proj_init (funs_packages : ProjPackageFuns<'file,'package>) (funs_files : ProjFileFuns<'file_input,'file>) package_id : ProjState<'file_input,'file,'package> = 
-    let packages = { packages = []; result = funs_packages.default' }
+let wdiff_proj_init default_env (funs_packages : ProjPackageFuns<'file,'package>) (funs_files : ProjFileFuns<'file_input,'file>) package_id : ProjState<'file_input,'file,'package> = 
+    let packages = { packages = []; result = funs_packages.default' default_env}
     let files = {
         files={tree=[]; num_dirs=0; num_files=0}
         uids_file=[||]; uids_directory=[||]
-        init=funs_files.default'; result=funs_files.empty
+        init=funs_files.default' default_env; result=funs_files.empty
         }
     let result = funs_packages.empty
     { package_id = package_id; packages = packages; files = files; result = result}
 
-let wdiff_proj_packages (funs : ProjPackageFuns<_,'a>) (state : 'a ProjPackagesState) x =
-    if state.packages = x then state else {packages = x; result = funs.unions x }
+let wdiff_proj_packages default_env (funs : ProjPackageFuns<_,'a>) (state : 'a ProjPackagesState) x =
+    if state.packages = x then state else {packages = x; result = funs.unions default_env x }
 
-let wdiff_proj_update_packages funs_packages funs_files (state : ProjState<'a,'b,'state>) x =
-    let packages = wdiff_proj_packages funs_packages state.packages x
+let wdiff_proj_update_packages default_env funs_packages funs_files (state : ProjState<'a,'b,'state>) x =
+    let packages = wdiff_proj_packages default_env funs_packages state.packages x
     if state.packages = packages then state else
     let files = wdiff_proj_files_update_packages funs_files state.files (funs_packages.package_to_file(packages.result))
     let result = funs_packages.add_file_to_package(state.package_id,files.result,packages.result)
@@ -403,8 +406,8 @@ let wdiff_proj_update_files (funs_packages : ProjPackageFuns<_,_>) funs_files (s
     let result = funs_packages.add_file_to_package(state.package_id,files.result,state.packages.result)
     {state with files=files; result=result}
 
-let wdiff_proj (funs_packages : ProjPackageFuns<_,_>) funs_files (state : ProjState<'file_input,'file,'state>) (packages,files) =
-    let packages = wdiff_proj_packages funs_packages state.packages packages
+let wdiff_proj default_env (funs_packages : ProjPackageFuns<_,_>) funs_files (state : ProjState<'file_input,'file,'state>) (packages,files) =
+    let packages = wdiff_proj_packages default_env funs_packages state.packages packages
     if state.packages = packages then wdiff_proj_update_files funs_packages funs_files state files
     else
         let files = wdiff_proj_files funs_files state.files (funs_packages.package_to_file(packages.result),files)
@@ -416,8 +419,8 @@ type ProjEnvUpdate<'a> =
     | UpdatePackage of PackageId * (string option * PackageId) list
 
 let map_packages s packages = packages |> List.map (fun (a,b) -> a, (Map.find b s).result)
-let wdiff_projenv funs_packages funs_files (s : Map<PackageId,ProjState<'a,'b,'state>>) l =
+let wdiff_projenv default_env funs_packages funs_files (s : Map<PackageId,ProjState<'a,'b,'state>>) l =
     List.fold (fun s -> function
-        | UpdatePackageModule(uid,packages,files) -> Map.add uid (wdiff_proj funs_packages funs_files s.[uid] (map_packages s packages,files)) s
-        | UpdatePackage(uid,packages) -> Map.add uid (wdiff_proj_update_packages funs_packages funs_files s.[uid] (map_packages s packages)) s
+        | UpdatePackageModule(uid,packages,files) -> Map.add uid (wdiff_proj default_env funs_packages funs_files s.[uid] (map_packages s packages,files)) s
+        | UpdatePackage(uid,packages) -> Map.add uid (wdiff_proj_update_packages default_env funs_packages funs_files s.[uid] (map_packages s packages)) s
         ) s l

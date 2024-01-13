@@ -264,7 +264,10 @@ export const activate = async (ctx: ExtensionContext) => {
         const terminal = window.createTerminal({name: "Spiral Server", hideFromUser})
         const compiler_path = path.join(__dirname,"../compiler/Spiral.dll")
         if (isRestart) { await sleep(1000) }
-        terminal.sendText(`dotnet "${compiler_path}" port=${port}`)
+        const config  = workspace.getConfiguration("spiral")
+        const default_int : string = config.get("default_int") || "i32"
+        const default_float : string = config.get("default_float") || "f64"
+        terminal.sendText(`dotnet "${compiler_path}" --port ${port} --default_int ${default_int} --default_float ${default_float}`)
     }
     
     await startServer(workspace.getConfiguration("spiral").get("hideTerminal") || false, false)
@@ -293,8 +296,7 @@ export const activate = async (ctx: ExtensionContext) => {
                     case ".spi": case ".spir": {
                         const config = workspace.getConfiguration("spiral")
                         const backend : string = config.get("backend") || "Fsharp"
-                        const backend2 = backend === "Cython" && config.get("generateExceptStar") ? "Cython*" : backend
-                        spiBuildFileReq(x.document.uri.toString(true), backend2)
+                        spiBuildFileReq(x.document.uri.toString(true), backend)
                     }
                 }})
         }),

@@ -46,31 +46,31 @@ type SupervisorState = {
     package_ids : Map<string,int> * Map<int,string>
     }
 
-let proj_validate s dirty_packages =
+let proj_validate default_env s dirty_packages =
     let order,socs = Graph.circular_nodes s.graph dirty_packages
     let packages = ss_validate s.packages s.modules (order,socs)
-    let packages_infer = wdiff_projenvr_tc (fst s.package_ids) packages s.modules s.packages_infer (dirty_packages, order)
+    let packages_infer = wdiff_projenvr_tc default_env (fst s.package_ids) packages s.modules s.packages_infer (dirty_packages, order)
     order, {s with packages_infer = packages_infer; packages=packages}
 
-let proj_graph_update s dirty_packages =
+let proj_graph_update default_env s dirty_packages =
     let removed_pids,package_ids = package_ids_update s.packages s.package_ids dirty_packages
     let packages_infer, packages_prepass = package_ids_remove s.packages_infer removed_pids, package_ids_remove s.packages_prepass removed_pids
     let graph = graph_update s.packages s.graph dirty_packages
-    proj_validate {s with graph = graph; package_ids = package_ids; packages_infer = packages_infer; packages_prepass = packages_prepass} dirty_packages
+    proj_validate default_env {s with graph = graph; package_ids = package_ids; packages_infer = packages_infer; packages_prepass = packages_prepass} dirty_packages
 
-let proj_open s (dir, text) =
-    let packages,dirty_packages,modules = loader_package s.packages s.modules (dir,text)
-    proj_graph_update {s with packages = packages; modules = modules} dirty_packages
+let proj_open default_env s (dir, text) =
+    let packages,dirty_packages,modules = loader_package default_env s.packages s.modules (dir,text)
+    proj_graph_update default_env {s with packages = packages; modules = modules} dirty_packages
 
-let proj_revalidate_owner s file =
+let proj_revalidate_owner default_env s file =
     let rec loop (x : DirectoryInfo) =
         if x = null then [||], s
-        elif Map.containsKey x.FullName s.packages then proj_validate s (HashSet [x.FullName])
-        elif File.Exists(spiproj_suffix x.FullName) then proj_open s (x.FullName,None)
+        elif Map.containsKey x.FullName s.packages then proj_validate default_env s (HashSet [x.FullName])
+        elif File.Exists(spiproj_suffix x.FullName) then proj_open default_env s (x.FullName,None)
         else loop x.Parent
     loop (Directory.GetParent(file))
 
-let file_delete s (files : string []) =
+let file_delete default_env s (files : string []) =
     let deleted_modules = HashSet()
     let deleted_packages = HashSet()
     files |> Array.iter (fun k ->
@@ -87,7 +87,7 @@ let file_delete s (files : string []) =
             else loop x.Parent
         loop(Directory.GetParent x)
     Seq.iter revalidate_parent deleted_modules; Seq.iter revalidate_parent deleted_packages
-    Seq.toArray deleted_modules, proj_graph_update {s with modules = modules; packages = packages} dirty_packages
+    Seq.toArray deleted_modules, proj_graph_update default_env {s with modules = modules; packages = packages} dirty_packages
 
 type AttentionState = {
     modules : string Set * string list
@@ -219,29 +219,29 @@ type BuildResult =
 
 let dir uri = FileInfo(Uri(uri).LocalPath).Directory.FullName
 let file uri = FileInfo(Uri(uri).LocalPath).FullName
-let supervisor_server atten (errors : SupervisorErrorSources) req =
+let supervisor_server (default_env : Startup.DefaultEnv) atten (errors : SupervisorErrorSources) req =
     let fatal x = Hopac.start (Ch.send errors.fatal x)
     let handle_packages (dirty_packages,s) = Hopac.start (Ch.send atten ([||],dirty_packages,s)); s
     let handle_file_packages file (dirty_packages,s) = Hopac.start (Ch.send atten ([|file|],dirty_packages,s)); s
     let handle_files_packages (dirty_files,(dirty_packages,s)) = Hopac.start (Ch.send atten (dirty_files,dirty_packages,s)); s
     let loop (s : SupervisorState) = req >>- function
-        | ProjectFileChange x | ProjectFileOpen x -> proj_open s (dir x.uri,Some x.spiprojText) |> handle_packages
+        | ProjectFileChange x | ProjectFileOpen x -> proj_open default_env s (dir x.uri,Some x.spiprojText) |> handle_packages
         | FileOpen x -> 
             let file = file x.uri
             match Map.tryFind file s.modules with
-            | Some m -> WDiff.wdiff_module_all m x.spiText
-            | None -> WDiff.wdiff_module_init_all (is_top_down file) x.spiText
-            |> fun v -> proj_revalidate_owner {s with modules = Map.add file v s.modules} file
+            | Some m -> WDiff.wdiff_module_all default_env m x.spiText
+            | None -> WDiff.wdiff_module_init_all default_env (is_top_down file) x.spiText
+            |> fun v -> proj_revalidate_owner default_env {s with modules = Map.add file v s.modules} file
             |> handle_file_packages file
         | FileChange x ->
             let file = file x.uri
             match Map.tryFind file s.modules with
             | None -> fatal "It is not possible to apply a change to a file that is not present in the environment. Try reopening it in the editor."; s
             | Some m -> 
-                match WDiff.wdiff_module_edit m x.spiEdit with
-                | Ok v -> proj_revalidate_owner {s with modules = Map.add file v s.modules} file |> handle_file_packages file
+                match WDiff.wdiff_module_edit default_env m x.spiEdit with
+                | Ok v -> proj_revalidate_owner default_env {s with modules = Map.add file v s.modules} file |> handle_file_packages file
                 | Error er -> fatal er; s
-        | FileDelete x -> file_delete s (Array.map file x.uris) |> handle_files_packages
+        | FileDelete x -> file_delete default_env s (Array.map file x.uris) |> handle_files_packages
         | ProjectFileLinks(x,res) -> 
             let l =
                 match Map.tryFind (dir x.uri) s.packages with
@@ -298,8 +298,8 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
             let error, s =
                 match code_action_execute x.action with
                 | Error x -> Some x, s
-                | Ok null -> None, proj_open s (dir x.uri,None) |> handle_packages
-                | Ok path -> None, file_delete s [|path|] |> handle_files_packages
+                | Ok null -> None, proj_open default_env s (dir x.uri,None) |> handle_packages
+                | Ok path -> None, file_delete default_env s [|path|] |> handle_files_packages
             Hopac.start (IVar.fill res {|result=error|})
             s
         | FileTokenRange(x, res) -> 
@@ -403,7 +403,7 @@ let supervisor_server atten (errors : SupervisorErrorSources) req =
                 | _ -> failwith "Compiler error: The project status should be the same in both infer and prepass."
             let update_owner pdir =
                 let order,dirty_packages = Graph.topological_sort' (fst s.graph) [pdir]
-                let packages_prepass = wdiff_projenvr_prepass (fst s.package_ids) s.packages s.packages_infer.ok s.packages_prepass (dirty_packages, order.ToArray())
+                let packages_prepass = wdiff_projenvr_prepass default_env (fst s.package_ids) s.packages s.packages_infer.ok s.packages_prepass (dirty_packages, order.ToArray())
                 file_find {s with packages_prepass = packages_prepass} pdir
             let rec find_owner (x : DirectoryInfo) =
                 if x = null then fatal $"Cannot find the package file of {file}"; s
@@ -480,16 +480,7 @@ open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.DependencyInjection
 
 let [<EntryPoint>] main args =
-    let env_def = {|
-        port = 13805
-        |}
-    let env = (env_def, args) ||> Array.fold (fun s x -> 
-        match x.Split('=') with
-        | [|"port"; x|] -> {|s with port = Int32.Parse(x)|}
-        | _ -> failwithf "Invalid command line argument received when starting up the server.\nGot: %A" x
-        )
-
-
+    let env = Startup.parse args
 
     let uri_server = $"http://localhost:{env.port}"
 
@@ -520,7 +511,7 @@ let [<EntryPoint>] main args =
             let atten = Ch()
 
             do Hopac.server (attention_server errors atten)
-            do Hopac.start (supervisor_server atten errors supervisor)
+            do Hopac.start (supervisor_server env atten errors supervisor)
             {supervisor_ch=supervisor}
             ) |> ignore
     builder.WebHost.UseUrls [|uri_server|] |> ignore

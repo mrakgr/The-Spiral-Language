@@ -1,19 +1,15 @@
 ﻿module Spiral.BlockParsing
 
 open System
+
 open VSCTypes
+open Spiral.Startup
 open Spiral.Tokenize
 open Spiral.ParserCombinators
 
 type SymbolString = string
 type VarString = string
 type NominalString = string
-
-type PrimitiveType =
-    | UInt8T | UInt16T | UInt32T | UInt64T
-    | Int8T | Int16T | Int32T | Int64T
-    | Float32T | Float64T
-    | BoolT | StringT | CharT
 
 type Layout = Heap | HeapMutable
 
@@ -403,6 +399,7 @@ type Env = {
     comments : LineComment option []
     i : int ref
     is_top_down : bool
+    default_env : Startup.DefaultEnv
     } with
 
     member d.Index with get() = d.i.contents and set(i) = d.i := i
@@ -855,20 +852,18 @@ let root_type_defaults = {
     allow_wildcard = false
     }
 
-let default_float = Float64T
-let default_int = Int32T
-let bottom_up_number (r : VSCRange,x : string) =
+let bottom_up_number (default_env : Startup.DefaultEnv) (r : VSCRange,x : string) =
     let inline f string_to_val val_to_lit val_dsc =
         match string_to_val x with
         | true, x -> Ok(r, val_to_lit x)
         | false, _ -> Error [r, BottomUpNumberParseError(x,val_dsc)]
     if x.Contains '.' then
-        match default_float with
+        match default_env.default_float with
         | Float32T -> f Single.TryParse LitFloat32 "f32"
         | Float64T -> f Double.TryParse LitFloat64 "f64"
         | x -> failwithf "Compiler error: Invalid default float type. Got: %A" x
     else
-        match default_int with
+        match default_env.default_int with
         | Int8T -> f SByte.TryParse LitInt8 "i8"
         | Int16T -> f Int16.TryParse LitInt16 "i16"
         | Int32T -> f Int32.TryParse LitInt32 "i32"
@@ -910,7 +905,7 @@ let inline read_default_value' f d =
 let inline read_default_value on_top on_bot d =
     read_default_value' (fun (p,t') ->
         if d.is_top_down then Ok(on_top (p,t'))
-        else bottom_up_number (p,t') |> Result.map on_bot
+        else bottom_up_number d.default_env (p,t') |> Result.map on_bot
         ) d
 let read_string = tuple3 skip_string_open ((read_text |>> snd) <|>% "") skip_string_close
 let pat_var d = (read_small_var' |>> PatVar) d
@@ -1007,7 +1002,7 @@ and root_type (flags : RootTypeFlags) d =
         let symbol = read_symbol |>> RawTSymbol
         let record = root_type_record flags
         let lit = (read_value |>> RawTLit) <|> (read_string |>> fun (a,b,c) -> RawTLit(a +. c, LitString b))
-        let lit_default = read_default_value' (bottom_up_number >> Result.map RawTLit)
+        let lit_default = read_default_value' (bottom_up_number d.default_env >> Result.map RawTLit)
         let var = read_var' |>> fun (o,x,r) ->
             r SemanticTokenLegend.type_variable
             RawTVar(o, x)

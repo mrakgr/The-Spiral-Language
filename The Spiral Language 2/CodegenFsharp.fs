@@ -2,6 +2,7 @@
 
 open Spiral
 open Spiral.Tokenize
+open Spiral.Startup
 open Spiral.BlockParsing
 open Spiral.PartEval.Main
 open Spiral.CodegenUtils

@@ -103,7 +103,7 @@ let ss_validate packages modules (order,socs) =
 type ResultMap<'a,'b> when 'a : comparison = {ok : Map<'a,'b>; error: Map<'a,'b>}
 type ProjEnvTCResult = ResultMap<PackageId,ProjStateTC>
 
-let wdiff_projenvr_sync_schema funs_packages funs_files (ids : Map<string, PackageId>) (packages : SchemaEnv) 
+let wdiff_projenvr_sync_schema default_env funs_packages funs_files (ids : Map<string, PackageId>) (packages : SchemaEnv) 
         (state : ResultMap<PackageId,ProjState<'file_input,'file,'package>>) order =
     Array.fold (fun (s : ResultMap<_,_>) x ->
         match Map.tryFind x ids with
@@ -115,14 +115,14 @@ let wdiff_projenvr_sync_schema funs_packages funs_files (ids : Map<string, Packa
                 | Some x, None, true -> {ok=Map.remove pid s.ok; error=Map.add pid x s.error}
                 | None, Some x, false -> {ok=Map.add pid x s.ok; error=Map.remove pid s.error}
                 | None, None, c -> 
-                    let x = wdiff_proj_init funs_packages funs_files pid
+                    let x = wdiff_proj_init default_env funs_packages funs_files pid
                     if c then {s with error=Map.add pid x s.error} else {s with ok=Map.add pid x s.ok}
                 | _ -> s
             | None -> {ok=Map.remove pid s.ok; error=Map.remove pid s.error}
         | None -> s
         ) state order
 
-let projenv_update_packages funs_packages funs_files (ids : Map<string, PackageId>) (packages : SchemaEnv)
+let projenv_update_packages default_env funs_packages funs_files (ids : Map<string, PackageId>) (packages : SchemaEnv)
         (state : Map<PackageId,ProjState<'a,'b,'state>>)  (dirty_packages : Dictionary<_,_>, order : string []) =
     Array.foldBack (fun x l ->
         match Map.tryFind x packages with
@@ -135,7 +135,7 @@ let projenv_update_packages funs_packages funs_files (ids : Map<string, PackageI
             | true, x -> UpdatePackageModule(pid,packages,x) :: l
             | false, _ -> UpdatePackage(pid,packages) :: l
         ) order []
-    |> wdiff_projenv funs_packages funs_files state
+    |> wdiff_projenv default_env funs_packages funs_files state
 
 let inline proj_file_iter_file f (files : ProjFiles) =
     let rec loop = function
@@ -206,18 +206,18 @@ let dirty_nodes_prepass (ids : Map<string, PackageId>) (packages : SchemaEnv) (m
         fun (mid : ModuleId) path -> pid, mid, path, state.[path].result
     dirty_nodes_template funs_file_prepass ids packages modules state dirty_packages
 
-let wdiff_projenvr dirty_nodes funs_proj_package funs_proj_file 
+let wdiff_projenvr default_env dirty_nodes funs_proj_package funs_proj_file 
         ids packages modules (state : ResultMap<PackageId,_>) (dirty_packages, order) =
-    let state = wdiff_projenvr_sync_schema funs_proj_package funs_proj_file ids packages state order
+    let state = wdiff_projenvr_sync_schema default_env funs_proj_package funs_proj_file ids packages state order
     let dirty_packages = dirty_nodes ids packages modules state.ok dirty_packages
-    {state with ok=projenv_update_packages funs_proj_package funs_proj_file ids packages state.ok (dirty_packages, order)}
+    {state with ok=projenv_update_packages default_env funs_proj_package funs_proj_file ids packages state.ok (dirty_packages, order)}
 
-let wdiff_projenvr_tc ids packages modules state (dirty_packages, order) =
-    wdiff_projenvr dirty_nodes_tc funs_proj_package_tc funs_proj_file_tc 
+let wdiff_projenvr_tc default_env ids packages modules state (dirty_packages, order) =
+    wdiff_projenvr default_env dirty_nodes_tc funs_proj_package_tc funs_proj_file_tc 
         ids packages modules state (dirty_packages, order)
 
-let wdiff_projenvr_prepass ids packages modules state (dirty_packages, order) =
-    wdiff_projenvr dirty_nodes_prepass funs_proj_package_prepass funs_proj_file_prepass 
+let wdiff_projenvr_prepass default_env ids packages modules state (dirty_packages, order) =
+    wdiff_projenvr default_env dirty_nodes_prepass funs_proj_package_prepass funs_proj_file_prepass 
         ids packages modules state (dirty_packages, order)
 
 type LoadResult =
@@ -227,7 +227,7 @@ type LoadResult =
 open System.Threading.Tasks
 let is_top_down (x : string) = Path.GetExtension x = ".spi"
 let spiproj_suffix x = Path.Combine(x,"package.spiproj")
-let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (pdir, text) =
+let loader_package default_env (packages : SchemaEnv) (modules : ModuleEnv) (pdir, text) =
     let queue = Queue()
     let load_module modules path =
         match Map.tryFind path modules with
@@ -236,7 +236,7 @@ let loader_package (packages : SchemaEnv) (modules : ModuleEnv) (pdir, text) =
             task {
                 if File.Exists path then
                     try let! x = File.ReadAllTextAsync(path)
-                        return LoadModule(path,wdiff_module_init_all (is_top_down path) x |> Some)
+                        return LoadModule(path,wdiff_module_init_all default_env (is_top_down path) x |> Some)
                     with _ -> return LoadModule(path,None)
                 else return LoadModule(path,None) // Note: We need this case otherwise 'con' might cause the file read to deadlock. https://superuser.com/questions/86999/why-cant-i-name-a-folder-or-file-con-in-windows
             } |> queue.Enqueue

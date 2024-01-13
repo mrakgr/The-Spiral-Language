@@ -5,6 +5,7 @@ open System.Collections.Generic
 open Spiral
 open VSCTypes
 open Spiral.Tokenize
+open Spiral.Startup
 open Spiral.BlockParsing
 open Spiral.PartEval.Prepass
 open Spiral.HashConsing

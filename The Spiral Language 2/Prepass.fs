@@ -94,7 +94,7 @@ and [<ReferenceEquality>] T =
     | TUnion of Range * (Map<string,T> * BlockParsing.UnionLayout)
     | TSymbol of Range * string
     | TApply of Range * T * T
-    | TPrim of BlockParsing.PrimitiveType
+    | TPrim of Startup.PrimitiveType
     | TTerm of Range * E
     | TMacro of Range * TypeMacro list
     | TNominal of GlobalId
@@ -188,7 +188,7 @@ module Printable =
         | TUnion of Map<string,PT> * BlockParsing.UnionLayout
         | TSymbol of string
         | TApply of PT * PT
-        | TPrim of BlockParsing.PrimitiveType
+        | TPrim of Startup.PrimitiveType
         | TTerm of PE
         | TMacro of PTypeMacro list
         | TNominal of GlobalId
@@ -856,7 +856,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                         List.foldBack (fun id' (on_succ,i) -> 
                             ELet(r,id',EOp(r,ArrayIndex,[EV id; ELit(r,Tokenize.LitInt32 i)]),on_succ), i-1
                             ) ar_ids (on_succ, a_length - 1)
-                    let id_length = EOp(r,ArrayLength,[EType(r,TPrim UInt64T); EV id])
+                    let id_length = EOp(r,ArrayLength,[EType(r,TPrim Startup.UInt64T); EV id])
                     let pat_length = ELit(r,Tokenize.LitUInt64(uint64 a_length))
                     EIfThenElse(r,EOp(r,EQ,[id_length;pat_length]),on_succ,on_fail)
                 | PatSymbol(r,a) -> ESymbolTest(p r,a,id,on_succ,on_fail)
@@ -1109,7 +1109,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
             AOpen {top_env_empty with term=x.term.env; ty=x.ty.env}
     |}
 
-let top_env_default =
+let top_env_default default_env =
     let rec f (m : PersistentHashMap<string,int>) = function
         | TyVar x -> TV m.[x.name] 
         | TyPrim x -> TPrim x
@@ -1120,5 +1120,5 @@ let top_env_default =
 
     List.fold (fun (top_env : PrepassTopEnv) (k, x) ->
         {top_env with ty = Map.add k ((prepass -1 0 "<base_types>" top_env).base_type (f PersistentHashMap.empty x)) top_env.ty}
-        ) top_env_empty Infer.base_types
+        ) top_env_empty (Infer.base_types default_env)
     

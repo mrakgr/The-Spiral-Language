@@ -27,6 +27,7 @@
     <Compile Include="PersistentVectorExtensions.fs" />
     <Compile Include="HopacExtensions.fs" />
     <Compile Include="HashConsing.fs" />
+    <Compile Include="Startup.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="ParserCombinators.fs" />
     <Compile Include="LineParsers.fs" />
@@ -53,6 +54,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Argu" Version="6.1.4" />
     <PackageReference Include="FParsec" Version="1.1.1" />
     <PackageReference Include="FSharp.Json" Version="0.4.0" />
     <PackageReference Include="FSharpx.Collections" Version="2.1.3" />
