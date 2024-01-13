@@ -53,3 +53,29 @@ inl init i f =
         if var_is i then inl ~s = s in join body s
         else body s 
     loop 0
+
+// Folds over the list using the state while mapping the arguments.
+inl mapFold forall state el el'. (f : state -> el -> el' * state) s l =
+    inl rec body s = function 
+        | Cons(x,x') => 
+            inl x,s = f s x
+            inl x',s = loop s x'
+            x :: x', s
+        | Nil => [], s
+    and inl loop s l =
+        if var_is l then inl ~s = s in join body s l
+        else body s l 
+    loop s l
+
+// Folds over the list using the state while mapping the arguments starting from the end of the list.
+inl mapFoldBack forall state el el'. (f : el -> state -> el' * state) l s =
+    inl rec body s = function 
+        | Cons(x,x') => 
+            inl x',s = loop s x'
+            inl x,s = f x s
+            x :: x', s
+        | Nil => [], s
+    and inl loop s l =
+        if var_is l then inl ~s = s in join body s l
+        else body s l 
+    loop s l

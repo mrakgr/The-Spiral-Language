@@ -94,23 +94,17 @@ inl view forall dim el. : tensor dim el -> {from : dim; nearTo : dim} -> tensor 
 inl view_left forall a b el. : tensor (a * b) el -> {from : a; nearTo : a} -> tensor (a * b) el = view_templ fst (fun dim dim' => dim', snd dim)
 inl view_right forall a b el. : tensor (a * b) el -> {from : b; nearTo : b} -> tensor (a * b) el = view_templ snd (fun dim dim' => fst dim, dim')
 
-inl split_templ forall dim a b el. (f : dim -> a) view (t,i : tensor dim el * (a * b)) : tensor dim el * tensor dim el * b =
-    inl assert_split (dim : a) : () = real
-        open real_core
-        inl prod i = foldBack (*) i 1
-        inl len_dim = prod dim
-        inl len_i = 
-            inl rec f = function
-                | a, b => prod a + f b
-                | x => prod x
-            f i
-        assert (len_dim = len_i) "The size of tensor dimension being split must equal the sum of the arguments."
-    assert_split (f t.dim)
-    view t {from=real map (const 0) (fst i); nearTo=fst i}, view t {from=fst i; nearTo=f t.dim}, snd i
+inl split_templ forall dim dim' el. (f : dim -> dim') view (t : tensor dim el ) (i : list dim') : list (tensor dim el) =
+    inl zero : dim' = real open real_core in infer_templ `dim (forall d. => conv `d 0)
+    inl add (a : dim') (b : dim') : dim' = real open real_core in map2 (+) a b
 
-inl split forall dim dim' el. : tensor dim el * (dim * dim') -> tensor dim el * (tensor dim el * dim') = split_templ id view
-inl split_left forall a b dim' el. : tensor (a * b) el * (a * dim') -> tensor (a * b) el * (tensor (a * b) el * dim') = split_templ fst view_left
-inl split_right forall a b dim' el. : tensor (a * b) el * (b * dim') -> tensor (a * b) el * (tensor (a * b) el * dim') = split_templ snd view_right
+    inl i, dim = listm.mapFold (fun from dim => inl nearTo = add from dim in {from nearTo}, nearTo) zero i
+    assert (dim = f t.dim) "The size of tensor dimension being split must equal the sum of the arguments."
+    listm.map (view t) i
+
+inl split forall dim el. : tensor dim el -> list dim -> list (tensor dim el) = split_templ id view
+inl split_left forall a b el. : tensor (a * b) el -> list a -> list (tensor (a * b) el) = split_templ fst view_left
+inl split_right forall a b el. : tensor (a * b) el -> list b -> list (tensor (a * b) el) = split_templ snd view_right
 
 inl flatten forall dim el. (tensor {dim bodies} : tensor dim el) : tensor int el = tensor {
     dim = real open real_core in foldBack (*) dim 1
