@@ -5,3 +5,4 @@ node_modules
 .fake
 .ionide
 *.vsix
+publish.ps1

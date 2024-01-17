@@ -1,0 +1,32 @@
+Error trace on line: 117, column: 49 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\tensor\type.spi.
+    inl i, dim = listm.mapFold (fun from dim => inl nearTo = add from dim in {from nearTo}, nearTo) zero i
+                                                ^
+Error trace on line: 117, column: 62 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\tensor\type.spi.
+    inl i, dim = listm.mapFold (fun from dim => inl nearTo = add from dim in {from nearTo}, nearTo) zero i
+                                                             ^
+Error trace on line: 115, column: 67 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\tensor\type.spi.
+    inl add (a : dim') (b : dim') : dim' = real open real_core in map2 (+) a b
+                                                                  ^
+Error trace on line: 80, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\tensor\utils.spir.
+    f (ar, v)
+    ^
+Error trace on line: 76, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\tensor\utils.spir.
+    inl rec f = function
+                ^
+Error trace on line: 77, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\tensor\utils.spir.
+        | (a, b), (va,vb) => f (a, va), f (b, vb)
+           ^
+Error trace on line: 77, column: 20 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\tensor\utils.spir.
+        | (a, b), (va,vb) => f (a, va), f (b, vb)
+                   ^
+Error trace on line: 78, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\tensor\utils.spir.
+        | {} & ar, {} & v => record_map (fun {key value} => f (ar key, value)) v
+          ^
+Error trace on line: 79, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\tensor\utils.spir.
+        | ar,v => set ar v
+          ^
+Error trace on line: 79, column: 19 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\tensor\utils.spir.
+        | ar,v => set ar v
+                  ^
+The two sides need to have the same numeric types.
+Got: i32 * i32 and i32.

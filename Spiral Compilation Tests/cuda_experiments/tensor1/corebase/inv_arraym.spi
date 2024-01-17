@@ -15,7 +15,7 @@ inl zip forall (ar : * -> *) a b. (a : inv_array ar a) (b : inv_array ar b) : in
     
 // Should only be used to rearrange internal fields. Is a compile time operation.
 inl rezip forall (ar : * -> *) a b. (f : a -> b) (a : inv_array ar a) : inv_array ar b =
-    inv_array {len=a.len; arrays=real open real_core in f a.bodies |> assert_term_vars_are_equal a.bodies}
+    inv_array {len=a.len; arrays=real f a.bodies}
 
 // Overloads the ;[] array constructor.
 inl array forall t. (x : array_base t) : inv_array array t = 

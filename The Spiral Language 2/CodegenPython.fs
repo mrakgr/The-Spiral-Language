@@ -310,7 +310,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             | TypeToVar, _ -> raise_codegen_error "The use of `` should never appear in generated code."
             | StringIndex, [a;b] -> sprintf "%s[%s]" (tup_data a) (tup_data b)
             | StringSlice, [a;b;c] -> sprintf "%s[%s:%s]" (tup_data a) (tup_data b) (tup_data c)
-            | ArrayIndex, [a;b] -> sprintf "%s[%s]" (tup_data a) (tup_data b)
+            | ArrayIndex, [a;b] -> sprintf "%s[%s].item()" (tup_data a) (tup_data b)
             | ArrayIndexSet, [a;b;c] -> 
                 match tup_data' c with
                 | "" -> "pass # void array set"

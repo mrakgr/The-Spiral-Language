@@ -1,7 +1,10 @@
-2.5.8 (WIP)
+2.6.0 (1/17/2024)
+
+Made the default ints and floats selectable from the language settings in VS Code.
 
 * Implemented BackendSwitch. Now it should be possible to write backend polymorphic code.
 * Implemented UsesOriginalTermVars. This is used for extra security in tensor reordering operations.
+* Fixed an error in the Python + Cuda codegen where indexing into an array returned a 0-dim CuPy array instead of a value.
 
 2.5.7 (12/28/2023)
 

@@ -526,6 +526,6 @@ let [<EntryPoint>] main args =
             .AllowCredentials() |> ignore
         ) |> ignore
     app.MapHub<SpiralHub>("") |> ignore
-    printf $"Starting the Spiral Server. It is bound to: {uri_server}"
+    printfn $"Starting the Spiral Server. It is bound to: {uri_server}"
     app.Run()
     0
