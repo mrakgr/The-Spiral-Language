@@ -81,11 +81,12 @@ let sample_discrete' forall dim. (dist : sa dim float) rng =
     inl sum = last dist
     inl r = uniform rng * sum
     let rec loop i =
-        if i < length dist then // Note: Since the CUDA random number generators are (0,1] rather than [0,1) <= is used instead.
+        if i < length dist then // Note: Since the CUDA random number generators are (0,1] rather than [0,1) `<=` is used instead of `<` like in the FPGA example.
             if r <= index dist i then i
             else loop (i + 1)
         else length dist - 1
     loop 0
+    
 // Randomly samples an action with replacement.
 // Takes in a unnormalized probability distribution as the first argument.
 // Returns the index of a randomly selected item inside it.

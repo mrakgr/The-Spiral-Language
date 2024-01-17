@@ -22,8 +22,8 @@ type CliArguments =
         member s.Usage =
             match s with
             | Port _ -> "specify a primary port."
-            | Default_Int _ -> "specify the default int"
-            | Default_Float _ -> "specify the default float"
+            | Default_Int _ -> "specify the default int: i8, i16, i32, i64, u8, u16, u32, u64"
+            | Default_Float _ -> "specify the default float: f32, f64"
 
 let parse args =
     let parser = ArgumentParser.Create<CliArguments>(programName = "spiral.exe")

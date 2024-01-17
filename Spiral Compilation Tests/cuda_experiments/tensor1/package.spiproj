@@ -15,8 +15,7 @@ modules:
         inv_arraym
 
     corepython/
-        default-
-
+        
     corecuda/
         base-
         intrinsic

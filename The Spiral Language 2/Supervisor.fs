@@ -478,6 +478,7 @@ type SpiralHub(supervisor : Supervisor) =
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.Extensions.DependencyInjection
+open Microsoft.Extensions.Logging
 
 let [<EntryPoint>] main args =
     let env = Startup.parse args
@@ -515,6 +516,8 @@ let [<EntryPoint>] main args =
             {supervisor_ch=supervisor}
             ) |> ignore
     builder.WebHost.UseUrls [|uri_server|] |> ignore
+    builder.Logging.SetMinimumLevel(LogLevel.Warning) |> ignore
+
     let app = builder.Build()
     app.UseCors(fun x ->
         x.SetIsOriginAllowed(fun _ -> true)
@@ -523,5 +526,6 @@ let [<EntryPoint>] main args =
             .AllowCredentials() |> ignore
         ) |> ignore
     app.MapHub<SpiralHub>("") |> ignore
+    printf $"Starting the Spiral Server. It is bound to: {uri_server}"
     app.Run()
     0

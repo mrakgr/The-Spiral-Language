@@ -60,7 +60,7 @@
 						"u64"
 					],
 					"default": "i32",
-					"description": "What the type and bottom-up integer literals without specified suffixes get parsed as. Also determines, the type level `int` at the start of the program. Changes to this property require a language server restart."
+					"description": "What the type level and bottom-up integer literals without specified suffixes get parsed as. Also determines the type of `int` at the start of the program. Changes to this property require a language server restart."
 				},
 				"spiral.default_float": {
 					"type": "string",
@@ -68,8 +68,8 @@
 						"f32",
 						"f64"
 					],
-					"default": "f64",
-					"description": "What the type and bottom-up float literals without specified suffixes get parsed as. Also determines, the type level `float` at the start of the program. Changes to this property require a language server restart."
+					"default": "f32",
+					"description": "What the type level and bottom-up float literals without specified suffixes get parsed as. Also determines the type of `float` at the start of the program. Changes to this property require a language server restart."
 				}
 			}
 		},
