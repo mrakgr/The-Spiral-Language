@@ -909,6 +909,7 @@ let inline read_default_value on_top on_bot d =
         ) d
 let read_string = tuple3 skip_string_open ((read_text |>> snd) <|>% "") skip_string_close
 let pat_var d = (read_small_var' |>> PatVar) d
+let pat_list_pair r a b = PatUnbox(r,"Cons",PatPair(r,a,b))
 let rec root_pattern_var_nominal_union s =
     (read_var' >>= fun (r,a,re) s ->
         if Char.IsUpper(a,0) then
@@ -951,16 +952,15 @@ and root_pattern_type s =
 and root_pattern_rounds d = 
     (range (rounds ((((read_op' |>> PatVar) <|> root_pattern_type) |>> fun x _ -> x) <|>% PatB))
     |>> fun (r,x) -> x r) d
+and pat_array s = (skip_unary_op ";" >>. range (squares (sepBy root_pattern_type (skip_op ";"))) |>> fun (r,x) -> PatArray(r,x)) s
+and pat_list s =
+    (range (squares (sepBy root_pattern_type (skip_op ";")))
+    |>> fun ((r,_),x) -> let r = r,r in List.foldBack (pat_list_pair r) x (PatUnbox(r,"Nil",PatB r))) s
 and root_pattern s =
-    let pat_list_pair r a b = PatUnbox(r,"Cons",PatPair(r,a,b))
     let body s = 
         let pat_value = (read_value |>> PatValue) <|> (read_default_value PatDefaultValue PatValue)
         let pat_string = read_string |>> (fun (a,x,b) -> PatValue(a +. b,LitString x))
         let pat_symbol = read_symbol |>> PatSymbol
-        let pat_array = skip_unary_op ";" >>. range (squares (sepBy root_pattern_type (skip_op ";"))) |>> fun (r,x) -> PatArray(r,x)
-        let pat_list = 
-            range (squares (sepBy root_pattern_type (skip_op ";")))
-            |>> fun ((r,_),x) -> let r = r,r in List.foldBack (pat_list_pair r) x (PatUnbox(r,"Nil",PatB r))
         let (+) = alt (index s)
         (root_pattern_rounds + root_pattern_var_nominal_union + root_pattern_wildcard + root_pattern_dyn + pat_value + pat_string 
         + root_pattern_record + pat_symbol + pat_array + pat_list) s
@@ -974,7 +974,7 @@ and root_pattern s =
 and root_pattern_when d = (root_pattern .>>. (opt (skip_keyword SpecWhen >>. root_term)) |>> function a, Some b -> PatWhen(range_of_pattern a +. range_of_expr b,a,b) | a, None -> a) d
 and root_pattern_var d = 
     let (+) = alt (index d)
-    (pat_var + root_pattern_wildcard + root_pattern_dyn + root_pattern_rounds + root_pattern_record) d
+    (pat_var + root_pattern_wildcard + root_pattern_dyn + root_pattern_rounds + root_pattern_record + pat_array + pat_list) d
 and root_pattern_pair d = pat_pair root_pattern_var d
 and root_type_annot d = root_type {root_type_defaults with allow_term=d.is_top_down=false; allow_wildcard=d.is_top_down} d
 and root_type_record (flags : RootTypeFlags) d =

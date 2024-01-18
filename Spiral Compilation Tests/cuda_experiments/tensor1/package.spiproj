@@ -38,6 +38,8 @@ modules:
 
     main
 
-    tensor/
+    tensorm/
         utils*
         type-
+
+    matmul

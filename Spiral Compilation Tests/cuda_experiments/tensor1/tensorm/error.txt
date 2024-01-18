@@ -1,0 +1,31 @@
+Error trace on line: 9, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\matmul.spi.
+    inl random_normal dim =
+    ^
+Error trace on line: 14, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\matmul.spi.
+    inl cp_matmul (a : tensor (int * int) float) (b : tensor (int * int) float) : tensor (int * int) float =
+    ^
+Error trace on line: 19, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\matmul.spi.
+    inl [a; b] = listm.map random_normal ([5, 10; 10, 5] : _ (int * int))
+    ^
+Error trace on line: 19, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\matmul.spi.
+    inl [a; b] = listm.map random_normal ([5, 10; 10, 5] : _ (int * int))
+        ^
+Error trace on line: 21, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\matmul.spi.
+    a, b, cp_matmul a b
+          ^
+Error trace on line: 15, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\matmul.spi.
+        inl a_dim, b_dim = a.dim, b.dim
+        ^
+Error trace on line: 15, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\matmul.spi.
+        inl a_dim, b_dim = a.dim, b.dim
+            ^
+Error trace on line: 16, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\matmul.spi.
+        inl a_body,b_body : array float * array float = real tensorm.utils.map (fun tensor_body {array} => array) (a.bodies, b.bodies)
+        ^
+Error trace on line: 16, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\matmul.spi.
+        inl a_body,b_body : array float * array float = real tensorm.utils.map (fun tensor_body {array} => array) (a.bodies, b.bodies)
+            ^
+Error trace on line: 17, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor1\matmul.spi.
+        $"cp.matmul(!a_body.reshape(!a_dim),!b_body.reshape(!b_dim))"
+        ^
+Cannot convert a function that is not annotated into a type.

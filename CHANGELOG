@@ -1,3 +1,8 @@
+2.6.1 (1/18/2024)
+
+* Made the [] and the ;[] patterns allowed immediately in an inl without the parenthesis.
+* ArrayLength now accesses the size property to get the total number of elements instead of using len in the Python backend.
+
 2.6.0 (1/17/2024)
 
 Made the default ints and floats selectable from the language settings in VS Code.

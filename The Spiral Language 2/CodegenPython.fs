@@ -224,7 +224,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             x' |> Array.map (fun (L(i',_)) -> $"v{i}.v{i'}")
             |> String.concat ", "
             |> return'
-        let length (a,b) = return' $"len({tup_data b})"
+
         match a with
         | TyMacro a -> a |> List.map (function CMText x -> x | CMTerm x -> tup_data x | CMType x -> tup_ty x | CMTypeLit a -> type_lit a) |> String.concat "" |> return'
         | TyIf(cond,tr,fl) ->
@@ -296,7 +296,8 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
         | TyFailwith(a,b) -> line s $"raise Exception({tup_data' b})"
         | TyConv(a,b) -> return' $"{tyv a}({tup_data b})"
         | TyApply(L(i,_),b) -> return' $"v{i}({tup_data' b})"
-        | TyArrayLength(a,b) | TyStringLength(a,b) -> length (a,b)
+        | TyArrayLength(a,b) -> return' $"{tup_data b}.size"
+        | TyStringLength(a,b) -> return' $"len({tup_data b})"
         | TyOp(Global,[DLit (LitString x)]) -> global' x
         | TyOp(op,l) ->
             match op, l with
