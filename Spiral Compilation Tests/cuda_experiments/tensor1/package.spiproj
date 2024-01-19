@@ -42,4 +42,5 @@ modules:
         utils*
         type-
 
+    cutlass
     matmul

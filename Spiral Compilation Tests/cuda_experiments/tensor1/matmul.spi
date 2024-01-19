@@ -16,11 +16,15 @@ inl main() =
         inl a_body,b_body : array float * array float = real tensorm.utils.map (fun (tensor_body {array}) => array) (a.bodies, b.bodies)
         $"cp.matmul(!a_body.reshape(!a_dim),!b_body.reshape(!b_dim)).flatten()" |> fromArray |> reshape (fst a_dim, snd b_dim)
 
-    inl [a; b] = listm.map random_normal ([5, 10; 10, 5] : _ (int * int))
-    inl c = cp_matmul a b
-    a, b, c
-    // inl blocks = 1
-    // inl grids = 1 // divup (length out) blocks
-    // run grids blocks (fun () =>
-    //     ()
-    //     )
+    // inl [a; b] = listm.map random_normal ([5, 10; 10, 5] : _ (int * int))
+    // inl c = cp_matmul a b
+    // a, b, c
+    inl blocks = 1
+    inl grids = 1 // divup (length out) blocks
+    run grids blocks (fun () =>
+        // Dynamic shared memory base pointer
+        inl shared_storage_base : $"int *" = $"extern __shared__ int v$[]"
+        // Declare pointer to dynamic shared memory.
+        inl shared_storage : $"typename cutlass::Operator::SharedStorage *" = $"reinterpret_cast<typename cutlass::Operator::SharedStorage *>(!shared_storage_base)"
+        ()
+        )
