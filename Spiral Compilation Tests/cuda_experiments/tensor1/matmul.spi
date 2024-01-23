@@ -22,9 +22,9 @@ inl main() =
     inl blocks = 1
     inl grids = 1 // divup (length out) blocks
     run grids blocks (fun () =>
-        // Dynamic shared memory base pointer
-        inl shared_storage_base : $"int *" = $"extern __shared__ int v$[]"
-        // Declare pointer to dynamic shared memory.
-        inl shared_storage : $"typename cutlass::Operator::SharedStorage *" = $"reinterpret_cast<typename cutlass::Operator::SharedStorage *>(!shared_storage_base)"
+        global "#include <cublasdx.hpp>"
+        global "using namespace cublasdx;"
+        global "constexpr auto t_mode = cublasdx::transpose_mode::non_transposed;"
+        $"using GEMM = decltype(Size<32, 32, 32>() + Precision<double>() + Type<type::real>() + TransposeMode<t_mode, t_mode>() + Function<function::MM>() + SM<700>() + Block())"
         ()
         )

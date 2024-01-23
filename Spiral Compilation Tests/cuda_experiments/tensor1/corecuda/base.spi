@@ -27,7 +27,7 @@ type runConfig = {
 // Executes the lambda on the GPU device.
 inl run' ({gridDim blockDim} : runConfig) f =
     // Global statements only get executed once.
-    global "raw_module = cp.RawModule(code=kernel, backend='nvcc', options=(\"-I G:/cutlass-3.3.0/include\",))"
+    global "raw_module = cp.RawModule(code=kernel, backend='nvcc', options=(\"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\\\\cublasdx\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\external\\\\cutlass\\\\include\"))"
     inl kernel_i, vars = join_backend Cuda 
         global "template <typename el, int dim> struct array { el v[dim]; };"
         f ()
