@@ -1,0 +1,30 @@
+open corebase
+open corecuda
+open tensorm
+
+inl main() =
+    inl grid_range () : int = $"gridDim.x * blockDim.x"
+    inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+
+    inl random_normal dim =
+        inl len : int = real open real_core in tensorm.utils.foldBack (*) dim 1
+        inl t : array f32 = $"cp.random.normal(0,1,!len,cp.float32)" 
+        fromArray t |> reshape dim
+
+    inl cp_matmul (a : tensor (int * int) float) (b : tensor (int * int) float) : tensor (int * int) float =
+        inl a_dim, b_dim = a.dim, b.dim
+        inl a_body,b_body : array float * array float = real tensorm.utils.map (fun (tensor_body {array}) => array) (a.bodies, b.bodies)
+        $"cp.matmul(!a_body.reshape(!a_dim),!b_body.reshape(!b_dim)).flatten()" |> fromArray |> reshape (fst a_dim, snd b_dim)
+
+    // inl [a; b] = listm.map random_normal ([5, 10; 10, 5] : _ (int * int))
+    // inl c = cp_matmul a b
+    // a, b, c
+    inl blocks = 1
+    inl grids = 1 // divup (length out) blocks
+    run grids blocks (fun () =>
+        global "#include <cublasdx.hpp>"
+        global "using namespace cublasdx;"
+        global "constexpr auto t_mode = cublasdx::transpose_mode::non_transposed;"
+        $"using GEMM = decltype(Size<32, 32, 32>() + Precision<double>() + Type<type::real>() + TransposeMode<t_mode, t_mode>() + Function<function::MM>() + SM<700>() + Block())"
+        ()
+        )
