@@ -24,7 +24,7 @@ inl main() =
     run grids blocks (fun () =>
         global "#include <cublasdx.hpp>"
         global "using namespace cublasdx;"
-        global "constexpr auto t_mode = cublasdx::transpose_mode::non_transposed;"
-        $"using GEMM = decltype(Size<32, 32, 32>() + Precision<double>() + Type<type::real>() + TransposeMode<t_mode, t_mode>() + Function<function::MM>() + SM<700>() + Block())"
+        // global "constexpr auto t_mode = cublasdx::transpose_mode::non_transposed;"
+        // $"using GEMM = decltype(Size<32, 32, 32>() + Precision<double>() + Type<type::real>() + TransposeMode<t_mode, t_mode>() + Function<function::MM>() + SM<700>() + Block())"
         ()
         )
