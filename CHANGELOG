@@ -1,3 +1,7 @@
+2.7.0 (1/24/2024)
+
+Updated the project so it uses .NET 8. It will require the .NET 8 SDK to run henceforth.
+
 2.6.1 (1/18/2024)
 
 * Made the [] and the ;[] patterns allowed immediately in an inl without the parenthesis.

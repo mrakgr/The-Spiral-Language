@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>The_Spiral_Language_2</RootNamespace>
     <OutputType>Exe</OutputType>
     <AssemblyName>Spiral</AssemblyName>
