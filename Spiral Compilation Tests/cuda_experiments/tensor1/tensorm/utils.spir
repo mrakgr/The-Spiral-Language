@@ -27,6 +27,14 @@ inl iter touch =
         | ar => touch ar
     f
 
+inl fold g =
+    inl rec f s x =
+        match x with
+        | a, b => f (f s a) b
+        | {} as ar => record_fold (fun x => f x.state x.value) s ar
+        | ar => g s ar
+    f
+
 inl foldBack g =
     inl rec f x s =
         match x with
@@ -105,9 +113,15 @@ inl calculate_offset a = foldBack2 (fun a b s => a * b + s) a
 
 inl calculate_stride_len dim = mapFoldBack (fun x s => s, x * s) dim 1
 
+inl last dim = fold (fun s x => x) () dim
+inl prod dim = foldBack (*) dim 1
+
+// Returns the last element of the stride.
 inl assert_stride_contiguous dim stride =
-    foldBack2 (fun dim stride expected_stride => 
-        assert (expected_stride = stride) "The tensor must be contiguous in order to be flattened."
-        dim * stride
-        ) dim stride 1
-    |> const 1
+    inl init = last stride
+    inl _ = 
+        foldBack2 (fun dim stride expected_stride => 
+            assert (expected_stride = stride) "The tensor must be contiguous in order to be flattened."
+            dim * stride
+            ) dim stride init
+    init

@@ -45,7 +45,7 @@ inl set forall dim el. (i : dim) (v : el) (tensor {bodies dim} : tensor dim el) 
         ) bodies v
 
 // Returns the number of elements in the tensor.
-inl length forall dim el. (tensor {dim} : tensor dim el) : int = real open real_core in foldBack (*) dim 1
+inl length forall dim el. (tensor {dim} : tensor dim el) : int = real prod dim
 
 // Zips two tensors. Apart from dimension checking, all the work is done at compile time.
 inl zip forall dim a b. (a : tensor dim a) (b : tensor dim b) : tensor dim (a * b) =
@@ -125,29 +125,47 @@ inl split_fst forall a b el. : list a -> tensor (a * b) el -> list (tensor (a * 
 // Splits the tensor given a list of sizes for the second dimension. The list of sizes must sum up to the tensor dimension.
 inl split_snd forall a b el. : list b -> tensor (a * b) el -> list (tensor (a * b) el) = split_templ snd view_snd
 
-// Flattens the tensor into a single dimension. For this to work, the tensor must be contiguous.
-inl flatten forall dim el. (tensor {dim bodies} : tensor dim el) : tensor int el = tensor {
-    dim = real open real_core in foldBack (*) dim 1
-    bodies = real
-        map (fun (tensor_body r as x) =>
-            typecase `x with
-            | tensor_body dim ~el => tensor_body `int `el {r with stride #= assert_stride_contiguous dim }
-            ) bodies
-    }
-
-// Reshaves the tensor dimensions. For this to work, the tensor must be contiguous.
-inl reshape forall dim dim' el. (dim' : dim') (x : tensor dim el) : tensor dim' el = 
-    inl stride, len = real calculate_stride_len dim'
-    assert (len = length x) "The total length of the reshaped tensor must match that of the original one."
-    inl (tensor {bodies dim}) = flatten x
+// Flattens the first part of the tensor into a single dimension. For this to work, the tensor must be contiguous.
+inl flatten_fst forall a b el. (tensor {dim bodies} : tensor (a * b) el) : tensor (int * b) el = 
     tensor {
-        dim = dim'
+        dim = real open real_core in prod (fst dim), snd dim
         bodies = real
+            open real_core
             map (fun (tensor_body r as x) =>
                 typecase `x with
-                | tensor_body int ~el => tensor_body `dim' `el {r with stride }
+                | tensor_body (a * b) ~el => tensor_body `(int * b) `el {r with stride #= fun stride => assert_stride_contiguous (fst dim) (fst stride), snd stride}
                 ) bodies
         }
+
+// Swaps the first and the second tensor dimension.
+inl swap x = reorder (fun a,b => b,a) x
+
+// Flattens the second part of the tensor into a single dimension. For this to work, the tensor must be contiguous.
+inl flatten_snd forall a b el. : tensor (a * b) el -> tensor (a * int) el = swap >> flatten_fst >> swap
+
+// Flattens the tensor into a single dimension. For this to work, the tensor must be contiguous.
+inl flatten forall dim el. (t : tensor dim el) : tensor int el = reorder (fun x => x, ()) t |> flatten_fst |> reorder fst
+
+// Reshaves the first part of the tensor dimension. For this to work, the tensor must be contiguous.
+inl reshape_fst forall a b dim el. (dim' : dim) (x : tensor (a * b) el) : tensor (dim * b) el = 
+    inl stride, len : dim * int = real calculate_stride_len dim'
+    assert (len = (real prod) (fst x.dim)) "The total length of the reshaped tensor dimension must match that of the original one."
+    inl (tensor {bodies dim}) = flatten_fst x
+    tensor {
+        dim = dim', snd dim
+        bodies = real
+            open real_core
+            map (fun (tensor_body r as x) =>
+                typecase `x with
+                | tensor_body (int * b) ~el => tensor_body `(dim * b) `el {r with stride #= fun a, b => map ((*) (last a)) stride, b }
+                ) bodies
+        }
+
+// Reshaves the second part of the tensor dimension. For this to work, the tensor must be contiguous.
+inl reshape_snd forall a b dim el. (dim : dim) : tensor (a * b) el -> tensor (a * dim) el = swap >> reshape_fst dim >> swap
+
+// Reshaves the tensor dimensions. For this to work, the tensor must be contiguous.
+inl reshape forall a b el. (dim : b) (t : tensor a el) : tensor b el = reorder (fun x => x, ()) t |> reshape_fst dim |> reorder fst
 
 // Assert the tensor dimensions. If they are the same, substitutes it with the given length in the resulting tensor.
 // Useful when then the given dimension is known at compile time and the tensor dimension is known at runtime.
@@ -157,6 +175,7 @@ inl reshape forall dim dim' el. (dim' : dim') (x : tensor dim el) : tensor dim' 
 inl assert_len forall dim el. (dim : dim) (tensor {dim=dim' bodies} : tensor dim el) : tensor dim el =
     assert (dim = dim') "Expected the length of the array to be the specified amount."
     tensor {dim bodies}
+
 
 // Tests
 // 
@@ -263,9 +282,21 @@ inl assert_len forall dim el. (dim : dim) (tensor {dim=dim' bodies} : tensor dim
 //     set {x=1; y=1} 123 t
 //     index {x=1; y=1} t
 
-// inl test() =
+// inl test19() =
 //     inl t : tensor _ float = create (2,3 : int * int)
 //     inl t : tensor _ float = create {x=2 : int; y=3 : int}
 //     t
+
+// inl test20() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11; 12]
+//     inl t = reshape (6, 2 : int * int) t
+//     inl t = reshape_fst (2,3 : int * int) t |> reorder (fun (a,b),c => a,b,c)
+//     index (0,0,0) t, index (1,0,0) t
+
+// inl test21() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11; 12]
+//     inl t = reshape (2, 6 : int * int) t
+//     inl t = reshape_snd (2,3 : int * int) t |> reorder (fun a,(b,c) => a,b,c)
+//     index (1,0,0) t, index (0,1,0) t
 
 // inl main() = test()
