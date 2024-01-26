@@ -5,11 +5,7 @@ kernel = r"""
 #include <cstdint>
 #include <array>
 template <typename el, int dim> struct array { el v[dim]; };
-#include <cublasdx.hpp>
-using namespace cublasdx;
-constexpr auto t_mode = cublasdx::transpose_mode::non_transposed;
 extern "C" __global__ void entry0() {
-    using GEMM = decltype(Size<32, 32, 32>() + Precision<double>() + Type<type::real>() + TransposeMode<t_mode, t_mode>() + Function<function::MM>() + SM<700>() + Block());
     return ;
 }
 """

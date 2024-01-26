@@ -1,0 +1,26 @@
+open corebase
+
+nominal row_major = $"nvcuda::wmma::mem_row_major"
+nominal col_major = $"nvcuda::wmma::mem_col_major"
+
+nominal matrix_a = $"nvcuda::wmma::matrix_a"
+nominal matrix_b = $"nvcuda::wmma::matrix_b"
+nominal accumulator = $"nvcuda::wmma::accumulator"
+
+nominal tf32 = $"nvcuda::wmma::precision::tf32"
+
+nominal fragment use m n k t layout = $"nvcuda::wmma::fragment<`use, @m, @n, @k, `t, `layout>"
+
+inl load_matrix_sync forall use m n k t layout el. (f : fragment use m n k t layout) (ar : array el) (ldm : int) : () = 
+    $"load_matrix_sync(!f, !ar, !ldm, @layout)"
+inl store_matrix_sync forall use m n k t layout el. (ar : array el) (f : fragment use m n k t layout) (ldm : int) : () = 
+    $"store_matrix_sync(!ar, !f, !ldm, @layout)"
+inl fill_fragment forall use m n k t layout el. (f : fragment use m n k t layout) (v : el) : () = 
+    $"fill_fragment(!f, !v)"
+inl mma_sync forall m n k t a_layout b_layout out_layout. 
+        (d : fragment accumulator m n k t out_layout) 
+        (a : fragment matrix_a m n k t a_layout) 
+        (b : fragment matrix_b m n k t b_layout) 
+        (c : fragment accumulator m n k t out_layout) 
+        : () = 
+    $"mma_sync(!d, !a, !b, !c)"

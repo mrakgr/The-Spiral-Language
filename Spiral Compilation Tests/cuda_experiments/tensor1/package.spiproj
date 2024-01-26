@@ -14,6 +14,10 @@ modules:
         inv_array_utils*
         inv_arraym
 
+        tensorm/
+            utils*
+            type-
+            
     corepython/
         
     corecuda/
@@ -21,7 +25,9 @@ modules:
         intrinsic
         sam 
         inv_array_kernels
-        console 
+        console
+        wmma
+
         
     sortm
     cardm
@@ -38,9 +44,7 @@ modules:
 
     main
 
-    tensorm/
-        utils*
-        type-
+
 
     cutlass
     matmul

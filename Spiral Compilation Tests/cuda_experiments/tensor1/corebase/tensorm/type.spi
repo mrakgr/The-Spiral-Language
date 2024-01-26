@@ -1,4 +1,3 @@
-open corebase
 open utils
 
 nominal tensor_body dim el = {

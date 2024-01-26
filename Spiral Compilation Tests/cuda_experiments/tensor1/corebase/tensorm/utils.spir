@@ -1,4 +1,3 @@
-open corebase
 open real_core
 
 inl infer_templ forall el. g =
