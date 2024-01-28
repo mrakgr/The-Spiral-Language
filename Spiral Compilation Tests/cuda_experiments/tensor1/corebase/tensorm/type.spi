@@ -146,7 +146,8 @@ inl flatten_snd forall a b el. : tensor (a * b) el -> tensor (a * int) el = swap
 inl flatten forall dim el. (t : tensor dim el) : tensor int el = reorder (fun x => x, ()) t |> flatten_fst |> reorder fst
 
 // Reshaves the first part of the tensor dimension. For this to work, the tensor must be contiguous.
-inl reshape_fst forall a b dim el. (dim' : dim) (x : tensor (a * b) el) : tensor (dim * b) el = 
+inl reshape_fst forall a b dim el. (f : a -> dim) (x : tensor (a * b) el) : tensor (dim * b) el =
+    inl dim' = f (fst x.dim)
     inl stride, len : dim * int = real calculate_stride_len dim'
     assert (len = (real prod) (fst x.dim)) "The total length of the reshaped tensor dimension must match that of the original one."
     inl (tensor {bodies dim}) = flatten_fst x
@@ -161,10 +162,10 @@ inl reshape_fst forall a b dim el. (dim' : dim) (x : tensor (a * b) el) : tensor
         }
 
 // Reshaves the second part of the tensor dimension. For this to work, the tensor must be contiguous.
-inl reshape_snd forall a b dim el. (dim : dim) : tensor (a * b) el -> tensor (a * dim) el = swap >> reshape_fst dim >> swap
+inl reshape_snd forall a b dim el. (dim : b -> dim) : tensor (a * b) el -> tensor (a * dim) el = swap >> reshape_fst dim >> swap
 
 // Reshaves the tensor dimensions. For this to work, the tensor must be contiguous.
-inl reshape forall a b el. (dim : b) (t : tensor a el) : tensor b el = reorder (fun x => x, ()) t |> reshape_fst dim |> reorder fst
+inl reshape forall a b el. (dim : a -> b) (t : tensor a el) : tensor b el = reorder (fun x => x, ()) t |> reshape_fst dim |> reorder fst
 
 // Assert the tensor dimensions. If they are the same, substitutes it with the given length in the resulting tensor.
 // Useful when then the given dimension is known at compile time and the tensor dimension is known at runtime.
@@ -174,7 +175,6 @@ inl reshape forall a b el. (dim : b) (t : tensor a el) : tensor b el = reorder (
 inl assert_len forall dim el. (dim : dim) (tensor {dim=dim' bodies} : tensor dim el) : tensor dim el =
     assert (dim = dim') "Expected the length of the array to be the specified amount."
     tensor {dim bodies}
-
 
 // Tests
 // 

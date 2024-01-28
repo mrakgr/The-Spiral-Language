@@ -17,6 +17,7 @@ modules:
         tensorm/
             utils*
             type-
+            cuda
             
     corepython/
         
@@ -27,7 +28,7 @@ modules:
         inv_array_kernels
         console
         wmma
-
+        cooperative_groups
         
     sortm
     cardm

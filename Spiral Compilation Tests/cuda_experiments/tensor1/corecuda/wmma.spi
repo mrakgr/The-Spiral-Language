@@ -1,4 +1,6 @@
 open corebase
+open tensorm
+open tensorm.cuda
 
 nominal row_major = $"nvcuda::wmma::mem_row_major"
 nominal col_major = $"nvcuda::wmma::mem_col_major"
@@ -11,16 +13,45 @@ nominal tf32 = $"nvcuda::wmma::precision::tf32"
 
 nominal fragment use m n k t layout = $"nvcuda::wmma::fragment<`use, @m, @n, @k, `t, `layout>"
 
-inl load_matrix_sync forall use m n k t layout el. (f : fragment use m n k t layout) (ar : array el) (ldm : int) : () = 
+// inl load_matrix_sync forall use m n k t layout el. (f : fragment use m n k t layout) (ar : array el) (ldm : int) : () = 
+//     $"load_matrix_sync(!f, !ar, !ldm, @layout)"
+
+inl get_fragment_dimension forall use m n k t layout. (f : fragment use m n k t layout) : int * int = real
+    open real_core
+    inl a,b =
+        typecase use with
+        | matrix_a => type_lit_to_lit `m, type_lit_to_lit `k
+        | matrix_b => type_lit_to_lit `k, type_lit_to_lit `n
+        | accumulator => type_lit_to_lit `m, type_lit_to_lit `n
+    typecase layout with
+    | row_major => a,b
+    | col_major => b,a
+
+inl assert_fragment_dimension forall use m n k t layout el. (f : fragment use m n k t layout) (t : tensor (int * int) el) : () =
+    assert (get_fragment_dimension f = t.dim) "The fragment's dimensions must match that of the tensor."
+
+inl load_matrix_sync_tf32_array forall use m n k layout. (f : fragment use m n k tf32 layout) (ar : array f32) (ldm : int) : () = 
     $"load_matrix_sync(!f, !ar, !ldm, @layout)"
-inl store_matrix_sync forall use m n k t layout el. (ar : array el) (f : fragment use m n k t layout) (ldm : int) : () = 
+    $"#pragma unroll"
+    $"for (int t = 0; t < !f.num_elements; t++) { !f.x[t] =  nvcuda::wmma::__float_to_tf32(!f.x[t]); }"
+
+inl load_matrix_sync_tf32 forall use m n k layout. (f : fragment use m n k tf32 layout) (t : tensor (int * int) f32) : () =
+    assert_fragment_dimension f t
+    load_matrix_sync_tf32_array f (ptr_at (0,0) t) (stride_fst t)
+
+inl store_matrix_sync_array forall use m n k t layout el. (ar : array el) (f : fragment use m n k t layout) (ldm : int) : () = 
     $"store_matrix_sync(!ar, !f, !ldm, @layout)"
+
+inl store_matrix_sync forall use m n k t layout el. (f : fragment use m n k t layout) (t : tensor (int * int) el) : () = 
+    assert_fragment_dimension f t
+    store_matrix_sync_array (ptr_at (0,0) t) f (stride_fst t)
+
 inl fill_fragment forall use m n k t layout el. (f : fragment use m n k t layout) (v : el) : () = 
     $"fill_fragment(!f, !v)"
-inl mma_sync forall m n k t a_layout b_layout out_layout. 
-        (d : fragment accumulator m n k t out_layout) 
-        (a : fragment matrix_a m n k t a_layout) 
-        (b : fragment matrix_b m n k t b_layout) 
-        (c : fragment accumulator m n k t out_layout) 
-        : () = 
+inl mma_sync forall m n k t_in t_out a_layout b_layout out_layout. 
+        (d : fragment accumulator m n k t_out out_layout) 
+        (a : fragment matrix_a m n k t_in a_layout) 
+        (b : fragment matrix_b m n k t_in b_layout) 
+        (c : fragment accumulator m n k t_out out_layout) 
+        : () =
     $"mma_sync(!d, !a, !b, !c)"

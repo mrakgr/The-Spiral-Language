@@ -1,0 +1,40 @@
+open corebase
+
+// I'm going to do something clever here. I never liked the explicit annotations of references in C++.
+// It really is annoying to have to put those ref types everywhere.
+
+nominal grid_group = $"& grid_group"
+nominal block_group = $"& block_group"
+nominal thread_block_tile size parent = $"& thread_block_tile<@size, `parent>"
+
+prototype group t : t -> ()
+instance group grid_group = fun _ => ()
+instance group block_group = fun _ => ()
+instance group thread_block_tile size parent = fun _ => ()
+
+inl create_grid() : grid_group = $"auto v$ = this_thread_ther()" 
+inl create_block() : block_group = $"auto v$ = this_thread_block()"
+inl create_thread_block_tile forall size parent {group}. (x : parent) : thread_block_tile size parent = $"auto v$ = thread_block_tile<@size, `parent>(!x)"
+
+inl project_index forall dim. (dim : dim) (i : int) : dim = real
+    open real_core
+    open tensorm.utils
+    inl dim,i = 
+        mapFoldBack (fun d i =>
+            i % d, i / d
+            ) dim i
+    assert (i = 0) "The index has to be in the range of the dimension."
+    dim
+
+inl project_index' forall dim. ({from nearTo} : {from : dim; nearTo : dim}) (i : int) : dim = real
+    open real_core
+    open tensorm.utils
+    map2 (+)
+        (project_index `dim (map2 (-) nearTo from) i)
+        from
+
+inl loop_tile forall size parent dim. (cg : thread_block_tile size parent) (dim : dim) (body : dim -> ()) =
+    inl by : int = $"!cg.meta_group_size()" 
+    inl from : int = $"!cg.meta_group_rank()"
+    inl nearTo : int = real tensorm.utils.prod dim
+    loop.forBy' {from nearTo by} (project_index dim >> body)
