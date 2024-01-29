@@ -49,7 +49,7 @@ inl project_index_reverse' forall dim. ({from nearTo} : {from : dim; nearTo : di
     project_index_reverse `dim dim i
 
 // Projects the arguments of a range to their scalar equivalents.
-inl project_index_reverse_range' forall dim. 
+inl project_index_reverse_range_by forall dim. 
         ({from nearTo by} : {from : dim; nearTo : dim; by : dim}) 
         : {from : int; nearTo : int; by : int} = real
     open real_core
@@ -74,7 +74,7 @@ inl project_index_reverse_range forall dim.
     }
 
 inl loop_for_by' forall dim. ({from nearTo by} : {from : dim; nearTo : dim; by : dim}) body = 
-    loop.forBy' (project_index_reverse_range' {from nearTo by}) (project_index' {from nearTo} >> body)
+    loop.forBy' (project_index_reverse_range_by {from nearTo by}) (project_index' {from nearTo} >> body)
 
 inl loop_for' forall dim. ({from nearTo} : {from : dim; nearTo : dim}) body = 
     loop.for' (project_index_reverse_range {from nearTo}) (project_index' {from nearTo} >> body)
