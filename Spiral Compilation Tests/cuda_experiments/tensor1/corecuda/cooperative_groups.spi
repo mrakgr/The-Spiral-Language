@@ -16,6 +16,7 @@ inl create_grid() : grid_group = $"auto v$ = this_thread_ther()"
 inl create_block() : block_group = $"auto v$ = this_thread_block()"
 inl create_thread_block_tile forall size parent {group}. (x : parent) : thread_block_tile size parent = $"auto v$ = thread_block_tile<@size, `parent>(!x)"
 
+// Projects the given index to a high dimensional value.
 inl project_index forall dim. (dim : dim) (i : int) : dim = real
     open real_core
     open tensorm.utils
@@ -26,11 +27,13 @@ inl project_index forall dim. (dim : dim) (i : int) : dim = real
     assert (i = 0) "The index has to be in the range of the dimension."
     dim
 
+// Project the given index to a scalar value.
 inl project_index_reverse forall dim. (dim : dim) (i : dim) : int = real
     open real_core
     open tensorm.utils
     fst (foldBack2 (fun nearTo by (r,s) => r+by*s, s*nearTo) dim i (0,1))
-
+ 
+// Projects the given index to a high dimensional value.
 inl project_index' forall dim. ({from nearTo} : {from : dim; nearTo : dim}) (i : int) : dim = real
     open real_core
     open tensorm.utils
@@ -38,16 +41,32 @@ inl project_index' forall dim. ({from nearTo} : {from : dim; nearTo : dim}) (i :
         (project_index `dim (map2 (-) nearTo from) i)
         from
 
-inl project_index_reverse' forall dim. ({from nearTo} : {from : dim; nearTo : dim}) (by : dim) : int = real
+// Project the given index to a scalar value.
+inl project_index_reverse' forall dim. ({from nearTo} : {from : dim; nearTo : dim}) (i : dim) : int = real
     open real_core
     open tensorm.utils
     inl dim = map2 (-) nearTo from
+    inl i = map2 (-) i from
     map2 (+)
-        (project_index_reverse `dim dim by)
+        (project_index_reverse `dim dim i)
         (project_index_reverse `dim dim from)
 
+// Projects the arguments of arrange to their scalar equivalents.
+inl project_index_reverse_range forall dim. 
+        ({from nearTo by} : {from : dim; nearTo : dim; by : dim}) 
+        : {from : int; nearTo : int; by : int} = real
+    open real_core
+    open tensorm.utils
+    inl dim = map2 (-) nearTo from
+    {
+        from = project_index_reverse `dim dim from
+        nearTo = nearTo 
+        by = project_index_reverse `dim dim by
+    }
+
 inl loop_for_by forall dim. ({from nearTo by} : {from : dim; nearTo : dim; by : dim}) body = 
-    // inl by : int = real tensorm.utils.prod by
+    inl by : int = project_index_reverse_by {from nearTo by}
+    inl nearTo = 
     inl by : int = real
         open real_core
         open tensorm.utils
