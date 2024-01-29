@@ -41,9 +41,10 @@ inl project_index' forall dim. ({from nearTo} : {from : dim; nearTo : dim}) (i :
 inl project_index_reverse' forall dim. ({from nearTo} : {from : dim; nearTo : dim}) (by : dim) : int = real
     open real_core
     open tensorm.utils
+    inl dim = map2 (-) nearTo from
     map2 (+)
-        (project_index_reverse `dim (map2 (-) nearTo from) by)
-        from // this isn't right
+        (project_index_reverse `dim dim by)
+        (project_index_reverse `dim dim from)
 
 inl loop_for_by forall dim. ({from nearTo by} : {from : dim; nearTo : dim; by : dim}) body = 
     // inl by : int = real tensorm.utils.prod by
