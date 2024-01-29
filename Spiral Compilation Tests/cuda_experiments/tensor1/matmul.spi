@@ -125,14 +125,14 @@ inl simple_wmma_tf32gemm (a : tensor (int * int) f32) (b : tensor (int * int) f3
             reshape (fun m,n => {m=m / 16}, {m_frag=16 : int}, {n=n / 16}, {n_frag=16 : int}) c
             |> reorder (fun m,m_frag,n,n_frag => (m,n),(m_frag,n_frag))
         
-        loop_tile tile (fst a.dim, fst b.dim) (fun m,n =>
+        loop_tile' tile (fst a.dim, fst b.dim) (fun m,n =>
             inl a = apply m a
             inl b = apply n b
             inl c = apply (m,n) c
 
-            loop.for' {from=0; nearTo=fst a.dim} (fun k =>
-                inl a = apply {k} a
-                inl b = apply {k} b
+            loop_linear' (fst a.dim) (fun k =>
+                inl a = apply k a
+                inl b = apply k b
                 ()
                 )
             ()
