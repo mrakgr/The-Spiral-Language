@@ -28,7 +28,7 @@ inl create forall dim el. (dim : dim) : tensor dim el =
     tensor {dim bodies=real infer_templ `el create_body}
 
 // Indexes into an tensor.
-inl index forall dim el. (i : dim) (tensor {bodies dim} : tensor dim el) : el = real 
+inl tensor_index forall dim el. (i : dim) (tensor {bodies dim} : tensor dim el) : el = real 
     assert_indices i dim
     map (fun (tensor_body {array stride offset}) =>
         typecase `array with
@@ -36,7 +36,7 @@ inl index forall dim el. (i : dim) (tensor {bodies dim} : tensor dim el) : el = 
         ) bodies
 
 // Sets the tensor at the specified index to a given value.
-inl set forall dim el. (i : dim) (v : el) (tensor {bodies dim} : tensor dim el) : () = real 
+inl tensor_set forall dim el. (i : dim) (v : el) (tensor {bodies dim} : tensor dim el) : () = real 
     assert_indices i dim
     iter2 (fun (tensor_body {array stride offset}) v =>
         typecase `array with
@@ -44,7 +44,7 @@ inl set forall dim el. (i : dim) (v : el) (tensor {bodies dim} : tensor dim el) 
         ) bodies v
 
 // Returns the number of elements in the tensor.
-inl length forall dim el. (tensor {dim} : tensor dim el) : int = real prod dim
+instance length tensor dim = fun (tensor {dim}) => real prod dim
 
 // Zips two tensors. Apart from dimension checking, all the work is done at compile time.
 inl zip forall dim a b. (a : tensor dim a) (b : tensor dim b) : tensor dim (a * b) =

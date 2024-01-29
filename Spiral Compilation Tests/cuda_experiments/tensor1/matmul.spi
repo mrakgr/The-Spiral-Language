@@ -94,7 +94,7 @@ inl constant() =
     skew_float
     }
 
-inl simple_wmma_tf32gemm (a : tensor (int * int) f32) (b : tensor (int * int) f32) (c : tensor (int * int) f32) =
+inl simple_wmma_tf32gemm alpha (a : tensor (int * int) f32) (b : tensor (int * int) f32) beta (c : tensor (int * int) f32) =
     // TODO: we need dimensionality checking here
 
     inl {threads_per_block warp_size warps_per_block} = constant()
@@ -114,30 +114,47 @@ inl simple_wmma_tf32gemm (a : tensor (int * int) f32) (b : tensor (int * int) f3
 
         inl a = // row_major
             reshape (fun m,k => {m=m / 16}, {m_frag=16 : int}, {k=k / 8}, {k_frag=8 : int}) a
-            |> reorder (fun m,m_frag,k,k_frag => m,k,(m_frag,k_frag))
+            |> reorder (fun m,{m_frag},k,{k_frag} => m,k,(m_frag,k_frag))
         // inl b = // row_major
         //     reshape (fun k,n => {k=k / 8}, {k_frag=8 : int}, {n=n / 16}, {n_frag=16 : int}) b
         //     |> reorder (fun k,k_frag,n,n_frag => (k,n),(k_frag,n_frag))
         inl b = // col_major
             reshape (fun n,k => {n=n / 16}, {n_frag=16 : int}, {k=k / 8}, {k_frag=8 : int}) b
-            |> reorder (fun n,n_frag,k,k_frag => n,k,(k_frag,n_frag))
+            |> reorder (fun n,{n_frag},k,{k_frag} => n,k,(k_frag,n_frag))
         inl c = // row_major
             reshape (fun m,n => {m=m / 16}, {m_frag=16 : int}, {n=n / 16}, {n_frag=16 : int}) c
-            |> reorder (fun m,m_frag,n,n_frag => (m,n),(m_frag,n_frag))
+            |> reorder (fun m,{m_frag},n,{n_frag} => (m,n),(m_frag,n_frag))
         
         loop_tile' tile (fst a.dim, fst b.dim) (fun m,n =>
             inl a = apply m a
             inl b = apply n b
             inl c = apply (m,n) c
 
+            open wmma
+
+            inl acc : fragment accumulator 16 16 8 row_major f32 = create_fragment
+            fill_fragment acc 0
             loop_linear' (fst a.dim) (fun k =>
                 inl a = apply k a
                 inl b = apply k b
+
+                inl a_frag : fragment matrix_a 16 16 8 row_major tf32 = create_fragment
+                inl b_frag : fragment matrix_b 16 16 8 col_major tf32 = create_fragment
+
+                load_matrix_sync_tf32 a_frag a
+                load_matrix_sync_tf32 b_frag b
+
+                mma_sync acc a_frag b_frag acc
                 ()
                 )
-            ()
+
+            inl c_frag : fragment accumulator 16 16 8 row_major f32 = create_fragment
+            load_matrix_sync c_frag c
+            loop.for' {from=0; nearTo=length c_frag} (fun i =>
+                set c_frag i (alpha * index acc i + beta * index c_frag i)
+                )
+            store_matrix_sync c c_frag
             )
-        ()
         )
 
 
@@ -153,7 +170,7 @@ inl main() =
     inl cp_matmul (a : tensor (int * int) float) (b : tensor (int * int) float) : tensor (int * int) float =
         inl a_dim, b_dim = a.dim, b.dim
         inl a_body,b_body : array float * array float = real tensorm.utils.map (fun (tensor_body {array}) => array) (a.bodies, b.bodies)
-        $"cp.matmul(!a_body.reshape(!a_dim),!b_body.reshape(!b_dim)).flatten()" |> fromArray |> reshape (fst a_dim, snd b_dim)
+        $"cp.matmul(!a_body.reshape(!a_dim),!b_body.reshape(!b_dim)).flatten()" |> fromArray |> reshape (const (fst a_dim, snd b_dim))
 
     // inl [a; b] = listm.map random_normal ([5, 10; 10, 5] : _ (int * int))
     // inl c = cp_matmul a b
