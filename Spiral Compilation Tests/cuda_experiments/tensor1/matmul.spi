@@ -126,7 +126,15 @@ inl simple_wmma_tf32gemm (a : tensor (int * int) f32) (b : tensor (int * int) f3
             |> reorder (fun m,m_frag,n,n_frag => (m,n),(m_frag,n_frag))
         
         loop_tile tile (fst a.dim, fst b.dim) (fun m,n =>
-            // This is pretty nice. So far, so good.
+            inl a = apply m a
+            inl b = apply n b
+            inl c = apply (m,n) c
+
+            loop.for' {from=0; nearTo=fst a.dim} (fun k =>
+                inl a = apply {k} a
+                inl b = apply {k} b
+                ()
+                )
             ()
             )
         ()

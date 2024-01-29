@@ -26,12 +26,36 @@ inl project_index forall dim. (dim : dim) (i : int) : dim = real
     assert (i = 0) "The index has to be in the range of the dimension."
     dim
 
+inl project_index_reverse forall dim. (dim : dim) (i : dim) : int = real
+    open real_core
+    open tensorm.utils
+    fst (foldBack2 (fun nearTo by (r,s) => r+by*s, s*nearTo) dim i (0,1))
+
 inl project_index' forall dim. ({from nearTo} : {from : dim; nearTo : dim}) (i : int) : dim = real
     open real_core
     open tensorm.utils
     map2 (+)
         (project_index `dim (map2 (-) nearTo from) i)
         from
+
+inl project_index_reverse' forall dim. ({from nearTo} : {from : dim; nearTo : dim}) (by : dim) : int = real
+    open real_core
+    open tensorm.utils
+    map2 (+)
+        (project_index_reverse `dim (map2 (-) nearTo from) by)
+        from // this isn't right
+
+inl loop_for_by forall dim. ({from nearTo by} : {from : dim; nearTo : dim; by : dim}) body = 
+    // inl by : int = real tensorm.utils.prod by
+    inl by : int = real
+        open real_core
+        open tensorm.utils
+        inl nearTo = map2 (-) nearTo from
+        fst (foldBack2 (fun nearTo by (r,s) => r+by*s, s*nearTo) nearTo by (0,1))
+    // inl from : int = real tensorm.utils.prod from
+    // loop.forBy' {from nearTo by} (project_index dim >> body)
+    ()
+
 
 inl loop_tile forall size parent dim. (cg : thread_block_tile size parent) (dim : dim) (body : dim -> ()) =
     inl by : int = $"!cg.meta_group_size()" 
