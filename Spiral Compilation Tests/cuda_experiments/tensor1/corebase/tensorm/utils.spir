@@ -93,7 +93,7 @@ inl assert_index i s = // This could be made concise, but I want the generated c
     else
         backend_switch {
             python = fun () => $"assert 0 <= !i < !s, 'Tensor range check'" : ()
-            cuda = fun () => $"assert(0 <= !i && !i < !s (* Tensor range check *))" : ()
+            cuda = fun () => $"assert(0 <= !i && !i < !s /* Tensor range check */)" : ()
         }
 
 inl assert_index_view from nearTo dim =
@@ -103,7 +103,7 @@ inl assert_index_view from nearTo dim =
     else
         backend_switch {
             python = fun () => $"assert 0 <= !from < !nearTo <= !dim, 'Tensor view range check'" : ()
-            cuda = fun () => $"assert(0 <= !from && !from < !nearTo && !from <= !dim (* Tensor view range check *))" : ()
+            cuda = fun () => $"assert(0 <= !from && !from < !nearTo && !from <= !dim /* Tensor view range check */)" : ()
         }
 
 inl assert_indices i = iter2 assert_index i

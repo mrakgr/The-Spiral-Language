@@ -135,7 +135,7 @@ inl assert c msg =
         else 
             backend_switch {
                 python = fun () => $"assert !c, !msg" : ()
-                cuda = fun () => $"assert(!c (* !msg *))" : ()
+                cuda = fun () => $"assert(!c /* !msg */)" : ()
                 }
 // Gathers the term variables from the two arguments, that is literals and runtime variables, places them in a set and compares the two using references equality.
 inl uses_original_term_vars a b = !!!!UsesOriginalTermVars(a,b)

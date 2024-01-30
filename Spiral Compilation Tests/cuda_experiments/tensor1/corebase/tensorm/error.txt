@@ -1,0 +1,5 @@
+C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2\include\cuda_bf16.hpp(575): error: no instance of overloaded function "__half::__half" matches the specified type
+  __declspec(__host__) __declspec(__device__) __forceinline __half::__half(const __nv_bfloat16 f)
+
+
+

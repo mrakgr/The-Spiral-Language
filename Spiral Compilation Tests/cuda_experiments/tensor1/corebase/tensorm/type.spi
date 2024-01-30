@@ -18,7 +18,7 @@ inl fromArray forall t. (x : array t) : tensor int t = tensor {dim = length x; b
 inl array forall t. (x : array_base t) : tensor int t = fromArray (array x)
 
 // Create a tensor of the specified dimensions. The elements of the dimension should be ints.
-inl create forall dim el. (dim : dim) : tensor dim el = 
+inl tensor_create forall dim el. (dim : dim) : tensor dim el = 
     inl stride, len = real calculate_stride_len dim
     inl create_body forall t. : tensor_body dim t = tensor_body {
         array = create len

@@ -20,7 +20,6 @@ open tensorm.cuda
 inl create_fragment forall use m n k layout t. : fragment use m n k layout t =
     $"nvcuda::wmma::fragment<`use, @m, @n, @k, `t, `layout> v$"
 
-
 inl get_fragment_dimension forall use m n k layout t. (f : fragment use m n k layout t) : int * int = real
     open real_core
     inl a,b =
@@ -33,10 +32,12 @@ inl get_fragment_dimension forall use m n k layout t. (f : fragment use m n k la
     | col_major => b,a
 
 inl assert_fragment_dimension forall use m n k layout t el. (f : fragment use m n k layout t) (t : tensor (int * int) el) : () =
+    // print_static (get_fragment_dimension f)
+    // print_static (t.dim)
     assert (get_fragment_dimension f = t.dim) "The fragment's dimensions must match that of the tensor."
 
 inl load_matrix_sync_tf32_array forall use m n k layout. (f : fragment use m n k layout tf32) (ar : array f32) (ldm : int) : () = 
-    $"load_matrix_sync(!f, !ar, !ldm, @layout)"
+    $"nvcuda::wmma::load_matrix_sync(!f, !ar, !ldm, `layout)"
     $"#pragma unroll"
     $"for (int t = 0; t < !f.num_elements; t++) { !f.x[t] =  nvcuda::wmma::__float_to_tf32(!f.x[t]); }"
 
@@ -45,24 +46,24 @@ inl load_matrix_sync_tf32 forall use m n k layout. (f : fragment use m n k layou
     load_matrix_sync_tf32_array f (ptr_at (0,0) t) (stride_fst t)
 
 inl load_matrix_sync_array forall use m n k layout t. (f : fragment use m n k layout t) (ar : array t) (ldm : int) : () = 
-    $"load_matrix_sync(!f, !ar, !ldm, @layout)"
+    $"nvcuda::wmma::load_matrix_sync(!f, !ar, !ldm, `layout)"
 
 inl load_matrix_sync forall use m n k layout t. (f : fragment use m n k layout t) (t : tensor (int * int) t) : () =
     assert_fragment_dimension f t
     load_matrix_sync_array f (ptr_at (0,0) t) (stride_fst t)
 
 inl store_matrix_sync_array forall use m n k layout t. (ar : array t) (f : fragment use m n k layout t) (ldm : int) : () = 
-    $"store_matrix_sync(!ar, !f, !ldm, @layout)"
+    $"nvcuda::wmma::store_matrix_sync(!ar, !f, !ldm, `layout)"
 
 inl store_matrix_sync forall use m n k layout t. (t : tensor (int * int) t) (f : fragment use m n k layout t) : () = 
     assert_fragment_dimension f t
     store_matrix_sync_array (ptr_at (0,0) t) f (stride_fst t)
 
-inl fill_fragment forall use m n k layout t. (f : fragment use m n k layout t) (v : t) : () =  $"fill_fragment(!f, !v)"
+inl fill_fragment forall use m n k layout t. (f : fragment use m n k layout t) (v : t) : () =  $"nvcuda::wmma::fill_fragment(!f, !v)"
 inl mma_sync forall m n k a_layout b_layout out_layout t_in t_out. 
         (d : fragment accumulator m n k out_layout t_out) 
         (a : fragment matrix_a m n k a_layout t_in) 
         (b : fragment matrix_b m n k b_layout t_in) 
         (c : fragment accumulator m n k out_layout t_out) 
         : () =
-    $"mma_sync(!d, !a, !b, !c)"
+    $"nvcuda::wmma::mma_sync(!d, !a, !b, !c)"
