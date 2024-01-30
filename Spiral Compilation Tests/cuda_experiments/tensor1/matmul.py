@@ -1,6 +1,16 @@
 kernel = r"""
+#pragma warning(disable: 4101 4065 4060)
+// Add these as extra argument to the compiler to suppress the rest:
+// --diag-suppress 186 --diag-suppress 177 --diag-suppress 550
+#include <cstdint>
+template <typename el, int dim> struct array { el v[dim]; };
+#include <assert.h>
 #include <mma.h>
+#include <cooperative_groups.h>
+using namespace cooperative_groups;
 extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
+    grid_group v3 = this_grid();
+    thread_block_tile<32l, grid_group> v4 = tiled_partition<32l>(v3);
     return ;
 }
 """
@@ -9,7 +19,7 @@ from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
 
-raw_module = cp.RawModule(code=kernel, backend='nvcc')
+raw_module = cp.RawModule(code=kernel, backend='nvrtc', jitify=True, enable_cooperative_groups=True, options=('--gpu-architecture=compute_89',))
 def main():
     v0 = cp.random.normal(0,1,128,cp.float32)
     v1 = v0.size

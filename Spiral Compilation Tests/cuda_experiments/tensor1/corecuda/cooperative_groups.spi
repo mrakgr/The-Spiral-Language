@@ -4,17 +4,17 @@ open corebase
 // It really is annoying to have to put those ref types everywhere.
 
 nominal grid_group = $"grid_group"
-nominal block_group = $"block_group"
+nominal thread_block = $"thread_block"
 nominal thread_block_tile size parent = $"thread_block_tile<@size, `parent>"
 
 prototype group t : t -> ()
 instance group grid_group = fun _ => ()
-instance group block_group = fun _ => ()
+instance group thread_block = fun _ => ()
 instance group thread_block_tile size parent = fun _ => ()
 
-inl create_grid() : ref grid_group = $"auto v$ = this_grid()" 
-inl create_block() : ref block_group = $"auto v$ = this_thread_block()"
-inl create_thread_block_tile forall size parent {group}. (x : ref parent) : ref (thread_block_tile size parent) = $"auto v$ = thread_block_tile<@size, `parent>(!x)"
+inl create_grid() : ref grid_group = $"grid_group v$ = this_grid()" 
+inl create_block() : ref thread_block = $"thread_block v$ = this_thread_block()"
+inl create_thread_block_tile forall size parent {group}. (x : ref parent) : ref (thread_block_tile size parent) = $"thread_block_tile<@size, `parent> v$ = tiled_partition<@size>(!x)"
 
 // Projects the given index to a high dimensional value.
 inl project_index forall dim. (dim : dim) (i : int) : dim = real

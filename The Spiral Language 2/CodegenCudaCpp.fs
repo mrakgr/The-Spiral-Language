@@ -569,12 +569,8 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
             )
     and uheap _ : UnionRec = raise_codegen_error "Recursive unions aren't allowed in the HLS C++ backend due to them needing to be heap allocated."
 
-    global' "#pragma warning(disable: 4101 4065 4060)"
-    global' "// Add these as extra argument to the compiler to suppress the rest:"
-    global' "// --diag-suppress 186 --diag-suppress 177 --diag-suppress 550"
     import "cstdint"
-    import "array"
-
+    
     let main_defs = {text=StringBuilder(); indent=0}
 
     match binds_last_data x |> data_term_vars |> term_vars_to_tys with
