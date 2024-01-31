@@ -175,9 +175,10 @@ inl main() =
         inl a_body,b_body : array float * array float = get_body a, get_body b
         $"cp.matmul(!a_body.reshape(!a_dim),cp.transpose(!b_body.reshape(!b_dim))).flatten()" |> fromArray |> reshape (const (fst a_dim, fst b_dim))
 
-    inl [a; b] = listm.map random_normal ([16, 8; 16, 8] : _ (int * int))
+    inl m,n,k : int * int * int = 256, 256, 128
+    inl [a; b] = listm.map random_normal ([m, k; n, k])
     inl c = cp_matmul a b
-    inl c' = tensor_create (16, 16)
+    inl c' = tensor_create (m, n)
     simple_wmma_tf32gemm 1 a b 0 c'
     inl c,c' = get_body c, get_body c'
     $"cp.max(cp.abs(!c'-!c))" : f32

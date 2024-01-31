@@ -1,3 +1,7 @@
+2.7.1 (1/31/2024)
+
+* Changed the Python + Cuda codegen for maximum NVRTC compatibility. 
+
 2.7.0 (1/24/2024)
 
 Updated the project so it uses .NET 8. It will require the .NET 8 SDK to run henceforth.
