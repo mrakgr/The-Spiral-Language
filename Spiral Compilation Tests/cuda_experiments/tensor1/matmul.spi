@@ -116,20 +116,18 @@ inl simple_wmma_tf32gemm alpha (a : tensor (int * int) f32) (b : tensor (int * i
     // blocks per grid (number of SMs in a RTX 4060)
     inl grids = 24
     run grids blocks (fun () =>
-        global "#include <assert.h>"
         global "#include <mma.h>"
         global "#include <cooperative_groups.h>"
         global "using namespace cooperative_groups;"
 
         open cooperative_groups
         inl grid = create_grid()
-        inl tile : _ (thread_block_tile 32 _) = create_thread_block_tile grid
         
         // Reshapes the tensor dimension into fragments.
         // For this example, we'll leave the K as the middle dimension over which the warps will iterate over.
         // In the upcoming examples, we will split the tensor dimensions more finely.
 
-        loop_tile' tile (fst a.dim, fst b.dim) (fun m,n =>
+        loop_warps_in_grid' grid (fst a.dim, fst b.dim) (fun m,n =>
             inl a = apply m a
             inl b = apply n b
             inl c = apply (m,n) c
@@ -153,7 +151,7 @@ inl simple_wmma_tf32gemm alpha (a : tensor (int * int) f32) (b : tensor (int * i
 
             inl c_frag : fragment accumulator 16 16 8 row_major f32 = create_fragment
             load_matrix_sync c_frag c
-            loop.for' {from=0; nearTo=length c_frag} (fun i =>
+            loop.linear' (length c_frag) (fun i =>
                 set c_frag i (alpha * index acc i + beta * index c_frag i)
                 )
             store_matrix_sync c c_frag

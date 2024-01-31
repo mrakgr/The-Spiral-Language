@@ -564,12 +564,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             )
     and uheap _ : UnionRec = raise_codegen_error "Recursive unions aren't allowed in the Cuda C++ backend due to them needing to be heap allocated."
 
-    global' "#pragma warning(disable: 4101 4065 4060)"
-    global' "// Add these as extra argument to the compiler to suppress the rest:"
-    global' "// --diag-suppress 186 --diag-suppress 177 --diag-suppress 550"
     import "cstdint"
-    import "array"
-
 
     fun vs (x : TypedBind []) ->
         match binds_last_data x |> data_term_vars |> term_vars_to_tys with

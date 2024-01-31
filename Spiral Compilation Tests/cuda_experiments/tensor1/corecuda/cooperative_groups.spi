@@ -7,14 +7,13 @@ nominal grid_group = $"grid_group"
 nominal thread_block = $"thread_block"
 nominal thread_block_tile size parent = $"thread_block_tile<@size, `parent>"
 
-prototype group t : t -> ()
-instance group grid_group = fun _ => ()
-instance group thread_block = fun _ => ()
-instance group thread_block_tile size parent = fun _ => ()
+prototype tileable t : t -> ()
+instance tileable thread_block = fun _ => ()
+instance tileable thread_block_tile size parent = fun _ => ()
 
 inl create_grid() : ref grid_group = $"grid_group v$ = this_grid()" 
 inl create_block() : ref thread_block = $"thread_block v$ = this_thread_block()"
-inl create_thread_block_tile forall size parent {group}. (x : ref parent) : ref (thread_block_tile size parent) = $"thread_block_tile<@size, `parent> v$ = tiled_partition<@size>(!x)"
+inl create_thread_block_tile forall size parent {tileable}. (x : ref parent) : ref (thread_block_tile size parent) = $"thread_block_tile<@size, `parent> v$ = tiled_partition<@size>(!x)"
 
 // Projects the given index to a high dimensional value.
 inl project_index forall dim. (dim : dim) (i : int) : dim = real
@@ -85,5 +84,11 @@ inl loop_linear' forall dim. (dim : dim) body =
 inl loop_tile' forall size parent dim. (cg : ref (thread_block_tile size parent)) (dim : dim) (body : dim -> ()) =
     inl by : int = $"!cg.meta_group_size()" 
     inl from : int = $"!cg.meta_group_rank()"
+    inl nearTo : int = real tensorm.utils.prod dim
+    loop.forBy' {from nearTo by} (project_index dim >> body)
+
+inl loop_warps_in_grid' forall dim. (cg : ref grid_group) (dim : dim) (body : dim -> ()) =
+    inl by : int = $"!cg.num_treads()" 
+    inl from : int = $"!cg.thread_rank()"
     inl nearTo : int = real tensorm.utils.prod dim
     loop.forBy' {from nearTo by} (project_index dim >> body)
