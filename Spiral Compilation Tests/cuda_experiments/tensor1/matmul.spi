@@ -117,6 +117,7 @@ inl simple_wmma_tf32gemm alpha (a : tensor (int * int) f32) (b : tensor (int * i
     inl grids = 24
     run grids blocks (fun () =>
         global "#include <mma.h>"
+        global "using namespace nvcuda;"
         global "#include <cooperative_groups.h>"
         global "using namespace cooperative_groups;"
 

@@ -239,14 +239,14 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
         | YFun(a,b) -> sprintf "Fun%i" (cfun (a,b)).tag
         | a -> raise_codegen_error (sprintf "Compiler error: Type not supported in the codegen.\nGot: %A" a)
     and prim = function
-        | Int8T -> "int8_t" 
-        | Int16T -> "int16_t"
-        | Int32T -> "int32_t"
-        | Int64T -> "int64_t"
-        | UInt8T -> "uint8_t"
-        | UInt16T -> "uint16_t"
-        | UInt32T -> "uint32_t"
-        | UInt64T -> "uint64_t" // are defined in cstdint
+        | Int8T -> "char" 
+        | Int16T -> "short"
+        | Int32T -> "long"
+        | Int64T -> "long long"
+        | UInt8T -> "unsigned"
+        | UInt16T -> "unsigned short"
+        | UInt32T -> "unsigned long"
+        | UInt64T -> "unsigned long long"
         | Float32T -> "float"
         | Float64T -> "double"
         | BoolT -> "bool" // part of c++ standard
@@ -564,7 +564,6 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             )
     and uheap _ : UnionRec = raise_codegen_error "Recursive unions aren't allowed in the Cuda C++ backend due to them needing to be heap allocated."
 
-    import "cstdint"
     global' "template <typename el, int dim> struct array { el v[dim]; };"
 
     fun vs (x : TypedBind []) ->

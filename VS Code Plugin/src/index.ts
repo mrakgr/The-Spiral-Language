@@ -260,7 +260,6 @@ export const activate = async (ctx: ExtensionContext) => {
             errorsProject.clear(); errorsTokenization.clear(); errorsParse.clear(); errorsType.clear()
         })
 
-
         const terminal = window.createTerminal({name: "Spiral Server", hideFromUser})
         const compiler_path = path.join(__dirname,"../compiler/Spiral.dll")
         if (isRestart) { await sleep(1000) }
