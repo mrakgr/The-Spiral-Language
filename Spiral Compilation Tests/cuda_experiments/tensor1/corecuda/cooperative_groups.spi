@@ -1,8 +1,5 @@
 open corebase
 
-// I'm going to do something clever here. I never liked the explicit annotations of references in C++.
-// It really is annoying to have to put those ref types everywhere.
-
 nominal grid_group = $"grid_group"
 nominal thread_block = $"thread_block"
 nominal thread_block_tile size parent = $"thread_block_tile<@size, `parent>"
@@ -87,8 +84,8 @@ inl loop_tile' forall size parent dim. (cg : ref (thread_block_tile size parent)
     inl nearTo : int = real tensorm.utils.prod dim
     loop.forBy' {from nearTo by} (project_index dim >> body)
 
-inl loop_warps_in_grid' forall dim. (cg : ref grid_group) (dim : dim) (body : dim -> ()) =
-    inl by : int = $"!cg.num_treads()" 
-    inl from : int = $"!cg.thread_rank()"
+inl loop_warps_in_grid' forall dim. (dim : dim) (body : dim -> ()) =
+    inl by : int = $"grid_group::num_threads() / warpSize"
+    inl from : int = $"grid_group::thread_rank() / warpSize"
     inl nearTo : int = real tensorm.utils.prod dim
     loop.forBy' {from nearTo by} (project_index dim >> body)

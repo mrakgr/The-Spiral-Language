@@ -28,9 +28,8 @@ type runConfig = {
 inl run' ({gridDim blockDim} : runConfig) f =
     // Global statements only get executed once.
     // global "raw_module = cp.RawModule(code=kernel, backend='nvcc', options=(\"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\\\\cublasdx\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\external\\\\cutlass\\\\include\"))"
-    global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', jitify=True, enable_cooperative_groups=True))"
+    global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', jitify=True, enable_cooperative_groups=True)"
     inl kernel_i, vars = join_backend Cuda 
-        global "template <typename el, int dim> struct array { el v[dim]; };"
         global "#include <assert.h>"
         f () : ()
     real

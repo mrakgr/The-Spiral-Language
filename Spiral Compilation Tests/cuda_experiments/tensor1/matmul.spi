@@ -121,13 +121,12 @@ inl simple_wmma_tf32gemm alpha (a : tensor (int * int) f32) (b : tensor (int * i
         global "using namespace cooperative_groups;"
 
         open cooperative_groups
-        inl grid = create_grid()
         
         // Reshapes the tensor dimension into fragments.
         // For this example, we'll leave the K as the middle dimension over which the warps will iterate over.
         // In the upcoming examples, we will split the tensor dimensions more finely.
 
-        loop_warps_in_grid' grid (fst a.dim, fst b.dim) (fun m,n =>
+        loop_warps_in_grid' (fst a.dim, fst b.dim) (fun m,n =>
             inl a = apply m a
             inl b = apply n b
             inl c = apply (m,n) c
