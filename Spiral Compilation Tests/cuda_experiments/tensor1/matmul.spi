@@ -94,7 +94,16 @@ inl constant() =
     skew_float
     }
 
-inl simple_wmma_tf32gemm alpha (a,ta : tensor (int * int) f32 * bool) (b,tb : tensor (int * int) f32 * bool) beta (c,tc : tensor (int * int) f32 * bool) =
+nominal gemm_config m_frag n_frag k_frag frag_in = {m_frag : int; n_frag : int; k_frag : int}
+inl gemm_config forall m_frag n_frag k_frag frag_in. : gemm_config m_frag n_frag k_frag frag_in = gemm_config {
+    m_frag = real real_core.type_lit_to_lit `m_frag
+    n_frag = real real_core.type_lit_to_lit `n_frag
+    k_frag = real real_core.type_lit_to_lit `k_frag
+    }
+
+inl simple_wmma_gemm forall m_frag n_frag k_frag frag_in float{number}. (gemm_config {m_frag n_frag k_frag} : gemm_config m_frag n_frag k_frag frag_in) 
+        alpha (a,ta : tensor (int * int) float * bool) (b,tb : tensor (int * int) float * bool) 
+        beta (c,tc : tensor (int * int) float * bool) =
     inl _ = 
         inl swap (a,b) x = if x then b,a else a,b
         inl a_dim = swap a.dim ta
@@ -104,28 +113,28 @@ inl simple_wmma_tf32gemm alpha (a,ta : tensor (int * int) f32 * bool) (b,tb : te
         assert (fst a_dim = fst c_dim) "The M dimension of the A and C tensors must match."
         assert (snd b_dim = snd c_dim) "The N dimension of the B and C tensors must match."
 
-    inl {threads_per_block warp_size warps_per_block m' n' k'} = constant()
+    inl {threads_per_block} = constant()
 
     inl a = 
         if ta then // col_major
-            reshape (fun k,m => {k=k / k'}, {k_frag=k' : int}, {m=m / m'}, {m_frag=m' : int}) a
+            reshape (fun k,m => {k=k / k_frag}, {k_frag}, {m=m / m_frag}, {m_frag}) a
             |> reorder (fun k,{k_frag},m,{m_frag} => m,k,(k_frag,m_frag))
         else // row_major
-            reshape (fun m,k => {m=m / m'}, {m_frag=m' : int}, {k=k / k'}, {k_frag=k' : int}) a
+            reshape (fun m,k => {m=m / m_frag}, {m_frag}, {k=k / k_frag}, {k_frag}) a
             |> reorder (fun m,{m_frag},k,{k_frag} => m,k,(m_frag,k_frag))
     inl b =
         if tb then // col_major
-            reshape (fun n,k => {n=n / n'}, {n_frag=n' : int}, {k=k / k'}, {k_frag=k' : int}) b
+            reshape (fun n,k => {n=n / n_frag}, {n_frag}, {k=k / k_frag}, {k_frag}) b
             |> reorder (fun n,{n_frag},k,{k_frag} => n,k,(n_frag,k_frag))
         else // row_major
-            reshape (fun k,n => {k=k / k'}, {k_frag=k' : int}, {n=n / n'}, {n_frag=n' : int}) b
+            reshape (fun k,n => {k=k / k_frag}, {k_frag}, {n=n / n_frag}, {n_frag}) b
             |> reorder (fun k,{k_frag},n,{n_frag} => n,k,(k_frag,n_frag))
     inl c =
         if tc then // col_major
-            reshape (fun n,m => {n=n / n'}, {n_frag=n' : int}, {m=m / m'}, {m_frag=m' : int}) c
+            reshape (fun n,m => {n=n / n_frag}, {n_frag}, {m=m / m_frag}, {m_frag}) c
             |> reorder (fun n,{n_frag},m,{m_frag} => (m,n),(n_frag,m_frag))
         else // row_major
-            reshape (fun m,n => {m=m / m'}, {m_frag=m' : int}, {n=n / n'}, {n_frag=n' : int}) c
+            reshape (fun m,n => {m=m / m_frag}, {m_frag}, {n=n / n_frag}, {n_frag}) c
             |> reorder (fun m,{m_frag},n,{n_frag} => (m,n),(m_frag,n_frag))
     
     // threads per block
@@ -140,10 +149,6 @@ inl simple_wmma_tf32gemm alpha (a,ta : tensor (int * int) f32 * bool) (b,tb : te
 
         open cooperative_groups
         
-        // Reshapes the tensor dimension into fragments.
-        // For this example, we'll leave the K as the middle dimension over which the warps will iterate over.
-        // In the upcoming examples, we will split the tensor dimensions more finely.
-
         loop_warps_in_grid' (fst a.dim, fst b.dim) (fun m,n =>
             inl a = apply m a
             inl b = apply n b
@@ -151,22 +156,22 @@ inl simple_wmma_tf32gemm alpha (a,ta : tensor (int * int) f32 * bool) (b,tb : te
 
             open wmma
 
-            inl acc : fragment' accumulator 16 16 8 f32 = create_fragment' tc
+            inl acc : fragment' accumulator m_frag n_frag k_frag float = create_fragment' tc
             fill_fragment' acc 0
             loop_linear' (fst a.dim) (fun k =>
                 inl a = apply k a
                 inl b = apply k b
 
-                inl a_frag : fragment' matrix_a 16 16 8 tf32 = create_fragment' ta
-                inl b_frag : fragment' matrix_b 16 16 8 tf32 = create_fragment' tb
+                inl a_frag : fragment' matrix_a m_frag n_frag k_frag frag_in = create_fragment' ta
+                inl b_frag : fragment' matrix_b m_frag n_frag k_frag frag_in = create_fragment' tb
 
-                load_matrix_sync_tf32' a_frag a
-                load_matrix_sync_tf32' b_frag b
+                load_matrix_sync' a_frag a
+                load_matrix_sync' b_frag b
 
                 mma_sync' acc a_frag b_frag acc
                 )
 
-            inl c_frag : fragment' accumulator 16 16 8 f32 = create_fragment' tc
+            inl c_frag : fragment' accumulator m_frag n_frag k_frag float = create_fragment' tc
             load_matrix_sync' c_frag c
             loop.linear' (length c_frag) (fun i =>
                 set c_frag i (alpha * index acc i + beta * index c_frag i)
@@ -208,6 +213,6 @@ inl main() =
     inl [a; b] = listm.map random_normal ([swap (m, k) ta; swap (k, n) tb])
     inl c = cp_matmul (a,ta) (b,tb) tc
     inl c' = tensor_create (swap (m, n) tc)
-    simple_wmma_tf32gemm 1 (a, ta) (b, tb) 0 (c', tc)
+    simple_wmma_gemm (gemm_config : gemm_config 16 16 8 wmma.tf32) 1 (a, ta) (b, tb) 0 (c', tc)
     inl c,c' = get_body c, get_body c'
     $"cp.max(cp.abs(!c'-!c))" : f32

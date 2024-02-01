@@ -83,20 +83,17 @@ inl load_matrix_sync_array' forall use m n k t el. (f : fragment' use m n k t) (
     | RowMajor f => load_matrix_sync_array f ar ldm
     | ColMajor f => load_matrix_sync_array f ar ldm
 
-inl load_matrix_sync_tf32 forall use m n k layout. (f : fragment use m n k layout tf32) (t : tensor (int * int) f32) : () =
+inl load_matrix_sync forall use m n k layout frag_in t. (f : fragment use m n k layout frag_in) (t : tensor (int * int) t) : () =
     assert_fragment_dimension f t
     load_matrix_sync_array f (ptr_at (0,0) t) (stride_fst t)
-    $"#pragma unroll"
-    $"for (int t = 0; t < !f.num_elements; t++) { !f.x[t] = wmma::__float_to_tf32(!f.x[t]); }"
-inl load_matrix_sync_tf32' forall use m n k. (f : fragment' use m n k tf32) (t : tensor (int * int) f32) : () =
-    match f with
-    | RowMajor f => load_matrix_sync_tf32 f t
-    | ColMajor f => load_matrix_sync_tf32 f t
-
-inl load_matrix_sync forall use m n k layout t. (f : fragment use m n k layout t) (t : tensor (int * int) t) : () =
-    assert_fragment_dimension f t
-    load_matrix_sync_array f (ptr_at (0,0) t) (stride_fst t)
-inl load_matrix_sync' forall use m n k t. (f : fragment' use m n k t) (t : tensor (int * int) t) : () =
+    real
+        typecase frag_in * t with
+        | t * t => ()
+        | tf32 * f32 =>
+            $"#pragma unroll" : ()
+            $"for (int t = 0; t < !f.num_elements; t++) { !f.x[t] = wmma::__float_to_tf32(!f.x[t]); }" : ()
+        | _ => real_core.error_type "This type is not supported."
+inl load_matrix_sync' forall use m n k frag_in t. (f : fragment' use m n k frag_in) (t : tensor (int * int) t) : () =
     match f with
     | RowMajor f => load_matrix_sync f t
     | ColMajor f => load_matrix_sync f t
