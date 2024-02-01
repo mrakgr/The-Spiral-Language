@@ -47,83 +47,81 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         }
         assert(0 <= v9 && v9 < 16l /* Tensor range check */);
         long v15;
-        v15 = 2048l * v9;
+        v15 = 16l * v9;
         assert(0 <= v7 && v7 < 16l /* Tensor range check */);
         long v16;
-        v16 = 2048l * v7;
+        v16 = 16l * v7;
         assert(0 <= v9 && v9 < 16l /* Tensor range check */);
         assert(0 <= v7 && v7 < 16l /* Tensor range check */);
         long v17;
-        v17 = 16l * v7;
+        v17 = 4096l * v7;
         long v18;
-        v18 = 4096l * v9;
-        long v19;
-        v19 = v18 + v17;
-        wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> v20;
-        wmma::fill_fragment(v20, 0.0f);
-        long v21;
-        v21 = 0l;
-        while (while_method_1(v21)){
+        v18 = v15 + v17;
+        wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> v19;
+        wmma::fill_fragment(v19, 0.0f);
+        long v20;
+        v20 = 0l;
+        while (while_method_1(v20)){
+            long v22;
+            v22 = v20 % 16l;
             long v23;
-            v23 = v21 % 16l;
-            long v24;
-            v24 = v21 / 16l;
+            v23 = v20 / 16l;
+            bool v24;
+            v24 = v23 == 0l;
             bool v25;
-            v25 = v24 == 0l;
-            bool v26;
-            v26 = v25 == false;
-            if (v26){
-                const char * v27;
-                v27 = "The index has to be in the range of the dimension.";
-                assert(v25 /* v27 */);
+            v25 = v24 == false;
+            if (v25){
+                const char * v26;
+                v26 = "The index has to be in the range of the dimension.";
+                assert(v24 /* v26 */);
             } else {
             }
-            assert(0 <= v23 && v23 < 16l /* Tensor range check */);
+            assert(0 <= v22 && v22 < 16l /* Tensor range check */);
+            long v28;
+            v28 = 2048l * v22;
             long v29;
-            v29 = 8l * v23;
+            v29 = v28 + v15;
+            assert(0 <= v22 && v22 < 16l /* Tensor range check */);
             long v30;
-            v30 = v29 + v15;
-            assert(0 <= v23 && v23 < 16l /* Tensor range check */);
-            long v31;
-            v31 = v29 + v16;
-            wmma::fragment<wmma::matrix_a, 16l, 16l, 8l, wmma::precision::tf32, wmma::row_major> v32;
-            wmma::fragment<wmma::matrix_b, 16l, 16l, 8l, wmma::precision::tf32, wmma::col_major> v33;
+            v30 = v28 + v16;
+            wmma::fragment<wmma::matrix_a, 16l, 16l, 8l, wmma::precision::tf32, wmma::col_major> v31;
+            wmma::fragment<wmma::matrix_b, 16l, 16l, 8l, wmma::precision::tf32, wmma::row_major> v32;
+            float * v33;
+            v33 = v0 + v29;
+            wmma::load_matrix_sync(v31, v33, 256l);
+            #pragma unroll
+            for (int t = 0; t < v31.num_elements; t++) { v31.x[t] = wmma::__float_to_tf32(v31.x[t]); };
             float * v34;
-            v34 = v0 + v30;
-            wmma::load_matrix_sync(v32, v34, 128l);
+            v34 = v1 + v30;
+            wmma::load_matrix_sync(v32, v34, 256l);
             #pragma unroll
             for (int t = 0; t < v32.num_elements; t++) { v32.x[t] = wmma::__float_to_tf32(v32.x[t]); };
-            float * v35;
-            v35 = v1 + v31;
-            wmma::load_matrix_sync(v33, v35, 128l);
-            #pragma unroll
-            for (int t = 0; t < v33.num_elements; t++) { v33.x[t] = wmma::__float_to_tf32(v33.x[t]); };
-            wmma::mma_sync(v20, v32, v33, v20);
-            v21 += 1l ;
+            wmma::mma_sync(v19, v31, v32, v19);
+            v20 += 1l ;
         }
-        wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> v36;
-        float * v37;
-        v37 = v2 + v19;
-        wmma::load_matrix_sync(v36, v37, 256l, wmma::mem_row_major);
+        wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> v35;
+        float * v36;
+        v36 = v2 + v18;
+        wmma::load_matrix_sync(v35, v36, 256l, wmma::mem_col_major);
+        long v37;
+        v37 = v35.num_elements;
         long v38;
-        v38 = v36.num_elements;
-        long v39;
-        v39 = 0l;
-        while (while_method_2(v38, v39)){
+        v38 = 0l;
+        while (while_method_2(v37, v38)){
+            float v40;
+            v40 = v19.x[v38];
             float v41;
-            v41 = v20.x[v39];
+            v41 = v35.x[v38];
             float v42;
-            v42 = v36.x[v39];
+            v42 = 0.0f * v41;
             float v43;
-            v43 = 0.0f * v42;
-            float v44;
-            v44 = v41 + v43;
-            v36.x[v39] = v44;
-            v39 += 1l ;
+            v43 = v40 + v42;
+            v35.x[v38] = v43;
+            v38 += 1l ;
         }
-        float * v45;
-        v45 = v2 + v19;
-        wmma::store_matrix_sync(v45, v36, 256l, wmma::mem_row_major);
+        float * v44;
+        v44 = v2 + v18;
+        wmma::store_matrix_sync(v44, v35, 256l, wmma::mem_col_major);
         v5 += v3 ;
     }
     return ;
@@ -162,24 +160,35 @@ def main():
     else:
         pass
     del v8, v9
-    v12 = cp.matmul(v6.reshape((256, 128)),cp.transpose(v0.reshape((256, 128)))).flatten()
-    v13 = v12.size
-    v14 = 65536 == v13
-    del v13
-    v15 = v14 == False
-    if v15:
-        v17 = "The total length of the reshaped tensor dimension must match that of the original one."
-        assert v14, v17
-        del v17
+    v12 = v6.reshape((128, 256))
+    v13 = cp.transpose(v12)
+    del v12
+    v14 = v0.reshape((128, 256))
+    v15 = cp.matmul(v13,v14)
+    del v13, v14
+    v16 = v15.reshape((256, 256))
+    del v15
+    v17 = cp.transpose(v16)
+    del v16
+    v18 = v17.flatten()
+    del v17
+    v19 = v18.size
+    v20 = 65536 == v19
+    del v19
+    v21 = v20 == False
+    if v21:
+        v23 = "The total length of the reshaped tensor dimension must match that of the original one."
+        assert v20, v23
+        del v23
     else:
         pass
-    del v14, v15
-    v18 = cp.empty(65536,dtype=cp.float32)
-    v19 = 0
-    raw_module.get_function(f"entry{v19}")((24, 1, 1),(256, 1, 1),(v6, v0, v18))
-    del v0, v6, v19
-    v20 = cp.max(cp.abs(v18-v12))
-    del v12, v18
-    return v20
+    del v20, v21
+    v24 = cp.empty(65536,dtype=cp.float32)
+    v25 = 0
+    raw_module.get_function(f"entry{v25}")((24, 1, 1),(256, 1, 1),(v6, v0, v24))
+    del v0, v6, v25
+    v26 = cp.max(cp.abs(v24-v18))
+    del v18, v24
+    return v26
 
 if __name__ == '__main__': print(main())
