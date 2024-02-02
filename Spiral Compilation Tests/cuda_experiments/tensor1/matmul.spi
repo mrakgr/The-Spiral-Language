@@ -103,12 +103,12 @@ inl gemm_config forall m_frag n_frag k_frag frag_in. : gemm_config m_frag n_frag
 
 inl simple_wmma_gemm forall m_frag n_frag k_frag frag_in float{number}. (gemm_config {m_frag n_frag k_frag} : gemm_config m_frag n_frag k_frag frag_in) 
         alpha (a,ta : tensor (int * int) float * bool) (b,tb : tensor (int * int) float * bool) 
-        beta (c,tc : tensor (int * int) float * bool) =
+        beta (c : tensor (int * int) float) =
     inl _ = 
         inl swap (a,b) x = if x then b,a else a,b
         inl a_dim = swap a.dim ta
         inl b_dim = swap b.dim tb
-        inl c_dim = swap c.dim tc
+        inl c_dim = c.dim
         assert (snd a_dim = fst b_dim) "The K dimension of the A and B tensors must match."
         assert (fst a_dim = fst c_dim) "The M dimension of the A and C tensors must match."
         assert (snd b_dim = snd c_dim) "The N dimension of the B and C tensors must match."
@@ -129,13 +129,9 @@ inl simple_wmma_gemm forall m_frag n_frag k_frag frag_in float{number}. (gemm_co
         else // row_major
             reshape (fun k,n => {k=k / k_frag}, {k_frag}, {n=n / n_frag}, {n_frag}) b
             |> reorder (fun k,{k_frag},n,{n_frag} => n,k,(k_frag,n_frag))
-    inl c =
-        if tc then // col_major
-            reshape (fun n,m => {n=n / n_frag}, {n_frag}, {m=m / m_frag}, {m_frag}) c
-            |> reorder (fun n,{n_frag},m,{m_frag} => (m,n),(n_frag,m_frag))
-        else // row_major
-            reshape (fun m,n => {m=m / m_frag}, {m_frag}, {n=n / n_frag}, {n_frag}) c
-            |> reorder (fun m,{m_frag},n,{n_frag} => (m,n),(m_frag,n_frag))
+    inl c = // row_major
+        reshape (fun m,n => {m=m / m_frag}, {m_frag}, {n=n / n_frag}, {n_frag}) c
+        |> reorder (fun m,{m_frag},n,{n_frag} => (m,n),(m_frag,n_frag))
     
     // threads per block
     inl blocks = threads_per_block
@@ -156,7 +152,7 @@ inl simple_wmma_gemm forall m_frag n_frag k_frag frag_in float{number}. (gemm_co
 
             open wmma
 
-            inl acc : fragment' accumulator m_frag n_frag k_frag float = create_fragment' tc
+            inl acc : fragment' accumulator m_frag n_frag k_frag float = create_fragment' false 
             fill_fragment' acc 0
             loop_linear' (fst a.dim) (fun k =>
                 inl a = apply k a
@@ -171,7 +167,7 @@ inl simple_wmma_gemm forall m_frag n_frag k_frag frag_in float{number}. (gemm_co
                 mma_sync' acc a_frag b_frag acc
                 )
 
-            inl c_frag : fragment' accumulator m_frag n_frag k_frag float = create_fragment' tc
+            inl c_frag : fragment' accumulator m_frag n_frag k_frag float = create_fragment' false
             load_matrix_sync' c_frag c
             loop.linear' (length c_frag) (fun i =>
                 set c_frag i (alpha * index acc i + beta * index c_frag i)
@@ -194,23 +190,22 @@ inl main() =
         fromArray t |> reshape (const dim)
 
     inl swap (a,b) x = if x then b,a else a,b
-    inl cp_matmul (a : tensor (int * int) float * bool) (b : tensor (int * int) float * bool) (c : tensor (int * int) float * bool) : tensor (int * int) float =
+    inl cp_matmul (a : tensor (int * int) float * bool) (b : tensor (int * int) float * bool) (c : tensor (int * int) float) : tensor (int * int) float =
         inl transpose ta (x : array float) : array float = if ta then $"cp.transpose(!x)" else x
         inl f (ta : bool) (a_body : array float) (a_dim : int * int) : array float = 
             inl x : array float = $"!a_body.reshape(!a_dim)"
             transpose ta x
         inl g (a,ta : tensor (int * int) float * bool) = f ta (get_body a) a.dim
-        inl a_body,b_body,c_body : array float * array float * array float = g a, g b, g c
+        inl a_body,b_body,c_body : array float * array float * array float = g a, g b, f false (get_body c) c.dim
         
-        transpose (snd c) $"cp.matmul(!a_body,!b_body)"
-        |> fun x => $"(!x+!c_body).flatten()"
-        |> fromArray |> reshape (const (swap (fst c).dim (snd c)))
+        $"(cp.matmul(!a_body,!b_body)+!c_body).flatten()"
+        |> fromArray |> reshape (const c.dim)
 
     inl m,n,k : int * int * int = 256, 256, 128
-    inl ta,tb,tc = true,false,true
-    inl [a; b; c] = listm.map random_normal ([swap (m, k) ta; swap (k, n) tb; swap (m, n) tc])
-    inl d = cp_matmul (a,ta) (b,tb) (c,tc)
-    simple_wmma_gemm (gemm_config : gemm_config 16 16 8 wmma.tf32) 1 (a, ta) (b, tb) 1 (c, tc)
+    inl ta,tb = true,false
+    inl [a; b; c] = listm.map random_normal ([swap (m, k) ta; swap (k, n) tb; m, n])
+    inl d = cp_matmul (a,ta) (b,tb) c
+    simple_wmma_gemm (gemm_config : gemm_config 16 16 8 wmma.tf32) 1 (a, ta) (b, tb) 1 c
     inl d,c = get_body d, get_body c
     $"print(!d[:20]) "
     $"print(!c[:20]) "

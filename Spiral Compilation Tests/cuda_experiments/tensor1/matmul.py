@@ -54,9 +54,9 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         assert(0 <= v9 && v9 < 16l /* Tensor range check */);
         assert(0 <= v7 && v7 < 16l /* Tensor range check */);
         long v17;
-        v17 = 4096l * v7;
+        v17 = 4096l * v9;
         long v18;
-        v18 = v15 + v17;
+        v18 = v17 + v16;
         wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> v19;
         wmma::fill_fragment(v19, 0.0f);
         long v20;
@@ -102,7 +102,7 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> v35;
         float * v36;
         v36 = v2 + v18;
-        wmma::load_matrix_sync(v35, v36, 256l, wmma::mem_col_major);
+        wmma::load_matrix_sync(v35, v36, 256l, wmma::mem_row_major);
         long v37;
         v37 = v35.num_elements;
         long v38;
@@ -119,7 +119,7 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         }
         float * v43;
         v43 = v2 + v18;
-        wmma::store_matrix_sync(v43, v35, 256l, wmma::mem_col_major);
+        wmma::store_matrix_sync(v43, v35, 256l, wmma::mem_row_major);
         v5 += v3 ;
     }
     return ;
@@ -175,32 +175,26 @@ def main():
     del v18
     v20 = v6.reshape((128, 256))
     v21 = v0.reshape((256, 256))
-    v22 = cp.transpose(v21)
-    del v21
-    v23 = cp.matmul(v19,v20)
-    del v19, v20
-    v24 = cp.transpose(v23)
+    v22 = (cp.matmul(v19,v20)+v21).flatten()
+    del v19, v20, v21
+    v23 = v22.size
+    v24 = 65536 == v23
     del v23
-    v25 = (v24+v22).flatten()
-    del v22, v24
-    v26 = v25.size
-    v27 = 65536 == v26
-    del v26
-    v28 = v27 == False
-    if v28:
-        v30 = "The total length of the reshaped tensor dimension must match that of the original one."
-        assert v27, v30
-        del v30
+    v25 = v24 == False
+    if v25:
+        v27 = "The total length of the reshaped tensor dimension must match that of the original one."
+        assert v24, v27
+        del v27
     else:
         pass
-    del v27, v28
-    v31 = 0
-    raw_module.get_function(f"entry{v31}")((24, 1, 1),(256, 1, 1),(v12, v6, v0))
-    del v6, v12, v31
-    print(v25[:20]) 
+    del v24, v25
+    v28 = 0
+    raw_module.get_function(f"entry{v28}")((24, 1, 1),(256, 1, 1),(v12, v6, v0))
+    del v6, v12, v28
+    print(v22[:20]) 
     print(v0[:20]) 
-    v32 = cp.max(cp.abs(v0-v25))
-    del v0, v25
-    return v32
+    v29 = cp.max(cp.abs(v0-v22))
+    del v0, v22
+    return v29
 
 if __name__ == '__main__': print(main())
