@@ -3,6 +3,8 @@
 open System.Collections.Generic
 open System.Runtime.CompilerServices
 
+let list_try_zip a b = try Some (List.zip a b) with _ -> None
+
 let inline get_default (memo_dict: Dictionary<_,_>) k def =
     match memo_dict.TryGetValue k with
     | true, v -> v

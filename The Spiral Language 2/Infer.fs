@@ -78,6 +78,7 @@ type TypeError =
     | ExpectedRecordInsideALayout of T
     | UnionsCannotBeApplied
     | ExpectedNominalInApply of T
+    | MalformedNominal
     | ExpectedRecordAsResultOfIndex of T
     | RecordIndexFailed of string
     | ModuleIndexFailed of string
@@ -505,6 +506,7 @@ let show_type_error (env : TopEnv) x =
     match x with
     | UnionsCannotBeApplied -> "Unions cannot be applied."
     | ExpectedNominalInApply a -> sprintf "Expected a nominal.\nGot: %s" (f a)
+    | MalformedNominal -> "Malformed nominal."
     | ModuleMustBeImmediatelyApplied -> "Module must be immediately applied."
     | ExpectedSymbol' a -> sprintf "Expected a symbol.\nGot: %s" (f a)
     | KindError(a,b) -> sprintf "Kind unification failure.\nGot:      %s\nExpected: %s" (show_kind a) (show_kind b)
@@ -995,7 +997,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                         let n = top_env.nominals.[i]
                         match n.body with
                         | TyUnion _ -> errors.Add(r,UnionsCannotBeApplied)
-                        | _ -> loop (subst (List.zip n.vars l) n.body)
+                        | _ -> 
+                            match Utils.list_try_zip n.vars l with
+                            | Some l -> loop (subst l n.body)
+                            | None -> errors.Add(r,MalformedNominal)
                     | _ -> errors.Add(r,ExpectedNominalInApply a)
                 | TyLayout(a,_) ->
                     match visit_t a with
