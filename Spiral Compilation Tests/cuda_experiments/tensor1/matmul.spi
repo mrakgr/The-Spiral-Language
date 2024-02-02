@@ -194,25 +194,24 @@ inl main() =
         fromArray t |> reshape (const dim)
 
     inl swap (a,b) x = if x then b,a else a,b
-    inl cp_matmul (a : tensor (int * int) float * bool) (b : tensor (int * int) float * bool) tc : tensor (int * int) float =
+    inl cp_matmul (a : tensor (int * int) float * bool) (b : tensor (int * int) float * bool) (c : tensor (int * int) float * bool) : tensor (int * int) float =
+        inl transpose ta (x : array float) : array float = if ta then $"cp.transpose(!x)" else x
         inl f (ta : bool) (a_body : array float) (a_dim : int * int) : array float = 
             inl x : array float = $"!a_body.reshape(!a_dim)"
-            if ta then $"cp.transpose(!x)" else x
+            transpose ta x
         inl g (a,ta : tensor (int * int) float * bool) = f ta (get_body a) a.dim
-        inl a_body,b_body : array float * array float = g a, g b
+        inl a_body,b_body,c_body : array float * array float * array float = g a, g b, g c
         
-        inl a_dim = swap (fst a).dim (snd a)
-        inl b_dim = swap (fst b).dim (snd b)
-        inl c_dim = fst a_dim, snd b_dim
-        f tc $"cp.matmul(!a_body,!b_body)" c_dim 
-        |> fun x => $"!x.flatten()"
-        |> fromArray |> reshape (const (swap c_dim tc))
+        transpose (snd c) $"cp.matmul(!a_body,!b_body)"
+        |> fun x => $"(!x+!c_body).flatten()"
+        |> fromArray |> reshape (const (swap (fst c).dim (snd c)))
 
     inl m,n,k : int * int * int = 256, 256, 128
     inl ta,tb,tc = true,false,true
-    inl [a; b] = listm.map random_normal ([swap (m, k) ta; swap (k, n) tb])
-    inl c = cp_matmul (a,ta) (b,tb) tc
-    inl c' = tensor_create (swap (m, n) tc)
-    simple_wmma_gemm (gemm_config : gemm_config 16 16 8 wmma.tf32) 1 (a, ta) (b, tb) 0 (c', tc)
-    inl c,c' = get_body c, get_body c'
-    $"cp.max(cp.abs(!c'-!c))" : f32
+    inl [a; b; c] = listm.map random_normal ([swap (m, k) ta; swap (k, n) tb; swap (m, n) tc])
+    inl d = cp_matmul (a,ta) (b,tb) (c,tc)
+    simple_wmma_gemm (gemm_config : gemm_config 16 16 8 wmma.tf32) 1 (a, ta) (b, tb) 1 (c, tc)
+    inl d,c = get_body d, get_body c
+    $"print(!d[:20]) "
+    $"print(!c[:20]) "
+    $"cp.max(cp.abs(!c-!d))" : f32

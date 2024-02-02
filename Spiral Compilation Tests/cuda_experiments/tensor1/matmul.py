@@ -113,15 +113,13 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             float v41;
             v41 = v35.x[v38];
             float v42;
-            v42 = 0.0f * v41;
-            float v43;
-            v43 = v40 + v42;
-            v35.x[v38] = v43;
+            v42 = v40 + v41;
+            v35.x[v38] = v42;
             v38 += 1l ;
         }
-        float * v44;
-        v44 = v2 + v18;
-        wmma::store_matrix_sync(v44, v35, 256l, wmma::mem_col_major);
+        float * v43;
+        v43 = v2 + v18;
+        wmma::store_matrix_sync(v43, v35, 256l, wmma::mem_col_major);
         v5 += v3 ;
     }
     return ;
@@ -136,9 +134,9 @@ options = []
 options.append('--diag-suppress=550')
 raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))
 def main():
-    v0 = cp.random.normal(0,1,32768,cp.float32)
+    v0 = cp.random.normal(0,1,65536,cp.float32)
     v1 = v0.size
-    v2 = 32768 == v1
+    v2 = 65536 == v1
     del v1
     v3 = v2 == False
     if v3:
@@ -160,35 +158,49 @@ def main():
     else:
         pass
     del v8, v9
-    v12 = v6.reshape((128, 256))
-    v13 = cp.transpose(v12)
-    del v12
-    v14 = v0.reshape((128, 256))
-    v15 = cp.matmul(v13,v14)
-    del v13, v14
-    v16 = v15.reshape((256, 256))
-    del v15
-    v17 = cp.transpose(v16)
-    del v16
-    v18 = v17.flatten()
-    del v17
-    v19 = v18.size
-    v20 = 65536 == v19
-    del v19
-    v21 = v20 == False
-    if v21:
-        v23 = "The total length of the reshaped tensor dimension must match that of the original one."
-        assert v20, v23
-        del v23
+    v12 = cp.random.normal(0,1,32768,cp.float32)
+    v13 = v12.size
+    v14 = 32768 == v13
+    del v13
+    v15 = v14 == False
+    if v15:
+        v17 = "The total length of the reshaped tensor dimension must match that of the original one."
+        assert v14, v17
+        del v17
     else:
         pass
-    del v20, v21
-    v24 = cp.empty(65536,dtype=cp.float32)
-    v25 = 0
-    raw_module.get_function(f"entry{v25}")((24, 1, 1),(256, 1, 1),(v6, v0, v24))
-    del v0, v6, v25
-    v26 = cp.max(cp.abs(v24-v18))
-    del v18, v24
-    return v26
+    del v14, v15
+    v18 = v12.reshape((128, 256))
+    v19 = cp.transpose(v18)
+    del v18
+    v20 = v6.reshape((128, 256))
+    v21 = v0.reshape((256, 256))
+    v22 = cp.transpose(v21)
+    del v21
+    v23 = cp.matmul(v19,v20)
+    del v19, v20
+    v24 = cp.transpose(v23)
+    del v23
+    v25 = (v24+v22).flatten()
+    del v22, v24
+    v26 = v25.size
+    v27 = 65536 == v26
+    del v26
+    v28 = v27 == False
+    if v28:
+        v30 = "The total length of the reshaped tensor dimension must match that of the original one."
+        assert v27, v30
+        del v30
+    else:
+        pass
+    del v27, v28
+    v31 = 0
+    raw_module.get_function(f"entry{v31}")((24, 1, 1),(256, 1, 1),(v12, v6, v0))
+    del v6, v12, v31
+    print(v25[:20]) 
+    print(v0[:20]) 
+    v32 = cp.max(cp.abs(v0-v25))
+    del v0, v25
+    return v32
 
 if __name__ == '__main__': print(main())
