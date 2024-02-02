@@ -1,0 +1,32 @@
+open real_core
+
+inl infer_templ forall el. g =
+    inl rec f forall el. =
+        typecase el with
+        | ~a * ~b => f `a, f `b
+        | {} => record_type_map (fun k => f) `el
+        | _ => g `el
+    f `el
+
+// Infers the folded out type of an inferse array. For example, it would map the type `array (a * b)` to `array a * array b`.
+// Also supports the same for records.
+inl infer forall ar el. = infer_templ `el (forall el. => ``(ar el))
+
+// Creates an inverse form array.
+inl create' forall ar el. size = infer_templ `el (forall el. => create `ar `el size)
+
+inl index' ar i =
+    inl rec f = function
+        | a, b => f a, f b
+        | {} as ar => record_map (fun {value} => f value) ar
+        | ar => typecase `ar with ~ar ~el => index `ar `el ar i
+    f ar
+
+inl iter2 g a b =
+    inl rec f = function
+        | (a, b), (va,vb) => f (a, va) . f (b, vb)
+        | ({} & ar, {} & v) => record_iter (fun {key value} => f (ar key, value)) v
+        | ar,v => g ar v
+    f (a, b)
+
+inl set' ar i v = iter2 (fun ar v => typecase `ar with ~ar ~el => set `ar `el ar i v) ar v

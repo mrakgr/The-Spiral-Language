@@ -1,0 +1,23 @@
+open corebase
+open corecuda
+open cardm
+
+// Draws a single card from a deck.
+let draw_card rng deck : card * deck =
+    open intrinsic
+    open random
+    open deck_utils
+    inl d = conv_u64 deck
+    inl base = u32_range (intrinsic.popc_u64 d |> conv) rng
+    inl i = sample_masked_bit_u64 d (conv base)
+    card {suit=conv i / 13; rank=conv i % 13}, toggle deck (conv i)
+
+// Draws an array of cards from a deck.
+let draw_cards forall dim. rng deck : sa dim card * deck =
+    open sam
+    inl out : sa dim card = create
+    out, loop.for {from=0; nearTo=length out} (fun i deck =>
+        inl card, deck = draw_card rng deck
+        set out i card
+        deck
+        ) deck

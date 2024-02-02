@@ -1,0 +1,47 @@
+// As long as the conditional returns true, executes the body.
+inl while' (cond : () -> bool) (body : () -> ()) : () = !!!!While((join cond()),(body()))
+
+// Used to break out of a C style loop.
+inl break() = $"break"
+
+inl _dup forall t. (x : t) : t = $"!x"
+inl _set forall t. (a : t) ~(b : t) : () =  real 
+    inl rec loop = function
+        | (a,a'),(b,b') => ($"!a = !b" : ()) . loop (a',b')
+        | (), () => ()
+    loop (real_core.free_vars a, real_core.free_vars b)
+inl _add forall t. (x : t) (by : t) : () = $'!x += !by '
+inl _sub forall t. (x : t) (by : t) : () = $'!x -= !by '
+
+// An imperative while loop.
+inl while cond body state =
+    inl state = _dup state
+    while' (fun () => cond state) fun () => _set state (body state)
+    state
+
+// Folds over the range.
+inl forBy {from nearTo by} body state = 
+    inl i, state = _dup (from, state)
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+    state
+// Folds over the range.
+inl forBy' range body = forBy range (fun i () => body i) ()
+// Folds over the range.
+inl for {from nearTo} body state = forBy {from nearTo by=1} body state
+// Iterates over the range.
+inl for' r body = for r (fun i () => body i) ()
+// Folds over the range starting from 0.
+inl linear' nearTo = for' {from=0; nearTo}
+// Iterates over the range starting from 0.
+inl linear nearTo = for {from=0; nearTo}
+
+
+// Folds over the range in an downwards direction.
+inl forDownBy {nearFrom to by} body state = 
+    inl i, state = _dup (nearFrom, state)
+    while' (fun _ => i > to) fun _ => _sub i by . _set state (body i state)
+    state
+// Folds over the range in an downwards direction.
+inl forDown {nearFrom to} body state = forDownBy {nearFrom to by=1} body state
+// Iterates over the range in an downwards direction.
+inl forDown' r body = forDown r (fun i () => body i) ()

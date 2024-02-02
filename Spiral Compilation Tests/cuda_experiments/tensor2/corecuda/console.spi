@@ -1,0 +1,55 @@
+open corebase
+
+inl prim x = real
+    match x with
+    | (x : i8) | (x : i16) | (x : i32) | (x : i64) => "%d", x
+    | (x : u8) | (x : u16) | (x : u32) | (x : u64) => "%u", x
+    | (x : f32) | (x : f64) => "%f", x
+    | (x : string) => "%s", x
+    | (x : char) => "%c", x
+
+prototype printable t : t -> ()
+
+inl rec write_sa forall dim el. (x : sa dim el) : () =
+    inl array_limit = 100
+    write "["
+    open sam
+    loop.for' {from=0; nearTo=min array_limit (length x)} (fun i =>
+        write (index x i)
+        if i + 1 < length x then write ", "
+        )
+    if length x > array_limit then write ", ..."
+    write "]"
+and inl write forall t. (x : t) : () = real
+    inl rec write x = 
+        open real_core
+        inl p (a,b) = $"printf(!a,!b)" : ()
+        
+        match x with // According to Bing it shouldn't matter whether these are %d or %lld in printf.
+        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
+        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
+        | (x : f32) | (x : f64) => p ("%f", x)
+        | (x : string) => p ("%s", x)
+        | (x : char) => p ("%c", x)
+        | (x : bool) => p ("%s", if x then "true" else "false")
+        | (a,b) => write a . write b
+        | {} as x =>
+            record_fold_back (fun {state=(separator, state) key value} => 
+                "; ", (symbol_to_string key," = ", value, separator, state)
+                ) x ((), ())
+            |> fun _,x => write ('{', x, '}')
+        | () => ()
+        | x when symbol_is x => write (symbol_to_string x)
+        | x => 
+            typecase `x with
+            | sa ~dim ~el => write_sa `dim `el x
+            | ~t =>
+                if prototype_has `t printable then printable `t x
+                else error_type "Unsupported type."
+            
+    write x
+
+inl write_ln l =
+    write l
+    $'printf("\\n")'
+    ()
