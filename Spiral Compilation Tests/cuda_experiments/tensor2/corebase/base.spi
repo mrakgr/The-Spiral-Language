@@ -36,3 +36,8 @@ instance create array = fun size => array !!!!ArrayCreate(`el,size)
 instance index array = fun (array ar) i => !!!!ArrayIndex(ar,i)
 instance set array = fun (array ar) i v => !!!!ArrayIndexSet(ar,i,v)
 instance length array = fun (array ar) => !!!!ArrayLength(`int,ar)
+
+nominal sizeof t = {value : int}
+inl sizeof forall t. : sizeof t = sizeof {
+    value = real !!!!Conv(`int, !!!!SizeOf(`t))
+    }

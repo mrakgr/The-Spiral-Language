@@ -397,6 +397,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             $"v{i}({args})" |> return'
         | TyArrayLength(_,b) -> raise_codegen_error "Array length is not supported in the Cuda C++ backend as they are bare pointers."
         | TyStringLength(_,b) -> raise_codegen_error "String length is not supported in the Cuda C++ backend."
+        | TySizeOf t -> return' $"sizeof({tup_ty t})"
         | TyOp(Global,[DLit (LitString x)]) -> global' x
         | TyOp(op,l) ->
             match op, l with

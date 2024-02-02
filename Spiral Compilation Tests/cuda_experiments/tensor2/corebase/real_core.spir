@@ -84,9 +84,6 @@ inl fst (a,b) = a
 // Gets the second element of a pair.	
 inl snd (a,b) = b
 
-// Size of a float or an int type. Returns a i32 literal.
-inl sizeof forall a {number}. = !!!!SizeOf(`a)
-
 // Bitwise and.
 inl (&&&) a b = !!!!BitwiseAnd(a,b)
 // Bitwise or.

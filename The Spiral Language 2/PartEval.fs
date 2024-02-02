@@ -122,6 +122,7 @@ and TypedOp =
     | TyFailwith of Ty * Data
     | TyApply of TyV * Data
     | TyConv of Ty * Data
+    | TySizeOf of Ty
     | TyArrayLiteral of Ty * Data list
     | TyArrayCreate of Ty * Data
     | TyArrayLength of Ty * Data
@@ -2182,7 +2183,7 @@ let peval (env : TopEnv) (x : E) =
             | YPrim (Int16T | UInt16T) -> DLit (LitInt32 2)
             | YPrim (Int32T | UInt32T | Float32T) -> DLit (LitInt32 4)
             | YPrim (Int64T | UInt64T | Float64T) -> DLit (LitInt32 8)
-            | a -> raise_type_error s $"Expected an int or a float type.\nGot: {show_ty a}"
+            | a -> push_typedop s (TySizeOf a) (YPrim Int32T) 
         | EOp(_,FreeVars,[a]) ->
             let x = term s a |> data_free_vars
             Array.foldBack (fun x s -> DPair(DV x,s)) x DB
