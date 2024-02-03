@@ -44,9 +44,4 @@ modules:
     hand_scorer
 
     main
-
-
-
-    cutlass
     matmul
-    sizeof 

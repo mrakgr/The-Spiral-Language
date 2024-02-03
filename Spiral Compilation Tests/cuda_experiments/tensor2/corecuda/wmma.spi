@@ -48,7 +48,7 @@ inl create_fragment forall use m n k layout t. : fragment use m n k layout t = r
 inl create_fragment' forall use m n k t. is_transposed : fragment' use m n k t =
     if is_transposed then ColMajor create_fragment else RowMajor create_fragment
 
-inl get_fragment_dimension forall use m n k layout t. (f : fragment use m n k layout t) : int * int = real
+inl fragment_dim forall use m n k layout t. (f : fragment use m n k layout t) : int * int = real
     open real_core
     inl a,b =
         typecase use with
@@ -58,19 +58,19 @@ inl get_fragment_dimension forall use m n k layout t. (f : fragment use m n k la
     typecase layout with
     | row_major => a,b
     | col_major => b,a
-inl get_fragment_dimension' forall use m n k t. (f : fragment' use m n k t) : int * int =
+inl fragment_dim' forall use m n k t. (f : fragment' use m n k t) : int * int =
     match f with
-    | RowMajor f => get_fragment_dimension f
-    | ColMajor f => get_fragment_dimension f
+    | RowMajor f => fragment_dim f
+    | ColMajor f => fragment_dim f
 
 inl assert_fragment_dimension forall use m n k layout t el. (f : fragment use m n k layout t) (t : tensor (int * int) el) : () =
-    assert (get_fragment_dimension f = t.dim) "The fragment's dimensions must match that of the tensor."
+    assert (fragment_dim f = t.dim) "The fragment's dimensions must match that of the tensor."
 inl assert_fragment_dimension' forall use m n k t el. (f : fragment' use m n k t) (t : tensor (int * int) el) : () =
     match f with
     | RowMajor f => assert_fragment_dimension f t
     | ColMajor f => assert_fragment_dimension f t
 
-inl load_matrix_sync_array forall use m n k layout t el. (f : fragment use m n k layout t) (ar : array el) (ldm : int) : () = 
+inl load_matrix_sync_array forall use m n k layout t el. (f : fragment use m n k layout t) (ar : array el) (ldm : int) : () =
     real
         typecase use with
         | accumulator =>

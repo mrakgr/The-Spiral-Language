@@ -21,8 +21,8 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in float{number}. (gemm_co
         assert (fst a_dim = fst c_dim) "The M dimension of the A and C tensors must match."
         assert (snd b_dim = snd c_dim) "The N dimension of the B and C tensors must match."
 
-    inl skew = 8
-    inl tile = 64
+    inl base_tile = 128 / (sizeof : sizeof float).value // should be 32 for an f32 type
+    inl tile = base_tile * 2 
     inl a = 
         if ta then // col_major
             reshape (fun k,m => {k=k / tile}, {k_tile=tile}, {m=m / tile}, {m_tile=tile}) a
@@ -49,6 +49,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in float{number}. (gemm_co
         global "#include <mma.h>"
         global "using namespace nvcuda;"
         global "#include <cooperative_groups.h>"
+        global "#include <cooperative_groups/memcpy_async.h>"
         global "using namespace cooperative_groups;"
 
         open cooperative_groups
@@ -59,50 +60,66 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in float{number}. (gemm_co
             inl b = apply n b
             inl c = apply (m,n) c
 
-            inl create_shared() : tensor _ float = tensor_create_shared (tile, tile + skew) |> view {from=0,0; nearTo=tile, tile}
-            inl c_shared' = create_shared()
+            inl create_shared f : tensor _ float =
+                open wmma
+                inl _,skew = fragment_dim' f
+                // We are taking the modulo because the skew could end up being the same as the as the base style. 
+                // We don't want to waste a memory in that case.
+                tensor_create_shared (tile, tile + (skew % base_tile))
+                |> view {from=0,0; nearTo=tile, tile}
+            
+            open wmma
+            inl c_frag : fragment' accumulator m_frag n_frag k_frag float = create_fragment' false
+            inl c_shared' = create_shared c_frag
             async_memcpy_tensor {from=c; to=c_shared'}
             inl c_shared = // row_major
-                reshape (fun m,n => {m=m / m_frag}, {m_frag}, {n=n / n_frag}, {n_frag}) c_shared'
-                |> reorder (fun m,{m_frag},n,{n_frag} => (m,n),(m_frag,n_frag))
+                reshape_fst (fun m => {m=m / m_frag}, {m_frag}) c_shared'
+                |> reshape_snd (fun n => {n=n / n_frag}, {n_frag})
+                |> reorder (fun (m,{m_frag}),n,{n_frag} => (m,n),(m_frag,n_frag))
 
             loop_linear' (fst a.dim) (fun k =>
+                // The multiplication by the beta should only be done once. On the rest of the K iterations 
+                // it should be adding the accumulator results directly.
+                inl beta = if k = {k=0} then beta else 1
+
                 inl a = apply k a
-                inl a_shared = create_shared()
+                inl a_frag : fragment' matrix_a m_frag n_frag k_frag frag_in = create_fragment' ta
+                inl a_shared = create_shared a_frag 
                 async_memcpy_tensor {from=a; to=a_shared} 
                 inl a_shared = 
                     if ta then // col_major
-                        reshape (fun k,m => {k=k / k_frag}, {k_frag}, {m=m / m_frag}, {m_frag}) a_shared
-                        |> reorder (fun k,{k_frag},m,{m_frag} => m,k,(k_frag,m_frag))
+                        reshape_fst (fun k => {k=k / k_frag}, {k_frag}) a_shared
+                        |> reshape_snd (fun m => {m=m / m_frag}, {m_frag})
+                        |> reorder (fun (k,{k_frag}),m,{m_frag} => m,k,(k_frag,m_frag))
                     else // row_major
-                        reshape (fun m,k => {m=m / m_frag}, {m_frag}, {k=k / k_frag}, {k_frag}) a_shared
-                        |> reorder (fun m,{m_frag},k,{k_frag} => m,k,(m_frag,k_frag))
+                        reshape_fst (fun m => {m=m / m_frag}, {m_frag}) a_shared
+                        |> reshape_snd (fun k => {k=k / k_frag}, {k_frag})
+                        |> reorder (fun (m,{m_frag}),k,{k_frag} => m,k,(m_frag,k_frag))
                 
                 inl b = apply k b
-                inl b_shared = create_shared()
+                inl b_frag : fragment' matrix_b m_frag n_frag k_frag frag_in = create_fragment' tb
+                inl b_shared = create_shared b_frag
                 async_memcpy_tensor {from=b; to=b_shared} 
                 inl b_shared =
                     if tb then // col_major
-                        reshape (fun n,k => {n=n / n_frag}, {n_frag}, {k=k / k_frag}, {k_frag}) b_shared
-                        |> reorder (fun n,{n_frag},k,{k_frag} => n,k,(n_frag,k_frag))
+                        reshape_fst (fun n => {n=n / n_frag}, {n_frag}) b_shared
+                        |> reshape_snd (fun k => {k=k / k_frag}, {k_frag})
+                        |> reorder (fun (n,{n_frag}),k,{k_frag} => n,k,(n_frag,k_frag))
                     else // row_major
-                        reshape (fun k,n => {k=k / k_frag}, {k_frag}, {n=n / n_frag}, {n_frag}) b_shared
-                        |> reorder (fun k,{k_frag},n,{n_frag} => n,k,(k_frag,n_frag))
+                        reshape_fst (fun k => {k=k / k_frag}, {k_frag}) b_shared
+                        |> reshape_snd (fun n => {n=n / n_frag}, {n_frag})
+                        |> reorder (fun (k,{k_frag}),n,{n_frag} => n,k,(k_frag,n_frag))
 
                 loop_warps_in_block' (fst a_shared.dim, fst b_shared.dim) (fun m,n =>
                     inl a = apply m a_shared
                     inl b = apply n b_shared
                     inl c = apply (m,n) c_shared
 
-                    open wmma
                     inl acc : fragment' accumulator m_frag n_frag k_frag float = create_fragment' false 
                     fill_fragment' acc 0
                     loop_linear' (fst a.dim) (fun k =>
                         inl a = apply k a
                         inl b = apply k b
-
-                        inl a_frag : fragment' matrix_a m_frag n_frag k_frag frag_in = create_fragment' ta
-                        inl b_frag : fragment' matrix_b m_frag n_frag k_frag frag_in = create_fragment' tb
 
                         load_matrix_sync' a_frag a
                         load_matrix_sync' b_frag b
@@ -110,7 +127,6 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in float{number}. (gemm_co
                         mma_sync' acc a_frag b_frag acc
                         )
 
-                    inl c_frag : fragment' accumulator m_frag n_frag k_frag float = create_fragment' false
                     load_matrix_sync' c_frag c
                     loop.linear' (length c_frag) (fun i =>
                         set c_frag i (alpha * index acc i + beta * index c_frag i)
