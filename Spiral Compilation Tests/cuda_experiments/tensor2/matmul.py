@@ -7,25 +7,20 @@ using namespace nvcuda;
 using namespace cooperative_groups;
 __device__ inline bool while_method_0(long v0){
     bool v1;
-    v1 = v0 < 16l;
+    v1 = v0 < 64l;
     return v1;
 }
 __device__ inline bool while_method_1(long v0){
     bool v1;
-    v1 = v0 < 4096l;
+    v1 = v0 < 1024l;
     return v1;
 }
 __device__ inline bool while_method_2(long v0){
     bool v1;
-    v1 = v0 < 2l;
+    v1 = v0 < 4l;
     return v1;
 }
-__device__ inline bool while_method_3(long v0){
-    bool v1;
-    v1 = v0 < 8l;
-    return v1;
-}
-__device__ inline bool while_method_4(long v0, long v1){
+__device__ inline bool while_method_3(long v0, long v1){
     bool v2;
     v2 = v1 < v0;
     return v2;
@@ -39,13 +34,13 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
     v5 = v4;
     while (while_method_0(v5)){
         long v7;
-        v7 = v5 % 4l;
+        v7 = v5 % 8l;
         long v8;
-        v8 = v5 / 4l;
+        v8 = v5 / 8l;
         long v9;
-        v9 = v8 % 4l;
+        v9 = v8 % 8l;
         long v10;
-        v10 = v8 / 4l;
+        v10 = v8 / 8l;
         bool v11;
         v11 = v10 == 0l;
         bool v12;
@@ -56,20 +51,20 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             assert(v11 /* v13 */);
         } else {
         }
-        assert(0 <= v9 && v9 < 4l /* Tensor range check */);
+        assert(0 <= v9 && v9 < 8l /* Tensor range check */);
         long v15;
-        v15 = 64l * v9;
-        assert(0 <= v7 && v7 < 4l /* Tensor range check */);
+        v15 = 32l * v9;
+        assert(0 <= v7 && v7 < 8l /* Tensor range check */);
         long v16;
-        v16 = 64l * v7;
-        assert(0 <= v9 && v9 < 4l /* Tensor range check */);
-        assert(0 <= v7 && v7 < 4l /* Tensor range check */);
+        v16 = 32l * v7;
+        assert(0 <= v9 && v9 < 8l /* Tensor range check */);
+        assert(0 <= v7 && v7 < 8l /* Tensor range check */);
         long v17;
-        v17 = 16384l * v9;
+        v17 = 8192l * v9;
         long v18;
         v18 = v17 + v16;
         wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> v19;
-        __shared__ float v20[5120l];
+        __shared__ float v20[1536l];
         long v21;
         v21 = thread_block::num_threads();
         long v22;
@@ -78,13 +73,13 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         v23 = v22;
         while (while_method_1(v23)){
             long v25;
-            v25 = v23 % 64l;
+            v25 = v23 % 32l;
             long v26;
-            v26 = v23 / 64l;
+            v26 = v23 / 32l;
             long v27;
-            v27 = v26 % 64l;
+            v27 = v26 % 32l;
             long v28;
-            v28 = v26 / 64l;
+            v28 = v26 / 32l;
             bool v29;
             v29 = v28 == 0l;
             bool v30;
@@ -95,24 +90,24 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 assert(v29 /* v31 */);
             } else {
             }
-            assert(0 <= v27 && v27 < 64l /* Tensor range check */);
+            assert(0 <= v27 && v27 < 32l /* Tensor range check */);
             long v33;
             v33 = 256l * v27;
             long v34;
             v34 = v33 + v18;
-            assert(0 <= v27 && v27 < 64l /* Tensor range check */);
+            assert(0 <= v27 && v27 < 32l /* Tensor range check */);
             long v35;
-            v35 = 80l * v27;
-            cooperative_groups::memcpy_async(this_thread(), v20 + v35, v2 + v34, sizeof(float) * 64l);
+            v35 = 48l * v27;
+            cooperative_groups::memcpy_async(this_thread(), v20 + v35, v2 + v34, sizeof(float) * 32l);
             v23 += v21 ;
         }
         long v36;
         v36 = 0l;
         while (while_method_2(v36)){
             long v38;
-            v38 = v36 % 2l;
+            v38 = v36 % 4l;
             long v39;
-            v39 = v36 / 2l;
+            v39 = v36 / 4l;
             bool v40;
             v40 = v39 == 0l;
             bool v41;
@@ -125,13 +120,13 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             }
             bool v44;
             v44 = v38 == 0l;
-            assert(0 <= v38 && v38 < 2l /* Tensor range check */);
+            assert(0 <= v38 && v38 < 4l /* Tensor range check */);
             long v45;
-            v45 = 16384l * v38;
+            v45 = 8192l * v38;
             long v46;
             v46 = v45 + v15;
             wmma::fragment<wmma::matrix_a, 16l, 16l, 8l, wmma::precision::tf32, wmma::col_major> v47;
-            __shared__ float v48[5120l];
+            __shared__ float v48[1536l];
             long v49;
             v49 = thread_block::num_threads();
             long v50;
@@ -140,13 +135,13 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             v51 = v50;
             while (while_method_1(v51)){
                 long v53;
-                v53 = v51 % 64l;
+                v53 = v51 % 32l;
                 long v54;
-                v54 = v51 / 64l;
+                v54 = v51 / 32l;
                 long v55;
-                v55 = v54 % 64l;
+                v55 = v54 % 32l;
                 long v56;
-                v56 = v54 / 64l;
+                v56 = v54 / 32l;
                 bool v57;
                 v57 = v56 == 0l;
                 bool v58;
@@ -157,22 +152,22 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                     assert(v57 /* v59 */);
                 } else {
                 }
-                assert(0 <= v55 && v55 < 64l /* Tensor range check */);
+                assert(0 <= v55 && v55 < 32l /* Tensor range check */);
                 long v61;
                 v61 = 256l * v55;
                 long v62;
                 v62 = v61 + v46;
-                assert(0 <= v55 && v55 < 64l /* Tensor range check */);
+                assert(0 <= v55 && v55 < 32l /* Tensor range check */);
                 long v63;
-                v63 = 80l * v55;
-                cooperative_groups::memcpy_async(this_thread(), v48 + v63, v0 + v62, sizeof(float) * 64l);
+                v63 = 48l * v55;
+                cooperative_groups::memcpy_async(this_thread(), v48 + v63, v0 + v62, sizeof(float) * 32l);
                 v51 += v49 ;
             }
-            assert(0 <= v38 && v38 < 2l /* Tensor range check */);
+            assert(0 <= v38 && v38 < 4l /* Tensor range check */);
             long v64;
             v64 = v45 + v16;
             wmma::fragment<wmma::matrix_b, 16l, 16l, 8l, wmma::precision::tf32, wmma::row_major> v65;
-            __shared__ float v66[5120l];
+            __shared__ float v66[1536l];
             long v67;
             v67 = thread_block::num_threads();
             long v68;
@@ -181,13 +176,13 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             v69 = v68;
             while (while_method_1(v69)){
                 long v71;
-                v71 = v69 % 64l;
+                v71 = v69 % 32l;
                 long v72;
-                v72 = v69 / 64l;
+                v72 = v69 / 32l;
                 long v73;
-                v73 = v72 % 64l;
+                v73 = v72 % 32l;
                 long v74;
-                v74 = v72 / 64l;
+                v74 = v72 / 32l;
                 bool v75;
                 v75 = v74 == 0l;
                 bool v76;
@@ -198,15 +193,15 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                     assert(v75 /* v77 */);
                 } else {
                 }
-                assert(0 <= v73 && v73 < 64l /* Tensor range check */);
+                assert(0 <= v73 && v73 < 32l /* Tensor range check */);
                 long v79;
                 v79 = 256l * v73;
                 long v80;
                 v80 = v79 + v64;
-                assert(0 <= v73 && v73 < 64l /* Tensor range check */);
+                assert(0 <= v73 && v73 < 32l /* Tensor range check */);
                 long v81;
-                v81 = 80l * v73;
-                cooperative_groups::memcpy_async(this_thread(), v66 + v81, v1 + v80, sizeof(float) * 64l);
+                v81 = 48l * v73;
+                cooperative_groups::memcpy_async(this_thread(), v66 + v81, v1 + v80, sizeof(float) * 32l);
                 v69 += v67 ;
             }
             long v82;
@@ -215,15 +210,15 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             v83 = thread_block::thread_rank() / warpSize;
             long v84;
             v84 = v83;
-            while (while_method_0(v84)){
+            while (while_method_2(v84)){
                 long v86;
-                v86 = v84 % 4l;
+                v86 = v84 % 2l;
                 long v87;
-                v87 = v84 / 4l;
+                v87 = v84 / 2l;
                 long v88;
-                v88 = v87 % 4l;
+                v88 = v87 % 2l;
                 long v89;
-                v89 = v87 / 4l;
+                v89 = v87 / 2l;
                 bool v90;
                 v90 = v89 == 0l;
                 bool v91;
@@ -234,27 +229,27 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                     assert(v90 /* v92 */);
                 } else {
                 }
-                assert(0 <= v88 && v88 < 4l /* Tensor range check */);
+                assert(0 <= v88 && v88 < 2l /* Tensor range check */);
                 long v94;
                 v94 = 16l * v88;
-                assert(0 <= v86 && v86 < 4l /* Tensor range check */);
+                assert(0 <= v86 && v86 < 2l /* Tensor range check */);
                 long v95;
                 v95 = 16l * v86;
-                assert(0 <= v88 && v88 < 4l /* Tensor range check */);
-                assert(0 <= v86 && v86 < 4l /* Tensor range check */);
+                assert(0 <= v88 && v88 < 2l /* Tensor range check */);
+                assert(0 <= v86 && v86 < 2l /* Tensor range check */);
                 long v96;
-                v96 = 1280l * v88;
+                v96 = 768l * v88;
                 long v97;
                 v97 = v96 + v95;
                 wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> v98;
                 wmma::fill_fragment(v98, 0.0f);
                 long v99;
                 v99 = 0l;
-                while (while_method_3(v99)){
+                while (while_method_2(v99)){
                     long v101;
-                    v101 = v99 % 8l;
+                    v101 = v99 % 4l;
                     long v102;
-                    v102 = v99 / 8l;
+                    v102 = v99 / 4l;
                     bool v103;
                     v103 = v102 == 0l;
                     bool v104;
@@ -265,22 +260,22 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                         assert(v103 /* v105 */);
                     } else {
                     }
-                    assert(0 <= v101 && v101 < 8l /* Tensor range check */);
+                    assert(0 <= v101 && v101 < 4l /* Tensor range check */);
                     long v107;
-                    v107 = 640l * v101;
+                    v107 = 384l * v101;
                     long v108;
                     v108 = v107 + v94;
-                    assert(0 <= v101 && v101 < 8l /* Tensor range check */);
+                    assert(0 <= v101 && v101 < 4l /* Tensor range check */);
                     long v109;
                     v109 = v107 + v95;
                     float * v110;
                     v110 = v48 + v108;
-                    wmma::load_matrix_sync(v47, v110, 80l);
+                    wmma::load_matrix_sync(v47, v110, 48l);
                     #pragma unroll
                     for (int t = 0; t < v47.num_elements; t++) { v47.x[t] = wmma::__float_to_tf32(v47.x[t]); };
                     float * v111;
                     v111 = v66 + v109;
-                    wmma::load_matrix_sync(v65, v111, 80l);
+                    wmma::load_matrix_sync(v65, v111, 48l);
                     #pragma unroll
                     for (int t = 0; t < v65.num_elements; t++) { v65.x[t] = wmma::__float_to_tf32(v65.x[t]); };
                     wmma::mma_sync(v98, v47, v65, v98);
@@ -288,12 +283,12 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 }
                 float * v112;
                 v112 = v20 + v97;
-                wmma::load_matrix_sync(v19, v112, 80l, wmma::mem_row_major);
+                wmma::load_matrix_sync(v19, v112, 48l, wmma::mem_row_major);
                 long v113;
                 v113 = v19.num_elements;
                 long v114;
                 v114 = 0l;
-                while (while_method_4(v113, v114)){
+                while (while_method_3(v113, v114)){
                     float v116;
                     v116 = v98.x[v114];
                     float v117;
@@ -305,7 +300,7 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 }
                 float * v119;
                 v119 = v20 + v97;
-                wmma::store_matrix_sync(v119, v19, 80l, wmma::mem_row_major);
+                wmma::store_matrix_sync(v119, v19, 48l, wmma::mem_row_major);
                 v84 += v82 ;
             }
             v36 += 1l ;
@@ -318,13 +313,13 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         v122 = v121;
         while (while_method_1(v122)){
             long v124;
-            v124 = v122 % 64l;
+            v124 = v122 % 32l;
             long v125;
-            v125 = v122 / 64l;
+            v125 = v122 / 32l;
             long v126;
-            v126 = v125 % 64l;
+            v126 = v125 % 32l;
             long v127;
-            v127 = v125 / 64l;
+            v127 = v125 / 32l;
             bool v128;
             v128 = v127 == 0l;
             bool v129;
@@ -335,15 +330,15 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 assert(v128 /* v130 */);
             } else {
             }
-            assert(0 <= v126 && v126 < 64l /* Tensor range check */);
+            assert(0 <= v126 && v126 < 32l /* Tensor range check */);
             long v132;
-            v132 = 80l * v126;
-            assert(0 <= v126 && v126 < 64l /* Tensor range check */);
+            v132 = 48l * v126;
+            assert(0 <= v126 && v126 < 32l /* Tensor range check */);
             long v133;
             v133 = 256l * v126;
             long v134;
             v134 = v133 + v18;
-            cooperative_groups::memcpy_async(this_thread(), v2 + v134, v20 + v132, sizeof(float) * 64l);
+            cooperative_groups::memcpy_async(this_thread(), v2 + v134, v20 + v132, sizeof(float) * 32l);
             v122 += v120 ;
         }
         v5 += v3 ;

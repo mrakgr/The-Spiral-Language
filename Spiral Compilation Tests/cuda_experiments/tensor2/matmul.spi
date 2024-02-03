@@ -22,7 +22,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in float{number}. (gemm_co
         assert (snd b_dim = snd c_dim) "The N dimension of the B and C tensors must match."
 
     inl base_tile = 128 / (sizeof : sizeof float).value // should be 32 for an f32 type
-    inl tile = base_tile * 2 
+    inl tile = base_tile
     inl a = 
         if ta then // col_major
             reshape (fun k,m => {k=k / tile}, {k_tile=tile}, {m=m / tile}, {m_tile=tile}) a
