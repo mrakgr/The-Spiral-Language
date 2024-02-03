@@ -1,3 +1,7 @@
+2.7.3 (2/3/2024)
+
+* Significantly extended the functionality of `sizeof`. Now it will work on any type.
+
 2.7.2 (2/2/2024)
 
 * Fix the server crash error when a nominal had too many type arguments.

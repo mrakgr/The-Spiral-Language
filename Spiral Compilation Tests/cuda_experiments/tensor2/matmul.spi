@@ -10,8 +10,8 @@ inl gemm_config forall m_frag n_frag k_frag frag_in. : gemm_config m_frag n_frag
     }
 
 inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in float{number}. (gemm_config {m_frag n_frag k_frag} : gemm_config m_frag n_frag k_frag frag_in) 
-        alpha (a,ta : tensor (int * int) float * bool) (b,tb : tensor (int * int) float * bool) 
-        beta (c : tensor (int * int) float) =
+        (alpha : float) (a,ta : tensor (int * int) float * bool) (b,tb : tensor (int * int) float * bool) 
+        (beta : float) (c : tensor (int * int) float) =
     inl _ =
         inl swap (a,b) x = if x then b,a else a,b
         inl a_dim = swap a.dim ta
@@ -151,6 +151,6 @@ inl main() =
     inl ta,tb = true,false
     inl [a; b; c] = listm.map random_normal ([swap (m, k) ta; swap (k, n) tb; m, n])
     inl d = cp_matmul (a,ta) (b,tb) c
-    simple_wmma_gemm (gemm_config : gemm_config 16 16 8 wmma.tf32) 1 (a, ta) (b, tb) 1 c
+    wmma_gemm_shared (gemm_config : gemm_config 16 16 8 wmma.tf32) 1 (a, ta) (b, tb) 1 c
     inl d,c = get_body d, get_body c
     $"cp.max(cp.abs(!c-!d))" : f32

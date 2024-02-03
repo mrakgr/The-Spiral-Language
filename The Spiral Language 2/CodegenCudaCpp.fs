@@ -305,6 +305,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
                 sprintf "%s%i(%s)" (Option.defaultValue "method_" x.name) x.tag args
             | JPClosure(a,b) -> sprintf "ClosureMethod%i" (closure (a,b)).tag
         match a with
+        | TySizeOf t -> return' $"sizeof({tup_ty t})"
         | TyMacro _ -> raise_codegen_error "Macros are supposed to be taken care of in the `binds` function."
         | TyIf(cond,tr,fl) ->
             line s (sprintf "if (%s){" (tup_data cond))

@@ -49,3 +49,4 @@ modules:
 
     cutlass
     matmul
+    sizeof 

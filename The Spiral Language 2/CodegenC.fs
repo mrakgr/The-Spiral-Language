@@ -64,6 +64,7 @@ let refc_used_vars backend (x : TypedBind []) =
             ) x Set.empty
     and op (x : TypedOp) : TyV Set =
         match x with
+        | TySizeOf _ -> Set.empty
         | TyMacro l -> List.fold (fun s -> function CMTerm d -> s + fv d | _ -> s) Set.empty l
         | TyArrayLiteral(_,l) | TyOp(_,l) -> List.fold (fun s x -> s + fv x) Set.empty l
         | TyLayoutToHeap(x,_) | TyLayoutToHeapMutable(x,_)
@@ -136,7 +137,7 @@ let refc_prepass backend (new_vars : TyV Set) (increfed_vars : TyV Set) (x : Typ
         | TyJoinPoint(_,x) -> Array.fold (fun s x -> varc_add x 1 s) Map.empty x |> fun_call
         | TyArrayLiteral(_,x) -> List.fold (fun s x -> varc_union s (varc_data x)) Map.empty x |> fun_call
         | TyUnionBox(_,x,_) | TyLayoutToHeapMutable(x,_) | TyLayoutToHeap(x,_) -> varc_data x |> fun_call
-        | TyLayoutIndexAll _ | TyLayoutIndexByKey _ | TyMacro _ | TyOp _ | TyFailwith _ | TyConv _ 
+        | TySizeOf _ | TyLayoutIndexAll _ | TyLayoutIndexByKey _ | TyMacro _ | TyOp _ | TyFailwith _ | TyConv _ 
         | TyArrayCreate _ | TyArrayLength _ | TyStringLength _ | TyLayoutHeapMutableSet _ | TyBackend _ -> ()
         | TyWhile(_,body) -> binds Set.empty Set.empty body
         | TyBackendSwitch m -> Map.tryFind backend m |> Option.iter (binds Set.empty increfed_vars)
@@ -478,6 +479,7 @@ let codegen' (backend_type : CBackendType) (env : PartEvalResult) (x : TypedBind
             | JPClosure(a,b) -> sprintf "ClosureCreate%i(%s)" (closure (a,b)).tag args
         let string_in_op = function DLit (LitString b) -> lit_string b | b -> $"{tup_data b}->ptr"
         match a with
+        | TySizeOf t -> return' $"sizeof({tup_ty t})"
         | TyMacro _ -> raise_codegen_error "Macros are supposed to be taken care of in the `binds` function."
         | TyIf(cond,tr,fl) ->
             line s (sprintf "if (%s){" (tup_data cond))

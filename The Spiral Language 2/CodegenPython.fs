@@ -226,6 +226,7 @@ let codegen'' backend_handler (env : PartEvalResult) (x : TypedBind []) =
             |> return'
 
         match a with
+        | TySizeOf _ -> raise_codegen_error "`sizeof` is not supported in the Python back end."
         | TyMacro a -> a |> List.map (function CMText x -> x | CMTerm x -> tup_data x | CMType x -> tup_ty x | CMTypeLit a -> type_lit a) |> String.concat "" |> return'
         | TyIf(cond,tr,fl) ->
             line s (sprintf "if %s:" (tup_data cond))

@@ -202,6 +202,7 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
             |> simple
         match a with
         | TyMacro a -> a |> List.map (function CMText x -> x | CMTerm x -> tup x | CMType x -> tup_ty x | CMTypeLit x -> type_lit x) |> String.concat "" |> simple
+        | TySizeOf t -> simple $"sizeof<{tup_ty t}>"
         | TyIf(cond,tr,fl) ->
             complex <| fun s ->
             line s (sprintf "if %s then" (tup cond))
