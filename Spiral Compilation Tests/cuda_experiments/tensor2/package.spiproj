@@ -29,7 +29,7 @@ modules:
         console
         wmma
         cooperative_groups
-        debug 
+        debug_tensor 
         
     sortm
     cardm

@@ -118,19 +118,43 @@ inl loop_warps_in_block' forall dim. (dim : dim) (body : dim -> ()) =
 
 inl wait forall group {groupable}. (group : ref group) : () = $"cooperative_groups::wait(!group)"
 
+inl in_first_thread_grid f =
+    inl from : int = $"grid_group::thread_rank()"
+    if from = 0 then f()
+    $"__syncthreads()"
+
+inl in_first_thread_block f =
+    inl from : int = $"thread_block::thread_rank()"
+    if from = 0 then f()
+    $"__syncthreads()"
+
+inl sync forall group {groupable}. (group : ref group) : () = $'!group.sync() '
+
 open tensorm
-inl async_memcpy_tensor forall group {groupable} float. (group : ref group) ({from to} : {from : tensor (int * int) float; to : tensor (int * int) float}) : () =
+
+// inl async_memcpy_tensor forall group {groupable} float. (group : ref group) ({from to} : {from : tensor (int * int) float; to : tensor (int * int) float}) : () =
+//     assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
+//     loop_thread_in_block' from.dim (fun q =>
+//         tensor_set q (tensor_index q from) to
+//         )
+
+inl async_memcpy_tensor forall size parent float. (group : ref (thread_block_tile size parent)) ({from to} : {from : tensor (int * int) float; to : tensor (int * int) float}) : () =
     assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
-    loop_thread_in_block' from.dim (fun a,b =>
+    // wait group
+    // sync group
+    loop_tile' group (fst from.dim) (fun a =>
         inl from = apply a from
         inl to = apply a to
         inl dim = from.dim
         real
             open tensorm.utils
-            map2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
+            iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
                 typecase `from with _ ~el =>
                 $"cooperative_groups::memcpy_async(!group, !to + !to_offset, !from + !from_offset, sizeof(`el) * !dim)" : ()
-                wait `group group
                 ) from.bodies to.bodies
         )
+    // wait group
+    // sync group
+    
+
 
