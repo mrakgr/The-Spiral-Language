@@ -26,7 +26,10 @@ and inl write forall t. (x : t) : () = real
         inl p (a,b) = 
             backend_switch {
                 cuda = fun () => $"printf(!a,!b)" : ()
-                python = fun () => $"print(!b, end='')" : ()
+                python = fun () => 
+                    match b with
+                    | (_ : f32) | (_ : f64) => $'print("{:.6f}".format(!b), end="")' : ()
+                    | _ => $'print(!b, end="")' : ()
             }
         
         match x with // According to Bing it shouldn't matter whether these are %d or %lld in printf.
