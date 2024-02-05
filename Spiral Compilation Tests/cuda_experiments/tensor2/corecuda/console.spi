@@ -16,14 +16,18 @@ inl rec write_sa forall dim el. (x : sa dim el) : () =
     open sam
     loop.for' {from=0; nearTo=min array_limit (length x)} (fun i =>
         write (index x i)
-        if i + 1 < length x then write ", "
+        if i + 1 < length x then write "; "
         )
-    if length x > array_limit then write ", ..."
+    if length x > array_limit then write "; ..."
     write "]"
 and inl write forall t. (x : t) : () = real
     inl rec write x = 
         open real_core
-        inl p (a,b) = $"printf(!a,!b)" : ()
+        inl p (a,b) = 
+            backend_switch {
+                cuda = fun () => $"printf(!a,!b)" : ()
+                python = fun () => $"print(!b, end='')" : ()
+            }
         
         match x with // According to Bing it shouldn't matter whether these are %d or %lld in printf.
         | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
@@ -32,7 +36,7 @@ and inl write forall t. (x : t) : () = real
         | (x : string) => p ("%s", x)
         | (x : char) => p ("%c", x)
         | (x : bool) => p ("%s", if x then "true" else "false")
-        | (a,b) => write a . write b
+        | (a,b) => write a . write ", " . write b
         | {} as x =>
             record_fold_back (fun {state=(separator, state) key value} => 
                 "; ", (symbol_to_string key," = ", value, separator, state)
@@ -49,7 +53,9 @@ and inl write forall t. (x : t) : () = real
             
     write x
 
-inl write_ln l =
+inl write_ln l = 
     write l
-    $'printf("\\n")'
-    ()
+    backend_switch {
+        cuda = fun () => $'printf("\\n")' : ()
+        python = fun () => $"print()" : ()
+    }

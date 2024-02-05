@@ -82,6 +82,8 @@ inl apply_templ forall dim a b el. (fst : dim -> a) (snd : dim -> b) (i : a) (te
         }
 
 // Increments the tensor offset by the specified index for the first dimension.
+inl apply_all forall a el. : a -> tensor a el -> tensor () el = apply_templ id (const ())
+// Increments the tensor offset by the specified index for the first dimension.
 inl apply forall a b el. : a -> tensor (a * b) el -> tensor b el = apply_templ fst snd
 // Increments the tensor offset by the specified index for the second dimension.
 inl apply_snd forall a b el. : b -> tensor (a * b) el -> tensor a el = apply_templ snd fst

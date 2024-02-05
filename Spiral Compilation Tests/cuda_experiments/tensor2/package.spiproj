@@ -29,6 +29,7 @@ modules:
         console
         wmma
         cooperative_groups
+        debug 
         
     sortm
     cardm

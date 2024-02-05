@@ -74,6 +74,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in float{number}. (gemm_co
             inl c_frag : fragment' accumulator m_frag n_frag k_frag float = create_fragment' false
             inl c_shared' = create_shared c_frag
             async_memcpy_tensor block {from=c; to=c_shared'}
+            debug.print_first_thread c_shared'
             inl c_shared = // row_major
                 reshape_fst (fun m => {m=m / m_frag}, {m_frag}) c_shared'
                 |> reshape_snd (fun n => {n=n / n_frag}, {n_frag})
@@ -97,7 +98,8 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in float{number}. (gemm_co
                         reshape_fst (fun m => {m=m / m_frag}, {m_frag}) a_shared
                         |> reshape_snd (fun k => {k=k / k_frag}, {k_frag})
                         |> reorder (fun (m,{m_frag}),k,{k_frag} => m,k,(m_frag,k_frag))
-                
+                debug.print_first_thread a_shared
+
                 inl b = apply k b
                 inl b_frag : fragment' matrix_b m_frag n_frag k_frag frag_in = create_fragment' tb
                 inl b_shared = create_shared b_frag
@@ -111,8 +113,8 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in float{number}. (gemm_co
                         reshape_fst (fun k => {k=k / k_frag}, {k_frag}) b_shared
                         |> reshape_snd (fun n => {n=n / n_frag}, {n_frag})
                         |> reorder (fun (k,{k_frag}),n,{n_frag} => n,k,(k_frag,n_frag))
+                debug.print_first_thread b_shared 
 
-                wait block 
                 loop_warps_in_block' (fst a_shared.dim, fst b_shared.dim) (fun m,n =>
                     inl a = apply m a_shared
                     inl b = apply n b_shared
@@ -137,9 +139,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in float{number}. (gemm_co
                     store_matrix_sync' c c_frag
                     )
                 )
-            wait block
             async_memcpy_tensor block {from=c_shared'; to=c}
-            wait block
             )
         )
 
@@ -169,14 +169,16 @@ inl main() =
         |> fromArray |> reshape (const c.dim)
 
     inl m,n,k : int * int * int = 64, 64, 64
-    inl ta,tb = false,false
+    inl ta,tb = false, true
     inl [a; b; c] = listm.map random_normal ([swap (m, k) ta; swap (k, n) tb; m, n])
     inl d = cp_matmul (a,ta) (b,tb) c
-    wmma_gemm_shared (gemm_config : gemm_config 16 16 8 wmma.tf32) 1 (a, ta) (b, tb) 0 c
-    inl d,c = get_body d, get_body c
-    inl print_tensor a : () = 
-        inl a = get_body a
-        $"print(!a[:50])" 
-    print_tensor a
-    print_tensor b
-    $"cp.max(cp.abs(!c-!d))" : f32
+    console.write_ln (zip a b)
+    ()
+    // wmma_gemm_shared (gemm_config : gemm_config 16 16 8 wmma.tf32) 1 (a, ta) (b, tb) 0 c
+    // inl d,c = get_body d, get_body c
+    // // inl print_tensor a : () = 
+    // //     inl a = get_body a
+    // //     $"print(!a[:100])" 
+    // // print_tensor a
+    // // print_tensor b
+    // $"cp.max(cp.abs(!c-!d))" : f32
