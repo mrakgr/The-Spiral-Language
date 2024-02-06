@@ -359,6 +359,8 @@ i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = str
 options = []
 options.append('--define-macro=NDEBUG')
 options.append('--dopt=on')
+options.append('--maxrregcount=25')
+
 options.append('--diag-suppress=550')
 raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=False, options=tuple(options))
 from max_blocks_per_sm import max_blocks_per_sm

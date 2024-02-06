@@ -56,6 +56,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in tile float {number}.
         inl block = create_block()
         inl memcpy_tile : _ (_ tile _) = create_thread_block_tile block
         
+        $"#pragma unroll"
         loop_blocks_in_grid' (fst a.dim, fst b.dim) (fun m,n =>
             inl a = apply m a
             inl b = apply n b

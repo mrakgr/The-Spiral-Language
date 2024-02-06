@@ -7,20 +7,22 @@ def max_blocks_per_sm(device, kernel, block_size,is_print=False):
 
     # Define the shared memory per block
     shared_mem_per_block = kernel.shared_size_bytes
+    attr = device.attributes
 
     x = min(
-        device.attributes['MaxBlocksPerMultiprocessor'],
-        floordiv(device.attributes['MaxThreadsPerMultiProcessor'], block_size),
-        floordiv(device.attributes['MaxRegistersPerMultiprocessor'], regs_per_thread * block_size),
-        floordiv(device.attributes['MaxSharedMemoryPerMultiprocessor'], shared_mem_per_block),
+        attr['MaxBlocksPerMultiprocessor'],
+        floordiv(attr['MaxThreadsPerMultiProcessor'], block_size),
+        floordiv(attr['MaxRegistersPerMultiprocessor'], regs_per_thread * block_size),
+        floordiv(attr['MaxSharedMemoryPerMultiprocessor'], shared_mem_per_block),
         )
     if is_print:
-        print(f"Maximum number of blocks per multi processor is:                      {device.attributes['MaxBlocksPerMultiprocessor']}")
-        print(f"The minimum due to the number of threads per multiprocessor is:       {floordiv(device.attributes['MaxThreadsPerMultiProcessor'], block_size)}")
-        print(f"The minimum due to the number of registers per multi processor is:    {floordiv(device.attributes['MaxRegistersPerMultiprocessor'], regs_per_thread * block_size)}")
+        print(f"Maximum number of blocks per multi processor is:                      {attr['MaxBlocksPerMultiprocessor']}")
+        print(f"The minimum due to the number of threads per multiprocessor is:       {attr['MaxThreadsPerMultiProcessor'] // block_size}")
+        print(f"The minimum due to the number of registers per multi processor is:    {attr['MaxRegistersPerMultiprocessor'] // (regs_per_thread * block_size)}")
+        print(f"The maximum number of registers per thread is:                        {attr['MaxRegistersPerMultiprocessor'] // attr['MaxThreadsPerMultiProcessor']}")
         print(f"The amount of registers per thread is:                                {regs_per_thread}")
-        print(f"The minimum due to the amount of shared memory per multiprocessor is: {floordiv(device.attributes['MaxSharedMemoryPerMultiprocessor'], shared_mem_per_block)}")
-        print(f"The amount of shared memory per multiprocessor is:                    {device.attributes['MaxSharedMemoryPerMultiprocessor']}")
+        print(f"The minimum due to the amount of shared memory per multiprocessor is: {floordiv(attr['MaxSharedMemoryPerMultiprocessor'], shared_mem_per_block)}")
+        print(f"The amount of shared memory per multiprocessor is:                    {attr['MaxSharedMemoryPerMultiprocessor']}")
         print(f"The amount of shared memory per block used is:                        {shared_mem_per_block}")
         print(f"The true minimum is:                                                  {x}")
 
