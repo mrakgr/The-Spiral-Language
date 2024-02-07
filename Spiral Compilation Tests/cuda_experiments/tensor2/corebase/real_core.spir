@@ -120,20 +120,6 @@ inl function_is x = !!!!FunctionIs(x)
 inl prototype_has forall t. prot = !!!!PrototypeHas(prot, `t)
 // Returns boolean whether the float is a Nan.
 inl nan_is x = !!!!NanIs(x)
-
-// Raises an exception at runtime.
-inl failwith forall t. msg = !!!!FailWith(`t,msg)
-// Backend switch for Python/Cuda.
-inl backend_switch x = !!!!BackendSwitch(("Cuda", x.cuda()), ("Python", x.python()))
-// Asserts an term. If the conditional and the message are literals it raises a type error instead.
-inl assert c msg = 
-    if c = false then 
-        if lit_is c && lit_is msg then error_type msg
-        else 
-            backend_switch {
-                python = fun () => $"assert !c, !msg" : ()
-                cuda = fun () => $"assert(!c /* !msg */)" : ()
-                }
 // Gathers the term variables from the two arguments, that is literals and runtime variables, places them in a set and compares the two using references equality.
 inl uses_original_term_vars a b = !!!!UsesOriginalTermVars(a,b)
 // Asserts that the two arguments have the same term variables under reference equalty when placed in a set. Also, asserts that the lengths match to not get fooled by duplicates.
@@ -241,6 +227,24 @@ inl type_lit_to_lit forall t. = !!!!TypeLitToLit(`t)
 // Converts a literal or a symbol into their type equivalent representation.
 inl lit_to_type_lit x = !!!!LitToTypeLit(x)
 
+// Raises an exception at runtime.
+inl failwith forall t. msg = !!!!FailWith(`t,msg)
+
+// Backend switch for Python/Cuda.
+inl backend_switch x = !!!!BackendSwitch(("Cuda", x.cuda()), ("Python", x.python()))
+
+// Asserts an term. If the conditional and the message are literals it raises a type error instead.
+inl assert c msg = 
+    if c = false then 
+        if lit_is c && lit_is msg then error_type msg
+        else 
+            backend_switch {
+                python = fun () => $"assert !c, !msg" : ()
+                cuda = fun () => 
+                    typecase `(lit_to_type_lit msg) with ~msg =>
+                    $'assert(@msg && !c)' : ()
+                }
+
 // Structural polymorphic equality for every type in the language (apart from functions.)
 inl rec (=) a b =
     match a, b with
@@ -257,9 +261,6 @@ inl rec (=) a b =
             if heap_union_is a && var_is a && var_is b then (join body()) : bool 
             else body()
         elif nominal_is a then
-            print_static "In nominal_is."
-            !!!!PrintStatic(`(`a))
-            print_static (prototype_has `(`a) equable)
             if prototype_has `(`a) equable then equable `(`a) a b
             else nominal_strip a = nominal_strip b
         else !!!!EQ(a,b)
