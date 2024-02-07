@@ -361,7 +361,6 @@ options.append('--diag-suppress=550')
 options.append('--dopt=on')
 options.append('--define-macro=NDEBUG')
 raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=False, options=tuple(options))
-from max_blocks_per_sm import max_blocks_per_sm
 def main():
     v0 = cp.random.normal(0,1,65536,cp.float32)
     v1 = v0.size
@@ -425,5 +424,35 @@ def main():
     v29 = cp.max(cp.abs(v0-v22))
     del v0, v22
     return v29
+
+# Get the maximum number of blocks per SM
+def max_blocks_per_sm(device, kernel, block_size,is_print=False):
+    def floordiv(a,b): return a // b if b != 0 else device.attributes['MaxBlocksPerMultiprocessor']
+
+    # Define the regs per thread.
+    regs_per_thread = kernel.num_regs
+
+    # Define the shared memory per block
+    shared_mem_per_block = kernel.shared_size_bytes
+    attr = device.attributes
+
+    x = min(
+        attr['MaxBlocksPerMultiprocessor'],
+        floordiv(attr['MaxThreadsPerMultiProcessor'], block_size),
+        floordiv(attr['MaxRegistersPerMultiprocessor'], regs_per_thread * block_size),
+        floordiv(attr['MaxSharedMemoryPerMultiprocessor'], shared_mem_per_block),
+        )
+    if is_print:
+        print(f"Maximum number of blocks per multi processor is:                      {attr['MaxBlocksPerMultiprocessor']}")
+        print(f"The minimum due to the number of threads per multiprocessor is:       {attr['MaxThreadsPerMultiProcessor'] // block_size}")
+        print(f"The minimum due to the number of registers per multi processor is:    {attr['MaxRegistersPerMultiprocessor'] // (regs_per_thread * block_size)}")
+        print(f"The maximum number of registers per thread is:                        {attr['MaxRegistersPerMultiprocessor'] // attr['MaxThreadsPerMultiProcessor']}")
+        print(f"The amount of registers per thread is:                                {regs_per_thread}")
+        print(f"The minimum due to the amount of shared memory per multiprocessor is: {floordiv(attr['MaxSharedMemoryPerMultiprocessor'], shared_mem_per_block)}")
+        print(f"The amount of shared memory per multiprocessor is:                    {attr['MaxSharedMemoryPerMultiprocessor']}")
+        print(f"The amount of shared memory per block used is:                        {shared_mem_per_block}")
+        print(f"The true minimum is:                                                  {x}")
+
+    return x
 
 if __name__ == '__main__': print(main())
