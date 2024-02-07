@@ -32,7 +32,7 @@ __device__ inline bool while_method_4(long v0, long v1){
 }
 extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
     auto v3 = this_thread_block();
-    auto v4 = tiled_partition<32l>(v3);
+    thread_block_tile<32l, thread_block> v4 = tiled_partition<32l>(v3);
     long v5;
     v5 = grid_group::num_blocks();
     long v6;
@@ -357,11 +357,8 @@ from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
 
 options = []
-options.append('--define-macro=NDEBUG')
-options.append('--dopt=on')
-options.append('--maxrregcount=25')
-
 options.append('--diag-suppress=550')
+options.append('--dopt=on')
 raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=False, options=tuple(options))
 from max_blocks_per_sm import max_blocks_per_sm
 def main():

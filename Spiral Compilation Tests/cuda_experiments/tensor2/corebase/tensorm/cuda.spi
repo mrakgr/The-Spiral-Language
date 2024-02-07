@@ -1,13 +1,10 @@
 open utils
 
 // Returns the pointer at the specified index.
-inl ptr_at forall dim el. (i : dim) (tensor {dim bodies} : tensor dim el) : array el = real
-    assert_indices i dim
+inl ptr_at_current_offset forall dim el. (tensor {dim bodies} : tensor dim el) : array el = real
     map (fun (tensor_body {array stride offset}) =>
         typecase `array with
-        | _ ~el => 
-            inl i = calculate_offset stride i offset
-            $"!array + !i" : array el
+        | array ~el => $"!array + !offset" : array el
         ) bodies : array el
 
 // Returns the leading stride.

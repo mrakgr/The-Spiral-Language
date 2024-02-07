@@ -85,7 +85,7 @@ inl load_matrix_sync_array' forall use m n k t el. (f : fragment' use m n k t) (
 
 inl load_matrix_sync forall use m n k layout frag_in t. (f : fragment use m n k layout frag_in) (t : tensor (int * int) t) : () =
     assert_fragment_dimension f t
-    load_matrix_sync_array f (ptr_at (0,0) t) (stride_fst t)
+    load_matrix_sync_array f (ptr_at_current_offset t) (stride_fst t)
     real
         typecase frag_in * t with
         | t * t => ()
@@ -113,7 +113,7 @@ inl store_matrix_sync_array' forall use m n k t. (ar : array t) (f : fragment' u
             
 inl store_matrix_sync forall use m n k layout t. (t : tensor (int * int) t) (f : fragment use m n k layout t) : () = 
     assert_fragment_dimension f t
-    store_matrix_sync_array (ptr_at (0,0) t) f (stride_fst t)
+    store_matrix_sync_array (ptr_at_current_offset t) f (stride_fst t)
 inl store_matrix_sync' forall use m n k t. (t : tensor (int * int) t) (f : fragment' use m n k t) : () = 
     match f with
     | RowMajor f => store_matrix_sync t f
