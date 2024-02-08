@@ -81,7 +81,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in tile warp_size float {n
                 inl a, lda =  ptr_at_current_offset b_shared', stride_fst b_shared'
                 inl c, ldc =  ptr_at_current_offset c_shared', stride_fst c_shared'
                 $"using size_desc = Size<!tile, !tile, !tile>"
-                $"using ld_desc = cublasdx::LeadingDimension<!lda, !ldb, !ldc>"
+                // $"using ld_desc = cublasdx::LeadingDimension<!lda, !ldb, !ldc>"
                 $"using type_desc = Type<type::real>"
                 $"using precision = Precision<`float>"
                 inl tm ta : $"transpose_mode" = 
@@ -90,9 +90,17 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in tile warp_size float {n
                 inl tm_b, tm_a = tm ta, tm tb
                 $"using tm_desc = TransposeMode<!tm_a, !tm_b>"
                 $"using sm = SM<890>"
-                $"using BLAS = decltype(BlockDim<!threads_per_block>() + Block() + Function<function::MM>() + size_desc() + ld_desc() + type_desc() + tm_desc() + precision() + sm())"
+                $"using BLAS = decltype(BlockDim<!threads_per_block>() + Block() + Function<function::MM>() + size_desc() + type_desc() + tm_desc() + precision() + sm())"
+                inl a_size : int = $"BLAS::a_size"
+                inl b_size : int = $"BLAS::b_size"
+                inl c_size : int = $"BLAS::c_size"
+                cooperative_groups.in_first_thread_grid fun () => 
+                     console.write_ln a_size
+                     console.write_ln b_size
+                     console.write_ln c_size
                 inl beta = if k = {k=0} then beta else 1
-                $"BLAS().execute(!alpha, !a, !b, !beta, !c)"
+                // $"BLAS().execute(!alpha, !a, !b, !beta, !c)"
+                ()
                 )
             sync block
             
@@ -125,7 +133,7 @@ inl main() =
         $"(cp.matmul(!a_body,!b_body)).flatten()"
         |> fromArray |> reshape (const c.dim)
 
-    inl m,n,k : int * int * int = 256, 256, 256
+    inl m,n,k : int * int * int = 32, 32, 32
     inl ta,tb = true, false
     inl [a; b; c] = listm.map random_normal ([swap (m, k) ta; swap (k, n) tb; m, n])
     inl d = cp_matmul (a,ta) (b,tb) c
