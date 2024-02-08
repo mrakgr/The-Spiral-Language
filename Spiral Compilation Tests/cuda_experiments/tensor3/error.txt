@@ -1,0 +1,61 @@
+Error trace on line: 25, column: 39 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+                                      ^
+Error trace on line: 25, column: 45 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+                                            ^
+Error trace on line: 25, column: 57 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+                                                        ^
+Error trace on line: 28, column: 44 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corebase\loop.spi.
+inl forBy' range body = forBy range (fun i () => body i) ()
+                                           ^
+Error trace on line: 28, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corebase\loop.spi.
+inl forBy' range body = forBy range (fun i () => body i) ()
+                                                 ^
+Error trace on line: 59, column: 18 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corebase\core.spi.
+inl (>>) a b x = b (a x)
+                 ^
+Error trace on line: 146, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corecuda\cooperative_groups.spi.
+        inl from = apply a from
+        ^
+Error trace on line: 147, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corecuda\cooperative_groups.spi.
+        inl to = apply a to
+        ^
+Error trace on line: 148, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corecuda\cooperative_groups.spi.
+        inl dim = from.dim
+        ^
+Error trace on line: 151, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corecuda\cooperative_groups.spi.
+            iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
+            ^
+Error trace on line: 73, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corebase\tensorm\utils.spir.
+    f (ar, v)
+    ^
+Error trace on line: 69, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corebase\tensorm\utils.spir.
+    inl rec f = function
+                ^
+Error trace on line: 70, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corebase\tensorm\utils.spir.
+        | (a, b), (va,vb) => f (a, va) . f (b, vb)
+           ^
+Error trace on line: 71, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corebase\tensorm\utils.spir.
+        | {} & ar, {} & v => record_iter (fun {key value} => f (ar key, value)) v
+          ^
+Error trace on line: 72, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corebase\tensorm\utils.spir.
+        | ar,v => set ar v
+          ^
+Error trace on line: 72, column: 19 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corebase\tensorm\utils.spir.
+        | ar,v => set ar v
+                  ^
+Error trace on line: 151, column: 71 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corecuda\cooperative_groups.spi.
+            iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
+                                                                      ^
+Error trace on line: 151, column: 83 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corecuda\cooperative_groups.spi.
+            iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
+                                                                                  ^
+Error trace on line: 152, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corecuda\cooperative_groups.spi.
+                typecase `from with _ ~el =>
+                ^
+Error trace on line: 153, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor2\corecuda\cooperative_groups.spi.
+                in_first_thread_grid fun () =>
+                ^
+Cannot apply a forall with a term.

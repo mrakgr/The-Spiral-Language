@@ -1,0 +1,27 @@
+open corebase
+open console
+open tensorm
+
+inl printable_tensor print_indices (t : tensor _ _) =
+    inl array_limit = 100
+    inl length : int = real tensorm.utils.prod t.dim
+    write '['
+    inl ~q = 0
+    cooperative_groups.loop_linear' t.dim (fun i =>
+        write (tensor_index i t)
+        if print_indices then
+            write '('
+            write i
+            write ')'
+        loop._set q (q + 1)
+        if q >= array_limit then 
+            write "; ..."
+            $"break"
+        if q < length then write "; "
+        ) 
+    write ']'
+
+instance printable tensor dim el = printable_tensor false
+
+inl print_first_thread_grid (t : tensor _ _) = cooperative_groups.in_first_thread_grid fun () => printable_tensor true t . write_ln ()
+inl print_first_thread_block (t : tensor _ _) = cooperative_groups.in_first_thread_block fun () => printable_tensor true t . write_ln ()
