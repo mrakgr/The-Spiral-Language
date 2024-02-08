@@ -77,6 +77,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in tile warp_size float {n
                 async_memcpy_tensor memcpy_tile {from=b; to=b_shared'} 
                 wait memcpy_tile . sync block
 
+                // NOTE: cuBLASDx expects inputs in column major layout
                 inl b, ldb =  ptr_at_current_offset a_shared', stride_fst a_shared'
                 inl a, lda =  ptr_at_current_offset b_shared', stride_fst b_shared'
                 inl c, ldc =  ptr_at_current_offset c_shared', stride_fst c_shared'

@@ -1,0 +1,58 @@
+open corebase
+
+// Statically sized array with a type literal for a dimension.
+nominal sa dim el = $"array<`el,@dim>"
+
+// Base reference type
+nominal ref t = $"`t &"
+inl ref forall t. (x : t) : ref t = $"`t & v$ = !x"
+
+// Base pointer type
+nominal ptr t = $'`t *'
+inl ptr forall t. (~x : t) : ptr t = $"`t * v$ = &!x"
+// Sets the pointer to a specified value.
+inl (<-.) forall t. (x : ptr t) (v : t) : () = $"*!x = !v"
+inl (~*) forall t. (x : ptr t) : t = $"`t v$ = *!x"
+
+type dim3 = {x : int; y : int; z : int}
+
+// Creates a dim3 with z and y set to 1, and the x to the argument.
+inl dim3 x : dim3 = {x; y=1; z=1}
+
+type runConfig = {
+    gridDim : dim3
+    blockDim : dim3
+    }
+
+// Executes the lambda on the GPU device.
+inl run' ({gridDim blockDim} : runConfig) f =
+    // Global statements only get executed once.
+    global "options = []"
+    global "options.append('--diag-suppress=550')" // turns of the unused variable warnings
+    // global "options.append('--maxrregcount=42')" // Setting the max register account allows for register spilling past that point.
+    // global "options.append('--dopt=on')" // device optimizations
+    // global "options.append('--define-macro=NDEBUG')" // to turn off asserts
+    // global "options.append('--device-debug')" // to include PTX sources during profiling
+
+    global "options.append('-I G:/nvidia-mathdx-24.01.0/nvidia/mathdx/24.01/include')"
+    global "options.append('-I G:/nvidia-mathdx-24.01.0/nvidia/mathdx/24.01/include/cublasdx/include')"
+    global "options.append('-I G:/nvidia-mathdx-24.01.0/nvidia/mathdx/24.01/external/cutlass/include')"
+    global "options.append('--std=c++17')"
+    // global "options.append('--restrict')"
+
+    global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=False, options=tuple(options))"
+    inl kernel_i, vars = join_backend Cuda
+        f () : ()
+    real
+        match vars with
+        | _,_ => $'raw_module.get_function(f"entry{!kernel_i}")(!gridDim,!blockDim,!vars)' : ()
+        | () => $'raw_module.get_function(f"entry{!kernel_i}")(!gridDim,!blockDim,())' : ()
+        | _ => $'raw_module.get_function(f"entry{!kernel_i}")(!gridDim,!blockDim,(!vars,))' : ()
+    ()
+    
+// Executes the lambda on the GPU device.
+inl run gridDim_x blockDim_x = 
+    run' {
+        gridDim = dim3 gridDim_x
+        blockDim = dim3 blockDim_x
+        }

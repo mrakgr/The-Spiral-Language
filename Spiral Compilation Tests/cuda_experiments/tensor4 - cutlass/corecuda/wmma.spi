@@ -1,0 +1,145 @@
+open corebase
+
+nominal row_major = $"wmma::row_major"
+nominal col_major = $"wmma::col_major"
+
+nominal mem_row_major = $"wmma::mem_row_major"
+nominal mem_col_major = $"wmma::mem_col_major"
+
+nominal as_mem t = `(
+    typecase t with
+    | row_major => ``mem_row_major
+    | col_major => ``mem_col_major
+    )
+
+nominal matrix_a = $"wmma::matrix_a"
+nominal matrix_b = $"wmma::matrix_b"
+nominal accumulator = $"wmma::accumulator"
+
+nominal tf32 = $"wmma::precision::tf32"
+nominal fragment use m n k layout t = $"wmma::fragment<`use, @m, @n, @k, `t, `layout>"
+union fragment' use m n k t =
+    | RowMajor : fragment use m n k row_major t
+    | ColMajor : fragment use m n k col_major t
+
+instance index fragment use m n k layout = fun f i => $"!f.x[!i]"
+instance index fragment' use m n k = fun f i =>
+    match f with
+    | RowMajor f => index f i
+    | ColMajor f => index f i
+instance set fragment use m n k layout = fun f i v => $"!f.x[!i] = !v"
+instance set fragment' use m n k = fun f i v =>
+    match f with
+    | RowMajor f => set f i v
+    | ColMajor f => set f i v
+instance length fragment use m n k layout = fun f => $"!f.num_elements"
+instance length fragment' use m n k = fun f =>
+    match f with
+    | RowMajor f => length f
+    | ColMajor f => length f
+
+open tensorm
+open tensorm.cuda
+
+inl create_fragment forall use m n k layout t. : fragment use m n k layout t = real
+    typecase use with
+    | accumulator => $"wmma::fragment<`use, @m, @n, @k, `t> v$" : fragment use m n k layout t
+    | _ => $"wmma::fragment<`use, @m, @n, @k, `t, `layout> v$" : fragment use m n k layout t
+inl create_fragment' forall use m n k t. is_transposed : fragment' use m n k t =
+    if is_transposed then ColMajor create_fragment else RowMajor create_fragment
+
+inl fragment_dim forall use m n k layout t. (f : fragment use m n k layout t) : int * int = real
+    open real_core
+    inl a,b =
+        typecase use with
+        | matrix_a => type_lit_to_lit `m, type_lit_to_lit `k
+        | matrix_b => type_lit_to_lit `k, type_lit_to_lit `n
+        | accumulator => type_lit_to_lit `m, type_lit_to_lit `n
+    typecase layout with
+    | row_major => a,b
+    | col_major => b,a
+inl fragment_dim' forall use m n k t. (f : fragment' use m n k t) : int * int =
+    match f with
+    | RowMajor f => fragment_dim f
+    | ColMajor f => fragment_dim f
+
+inl assert_fragment_dimension forall use m n k layout t el. (f : fragment use m n k layout t) (t : tensor (int * int) el) : () =
+    assert (fragment_dim f = t.dim) "The fragment's dimensions must match that of the tensor."
+inl assert_fragment_dimension' forall use m n k t el. (f : fragment' use m n k t) (t : tensor (int * int) el) : () =
+    match f with
+    | RowMajor f => assert_fragment_dimension f t
+    | ColMajor f => assert_fragment_dimension f t
+
+inl load_matrix_sync_array forall use m n k layout t el. (f : fragment use m n k layout t) (ar : array el) (ldm : int) : () =
+    real
+        typecase use with
+        | accumulator =>
+            typecase as_mem layout with ~layout => 
+            $"wmma::load_matrix_sync(!f, !ar, !ldm, `layout)" : ()
+        | _ => 
+            $"wmma::load_matrix_sync(!f, !ar, !ldm)" : ()
+inl load_matrix_sync_array' forall use m n k t el. (f : fragment' use m n k t) (ar : array el) (ldm : int) : () = 
+    match f with
+    | RowMajor f => load_matrix_sync_array f ar ldm
+    | ColMajor f => load_matrix_sync_array f ar ldm
+
+inl load_matrix_sync forall use m n k layout frag_in t. (f : fragment use m n k layout frag_in) (t : tensor (int * int) t) : () =
+    assert_fragment_dimension f t
+    load_matrix_sync_array f (ptr_at_current_offset t) (stride_fst t)
+    real
+        typecase frag_in * t with
+        | t * t => ()
+        | tf32 * f32 =>
+            $"#pragma unroll" : ()
+            $"for (int t = 0; t < !f.num_elements; t++) { !f.x[t] = wmma::__float_to_tf32(!f.x[t]); }" : ()
+        | _ => real_core.error_type "This type is not supported."
+inl load_matrix_sync' forall use m n k frag_in t. (f : fragment' use m n k frag_in) (t : tensor (int * int) t) : () =
+    match f with
+    | RowMajor f => load_matrix_sync f t
+    | ColMajor f => load_matrix_sync f t
+
+inl store_matrix_sync_array forall use m n k layout t. (ar : array t) (f : fragment use m n k layout t) (ldm : int) : () = 
+    real
+        typecase use with
+        | accumulator =>
+            typecase as_mem layout with ~layout => 
+            $"wmma::store_matrix_sync(!ar, !f, !ldm, `layout)" : ()
+        | _ => 
+            $"wmma::store_matrix_sync(!ar, !f, !ldm)" : ()
+inl store_matrix_sync_array' forall use m n k t. (ar : array t) (f : fragment' use m n k t) (ldm : int) : () = 
+    match f with
+    | RowMajor f => store_matrix_sync_array ar f ldm
+    | ColMajor f => store_matrix_sync_array ar f ldm
+            
+inl store_matrix_sync forall use m n k layout t. (t : tensor (int * int) t) (f : fragment use m n k layout t) : () = 
+    assert_fragment_dimension f t
+    store_matrix_sync_array (ptr_at_current_offset t) f (stride_fst t)
+inl store_matrix_sync' forall use m n k t. (t : tensor (int * int) t) (f : fragment' use m n k t) : () = 
+    match f with
+    | RowMajor f => store_matrix_sync t f
+    | ColMajor f => store_matrix_sync t f
+
+inl fill_fragment forall use m n k layout t. (f : fragment use m n k layout t) (v : t) : () =  $"wmma::fill_fragment(!f, !v)"
+inl fill_fragment' forall use m n k t. (f : fragment' use m n k t) (v : t) : () =
+    match f with
+    | RowMajor f => fill_fragment f v
+    | ColMajor f => fill_fragment f v
+    
+inl mma_sync forall m n k a_layout b_layout out_layout t_in t_out. 
+        (d : fragment accumulator m n k out_layout t_out) 
+        (a : fragment matrix_a m n k a_layout t_in) 
+        (b : fragment matrix_b m n k b_layout t_in) 
+        (c : fragment accumulator m n k out_layout t_out) 
+        : () =
+    $"wmma::mma_sync(!d, !a, !b, !c)"
+inl mma_sync' forall m n k t_in t_out. 
+        (d : fragment' accumulator m n k t_out) 
+        (a : fragment' matrix_a m n k t_in) 
+        (b : fragment' matrix_b m n k t_in) 
+        (c : fragment' accumulator m n k t_out) 
+        : () = real
+    match d, a, b, c with
+    | (RowMajor d | ColMajor d), (RowMajor a | ColMajor a), (RowMajor b | ColMajor b), (RowMajor c | ColMajor c) =>
+        typecase `d * `c with
+        | fragment _ _ _ _ ~layout _ * fragment _ _ _ _ ~layout _ => $"wmma::mma_sync(!d, !a, !b, !c)" : ()
+        | _ => open real_core in error_type "The layout of the two output fragments must match."
