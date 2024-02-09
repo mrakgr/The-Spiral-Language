@@ -4,21 +4,27 @@ nominal grid_group = $"grid_group"
 nominal thread_block = $"thread_block"
 nominal thread_block_tile size parent = $"thread_block_tile<@size, `parent>"
 nominal thread = $"thread_block_tile<1>"
+nominal coalesced_group = $"coalesced_group"
 
 prototype groupable t : t -> ()
 instance groupable thread = fun _ => ()
 instance groupable thread_block = fun _ => ()
 instance groupable thread_block_tile size parent = fun _ => ()
+instance groupable grid_group = fun _ => ()
 
 prototype tileable t : t -> ()
 instance tileable thread = fun _ => ()
 instance tileable thread_block = fun _ => ()
 instance tileable thread_block_tile size parent = fun _ => ()
+instance tileable coalesced_group = fun _ => ()
 
 inl create_grid() : ref grid_group = $"auto v$ = this_grid()" 
 inl create_block() : ref thread_block = $"auto v$ = this_thread_block()"
 inl create_tread() : ref thread = $"auto v$ = this_thread()"
 inl create_thread_block_tile forall size parent {tileable}. (x : ref parent) : ref (thread_block_tile size parent) = $"thread_block_tile<@size, `parent> v$ = tiled_partition<@size>(!x)"
+inl create_labeled_partition forall parent {tileable}. (x : ref parent) (i : int) : ref coalesced_group = $"auto v$ = labeled_partition(!x,!i)"
+inl create_binary_partition forall parent {tileable}. (x : ref parent) (i : bool) : ref coalesced_group = $"auto v$ = binary_partition(!x,!i)"
+inl create_coalesced_threads() : ref coalesced_group = $"auto v$ = coalesced_threads()"
 
 // Projects the given index to a high dimensional value.
 inl project_index forall dim. (dim : dim) (i : int) : dim = real

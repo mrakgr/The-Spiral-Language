@@ -146,14 +146,11 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in tile float {number}.
 
 
 inl main() =
-    inl grid_range () : int = $"gridDim.x * blockDim.x"
-    inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
-
     inl get_body forall dim el. (x : tensor dim el) : array el = 
         real tensorm.utils.map (fun (tensor_body {array}) => array) x.bodies : array el
 
     inl random_normal dim =
-        inl len : int = real open real_core in tensorm.utils.foldBack (*) dim 1
+        inl len : int = real tensorm.utils.prod dim
         inl t : array f32 = $"cp.random.normal(0,1,!len,cp.float32)" 
         fromArray t |> reshape (const dim)
 
