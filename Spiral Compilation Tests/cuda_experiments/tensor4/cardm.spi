@@ -1,0 +1,49 @@
+open corebase
+open corecuda
+
+type card_t = u8
+
+inl globals() = global "struct Card { uint8_t rank : 4; uint8_t suit : 2; };"
+
+nominal card = $"Card"
+inl card {suit=(suit : card_t) rank=(rank : card_t)} : card = globals() . $"{!rank, !suit}"
+
+prototype suit t : t -> card_t
+prototype rank t : t -> card_t
+prototype full t : t -> card_t
+
+instance suit card = fun x => $"!x.suit"
+instance rank card = fun x => $"!x.rank"
+instance full card = fun x => $"!x.suit * 13 + !x.rank"
+
+instance equable card = fun a b => full a = full b
+instance comparable card = fun a b => comp (full a) (full b)
+
+open console
+instance printable card = fun card =>
+    inl rank = 
+        match rank card with
+        | 12 => 'A'
+        | 11 => 'K'
+        | 10 => 'Q'
+        | 9 => 'J'
+        | 8 => 'T'
+        | 7 => '9'
+        | 6 => '8'
+        | 5 => '7'
+        | 4 => '6'
+        | 3 => '5'
+        | 2 => '4'
+        | 1 => '3'
+        | 0 => '2'
+        | _ => '?'
+
+    inl suit =
+        match suit card with
+        | 3 => 'H'
+        | 2 => 'S'
+        | 1 => 'C'
+        | 0 => 'D'
+        | _ => '?'
+
+    write rank . write suit

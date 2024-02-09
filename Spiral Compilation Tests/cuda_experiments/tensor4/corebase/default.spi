@@ -1,0 +1,15 @@
+// Since Spiral v2.6.0 the default int and floats are set in the plugin settings.
+// The two types are also provided based on that by the language itself.
+
+// type int = i32
+// type float = f32
+
+// Having 32 bit ints and floats is a good setting for Cuda related backends as Nvidia GPUs do not have hardware
+// support for 64 bit int arithmetic, and limited support for 64 bit floats.
+
+// In truth, I didn't want these settings to be passed in during startup, but all the other ways had severe flaws.
+// Passing the `int` and `float` through the type system in foralls wouldn't have worked for type literals for example.
+// Having the settings be backend specific wouldn`t have meshed with providing editor support.
+// Having the defaults be specified in the package.spiproj files would result in modules packaegs having separate defaults.
+
+// Specifying them in the plugin settings was the best choice in the end.
