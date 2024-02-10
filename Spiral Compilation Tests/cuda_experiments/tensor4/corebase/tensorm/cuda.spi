@@ -19,4 +19,4 @@ inl tensor_create_shared forall dim el. (dim : dim) : tensor dim el =
         offset = 0
         stride 
         }
-    tensor {dim bodies=real infer_templ `el create_body}
+    tensor {dim bodies=real infer_map `el create_body}

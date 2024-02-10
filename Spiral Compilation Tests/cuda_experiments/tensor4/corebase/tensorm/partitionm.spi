@@ -1,0 +1,68 @@
+type size = u64
+nominal offset el = size
+nominal offsets d el = {
+    dim : d
+    offsets : `(open utils in infer_map `el (forall el. => ``(offset el)))
+    }
+nominal dim d el = d
+nominal partition el = `(
+    open utils
+    infer_map `el (forall el. => 
+        typecase el with
+        | tensor ~d ~t => ``(dim d t)
+        | _ => error_type "Partition can only be used on types containing tensors."
+        )
+    )
+nominal partition_offsets el = `(
+    open utils
+    infer_map `el (forall el. => 
+        typecase el with
+        | dim ~d ~t => ``(offsets d t)
+        )
+    )
+
+inl (~!) forall dim el. (t : tensor dim el) : partition (tensor dim el) = real partition (dim t.dim)
+inl (*.) forall a b. (partition a : partition a) (partition b : partition b) : partition (a * b) = partition (real a, b)
+
+inl to_partition_offsets forall el. (partition x : _ el) : partition_offsets el * size = 
+    inl x,s = real
+        open real_core
+        open utils
+        inl sizeof forall t. = !!!!Conv(`size, !!!!SizeOf(`t))
+        inl align forall el. s = 
+            inl i = sizeof `el
+            inl s = s + i - 1
+            s - s % i 
+        inl to_offsets s (dim d as z) =
+            inl length = prod d 
+            typecase `z with dim ~d ~el =>
+            inl x,s = 
+                infer_mapFold (forall el. s => 
+                    inl s = align `el s
+                    offset `el s, length * sizeof `el
+                    ) s d
+            offsets `d `el {dim=d; offsets=x}, s
+        mapFold to_offsets (conv `size 0) x
+    partition_offsets x, s
+    
+inl tensor_from_offsets forall d el. (base : array u8) (offsets {dim offsets} : _ d el) : tensor d el = 
+    open utils
+    inl stride, len = real calculate_stride_len dim
+    inl bodies = real 
+        map (fun (offset i as z) => 
+            typecase `z with offset ~t =>
+            tensor_body `d `t {
+                array = real $"&!base[!i]" : array t
+                offset = 0
+                stride 
+                }) offsets
+    tensor {dim bodies}
+
+inl from_partition_offsets forall el. (base : array u8) (partition_offsets x : _ el) : el = real
+    open utils
+    map (tensor_from_offsets base) x
+
+inl from_partition forall el. ({base length} : {base : array u8; length : size}) (x : partition el) : el =
+    inl x,s = to_partition_offsets x
+    assert (s <= length) "The length of the partition has to be less than the length of the base array."
+    from_partition_offsets base x

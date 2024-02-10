@@ -25,7 +25,7 @@ inl tensor_create forall dim el. (dim : dim) : tensor dim el =
         offset = 0
         stride 
         }
-    tensor {dim bodies=real infer_templ `el create_body}
+    tensor {dim bodies=real infer_map `el create_body}
 
 // Indexes into an tensor.
 inl tensor_index forall dim el. (i : dim) (tensor {bodies dim} : tensor dim el) : el = real 
@@ -112,7 +112,7 @@ inl view_snd forall a b el. : {from : b; nearTo : b} -> tensor (a * b) el -> ten
 
 // The template function for the tensor split.
 inl split_templ forall dim dim' el. (f : dim -> dim') view (i : list dim') (t : tensor dim el) : list (tensor dim el) =
-    inl zero : dim' = real open real_core in infer_templ `dim' (forall d. => conv `d 0)
+    inl zero : dim' = real open real_core in infer_map `dim' (forall d. => conv `d 0)
     inl add (a : dim') (b : dim') : dim' = real open real_core in map2 (+) a b
 
     inl i, dim = listm.mapFold (fun from dim => inl nearTo = add from dim in {from nearTo}, nearTo) zero i

@@ -18,8 +18,7 @@ modules:
             utils*
             type-
             cuda
-        
-        partitionm 
+            partitionm
             
     corepython/
         
