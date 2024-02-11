@@ -30,7 +30,7 @@ inl to_partition_offsets forall el. (partition x : _ el) : partition_offsets el 
         open utils
         inl sizeof forall t. = !!!!Conv(`size, !!!!SizeOf(`t))
         inl align forall el. s = 
-            inl i = sizeof `el
+            inl i = max (conv `size 4) (sizeof `el)
             inl s = s + i - 1
             s - s % i 
         inl to_offsets s (dim d as z) =
