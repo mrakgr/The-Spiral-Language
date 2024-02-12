@@ -230,6 +230,18 @@ let data_term_vars' call_data =
         | DSymbol _ | DTLit _ | DB -> ()
     f call_data
     term_vars.ToArray()
+    
+let data_nominals call_data =
+    let term_vars = ResizeArray(64)
+    let rec f = function
+        | DPair(a,b) -> f a; f b
+        | DForall(_,a,_,_,_) | DFunction(_,_,a,_,_,_) -> Array.iter f a
+        | DRecord l -> Map.iter (fun _ -> f) l
+        | DLit _ | DV _ 
+        | DUnion _ | DNominal _ as x -> term_vars.Add(x)
+        | DSymbol _ | DTLit _ | DB -> ()
+    f call_data
+    term_vars.ToArray()
 
 let data_term_vars call_data =
     let term_vars = ResizeArray(64)
@@ -1287,6 +1299,11 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,UsesOriginalTermVars,[a;b]) ->
             let a = term s a |> data_term_vars'
             let b = term s b |> data_term_vars'
+            let c = a.Length = b.Length && HashSet(a,HashIdentity.Reference).SetEquals(b)
+            DLit(LitBool c)
+        | EOp(_,UsesOriginalNominals,[a;b]) ->
+            let a = term s a |> data_nominals
+            let b = term s b |> data_nominals
             let c = a.Length = b.Length && HashSet(a,HashIdentity.Reference).SetEquals(b)
             DLit(LitBool c)
         | EOp(_,While,[cond;body]) -> 

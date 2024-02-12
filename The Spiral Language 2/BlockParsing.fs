@@ -19,6 +19,7 @@ type Op =
 
     // Reordering check
     | UsesOriginalTermVars
+    | UsesOriginalNominals
 
     // imports
     | Global

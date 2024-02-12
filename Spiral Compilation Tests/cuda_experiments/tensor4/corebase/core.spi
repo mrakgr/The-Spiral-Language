@@ -121,8 +121,12 @@ inl comp forall t. (a : t) (b : t) : order = real comp a b
 inl assert (c : bool) (msg : string) : () = real assert c msg
 // Gathers the term variables from the two arguments, that is literals and runtime variables, places them in a set and compares the two using references equality.
 inl uses_original_term_vars forall a b. (a : a) (b : b) : bool = real uses_original_term_vars a b
-// Asserts that the two arguments have the same term variables under reference equalty when placed in a set. Also, asserts that the lengths match to not get fooled by duplicates.
+// Asserts that the two arguments have the same term variables under reference equalty when placed in a set. 
+// Also, asserts that the lengths match to not get fooled by duplicates.
 inl assert_term_vars_are_equal_under_set_equality forall a b. (a : a) (b : b) : b = real assert_term_vars_are_equal_under_set_equality a b
+// Asserts that the two arguments have the same nominals (as well as literals and runtime variables outside of them) under reference equalty when placed in a set. 
+// Also, asserts that the lengths match to not get fooled by duplicates.
+inl assert_nominals_are_equal_under_set_equality forall a b. (a : a) (b : b) : b = real assert_nominals_are_equal_under_set_equality a b
 // Raises an exception at runtime.
 inl failwith forall t. (msg : string) : t = real failwith `t msg
 // Returns boolean whether the term is a literal.

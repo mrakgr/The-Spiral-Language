@@ -122,10 +122,18 @@ inl prototype_has forall t. prot = !!!!PrototypeHas(prot, `t)
 inl nan_is x = !!!!NanIs(x)
 // Gathers the term variables from the two arguments, that is literals and runtime variables, places them in a set and compares the two using references equality.
 inl uses_original_term_vars a b = !!!!UsesOriginalTermVars(a,b)
-// Asserts that the two arguments have the same term variables under reference equalty when placed in a set. Also, asserts that the lengths match to not get fooled by duplicates.
+// Gathers the nominals from the two arguments (as well as literals and runtime variables outside of them), places them in a set and compares the two using references equality.
+inl uses_original_nominals a b = !!!!UsesOriginalNominals(a,b)
+// Asserts that the two arguments have the same term variables under reference equalty when placed in a set. 
+// Also, asserts that the lengths match to not get fooled by duplicates.
 inl assert_term_vars_are_equal_under_set_equality a b =
     if uses_original_term_vars a b then b
     else error_type "The two arguments have to have the same term variables under reference equalty when placed in a set, in addition to having the same number of them."
+// Asserts that the two arguments have the same nominals (as well as literals and runtime variables outside of them) under reference equalty when placed in a set. 
+// Also, asserts that the lengths match to not get fooled by duplicates.
+inl assert_nominals_are_equal_under_set_equality a b =
+    if uses_original_nominals a b then b
+    else error_type "The two arguments have to have the same nominals (as well as literals and runtime variables outside of them) under reference equalty when placed in a set, in addition to having the same number of them."
 // Returns the maximum of the two terms.
 inl max a b = if a >= b then a else b
 // Returns the minimum of the two terms.

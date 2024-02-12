@@ -1,3 +1,7 @@
+2.7.3 (2/12/2024)
+
+* Added the `UsesOriginalNominals` operation to the language. 
+
 2.7.3 (2/3/2024)
 
 * Significantly extended the functionality of `sizeof`. Now it will work on any type.
