@@ -75,7 +75,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
         open tensorm.cuda
 
         inl block = create_block()
-        inl memcpy_tile : _ (_ warp_size _) = create_thread_block_tile block
+        inl warp : _ (_ warp_size _) = create_thread_block_tile block
         inl create_shared dim : tensor _ float = tensor_create_shared dim
         
         loop_blocks_in_grid' (fst a.dim, fst b.dim) fun m,n =>
@@ -86,7 +86,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             open wmma
             inl c_shared' = create_shared (m_tile, n_tile)
             inl c_frag : fragment accumulator m_frag n_frag k_frag row_major float = create_fragment
-            async_memcpy_tensor memcpy_tile {from=c; to=c_shared'}
+            async_memcpy_tensor warp {from=c; to=c_shared'}
             inl c_shared = // row_major
                 reshape_fst (fun m => {m=m / m_frag}, {m_frag}) c_shared'
                 |> reshape_snd (fun n => {n=n / n_frag}, {n_frag})
@@ -101,7 +101,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                 inl a_shared' = create_shared (swap (m_tile, k_tile) a_trans)
                 inl a_frag : fragment matrix_a m_frag n_frag k_frag a_layout frag_in = create_fragment
                 sync block
-                async_memcpy_tensor memcpy_tile {from=a; to=a_shared'} 
+                async_memcpy_tensor warp {from=a; to=a_shared'} 
                 inl a_shared = 
                     if a_trans then // col_major
                         reshape_fst (fun k => {k=k / k_frag}, {k_frag}) a_shared'
@@ -115,7 +115,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                 inl b = apply k b
                 inl b_shared' = create_shared (swap (k_tile, n_tile) b_trans)
                 inl b_frag : fragment matrix_b m_frag n_frag k_frag b_layout frag_in = create_fragment
-                async_memcpy_tensor memcpy_tile {from=b; to=b_shared'} 
+                async_memcpy_tensor warp {from=b; to=b_shared'} 
                 inl b_shared =
                     if b_trans then // col_major
                         reshape_fst (fun n => {n=n / n_frag}, {n_frag}) b_shared'
@@ -125,7 +125,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                         reshape_fst (fun k => {k=k / k_frag}, {k_frag}) b_shared'
                         |> reshape_snd (fun n => {n=n / n_frag}, {n_frag})
                         |> reorder (fun (k,{k_frag}),n,{n_frag} => n,k,(k_frag,n_frag))
-                wait memcpy_tile . sync block
+                wait warp . sync block
 
                 loop_warps_in_block' (fst a_shared.dim, fst b_shared.dim) fun m,n =>
                     inl a = apply m a_shared
@@ -151,7 +151,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                     
             sync block
             
-            async_memcpy_tensor memcpy_tile {from=c_shared'; to=c}
+            async_memcpy_tensor warp {from=c_shared'; to=c}
 
 type a_layout = wmma.row_major
 type b_layout = wmma.row_major
