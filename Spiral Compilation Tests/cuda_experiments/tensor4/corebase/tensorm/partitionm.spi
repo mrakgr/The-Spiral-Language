@@ -1,6 +1,8 @@
 // Functionality for a partitioning raw pointer arrays into tensors.
 
 type size = u64
+inl min_align() : size = 128
+
 nominal offset el = size
 nominal offsets d el = {
     dim : d
@@ -40,7 +42,7 @@ inl (~#) forall el. (partition x : _ el) : partition_offsets el =
         open utils
         inl sizeof forall t. = !!!!Conv(`size, !!!!SizeOf(`t))
         inl align forall el. s = 
-            inl i = max (conv `size 128) (sizeof `el)
+            inl i = max min_align() (sizeof `el)
             inl s = s + i - conv `size 1
             s - s % i 
         inl to_offsets s (dim d as z) =
