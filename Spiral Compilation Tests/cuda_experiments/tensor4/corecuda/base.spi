@@ -35,11 +35,13 @@ inl run' ({blocks_per_grid threads_per_block shared_mem} : run_config) f =
     global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=False, options=tuple(options))"
     inl kernel_i, vars = join_backend Cuda
         f () : ()
+    inl entry = $'raw_module.get_function(f"entry{!kernel_i}")' : $"cp.RawKernel"
+    $'!entry.max_dynamic_shared_size_bytes = !shared_mem '
     real
         match vars with
-        | _,_ => $'raw_module.get_function(f"entry{!kernel_i}")((!blocks_per_grid,),(!threads_per_block,),!vars,shared_mem=!shared_mem)' : ()
-        | () => $'raw_module.get_function(f"entry{!kernel_i}")((!blocks_per_grid,),(!threads_per_block,),(),shared_mem=!shared_mem)' : ()
-        | _ => $'raw_module.get_function(f"entry{!kernel_i}")((!blocks_per_grid,),(!threads_per_block,),(!vars,),shared_mem=!shared_mem)' : ()
+        | _,_ => $'!entry((!blocks_per_grid,),(!threads_per_block,),!vars,shared_mem=!shared_mem)' : ()
+        | () => $'!entry((!blocks_per_grid,),(!threads_per_block,),(),shared_mem=!shared_mem)' : ()
+        | _ => $'!entry((!blocks_per_grid,),(!threads_per_block,),(!vars,),shared_mem=!shared_mem)' : ()
     ()
     
 // Executes the lambda on the GPU device.

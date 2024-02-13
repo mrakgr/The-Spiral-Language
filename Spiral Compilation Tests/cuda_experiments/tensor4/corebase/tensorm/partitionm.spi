@@ -80,7 +80,7 @@ inl tensor_from_offsets forall d el. (base : array u8) (offsets {dim offsets} : 
                             | f64 => $"!base[!i:!i+!s*!len].view(cp.float64)" : array t
                             | bool => $"!base[!i:!i+!s*!len].view(cp.int8)" : array t
                         cuda = fun () => 
-                            $"&!base[!i]" : array t
+                            $"reinterpret_cast<`t *>(!base+!i)" : array t
                         }
                 offset = 0
                 stride 

@@ -147,7 +147,7 @@ inl flatten_snd forall a b el. : tensor (a * b) el -> tensor (a * int) el = swap
 // Flattens the tensor into a single dimension. For this to work, the tensor must be contiguous.
 inl flatten forall dim el. (t : tensor dim el) : tensor int el = reorder (fun x => x, ()) t |> flatten_fst |> reorder fst
 
-// Reshaves the first part of the tensor dimension. For this to work, the tensor must be contiguous.
+// Reshapes the first part of the tensor dimension. For this to work, the tensor must be contiguous.
 inl reshape_fst forall a b dim el. (f : a -> dim) (x : tensor (a * b) el) : tensor (dim * b) el =
     inl dim' = f (fst x.dim)
     inl stride, len : dim * int = real calculate_stride_len dim'
@@ -163,10 +163,10 @@ inl reshape_fst forall a b dim el. (f : a -> dim) (x : tensor (a * b) el) : tens
                 ) bodies
         }
 
-// Reshaves the second part of the tensor dimension. For this to work, the tensor must be contiguous.
+// Reshapes the second part of the tensor dimension. For this to work, the tensor must be contiguous.
 inl reshape_snd forall a b dim el. (dim : b -> dim) : tensor (a * b) el -> tensor (a * dim) el = swap >> reshape_fst dim >> swap
 
-// Reshaves the tensor dimensions. For this to work, the tensor must be contiguous.
+// Reshapes the tensor dimensions. For this to work, the tensor must be contiguous.
 inl reshape forall a b el. (dim : a -> b) (t : tensor a el) : tensor b el = reorder (fun x => x, ()) t |> reshape_fst dim |> reorder fst
 
 // Assert the tensor dimensions. If they are the same, substitutes it with the given length in the resulting tensor.

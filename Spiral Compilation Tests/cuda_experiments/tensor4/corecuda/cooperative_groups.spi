@@ -20,7 +20,7 @@ instance tileable coalesced_group = fun _ => ()
 
 inl create_grid() : ref grid_group = $"auto v$ = this_grid()" 
 inl create_block() : ref thread_block = $"auto v$ = this_thread_block()"
-inl create_tread() : ref thread = $"auto v$ = this_thread()"
+inl create_thread() : ref thread = $"auto v$ = this_thread()"
 inl create_thread_block_tile forall size parent {tileable}. (x : ref parent) : ref (thread_block_tile size parent) = $"thread_block_tile<@size, `parent> v$ = tiled_partition<@size>(!x)"
 
 // I don't feel like fixing these right now, but they can only be created from tiles of size 32 or less.
@@ -140,16 +140,8 @@ inl sync forall group {groupable}. (group : ref group) : () = $'!group.sync() '
 
 open tensorm
 
-// inl async_memcpy_tensor forall group {groupable} float. (group : ref group) ({from to} : {from : tensor (int * int) float; to : tensor (int * int) float}) : () =
-//     assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
-//     loop_thread_in_block' from.dim (fun q =>
-//         tensor_set q (tensor_index q from) to
-//         )
-
-inl async_memcpy_tensor forall size parent float. (group : ref (thread_block_tile size parent)) ({from to} : {from : tensor (int * int) float; to : tensor (int * int) float}) : () =
+inl async_memcpy_tensor forall size parent float a. (group : ref (thread_block_tile size parent)) ({from to} : {from : tensor (a * int) float; to : tensor (a * int) float}) : () =
     assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
-    // wait group
-    // sync group
     loop_tile' group (fst from.dim) (fun a =>
         inl from = apply a from
         inl to = apply a to
@@ -161,8 +153,3 @@ inl async_memcpy_tensor forall size parent float. (group : ref (thread_block_til
                 $"cooperative_groups::memcpy_async(!group, !to + !to_offset, !from + !from_offset, sizeof(`el) * !dim)" : ()
                 ) from.bodies to.bodies
         )
-    // wait group
-    // sync group
-    
-
-

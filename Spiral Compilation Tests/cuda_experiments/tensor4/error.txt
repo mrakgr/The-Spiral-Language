@@ -1,49 +1,61 @@
-Error trace on line: 107, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\tensorm\partitionm.spi.
-inl main() = test0()
+Error trace on line: 123, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corecuda\cooperative_groups.spi.
+    inl from : int = $"thread_block::thread_rank() / warpSize"
+    ^
+Error trace on line: 124, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corecuda\cooperative_groups.spi.
+    inl nearTo : int = real tensorm.utils.prod dim
+    ^
+Error trace on line: 125, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corecuda\cooperative_groups.spi.
+    loop.forBy' {from nearTo by} (project_index dim >> body)
+    ^
+Error trace on line: 28, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+inl forBy' range body = forBy range (fun i () => body i) ()
+                        ^
+Error trace on line: 24, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+    inl i, state = _dup (from, state)
+    ^
+Error trace on line: 24, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+    inl i, state = _dup (from, state)
         ^
-Error trace on line: 107, column: 14 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\tensorm\partitionm.spi.
-inl main() = test0()
-             ^
-Error trace on line: 98, column: 10 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\tensorm\partitionm.spi.
-inl test0() =
-         ^
-Error trace on line: 99, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\tensorm\partitionm.spi.
-    inl dim : partition (tensor (int * int) f32) = !(4,4)
+Error trace on line: 25, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
     ^
-Error trace on line: 100, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\tensorm\partitionm.spi.
-    inl dim2 : partition (tensor (int) u8) = !(10)
-    ^
-Error trace on line: 101, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\tensorm\partitionm.spi.
-    inl dim3 : partition (tensor (int * int) f32) = !(10,10)
-    ^
-Error trace on line: 102, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\tensorm\partitionm.spi.
-    inl p = #(dim2 *. dim |> reorder (fun a,b => {l=a; r=b})) +. #(dim3 *. dim)
-    ^
-Error trace on line: 103, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\tensorm\partitionm.spi.
-    inl x : array u8 = create (conv p.length)
-    ^
-Error trace on line: 104, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\tensorm\partitionm.spi.
-    inl p = reorder (fun a,b => {a b}, a) p
-    ^
-Error trace on line: 104, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\tensorm\partitionm.spi.
-    inl p = reorder (fun a,b => {a b}, a) p
-            ^
-Error trace on line: 96, column: 45 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\tensorm\partitionm.spi.
-instance reorder partition_offsets = fun f (partition_offsets p) => partition_offsets {p with body#=fun p => real real_core.assert_nominals_are_equal_under_set_equality p (f p)}
+Error trace on line: 2, column: 82 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+inl while' (cond : () -> bool) (body : () -> ()) : () = !!!!While((join cond()),(body()))
+                                                                                 ^
+Error trace on line: 25, column: 39 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+                                      ^
+Error trace on line: 25, column: 45 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
                                             ^
-Error trace on line: 96, column: 69 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\tensorm\partitionm.spi.
-instance reorder partition_offsets = fun f (partition_offsets p) => partition_offsets {p with body#=fun p => real real_core.assert_nominals_are_equal_under_set_equality p (f p)}
-                                                                    ^
-Error trace on line: 96, column: 87 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\tensorm\partitionm.spi.
-instance reorder partition_offsets = fun f (partition_offsets p) => partition_offsets {p with body#=fun p => real real_core.assert_nominals_are_equal_under_set_equality p (f p)}
-                                                                                      ^
-Error trace on line: 96, column: 115 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\tensorm\partitionm.spi.
-instance reorder partition_offsets = fun f (partition_offsets p) => partition_offsets {p with body#=fun p => real real_core.assert_nominals_are_equal_under_set_equality p (f p)}
-                                                                                                                  ^
-Error trace on line: 135, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\real_core.spir.
-    if uses_original_nominals a b then b
+Error trace on line: 25, column: 57 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+                                                        ^
+Error trace on line: 28, column: 44 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+inl forBy' range body = forBy range (fun i () => body i) ()
+                                           ^
+Error trace on line: 28, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+inl forBy' range body = forBy range (fun i () => body i) ()
+                                                 ^
+Error trace on line: 59, column: 18 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\core.spi.
+inl (>>) a b x = b (a x)
+                 ^
+Error trace on line: 230, column: 61 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\matmul.spi.
+                loop_warps_in_block' (fst c_shared.dim) fun m,n =>
+                                                            ^
+Error trace on line: 231, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\matmul.spi.
+                    assert (real open real_core in utils.prod (fst c_shared.dim) <= 32) "For this example to work the product of the C tile dimensions has to be less than 32."
+                    ^
+Error trace on line: 121, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\core.spi.
+inl assert (c : bool) (msg : string) : () = real assert c msg
+                                                 ^
+Error trace on line: 246, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\real_core.spir.
+    if c = false then 
     ^
-Error trace on line: 136, column: 10 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\real_core.spir.
-    else error_type "The two arguments have to have the same nominals (as well as literals and runtime variables outside of them) under reference equalty when placed in a set, in addition to having the same number of them."
-         ^
-The two arguments have to have the same nominals (as well as literals and runtime variables outside of them) under reference equalty when placed in a set, in addition to having the same number of them.
+Error trace on line: 247, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+        ^
+Error trace on line: 247, column: 40 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+                                       ^
+For this example to work the product of the C tile dimensions has to be less than 32.
