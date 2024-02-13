@@ -153,7 +153,6 @@ inl async_memcpy_tensor forall size parent float a. (group : ref (thread_block_t
                 open real_core
                 inl q = $"grid_group::thread_rank()" : int
                 if q < 1 then
-                    
                     $"cooperative_groups::memcpy_async(!group, !to + !to_offset, !from + !from_offset, sizeof(`el) * !dim)" : ()
                 ) from.bodies to.bodies
         )
