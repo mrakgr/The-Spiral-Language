@@ -51,7 +51,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
     
     inl bank_size = warp_size() * 4 / (sizeof : _ float).value 
     inl float4 = 16 / (sizeof : _ float).value 
-    inl threads_per_block = 32
+    inl threads_per_block = 1024
     inl blocks_per_grid = 1
     
     inl padding = {
@@ -85,7 +85,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
         inl thread : _ (_ 1 _) = create_thread_block_tile block
 
         inl {a_shared b_shared c_shared} = 
-            inl extern = $"extern __shared__ unsigned char * v$"
+            inl extern = $"extern __shared__ unsigned char v$[]"
             partitionm.from_partition_offsets (extern, memory.length) memory
 
         inl a_shared = a_shared |> view_snd {from=0; nearTo=snd a_shared.dim - padding.a}
@@ -135,117 +135,127 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
 
                     async_memcpy_tensor thread {from=a; to=a_shared}
                     
-        //         if b_trans then
-        //             inl b = 
-        //                 b |> reshape_snd (fun k_tile => {k=k_tile / k_frag}, {k_frag})
-        //                 |> reshape_fst (fun n_tile => {n=n_tile / n_frag}, {n_frag})
-        //                 |> reshape_snd (fun {k},{k_frag} => {k},{k_frag=k_frag / float4},{float4}) 
-        //                 |> reorder (fun ({n},{n_frag}),({k},{k_frag},{float4}) => ({n},{n_frag},{k},{k_frag}),float4)
+                if b_trans then
+                    inl b = 
+                        b |> reshape_snd (fun k_tile => {k=k_tile / k_frag}, {k_frag})
+                        |> reshape_fst (fun n_tile => {n=n_tile / n_frag}, {n_frag})
+                        |> reshape_snd (fun {k},{k_frag} => {k},{k_frag=k_frag / float4},{float4}) 
+                        |> reorder (fun ({n},{n_frag}),({k},{k_frag},{float4}) => ({n},{n_frag},{k},{k_frag}),float4)
                     
-        //             inl b_shared =
-        //                 b_shared |> reshape_snd (const ({n_frag}, {k_frag})) 
-        //                 |> reshape_fst (const ({n=n_tile / n_frag}, {k=k_tile / k_frag}))
-        //                 |> reshape_snd (fun {n_frag}, {k_frag} => {n_frag}, {k_frag=k_frag / float4},{float4})
-        //                 |> reorder (fun ({n},{k}),({n_frag},{k_frag},{float4}) => ({n},{n_frag},{k},{k_frag}),float4)
+                    inl b_shared =
+                        b_shared |> reshape_snd (const ({n_frag}, {k_frag})) 
+                        |> reshape_fst (const ({n=n_tile / n_frag}, {k=k_tile / k_frag}))
+                        |> reshape_snd (fun {n_frag}, {k_frag} => {n_frag}, {k_frag=k_frag / float4},{float4})
+                        |> reorder (fun ({n},{k}),({n_frag},{k_frag},{float4}) => ({n},{n_frag},{k},{k_frag}),float4)
 
-        //             async_memcpy_tensor thread {from=b; to=b_shared}
-        //         else
-        //             inl b = 
-        //                 b |> reshape_snd (fun n_tile => {n=n_tile / n_frag}, {n_frag})
-        //                 |> reshape_fst (fun k_tile => {k=k_tile / k_frag}, {k_frag})
-        //                 |> reshape_snd (fun {n},{n_frag} => {n},{n_frag=n_frag / float4},{float4}) 
-        //                 |> reorder (fun ({k},{k_frag}),({n},{n_frag},{float4}) => ({k},{k_frag},{n},{n_frag}),float4)
+                    async_memcpy_tensor thread {from=b; to=b_shared}
+                else
+                    inl b = 
+                        b |> reshape_snd (fun n_tile => {n=n_tile / n_frag}, {n_frag})
+                        |> reshape_fst (fun k_tile => {k=k_tile / k_frag}, {k_frag})
+                        |> reshape_snd (fun {n},{n_frag} => {n},{n_frag=n_frag / float4},{float4}) 
+                        |> reorder (fun ({k},{k_frag}),({n},{n_frag},{float4}) => ({k},{k_frag},{n},{n_frag}),float4)
                     
-        //             inl b_shared =
-        //                 b_shared |> reshape_snd (const ({k_frag}, {n_frag})) 
-        //                 |> reshape_fst (const ({k=k_tile / k_frag}, {n=n_tile / n_frag}))
-        //                 |> reshape_snd (fun {k_frag}, {n_frag} => {k_frag}, {n_frag=n_frag / float4},{float4})
-        //                 |> reorder (fun ({k},{n}),({k_frag},{n_frag},{float4}) => ({k},{k_frag},{n},{n_frag}),float4)
+                    inl b_shared =
+                        b_shared |> reshape_snd (const ({k_frag}, {n_frag})) 
+                        |> reshape_fst (const ({k=k_tile / k_frag}, {n=n_tile / n_frag}))
+                        |> reshape_snd (fun {k_frag}, {n_frag} => {k_frag}, {n_frag=n_frag / float4},{float4})
+                        |> reorder (fun ({k},{n}),({k_frag},{n_frag},{float4}) => ({k},{k_frag},{n},{n_frag}),float4)
 
-        //             async_memcpy_tensor thread {from=b; to=b_shared}
+                    async_memcpy_tensor thread {from=b; to=b_shared}
 
-        //         wait thread . sync block
+                wait thread . sync block
 
-        //         inl a_shared =
-        //             if a_trans then
-        //                 a_shared |> reshape_snd (const (k_frag, m_frag)) 
-        //                 |> reshape_fst (const ({k=k_tile / k_frag}, {m=m_tile / m_frag}))
-        //                 |> reorder (fun ({k},{m}),frag => {m},{k},frag)
-        //             else
-        //                 a_shared |> reshape_snd (const (m_frag, k_frag)) 
-        //                 |> reshape_fst (const ({m=m_tile / m_frag}, {k=k_tile / k_frag}))
-        //                 |> reorder (fun ({m},{k}),frag => {m},{k},frag)
-        //         inl b_shared = 
-        //             if b_trans then
-        //                 b_shared |> reshape_snd (const (n_frag, k_frag)) 
-        //                 |> reshape_fst (const ({n=n_tile / n_frag}, {k=k_tile / k_frag}))
-        //                 |> reorder (fun ({n},{k}),frag => {n},{k},frag)
-        //             else
-        //                 b_shared |> reshape_snd (const (k_frag, n_frag)) 
-        //                 |> reshape_fst (const ({k=k_tile / k_frag}, {n=n_tile / n_frag}))
-        //                 |> reorder (fun ({k},{n}),frag => {n},{k},frag)
+                inl a_shared =
+                    if a_trans then
+                        a_shared |> reshape_snd (const (k_frag, m_frag)) 
+                        |> reshape_fst (const ({k=k_tile / k_frag}, {m=m_tile / m_frag}))
+                        |> reorder (fun ({k},{m}),frag => {m},{k},frag)
+                    else
+                        a_shared |> reshape_snd (const (m_frag, k_frag)) 
+                        |> reshape_fst (const ({m=m_tile / m_frag}, {k=k_tile / k_frag}))
+                        |> reorder (fun ({m},{k}),frag => {m},{k},frag)
+                inl b_shared = 
+                    if b_trans then
+                        b_shared |> reshape_snd (const (n_frag, k_frag)) 
+                        |> reshape_fst (const ({n=n_tile / n_frag}, {k=k_tile / k_frag}))
+                        |> reorder (fun ({n},{k}),frag => {n},{k},frag)
+                    else
+                        b_shared |> reshape_snd (const (k_frag, n_frag)) 
+                        |> reshape_fst (const ({k=k_tile / k_frag}, {n=n_tile / n_frag}))
+                        |> reorder (fun ({k},{n}),frag => {n},{k},frag)
 
-        //         inl a_frag : fragment matrix_a m_frag n_frag k_frag a_layout frag_in = create_fragment
-        //         inl b_frag : fragment matrix_b m_frag n_frag k_frag b_layout frag_in = create_fragment
+                inl a_frag : fragment matrix_a m_frag n_frag k_frag a_layout frag_in = create_fragment
+                inl b_frag : fragment matrix_b m_frag n_frag k_frag b_layout frag_in = create_fragment
                 
-        //         loop_warps_in_block' (fst a_shared.dim, fst b_shared.dim) fun m,n =>
-        //             inl a = apply m a_shared
-        //             inl b = apply n b_shared
+                loop_warps_in_block' (fst a_shared.dim, fst b_shared.dim) fun m,n =>
+                    inl a = apply m a_shared
+                    inl b = apply n b_shared
 
-        //             loop_linear' (fst a.dim) fun k =>
-        //                 inl a = apply k a
-        //                 inl b = apply k b
+                    loop_linear' (fst a.dim) fun k =>
+                        inl a = apply k a
+                        inl b = apply k b
 
-        //                 load_matrix_sync a_frag a
-        //                 load_matrix_sync b_frag b
+                        load_matrix_sync a_frag a
+                        load_matrix_sync b_frag b
 
-        //                 mma_sync acc a_frag b_frag acc
+                        mma_sync acc a_frag b_frag acc
 
-        //         sync block
+                sync block
 
-        //     inl async_memcpy_tensor_c_shared is_load =
-        //         inl c = 
-        //             c |> reshape_snd (fun n_tile => {n=n_tile / n_frag}, {n_frag})
-        //             |> reshape_fst (fun m_tile => {m=m_tile / m_frag}, {m_frag})
-        //             |> reshape_snd (fun {n},{n_frag} => {n},{n_frag=n_frag / float4},{float4}) 
-        //             |> reorder (fun ({m},{m_frag}),({n},{n_frag},{float4}) => ({m},{m_frag},{n},{n_frag}),float4)
+            inl async_memcpy_tensor_c_shared is_load =
+                inl c = 
+                    c |> reshape_snd (fun n_tile => {n=n_tile / n_frag}, {n_frag})
+                    |> reshape_fst (fun m_tile => {m=m_tile / m_frag}, {m_frag})
+                    |> reshape_snd (fun {n},{n_frag} => {n},{n_frag=n_frag / float4},{float4}) 
+                    |> reorder (fun ({m},{m_frag}),({n},{n_frag},{float4}) => ({m},{m_frag},{n},{n_frag}),float4)
                 
-        //         inl c_shared =
-        //             c_shared |> reshape_snd (const ({m_frag}, {n_frag})) 
-        //             |> reshape_fst (const ({m=m_tile / m_frag}, {n=n_tile / n_frag}))
-        //             |> reshape_snd (fun {m_frag}, {n_frag} => {m_frag}, {n_frag=n_frag / float4},{float4})
-        //             |> reorder (fun ({m},{n}),({m_frag},{n_frag},{float4}) => ({m},{m_frag},{n},{n_frag}),float4)
+                inl c_shared =
+                    c_shared |> reshape_snd (const ({m_frag}, {n_frag})) 
+                    |> reshape_fst (const ({m=m_tile / m_frag}, {n=n_tile / n_frag}))
+                    |> reshape_snd (fun {m_frag}, {n_frag} => {m_frag}, {n_frag=n_frag / float4},{float4})
+                    |> reorder (fun ({m},{n}),({m_frag},{n_frag},{float4}) => ({m},{m_frag},{n},{n_frag}),float4)
 
-        //         async_memcpy_tensor thread (if is_load then {from=c; to=c_shared} else {from=c_shared; to=c})
+                async_memcpy_tensor thread (if is_load then {from=c; to=c_shared} else {from=c_shared; to=c})
 
-        //     async_memcpy_tensor_c_shared true // global -> shared
-        //     wait thread . sync block
+            async_memcpy_tensor_c_shared true // global -> shared
+            wait thread . sync block
 
-        //     inl _ = 
-        //         inl c_shared = 
-        //             c_shared |> reshape_snd (const (m_frag, n_frag)) 
-        //             |> reshape_fst (const ({m=m_tile / m_frag}, {n=n_tile / n_frag}))
-        //             |> reorder (fun ({m},{n}),frag => ({m},{n}),frag)
+            inl _ = 
+                inl c_shared = 
+                    c_shared |> reshape_snd (const (m_frag, n_frag)) 
+                    |> reshape_fst (const ({m=m_tile / m_frag}, {n=n_tile / n_frag}))
+                    |> reorder (fun ({m},{n}),frag => ({m},{n}),frag)
 
-        //         loop_warps_in_block' (fst c_shared.dim) fun m,n =>
-        //             assert (real open real_core in utils.prod (fst c_shared.dim) <= 32) "For this example to work the product of the C tile dimensions has to be less than 32."
-        //             // Otherwise, the accumulator and the C fragments would get overwritten.
+                loop_warps_in_block' (fst c_shared.dim) fun m,n =>
+                    assert (real open real_core in utils.prod (fst c_shared.dim) <= 32) "For this example to work the product of the C tile dimensions has to be less than 32."
+                    // Otherwise, the accumulator and the C fragments would get overwritten.
 
-        //             inl c = apply (m,n) c_shared
-        //             load_matrix_sync c_frag c
+                    inl c = apply (m,n) c_shared
+                    load_matrix_sync c_frag c
                         
-        //             loop.linear' (length c_frag) fun i =>
-        //                 set c_frag i (alpha * index acc i + beta * index c_frag i)
+                    loop.linear' (length c_frag) fun i =>
+                        set c_frag i (alpha * index acc i + beta * index c_frag i)
                         
-        //             store_matrix_sync c c_frag
+                    store_matrix_sync c c_frag
                     
-        //     sync block
-        //     async_memcpy_tensor_c_shared false // shared -> global
-        //     wait thread . sync block
+            sync block
+            async_memcpy_tensor_c_shared false // shared -> global
+            wait thread . sync block
         ()
 
 type a_layout = wmma.row_major
 type b_layout = wmma.row_major
+
+// type a_layout = wmma.col_major
+// type b_layout = wmma.row_major
+
+// type a_layout = wmma.row_major
+// type b_layout = wmma.col_major
+
+// type a_layout = wmma.col_major
+// type b_layout = wmma.col_major
+
 
 inl main() =
     inl get_body forall dim el. (x : tensor dim el) : array el = 
@@ -268,14 +278,14 @@ inl main() =
         $"(cp.matmul(!a_body,!b_body)).flatten()"
         |> fromArray |> reshape (const c.dim)
 
-    inl m,n,k : int * int * int = 16, 16, 8
+    inl m,n,k : int * int * int = 256, 256, 256
     inl a_trans = (real typecase a_layout with wmma.row_major => false | wmma.col_major => true) : bool
     inl b_trans = (real typecase b_layout with wmma.row_major => false | wmma.col_major => true) : bool
 
     inl [a; b; c] = listm.map random_normal ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
     inl d = cp_matmul (a,a_trans) (b,b_trans) c
     // console.write_ln (zip a b)
-    inl gemm_config_tf32 = gemm_config {m_tile=16; n_tile=16; k_tile=8} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
+    inl gemm_config_tf32 = gemm_config {m_tile=64; n_tile=128; k_tile=64} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
     wmma_gemm_shared gemm_config_tf32 1 a b 0 c
     inl d,c = get_body d, get_body c
     global "from max_blocks_per_sm import max_blocks_per_sm"
