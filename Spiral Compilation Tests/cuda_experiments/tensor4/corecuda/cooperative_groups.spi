@@ -150,6 +150,10 @@ inl async_memcpy_tensor forall size parent float a. (group : ref (thread_block_t
             open tensorm.utils
             iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
                 typecase `from with _ ~el =>
-                $"cooperative_groups::memcpy_async(!group, !to + !to_offset, !from + !from_offset, sizeof(`el) * !dim)" : ()
+                open real_core
+                inl q = $"grid_group::thread_rank()" : int
+                if q < 1 then
+                    
+                    $"cooperative_groups::memcpy_async(!group, !to + !to_offset, !from + !from_offset, sizeof(`el) * !dim)" : ()
                 ) from.bodies to.bodies
         )
