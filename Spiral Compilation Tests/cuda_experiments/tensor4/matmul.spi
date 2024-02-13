@@ -228,7 +228,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                     |> reorder (fun ({m},{n}),frag => ({m},{n}),frag)
 
                 loop_warps_in_block' (fst c_shared.dim) fun m,n =>
-                    assert (real open real_core in utils.prod (fst c_shared.dim) <= 32) "For this example to work the product of the C tile dimensions has to be less than 32."
+                    assert (real open real_core in utils.prod (fst c_shared.dim) * 32 = threads_per_block) "For this example to work the product of the C tile dimensions have to match the number of threads."
                     // Otherwise, the accumulator and the C fragments would get overwritten.
 
                     inl c = apply (m,n) c_shared
