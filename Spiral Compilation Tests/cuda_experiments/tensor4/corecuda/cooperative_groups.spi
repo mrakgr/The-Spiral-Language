@@ -43,7 +43,10 @@ inl project_index forall dim. (dim : dim) (i : int) : dim = real
 inl project_index_reverse forall dim. (dim : dim) (i : dim) : int = real
     open real_core
     open tensorm.utils
-    fst (foldBack2 (fun dim i (offset,stride) => offset+i*stride, stride*dim) dim i (0,1))
+    fst (foldBack2 (fun dim i (offset,stride) => 
+        assert (0 <= i && i < dim) "The indices should be inside the range of the dimension."
+        offset+i*stride, stride*dim
+        ) dim i (0,1))
  
 // Projects the given index to a high dimensional value.
 inl project_index' forall dim. ({from nearTo} : {from : dim; nearTo : dim}) (i : int) : dim = real
