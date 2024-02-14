@@ -225,7 +225,10 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
         | [|x|] -> tyv x
         | x -> sprintf "Tuple%i" (tup x).tag
     and tup_ty_tyvs (x : TyV []) = tup_ty_tys (tyvs_to_tys x)
-    and tup_ty x = env.ty_to_data x |> data_free_vars |> tup_ty_tyvs
+    and tup_ty x = 
+        let x = env.ty_to_data x |> data_free_vars 
+        printfn "%A" x
+        x |> tup_ty_tyvs
     and tyv = function
         | YUnion a ->
             match a.Item.layout with
