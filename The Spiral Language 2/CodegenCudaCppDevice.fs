@@ -180,10 +180,8 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                         let inits = List.map tup_data b' |> String.concat "," |> sprintf "{%s}"
                         match d with
                         | [|L(i,YArray t)|] -> // For the regular arrays.
-                            line s $"%s{tyv t} v{i}[] = %s{inits};"
+                            line s $"%s{tup_ty t} v{i}[] = %s{inits};"
                             true
-                        //| [|L(i,t)|] -> // TODO: For overloaded arrays. Structs with a single field that are arrays can be initialized like this in C++.
-                        //    line s $"%s{tyv t} v{i} = %s{inits};"
                         | _ ->
                             raise_codegen_error "Compiler error: Expected a single variable on the left side of an array literal op."
                     | TyArrayCreate(a,b) ->  
@@ -193,9 +191,8 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                                 match b with
                                 | DLit x -> lit x
                                 | _ -> raise_codegen_error "Array sizes need to be statically known in the Cuda C++ backend."
-                            line s $"%s{tyv t} v{i}[{size}];"
+                            line s $"%s{tup_ty t} v{i}[{size}];"
                             true
-                        //| [|L(i,t)|] -> line s $"%s{tyv t} v{i};" // TODO: Put in overloaded arrays later.
                         | _ -> raise_codegen_error "Compiler error: Expected a single variable on the left side of an array create op."
                     | _ ->
                         decl_vars |> line' s
@@ -225,10 +222,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
         | [|x|] -> tyv x
         | x -> sprintf "Tuple%i" (tup x).tag
     and tup_ty_tyvs (x : TyV []) = tup_ty_tys (tyvs_to_tys x)
-    and tup_ty x = 
-        let x = env.ty_to_data x |> data_free_vars 
-        printfn "%A" x
-        x |> tup_ty_tyvs
+    and tup_ty x = env.ty_to_data x |> data_free_vars |> tup_ty_tyvs
     and tyv = function
         | YUnion a ->
             match a.Item.layout with

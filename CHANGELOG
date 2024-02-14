@@ -1,4 +1,8 @@
-2.7.3 (2/12/2024)
+2.7.5 (2/14/2024)
+
+* Fixed the codegen of tuples and nominals in arrays for the Cuda backend. The error is still in the other C++ backend, but that one is slated for demolition.
+
+2.7.4 (2/12/2024)
 
 * Added the `UsesOriginalNominals` operation to the language. 
 
