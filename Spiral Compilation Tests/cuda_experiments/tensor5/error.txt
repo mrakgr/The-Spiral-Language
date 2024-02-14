@@ -1,0 +1,61 @@
+Error trace on line: 126, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corecuda\cooperative_groups.spi.
+    inl from : int = $"thread_block::thread_rank() / warpSize"
+    ^
+Error trace on line: 127, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corecuda\cooperative_groups.spi.
+    inl nearTo : int = real tensorm.utils.prod dim
+    ^
+Error trace on line: 128, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corecuda\cooperative_groups.spi.
+    loop.forBy' {from nearTo by} (project_index dim >> body)
+    ^
+Error trace on line: 28, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+inl forBy' range body = forBy range (fun i () => body i) ()
+                        ^
+Error trace on line: 24, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+    inl i, state = _dup (from, state)
+    ^
+Error trace on line: 24, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+    inl i, state = _dup (from, state)
+        ^
+Error trace on line: 25, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+    ^
+Error trace on line: 2, column: 82 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+inl while' (cond : () -> bool) (body : () -> ()) : () = !!!!While((join cond()),(body()))
+                                                                                 ^
+Error trace on line: 25, column: 39 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+                                      ^
+Error trace on line: 25, column: 45 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+                                            ^
+Error trace on line: 25, column: 57 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+                                                        ^
+Error trace on line: 28, column: 44 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+inl forBy' range body = forBy range (fun i () => body i) ()
+                                           ^
+Error trace on line: 28, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\loop.spi.
+inl forBy' range body = forBy range (fun i () => body i) ()
+                                                 ^
+Error trace on line: 59, column: 18 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\core.spi.
+inl (>>) a b x = b (a x)
+                 ^
+Error trace on line: 230, column: 61 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\matmul.spi.
+                loop_warps_in_block' (fst c_shared.dim) fun m,n =>
+                                                            ^
+Error trace on line: 231, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\matmul.spi.
+                    assert (real open real_core in utils.prod (fst c_shared.dim) * 32 = threads_per_block) "For this example to work the product of the C tile dimensions have to match the number of threads."
+                    ^
+Error trace on line: 121, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\core.spi.
+inl assert (c : bool) (msg : string) : () = real assert c msg
+                                                 ^
+Error trace on line: 246, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\real_core.spir.
+    if c = false then 
+    ^
+Error trace on line: 247, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+        ^
+Error trace on line: 247, column: 40 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor4\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+                                       ^
+For this example to work the product of the C tile dimensions have to match the number of threads.

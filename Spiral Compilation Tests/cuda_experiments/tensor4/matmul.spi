@@ -51,7 +51,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
     
     inl bank_size = warp_size() * 4 / (sizeof : _ float).value 
     inl float4 = 16 / (sizeof : _ float).value 
-    inl threads_per_block = 1024
+    inl threads_per_block = 512
     inl blocks_per_grid = 1
     
     inl padding = {
@@ -207,7 +207,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                 inl c = 
                     c |> reshape_snd (fun n_tile => {n=n_tile / n_frag}, {n_frag})
                     |> reshape_fst (fun m_tile => {m=m_tile / m_frag}, {m_frag})
-                    |> reshape_snd (fun {n},{n_frag} => {n},{n_frag=n_frag / float4},{float4}) 
+                    |> reshape_snd (fun {n},{n_frag} => {n},{n_frag=n_frag / float4},{float4})
                     |> reorder (fun ({m},{m_frag}),({n},{n_frag},{float4}) => ({m},{m_frag},{n},{n_frag}),float4)
                 
                 inl c_shared =
@@ -223,7 +223,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
 
             inl _ = 
                 inl c_shared = 
-                    c_shared |> reshape_snd (const (m_frag, n_frag)) 
+                    c_shared |> reshape_snd (const (m_frag, n_frag))
                     |> reshape_fst (const ({m=m_tile / m_frag}, {n=n_tile / n_frag}))
                     |> reorder (fun ({m},{n}),frag => ({m},{n}),frag)
 
