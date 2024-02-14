@@ -3,10 +3,18 @@ open corecuda
 open tensorm
 
 nominal gemm_config m_frag n_frag k_frag frag_in a_layout b_layout float = 
-    {m_frag : int; n_frag : int; k_frag : int; m_tile : int; n_tile : int; k_tile : int; a_trans : bool; b_trans : bool}
-inl gemm_config forall m_frag n_frag k_frag frag_in a_layout b_layout float. {m_tile n_tile k_tile} 
+    {
+        threads_per_block : int
+        m_frag : int; n_frag : int; k_frag : int; 
+        m_tile : int; n_tile : int; k_tile : int; 
+        m_warp : int; n_warp : int;
+        a_trans : bool; b_trans : bool
+    }
+inl gemm_config forall m_frag n_frag k_frag frag_in a_layout b_layout float. {m_tile n_tile k_tile m_warp n_warp threads_per_block}
         : gemm_config m_frag n_frag k_frag frag_in a_layout b_layout float = 
+    assert (m_warp * n_warp * warp_size() = threads_per_block) "The product of the verb dimensions has to equal the number of warps."
     gemm_config {
+        threads_per_block m_warp n_warp
         m_tile n_tile k_tile
         m_frag = real real_core.type_lit_to_lit `m_frag
         n_frag = real real_core.type_lit_to_lit `n_frag
@@ -15,11 +23,9 @@ inl gemm_config forall m_frag n_frag k_frag frag_in a_layout b_layout float. {m_
         b_trans = (real typecase b_layout with wmma.row_major => false | wmma.col_major => true) : bool
         }
 
-type warp_size = 32
-inl warp_size() : int = real real_core.type_lit_to_lit `warp_size
 
 inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float {number}. 
-        (gemm_config {m_frag n_frag k_frag m_tile n_tile k_tile a_trans b_trans} : gemm_config m_frag n_frag k_frag frag_in a_layout b_layout float) 
+        (gemm_config {m_frag n_frag k_frag m_tile n_tile k_tile a_trans b_trans threads_per_block m_warp n_warp} : gemm_config m_frag n_frag k_frag frag_in a_layout b_layout float) 
         (alpha : float) (a : tensor (int * int) float) (b : tensor (int * int) float) 
         (beta : float) (c : tensor (int * int) float) =
     inl swap (a,b) x = if x then b,a else a,b
@@ -51,9 +57,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
     
     inl bank_size = warp_size() * 4 / (sizeof : _ float).value 
     inl float4 = 16 / (sizeof : _ float).value 
-    inl threads_per_block = 1024
     inl blocks_per_grid = 1
-    inl number_of_warps = threads_per_block / warp_size()
     
     inl padding = {
         a = (swap (m_frag, k_frag) a_trans |> snd) % bank_size
@@ -99,9 +103,13 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             inl c = apply (m,n) c
             
             open wmma
-            inl c_frag : fragment accumulator m_frag n_frag k_frag row_major float = create_fragment
-            inl acc : fragment accumulator m_frag n_frag k_frag row_major float = create_fragment
-            fill_fragment acc 0
+            inl warp_to_local ({m},{n}) = {m_local=m / m_warp},{n_local=n / n_warp}
+            inl create_c_frag() : _ _ (fragment accumulator m_frag n_frag k_frag row_major float) = 
+                tensor_create warp_to_local({m=m_tile / m_frag},{n=n_tile / n_frag})
+            inl c_frag = create_c_frag()
+            inl acc = create_c_frag()
+            loop_linear' acc.dim fun m,n => 
+                fill_fragment (tensor_index_ref (m,n) acc) 0
 
             loop_linear' (fst a.dim) fun k =>
                 inl a = apply k a
@@ -186,8 +194,8 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                         |> reshape_fst (const ({k=k_tile / k_frag}, {n=n_tile / n_frag}))
                         |> reorder (fun ({k},{n}),frag => {n},{k},frag)
 
-                inl a_frag : fragment matrix_a m_frag n_frag k_frag a_layout frag_in = create_fragment
-                inl b_frag : fragment matrix_b m_frag n_frag k_frag b_layout frag_in = create_fragment
+                inl a_frag : _ (fragment matrix_a m_frag n_frag k_frag a_layout frag_in) = create_fragment
+                inl b_frag : _ (fragment matrix_b m_frag n_frag k_frag b_layout frag_in) = create_fragment
                 
                 loop_warps_in_block' (fst a_shared.dim, fst b_shared.dim) fun m,n =>
                     inl a = apply m a_shared
@@ -200,6 +208,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                         load_matrix_sync a_frag a
                         load_matrix_sync b_frag b
 
+                        inl acc = tensor_index_ref (warp_to_local (m,n)) acc
                         mma_sync acc a_frag b_frag acc
 
                 sync block
@@ -229,14 +238,14 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                     |> reorder (fun ({m},{n}),frag => ({m},{n}),frag)
 
                 loop_warps_in_block' (fst c_shared.dim) fun m,n =>
-                    assert (real open real_core in utils.prod (fst c_shared.dim) = number_of_warps) "For this example to work the product of the C tile dimensions have to match the number of warps."
-                    // Otherwise, the accumulator and the C fragments would get overwritten.
-
                     inl c = apply (m,n) c_shared
+                    inl acc = tensor_index_ref (warp_to_local (m,n)) acc
+                    inl c_frag = tensor_index_ref (warp_to_local (m,n)) c_frag
+
                     load_matrix_sync c_frag c
                         
-                    loop.linear' (length c_frag) fun i =>
-                        set c_frag i (alpha * index acc i + beta * index c_frag i)
+                    loop.linear' (length #c_frag) fun i =>
+                        set #c_frag i (alpha * index #acc i + beta * index #c_frag i)
                         
                     store_matrix_sync c c_frag
                     
@@ -286,7 +295,7 @@ inl main() =
     inl [a; b; c] = listm.map random_normal ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
     inl d = cp_matmul (a,a_trans) (b,b_trans) c
     // console.write_ln (zip a b)
-    inl gemm_config_tf32 = gemm_config {m_tile=64; n_tile=128; k_tile=64} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
+    inl gemm_config_tf32 = gemm_config {m_tile=64; n_tile=128; k_tile=64; m_warp=4; n_warp=4; threads_per_block=512} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
     wmma_gemm_shared gemm_config_tf32 1 a b 0 c
     inl d,c = get_body d, get_body c
     global "from max_blocks_per_sm import max_blocks_per_sm"

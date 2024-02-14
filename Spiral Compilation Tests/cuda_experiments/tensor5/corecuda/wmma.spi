@@ -30,11 +30,11 @@ instance length fragment use m n k layout = fun f => $"!f.num_elements"
 open tensorm
 open tensor_cuda
 
-inl create_fragment forall use m n k layout t. : fragment use m n k layout t = real
+inl create_fragment forall use m n k layout t. : ref (fragment use m n k layout t) = real
     typecase fragment use m n k layout t with ~f => 
-    $"`f v$" : fragment use m n k layout t
+    ref `f ($"`f v$" : fragment use m n k layout t)
 
-inl fragment_dim forall use m n k layout t. (f : fragment use m n k layout t) : int * int = real
+inl fragment_dim forall use m n k layout t. (f : ref (fragment use m n k layout t)) : int * int = real
     open real_core
     inl a,b =
         typecase use with
@@ -45,10 +45,10 @@ inl fragment_dim forall use m n k layout t. (f : fragment use m n k layout t) : 
     | row_major => a,b
     | col_major => b,a
 
-inl assert_fragment_dimension forall use m n k layout t el. (f : fragment use m n k layout t) (t : tensor (int * int) el) : () =
+inl assert_fragment_dimension forall use m n k layout t el. (f : ref (fragment use m n k layout t)) (t : tensor (int * int) el) : () =
     assert (fragment_dim f = t.dim) "The fragment's dimensions must match that of the tensor."
 
-inl load_matrix_sync_array forall use m n k layout t el. (f : fragment use m n k layout t) (ar : array el) (ldm : int) : () =
+inl load_matrix_sync_array forall use m n k layout t el. (f : ref (fragment use m n k layout t)) (ar : array el) (ldm : int) : () =
     real
         typecase use with
         | accumulator =>
@@ -57,7 +57,7 @@ inl load_matrix_sync_array forall use m n k layout t el. (f : fragment use m n k
         | _ => 
             $"wmma::load_matrix_sync(!f, !ar, !ldm)" : ()
 
-inl load_matrix_sync forall use m n k layout frag_in t. (f : fragment use m n k layout frag_in) (t : tensor (int * int) t) : () =
+inl load_matrix_sync forall use m n k layout frag_in t. (f : ref (fragment use m n k layout frag_in)) (t : tensor (int * int) t) : () =
     assert_fragment_dimension f t
     load_matrix_sync_array f (ptr_at_current_offset t) (stride_fst t)
     real
@@ -68,7 +68,7 @@ inl load_matrix_sync forall use m n k layout frag_in t. (f : fragment use m n k 
             $"for (int t = 0; t < !f.num_elements; t++) { !f.x[t] = wmma::__float_to_tf32(!f.x[t]); }" : ()
         | _ => real_core.error_type "This type is not supported."
 
-inl store_matrix_sync_array forall use m n k layout t. (ar : array t) (f : fragment use m n k layout t) (ldm : int) : () = 
+inl store_matrix_sync_array forall use m n k layout t. (ar : array t) (f : ref (fragment use m n k layout t)) (ldm : int) : () = 
     real
         typecase use with
         | accumulator =>
@@ -77,16 +77,16 @@ inl store_matrix_sync_array forall use m n k layout t. (ar : array t) (f : fragm
         | _ => 
             $"wmma::store_matrix_sync(!ar, !f, !ldm)" : ()
             
-inl store_matrix_sync forall use m n k layout t. (t : tensor (int * int) t) (f : fragment use m n k layout t) : () = 
+inl store_matrix_sync forall use m n k layout t. (t : tensor (int * int) t) (f : ref (fragment use m n k layout t)) : () = 
     assert_fragment_dimension f t
     store_matrix_sync_array (ptr_at_current_offset t) f (stride_fst t)
 
-inl fill_fragment forall use m n k layout t. (f : fragment use m n k layout t) (v : t) : () =  $"wmma::fill_fragment(!f, !v)"
+inl fill_fragment forall use m n k layout t. (f : ref (fragment use m n k layout t)) (v : t) : () =  $"wmma::fill_fragment(!f, !v)"
     
 inl mma_sync forall m n k a_layout b_layout out_layout t_in t_out. 
-        (d : fragment accumulator m n k out_layout t_out) 
-        (a : fragment matrix_a m n k a_layout t_in) 
-        (b : fragment matrix_b m n k b_layout t_in) 
-        (c : fragment accumulator m n k out_layout t_out) 
+        (d : ref (fragment accumulator m n k out_layout t_out))
+        (a : ref (fragment matrix_a m n k a_layout t_in)) 
+        (b : ref (fragment matrix_b m n k b_layout t_in)) 
+        (c : ref (fragment accumulator m n k out_layout t_out)) 
         : () =
     $"wmma::mma_sync(!d, !a, !b, !c)"
