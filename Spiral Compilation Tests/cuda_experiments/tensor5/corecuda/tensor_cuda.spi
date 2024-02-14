@@ -1,3 +1,5 @@
+open corebase
+open tensorm
 open utils
 
 // Returns the pointer at the specified index.
@@ -20,3 +22,12 @@ inl tensor_create_shared forall dim el. (dim : dim) : tensor dim el =
         stride 
         }
     tensor {dim bodies=real infer_map `el create_body}
+
+// Indexes into an tensor. Returns a reference to an element instead of the actual element.
+inl tensor_index_ref forall dim el. (i : dim) (tensorm.tensor {bodies dim} : tensorm.tensor dim el) : ref el = real 
+    open tensorm.utils
+    assert_indices i dim
+    map (fun (tensorm.tensor_body {array stride offset}) =>
+        typecase `array with
+        | ~ar ~el => index_ref `ar `el array (calculate_offset stride i offset)
+        ) bodies

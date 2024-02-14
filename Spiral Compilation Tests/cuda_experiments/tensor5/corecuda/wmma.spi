@@ -17,19 +17,22 @@ nominal matrix_b = $"wmma::matrix_b"
 nominal accumulator = $"wmma::accumulator"
 
 nominal tf32 = $"wmma::precision::tf32"
-nominal fragment use m n k layout t = $"wmma::fragment<`use, @m, @n, @k, `t, `layout>"
+nominal fragment use m n k layout t = `(
+    typecase use with
+    | accumulator => ``($"wmma::fragment<`use, @m, @n, @k, `t>")
+    | _ => ``($"wmma::fragment<`use, @m, @n, @k, `t, `layout>")
+    )
 
 instance index fragment use m n k layout = fun f i => $"!f.x[!i]"
 instance set fragment use m n k layout = fun f i v => $"!f.x[!i] = !v"
 instance length fragment use m n k layout = fun f => $"!f.num_elements"
 
 open tensorm
-open tensorm.cuda
+open tensor_cuda
 
 inl create_fragment forall use m n k layout t. : fragment use m n k layout t = real
-    typecase use with
-    | accumulator => $"wmma::fragment<`use, @m, @n, @k, `t> v$" : fragment use m n k layout t
-    | _ => $"wmma::fragment<`use, @m, @n, @k, `t, `layout> v$" : fragment use m n k layout t
+    typecase fragment use m n k layout t with ~f => 
+    $"`f v$" : fragment use m n k layout t
 
 inl fragment_dim forall use m n k layout t. (f : fragment use m n k layout t) : int * int = real
     open real_core

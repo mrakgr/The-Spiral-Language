@@ -17,13 +17,13 @@ modules:
         tensorm/
             utils*
             type-
-            cuda
             partitionm
             
     corepython/
         
     corecuda/
         base-
+        tensor_cuda
         intrinsic
         sam 
         inv_array_kernels

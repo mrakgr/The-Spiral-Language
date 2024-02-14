@@ -51,8 +51,9 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
     
     inl bank_size = warp_size() * 4 / (sizeof : _ float).value 
     inl float4 = 16 / (sizeof : _ float).value 
-    inl threads_per_block = 512
+    inl threads_per_block = 1024
     inl blocks_per_grid = 1
+    inl number_of_warps = threads_per_block / warp_size()
     
     inl padding = {
         a = (swap (m_frag, k_frag) a_trans |> snd) % bank_size
@@ -79,7 +80,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
         global "using namespace cooperative_groups;"
 
         open cooperative_groups
-        open tensorm.cuda
+        open tensor_cuda
 
         inl block = create_block()
         inl thread : _ (_ 1 _) = create_thread_block_tile block
@@ -228,7 +229,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                     |> reorder (fun ({m},{n}),frag => ({m},{n}),frag)
 
                 loop_warps_in_block' (fst c_shared.dim) fun m,n =>
-                    assert (real open real_core in utils.prod (fst c_shared.dim) * 32 = threads_per_block) "For this example to work the product of the C tile dimensions have to match the number of threads."
+                    assert (real open real_core in utils.prod (fst c_shared.dim) = number_of_warps) "For this example to work the product of the C tile dimensions have to match the number of warps."
                     // Otherwise, the accumulator and the C fragments would get overwritten.
 
                     inl c = apply (m,n) c_shared
