@@ -20,12 +20,12 @@ inl array forall t. (x : array_base t) : tensor int t = fromArray (array x)
 // Asserts that the tensor length calculated using the default integer matches that of the 64 bit integer. 
 // Also asserts that all the elements of its dimension are positive.
 inl assert_long_length forall dim. (len : int) (dim : dim) = 
+    inl () = real 
+        open real_core
+        iter (fun a => assert (0 < a) "All the dimensions of a tensor have to be positive.") dim
     inl safe_prod : u64 = real 
         open real_core
-        foldBack (fun a s => 
-            assert (0 < a) "All the dimensions of a tensor have to be positive."
-            conv `u64 a * s
-            ) dim 1u64
+        foldBack (fun a s => conv `u64 a * s) dim 1u64
     backend_switch {
         python = fun () => assert (len <= limit.max) "The tensors full length cannot be adequately represented by the default integer."
         cuda = fun () => assert (conv len = safe_prod) "The tensors full length cannot be adequately represented by the default integer."

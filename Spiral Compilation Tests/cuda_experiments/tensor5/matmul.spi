@@ -68,7 +68,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
     
     inl bank_size = warp_size() * 4 / (sizeof : _ float).value 
     inl float4 = 16 / (sizeof : _ float).value 
-    inl blocks_per_grid = 1
+    inl blocks_per_grid = 8
     
     inl padding = {
         a = (swap (m_frag, k_frag) a_trans |> snd) % bank_size
