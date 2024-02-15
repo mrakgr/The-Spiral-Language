@@ -98,7 +98,6 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
         open tensor_cuda
 
         inl block = create_block()
-        inl warp : _ (_ warp_size _) = create_thread_block_tile block
         inl thread : _ (_ 1 _) = create_thread_block_tile block
 
         inl {a_shared b_shared c_shared} = 

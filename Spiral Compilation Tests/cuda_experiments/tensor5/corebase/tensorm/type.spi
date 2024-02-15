@@ -30,7 +30,6 @@ inl assert_long_length forall dim. (len : int) (dim : dim) =
         python = fun () => assert (len <= limit.max) "The tensors full length cannot be adequately represented by the default integer."
         cuda = fun () => assert (conv len = safe_prod) "The tensors full length cannot be adequately represented by the default integer."
     }
-    
 
 // Create a tensor of the specified dimensions. The elements of the dimension should be ints.
 inl tensor_create forall dim el. (dim : dim) : tensor dim el = 
