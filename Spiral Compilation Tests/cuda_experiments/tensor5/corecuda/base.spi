@@ -7,7 +7,11 @@ nominal sa dim el = $"array<`el,@dim>"
 nominal ref t = $"`t &"
 inl ref forall t. (x : t) : ref t = $"`t & v$ = !x"
 // Doesn't actually dereference the reference. For using local scope only.
-inl (~#) forall t. (x : ref t) : t = $"auto v$ = !x" 
+inl (~#) forall t. (x : ref t) : t = $"`t & v$ = !x" 
+
+inl ref_index x i = index #x i
+inl ref_set x i v = set #x i v
+inl ref_length x = length #x
 
 // instance set ref = fun x i v => 
 // instance create array = fun size => array !!!!ArrayCreate(`el,size)

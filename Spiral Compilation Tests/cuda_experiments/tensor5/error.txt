@@ -1,14 +1,61 @@
-Error trace on line: 3, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\test91\main.spi.
-inl main() =
-        ^
-Error trace on line: 4, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\test91\main.spi.
-    inl kernel_i, vars = join_backend Cuda
+Error trace on line: 300, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\matmul.spi.
+    inl a_trans = (real typecase a_layout with wmma.row_major => false | wmma.col_major => true) : bool
     ^
-Error trace on line: 5, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\test91\main.spi.
-        inl _ = ;[ps $'1' : ps int]
+Error trace on line: 301, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\matmul.spi.
+    inl b_trans = (real typecase b_layout with wmma.row_major => false | wmma.col_major => true) : bool
+    ^
+Error trace on line: 303, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\matmul.spi.
+    inl [a; b; c] = listm.map random_normal ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
+    ^
+Error trace on line: 303, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\matmul.spi.
+    inl [a; b; c] = listm.map random_normal ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
         ^
-Error trace on line: 5, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\compilation_tests\test91\main.spi.
-        inl _ = ;[ps $'1' : ps int]
-                ^
-Compiler error: Type not supported in the codegen.
-Got: YApply (YNominal <tag 0>, YPrim Int32T)
+Error trace on line: 304, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\matmul.spi.
+    inl d = cp_matmul (a,a_trans) (b,b_trans) c
+    ^
+Error trace on line: 306, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\matmul.spi.
+    inl gemm_config_tf32 = gemm_config {m_tile=128; n_tile=128; k_tile=64; threads_per_block=512} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
+    ^
+Error trace on line: 306, column: 28 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\matmul.spi.
+    inl gemm_config_tf32 = gemm_config {m_tile=128; n_tile=128; k_tile=64; threads_per_block=512} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
+                           ^
+Error trace on line: 13, column: 78 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\matmul.spi.
+inl gemm_config forall m_frag n_frag k_frag frag_in a_layout b_layout float. {m_tile n_tile k_tile threads_per_block}
+                                                                             ^
+Error trace on line: 15, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\matmul.spi.
+    inl m_frag = real real_core.type_lit_to_lit `m_frag
+    ^
+Error trace on line: 16, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\matmul.spi.
+    inl n_frag = real real_core.type_lit_to_lit `n_frag
+    ^
+Error trace on line: 17, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\matmul.spi.
+    inl k_frag = real real_core.type_lit_to_lit `k_frag
+    ^
+Error trace on line: 19, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\matmul.spi.
+    inl number_of_warps = threads_per_block / warp_size()
+    ^
+Error trace on line: 20, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\matmul.spi.
+    inl n_warp = min number_of_warps (n_tile / n_frag)
+    ^
+Error trace on line: 21, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\matmul.spi.
+    inl number_of_warps = number_of_warps / n_warp
+    ^
+Error trace on line: 22, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\matmul.spi.
+    inl m_warp = min number_of_warps (m_tile / m_frag)
+    ^
+Error trace on line: 24, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\matmul.spi.
+    assert (m_warp * n_warp = number_of_warps) "The product of the warp dimensions has to equal the number of warps."
+    ^
+Error trace on line: 121, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\core.spi.
+inl assert (c : bool) (msg : string) : () = real assert c msg
+                                                 ^
+Error trace on line: 246, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\real_core.spir.
+    if c = false then 
+    ^
+Error trace on line: 247, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+        ^
+Error trace on line: 247, column: 40 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+                                       ^
+The product of the warp dimensions has to equal the number of warps.
