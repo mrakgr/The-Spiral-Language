@@ -61,6 +61,7 @@ inl (~#) forall el. (partition x : _ el) : partition_offsets el =
 inl tensor_from_offsets forall d el. (base : array u8) (offsets {dim offsets} : _ d el) : tensor d el = 
     open utils
     inl stride, len = real calculate_stride_len dim
+    assert_long_length len dim
     inl bodies = real 
         map (fun (offset i as z) => 
             typecase `z with offset ~t =>
