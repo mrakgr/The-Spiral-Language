@@ -1,0 +1,61 @@
+Error trace on line: 33, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\utils.spir.
+        | {} as ar => record_map (fun {value} => f value) ar
+          ^
+Error trace on line: 34, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\utils.spir.
+        | ar => index ar
+          ^
+Error trace on line: 34, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\utils.spir.
+        | ar => index ar
+                ^
+Error trace on line: 99, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\partitionm.spi.
+        typecase `x with
+        ^
+Error trace on line: 100, column: 29 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\partitionm.spi.
+        | offsets ~d ~el => tensor_from_offsets `d `el base x
+                            ^
+Error trace on line: 61, column: 57 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\partitionm.spi.
+inl tensor_from_offsets forall d el. (base : array u8) (offsets {dim offsets} : _ d el) : tensor d el = 
+                                                        ^
+Error trace on line: 61, column: 65 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\partitionm.spi.
+inl tensor_from_offsets forall d el. (base : array u8) (offsets {dim offsets} : _ d el) : tensor d el = 
+                                                                ^
+Error trace on line: 63, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\partitionm.spi.
+    inl stride, len = real calculate_stride_len dim
+    ^
+Error trace on line: 63, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\partitionm.spi.
+    inl stride, len = real calculate_stride_len dim
+        ^
+Error trace on line: 64, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\partitionm.spi.
+    assert_long_length len dim
+    ^
+Error trace on line: 23, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\type.spi.
+    inl safe_prod : u64 = real 
+    ^
+Error trace on line: 29, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\type.spi.
+    backend_switch {
+    ^
+Error trace on line: 143, column: 82 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\core.spi.
+inl backend_switch forall t. (x : {cuda : () -> t; python : () -> t}) : t = real backend_switch x
+                                                                                 ^
+Error trace on line: 242, column: 73 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\real_core.spir.
+inl backend_switch x = !!!!BackendSwitch(("Cuda", x.cuda()), ("Python", x.python()))
+                                                                        ^
+Error trace on line: 30, column: 22 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\type.spi.
+        python = fun () => assert (limit.max < len) "The tensors full length cannot be adequately represented by the default integer."
+                     ^
+Error trace on line: 30, column: 28 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\type.spi.
+        python = fun () => assert (limit.max < len) "The tensors full length cannot be adequately represented by the default integer."
+                           ^
+Error trace on line: 121, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\core.spi.
+inl assert (c : bool) (msg : string) : () = real assert c msg
+                                                 ^
+Error trace on line: 246, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\real_core.spir.
+    if c = false then 
+    ^
+Error trace on line: 247, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+        ^
+Error trace on line: 247, column: 40 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+                                       ^
+The tensors full length cannot be adequately represented by the default integer.
