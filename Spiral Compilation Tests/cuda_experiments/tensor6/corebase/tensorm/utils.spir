@@ -8,6 +8,14 @@ inl infer_map forall el. g =
         | _ => g `el
     f `el
 
+inl infer_fold forall el. g =
+    inl rec f forall el. s =
+        typecase el with
+        | ~a * ~b => f `b (f `a s)
+        | {} => record_type_fold (fun state key => forall value. => f `value state) s `el
+        | _ => g `el s
+    f `el
+
 inl infer_mapFold forall el. g =
     inl rec f forall el. s =
         typecase el with
@@ -17,7 +25,7 @@ inl infer_mapFold forall el. g =
             (a, b), s        
         | {} => 
             record_type_fold (fun (m,state) key => forall value. => 
-                inl value, state = f state `value
+                inl value, state = f `value state
                 {m with $key=value}, state
                 ) ({}, s) `el
         | _ => g `el s
