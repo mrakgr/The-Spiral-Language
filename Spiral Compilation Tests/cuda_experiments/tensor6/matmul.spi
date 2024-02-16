@@ -104,9 +104,9 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             inl extern = $"extern __shared__ unsigned char v$[]"
             partitionm.from_partition_offsets (extern, memory.length) memory
 
-        inl a_shared = a_shared |> view_snd {from=0; nearTo=snd a_shared.dim - padding.a}
-        inl b_shared = b_shared |> view_snd {from=0; nearTo=snd b_shared.dim - padding.b}
-        inl c_shared = c_shared |> view_snd {from=0; nearTo=snd c_shared.dim - padding.c}
+        inl a_shared = a_shared |> view_snd (fun nearTo => {from=0; nearTo=nearTo - padding.a})
+        inl b_shared = b_shared |> view_snd (fun nearTo => {from=0; nearTo=nearTo - padding.b})
+        inl c_shared = c_shared |> view_snd (fun nearTo => {from=0; nearTo=nearTo - padding.c})
         
         loop_blocks_in_grid' (fst a.dim, fst b.dim) fun m,n =>
             inl a = apply m a

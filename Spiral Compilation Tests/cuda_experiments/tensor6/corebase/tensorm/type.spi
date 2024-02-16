@@ -105,8 +105,11 @@ inl apply forall a b el. : a -> tensor (a * b) el -> tensor b el = apply_templ f
 inl apply_snd forall a b el. : b -> tensor (a * b) el -> tensor a el = apply_templ snd fst
 
 // The template function for the tensor view.
-inl view_templ forall dim dim' el. (f : dim -> dim') (g : dim -> dim' -> dim) (i : {from : dim'; nearTo : dim'}) (tensor {bodies dim} : tensor dim el) : tensor dim el = real
+inl view_templ forall dim dim' el. (f : dim -> dim') (g : dim -> dim' -> dim) 
+        (i : dim' -> {from : dim'; nearTo : dim'}) 
+        (tensor {bodies dim} : tensor dim el) : tensor dim el = real
     open real_core
+    inl i = i (f dim)
     assert_indices_view i.from i.nearTo (f dim)
     tensor `dim `el {
         dim = map2 (fun from nearTo => nearTo - from) i.from i.nearTo |> g dim
@@ -120,11 +123,11 @@ inl view_templ forall dim dim' el. (f : dim -> dim') (g : dim -> dim' -> dim) (i
         }
 
 // Takes a slice of the tensor given the range.
-inl view forall dim el. : {from : dim; nearTo : dim} -> tensor dim el -> tensor dim el = view_templ id (fun dim dim' => dim')
+inl view forall dim el. : (dim -> {from : dim; nearTo : dim}) -> tensor dim el -> tensor dim el = view_templ id (fun dim dim' => dim')
 // Takes a slice of the tensor given the range for the first dimension.
-inl view_fst forall a b el. : {from : a; nearTo : a} -> tensor (a * b) el -> tensor (a * b) el = view_templ fst (fun dim dim' => dim', snd dim)
+inl view_fst forall a b el. : (a -> {from : a; nearTo : a}) -> tensor (a * b) el -> tensor (a * b) el = view_templ fst (fun dim dim' => dim', snd dim)
 // Takes a slice of the tensor given the range for the second dimension.
-inl view_snd forall a b el. : {from : b; nearTo : b} -> tensor (a * b) el -> tensor (a * b) el = view_templ snd (fun dim dim' => fst dim, dim')
+inl view_snd forall a b el. : (b -> {from : b; nearTo : b}) -> tensor (a * b) el -> tensor (a * b) el = view_templ snd (fun dim dim' => fst dim, dim')
 
 // The template function for the tensor split.
 inl split_templ forall dim dim' el. (f : dim -> dim') view (i : list dim') (t : tensor dim el) : list (tensor dim el) =
@@ -133,7 +136,7 @@ inl split_templ forall dim dim' el. (f : dim -> dim') view (i : list dim') (t : 
 
     inl i, dim = listm.mapFold (fun from dim => inl nearTo = add from dim in {from nearTo}, nearTo) zero i
     assert (dim = f t.dim) "The size of tensor dimension being split must equal the sum of the arguments."
-    listm.map (fun i => view i t) i
+    listm.map (fun i => view (const i) t) i
 
 // Splits the tensor given a list of sizes. The list of sizes must sum up to the tensor dimension.
 inl split forall dim el. : list dim -> tensor dim el -> list (tensor dim el) = split_templ id view
