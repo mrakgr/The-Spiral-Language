@@ -37,7 +37,7 @@ inl cos x = !!!!Cos(x)
 // Unsafe conversion.
 inl conv forall b. x = !!!!Conv(`b, x)
 // Division with rounding up.
-inl divup a b = (a + b - conv `(`a) 1) / conv `(`a) 2
+inl divup a b = (a + b - conv `(`a) 1) / b
 
 // Applies the first argument to the second.
 inl (|>) a b = b a

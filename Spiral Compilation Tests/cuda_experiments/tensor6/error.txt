@@ -1,61 +1,63 @@
-Error trace on line: 33, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\utils.spir.
-        | {} as ar => record_map (fun {value} => f value) ar
-          ^
-Error trace on line: 34, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\utils.spir.
-        | ar => index ar
-          ^
-Error trace on line: 34, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\utils.spir.
-        | ar => index ar
-                ^
-Error trace on line: 99, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\partitionm.spi.
-        typecase `x with
-        ^
-Error trace on line: 100, column: 29 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\partitionm.spi.
-        | offsets ~d ~el => tensor_from_offsets `d `el base x
-                            ^
-Error trace on line: 61, column: 57 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\partitionm.spi.
-inl tensor_from_offsets forall d el. (base : array u8) (offsets {dim offsets} : _ d el) : tensor d el = 
-                                                        ^
-Error trace on line: 61, column: 65 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\partitionm.spi.
-inl tensor_from_offsets forall d el. (base : array u8) (offsets {dim offsets} : _ d el) : tensor d el = 
-                                                                ^
-Error trace on line: 63, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\partitionm.spi.
-    inl stride, len = real calculate_stride_len dim
-    ^
-Error trace on line: 63, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\partitionm.spi.
-    inl stride, len = real calculate_stride_len dim
-        ^
-Error trace on line: 64, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\partitionm.spi.
-    assert_long_length len dim
-    ^
-Error trace on line: 23, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\type.spi.
-    inl safe_prod : u64 = real 
-    ^
-Error trace on line: 29, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\type.spi.
-    backend_switch {
-    ^
-Error trace on line: 143, column: 82 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\core.spi.
-inl backend_switch forall t. (x : {cuda : () -> t; python : () -> t}) : t = real backend_switch x
+Error trace on line: 2, column: 82 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\loop.spi.
+inl while' (cond : () -> bool) (body : () -> ()) : () = !!!!While((join cond()),(body()))
                                                                                  ^
-Error trace on line: 242, column: 73 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\real_core.spir.
-inl backend_switch x = !!!!BackendSwitch(("Cuda", x.cuda()), ("Python", x.python()))
-                                                                        ^
-Error trace on line: 30, column: 22 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\type.spi.
-        python = fun () => assert (limit.max < len) "The tensors full length cannot be adequately represented by the default integer."
-                     ^
-Error trace on line: 30, column: 28 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\tensorm\type.spi.
-        python = fun () => assert (limit.max < len) "The tensors full length cannot be adequately represented by the default integer."
-                           ^
-Error trace on line: 121, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\core.spi.
-inl assert (c : bool) (msg : string) : () = real assert c msg
+Error trace on line: 25, column: 39 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+                                      ^
+Error trace on line: 25, column: 45 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+                                            ^
+Error trace on line: 25, column: 57 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+                                                        ^
+Error trace on line: 28, column: 44 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\loop.spi.
+inl forBy' range body = forBy range (fun i () => body i) ()
+                                           ^
+Error trace on line: 28, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\loop.spi.
+inl forBy' range body = forBy range (fun i () => body i) ()
                                                  ^
-Error trace on line: 246, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\real_core.spir.
-    if c = false then 
+Error trace on line: 59, column: 18 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\core.spi.
+inl (>>) a b x = b (a x)
+                 ^
+Error trace on line: 125, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\matmul.spi.
+                inl a = apply k a
+                ^
+Error trace on line: 126, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\matmul.spi.
+                inl b = apply k b
+                ^
+Error trace on line: 128, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\matmul.spi.
+                if a_trans then
+                ^
+Error trace on line: 141, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\matmul.spi.
+                    inl a = 
+                    ^
+Error trace on line: 146, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\matmul.spi.
+                    inl a_shared =
+                    ^
+Error trace on line: 151, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\matmul.spi.
+                    async_memcpy_tensor thread {from=factorize_sizeof_16 a; to=factorize_sizeof_16 a_shared}
+                    ^
+Error trace on line: 151, column: 48 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\matmul.spi.
+                    async_memcpy_tensor thread {from=factorize_sizeof_16 a; to=factorize_sizeof_16 a_shared}
+                                               ^
+Error trace on line: 151, column: 54 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\matmul.spi.
+                    async_memcpy_tensor thread {from=factorize_sizeof_16 a; to=factorize_sizeof_16 a_shared}
+                                                     ^
+Error trace on line: 224, column: 80 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\type.spi.
+inl factorize_sizeof_16 forall a el. (t : tensor a el) : tensor (a * int) el = factorize_sizeof t 16
+                                                                               ^
+Error trace on line: 215, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\type.spi.
+    inl v = divup target_size (sizeof : _ el).value
     ^
-Error trace on line: 247, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\real_core.spir.
-        if lit_is c && lit_is msg then error_type msg
+Error trace on line: 217, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\type.spi.
+        open real_core
         ^
-Error trace on line: 247, column: 40 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor5\corebase\real_core.spir.
-        if lit_is c && lit_is msg then error_type msg
-                                       ^
-The tensors full length cannot be adequately represented by the default integer.
+Error trace on line: 221, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\type.spi.
+    factorize t v
+    ^
+Error trace on line: 193, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\type.spi.
+    tensor {
+    ^
+Type error in nominal constructor.
+Got: {bodies : tensor_body (({m : i32} * {m_frag : i32} * {k : i32} * {k_frag : i32}) * i32) f32; dim : {m : i32} * {m_frag : i32} * {k : i32} * {k_frag : i32}}
+Expected: {bodies : tensor_body (({m : i32} * {m_frag : i32} * {k : i32} * {k_frag : i32}) * i32) f32; dim : ({m : i32} * {m_frag : i32} * {k : i32} * {k_frag : i32}) * i32}
