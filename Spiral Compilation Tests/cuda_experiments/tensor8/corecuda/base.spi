@@ -13,12 +13,6 @@ inl ref_index x i = index #x i
 inl ref_set x i v = set #x i v
 inl ref_length x = length #x
 
-// instance set ref = fun x i v => 
-// instance create array = fun size => array !!!!ArrayCreate(`el,size)
-// instance index array = fun (array ar) i => !!!!ArrayIndex(ar,i)
-// instance set array = fun (array ar) i v => !!!!ArrayIndexSet(ar,i,v)
-// instance length array = fun (array ar) => !!!!ArrayLength(`int,ar)
-
 // Indexes into an array. Returns a reference to the element instead of the actual element.
 prototype index_ref ar el : ar el -> int -> ref el
 instance index_ref array = fun array i => $"`el & v$ = !array[!i]"
@@ -45,7 +39,7 @@ inl run' ({blocks_per_grid threads_per_block shared_mem} : run_config) f =
     global "options.append('--diag-suppress=550')"
     global "options.append('--dopt=on')"
     global "options.append('--restrict')"
-    // global "options.append('--maxrregcount=64')"
+    global "options.append('--maxrregcount=255')"
     // global "options.append('--define-macro=NDEBUG')"
     // global "options.append('--device-debug')"
     global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=False, options=tuple(options))"
