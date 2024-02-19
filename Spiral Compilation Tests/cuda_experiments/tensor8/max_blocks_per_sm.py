@@ -7,6 +7,7 @@ def max_blocks_per_sm(device, kernel, block_size,is_print=False):
 
     # Define the shared memory per block
     shared_mem_per_block = kernel.shared_size_bytes
+    local_size_bytes = kernel.local_size_bytes
     attr = device.attributes
 
     x = min(
@@ -24,6 +25,7 @@ def max_blocks_per_sm(device, kernel, block_size,is_print=False):
         print(f"The minimum due to the amount of shared memory per multiprocessor is: {floordiv(attr['MaxSharedMemoryPerMultiprocessor'], shared_mem_per_block)}")
         print(f"The amount of shared memory per multiprocessor is:                    {attr['MaxSharedMemoryPerMultiprocessor']}")
         print(f"The amount of (static) shared memory per block used is:               {shared_mem_per_block}")
+        print(f"The amount of local memory per thread used in bytes is:               {local_size_bytes}")
         print(f"The true minimum is:                                                  {x}")
 
     return x
