@@ -1,0 +1,143 @@
+// Binary addition.
+inl (+) forall t {number}. (a : t) (b : t) : t = !!!!Add(a,b)
+// Binary subtraction.
+inl (-) forall t {number}. (a : t) (b : t) : t = !!!!Sub(a,b)
+// Binary multiplication.
+inl (*) forall t {number}. (a : t) (b : t) : t = !!!!Mult(a,b)
+// Binary power.
+inl (**) forall t {float}. (a : t) (b : t) : t = !!!!Pow(a,b)
+// Binary division.
+inl (/) forall t {number}. (a : t) (b : t) : t = !!!!Div(a,b)
+// Binary modulo.
+inl (%) forall t {number}. (a : t) (b : t) : t = !!!!Mod(a,b)
+
+// Binary less-than-or-equals.
+inl (<=) forall t {number}. (a : t) (b : t) : bool = !!!!LTE(a,b)
+// Binary less-than.
+inl (<) forall t {number}. (a : t) (b : t) : bool = !!!!LT(a,b)
+// Binary greater-than.
+inl (>) forall t {number}. (a : t) (b : t) : bool = !!!!GT(a,b)
+// Binary greater-than-or-equals.
+inl (>=) forall t {number}. (a : t) (b : t) : bool = !!!!GTE(a,b)
+
+// Returns the maximum of the two terms.
+inl max a b = if a >= b then a else b
+// Returns the minimum of the two terms.
+inl min a b = if a < b then a else b
+
+// Binary equals.
+inl (=) forall t {prim}. (a : t) (b : t) : bool = !!!!EQ(a,b)
+// Binary unequals.
+inl (<>) forall t {prim}. (a : t) (b : t) : bool = !!!!NEQ(a,b)
+
+// 32/64-bit float infinity
+inl inf forall t {float}. : t = !!!!Infinity(`t)
+// 32/64-bit pi
+inl pi forall t {float}. : t = !!!!Pi(`t)
+// Unary negation.
+inl (~-) forall t {number}. (x : t) : t = !!!!Neg(x)
+// Returns boolean whether the float is a Nan.
+inl nan_is forall t {float}. (x : t) : bool = !!!!NanIs(x)
+// Evaluates an term and throws away the result.
+inl ignore x = ()
+// Returns an term after evaluating it.
+inl id x = x
+// Throws away the second argument and returns the first.
+inl const x _ = x
+// Applies the unit to the function.
+inl unconst x = x()
+// Boolean negation.
+inl not x = x = false
+// Gets the first elements of a pair.	
+inl fst (a,b) = a
+// Gets the second element of a pair.	
+inl snd (a,b) = b
+
+// Pipe forward.
+inl (|>) a b = b a
+// Compose forward.
+inl (>>) a b x = b (a x)
+// Pipe backward.
+inl (<|) a b = a b
+// Compose backward.
+inl (<<) a b x = a (b x)
+// Pushes a variable to runtime. If it is a function, converts it to a closure.
+inl dyn ~x = x
+
+// Bitwise and.
+inl (&&&) forall t {int}. (a : t) (b : t) : t = !!!!BitwiseAnd(a,b)
+// Bitwise or.
+inl (|||) forall t {int}. (a : t) (b : t) : t = !!!!BitwiseOr(a,b)
+// Bitwise xor.
+inl (^^^) forall t {int}. (a : t) (b : t) : t = !!!!BitwiseXor(a,b)
+// Bitwise complement.
+inl (~~~~) forall t {int}. (a : t) : t = !!!!BitwiseComplement(a)
+
+// Shift left.
+inl (<<<) forall t {int}. (a : t) (b : i32) : t = !!!!ShiftLeft(a,b)
+// Shift right.
+inl (>>>) forall t {int}. (a : t) (b : i32) : t = !!!!ShiftRight(a,b)
+
+// Natural Logarithm.
+inl log forall t {float}. (x : t) : t = !!!!Log(x)
+// Exponent.
+inl exp forall t {float}. (x : t) : t = !!!!Exp(x)
+// Hyperbolic tangent. 
+inl tanh forall t {float}. (x : t) : t = !!!!Tanh(x)
+// Square root.
+inl sqrt forall t {float}. (x : t) : t = !!!!Sqrt(x)
+// Sin
+inl sin forall t {float}. (x : t) : t = !!!!Sin(x)
+// Cos
+inl cos forall t {float}. (x : t) : t = !!!!Cos(x)
+// Unsafe conversion.
+inl conv forall a {number} b {number}. (x : a) : b = !!!!Conv(`b, x)
+// Division with rounding up.
+inl divup forall t {number}. (a : t) (b : t) : t = real real_core.divup a b
+
+// Creates a heap mutable layout type.
+inl mut forall t. (x : t): mut t = !!!!LayoutToHeapMutable(x)
+// Unboxes a heap mutable layout type.
+inl (~*) forall t. (x : mut t): t = !!!!LayoutIndex(x)
+// Creates a heap layout type.
+inl heap forall t. (x : t): heap t = !!!!LayoutToHeap(x)
+// Unboxes a heap layout type.
+inl (~!) forall t. (x : heap t): t = !!!!LayoutIndex(x)
+
+// Returns the absolute value.
+inl abs x = max x -x
+
+// Converts a symbol to a string literal.
+inl symbol_to_string forall t {symbol}. (x : t) : string = !!!!SymbolToString(x)
+
+open real_core
+// Structural polymorphic equality for every type in the language (apart from functions.)
+inl (=) forall t. (a : t) (b : t) : bool = real a = b
+// Structural polymorphic inequality for every type in the language (apart from functions.)
+inl (<>) forall t. (a : t) (b : t) : bool = real a <> b
+// Structural polymorphic comparison for every type in the language (apart from functions.)
+inl comp forall t. (a : t) (b : t) : order = real comp a b
+// Asserts an term. If the conditional and the message are literals it raises a type error instead.
+inl assert (c : bool) (msg : string) : () = real assert c msg
+// Gathers the term variables from the two arguments, that is literals and runtime variables, places them in a set and compares the two using references equality.
+inl uses_original_term_vars forall a b. (a : a) (b : b) : bool = real uses_original_term_vars a b
+// Asserts that the two arguments have the same term variables under reference equalty when placed in a set. 
+// Also, asserts that the lengths match to not get fooled by duplicates.
+inl assert_term_vars_are_equal_under_set_equality forall a b. (a : a) (b : b) : b = real assert_term_vars_are_equal_under_set_equality a b
+// Asserts that the two arguments have the same nominals (as well as literals and runtime variables outside of them) under reference equalty when placed in a set. 
+// Also, asserts that the lengths match to not get fooled by duplicates.
+inl assert_nominals_are_equal_under_set_equality forall a b. (a : a) (b : b) : b = real assert_nominals_are_equal_under_set_equality a b
+// Raises an exception at runtime.
+inl failwith forall t. (msg : string) : t = real failwith `t msg
+// Returns boolean whether the term is a literal.
+inl lit_is x : bool = !!!!LitIs(x)
+// Prints a term at compile time.
+inl print_static x : () = !!!!PrintStatic(x)
+// Returns boolean whether the term is a runtime variable.
+inl var_is forall t. (x : t) : bool = real var_is x
+// Raises a type error during partial evaluation.
+inl error_type (msg : string) = real error_type msg
+// Converts a nominal to a different equivalent type. `sa (add 2 2) i32` to `sa 4 i32` for example. It will give an error if the type is not equivalent.
+inl nominal_recreate forall a b. (x : a): b = real nominal_recreate `b x
+// Backend switch for Python/Cuda.
+inl backend_switch forall t. (x : {cuda : () -> t; python : () -> t}) : t = real backend_switch x

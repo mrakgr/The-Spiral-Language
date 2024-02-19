@@ -1,0 +1,62 @@
+Error trace on line: 144, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\corecuda\cooperative_groups.spi.
+    inl (i,cond,is_init as state) = _dup (from,from < nearTo,true)
+    ^
+Error trace on line: 144, column: 10 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\corecuda\cooperative_groups.spi.
+    inl (i,cond,is_init as state) = _dup (from,from < nearTo,true)
+         ^
+Error trace on line: 144, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\corecuda\cooperative_groups.spi.
+    inl (i,cond,is_init as state) = _dup (from,from < nearTo,true)
+           ^
+Error trace on line: 144, column: 28 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\corecuda\cooperative_groups.spi.
+    inl (i,cond,is_init as state) = _dup (from,from < nearTo,true)
+                           ^
+Error trace on line: 145, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\corecuda\cooperative_groups.spi.
+    while' (fun () => cond) fun () =>
+    ^
+Error trace on line: 2, column: 82 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\corebase\loop.spi.
+inl while' (cond : () -> bool) (body : () -> ()) : () = !!!!While((join cond()),(body()))
+                                                                                 ^
+Error trace on line: 145, column: 33 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\corecuda\cooperative_groups.spi.
+    while' (fun () => cond) fun () =>
+                                ^
+Error trace on line: 146, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\corecuda\cooperative_groups.spi.
+        inl i' = i + by
+        ^
+Error trace on line: 147, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\corecuda\cooperative_groups.spi.
+        inl cond' = i' < nearTo
+        ^
+Error trace on line: 148, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\corecuda\cooperative_groups.spi.
+        body (project i) (if cond' then Some (project i') else None) is_init
+        ^
+Error trace on line: 127, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\matmul.spi.
+                inl load_shared (a,b) = 
+                ^
+Error trace on line: 178, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\matmul.spi.
+                if is_initial_k then load_shared(apply k a, apply k b)
+                ^
+Error trace on line: 179, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\matmul.spi.
+                wait thread . sync block
+                ^
+Error trace on line: 181, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\matmul.spi.
+                inl a_frag, b_frag : _ _ (fragment matrix_a m_frag n_frag k_frag a_layout frag_in) 
+                ^
+Error trace on line: 181, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\matmul.spi.
+                inl a_frag, b_frag : _ _ (fragment matrix_a m_frag n_frag k_frag a_layout frag_in) 
+                    ^
+Error trace on line: 186, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\matmul.spi.
+                inl a_shared =
+                ^
+Error trace on line: 195, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\matmul.spi.
+                inl b_shared = 
+                ^
+Error trace on line: 205, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\matmul.spi.
+                inl _ = // load_local 
+                ^
+Error trace on line: 218, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\matmul.spi.
+                match next_k with Some k => load_shared(apply k a, apply k b)
+                ^
+Error trace on line: 218, column: 35 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor7\matmul.spi.
+                match next_k with Some k => load_shared(apply k a, apply k b)
+                                  ^
+Pattern miss.
+Got: {None : () | Some : {k : i32}} : option {k : i32}
