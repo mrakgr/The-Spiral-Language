@@ -1,0 +1,61 @@
+Error trace on line: 95, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\utils.spir.
+            inl b,s = f b s
+            ^
+Error trace on line: 95, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\utils.spir.
+            inl b,s = f b s
+                      ^
+Error trace on line: 93, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\utils.spir.
+        match x with
+        ^
+Error trace on line: 94, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\utils.spir.
+        | a, b => 
+          ^
+Error trace on line: 98, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\utils.spir.
+        | {} as ar => 
+          ^
+Error trace on line: 98, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\utils.spir.
+        | {} as ar => 
+                ^
+Error trace on line: 99, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\utils.spir.
+            record_fold_back (fun {value key state=m,state} => 
+            ^
+Error trace on line: 99, column: 35 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\utils.spir.
+            record_fold_back (fun {value key state=m,state} => 
+                                  ^
+Error trace on line: 99, column: 52 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\utils.spir.
+            record_fold_back (fun {value key state=m,state} => 
+                                                   ^
+Error trace on line: 100, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\utils.spir.
+                inl value, state = f value state
+                ^
+Error trace on line: 100, column: 36 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\utils.spir.
+                inl value, state = f value state
+                                   ^
+Error trace on line: 93, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\utils.spir.
+        match x with
+        ^
+Error trace on line: 94, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\utils.spir.
+        | a, b => 
+          ^
+Error trace on line: 98, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\utils.spir.
+        | {} as ar => 
+          ^
+Error trace on line: 103, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\utils.spir.
+        | ar => g ar s
+          ^
+Error trace on line: 103, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\utils.spir.
+        | ar => g ar s
+                ^
+Error trace on line: 208, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\tensorm\type.spi.
+                        assert (x % s = 0) "The innermost dimension of every tensor body needs to have a contiguous stride."
+                        ^
+Error trace on line: 246, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\real_core.spir.
+    if c = false then 
+    ^
+Error trace on line: 247, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+        ^
+Error trace on line: 247, column: 40 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor6\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+                                       ^
+The innermost dimension of every tensor body needs to have a contiguous stride.

@@ -1,0 +1,191 @@
+open corebase
+
+nominal grid_group = $"grid_group"
+nominal thread_block = $"thread_block"
+nominal thread_block_tile size parent = $"thread_block_tile<@size, `parent>"
+nominal thread = $"thread_block_tile<1>"
+nominal coalesced_group = $"coalesced_group"
+
+prototype groupable t : t -> ()
+instance groupable thread = fun _ => ()
+instance groupable thread_block = fun _ => ()
+instance groupable thread_block_tile size parent = fun _ => ()
+instance groupable grid_group = fun _ => ()
+
+prototype tileable t : t -> ()
+instance tileable thread = fun _ => ()
+instance tileable thread_block = fun _ => ()
+instance tileable thread_block_tile size parent = fun _ => ()
+instance tileable coalesced_group = fun _ => ()
+
+inl create_grid() : ref grid_group = $"auto v$ = this_grid()" 
+inl create_block() : ref thread_block = $"auto v$ = this_thread_block()"
+inl create_thread() : ref thread = $"auto v$ = this_thread()"
+inl create_thread_block_tile forall size parent {tileable}. (x : ref parent) : ref (thread_block_tile size parent) = $"thread_block_tile<@size, `parent> v$ = tiled_partition<@size>(!x)"
+
+// I don't feel like fixing these right now, but they can only be created from tiles of size 32 or less.
+inl create_labeled_partition forall parent {tileable}. (x : ref parent) (i : int) : ref coalesced_group = $"auto v$ = labeled_partition(!x,!i)"
+inl create_binary_partition forall parent {tileable}. (x : ref parent) (i : bool) : ref coalesced_group = $"auto v$ = binary_partition(!x,!i)"
+inl create_coalesced_threads() : ref coalesced_group = $"auto v$ = coalesced_threads()"
+
+// Projects the given index to a high dimensional value.
+inl project_index forall dim. (dim : dim) (i : int) : dim = real
+    open real_core
+    open tensorm.utils
+    inl dim,i = 
+        mapFoldBack (fun d i =>
+            i % d, i / d
+            ) dim i
+    assert (i = 0) "The index has to be in the range of the dimension."
+    dim
+
+// Project the given index to a scalar value.
+inl project_index_reverse forall dim. (dim : dim) (i : dim) : int = real
+    open real_core
+    open tensorm.utils
+    fst (foldBack2 (fun dim i (offset,stride) => 
+        assert (0 <= i && i < dim) "The indices should be inside the range of the dimension."
+        offset+i*stride, stride*dim
+        ) dim i (0,1))
+ 
+// Projects the given index to a high dimensional value.
+inl project_index' forall dim. ({from nearTo} : {from : dim; nearTo : dim}) (i : int) : dim = real
+    open real_core
+    open tensorm.utils
+    inl dim = map2 (-) nearTo from
+    map2 (+) (project_index `dim dim i) from
+
+// Project the given index to a scalar value.
+inl project_index_reverse' forall dim. ({from nearTo} : {from : dim; nearTo : dim}) (i : dim) : int = real
+    open real_core
+    open tensorm.utils
+    inl dim = map2 (-) nearTo from
+    inl i = map2 (-) i from
+    project_index_reverse `dim dim i
+
+// Projects the arguments of a range to their scalar equivalents.
+inl project_index_reverse_range_by forall dim.
+        ({from nearTo by} : {from : dim; nearTo : dim; by : dim})
+        : {from : int; nearTo : int; by : int} = real
+    open real_core
+    open tensorm.utils
+    inl dim = map2 (-) nearTo from
+    {
+        from = 0
+        nearTo = prod dim 
+        by = project_index_reverse `dim dim by
+    }
+
+// Projects the arguments of a range to their scalar equivalents.
+inl project_index_reverse_range forall dim. 
+        ({from nearTo} : {from : dim; nearTo : dim}) 
+        : {from : int; nearTo : int} = real
+    open real_core
+    open tensorm.utils
+    inl dim = map2 (-) nearTo from
+    {
+        from = 0
+        nearTo = prod dim 
+    }
+
+inl loop_for_by_template forall dim. loop ({from nearTo by} : {from : dim; nearTo : dim; by : dim}) body = 
+    loop (project_index' {from nearTo}) (project_index_reverse_range_by {from nearTo by}) body
+
+inl loop_for_template forall dim. loop ({from nearTo} : {from : dim; nearTo : dim}) body = 
+    loop (project_index' {from nearTo}) (project_index_reverse_range {from nearTo}) body
+
+inl loop_linear_template forall dim. loop (dim : dim) body = 
+    loop (project_index dim) {from=0; nearTo=real tensorm.utils.prod dim} body
+
+inl loop_tile_template forall size parent dim. loop (cg : ref (thread_block_tile size parent)) (dim : dim) (body : dim -> _) =
+    inl by : int = $"!cg.meta_group_size()" 
+    inl from : int = $"!cg.meta_group_rank()"
+    inl nearTo : int = real tensorm.utils.prod dim
+    loop (project_index dim) {from nearTo by} body
+
+inl loop_warps_in_grid_template forall dim. loop (dim : dim) (body : dim -> _) =
+    inl by : int = $"grid_group::num_threads() / warpSize"
+    inl from : int = $"grid_group::thread_rank() / warpSize"
+    inl nearTo : int = real tensorm.utils.prod dim
+    loop (project_index dim) {from nearTo by} body
+
+inl loop_blocks_in_grid_template forall dim. loop (dim : dim) (body : dim -> _) =
+    inl by : int = $"grid_group::num_blocks()"
+    inl from : int = $"grid_group::block_rank()"
+    inl nearTo : int = real tensorm.utils.prod dim
+    loop (project_index dim) {from nearTo by} body
+
+inl loop_thread_in_block_template forall dim. loop (dim : dim) (body : dim -> _) =
+    inl by : int = $"thread_block::num_threads()"
+    inl from : int = $"thread_block::thread_rank()"
+    inl nearTo : int = real tensorm.utils.prod dim
+    loop (project_index dim) {from nearTo by} body
+
+inl loop_warps_in_block_template forall dim. loop (dim : dim) (body : dim -> _) =
+    inl by : int = $"thread_block::num_threads() / warpSize"
+    inl from : int = $"thread_block::thread_rank() / warpSize"
+    inl nearTo : int = real tensorm.utils.prod dim
+    loop (project_index dim) {from nearTo by} body
+
+inl _forBy project range body = loop.forBy' range (project >> body)
+inl _for forall dim {number}. project (range : {from : dim; nearTo : dim}) body = _forBy project {range with by=1} body
+inl loop_for_by' forall dim. (range : {from : dim; nearTo : dim; by : dim}) = loop_for_by_template _forBy range
+inl loop_for' forall dim. (range : {from : dim; nearTo : dim}) = loop_for_template _for range
+inl loop_linear' forall dim. (dim : dim) = loop_linear_template _for dim
+inl loop_tile' forall size parent dim. (cg : ref (thread_block_tile size parent)) (dim : dim) = loop_tile_template _forBy cg dim
+inl loop_warps_in_grid' forall dim. (dim : dim) = loop_warps_in_grid_template _forBy dim
+inl loop_blocks_in_grid' forall dim. (dim : dim) = loop_blocks_in_grid_template _forBy dim
+inl loop_thread_in_block' forall dim. (dim : dim) = loop_thread_in_block_template _forBy dim
+inl loop_warps_in_block' forall dim. (dim : dim) = loop_warps_in_block_template _forBy dim
+
+// The look ahead loop. Compared to a regular loop, it provides the iteration index for the next iteration, as well as whether the iteration is initial.
+inl lookaheadBy' project ({from nearTo by} : {from : int; nearTo : int; by : int}) body = 
+    open loop
+    inl (i,cond,is_init as state) = _dup (from,from < nearTo,true)
+    while' (fun () => cond) fun () =>
+        inl i' = i + by
+        inl cond' = i' < nearTo
+        body (project i) (if cond' then Some (project i') else None) is_init
+        _set state (i',cond',false)
+
+// The look ahead loop. Compared to a regular loop, it provides the iteration index for the next iteration, as well as whether the iteration is initial.
+inl lookahead' project ({from nearTo} : {from : int; nearTo : int}) = lookaheadBy' project {from nearTo by=1}
+
+inl lookahead_for_by' forall dim. (range : {from : dim; nearTo : dim; by : dim}) = loop_for_by_template lookaheadBy' range
+inl lookahead_for' forall dim. (range : {from : dim; nearTo : dim}) = loop_for_template lookahead' range
+inl lookahead_linear' forall dim. (dim : dim) = loop_linear_template lookahead' dim
+inl lookahead_tile' forall size parent dim. (cg : ref (thread_block_tile size parent)) (dim : dim) = loop_tile_template lookaheadBy' cg dim
+inl lookahead_warps_in_grid' forall dim. (dim : dim) = loop_warps_in_grid_template lookaheadBy' dim
+inl lookahead_blocks_in_grid' forall dim. (dim : dim) = loop_blocks_in_grid_template lookaheadBy' dim
+inl lookahead_thread_in_block' forall dim. (dim : dim) = loop_thread_in_block_template lookaheadBy' dim
+inl lookahead_warps_in_block' forall dim. (dim : dim) = loop_warps_in_block_template lookaheadBy' dim
+
+inl wait forall group {groupable}. (group : ref group) : () = $"cooperative_groups::wait(!group)"
+
+inl in_first_thread_grid f =
+    inl from : int = $"grid_group::thread_rank()"
+    if from = 0 then f()
+    $"__syncthreads()"
+
+inl in_first_thread_block f =
+    inl from : int = $"thread_block::thread_rank()"
+    if from = 0 then f()
+    $"__syncthreads()"
+
+inl sync forall group {groupable}. (group : ref group) : () = $'!group.sync() '
+
+open tensorm
+
+inl async_memcpy_tensor forall size parent float a. (group : ref (thread_block_tile size parent)) ({from to} : {from : tensor (a * int) float; to : tensor (a * int) float}) : () =
+    assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
+    loop_tile' group (fst from.dim) (fun a =>
+        inl from = apply a from
+        inl to = apply a to
+        inl dim = from.dim
+        real
+            open tensorm.utils
+            iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
+                typecase `from with _ ~el =>
+                $"cooperative_groups::memcpy_async(!group, !to + !to_offset, !from + !from_offset, sizeof(`el) * !dim)" : ()
+                ) from.bodies to.bodies
+        )

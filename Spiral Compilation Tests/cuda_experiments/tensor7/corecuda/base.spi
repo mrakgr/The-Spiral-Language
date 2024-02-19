@@ -1,0 +1,67 @@
+open corebase
+
+// Statically sized array with a type literal for a dimension.
+nominal sa dim el = $"array<`el,@dim>"
+
+// Base reference type
+nominal ref t = $"`t &"
+inl ref forall t. (x : t) : ref t = $"`t & v$ = !x"
+// Doesn't actually dereference the reference. For using local scope only.
+inl (~#) forall t. (x : ref t) : t = $"`t & v$ = !x" 
+
+inl ref_index x i = index #x i
+inl ref_set x i v = set #x i v
+inl ref_length x = length #x
+
+// instance set ref = fun x i v => 
+// instance create array = fun size => array !!!!ArrayCreate(`el,size)
+// instance index array = fun (array ar) i => !!!!ArrayIndex(ar,i)
+// instance set array = fun (array ar) i v => !!!!ArrayIndexSet(ar,i,v)
+// instance length array = fun (array ar) => !!!!ArrayLength(`int,ar)
+
+// Indexes into an array. Returns a reference to the element instead of the actual element.
+prototype index_ref ar el : ar el -> int -> ref el
+instance index_ref array = fun array i => $"`el & v$ = !array[!i]"
+
+// Base pointer type
+nominal ptr t = $'`t *'
+inl ptr forall t. (~x : t) : ptr t = $"`t * v$ = &!x"
+// Sets the pointer to a specified value.
+inl (<-.) forall t. (x : ptr t) (v : t) : () = $"*!x = !v"
+inl (~*) forall t. (x : ptr t) : t = $"`t v$ = *!x"
+
+type run_config = {
+    blocks_per_grid : int
+    threads_per_block : int
+    shared_mem : int
+    }
+
+// Executes the lambda on the GPU device.
+inl run' ({blocks_per_grid threads_per_block shared_mem} : run_config) f =
+    // Global statements only get executed once.
+    // global "raw_module = cp.RawModule(code=kernel, backend='nvcc', options=(\"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\\\\cublasdx\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\external\\\\cutlass\\\\include\"))"
+
+    global "options = []"
+    global "options.append('--diag-suppress=550')"
+    // global "options.append('--maxrregcount=64')"
+    // global "options.append('--dopt=on')"
+    global "options.append('--define-macro=NDEBUG')"
+    // global "options.append('--device-debug')"
+    global "options.append('--restrict')"
+    global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=False, options=tuple(options))"
+    inl kernel_i, vars = join_backend Cuda
+        f () : ()
+    inl entry = $'raw_module.get_function(f"entry{!kernel_i}")' : $"cp.RawKernel"
+    $'!entry.max_dynamic_shared_size_bytes = !shared_mem '
+    real
+        match vars with
+        | _,_ => $'!entry((!blocks_per_grid,),(!threads_per_block,),!vars,shared_mem=!shared_mem)' : ()
+        | () => $'!entry((!blocks_per_grid,),(!threads_per_block,),(),shared_mem=!shared_mem)' : ()
+        | _ => $'!entry((!blocks_per_grid,),(!threads_per_block,),(!vars,),shared_mem=!shared_mem)' : ()
+    ()
+    
+// Executes the lambda on the GPU device.
+inl run blocks_per_grid threads_per_block = run' {blocks_per_grid threads_per_block shared_mem = 0}
+
+type warp_size = 32
+inl warp_size() : int = real real_core.type_lit_to_lit `warp_size
