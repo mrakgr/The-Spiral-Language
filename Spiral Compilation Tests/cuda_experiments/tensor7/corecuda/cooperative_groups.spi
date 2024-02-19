@@ -121,6 +121,8 @@ inl loop_thread_in_block_template forall dim. loop (dim : dim) (body : dim -> _)
     inl nearTo : int = real tensorm.utils.prod dim
     loop (project_index dim) {from nearTo by} body
 
+inl warp_rank_in_block dim = project_index dim $"thread_block::thread_rank() / warpSize"
+
 inl loop_warps_in_block_template forall dim. loop (dim : dim) (body : dim -> _) =
     inl by : int = $"thread_block::num_threads() / warpSize"
     inl from : int = $"thread_block::thread_rank() / warpSize"
