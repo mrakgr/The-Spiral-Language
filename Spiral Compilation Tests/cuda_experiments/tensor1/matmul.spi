@@ -136,7 +136,7 @@ inl simple_wmma_gemm forall m_frag n_frag k_frag frag_in float{number}. (gemm_co
     // threads per block
     inl blocks = threads_per_block
     // blocks per grid (number of SMs in a RTX 4060)
-    inl grids = 24
+    inl grids = 24 * 6
     run grids blocks (fun () =>
         global "#include <mma.h>"
         global "using namespace nvcuda;"
@@ -201,8 +201,8 @@ inl main() =
         $"(cp.matmul(!a_body,!b_body)+!c_body).flatten()"
         |> fromArray |> reshape (const c.dim)
 
-    inl m,n,k : int * int * int = 256, 256, 128
-    inl ta,tb = true,false
+    inl m,n,k : int * int * int = 512, 512, 512
+    inl ta,tb = false,true
     inl [a; b; c] = listm.map random_normal ([swap (m, k) ta; swap (k, n) tb; m, n])
     inl d = cp_matmul (a,ta) (b,tb) c
     simple_wmma_gemm (gemm_config : gemm_config 16 16 8 wmma.tf32) 1 (a, ta) (b, tb) 1 c
