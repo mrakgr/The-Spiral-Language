@@ -202,9 +202,11 @@ inl main() =
         |> fromArray |> reshape (const c.dim)
 
     inl m,n,k : int * int * int = 512, 512, 512
-    inl ta,tb = false,true
+    inl ta,tb = false, true
     inl [a; b; c] = listm.map random_normal ([swap (m, k) ta; swap (k, n) tb; m, n])
-    inl d = cp_matmul (a,ta) (b,tb) c
-    simple_wmma_gemm (gemm_config : gemm_config 16 16 8 wmma.tf32) 1 (a, ta) (b, tb) 1 c
-    inl d,c = get_body d, get_body c
-    $"cp.max(cp.abs(!c-!d))" : f32
+    inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
+    average 100 fun i =>
+        inl d = cp_matmul (a,ta) (b,tb) c
+        simple_wmma_gemm (gemm_config : gemm_config 16 16 8 wmma.tf32) 1 (a, ta) (b, tb) 1 c
+        inl d,c = get_body d, get_body c
+        $"cp.max(cp.abs(!c-!d))" : f32

@@ -39,10 +39,10 @@ inl run' ({blocks_per_grid threads_per_block shared_mem} : run_config) f =
     global "options.append('--diag-suppress=550')"
     global "options.append('--dopt=on')"
     global "options.append('--restrict')"
-    global "options.append('--maxrregcount=255')"
-    // global "options.append('--define-macro=NDEBUG')"
+    // global "options.append('--maxrregcount=255')"
+    global "options.append('--define-macro=NDEBUG')"
     // global "options.append('--device-debug')"
-    global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=False, options=tuple(options))"
+    global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))"
     inl kernel_i, vars = join_backend Cuda
         f () : ()
     inl entry = $'raw_module.get_function(f"entry{!kernel_i}")' : $"cp.RawKernel"

@@ -98,7 +98,7 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
     long v16;
     v16 = grid_group::block_rank();
     bool v17;
-    v17 = v16 < 4l;
+    v17 = v16 < 16l;
     long v18; bool v19; bool v20;
     Tuple0 tmp0 = Tuple0(v16, v17, true);
     v18 = tmp0.v0; v19 = tmp0.v1; v20 = tmp0.v2;
@@ -106,15 +106,15 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         long v22;
         v22 = v18 + v15;
         bool v23;
-        v23 = v22 < 4l;
+        v23 = v22 < 16l;
         long v24;
-        v24 = v18 % 2l;
+        v24 = v18 % 4l;
         long v25;
-        v25 = v18 / 2l;
+        v25 = v18 / 4l;
         long v26;
-        v26 = v25 % 2l;
+        v26 = v25 % 4l;
         long v27;
-        v27 = v25 / 2l;
+        v27 = v25 / 4l;
         bool v28;
         v28 = v27 == 0l;
         bool v29;
@@ -126,13 +126,13 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         US0 v40;
         if (v23){
             long v31;
-            v31 = v22 % 2l;
+            v31 = v22 % 4l;
             long v32;
-            v32 = v22 / 2l;
+            v32 = v22 / 4l;
             long v33;
-            v33 = v32 % 2l;
+            v33 = v32 % 4l;
             long v34;
-            v34 = v32 / 2l;
+            v34 = v32 / 4l;
             bool v35;
             v35 = v34 == 0l;
             bool v36;
@@ -145,14 +145,14 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         } else {
             v40 = US0_0();
         }
-        assert("Tensor range check" && 0 <= v26 && v26 < 2l);
+        assert("Tensor range check" && 0 <= v26 && v26 < 4l);
         long v41;
-        v41 = 32768l * v26;
-        assert("Tensor range check" && 0 <= v24 && v24 < 2l);
+        v41 = 65536l * v26;
+        assert("Tensor range check" && 0 <= v24 && v24 < 4l);
         long v42;
         v42 = 128l * v24;
-        assert("Tensor range check" && 0 <= v26 && v26 < 2l);
-        assert("Tensor range check" && 0 <= v24 && v24 < 2l);
+        assert("Tensor range check" && 0 <= v26 && v26 < 4l);
+        assert("Tensor range check" && 0 <= v24 && v24 < 4l);
         long v43;
         v43 = v41 + v42;
         wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> v44[8l];
@@ -189,11 +189,11 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             long v60;
             v60 = v56 + 1l;
             bool v61;
-            v61 = v60 < 4l;
+            v61 = v60 < 8l;
             long v62;
-            v62 = v56 % 4l;
+            v62 = v56 % 8l;
             long v63;
-            v63 = v56 / 4l;
+            v63 = v56 / 8l;
             bool v64;
             v64 = v63 == 0l;
             bool v65;
@@ -205,9 +205,9 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             US1 v74;
             if (v61){
                 long v67;
-                v67 = v60 % 4l;
+                v67 = v60 % 8l;
                 long v68;
-                v68 = v60 / 4l;
+                v68 = v60 / 8l;
                 bool v69;
                 v69 = v68 == 0l;
                 bool v70;
@@ -221,14 +221,14 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 v74 = US1_0();
             }
             if (v58){
-                assert("Tensor range check" && 0 <= v62 && v62 < 4l);
+                assert("Tensor range check" && 0 <= v62 && v62 < 8l);
                 long v75;
                 v75 = 64l * v62;
                 long v76;
                 v76 = v75 + v41;
-                assert("Tensor range check" && 0 <= v62 && v62 < 4l);
+                assert("Tensor range check" && 0 <= v62 && v62 < 8l);
                 long v77;
-                v77 = 16384l * v62;
+                v77 = 32768l * v62;
                 long v78;
                 v78 = v77 + v42;
                 long v79;
@@ -275,11 +275,11 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                     long v97;
                     v97 = v96 + v95;
                     long v98;
-                    v98 = 256l * v87;
+                    v98 = 512l * v87;
                     long v99;
                     v99 = v98 + v97;
                     long v100;
-                    v100 = 4096l * v89;
+                    v100 = 8192l * v89;
                     long v101;
                     v101 = v100 + v99;
                     assert("Tensor range check" && 0 <= v89 && v89 < 8l);
@@ -345,11 +345,11 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                     long v126;
                     v126 = v125 + v124;
                     long v127;
-                    v127 = 256l * v116;
+                    v127 = 512l * v116;
                     long v128;
                     v128 = v127 + v126;
                     long v129;
-                    v129 = 2048l * v118;
+                    v129 = 4096l * v118;
                     long v130;
                     v130 = v129 + v128;
                     assert("Tensor range check" && 0 <= v118 && v118 < 8l);
@@ -486,14 +486,14 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 }
                 default: { // Some
                     long v179 = v74.v.case1.v0;
-                    assert("Tensor range check" && 0 <= v179 && v179 < 4l);
+                    assert("Tensor range check" && 0 <= v179 && v179 < 8l);
                     long v180;
                     v180 = 64l * v179;
                     long v181;
                     v181 = v180 + v41;
-                    assert("Tensor range check" && 0 <= v179 && v179 < 4l);
+                    assert("Tensor range check" && 0 <= v179 && v179 < 8l);
                     long v182;
-                    v182 = 16384l * v179;
+                    v182 = 32768l * v179;
                     long v183;
                     v183 = v182 + v42;
                     long v184;
@@ -540,11 +540,11 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                         long v202;
                         v202 = v201 + v200;
                         long v203;
-                        v203 = 256l * v192;
+                        v203 = 512l * v192;
                         long v204;
                         v204 = v203 + v202;
                         long v205;
-                        v205 = 4096l * v194;
+                        v205 = 8192l * v194;
                         long v206;
                         v206 = v205 + v204;
                         assert("Tensor range check" && 0 <= v194 && v194 < 8l);
@@ -610,11 +610,11 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                         long v231;
                         v231 = v230 + v229;
                         long v232;
-                        v232 = 256l * v221;
+                        v232 = 512l * v221;
                         long v233;
                         v233 = v232 + v231;
                         long v234;
-                        v234 = 2048l * v223;
+                        v234 = 4096l * v223;
                         long v235;
                         v235 = v234 + v233;
                         assert("Tensor range check" && 0 <= v223 && v223 < 8l);
@@ -745,11 +745,11 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             long v284;
             v284 = v283 + v282;
             long v285;
-            v285 = 256l * v274;
+            v285 = 512l * v274;
             long v286;
             v286 = v285 + v284;
             long v287;
-            v287 = 4096l * v276;
+            v287 = 8192l * v276;
             long v288;
             v288 = v287 + v286;
             assert("Tensor range check" && 0 <= v276 && v276 < 8l);
@@ -848,96 +848,94 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 float v328;
                 v328 = v327.x[v323];
                 float v329;
-                v329 = 0.0f * v328;
-                float v330;
-                v330 = v326 + v329;
-                wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> & v331 = v319;
-                v331.x[v323] = v330;
+                v329 = v326 + v328;
+                wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> & v330 = v319;
+                v330.x[v323] = v329;
                 v323 += 1l ;
             }
-            float * v332;
-            v332 = v14 + v316;
-            wmma::store_matrix_sync(v332, v319, 16l, wmma::mem_row_major);
+            float * v331;
+            v331 = v14 + v316;
+            wmma::store_matrix_sync(v331, v319, 16l, wmma::mem_row_major);
             v305 += 1l ;
         }
         v3.sync() ;
+        long v332;
+        v332 = v4.meta_group_size();
         long v333;
-        v333 = v4.meta_group_size();
+        v333 = v4.meta_group_rank();
         long v334;
-        v334 = v4.meta_group_rank();
-        long v335;
-        v335 = v334;
-        while (while_method_3(v335)){
+        v334 = v333;
+        while (while_method_3(v334)){
+            long v336;
+            v336 = v334 % 4l;
             long v337;
-            v337 = v335 % 4l;
+            v337 = v334 / 4l;
             long v338;
-            v338 = v335 / 4l;
+            v338 = v337 % 8l;
             long v339;
-            v339 = v338 % 8l;
+            v339 = v337 / 8l;
             long v340;
-            v340 = v338 / 8l;
+            v340 = v339 % 16l;
             long v341;
-            v341 = v340 % 16l;
+            v341 = v339 / 16l;
             long v342;
-            v342 = v340 / 16l;
+            v342 = v341 % 8l;
             long v343;
-            v343 = v342 % 8l;
-            long v344;
-            v344 = v342 / 8l;
+            v343 = v341 / 8l;
+            bool v344;
+            v344 = v343 == 0l;
             bool v345;
-            v345 = v344 == 0l;
-            bool v346;
-            v346 = v345 == false;
-            if (v346){
-                assert("The index has to be in the range of the dimension." && v345);
+            v345 = v344 == false;
+            if (v345){
+                assert("The index has to be in the range of the dimension." && v344);
             } else {
             }
-            assert("Tensor range check" && 0 <= v343 && v343 < 8l);
-            assert("Tensor range check" && 0 <= v341 && v341 < 16l);
-            assert("Tensor range check" && 0 <= v339 && v339 < 8l);
-            assert("Tensor range check" && 0 <= v337 && v337 < 4l);
+            assert("Tensor range check" && 0 <= v342 && v342 < 8l);
+            assert("Tensor range check" && 0 <= v340 && v340 < 16l);
+            assert("Tensor range check" && 0 <= v338 && v338 < 8l);
+            assert("Tensor range check" && 0 <= v336 && v336 < 4l);
+            long v347;
+            v347 = 4l * v336;
             long v348;
-            v348 = 4l * v337;
+            v348 = 272l * v338;
             long v349;
-            v349 = 272l * v339;
+            v349 = v348 + v347;
             long v350;
-            v350 = v349 + v348;
+            v350 = 16l * v340;
             long v351;
-            v351 = 16l * v341;
+            v351 = v350 + v349;
             long v352;
-            v352 = v351 + v350;
+            v352 = 2176l * v342;
             long v353;
-            v353 = 2176l * v343;
+            v353 = v352 + v351;
+            assert("Tensor range check" && 0 <= v342 && v342 < 8l);
+            assert("Tensor range check" && 0 <= v340 && v340 < 16l);
+            assert("Tensor range check" && 0 <= v338 && v338 < 8l);
+            assert("Tensor range check" && 0 <= v336 && v336 < 4l);
             long v354;
-            v354 = v353 + v352;
-            assert("Tensor range check" && 0 <= v343 && v343 < 8l);
-            assert("Tensor range check" && 0 <= v341 && v341 < 16l);
-            assert("Tensor range check" && 0 <= v339 && v339 < 8l);
-            assert("Tensor range check" && 0 <= v337 && v337 < 4l);
+            v354 = v347 + v43;
             long v355;
-            v355 = v348 + v43;
+            v355 = 16l * v338;
             long v356;
-            v356 = 16l * v339;
+            v356 = v355 + v354;
             long v357;
-            v357 = v356 + v355;
+            v357 = 512l * v340;
             long v358;
-            v358 = 256l * v341;
+            v358 = v357 + v356;
             long v359;
-            v359 = v358 + v357;
+            v359 = 8192l * v342;
             long v360;
-            v360 = 4096l * v343;
-            long v361;
-            v361 = v360 + v359;
-            cooperative_groups::memcpy_async(v4, v2 + v361, v14 + v354, sizeof(float) * 4l);
-            v335 += v333 ;
+            v360 = v359 + v358;
+            cooperative_groups::memcpy_async(v4, v2 + v360, v14 + v353, sizeof(float) * 4l);
+            v334 += v332 ;
         }
         cooperative_groups::wait(v4);
         v3.sync() ;
-        bool v362;
-        v362 = false;
+        bool v361;
+        v361 = false;
         v18 = v22;
         v19 = v23;
-        v20 = v362;
+        v20 = v361;
     }
     return ;
 }
@@ -947,16 +945,20 @@ from dataclasses import dataclass
 from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
 
-from max_blocks_per_sm import max_blocks_per_sm
 options = []
 options.append('--diag-suppress=550')
 options.append('--dopt=on')
 options.append('--restrict')
-raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=False, options=tuple(options))
+options.append('--define-macro=NDEBUG')
+raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))
+def method0(v0 : i32) -> bool:
+    v1 = v0 < 100
+    del v0
+    return v1
 def main():
-    v0 = cp.random.normal(0,1,65536,cp.float32)
+    v0 = cp.random.normal(0,1,262144,cp.float32)
     v1 = v0.size
-    v2 = 65536 == v1
+    v2 = 262144 == v1
     del v1
     v3 = v2 == False
     if v3:
@@ -966,9 +968,9 @@ def main():
     else:
         pass
     del v2, v3
-    v5 = cp.random.normal(0,1,65536,cp.float32)
+    v5 = cp.random.normal(0,1,262144,cp.float32)
     v6 = v5.size
-    v7 = 65536 == v6
+    v7 = 262144 == v6
     del v6
     v8 = v7 == False
     if v8:
@@ -978,9 +980,9 @@ def main():
     else:
         pass
     del v7, v8
-    v10 = cp.random.normal(0,1,65536,cp.float32)
+    v10 = cp.random.normal(0,1,262144,cp.float32)
     v11 = v10.size
-    v12 = 65536 == v11
+    v12 = 262144 == v11
     del v11
     v13 = v12 == False
     if v13:
@@ -990,32 +992,40 @@ def main():
     else:
         pass
     del v12, v13
-    v15 = v10.reshape((256, 256))
-    v16 = v5.reshape((256, 256))
-    v17 = v0.reshape((256, 256))
-    del v17
-    v18 = (cp.matmul(v15,v16)).flatten()
-    del v15, v16
-    v19 = v18.size
-    v20 = 65536 == v19
-    del v19
-    v21 = v20 == False
-    if v21:
-        v22 = "The total length of the reshaped tensor dimension must match that of the original one."
-        assert v20, v22
+    v15, v16 = (0, 0.0)
+    while method0(v15):
+        v18 = v10.reshape((512, 512))
+        v19 = v5.reshape((512, 512))
+        v20 = v0.reshape((512, 512))
+        v21 = (cp.matmul(v18,v19)+v20).flatten()
+        del v18, v19, v20
+        v22 = v21.size
+        v23 = 262144 == v22
         del v22
-    else:
-        pass
-    del v20, v21
-    max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),256,is_print=True)
-    v23 = 0
-    v24 = raw_module.get_function(f"entry{v23}")
-    del v23
-    v24.max_dynamic_shared_size_bytes = 71680 
-    v24((8,),(256,),(v10, v5, v0),shared_mem=71680)
-    del v5, v10, v24
-    v25 = cp.max(cp.abs(v0-v18))
-    del v0, v18
-    return v25
+        v24 = v23 == False
+        if v24:
+            v25 = "The total length of the reshaped tensor dimension must match that of the original one."
+            assert v23, v25
+            del v25
+        else:
+            pass
+        del v23, v24
+        v26 = 0
+        v27 = raw_module.get_function(f"entry{v26}")
+        del v26
+        v27.max_dynamic_shared_size_bytes = 71680 
+        v27((72,),(256,),(v10, v5, v0),shared_mem=71680)
+        del v27
+        v28 = cp.max(cp.abs(v0-v21))
+        del v21
+        v29 = v28 + v16
+        del v28
+        v16 = v29
+        del v29
+        v15 += 1 
+    del v0, v5, v10, v15
+    v30 = v16 / 100.0
+    del v16
+    return v30
 
 if __name__ == '__main__': print(main())

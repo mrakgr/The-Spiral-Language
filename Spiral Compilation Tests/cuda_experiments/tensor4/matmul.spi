@@ -51,8 +51,8 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
     
     inl bank_size = warp_size() * 4 / (sizeof : _ float).value 
     inl float4 = 16 / (sizeof : _ float).value 
-    inl threads_per_block = 512
-    inl blocks_per_grid = 1
+    inl threads_per_block = 1024
+    inl blocks_per_grid = 24*(1576/threads_per_block)
     
     inl padding = {
         a = (swap (m_frag, k_frag) a_trans |> snd) % bank_size
@@ -228,7 +228,9 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                     |> reorder (fun ({m},{n}),frag => ({m},{n}),frag)
 
                 loop_warps_in_block' (fst c_shared.dim) fun m,n =>
-                    assert (real open real_core in utils.prod (fst c_shared.dim) * 32 = threads_per_block) "For this example to work the product of the C tile dimensions have to match the number of threads."
+                    assert (real open real_core in 
+                        // print_static (utils.prod (fst c_shared.dim) * 32)
+                        utils.prod (fst c_shared.dim) * 32 = threads_per_block) "For this example to work the product of the C tile dimensions have to match the number of threads."
                     // Otherwise, the accumulator and the C fragments would get overwritten.
 
                     inl c = apply (m,n) c_shared
@@ -244,14 +246,14 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             wait thread . sync block
         ()
 
-type a_layout = wmma.row_major
-type b_layout = wmma.row_major
+// type a_layout = wmma.row_major
+// type b_layout = wmma.row_major
 
 // type a_layout = wmma.col_major
 // type b_layout = wmma.row_major
 
-// type a_layout = wmma.row_major
-// type b_layout = wmma.col_major
+type a_layout = wmma.row_major
+type b_layout = wmma.col_major
 
 // type a_layout = wmma.col_major
 // type b_layout = wmma.col_major
@@ -282,13 +284,15 @@ inl main() =
     inl a_trans = (real typecase a_layout with wmma.row_major => false | wmma.col_major => true) : bool
     inl b_trans = (real typecase b_layout with wmma.row_major => false | wmma.col_major => true) : bool
 
-    inl [a; b; c] = listm.map random_normal ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
-    inl d = cp_matmul (a,a_trans) (b,b_trans) c
-    // console.write_ln (zip a b)
-    inl gemm_config_tf32 = gemm_config {m_tile=64; n_tile=128; k_tile=64} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
-    wmma_gemm_shared gemm_config_tf32 1 a b 0 c
-    inl d,c = get_body d, get_body c
     global "from max_blocks_per_sm import max_blocks_per_sm"
     $"max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),1024,is_print=True)" : ()
-
-    $"cp.max(cp.abs(!c-!d))" : f32
+    inl m,n,k : int * int * int = 512, 512, 512
+    inl ta,tb = false, true
+    inl [a; b; c] = listm.map random_normal ([swap (m, k) ta; swap (k, n) tb; m, n])
+    inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
+    average 100 fun i =>
+        inl d = cp_matmul (a,ta) (b,tb) c
+        inl gemm_config_tf32 = gemm_config {m_tile=64; n_tile=128; k_tile=64} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
+        wmma_gemm_shared gemm_config_tf32 1 a b 0 c
+        inl d,c = get_body d, get_body c
+        $"cp.max(cp.abs(!c-!d))" : f32

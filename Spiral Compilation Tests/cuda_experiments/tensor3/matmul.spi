@@ -43,7 +43,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in tile warp_size float {n
         |> reorder (fun m,{m_tile},n,{n_tile} => (m,n),(m_tile,n_tile))
     
     inl threads_per_block = 256
-    inl blocks_per_grid = 1
+    inl blocks_per_grid = 24*(1576/threads_per_block)
     run blocks_per_grid threads_per_block (fun () =>
         global "#include <cublasdx.hpp>"
         global "using namespace cublasdx;"
@@ -95,12 +95,8 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in tile warp_size float {n
                 inl a_size : int = $"BLAS::a_size"
                 inl b_size : int = $"BLAS::b_size"
                 inl c_size : int = $"BLAS::c_size"
-                cooperative_groups.in_first_thread_grid fun () => 
-                     console.write_ln a_size
-                     console.write_ln b_size
-                     console.write_ln c_size
                 inl beta = if k = {k=0} then beta else 1
-                // $"BLAS().execute(!alpha, !a, !b, !beta, !c)"
+                $"BLAS().execute(!alpha, !a, !b, !beta, !c)"
                 ()
                 )
             sync block
@@ -134,15 +130,14 @@ inl main() =
         $"(cp.matmul(!a_body,!b_body)).flatten()"
         |> fromArray |> reshape (const c.dim)
 
-    inl m,n,k : int * int * int = 32, 32, 32
-    inl ta,tb = true, false
+    inl m,n,k : int * int * int = 512, 512, 512
+    inl ta,tb = false, true
     inl [a; b; c] = listm.map random_normal ([swap (m, k) ta; swap (k, n) tb; m, n])
-    inl d = cp_matmul (a,ta) (b,tb) c
-    // console.write_ln (zip a b)
-    // console.write_ln (d)
-    wmma_gemm_shared (gemm_config : gemm_config 16 16 8 wmma.tf32 32 32) 1 (a, ta) (b, tb) 0 c
-    inl d,c = get_body d, get_body c
-    // global "from max_blocks_per_sm import max_blocks_per_sm"
-    // $"max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),128,is_print=True)" : ()
-
-    $"cp.max(cp.abs(!c-!d))" : f32
+    inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
+    global "from max_blocks_per_sm import max_blocks_per_sm"
+    $"max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),256,is_print=True)" : ()
+    average 100 fun i =>
+        inl d = cp_matmul (a,ta) (b,tb) c
+        wmma_gemm_shared (gemm_config : gemm_config 16 16 8 wmma.tf32 32 32) 1 (a, ta) (b, tb) 0 c
+        inl d,c = get_body d, get_body c
+        $"cp.max(cp.abs(!c-!d))" : f32

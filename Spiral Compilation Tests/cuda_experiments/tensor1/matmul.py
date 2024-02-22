@@ -133,6 +133,10 @@ i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = str
 options = []
 options.append('--diag-suppress=550')
 raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))
+def method0(v0 : i32) -> bool:
+    v1 = v0 < 100
+    del v0
+    return v1
 def main():
     v0 = cp.random.normal(0,1,262144,cp.float32)
     v1 = v0.size
@@ -170,29 +174,39 @@ def main():
     else:
         pass
     del v14, v15
-    v18 = v12.reshape((512, 512))
-    v19 = v6.reshape((512, 512))
-    v20 = cp.transpose(v19)
+    v18, v19 = (0, 0.0)
+    while method0(v18):
+        v21 = v12.reshape((512, 512))
+        v22 = v6.reshape((512, 512))
+        v23 = cp.transpose(v22)
+        del v22
+        v24 = v0.reshape((512, 512))
+        v25 = (cp.matmul(v21,v23)+v24).flatten()
+        del v21, v23, v24
+        v26 = v25.size
+        v27 = 262144 == v26
+        del v26
+        v28 = v27 == False
+        if v28:
+            v30 = "The total length of the reshaped tensor dimension must match that of the original one."
+            assert v27, v30
+            del v30
+        else:
+            pass
+        del v27, v28
+        v31 = 0
+        raw_module.get_function(f"entry{v31}")((144, 1, 1),(256, 1, 1),(v12, v6, v0))
+        del v31
+        v32 = cp.max(cp.abs(v0-v25))
+        del v25
+        v33 = v32 + v19
+        del v32
+        v19 = v33
+        del v33
+        v18 += 1 
+    del v0, v6, v12, v18
+    v34 = v19 / 100.0
     del v19
-    v21 = v0.reshape((512, 512))
-    v22 = (cp.matmul(v18,v20)+v21).flatten()
-    del v18, v20, v21
-    v23 = v22.size
-    v24 = 262144 == v23
-    del v23
-    v25 = v24 == False
-    if v25:
-        v27 = "The total length of the reshaped tensor dimension must match that of the original one."
-        assert v24, v27
-        del v27
-    else:
-        pass
-    del v24, v25
-    v28 = 0
-    raw_module.get_function(f"entry{v28}")((144, 1, 1),(256, 1, 1),(v12, v6, v0))
-    del v6, v12, v28
-    v29 = cp.max(cp.abs(v0-v22))
-    del v0, v22
-    return v29
+    return v34
 
 if __name__ == '__main__': print(main())
