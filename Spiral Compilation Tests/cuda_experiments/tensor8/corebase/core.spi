@@ -94,6 +94,8 @@ inl cos forall t {float}. (x : t) : t = !!!!Cos(x)
 inl conv forall a {number} b {number}. (x : a) : b = !!!!Conv(`b, x)
 // Division with rounding up.
 inl divup forall t {number}. (a : t) (b : t) : t = real real_core.divup a b
+// Aligns the number on an upwards boundary.
+inl modup forall t {number}. (a : t) (b : t) : t = real real_core.modup a b
 
 // Creates a heap mutable layout type.
 inl mut forall t. (x : t): mut t = !!!!LayoutToHeapMutable(x)

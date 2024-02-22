@@ -41,10 +41,7 @@ inl (~#) forall el. (partition x : _ el) : partition_offsets el =
         open real_core
         open utils
         inl sizeof forall t. = !!!!Conv(`size, !!!!SizeOf(`t))
-        inl align forall el. s = 
-            inl i = max min_align() (sizeof `el)
-            inl s = s + i - conv `size 1
-            s - s % i 
+        inl align forall el. s = modup s (modup (sizeof `el) min_align())
         inl to_offsets s (dim d as z) =
             inl length = conv `size (prod d) 
             typecase `z with dim ~d ~el =>

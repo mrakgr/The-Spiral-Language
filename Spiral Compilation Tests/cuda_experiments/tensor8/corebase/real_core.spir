@@ -38,6 +38,10 @@ inl cos x = !!!!Cos(x)
 inl conv forall b. x = !!!!Conv(`b, x)
 // Division with rounding up.
 inl divup a b = (a + b - conv `(`a) 1) / b
+// Aligns the number on an upwards boundary.
+inl modup a b = 
+    inl i = a + b - conv `(`a) 1
+    i - i % b
 
 // Applies the first argument to the second.
 inl (|>) a b = b a
