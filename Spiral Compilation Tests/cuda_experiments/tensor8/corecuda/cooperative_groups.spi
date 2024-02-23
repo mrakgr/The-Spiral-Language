@@ -191,3 +191,4 @@ inl async_memcpy_tensor forall size parent float a. (group : ref (thread_block_t
                 $"cooperative_groups::memcpy_async(!group, !to + !to_offset, !from + !from_offset, sizeof(`el) * !dim)" : ()
                 ) from.bodies to.bodies
         )
+    // wait group

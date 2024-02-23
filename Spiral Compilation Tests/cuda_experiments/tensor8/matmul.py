@@ -900,7 +900,7 @@ options.append('--restrict')
 options.append('--define-macro=NDEBUG')
 raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))
 def method0(v0 : i32) -> bool:
-    v1 = v0 < 100
+    v1 = v0 < 1
     del v0
     return v1
 def main():
@@ -970,7 +970,7 @@ def main():
         v29 = raw_module.get_function(f"entry{v28}")
         del v28
         v29.max_dynamic_shared_size_bytes = 34816 
-        v29((24,),(256,),(v10, v5, v0),shared_mem=34816)
+        v29((1,),(256,),(v10, v5, v0),shared_mem=34816)
         del v29
         v30 = cp.max(cp.abs(v0-v22))
         del v22
@@ -980,8 +980,6 @@ def main():
         del v31
         v15 += 1 
     del v0, v5, v10, v15
-    v32 = v16 / 100.0
-    del v16
-    return v32
+    return v16
 
 if __name__ == '__main__': print(main())

@@ -82,7 +82,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
         reshape (fun m,n => {m=m / m_tile}, {m_tile}, {n=n / n_tile}, {n_tile}) c
         |> reorder (fun m,{m_tile},n,{n_tile} => (m,n),(m_tile,n_tile))
     
-    inl blocks_per_grid = 24
+    inl blocks_per_grid = 1
 
     
     inl padding =
@@ -250,11 +250,31 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
 
                 sync block
                 
+                // Try playing around with these thread waits.
+
+                // wait thread . sync block
+                
                 // Asynchronously loads the next block from global memory into shared.
                 match next_k with
-                | Some k => load_shared(apply k a, apply k b)
-                | None => if beta <> 0 then async_memcpy_tensor_c_shared c true // global -> shared
-                
+                | Some k => 
+                    // wait thread . sync block
+                    load_shared(apply k a, apply k b)
+                    // wait thread . sync block
+                | None => 
+                    // wait thread . sync block
+                    if beta <> 0 then 
+                        // $"// loading"
+                        // loop_linear' (8 : int) (fun i => 
+                        //     if $"thread_block::thread_rank() % warpSize == 0 && thread_block::thread_rank() / warpSize == !i" then
+                        //         console.write_ln ($"thread_block::thread_rank() / warpSize" : int)
+                        //     sync block
+                        //     )
+                        // wait thread . sync block
+                        async_memcpy_tensor_c_shared c true // global -> shared
+                        // wait thread . sync block
+                    
+                // wait thread . sync block
+                // sync block
                 // Does the matrix multiplication and accumulates the results in the fragment.
                 loop_linear' acc.dim fun m,n =>
                     inl acc = tensor_index_ref (m,n) acc
@@ -269,6 +289,8 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
 
             // Adds the accumulated result to the output in shared memory.
             inl _ = // alpha * acc + beta * c_frag
+                
+                // wait thread . sync block
                 inl c_shared = 
                     c_shared |> reshape_snd (const (m_frag, n_frag))
                     |> reshape_fst (const (({m_local},{m_warp}),({n_local},{n_warp})))
@@ -333,7 +355,7 @@ inl main() =
 
     inl [a; b; c] = listm.map random_normal ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
     inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
-    average 100 fun i =>
+    average 1 fun i =>
         inl d = cp_matmul (a,a_trans) (b,b_trans) c
         // console.write_ln (zip a b)
         inl gemm_config_tf32 = gemm_config {m_tile=64; n_tile=64; k_tile=64; threads_per_block=256} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
