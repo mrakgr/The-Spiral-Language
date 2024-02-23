@@ -817,7 +817,6 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             wmma::store_matrix_sync(v316, v298, 16l, wmma::mem_row_major);
             v289 += 1l ;
         }
-        v3.sync() ;
         long v317;
         v317 = v4.meta_group_size();
         long v318;
@@ -888,8 +887,6 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             cooperative_groups::memcpy_async(v4, v2 + v345, v14 + v338, sizeof(float) * 4l);
             v319 += v317 ;
         }
-        cooperative_groups::wait(v4);
-        v3.sync() ;
         v17 += v15 ;
     }
     return ;
