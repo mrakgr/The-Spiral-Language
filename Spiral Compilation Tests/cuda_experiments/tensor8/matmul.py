@@ -665,6 +665,8 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                     v3.sync() ;
                 }
             }
+            cooperative_groups::wait(v4);
+            v3.sync() ;
             long v254;
             v254 = 0l;
             while (while_method_1(v254)){

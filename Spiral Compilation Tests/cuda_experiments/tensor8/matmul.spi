@@ -273,7 +273,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                         async_memcpy_tensor_c_shared c true // global -> shared
                         wait thread . sync block
                     
-                // wait thread . sync block
+                wait thread . sync block
                 // sync block
                 // Does the matrix multiplication and accumulates the results in the fragment.
                 loop_linear' acc.dim fun m,n =>
