@@ -206,7 +206,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             lookahead_linear' (fst a.dim) fun k next_k is_initial_k =>
                 if is_initial_k then 
                     load_shared(apply k a, apply k b)
-                    wait thread . sync block
+                wait thread . sync block
 
                 inl a_frag, b_frag : _ _ (fragment matrix_a m_frag n_frag k_frag a_layout frag_in) 
                                    * _ _ (fragment matrix_b m_frag n_frag k_frag b_layout frag_in) =
@@ -248,11 +248,11 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                         load_matrix_sync (tensor_index_ref (m,k) a_frag) a
                         load_matrix_sync (tensor_index_ref (n,k) b_frag) b
 
-                sync block
+                // sync block
                 
                 // Try playing around with these thread waits.
 
-                // wait thread . sync block
+                wait thread . sync block
                 
                 // Asynchronously loads the next block from global memory into shared.
                 match next_k with

@@ -325,10 +325,10 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                     cooperative_groups::memcpy_async(v4, v11 + v120, v1 + v114, sizeof(float) * 4l);
                     v94 += v92 ;
                 }
-                cooperative_groups::wait(v4);
-                v3.sync() ;
             } else {
             }
+            cooperative_groups::wait(v4);
+            v3.sync() ;
             wmma::fragment<wmma::matrix_a, 16l, 16l, 8l, wmma::precision::tf32, wmma::row_major> v121[16l];
             wmma::fragment<wmma::matrix_b, 16l, 16l, 8l, wmma::precision::tf32, wmma::col_major> v122[8l];
             long v123;
@@ -433,6 +433,7 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 }
                 v133 += 1l ;
             }
+            cooperative_groups::wait(v4);
             v3.sync() ;
             switch (v59.tag) {
                 case 0: { // None
