@@ -506,6 +506,8 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                         cooperative_groups::memcpy_async(v4, v14 + v253, v2 + v247, sizeof(float) * 4l);
                         v227 += v225 ;
                     }
+                    cooperative_groups::wait(v4);
+                    v3.sync() ;
                     break;
                 }
                 default: { // Some
@@ -658,6 +660,8 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                         cooperative_groups::memcpy_async(v4, v11 + v224, v1 + v218, sizeof(float) * 4l);
                         v198 += v196 ;
                     }
+                    cooperative_groups::wait(v4);
+                    v3.sync() ;
                 }
             }
             long v254;

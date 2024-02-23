@@ -259,7 +259,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                 | Some k => 
                     // wait thread . sync block
                     load_shared(apply k a, apply k b)
-                    // wait thread . sync block
+                    wait thread . sync block
                 | None => 
                     // wait thread . sync block
                     if beta <> 0 then 
@@ -271,7 +271,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                         //     )
                         // wait thread . sync block
                         async_memcpy_tensor_c_shared c true // global -> shared
-                        // wait thread . sync block
+                        wait thread . sync block
                     
                 // wait thread . sync block
                 // sync block
