@@ -141,7 +141,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
 
             async_memcpy_tensor thread (if is_load then {from=c; to=c_shared} else {from=c_shared; to=c})
 
-        inl load_shared (a,b) = 
+        inl async_load_shared (a,b) = 
             if a_trans then
                 inl a = 
                     a |> reshape_snd (fun m_tile => {m=m_tile / m_frag}, {m_frag})
@@ -204,7 +204,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             inl b = apply n b_global
             inl c = apply (m,n) c_global
             lookahead_linear' (fst a.dim) fun k next_k is_initial_k =>
-                if is_initial_k then load_shared(apply k a, apply k b)
+                if is_initial_k then async_load_shared(apply k a, apply k b)
 
                 inl a_frag, b_frag : _ _ (fragment matrix_a m_frag n_frag k_frag a_layout frag_in) 
                                    * _ _ (fragment matrix_b m_frag n_frag k_frag b_layout frag_in) =
@@ -235,6 +235,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                     apply m_warp a_shared, apply n_warp b_shared
                 
                 wait thread . sync block
+
                 // Loads from shared memory into registers.
                 loop_linear' (fst a_shared.dim, fst b_shared.dim) fun m,n =>
                     inl a = apply m a_shared
@@ -248,9 +249,10 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                         load_matrix_sync (tensor_index_ref (n,k) b_frag) b
 
                 sync block
+
                 // Asynchronously loads the next block from global memory into shared.
                 match next_k with
-                | Some k => load_shared(apply k a, apply k b)
+                | Some k => async_load_shared(apply k a, apply k b)
                 | None => if beta <> 0 then async_memcpy_tensor_c_shared c true // global -> shared
                     
                 // Does the matrix multiplication and accumulates the results in the fragment.
@@ -264,6 +266,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                             acc
 
             wait thread . sync block
+
             // Adds the accumulated result to the output in shared memory.
             inl _ = // alpha * acc + beta * c_frag
                 inl c_shared = 
@@ -286,8 +289,12 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                             ref_set acc i (alpha * ref_index acc i)
                     store_matrix_sync c acc
 
+            sync block
+
             // Stores the end result into global memory.
             async_memcpy_tensor_c_shared c false // shared -> global
+
+            // wait thread . sync block // Doesn't seem to be necessary on Ampere GPUs
         ()
 
 // type a_layout = wmma.row_major
