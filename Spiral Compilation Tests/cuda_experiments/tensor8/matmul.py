@@ -325,8 +325,6 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                     cooperative_groups::memcpy_async(v4, v11 + v120, v1 + v114, sizeof(float) * 4l);
                     v94 += v92 ;
                 }
-                cooperative_groups::wait(v4);
-                v3.sync() ;
             } else {
             }
             wmma::fragment<wmma::matrix_a, 16l, 16l, 8l, wmma::precision::tf32, wmma::row_major> v121[16l];
@@ -355,6 +353,8 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             assert("Tensor range check" && 0 <= v124 && v124 < 4l);
             long v132;
             v132 = 1088l * v124;
+            cooperative_groups::wait(v4);
+            v3.sync() ;
             long v133;
             v133 = 0l;
             while (while_method_1(v133)){
@@ -716,14 +716,14 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 }
                 v254 += 1l ;
             }
-            cooperative_groups::wait(v4);
-            v3.sync() ;
             bool v277;
             v277 = false;
             v41 = v45;
             v42 = v46;
             v43 = v277;
         }
+        cooperative_groups::wait(v4);
+        v3.sync() ;
         long v278;
         v278 = thread_block::thread_rank() / warpSize;
         long v279;
@@ -880,8 +880,6 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             cooperative_groups::memcpy_async(v4, v2 + v345, v14 + v338, sizeof(float) * 4l);
             v319 += v317 ;
         }
-        cooperative_groups::wait(v4);
-        v3.sync() ;
         v17 += v15 ;
     }
     return ;
