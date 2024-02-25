@@ -3,3 +3,4 @@
 .fake
 .ionide
 *.pyd
+*.ncu-rep

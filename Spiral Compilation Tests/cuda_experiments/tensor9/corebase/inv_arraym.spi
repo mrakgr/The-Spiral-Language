@@ -1,0 +1,31 @@
+open inv_array_utils
+
+nominal inv_array (ar : * -> *) el = {len : int; arrays : `(infer `ar `el)}
+instance create inv_array ar = fun len => inv_array {len arrays=real create' `ar `el len}
+instance index inv_array ar = fun (inv_array {arrays}) i => real index' arrays i
+instance set inv_array ar = fun (inv_array {arrays}) i v => real set' arrays i v
+instance length inv_array ar = fun (inv_array {len}) => len
+
+inl fromArray forall t. (x : array t) : inv_array array t = inv_array {len = length x; arrays = real x}
+
+// Zips two inverse arrays. Apart from length checking, all the work is done at compile time.
+inl zip forall (ar : * -> *) a b. (a : inv_array ar a) (b : inv_array ar b) : inv_array ar (a * b) =
+    assert (length a = length b) "The two arrays have to be the same length for zipping to work."
+    inv_array {len=a.len; arrays=real a.arrays,b.arrays}
+    
+// Should only be used to rearrange internal fields. Is a compile time operation.
+inl rezip forall (ar : * -> *) a b. (f : a -> b) (a : inv_array ar a) : inv_array ar b =
+    inv_array {len=a.len; arrays=real f a.bodies}
+
+// Overloads the ;[] array constructor.
+inl array forall t. (x : array_base t) : inv_array array t = 
+    inl x = array x
+    inv_array {len=length x; arrays=real x}
+
+// Assert the array length. If they are the same, substitutes it with the given length in the resulting array.
+// Useful when then given length is known at compile time and the array length is known at runtime.
+// In that case, the resulting array will have the length given at compile time.
+inl assert_len forall (ar : * -> *) a. (len : int) (inv_array {len=len' arrays} & a : inv_array ar a) : inv_array ar a =
+    assert (len = len') "Expected the length of the array to be the specified amount."
+    inv_array {len arrays}
+    
