@@ -1,6 +1,7 @@
 kernel = r"""
 template <typename el, int dim> struct array { el v[dim]; };
 #include <cooperative_groups.h>
+#include <cooperative_groups/memcpy_async.h>
 using namespace cooperative_groups;
 __device__ inline bool while_method_0(long v0){
     bool v1;
@@ -12,59 +13,67 @@ __device__ inline bool while_method_1(long v0){
     v1 = v0 < 4l;
     return v1;
 }
-extern "C" __global__ void entry0(float __align__(16) * v0, float __align__(16) * v1, float __align__(16) * v2) {
-    long v3;
-    v3 = grid_group::num_threads();
-    long v4;
-    v4 = grid_group::thread_rank();
+extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
+    auto v3 = this_thread_block();
+    thread_block_tile<1l, thread_block> v4 = tiled_partition<1l>(v3);
     long v5;
-    v5 = v4;
-    while (while_method_0(v5)){
-        long v7;
-        v7 = v5 % 65536l;
-        long v8;
-        v8 = v5 / 65536l;
-        bool v9;
-        v9 = v8 == 0l;
-        bool v10;
-        v10 = v9 == false;
-        if (v10){
-            assert("The index has to be in the range of the dimension." && v9);
+    v5 = grid_group::num_threads();
+    long v6;
+    v6 = grid_group::thread_rank();
+    long v7;
+    v7 = v6;
+    while (while_method_0(v7)){
+        long v9;
+        v9 = v7 % 65536l;
+        long v10;
+        v10 = v7 / 65536l;
+        bool v11;
+        v11 = v10 == 0l;
+        bool v12;
+        v12 = v11 == false;
+        if (v12){
+            assert("The index has to be in the range of the dimension." && v11);
         } else {
         }
-        long v12;
-        v12 = 0l;
-        while (while_method_1(v12)){
-            long v14;
-            v14 = v12 % 4l;
-            long v15;
-            v15 = v12 / 4l;
-            bool v16;
-            v16 = v15 == 0l;
-            bool v17;
-            v17 = v16 == false;
-            if (v17){
-                assert("The index has to be in the range of the dimension." && v16);
+        assert("Tensor range check" && 0 <= v9 && v9 < 65536l);
+        long v14;
+        v14 = 4l * v9;
+        assert("Tensor range check" && 0 <= v9 && v9 < 65536l);
+        float v15[4l];
+        float v16[4l];
+        float v17[4l];
+        cooperative_groups::memcpy_async(v4, v15 + 0l, v1 + v14, sizeof(float) * 4l);
+        cooperative_groups::memcpy_async(v4, v16 + 0l, v2 + v14, sizeof(float) * 4l);
+        cooperative_groups::wait(v4);
+        long v18;
+        v18 = 0l;
+        while (while_method_1(v18)){
+            long v20;
+            v20 = v18 % 4l;
+            long v21;
+            v21 = v18 / 4l;
+            bool v22;
+            v22 = v21 == 0l;
+            bool v23;
+            v23 = v22 == false;
+            if (v23){
+                assert("The index has to be in the range of the dimension." && v22);
             } else {
             }
-            assert("Tensor range check" && 0 <= v7 && v7 < 65536l);
-            assert("Tensor range check" && 0 <= v14 && v14 < 4l);
-            long v19;
-            v19 = 4l * v7;
-            long v20;
-            v20 = v19 + v14;
-            float v21;
-            v21 = v1[v20];
-            float v22;
-            v22 = v2[v20];
-            float v23;
-            v23 = v21 + v22;
-            assert("Tensor range check" && 0 <= v7 && v7 < 65536l);
-            assert("Tensor range check" && 0 <= v14 && v14 < 4l);
-            v0[v20] = v23;
-            v12 += 1l ;
+            assert("Tensor range check" && 0 <= v20 && v20 < 4l);
+            float v25;
+            v25 = v15[v20];
+            float v26;
+            v26 = v16[v20];
+            float v27;
+            v27 = v25 + v26;
+            assert("Tensor range check" && 0 <= v20 && v20 < 4l);
+            v17[v20] = v27;
+            v18 += 1l ;
         }
-        v5 += v3 ;
+        cooperative_groups::memcpy_async(v4, v0 + v14, v17 + 0l, sizeof(float) * 4l);
+        cooperative_groups::wait(v4);
+        v7 += v5 ;
     }
     return ;
 }

@@ -114,7 +114,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
         open tensor_cuda
 
         inl block = create_block()
-        inl thread : _ (_ 1 _) = create_thread_block_tile block
+        inl thread : _ (_ _ 1) = create_thread_block_tile block
 
         inl {a_shared b_shared c_shared} = 
             inl extern = $"extern __shared__ unsigned char v$[]"
@@ -124,7 +124,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
         inl b_shared = b_shared |> view_snd (fun nearTo => {from=0; nearTo=nearTo - padding.b})
         inl c_shared = c_shared |> view_snd (fun nearTo => {from=0; nearTo=nearTo - padding.c})
 
-        inl async_memcpy_tensor_c_shared c is_load =
+        inl tensor_memcpy_async_c_shared c is_load =
             inl c = 
                 c |> reshape_snd (fun n_tile => {n=n_tile / n_frag}, {n_frag})
                 |> reshape_fst (fun m_tile => {m=m_tile / m_frag}, {m_frag})
@@ -138,7 +138,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             inl c = factorize_sizeof_16 c
             inl c_shared = factorize_sizeof_16 c_shared
 
-            async_memcpy_tensor thread (if is_load then {from=c; to=c_shared} else {from=c_shared; to=c})
+            tensor_memcpy_async thread (if is_load then {from=c; to=c_shared} else {from=c_shared; to=c})
 
         inl async_load_shared (a,b) = 
             if a_trans then
@@ -152,7 +152,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                     |> reshape_fst (const ({k=k_tile / k_frag}, {m=m_tile / m_frag}))
                     |> reorder (fun ({k},{m}),({k_frag},{m_frag}) => {k},{k_frag},{m},{m_frag})
 
-                async_memcpy_tensor thread {from=factorize_sizeof_16 a; to=factorize_sizeof_16 a_shared}
+                tensor_memcpy_async thread {from=factorize_sizeof_16 a; to=factorize_sizeof_16 a_shared}
             else
                 inl a = 
                     a |> reshape_snd (fun k_tile => {k=k_tile / k_frag}, {k_frag})
@@ -164,7 +164,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                     |> reshape_fst (const ({m=m_tile / m_frag}, {k=k_tile / k_frag}))
                     |> reorder (fun ({m},{k}),({m_frag},{k_frag}) => {m},{m_frag},{k},{k_frag})
 
-                async_memcpy_tensor thread {from=factorize_sizeof_16 a; to=factorize_sizeof_16 a_shared}
+                tensor_memcpy_async thread {from=factorize_sizeof_16 a; to=factorize_sizeof_16 a_shared}
             
             if b_trans then
                 inl b = 
@@ -177,7 +177,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                     |> reshape_fst (const ({n=n_tile / n_frag}, {k=k_tile / k_frag}))
                     |> reorder (fun ({n},{k}),({n_frag},{k_frag}) => {n},{n_frag},{k},{k_frag})
 
-                async_memcpy_tensor thread {from=factorize_sizeof_16 b; to=factorize_sizeof_16 b_shared}
+                tensor_memcpy_async thread {from=factorize_sizeof_16 b; to=factorize_sizeof_16 b_shared}
             else
                 inl b = 
                     b |> reshape_snd (fun n_tile => {n=n_tile / n_frag}, {n_frag})
@@ -189,7 +189,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                     |> reshape_fst (const ({k=k_tile / k_frag}, {n=n_tile / n_frag}))
                     |> reorder (fun ({k},{n}),({k_frag},{n_frag}) => {k},{k_frag},{n},{n_frag})
 
-                async_memcpy_tensor thread {from=factorize_sizeof_16 b; to=factorize_sizeof_16 b_shared}
+                tensor_memcpy_async thread {from=factorize_sizeof_16 b; to=factorize_sizeof_16 b_shared}
         
         loop_blocks_in_grid' (fst a_global.dim, fst b_global.dim) fun m,n =>
             inl warp_rank_in_block() = warp_rank_in_block ({m_warp},{n_warp})
@@ -252,7 +252,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                 // Asynchronously loads the next block from global memory into shared.
                 match next_k with
                 | Some k => async_load_shared(apply k a, apply k b)
-                | None => if beta <> 0 then async_memcpy_tensor_c_shared c true // global -> shared
+                | None => if beta <> 0 then tensor_memcpy_async_c_shared c true // global -> shared
                     
                 // Does the matrix multiplication and accumulates the results in the fragment.
                 loop_linear' acc.dim fun m,n =>
@@ -291,7 +291,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             sync block
 
             // Stores the end result into global memory.
-            async_memcpy_tensor_c_shared c false // shared -> global
+            tensor_memcpy_async_c_shared c false // shared -> global
 
             wait thread . sync block
         ()
@@ -308,11 +308,40 @@ inl map forall dim a b. (f : a -> b) (a : tensor dim a) (b : tensor dim b) : () 
         // global "#include <cooperative_groups/memcpy_async.h>"
         global "using namespace cooperative_groups;"
         open cooperative_groups
+        
         loop_threads_in_grid' (fst a.dim) fun i => 
-            loop_linear' (snd a.dim) fun j => 
-                tensor_set (i,j) (tensor_index (i,j) a |> f) b
+            inl from, to = apply i a, apply i b
+            inl t_from, t_to = tensor_create from.dim, tensor_create to.dim
+            memcpy_sync {from to=t_from}
+            loop_linear' from.dim fun j => 
+                tensor_set j (tensor_index j t_from |> f) t_to
+            memcpy_sync {from=t_to; to}
 
-            
+// inl map forall dim a b. (f : a -> b) (a : tensor dim a) (b : tensor dim b) : () = 
+//     assert (a.dim = b.dim) "The dimensions of the two inputs to the map kernel need to be the same."
+//     inl a,b = flatten a, flatten b
+//     inl threads_per_block = 256
+//     inl blocks_per_grid = number_of_sms() // * (max_threads_per_sms() / threads_per_block)
+    
+//     inl a,b = factorize_sizeof_16 a, factorize_sizeof_16 b
+//     run' {blocks_per_grid threads_per_block shared_mem=0} fun () =>
+//         global "#include <cooperative_groups.h>"
+//         global "#include <cooperative_groups/memcpy_async.h>"
+//         global "using namespace cooperative_groups;"
+//         open cooperative_groups
+
+//         inl block = create_block()
+//         inl thread : _ (_ _ 1) = create_thread_block_tile block
+        
+//         loop_threads_in_grid' (fst a.dim) fun i => 
+//             inl from, to = apply i a, apply i b
+//             inl t_from, t_to = tensor_create from.dim, tensor_create to.dim
+//             memcpy_async thread {from to=t_from}
+//             wait thread
+//             loop_linear' from.dim fun j => 
+//                 tensor_set j (tensor_index j t_from |> f) t_to
+//             memcpy_async thread {from=t_to; to}
+//             wait thread
 
 
 // type a_layout = wmma.row_major

@@ -193,12 +193,10 @@ inl factorize forall a el. (t : tensor a el) (i : int) : tensor (a * int) el =
     tensor {
         dim = real
             open real_core
-            inl a,_ = 
-                mapFoldBack (fun x s =>
-                    assert (x % s = 0) "The innermost tensor dimension to be factorized needs to be divisible by the given argument."
-                    x / s, 1
-                    ) t.dim i
-            a, i
+            mapFoldBack (fun x s =>
+                assert (x % s = 0) "The innermost tensor dimension to be factorized needs to be divisible by the given argument."
+                x / s, 1
+                ) t.dim i |> fst, i
         bodies = real
             open real_core
             map (fun (tensor_body r as x) =>
@@ -211,11 +209,7 @@ inl factorize forall a el. (t : tensor a el) (i : int) : tensor (a * int) el =
     }
 
 // Splits a tensor along the last dimension so that the innermost dimension is the requisite number of bytes divided upward.
-inl factorize_sizeof forall a el. (t : tensor a el) (target_size : int) : tensor (a * int) el = 
-    real
-        open real_core
-        infer_fold `el (forall el. => min (divup target_size (sizeof `el).value)) (limit.max `int)
-    |> factorize t
+inl factorize_sizeof forall a el. (t : tensor a el) (target_size : int) : tensor (a * int) el = factorize t (real sizeof_factorize `el target_size)
 
 // Splits a tensor along the last dimension so that the innermost dimension is the optimal size for loading by a single Cuda tread.
 inl factorize_sizeof_16 forall a el. (t : tensor a el) : tensor (a * int) el = factorize_sizeof t 16
