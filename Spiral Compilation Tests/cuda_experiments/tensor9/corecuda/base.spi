@@ -39,9 +39,10 @@ inl run' ({blocks_per_grid threads_per_block shared_mem} : run_config) f =
     global "options.append('--diag-suppress=550')"
     global "options.append('--dopt=on')"
     global "options.append('--restrict')"
-    // global "options.append('--maxrregcount=255')"
     global "options.append('--define-macro=NDEBUG')"
+    // global "options.append('--maxrregcount=255')"
     // global "options.append('--device-debug')"
+    // global "options.append('--generate-line-info')"
     global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))"
     inl kernel_i, vars = join_backend Cuda
         f () : ()
@@ -59,3 +60,5 @@ inl run blocks_per_grid threads_per_block = run' {blocks_per_grid threads_per_bl
 
 type warp_size = 32
 inl warp_size() : int = real real_core.type_lit_to_lit `warp_size
+inl number_of_sms() : int = 24
+inl max_threads_per_sms() : int = 1576

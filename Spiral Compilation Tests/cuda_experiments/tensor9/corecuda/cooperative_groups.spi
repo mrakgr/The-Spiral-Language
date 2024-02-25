@@ -103,6 +103,12 @@ inl loop_tile_template forall size parent dim. loop (cg : ref (thread_block_tile
     inl nearTo : int = real tensorm.utils.prod dim
     loop (project_index dim) {from nearTo by} body
 
+inl loop_threads_in_grid_template forall dim. loop (dim : dim) (body : dim -> _) =
+    inl by : int = $"grid_group::num_threads()"
+    inl from : int = $"grid_group::thread_rank()"
+    inl nearTo : int = real tensorm.utils.prod dim
+    loop (project_index dim) {from nearTo by} body
+
 inl loop_warps_in_grid_template forall dim. loop (dim : dim) (body : dim -> _) =
     inl by : int = $"grid_group::num_threads() / warpSize"
     inl from : int = $"grid_group::thread_rank() / warpSize"
@@ -115,7 +121,7 @@ inl loop_blocks_in_grid_template forall dim. loop (dim : dim) (body : dim -> _) 
     inl nearTo : int = real tensorm.utils.prod dim
     loop (project_index dim) {from nearTo by} body
 
-inl loop_thread_in_block_template forall dim. loop (dim : dim) (body : dim -> _) =
+inl loop_threads_in_block_template forall dim. loop (dim : dim) (body : dim -> _) =
     inl by : int = $"thread_block::num_threads()"
     inl from : int = $"thread_block::thread_rank()"
     inl nearTo : int = real tensorm.utils.prod dim
@@ -135,9 +141,10 @@ inl loop_for_by' forall dim. (range : {from : dim; nearTo : dim; by : dim}) = lo
 inl loop_for' forall dim. (range : {from : dim; nearTo : dim}) = loop_for_template _for range
 inl loop_linear' forall dim. (dim : dim) = loop_linear_template _for dim
 inl loop_tile' forall size parent dim. (cg : ref (thread_block_tile size parent)) (dim : dim) = loop_tile_template _forBy cg dim
+inl loop_threads_in_grid' forall dim. (dim : dim) = loop_threads_in_grid_template _forBy dim
 inl loop_warps_in_grid' forall dim. (dim : dim) = loop_warps_in_grid_template _forBy dim
 inl loop_blocks_in_grid' forall dim. (dim : dim) = loop_blocks_in_grid_template _forBy dim
-inl loop_thread_in_block' forall dim. (dim : dim) = loop_thread_in_block_template _forBy dim
+inl loop_threads_in_block' forall dim. (dim : dim) = loop_threads_in_block_template _forBy dim
 inl loop_warps_in_block' forall dim. (dim : dim) = loop_warps_in_block_template _forBy dim
 
 // The look ahead loop. Compared to a regular loop, it provides the iteration index for the next iteration, as well as whether the iteration is initial.
@@ -157,9 +164,10 @@ inl lookahead_for_by' forall dim. (range : {from : dim; nearTo : dim; by : dim})
 inl lookahead_for' forall dim. (range : {from : dim; nearTo : dim}) = loop_for_template lookahead' range
 inl lookahead_linear' forall dim. (dim : dim) = loop_linear_template lookahead' dim
 inl lookahead_tile' forall size parent dim. (cg : ref (thread_block_tile size parent)) (dim : dim) = loop_tile_template lookaheadBy' cg dim
+inl lookahead_threads_in_grid' forall dim. (dim : dim) = loop_threads_in_grid_template lookaheadBy' dim
 inl lookahead_warps_in_grid' forall dim. (dim : dim) = loop_warps_in_grid_template lookaheadBy' dim
 inl lookahead_blocks_in_grid' forall dim. (dim : dim) = loop_blocks_in_grid_template lookaheadBy' dim
-inl lookahead_thread_in_block' forall dim. (dim : dim) = loop_thread_in_block_template lookaheadBy' dim
+inl lookahead_threads_in_block' forall dim. (dim : dim) = loop_threads_in_block_template lookaheadBy' dim
 inl lookahead_warps_in_block' forall dim. (dim : dim) = loop_warps_in_block_template lookaheadBy' dim
 
 inl wait forall group {groupable}. (group : ref group) : () = $"cooperative_groups::wait(!group)"
