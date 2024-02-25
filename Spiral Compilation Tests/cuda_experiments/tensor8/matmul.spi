@@ -265,7 +265,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                             (tensor_index_ref (n,k) b_frag)
                             acc
 
-            wait thread . sync block
+            if beta <> 0 then wait thread . sync block
 
             // Adds the accumulated result to the output in shared memory.
             inl _ = // alpha * acc + beta * c_frag
@@ -294,7 +294,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             // Stores the end result into global memory.
             async_memcpy_tensor_c_shared c false // shared -> global
 
-            // wait thread . sync block // Doesn't seem to be necessary on Ampere GPUs. Can a thread have only 1 async memcopy at a time?
+            wait thread . sync block
         ()
 
 // type a_layout = wmma.row_major
