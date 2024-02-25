@@ -300,7 +300,7 @@ inl map forall dim a b. (f : a -> b) (a : tensor dim a) (b : tensor dim b) : () 
     assert (a.dim = b.dim) "The dimensions of the two inputs to the map kernel need to be the same."
     inl a,b = flatten a, flatten b
     inl threads_per_block = 256
-    inl blocks_per_grid = number_of_sms() // * (max_threads_per_sms() / threads_per_block)
+    inl blocks_per_grid = number_of_sms() * (max_threads_per_sms() / threads_per_block)
     
     inl a,b = factorize_sizeof_16 a, factorize_sizeof_16 b
     run' {blocks_per_grid threads_per_block shared_mem=0} fun () =>
