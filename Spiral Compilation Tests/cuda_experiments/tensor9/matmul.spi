@@ -317,31 +317,40 @@ inl map forall dim a b. (f : a -> b) (a : tensor dim a) (b : tensor dim b) : () 
                 tensor_set j (tensor_index j t_from |> f) t_to
             memcpy_sync {from=t_to; to}
 
-// inl map forall dim a b. (f : a -> b) (a : tensor dim a) (b : tensor dim b) : () = 
-//     assert (a.dim = b.dim) "The dimensions of the two inputs to the map kernel need to be the same."
-//     inl a,b = flatten a, flatten b
-//     inl threads_per_block = 256
-//     inl blocks_per_grid = number_of_sms() // * (max_threads_per_sms() / threads_per_block)
+inl gemm_as_map forall m_frag n_frag k_frag frag_in a_layout b_layout float {number}. 
+        (gemm_config {m_frag n_frag k_frag m_tile n_tile k_tile a_trans b_trans threads_per_block m_warp n_warp m_local n_local k_local} 
+         : gemm_config m_frag n_frag k_frag frag_in a_layout b_layout float) 
+        (alpha : float) (a : tensor (int * int) float) (b : tensor (int * int) float) 
+        (beta : float) (c : tensor (int * int) float) =
+    inl a = a |> reshape (fun m,k => (m*k)/(m_frag*k_frag),m_frag,k_frag)
+    inl b = b |> reshape (fun n,k => (n*k)/(n_frag*k_frag),n_frag,k_frag)
+    inl c = c |> reshape (fun m,n => (m*n)/(m_frag*n_frag),m_frag,n_frag)
+    assert (fst a.dim = fst b.dim) "The dimensions of A and B tensors need to be the same."
+    assert (fst a.dim = fst c.dim) "The dimensions of A and B tensors need to be the same."
+    inl threads_per_block = 256
+    inl blocks_per_grid = number_of_sms() * (max_threads_per_sms() / threads_per_block)
     
-//     inl a,b = factorize_sizeof_16 a, factorize_sizeof_16 b
-//     run' {blocks_per_grid threads_per_block shared_mem=0} fun () =>
-//         global "#include <cooperative_groups.h>"
-//         global "#include <cooperative_groups/memcpy_async.h>"
-//         global "using namespace cooperative_groups;"
-//         open cooperative_groups
-
-//         inl block = create_block()
-//         inl thread : _ (_ _ 1) = create_thread_block_tile block
+    run' {blocks_per_grid threads_per_block shared_mem=0} fun () =>
+        global "#include <mma.h>"
+        global "using namespace nvcuda;"
+        global "#include <cooperative_groups.h>"
+        // global "#include <cooperative_groups/memcpy_async.h>"
+        global "using namespace cooperative_groups;"
+        open cooperative_groups
         
-//         loop_threads_in_grid' (fst a.dim) fun i => 
-//             inl from, to = apply i a, apply i b
-//             inl t_from, t_to = tensor_create from.dim, tensor_create to.dim
-//             memcpy_async thread {from to=t_from}
-//             wait thread
-//             loop_linear' from.dim fun j => 
-//                 tensor_set j (tensor_index j t_from |> f) t_to
-//             memcpy_async thread {from=t_to; to}
-//             wait thread
+        loop_warps_in_grid' (fst a.dim) fun i => 
+            inl a, b, c = apply i a, apply i b, apply i c
+            open wmma
+            inl a', b', c' 
+                : _ (fragment matrix_a m_frag n_frag k_frag a_layout frag_in) 
+                * _ (fragment matrix_b m_frag n_frag k_frag b_layout frag_in) 
+                * _ (fragment accumulator m_frag n_frag k_frag row_major float) =
+                create_fragment, create_fragment, create_fragment
+            
+            load_matrix_sync a' a . load_matrix_sync b' b
+            mma_sync c' a' b' c'
+            store_matrix_sync c c'
+    
 
 
 // type a_layout = wmma.row_major
@@ -377,23 +386,26 @@ inl main() =
         $"(cp.matmul(!a_body,!b_body) + !c_body).flatten()"
         |> fromArray |> reshape (const c.dim)
 
-    inl m,n,k : int * int * int = 512, 512, 512
+    inl m,n,k : int * int * int = 1024, 1024, 1024
     inl a_trans = (real typecase a_layout with wmma.row_major => false | wmma.col_major => true) : bool
     inl b_trans = (real typecase b_layout with wmma.row_major => false | wmma.col_major => true) : bool
 
     inl [ma; mb; mc] = listm.map random_normal ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
-    inl [fa; fb; fc] = listm.map random_normal ([m,n; m,n; m,n ])
+    inl [fa; fb; fc; fd] = listm.map random_normal ([m,n; m,n; m,n; m,n ])
+    inl [mq] = listm.map random_normal ([m,n*2])
     inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
     average 1 fun i =>
         inl d = cp_matmul (ma,a_trans) (mb,b_trans) mc
-        inl _ = map (fun a,b => a+b) (zip fa fb) fc
+        inl gemm_config_tf32 = gemm_config {m_tile=64; n_tile=64; k_tile=64; threads_per_block=256} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
+        map (fun a,b => a+b, a-b) (zip fa fb) (zip fc fd)
+        gemm_as_map gemm_config_tf32 1 ma mb 1 mq
         // console.write_ln (zip a b)
-        // inl gemm_config_tf32 = gemm_config {m_tile=64; n_tile=64; k_tile=64; threads_per_block=256} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
         // if i = 0 then
         //     global "from max_blocks_per_sm import max_blocks_per_sm"
         //     inl threads_per_block = gemm_config_tf32.threads_per_block
         //     $"max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),!threads_per_block,is_print=True)" : ()
         // wmma_gemm_shared gemm_config_tf32 1 a b 1 c
-        inl d,c = get_body d, get_body mc
+        // inl d,c = get_body d, get_body mc
 
-        $"cp.max(cp.abs(!c-!d))" : f32
+        // $"cp.max(cp.abs(!c-!d))" : f32
+        0 : f32
