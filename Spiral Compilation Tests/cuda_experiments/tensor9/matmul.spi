@@ -334,12 +334,17 @@ inl gemm_as_map forall m_frag n_frag k_frag frag_in a_layout b_layout float {num
         global "#include <mma.h>"
         global "using namespace nvcuda;"
         global "#include <cooperative_groups.h>"
-        // global "#include <cooperative_groups/memcpy_async.h>"
+        global "#include <cooperative_groups/memcpy_async.h>"
         global "using namespace cooperative_groups;"
         open cooperative_groups
+        open tensor_cuda
+
+        inl block = create_block()
+        inl warp : _ (_ _ 32) = create_thread_block_tile block
         
         loop_warps_in_grid' (fst a.dim) fun i => 
             inl a, b, c = apply i a, apply i b, apply i c
+            inl a_shared, b_shared, c_shared = tensor_create_shared a.dim, tensor_create_shared b.dim, tensor_create_shared c.dim
             open wmma
             inl a', b', c' 
                 : _ (fragment matrix_a m_frag n_frag k_frag a_layout frag_in) 
@@ -347,9 +352,15 @@ inl gemm_as_map forall m_frag n_frag k_frag frag_in a_layout b_layout float {num
                 * _ (fragment accumulator m_frag n_frag k_frag row_major float) =
                 create_fragment, create_fragment, create_fragment
             
-            load_matrix_sync a' a . load_matrix_sync b' b
+            tensor_memcpy_async warp {from=a; to=a_shared} . tensor_memcpy_async warp {from=b; to=b_shared}
+            wait warp . sync block
+
+            load_matrix_sync a' a_shared . load_matrix_sync b' b_shared
             mma_sync c' a' b' c'
-            store_matrix_sync c c'
+            store_matrix_sync c_shared c'
+
+            tensor_memcpy_async warp {from=c_shared; to=c}
+            wait warp . sync block
     
 
 
