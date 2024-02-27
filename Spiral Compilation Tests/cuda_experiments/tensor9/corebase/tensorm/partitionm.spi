@@ -67,18 +67,8 @@ inl tensor_from_offsets forall d el. (base : array u8) (offsets {dim offsets} : 
                     real_core.backend_switch {
                         python = fun () => 
                             inl s = !!!!SizeOf(`t) 
-                            typecase t with
-                            | i8 => $"!base[!i:!i+!s*!len].view(cp.int8)" : array t
-                            | i16 => $"!base[!i:!i+!s*!len].view(cp.int16)" : array t
-                            | i32 => $"!base[!i:!i+!s*!len].view(cp.int32)" : array t
-                            | i64 => $"!base[!i:!i+!s*!len].view(cp.int64)" : array t
-                            | u8 => $"!base[!i:!i+!s*!len].view(cp.uint8)" : array t
-                            | u16 => $"!base[!i:!i+!s*!len].view(cp.uint16)" : array t
-                            | u32 => $"!base[!i:!i+!s*!len].view(cp.uint32)" : array t
-                            | u64 => $"!base[!i:!i+!s*!len].view(cp.uint64)" : array t
-                            | f32 => $"!base[!i:!i+!s*!len].view(cp.float32)" : array t
-                            | f64 => $"!base[!i:!i+!s*!len].view(cp.float64)" : array t
-                            | bool => $"!base[!i:!i+!s*!len].view(cp.int8)" : array t
+                            typecase cupy_type t with ~ct => 
+                            $"!base[!i:!i+!s*!len].view(`ct)" : array t
                         cuda = fun () => 
                             $"reinterpret_cast<`t *>(&!base[!i])" : array t
                         }

@@ -31,6 +31,7 @@ modules:
         wmma
         cooperative_groups
         debug_tensor 
+        cupy 
         
     sortm
     cardm
@@ -47,4 +48,4 @@ modules:
 
     main
     matmul
-    
+    wmma_test 

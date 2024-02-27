@@ -1,0 +1,31 @@
+open corebase
+open corecuda
+open tensorm
+
+type a_layout = wmma.row_major
+type b_layout = wmma.col_major
+
+inl main() =
+    inl m,n,k : int * int * int = 8, 8, 4
+    inl a_trans = (real typecase a_layout with wmma.row_major => false | wmma.col_major => true) : bool
+    inl b_trans = (real typecase b_layout with wmma.row_major => false | wmma.col_major => true) : bool
+
+    inl [ma; mb; mc] = listm.map random_normal ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
+    inl [fa; fb; fc; fd] = listm.map random_normal ([m,n; m,n; m,n; m,n ])
+    inl [mq] = listm.map random_normal ([m,n*2])
+    inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
+    average 1 fun i =>
+        inl d = cp_matmul (ma,a_trans) (mb,b_trans) mc
+        inl gemm_config_tf32 = gemm_config {m_tile=64; n_tile=64; k_tile=64; threads_per_block=256} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
+        map (fun a,b => a+b, a-b) (zip fa fb) (zip fc fd)
+        gemm_as_map gemm_config_tf32 1 ma mb 1 mq
+        // console.write_ln (zip a b)
+        // if i = 0 then
+        //     global "from max_blocks_per_sm import max_blocks_per_sm"
+        //     inl threads_per_block = gemm_config_tf32.threads_per_block
+        //     $"max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),!threads_per_block,is_print=True)" : ()
+        // wmma_gemm_shared gemm_config_tf32 1 a b 1 c
+        // inl d,c = get_body d, get_body mc
+
+        // $"cp.max(cp.abs(!c-!d))" : f32
+        0 : f32

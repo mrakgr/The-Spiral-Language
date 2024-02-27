@@ -1,0 +1,11 @@
+open corebase
+open tensorm
+
+inl arange forall el. ({from nearTo by} : {from : int; nearTo : int; by : int}) : tensor int el = 
+    real
+        typecase cupy_type el with ~ct =>
+        $"cp.arange(!from,!nearTo,!by,dtype=`ct)" : array el
+    |> fromArray
+    
+
+    
