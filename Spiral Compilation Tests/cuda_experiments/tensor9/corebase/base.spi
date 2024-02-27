@@ -41,3 +41,5 @@ nominal sizeof t = {value : int}
 inl sizeof forall t. : sizeof t = sizeof {
     value = real !!!!Conv(`int, !!!!SizeOf(`t))
     }
+
+nominal phantom t = ()

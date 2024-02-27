@@ -189,7 +189,7 @@ inl reshape_snd forall a b dim el. (dim : b -> dim) : tensor (a * b) el -> tenso
 inl reshape forall a b el. (dim : a -> b) (t : tensor a el) : tensor b el = reorder (fun x => x, ()) t |> reshape_fst dim |> reorder fst
 
 // Splits a tensor along the last dimension.
-inl factorize forall a el. (t : tensor a el) (i : int) : tensor (a * int) el = 
+inl factorize forall a el. (i : int) (t : tensor a el) : tensor (a * int) el = 
     tensor {
         dim = real
             open real_core
@@ -209,10 +209,10 @@ inl factorize forall a el. (t : tensor a el) (i : int) : tensor (a * int) el =
     }
 
 // Splits a tensor along the last dimension so that the innermost dimension is the requisite number of bytes divided upward.
-inl factorize_sizeof forall a el. (t : tensor a el) (target_size : int) : tensor (a * int) el = factorize t (real sizeof_factorize `el target_size)
+inl factorize_sizeof forall a el. (target_size : int) (t : tensor a el) : tensor (a * int) el = factorize (real sizeof_factorize `el target_size) t
 
 // Splits a tensor along the last dimension so that the innermost dimension is the optimal size for loading by a single Cuda tread.
-inl factorize_sizeof_16 forall a el. (t : tensor a el) : tensor (a * int) el = factorize_sizeof t 16
+inl factorize_sizeof_16 forall a el. (t : tensor a el) : tensor (a * int) el = factorize_sizeof 16 t
 
 // Assert the tensor dimensions. If they are the same, substitutes it with the given length in the resulting tensor.
 // Useful when then the given dimension is known at compile time and the tensor dimension is known at runtime.
