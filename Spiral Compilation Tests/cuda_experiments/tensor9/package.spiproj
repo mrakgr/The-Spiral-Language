@@ -30,7 +30,7 @@ modules:
         console
         wmma
         cooperative_groups
-        debug_tensor 
+        printing
         cupy 
         
     sortm

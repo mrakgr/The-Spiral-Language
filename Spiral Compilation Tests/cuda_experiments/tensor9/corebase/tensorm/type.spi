@@ -59,8 +59,11 @@ inl tensor_set forall dim el. (i : dim) (v : el) (tensor {bodies dim} : tensor d
         | ~ar ~el => set `ar `el array (calculate_offset stride i offset) v
         ) bodies v
 
+// Calculates the integer product of the argument.
+inl prod forall dim. (dim : dim) : int = real prod dim
+
 // Returns the number of elements in the tensor.
-instance length tensor dim = fun (tensor {dim}) => real prod dim
+instance length tensor dim = fun (tensor {dim}) => prod dim
 
 // Zips two tensors. Apart from dimension checking, all the work is done at compile time.
 inl zip forall dim a b. (a : tensor dim a) (b : tensor dim b) : tensor dim (a * b) =
@@ -148,7 +151,7 @@ inl split_snd forall a b el. : list b -> tensor (a * b) el -> list (tensor (a * 
 // Flattens the first part of the tensor into a single dimension. For this to work, the tensor must be contiguous.
 inl flatten_fst forall a b el. (tensor {dim bodies} : tensor (a * b) el) : tensor (int * b) el = 
     tensor {
-        dim = real open real_core in prod (fst dim), snd dim
+        dim = prod (fst dim), snd dim
         bodies = real
             open real_core
             map (fun (tensor_body r as x) =>
@@ -170,7 +173,7 @@ inl flatten forall dim el. (t : tensor dim el) : tensor int el = reorder (fun x 
 inl reshape_fst forall a b dim el. (f : a -> dim) (x : tensor (a * b) el) : tensor (dim * b) el =
     inl dim' = f (fst x.dim)
     inl stride, len : dim * int = real calculate_stride_len dim'
-    assert (len = (real prod) (fst x.dim)) "The total length of the reshaped tensor dimension must match that of the original one."
+    assert (len = prod (fst x.dim)) "The total length of the reshaped tensor dimension must match that of the original one."
     inl (tensor {bodies dim}) = flatten_fst x
     tensor {
         dim = dim', snd dim

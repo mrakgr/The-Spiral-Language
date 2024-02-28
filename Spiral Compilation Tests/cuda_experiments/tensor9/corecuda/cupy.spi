@@ -7,5 +7,3 @@ inl arange forall el. ({from nearTo by} : {from : int; nearTo : int; by : int}) 
         $"cp.arange(!from,!nearTo,!by,dtype=`ct)" : array el
     |> fromArray
     
-
-    
