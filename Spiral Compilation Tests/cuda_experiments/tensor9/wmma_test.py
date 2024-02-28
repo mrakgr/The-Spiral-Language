@@ -42,7 +42,6 @@ def main():
     del v7, v8
     v10 = cp.arange(0,32,1,dtype=cp.float64)
     v11 = v10.size
-    del v10
     v12 = 32 == v11
     del v11
     v13 = v12 == False
@@ -111,15 +110,21 @@ def main():
             v46 = v17 * 4
             v47 = v46 + v30
             del v46
-            v48 = v5[v47].item()
-            del v47
+            v48 = v10[v47].item()
             print("{:.6f}".format(v48), end="")
             del v48
+            v52 = ", "
+            print(v52, end="")
+            del v52
+            v53 = v5[v47].item()
+            del v47
+            print("{:.6f}".format(v53), end="")
+            del v53
             v30 += 1 
         del v30
         print(']', end="")
         v17 += 1 
-    del v5, v15, v17
+    del v5, v10, v15, v17
     print(']', end="")
     print()
     return 
