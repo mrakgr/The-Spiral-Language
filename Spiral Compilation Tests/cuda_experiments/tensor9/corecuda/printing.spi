@@ -2,19 +2,36 @@ open corebase
 open console
 open tensorm
 
-inl tensor_print (array_limit : int) (t : tensor _ _) =
-    inl length : int = real tensorm.utils.prod t.dim
-    write '['
+inl tensor_print forall dim. (array_limit : int) (t : tensor dim _) =
+    inl dim_to_list (dim : dim) : list int = real
+        open tensorm.utils
+        foldBack ((::) `int) dim (Nil `int)
     inl ~q = 0
-    cooperative_groups.loop_linear' t.dim (fun i =>
-        write (tensor_index i t)
-        loop._set q (q + 1)
-        if q >= array_limit then 
-            write "; ..."
-            $"break"
-        if q < length then write "; "
-        ) 
-    write ']'
+    inl rec loop' s = function
+        | nearTo :: l => 
+            write '['
+            loop.for' {from=0; nearTo} (fun i => 
+                if q >= array_limit && i+1 < nearTo then write "..." . $"break"
+                if i <> 0 then write "; "
+                loop' (i :: s) l
+                )
+            write ']'
+        | [] =>
+            loop._set q (q + 1)
+            inl s = listm.rev s
+            inl print_tensor_body forall el. (tensor_body {stride offset array} : _ dim el) =
+                listm.fold2 (fun offset s s' => offset + s * s') offset s (dim_to_list stride)
+                |> index array
+                |> write
+            inl _ = real
+                open tensorm.utils
+                fold (fun separator x =>
+                    typecase `x with tensor_body dim ~el => 
+                    write separator . print_tensor_body `el x
+                    ", "
+                    ) "" t.bodies
+            () 
+    loop' [] (dim_to_list t.dim)
 
 instance printable tensor dim el = tensor_print 100
 

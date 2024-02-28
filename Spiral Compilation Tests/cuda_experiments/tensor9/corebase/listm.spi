@@ -7,6 +7,15 @@ inl fold f s l =
         if var_is l then inl ~s = s in join body s l
         else body s l 
     loop s l
+// A fold that takes in two lists as an argument.
+inl fold2 f =
+    inl rec body s = function 
+        | (a :: a'), (b :: b') => loop (f s a b) a' b' 
+        | [] => s
+    and inl loop s a b =
+        if var_is a && var_is b then inl ~(s, a, b) = s, a, b in join body s (a, b)
+        else body s (a, b)
+    loop
 // Folds the list from the end to the beginning.
 inl foldBack f l s =
     inl rec body s = function Cons(x,x') => f x (loop s x') | Nil => s
