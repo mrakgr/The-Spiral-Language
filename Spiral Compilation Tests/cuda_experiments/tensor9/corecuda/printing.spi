@@ -11,7 +11,7 @@ inl tensor_print forall dim. (array_limit : int) (t : tensor dim _) =
         | nearTo :: l => 
             write '['
             loop.for' {from=0; nearTo} (fun i => 
-                if q >= array_limit && i+1 < nearTo then write "..." . $"break"
+                if loop._dup q >= array_limit then write " ..." . $"break"
                 if i <> 0 then write "; "
                 loop' (i :: s) l
                 )
@@ -19,7 +19,8 @@ inl tensor_print forall dim. (array_limit : int) (t : tensor dim _) =
         | [] =>
             loop._set q (q + 1)
             inl s = listm.rev s
-            inl print_tensor_body forall el. (tensor_body {stride offset array} : _ dim el) =
+            inl print_tensor_body forall el. (separator : string) (tensor_body {stride offset array} : _ dim el) =
+                write separator
                 listm.fold2 (fun offset s s' => offset + s * s') offset s (dim_to_list stride)
                 |> index array
                 |> write
@@ -27,7 +28,7 @@ inl tensor_print forall dim. (array_limit : int) (t : tensor dim _) =
                 open tensorm.utils
                 fold (fun separator x =>
                     typecase `x with tensor_body dim ~el => 
-                    write separator . print_tensor_body `el x
+                    print_tensor_body `el separator x
                     ", "
                     ) "" t.bodies
             () 

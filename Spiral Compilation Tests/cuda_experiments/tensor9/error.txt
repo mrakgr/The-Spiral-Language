@@ -1,61 +1,61 @@
-Error trace on line: 25, column: 39 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\loop.spi.
-    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
-                                      ^
-Error trace on line: 25, column: 45 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\loop.spi.
-    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
-                                            ^
-Error trace on line: 25, column: 57 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\loop.spi.
-    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
-                                                        ^
-Error trace on line: 28, column: 44 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\loop.spi.
-inl forBy' range body = forBy range (fun i () => body i) ()
-                                           ^
-Error trace on line: 28, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\loop.spi.
-inl forBy' range body = forBy range (fun i () => body i) ()
-                                                 ^
-Error trace on line: 59, column: 18 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\core.spi.
-inl (>>) a b x = b (a x)
-                 ^
-Error trace on line: 342, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\matmul.spi.
-            inl a, b, c = apply i a, apply i b, apply i c
-            ^
-Error trace on line: 342, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\matmul.spi.
-            inl a, b, c = apply i a, apply i b, apply i c
+Error trace on line: 32, column: 32 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\loop.spi.
+inl for' r body = for r (fun i () => body i) ()
+                               ^
+Error trace on line: 32, column: 38 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\loop.spi.
+inl for' r body = for r (fun i () => body i) ()
+                                     ^
+Error trace on line: 14, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\printing.spi.
+                if q >= array_limit && i+1 < nearTo then write "..." . $"break"
                 ^
-Error trace on line: 342, column: 20 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\matmul.spi.
-            inl a, b, c = apply i a, apply i b, apply i c
-                   ^
-Error trace on line: 344, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\matmul.spi.
-            inl a', b', c' 
-            ^
-Error trace on line: 344, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\matmul.spi.
-            inl a', b', c' 
+Error trace on line: 15, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\printing.spi.
+                if i <> 0 then write "; "
                 ^
-Error trace on line: 344, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\matmul.spi.
-            inl a', b', c' 
-                    ^
-Error trace on line: 350, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\matmul.spi.
-            load_matrix_sync a' a . load_matrix_sync b' b
+Error trace on line: 16, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\printing.spi.
+                loop' (i :: s) l
+                ^
+Error trace on line: 10, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\printing.spi.
+    inl rec loop' s = function
+                      ^
+Error trace on line: 11, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\printing.spi.
+        | nearTo :: l => 
+          ^
+Error trace on line: 19, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\printing.spi.
+        | [] =>
+          ^
+Error trace on line: 20, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\printing.spi.
+            loop._set q (q + 1)
             ^
-Error trace on line: 350, column: 37 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\matmul.spi.
-            load_matrix_sync a' a . load_matrix_sync b' b
-                                    ^
-Error trace on line: 61, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\wmma.spi.
-    assert_fragment_dimension f t
-    ^
-Error trace on line: 49, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\wmma.spi.
-    assert (fragment_dim f = t.dim) "The fragment's dimensions must match that of the tensor."
-    ^
-Error trace on line: 123, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\core.spi.
-inl assert (c : bool) (msg : string) : () = real assert c msg
-                                                 ^
-Error trace on line: 250, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\real_core.spir.
-    if c = false then 
-    ^
-Error trace on line: 251, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\real_core.spir.
-        if lit_is c && lit_is msg then error_type msg
+Error trace on line: 21, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\printing.spi.
+            inl s = listm.rev s
+            ^
+Error trace on line: 22, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\printing.spi.
+            inl print_tensor_body forall el. (tensor_body {stride offset array} : _ dim el) =
+            ^
+Error trace on line: 26, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\printing.spi.
+            inl _ = real
+            ^
+Error trace on line: 28, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\printing.spi.
+                fold (fun separator x =>
+                ^
+Error trace on line: 54, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\tensorm\utils.spir.
+        match x with
         ^
-Error trace on line: 251, column: 40 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\real_core.spir.
-        if lit_is c && lit_is msg then error_type msg
-                                       ^
-The fragment's dimensions must match that of the tensor.
+Error trace on line: 55, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\tensorm\utils.spir.
+        | a, b => f (f s a) b
+          ^
+Error trace on line: 56, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\tensorm\utils.spir.
+        | {} as ar => record_fold (fun x => f x.state x.value) s ar
+          ^
+Error trace on line: 57, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\tensorm\utils.spir.
+        | ar => g s ar
+          ^
+Error trace on line: 57, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\tensorm\utils.spir.
+        | ar => g s ar
+                ^
+Error trace on line: 29, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\printing.spi.
+                    typecase `x with tensor_body dim ~el => 
+                    ^
+Error trace on line: 30, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\printing.spi.
+                    write separator . print_tensor_body `el x
+                    ^
+Cannot apply a forall with a term.

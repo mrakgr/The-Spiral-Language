@@ -16,5 +16,9 @@ inl main() =
     inl make dim : _ _ float = arange {from=0; nearTo=prod dim; by=1} |> reshape (const dim)
     inl [a; b; c] = listm.map make [m, k; n, k; m, n]
 
-    get_body a, get_body b, get_body c
+    open printing
+    // tensor_print 20 a
+    console.write_ln b
+    // tensor_print 100 c
+    // get_body a, get_body b, get_body c
     

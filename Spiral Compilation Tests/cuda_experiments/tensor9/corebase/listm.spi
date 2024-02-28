@@ -11,7 +11,8 @@ inl fold f s l =
 inl fold2 f =
     inl rec body s = function 
         | (a :: a'), (b :: b') => loop (f s a b) a' b' 
-        | [] => s
+        | [],[] => s
+        | _ => failwith "The two lists need to be the same length."
     and inl loop s a b =
         if var_is a && var_is b then inl ~(s, a, b) = s, a, b in join body s (a, b)
         else body s (a, b)
