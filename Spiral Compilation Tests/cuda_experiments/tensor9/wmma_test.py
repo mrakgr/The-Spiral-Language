@@ -104,28 +104,63 @@ def main():
             v42 = v15 + 1
             v15 = v42
             del v42
-            v45 = ""
-            print(v45, end="")
-            del v45
-            v46 = v17 * 4
-            v47 = v46 + v30
-            del v46
-            v48 = v10[v47].item()
-            print("{:.6f}".format(v48), end="")
-            del v48
-            v52 = ", "
-            print(v52, end="")
-            del v52
-            v53 = v5[v47].item()
-            del v47
-            print("{:.6f}".format(v53), end="")
+            v43 = v17 * 4
+            v44 = v43 + v30
+            del v43
+            v45 = v10[v44].item()
+            v46 = v5[v44].item()
+            del v44
+            print('{', end="")
+            v50 = "a"
+            print(v50, end="")
+            del v50
+            v53 = " = "
+            print(v53, end="")
             del v53
+            print("{:.6f}".format(v45), end="")
+            del v45
+            v57 = "; "
+            print(v57, end="")
+            del v57
+            v60 = "b"
+            print(v60, end="")
+            del v60
+            v63 = " = "
+            print(v63, end="")
+            del v63
+            print("{:.6f}".format(v46), end="")
+            del v46
+            print('}', end="")
             v30 += 1 
         del v30
         print(']', end="")
         v17 += 1 
     del v5, v10, v15, v17
     print(']', end="")
+    print()
+    print('{', end="")
+    v71 = "a"
+    print(v71, end="")
+    del v71
+    v74 = " = "
+    print(v74, end="")
+    del v74
+    v77 = "true"
+    print(v77, end="")
+    del v77
+    v80 = "; "
+    print(v80, end="")
+    del v80
+    v83 = "b"
+    print(v83, end="")
+    del v83
+    v86 = " = "
+    print(v86, end="")
+    del v86
+    v89 = "fuse"
+    print(v89, end="")
+    del v89
+    print('}', end="")
     print()
     return 
 

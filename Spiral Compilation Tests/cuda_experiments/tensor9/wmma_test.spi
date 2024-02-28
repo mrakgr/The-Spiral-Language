@@ -18,7 +18,8 @@ inl main() =
 
     open printing
     // tensor_print 20 a
-    console.write_ln (zip a b)
+    console.write_ln (zip a b |> rezip (fun a, b => {a b}))
+    console.write_ln {a=true; b="fuse"}
     // tensor_print 100 c
     // get_body a, get_body b, get_body c
     

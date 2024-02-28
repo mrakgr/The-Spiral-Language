@@ -42,11 +42,11 @@ and inl write forall t. (x : t) : () = real
         | (a,b) => write a . write ", " . write b
         | {} as x =>
             write '{'
-            record_fold_back (fun {state=separator key value} => 
+            record_fold (fun {state=separator key value} => 
                 write separator
                 write (symbol_to_string key) . write " = " . write value
                 "; "
-                ) x () |> ignore
+                ) () x |> ignore
             write '}'
         | () => ()
         | x when symbol_is x => write (symbol_to_string x)
