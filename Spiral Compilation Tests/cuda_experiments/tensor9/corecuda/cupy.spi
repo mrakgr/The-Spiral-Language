@@ -7,3 +7,9 @@ inl arange forall el. ({from nearTo by} : {from : int; nearTo : int; by : int}) 
         $"cp.arange(!from,!nearTo,!by,dtype=`ct)" : array el
     |> fromArray
     
+inl zeros forall el. (nearTo : int) : tensor int el = 
+    real
+        typecase cupy_type el with ~ct =>
+        $"cp.zeros(!nearTo,dtype=`ct)" : array el
+    |> fromArray
+    

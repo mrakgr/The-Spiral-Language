@@ -1,5 +1,12 @@
 open corebase
 
+inl grid_group_num_blocks() : int = $"grid_group::num_blocks()"
+inl grid_group_block_rank() : int = $"grid_group::block_rank()"
+inl grid_group_num_threads() : int = $"grid_group::num_threads()"
+inl grid_group_thread_rank() : int = $"grid_group::thread_rank()"
+inl thread_block_num_threads() : int = $"thread_block::num_threads()"
+inl thread_block_thread_rank() : int = $"thread_block::thread_rank()"
+
 nominal grid_group = $"grid_group"
 nominal thread_block = $"thread_block"
 nominal thread_block_tile parent size = $"thread_block_tile<@size, `parent>"
@@ -12,11 +19,17 @@ instance groupable thread_block = fun _ => ()
 instance groupable thread_block_tile parent size = fun _ => ()
 instance groupable grid_group = fun _ => ()
 
+inl wait forall group {groupable}. (group : ref group) : () = $"cooperative_groups::wait(!group)"
+inl sync forall group {groupable}. (group : ref group) : () = $'!group.sync() '
+
 prototype tileable t : t -> ()
 instance tileable thread = fun _ => ()
 instance tileable thread_block = fun _ => ()
-instance tileable thread_block_tile size parent = fun _ => ()
+instance tileable thread_block_tile parent size = fun _ => ()
 instance tileable coalesced_group = fun _ => ()
+
+inl meta_group_size forall group {tileable}. (cg : ref group) : int = $"!cg.meta_group_size()"
+inl meta_group_rank forall group {tileable}. (cg : ref group) : int = $"!cg.meta_group_rank()"
 
 inl create_grid() : ref grid_group = $"auto v$ = this_grid()" 
 inl create_block() : ref thread_block = $"auto v$ = this_thread_block()"
@@ -95,47 +108,44 @@ inl loop_for_template forall dim. loop ({from nearTo} : {from : dim; nearTo : di
     loop (project_index' {from nearTo}) (project_index_reverse_range {from nearTo}) body
 
 inl loop_linear_template forall dim. loop (dim : dim) body = 
-    loop (project_index dim) {from=0; nearTo=real tensorm.utils.prod dim} body
-
-inl meta_group_size forall group {tileable}. (cg : ref group) : int = $"!cg.meta_group_size()"
-inl meta_group_rank forall group {tileable}. (cg : ref group) : int = $"!cg.meta_group_rank()"
+    loop (project_index dim) {from=0; nearTo=tensorm.prod dim} body
 
 inl loop_tile_template forall group {tileable} dim. loop (cg : ref group) (dim : dim) (body : dim -> _) =
     inl by : int = meta_group_size cg
     inl from : int = meta_group_rank cg
-    inl nearTo : int = real tensorm.utils.prod dim
+    inl nearTo : int = tensorm.prod dim
     loop (project_index dim) {from nearTo by} body
 
 inl loop_threads_in_grid_template forall dim. loop (dim : dim) (body : dim -> _) =
-    inl by : int = $"grid_group::num_threads()"
-    inl from : int = $"grid_group::thread_rank()"
-    inl nearTo : int = real tensorm.utils.prod dim
+    inl by : int = grid_group_num_threads()
+    inl from : int = grid_group_thread_rank()
+    inl nearTo : int = tensorm.prod dim
     loop (project_index dim) {from nearTo by} body
 
 inl loop_warps_in_grid_template forall dim. loop (dim : dim) (body : dim -> _) =
-    inl by : int = $"grid_group::num_threads() / warpSize"
-    inl from : int = $"grid_group::thread_rank() / warpSize"
-    inl nearTo : int = real tensorm.utils.prod dim
+    inl by : int = grid_group_num_threads() / warp_size()
+    inl from : int = grid_group_thread_rank() / warp_size()
+    inl nearTo : int = tensorm.prod dim
     loop (project_index dim) {from nearTo by} body
 
 inl loop_blocks_in_grid_template forall dim. loop (dim : dim) (body : dim -> _) =
-    inl by : int = $"grid_group::num_blocks()"
-    inl from : int = $"grid_group::block_rank()"
-    inl nearTo : int = real tensorm.utils.prod dim
+    inl by : int = grid_group_num_blocks()
+    inl from : int = grid_group_block_rank()
+    inl nearTo : int = tensorm.prod dim
     loop (project_index dim) {from nearTo by} body
 
 inl loop_threads_in_block_template forall dim. loop (dim : dim) (body : dim -> _) =
-    inl by : int = $"thread_block::num_threads()"
-    inl from : int = $"thread_block::thread_rank()"
-    inl nearTo : int = real tensorm.utils.prod dim
+    inl by : int = thread_block_num_threads()
+    inl from : int = thread_block_thread_rank()
+    inl nearTo : int = tensorm.prod dim
     loop (project_index dim) {from nearTo by} body
 
-inl warp_rank_in_block dim = project_index dim $"thread_block::thread_rank() / warpSize"
+inl warp_rank_in_block dim = project_index dim (thread_block_thread_rank() / warp_size())
 
 inl loop_warps_in_block_template forall dim. loop (dim : dim) (body : dim -> _) =
-    inl by : int = $"thread_block::num_threads() / warpSize"
-    inl from : int = $"thread_block::thread_rank() / warpSize"
-    inl nearTo : int = real tensorm.utils.prod dim
+    inl by : int = thread_block_num_threads() / warp_size()
+    inl from : int = thread_block_thread_rank() / warp_size()
+    inl nearTo : int = tensorm.prod dim
     loop (project_index dim) {from nearTo by} body
 
 inl _forBy project range body = loop.forBy' range (project >> body)
@@ -172,20 +182,6 @@ inl lookahead_warps_in_grid' forall dim. (dim : dim) = loop_warps_in_grid_templa
 inl lookahead_blocks_in_grid' forall dim. (dim : dim) = loop_blocks_in_grid_template lookaheadBy' dim
 inl lookahead_threads_in_block' forall dim. (dim : dim) = loop_threads_in_block_template lookaheadBy' dim
 inl lookahead_warps_in_block' forall dim. (dim : dim) = loop_warps_in_block_template lookaheadBy' dim
-
-inl wait forall group {groupable}. (group : ref group) : () = $"cooperative_groups::wait(!group)"
-
-inl in_first_thread_grid f =
-    inl from : int = $"grid_group::thread_rank()"
-    if from = 0 then f()
-    $"__syncthreads()"
-
-inl in_first_thread_block f =
-    inl from : int = $"thread_block::thread_rank()"
-    if from = 0 then f()
-    $"__syncthreads()"
-
-inl sync forall group {groupable}. (group : ref group) : () = $'!group.sync() '
 
 open tensorm
 

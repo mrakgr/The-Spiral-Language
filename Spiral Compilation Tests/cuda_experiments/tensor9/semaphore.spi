@@ -1,0 +1,62 @@
+open corebase
+open corecuda
+open tensorm
+open cupy
+
+type float = f64
+
+
+nominal thread_scope_system = $"cuda::thread_scope_system"
+nominal thread_scope_device = $"cuda::thread_scope_device"
+nominal thread_scope_block = $"cuda::thread_scope_block"
+nominal thread_scope_thread = $"cuda::thread_scope_thread"
+
+prototype thread_scope t : t -> ()
+instance thread_scope thread_scope_system = fun _ => ()
+instance thread_scope thread_scope_device = fun _ => ()
+instance thread_scope thread_scope_block = fun _ => ()
+instance thread_scope thread_scope_thread = fun _ => ()
+
+nominal counting_semaphore count scope = $'cuda::std::counting_semaphore<`scope, `count>'
+type binary_semaphore scope = counting_semaphore 1 scope
+
+inl create_counting_semaphore forall count scope{thread_scope}. (i : int) : ref (counting_semaphore count scope) = $"cuda::counting_semaphore<`scope,`count> v$(!i)"
+inl create_binary_semaphore forall scope{thread_scope}. (i : int) : ref (binary_semaphore scope) = $"cuda::binary_semaphore<`scope> v$(!i)"
+
+inl acquire forall count scope. (semaphore : ref (counting_semaphore count scope)) : () = $"!semaphore.acquire()"
+inl release forall count scope. (semaphore : ref (counting_semaphore count scope)) : () = $"!semaphore.release()"
+
+type a_layout = wmma.row_major
+type b_layout = wmma.col_major
+
+inl main() =
+    inl get_body forall dim el. (x : tensor dim el) : array el = 
+        real tensorm.utils.map (fun (tensor_body {array}) => array) x.bodies : array el
+
+    inl m,n,k : int * int * int = 8, 8, 4
+
+    inl arange dim : _ _ float = arange {from=0; nearTo=prod dim; by=1} |> reshape (const dim)
+    inl zeros dim : _ _ float = zeros (prod dim) |> reshape (const dim)
+    inl a = arange (m, k)
+    inl b = zeros (m, k)
+    console.write_ln a
+    console.write_ln b
+
+    inl blocks_per_grid = 1
+    inl threads_per_block = 32 
+    run' {blocks_per_grid threads_per_block shared_mem=0} fun () =>
+        global "#include <mma.h>"
+        global "using namespace nvcuda;"
+        global "#include <cooperative_groups.h>"
+        global "#include <cooperative_groups/memcpy_async.h>"
+        global "using namespace cooperative_groups;"
+        global "#include <cuda/semaphore>"
+        open cooperative_groups
+
+        inl lock : ref (_ _ thread_scope_system) = create_binary_semaphore 0
+        if grid_group_thread_rank()+1 = grid_group_num_threads() then release lock
+        acquire lock
+        console.write_ln "hello"
+        console.write_ln {id=grid_group_thread_rank()}
+        release lock
+        ()

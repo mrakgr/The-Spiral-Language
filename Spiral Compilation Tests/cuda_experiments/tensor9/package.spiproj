@@ -48,4 +48,4 @@ modules:
 
     main
     matmul
-    wmma_test 
+    semaphore 

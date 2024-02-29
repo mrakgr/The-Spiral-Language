@@ -62,3 +62,5 @@ type warp_size = 32
 inl warp_size() : int = real real_core.type_lit_to_lit `warp_size
 inl number_of_sms() : int = 24
 inl max_threads_per_sms() : int = 1576
+inl __syncthreads() : () = $"__syncthreads()"
+
