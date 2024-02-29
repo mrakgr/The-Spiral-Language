@@ -53,7 +53,7 @@ inl main() =
         global "#include <cuda/semaphore>"
         open cooperative_groups
 
-        inl lock : ref (_ _ thread_scope_system) = create_binary_semaphore 0
+        inl lock : ref (_ _ thread_scope_block) = create_binary_semaphore 0
         if grid_group_thread_rank()+1 = grid_group_num_threads() then release lock
         acquire lock
         console.write_ln "hello"

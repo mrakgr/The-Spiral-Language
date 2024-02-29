@@ -6,8 +6,8 @@ using namespace nvcuda;
 #include <cooperative_groups/memcpy_async.h>
 using namespace cooperative_groups;
 #include <cuda/semaphore>
+__device__ cuda::std::binary_semaphore v0;
 extern "C" __global__ void entry0() {
-    cuda::binary_semaphore<cuda::thread_scope_system> v0(0l);
     long v1;
     v1 = grid_group::thread_rank();
     long v2;
@@ -233,7 +233,7 @@ def main():
     v79 = raw_module.get_function(f"entry{v78}")
     del v78
     v79.max_dynamic_shared_size_bytes = 0 
-    v79((1,),(32,),(),shared_mem=0)
+    v79((2,),(32,),(),shared_mem=0)
     del v79
     return 
 
