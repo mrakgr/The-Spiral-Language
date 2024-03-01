@@ -20,8 +20,20 @@ instance thread_scope thread_scope_thread = fun _ => ()
 nominal counting_semaphore count scope = $'cuda::std::counting_semaphore<`scope, `count>'
 type binary_semaphore scope = counting_semaphore 1 scope
 
-inl create_counting_semaphore forall count scope{thread_scope}. (i : int) : ref (counting_semaphore count scope) = $"cuda::counting_semaphore<`scope,`count> v$(!i)"
-inl create_binary_semaphore forall scope{thread_scope}. (i : int) : ref (binary_semaphore scope) = $"cuda::binary_semaphore<`scope> v$(!i)"
+inl create_counting_semaphore_in_thread forall count scope{thread_scope}. (i : int) : ref (counting_semaphore count scope) = $"cuda::counting_semaphore<`scope,`count> v$(!i)"
+inl create_binary_semaphore_in_thread forall scope{thread_scope}. (i : int) : ref (binary_semaphore scope) = $"cuda::binary_semaphore<`scope> v$(!i)"
+inl create_counting_semaphore_in_grid forall count scope{thread_scope}. (i : int) : ref (counting_semaphore count scope) = $"static cuda::counting_semaphore<`scope,`count> v$(!i)"
+inl create_binary_semaphore_in_grid forall scope{thread_scope}. (i : int) : ref (binary_semaphore scope) = $"static cuda::binary_semaphore<`scope> v$(!i)"
+inl create_counting_semaphore_in_block forall count. (i : int) : ref (counting_semaphore count thread_scope_block) = 
+    inl x = $"__shared__ cuda::counting_semaphore<`thread_scope_block,`count> v$"
+    if cooperative_groups.thread_block_thread_rank() = 0 then $"new(&!x) cuda::counting_semaphore<`thread_scope_block,`count>(!i)"
+    __syncthreads()
+    x
+inl create_binary_semaphore_in_block (i : int) : ref (binary_semaphore thread_scope_block) = 
+    inl x = $"__shared__ cuda::binary_semaphore<`thread_scope_block> v$"
+    if cooperative_groups.thread_block_thread_rank() = 0 then $"new(&!x) cuda::binary_semaphore<`thread_scope_block>(!i)"
+    __syncthreads()
+    x
 
 inl acquire forall count scope. (semaphore : ref (counting_semaphore count scope)) : () = $"!semaphore.acquire()"
 inl release forall count scope. (semaphore : ref (counting_semaphore count scope)) : () = $"!semaphore.release()"
@@ -53,8 +65,8 @@ inl main() =
         global "#include <cuda/semaphore>"
         open cooperative_groups
 
-        inl lock : ref (_ _ thread_scope_block) = create_binary_semaphore 0
-        if grid_group_thread_rank()+1 = grid_group_num_threads() then release lock
+        // inl lock : ref (_ _ thread_scope_system) = create_binary_semaphore_in_grid 1
+        inl lock : ref (_ _ _) = create_binary_semaphore_in_block 1
         acquire lock
         console.write_ln "hello"
         console.write_ln {id=grid_group_thread_rank()}

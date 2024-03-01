@@ -6,48 +6,45 @@ using namespace nvcuda;
 #include <cooperative_groups/memcpy_async.h>
 using namespace cooperative_groups;
 #include <cuda/semaphore>
-__device__ cuda::std::binary_semaphore v0;
 extern "C" __global__ void entry0() {
+    __shared__ cuda::binary_semaphore<cuda::thread_scope_block> v0;
     long v1;
-    v1 = grid_group::thread_rank();
-    long v2;
-    v2 = v1 + 1l;
-    long v3;
-    v3 = grid_group::num_threads();
-    bool v4;
-    v4 = v2 == v3;
-    if (v4){
-        v0.release();
+    v1 = thread_block::thread_rank();
+    bool v2;
+    v2 = v1 == 0l;
+    if (v2){
+        new(&v0) cuda::binary_semaphore<cuda::thread_scope_block>(1l);
     } else {
     }
+    __syncthreads();
     v0.acquire();
-    const char * v5;
-    v5 = "%s";
-    const char * v6;
-    v6 = "hello";
-    printf(v5,v6);
+    const char * v3;
+    v3 = "%s";
+    const char * v4;
+    v4 = "hello";
+    printf(v3,v4);
     printf("\n");
-    long v8;
-    v8 = grid_group::thread_rank();
+    long v6;
+    v6 = grid_group::thread_rank();
+    const char * v7;
+    v7 = "%c";
+    printf(v7,'{');
+    const char * v8;
+    v8 = "%s";
     const char * v9;
-    v9 = "%c";
-    printf(v9,'{');
-    const char * v10;
-    v10 = "%s";
+    v9 = "id";
+    printf(v8,v9);
     const char * v11;
-    v11 = "id";
-    printf(v10,v11);
-    const char * v13;
-    v13 = "%s";
+    v11 = "%s";
+    const char * v12;
+    v12 = " = ";
+    printf(v11,v12);
     const char * v14;
-    v14 = " = ";
-    printf(v13,v14);
-    const char * v16;
-    v16 = "%d";
-    printf(v16,v8);
-    const char * v17;
-    v17 = "%c";
-    printf(v17,'}');
+    v14 = "%d";
+    printf(v14,v6);
+    const char * v15;
+    v15 = "%c";
+    printf(v15,'}');
     printf("\n");
     v0.release();
     return ;
@@ -233,7 +230,7 @@ def main():
     v79 = raw_module.get_function(f"entry{v78}")
     del v78
     v79.max_dynamic_shared_size_bytes = 0 
-    v79((2,),(32,),(),shared_mem=0)
+    v79((1,),(32,),(),shared_mem=0)
     del v79
     return 
 
