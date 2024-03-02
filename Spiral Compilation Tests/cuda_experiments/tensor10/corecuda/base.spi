@@ -40,7 +40,7 @@ inl run' ({blocks_per_grid threads_per_block shared_mem} : run_config) f =
     global "options.append('--dopt=on')"
     global "options.append('--restrict')"
     global "options.append('--define-macro=NDEBUG')"
-    // global "options.append('--maxrregcount=255')"
+    // global "options.append('--maxrregcount=128')"
     // global "options.append('--device-debug')"
     // global "options.append('--generate-line-info')"
     global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))"
