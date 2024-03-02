@@ -1,0 +1,18 @@
+open corebase
+
+inl map' forall (array : * -> *) {length; index; set}. f (inp : array _) (out : array _) = 
+    inl grid_range () : int = $"gridDim.x * blockDim.x"
+    inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+
+    inl blocks = 128
+    inl grids = divup (length inp) blocks
+    run grids blocks (fun () =>
+        loop.forBy {from=linear_id(); nearTo=length inp; by=grid_range()} (fun i () =>
+            set out i (index inp i |> f)
+            ) ()
+        )
+
+inl map f inp = 
+    inl out = create (length inp)
+    map' f inp out
+    out

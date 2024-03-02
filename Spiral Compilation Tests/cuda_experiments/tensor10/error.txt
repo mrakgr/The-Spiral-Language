@@ -1,0 +1,121 @@
+Error trace on line: 78, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\semaphore.spi.
+        global "#include <cooperative_groups.h>"
+        ^
+Error trace on line: 79, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\semaphore.spi.
+        global "#include <cooperative_groups/memcpy_async.h>"
+        ^
+Error trace on line: 80, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\semaphore.spi.
+        global "using namespace cooperative_groups;"
+        ^
+Error trace on line: 81, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\semaphore.spi.
+        global "#include <cuda/semaphore>"
+        ^
+Error trace on line: 85, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\semaphore.spi.
+        inl block = create_block()
+        ^
+Error trace on line: 86, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\semaphore.spi.
+        inl warp : _ (_ _ warp_size) = create_thread_block_tile block
+        ^
+Error trace on line: 87, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\semaphore.spi.
+        inl thread : _ (_ _ 1) = create_thread_block_tile warp
+        ^
+Error trace on line: 89, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\semaphore.spi.
+        inl a_shared = tensor_create_shared a.dim
+        ^
+Error trace on line: 90, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\semaphore.spi.
+        tensor_memcpy_sync 4 thread {from=a; to=a_shared}
+        ^
+Error trace on line: 91, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\semaphore.spi.
+        if grid_group_thread_rank() = 0 then
+        ^
+Error trace on line: 94, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\semaphore.spi.
+        inl a' : _ (fragment matrix_a 16 16 8 a_layout float) = create_fragment
+        ^
+Error trace on line: 96, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\semaphore.spi.
+        tensor_memcpy_sync 4 thread {from=a; to=a_shared}
+        ^
+Error trace on line: 98, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\semaphore.spi.
+        sync warp
+        ^
+Error trace on line: 100, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\semaphore.spi.
+        load_matrix_sync a' a_shared
+        ^
+Error trace on line: 61, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\wmma.spi.
+    assert_fragment_dimension f t
+    ^
+Error trace on line: 49, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\wmma.spi.
+    assert (fragment_dim f = t.dim) "The fragment's dimensions must match that of the tensor."
+    ^
+Error trace on line: 123, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\core.spi.
+inl assert (c : bool) (msg : string) : () = real assert c msg
+                                                 ^
+Error trace on line: 250, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\real_core.spir.
+    if c = false then 
+    ^
+Error trace on line: 251, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+        ^
+Error trace on line: 251, column: 40 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+                                       ^
+The fragment's dimensions must match that of the tensor.Error trace on line: 36, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
+                      ^
+Error trace on line: 36, column: 35 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
+                                  ^
+Error trace on line: 36, column: 47 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | (x : i8) | (x : i16) | (x : i32) | (x : i64) => p ("%d", x)
+                                              ^
+Error trace on line: 37, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
+           ^
+Error trace on line: 37, column: 23 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
+                      ^
+Error trace on line: 37, column: 35 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
+                                  ^
+Error trace on line: 37, column: 47 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | (x : u8) | (x : u16) | (x : u32) | (x : u64) => p ("%u", x)
+                                              ^
+Error trace on line: 38, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | (x : f32) | (x : f64) => p ("%f", x)
+           ^
+Error trace on line: 38, column: 24 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | (x : f32) | (x : f64) => p ("%f", x)
+                       ^
+Error trace on line: 39, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | (x : string) => p ("%s", x)
+           ^
+Error trace on line: 40, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | (x : char) => p ("%c", x)
+           ^
+Error trace on line: 41, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | (x : bool) => p ("%s", if x then "true" else "false")
+           ^
+Error trace on line: 42, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | (a,b) => write a . write ", " . write b
+           ^
+Error trace on line: 43, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | {} as x =>
+          ^
+Error trace on line: 51, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | () => ()
+          ^
+Error trace on line: 52, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | x when symbol_is x => write (symbol_to_string x)
+          ^
+Error trace on line: 53, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+        | x => 
+          ^
+Error trace on line: 54, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+            typecase `x with
+            ^
+Error trace on line: 57, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+                if prototype_has `t printable then printable `t x
+                ^
+Error trace on line: 58, column: 22 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor9\corecuda\console.spi.
+                else error_type "Unsupported type."
+                     ^
+Unsupported type.
