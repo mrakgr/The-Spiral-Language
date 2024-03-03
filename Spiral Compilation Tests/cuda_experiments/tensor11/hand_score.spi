@@ -1,0 +1,15 @@
+open corebase
+open corecuda
+open cardm
+
+nominal hand_score = { score : i8; hand : sa 5 card }
+instance comparable hand_score = fun a b =>
+    match comp a.score b.score with
+    | Eq => comp a.hand b.hand
+    | x => x
+
+open console
+instance printable hand_score = fun (hand_score { score hand }) =>
+    open sam
+    inl i i = index hand i
+    write {score hand = i 0, ", ", i 1, ", ", i 2, ", ", i 3, ", ", i 4}

@@ -1,0 +1,60 @@
+prototype equable a : a -> a -> bool
+
+union order = Eq | Lt | Gt
+prototype comparable a : a -> a -> order
+inl eq() = Eq
+inl eq_is = function Eq => true | _ => false
+inl lt() = Lt
+inl lt_is = function Lt => true | _ => false
+inl gt() = Gt
+inl gt_is = function Gt => true | _ => false
+
+prototype hashable a : a -> i32
+
+union option a = Some : a | None
+union choice2 a b = C1of2 : a | C2of2 : b
+union result a b = Ok : a | Error : b
+union rec list a = Nil | Cons : a * list a
+// Concatenates an element to the head of a list.
+inl (::) a b = Cons (a,b)
+
+// Puts a statement in the global scope.
+inl global (x : string) : () = !!!!Global(x)
+
+nominal array t = array_base t
+
+// Creates an array.
+prototype create ar el : int -> ar el
+// Indexes into an array.
+prototype index ar el : ar el -> int -> el
+// Sets the value of an array at the specified index.
+prototype set ar el : ar el -> int -> el -> ()
+// Returns the length of an array.
+prototype length ar el : ar el -> int
+
+instance create array = fun size => array !!!!ArrayCreate(`el,size)
+instance index array = fun (array ar) i => !!!!ArrayIndex(ar,i)
+instance set array = fun (array ar) i v => !!!!ArrayIndexSet(ar,i,v)
+instance length array = fun (array ar) => !!!!ArrayLength(`int,ar)
+
+nominal sizeof t = {value : int}
+inl sizeof forall t. : sizeof t = sizeof {
+    value = real !!!!Conv(`int, !!!!SizeOf(`t))
+    }
+
+nominal phantom t = ()
+
+nominal cupy_type t = `(
+    typecase t with
+    | i8 =>   ``($"cp.int8")
+    | u8 =>   ``($"cp.uint")
+    | bool => ``($"cp.int8")
+    | i16 =>  ``($"cp.int16")
+    | i32 =>  ``($"cp.int32")
+    | i64 =>  ``($"cp.int64")
+    | u16 =>  ``($"cp.uint16")
+    | u32 =>  ``($"cp.uint32")
+    | u64 =>  ``($"cp.uint64")
+    | f32 =>  ``($"cp.float32")
+    | f64 =>  ``($"cp.float64")
+    ) 
