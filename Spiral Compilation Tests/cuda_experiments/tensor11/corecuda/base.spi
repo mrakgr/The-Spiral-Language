@@ -1,6 +1,6 @@
 open corebase
 
-'// Statically sized array with a type literal for a dimension.
+// Statically sized array with a type literal for a dimension.
 nominal sa dim el = $"array<`el,@dim>"
 
 // Base reference type
@@ -36,10 +36,11 @@ inl run' ({blocks_per_grid threads_per_block shared_mem} : run_config) f =
     // global "raw_module = cp.RawModule(code=kernel, backend='nvcc', options=(\"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\\\\cublasdx\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\external\\\\cutlass\\\\include\"))"
 
     global "options = []"
+    global "options.append('--define-macro=NDEBUG')"
     global "options.append('--diag-suppress=550')"
     global "options.append('--dopt=on')"
     global "options.append('--restrict')"
-    global "options.append('--define-macro=NDEBUG')"
+    // global "options.append('-D__CUDA_NO_HALF_CONVERSIONS__')" // To avoid `instance of overloaded function "__half::__half" matches the specified type` with NVCC
     // global "options.append('--extra-device-vectorization')"
     // global "options.append('--ptxas-options=-v')"
     // global "options.append('--maxrregcount=128')"

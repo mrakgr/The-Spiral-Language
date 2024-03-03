@@ -718,12 +718,12 @@ from typing import NamedTuple, Union, Callable, Tuple
 i8 = i16 = i32 = i64 = u8 = u16 = u32 = u64 = int; f32 = f64 = float; char = string = str
 
 options = []
+options.append('--define-macro=NDEBUG')
 options.append('--diag-suppress=550')
 options.append('--dopt=on')
 options.append('--restrict')
-options.append('--define-macro=NDEBUG')
-options.append('--extra-device-vectorization')
-raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))
+options.append('-D__CUDA_NO_HALF_CONVERSIONS__')
+raw_module = cp.RawModule(code=kernel, backend='nvcc', enable_cooperative_groups=True, options=tuple(options))
 def method0(v0 : i32) -> bool:
     v1 = v0 < 1
     del v0
