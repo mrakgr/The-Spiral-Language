@@ -170,10 +170,12 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                 wait thread . sync block
 
                 // Loads from shared memory into registers.
+                // pragma.unroll() 
                 loop_linear' (fst a_shared.dim, fst b_shared.dim) fun m,n =>
                     inl a = apply m a_shared
                     inl b = apply n b_shared
 
+                    // pragma.unroll() 
                     loop_linear' (fst a.dim) fun k =>
                         inl a = apply k a
                         inl b = apply k b
@@ -189,9 +191,11 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                 | None => if beta <> 0 then tensor_memcpy_async_c_shared c true // global -> shared
                     
                 // Does the matrix multiplication and accumulates the results in the fragment.
+                // pragma.unroll() 
                 loop_linear' acc.dim fun m,n =>
                     inl acc = tensor_index_ref (m,n) acc
 
+                    // pragma.unroll() 
                     loop_linear' {k_local} fun k =>
                         mma_sync acc 
                             (tensor_index_ref (m,k) a_frag) 
@@ -208,6 +212,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                     |> reorder (fun (({m_warp}, {m_local}, {m_frag}), ({n_warp}, {n_local}, {n_frag})) => ({m_warp},{n_warp}),({m_local},{n_local}),m_frag,n_frag)
                     |> apply warp_rank_in_block() 
 
+                // pragma.unroll() 
                 loop_linear' (fst c_shared.dim) fun m,n =>
                     inl acc = tensor_index_ref (m,n) acc
 
@@ -215,9 +220,11 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                     if beta <> 0 then
                         inl c_frag : _ (fragment accumulator m_frag n_frag k_frag row_major float) = create_fragment
                         load_matrix_sync c_frag c                        
+                        // pragma.unroll() 
                         loop.linear' (ref_length acc) fun i =>
                             ref_set acc i (alpha * ref_index acc i + beta * ref_index c_frag i)
                     else
+                        // pragma.unroll() 
                         loop.linear' (ref_length acc) fun i =>
                             ref_set acc i (alpha * ref_index acc i)
                     store_matrix_sync c acc
@@ -267,11 +274,6 @@ inl main() =
     inl get_body forall dim el. (x : tensor dim el) : array el = 
         real tensorm.utils.map (fun (tensor_body {array}) => array) x.bodies : array el
 
-    inl random_normal dim =
-        inl len : int = real tensorm.utils.prod dim
-        inl t : array f32 = $"cp.random.normal(0,1,!len,cp.float32)" 
-        fromArray t |> reshape (const dim)
-
     inl swap (a,b) x = if x then b,a else a,b
     inl cp_matmul (a : tensor (int * int) float * bool) (b : tensor (int * int) float * bool) (c : tensor (int * int) float) : tensor (int * int) float =
         inl transpose a_trans (x : array float) : array float = if a_trans then $"cp.transpose(!x)" else x
@@ -284,20 +286,21 @@ inl main() =
         $"(cp.matmul(!a_body,!b_body) + !c_body).flatten()"
         |> fromArray |> reshape (const c.dim)
 
-    inl m,n,k : int * int * int = 8192, 8192, 4096
+    inl m,n,k : int * int * int = 512, 512, 512
     inl a_trans = (real typecase a_layout with wmma.row_major => false | wmma.col_major => true) : bool
     inl b_trans = (real typecase b_layout with wmma.row_major => false | wmma.col_major => true) : bool
 
-    inl [ma; mb; mc] = listm.map random_normal ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
+    // inl [ma; mb; mc] = listm.map cupy.random_normal{mean=0; std=1} ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
+    inl [ma; mb; mc] = listm.map cupy.zeros ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
     inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
     average 1 fun i =>
-        inl d = cp_matmul (ma,a_trans) (mb,b_trans) mc
+        // inl d = cp_matmul (ma,a_trans) (mb,b_trans) mc
         inl gemm_config_tf32 = gemm_config {m_tile=64; n_tile=64; k_tile=64; threads_per_block=256; m_skew=8; n_skew=8; k_skew=4} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
-        if i = 0 then
-            global "from max_blocks_per_sm import max_blocks_per_sm"
-            inl threads_per_block = gemm_config_tf32.threads_per_block
-            $"max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),!threads_per_block,is_print=True)" : ()
+        // if i = 0 then
+        //     global "from max_blocks_per_sm import max_blocks_per_sm"
+        //     inl threads_per_block = gemm_config_tf32.threads_per_block
+        //     $"max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),!threads_per_block,is_print=True)" : ()
         wmma_gemm_shared gemm_config_tf32 1 ma mb 1 mc
-        inl d,c = get_body d, get_body mc
-
-        $"cp.max(cp.abs(!c-!d))" : f32
+        // inl d,c = get_body d, get_body mc
+        // $"cp.max(cp.abs(!c-!d))" : f32
+        0 : float

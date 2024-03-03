@@ -189,6 +189,7 @@ inl memcpy_sync forall float. ({from to} : {from : tensor int float; to : tensor
     assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
     inl dim = from.dim
     inl default() =
+        // pragma.unroll() 
         loop_linear' dim fun j => 
             tensor_set j (tensor_index j from) to
     real
@@ -223,10 +224,12 @@ inl memcpy_async forall parent float. (group : ref (thread_block_tile parent 1))
 inl tensor_memcpy_sync forall parent float a. access_size (group : ref (thread_block_tile parent 1)) ({from to} : {from : tensor a float; to : tensor a float}) : () =
     inl from, to = factorize_sizeof access_size from, factorize_sizeof access_size to
     assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
+    // pragma.unroll() 
     loop_tile' group (fst from.dim) (fun a => memcpy_sync {from=apply a from; to=apply a to})
     
 inl tensor_memcpy_async forall parent float a. access_size (group : ref (thread_block_tile parent 1)) ({from to} : {from : tensor a float; to : tensor a float}) : () =
     inl from, to = factorize_sizeof access_size from, factorize_sizeof access_size to
     assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
+    // pragma.unroll() 
     loop_tile' group (fst from.dim) (fun a => memcpy_async group {from=apply a from; to=apply a to})
     // wait group

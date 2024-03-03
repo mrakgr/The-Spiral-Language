@@ -29,6 +29,7 @@ modules:
         inv_array_kernels
         console
         wmma
+        pragma 
         cooperative_groups
         printing
         cupy 
