@@ -118,12 +118,12 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
         inl b_shared = b_shared |> view_snd (fun nearTo => {from=0; nearTo=nearTo - padding.b})
         inl c_shared = c_shared |> view_snd (fun nearTo => {from=0; nearTo=nearTo - padding.c})
 
-        inl tensor_memcpy_async_c_shared c is_load =
-            tensor_memcpy_async 4 thread (if is_load then {from=c; to=c_shared} else {from=c_shared; to=c})
+        inl tensor_memcpy_sync_c_shared c is_load =
+            tensor_memcpy_sync 4 thread (if is_load then {from=c; to=c_shared} else {from=c_shared; to=c})
 
-        inl async_load_shared (a,b) = 
-            tensor_memcpy_async 4 thread {from=a; to=a_shared}
-            tensor_memcpy_async 4 thread {from=b; to=b_shared}
+        inl sync_load_shared (a,b) = 
+            tensor_memcpy_sync 4 thread {from=a; to=a_shared}
+            tensor_memcpy_sync 4 thread {from=b; to=b_shared}
         
         loop_blocks_in_grid' (fst a_global.dim, fst b_global.dim) fun m,n =>
             inl warp_rank_in_block() = warp_rank_in_block ({m_warp},{n_warp})
@@ -136,8 +136,8 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             inl a = apply m a_global
             inl b = apply n b_global
             inl c = apply (m,n) c_global
-            lookahead_linear' (fst a.dim) fun k next_k is_initial_k =>
-                if is_initial_k then async_load_shared(apply k a, apply k b)
+            loop_linear' (fst a.dim) fun k =>
+                sync_load_shared(apply k a, apply k b)
 
                 inl a_frag, b_frag : _ _ (fragment matrix_a m_frag n_frag k_frag a_layout frag_in) 
                                    * _ _ (fragment matrix_b m_frag n_frag k_frag b_layout frag_in) =
@@ -170,7 +170,6 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                 wait thread . sync block
 
                 // Loads from shared memory into registers.
-                // pragma.unroll() 
                 loop_linear' (fst a_shared.dim, fst b_shared.dim) fun m,n =>
                     inl a = apply m a_shared
                     inl b = apply n b_shared
@@ -185,24 +184,19 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
 
                 sync block
 
-                // Asynchronously loads the next block from global memory into shared.
-                match next_k with
-                | Some k => async_load_shared(apply k a, apply k b)
-                | None => if beta <> 0 then tensor_memcpy_async_c_shared c true // global -> shared
-                    
                 // Does the matrix multiplication and accumulates the results in the fragment.
-                // pragma.unroll() 
                 loop_linear' acc.dim fun m,n =>
                     inl acc = tensor_index_ref (m,n) acc
 
-                    // pragma.unroll() 
                     loop_linear' {k_local} fun k =>
                         mma_sync acc 
                             (tensor_index_ref (m,k) a_frag) 
                             (tensor_index_ref (n,k) b_frag)
                             acc
 
-            if beta <> 0 then wait thread . sync block
+            if beta <> 0 then 
+                tensor_memcpy_sync_c_shared c true // global -> shared
+                sync block
 
             // Adds the accumulated result to the output in shared memory.
             inl _ = // alpha * acc + beta * c_frag
@@ -212,7 +206,6 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                     |> reorder (fun (({m_warp}, {m_local}, {m_frag}), ({n_warp}, {n_local}, {n_frag})) => ({m_warp},{n_warp}),({m_local},{n_local}),m_frag,n_frag)
                     |> apply warp_rank_in_block() 
 
-                // pragma.unroll() 
                 loop_linear' (fst c_shared.dim) fun m,n =>
                     inl acc = tensor_index_ref (m,n) acc
 
@@ -220,11 +213,9 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                     if beta <> 0 then
                         inl c_frag : _ (fragment accumulator m_frag n_frag k_frag row_major float) = create_fragment
                         load_matrix_sync c_frag c                        
-                        // pragma.unroll() 
                         loop.linear' (ref_length acc) fun i =>
                             ref_set acc i (alpha * ref_index acc i + beta * ref_index c_frag i)
                     else
-                        // pragma.unroll() 
                         loop.linear' (ref_length acc) fun i =>
                             ref_set acc i (alpha * ref_index acc i)
                     store_matrix_sync c acc
@@ -232,9 +223,9 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             sync block
 
             // Stores the end result into global memory.
-            tensor_memcpy_async_c_shared c false // shared -> global
+            tensor_memcpy_sync_c_shared c false // shared -> global
 
-            wait thread . sync block
+            sync block
         ()
 
 inl map forall dim a b. (f : a -> b) (a : tensor dim a) (b : tensor dim b) : () = 
