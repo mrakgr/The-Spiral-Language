@@ -6,14 +6,12 @@ modules:
         real_core*
         type_arith*
         core-
-        loop
+        struct* 
         listm
+        loop
         optionm
         monad
         arraym
-        inv_array_utils*
-        inv_arraym
-
         tensorm/
             utils*
             type-

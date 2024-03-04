@@ -1,3 +1,4 @@
+open struct
 open utils
 
 nominal tensor_body dim el = {
@@ -58,9 +59,6 @@ inl tensor_set forall dim el. (i : dim) (v : el) (tensor {bodies dim} : tensor d
         typecase `array with
         | ~ar ~el => set `ar `el array (calculate_offset stride i offset) v
         ) bodies v
-
-// Calculates the integer product of the argument.
-inl prod forall dim. (dim : dim) : int = real prod dim
 
 // Returns the number of elements in the tensor.
 instance length tensor dim = fun (tensor {dim}) => prod dim

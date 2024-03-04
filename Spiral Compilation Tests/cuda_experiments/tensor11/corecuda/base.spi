@@ -1,4 +1,9 @@
 open corebase
+type warp_size = 32
+inl warp_size() : int = real real_core.type_lit_to_lit `warp_size
+inl number_of_sms() : int = 24
+inl threads_per_block() : int = 256
+inl blocks_per_grid() : int = number_of_sms() * 2
 
 // Statically sized array with a type literal for a dimension.
 nominal sa dim el = $"array<`el,@dim>"
@@ -25,13 +30,12 @@ inl (<-.) forall t. (x : ptr t) (v : t) : () = $"*!x = !v"
 inl (~*) forall t. (x : ptr t) : t = $"`t v$ = *!x"
 
 type run_config = {
-    blocks_per_grid : int
-    threads_per_block : int
     shared_mem : int
     }
 
 // Executes the lambda on the GPU device.
-inl run' ({blocks_per_grid threads_per_block shared_mem} : run_config) f =
+inl run' ({shared_mem} : run_config) f =
+    inl blocks_per_grid, threads_per_block = blocks_per_grid(), threads_per_block()
     // Global statements only get executed once.
     // global "raw_module = cp.RawModule(code=kernel, backend='nvcc', options=(\"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\\\\cublasdx\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\external\\\\cutlass\\\\include\"))"
 
@@ -59,11 +63,16 @@ inl run' ({blocks_per_grid threads_per_block shared_mem} : run_config) f =
     ()
     
 // Executes the lambda on the GPU device.
-inl run blocks_per_grid threads_per_block = run' {blocks_per_grid threads_per_block shared_mem = 0}
+inl run f = run' {shared_mem = 0} f
 
-type warp_size = 32
-inl warp_size() : int = real real_core.type_lit_to_lit `warp_size
-inl number_of_sms() : int = 24
-inl max_threads_per_sms() : int = 1576
 inl __syncthreads() : () = $"__syncthreads()"
+inl thread_index() : int = $"threadIdx.x" 
+inl block_index() : int = $"blockIdx.x" 
 
+open loop
+inl threads_in_warp nearTo : range _ = {nearTo from = thread_index() % warp_size(); by = warp_size()}
+inl threads_in_block nearTo : range _ = {nearTo from = thread_index(); by = threads_per_block()}
+inl threads_in_grid nearTo : range _ = {nearTo from = thread_index() + block_index() * threads_per_block(); by = threads_per_block() * blocks_per_grid()}
+inl warps_in_block nearTo : range _ = {nearTo from = thread_index() / warp_size(); by = threads_per_block() / warp_size()}
+inl warps_in_grid nearTo : range _ = {nearTo from = (thread_index() + block_index() * threads_per_block()) / warp_size(); by = threads_per_block() * blocks_per_grid() / warp_size()}
+inl blocks_in_grid nearTo : range _ = {nearTo from = block_index(); by = blocks_per_grid()}

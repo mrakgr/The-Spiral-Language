@@ -4,7 +4,7 @@ open tensorm
 
 inl tensor_print forall dim el. (array_limit : int) (t : tensor dim el) =
     inl dim_to_list (dim : dim) : list int = real
-        open tensorm.utils
+        open struct
         foldBack ((::) `int) dim (Nil `int)
     inl ~q = 0
     inl rec loop' s = function
