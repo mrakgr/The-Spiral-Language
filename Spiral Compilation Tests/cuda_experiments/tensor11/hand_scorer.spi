@@ -157,30 +157,30 @@ let score forall dim. (hand : sa dim card) : hand_score =
     hand_score (final_rank_of rankings)
 
 // open cardm
-inl test1() =
-    open deck
-    open random
-    inl grid_range () : int = $"gridDim.x * blockDim.x"
-    inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+// inl test1() =
+//     open deck
+//     open random
+//     inl grid_range () : int = $"gridDim.x * blockDim.x"
+//     inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
 
-    inl blocks = 1
-    inl grids = 1 // divup (length out) blocks
-    run grids blocks (fun () =>
-        globals()
-        inl from = linear_id()
-        inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
-        loop.forBy' {from nearTo=1_000_000; by=grid_range()} (fun i =>
-            inl (ar : sa 7 card), _ = draw_cards x deck_utils.create()
-            inl x = score ar
-            inl x' = hand_scorer_old.score ar
-            // console.write_ln ar
-            // console.write_ln x
-            // console.write_ln x'
-            // console.write_ln (x = x')
-            if x <> x' then 
-                console.write_ln "error"
-            ()
-            )
-        )
+//     inl blocks = 1
+//     inl grids = 1 // divup (length out) blocks
+//     run grids blocks (fun () =>
+//         globals()
+//         inl from = linear_id()
+//         inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
+//         loop.forBy' {from nearTo=1_000_000; by=grid_range()} (fun i =>
+//             inl (ar : sa 7 card), _ = draw_cards x deck_utils.create()
+//             inl x = score ar
+//             inl x' = hand_scorer_old.score ar
+//             // console.write_ln ar
+//             // console.write_ln x
+//             // console.write_ln x'
+//             // console.write_ln (x = x')
+//             if x <> x' then 
+//                 console.write_ln "error"
+//             ()
+//             )
+//         )
 
-inl main() = test1()
+// inl main() = test1()

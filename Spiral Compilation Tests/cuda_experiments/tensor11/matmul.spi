@@ -81,8 +81,6 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
         reshape (fun m,n => {m=m / m_tile}, {m_tile}, {n=n / n_tile}, {n_tile}) c
         |> reorder (fun m,{m_tile},n,{n_tile} => (m,n),(m_tile,n_tile))
     
-    inl blocks_per_grid = 256
-
     inl padding =
         {
         a = swap (m_skew, k_skew) a_trans |> snd
@@ -97,7 +95,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
         inl c : _ (tensor (i32 * i32) float) = !(m_tile, n_tile + padding.c)
         #(a *. b) +. #c |> reorder (fun ((a_shared,b_shared),c_shared) => {a_shared b_shared c_shared})
     // print_static memory
-    run' {blocks_per_grid threads_per_block shared_mem=conv memory.length} fun () =>
+    run' {shared_mem=conv memory.length} fun () =>
         global "#include <mma.h>"
         global "using namespace nvcuda;"
         global "#include <cooperative_groups.h>"

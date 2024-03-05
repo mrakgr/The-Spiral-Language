@@ -95,95 +95,95 @@ let sample_discrete forall dim el. (dist : sa dim (el * float)) rng =
     inl i = sample_discrete' (map snd dist) rng
     fst (index dist i)
 
-inl test1() =
-    open inv_arraym
-    inl out : inv_array array f32 = create 512
-    inl grid_range () : int = $"gridDim.x * blockDim.x"
-    inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+// inl test1() =
+//     open inv_arraym
+//     inl out : inv_array array f32 = create 512
+//     inl grid_range () : int = $"gridDim.x * blockDim.x"
+//     inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
 
-    inl blocks = 2
-    inl grids = divup (length out) blocks
-    run grids blocks (fun () =>
-        globals()
-        inl from = linear_id()
-        inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
-        loop.forBy {from nearTo=length out; by=grid_range()} (fun i () =>
-            set out i (normal x)
-            ) ()
-        )
-    out
+//     inl blocks = 2
+//     inl grids = divup (length out) blocks
+//     run grids blocks (fun () =>
+//         globals()
+//         inl from = linear_id()
+//         inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
+//         loop.forBy {from nearTo=length out; by=grid_range()} (fun i () =>
+//             set out i (normal x)
+//             ) ()
+//         )
+//     out
 
-inl test2() =
-    open inv_arraym
-    inl out : inv_array array u32 = create 512
-    inl grid_range () : int = $"gridDim.x * blockDim.x"
-    inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+// inl test2() =
+//     open inv_arraym
+//     inl out : inv_array array u32 = create 512
+//     inl grid_range () : int = $"gridDim.x * blockDim.x"
+//     inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
 
-    inl blocks = 16
-    inl grids = divup (length out) blocks
-    run grids blocks (fun () =>
-        globals()
-        inl from = linear_id()
-        inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
-        loop.forBy {from nearTo=length out; by=grid_range()} (fun i () =>
-            set out i (u32_range 52 x)
-            ) ()
-        )
-    out
+//     inl blocks = 16
+//     inl grids = divup (length out) blocks
+//     run grids blocks (fun () =>
+//         globals()
+//         inl from = linear_id()
+//         inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
+//         loop.forBy {from nearTo=length out; by=grid_range()} (fun i () =>
+//             set out i (u32_range 52 x)
+//             ) ()
+//         )
+//     out
     
-inl test2_1() =
-    open inv_arraym
-    inl out : inv_array array u32 = create 512
-    inl grid_range () : int = $"gridDim.x * blockDim.x"
-    inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+// inl test2_1() =
+//     open inv_arraym
+//     inl out : inv_array array u32 = create 512
+//     inl grid_range () : int = $"gridDim.x * blockDim.x"
+//     inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
 
-    inl blocks = 16
-    inl grids = divup (length out) blocks
-    run grids blocks (fun () =>
-        globals()
-        inl from = linear_id()
-        inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
-        loop.forBy {from nearTo=length out; by=grid_range()} (fun i () =>
-            set out i (u32_range (dyn 52) x)
-            ) ()
-        )
-    out
+//     inl blocks = 16
+//     inl grids = divup (length out) blocks
+//     run grids blocks (fun () =>
+//         globals()
+//         inl from = linear_id()
+//         inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
+//         loop.forBy {from nearTo=length out; by=grid_range()} (fun i () =>
+//             set out i (u32_range (dyn 52) x)
+//             ) ()
+//         )
+//     out
 
-inl test3() =
-    inl sample mask c =
-        loop.for {from=0; nearTo=64u32} (fun i (_,c as state) =>
-            if c > 0 then 
-                i, if mask &&& (1 <<< conv i) = 0 then c else c-1
-            else state
-            ) (0, c+1)
-        |> fst
+// inl test3() =
+//     inl sample mask c =
+//         loop.for {from=0; nearTo=64u32} (fun i (_,c as state) =>
+//             if c > 0 then 
+//                 i, if mask &&& (1 <<< conv i) = 0 then c else c-1
+//             else state
+//             ) (0, c+1)
+//         |> fst
 
-    open inv_arraym
-    inl out : inv_array array _ = create (1028*16)
-    inl grid_range () : int = $"gridDim.x * blockDim.x"
-    inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+//     open inv_arraym
+//     inl out : inv_array array _ = create (1028*16)
+//     inl grid_range () : int = $"gridDim.x * blockDim.x"
+//     inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
 
-    inl blocks = 64
-    inl grids = divup (length out) blocks
-    run grids blocks (fun () =>
-        globals()
-        inl from = linear_id()
-        inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
-        loop.forBy {from nearTo=length out; by=grid_range()} (fun i () =>
-            inl r = u64 x
-            if intrinsic.popc_u64 r > 0 then
-                inl base = u32_range (intrinsic.popc_u64 r |> conv) x
-                inl i = sample_masked_bit_u64 r (conv base)
-                inl i' = sample r base
-                // inl x = r &&& ~~~(1 <<< conv i)
-                i - i'
-            else
-                0
-            |> set out i
-            ) ()
-        )
-    inl out = out.arrays
-    $"print(cp.sum(!out))"
-    ()
+//     inl blocks = 64
+//     inl grids = divup (length out) blocks
+//     run grids blocks (fun () =>
+//         globals()
+//         inl from = linear_id()
+//         inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
+//         loop.forBy {from nearTo=length out; by=grid_range()} (fun i () =>
+//             inl r = u64 x
+//             if intrinsic.popc_u64 r > 0 then
+//                 inl base = u32_range (intrinsic.popc_u64 r |> conv) x
+//                 inl i = sample_masked_bit_u64 r (conv base)
+//                 inl i' = sample r base
+//                 // inl x = r &&& ~~~(1 <<< conv i)
+//                 i - i'
+//             else
+//                 0
+//             |> set out i
+//             ) ()
+//         )
+//     inl out = out.arrays
+//     $"print(cp.sum(!out))"
+//     ()
 
-inl main() = test3()
+// inl main() = test3()

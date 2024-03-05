@@ -39,7 +39,7 @@ inl merge_sort forall dim el. f (inp : sa dim el) : sa dim el =
     |> fun switch, _ => if not switch then out else inp
 
 inl main() =
-    run 1 1 (fun () =>
+    run (fun () =>
         inl x : sa 4 f32 = sam.fromList [1;3;2;4]
         inl x = merge_sort comp x
         sam.iter (fun x =>

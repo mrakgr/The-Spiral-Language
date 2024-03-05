@@ -61,7 +61,7 @@ inl tensor_set forall dim el. (i : dim) (v : el) (tensor {bodies dim} : tensor d
         ) bodies v
 
 // Returns the number of elements in the tensor.
-instance length tensor dim = fun (tensor {dim}) => prod dim
+instance length tensor dim = fun (tensor {dim}) => loop.prod dim
 
 // Zips two tensors. Apart from dimension checking, all the work is done at compile time.
 inl zip forall dim a b. (a : tensor dim a) (b : tensor dim b) : tensor dim (a * b) =
@@ -165,7 +165,7 @@ inl swap x = reorder (fun a,b => b,a) x
 inl flatten_snd forall a b el. : tensor (a * b) el -> tensor (a * int) el = swap >> flatten_fst >> swap
 
 // Flattens the tensor into a single dimension. For this to work, the tensor must be contiguous.
-inl flatten forall dim el. (t : tensor dim el) : tensor int el = reorder (fun x => x, ()) t |> flatten_fst |> reorder fst
+inl flatten forall dim el. : tensor dim el -> tensor int el = reorder (fun x => x, ()) >> flatten_fst >> reorder fst
 
 // Reshapes the first part of the tensor dimension. For this to work, the tensor must be contiguous.
 inl reshape_fst forall a b dim el. (f : a -> dim) (x : tensor (a * b) el) : tensor (dim * b) el =
@@ -187,7 +187,7 @@ inl reshape_fst forall a b dim el. (f : a -> dim) (x : tensor (a * b) el) : tens
 inl reshape_snd forall a b dim el. (dim : b -> dim) : tensor (a * b) el -> tensor (a * dim) el = swap >> reshape_fst dim >> swap
 
 // Reshapes the tensor dimensions. For this to work, the tensor must be contiguous.
-inl reshape forall a b el. (dim : a -> b) (t : tensor a el) : tensor b el = reorder (fun x => x, ()) t |> reshape_fst dim |> reorder fst
+inl reshape forall a b el. (dim : a -> b) : tensor a el -> tensor b el = reorder (fun x => x, ()) >> reshape_fst dim >> reorder fst
 
 // Splits a tensor along the last dimension.
 inl factorize forall a el. (i : int) (t : tensor a el) : tensor (a * int) el = 

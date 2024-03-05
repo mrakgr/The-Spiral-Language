@@ -23,7 +23,7 @@ inl tensor_print forall dim el. (array_limit : int) (t : tensor dim el) =
                 listm.fold2 (fun offset s s' => offset + s * s') offset s (dim_to_list stride)
                 |> index array
             real
-                open tensorm.utils
+                open struct
                 map (fun x =>
                     typecase `x with tensor_body dim ~el => 
                     print_tensor_body `el x

@@ -24,7 +24,6 @@ modules:
         tensor_cuda
         intrinsic
         sam 
-        inv_array_kernels
         console
         wmma
         pragma 

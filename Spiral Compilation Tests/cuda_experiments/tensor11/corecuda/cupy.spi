@@ -8,14 +8,14 @@ inl arange forall el. ({from nearTo by} : {from : int; nearTo : int; by : int}) 
     |> fromArray
     
 inl zeros forall dim float. dim : tensor dim float =
-    inl len : int = prod dim
+    inl len : int = loop.prod dim
     real
         typecase cupy_type float with ~ct =>
         $"cp.zeros(!len,dtype=`ct)" : array float
     |> fromArray |> reshape (const dim)
     
 inl random_normal forall dim float. ({mean std} : {mean : float; std  : float}) dim : tensor dim float =
-    inl len : int = prod dim
+    inl len : int = loop.prod dim
     real
         typecase cupy_type float with ~ct =>
         $"cp.random.normal(!mean,!std,!len,`ct)" : array float

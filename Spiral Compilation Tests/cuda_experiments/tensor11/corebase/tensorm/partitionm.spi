@@ -6,11 +6,11 @@ inl min_align() : size = 128
 nominal offset el = size
 nominal offsets d el = {
     dim : d
-    offsets : `(open utils in infer_map `el (forall el. => ``(offset el)))
+    offsets : `(open struct in infer_map `el (forall el. => ``(offset el)))
     }
 nominal dim d el = d
 nominal partition el = `(
-    open utils
+    open struct
     infer_map `el (forall el. => 
         typecase el with
         | tensor ~d ~t => ``(dim d t)
@@ -19,7 +19,7 @@ nominal partition el = `(
     )
 nominal partition_offsets el = {
     body : `(
-        open utils
+        open struct
         infer_map `el (forall el. => 
             typecase el with
             | tensor ~d ~t => ``(offsets d t)
@@ -39,11 +39,11 @@ inl (+.) forall a b. (partition_offsets a : partition_offsets a) (partition_offs
 inl (~#) forall el. (partition x : _ el) : partition_offsets el = 
     inl body,length = real
         open real_core
-        open utils
+        open struct
         inl sizeof forall t. = !!!!Conv(`size, !!!!SizeOf(`t))
         inl align forall el. s = modup s (modup (sizeof `el) min_align())
         inl to_offsets s (dim d as z) =
-            inl length = conv `size (prod d) 
+            inl length = conv `size (loop.prod d) 
             typecase `z with dim ~d ~el =>
             inl x,s = 
                 infer_mapFold `el (forall el. s => 
@@ -56,6 +56,7 @@ inl (~#) forall el. (partition x : _ el) : partition_offsets el =
     
 // Internal function used to create the tensor from the offsets.
 inl tensor_from_offsets forall d el. (base : array u8) (offsets {dim offsets} : _ d el) : tensor d el = 
+    open struct
     open utils
     inl stride, len = real calculate_stride_len dim
     assert_long_length len dim
@@ -80,7 +81,7 @@ inl tensor_from_offsets forall d el. (base : array u8) (offsets {dim offsets} : 
 // Given a base array and the partition offsets, it creates a compound structure containing the tensors.
 inl from_partition_offsets forall el. (base, length  : array u8 * size) (partition_offsets p : _ el) : el = real
     open real_core
-    open utils
+    open struct
     assert (p.length <= length) "The length of the partition has to be less than the length of the base array."
     map (fun x => 
         typecase `x with

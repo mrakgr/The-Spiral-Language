@@ -1,5 +1,6 @@
 open corebase
 open tensorm
+open struct
 open utils
 
 // Returns the pointer at the specified index.
