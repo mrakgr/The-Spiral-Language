@@ -68,15 +68,14 @@ inl div forall dim. (dim : dim) (a : dim) : dim = real
     iter3 (fun a b dim => assert (a*b = dim) "The elementwise product of the split dimensions has to equal the original.") a b dim
     b
 
-// Given a dimension (a compound structure of ints) and an integer length as an argument, this function splits the dimension into two.
+// Given an integer length and a dimension (a compound structure of ints) as arguments, this function splits the dimension into two.
 // The product of the first part is intended to be projected into using indices lesser than the integer length.
 // The second part of the result can be iterated over with a linear loop.
 // The elementwise product of the two sides of the result equals the original dimension.
-inl split forall dim. (dim : dim) (i : int) : dim * dim = real
-    open real_core
-    open struct
-    inl a, _ = 
-        mapFoldBack (fun dim i => 
+inl rigid_split forall dim. (i : int) (dim : dim) : dim * dim =
+    inl a, _ = real
+        open real_core
+        struct.mapFoldBack (fun dim i => 
             inl x = min dim i
             x, i / x
             ) dim i
@@ -110,6 +109,5 @@ inl linear forall dim. (dim : dim) body : () =
         for' {from=0; nearTo} (fun i => on_success (i :: l))
         ) (dim_to_list dim) (list_to_dim >> body) []
 
-inl rigid forall dim. ({from nearTo by} : range dim) (body : dim -> dim -> ()) : () =
-    inl a, b = split nearTo by
-    linear b (body (proj a from))
+// Iterates over the dimensions split by `rigid_split`.
+inl rigid forall dim. ({from nearTo=(a,b) by} : range (dim * dim)) (body : dim -> dim -> ()) : () = linear b (body (proj a from))

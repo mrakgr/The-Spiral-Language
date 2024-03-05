@@ -105,6 +105,25 @@ inl apply forall a b el. : a -> tensor (a * b) el -> tensor b el = apply_templ f
 // Increments the tensor offset by the specified index for the second dimension.
 inl apply_snd forall a b el. : b -> tensor (a * b) el -> tensor a el = apply_templ snd fst
 
+// Applies the offset to the pointer
+inl apply_ptr forall dim el. (tensor {bodies dim} : tensor dim el) : tensor dim el =
+    tensor {
+        dim
+        bodies = real
+            open real_core
+            map (fun (tensor_body {array stride offset} as x) =>
+                typecase `x with
+                | tensor_body dim ~el => tensor_body `dim `el {
+                    array = backend_switch {
+                        python = fun () => $"!array[!offset:]" : array el
+                        cuda = fun () => $"!array+!offset" : array el
+                        }
+                    offset = 0
+                    stride
+                    }
+                ) bodies
+        }
+
 // The template function for the tensor view.
 inl view_templ forall dim dim' el. (f : dim -> dim') (g : dim -> dim' -> dim) 
         (i : dim' -> {from : dim'; nearTo : dim'}) 

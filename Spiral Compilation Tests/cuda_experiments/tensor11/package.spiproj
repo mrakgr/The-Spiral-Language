@@ -16,6 +16,7 @@ modules:
             utils*
             type-
             partitionm
+            tensor_loop 
             
     corepython/
         
