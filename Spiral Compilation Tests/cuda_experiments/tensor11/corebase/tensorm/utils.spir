@@ -24,9 +24,7 @@ inl assert_index_view from nearTo dim =
 inl assert_indices i = iter2 assert_index i
 inl assert_indices_view i = iter3 assert_index_view i
 inl calculate_offset a = foldBack2 (fun a b s => a * b + s) a
-
 inl calculate_stride_len dim = mapFoldBack (fun x s => s, x * s) dim 1
-
 inl last dim = fold (fun s x => x) () dim
 
 // Returns the last element of the stride.

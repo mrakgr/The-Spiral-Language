@@ -69,10 +69,12 @@ inl zip forall dim a b. (a : tensor dim a) (b : tensor dim b) : tensor dim (a * 
     tensor {dim = a.dim; bodies = real a.bodies, b.bodies}
 
 // Rearranges the elements of the tensor. Should only be used to rearrange internal fields and do not change them. Is a compile time operation.
-inl rezip forall dim a b. (f : a -> b) (a : tensor dim a) : tensor dim b =
-    tensor {dim = a.dim; bodies=real f a.bodies}
+inl rezip forall dim a b. (f : a -> b) (a : tensor dim a) : tensor dim b = tensor {dim = a.dim; bodies=real f a.bodies}
 
-// Rearranges that dimensions of the tensor. Should only be used to rearrange internal fields and do not change them. Is a compile time operation.
+// Unzips two tensors. All the work is done at compile time.
+inl unzip forall dim a b. (x : tensor dim (a * b)) : tensor dim a * tensor dim b = rezip fst x, rezip snd x
+
+// Rearranges the dimensions of the tensor. Should only be used to rearrange internal fields and do not change them. Is a compile time operation.
 inl reorder forall a b el. (f : a -> b) (a : tensor a el) : tensor b el = tensor {
     dim = f a.dim |> assert_term_vars_are_equal_under_set_equality a.dim
     bodies = real
@@ -81,6 +83,12 @@ inl reorder forall a b el. (f : a -> b) (a : tensor a el) : tensor b el = tensor
             | tensor_body a ~el => tensor_body `b `el {r with stride #= f}
             ) a.bodies
     }
+
+// Rearranges the first dimensions of the tensor. Should only be used to rearrange internal fields and do not change them. Is a compile time operation.
+inl reorder_fst forall a b dim el. (f : a -> b) : tensor (a * dim) el -> tensor (b * dim) el = reorder (fun a, b => f a, b)
+
+// Rearranges the second dimensions of the tensor. Should only be used to rearrange internal fields and do not change them. Is a compile time operation.
+inl reorder_snd forall a b dim el. (f : a -> b) : tensor (dim * a) el -> tensor (dim * b) el = reorder (fun a, b => a, f b)
 
 // The template function for tensor application.
 inl apply_templ forall dim a b el. (fst : dim -> a) (snd : dim -> b) (i : a) (tensor {bodies dim} : tensor dim el) : tensor b el = real
