@@ -57,6 +57,17 @@ inl proj forall dim. (dim : dim) (i : int) : dim = real
         assert (i = 0) "The index has to be in the range of the dimension."
         dim
 
+
+// Divides the first argument by the second in an elementwise fashion.
+// The elementwise product of the second argument and the result equals the original dimension.
+// The individual elements of `dim` should all be int types.
+inl div forall dim. (dim : dim) (a : dim) : dim = real
+    open real_core
+    open struct
+    inl b = map2 (/) dim a
+    iter3 (fun a b dim => assert (a*b = dim) "The elementwise product of the split dimensions has to equal the original.") a b dim
+    b
+
 // Given a dimension (a compound structure of ints) and an integer length as an argument, this function splits the dimension into two.
 // The product of the first part is intended to be projected into using indices lesser than the integer length.
 // The second part of the result can be iterated over with a linear loop.
@@ -69,9 +80,7 @@ inl split forall dim. (dim : dim) (i : int) : dim * dim = real
             inl x = min dim i
             x, i / x
             ) dim i
-    inl b = map2 (/) dim a
-    iter2 (fun a b dim => assert (a*b = dim) "The elementwise product of the split dimensions has to equal the original.") a b dim
-    a, b
+    a, div dim a
 
 // Calculates the integer product of the argument.
 inl prod forall dim. (dim : dim) : int = real struct.foldBack (*) dim 1

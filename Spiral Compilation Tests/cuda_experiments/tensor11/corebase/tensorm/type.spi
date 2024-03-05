@@ -149,7 +149,7 @@ inl split_snd forall a b el. : list b -> tensor (a * b) el -> list (tensor (a * 
 // Flattens the first part of the tensor into a single dimension. For this to work, the tensor must be contiguous.
 inl flatten_fst forall a b el. (tensor {dim bodies} : tensor (a * b) el) : tensor (int * b) el = 
     tensor {
-        dim = prod (fst dim), snd dim
+        dim = loop.prod (fst dim), snd dim
         bodies = real
             open real_core
             map (fun (tensor_body r as x) =>
@@ -171,7 +171,7 @@ inl flatten forall dim el. (t : tensor dim el) : tensor int el = reorder (fun x 
 inl reshape_fst forall a b dim el. (f : a -> dim) (x : tensor (a * b) el) : tensor (dim * b) el =
     inl dim' = f (fst x.dim)
     inl stride, len : dim * int = real calculate_stride_len dim'
-    assert (len = prod (fst x.dim)) "The total length of the reshaped tensor dimension must match that of the original one."
+    assert (len = loop.prod (fst x.dim)) "The total length of the reshaped tensor dimension must match that of the original one."
     inl (tensor {bodies dim}) = flatten_fst x
     tensor {
         dim = dim', snd dim
@@ -223,6 +223,37 @@ inl factorize_sizeof_16 forall a el. (t : tensor a el) : tensor (a * int) el = f
 inl assert_len forall dim el. (dim : dim) (tensor {dim=dim' bodies} : tensor dim el) : tensor dim el =
     assert (dim = dim') "Expected the length of the array to be the specified amount."
     tensor {dim bodies}
+ 
+// Splits the first tensor dimension into two pieces, the elementwise product of which has to equal the original.
+// Unlike reshape, the tensor dimensions do not have to be contiguous for this to work.
+// The strides of the second part being acted upon will remain as in the original, while the first part will have them adjusted.
+inl split_into_fst forall a b el. (f : a -> a * a) (t : tensor (a * b) el) : tensor ((a * a) * b) el = 
+    inl dim = f (fst t.dim)
+    real
+        open real_core
+        struct.iter3 (fun a b dim => assert (a*b = dim) "The elementwise product of the split dimensions has to equal the original.") (fst dim) (snd dim) (fst t.dim)
+    tensor {
+        dim = dim, snd t.dim
+        bodies = real
+            open real_core
+            map (fun (tensor_body r as x) =>
+                typecase `x with
+                | tensor_body (a * b) ~el => tensor_body `((a * a) * b) `el {r with stride #= fun a,b => 
+                    inl a' = map2 (*) (snd dim) a
+                    (a', a), b
+                    }
+                ) t.bodies
+    }
+    
+// Splits the second tensor dimension into two pieces, the elementwise product of which has to equal the original.
+// Unlike reshape, the tensor dimensions do not have to be contiguous for this to work.
+// The strides of the second part being acted upon will remain as in the original, while the first part will have them adjusted.
+inl split_into_snd forall a b el. (dim : b -> b * b) : tensor (a * b) el -> tensor (a * (b * b)) el = swap >> split_into_fst dim >> swap
+
+// Splits the tensor dimension into two pieces, the elementwise product of which has to equal the original.
+// Unlike reshape, the tensor dimensions do not have to be contiguous for this to work.
+// The strides of the second part will remain as in the original, while the first part will have them adjusted.
+inl split_into forall a el. (dim : a -> a * a) : tensor a el -> tensor (a * a) el = reorder (fun x => x, ()) >> split_into_fst dim >> reorder fst
 
 // Tests
 // 
