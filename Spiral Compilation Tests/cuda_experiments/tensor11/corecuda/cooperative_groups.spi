@@ -79,7 +79,7 @@ inl memcpy_async forall parent float. (group : ref (thread_block_tile parent 1))
             $"cooperative_groups::memcpy_async(!group, !to + !to_offset, !from + !from_offset, sizeof(`el) * !dim)" : ()
             ) from.bodies to.bodies
 
-inl tensor_memcpy_sync forall float a. access_size (r & {nearTo} : loop.range (tensor a (float * float))) : () =
+inl tensor_memcpy_sync forall float a. access_size (r : loop.range (tensor a (float * float))) : () =
     tensor_loop.rigid {r with nearTo#=factorize_sizeof access_size} (unzip >> memcpy_sync)
     
 // inl tensor_memcpy_async forall parent float a. access_size (group : ref (thread_block_tile parent 1)) ({from to} : {from : tensor a float; to : tensor a float}) : () =
