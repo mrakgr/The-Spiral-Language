@@ -68,6 +68,9 @@ inl zip forall dim a b. (a : tensor dim a) (b : tensor dim b) : tensor dim (a * 
     assert (a.dim = b.dim) "The two tensors have to have the same dimensions for zipping to work."
     tensor {dim = a.dim; bodies = real a.bodies, b.bodies}
 
+// Curried version of zip.
+inl zip' forall dim a b. (a,b : tensor dim a * tensor dim b) : tensor dim (a * b) = zip a b
+
 // Rearranges the elements of the tensor. Should only be used to rearrange internal fields and do not change them. Is a compile time operation.
 inl rezip forall dim a b. (f : a -> b) (a : tensor dim a) : tensor dim b = tensor {dim = a.dim; bodies=real f a.bodies}
 
