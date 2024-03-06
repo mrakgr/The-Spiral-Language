@@ -89,7 +89,7 @@ type range dim = {from : int; nearTo : dim; by : int}
 
 // Projects the iterator into a small and linear component so that elementwise product of `dim_small * dim_linear = nearTo`.
 // Also, `proj_small = proj dim_small from`.
-inl rigid_range forall dim. ({from nearTo by} : range dim) : {proj_small : dim; dim_small : dim; dim_linear : dim} =
+inl rigid_split' forall dim. ({from nearTo by} : range dim) : {proj_small : dim; dim_small : dim; dim_linear : dim} =
     inl dim_small, dim_linear = rigid_split by nearTo
     {dim_small dim_linear proj_small = proj dim_small from}
 

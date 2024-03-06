@@ -109,7 +109,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
 
         inl c_shared_frag = split_c {m=m_frag; n=n_frag} c_shared_tile
         inl {proj_small=(m_proj_warp, n_proj_warp) dim_small=(m_warp, n_warp) dim_linear=(m_local, n_local)} = 
-            loop.rigid_range (warps_in_block (fst c_shared_frag.dim))
+            loop.rigid_split' (warps_in_block (fst c_shared_frag.dim))
         inl k_local = {k=k_tile / k_frag}
         inl c_shared_frag = 
             split_into_fst const((m_warp, n_warp),(m_local, n_local)) c_shared_frag
