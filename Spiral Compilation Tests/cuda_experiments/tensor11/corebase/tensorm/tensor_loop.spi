@@ -1,8 +1,0 @@
-open loop
-
-// Iterates over the tensor in rigid loop style.
-inl rigid forall a b el. ({from by nearTo=t} : range (tensor (a * b) el)) (body : tensor b el -> ()) : () =
-    inl t = split_into_fst (rigid_split by) t
-    rigid {from by nearTo=fst t.dim} fun a =>
-        inl t = reorder (fun (a,b),c => a,b,c) t |> apply a // TODO: Maybe `apply_ptr` should be used here?
-        fun b => body (apply b t)

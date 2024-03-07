@@ -129,13 +129,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             |> apply n_proj_warp
             |> apply_ptr
 
-        inl tensor_memcpy_c_shared c is_load =
-            tensor_memcpy_sync 4 threads_in_block(swap is_load (c, c_shared_tile) |> zip')
 
-        inl tensor_load_ab_shared (a,b) = 
-            tensor_memcpy_sync 4 threads_in_block(zip b_shared_tile b)
-            tensor_memcpy_sync 4 threads_in_block(zip a_shared_tile a)
-        
         loop.projective blocks_in_grid(fst a.dim, fst b.dim) fun m,n =>
             open wmma
             inl c = apply (m,n) c |> apply_ptr
@@ -146,9 +140,12 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                 fill_fragment (tensor_index_ref (m,n) acc) 0
             
             loop.linear ((snd >> fst) a.dim) fun k =>
-                inl a = apply m a |> apply k
-                inl b = apply n b |> apply k
-                tensor_load_ab_shared(a, b)
+                inl a = apply m a |> apply k |> apply_ptr
+                inl b = apply n b |> apply k |> apply_ptr
+
+                // Loads the data from global to shared memory.
+                tensor_memcpy_sync 4 threads_in_block(zip b_shared_tile b)
+                tensor_memcpy_sync 4 threads_in_block(zip a_shared_tile a)
                 __syncthreads()
 
                 inl a_frag, b_frag : _ _ (fragment matrix_a m_frag n_frag k_frag a_layout frag_in) 
@@ -181,7 +178,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                             acc
 
             if beta <> 0 then 
-                tensor_memcpy_c_shared c true // global -> shared
+                tensor_memcpy_sync 4 threads_in_block(zip c_shared_tile c)
                 __syncthreads()
 
             // Adds the accumulated result to the output in shared memory.
@@ -203,7 +200,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             __syncthreads()
 
             // Stores the end result into global memory.
-            tensor_memcpy_c_shared c false // shared -> global
+            tensor_memcpy_sync 4 threads_in_block(zip c c_shared_tile)
 
             __syncthreads()
         ()

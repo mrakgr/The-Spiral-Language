@@ -76,11 +76,12 @@ inl memcpy_async forall parent float. (group : ref (thread_block_tile parent 1))
         open tensorm.utils
         iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
             typecase `from with _ ~el =>
+            // TODO: This leads to horrid compiled code when dim > 1. I need to make use of functionality in `memcpy_sync` to fix it.
             $"cooperative_groups::memcpy_async(!group, !to + !to_offset, !from + !from_offset, sizeof(`el) * !dim)" : ()
             ) from.bodies to.bodies
 
 inl tensor_memcpy_sync forall float a. access_size (r : loop.range (tensor a (float * float))) : () =
-    tensor_loop.rigid {r with nearTo#=factorize_sizeof access_size} (unzip >> memcpy_sync)
+    loop_rigid {r with nearTo#=factorize_sizeof access_size} (unzip >> memcpy_sync)
     
 // inl tensor_memcpy_async forall parent float a. access_size (group : ref (thread_block_tile parent 1)) ({from to} : {from : tensor a float; to : tensor a float}) : () =
 //     inl from, to = factorize_sizeof access_size from, factorize_sizeof access_size to
