@@ -285,12 +285,15 @@ inl split_into_snd forall a b el. (dim : b -> b * b) : tensor (a * b) el -> tens
 // The strides of the second part will remain as in the original, while the first part will have them adjusted.
 inl split_into forall a el. (dim : a -> a * a) : tensor a el -> tensor (a * a) el = reorder (fun x => x, ()) >> split_into_fst dim >> reorder fst
 
+// Reorders the tensor so as to unpack the first pair.
+inl uncurry forall a b c el. : tensor ((a * b) * c) el -> tensor (a * b * c) el = reorder (fun (a,b),c => a,b,c)
+
 // Iterates over the tensor in rigid loop style.
 inl loop_rigid forall a b el. ({from by nearTo=t} : loop.range (tensor (a * b) el)) (body : tensor b el -> ()) : () =
     open loop
     inl t = split_into_fst (rigid_split by) t
     rigid {from by nearTo=fst t.dim} fun a =>
-        inl t = reorder (fun (a,b),c => a,b,c) t |> apply a |> apply_ptr
+        inl t = uncurry t |> apply a |> apply_ptr
         fun b => body (apply b t)
 
 // Tests
