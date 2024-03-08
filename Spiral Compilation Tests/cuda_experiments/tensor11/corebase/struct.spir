@@ -39,7 +39,7 @@ inl infer_mapFoldBack forall el. g =
             inl a,s = f `a s
             (a, b), s        
         | {} => 
-            record_type_fold_back (fun (m,state) key => forall value. => 
+            record_type_fold_back (fun key => forall value. (m,state) => 
                 inl value, state = f `value state
                 {m with $key=value}, state
                 ) `el ({}, s)
@@ -138,3 +138,7 @@ inl map2 set ar v =
         | {} & ar, {} & v => record_map (fun {key value} => f (ar key, value)) v
         | ar,v => set ar v
     f (ar, v)
+
+
+// Calculates the integer product of the argument.
+inl prod dim = open real_core in foldBack (*) dim 1

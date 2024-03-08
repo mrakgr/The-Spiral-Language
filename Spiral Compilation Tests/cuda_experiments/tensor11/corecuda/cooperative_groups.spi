@@ -58,7 +58,7 @@ inl memcpy_sync forall float. (to, from : tensor int float * tensor int float) =
             inl load_single forall el. =
                 inl from = $"reinterpret_cast<`el*>(!from + !from_offset)" : $'`el*'
                 inl to = $"reinterpret_cast<`el*>(!to + !to_offset)" : $'`el*'
-                $'assert("Pointer alignment check" && reinterpret_cast<void*>(!from) % sizeof(`el) == 0 && reinterpret_cast<void*>(!to) % sizeof(`el) == 0)' : ()
+                $'assert("Pointer alignment check" && (unsigned long long)(!from) % !dim == 0 && (unsigned long long)(!to) % !dim == 0)' : ()
                 $"*!to = *!from" : ()
             match dim * (sizeof `el).value with
             | 16 => load_single `($"int4")
@@ -76,8 +76,9 @@ inl memcpy_async forall parent float. (group : ref (thread_block_tile parent 1))
         open tensorm.utils
         iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
             typecase `from with _ ~el =>
-            // TODO: This leads to horrid compiled code when dim > 1. I need to make use of functionality in `memcpy_sync` to fix it.
-            $"cooperative_groups::memcpy_async(!group, !to + !to_offset, !from + !from_offset, sizeof(`el) * !dim)" : ()
+            inl dim = $"constexr `int v$ = sizeof(`el) * !dim" : int
+            $'assert("Pointer alignment check" && (unsigned long long)(!from + !from_offset) % !dim == 0 && (unsigned long long)(!to + !to_offset) % !dim == 0)' : ()
+            $"cooperative_groups::memcpy_async(!group, !to + !to_offset, !from + !from_offset, cuda::aligned_size_t<!dim>(!dim))" : ()
             ) from.bodies to.bodies
 
 inl tensor_memcpy_sync forall float a. access_size (r : loop.range (tensor a (float * float))) : () =

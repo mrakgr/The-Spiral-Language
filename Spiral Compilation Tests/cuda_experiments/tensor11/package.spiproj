@@ -16,7 +16,6 @@ modules:
             utils*
             type-
             partitionm
-            tensor_loop 
             
     corepython/
         
@@ -30,7 +29,7 @@ modules:
         pragma 
         cooperative_groups
         printing
-        cupy 
+        cupy
         semaphore
         
     sortm

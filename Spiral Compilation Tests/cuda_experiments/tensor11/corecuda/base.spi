@@ -40,7 +40,7 @@ inl run' ({shared_mem} : run_config) f =
     // global "raw_module = cp.RawModule(code=kernel, backend='nvcc', options=(\"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\\\\cublasdx\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\external\\\\cutlass\\\\include\"))"
 
     global "options = []"
-    global "options.append('--define-macro=NDEBUG')"
+    // global "options.append('--define-macro=NDEBUG')"
     global "options.append('--diag-suppress=550')"
     global "options.append('--dopt=on')"
     global "options.append('--restrict')"

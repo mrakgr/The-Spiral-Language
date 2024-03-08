@@ -8,8 +8,10 @@ nominal gemm_config m_frag n_frag k_frag frag_in a_layout b_layout float =
         m_tile : int; n_tile : int; k_tile : int; 
         a_trans : bool; b_trans : bool
         m_skew : int; n_skew : int; k_skew : int
+        chunk_size : int // Should be 16 bytes for optimal performance, and 4 for debugging (to avoid the shared bank conflicts in NSight Compute)
     }
-inl gemm_config forall m_frag n_frag k_frag frag_in a_layout b_layout float. {m_skew n_skew k_skew m_tile n_tile k_tile}
+
+inl gemm_config forall m_frag n_frag k_frag frag_in a_layout b_layout float. {m_skew n_skew k_skew m_tile n_tile k_tile chunk_size}
         : gemm_config m_frag n_frag k_frag frag_in a_layout b_layout float = 
     inl m_frag = real real_core.type_lit_to_lit `m_frag
     inl n_frag = real real_core.type_lit_to_lit `n_frag
@@ -21,10 +23,11 @@ inl gemm_config forall m_frag n_frag k_frag frag_in a_layout b_layout float. {m_
         m_frag n_frag k_frag
         a_trans = (real typecase a_layout with wmma.row_major => false | wmma.col_major => true) : bool
         b_trans = (real typecase b_layout with wmma.row_major => false | wmma.col_major => true) : bool
+        chunk_size
         }
 
 inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float {number}. 
-        (gemm_config {m_skew n_skew k_skew m_frag n_frag k_frag m_tile n_tile k_tile a_trans b_trans} 
+        (gemm_config {m_skew n_skew k_skew m_frag n_frag k_frag m_tile n_tile k_tile a_trans b_trans chunk_size}
          : gemm_config m_frag n_frag k_frag frag_in a_layout b_layout float) 
         (alpha : float) (a : tensor (int * int) float) (b : tensor (int * int) float) 
         (beta : float) (c : tensor (int * int) float) =
@@ -90,15 +93,9 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
     run' {shared_mem=conv memory.length} fun () =>
         global "#include <mma.h>"
         global "using namespace nvcuda;"
-        // global "#include <cooperative_groups.h>"
-        // global "#include <cooperative_groups/memcpy_async.h>"
-        // global "using namespace cooperative_groups;"
 
         open cooperative_groups
         open tensor_cuda
-
-        // inl block = create_block()
-        // inl thread : _ (_ _ 1) = create_thread_block_tile block
 
         inl a_shared_tile, b_shared_tile, c_shared_tile = 
             inl extern = $"extern __shared__ unsigned char v$[]"
@@ -144,8 +141,8 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                 inl b = apply n b |> apply k |> apply_ptr
 
                 // Loads the data from global to shared memory.
-                tensor_memcpy_sync 4 threads_in_block(zip b_shared_tile b)
-                tensor_memcpy_sync 4 threads_in_block(zip a_shared_tile a)
+                tensor_memcpy_sync chunk_size threads_in_block(zip b_shared_tile b)
+                tensor_memcpy_sync chunk_size threads_in_block(zip a_shared_tile a)
                 __syncthreads()
 
                 inl a_frag, b_frag : _ _ (fragment matrix_a m_frag n_frag k_frag a_layout frag_in) 
@@ -200,7 +197,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             __syncthreads()
 
             // Stores the end result into global memory.
-            tensor_memcpy_sync 4 threads_in_block(zip c c_shared_tile)
+            tensor_memcpy_sync chunk_size threads_in_block(zip c c_shared_tile)
 
             __syncthreads()
         ()
@@ -219,7 +216,7 @@ type b_layout = wmma.col_major
 
 inl main() =
     inl get_body forall dim el. (x : tensor dim el) : array el = 
-        real tensorm.utils.map (fun (tensor_body {array}) => array) x.bodies : array el
+        real struct.map (fun (tensor_body {array}) => array) x.bodies : array el
 
     inl swap (a,b) x = if x then b,a else a,b
     inl cp_matmul (a : tensor (int * int) float * bool) (b : tensor (int * int) float * bool) (c : tensor (int * int) float) : tensor (int * int) float =
@@ -237,17 +234,17 @@ inl main() =
     inl a_trans = (real typecase a_layout with wmma.row_major => false | wmma.col_major => true) : bool
     inl b_trans = (real typecase b_layout with wmma.row_major => false | wmma.col_major => true) : bool
 
-    // inl [ma; mb; mc] = listm.map cupy.random_normal{mean=0; std=1} ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
-    inl [ma; mb; mc] = listm.map cupy.zeros ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
+    inl [ma; mb; mc] = listm.map cupy.random_normal{mean=0; std=1} ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
+    // inl [ma; mb; mc] = listm.map cupy.zeros ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
     inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
     average 1 fun i =>
-        // inl d = cp_matmul (ma,a_trans) (mb,b_trans) mc
-        inl gemm_config_tf32 = gemm_config {m_tile=64; n_tile=64; k_tile=64; m_skew=8; n_skew=8; k_skew=4} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
+        inl d = cp_matmul (ma,a_trans) (mb,b_trans) mc
+        inl gemm_config_tf32 = gemm_config {m_tile=64; n_tile=64; k_tile=64; m_skew=8; n_skew=8; k_skew=4; chunk_size=16} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
         // if i = 0 then
         //     global "from max_blocks_per_sm import max_blocks_per_sm"
         //     inl threads_per_block = gemm_config_tf32.threads_per_block
         //     $"max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),!threads_per_block,is_print=True)" : ()
         wmma_gemm_shared gemm_config_tf32 1 ma mb 1 mc
-        // inl d,c = get_body d, get_body mc
-        // $"cp.max(cp.abs(!c-!d))" : f32
-        0 : float
+        inl d,c = get_body d, get_body mc
+        $"cp.max(cp.abs(!c-!d))" : float
+        // 0 : float

@@ -1,61 +1,61 @@
-Error trace on line: 296, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\matmul.spi.
+Error trace on line: 30, column: 36 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\corebase\loop.spi.
+inl for {from nearTo} body state = forBy {from nearTo by=1} body state
+                                   ^
+Error trace on line: 24, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\corebase\loop.spi.
+    inl i, state = _dup (from, state)
+    ^
+Error trace on line: 24, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\corebase\loop.spi.
+    inl i, state = _dup (from, state)
+        ^
+Error trace on line: 25, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+    ^
+Error trace on line: 2, column: 82 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\corebase\loop.spi.
+inl while' (cond : () -> bool) (body : () -> ()) : () = !!!!While((join cond()),(body()))
+                                                                                 ^
+Error trace on line: 25, column: 39 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+                                      ^
+Error trace on line: 25, column: 45 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+                                            ^
+Error trace on line: 25, column: 57 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\corebase\loop.spi.
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+                                                        ^
+Error trace on line: 239, column: 85 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\matmul.spi.
+    inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
+                                                                                    ^
+Error trace on line: 241, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\matmul.spi.
         inl d = cp_matmul (ma,a_trans) (mb,b_trans) mc
         ^
-Error trace on line: 297, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\matmul.spi.
-        inl gemm_config_tf32 = gemm_config {m_tile=32; n_tile=32; k_tile=256; threads_per_block=256; m_skew=8; n_skew=8; k_skew=4} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
+Error trace on line: 241, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\matmul.spi.
+        inl d = cp_matmul (ma,a_trans) (mb,b_trans) mc
+                ^
+Error trace on line: 223, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\matmul.spi.
+        inl transpose a_trans (x : array float) : array float = if a_trans then $"cp.transpose(!x)" else x
         ^
-Error trace on line: 297, column: 32 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\matmul.spi.
-        inl gemm_config_tf32 = gemm_config {m_tile=32; n_tile=32; k_tile=256; threads_per_block=256; m_skew=8; n_skew=8; k_skew=4} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
-                               ^
-Error trace on line: 15, column: 78 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\matmul.spi.
-inl gemm_config forall m_frag n_frag k_frag frag_in a_layout b_layout float. {m_skew n_skew k_skew m_tile n_tile k_tile threads_per_block}
+Error trace on line: 224, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\matmul.spi.
+        inl f (a_trans : bool) (a_body : array float) (a_dim : int * int) : array float = 
+        ^
+Error trace on line: 227, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\matmul.spi.
+        inl g (a,a_trans : tensor (int * int) float * bool) = f a_trans (get_body a) a.dim
+        ^
+Error trace on line: 228, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\matmul.spi.
+        inl a_body,b_body,c_body : array float * array float * array float = g a, g b, f false (get_body c) c.dim
+        ^
+Error trace on line: 228, column: 78 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\matmul.spi.
+        inl a_body,b_body,c_body : array float * array float * array float = g a, g b, f false (get_body c) c.dim
                                                                              ^
-Error trace on line: 17, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\matmul.spi.
-    inl m_frag = real real_core.type_lit_to_lit `m_frag
-    ^
-Error trace on line: 18, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\matmul.spi.
-    inl n_frag = real real_core.type_lit_to_lit `n_frag
-    ^
-Error trace on line: 19, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\matmul.spi.
-    inl k_frag = real real_core.type_lit_to_lit `k_frag
-    ^
-Error trace on line: 21, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\matmul.spi.
-    inl number_of_warps = threads_per_block / warp_size()
-    ^
-Error trace on line: 22, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\matmul.spi.
-    inl m_num_fragments = m_tile / m_frag
-    ^
-Error trace on line: 23, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\matmul.spi.
-    inl n_num_fragments = n_tile / n_frag
-    ^
-Error trace on line: 24, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\matmul.spi.
-    inl k_num_fragments = k_tile / k_frag
-    ^
-Error trace on line: 28, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\matmul.spi.
-    inl total = number_of_warps
-    ^
-Error trace on line: 29, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\matmul.spi.
-    inl n_warp = min total n_num_fragments
-    ^
-Error trace on line: 30, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\matmul.spi.
-    inl total = total / n_warp
-    ^
-Error trace on line: 31, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\matmul.spi.
-    inl m_warp = min total m_num_fragments
-    ^
-Error trace on line: 34, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\matmul.spi.
-    assert (m_warp * n_warp = number_of_warps) "The product of the warp dimensions has to equal the number of warps."
-    ^
-Error trace on line: 123, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\corebase\core.spi.
-inl assert (c : bool) (msg : string) : () = real assert c msg
-                                                 ^
-Error trace on line: 250, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\corebase\real_core.spir.
-    if c = false then 
-    ^
-Error trace on line: 251, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\corebase\real_core.spir.
-        if lit_is c && lit_is msg then error_type msg
-        ^
-Error trace on line: 251, column: 40 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor10\corebase\real_core.spir.
-        if lit_is c && lit_is msg then error_type msg
-                                       ^
-The product of the warp dimensions has to equal the number of warps.
+Error trace on line: 227, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\matmul.spi.
+        inl g (a,a_trans : tensor (int * int) float * bool) = f a_trans (get_body a) a.dim
+               ^
+Error trace on line: 227, column: 63 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\matmul.spi.
+        inl g (a,a_trans : tensor (int * int) float * bool) = f a_trans (get_body a) a.dim
+                                                              ^
+Error trace on line: 227, column: 74 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\matmul.spi.
+        inl g (a,a_trans : tensor (int * int) float * bool) = f a_trans (get_body a) a.dim
+                                                                         ^
+Error trace on line: 219, column: 14 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor11\matmul.spi.
+        real tensorm.utils.map (fun (tensor_body {array}) => array) x.bodies : array el
+             ^
+Cannot find the key map inside the record.
