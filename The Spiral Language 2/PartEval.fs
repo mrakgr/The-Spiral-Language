@@ -1284,6 +1284,12 @@ let peval (env : TopEnv) (x : E) =
             let mutable r = Unchecked.defaultof<_>
             if List.exists (fun (a',b) -> is_unify (a,ty s a') && (r <- term s b; true)) b 
             then r else raise_type_error s <| sprintf "Typecase miss.\nGot: %s" (show_ty a)
+        | EOp(_,PragmaUnrollPush,[a]) ->
+            match term s a with
+            | DLit (LitInt32 _) as x -> push_op_no_rewrite s PragmaUnrollPush x YB
+            | a -> raise_type_error s <| sprintf "Expected an i32 literal.\nGot: %s" (show_data a)
+        | EOp(_,PragmaUnrollPop,[]) -> 
+            push_op_no_rewrite' s PragmaUnrollPop [] YB
         | EOp(_,BackendSwitch,l) ->
             let mutable ty = None
             let m = (Map.empty, l) ||> List.fold (fun m -> function

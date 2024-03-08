@@ -14,6 +14,10 @@ type NominalString = string
 type Layout = Heap | HeapMutable
 
 type Op =
+    // Pragma
+    | PragmaUnrollPush
+    | PragmaUnrollPop
+    
     // Backend branching
     | BackendSwitch
 
@@ -1169,7 +1173,7 @@ and root_term d =
                     if d.is_top_down then (range (squares sequence_body) |>> fun (r,x) -> RawApply(o,RawV(o,unintern "array"), RawArray(o,x))) d
                     else Error [o, ArrayLiteralsNotAllowedInBottomUp]
                 | "!!!!" -> 
-                    (range (read_big_var .>>. (rounds (sepBy1 (fun d -> unary_op {d with is_top_down=false}) (skip_op ","))))
+                    (range (read_big_var .>>. (rounds (sepBy (fun d -> unary_op {d with is_top_down=false}) (skip_op ","))))
                     >>= fun (r,((ra,a), b)) _ ->
                         match string_to_op a with
                         | true, op' -> Ok(RawOp(r,op',b))

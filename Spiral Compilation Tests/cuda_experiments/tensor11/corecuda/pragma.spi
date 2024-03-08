@@ -1,2 +1,10 @@
 // Unrolls a loop.
-inl unroll() : () = $"#pragma unroll"
+inl unroll_push(x : i32) : () = !!!!PragmaUnrollPush(x)
+
+// Unrolls a loop.
+inl unroll_pop() : () = !!!!PragmaUnrollPop()
+
+inl unroll body = 
+    unroll_push 0
+    body()
+    unroll_pop()

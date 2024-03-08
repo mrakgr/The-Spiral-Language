@@ -1,3 +1,12 @@
+2.7.7 (3/8/2024)
+
+* Ops without arguments are now allowed.
+* Changed pragma unrolling to a push and pop model.
+
+2.7.6 (3/8/2024)
+
+* Added to a `PragmaUnroll` op to the language. 
+
 2.7.5 (2/14/2024)
 
 * Fixed the codegen of tuples and nominals in arrays for the Cuda backend. The error is still in the other C++ backend, but that one is slated for demolition.

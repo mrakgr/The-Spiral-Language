@@ -41,10 +41,13 @@ type ClosureRec = {tag : int; free_vars : L<Tag,Ty>[]; domain : Ty; range : Ty; 
 type TupleRec = {tag : int; tys : Ty []}
 type CFunRec = {tag : int; domain : Ty; range : Ty}
 
-let size_t = UInt32T
+//let size_t = UInt32T
 
 // Replaces the invalid symbols in Spiral method names for the C backend.
 let fix_method_name (x : string) = x.Replace(''','_') + "_"
+
+let unroll_pop (s : Stack<int>) = if s.Count > 0 then s.Pop() else -1
+let unroll_peek (s : Stack<int>) = if s.Count > 0 then s.Peek() else -1
 
 let lit_string x =
     let strb = StringBuilder(String.length x + 2)
@@ -128,7 +131,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
 
     let tyvs_to_tys (x : TyV []) = Array.map (fun (L(i,t)) -> t) x
 
-    let rec binds_start (s : CodegenEnv) (x : TypedBind []) = binds s BindsTailEnd x
+    let rec binds_start (s : CodegenEnv) (x : TypedBind []) = binds (Stack()) s BindsTailEnd x
     and return_local s ret (x : string) = 
         match ret with
         | [||] -> line s $"{x};"
@@ -137,7 +140,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             let tmp_i = tmp()
             line s $"{tup_ty_tyvs ret} tmp{tmp_i} = {x};"
             Array.mapi (fun i (L(i',_)) -> $"v{i'} = tmp{tmp_i}.v{i};") ret |> line' s
-    and binds (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
+    and binds (unroll : Stack<int>) (s : CodegenEnv) (ret : BindsReturn) (stmts : TypedBind []) = 
         let tup_destruct (a,b) =
             Array.map2 (fun (L(i,_)) b -> 
                 match b with
@@ -196,11 +199,11 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                         | _ -> raise_codegen_error "Compiler error: Expected a single variable on the left side of an array create op."
                     | _ ->
                         decl_vars |> line' s
-                        op s (BindsLocal d) a
+                        op unroll s (BindsLocal d) a
                         true
                 with :? CodegenError as e -> raise_codegen_error' trace (e.Data0, e.Data1)
             | TyLocalReturnOp(trace,a,_) ->
-                try op s ret a
+                try op unroll s ret a
                     true
                 with :? CodegenError as e -> raise_codegen_error' trace (e.Data0, e.Data1)
             | TyLocalReturnData(d,trace) ->
@@ -283,8 +286,8 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
         | YLit x -> lit x
         | YSymbol x -> x
         | x -> raise_codegen_error "Compiler error: Expecting a type literal in the macro." 
-    and op s (ret : BindsReturn) a =
-        let binds a b = binds a b
+    and op (unroll : Stack<int>)s (ret : BindsReturn) a =
+        let binds a b = binds unroll a b
         let return' (x : string) =
             match ret with
             | BindsLocal ret -> return_local s ret x
@@ -316,6 +319,10 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
                 match a with
                 | JPMethod(a,b),b' -> sprintf "while_method_%i(%s)" (method_while (a,b)).tag (args b')
                 | _ -> raise_codegen_error "Expected a regular method rather than closure create in the while conditional."
+            match unroll_peek unroll with
+            | -1 -> ()
+            | 0 -> line s $"#pragma unroll"
+            | i -> line s $"#pragma unroll %i{i}"
             line s (sprintf "while (%s){" cond)
             binds (indent s) (BindsLocal [||]) b
             line s "}"
@@ -396,6 +403,8 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
         | TyStringLength(_,b) -> raise_codegen_error "String length is not supported in the Cuda C++ backend."
         | TySizeOf t -> return' $"sizeof({tup_ty t})"
         | TyOp(Global,[DLit (LitString x)]) -> global' x
+        | TyOp(PragmaUnrollPush,[DLit (LitInt32 x)]) -> unroll.Push(x); line s $"// Pushing the loop unrolling to: {x}"
+        | TyOp(PragmaUnrollPop,[]) -> line s $"// Poping the loop unrolling to: {unroll_pop unroll}"
         | TyOp(op,l) ->
             match op, l with
             | Dyn,[a] -> tup_data a
