@@ -3,7 +3,7 @@ type warp_size = 32
 inl warp_size() : int = real real_core.type_lit_to_lit `warp_size
 inl number_of_sms() : int = 24
 inl threads_per_block() : int = 256
-inl blocks_per_grid() : int = number_of_sms() * 2
+inl blocks_per_grid() : int = number_of_sms()
 
 // Statically sized array with a type literal for a dimension.
 nominal sa dim el = $"array<`el,@dim>"

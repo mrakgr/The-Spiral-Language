@@ -239,7 +239,7 @@ inl main() =
     inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
     average 1 fun i =>
         inl d = cp_matmul (ma,a_trans) (mb,b_trans) mc
-        inl gemm_config_tf32 = gemm_config {m_tile=64; n_tile=64; k_tile=64; m_skew=8; n_skew=8; k_skew=4; chunk_size=16} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
+        inl gemm_config_tf32 = gemm_config {m_tile=128; n_tile=128; k_tile=64; m_skew=8; n_skew=8; k_skew=4; chunk_size=16} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
         // if i = 0 then
         //     global "from max_blocks_per_sm import max_blocks_per_sm"
         //     inl threads_per_block = gemm_config_tf32.threads_per_block
