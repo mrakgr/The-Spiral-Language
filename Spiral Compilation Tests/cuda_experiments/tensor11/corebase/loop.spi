@@ -73,12 +73,13 @@ inl div forall dim. (dim : dim) (a : dim) : dim = real
 // The second part of the result can be iterated over with a linear loop.
 // The elementwise product of the two sides of the result equals the original dimension.
 inl rigid_split forall dim. (i : int) (dim : dim) : dim * dim =
-    inl a, _ = real
+    inl a, (i : int) = real
         open real_core
         struct.mapFoldBack (fun dim i => 
             inl x = min dim i
             x, i / x
             ) dim i
+    assert (i = 1) "The integer length must be distributed in its entirety."
     a, div dim a
 
 
