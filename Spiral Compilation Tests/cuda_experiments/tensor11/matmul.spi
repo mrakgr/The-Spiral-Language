@@ -53,7 +53,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             a |> reorder (fun m,k => {m},{k})
             |> split_into (fun x => div x y, y)
             |> reorder_snd (fun {m},{k} => m,k)
-        |> uncurry
+        |> curry_fst
     inl split_b {n k} (b : tensor (int * int) float) =
         if b_trans then
             inl y = {n}, {k}
@@ -66,7 +66,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             |> split_into (fun x => div x y, y)
             |> reorder_snd (fun {k},{n} => k,n)
             |> reorder_fst (fun k,n => n,k)
-        |> uncurry
+        |> curry_fst
     inl split_c {m n} (c : tensor (int * int) float) =
         inl y = {m}, {n}
         c |> reorder (fun m,n => {m},{n})
@@ -110,19 +110,19 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
         inl k_local = {k=k_tile / k_frag}
         inl c_shared_frag = 
             split_into_fst const((m_warp, n_warp),(m_local, n_local)) c_shared_frag
-            |> uncurry
+            |> curry_fst
             |> apply (m_proj_warp, n_proj_warp)
             |> apply_ptr
         inl a_shared_frag = 
             split_a {m=m_frag; k=k_frag} a_shared_tile
             |> reshape_fst const(m_warp, m_local)
-            |> uncurry
+            |> curry_fst
             |> apply m_proj_warp
             |> apply_ptr
         inl b_shared_frag = 
             split_b {n=n_frag; k=k_frag} b_shared_tile
             |> reshape_fst const(n_warp, n_local)
-            |> uncurry
+            |> curry_fst
             |> apply n_proj_warp
             |> apply_ptr
 
