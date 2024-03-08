@@ -173,7 +173,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
 
             pragma.unroll fun _ =>
             if beta <> 0 then 
-                tensor_memcpy_sync 4 threads_in_block(zip c_shared_tile c)
+                tensor_memcpy_sync chunk_size threads_in_block(zip c_shared_tile c)
                 __syncthreads()
 
             // Adds the accumulated result to the output in shared memory.
