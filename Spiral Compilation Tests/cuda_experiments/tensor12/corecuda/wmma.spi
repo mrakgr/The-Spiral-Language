@@ -70,11 +70,9 @@ inl load_matrix_sync forall use m n k layout frag_in t. (f : ref (fragment use m
 
 // Cuda's native `load_matrix_sync` function is extremely poorly done so we are using this as a workaround.
 inl load_matrix_sync_tf32 forall use m n k layout. (f : ref (fragment use m n k layout tf32)) (t : tensor (int * int) f32) : () =
-    assert_fragment_dimension f t
-    inl y = 2,2
-    inl t = t |> split_into (fun x => y, loop.div x y) |> swap |> threads_in_warp |> apply_proj |> apply_ptr
-    loop.linear (ref_length f) fun i =>
-        inl x = tensor_index (loop.proj y i) t
+    loop.linear t.dim fun i =>
+        inl x = tensor_index i t
+        inl i = loop.proj_rev t.dim i
         $"!f.x[!i] = wmma::__float_to_tf32(!x)"
 
 inl store_matrix_sync_array forall use m n k layout t. (ar : array t) (f : ref (fragment use m n k layout t)) (ldm : int) : () = 

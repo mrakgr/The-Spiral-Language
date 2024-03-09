@@ -114,17 +114,36 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
             |> curry_fst
             |> apply (m_proj_warp, n_proj_warp)
             |> apply_ptr
+        
         inl a_shared_frag = 
+            inl y = 2,2
             split_a {m=m_frag; k=k_frag} a_shared_tile
             |> reshape_fst const(m_warp, m_local)
             |> curry_fst
             |> apply m_proj_warp
+            |> reorder (fun m,k,rest => rest,m,k)
+            |> split_into_fst (fun x => y, loop.div x y) 
+            |> reorder_fst (fun a,b => b,a)
+            |> curry_fst
+            |> threads_in_warp 
+            |> apply_proj 
+            |> tensorm.swap
+            |> curry_fst
             |> apply_ptr
         inl b_shared_frag = 
+            inl y = 2,2
             split_b {n=n_frag; k=k_frag} b_shared_tile
             |> reshape_fst const(n_warp, n_local)
             |> curry_fst
             |> apply n_proj_warp
+            |> reorder (fun n,k,rest => rest,n,k)
+            |> split_into_fst (fun x => y, loop.div x y) 
+            |> reorder_fst (fun a,b => b,a)
+            |> curry_fst
+            |> threads_in_warp 
+            |> apply_proj 
+            |> tensorm.swap
+            |> curry_fst
             |> apply_ptr
 
         open wmma
@@ -246,24 +265,21 @@ inl main() =
     inl b_trans = (real typecase b_layout with wmma.row_major => false | wmma.col_major => true) : bool
     inl gemm_config_tf32 = gemm_config {m_tile=128; n_tile=128; k_tile=64; m_skew=8; n_skew=8; k_skew=4; chunk_size=16} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
 
-    // inl [ma; mb; mc] = listm.map cupy.zeros ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
-    // inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
-    // average 1 fun i =>
-    //     wmma_gemm_shared gemm_config_tf32 1 ma mb 1 mc
-    //     0 : float
-
-    inl [ma; mb; mc] = listm.map cupy.random_normal{mean=0; std=1} ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
-
-    // console.write_ln mb
-    // console.write_ln "-------"
-
+    inl [ma; mb; mc] = listm.map cupy.zeros ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
     inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
     average 1 fun i =>
-        inl d = cp_matmul (ma,a_trans) (mb,b_trans) mc
-        // if i = 0 then
-        //     global "from max_blocks_per_sm import max_blocks_per_sm"
-        //     inl threads_per_block = threads_per_block()
-        //     $"max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),!threads_per_block,is_print=True)" : ()
         wmma_gemm_shared_f32 gemm_config_tf32 1 ma mb 1 mc
-        inl d,c = get_body d, get_body mc
-        $"cp.max(cp.abs(!c-!d))" : float
+        0 : float
+
+    // inl [ma; mb; mc] = listm.map cupy.random_normal{mean=0; std=1} ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
+
+    // inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
+    // average 1 fun i =>
+    //     inl d = cp_matmul (ma,a_trans) (mb,b_trans) mc
+    //     // if i = 0 then
+    //     //     global "from max_blocks_per_sm import max_blocks_per_sm"
+    //     //     inl threads_per_block = threads_per_block()
+    //     //     $"max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),!threads_per_block,is_print=True)" : ()
+    //     wmma_gemm_shared_f32 gemm_config_tf32 1 ma mb 1 mc
+    //     inl d,c = get_body d, get_body mc
+    //     $"cp.max(cp.abs(!c-!d))" : float

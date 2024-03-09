@@ -57,6 +57,14 @@ inl proj forall dim. (dim : dim) (i : int) : dim = real
         assert (i = 0) "The index has to be in the range of the dimension."
         dim
 
+// Project the given index to a scalar value.
+inl proj_rev forall dim. (dim : dim) (i : dim) : int = real
+    open real_core
+    open struct
+    fst (foldBack2 (fun dim i (offset,stride) => 
+        assert (0 <= i && i < dim) "The indices should be inside the range of the dimension."
+        offset+i*stride, stride*dim
+        ) dim i (0,1))
 
 // Divides the first argument by the second in an elementwise fashion.
 // The elementwise product of the second argument and the result equals the original dimension.
@@ -81,7 +89,6 @@ inl rigid_split forall dim. (i : int) (dim : dim) : dim * dim =
             ) dim i
     assert (i = 1) "The integer length must be distributed in its entirety."
     a, div dim a
-
 
 // Calculates the integer product of the argument.
 inl prod forall dim. (dim : dim) : int = real struct.prod dim
