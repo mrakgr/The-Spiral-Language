@@ -40,6 +40,7 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
         assert (snd a_dim = fst b_dim) "The K dimension of the A and B tensors must match."
         assert (fst a_dim = fst c_dim) "The M dimension of the A and C tensors must match."
         assert (snd b_dim = snd c_dim) "The N dimension of the B and C tensors must match."
+        assert (alpha <> 0) "The alpha must not be zero."
 
     inl split_a {m k} (a : tensor (int * int) float) =
         if a_trans then
@@ -126,15 +127,32 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
             |> apply n_proj_warp
             |> apply_ptr
 
+        open wmma
+        inl c_frag : _ _ (fragment accumulator m_frag n_frag k_frag row_major float) = tensor_create (m_local, n_local)
+
         loop.projective blocks_in_grid(fst a.dim, fst b.dim) fun m,n =>
-            open wmma
             inl c = apply (m,n) c |> apply_ptr
 
-            inl acc : _ _ (fragment accumulator m_frag n_frag k_frag row_major float) = tensor_create (m_local, n_local)
-
             pragma.unroll fun _ => 
-                loop.linear acc.dim fun m,n => 
-                    fill_fragment (tensor_index_ref (m,n) acc) 0
+                if beta = 0 then
+                    // Not the functionality correct since multiplying the C matrix filled with Nans by zero should still result in Nans.
+                    // But it is good enough for a machine learning. 
+                    loop.linear c_frag.dim fun m,n => 
+                        fill_fragment (tensor_index_ref (m,n) c_frag) 0
+                else 
+                    tensor_memcpy_sync chunk_size threads_in_block(zip c_shared_tile c)
+                    __syncthreads()
+
+                    loop.linear c_frag.dim fun m,n =>
+                        inl c_frag = tensor_index_ref (m,n) c_frag
+                        inl c = apply (m,n) c_shared_frag
+                        load_matrix_sync c_frag c
+                        // alpha * A + beta * B =` C =>
+                        // A + (beta / alpha) * B = C / alpha
+                        if beta / alpha <> 1 then
+                            loop.linear (ref_length c_frag) fun i =>
+                                ref_set c_frag i (beta / alpha * ref_index c_frag i)
+                    __syncthreads()
             
             loop.linear ((snd >> fst) a.dim) fun k =>
                 pragma.unroll fun _ => 
@@ -165,10 +183,10 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
 
                 // Does the matrix multiplication and accumulates the results in the fragment.
                 loop.linear (m_local, n_local, k_local) fun m,n,k =>
-                    inl acc = tensor_index_ref (m,n) acc
+                    inl c_frag = tensor_index_ref (m,n) c_frag
                     inl a_frag = tensor_index_ref (m,k) a_frag
                     inl b_frag = tensor_index_ref (n,k) b_frag
-                    mma_sync acc a_frag b_frag acc
+                    mma_sync c_frag a_frag b_frag c_frag
 
             pragma.unroll fun _ =>
             if beta <> 0 then 
@@ -176,23 +194,19 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                 __syncthreads()
 
             // Adds the accumulated result to the output in shared memory.
-            // alpha * acc + beta * c_frag
             loop.linear (fst c_shared_frag.dim) fun m,n =>
-                inl acc = tensor_index_ref (m,n) acc
+                inl c_frag = tensor_index_ref (m,n) c_frag
+
+                // A + (beta / alpha) * B = C / alpha =>
+                // alpha * A + beta * B = C
+                if alpha <> 1 then
+                    loop.linear (ref_length c_frag) fun i =>
+                        ref_set c_frag i (alpha * ref_index c_frag i)
 
                 inl c = apply (m,n) c_shared_frag
-                if beta <> 0 then
-                    inl c_frag : _ (fragment accumulator m_frag n_frag k_frag row_major float) = create_fragment
-                    load_matrix_sync c_frag c
-                    loop.linear (ref_length acc) fun i =>
-                        ref_set acc i (alpha * ref_index acc i + beta * ref_index c_frag i)
-                else
-                    loop.linear (ref_length acc) fun i =>
-                        ref_set acc i (alpha * ref_index acc i)
-                store_matrix_sync c acc
+                store_matrix_sync c c_frag
 
             __syncthreads()
-
 
             // Stores the end result into global memory.
             tensor_memcpy_sync chunk_size threads_in_block(zip c c_shared_tile)
