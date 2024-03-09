@@ -1,0 +1,78 @@
+open corebase
+type warp_size = 32
+inl warp_size() : int = real real_core.type_lit_to_lit `warp_size
+inl number_of_sms() : int = 24
+inl threads_per_block() : int = 256
+inl blocks_per_grid() : int = number_of_sms()
+
+// Statically sized array with a type literal for a dimension.
+nominal sa dim el = $"array<`el,@dim>"
+
+// Base reference type
+nominal ref t = $"`t &"
+inl ref forall t. (x : t) : ref t = $"`t & v$ = !x"
+// Doesn't actually dereference the reference. For using local scope only.
+inl (~#) forall t. (x : ref t) : t = $"`t & v$ = !x" 
+
+inl ref_index x i = index #x i
+inl ref_set x i v = set #x i v
+inl ref_length x = length #x
+
+// Indexes into an array. Returns a reference to the element instead of the actual element.
+prototype index_ref ar el : ar el -> int -> ref el
+instance index_ref array = fun array i => $"`el & v$ = !array[!i]"
+
+// Base pointer type
+nominal ptr t = $'`t *'
+inl ptr forall t. (~x : t) : ptr t = $"`t * v$ = &!x"
+// Sets the pointer to a specified value.
+inl (<-.) forall t. (x : ptr t) (v : t) : () = $"*!x = !v"
+inl (~*) forall t. (x : ptr t) : t = $"`t v$ = *!x"
+
+type run_config = {
+    shared_mem : int
+    }
+
+// Executes the lambda on the GPU device.
+inl run' ({shared_mem} : run_config) f =
+    inl blocks_per_grid, threads_per_block = blocks_per_grid(), threads_per_block()
+    // Global statements only get executed once.
+    // global "raw_module = cp.RawModule(code=kernel, backend='nvcc', options=(\"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\\\\cublasdx\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\external\\\\cutlass\\\\include\"))"
+
+    global "options = []"
+    global "options.append('--define-macro=NDEBUG')"
+    global "options.append('--diag-suppress=550')"
+    global "options.append('--dopt=on')"
+    global "options.append('--restrict')"
+    // global "options.append('-D__CUDA_NO_HALF_CONVERSIONS__')" // To avoid `instance of overloaded function "__half::__half" matches the specified type` with NVCC
+    // global "options.append('--extra-device-vectorization')"
+    // global "options.append('--ptxas-options=-v')"
+    // global "options.append('--maxrregcount=128')"
+    // global "options.append('--device-debug')"
+    // global "options.append('--generate-line-info')"
+    global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))"
+    inl kernel_i, vars = join_backend Cuda
+        f () : ()
+    inl entry = $'raw_module.get_function(f"entry{!kernel_i}")' : $"cp.RawKernel"
+    $'!entry.max_dynamic_shared_size_bytes = !shared_mem '
+    real
+        match vars with
+        | _,_ => $'!entry((!blocks_per_grid,),(!threads_per_block,),!vars,shared_mem=!shared_mem)' : ()
+        | () => $'!entry((!blocks_per_grid,),(!threads_per_block,),(),shared_mem=!shared_mem)' : ()
+        | _ => $'!entry((!blocks_per_grid,),(!threads_per_block,),(!vars,),shared_mem=!shared_mem)' : ()
+    ()
+    
+// Executes the lambda on the GPU device.
+inl run f = run' {shared_mem = 0} f
+
+inl __syncthreads() : () = $"__syncthreads()"
+inl thread_index() : int = $"threadIdx.x" 
+inl block_index() : int = $"blockIdx.x" 
+
+open loop
+inl threads_in_warp nearTo : range _ = {nearTo from = thread_index() % warp_size(); by = warp_size()}
+inl threads_in_block nearTo : range _ = {nearTo from = thread_index(); by = threads_per_block()}
+inl threads_in_grid nearTo : range _ = {nearTo from = thread_index() + block_index() * threads_per_block(); by = threads_per_block() * blocks_per_grid()}
+inl warps_in_block nearTo : range _ = {nearTo from = thread_index() / warp_size(); by = threads_per_block() / warp_size()}
+inl warps_in_grid nearTo : range _ = {nearTo from = (thread_index() + block_index() * threads_per_block()) / warp_size(); by = threads_per_block() * blocks_per_grid() / warp_size()}
+inl blocks_in_grid nearTo : range _ = {nearTo from = block_index(); by = blocks_per_grid()}

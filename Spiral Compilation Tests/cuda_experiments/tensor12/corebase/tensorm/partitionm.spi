@@ -1,0 +1,108 @@
+// Functionality for a partitioning raw pointer arrays into tensors.
+
+type size = u64
+inl min_align() : size = 128
+
+nominal offset el = size
+nominal offsets d el = {
+    dim : d
+    offsets : `(open struct in infer_map `el (forall el. => ``(offset el)))
+    }
+nominal dim d el = d
+nominal partition el = `(
+    open struct
+    infer_map `el (forall el. => 
+        typecase el with
+        | tensor ~d ~t => ``(dim d t)
+        | _ => error_type "Partition can only be used on types containing tensors."
+        )
+    )
+nominal partition_offsets el = {
+    body : `(
+        open struct
+        infer_map `el (forall el. => 
+            typecase el with
+            | tensor ~d ~t => ``(offsets d t)
+            )
+        )
+    length : size
+    }
+
+// Takes in the tensor dimensions to create the partition.
+inl (~!) forall dim el. (d : dim) : partition (tensor dim el) = partition (real dim `dim `el d)
+// Combines the two partitions into a single one in a non overlapping manner.
+inl (*.) forall a b. (partition a : partition a) (partition b : partition b) : partition (a * b) = partition (real a, b)
+// Combines the two partitions into a single one in an overlapping manner.
+inl (+.) forall a b. (partition_offsets a : partition_offsets a) (partition_offsets b : partition_offsets b) : partition_offsets (a * b) = 
+    partition_offsets {body=real a.body, b.body; length=max a.length b.length}
+// Transforms a partition into a structure that contains the relevant pointer offsets.
+inl (~#) forall el. (partition x : _ el) : partition_offsets el = 
+    inl body,length = real
+        open real_core
+        open struct
+        inl sizeof forall t. = !!!!Conv(`size, !!!!SizeOf(`t))
+        inl align forall el. s = modup s (modup (sizeof `el) min_align())
+        inl to_offsets s (dim d as z) =
+            inl length = conv `size (prod d) 
+            typecase `z with dim ~d ~el =>
+            inl x,s = 
+                infer_mapFold `el (forall el. s => 
+                    inl s = align `el s
+                    offset `el s, s + length * sizeof `el
+                    ) s
+            offsets `d `el {dim=d; offsets=x}, s
+        mapFold to_offsets (conv `size 0) x
+    partition_offsets {body length}
+    
+// Internal function used to create the tensor from the offsets.
+inl tensor_from_offsets forall d el. (base : array u8) (offsets {dim offsets} : _ d el) : tensor d el = 
+    open struct
+    open utils
+    inl stride, len = real calculate_stride_len dim
+    assert_long_length len dim
+    inl bodies = real 
+        map (fun (offset i as z) => 
+            typecase `z with offset ~t =>
+            tensor_body `d `t {
+                array = 
+                    real_core.backend_switch {
+                        python = fun () => 
+                            inl s = !!!!SizeOf(`t) 
+                            typecase cupy_type t with ~ct => 
+                            $"!base[!i:!i+!s*!len].view(`ct)" : array t
+                        cuda = fun () => 
+                            $"reinterpret_cast<`t *>(&!base[!i])" : array t
+                        }
+                offset = 0
+                stride 
+                }) offsets
+    tensor {dim bodies}
+
+// Given a base array and the partition offsets, it creates a compound structure containing the tensors.
+inl from_partition_offsets forall el. (base, length  : array u8 * size) (partition_offsets p : _ el) : el = real
+    open real_core
+    open struct
+    assert (p.length <= length) "The length of the partition has to be less than the length of the base array."
+    map (fun x => 
+        typecase `x with
+        | offsets ~d ~el => tensor_from_offsets `d `el base x
+        ) p.body
+
+// Given a base array and a partition, it creates a compound structure containing the tensors.
+inl from_partition forall el. base (x : partition el) : el = from_partition_offsets base #x
+
+// Reorders the internal fields of a partition.
+prototype reorder partition a : forall b. (a -> b) -> partition a -> partition b
+instance reorder partition = fun f (partition p) => partition (real real_core.assert_nominals_are_equal_under_set_equality p (f p)) 
+instance reorder partition_offsets = fun f (partition_offsets p) => partition_offsets {p with body#=fun p => real real_core.assert_nominals_are_equal_under_set_equality p (f p)}
+
+// inl test0() =
+//     inl dim : partition (tensor (int * int) f32) = !(4,4)
+//     inl dim2 : partition (tensor (int) u8) = !(10)
+//     inl dim3 : partition (tensor (int * int) f32) = !(10,10)
+//     inl p = #(dim2 *. dim |> reorder (fun a,b => {l=a; r=b})) +. #(dim3 *. dim)
+//     inl x : array u8 = create (conv p.length)
+//     inl p = reorder (fun a,b => {a b}) p
+//     from_partition_offsets (x, p.length) p
+
+// inl main() = test0()
