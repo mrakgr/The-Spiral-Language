@@ -164,8 +164,8 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
                 tensor_memcpy_sync chunk_size threads_in_block(zip a_shared_tile a)
                 __syncthreads()
 
-                inl a_frag, b_frag : _ _ (fragment matrix_a m_frag n_frag k_frag a_layout frag_in) 
-                                * _ _ (fragment matrix_b m_frag n_frag k_frag b_layout frag_in) =
+                inl a_frag, b_frag : _ _ (fragment matrix_a m_frag n_frag k_frag a_layout tf32)
+                                * _ _ (fragment matrix_b m_frag n_frag k_frag b_layout tf32) =
                     tensor_create (m_local,k_local),
                     tensor_create (n_local,k_local)
 
