@@ -296,6 +296,14 @@ inl loop_rigid forall a b el. ({from by nearTo=t} : loop.range (tensor (a * b) e
         inl t = curry_fst t |> apply a |> apply_ptr
         fun b => body (apply b t)
 
+// Applies the entirety of the given range in a single shot using projection. It asserts that the range size matches.
+inl apply_proj forall a b el. ({from by nearTo=t} : loop.range (tensor (a * b) el)) : tensor b el =
+    open loop
+    inl dim = fst t.dim
+    assert (prod dim = by) "The range being projected into has to equal the tensor's first dimension."
+    apply (proj dim from) t
+
+
 // Tests
 // 
 // 

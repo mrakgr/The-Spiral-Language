@@ -26,11 +26,11 @@ inl gemm_config forall m_frag n_frag k_frag frag_in a_layout b_layout float. {m_
         chunk_size
         }
 
-inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float {number}. 
+inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout. 
         (gemm_config {m_skew n_skew k_skew m_frag n_frag k_frag m_tile n_tile k_tile a_trans b_trans chunk_size}
-         : gemm_config m_frag n_frag k_frag frag_in a_layout b_layout float) 
-        (alpha : float) (a : tensor (int * int) float) (b : tensor (int * int) float) 
-        (beta : float) (c : tensor (int * int) float) =
+         : gemm_config m_frag n_frag k_frag wmma.tf32 a_layout b_layout f32) 
+        (alpha : float) (a : tensor (int * int) f32) (b : tensor (int * int) f32) 
+        (beta : float) (c : tensor (int * int) f32) =
     inl swap x (a,b) = if x then b,a else a,b
     inl div x = loop.div x
     inl _ =
@@ -173,13 +173,13 @@ inl wmma_gemm_shared forall m_frag n_frag k_frag frag_in a_layout b_layout float
                 loop.linear (m_local, k_local) fun m,k =>
                     inl a = a_shared_frag |> apply m |> apply k
                     inl a_frag = tensor_index_ref (m,k) a_frag
-                    load_matrix_sync a_frag a
+                    load_matrix_sync_tf32 a_frag a
                     
                 // Loads from shared memory into registers.
                 loop.linear (n_local, k_local) fun n,k =>
                     inl b = b_shared_frag |> apply n |> apply k
                     inl b_frag = tensor_index_ref (n,k) b_frag
-                    load_matrix_sync b_frag b
+                    load_matrix_sync_tf32 b_frag b
 
                 // Does the matrix multiplication and accumulates the results in the fragment.
                 loop.linear (m_local, n_local, k_local) fun m,n,k =>
@@ -264,6 +264,6 @@ inl main() =
         //     global "from max_blocks_per_sm import max_blocks_per_sm"
         //     inl threads_per_block = threads_per_block()
         //     $"max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),!threads_per_block,is_print=True)" : ()
-        wmma_gemm_shared gemm_config_tf32 1 ma mb 1 mc
+        wmma_gemm_shared_f32 gemm_config_tf32 1 ma mb 1 mc
         inl d,c = get_body d, get_body mc
         $"cp.max(cp.abs(!c-!d))" : float
