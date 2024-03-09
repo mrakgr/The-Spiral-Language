@@ -50,10 +50,7 @@ inl proj forall dim. (dim : dim) (i : int) : dim = real
         assert (i < dim) "The index has to be in the range of the dimension."
         dim
     | _ =>
-        inl dim,i = 
-            mapFoldBack (fun d i =>
-                i % d, i / d
-                ) dim i
+        inl dim,i = mapFoldBack (fun d i => i % d, i / d) dim i
         assert (i = 0) "The index has to be in the range of the dimension."
         dim
 
