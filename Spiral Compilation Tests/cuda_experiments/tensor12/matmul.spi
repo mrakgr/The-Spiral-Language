@@ -46,32 +46,32 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
         if a_trans then
             inl y = {k}, {m}
             a |> reorder (fun k,m => {k},{m})
-            |> split_into (fun x => div x y, y)
+            |> split_into (loop.div_fst_by y)
             |> reorder_snd (fun {k},{m} => k,m)
             |> reorder_fst (fun k,m => m,k)
         else
             inl y = {m}, {k}
             a |> reorder (fun m,k => {m},{k})
-            |> split_into (fun x => div x y, y)
+            |> split_into (loop.div_fst_by y)
             |> reorder_snd (fun {m},{k} => m,k)
         |> curry_fst
     inl split_b {n k} (b : tensor (int * int) float) =
         if b_trans then
             inl y = {n}, {k}
             b |> reorder (fun n,k => {n},{k})
-            |> split_into (fun x => div x y, y)
+            |> split_into (loop.div_fst_by y)
             |> reorder_snd (fun {n},{k} => n,k)
         else
             inl y = {k}, {n}
             b |> reorder (fun k,n => {k},{n})
-            |> split_into (fun x => div x y, y)
+            |> split_into (loop.div_fst_by y)
             |> reorder_snd (fun {k},{n} => k,n)
             |> reorder_fst (fun k,n => n,k)
         |> curry_fst
     inl split_c {m n} (c : tensor (int * int) float) =
         inl y = {m}, {n}
         c |> reorder (fun m,n => {m},{n})
-        |> split_into (fun x => div x y, y)
+        |> split_into (loop.div_fst_by y)
         |> reorder_snd (fun {m},{n} => m,n)
     inl a = split_a {m=m_tile; k=k_tile} a    
     inl b = split_b {n=n_tile; k=k_tile} b
@@ -122,7 +122,7 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
             |> curry_fst
             |> apply m_proj_warp
             |> reorder (fun m,k,rest => rest,m,k)
-            |> split_into_fst (fun x => y, loop.div x y) 
+            |> split_into_fst (loop.div_snd_by y)
             |> reorder_fst (fun a,b => swap a_trans b, swap (not a_trans) a)
             |> curry_fst
             |> threads_in_warp 
@@ -138,7 +138,7 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
             |> curry_fst
             |> apply n_proj_warp
             |> reorder (fun n,k,rest => rest,n,k)
-            |> split_into_fst (fun x => y, loop.div x y) 
+            |> split_into_fst (loop.div_snd_by y)
             |> reorder_fst (fun a,b => swap (not b_trans) b, swap (not b_trans) a)
             |> curry_fst
             |> threads_in_warp 

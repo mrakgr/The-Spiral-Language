@@ -73,6 +73,16 @@ inl div forall dim. (dim : dim) (a : dim) : dim = real
     iter3 (fun a b dim => assert (a*b = dim) "The elementwise product of the split dimensions has to equal the original.") a b dim
     b
 
+// Pass it into tensorm.split_onto to divide the dimension in the specified manner.
+// 
+// fun x y => div y x, x
+inl div_fst_by forall dim. (x : dim) (y : dim) : dim * dim = div y x, x
+
+// Pass it into tensorm.split_onto to divide the dimension in the specified manner.
+// 
+// fun x y => x, div y x
+inl div_snd_by forall dim. (x : dim) (y : dim) : dim * dim = x, div y x
+
 // Given an integer length and a dimension (a compound structure of ints) as arguments, this function splits the dimension into two.
 // The product of the first part is intended to be projected into using indices lesser than the integer length.
 // The second part of the result can be iterated over with a linear loop.
@@ -85,7 +95,7 @@ inl rigid_split forall dim. (i : int) (dim : dim) : dim * dim =
             x, i / x
             ) dim i
     assert (i = 1) "The integer length must be distributed in its entirety."
-    a, div dim a
+    div_snd_by a dim
 
 // Calculates the integer product of the argument.
 inl prod forall dim. (dim : dim) : int = real struct.prod dim
