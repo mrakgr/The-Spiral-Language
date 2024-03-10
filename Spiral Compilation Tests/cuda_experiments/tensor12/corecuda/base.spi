@@ -45,11 +45,12 @@ inl run' ({shared_mem} : run_config) f =
     global "options.append('--dopt=on')"
     global "options.append('--restrict')"
     global "options.append('-D__CUDA_NO_HALF_CONVERSIONS__')" // To avoid `instance of overloaded function "__half::__half" matches the specified type` with NVCC
-    // global "options.append('--extra-device-vectorization')"
-    global "options.append('--ptxas-options=-v')"
-    // global "options.append('--maxrregcount=128')"
-    global "options.append('--device-debug')"
+    global "options.append('-src-in-ptx')"
     global "options.append('--generate-line-info')"
+    // global "options.append('--extra-device-vectorization')"
+    // global "options.append('--ptxas-options=-v')"
+    // global "options.append('--maxrregcount=128')"
+    // global "options.append('--device-debug')"
     global "raw_module = cp.RawModule(code=kernel, backend='nvcc', enable_cooperative_groups=True, options=tuple(options))"
     inl kernel_i, vars = join_backend Cuda
         global "#include <assert.h>"
