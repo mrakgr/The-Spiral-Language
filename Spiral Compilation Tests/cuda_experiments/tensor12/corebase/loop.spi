@@ -100,6 +100,11 @@ inl rigid_split forall dim. (i : int) (dim : dim) : dim * dim =
 // Calculates the integer product of the argument.
 inl prod forall dim. (dim : dim) : int = real struct.prod dim
 
+// Swaps the two arguments.
+// 
+// fun a,b => b,a
+inl swap a,b = b,a
+
 type range dim = {from : int; nearTo : dim; by : int}
 
 // Projects the iterator into a small and linear component so that elementwise product of `dim_small * dim_linear = nearTo`.
