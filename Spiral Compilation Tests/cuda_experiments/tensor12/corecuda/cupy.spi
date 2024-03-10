@@ -2,9 +2,10 @@ open corebase
 open tensorm
 
 inl arange forall dim el. ({from nearTo by} : loop.range dim) : tensor dim el = 
+    inl len : int = loop.prod nearTo
     real
         typecase cupy_type el with ~ct =>
-        $"cp.arange(!from,!nearTo,!by,dtype=`ct)" : array el
+        $"cp.arange(!from,!len,!by,dtype=`ct)" : array el
     |> fromArray |> reshape (const nearTo)
     
 inl zeros forall dim float. dim : tensor dim float =

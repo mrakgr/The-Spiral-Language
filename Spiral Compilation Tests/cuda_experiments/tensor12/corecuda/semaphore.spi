@@ -1,6 +1,5 @@
 open corebase
 open tensorm
-open cupy
 
 nominal thread_scope_system = $"cuda::thread_scope_system"
 nominal thread_scope_device = $"cuda::thread_scope_device"
@@ -23,18 +22,21 @@ inl create_binary_semaphore_in_grid forall scope{thread_scope}. (i : int) : ref 
 inl create_counting_semaphore_in_block forall count. (i : int) : ref (counting_semaphore count thread_scope_block) = 
     inl x = $"__shared__ cuda::counting_semaphore<`thread_scope_block,`count> v$"
     __syncthreads()
-    if cooperative_groups.thread_block_thread_rank() = 0 then $"new(&!x) cuda::counting_semaphore<`thread_scope_block,`count>(!i)"
+    if thread_index() = 0 then $"new(&!x) cuda::counting_semaphore<`thread_scope_block,`count>(!i)"
     __syncthreads()
     x
 inl create_binary_semaphore_in_block (i : int) : ref (binary_semaphore thread_scope_block) = 
     inl x = $"__shared__ cuda::binary_semaphore<`thread_scope_block> v$"
     __syncthreads()
-    if cooperative_groups.thread_block_thread_rank() = 0 then $"new(&!x) cuda::binary_semaphore<`thread_scope_block>(!i)"
+    if thread_index() = 0 then $"new(&!x) cuda::binary_semaphore<`thread_scope_block>(!i)"
     __syncthreads()
     x
 
-inl acquire forall count scope. (semaphore : ref (counting_semaphore count scope)) : () = $"!semaphore.acquire()"
-inl release forall count scope. (semaphore : ref (counting_semaphore count scope)) : () = $"!semaphore.release()"
+inl acquire forall count scope. (semaphore : ref (counting_semaphore count scope)) : () = 
+    global "#include <cuda/semaphore>"
+    $"!semaphore.acquire()"
+inl release forall count scope. (semaphore : ref (counting_semaphore count scope)) : () = 
+    $"!semaphore.release()"
 
 inl write_ln_system x = 
     inl lock : ref (_ _ thread_scope_system) = create_binary_semaphore_in_grid 1
@@ -54,9 +56,9 @@ inl write_ln_block x =
     console.write_ln x
     release lock
 
-type float = f32
-type a_layout = wmma.row_major
-type b_layout = wmma.col_major
+// type float = f32
+// type a_layout = wmma.row_major
+// type b_layout = wmma.col_major
 
 // inl main() =
 //     inl get_body forall dim el. (x : tensor dim el) : array el = 

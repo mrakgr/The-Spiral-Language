@@ -25,12 +25,12 @@ modules:
         intrinsic
         sam 
         console
+        cupy
+        semaphore
         wmma
         pragma 
         cooperative_groups
         printing
-        cupy
-        semaphore
         
     sortm
     cardm
