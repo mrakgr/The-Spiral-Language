@@ -26,7 +26,9 @@ modules:
         sam 
         console
         cupy
+        thread_scope
         semaphore
+        pipeline
         wmma
         pragma 
         cooperative_groups

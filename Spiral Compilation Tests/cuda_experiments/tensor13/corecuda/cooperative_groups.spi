@@ -44,45 +44,17 @@ inl create_coalesced_threads() : ref coalesced_group = $"auto v$ = coalesced_thr
 
 open tensorm
 
-inl memcpy_sync forall float. (to, from : tensor int float * tensor int float) =
-    assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
-    inl dim = from.dim
-    inl default() =
-        loop.linear dim fun j => 
-            tensor_set j (tensor_index j from) to
-    real
-        open real_core
-        open struct
-        iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
-            typecase `from with _ ~el =>
-            inl load_single forall el. =
-                inl from = $"reinterpret_cast<`el*>(!from + !from_offset)" : $'`el*'
-                inl to = $"reinterpret_cast<`el*>(!to + !to_offset)" : $'`el*'
-                $'assert("Pointer alignment check" && (unsigned long long)(!from) % !dim == 0 && (unsigned long long)(!to) % !dim == 0)' : ()
-                $"*!to = *!from" : ()
-            match dim * (sizeof `el).value with
-            | 16 => load_single `($"int4")
-            | 8 => load_single `($"int2")
-            | 4 => load_single `($"int")
-            | 2 => load_single `($"short int")
-            | 1 => $"*(!to + !to_offset) = *(!from + !from_offset)" : ()
-            | _ => default()
-            ) from.bodies to.bodies
-
-inl memcpy_async forall parent float. (group : ref (thread_block_tile parent 1)) ({from to} : {from : tensor int float; to : tensor int float}) =
-    assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
-    inl dim = from.dim
-    real
-        open tensorm.utils
-        iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
-            typecase `from with _ ~el =>
-            inl dim = $"constexr `int v$ = sizeof(`el) * !dim" : int
-            $'assert("Pointer alignment check" && (unsigned long long)(!from + !from_offset) % !dim == 0 && (unsigned long long)(!to + !to_offset) % !dim == 0)' : ()
-            $"cooperative_groups::memcpy_async(!group, !to + !to_offset, !from + !from_offset, cuda::aligned_size_t<!dim>(!dim))" : ()
-            ) from.bodies to.bodies
-
-inl tensor_memcpy_sync forall float a. access_size (r : loop.range (tensor a (float * float))) : () =
-    loop_rigid {r with nearTo#=factorize_sizeof access_size} (unzip >> memcpy_sync)
+// inl memcpy_async forall parent float. (group : ref (thread_block_tile parent 1)) ({from to} : {from : tensor int float; to : tensor int float}) =
+//     assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
+//     inl dim = from.dim
+//     real
+//         open tensorm.utils
+//         iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
+//             typecase `from with _ ~el =>
+//             inl dim = $"constexr `int v$ = sizeof(`el) * !dim" : int
+//             $'assert("Pointer alignment check" && (unsigned long long)(!from + !from_offset) % !dim == 0 && (unsigned long long)(!to + !to_offset) % !dim == 0)' : ()
+//             $"cooperative_groups::memcpy_async(!group, !to + !to_offset, !from + !from_offset, cuda::aligned_size_t<!dim>(!dim))" : ()
+//             ) from.bodies to.bodies
     
 // inl tensor_memcpy_async forall parent float a. access_size (group : ref (thread_block_tile parent 1)) ({from to} : {from : tensor a float; to : tensor a float}) : () =
 //     inl from, to = factorize_sizeof access_size from, factorize_sizeof access_size to

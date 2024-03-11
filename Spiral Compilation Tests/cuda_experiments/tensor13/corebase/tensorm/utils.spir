@@ -37,4 +37,4 @@ inl assert_stride_contiguous dim stride =
             ) dim stride init
     init
 
-inl sizeof_factorize forall el. (target_size : int) : int = infer_fold `el (forall el. => min (divup target_size (sizeof `el).value)) (limit.max `int)
+inl sizeof_factorize forall el. (target_size : int) : int = target_size / infer_fold `el (forall el. => max (sizeof `el).value) 1
