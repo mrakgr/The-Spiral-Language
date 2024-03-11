@@ -14,7 +14,7 @@ modules:
         arraym
         tensorm/
             utils*
-            type-
+            tensor_main-
             partitionm
             
     corepython/

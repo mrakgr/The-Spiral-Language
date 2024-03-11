@@ -231,14 +231,14 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
 
             __syncthreads()
 
-type a_layout = wmma.row_major
-type b_layout = wmma.row_major
-
-type a_layout = wmma.col_major
-type b_layout = wmma.row_major
-
 // type a_layout = wmma.row_major
-// type b_layout = wmma.col_major
+// type b_layout = wmma.row_major
+
+// type a_layout = wmma.col_major
+// type b_layout = wmma.row_major
+
+type a_layout = wmma.row_major
+type b_layout = wmma.col_major
 
 // type a_layout = wmma.col_major
 // type b_layout = wmma.col_major
