@@ -1,0 +1,49 @@
+modules:
+    corebase/
+        default-
+        base-
+        limit
+        real_core*
+        type_arith*
+        core-
+        struct* 
+        listm
+        loop
+        optionm
+        monad
+        arraym
+        tensorm/
+            utils*
+            tensor_main-
+            partitionm
+            
+    corepython/
+        
+    corecuda/
+        base-
+        tensor_cuda
+        intrinsic
+        sam 
+        console
+        cupy
+        semaphore
+        wmma
+        pragma 
+        cooperative_groups
+        printing
+        
+    sortm
+    cardm
+    random
+
+    deck/
+        type- 
+        deck_utils
+        public-
+        deck_test
+    hand_score
+    hand_scorer_old
+    hand_scorer
+
+    main
+    matmul
