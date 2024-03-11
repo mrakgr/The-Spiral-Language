@@ -150,10 +150,11 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
         open wmma
         inl c_frag : _ _ (fragment accumulator m_frag n_frag k_frag row_major float) = tensor_create (m_local, n_local)
 
+        pragma.unroll' 1 fun _ =>
         loop.projective blocks_in_grid(fst a.dim, fst b.dim) fun m,n =>
             inl c = apply (m,n) c |> apply_ptr
 
-            pragma.unroll fun _ => 
+            pragma.unroll fun _ =>
                 if beta = 0 then
                     // Not the functionality correct since multiplying the C matrix filled with Nans by zero should still result in Nans.
                     // But it is good enough for a machine learning. 
@@ -198,6 +199,8 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
                 loop.linear (n_local, k_local) fun n,k =>
                     inl b_frag = tensor_index_ref (n,k) b_frag
                     load_matrix_sync_tf32 b_frag (b_shared_frag |> apply n |> apply k)
+
+                __syncthreads()
 
                 // Does the matrix multiplication and accumulates the results in the fragment.
                 loop.linear (m_local, n_local, k_local) fun m,n,k =>
@@ -280,10 +283,10 @@ inl main() =
     inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
     average 1 fun i =>
         inl d = cp_matmul (ma,a_trans) (mb,b_trans) mc
-        // if i = 0 then
-        //     global "from max_blocks_per_sm import max_blocks_per_sm"
-        //     inl threads_per_block = threads_per_block()
-        //     $"max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),!threads_per_block,is_print=True)" : ()
+        if i = 0 then
+            global "from max_blocks_per_sm import max_blocks_per_sm"
+            inl threads_per_block = threads_per_block()
+            $"max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),!threads_per_block,is_print=True)" : ()
         wmma_gemm_shared_f32 gemm_config_tf32 1 ma mb 1 mc
         inl d,c = get_body d, get_body mc
         $"cp.max(cp.abs(!c-!d))" : float
