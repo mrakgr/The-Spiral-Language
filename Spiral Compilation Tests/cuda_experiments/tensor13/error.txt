@@ -1,61 +1,61 @@
-Error trace on line: 57, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\corecuda\base.spi.
-        f () : ()
+Error trace on line: 136, column: 41 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\loop.spi.
+        for' {from=0; nearTo} (fun i => on_success (i :: l))
+                                        ^
+Error trace on line: 59, column: 18 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\core.spi.
+inl (>>) a b x = b (a x)
+                 ^
+Error trace on line: 304, column: 18 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\tensorm\tensor_main.spi.
+        fun b => body (apply b t)
+                 ^
+Error trace on line: 59, column: 18 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\core.spi.
+inl (>>) a b x = b (a x)
+                 ^
+Error trace on line: 24, column: 77 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\pipeline.spi.
+inl memcpy_async forall float. (pipe : ref (pipeline thread_scope_thread)) (to, from : tensor int float * tensor int float) =
+                                                                            ^
+Error trace on line: 25, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\pipeline.spi.
+    assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
+    ^
+Error trace on line: 26, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\pipeline.spi.
+    inl dim = from.dim
+    ^
+Error trace on line: 29, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\pipeline.spi.
+        iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
         ^
-Error trace on line: 94, column: 46 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\matmul.spi.
-    run' {shared_mem=conv memory.length} fun () =>
-                                             ^
-Error trace on line: 95, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\matmul.spi.
-        global "#include <mma.h>"
-        ^
-Error trace on line: 96, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\matmul.spi.
-        global "using namespace nvcuda;"
-        ^
-Error trace on line: 101, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\matmul.spi.
-        inl a_shared_tile, b_shared_tile, c_shared_tile = 
-        ^
-Error trace on line: 101, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\matmul.spi.
-        inl a_shared_tile, b_shared_tile, c_shared_tile = 
+Error trace on line: 126, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+    f (ar, v)
+    ^
+Error trace on line: 122, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+    inl rec f = function
+                ^
+Error trace on line: 123, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | (a, b), (va,vb) => f (a, va) . f (b, vb)
+           ^
+Error trace on line: 124, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | {} & ar, {} & v => record_iter (fun {key value} => f (ar key, value)) v
+          ^
+Error trace on line: 125, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | ar,v => set ar v
+          ^
+Error trace on line: 125, column: 19 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | ar,v => set ar v
+                  ^
+Error trace on line: 29, column: 67 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\pipeline.spi.
+        iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
+                                                                  ^
+Error trace on line: 29, column: 79 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\pipeline.spi.
+        iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
+                                                                              ^
+Error trace on line: 30, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\pipeline.spi.
+            typecase `from with _ ~el =>
             ^
-Error trace on line: 101, column: 28 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\matmul.spi.
-        inl a_shared_tile, b_shared_tile, c_shared_tile = 
-                           ^
-Error trace on line: 108, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\matmul.spi.
-        inl c_shared_frag = split_c {m=m_frag; n=n_frag} c_shared_tile
-        ^
-Error trace on line: 109, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\matmul.spi.
-        inl {proj_small=(m_proj_warp, n_proj_warp) dim_small=(m_warp, n_warp) dim_linear=(m_local, n_local)} = 
-        ^
-Error trace on line: 110, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\matmul.spi.
-            loop.rigid_split' (warps_in_block (fst c_shared_frag.dim))
+Error trace on line: 31, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\pipeline.spi.
+            inl dim = $"constexpr `int v$ = sizeof(`el) * !dim" : int
             ^
-Error trace on line: 112, column: 31 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\corebase\loop.spi.
-inl rigid_split' forall dim. ({from nearTo by} : range dim) : {proj_small : dim; dim_small : dim; dim_linear : dim} =
-                              ^
-Error trace on line: 113, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\corebase\loop.spi.
-    inl dim_small, dim_linear = rigid_split by nearTo
-    ^
-Error trace on line: 113, column: 33 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\corebase\loop.spi.
-    inl dim_small, dim_linear = rigid_split by nearTo
-                                ^
-Error trace on line: 91, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\corebase\loop.spi.
-    inl a, (i : int) = real
-    ^
-Error trace on line: 91, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\corebase\loop.spi.
-    inl a, (i : int) = real
-        ^
-Error trace on line: 97, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\corebase\loop.spi.
-    assert (i = 1) "The integer length must be distributed in its entirety."
-    ^
-Error trace on line: 123, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\corebase\core.spi.
-inl assert (c : bool) (msg : string) : () = real assert c msg
-                                                 ^
-Error trace on line: 250, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\corebase\real_core.spir.
-    if c = false then 
-    ^
-Error trace on line: 251, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\corebase\real_core.spir.
-        if lit_is c && lit_is msg then error_type msg
-        ^
-Error trace on line: 251, column: 40 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor12\corebase\real_core.spir.
-        if lit_is c && lit_is msg then error_type msg
-                                       ^
-The integer length must be distributed in its entirety.
+Error trace on line: 32, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\pipeline.spi.
+            $'assert("Pointer alignment check" && (unsigned long long)(!from + !from_offset) % !dim == 0 && (unsigned long long)(!to + !to_offset) % !dim == 0)' : ()
+            ^
+Error trace on line: 33, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\pipeline.spi.
+            pipeline.producer_phase pipe fun _ =>
+            ^
+Cannot apply a forall with a term.
