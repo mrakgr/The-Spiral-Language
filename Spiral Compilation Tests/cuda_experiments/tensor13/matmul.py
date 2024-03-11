@@ -9,7 +9,7 @@ __device__ inline bool while_method_0(long v0){
 }
 __device__ inline bool while_method_1(long v0){
     bool v1;
-    v1 = v0 < 4l;
+    v1 = v0 < 8l;
     return v1;
 }
 __device__ inline bool while_method_2(long v0){
@@ -19,7 +19,7 @@ __device__ inline bool while_method_2(long v0){
 }
 __device__ inline bool while_method_3(long v0){
     bool v1;
-    v1 = v0 < 2l;
+    v1 = v0 < 4l;
     return v1;
 }
 __device__ inline bool while_method_4(long v0){
@@ -29,7 +29,7 @@ __device__ inline bool while_method_4(long v0){
 }
 __device__ inline bool while_method_5(long v0){
     bool v1;
-    v1 = v0 < 8l;
+    v1 = v0 < 2l;
     return v1;
 }
 extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
@@ -55,9 +55,9 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
     long v16;
     v16 = v14 / 8l;
     long v17;
-    v17 = v16 % 4l;
+    v17 = v16 % 2l;
     long v18;
-    v18 = v16 / 4l;
+    v18 = v16 / 2l;
     bool v19;
     v19 = v18 == 0l;
     bool v20;
@@ -66,21 +66,21 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         assert("The index has to be in the range of the dimension." && v19);
     } else {
     }
-    assert("Tensor range check" && 0 <= v17 && v17 < 4l);
+    assert("Tensor range check" && 0 <= v17 && v17 < 2l);
     assert("Tensor range check" && 0 <= v15 && v15 < 8l);
     long v22;
     v22 = 16l * v15;
     long v23;
-    v23 = 4352l * v17;
+    v23 = 8704l * v17;
     long v24;
     v24 = v23 + v22;
     float * v27;
     float * v25;
     v25 = v12+v24;
     v27 = v25;
-    assert("Tensor range check" && 0 <= v17 && v17 < 4l);
+    assert("Tensor range check" && 0 <= v17 && v17 < 2l);
     long v28;
-    v28 = 2176l * v17;
+    v28 = 4352l * v17;
     long v29;
     v29 = threadIdx.x;
     long v30;
@@ -148,7 +148,7 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
     float * v57;
     v57 = v9+v56;
     v59 = v57;
-    wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> v60[2l];
+    wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> v60[4l];
     // Pushing the loop unrolling to: 1
     long v61;
     v61 = blockIdx.x;
@@ -192,9 +192,9 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         long v79;
         v79 = v77 / 32l;
         long v80;
-        v80 = v79 % 32l;
+        v80 = v79 % 16l;
         long v81;
-        v81 = v79 / 32l;
+        v81 = v79 / 16l;
         bool v82;
         v82 = v81 == 0l;
         bool v83;
@@ -203,7 +203,7 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             assert("The index has to be in the range of the dimension." && v82);
         } else {
         }
-        assert("Tensor range check" && 0 <= v80 && v80 < 32l);
+        assert("Tensor range check" && 0 <= v80 && v80 < 16l);
         assert("Tensor range check" && 0 <= v78 && v78 < 32l);
         long v85;
         v85 = 4l * v78;
@@ -231,16 +231,16 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             v98 = 0l;
             #pragma unroll
             while (while_method_2(v98)){
-                assert("Tensor range check" && 0 <= v96 && v96 < 4l);
+                assert("Tensor range check" && 0 <= v96 && v96 < 8l);
                 assert("Tensor range check" && 0 <= v98 && v98 < 1l);
                 long v100;
                 v100 = 128l * v98;
                 long v101;
-                v101 = 4352l * v96;
+                v101 = 2176l * v96;
                 long v102;
                 v102 = v101 + v100;
                 long v103;
-                v103 = 262144l * v96;
+                v103 = 131072l * v96;
                 long v104;
                 v104 = v103 + v100;
                 int4* v105;
@@ -262,12 +262,12 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             v109 = 0l;
             #pragma unroll
             while (while_method_2(v109)){
-                assert("Tensor range check" && 0 <= v107 && v107 < 2l);
+                assert("Tensor range check" && 0 <= v107 && v107 < 4l);
                 assert("Tensor range check" && 0 <= v109 && v109 < 1l);
                 long v111;
                 v111 = v107 + v109;
                 wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> & v112 = v60[v111];
-                assert("Tensor range check" && 0 <= v107 && v107 < 2l);
+                assert("Tensor range check" && 0 <= v107 && v107 < 4l);
                 assert("Tensor range check" && 0 <= v109 && v109 < 1l);
                 long v113;
                 v113 = 16l * v109;
@@ -318,9 +318,9 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             long v132;
             v132 = v130 / 16l;
             long v133;
-            v133 = v132 % 64l;
+            v133 = v132 % 32l;
             long v134;
-            v134 = v132 / 64l;
+            v134 = v132 / 32l;
             bool v135;
             v135 = v134 == 0l;
             bool v136;
@@ -329,7 +329,7 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 assert("The index has to be in the range of the dimension." && v135);
             } else {
             }
-            assert("Tensor range check" && 0 <= v133 && v133 < 64l);
+            assert("Tensor range check" && 0 <= v133 && v133 < 32l);
             assert("Tensor range check" && 0 <= v131 && v131 < 16l);
             long v138;
             v138 = 4l * v131;
@@ -357,16 +357,16 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 v151 = 0l;
                 #pragma unroll
                 while (while_method_2(v151)){
-                    assert("Tensor range check" && 0 <= v149 && v149 < 2l);
+                    assert("Tensor range check" && 0 <= v149 && v149 < 4l);
                     assert("Tensor range check" && 0 <= v151 && v151 < 1l);
                     long v153;
                     v153 = 64l * v151;
                     long v154;
-                    v154 = 4352l * v149;
+                    v154 = 2176l * v149;
                     long v155;
                     v155 = v154 + v153;
                     long v156;
-                    v156 = 262144l * v149;
+                    v156 = 131072l * v149;
                     long v157;
                     v157 = v156 + v153;
                     int4* v158;
@@ -386,9 +386,9 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             long v162;
             v162 = v160 / 16l;
             long v163;
-            v163 = v162 % 64l;
+            v163 = v162 % 32l;
             long v164;
-            v164 = v162 / 64l;
+            v164 = v162 / 32l;
             bool v165;
             v165 = v164 == 0l;
             bool v166;
@@ -397,7 +397,7 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 assert("The index has to be in the range of the dimension." && v165);
             } else {
             }
-            assert("Tensor range check" && 0 <= v163 && v163 < 64l);
+            assert("Tensor range check" && 0 <= v163 && v163 < 32l);
             assert("Tensor range check" && 0 <= v161 && v161 < 16l);
             long v168;
             v168 = 4l * v161;
@@ -425,16 +425,16 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 v181 = 0l;
                 #pragma unroll
                 while (while_method_2(v181)){
-                    assert("Tensor range check" && 0 <= v179 && v179 < 2l);
+                    assert("Tensor range check" && 0 <= v179 && v179 < 4l);
                     assert("Tensor range check" && 0 <= v181 && v181 < 1l);
                     long v183;
                     v183 = 64l * v181;
                     long v184;
-                    v184 = 4352l * v179;
+                    v184 = 2176l * v179;
                     long v185;
                     v185 = v184 + v183;
                     long v186;
-                    v186 = 262144l * v179;
+                    v186 = 131072l * v179;
                     long v187;
                     v187 = v186 + v183;
                     int4* v188;
@@ -448,7 +448,7 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 v179 += 1l ;
             }
             __syncthreads();
-            wmma::fragment<wmma::matrix_a, 16l, 16l, 8l, wmma::precision::tf32, wmma::row_major> v190[16l];
+            wmma::fragment<wmma::matrix_a, 16l, 16l, 8l, wmma::precision::tf32, wmma::row_major> v190[32l];
             wmma::fragment<wmma::matrix_b, 16l, 16l, 8l, wmma::precision::tf32, wmma::col_major> v191[8l];
             long v192;
             v192 = 0l;
@@ -457,15 +457,15 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 long v194;
                 v194 = 0l;
                 #pragma unroll
-                while (while_method_5(v194)){
-                    assert("Tensor range check" && 0 <= v192 && v192 < 2l);
+                while (while_method_1(v194)){
+                    assert("Tensor range check" && 0 <= v192 && v192 < 4l);
                     assert("Tensor range check" && 0 <= v194 && v194 < 8l);
                     long v196;
                     v196 = 8l * v192;
                     long v197;
                     v197 = v196 + v194;
                     wmma::fragment<wmma::matrix_a, 16l, 16l, 8l, wmma::precision::tf32, wmma::row_major> & v198 = v190[v197];
-                    assert("Tensor range check" && 0 <= v192 && v192 < 2l);
+                    assert("Tensor range check" && 0 <= v192 && v192 < 4l);
                     long v199;
                     v199 = 1088l * v192;
                     assert("Tensor range check" && 0 <= v194 && v194 < 8l);
@@ -476,11 +476,11 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                     long v202;
                     v202 = 0l;
                     #pragma unroll
-                    while (while_method_3(v202)){
+                    while (while_method_5(v202)){
                         long v204;
                         v204 = 0l;
                         #pragma unroll
-                        while (while_method_3(v204)){
+                        while (while_method_5(v204)){
                             assert("Tensor range check" && 0 <= v202 && v202 < 2l);
                             assert("Tensor range check" && 0 <= v204 && v204 < 2l);
                             long v206;
@@ -545,7 +545,7 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 long v225;
                 v225 = 0l;
                 #pragma unroll
-                while (while_method_5(v225)){
+                while (while_method_1(v225)){
                     assert("Tensor range check" && 0 <= v223 && v223 < 1l);
                     assert("Tensor range check" && 0 <= v225 && v225 < 8l);
                     long v227;
@@ -564,11 +564,11 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                     long v233;
                     v233 = 0l;
                     #pragma unroll
-                    while (while_method_3(v233)){
+                    while (while_method_5(v233)){
                         long v235;
                         v235 = 0l;
                         #pragma unroll
-                        while (while_method_3(v235)){
+                        while (while_method_5(v235)){
                             assert("Tensor range check" && 0 <= v233 && v233 < 2l);
                             assert("Tensor range check" && 0 <= v235 && v235 < 2l);
                             long v237;
@@ -638,13 +638,13 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                     long v258;
                     v258 = 0l;
                     #pragma unroll
-                    while (while_method_5(v258)){
-                        assert("Tensor range check" && 0 <= v254 && v254 < 2l);
+                    while (while_method_1(v258)){
+                        assert("Tensor range check" && 0 <= v254 && v254 < 4l);
                         assert("Tensor range check" && 0 <= v256 && v256 < 1l);
                         long v260;
                         v260 = v254 + v256;
                         wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> & v261 = v60[v260];
-                        assert("Tensor range check" && 0 <= v254 && v254 < 2l);
+                        assert("Tensor range check" && 0 <= v254 && v254 < 4l);
                         assert("Tensor range check" && 0 <= v258 && v258 < 8l);
                         long v262;
                         v262 = 8l * v254;
@@ -670,170 +670,101 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         }
         // Pushing the loop unrolling to: 0
         long v268;
-        v268 = threadIdx.x;
-        long v269;
-        v269 = v268 % 32l;
-        long v270;
-        v270 = v268 / 32l;
-        long v271;
-        v271 = v270 % 32l;
-        long v272;
-        v272 = v270 / 32l;
-        bool v273;
-        v273 = v272 == 0l;
-        bool v274;
-        v274 = v273 == false;
-        if (v274){
-            assert("The index has to be in the range of the dimension." && v273);
-        } else {
+        v268 = 0l;
+        #pragma unroll
+        while (while_method_3(v268)){
+            long v270;
+            v270 = 0l;
+            #pragma unroll
+            while (while_method_2(v270)){
+                assert("Tensor range check" && 0 <= v268 && v268 < 4l);
+                assert("Tensor range check" && 0 <= v270 && v270 < 1l);
+                long v272;
+                v272 = v268 + v270;
+                wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> & v273 = v60[v272];
+                assert("Tensor range check" && 0 <= v268 && v268 < 4l);
+                assert("Tensor range check" && 0 <= v270 && v270 < 1l);
+                long v274;
+                v274 = 16l * v270;
+                long v275;
+                v275 = 2176l * v268;
+                long v276;
+                v276 = v275 + v274;
+                float * v277;
+                v277 = v27 + v276;
+                wmma::store_matrix_sync(v277, v273, 136l, wmma::mem_row_major);
+                v270 += 1l ;
+            }
+            v268 += 1l ;
         }
-        assert("Tensor range check" && 0 <= v271 && v271 < 32l);
-        assert("Tensor range check" && 0 <= v269 && v269 < 32l);
-        long v276;
-        v276 = 4l * v269;
-        long v277;
-        v277 = 136l * v271;
+        __syncthreads();
         long v278;
-        v278 = v277 + v276;
+        v278 = threadIdx.x;
         long v279;
-        v279 = 8192l * v271;
+        v279 = v278 % 32l;
         long v280;
-        v280 = v279 + v276;
-        float * v283;
-        float * v281;
-        v281 = v12+v278;
-        v283 = v281;
-        float * v286;
-        float * v284;
-        v284 = v76+v280;
-        v286 = v284;
-        long v287;
-        v287 = 0l;
-        #pragma unroll
-        while (while_method_1(v287)){
-            long v289;
-            v289 = 0l;
-            #pragma unroll
-            while (while_method_2(v289)){
-                assert("Tensor range check" && 0 <= v287 && v287 < 4l);
-                assert("Tensor range check" && 0 <= v289 && v289 < 1l);
-                long v291;
-                v291 = 128l * v289;
-                long v292;
-                v292 = 4352l * v287;
-                long v293;
-                v293 = v292 + v291;
-                long v294;
-                v294 = 262144l * v287;
-                long v295;
-                v295 = v294 + v291;
-                int4* v296;
-                v296 = reinterpret_cast<int4*>(v286 + v295);
-                int4* v297;
-                v297 = reinterpret_cast<int4*>(v283 + v293);
-                assert("Pointer alignment check" && (unsigned long long)(v296) % 4l == 0 && (unsigned long long)(v297) % 4l == 0);
-                *v297 = *v296;
-                v289 += 1l ;
-            }
-            v287 += 1l ;
-        }
-        __syncthreads();
-        long v298;
-        v298 = 0l;
-        #pragma unroll
-        while (while_method_3(v298)){
-            long v300;
-            v300 = 0l;
-            #pragma unroll
-            while (while_method_2(v300)){
-                assert("Tensor range check" && 0 <= v298 && v298 < 2l);
-                assert("Tensor range check" && 0 <= v300 && v300 < 1l);
-                long v302;
-                v302 = v298 + v300;
-                wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> & v303 = v60[v302];
-                assert("Tensor range check" && 0 <= v298 && v298 < 2l);
-                assert("Tensor range check" && 0 <= v300 && v300 < 1l);
-                long v304;
-                v304 = 16l * v300;
-                long v305;
-                v305 = 2176l * v298;
-                long v306;
-                v306 = v305 + v304;
-                float * v307;
-                v307 = v27 + v306;
-                wmma::store_matrix_sync(v307, v303, 136l, wmma::mem_row_major);
-                v300 += 1l ;
-            }
-            v298 += 1l ;
-        }
-        __syncthreads();
-        long v308;
-        v308 = threadIdx.x;
-        long v309;
-        v309 = v308 % 32l;
-        long v310;
-        v310 = v308 / 32l;
-        long v311;
-        v311 = v310 % 32l;
-        long v312;
-        v312 = v310 / 32l;
-        bool v313;
-        v313 = v312 == 0l;
-        bool v314;
-        v314 = v313 == false;
-        if (v314){
-            assert("The index has to be in the range of the dimension." && v313);
+        v280 = v278 / 32l;
+        long v281;
+        v281 = v280 % 16l;
+        long v282;
+        v282 = v280 / 16l;
+        bool v283;
+        v283 = v282 == 0l;
+        bool v284;
+        v284 = v283 == false;
+        if (v284){
+            assert("The index has to be in the range of the dimension." && v283);
         } else {
         }
-        assert("Tensor range check" && 0 <= v311 && v311 < 32l);
-        assert("Tensor range check" && 0 <= v309 && v309 < 32l);
-        long v316;
-        v316 = 4l * v309;
-        long v317;
-        v317 = 8192l * v311;
-        long v318;
-        v318 = v317 + v316;
-        long v319;
-        v319 = 136l * v311;
-        long v320;
-        v320 = v319 + v316;
-        float * v323;
-        float * v321;
-        v321 = v76+v318;
-        v323 = v321;
-        float * v326;
-        float * v324;
-        v324 = v12+v320;
-        v326 = v324;
-        long v327;
-        v327 = 0l;
+        assert("Tensor range check" && 0 <= v281 && v281 < 16l);
+        assert("Tensor range check" && 0 <= v279 && v279 < 32l);
+        long v286;
+        v286 = 4l * v279;
+        long v287;
+        v287 = 8192l * v281;
+        long v288;
+        v288 = v287 + v286;
+        long v289;
+        v289 = 136l * v281;
+        long v290;
+        v290 = v289 + v286;
+        float * v293;
+        float * v291;
+        v291 = v76+v288;
+        v293 = v291;
+        float * v296;
+        float * v294;
+        v294 = v12+v290;
+        v296 = v294;
+        long v297;
+        v297 = 0l;
         #pragma unroll
-        while (while_method_1(v327)){
-            long v329;
-            v329 = 0l;
+        while (while_method_1(v297)){
+            long v299;
+            v299 = 0l;
             #pragma unroll
-            while (while_method_2(v329)){
-                assert("Tensor range check" && 0 <= v327 && v327 < 4l);
-                assert("Tensor range check" && 0 <= v329 && v329 < 1l);
-                long v331;
-                v331 = 128l * v329;
-                long v332;
-                v332 = 262144l * v327;
-                long v333;
-                v333 = v332 + v331;
-                long v334;
-                v334 = 4352l * v327;
-                long v335;
-                v335 = v334 + v331;
-                int4* v336;
-                v336 = reinterpret_cast<int4*>(v326 + v335);
-                int4* v337;
-                v337 = reinterpret_cast<int4*>(v323 + v333);
-                assert("Pointer alignment check" && (unsigned long long)(v336) % 4l == 0 && (unsigned long long)(v337) % 4l == 0);
-                *v337 = *v336;
-                v329 += 1l ;
+            while (while_method_2(v299)){
+                assert("Tensor range check" && 0 <= v297 && v297 < 8l);
+                assert("Tensor range check" && 0 <= v299 && v299 < 1l);
+                long v301;
+                v301 = 128l * v299;
+                long v302;
+                v302 = 131072l * v297;
+                long v303;
+                v303 = v302 + v301;
+                long v304;
+                v304 = 2176l * v297;
+                long v305;
+                v305 = v304 + v301;
+                int4* v306;
+                v306 = reinterpret_cast<int4*>(v296 + v305);
+                int4* v307;
+                v307 = reinterpret_cast<int4*>(v293 + v303);
+                assert("Pointer alignment check" && (unsigned long long)(v306) % 4l == 0 && (unsigned long long)(v307) % 4l == 0);
+                *v307 = *v306;
+                v299 += 1l ;
             }
-            v327 += 1l ;
+            v297 += 1l ;
         }
         __syncthreads();
         // Poping the loop unrolling to: 0
@@ -854,7 +785,7 @@ options.append('--define-macro=NDEBUG')
 options.append('--diag-suppress=550')
 options.append('--dopt=on')
 options.append('--restrict')
-options.append('--maxrregcount=255')
+options.append('--maxrregcount=128')
 raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))
 def method0(v0 : i32) -> bool:
     v1 = v0 < 1
@@ -919,7 +850,7 @@ def main():
         del v24, v25
         v27 = v15 == 0
         if v27:
-            max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),1024,is_print=True)
+            max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),512,is_print=True)
         else:
             pass
         del v27
@@ -927,7 +858,7 @@ def main():
         v29 = raw_module.get_function(f"entry{v28}")
         del v28
         v29.max_dynamic_shared_size_bytes = 69632 
-        v29((24,),(1024,),(v10, v5, v0),shared_mem=69632)
+        v29((24,),(512,),(v10, v5, v0),shared_mem=69632)
         del v29
         v30 = cp.max(cp.abs(v0-v22))
         del v22

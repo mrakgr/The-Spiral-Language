@@ -156,7 +156,7 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
 
             pragma.unroll fun _ =>
                 if beta = 0 then
-                    // Not the functionality correct since multiplying the C matrix filled with Nans by zero should still result in Nans.
+                    // Not functionality correct since multiplying the C matrix filled with Nans by zero should still result in Nans.
                     // But it is good enough for a machine learning. 
                     loop.linear c_frag.dim fun m,n => 
                         fill_fragment (tensor_index_ref (m,n) c_frag) 0
@@ -210,9 +210,6 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
                     mma_sync c_frag a_frag b_frag c_frag
 
             pragma.unroll fun _ =>
-            if beta <> 0 then 
-                tensor_memcpy_sync chunk_size threads_in_block(zip c_shared_tile c)
-                __syncthreads()
 
             // Adds the accumulated result to the output in shared memory.
             loop.linear (fst c_shared_frag.dim) fun m,n =>
