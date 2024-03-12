@@ -4,6 +4,8 @@ inl warp_size() : int = real real_core.type_lit_to_lit `warp_size
 inl number_of_sms() : int = 24
 inl threads_per_block() : int = 512
 inl blocks_per_grid() : int = number_of_sms()
+// inl threads_per_block() : int = 32
+// inl blocks_per_grid() : int = 1 // number_of_sms()
 
 // Statically sized array with a type literal for a dimension.
 nominal sa dim el = $"array<`el,@dim>"
@@ -55,6 +57,7 @@ inl run' ({shared_mem} : run_config) f =
     | 512 => global "options.append('--maxrregcount=128')"
     | 256 => global "options.append('--maxrregcount=64')"
     | 128 => global "options.append('--maxrregcount=32')"
+    | _ => ()
     // global "options.append('--device-debug')"
     global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))"
     inl kernel_i, vars = join_backend Cuda

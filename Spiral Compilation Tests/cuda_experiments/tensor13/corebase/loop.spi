@@ -45,14 +45,19 @@ inl forDown' r body = forDown r (fun i () => body i) ()
 inl proj forall dim. (dim : dim) (i : int) : dim = real
     open real_core
     open struct
-    match dim with
-    | (_ : int) => // This case is to eliminate the modulo.
-        assert (i < dim) "The index has to be in the range of the dimension."
-        dim
-    | _ =>
-        inl dim,i = mapFoldBack (fun d i => i % d, i / d) dim i
-        assert (i = 0) "The index has to be in the range of the dimension."
-        dim
+    assert (0 <= i) "The index needs to be zero or positive."
+    inl c = fold (fun s _ => s + 1) 0 dim
+    assert (0 < c) "The projection dimension needs to be at least a singleton."
+    inl dim,() = 
+        mapFoldBack (fun d (i,c) => 
+            assert (0 < d) "The projection dimension needs to be positive."
+            if c = 1 then
+                assert (i < d) "The last element of the projection dimensions needs to be greater than the index remainder."
+                i, ()
+            else
+                i % d, (i / d, c - 1)
+            ) dim (i,c)
+    dim
 
 // Project the given index to a scalar value.
 inl proj_rev forall dim. (dim : dim) (i : dim) : int = real
@@ -116,14 +121,14 @@ inl rigid_split' forall dim. ({from nearTo by} : range dim) : {proj_small : dim;
 inl projective forall dim. ({from nearTo by} : range dim) (body : dim -> ()) : () =
     forBy' {from by nearTo=prod nearTo} (proj nearTo >> body)
 
-inl lookahead forall dim. ({from nearTo by} : range dim) body : () =
+inl lookahead forall dim. ({from nearTo by} : range dim) {on_init on_loop} : () =
+    on_init (proj nearTo from)
     inl length = prod nearTo
-    inl (i,cond,is_init as state) = _dup from, _dup (from < length), _dup true
-    while' (fun () => cond) fun () =>
+    inl i = _dup from
+    while' (fun () => i < length) fun () =>
         inl i' = i + by
-        inl cond' = i' < length
-        body (proj nearTo i) (if cond' then Some (proj nearTo i') else None) is_init
-        _set state (i',cond',false)
+        on_loop (if i' < length then Some (proj nearTo i') else None)
+        _set i i'
 
 inl linear forall dim. (dim : dim) body : () = 
     inl dim_to_list (dim : dim) : list int = real

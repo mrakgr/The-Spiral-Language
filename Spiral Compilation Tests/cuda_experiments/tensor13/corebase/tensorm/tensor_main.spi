@@ -134,6 +134,7 @@ inl apply_ptr forall dim el. (tensor {bodies dim} : tensor dim el) : tensor dim 
                     }
                 ) bodies
         }
+// inl apply_ptr forall dim el. (t : tensor dim el) : tensor dim el = t
 
 // The template function for the tensor view.
 inl view_templ forall dim dim' el. (f : dim -> dim') (g : dim -> dim' -> dim) 

@@ -32,6 +32,8 @@ inl memcpy_async forall float. (pipe : ref (pipeline thread_scope_thread)) (to, 
             typecase `from with _ ~el =>
             inl dim = $"constexpr `int v$ = sizeof(`el) * !dim" : int
             $'assert("Pointer alignment check" && (unsigned long long)(!from + !from_offset) % !dim == 0 && (unsigned long long)(!to + !to_offset) % !dim == 0)' : ()
+            // inl p = {to_offset from_offset id=thread_index()} in semaphore.write_ln_device `(`(p)) p
+            // __syncthreads()
             $"cuda::memcpy_async(!to + !to_offset, !from + !from_offset, cuda::aligned_size_t<!dim>(!dim), !pipe)" : ()
             ) from.bodies to.bodies
 

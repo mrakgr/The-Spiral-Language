@@ -177,53 +177,51 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
                                 ref_set c_frag i (beta / alpha * ref_index c_frag i)
                     __syncthreads()
             
-            // loop.linear ((snd >> fst) a.dim) fun k =>
-            loop.lookahead linear((snd >> fst) a.dim) fun k k_next is_init =>
+            inl load_global_to_shared k = 
                 pragma.unroll fun _ => 
+                inl a = apply m a |> apply k |> apply_ptr
+                inl b = apply n b |> apply k |> apply_ptr
+                pipeline.tensor_memcpy_async chunk_size pipe threads_in_block(zip b_shared_tile b)
+                pipeline.tensor_memcpy_async chunk_size pipe threads_in_block(zip a_shared_tile a)
 
-                inl load_global_to_shared(a, b) = 
-                    // pipeline.producer_phase pipe fun _ =>
-                    pipeline.tensor_memcpy_async chunk_size pipe threads_in_block(zip b_shared_tile b)
-                    pipeline.tensor_memcpy_async chunk_size pipe threads_in_block(zip a_shared_tile a)
-
+            // loop.linear ((snd >> fst) a.dim) fun k =>
+            loop.lookahead linear((snd >> fst) a.dim) {
                 // Asynchronously loads the data from global to shared memory for the first iteration.
-                if is_init then
-                    inl a = apply m a |> apply k |> apply_ptr
-                    inl b = apply n b |> apply k |> apply_ptr
-                    load_global_to_shared(a, b)
+                on_init=load_global_to_shared
+                on_loop=fun k_next =>
+                    pragma.unroll fun _ => 
+                    inl a_frag, b_frag : _ _ (fragment matrix_a m_frag n_frag k_frag a_layout tf32)
+                                    * _ _ (fragment matrix_b m_frag n_frag k_frag b_layout tf32) =
+                        tensor_create (m_local,k_local),
+                        tensor_create (n_local,k_local)
 
-                inl a_frag, b_frag : _ _ (fragment matrix_a m_frag n_frag k_frag a_layout tf32)
-                                * _ _ (fragment matrix_b m_frag n_frag k_frag b_layout tf32) =
-                    tensor_create (m_local,k_local),
-                    tensor_create (n_local,k_local)
+                    pipeline.consumer_phase pipe fun _ =>
+                        // TODO: do the tf32 conversions here
+                        __syncthreads()
 
-                pipeline.consumer_phase pipe fun _ =>
-                    // TODO: do the tf32 conversions here
+                        // Loads from shared memory into registers.
+                        loop.linear (m_local, k_local) fun m,k =>
+                            inl a_frag = tensor_index_ref (m,k) a_frag
+                            load_matrix_sync_tf32 a_frag (a_shared_frag |> apply m |> apply k)
+                            
+                        // Loads from shared memory into registers.
+                        loop.linear (n_local, k_local) fun n,k =>
+                            inl b_frag = tensor_index_ref (n,k) b_frag
+                            load_matrix_sync_tf32 b_frag (b_shared_frag |> apply n |> apply k)
+
                     __syncthreads()
+                    
+                    // Asynchronously loads the data from global to shared memory for the next iteration.
+                    k_next |> optionm.iter load_global_to_shared
 
-                    // Loads from shared memory into registers.
-                    loop.linear (m_local, k_local) fun m,k =>
+                    // Does the matrix multiplication and accumulates the results in the fragment.
+                    loop.linear (m_local, n_local, k_local) fun m,n,k =>
+                        inl c_frag = tensor_index_ref (m,n) c_frag
                         inl a_frag = tensor_index_ref (m,k) a_frag
-                        load_matrix_sync_tf32 a_frag (a_shared_frag |> apply m |> apply k)
-                        
-                    // Loads from shared memory into registers.
-                    loop.linear (n_local, k_local) fun n,k =>
                         inl b_frag = tensor_index_ref (n,k) b_frag
-                        load_matrix_sync_tf32 b_frag (b_shared_frag |> apply n |> apply k)
-
-                __syncthreads()
-                // Asynchronously loads the data from global to shared memory for the next iteration.
-                k_next |> optionm.iter fun k =>
-                    inl a = apply m a |> apply k |> apply_ptr
-                    inl b = apply n b |> apply k |> apply_ptr
-                    load_global_to_shared(a, b)
-
-                // Does the matrix multiplication and accumulates the results in the fragment.
-                loop.linear (m_local, n_local, k_local) fun m,n,k =>
-                    inl c_frag = tensor_index_ref (m,n) c_frag
-                    inl a_frag = tensor_index_ref (m,k) a_frag
-                    inl b_frag = tensor_index_ref (n,k) b_frag
-                    mma_sync c_frag a_frag b_frag c_frag
+                        mma_sync c_frag a_frag b_frag c_frag
+            }
+                
 
             pragma.unroll fun _ =>
 
@@ -277,12 +275,12 @@ inl main() =
 
     inl m,n,k : int * int * int = 512 * 16, 512 * 16, 512 * 8
     // inl m,n,k : int * int * int = 512, 512, 512
-    // inl m,n,k : int * int * int = 16, 16, 8
+    // inl m,n,k : int * int * int = 32, 32, 32
     // inl gemm_config_tf32 = gemm_config {m_tile=m; n_tile=n; k_tile=k; m_skew=8; n_skew=8; k_skew=4; chunk_size=16} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
 
     inl a_trans = (real typecase a_layout with wmma.row_major => false | wmma.col_major => true) : bool
     inl b_trans = (real typecase b_layout with wmma.row_major => false | wmma.col_major => true) : bool
-    inl gemm_config_tf32 = gemm_config {m_tile=128; n_tile=128; k_tile=64; m_skew=8; n_skew=8; k_skew=4; chunk_size=16} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
+    inl gemm_config_tf32 = gemm_config {m_tile=128; n_tile=128; k_tile=32; m_skew=8; n_skew=8; k_skew=4; chunk_size=16} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
 
     // inl [ma; mb; mc] = listm.map cupy.zeros ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
     // inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
