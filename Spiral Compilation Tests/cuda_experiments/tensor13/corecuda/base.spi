@@ -2,7 +2,7 @@ open corebase
 type warp_size = 32
 inl warp_size() : int = real real_core.type_lit_to_lit `warp_size
 inl number_of_sms() : int = 24
-inl threads_per_block() : int = 512
+inl threads_per_block() : int = 256
 inl blocks_per_grid() : int = number_of_sms()
 // inl threads_per_block() : int = 32
 // inl blocks_per_grid() : int = 1 // number_of_sms()
@@ -47,21 +47,24 @@ inl run' ({shared_mem} : run_config) f =
     global "options.append('--dopt=on')"
     global "options.append('--restrict')"
     // global "options.append('--std=c++17')"
-    // global "options.append('-D__CUDA_NO_HALF_CONVERSIONS__')" // To avoid `instance of overloaded function "__half::__half" matches the specified type` with NVCC
-    // global "options.append('--generate-line-info')"
-    // global "options.append('-src-in-ptx')"
+
+    // > For example, if you want to add a variable named CUPY_CACHE_SAVE_CUDA_SOURCE with the value 1, you would use:
+    // $Env:CUPY_CACHE_SAVE_CUDA_SOURCE = "1"
+    global "options.append('-src-in-ptx')"
+    global "options.append('--generate-line-info')"
+    global "options.append('-D__CUDA_NO_HALF_CONVERSIONS__')" // To avoid `instance of overloaded function "__half::__half" matches the specified type` with NVCC
+
     // global "options.append('--extra-device-vectorization')"
     // global "options.append('--ptxas-options=-v')"
     match threads_per_block with
-    | 1024 => global "options.append('--maxrregcount=255')"
+    | 1024 => global "options.append('--maxrregcount=64')"
     | 512 => global "options.append('--maxrregcount=128')"
-    | 256 => global "options.append('--maxrregcount=64')"
-    | 128 => global "options.append('--maxrregcount=32')"
+    | 256 => global "options.append('--maxrregcount=255')"
     | _ => ()
     // global "options.append('--device-debug')"
-    global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))"
+    global "raw_module = cp.RawModule(code=kernel, backend='nvcc', enable_cooperative_groups=True, options=tuple(options))"
     inl kernel_i, vars = join_backend Cuda
-        // global "#include <assert.h>"
+        global "#include <assert.h>"
         f () : ()
     inl entry = $'raw_module.get_function(f"entry{!kernel_i}")' : $"cp.RawKernel"
     $'!entry.max_dynamic_shared_size_bytes = !shared_mem '

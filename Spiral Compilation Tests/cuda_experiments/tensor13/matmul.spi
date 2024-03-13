@@ -178,7 +178,7 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
                     __syncthreads()
             
             inl load_global_to_shared k = 
-                pragma.unroll fun _ => 
+                pragma.unroll fun _ =>
                 inl a = apply m a |> apply k |> apply_ptr
                 inl b = apply n b |> apply k |> apply_ptr
                 pipeline.tensor_memcpy_async chunk_size pipe threads_in_block(zip b_shared_tile b)
@@ -280,7 +280,7 @@ inl main() =
 
     inl a_trans = (real typecase a_layout with wmma.row_major => false | wmma.col_major => true) : bool
     inl b_trans = (real typecase b_layout with wmma.row_major => false | wmma.col_major => true) : bool
-    inl gemm_config_tf32 = gemm_config {m_tile=128; n_tile=128; k_tile=32; m_skew=8; n_skew=8; k_skew=4; chunk_size=16} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
+    inl gemm_config_tf32 = gemm_config {m_tile=64; n_tile=64; k_tile=64; m_skew=8; n_skew=8; k_skew=4; chunk_size=16} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
 
     // inl [ma; mb; mc] = listm.map cupy.zeros ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
     // inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
