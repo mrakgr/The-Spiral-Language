@@ -177,7 +177,7 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
                                 ref_set c_frag i (beta / alpha * ref_index c_frag i)
                     __syncthreads()
             
-            inl load_global_to_shared k = 
+            inl load_global_to_shared k =
                 pragma.unroll fun _ =>
                 inl a = apply m a |> apply k |> apply_ptr
                 inl b = apply n b |> apply k |> apply_ptr
@@ -185,7 +185,7 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
                 pipeline.tensor_memcpy_async chunk_size pipe threads_in_block(zip b_shared_tile b |> factorize 32 |> reorder_fst loop.swap)
                 pipeline.tensor_memcpy_async chunk_size pipe threads_in_block(zip a_shared_tile a |> factorize 32 |> reorder_fst loop.swap)
 
-            pragma.unroll' 4 fun _ =>
+            pragma.unroll' 2 fun _ =>
             loop.linear ((snd >> fst) a.dim) fun k =>
                 pragma.unroll fun _ =>
                 // Asynchronously loads the data from global to shared memory.
