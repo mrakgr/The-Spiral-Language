@@ -296,7 +296,7 @@ inl split_into_swapped_snd forall a b el. (f : b -> b * b) : tensor (a * b) el -
 inl split_into forall a el. (dim : a -> a * a) : tensor a el -> tensor (a * a) el = reorder (fun x => x, ()) >> split_into_fst dim >> reorder fst
 
 // Similar to `split_into` except ensures that the dimensions with the inner strides the come to the fore instead.
-inl split_into forall a el. (f : a -> a * a) : tensor a el -> tensor (a * a) el =
+inl split_into_swapped forall a el. (f : a -> a * a) : tensor a el -> tensor (a * a) el =
     split_into (f >> loop.swap) >> reorder loop.swap
 
 // Reorders the tensor so as to unpack the first pair.
