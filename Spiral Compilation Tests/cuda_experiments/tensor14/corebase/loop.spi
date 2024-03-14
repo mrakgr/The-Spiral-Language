@@ -139,25 +139,13 @@ inl linear forall dim. (dim : dim) body : () =
         open struct
         inl x, [] = infer_mapFoldBack `dim (forall el. (x :: l) => x, l) l in x
     listm.foldBack (fun nearTo on_success l => 
-        for' {from=0; nearTo} (fun i => on_success (i :: l))
+        // Note, this segment is for if you want to experiment with manual loop unrolling, directly inspiral, instead of relying on C pragmas.
+        // if lit_is nearTo then
+        //     inl rec loop i = if i < nearTo then on_success (i :: l) . loop (i+1)
+        //     loop 0
+        // else
+            for' {from=0; nearTo} (fun i => on_success (i :: l))
         ) (dim_to_list dim) (list_to_dim >> body) []
 
 // Iterates over the dimensions split by `rigid_split`.
 inl rigid forall dim. ({from nearTo=(a,b) by} : range (dim * dim)) (body : dim -> dim -> ()) : () = linear b (body (proj a from))
-
-
-inl linear' forall dim. (dim : dim) body : () = 
-    inl dim_to_list (dim : dim) : list int = real
-        open struct
-        foldBack ((::) `int) dim (Nil `int)
-    inl list_to_dim (l : list int) : dim = real
-        open struct
-        inl x, [] = infer_mapFoldBack `dim (forall el. (x :: l) => x, l) l in x
-    listm.foldBack (fun nearTo on_success l => 
-        if lit_is nearTo then
-            inl rec loop i = if i < nearTo then on_success (i :: l) . loop (i+1)
-            loop 0
-        else
-            for' {from=0; nearTo} (fun i => on_success (i :: l))
-        ) (dim_to_list dim) (list_to_dim >> body) []
-inl rigid' forall dim. ({from nearTo=(a,b) by} : range (dim * dim)) (body : dim -> dim -> ()) : () = linear' b (body (proj a from))

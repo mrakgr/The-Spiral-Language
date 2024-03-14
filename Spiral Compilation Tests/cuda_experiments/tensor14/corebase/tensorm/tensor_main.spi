@@ -310,14 +310,6 @@ inl loop_rigid forall a b el. ({from by nearTo=t} : loop.range (tensor (a * b) e
         inl t = curry_fst t |> apply a |> apply_ptr
         fun b => body (apply b t)
 
-// Iterates over the tensor in rigid loop style.
-inl loop_rigid' forall a b el. ({from by nearTo=t} : loop.range (tensor (a * b) el)) (body : tensor b el -> ()) : () =
-    open loop
-    inl t = split_into_swapped_fst (rigid_split by) t
-    rigid' {from by nearTo=fst t.dim} fun a =>
-        inl t = curry_fst t |> apply a |> apply_ptr
-        fun b => body (apply b t)
-
 // Applies the entirety of the given range in a single shot using projection. It asserts that the range size matches.
 inl apply_proj forall a b el. ({from by nearTo=t} : loop.range (tensor (a * b) el)) : tensor b el =
     open loop

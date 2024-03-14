@@ -66,9 +66,9 @@ inl load_matrix_sync forall use m n k layout frag_in t. (f : ref (fragment use m
     real
         typecase frag_in * t with
         | t * t => ()
-        | tf32 * f32 =>
-            $"#pragma unroll" : ()
-            $"for (int t = 0; t < !f.num_elements; t++) { !f.x[t] = wmma::__float_to_tf32(!f.x[t]); }" : ()
+        // | tf32 * f32 =>
+        //     $"#pragma unroll" : ()
+        //     $"for (int t = 0; t < !f.num_elements; t++) { !f.x[t] = wmma::__float_to_tf32(!f.x[t]); }" : ()
         | _ => real_core.error_type "This type is not supported."
 
 // Cuda's native `load_matrix_sync` function is extremely poorly done for A and B matrices so we are using this as a workaround.
@@ -76,8 +76,8 @@ inl load_matrix_sync_tf32 forall use m n k layout. (f : ref (fragment use m n k 
     loop.linear t.dim fun i =>
         inl x = tensor_index i t
         inl i = loop.proj_rev t.dim i
-        $"!f.x[!i] = wmma::__float_to_tf32(!x)"
-        // $"!f.x[!i] = !x"
+        // $"!f.x[!i] = wmma::__float_to_tf32(!x)"
+        $"!f.x[!i] = !x"
 
 inl store_matrix_sync_array forall use m n k layout t. (ar : array t) (f : ref (fragment use m n k layout t)) (ldm : int) : () = 
     real
@@ -101,3 +101,14 @@ inl mma_sync forall m n k a_layout b_layout out_layout t_in t_out.
         (c : ref (fragment accumulator m n k out_layout t_out)) 
         : () =
     $"wmma::mma_sync(!d, !a, !b, !c)"
+
+inl conv_tf32 (x : f32) : f32 = $"wmma::__float_to_tf32(!x)"
+
+// Does the conversion to tf32 in transit from global to shared memory.
+inl tensor_memcpy_sync_tf32 access_size (r : loop.range (tensor (int * int) (f32 * f32))) = 
+    loop_rigid {r with nearTo#=factorize_sizeof access_size} (unzip >> fun to, from => 
+        inl x = tensor_create from.dim
+        loop.linear x.dim fun i => 
+            tensor_set i (tensor_index i from |> conv_tf32) x
+        memcpy_sync (to,x)
+        )
