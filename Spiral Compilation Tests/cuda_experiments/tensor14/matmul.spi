@@ -207,8 +207,6 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
                     inl b_frag = tensor_index_ref (n,k) b_frag
                     mma_sync c_frag a_frag b_frag c_frag
 
-            pragma.unroll fun _ =>
-
             // Adds the accumulated result to the output in shared memory.
             loop.linear (fst c_shared_frag.dim) fun m,n =>
                 inl c_frag = tensor_index_ref (m,n) c_frag
