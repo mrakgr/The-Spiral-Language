@@ -1,0 +1,186 @@
+open corebase
+open corecuda
+open type_arith
+open cardm
+
+prototype filter_take ar dim el : forall dim'. (el -> bool) -> ar dim el -> option (ar dim' el)
+prototype try_straight_flush_for_suit ar dim el {suit; rank} : card_t -> ar dim el -> option (ar 5 el)
+prototype try_straight ar dim el {suit; rank} : ar dim el -> option (ar 5 el)
+prototype max_hand ar dim el {rank} : ar dim el -> ar dim el -> ar dim el
+prototype partition_topk_pair ar dim el {rank} : forall dim'. ar dim el -> option (ar dim' el * ar (sub dim dim') el)
+prototype take ar dim el : forall dim'. ar dim el -> ar dim' el
+prototype merge_hands ar dim el : forall dim'. ar dim el -> ar dim' el -> ar (add dim dim') el
+prototype merge_hands2 ar dim el : forall dim' dim''. ar dim el -> ar dim' el -> ar dim'' el -> ar (add (add dim dim') dim'') el
+
+instance filter_take sa = fun f ar => 
+    open sam
+    inl ar' = create
+    inl i = fold (fun i x => if f x && i < length ar' then set ar' i x . i+1 else i) 0 ar
+    if i = length ar' then Some ar'
+    else None
+
+union try_straight_config el = StraightFlush : card_t | Straight
+
+inl sa_try_straight forall dim el {suit; rank}. (config : try_straight_config el) (inp : sa dim el) =
+    real
+        open real_core
+        if type_lit_to_lit `dim < 5 then error_type "The array passed into the sa_try_straight should be at least 5 in length."
+    open sam
+    inl out = create
+    inl i,target =
+        fold (fun (i,target as s) x =>
+            inl check () = match config with 
+                | StraightFlush a => a = suit x // Skips the cards with a different suit.
+                | Straight => target <> rank x - 1 // Skips the pairs.
+            if i < length out then
+                if check () then
+                    inl i = if target = rank x then i else 0
+                    set out i x
+                    i+1, rank x - 1
+                else s
+            else loop.break()
+            ) (0, 12) inp
+
+    inl check_if_exists_and_assign () = match config with // Takes care of the 5,4,3,2,A pattern.
+        | StraightFlush a => listm.exists (index inp >> fun x => a = suit x && rank x = 12 && (set out 4 x . true)) [0;1;2;3]
+        | Straight => inl x = index inp 0 in rank x = 12 && (set out 4 x . true)
+    // For an unsigned 4 bit value, its overflow below zero would put it at 15, but who knows whether the types will change, so it is best to do it like 0-1.
+    if i = 4 && target+1 = 0 && check_if_exists_and_assign() then Some out // 5,4,3,2,A case.
+    elif i = 5 then Some out 
+    else None
+
+
+instance try_straight_flush_for_suit sa = sa_try_straight << StraightFlush
+instance try_straight sa = sa_try_straight Straight
+
+instance max_hand sa = fun a b =>
+    open sam
+    inl c =
+        fold2 (fun s a b =>
+            match s with
+            | Eq => comp (rank a) (rank b)
+            | _ => loop.break()
+            ) Eq a b
+    if gt_is c then a else b
+
+instance partition_topk_pair sa = fun inp =>
+    open sam
+    inl l,r = create, create
+    inl pos, i, target =
+        foldi (fun i' (_,i,target as s) x =>
+            if i < length l then
+                inl i = if target = rank x then i else 0
+                set l i x
+                i', i+1, rank x
+            else loop.break()
+            ) (0, 0, 12) inp
+    if i = length l then
+        // Copies the input into r while avoiding the elements in l.
+        loop.for' {from=0; nearTo=length r} (fun i =>
+            inl gap_size =  if i < pos+(1-length l) then 0 else length l
+            set r i (index inp (gap_size + i))
+            )
+        Some (l,r)
+    else
+        None
+
+instance take sa = fun inp =>
+    real
+        open real_core
+        if type_lit_to_lit `dim' > type_lit_to_lit `dim then error_type "The output array should be less than or equal to the original array."
+    open loop
+    open sam
+    inl out = create
+    for' {from=0; nearTo=length out} (fun i => set out i (index inp i))
+    out
+
+instance merge_hands2 sa = fun ar ar' ar'' => 
+    open sam
+    inl out = create
+    inl f ar offset = (if 0 < length ar then iteri (fun i x => set out (offset + i) x) ar) . offset + length ar
+    0 |> f ar |> f ar' |> f ar'' |> ignore
+    out
+
+instance merge_hands sa = fun ar ar' => merge_hands2 ar ar' (sam.create : _ 0 _) |> nominal_recreate
+
+prototype sort ar dim el {suit; rank} : ar dim el -> ar dim el
+instance sort sa =
+    sortm.merge_sort (fun a b =>
+        match comp (rank b) (rank a) with
+        | Eq => comp (suit a) (suit b)
+        | x => x
+        )
+
+inl max_hand s x =
+    match s, x with
+    | Some s, Some x => Some (max_hand s x)
+    | None, x | x, None => x
+    | None, None => s
+inl list_max_hand l = listm.fold max_hand None l
+inl list_fold_max_hand l = listm.fold (fun s x => max_hand s x()) None l
+
+open hand_score
+let score forall dim. (hand : sa dim card) : hand_score =
+    open monad
+    inl (>>=.) a b = optionm.map b a
+    
+    inl hand = sort hand
+    inl high_card() = take hand
+    inl pair () =
+        partition_topk_pair hand >>=. fun (pair : _ 2 _), rest =>
+        merge_hands pair (take rest : _ 3 _) |> nominal_recreate
+    inl two_pair() =
+        partition_topk_pair hand >>= fun (pair1 : _ 2 _), rest =>
+        partition_topk_pair rest >>=. fun (pair2 : _ 2 _), rest =>
+        merge_hands2 pair1 pair2 (take rest : _ 1 _) |> nominal_recreate
+    inl triple() = 
+        partition_topk_pair hand >>=. fun (trip : _ 3 _), rest =>
+        merge_hands trip (take rest : _ 2 _) |> nominal_recreate
+    inl straight() = try_straight hand
+    inl flush() = listm.map (fun i () => filter_take (fun a => suit a = i) hand) [0;1;2;3] |> list_fold_max_hand
+    inl full_house() =
+        partition_topk_pair hand >>= fun (trip : _ 3 _), rest =>
+        partition_topk_pair rest >>=. fun (pair : _ 2 _), rest =>
+        merge_hands trip pair |> nominal_recreate
+    inl quad() =
+        partition_topk_pair hand >>=. fun (quad : _ 4 _), rest =>
+        merge_hands quad (take rest : _ 1 _) |> nominal_recreate
+    inl straight_flush() = listm.map (fun i () => try_straight_flush_for_suit i hand) [0;1;2;3] |> list_fold_max_hand
+    inl rankings = [8, straight_flush; 7, quad; 6, full_house; 5, flush; 4, straight; 3, triple; 2, two_pair; 1, pair]
+    inl rec final_rank_of = function
+        | (score,x) :: xs =>
+            match x() with
+            | Some hand => {hand score}
+            | None => final_rank_of xs
+        | [] =>
+            {score=0; hand=high_card()}
+    hand_score (final_rank_of rankings)
+
+// open cardm
+// inl test1() =
+//     open deck
+//     open random
+//     inl grid_range () : int = $"gridDim.x * blockDim.x"
+//     inl linear_id () : int = $"threadIdx.x + blockIdx.x * blockDim.x"
+
+//     inl blocks = 1
+//     inl grids = 1 // divup (length out) blocks
+//     run grids blocks (fun () =>
+//         globals()
+//         inl from = linear_id()
+//         inl x : _ philox_state = init {seed=conv from; subsequence=0; offset=0}
+//         loop.forBy' {from nearTo=1_000_000; by=grid_range()} (fun i =>
+//             inl (ar : sa 7 card), _ = draw_cards x deck_utils.create()
+//             inl x = score ar
+//             inl x' = hand_scorer_old.score ar
+//             // console.write_ln ar
+//             // console.write_ln x
+//             // console.write_ln x'
+//             // console.write_ln (x = x')
+//             if x <> x' then 
+//                 console.write_ln "error"
+//             ()
+//             )
+//         )
+
+// inl main() = test1()
