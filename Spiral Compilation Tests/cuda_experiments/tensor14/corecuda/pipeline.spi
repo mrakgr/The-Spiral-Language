@@ -39,4 +39,4 @@ inl memcpy_async forall float. (pipe : ref (pipeline thread_scope_thread)) (to, 
             ) from.bodies to.bodies
 
 inl tensor_memcpy_async forall float a. access_size (pipe : ref (pipeline thread_scope_thread)) (r : loop.range (tensor a (float * float))) : () =
-    loop_rigid' {r with nearTo#=factorize_sizeof access_size} (unzip >> memcpy_async pipe)
+    loop_rigid {r with nearTo#=factorize_sizeof access_size} (unzip >> memcpy_async pipe)
