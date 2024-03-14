@@ -8,7 +8,7 @@ inl make_pipeline_thread() : ref (pipeline thread_scope_thread) = $"cuda::pipeli
 inl producer_acquire forall scope. (pipe : ref (pipeline scope)) : () = $"!pipe.producer_acquire()"
 inl producer_commit forall scope. (pipe : ref (pipeline scope)) : () = $"!pipe.producer_commit()"
 
-// inl consumer_wait forall scope. (pipe : ref (pipeline scope)) : () = $"!pipe.consumer_wait()"
+inl consumer_wait forall scope. (pipe : ref (pipeline scope)) : () = $"!pipe.consumer_wait()"
 inl consumer_wait_prior_0 forall scope. (pipe : ref (pipeline scope)) : () = $"cuda::pipeline_consumer_wait_prior<0>(!pipe);"
 inl consumer_release forall scope. (pipe : ref (pipeline scope)) : () = $"!pipe.consumer_release()"
 
@@ -25,7 +25,6 @@ inl consumer_phase forall scope. (pipe : ref (pipeline scope)) body : () =
 inl memcpy_async forall float. (pipe : ref (pipeline thread_scope_thread)) (to, from : tensor int float * tensor int float) =
     assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
     inl dim = from.dim
-    producer_phase pipe fun _ =>
     real
         open real_core
         open struct

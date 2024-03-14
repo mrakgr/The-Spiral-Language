@@ -307,10 +307,10 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         }
         __syncthreads();
         // Poping the loop unrolling to: 0
-        // Pushing the loop unrolling to: 2
+        // Pushing the loop unrolling to: 4
         long v123;
         v123 = 0l;
-        #pragma unroll 2
+        #pragma unroll 4
         while (while_method_4(v123)){
             // Pushing the loop unrolling to: 0
             // Pushing the loop unrolling to: 0
@@ -336,6 +336,7 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             float * v133;
             v133 = v1+v132;
             v135 = v133;
+            v3.producer_acquire();
             long v136;
             v136 = threadIdx.x;
             bool v137;
@@ -389,26 +390,18 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             float * v158;
             v158 = v135+v154;
             v160 = v158;
-            v3.producer_acquire();
             constexpr long v161 = sizeof(float) * 4l;
             assert("Pointer alignment check" && (unsigned long long)(v160 + 0l) % v161 == 0 && (unsigned long long)(v157 + 0l) % v161 == 0);
             cuda::memcpy_async(v157 + 0l, v160 + 0l, cuda::aligned_size_t<v161>(v161), v3);
-            v3.producer_commit();
-            v3.producer_acquire();
             constexpr long v162 = sizeof(float) * 4l;
             assert("Pointer alignment check" && (unsigned long long)(v160 + 262144l) % v162 == 0 && (unsigned long long)(v157 + 4352l) % v162 == 0);
             cuda::memcpy_async(v157 + 4352l, v160 + 262144l, cuda::aligned_size_t<v162>(v162), v3);
-            v3.producer_commit();
-            v3.producer_acquire();
             constexpr long v163 = sizeof(float) * 4l;
             assert("Pointer alignment check" && (unsigned long long)(v160 + 32l) % v163 == 0 && (unsigned long long)(v157 + 32l) % v163 == 0);
             cuda::memcpy_async(v157 + 32l, v160 + 32l, cuda::aligned_size_t<v163>(v163), v3);
-            v3.producer_commit();
-            v3.producer_acquire();
             constexpr long v164 = sizeof(float) * 4l;
             assert("Pointer alignment check" && (unsigned long long)(v160 + 262176l) % v164 == 0 && (unsigned long long)(v157 + 4384l) % v164 == 0);
             cuda::memcpy_async(v157 + 4384l, v160 + 262176l, cuda::aligned_size_t<v164>(v164), v3);
-            v3.producer_commit();
             long v165;
             v165 = threadIdx.x;
             bool v166;
@@ -462,22 +455,15 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             float * v187;
             v187 = v130+v183;
             v189 = v187;
-            v3.producer_acquire();
             constexpr long v190 = sizeof(float) * 4l;
             assert("Pointer alignment check" && (unsigned long long)(v189 + 0l) % v190 == 0 && (unsigned long long)(v186 + 0l) % v190 == 0);
             cuda::memcpy_async(v186 + 0l, v189 + 0l, cuda::aligned_size_t<v190>(v190), v3);
-            v3.producer_commit();
-            v3.producer_acquire();
             constexpr long v191 = sizeof(float) * 4l;
             assert("Pointer alignment check" && (unsigned long long)(v189 + 262144l) % v191 == 0 && (unsigned long long)(v186 + 4352l) % v191 == 0);
             cuda::memcpy_async(v186 + 4352l, v189 + 262144l, cuda::aligned_size_t<v191>(v191), v3);
-            v3.producer_commit();
-            v3.producer_acquire();
             constexpr long v192 = sizeof(float) * 4l;
             assert("Pointer alignment check" && (unsigned long long)(v189 + 32l) % v192 == 0 && (unsigned long long)(v186 + 32l) % v192 == 0);
             cuda::memcpy_async(v186 + 32l, v189 + 32l, cuda::aligned_size_t<v192>(v192), v3);
-            v3.producer_commit();
-            v3.producer_acquire();
             constexpr long v193 = sizeof(float) * 4l;
             assert("Pointer alignment check" && (unsigned long long)(v189 + 262176l) % v193 == 0 && (unsigned long long)(v186 + 4384l) % v193 == 0);
             cuda::memcpy_async(v186 + 4384l, v189 + 262176l, cuda::aligned_size_t<v193>(v193), v3);
@@ -810,7 +796,7 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         }
         __syncthreads();
         // Poping the loop unrolling to: 0
-        // Poping the loop unrolling to: 2
+        // Poping the loop unrolling to: 4
         v66 += 24l ;
     }
     // Poping the loop unrolling to: 1
