@@ -1,62 +1,151 @@
-Error trace on line: 58, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\matmul.spi.
-    inl split_b {n k} (b : tensor (int * int) float) =
+Error trace on line: 124, column: 58 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\loop.spi.
+inl lookahead forall dim. ({from nearTo by} : range dim) {on_init on_loop} : () =
+                                                         ^
+Error trace on line: 125, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\loop.spi.
+    inl length = prod nearTo
     ^
-Error trace on line: 71, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\matmul.spi.
-    inl split_c {m n} (c : tensor (int * int) float) =
+Error trace on line: 126, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\loop.spi.
+    inl i = _dup from
     ^
-Error trace on line: 76, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\matmul.spi.
-    inl a = split_a {m=m_tile; k=k_tile} a    
+Error trace on line: 127, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\loop.spi.
+    if i < length then
     ^
-Error trace on line: 77, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\matmul.spi.
-    inl b = split_b {n=n_tile; k=k_tile} b
-    ^
-Error trace on line: 78, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\matmul.spi.
-    inl c = split_c {m=m_tile; n=n_tile} c
-    ^
-Error trace on line: 80, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\matmul.spi.
-    inl padding =
-    ^
-Error trace on line: 86, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\matmul.spi.
-    inl memory = 
-    ^
-Error trace on line: 94, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\matmul.spi.
-    run' {shared_mem=conv memory.length} fun () =>
-    ^
-Error trace on line: 38, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\base.spi.
-    inl blocks_per_grid, threads_per_block = blocks_per_grid(), threads_per_block()
-    ^
-Error trace on line: 38, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\base.spi.
-    inl blocks_per_grid, threads_per_block = blocks_per_grid(), threads_per_block()
+Error trace on line: 128, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\loop.spi.
+        on_init (proj nearTo from)
         ^
-Error trace on line: 42, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\base.spi.
-    global "options = []"
+Error trace on line: 181, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\matmul.spi.
+                pragma.unroll fun _ =>
+                ^
+Error trace on line: 20, column: 19 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\pragma.spi.
+inl unroll body = unroll' 0 body
+                  ^
+Error trace on line: 15, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\pragma.spi.
+    unroll_push n
     ^
-Error trace on line: 43, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\base.spi.
-    global "options.append('--define-macro=NDEBUG')"
+Error trace on line: 16, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\pragma.spi.
+    body()
     ^
-Error trace on line: 44, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\base.spi.
-    global "options.append('--diag-suppress=550')"
+Error trace on line: 182, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\matmul.spi.
+                inl a = apply m a |> apply k |> apply_ptr
+                ^
+Error trace on line: 183, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\matmul.spi.
+                inl b = apply n b |> apply k |> apply_ptr
+                ^
+Error trace on line: 184, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\matmul.spi.
+                pipeline.tensor_memcpy_async chunk_size pipe threads_in_block(zip b_shared_tile b |> factorize 32 |> reorder_fst (fun a,b => b,a))
+                ^
+Error trace on line: 43, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\pipeline.spi.
+    loop_rigid' {r with nearTo#=factorize_sizeof access_size} (unzip >> memcpy_async pipe)
     ^
-Error trace on line: 45, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\base.spi.
-    global "options.append('--dopt=on')"
+Error trace on line: 316, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\tensorm\tensor_main.spi.
+    inl t = split_into_swapped_fst (rigid_split by) t
     ^
-Error trace on line: 46, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\base.spi.
-    global "options.append('--restrict')"
+Error trace on line: 316, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\tensorm\tensor_main.spi.
+    inl t = split_into_swapped_fst (rigid_split by) t
+            ^
+Error trace on line: 59, column: 18 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\core.spi.
+inl (>>) a b x = b (a x)
+                 ^
+Error trace on line: 59, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\core.spi.
+inl (>>) a b x = b (a x)
+                    ^
+Error trace on line: 262, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\tensorm\tensor_main.spi.
+    inl dim = f (fst t.dim)
     ^
-Error trace on line: 53, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\base.spi.
-    match threads_per_block with
+Error trace on line: 262, column: 15 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\tensorm\tensor_main.spi.
+    inl dim = f (fst t.dim)
+              ^
+Error trace on line: 59, column: 18 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\core.spi.
+inl (>>) a b x = b (a x)
+                 ^
+Error trace on line: 59, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\core.spi.
+inl (>>) a b x = b (a x)
+                    ^
+Error trace on line: 96, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\loop.spi.
+    inl a, (i : int) = real
     ^
-Error trace on line: 54, column: 7 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\base.spi.
-    | 1024 => global "options.append('--maxrregcount=255')"
-      ^
-Error trace on line: 55, column: 7 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\base.spi.
-    | 512 => global "options.append('--maxrregcount=128')"
-      ^
-Error trace on line: 56, column: 7 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\base.spi.
-    | 256 => global "options.append('--maxrregcount=64')"
-      ^
-Error trace on line: 57, column: 7 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corecuda\base.spi.
-    | 128 => global "options.append('--maxrregcount=32')"
-      ^
-Pattern miss.
-Got: 32i32
+Error trace on line: 96, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\loop.spi.
+    inl a, (i : int) = real
+        ^
+Error trace on line: 102, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\loop.spi.
+    assert (i = 1) "The integer length must be distributed in its entirety."
+    ^
+Error trace on line: 103, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\loop.spi.
+    div_snd_by a dim
+    ^
+Error trace on line: 89, column: 65 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\loop.spi.
+inl div_snd_by forall dim. (x : dim) (y : dim) : dim * dim = x, div y x
+                                                                ^
+Error trace on line: 77, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\loop.spi.
+    inl b = map2 (/) dim a
+    ^
+Error trace on line: 78, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\loop.spi.
+    iter3 (fun a b dim => assert (a*b = dim) "The elementwise product of the split dimensions has to equal the original.") a b dim
+    ^
+Error trace on line: 133, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+    f (ar, v, i)
+    ^
+Error trace on line: 129, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+    inl rec f = function
+                ^
+Error trace on line: 130, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | (a, b), (va,vb), (ia,ib) => f (a, va, ia) . f (b, vb, ib)
+           ^
+Error trace on line: 130, column: 20 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | (a, b), (va,vb), (ia,ib) => f (a, va, ia) . f (b, vb, ib)
+                   ^
+Error trace on line: 130, column: 29 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | (a, b), (va,vb), (ia,ib) => f (a, va, ia) . f (b, vb, ib)
+                            ^
+Error trace on line: 130, column: 39 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | (a, b), (va,vb), (ia,ib) => f (a, va, ia) . f (b, vb, ib)
+                                      ^
+Error trace on line: 129, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+    inl rec f = function
+                ^
+Error trace on line: 130, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | (a, b), (va,vb), (ia,ib) => f (a, va, ia) . f (b, vb, ib)
+           ^
+Error trace on line: 130, column: 20 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | (a, b), (va,vb), (ia,ib) => f (a, va, ia) . f (b, vb, ib)
+                   ^
+Error trace on line: 130, column: 29 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | (a, b), (va,vb), (ia,ib) => f (a, va, ia) . f (b, vb, ib)
+                            ^
+Error trace on line: 130, column: 39 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | (a, b), (va,vb), (ia,ib) => f (a, va, ia) . f (b, vb, ib)
+                                      ^
+Error trace on line: 130, column: 55 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | (a, b), (va,vb), (ia,ib) => f (a, va, ia) . f (b, vb, ib)
+                                                      ^
+Error trace on line: 129, column: 17 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+    inl rec f = function
+                ^
+Error trace on line: 130, column: 12 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | (a, b), (va,vb), (ia,ib) => f (a, va, ia) . f (b, vb, ib)
+           ^
+Error trace on line: 131, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | {} & ar, {} & v, {} & i => record_iter (fun {key value} => f (ar key, value, i key)) v
+          ^
+Error trace on line: 132, column: 11 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | ar,v,i => set ar v i
+          ^
+Error trace on line: 132, column: 14 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | ar,v,i => set ar v i
+             ^
+Error trace on line: 132, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\struct.spir.
+        | ar,v,i => set ar v i
+                    ^
+Error trace on line: 78, column: 27 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\loop.spi.
+    iter3 (fun a b dim => assert (a*b = dim) "The elementwise product of the split dimensions has to equal the original.") a b dim
+                          ^
+Error trace on line: 250, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\real_core.spir.
+    if c = false then 
+    ^
+Error trace on line: 251, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+        ^
+Error trace on line: 251, column: 40 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\tensor13\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+                                       ^
+The elementwise product of the split dimensions has to equal the original.

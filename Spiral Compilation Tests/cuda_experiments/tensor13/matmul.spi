@@ -181,8 +181,8 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
                 pragma.unroll fun _ =>
                 inl a = apply m a |> apply k |> apply_ptr
                 inl b = apply n b |> apply k |> apply_ptr
-                pipeline.tensor_memcpy_async chunk_size pipe threads_in_block(zip b_shared_tile b)
-                pipeline.tensor_memcpy_async chunk_size pipe threads_in_block(zip a_shared_tile a)
+                pipeline.tensor_memcpy_async chunk_size pipe threads_in_block(zip b_shared_tile b |> factorize 32 |> reorder_fst (fun a,b => b,a))
+                pipeline.tensor_memcpy_async chunk_size pipe threads_in_block(zip a_shared_tile a |> factorize 32 |> reorder_fst (fun a,b => b,a))
 
             // loop.linear ((snd >> fst) a.dim) fun k =>
             loop.lookahead linear((snd >> fst) a.dim) {
@@ -213,7 +213,7 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
                     
                     // Asynchronously loads the data from global to shared memory for the next iteration.
                     k_next |> optionm.iter load_global_to_shared
-
+                    
                     // Does the matrix multiplication and accumulates the results in the fragment.
                     loop.linear (m_local, n_local, k_local) fun m,n,k =>
                         inl c_frag = tensor_index_ref (m,n) c_frag
@@ -273,14 +273,14 @@ inl main() =
         $"(cp.matmul(!a_body,!b_body) + !c_body).flatten()"
         |> fromArray |> reshape (const c.dim)
 
-    inl m,n,k : int * int * int = 512 * 16, 512 * 16, 512 * 8
-    // inl m,n,k : int * int * int = 512, 512, 512
+    // inl m,n,k : int * int * int = 512 * 16, 512 * 16, 512 * 8
+    inl m,n,k : int * int * int = 512, 512, 512
     // inl m,n,k : int * int * int = 32, 32, 32
     // inl gemm_config_tf32 = gemm_config {m_tile=m; n_tile=n; k_tile=k; m_skew=8; n_skew=8; k_skew=4; chunk_size=16} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
 
     inl a_trans = (real typecase a_layout with wmma.row_major => false | wmma.col_major => true) : bool
     inl b_trans = (real typecase b_layout with wmma.row_major => false | wmma.col_major => true) : bool
-    inl gemm_config_tf32 = gemm_config {m_tile=64; n_tile=64; k_tile=64; m_skew=8; n_skew=8; k_skew=4; chunk_size=16} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
+    inl gemm_config_tf32 = gemm_config {m_tile=64; n_tile=128; k_tile=64; m_skew=8; n_skew=8; k_skew=4; chunk_size=16} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
 
     // inl [ma; mb; mc] = listm.map cupy.zeros ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
     // inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
