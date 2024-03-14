@@ -116,35 +116,35 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
             |> apply_ptr
         
         inl a_shared_frag = 
-            inl y = 2,2
+            // inl y = 2,2
             split_a {m=m_frag; k=k_frag} a_shared_tile
             |> reshape_fst const(m_warp, m_local)
             |> curry_fst
             |> apply m_proj_warp
-            |> reorder (fun m,k,rest => rest,m,k)
-            |> split_into_fst (loop.div_snd_by y)
-            |> reorder_fst (fun a,b => swap a_trans b, swap (not a_trans) a)
-            |> curry_fst
-            |> threads_in_warp 
-            |> apply_proj 
-            |> tensorm.swap
-            |> curry_fst
+            // |> reorder (fun m,k,rest => rest,m,k)
+            // |> split_into_fst (loop.div_snd_by y)
+            // |> reorder_fst (fun a,b => swap a_trans b, swap (not a_trans) a)
+            // |> curry_fst
+            // |> threads_in_warp 
+            // |> apply_proj 
+            // |> tensorm.swap
+            // |> curry_fst
             |> apply_ptr
 
         inl b_shared_frag = 
-            inl y = 2,2
+            // inl y = 2,2
             split_b {n=n_frag; k=k_frag} b_shared_tile
             |> reshape_fst const(n_warp, n_local)
             |> curry_fst
             |> apply n_proj_warp
-            |> reorder (fun n,k,rest => rest,n,k)
-            |> split_into_fst (loop.div_snd_by y)
-            |> reorder_fst (fun a,b => swap (not b_trans) b, swap (not b_trans) a)
-            |> curry_fst
-            |> threads_in_warp 
-            |> apply_proj 
-            |> tensorm.swap
-            |> curry_fst
+            // |> reorder (fun n,k,rest => rest,n,k)
+            // |> split_into_fst (loop.div_snd_by y)
+            // |> reorder_fst (fun a,b => swap (not b_trans) b, swap (not b_trans) a)
+            // |> curry_fst
+            // |> threads_in_warp 
+            // |> apply_proj 
+            // |> tensorm.swap
+            // |> curry_fst
             |> apply_ptr
 
         open wmma
@@ -193,12 +193,12 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
                     // Loads from shared memory into registers.
                     loop.linear (m_local, k_local) fun m,k =>
                         inl a_frag = tensor_index_ref (m,k) a_frag
-                        load_matrix_sync_tf32 a_frag (a_shared_frag |> apply m |> apply k)
+                        load_matrix_sync a_frag (a_shared_frag |> apply m |> apply k)
                         
                     // Loads from shared memory into registers.
                     loop.linear (n_local, k_local) fun n,k =>
                         inl b_frag = tensor_index_ref (n,k) b_frag
-                        load_matrix_sync_tf32 b_frag (b_shared_frag |> apply n |> apply k)
+                        load_matrix_sync b_frag (b_shared_frag |> apply n |> apply k)
 
                     __syncthreads()
 

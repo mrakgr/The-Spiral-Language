@@ -66,7 +66,7 @@ inl load_matrix_sync forall use m n k layout frag_in t. (f : ref (fragment use m
     real
         typecase frag_in * t with
         | t * t => ()
-        // | tf32 * f32 =>
+        | tf32 * f32 => ()
         //     $"#pragma unroll" : ()
         //     $"for (int t = 0; t < !f.num_elements; t++) { !f.x[t] = wmma::__float_to_tf32(!f.x[t]); }" : ()
         | _ => real_core.error_type "This type is not supported."
