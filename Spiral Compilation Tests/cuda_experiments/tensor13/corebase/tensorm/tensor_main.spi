@@ -275,16 +275,29 @@ inl split_into_fst forall a b el. (f : a -> a * a) (t : tensor (a * b) el) : ten
                     }
                 ) t.bodies
     }
+
+// Similar to `split_into_fst` except ensures that the dimensions with the inner strides the come to the fore instead.
+inl split_into_swapped_fst forall a b el. (f : a -> a * a) : tensor (a * b) el -> tensor ((a * a) * b) el = 
+    split_into_fst (f >> loop.swap) >> reorder_fst loop.swap
+    
     
 // Splits the second tensor dimension into two pieces, the elementwise product of which has to equal the original.
 // Unlike reshape, the tensor dimensions do not have to be contiguous for this to work.
 // The strides of the second part being acted upon will remain as in the original, while the first part will have them adjusted.
 inl split_into_snd forall a b el. (dim : b -> b * b) : tensor (a * b) el -> tensor (a * (b * b)) el = swap >> split_into_fst dim >> swap
 
+// Similar to `split_into_snd` except ensures that the dimensions with the inner strides the come to the fore instead.
+inl split_into_swapped_snd forall a b el. (f : b -> b * b) : tensor (a * b) el -> tensor (a * (b * b)) el =
+    split_into_snd (f >> loop.swap) >> reorder_snd loop.swap
+
 // Splits the tensor dimension into two pieces, the elementwise product of which has to equal the original.
 // Unlike reshape, the tensor dimensions do not have to be contiguous for this to work.
 // The strides of the second part will remain as in the original, while the first part will have them adjusted.
 inl split_into forall a el. (dim : a -> a * a) : tensor a el -> tensor (a * a) el = reorder (fun x => x, ()) >> split_into_fst dim >> reorder fst
+
+// Similar to `split_into` except ensures that the dimensions with the inner strides the come to the fore instead.
+inl split_into forall a el. (f : a -> a * a) : tensor a el -> tensor (a * a) el =
+    split_into (f >> loop.swap) >> reorder loop.swap
 
 // Reorders the tensor so as to unpack the first pair.
 inl curry_fst forall a b c el. : tensor ((a * b) * c) el -> tensor (a * b * c) el = reorder (fun (a,b),c => a,b,c)
@@ -292,7 +305,7 @@ inl curry_fst forall a b c el. : tensor ((a * b) * c) el -> tensor (a * b * c) e
 // Iterates over the tensor in rigid loop style.
 inl loop_rigid forall a b el. ({from by nearTo=t} : loop.range (tensor (a * b) el)) (body : tensor b el -> ()) : () =
     open loop
-    inl t = split_into_fst (rigid_split by >> swap) t |> reorder_fst swap
+    inl t = split_into_swapped_fst (rigid_split by) t
     rigid {from by nearTo=fst t.dim} fun a =>
         inl t = curry_fst t |> apply a |> apply_ptr
         fun b => body (apply b t)
@@ -300,7 +313,7 @@ inl loop_rigid forall a b el. ({from by nearTo=t} : loop.range (tensor (a * b) e
 // Iterates over the tensor in rigid loop style.
 inl loop_rigid' forall a b el. ({from by nearTo=t} : loop.range (tensor (a * b) el)) (body : tensor b el -> ()) : () =
     open loop
-    inl t = split_into_fst (rigid_split by >> swap) t |> reorder_fst swap
+    inl t = split_into_swapped_fst (rigid_split by) t
     rigid' {from by nearTo=fst t.dim} fun a =>
         inl t = curry_fst t |> apply a |> apply_ptr
         fun b => body (apply b t)

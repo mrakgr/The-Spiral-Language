@@ -122,9 +122,10 @@ inl projective forall dim. ({from nearTo by} : range dim) (body : dim -> ()) : (
     forBy' {from by nearTo=prod nearTo} (proj nearTo >> body)
 
 inl lookahead forall dim. ({from nearTo by} : range dim) {on_init on_loop} : () =
-    on_init (proj nearTo from)
     inl length = prod nearTo
     inl i = _dup from
+    if i < length then
+        on_init (proj nearTo from)
     while' (fun () => i < length) fun () =>
         inl i' = i + by
         on_loop (if i' < length then Some (proj nearTo i') else None)
