@@ -174,38 +174,40 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
                             ref_set c_frag i (beta / alpha * ref_index c_frag i)
                 __syncthreads()
             
-            loop.linear ((snd >> fst) a.dim) fun k =>
-                inl a = apply m a |> apply k |> apply_ptr
-                inl b = apply n b |> apply k |> apply_ptr
+            pragma.unroll' 1 fun _ =>
+                loop.linear ((snd >> fst) a.dim) fun k =>
+                    pragma.unroll fun _ =>
+                    inl a = apply m a |> apply k |> apply_ptr
+                    inl b = apply n b |> apply k |> apply_ptr
 
-                // Loads the data from global to shared memory.
-                tensor_memcpy_sync_tf32 chunk_size threads_in_block(zip b_shared_tile b)
-                tensor_memcpy_sync_tf32 chunk_size threads_in_block(zip a_shared_tile a)
-                __syncthreads()
+                    // Loads the data from global to shared memory.
+                    tensor_memcpy_sync_tf32 chunk_size threads_in_block(zip b_shared_tile b)
+                    tensor_memcpy_sync_tf32 chunk_size threads_in_block(zip a_shared_tile a)
+                    __syncthreads()
 
-                inl a_frag, b_frag : _ _ (fragment matrix_a m_frag n_frag k_frag a_layout tf32)
-                                * _ _ (fragment matrix_b m_frag n_frag k_frag b_layout tf32) =
-                    tensor_create (m_local,k_local),
-                    tensor_create (n_local,k_local)
+                    inl a_frag, b_frag : _ _ (fragment matrix_a m_frag n_frag k_frag a_layout tf32)
+                                    * _ _ (fragment matrix_b m_frag n_frag k_frag b_layout tf32) =
+                        tensor_create (m_local,k_local),
+                        tensor_create (n_local,k_local)
 
-                // Loads from shared memory into registers.
-                loop.linear (m_local, k_local) fun m,k =>
-                    inl a_frag = tensor_index_ref (m,k) a_frag
-                    load_matrix_sync_tf32 a_frag (a_shared_frag |> apply m |> apply k)
-                    
-                // Loads from shared memory into registers.
-                loop.linear (n_local, k_local) fun n,k =>
-                    inl b_frag = tensor_index_ref (n,k) b_frag
-                    load_matrix_sync_tf32 b_frag (b_shared_frag |> apply n |> apply k)
+                    // Loads from shared memory into registers.
+                    loop.linear (m_local, k_local) fun m,k =>
+                        inl a_frag = tensor_index_ref (m,k) a_frag
+                        load_matrix_sync_tf32 a_frag (a_shared_frag |> apply m |> apply k)
+                        
+                    // Loads from shared memory into registers.
+                    loop.linear (n_local, k_local) fun n,k =>
+                        inl b_frag = tensor_index_ref (n,k) b_frag
+                        load_matrix_sync_tf32 b_frag (b_shared_frag |> apply n |> apply k)
 
-                __syncthreads()
+                    __syncthreads()
 
-                // Does the matrix multiplication and accumulates the results in the fragment.
-                loop.linear (m_local, n_local, k_local) fun m,n,k =>
-                    inl c_frag = tensor_index_ref (m,n) c_frag
-                    inl a_frag = tensor_index_ref (m,k) a_frag
-                    inl b_frag = tensor_index_ref (n,k) b_frag
-                    mma_sync c_frag a_frag b_frag c_frag
+                    // Does the matrix multiplication and accumulates the results in the fragment.
+                    loop.linear (m_local, n_local, k_local) fun m,n,k =>
+                        inl c_frag = tensor_index_ref (m,n) c_frag
+                        inl a_frag = tensor_index_ref (m,k) a_frag
+                        inl b_frag = tensor_index_ref (n,k) b_frag
+                        mma_sync c_frag a_frag b_frag c_frag
 
             // Adds the accumulated result to the output in shared memory.
             loop.linear (fst c_shared_frag.dim) fun m,n =>

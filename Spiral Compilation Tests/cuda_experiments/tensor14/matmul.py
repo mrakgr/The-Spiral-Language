@@ -302,10 +302,12 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             v112 += 1l ;
         }
         __syncthreads();
+        // Pushing the loop unrolling to: 1
         long v122;
         v122 = 0l;
-        #pragma unroll
+        #pragma unroll 1
         while (while_method_4(v122)){
+            // Pushing the loop unrolling to: 0
             assert("Tensor range check" && 0 <= v71 && v71 < 64l);
             long v124;
             v124 = 524288l * v71;
@@ -722,8 +724,10 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 }
                 v273 += 1l ;
             }
+            // Poping the loop unrolling to: 0
             v122 += 1l ;
         }
+        // Poping the loop unrolling to: 1
         long v287;
         v287 = 0l;
         #pragma unroll
