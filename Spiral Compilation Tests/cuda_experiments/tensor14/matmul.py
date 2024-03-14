@@ -162,12 +162,10 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
     v60 = v9+v59;
     v62 = v60;
     wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> v63[4l];
-    // Pushing the loop unrolling to: 1
     long v64;
     v64 = blockIdx.x;
     long v65;
     v65 = v64;
-    #pragma unroll 1
     while (while_method_0(v65)){
         bool v67;
         v67 = 0l <= v65;
@@ -304,12 +302,10 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             v112 += 1l ;
         }
         __syncthreads();
-        // Poping the loop unrolling to: 0
         long v122;
         v122 = 0l;
-        #pragma unroll 1
+        #pragma unroll
         while (while_method_4(v122)){
-            // Pushing the loop unrolling to: 0
             assert("Tensor range check" && 0 <= v71 && v71 < 64l);
             long v124;
             v124 = 524288l * v71;
@@ -726,7 +722,6 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 }
                 v273 += 1l ;
             }
-            // Poping the loop unrolling to: 0
             v122 += 1l ;
         }
         // Pushing the loop unrolling to: 0
@@ -833,9 +828,9 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         }
         __syncthreads();
         // Poping the loop unrolling to: 0
+        // Poping the loop unrolling to: 0
         v65 += 24l ;
     }
-    // Poping the loop unrolling to: 1
     return ;
 }
 """
