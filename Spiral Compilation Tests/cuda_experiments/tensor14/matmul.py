@@ -10,7 +10,7 @@ __device__ inline bool while_method_0(long v0){
 }
 __device__ inline bool while_method_1(long v0){
     bool v1;
-    v1 = v0 < 4l;
+    v1 = v0 < 8l;
     return v1;
 }
 __device__ inline bool while_method_2(long v0){
@@ -20,7 +20,7 @@ __device__ inline bool while_method_2(long v0){
 }
 __device__ inline bool while_method_3(long v0){
     bool v1;
-    v1 = v0 < 2l;
+    v1 = v0 < 4l;
     return v1;
 }
 __device__ inline bool while_method_4(long v0){
@@ -30,7 +30,7 @@ __device__ inline bool while_method_4(long v0){
 }
 __device__ inline bool while_method_5(long v0){
     bool v1;
-    v1 = v0 < 8l;
+    v1 = v0 < 2l;
     return v1;
 }
 extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
@@ -64,28 +64,28 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
     long v19;
     v19 = v14 / 8l;
     bool v20;
-    v20 = v19 < 4l;
+    v20 = v19 < 2l;
     bool v21;
     v21 = v20 == false;
     if (v21){
         assert("The last element of the projection dimensions needs to be greater than the index remainder." && v20);
     } else {
     }
-    assert("Tensor range check" && 0 <= v19 && v19 < 4l);
+    assert("Tensor range check" && 0 <= v19 && v19 < 2l);
     assert("Tensor range check" && 0 <= v18 && v18 < 8l);
     long v23;
     v23 = 16l * v18;
     long v24;
-    v24 = 4352l * v19;
+    v24 = 8704l * v19;
     long v25;
     v25 = v24 + v23;
     float * v28;
     float * v26;
     v26 = v12+v25;
     v28 = v26;
-    assert("Tensor range check" && 0 <= v19 && v19 < 4l);
+    assert("Tensor range check" && 0 <= v19 && v19 < 2l);
     long v29;
-    v29 = 2176l * v19;
+    v29 = 4352l * v19;
     long v30;
     v30 = threadIdx.x;
     long v31;
@@ -161,7 +161,7 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
     float * v60;
     v60 = v9+v59;
     v62 = v60;
-    wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> v63[2l];
+    wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> v63[4l];
     long v64;
     v64 = blockIdx.x;
     long v65;
@@ -215,14 +215,14 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         long v86;
         v86 = v81 / 32l;
         bool v87;
-        v87 = v86 < 32l;
+        v87 = v86 < 16l;
         bool v88;
         v88 = v87 == false;
         if (v88){
             assert("The last element of the projection dimensions needs to be greater than the index remainder." && v87);
         } else {
         }
-        assert("Tensor range check" && 0 <= v86 && v86 < 32l);
+        assert("Tensor range check" && 0 <= v86 && v86 < 16l);
         assert("Tensor range check" && 0 <= v85 && v85 < 32l);
         long v90;
         v90 = 4l * v85;
@@ -250,16 +250,16 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             v103 = 0l;
             #pragma unroll
             while (while_method_2(v103)){
-                assert("Tensor range check" && 0 <= v101 && v101 < 4l);
+                assert("Tensor range check" && 0 <= v101 && v101 < 8l);
                 assert("Tensor range check" && 0 <= v103 && v103 < 1l);
                 long v105;
                 v105 = 128l * v103;
                 long v106;
-                v106 = 4352l * v101;
+                v106 = 2176l * v101;
                 long v107;
                 v107 = v106 + v105;
                 long v108;
-                v108 = 262144l * v101;
+                v108 = 131072l * v101;
                 long v109;
                 v109 = v108 + v105;
                 int4* v110;
@@ -281,12 +281,12 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             v114 = 0l;
             #pragma unroll
             while (while_method_2(v114)){
-                assert("Tensor range check" && 0 <= v112 && v112 < 2l);
+                assert("Tensor range check" && 0 <= v112 && v112 < 4l);
                 assert("Tensor range check" && 0 <= v114 && v114 < 1l);
                 long v116;
                 v116 = v112 + v114;
                 wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> & v117 = v63[v116];
-                assert("Tensor range check" && 0 <= v112 && v112 < 2l);
+                assert("Tensor range check" && 0 <= v112 && v112 < 4l);
                 assert("Tensor range check" && 0 <= v114 && v114 < 1l);
                 long v118;
                 v118 = 16l * v114;
@@ -343,14 +343,14 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             long v140;
             v140 = v135 / 16l;
             bool v141;
-            v141 = v140 < 64l;
+            v141 = v140 < 32l;
             bool v142;
             v142 = v141 == false;
             if (v142){
                 assert("The last element of the projection dimensions needs to be greater than the index remainder." && v141);
             } else {
             }
-            assert("Tensor range check" && 0 <= v140 && v140 < 64l);
+            assert("Tensor range check" && 0 <= v140 && v140 < 32l);
             assert("Tensor range check" && 0 <= v139 && v139 < 16l);
             long v144;
             v144 = 4l * v139;
@@ -378,23 +378,23 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 v157 = 0l;
                 #pragma unroll
                 while (while_method_2(v157)){
-                    assert("Tensor range check" && 0 <= v155 && v155 < 2l);
+                    assert("Tensor range check" && 0 <= v155 && v155 < 4l);
                     assert("Tensor range check" && 0 <= v157 && v157 < 1l);
                     long v159;
                     v159 = 64l * v157;
                     long v160;
-                    v160 = 4352l * v155;
+                    v160 = 2176l * v155;
                     long v161;
                     v161 = v160 + v159;
                     long v162;
-                    v162 = 262144l * v155;
+                    v162 = 131072l * v155;
                     long v163;
                     v163 = v162 + v159;
                     float v164[4l];
                     long v165;
                     v165 = 0l;
                     #pragma unroll
-                    while (while_method_1(v165)){
+                    while (while_method_3(v165)){
                         assert("Tensor range check" && 0 <= v165 && v165 < 4l);
                         long v167;
                         v167 = v165 + v163;
@@ -431,14 +431,14 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             long v177;
             v177 = v172 / 16l;
             bool v178;
-            v178 = v177 < 64l;
+            v178 = v177 < 32l;
             bool v179;
             v179 = v178 == false;
             if (v179){
                 assert("The last element of the projection dimensions needs to be greater than the index remainder." && v178);
             } else {
             }
-            assert("Tensor range check" && 0 <= v177 && v177 < 64l);
+            assert("Tensor range check" && 0 <= v177 && v177 < 32l);
             assert("Tensor range check" && 0 <= v176 && v176 < 16l);
             long v181;
             v181 = 4l * v176;
@@ -466,23 +466,23 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 v194 = 0l;
                 #pragma unroll
                 while (while_method_2(v194)){
-                    assert("Tensor range check" && 0 <= v192 && v192 < 2l);
+                    assert("Tensor range check" && 0 <= v192 && v192 < 4l);
                     assert("Tensor range check" && 0 <= v194 && v194 < 1l);
                     long v196;
                     v196 = 64l * v194;
                     long v197;
-                    v197 = 4352l * v192;
+                    v197 = 2176l * v192;
                     long v198;
                     v198 = v197 + v196;
                     long v199;
-                    v199 = 262144l * v192;
+                    v199 = 131072l * v192;
                     long v200;
                     v200 = v199 + v196;
                     float v201[4l];
                     long v202;
                     v202 = 0l;
                     #pragma unroll
-                    while (while_method_1(v202)){
+                    while (while_method_3(v202)){
                         assert("Tensor range check" && 0 <= v202 && v202 < 4l);
                         long v204;
                         v204 = v202 + v200;
@@ -505,7 +505,7 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 v192 += 1l ;
             }
             __syncthreads();
-            wmma::fragment<wmma::matrix_a, 16l, 16l, 8l, wmma::precision::tf32, wmma::row_major> v209[16l];
+            wmma::fragment<wmma::matrix_a, 16l, 16l, 8l, wmma::precision::tf32, wmma::row_major> v209[32l];
             wmma::fragment<wmma::matrix_b, 16l, 16l, 8l, wmma::precision::tf32, wmma::col_major> v210[8l];
             long v211;
             v211 = 0l;
@@ -514,15 +514,15 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 long v213;
                 v213 = 0l;
                 #pragma unroll
-                while (while_method_5(v213)){
-                    assert("Tensor range check" && 0 <= v211 && v211 < 2l);
+                while (while_method_1(v213)){
+                    assert("Tensor range check" && 0 <= v211 && v211 < 4l);
                     assert("Tensor range check" && 0 <= v213 && v213 < 8l);
                     long v215;
                     v215 = 8l * v211;
                     long v216;
                     v216 = v215 + v213;
                     wmma::fragment<wmma::matrix_a, 16l, 16l, 8l, wmma::precision::tf32, wmma::row_major> & v217 = v209[v216];
-                    assert("Tensor range check" && 0 <= v211 && v211 < 2l);
+                    assert("Tensor range check" && 0 <= v211 && v211 < 4l);
                     long v218;
                     v218 = 1088l * v211;
                     assert("Tensor range check" && 0 <= v213 && v213 < 8l);
@@ -533,11 +533,11 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                     long v221;
                     v221 = 0l;
                     #pragma unroll
-                    while (while_method_3(v221)){
+                    while (while_method_5(v221)){
                         long v223;
                         v223 = 0l;
                         #pragma unroll
-                        while (while_method_3(v223)){
+                        while (while_method_5(v223)){
                             assert("Tensor range check" && 0 <= v221 && v221 < 2l);
                             assert("Tensor range check" && 0 <= v223 && v223 < 2l);
                             long v225;
@@ -602,7 +602,7 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                 long v244;
                 v244 = 0l;
                 #pragma unroll
-                while (while_method_5(v244)){
+                while (while_method_1(v244)){
                     assert("Tensor range check" && 0 <= v242 && v242 < 1l);
                     assert("Tensor range check" && 0 <= v244 && v244 < 8l);
                     long v246;
@@ -621,11 +621,11 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                     long v252;
                     v252 = 0l;
                     #pragma unroll
-                    while (while_method_3(v252)){
+                    while (while_method_5(v252)){
                         long v254;
                         v254 = 0l;
                         #pragma unroll
-                        while (while_method_3(v254)){
+                        while (while_method_5(v254)){
                             assert("Tensor range check" && 0 <= v252 && v252 < 2l);
                             assert("Tensor range check" && 0 <= v254 && v254 < 2l);
                             long v256;
@@ -695,13 +695,13 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
                     long v277;
                     v277 = 0l;
                     #pragma unroll
-                    while (while_method_5(v277)){
-                        assert("Tensor range check" && 0 <= v273 && v273 < 2l);
+                    while (while_method_1(v277)){
+                        assert("Tensor range check" && 0 <= v273 && v273 < 4l);
                         assert("Tensor range check" && 0 <= v275 && v275 < 1l);
                         long v279;
                         v279 = v273 + v275;
                         wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> & v280 = v63[v279];
-                        assert("Tensor range check" && 0 <= v273 && v273 < 2l);
+                        assert("Tensor range check" && 0 <= v273 && v273 < 4l);
                         assert("Tensor range check" && 0 <= v277 && v277 < 8l);
                         long v281;
                         v281 = 8l * v273;
@@ -732,12 +732,12 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             v289 = 0l;
             #pragma unroll
             while (while_method_2(v289)){
-                assert("Tensor range check" && 0 <= v287 && v287 < 2l);
+                assert("Tensor range check" && 0 <= v287 && v287 < 4l);
                 assert("Tensor range check" && 0 <= v289 && v289 < 1l);
                 long v291;
                 v291 = v287 + v289;
                 wmma::fragment<wmma::accumulator, 16l, 16l, 8l, float> & v292 = v63[v291];
-                assert("Tensor range check" && 0 <= v287 && v287 < 2l);
+                assert("Tensor range check" && 0 <= v287 && v287 < 4l);
                 assert("Tensor range check" && 0 <= v289 && v289 < 1l);
                 long v293;
                 v293 = 16l * v289;
@@ -768,14 +768,14 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
         long v302;
         v302 = v297 / 32l;
         bool v303;
-        v303 = v302 < 32l;
+        v303 = v302 < 16l;
         bool v304;
         v304 = v303 == false;
         if (v304){
             assert("The last element of the projection dimensions needs to be greater than the index remainder." && v303);
         } else {
         }
-        assert("Tensor range check" && 0 <= v302 && v302 < 32l);
+        assert("Tensor range check" && 0 <= v302 && v302 < 16l);
         assert("Tensor range check" && 0 <= v301 && v301 < 32l);
         long v306;
         v306 = 4l * v301;
@@ -803,16 +803,16 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2) {
             v319 = 0l;
             #pragma unroll
             while (while_method_2(v319)){
-                assert("Tensor range check" && 0 <= v317 && v317 < 4l);
+                assert("Tensor range check" && 0 <= v317 && v317 < 8l);
                 assert("Tensor range check" && 0 <= v319 && v319 < 1l);
                 long v321;
                 v321 = 128l * v319;
                 long v322;
-                v322 = 262144l * v317;
+                v322 = 131072l * v317;
                 long v323;
                 v323 = v322 + v321;
                 long v324;
-                v324 = 4352l * v317;
+                v324 = 2176l * v317;
                 long v325;
                 v325 = v324 + v321;
                 int4* v326;
@@ -846,7 +846,7 @@ options.append('--restrict')
 options.append('-src-in-ptx')
 options.append('--generate-line-info')
 options.append('-D__CUDA_NO_HALF_CONVERSIONS__')
-options.append('--maxrregcount=64')
+options.append('--maxrregcount=128')
 raw_module = cp.RawModule(code=kernel, backend='nvcc', enable_cooperative_groups=True, options=tuple(options))
 def method0(v0 : i32) -> bool:
     v1 = v0 < 1
@@ -911,7 +911,7 @@ def main():
         del v24, v25
         v27 = v15 == 0
         if v27:
-            max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),1024,is_print=True)
+            max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),512,is_print=True)
         else:
             pass
         del v27
@@ -919,7 +919,7 @@ def main():
         v29 = raw_module.get_function(f"entry{v28}")
         del v28
         v29.max_dynamic_shared_size_bytes = 69632 
-        v29((24,),(1024,),(v10, v5, v0),shared_mem=69632)
+        v29((24,),(512,),(v10, v5, v0),shared_mem=69632)
         del v29
         v30 = cp.max(cp.abs(v0-v22))
         del v22

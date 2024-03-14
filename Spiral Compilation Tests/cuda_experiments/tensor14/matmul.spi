@@ -240,7 +240,7 @@ type b_layout = wmma.col_major
 // type b_layout = wmma.col_major
 
 inl main() =
-    inl get_body forall dim el. (x : tensor dim el) : array el = 
+    inl get_body forall dim el. (x : tensor dim el) : array el =
         real struct.map (fun (tensor_body {array}) => array) x.bodies : array el
 
     inl swap (a,b) x = if x then b,a else a,b
