@@ -142,16 +142,22 @@
 		]
 	},
 	"scripts": {
-		"vscode:prepublish": "tsc"
+		"vscode:prepublish": "npm run esbuild-base -- --minify",
+		"esbuild-base": "esbuild ./src/index.ts --bundle --outfile=out/index.js --external:vscode --format=cjs --platform=node",
+		"esbuild": "npm run esbuild-base -- --sourcemap",
+		"esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
+		"test-compile": "tsc -p ./"
 	},
 	"keywords": [
 		"spiral"
 	],
 	"devDependencies": {
 		"@types/node": "^14.17.9",
-		"@types/vscode": "^1.81.0"
+		"@types/vscode": "^1.81.0",
+		"esbuild": "^0.20.2",
+		"typescript": "^5.4.2"
 	},
 	"dependencies": {
-		"@microsoft/signalr": "^7.0.10"
+		"@microsoft/signalr": "^8.0.0"
 	}
 }
