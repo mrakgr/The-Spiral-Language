@@ -21,6 +21,7 @@ modules:
         
     corecuda/
         base-
+        rangem
         tensor_cuda
         intrinsic
         sam 

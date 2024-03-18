@@ -1,0 +1,37 @@
+open corebase
+open loop
+inl threads_in_warp nearTo : range _ = {nearTo from = thread_index() % threads_per_warp(); by = threads_per_warp()}
+inl threads_in_block nearTo : range _ = {nearTo from = thread_index(); by = threads_per_block()}
+inl threads_in_grid nearTo : range _ = {nearTo from = thread_index() + block_index() * threads_per_block(); by = threads_per_block() * blocks_per_grid()}
+inl warps_in_block nearTo : range _ = {nearTo from = thread_index() / threads_per_warp(); by = threads_per_block() / threads_per_warp()}
+inl warps_in_grid nearTo : range _ = {nearTo from = (thread_index() + block_index() * threads_per_block()) / threads_per_warp(); by = threads_per_block() * blocks_per_grid() / threads_per_warp()}
+inl blocks_in_grid nearTo : range _ = {nearTo from = block_index(); by = blocks_per_grid()}
+inl linear nearTo : range _ = {nearTo from = 0; by = 1}
+
+inl subgroups_per_block threads_per_subgroup =
+    inl subgroups_per_block = threads_per_block() / threads_per_subgroup
+    assert (threads_per_block() = subgroups_per_block * threads_per_subgroup) "The number of threads per block has to equal the number of subgroups per block times the number of threads per subgroup."
+    subgroups_per_block
+
+inl subgroups_in_grid threads_per_subgroup nearTo : range _ =
+    inl subgroups_per_block = subgroups_per_block threads_per_subgroup
+    {nearTo from = thread_index() / threads_per_subgroup + subgroups_per_block * block_index(); by = subgroups_per_block * blocks_per_grid()}
+
+inl subgroups_in_block threads_per_subgroup nearTo : range _ =
+    inl subgroups_per_block = subgroups_per_block threads_per_subgroup
+    {nearTo from = thread_index() / threads_per_subgroup; by = subgroups_per_block}
+
+// For when number of threads in a warp is less than the number or equal of threads in a subgroup.
+inl warps_in_subgroup threads_per_subgroup nearTo : range _ =
+    inl warps_per_subgroup = threads_per_subgroup / threads_per_warp()
+    assert (warps_per_subgroup > 0) "The number of warps per subgroup has to be greater than zero."
+    {nearTo from = thread_index() / threads_per_warp() % warps_per_subgroup; by = warps_per_subgroup}
+
+// For when number of threads in a subgroup is less than or equal the number of threads in a warp.
+inl subgroups_in_warp threads_per_subgroup nearTo : range _ =
+    inl subgroups_per_warp = threads_per_warp() / threads_per_subgroup
+    assert (subgroups_per_warp > 0) "The number of subgroup per warp has to be greater than zero."
+    {nearTo from = thread_index() / threads_per_subgroup % subgroups_per_warp; by = subgroups_per_warp}
+
+inl threads_in_subgroup threads_per_subgroup nearTo : range _ =
+    {nearTo from = thread_index() % threads_per_subgroup; by = threads_per_subgroup}

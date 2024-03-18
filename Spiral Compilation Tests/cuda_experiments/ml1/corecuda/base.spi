@@ -1,11 +1,9 @@
 open corebase
 type warp_size = 32
-inl warp_size() : int = real real_core.type_lit_to_lit `warp_size
-inl number_of_sms() : int = 24
+inl threads_per_warp() : int = real real_core.type_lit_to_lit `warp_size
+inl sms_per_gpu() : int = 24
 inl threads_per_block() : int = 512
-inl blocks_per_grid() : int = number_of_sms()
-// inl threads_per_block() : int = 32
-// inl blocks_per_grid() : int = 1 // number_of_sms()
+inl blocks_per_grid() : int = sms_per_gpu()
 
 // Statically sized array with a type literal for a dimension.
 nominal sa dim el = $"array<`el,@dim>"
@@ -78,18 +76,12 @@ inl run' ({shared_mem} : run_config) f =
 // Executes the lambda on the GPU device.
 inl run f = run' {shared_mem = 0} f
 
+// Synchronizes all the threads in a block.
 inl __syncthreads() : () = $"__syncthreads()"
-inl thread_index() : int = $"threadIdx.x" 
+// The index of a thread in a block.
+inl thread_index() : int = $"threadIdx.x"
+// The index of a block in the grid.
 inl block_index() : int = $"blockIdx.x" 
-
-open loop
-inl threads_in_warp nearTo : range _ = {nearTo from = thread_index() % warp_size(); by = warp_size()}
-inl threads_in_block nearTo : range _ = {nearTo from = thread_index(); by = threads_per_block()}
-inl threads_in_grid nearTo : range _ = {nearTo from = thread_index() + block_index() * threads_per_block(); by = threads_per_block() * blocks_per_grid()}
-inl warps_in_block nearTo : range _ = {nearTo from = thread_index() / warp_size(); by = threads_per_block() / warp_size()}
-inl warps_in_grid nearTo : range _ = {nearTo from = (thread_index() + block_index() * threads_per_block()) / warp_size(); by = threads_per_block() * blocks_per_grid() / warp_size()}
-inl blocks_in_grid nearTo : range _ = {nearTo from = block_index(); by = blocks_per_grid()}
-inl linear nearTo : range _ = {nearTo from = 0; by = 1}
 
 open tensorm
 inl memcpy_sync forall float. (to, from : tensor int float * tensor int float) =
