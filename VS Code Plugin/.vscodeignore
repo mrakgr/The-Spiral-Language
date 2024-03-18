@@ -2,7 +2,7 @@
 node_modules
 src/
 tsconfig.json
-out/*.js.map
+**/*.js.map
 *.ps1
 .gitignore
 .vscodeignore
