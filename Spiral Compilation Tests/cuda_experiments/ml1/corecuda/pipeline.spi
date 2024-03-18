@@ -1,0 +1,42 @@
+open corebase
+open tensorm
+open thread_scope
+nominal pipeline scope = $'cuda::pipeline<`scope>'
+
+inl make_pipeline_thread() : ref (pipeline thread_scope_thread) = $"cuda::pipeline<cuda::thread_scope_thread> v$ = cuda::make_pipeline()"
+
+inl producer_acquire forall scope. (pipe : ref (pipeline scope)) : () = $"!pipe.producer_acquire()"
+inl producer_commit forall scope. (pipe : ref (pipeline scope)) : () = $"!pipe.producer_commit()"
+
+inl consumer_wait forall scope. (pipe : ref (pipeline scope)) : () = $"!pipe.consumer_wait()"
+inl consumer_wait_prior_0 forall scope. (pipe : ref (pipeline scope)) : () = $"cuda::pipeline_consumer_wait_prior<0>(!pipe);"
+inl consumer_release forall scope. (pipe : ref (pipeline scope)) : () = $"!pipe.consumer_release()"
+
+inl producer_phase forall scope. (pipe : ref (pipeline scope)) body : () = 
+    producer_acquire pipe
+    body()
+    producer_commit pipe
+
+inl consumer_phase forall scope. (pipe : ref (pipeline scope)) body : () = 
+    consumer_wait_prior_0 pipe
+    body()
+    consumer_release pipe
+
+inl memcpy_async forall float. (pipe : ref (pipeline thread_scope_thread)) (to, from : tensor int float * tensor int float) =
+    assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
+    inl dim = from.dim
+    real
+        open real_core
+        open struct
+        iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
+            typecase `from with _ ~el =>
+            inl dim = $"constexpr `int v$ = sizeof(`el) * !dim" : int
+            $'assert("Pointer alignment check" && (unsigned long long)(!from + !from_offset) % !dim == 0 && (unsigned long long)(!to + !to_offset) % !dim == 0)' : ()
+            // inl p = {to_offset from_offset id=thread_index()} in semaphore.write_ln_device `(`(p)) p
+            // __syncthreads()
+            // print_static {from_offset to_offset}
+            $"cuda::memcpy_async(!to + !to_offset, !from + !from_offset, cuda::aligned_size_t<!dim>(!dim), !pipe)" : ()
+            ) from.bodies to.bodies
+
+inl tensor_memcpy_async forall float a. access_size (pipe : ref (pipeline thread_scope_thread)) (r : loop.range (tensor a (float * float))) : () =
+    loop_rigid {r with nearTo#=factorize_sizeof access_size} (unzip >> memcpy_async pipe)

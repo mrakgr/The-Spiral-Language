@@ -1,0 +1,34 @@
+open corebase
+open console
+open tensorm
+
+inl tensor_print forall dim el. (array_limit : int) (t : tensor dim el) =
+    inl dim_to_list (dim : dim) : list int = real
+        open struct
+        foldBack ((::) `int) dim (Nil `int)
+    inl ~q = 0
+    inl rec loop' s = function
+        | nearTo :: l => 
+            write '['
+            loop.for' {from=0; nearTo} (fun i => 
+                if loop._dup q >= array_limit then write " ..." . $"break"
+                if i <> 0 then write "; "
+                loop' (i :: s) l
+                )
+            write ']'
+        | [] =>
+            loop._set q (q + 1)
+            inl s = listm.rev s
+            inl print_tensor_body forall t. (tensor_body {stride offset array} : _ dim t) =
+                listm.fold2 (fun offset s s' => offset + s * s') offset s (dim_to_list stride)
+                |> index array
+            real
+                open struct
+                map (fun x =>
+                    typecase `x with tensor_body dim ~el => 
+                    print_tensor_body `el x
+                    ) t.bodies
+            |> (write : el -> ()) 
+    loop' [] (dim_to_list t.dim)
+
+instance printable tensor dim el = tensor_print 100

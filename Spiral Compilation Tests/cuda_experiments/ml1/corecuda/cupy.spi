@@ -1,0 +1,23 @@
+open corebase
+open tensorm
+
+inl arange forall dim el. ({from nearTo by} : loop.range dim) : tensor dim el = 
+    inl len : int = loop.prod nearTo
+    real
+        typecase cupy_type el with ~ct =>
+        $"cp.arange(!from,!len,!by,dtype=`ct)" : array el
+    |> fromArray |> reshape (const nearTo)
+    
+inl zeros forall dim float. dim : tensor dim float =
+    inl len : int = loop.prod dim
+    real
+        typecase cupy_type float with ~ct =>
+        $"cp.zeros(!len,dtype=`ct)" : array float
+    |> fromArray |> reshape (const dim)
+    
+inl random_normal forall dim float. ({mean std} : {mean : float; std  : float}) dim : tensor dim float =
+    inl len : int = loop.prod dim
+    real
+        typecase cupy_type float with ~ct =>
+        $"cp.random.normal(!mean,!std,!len,`ct)" : array float
+    |> fromArray |> reshape (const dim)

@@ -1,0 +1,35 @@
+open corebase
+open tensorm
+open struct
+open utils
+
+// Returns the pointer at the specified index.
+inl ptr_at_current_offset forall dim el. (tensor {dim bodies} : tensor dim el) : array el = real
+    map (fun (tensor_body {array stride offset}) =>
+        typecase `array with
+        | array ~el => $"!array + !offset" : array el
+        ) bodies : array el
+
+// Returns the leading stride.
+inl stride_fst forall b el. (tensor {dim bodies} : tensor (int * b) el) : int = real
+    map (fun (tensor_body {stride=a,_}) => a) bodies : int
+
+// Create a tensor of the specified dimensions. The elements of the dimension should be ints.
+inl tensor_create_shared forall dim el. (dim : dim) : tensor dim el = 
+    inl stride, len = real calculate_stride_len dim
+    assert_long_length len dim
+    inl create_body forall t. : tensor_body dim t = tensor_body {
+        array = real $"__shared__ `t v$[!len]" : array t
+        offset = 0
+        stride 
+        }
+    tensor {dim bodies=real infer_map `el create_body}
+
+// Indexes into an tensor. Returns a reference to an element instead of the actual element.
+inl tensor_index_ref forall dim el. (i : dim) (tensorm.tensor {bodies dim} : tensorm.tensor dim el) : ref el = real 
+    open tensorm.utils
+    assert_indices i dim
+    map (fun (tensorm.tensor_body {array stride offset}) =>
+        typecase `array with
+        | ~ar ~el => index_ref `ar `el array (calculate_offset stride i offset)
+        ) bodies

@@ -1,0 +1,151 @@
+// As long as the conditional returns true, executes the body.
+inl while' (cond : () -> bool) (body : () -> ()) : () = !!!!While((join cond()),(body()))
+
+// Used to break out of a C style loop.
+inl break() = $"break"
+
+inl _dup forall t. (x : t) : t = $"!x"
+inl _set forall t. (a : t) ~(b : t) : () =  real 
+    inl rec loop = function
+        | (a,a'),(b,b') => ($"!a = !b" : ()) . loop (a',b')
+        | (), () => ()
+    loop (real_core.free_vars a, real_core.free_vars b)
+inl _add forall t. (x : t) (by : t) : () = $'!x += !by '
+inl _sub forall t. (x : t) (by : t) : () = $'!x -= !by '
+
+// An imperative while loop.
+inl while cond body state =
+    inl state = _dup state
+    while' (fun () => cond state) fun () => _set state (body state)
+    state
+
+// Folds over the range.
+inl forBy {from nearTo by} body state = 
+    inl i, state = _dup (from, state)
+    while' (fun () => i < nearTo) fun () => _set state (body i state) . _add i by
+    state
+// Folds over the range.
+inl forBy' range body = forBy range (fun i () => body i) ()
+// Folds over the range.
+inl for {from nearTo} body state = forBy {from nearTo by=1} body state
+// Iterates over the range.
+inl for' r body = for r (fun i () => body i) ()
+
+// Folds over the range in an downwards direction.
+inl forDownBy {nearFrom to by} body state = 
+    inl i, state = _dup (nearFrom, state)
+    while' (fun _ => i > to) fun _ => _sub i by . _set state (body i state)
+    state
+// Folds over the range in an downwards direction.
+inl forDown {nearFrom to} body state = forDownBy {nearFrom to by=1} body state
+// Iterates over the range in an downwards direction.
+inl forDown' r body = forDown r (fun i () => body i) ()
+
+// Projects the given index to a high dimensional value.
+inl proj forall dim. (dim : dim) (i : int) : dim = real
+    open real_core
+    open struct
+    assert (0 <= i) "The index needs to be zero or positive."
+    inl c = fold (fun s _ => s + 1) 0 dim
+    assert (0 < c) "The projection dimension needs to be at least a singleton."
+    inl dim,() = 
+        mapFoldBack (fun d (i,c) => 
+            assert (0 < d) "The projection dimension needs to be positive."
+            if c = 1 then
+                assert (i < d) "The last element of the projection dimensions needs to be greater than the index remainder."
+                i, ()
+            else
+                i % d, (i / d, c - 1)
+            ) dim (i,c)
+    dim
+
+// Project the given index to a scalar value.
+inl proj_rev forall dim. (dim : dim) (i : dim) : int = real
+    open real_core
+    open struct
+    fst (foldBack2 (fun dim i (offset,stride) => 
+        assert (0 <= i && i < dim) "The indices should be inside the range of the dimension."
+        offset+i*stride, stride*dim
+        ) dim i (0,1))
+
+// Divides the first argument by the second in an elementwise fashion.
+// The elementwise product of the second argument and the result equals the original dimension.
+// The individual elements of `dim` should all be int types.
+inl div forall dim. (dim : dim) (a : dim) : dim = real
+    open real_core
+    open struct
+    inl b = map2 (/) dim a
+    iter3 (fun a b dim => assert (a*b = dim) "The elementwise product of the split dimensions has to equal the original.") a b dim
+    b
+
+// Pass it into tensorm.split_onto to divide the dimension in the specified manner.
+// 
+// fun x y => div y x, x
+inl div_fst_by forall dim. (x : dim) (y : dim) : dim * dim = div y x, x
+
+// Pass it into tensorm.split_onto to divide the dimension in the specified manner.
+// 
+// fun x y => x, div y x
+inl div_snd_by forall dim. (x : dim) (y : dim) : dim * dim = x, div y x
+
+// Given an integer length and a dimension (a compound structure of ints) as arguments, this function splits the dimension into two.
+// The product of the first part is intended to be projected into using indices lesser than the integer length.
+// The second part of the result can be iterated over with a linear loop.
+// The elementwise product of the two sides of the result equals the original dimension.
+inl rigid_split forall dim. (i : int) (dim : dim) : dim * dim =
+    inl a, (i : int) = real
+        open real_core
+        struct.mapFoldBack (fun dim i => 
+            inl x = min dim i
+            x, i / x
+            ) dim i
+    assert (i = 1) "The integer length must be distributed in its entirety."
+    div_snd_by a dim
+
+// Calculates the integer product of the argument.
+inl prod forall dim. (dim : dim) : int = real struct.prod dim
+
+// Swaps the two arguments.
+// 
+// fun a,b => b,a
+inl swap a,b = b,a
+
+type range dim = {from : int; nearTo : dim; by : int}
+
+// Projects the iterator into a small and linear component so that elementwise product of `dim_small * dim_linear = nearTo`.
+// Also, `proj_small = proj dim_small from`.
+inl rigid_split' forall dim. ({from nearTo by} : range dim) : {proj_small : dim; dim_small : dim; dim_linear : dim} =
+    inl dim_small, dim_linear = rigid_split by nearTo
+    {dim_small dim_linear proj_small = proj dim_small from}
+
+inl projective forall dim. ({from nearTo by} : range dim) (body : dim -> ()) : () =
+    forBy' {from by nearTo=prod nearTo} (proj nearTo >> body)
+
+inl lookahead forall dim. ({from nearTo by} : range dim) {on_init on_loop} : () =
+    inl length = prod nearTo
+    inl i = _dup from
+    if i < length then
+        on_init (proj nearTo from)
+    while' (fun () => i < length) fun () =>
+        inl i' = i + by
+        on_loop (if i' < length then Some (proj nearTo i') else None)
+        _set i i'
+
+inl linear forall dim. (dim : dim) body : () = 
+    inl dim_to_list (dim : dim) : list int = real
+        open struct
+        foldBack ((::) `int) dim (Nil `int)
+    inl list_to_dim (l : list int) : dim = real
+        open struct
+        inl x, [] = infer_mapFoldBack `dim (forall el. (x :: l) => x, l) l in x
+    listm.foldBack (fun nearTo on_success l => 
+        // Note, this segment is for if you want to experiment with manual loop unrolling, directly inspiral, instead of relying on C pragmas.
+        // if lit_is nearTo then
+        //     inl rec loop i = if i < nearTo then on_success (i :: l) . loop (i+1)
+        //     loop 0
+        // else
+            for' {from=0; nearTo} (fun i => on_success (i :: l))
+        ) (dim_to_list dim) (list_to_dim >> body) []
+
+// Iterates over the dimensions split by `rigid_split`.
+inl rigid forall dim. ({from nearTo=(a,b) by} : range (dim * dim)) (body : dim -> dim -> ()) : () = linear b (body (proj a from))
