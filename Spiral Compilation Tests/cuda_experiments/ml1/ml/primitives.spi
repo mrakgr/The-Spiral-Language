@@ -1,0 +1,19 @@
+open corebase
+open corecuda
+open tensorm
+
+// The primitives here are only attended for execution on the GPU.
+
+
+inl map forall dim a b. (f : a -> b) (from : tensor dim a) (to : tensor dim b) : () = 
+    assert (from.dim = to.dim) "The dimensions of the two inputs to the map kernel need to be the same."
+    inl from,to = factorize_sizeof_16 from, factorize_sizeof_16 to
+    loop.projective threads_in_grid(fst from.dim) fun i => 
+        inl from, to = apply i from, apply i to
+        inl l_from, l_to = tensor_create from.dim, tensor_create to.dim
+        memcpy_sync (l_from, from)
+        pragma.unroll fun _ =>
+            loop.linear from.dim fun j => 
+                tensor_set j (tensor_index j l_from |> f) l_to
+        memcpy_sync (to, l_to)
+

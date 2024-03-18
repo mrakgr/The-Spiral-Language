@@ -49,3 +49,6 @@ modules:
 
     main
     matmul
+    ml/
+        primitives
+        
