@@ -43,10 +43,15 @@ inl create_binary_partition forall parent {tileable}. (x : ref parent) (i : bool
 inl create_coalesced_threads() : ref coalesced_group = $"auto v$ = coalesced_threads()"
 
 inl reduce_coalesced forall el. (tile : ref coalesced_group) (f : el -> el -> el) (x : el) : el = $"cooperative_groups::reduce(!tile, !x, !f)"
-inl inclusive_scan_coalesced forall el. (tile : ref coalesced_group) neutral_element (f : el -> el -> el) (x : el) : el = 
-    inl x = $"cooperative_groups::inclusive_scan(!tile, !x, !f)"
-    if $"!tile.thread_rank() == 0" then neutral_element else x
-inl exclusive_scan_coalesced forall el. (tile : ref coalesced_group) (f : el -> el -> el) (x : el) : el = $"cooperative_groups::exclusive_scan(!tile, !x, !f)"
+inl inclusive_scan_coalesced forall el. (tile : ref coalesced_group) (f : el -> el -> el) (x : el) : el = $"cooperative_groups::inclusive_scan(!tile, !x, !f)"
+inl exclusive_scan_coalesced' forall el. (tile : ref coalesced_group) neutral_element (f : el -> el -> el) (x : el) : el * el = 
+    inl inclusive : el = $"cooperative_groups::inclusive_scan(!tile, !x, !f)"
+    inl sum = $"!tile shfl(!x,!tile.num_threads()-1)"
+    inl exclusive = $"!tile shfl_up(!inclusive,1)"
+    (if $"!tile.thread_rank() == 0" then neutral_element else exclusive), sum
+inl exclusive_scan_coalesced forall el. (tile : ref coalesced_group) neutral_element (f : el -> el -> el) (x : el) : el = 
+    inl exclusive = $"cooperative_groups::exclusive_scan(!tile, !x, !f)"
+    if $"!tile.thread_rank() == 0" then neutral_element else exclusive
 
 open tensorm
 
