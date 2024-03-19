@@ -41,7 +41,7 @@ inl reduce_2d forall dim a. neutral_element (f : a -> a -> a) (from : tensor (di
 
     __syncthreads():
 
-inl exclusive_scan_2d forall dim a. neutral_element (f : a -> a -> a) (from : tensor (dim * int) a) (to : tensor (dim * int) a) : () = 
+inl inclusive_scan_2d forall dim a. neutral_element (f : a -> a -> a) (from : tensor (dim * int) a) (to : tensor (dim * int) a) : () = 
     assert (from.dim = to.dim) "The dimensions of the two inputs to the inclusive scan kernel need to be the same."
     
     global "#include <cooperative_groups.h>"
@@ -62,14 +62,14 @@ inl exclusive_scan_2d forall dim a. neutral_element (f : a -> a -> a) (from : te
                 inl s = f (tensor_index i l_from) s
                 tensor_set i s l_from
                 s
-                ) (inclusive_scan_coalesced group f x |> f result)
+                ) (inclusive_scan_coalesced group neutral_element f x |> f result)
             |> ignore
             memcpy_sync (to, l_from)
             x |> reduce_coalesced group f |> f result |> loop._set result
 
     __syncthreads()
 
-inl inclusive_scan_2d forall dim a. neutral_element (f : a -> a -> a) (from : tensor (dim * int) a) (to : tensor (dim * int) a) : () = 
+inl exclusive_scan_2d forall dim a. neutral_element (f : a -> a -> a) (from : tensor (dim * int) a) (to : tensor (dim * int) a) : () = 
     assert (from.dim = to.dim) "The dimensions of the two inputs to the inclusive scan kernel need to be the same."
     
     global "#include <cooperative_groups.h>"
@@ -89,7 +89,7 @@ inl inclusive_scan_2d forall dim a. neutral_element (f : a -> a -> a) (from : te
             loop.for {from=0; nearTo=l_from.dim} (fun i s => 
                 tensor_set i s l_from
                 f (tensor_index i l_from) s
-                ) (inclusive_scan_coalesced group f x |> f result)
+                ) (inclusive_scan_coalesced group neutral_element f x |> f result)
             |> ignore
             memcpy_sync (to, l_from)
             x |> reduce_coalesced group f |> f result |> loop._set result
