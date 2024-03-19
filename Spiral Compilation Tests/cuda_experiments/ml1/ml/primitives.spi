@@ -20,3 +20,78 @@ inl map forall dim a b. (f : a -> b) (from : tensor dim a) (to : tensor dim b) :
 
     __syncthreads()
 
+inl reduce_2d forall dim a. neutral_element (f : a -> a -> a) (from : tensor (dim * int) a) (to : tensor dim a) : () = 
+    assert (fst from.dim = to.dim) "The first dimension of the input has to equal the dimension of the output in the reduce_2d kernel."
+    
+    global "#include <cooperative_groups.h>"
+    global "#include <cooperative_groups/reduce.h>"
+    open cooperative_groups
+    
+    loop.projective warps_in_block(fst from.dim) fun i =>
+        inl from = apply i from |> factorize_sizeof_16
+        inl result = loop._dup neutral_element
+        loop.projective threads_in_warp(fst from.dim) fun i =>
+            inl from = apply i from
+            inl l_from = tensor_create from.dim
+            memcpy_sync (l_from, from)
+            loop.for {from=0; nearTo=l_from.dim} (fun i => f (tensor_index i l_from)) neutral_element
+            |> f result |> loop._set result
+
+        tensor_set i (reduce_coalesced create_coalesced_threads() f result) to
+
+    __syncthreads():
+
+inl exclusive_scan_2d forall dim a. neutral_element (f : a -> a -> a) (from : tensor (dim * int) a) (to : tensor (dim * int) a) : () = 
+    assert (from.dim = to.dim) "The dimensions of the two inputs to the inclusive scan kernel need to be the same."
+    
+    global "#include <cooperative_groups.h>"
+    global "#include <cooperative_groups/reduce.h>"
+    open cooperative_groups
+    
+    loop.projective warps_in_block(fst from.dim) fun i =>
+        inl from,to = apply i from |> factorize_sizeof_16, apply i to |> factorize_sizeof_16
+        inl result = loop._dup neutral_element
+        loop.projective threads_in_warp(fst from.dim) fun i =>
+            inl group = create_coalesced_threads()
+            inl from,to = apply i from, apply i to
+            inl l_from = tensor_create from.dim
+
+            memcpy_sync (l_from, from)
+            inl x = loop.for {from=0; nearTo=l_from.dim} (fun i => f (tensor_index i l_from)) neutral_element
+            loop.for {from=0; nearTo=l_from.dim} (fun i s => 
+                inl s = f (tensor_index i l_from) s
+                tensor_set i s l_from
+                s
+                ) (inclusive_scan_coalesced group f x |> f result)
+            |> ignore
+            memcpy_sync (to, l_from)
+            x |> reduce_coalesced group f |> f result |> loop._set result
+
+    __syncthreads()
+
+inl inclusive_scan_2d forall dim a. neutral_element (f : a -> a -> a) (from : tensor (dim * int) a) (to : tensor (dim * int) a) : () = 
+    assert (from.dim = to.dim) "The dimensions of the two inputs to the inclusive scan kernel need to be the same."
+    
+    global "#include <cooperative_groups.h>"
+    global "#include <cooperative_groups/reduce.h>"
+    open cooperative_groups
+    
+    loop.projective warps_in_block(fst from.dim) fun i =>
+        inl from,to = apply i from |> factorize_sizeof_16, apply i to |> factorize_sizeof_16
+        inl result = loop._dup neutral_element
+        loop.projective threads_in_warp(fst from.dim) fun i =>
+            inl group = create_coalesced_threads()
+            inl from,to = apply i from, apply i to
+            inl l_from = tensor_create from.dim
+
+            memcpy_sync (l_from, from)
+            inl x = loop.for {from=0; nearTo=l_from.dim} (fun i => f (tensor_index i l_from)) neutral_element
+            loop.for {from=0; nearTo=l_from.dim} (fun i s => 
+                tensor_set i s l_from
+                f (tensor_index i l_from) s
+                ) (inclusive_scan_coalesced group f x |> f result)
+            |> ignore
+            memcpy_sync (to, l_from)
+            x |> reduce_coalesced group f |> f result |> loop._set result
+
+    __syncthreads()

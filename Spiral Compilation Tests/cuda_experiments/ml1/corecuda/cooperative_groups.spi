@@ -42,6 +42,10 @@ inl create_labeled_partition forall parent {tileable}. (x : ref parent) (i : int
 inl create_binary_partition forall parent {tileable}. (x : ref parent) (i : bool) : ref coalesced_group = $"auto v$ = binary_partition(!x,!i)"
 inl create_coalesced_threads() : ref coalesced_group = $"auto v$ = coalesced_threads()"
 
+inl reduce_coalesced forall el. (tile : ref coalesced_group) (f : el -> el -> el) (x : el) : el = $"cooperative_groups::reduce(!tile, !x, !f)"
+inl inclusive_scan_coalesced forall el. (tile : ref coalesced_group) (f : el -> el -> el) (x : el) : el = $"cooperative_groups::inclusive_scan(!tile, !x, !f)"
+inl exclusive_scan_coalesced forall el. (tile : ref coalesced_group) (f : el -> el -> el) (x : el) : el = $"cooperative_groups::exclusive_scan(!tile, !x, !f)"
+
 open tensorm
 
 // inl memcpy_async forall parent float. (group : ref (thread_block_tile parent 1)) ({from to} : {from : tensor int float; to : tensor int float}) =
