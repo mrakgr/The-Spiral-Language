@@ -20,7 +20,8 @@ inl map forall dim a b. (f : a -> b) (from : tensor dim a) (to : tensor dim b) :
 
     __syncthreads()
 
-inl reduce_2d forall dim a. neutral_element (f : a -> a -> a) (from : tensor (dim * int) a) (to : tensor dim a) : () = 
+inl uncurry f (a, b) = f a b 
+inl reduce_2d forall dim a. neutral_element (f : a -> a -> a) (from : tensor (dim * int) a) (to : tensor dim a) : () =
     assert (fst from.dim = to.dim) "The first dimension of the input has to equal the dimension of the output in the reduce_2d kernel."
     
     global "#include <cooperative_groups.h>"
@@ -37,15 +38,15 @@ inl reduce_2d forall dim a. neutral_element (f : a -> a -> a) (from : tensor (di
             loop.for {from=0; nearTo=l_from.dim} (fun i => f (tensor_index i l_from)) neutral_element
             |> f result |> loop._set result
 
-        tensor_set i (reduce_coalesced create_coalesced_threads() f result) to
+        tensor_set i (reduce_coalesced create_coalesced_threads() (uncurry f) result) to
 
     __syncthreads()
 
-inl inclusive_scan_2d forall dim a. neutral_element (f : a -> a -> a) (from : tensor (dim * int) a) (to : tensor (dim * int) a) : () = 
+inl scan_2d_template forall dim a. is_inclusive neutral_element (f : a -> a -> a) (from : tensor (dim * int) a) (to : tensor (dim * int) a) : () = 
     assert (from.dim = to.dim) "The dimensions of the two inputs to the inclusive scan kernel need to be the same."
     
     global "#include <cooperative_groups.h>"
-    global "#include <cooperative_groups/reduce.h>"
+    global "#include <cooperative_groups/scan.h>"
     open cooperative_groups
     
     loop.projective warps_in_block(fst from.dim) fun i =>
@@ -59,11 +60,17 @@ inl inclusive_scan_2d forall dim a. neutral_element (f : a -> a -> a) (from : te
             memcpy_sync (l_from, from)
             inl prefix,sum = 
                 loop.for {from=0; nearTo=l_from.dim} (fun i => f (tensor_index i l_from)) neutral_element
-                |> exclusive_scan_coalesced' group neutral_element f
+                |> exclusive_scan_coalesced' group neutral_element (uncurry f)
+            // semaphore.write_ln_device {i result prefix sum}
             loop.for {from=0; nearTo=l_from.dim} (fun i s => 
-                inl s = f (tensor_index i l_from) s
-                tensor_set i s l_from
-                s
+                if is_inclusive then
+                    inl s = f (tensor_index i l_from) s
+                    tensor_set i s l_from
+                    s
+                else
+                    inl x = tensor_index i l_from
+                    tensor_set i s l_from
+                    f x s
                 ) (f result prefix)
             |> ignore
             memcpy_sync (to, l_from)
@@ -71,29 +78,26 @@ inl inclusive_scan_2d forall dim a. neutral_element (f : a -> a -> a) (from : te
 
     __syncthreads()
 
-// inl exclusive_scan_2d forall dim a. neutral_element (f : a -> a -> a) (from : tensor (dim * int) a) (to : tensor (dim * int) a) : () = 
-//     assert (from.dim = to.dim) "The dimensions of the two inputs to the inclusive scan kernel need to be the same."
-    
-//     global "#include <cooperative_groups.h>"
-//     global "#include <cooperative_groups/reduce.h>"
-//     open cooperative_groups
-    
-//     loop.projective warps_in_block(fst from.dim) fun i =>
-//         inl from,to = apply i from |> factorize_sizeof_16, apply i to |> factorize_sizeof_16
-//         inl result = loop._dup neutral_element
-//         loop.projective threads_in_warp(fst from.dim) fun i =>
-//             inl group = create_coalesced_threads()
-//             inl from,to = apply i from, apply i to
-//             inl l_from = tensor_create from.dim
+inl inclusive_scan_2d forall dim a. : a -> (a -> a -> a) -> tensor (dim * int) a -> tensor (dim * int) a -> () = scan_2d_template true
+inl exclusive_scan_2d forall dim a. : a -> (a -> a -> a) -> tensor (dim * int) a -> tensor (dim * int) a -> () = scan_2d_template false
 
-//             memcpy_sync (l_from, from)
-//             inl x = loop.for {from=0; nearTo=l_from.dim} (fun i => f (tensor_index i l_from)) neutral_element
-//             loop.for {from=0; nearTo=l_from.dim} (fun i s => 
-//                 tensor_set i s l_from
-//                 f (tensor_index i l_from) s
-//                 ) (exclusive_scan_coalesced group neutral_element f x |> f result)
-//             |> ignore
-//             memcpy_sync (to, l_from)
-//             x |> reduce_coalesced group f |> f result |> loop._set result
+inl test1() =
+    inl m,n : int * int = 3, 36*4
+    // inl [ma; mb; mc] = listm.map cupy.random_normal{mean=0; std=1} ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
+    inl input : _ _ int = cupy.arange{from=0; nearTo=m,n; by=1}
+    // inl input : _ _ int = cupy.ones (m,n)
+    inl output_inclusive : _ _ int = cupy.zeros (m,n)
+    inl output_exclusive : _ _ int = cupy.zeros (m,n)
+    inl output_reduce : _ _ int = cupy.zeros m
+    run fun _ =>
+        map ((+) 1) input input
+        exclusive_scan_2d 0 (+) input output_exclusive
+        inclusive_scan_2d 0 (+) input output_inclusive
+        reduce_2d 0 (+) input output_reduce
+    printing.tensor_print_ln 1024 input
+    printing.tensor_print_ln 1024 output_exclusive
+    printing.tensor_print_ln 1024 output_inclusive
+    printing.tensor_print_ln 1024 output_reduce
+    ()
 
-//     __syncthreads()
+inl main() = test1()

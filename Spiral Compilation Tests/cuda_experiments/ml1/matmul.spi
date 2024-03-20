@@ -1,6 +1,7 @@
 open corebase
 open corecuda
 open tensorm
+open rangem
 
 nominal gemm_config m_frag n_frag k_frag frag_in a_layout b_layout float = 
     {
