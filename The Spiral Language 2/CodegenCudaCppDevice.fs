@@ -262,7 +262,7 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
         | LitUInt32 x -> sprintf "%iul" x
         | LitUInt64 x -> sprintf "%iull" x
         | LitFloat32 x -> 
-            if x = infinityf then "HUGE_VALF" // nan/inf macros are defined in cmath
+            if x = infinityf then "HUGE_VALF"
             elif x = -infinityf then "-HUGE_VALF"
             elif Single.IsNaN x then "NAN"
             else x.ToString("R") |> add_dec_point |> sprintf "%sf"
@@ -445,13 +445,13 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
             | ShiftRight, [a;b] -> sprintf "%s >> %s" (tup_data a) (tup_data b)
 
             | Neg, [x] -> sprintf "-%s" (tup_data x)
-            | Log, [x] -> import "cmath"; sprintf "log(%s)" (tup_data x)
-            | Exp, [x] -> import "cmath"; sprintf "exp(%s)" (tup_data x)
-            | Tanh, [x] -> import "cmath"; sprintf "tanh(%s)" (tup_data x)
-            | Sqrt, [x] -> import "cmath"; sprintf "sqrt(%s)" (tup_data x)
-            | Sin, [x] -> import "cmath"; sprintf "sin(%s)" (tup_data x)
-            | Cos, [x] -> import "cmath"; sprintf "cos(%s)" (tup_data x)
-            | NanIs, [x] -> import "cmath"; sprintf "isnan(%s)" (tup_data x)
+            | Log, [x] -> sprintf "log(%s)" (tup_data x)
+            | Exp, [x] -> sprintf "exp(%s)" (tup_data x)
+            | Tanh, [x] -> sprintf "tanh(%s)" (tup_data x)
+            | Sqrt, [x] -> sprintf "sqrt(%s)" (tup_data x)
+            | Sin, [x] -> sprintf "sin(%s)" (tup_data x)
+            | Cos, [x] -> sprintf "cos(%s)" (tup_data x)
+            | NanIs, [x] -> sprintf "isnan(%s)" (tup_data x)
             | UnionTag, [DV(L(i,YUnion l)) as x] -> 
                 match l.Item.layout with
                 | UHeap -> "->tag"
