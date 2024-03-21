@@ -262,14 +262,14 @@ let codegen (globals : _ ResizeArray, fwd_dcls : _ ResizeArray, types : _ Resize
         | LitUInt32 x -> sprintf "%iul" x
         | LitUInt64 x -> sprintf "%iull" x
         | LitFloat32 x -> 
-            if x = infinityf then "HUGE_VALF"
-            elif x = -infinityf then "-HUGE_VALF"
-            elif Single.IsNaN x then "NAN"
+            if x = infinityf then "1.0f / 0.0f"
+            elif x = -infinityf then "-1.0f / 0.0f"
+            elif Single.IsNaN x then "0.0f / 0.0f"
             else x.ToString("R") |> add_dec_point |> sprintf "%sf"
         | LitFloat64 x ->
-            if x = infinity then "HUGE_VAL"
-            elif x = -infinity then "-HUGE_VAL"
-            elif Double.IsNaN x then "NAN"
+            if x = infinity then "1.0 / 0.0"
+            elif x = -infinity then "-1.0 / 0.0"
+            elif Double.IsNaN x then "0.0 / 0.0"
             else x.ToString("R") |> add_dec_point
         | LitString x -> lit_string x
         | LitChar x -> 

@@ -4,11 +4,19 @@ template <typename el, int dim> struct array { el v[dim]; };
 #include <cooperative_groups/reduce.h>
 struct Tuple0;
 typedef float (* Fun0)(float, float);
+struct Tuple1;
+typedef Tuple1 (* Fun1)(Tuple1, Tuple1);
 struct Tuple0 {
     long v0;
     float v1;
     __device__ Tuple0(long t0, float t1) : v0(t0), v1(t1) {}
     __device__ Tuple0() = default;
+};
+struct Tuple1 {
+    float v0;
+    long v1;
+    __device__ Tuple1(float t0, long t1) : v0(t0), v1(t1) {}
+    __device__ Tuple1() = default;
 };
 __device__ inline bool while_method_0(long v0){
     bool v1;
@@ -36,6 +44,16 @@ __device__ float ClosureMethod1(float tup0, float tup1){
     float v2;
     v2 = v0 + v1;
     return v2;
+}
+__device__ Tuple1 ClosureMethod2(Tuple1 tup0, Tuple1 tup1){
+    float v0 = tup0.v0; long v1 = tup0.v1; float v2 = tup1.v0; long v3 = tup1.v1;
+    bool v4;
+    v4 = v0 > v2;
+    if (v4){
+        return Tuple1(v0, v1);
+    } else {
+        return Tuple1(v2, v3);
+    }
 }
 extern "C" __global__ void entry0(float * v0, float * v1, float * v2, float * v3, long * v4) {
     auto v5 = cooperative_groups::this_thread_block();
@@ -661,7 +679,6 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2, float * v3
     long v241;
     v241 = v240 + v239;
     assert("Tensor range check" && 0 <= v234 && v234 < 128l);
-    assert("Tensor range check" && 0 <= v233 && v233 < 4l);
     long v242;
     v242 = 0l;
     while (while_method_2(v242)){
@@ -670,7 +687,6 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2, float * v3
         v244 = 2048l * v242;
         long v245;
         v245 = v244 + v241;
-        assert("Tensor range check" && 0 <= v242 && v242 < 1l);
         float v246[4l];
         long v247[4l];
         long v248;
@@ -765,25 +781,48 @@ extern "C" __global__ void entry0(float * v0, float * v1, float * v2, float * v3
             }
             v255 += 1l ;
         }
-        long v280;
-        v280 = 0l;
-        while (while_method_2(v280)){
-            assert("Tensor range check" && 0 <= v280 && v280 < 1l);
-            long v282;
-            v282 = 16l * v280;
-            long v283;
-            v283 = v282 + v245;
-            assert("Tensor range check" && 0 <= v280 && v280 < 1l);
+        float v280; long v281;
+        Tuple1 tmp1 = Tuple1(-1.0f / 0.0f, 0l);
+        v280 = tmp1.v0; v281 = tmp1.v1;
+        long v282;
+        v282 = 0l;
+        while (while_method_2(v282)){
             long v284;
-            v284 = 4l * v280;
-            int4* v285;
-            v285 = reinterpret_cast<int4*>(v247 + v284);
-            int4* v286;
-            v286 = reinterpret_cast<int4*>(v4 + v283);
-            assert("Pointer alignment check" && (unsigned long long)(v285) % 4l == 0 && (unsigned long long)(v286) % 4l == 0);
-            *v286 = *v285;
-            v280 += 1l ;
+            v284 = 0l;
+            while (while_method_1(v284)){
+                assert("Tensor range check" && 0 <= v282 && v282 < 1l);
+                assert("Tensor range check" && 0 <= v284 && v284 < 4l);
+                long v286;
+                v286 = 4l * v282;
+                long v287;
+                v287 = v286 + v284;
+                float v288;
+                v288 = v246[v287];
+                long v289;
+                v289 = v247[v287];
+                bool v290;
+                v290 = v288 > v280;
+                float v291; long v292;
+                if (v290){
+                    v291 = v288; v292 = v289;
+                } else {
+                    v291 = v280; v292 = v281;
+                }
+                v280 = v291;
+                v281 = v292;
+                v284 += 1l ;
+            }
+            v282 += 1l ;
         }
+        Fun1 v293;
+        v293 = ClosureMethod2;
+        float v294; long v295;
+        Tuple1 tmp2 = cooperative_groups::reduce(v238, Tuple1(v280, v281), v293);
+        v294 = tmp2.v0; v295 = tmp2.v1;
+        assert("Tensor range check" && 0 <= v242 && v242 < 1l);
+        long v296;
+        v296 = v242 + v234;
+        v4[v296] = v295;
         v242 += 1l ;
     }
     __syncthreads();
@@ -806,12 +845,8 @@ def method0(v0 : i32) -> bool:
     v1 = v0 < 128
     del v0
     return v1
-def method1(v0 : i32) -> bool:
-    v1 = v0 < 16
-    del v0
-    return v1
 def main():
-    v0 = cp.arange(0,2048,1,dtype=cp.float32)
+    v0 = cp.random.normal(0.0,1.0,2048,cp.float32)
     v1 = v0.size
     v2 = 2048 == v1
     del v1
@@ -859,88 +894,47 @@ def main():
     else:
         pass
     del v17, v18
-    v20 = cp.zeros(2048,dtype=cp.int32)
-    v21 = v20.size
-    v22 = 2048 == v21
+    pass
+    v20 = cp.empty(128,dtype=cp.int32)
+    v21 = 0
+    v22 = raw_module.get_function(f"entry{v21}")
     del v21
-    v23 = v22 == False
-    if v23:
-        v24 = "The total length of the reshaped tensor dimension must match that of the original one."
-        assert v22, v24
-        del v24
-    else:
-        pass
-    del v22, v23
-    v25 = 0
-    v26 = raw_module.get_function(f"entry{v25}")
-    del v25
-    v26.max_dynamic_shared_size_bytes = 0 
-    v26((1,),(512,),(v0, v5, v10, v15, v20),shared_mem=0)
-    del v0, v5, v10, v15, v26
-    v27 = 0
+    v22.max_dynamic_shared_size_bytes = 0 
+    v22((1,),(512,),(v0, v5, v10, v15, v20),shared_mem=0)
+    del v0, v5, v10, v15, v22
+    v23 = 0
     print('[', end="")
-    v29 = 0
-    while method0(v29):
-        v31 = v27
-        v32 = v31 >= 1024
-        del v31
-        if v32:
-            v35 = " ..."
-            print(v35, end="")
-            del v35
+    v25 = 0
+    while method0(v25):
+        v27 = v23
+        v28 = v27 >= 1024
+        del v27
+        if v28:
+            v31 = " ..."
+            print(v31, end="")
+            del v31
             break
         else:
             pass
+        del v28
+        v32 = v25 == 0
+        v33 = v32 != True
         del v32
-        v36 = v29 == 0
-        v37 = v36 != True
-        del v36
-        if v37:
-            v40 = "; "
-            print(v40, end="")
-            del v40
+        if v33:
+            v36 = "; "
+            print(v36, end="")
+            del v36
         else:
             pass
+        del v33
+        v37 = v23 + 1
+        v23 = v37
         del v37
-        print('[', end="")
-        v42 = 0
-        while method1(v42):
-            v44 = v27
-            v45 = v44 >= 1024
-            del v44
-            if v45:
-                v48 = " ..."
-                print(v48, end="")
-                del v48
-                break
-            else:
-                pass
-            del v45
-            v49 = v42 == 0
-            v50 = v49 != True
-            del v49
-            if v50:
-                v53 = "; "
-                print(v53, end="")
-                del v53
-            else:
-                pass
-            del v50
-            v54 = v27 + 1
-            v27 = v54
-            del v54
-            v55 = v29 * 16
-            v56 = v55 + v42
-            del v55
-            v57 = v20[v56].item()
-            del v56
-            print(v57, end="")
-            del v57
-            v42 += 1 
-        del v42
-        print(']', end="")
-        v29 += 1 
-    del v20, v27, v29
+        v38 = v20[v25].item()
+        print(v38, end="")
+        del v38
+        v25 += 1 
+    del v20, v23, v25
     print(']', end="")
     print()
     return 
