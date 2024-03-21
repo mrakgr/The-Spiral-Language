@@ -3,8 +3,12 @@ open loop
 inl threads_in_warp nearTo : range _ = {nearTo from = thread_index() % threads_per_warp(); by = threads_per_warp()}
 inl threads_in_block nearTo : range _ = {nearTo from = thread_index(); by = threads_per_block()}
 inl threads_in_grid nearTo : range _ = {nearTo from = thread_index() + block_index() * threads_per_block(); by = threads_per_block() * blocks_per_grid()}
-inl warps_in_block nearTo : range _ = {nearTo from = thread_index() / threads_per_warp(); by = threads_per_block() / threads_per_warp()}
-inl warps_in_grid nearTo : range _ = {nearTo from = (thread_index() + block_index() * threads_per_block()) / threads_per_warp(); by = threads_per_block() * blocks_per_grid() / threads_per_warp()}
+inl warps_in_block nearTo : range _ = 
+    assert (threads_per_block() % threads_per_warp() = 0) "The number of threads in a block should be divisible by the number of threads in a warp."
+    {nearTo from = thread_index() / threads_per_warp(); by = threads_per_block() / threads_per_warp()}
+inl warps_in_grid nearTo : range _ = 
+    assert (threads_per_block() % threads_per_warp() = 0) "The number of threads in a block should be divisible by the number of threads in a warp."
+    {nearTo from = (thread_index() + block_index() * threads_per_block()) / threads_per_warp(); by = threads_per_block() * blocks_per_grid() / threads_per_warp()}
 inl blocks_in_grid nearTo : range _ = {nearTo from = block_index(); by = blocks_per_grid()}
 inl linear nearTo : range _ = {nearTo from = 0; by = 1}
 

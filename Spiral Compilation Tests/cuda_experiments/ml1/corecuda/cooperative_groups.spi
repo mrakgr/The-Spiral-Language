@@ -10,6 +10,8 @@ inl thread_block_thread_rank() : int = $"cooperative_groups::thread_block::threa
 
 nominal grid_group = $"cooperative_groups::grid_group"
 nominal thread_block = $"cooperative_groups::thread_block"
+nominal thread_group = $"cooperative_groups::thread_group"
+nominal thread_block_tile' = $"cooperative_groups::thread_group"
 nominal thread_block_tile parent size = $"cooperative_groups::thread_block_tile<@size, `parent>"
 nominal thread = $"cooperative_groups::thread_block_tile<1>"
 nominal coalesced_group = $"cooperative_groups::coalesced_group"
@@ -18,6 +20,8 @@ prototype groupable t : t -> ()
 instance groupable thread = fun _ => ()
 instance groupable thread_block = fun _ => ()
 instance groupable coalesced_group = fun _ => ()
+instance groupable thread_group = fun _ => ()
+instance groupable thread_block_tile' = fun _ => ()
 instance groupable thread_block_tile parent size = fun _ => ()
 instance groupable grid_group = fun _ => ()
 
@@ -37,20 +41,35 @@ inl create_grid() : ref grid_group = $"auto v$ = cooperative_groups::this_grid()
 inl create_block() : ref thread_block = $"auto v$ = cooperative_groups::this_thread_block()"
 inl create_thread() : ref thread = $"auto v$ = cooperative_groups::this_thread()"
 inl create_thread_block_tile forall parent{tileable} size. (x : ref parent) : ref (thread_block_tile parent size) = $"cooperative_groups::thread_block_tile<@size, `parent> v$ = cooperative_groups::tiled_partition<@size>(!x)"
+inl create_thread_group_from_thread_block (x : ref thread_block) (size : int) : ref thread_block_tile' =
+    assert (lit_is size) "The size has to be a compile-time constant."
+    assert (threads_per_block() % size = 0) "The block size has to be divisible by the thread group size."
+    if threads_per_block() = size then $"auto & v$ = !x"
+    else $"cooperative_groups::thread_block_tile<!size, `thread_block> v$ = cooperative_groups::tiled_partition<!size>(!x)"
+
 
 // These can only be created from tiles of size 32 or less.
 inl create_labeled_partition forall parent {tileable}. (x : ref parent) (i : int) : ref coalesced_group = $"auto v$ = cooperative_groups::labeled_partition(!x,!i)"
 inl create_binary_partition forall parent {tileable}. (x : ref parent) (i : bool) : ref coalesced_group = $"auto v$ = cooperative_groups::binary_partition(!x,!i)"
 inl create_coalesced_threads() : ref coalesced_group = $"auto v$ = cooperative_groups::coalesced_threads()"
 
-inl reduce_coalesced forall el. (tile : ref coalesced_group) (f : el * el -> el) (x : el) : el = $"cooperative_groups::reduce(!tile, !x, !f)"
-inl inclusive_scan_coalesced forall el. (tile : ref coalesced_group) (f : el * el -> el) (x : el) : el = $"cooperative_groups::inclusive_scan(!tile, !x, !f)"
-inl exclusive_scan_coalesced' forall el. (tile : ref coalesced_group) neutral_element (f : el * el -> el) (x : el) : el * el = 
+inl reduce_thread_block_tile' forall el. (tile : ref thread_block_tile') (f : el -> el -> el) (x : el) : el = 
+    inl f (arg a), (arg b) = f a b 
+    $"cooperative_groups::reduce(!tile, !x, !f)"
+inl reduce_coalesced forall el. (tile : ref coalesced_group) (f : el -> el -> el) (x : el) : el = 
+    inl f (arg a), (arg b) = f a b 
+    $"cooperative_groups::reduce(!tile, !x, !f)"
+inl inclusive_scan_coalesced forall el. (tile : ref coalesced_group) (f : el -> el -> el) (x : el) : el = 
+    inl f (arg a), (arg b) = f a b 
+    $"cooperative_groups::inclusive_scan(!tile, !x, !f)"
+inl exclusive_scan_coalesced' forall el. (tile : ref coalesced_group) neutral_element (f : el -> el -> el) (x : el) : el * el = 
+    inl f (arg a), (arg b) = f a b 
     inl inclusive : el = $"cooperative_groups::inclusive_scan(!tile, !x, !f)"
     inl sum = $"!tile.shfl(!inclusive,!tile.num_threads()-1)"
     inl exclusive = $"!tile.shfl_up(!inclusive,1)"
     (if $"!tile.thread_rank() == 0" then neutral_element else exclusive), sum
-inl exclusive_scan_coalesced forall el. (tile : ref coalesced_group) neutral_element (f : el * el -> el) (x : el) : el = 
+inl exclusive_scan_coalesced forall el. (tile : ref coalesced_group) neutral_element (f : el -> el -> el) (x : el) : el = 
+    inl f (arg a), (arg b) = f a b 
     inl exclusive = $"cooperative_groups::exclusive_scan(!tile, !x, !f)"
     if $"!tile.thread_rank() == 0" then neutral_element else exclusive
 

@@ -417,7 +417,7 @@ extern "C" __global__ void entry0(long * v0, long * v1, long * v2, long * v3) {
             assert("Pointer alignment check" && (unsigned long long)(v149) % 4l == 0 && (unsigned long long)(v150) % 4l == 0);
             *v150 = *v149;
             long v151; long v152;
-            Tuple0 tmp4 = Tuple0(0l, 0l);
+            Tuple0 tmp4 = Tuple0(0l, v135);
             v151 = tmp4.v0; v152 = tmp4.v1;
             while (while_method_1(v151)){
                 assert("Tensor range check" && 0 <= v151 && v151 < 4l);
@@ -428,18 +428,16 @@ extern "C" __global__ void entry0(long * v0, long * v1, long * v2, long * v3) {
                 v152 = v155;
                 v151 += 1l ;
             }
-            long v156;
-            v156 = v135 + v152;
-            v135 = v156;
+            v135 = v152;
             v138 += 32l ;
         }
-        auto v157 = cooperative_groups::coalesced_threads();
-        Fun0 v158;
-        v158 = ClosureMethod0;
-        long v159;
-        v159 = cooperative_groups::reduce(v157, v135, v158);
+        auto v156 = cooperative_groups::coalesced_threads();
+        Fun0 v157;
+        v157 = ClosureMethod0;
+        long v158;
+        v158 = cooperative_groups::reduce(v156, v135, v157);
         assert("Tensor range check" && 0 <= v126 && v126 < 3l);
-        v3[v126] = v159;
+        v3[v126] = v158;
         v126 += 16l ;
     }
     __syncthreads();
