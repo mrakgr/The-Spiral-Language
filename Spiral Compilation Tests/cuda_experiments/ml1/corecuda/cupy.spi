@@ -26,12 +26,12 @@ inl random_normal forall dim float. ({mean std} : {mean : float; std  : float}) 
     inl len : int = loop.prod dim
     real
         typecase cupy_type float with ~ct =>
-        $"cp.random.normal(!mean,!std,!len,`ct)" : array float
+        $"cp.random.normal(!mean,!std,!len,dtype=`ct)" : array float
     |> fromArray |> reshape (const dim)
 
 inl random_uniform forall dim float. dim : tensor dim float =
     inl len : int = loop.prod dim
     real
         typecase cupy_type float with ~ct =>
-        $"cp.random.uniform(!len,`ct)" : array float
+        $"cp.random.uniform(size=!len,dtype=`ct)" : array float
     |> fromArray |> reshape (const dim)
