@@ -317,6 +317,27 @@ inl apply_proj forall a b el. ({from by nearTo=t} : loop.range (tensor (a * b) e
     assert (prod dim = by) "The range being projected into has to equal the tensor's first dimension."
     apply (proj dim from) t
 
+// Replicates the first tensor dimension for an arbitrary amount of times with a stride of 0.
+inl replicate_fst forall a b c el. (dim : b) (t : tensor (a * c) el) : tensor ((a * b) * c) el =
+    assert_long_length (loop.prod dim) dim
+    tensor {
+        dim = (fst t.dim, dim), snd t.dim
+        bodies = real
+            open real_core
+            map (fun (tensor_body r as x) =>
+                typecase `x with
+                | tensor_body (a * b) ~el => tensor_body `((a * b) * c) `el {r with stride #= fun a,b => 
+                    (a, map (const 0) dim), b
+                    }
+                ) t.bodies
+    }
+
+// Replicates the second tensor dimension for an arbitrary amount of times with a stride of 0.
+inl replicate_snd forall a b c el. (dim : b) : tensor (a * c) el -> tensor (a * c * b) el = swap >> replicate_fst dim >> swap
+
+// Replicates the tensor dimension for an arbitrary amount of times with a stride of 0.
+inl replicate forall a b el. (dim : b) : tensor a el -> tensor (a * b) el = reorder (fun x => x, ()) >> replicate_fst dim >> reorder fst
+
 
 // Tests
 // 

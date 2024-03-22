@@ -66,6 +66,13 @@ type template_2d_config = {
     threads_per_miniblock : int
     miniblock : ref cooperative_groups.thread_block_tile'
     }
+
+inl local_map forall a b. f (from : tensor (int * int) a) : tensor (int * int) b = 
+    inl to = tensor_create from.dim
+    loop.linear from.dim fun i =>
+        tensor_set i (f (tensor_index i from)) to
+    to
+
 inl block_reduce_2d forall b. 
         ({threads_per_miniblock miniblock} : template_2d_config)
         (neutral_element : b) 
@@ -78,11 +85,11 @@ inl block_reduce_2d forall b.
     if threads_per_miniblock <= threads_per_warp() then
         reduce_thread_block_tile' miniblock f result
     else
-        open tensor_cuda
+        inl group = create_coalesced_threads()
         // Todo: replace `reduce_coalesced` with `reduce_thread_block_tile'`. 
-        inl warp_result = reduce_coalesced create_coalesced_threads() f result
+        inl warp_result = reduce_coalesced group f result
         inl warps_in_block = warps_in_block()
-        inl shared = tensor_create_shared (threads_per_block() / threads_per_miniblock, threads_per_miniblock / threads_per_warp())
+        inl shared = tensor_cuda.tensor_create_shared (threads_per_block() / threads_per_miniblock, threads_per_miniblock / threads_per_warp())
         assert (loop.prod shared.dim = warps_in_block.by) "The product of shared tensor dimensions should equal the number of warps."
 
         inl index_warp = loop.proj shared.dim warps_in_block.from
@@ -90,20 +97,79 @@ inl block_reduce_2d forall b.
         tensor_set index_warp warp_result shared
 
         sync miniblock
-        
-        inl threads_in_warp = threads_in_warp()
-        reduce_coalesced create_coalesced_threads() f (
-            if threads_in_warp.from < snd shared.dim then
-                tensor_index (fst index_warp, threads_in_warp.from) shared
-            else
-                neutral_element
-            )
 
-inl local_map forall a b. f (from : tensor (int * int) a) : tensor (int * int) b = 
+        inl threads_in_warp = threads_in_warp()
+        inl result = if threads_in_warp.from < snd shared.dim then tensor_index (fst index_warp, threads_in_warp.from) shared else neutral_element
+        
+        sync miniblock
+        
+        reduce_coalesced group f result
+
+inl block_exclusive_scan_2d forall b. 
+        ({threads_per_miniblock miniblock} : template_2d_config)
+        (neutral_element : b) 
+        (f : b -> b -> b) 
+        (result : b) =
+    global "#include <cooperative_groups.h>"
+    global "#include <cooperative_groups/scan.h>"
+    open cooperative_groups
+
+    // Returns the actual block prefix as well as the final sum.
+    if threads_per_miniblock <= threads_per_warp() then
+        exclusive_scan_thread_block_tile' miniblock neutral_element f result
+    else
+        inl group = create_coalesced_threads()
+        inl warps_in_block = warps_in_block()
+        inl shared = tensor_cuda.tensor_create_shared (threads_per_block() / threads_per_miniblock, threads_per_miniblock / threads_per_warp())
+        assert (loop.prod shared.dim = warps_in_block.by) "The product of shared tensor dimensions should equal the number of warps."
+
+        inl warp_prefix,warp_sum = exclusive_scan_coalesced' group neutral_element f result
+
+        inl index_warp = loop.proj shared.dim warps_in_block.from
+        // All the warps in a block store their intermediate results into the shared tensor.
+        tensor_set index_warp warp_sum shared
+
+        sync miniblock
+
+        inl threads_in_warp = threads_in_warp()
+        inl warp_sum = if threads_in_warp.from < snd shared.dim then tensor_index (fst index_warp, threads_in_warp.from) shared else neutral_element
+        
+        sync miniblock
+        
+        inl block_prefix_in_thread,block_sum = exclusive_scan_coalesced' group neutral_element f warp_sum
+        f (shuffle_coalesced group block_prefix_in_thread (snd index_warp)) warp_prefix, block_sum
+
+
+inl local_scan forall a. is_inclusive (config : template_2d_config) (neutral_element : a) f (from : tensor (int * int) a) : tensor (int * int) a = 
     inl to = tensor_create from.dim
-    loop.linear from.dim fun i =>
-        tensor_set i (f (tensor_index i from)) to
+    inl previous_block_sum = loop._dup neutral_element
+    loop.linear (fst from.dim) fun i =>
+        inl from, to = apply i from, apply i to
+
+        inl block_prefix,block_sum = 
+            // Reduces the individual thread elements.
+            loop.for {from=0; nearTo=from.dim} (fun i => f (tensor_index i from)) neutral_element
+            // Scans the blockwise results.
+            |> block_exclusive_scan_2d config neutral_element f
+
+        // Scans the individual thread elements with the calculated prefix.
+        loop.for {from=0; nearTo=from.dim} (fun i s => 
+            if is_inclusive then
+                inl s = f (tensor_index i from) s
+                tensor_set i s to
+                s
+            else
+                inl x = tensor_index i from
+                tensor_set i s to
+                f x s
+            ) (f previous_block_sum block_prefix)
+        |> ignore
+        loop._set previous_block_sum (f previous_block_sum block_sum)
     to
+
+inl local_inclusive_scan config = local_scan true config
+inl local_exclusive_scan config = local_scan false config
+inl local_exclusive_scan_sum config = local_exclusive_scan config 0 (+)
 
 inl local_reduce forall a. config (neutral_element : a) f (from : tensor (int * int) a) : a = 
     // Reduces the individual thread elements. 
@@ -119,16 +185,6 @@ inl local_sum config = local_reduce config 0 (+)
 inl local_prod config = local_reduce config 1 (*)
 inl local_max config = local_reduce config limit.min max
 inl local_min config = local_reduce config limit.max min
-
-union template_2d_mode dim a b =
-    | ModeMap : {
-        f : template_2d_config -> tensor (int * int) a -> tensor (int * int) int -> tensor (int * int) b
-        to : tensor (dim * int) b
-    }
-    | ModeReduce : {
-        f : template_2d_config -> tensor (int * int) a -> tensor (int * int) int -> tensor (int * int) b
-        to : tensor dim b
-    }
 
 inl template_map_2d forall dim a b.
         (block : ref cooperative_groups.thread_block)
@@ -322,15 +378,18 @@ inl test1() =
     ()
 
 inl test2() =
-    inl m,n : int * int = 64*2, 16
+    inl m,n : int * int = 2, 512 * 2
     // inl [ma; mb; mc] = listm.map cupy.random_normal{mean=0; std=1} ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
     // inl input : _ _ float = cupy.arange{from=0; nearTo=m,n; by=1}
     inl input : _ _ float = cupy.random_normal{mean=0; std=1} (m,n)
+    inl input_action : _ _ float = cupy.random_uniform m |> replicate n
     // inl input : _ _ int = cupy.ones (m,n)
-    inl output_reduce = cupy.zeros 1
-    inl output_softmax = cupy.zeros (m,n)
-    inl output_ln = cupy.zeros (m,n)
+    inl output_reduce = tensor_create 1
+    inl output_softmax = tensor_create (m,n)
+    inl output_softmax_scan = tensor_create (m,n)
+    inl output_ln = tensor_create (m,n)
     inl output_argmax = tensor_create m
+    inl output_sampling = tensor_create m
     run fun _ =>
         inl block = cooperative_groups.create_block()
         // map ((+) 1) input input
@@ -354,12 +413,31 @@ inl test2() =
             local_reduce config (limit.min, 0) (fun a b => if fst a > fst b then a else b) x
             |> snd
             ) input output_argmax
-
+        // numerically stable softmax (scan)
+        template_map_2d block (fun config x _ => 
+            inl average = local_sum config x / conv n
+            inl x = local_map (fun x => exp (x - average)) x
+            inl sum = local_sum config x
+            inl x' = local_map (fun x => x / sum) x
+            inl x = local_exclusive_scan_sum config x'
+            zip x' x
+            ) input output_softmax_scan
+        // discrete sampling
+        template_reduce_2d block (fun config x i =>
+            inl (x,prob) = unzip x  
+            inl average = local_sum config x / conv n
+            inl x = local_map (fun x => exp (x - average)) x
+            inl sum = local_sum config x
+            inl x = 
+                local_map (fun x => x / sum) x
+                |> local_exclusive_scan_sum config
+            local_reduce config (0 0) (fun _ => ) (zip x (zip i prob))
+            ) (zip input input_action) output_sampling
     // printing.tensor_print_ln 1024 input
     // printing.tensor_print_ln 1024 output_reduce
     // printing.tensor_print_ln 1024 output_softmax
     // printing.tensor_print_ln 1024 output_ln
-    printing.tensor_print_ln 1024 output_argmax
+    printing.tensor_print_ln (m * n) output_softmax_scan
     ()
 
 inl main() = test2()

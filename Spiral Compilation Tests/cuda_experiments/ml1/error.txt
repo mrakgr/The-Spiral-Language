@@ -1,48 +1,139 @@
-Error trace on line: 363, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+Error trace on line: 431, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
 inl main() = test2()
         ^
-Error trace on line: 363, column: 14 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+Error trace on line: 431, column: 14 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
 inl main() = test2()
              ^
-Error trace on line: 324, column: 10 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+Error trace on line: 380, column: 10 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
 inl test2() =
          ^
-Error trace on line: 325, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
-    inl m,n : int * int = 64*2, 16
+Error trace on line: 381, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+    inl m,n : int * int = 1, 512
     ^
-Error trace on line: 325, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
-    inl m,n : int * int = 64*2, 16
+Error trace on line: 381, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+    inl m,n : int * int = 1, 512
         ^
-Error trace on line: 327, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
-    inl input : _ _ float = cupy.arange{from=0; nearTo=m,n; by=1}
+Error trace on line: 384, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+    inl input : _ _ float = cupy.random_normal{mean=0; std=1} (m,n)
     ^
-Error trace on line: 329, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
-    inl output_reduce = cupy.zeros 1
+Error trace on line: 386, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+    inl output_reduce = tensor_create 1
     ^
-Error trace on line: 330, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
-    inl output_softmax = cupy.zeros (m,n)
+Error trace on line: 387, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+    inl output_softmax = tensor_create (m,n)
     ^
-Error trace on line: 331, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
-    inl output_ln = cupy.zeros (m,n)
+Error trace on line: 388, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+    inl output_softmax_scan = tensor_create (m,n)
     ^
-Error trace on line: 332, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
-    inl output_argmax = cupy.zeros m
+Error trace on line: 389, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+    inl output_ln = tensor_create (m,n)
     ^
-Error trace on line: 332, column: 25 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
-    inl output_argmax = cupy.zeros m
-                        ^
-Error trace on line: 12, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corecuda\cupy.spi.
-    inl len : int = loop.prod dim
+Error trace on line: 390, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+    inl output_argmax = tensor_create m
     ^
-Error trace on line: 14, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corecuda\cupy.spi.
-        typecase cupy_type float with ~ct =>
+Error trace on line: 391, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+    run fun _ =>
+    ^
+Error trace on line: 78, column: 13 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corecuda\base.spi.
+inl run f = run' {shared_mem = 0} f
+            ^
+Error trace on line: 39, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corecuda\base.spi.
+    inl blocks_per_grid, threads_per_block = blocks_per_grid(), threads_per_block()
+    ^
+Error trace on line: 39, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corecuda\base.spi.
+    inl blocks_per_grid, threads_per_block = blocks_per_grid(), threads_per_block()
+        ^
+Error trace on line: 43, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corecuda\base.spi.
+    global "options = []"
+    ^
+Error trace on line: 44, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corecuda\base.spi.
+    global "options.append('--define-macro=NDEBUG')"
+    ^
+Error trace on line: 45, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corecuda\base.spi.
+    global "options.append('--diag-suppress=550,20012')"
+    ^
+Error trace on line: 46, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corecuda\base.spi.
+    global "options.append('--dopt=on')"
+    ^
+Error trace on line: 47, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corecuda\base.spi.
+    global "options.append('--restrict')"
+    ^
+Error trace on line: 58, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corecuda\base.spi.
+    match threads_per_block with
+    ^
+Error trace on line: 64, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corecuda\base.spi.
+    global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))"
+    ^
+Error trace on line: 65, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corecuda\base.spi.
+    inl kernel_i, vars = join_backend Cuda
+    ^
+Error trace on line: 67, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corecuda\base.spi.
+        f () : ()
+        ^
+Error trace on line: 392, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+        inl block = cooperative_groups.create_block()
+        ^
+Error trace on line: 394, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+        reduce 0 (+) input output_reduce
+        ^
+Error trace on line: 396, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+        template_map_2d block (fun config x _ => 
+        ^
+Error trace on line: 193, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+    assert (from.dim = to.dim) "The input and the output tensor dimensions have to be equal."
+    ^
+Error trace on line: 195, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+    global "#include <cooperative_groups.h>"
+    ^
+Error trace on line: 196, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+    global "#include <cooperative_groups/reduce.h>"
+    ^
+Error trace on line: 199, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+    inl from =
+    ^
+Error trace on line: 200, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\ml\primitives.spi.
+        from 
         ^
 Error trace on line: 57, column: 16 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corebase\core.spi.
 inl (|>) a b = b a
                ^
-Error trace on line: 16, column: 56 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corebase\tensorm\tensor_main.spi.
-inl fromArray forall t. (x : array t) : tensor int t = tensor {dim = length x; bodies = real tensor_body `int `t {array = x; stride = 1; offset = 0}}
-                                                       ^
-Type error in nominal constructor.
-Got: {bodies : tensor_body i32 (f32 * i32); dim : i32}
-Expected: {bodies : tensor_body i32 f32 * tensor_body i32 i32; dim : i32}
+Error trace on line: 59, column: 18 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corebase\core.spi.
+inl (>>) a b x = b (a x)
+                 ^
+Error trace on line: 59, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corebase\core.spi.
+inl (>>) a b x = b (a x)
+                    ^
+Error trace on line: 262, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corebase\tensorm\tensor_main.spi.
+    inl dim = f (fst t.dim)
+    ^
+Error trace on line: 262, column: 15 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corebase\tensorm\tensor_main.spi.
+    inl dim = f (fst t.dim)
+              ^
+Error trace on line: 59, column: 18 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corebase\core.spi.
+inl (>>) a b x = b (a x)
+                 ^
+Error trace on line: 59, column: 21 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corebase\core.spi.
+inl (>>) a b x = b (a x)
+                    ^
+Error trace on line: 96, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corebase\loop.spi.
+    inl a, (i : int) = real
+    ^
+Error trace on line: 96, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corebase\loop.spi.
+    inl a, (i : int) = real
+        ^
+Error trace on line: 102, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corebase\loop.spi.
+    assert (i = 1) "The integer length must be distributed in its entirety."
+    ^
+Error trace on line: 123, column: 50 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corebase\core.spi.
+inl assert (c : bool) (msg : string) : () = real assert c msg
+                                                 ^
+Error trace on line: 250, column: 5 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corebase\real_core.spir.
+    if c = false then 
+    ^
+Error trace on line: 251, column: 9 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+        ^
+Error trace on line: 251, column: 40 in module: d:\Users\Marko\Source\Repos\The Spiral Language\Spiral Compilation Tests\cuda_experiments\ml1\corebase\real_core.spir.
+        if lit_is c && lit_is msg then error_type msg
+                                       ^
+The integer length must be distributed in its entirety.
