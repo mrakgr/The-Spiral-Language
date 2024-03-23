@@ -1,0 +1,53 @@
+open corebase
+open tensorm
+
+type ptr = u64
+
+nominal layer a b = {
+    run : a -> b
+    // reinitialize_io : ptr -> a -> b
+    }
+
+nominal desc a b = {
+    initialize : ptr -> layer a b
+    size : ptr -> ptr
+    }
+
+// Takes in a layer descriptor and initializes it.
+inl init forall a b. (input_dimension : int * int) (x : desc a b) : layer a b = failwith "todo"
+
+// Reinitializes the layers without wiping out the weights.
+// inl reinit_io forall a b. (input_dimension : int * int) (x : layer a b) : layer a b = failwith "todo"
+
+// The linear layer.
+inl linear (output_size : int) : desc (tensor (int * int) f32) (tensor (int * int) f32) = failwith "todo"
+
+// Activation layers.
+
+inl tanh () : desc (tensor (int * int) f32) (tensor (int * int) f32) = failwith "todo"
+inl relu () : desc (tensor (int * int) f32) (tensor (int * int) f32) = failwith "todo"
+inl ln () : desc (tensor (int * int) f32) (tensor (int * int) f32) = failwith "todo"
+inl softmax () : desc (tensor (int * int) f32) (tensor (int * int) f32) = failwith "todo"
+
+// Cost function layers.
+
+inl cross_entropy () : desc (tensor (int * int) f32) (tensor (int * int) f32 -> f32) = failwith "todo"
+inl square_error () : desc (tensor (int * int) f32) (tensor (int * int) f32 -> f32) = failwith "todo"
+
+// Combines two layer descriptors.
+inl combine forall a b c. (a : desc a b) (b : desc b c) : desc a c = failwith "todo"
+
+inl run forall a b. (x : a) (l : layer a b) : b = failwith "todo"
+
+inl main() = 
+    inl (<|) a b = combine a b
+    inl x =
+        linear 64
+        <| tanh()
+        <| linear 128
+        <| relu()
+        <| linear 128
+        <| square_error()
+    inl x = init (512, 64) x
+    inl y = run (failwith "todo") x 
+    ()

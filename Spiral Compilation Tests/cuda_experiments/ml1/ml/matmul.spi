@@ -3,7 +3,10 @@ open corecuda
 open tensorm
 open rangem
 
-nominal gemm_config m_frag n_frag k_frag frag_in a_layout b_layout float = 
+// Unlike the tensor* versions, this one is designed to be operated by a single block.
+// The main change is that the outermost loop has been changed from `projective blocks_in_grid` to a `linear` loop.
+
+nominal matmul_config m_frag n_frag k_frag frag_in a_layout b_layout float = 
     {
         m_frag : int; n_frag : int; k_frag : int; 
         m_tile : int; n_tile : int; k_tile : int; 
@@ -12,13 +15,13 @@ nominal gemm_config m_frag n_frag k_frag frag_in a_layout b_layout float =
         chunk_size : int // Should be 16 bytes for optimal performance, and 4 for debugging (to avoid the shared bank conflicts in NSight Compute)
     }
 
-inl gemm_config forall m_frag n_frag k_frag frag_in a_layout b_layout float. {m_skew n_skew k_skew m_tile n_tile k_tile chunk_size}
-        : gemm_config m_frag n_frag k_frag frag_in a_layout b_layout float = 
+inl matmul_config forall m_frag n_frag k_frag frag_in a_layout b_layout float. {m_skew n_skew k_skew m_tile n_tile k_tile chunk_size}
+        : matmul_config m_frag n_frag k_frag frag_in a_layout b_layout float = 
     inl m_frag = real real_core.type_lit_to_lit `m_frag
     inl n_frag = real real_core.type_lit_to_lit `n_frag
     inl k_frag = real real_core.type_lit_to_lit `k_frag
 
-    gemm_config {
+    matmul_config {
         m_skew n_skew k_skew
         m_tile n_tile k_tile
         m_frag n_frag k_frag
@@ -27,9 +30,9 @@ inl gemm_config forall m_frag n_frag k_frag frag_in a_layout b_layout float. {m_
         chunk_size
         }
 
-inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout. 
-        (gemm_config {m_skew n_skew k_skew m_frag n_frag k_frag m_tile n_tile k_tile a_trans b_trans chunk_size}
-         : gemm_config m_frag n_frag k_frag wmma.tf32 a_layout b_layout f32) 
+inl matmul_tf32 forall m_frag n_frag k_frag a_layout b_layout. 
+        (matmul_config {m_skew n_skew k_skew m_frag n_frag k_frag m_tile n_tile k_tile a_trans b_trans chunk_size}
+         : matmul_config m_frag n_frag k_frag wmma.tf32 a_layout b_layout f32) 
         (alpha : float) (a : tensor (int * int) f32) (b : tensor (int * int) f32) 
         (beta : float) (c : tensor (int * int) f32) =
     inl swap x (a,b) = if x then b,a else a,b
@@ -91,7 +94,7 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
         inl b : _ (tensor (i32 * i32) float) = !(swap b_trans (k_tile, n_tile) |> pad padding.b)
         inl c : _ (tensor (i32 * i32) float) = !((m_tile, n_tile) |> pad padding.c)
         #(a *. b) +. #c
-    // print_static memory
+    
     run' {shared_mem=conv memory.length} fun () =>
         global "#include <mma.h>"
         global "using namespace nvcuda;"
@@ -151,7 +154,7 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
         open wmma
         inl c_frag : _ _ (fragment accumulator m_frag n_frag k_frag row_major float) = tensor_create (m_local, n_local)
 
-        loop.projective blocks_in_grid(fst a.dim, fst b.dim) fun m,n =>
+        loop.linear (fst a.dim, fst b.dim) fun m,n =>
             inl c = apply (m,n) c |> apply_ptr
 
             pragma.unroll fun _ =>
@@ -228,17 +231,14 @@ inl wmma_gemm_shared_f32 forall m_frag n_frag k_frag a_layout b_layout.
 
             __syncthreads()
 
-// type a_layout = wmma.row_major
-// type b_layout = wmma.row_major
-
-// type a_layout = wmma.col_major
-// type b_layout = wmma.row_major
-
-type a_layout = wmma.row_major
-type b_layout = wmma.col_major
-
-// type a_layout = wmma.col_major
-// type b_layout = wmma.col_major
+inl matmul_config_tf32 forall a_layout b_layout. : matmul_config 16 16 8 wmma.tf32 a_layout b_layout f32 = 
+    matmul_config {m_tile=128; n_tile=128; k_tile=64; m_skew=8; n_skew=8; k_skew=4; chunk_size=16}
+inl matmul_tf32 a_transpose b_transpose = 
+    match a_transpose, b_transpose with
+    | false, false => matmul_tf32 (matmul_config_tf32 : matmul_config _ _ _ _ wmma.row_major wmma.row_major _) 
+    | false, true => matmul_tf32 (matmul_config_tf32 : matmul_config _ _ _ _ wmma.row_major wmma.col_major _)
+    | true, false => matmul_tf32 (matmul_config_tf32 : matmul_config _ _ _ _ wmma.col_major wmma.row_major _)
+    | true, true => matmul_tf32 (matmul_config_tf32 : matmul_config _ _ _ _ wmma.col_major wmma.col_major _)
 
 inl main() =
     inl get_body forall dim el. (x : tensor dim el) : array el =
@@ -259,28 +259,17 @@ inl main() =
     inl m,n,k : int * int * int = 512 * 16, 512 * 16, 512 * 8
     // inl m,n,k : int * int * int = 512, 512, 512
     // inl m,n,k : int * int * int = 16, 16, 8
-    // inl gemm_config_tf32 = gemm_config {m_tile=m; n_tile=n; k_tile=k; m_skew=8; n_skew=8; k_skew=4; chunk_size=16} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
 
-    inl a_trans = (real typecase a_layout with wmma.row_major => false | wmma.col_major => true) : bool
-    inl b_trans = (real typecase b_layout with wmma.row_major => false | wmma.col_major => true) : bool
-    inl gemm_config_tf32 = gemm_config {m_tile=128; n_tile=128; k_tile=64; m_skew=8; n_skew=8; k_skew=4; chunk_size=16} : gemm_config 16 16 8 wmma.tf32 a_layout b_layout f32
-
-    // inl [ma; mb; mc] = listm.map cupy.zeros ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
-    // inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
-    // average 1 fun i =>
-    //     wmma_gemm_shared_f32 gemm_config_tf32 1 ma mb 1 mc
-    //     0 : float
+    inl a_trans = false
+    inl b_trans = true
 
     inl [ma; mb; mc] = listm.map cupy.random_normal{mean=0; std=1} ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
     // inl [ma; mb; mc] = listm.map (fun a,b => cupy.arange{from=0; nearTo=a,b; by=1}) ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
 
-    inl average (nearTo : int) body = loop.for {from=0; nearTo} (fun (i : int) s => body i + s) 0 / (conv nearTo)
-    average 1 fun i =>
-        inl d = cp_matmul (ma,a_trans) (mb,b_trans) mc
-        if i = 0 then
-            global "from max_blocks_per_sm import max_blocks_per_sm"
-            inl threads_per_block = threads_per_block()
-            $"max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),!threads_per_block,is_print=True)" : ()
-        wmma_gemm_shared_f32 gemm_config_tf32 1 ma mb 1 mc
-        inl d,c = get_body d, get_body mc
-        $"cp.max(cp.abs(!c-!d))" : float
+    inl d = cp_matmul (ma,a_trans) (mb,b_trans) mc
+    global "from max_blocks_per_sm import max_blocks_per_sm"
+    inl threads_per_block = threads_per_block()
+    $"max_blocks_per_sm(cp.cuda.Device(),raw_module.get_function('entry0'),!threads_per_block,is_print=True)" : ()
+    matmul_tf32 a_trans b_trans 1 ma mb 1 mc
+    inl d,c = get_body d, get_body mc
+    $"cp.max(cp.abs(!c-!d))" : float
