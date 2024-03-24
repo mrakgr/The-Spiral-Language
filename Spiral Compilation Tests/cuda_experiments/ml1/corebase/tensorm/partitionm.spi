@@ -1,5 +1,6 @@
 // Functionality for a partitioning raw pointer arrays into tensors.
 
+type ptr = array u8
 type size = u64
 inl min_align() : size = 128
 
@@ -55,7 +56,7 @@ inl (~#) forall el. (partition x : _ el) : partition_offsets el =
     partition_offsets {body length}
     
 // Internal function used to create the tensor from the offsets.
-inl tensor_from_offsets forall d el. (base : array u8) (offsets {dim offsets} : _ d el) : tensor d el = 
+inl tensor_from_offsets forall d el. (base : ptr) (offsets {dim offsets} : _ d el) : tensor d el = 
     open struct
     open utils
     inl stride, len = real calculate_stride_len dim
@@ -79,7 +80,7 @@ inl tensor_from_offsets forall d el. (base : array u8) (offsets {dim offsets} : 
     tensor {dim bodies}
 
 // Given a base array and the partition offsets, it creates a compound structure containing the tensors.
-inl from_partition_offsets forall el. (base, length  : array u8 * size) (partition_offsets p : _ el) : el = real
+inl from_partition_offsets forall el. (base, length  : ptr * size) (partition_offsets p : _ el) : el = real
     open real_core
     open struct
     assert (p.length <= length) "The length of the partition has to be less than the length of the base array."
@@ -101,7 +102,7 @@ instance reorder partition_offsets = fun f (partition_offsets p) => partition_of
 //     inl dim2 : partition (tensor (int) u8) = !(10)
 //     inl dim3 : partition (tensor (int * int) f32) = !(10,10)
 //     inl p = #(dim2 *. dim |> reorder (fun a,b => {l=a; r=b})) +. #(dim3 *. dim)
-//     inl x : array u8 = create (conv p.length)
+//     inl x : ptr = create (conv p.length)
 //     inl p = reorder (fun a,b => {a b}) p
 //     from_partition_offsets (x, p.length) p
 

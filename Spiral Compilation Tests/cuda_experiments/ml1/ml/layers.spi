@@ -1,7 +1,8 @@
 open corebase
 open tensorm
 
-type ptr = u64
+type ptr = partitionm.ptr 
+type size = partitionm.size 
 
 nominal layer a b = {
     run : a -> b
@@ -9,8 +10,9 @@ nominal layer a b = {
     }
 
 nominal desc a b = {
-    initialize : ptr -> layer a b
-    size : ptr -> ptr
+    initialize : ptr * size -> layer a b
+    size_global : size
+    size_shared : size
     }
 
 // Takes in a layer descriptor and initializes it.

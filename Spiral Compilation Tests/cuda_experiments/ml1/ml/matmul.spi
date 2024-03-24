@@ -87,12 +87,13 @@ inl matmul_tf32 forall m_frag n_frag k_frag a_layout b_layout.
         b = swap b_trans (k_skew, n_skew) |> snd
         c = n_skew
         }
+        
     inl memory = 
         open partitionm
         inl pad p (a, b) = a, b + p 
-        inl a : _ (tensor (i32 * i32) float) = !(swap a_trans (m_tile, k_tile) |> pad padding.a)
-        inl b : _ (tensor (i32 * i32) float) = !(swap b_trans (k_tile, n_tile) |> pad padding.b)
-        inl c : _ (tensor (i32 * i32) float) = !((m_tile, n_tile) |> pad padding.c)
+        inl a : partition (tensor (i32 * i32) float) = !(swap a_trans (m_tile, k_tile) |> pad padding.a)
+        inl b : partition (tensor (i32 * i32) float) = !(swap b_trans (k_tile, n_tile) |> pad padding.b)
+        inl c : partition (tensor (i32 * i32) float) = !((m_tile, n_tile) |> pad padding.c)
         #(a *. b) +. #c
     
     run' {shared_mem=conv memory.length} fun () =>
