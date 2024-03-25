@@ -253,6 +253,7 @@ and Pattern =
     | PatE of VSCRange
     | PatVar of VSCRange * VarString
     | PatDyn of VSCRange * Pattern
+    | PatForall of VSCRange * (VSCRange * VarString) list * Pattern
     | PatUnbox of VSCRange * symbol: string * Pattern
     | PatAnnot of VSCRange * Pattern * RawTExpr
     | PatPair of VSCRange * Pattern * Pattern
@@ -263,7 +264,7 @@ and Pattern =
     | PatValue of VSCRange * Literal
     | PatDefaultValue of VSCRange * VarString
     | PatWhen of VSCRange * Pattern * RawExpr
-    | PatNominal of VSCRange * (VSCRange * VarString) *  (VSCRange * VarString) list * Pattern
+    | PatNominal of VSCRange * (VSCRange * VarString) * (VSCRange * VarString) list * Pattern
     | PatArray of VSCRange * Pattern list
     | PatFilledDefaultValue of VSCRange * VarString * RawTExpr // Filled in by the inferencer.
 and RawExpr =
@@ -331,6 +332,7 @@ let range_of_pattern = function
     | PatE r
     | PatVar(r,_)
     | PatDyn(r,_)
+    | PatForall(r,_,_)
     | PatUnbox(r,_,_)
     | PatSymbol(r,_)
     | PatValue(r,_)
@@ -645,7 +647,7 @@ let patterns_validate pats =
         | PatVar(r,x) -> 
             pos.Add(x,r)
             Set.singleton x
-        | PatDyn(_,p) | PatAnnot (_,p,_) | PatNominal(_,_,_,p) | PatUnbox(_,_,p) | PatWhen(_,p,_) -> loop p
+        | PatForall(_,_,p) | PatDyn(_,p) | PatAnnot (_,p,_) | PatNominal(_,_,_,p) | PatUnbox(_,_,p) | PatWhen(_,p,_) -> loop p
         | PatRecordMembers(_,items) ->
             let symbols = Collections.Generic.HashSet()
             let injects = Collections.Generic.HashSet()
@@ -724,6 +726,12 @@ let inl_or_let_process (r, (is_let, is_rec, name, foralls, pats, body)) _ =
 
 let ho_var d : Result<HoVar,_> = range ((read_small_type_var |>> fun x -> x, RawKindWildcard) <|> rounds ((read_small_type_var .>> skip_op ":") .>>. kind)) d
 let forall_var d : Result<TypeVar,_> = (ho_var .>>. (curlies (sepBy (read_small_type_var' <|> rounds read_op_type) (skip_op ";")) <|>% [])) d
+let forall_pattern d = 
+    (skip_keyword SpecForall >>. many1 (range read_small_type_var) .>> skip_op "." 
+    >>= fun q _ -> 
+        match duplicates DuplicateForallVar q with [] -> Ok q | er -> Error er
+        ) d
+
 let forall d = 
     (skip_keyword SpecForall >>. many1 forall_var .>> skip_op "." 
     >>= fun q _ -> 
@@ -849,12 +857,14 @@ type RootTypeFlags = {
     allow_typecase_metavars : bool
     allow_term : bool
     allow_wildcard : bool
+    allow_foralls : bool
     }
-
+    
 let root_type_defaults = {
     allow_typecase_metavars = false
     allow_term = false
     allow_wildcard = false
+    allow_foralls = false
     }
 
 let bottom_up_number (default_env : Startup.DefaultEnv) (r : VSCRange,x : string) =
@@ -918,10 +928,14 @@ let pat_list_pair r a b = PatUnbox(r,"Cons",PatPair(r,a,b))
 let rec root_pattern_var_nominal_union s =
     (read_var' >>= fun (r,a,re) s ->
         if Char.IsUpper(a,0) then
-            (opt root_pattern_var |>> fun b ->
-                re SemanticTokenLegend.symbol
-                let b = match b with Some b -> b | None -> PatE r
-                PatUnbox(r,a,b)
+            (opt (range forall_pattern) .>>. opt root_pattern_var |>> fun (fa,b) ->
+                let case =
+                    re SemanticTokenLegend.symbol
+                    let b = match b with Some b -> b | None -> PatE r
+                    PatUnbox(r,a,b)
+                match fa with
+                | Some (far, fa) -> PatForall(far, fa, case)
+                | None -> case
                 ) s
         else 
             (many (expr_tight read_symbol) >>= fun syms s ->
@@ -998,7 +1012,7 @@ and root_type_union (flags : RootTypeFlags) d =
             | er -> Error er
         ) d
 and root_type (flags : RootTypeFlags) d =
-    let next = root_type flags
+    let next = root_type {flags with allow_foralls=false}
     let cases d =
         let wildcard d = if flags.allow_wildcard then (skip_keyword' SpecWildcard |>> RawTWildcard) d else Error []
         // This metavar case only occurs in typecase during the bottom-up segment. It should not be confused with metavars during top-down type inference.
@@ -1024,7 +1038,14 @@ and root_type (flags : RootTypeFlags) d =
     
     let pairs = sepBy1 apply (skip_op "*") |>> List.reduceBack (fun a b -> RawTPair(range_of_texpr a +. range_of_texpr b,a,b))
     let functions = sepBy1 pairs (skip_op "->") |>> List.reduceBack (fun a b -> RawTFun(range_of_texpr a +. range_of_texpr b,a,b))
-    functions d
+    if flags.allow_foralls then
+        (opt forall .>>. functions |>> (fun (a,b) ->
+            match a with
+            | Some a -> List.foldBack (fun x s -> RawTForall(range_of_typevar x, x, s)) a b
+            | None -> b
+            )) d
+    else
+        functions d
 
 and root_term d =
     let rec expressions d =
@@ -1220,7 +1241,7 @@ and root_term d =
         let next = operators
         let inl_or_let =
             (inl_or_let root_term root_pattern_pair root_type_annot .>>. many (and_inl_or_let root_term root_pattern_pair root_type_annot))
-            >>= fun x _ -> 
+            >>= fun x _ ->
                 match x with
                 | ((r,name,body),false), [] -> Ok(fun on_succ -> RawMatch(r,body,[name,on_succ]))
                 | ((_,_,_),false), l -> l |> List.map (fun ((r,_,_),_) -> r, UnexpectedAndInlRec) |> Error
@@ -1295,7 +1316,7 @@ let process_union (r,(layout,n,a,(r',b))) _ =
     | UHeap -> Ok(TopNominalRec(r,n,a,RawTUnion(r',b,layout)))
     | UStack -> Ok(TopNominal(r,n,a,RawTUnion(r',b,layout)))
 
-let union_clauses d = root_type_union root_type_defaults d
+let union_clauses d = root_type_union {root_type_defaults with allow_foralls=true} d
 let top_union d = ((range (tuple4 (skip_keyword SpecUnion >>. ((skip_keyword SpecRec >>% UHeap) <|>% UStack)) read_small_type_var' (many ho_var .>> skip_op "=") union_clauses)) >>= process_union) d
 let top_nominal d = 
     (range (tuple3 (skip_keyword SpecNominal >>. read_small_type_var') (many ho_var .>> skip_op "=") (root_type {root_type_defaults with allow_term=true}))
