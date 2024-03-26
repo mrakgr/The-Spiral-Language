@@ -19,6 +19,7 @@ type TokenKeyword =
     | SpecWhen
     | SpecInl
     | SpecForall
+    | SpecExists
     | SpecLet
     | SpecInm
     | SpecInb
@@ -168,6 +169,7 @@ let var (s: Tokenizer) =
             | "open" -> f SpecOpen | "_" -> f SpecWildcard
             | "prototype" -> f SpecPrototype | "instance" -> f SpecInstance
             | "true" -> TokValue(LitBool true) | "false" -> TokValue(LitBool false)
+            | "exists" -> f SpecExists
             | x -> TokVar(x,SemanticTokenLegend.variable)
             |> ok
 

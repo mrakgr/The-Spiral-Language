@@ -1,3 +1,7 @@
+2.8.0 (WIP)
+
+* 
+
 2.7.9 (3/21/2024)
 
 * Removed the cmath header in the Cuda backend for inbuilt math ops.

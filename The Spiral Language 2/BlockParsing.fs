@@ -166,7 +166,8 @@ type Op =
 
 type PatternCompilationErrors =
     | DisjointOrPatternVar
-    | DuplicateVar
+    | DuplicateTermVar
+    | DuplicateTypeVar
     | ShadowedVar
     | DuplicateRecordSymbol
     | DuplicateRecordInjection
@@ -211,6 +212,7 @@ type ParserErrors =
     | UnknownError
     | DuplicateRecordTypeVar
     | DuplicateForallVar
+    | DuplicateExistsVar
     | DuplicateConstraint
     | DuplicateTermRecordSymbol
     | DuplicateTermRecordInjection
@@ -222,6 +224,8 @@ type ParserErrors =
     | VarShadowedByMetavar
     | ListLiteralsNotAllowedInBottomUp
     | ArrayLiteralsNotAllowedInBottomUp
+    | ForallNotAllowedInTypecase
+    | ExistsNotAllowedInTypecase
 
 type RawKindExpr =
     | RawKindWildcard
@@ -254,6 +258,7 @@ and Pattern =
     | PatVar of VSCRange * VarString
     | PatDyn of VSCRange * Pattern
     | PatUnbox of VSCRange * symbol: string * Pattern
+    | PatExists of VSCRange * (VSCRange * VarString) list * Pattern
     | PatAnnot of VSCRange * Pattern * RawTExpr
     | PatPair of VSCRange * Pattern * Pattern
     | PatSymbol of VSCRange * string
@@ -276,6 +281,7 @@ and RawExpr =
     | RawMatch of VSCRange * body: RawExpr * (Pattern * RawExpr) list
     | RawFun of VSCRange * (Pattern * RawExpr) list
     | RawForall of VSCRange * TypeVar * RawExpr
+    | RawExists of VSCRange * (TypeVar * RawTExpr option) list * RawExpr
     | RawRecBlock of VSCRange * ((VSCRange * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawFun or RawForall.
     | RawRecordWith of VSCRange * RawExpr list * RawRecordWith list * RawRecordWithout list
     | RawOp of VSCRange * Op * RawExpr list
@@ -307,6 +313,7 @@ and RawTExpr =
     | RawTSymbol of VSCRange * SymbolString
     | RawTApply of VSCRange * RawTExpr * RawTExpr
     | RawTForall of VSCRange * TypeVar * RawTExpr
+    | RawTExists of VSCRange * TypeVar list * RawTExpr
     | RawTPrim of VSCRange * PrimitiveType
     | RawTTerm of VSCRange * RawExpr
     | RawTMacro of VSCRange * RawMacro list
@@ -332,6 +339,7 @@ let range_of_pattern = function
     | PatVar(r,_)
     | PatDyn(r,_)
     | PatUnbox(r,_,_)
+    | PatExists(r,_,_)
     | PatSymbol(r,_)
     | PatValue(r,_)
     | PatDefaultValue(r,_)
@@ -366,6 +374,7 @@ let range_of_expr = function
     | RawAnnot(r,_,_)
     | RawTypecase(r,_,_)
     | RawForall(r,_,_)
+    | RawExists(r,_,_)
     | RawFilledForall(r,_,_)
     | RawApply(r,_,_)
     | RawPair(r,_,_)
@@ -394,6 +403,7 @@ let range_of_texpr = function
     | RawTFun(r,_,_)
     | RawTApply(r,_,_)
     | RawTLayout(r,_,_)
+    | RawTExists(r,_,_)
     | RawTForall(r,_,_) -> r
 
 type VectorCord = {|row : int; col : int|}
@@ -632,19 +642,32 @@ let record_var d = (read_var_as_symbol <|> rounds read_op) d
 let patterns_validate pats = 
     let pos = Collections.Generic.Dictionary(HashIdentity.Reference)
     let errors = ResizeArray()
-    let rec loop pat =
+    let rec loop is_type pat =
+        let loop = loop is_type
+        let inline duplicate_var() = InvalidPattern (if is_type then DuplicateTypeVar else DuplicateTermVar)
         match pat with
         | PatFilledDefaultValue _ | PatDefaultValue _ | PatValue _ | PatSymbol _ | PatE _ | PatB _ -> Set.empty
         | PatArray(_,x) -> 
             List.fold (fun s x -> 
                 let x = loop x
                 let inters = Set.intersect s x
-                if Set.isEmpty inters = false then inters |> Set.iter (fun x -> errors.Add(pos.[x], InvalidPattern DuplicateVar))
+                if Set.isEmpty inters = false then inters |> Set.iter (fun x -> errors.Add(pos.[x], duplicate_var()))
                 s + x
                 ) Set.empty x
+        | PatExists(r,l,p) ->
+            if is_type then
+                List.fold (fun s (r,x) ->
+                    pos.Add(x,r)
+                    Set.add x s
+                    ) Set.empty l
+            else 
+                Set.empty
         | PatVar(r,x) -> 
-            pos.Add(x,r)
-            Set.singleton x
+            if is_type then
+                Set.empty
+            else 
+                pos.Add(x,r)
+                Set.singleton x
         | PatDyn(_,p) | PatAnnot (_,p,_) | PatNominal(_,_,_,p) | PatUnbox(_,_,p) | PatWhen(_,p,_) -> loop p
         | PatRecordMembers(_,items) ->
             let symbols = Collections.Generic.HashSet()
@@ -656,12 +679,12 @@ let patterns_validate pats =
                     if symbols.Add(keyword) = false then errors.Add (r, InvalidPattern DuplicateRecordSymbol); Set.empty else loop name
                 | PatRecordMembersInjectVar((r,var),name) ->
                     if injects.Add(var) = false then errors.Add (r, InvalidPattern DuplicateRecordInjection); Set.empty else loop name
-                |> Set.iter (fun x -> if vars.Add x = false then errors.Add (pos.[x], InvalidPattern DuplicateVar))
+                |> Set.iter (fun x -> if vars.Add x = false then errors.Add (pos.[x], duplicate_var()))
                 ) items
             Set vars
         | PatPair(_,a,b) | PatAnd(_,a,b) -> 
             let a, b = loop a, loop b
-            Set.intersect b a |> Set.iter (fun x -> errors.Add (pos.[x], InvalidPattern DuplicateVar))
+            Set.intersect b a |> Set.iter (fun x -> errors.Add (pos.[x], duplicate_var()))
             a + b
         | PatOr(_,a,b) -> 
             let a, b = loop a, loop b
@@ -669,11 +692,13 @@ let patterns_validate pats =
             f (a-b); f (b-a)
             a
     
-    List.fold (fun s x ->
-        let s' = loop x
-        Set.intersect s' s |> Set.iter (fun x -> errors.Add(pos.[x],InvalidPattern ShadowedVar))
-        s + s'
-        ) Set.empty pats |> ignore
+    let validate is_type =
+        List.fold (fun s x ->
+            let s' = loop is_type x
+            Set.intersect s' s |> Set.iter (fun x -> errors.Add(pos.[x],InvalidPattern ShadowedVar))
+            s + s'
+            ) Set.empty pats |> ignore
+    validate true; validate false
     errors |> Seq.toList
 
 let join_point is_let name = function // Has the effect of removing nested join points due to not duplicating them.
@@ -689,7 +714,7 @@ let rec adjust_join_point is_let name x =
     match x with
     | RawForall(r,a,b) -> RawForall(r,a,adjust_join_point is_let name b)
     | RawFun(r,[a,b]) -> RawFun(r,[dyn_if_let a, adjust_join_point is_let name b])
-    | RawFun(r,l) -> 
+    | RawFun(r,l) ->
         let empty = fst r, fst r
         let n = unintern " arg"
         let a = PatVar(empty,n) |> dyn_if_let
@@ -729,6 +754,18 @@ let forall d =
     >>= fun q _ -> 
         let x' = q |> List.collect (fun (_,l) -> duplicates DuplicateConstraint l)
         let x = q |> List.map (fun ((r,(a,_)),_) -> r,a) |> duplicates DuplicateForallVar
+        match List.append x x' with [] -> Ok q | er -> Error er
+        ) d
+let pat_exists d = 
+    (skip_keyword SpecExists >>. many1 (range read_small_type_var) .>> skip_op "." 
+    >>= fun q _ -> 
+        match duplicates DuplicateExistsVar q with [] -> Ok q | er -> Error er
+        ) d
+let exists d = 
+    (skip_keyword SpecExists >>. many1 forall_var .>> skip_op "." 
+    >>= fun q _ -> 
+        let x' = q |> List.collect (fun (_,l) -> duplicates DuplicateConstraint l)
+        let x = q |> List.map (fun ((r,(a,_)),_) -> r,a) |> duplicates DuplicateExistsVar
         match List.append x x' with [] -> Ok q | er -> Error er
         ) d
 
@@ -884,7 +921,9 @@ let typecase_validate x _ =
     let vars = Collections.Generic.HashSet()
     let errors = ResizeArray()
     let rec f = function
-        | RawTFilledNominal _ | RawTTerm _ | RawTForall _ -> failwith "Compiler error: This case is not supposed to appear in typecase."
+        | RawTFilledNominal _ | RawTTerm _ -> failwith "Compiler error: This case is not supposed to appear in typecase."
+        | RawTForall(r,_,_) -> errors.Add(r,ForallNotAllowedInTypecase)
+        | RawTExists(r,_,_) -> errors.Add(r,ExistsNotAllowedInTypecase)
         | RawTLit _ | RawTPrim _ | RawTSymbol _ | RawTB _ | RawTWildcard _ -> ()
         | RawTMetaVar(r,a) -> if vars.Contains(a) then errors.Add(r,MetavarShadowedByVar) else metavars.Add(a) |> ignore
         | RawTVar(r,a) -> if metavars.Contains(a) then errors.Add(r,VarShadowedByMetavar) else vars.Add(a) |> ignore
@@ -966,9 +1005,10 @@ and root_pattern s =
         let pat_value = (read_value |>> PatValue) <|> (read_default_value PatDefaultValue PatValue)
         let pat_string = read_string |>> (fun (a,x,b) -> PatValue(a +. b,LitString x))
         let pat_symbol = read_symbol |>> PatSymbol
+        let pat_exists = range (pat_exists .>>. root_pattern) |>> fun (r,(l,b)) -> PatExists(r,l,b)
         let (+) = alt (index s)
         (root_pattern_rounds + root_pattern_var_nominal_union + root_pattern_wildcard + root_pattern_dyn + pat_value + pat_string 
-        + root_pattern_record + pat_symbol + pat_array + pat_list) s
+        + root_pattern_record + pat_symbol + pat_array + pat_list + pat_exists) s
 
     let pat_and = sepBy1 body (skip_op "&") |>> List.reduce (fun a b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b))
     let pat_pair = pat_pair pat_and
@@ -977,7 +1017,7 @@ and root_pattern s =
     let pat_as = pat_or .>>. (opt (skip_keyword SpecAs >>. pat_or )) |>> function a, Some b -> PatAnd(range_of_pattern a +. range_of_pattern b,a,b) | a, None -> a
     pat_as s
 and root_pattern_when d = (root_pattern .>>. (opt (skip_keyword SpecWhen >>. root_term)) |>> function a, Some b -> PatWhen(range_of_pattern a +. range_of_expr b,a,b) | a, None -> a) d
-and root_pattern_var d = 
+and root_pattern_var d =
     let (+) = alt (index d)
     (pat_var + root_pattern_wildcard + root_pattern_dyn + root_pattern_rounds + root_pattern_record + pat_array + pat_list) d
 and root_pattern_pair d = pat_pair root_pattern_var d
@@ -1015,8 +1055,9 @@ and root_type (flags : RootTypeFlags) d =
             range (rounds ((next |>> fun x _ -> x) <|>% RawTB))
             |>> fun (r,x) -> x r
         let macro = pipe3 skip_macro_open (many ((read_text |>> RawMacroText) <|> read_macro_type_var)) skip_macro_close (fun a l b -> RawTMacro(a +. b, l))
+        let exists = range (exists .>>. next) |>> fun (r,(l,b)) -> RawTExists(r,l,b)
         let (+) = alt (index d)
-        (rounds + lit + lit_default + wildcard + term + metavar + var + record + symbol + macro) d
+        (rounds + lit + lit_default + wildcard + term + metavar + var + record + symbol + macro + exists) d
 
     let fold_applies a b = List.fold (fun a b -> RawTApply(range_of_texpr a +. range_of_texpr b,a,b)) a b
     let apply_tight d = pipe2 cases (many (expr_tight cases)) fold_applies d
