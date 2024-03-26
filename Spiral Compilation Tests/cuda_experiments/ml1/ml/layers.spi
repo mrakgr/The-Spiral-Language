@@ -11,7 +11,7 @@ nominal layer a b = {
 
 union rec layers a c =
     | Layer : layer a c
-    | Compose : forall b. layers a b * layers b c
+    | Compose : exists b. layers a b * layers b c
 
 nominal desc a b = {
     initialize : ptr * size -> layer a b
@@ -21,7 +21,7 @@ nominal desc a b = {
 
 union rec descs a c =
     | Desc : desc a c
-    | Compose : forall b. descs a b * descs b c
+    | Compose : exists b. descs a b * descs b c
 
 // Takes in a layer descriptor and initializes it.
 inl init forall a b. (input_dimension : int * int) (x : desc a b) : layer a b = failwith "todo"
