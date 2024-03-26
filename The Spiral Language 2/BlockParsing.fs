@@ -1055,7 +1055,7 @@ and root_type (flags : RootTypeFlags) d =
             range (rounds ((next |>> fun x _ -> x) <|>% RawTB))
             |>> fun (r,x) -> x r
         let macro = pipe3 skip_macro_open (many ((read_text |>> RawMacroText) <|> read_macro_type_var)) skip_macro_close (fun a l b -> RawTMacro(a +. b, l))
-        let exists = range (exists .>>. next) |>> fun (r,(l,b)) -> RawTExists(r,l,b)
+        let exists = range (exists .>>. root_type {flags with allow_wildcard=false}) |>> fun (r,(l,b)) -> RawTExists(r,l,b)
         let (+) = alt (index d)
         (rounds + lit + lit_default + wildcard + term + metavar + var + record + symbol + macro + exists) d
 
