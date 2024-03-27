@@ -57,6 +57,7 @@ and T =
     | TyApply of T * T * TT // Regular type functions (TyInl) get reduced, while this represents the staged reduction of nominals.
     | TyInl of Var * T
     | TyForall of Var * T
+    | TyExists of Var * T
     | TyMetavar of MVar * T option ref
     | TyVar of Var
     | TyMacro of TM list
@@ -235,7 +236,7 @@ let rec tt (env : TopEnv) = function
     | TyComment(_,x) | TyMetavar(_,{contents=Some x}) -> tt env x
     | TyNominal i -> env.nominals_aux.[i].kind
     | TyApply(_,_,x) | TyMetavar({kind=x},_) | TyVar({kind=x}) -> x
-    | TyLit _ | TyUnion _ | TyLayout _ | TyMacro _ | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyModule _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
+    | TyExists _ | TyLit _ | TyUnion _ | TyLayout _ | TyMacro _ | TyB | TyPrim _ | TyForall _ | TyFun _ | TyRecord _ | TyModule _ | TyPair _ | TySymbol _ | TyArray _ -> KindType
     | TyInl(v,a) -> KindFun(v.kind,tt env a)
 
 let module_open (hover_types : ResizeArray<VSCRange * (T * Comments)>) (top_env : Env) (r : VSCRange) b l =
@@ -317,6 +318,26 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
             | RawMacroTermVar(r,a) -> cterm constraints (term, ty) a
             | RawMacroTypeVar(r,a) | RawMacroTypeLitVar(r,a) -> ctype constraints term ty a
             ) a
+    and cexists (vars : string Set) x =
+        let h = System.Collections.Generic.HashSet(HashIdentity.Structural)
+        let rec loop x =
+            match x with
+            | RawTFilledNominal(_,_) | RawTPrim _ | RawTWildcard _ | RawTLit _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
+            | RawTVar(a,b) -> h.Add(b) |> ignore
+            | RawTArray(_,a) | RawTLayout(_,a,_) -> loop a
+            | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> loop a; loop b
+            | RawTUnion(_,l,_) | RawTRecord(_,l) -> Map.iter (fun _ -> loop) l
+            | RawTForall(_,((_,(a,_)),l),b) -> loop b
+            | RawTExists(_,a,b) -> 
+                let ty =
+                    List.fold (fun ty ((_,(a,_)),l) ->
+                        List.iter (check_cons constraints) l
+                        Set.add a ty
+                        ) ty a
+                ctype constraints term ty b
+            | RawTTerm (_,a) -> cterm constraints (term, ty) a
+            | RawTMacro(_,a) -> cmacro constraints term ty a
+        loop x
     and ctype constraints term ty x =
         match x with
         | RawTFilledNominal(_,_) | RawTPrim _ | RawTWildcard _ | RawTLit _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
@@ -384,6 +405,7 @@ let rec subst (m : (Var * T) list) x =
     | TyApply(a,b,c) -> TyApply(f a, f b, c)
     | TyVar a -> List.tryPick (fun (v,x) -> if a = v then Some x else None) m |> Option.defaultValue x
     | TyForall(a,b) -> TyForall(a, f b)
+    | TyExists(a,b) -> TyExists(a, f b)
     | TyInl(a,b) -> TyInl(a, f b)
     | TyMacro a -> TyMacro(List.map (function TMVar x -> TMVar(f x) | x -> x) a)
     | TyLayout(a,b) -> TyLayout(f a,b)
@@ -412,6 +434,7 @@ let rec term_subst x =
     | TyUnion(a,b) -> TyUnion(Map.map (fun _ -> f) a,b)
     | TyFun(a,b) -> TyFun(f a, f b)
     | TyForall(a,b) -> TyForall(a,f b)
+    | TyExists(a,b) -> TyExists(a,f b)
     | TyArray a -> TyArray(f a)
     | TyApply(a,b,c) -> TyApply(f a, f b, c)
     | TyInl(a,b) -> TyInl(a,f b)
@@ -437,7 +460,7 @@ let rec has_metavars x =
     match visit_t x with
     | TyMetavar _ -> true
     | TyVar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ | TyModule _ -> false
-    | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
+    | TyExists(_,a) | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
     | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a || f b
     | TyUnion(l,_) | TyRecord l -> Map.exists (fun _ -> f) l
     | TyMacro a -> List.exists (function TMVar x -> has_metavars x | _ -> false) a
@@ -477,6 +500,14 @@ let show_t (env : TopEnv) x =
         | TyLit x -> Tokenize.show_lit x
         | TyPrim x -> show_primt x
         | TySymbol x -> sprintf ".%s" x
+        | TyExists _ -> 
+            let a, b =
+                let rec loop = function
+                    | TyExists(a,b) -> let a',b = loop b in (a :: a'), b
+                    | b -> [], b
+                loop x
+            let a = List.map show_var a |> String.concat " "
+            p 0 (sprintf "exists %s. %s" a (f -1 b))
         | TyForall _ -> 
             let a, b =
                 let rec loop = function
@@ -570,6 +601,7 @@ let show_type_error (env : TopEnv) x =
     | MissingBody -> "The function body is missing."
     | MacroIsMissingAnnotation -> "The macro needs an annotation."
     | ArrayIsMissingAnnotation -> "The array needs an annotation."
+    | ExistsIsMissingAnnotation -> "The existential type needs an annotation."
     | ShadowedForall -> "Shadowing of foralls (in the top-down) segment is not allowed."
     | UnionTypesMustHaveTheSameLayout -> "The two union types must have the same layout."
     | OrphanInstance -> "The instance has to be defined in the same package as either the prototype or the nominal."
@@ -650,6 +682,11 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | TyPair(a,b) -> RawTPair(r,f a,f b)
                 | TyRecord l -> RawTRecord(r,Map.map (fun _ -> f) l)
                 | TyFun(a,b) -> RawTFun(r,f a,f b)
+                | TyExists(a,b) -> 
+                    let rec g = function
+                        | TyExists(a,b) -> a.name :: g b
+                        | _ -> []
+                    RawTExists(r,a.name :: g b |> List.map (fun n -> (r,(n,RawKindWildcard)),[]), f b)
                 | TyArray a -> RawTArray(r,f a)
                 | TyNominal i -> RawTFilledNominal(r,i)
                 | TyUnion(a,b) -> RawTUnion(r,Map.map (fun _ -> f) a,b)
@@ -685,6 +722,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 RawMatch(r'',fill_foralls r rec_term body,[PatVar(r,name), term (Map.remove name rec_term) on_succ])
             | RawMatch(r,a,b) -> RawMatch(r,f a,clauses b)
             | RawFun(r,a) -> RawAnnot(r,RawFun(r,clauses a),annot r x)
+            | RawExists(r,a) -> RawAnnot(r,RawExists(r,f a),annot r x)
             | RawRecBlock(r,l,on_succ) ->
                 let has_foralls = List.exists (function (_,RawForall _) -> true | _ -> false) l
                 if has_foralls then RawRecBlock(r,List.map (fun (a,b) -> a, f b) l,f on_succ)
@@ -729,6 +767,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | PatVar(r,name) as x -> rec_term <- Map.remove name rec_term; x
                 | PatDyn(r,a) -> PatDyn(r,f a)
                 | PatUnbox(r,q,a) -> PatUnbox(r,q,f a)
+                | PatExists(r,q,a) -> PatExists(r,q,f a)
                 | PatAnnot(_,a,_) -> f a
                 | PatPair(r,a,b) -> PatPair(r,f a,f b)
                 | PatRecordMembers(r,a) ->
