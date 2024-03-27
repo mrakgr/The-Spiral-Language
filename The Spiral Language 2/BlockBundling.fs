@@ -53,6 +53,7 @@ let rec fold_offset_ty offset x =
     | RawTSymbol(r,a) -> RawTSymbol(g r,a)
     | RawTApply(r,a,b) -> RawTApply(g r,f a,f b)
     | RawTForall(r,a,b) -> RawTForall(g r,add_offset_typevar offset a,f b)
+    | RawTExists(r,a,b) -> RawTExists(g r,add_offset_typevar_list offset a,f b)
     | RawTPrim(r,a) -> RawTPrim(g r,a)
     | RawTTerm(r,a) -> RawTTerm(g r,fold_offset_term offset a)
     | RawTMacro(r,a) -> RawTMacro(g r,fold_offset_macro offset a)
@@ -80,6 +81,7 @@ and fold_offset_term offset x =
     | RawMatch(r,a,b) -> RawMatch(g r,f a,List.map (fun (a,b) -> fold_offset_pattern offset a,f b) b)
     | RawFun(r,a) -> RawFun(g r,List.map (fun (a,b) -> fold_offset_pattern offset a,f b) a)
     | RawForall(r,a,b) -> RawForall(g r,add_offset_typevar offset a,f b)
+    | RawExists(r,b) -> RawExists(g r,f b)
     | RawFilledForall(r,a,b) -> RawFilledForall(g r,a,f b)
     | RawRecBlock(r,a,b) -> RawRecBlock(g r,List.map (fun ((r,a),b) -> (g r,a),f b) a,f b)
     | RawRecordWith(r,a,b,c) -> 
@@ -139,8 +141,9 @@ and fold_offset_pattern offset x =
     | PatDefaultValue(r,a) -> PatDefaultValue(g r,a)
     | PatWhen(r,a,b) -> PatWhen(g r,f a,term b)
     | PatNominal(r,a,b,c) -> PatNominal(g r,g' a,List.map g' b,f c)
+    | PatExists(r,a,b) -> PatExists(g r,List.map g' a,f b)
     | PatArray(r,a) -> PatArray(g r,List.map f a)
-
+    
 let bundle_blocks (blocks : TopStatement Block list) =
     match blocks with
     | [] -> None
