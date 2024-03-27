@@ -3,9 +3,9 @@
 // Is a standalone feature.
 type qwe = exists (t : *) {number}. t * f32 -> i32
 nominal asd = exists t. t
-
+        | 
 inl main() =
-    inl x = exists (t : *) {int} [i32]. 2i32
+    inl x : exists t. t = exists 2i32
     inl (exists d. y : d) = x 
     inl _ = y : d
     0i32

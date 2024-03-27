@@ -281,7 +281,7 @@ and RawExpr =
     | RawMatch of VSCRange * body: RawExpr * (Pattern * RawExpr) list
     | RawFun of VSCRange * (Pattern * RawExpr) list
     | RawForall of VSCRange * TypeVar * RawExpr
-    | RawExists of VSCRange * (TypeVar * RawTExpr option) list * RawExpr
+    | RawExists of VSCRange * RawExpr
     | RawRecBlock of VSCRange * ((VSCRange * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawFun or RawForall.
     | RawRecordWith of VSCRange * RawExpr list * RawRecordWith list * RawRecordWithout list
     | RawOp of VSCRange * Op * RawExpr list
@@ -374,7 +374,7 @@ let range_of_expr = function
     | RawAnnot(r,_,_)
     | RawTypecase(r,_,_)
     | RawForall(r,_,_)
-    | RawExists(r,_,_)
+    | RawExists(r,_)
     | RawFilledForall(r,_,_)
     | RawApply(r,_,_)
     | RawPair(r,_,_)
@@ -1072,6 +1072,7 @@ and root_term d =
         let next = root_term
         let case_var = read_var'' |>> RawV
         let case_value = read_value |>> RawLit
+        let case_exists = skip_keyword' SpecExists .>>. next |>> fun (r,body) -> RawExists(r +. range_of_expr body, body)
         let case_rounds = 
             range (rounds ((((read_op' |>> RawV) <|> next) |>> fun x _ -> x) <|>% RawB))
             |>> fun (r,x) -> x r
@@ -1183,7 +1184,7 @@ and root_term d =
 
         (case_value + case_default_value + case_var + case_join_point + case_join_point_backend + case_real + case_symbol
         + case_typecase + case_match + case_typecase + case_rounds + case_list + case_record
-        + case_if_then_else + case_fun + case_forall + case_string + case_macro) d
+        + case_if_then_else + case_fun + case_forall + case_string + case_macro + case_exists) d
 
     and application_tight d =
         let next = expressions
@@ -1383,6 +1384,9 @@ let parse (s : Env) : ParseResult =
         Error []
 
 let show_parser_error = function
+    | DuplicateExistsVar -> "Duplicate variable in the exists type."
+    | ExistsNotAllowedInTypecase -> "The existential type is not allowed in typecase."
+    | ForallNotAllowedInTypecase -> "The type lambda is not allowed in typecase."
     | MetavarShadowedByVar -> "The metavariable is shadowed by a variable."
     | VarShadowedByMetavar -> "The variable is shadowed by a metavariable."
     | ExpectedPairedSymbolInUnion -> "The union clause should be pair whose left side is a symbol."
@@ -1397,6 +1401,7 @@ let show_parser_error = function
     | ExpectedMacroClose | ExpectedStringClose -> "\""
     | ExpectedKeyword x ->
         match x with
+        | SpecExists -> "exists"
         | SpecIn -> "in"
         | SpecAnd -> "and"
         | SpecFun -> "fun"
@@ -1456,7 +1461,8 @@ let show_parser_error = function
     | UnknownOperator -> "Operator does not have known precedence and associativity."
     | ForallNotAllowed -> "Forall not allowed here."
     | InvalidPattern DisjointOrPatternVar -> "Both branches of an or pattern need to have the same variables. This one is disjoint."
-    | InvalidPattern DuplicateVar -> "Duplicate pattern variable."
+    | InvalidPattern DuplicateTermVar -> "Duplicate term variable in pattern."
+    | InvalidPattern DuplicateTypeVar -> "Duplicate type variable in pattern."
     | InvalidPattern ShadowedVar -> "Shadowed pattern variable."
     | MetavarNotAllowed -> "Metavariable is not allowed here."
     | SymbolPairedShouldStartWithUppercaseInTypeScope -> "Paired symbol should start with uppercase in type scope."
