@@ -76,6 +76,8 @@ type TypeError =
     | ForallVarConstraintError of string * Constraint Set * Constraint Set
     | MetavarsNotAllowedInRecordWith
     | ExpectedRecord of T
+    | ExpectedExistential of T
+    | ExistsShouldntHaveMetavars of T
     | ExpectedRecordInsideALayout of T
     | UnionsCannotBeApplied
     | ExpectedNominalInApply of T
@@ -318,26 +320,6 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
             | RawMacroTermVar(r,a) -> cterm constraints (term, ty) a
             | RawMacroTypeVar(r,a) | RawMacroTypeLitVar(r,a) -> ctype constraints term ty a
             ) a
-    and cexists (vars : string Set) x =
-        let h = System.Collections.Generic.HashSet(HashIdentity.Structural)
-        let rec loop x =
-            match x with
-            | RawTFilledNominal(_,_) | RawTPrim _ | RawTWildcard _ | RawTLit _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
-            | RawTVar(a,b) -> h.Add(b) |> ignore
-            | RawTArray(_,a) | RawTLayout(_,a,_) -> loop a
-            | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> loop a; loop b
-            | RawTUnion(_,l,_) | RawTRecord(_,l) -> Map.iter (fun _ -> loop) l
-            | RawTForall(_,((_,(a,_)),l),b) -> loop b
-            | RawTExists(_,a,b) -> 
-                let ty =
-                    List.fold (fun ty ((_,(a,_)),l) ->
-                        List.iter (check_cons constraints) l
-                        Set.add a ty
-                        ) ty a
-                ctype constraints term ty b
-            | RawTTerm (_,a) -> cterm constraints (term, ty) a
-            | RawTMacro(_,a) -> cmacro constraints term ty a
-        loop x
     and ctype constraints term ty x =
         match x with
         | RawTFilledNominal(_,_) | RawTPrim _ | RawTWildcard _ | RawTLit _ | RawTB _ | RawTSymbol _ | RawTMetaVar _ -> ()
@@ -548,6 +530,8 @@ let show_t (env : TopEnv) x =
 let show_type_error (env : TopEnv) x =
     let f = show_t env
     match x with
+    | ExistsShouldntHaveMetavars a -> sprintf "The body of `expects` shouldn't have metavars left over in its body after inferece.\nGot: %s" (f a)
+    | ExpectedExistential a -> sprintf "The body of `expects` need to be explicitly annotated and with an existential type.\nGot: %s" (f a)
     | UnionsCannotBeApplied -> "Unions cannot be applied."
     | ExpectedNominalInApply a -> sprintf "Expected a nominal.\nGot: %s" (f a)
     | MalformedNominal -> "Malformed nominal."
@@ -807,20 +791,22 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         loop [] x
 
     let assert_foralls_used r x =
-        let h = HashSet()
         let rec f = function
-            | TyForall(v,a) -> h.Add v |> ignore; f a
-            | TyVar v -> h.Remove v |> ignore
-            | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
-            | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b) -> f a; f b
-            | TyUnion(a,_) | TyRecord a -> Map.iter (fun _ -> f) a
+            | TyVar v -> Set.singleton v.name
+            | TyExists(v,a) | TyForall(v,a) -> Set.remove v.name (f a)
+            | TyModule _ | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> Set.empty
+            | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b) -> f a + f b
+            | TyUnion(a,_) | TyRecord a -> Map.fold (fun s _ x -> Set.union s (f x)) Set.empty a
             | TyComment(_,a) | TyLayout(a,_) | TyInl(_,a) | TyArray a -> f a
-            | TyMacro a -> List.iter (function TMLitVar a | TMVar a -> f a | TMText _ -> ()) a
-            | TyModule _ -> ()
-        f x
+            | TyMacro a -> 
+                List.fold (fun s x ->
+                    match x with
+                    | TMLitVar a | TMVar a -> f a 
+                    | TMText _ -> Set.empty
+                    ) Set.empty a
+        let h = f x
         if 0 < h.Count then
-            let vars = h |> Seq.toList |> List.map (fun x -> x.name) |> List.sort
-            errors.Add(r, UnusedForall vars)
+            errors.Add(r, UnusedForall (Set.toList h))
 
     let generalize r scope (forall_vars : Var list) (body : T) =
         let h = HashSet(HashIdentity.Reference)
@@ -840,7 +826,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
             | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b) -> f a; f b
             | TyUnion(a,_) | TyRecord a -> Map.iter (fun _ -> f) a
-            | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
+            | TyExists(_,a) | TyComment(_,a) | TyLayout(a,_) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
             | TyMacro a -> List.iter (function TMLitVar a | TMVar a -> f a | TMText _ -> ()) a
             | TyModule _ -> ()
 
@@ -905,7 +891,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             match visit_t x with
             | TyModule _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> ()
             | TyMacro a -> a |> List.iter (function TMText _ -> () | TMLitVar a | TMVar a -> f a)
-            | TyComment(_,a) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
+            | TyExists(_,a) | TyComment(_,a) | TyForall(_,a) | TyInl(_,a) | TyArray a -> f a
             | TyApply(a,b,_) | TyFun(a,b) | TyPair(a,b) -> f a; f b
             | TyUnion(l,_) | TyRecord l -> Map.iter (fun _ -> f) l
             | TyVar b -> if i.scope < b.scope then raise (TypeErrorException [r,ForallVarScopeError(b.name,got,expected)])
@@ -942,8 +928,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TyLit a, TyLit b when a = b -> ()
             | TySymbol x, TySymbol x' when x = x' -> ()
             | TyArray a, TyArray b -> loop (a,b)
-            // Note: Unifying these two only makes sense if the expected is fully inferred already.
-            | TyForall(a,b), TyForall(a',b') | TyInl(a,b), TyInl(a',b') when a.kind = a'.kind && a.constraints = a'.constraints -> loop (b, subst [a',TyVar a] b')
+            // Note: Unifying these 3 only makes sense if the `expected` is fully inferred already.
+            | TyExists(a,b), TyExists(a',b') 
+            | TyForall(a,b), TyForall(a',b') 
+            | TyInl(a,b), TyInl(a',b') when a.kind = a'.kind && a.constraints = a'.constraints -> loop (b, subst [a',TyVar a] b')
             | TyMacro a, TyMacro b -> 
                 List.iter2 (fun a b -> 
                     match a,b with
@@ -1185,6 +1173,24 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | TyMetavar _, _ -> errors.Add(range_of_expr x, MetavarsNotAllowedInRecordWith); eval Map.empty
                 | a,_ -> errors.Add(range_of_expr x, ExpectedRecord a); eval Map.empty
             |> fun v -> if errors.Count = i then unify r (TyRecord v) s
+        | RawExists(r,body) ->
+            let exists_subst scope x =
+                let rec loop = function
+                    | TyExists(a,b) -> let l, body = loop b in a :: l, body
+                    | x -> [], x
+                let l, body = loop x
+                let vars = l |> List.map (fun a -> fresh_subst_var scope a.constraints a.kind)
+                vars, subst (List.zip l vars) body
+            let assert_exists_hasnt_metavars vars s =
+                if List.exists has_metavars vars then errors.Add(range_of_expr x, ExistsShouldntHaveMetavars s)
+            match visit_t s with
+            | TyExists _ as exists ->
+                annotations.Add(x,(r,exists))
+                let scope = scope + 1
+                let vars, s = exists_subst scope exists
+                term scope env s body
+                assert_exists_hasnt_metavars vars s
+            | s -> errors.Add(range_of_expr x, ExpectedExistential s); f (fresh_var scope) body
         | RawFun(r,l) ->
             annotations.Add(x,(r,s))
             let q,w = fresh_var scope, fresh_var scope
@@ -1327,6 +1333,11 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let l' = Map.map (fun _ _ -> fresh_var scope) l
             unify r s (TyUnion(l',lay))
             Map.iter (fun k s -> f s l.[k]) l'
+        | RawTExists(r,a,b) ->
+            let a = List.map (typevar_to_var scope env.constraints) a
+            let body_var = fresh_var scope
+            ty scope {env with ty = List.fold (fun s a -> Map.add a.name (TyVar a) s) env.ty a} body_var b
+            unify r s (List.foldBack (fun a body_var -> TyForall(a, body_var)) a body_var)
         | RawTForall(r,a,b) ->
             let a = typevar_to_var scope env.constraints a
             let body_var = fresh_var scope
@@ -1440,6 +1451,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                             ) env l
                     unify r s (l |> Map |> TyRecord)
                     env
+            | PatExists(r,l,p) ->
+                 
+                 env
             | PatUnbox(r,name,a) ->
                 let assume i =
                     let n = top_env.nominals.[i]
