@@ -116,6 +116,7 @@ type TypeError =
     | MissingBody
     | MacroIsMissingAnnotation
     | ArrayIsMissingAnnotation
+    | ExistsIsMissingAnnotation
     | ShadowedForall
     | UnionTypesMustHaveTheSameLayout
     | OrphanInstance
@@ -143,7 +144,7 @@ let rec visit_t = function
 exception TypeErrorException of (VSCRange * TypeError) list
 
 let rec metavars = function
-    | RawTFilledNominal _ | RawTMacro _ | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTLit _ | RawTB _ | RawTSymbol _ -> Set.empty
+    | RawTExists _ | RawTFilledNominal _ | RawTMacro _ | RawTVar _ | RawTTerm _ | RawTPrim _ | RawTWildcard _ | RawTLit _ | RawTB _ | RawTSymbol _ -> Set.empty
     | RawTMetaVar(_,a) -> Set.singleton a
     | RawTArray(_,a) | RawTLayout(_,a,_) | RawTForall(_,_,a) -> metavars a
     | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> metavars a + metavars b
@@ -265,53 +266,55 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
         | Some (C _) -> ()
         | Some (M _) -> errors.Add(a,ExpectedConstraintInsteadOfModule)
         | None -> errors.Add(a,UnboundVariable b)
-    let rec cterm constraints term ty x =
+    let rec cterm constraints (term, ty) x =
         match x with
         | RawSymbol _ | RawDefaultLit _ | RawLit _ | RawB _ -> ()
         | RawV(a,b) -> check_term term (a,b)
         | RawType(_,x) -> ctype constraints term ty x
-        | RawMatch(_,body,l) -> cterm constraints term ty body; List.iter (fun (a,b) -> cterm constraints (cpattern constraints term ty a) ty b) l
-        | RawFun(_,l) -> List.iter (fun (a,b) -> cterm constraints (cpattern constraints term ty a) ty b) l
-        | RawForall(_,((_,(a,_)),l),b) -> List.iter (check_cons constraints) l; cterm constraints term (Set.add a ty) b
+        | RawMatch(_,body,l) -> cterm constraints (term, ty) body; List.iter (fun (a,b) -> cterm constraints (cpattern constraints term ty a) b) l
+        | RawFun(_,l) -> List.iter (fun (a,b) -> cterm constraints (cpattern constraints term ty a) b) l
+        | RawForall(_,((_,(a,_)),l),b) -> List.iter (check_cons constraints) l; cterm constraints (term, Set.add a ty) b
         | RawFilledForall _ -> failwith "Compiler error: Should not appear during variable validation."
         | RawRecBlock(_,l,on_succ) -> 
             let term = List.fold (fun s ((_,x),_) -> Set.add x s) term l
-            List.iter (fun (_,x) -> cterm constraints term ty x) l
-            cterm constraints term ty on_succ
+            List.iter (fun (_,x) -> cterm constraints (term, ty) x) l
+            cterm constraints (term, ty) on_succ
         | RawRecordWith(_,a,b,c) ->
-            List.iter (cterm constraints term ty) a
+            List.iter (cterm constraints (term, ty)) a
             List.iter (function
-                | RawRecordWithSymbol(_,e) | RawRecordWithSymbolModify(_,e) -> cterm constraints term ty e
-                | RawRecordWithInjectVar(v,e) | RawRecordWithInjectVarModify(v,e) -> check_term term v; cterm constraints term ty e
+                | RawRecordWithSymbol(_,e) | RawRecordWithSymbolModify(_,e) -> cterm constraints (term, ty) e
+                | RawRecordWithInjectVar(v,e) | RawRecordWithInjectVarModify(v,e) -> check_term term v; cterm constraints (term, ty) e
                 ) b
             List.iter (function RawRecordWithoutSymbol _ -> () | RawRecordWithoutInjectVar (a,b) -> check_term term (a,b)) c
-        | RawOp(_,_,l) -> List.iter (cterm constraints term ty) l
-        | RawReal(_,x) | RawJoinPoint(_,_,x,_) -> cterm constraints term ty x
+        | RawOp(_,_,l) -> List.iter (cterm constraints (term, ty)) l
+        | RawReal(_,x) | RawJoinPoint(_,_,x,_) -> cterm constraints (term, ty) x
+        | RawAnnot(_,RawExists(_,a),b) -> cterm constraints (term, ty) a; ctype constraints term ty b
+        | RawExists(r,a) -> errors.Add(r,ExistsIsMissingAnnotation); cterm constraints (term, ty) a
         | RawAnnot(_,RawMacro(_,a),b) -> cmacro constraints term ty a; ctype constraints term ty b
         | RawMacro(r,a) -> errors.Add(r,MacroIsMissingAnnotation); cmacro constraints term ty a
-        | RawAnnot(_,RawArray(_,a),b) -> List.iter (cterm constraints term ty) a; ctype constraints term ty b
-        | RawArray(r,a) -> errors.Add(r,ArrayIsMissingAnnotation); List.iter (cterm constraints term ty) a
-        | RawAnnot(_,a,b) -> cterm constraints term ty a; ctype constraints term ty b
+        | RawAnnot(_,RawArray(_,a),b) -> List.iter (cterm constraints (term, ty)) a; ctype constraints term ty b
+        | RawArray(r,a) -> errors.Add(r,ArrayIsMissingAnnotation); List.iter (cterm constraints (term, ty)) a
+        | RawAnnot(_,a,b) -> cterm constraints (term, ty) a; ctype constraints term ty b
         | RawTypecase(_,a,b) -> 
             ctype constraints term ty a
             List.iter (fun (a,b) -> 
                 ctype constraints term ty a
-                cterm constraints term (ty + metavars a) b
+                cterm constraints (term, ty + metavars a) b
                 ) b
         | RawOpen(_,(a,b),l,on_succ) ->
             match module_open null top_env a b l with
             | Ok x ->
                 let combine e m = Map.fold (fun s k _ -> Set.add k s) e m
-                cterm (Map.foldBack Map.add x.constraints constraints) (combine term x.term) (combine ty x.ty) on_succ
+                cterm (Map.foldBack Map.add x.constraints constraints) (combine term x.term, combine ty x.ty) on_succ
             | Error e -> errors.Add(e)
-        | RawHeapMutableSet(_,a,b,c) -> cterm constraints term ty a; List.iter (cterm constraints term ty) b; cterm constraints term ty c
-        | RawSeq(_,a,b) | RawPair(_,a,b) | RawIfThen(_,a,b) | RawApply(_,a,b) -> cterm constraints term ty a; cterm constraints term ty b
-        | RawIfThenElse(_,a,b,c) -> cterm constraints term ty a; cterm constraints term ty b; cterm constraints term ty c
+        | RawHeapMutableSet(_,a,b,c) -> cterm constraints (term, ty) a; List.iter (cterm constraints (term, ty)) b; cterm constraints (term, ty) c
+        | RawSeq(_,a,b) | RawPair(_,a,b) | RawIfThen(_,a,b) | RawApply(_,a,b) -> cterm constraints (term, ty) a; cterm constraints (term, ty) b
+        | RawIfThenElse(_,a,b,c) -> cterm constraints (term, ty) a; cterm constraints (term, ty) b; cterm constraints (term, ty) c
         | RawMissingBody r -> errors.Add(r,MissingBody)
     and cmacro constraints term ty a =
         List.iter (function
             | RawMacroText _ -> ()
-            | RawMacroTermVar(r,a) -> cterm constraints term ty a
+            | RawMacroTermVar(r,a) -> cterm constraints (term, ty) a
             | RawMacroTypeVar(r,a) | RawMacroTypeLitVar(r,a) -> ctype constraints term ty a
             ) a
     and ctype constraints term ty x =
@@ -322,33 +325,43 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
         | RawTPair(_,a,b) | RawTApply(_,a,b) | RawTFun(_,a,b) -> ctype constraints term ty a; ctype constraints term ty b
         | RawTUnion(_,l,_) | RawTRecord(_,l) -> Map.iter (fun _ -> ctype constraints term ty) l
         | RawTForall(_,((_,(a,_)),l),b) -> List.iter (check_cons constraints) l; ctype constraints term (Set.add a ty) b
-        | RawTTerm (_,a) -> cterm constraints term ty a
+        | RawTExists(_,a,b) -> 
+            let ty =
+                List.fold (fun ty ((_,(a,_)),l) ->
+                    List.iter (check_cons constraints) l
+                    Set.add a ty
+                    ) ty a
+            ctype constraints term ty b
+        | RawTTerm (_,a) -> cterm constraints (term, ty) a
         | RawTMacro(_,a) -> cmacro constraints term ty a
     and cpattern constraints term ty x =
         //let is_first = System.Collections.Generic.HashSet()
-        let rec loop term x = 
-            let f = loop term
+        let rec loop (term, ty) x = 
+            let f = loop (term, ty)
             match x with
-            | PatDefaultValue _ | PatFilledDefaultValue _ | PatValue _ | PatSymbol _ | PatB _ | PatE _ -> term
+            | PatDefaultValue _ | PatFilledDefaultValue _ | PatValue _ | PatSymbol _ | PatB _ | PatE _ -> term, ty
+            | PatExists(_,a,b) ->
+                let ty = List.fold (fun s (_,x) -> Set.add x s) ty a
+                loop (term, ty) b
             | PatVar(_,b) -> 
                 //if is_first.Add b then () // TODO: I am doing it like this so I can reuse this code later for variable highlighting.
-                Set.add b term
+                Set.add b term, ty
             | PatDyn(_,x) | PatUnbox(_,_,x) -> f x
             | PatPair(_,a,b) -> loop (f a) b
             | PatRecordMembers(_,l) ->
                 List.fold (fun s -> function
                     | PatRecordMembersSymbol(_,x) -> loop s x
                     | PatRecordMembersInjectVar((a,b),x) -> check_term term (a,b); loop s x
-                    ) term l
-            | PatAnd(_,a,b) | PatOr(_,a,b) -> loop (loop term a) b
+                    ) (term, ty) l
+            | PatAnd(_,a,b) | PatOr(_,a,b) -> loop (loop (term, ty) a) b
             | PatAnnot(_,a,b) -> ctype constraints term ty b; f a
-            | PatWhen(_,a,b) -> let r = f a in cterm constraints r ty b; r
+            | PatWhen(_,a,b) -> let r = f a in cterm constraints r b; r
             | PatNominal(_,(r,a),_,b) -> check_ty ty (r,a); f b
-            | PatArray(_,a) -> List.fold loop term a
-        loop term x
+            | PatArray(_,a) -> List.fold loop (term, ty) a
+        loop (term, ty) x
 
     match x with
-    | Choice1Of2 x -> cterm constraints term ty x
+    | Choice1Of2 x -> cterm constraints (term, ty) x
     | Choice2Of2 x -> ctype constraints term ty x
     errors
 
