@@ -4,16 +4,17 @@
 type qwe = exists (t : *) {number}. t * f32 -> i32
 nominal asd = exists t. t
 
-// inl (+) forall t{number}. (a : t) (b : t) = a
+inl (+) forall t{number}. (a : t) (b : t) = a
 // inl foo () : () =
 //     inl x = 0
 //     inl f forall tt{number}. (y : tt) = x + y
 //     ()
 
          
-inl main forall werwer. (x : werwer) =
-    inl x : exists t. t * f32 = exists x, 234
+inl main forall werwer{number}. (x : werwer) =
+    inl x : exists t{number}. t * f32 = exists x, 234
     inl q = x : exists wer. wer * f32
-    inl ((exists e. (y : e * _)) & q) = q
-    inl _ = y : e * f32
+    
+    inl ((exists e. (y,_ : e * _)) & q) = x
+    inl _ = y + 2
     0i32

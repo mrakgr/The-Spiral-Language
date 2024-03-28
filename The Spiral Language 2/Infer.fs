@@ -1204,7 +1204,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             match visit_t s with
             | TyExists _ as exists ->
                 annotations.Add(x,(r,exists))
-                let scope = scope + 1
                 let vars, s = exists_subst_term scope exists
                 term scope env s body
                 assert_exists_hasnt_metavars (range_of_expr x) vars
