@@ -6,6 +6,6 @@ nominal asd = exists t. t
         | 
 inl main() =
     inl x : exists t. t = exists 2i32
-    inl (exists d. y : d) = x 
+    inl (exists d. (y : d)) = x 
     inl _ = y : d
     0i32
