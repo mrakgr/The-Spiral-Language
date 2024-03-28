@@ -531,7 +531,7 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         | EOp(_,_,a) -> List.iter f a
         | EExists(_,a) | EPatternMiss a | EReal(_,a) -> f a
         | EArray(_,a,b) -> List.iter f a; ty env b
-        | EExistsTest(_,_,_,a,b)
+        | EExistsTest(_,_,_,_,a,b)
         | EUnitTest(_,_,a,b) | ESymbolTest(_,_,_,a,b) | EPairTest(_,_,_,_,a,b) | ELitTest(_,_,_,a,b)
         | ELet(_,_,a,b) | EIfThen(_,a,b) | EPair(_,a,b) | ESeq(_,a,b) | EApply(_,a,b) -> f a; f b
         | EHeapMutableSet(_,a,b,c) -> f a; List.iter (snd >> f) b; f c
@@ -701,12 +701,13 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
             let pat2,env = adj_term env pat2
             let on_succ = term env_rec env on_succ
             EPairTest(r,i,pat1,pat2,on_succ,on_fail)
-        | EExistsTest(r,i,pat,on_succ,on_fail) -> 
+        | EExistsTest(r,i,pat_type,pat,on_succ,on_fail) -> 
             let on_fail = term env_rec env on_fail
             let i = env.term.var.[i]
-            let pat,env = List.mapFold adj_ty env pat
+            let pat,env = adj_term env pat
+            let pat_type,env = List.mapFold adj_ty env pat_type
             let on_succ = term env_rec env on_succ
-            EExistsTest(r,i,pat,on_succ,on_fail)
+            EExistsTest(r,i,pat_type,pat,on_succ,on_fail)
         | ESymbolTest(r,a,i,on_succ,on_fail) -> 
             let on_fail = term env_rec env on_fail
             let i = env.term.var.[i]
@@ -853,12 +854,14 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
             let pat_refs_ty = ResizeArray()
             let pat_ref_ty x = let re = ref Unchecked.defaultof<_> in pat_refs_ty.Add(x,(dict,dict_type),re); TPatternRef re
             let rec cp id pat on_succ on_fail =
-                let v_templ (dict : _ byref) x =
+                let v x =
                     match Map.tryFind x dict with
                     | Some x -> x
                     | None -> let v = patvar() in dict <- Map.add x v dict; v
-                let tv x = v_templ &dict_type x
-                let v x = v_templ &dict x
+                let tv x =
+                    match Map.tryFind x dict_type with
+                    | Some x -> x
+                    | None -> let v = patvar() in dict_type <- Map.add x v dict_type; v
                 let step pat on_succ =
                     match pat with
                     | PatVar(_,x) -> v x, on_succ
@@ -877,10 +880,9 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                     let a,on_succ = step a on_succ
                     EPairTest(p r,id,a,b,on_succ,on_fail)
                 | PatExists(r,l,b) -> 
-                    let l = List.map (snd >> tv) l
-                    let b,on_succ = step b on_succ
-
-                    EExistsTest(p r,id,a,b,on_succ,on_fail)
+                    let pat_type = List.map (snd >> tv) l
+                    let pat,on_succ = step b on_succ
+                    EExistsTest(p r,id,pat_type,pat,on_succ,on_fail)
                 | PatArray(r,a) ->
                     let r = p r
                     let ar_ids,on_succ = List.mapFoldBack step a on_succ
@@ -961,6 +963,11 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawTVar(r,a) -> v_ty env a
         | RawTPair(r,a,b) -> TPair(p r,f a,f b)
         | RawTFun(r,a,b) -> TFun(p r,f a,f b)
+        | RawTExists(r,l,b) -> 
+            List.foldBack (fun ((_,(x,_)) : HoVar,_) s ->
+                let id = match v_ty env x with TV id -> id | _ -> failwith "Compiler error: Expected a TV in RawTExists."
+                TExists(p r,id,s)
+                ) l (f b)
         | RawTRecord(r,l) -> TRecord(p r,Map.map (fun _ -> f) l)
         | RawTUnion(r,a,b) -> TUnion(p r,(Map.map (fun _ -> f) a,b))
         | RawTSymbol(r,a) -> TSymbol(p r,a)
@@ -1052,6 +1059,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawSeq(r,a,b) -> ESeq(p r,f a,f b)
         | RawHeapMutableSet(r,a,b,c) -> EHeapMutableSet(p r,f a,List.map (fun a -> p (range_of_expr a), f a) b,f c)
         | RawReal(r,a) -> f a
+        | RawExists(r,a) -> EExists(p r, f a)
         | RawMacro _ -> failwith "Compiler error: The macro's annotation should have been added during `fill`."
         | RawAnnot(_,RawMacro(r,a),b) ->
             let a = a |> List.map (function
