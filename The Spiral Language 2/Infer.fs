@@ -125,7 +125,7 @@ type TypeError =
     | UnionTypesMustHaveTheSameLayout
     | OrphanInstance
     | ShadowedInstance
-    | UnusedForall of string list
+    | UnusedTypeVariable of string list
     | CompilerError of string
 
 let inline shorten'<'a> (x : 'a) link next = 
@@ -592,8 +592,8 @@ let show_type_error (env : TopEnv) x =
     | UnionTypesMustHaveTheSameLayout -> "The two union types must have the same layout."
     | OrphanInstance -> "The instance has to be defined in the same package as either the prototype or the nominal."
     | ShadowedInstance -> "The instance cannot be defined twice."
-    | UnusedForall [x] -> sprintf "The forall variable %s is unused in the function's type signature." x
-    | UnusedForall vars -> sprintf "The forall variables %s are unused in the function's type signature." (vars |> String.concat ", ")
+    | UnusedTypeVariable [x] -> sprintf "The type variable %s is unused in the function's type signature." x
+    | UnusedTypeVariable vars -> sprintf "The type variables %s are unused in the function's type signature." (vars |> String.concat ", ")
     | CompilerError x -> x
 
 let loc_env (x : TopEnv) = {term=x.term; ty=x.ty; constraints=x.constraints}
@@ -814,9 +814,13 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         if List.exists has_metavars vars then errors.Add(r, ExistsShouldntHaveMetavars vars)
 
     let assert_foralls_used r x =
+        let h = HashSet()
         let rec f = function
             | TyVar v -> Set.singleton v.name
-            | TyExists(v,a) | TyForall(v,a) -> Set.remove v.name (f a)
+            | TyExists(v,a) | TyForall(v,a) -> 
+                let a = f a
+                if Set.contains v.name a = false then h.Add(v.name) |> ignore; a
+                else Set.remove v.name a
             | TyModule _ | TyMetavar _ | TyNominal _ | TyB | TyLit _ | TyPrim _ | TySymbol _ -> Set.empty
             | TyPair(a,b) | TyApply(a,b,_) | TyFun(a,b) -> f a + f b
             | TyUnion(a,_) | TyRecord a -> Map.fold (fun s _ x -> Set.union s (f x)) Set.empty a
@@ -827,9 +831,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     | TMLitVar a | TMVar a -> f a 
                     | TMText _ -> Set.empty
                     ) Set.empty a
-        let h = f x
+        let _ = f x
         if 0 < h.Count then
-            errors.Add(r, UnusedForall (Set.toList h))
+            errors.Add(r, UnusedTypeVariable (Seq.toList h))
 
     let generalize r scope (forall_vars : Var list) (body : T) =
         let h = HashSet(HashIdentity.Reference)

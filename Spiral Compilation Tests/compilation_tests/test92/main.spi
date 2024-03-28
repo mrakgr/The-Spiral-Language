@@ -1,10 +1,8 @@
-inl bar forall t. () = ()
-
 // Existential type sketch.
 
 // Is a standalone feature.
-// type qwe = exists (t : *) {number}. t * f32 -> i32
-// nominal asd = exists t. t
+type qwe = exists (t : *) {number}. t * f32 -> i32
+nominal asd = exists t. t
 
 // inl (+) forall t{number}. (a : t) (b : t) = a
 // inl foo () : () =
@@ -13,9 +11,9 @@ inl bar forall t. () = ()
 //     ()
 
          
-// inl main forall werwer. (x : werwer) =
-//     inl x : exists t. t * f32 = exists x, 234
-//     inl q = x : exists wer. wer * f32
-//     inl ((exists e. (y : e * _)) & q) = q
-//     inl _ = y : e * f32
-//     0i32
+inl main forall werwer. (x : werwer) =
+    inl x : exists t. t * f32 = exists x, 234
+    inl q = x : exists wer. wer * f32
+    inl ((exists e. (y : e * _)) & q) = q
+    inl _ = y : e * f32
+    0i32
