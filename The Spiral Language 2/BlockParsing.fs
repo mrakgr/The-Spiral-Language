@@ -173,6 +173,7 @@ type PatternCompilationErrors =
     | DuplicateRecordInjection
 
 type ParserErrors =
+    | TypeVarsNeedToBeExplicitForExists
     | InvalidPattern of PatternCompilationErrors
     | ExpectedKeyword of TokenKeyword
     | ExpectedStringOpen | ExpectedStringClose
@@ -281,7 +282,7 @@ and RawExpr =
     | RawMatch of VSCRange * body: RawExpr * (Pattern * RawExpr) list
     | RawFun of VSCRange * (Pattern * RawExpr) list
     | RawForall of VSCRange * TypeVar * RawExpr
-    | RawExists of VSCRange * RawExpr
+    | RawExists of VSCRange * RawTExpr list option * RawExpr
     | RawRecBlock of VSCRange * ((VSCRange * VarString) * RawExpr) list * on_succ: RawExpr // The bodies of a block must be RawFun or RawForall.
     | RawRecordWith of VSCRange * RawExpr list * RawRecordWith list * RawRecordWithout list
     | RawOp of VSCRange * Op * RawExpr list
@@ -374,7 +375,7 @@ let range_of_expr = function
     | RawAnnot(r,_,_)
     | RawTypecase(r,_,_)
     | RawForall(r,_,_)
-    | RawExists(r,_)
+    | RawExists(r,_,_)
     | RawFilledForall(r,_,_)
     | RawApply(r,_,_)
     | RawPair(r,_,_)
@@ -1072,7 +1073,12 @@ and root_term d =
         let next = root_term
         let case_var = read_var'' |>> RawV
         let case_value = read_value |>> RawLit
-        let case_exists = skip_keyword' SpecExists .>>. next |>> fun (r,body) -> RawExists(r +. range_of_expr body, body)
+        let case_exists = 
+            let sequence_type d = (many (indent (col d) (=) (sepBy1 (root_type root_type_defaults)  (skip_op ";"))) |>> List.concat) d
+            ((skip_keyword' SpecExists) .>>. (opt (squares sequence_type)) .>>. next)
+             >>= fun ((r,type_vars),body) d -> 
+                if d.is_top_down || Option.isSome type_vars then Ok(RawExists(range_of_expr body,type_vars, body))
+                else Error [r, TypeVarsNeedToBeExplicitForExists]
         let case_rounds = 
             range (rounds ((((read_op' |>> RawV) <|> next) |>> fun x _ -> x) <|>% RawB))
             |>> fun (r,x) -> x r
@@ -1384,6 +1390,7 @@ let parse (s : Env) : ParseResult =
         Error []
 
 let show_parser_error = function
+    | TypeVarsNeedToBeExplicitForExists -> "The type vars for the exists body have to be specified up front in the bottom-up segment."
     | DuplicateExistsVar -> "Duplicate variable in the exists type."
     | ExistsNotAllowedInTypecase -> "The existential type is not allowed in typecase."
     | ForallNotAllowedInTypecase -> "The type lambda is not allowed in typecase."

@@ -57,7 +57,7 @@ and T =
     | TyApply of T * T * TT // Regular type functions (TyInl) get reduced, while this represents the staged reduction of nominals.
     | TyInl of Var * T
     | TyForall of Var * T
-    | TyExists of Var * T
+    | TyExists of Var list * T
     | TyMetavar of MVar * T option ref
     | TyVar of Var
     | TyMacro of TM list
@@ -483,15 +483,10 @@ let show_t (env : TopEnv) x =
         | TyLit x -> Tokenize.show_lit x
         | TyPrim x -> show_primt x
         | TySymbol x -> sprintf ".%s" x
-        | TyExists _ -> 
-            let a, b =
-                let rec loop = function
-                    | TyExists(a,b) -> let a',b = loop b in (a :: a'), b
-                    | b -> [], b
-                loop x
+        | TyExists(a,b) -> 
             let a = List.map show_var a |> String.concat " "
             p 0 (sprintf "exists %s. %s" a (f -1 b))
-        | TyForall _ -> 
+        | TyForall _ ->
             let a, b =
                 let rec loop = function
                     | TyForall(a,b) -> let a',b = loop b in (a :: a'), b
@@ -653,6 +648,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
     let type_apply_args = Dictionary(HashIdentity.Reference)
     let module_type_apply_args = Dictionary(HashIdentity.Reference)
     let annotations = Dictionary<obj,_>(HashIdentity.Reference)
+    let exists_vars = Dictionary<obj,_>(HashIdentity.Reference)
 
     /// Fills in the type applies and annotations, and generalizes statements. Also strips annotations from terms and patterns.
     /// Dealing with recursive statement type applies requires some special consideration.
@@ -670,11 +666,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | TyPair(a,b) -> RawTPair(r,f a,f b)
                 | TyRecord l -> RawTRecord(r,Map.map (fun _ -> f) l)
                 | TyFun(a,b) -> RawTFun(r,f a,f b)
-                | TyExists(a,b) -> 
-                    let rec g = function
-                        | TyExists(a,b) -> a.name :: g b
-                        | _ -> []
-                    RawTExists(r,a.name :: g b |> List.map (fun n -> (r,(n,RawKindWildcard)),[]), f b)
+                | TyExists(a,b) -> RawTExists(r,a |> List.map (fun n -> (r,(n.name,RawKindWildcard)),[]), f b)
                 | TyArray a -> RawTArray(r,f a)
                 | TyNominal i -> RawTFilledNominal(r,i)
                 | TyUnion(a,b) -> RawTUnion(r,Map.map (fun _ -> f) a,b)
