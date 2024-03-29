@@ -20,7 +20,7 @@ type [<CustomComparison;CustomEquality>] L<'a,'b when 'a: equality and 'a: compa
         | _ -> false
     override a.GetHashCode() = match a with L(a,_) -> hash a
     interface IComparable with
-        member a.CompareTo(b) = 
+        member a.CompareTo(b) =
             match b with
             | :? L<'a,'b> as b -> match a,b with L(a,_), L(b,_) -> compare a b
             | _ -> raise <| ArgumentException "Invalid comparison for T."
@@ -44,6 +44,7 @@ and Ty =
     | YSymbol of string
     | YPair of Ty * Ty
     | YTypeFunction of body : T * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
+    | YExists of body : T * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
     | YRecord of Map<string, Ty>
     | YPrim of PrimitiveType
     | YArray of Ty
@@ -61,6 +62,7 @@ and Data =
     | DPair of Data * Data
     | DFunction of body : E * annot : T option * term : Data [] * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
     | DForall of body : E * term : Data [] * ty : Ty [] * term_stack_size : StackSize * ty_stack_size : StackSize
+    | DExists of body : E * annot : T
     | DRecord of Map<string, Data>
     | DLit of Literal
     | DUnion of Data * Union
@@ -92,7 +94,6 @@ type Trace = Range list
 type JoinPointKey = 
     | JPMethod of E * ConsedNode<RData [] * Ty []>
     | JPClosure of E * ConsedNode<RData [] * Ty [] * Ty * Ty>
-    
 
 type JoinPointCall = JoinPointKey * TyV []
 

@@ -83,8 +83,8 @@ and [<ReferenceEquality>] E =
 and [<ReferenceEquality>] T =
     | TArrow' of Scope * Id * T
     | TArrow of Id * T
-    | TExists' of Range * Scope * Id * T
-    | TExists of Range * Id * T
+    | TExists' of Scope * Id * T
+    | TExists of Id * T
     | TJoinPoint' of Range * Scope * T
     | TJoinPoint of Range * T
     | TPatternRef of T ref
@@ -295,8 +295,8 @@ module Printable =
             | T.TPatternRef a -> ty !a
             | T.TArrow'(a,b,c) -> TArrow'(a,b,ty c)
             | T.TArrow(a,b) -> TArrow(a,ty b)
-            | T.TExists'(_,a,b,c) -> TExists'(a,b,ty c)
-            | T.TExists(_,b,c) -> TExists(b,ty c)
+            | T.TExists'(a,b,c) -> TExists'(a,b,ty c)
+            | T.TExists(b,c) -> TExists(b,ty c)
             | T.TJoinPoint'(_,a,b) -> TJoinPoint'(a,ty b)
             | T.TJoinPoint(_,a) -> TJoinPoint(ty a)
             | T.TB _ -> TB
@@ -460,7 +460,7 @@ let propagate x =
         | TUnion(_,(a,_)) | TRecord(_,a) | TModule a -> Map.fold (fun s k v -> s + ty v) empty a
         | TTerm(_,a) -> term a
         | TMacro(_,a) -> a |> List.fold (fun s -> function TMText _ -> s | TMLitType x | TMType x -> s + ty x) empty
-        | TExists(_,i,a) | TArrow(i,a) as x -> scope x (ty a -. i)
+        | TExists(i,a) | TArrow(i,a) as x -> scope x (ty a -. i)
         | TJoinPoint(_,a) as x -> scope x (ty a)
         | TArray(a) | TLayout(a,_) -> ty a
     
@@ -551,12 +551,13 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
         match x with
         | TJoinPoint' _ | TExists' _ | TArrow' _ | TNominal _ | TPrim _ | TSymbol _ | TV _ | TMetaV _ | TLit _ | TB _ -> ()
         | TPatternRef a -> f !a
+        | TExists(_,a)
         | TArrow(_,a) -> subst env x; f a
         | TApply(_,a,b) | TFun(_,a,b) | TPair(_,a,b) -> f a; f b
         | TRecord(_,a) | TModule a | TUnion(_,(a,_)) -> Map.iter (fun _ -> f) a
         | TTerm(_,a) -> term env a
         | TMacro(_,a) -> a |> List.iter (function TMText _ -> () | TMLitType a | TMType a -> f a)
-        | TExists(_,_,a) | TJoinPoint(_,a) | TLayout(a,_) | TArray(a) -> f a
+        | TJoinPoint(_,a) | TLayout(a,_) | TArray(a) -> f a
 
     match x with
     | Choice1Of2 x -> term Map.empty x
@@ -760,10 +761,10 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
             let scope, env = scope env x
             let a, env = adj_ty env a
             TArrow'(scope,a,ty env_rec env b)
-        | TExists(r,a,b) as x ->  
+        | TExists(a,b) as x ->  
             let scope, env = scope env x
             let a, env = adj_ty env a
-            TExists'(r,scope,a,ty env_rec env b)
+            TExists'(scope,a,ty env_rec env b)
         | TV i -> TV(env.ty.var.[i])
         | TPair(r,a,b) -> TPair(r,f a,f b)
         | TFun(r,a,b) -> TFun(r,f a,f b)
@@ -966,7 +967,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawTExists(r,l,b) -> 
             List.foldBack (fun ((_,(x,_)) : HoVar,_) s ->
                 let id = match v_ty env x with TV id -> id | _ -> failwith "Compiler error: Expected a TV in RawTExists."
-                TExists(p r,id,s)
+                TExists(id,s)
                 ) l (f b)
         | RawTRecord(r,l) -> TRecord(p r,Map.map (fun _ -> f) l)
         | RawTUnion(r,a,b) -> TUnion(p r,(Map.map (fun _ -> f) a,b))
@@ -1077,7 +1078,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         term = {|env=Map.empty; i=0; i_rec= -1|}
         ty = {|env=Map.empty; i=0|}
         }
-
+        
     let eval_type ((r,(name,kind)) : HoVar) on_succ env =
         let id, env = add_ty_var env name
         TArrow(id,on_succ env)
