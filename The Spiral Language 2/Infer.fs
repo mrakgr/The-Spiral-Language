@@ -292,8 +292,7 @@ let validate_bound_vars (top_env : Env) constraints term ty x =
             List.iter (function RawRecordWithoutSymbol _ -> () | RawRecordWithoutInjectVar (a,b) -> check_term term (a,b)) c
         | RawOp(_,_,l) -> List.iter (cterm constraints (term, ty)) l
         | RawReal(_,x) | RawJoinPoint(_,_,x,_) -> cterm constraints (term, ty) x
-        | RawAnnot(_,RawExists(_,a),b) -> cterm constraints (term, ty) a; ctype constraints term ty b
-        | RawExists(r,a) -> errors.Add(r,ExistsIsMissingAnnotation); cterm constraints (term, ty) a
+        | RawExists(_,a,b) -> Option.iter (List.iter (ctype constraints term ty)) a; cterm constraints (term, ty) b
         | RawAnnot(_,RawMacro(_,a),b) -> cmacro constraints term ty a; ctype constraints term ty b
         | RawMacro(r,a) -> errors.Add(r,MacroIsMissingAnnotation); cmacro constraints term ty a
         | RawAnnot(_,RawArray(_,a),b) -> List.iter (cterm constraints (term, ty)) a; ctype constraints term ty b
@@ -702,7 +701,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 RawMatch(r'',fill_foralls r rec_term body,[PatVar(r,name), term (Map.remove name rec_term) on_succ])
             | RawMatch(r,a,b) -> RawMatch(r,f a,clauses b)
             | RawFun(r,a) -> RawAnnot(r,RawFun(r,clauses a),annot r x)
-            | RawExists(r,a) -> RawAnnot(r,RawExists(r,f a),annot r x)
+            | RawExists(r,a,b) -> RawExists(r,Some(Option.defaultWith (fun () -> exists_vars.[x]) a),f b)
             | RawRecBlock(r,l,on_succ) ->
                 let has_foralls = List.exists (function (_,RawForall _) -> true | _ -> false) l
                 if has_foralls then RawRecBlock(r,List.map (fun (a,b) -> a, f b) l,f on_succ)
@@ -786,19 +785,11 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | x -> [], if List.isEmpty m then x else subst m x
         loop [] x
 
-    let exists_split x =
-        let rec loop = function
-            | TyExists(a,b) -> let l, body = loop b in a :: l, body
-            | x -> [], x
-        loop x
-
-    let exists_subst_term scope x =
-        let l, body = exists_split x
+    let exists_subst_term scope (l : Var list, body) =
         let vars = l |> List.map (fun a -> fresh_subst_var scope a.constraints a.kind)
         vars, subst (List.zip l vars) body
 
-    let exists_subst_pattern scope names x =
-        let l, body = exists_split x
+    let exists_subst_pattern scope names (l,body) =
         let vars = (names, l) ||> List.map2 (fun (_,name) l -> TyVar {l with scope=scope; name=name})
         vars, subst (List.zip l vars) body
 
@@ -809,7 +800,12 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         let h = HashSet()
         let rec f = function
             | TyVar v -> Set.singleton v.name
-            | TyExists(v,a) | TyForall(v,a) -> 
+            | TyExists(v,a) ->
+                List.fold (fun a v -> 
+                    if Set.contains v.name a = false then h.Add(v.name) |> ignore; a
+                    else Set.remove v.name a
+                    ) (f a) v
+            | TyForall(v,a) -> 
                 let a = f a
                 if Set.contains v.name a = false then h.Add(v.name) |> ignore; a
                 else Set.remove v.name a
@@ -948,7 +944,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             | TySymbol x, TySymbol x' when x = x' -> ()
             | TyArray a, TyArray b -> loop (a,b)
             // Note: Unifying these 3 only makes sense if the `expected` is fully inferred already.
-            | TyExists(a,b), TyExists(a',b') 
+            | TyExists(a,b), TyExists(a',b') when 
+                    List.length a = List.length a' 
+                    && List.forall2 (fun (a : Var) (a' : Var) -> a.kind = a'.kind && a.constraints = a'.constraints) a a' -> 
+                loop (b, subst (List.map2 (fun a a' -> a', TyVar a) a a') b')
             | TyForall(a,b), TyForall(a',b') 
             | TyInl(a,b), TyInl(a',b') when a.kind = a'.kind && a.constraints = a'.constraints -> loop (b, subst [a',TyVar a] b')
             | TyMacro a, TyMacro b -> 
@@ -1044,7 +1043,6 @@ let infer package_id module_id (top_env' : TopEnv) expr =
         | RawJoinPoint(r,None,a,_) -> annotations.Add(x,(r,s)); f s a
         | RawJoinPoint(r,Some _,a,_) -> 
             unify r s (TyPair(TyPrim Int32T, TySymbol "tuple_of_free_vars"))
-
             let s = fresh_var scope
             annotations.Add(x,(r,s))
             f s a
@@ -1192,11 +1190,10 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | TyMetavar _, _ -> errors.Add(range_of_expr x, MetavarsNotAllowedInRecordWith); eval Map.empty
                 | a,_ -> errors.Add(range_of_expr x, ExpectedRecord a); eval Map.empty
             |> fun v -> if errors.Count = i then unify r (TyRecord v) s
-        | RawExists(r,body) ->
+        | RawExists(r,l,body) ->
             match visit_t s with
             | TyExists _ as exists ->
-                annotations.Add(x,(r,exists))
-                let vars, s = exists_subst_term scope exists
+                let vars, s = exists_subst_term scope (l,exists)
                 term scope env s body
                 assert_exists_hasnt_metavars (range_of_expr x) vars
             | s -> errors.Add(range_of_expr x, ExpectedExistentialInTerm s); f (fresh_var scope) body
