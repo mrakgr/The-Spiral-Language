@@ -77,7 +77,7 @@ inl forall' forall (ar : * -> * -> *) {index; length} dim {number; int} el. : _ 
 // Returns true if the applying the checker function to every element pair of the two arrays returns true.
 inl forall2 forall (ar : * -> * -> *) {index; length} dim {number; int}. : _ -> ar dim _ -> ar dim _ -> bool = forall2
 // Returns true if the applying the checker function to every element of the array returns true.
-inl exists forall (ar : * -> * -> *) {index; length} dim {number; int} el. : _ -> ar dim el -> bool = exists
+inl exists' forall (ar : * -> * -> *) {index; length} dim {number; int} el. : _ -> ar dim el -> bool = exists'
 // Returns true if the applying the checker function to every element pair of the two arrays returns true.
 inl exists2 forall (ar : * -> * -> *) {index; length} dim {number; int}. : _ -> ar dim _ -> ar dim _ -> bool = exists2
 // Removes the element at index.
