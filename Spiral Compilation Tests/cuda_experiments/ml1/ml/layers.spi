@@ -11,7 +11,7 @@ nominal layer a b = {
 
 union rec layers a c =
     | Layer : layer a c
-    | Compose : exists b. layers a b * layers b c
+    | LayerPair : exists b. layers a b * layers b c
 
 nominal desc a b = {
     initialize : ptr * size -> layer a b
@@ -21,10 +21,10 @@ nominal desc a b = {
 
 union rec descs a c =
     | Desc : desc a c
-    | Compose : exists b. descs a b * descs b c
+    | DescPair : exists b. descs a b * descs b c
 
 // Takes in a layer descriptor and initializes it.
-inl init forall a b. (input_dimension : int * int) (x : desc a b) : layer a b = failwith "todo"
+inl init forall a b. (input_dimension : int * int) (x : descs a b) : layers a b = failwith "todo"
 
 // Reinitializes the layers without wiping out the weights.
 // inl reinit_io forall a b. (input_dimension : int * int) (x : layer a b) : layer a b = failwith "todo"
@@ -45,19 +45,30 @@ inl cross_entropy () : desc (tensor (int * int) f32) (tensor (int * int) f32 -> 
 inl square_error () : desc (tensor (int * int) f32) (tensor (int * int) f32 -> f32) = failwith "todo"
 
 // Combines two layer descriptors.
-inl combine forall a b c. (a : desc a b) (b : desc b c) : desc a c = failwith "todo"
+inl combine forall a b c. (a : desc a b) (b : descs b c) : descs a c = DescPair exists Desc a, b
+inl combine_start forall a b c. (a : desc a b) (b : desc b c) : descs a c = DescPair exists Desc a, Desc b
 
-inl run forall a b. (x : a) (l : layer a b) : b = failwith "todo"
+inl run forall a b. (x : a) (l : layers a b) : b = failwith "todo"
 
 inl main() = 
-    inl (<|) a b = combine a b
-    inl x =
-        linear 64
-        <| tanh()
-        <| linear 128
-        <| relu()
-        <| linear 128
-        <| square_error()
+    inl (|.) a b = combine_start b a
+    inl (|>) a b = combine b a
+    inl x = 
+        square_error()
+        |>. linear 128
+        |> relu()
+        |> linear 128
+        |> tanh()
+        |> linear 64
+    // inl (|>.) a b = combine_start b a
+    // inl (|>) a b = combine b a
+    // inl x = 
+    //     square_error()
+    //     |>. linear 128
+    //     |> relu()
+    //     |> linear 128
+    //     |> tanh()
+    //     |> linear 64
     inl x = init (512, 64) x
     inl y = run (failwith "todo") x 
     ()
