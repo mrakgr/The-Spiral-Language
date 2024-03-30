@@ -1,20 +1,23 @@
-// Existential type sketch.
+// Existential type test.
 
 // Is a standalone feature.
 type qwe = exists (t : *) {number}. t * f32 -> i32
 nominal asd = exists t. t
 
-inl (+) forall t{number}. (a : t) (b : t) = a
-// inl foo () : () =
-//     inl x = 0
-//     inl f forall tt{number}. (y : tt) = x + y
-//     ()
-
+inl (+) forall t{number}. (a : t) (b : t) : t = !!!!Add(a,b)
          
-inl main forall werwer{number}. (x : werwer) =
-    inl x : exists t{number}. t * f32 = exists x, 234
-    inl q = x : exists wer. wer * f32
-    
+inl main () : () =
+    inl x : exists t{number}. t * f32 = exists 2i32, 234
     inl ((exists e. (y,_ : e * _)) & q) = x
-    inl _ = y + 2
-    0i32
+    inl ~_ = y + 2
+    real
+        inl a = exists [i32; f32] 2
+        match a with
+        | exists t tt. x => 
+            !!!!PrintStatic(`t)
+            !!!!PrintStatic(`tt)
+            !!!!PrintStatic(x)
+            ()
+        ()
+    ()
+    
