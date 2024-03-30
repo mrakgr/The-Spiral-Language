@@ -47,7 +47,7 @@
 
 # Date: 3/30/2024
 
-[Existentials]((#existentials)) have been added to the language in v2.8.0. This introduces a new `exists` keyword to the language, so it is breaking change. I suggest renaming variables called `exists` to `exists'`.
+[Existentials](#existentials) have been added to the language in v2.8.0. This introduces a new `exists` keyword to the language, so it is breaking change. I suggest renaming variables called `exists` to `exists'`.
 
 In other news, I am revisiting my work from 2018 with the new Spiral and it is going well. Check out the Youtube channel if you haven't already. There you can see me [program in Spiral](https://www.youtube.com/playlist?list=PL04PGV4cTuIVP50-B_1scXUUMn8qEBbSs) directly. We're working on a ML library and poker game in a single fully fused kernel. FPGAs didn't work out, and AI chips are a disappointment, but I regret overlooking the gains in general purpose computing capabilities in GPUs.
 
