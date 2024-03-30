@@ -61,7 +61,7 @@ and [<ReferenceEquality>] E =
     | ESeq of Range * E * E
     | EHeapMutableSet of Range * E * (Range * E) list * E
     | EReal of Range * E
-    | EExists of Range * E
+    | EExists of Range * T list * E
     | EMacro of Range * Macro list * T
     | EPrototypeApply of Range * prototype_id: GlobalId * T
     | EPatternMemo of E
@@ -159,7 +159,7 @@ module Printable =
         | ESeq of PE * PE
         | EHeapMutableSet of PE * PE list * PE
         | EReal of PE
-        | EExists of PE
+        | EExists of PT list * PE
         | EMacro of PMacro list * PT
         | EPrototypeApply of prototype_id: GlobalId * PT
         | EPatternMemo of PE
@@ -262,7 +262,7 @@ module Printable =
             | E.ESeq(_,a,b) -> ESeq(term a,term b)
             | E.EHeapMutableSet(_,a,b,c) -> EHeapMutableSet(term a,List.map (snd >> term) b,term c)
             | E.EReal(_, a) -> EReal(term a)
-            | E.EExists(_, a) -> EExists(term a)
+            | E.EExists(_, a, b) -> EExists(List.map ty a, term b)
             | E.EMacro(_,a,b) ->
                 let a = a |> List.map (function
                     | Macro.MText a -> MText a
@@ -423,7 +423,8 @@ let propagate x =
         | EOp(_,_,a) -> List.fold (fun s a -> s + term a) empty a
         | EHeapMutableSet(_,a,b,c) -> term a + List.fold (fun s (_,a) -> s + term a) empty b + term c
         | EIfThenElse(_,a,b,c) -> term a + term b + term c
-        | EExists(_,a) | EPatternMiss a | EReal(_,a) -> term a
+        | EExists(_,a,b) -> List.fold (fun s a -> s + ty a) (term b) a
+        | EPatternMiss a | EReal(_,a) -> term a
         | EMacro(_,a,b) -> List.fold (fun s -> function MLitType x | MType x -> s + ty x | MTerm x -> s + term x | MText _ -> s) (ty b) a
         | EPatternMemo a -> Utils.memoize dict term a
         // Regular pattern matching
@@ -529,7 +530,8 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
                 | WVar(_,a) -> f a)
         | ENominal(_,a,b) | ETypeApply(_,a,b) | EAnnot(_,a,b) -> f a; ty env b
         | EOp(_,_,a) -> List.iter f a
-        | EExists(_,a) | EPatternMiss a | EReal(_,a) -> f a
+        | EExists(_,a,b) -> List.iter (ty env) a; f b 
+        | EPatternMiss a | EReal(_,a) -> f a
         | EArray(_,a,b) -> List.iter f a; ty env b
         | EExistsTest(_,_,_,_,a,b)
         | EUnitTest(_,_,a,b) | ESymbolTest(_,_,_,a,b) | EPairTest(_,_,_,_,a,b) | ELitTest(_,_,_,a,b)
@@ -672,7 +674,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         | EHeapMutableSet(r,a,b,c) -> EHeapMutableSet(r,f a,List.map (fun (a,b) -> a, f b) b,f c)
         | EPatternMiss a -> EPatternMiss(f a)
         | EReal(r,a) -> EReal(r,f a)
-        | EExists(r,a) -> EExists(r,f a)
+        | EExists(r,a,b) -> EExists(r,List.map (g env) a,f b)
         | EMacro(r,a,b) -> 
             let a = a |> List.map (function
                 | MText _ as x -> x
@@ -1060,7 +1062,8 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawSeq(r,a,b) -> ESeq(p r,f a,f b)
         | RawHeapMutableSet(r,a,b,c) -> EHeapMutableSet(p r,f a,List.map (fun a -> p (range_of_expr a), f a) b,f c)
         | RawReal(r,a) -> f a
-        | RawExists(r,a) -> EExists(p r, f a)
+        | RawExists(r,Some a,b) -> EExists(p r, List.map (ty env) a, f b)
+        | RawExists(_,None,_) -> failwith "Compiler error: The exists' vars should have been added during `fill`."
         | RawMacro _ -> failwith "Compiler error: The macro's annotation should have been added during `fill`."
         | RawAnnot(_,RawMacro(r,a),b) ->
             let a = a |> List.map (function
