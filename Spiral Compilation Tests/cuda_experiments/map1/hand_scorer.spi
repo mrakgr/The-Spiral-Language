@@ -41,7 +41,7 @@ inl sa_try_straight forall dim el {suit; rank}. (config : try_straight_config el
             ) (0, 12) inp
 
     inl check_if_exists_and_assign () = match config with // Takes care of the 5,4,3,2,A pattern.
-        | StraightFlush a => listm.exists (index inp >> fun x => a = suit x && rank x = 12 && (set out 4 x . true)) [0;1;2;3]
+        | StraightFlush a => listm.exists' (index inp >> fun x => a = suit x && rank x = 12 && (set out 4 x . true)) [0;1;2;3]
         | Straight => inl x = index inp 0 in rank x = 12 && (set out 4 x . true)
     // For an unsigned 4 bit value, its overflow below zero would put it at 15, but who knows whether the types will change, so it is best to do it like 0-1.
     if i = 4 && target+1 = 0 && check_if_exists_and_assign() then Some out // 5,4,3,2,A case.

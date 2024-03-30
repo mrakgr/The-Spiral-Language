@@ -149,7 +149,7 @@ inl forall2 forall (ar : * -> *) {index; length} a b. f (x1 : ar a) (x2 : ar b) 
     let rec loop i = if i < length x1 then f (index x1 i) (index x2 i) && loop (i+1) else true
     loop 0
 // Returns true if the applying the checker function to one element of the array returns true.
-inl exists forall (ar : * -> *) {index; length} el. f (x : ar el) =
+inl exists' forall (ar : * -> *) {index; length} el. f (x : ar el) =
     let rec loop i = if i < length x then f (index x i) || loop (i+1) else false
     loop 0
 // Returns true if the applying the checker function to one element pair of the two arrays returns true.

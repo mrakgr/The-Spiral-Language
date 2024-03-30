@@ -40,10 +40,10 @@ let index x key =
         on_fail=fun _ => failwith "The key is not present in the dictionary."
         }
 
-// Adds a key value pair to the dictionary. Raises an exception if the key already exists.
+// Adds a key value pair to the dictionary. Raises an exception if the key already exists'.
 let add x key value = 
     atKey x key {
-        on_succ=fun _ _ => failwith "The key already exists in the dictionary."
+        on_succ=fun _ _ => failwith "The key already exists' in the dictionary."
         on_fail=fun add => add value . value
         } |> ignore
 

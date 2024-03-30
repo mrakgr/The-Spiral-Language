@@ -2,11 +2,11 @@
 
 - [Support Spiral](#support-spiral)
 - [News](#news)
-- [8/27/2023](#8272023)
-- [1/7/2023](#172023)
-- [12/21/2022](#12212022)
-- [7/13/2022](#7132022)
-- [8/21/2021](#8212021)
+- [/27/2023](#272023)
+- [/7/2023](#72023)
+- [/21/2022](#212022)
+- [/13/2022](#132022)
+- [/21/2021](#212021)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
     - [Getting Spiral](#getting-spiral)
@@ -26,12 +26,13 @@
             - [Records](#records)
             - [Unions](#unions)
         - [Type Literals](#type-literals)
-            - [`v$` operator in macros](#v-operator-in-macros)
+            - [v$ operator in macros](#v-operator-in-macros)
         - [Prototypes](#prototypes)
+        - [Existentials](#existentials)
     - [Heap Allocation vs Code Size](#heap-allocation-vs-code-size)
     - [Notes On Arrays](#notes-on-arrays)
     - [Bottom-Up Segment](#bottom-up-segment)
-        - [Functions](#functions-1)
+        - [Functions](#functions)
         - [Branching](#branching)
             - [Loop Unrolling](#loop-unrolling)
             - [Compiler Crashing](#compiler-crashing)
@@ -1375,6 +1376,13 @@ prototype on_succ m a : a -> m a
 ...the `m a` is purposely made to resemble destructuring. When writing instances, you'd imagine substituting `m a` with `list a` or some other nominal that matches the signature.
 
 It should be mentioned - all union types are always wrapped in a nominal which is why prototype instances can be defined for them. It has been mentioned that language's sometimes mix multiple concepts in order to establish their foundational data structures. In Spiral's case, its unions are nominals + raw unions under the hood. The language does not allow taking off the nominal wrapper from unions during destructuring.
+
+### Existentials
+
+They are a compile time only feature that allow the hidding of type variables.
+
+```
+```
 
 ## Heap Allocation vs Code Size
 

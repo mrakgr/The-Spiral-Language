@@ -1,6 +1,6 @@
 // Tries finding the value given the key.
 inl tryFind forall k v. (d : dict k v) (x : k) : option v = failwith "TODO"
-// Checks whether the key exists.
+// Checks whether the key exists'.
 inl contains forall k v. (d : dict k v) (x : k) : bool = failwith "TODO"
 // Set the dictionary value at the given key.
 inl set forall k v. (d : dict k v) (x : k) (v : v) : () = failwith "TODO"
