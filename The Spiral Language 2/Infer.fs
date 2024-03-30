@@ -701,7 +701,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 RawMatch(r'',fill_foralls r rec_term body,[PatVar(r,name), term (Map.remove name rec_term) on_succ])
             | RawMatch(r,a,b) -> RawMatch(r,f a,clauses b)
             | RawFun(r,a) -> RawAnnot(r,RawFun(r,clauses a),annot r x)
-            | RawExists(r,a,b) -> RawExists(r,Some(Option.defaultWith (fun () -> exists_vars.[x]) a),f b)
+            | RawExists(r,a,b) -> RawExists(r,Some(Option.defaultWith (fun () -> List.map (t_to_rawtexpr r) exists_vars.[x]) a),f b)
             | RawRecBlock(r,l,on_succ) ->
                 let has_foralls = List.exists (function (_,RawForall _) -> true | _ -> false) l
                 if has_foralls then RawRecBlock(r,List.map (fun (a,b) -> a, f b) l,f on_succ)
@@ -1190,12 +1190,14 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                 | TyMetavar _, _ -> errors.Add(range_of_expr x, MetavarsNotAllowedInRecordWith); eval Map.empty
                 | a,_ -> errors.Add(range_of_expr x, ExpectedRecord a); eval Map.empty
             |> fun v -> if errors.Count = i then unify r (TyRecord v) s
-        | RawExists(r,l,body) ->
+        | RawExists(_,l,body) ->
             match visit_t s with
-            | TyExists _ as exists ->
-                let vars, s = exists_subst_term scope (l,exists)
+            | TyExists(type_vars,type_body) ->
+                let vars, s = exists_subst_term scope (type_vars,type_body)
+                Option.iter (List.iter2 (ty scope env) vars) l
                 term scope env s body
                 assert_exists_hasnt_metavars (range_of_expr x) vars
+                exists_vars.Add(x,vars)
             | s -> errors.Add(range_of_expr x, ExpectedExistentialInTerm s); f (fresh_var scope) body
         | RawFun(r,l) ->
             annotations.Add(x,(r,s))
@@ -1346,7 +1348,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
             let a = List.map (typevar_to_var scope env.constraints) a
             let body_var = fresh_var scope
             ty scope {env with ty = List.fold (fun s a -> Map.add a.name (TyVar a) s) env.ty a} body_var b
-            unify r s (List.foldBack (fun a body_var -> TyExists(a, body_var)) a body_var)
+            unify r s (TyExists(a, body_var))
         | RawTForall(r,a,b) ->
             let a = typevar_to_var scope env.constraints a
             let body_var = fresh_var scope
@@ -1462,9 +1464,9 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     env
             | PatExists(r,l,p) ->
                 match visit_t s with
-                | TyExists _ as exists ->
+                | TyExists(type_vars,type_body) ->
                     let scope = scope + 1
-                    let vars, s = exists_subst_pattern scope l exists
+                    let vars, s = exists_subst_pattern scope l (type_vars, type_body)
                     let env = {env with ty = List.fold2 (fun s (_,x) v -> Map.add x v s) env.ty l vars}
                     pattern scope env s p
                 | s -> errors.Add(r, ExpectedExistentialInPattern s); scope, env
