@@ -139,7 +139,8 @@ let codegen (env : PartEvalResult) (x : TypedBind []) =
         | YPrim a -> prim a
         | YArray a -> sprintf "(%s [])" (tup_ty a)
         | YFun(a,b) -> sprintf "(%s -> %s)" (tup_ty a) (tup_ty b)
-        | a -> failwithf "Type not supported in the codegen.\nGot: %A" a
+        | YExists -> raise_codegen_error "Existentials are not supported at runtime. They are a compile time feature only."
+        | a -> raise_codegen_error $"Type not supported in the codegen.\nGot: %A{a}"
     and args_tys x = x |> Array.map (fun (L(i,t)) -> sprintf "v%i : %s" i (tup_ty t)) |> String.concat ", "
     and binds (s : CodegenEnv) (x : TypedBind []) =
         Array.iter (function

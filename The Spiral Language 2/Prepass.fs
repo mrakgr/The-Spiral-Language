@@ -69,7 +69,7 @@ and [<ReferenceEquality>] E =
     // Regular pattern matching
     | ELet of Range * Id * E * E
     | EUnbox of Range * symbol: string * Id * body: E * on_succ: E * on_fail: E
-    | EExistsTest of Range * bind: Id * pat_type: Id list * pat: Id * on_succ: E * on_fail: E
+    | EExistsTest of Range * bind: Id * pat_type: Id [] * pat: Id * on_succ: E * on_fail: E
     | EPairTest of Range * bind: Id * pat1: Id * pat2: Id * on_succ: E * on_fail: E
     | ESymbolTest of Range * string * bind: Id * on_succ: E * on_fail: E
     | ERecordTest of Range * PatRecordMember list * bind: Id * on_succ: E * on_fail: E
@@ -83,8 +83,7 @@ and [<ReferenceEquality>] E =
 and [<ReferenceEquality>] T =
     | TArrow' of Scope * Id * T
     | TArrow of Id * T
-    | TExists' of Scope * Id * T
-    | TExists of Id * T
+    | TExists
     | TJoinPoint' of Range * Scope * T
     | TJoinPoint of Range * T
     | TPatternRef of T ref
@@ -167,7 +166,7 @@ module Printable =
         // Regular pattern matching
         | ELet of Id * PE * PE
         | EUnbox of Id * string * PE * PE * PE
-        | EExistsTest of bind: Id * pat_type: Id list * pat: Id * on_succ: PE * on_fail: PE
+        | EExistsTest of bind: Id * pat_type: Id [] * pat: Id * on_succ: PE * on_fail: PE
         | EPairTest of bind: Id * pat1: Id * pat2: Id * on_succ: PE * on_fail: PE
         | ESymbolTest of string * bind: Id * on_succ: PE * on_fail: PE
         | ERecordTest of PPatRecordMember list * bind: Id * on_succ: PE * on_fail: PE
@@ -181,8 +180,7 @@ module Printable =
     and [<ReferenceEquality>] PT =
         | TArrow' of Scope * Id * PT
         | TArrow of Id * PT
-        | TExists' of Scope * Id * PT
-        | TExists of Id * PT
+        | TExists
         | TJoinPoint' of Scope * PT
         | TJoinPoint of PT
         | TB
@@ -295,8 +293,7 @@ module Printable =
             | T.TPatternRef a -> ty !a
             | T.TArrow'(a,b,c) -> TArrow'(a,b,ty c)
             | T.TArrow(a,b) -> TArrow(a,ty b)
-            | T.TExists'(a,b,c) -> TExists'(a,b,ty c)
-            | T.TExists(b,c) -> TExists(b,ty c)
+            | T.TExists -> TExists
             | T.TJoinPoint'(_,a,b) -> TJoinPoint'(a,ty b)
             | T.TJoinPoint(_,a) -> TJoinPoint(ty a)
             | T.TB _ -> TB
@@ -430,7 +427,7 @@ let propagate x =
         // Regular pattern matching
         | ELet(_,bind,body,on_succ) -> term on_succ - bind + term body
         | EUnbox(_,_,bind,body,on_succ,on_fail) -> term on_succ - bind + term body + term on_fail
-        | EExistsTest(_,bind,pat_type,pat,on_succ,on_fail) -> singleton_term bind + (List.fold (-.) (term on_succ) pat_type - pat) + term on_fail
+        | EExistsTest(_,bind,pat_type,pat,on_succ,on_fail) -> singleton_term bind + (Array.fold (-.) (term on_succ) pat_type - pat) + term on_fail
         | EPairTest(_,bind,pat1,pat2,on_succ,on_fail) -> singleton_term bind + (term on_succ - pat1 - pat2) + term on_fail
         | ESymbolTest(_,_,bind,on_succ,on_fail) 
         | EUnitTest(_,bind,on_succ,on_fail) 
@@ -453,7 +450,7 @@ let propagate x =
                 s + a + b
                 ) (ty a) b
     and ty = function
-        | TJoinPoint' _ | TExists' _ | TArrow' _ | TSymbol _ | TPrim _ | TNominal _ | TLit _ | TB _ -> empty
+        | TExists | TJoinPoint' _ | TArrow' _ | TSymbol _ | TPrim _ | TNominal _ | TLit _ | TB _ -> empty
         | TPatternRef a -> ty !a
         | TV i -> singleton_ty i
         | TMetaV i -> {empty with ty = {|empty.ty with range = Some(i,i)|} }
@@ -461,7 +458,7 @@ let propagate x =
         | TUnion(_,(a,_)) | TRecord(_,a) | TModule a -> Map.fold (fun s k v -> s + ty v) empty a
         | TTerm(_,a) -> term a
         | TMacro(_,a) -> a |> List.fold (fun s -> function TMText _ -> s | TMLitType x | TMType x -> s + ty x) empty
-        | TExists(i,a) | TArrow(i,a) as x -> scope x (ty a -. i)
+        | TArrow(i,a) as x -> scope x (ty a -. i)
         | TJoinPoint(_,a) as x -> scope x (ty a)
         | TArray(a) | TLayout(a,_) -> ty a
     
@@ -551,9 +548,8 @@ let resolve (scope : Dictionary<obj,PropagatedVars>) x =
     and ty (env : ResolveEnv) x = 
         let f = ty env
         match x with
-        | TJoinPoint' _ | TExists' _ | TArrow' _ | TNominal _ | TPrim _ | TSymbol _ | TV _ | TMetaV _ | TLit _ | TB _ -> ()
+        | TExists | TJoinPoint' _ | TArrow' _ | TNominal _ | TPrim _ | TSymbol _ | TV _ | TMetaV _ | TLit _ | TB _ -> ()
         | TPatternRef a -> f !a
-        | TExists(_,a)
         | TArrow(_,a) -> subst env x; f a
         | TApply(_,a,b) | TFun(_,a,b) | TPair(_,a,b) -> f a; f b
         | TRecord(_,a) | TModule a | TUnion(_,(a,_)) -> Map.iter (fun _ -> f) a
@@ -708,7 +704,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
             let on_fail = term env_rec env on_fail
             let i = env.term.var.[i]
             let pat,env = adj_term env pat
-            let pat_type,env = List.mapFold adj_ty env pat_type
+            let pat_type,env = Array.mapFold adj_ty env pat_type
             let on_succ = term env_rec env on_succ
             EExistsTest(r,i,pat_type,pat,on_succ,on_fail)
         | ESymbolTest(r,a,i,on_succ,on_fail) -> 
@@ -754,7 +750,7 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
         let f = ty' case_tmetav env_rec env
         match x with
         | TMetaV i -> case_tmetav i
-        | TJoinPoint' _ | TExists' _ | TArrow' _ | TNominal  _ | TPrim _ | TSymbol _ | TLit _ | TB _ as x -> x
+        | TExists | TJoinPoint' _ | TArrow' _ | TNominal  _ | TPrim _ | TSymbol _ | TLit _ | TB _ as x -> x
         | TPatternRef a -> f !a
         | TJoinPoint(r,a) as x ->
             let scope, env = scope env x
@@ -763,10 +759,6 @@ let lower (scope : Dictionary<obj,PropagatedVars>) x =
             let scope, env = scope env x
             let a, env = adj_ty env a
             TArrow'(scope,a,ty env_rec env b)
-        | TExists(a,b) as x ->  
-            let scope, env = scope env x
-            let a, env = adj_ty env a
-            TExists'(scope,a,ty env_rec env b)
         | TV i -> TV(env.ty.var.[i])
         | TPair(r,a,b) -> TPair(r,f a,f b)
         | TFun(r,a,b) -> TFun(r,f a,f b)
@@ -883,7 +875,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
                     let a,on_succ = step a on_succ
                     EPairTest(p r,id,a,b,on_succ,on_fail)
                 | PatExists(r,l,b) -> 
-                    let pat_type = List.map (snd >> tv) l
+                    let pat_type = List.map (snd >> tv) l |> List.toArray
                     let pat,on_succ = step b on_succ
                     EExistsTest(p r,id,pat_type,pat,on_succ,on_fail)
                 | PatArray(r,a) ->
@@ -966,11 +958,7 @@ let prepass package_id module_id path (top_env : PrepassTopEnv) =
         | RawTVar(r,a) -> v_ty env a
         | RawTPair(r,a,b) -> TPair(p r,f a,f b)
         | RawTFun(r,a,b) -> TFun(p r,f a,f b)
-        | RawTExists(r,l,b) -> 
-            List.foldBack (fun ((_,(x,_)) : HoVar,_) s ->
-                let id = match v_ty env x with TV id -> id | _ -> failwith "Compiler error: Expected a TV in RawTExists."
-                TExists(id,s)
-                ) l (f b)
+        | RawTExists(r,l,b) -> TExists
         | RawTRecord(r,l) -> TRecord(p r,Map.map (fun _ -> f) l)
         | RawTUnion(r,a,b) -> TUnion(p r,(Map.map (fun _ -> f) a,b))
         | RawTSymbol(r,a) -> TSymbol(p r,a)

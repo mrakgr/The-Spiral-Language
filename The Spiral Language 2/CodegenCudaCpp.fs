@@ -242,6 +242,7 @@ let codegen' (env : PartEvalResult) (x : TypedBind []) =
         | YPrim a -> prim a
         | YArray a -> sprintf "%s *" (tup_ty a)
         | YFun(a,b) -> sprintf "Fun%i" (cfun (a,b)).tag
+        | YExists -> raise_codegen_error "Existentials are not supported at runtime. They are a compile time feature only."
         | a -> raise_codegen_error (sprintf "Compiler error: Type not supported in the codegen.\nGot: %A" a)
     and prim = function
         | Int8T -> "int8_t" 
