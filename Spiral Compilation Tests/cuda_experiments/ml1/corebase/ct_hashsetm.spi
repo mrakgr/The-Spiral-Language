@@ -1,0 +1,13 @@
+// Creates a compile time hashset. These data structures cannot be turned to types or passed through join
+// points. Their primary purpose is to allow lexicographic traversals and sorting of compile time data structures.
+// One usecase for this would be the layering of backpropagation operations without relying on monadic programming techniques.
+// The symbol .hashset here is a standin for its nonexistent type.
+inl create () : .hashset = !!!!HashSetCreate()
+// Adds a key to the hashset. Returns true if the key was added to the set, and false if the key was already present.
+inl add (h : .hashset) k : bool = !!!!HashSetAdd(h,k)
+// Returns true if the key is present in the set.
+inl contains (h : .hashset) k : bool = !!!!HashSetContains(h,k)
+// Removes a key from the hashset. Returns true if the key was found and removed from the set, and false if the key wasn't present.
+inl remove (h : .hashset) k : bool = !!!!HashSetRemove(h,k)
+// Returns the number of elements in the set.
+inl count (h : .hashset) k : int = conv (!!!!HashSetContains(h,k) : i32)

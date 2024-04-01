@@ -6,6 +6,7 @@ modules:
         real_core*
         type_arith*
         core-
+        ct_hashsetm 
         struct* 
         listm
         loop
