@@ -122,6 +122,7 @@ type TypeError =
     | ArrayIsMissingAnnotation
     | ExistsIsMissingAnnotation
     | ShadowedForall
+    | ShadowedExists
     | UnionTypesMustHaveTheSameLayout
     | OrphanInstance
     | ShadowedInstance
@@ -582,7 +583,8 @@ let show_type_error (env : TopEnv) x =
     | MacroIsMissingAnnotation -> "The macro needs an annotation."
     | ArrayIsMissingAnnotation -> "The array needs an annotation."
     | ExistsIsMissingAnnotation -> "The existential type needs an annotation."
-    | ShadowedForall -> "Shadowing of foralls (in the top-down) segment is not allowed."
+    | ShadowedForall -> "Shadowing of foralls is not allowed in the top-down segment."
+    | ShadowedExists -> "Shadowing of existential type variables is not allowed in the top-down segment."
     | UnionTypesMustHaveTheSameLayout -> "The two union types must have the same layout."
     | OrphanInstance -> "The instance has to be defined in the same package as either the prototype or the nominal."
     | ShadowedInstance -> "The instance cannot be defined twice."
@@ -1463,6 +1465,7 @@ let infer package_id module_id (top_env' : TopEnv) expr =
                     unify r s (l |> Map |> TyRecord)
                     env
             | PatExists(r,l,p) ->
+                l |> List.iter (fun (r,name) -> if Map.containsKey name env.ty then errors.Add(r,ShadowedExists))
                 match visit_t s with
                 | TyExists(type_vars,type_body) ->
                     let scope = scope + 1

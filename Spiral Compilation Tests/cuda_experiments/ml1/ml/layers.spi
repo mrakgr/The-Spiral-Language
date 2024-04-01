@@ -23,6 +23,10 @@ union rec descs a c =
     | Desc : desc a c
     | DescPair : exists b. descs a b * descs b c
 
+inl rec sum_global forall a b. (s : size) : descs a b -> size = function
+    | Desc (desc {size_global}) => s + size_global
+    | DescPair (exists t. a,b) => sum_global (sum_global s a) b
+
 // Takes in a layer descriptor and initializes it.
 inl init forall a b. (input_dimension : int * int) (x : descs a b) : layers a b = failwith "todo"
 
@@ -48,18 +52,21 @@ inl square_error () : desc (tensor (int * int) f32) (tensor (int * int) f32 -> f
 inl combine forall a b c. (a : desc a b) (b : descs b c) : descs a c = DescPair exists Desc a, b
 inl combine_start forall a b c. (a : desc a b) (b : desc b c) : descs a c = DescPair exists Desc a, Desc b
 
-inl run forall a b. (x : a) (l : layers a b) : b = failwith "todo"
+inl run forall a b. (x : a) (l : layer a b) : b = failwith "todo"
+inl rec run_layers forall a b. (s : a) : layers a b -> b = function
+    | Layer x => run s x
+    | LayerPair(exists t. a, b) => run_layers (run_layers s a) b
 
 inl main() = 
-    inl (|.) a b = combine_start b a
-    inl (|>) a b = combine b a
+    inl (<|.) a b = combine_start a b
+    inl (<|) a b = combine a b
     inl x = 
-        square_error()
-        |>. linear 128
-        |> relu()
-        |> linear 128
-        |> tanh()
-        |> linear 64
+        linear 64
+        <| tanh()
+        <| linear 128
+        <| relu()
+        <| linear 128
+        <|. square_error()
     // inl (|>.) a b = combine_start b a
     // inl (|>) a b = combine b a
     // inl x = 
@@ -70,5 +77,5 @@ inl main() =
     //     |> tanh()
     //     |> linear 64
     inl x = init (512, 64) x
-    inl y = run (failwith "todo") x 
+    inl y = run_layers (failwith "todo") x 
     ()

@@ -1,3 +1,7 @@
+2.8.2 (3/30/2024)
+
+* Disallowed the shadowing of existential type variables in patterns in the top-down segment.
+
 2.8.0 (3/30/2024)
 
 * Implemented the existential types.
