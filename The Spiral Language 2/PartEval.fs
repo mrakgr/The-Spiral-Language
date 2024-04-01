@@ -68,6 +68,7 @@ and Data =
     | DUnion of Data * Union
     | DNominal of Data * Ty
     | DV of TyV
+    | DHashSet of HashSet<Data>
 and TyV = L<Tag,Ty>
 // Unions always go through a join point which enables them to be compared via ref eqaulity.
 // tags and tag_cases are straightforward mapping from cases for the sake of efficiency.
@@ -152,7 +153,10 @@ type TopEnv = {
     nominals : Dictionary<GlobalId, Nominal>
     }
 
-let data_to_rdata (hc : HashConsTable) call_data =
+exception TypeError of Trace * string
+let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
+
+let data_to_rdata (d: LangEnv) (hc : HashConsTable) call_data =
     let hc x = hc.Add x
     let m = Dictionary(HashIdentity.Reference)
     let call_args = ResizeArray()
@@ -170,6 +174,7 @@ let data_to_rdata (hc : HashConsTable) call_data =
             | DUnion(a,b) -> ReUnion(hc(f a,b))
             | DNominal(a,b) -> ReNominal(hc(f a,b))
             | DB -> ReB
+            | DHashSet _ -> raise_type_error d "Mutable compile time data structures like the HashSets cannot be passed through join points."
             ) x
     let x = Array.map f call_data
     call_args.ToArray(),x
@@ -190,6 +195,7 @@ let rename_global_term (s : LangEnv) =
             | DUnion(a,b) -> DUnion(f a,b)
             | DNominal(a,b) -> DNominal(f a,b)
             | DSymbol _ | DLit _ | DTLit _ | DB as x -> x
+            | DHashSet _ -> raise_type_error s "Mutable compile time data structures like the HashSets cannot be renamed."
             ) x
     {s with env_global_term = Array.map f s.env_global_term}
 
@@ -205,6 +211,7 @@ let data_free_vars call_data =
             | DV(L _ as t) -> free_vars.Add t
             | DExists(_,a) | DUnion(a,_) | DNominal(a,_) -> f a
             | DSymbol _ | DLit _ | DTLit _ | DB -> ()
+            | DHashSet x -> Seq.iter f x
     f call_data
     free_vars.ToArray()
 
@@ -232,6 +239,7 @@ let data_term_vars' call_data =
         | DLit _ | DV _ as x -> term_vars.Add(x)
         | DExists(_,a) | DUnion(a,_) | DNominal(a,_) -> f a
         | DSymbol _ | DTLit _ | DB -> ()
+        | DHashSet x -> Seq.iter f x
     f call_data
     term_vars.ToArray()
     
@@ -244,6 +252,7 @@ let data_nominals call_data =
         | DLit _ | DV _ 
         | DExists _ | DUnion _ | DNominal _ as x -> term_vars.Add(x)
         | DSymbol _ | DTLit _ | DB -> ()
+        | DHashSet x -> Seq.iter f x
     f call_data
     term_vars.ToArray()
 
@@ -257,6 +266,7 @@ let data_term_vars call_data =
         | DV x -> term_vars.Add(WV x)
         | DExists(_,a) | DUnion(a,_) | DNominal(a,_) -> f a
         | DSymbol _ | DTLit _ | DB -> ()
+        | DHashSet x -> Seq.iter f x
     f call_data
     term_vars.ToArray()
 
@@ -298,9 +308,6 @@ let cse_tryfind (d: LangEnv) key =
         )
 
 let cse_add (d: LangEnv) k v = (List.head d.cse).Add(k,v)
-
-exception TypeError of Trace * string
-let raise_type_error (d: LangEnv) x = raise (TypeError(d.trace,x))
 
 let show_primt = Infer.show_primt
 let p = Infer.p
@@ -347,6 +354,7 @@ let show_data x =
         | DV(L(_,ty)) -> show_ty ty
         | DUnion(a,_) -> f prec a
         | DNominal(a,b) -> p 0 (sprintf "%s : %s" (f 0 a) (show_ty b))
+        | DHashSet _ -> p 0 "<HashSet>"
     f -1 x
 
 let is_lit = function
@@ -526,7 +534,7 @@ let peval (env : TopEnv) (x : E) =
                 | YFun(a,b) as x -> a,b,x
                 | annot -> raise_type_error s <| sprintf "Expected a function type in annotation during closure conversion. Got: %s" (show_ty annot)
             let dict, hc_table = Utils.memoize join_point_closure (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
-            let call_args, env_global_value = data_to_rdata hc_table gl_term
+            let call_args, env_global_value = data_to_rdata s hc_table gl_term
             let join_point_key = hc_table.Add(env_global_value, s.env_global_type, domain, range)
 
             match dict.TryGetValue(join_point_key) with
@@ -557,6 +565,7 @@ let peval (env : TopEnv) (x : E) =
                 | DExists _ -> YExists
                 | DFunction(_,None,_,_,_,_) -> raise_type_error s "Cannot convert a function that is not annotated into a type."
                 | DForall _ -> raise_type_error s "Cannot convert a forall into a type."
+                | DHashSet _ -> raise_type_error s "Cannot convert a compile time HashSet into a type."
                 ) x
         f x
     and dyn do_lit s x =
@@ -576,6 +585,7 @@ let peval (env : TopEnv) (x : E) =
                 | DFunction(body,Some annot,term',ty',sz_term,sz_ty) -> dirty <- true; closure_convert s (body,annot,term',ty',sz_term,sz_ty) |> fst
                 | DFunction(_,None,_,_,_,_) -> raise_type_error s "Cannot convert a function that is not annotated into a type."
                 | DForall _ -> raise_type_error s "Cannot convert a forall into a type."
+                | DHashSet _ -> raise_type_error s "Cannot convert a compile time HashSet into a type."
                 ) x
         let v = f x
         if dirty then v else x
@@ -916,7 +926,7 @@ let peval (env : TopEnv) (x : E) =
             let env_global_term = Array.map (v s) scope.term.free_vars
 
             let dict, hc_table = Utils.memoize join_point_method (fun _ -> Dictionary(HashIdentity.Structural), HashConsTable()) body
-            let call_args, env_global_value = data_to_rdata hc_table env_global_term
+            let call_args, env_global_value = data_to_rdata s hc_table env_global_term
             let join_point_key = hc_table.Add(env_global_value, env_global_type)
 
             let ret_ty =
@@ -2232,6 +2242,23 @@ let peval (env : TopEnv) (x : E) =
         | EOp(_,FreeVars,[a]) ->
             let x = term s a |> data_free_vars
             Array.foldBack (fun x s -> DPair(DV x,s)) x DB
+        | EOp(_,HashSetCreate,[]) -> DHashSet(HashSet(HashIdentity.Reference))
+        | EOp(_,HashSetAdd,[h;k]) ->
+            match term s h, term s k with
+            | DHashSet h, b -> DLit(LitBool(h.Add b))
+            | h, _ -> raise_type_error s $"Expected a compile time HashSet.\nGot: {show_data h}"
+        | EOp(_,HashSetContains,[h;k]) ->
+            match term s h, term s k with
+            | DHashSet h, b -> DLit(LitBool(h.Contains b))
+            | h, _ -> raise_type_error s $"Expected a compile time HashSet.\nGot: {show_data h}"
+        | EOp(_,HashSetRemove,[h;k]) ->
+            match term s h, term s k with
+            | DHashSet h, b -> DLit(LitBool(h.Remove b))
+            | h, _ -> raise_type_error s $"Expected a compile time HashSet.\nGot: {show_data h}"
+        | EOp(_,HashSetCount,[h]) ->
+            match term s h with
+            | DHashSet h -> DLit(LitInt32(h.Count))
+            | h -> raise_type_error s $"Expected a compile time HashSet.\nGot: {show_data h}"
         | EOp(_,op,a) -> raise_type_error s <| sprintf "Compiler error: %A with %i args not implemented" op (List.length a)
 
     let s : LangEnv = {

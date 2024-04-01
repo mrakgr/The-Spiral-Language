@@ -14,6 +14,13 @@ type NominalString = string
 type Layout = Heap | HeapMutable
 
 type Op =
+    // Compile time hash set
+    | HashSetCreate
+    | HashSetAdd
+    | HashSetContains
+    | HashSetRemove
+    | HashSetCount
+
     // Pragma
     | PragmaUnrollPush
     | PragmaUnrollPop
