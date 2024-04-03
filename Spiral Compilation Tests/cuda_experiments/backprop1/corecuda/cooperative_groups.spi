@@ -88,7 +88,8 @@ open tensorm
 //     inl dim = from.dim
 //     real
 //         open tensorm.utils
-//         iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
+//         iter2 (fun (tensor_body {array=from offset=from_offset stride=from_stride}) (tensor_body {array=to offset=to_offset stride=to_stride}) =>
+//             assert (to_stride = 1 && from_stride = 1) "The innermost dimension of every tensor body needs to have a contiguous stride."
 //             typecase `from with _ ~el =>
 //             inl dim = $"constexr `int v$ = sizeof(`el) * !dim" : int
 //             $'assert("Pointer alignment check" && (unsigned long long)(!from + !from_offset) % !dim == 0 && (unsigned long long)(!to + !to_offset) % !dim == 0)' : ()

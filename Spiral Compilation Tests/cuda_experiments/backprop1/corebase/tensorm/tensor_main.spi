@@ -233,10 +233,7 @@ inl factorize forall a el. (i : int) (t : tensor a el) : tensor (a * int) el =
             open real_core
             map (fun (tensor_body r as x) =>
                 typecase `x with
-                | tensor_body a ~el => tensor_body `(a * int) `el {r with stride #= fun x => 
-                    assert (last x = 1) "The innermost dimension of every tensor body needs to have a contiguous stride."
-                    mapFoldBack (fun x s => x * s, 1) x i
-                    }
+                | tensor_body a ~el => tensor_body `(a * int) `el {r with stride #= fun x => mapFoldBack (fun x s => x * s, 1) x i}
                 ) t.bodies
     }
 

@@ -94,7 +94,8 @@ inl memcpy_sync forall float. (to, from : tensor int float * tensor int float) =
     real
         open real_core
         open struct
-        iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
+        iter2 (fun (tensor_body {array=from offset=from_offset stride=from_stride}) (tensor_body {array=to offset=to_offset stride=to_stride}) =>
+            assert (to_stride = 1 && from_stride = 1) "The innermost dimension of every tensor body needs to have a contiguous stride."
             typecase `from with _ ~el =>
             inl load_single forall el. =
                 inl from = $"reinterpret_cast<`el*>(!from + !from_offset)" : $'`el*'

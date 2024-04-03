@@ -55,6 +55,8 @@ inl snd (a,b) = b
 
 // Pipe forward.
 inl (|>) a b = b a
+// Pair pipe forward.
+inl (||>) (a1,a2) b = b a1 a2
 // Compose forward.
 inl (>>) a b x = b (a x)
 // Pipe backward.

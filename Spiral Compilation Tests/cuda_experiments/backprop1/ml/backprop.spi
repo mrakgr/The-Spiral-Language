@@ -1,0 +1,64 @@
+open corebase
+open corecuda
+open tensorm
+
+union rec backpropagation_op = Op : list backpropagation_op * (() -> ())
+type dual_tensor dim t = tensor dim {primal : t; adjoint : t}
+nominal dual dim t = dual_tensor dim t * backpropagation_op
+
+inl primal forall dim t. : dual_tensor dim t -> tensor dim t = rezip (fun from => from.primal)
+inl adjoint forall dim t. : dual_tensor dim t -> tensor dim t = rezip (fun from => from.adjoint)
+
+open primitives
+// inl relu_fwd forall dim a{number}.
+//         (block : ref cooperative_groups.thread_block)
+//         (from : tensor (dim * int) a) (to : tensor (dim * int) a) : () =
+//     template_map_2d block (fun config inp _ _ =>
+//         local_map (max 0) inp
+//         ) from to
+
+// inl relu_bck forall dim a{number}.
+//         (block : ref cooperative_groups.thread_block)
+//         (from : dual_tensor (dim * int) a) (to : dual_tensor (dim * int) a) : () =
+//     (zip from to, adjoint from) ||> template_map_2d block (fun config inp _ _ =>
+//         inl from, to = unzip inp
+//         inl out = local_map (max 0) (primal from)
+//         inl grad = local_map (fun adj, out => if out > 0 then adj else 0) (zip (adjoint to) out) 
+//         local_map (fun a,b => a+b) (zip (adjoint from) grad)
+//         )
+
+// inl map_op fwd bck block from to =
+//     template_map_2d block (fun config inp _ _ =>
+//         local_map fwd inp
+//         ) (primal from) (primal to)
+//     fun () =>
+//         (zip from to, adjoint from) ||> template_map_2d block (fun config inp _ _ =>
+//             inl from, to = unzip inp
+//             inl out = local_map fwd (primal from)
+//             inl grad = local_map (fun adj, out => adj * bck out) (zip (adjoint to) out) 
+//             local_map (fun a,b => a+b) (zip (adjoint from) grad)
+//             )
+inl map_op fwd bck block from to =
+    template_map_2d block (fun config inp _ _ =>
+        local_map fwd inp
+        ) (primal from) (primal to)
+    fun () =>
+        (to, adjoint from) ||> template_map_2d block (fun config to _ _ =>
+            inl grad = local_map (fun adj, out => adj * bck out) (zip (adjoint to) (primal to)) 
+            local_map (fun a,b => a+b) (zip (adjoint from) grad)
+            )
+
+inl relu bl = map_op (max 0) (fun out => if out > 0 then 1 else 0) bl
+inl sigmoid bl = map_op (fun x => 1 / (1 + exp -x)) (fun out => out * (1 - out)) bl
+inl tanh bl = map_op tanh (fun out => 1 - out * out) bl
+
+
+// inl template_map_2d forall dim a b.
+//         (block : ref cooperative_groups.thread_block)
+//         (f : template_2d_config -> dual (int * int) a -> dim -> dual (int * int) int -> dual (int * int) b)
+//         (from : dual_tensor (dim * int) a) (to : dual_tensor (dim * int) b) : () -> () =
+    
+//     template_map_2d block (fun config inp =>
+//         ()
+//         ) 
+//     ()
