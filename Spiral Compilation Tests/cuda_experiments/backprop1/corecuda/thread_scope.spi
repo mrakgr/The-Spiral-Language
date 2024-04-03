@@ -1,0 +1,4 @@
+nominal thread_scope_system = $"cuda::thread_scope_system"
+nominal thread_scope_device = $"cuda::thread_scope_device"
+nominal thread_scope_block = $"cuda::thread_scope_block"
+nominal thread_scope_thread = $"cuda::thread_scope_thread"

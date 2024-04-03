@@ -1,0 +1,20 @@
+// Changes the codegen state so it unrolls with the given value.
+// 
+// -1     - no unroll
+// 
+// 0      - unroll all
+// 
+// over 0 - unrolls for a given number of times.
+inl unroll_push(x : i32) : () = !!!!PragmaUnrollPush(x)
+
+// Pops the previously pushed state from the codegen's stack.
+inl unroll_pop() : () = !!!!PragmaUnrollPop()
+
+// Unrolls all the loops within the body's inline scope. Does not persist past join points.
+inl unroll' n body = 
+    unroll_push n
+    body()
+    unroll_pop()
+
+// Unrolls all the loops within the body's inline scope. Does not persist past join points.
+inl unroll body = unroll' 0 body

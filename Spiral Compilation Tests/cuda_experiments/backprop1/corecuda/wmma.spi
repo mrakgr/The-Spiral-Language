@@ -1,0 +1,115 @@
+open corebase
+
+nominal row_major = $"wmma::row_major"
+nominal col_major = $"wmma::col_major"
+
+nominal mem_row_major = $"wmma::mem_row_major"
+nominal mem_col_major = $"wmma::mem_col_major"
+
+nominal as_mem t = `(
+    typecase t with
+    | row_major => ``mem_row_major
+    | col_major => ``mem_col_major
+    )
+
+nominal matrix_a = $"wmma::matrix_a"
+nominal matrix_b = $"wmma::matrix_b"
+nominal accumulator = $"wmma::accumulator"
+
+nominal tf32 = $"wmma::precision::tf32"
+nominal fragment use m n k layout t = `(
+    typecase use with
+    | accumulator => ``($"wmma::fragment<`use, @m, @n, @k, `t>")
+    | _ => ``($"wmma::fragment<`use, @m, @n, @k, `t, `layout>")
+    )
+
+instance index fragment use m n k layout = fun f i => $"!f.x[!i]"
+instance set fragment use m n k layout = fun f i v => $"!f.x[!i] = !v"
+instance length fragment use m n k layout = fun f => $"!f.num_elements"
+
+open tensorm
+open tensor_cuda
+
+inl create_fragment forall use m n k layout t. : ref (fragment use m n k layout t) = real
+    typecase fragment use m n k layout t with ~f => 
+    ref `f ($"`f v$" : fragment use m n k layout t)
+
+inl fragment_dim forall use m n k layout t. (f : ref (fragment use m n k layout t)) : int * int = real
+    open real_core
+    inl a,b =
+        typecase use with
+        | matrix_a => type_lit_to_lit `m, type_lit_to_lit `k
+        | matrix_b => type_lit_to_lit `k, type_lit_to_lit `n
+        | accumulator => type_lit_to_lit `m, type_lit_to_lit `n
+    typecase layout with
+    | row_major => a,b
+    | col_major => b,a
+
+inl assert_fragment_dimension forall use m n k layout t el. (f : ref (fragment use m n k layout t)) (t : tensor (int * int) el) : () =
+    assert (fragment_dim f = t.dim) "The fragment's dimensions must match that of the tensor."
+
+inl load_matrix_sync_array forall use m n k layout t el. (f : ref (fragment use m n k layout t)) (ar : array el) (ldm : int) : () =
+    real
+        typecase use with
+        | accumulator =>
+            typecase as_mem layout with ~layout => 
+            $"wmma::load_matrix_sync(!f, !ar, !ldm, `layout)" : ()
+        | _ => 
+            $"wmma::load_matrix_sync(!f, !ar, !ldm)" : ()
+
+// Date: 03/10/2024
+// Note: When loading the A and B matrices these produce awful code and should
+// be avoided. It is fine for the C matrix though.
+inl load_matrix_sync forall use m n k layout frag_in t. (f : ref (fragment use m n k layout frag_in)) (t : tensor (int * int) t) : () =
+    assert_fragment_dimension f t
+    load_matrix_sync_array f (ptr_at_current_offset t) (stride_fst t)
+    real
+        typecase frag_in * t with
+        | t * t => ()
+        | tf32 * f32 => ()
+        // | tf32 * f32 =>
+        //     $"#pragma unroll" : ()
+        //     $"for (int t = 0; t < !f.num_elements; t++) { !f.x[t] = wmma::__float_to_tf32(!f.x[t]); }" : ()
+        | _ => real_core.error_type "This type is not supported."
+
+// Cuda's native `load_matrix_sync` function is extremely poorly done for A and B matrices so we are using this as a workaround.
+inl load_matrix_sync_tf32 forall use m n k layout. (f : ref (fragment use m n k layout tf32)) (t : tensor (int * int) f32) : () =
+    loop.linear t.dim fun i =>
+        inl x = tensor_index i t
+        inl i = loop.proj_rev t.dim i
+        // $"!f.x[!i] = wmma::__float_to_tf32(!x)"
+        $"!f.x[!i] = !x"
+
+inl store_matrix_sync_array forall use m n k layout t. (ar : array t) (f : ref (fragment use m n k layout t)) (ldm : int) : () = 
+    real
+        typecase use with
+        | accumulator =>
+            typecase as_mem layout with ~layout => 
+            $"wmma::store_matrix_sync(!ar, !f, !ldm, `layout)" : ()
+        | _ => 
+            $"wmma::store_matrix_sync(!ar, !f, !ldm)" : ()
+            
+inl store_matrix_sync forall use m n k layout t. (t : tensor (int * int) t) (f : ref (fragment use m n k layout t)) : () = 
+    assert_fragment_dimension f t
+    store_matrix_sync_array (ptr_at_current_offset t) f (stride_fst t)
+
+inl fill_fragment forall use m n k layout t. (f : ref (fragment use m n k layout t)) (v : t) : () =  $"wmma::fill_fragment(!f, !v)"
+    
+inl mma_sync forall m n k a_layout b_layout out_layout t_in t_out. 
+        (d : ref (fragment accumulator m n k out_layout t_out))
+        (a : ref (fragment matrix_a m n k a_layout t_in))
+        (b : ref (fragment matrix_b m n k b_layout t_in)) 
+        (c : ref (fragment accumulator m n k out_layout t_out)) 
+        : () =
+    $"wmma::mma_sync(!d, !a, !b, !c)"
+
+inl conv_tf32 (x : f32) : f32 = $"wmma::__float_to_tf32(!x)"
+
+// Does the conversion to tf32 in transit from global to shared memory.
+inl tensor_memcpy_sync_tf32 access_size (r : loop.range (tensor (int * int) (f32 * f32))) = 
+    loop_rigid {r with nearTo#=factorize_sizeof access_size} (unzip >> fun to, from => 
+        inl x = tensor_create from.dim
+        loop.linear x.dim fun i => 
+            tensor_set i (tensor_index i from |> conv_tf32) x
+        memcpy_sync (to,x)
+        )

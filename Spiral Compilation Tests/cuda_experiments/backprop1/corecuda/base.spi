@@ -1,0 +1,114 @@
+open corebase
+type warp_size = 32
+inl threads_per_warp() : int = real real_core.type_lit_to_lit `warp_size
+inl sms_per_gpu() : int = 24
+inl threads_per_block() : int = 512
+inl blocks_per_grid() : int = 1
+// inl blocks_per_grid() : int = sms_per_gpu()
+
+// Statically sized array with a type literal for a dimension.
+nominal sa dim el = $"array<`el,@dim>"
+
+// Base reference type
+nominal ref t = $"`t &"
+inl ref forall t. (x : t) : ref t = $"`t & v$ = !x"
+// Doesn't actually dereference the reference. For using local scope only.
+inl (~#) forall t. (x : ref t) : t = $"`t & v$ = !x" 
+
+inl ref_index x i = index #x i
+inl ref_set x i v = set #x i v
+inl ref_length x = length #x
+
+// Indexes into an array. Returns a reference to the element instead of the actual element.
+prototype index_ref ar el : ar el -> int -> ref el
+instance index_ref array = fun array i => $"`el & v$ = !array[!i]"
+
+// Base pointer type
+nominal ptr t = $'`t *'
+inl ptr forall t. (~x : t) : ptr t = $"`t * v$ = &!x"
+// Sets the pointer to a specified value.
+inl (<-.) forall t. (x : ptr t) (v : t) : () = $"*!x = !v"
+inl (~*) forall t. (x : ptr t) : t = $"`t v$ = *!x"
+
+type run_config = {
+    shared_mem : int
+    }
+
+// Executes the lambda on the GPU device.
+inl run' ({shared_mem} : run_config) f =
+    inl blocks_per_grid, threads_per_block = blocks_per_grid(), threads_per_block()
+    // Global statements only get executed once.
+    // global "raw_module = cp.RawModule(code=kernel, backend='nvcc', options=(\"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\\\\cublasdx\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\external\\\\cutlass\\\\include\"))"
+
+    global "options = []"
+    global "options.append('--define-macro=NDEBUG')"
+    global "options.append('--diag-suppress=550,20012')"
+    global "options.append('--dopt=on')"
+    global "options.append('--restrict')"
+    // global "options.append('--std=c++17')"
+
+    // > For example, if you want to add a variable named CUPY_CACHE_SAVE_CUDA_SOURCE with the value 1, you would use:
+    // $Env:CUPY_CACHE_SAVE_CUDA_SOURCE = "1"
+    // global "options.append('-src-in-ptx')"
+    // global "options.append('--generate-line-info')"
+    // global "options.append('-D__CUDA_NO_HALF_CONVERSIONS__')" // To avoid `instance of overloaded function "__half::__half" matches the specified type` with NVCC
+
+    // global "options.append('--extra-device-vectorization')"
+    // global "options.append('--ptxas-options=-v')"
+    match threads_per_block with
+    | 1024 => global "options.append('--maxrregcount=64')"
+    | 512 => global "options.append('--maxrregcount=128')"
+    | 256 => global "options.append('--maxrregcount=255')"
+    | _ => ()
+    // global "options.append('--device-debug')"
+    global "raw_module = cp.RawModule(code=kernel, backend='nvrtc', enable_cooperative_groups=True, options=tuple(options))"
+    inl kernel_i, vars = join_backend Cuda
+        // global "#include <assert.h>"
+        f () : ()
+    inl entry = $'raw_module.get_function(f"entry{!kernel_i}")' : $"cp.RawKernel"
+    $'!entry.max_dynamic_shared_size_bytes = !shared_mem '
+    real
+        match vars with
+        | _,_ => $'!entry((!blocks_per_grid,),(!threads_per_block,),!vars,shared_mem=!shared_mem)' : ()
+        | () => $'!entry((!blocks_per_grid,),(!threads_per_block,),(),shared_mem=!shared_mem)' : ()
+        | _ => $'!entry((!blocks_per_grid,),(!threads_per_block,),(!vars,),shared_mem=!shared_mem)' : ()
+    ()
+    
+// Executes the lambda on the GPU device.
+inl run f = run' {shared_mem = 0} f
+
+// Synchronizes all the threads in a block.
+inl __syncthreads() : () = $"__syncthreads()"
+// The index of a thread in a block.
+inl thread_index() : int = $"threadIdx.x"
+// The index of a block in the grid.
+inl block_index() : int = $"blockIdx.x" 
+
+open tensorm
+inl memcpy_sync forall float. (to, from : tensor int float * tensor int float) =
+    assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
+    inl dim = from.dim
+    inl default() =
+        loop.linear dim fun j => 
+            tensor_set j (tensor_index j from) to
+    real
+        open real_core
+        open struct
+        iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
+            typecase `from with _ ~el =>
+            inl load_single forall el. =
+                inl from = $"reinterpret_cast<`el*>(!from + !from_offset)" : $'`el*'
+                inl to = $"reinterpret_cast<`el*>(!to + !to_offset)" : $'`el*'
+                $'assert("Pointer alignment check" && (unsigned long long)(!from) % !dim == 0 && (unsigned long long)(!to) % !dim == 0)' : ()
+                $"*!to = *!from" : ()
+            match dim * (sizeof `el).value with
+            | 16 => load_single `($"int4")
+            | 8 => load_single `($"int2")
+            | 4 => load_single `($"int")
+            | 2 => load_single `($"short int")
+            | 1 => $"*(!to + !to_offset) = *(!from + !from_offset)" : ()
+            | _ => default()
+            ) from.bodies to.bodies
+
+inl tensor_memcpy_sync forall float a. access_size (r : loop.range (tensor a (float * float))) : () =
+    loop_rigid {r with nearTo#=factorize_sizeof access_size} (unzip >> memcpy_sync)

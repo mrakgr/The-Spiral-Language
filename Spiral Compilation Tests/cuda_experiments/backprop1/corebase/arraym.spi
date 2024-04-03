@@ -1,0 +1,187 @@
+// The array module.
+
+inl assert_len ar1 ar2 =
+    inl l = length ar1
+    assert (l = length ar2) "The length of the two arrays has to the same."
+    l
+
+inl assert_len2 ar1 ar2 ar3 =
+    inl l = length ar1
+    assert (l = length ar2 && l = length ar3) "The length of the three arrays has to the same."
+    l
+
+inl assert_len3 ar1 ar2 ar3 ar4 =
+    inl l = length ar1
+    assert (l = length ar2 && l = length ar3 && l = length ar4) "The length of the four arrays has to the same."
+    l
+
+open loop
+
+// Creates an empty array.
+inl empty forall (ar : * -> *) {create} el. : ar el = create 0
+// Creates an array with a single element.
+inl singleton forall (ar : * -> *) {create; set} el. (x : el) : ar el = inl ar = create 1 in set ar 0 x . ar
+// Initializes array using the given function.
+inl init forall (ar : * -> *) {create; set} el. nearTo f : ar el = 
+    inl ar = create nearTo
+    for' {from=0; nearTo} (fun i => set ar i (f i))
+    ar
+// Applies a function to each element of the array, threading an accumulator argument through the computation. 
+// If the input function is f and the elements are i0...iN then computes f (... (f s i0)...) iN
+inl fold forall (ar : * -> *) {index; length} el s. f (s : s) (ar : ar el) = for {from=0; nearTo=length ar} (fun i s => f s (index ar i)) s
+// Applies a function to each element of the two arrays, threading an accumulator argument through the computation.
+inl fold2 forall (ar : * -> *) {index; length} el s. f (s : s) (ar1 : ar el) (ar2 : ar el) = 
+    for {from=0; nearTo=assert_len ar1 ar2} (fun i s => f s (index ar1 i) (index ar2 i)) s
+// Similar to fold with the intial state as the first element of the array.
+inl reduce forall (ar : * -> *) {index; length} el. f (ar : ar el) =
+    inl nearTo = length ar
+    if nearTo = 0 then failwith "The array must be greater than 0."
+    for {from=1; nearTo} (fun i s => f s (index ar i)) (index ar 0)
+// Same as fold from the other direction.
+inl foldBack forall (ar : * -> *) {index; length} el s. f (ar : ar el) (s : s) = forDown {nearFrom=length ar; to=0} (fun i s => f (index ar i) s) s
+// Maps an array.
+inl map forall (ar : * -> *) {length; create; set; index} a b. f (ar : ar a) : ar b = init (length ar) (fun i => f (index ar i))
+// Maps an array. Provides the index as the first argument.
+inl mapi forall (ar : * -> *) {length; create; set; index} a b. f (ar : ar a) : ar b = init (length ar) (fun i => f i (index ar i))
+// Iterates over an array.
+inl iter forall (ar : * -> *) {length; index} el. f (ar : ar el) : () = for' {from=0; nearTo=length ar} (index ar >> f)
+// Iterates over an array. Provides the index as the first argument.
+inl iteri f ar = for' {from=0; nearTo=length ar} (fun i => f i (index ar i))
+// Filters the elements of an array using the function.
+inl filter forall (ar : * -> *) {create; set; index; length} el. f (ar : ar el) : ar el =
+    inl nearTo = length ar
+    inl ar' : ar _ = create nearTo
+    for {from=0; nearTo} (fun i count => 
+        inl x = index ar i
+        if f x then set ar' count x . count + 1 else count
+        ) 0
+    |> fun nearTo => init nearTo (index ar')
+// Picks out the elements from the array.
+inl choose forall (ar : * -> *) {create; set; index; length} a b. (f : a -> option b) (ar : ar a) : ar b =
+    inl nearTo = length ar
+    inl ar' : ar  _ = create nearTo
+    for {from=0; nearTo} (fun i count =>
+        inl x = index ar i
+        match f x with
+        | Some x => set ar' count x . count + 1 
+        | None => count
+        ) 0
+    |> fun nearTo => init nearTo (index ar')
+
+// Concatenates an array of arrays.
+inl concat forall (ar : * -> *) {length; index; set; create} el. (ar : ar (ar el)) : ar el =
+    inl nearTo = fold (fun s x => s + length x) 0 ar
+    inl ar' = create nearTo
+    inl _ = fold (fold (fun i x => set ar' i x . i+1)) 0 ar
+    ar'
+
+// Appends two arrays.
+inl append forall (ar : * -> *) {create; index; set; length} el. (a : ar el) (b : ar el) : ar el = 
+    init (length a + length b) (fun i => inl l = length a in if i < l then index a i else index b (i - l))
+// Finds the index of the true applicant.
+inl findIndex forall (ar : * -> *) {length; index} el. f (x : ar el) : int =
+    let rec loop i = 
+        if i < length x then if f (index x i) then i else loop (i+1) 
+        else failwith "The true applicant does not exist."
+    loop 0
+// Slices an array between a range.
+inl slice forall (ar : * -> *) {index; create; set} el. {from nearTo} (x : ar el) : ar el = init (nearTo-from) (fun i => index x (i+from))
+// Slices an array from the start of a range.
+inl sliceFrom forall (ar : * -> *) {index; create; set; length} el. from (x : ar el) : ar el = slice {from nearTo=length x} x
+// Applies the mapping function to each element of the two arrays producing a new array with the result of the applications.
+inl map2 forall (ar : * -> *) {create; index; set; length} a b c. f (a : ar a) (b : ar b) : ar c = 
+    init (assert_len a b) (fun i => f (index a i) (index b i))
+// Applies the mapping function to each element of the two arrays producing a new array with the result of the applications. Provides the index as the first argument.
+inl mapi2 forall (ar : * -> *) {create; index; set; length} a b c. f (a : ar a) (b : ar b) : ar c = 
+    init (assert_len a b) (fun i => f i (index a i) (index b i))
+// Iterates over two arrays.
+inl iter2 forall (ar : * -> *) {index; length} a b. f (a : ar a) (b : ar b) = for' {from=0; nearTo=assert_len a b} (fun i => f (index a i) (index b i))
+// Iterates over two arrays. Provides the index as the first argument.
+inl iteri2 forall (ar : * -> *) {index; length} a b. f (a : ar a) (b : ar b) = 
+    for' {from=0; nearTo=assert_len a b} (fun i => f i (index a i) (index b i))
+// Applies the mapping function to each element of the three arrays producing a new array with the result of the applications.
+inl map3 forall (ar : * -> *) {create; index; set; length} a b c d. f (a : ar a) (b : ar b) (c : ar c) : ar d = 
+    init (assert_len2 a b c) (fun i => f (index a i) (index b i) (index c i))
+// Applies the mapping function to each element of the three arrays producing a new array with the result of the applications. Provides the index as the first argument.
+inl mapi3 forall (ar : * -> *) {create; index; set; length} a b c d. f (a : ar a) (b : ar b) (c : ar c) : ar d = 
+    init (assert_len2 a b c) (fun i => f i (index a i) (index b i) (index c i))
+// Iterates over three arrays.
+inl iter3 forall (ar : * -> *) {index; length} a b c. f (a : ar a) (b : ar b) (c : ar c) =
+    for' {from=0; nearTo=assert_len2 a b c} (fun i => f (index a i) (index b i) (index c i))
+// Iterates over three arrays. Provides the index as the first argument.
+inl iteri3 forall (ar : * -> *) {index; length} a b c. f (a : ar a) (b : ar b) (c : ar c) =
+    for' {from=0; nearTo=assert_len2 a b c} (fun i => f i (index a i) (index b i) (index c i))
+// Applies the mapping functIion to each element of the four arrays producing a new array with the result of the applications.
+inl map4 forall (ar : * -> *) {create; index; set; length} a b c d e. f (a : ar a) (b : ar b) (c : ar c) (d : ar d) : ar e = 
+    init (assert_len3 a b c d) (fun i => f (index a i) (index b i) (index c i) (index d i))
+// Applies the mapping function to each element of the four arrays producing a new array with the result of the applications. Provides the index as the first argument.
+inl mapi4 forall (ar : * -> *) {create; index; set; length} a b c d e. f (a : ar a) (b : ar b) (c : ar c) (d : ar d) : ar e = 
+    init (assert_len3 a b c d) (fun i => f i (index a i) (index b i) (index c i) (index d i))
+// Iterates over four arrays.
+inl iter4 forall (ar : * -> *) {index; length} a b c d. f (a : ar a) (b : ar b) (c : ar c) (d : ar d) =
+    for' {from=0; nearTo=assert_len3 a b c d} (fun i => f (index a i) (index b i) (index c i) (index d i))
+// Iterates over four arrays. Provides the index as the first argument.
+inl iteri4 forall (ar : * -> *) {index; length} a b c d. f (a : ar a) (b : ar b) (c : ar c) (d : ar d) =
+    for' {from=0; nearTo=assert_len3 a b c d} (fun i => f i (index a i) (index b i) (index c i) (index d i))
+// Initializes the array while threading the state through the loop.
+inl initFold forall (ar : * -> *) {create; set} el s. nearTo f (s : s) : ar el * s =
+    inl ar = create nearTo
+    ar, for {from=0; nearTo} (fun i s => 
+        inl a,b = f s i
+        set ar i a
+        b
+        ) s
+// Folds over the array while producing the residual array resulting from that operation.
+inl mapFold forall (ar : * -> *) {create; length; index; set} a b s. f (s : s) (a : ar a) : ar b * s = 
+    initFold (length a) (fun s i => f s (index a i)) s
+// Folds over the two arrays while producing the residual array resulting from that operation.
+inl mapFold2 forall (ar : * -> *) {create; length; index; set} a b c s. f (s : s) (a : ar a) (b : ar b) : ar c * s = 
+    initFold (assert_len a b) (fun s i => f s (index a i) (index b i)) s
+// Converts the array to an list.
+inl toList forall (ar : * -> *) {index; length} el. (x : ar el) = foldBack (::) x Nil
+// Returns true if the applying the checker function to every element of the array returns true.
+inl forall' forall (ar : * -> *) {index; length} el. f (x : ar el) =
+    let rec loop i = if i < length x then f (index x i) && loop (i+1) else true
+    loop 0
+// Returns true if the applying the checker function to every element pair of the two arrays returns true.
+inl forall2 forall (ar : * -> *) {index; length} a b. f (x1 : ar a) (x2 : ar b) =
+    inl _ = assert_len x1 x2
+    let rec loop i = if i < length x1 then f (index x1 i) (index x2 i) && loop (i+1) else true
+    loop 0
+// Returns true if the applying the checker function to one element of the array returns true.
+inl exists' forall (ar : * -> *) {index; length} el. f (x : ar el) =
+    let rec loop i = if i < length x then f (index x i) || loop (i+1) else false
+    loop 0
+// Returns true if the applying the checker function to one element pair of the two arrays returns true.
+inl exists2 forall (ar : * -> *) {index; length} a b. f (x1 : ar a) (x2 : ar b) =
+    inl _ = assert_len x1 x2
+    let rec loop i = if i < length x1 then f (index x1 i) (index x2 i) || loop (i+1) else false
+    loop 0
+// Removes the element at index.
+inl removeAtIndex forall (ar : * -> *) {index; length; create; set} el. i (dist : ar el) : ar el = 
+    init (length dist-1) (fun i' => index dist (if i <= i' then i'+1 else i'))
+// Does an inplace map of the array.
+inl mapInplace forall (ar : * -> *) {index; set; length} el. f (temp : ar el) = 
+    for' {from=0; nearTo=length temp} (fun i => set temp i (f i (index temp i)))
+
+// Generic equable function that data structures other than regular arrays can reuse.
+inl generic_equable x1 x2 =
+    if length x1 <> length x2 then false
+    else
+        let rec loop i = if i < length x1 then index x1 i = index x2 i && loop (i+1) else true
+        loop 0
+
+// Generic comparable function that data structures other than regular arrays can reuse.
+inl generic_comparable x1 x2 =
+    if length x1 < length x2 then lt()
+    elif length x1 > length x2 then gt()
+    else
+        let rec loop i = 
+            if i < length x1 then 
+                inl x = comp (index x1 i) (index x2 i)
+                if eq_is x then loop (i+1) else x 
+            else eq()
+        loop 0
+
+instance equable array t = generic_equable
+instance comparable array t = generic_comparable

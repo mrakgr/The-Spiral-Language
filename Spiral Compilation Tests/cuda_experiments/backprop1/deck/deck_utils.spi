@@ -1,0 +1,7 @@
+open corebase
+open corecuda
+
+inl create () = deck ((1 <<< 52) - 1)
+inl index (deck d) i : bool = d &&& (1 <<< i) <> 0
+inl toggle (deck d) i : deck = deck (d ^^^ (1 <<< i))
+inl conv_u64 (deck d) = d

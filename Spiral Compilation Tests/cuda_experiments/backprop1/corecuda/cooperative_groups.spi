@@ -1,0 +1,102 @@
+open corebase
+open struct
+
+inl grid_group_num_blocks() : int = $"cooperative_groups::grid_group::num_blocks()"
+inl grid_group_block_rank() : int = $"cooperative_groups::grid_group::block_rank()"
+inl grid_group_num_threads() : int = $"cooperative_groups::grid_group::num_threads()"
+inl grid_group_thread_rank() : int = $"cooperative_groups::grid_group::thread_rank()"
+inl thread_block_num_threads() : int = $"cooperative_groups::thread_block::num_threads()"
+inl thread_block_thread_rank() : int = $"cooperative_groups::thread_block::thread_rank()"
+
+nominal grid_group = $"cooperative_groups::grid_group"
+nominal thread_block = $"cooperative_groups::thread_block"
+nominal thread_group = $"cooperative_groups::thread_group"
+nominal thread_block_tile' = $"cooperative_groups::thread_group"
+nominal thread_block_tile parent size = $"cooperative_groups::thread_block_tile<@size, `parent>"
+nominal thread = $"cooperative_groups::thread_block_tile<1>"
+nominal coalesced_group = $"cooperative_groups::coalesced_group"
+
+prototype groupable t : t -> ()
+instance groupable thread = fun _ => ()
+instance groupable thread_block = fun _ => ()
+instance groupable coalesced_group = fun _ => ()
+instance groupable thread_group = fun _ => ()
+instance groupable thread_block_tile' = fun _ => ()
+instance groupable thread_block_tile parent size = fun _ => ()
+instance groupable grid_group = fun _ => ()
+
+inl wait forall group {groupable}. (group : ref group) : () = $"cooperative_groups::wait(!group)"
+inl sync forall group {groupable}. (group : ref group) : () = $'!group.sync() '
+
+prototype tileable t : t -> ()
+instance tileable thread = fun _ => ()
+instance tileable thread_block = fun _ => ()
+instance tileable thread_block_tile parent size = fun _ => ()
+instance tileable coalesced_group = fun _ => ()
+
+inl meta_group_size forall group {tileable}. (cg : ref group) : int = $"!cg.meta_group_size()"
+inl meta_group_rank forall group {tileable}. (cg : ref group) : int = $"!cg.meta_group_rank()"
+
+inl create_grid() : ref grid_group = $"auto v$ = cooperative_groups::this_grid()"
+inl create_block() : ref thread_block = $"auto v$ = cooperative_groups::this_thread_block()"
+inl create_thread() : ref thread = $"auto v$ = cooperative_groups::this_thread()"
+inl create_thread_block_tile forall parent{tileable} size. (x : ref parent) : ref (thread_block_tile parent size) = $"cooperative_groups::thread_block_tile<@size, `parent> v$ = cooperative_groups::tiled_partition<@size>(!x)"
+inl create_thread_group_from_thread_block (x : ref thread_block) (size : int) : ref thread_block_tile' =
+    assert (lit_is size) "The size has to be a compile-time constant."
+    assert (threads_per_block() % size = 0) "The block size has to be divisible by the thread group size."
+    if threads_per_block() = size then $"auto & v$ = !x"
+    else $"cooperative_groups::thread_block_tile<!size, `thread_block> v$ = cooperative_groups::tiled_partition<!size>(!x)"
+
+
+// These can only be created from tiles of size 32 or less.
+inl create_labeled_partition forall parent {tileable}. (x : ref parent) (i : int) : ref coalesced_group = $"auto v$ = cooperative_groups::labeled_partition(!x,!i)"
+inl create_binary_partition forall parent {tileable}. (x : ref parent) (i : bool) : ref coalesced_group = $"auto v$ = cooperative_groups::binary_partition(!x,!i)"
+inl create_coalesced_threads() : ref coalesced_group = $"auto v$ = cooperative_groups::coalesced_threads()"
+
+inl reduce_thread_block_tile' forall el. (tile : ref thread_block_tile') (f : el -> el -> el) (x : el) : el = 
+    inl f (arg a), (arg b) = f a b 
+    $"cooperative_groups::reduce(!tile, !x, !f)"
+inl reduce_coalesced forall el. (tile : ref coalesced_group) (f : el -> el -> el) (x : el) : el = 
+    inl f (arg a), (arg b) = f a b 
+    $"cooperative_groups::reduce(!tile, !x, !f)"
+inl inclusive_scan_coalesced forall el. (tile : ref coalesced_group) (f : el -> el -> el) (x : el) : el = 
+    inl f (arg a), (arg b) = f a b 
+    $"cooperative_groups::inclusive_scan(!tile, !x, !f)"
+inl shuffle_coalesced forall el. (tile : ref coalesced_group) (x : el) (i : int) : el = $"!tile.shfl(!x,!i)"
+inl exclusive_scan_thread_block_tile' forall el. (tile : ref thread_block_tile') neutral_element (f : el -> el -> el) (x : el) : el * el = 
+    inl f (arg a), (arg b) = f a b 
+    inl inclusive : el = $"cooperative_groups::inclusive_scan(!tile, !x, !f)"
+    inl sum = $"!tile.shfl(!inclusive,!tile.num_threads()-1)"
+    assert $"!tile.num_threads() <= 32" "The thread block tile in the exclusive scan has to be less than or equal 32."
+    inl exclusive = $"!tile.shfl_up(!inclusive,1)"
+    (if $"!tile.thread_rank() == 0" then neutral_element else exclusive), sum
+inl exclusive_scan_coalesced' forall el. (tile : ref coalesced_group) neutral_element (f : el -> el -> el) (x : el) : el * el = 
+    inl f (arg a), (arg b) = f a b 
+    inl inclusive : el = $"cooperative_groups::inclusive_scan(!tile, !x, !f)"
+    inl sum = $"!tile.shfl(!inclusive,!tile.num_threads()-1)"
+    inl exclusive = $"!tile.shfl_up(!inclusive,1)"
+    (if $"!tile.thread_rank() == 0" then neutral_element else exclusive), sum
+inl exclusive_scan_coalesced forall el. (tile : ref coalesced_group) neutral_element (f : el -> el -> el) (x : el) : el = 
+    inl f (arg a), (arg b) = f a b 
+    inl exclusive = $"cooperative_groups::exclusive_scan(!tile, !x, !f)"
+    if $"!tile.thread_rank() == 0" then neutral_element else exclusive
+
+open tensorm
+
+// inl memcpy_async forall parent float. (group : ref (thread_block_tile parent 1)) ({from to} : {from : tensor int float; to : tensor int float}) =
+//     assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
+//     inl dim = from.dim
+//     real
+//         open tensorm.utils
+//         iter2 (fun (tensor_body {array=from offset=from_offset}) (tensor_body {array=to offset=to_offset}) =>
+//             typecase `from with _ ~el =>
+//             inl dim = $"constexr `int v$ = sizeof(`el) * !dim" : int
+//             $'assert("Pointer alignment check" && (unsigned long long)(!from + !from_offset) % !dim == 0 && (unsigned long long)(!to + !to_offset) % !dim == 0)' : ()
+//             $"cooperative_groups::memcpy_async(!group, !to + !to_offset, !from + !from_offset, cuda::aligned_size_t<!dim>(!dim))" : ()
+//             ) from.bodies to.bodies
+    
+// inl tensor_memcpy_async forall parent float a. access_size (group : ref (thread_block_tile parent 1)) ({from to} : {from : tensor a float; to : tensor a float}) : () =
+//     inl from, to = factorize_sizeof access_size from, factorize_sizeof access_size to
+//     assert (from.dim = to.dim) "The tensor dimensions have to be equal in both of the tensors."
+//     loop_tile' group (fst from.dim) (fun a => memcpy_async group {from=apply a from; to=apply a to})
+    // wait group

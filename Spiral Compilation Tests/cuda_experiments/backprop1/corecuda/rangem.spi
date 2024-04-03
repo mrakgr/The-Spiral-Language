@@ -1,0 +1,36 @@
+open corebase
+open loop
+inl threads_in_warp nearTo : range _ = {nearTo from = thread_index() % threads_per_warp(); by = threads_per_warp()}
+inl threads_in_block nearTo : range _ = {nearTo from = thread_index(); by = threads_per_block()}
+inl threads_in_grid nearTo : range _ = {nearTo from = thread_index() + block_index() * threads_per_block(); by = threads_per_block() * blocks_per_grid()}
+inl warps_in_block nearTo : range _ = 
+    assert (threads_per_block() % threads_per_warp() = 0) "The number of threads in a block should be divisible by the number of threads in a warp."
+    {nearTo from = thread_index() / threads_per_warp(); by = threads_per_block() / threads_per_warp()}
+inl warps_in_grid nearTo : range _ = 
+    assert (threads_per_block() % threads_per_warp() = 0) "The number of threads in a block should be divisible by the number of threads in a warp."
+    {nearTo from = (thread_index() + block_index() * threads_per_block()) / threads_per_warp(); by = threads_per_block() * blocks_per_grid() / threads_per_warp()}
+inl blocks_in_grid nearTo : range _ = {nearTo from = block_index(); by = blocks_per_grid()}
+inl linear nearTo : range _ = {nearTo from = 0; by = 1}
+
+inl miniblocks_per_block threads_per_miniblock =
+    inl miniblocks_per_block = threads_per_block() / threads_per_miniblock
+    assert (threads_per_block() = miniblocks_per_block * threads_per_miniblock) "The number of threads per block has to equal the number of miniblocks per block times the number of threads per miniblock."
+    miniblocks_per_block
+
+inl miniblocks_in_grid threads_per_miniblock nearTo : range _ =
+    inl miniblocks_per_block = miniblocks_per_block threads_per_miniblock
+    {nearTo from = thread_index() / threads_per_miniblock + miniblocks_per_block * block_index(); by = miniblocks_per_block * blocks_per_grid()}
+
+inl miniblocks_in_block threads_per_miniblock nearTo : range _ =
+    inl miniblocks_per_block = miniblocks_per_block threads_per_miniblock
+    {nearTo from = thread_index() / threads_per_miniblock; by = miniblocks_per_block}
+
+inl miniblocks_in_miniblock threads_per_miniblock_min threads_per_miniblock_max nearTo : range _ =
+    assert (threads_per_miniblock_max % threads_per_miniblock_min = 0) "The number of threads for the large miniblock has to be divisible by the number of threads for the small miniblock."
+    inl miniblocks_per_block_min = miniblocks_per_block threads_per_miniblock_min
+    inl miniblocks_per_block_max = miniblocks_per_block threads_per_miniblock_max
+    {nearTo from = thread_index() % threads_per_miniblock_max / threads_per_miniblock_min; by = miniblocks_per_block_max}
+
+inl warps_in_miniblock threads_per_miniblock nearTo : range _ = miniblocks_in_miniblock threads_per_warp() threads_per_miniblock nearTo
+inl miniblocks_in_warp threads_per_miniblock nearTo : range _ = miniblocks_in_miniblock threads_per_miniblock threads_per_warp() nearTo
+inl threads_in_miniblock threads_per_miniblock nearTo : range _ = miniblocks_in_miniblock 1 threads_per_miniblock nearTo
