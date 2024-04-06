@@ -38,19 +38,19 @@ open primitives
 //             inl grad = local_map (fun adj, out => adj * bck out) (zip (adjoint to) out) 
 //             local_map (fun a,b => a+b) (zip (adjoint from) grad)
 //             )
-inl map_op fwd bck block from to =
-    template_map_2d block (fun config inp _ _ =>
-        local_map fwd inp
-        ) (primal from) (primal to)
-    fun () =>
-        (to, adjoint from) ||> template_map_2d block (fun config to _ _ =>
-            inl grad = local_map (fun adj, out => adj * bck out) (zip (adjoint to) (primal to)) 
-            local_map (fun a,b => a+b) (zip (adjoint from) grad)
-            )
+// inl map_op fwd bck block from to =
+//     template_map_2d block (fun config inp _ _ =>
+//         local_map fwd inp
+//         ) (primal from) (primal to)
+//     fun () =>
+//         (to, adjoint from) ||> template_map_2d block (fun config to _ _ =>
+//             inl grad = local_map (fun adj, out => adj * bck out) (zip (adjoint to) (primal to)) 
+//             local_map (fun a,b => a+b) (zip (adjoint from) grad)
+//             )
 
-inl relu bl = map_op (max 0) (fun out => if out > 0 then 1 else 0) bl
-inl sigmoid bl = map_op (fun x => 1 / (1 + exp -x)) (fun out => out * (1 - out)) bl
-inl tanh bl = map_op tanh (fun out => 1 - out * out) bl
+// inl relu bl = map_op (max 0) (fun out => if out > 0 then 1 else 0) bl
+// inl sigmoid bl = map_op (fun x => 1 / (1 + exp -x)) (fun out => out * (1 - out)) bl
+// inl tanh bl = map_op tanh (fun out => 1 - out * out) bl
 
 
 // inl template_map_2d forall dim a b.
@@ -62,3 +62,33 @@ inl tanh bl = map_op tanh (fun out => 1 - out * out) bl
 //         ()
 //         ) 
 //     ()
+
+// Adds the input to the output.
+inl local_inplace_add from to = local_inplace_map (fun a,b => a + b) (zip from to) to
+
+inl map op block from to =
+    template_map_2d block (fun config from _ _ =>
+        inl out, bck = op from
+        primal out
+        ) (primal from) (primal to)
+    fun () =>
+        (zip from to, adjoint from) ||> template_map_2d block (fun config inp _ _ =>
+            inl from, to = unzip inp
+            inl out, bck = op (primal from)
+            local_inplace_add (adjoint to) (adjoint out)
+            bck (adjoint from)
+            adjoint from
+            )
+
+inl to_dual_tensor x = zip x (local_map (const 0) x) |> rezip (fun primal, adjoint => {primal adjoint})
+
+inl local_map_op fwd bck inp_prim = 
+    inl out = local_map fwd inp_prim |> to_dual_tensor
+    out, fun inp_adj =>
+        inl grad = local_map (fun adj, out => adj * bck out) (zip (adjoint out) (primal out)) 
+        local_inplace_add grad inp_adj
+
+inl relu bl = map (local_map_op (max 0) (fun out => if out > 0 then 1 else 0)) bl
+inl sigmoid bl = map (local_map_op (fun x => 1 / (1 + exp -x)) (fun out => out * (1 - out))) bl
+inl tanh bl = map (local_map_op tanh (fun out => 1 - out * out)) bl
+

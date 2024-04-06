@@ -67,10 +67,13 @@ type template_2d_config = {
     miniblock : ref cooperative_groups.thread_block_tile'
     }
 
-inl local_map forall a b. f (from : tensor (int * int) a) : tensor (int * int) b = 
-    inl to = tensor_create from.dim
+inl local_inplace_map forall a b. f (from : tensor (int * int) a) (to : tensor (int * int) b) : () = 
     loop.linear from.dim fun i =>
         tensor_set i (f (tensor_index i from)) to
+
+inl local_map forall a b. f (from : tensor (int * int) a) : tensor (int * int) b = 
+    inl to = tensor_create from.dim
+    local_inplace_map f from to
     to
 
 inl block_reduce_2d forall b. 
