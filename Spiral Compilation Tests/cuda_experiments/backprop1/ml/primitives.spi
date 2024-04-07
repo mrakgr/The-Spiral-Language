@@ -67,6 +67,11 @@ type template_2d_config = {
     miniblock : ref cooperative_groups.thread_block_tile'
     }
 
+// Does an atomic add operation.
+inl local_inplace_atomic_add forall a{number}. (from : tensor (int * int) a) (to : tensor (int * int) a) : () = 
+    loop.linear from.dim fun i =>
+        tensor_cuda.tensor_atomic_add i (tensor_index i from) to
+
 inl local_inplace_map forall a b. f (from : tensor (int * int) a) (to : tensor (int * int) b) : () = 
     loop.linear from.dim fun i =>
         tensor_set i (f (tensor_index i from)) to

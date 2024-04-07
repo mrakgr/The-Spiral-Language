@@ -23,8 +23,8 @@ modules:
     corecuda/
         base-
         rangem
-        tensor_cuda
         intrinsic
+        tensor_cuda
         sam 
         console
         cupy

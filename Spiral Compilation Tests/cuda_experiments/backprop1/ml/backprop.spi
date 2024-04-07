@@ -76,15 +76,15 @@ inl run_bck_op (BckOp (l, op)) =
     ()
 
 inl map op block from to =
-    template_map_2d block (fun config from _ _ =>
+    template_map_2d block (fun config from i j =>
         // In the forward pass the adjoints don't matter so we add fake ones.
-        inl (dual (out, bck)) = op (to_dual (to_dual_tensor from))
+        inl (dual (out, bck)) = op (to_dual (to_dual_tensor from)) i j
         primal out
         ) (primal from) (primal to)
     fun () =>
-        (zip from to, adjoint from) ||> template_map_2d block (fun config inp _ _ =>
+        (zip from to, adjoint from) ||> template_map_2d block (fun config inp i j =>
             inl from, to = unzip inp
-            inl (dual (out, bck)) = op (to_dual from)
+            inl (dual (out, bck)) = op (to_dual from) i j
             local_inplace_add (adjoint to) (adjoint out)
             run_bck_op bck
             adjoint from
@@ -92,6 +92,21 @@ inl map op block from to =
 
 // Multiplies all the elements in the second argument by the first.
 inl multiply_by_scalar forall a{number} b. (x : a) : b -> b = real open real_core in struct.map ((*) x)
+
+// Loads the bias tensors from either global or shared memory into local memory.
+// Since the operation might replicate the tensor dimensions,
+// the gradients for this pass are accumulated using device scope atomic operations.
+inl local_replicate forall dim b{number}. (load : int -> dim) (i : int) (j_tns : tensor (int * int) int) (t : dual_tensor dim b) : dual (int * int) b = 
+    inl out = tensor_create j_tns.dim |> to_dual_tensor
+    loop.linear out.dim fun j' =>
+        inl j = tensor_index j' j_tns
+        tensor_set j' (tensor_index (load j) (primal t)) (primal out)
+    dual (out, BckOp([],fun () =>
+        loop.linear out.dim fun j' =>
+            inl j = tensor_index j' j_tns
+            tensor_cuda.tensor_atomic_add (load j) (tensor_index j' (adjoint out)) (adjoint t)
+        ))
+
 inl local_map_op forall a b{number}. (fwd : a -> b) (bck : a * b -> a) (dual (inp, op)) : dual _ b = 
     inl out = local_map fwd (primal inp) |> to_dual_tensor
     dual (out, BckOp([op],fun () =>
@@ -116,13 +131,33 @@ inl lstm_cell bl =
     inl pell (a,b) = inl b,c = local_unzip b in (a,b),c
     inl (+),(*),sig,tanh = local_add, local_mult, local_sigmoid, local_tanh
 
-    map (fun inp =>
+    map (fun inp _ _ =>
         inl (((cell_prev,f),i),o),c_gate = local_unzip inp |> pell |> pell |> pell
         inl cell = sig f * cell_prev + sig i * tanh c_gate
         sig o * tanh cell
         ) bl
 
-inl relu bl = map (local_map_op (max 0) (fun _,out => if out > 0 then 1 else 0)) bl
-inl sigmoid bl = map (local_map_op (fun x => 1 / (1 + exp -x)) (fun _,out => out * (1 - out))) bl
-inl tanh bl = map (local_map_op tanh (fun _,out => 1 - out * out)) bl
+// This is just to demonstrate how bias could be loaded inside the map kernels.
+// It requires atomic additions on the backwards pass, so the bias tensor shouldn't be replicated
+// and zipped with the inputs in order to pass it into the map kernel.
+// 
+// It might not be bad to make use of this in the activation functions, if the bias weigt addition has
+// not been fused with the matrix multiply.
+inl add_bias bias =
+    map (fun inp i j_tns =>
+        inl bias = local_replicate id i j_tns bias
+        local_add inp bias
+        )
+
+// Does a single map operation.
+inl map' fwd bck = map (fun x _ _ => local_map_op fwd bck x)
+
+// Relu activation.
+inl relu bl = map' (max 0) (fun _,out => if out > 0 then 1 else 0)
+
+// Sigmoid activation.
+inl sigmoid bl = map' (fun x => 1 / (1 + exp -x)) (fun _,out => out * (1 - out)) bl
+
+// Hyperbolic tangent activation.
+inl tanh bl = map' tanh (fun _,out => 1 - out * out) bl
 
