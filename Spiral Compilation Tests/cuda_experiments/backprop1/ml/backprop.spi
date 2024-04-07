@@ -118,7 +118,7 @@ inl lstm_cell bl =
 
     map (fun inp =>
         inl (((cell_prev,f),i),o),c_gate = local_unzip inp |> pell |> pell |> pell
-        inl cell = sig f * cell_prev + sig i * sig c_gate 
+        inl cell = sig f * cell_prev + sig i * tanh c_gate
         sig o * tanh cell
         ) bl
 
