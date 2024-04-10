@@ -14,9 +14,14 @@ nominal ref t = $"`t &"
 inl ref forall t. (x : t) : ref t = $"`t & v$ = !x"
 // Doesn't actually dereference the reference. For using local scope only.
 inl (~#) forall t. (x : ref t) : t = $"`t & v$ = !x" 
+// Sets the reference.
+inl (<-#) forall t. (x : ref t) (v : t) : () = $"!x = !v" 
 
+// Indexes into an array-like structure inside a reference.
 inl ref_index x i = index #x i
+// Sets an array-like structure inside a reference to a specified value at the given index.
 inl ref_set x i v = set #x i v
+// Gets the length of an array-like structure inside a reference to a specified value at the given index.
 inl ref_length x = length #x
 
 // Indexes into an array. Returns a reference to the element instead of the actual element.
@@ -28,6 +33,7 @@ nominal ptr t = $'`t *'
 inl ptr forall t. (~x : t) : ptr t = $"`t * v$ = &!x"
 // Sets the pointer to a specified value.
 inl (<-.) forall t. (x : ptr t) (v : t) : () = $"*!x = !v"
+// Dereferences a point.
 inl (~*) forall t. (x : ptr t) : t = $"`t v$ = *!x"
 
 type run_config = {

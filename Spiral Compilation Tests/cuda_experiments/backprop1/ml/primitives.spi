@@ -190,6 +190,7 @@ inl local_reduce forall a. config (neutral_element : a) f (from : tensor (int * 
     block_reduce_2d config neutral_element f result
 
 inl local_sum config = local_reduce config 0 (+)
+inl local_average config x = local_reduce config 0 (+) x / conv(length x)
 inl local_prod config = local_reduce config 1 (*)
 inl local_max config = local_reduce config limit.min max
 inl local_min config = local_reduce config limit.max min
@@ -372,6 +373,13 @@ inl inclusive_scan_2d forall dim a. : a -> (a -> a -> a) -> tensor (dim * int) a
 // Scans the innermost dimension of a given tensor.
 inl exclusive_scan_2d forall dim a. : a -> (a -> a -> a) -> tensor (dim * int) a -> tensor (dim * int) a -> () = scan_2d_template false
 
+// Numerically stable softmax.
+inl local_softmax config x =
+    inl average = local_average config x
+    inl x = local_map (fun x => exp (x - average)) x
+    inl sum = local_sum config x
+    local_map (fun x => x / sum) x
+
 inl test1() =
     inl m,n : int * int = 3, 36*4
     // inl [ma; mb; mc] = listm.map cupy.random_normal{mean=0; std=1} ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
@@ -392,7 +400,7 @@ inl test1() =
     ()
 
 inl test2() =
-    inl m,n : int * int = 16, 512 * 2
+    inl m,n : int * int = 128, 2048
     // inl [ma; mb; mc] = listm.map cupy.random_normal{mean=0; std=1} ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
     // inl input : _ _ float = cupy.arange{from=0; nearTo=m,n; by=1}
     inl input : _ _ float = cupy.random_normal{mean=0; std=1} (m,n)
@@ -404,16 +412,23 @@ inl test2() =
     inl output_ln = tensor_create (m,n)
     inl output_argmax = tensor_create m
     inl output_sampling = tensor_create m
+    inl output_indices_map = tensor_create (m,n)
+    inl output_indices_reduction = tensor_create m
     run fun _ =>
         inl block = cooperative_groups.create_block()
         // map ((+) 1) input input
         reduce 0 (+) input output_reduce
+        // indices (map)
+        template_map_2d block (fun config x i j_tns => 
+            local_map (fun j => i) j_tns
+            ) input output_indices_map
+        // indices (reduction)
+        template_reduce_2d block (fun config x i j_tns => 
+            i
+            ) input output_indices_reduction
         // numerically stable softmax
         template_map_2d block (fun config x _ _ => 
-            inl average = local_sum config x / conv n
-            inl x = local_map (fun x => exp (x - average)) x
-            inl sum = local_sum config x
-            local_map (fun x => x / sum) x
+            local_softmax config x
             ) input output_softmax
         // layer normalization L2
         template_map_2d block (fun config x _ _ => 
@@ -429,10 +444,7 @@ inl test2() =
             ) input output_argmax
         // numerically stable softmax (scan)
         template_map_2d block (fun config x _ _ => 
-            inl average = local_sum config x / conv n
-            inl x = local_map (fun x => exp (x - average)) x
-            inl sum = local_sum config x
-            inl x' = local_map (fun x => x / sum) x
+            inl x' = local_softmax config x
             inl x = local_exclusive_scan_sum config x'
             zip x' x
             ) input output_softmax_scan
@@ -460,7 +472,7 @@ inl test2() =
     // printing.tensor_print_ln 1024 output_softmax
     // printing.tensor_print_ln 1024 output_ln
     // printing.tensor_print_ln (m * n) output_softmax_scan
-    printing.tensor_print_ln (m * n) output_sampling
+    printing.tensor_print_ln (m * n) output_indices_reduction
     ()
 
 inl main() = test2()

@@ -221,7 +221,9 @@ inl reshape_snd forall a b dim el. (dim : b -> dim) : tensor (a * b) el -> tenso
 inl reshape forall a b el. (dim : a -> b) : tensor a el -> tensor b el = reorder (fun x => x, ()) >> reshape_fst dim >> reorder fst
 
 // Splits a tensor along the last dimension.
-inl factorize forall a el. (i : int) (t : tensor a el) : tensor (a * int) el = 
+inl factorize forall a el. (i : int) (t : tensor a el) : tensor (a * int) el =
+    // Don't try to factorize if the last dimension of the input tensor is less than the target.
+    inl i = if (real utils.last) t.dim < i then 1 else i
     tensor {
         dim = real
             open real_core
