@@ -77,7 +77,7 @@ Updated the documentation for v2.1. Spiral is quite stable in its current iterat
 
 # The Spiral Language
 
-![Spiral Logo](spiral_logo.svg)
+![Spiral Logo](spiral_logo.png)
 
 ## Overview
 

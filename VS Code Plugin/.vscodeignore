@@ -4,6 +4,7 @@ src/
 tsconfig.json
 **/*.js.map
 *.ps1
+keys.json
 .gitignore
 .vscodeignore
 package-lock.json

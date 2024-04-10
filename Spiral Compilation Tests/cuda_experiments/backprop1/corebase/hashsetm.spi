@@ -10,4 +10,4 @@ inl contains (h : .hashset) k : bool = !!!!HashSetContains(h,k)
 // Removes a key from the hashset. Returns true if the key was found and removed from the set, and false if the key wasn't present.
 inl remove (h : .hashset) k : bool = !!!!HashSetRemove(h,k)
 // Returns the number of elements in the set.
-inl count (h : .hashset) k : int = conv (!!!!HashSetContains(h,k) : i32)
+inl count (h : .hashset) : int = conv (!!!!HashSetCount(h) : i32)

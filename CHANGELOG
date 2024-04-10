@@ -1,3 +1,12 @@
+2.8.4 (4/10/2024)
+
+* Thanks to the improved publish.ps1 script, the VS Code extension now has a proper readme instead of a link to the main docs.
+* Also converted the logo to PNG format since the VS Code extensions don't support SVG.
+
+2.8.3 (4/10/2024)
+
+* Added the various compile time hashset operations to the language.
+
 2.8.2 (3/30/2024)
 
 * Disallowed the shadowing of existential type variables in patterns in the top-down segment.

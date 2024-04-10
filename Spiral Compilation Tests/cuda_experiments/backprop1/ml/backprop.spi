@@ -113,6 +113,26 @@ inl local_sum_op forall a{number}. config (dual (inp, op)) : dual_scalar a =
     dual_scalar (out, BckOp([op],fun () =>
         local_inplace_add_scalar #out.adjoint (adjoint inp)
         ))
+inl local_categorical_cross_entropy_op forall b{number; float}. config (label : tensor _ b) (dual (inp, op)) : dual_scalar b= 
+    inl s = local_softmax config (primal inp)
+    inl out = 
+        local_map (fun label,s => -label * log s) (zip label s) 
+        |> local_sum config 
+        |> to_pa_scalar
+    dual_scalar (out, BckOp([op],fun () =>
+        local_map (fun label,s => #out.adjoint * (s - label)) (zip label s)
+        |> fun grad => local_inplace_add grad (adjoint inp)
+        ))
+inl local_binary_cross_entropy_op forall b{number; float}. config (label : tensor _ b) (dual (inp, op)) : dual_scalar b= 
+    inl s = local_map sigmoid (primal inp)
+    inl out =
+        local_map (fun label,s => (1 - label) * log (1 - s) - label * log s) (zip label s) 
+        |> local_sum config 
+        |> to_pa_scalar
+    dual_scalar (out, BckOp([op],fun () =>
+        local_map (fun label,s => #out.adjoint * (s - label)) (zip label s)
+        |> fun grad => local_inplace_add grad (adjoint inp)
+        ))
 inl local_unzip (dual (x,x_op)) = 
     inl a = x |> rezip fun x => {primal=fst x.primal; adjoint=fst x.adjoint}
     inl b = x |> rezip fun x => {primal=snd x.primal; adjoint=snd x.adjoint}
@@ -164,16 +184,28 @@ inl tanh bl = map' tanh (fun _,out => 1 - out * out) bl
 
 // Square error.
 inl square_error label bl = 
-    cost (fun config label x i j_tns =>
+    cost (fun config label x _ _ =>
         local_sub x (to_dual' label)
         |> local_square
         |> local_sum_op config
         ) bl
 
-// Categorical cross entropy loss.
-inl square_error label bl = 
-    cost (fun config label x i j_tns =>
-        local_sub x (to_dual' label)
-        |> local_square
-        |> local_sum_op config
-        ) bl
+// Categorical cross entropy loss. Passes the inputs through a softmax.
+inl categorical_cross_entropy label bl = cost (fun config label x _ _ => local_categorical_cross_entropy_op config label x) bl
+
+// Binary cross entropy loss. Passes the inputs through a sigmoid.
+inl binary_cross_entropy label bl = cost (fun config label x _ _ => local_binary_cross_entropy_op config label x) bl
+
+inl main():() =
+    inl h = hashsetm.create()
+    inl f () = ()
+    print_static "---"
+    print_static(hashsetm.add h f)
+    print_static(hashsetm.add h f)
+    print_static(hashsetm.add h f)
+    print_static(hashsetm.contains h f)
+    print_static(hashsetm.remove h f)
+    print_static(hashsetm.count h)
+
+
+    ()

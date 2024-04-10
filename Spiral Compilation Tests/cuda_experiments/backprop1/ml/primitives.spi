@@ -190,7 +190,9 @@ inl local_reduce forall a. config (neutral_element : a) f (from : tensor (int * 
     block_reduce_2d config neutral_element f result
 
 inl local_sum config = local_reduce config 0 (+)
-inl local_average config x = local_reduce config 0 (+) x / conv(length x)
+// Gets the actual length of the innermost dimension for the tensor projected into the local tensor in `template_reduce_2d` and `template_map_2d`.
+inl local_length (config : template_2d_config) (x : tensor (int * int) _) = config.threads_per_miniblock * snd x.dim
+inl local_average config x = local_reduce config 0 (+) x / conv(local_length config x)
 inl local_prod config = local_reduce config 1 (*)
 inl local_max config = local_reduce config limit.min max
 inl local_min config = local_reduce config limit.max min
@@ -380,6 +382,9 @@ inl local_softmax config x =
     inl sum = local_sum config x
     local_map (fun x => x / sum) x
 
+inl sigmoid x = 1 / (1 + exp -x)
+
+
 inl test1() =
     inl m,n : int * int = 3, 36*4
     // inl [ma; mb; mc] = listm.map cupy.random_normal{mean=0; std=1} ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
@@ -400,7 +405,7 @@ inl test1() =
     ()
 
 inl test2() =
-    inl m,n : int * int = 128, 2048
+    inl m,n : int * int = 128, 16
     // inl [ma; mb; mc] = listm.map cupy.random_normal{mean=0; std=1} ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
     // inl input : _ _ float = cupy.arange{from=0; nearTo=m,n; by=1}
     inl input : _ _ float = cupy.random_normal{mean=0; std=1} (m,n)
@@ -419,7 +424,7 @@ inl test2() =
         // map ((+) 1) input input
         reduce 0 (+) input output_reduce
         // indices (map)
-        template_map_2d block (fun config x i j_tns => 
+        template_map_2d block (fun config x i j_tns =>
             local_map (fun j => i) j_tns
             ) input output_indices_map
         // indices (reduction)
