@@ -239,9 +239,9 @@ inl template_map_2d forall dim a b.
             memcpy_sync (apply i local, apply i from)
         
         // Calculates the indices for the tensor elements.
-        loop.linear from.dim fun i =>
-            inl dim = snd dim_block,from.dim
-            inl index = snd index_block,i
+        loop.linear from.dim fun i => // Note: it's very easy to get the reverse indexing wrong.
+            inl dim = fst from.dim, snd dim_block, snd from.dim
+            inl index = fst i, snd index_block, snd i
             tensor_set i (loop.proj_rev dim index) local_index
 
         // Map the local tensor using local operations.
@@ -295,9 +295,9 @@ inl template_reduce_2d forall dim a b.
             memcpy_sync (apply i local, apply i from)
         
         // Calculates the indices for the tensor elements.
-        loop.linear from.dim fun i =>
-            inl dim = snd dim_block,from.dim
-            inl index = snd index_block,i
+        loop.linear from.dim fun i => // Note: it's very easy to get the reverse indexing wrong.
+            inl dim = fst from.dim, snd dim_block, snd from.dim
+            inl index = fst i, snd index_block, snd i
             tensor_set i (loop.proj_rev dim index) local_index
 
         // Reduce the local tensor using local operations.
@@ -405,10 +405,10 @@ inl test1() =
     ()
 
 inl test2() =
-    inl m,n : int * int = 1, 2048 * 2
+    inl m,n : int * int = 128, 16
     // inl m,n : int * int = 128, 16 
     // inl [ma; mb; mc] = listm.map cupy.random_normal{mean=0; std=1} ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
-    // inl input : _ _ float = cupy.arange{from=0; nearTo=m,n; by=1}
+    inl input_identity : _ _ int = cupy.arange{from=0; nearTo=m,n; by=1}
     inl input : _ _ float = cupy.random_normal{mean=0; std=1} (m,n)
     inl input_action : _ _ float = cupy.random_uniform m
     // inl input : _ _ int = cupy.ones (m,n)
@@ -418,15 +418,20 @@ inl test2() =
     inl output_ln = tensor_create (m,n)
     inl output_argmax = tensor_create m
     inl output_sampling = tensor_create m
+    inl output_identity = tensor_create (m,n)
     inl output_indices_map = tensor_create (m,n)
     inl output_indices_reduction = tensor_create m
     run fun _ =>
         inl block = cooperative_groups.create_block()
         // map ((+) 1) input input
         reduce 0 (+) input output_reduce
+        // indices (identity)
+        template_map_2d block (fun config x i j_tns =>
+            x
+            ) input_identity output_identity
         // indices (map)
         template_map_2d block (fun config x i j_tns =>
-            local_map (fun j => i, j) j_tns
+            local_map (fun j => i,j) j_tns
             ) input output_indices_map
         // indices (reduction)
         template_reduce_2d block (fun config x i j_tns => 
@@ -479,7 +484,8 @@ inl test2() =
     // printing.tensor_print_ln 1024 output_ln
     // printing.tensor_print_ln (m * n) output_softmax_scan
     printing.tensor_print_ln (m * n) output_indices_map
-    printing.tensor_print_ln (m * n) output_indices_reduction
+    // printing.tensor_print_ln (m * n) output_identity
+    // printing.tensor_print_ln (m * n) output_indices_reduction
     // printing.tensor_print_ln 1024 output_sampling
     ()
 
