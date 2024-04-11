@@ -426,7 +426,6 @@ inl test2() =
         reduce 0 (+) input output_reduce
         // indices (map)
         template_map_2d block (fun config x i j_tns =>
-            // print_static {n ll=local_length config j_tns}
             local_map (fun j => i) j_tns
             ) input output_indices_map
         // indices (reduction)
@@ -480,7 +479,7 @@ inl test2() =
     // printing.tensor_print_ln 1024 output_ln
     // printing.tensor_print_ln (m * n) output_softmax_scan
     printing.tensor_print_ln (m * n) output_indices_map
-    // printing.tensor_print_ln (m * n) output_indices_reduction
+    printing.tensor_print_ln (m * n) output_indices_reduction
     // printing.tensor_print_ln 1024 output_sampling
     ()
 
