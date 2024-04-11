@@ -128,6 +128,7 @@ inl rigid_merge forall dim. (dim : dim * dim) (index : dim * dim) : dim = real
     // inl b = snd index
     inl a = struct.map2 (*) (snd index) (fst dim)
     inl b = fst index
+    // print_static {dim index}
     struct.map2 (+) a b
 
 inl projective forall dim. ({from nearTo by} : range dim) (body : dim -> ()) : () =
