@@ -124,11 +124,8 @@ inl rigid_merge forall dim. (dim : dim * dim) (index : dim * dim) : dim = real
     struct.iter2 (fun i d =>
         assert (0 < i && i <= d) "The rigid merge indices have to be positive and less or equal than the dimensions."
         ) index dim
-    // inl a = struct.map2 (*) (fst index) (snd dim)
-    // inl b = snd index
     inl a = struct.map2 (*) (snd index) (fst dim)
     inl b = fst index
-    // print_static {dim index}
     struct.map2 (+) a b
 
 inl projective forall dim. ({from nearTo by} : range dim) (body : dim -> ()) : () =

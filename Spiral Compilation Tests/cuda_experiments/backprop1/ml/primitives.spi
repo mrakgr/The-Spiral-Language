@@ -282,7 +282,7 @@ inl template_reduce_2d forall dim a b.
 
     inl to =
         to 
-        |> split_into const(fst dim_block, fst dim_local)
+        |> split_into_swapped const(fst dim_block, fst dim_local)
         |> apply (fst index_block)
 
     loop.linear (fst from.dim) fun i =>
