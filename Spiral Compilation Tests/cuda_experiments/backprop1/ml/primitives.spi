@@ -405,8 +405,8 @@ inl test1() =
     ()
 
 inl test2() =
-    // inl m,n : int * int = 128, 2048 * 8 
-    inl m,n : int * int = 128, 16 
+    inl m,n : int * int = 1, 2048 * 2
+    // inl m,n : int * int = 128, 16 
     // inl [ma; mb; mc] = listm.map cupy.random_normal{mean=0; std=1} ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
     // inl input : _ _ float = cupy.arange{from=0; nearTo=m,n; by=1}
     inl input : _ _ float = cupy.random_normal{mean=0; std=1} (m,n)
@@ -426,7 +426,7 @@ inl test2() =
         reduce 0 (+) input output_reduce
         // indices (map)
         template_map_2d block (fun config x i j_tns =>
-            local_map (fun j => i) j_tns
+            local_map (fun j => i, j) j_tns
             ) input output_indices_map
         // indices (reduction)
         template_reduce_2d block (fun config x i j_tns => 
