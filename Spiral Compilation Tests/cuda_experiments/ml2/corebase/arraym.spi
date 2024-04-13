@@ -164,24 +164,47 @@ inl removeAtIndex forall (ar : * -> *) {index; length; create; set} el. i (dist 
 inl mapInplace forall (ar : * -> *) {index; set; length} el. f (temp : ar el) = 
     for' {from=0; nearTo=length temp} (fun i => set temp i (f i (index temp i)))
 
+// Gets the first element of an array.
+inl head forall (ar : * -> *) {index; length} el. (ar : ar el) : el =
+    assert (0 < length ar) "The length of the array should be greater than 0."
+    index ar 0
+
+// Gets the last element of an array.
+inl last forall (ar : * -> *) {index; length} el. (ar : ar el) : el =
+    assert (0 < length ar) "The length of the array should be greater than 0."
+    index ar (length ar - 1)
+
+// Converts the list to an array.
+inl fromList forall (ar : * -> *) {index; length; create; set} el. (l : list el) : ar el =
+    inl out = create (listm.length l)
+    inl i = listm.fold (fun i x => set out i x . i + 1) 0 l
+    out
+
+// Same as fold, but also passes the array index into the body.
+inl foldi f s ar = for {from=0; nearTo=length ar} (fun i s => f i s (index ar i)) s
+
 // Generic equable function that data structures other than regular arrays can reuse.
-inl generic_equable x1 x2 =
-    if length x1 <> length x2 then false
-    else
-        let rec loop i = if i < length x1 then index x1 i = index x2 i && loop (i+1) else true
-        loop 0
+inl generic_equable a b =
+    if length a = length b then
+        inl ~result = true
+        for' {from=0; nearTo=length b} fun i =>
+            if index a i <> index b i then 
+                _set result false . break()
+        result
+    else 
+        false
 
 // Generic comparable function that data structures other than regular arrays can reuse.
 inl generic_comparable x1 x2 =
     if length x1 < length x2 then lt()
     elif length x1 > length x2 then gt()
     else
-        let rec loop i = 
-            if i < length x1 then 
-                inl x = comp (index x1 i) (index x2 i)
-                if eq_is x then loop (i+1) else x 
-            else eq()
-        loop 0
+        inl ~result = Eq
+        for' {from=0; nearTo=length x2} fun i =>
+            inl x = comp (index x1 i) (index x2 i)
+            if not (eq_is x) then 
+                _set result x . break()
+        result
 
 instance equable array t = generic_equable
 instance comparable array t = generic_comparable
