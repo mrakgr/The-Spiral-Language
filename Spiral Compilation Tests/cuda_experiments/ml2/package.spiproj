@@ -44,6 +44,8 @@ modules:
         layers
         backprop
 
+    pickler
+
     game/
         holdem/
             cardm
