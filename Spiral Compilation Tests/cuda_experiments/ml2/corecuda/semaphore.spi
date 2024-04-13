@@ -1,0 +1,115 @@
+open corebase
+open tensorm
+open thread_scope
+
+prototype thread_scope t : t -> ()
+instance thread_scope thread_scope_system = fun _ => ()
+instance thread_scope thread_scope_device = fun _ => ()
+instance thread_scope thread_scope_block = fun _ => ()
+instance thread_scope thread_scope_thread = fun _ => ()
+
+nominal counting_semaphore count scope = $'cuda::std::counting_semaphore<`scope, `count>'
+type binary_semaphore scope = counting_semaphore 1 scope
+
+inl create_counting_semaphore_in_thread forall count scope{thread_scope}. (i : int) : ref (counting_semaphore count scope) = $"cuda::counting_semaphore<`scope,`count> v$(!i)"
+inl create_binary_semaphore_in_thread forall scope{thread_scope}. (i : int) : ref (binary_semaphore scope) = $"cuda::binary_semaphore<`scope> v$(!i)"
+inl create_counting_semaphore_in_grid forall count scope{thread_scope}. (i : int) : ref (counting_semaphore count scope) = $"static cuda::counting_semaphore<`scope,`count> v$(!i)"
+inl create_binary_semaphore_in_grid forall scope{thread_scope}. (i : int) : ref (binary_semaphore scope) = $"static cuda::binary_semaphore<`scope> v$(!i)"
+inl create_counting_semaphore_in_block forall count. (i : int) : ref (counting_semaphore count thread_scope_block) = 
+    inl x = $"__shared__ cuda::counting_semaphore<`thread_scope_block,`count> v$"
+    __syncthreads()
+    if thread_index() = 0 then $"new(&!x) cuda::counting_semaphore<`thread_scope_block,`count>(!i)"
+    __syncthreads()
+    x
+inl create_binary_semaphore_in_block (i : int) : ref (binary_semaphore thread_scope_block) = 
+    inl x = $"__shared__ cuda::binary_semaphore<`thread_scope_block> v$"
+    __syncthreads()
+    if thread_index() = 0 then $"new(&!x) cuda::binary_semaphore<`thread_scope_block>(!i)"
+    __syncthreads()
+    x
+
+inl acquire forall count scope. (semaphore : ref (counting_semaphore count scope)) : () = 
+    global "#include <cuda/semaphore>"
+    $"!semaphore.acquire()"
+inl release forall count scope. (semaphore : ref (counting_semaphore count scope)) : () = 
+    $"!semaphore.release()"
+
+inl write_ln_system x = 
+    inl lock : ref (_ _ thread_scope_system) = create_binary_semaphore_in_grid 1
+    acquire lock
+    console.write_ln x
+    release lock
+
+inl write_ln_device x = 
+    inl lock : ref (_ _ thread_scope_device) = create_binary_semaphore_in_grid 1
+    acquire lock
+    console.write_ln x
+    release lock
+
+inl write_ln_block x = 
+    inl lock : ref (_ _ _) = create_binary_semaphore_in_block 1
+    acquire lock
+    console.write_ln x
+    release lock
+
+// type float = f32
+// type a_layout = wmma.row_major
+// type b_layout = wmma.col_major
+
+// inl main() =
+//     inl get_body forall dim el. (x : tensor dim el) : array el = 
+//         real tensorm.utils.map (fun (tensor_body {array}) => array) x.bodies : array el
+
+//     inl m,n,k : int * int * int = 16, 16, 8
+
+//     inl arange dim : _ _ float = arange {from=0; nearTo=prod dim; by=1} |> reshape (const dim)
+//     inl zeros dim : _ _ float = zeros (prod dim) |> reshape (const dim)
+//     inl a = arange (m, k)
+//     inl b = zeros (m, k)
+//     // console.write_ln a
+//     // console.write_ln b
+
+//     run' {blocks_per_grid threads_per_block shared_mem=0} fun () =>
+//         global "#include <mma.h>"
+//         global "using namespace nvcuda;"
+//         global "#include <cooperative_groups.h>"
+//         global "#include <cooperative_groups/memcpy_async.h>"
+//         global "using namespace cooperative_groups;"
+//         global "#include <cuda/semaphore>"
+//         open cooperative_groups
+//         open tensor_cuda
+
+//         inl block = create_block()
+//         inl warp : _ (_ _ warp_size) = create_thread_block_tile block
+//         inl thread : _ (_ _ 1) = create_thread_block_tile warp
+
+//         inl a_shared = tensor_create_shared a.dim
+//         tensor_memcpy_sync 4 thread {from=a; to=a_shared}
+//         if grid_group_thread_rank() = 0 then
+//             console.write_ln a_shared
+//         open wmma
+//         inl a' : _ (fragment matrix_a 16 16 8 a_layout tf32) = create_fragment
+        
+//         tensor_memcpy_sync 4 thread {from=a; to=a_shared}
+//         // wait warp . sync block
+//         sync warp
+
+//         load_matrix_sync a' a_shared
+
+//         loop.for' {from=0; nearTo=ref_length a'} (fun i => 
+//             if i = 0 then
+//                 write_ln_system {value= $"(`f64) !a'.x[!i]" : f64; id=grid_group_thread_rank(); i}
+//             )
+//         // loop.for' {from=0; nearTo=ref_length a'} (fun i => 
+//         //     if i = 1 then
+//         //         write_ln_system {value= $"(`f64) !a'.x[!i]" : f64; id=grid_group_thread_rank(); i}
+//         //     )
+//         // loop.for' {from=0; nearTo=ref_length a'} (fun i => 
+//         //     if i = 2 then
+//         //         write_ln_system {value= $"(`f64) !a'.x[!i]" : f64; id=grid_group_thread_rank(); i}
+//         //     )
+//         // loop.for' {from=0; nearTo=ref_length a'} (fun i => 
+//         //     if i = 3 then
+//         //         write_ln_system {value= $"(`f64) !a'.x[!i]" : f64; id=grid_group_thread_rank(); i}
+//         //     )
+//         ()

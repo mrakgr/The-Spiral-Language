@@ -1,0 +1,211 @@
+open corebase
+open corecuda
+open tensorm
+
+union rec backpropagation_op = BckOp : list backpropagation_op * (() -> ())
+type pa_tensor dim t = tensor dim {primal : t; adjoint : t}
+type pa_scalar t = {primal : t; adjoint : ref t}
+nominal dual dim t = pa_tensor dim t * backpropagation_op
+nominal dual_scalar t = pa_scalar t * backpropagation_op
+
+inl primal forall dim t. : pa_tensor dim t -> tensor dim t = rezip (fun from => from.primal)
+inl adjoint forall dim t. : pa_tensor dim t -> tensor dim t = rezip (fun from => from.adjoint)
+inl primal_scalar forall t. : pa_scalar t -> t = fun from => from.primal
+inl adjoint_scalar forall t. : pa_scalar t -> ref t = fun from => from.adjoint
+
+open primitives
+
+// Adds the input to the output.
+inl local_inplace_add forall a. (from : tensor _ a) (to : tensor _ a) : () =
+    local_inplace_map (real open real_core in fun a,b => struct.map2 (+) a b) (zip from to) to
+inl local_inplace_add_scalar forall a. (from : a) (to : tensor _ a) : () =
+    local_inplace_map (real open real_core in struct.map (+) from) to to
+inl to_pa_tensor forall a. (primal : tensor _ a) : pa_tensor _ a = 
+    inl adjoint = local_map (real open real_core in struct.map (const 0)) primal
+    zip primal adjoint |> rezip (fun primal, adjoint => {primal adjoint})
+inl to_pa_scalar forall a. (x : a) = {primal=x; adjoint=ref 0}
+inl to_dual forall dim a. (x : pa_tensor dim a) = dual (x, BckOp([], id))
+inl to_dual' forall a. : tensor _ a -> dual _ a = to_pa_tensor >> to_dual
+inl to_dual_scalar forall a. (x : pa_scalar a) = dual_scalar (x, BckOp([], id))
+
+inl run_bck_op x =
+    inl h = hashsetm.create()
+    inl rec loop x = 
+        assert (not (var_is x)) "The operation must be known at compile time."
+        if hashsetm.add h x then
+            inl (BckOp (l, op)) = x
+            op :: listm.foldBack (listm.append << loop) l []
+        else
+            []
+    loop x |> listm.iter (fun x => x())
+
+inl map op block from to =
+    template_map_2d block (fun config from i j =>
+        // In the forward pass the adjoints don't matter so we add fake ones.
+        inl (dual (out, bck)) = op (to_dual' from) i j
+        primal out
+        ) (primal from) (primal to)
+    fun () =>
+        (zip from to, adjoint from) ||> template_map_2d block (fun config inp i j =>
+            inl from, to = unzip inp
+            inl (dual (out, bck)) = op (to_dual from) i j
+            local_inplace_add (adjoint to) (adjoint out)
+            run_bck_op bck
+            adjoint from
+            )
+
+inl reduce op block from (to : pa_tensor _ float) =
+    template_reduce_2d block (fun config from i j =>
+        // In the forward pass the adjoints don't matter so we add fake ones.
+        inl (dual_scalar (out, bck)) = op (to_dual' from) i j
+        primal_scalar out
+        ) (primal from) (primal to)
+    fun () =>
+        (from, adjoint from) ||> template_map_2d block (fun config from i j =>
+            inl (dual_scalar (out, bck)) = op (to_dual from) i j
+            out.adjoint <-# #out.adjoint + tensor_index i (adjoint to)
+            run_bck_op bck
+            adjoint from
+            )
+
+// Similar to reduce, but also takes a non-dual input.
+inl cost op block label from (to : pa_tensor _ float) =
+    template_reduce_2d block (fun config inp i j =>
+        inl label, from = unzip inp
+        // In the forward pass the adjoints don't matter so we add fake ones.
+        inl (dual_scalar (out, bck)) = op config label (to_dual' from) i j
+        primal_scalar out
+        ) (zip label (primal from)) (primal to)
+    fun () =>
+        (zip label from, adjoint from) ||> template_map_2d block (fun config inp i j =>
+            inl label, from = unzip inp
+            inl (dual_scalar (out, bck)) = op config label (to_dual from) i j
+            out.adjoint <-# #out.adjoint + tensor_index i (adjoint to)
+            run_bck_op bck
+            adjoint from
+            )
+
+// Multiplies all the elements in the second argument by the first.
+inl multiply_by_scalar forall a{number} b. (x : a) : b -> b = real open real_core in struct.map ((*) x)
+
+// Loads the bias tensors from either global or shared memory into local memory.
+// Since the operation might replicate the tensor dimensions,
+// the gradients for this pass are accumulated using device scope atomic operations.
+inl local_replicate forall dim b{number}. (load : int -> dim) (i : int) (j_tns : tensor (int * int) int) (t : pa_tensor dim b) : dual (int * int) b = 
+    inl out = tensor_create j_tns.dim |> to_pa_tensor
+    loop.linear out.dim fun j' =>
+        inl j = tensor_index j' j_tns
+        tensor_set j' (tensor_index (load j) (primal t)) (primal out)
+    dual (out, BckOp([],fun () =>
+        loop.linear out.dim fun j' =>
+            inl j = tensor_index j' j_tns
+            tensor_cuda.tensor_atomic_add (load j) (tensor_index j' (adjoint out)) (adjoint t)
+        ))
+
+inl local_map_op forall a b{number}. (fwd : a -> b) (bck : a * b -> a) (dual (inp, op)) : dual _ b = 
+    inl out = local_map fwd (primal inp) |> to_pa_tensor
+    dual (out, BckOp([op],fun () =>
+        inl grad = zip (primal inp) out |> local_map (fun a,b => multiply_by_scalar b.adjoint (bck (a,b.primal)))
+        local_inplace_add grad (adjoint inp)
+        ))
+inl local_sum_op forall a{number}. config (dual (inp, op)) : dual_scalar a = 
+    inl out = local_sum config (primal inp) |> to_pa_scalar
+    dual_scalar (out, BckOp([op],fun () =>
+        local_inplace_add_scalar #out.adjoint (adjoint inp)
+        ))
+inl local_categorical_cross_entropy_op forall b{number; float}. config (label : tensor _ b) (dual (inp, op)) : dual_scalar b= 
+    inl s = local_softmax config (primal inp)
+    inl out = 
+        local_map (fun label,s => -label * log s) (zip label s) 
+        |> local_sum config 
+        |> to_pa_scalar
+    dual_scalar (out, BckOp([op],fun () =>
+        local_map (fun label,s => #out.adjoint * (s - label)) (zip label s)
+        |> fun grad => local_inplace_add grad (adjoint inp)
+        ))
+inl local_binary_cross_entropy_op forall b{number; float}. config (label : tensor _ b) (dual (inp, op)) : dual_scalar b= 
+    inl s = local_map sigmoid (primal inp)
+    inl out =
+        local_map (fun label,s => (1 - label) * log (1 - s) - label * log s) (zip label s) 
+        |> local_sum config 
+        |> to_pa_scalar
+    dual_scalar (out, BckOp([op],fun () =>
+        local_map (fun label,s => #out.adjoint * (s - label)) (zip label s)
+        |> fun grad => local_inplace_add grad (adjoint inp)
+        ))
+inl local_unzip (dual (x,x_op)) = 
+    inl a = x |> rezip fun x => {primal=fst x.primal; adjoint=fst x.adjoint}
+    inl b = x |> rezip fun x => {primal=snd x.primal; adjoint=snd x.adjoint}
+    dual (a, x_op), dual (b, x_op)
+inl local_zip (dual (a,a_op)) (dual (b,b_op)) = 
+    inl x = zip a b |> rezip fun a,b => {primal=a.primal,b.primal; adjoint=a.adjoint,b.adjoint}
+    dual (x, BckOp([a_op; b_op], id))
+inl local_add a b = local_map_op (fun a,b => a+b) (fun _,_ => 1, 1) (local_zip a b)
+inl local_sub a b = local_map_op (fun a,b => a-b) (fun _,_ => 1, -1) (local_zip a b)
+inl local_mult a b = local_map_op (fun a,b => a*b) (fun (a,b),out => b, a) (local_zip a b)
+inl local_square x = local_map_op (fun x => x*x) (fun x,_ => 2*x) x
+inl local_relu x = local_map_op (max 0) (fun _,out => if out > 0 then 1 else 0) x
+inl local_sigmoid x = local_map_op (fun x => 1 / (1 + exp -x)) (fun _,out => out * (1 - out)) x
+inl local_tanh x = local_map_op tanh (fun _,out => 1 - out * out) x
+
+inl lstm_cell bl =
+    inl pell (a,b) = inl b,c = local_unzip b in (a,b),c
+    inl (+),(*),sig,tanh = local_add, local_mult, local_sigmoid, local_tanh
+
+    map (fun inp _ _ =>
+        inl (((cell_prev,f),i),o),c_gate = local_unzip inp |> pell |> pell |> pell
+        inl cell = sig f * cell_prev + sig i * tanh c_gate
+        sig o * tanh cell
+        ) bl
+
+// This is just to demonstrate how bias could be loaded inside the map kernels.
+// It requires atomic additions on the backwards pass, so the bias tensor shouldn't be replicated
+// and zipped with the inputs in order to pass it into the map kernel.
+// 
+// It might not be bad to make use of this in the activation functions, if the bias weigt addition has
+// not been fused with the matrix multiply.
+inl add_bias bias =
+    map (fun inp i j_tns =>
+        inl bias = local_replicate id i j_tns bias
+        local_add inp bias
+        )
+
+// Does a single map operation.
+inl map' fwd bck = map (fun x _ _ => local_map_op fwd bck x)
+
+// Relu activation.
+inl relu bl = map' (max 0) (fun _,out => if out > 0 then 1 else 0)
+
+// Sigmoid activation.
+inl sigmoid bl = map' (fun x => 1 / (1 + exp -x)) (fun _,out => out * (1 - out)) bl
+
+// Hyperbolic tangent activation.
+inl tanh bl = map' tanh (fun _,out => 1 - out * out) bl
+
+// Square error.
+inl square_error label bl = 
+    cost (fun config label x _ _ =>
+        local_sub x (to_dual' label)
+        |> local_square
+        |> local_sum_op config
+        ) bl
+
+// Categorical cross entropy loss. Passes the inputs through a softmax.
+inl categorical_cross_entropy label bl = cost (fun config label x _ _ => local_categorical_cross_entropy_op config label x) bl
+
+// Binary cross entropy loss. Passes the inputs through a sigmoid.
+inl binary_cross_entropy label bl = cost (fun config label x _ _ => local_binary_cross_entropy_op config label x) bl
+
+inl main():() =
+    inl h = hashsetm.create()
+    inl f () = ()
+    print_static "---"
+    print_static(hashsetm.add h f)
+    print_static(hashsetm.add h f)
+    print_static(hashsetm.add h f)
+    print_static(hashsetm.contains h f)
+    print_static(hashsetm.remove h f)
+    print_static(hashsetm.count h)
+
+
+    ()

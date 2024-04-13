@@ -1,0 +1,465 @@
+open struct
+open utils
+
+nominal tensor_body dim el = {
+    array : array el
+    stride : dim
+    offset : int
+    }
+
+nominal tensor dim el = {
+    bodies : `(infer `(tensor_body dim) `el)
+    dim : dim
+    }
+
+// Create a tensor from an array.
+inl fromArray forall t. (x : array t) : tensor int t = tensor {dim = length x; bodies = real tensor_body `int `t {array = x; stride = 1; offset = 0}}
+
+// Overloads the ;[] array constructor.
+inl array forall t. (x : array_base t) : tensor int t = fromArray (array x)
+
+// Asserts that the tensor length calculated using the default integer matches that of the 64 bit integer. 
+// Also asserts that all the elements of its dimension are positive.
+inl assert_long_length forall dim. (len : int) (dim : dim) = 
+    inl () = real 
+        open real_core
+        iter (fun a => assert (0 < a) "All the dimensions of a tensor have to be positive.") dim
+    backend_switch {
+        python = fun () => assert (len <= limit.max) "The tensors full length cannot be adequately represented by the default integer."
+        cuda = fun () => 
+            inl safe_prod : u64 = real 
+                open real_core
+                foldBack (fun a s => conv `u64 a * s) dim 1u64
+            assert (conv len = safe_prod) "The tensors full length cannot be adequately represented by the default integer."
+    }
+
+// Create a tensor of the specified dimensions. The elements of the dimension should be ints.
+inl tensor_create forall dim el. (dim : dim) : tensor dim el = 
+    inl stride, len = real calculate_stride_len dim
+    assert_long_length len dim
+    inl create_body forall t. : tensor_body dim t = tensor_body {
+        array = create len
+        offset = 0
+        stride
+        }
+    tensor {dim bodies=real infer_map `el create_body}
+
+// Indexes into an tensor.
+inl tensor_index forall dim el. (i : dim) (tensor {bodies dim} : tensor dim el) : el = real 
+    assert_indices i dim
+    map (fun (tensor_body {array stride offset}) =>
+        typecase `array with
+        | ~ar ~el => index `ar `el array (calculate_offset stride i offset)
+        ) bodies
+
+// Sets the tensor at the specified index to a given value.
+inl tensor_set forall dim el. (i : dim) (v : el) (tensor {bodies dim} : tensor dim el) : () = real 
+    assert_indices i dim
+    iter2 (fun (tensor_body {array stride offset}) v =>
+        typecase `array with
+        | ~ar ~el => set `ar `el array (calculate_offset stride i offset) v
+        ) bodies v
+
+// Returns the number of elements in the tensor.
+instance length tensor dim = fun (tensor {dim}) => loop.prod dim
+
+// Zips two tensors. Apart from dimension checking, all the work is done at compile time.
+inl zip forall dim a b. (a : tensor dim a) (b : tensor dim b) : tensor dim (a * b) =
+    assert (a.dim = b.dim) "The two tensors have to have the same dimensions for zipping to work."
+    tensor {dim = a.dim; bodies = real a.bodies, b.bodies}
+
+// Curried version of zip.
+inl zip' forall dim a b. (a,b : tensor dim a * tensor dim b) : tensor dim (a * b) = zip a b
+
+// Rearranges the elements of the tensor. Should only be used to rearrange internal fields and do not change them. Is a compile time operation.
+inl rezip forall dim a b. (f : a -> b) (a : tensor dim a) : tensor dim b = tensor {dim = a.dim; bodies=real f a.bodies}
+
+// Unzips two tensors. All the work is done at compile time.
+inl unzip forall dim a b. (x : tensor dim (a * b)) : tensor dim a * tensor dim b = rezip fst x, rezip snd x
+
+// Rearranges the dimensions of the tensor. Should only be used to rearrange internal fields and do not change them. Is a compile time operation.
+inl reorder forall a b el. (f : a -> b) (a : tensor a el) : tensor b el = tensor {
+    dim = f a.dim |> assert_term_vars_are_equal_under_set_equality a.dim
+    bodies = real
+        map (fun (tensor_body r as x) =>
+            typecase `x with
+            | tensor_body a ~el => tensor_body `b `el {r with stride #= f}
+            ) a.bodies
+    }
+
+// Rearranges the first dimensions of the tensor. Should only be used to rearrange internal fields and do not change them. Is a compile time operation.
+inl reorder_fst forall a b dim el. (f : a -> b) : tensor (a * dim) el -> tensor (b * dim) el = reorder (fun a, b => f a, b)
+
+// Rearranges the second dimensions of the tensor. Should only be used to rearrange internal fields and do not change them. Is a compile time operation.
+inl reorder_snd forall a b dim el. (f : a -> b) : tensor (dim * a) el -> tensor (dim * b) el = reorder (fun a, b => a, f b)
+
+// The template function for tensor application.
+inl apply_templ forall dim a b el. (fst : dim -> a) (snd : dim -> b) (i : a) (tensor {bodies dim} : tensor dim el) : tensor b el = real
+    assert_indices i (fst dim)
+    tensor `b `el {
+        dim = snd dim
+        bodies = 
+            map (fun (tensor_body {array stride offset} as x) =>
+                typecase `x with
+                | tensor_body (a * b) ~el => tensor_body `b `el {
+                    array
+                    stride = snd stride
+                    offset = calculate_offset (fst stride) i offset
+                    }
+                ) bodies
+        }
+
+// Increments the tensor offset by the specified index for the first dimension.
+inl apply_all forall a el. : a -> tensor a el -> tensor () el = apply_templ id (const ())
+// Increments the tensor offset by the specified index for the first dimension.
+inl apply forall a b el. : a -> tensor (a * b) el -> tensor b el = apply_templ fst snd
+// Increments the tensor offset by the specified index for the second dimension.
+inl apply_snd forall a b el. : b -> tensor (a * b) el -> tensor a el = apply_templ snd fst
+
+// Applies the offset to the pointer
+inl apply_ptr forall dim el. (tensor {bodies dim} : tensor dim el) : tensor dim el =
+    tensor {
+        dim
+        bodies = real
+            open real_core
+            map (fun (tensor_body {array stride offset} as x) =>
+                typecase `x with
+                | tensor_body dim ~el => tensor_body `dim `el {
+                    array = backend_switch {
+                        python = fun () => $"!array[!offset:]" : array el
+                        cuda = fun () => $"!array+!offset" : array el
+                        }
+                    offset = 0
+                    stride
+                    }
+                ) bodies
+        }
+// inl apply_ptr forall dim el. (t : tensor dim el) : tensor dim el = t
+
+// The template function for the tensor view.
+inl view_templ forall dim dim' el. (f : dim -> dim') (g : dim -> dim' -> dim) 
+        (i : dim' -> {from : dim'; nearTo : dim'}) 
+        (tensor {bodies dim} : tensor dim el) : tensor dim el = real
+    open real_core
+    inl i = i (f dim)
+    assert_indices_view i.from i.nearTo (f dim)
+    tensor `dim `el {
+        dim = map2 (fun from nearTo => nearTo - from) i.from i.nearTo |> g dim
+        bodies = 
+            map (fun (tensor_body {array stride offset} as x) =>
+                typecase `x with
+                | tensor_body dim ~el => tensor_body `dim `el {
+                    array stride offset = calculate_offset (f stride) i.from offset
+                    }
+                ) bodies
+        }
+
+// Takes a slice of the tensor given the range.
+inl view forall dim el. : (dim -> {from : dim; nearTo : dim}) -> tensor dim el -> tensor dim el = view_templ id (fun dim dim' => dim')
+// Takes a slice of the tensor given the range for the first dimension.
+inl view_fst forall a b el. : (a -> {from : a; nearTo : a}) -> tensor (a * b) el -> tensor (a * b) el = view_templ fst (fun dim dim' => dim', snd dim)
+// Takes a slice of the tensor given the range for the second dimension.
+inl view_snd forall a b el. : (b -> {from : b; nearTo : b}) -> tensor (a * b) el -> tensor (a * b) el = view_templ snd (fun dim dim' => fst dim, dim')
+
+// The template function for the tensor split.
+inl split_templ forall dim dim' el. (f : dim -> dim') view (i : list dim') (t : tensor dim el) : list (tensor dim el) =
+    inl zero : dim' = real open real_core in infer_map `dim' (forall d. => conv `d 0)
+    inl add (a : dim') (b : dim') : dim' = real open real_core in map2 (+) a b
+
+    inl i, dim = listm.mapFold (fun from dim => inl nearTo = add from dim in {from nearTo}, nearTo) zero i
+    assert (dim = f t.dim) "The size of tensor dimension being split must equal the sum of the arguments."
+    listm.map (fun i => view (const i) t) i
+
+// Splits the tensor given a list of sizes. The list of sizes must sum up to the tensor dimension.
+inl split forall dim el. : list dim -> tensor dim el -> list (tensor dim el) = split_templ id view
+// Splits the tensor given a list of sizes for the first dimension. The list of sizes must sum up to the tensor dimension.
+inl split_fst forall a b el. : list a -> tensor (a * b) el -> list (tensor (a * b) el) = split_templ fst view_fst
+// Splits the tensor given a list of sizes for the second dimension. The list of sizes must sum up to the tensor dimension.
+inl split_snd forall a b el. : list b -> tensor (a * b) el -> list (tensor (a * b) el) = split_templ snd view_snd
+
+// Flattens the first part of the tensor into a single dimension. For this to work, the tensor must be contiguous.
+inl flatten_fst forall a b el. (tensor {dim bodies} : tensor (a * b) el) : tensor (int * b) el = 
+    tensor {
+        dim = loop.prod (fst dim), snd dim
+        bodies = real
+            open real_core
+            map (fun (tensor_body r as x) =>
+                typecase `x with
+                | tensor_body (a * b) ~el => tensor_body `(int * b) `el {r with stride #= fun stride => assert_stride_contiguous (fst dim) (fst stride), snd stride}
+                ) bodies
+        }
+
+// Swaps the first and the second tensor dimension.
+inl swap x = reorder (fun a,b => b,a) x
+
+// Flattens the second part of the tensor into a single dimension. For this to work, the tensor must be contiguous.
+inl flatten_snd forall a b el. : tensor (a * b) el -> tensor (a * int) el = swap >> flatten_fst >> swap
+
+// Flattens the tensor into a single dimension. For this to work, the tensor must be contiguous.
+inl flatten forall dim el. : tensor dim el -> tensor int el = reorder (fun x => x, ()) >> flatten_fst >> reorder fst
+
+// Reshapes the first part of the tensor dimension. For this to work, the tensor must be contiguous.
+inl reshape_fst forall a b dim el. (f : a -> dim) (x : tensor (a * b) el) : tensor (dim * b) el =
+    inl dim' = f (fst x.dim)
+    inl stride, len : dim * int = real calculate_stride_len dim'
+    assert (len = loop.prod (fst x.dim)) "The total length of the reshaped tensor dimension must match that of the original one."
+    inl (tensor {bodies dim}) = flatten_fst x
+    tensor {
+        dim = dim', snd dim
+        bodies = real
+            open real_core
+            map (fun (tensor_body r as x) =>
+                typecase `x with
+                | tensor_body (int * b) ~el => tensor_body `(dim * b) `el {r with stride #= fun a, b => map ((*) a) stride, b }
+                ) bodies
+        }
+
+// Reshapes the second part of the tensor dimension. For this to work, the tensor must be contiguous.
+inl reshape_snd forall a b dim el. (dim : b -> dim) : tensor (a * b) el -> tensor (a * dim) el = swap >> reshape_fst dim >> swap
+
+// Reshapes the tensor dimensions. For this to work, the tensor must be contiguous.
+inl reshape forall a b el. (dim : a -> b) : tensor a el -> tensor b el = reorder (fun x => x, ()) >> reshape_fst dim >> reorder fst
+
+// Splits a tensor along the last dimension.
+inl factorize forall a el. (i : int) (t : tensor a el) : tensor (a * int) el =
+    // Don't try to factorize if the last dimension of the input tensor is less than the target.
+    inl i = if (real utils.last) t.dim < i then 1 else i
+    tensor {
+        dim = real
+            open real_core
+            mapFoldBack (fun x s =>
+                assert (x % s = 0) "The innermost tensor dimension to be factorized needs to be divisible by the given argument."
+                x / s, 1
+                ) t.dim i |> fst, i
+        bodies = real
+            open real_core
+            map (fun (tensor_body r as x) =>
+                typecase `x with
+                | tensor_body a ~el => tensor_body `(a * int) `el {r with stride #= fun x => mapFoldBack (fun x s => x * s, 1) x i}
+                ) t.bodies
+    }
+
+// Splits a tensor along the last dimension so that the innermost dimension is the requisite number of bytes divided upward.
+inl factorize_sizeof forall a el. (target_size : int) (t : tensor a el) : tensor (a * int) el = factorize (real sizeof_factorize `el target_size) t
+
+// Splits a tensor along the last dimension so that the innermost dimension is the optimal size for loading by a single Cuda tread.
+inl factorize_sizeof_16 forall a el. (t : tensor a el) : tensor (a * int) el = factorize_sizeof 16 t
+
+// Assert the tensor dimensions. If they are the same, substitutes it with the given length in the resulting tensor.
+// Useful when then the given dimension is known at compile time and the tensor dimension is known at runtime.
+// In that case, the resulting tensor will have the dimension given at compile time.
+// Note, in most cases for tensors instead of inverse arrays, it would be better to use `reshape` instead as
+// it would also adjust the strides so they are compile time literals.
+inl assert_len forall dim el. (dim : dim) (tensor {dim=dim' bodies} : tensor dim el) : tensor dim el =
+    assert (dim = dim') "Expected the length of the array to be the specified amount."
+    tensor {dim bodies}
+ 
+// Splits the first tensor dimension into two pieces, the elementwise product of which has to equal the original.
+// Unlike reshape, the tensor dimensions do not have to be contiguous for this to work.
+// The strides of the second part being acted upon will remain as in the original, while the first part will have them adjusted.
+inl split_into_fst forall a b el. (f : a -> a * a) (t : tensor (a * b) el) : tensor ((a * a) * b) el = 
+    inl dim = f (fst t.dim)
+    real
+        open real_core
+        struct.iter3 (fun a b dim => assert (a*b = dim) "The elementwise product of the split dimensions has to equal the original.") (fst dim) (snd dim) (fst t.dim)
+    tensor {
+        dim = dim, snd t.dim
+        bodies = real
+            open real_core
+            map (fun (tensor_body r as x) =>
+                typecase `x with
+                | tensor_body (a * b) ~el => tensor_body `((a * a) * b) `el {r with stride #= fun a,b => 
+                    inl a' = map2 (*) (snd dim) a
+                    (a', a), b
+                    }
+                ) t.bodies
+    }
+
+// Similar to `split_into_fst` except ensures that the dimensions with the inner strides the come to the fore instead.
+inl split_into_swapped_fst forall a b el. (f : a -> a * a) : tensor (a * b) el -> tensor ((a * a) * b) el = 
+    split_into_fst (f >> loop.swap) >> reorder_fst loop.swap
+    
+    
+// Splits the second tensor dimension into two pieces, the elementwise product of which has to equal the original.
+// Unlike reshape, the tensor dimensions do not have to be contiguous for this to work.
+// The strides of the second part being acted upon will remain as in the original, while the first part will have them adjusted.
+inl split_into_snd forall a b el. (dim : b -> b * b) : tensor (a * b) el -> tensor (a * (b * b)) el = swap >> split_into_fst dim >> swap
+
+// Similar to `split_into_snd` except ensures that the dimensions with the inner strides the come to the fore instead.
+inl split_into_swapped_snd forall a b el. (f : b -> b * b) : tensor (a * b) el -> tensor (a * (b * b)) el =
+    split_into_snd (f >> loop.swap) >> reorder_snd loop.swap
+
+// Splits the tensor dimension into two pieces, the elementwise product of which has to equal the original.
+// Unlike reshape, the tensor dimensions do not have to be contiguous for this to work.
+// The strides of the second part will remain as in the original, while the first part will have them adjusted.
+inl split_into forall a el. (dim : a -> a * a) : tensor a el -> tensor (a * a) el = reorder (fun x => x, ()) >> split_into_fst dim >> reorder fst
+
+// Similar to `split_into` except ensures that the dimensions with the inner strides the come to the fore instead.
+inl split_into_swapped forall a el. (f : a -> a * a) : tensor a el -> tensor (a * a) el =
+    split_into (f >> loop.swap) >> reorder loop.swap
+
+// Reorders the tensor so as to unpack the first pair.
+inl curry_fst forall a b c el. : tensor ((a * b) * c) el -> tensor (a * b * c) el = reorder (fun (a,b),c => a,b,c)
+
+// Iterates over the tensor in rigid loop style.
+inl loop_rigid forall a b el. ({from by nearTo=t} : loop.range (tensor (a * b) el)) (body : tensor b el -> ()) : () =
+    open loop
+    inl t = split_into_swapped_fst (rigid_split by) t
+    rigid {from by nearTo=fst t.dim} fun a =>
+        inl t = curry_fst t |> apply a |> apply_ptr
+        fun b => body (apply b t)
+
+// Applies the entirety of the given range in a single shot using projection. It asserts that the range size matches.
+inl apply_proj forall a b el. ({from by nearTo=t} : loop.range (tensor (a * b) el)) : tensor b el =
+    open loop
+    inl dim = fst t.dim
+    assert (prod dim = by) "The range being projected into has to equal the tensor's first dimension."
+    apply (proj dim from) t
+
+
+// Note: `replicate_fst` doesn't play well with the rest of the library. `factorize` and `memcpy_sync` in particular.
+// // Replicates the first tensor dimension for an arbitrary amount of times with a stride of 0.
+// inl replicate_fst forall a b c el. (dim : b) (t : tensor (a * c) el) : tensor ((a * b) * c) el =
+//     assert_long_length (loop.prod dim) dim
+//     tensor {
+//         dim = (fst t.dim, dim), snd t.dim
+//         bodies = real
+//             open real_core
+//             map (fun (tensor_body r as x) =>
+//                 typecase `x with
+//                 | tensor_body (a * b) ~el => tensor_body `((a * b) * c) `el {r with stride #= fun a,b => 
+//                     (a, map (const 0) dim), b
+//                     }
+//                 ) t.bodies
+//     }
+
+// // Replicates the second tensor dimension for an arbitrary amount of times with a stride of 0.
+// inl replicate_snd forall a b c el. (dim : b) : tensor (a * c) el -> tensor (a * c * b) el = swap >> replicate_fst dim >> swap
+
+// // Replicates the tensor dimension for an arbitrary amount of times with a stride of 0.
+// inl replicate forall a b el. (dim : b) : tensor a el -> tensor (a * b) el = reorder (fun x => x, ()) >> replicate_fst dim >> reorder fst
+
+
+// Tests
+// 
+// 
+// 
+//     
+
+// inl test1() =
+//     inl t : tensor _ float = ;[1; 2; 3]
+//     t
+
+// inl test2() =
+//     inl t : tensor _ float = ;[1; 2; 3]
+//     index -1 t
+
+// inl test3() =
+//     inl t : tensor _ float = ;[1; 2; 3]
+//     set 2 10 t
+//     t
+
+// inl test4() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6]
+//     inl t = reshape (2i32,3i32) t
+//     index (0,0) t, index (1,0) t
+
+// inl test5() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6]
+//     inl t = reshape (2i32,4i32) t
+//     t
+
+// inl test6() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6]
+//     inl t = reshape (2i32,3i32) t
+//     inl t = reshape (3i32, 2i32) t
+//     t
+    
+// inl test7() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6]
+//     inl t = reshape (2i32,3i32) t
+//     inl t = reshape (3i32, 2i32) t
+//     inl t = apply_snd 1 t
+//     index 0 t, index 1 t, index 2 t
+
+// inl test8() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6]
+//     inl t = reshape (2i32,3i32) t |> view {from=1,1; nearTo=2,3}
+//     index (0,0) t, index (0,1) t
+
+// inl test9() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6]
+//     inl t = reshape (2i32,3i32) t |> apply 1
+//     t 
+//     |> split [1;1;1]
+//     |> listm.map (index 0)
+
+// inl test10() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6]
+//     inl t = reshape (2i32,3i32) t |> reorder (fun a,b => b,b)
+//     t
+
+// inl test11() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6] |> reshape (2i32,3i32)
+//     inl t' : tensor _ int = ;[1; 2; 3; 4; 5; 6] |> reshape (2i32,3i32)
+//     inl x = zip t t' |> rezip (fun a,b => a,b,a,b)
+//     x
+
+// inl test12() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6]
+//     inl t = reshape (2i32,3i32) t
+//     t 
+//     |> split_snd [1;1;1]
+//     |> listm.map (index (1,0))
+
+// inl test13() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6]
+//     inl t = reshape (2i32,3i32) t
+//     t 
+//     |> split_fst [1;1]
+//     |> listm.map (index (0,0))
+
+// inl test14() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6]
+//     inl t = reshape (2i32,3i32) t |> view_snd {from=1; nearTo=3}
+//     index (1,0) t, index (1,1) t
+
+// inl test15() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6]
+//     inl t = reshape (2i32,3i32) t |> view_fst {from=1; nearTo=2}
+//     index (0,1) t, index (0,2) t
+
+// inl test16() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6]
+//     inl t = reshape (dyn (2,3) : int * int) t
+//     assert_len (2,3  : int * int) t
+
+// inl test17() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6]
+//     inl t = reshape ({x=2 : int; y=3 : int}) t
+//     index {x=1; y=1} t
+
+// inl test18() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6]
+//     inl t = reshape ({x=2 : int; y=3 : int}) t
+//     set {x=1; y=1} 123 t
+//     index {x=1; y=1} t
+
+// inl test19() =
+//     inl t : tensor _ float = create (2,3 : int * int)
+//     inl t : tensor _ float = create {x=2 : int; y=3 : int}
+//     t
+
+// inl test20() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11; 12]
+//     inl t = reshape (6, 2 : int * int) t
+//     inl t = reshape_fst (2,3 : int * int) t |> reorder (fun (a,b),c => a,b,c)
+//     index (0,0,0) t, index (1,0,0) t
+
+// inl test21() =
+//     inl t : tensor _ float = ;[1; 2; 3; 4; 5; 6; 7; 8; 9; 10; 11; 12]
+//     inl t = reshape (2, 6 : int * int) t
+//     inl t = reshape_snd (2,3 : int * int) t |> reorder (fun a,(b,c) => a,b,c)
+//     index (1,0,0) t, index (0,1,0) t
+
+// inl main() = test()

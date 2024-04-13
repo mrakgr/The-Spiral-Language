@@ -1,0 +1,40 @@
+open real_core
+open struct
+
+inl assert_index i s = // This could be made concise, but I want the generated code to come out clean.
+    if lit_is i && lit_is s then
+        if not (0 <= i && i < s ) then
+            error_type "Tensor index out of bounds (detected at compile-time.)"
+    else
+        backend_switch {
+            python = fun () => $"assert 0 <= !i < !s, 'Tensor range check'" : ()
+            cuda = fun () => $'assert("Tensor range check" && 0 <= !i && !i < !s)' : ()
+        }
+
+inl assert_index_view from nearTo dim =
+    if lit_is from && lit_is nearTo && lit_is dim then
+        if not (0 <= from && from < nearTo && from <= dim) then
+            error_type "Tensor index out of bounds (detected at compile-time.)"
+    else
+        backend_switch {
+            python = fun () => $"assert 0 <= !from < !nearTo <= !dim, 'Tensor view range check'" : ()
+            cuda = fun () => $'assert("Tensor view range check" && 0 <= !from && !from < !nearTo && !from <= !dim)' : ()
+        }
+
+inl assert_indices i = iter2 assert_index i
+inl assert_indices_view i = iter3 assert_index_view i
+inl calculate_offset a = foldBack2 (fun a b s => a * b + s) a
+inl calculate_stride_len dim = mapFoldBack (fun x s => s, x * s) dim 1
+inl last dim = fold (fun s x => x) () dim
+
+// Returns the last element of the stride.
+inl assert_stride_contiguous dim stride =
+    inl init = last stride
+    inl _ = 
+        foldBack2 (fun dim stride expected_stride => 
+            assert (expected_stride = stride) "The tensor must be contiguous in order to be flattened."
+            dim * stride
+            ) dim stride init
+    init
+
+inl sizeof_factorize forall el. (target_size : int) : int = target_size / infer_fold `el (forall el. => max (sizeof `el).value) 1

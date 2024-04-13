@@ -1,0 +1,492 @@
+open corebase
+open corecuda
+open rangem
+open tensorm
+
+// The primitives here are only attended for execution on the GPU.
+// They're all block level primitives. 
+
+// Maps all the elements of a tensor given the mapping function.
+inl map forall dim a b. (f : a -> b) (from : tensor dim a) (to : tensor dim b) : () = 
+    assert (from.dim = to.dim) "The dimensions of the two inputs to the map kernel need to be the same."
+    inl from,to = factorize_sizeof_16 from, factorize_sizeof_16 to
+    loop.projective threads_in_block(fst from.dim) fun i => 
+        inl from, to = apply i from, apply i to
+        inl l_from, l_to = tensor_create from.dim, tensor_create to.dim
+        memcpy_sync (l_from, from)
+        pragma.unroll fun _ =>
+            loop.linear from.dim fun j => 
+                tensor_set j (tensor_index j l_from |> f) l_to
+        memcpy_sync (to, l_to)
+
+    __syncthreads()
+
+inl block_reduce_store forall a. f result (to : tensor int a) = 
+    assert (1 = to.dim) "The output answer has to be of size 1."
+    global "#include <cooperative_groups.h>"
+    global "#include <cooperative_groups/reduce.h>"
+    open cooperative_groups
+
+    // The final result for each of the warps.
+    inl warp_result = reduce_coalesced create_coalesced_threads() f result
+ 
+    open tensor_cuda
+    inl warps_in_block = warps_in_block()
+    inl shared = tensor_create_shared warps_in_block.by
+
+    // All the warps in a block store their intermediate results into the shared tensor.
+    tensor_set warps_in_block.from warp_result shared
+
+    __syncthreads()
+    
+    inl threads_in_warp = threads_in_warp()
+    assert (shared.dim <= threads_in_warp.by) "The amount of results in their shared array to be reduced should be less than the number of threads in the warp."
+    if warps_in_block.from = 0 && threads_in_warp.from < shared.dim then
+        // The first warp reduces the intermediate results in the shared tensor.
+        inl final_result = reduce_coalesced create_coalesced_threads() f (tensor_index threads_in_warp.from shared)
+        // Stores the final result into global memory.
+        tensor_set 0 final_result to
+    
+// Reduces all the elements of a tensor to a single one, given the neutral element as well as the reducer function.
+inl reduce forall dim a. neutral_element (f : a -> a -> a) (from : tensor dim a) (to : tensor int a) : () =
+    // The individual threads iterate over the global tensor, reducing the elements as they go along.
+    inl from = factorize_sizeof_16 from
+    inl result = loop._dup neutral_element
+    loop.projective threads_in_block(fst from.dim) fun i =>
+        inl from = apply i from
+        inl local = tensor_create from.dim
+        memcpy_sync (local, from)
+        loop.for {from=0; nearTo=local.dim} (fun i => f (tensor_index i local)) result
+        |> loop._set result
+
+    block_reduce_store f result to
+    __syncthreads()
+
+type template_2d_config = {
+    threads_per_miniblock : int
+    miniblock : ref cooperative_groups.thread_block_tile'
+    }
+
+// Does an atomic add operation.
+inl local_inplace_atomic_add forall a{number}. (from : tensor (int * int) a) (to : tensor (int * int) a) : () = 
+    loop.linear from.dim fun i =>
+        tensor_cuda.tensor_atomic_add i (tensor_index i from) to
+
+inl local_inplace_map forall a b. f (from : tensor (int * int) a) (to : tensor (int * int) b) : () = 
+    loop.linear from.dim fun i =>
+        tensor_set i (f (tensor_index i from)) to
+
+inl local_map forall a b. f (from : tensor (int * int) a) : tensor (int * int) b = 
+    inl to = tensor_create from.dim
+    local_inplace_map f from to
+    to
+
+inl block_reduce_2d forall b. 
+        ({threads_per_miniblock miniblock} : template_2d_config)
+        (neutral_element : b) 
+        (f : b -> b -> b) 
+        (result : b) =
+    global "#include <cooperative_groups.h>"
+    global "#include <cooperative_groups/reduce.h>"
+    open cooperative_groups
+    // The final result for each of the warps.
+    if threads_per_miniblock <= threads_per_warp() then
+        reduce_thread_block_tile' miniblock f result
+    else
+        inl group = create_coalesced_threads()
+        // Todo: replace `reduce_coalesced` with `reduce_thread_block_tile'`. 
+        inl warp_result = reduce_coalesced group f result
+        inl warps_in_block = warps_in_block()
+        inl shared = tensor_cuda.tensor_create_shared (threads_per_block() / threads_per_miniblock, threads_per_miniblock / threads_per_warp())
+        assert (loop.prod shared.dim = warps_in_block.by) "The product of shared tensor dimensions should equal the number of warps."
+
+        inl index_warp = loop.proj shared.dim warps_in_block.from
+        // All the warps in a block store their intermediate results into the shared tensor.
+        tensor_set index_warp warp_result shared
+
+        sync miniblock
+
+        inl threads_in_warp = threads_in_warp()
+        inl result = if threads_in_warp.from < snd shared.dim then tensor_index (fst index_warp, threads_in_warp.from) shared else neutral_element
+        
+        sync miniblock
+        
+        reduce_coalesced group f result
+
+inl block_exclusive_scan_2d forall b. 
+        ({threads_per_miniblock miniblock} : template_2d_config)
+        (neutral_element : b) 
+        (f : b -> b -> b) 
+        (result : b) =
+    global "#include <cooperative_groups.h>"
+    global "#include <cooperative_groups/scan.h>"
+    open cooperative_groups
+
+    // Returns the actual block prefix as well as the final sum.
+    if threads_per_miniblock <= threads_per_warp() then
+        exclusive_scan_thread_block_tile' miniblock neutral_element f result
+    else
+        inl group = create_coalesced_threads()
+        inl warps_in_block = warps_in_block()
+        inl shared = tensor_cuda.tensor_create_shared (threads_per_block() / threads_per_miniblock, threads_per_miniblock / threads_per_warp())
+        assert (loop.prod shared.dim = warps_in_block.by) "The product of shared tensor dimensions should equal the number of warps."
+
+        inl warp_prefix,warp_sum = exclusive_scan_coalesced' group neutral_element f result
+
+        inl index_warp = loop.proj shared.dim warps_in_block.from
+        // All the warps in a block store their intermediate results into the shared tensor.
+        tensor_set index_warp warp_sum shared
+
+        sync miniblock
+
+        inl threads_in_warp = threads_in_warp()
+        inl warp_sum = if threads_in_warp.from < snd shared.dim then tensor_index (fst index_warp, threads_in_warp.from) shared else neutral_element
+        
+        sync miniblock
+        
+        inl block_prefix_in_thread,block_sum = exclusive_scan_coalesced' group neutral_element f warp_sum
+        f (shuffle_coalesced group block_prefix_in_thread (snd index_warp)) warp_prefix, block_sum
+
+
+inl local_scan forall a. is_inclusive (config : template_2d_config) (neutral_element : a) f (from : tensor (int * int) a) : tensor (int * int) a = 
+    inl to = tensor_create from.dim
+    inl previous_block_sum = loop._dup neutral_element
+    loop.linear (fst from.dim) fun i =>
+        inl from, to = apply i from, apply i to
+
+        inl block_prefix,block_sum = 
+            // Reduces the individual thread elements.
+            loop.for {from=0; nearTo=from.dim} (fun i => f (tensor_index i from)) neutral_element
+            // Scans the blockwise results.
+            |> block_exclusive_scan_2d config neutral_element f
+
+        // Scans the individual thread elements with the calculated prefix.
+        loop.for {from=0; nearTo=from.dim} (fun i s => 
+            if is_inclusive then
+                inl s = f (tensor_index i from) s
+                tensor_set i s to
+                s
+            else
+                inl x = tensor_index i from
+                tensor_set i s to
+                f x s
+            ) (f previous_block_sum block_prefix)
+        |> ignore
+        loop._set previous_block_sum (f previous_block_sum block_sum)
+    to
+
+inl local_inclusive_scan config = local_scan true config
+inl local_exclusive_scan config = local_scan false config
+inl local_exclusive_scan_sum config = local_exclusive_scan config 0 (+)
+
+inl local_reduce forall a. config (neutral_element : a) f (from : tensor (int * int) a) : a = 
+    // Reduces the individual thread elements. 
+    inl result = loop._dup neutral_element
+    loop.linear from.dim fun i =>
+        f (tensor_index i from) result
+        |> loop._set result
+
+    // Reduces the blockwise results. Broadcasts the final result to all the threads.
+    block_reduce_2d config neutral_element f result
+
+inl local_sum config = local_reduce config 0 (+)
+// Gets the actual length of the innermost dimension for the tensor projected into the local tensor in `template_reduce_2d` and `template_map_2d`.
+inl local_length (config : template_2d_config) (x : tensor (int * int) _) = config.threads_per_miniblock * length x
+inl local_average config x = local_reduce config 0 (+) x / conv(local_length config x)
+inl local_prod config = local_reduce config 1 (*)
+inl local_max config = local_reduce config limit.min max
+inl local_min config = local_reduce config limit.max min
+
+inl template_map_2d forall dim a b.
+        (block : ref cooperative_groups.thread_block)
+        (f : template_2d_config -> tensor (int * int) a -> dim -> tensor (int * int) int -> tensor (int * int) b)
+        (from : tensor (dim * int) a) (to : tensor (dim * int) b) : () =
+    assert (from.dim = to.dim) "The input and the output tensor dimensions have to be equal."
+
+    global "#include <cooperative_groups.h>"
+    global "#include <cooperative_groups/reduce.h>"
+    open cooperative_groups
+
+    inl from =
+        from 
+        |> factorize_sizeof_16
+        |> split_into_swapped_fst (loop.rigid_split threads_per_block())
+        |> curry_fst
+    inl dim_block,dim_local,sizeof_16 = from.dim
+    inl index_block = loop.proj dim_block thread_index()
+    inl threads_per_miniblock = snd dim_block
+    inl miniblock = create_thread_group_from_thread_block block threads_per_miniblock
+    inl from =
+        from
+        |> apply index_block
+        |> curry_fst
+
+    inl to =
+        to 
+        |> factorize_sizeof_16
+        |> split_into_swapped_fst (loop.rigid_split threads_per_block())
+        |> curry_fst
+        |> apply index_block
+        |> curry_fst
+
+    loop.linear (fst from.dim) fun i =>
+        inl from, to = apply i from, apply i to
+        inl local = tensor_create from.dim
+        inl local_index = tensor_create from.dim
+
+        // Loads the tile into the registers.
+        loop.linear (fst from.dim) fun i =>
+            memcpy_sync (apply i local, apply i from)
+        
+        // Calculates the indices for the tensor elements.
+        loop.linear from.dim fun i => // Note: it's very easy to get the reverse indexing wrong.
+            inl dim = fst from.dim, snd dim_block, snd from.dim
+            inl index = fst i, snd index_block, snd i
+            tensor_set i (loop.proj_rev dim index) local_index
+
+        // Map the local tensor using local operations.
+        inl local = 
+            inl dim = fst dim_block, fst dim_local
+            inl index = fst index_block, i
+            f {threads_per_miniblock miniblock} local (loop.rigid_merge dim index) local_index
+                
+        // Stores the result into global memory after mapping it.
+        loop.linear (fst to.dim) fun i =>
+            memcpy_sync (apply i to, apply i local)
+
+    __syncthreads()
+
+inl template_reduce_2d forall dim a b.
+        (block : ref cooperative_groups.thread_block)
+        (f : template_2d_config -> tensor (int * int) a -> dim -> tensor (int * int) int -> b)
+        (from : tensor (dim * int) a) (to : tensor dim b) : () =
+    assert (fst from.dim = to.dim) "The input and the output tensor dimensions have to be equal."
+
+    global "#include <cooperative_groups.h>"
+    global "#include <cooperative_groups/reduce.h>"
+    open cooperative_groups
+
+    inl from =
+        from 
+        |> factorize_sizeof_16
+        |> split_into_swapped_fst (loop.rigid_split threads_per_block())
+        |> curry_fst
+    inl dim_block,dim_local,sizeof_16 = from.dim
+    inl index_block = loop.proj dim_block thread_index()
+    inl threads_per_miniblock = snd dim_block
+    inl miniblock = create_thread_group_from_thread_block block threads_per_miniblock
+    inl from =
+        from
+        |> apply index_block
+        |> curry_fst
+
+    inl to =
+        to 
+        |> split_into_swapped const(fst dim_block, fst dim_local)
+        |> apply (fst index_block)
+
+    loop.linear (fst from.dim) fun i =>
+        inl from = apply i from
+        inl local = tensor_create from.dim
+        inl local_index = tensor_create from.dim
+
+        // Loads the tile into the registers.
+        loop.linear (fst from.dim) fun i =>
+            memcpy_sync (apply i local, apply i from)
+        
+        // Calculates the indices for the tensor elements.
+        loop.linear from.dim fun i => // Note: it's very easy to get the reverse indexing wrong.
+            inl dim = fst from.dim, snd dim_block, snd from.dim
+            inl index = fst i, snd index_block, snd i
+            tensor_set i (loop.proj_rev dim index) local_index
+
+        // Reduce the local tensor using local operations.
+        inl result = 
+            inl dim = fst dim_block, fst dim_local
+            inl index = fst index_block, i
+            f {threads_per_miniblock miniblock} local (loop.rigid_merge dim index) local_index
+                
+        // Stores the result into global memory after reducing it.
+        tensor_set i result to
+
+    __syncthreads()
+
+
+// Reduces the innermost dimension of a given tensor.
+inl reduce_2d forall dim a. neutral_element (f : a -> a -> a) (from : tensor (dim * int) a) (to : tensor dim a) : () =
+    assert (fst from.dim = to.dim) "The first dimension of the input has to equal the dimension of the output in the reduce_2d kernel."
+    
+    global "#include <cooperative_groups.h>"
+    global "#include <cooperative_groups/reduce.h>"
+    open cooperative_groups
+    
+    loop.projective warps_in_block(fst from.dim) fun i =>
+        inl from = apply i from |> factorize_sizeof_16
+        inl result = loop._dup neutral_element
+        loop.projective threads_in_warp(fst from.dim) fun i =>
+            inl from = apply i from
+            inl l_from = tensor_create from.dim
+            memcpy_sync (l_from, from)
+            loop.for {from=0; nearTo=l_from.dim} (fun i => f (tensor_index i l_from)) result
+            |> loop._set result
+
+        tensor_set i (reduce_coalesced create_coalesced_threads() f result) to
+
+    __syncthreads()
+
+inl scan_2d_template forall dim a. is_inclusive neutral_element (f : a -> a -> a) (from : tensor (dim * int) a) (to : tensor (dim * int) a) : () = 
+    assert (from.dim = to.dim) "The dimensions of the two inputs to the inclusive scan kernel need to be the same."
+    
+    global "#include <cooperative_groups.h>"
+    global "#include <cooperative_groups/scan.h>"
+    open cooperative_groups
+    
+    loop.projective warps_in_block(fst from.dim) fun i =>
+        inl from,to = apply i from |> factorize_sizeof_16, apply i to |> factorize_sizeof_16
+        inl result = loop._dup neutral_element
+        loop.projective threads_in_warp(fst from.dim) fun i =>
+            inl group = create_coalesced_threads()
+            inl from,to = apply i from, apply i to
+            inl l_from = tensor_create from.dim
+
+            memcpy_sync (l_from, from)
+            inl prefix,sum = 
+                loop.for {from=0; nearTo=l_from.dim} (fun i => f (tensor_index i l_from)) neutral_element
+                |> exclusive_scan_coalesced' group neutral_element f
+            
+            loop.for {from=0; nearTo=l_from.dim} (fun i s => 
+                if is_inclusive then
+                    inl s = f (tensor_index i l_from) s
+                    tensor_set i s l_from
+                    s
+                else
+                    inl x = tensor_index i l_from
+                    tensor_set i s l_from
+                    f x s
+                ) (f result prefix)
+            |> ignore
+            memcpy_sync (to, l_from)
+            loop._set result (f result sum)
+
+    __syncthreads()
+
+// Scans the innermost dimension of a given tensor.
+inl inclusive_scan_2d forall dim a. : a -> (a -> a -> a) -> tensor (dim * int) a -> tensor (dim * int) a -> () = scan_2d_template true
+// Scans the innermost dimension of a given tensor.
+inl exclusive_scan_2d forall dim a. : a -> (a -> a -> a) -> tensor (dim * int) a -> tensor (dim * int) a -> () = scan_2d_template false
+
+// Numerically stable softmax.
+inl local_softmax config x =
+    inl average = local_average config x
+    inl x = local_map (fun x => exp (x - average)) x
+    inl sum = local_sum config x
+    local_map (fun x => x / sum) x
+
+inl sigmoid x = 1 / (1 + exp -x)
+
+
+inl test1() =
+    inl m,n : int * int = 3, 36*4
+    // inl [ma; mb; mc] = listm.map cupy.random_normal{mean=0; std=1} ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
+    inl input : _ _ int = cupy.arange{from=0; nearTo=m,n; by=1}
+    // inl input : _ _ int = cupy.ones (m,n)
+    inl output_inclusive : _ _ int = cupy.zeros (m,n)
+    inl output_exclusive : _ _ int = cupy.zeros (m,n)
+    inl output_reduce : _ _ int = cupy.zeros m
+    run fun _ =>
+        map ((+) 1) input input
+        exclusive_scan_2d 0 (+) input output_exclusive
+        inclusive_scan_2d 0 (+) input output_inclusive
+        reduce_2d 0 (+) input output_reduce
+    printing.tensor_print_ln 1024 input
+    printing.tensor_print_ln 1024 output_exclusive
+    printing.tensor_print_ln 1024 output_inclusive
+    printing.tensor_print_ln 1024 output_reduce
+    ()
+
+inl test2() =
+    inl m,n : int * int = 128, 16
+    // inl m,n : int * int = 128, 16 
+    // inl [ma; mb; mc] = listm.map cupy.random_normal{mean=0; std=1} ([swap (m, k) a_trans; swap (k, n) b_trans; m, n])
+    inl input_identity : _ _ int = cupy.arange{from=0; nearTo=m,n; by=1}
+    inl input : _ _ float = cupy.random_normal{mean=0; std=1} (m,n)
+    inl input_action : _ _ float = cupy.random_uniform m
+    // inl input : _ _ int = cupy.ones (m,n)
+    inl output_reduce = tensor_create 1
+    inl output_softmax = tensor_create (m,n)
+    inl output_softmax_scan = tensor_create (m,n)
+    inl output_ln = tensor_create (m,n)
+    inl output_argmax = tensor_create m
+    inl output_sampling = tensor_create m
+    inl output_identity = tensor_create (m,n)
+    inl output_indices_map = tensor_create (m,n)
+    inl output_indices_reduction = tensor_create m
+    run fun _ =>
+        inl block = cooperative_groups.create_block()
+        // map ((+) 1) input input
+        reduce 0 (+) input output_reduce
+        // indices (identity)
+        template_map_2d block (fun config x i j_tns =>
+            x
+            ) input_identity output_identity
+        // indices (map)
+        template_map_2d block (fun config x i j_tns =>
+            local_map (fun j => i,j) j_tns
+            ) input output_indices_map
+        // indices (reduction)
+        template_reduce_2d block (fun config x i j_tns => 
+            i
+            ) input output_indices_reduction
+        // numerically stable softmax
+        template_map_2d block (fun config x _ _ => 
+            local_softmax config x
+            ) input output_softmax
+        // layer normalization L2
+        template_map_2d block (fun config x _ _ => 
+            inl x = local_map (fun x => x * x) x
+            inl sum = local_sum config x
+            local_map (fun x => x / sum) x
+            ) input output_ln
+        // argument maximum
+        template_reduce_2d block (fun config x _ i => 
+            inl x = zip x i
+            local_reduce config (limit.min, 0) (fun a b => if fst a > fst b then a else b) x
+            |> snd
+            ) input output_argmax
+        // numerically stable softmax (scan)
+        template_map_2d block (fun config x _ _ => 
+            inl x' = local_softmax config x
+            inl x = local_exclusive_scan_sum config x'
+            zip x' x
+            ) input output_softmax_scan
+        // discrete sampling
+        template_reduce_2d block (fun config x j i =>
+            inl average = local_sum config x / conv n
+            inl x = local_map (fun x => exp (x - average)) x
+            inl sum = local_sum config x
+            inl x = 
+                local_map (fun x => x / sum) x
+                |> local_exclusive_scan_sum config
+            inl probability = tensor_index j input_action
+            inl x = local_map (fun x => x - probability) x
+            local_reduce config (limit.min, 0) (fun a b =>
+                if fst a >= 0 && fst b >= 0 then
+                    if fst a <= fst b then a else b
+                elif fst a >= 0 then a
+                elif fst b >= 0 then b
+                else a
+                ) (zip x i)
+            |> snd 
+            ) input output_sampling
+    // printing.tensor_print_ln 1024 input
+    // printing.tensor_print_ln 1024 output_reduce
+    // printing.tensor_print_ln 1024 output_softmax
+    // printing.tensor_print_ln 1024 output_ln
+    // printing.tensor_print_ln (m * n) output_softmax_scan
+    printing.tensor_print_ln (m * n) output_indices_map
+    // printing.tensor_print_ln (m * n) output_identity
+    // printing.tensor_print_ln (m * n) output_indices_reduction
+    // printing.tensor_print_ln 1024 output_sampling
+    ()
+
+inl main() = test2()
