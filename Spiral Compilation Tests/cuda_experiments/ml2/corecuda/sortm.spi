@@ -1,6 +1,6 @@
 open corebase
-open corecuda
 
+// This merge sort is intended for short arrays that can be evaluated in registers.
 inl merge_sort forall dim el. f (inp : sa dim el) : sa dim el =
     open sam
     inl ~inp = map id inp

@@ -24,9 +24,11 @@ modules:
         base-
         rangem
         intrinsic
-        tensor_cuda
         sam 
+        random
+        sortm
         console
+        tensor_cuda
         cupy
         thread_scope
         semaphore
@@ -36,23 +38,24 @@ modules:
         cooperative_groups
         printing
         
-    sortm
-    cardm
-    random
-
-    deck/
-        type- 
-        deck_utils
-        public-
-        deck_test
-    hand_score
-    hand_scorer_old
-    hand_scorer
-
-    main
     ml/
         matmul
         primitives
         layers
         backprop
+
+    game/
+        cardm
+        deck/
+            type- 
+            deck_utils
+            public-
+            deck_test
+
+        hand_score
+        hand_scorer_old
+        hand_scorer
+
+        main
+
         

@@ -1,8 +1,6 @@
 open corebase
-open corecuda
 
-inl globals() =
-    global "#include <curand_kernel.h>"
+inl globals() = global "#include <curand_kernel.h>"
 
 nominal philox_state = $'curandStatePhilox4_32_10_t'
 

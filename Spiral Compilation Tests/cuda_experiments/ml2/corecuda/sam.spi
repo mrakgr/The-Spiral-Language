@@ -22,9 +22,7 @@ instance comparable sa dim el = fun a b => join
     while (fun _, i => i < length a) (fun (is_eq, i) =>
         match is_eq with 
         | Eq => comp (index a i) (index b i), i + 1
-        | _ => 
-            $"// hello"
-            $"return !is_eq"
+        | _ => $"return !is_eq"
         ) (Eq, 0)
     |> fst
 
