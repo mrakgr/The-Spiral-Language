@@ -37,7 +37,7 @@ modules:
         pragma 
         cooperative_groups
         printing
-        
+
     ml/
         matmul
         primitives
@@ -45,17 +45,19 @@ modules:
         backprop
 
     game/
-        cardm
-        deck/
-            type- 
-            deck_utils
-            public-
-            deck_test
+        holdem/
+            cardm
+            deck/
+                type- 
+                deck_utils
+                public-
+                deck_test
 
-        hand_score
-        hand_scorer_old
-        hand_scorer
+            hand_score
+            hand_scorer_old
+            hand_scorer
 
-        main
+            main
 
-        
+        leduc/
+            main
