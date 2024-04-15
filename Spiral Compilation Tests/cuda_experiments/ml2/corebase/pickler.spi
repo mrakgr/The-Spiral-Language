@@ -1,11 +1,10 @@
 // Pickler combinators for converting regular Spiral types to binary vectors of floating point values.
 
-open corebase
 type state = int * array float
 nominal pu a = {
     pickle : a -> state -> ()
-    size : int
-    unpickle : state -> a * int
+    size : uint
+    unpickle : state -> a * uint
     }
 
 inl unit() = pu {
@@ -17,7 +16,7 @@ inl unit() = pu {
         (), if x = 1 then 1 else 0
     }
 
-inl int size : pu int =
+inl uint size : pu uint =
     pu {size
         pickle = fun x (i,s : state) =>
             assert (0 <= x && x < size) "Pickle failure. Int value out of bounds."

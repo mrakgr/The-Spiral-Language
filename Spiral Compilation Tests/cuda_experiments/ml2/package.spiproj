@@ -17,7 +17,8 @@ modules:
             utils*
             tensor_main-
             partitionm
-            
+        pickler    
+        
     corepython/
         
     corecuda/
@@ -43,8 +44,6 @@ modules:
         primitives
         layers
         backprop
-
-    pickler
 
     game/
         holdem/
