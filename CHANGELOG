@@ -1,3 +1,8 @@
+2.8.5 (4/13/2024)
+
+* Fixed a bug where default i64 types were being interpreted as i8.
+* Added the equivalent unsigned default int called `uint`. It's derived automatically from `int`.
+
 2.8.4 (4/10/2024)
 
 * Thanks to the improved publish.ps1 script, the VS Code extension now has a proper readme instead of a link to the main docs.

@@ -10,6 +10,7 @@ type PrimitiveType =
 type DefaultEnv = {
     port : int
     default_int : PrimitiveType
+    default_uint : PrimitiveType
     default_float : PrimitiveType
     }
 
@@ -28,20 +29,29 @@ type CliArguments =
 let parse args =
     let parser = ArgumentParser.Create<CliArguments>(programName = "spiral.exe")
     let results = parser.ParseCommandLine(args)
-
-    {
-    port = results.GetResult(Port)
-    default_int = 
+    let int = 
         match results.GetResult(Default_Int,"i32") with
         | "i8" -> Int8T
         | "i16" -> Int16T
         | "i32" -> Int32T
-        | "i64" -> UInt8T
+        | "i64" -> Int64T
         | "u8" -> UInt8T
         | "u16" -> UInt16T
         | "u32" -> UInt32T
         | "u64" -> UInt64T
         | x -> failwith $"Invalid default int.\nGot: %s{x}\nExpected one of: i8, i16, i32, i64, u8, u16, u32, u64"
+
+    let uint =
+        match int with
+        | Int8T -> UInt8T
+        | Int16T -> UInt16T
+        | Int32T -> UInt32T
+        | Int64T -> UInt64T
+        | x -> x // If the int is unsigned then make them the same type.
+    {
+    port = results.GetResult(Port)
+    default_int = int
+    default_uint = uint
     default_float = 
         match results.GetResult(Default_Float,"f64") with
         | "f32" -> Float32T

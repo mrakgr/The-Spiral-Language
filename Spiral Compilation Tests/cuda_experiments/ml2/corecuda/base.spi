@@ -44,8 +44,7 @@ type run_config = {
 inl run' ({shared_mem} : run_config) f =
     inl blocks_per_grid, threads_per_block = blocks_per_grid(), threads_per_block()
     // Global statements only get executed once.
-    // global "raw_module = cp.RawModule(code=kernel, backend='nvcc', options=(\"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\include\\\\cublasdx\\\\include\", \"-I G:\\\\nvidia-mathdx-24.01.0\\\\nvidia\\\\mathdx\\\\24.01\\\\external\\\\cutlass\\\\include\"))"
-
+    // global "raw_module = cp.RawModule(code=kernel, backend='nvcc', options=(\"-I G:/nvidia-mathdx-24.01.0/nvidia/mathdx/24.01/include\", \"-I G:/nvidia-mathdx-24.01.0/nvidia/mathdx/24.01/include/cublasdx/include\", \"-I G:/nvidia-mathdx-24.01.0/nvidia/mathdx/24.01/external/cutlass/include\"))"
     global "options = []"
     global "options.append('--define-macro=NDEBUG')"
     global "options.append('--diag-suppress=550,20012')"

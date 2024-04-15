@@ -1,12 +1,12 @@
 <!-- TOC -->
 
 - [News](#news)
-- [Date: 3/30/2024](#date-3302024)
-- [Date: 8/27/2023](#date-8272023)
-- [Date: 1/7/2023](#date-172023)
-- [Date: 12/21/2022](#date-12212022)
-- [Date: 7/13/2022](#date-7132022)
-- [Date: 8/21/2021](#date-8212021)
+    - [Date: 3/30/2024 - Added existentials to the language](#date-3302024---added-existentials-to-the-language)
+    - [Date: 8/27/2023 - Check out the Spiral playlist on Youtube](#date-8272023---check-out-the-spiral-playlist-on-youtube)
+    - [Date: 1/7/2023 - UPMEM demo & backend](#date-172023---upmem-demo--backend)
+    - [Date: 12/21/2022 - Python backend](#date-12212022---python-backend)
+    - [Date: 7/13/2022 - C backend](#date-7132022---c-backend)
+    - [Date: 8/21/2021 - Updated the docs](#date-8212021---updated-the-docs)
 - [The Spiral Language](#the-spiral-language)
     - [Overview](#overview)
     - [Getting Spiral](#getting-spiral)
@@ -45,7 +45,7 @@
 
 # News
 
-# Date: 3/30/2024
+## Date: 3/30/2024 - Added existentials to the language
 
 [Existentials](#existentials) have been added to the language in v2.8.0. This introduces a new `exists` keyword to the language, so it is breaking change. I suggest renaming variables called `exists` to `exists'`.
 
@@ -53,25 +53,25 @@ In other news, I am revisiting my work from 2018 with the new Spiral and it is g
 
 Who knows, maybe they'll [save us](https://spectrum.ieee.org/trillion-transistor-gpu) after all?
 
-# Date: 8/27/2023
+## Date: 8/27/2023 - Check out the Spiral playlist on Youtube
 
 At this point in time, I am convinced that AI chips are vaporware. But I discovered FPGAs have quite an interesting programming model, so I am going to give them a try in the [Staged Functional Programming In Spiral](https://www.youtube.com/playlist?list=PL04PGV4cTuIVP50-B_1scXUUMn8qEBbSs) playlist. Check it out!
 
-# Date: 1/7/2023
+## Date: 1/7/2023 - UPMEM demo & backend
 
 I finally have an example of how Spiral can be used to program a novel piece of hardware. [This article](https://github.com/mrakgr/PIM-Programming-In-Spiral-UPMEM-Demo) and the examples within should demonstrate what Spiral can do on the UPMEM device. Spiral is currently at v2.3.7. I've replaced the Cython backend with a Python one, did a host of improvement on the language, and now it should be rock solid. If anyone in the AI/PIM business wants to program in a super efficient, high level functional language instead of C, don't hesitate to get in touch. These backends are quick and easy to make for me.
 
-# Date: 12/21/2022
+## Date: 12/21/2022 - Python backend
 
 Created the Python backend. Updated the language to v2.3.0. The next step will be to fuse the Python and the C backends. Currently I am working on an UPMEM backend Python + C for Spiral, and having a prototype Python and C backends is the first step towards making it.
 
-# Date: 7/13/2022
+## Date: 7/13/2022 - C backend
 
 Created the C backend for Spiral and updated the language to v2.2.0. I regret not doing this last year, so I decided to finally do it. Compared to the F#, or the Cython backend, the C one is not too useful because C does not have any worthwhile libraries to take advantage of. But it is going to serve a prototype for AI chip C backends, and I needed to do it in order to get a grasp on reference counting. I did pretty well at that. I have gone through the testing suite, but it isn't too thorough or designed to catch memory errors, so for the time being it might be worth putting the programs produced by it through [Cee Studio](https://www.cee.studio/). Consider it in beta right now. From here on out, the best kind of test would be to use it in the real world.
 
 When I get some novel hardware it is going to be easy to adapt it to them. Until then, I won't bother using it for anything in particular.
 
-# Date: 8/21/2021
+## Date: 8/21/2021 - Updated the docs
 
 Updated the documentation for v2.1. Spiral is quite stable in its current iteration and is no longer the alpha that it was at the end of January. The bugs should be dealt with and no features will get removed or added.
 

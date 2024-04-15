@@ -1756,6 +1756,7 @@ let base_types (default_env : Startup.DefaultEnv) =
     "heap", inl (fun x -> TyLayout(TyVar x,Layout.Heap))
     "mut", inl (fun x -> TyLayout(TyVar x,Layout.HeapMutable))
     "int", TyPrim default_env.default_int
+    "uint", TyPrim default_env.default_uint
     "float", TyPrim default_env.default_float
     ]
 
